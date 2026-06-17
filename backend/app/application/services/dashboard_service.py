@@ -1,16 +1,19 @@
-from datetime import date, timedelta, datetime, timezone
+from datetime import date, timedelta
 from typing import List, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, text
+
 from app.infrastructure.models.estiba import Estiba, EstadoEstiba, TipoPropietario
 from app.infrastructure.models.movimiento import Movimiento, TipoMovimiento
 from app.infrastructure.models.alerta import Alerta
 from app.infrastructure.models.manifiesto import Manifiesto, EstadoManifiesto
 from app.infrastructure.models.dano import EventoDano, CodigoDano
 from app.infrastructure.models.ubicacion import Ubicacion
+from app.infrastructure.models.mantenimiento import MantenimientoEstiba
 from app.application.schemas.dashboard import (
     DashboardResponse, KPIResumen, MovimientoTendencia,
-    DanoEstadistica, UbicacionOcupacion, AlertaResumen
+    DanoEstadistica, UbicacionOcupacion, AlertaResumen,
+    EdadDistribucion, CostoMensual,
 )
 
 
@@ -25,6 +28,8 @@ class DashboardService:
         ocupacion = await self._get_ocupacion_ubicaciones()
         alertas = await self._get_alertas_recientes()
         movimientos_recientes = await self._get_movimientos_recientes()
+        edad_distribucion = await self._get_edad_distribucion()
+        costos_por_mes = await self._get_costos_por_mes()
 
         return DashboardResponse(
             kpis=kpis,
@@ -33,6 +38,8 @@ class DashboardService:
             ocupacion_ubicaciones=ocupacion,
             alertas_recientes=alertas,
             movimientos_recientes=movimientos_recientes,
+            edad_distribucion=edad_distribucion,
+            costos_por_mes=costos_por_mes,
         )
 
     async def _get_kpis(self) -> KPIResumen:
@@ -67,6 +74,22 @@ class DashboardService:
             )
         )
 
+        # Edad promedio en meses
+        fechas_result = await self.db.execute(
+            select(Estiba.fecha_ingreso).where(
+                Estiba.activo == True, Estiba.fecha_ingreso.isnot(None)
+            )
+        )
+        fechas = fechas_result.scalars().all()
+        ages_months = [(hoy - f).days / 30.44 for f in fechas if f]
+        edad_promedio = round(sum(ages_months) / len(ages_months), 1) if ages_months else 0.0
+
+        # Total costos acumulados de mantenimiento
+        total_costos_result = await self.db.execute(
+            select(func.coalesce(func.sum(MantenimientoEstiba.costo), 0.0))
+        )
+        total_costos = float(total_costos_result.scalar_one())
+
         total = sum(counts.values())
         return KPIResumen(
             total_estibas=total,
@@ -81,7 +104,59 @@ class DashboardService:
             alertas_activas=alertas_activas.scalar_one(),
             movimientos_hoy=movimientos_hoy.scalar_one(),
             manifiestos_activos=manifiestos_activos.scalar_one(),
+            edad_promedio_meses=edad_promedio,
+            total_costos_acumulados=total_costos,
         )
+
+    async def _get_edad_distribucion(self) -> List[EdadDistribucion]:
+        fechas_result = await self.db.execute(
+            select(Estiba.fecha_ingreso).where(
+                Estiba.activo == True, Estiba.fecha_ingreso.isnot(None)
+            )
+        )
+        fechas = fechas_result.scalars().all()
+        hoy = date.today()
+
+        buckets: Dict[str, int] = {"0-6m": 0, "6-12m": 0, "12-24m": 0, "24-36m": 0, "36m+": 0}
+        for f in fechas:
+            m = (hoy - f).days / 30.44
+            if m < 6:
+                buckets["0-6m"] += 1
+            elif m < 12:
+                buckets["6-12m"] += 1
+            elif m < 24:
+                buckets["12-24m"] += 1
+            elif m < 36:
+                buckets["24-36m"] += 1
+            else:
+                buckets["36m+"] += 1
+
+        total = sum(buckets.values()) or 1
+        return [
+            EdadDistribucion(rango=rango, cantidad=cant, porcentaje=round(cant / total * 100, 1))
+            for rango, cant in buckets.items()
+        ]
+
+    async def _get_costos_por_mes(self) -> List[CostoMensual]:
+        hace_12_meses = date.today().replace(day=1) - timedelta(days=365)
+        result = await self.db.execute(
+            text("""
+                SELECT
+                    to_char(fecha, 'YYYY-MM') AS mes,
+                    SUM(costo)                AS costo_total,
+                    COUNT(id)                 AS cantidad
+                FROM mantenimientos_estiba
+                WHERE fecha >= :desde
+                GROUP BY to_char(fecha, 'YYYY-MM')
+                ORDER BY to_char(fecha, 'YYYY-MM')
+            """),
+            {"desde": hace_12_meses},
+        )
+        rows = result.all()
+        return [
+            CostoMensual(mes=row.mes, costo_total=float(row.costo_total), cantidad_mantenimientos=int(row.cantidad))
+            for row in rows
+        ]
 
     async def _get_tendencia_movimientos(self, dias: int = 30) -> List[MovimientoTendencia]:
         resultado = []
@@ -115,9 +190,7 @@ class DashboardService:
         total = sum(r.cantidad for r in rows) or 1
         return [
             DanoEstadistica(
-                codigo=r.codigo,
-                descripcion=r.descripcion,
-                cantidad=r.cantidad,
+                codigo=r.codigo, descripcion=r.descripcion, cantidad=r.cantidad,
                 porcentaje=round(r.cantidad / total * 100, 1),
             )
             for r in rows
@@ -136,11 +209,9 @@ class DashboardService:
         rows = result.all()
         return [
             UbicacionOcupacion(
-                ubicacion_id=r.id,
-                nombre=r.nombre,
+                ubicacion_id=r.id, nombre=r.nombre,
                 tipo=r.tipo.value if hasattr(r.tipo, "value") else str(r.tipo),
-                total_estibas=r.total,
-                capacidad=r.capacidad_estibas,
+                total_estibas=r.total, capacidad=r.capacidad_estibas,
                 porcentaje_ocupacion=round(r.total / r.capacidad_estibas * 100, 1) if r.capacidad_estibas else None,
             )
             for r in rows
@@ -153,26 +224,17 @@ class DashboardService:
         )
         alertas = result.scalars().all()
         return [
-            AlertaResumen(
-                id=a.id, tipo=a.tipo.value, nivel=a.nivel.value,
-                titulo=a.titulo, fecha=a.created_at.isoformat(),
-            )
+            AlertaResumen(id=a.id, tipo=a.tipo.value, nivel=a.nivel.value, titulo=a.titulo, fecha=a.created_at.isoformat())
             for a in alertas
         ]
 
     async def _get_movimientos_recientes(self) -> List[Dict[str, Any]]:
         result = await self.db.execute(
-            select(Movimiento)
-            .order_by(Movimiento.fecha_movimiento.desc()).limit(10)
+            select(Movimiento).order_by(Movimiento.fecha_movimiento.desc()).limit(10)
         )
         movimientos = result.scalars().all()
         return [
-            {
-                "id": m.id,
-                "tipo": m.tipo.value,
-                "estiba_id": m.estiba_id,
-                "fecha": m.fecha_movimiento.isoformat(),
-                "usuario_id": m.usuario_id,
-            }
+            {"id": m.id, "tipo": m.tipo.value, "estiba_id": m.estiba_id,
+             "fecha": m.fecha_movimiento.isoformat(), "usuario_id": m.usuario_id}
             for m in movimientos
         ]

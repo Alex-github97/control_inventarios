@@ -23,6 +23,10 @@ import EstibasCargaMasiva from '@/pages/EstibasCargaMasiva'
 import MovimientosCargaMasiva from '@/pages/MovimientosCargaMasiva'
 import TarifaxDashboard from '@/pages/TarifaxDashboard'
 import TarifaxMotor from '@/pages/TarifaxMotor'
+import Usuarios from '@/pages/Usuarios'
+import Roles from '@/pages/Roles'
+import Mantenimiento from '@/pages/Mantenimiento'
+import CostosReporte from '@/pages/CostosReporte'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -70,7 +74,10 @@ export default function App() {
             <Route path="/alertas" element={<ProtectedRoute><Alertas /></ProtectedRoute>} />
             <Route path="/danos" element={<ProtectedRoute><Danos /></ProtectedRoute>} />
             <Route path="/trazabilidad" element={<ProtectedRoute><Trazabilidad /></ProtectedRoute>} />
-            <Route path="/usuarios" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/usuarios" element={<ProtectedRoute><Usuarios /></ProtectedRoute>} />
+            <Route path="/usuarios/roles" element={<ProtectedRoute><Roles /></ProtectedRoute>} />
+            <Route path="/mantenimiento" element={<ProtectedRoute><Mantenimiento /></ProtectedRoute>} />
+            <Route path="/costos" element={<ProtectedRoute><CostosReporte /></ProtectedRoute>} />
             <Route path="/tarifax/tablero" element={<ProtectedRoute><TarifaxDashboard /></ProtectedRoute>} />
             <Route path="/tarifax/motor" element={<ProtectedRoute><TarifaxMotor /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

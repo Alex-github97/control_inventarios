@@ -16,6 +16,8 @@ import {
   NotificationsActive as AlertasIcon,
   BrokenImage as DanosIcon,
   People as UsuariosIcon,
+  Build as MantenimientoIcon,
+  AttachMoney as CostosIcon,
   ChevronLeft, ChevronRight,
   BarChart as TableroIcon,
   MergeType as MotorIcon,
@@ -42,8 +44,10 @@ const CI_NAV_ITEMS: NavItem[] = [
   { label: 'Vehículos',    icon: <VehiculosIcon   fontSize="small" />, path: '/vehiculos',    section: 'Recursos' },
   { label: 'Ubicaciones',  icon: <UbicacionesIcon fontSize="small" />, path: '/ubicaciones',  section: 'Recursos' },
   { label: 'Proveedores',  icon: <ProveedoresIcon fontSize="small" />, path: '/proveedores',  section: 'Recursos' },
+  { label: 'Mantenimiento', icon: <MantenimientoIcon fontSize="small" />, path: '/mantenimiento', section: 'Operaciones' },
   { label: 'Daños',        icon: <DanosIcon       fontSize="small" />, path: '/danos',        section: 'Control' },
   { label: 'Alertas',      icon: <AlertasIcon     fontSize="small" />, path: '/alertas',      section: 'Control' },
+  { label: 'Costos',       icon: <CostosIcon      fontSize="small" />, path: '/costos',       section: 'Control' },
   { label: 'Usuarios',     icon: <UsuariosIcon    fontSize="small" />, path: '/usuarios',     section: 'Control' },
 ]
 

@@ -16,6 +16,8 @@ class KPIResumen(BaseModel):
     alertas_activas: int
     movimientos_hoy: int
     manifiestos_activos: int
+    edad_promedio_meses: float = 0.0
+    total_costos_acumulados: float = 0.0
 
 
 class DanoEstadistica(BaseModel):
@@ -52,6 +54,18 @@ class AlertaResumen(BaseModel):
     estiba_codigo: Optional[str] = None
 
 
+class EdadDistribucion(BaseModel):
+    rango: str
+    cantidad: int
+    porcentaje: float
+
+
+class CostoMensual(BaseModel):
+    mes: str
+    costo_total: float
+    cantidad_mantenimientos: int
+
+
 class DashboardResponse(BaseModel):
     kpis: KPIResumen
     tendencia_movimientos: List[MovimientoTendencia]
@@ -59,3 +73,5 @@ class DashboardResponse(BaseModel):
     ocupacion_ubicaciones: List[UbicacionOcupacion]
     alertas_recientes: List[AlertaResumen]
     movimientos_recientes: List[Dict[str, Any]]
+    edad_distribucion: List[EdadDistribucion] = []
+    costos_por_mes: List[CostoMensual] = []

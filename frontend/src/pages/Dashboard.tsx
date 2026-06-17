@@ -5,11 +5,12 @@ import {
 } from '@mui/material'
 import {
   ViewModule, LocalShipping, LocationOn, Warning, Build,
-  TrendingUp, Assignment, NotificationsActive, Inventory2
+  TrendingUp, Assignment, NotificationsActive, Inventory2, AccessTime, AttachMoney
 } from '@mui/icons-material'
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  LineChart, Line,
 } from 'recharts'
 import { useQuery } from '@tanstack/react-query'
 import { dashboardApi } from '@/api/dashboard'
@@ -20,6 +21,9 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 const PIE_COLORS = ['#32AC5C', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#EC4899']
+
+const formatCOP = (v: number) =>
+  new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', notation: 'compact', maximumFractionDigits: 1 }).format(v)
 
 export default function Dashboard() {
   const { data, isLoading, error } = useQuery({
@@ -131,6 +135,28 @@ export default function Dashboard() {
         </Grid>
       </Grid>
 
+      {/* Third KPI Row — Tiempo de uso y Costos */}
+      <Grid container spacing={2.5} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6}>
+          <KPICard
+            title="Edad Promedio (meses)"
+            value={isLoading ? '—' : `${kpis?.edad_promedio_meses ?? 0} m`}
+            icon={<AccessTime />}
+            color="#8B5CF6"
+            subtitle="Tiempo promedio en el sistema"
+          />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <KPICard
+            title="Costos Acumulados"
+            value={isLoading ? '—' : formatCOP(kpis?.total_costos_acumulados ?? 0)}
+            icon={<AttachMoney />}
+            color="#F59E0B"
+            subtitle="Total mantenimientos registrados"
+          />
+        </Grid>
+      </Grid>
+
       {/* Charts Row */}
       <Grid container spacing={2.5} sx={{ mb: 3 }}>
         {/* Tendencia movimientos */}
@@ -192,6 +218,65 @@ export default function Dashboard() {
                   </PieChart>
                 </ResponsiveContainer>
               )}
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Charts Row — Tiempo de uso y Costos por mes */}
+      <Grid container spacing={2.5} sx={{ mb: 3 }}>
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
+                Tiempo de Uso por Estiba
+              </Typography>
+              {isLoading ? (
+                <Skeleton variant="rectangular" height={220} />
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={data?.edad_distribucion ?? []} barCategoryGap="30%">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                    <XAxis dataKey="rango" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip formatter={(v: any) => [v, 'Estibas']} />
+                    <Bar dataKey="cantidad" fill="#8B5CF6" radius={[6, 6, 0, 0]} name="Estibas" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+              <Typography variant="caption" sx={{ color: '#94A3B8', display: 'block', textAlign: 'center', mt: 0.5 }}>
+                Distribución por antigüedad en meses
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
+                Costos de Mantenimiento por Mes
+              </Typography>
+              {isLoading ? (
+                <Skeleton variant="rectangular" height={220} />
+              ) : (data?.costos_por_mes ?? []).length === 0 ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: '#94A3B8' }}>
+                  <Typography variant="body2">Sin registros de costos aún</Typography>
+                </Box>
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <LineChart data={data?.costos_por_mes ?? []}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                    <XAxis dataKey="mes" tick={{ fontSize: 10 }} />
+                    <YAxis tick={{ fontSize: 10 }} tickFormatter={v => formatCOP(v)} width={80} />
+                    <Tooltip formatter={(v: any) => [formatCOP(Number(v)), 'Costo']} />
+                    <Line type="monotone" dataKey="costo_total" stroke="#F59E0B" strokeWidth={2.5} dot={{ r: 4, fill: '#F59E0B' }} name="Costo total" />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+              <Typography variant="caption" sx={{ color: '#94A3B8', display: 'block', textAlign: 'center', mt: 0.5 }}>
+                Últimos 12 meses
+              </Typography>
             </CardContent>
           </Card>
         </Grid>

@@ -1,6 +1,6 @@
 # Control de Inventarios + TarifaX — Plataforma Empresarial ICOLTRANS
 
-**Versión 1.2.0** | Industria Colombiana de Logística y Transporte (ICOLTRANS)
+**Versión 1.3.0** | Industria Colombiana de Logística y Transporte (ICOLTRANS)
 
 Plataforma unificada que integra la gestión de estibas (Control de Inventarios) y el motor de cruce de tarifas (TarifaX) en una sola aplicación React. Diseñada para operar a escala corporativa con soporte para millones de registros.
 
@@ -136,11 +136,32 @@ docker-compose exec frontend npm install xlsx
 - Registro de: ubicación, vehículo, manifiesto, usuario, GPS, fecha
 
 #### Dashboard
-- KPIs en tiempo real
+- KPIs en tiempo real: total de estibas, disponibles, en tránsito, en cliente, pendiente retorno, dañadas, manifiestos, alertas, movimientos del día, propias/alquiladas
+- **Tiempo de uso por estiba:** edad promedio en meses + histograma de distribución por antigüedad (0–6m, 6–12m, 12–24m, 24–36m, 36m+)
+- **Costos acumulados:** total de costos de mantenimiento registrados + gráfico de línea de costos por mes (últimos 12 meses)
 - Gráfico de tendencia de movimientos (30 días)
 - Distribución de daños por causa
 - Ocupación de ubicaciones
 - Alertas activas
+
+#### Mantenimiento de Estibas (`/mantenimiento`)
+Módulo dedicado para registrar y gestionar el historial de mantenimiento de cada estiba.
+
+- **Registro de mantenimiento:** asociar un costo a una estiba buscándola por ID, con tipo, fecha, proveedor y descripción
+- **Tipos soportados:** PREVENTIVO, CORRECTIVO, REPARACIÓN, INSPECCIÓN, LIMPIEZA, PINTURA, REFUERZO
+- **Filtros:** por ID de estiba, tipo de mantenimiento, rango de fechas
+- **KPIs en página:** total de registros encontrados + suma de costos del filtro activo
+- Los costos se acumulan automáticamente al perfil de cada estiba y al dashboard global
+- Eliminar registros individuales (acceso operador o superior)
+
+#### Costos por Estiba (`/costos`)
+Reporte consolidado del costo total de mantenimiento acumulado por cada estiba.
+
+- Tabla con todas las estibas ordenadas por costo descendente
+- Columnas: código interno, estado, propietario, tipo, número de mantenimientos, costo total acumulado (COP)
+- **Filtros:** tipo de mantenimiento, estado de la estiba, tipo de propietario
+- KPIs en página: total de estibas y suma global de costos acumulados
+- Paginación de 20 registros por página
 
 #### Manifiestos
 - Ciclo: Programado → En Cargue → En Tránsito → Entregado
@@ -150,6 +171,31 @@ docker-compose exec frontend npm install xlsx
 #### Alertas
 - Motor automático de alertas
 - Niveles: Info, Advertencia, Crítica
+
+#### Usuarios (`/usuarios`)
+Módulo completo de gestión de acceso al sistema. Solo visible y operable por administradores.
+
+- **CRUD completo:** crear, editar, desactivar (soft-delete) usuarios
+- **Restablecer contraseña:** sin necesidad de conocer la contraseña actual
+- **Roles disponibles:** Administrador, Supervisor Logístico, Operador de Bodega, Auditor, Consulta
+- Protección: no es posible desactivar el propio usuario
+- KPIs en página: conteo de usuarios activos por rol
+- Botón **"Roles"** que lleva a la matriz de permisos
+
+#### Roles y Permisos (`/usuarios/roles`)
+Matriz de acceso por módulo para cada rol del sistema.
+
+- Tarjetas resumen por rol con módulos permitidos
+- Tabla completa de permisos: cada módulo × cada rol (check / X)
+- **Módulos controlados:** Dashboard, Estibas, Movimientos, Trazabilidad, Manifiestos, Vehículos, Ubicaciones, Proveedores, Daños, Alertas, Usuarios, Mantenimiento, Costos
+
+| Rol | Acceso |
+|-----|--------|
+| Administrador | Todos los módulos |
+| Supervisor Logístico | Todo excepto Usuarios |
+| Operador de Bodega | Dashboard, Estibas, Movimientos, Trazabilidad, Ubicaciones, Alertas, Mantenimiento |
+| Auditor | Todo excepto Usuarios |
+| Consulta | Solo Dashboard, Estibas y Trazabilidad |
 
 #### Integración SAP (preparado)
 - Capa `SAPProveedorService`: sincroniza maestro de proveedores
@@ -250,6 +296,20 @@ DELETE /api/v1/ubicaciones/{id}             # Soft-delete (activo = false)
 GET    /api/v1/dashboard
 GET    /api/v1/alertas?resuelta=false
 
+# Mantenimiento de Estibas
+GET    /api/v1/mantenimientos/                          # Listar con filtros (estiba_id, tipo, desde, hasta)
+POST   /api/v1/mantenimientos/                          # Registrar mantenimiento
+DELETE /api/v1/mantenimientos/{id}                      # Eliminar registro
+GET    /api/v1/mantenimientos/reporte-costos            # Costos acumulados por estiba (filtrable, paginado)
+
+# Usuarios
+GET    /api/v1/usuarios/                                # Listar usuarios activos (admin)
+POST   /api/v1/usuarios/                                # Crear usuario (admin)
+PUT    /api/v1/usuarios/{id}                            # Editar usuario (admin)
+DELETE /api/v1/usuarios/{id}                            # Desactivar usuario — soft-delete (admin)
+PUT    /api/v1/usuarios/{id}/reset-password             # Restablecer contraseña (admin)
+GET    /api/v1/usuarios/roles-info                      # Matriz de permisos por rol (admin)
+
 GET    /api/v1/tarifax/template             # Descarga plantilla_cotizacion_tarifax.xlsx
 POST   /api/v1/tarifax/merge               # Cruce DF2 × TARIFARIO_SICETAC (multipart/form-data)
 ```
@@ -310,6 +370,30 @@ Disponible en **Estibas** y **Movimientos** mediante el botón desplegable junto
 - Redis para caché (preparado)
 - Soft-delete en ubicaciones para preservar integridad referencial
 - DF1 de TarifaX en memoria caché (evita releer 41 MB por cada cruce)
+
+---
+
+## Historial de Versiones
+
+### v1.3.0
+- Nuevo módulo **Mantenimiento de Estibas**: registro de costos por estiba con tipos, filtros y KPIs
+- Nuevo reporte **Costos por Estiba**: tabla consolidada con costo total acumulado, filtrable
+- **Dashboard actualizado**: indicadores de edad promedio de estibas (meses), costos acumulados, histograma de distribución por antigüedad y gráfico de costos por mes
+- Módulo **Usuarios** completo: CRUD, restablecer contraseña, desactivar, sin auto-desactivación
+- Módulo **Roles y Permisos**: matriz visual de acceso por módulo para cada rol
+- Nuevos endpoints REST: `/mantenimientos/`, `/mantenimientos/reporte-costos`, `/usuarios/roles-info`, `/usuarios/{id}/reset-password`
+
+### v1.2.0
+- Migración TarifaX de Streamlit a React/FastAPI
+- Sidebar con switcher CI / TarifaX
+- Motor de cruce de tarifas (DF2 × TARIFARIO_SICETAC) con descarga de resultado en Excel
+- Tablero Power BI embebido
+- Documentación del archivo DF1 y proceso de actualización
+
+### v1.0.0
+- Control de Inventarios inicial: estibas, movimientos, manifiestos, vehículos, ubicaciones, proveedores, daños, alertas, trazabilidad
+- Cargue masivo desde Excel para estibas y movimientos
+- Autenticación JWT con roles
 
 ---
 

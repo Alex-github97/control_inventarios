@@ -100,3 +100,4 @@ class Estiba(Base, TimestampMixin, SoftDeleteMixin):
     ubicacion_actual = relationship("Ubicacion", back_populates="estibas", foreign_keys=[ubicacion_actual_id])
     movimientos = relationship("Movimiento", back_populates="estiba", order_by="Movimiento.fecha_movimiento.desc()")
     eventos_dano = relationship("EventoDano", back_populates="estiba")
+    mantenimientos = relationship("MantenimientoEstiba", back_populates="estiba", order_by="MantenimientoEstiba.fecha.desc()")
