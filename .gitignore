@@ -29,6 +29,9 @@ frontend/coverage/
 # Uploads de la app
 backend/uploads/
 
+# Archivos de datos grandes (TarifaX) — no subir al repositorio
+backend/data/TARIFARIO_SICETAC.xlsx
+
 # Docker
 *.log
 

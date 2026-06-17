@@ -1,0 +1,364 @@
+import React, { useRef, useState } from 'react'
+import {
+  Box, Typography, Card, Button, Chip, LinearProgress, Alert, Grid, alpha,
+} from '@mui/material'
+import {
+  Upload, Download, CheckCircle, MergeType, InsertDriveFile, Close,
+} from '@mui/icons-material'
+import { Layout } from '@/components/layout/Layout'
+import { apiClient } from '@/api/client'
+import toast from 'react-hot-toast'
+
+const TX_COLOR = '#369E4D'
+const TX_DARK = '#1f6130'
+
+interface MergeResult {
+  stats: {
+    registros: number
+    cruzados: number
+    sin_coincidencia: number
+    tasa_cruce: number
+  }
+  filename: string
+  file_base64: string
+}
+
+export default function TarifaxMotor() {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [file, setFile] = useState<File | null>(null)
+  const [processing, setProcessing] = useState(false)
+  const [result, setResult] = useState<MergeResult | null>(null)
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] ?? null
+    setFile(f)
+    setResult(null)
+  }
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const res = await apiClient.get('/tarifax/template', { responseType: 'blob' })
+      const url = URL.createObjectURL(res.data as Blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'plantilla_cotizacion_tarifax.xlsx'
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error('No se pudo descargar la plantilla')
+    }
+  }
+
+  const handleProcess = async () => {
+    if (!file) return
+    setProcessing(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await apiClient.post<MergeResult>('/tarifax/merge', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 120000,
+      })
+      setResult(res.data)
+      toast.success('Cruce completado exitosamente')
+    } catch (e: any) {
+      toast.error(e.response?.data?.detail || 'Error al procesar el archivo')
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  const handleDownloadResult = () => {
+    if (!result) return
+    const bytes = atob(result.file_base64)
+    const arr = new Uint8Array(bytes.length)
+    for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i)
+    const blob = new Blob([arr], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = result.filename
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  return (
+    <Layout title="Motor TarifaX">
+      {/* Header */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+        <Box
+          sx={{
+            width: 36,
+            height: 36,
+            borderRadius: '10px',
+            background: `linear-gradient(135deg, ${TX_COLOR} 0%, ${TX_DARK} 100%)`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            boxShadow: `0 4px 12px ${alpha(TX_COLOR, 0.4)}`,
+          }}
+        >
+          <MergeType sx={{ color: '#fff', fontSize: 18 }} />
+        </Box>
+        <Box>
+          <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2, color: '#1E293B' }}>
+            Motor de Cruce TarifaX
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#64748B', fontSize: 12 }}>
+            Cruza tu archivo Excel contra el tarifario interno SICETAC
+          </Typography>
+        </Box>
+      </Box>
+
+      {/* Steps */}
+      <Box sx={{ display: 'flex', gap: 0, mb: 3, borderRadius: '12px', overflow: 'hidden', border: '1px solid #E2E8F0' }}>
+        {['Cargar archivo Excel', 'Cruce automático', 'Descargar resultado'].map((step, i) => (
+          <Box key={step} sx={{
+            flex: 1, px: 2, py: 1.25,
+            bgcolor: i === 0 && !file ? TX_COLOR : i === 1 && processing ? TX_COLOR : i === 2 && result ? TX_COLOR : '#F8FAFC',
+            borderRight: i < 2 ? '1px solid #E2E8F0' : 'none',
+            display: 'flex', alignItems: 'center', gap: 1,
+            transition: 'background 0.3s ease',
+          }}>
+            <Box sx={{
+              width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+              bgcolor: (i === 0 && !file) || (i === 1 && processing) || (i === 2 && result) ? 'rgba(255,255,255,0.25)' : '#E2E8F0',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Typography sx={{ fontSize: 10, fontWeight: 700, color: (i === 0 && !file) || (i === 1 && processing) || (i === 2 && result) ? '#fff' : '#94A3B8' }}>
+                {i + 1}
+              </Typography>
+            </Box>
+            <Typography sx={{
+              fontSize: 12, fontWeight: 600,
+              color: (i === 0 && !file) || (i === 1 && processing) || (i === 2 && result) ? '#fff' : '#64748B',
+            }}>
+              {step}
+            </Typography>
+          </Box>
+        ))}
+      </Box>
+
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        {/* LEFT: Base interna */}
+        <Grid item xs={12} md={6}>
+          <Card sx={{ p: 2.5, height: '100%', border: '1px solid #E2E8F0' }}>
+            <Typography sx={{ fontWeight: 700, fontSize: 12, color: TX_DARK, mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+              Base Interna (DF1)
+            </Typography>
+            <Typography sx={{ fontSize: 12, color: '#64748B', mb: 2 }}>
+              Datos maestros cargados desde el servidor
+            </Typography>
+            <Box sx={{
+              display: 'flex', alignItems: 'center', gap: 1.5, p: 1.5,
+              bgcolor: alpha(TX_COLOR, 0.06), borderRadius: '10px',
+              border: `1px solid ${alpha(TX_COLOR, 0.2)}`,
+            }}>
+              <InsertDriveFile sx={{ color: TX_COLOR, fontSize: 26 }} />
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography sx={{ fontWeight: 600, fontSize: 13, color: '#1E293B' }}>
+                  TARIFARIO_SICETAC.xlsx
+                </Typography>
+                <Typography sx={{ fontSize: 11, color: '#64748B' }}>
+                  Cargado automáticamente
+                </Typography>
+              </Box>
+              <Chip
+                label="Activo"
+                size="small"
+                icon={<CheckCircle sx={{ fontSize: '12px !important' }} />}
+                sx={{ bgcolor: '#DCFCE7', color: '#16A34A', fontWeight: 600, fontSize: 10, height: 22, '& .MuiChip-icon': { color: '#16A34A' } }}
+              />
+            </Box>
+            <Box sx={{ mt: 2, p: 1.5, bgcolor: '#F8FAFC', borderRadius: '8px' }}>
+              <Typography sx={{ fontSize: 11.5, color: '#64748B', lineHeight: 1.8 }}>
+                <strong style={{ color: '#475569' }}>Columna clave:</strong>{' '}
+                <code style={{ background: '#E2E8F0', padding: '1px 6px', borderRadius: 4, fontSize: 11 }}>ORIGEN</code>
+                <br />
+                <strong style={{ color: '#475569' }}>Precio SICETAC:</strong>{' '}
+                <code style={{ background: '#E2E8F0', padding: '1px 6px', borderRadius: 4, fontSize: 11 }}>COSTO_TOTAL_VIAJE</code>
+                <br />
+                <strong style={{ color: '#475569' }}>Tipo de cruce:</strong>{' '}
+                <code style={{ background: '#E2E8F0', padding: '1px 6px', borderRadius: 4, fontSize: 11 }}>LEFT JOIN</code>
+              </Typography>
+            </Box>
+          </Card>
+        </Grid>
+
+        {/* RIGHT: Upload DF2 */}
+        <Grid item xs={12} md={6}>
+          <Card sx={{ p: 2.5, height: '100%', border: '1px solid #E2E8F0' }}>
+            <Typography sx={{ fontWeight: 700, fontSize: 12, color: TX_DARK, mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+              Tu Archivo (DF2)
+            </Typography>
+            <Typography sx={{ fontSize: 12, color: '#64748B', mb: 2 }}>
+              Sube el Excel con los datos a cruzar
+            </Typography>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              hidden
+              onChange={handleFileChange}
+            />
+
+            {!file ? (
+              <Box
+                onClick={() => fileInputRef.current?.click()}
+                sx={{
+                  border: `2px dashed ${alpha(TX_COLOR, 0.4)}`,
+                  borderRadius: '12px',
+                  p: 3,
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  bgcolor: alpha(TX_COLOR, 0.03),
+                  transition: 'all 0.2s',
+                  '&:hover': { bgcolor: alpha(TX_COLOR, 0.07), borderColor: TX_COLOR },
+                }}
+              >
+                <Upload sx={{ fontSize: 32, color: alpha(TX_COLOR, 0.5), mb: 1 }} />
+                <Typography sx={{ fontWeight: 600, fontSize: 13, color: '#475569' }}>
+                  Clic para seleccionar archivo
+                </Typography>
+                <Typography sx={{ fontSize: 11, color: '#94A3B8', mt: 0.5 }}>
+                  Formato .xlsx o .xls · Debe incluir columna ORIGEN
+                </Typography>
+              </Box>
+            ) : (
+              <Box sx={{
+                display: 'flex', alignItems: 'center', gap: 1.5, p: 1.5,
+                bgcolor: alpha(TX_COLOR, 0.06), borderRadius: '10px',
+                border: `1px solid ${alpha(TX_COLOR, 0.2)}`,
+              }}>
+                <InsertDriveFile sx={{ color: TX_COLOR, fontSize: 26 }} />
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography sx={{ fontWeight: 600, fontSize: 13, color: '#1E293B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {file.name}
+                  </Typography>
+                  <Typography sx={{ fontSize: 11, color: '#64748B' }}>
+                    {(file.size / 1024).toFixed(0)} KB
+                  </Typography>
+                </Box>
+                <Button
+                  size="small"
+                  sx={{ minWidth: 0, p: 0.5, color: '#94A3B8', '&:hover': { color: '#EF4444', bgcolor: alpha('#EF4444', 0.06) } }}
+                  onClick={() => {
+                    setFile(null)
+                    setResult(null)
+                    if (fileInputRef.current) fileInputRef.current.value = ''
+                  }}
+                >
+                  <Close fontSize="small" />
+                </Button>
+              </Box>
+            )}
+
+            <Box sx={{ mt: 2 }}>
+              <Button
+                variant="text"
+                size="small"
+                startIcon={<Download sx={{ fontSize: 14 }} />}
+                onClick={handleDownloadTemplate}
+                sx={{
+                  fontSize: 12, color: TX_COLOR, p: 0.5,
+                  '&:hover': { bgcolor: alpha(TX_COLOR, 0.06) },
+                  textTransform: 'none',
+                }}
+              >
+                Descargar plantilla de cotización
+              </Button>
+            </Box>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Process button */}
+      <Box sx={{ mb: 3 }}>
+        {processing && (
+          <LinearProgress
+            sx={{ mb: 1.5, borderRadius: 4, bgcolor: alpha(TX_COLOR, 0.1), '& .MuiLinearProgress-bar': { bgcolor: TX_COLOR } }}
+          />
+        )}
+        <Button
+          variant="contained"
+          fullWidth
+          size="large"
+          disabled={!file || processing}
+          onClick={handleProcess}
+          startIcon={<MergeType />}
+          sx={{
+            py: 1.5,
+            fontSize: 14,
+            fontWeight: 700,
+            borderRadius: '12px',
+            background: `linear-gradient(135deg, ${TX_COLOR}, ${TX_DARK})`,
+            boxShadow: `0 4px 14px ${alpha(TX_COLOR, 0.35)}`,
+            '&:hover': { boxShadow: `0 6px 20px ${alpha(TX_COLOR, 0.45)}`, background: `linear-gradient(135deg, ${TX_COLOR}, ${TX_DARK})` },
+            '&:disabled': { background: '#E2E8F0', boxShadow: 'none', color: '#94A3B8' },
+          }}
+        >
+          {processing ? 'Procesando cruce...' : 'Procesar Cruce de Tarifas'}
+        </Button>
+      </Box>
+
+      {/* Results */}
+      {result && (
+        <Box>
+          <Grid container spacing={2} sx={{ mb: 2.5 }}>
+            {[
+              { label: 'Registros resultado', value: result.stats.registros.toLocaleString() },
+              { label: 'Cruzados correctamente', value: result.stats.cruzados.toLocaleString() },
+              { label: 'Sin coincidencia', value: result.stats.sin_coincidencia.toLocaleString() },
+              { label: 'Tasa de cruce', value: `${result.stats.tasa_cruce}%` },
+            ].map((stat) => (
+              <Grid item xs={6} md={3} key={stat.label}>
+                <Card sx={{
+                  p: 2,
+                  border: `1px solid ${alpha(TX_COLOR, 0.2)}`,
+                  borderLeft: `4px solid ${TX_COLOR}`,
+                  borderRadius: '12px',
+                }}>
+                  <Typography sx={{ fontSize: 10.5, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.07em', mb: 0.5 }}>
+                    {stat.label}
+                  </Typography>
+                  <Typography sx={{ fontSize: 22, fontWeight: 800, color: TX_DARK, fontFamily: '"Inter", sans-serif', lineHeight: 1 }}>
+                    {stat.value}
+                  </Typography>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+
+          <Alert
+            severity="success"
+            action={
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<Download />}
+                onClick={handleDownloadResult}
+                sx={{
+                  bgcolor: TX_COLOR,
+                  '&:hover': { bgcolor: TX_DARK },
+                  fontWeight: 700,
+                  fontSize: 12,
+                  whiteSpace: 'nowrap',
+                  borderRadius: '8px',
+                }}
+              >
+                Descargar resultado
+              </Button>
+            }
+            sx={{ borderRadius: '12px', '& .MuiAlert-icon': { color: TX_COLOR }, alignItems: 'center' }}
+          >
+            <strong>Cruce completado.</strong> Archivo: <code style={{ fontSize: 11 }}>{result.filename}</code>
+          </Alert>
+        </Box>
+      )}
+    </Layout>
+  )
+}

@@ -21,6 +21,8 @@ import Danos from '@/pages/Danos'
 import Trazabilidad from '@/pages/Trazabilidad'
 import EstibasCargaMasiva from '@/pages/EstibasCargaMasiva'
 import MovimientosCargaMasiva from '@/pages/MovimientosCargaMasiva'
+import TarifaxDashboard from '@/pages/TarifaxDashboard'
+import TarifaxMotor from '@/pages/TarifaxMotor'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -69,6 +71,8 @@ export default function App() {
             <Route path="/danos" element={<ProtectedRoute><Danos /></ProtectedRoute>} />
             <Route path="/trazabilidad" element={<ProtectedRoute><Trazabilidad /></ProtectedRoute>} />
             <Route path="/usuarios" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/tarifax/tablero" element={<ProtectedRoute><TarifaxDashboard /></ProtectedRoute>} />
+            <Route path="/tarifax/motor" element={<ProtectedRoute><TarifaxMotor /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </BrowserRouter>
