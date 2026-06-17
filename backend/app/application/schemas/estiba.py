@@ -102,3 +102,19 @@ class EstibaKPIs(BaseModel):
     BAJA: int = 0
     DISPOSICION_FINAL: int = 0
     EN_INVENTARIO: int = 0
+
+
+class EstibaBulkError(BaseModel):
+    fila: int
+    codigo: str
+    mensaje: str
+
+
+class EstibaBulkCreate(BaseModel):
+    items: List[EstibaCreate]
+
+
+class EstibaBulkResponse(BaseModel):
+    exitosos: int
+    errores: List[EstibaBulkError]
+    total: int

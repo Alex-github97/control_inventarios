@@ -1,11 +1,12 @@
 import React, { useState } from 'react'
 import {
-  Box, Card, Typography, Button, TextField, InputAdornment,
+  Box, Card, Typography, Button, ButtonGroup, Menu, TextField, InputAdornment,
   Table, TableBody, TableCell, TableHead, TableRow, TablePagination,
   Chip, Skeleton, Alert, Dialog, DialogTitle, DialogContent, DialogActions,
-  Grid, FormControl, InputLabel, Select, MenuItem, Autocomplete
+  Grid, FormControl, InputLabel, Select, MenuItem, Autocomplete, alpha,
 } from '@mui/material'
-import { Add, Search, SwapHoriz } from '@mui/icons-material'
+import { Add, Search, SwapHoriz, ArrowDropDown, UploadFile } from '@mui/icons-material'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
@@ -13,6 +14,8 @@ import { StatusChip } from '@/components/common/StatusChip'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
+
+const PRIMARY = '#32AC5C'
 
 const TIPOS_MOVIMIENTO = [
   'CARGA', 'DESCARGA', 'TRANSFERENCIA', 'RETORNO', 'RECEPCION',
@@ -25,10 +28,12 @@ const TIPO_COLORS: Record<string, string> = {
 }
 
 export default function Movimientos() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(50)
   const [openDialog, setOpenDialog] = useState(false)
+  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null)
   const [form, setForm] = useState({ estiba_id: '', tipo: 'CARGA', ubicacion_destino_id: '', observaciones: '' })
 
   const { data: movimientos, isLoading } = useQuery({
@@ -71,9 +76,38 @@ export default function Movimientos() {
         <Typography variant="body2" sx={{ color: '#64748B' }}>
           Registro de todos los movimientos de estibas
         </Typography>
-        <Button variant="contained" startIcon={<Add />} onClick={() => setOpenDialog(true)}>
-          Registrar Movimiento
-        </Button>
+        <ButtonGroup variant="contained" disableElevation>
+          <Button startIcon={<Add />} onClick={() => setOpenDialog(true)}>
+            Registrar Movimiento
+          </Button>
+          <Button
+            size="small" sx={{ px: 0.75 }}
+            onClick={e => setMenuAnchor(e.currentTarget)}
+          >
+            <ArrowDropDown />
+          </Button>
+        </ButtonGroup>
+        <Menu
+          anchorEl={menuAnchor}
+          open={Boolean(menuAnchor)}
+          onClose={() => setMenuAnchor(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          PaperProps={{ elevation: 3, sx: { mt: 0.5, minWidth: 230, borderRadius: '10px' } }}
+        >
+          <MenuItem onClick={() => { setMenuAnchor(null); navigate('/movimientos/cargue-masivo') }}
+            sx={{ py: 1.25, px: 2 }}>
+            <UploadFile sx={{ fontSize: 18, mr: 1.5, color: PRIMARY }} />
+            <Box>
+              <Typography sx={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.2 }}>
+                Cargue Masivo
+              </Typography>
+              <Typography sx={{ fontSize: 11, color: '#94A3B8' }}>
+                Importar movimientos desde Excel (.xlsx)
+              </Typography>
+            </Box>
+          </MenuItem>
+        </Menu>
       </Box>
 
       <Card>

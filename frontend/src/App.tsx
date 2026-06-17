@@ -19,6 +19,8 @@ import Proveedores from '@/pages/Proveedores'
 import Alertas from '@/pages/Alertas'
 import Danos from '@/pages/Danos'
 import Trazabilidad from '@/pages/Trazabilidad'
+import EstibasCargaMasiva from '@/pages/EstibasCargaMasiva'
+import MovimientosCargaMasiva from '@/pages/MovimientosCargaMasiva'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -55,8 +57,10 @@ export default function App() {
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/estibas" element={<ProtectedRoute><Estibas /></ProtectedRoute>} />
+            <Route path="/estibas/cargue-masivo" element={<ProtectedRoute><EstibasCargaMasiva /></ProtectedRoute>} />
             <Route path="/estibas/:id" element={<ProtectedRoute><EstibaDetalle /></ProtectedRoute>} />
             <Route path="/movimientos" element={<ProtectedRoute><Movimientos /></ProtectedRoute>} />
+            <Route path="/movimientos/cargue-masivo" element={<ProtectedRoute><MovimientosCargaMasiva /></ProtectedRoute>} />
             <Route path="/manifiestos" element={<ProtectedRoute><Manifiestos /></ProtectedRoute>} />
             <Route path="/vehiculos" element={<ProtectedRoute><Vehiculos /></ProtectedRoute>} />
             <Route path="/ubicaciones" element={<ProtectedRoute><Ubicaciones /></ProtectedRoute>} />

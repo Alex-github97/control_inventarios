@@ -69,3 +69,19 @@ class TrazabilidadItem(BaseModel):
     fotos: List[str] = []
 
     model_config = {"from_attributes": True}
+
+
+class MovimientoBulkCreate(BaseModel):
+    items: List[MovimientoCreate]
+
+
+class BulkMovimientoError(BaseModel):
+    fila: int
+    estiba_id: Optional[int] = None
+    mensaje: str
+
+
+class MovimientoBulkResponse(BaseModel):
+    exitosos: int
+    errores: List[BulkMovimientoError]
+    total: int

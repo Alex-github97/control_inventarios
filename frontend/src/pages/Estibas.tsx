@@ -1,13 +1,13 @@
 import React, { useState } from 'react'
 import {
-  Box, Card, CardContent, Typography, Button, TextField, InputAdornment,
+  Box, Card, CardContent, Typography, Button, ButtonGroup, Menu, TextField, InputAdornment,
   Table, TableBody, TableCell, TableHead, TableRow, TablePagination,
   IconButton, Tooltip, Chip, Select, MenuItem, FormControl, InputLabel,
-  Skeleton, Alert, Dialog, DialogTitle, DialogContent, DialogActions, Grid
+  Skeleton, Alert, Dialog, DialogTitle, DialogContent, DialogActions, Grid, alpha,
 } from '@mui/material'
 import {
   Search, Add, QrCode2, Visibility, FilterList,
-  ViewModule
+  ViewModule, ArrowDropDown, UploadFile,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { estibasApi } from '@/api/estibas'
@@ -26,6 +26,8 @@ const ESTADOS = [
 const PROPIETARIOS = ['PROPIA', 'ALQUILADA', 'CLIENTE', 'PROVEEDOR', 'TERCERO']
 
 const TIPOS = ['MADERA', 'PLASTICO', 'METAL', 'CARTON', 'MIXTA']
+
+const PRIMARY = '#32AC5C'
 
 const MATERIALES: Record<string, string[]> = {
   MADERA:   ['MADERA_PINO', 'MADERA_EUCALIPTO'],
@@ -61,6 +63,7 @@ export default function Estibas() {
   const [propietario, setPropietario] = useState('')
   const [showFilters, setShowFilters] = useState(false)
   const [openDialog, setOpenDialog] = useState(false)
+  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null)
   const [form, setForm] = useState({ ...EMPTY_FORM })
   const [formError, setFormError] = useState('')
 
@@ -151,12 +154,39 @@ export default function Estibas() {
         >
           Escanear QR
         </Button>
-        <Button
-          variant="contained" startIcon={<Add />}
-          onClick={() => setOpenDialog(true)}
+        <ButtonGroup variant="contained" disableElevation>
+          <Button startIcon={<Add />} onClick={() => setOpenDialog(true)}>
+            Nueva Estiba
+          </Button>
+          <Button
+            size="small" sx={{ px: 0.75 }}
+            onClick={e => setMenuAnchor(e.currentTarget)}
+            aria-haspopup="true"
+          >
+            <ArrowDropDown />
+          </Button>
+        </ButtonGroup>
+        <Menu
+          anchorEl={menuAnchor}
+          open={Boolean(menuAnchor)}
+          onClose={() => setMenuAnchor(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          PaperProps={{ elevation: 3, sx: { mt: 0.5, minWidth: 220, borderRadius: '10px' } }}
         >
-          Nueva Estiba
-        </Button>
+          <MenuItem onClick={() => { setMenuAnchor(null); navigate('/estibas/cargue-masivo') }}
+            sx={{ py: 1.25, px: 2 }}>
+            <UploadFile sx={{ fontSize: 18, mr: 1.5, color: PRIMARY }} />
+            <Box>
+              <Typography sx={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.2 }}>
+                Cargue Masivo
+              </Typography>
+              <Typography sx={{ fontSize: 11, color: '#94A3B8' }}>
+                Importar desde Excel (.xlsx)
+              </Typography>
+            </Box>
+          </MenuItem>
+        </Menu>
       </Box>
 
       {/* Filters */}

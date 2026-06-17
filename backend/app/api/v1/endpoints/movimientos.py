@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
 from app.core.database import get_db
@@ -6,7 +6,8 @@ from app.core.dependencies import get_current_user, require_operador
 from app.infrastructure.models.usuario import Usuario
 from app.application.services.movimiento_service import MovimientoService
 from app.application.schemas.movimiento import (
-    MovimientoCreate, RegistrarCargaRequest, RegistrarDescargaRequest, MovimientoResponse
+    MovimientoCreate, RegistrarCargaRequest, RegistrarDescargaRequest, MovimientoResponse,
+    MovimientoBulkCreate, MovimientoBulkResponse,
 )
 
 router = APIRouter(prefix="/movimientos", tags=["Movimientos"])
@@ -42,6 +43,29 @@ async def registrar_descarga_masiva(
     service = MovimientoService(db)
     movimientos = await service.registrar_descarga_masiva(data, current_user)
     return {"message": f"{len(movimientos)} estibas descargadas exitosamente", "count": len(movimientos)}
+
+
+@router.post("/bulk", response_model=MovimientoBulkResponse)
+async def registrar_movimientos_masivo(
+    data: MovimientoBulkCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(require_operador),
+):
+    service = MovimientoService(db)
+    exitosos = 0
+    errores = []
+
+    for i, item in enumerate(data.items):
+        try:
+            async with db.begin_nested():
+                await service.registrar_movimiento(item, current_user)
+            exitosos += 1
+        except HTTPException as e:
+            errores.append({"fila": i + 2, "estiba_id": item.estiba_id, "mensaje": e.detail})
+        except Exception as e:
+            errores.append({"fila": i + 2, "estiba_id": item.estiba_id, "mensaje": str(e)})
+
+    return {"exitosos": exitosos, "errores": errores, "total": len(data.items)}
 
 
 @router.get("/recientes")

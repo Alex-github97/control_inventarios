@@ -6,7 +6,8 @@ from app.core.dependencies import get_current_user, require_operador, require_su
 from app.infrastructure.models.usuario import Usuario
 from app.application.services.estiba_service import EstibaService
 from app.application.schemas.estiba import (
-    EstibaCreate, EstibaUpdate, EstibaResponse, EstibaListResponse, EstibaKPIs
+    EstibaCreate, EstibaUpdate, EstibaResponse, EstibaListResponse, EstibaKPIs,
+    EstibaBulkCreate, EstibaBulkResponse,
 )
 
 router = APIRouter(prefix="/estibas", tags=["Estibas"])
@@ -50,6 +51,29 @@ async def crear_estiba(
 ):
     service = EstibaService(db)
     return await service.crear_estiba(data, current_user)
+
+
+@router.post("/bulk", response_model=EstibaBulkResponse)
+async def crear_estibas_masivo(
+    data: EstibaBulkCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(require_operador),
+):
+    service = EstibaService(db)
+    exitosos = 0
+    errores = []
+
+    for i, item in enumerate(data.items):
+        try:
+            async with db.begin_nested():
+                await service.crear_estiba(item, current_user)
+            exitosos += 1
+        except HTTPException as e:
+            errores.append({"fila": i + 2, "codigo": item.codigo_interno, "mensaje": e.detail})
+        except Exception as e:
+            errores.append({"fila": i + 2, "codigo": item.codigo_interno, "mensaje": str(e)})
+
+    return {"exitosos": exitosos, "errores": errores, "total": len(data.items)}
 
 
 @router.get("/buscar/{codigo}", response_model=EstibaResponse)
