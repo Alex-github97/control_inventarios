@@ -1,0 +1,131 @@
+from typing import List
+from datetime import datetime, timezone
+from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import HTTPException, status
+from app.infrastructure.repositories.estiba_repository import EstibaRepository
+from app.infrastructure.repositories.movimiento_repository import MovimientoRepository
+from app.infrastructure.models.movimiento import Movimiento, TipoMovimiento
+from app.infrastructure.models.estiba import EstadoEstiba
+from app.infrastructure.models.usuario import Usuario
+from app.application.schemas.movimiento import (
+    MovimientoCreate, RegistrarCargaRequest, RegistrarDescargaRequest
+)
+
+TRANSICIONES_VALIDAS = {
+    TipoMovimiento.CARGA: [EstadoEstiba.EN_INVENTARIO, EstadoEstiba.DISPONIBLE, EstadoEstiba.PENDIENTE_RETORNO],
+    TipoMovimiento.DESCARGA: [EstadoEstiba.EN_TRANSITO, EstadoEstiba.CARGADA],
+    TipoMovimiento.RETORNO: [EstadoEstiba.EN_CLIENTE, EstadoEstiba.PENDIENTE_RETORNO],
+    TipoMovimiento.DISPOSICION_FINAL: list(EstadoEstiba),
+    TipoMovimiento.BAJA: list(EstadoEstiba),
+}
+
+ESTADO_DESTINO = {
+    TipoMovimiento.CARGA: EstadoEstiba.EN_TRANSITO,
+    TipoMovimiento.DESCARGA: EstadoEstiba.EN_CLIENTE,
+    TipoMovimiento.RETORNO: EstadoEstiba.EN_INVENTARIO,
+    TipoMovimiento.TRANSFERENCIA: EstadoEstiba.EN_INVENTARIO,
+    TipoMovimiento.RECEPCION: EstadoEstiba.EN_INVENTARIO,
+    TipoMovimiento.REPARACION: EstadoEstiba.EN_REPARACION,
+    TipoMovimiento.BAJA: EstadoEstiba.BAJA,
+    TipoMovimiento.DISPOSICION_FINAL: EstadoEstiba.DISPOSICION_FINAL,
+    TipoMovimiento.INVENTARIO: EstadoEstiba.EN_INVENTARIO,
+}
+
+
+class MovimientoService:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+        self.estiba_repo = EstibaRepository(db)
+        self.movimiento_repo = MovimientoRepository(db)
+
+    async def registrar_movimiento(self, data: MovimientoCreate, usuario: Usuario) -> Movimiento:
+        estiba = await self.estiba_repo.get_by_id(data.estiba_id)
+        if not estiba:
+            raise HTTPException(status_code=404, detail="Estiba no encontrada")
+
+        estado_antes = estiba.estado
+        nuevo_estado = ESTADO_DESTINO.get(data.tipo, estiba.estado)
+
+        movimiento = Movimiento(
+            estiba_id=data.estiba_id,
+            tipo=data.tipo,
+            ubicacion_origen_id=data.ubicacion_origen_id or estiba.ubicacion_actual_id,
+            ubicacion_destino_id=data.ubicacion_destino_id,
+            vehiculo_id=data.vehiculo_id,
+            manifiesto_id=data.manifiesto_id,
+            conductor_id=data.conductor_id,
+            usuario_id=usuario.id,
+            latitud=data.latitud,
+            longitud=data.longitud,
+            observaciones=data.observaciones,
+            metadatos=data.metadatos or {},
+            estado_estiba_antes=estado_antes.value if estado_antes else None,
+            estado_estiba_despues=nuevo_estado.value,
+        )
+
+        estiba.estado = nuevo_estado
+        if data.ubicacion_destino_id:
+            estiba.ubicacion_actual_id = data.ubicacion_destino_id
+        estiba.total_usos += 1
+
+        return await self.movimiento_repo.create(movimiento)
+
+    async def registrar_carga_masiva(
+        self, data: RegistrarCargaRequest, usuario: Usuario
+    ) -> List[Movimiento]:
+        movimientos = []
+        for estiba_id in data.estiba_ids:
+            mv = MovimientoCreate(
+                estiba_id=estiba_id,
+                tipo=TipoMovimiento.CARGA,
+                ubicacion_origen_id=data.ubicacion_origen_id,
+                vehiculo_id=data.vehiculo_id,
+                manifiesto_id=data.manifiesto_id,
+                latitud=data.latitud,
+                longitud=data.longitud,
+                observaciones=data.observaciones,
+            )
+            movimiento = await self.registrar_movimiento(mv, usuario)
+            movimientos.append(movimiento)
+        return movimientos
+
+    async def registrar_descarga_masiva(
+        self, data: RegistrarDescargaRequest, usuario: Usuario
+    ) -> List[Movimiento]:
+        movimientos = []
+        for estiba_id in data.estiba_ids:
+            mv = MovimientoCreate(
+                estiba_id=estiba_id,
+                tipo=TipoMovimiento.DESCARGA,
+                ubicacion_destino_id=data.ubicacion_destino_id,
+                vehiculo_id=data.vehiculo_id,
+                manifiesto_id=data.manifiesto_id,
+                latitud=data.latitud,
+                longitud=data.longitud,
+                observaciones=data.observaciones,
+            )
+            movimiento = await self.registrar_movimiento(mv, usuario)
+            movimientos.append(movimiento)
+        return movimientos
+
+    async def obtener_trazabilidad(self, estiba_id: int) -> List[dict]:
+        movimientos = await self.movimiento_repo.get_by_estiba(estiba_id)
+        trazabilidad = []
+        for m in movimientos:
+            item = {
+                "id": m.id,
+                "tipo": m.tipo.value,
+                "fecha": m.fecha_movimiento.isoformat(),
+                "usuario": m.usuario.nombre_completo if m.usuario else "Sistema",
+                "ubicacion_origen": m.ubicacion_origen.nombre if m.ubicacion_origen else None,
+                "ubicacion_destino": m.ubicacion_destino.nombre if m.ubicacion_destino else None,
+                "vehiculo": m.vehiculo.placa if m.vehiculo else None,
+                "manifiesto": m.manifiesto.numero if m.manifiesto else None,
+                "observaciones": m.observaciones,
+                "estado_antes": m.estado_estiba_antes,
+                "estado_despues": m.estado_estiba_despues,
+                "latitud": m.latitud,
+                "longitud": m.longitud,
+            }
+            trazabilidad.append(item)
+        return trazabilidad

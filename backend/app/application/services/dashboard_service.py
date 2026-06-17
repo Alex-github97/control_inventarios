@@ -1,0 +1,178 @@
+from datetime import date, timedelta, datetime, timezone
+from typing import List, Dict, Any
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func, and_
+from app.infrastructure.models.estiba import Estiba, EstadoEstiba, TipoPropietario
+from app.infrastructure.models.movimiento import Movimiento, TipoMovimiento
+from app.infrastructure.models.alerta import Alerta
+from app.infrastructure.models.manifiesto import Manifiesto, EstadoManifiesto
+from app.infrastructure.models.dano import EventoDano, CodigoDano
+from app.infrastructure.models.ubicacion import Ubicacion
+from app.application.schemas.dashboard import (
+    DashboardResponse, KPIResumen, MovimientoTendencia,
+    DanoEstadistica, UbicacionOcupacion, AlertaResumen
+)
+
+
+class DashboardService:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def get_dashboard(self) -> DashboardResponse:
+        kpis = await self._get_kpis()
+        tendencia = await self._get_tendencia_movimientos(dias=30)
+        top_danos = await self._get_top_danos()
+        ocupacion = await self._get_ocupacion_ubicaciones()
+        alertas = await self._get_alertas_recientes()
+        movimientos_recientes = await self._get_movimientos_recientes()
+
+        return DashboardResponse(
+            kpis=kpis,
+            tendencia_movimientos=tendencia,
+            top_danos=top_danos,
+            ocupacion_ubicaciones=ocupacion,
+            alertas_recientes=alertas,
+            movimientos_recientes=movimientos_recientes,
+        )
+
+    async def _get_kpis(self) -> KPIResumen:
+        estado_counts = await self.db.execute(
+            select(Estiba.estado, func.count(Estiba.id))
+            .where(Estiba.activo == True)
+            .group_by(Estiba.estado)
+        )
+        counts = {row[0]: row[1] for row in estado_counts.all()}
+
+        propietario_counts = await self.db.execute(
+            select(Estiba.tipo_propietario, func.count(Estiba.id))
+            .where(Estiba.activo == True)
+            .group_by(Estiba.tipo_propietario)
+        )
+        prop_counts = {row[0]: row[1] for row in propietario_counts.all()}
+
+        alertas_activas = await self.db.execute(
+            select(func.count(Alerta.id)).where(Alerta.resuelta == False)
+        )
+
+        hoy = date.today()
+        movimientos_hoy = await self.db.execute(
+            select(func.count(Movimiento.id)).where(
+                func.date(Movimiento.fecha_movimiento) == hoy
+            )
+        )
+
+        manifiestos_activos = await self.db.execute(
+            select(func.count(Manifiesto.id)).where(
+                Manifiesto.estado.in_([EstadoManifiesto.EN_TRANSITO, EstadoManifiesto.EN_CARGUE])
+            )
+        )
+
+        total = sum(counts.values())
+        return KPIResumen(
+            total_estibas=total,
+            disponibles=counts.get(EstadoEstiba.DISPONIBLE, 0) + counts.get(EstadoEstiba.EN_INVENTARIO, 0),
+            en_transito=counts.get(EstadoEstiba.EN_TRANSITO, 0),
+            en_cliente=counts.get(EstadoEstiba.EN_CLIENTE, 0),
+            pendiente_retorno=counts.get(EstadoEstiba.PENDIENTE_RETORNO, 0),
+            danadas=counts.get(EstadoEstiba.DANADA, 0),
+            en_reparacion=counts.get(EstadoEstiba.EN_REPARACION, 0),
+            propias=prop_counts.get(TipoPropietario.PROPIA, 0),
+            alquiladas=prop_counts.get(TipoPropietario.ALQUILADA, 0),
+            alertas_activas=alertas_activas.scalar_one(),
+            movimientos_hoy=movimientos_hoy.scalar_one(),
+            manifiestos_activos=manifiestos_activos.scalar_one(),
+        )
+
+    async def _get_tendencia_movimientos(self, dias: int = 30) -> List[MovimientoTendencia]:
+        resultado = []
+        hoy = date.today()
+        for i in range(dias - 1, -1, -1):
+            dia = hoy - timedelta(days=i)
+            tipos_count = await self.db.execute(
+                select(Movimiento.tipo, func.count(Movimiento.id))
+                .where(func.date(Movimiento.fecha_movimiento) == dia)
+                .group_by(Movimiento.tipo)
+            )
+            counts = {row[0]: row[1] for row in tipos_count.all()}
+            cargas = counts.get(TipoMovimiento.CARGA, 0)
+            descargas = counts.get(TipoMovimiento.DESCARGA, 0)
+            transferencias = counts.get(TipoMovimiento.TRANSFERENCIA, 0)
+            resultado.append(MovimientoTendencia(
+                fecha=dia, cargas=cargas, descargas=descargas,
+                transferencias=transferencias, total=cargas + descargas + transferencias
+            ))
+        return resultado
+
+    async def _get_top_danos(self) -> List[DanoEstadistica]:
+        result = await self.db.execute(
+            select(CodigoDano.codigo, CodigoDano.descripcion, func.count(EventoDano.id).label("cantidad"))
+            .join(EventoDano, EventoDano.codigo_dano_id == CodigoDano.id)
+            .group_by(CodigoDano.id, CodigoDano.codigo, CodigoDano.descripcion)
+            .order_by(func.count(EventoDano.id).desc())
+            .limit(10)
+        )
+        rows = result.all()
+        total = sum(r.cantidad for r in rows) or 1
+        return [
+            DanoEstadistica(
+                codigo=r.codigo,
+                descripcion=r.descripcion,
+                cantidad=r.cantidad,
+                porcentaje=round(r.cantidad / total * 100, 1),
+            )
+            for r in rows
+        ]
+
+    async def _get_ocupacion_ubicaciones(self) -> List[UbicacionOcupacion]:
+        result = await self.db.execute(
+            select(Ubicacion.id, Ubicacion.nombre, Ubicacion.tipo, Ubicacion.capacidad_estibas,
+                   func.count(Estiba.id).label("total"))
+            .outerjoin(Estiba, and_(Estiba.ubicacion_actual_id == Ubicacion.id, Estiba.activo == True))
+            .where(Ubicacion.activo == True)
+            .group_by(Ubicacion.id, Ubicacion.nombre, Ubicacion.tipo, Ubicacion.capacidad_estibas)
+            .order_by(func.count(Estiba.id).desc())
+            .limit(10)
+        )
+        rows = result.all()
+        return [
+            UbicacionOcupacion(
+                ubicacion_id=r.id,
+                nombre=r.nombre,
+                tipo=r.tipo.value if hasattr(r.tipo, "value") else str(r.tipo),
+                total_estibas=r.total,
+                capacidad=r.capacidad_estibas,
+                porcentaje_ocupacion=round(r.total / r.capacidad_estibas * 100, 1) if r.capacidad_estibas else None,
+            )
+            for r in rows
+        ]
+
+    async def _get_alertas_recientes(self) -> List[AlertaResumen]:
+        result = await self.db.execute(
+            select(Alerta).where(Alerta.resuelta == False)
+            .order_by(Alerta.created_at.desc()).limit(5)
+        )
+        alertas = result.scalars().all()
+        return [
+            AlertaResumen(
+                id=a.id, tipo=a.tipo.value, nivel=a.nivel.value,
+                titulo=a.titulo, fecha=a.created_at.isoformat(),
+            )
+            for a in alertas
+        ]
+
+    async def _get_movimientos_recientes(self) -> List[Dict[str, Any]]:
+        result = await self.db.execute(
+            select(Movimiento)
+            .order_by(Movimiento.fecha_movimiento.desc()).limit(10)
+        )
+        movimientos = result.scalars().all()
+        return [
+            {
+                "id": m.id,
+                "tipo": m.tipo.value,
+                "estiba_id": m.estiba_id,
+                "fecha": m.fecha_movimiento.isoformat(),
+                "usuario_id": m.usuario_id,
+            }
+            for m in movimientos
+        ]

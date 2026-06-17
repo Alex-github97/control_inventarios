@@ -1,0 +1,29 @@
+import { apiClient } from './client'
+
+export interface User {
+  id: number
+  nombre: string
+  apellido: string
+  email: string
+  username: string
+  rol: string
+  cargo?: string
+  activo: boolean
+}
+
+export interface LoginResponse {
+  access_token: string
+  refresh_token: string
+  token_type: string
+  user: User
+}
+
+export const authApi = {
+  login: (username: string, password: string) =>
+    apiClient.post<LoginResponse>('/auth/login', { username, password }).then(r => r.data),
+
+  me: () => apiClient.get<User>('/auth/me').then(r => r.data),
+
+  changePassword: (data: { password_actual: string; password_nuevo: string }) =>
+    apiClient.post('/auth/change-password', data).then(r => r.data),
+}

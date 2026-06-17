@@ -1,0 +1,61 @@
+from pydantic import BaseModel
+from typing import List, Dict, Any, Optional
+from datetime import date
+
+
+class KPIResumen(BaseModel):
+    total_estibas: int
+    disponibles: int
+    en_transito: int
+    en_cliente: int
+    pendiente_retorno: int
+    danadas: int
+    en_reparacion: int
+    propias: int
+    alquiladas: int
+    alertas_activas: int
+    movimientos_hoy: int
+    manifiestos_activos: int
+
+
+class DanoEstadistica(BaseModel):
+    codigo: str
+    descripcion: str
+    cantidad: int
+    porcentaje: float
+    costo_total: Optional[float] = None
+
+
+class MovimientoTendencia(BaseModel):
+    fecha: date
+    cargas: int
+    descargas: int
+    transferencias: int
+    total: int
+
+
+class UbicacionOcupacion(BaseModel):
+    ubicacion_id: int
+    nombre: str
+    tipo: str
+    total_estibas: int
+    capacidad: Optional[int] = None
+    porcentaje_ocupacion: Optional[float] = None
+
+
+class AlertaResumen(BaseModel):
+    id: int
+    tipo: str
+    nivel: str
+    titulo: str
+    fecha: str
+    estiba_codigo: Optional[str] = None
+
+
+class DashboardResponse(BaseModel):
+    kpis: KPIResumen
+    tendencia_movimientos: List[MovimientoTendencia]
+    top_danos: List[DanoEstadistica]
+    ocupacion_ubicaciones: List[UbicacionOcupacion]
+    alertas_recientes: List[AlertaResumen]
+    movimientos_recientes: List[Dict[str, Any]]
