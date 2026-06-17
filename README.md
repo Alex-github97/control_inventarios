@@ -1,8 +1,8 @@
-# Control de Inventarios — Plataforma de Trazabilidad de Estibas
+# Control de Inventarios + TarifaX — Plataforma Empresarial ICOLTRANS
 
-**Versión 1.1.0** | Industria Colombiana de Logística y Transporte (ICOLTRANS)
+**Versión 1.2.0** | Industria Colombiana de Logística y Transporte (ICOLTRANS)
 
-Plataforma empresarial para la gestión, control y trazabilidad completa del ciclo de vida de estibas (pallets). Diseñada para operar a escala corporativa con soporte para millones de estibas y cientos de millones de movimientos.
+Plataforma unificada que integra la gestión de estibas (Control de Inventarios) y el motor de cruce de tarifas (TarifaX) en una sola aplicación React. Diseñada para operar a escala corporativa con soporte para millones de registros.
 
 ---
 
@@ -10,22 +10,25 @@ Plataforma empresarial para la gestión, control y trazabilidad completa del cic
 
 ```
 control-inventarios/
-├── backend/          # FastAPI + SQLAlchemy + PostgreSQL
+├── backend/          # FastAPI + SQLAlchemy + PostgreSQL + pandas
 │   ├── app/
 │   │   ├── core/               # Config, Database, Security, Dependencies
 │   │   ├── domain/             # Entidades de dominio
 │   │   ├── application/        # Servicios y Schemas (incluye bulk)
 │   │   ├── infrastructure/     # Modelos ORM, Repos, Integración SAP
-│   │   └── api/v1/             # Endpoints REST
+│   │   └── api/v1/             # Endpoints REST (incluyendo /tarifax)
+│   ├── data/                   # Archivos de datos internos
+│   │   ├── TARIFARIO_SICETAC.xlsx      # Base interna TarifaX (no en git)
+│   │   └── plantilla_cotizacion_tarifax.xlsx
 │   ├── alembic/                # Migraciones de base de datos
 │   └── scripts/                # Seed y utilidades
 └── frontend/         # React + TypeScript + Material UI (diseño modern SaaS)
     └── src/
-        ├── pages/              # Todas las páginas (incluyendo cargue masivo)
-        ├── components/         # Layout, KPICard, StatusChip, etc.
+        ├── pages/              # Todas las páginas (Control de Inventarios + TarifaX)
+        ├── components/         # Layout, Sidebar con switcher de apps, KPICard, etc.
         ├── api/                # Clientes HTTP (axios)
         ├── store/              # Zustand (autenticación)
-        └── theme/              # Identidad visual corporativa #32AC5C
+        └── theme/              # Identidad visual corporativa
 ```
 
 ---
@@ -35,6 +38,7 @@ control-inventarios/
 | Capa | Tecnología |
 |------|-----------|
 | Backend | Python 3.12, FastAPI, SQLAlchemy 2.0 async, Pydantic 2 |
+| Procesamiento de datos | pandas 2.2, openpyxl 3.1 |
 | Base de datos | PostgreSQL 16 |
 | Cache | Redis 7 |
 | Frontend | React 18, TypeScript, Material UI 6 |
@@ -60,22 +64,27 @@ cp .env.example .env
 # Editar .env con las credenciales del entorno
 ```
 
-### 3. Levantar con Docker
+### 3. Agregar el archivo base de TarifaX (no está en git por su tamaño)
+```
+Copiar TARIFARIO_SICETAC.xlsx en:  backend/data/TARIFARIO_SICETAC.xlsx
+```
+
+### 4. Levantar con Docker
 ```bash
 docker-compose up -d
 ```
 
-### 4. Cargar datos iniciales
+### 5. Cargar datos iniciales
 ```bash
 docker-compose exec backend python -m scripts.seed
 ```
 
-### 5. Instalar dependencia de Excel (solo la primera vez)
+### 6. Instalar dependencia de Excel del frontend (solo la primera vez)
 ```bash
-docker-compose exec ci_frontend npm install xlsx
+docker-compose exec frontend npm install xlsx
 ```
 
-### 6. Acceder
+### 7. Acceder
 | Servicio | URL |
 |---------|-----|
 | Frontend | http://localhost:5173 |
@@ -99,7 +108,9 @@ docker-compose exec ci_frontend npm install xlsx
 
 ## Módulos del Sistema
 
-### Estibas
+### Control de Inventarios
+
+#### Estibas
 - Creación individual con generación automática de QR
 - **Cargue masivo desde Excel** (plantilla descargable + validaciones + vista previa)
 - Ciclo de vida completo: inventario → tránsito → cliente → retorno
@@ -107,43 +118,110 @@ docker-compose exec ci_frontend npm install xlsx
 - KPIs en tiempo real por estado
 - Detalle individual con historial completo
 
-### Movimientos
+#### Movimientos
 - Registro individual con diálogo guiado
 - **Cargue masivo desde Excel** (plantilla descargable + validaciones + vista previa)
 - Carga/descarga masiva por manifiesto (endpoints dedicados)
 - Tipos: CARGA, DESCARGA, TRANSFERENCIA, RETORNO, RECEPCION, REPARACION, BAJA, DISPOSICION_FINAL, INVENTARIO
 - Listado con paginación
 
-### Ubicaciones
+#### Ubicaciones
 - Creación, edición y eliminación (soft-delete) de ubicaciones
 - Tipos: BODEGA, PLANTA, PATIO, CLIENTE, PROVEEDOR, VEHICULO, TRANSITO, DISPOSICION_FINAL
 - Búsqueda y filtrado
 - Vista en tarjetas con capacidad y ciudad
 
-### Trazabilidad
+#### Trazabilidad
 - Línea de tiempo completa de cada estiba
 - Registro de: ubicación, vehículo, manifiesto, usuario, GPS, fecha
 
-### Dashboard
+#### Dashboard
 - KPIs en tiempo real
 - Gráfico de tendencia de movimientos (30 días)
 - Distribución de daños por causa
 - Ocupación de ubicaciones
 - Alertas activas
 
-### Manifiestos
+#### Manifiestos
 - Ciclo: Programado → En Cargue → En Tránsito → Entregado
 - Asociación de estibas por manifiesto
 - Vinculación con vehículo y conductor
 
-### Alertas
+#### Alertas
 - Motor automático de alertas
 - Niveles: Info, Advertencia, Crítica
 
-### Integración SAP (preparado)
+#### Integración SAP (preparado)
 - Capa `SAPProveedorService`: sincroniza maestro de proveedores
 - Capa `SAPMovimientoService`: publica movimientos de material
 - Configurable vía variables de entorno
+
+---
+
+## TarifaX
+
+Motor de cruce de tarifas migrado desde Streamlit a React/FastAPI. Accesible desde el sidebar de la aplicación usando el switcher **"TarifaX"** en la parte superior izquierda.
+
+### Secciones
+
+#### Tablero (`/tarifax/tablero`)
+Dashboard con el reporte de Power BI embebido (métricas de fletes SICETAC). El reporte se carga automáticamente desde Power BI Service.
+
+#### Motor TarifaX (`/tarifax/motor`)
+Motor de cruce de tarifas. Permite cruzar el archivo del usuario (DF2) contra la base interna SICETAC (DF1) y descargar el resultado en Excel.
+
+**Flujo de uso:**
+1. (Opcional) Descargar la plantilla de cotización
+2. Subir el archivo Excel de cotizaciones (DF2) — debe incluir la columna `ORIGEN`
+3. Hacer clic en **"Procesar Cruce de Tarifas"**
+4. Revisar las métricas del cruce (registros, tasa de coincidencia, etc.)
+5. Descargar el archivo resultado (`TarifaX_resultado_YYYYMMDD_HHMMSS.xlsx`)
+
+**Lógica del cruce:**
+
+| Parámetro | Valor |
+|-----------|-------|
+| Base interna (DF1) | `TARIFARIO_SICETAC.xlsx` |
+| Columna clave | `ORIGEN` |
+| Tipo de join | LEFT JOIN (DF2 es la tabla principal) |
+| Columna precio cliente | `TARIFA_CLIENTE` (de DF2) |
+| Columna precio SICETAC | `COSTO_TOTAL_VIAJE` (de DF1) |
+| Columna calculada | `variacion_precio = TARIFA_CLIENTE / COSTO_TOTAL_VIAJE` |
+| Columna de auditoría | `procesado_en` (timestamp del cruce) |
+
+### Archivo Base Interno (DF1) — TARIFARIO_SICETAC.xlsx
+
+**Ubicación en el proyecto:**
+```
+control-inventarios/
+└── backend/
+    └── data/
+        └── TARIFARIO_SICETAC.xlsx   ← aquí
+```
+
+**Ruta completa en Windows:**
+```
+C:\Users\yamarchan\OneDrive - ...\control-inventarios\backend\data\TARIFARIO_SICETAC.xlsx
+```
+
+**Para actualizar el archivo:**
+1. Reemplaza el archivo en esa carpeta con la nueva versión
+2. Reinicia el backend para que cargue la versión actualizada:
+```bash
+docker-compose restart backend
+```
+
+> El backend carga DF1 en memoria la primera vez que se ejecuta un cruce y lo mantiene en caché para no releer 41 MB en cada operación. Por eso es necesario reiniciar el contenedor cuando se reemplaza el archivo.
+
+> `TARIFARIO_SICETAC.xlsx` **no está en el repositorio de Git** por su tamaño (41 MB). Debe copiarse manualmente al directorio `backend/data/` en cada nuevo ambiente.
+
+### Plantilla de Cotización
+
+El archivo `plantilla_cotizacion_tarifax.xlsx` sí está en Git y se sirve desde el botón "Descargar plantilla" en el Motor TarifaX. Si necesitas actualizarla:
+
+1. Reemplaza el archivo en `backend/data/plantilla_cotizacion_tarifax.xlsx`
+2. No es necesario reiniciar el backend — se sirve directamente desde disco en cada descarga
+3. Haz commit del nuevo archivo al repositorio
 
 ---
 
@@ -171,6 +249,9 @@ DELETE /api/v1/ubicaciones/{id}             # Soft-delete (activo = false)
 
 GET    /api/v1/dashboard
 GET    /api/v1/alertas?resuelta=false
+
+GET    /api/v1/tarifax/template             # Descarga plantilla_cotizacion_tarifax.xlsx
+POST   /api/v1/tarifax/merge               # Cruce DF2 × TARIFARIO_SICETAC (multipart/form-data)
 ```
 
 Documentación interactiva completa en `/api/docs`.
@@ -207,14 +288,15 @@ Disponible en **Estibas** y **Movimientos** mediante el botón desplegable junto
 
 ## Identidad Visual
 
-| Token | Valor |
-|-------|-------|
-| Primary | `#32AC5C` |
-| Primary Dark | `#27884A` |
-| Background | `#F0F2F5` |
-| Sidebar | `#111827` |
-| Dark | `#0D1117` |
-| Text primary | `#1E293B` |
+| App | Token | Valor |
+|-----|-------|-------|
+| Control de Inventarios | Primary | `#32AC5C` |
+| Control de Inventarios | Primary Dark | `#27884A` |
+| TarifaX | Primary | `#369E4D` |
+| TarifaX | Primary Dark | `#1f6130` |
+| Ambas | Background | `#F0F2F5` |
+| Ambas | Sidebar | `#111827` |
+| Ambas | Text primary | `#1E293B` |
 
 ---
 
@@ -227,6 +309,7 @@ Disponible en **Estibas** y **Movimientos** mediante el botón desplegable junto
 - GZIP en respuestas
 - Redis para caché (preparado)
 - Soft-delete en ubicaciones para preservar integridad referencial
+- DF1 de TarifaX en memoria caché (evita releer 41 MB por cada cruce)
 
 ---
 
