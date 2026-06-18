@@ -3,11 +3,9 @@ import {
   Box, Card, Typography, Button, TextField, Table, TableBody, TableCell,
   TableHead, TableRow, Chip, Skeleton, Dialog, DialogTitle, DialogContent,
   DialogActions, Grid, FormControl, InputLabel, Select, MenuItem, Avatar,
-  alpha, IconButton, Tooltip, Switch, FormControlLabel,
+  alpha, IconButton, Tooltip,
 } from '@mui/material'
-import {
-  Add, Edit, Lock, Group, Check, Close, AdminPanelSettings,
-} from '@mui/icons-material'
+import { Add, Edit, Lock, Close, AdminPanelSettings } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
@@ -16,24 +14,6 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 
 const PRIMARY = '#32AC5C'
-
-const ROL_LABELS: Record<string, string> = {
-  ADMINISTRADOR: 'Administrador',
-  SUPERVISOR_LOGISTICO: 'Supervisor Logístico',
-  OPERADOR_BODEGA: 'Operador de Bodega',
-  AUDITOR: 'Auditor',
-  CONSULTA: 'Consulta',
-}
-
-const ROL_COLORS: Record<string, string> = {
-  ADMINISTRADOR: '#EF4444',
-  SUPERVISOR_LOGISTICO: '#F59E0B',
-  OPERADOR_BODEGA: '#3B82F6',
-  AUDITOR: '#8B5CF6',
-  CONSULTA: '#64748B',
-}
-
-const ROLES = Object.keys(ROL_LABELS)
 
 const getInitials = (nombre: string, apellido: string) =>
   `${nombre?.[0] ?? ''}${apellido?.[0] ?? ''}`.toUpperCase()
@@ -60,6 +40,22 @@ export default function Usuarios() {
     queryKey: ['usuarios'],
     queryFn: () => apiClient.get('/usuarios/').then(r => r.data),
   })
+
+  // Roles dinámicos desde la BD
+  const { data: roles = [] } = useQuery({
+    queryKey: ['roles'],
+    queryFn: () => apiClient.get('/roles/').then(r => r.data),
+  })
+
+  // Helpers para buscar label/color de un rol por su nombre (enum)
+  const rolLabel = (nombre: string) => {
+    const r = roles.find((x: any) => x.nombre === nombre)
+    return r?.label || nombre
+  }
+  const rolColor = (nombre: string) => {
+    const r = roles.find((x: any) => x.nombre === nombre)
+    return r?.color || '#64748B'
+  }
 
   const createMutation = useMutation({
     mutationFn: (body: any) => apiClient.post('/usuarios/', body).then(r => r.data),
@@ -113,9 +109,17 @@ export default function Usuarios() {
 
   const openEditDialog = (u: any) => {
     setSelected(u)
-    setEditForm({ nombre: u.nombre, apellido: u.apellido, email: u.email, username: u.username, rol: u.rol, telefono: u.telefono || '', cargo: u.cargo || '' })
+    setEditForm({
+      nombre: u.nombre, apellido: u.apellido, email: u.email,
+      rol: u.rol, telefono: u.telefono || '', cargo: u.cargo || '',
+    })
     setOpenEdit(true)
   }
+
+  // KPI por roles del sistema (primeros 3 no-consulta)
+  const kpiRoles = roles
+    .filter((r: any) => r.nombre !== 'CONSULTA')
+    .slice(0, 3)
 
   return (
     <Layout title="Usuarios">
@@ -140,18 +144,22 @@ export default function Usuarios() {
       <Grid container spacing={2} sx={{ mb: 2.5 }}>
         <Grid item xs={6} sm={3}>
           <Card sx={{ p: 2, textAlign: 'center', borderRadius: '12px' }}>
-            <Typography sx={{ fontSize: 28, fontWeight: 800, color: PRIMARY }}>{isLoading ? '—' : usuarios.length}</Typography>
-            <Typography sx={{ fontSize: 11, color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Usuarios activos</Typography>
+            <Typography sx={{ fontSize: 28, fontWeight: 800, color: PRIMARY }}>
+              {isLoading ? '—' : usuarios.length}
+            </Typography>
+            <Typography sx={{ fontSize: 11, color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>
+              Usuarios activos
+            </Typography>
           </Card>
         </Grid>
-        {['ADMINISTRADOR', 'SUPERVISOR_LOGISTICO', 'OPERADOR_BODEGA'].map(rol => (
-          <Grid item xs={6} sm={3} key={rol}>
+        {kpiRoles.map((r: any) => (
+          <Grid item xs={6} sm={3} key={r.nombre}>
             <Card sx={{ p: 2, textAlign: 'center', borderRadius: '12px' }}>
-              <Typography sx={{ fontSize: 28, fontWeight: 800, color: ROL_COLORS[rol] }}>
-                {isLoading ? '—' : usuarios.filter((u: any) => u.rol === rol).length}
+              <Typography sx={{ fontSize: 28, fontWeight: 800, color: r.color }}>
+                {isLoading ? '—' : usuarios.filter((u: any) => u.rol === r.nombre).length}
               </Typography>
               <Typography sx={{ fontSize: 11, color: '#64748B', fontWeight: 600, textTransform: 'uppercase', lineHeight: 1.2 }}>
-                {ROL_LABELS[rol]}
+                {r.label || r.nombre}
               </Typography>
             </Card>
           </Grid>
@@ -176,52 +184,78 @@ export default function Usuarios() {
             <TableBody>
               {isLoading ? (
                 Array.from({ length: 6 }).map((_, i) => (
-                  <TableRow key={i}>{Array.from({ length: 7 }).map((_, j) => <TableCell key={j}><Skeleton /></TableCell>)}</TableRow>
+                  <TableRow key={i}>
+                    {Array.from({ length: 7 }).map((_, j) => (
+                      <TableCell key={j}><Skeleton /></TableCell>
+                    ))}
+                  </TableRow>
                 ))
-              ) : usuarios.map((u: any) => (
-                <TableRow key={u.id} hover>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                      <Avatar sx={{ width: 32, height: 32, bgcolor: ROL_COLORS[u.rol] || '#64748B', fontSize: 13, fontWeight: 700 }}>
-                        {getInitials(u.nombre, u.apellido)}
-                      </Avatar>
-                      <Typography sx={{ fontWeight: 600, fontSize: 13 }}>{u.nombre} {u.apellido}</Typography>
-                    </Box>
-                  </TableCell>
-                  <TableCell><Typography sx={{ fontSize: 12 }}>{u.email}</Typography></TableCell>
-                  <TableCell>
-                    <Typography sx={{ fontFamily: 'monospace', fontSize: 12, color: '#475569' }}>@{u.username}</Typography>
-                  </TableCell>
-                  <TableCell><Typography sx={{ fontSize: 12 }}>{u.cargo || '—'}</Typography></TableCell>
-                  <TableCell>
-                    <Chip label={ROL_LABELS[u.rol] || u.rol} size="small"
-                      sx={{ bgcolor: alpha(ROL_COLORS[u.rol] || '#64748B', 0.12), color: ROL_COLORS[u.rol] || '#64748B', fontWeight: 700, fontSize: 10 }} />
-                  </TableCell>
-                  <TableCell><Typography sx={{ fontSize: 12 }}>{u.telefono || '—'}</Typography></TableCell>
-                  <TableCell align="right">
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
-                      <Tooltip title="Editar">
-                        <IconButton size="small" onClick={() => openEditDialog(u)} sx={{ color: '#64748B' }}>
-                          <Edit fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Restablecer contraseña">
-                        <IconButton size="small" onClick={() => { setSelected(u); setNewPwd(''); setOpenPwd(true) }} sx={{ color: '#64748B' }}>
-                          <Lock fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      {u.id !== currentUser?.id && (
-                        <Tooltip title="Desactivar usuario">
-                          <IconButton size="small" onClick={() => deleteMutation.mutate(u.id)}
-                            sx={{ color: '#94A3B8', '&:hover': { color: '#EF4444', bgcolor: alpha('#EF4444', 0.06) } }}>
-                            <Close fontSize="small" />
+              ) : usuarios.map((u: any) => {
+                const color = rolColor(u.rol)
+                return (
+                  <TableRow key={u.id} hover>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Avatar sx={{ width: 32, height: 32, bgcolor: color, fontSize: 13, fontWeight: 700 }}>
+                          {getInitials(u.nombre, u.apellido)}
+                        </Avatar>
+                        <Typography sx={{ fontWeight: 600, fontSize: 13 }}>
+                          {u.nombre} {u.apellido}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell><Typography sx={{ fontSize: 12 }}>{u.email}</Typography></TableCell>
+                    <TableCell>
+                      <Typography sx={{ fontFamily: 'monospace', fontSize: 12, color: '#475569' }}>
+                        @{u.username}
+                      </Typography>
+                    </TableCell>
+                    <TableCell><Typography sx={{ fontSize: 12 }}>{u.cargo || '—'}</Typography></TableCell>
+                    <TableCell>
+                      <Chip
+                        label={rolLabel(u.rol)}
+                        size="small"
+                        sx={{
+                          bgcolor: alpha(color, 0.12),
+                          color,
+                          fontWeight: 700,
+                          fontSize: 10,
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell><Typography sx={{ fontSize: 12 }}>{u.telefono || '—'}</Typography></TableCell>
+                    <TableCell align="right">
+                      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+                        <Tooltip title="Editar">
+                          <IconButton size="small" onClick={() => openEditDialog(u)} sx={{ color: '#64748B' }}>
+                            <Edit fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                      )}
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ))}
+                        <Tooltip title="Restablecer contraseña">
+                          <IconButton
+                            size="small"
+                            onClick={() => { setSelected(u); setNewPwd(''); setOpenPwd(true) }}
+                            sx={{ color: '#64748B' }}
+                          >
+                            <Lock fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        {u.id !== currentUser?.id && (
+                          <Tooltip title="Desactivar usuario">
+                            <IconButton
+                              size="small"
+                              onClick={() => deleteMutation.mutate(u.id)}
+                              sx={{ color: '#94A3B8', '&:hover': { color: '#EF4444', bgcolor: alpha('#EF4444', 0.06) } }}
+                            >
+                              <Close fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>
         </Box>
@@ -233,21 +267,34 @@ export default function Usuarios() {
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
             {[
-              { label: 'Nombre', key: 'nombre' }, { label: 'Apellido', key: 'apellido' },
-              { label: 'Email', key: 'email', type: 'email' }, { label: 'Username', key: 'username' },
+              { label: 'Nombre', key: 'nombre' },
+              { label: 'Apellido', key: 'apellido' },
+              { label: 'Email', key: 'email', type: 'email' },
+              { label: 'Username', key: 'username' },
               { label: 'Contraseña', key: 'password', type: 'password' },
-              { label: 'Teléfono', key: 'telefono' }, { label: 'Cargo', key: 'cargo' },
+              { label: 'Teléfono', key: 'telefono' },
+              { label: 'Cargo', key: 'cargo' },
             ].map(f => (
               <Grid item xs={12} sm={6} key={f.key}>
-                <TextField fullWidth size="small" label={f.label} type={f.type || 'text'}
-                  value={(form as any)[f.key]} onChange={e => setForm({ ...form, [f.key]: e.target.value })} />
+                <TextField
+                  fullWidth size="small" label={f.label} type={f.type || 'text'}
+                  value={(form as any)[f.key]}
+                  onChange={e => setForm({ ...form, [f.key]: e.target.value })}
+                />
               </Grid>
             ))}
             <Grid item xs={12}>
               <FormControl fullWidth size="small">
                 <InputLabel>Rol</InputLabel>
                 <Select value={form.rol} label="Rol" onChange={e => setForm({ ...form, rol: e.target.value })}>
-                  {ROLES.map(r => <MenuItem key={r} value={r}>{ROL_LABELS[r]}</MenuItem>)}
+                  {roles.map((r: any) => (
+                    <MenuItem key={r.nombre} value={r.nombre}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: r.color }} />
+                        {r.label || r.nombre}
+                      </Box>
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>
@@ -255,8 +302,10 @@ export default function Usuarios() {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setOpenCreate(false)}>Cancelar</Button>
-          <Button variant="contained" onClick={handleCreate} disabled={createMutation.isPending}
-            sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#27884A' } }}>
+          <Button
+            variant="contained" onClick={handleCreate} disabled={createMutation.isPending}
+            sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#27884A' } }}
+          >
             {createMutation.isPending ? 'Creando...' : 'Crear'}
           </Button>
         </DialogActions>
@@ -268,20 +317,36 @@ export default function Usuarios() {
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
             {[
-              { label: 'Nombre', key: 'nombre' }, { label: 'Apellido', key: 'apellido' },
-              { label: 'Email', key: 'email', type: 'email' }, { label: 'Username', key: 'username' },
-              { label: 'Teléfono', key: 'telefono' }, { label: 'Cargo', key: 'cargo' },
+              { label: 'Nombre', key: 'nombre' },
+              { label: 'Apellido', key: 'apellido' },
+              { label: 'Email', key: 'email', type: 'email' },
+              { label: 'Teléfono', key: 'telefono' },
+              { label: 'Cargo', key: 'cargo' },
             ].map(f => (
               <Grid item xs={12} sm={6} key={f.key}>
-                <TextField fullWidth size="small" label={f.label} type={f.type || 'text'}
-                  value={editForm[f.key] || ''} onChange={e => setEditForm({ ...editForm, [f.key]: e.target.value })} />
+                <TextField
+                  fullWidth size="small" label={f.label} type={f.type || 'text'}
+                  value={editForm[f.key] || ''}
+                  onChange={e => setEditForm({ ...editForm, [f.key]: e.target.value })}
+                />
               </Grid>
             ))}
             <Grid item xs={12}>
               <FormControl fullWidth size="small">
                 <InputLabel>Rol</InputLabel>
-                <Select value={editForm.rol || ''} label="Rol" onChange={e => setEditForm({ ...editForm, rol: e.target.value })}>
-                  {ROLES.map(r => <MenuItem key={r} value={r}>{ROL_LABELS[r]}</MenuItem>)}
+                <Select
+                  value={editForm.rol || ''}
+                  label="Rol"
+                  onChange={e => setEditForm({ ...editForm, rol: e.target.value })}
+                >
+                  {roles.map((r: any) => (
+                    <MenuItem key={r.nombre} value={r.nombre}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: r.color }} />
+                        {r.label || r.nombre}
+                      </Box>
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>
@@ -289,9 +354,11 @@ export default function Usuarios() {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setOpenEdit(false)}>Cancelar</Button>
-          <Button variant="contained" disabled={editMutation.isPending}
+          <Button
+            variant="contained" disabled={editMutation.isPending}
             onClick={() => editMutation.mutate({ id: selected.id, body: editForm })}
-            sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#27884A' } }}>
+            sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#27884A' } }}
+          >
             {editMutation.isPending ? 'Guardando...' : 'Guardar'}
           </Button>
         </DialogActions>
@@ -302,16 +369,20 @@ export default function Usuarios() {
         <DialogTitle sx={{ fontWeight: 700 }}>Restablecer Contraseña</DialogTitle>
         <DialogContent>
           <Typography sx={{ mb: 2, fontSize: 13, color: '#64748B' }}>
-            Ingresa la nueva contraseña para {selected?.nombre} {selected?.apellido}
+            Nueva contraseña para {selected?.nombre} {selected?.apellido}
           </Typography>
-          <TextField fullWidth size="small" label="Nueva contraseña" type="password"
-            value={newPwd} onChange={e => setNewPwd(e.target.value)} />
+          <TextField
+            fullWidth size="small" label="Nueva contraseña" type="password"
+            value={newPwd} onChange={e => setNewPwd(e.target.value)}
+          />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setOpenPwd(false)}>Cancelar</Button>
-          <Button variant="contained" disabled={resetPwdMutation.isPending}
+          <Button
+            variant="contained" disabled={resetPwdMutation.isPending}
             onClick={() => resetPwdMutation.mutate({ id: selected.id, pwd: newPwd })}
-            sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#27884A' } }}>
+            sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#27884A' } }}
+          >
             {resetPwdMutation.isPending ? 'Restableciendo...' : 'Restablecer'}
           </Button>
         </DialogActions>

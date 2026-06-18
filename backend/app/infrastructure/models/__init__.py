@@ -1,4 +1,5 @@
 from app.infrastructure.models.base import TimestampMixin, SoftDeleteMixin
+from app.infrastructure.models.rol import Rol, ROLES_DEFECTO, MODULOS_SISTEMA
 from app.infrastructure.models.usuario import Usuario, RolUsuario
 from app.infrastructure.models.ubicacion import Ubicacion, TipoUbicacion
 from app.infrastructure.models.proveedor import Proveedor, Contrato, TipoProveedor, EstadoContrato
@@ -12,6 +13,7 @@ from app.infrastructure.models.auditoria import RegistroAuditoria
 
 __all__ = [
     "TimestampMixin", "SoftDeleteMixin",
+    "Rol", "ROLES_DEFECTO", "MODULOS_SISTEMA",
     "Usuario", "RolUsuario",
     "Ubicacion", "TipoUbicacion",
     "Proveedor", "Contrato", "TipoProveedor", "EstadoContrato",

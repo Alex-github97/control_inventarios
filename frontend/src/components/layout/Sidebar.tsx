@@ -19,6 +19,7 @@ import {
   Build as MantenimientoIcon,
   AttachMoney as CostosIcon,
   Storage as ConsultasIcon,
+  AdminPanelSettings as RolesIcon,
   ChevronLeft, ChevronRight,
   BarChart as TableroIcon,
   MergeType as MotorIcon,
@@ -29,38 +30,45 @@ const DRAWER_COLLAPSED  = 68
 const COMPACT_THRESHOLD = 140
 const CI_COLOR  = '#32AC5C'
 const TX_COLOR  = '#369E4D'
+const CF_COLOR  = '#6366F1'
 
 interface NavItem {
   label: string
   icon: React.ReactNode
   path: string
   section?: string
+  exact?: boolean
 }
 
 const CI_NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard',    icon: <DashboardIcon   fontSize="small" />, path: '/dashboard',    section: 'Principal' },
-  { label: 'Estibas',      icon: <EstibasIcon     fontSize="small" />, path: '/estibas',      section: 'Principal' },
-  { label: 'Movimientos',  icon: <MovimientosIcon fontSize="small" />, path: '/movimientos',  section: 'Operaciones' },
-  { label: 'Trazabilidad', icon: <TrazabilidadIcon fontSize="small"/>, path: '/trazabilidad', section: 'Operaciones' },
-  { label: 'Manifiestos',  icon: <ManifiestosIcon fontSize="small" />, path: '/manifiestos',  section: 'Operaciones' },
-  { label: 'Vehículos',    icon: <VehiculosIcon   fontSize="small" />, path: '/vehiculos',    section: 'Recursos' },
-  { label: 'Ubicaciones',  icon: <UbicacionesIcon fontSize="small" />, path: '/ubicaciones',  section: 'Recursos' },
-  { label: 'Proveedores',  icon: <ProveedoresIcon fontSize="small" />, path: '/proveedores',  section: 'Recursos' },
+  { label: 'Dashboard',     icon: <DashboardIcon    fontSize="small" />, path: '/dashboard',    section: 'Principal' },
+  { label: 'Estibas',       icon: <EstibasIcon      fontSize="small" />, path: '/estibas',      section: 'Principal' },
+  { label: 'Movimientos',   icon: <MovimientosIcon  fontSize="small" />, path: '/movimientos',  section: 'Operaciones' },
+  { label: 'Trazabilidad',  icon: <TrazabilidadIcon fontSize="small" />, path: '/trazabilidad', section: 'Operaciones' },
+  { label: 'Manifiestos',   icon: <ManifiestosIcon  fontSize="small" />, path: '/manifiestos',  section: 'Operaciones' },
+  { label: 'Vehículos',     icon: <VehiculosIcon    fontSize="small" />, path: '/vehiculos',    section: 'Recursos' },
+  { label: 'Ubicaciones',   icon: <UbicacionesIcon  fontSize="small" />, path: '/ubicaciones',  section: 'Recursos' },
+  { label: 'Proveedores',   icon: <ProveedoresIcon  fontSize="small" />, path: '/proveedores',  section: 'Recursos' },
   { label: 'Mantenimiento', icon: <MantenimientoIcon fontSize="small" />, path: '/mantenimiento', section: 'Operaciones' },
-  { label: 'Daños',        icon: <DanosIcon       fontSize="small" />, path: '/danos',        section: 'Control' },
-  { label: 'Alertas',      icon: <AlertasIcon     fontSize="small" />, path: '/alertas',      section: 'Control' },
-  { label: 'Costos',       icon: <CostosIcon      fontSize="small" />, path: '/costos',       section: 'Control' },
-  { label: 'Consultas',    icon: <ConsultasIcon   fontSize="small" />, path: '/consultas',    section: 'Control' },
-  { label: 'Usuarios',     icon: <UsuariosIcon    fontSize="small" />, path: '/usuarios',     section: 'Control' },
+  { label: 'Daños',         icon: <DanosIcon        fontSize="small" />, path: '/danos',        section: 'Control' },
+  { label: 'Alertas',       icon: <AlertasIcon      fontSize="small" />, path: '/alertas',      section: 'Control' },
+  { label: 'Costos',        icon: <CostosIcon       fontSize="small" />, path: '/costos',       section: 'Control' },
+  { label: 'Consultas',     icon: <ConsultasIcon    fontSize="small" />, path: '/consultas',    section: 'Control' },
 ]
 
 const TX_NAV_ITEMS: NavItem[] = [
-  { label: 'Tablero', icon: <TableroIcon fontSize="small" />, path: '/tarifax/tablero', section: 'TarifaX' },
-  { label: 'Motor TarifaX', icon: <MotorIcon fontSize="small" />, path: '/tarifax/motor', section: 'TarifaX' },
+  { label: 'Tablero',       icon: <TableroIcon  fontSize="small" />, path: '/tarifax/tablero', section: 'TarifaX' },
+  { label: 'Motor TarifaX', icon: <MotorIcon    fontSize="small" />, path: '/tarifax/motor',   section: 'TarifaX' },
 ]
 
-const CI_SECTIONS = ['Principal', 'Operaciones', 'Recursos', 'Control']
-const TX_SECTIONS = ['TarifaX']
+const CONFIG_NAV_ITEMS: NavItem[] = [
+  { label: 'Usuarios', icon: <UsuariosIcon fontSize="small" />, path: '/usuarios',       section: 'Administración', exact: true },
+  { label: 'Roles',    icon: <RolesIcon   fontSize="small" />, path: '/usuarios/roles', section: 'Administración' },
+]
+
+const CI_SECTIONS     = ['Principal', 'Operaciones', 'Recursos', 'Control']
+const TX_SECTIONS     = ['TarifaX']
+const CONFIG_SECTIONS = ['Administración']
 
 interface SidebarProps {
   open: boolean
@@ -74,10 +82,16 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
   const location  = useLocation()
   const [collapsed, setCollapsed] = useState(false)
 
-  const isTarifax   = location.pathname.startsWith('/tarifax')
-  const activeColor = isTarifax ? TX_COLOR : CI_COLOR
-  const navItems    = isTarifax ? TX_NAV_ITEMS : CI_NAV_ITEMS
-  const sections    = isTarifax ? TX_SECTIONS  : CI_SECTIONS
+  const isTarifax = location.pathname.startsWith('/tarifax')
+  const isConfig  = location.pathname.startsWith('/usuarios')
+
+  const activeColor = isConfig ? CF_COLOR : isTarifax ? TX_COLOR : CI_COLOR
+  const navItems    = isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : CI_NAV_ITEMS
+  const sections    = isConfig ? CONFIG_SECTIONS  : isTarifax ? TX_SECTIONS  : CI_SECTIONS
+
+  const logoShort = isConfig ? 'CF' : isTarifax ? 'TX' : 'CE'
+  const logoLine1 = isConfig ? 'Configuración' : isTarifax ? 'TarifaX' : 'Control de'
+  const logoLine2 = isConfig ? 'del Sistema'   : isTarifax ? 'Motor de Tarifas' : 'Estibas'
 
   const width    = collapsed ? DRAWER_COLLAPSED : (widthProp ?? DRAWER_WIDTH)
   const showText = !collapsed && (widthProp === undefined || widthProp >= COMPACT_THRESHOLD)
@@ -120,7 +134,9 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
             width: 36,
             height: 36,
             borderRadius: '10px',
-            background: `linear-gradient(135deg, ${activeColor} 0%, ${isTarifax ? '#1f6130' : '#27884A'} 100%)`,
+            background: isConfig
+              ? `linear-gradient(135deg, ${CF_COLOR} 0%, #4F46E5 100%)`
+              : `linear-gradient(135deg, ${activeColor} 0%, ${isTarifax ? '#1f6130' : '#27884A'} 100%)`,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -130,16 +146,16 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
           }}
         >
           <Typography sx={{ color: '#FFF', fontWeight: 800, fontSize: 13, letterSpacing: '-0.5px' }}>
-            {isTarifax ? 'TX' : 'CE'}
+            {logoShort}
           </Typography>
         </Box>
         {showText && (
           <Box sx={{ overflow: 'hidden' }}>
             <Typography sx={{ color: '#FFFFFF', fontWeight: 700, fontSize: 13.5, lineHeight: 1.2, whiteSpace: 'nowrap' }}>
-              {isTarifax ? 'TarifaX' : 'Control de'}
+              {logoLine1}
             </Typography>
             <Typography sx={{ color: activeColor, fontWeight: 700, fontSize: 13.5, lineHeight: 1.2, whiteSpace: 'nowrap', transition: 'color 0.3s ease' }}>
-              {isTarifax ? 'Motor de Tarifas' : 'Estibas'}
+              {logoLine2}
             </Typography>
           </Box>
         )}
@@ -171,7 +187,7 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
               <List disablePadding>
                 {items.map(item => {
                   const active = location.pathname === item.path ||
-                    (item.path !== '/dashboard' && location.pathname.startsWith(item.path))
+                    (!item.exact && item.path !== '/dashboard' && location.pathname.startsWith(item.path))
                   return (
                     <Tooltip
                       key={item.path}

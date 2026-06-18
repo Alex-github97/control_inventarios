@@ -1,69 +1,39 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from typing import List
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_admin
 from app.core.security import hash_password
 from app.infrastructure.repositories.usuario_repository import UsuarioRepository
 from app.infrastructure.models.usuario import Usuario, RolUsuario
+from app.infrastructure.models.rol import Rol
 from app.application.schemas.usuario import UsuarioCreate, UsuarioUpdate, UsuarioResponse
 
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
 
 
+async def _resolve_rol_id(db: AsyncSession, rol_nombre: str) -> int | None:
+    result = await db.execute(select(Rol).where(Rol.nombre == rol_nombre))
+    rol = result.scalar_one_or_none()
+    return rol.id if rol else None
+
+
 @router.get("/roles-info")
-async def info_roles(current_user: Usuario = Depends(require_admin)):
+async def info_roles(
+    db: AsyncSession = Depends(get_db),
+    _: Usuario = Depends(require_admin),
+):
+    result = await db.execute(select(Rol).order_by(Rol.es_sistema.desc(), Rol.nombre))
+    roles = result.scalars().all()
     return [
         {
-            "rol": RolUsuario.ADMINISTRADOR,
-            "label": "Administrador",
-            "descripcion": "Acceso total al sistema. Puede crear usuarios y ver todos los módulos.",
-            "modulos": {
-                "dashboard": True, "estibas": True, "movimientos": True, "trazabilidad": True,
-                "manifiestos": True, "vehiculos": True, "ubicaciones": True, "proveedores": True,
-                "danos": True, "alertas": True, "usuarios": True, "mantenimiento": True, "costos": True,
-            },
-        },
-        {
-            "rol": RolUsuario.SUPERVISOR_LOGISTICO,
-            "label": "Supervisor Logístico",
-            "descripcion": "Gestiona operaciones logísticas y supervisa movimientos y costos.",
-            "modulos": {
-                "dashboard": True, "estibas": True, "movimientos": True, "trazabilidad": True,
-                "manifiestos": True, "vehiculos": True, "ubicaciones": True, "proveedores": True,
-                "danos": True, "alertas": True, "usuarios": False, "mantenimiento": True, "costos": True,
-            },
-        },
-        {
-            "rol": RolUsuario.OPERADOR_BODEGA,
-            "label": "Operador de Bodega",
-            "descripcion": "Registra movimientos, crea estibas y gestiona mantenimientos.",
-            "modulos": {
-                "dashboard": True, "estibas": True, "movimientos": True, "trazabilidad": True,
-                "manifiestos": False, "vehiculos": False, "ubicaciones": True, "proveedores": False,
-                "danos": False, "alertas": True, "usuarios": False, "mantenimiento": True, "costos": False,
-            },
-        },
-        {
-            "rol": RolUsuario.AUDITOR,
-            "label": "Auditor",
-            "descripcion": "Acceso de lectura a todos los módulos para auditoría y control.",
-            "modulos": {
-                "dashboard": True, "estibas": True, "movimientos": True, "trazabilidad": True,
-                "manifiestos": True, "vehiculos": True, "ubicaciones": True, "proveedores": True,
-                "danos": True, "alertas": True, "usuarios": False, "mantenimiento": True, "costos": True,
-            },
-        },
-        {
-            "rol": RolUsuario.CONSULTA,
-            "label": "Consulta",
-            "descripcion": "Solo puede ver el dashboard, estibas y trazabilidad.",
-            "modulos": {
-                "dashboard": True, "estibas": True, "movimientos": False, "trazabilidad": True,
-                "manifiestos": False, "vehiculos": False, "ubicaciones": False, "proveedores": False,
-                "danos": False, "alertas": False, "usuarios": False, "mantenimiento": False, "costos": False,
-            },
-        },
+            "rol": r.nombre,
+            "label": r.label or r.nombre,
+            "descripcion": r.descripcion or "",
+            "modulos": r.permisos or {},
+        }
+        for r in roles
     ]
 
 
@@ -87,10 +57,11 @@ async def crear_usuario(
         raise HTTPException(status_code=409, detail="El email ya está registrado")
     if await repo.get_by_username(data.username):
         raise HTTPException(status_code=409, detail="El nombre de usuario ya está en uso")
+    rol_id = await _resolve_rol_id(db, data.rol.value)
     user = Usuario(
         nombre=data.nombre, apellido=data.apellido, email=data.email,
         username=data.username, hashed_password=hash_password(data.password),
-        rol=data.rol, telefono=data.telefono, cargo=data.cargo,
+        rol=data.rol, rol_id=rol_id, telefono=data.telefono, cargo=data.cargo,
     )
     return await repo.create(user)
 
@@ -119,7 +90,11 @@ async def actualizar_usuario(
     user = await repo.get_by_id(usuario_id)
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    return await repo.update(user, data.model_dump(exclude_unset=True))
+    update_data = data.model_dump(exclude_unset=True)
+    if "rol" in update_data:
+        rol_id = await _resolve_rol_id(db, update_data["rol"].value)
+        update_data["rol_id"] = rol_id
+    return await repo.update(user, update_data)
 
 
 @router.put("/{usuario_id}/reset-password", status_code=200)

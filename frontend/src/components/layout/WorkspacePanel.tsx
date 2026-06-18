@@ -5,6 +5,7 @@ import { Box, Typography, Tooltip, alpha } from '@mui/material'
 const PANEL_BG         = '#060C1A'
 const CI_COLOR         = '#32AC5C'
 const TX_COLOR         = '#48BB78'
+const CF_COLOR         = '#6366F1'
 const COMPACT_THRESHOLD = 80
 
 const WORKSPACES = [
@@ -14,7 +15,7 @@ const WORKSPACES = [
     short: 'CE',
     color: CI_COLOR,
     path:  '/dashboard',
-    isActive: (p: string) => !p.startsWith('/tarifax'),
+    isActive: (p: string) => !p.startsWith('/tarifax') && !p.startsWith('/usuarios'),
   },
   {
     id:    'tarifax',
@@ -23,6 +24,14 @@ const WORKSPACES = [
     color: TX_COLOR,
     path:  '/tarifax/tablero',
     isActive: (p: string) => p.startsWith('/tarifax'),
+  },
+  {
+    id:    'config',
+    label: 'Configuración',
+    short: 'CF',
+    color: CF_COLOR,
+    path:  '/usuarios',
+    isActive: (p: string) => p.startsWith('/usuarios'),
   },
 ]
 

@@ -305,19 +305,28 @@ export default function Login() {
           transition={{ duration: 0.45, ease: 'easeOut' }}
           style={{ width: '100%', maxWidth: 400 }}
         >
-          {/* Logo móvil */}
-          <Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center', gap: 1.5, mb: 4 }}>
-            <Box sx={{
-              width: 40, height: 40, borderRadius: '10px',
-              background: 'linear-gradient(135deg, #32AC5C 0%, #27884A 100%)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 4px 12px rgba(50,172,92,0.35)',
-            }}>
-              <Typography sx={{ color: '#FFF', fontWeight: 800, fontSize: 14 }}>CE</Typography>
+          {/* Logo ICOLTRANS */}
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 4.5 }}>
+            <Box
+              sx={{
+                bgcolor: '#FFFFFF',
+                borderRadius: '16px',
+                border: '1px solid #E8EDF2',
+                boxShadow: '0 2px 12px rgba(0,0,0,0.07)',
+                px: 4,
+                py: 2.5,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Box
+                component="img"
+                src="/logo-icoltrans.png"
+                alt="ICOLTRANS · Aligeramos sus cargas"
+                sx={{ width: 200, height: 'auto', display: 'block' }}
+              />
             </Box>
-            <Typography sx={{ fontWeight: 700, fontSize: 15, color: '#0D1117' }}>
-              Control de Estibas
-            </Typography>
           </Box>
 
           {/* Título */}

@@ -1,5 +1,6 @@
 import enum
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Enum, func
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Enum, ForeignKey
+from sqlalchemy.orm import relationship
 from app.core.database import Base
 from app.infrastructure.models.base import TimestampMixin, SoftDeleteMixin
 
@@ -22,11 +23,14 @@ class Usuario(Base, TimestampMixin, SoftDeleteMixin):
     username = Column(String(80), unique=True, nullable=False, index=True)
     hashed_password = Column(String(255), nullable=False)
     rol = Column(Enum(RolUsuario), nullable=False, default=RolUsuario.CONSULTA)
+    rol_id = Column(Integer, ForeignKey("roles.id", ondelete="SET NULL"), nullable=True)
     telefono = Column(String(20), nullable=True)
     cargo = Column(String(150), nullable=True)
     ultimo_login = Column(DateTime(timezone=True), nullable=True)
     intentos_fallidos = Column(Integer, default=0)
     bloqueado = Column(Boolean, default=False)
+
+    rol_obj = relationship("Rol", back_populates="usuarios", foreign_keys=[rol_id])
 
     @property
     def nombre_completo(self) -> str:
