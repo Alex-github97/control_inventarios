@@ -1,8 +1,8 @@
-# Control de Inventarios + TarifaX — Plataforma Empresarial ICOLTRANS
+# Control de Estibas + TarifaX — Plataforma Empresarial ICOLTRANS
 
-**Versión 1.3.0** | Industria Colombiana de Logística y Transporte (ICOLTRANS)
+**Versión 1.4.0** | Industria Colombiana de Logística y Transporte (ICOLTRANS)
 
-Plataforma unificada que integra la gestión de estibas (Control de Inventarios) y el motor de cruce de tarifas (TarifaX) en una sola aplicación React. Diseñada para operar a escala corporativa con soporte para millones de registros.
+Plataforma unificada que integra la gestión de estibas (CE — Control de Estibas) y el motor de cruce de tarifas (TarifaX) en una sola aplicación React. Diseñada para operar a escala corporativa con soporte para millones de registros.
 
 ---
 
@@ -91,6 +91,7 @@ docker-compose exec frontend npm install xlsx
 | API REST | http://localhost:8000 |
 | Docs API (Swagger) | http://localhost:8000/api/docs |
 | ReDoc | http://localhost:8000/api/redoc |
+| pgAdmin (gestor BD) | http://localhost:5050 |
 
 ---
 
@@ -108,7 +109,7 @@ docker-compose exec frontend npm install xlsx
 
 ## Módulos del Sistema
 
-### Control de Inventarios
+### CE — Control de Estibas
 
 #### Estibas
 - Creación individual con generación automática de QR
@@ -206,7 +207,7 @@ Matriz de acceso por módulo para cada rol del sistema.
 
 ## TarifaX
 
-Motor de cruce de tarifas migrado desde Streamlit a React/FastAPI. Accesible desde el sidebar de la aplicación usando el switcher **"TarifaX"** en la parte superior izquierda.
+Motor de cruce de tarifas migrado desde Streamlit a React/FastAPI. Accesible desde el sidebar de la aplicación usando el switcher **"CE / TarifaX"** en la parte superior izquierda.
 
 ### Secciones
 
@@ -268,6 +269,40 @@ El archivo `plantilla_cotizacion_tarifax.xlsx` sí está en Git y se sirve desde
 1. Reemplaza el archivo en `backend/data/plantilla_cotizacion_tarifax.xlsx`
 2. No es necesario reiniciar el backend — se sirve directamente desde disco en cada descarga
 3. Haz commit del nuevo archivo al repositorio
+
+---
+
+## pgAdmin — Gestor Visual de Base de Datos
+
+pgAdmin corre como un servicio Docker adicional y permite explorar los datos almacenados en PostgreSQL sin herramientas externas.
+
+**Acceso:** http://localhost:5050
+
+| Campo | Valor por defecto |
+|-------|------------------|
+| Email | `admin@icoltrans.com.co` |
+| Password | `admin123` |
+
+> Las credenciales se pueden personalizar en `.env` con `PGADMIN_EMAIL` y `PGADMIN_PASSWORD`.
+
+### Primera conexión al servidor PostgreSQL
+
+1. Clic en **Add New Server**
+2. Pestaña **General** → Nombre: `Control de Estibas`
+3. Pestaña **Connection**:
+   - Host: `postgres`
+   - Port: `5432`
+   - Database: `control_inventarios`
+   - Username: `ci_user`
+   - Password: valor de `POSTGRES_PASSWORD` en `.env`
+4. **Save**
+
+> El host debe ser `postgres` (nombre del servicio Docker), no `localhost`.
+
+### Levantar pgAdmin por separado
+```bash
+docker-compose up -d pgadmin
+```
 
 ---
 
@@ -350,8 +385,8 @@ Disponible en **Estibas** y **Movimientos** mediante el botón desplegable junto
 
 | App | Token | Valor |
 |-----|-------|-------|
-| Control de Inventarios | Primary | `#32AC5C` |
-| Control de Inventarios | Primary Dark | `#27884A` |
+| CE — Control de Estibas | Primary | `#32AC5C` |
+| CE — Control de Estibas | Primary Dark | `#27884A` |
 | TarifaX | Primary | `#369E4D` |
 | TarifaX | Primary Dark | `#1f6130` |
 | Ambas | Background | `#F0F2F5` |
@@ -374,6 +409,12 @@ Disponible en **Estibas** y **Movimientos** mediante el botón desplegable junto
 ---
 
 ## Historial de Versiones
+
+### v1.4.0
+- **Renombramiento de módulo**: "CI — Control de Inventarios" → "CE — Control de Estibas" en toda la app (sidebar, login, plantillas Excel de cargue masivo, identidad visual)
+- **Login con carrusel animado**: panel izquierdo muestra los módulos integrados (CE y TarifaX) con transición automática cada 5 segundos (Framer Motion). Fácilmente extensible para nuevos módulos agregando un objeto al array `MODULES`
+- **pgAdmin integrado**: gestor visual de base de datos accesible en http://localhost:5050 — permite explorar tablas, ejecutar consultas SQL y exportar datos sin necesidad de herramientas externas
+- Corrección de bug de autenticación: loop 403/401 resuelto con `HTTPBearer(auto_error=False)` + limpieza completa del estado Zustand en interceptor Axios
 
 ### v1.3.0
 - Nuevo módulo **Mantenimiento de Estibas**: registro de costos por estiba con tipos, filtros y KPIs
