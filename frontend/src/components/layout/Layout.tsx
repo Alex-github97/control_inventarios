@@ -15,9 +15,10 @@ const DEFAULT_WS = 52
 interface LayoutProps {
   children: React.ReactNode
   title?: string
+  noPadding?: boolean
 }
 
-export function Layout({ children, title }: LayoutProps) {
+export function Layout({ children, title, noPadding = false }: LayoutProps) {
   const [sidebarWidth,   setSidebarWidth]   = useState(DEFAULT_SIDEBAR)
   const [workspaceWidth, setWorkspaceWidth] = useState(DEFAULT_WS)
   const [draggingSidebar,   setDraggingSidebar]   = useState(false)
@@ -128,7 +129,14 @@ export function Layout({ children, title }: LayoutProps) {
         <Header title={title} />
         <Box
           component="main"
-          sx={{ flex: 1, p: { xs: 2, sm: 3 }, overflow: 'auto' }}
+          sx={{
+            flex: 1,
+            p: noPadding ? 0 : { xs: 2, sm: 3 },
+            overflow: noPadding ? 'hidden' : 'auto',
+            display: noPadding ? 'flex' : 'block',
+            flexDirection: 'column',
+            minHeight: 0,
+          }}
         >
           {children}
         </Box>

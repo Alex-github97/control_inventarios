@@ -25,6 +25,7 @@ import TarifaxDashboard from '@/pages/TarifaxDashboard'
 import TarifaxMotor from '@/pages/TarifaxMotor'
 import Usuarios from '@/pages/Usuarios'
 import Roles from '@/pages/Roles'
+import CommandCenter from '@/pages/CommandCenter'
 import Mantenimiento from '@/pages/Mantenimiento'
 import CostosReporte from '@/pages/CostosReporte'
 import Consultas from '@/pages/Consultas'
@@ -77,6 +78,8 @@ export default function App() {
             <Route path="/trazabilidad" element={<ProtectedRoute><Trazabilidad /></ProtectedRoute>} />
             <Route path="/usuarios" element={<ProtectedRoute><Usuarios /></ProtectedRoute>} />
             <Route path="/usuarios/roles" element={<ProtectedRoute><Roles /></ProtectedRoute>} />
+            <Route path="/command-center" element={<ProtectedRoute><CommandCenter /></ProtectedRoute>} />
+            <Route path="/command-center/:dashboardId" element={<ProtectedRoute><CommandCenter /></ProtectedRoute>} />
             <Route path="/mantenimiento" element={<ProtectedRoute><Mantenimiento /></ProtectedRoute>} />
             <Route path="/costos" element={<ProtectedRoute><CostosReporte /></ProtectedRoute>} />
             <Route path="/consultas" element={<ProtectedRoute><Consultas /></ProtectedRoute>} />

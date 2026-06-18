@@ -24,6 +24,7 @@ import {
   BarChart as TableroIcon,
   MergeType as MotorIcon,
 } from '@mui/icons-material'
+import { COMMAND_CENTER_DASHBOARDS } from '@/config/commandCenter'
 
 const DRAWER_WIDTH      = 252
 const DRAWER_COLLAPSED  = 68
@@ -31,6 +32,7 @@ const COMPACT_THRESHOLD = 140
 const CI_COLOR  = '#32AC5C'
 const TX_COLOR  = '#369E4D'
 const CF_COLOR  = '#6366F1'
+const CC_COLOR  = '#0EA5E9'
 
 interface NavItem {
   label: string
@@ -66,9 +68,18 @@ const CONFIG_NAV_ITEMS: NavItem[] = [
   { label: 'Roles',    icon: <RolesIcon   fontSize="small" />, path: '/usuarios/roles', section: 'Administración' },
 ]
 
+const CC_NAV_ITEMS: NavItem[] = COMMAND_CENTER_DASHBOARDS.map(d => ({
+  label:   d.shortLabel,
+  icon:    d.icon,
+  path:    d.path,
+  section: 'Dashboards',
+  exact:   true,
+}))
+
 const CI_SECTIONS     = ['Principal', 'Operaciones', 'Recursos', 'Control']
 const TX_SECTIONS     = ['TarifaX']
 const CONFIG_SECTIONS = ['Administración']
+const CC_SECTIONS     = ['Dashboards']
 
 interface SidebarProps {
   open: boolean
@@ -84,14 +95,15 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
 
   const isTarifax = location.pathname.startsWith('/tarifax')
   const isConfig  = location.pathname.startsWith('/usuarios')
+  const isCommand = location.pathname.startsWith('/command-center')
 
-  const activeColor = isConfig ? CF_COLOR : isTarifax ? TX_COLOR : CI_COLOR
-  const navItems    = isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : CI_NAV_ITEMS
-  const sections    = isConfig ? CONFIG_SECTIONS  : isTarifax ? TX_SECTIONS  : CI_SECTIONS
+  const activeColor = isCommand ? CC_COLOR : isConfig ? CF_COLOR : isTarifax ? TX_COLOR : CI_COLOR
+  const navItems    = isCommand ? CC_NAV_ITEMS    : isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : CI_NAV_ITEMS
+  const sections    = isCommand ? CC_SECTIONS     : isConfig ? CONFIG_SECTIONS  : isTarifax ? TX_SECTIONS  : CI_SECTIONS
 
-  const logoShort = isConfig ? 'CF' : isTarifax ? 'TX' : 'CE'
-  const logoLine1 = isConfig ? 'Configuración' : isTarifax ? 'TarifaX' : 'Control de'
-  const logoLine2 = isConfig ? 'del Sistema'   : isTarifax ? 'Motor de Tarifas' : 'Estibas'
+  const logoShort = isCommand ? 'CC' : isConfig ? 'CF' : isTarifax ? 'TX' : 'CE'
+  const logoLine1 = isCommand ? 'Command'       : isConfig ? 'Configuración' : isTarifax ? 'TarifaX'          : 'Control de'
+  const logoLine2 = isCommand ? 'Center'        : isConfig ? 'del Sistema'   : isTarifax ? 'Motor de Tarifas' : 'Estibas'
 
   const width    = collapsed ? DRAWER_COLLAPSED : (widthProp ?? DRAWER_WIDTH)
   const showText = !collapsed && (widthProp === undefined || widthProp >= COMPACT_THRESHOLD)

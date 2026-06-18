@@ -6,6 +6,7 @@ const PANEL_BG         = '#060C1A'
 const CI_COLOR         = '#32AC5C'
 const TX_COLOR         = '#48BB78'
 const CF_COLOR         = '#6366F1'
+const CC_COLOR         = '#0EA5E9'
 const COMPACT_THRESHOLD = 80
 
 const WORKSPACES = [
@@ -15,7 +16,8 @@ const WORKSPACES = [
     short: 'CE',
     color: CI_COLOR,
     path:  '/dashboard',
-    isActive: (p: string) => !p.startsWith('/tarifax') && !p.startsWith('/usuarios'),
+    isActive: (p: string) =>
+      !p.startsWith('/tarifax') && !p.startsWith('/usuarios') && !p.startsWith('/command-center'),
   },
   {
     id:    'tarifax',
@@ -24,6 +26,14 @@ const WORKSPACES = [
     color: TX_COLOR,
     path:  '/tarifax/tablero',
     isActive: (p: string) => p.startsWith('/tarifax'),
+  },
+  {
+    id:    'command',
+    label: 'Command Center',
+    short: 'CC',
+    color: CC_COLOR,
+    path:  '/command-center',
+    isActive: (p: string) => p.startsWith('/command-center'),
   },
   {
     id:    'config',
