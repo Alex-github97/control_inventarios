@@ -119,7 +119,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           }}
         >
           <Typography sx={{ color: '#FFF', fontWeight: 800, fontSize: 13, letterSpacing: '-0.5px' }}>
-            {isTarifax ? 'TX' : 'CI'}
+            {isTarifax ? 'TX' : 'CE'}
           </Typography>
         </Box>
         {!collapsed && (
@@ -128,7 +128,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               {isTarifax ? 'TarifaX' : 'Control de'}
             </Typography>
             <Typography sx={{ color: activeColor, fontWeight: 700, fontSize: 13.5, lineHeight: 1.2, whiteSpace: 'nowrap', transition: 'color 0.3s ease' }}>
-              {isTarifax ? 'Motor de Tarifas' : 'Inventarios'}
+              {isTarifax ? 'Motor de Tarifas' : 'Estibas'}
             </Typography>
           </Box>
         )}
@@ -138,7 +138,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       <Box sx={{ px: collapsed ? 1 : 1.5, pt: 1.25, pb: 0.5 }}>
         {collapsed ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            <Tooltip title="Control de Inventarios" placement="right" arrow>
+            <Tooltip title="Control de Estibas" placement="right" arrow>
               <Box
                 onClick={() => navigate('/dashboard')}
                 sx={{
@@ -152,7 +152,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 }}
               >
                 <Typography sx={{ fontSize: 9.5, fontWeight: 800, color: !isTarifax ? CI_COLOR : 'rgba(255,255,255,0.35)', letterSpacing: '-0.3px' }}>
-                  CI
+                  CE
                 </Typography>
               </Box>
             </Tooltip>

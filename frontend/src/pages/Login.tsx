@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Box, TextField, Button, Typography,
   InputAdornment, IconButton, Alert, CircularProgress, alpha,
@@ -6,21 +6,89 @@ import {
 import {
   Visibility, VisibilityOff, LockOutlined, PersonOutline,
   Inventory2, LocalShipping, QrCode2, CheckCircle,
+  TableChart, TrendingUp, CompareArrows, CloudDownload,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import toast from 'react-hot-toast'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 
-const PRIMARY      = '#32AC5C'
-const PRIMARY_DARK = '#27884A'
-
-const FEATURES = [
-  { icon: <Inventory2 sx={{ fontSize: 18 }} />, text: 'Gestión de estibas en tiempo real' },
-  { icon: <LocalShipping sx={{ fontSize: 18 }} />, text: 'Trazabilidad completa de movimientos' },
-  { icon: <QrCode2 sx={{ fontSize: 18 }} />, text: 'Escaneo QR y RFID integrado' },
-  { icon: <CheckCircle sx={{ fontSize: 18 }} />, text: 'Alertas automáticas y reportes' },
+// ─────────────────────────────────────────────────────────────────────────────
+// MÓDULOS DEL CARRUSEL
+// Para agregar un nuevo módulo simplemente añade un objeto a este array.
+// Campos:
+//   id          → clave única (string)
+//   badge       → texto del ícono cuadrado (2–3 letras)
+//   appName     → línea 1 del nombre de la app
+//   appAccent   → línea 2 del nombre de la app (en color)
+//   headline    → título grande, línea 1
+//   headlineAccent → título grande, línea 2 (en color)
+//   description → subtítulo debajo del headline
+//   color       → color primario del módulo (hex)
+//   colorDark   → color primario oscuro (para gradientes)
+//   features    → array de { icon: ReactNode, text: string }
+// ─────────────────────────────────────────────────────────────────────────────
+const MODULES = [
+  {
+    id: 'ce',
+    badge: 'CE',
+    appName: 'Control de',
+    appAccent: 'Estibas',
+    headline: 'Trazabilidad total',
+    headlineAccent: 'de cada estiba',
+    description: 'Plataforma empresarial para ICOLTRANS.\nControl, visibilidad y eficiencia operacional.',
+    color: '#32AC5C',
+    colorDark: '#27884A',
+    features: [
+      { icon: <Inventory2 sx={{ fontSize: 17 }} />, text: 'Gestión de estibas en tiempo real' },
+      { icon: <LocalShipping sx={{ fontSize: 17 }} />, text: 'Trazabilidad completa de movimientos' },
+      { icon: <QrCode2 sx={{ fontSize: 17 }} />, text: 'Escaneo QR y RFID integrado' },
+      { icon: <CheckCircle sx={{ fontSize: 17 }} />, text: 'Alertas automáticas y reportes de costos' },
+    ],
+  },
+  {
+    id: 'tx',
+    badge: 'TX',
+    appName: 'TarifaX',
+    appAccent: 'Motor de Tarifas',
+    headline: 'Cruces de tarifas',
+    headlineAccent: 'al instante',
+    description: 'Motor de cruce de fletes SICETAC.\nCompara y toma decisiones en segundos.',
+    color: '#369E4D',
+    colorDark: '#1f6130',
+    features: [
+      { icon: <CompareArrows sx={{ fontSize: 17 }} />, text: 'Cruza los fletes con el × TARIFARIO_SICETAC en un clic' },
+      { icon: <TrendingUp sx={{ fontSize: 17 }} />, text: 'Métricas de coincidencia automáticas' },
+      { icon: <CloudDownload sx={{ fontSize: 17 }} />, text: 'Resultado descargable en Excel' },
+      { icon: <TableChart sx={{ fontSize: 17 }} />, text: 'Dashboard Power BI integrado para evaluar tendencias' },
+    ],
+  },
+  // ── Agrega aquí nuevos módulos cuando estén disponibles ──
+  // {
+  //   id: 'nuevo',
+  //   badge: 'NM',
+  //   appName: 'Nombre',
+  //   appAccent: 'Del Módulo',
+  //   headline: 'Titulo principal',
+  //   headlineAccent: 'del módulo',
+  //   description: 'Descripción breve del módulo.',
+  //   color: '#3B82F6',
+  //   colorDark: '#1D4ED8',
+  //   features: [
+  //     { icon: <CheckCircle sx={{ fontSize: 17 }} />, text: 'Característica 1' },
+  //     { icon: <CheckCircle sx={{ fontSize: 17 }} />, text: 'Característica 2' },
+  //   ],
+  // },
 ]
+
+const INTERVAL_MS = 5000  // milisegundos entre cada slide
+
+// Variantes de animación: la nueva slide entra desde la derecha
+const slideVariants = {
+  enter: { x: 60, opacity: 0 },
+  center: { x: 0, opacity: 1, transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] } },
+  exit:  { x: -60, opacity: 0, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } },
+}
 
 export default function Login() {
   const [username, setUsername] = useState('')
@@ -28,8 +96,19 @@ export default function Login() {
   const [showPwd, setShowPwd]   = useState(false)
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
+  const [slide, setSlide]       = useState(0)
   const { login }  = useAuthStore()
   const navigate   = useNavigate()
+
+  const current = MODULES[slide]
+
+  // Auto-avance del carrusel
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSlide(s => (s + 1) % MODULES.length)
+    }, INTERVAL_MS)
+    return () => clearInterval(timer)
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -49,7 +128,7 @@ export default function Login() {
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
 
-      {/* ── Left panel (branding) ── */}
+      {/* ── Panel izquierdo — carrusel ── */}
       <Box
         sx={{
           display: { xs: 'none', md: 'flex' },
@@ -62,7 +141,7 @@ export default function Login() {
           overflow: 'hidden',
         }}
       >
-        {/* Background pattern dots */}
+        {/* Puntos de fondo */}
         <Box sx={{
           position: 'absolute', inset: 0, opacity: 0.07,
           backgroundImage: 'radial-gradient(circle, #32AC5C 1px, transparent 1px)',
@@ -70,84 +149,148 @@ export default function Login() {
           pointerEvents: 'none',
         }} />
 
-        {/* Glow orbs */}
-        <Box sx={{ position: 'absolute', top: -80, left: -80, width: 320, height: 320,
-          borderRadius: '50%', background: alpha(PRIMARY, 0.12), filter: 'blur(60px)', pointerEvents: 'none' }} />
-        <Box sx={{ position: 'absolute', bottom: -60, right: -60, width: 260, height: 260,
-          borderRadius: '50%', background: alpha(PRIMARY, 0.08), filter: 'blur(50px)', pointerEvents: 'none' }} />
-
-        {/* Logo */}
-        <Box sx={{ position: 'relative' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Box sx={{
-              width: 44, height: 44, borderRadius: '12px',
-              background: `linear-gradient(135deg, ${PRIMARY} 0%, ${PRIMARY_DARK} 100%)`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: `0 8px 24px ${alpha(PRIMARY, 0.4)}`,
-            }}>
-              <Typography sx={{ color: '#FFF', fontWeight: 800, fontSize: 16, letterSpacing: '-0.5px' }}>CI</Typography>
-            </Box>
-            <Box>
-              <Typography sx={{ color: '#FFF', fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>Control de</Typography>
-              <Typography sx={{ color: PRIMARY, fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>Inventarios</Typography>
-            </Box>
-          </Box>
-        </Box>
-
-        {/* Main copy */}
-        <Box sx={{ position: 'relative' }}>
+        {/* Orbes de luz — cambian de color con el módulo activo */}
+        <AnimatePresence mode="sync">
           <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-          >
-            <Typography sx={{
-              color: '#FFF', fontWeight: 800, fontSize: '2rem',
-              lineHeight: 1.2, letterSpacing: '-0.03em', mb: 1.5,
-            }}>
-              Trazabilidad total<br />
-              <Box component="span" sx={{ color: PRIMARY }}>de cada estiba</Box>
-            </Typography>
-            <Typography sx={{ color: 'rgba(255,255,255,0.45)', fontSize: 14, lineHeight: 1.7, mb: 4 }}>
-              Plataforma empresarial para ICOLTRANS.<br />
-              Control, visibilidad y eficiencia operacional.
-            </Typography>
+            key={`orb-top-${slide}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8 }}
+            style={{ position: 'absolute', top: -80, left: -80, width: 320, height: 320,
+              borderRadius: '50%', background: alpha(current.color, 0.14),
+              filter: 'blur(60px)', pointerEvents: 'none' }}
+          />
+          <motion.div
+            key={`orb-bot-${slide}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8 }}
+            style={{ position: 'absolute', bottom: -60, right: -60, width: 260, height: 260,
+              borderRadius: '50%', background: alpha(current.color, 0.09),
+              filter: 'blur(50px)', pointerEvents: 'none' }}
+          />
+        </AnimatePresence>
 
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              {FEATURES.map((f, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, x: -16 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.4, delay: 0.25 + i * 0.08 }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Box sx={{
-                      width: 32, height: 32, borderRadius: '8px',
-                      bgcolor: alpha(PRIMARY, 0.15),
-                      border: `1px solid ${alpha(PRIMARY, 0.25)}`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: PRIMARY, flexShrink: 0,
-                    }}>
-                      {f.icon}
-                    </Box>
-                    <Typography sx={{ color: 'rgba(255,255,255,0.6)', fontSize: 13.5 }}>
-                      {f.text}
-                    </Typography>
-                  </Box>
-                </motion.div>
-              ))}
+        {/* Badge de la app (arriba a la izquierda) */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={`badge-${slide}`}
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={{ duration: 0.35 }}
+            style={{ position: 'relative' }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Box sx={{
+                width: 44, height: 44, borderRadius: '12px',
+                background: `linear-gradient(135deg, ${current.color} 0%, ${current.colorDark} 100%)`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: `0 8px 24px ${alpha(current.color, 0.45)}`,
+                transition: 'all 0.4s ease',
+              }}>
+                <Typography sx={{ color: '#FFF', fontWeight: 800, fontSize: 16, letterSpacing: '-0.5px' }}>
+                  {current.badge}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography sx={{ color: '#FFF', fontWeight: 700, fontSize: 13.5, lineHeight: 1.2 }}>
+                  {current.appName}
+                </Typography>
+                <Typography sx={{ color: current.color, fontWeight: 700, fontSize: 13.5, lineHeight: 1.2, transition: 'color 0.4s ease' }}>
+                  {current.appAccent}
+                </Typography>
+              </Box>
             </Box>
           </motion.div>
+        </AnimatePresence>
+
+        {/* Contenido principal — anima como carrusel */}
+        <Box sx={{ position: 'relative' }}>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={slide}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+            >
+              {/* Headline */}
+              <Typography sx={{
+                color: '#FFF', fontWeight: 800, fontSize: '2rem',
+                lineHeight: 1.2, letterSpacing: '-0.03em', mb: 1.5,
+              }}>
+                {current.headline}<br />
+                <Box component="span" sx={{ color: current.color, transition: 'color 0.4s ease' }}>
+                  {current.headlineAccent}
+                </Box>
+              </Typography>
+
+              {/* Descripción */}
+              <Typography sx={{ color: 'rgba(255,255,255,0.45)', fontSize: 13.5, lineHeight: 1.75, mb: 4, whiteSpace: 'pre-line' }}>
+                {current.description}
+              </Typography>
+
+              {/* Lista de características */}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.4 }}>
+                {current.features.map((f, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -14 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.35, delay: 0.1 + i * 0.07 }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <Box sx={{
+                        width: 32, height: 32, borderRadius: '8px',
+                        bgcolor: alpha(current.color, 0.15),
+                        border: `1px solid ${alpha(current.color, 0.28)}`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: current.color, flexShrink: 0,
+                        transition: 'all 0.4s ease',
+                      }}>
+                        {f.icon}
+                      </Box>
+                      <Typography sx={{ color: 'rgba(255,255,255,0.6)', fontSize: 13.5 }}>
+                        {f.text}
+                      </Typography>
+                    </Box>
+                  </motion.div>
+                ))}
+              </Box>
+            </motion.div>
+          </AnimatePresence>
         </Box>
 
-        {/* Footer */}
-        <Typography sx={{ color: 'rgba(255,255,255,0.2)', fontSize: 12, position: 'relative' }}>
-          © 2025 Industria Colombiana de Logística y Transporte
-        </Typography>
+        {/* Footer: indicadores de slide + copyright */}
+        <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          {/* Dots */}
+          <Box sx={{ display: 'flex', gap: 0.75 }}>
+            {MODULES.map((m, i) => (
+              <Box
+                key={m.id}
+                onClick={() => setSlide(i)}
+                sx={{
+                  height: 6,
+                  width: i === slide ? 22 : 6,
+                  borderRadius: 99,
+                  bgcolor: i === slide ? current.color : 'rgba(255,255,255,0.2)',
+                  cursor: 'pointer',
+                  transition: 'all 0.35s ease',
+                  '&:hover': { bgcolor: i === slide ? current.color : 'rgba(255,255,255,0.4)' },
+                }}
+              />
+            ))}
+          </Box>
+          <Typography sx={{ color: 'rgba(255,255,255,0.18)', fontSize: 11.5 }}>
+            © 2026 Industria Colombiana de Logística y Transporte
+          </Typography>
+        </Box>
       </Box>
 
-      {/* ── Right panel (form) ── */}
+      {/* ── Panel derecho — formulario ── */}
       <Box sx={{
         flex: 1,
         display: 'flex',
@@ -162,22 +305,22 @@ export default function Login() {
           transition={{ duration: 0.45, ease: 'easeOut' }}
           style={{ width: '100%', maxWidth: 400 }}
         >
-          {/* Mobile logo */}
+          {/* Logo móvil */}
           <Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center', gap: 1.5, mb: 4 }}>
             <Box sx={{
               width: 40, height: 40, borderRadius: '10px',
-              background: `linear-gradient(135deg, ${PRIMARY} 0%, ${PRIMARY_DARK} 100%)`,
+              background: 'linear-gradient(135deg, #32AC5C 0%, #27884A 100%)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: `0 4px 12px ${alpha(PRIMARY, 0.35)}`,
+              boxShadow: '0 4px 12px rgba(50,172,92,0.35)',
             }}>
-              <Typography sx={{ color: '#FFF', fontWeight: 800, fontSize: 14 }}>CI</Typography>
+              <Typography sx={{ color: '#FFF', fontWeight: 800, fontSize: 14 }}>CE</Typography>
             </Box>
             <Typography sx={{ fontWeight: 700, fontSize: 15, color: '#0D1117' }}>
-              Control de Inventarios
+              Control de Estibas
             </Typography>
           </Box>
 
-          {/* Heading */}
+          {/* Título */}
           <Box sx={{ mb: 4 }}>
             <Typography sx={{
               fontWeight: 800, fontSize: '1.75rem', color: '#0D1117',
@@ -191,116 +334,67 @@ export default function Login() {
           </Box>
 
           {error && (
-            <Alert
-              severity="error"
-              sx={{ mb: 3, borderRadius: '10px', fontSize: 13 }}
-            >
+            <Alert severity="error" sx={{ mb: 3, borderRadius: '10px', fontSize: 13 }}>
               {error}
             </Alert>
           )}
 
           <form onSubmit={handleSubmit}>
             <Box sx={{ mb: 2 }}>
-              <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#374151', mb: 0.75 }}>
-                Usuario
-              </Typography>
+              <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#374151', mb: 0.75 }}>Usuario</Typography>
               <TextField
-                fullWidth
-                placeholder="Tu nombre de usuario"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                required
-                size="small"
+                fullWidth placeholder="Tu nombre de usuario"
+                value={username} onChange={e => setUsername(e.target.value)}
+                required size="small"
                 InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <PersonOutline sx={{ fontSize: 18, color: '#9CA3AF' }} />
-                    </InputAdornment>
-                  ),
+                  startAdornment: <InputAdornment position="start"><PersonOutline sx={{ fontSize: 18, color: '#9CA3AF' }} /></InputAdornment>,
                 }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    bgcolor: '#FFF',
-                    fontSize: 14,
-                    borderRadius: '10px',
-                    '& fieldset': { borderColor: '#E5E7EB' },
-                    '&:hover fieldset': { borderColor: '#D1D5DB' },
-                    '&.Mui-focused fieldset': { borderColor: PRIMARY, borderWidth: 1.5 },
-                    '&.Mui-focused': { boxShadow: `0 0 0 3px ${alpha(PRIMARY, 0.12)}` },
-                  },
-                }}
+                sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#FFF', fontSize: 14, borderRadius: '10px',
+                  '& fieldset': { borderColor: '#E5E7EB' }, '&:hover fieldset': { borderColor: '#D1D5DB' },
+                  '&.Mui-focused fieldset': { borderColor: '#32AC5C', borderWidth: 1.5 },
+                  '&.Mui-focused': { boxShadow: '0 0 0 3px rgba(50,172,92,0.12)' } } }}
               />
             </Box>
 
             <Box sx={{ mb: 3.5 }}>
-              <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#374151', mb: 0.75 }}>
-                Contraseña
-              </Typography>
+              <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#374151', mb: 0.75 }}>Contraseña</Typography>
               <TextField
-                fullWidth
-                placeholder="Tu contraseña"
+                fullWidth placeholder="Tu contraseña"
                 type={showPwd ? 'text' : 'password'}
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                size="small"
+                value={password} onChange={e => setPassword(e.target.value)}
+                required size="small"
                 InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <LockOutlined sx={{ fontSize: 18, color: '#9CA3AF' }} />
-                    </InputAdornment>
-                  ),
+                  startAdornment: <InputAdornment position="start"><LockOutlined sx={{ fontSize: 18, color: '#9CA3AF' }} /></InputAdornment>,
                   endAdornment: (
                     <InputAdornment position="end">
                       <IconButton onClick={() => setShowPwd(!showPwd)} edge="end" size="small" tabIndex={-1}>
                         {showPwd
                           ? <VisibilityOff sx={{ fontSize: 18, color: '#9CA3AF' }} />
-                          : <Visibility sx={{ fontSize: 18, color: '#9CA3AF' }} />
-                        }
+                          : <Visibility sx={{ fontSize: 18, color: '#9CA3AF' }} />}
                       </IconButton>
                     </InputAdornment>
                   ),
                 }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    bgcolor: '#FFF',
-                    fontSize: 14,
-                    borderRadius: '10px',
-                    '& fieldset': { borderColor: '#E5E7EB' },
-                    '&:hover fieldset': { borderColor: '#D1D5DB' },
-                    '&.Mui-focused fieldset': { borderColor: PRIMARY, borderWidth: 1.5 },
-                    '&.Mui-focused': { boxShadow: `0 0 0 3px ${alpha(PRIMARY, 0.12)}` },
-                  },
-                }}
+                sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#FFF', fontSize: 14, borderRadius: '10px',
+                  '& fieldset': { borderColor: '#E5E7EB' }, '&:hover fieldset': { borderColor: '#D1D5DB' },
+                  '&.Mui-focused fieldset': { borderColor: '#32AC5C', borderWidth: 1.5 },
+                  '&.Mui-focused': { boxShadow: '0 0 0 3px rgba(50,172,92,0.12)' } } }}
               />
             </Box>
 
             <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              disabled={loading}
+              type="submit" fullWidth variant="contained" disabled={loading}
               sx={{
-                py: 1.35,
-                fontSize: 14.5,
-                fontWeight: 700,
-                borderRadius: '10px',
-                background: `linear-gradient(135deg, ${PRIMARY} 0%, ${PRIMARY_DARK} 100%)`,
-                boxShadow: `0 4px 14px ${alpha(PRIMARY, 0.4)}`,
-                letterSpacing: '-0.01em',
-                '&:hover': {
-                  background: `linear-gradient(135deg, #3DC46A 0%, ${PRIMARY} 100%)`,
-                  boxShadow: `0 6px 20px ${alpha(PRIMARY, 0.5)}`,
-                  transform: 'translateY(-1px)',
-                },
+                py: 1.35, fontSize: 14.5, fontWeight: 700, borderRadius: '10px',
+                background: 'linear-gradient(135deg, #32AC5C 0%, #27884A 100%)',
+                boxShadow: '0 4px 14px rgba(50,172,92,0.4)', letterSpacing: '-0.01em',
+                '&:hover': { background: 'linear-gradient(135deg, #3DC46A 0%, #32AC5C 100%)',
+                  boxShadow: '0 6px 20px rgba(50,172,92,0.5)', transform: 'translateY(-1px)' },
                 '&:active': { transform: 'translateY(0)' },
                 transition: 'all 0.18s ease',
               }}
             >
-              {loading
-                ? <CircularProgress size={20} sx={{ color: '#FFF' }} />
-                : 'Ingresar al sistema'
-              }
+              {loading ? <CircularProgress size={20} sx={{ color: '#FFF' }} /> : 'Ingresar al sistema'}
             </Button>
           </form>
 

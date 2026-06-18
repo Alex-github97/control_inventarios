@@ -59,7 +59,7 @@ export default function MovimientosCargaMasiva() {
 
     const instrucciones: any[][] = [
       ['GUÍA DE CAMPOS — Plantilla Cargue Masivo de Movimientos'],
-      ['Control de Inventarios — ICOLTRANS'],
+      ['Control de Estibas — ICOLTRANS'],
       [],
       ['INSTRUCCIONES:'],
       ['1. Diligencia los datos en la hoja "Movimientos" a partir de la fila 2 (la fila 1 son los encabezados).'],
