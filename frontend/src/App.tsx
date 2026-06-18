@@ -27,6 +27,7 @@ import Usuarios from '@/pages/Usuarios'
 import Roles from '@/pages/Roles'
 import Mantenimiento from '@/pages/Mantenimiento'
 import CostosReporte from '@/pages/CostosReporte'
+import Consultas from '@/pages/Consultas'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -78,6 +79,7 @@ export default function App() {
             <Route path="/usuarios/roles" element={<ProtectedRoute><Roles /></ProtectedRoute>} />
             <Route path="/mantenimiento" element={<ProtectedRoute><Mantenimiento /></ProtectedRoute>} />
             <Route path="/costos" element={<ProtectedRoute><CostosReporte /></ProtectedRoute>} />
+            <Route path="/consultas" element={<ProtectedRoute><Consultas /></ProtectedRoute>} />
             <Route path="/tarifax/tablero" element={<ProtectedRoute><TarifaxDashboard /></ProtectedRoute>} />
             <Route path="/tarifax/motor" element={<ProtectedRoute><TarifaxMotor /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
