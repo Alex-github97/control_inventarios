@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,13 +7,20 @@ from app.core.security import decode_token
 from app.infrastructure.repositories.usuario_repository import UsuarioRepository
 from app.infrastructure.models.usuario import Usuario, RolUsuario
 
-security = HTTPBearer()
+# auto_error=False → devuelve None en vez de 403 cuando no hay token; nosotros levantamos 401
+security = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: AsyncSession = Depends(get_db),
 ) -> Usuario:
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No se proporcionó token de acceso",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     payload = decode_token(credentials.credentials)
     user_id = payload.get("sub")
     if not user_id:

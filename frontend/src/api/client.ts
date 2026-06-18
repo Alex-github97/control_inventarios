@@ -20,8 +20,9 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
+      // Limpiar todo el estado de auth (token suelto + estado Zustand persistido)
       localStorage.removeItem('access_token')
-      localStorage.removeItem('user')
+      localStorage.removeItem('auth-storage')
       window.location.href = '/login'
     }
     return Promise.reject(error)
