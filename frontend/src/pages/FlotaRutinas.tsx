@@ -15,7 +15,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient as api } from '@/api/client'
 import toast from 'react-hot-toast'
-import Layout from '@/components/layout/Layout'
+import { Layout } from '@/components/layout/Layout'
 
 const GF_COLOR = '#7C3AED'
 const GF_LIGHT = '#EDE9FE'
