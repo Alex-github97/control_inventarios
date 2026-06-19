@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
+import Dashboard from './Dashboard'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MÓDULOS DEL CARRUSEL
@@ -63,7 +64,23 @@ const MODULES = [
       { icon: <TableChart sx={{ fontSize: 17 }} />, text: 'Dashboard Power BI integrado para evaluar tendencias' },
     ],
   },
-  // ── Agrega aquí nuevos módulos cuando estén disponibles ──
+  {
+     id: 'Command Center',
+     badge: 'CC',
+     appName: 'Command Center',
+     appAccent: 'Visualización de datos',
+     headline: 'Interpreta',
+     headlineAccent: 'Toma decisiones en segundos',
+     description: 'Modúlo dedicado a la visualización y analítica de datos.',
+     color: '#3B82F6',
+     colorDark: '#1D4ED8',
+     features: [
+       { icon: <TableChart sx={{ fontSize: 17 }} />, text: 'Dashboard Operaciones, Almacenamiento y Logística' },
+       { icon: <TableChart sx={{ fontSize: 17 }} />, text: 'Dashboard Mantenimiento' },
+       { icon: <TableChart sx={{ fontSize: 17 }} />, text: 'Dashboard Gestión Humana' },
+     ],
+   },
+// ── Agrega aquí nuevos módulos cuando estén disponibles ──
   // {
   //   id: 'nuevo',
   //   badge: 'NM',
@@ -79,6 +96,7 @@ const MODULES = [
   //     { icon: <CheckCircle sx={{ fontSize: 17 }} />, text: 'Característica 2' },
   //   ],
   // },
+
 ]
 
 const INTERVAL_MS = 5000  // milisegundos entre cada slide
