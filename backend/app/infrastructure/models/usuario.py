@@ -11,6 +11,7 @@ class RolUsuario(str, enum.Enum):
     OPERADOR_BODEGA = "OPERADOR_BODEGA"
     AUDITOR = "AUDITOR"
     CONSULTA = "CONSULTA"
+    CONDUCTOR = "CONDUCTOR"
 
 
 class Usuario(Base, TimestampMixin, SoftDeleteMixin):

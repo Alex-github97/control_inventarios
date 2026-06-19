@@ -20,9 +20,25 @@ import {
   AttachMoney as CostosIcon,
   Storage as ConsultasIcon,
   AdminPanelSettings as RolesIcon,
+  Route as FletesDespachoIcon,
+  CorporateFare as FletesGeneradoresIcon,
+  DirectionsBus as FletesConductoresIcon,
+  DirectionsCar as FlotaVehiculosIcon,
+  LocalGasStation as FlotaCombustibleIcon,
+  Description as FlotaDocumentosIcon,
+  Construction as FlotaMantenimientoIcon,
+  Group as FlotaPersonalIcon,
+  Settings as FlotaConfigIcon,
+  AccountTree as FlotaRutinasIcon,
+  Shield as FlotaConfiabilidadIcon,
   ChevronLeft, ChevronRight,
   BarChart as TableroIcon,
   MergeType as MotorIcon,
+  Inventory2 as LocativaActivosIcon,
+  Handyman as LocativaOTMLIcon,
+  ReportProblem as LocativaRiesgoMLIcon,
+  Bolt as LocativaEnergiaMLIcon,
+  Tune as LocativaConfigMLIcon,
 } from '@mui/icons-material'
 import { COMMAND_CENTER_DASHBOARDS } from '@/config/commandCenter'
 
@@ -33,6 +49,9 @@ const CI_COLOR  = '#32AC5C'
 const TX_COLOR  = '#369E4D'
 const CF_COLOR  = '#6366F1'
 const CC_COLOR  = '#0EA5E9'
+const FT_COLOR  = '#F59E0B'
+const GF_COLOR  = '#7C3AED'
+const ML_COLOR  = '#0D9488'
 
 interface NavItem {
   label: string
@@ -43,25 +62,54 @@ interface NavItem {
 }
 
 const CI_NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard',     icon: <DashboardIcon    fontSize="small" />, path: '/dashboard',    section: 'Principal' },
-  { label: 'Estibas',       icon: <EstibasIcon      fontSize="small" />, path: '/estibas',      section: 'Principal' },
-  { label: 'Movimientos',   icon: <MovimientosIcon  fontSize="small" />, path: '/movimientos',  section: 'Operaciones' },
-  { label: 'Trazabilidad',  icon: <TrazabilidadIcon fontSize="small" />, path: '/trazabilidad', section: 'Operaciones' },
-  { label: 'Manifiestos',   icon: <ManifiestosIcon  fontSize="small" />, path: '/manifiestos',  section: 'Operaciones' },
-  { label: 'Vehículos',     icon: <VehiculosIcon    fontSize="small" />, path: '/vehiculos',    section: 'Recursos' },
-  { label: 'Ubicaciones',   icon: <UbicacionesIcon  fontSize="small" />, path: '/ubicaciones',  section: 'Recursos' },
-  { label: 'Proveedores',   icon: <ProveedoresIcon  fontSize="small" />, path: '/proveedores',  section: 'Recursos' },
+  { label: 'Dashboard',     icon: <DashboardIcon     fontSize="small" />, path: '/dashboard',     section: 'Principal' },
+  { label: 'Estibas',       icon: <EstibasIcon       fontSize="small" />, path: '/estibas',       section: 'Principal' },
+  { label: 'Movimientos',   icon: <MovimientosIcon   fontSize="small" />, path: '/movimientos',   section: 'Operaciones' },
+  { label: 'Trazabilidad',  icon: <TrazabilidadIcon  fontSize="small" />, path: '/trazabilidad',  section: 'Operaciones' },
+  { label: 'Manifiestos',   icon: <ManifiestosIcon   fontSize="small" />, path: '/manifiestos',   section: 'Operaciones' },
   { label: 'Mantenimiento', icon: <MantenimientoIcon fontSize="small" />, path: '/mantenimiento', section: 'Operaciones' },
-  { label: 'Daños',         icon: <DanosIcon        fontSize="small" />, path: '/danos',        section: 'Control' },
-  { label: 'Alertas',       icon: <AlertasIcon      fontSize="small" />, path: '/alertas',      section: 'Control' },
-  { label: 'Costos',        icon: <CostosIcon       fontSize="small" />, path: '/costos',       section: 'Control' },
-  { label: 'Consultas',     icon: <ConsultasIcon    fontSize="small" />, path: '/consultas',    section: 'Control' },
+  { label: 'Vehículos',     icon: <VehiculosIcon     fontSize="small" />, path: '/vehiculos',     section: 'Recursos' },
+  { label: 'Ubicaciones',   icon: <UbicacionesIcon   fontSize="small" />, path: '/ubicaciones',   section: 'Recursos' },
+  { label: 'Proveedores',   icon: <ProveedoresIcon   fontSize="small" />, path: '/proveedores',   section: 'Recursos' },
+  { label: 'Daños',         icon: <DanosIcon         fontSize="small" />, path: '/danos',         section: 'Control' },
+  { label: 'Alertas',       icon: <AlertasIcon       fontSize="small" />, path: '/alertas',       section: 'Control' },
+  { label: 'Costos',        icon: <CostosIcon        fontSize="small" />, path: '/costos',        section: 'Control' },
+  { label: 'Consultas',     icon: <ConsultasIcon     fontSize="small" />, path: '/consultas',     section: 'Control' },
 ]
 
 const TX_NAV_ITEMS: NavItem[] = [
-  { label: 'Tablero',       icon: <TableroIcon  fontSize="small" />, path: '/tarifax/tablero', section: 'TarifaX' },
-  { label: 'Motor TarifaX', icon: <MotorIcon    fontSize="small" />, path: '/tarifax/motor',   section: 'TarifaX' },
+  { label: 'Tablero',       icon: <TableroIcon fontSize="small" />, path: '/tarifax/tablero', section: 'TarifaX' },
+  { label: 'Motor TarifaX', icon: <MotorIcon   fontSize="small" />, path: '/tarifax/motor',   section: 'TarifaX' },
 ]
+
+const FT_NAV_ITEMS: NavItem[] = [
+  { label: 'Despacho de Viajes',    icon: <FletesDespachoIcon    fontSize="small" />, path: '/fletes',              section: 'Despacho', exact: true },
+  { label: 'Generadores de Carga',  icon: <FletesGeneradoresIcon fontSize="small" />, path: '/fletes/generadores',  section: 'Catálogos' },
+  { label: 'Conductores',           icon: <FletesConductoresIcon fontSize="small" />, path: '/fletes/conductores',  section: 'Catálogos' },
+]
+
+const GF_NAV_ITEMS: NavItem[] = [
+  { label: 'Dashboard',         icon: <TableroIcon          fontSize="small" />, path: '/flota',               section: 'General',         exact: true },
+  { label: 'Vehículos',         icon: <FlotaVehiculosIcon   fontSize="small" />, path: '/flota/vehiculos',     section: 'Flota' },
+  { label: 'Combustible',       icon: <FlotaCombustibleIcon fontSize="small" />, path: '/flota/combustible',   section: 'Flota' },
+  { label: 'Documentos',        icon: <FlotaDocumentosIcon  fontSize="small" />, path: '/flota/documentos',    section: 'Flota' },
+  { label: 'Personal',          icon: <FlotaPersonalIcon    fontSize="small" />, path: '/flota/personal',      section: 'Personal' },
+  { label: 'Órdenes de Trabajo',    icon: <FlotaMantenimientoIcon    fontSize="small" />, path: '/flota/mantenimiento',    section: 'Mantenimiento' },
+  { label: 'Programas de Mto.',     icon: <FlotaRutinasIcon          fontSize="small" />, path: '/flota/rutinas',          section: 'Mantenimiento' },
+  { label: 'Confiabilidad',         icon: <FlotaConfiabilidadIcon    fontSize="small" />, path: '/flota/confiabilidad',    section: 'Confiabilidad' },
+  { label: 'Configuración',         icon: <FlotaConfigIcon           fontSize="small" />, path: '/flota/config',           section: 'Sistema' },
+]
+const GF_SECTIONS = ['General', 'Flota', 'Personal', 'Mantenimiento', 'Confiabilidad', 'Sistema']
+
+const ML_NAV_ITEMS: NavItem[] = [
+  { label: 'Dashboard',         icon: <TableroIcon            fontSize="small" />, path: '/locativa',            section: 'General',       exact: true },
+  { label: 'Activos',           icon: <LocativaActivosIcon    fontSize="small" />, path: '/locativa/activos',    section: 'Gestión' },
+  { label: 'Órdenes de Trabajo',icon: <LocativaOTMLIcon       fontSize="small" />, path: '/locativa/ordenes',    section: 'Gestión' },
+  { label: 'Riesgos',           icon: <LocativaRiesgoMLIcon   fontSize="small" />, path: '/locativa/riesgos',    section: 'Control' },
+  { label: 'Energía',           icon: <LocativaEnergiaMLIcon  fontSize="small" />, path: '/locativa/energia',    section: 'Control' },
+  { label: 'Configuración',     icon: <LocativaConfigMLIcon   fontSize="small" />, path: '/locativa/config',     section: 'Sistema' },
+]
+const ML_SECTIONS = ['General', 'Gestión', 'Control', 'Sistema']
 
 const CONFIG_NAV_ITEMS: NavItem[] = [
   { label: 'Usuarios', icon: <UsuariosIcon fontSize="small" />, path: '/usuarios',       section: 'Administración', exact: true },
@@ -78,6 +126,7 @@ const CC_NAV_ITEMS: NavItem[] = COMMAND_CENTER_DASHBOARDS.map(d => ({
 
 const CI_SECTIONS     = ['Principal', 'Operaciones', 'Recursos', 'Control']
 const TX_SECTIONS     = ['TarifaX']
+const FT_SECTIONS     = ['Despacho', 'Catálogos']
 const CONFIG_SECTIONS = ['Administración']
 const CC_SECTIONS     = ['Dashboards']
 
@@ -93,17 +142,20 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
   const location  = useLocation()
   const [collapsed, setCollapsed] = useState(false)
 
-  const isTarifax = location.pathname.startsWith('/tarifax')
-  const isConfig  = location.pathname.startsWith('/usuarios')
-  const isCommand = location.pathname.startsWith('/command-center')
+  const isFletes   = location.pathname.startsWith('/fletes')
+  const isFlota    = location.pathname.startsWith('/flota')
+  const isTarifax  = location.pathname.startsWith('/tarifax')
+  const isConfig   = location.pathname.startsWith('/usuarios')
+  const isCommand  = location.pathname.startsWith('/command-center')
+  const isLocativa = location.pathname.startsWith('/locativa')
 
-  const activeColor = isCommand ? CC_COLOR : isConfig ? CF_COLOR : isTarifax ? TX_COLOR : CI_COLOR
-  const navItems    = isCommand ? CC_NAV_ITEMS    : isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : CI_NAV_ITEMS
-  const sections    = isCommand ? CC_SECTIONS     : isConfig ? CONFIG_SECTIONS  : isTarifax ? TX_SECTIONS  : CI_SECTIONS
+  const activeColor = isCommand ? CC_COLOR : isConfig ? CF_COLOR : isTarifax ? TX_COLOR : isFletes ? FT_COLOR : isFlota ? GF_COLOR : isLocativa ? ML_COLOR : CI_COLOR
+  const navItems    = isCommand ? CC_NAV_ITEMS : isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : isFletes ? FT_NAV_ITEMS : isFlota ? GF_NAV_ITEMS : isLocativa ? ML_NAV_ITEMS : CI_NAV_ITEMS
+  const sections    = isCommand ? CC_SECTIONS  : isConfig ? CONFIG_SECTIONS  : isTarifax ? TX_SECTIONS  : isFletes ? FT_SECTIONS  : isFlota ? GF_SECTIONS  : isLocativa ? ML_SECTIONS  : CI_SECTIONS
 
-  const logoShort = isCommand ? 'CC' : isConfig ? 'CF' : isTarifax ? 'TX' : 'CE'
-  const logoLine1 = isCommand ? 'Command'       : isConfig ? 'Configuración' : isTarifax ? 'TarifaX'          : 'Control de'
-  const logoLine2 = isCommand ? 'Center'        : isConfig ? 'del Sistema'   : isTarifax ? 'Motor de Tarifas' : 'Estibas'
+  const logoShort = isCommand ? 'CC' : isConfig ? 'CF' : isTarifax ? 'TX' : isFletes ? 'FT' : isFlota ? 'GF' : isLocativa ? 'ML' : 'CE'
+  const logoLine1 = isCommand ? 'Command' : isConfig ? 'Configuración' : isTarifax ? 'TarifaX' : isFletes ? 'Módulo de' : isFlota ? 'Gestión de' : isLocativa ? 'Mantenimiento' : 'Control de'
+  const logoLine2 = isCommand ? 'Center'  : isConfig ? 'del Sistema'  : isTarifax ? 'Motor de Tarifas' : isFletes ? 'Fletes' : isFlota ? 'Flotas' : isLocativa ? 'Locativo' : 'Estibas'
 
   const width    = collapsed ? DRAWER_COLLAPSED : (widthProp ?? DRAWER_WIDTH)
   const showText = !collapsed && (widthProp === undefined || widthProp >= COMPACT_THRESHOLD)
@@ -148,6 +200,14 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
             borderRadius: '10px',
             background: isConfig
               ? `linear-gradient(135deg, ${CF_COLOR} 0%, #4F46E5 100%)`
+              : isFletes
+              ? `linear-gradient(135deg, ${FT_COLOR} 0%, #D97706 100%)`
+              : isFlota
+              ? `linear-gradient(135deg, ${GF_COLOR} 0%, #5B21B6 100%)`
+              : isCommand
+              ? `linear-gradient(135deg, ${CC_COLOR} 0%, #0369A1 100%)`
+              : isLocativa
+              ? `linear-gradient(135deg, ${ML_COLOR} 0%, #0F766E 100%)`
               : `linear-gradient(135deg, ${activeColor} 0%, ${isTarifax ? '#1f6130' : '#27884A'} 100%)`,
             display: 'flex',
             alignItems: 'center',

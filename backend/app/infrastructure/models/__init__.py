@@ -10,6 +10,26 @@ from app.infrastructure.models.movimiento import Movimiento, TipoMovimiento
 from app.infrastructure.models.dano import CodigoDano, EventoDano, ResponsableDano, AccionRecomendada
 from app.infrastructure.models.alerta import Alerta, TipoAlerta, NivelAlerta
 from app.infrastructure.models.auditoria import RegistroAuditoria
+from app.infrastructure.models.flete import (
+    GeneradorCarga, VehiculoFlete, Flete, Enturnamiento,
+    TipoVehiculoFlete, TipoCarroceria, EstadoFlete, EstadoEnturnamiento,
+)
+from app.infrastructure.models.flota import (
+    FlotaMarca, FlotaTipoVehiculo, FlotaTipoCombustible, FlotaCentroCosto,
+    FlotaProveedor, FlotaVehiculo, FlotaMedicion, FlotaDocumentoVehiculo,
+    FlotaPersonal, FlotaDocumentoPersonal, FlotaRegistroCombustible,
+    FlotaTipoTrabajo, FlotaOrdenTrabajo, FlotaOrdenTrabajoDetalle,
+    FlotaRepuesto, FlotaRutinaMantenimiento, FlotaRutinaDetalleTrabajo,
+    FlotaRutinaDetalleRepuesto, FlotaSecuenciaMantenimiento, FlotaSecuenciaRutina,
+    FlotaGrupoVehiculo, FlotaAsignacionSecuencia, FlotaModoFalla, FlotaUmbralCBM,
+)
+from app.infrastructure.models.locative import (
+    LocativaSede, LocativaEspacio, LocativaCategoria, LocativaModoFalla,
+    LocativaProveedor, LocativaActivo, LocativaActivoDocumento,
+    LocativaCatalogoTarea, LocativaOrdenTrabajo, LocativaOTChecklist, LocativaOTMaterial,
+    LocativaRegistroFalla, LocativaRiesgo, LocativaRiesgoTratamiento,
+    LocativaMedidor, LocativaLecturaEnergia,
+)
 
 __all__ = [
     "TimestampMixin", "SoftDeleteMixin",
@@ -24,4 +44,6 @@ __all__ = [
     "CodigoDano", "EventoDano", "ResponsableDano", "AccionRecomendada",
     "Alerta", "TipoAlerta", "NivelAlerta",
     "RegistroAuditoria",
+    "GeneradorCarga", "VehiculoFlete", "Flete", "Enturnamiento",
+    "TipoVehiculoFlete", "TipoCarroceria", "EstadoFlete", "EstadoEnturnamiento",
 ]

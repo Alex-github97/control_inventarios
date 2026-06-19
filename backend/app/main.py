@@ -49,6 +49,12 @@ async def lifespan(app: FastAPI):
             "ADD COLUMN IF NOT EXISTS rol_id INTEGER "
             "REFERENCES roles(id) ON DELETE SET NULL"
         ))
+        # Añadir usuario_id a conductores para linkear con login de conductor
+        await conn.execute(text(
+            "ALTER TABLE conductores "
+            "ADD COLUMN IF NOT EXISTS usuario_id INTEGER "
+            "REFERENCES usuarios(id) ON DELETE SET NULL"
+        ))
 
     # 3. Sembrar roles y migrar usuarios
     async with AsyncSession(engine) as db:

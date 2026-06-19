@@ -6,7 +6,7 @@ from app.infrastructure.models.base import TimestampMixin
 MODULOS_SISTEMA = [
     "dashboard", "estibas", "movimientos", "manifiestos", "vehiculos",
     "ubicaciones", "proveedores", "alertas", "danos", "trazabilidad",
-    "mantenimiento", "costos", "consultas", "usuarios",
+    "mantenimiento", "costos", "consultas", "usuarios", "fletes",
 ]
 
 ROLES_DEFECTO = [
@@ -16,7 +16,7 @@ ROLES_DEFECTO = [
         "descripcion": "Acceso total al sistema. Puede crear usuarios y ver todos los módulos.",
         "color": "#DC2626",
         "es_sistema": True,
-        "permisos": {m: True for m in MODULOS_SISTEMA},
+        "permisos": {m: True for m in MODULOS_SISTEMA},  # ADMINISTRADOR: acceso total
     },
     {
         "nombre": "SUPERVISOR_LOGISTICO",
@@ -28,7 +28,7 @@ ROLES_DEFECTO = [
             "dashboard": True, "estibas": True, "movimientos": True, "trazabilidad": True,
             "manifiestos": True, "vehiculos": True, "ubicaciones": True, "proveedores": True,
             "danos": True, "alertas": True, "usuarios": False, "mantenimiento": True,
-            "costos": True, "consultas": True,
+            "costos": True, "consultas": True, "fletes": True,
         },
     },
     {
@@ -41,7 +41,7 @@ ROLES_DEFECTO = [
             "dashboard": True, "estibas": True, "movimientos": True, "trazabilidad": True,
             "manifiestos": False, "vehiculos": False, "ubicaciones": True, "proveedores": False,
             "danos": False, "alertas": True, "usuarios": False, "mantenimiento": True,
-            "costos": False, "consultas": False,
+            "costos": False, "consultas": False, "fletes": True,
         },
     },
     {
@@ -54,7 +54,7 @@ ROLES_DEFECTO = [
             "dashboard": True, "estibas": True, "movimientos": True, "trazabilidad": True,
             "manifiestos": True, "vehiculos": True, "ubicaciones": True, "proveedores": True,
             "danos": True, "alertas": True, "usuarios": False, "mantenimiento": True,
-            "costos": True, "consultas": True,
+            "costos": True, "consultas": True, "fletes": True,
         },
     },
     {
@@ -67,7 +67,20 @@ ROLES_DEFECTO = [
             "dashboard": True, "estibas": True, "movimientos": False, "trazabilidad": True,
             "manifiestos": False, "vehiculos": False, "ubicaciones": False, "proveedores": False,
             "danos": False, "alertas": False, "usuarios": False, "mantenimiento": False,
-            "costos": False, "consultas": False,
+            "costos": False, "consultas": False, "fletes": False,
+        },
+    },
+    {
+        "nombre": "CONDUCTOR",
+        "label": "Conductor",
+        "descripcion": "Perfil para conductores. Puede ver sus viajes asignados, registrar vehículos y colocar disponibilidad.",
+        "color": "#0EA5E9",
+        "es_sistema": True,
+        "permisos": {
+            "dashboard": False, "estibas": False, "movimientos": False, "trazabilidad": False,
+            "manifiestos": False, "vehiculos": False, "ubicaciones": False, "proveedores": False,
+            "danos": False, "alertas": False, "usuarios": False, "mantenimiento": False,
+            "costos": False, "consultas": False, "fletes": True,
         },
     },
 ]

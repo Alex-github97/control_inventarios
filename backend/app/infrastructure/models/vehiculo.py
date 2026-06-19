@@ -47,9 +47,14 @@ class Conductor(Base, TimestampMixin, SoftDeleteMixin):
     telefono = Column(String(30), nullable=True)
     licencia = Column(String(50), nullable=True)
     transportadora_id = Column(Integer, ForeignKey("transportadoras.id"), nullable=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True, unique=True)
 
     transportadora = relationship("Transportadora")
     manifiestos = relationship("Manifiesto", back_populates="conductor")
+    usuario = relationship("Usuario")
+    vehiculos_flete = relationship("VehiculoFlete", back_populates="conductor")
+    fletes = relationship("Flete", back_populates="conductor")
+    enturnamiento = relationship("Enturnamiento", back_populates="conductor")
 
 
 class Vehiculo(Base, TimestampMixin, SoftDeleteMixin):

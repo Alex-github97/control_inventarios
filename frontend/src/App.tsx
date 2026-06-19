@@ -29,6 +29,24 @@ import CommandCenter from '@/pages/CommandCenter'
 import Mantenimiento from '@/pages/Mantenimiento'
 import CostosReporte from '@/pages/CostosReporte'
 import Consultas from '@/pages/Consultas'
+import Fletes from '@/pages/Fletes'
+import FletesGeneradores from '@/pages/FletesGeneradores'
+import FletesConductores from '@/pages/FletesConductores'
+import FlotaDashboard from '@/pages/FlotaDashboard'
+import FlotaVehiculos from '@/pages/FlotaVehiculos'
+import FlotaCombustible from '@/pages/FlotaCombustible'
+import FlotaDocumentos from '@/pages/FlotaDocumentos'
+import FlotaMantenimiento from '@/pages/FlotaMantenimiento'
+import FlotaPersonal from '@/pages/FlotaPersonal'
+import FlotaConfig from '@/pages/FlotaConfig'
+import FlotaRutinas from '@/pages/FlotaRutinas'
+import FlotaConfiabilidad from '@/pages/FlotaConfiabilidad'
+import LocativaDashboard from '@/pages/LocativaDashboard'
+import LocativaActivos from '@/pages/LocativaActivos'
+import LocativaOrdenes from '@/pages/LocativaOrdenes'
+import LocativaRiesgos from '@/pages/LocativaRiesgos'
+import LocativaEnergia from '@/pages/LocativaEnergia'
+import LocativaConfig from '@/pages/LocativaConfig'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -83,6 +101,24 @@ export default function App() {
             <Route path="/mantenimiento" element={<ProtectedRoute><Mantenimiento /></ProtectedRoute>} />
             <Route path="/costos" element={<ProtectedRoute><CostosReporte /></ProtectedRoute>} />
             <Route path="/consultas" element={<ProtectedRoute><Consultas /></ProtectedRoute>} />
+            <Route path="/fletes" element={<ProtectedRoute><Fletes /></ProtectedRoute>} />
+            <Route path="/fletes/generadores" element={<ProtectedRoute><FletesGeneradores /></ProtectedRoute>} />
+            <Route path="/fletes/conductores" element={<ProtectedRoute><FletesConductores /></ProtectedRoute>} />
+            <Route path="/flota" element={<ProtectedRoute><FlotaDashboard /></ProtectedRoute>} />
+            <Route path="/flota/vehiculos" element={<ProtectedRoute><FlotaVehiculos /></ProtectedRoute>} />
+            <Route path="/flota/combustible" element={<ProtectedRoute><FlotaCombustible /></ProtectedRoute>} />
+            <Route path="/flota/documentos" element={<ProtectedRoute><FlotaDocumentos /></ProtectedRoute>} />
+            <Route path="/flota/mantenimiento" element={<ProtectedRoute><FlotaMantenimiento /></ProtectedRoute>} />
+            <Route path="/flota/personal" element={<ProtectedRoute><FlotaPersonal /></ProtectedRoute>} />
+            <Route path="/flota/config" element={<ProtectedRoute><FlotaConfig /></ProtectedRoute>} />
+            <Route path="/flota/rutinas" element={<ProtectedRoute><FlotaRutinas /></ProtectedRoute>} />
+            <Route path="/flota/confiabilidad" element={<ProtectedRoute><FlotaConfiabilidad /></ProtectedRoute>} />
+            <Route path="/locativa" element={<ProtectedRoute><LocativaDashboard /></ProtectedRoute>} />
+            <Route path="/locativa/activos" element={<ProtectedRoute><LocativaActivos /></ProtectedRoute>} />
+            <Route path="/locativa/ordenes" element={<ProtectedRoute><LocativaOrdenes /></ProtectedRoute>} />
+            <Route path="/locativa/riesgos" element={<ProtectedRoute><LocativaRiesgos /></ProtectedRoute>} />
+            <Route path="/locativa/energia" element={<ProtectedRoute><LocativaEnergia /></ProtectedRoute>} />
+            <Route path="/locativa/config" element={<ProtectedRoute><LocativaConfig /></ProtectedRoute>} />
             <Route path="/tarifax/tablero" element={<ProtectedRoute><TarifaxDashboard /></ProtectedRoute>} />
             <Route path="/tarifax/motor" element={<ProtectedRoute><TarifaxMotor /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

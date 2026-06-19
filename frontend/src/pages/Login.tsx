@@ -7,12 +7,14 @@ import {
   Visibility, VisibilityOff, LockOutlined, PersonOutline,
   Inventory2, LocalShipping, QrCode2, CheckCircle,
   TableChart, TrendingUp, CompareArrows, CloudDownload,
+  Route, AssignmentInd, QueuePlayNext, Schedule,
+  DirectionsCar, Build, LocalGasStation, Description,
+  Engineering, Shield, Bolt, Inventory2 as ActivoIcon2,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
-import Dashboard from './Dashboard'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MÓDULOS DEL CARRUSEL
@@ -69,7 +71,7 @@ const MODULES = [
      badge: 'CC',
      appName: 'Command Center',
      appAccent: 'Visualización de datos',
-     headline: 'Interpreta',
+     headline: 'Analiza tus datos y',
      headlineAccent: 'Toma decisiones en segundos',
      description: 'Modúlo dedicado a la visualización y analítica de datos.',
      color: '#3B82F6',
@@ -80,6 +82,57 @@ const MODULES = [
        { icon: <TableChart sx={{ fontSize: 17 }} />, text: 'Dashboard Gestión Humana' },
      ],
    },
+  {
+    id: 'fletes',
+    badge: 'FT',
+    appName: 'Módulo de',
+    appAccent: 'Fletes',
+    headline: 'Despacho y asignación',
+    headlineAccent: 'de conductores',
+    description: 'Gestión integral de fletes para ICOLTRANS.\nRegistra viajes, asigna conductores y administra turnos.',
+    color: '#F59E0B',
+    colorDark: '#D97706',
+    features: [
+      { icon: <Route sx={{ fontSize: 17 }} />, text: 'Registro de fletes con origen, destino y tipo de vehículo' },
+      { icon: <AssignmentInd sx={{ fontSize: 17 }} />, text: 'Asignación directa de conductor y vehículo al viaje' },
+      { icon: <QueuePlayNext sx={{ fontSize: 17 }} />, text: 'Sistema de enturnamiento de conductores disponibles' },
+      { icon: <Schedule sx={{ fontSize: 17 }} />, text: 'Agenda de citas de cargue y entrega por ciudad' },
+    ],
+  },
+  {
+    id: 'flota',
+    badge: 'GF',
+    appName: 'Gestión de',
+    appAccent: 'Flotas',
+    headline: 'Control total',
+    headlineAccent: 'de tu flota vehicular',
+    description: 'Módulo integral de gestión de flotas para ICOLTRANS.\nVehículos, mantenimiento, combustible y documentos.',
+    color: '#7C3AED',
+    colorDark: '#5B21B6',
+    features: [
+      { icon: <DirectionsCar sx={{ fontSize: 17 }} />, text: 'Catálogo de vehículos con semáforo documental' },
+      { icon: <Build sx={{ fontSize: 17 }} />, text: 'Órdenes de trabajo: preventivo y correctivo' },
+      { icon: <LocalGasStation sx={{ fontSize: 17 }} />, text: 'Registro y análisis de consumo de combustible' },
+      { icon: <Description sx={{ fontSize: 17 }} />, text: 'Alertas automáticas de vencimiento de documentos' },
+    ],
+  },
+  {
+    id: 'locativa',
+    badge: 'ML',
+    appName: 'Mantenimiento',
+    appAccent: 'Locativo',
+    headline: 'Activos bajo control,',
+    headlineAccent: 'instalaciones en orden',
+    description: 'ISO 55000 · ISO 41001 · IAS 16 · ISO 31000.\nGestión integral de activos físicos e instalaciones.',
+    color: '#0D9488',
+    colorDark: '#0F766E',
+    features: [
+      { icon: <ActivoIcon2 sx={{ fontSize: 17 }} />, text: 'Inventario de activos con valoración IAS 16' },
+      { icon: <Engineering sx={{ fontSize: 17 }} />, text: 'Órdenes de trabajo preventivas y correctivas' },
+      { icon: <Shield sx={{ fontSize: 17 }} />, text: 'Registro de riesgos ISO 31000 con matriz 5×5' },
+      { icon: <Bolt sx={{ fontSize: 17 }} />, text: 'Monitoreo de energía y detección de anomalías ISO 50001' },
+    ],
+  },
 // ── Agrega aquí nuevos módulos cuando estén disponibles ──
   // {
   //   id: 'nuevo',

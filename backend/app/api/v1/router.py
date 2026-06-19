@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
     auth, usuarios, estibas, ubicaciones, proveedores,
-    vehiculos, manifiestos, movimientos, dashboard, alertas, danos, tarifax, mantenimiento, consultas, roles
+    vehiculos, manifiestos, movimientos, dashboard, alertas, danos, tarifax, mantenimiento, consultas, roles, fletes, flota, locative
 )
 
 api_router = APIRouter()
@@ -21,3 +21,6 @@ api_router.include_router(danos.router)
 api_router.include_router(tarifax.router)
 api_router.include_router(mantenimiento.router)
 api_router.include_router(consultas.router)
+api_router.include_router(fletes.router)
+api_router.include_router(flota.router)
+api_router.include_router(locative.router)

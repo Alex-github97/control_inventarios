@@ -7,6 +7,9 @@ const CI_COLOR         = '#32AC5C'
 const TX_COLOR         = '#48BB78'
 const CF_COLOR         = '#6366F1'
 const CC_COLOR         = '#0EA5E9'
+const FT_COLOR         = '#F59E0B'
+const GF_COLOR         = '#7C3AED'
+const ML_COLOR         = '#0D9488'
 const COMPACT_THRESHOLD = 80
 
 const WORKSPACES = [
@@ -17,7 +20,9 @@ const WORKSPACES = [
     color: CI_COLOR,
     path:  '/dashboard',
     isActive: (p: string) =>
-      !p.startsWith('/tarifax') && !p.startsWith('/usuarios') && !p.startsWith('/command-center'),
+      !p.startsWith('/tarifax') && !p.startsWith('/usuarios') &&
+      !p.startsWith('/command-center') && !p.startsWith('/fletes') &&
+      !p.startsWith('/flota') && !p.startsWith('/locativa'),
   },
   {
     id:    'tarifax',
@@ -26,6 +31,30 @@ const WORKSPACES = [
     color: TX_COLOR,
     path:  '/tarifax/tablero',
     isActive: (p: string) => p.startsWith('/tarifax'),
+  },
+  {
+    id:    'fletes',
+    label: 'Módulo de Fletes',
+    short: 'FT',
+    color: FT_COLOR,
+    path:  '/fletes',
+    isActive: (p: string) => p.startsWith('/fletes'),
+  },
+  {
+    id:    'flota',
+    label: 'Gestión de Flotas',
+    short: 'GF',
+    color: GF_COLOR,
+    path:  '/flota',
+    isActive: (p: string) => p.startsWith('/flota'),
+  },
+  {
+    id:    'locativa',
+    label: 'Mant. Locativo',
+    short: 'ML',
+    color: ML_COLOR,
+    path:  '/locativa',
+    isActive: (p: string) => p.startsWith('/locativa'),
   },
   {
     id:    'command',
