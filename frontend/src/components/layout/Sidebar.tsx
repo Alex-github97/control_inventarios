@@ -99,6 +99,20 @@ import {
   ChangeCircle as QMSCambiosIconQMS,
   AutoFixHigh as QMSIAIconQMS,
   SettingsSuggest as QMSConfigIconQMS,
+  GppGood as GRCDashIconGRC,
+  AccountTree as GRCGobiernoIconGRC,
+  Policy as GRCPoliticasIconGRC,
+  Gavel as GRCObligacionesIconGRC,
+  Warning as GRCRiesgosIconGRC,
+  Shield as GRCControlesIconGRC,
+  CheckCircle as GRCCumplimientoIconGRC,
+  Business as GRCTercerosIconGRC,
+  FindInPage as GRCAuditoriasIconGRC,
+  BugReport as GRCHallazgosIconGRC,
+  Router as GRCContinuidadIconGRC,
+  Security as GRCIncidentesIconGRC,
+  AutoAwesome as GRCIAIconGRC,
+  ManageSearch as GRCConfigIconGRC,
 } from '@mui/icons-material'
 import { COMMAND_CENTER_DASHBOARDS } from '@/config/commandCenter'
 
@@ -117,6 +131,7 @@ const GH_COLOR  = '#BE185D'
 const TMS_COLOR = '#0369A1'
 const DMS_COLOR = '#0E7490'
 const QMS_COLOR = '#059669'
+const GRC_COLOR = '#6D28D9'
 
 interface NavItem {
   label: string
@@ -259,6 +274,24 @@ const QMS_NAV_ITEMS: NavItem[] = [
 ]
 const QMS_SECTIONS = ['General', 'Procesos', 'Calidad', 'Operacional', 'Relacionamiento', 'Mejora', 'Sistema']
 
+const GRC_NAV_ITEMS: NavItem[] = [
+  { label: 'Torre de Control',  icon: <GRCDashIconGRC          fontSize="small" />, path: '/grc',                section: 'General',       exact: true },
+  { label: 'Gobierno',          icon: <GRCGobiernoIconGRC      fontSize="small" />, path: '/grc/gobierno',       section: 'Gobierno' },
+  { label: 'Políticas',         icon: <GRCPoliticasIconGRC     fontSize="small" />, path: '/grc/politicas',      section: 'Gobierno' },
+  { label: 'Obligaciones',      icon: <GRCObligacionesIconGRC  fontSize="small" />, path: '/grc/obligaciones',   section: 'Cumplimiento' },
+  { label: 'Cumplimiento',      icon: <GRCCumplimientoIconGRC  fontSize="small" />, path: '/grc/cumplimiento',   section: 'Cumplimiento' },
+  { label: 'Riesgos',           icon: <GRCRiesgosIconGRC       fontSize="small" />, path: '/grc/riesgos',        section: 'Riesgos' },
+  { label: 'Controles',         icon: <GRCControlesIconGRC     fontSize="small" />, path: '/grc/controles',      section: 'Riesgos' },
+  { label: 'Terceros',          icon: <GRCTercerosIconGRC      fontSize="small" />, path: '/grc/terceros',       section: 'Riesgos' },
+  { label: 'Auditorías',        icon: <GRCAuditoriasIconGRC    fontSize="small" />, path: '/grc/auditorias',     section: 'Auditoría' },
+  { label: 'Hallazgos',         icon: <GRCHallazgosIconGRC     fontSize="small" />, path: '/grc/hallazgos',      section: 'Auditoría' },
+  { label: 'Continuidad',       icon: <GRCContinuidadIconGRC   fontSize="small" />, path: '/grc/continuidad',    section: 'Continuidad' },
+  { label: 'Incidentes',        icon: <GRCIncidentesIconGRC    fontSize="small" />, path: '/grc/incidentes',     section: 'Continuidad' },
+  { label: 'IA GRC',            icon: <GRCIAIconGRC            fontSize="small" />, path: '/grc/ia',             section: 'Inteligencia' },
+  { label: 'Configuración',     icon: <GRCConfigIconGRC        fontSize="small" />, path: '/grc/config',         section: 'Sistema' },
+]
+const GRC_SECTIONS = ['General', 'Gobierno', 'Cumplimiento', 'Riesgos', 'Auditoría', 'Continuidad', 'Inteligencia', 'Sistema']
+
 const CONFIG_NAV_ITEMS: NavItem[] = [
   { label: 'Usuarios', icon: <UsuariosIcon fontSize="small" />, path: '/usuarios',       section: 'Administración', exact: true },
   { label: 'Roles',    icon: <RolesIcon   fontSize="small" />, path: '/usuarios/roles', section: 'Administración' },
@@ -290,6 +323,7 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
   const location  = useLocation()
   const [collapsed, setCollapsed] = useState(false)
 
+  const isGRC      = location.pathname.startsWith('/grc')
   const isQMS      = location.pathname.startsWith('/qms')
   const isDMS      = location.pathname.startsWith('/dms')
   const isTMS      = location.pathname.startsWith('/tms') || location.pathname.startsWith('/fletes')
@@ -302,13 +336,13 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
   const isWMS      = location.pathname.startsWith('/wms')
   const isGH       = location.pathname.startsWith('/gh')
 
-  const activeColor = isCommand ? CC_COLOR : isConfig ? CF_COLOR : isTarifax ? TX_COLOR : isQMS ? QMS_COLOR : isDMS ? DMS_COLOR : isTMS ? TMS_COLOR : isFletes ? FT_COLOR : isFlota ? GF_COLOR : isLocativa ? ML_COLOR : isWMS ? WMS_COLOR : isGH ? GH_COLOR : CI_COLOR
-  const navItems    = isCommand ? CC_NAV_ITEMS : isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : isQMS ? QMS_NAV_ITEMS : isDMS ? DMS_NAV_ITEMS : isTMS ? TMS_NAV_ITEMS : isFletes ? FT_NAV_ITEMS : isFlota ? GF_NAV_ITEMS : isLocativa ? ML_NAV_ITEMS : isWMS ? WMS_NAV_ITEMS : isGH ? GH_NAV_ITEMS : CI_NAV_ITEMS
-  const sections    = isCommand ? CC_SECTIONS  : isConfig ? CONFIG_SECTIONS  : isTarifax ? TX_SECTIONS  : isQMS ? QMS_SECTIONS  : isDMS ? DMS_SECTIONS  : isTMS ? TMS_SECTIONS  : isFletes ? FT_SECTIONS  : isFlota ? GF_SECTIONS  : isLocativa ? ML_SECTIONS  : isWMS ? WMS_SECTIONS : isGH ? GH_SECTIONS : CI_SECTIONS
+  const activeColor = isCommand ? CC_COLOR : isConfig ? CF_COLOR : isTarifax ? TX_COLOR : isGRC ? GRC_COLOR : isQMS ? QMS_COLOR : isDMS ? DMS_COLOR : isTMS ? TMS_COLOR : isFletes ? FT_COLOR : isFlota ? GF_COLOR : isLocativa ? ML_COLOR : isWMS ? WMS_COLOR : isGH ? GH_COLOR : CI_COLOR
+  const navItems    = isCommand ? CC_NAV_ITEMS : isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : isGRC ? GRC_NAV_ITEMS : isQMS ? QMS_NAV_ITEMS : isDMS ? DMS_NAV_ITEMS : isTMS ? TMS_NAV_ITEMS : isFletes ? FT_NAV_ITEMS : isFlota ? GF_NAV_ITEMS : isLocativa ? ML_NAV_ITEMS : isWMS ? WMS_NAV_ITEMS : isGH ? GH_NAV_ITEMS : CI_NAV_ITEMS
+  const sections    = isCommand ? CC_SECTIONS  : isConfig ? CONFIG_SECTIONS  : isTarifax ? TX_SECTIONS  : isGRC ? GRC_SECTIONS  : isQMS ? QMS_SECTIONS  : isDMS ? DMS_SECTIONS  : isTMS ? TMS_SECTIONS  : isFletes ? FT_SECTIONS  : isFlota ? GF_SECTIONS  : isLocativa ? ML_SECTIONS  : isWMS ? WMS_SECTIONS : isGH ? GH_SECTIONS : CI_SECTIONS
 
-  const logoShort = isCommand ? 'CC' : isConfig ? 'CF' : isTarifax ? 'TX' : isQMS ? 'QMS' : isDMS ? 'DMS' : isTMS ? 'TMS' : isFletes ? 'FT' : isFlota ? 'GF' : isLocativa ? 'ML' : isWMS ? 'WMS' : isGH ? 'GH' : 'CE'
-  const logoLine1 = isCommand ? 'Command' : isConfig ? 'Configuración' : isTarifax ? 'TarifaX' : isQMS ? 'Quality' : isDMS ? 'Document' : isTMS ? 'Transportation' : isFletes ? 'Módulo de' : isFlota ? 'Gestión de' : isLocativa ? 'Mantenimiento' : isWMS ? 'Warehouse' : isGH ? 'Gestión' : 'Control de'
-  const logoLine2 = isCommand ? 'Center'  : isConfig ? 'del Sistema'  : isTarifax ? 'Motor de Tarifas' : isQMS ? 'Management System' : isDMS ? 'Management System' : isTMS ? 'Management System' : isFletes ? 'Fletes' : isFlota ? 'Flotas' : isLocativa ? 'Locativo' : isWMS ? 'Management' : isGH ? 'Humana' : 'Estibas'
+  const logoShort = isCommand ? 'CC' : isConfig ? 'CF' : isTarifax ? 'TX' : isGRC ? 'GRC' : isQMS ? 'QMS' : isDMS ? 'DMS' : isTMS ? 'TMS' : isFletes ? 'FT' : isFlota ? 'GF' : isLocativa ? 'ML' : isWMS ? 'WMS' : isGH ? 'GH' : 'CE'
+  const logoLine1 = isCommand ? 'Command' : isConfig ? 'Configuración' : isTarifax ? 'TarifaX' : isGRC ? 'Governance' : isQMS ? 'Quality' : isDMS ? 'Document' : isTMS ? 'Transportation' : isFletes ? 'Módulo de' : isFlota ? 'Gestión de' : isLocativa ? 'Mantenimiento' : isWMS ? 'Warehouse' : isGH ? 'Gestión' : 'Control de'
+  const logoLine2 = isCommand ? 'Center'  : isConfig ? 'del Sistema'  : isTarifax ? 'Motor de Tarifas' : isGRC ? 'Risk & Compliance' : isQMS ? 'Management System' : isDMS ? 'Management System' : isTMS ? 'Management System' : isFletes ? 'Fletes' : isFlota ? 'Flotas' : isLocativa ? 'Locativo' : isWMS ? 'Management' : isGH ? 'Humana' : 'Estibas'
 
   const width    = collapsed ? DRAWER_COLLAPSED : (widthProp ?? DRAWER_WIDTH)
   const showText = !collapsed && (widthProp === undefined || widthProp >= COMPACT_THRESHOLD)
@@ -369,6 +403,8 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
               ? `linear-gradient(135deg, ${WMS_COLOR} 0%, #1D4ED8 100%)`
               : isGH
               ? `linear-gradient(135deg, ${GH_COLOR} 0%, #9D174D 100%)`
+              : isGRC
+              ? `linear-gradient(135deg, ${GRC_COLOR} 0%, #5B21B6 100%)`
               : `linear-gradient(135deg, ${activeColor} 0%, ${isTarifax ? '#1f6130' : '#27884A'} 100%)`,
             display: 'flex',
             alignItems: 'center',

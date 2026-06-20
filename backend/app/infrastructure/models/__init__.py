@@ -71,6 +71,12 @@ from app.infrastructure.models.qms import (
     QMSQueja, QMSEvaluacionProveedor, QMSCambio, QMSMejora,
     QMSEncuesta, QMSEncuestaRespuesta, QMSCompetenciaProceso, QMSKPIDiario,
 )
+from app.infrastructure.models.grc import (
+    GRCComite, GRCPolitica, GRCObligacion, GRCControl, GRCRiesgo,
+    GRCRiesgoControl, GRCTratamiento, GRCMatrizCumplimiento, GRCEvidencia,
+    GRCAuditoria, GRCHallazgo, GRCPlanAccion, GRCIncidente,
+    GRCContinuidad, GRCSimulacro, GRCTercero, GRCEvaluacionTercero, GRCKPIDiario,
+)
 
 __all__ = [
     "TimestampMixin", "SoftDeleteMixin",

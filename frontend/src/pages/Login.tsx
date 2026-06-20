@@ -15,6 +15,7 @@ import {
   AirportShuttle, GpsFixed, Speed as SpeedIcon, AccountBalance as TMSLiqIcon,
   FolderSpecial, Draw as DrawIcon, ManageSearch, Policy as PolicyIcon,
   VerifiedUser as QMSQualityIcon, BugReport as QMSNCIcon, FactCheck as QMSAuditIcon, Analytics as QMSAnalyticsIcon,
+  GppGood as GRCShieldIcon, Warning as GRCRiskIcon, Gavel as GRCComplianceIcon, Security as GRCCyberIcon,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
@@ -187,6 +188,23 @@ const MODULES = [
       { icon: <DrawIcon sx={{ fontSize: 17 }} />, text: 'Firma electrónica y digital con validez legal y auditoría inmutable' },
       { icon: <ManageSearch sx={{ fontSize: 17 }} />, text: 'Búsqueda avanzada con OCR e Inteligencia Artificial integrada' },
       { icon: <PolicyIcon sx={{ fontSize: 17 }} />, text: 'Expedientes electrónicos integrados con HCM, TMS, WMS y FMS' },
+    ],
+  },
+  {
+    id: 'grc',
+    badge: 'GRC',
+    appName: 'Governance',
+    appAccent: 'Risk & Compliance',
+    headline: 'Riesgos bajo control,',
+    headlineAccent: 'cumplimiento garantizado',
+    description: 'ISO 31000 · ISO 37301 · ISO 27001 · ISO 22301 · COSO ERM · COBIT.\nPlataforma GRC empresarial para gobiernos corporativos de clase mundial.',
+    color: '#6D28D9',
+    colorDark: '#5B21B6',
+    features: [
+      { icon: <GRCShieldIcon sx={{ fontSize: 17 }} />, text: 'Gobierno corporativo: comités, RACI y estructura de control' },
+      { icon: <GRCRiskIcon sx={{ fontSize: 17 }} />, text: 'Gestión de riesgos con mapa de calor 5×5 e inherente vs residual' },
+      { icon: <GRCComplianceIcon sx={{ fontSize: 17 }} />, text: 'Matriz de cumplimiento normativo multipaís y multisector' },
+      { icon: <GRCCyberIcon sx={{ fontSize: 17 }} />, text: 'Continuidad del negocio, incidentes y auditorías corporativas' },
     ],
   },
   {

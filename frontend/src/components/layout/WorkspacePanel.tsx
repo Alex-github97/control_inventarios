@@ -14,6 +14,7 @@ const GH_COLOR         = '#BE185D'
 const TMS_COLOR        = '#0369A1'
 const DMS_COLOR        = '#0E7490'
 const QMS_COLOR        = '#059669'
+const GRC_COLOR        = '#6D28D9'
 const COMPACT_THRESHOLD = 80
 
 const WORKSPACES = [
@@ -27,8 +28,8 @@ const WORKSPACES = [
       !p.startsWith('/tarifax') && !p.startsWith('/usuarios') &&
       !p.startsWith('/command-center') && !p.startsWith('/fletes') &&
       !p.startsWith('/tms') && !p.startsWith('/dms') && !p.startsWith('/qms') &&
-      !p.startsWith('/flota') && !p.startsWith('/locativa') && !p.startsWith('/wms') &&
-      !p.startsWith('/gh'),
+      !p.startsWith('/grc') && !p.startsWith('/flota') && !p.startsWith('/locativa') &&
+      !p.startsWith('/wms') && !p.startsWith('/gh'),
   },
   {
     id:    'tarifax',
@@ -37,6 +38,14 @@ const WORKSPACES = [
     color: TX_COLOR,
     path:  '/tarifax/tablero',
     isActive: (p: string) => p.startsWith('/tarifax'),
+  },
+  {
+    id:    'grc',
+    label: 'GRC',
+    short: 'GRC',
+    color: GRC_COLOR,
+    path:  '/grc',
+    isActive: (p: string) => p.startsWith('/grc'),
   },
   {
     id:    'qms',

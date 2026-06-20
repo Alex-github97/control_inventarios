@@ -107,6 +107,20 @@ import QMSEncuestas from '@/pages/QMSEncuestas'
 import QMSCambios from '@/pages/QMSCambios'
 import QMSIA from '@/pages/QMSIA'
 import QMSConfig from '@/pages/QMSConfig'
+import GRCDashboard from '@/pages/GRCDashboard'
+import GRCGobierno from '@/pages/GRCGobierno'
+import GRCPoliticas from '@/pages/GRCPoliticas'
+import GRCObligaciones from '@/pages/GRCObligaciones'
+import GRCRiesgos from '@/pages/GRCRiesgos'
+import GRCControles from '@/pages/GRCControles'
+import GRCCumplimiento from '@/pages/GRCCumplimiento'
+import GRCTerceros from '@/pages/GRCTerceros'
+import GRCAuditorias from '@/pages/GRCAuditorias'
+import GRCHallazgos from '@/pages/GRCHallazgos'
+import GRCContinuidad from '@/pages/GRCContinuidad'
+import GRCIncidentes from '@/pages/GRCIncidentes'
+import GRCIA from '@/pages/GRCIA'
+import GRCConfig from '@/pages/GRCConfig'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -241,6 +255,20 @@ export default function App() {
             <Route path="/qms/cambios" element={<ProtectedRoute><QMSCambios /></ProtectedRoute>} />
             <Route path="/qms/ia" element={<ProtectedRoute><QMSIA /></ProtectedRoute>} />
             <Route path="/qms/config" element={<ProtectedRoute><QMSConfig /></ProtectedRoute>} />
+            <Route path="/grc" element={<ProtectedRoute><GRCDashboard /></ProtectedRoute>} />
+            <Route path="/grc/gobierno" element={<ProtectedRoute><GRCGobierno /></ProtectedRoute>} />
+            <Route path="/grc/politicas" element={<ProtectedRoute><GRCPoliticas /></ProtectedRoute>} />
+            <Route path="/grc/obligaciones" element={<ProtectedRoute><GRCObligaciones /></ProtectedRoute>} />
+            <Route path="/grc/riesgos" element={<ProtectedRoute><GRCRiesgos /></ProtectedRoute>} />
+            <Route path="/grc/controles" element={<ProtectedRoute><GRCControles /></ProtectedRoute>} />
+            <Route path="/grc/cumplimiento" element={<ProtectedRoute><GRCCumplimiento /></ProtectedRoute>} />
+            <Route path="/grc/terceros" element={<ProtectedRoute><GRCTerceros /></ProtectedRoute>} />
+            <Route path="/grc/auditorias" element={<ProtectedRoute><GRCAuditorias /></ProtectedRoute>} />
+            <Route path="/grc/hallazgos" element={<ProtectedRoute><GRCHallazgos /></ProtectedRoute>} />
+            <Route path="/grc/continuidad" element={<ProtectedRoute><GRCContinuidad /></ProtectedRoute>} />
+            <Route path="/grc/incidentes" element={<ProtectedRoute><GRCIncidentes /></ProtectedRoute>} />
+            <Route path="/grc/ia" element={<ProtectedRoute><GRCIA /></ProtectedRoute>} />
+            <Route path="/grc/config" element={<ProtectedRoute><GRCConfig /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </BrowserRouter>
