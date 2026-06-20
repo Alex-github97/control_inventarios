@@ -54,6 +54,13 @@ import WMSPicking from '@/pages/WMSPicking'
 import WMSDespacho from '@/pages/WMSDespacho'
 import WMSTrazabilidad from '@/pages/WMSTrazabilidad'
 import WMSConfig from '@/pages/WMSConfig'
+import GHDashboard from '@/pages/GHDashboard'
+import GHColaboradores from '@/pages/GHColaboradores'
+import GHConductores from '@/pages/GHConductores'
+import GHIncapacidades from '@/pages/GHIncapacidades'
+import GHVacaciones from '@/pages/GHVacaciones'
+import GHReclutamiento from '@/pages/GHReclutamiento'
+import GHCapacitacion from '@/pages/GHCapacitacion'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -135,6 +142,13 @@ export default function App() {
             <Route path="/wms/despacho" element={<ProtectedRoute><WMSDespacho /></ProtectedRoute>} />
             <Route path="/wms/trazabilidad" element={<ProtectedRoute><WMSTrazabilidad /></ProtectedRoute>} />
             <Route path="/wms/config" element={<ProtectedRoute><WMSConfig /></ProtectedRoute>} />
+            <Route path="/gh" element={<ProtectedRoute><GHDashboard /></ProtectedRoute>} />
+            <Route path="/gh/colaboradores" element={<ProtectedRoute><GHColaboradores /></ProtectedRoute>} />
+            <Route path="/gh/conductores" element={<ProtectedRoute><GHConductores /></ProtectedRoute>} />
+            <Route path="/gh/incapacidades" element={<ProtectedRoute><GHIncapacidades /></ProtectedRoute>} />
+            <Route path="/gh/vacaciones" element={<ProtectedRoute><GHVacaciones /></ProtectedRoute>} />
+            <Route path="/gh/reclutamiento" element={<ProtectedRoute><GHReclutamiento /></ProtectedRoute>} />
+            <Route path="/gh/capacitacion" element={<ProtectedRoute><GHCapacitacion /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </BrowserRouter>

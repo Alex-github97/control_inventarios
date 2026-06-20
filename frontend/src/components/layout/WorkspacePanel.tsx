@@ -11,6 +11,7 @@ const FT_COLOR         = '#F59E0B'
 const GF_COLOR         = '#7C3AED'
 const ML_COLOR         = '#0D9488'
 const WMS_COLOR        = '#1E40AF'
+const GH_COLOR         = '#BE185D'
 const COMPACT_THRESHOLD = 80
 
 const WORKSPACES = [
@@ -23,7 +24,8 @@ const WORKSPACES = [
     isActive: (p: string) =>
       !p.startsWith('/tarifax') && !p.startsWith('/usuarios') &&
       !p.startsWith('/command-center') && !p.startsWith('/fletes') &&
-      !p.startsWith('/flota') && !p.startsWith('/locativa') && !p.startsWith('/wms'),
+      !p.startsWith('/flota') && !p.startsWith('/locativa') && !p.startsWith('/wms') &&
+      !p.startsWith('/gh'),
   },
   {
     id:    'tarifax',
@@ -64,6 +66,14 @@ const WORKSPACES = [
     color: WMS_COLOR,
     path:  '/wms',
     isActive: (p: string) => p.startsWith('/wms'),
+  },
+  {
+    id:    'gh',
+    label: 'Gestión Humana',
+    short: 'GH',
+    color: GH_COLOR,
+    path:  '/gh',
+    isActive: (p: string) => p.startsWith('/gh'),
   },
   {
     id:    'command',

@@ -11,6 +11,7 @@ import {
   DirectionsCar, Build, LocalGasStation, Description,
   Engineering, Shield, Bolt, Inventory2 as ActivoIcon2,
   Warehouse, MoveToInbox, SwapHoriz, Send as WMSDespachoIcon,
+  PeopleAlt, Groups as GroupsIcon, Payments as PaymentsIcon, HealthAndSafety as HASIcon,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
@@ -132,6 +133,23 @@ const MODULES = [
       { icon: <Engineering sx={{ fontSize: 17 }} />, text: 'Órdenes de trabajo preventivas y correctivas' },
       { icon: <Shield sx={{ fontSize: 17 }} />, text: 'Registro de riesgos ISO 31000 con matriz 5×5' },
       { icon: <Bolt sx={{ fontSize: 17 }} />, text: 'Monitoreo de energía y detección de anomalías ISO 50001' },
+    ],
+  },
+  {
+    id: 'gh',
+    badge: 'GH',
+    appName: 'Gestión',
+    appAccent: 'Humana HCM',
+    headline: 'Personas en el centro,',
+    headlineAccent: 'operación sin límites',
+    description: 'ISO 45001 · SGSST · Nómina · Talento.\nCiclo completo del colaborador, desde el ingreso hasta la desvinculación.',
+    color: '#BE185D',
+    colorDark: '#9D174D',
+    features: [
+      { icon: <PeopleAlt sx={{ fontSize: 17 }} />, text: 'Colaboradores y conductores con perfil 360°' },
+      { icon: <PaymentsIcon sx={{ fontSize: 17 }} />, text: 'Nómina automática: horas extras, recargos y cesantías' },
+      { icon: <GroupsIcon sx={{ fontSize: 17 }} />, text: 'Reclutamiento, evaluación de desempeño y capacitación' },
+      { icon: <HASIcon sx={{ fontSize: 17 }} />, text: 'SST ISO 45001: incidentes, riesgos e inspecciones' },
     ],
   },
   {
