@@ -39,6 +39,13 @@ import {
   ReportProblem as LocativaRiesgoMLIcon,
   Bolt as LocativaEnergiaMLIcon,
   Tune as LocativaConfigMLIcon,
+  Warehouse as WMSDashboardIcon,
+  MoveToInbox as WMSInboundIcon,
+  Inventory as WMSInventoryIcon,
+  ContentPasteSearch as WMSPickingIcon,
+  Send as WMSDespachoIcon,
+  QrCodeScanner as WMSTrazabilidadIcon,
+  ManageAccounts as WMSConfigIcon,
 } from '@mui/icons-material'
 import { COMMAND_CENTER_DASHBOARDS } from '@/config/commandCenter'
 
@@ -52,6 +59,7 @@ const CC_COLOR  = '#0EA5E9'
 const FT_COLOR  = '#F59E0B'
 const GF_COLOR  = '#7C3AED'
 const ML_COLOR  = '#0D9488'
+const WMS_COLOR = '#1E40AF'
 
 interface NavItem {
   label: string
@@ -111,6 +119,17 @@ const ML_NAV_ITEMS: NavItem[] = [
 ]
 const ML_SECTIONS = ['General', 'Gestión', 'Control', 'Sistema']
 
+const WMS_NAV_ITEMS: NavItem[] = [
+  { label: 'Dashboard',      icon: <WMSDashboardIcon    fontSize="small" />, path: '/wms',                 section: 'General',       exact: true },
+  { label: 'Recepción',      icon: <WMSInboundIcon      fontSize="small" />, path: '/wms/recepcion',       section: 'Inbound' },
+  { label: 'Inventario',     icon: <WMSInventoryIcon    fontSize="small" />, path: '/wms/inventario',      section: 'Almacenamiento' },
+  { label: 'Picking',        icon: <WMSPickingIcon      fontSize="small" />, path: '/wms/picking',         section: 'Outbound' },
+  { label: 'Despacho',       icon: <WMSDespachoIcon     fontSize="small" />, path: '/wms/despacho',        section: 'Outbound' },
+  { label: 'Trazabilidad',   icon: <WMSTrazabilidadIcon fontSize="small" />, path: '/wms/trazabilidad',    section: 'Control' },
+  { label: 'Configuración',  icon: <WMSConfigIcon       fontSize="small" />, path: '/wms/config',          section: 'Sistema' },
+]
+const WMS_SECTIONS = ['General', 'Inbound', 'Almacenamiento', 'Outbound', 'Control', 'Sistema']
+
 const CONFIG_NAV_ITEMS: NavItem[] = [
   { label: 'Usuarios', icon: <UsuariosIcon fontSize="small" />, path: '/usuarios',       section: 'Administración', exact: true },
   { label: 'Roles',    icon: <RolesIcon   fontSize="small" />, path: '/usuarios/roles', section: 'Administración' },
@@ -148,14 +167,15 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
   const isConfig   = location.pathname.startsWith('/usuarios')
   const isCommand  = location.pathname.startsWith('/command-center')
   const isLocativa = location.pathname.startsWith('/locativa')
+  const isWMS      = location.pathname.startsWith('/wms')
 
-  const activeColor = isCommand ? CC_COLOR : isConfig ? CF_COLOR : isTarifax ? TX_COLOR : isFletes ? FT_COLOR : isFlota ? GF_COLOR : isLocativa ? ML_COLOR : CI_COLOR
-  const navItems    = isCommand ? CC_NAV_ITEMS : isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : isFletes ? FT_NAV_ITEMS : isFlota ? GF_NAV_ITEMS : isLocativa ? ML_NAV_ITEMS : CI_NAV_ITEMS
-  const sections    = isCommand ? CC_SECTIONS  : isConfig ? CONFIG_SECTIONS  : isTarifax ? TX_SECTIONS  : isFletes ? FT_SECTIONS  : isFlota ? GF_SECTIONS  : isLocativa ? ML_SECTIONS  : CI_SECTIONS
+  const activeColor = isCommand ? CC_COLOR : isConfig ? CF_COLOR : isTarifax ? TX_COLOR : isFletes ? FT_COLOR : isFlota ? GF_COLOR : isLocativa ? ML_COLOR : isWMS ? WMS_COLOR : CI_COLOR
+  const navItems    = isCommand ? CC_NAV_ITEMS : isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : isFletes ? FT_NAV_ITEMS : isFlota ? GF_NAV_ITEMS : isLocativa ? ML_NAV_ITEMS : isWMS ? WMS_NAV_ITEMS : CI_NAV_ITEMS
+  const sections    = isCommand ? CC_SECTIONS  : isConfig ? CONFIG_SECTIONS  : isTarifax ? TX_SECTIONS  : isFletes ? FT_SECTIONS  : isFlota ? GF_SECTIONS  : isLocativa ? ML_SECTIONS  : isWMS ? WMS_SECTIONS : CI_SECTIONS
 
-  const logoShort = isCommand ? 'CC' : isConfig ? 'CF' : isTarifax ? 'TX' : isFletes ? 'FT' : isFlota ? 'GF' : isLocativa ? 'ML' : 'CE'
-  const logoLine1 = isCommand ? 'Command' : isConfig ? 'Configuración' : isTarifax ? 'TarifaX' : isFletes ? 'Módulo de' : isFlota ? 'Gestión de' : isLocativa ? 'Mantenimiento' : 'Control de'
-  const logoLine2 = isCommand ? 'Center'  : isConfig ? 'del Sistema'  : isTarifax ? 'Motor de Tarifas' : isFletes ? 'Fletes' : isFlota ? 'Flotas' : isLocativa ? 'Locativo' : 'Estibas'
+  const logoShort = isCommand ? 'CC' : isConfig ? 'CF' : isTarifax ? 'TX' : isFletes ? 'FT' : isFlota ? 'GF' : isLocativa ? 'ML' : isWMS ? 'WMS' : 'CE'
+  const logoLine1 = isCommand ? 'Command' : isConfig ? 'Configuración' : isTarifax ? 'TarifaX' : isFletes ? 'Módulo de' : isFlota ? 'Gestión de' : isLocativa ? 'Mantenimiento' : isWMS ? 'Warehouse' : 'Control de'
+  const logoLine2 = isCommand ? 'Center'  : isConfig ? 'del Sistema'  : isTarifax ? 'Motor de Tarifas' : isFletes ? 'Fletes' : isFlota ? 'Flotas' : isLocativa ? 'Locativo' : isWMS ? 'Management' : 'Estibas'
 
   const width    = collapsed ? DRAWER_COLLAPSED : (widthProp ?? DRAWER_WIDTH)
   const showText = !collapsed && (widthProp === undefined || widthProp >= COMPACT_THRESHOLD)

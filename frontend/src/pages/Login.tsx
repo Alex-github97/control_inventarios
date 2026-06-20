@@ -10,6 +10,7 @@ import {
   Route, AssignmentInd, QueuePlayNext, Schedule,
   DirectionsCar, Build, LocalGasStation, Description,
   Engineering, Shield, Bolt, Inventory2 as ActivoIcon2,
+  Warehouse, MoveToInbox, SwapHoriz, Send as WMSDespachoIcon,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
@@ -133,22 +134,23 @@ const MODULES = [
       { icon: <Bolt sx={{ fontSize: 17 }} />, text: 'Monitoreo de energía y detección de anomalías ISO 50001' },
     ],
   },
-// ── Agrega aquí nuevos módulos cuando estén disponibles ──
-  // {
-  //   id: 'nuevo',
-  //   badge: 'NM',
-  //   appName: 'Nombre',
-  //   appAccent: 'Del Módulo',
-  //   headline: 'Titulo principal',
-  //   headlineAccent: 'del módulo',
-  //   description: 'Descripción breve del módulo.',
-  //   color: '#3B82F6',
-  //   colorDark: '#1D4ED8',
-  //   features: [
-  //     { icon: <CheckCircle sx={{ fontSize: 17 }} />, text: 'Característica 1' },
-  //     { icon: <CheckCircle sx={{ fontSize: 17 }} />, text: 'Característica 2' },
-  //   ],
-  // },
+  {
+    id: 'wms',
+    badge: 'WMS',
+    appName: 'Warehouse',
+    appAccent: 'Management System',
+    headline: 'Bodega inteligente,',
+    headlineAccent: 'despacho perfecto',
+    description: 'OTIF · Fill Rate · Inventory Accuracy.\nGestión end-to-end de la cadena logística interna.',
+    color: '#1E40AF',
+    colorDark: '#1e3a8a',
+    features: [
+      { icon: <MoveToInbox sx={{ fontSize: 17 }} />, text: 'Recepción con ASN y control de calidad por lote' },
+      { icon: <Warehouse sx={{ fontSize: 17 }} />, text: 'Inventario por ubicación FIFO/FEFO con conteos cíclicos' },
+      { icon: <SwapHoriz sx={{ fontSize: 17 }} />, text: 'Picking Batch/Zone/Wave con confirmación QR' },
+      { icon: <WMSDespachoIcon sx={{ fontSize: 17 }} />, text: 'Despacho OTIF y trazabilidad total por producto/lote' },
+    ],
+  },
 
 ]
 

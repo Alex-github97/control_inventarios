@@ -23,6 +23,15 @@ from app.infrastructure.models.flota import (
     FlotaRutinaDetalleRepuesto, FlotaSecuenciaMantenimiento, FlotaSecuenciaRutina,
     FlotaGrupoVehiculo, FlotaAsignacionSecuencia, FlotaModoFalla, FlotaUmbralCBM,
 )
+from app.infrastructure.models.wms import (
+    WMSAlmacen, WMSZona, WMSUbicacion, WMSProducto, WMSLote, WMSSerie,
+    WMSProveedor, WMSCliente, WMSTransportadora,
+    WMSOrdenCompra, WMSOrdenCompraDetalle, WMSRecepcion, WMSRecepcionDetalle,
+    WMSInventarioUbicacion, WMSMovimientoInventario, WMSConteoInventario, WMSConteoDetalle,
+    WMSOrdenSalida, WMSOrdenSalidaDetalle, WMSPickingTarea, WMSPickingDetalle,
+    WMSDespacho, WMSDespachoDetalle, WMSDevolucion, WMSDevolucionDetalle,
+    WMSEventoTrazabilidad, WMSKPIDiario,
+)
 from app.infrastructure.models.locative import (
     LocativaSede, LocativaEspacio, LocativaCategoria, LocativaModoFalla,
     LocativaProveedor, LocativaActivo, LocativaActivoDocumento,

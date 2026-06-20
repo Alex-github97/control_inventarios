@@ -47,6 +47,13 @@ import LocativaOrdenes from '@/pages/LocativaOrdenes'
 import LocativaRiesgos from '@/pages/LocativaRiesgos'
 import LocativaEnergia from '@/pages/LocativaEnergia'
 import LocativaConfig from '@/pages/LocativaConfig'
+import WMSDashboard from '@/pages/WMSDashboard'
+import WMSRecepcion from '@/pages/WMSRecepcion'
+import WMSInventario from '@/pages/WMSInventario'
+import WMSPicking from '@/pages/WMSPicking'
+import WMSDespacho from '@/pages/WMSDespacho'
+import WMSTrazabilidad from '@/pages/WMSTrazabilidad'
+import WMSConfig from '@/pages/WMSConfig'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -121,6 +128,13 @@ export default function App() {
             <Route path="/locativa/config" element={<ProtectedRoute><LocativaConfig /></ProtectedRoute>} />
             <Route path="/tarifax/tablero" element={<ProtectedRoute><TarifaxDashboard /></ProtectedRoute>} />
             <Route path="/tarifax/motor" element={<ProtectedRoute><TarifaxMotor /></ProtectedRoute>} />
+            <Route path="/wms" element={<ProtectedRoute><WMSDashboard /></ProtectedRoute>} />
+            <Route path="/wms/recepcion" element={<ProtectedRoute><WMSRecepcion /></ProtectedRoute>} />
+            <Route path="/wms/inventario" element={<ProtectedRoute><WMSInventario /></ProtectedRoute>} />
+            <Route path="/wms/picking" element={<ProtectedRoute><WMSPicking /></ProtectedRoute>} />
+            <Route path="/wms/despacho" element={<ProtectedRoute><WMSDespacho /></ProtectedRoute>} />
+            <Route path="/wms/trazabilidad" element={<ProtectedRoute><WMSTrazabilidad /></ProtectedRoute>} />
+            <Route path="/wms/config" element={<ProtectedRoute><WMSConfig /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </BrowserRouter>
