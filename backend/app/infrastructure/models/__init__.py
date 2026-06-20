@@ -90,6 +90,13 @@ from app.infrastructure.models.lms import (
     LMSForo, LMSHiloForo, LMSComentario,
     LMSKPIDiario,
 )
+from app.infrastructure.models.crm import (
+    CRMEjecutivoComercial, CRMCliente, CRMContacto, CRMLead,
+    CRMOportunidad, CRMCotizacion, CRMCotizacionItem, CRMContrato,
+    CRMContratoSLA, CRMTicket, CRMInteraccion, CRMCampana, CRMCampanaCliente,
+    CRMEncuesta, CRMCuentaClave, CRMObjetivoComercial, CRMActividad,
+    CRMRiesgoCliente, CRMSaludCliente, CRMKPIDiario,
+)
 
 __all__ = [
     "TimestampMixin", "SoftDeleteMixin",

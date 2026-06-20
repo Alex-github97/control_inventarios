@@ -16,6 +16,7 @@ const DMS_COLOR        = '#0E7490'
 const QMS_COLOR        = '#059669'
 const GRC_COLOR        = '#6D28D9'
 const LMS_COLOR        = '#D97706'
+const CRM_COLOR        = '#DC2626'
 const COMPACT_THRESHOLD = 80
 
 const WORKSPACES = [
@@ -30,7 +31,7 @@ const WORKSPACES = [
       !p.startsWith('/command-center') && !p.startsWith('/fletes') &&
       !p.startsWith('/tms') && !p.startsWith('/dms') && !p.startsWith('/qms') &&
       !p.startsWith('/grc') && !p.startsWith('/flota') && !p.startsWith('/locativa') &&
-      !p.startsWith('/wms') && !p.startsWith('/gh') && !p.startsWith('/lms'),
+      !p.startsWith('/wms') && !p.startsWith('/gh') && !p.startsWith('/lms') && !p.startsWith('/crm'),
   },
   {
     id:    'tarifax',
@@ -119,6 +120,14 @@ const WORKSPACES = [
     color: LMS_COLOR,
     path:  '/lms',
     isActive: (p: string) => p.startsWith('/lms'),
+  },
+  {
+    id:    'crm',
+    label: 'CRM',
+    short: 'CRM',
+    color: CRM_COLOR,
+    path:  '/crm',
+    isActive: (p: string) => p.startsWith('/crm'),
   },
   {
     id:    'config',

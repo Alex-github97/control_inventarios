@@ -17,6 +17,7 @@ import {
   VerifiedUser as QMSQualityIcon, BugReport as QMSNCIcon, FactCheck as QMSAuditIcon, Analytics as QMSAnalyticsIcon,
   GppGood as GRCShieldIcon, Warning as GRCRiskIcon, Gavel as GRCComplianceIcon, Security as GRCCyberIcon,
   School as LMSUniversityIcon, Psychology as LMSSkillsIcon, WorkspacePremium as LMSCertIcon, AutoAwesome as LMSAIIcon,
+  Handshake as CRMHandshakeIcon, Whatshot as CRMLeadIcon, SupportAgent as CRMSupportIcon, QueryStats as CRMStatsIcon,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
@@ -257,6 +258,23 @@ const MODULES = [
       { icon: <LMSSkillsIcon sx={{ fontSize: 17 }} />, text: 'Rutas de aprendizaje automáticas por cargo, área y brecha de competencias' },
       { icon: <LMSCertIcon sx={{ fontSize: 17 }} />, text: 'Certificaciones con alertas de vencimiento y renovación automática' },
       { icon: <LMSAIIcon sx={{ fontSize: 17 }} />, text: 'IA que recomienda cursos, predice riesgos y gamifica el aprendizaje' },
+    ],
+  },
+  {
+    id: 'crm',
+    badge: 'CRM',
+    appName: 'Customer',
+    appAccent: 'Relationship Mgmt',
+    headline: 'Clientes en el centro,',
+    headlineAccent: 'ventas bajo control',
+    description: 'Pipeline · Lead Scoring · NPS · IA Comercial.\nGestión integral del ciclo de vida del cliente con visibilidad 360°.',
+    color: '#DC2626',
+    colorDark: '#B91C1C',
+    features: [
+      { icon: <CRMLeadIcon sx={{ fontSize: 17 }} />, text: 'Lead Scoring automático FRÍO/TIBIO/CALIENTE con IA predictiva' },
+      { icon: <CRMHandshakeIcon sx={{ fontSize: 17 }} />, text: 'Pipeline Kanban: oportunidades, cotizaciones y contratos con SLA' },
+      { icon: <CRMSupportIcon sx={{ fontSize: 17 }} />, text: 'Centro de servicio PQRS, tickets, escalaciones y NPS en tiempo real' },
+      { icon: <CRMStatsIcon sx={{ fontSize: 17 }} />, text: 'Torre de control comercial: rentabilidad, churn y asistente IA' },
     ],
   },
 ]

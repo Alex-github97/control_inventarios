@@ -127,6 +127,21 @@ import {
   AutoAwesome as LMSIAIcon,
   Assessment as LMSReportesIcon,
   Settings as LMSConfigIcon,
+  TrendingUp as CRMDashIconCRM,
+  People as CRMClientesIconCRM,
+  Whatshot as CRMLeadsIconCRM,
+  TrendingUp as CRMOportunidadesIconCRM,
+  Receipt as CRMCotizacionesIconCRM,
+  Handshake as CRMContratosIconCRM,
+  SupportAgent as CRMTicketsIconCRM,
+  Hub as CRMInteraccionesIconCRM,
+  Campaign as CRMCampanasIconCRM,
+  StarRate as CRMEncuestasIconCRM,
+  VpnKey as CRMCuentasIconCRM,
+  AttachMoney as CRMRentabilidadIconCRM,
+  AutoAwesome as CRMIAIconCRM,
+  Assessment as CRMReportesIconCRM,
+  Settings as CRMConfigIconCRM,
 } from '@mui/icons-material'
 import { COMMAND_CENTER_DASHBOARDS } from '@/config/commandCenter'
 
@@ -147,6 +162,7 @@ const DMS_COLOR = '#0E7490'
 const QMS_COLOR = '#059669'
 const GRC_COLOR = '#6D28D9'
 const LMS_COLOR = '#D97706'
+const CRM_COLOR = '#DC2626'
 
 interface NavItem {
   label: string
@@ -326,6 +342,25 @@ const LMS_NAV_ITEMS: NavItem[] = [
 ]
 const LMS_SECTIONS = ['General', 'Academia', 'Talento', 'Evaluación', 'Conocimiento', 'Analítica', 'Sistema']
 
+const CRM_NAV_ITEMS: NavItem[] = [
+  { label: 'Torre Comercial',  icon: <CRMDashIconCRM         fontSize="small" />, path: '/crm',                section: 'General',    exact: true },
+  { label: 'Clientes 360',     icon: <CRMClientesIconCRM     fontSize="small" />, path: '/crm/clientes',       section: 'General' },
+  { label: 'Lead Scoring',     icon: <CRMLeadsIconCRM        fontSize="small" />, path: '/crm/leads',          section: 'Comercial' },
+  { label: 'Oportunidades',    icon: <CRMOportunidadesIconCRM fontSize="small" />, path: '/crm/oportunidades', section: 'Comercial' },
+  { label: 'Cotizaciones',     icon: <CRMCotizacionesIconCRM fontSize="small" />, path: '/crm/cotizaciones',   section: 'Comercial' },
+  { label: 'Contratos & SLA',  icon: <CRMContratosIconCRM    fontSize="small" />, path: '/crm/contratos',      section: 'Contratos' },
+  { label: 'Cuentas Clave',    icon: <CRMCuentasIconCRM      fontSize="small" />, path: '/crm/cuentas-clave',  section: 'Contratos' },
+  { label: 'Tickets PQRS',     icon: <CRMTicketsIconCRM      fontSize="small" />, path: '/crm/tickets',        section: 'Servicio' },
+  { label: 'Interacciones',    icon: <CRMInteraccionesIconCRM fontSize="small" />, path: '/crm/interacciones', section: 'Servicio' },
+  { label: 'Campañas',         icon: <CRMCampanasIconCRM     fontSize="small" />, path: '/crm/campanas',       section: 'Marketing' },
+  { label: 'NPS & Encuestas',  icon: <CRMEncuestasIconCRM    fontSize="small" />, path: '/crm/encuestas',      section: 'Marketing' },
+  { label: 'Rentabilidad',     icon: <CRMRentabilidadIconCRM fontSize="small" />, path: '/crm/rentabilidad',   section: 'Analítica' },
+  { label: 'IA Comercial',     icon: <CRMIAIconCRM           fontSize="small" />, path: '/crm/ia',             section: 'Analítica' },
+  { label: 'Reportes',         icon: <CRMReportesIconCRM     fontSize="small" />, path: '/crm/reportes',       section: 'Analítica' },
+  { label: 'Configuración',    icon: <CRMConfigIconCRM       fontSize="small" />, path: '/crm/config',         section: 'Sistema' },
+]
+const CRM_SECTIONS = ['General', 'Comercial', 'Contratos', 'Servicio', 'Marketing', 'Analítica', 'Sistema']
+
 const CONFIG_NAV_ITEMS: NavItem[] = [
   { label: 'Usuarios', icon: <UsuariosIcon fontSize="small" />, path: '/usuarios',       section: 'Administración', exact: true },
   { label: 'Roles',    icon: <RolesIcon   fontSize="small" />, path: '/usuarios/roles', section: 'Administración' },
@@ -370,14 +405,15 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
   const isWMS      = location.pathname.startsWith('/wms')
   const isGH       = location.pathname.startsWith('/gh')
   const isLMS      = location.pathname.startsWith('/lms')
+  const isCRM      = location.pathname.startsWith('/crm')
 
-  const activeColor = isCommand ? CC_COLOR : isConfig ? CF_COLOR : isTarifax ? TX_COLOR : isGRC ? GRC_COLOR : isQMS ? QMS_COLOR : isDMS ? DMS_COLOR : isTMS ? TMS_COLOR : isFletes ? FT_COLOR : isFlota ? GF_COLOR : isLocativa ? ML_COLOR : isWMS ? WMS_COLOR : isGH ? GH_COLOR : isLMS ? LMS_COLOR : CI_COLOR
-  const navItems    = isCommand ? CC_NAV_ITEMS : isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : isGRC ? GRC_NAV_ITEMS : isQMS ? QMS_NAV_ITEMS : isDMS ? DMS_NAV_ITEMS : isTMS ? TMS_NAV_ITEMS : isFletes ? FT_NAV_ITEMS : isFlota ? GF_NAV_ITEMS : isLocativa ? ML_NAV_ITEMS : isWMS ? WMS_NAV_ITEMS : isGH ? GH_NAV_ITEMS : isLMS ? LMS_NAV_ITEMS : CI_NAV_ITEMS
-  const sections    = isCommand ? CC_SECTIONS  : isConfig ? CONFIG_SECTIONS  : isTarifax ? TX_SECTIONS  : isGRC ? GRC_SECTIONS  : isQMS ? QMS_SECTIONS  : isDMS ? DMS_SECTIONS  : isTMS ? TMS_SECTIONS  : isFletes ? FT_SECTIONS  : isFlota ? GF_SECTIONS  : isLocativa ? ML_SECTIONS  : isWMS ? WMS_SECTIONS : isGH ? GH_SECTIONS : isLMS ? LMS_SECTIONS : CI_SECTIONS
+  const activeColor = isCommand ? CC_COLOR : isConfig ? CF_COLOR : isTarifax ? TX_COLOR : isGRC ? GRC_COLOR : isQMS ? QMS_COLOR : isDMS ? DMS_COLOR : isTMS ? TMS_COLOR : isFletes ? FT_COLOR : isFlota ? GF_COLOR : isLocativa ? ML_COLOR : isWMS ? WMS_COLOR : isGH ? GH_COLOR : isLMS ? LMS_COLOR : isCRM ? CRM_COLOR : CI_COLOR
+  const navItems    = isCommand ? CC_NAV_ITEMS : isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : isGRC ? GRC_NAV_ITEMS : isQMS ? QMS_NAV_ITEMS : isDMS ? DMS_NAV_ITEMS : isTMS ? TMS_NAV_ITEMS : isFletes ? FT_NAV_ITEMS : isFlota ? GF_NAV_ITEMS : isLocativa ? ML_NAV_ITEMS : isWMS ? WMS_NAV_ITEMS : isGH ? GH_NAV_ITEMS : isLMS ? LMS_NAV_ITEMS : isCRM ? CRM_NAV_ITEMS : CI_NAV_ITEMS
+  const sections    = isCommand ? CC_SECTIONS  : isConfig ? CONFIG_SECTIONS  : isTarifax ? TX_SECTIONS  : isGRC ? GRC_SECTIONS  : isQMS ? QMS_SECTIONS  : isDMS ? DMS_SECTIONS  : isTMS ? TMS_SECTIONS  : isFletes ? FT_SECTIONS  : isFlota ? GF_SECTIONS  : isLocativa ? ML_SECTIONS  : isWMS ? WMS_SECTIONS : isGH ? GH_SECTIONS : isLMS ? LMS_SECTIONS : isCRM ? CRM_SECTIONS : CI_SECTIONS
 
-  const logoShort = isCommand ? 'CC' : isConfig ? 'CF' : isTarifax ? 'TX' : isGRC ? 'GRC' : isQMS ? 'QMS' : isDMS ? 'DMS' : isTMS ? 'TMS' : isFletes ? 'FT' : isFlota ? 'GF' : isLocativa ? 'ML' : isWMS ? 'WMS' : isGH ? 'GH' : isLMS ? 'LMS' : 'CE'
-  const logoLine1 = isCommand ? 'Command' : isConfig ? 'Configuración' : isTarifax ? 'TarifaX' : isGRC ? 'Governance' : isQMS ? 'Quality' : isDMS ? 'Document' : isTMS ? 'Transportation' : isFletes ? 'Módulo de' : isFlota ? 'Gestión de' : isLocativa ? 'Mantenimiento' : isWMS ? 'Warehouse' : isGH ? 'Gestión' : isLMS ? 'Learning' : 'Control de'
-  const logoLine2 = isCommand ? 'Center'  : isConfig ? 'del Sistema'  : isTarifax ? 'Motor de Tarifas' : isGRC ? 'Risk & Compliance' : isQMS ? 'Management System' : isDMS ? 'Management System' : isTMS ? 'Management System' : isFletes ? 'Fletes' : isFlota ? 'Flotas' : isLocativa ? 'Locativo' : isWMS ? 'Management' : isGH ? 'Humana' : isLMS ? 'Management System' : 'Estibas'
+  const logoShort = isCommand ? 'CC' : isConfig ? 'CF' : isTarifax ? 'TX' : isGRC ? 'GRC' : isQMS ? 'QMS' : isDMS ? 'DMS' : isTMS ? 'TMS' : isFletes ? 'FT' : isFlota ? 'GF' : isLocativa ? 'ML' : isWMS ? 'WMS' : isGH ? 'GH' : isLMS ? 'LMS' : isCRM ? 'CRM' : 'CE'
+  const logoLine1 = isCommand ? 'Command' : isConfig ? 'Configuración' : isTarifax ? 'TarifaX' : isGRC ? 'Governance' : isQMS ? 'Quality' : isDMS ? 'Document' : isTMS ? 'Transportation' : isFletes ? 'Módulo de' : isFlota ? 'Gestión de' : isLocativa ? 'Mantenimiento' : isWMS ? 'Warehouse' : isGH ? 'Gestión' : isLMS ? 'Learning' : isCRM ? 'Customer' : 'Control de'
+  const logoLine2 = isCommand ? 'Center'  : isConfig ? 'del Sistema'  : isTarifax ? 'Motor de Tarifas' : isGRC ? 'Risk & Compliance' : isQMS ? 'Management System' : isDMS ? 'Management System' : isTMS ? 'Management System' : isFletes ? 'Fletes' : isFlota ? 'Flotas' : isLocativa ? 'Locativo' : isWMS ? 'Management' : isGH ? 'Humana' : isLMS ? 'Management System' : isCRM ? 'Relationship Mgmt' : 'Estibas'
 
   const width    = collapsed ? DRAWER_COLLAPSED : (widthProp ?? DRAWER_WIDTH)
   const showText = !collapsed && (widthProp === undefined || widthProp >= COMPACT_THRESHOLD)
@@ -442,6 +478,8 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
               ? `linear-gradient(135deg, ${GRC_COLOR} 0%, #5B21B6 100%)`
               : isLMS
               ? `linear-gradient(135deg, ${LMS_COLOR} 0%, #B45309 100%)`
+              : isCRM
+              ? `linear-gradient(135deg, ${CRM_COLOR} 0%, #B91C1C 100%)`
               : `linear-gradient(135deg, ${activeColor} 0%, ${isTarifax ? '#1f6130' : '#27884A'} 100%)`,
             display: 'flex',
             alignItems: 'center',

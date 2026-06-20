@@ -136,6 +136,21 @@ import LMSGamificacion from '@/pages/LMSGamificacion'
 import LMSIA from '@/pages/LMSIA'
 import LMSReportes from '@/pages/LMSReportes'
 import LMSConfig from '@/pages/LMSConfig'
+import CRMDashboard from '@/pages/CRMDashboard'
+import CRMClientes from '@/pages/CRMClientes'
+import CRMLeads from '@/pages/CRMLeads'
+import CRMOportunidades from '@/pages/CRMOportunidades'
+import CRMCotizaciones from '@/pages/CRMCotizaciones'
+import CRMContratos from '@/pages/CRMContratos'
+import CRMTickets from '@/pages/CRMTickets'
+import CRMInteracciones from '@/pages/CRMInteracciones'
+import CRMCampanas from '@/pages/CRMCampanas'
+import CRMEncuestas from '@/pages/CRMEncuestas'
+import CRMCuentasClave from '@/pages/CRMCuentasClave'
+import CRMRentabilidad from '@/pages/CRMRentabilidad'
+import CRMIA from '@/pages/CRMIA'
+import CRMReportes from '@/pages/CRMReportes'
+import CRMConfig from '@/pages/CRMConfig'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -299,6 +314,21 @@ export default function App() {
             <Route path="/lms/ia" element={<ProtectedRoute><LMSIA /></ProtectedRoute>} />
             <Route path="/lms/reportes" element={<ProtectedRoute><LMSReportes /></ProtectedRoute>} />
             <Route path="/lms/config" element={<ProtectedRoute><LMSConfig /></ProtectedRoute>} />
+            <Route path="/crm" element={<ProtectedRoute><CRMDashboard /></ProtectedRoute>} />
+            <Route path="/crm/clientes" element={<ProtectedRoute><CRMClientes /></ProtectedRoute>} />
+            <Route path="/crm/leads" element={<ProtectedRoute><CRMLeads /></ProtectedRoute>} />
+            <Route path="/crm/oportunidades" element={<ProtectedRoute><CRMOportunidades /></ProtectedRoute>} />
+            <Route path="/crm/cotizaciones" element={<ProtectedRoute><CRMCotizaciones /></ProtectedRoute>} />
+            <Route path="/crm/contratos" element={<ProtectedRoute><CRMContratos /></ProtectedRoute>} />
+            <Route path="/crm/tickets" element={<ProtectedRoute><CRMTickets /></ProtectedRoute>} />
+            <Route path="/crm/interacciones" element={<ProtectedRoute><CRMInteracciones /></ProtectedRoute>} />
+            <Route path="/crm/campanas" element={<ProtectedRoute><CRMCampanas /></ProtectedRoute>} />
+            <Route path="/crm/encuestas" element={<ProtectedRoute><CRMEncuestas /></ProtectedRoute>} />
+            <Route path="/crm/cuentas-clave" element={<ProtectedRoute><CRMCuentasClave /></ProtectedRoute>} />
+            <Route path="/crm/rentabilidad" element={<ProtectedRoute><CRMRentabilidad /></ProtectedRoute>} />
+            <Route path="/crm/ia" element={<ProtectedRoute><CRMIA /></ProtectedRoute>} />
+            <Route path="/crm/reportes" element={<ProtectedRoute><CRMReportes /></ProtectedRoute>} />
+            <Route path="/crm/config" element={<ProtectedRoute><CRMConfig /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </BrowserRouter>
