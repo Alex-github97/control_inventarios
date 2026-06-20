@@ -1,0 +1,194 @@
+// QMS Module - Configuración del Sistema
+import React, { useState } from 'react'
+import {
+  Box, Typography, Grid, Card, CardContent, Chip, Button, Tab, Tabs,
+  TextField, Switch, FormControlLabel, Select, MenuItem, FormControl,
+  InputLabel, alpha, Divider, Slider,
+} from '@mui/material'
+import { SettingsSuggest, Save, CheckCircle } from '@mui/icons-material'
+import { Layout } from '@/components/layout/Layout'
+
+const QMS_COLOR = '#059669'
+
+interface TabPanelProps { children?: React.ReactNode; index: number; value: number }
+function TabPanel({ children, value, index }: TabPanelProps) {
+  return value === index ? <Box sx={{ pt: 2 }}>{children}</Box> : null
+}
+
+const ISO_NORMAS = [
+  { codigo: 'ISO 9001:2015', titulo: 'Gestión de Calidad', activa: true, desde: '2023-01-15', vence: '2026-01-15', certificadora: 'Bureau Veritas', scope: 'Servicios logísticos integrales, transporte y almacenamiento' },
+  { codigo: 'ISO 28000:2022', titulo: 'Seguridad Cadena Suministro', activa: true, desde: '2024-03-01', vence: '2027-03-01', certificadora: 'SGS Colombia', scope: 'Transporte terrestre de carga en Colombia' },
+  { codigo: 'ISO 45001:2018', titulo: 'Seguridad y Salud en el Trabajo', activa: true, desde: '2023-06-01', vence: '2026-06-01', certificadora: 'ICONTEC', scope: 'Todos los procesos con personal operativo y administrativo' },
+  { codigo: 'ISO 14001:2015', titulo: 'Gestión Ambiental', activa: false, desde: '—', vence: '—', certificadora: '—', scope: 'En proceso de implementación' },
+  { codigo: 'ISO 27001:2022', titulo: 'Seguridad de la Información', activa: false, desde: '—', vence: '—', certificadora: '—', scope: 'En proceso de implementación' },
+  { codigo: 'ISO 31000:2018', titulo: 'Gestión de Riesgos', activa: true, desde: '2024-01-01', vence: '—', certificadora: 'Marco referencia', scope: 'Todos los procesos organizacionales' },
+]
+
+export default function QMSConfig() {
+  const [tab, setTab] = useState(0)
+  const [saved, setSaved] = useState(false)
+  const [umbralNc, setUmbralNc] = useState(10)
+  const [umbralCapa, setUmbralCapa] = useState(85)
+  const [umbralKpi, setUmbralKpi] = useState(80)
+  const [umbralProveedor, setUmbralProveedor] = useState(60)
+
+  const handleSave = () => { setSaved(true); setTimeout(() => setSaved(false), 2500) }
+
+  return (
+    <Layout>
+      <Box sx={{ p: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <SettingsSuggest sx={{ color: QMS_COLOR, fontSize: 28 }} />
+            <Box>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: '#FFF', lineHeight: 1 }}>Configuración QMS</Typography>
+              <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>QMS · Normas ISO · Umbrales · Notificaciones</Typography>
+            </Box>
+            <Chip label="QMS" size="small" sx={{ bgcolor: alpha(QMS_COLOR, 0.15), color: QMS_COLOR, fontWeight: 700, border: `1px solid ${alpha(QMS_COLOR, 0.3)}` }} />
+          </Box>
+          <Button startIcon={saved ? <CheckCircle /> : <Save />} size="small" variant="contained" onClick={handleSave} sx={{ bgcolor: saved ? QMS_COLOR : QMS_COLOR, '&:hover': { bgcolor: '#047857' }, borderRadius: 2 }}>
+            {saved ? 'Guardado' : 'Guardar Cambios'}
+          </Button>
+        </Box>
+
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid rgba(255,255,255,0.08)', '& .MuiTab-root': { color: 'rgba(255,255,255,0.45)', fontSize: 13 }, '& .Mui-selected': { color: QMS_COLOR }, '& .MuiTabs-indicator': { bgcolor: QMS_COLOR } }}>
+          <Tab label="Normas ISO" />
+          <Tab label="Umbrales" />
+          <Tab label="Notificaciones" />
+          <Tab label="Integraciones" />
+        </Tabs>
+
+        <TabPanel value={tab} index={0}>
+          <Grid container spacing={2}>
+            {ISO_NORMAS.map(n => (
+              <Grid key={n.codigo} size={{ xs: 12, md: 6 }}>
+                <Card sx={{ bgcolor: '#111827', border: `1px solid ${n.activa ? alpha(QMS_COLOR, 0.25) : 'rgba(255,255,255,0.07)'}`, borderRadius: 2 }}>
+                  <CardContent sx={{ p: '16px !important' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
+                      <Box>
+                        <Typography sx={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 700, color: n.activa ? QMS_COLOR : 'rgba(255,255,255,0.4)' }}>{n.codigo}</Typography>
+                        <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#FFF' }}>{n.titulo}</Typography>
+                      </Box>
+                      <Chip label={n.activa ? 'Activa' : 'No activa'} size="small" sx={{ height: 22, fontSize: 10, bgcolor: n.activa ? alpha(QMS_COLOR, 0.15) : 'rgba(255,255,255,0.06)', color: n.activa ? QMS_COLOR : 'rgba(255,255,255,0.35)', fontWeight: 700 }} />
+                    </Box>
+                    <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)', mb: 1.5 }} />
+                    <Grid container spacing={1}>
+                      {[['Certificadora', n.certificadora], ['Vigente desde', n.desde], ['Vence', n.vence]].map(([l, v]) => (
+                        <Grid key={l as string} size={{ xs: 4 }}>
+                          <Typography sx={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase' }}>{l}</Typography>
+                          <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>{v}</Typography>
+                        </Grid>
+                      ))}
+                    </Grid>
+                    <Box sx={{ mt: 1.5, p: 1, borderRadius: 1, bgcolor: 'rgba(255,255,255,0.03)' }}>
+                      <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', mb: 0.25 }}>ALCANCE</Typography>
+                      <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', lineHeight: 1.4 }}>{n.scope}</Typography>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        </TabPanel>
+
+        <TabPanel value={tab} index={1}>
+          <Grid container spacing={3}>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Card sx={{ bgcolor: '#111827', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 2 }}>
+                <CardContent>
+                  <Typography sx={{ fontWeight: 700, color: '#FFF', mb: 2 }}>Umbrales de Alerta</Typography>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    {[
+                      { label: 'NC máx. por período (antes de alerta)', value: umbralNc, setter: setUmbralNc, min: 1, max: 50, unit: 'NCs', color: '#DC2626' },
+                      { label: 'Cierre de CAPAs vigentes (%)', value: umbralCapa, setter: setUmbralCapa, min: 50, max: 100, unit: '%', color: '#D97706' },
+                      { label: 'Meta mínima de KPIs (%)', value: umbralKpi, setter: setUmbralKpi, min: 50, max: 100, unit: '%', color: QMS_COLOR },
+                      { label: 'Score mínimo proveedores', value: umbralProveedor, setter: setUmbralProveedor, min: 40, max: 90, unit: '/100', color: '#0369A1' },
+                    ].map(t => (
+                      <Box key={t.label}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                          <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>{t.label}</Typography>
+                          <Typography sx={{ fontSize: 14, fontWeight: 800, color: t.color }}>{t.value}{t.unit}</Typography>
+                        </Box>
+                        <Slider value={t.value} min={t.min} max={t.max} step={1} onChange={(_, v) => t.setter(v as number)} sx={{ color: t.color }} />
+                      </Box>
+                    ))}
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Card sx={{ bgcolor: '#111827', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 2 }}>
+                <CardContent>
+                  <Typography sx={{ fontWeight: 700, color: '#FFF', mb: 2 }}>Plazos Estándar</Typography>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {[
+                      { label: 'Días máx. para respuesta a PQRS', placeholder: '15' },
+                      { label: 'Días máx. cierre de NC Mayor', placeholder: '30' },
+                      { label: 'Días máx. cierre de NC Menor', placeholder: '60' },
+                      { label: 'Frecuencia auditoría interna (días)', placeholder: '90' },
+                      { label: 'Período de evaluación proveedores', placeholder: 'Trimestral' },
+                    ].map(f => (
+                      <TextField key={f.label} label={f.label} placeholder={f.placeholder} size="small" fullWidth InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
+                    ))}
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+        </TabPanel>
+
+        <TabPanel value={tab} index={2}>
+          <Card sx={{ bgcolor: '#111827', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 2 }}>
+            <CardContent>
+              <Typography sx={{ fontWeight: 700, color: '#FFF', mb: 2 }}>Notificaciones Automáticas</Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                {[
+                  { label: 'Alerta de NC sin CAPA asignado (> 48h)', on: true },
+                  { label: 'Recordatorio de auditoría 5 días antes', on: true },
+                  { label: 'CAPA próximo a vencer (< 7 días)', on: true },
+                  { label: 'KPI bajo meta por 2 períodos consecutivos', on: true },
+                  { label: 'PQRS sin respuesta en 24 horas', on: true },
+                  { label: 'Proveedor en zona deficiente', on: false },
+                  { label: 'Riesgo crítico sin plan de mitigación', on: true },
+                  { label: 'Encuesta completada al 100%', on: false },
+                  { label: 'Hallazgo de auditoría sin responsable', on: true },
+                ].map((n, i) => (
+                  <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 0.75, borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                    <Typography sx={{ fontSize: 13, color: 'rgba(255,255,255,0.75)' }}>{n.label}</Typography>
+                    <FormControlLabel control={<Switch defaultChecked={n.on} size="small" sx={{ '& .MuiSwitch-switchBase.Mui-checked': { color: QMS_COLOR }, '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: QMS_COLOR } }} />} label="" />
+                  </Box>
+                ))}
+              </Box>
+            </CardContent>
+          </Card>
+        </TabPanel>
+
+        <TabPanel value={tab} index={3}>
+          <Grid container spacing={2}>
+            {[
+              { nombre: 'TMS — Sistema de Transporte', estado: 'conectado', desc: 'Recibe incidentes de transporte como potenciales NCs' },
+              { nombre: 'WMS — Gestión de Almacén', estado: 'conectado', desc: 'Sincroniza hallazgos de picking y almacenamiento' },
+              { nombre: 'DMS — Documentos', estado: 'conectado', desc: 'Acceso a procedimientos y formatos QMS actualizados' },
+              { nombre: 'HCM — Recursos Humanos', estado: 'parcial', desc: 'Datos de formación y evaluación de competencias' },
+              { nombre: 'Correo Electrónico (SMTP)', estado: 'conectado', desc: 'Envío de alertas y notificaciones a responsables' },
+              { nombre: 'ERP Financiero', estado: 'no_conectado', desc: 'Pendiente: costos de no calidad y reclamaciones económicas' },
+            ].map(int => (
+              <Grid key={int.nombre} size={{ xs: 12, sm: 6, md: 4 }}>
+                <Card sx={{ bgcolor: '#111827', border: `1px solid ${int.estado === 'conectado' ? alpha(QMS_COLOR, 0.22) : int.estado === 'parcial' ? alpha('#D97706', 0.22) : 'rgba(255,255,255,0.07)'}`, borderRadius: 2 }}>
+                  <CardContent sx={{ p: '14px !important' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#FFF' }}>{int.nombre}</Typography>
+                      <Chip label={int.estado.replace('_', ' ')} size="small" sx={{ fontSize: 9, height: 18, bgcolor: int.estado === 'conectado' ? alpha(QMS_COLOR, 0.15) : int.estado === 'parcial' ? alpha('#D97706', 0.15) : 'rgba(255,255,255,0.06)', color: int.estado === 'conectado' ? QMS_COLOR : int.estado === 'parcial' ? '#D97706' : 'rgba(255,255,255,0.35)', fontWeight: 700 }} />
+                    </Box>
+                    <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', lineHeight: 1.4 }}>{int.desc}</Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        </TabPanel>
+      </Box>
+    </Layout>
+  )
+}

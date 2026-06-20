@@ -190,6 +190,23 @@ const MODULES = [
     ],
   },
   {
+    id: 'qms',
+    badge: 'QMS',
+    appName: 'Quality',
+    appAccent: 'Management System',
+    headline: 'Calidad certificada,',
+    headlineAccent: 'cero no conformidades',
+    description: 'ISO 9001 · ISO 28000 · ISO 45001 · ISO 14001.\nSistema integral de gestión de calidad para operaciones logísticas.',
+    color: '#059669',
+    colorDark: '#047857',
+    features: [
+      { icon: <QMSQualityIcon sx={{ fontSize: 17 }} />, text: 'Gestión de procesos y mapa de procesos ISO 9001' },
+      { icon: <QMSNCIcon sx={{ fontSize: 17 }} />, text: 'No conformidades, CAPA y análisis de causa raíz' },
+      { icon: <QMSAuditIcon sx={{ fontSize: 17 }} />, text: 'Auditorías internas y seguimiento de hallazgos' },
+      { icon: <QMSAnalyticsIcon sx={{ fontSize: 17 }} />, text: 'Torre de control de calidad con KPIs e IA integrada' },
+    ],
+  },
+  {
     id: 'tms',
     badge: 'TMS',
     appName: 'Transportation',

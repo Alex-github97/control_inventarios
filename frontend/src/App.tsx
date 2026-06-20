@@ -93,6 +93,20 @@ import DMSIntegraciones from '@/pages/DMSIntegraciones'
 import DMSIA from '@/pages/DMSIA'
 import DMSPortal from '@/pages/DMSPortal'
 import DMSConfig from '@/pages/DMSConfig'
+import QMSDashboard from '@/pages/QMSDashboard'
+import QMSProcesos from '@/pages/QMSProcesos'
+import QMSIndicadores from '@/pages/QMSIndicadores'
+import QMSNoConformidades from '@/pages/QMSNoConformidades'
+import QMSAuditorias from '@/pages/QMSAuditorias'
+import QMSHallazgos from '@/pages/QMSHallazgos'
+import QMSRiesgos from '@/pages/QMSRiesgos'
+import QMSQuejas from '@/pages/QMSQuejas'
+import QMSProveedores from '@/pages/QMSProveedores'
+import QMSMejora from '@/pages/QMSMejora'
+import QMSEncuestas from '@/pages/QMSEncuestas'
+import QMSCambios from '@/pages/QMSCambios'
+import QMSIA from '@/pages/QMSIA'
+import QMSConfig from '@/pages/QMSConfig'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -213,6 +227,20 @@ export default function App() {
             <Route path="/dms/ia" element={<ProtectedRoute><DMSIA /></ProtectedRoute>} />
             <Route path="/dms/portal" element={<ProtectedRoute><DMSPortal /></ProtectedRoute>} />
             <Route path="/dms/config" element={<ProtectedRoute><DMSConfig /></ProtectedRoute>} />
+            <Route path="/qms" element={<ProtectedRoute><QMSDashboard /></ProtectedRoute>} />
+            <Route path="/qms/procesos" element={<ProtectedRoute><QMSProcesos /></ProtectedRoute>} />
+            <Route path="/qms/indicadores" element={<ProtectedRoute><QMSIndicadores /></ProtectedRoute>} />
+            <Route path="/qms/no-conformidades" element={<ProtectedRoute><QMSNoConformidades /></ProtectedRoute>} />
+            <Route path="/qms/auditorias" element={<ProtectedRoute><QMSAuditorias /></ProtectedRoute>} />
+            <Route path="/qms/hallazgos" element={<ProtectedRoute><QMSHallazgos /></ProtectedRoute>} />
+            <Route path="/qms/riesgos" element={<ProtectedRoute><QMSRiesgos /></ProtectedRoute>} />
+            <Route path="/qms/quejas" element={<ProtectedRoute><QMSQuejas /></ProtectedRoute>} />
+            <Route path="/qms/proveedores" element={<ProtectedRoute><QMSProveedores /></ProtectedRoute>} />
+            <Route path="/qms/mejora" element={<ProtectedRoute><QMSMejora /></ProtectedRoute>} />
+            <Route path="/qms/encuestas" element={<ProtectedRoute><QMSEncuestas /></ProtectedRoute>} />
+            <Route path="/qms/cambios" element={<ProtectedRoute><QMSCambios /></ProtectedRoute>} />
+            <Route path="/qms/ia" element={<ProtectedRoute><QMSIA /></ProtectedRoute>} />
+            <Route path="/qms/config" element={<ProtectedRoute><QMSConfig /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </BrowserRouter>
