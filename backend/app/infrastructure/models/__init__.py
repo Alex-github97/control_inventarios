@@ -77,6 +77,19 @@ from app.infrastructure.models.grc import (
     GRCAuditoria, GRCHallazgo, GRCPlanAccion, GRCIncidente,
     GRCContinuidad, GRCSimulacro, GRCTercero, GRCEvaluacionTercero, GRCKPIDiario,
 )
+from app.infrastructure.models.lms import (
+    LMSFacultad, LMSEscuela, LMSPrograma, LMSInstructor,
+    LMSCurso, LMSModulo, LMSContenido,
+    LMSCompetencia, LMSCursoCompetencia, LMSMatrizCompetencia,
+    LMSRutaAprendizaje, LMSRutaCurso, LMSProgramaCurso,
+    LMSInscripcion, LMSProgreso,
+    LMSEvaluacion, LMSPregunta, LMSOpcionRespuesta,
+    LMSEvaluacionPregunta, LMSIntentoEvaluacion, LMSRespuesta,
+    LMSCertificacion, LMSCertificadoUsuario,
+    LMSInsignia, LMSInsigniaUsuario,
+    LMSForo, LMSHiloForo, LMSComentario,
+    LMSKPIDiario,
+)
 
 __all__ = [
     "TimestampMixin", "SoftDeleteMixin",

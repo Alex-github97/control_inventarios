@@ -113,6 +113,20 @@ import {
   Security as GRCIncidentesIconGRC,
   AutoAwesome as GRCIAIconGRC,
   ManageSearch as GRCConfigIconGRC,
+  School as LMSUniversidadIcon,
+  MenuBook as LMSCatalogoIcon,
+  PlayCircle as LMSMiAprendizajeIcon,
+  AccountTree as LMSRutasIcon,
+  PersonAdd as LMSOnboardingIcon,
+  Psychology as LMSCompetenciasIcon,
+  WorkspacePremium as LMSCertificacionesIcon,
+  Quiz as LMSEvaluacionesIcon,
+  Lightbulb as LMSBancoIcon,
+  LibraryBooks as LMSKnowledgeIcon,
+  EmojiEvents as LMSGamificacionIcon,
+  AutoAwesome as LMSIAIcon,
+  Assessment as LMSReportesIcon,
+  Settings as LMSConfigIcon,
 } from '@mui/icons-material'
 import { COMMAND_CENTER_DASHBOARDS } from '@/config/commandCenter'
 
@@ -132,6 +146,7 @@ const TMS_COLOR = '#0369A1'
 const DMS_COLOR = '#0E7490'
 const QMS_COLOR = '#059669'
 const GRC_COLOR = '#6D28D9'
+const LMS_COLOR = '#D97706'
 
 interface NavItem {
   label: string
@@ -292,6 +307,25 @@ const GRC_NAV_ITEMS: NavItem[] = [
 ]
 const GRC_SECTIONS = ['General', 'Gobierno', 'Cumplimiento', 'Riesgos', 'Auditoría', 'Continuidad', 'Inteligencia', 'Sistema']
 
+const LMS_NAV_ITEMS: NavItem[] = [
+  { label: 'Dashboard',       icon: <LMSReportesIcon      fontSize="small" />, path: '/lms',                section: 'General',    exact: true },
+  { label: 'Mi Aprendizaje',  icon: <LMSMiAprendizajeIcon fontSize="small" />, path: '/lms/mi-aprendizaje', section: 'General' },
+  { label: 'Universidad',     icon: <LMSUniversidadIcon   fontSize="small" />, path: '/lms/universidad',    section: 'Academia' },
+  { label: 'Catálogo',        icon: <LMSCatalogoIcon      fontSize="small" />, path: '/lms/catalogo',       section: 'Academia' },
+  { label: 'Rutas',           icon: <LMSRutasIcon         fontSize="small" />, path: '/lms/rutas',          section: 'Academia' },
+  { label: 'Onboarding',      icon: <LMSOnboardingIcon    fontSize="small" />, path: '/lms/onboarding',     section: 'Talento' },
+  { label: 'Competencias',    icon: <LMSCompetenciasIcon  fontSize="small" />, path: '/lms/competencias',   section: 'Talento' },
+  { label: 'Evaluaciones',    icon: <LMSEvaluacionesIcon  fontSize="small" />, path: '/lms/evaluaciones',   section: 'Evaluación' },
+  { label: 'Banco Preguntas', icon: <LMSBancoIcon         fontSize="small" />, path: '/lms/banco-preguntas',section: 'Evaluación' },
+  { label: 'Certificaciones', icon: <LMSCertificacionesIcon fontSize="small" />, path: '/lms/certificaciones', section: 'Evaluación' },
+  { label: 'Conocimiento',    icon: <LMSKnowledgeIcon     fontSize="small" />, path: '/lms/conocimiento',   section: 'Conocimiento' },
+  { label: 'Gamificación',    icon: <LMSGamificacionIcon  fontSize="small" />, path: '/lms/gamificacion',   section: 'Analítica' },
+  { label: 'IA LMS',          icon: <LMSIAIcon            fontSize="small" />, path: '/lms/ia',             section: 'Analítica' },
+  { label: 'Reportes',        icon: <LMSReportesIcon      fontSize="small" />, path: '/lms/reportes',       section: 'Analítica' },
+  { label: 'Configuración',   icon: <LMSConfigIcon        fontSize="small" />, path: '/lms/config',         section: 'Sistema' },
+]
+const LMS_SECTIONS = ['General', 'Academia', 'Talento', 'Evaluación', 'Conocimiento', 'Analítica', 'Sistema']
+
 const CONFIG_NAV_ITEMS: NavItem[] = [
   { label: 'Usuarios', icon: <UsuariosIcon fontSize="small" />, path: '/usuarios',       section: 'Administración', exact: true },
   { label: 'Roles',    icon: <RolesIcon   fontSize="small" />, path: '/usuarios/roles', section: 'Administración' },
@@ -335,14 +369,15 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
   const isLocativa = location.pathname.startsWith('/locativa')
   const isWMS      = location.pathname.startsWith('/wms')
   const isGH       = location.pathname.startsWith('/gh')
+  const isLMS      = location.pathname.startsWith('/lms')
 
-  const activeColor = isCommand ? CC_COLOR : isConfig ? CF_COLOR : isTarifax ? TX_COLOR : isGRC ? GRC_COLOR : isQMS ? QMS_COLOR : isDMS ? DMS_COLOR : isTMS ? TMS_COLOR : isFletes ? FT_COLOR : isFlota ? GF_COLOR : isLocativa ? ML_COLOR : isWMS ? WMS_COLOR : isGH ? GH_COLOR : CI_COLOR
-  const navItems    = isCommand ? CC_NAV_ITEMS : isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : isGRC ? GRC_NAV_ITEMS : isQMS ? QMS_NAV_ITEMS : isDMS ? DMS_NAV_ITEMS : isTMS ? TMS_NAV_ITEMS : isFletes ? FT_NAV_ITEMS : isFlota ? GF_NAV_ITEMS : isLocativa ? ML_NAV_ITEMS : isWMS ? WMS_NAV_ITEMS : isGH ? GH_NAV_ITEMS : CI_NAV_ITEMS
-  const sections    = isCommand ? CC_SECTIONS  : isConfig ? CONFIG_SECTIONS  : isTarifax ? TX_SECTIONS  : isGRC ? GRC_SECTIONS  : isQMS ? QMS_SECTIONS  : isDMS ? DMS_SECTIONS  : isTMS ? TMS_SECTIONS  : isFletes ? FT_SECTIONS  : isFlota ? GF_SECTIONS  : isLocativa ? ML_SECTIONS  : isWMS ? WMS_SECTIONS : isGH ? GH_SECTIONS : CI_SECTIONS
+  const activeColor = isCommand ? CC_COLOR : isConfig ? CF_COLOR : isTarifax ? TX_COLOR : isGRC ? GRC_COLOR : isQMS ? QMS_COLOR : isDMS ? DMS_COLOR : isTMS ? TMS_COLOR : isFletes ? FT_COLOR : isFlota ? GF_COLOR : isLocativa ? ML_COLOR : isWMS ? WMS_COLOR : isGH ? GH_COLOR : isLMS ? LMS_COLOR : CI_COLOR
+  const navItems    = isCommand ? CC_NAV_ITEMS : isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : isGRC ? GRC_NAV_ITEMS : isQMS ? QMS_NAV_ITEMS : isDMS ? DMS_NAV_ITEMS : isTMS ? TMS_NAV_ITEMS : isFletes ? FT_NAV_ITEMS : isFlota ? GF_NAV_ITEMS : isLocativa ? ML_NAV_ITEMS : isWMS ? WMS_NAV_ITEMS : isGH ? GH_NAV_ITEMS : isLMS ? LMS_NAV_ITEMS : CI_NAV_ITEMS
+  const sections    = isCommand ? CC_SECTIONS  : isConfig ? CONFIG_SECTIONS  : isTarifax ? TX_SECTIONS  : isGRC ? GRC_SECTIONS  : isQMS ? QMS_SECTIONS  : isDMS ? DMS_SECTIONS  : isTMS ? TMS_SECTIONS  : isFletes ? FT_SECTIONS  : isFlota ? GF_SECTIONS  : isLocativa ? ML_SECTIONS  : isWMS ? WMS_SECTIONS : isGH ? GH_SECTIONS : isLMS ? LMS_SECTIONS : CI_SECTIONS
 
-  const logoShort = isCommand ? 'CC' : isConfig ? 'CF' : isTarifax ? 'TX' : isGRC ? 'GRC' : isQMS ? 'QMS' : isDMS ? 'DMS' : isTMS ? 'TMS' : isFletes ? 'FT' : isFlota ? 'GF' : isLocativa ? 'ML' : isWMS ? 'WMS' : isGH ? 'GH' : 'CE'
-  const logoLine1 = isCommand ? 'Command' : isConfig ? 'Configuración' : isTarifax ? 'TarifaX' : isGRC ? 'Governance' : isQMS ? 'Quality' : isDMS ? 'Document' : isTMS ? 'Transportation' : isFletes ? 'Módulo de' : isFlota ? 'Gestión de' : isLocativa ? 'Mantenimiento' : isWMS ? 'Warehouse' : isGH ? 'Gestión' : 'Control de'
-  const logoLine2 = isCommand ? 'Center'  : isConfig ? 'del Sistema'  : isTarifax ? 'Motor de Tarifas' : isGRC ? 'Risk & Compliance' : isQMS ? 'Management System' : isDMS ? 'Management System' : isTMS ? 'Management System' : isFletes ? 'Fletes' : isFlota ? 'Flotas' : isLocativa ? 'Locativo' : isWMS ? 'Management' : isGH ? 'Humana' : 'Estibas'
+  const logoShort = isCommand ? 'CC' : isConfig ? 'CF' : isTarifax ? 'TX' : isGRC ? 'GRC' : isQMS ? 'QMS' : isDMS ? 'DMS' : isTMS ? 'TMS' : isFletes ? 'FT' : isFlota ? 'GF' : isLocativa ? 'ML' : isWMS ? 'WMS' : isGH ? 'GH' : isLMS ? 'LMS' : 'CE'
+  const logoLine1 = isCommand ? 'Command' : isConfig ? 'Configuración' : isTarifax ? 'TarifaX' : isGRC ? 'Governance' : isQMS ? 'Quality' : isDMS ? 'Document' : isTMS ? 'Transportation' : isFletes ? 'Módulo de' : isFlota ? 'Gestión de' : isLocativa ? 'Mantenimiento' : isWMS ? 'Warehouse' : isGH ? 'Gestión' : isLMS ? 'Learning' : 'Control de'
+  const logoLine2 = isCommand ? 'Center'  : isConfig ? 'del Sistema'  : isTarifax ? 'Motor de Tarifas' : isGRC ? 'Risk & Compliance' : isQMS ? 'Management System' : isDMS ? 'Management System' : isTMS ? 'Management System' : isFletes ? 'Fletes' : isFlota ? 'Flotas' : isLocativa ? 'Locativo' : isWMS ? 'Management' : isGH ? 'Humana' : isLMS ? 'Management System' : 'Estibas'
 
   const width    = collapsed ? DRAWER_COLLAPSED : (widthProp ?? DRAWER_WIDTH)
   const showText = !collapsed && (widthProp === undefined || widthProp >= COMPACT_THRESHOLD)
@@ -405,6 +440,8 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
               ? `linear-gradient(135deg, ${GH_COLOR} 0%, #9D174D 100%)`
               : isGRC
               ? `linear-gradient(135deg, ${GRC_COLOR} 0%, #5B21B6 100%)`
+              : isLMS
+              ? `linear-gradient(135deg, ${LMS_COLOR} 0%, #B45309 100%)`
               : `linear-gradient(135deg, ${activeColor} 0%, ${isTarifax ? '#1f6130' : '#27884A'} 100%)`,
             display: 'flex',
             alignItems: 'center',

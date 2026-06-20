@@ -16,6 +16,7 @@ import {
   FolderSpecial, Draw as DrawIcon, ManageSearch, Policy as PolicyIcon,
   VerifiedUser as QMSQualityIcon, BugReport as QMSNCIcon, FactCheck as QMSAuditIcon, Analytics as QMSAnalyticsIcon,
   GppGood as GRCShieldIcon, Warning as GRCRiskIcon, Gavel as GRCComplianceIcon, Security as GRCCyberIcon,
+  School as LMSUniversityIcon, Psychology as LMSSkillsIcon, WorkspacePremium as LMSCertIcon, AutoAwesome as LMSAIIcon,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
@@ -239,6 +240,23 @@ const MODULES = [
       { icon: <GpsFixed sx={{ fontSize: 17 }} />, text: 'Tracking en tiempo real con eventos georreferenciados' },
       { icon: <SpeedIcon sx={{ fontSize: 17 }} />, text: 'OTIF, KPIs de clase mundial y Torre de Control' },
       { icon: <TMSLiqIcon sx={{ fontSize: 17 }} />, text: 'Motor de costos, liquidaciones y rentabilidad por viaje' },
+    ],
+  },
+  {
+    id: 'lms',
+    badge: 'LMS',
+    appName: 'Learning',
+    appAccent: 'Management System',
+    headline: 'Universidad Corporativa Digital,',
+    headlineAccent: 'talento en constante evolución',
+    description: 'Escuela de Conductores · ISO 9001 · SCORM · xAPI · 70:20:10.\nPlataforma LMS empresarial con IA, gamificación y certificaciones integradas.',
+    color: '#D97706',
+    colorDark: '#B45309',
+    features: [
+      { icon: <LMSUniversityIcon sx={{ fontSize: 17 }} />, text: 'Universidad corporativa con facultades, escuelas y programas' },
+      { icon: <LMSSkillsIcon sx={{ fontSize: 17 }} />, text: 'Rutas de aprendizaje automáticas por cargo, área y brecha de competencias' },
+      { icon: <LMSCertIcon sx={{ fontSize: 17 }} />, text: 'Certificaciones con alertas de vencimiento y renovación automática' },
+      { icon: <LMSAIIcon sx={{ fontSize: 17 }} />, text: 'IA que recomienda cursos, predice riesgos y gamifica el aprendizaje' },
     ],
   },
 ]

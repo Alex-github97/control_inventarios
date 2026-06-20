@@ -121,6 +121,21 @@ import GRCContinuidad from '@/pages/GRCContinuidad'
 import GRCIncidentes from '@/pages/GRCIncidentes'
 import GRCIA from '@/pages/GRCIA'
 import GRCConfig from '@/pages/GRCConfig'
+import LMSDashboard from '@/pages/LMSDashboard'
+import LMSMiAprendizaje from '@/pages/LMSMiAprendizaje'
+import LMSUniversidad from '@/pages/LMSUniversidad'
+import LMSCatalogo from '@/pages/LMSCatalogo'
+import LMSRutas from '@/pages/LMSRutas'
+import LMSOnboarding from '@/pages/LMSOnboarding'
+import LMSCompetencias from '@/pages/LMSCompetencias'
+import LMSEvaluaciones from '@/pages/LMSEvaluaciones'
+import LMSBancoPreguntas from '@/pages/LMSBancoPreguntas'
+import LMSCertificaciones from '@/pages/LMSCertificaciones'
+import LMSKnowledge from '@/pages/LMSKnowledge'
+import LMSGamificacion from '@/pages/LMSGamificacion'
+import LMSIA from '@/pages/LMSIA'
+import LMSReportes from '@/pages/LMSReportes'
+import LMSConfig from '@/pages/LMSConfig'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -269,6 +284,21 @@ export default function App() {
             <Route path="/grc/incidentes" element={<ProtectedRoute><GRCIncidentes /></ProtectedRoute>} />
             <Route path="/grc/ia" element={<ProtectedRoute><GRCIA /></ProtectedRoute>} />
             <Route path="/grc/config" element={<ProtectedRoute><GRCConfig /></ProtectedRoute>} />
+            <Route path="/lms" element={<ProtectedRoute><LMSDashboard /></ProtectedRoute>} />
+            <Route path="/lms/mi-aprendizaje" element={<ProtectedRoute><LMSMiAprendizaje /></ProtectedRoute>} />
+            <Route path="/lms/universidad" element={<ProtectedRoute><LMSUniversidad /></ProtectedRoute>} />
+            <Route path="/lms/catalogo" element={<ProtectedRoute><LMSCatalogo /></ProtectedRoute>} />
+            <Route path="/lms/rutas" element={<ProtectedRoute><LMSRutas /></ProtectedRoute>} />
+            <Route path="/lms/onboarding" element={<ProtectedRoute><LMSOnboarding /></ProtectedRoute>} />
+            <Route path="/lms/competencias" element={<ProtectedRoute><LMSCompetencias /></ProtectedRoute>} />
+            <Route path="/lms/evaluaciones" element={<ProtectedRoute><LMSEvaluaciones /></ProtectedRoute>} />
+            <Route path="/lms/banco-preguntas" element={<ProtectedRoute><LMSBancoPreguntas /></ProtectedRoute>} />
+            <Route path="/lms/certificaciones" element={<ProtectedRoute><LMSCertificaciones /></ProtectedRoute>} />
+            <Route path="/lms/conocimiento" element={<ProtectedRoute><LMSKnowledge /></ProtectedRoute>} />
+            <Route path="/lms/gamificacion" element={<ProtectedRoute><LMSGamificacion /></ProtectedRoute>} />
+            <Route path="/lms/ia" element={<ProtectedRoute><LMSIA /></ProtectedRoute>} />
+            <Route path="/lms/reportes" element={<ProtectedRoute><LMSReportes /></ProtectedRoute>} />
+            <Route path="/lms/config" element={<ProtectedRoute><LMSConfig /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </BrowserRouter>
