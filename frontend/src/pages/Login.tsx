@@ -18,6 +18,7 @@ import {
   GppGood as GRCShieldIcon, Warning as GRCRiskIcon, Gavel as GRCComplianceIcon, Security as GRCCyberIcon,
   School as LMSUniversityIcon, Psychology as LMSSkillsIcon, WorkspacePremium as LMSCertIcon, AutoAwesome as LMSAIIcon,
   Handshake as CRMHandshakeIcon, Whatshot as CRMLeadIcon, SupportAgent as CRMSupportIcon, QueryStats as CRMStatsIcon,
+  Engineering as EAMEngineeringIcon, TireRepair as EAMTireIcon, Science as EAMScienceIcon, PrecisionManufacturing as EAMAIIcon,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
@@ -275,6 +276,23 @@ const MODULES = [
       { icon: <CRMHandshakeIcon sx={{ fontSize: 17 }} />, text: 'Pipeline Kanban: oportunidades, cotizaciones y contratos con SLA' },
       { icon: <CRMSupportIcon sx={{ fontSize: 17 }} />, text: 'Centro de servicio PQRS, tickets, escalaciones y NPS en tiempo real' },
       { icon: <CRMStatsIcon sx={{ fontSize: 17 }} />, text: 'Torre de control comercial: rentabilidad, churn y asistente IA' },
+    ],
+  },
+  {
+    id: 'eam',
+    badge: 'EAM',
+    appName: 'CMMS /',
+    appAccent: 'Enterprise Asset Mgmt',
+    headline: 'Activos bajo control,',
+    headlineAccent: 'cero paros no planificados',
+    description: 'ISO 55000 · RCM · FMEA · Lubricación · IA Predictiva.\nSistema maestro del ciclo de vida de vehículos, equipos e infraestructura.',
+    color: '#EA580C',
+    colorDark: '#C2410C',
+    features: [
+      { icon: <EAMEngineeringIcon sx={{ fontSize: 17 }} />, text: 'Maestro de activos jerárquico: vehículos, montacargas, infraestructura y maquinaria' },
+      { icon: <EAMTireIcon sx={{ fontSize: 17 }} />, text: 'OTs preventivas/correctivas/predictivas con checklists dinámicos y confiabilidad MTBF/MTTR' },
+      { icon: <EAMScienceIcon sx={{ fontSize: 17 }} />, text: 'Laboratorio de lubricación con análisis de aceite, neumáticos y gestión de combustible' },
+      { icon: <EAMAIIcon sx={{ fontSize: 17 }} />, text: 'IA predictiva: detección de fallas, FMEA, gemelo digital y optimización de repuestos' },
     ],
   },
 ]

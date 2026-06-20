@@ -151,6 +151,20 @@ import CRMRentabilidad from '@/pages/CRMRentabilidad'
 import CRMIA from '@/pages/CRMIA'
 import CRMReportes from '@/pages/CRMReportes'
 import CRMConfig from '@/pages/CRMConfig'
+import EAMDashboard from '@/pages/EAMDashboard'
+import EAMActivos from '@/pages/EAMActivos'
+import EAMOrdenesTrabajo from '@/pages/EAMOrdenesTrabajo'
+import EAMPlanesMant from '@/pages/EAMPlanesMant'
+import EAMChecklists from '@/pages/EAMChecklists'
+import EAMLubricacion from '@/pages/EAMLubricacion'
+import EAMNeumaticos from '@/pages/EAMNeumaticos'
+import EAMCombustible from '@/pages/EAMCombustible'
+import EAMInventario from '@/pages/EAMInventario'
+import EAMConfiabilidad from '@/pages/EAMConfiabilidad'
+import EAMGarantias from '@/pages/EAMGarantias'
+import EAMIA from '@/pages/EAMIA'
+import EAMReportes from '@/pages/EAMReportes'
+import EAMConfig from '@/pages/EAMConfig'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -329,6 +343,20 @@ export default function App() {
             <Route path="/crm/ia" element={<ProtectedRoute><CRMIA /></ProtectedRoute>} />
             <Route path="/crm/reportes" element={<ProtectedRoute><CRMReportes /></ProtectedRoute>} />
             <Route path="/crm/config" element={<ProtectedRoute><CRMConfig /></ProtectedRoute>} />
+            <Route path="/eam" element={<ProtectedRoute><EAMDashboard /></ProtectedRoute>} />
+            <Route path="/eam/activos" element={<ProtectedRoute><EAMActivos /></ProtectedRoute>} />
+            <Route path="/eam/ordenes-trabajo" element={<ProtectedRoute><EAMOrdenesTrabajo /></ProtectedRoute>} />
+            <Route path="/eam/planes" element={<ProtectedRoute><EAMPlanesMant /></ProtectedRoute>} />
+            <Route path="/eam/checklists" element={<ProtectedRoute><EAMChecklists /></ProtectedRoute>} />
+            <Route path="/eam/lubricacion" element={<ProtectedRoute><EAMLubricacion /></ProtectedRoute>} />
+            <Route path="/eam/neumaticos" element={<ProtectedRoute><EAMNeumaticos /></ProtectedRoute>} />
+            <Route path="/eam/combustible" element={<ProtectedRoute><EAMCombustible /></ProtectedRoute>} />
+            <Route path="/eam/inventario" element={<ProtectedRoute><EAMInventario /></ProtectedRoute>} />
+            <Route path="/eam/confiabilidad" element={<ProtectedRoute><EAMConfiabilidad /></ProtectedRoute>} />
+            <Route path="/eam/garantias" element={<ProtectedRoute><EAMGarantias /></ProtectedRoute>} />
+            <Route path="/eam/ia" element={<ProtectedRoute><EAMIA /></ProtectedRoute>} />
+            <Route path="/eam/reportes" element={<ProtectedRoute><EAMReportes /></ProtectedRoute>} />
+            <Route path="/eam/config" element={<ProtectedRoute><EAMConfig /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </BrowserRouter>

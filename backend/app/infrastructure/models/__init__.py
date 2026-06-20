@@ -97,6 +97,18 @@ from app.infrastructure.models.crm import (
     CRMEncuesta, CRMCuentaClave, CRMObjetivoComercial, CRMActividad,
     CRMRiesgoCliente, CRMSaludCliente, CRMKPIDiario,
 )
+from app.infrastructure.models.eam import (
+    EAMTipoTrabajo, EAMActividad, EAMRepuesto, EAMFallaCatalogo,
+    EAMCausaCatalogo, EAMSolucionCatalogo, EAMContratista,
+    EAMActivo, EAMComponente, EAMDocumentoActivo,
+    EAMChecklistPlantilla, EAMChecklistPregunta,
+    EAMPlanMantenimiento, EAMPlanDetalle,
+    EAMOrdenTrabajo, EAMChecklistEjecucion, EAMChecklistRespuesta,
+    EAMOTMaterial, EAMOTManoObra,
+    EAMMuestraAceite, EAMNeumatico, EAMMovimientoNeumatico,
+    EAMRegistroCombustible, EAMGarantia, EAMFMEA,
+    EAMCalibracion, EAMKPIDiario,
+)
 
 __all__ = [
     "TimestampMixin", "SoftDeleteMixin",

@@ -130,7 +130,6 @@ import {
   TrendingUp as CRMDashIconCRM,
   People as CRMClientesIconCRM,
   Whatshot as CRMLeadsIconCRM,
-  TrendingUp as CRMOportunidadesIconCRM,
   Receipt as CRMCotizacionesIconCRM,
   Handshake as CRMContratosIconCRM,
   SupportAgent as CRMTicketsIconCRM,
@@ -142,6 +141,20 @@ import {
   AutoAwesome as CRMIAIconCRM,
   Assessment as CRMReportesIconCRM,
   Settings as CRMConfigIconCRM,
+  Engineering as EAMDashIconEAM,
+  AccountTree as EAMActivosIconEAM,
+  Assignment as EAMOTIconEAM,
+  EventRepeat as EAMPlanesIconEAM,
+  PlaylistAddCheck as EAMChecklistIconEAM,
+  Science as EAMLubricacionIconEAM,
+  TireRepair as EAMNeumaticosIconEAM,
+  LocalGasStation as EAMCombustibleIconEAM,
+  Inventory as EAMInventarioIconEAM,
+  ShowChart as EAMConfiabilidadIconEAM,
+  VerifiedUser as EAMGarantiasIconEAM,
+  PrecisionManufacturing as EAMIAIconEAM,
+  BarChart as EAMReportesIconEAM,
+  Tune as EAMConfigIconEAM,
 } from '@mui/icons-material'
 import { COMMAND_CENTER_DASHBOARDS } from '@/config/commandCenter'
 
@@ -163,6 +176,7 @@ const QMS_COLOR = '#059669'
 const GRC_COLOR = '#6D28D9'
 const LMS_COLOR = '#D97706'
 const CRM_COLOR = '#DC2626'
+const EAM_COLOR = '#EA580C'
 
 interface NavItem {
   label: string
@@ -346,7 +360,7 @@ const CRM_NAV_ITEMS: NavItem[] = [
   { label: 'Torre Comercial',  icon: <CRMDashIconCRM         fontSize="small" />, path: '/crm',                section: 'General',    exact: true },
   { label: 'Clientes 360',     icon: <CRMClientesIconCRM     fontSize="small" />, path: '/crm/clientes',       section: 'General' },
   { label: 'Lead Scoring',     icon: <CRMLeadsIconCRM        fontSize="small" />, path: '/crm/leads',          section: 'Comercial' },
-  { label: 'Oportunidades',    icon: <CRMOportunidadesIconCRM fontSize="small" />, path: '/crm/oportunidades', section: 'Comercial' },
+  { label: 'Oportunidades',    icon: <CRMDashIconCRM         fontSize="small" />, path: '/crm/oportunidades', section: 'Comercial' },
   { label: 'Cotizaciones',     icon: <CRMCotizacionesIconCRM fontSize="small" />, path: '/crm/cotizaciones',   section: 'Comercial' },
   { label: 'Contratos & SLA',  icon: <CRMContratosIconCRM    fontSize="small" />, path: '/crm/contratos',      section: 'Contratos' },
   { label: 'Cuentas Clave',    icon: <CRMCuentasIconCRM      fontSize="small" />, path: '/crm/cuentas-clave',  section: 'Contratos' },
@@ -360,6 +374,24 @@ const CRM_NAV_ITEMS: NavItem[] = [
   { label: 'Configuración',    icon: <CRMConfigIconCRM       fontSize="small" />, path: '/crm/config',         section: 'Sistema' },
 ]
 const CRM_SECTIONS = ['General', 'Comercial', 'Contratos', 'Servicio', 'Marketing', 'Analítica', 'Sistema']
+
+const EAM_NAV_ITEMS: NavItem[] = [
+  { label: 'Torre de Control',  icon: <EAMDashIconEAM          fontSize="small" />, path: '/eam',                 section: 'General',         exact: true },
+  { label: 'Activos',           icon: <EAMActivosIconEAM       fontSize="small" />, path: '/eam/activos',         section: 'General' },
+  { label: 'Órdenes de Trabajo',icon: <EAMOTIconEAM            fontSize="small" />, path: '/eam/ordenes-trabajo', section: 'Mantenimiento' },
+  { label: 'Planes de Mant.',   icon: <EAMPlanesIconEAM        fontSize="small" />, path: '/eam/planes',          section: 'Mantenimiento' },
+  { label: 'Checklists',        icon: <EAMChecklistIconEAM     fontSize="small" />, path: '/eam/checklists',      section: 'Mantenimiento' },
+  { label: 'Lubricación',       icon: <EAMLubricacionIconEAM   fontSize="small" />, path: '/eam/lubricacion',     section: 'Lubricación' },
+  { label: 'Neumáticos',        icon: <EAMNeumaticosIconEAM    fontSize="small" />, path: '/eam/neumaticos',      section: 'Lubricación' },
+  { label: 'Combustible',       icon: <EAMCombustibleIconEAM   fontSize="small" />, path: '/eam/combustible',     section: 'Lubricación' },
+  { label: 'Inventario',        icon: <EAMInventarioIconEAM    fontSize="small" />, path: '/eam/inventario',      section: 'Inventario' },
+  { label: 'Garantías',         icon: <EAMGarantiasIconEAM     fontSize="small" />, path: '/eam/garantias',       section: 'Inventario' },
+  { label: 'Confiabilidad',     icon: <EAMConfiabilidadIconEAM fontSize="small" />, path: '/eam/confiabilidad',   section: 'Confiabilidad' },
+  { label: 'IA Predictiva',     icon: <EAMIAIconEAM            fontSize="small" />, path: '/eam/ia',              section: 'Inteligencia' },
+  { label: 'Reportes',          icon: <EAMReportesIconEAM      fontSize="small" />, path: '/eam/reportes',        section: 'Inteligencia' },
+  { label: 'Configuración',     icon: <EAMConfigIconEAM        fontSize="small" />, path: '/eam/config',          section: 'Sistema' },
+]
+const EAM_SECTIONS = ['General', 'Mantenimiento', 'Lubricación', 'Inventario', 'Confiabilidad', 'Inteligencia', 'Sistema']
 
 const CONFIG_NAV_ITEMS: NavItem[] = [
   { label: 'Usuarios', icon: <UsuariosIcon fontSize="small" />, path: '/usuarios',       section: 'Administración', exact: true },
@@ -406,14 +438,15 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
   const isGH       = location.pathname.startsWith('/gh')
   const isLMS      = location.pathname.startsWith('/lms')
   const isCRM      = location.pathname.startsWith('/crm')
+  const isEAM      = location.pathname.startsWith('/eam')
 
-  const activeColor = isCommand ? CC_COLOR : isConfig ? CF_COLOR : isTarifax ? TX_COLOR : isGRC ? GRC_COLOR : isQMS ? QMS_COLOR : isDMS ? DMS_COLOR : isTMS ? TMS_COLOR : isFletes ? FT_COLOR : isFlota ? GF_COLOR : isLocativa ? ML_COLOR : isWMS ? WMS_COLOR : isGH ? GH_COLOR : isLMS ? LMS_COLOR : isCRM ? CRM_COLOR : CI_COLOR
-  const navItems    = isCommand ? CC_NAV_ITEMS : isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : isGRC ? GRC_NAV_ITEMS : isQMS ? QMS_NAV_ITEMS : isDMS ? DMS_NAV_ITEMS : isTMS ? TMS_NAV_ITEMS : isFletes ? FT_NAV_ITEMS : isFlota ? GF_NAV_ITEMS : isLocativa ? ML_NAV_ITEMS : isWMS ? WMS_NAV_ITEMS : isGH ? GH_NAV_ITEMS : isLMS ? LMS_NAV_ITEMS : isCRM ? CRM_NAV_ITEMS : CI_NAV_ITEMS
-  const sections    = isCommand ? CC_SECTIONS  : isConfig ? CONFIG_SECTIONS  : isTarifax ? TX_SECTIONS  : isGRC ? GRC_SECTIONS  : isQMS ? QMS_SECTIONS  : isDMS ? DMS_SECTIONS  : isTMS ? TMS_SECTIONS  : isFletes ? FT_SECTIONS  : isFlota ? GF_SECTIONS  : isLocativa ? ML_SECTIONS  : isWMS ? WMS_SECTIONS : isGH ? GH_SECTIONS : isLMS ? LMS_SECTIONS : isCRM ? CRM_SECTIONS : CI_SECTIONS
+  const activeColor = isCommand ? CC_COLOR : isConfig ? CF_COLOR : isTarifax ? TX_COLOR : isGRC ? GRC_COLOR : isQMS ? QMS_COLOR : isDMS ? DMS_COLOR : isTMS ? TMS_COLOR : isFletes ? FT_COLOR : isFlota ? GF_COLOR : isLocativa ? ML_COLOR : isWMS ? WMS_COLOR : isGH ? GH_COLOR : isLMS ? LMS_COLOR : isCRM ? CRM_COLOR : isEAM ? EAM_COLOR : CI_COLOR
+  const navItems    = isCommand ? CC_NAV_ITEMS : isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : isGRC ? GRC_NAV_ITEMS : isQMS ? QMS_NAV_ITEMS : isDMS ? DMS_NAV_ITEMS : isTMS ? TMS_NAV_ITEMS : isFletes ? FT_NAV_ITEMS : isFlota ? GF_NAV_ITEMS : isLocativa ? ML_NAV_ITEMS : isWMS ? WMS_NAV_ITEMS : isGH ? GH_NAV_ITEMS : isLMS ? LMS_NAV_ITEMS : isCRM ? CRM_NAV_ITEMS : isEAM ? EAM_NAV_ITEMS : CI_NAV_ITEMS
+  const sections    = isCommand ? CC_SECTIONS  : isConfig ? CONFIG_SECTIONS  : isTarifax ? TX_SECTIONS  : isGRC ? GRC_SECTIONS  : isQMS ? QMS_SECTIONS  : isDMS ? DMS_SECTIONS  : isTMS ? TMS_SECTIONS  : isFletes ? FT_SECTIONS  : isFlota ? GF_SECTIONS  : isLocativa ? ML_SECTIONS  : isWMS ? WMS_SECTIONS : isGH ? GH_SECTIONS : isLMS ? LMS_SECTIONS : isCRM ? CRM_SECTIONS : isEAM ? EAM_SECTIONS : CI_SECTIONS
 
-  const logoShort = isCommand ? 'CC' : isConfig ? 'CF' : isTarifax ? 'TX' : isGRC ? 'GRC' : isQMS ? 'QMS' : isDMS ? 'DMS' : isTMS ? 'TMS' : isFletes ? 'FT' : isFlota ? 'GF' : isLocativa ? 'ML' : isWMS ? 'WMS' : isGH ? 'GH' : isLMS ? 'LMS' : isCRM ? 'CRM' : 'CE'
-  const logoLine1 = isCommand ? 'Command' : isConfig ? 'Configuración' : isTarifax ? 'TarifaX' : isGRC ? 'Governance' : isQMS ? 'Quality' : isDMS ? 'Document' : isTMS ? 'Transportation' : isFletes ? 'Módulo de' : isFlota ? 'Gestión de' : isLocativa ? 'Mantenimiento' : isWMS ? 'Warehouse' : isGH ? 'Gestión' : isLMS ? 'Learning' : isCRM ? 'Customer' : 'Control de'
-  const logoLine2 = isCommand ? 'Center'  : isConfig ? 'del Sistema'  : isTarifax ? 'Motor de Tarifas' : isGRC ? 'Risk & Compliance' : isQMS ? 'Management System' : isDMS ? 'Management System' : isTMS ? 'Management System' : isFletes ? 'Fletes' : isFlota ? 'Flotas' : isLocativa ? 'Locativo' : isWMS ? 'Management' : isGH ? 'Humana' : isLMS ? 'Management System' : isCRM ? 'Relationship Mgmt' : 'Estibas'
+  const logoShort = isCommand ? 'CC' : isConfig ? 'CF' : isTarifax ? 'TX' : isGRC ? 'GRC' : isQMS ? 'QMS' : isDMS ? 'DMS' : isTMS ? 'TMS' : isFletes ? 'FT' : isFlota ? 'GF' : isLocativa ? 'ML' : isWMS ? 'WMS' : isGH ? 'GH' : isLMS ? 'LMS' : isCRM ? 'CRM' : isEAM ? 'EAM' : 'CE'
+  const logoLine1 = isCommand ? 'Command' : isConfig ? 'Configuración' : isTarifax ? 'TarifaX' : isGRC ? 'Governance' : isQMS ? 'Quality' : isDMS ? 'Document' : isTMS ? 'Transportation' : isFletes ? 'Módulo de' : isFlota ? 'Gestión de' : isLocativa ? 'Mantenimiento' : isWMS ? 'Warehouse' : isGH ? 'Gestión' : isLMS ? 'Learning' : isCRM ? 'Customer' : isEAM ? 'CMMS /' : 'Control de'
+  const logoLine2 = isCommand ? 'Center'  : isConfig ? 'del Sistema'  : isTarifax ? 'Motor de Tarifas' : isGRC ? 'Risk & Compliance' : isQMS ? 'Management System' : isDMS ? 'Management System' : isTMS ? 'Management System' : isFletes ? 'Fletes' : isFlota ? 'Flotas' : isLocativa ? 'Locativo' : isWMS ? 'Management' : isGH ? 'Humana' : isLMS ? 'Management System' : isCRM ? 'Relationship Mgmt' : isEAM ? 'Enterprise Assets' : 'Estibas'
 
   const width    = collapsed ? DRAWER_COLLAPSED : (widthProp ?? DRAWER_WIDTH)
   const showText = !collapsed && (widthProp === undefined || widthProp >= COMPACT_THRESHOLD)
@@ -480,6 +513,8 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
               ? `linear-gradient(135deg, ${LMS_COLOR} 0%, #B45309 100%)`
               : isCRM
               ? `linear-gradient(135deg, ${CRM_COLOR} 0%, #B91C1C 100%)`
+              : isEAM
+              ? `linear-gradient(135deg, ${EAM_COLOR} 0%, #C2410C 100%)`
               : `linear-gradient(135deg, ${activeColor} 0%, ${isTarifax ? '#1f6130' : '#27884A'} 100%)`,
             display: 'flex',
             alignItems: 'center',

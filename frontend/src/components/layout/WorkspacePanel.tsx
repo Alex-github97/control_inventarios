@@ -17,6 +17,7 @@ const QMS_COLOR        = '#059669'
 const GRC_COLOR        = '#6D28D9'
 const LMS_COLOR        = '#D97706'
 const CRM_COLOR        = '#DC2626'
+const EAM_COLOR        = '#EA580C'
 const COMPACT_THRESHOLD = 80
 
 const WORKSPACES = [
@@ -31,7 +32,8 @@ const WORKSPACES = [
       !p.startsWith('/command-center') && !p.startsWith('/fletes') &&
       !p.startsWith('/tms') && !p.startsWith('/dms') && !p.startsWith('/qms') &&
       !p.startsWith('/grc') && !p.startsWith('/flota') && !p.startsWith('/locativa') &&
-      !p.startsWith('/wms') && !p.startsWith('/gh') && !p.startsWith('/lms') && !p.startsWith('/crm'),
+      !p.startsWith('/wms') && !p.startsWith('/gh') && !p.startsWith('/lms') &&
+      !p.startsWith('/crm') && !p.startsWith('/eam'),
   },
   {
     id:    'tarifax',
@@ -74,20 +76,12 @@ const WORKSPACES = [
     isActive: (p: string) => p.startsWith('/tms') || p.startsWith('/fletes'),
   },
   {
-    id:    'flota',
-    label: 'Gestión de Flotas',
-    short: 'GF',
-    color: GF_COLOR,
-    path:  '/flota',
-    isActive: (p: string) => p.startsWith('/flota'),
-  },
-  {
-    id:    'locativa',
-    label: 'Mant. Locativo',
-    short: 'ML',
-    color: ML_COLOR,
-    path:  '/locativa',
-    isActive: (p: string) => p.startsWith('/locativa'),
+    id:    'eam',
+    label: 'CMMS / EAM',
+    short: 'EAM',
+    color: EAM_COLOR,
+    path:  '/eam',
+    isActive: (p: string) => p.startsWith('/eam') || p.startsWith('/flota') || p.startsWith('/locativa'),
   },
   {
     id:    'wms',
