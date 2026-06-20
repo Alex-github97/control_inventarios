@@ -12,6 +12,7 @@ import {
   Engineering, Shield, Bolt, Inventory2 as ActivoIcon2,
   Warehouse, MoveToInbox, SwapHoriz, Send as WMSDespachoIcon,
   PeopleAlt, Groups as GroupsIcon, Payments as PaymentsIcon, HealthAndSafety as HASIcon,
+  AirportShuttle, GpsFixed, Speed as SpeedIcon, AccountBalance as TMSLiqIcon,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
@@ -169,7 +170,23 @@ const MODULES = [
       { icon: <WMSDespachoIcon sx={{ fontSize: 17 }} />, text: 'Despacho OTIF y trazabilidad total por producto/lote' },
     ],
   },
-
+  {
+    id: 'tms',
+    badge: 'TMS',
+    appName: 'Transportation',
+    appAccent: 'Management System',
+    headline: 'Transporte de clase mundial,',
+    headlineAccent: 'OTIF garantizado',
+    description: 'ISO 39001 · OTIF · Torre de Control.\nOrquestación end-to-end de la cadena de transporte.',
+    color: '#0369A1',
+    colorDark: '#0284C7',
+    features: [
+      { icon: <AirportShuttle sx={{ fontSize: 17 }} />, text: 'Planificación y despacho inteligente de viajes' },
+      { icon: <GpsFixed sx={{ fontSize: 17 }} />, text: 'Tracking en tiempo real con eventos georreferenciados' },
+      { icon: <SpeedIcon sx={{ fontSize: 17 }} />, text: 'OTIF, KPIs de clase mundial y Torre de Control' },
+      { icon: <TMSLiqIcon sx={{ fontSize: 17 }} />, text: 'Motor de costos, liquidaciones y rentabilidad por viaje' },
+    ],
+  },
 ]
 
 const INTERVAL_MS = 5000  // milisegundos entre cada slide

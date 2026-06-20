@@ -34,6 +34,20 @@ import {
   ChevronLeft, ChevronRight,
   BarChart as TableroIcon,
   MergeType as MotorIcon,
+  Monitor as TMSDashIconTMS,
+  CalendarMonth as TMSPlaneacionIconTMS,
+  AirportShuttle as TMSViajesIconTMS,
+  Output as TMSDespachosIconTMS,
+  GpsFixed as TMSTrackingIconTMS,
+  Commute as TMSVehiculosIconTMS,
+  RecentActors as TMSConductoresIconTMS,
+  CenterFocusStrong as TMSTorreIconTMS,
+  ForkRight as TMSRutasIconTMS,
+  FilePresent as TMSDocumentosIconTMS,
+  Savings as TMSCostosIconTMS,
+  Speed as TMSOTIFIconTMS,
+  AccountBalance as TMSLiquidacionesIconTMS,
+  DisplaySettings as TMSConfigIconTMS,
   Inventory2 as LocativaActivosIcon,
   Handyman as LocativaOTMLIcon,
   ReportProblem as LocativaRiesgoMLIcon,
@@ -72,6 +86,7 @@ const GF_COLOR  = '#7C3AED'
 const ML_COLOR  = '#0D9488'
 const WMS_COLOR = '#1E40AF'
 const GH_COLOR  = '#BE185D'
+const TMS_COLOR = '#0369A1'
 
 interface NavItem {
   label: string
@@ -157,6 +172,27 @@ const GH_NAV_ITEMS: NavItem[] = [
 ]
 const GH_SECTIONS = ['General', 'Personas', 'Nómina', 'Reclutamiento', 'Desarrollo', 'SST', 'Sistema']
 
+const TMS_NAV_ITEMS: NavItem[] = [
+  { label: 'Dashboard',        icon: <TMSDashIconTMS        fontSize="small" />, path: '/tms',               section: 'General',    exact: true },
+  { label: 'Viajes',           icon: <TMSViajesIconTMS      fontSize="small" />, path: '/tms/viajes',        section: 'Operación' },
+  { label: 'Planeación',       icon: <TMSPlaneacionIconTMS  fontSize="small" />, path: '/tms/planeacion',    section: 'Operación' },
+  { label: 'Despachos',        icon: <TMSDespachosIconTMS   fontSize="small" />, path: '/tms/despachos',     section: 'Operación' },
+  { label: 'Tracking',         icon: <TMSTrackingIconTMS    fontSize="small" />, path: '/tms/tracking',      section: 'Operación' },
+  { label: 'Vehículos',        icon: <TMSVehiculosIconTMS   fontSize="small" />, path: '/tms/vehiculos',     section: 'Recursos' },
+  { label: 'Conductores',      icon: <TMSConductoresIconTMS fontSize="small" />, path: '/tms/conductores',   section: 'Recursos' },
+  { label: 'Rutas',            icon: <TMSRutasIconTMS       fontSize="small" />, path: '/tms/rutas',         section: 'Logística' },
+  { label: 'Torre de Control', icon: <TMSTorreIconTMS       fontSize="small" />, path: '/tms/torre-control', section: 'Logística' },
+  { label: 'Costos',           icon: <TMSCostosIconTMS      fontSize="small" />, path: '/tms/costos',        section: 'Financiero' },
+  { label: 'OTIF',             icon: <TMSOTIFIconTMS        fontSize="small" />, path: '/tms/otif',          section: 'Financiero' },
+  { label: 'Liquidaciones',    icon: <TMSLiquidacionesIconTMS fontSize="small" />, path: '/tms/liquidaciones', section: 'Financiero' },
+  { label: 'Despacho Fletes',  icon: <FletesDespachoIcon    fontSize="small" />, path: '/fletes',            section: 'Fletes',    exact: true },
+  { label: 'Generadores',      icon: <FletesGeneradoresIcon fontSize="small" />, path: '/fletes/generadores',section: 'Fletes' },
+  { label: 'Cond. Fletes',     icon: <FletesConductoresIcon fontSize="small" />, path: '/fletes/conductores',section: 'Fletes' },
+  { label: 'Documentos',       icon: <TMSDocumentosIconTMS  fontSize="small" />, path: '/tms/documentos',    section: 'Sistema' },
+  { label: 'Configuración',    icon: <TMSConfigIconTMS      fontSize="small" />, path: '/tms/config',        section: 'Sistema' },
+]
+const TMS_SECTIONS = ['General', 'Operación', 'Recursos', 'Logística', 'Financiero', 'Fletes', 'Sistema']
+
 const CONFIG_NAV_ITEMS: NavItem[] = [
   { label: 'Usuarios', icon: <UsuariosIcon fontSize="small" />, path: '/usuarios',       section: 'Administración', exact: true },
   { label: 'Roles',    icon: <RolesIcon   fontSize="small" />, path: '/usuarios/roles', section: 'Administración' },
@@ -188,7 +224,8 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
   const location  = useLocation()
   const [collapsed, setCollapsed] = useState(false)
 
-  const isFletes   = location.pathname.startsWith('/fletes')
+  const isTMS      = location.pathname.startsWith('/tms') || location.pathname.startsWith('/fletes')
+  const isFletes   = false // absorbed by isTMS
   const isFlota    = location.pathname.startsWith('/flota')
   const isTarifax  = location.pathname.startsWith('/tarifax')
   const isConfig   = location.pathname.startsWith('/usuarios')
@@ -197,13 +234,13 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
   const isWMS      = location.pathname.startsWith('/wms')
   const isGH       = location.pathname.startsWith('/gh')
 
-  const activeColor = isCommand ? CC_COLOR : isConfig ? CF_COLOR : isTarifax ? TX_COLOR : isFletes ? FT_COLOR : isFlota ? GF_COLOR : isLocativa ? ML_COLOR : isWMS ? WMS_COLOR : isGH ? GH_COLOR : CI_COLOR
-  const navItems    = isCommand ? CC_NAV_ITEMS : isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : isFletes ? FT_NAV_ITEMS : isFlota ? GF_NAV_ITEMS : isLocativa ? ML_NAV_ITEMS : isWMS ? WMS_NAV_ITEMS : isGH ? GH_NAV_ITEMS : CI_NAV_ITEMS
-  const sections    = isCommand ? CC_SECTIONS  : isConfig ? CONFIG_SECTIONS  : isTarifax ? TX_SECTIONS  : isFletes ? FT_SECTIONS  : isFlota ? GF_SECTIONS  : isLocativa ? ML_SECTIONS  : isWMS ? WMS_SECTIONS : isGH ? GH_SECTIONS : CI_SECTIONS
+  const activeColor = isCommand ? CC_COLOR : isConfig ? CF_COLOR : isTarifax ? TX_COLOR : isTMS ? TMS_COLOR : isFletes ? FT_COLOR : isFlota ? GF_COLOR : isLocativa ? ML_COLOR : isWMS ? WMS_COLOR : isGH ? GH_COLOR : CI_COLOR
+  const navItems    = isCommand ? CC_NAV_ITEMS : isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : isTMS ? TMS_NAV_ITEMS : isFletes ? FT_NAV_ITEMS : isFlota ? GF_NAV_ITEMS : isLocativa ? ML_NAV_ITEMS : isWMS ? WMS_NAV_ITEMS : isGH ? GH_NAV_ITEMS : CI_NAV_ITEMS
+  const sections    = isCommand ? CC_SECTIONS  : isConfig ? CONFIG_SECTIONS  : isTarifax ? TX_SECTIONS  : isTMS ? TMS_SECTIONS  : isFletes ? FT_SECTIONS  : isFlota ? GF_SECTIONS  : isLocativa ? ML_SECTIONS  : isWMS ? WMS_SECTIONS : isGH ? GH_SECTIONS : CI_SECTIONS
 
-  const logoShort = isCommand ? 'CC' : isConfig ? 'CF' : isTarifax ? 'TX' : isFletes ? 'FT' : isFlota ? 'GF' : isLocativa ? 'ML' : isWMS ? 'WMS' : isGH ? 'GH' : 'CE'
-  const logoLine1 = isCommand ? 'Command' : isConfig ? 'Configuración' : isTarifax ? 'TarifaX' : isFletes ? 'Módulo de' : isFlota ? 'Gestión de' : isLocativa ? 'Mantenimiento' : isWMS ? 'Warehouse' : isGH ? 'Gestión' : 'Control de'
-  const logoLine2 = isCommand ? 'Center'  : isConfig ? 'del Sistema'  : isTarifax ? 'Motor de Tarifas' : isFletes ? 'Fletes' : isFlota ? 'Flotas' : isLocativa ? 'Locativo' : isWMS ? 'Management' : isGH ? 'Humana' : 'Estibas'
+  const logoShort = isCommand ? 'CC' : isConfig ? 'CF' : isTarifax ? 'TX' : isTMS ? 'TMS' : isFletes ? 'FT' : isFlota ? 'GF' : isLocativa ? 'ML' : isWMS ? 'WMS' : isGH ? 'GH' : 'CE'
+  const logoLine1 = isCommand ? 'Command' : isConfig ? 'Configuración' : isTarifax ? 'TarifaX' : isTMS ? 'Transportation' : isFletes ? 'Módulo de' : isFlota ? 'Gestión de' : isLocativa ? 'Mantenimiento' : isWMS ? 'Warehouse' : isGH ? 'Gestión' : 'Control de'
+  const logoLine2 = isCommand ? 'Center'  : isConfig ? 'del Sistema'  : isTarifax ? 'Motor de Tarifas' : isTMS ? 'Management System' : isFletes ? 'Fletes' : isFlota ? 'Flotas' : isLocativa ? 'Locativo' : isWMS ? 'Management' : isGH ? 'Humana' : 'Estibas'
 
   const width    = collapsed ? DRAWER_COLLAPSED : (widthProp ?? DRAWER_WIDTH)
   const showText = !collapsed && (widthProp === undefined || widthProp >= COMPACT_THRESHOLD)
@@ -248,14 +285,18 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
             borderRadius: '10px',
             background: isConfig
               ? `linear-gradient(135deg, ${CF_COLOR} 0%, #4F46E5 100%)`
-              : isFletes
-              ? `linear-gradient(135deg, ${FT_COLOR} 0%, #D97706 100%)`
+              : isTMS
+              ? `linear-gradient(135deg, ${TMS_COLOR} 0%, #0284C7 100%)`
               : isFlota
               ? `linear-gradient(135deg, ${GF_COLOR} 0%, #5B21B6 100%)`
               : isCommand
-              ? `linear-gradient(135deg, ${CC_COLOR} 0%, #0369A1 100%)`
+              ? `linear-gradient(135deg, ${CC_COLOR} 0%, #0284C7 100%)`
               : isLocativa
               ? `linear-gradient(135deg, ${ML_COLOR} 0%, #0F766E 100%)`
+              : isWMS
+              ? `linear-gradient(135deg, ${WMS_COLOR} 0%, #1D4ED8 100%)`
+              : isGH
+              ? `linear-gradient(135deg, ${GH_COLOR} 0%, #9D174D 100%)`
               : `linear-gradient(135deg, ${activeColor} 0%, ${isTarifax ? '#1f6130' : '#27884A'} 100%)`,
             display: 'flex',
             alignItems: 'center',

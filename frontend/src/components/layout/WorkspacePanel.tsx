@@ -7,11 +7,11 @@ const CI_COLOR         = '#32AC5C'
 const TX_COLOR         = '#48BB78'
 const CF_COLOR         = '#6366F1'
 const CC_COLOR         = '#0EA5E9'
-const FT_COLOR         = '#F59E0B'
 const GF_COLOR         = '#7C3AED'
 const ML_COLOR         = '#0D9488'
 const WMS_COLOR        = '#1E40AF'
 const GH_COLOR         = '#BE185D'
+const TMS_COLOR        = '#0369A1'
 const COMPACT_THRESHOLD = 80
 
 const WORKSPACES = [
@@ -24,8 +24,8 @@ const WORKSPACES = [
     isActive: (p: string) =>
       !p.startsWith('/tarifax') && !p.startsWith('/usuarios') &&
       !p.startsWith('/command-center') && !p.startsWith('/fletes') &&
-      !p.startsWith('/flota') && !p.startsWith('/locativa') && !p.startsWith('/wms') &&
-      !p.startsWith('/gh'),
+      !p.startsWith('/tms') && !p.startsWith('/flota') &&
+      !p.startsWith('/locativa') && !p.startsWith('/wms') && !p.startsWith('/gh'),
   },
   {
     id:    'tarifax',
@@ -36,12 +36,12 @@ const WORKSPACES = [
     isActive: (p: string) => p.startsWith('/tarifax'),
   },
   {
-    id:    'fletes',
-    label: 'Módulo de Fletes',
-    short: 'FT',
-    color: FT_COLOR,
-    path:  '/fletes',
-    isActive: (p: string) => p.startsWith('/fletes'),
+    id:    'tms',
+    label: 'TMS',
+    short: 'TMS',
+    color: TMS_COLOR,
+    path:  '/tms',
+    isActive: (p: string) => p.startsWith('/tms') || p.startsWith('/fletes'),
   },
   {
     id:    'flota',

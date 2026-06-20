@@ -65,6 +65,20 @@ import GHSST from '@/pages/GHSST'
 import GHNomina from '@/pages/GHNomina'
 import GHEvaluacion from '@/pages/GHEvaluacion'
 import GHConfig from '@/pages/GHConfig'
+import TMSDashboard from '@/pages/TMSDashboard'
+import TMSViajes from '@/pages/TMSViajes'
+import TMSPlaneacion from '@/pages/TMSPlaneacion'
+import TMSDespachos from '@/pages/TMSDespachos'
+import TMSTracking from '@/pages/TMSTracking'
+import TMSVehiculos from '@/pages/TMSVehiculos'
+import TMSConductores from '@/pages/TMSConductores'
+import TMSTorreControl from '@/pages/TMSTorreControl'
+import TMSRutas from '@/pages/TMSRutas'
+import TMSDocumentos from '@/pages/TMSDocumentos'
+import TMSCostos from '@/pages/TMSCostos'
+import TMSOTIF from '@/pages/TMSOTIF'
+import TMSLiquidaciones from '@/pages/TMSLiquidaciones'
+import TMSConfig from '@/pages/TMSConfig'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -157,6 +171,20 @@ export default function App() {
             <Route path="/gh/nomina" element={<ProtectedRoute><GHNomina /></ProtectedRoute>} />
             <Route path="/gh/evaluacion" element={<ProtectedRoute><GHEvaluacion /></ProtectedRoute>} />
             <Route path="/gh/config" element={<ProtectedRoute><GHConfig /></ProtectedRoute>} />
+            <Route path="/tms" element={<ProtectedRoute><TMSDashboard /></ProtectedRoute>} />
+            <Route path="/tms/viajes" element={<ProtectedRoute><TMSViajes /></ProtectedRoute>} />
+            <Route path="/tms/planeacion" element={<ProtectedRoute><TMSPlaneacion /></ProtectedRoute>} />
+            <Route path="/tms/despachos" element={<ProtectedRoute><TMSDespachos /></ProtectedRoute>} />
+            <Route path="/tms/tracking" element={<ProtectedRoute><TMSTracking /></ProtectedRoute>} />
+            <Route path="/tms/vehiculos" element={<ProtectedRoute><TMSVehiculos /></ProtectedRoute>} />
+            <Route path="/tms/conductores" element={<ProtectedRoute><TMSConductores /></ProtectedRoute>} />
+            <Route path="/tms/torre-control" element={<ProtectedRoute><TMSTorreControl /></ProtectedRoute>} />
+            <Route path="/tms/rutas" element={<ProtectedRoute><TMSRutas /></ProtectedRoute>} />
+            <Route path="/tms/documentos" element={<ProtectedRoute><TMSDocumentos /></ProtectedRoute>} />
+            <Route path="/tms/costos" element={<ProtectedRoute><TMSCostos /></ProtectedRoute>} />
+            <Route path="/tms/otif" element={<ProtectedRoute><TMSOTIF /></ProtectedRoute>} />
+            <Route path="/tms/liquidaciones" element={<ProtectedRoute><TMSLiquidaciones /></ProtectedRoute>} />
+            <Route path="/tms/config" element={<ProtectedRoute><TMSConfig /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </BrowserRouter>

@@ -52,6 +52,11 @@ from app.infrastructure.models.hcm import (
     HCMSSTIncidente, HCMSSTRiesgo, HCMSSTInspeccion,
     HCMKPIDiario,
 )
+from app.infrastructure.models.tms import (
+    TMSZona, TMSTipoServicio, TMSVehiculo, TMSViaje, TMSParada,
+    TMSEvento, TMSDocumento, TMSPOD, TMSRuta, TMSPuntoRuta,
+    TMSCostoViaje, TMSLiquidacion, TMSOTIFRegistro, TMSAlerta, TMSKPIDiario,
+)
 
 __all__ = [
     "TimestampMixin", "SoftDeleteMixin",
