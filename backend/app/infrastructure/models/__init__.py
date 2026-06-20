@@ -64,6 +64,13 @@ from app.infrastructure.models.dms import (
     DMSExpediente, DMSExpedienteDocumento, DMSRetencion,
     DMSAuditoria, DMSNotificacion, DMSKPIDiario,
 )
+from app.infrastructure.models.qms import (
+    QMSProceso, QMSProcedimiento, QMSIndicador, QMSMetaIndicador,
+    QMSMedicionIndicador, QMSNoConformidad, QMSHallazgo, QMSAuditoria,
+    QMSAuditoriaHallazgo, QMSCAPA, QMSCAPATarea, QMSRiesgo,
+    QMSQueja, QMSEvaluacionProveedor, QMSCambio, QMSMejora,
+    QMSEncuesta, QMSEncuestaRespuesta, QMSCompetenciaProceso, QMSKPIDiario,
+)
 
 __all__ = [
     "TimestampMixin", "SoftDeleteMixin",

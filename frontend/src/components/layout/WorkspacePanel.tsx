@@ -13,6 +13,7 @@ const WMS_COLOR        = '#1E40AF'
 const GH_COLOR         = '#BE185D'
 const TMS_COLOR        = '#0369A1'
 const DMS_COLOR        = '#0E7490'
+const QMS_COLOR        = '#059669'
 const COMPACT_THRESHOLD = 80
 
 const WORKSPACES = [
@@ -25,8 +26,9 @@ const WORKSPACES = [
     isActive: (p: string) =>
       !p.startsWith('/tarifax') && !p.startsWith('/usuarios') &&
       !p.startsWith('/command-center') && !p.startsWith('/fletes') &&
-      !p.startsWith('/tms') && !p.startsWith('/dms') && !p.startsWith('/flota') &&
-      !p.startsWith('/locativa') && !p.startsWith('/wms') && !p.startsWith('/gh'),
+      !p.startsWith('/tms') && !p.startsWith('/dms') && !p.startsWith('/qms') &&
+      !p.startsWith('/flota') && !p.startsWith('/locativa') && !p.startsWith('/wms') &&
+      !p.startsWith('/gh'),
   },
   {
     id:    'tarifax',
@@ -35,6 +37,14 @@ const WORKSPACES = [
     color: TX_COLOR,
     path:  '/tarifax/tablero',
     isActive: (p: string) => p.startsWith('/tarifax'),
+  },
+  {
+    id:    'qms',
+    label: 'Calidad QMS',
+    short: 'QMS',
+    color: QMS_COLOR,
+    path:  '/qms',
+    isActive: (p: string) => p.startsWith('/qms'),
   },
   {
     id:    'dms',

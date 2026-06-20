@@ -14,6 +14,7 @@ import {
   PeopleAlt, Groups as GroupsIcon, Payments as PaymentsIcon, HealthAndSafety as HASIcon,
   AirportShuttle, GpsFixed, Speed as SpeedIcon, AccountBalance as TMSLiqIcon,
   FolderSpecial, Draw as DrawIcon, ManageSearch, Policy as PolicyIcon,
+  VerifiedUser as QMSQualityIcon, BugReport as QMSNCIcon, FactCheck as QMSAuditIcon, Analytics as QMSAnalyticsIcon,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'

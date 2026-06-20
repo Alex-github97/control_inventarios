@@ -85,6 +85,20 @@ import {
   Psychology as DMSIAIconDMS,
   Public as DMSPortalIconDMS,
   SettingsApplications as DMSConfigIconDMS,
+  WorkspacePremium as QMSDashIconQMS,
+  DeviceHub as QMSProcesosIconQMS,
+  Analytics as QMSIndicadoresIconQMS,
+  BugReport as QMSNCIconQMS,
+  FactCheck as QMSAuditoriasIconQMS,
+  FindInPage as QMSHallazgosIconQMS,
+  Dangerous as QMSRiesgosIconQMS,
+  SupportAgent as QMSQuejasIconQMS,
+  Storefront as QMSProveedoresIconQMS,
+  TrendingUp as QMSMejoraIconQMS,
+  Poll as QMSEncuestasIconQMS,
+  ChangeCircle as QMSCambiosIconQMS,
+  AutoFixHigh as QMSIAIconQMS,
+  SettingsSuggest as QMSConfigIconQMS,
 } from '@mui/icons-material'
 import { COMMAND_CENTER_DASHBOARDS } from '@/config/commandCenter'
 
@@ -102,6 +116,7 @@ const WMS_COLOR = '#1E40AF'
 const GH_COLOR  = '#BE185D'
 const TMS_COLOR = '#0369A1'
 const DMS_COLOR = '#0E7490'
+const QMS_COLOR = '#059669'
 
 interface NavItem {
   label: string
@@ -226,6 +241,24 @@ const DMS_NAV_ITEMS: NavItem[] = [
 ]
 const DMS_SECTIONS = ['General', 'Repositorio', 'Clasificación', 'Flujos', 'Búsqueda', 'Cumplimiento', 'Inteligencia', 'Portal', 'Sistema']
 
+const QMS_NAV_ITEMS: NavItem[] = [
+  { label: 'Torre de Control',  icon: <QMSDashIconQMS         fontSize="small" />, path: '/qms',                  section: 'General',        exact: true },
+  { label: 'Procesos',          icon: <QMSProcesosIconQMS     fontSize="small" />, path: '/qms/procesos',         section: 'Procesos' },
+  { label: 'Indicadores',       icon: <QMSIndicadoresIconQMS  fontSize="small" />, path: '/qms/indicadores',      section: 'Procesos' },
+  { label: 'No Conformidades',  icon: <QMSNCIconQMS           fontSize="small" />, path: '/qms/no-conformidades', section: 'Calidad' },
+  { label: 'Auditorías',        icon: <QMSAuditoriasIconQMS   fontSize="small" />, path: '/qms/auditorias',       section: 'Calidad' },
+  { label: 'Hallazgos',         icon: <QMSHallazgosIconQMS    fontSize="small" />, path: '/qms/hallazgos',        section: 'Calidad' },
+  { label: 'Riesgos',           icon: <QMSRiesgosIconQMS      fontSize="small" />, path: '/qms/riesgos',          section: 'Operacional' },
+  { label: 'Cambios',           icon: <QMSCambiosIconQMS      fontSize="small" />, path: '/qms/cambios',          section: 'Operacional' },
+  { label: 'Quejas y Reclamos', icon: <QMSQuejasIconQMS       fontSize="small" />, path: '/qms/quejas',           section: 'Operacional' },
+  { label: 'Proveedores',       icon: <QMSProveedoresIconQMS  fontSize="small" />, path: '/qms/proveedores',      section: 'Relacionamiento' },
+  { label: 'Encuestas',         icon: <QMSEncuestasIconQMS    fontSize="small" />, path: '/qms/encuestas',        section: 'Relacionamiento' },
+  { label: 'Mejora Continua',   icon: <QMSMejoraIconQMS       fontSize="small" />, path: '/qms/mejora',           section: 'Mejora' },
+  { label: 'IA Calidad',        icon: <QMSIAIconQMS           fontSize="small" />, path: '/qms/ia',               section: 'Mejora' },
+  { label: 'Configuración',     icon: <QMSConfigIconQMS       fontSize="small" />, path: '/qms/config',           section: 'Sistema' },
+]
+const QMS_SECTIONS = ['General', 'Procesos', 'Calidad', 'Operacional', 'Relacionamiento', 'Mejora', 'Sistema']
+
 const CONFIG_NAV_ITEMS: NavItem[] = [
   { label: 'Usuarios', icon: <UsuariosIcon fontSize="small" />, path: '/usuarios',       section: 'Administración', exact: true },
   { label: 'Roles',    icon: <RolesIcon   fontSize="small" />, path: '/usuarios/roles', section: 'Administración' },
@@ -257,6 +290,7 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
   const location  = useLocation()
   const [collapsed, setCollapsed] = useState(false)
 
+  const isQMS      = location.pathname.startsWith('/qms')
   const isDMS      = location.pathname.startsWith('/dms')
   const isTMS      = location.pathname.startsWith('/tms') || location.pathname.startsWith('/fletes')
   const isFletes   = false // absorbed by isTMS
@@ -268,13 +302,13 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
   const isWMS      = location.pathname.startsWith('/wms')
   const isGH       = location.pathname.startsWith('/gh')
 
-  const activeColor = isCommand ? CC_COLOR : isConfig ? CF_COLOR : isTarifax ? TX_COLOR : isDMS ? DMS_COLOR : isTMS ? TMS_COLOR : isFletes ? FT_COLOR : isFlota ? GF_COLOR : isLocativa ? ML_COLOR : isWMS ? WMS_COLOR : isGH ? GH_COLOR : CI_COLOR
-  const navItems    = isCommand ? CC_NAV_ITEMS : isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : isDMS ? DMS_NAV_ITEMS : isTMS ? TMS_NAV_ITEMS : isFletes ? FT_NAV_ITEMS : isFlota ? GF_NAV_ITEMS : isLocativa ? ML_NAV_ITEMS : isWMS ? WMS_NAV_ITEMS : isGH ? GH_NAV_ITEMS : CI_NAV_ITEMS
-  const sections    = isCommand ? CC_SECTIONS  : isConfig ? CONFIG_SECTIONS  : isTarifax ? TX_SECTIONS  : isDMS ? DMS_SECTIONS  : isTMS ? TMS_SECTIONS  : isFletes ? FT_SECTIONS  : isFlota ? GF_SECTIONS  : isLocativa ? ML_SECTIONS  : isWMS ? WMS_SECTIONS : isGH ? GH_SECTIONS : CI_SECTIONS
+  const activeColor = isCommand ? CC_COLOR : isConfig ? CF_COLOR : isTarifax ? TX_COLOR : isQMS ? QMS_COLOR : isDMS ? DMS_COLOR : isTMS ? TMS_COLOR : isFletes ? FT_COLOR : isFlota ? GF_COLOR : isLocativa ? ML_COLOR : isWMS ? WMS_COLOR : isGH ? GH_COLOR : CI_COLOR
+  const navItems    = isCommand ? CC_NAV_ITEMS : isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : isQMS ? QMS_NAV_ITEMS : isDMS ? DMS_NAV_ITEMS : isTMS ? TMS_NAV_ITEMS : isFletes ? FT_NAV_ITEMS : isFlota ? GF_NAV_ITEMS : isLocativa ? ML_NAV_ITEMS : isWMS ? WMS_NAV_ITEMS : isGH ? GH_NAV_ITEMS : CI_NAV_ITEMS
+  const sections    = isCommand ? CC_SECTIONS  : isConfig ? CONFIG_SECTIONS  : isTarifax ? TX_SECTIONS  : isQMS ? QMS_SECTIONS  : isDMS ? DMS_SECTIONS  : isTMS ? TMS_SECTIONS  : isFletes ? FT_SECTIONS  : isFlota ? GF_SECTIONS  : isLocativa ? ML_SECTIONS  : isWMS ? WMS_SECTIONS : isGH ? GH_SECTIONS : CI_SECTIONS
 
-  const logoShort = isCommand ? 'CC' : isConfig ? 'CF' : isTarifax ? 'TX' : isDMS ? 'DMS' : isTMS ? 'TMS' : isFletes ? 'FT' : isFlota ? 'GF' : isLocativa ? 'ML' : isWMS ? 'WMS' : isGH ? 'GH' : 'CE'
-  const logoLine1 = isCommand ? 'Command' : isConfig ? 'Configuración' : isTarifax ? 'TarifaX' : isDMS ? 'Document' : isTMS ? 'Transportation' : isFletes ? 'Módulo de' : isFlota ? 'Gestión de' : isLocativa ? 'Mantenimiento' : isWMS ? 'Warehouse' : isGH ? 'Gestión' : 'Control de'
-  const logoLine2 = isCommand ? 'Center'  : isConfig ? 'del Sistema'  : isTarifax ? 'Motor de Tarifas' : isDMS ? 'Management System' : isTMS ? 'Management System' : isFletes ? 'Fletes' : isFlota ? 'Flotas' : isLocativa ? 'Locativo' : isWMS ? 'Management' : isGH ? 'Humana' : 'Estibas'
+  const logoShort = isCommand ? 'CC' : isConfig ? 'CF' : isTarifax ? 'TX' : isQMS ? 'QMS' : isDMS ? 'DMS' : isTMS ? 'TMS' : isFletes ? 'FT' : isFlota ? 'GF' : isLocativa ? 'ML' : isWMS ? 'WMS' : isGH ? 'GH' : 'CE'
+  const logoLine1 = isCommand ? 'Command' : isConfig ? 'Configuración' : isTarifax ? 'TarifaX' : isQMS ? 'Quality' : isDMS ? 'Document' : isTMS ? 'Transportation' : isFletes ? 'Módulo de' : isFlota ? 'Gestión de' : isLocativa ? 'Mantenimiento' : isWMS ? 'Warehouse' : isGH ? 'Gestión' : 'Control de'
+  const logoLine2 = isCommand ? 'Center'  : isConfig ? 'del Sistema'  : isTarifax ? 'Motor de Tarifas' : isQMS ? 'Management System' : isDMS ? 'Management System' : isTMS ? 'Management System' : isFletes ? 'Fletes' : isFlota ? 'Flotas' : isLocativa ? 'Locativo' : isWMS ? 'Management' : isGH ? 'Humana' : 'Estibas'
 
   const width    = collapsed ? DRAWER_COLLAPSED : (widthProp ?? DRAWER_WIDTH)
   const showText = !collapsed && (widthProp === undefined || widthProp >= COMPACT_THRESHOLD)
@@ -319,6 +353,8 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
             borderRadius: '10px',
             background: isConfig
               ? `linear-gradient(135deg, ${CF_COLOR} 0%, #4F46E5 100%)`
+              : isQMS
+              ? `linear-gradient(135deg, ${QMS_COLOR} 0%, #047857 100%)`
               : isDMS
               ? `linear-gradient(135deg, ${DMS_COLOR} 0%, #0C6A80 100%)`
               : isTMS
