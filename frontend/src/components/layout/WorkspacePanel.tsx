@@ -12,6 +12,7 @@ const ML_COLOR         = '#0D9488'
 const WMS_COLOR        = '#1E40AF'
 const GH_COLOR         = '#BE185D'
 const TMS_COLOR        = '#0369A1'
+const DMS_COLOR        = '#0E7490'
 const COMPACT_THRESHOLD = 80
 
 const WORKSPACES = [
@@ -24,7 +25,7 @@ const WORKSPACES = [
     isActive: (p: string) =>
       !p.startsWith('/tarifax') && !p.startsWith('/usuarios') &&
       !p.startsWith('/command-center') && !p.startsWith('/fletes') &&
-      !p.startsWith('/tms') && !p.startsWith('/flota') &&
+      !p.startsWith('/tms') && !p.startsWith('/dms') && !p.startsWith('/flota') &&
       !p.startsWith('/locativa') && !p.startsWith('/wms') && !p.startsWith('/gh'),
   },
   {
@@ -34,6 +35,14 @@ const WORKSPACES = [
     color: TX_COLOR,
     path:  '/tarifax/tablero',
     isActive: (p: string) => p.startsWith('/tarifax'),
+  },
+  {
+    id:    'dms',
+    label: 'DMS',
+    short: 'DMS',
+    color: DMS_COLOR,
+    path:  '/dms',
+    isActive: (p: string) => p.startsWith('/dms'),
   },
   {
     id:    'tms',

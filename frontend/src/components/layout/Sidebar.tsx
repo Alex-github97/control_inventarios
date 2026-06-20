@@ -71,6 +71,20 @@ import {
   School as GHCapacitIcon,
   HealthAndSafety as GHSSTIcon,
   HowToReg as GHConfigIcon,
+  FolderSpecial as DMSDashIconDMS,
+  FolderOpen as DMSRepositorioIconDMS,
+  Article as DMSDocumentosIconDMS,
+  Category as DMSCategoriasIconDMS,
+  FolderShared as DMSExpedientesIconDMS,
+  Rule as DMSWorkflowIconDMS,
+  Draw as DMSFirmasIconDMS,
+  ManageSearch as DMSBusquedaIconDMS,
+  Archive as DMSRetencionIconDMS,
+  Policy as DMSAuditoriaIconDMS,
+  Hub as DMSIntegracionesIconDMS,
+  Psychology as DMSIAIconDMS,
+  Public as DMSPortalIconDMS,
+  SettingsApplications as DMSConfigIconDMS,
 } from '@mui/icons-material'
 import { COMMAND_CENTER_DASHBOARDS } from '@/config/commandCenter'
 
@@ -87,6 +101,7 @@ const ML_COLOR  = '#0D9488'
 const WMS_COLOR = '#1E40AF'
 const GH_COLOR  = '#BE185D'
 const TMS_COLOR = '#0369A1'
+const DMS_COLOR = '#0E7490'
 
 interface NavItem {
   label: string
@@ -193,6 +208,24 @@ const TMS_NAV_ITEMS: NavItem[] = [
 ]
 const TMS_SECTIONS = ['General', 'Operación', 'Recursos', 'Logística', 'Financiero', 'Fletes', 'Sistema']
 
+const DMS_NAV_ITEMS: NavItem[] = [
+  { label: 'Dashboard',      icon: <DMSDashIconDMS          fontSize="small" />, path: '/dms',               section: 'General',       exact: true },
+  { label: 'Repositorio',    icon: <DMSRepositorioIconDMS   fontSize="small" />, path: '/dms/repositorio',   section: 'Repositorio' },
+  { label: 'Documentos',     icon: <DMSDocumentosIconDMS    fontSize="small" />, path: '/dms/documentos',    section: 'Repositorio' },
+  { label: 'Categorías',     icon: <DMSCategoriasIconDMS    fontSize="small" />, path: '/dms/categorias',    section: 'Clasificación' },
+  { label: 'Expedientes',    icon: <DMSExpedientesIconDMS   fontSize="small" />, path: '/dms/expedientes',   section: 'Clasificación' },
+  { label: 'Workflows',      icon: <DMSWorkflowIconDMS      fontSize="small" />, path: '/dms/workflow',      section: 'Flujos' },
+  { label: 'Firmas',         icon: <DMSFirmasIconDMS        fontSize="small" />, path: '/dms/firmas',        section: 'Flujos' },
+  { label: 'Búsqueda',       icon: <DMSBusquedaIconDMS      fontSize="small" />, path: '/dms/busqueda',      section: 'Búsqueda' },
+  { label: 'Retención',      icon: <DMSRetencionIconDMS     fontSize="small" />, path: '/dms/retencion',     section: 'Cumplimiento' },
+  { label: 'Auditoría',      icon: <DMSAuditoriaIconDMS     fontSize="small" />, path: '/dms/auditoria',     section: 'Cumplimiento' },
+  { label: 'Integraciones',  icon: <DMSIntegracionesIconDMS fontSize="small" />, path: '/dms/integraciones', section: 'Inteligencia' },
+  { label: 'IA Documental',  icon: <DMSIAIconDMS            fontSize="small" />, path: '/dms/ia',            section: 'Inteligencia' },
+  { label: 'Portal',         icon: <DMSPortalIconDMS        fontSize="small" />, path: '/dms/portal',        section: 'Portal' },
+  { label: 'Configuración',  icon: <DMSConfigIconDMS        fontSize="small" />, path: '/dms/config',        section: 'Sistema' },
+]
+const DMS_SECTIONS = ['General', 'Repositorio', 'Clasificación', 'Flujos', 'Búsqueda', 'Cumplimiento', 'Inteligencia', 'Portal', 'Sistema']
+
 const CONFIG_NAV_ITEMS: NavItem[] = [
   { label: 'Usuarios', icon: <UsuariosIcon fontSize="small" />, path: '/usuarios',       section: 'Administración', exact: true },
   { label: 'Roles',    icon: <RolesIcon   fontSize="small" />, path: '/usuarios/roles', section: 'Administración' },
@@ -224,6 +257,7 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
   const location  = useLocation()
   const [collapsed, setCollapsed] = useState(false)
 
+  const isDMS      = location.pathname.startsWith('/dms')
   const isTMS      = location.pathname.startsWith('/tms') || location.pathname.startsWith('/fletes')
   const isFletes   = false // absorbed by isTMS
   const isFlota    = location.pathname.startsWith('/flota')
@@ -234,13 +268,13 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
   const isWMS      = location.pathname.startsWith('/wms')
   const isGH       = location.pathname.startsWith('/gh')
 
-  const activeColor = isCommand ? CC_COLOR : isConfig ? CF_COLOR : isTarifax ? TX_COLOR : isTMS ? TMS_COLOR : isFletes ? FT_COLOR : isFlota ? GF_COLOR : isLocativa ? ML_COLOR : isWMS ? WMS_COLOR : isGH ? GH_COLOR : CI_COLOR
-  const navItems    = isCommand ? CC_NAV_ITEMS : isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : isTMS ? TMS_NAV_ITEMS : isFletes ? FT_NAV_ITEMS : isFlota ? GF_NAV_ITEMS : isLocativa ? ML_NAV_ITEMS : isWMS ? WMS_NAV_ITEMS : isGH ? GH_NAV_ITEMS : CI_NAV_ITEMS
-  const sections    = isCommand ? CC_SECTIONS  : isConfig ? CONFIG_SECTIONS  : isTarifax ? TX_SECTIONS  : isTMS ? TMS_SECTIONS  : isFletes ? FT_SECTIONS  : isFlota ? GF_SECTIONS  : isLocativa ? ML_SECTIONS  : isWMS ? WMS_SECTIONS : isGH ? GH_SECTIONS : CI_SECTIONS
+  const activeColor = isCommand ? CC_COLOR : isConfig ? CF_COLOR : isTarifax ? TX_COLOR : isDMS ? DMS_COLOR : isTMS ? TMS_COLOR : isFletes ? FT_COLOR : isFlota ? GF_COLOR : isLocativa ? ML_COLOR : isWMS ? WMS_COLOR : isGH ? GH_COLOR : CI_COLOR
+  const navItems    = isCommand ? CC_NAV_ITEMS : isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : isDMS ? DMS_NAV_ITEMS : isTMS ? TMS_NAV_ITEMS : isFletes ? FT_NAV_ITEMS : isFlota ? GF_NAV_ITEMS : isLocativa ? ML_NAV_ITEMS : isWMS ? WMS_NAV_ITEMS : isGH ? GH_NAV_ITEMS : CI_NAV_ITEMS
+  const sections    = isCommand ? CC_SECTIONS  : isConfig ? CONFIG_SECTIONS  : isTarifax ? TX_SECTIONS  : isDMS ? DMS_SECTIONS  : isTMS ? TMS_SECTIONS  : isFletes ? FT_SECTIONS  : isFlota ? GF_SECTIONS  : isLocativa ? ML_SECTIONS  : isWMS ? WMS_SECTIONS : isGH ? GH_SECTIONS : CI_SECTIONS
 
-  const logoShort = isCommand ? 'CC' : isConfig ? 'CF' : isTarifax ? 'TX' : isTMS ? 'TMS' : isFletes ? 'FT' : isFlota ? 'GF' : isLocativa ? 'ML' : isWMS ? 'WMS' : isGH ? 'GH' : 'CE'
-  const logoLine1 = isCommand ? 'Command' : isConfig ? 'Configuración' : isTarifax ? 'TarifaX' : isTMS ? 'Transportation' : isFletes ? 'Módulo de' : isFlota ? 'Gestión de' : isLocativa ? 'Mantenimiento' : isWMS ? 'Warehouse' : isGH ? 'Gestión' : 'Control de'
-  const logoLine2 = isCommand ? 'Center'  : isConfig ? 'del Sistema'  : isTarifax ? 'Motor de Tarifas' : isTMS ? 'Management System' : isFletes ? 'Fletes' : isFlota ? 'Flotas' : isLocativa ? 'Locativo' : isWMS ? 'Management' : isGH ? 'Humana' : 'Estibas'
+  const logoShort = isCommand ? 'CC' : isConfig ? 'CF' : isTarifax ? 'TX' : isDMS ? 'DMS' : isTMS ? 'TMS' : isFletes ? 'FT' : isFlota ? 'GF' : isLocativa ? 'ML' : isWMS ? 'WMS' : isGH ? 'GH' : 'CE'
+  const logoLine1 = isCommand ? 'Command' : isConfig ? 'Configuración' : isTarifax ? 'TarifaX' : isDMS ? 'Document' : isTMS ? 'Transportation' : isFletes ? 'Módulo de' : isFlota ? 'Gestión de' : isLocativa ? 'Mantenimiento' : isWMS ? 'Warehouse' : isGH ? 'Gestión' : 'Control de'
+  const logoLine2 = isCommand ? 'Center'  : isConfig ? 'del Sistema'  : isTarifax ? 'Motor de Tarifas' : isDMS ? 'Management System' : isTMS ? 'Management System' : isFletes ? 'Fletes' : isFlota ? 'Flotas' : isLocativa ? 'Locativo' : isWMS ? 'Management' : isGH ? 'Humana' : 'Estibas'
 
   const width    = collapsed ? DRAWER_COLLAPSED : (widthProp ?? DRAWER_WIDTH)
   const showText = !collapsed && (widthProp === undefined || widthProp >= COMPACT_THRESHOLD)
@@ -285,6 +319,8 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
             borderRadius: '10px',
             background: isConfig
               ? `linear-gradient(135deg, ${CF_COLOR} 0%, #4F46E5 100%)`
+              : isDMS
+              ? `linear-gradient(135deg, ${DMS_COLOR} 0%, #0C6A80 100%)`
               : isTMS
               ? `linear-gradient(135deg, ${TMS_COLOR} 0%, #0284C7 100%)`
               : isFlota

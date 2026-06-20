@@ -13,6 +13,7 @@ import {
   Warehouse, MoveToInbox, SwapHoriz, Send as WMSDespachoIcon,
   PeopleAlt, Groups as GroupsIcon, Payments as PaymentsIcon, HealthAndSafety as HASIcon,
   AirportShuttle, GpsFixed, Speed as SpeedIcon, AccountBalance as TMSLiqIcon,
+  FolderSpecial, Draw as DrawIcon, ManageSearch, Policy as PolicyIcon,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
@@ -168,6 +169,23 @@ const MODULES = [
       { icon: <Warehouse sx={{ fontSize: 17 }} />, text: 'Inventario por ubicación FIFO/FEFO con conteos cíclicos' },
       { icon: <SwapHoriz sx={{ fontSize: 17 }} />, text: 'Picking Batch/Zone/Wave con confirmación QR' },
       { icon: <WMSDespachoIcon sx={{ fontSize: 17 }} />, text: 'Despacho OTIF y trazabilidad total por producto/lote' },
+    ],
+  },
+  {
+    id: 'dms',
+    badge: 'DMS',
+    appName: 'Document',
+    appAccent: 'Management System',
+    headline: 'Gobierno documental',
+    headlineAccent: 'de clase mundial',
+    description: 'ISO 15489 · ISO 27001 · ISO 30301.\nRepositorio corporativo único con trazabilidad, firma y cumplimiento normativo.',
+    color: '#0E7490',
+    colorDark: '#0C6A80',
+    features: [
+      { icon: <FolderSpecial sx={{ fontSize: 17 }} />, text: 'Repositorio centralizado con versionamiento y control documental' },
+      { icon: <DrawIcon sx={{ fontSize: 17 }} />, text: 'Firma electrónica y digital con validez legal y auditoría inmutable' },
+      { icon: <ManageSearch sx={{ fontSize: 17 }} />, text: 'Búsqueda avanzada con OCR e Inteligencia Artificial integrada' },
+      { icon: <PolicyIcon sx={{ fontSize: 17 }} />, text: 'Expedientes electrónicos integrados con HCM, TMS, WMS y FMS' },
     ],
   },
   {

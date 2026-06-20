@@ -79,6 +79,20 @@ import TMSCostos from '@/pages/TMSCostos'
 import TMSOTIF from '@/pages/TMSOTIF'
 import TMSLiquidaciones from '@/pages/TMSLiquidaciones'
 import TMSConfig from '@/pages/TMSConfig'
+import DMSDashboard from '@/pages/DMSDashboard'
+import DMSRepositorio from '@/pages/DMSRepositorio'
+import DMSDocumentos from '@/pages/DMSDocumentos'
+import DMSCategorias from '@/pages/DMSCategorias'
+import DMSExpedientes from '@/pages/DMSExpedientes'
+import DMSWorkflow from '@/pages/DMSWorkflow'
+import DMSFirmas from '@/pages/DMSFirmas'
+import DMSBusqueda from '@/pages/DMSBusqueda'
+import DMSRetencion from '@/pages/DMSRetencion'
+import DMSAuditoria from '@/pages/DMSAuditoria'
+import DMSIntegraciones from '@/pages/DMSIntegraciones'
+import DMSIA from '@/pages/DMSIA'
+import DMSPortal from '@/pages/DMSPortal'
+import DMSConfig from '@/pages/DMSConfig'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -185,6 +199,20 @@ export default function App() {
             <Route path="/tms/otif" element={<ProtectedRoute><TMSOTIF /></ProtectedRoute>} />
             <Route path="/tms/liquidaciones" element={<ProtectedRoute><TMSLiquidaciones /></ProtectedRoute>} />
             <Route path="/tms/config" element={<ProtectedRoute><TMSConfig /></ProtectedRoute>} />
+            <Route path="/dms" element={<ProtectedRoute><DMSDashboard /></ProtectedRoute>} />
+            <Route path="/dms/repositorio" element={<ProtectedRoute><DMSRepositorio /></ProtectedRoute>} />
+            <Route path="/dms/documentos" element={<ProtectedRoute><DMSDocumentos /></ProtectedRoute>} />
+            <Route path="/dms/categorias" element={<ProtectedRoute><DMSCategorias /></ProtectedRoute>} />
+            <Route path="/dms/expedientes" element={<ProtectedRoute><DMSExpedientes /></ProtectedRoute>} />
+            <Route path="/dms/workflow" element={<ProtectedRoute><DMSWorkflow /></ProtectedRoute>} />
+            <Route path="/dms/firmas" element={<ProtectedRoute><DMSFirmas /></ProtectedRoute>} />
+            <Route path="/dms/busqueda" element={<ProtectedRoute><DMSBusqueda /></ProtectedRoute>} />
+            <Route path="/dms/retencion" element={<ProtectedRoute><DMSRetencion /></ProtectedRoute>} />
+            <Route path="/dms/auditoria" element={<ProtectedRoute><DMSAuditoria /></ProtectedRoute>} />
+            <Route path="/dms/integraciones" element={<ProtectedRoute><DMSIntegraciones /></ProtectedRoute>} />
+            <Route path="/dms/ia" element={<ProtectedRoute><DMSIA /></ProtectedRoute>} />
+            <Route path="/dms/portal" element={<ProtectedRoute><DMSPortal /></ProtectedRoute>} />
+            <Route path="/dms/config" element={<ProtectedRoute><DMSConfig /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </BrowserRouter>

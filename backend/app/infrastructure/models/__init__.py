@@ -57,6 +57,13 @@ from app.infrastructure.models.tms import (
     TMSEvento, TMSDocumento, TMSPOD, TMSRuta, TMSPuntoRuta,
     TMSCostoViaje, TMSLiquidacion, TMSOTIFRegistro, TMSAlerta, TMSKPIDiario,
 )
+from app.infrastructure.models.dms import (
+    DMSCarpeta, DMSCategoria, DMSTipoDocumento, DMSCampoMetadato,
+    DMSDocumento, DMSVersion, DMSMetadatoValor, DMSFirma,
+    DMSWorkflow, DMSWorkflowPaso, DMSInstancia, DMSInstanciaPaso,
+    DMSExpediente, DMSExpedienteDocumento, DMSRetencion,
+    DMSAuditoria, DMSNotificacion, DMSKPIDiario,
+)
 
 __all__ = [
     "TimestampMixin", "SoftDeleteMixin",
