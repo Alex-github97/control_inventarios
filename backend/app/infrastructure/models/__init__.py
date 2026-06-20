@@ -39,6 +39,19 @@ from app.infrastructure.models.locative import (
     LocativaRegistroFalla, LocativaRiesgo, LocativaRiesgoTratamiento,
     LocativaMedidor, LocativaLecturaEnergia,
 )
+from app.infrastructure.models.hcm import (
+    HCMEmpresa, HCMSede, HCMArea, HCMCargo, HCMCentroCosto,
+    HCMColaborador, HCMColaboradorHistorial, HCMContrato,
+    HCMConductor, HCMConductorVehiculoTipo, HCMConductorCobertura,
+    HCMConductorDocumento, HCMConductorAccidente,
+    HCMNominaPeriodo, HCMNominaDetalle, HCMNovedad, HCMLiquidacion,
+    HCMIncapacidad, HCMVacacion,
+    HCMVacante, HCMPostulacion, HCMEntrevista,
+    HCMEvaluacion, HCMEvaluacionDetalle,
+    HCMCapacitacion, HCMColaboradorCapacitacion,
+    HCMSSTIncidente, HCMSSTRiesgo, HCMSSTInspeccion,
+    HCMKPIDiario,
+)
 
 __all__ = [
     "TimestampMixin", "SoftDeleteMixin",

@@ -61,6 +61,10 @@ import GHIncapacidades from '@/pages/GHIncapacidades'
 import GHVacaciones from '@/pages/GHVacaciones'
 import GHReclutamiento from '@/pages/GHReclutamiento'
 import GHCapacitacion from '@/pages/GHCapacitacion'
+import GHSST from '@/pages/GHSST'
+import GHNomina from '@/pages/GHNomina'
+import GHEvaluacion from '@/pages/GHEvaluacion'
+import GHConfig from '@/pages/GHConfig'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -149,6 +153,10 @@ export default function App() {
             <Route path="/gh/vacaciones" element={<ProtectedRoute><GHVacaciones /></ProtectedRoute>} />
             <Route path="/gh/reclutamiento" element={<ProtectedRoute><GHReclutamiento /></ProtectedRoute>} />
             <Route path="/gh/capacitacion" element={<ProtectedRoute><GHCapacitacion /></ProtectedRoute>} />
+            <Route path="/gh/sst" element={<ProtectedRoute><GHSST /></ProtectedRoute>} />
+            <Route path="/gh/nomina" element={<ProtectedRoute><GHNomina /></ProtectedRoute>} />
+            <Route path="/gh/evaluacion" element={<ProtectedRoute><GHEvaluacion /></ProtectedRoute>} />
+            <Route path="/gh/config" element={<ProtectedRoute><GHConfig /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </BrowserRouter>
