@@ -179,6 +179,20 @@ import MESBOM from '@/pages/MESBOM'
 import MESIA from '@/pages/MESIA'
 import MESReportes from '@/pages/MESReportes'
 import MESConfig from '@/pages/MESConfig'
+import APSDashboard from '@/pages/APSDashboard'
+import APSDemanda from '@/pages/APSDemanda'
+import APSSOIP from '@/pages/APSSOIP'
+import APSPlan from '@/pages/APSPlan'
+import APSCapacidad from '@/pages/APSCapacidad'
+import APSInventario from '@/pages/APSInventario'
+import APSDistribucion from '@/pages/APSDistribucion'
+import APSTransporte from '@/pages/APSTransporte'
+import APSEscenarios from '@/pages/APSEscenarios'
+import APSRestricciones from '@/pages/APSRestricciones'
+import APSKPIs from '@/pages/APSKPIs'
+import APSAI from '@/pages/APSAI'
+import APSReportes from '@/pages/APSReportes'
+import APSConfig from '@/pages/APSConfig'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -385,6 +399,20 @@ export default function App() {
             <Route path="/mes/ia" element={<ProtectedRoute><MESIA /></ProtectedRoute>} />
             <Route path="/mes/reportes" element={<ProtectedRoute><MESReportes /></ProtectedRoute>} />
             <Route path="/mes/config" element={<ProtectedRoute><MESConfig /></ProtectedRoute>} />
+            <Route path="/aps" element={<ProtectedRoute><APSDashboard /></ProtectedRoute>} />
+            <Route path="/aps/demanda" element={<ProtectedRoute><APSDemanda /></ProtectedRoute>} />
+            <Route path="/aps/soip" element={<ProtectedRoute><APSSOIP /></ProtectedRoute>} />
+            <Route path="/aps/plan" element={<ProtectedRoute><APSPlan /></ProtectedRoute>} />
+            <Route path="/aps/capacidad" element={<ProtectedRoute><APSCapacidad /></ProtectedRoute>} />
+            <Route path="/aps/inventario" element={<ProtectedRoute><APSInventario /></ProtectedRoute>} />
+            <Route path="/aps/distribucion" element={<ProtectedRoute><APSDistribucion /></ProtectedRoute>} />
+            <Route path="/aps/transporte" element={<ProtectedRoute><APSTransporte /></ProtectedRoute>} />
+            <Route path="/aps/escenarios" element={<ProtectedRoute><APSEscenarios /></ProtectedRoute>} />
+            <Route path="/aps/restricciones" element={<ProtectedRoute><APSRestricciones /></ProtectedRoute>} />
+            <Route path="/aps/kpis" element={<ProtectedRoute><APSKPIs /></ProtectedRoute>} />
+            <Route path="/aps/ia" element={<ProtectedRoute><APSAI /></ProtectedRoute>} />
+            <Route path="/aps/reportes" element={<ProtectedRoute><APSReportes /></ProtectedRoute>} />
+            <Route path="/aps/config" element={<ProtectedRoute><APSConfig /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </BrowserRouter>

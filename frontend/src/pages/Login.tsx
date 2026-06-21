@@ -20,6 +20,7 @@ import {
   Handshake as CRMHandshakeIcon, Whatshot as CRMLeadIcon, SupportAgent as CRMSupportIcon, QueryStats as CRMStatsIcon,
   Engineering as EAMEngineeringIcon, TireRepair as EAMTireIcon, Science as EAMScienceIcon, PrecisionManufacturing as EAMAIIcon,
   Factory as MESFactoryIcon, Speed as MESSpeedIcon, Recycling as MESRecyclingIcon, AutoAwesome as MESAIIcon2,
+  ScatterPlot as APSScatterIcon, Leaderboard as APSLeaderIcon, SyncAlt as APSSyncIcon, Insights as APSInsightsIcon,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
@@ -294,6 +295,23 @@ const MODULES = [
       { icon: <EAMTireIcon sx={{ fontSize: 17 }} />, text: 'OTs preventivas/correctivas/predictivas con checklists dinámicos y confiabilidad MTBF/MTTR' },
       { icon: <EAMScienceIcon sx={{ fontSize: 17 }} />, text: 'Laboratorio de lubricación con análisis de aceite, neumáticos y gestión de combustible' },
       { icon: <EAMAIIcon sx={{ fontSize: 17 }} />, text: 'IA predictiva: detección de fallas, FMEA, gemelo digital y optimización de repuestos' },
+    ],
+  },
+  {
+    id: 'aps',
+    badge: 'APS',
+    appName: 'Advanced Planning',
+    appAccent: '& Scheduling',
+    headline: 'El cerebro de tu',
+    headlineAccent: 'cadena de suministro',
+    description: 'S&OP · IBP · MPS · MRP · CRP · DRP · Inventario Multi-Echelon.\nOptimización matemática y IA para planificar toda la cadena de valor.',
+    color: '#7C3AED',
+    colorDark: '#6D28D9',
+    features: [
+      { icon: <APSScatterIcon sx={{ fontSize: 17 }} />, text: 'Demand Planning estadístico + ML: ARIMA, LSTM, Ensemble con consenso colaborativo' },
+      { icon: <APSLeaderIcon sx={{ fontSize: 17 }} />, text: 'MPS · MRP · CRP con programación finita de capacidad y gestión de restricciones duras/blandas' },
+      { icon: <APSSyncIcon sx={{ fontSize: 17 }} />, text: 'S&OP / IBP digital: revisiones Demanda-Supply-Finanzas-Ejecutivo en un solo ciclo' },
+      { icon: <APSInsightsIcon sx={{ fontSize: 17 }} />, text: 'IA Autónoma: simulador What-If, Digital Twin de la SC y planificación autónoma con XAI' },
     ],
   },
   {

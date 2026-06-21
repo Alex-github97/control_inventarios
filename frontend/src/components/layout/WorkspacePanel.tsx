@@ -19,6 +19,7 @@ const LMS_COLOR        = '#D97706'
 const CRM_COLOR        = '#DC2626'
 const EAM_COLOR        = '#EA580C'
 const MES_COLOR        = '#0891B2'
+const APS_COLOR        = '#7C3AED'
 const COMPACT_THRESHOLD = 80
 
 const WORKSPACES = [
@@ -34,7 +35,7 @@ const WORKSPACES = [
       !p.startsWith('/tms') && !p.startsWith('/dms') && !p.startsWith('/qms') &&
       !p.startsWith('/grc') && !p.startsWith('/flota') && !p.startsWith('/locativa') &&
       !p.startsWith('/wms') && !p.startsWith('/gh') && !p.startsWith('/lms') &&
-      !p.startsWith('/crm') && !p.startsWith('/eam') && !p.startsWith('/mes'),
+      !p.startsWith('/crm') && !p.startsWith('/eam') && !p.startsWith('/mes') && !p.startsWith('/aps'),
   },
   {
     id:    'tarifax',
@@ -131,6 +132,14 @@ const WORKSPACES = [
     color: MES_COLOR,
     path:  '/mes',
     isActive: (p: string) => p.startsWith('/mes'),
+  },
+  {
+    id:    'aps',
+    label: 'APS',
+    short: 'APS',
+    color: APS_COLOR,
+    path:  '/aps',
+    isActive: (p: string) => p.startsWith('/aps'),
   },
   {
     id:    'config',

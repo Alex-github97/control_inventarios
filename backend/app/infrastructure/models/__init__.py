@@ -118,6 +118,14 @@ from app.infrastructure.models.mes import (
     MESScrap, MESOEERegistro, MESChecklistPlantilla, MESChecklistPregunta,
     MESChecklistEjecucion, MESKPIDiario,
 )
+from app.infrastructure.models.aps import (
+    APSUbicacion, APSProducto, APSRecurso, APSRestriccion, APSParametro,
+    APSPronostico, APSDetallePeriodo, APSColaboracion, APSEscenario,
+    APSPlanMaestro, APSPlanDetalle, APSMRP, APSCapacidad, APSCargaCapacidad,
+    APSInventarioOptimo, APSOrdenSugerida, APSSimulacion, APSResultadoSimulacion,
+    APSAlerta, APSSOIPCiclo, APSSOIPRevision, APSDistribucion, APSTransporte,
+    APSAuditoria, APSConsenso, APSKPIDiario,
+)
 
 __all__ = [
     "TimestampMixin", "SoftDeleteMixin",
