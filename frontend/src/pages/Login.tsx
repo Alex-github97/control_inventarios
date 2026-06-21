@@ -19,6 +19,7 @@ import {
   School as LMSUniversityIcon, Psychology as LMSSkillsIcon, WorkspacePremium as LMSCertIcon, AutoAwesome as LMSAIIcon,
   Handshake as CRMHandshakeIcon, Whatshot as CRMLeadIcon, SupportAgent as CRMSupportIcon, QueryStats as CRMStatsIcon,
   Engineering as EAMEngineeringIcon, TireRepair as EAMTireIcon, Science as EAMScienceIcon, PrecisionManufacturing as EAMAIIcon,
+  Factory as MESFactoryIcon, Speed as MESSpeedIcon, Recycling as MESRecyclingIcon, AutoAwesome as MESAIIcon2,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
@@ -293,6 +294,23 @@ const MODULES = [
       { icon: <EAMTireIcon sx={{ fontSize: 17 }} />, text: 'OTs preventivas/correctivas/predictivas con checklists dinámicos y confiabilidad MTBF/MTTR' },
       { icon: <EAMScienceIcon sx={{ fontSize: 17 }} />, text: 'Laboratorio de lubricación con análisis de aceite, neumáticos y gestión de combustible' },
       { icon: <EAMAIIcon sx={{ fontSize: 17 }} />, text: 'IA predictiva: detección de fallas, FMEA, gemelo digital y optimización de repuestos' },
+    ],
+  },
+  {
+    id: 'mes',
+    badge: 'MES',
+    appName: 'Manufacturing',
+    appAccent: 'Execution System',
+    headline: 'Producción inteligente,',
+    headlineAccent: 'cero paros no planificados',
+    description: 'ISO 22400 · OEE · SPC · APS · Industria 4.0.\nControl total desde la materia prima hasta el producto terminado.',
+    color: '#0891B2',
+    colorDark: '#0E7490',
+    features: [
+      { icon: <MESFactoryIcon sx={{ fontSize: 17 }} />, text: 'Órdenes de producción con BOM multinivel, recetas y programación APS de capacidad finita' },
+      { icon: <MESSpeedIcon sx={{ fontSize: 17 }} />, text: 'OEE en tiempo real: Disponibilidad × Rendimiento × Calidad por línea, equipo y turno' },
+      { icon: <MESRecyclingIcon sx={{ fontSize: 17 }} />, text: 'Scrap, mermas y reprocesos con Lean Manufacturing: Kanban, SMED, Andon y Kaizen integrados' },
+      { icon: <MESAIIcon2 sx={{ fontSize: 17 }} />, text: 'IA manufactura: predicción de paradas, optimización de secuencias y gemelo digital de planta' },
     ],
   },
 ]

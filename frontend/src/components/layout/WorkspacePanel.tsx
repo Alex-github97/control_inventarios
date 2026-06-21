@@ -18,6 +18,7 @@ const GRC_COLOR        = '#6D28D9'
 const LMS_COLOR        = '#D97706'
 const CRM_COLOR        = '#DC2626'
 const EAM_COLOR        = '#EA580C'
+const MES_COLOR        = '#0891B2'
 const COMPACT_THRESHOLD = 80
 
 const WORKSPACES = [
@@ -33,7 +34,7 @@ const WORKSPACES = [
       !p.startsWith('/tms') && !p.startsWith('/dms') && !p.startsWith('/qms') &&
       !p.startsWith('/grc') && !p.startsWith('/flota') && !p.startsWith('/locativa') &&
       !p.startsWith('/wms') && !p.startsWith('/gh') && !p.startsWith('/lms') &&
-      !p.startsWith('/crm') && !p.startsWith('/eam'),
+      !p.startsWith('/crm') && !p.startsWith('/eam') && !p.startsWith('/mes'),
   },
   {
     id:    'tarifax',
@@ -122,6 +123,14 @@ const WORKSPACES = [
     color: CRM_COLOR,
     path:  '/crm',
     isActive: (p: string) => p.startsWith('/crm'),
+  },
+  {
+    id:    'mes',
+    label: 'MES',
+    short: 'MES',
+    color: MES_COLOR,
+    path:  '/mes',
+    isActive: (p: string) => p.startsWith('/mes'),
   },
   {
     id:    'config',

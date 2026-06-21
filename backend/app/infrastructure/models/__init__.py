@@ -109,6 +109,15 @@ from app.infrastructure.models.eam import (
     EAMRegistroCombustible, EAMGarantia, EAMFMEA,
     EAMCalibracion, EAMKPIDiario,
 )
+from app.infrastructure.models.mes import (
+    MESPlanta, MESLinea, MESTurno, MESCeldaTrabajo, MESEquipo,
+    MESOperario, MESCertificacion, MESProducto, MESBOM, MESBOMDetalle,
+    MESReceta, MESRecetaDetalle, MESOperacion, MESOrdenProduccion,
+    MESOrdenOperacion, MESLote, MESEjecucion, MESParada,
+    MESConsumoMaterial, MESWIP, MESInspeccion, MESDefecto,
+    MESScrap, MESOEERegistro, MESChecklistPlantilla, MESChecklistPregunta,
+    MESChecklistEjecucion, MESKPIDiario,
+)
 
 __all__ = [
     "TimestampMixin", "SoftDeleteMixin",

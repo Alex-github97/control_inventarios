@@ -155,6 +155,20 @@ import {
   PrecisionManufacturing as EAMIAIconEAM,
   BarChart as EAMReportesIconEAM,
   Tune as EAMConfigIconEAM,
+  Factory as MESDashIconMES,
+  DeviceHub as MESPlantaIconMES,
+  ListAlt as MESOrdenesIconMES,
+  CalendarViewMonth as MESProgramacionIconMES,
+  PlayCircle as MESEjecucionIconMES,
+  Timeline as MESTrazabilidadIconMES,
+  Verified as MESCalidadIconMES,
+  Recycling as MESScrapIconMES,
+  Speed as MESOEEIconMES,
+  Inventory2 as MESInventarioIconMES,
+  MenuBook as MESBOMIconMES,
+  AutoAwesome as MESIAIconMES,
+  Assessment as MESReportesIconMES,
+  SettingsSuggest as MESConfigIconMES,
 } from '@mui/icons-material'
 import { COMMAND_CENTER_DASHBOARDS } from '@/config/commandCenter'
 
@@ -177,6 +191,7 @@ const GRC_COLOR = '#6D28D9'
 const LMS_COLOR = '#D97706'
 const CRM_COLOR = '#DC2626'
 const EAM_COLOR = '#EA580C'
+const MES_COLOR = '#0891B2'
 
 interface NavItem {
   label: string
@@ -393,6 +408,24 @@ const EAM_NAV_ITEMS: NavItem[] = [
 ]
 const EAM_SECTIONS = ['General', 'Mantenimiento', 'Lubricación', 'Inventario', 'Confiabilidad', 'Inteligencia', 'Sistema']
 
+const MES_NAV_ITEMS: NavItem[] = [
+  { label: 'Torre de Control',  icon: <MESDashIconMES          fontSize="small" />, path: '/mes',                 section: 'General',         exact: true },
+  { label: 'Plantas & Líneas',  icon: <MESPlantaIconMES        fontSize="small" />, path: '/mes/planta',          section: 'General' },
+  { label: 'Órdenes Producción',icon: <MESOrdenesIconMES       fontSize="small" />, path: '/mes/ordenes',         section: 'Producción' },
+  { label: 'Programación APS',  icon: <MESProgramacionIconMES  fontSize="small" />, path: '/mes/programacion',    section: 'Producción' },
+  { label: 'Ejecución Planta',  icon: <MESEjecucionIconMES     fontSize="small" />, path: '/mes/ejecucion',       section: 'Producción' },
+  { label: 'Trazabilidad',      icon: <MESTrazabilidadIconMES  fontSize="small" />, path: '/mes/trazabilidad',    section: 'Producción' },
+  { label: 'Control Calidad',   icon: <MESCalidadIconMES       fontSize="small" />, path: '/mes/calidad',         section: 'Calidad' },
+  { label: 'Scrap & Lean',      icon: <MESScrapIconMES         fontSize="small" />, path: '/mes/scrap',           section: 'Calidad' },
+  { label: 'OEE',               icon: <MESOEEIconMES           fontSize="small" />, path: '/mes/oee',             section: 'Analítica' },
+  { label: 'WIP & Materiales',  icon: <MESInventarioIconMES    fontSize="small" />, path: '/mes/inventario',      section: 'Analítica' },
+  { label: 'BOM & Recetas',     icon: <MESBOMIconMES           fontSize="small" />, path: '/mes/bom',             section: 'Ingeniería' },
+  { label: 'IA Manufactura',    icon: <MESIAIconMES            fontSize="small" />, path: '/mes/ia',              section: 'Inteligencia' },
+  { label: 'Reportes',          icon: <MESReportesIconMES      fontSize="small" />, path: '/mes/reportes',        section: 'Inteligencia' },
+  { label: 'Configuración',     icon: <MESConfigIconMES        fontSize="small" />, path: '/mes/config',          section: 'Sistema' },
+]
+const MES_SECTIONS = ['General', 'Producción', 'Calidad', 'Analítica', 'Ingeniería', 'Inteligencia', 'Sistema']
+
 const CONFIG_NAV_ITEMS: NavItem[] = [
   { label: 'Usuarios', icon: <UsuariosIcon fontSize="small" />, path: '/usuarios',       section: 'Administración', exact: true },
   { label: 'Roles',    icon: <RolesIcon   fontSize="small" />, path: '/usuarios/roles', section: 'Administración' },
@@ -439,14 +472,15 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
   const isLMS      = location.pathname.startsWith('/lms')
   const isCRM      = location.pathname.startsWith('/crm')
   const isEAM      = location.pathname.startsWith('/eam')
+  const isMES      = location.pathname.startsWith('/mes')
 
-  const activeColor = isCommand ? CC_COLOR : isConfig ? CF_COLOR : isTarifax ? TX_COLOR : isGRC ? GRC_COLOR : isQMS ? QMS_COLOR : isDMS ? DMS_COLOR : isTMS ? TMS_COLOR : isFletes ? FT_COLOR : isFlota ? GF_COLOR : isLocativa ? ML_COLOR : isWMS ? WMS_COLOR : isGH ? GH_COLOR : isLMS ? LMS_COLOR : isCRM ? CRM_COLOR : isEAM ? EAM_COLOR : CI_COLOR
-  const navItems    = isCommand ? CC_NAV_ITEMS : isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : isGRC ? GRC_NAV_ITEMS : isQMS ? QMS_NAV_ITEMS : isDMS ? DMS_NAV_ITEMS : isTMS ? TMS_NAV_ITEMS : isFletes ? FT_NAV_ITEMS : isFlota ? GF_NAV_ITEMS : isLocativa ? ML_NAV_ITEMS : isWMS ? WMS_NAV_ITEMS : isGH ? GH_NAV_ITEMS : isLMS ? LMS_NAV_ITEMS : isCRM ? CRM_NAV_ITEMS : isEAM ? EAM_NAV_ITEMS : CI_NAV_ITEMS
-  const sections    = isCommand ? CC_SECTIONS  : isConfig ? CONFIG_SECTIONS  : isTarifax ? TX_SECTIONS  : isGRC ? GRC_SECTIONS  : isQMS ? QMS_SECTIONS  : isDMS ? DMS_SECTIONS  : isTMS ? TMS_SECTIONS  : isFletes ? FT_SECTIONS  : isFlota ? GF_SECTIONS  : isLocativa ? ML_SECTIONS  : isWMS ? WMS_SECTIONS : isGH ? GH_SECTIONS : isLMS ? LMS_SECTIONS : isCRM ? CRM_SECTIONS : isEAM ? EAM_SECTIONS : CI_SECTIONS
+  const activeColor = isCommand ? CC_COLOR : isConfig ? CF_COLOR : isTarifax ? TX_COLOR : isGRC ? GRC_COLOR : isQMS ? QMS_COLOR : isDMS ? DMS_COLOR : isTMS ? TMS_COLOR : isFletes ? FT_COLOR : isFlota ? GF_COLOR : isLocativa ? ML_COLOR : isWMS ? WMS_COLOR : isGH ? GH_COLOR : isLMS ? LMS_COLOR : isCRM ? CRM_COLOR : isEAM ? EAM_COLOR : isMES ? MES_COLOR : CI_COLOR
+  const navItems    = isCommand ? CC_NAV_ITEMS : isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : isGRC ? GRC_NAV_ITEMS : isQMS ? QMS_NAV_ITEMS : isDMS ? DMS_NAV_ITEMS : isTMS ? TMS_NAV_ITEMS : isFletes ? FT_NAV_ITEMS : isFlota ? GF_NAV_ITEMS : isLocativa ? ML_NAV_ITEMS : isWMS ? WMS_NAV_ITEMS : isGH ? GH_NAV_ITEMS : isLMS ? LMS_NAV_ITEMS : isCRM ? CRM_NAV_ITEMS : isEAM ? EAM_NAV_ITEMS : isMES ? MES_NAV_ITEMS : CI_NAV_ITEMS
+  const sections    = isCommand ? CC_SECTIONS  : isConfig ? CONFIG_SECTIONS  : isTarifax ? TX_SECTIONS  : isGRC ? GRC_SECTIONS  : isQMS ? QMS_SECTIONS  : isDMS ? DMS_SECTIONS  : isTMS ? TMS_SECTIONS  : isFletes ? FT_SECTIONS  : isFlota ? GF_SECTIONS  : isLocativa ? ML_SECTIONS  : isWMS ? WMS_SECTIONS : isGH ? GH_SECTIONS : isLMS ? LMS_SECTIONS : isCRM ? CRM_SECTIONS : isEAM ? EAM_SECTIONS : isMES ? MES_SECTIONS : CI_SECTIONS
 
-  const logoShort = isCommand ? 'CC' : isConfig ? 'CF' : isTarifax ? 'TX' : isGRC ? 'GRC' : isQMS ? 'QMS' : isDMS ? 'DMS' : isTMS ? 'TMS' : isFletes ? 'FT' : isFlota ? 'GF' : isLocativa ? 'ML' : isWMS ? 'WMS' : isGH ? 'GH' : isLMS ? 'LMS' : isCRM ? 'CRM' : isEAM ? 'EAM' : 'CE'
-  const logoLine1 = isCommand ? 'Command' : isConfig ? 'Configuración' : isTarifax ? 'TarifaX' : isGRC ? 'Governance' : isQMS ? 'Quality' : isDMS ? 'Document' : isTMS ? 'Transportation' : isFletes ? 'Módulo de' : isFlota ? 'Gestión de' : isLocativa ? 'Mantenimiento' : isWMS ? 'Warehouse' : isGH ? 'Gestión' : isLMS ? 'Learning' : isCRM ? 'Customer' : isEAM ? 'CMMS /' : 'Control de'
-  const logoLine2 = isCommand ? 'Center'  : isConfig ? 'del Sistema'  : isTarifax ? 'Motor de Tarifas' : isGRC ? 'Risk & Compliance' : isQMS ? 'Management System' : isDMS ? 'Management System' : isTMS ? 'Management System' : isFletes ? 'Fletes' : isFlota ? 'Flotas' : isLocativa ? 'Locativo' : isWMS ? 'Management' : isGH ? 'Humana' : isLMS ? 'Management System' : isCRM ? 'Relationship Mgmt' : isEAM ? 'Enterprise Assets' : 'Estibas'
+  const logoShort = isCommand ? 'CC' : isConfig ? 'CF' : isTarifax ? 'TX' : isGRC ? 'GRC' : isQMS ? 'QMS' : isDMS ? 'DMS' : isTMS ? 'TMS' : isFletes ? 'FT' : isFlota ? 'GF' : isLocativa ? 'ML' : isWMS ? 'WMS' : isGH ? 'GH' : isLMS ? 'LMS' : isCRM ? 'CRM' : isEAM ? 'EAM' : isMES ? 'MES' : 'CE'
+  const logoLine1 = isCommand ? 'Command' : isConfig ? 'Configuración' : isTarifax ? 'TarifaX' : isGRC ? 'Governance' : isQMS ? 'Quality' : isDMS ? 'Document' : isTMS ? 'Transportation' : isFletes ? 'Módulo de' : isFlota ? 'Gestión de' : isLocativa ? 'Mantenimiento' : isWMS ? 'Warehouse' : isGH ? 'Gestión' : isLMS ? 'Learning' : isCRM ? 'Customer' : isEAM ? 'CMMS /' : isMES ? 'Manufacturing' : 'Control de'
+  const logoLine2 = isCommand ? 'Center'  : isConfig ? 'del Sistema'  : isTarifax ? 'Motor de Tarifas' : isGRC ? 'Risk & Compliance' : isQMS ? 'Management System' : isDMS ? 'Management System' : isTMS ? 'Management System' : isFletes ? 'Fletes' : isFlota ? 'Flotas' : isLocativa ? 'Locativo' : isWMS ? 'Management' : isGH ? 'Humana' : isLMS ? 'Management System' : isCRM ? 'Relationship Mgmt' : isEAM ? 'Enterprise Assets' : isMES ? 'Execution System' : 'Estibas'
 
   const width    = collapsed ? DRAWER_COLLAPSED : (widthProp ?? DRAWER_WIDTH)
   const showText = !collapsed && (widthProp === undefined || widthProp >= COMPACT_THRESHOLD)
@@ -515,6 +549,8 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
               ? `linear-gradient(135deg, ${CRM_COLOR} 0%, #B91C1C 100%)`
               : isEAM
               ? `linear-gradient(135deg, ${EAM_COLOR} 0%, #C2410C 100%)`
+              : isMES
+              ? `linear-gradient(135deg, ${MES_COLOR} 0%, #0E7490 100%)`
               : `linear-gradient(135deg, ${activeColor} 0%, ${isTarifax ? '#1f6130' : '#27884A'} 100%)`,
             display: 'flex',
             alignItems: 'center',

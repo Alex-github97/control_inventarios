@@ -165,6 +165,20 @@ import EAMGarantias from '@/pages/EAMGarantias'
 import EAMIA from '@/pages/EAMIA'
 import EAMReportes from '@/pages/EAMReportes'
 import EAMConfig from '@/pages/EAMConfig'
+import MESDashboard from '@/pages/MESDashboard'
+import MESPlanta from '@/pages/MESPlanta'
+import MESOrdenes from '@/pages/MESOrdenes'
+import MESProgramacion from '@/pages/MESProgramacion'
+import MESEjecucion from '@/pages/MESEjecucion'
+import MESTrazabilidad from '@/pages/MESTrazabilidad'
+import MESCalidad from '@/pages/MESCalidad'
+import MESScrap from '@/pages/MESScrap'
+import MESOEE from '@/pages/MESOEE'
+import MESInventario from '@/pages/MESInventario'
+import MESBOM from '@/pages/MESBOM'
+import MESIA from '@/pages/MESIA'
+import MESReportes from '@/pages/MESReportes'
+import MESConfig from '@/pages/MESConfig'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -357,6 +371,20 @@ export default function App() {
             <Route path="/eam/ia" element={<ProtectedRoute><EAMIA /></ProtectedRoute>} />
             <Route path="/eam/reportes" element={<ProtectedRoute><EAMReportes /></ProtectedRoute>} />
             <Route path="/eam/config" element={<ProtectedRoute><EAMConfig /></ProtectedRoute>} />
+            <Route path="/mes" element={<ProtectedRoute><MESDashboard /></ProtectedRoute>} />
+            <Route path="/mes/planta" element={<ProtectedRoute><MESPlanta /></ProtectedRoute>} />
+            <Route path="/mes/ordenes" element={<ProtectedRoute><MESOrdenes /></ProtectedRoute>} />
+            <Route path="/mes/programacion" element={<ProtectedRoute><MESProgramacion /></ProtectedRoute>} />
+            <Route path="/mes/ejecucion" element={<ProtectedRoute><MESEjecucion /></ProtectedRoute>} />
+            <Route path="/mes/trazabilidad" element={<ProtectedRoute><MESTrazabilidad /></ProtectedRoute>} />
+            <Route path="/mes/calidad" element={<ProtectedRoute><MESCalidad /></ProtectedRoute>} />
+            <Route path="/mes/scrap" element={<ProtectedRoute><MESScrap /></ProtectedRoute>} />
+            <Route path="/mes/oee" element={<ProtectedRoute><MESOEE /></ProtectedRoute>} />
+            <Route path="/mes/inventario" element={<ProtectedRoute><MESInventario /></ProtectedRoute>} />
+            <Route path="/mes/bom" element={<ProtectedRoute><MESBOM /></ProtectedRoute>} />
+            <Route path="/mes/ia" element={<ProtectedRoute><MESIA /></ProtectedRoute>} />
+            <Route path="/mes/reportes" element={<ProtectedRoute><MESReportes /></ProtectedRoute>} />
+            <Route path="/mes/config" element={<ProtectedRoute><MESConfig /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </BrowserRouter>
