@@ -11,6 +11,7 @@ import {
 import { Layout } from '@/components/layout/Layout'
 
 const GRC_COLOR = '#6D28D9'
+const PAGE_BG   = '#060C1A'
 const CARD_BG   = '#0F1E35'
 const CARD_BOR  = 'rgba(109,40,217,0.25)'
 
@@ -55,7 +56,7 @@ const COMPLIANCE_MARCOS = [
 export default function GRCDashboard() {
   return (
     <Layout>
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: 3, background: PAGE_BG, minHeight: '100vh' }}>
         {/* Header */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
           <Shield sx={{ color: GRC_COLOR, fontSize: 30 }} />

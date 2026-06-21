@@ -1,177 +1,238 @@
-// GRC Module — Matriz de Cumplimiento
 import React, { useState } from 'react'
 import {
   Box, Typography, Grid, Card, CardContent, Chip, alpha, Tab, Tabs,
   Table, TableBody, TableCell, TableHead, TableRow, Paper, Button,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField,
-  Select, MenuItem, FormControl, InputLabel, LinearProgress,
+  LinearProgress, IconButton, Divider, Select, MenuItem, FormControl, InputLabel,
+  Snackbar, Alert,
 } from '@mui/material'
-import { CheckCircle, Add } from '@mui/icons-material'
+import { VerifiedUser, Add, Edit, Delete, Close, CheckCircle, Warning, ErrorOutline, FileDownload } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 const GRC_COLOR = '#6D28D9'
+const PAGE_BG   = '#060C1A'
 const CARD_BG   = '#0F1E35'
 const CARD_BOR  = 'rgba(109,40,217,0.25)'
+const LBL       = alpha(GRC_COLOR, 0.85)
+const ESTADO_COLOR: Record<string,string> = { CUMPLE:'#059669', PARCIAL:'#D97706', INCUMPLE:'#DC2626', 'NO APLICA':'#6B7280', 'EN REVISION':'#0891B2' }
+const FRECUENCIAS = ['Mensual','Bimestral','Trimestral','Semestral','Anual']
+const ESTADOS_R   = Object.keys(ESTADO_COLOR)
 
-interface TabPanelProps { children?: React.ReactNode; index: number; value: number }
-function TabPanel({ children, value, index }: TabPanelProps) {
-  return value === index ? <Box sx={{ pt: 2 }}>{children}</Box> : null
-}
-
-const ESTADO_COLOR: Record<string, string> = {
-  CUMPLIENDO: '#059669', PARCIAL: '#D97706', INCUMPLIMIENTO: '#DC2626',
-  PENDIENTE_EVALUACION: '#6B7280', NO_APLICA: '#374151',
-}
-
-const MATRIZ = [
-  { obligacion: 'Ley 1581 — Protección de Datos', proceso: 'Atención al Cliente', responsable: 'CLO', estado: 'CUMPLIENDO', puntaje: 92, ultima_eval: '2026-05-10', prox_eval: '2026-11-10' },
-  { obligacion: 'Ley 1581 — Protección de Datos', proceso: 'TI / Sistemas', responsable: 'CISO', estado: 'PARCIAL', puntaje: 68, ultima_eval: '2026-04-15', prox_eval: '2026-07-15' },
-  { obligacion: 'ISO 9001:2015', proceso: 'Calidad', responsable: 'Dir. Calidad', estado: 'CUMPLIENDO', puntaje: 96, ultima_eval: '2026-04-30', prox_eval: '2027-04-30' },
-  { obligacion: 'ISO 9001:2015', proceso: 'Operaciones TMS', responsable: 'Dir. TMS', estado: 'CUMPLIENDO', puntaje: 88, ultima_eval: '2026-04-30', prox_eval: '2027-04-30' },
-  { obligacion: 'ISO 27001:2022', proceso: 'TI / Sistemas', responsable: 'CISO', estado: 'PARCIAL', puntaje: 74, ultima_eval: '2026-03-20', prox_eval: '2026-09-20' },
-  { obligacion: 'Decreto 1072 SST', proceso: 'RRHH', responsable: 'Dir. RRHH', estado: 'CUMPLIENDO', puntaje: 91, ultima_eval: '2026-05-01', prox_eval: '2026-11-01' },
-  { obligacion: 'Decreto 1072 SST', proceso: 'Operaciones Bodega', responsable: 'Jefe Bodega', estado: 'PARCIAL', puntaje: 72, ultima_eval: '2026-05-01', prox_eval: '2026-08-01' },
-  { obligacion: 'SARLAFT — Lavado de Activos', proceso: 'Financiero', responsable: 'CFO', estado: 'PARCIAL', puntaje: 65, ultima_eval: '2026-04-10', prox_eval: '2026-07-10' },
-  { obligacion: 'BASC — Seguridad Cadena Suministro', proceso: 'Seguridad', responsable: 'Dir. Seguridad', estado: 'CUMPLIENDO', puntaje: 98, ultima_eval: '2026-02-28', prox_eval: '2027-02-28' },
-  { obligacion: 'Resolución DIAN Facturación Electrónica', proceso: 'Financiero', responsable: 'Dir. Contabilidad', estado: 'INCUMPLIMIENTO', puntaje: 30, ultima_eval: '2026-06-01', prox_eval: '2026-06-30' },
+const seed = [
+  { id:'CUM-001', norma:'ISO 9001:2015', clausula:'4.2 — Partes interesadas', categoria:'Contexto', responsable:'Dir. Calidad', frecuencia:'Anual', porcentaje:92, estado:'CUMPLE', ultimaRevision:'2026-04-15', proximaRevision:'2027-04-15', evidencia:'Matriz_PI_2026.pdf', descripcion:'Identificación y seguimiento de las necesidades de partes interesadas pertinentes incluyendo clientes, proveedores y reguladores.' },
+  { id:'CUM-002', norma:'ISO 9001:2015', clausula:'6.1 — Riesgos y oportunidades', categoria:'Planificación', responsable:'Dir. Calidad', frecuencia:'Semestral', porcentaje:78, estado:'PARCIAL', ultimaRevision:'2026-03-20', proximaRevision:'2026-09-20', evidencia:'Matriz_RyO_v4.xlsx', descripcion:'Determinación de riesgos y oportunidades. Se requiere completar evaluación para procesos de logística inversa.' },
+  { id:'CUM-003', norma:'ISO 27001:2022', clausula:'A.8 — Controles tecnológicos', categoria:'Controles', responsable:'CISO', frecuencia:'Mensual', porcentaje:65, estado:'PARCIAL', ultimaRevision:'2026-05-10', proximaRevision:'2026-06-10', evidencia:'Auditoria_Controles_TI.pdf', descripcion:'Implementación de los 34 controles tecnológicos. Pendiente gestión de identidades privilegiadas y monitoreo en tiempo real.' },
+  { id:'CUM-004', norma:'BASC v5', clausula:'3.1 — Seguridad en instalaciones', categoria:'Seguridad', responsable:'Dir. Seguridad', frecuencia:'Trimestral', porcentaje:97, estado:'CUMPLE', ultimaRevision:'2026-05-20', proximaRevision:'2026-08-20', evidencia:'Inspeccion_Q2.pdf', descripcion:'Control de acceso físico a bodegas. CCTV, control biométrico y protocolos de verificación de personal.' },
+  { id:'CUM-005', norma:'Ley 1581', clausula:'Art. 17 — Deberes del responsable', categoria:'Datos personales', responsable:'CLO', frecuencia:'Anual', porcentaje:88, estado:'CUMPLE', ultimaRevision:'2026-01-15', proximaRevision:'2027-01-15', evidencia:'Politica_Privacidad_v4.pdf', descripcion:'Política de privacidad actualizada, registro ante SIC y procedimiento de reclamos en todos los puntos de recolección.' },
+  { id:'CUM-006', norma:'Decreto 1072', clausula:'2.2.4.6.37 — Indicadores SG-SST', categoria:'SST', responsable:'Dir. RRHH', frecuencia:'Trimestral', porcentaje:45, estado:'INCUMPLE', ultimaRevision:'2026-02-28', proximaRevision:'2026-05-31', evidencia:'', descripcion:'Medición de indicadores SST: frecuencia, severidad, mortalidad y ausentismo. Reportes retrasados 2 períodos.' },
+  { id:'CUM-007', norma:'SARLAFT', clausula:'Cap. III — Evaluación LAFT', categoria:'Financiero', responsable:'CLO', frecuencia:'Mensual', porcentaje:70, estado:'PARCIAL', ultimaRevision:'2026-05-31', proximaRevision:'2026-06-30', evidencia:'Informe_LAFT_Mayo2026.pdf', descripcion:'Evaluación mensual del riesgo LA/FT. Pendiente cargar reportes a UIAF y actualizar matrices de segmentación.' },
 ]
+type Req = typeof seed[0]
+type Form = { norma:string; clausula:string; categoria:string; responsable:string; frecuencia:string; descripcion:string; proximaRevision:string; porcentaje:number; estado:string }
+const EMPTY: Form = { norma:'', clausula:'', categoria:'', responsable:'', frecuencia:'Mensual', descripcion:'', proximaRevision:'', porcentaje:0, estado:'PARCIAL' }
 
-const MARCOS_RESUMEN = [
-  { marco: 'Ley 1581', total: 2, cumpliendo: 1, promedio: 80 },
-  { marco: 'ISO 9001', total: 2, cumpliendo: 2, promedio: 92 },
-  { marco: 'ISO 27001', total: 1, cumpliendo: 0, promedio: 74 },
-  { marco: 'Decreto 1072', total: 2, cumpliendo: 1, promedio: 81 },
-  { marco: 'SARLAFT', total: 1, cumpliendo: 0, promedio: 65 },
-  { marco: 'BASC', total: 1, cumpliendo: 1, promedio: 98 },
-  { marco: 'DIAN', total: 1, cumpliendo: 0, promedio: 30 },
-]
-
-const prom_general = Math.round(MATRIZ.reduce((s, r) => s + r.puntaje, 0) / MATRIZ.length)
+const TF = { '& .MuiOutlinedInput-root':{ color:'#FFF', '& fieldset':{ borderColor:'rgba(255,255,255,0.15)' }, '&.Mui-focused fieldset':{ borderColor:GRC_COLOR } } }
+const ILB = { sx:{ color:'rgba(255,255,255,0.5)' } }
+const Row2 = ({ label, value, color }:{ label:string; value:string; color?:string }) => (
+  <Box sx={{ mb:1.25 }}><Typography sx={{ fontSize:10, color:LBL, textTransform:'uppercase', letterSpacing:'0.06em', mb:.25 }}>{label}</Typography><Typography sx={{ fontSize:13, color:color||'#E2E8F0', fontWeight:500 }}>{value}</Typography></Box>
+)
 
 export default function GRCCumplimiento() {
-  const [tab, setTab] = useState(0)
-  const [openDialog, setOpenDialog] = useState(false)
+  const [reqs, setReqs]     = useState(seed)
+  const [sel, setSel]       = useState<Req|null>(null)
+  const [tab, setTab]       = useState(0)
+  const [dlgOpen, setDlgOpen] = useState(false)
+  const [editId, setEditId]   = useState<string|null>(null)
+  const [form, setForm]       = useState<Form>(EMPTY)
+  const [snack, setSnack]     = useState('')
+
+  const sf = (k: keyof Form) => (e: React.ChangeEvent<HTMLInputElement|HTMLTextAreaElement>) => setForm(f=>({...f,[k]:e.target.value}))
+  const ss = (k: keyof Form, v: string|number) => setForm(f=>({...f,[k]:v}))
+  const ok = (msg: string) => setSnack(msg)
+
+  const openNew = () => { setForm(EMPTY); setEditId(null); setDlgOpen(true) }
+  const openEdit = (r: Req, e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    setForm({ norma:r.norma, clausula:r.clausula, categoria:r.categoria, responsable:r.responsable, frecuencia:r.frecuencia, descripcion:r.descripcion, proximaRevision:r.proximaRevision, porcentaje:r.porcentaje, estado:r.estado })
+    setEditId(r.id); setDlgOpen(true)
+  }
+  const handleSave = () => {
+    if (editId) {
+      setReqs(list => list.map(r => r.id===editId ? {...r,...form} : r))
+      if (sel?.id===editId) setSel(s => s ? {...s,...form} : null)
+      ok('Requisito actualizado correctamente')
+    } else {
+      const n: Req = { ...form, id:`CUM-${String(reqs.length+1).padStart(3,'0')}`, ultimaRevision:new Date().toISOString().split('T')[0], evidencia:'' }
+      setReqs(list=>[...list,n]); ok('Requisito creado correctamente')
+    }
+    setDlgOpen(false)
+  }
+  const handleDelete = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    const clausula = reqs.find(r=>r.id===id)?.clausula||''
+    setReqs(list=>list.filter(r=>r.id!==id))
+    if (sel?.id===id) setSel(null)
+    ok(`"${clausula}" eliminado`)
+  }
+  const handleDownload = (name: string) => {
+    if (!name) return
+    const txt = `Evidencia: ${name}\nSistema GRC – Icoltrans\nFecha: ${new Date().toLocaleDateString('es-CO')}\n\n[Archivo de demostración]`
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([txt],{type:'application/octet-stream'}))
+    a.download = name; document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    ok(`Descargando "${name}"`)
+  }
+
+  const promedio = Math.round(reqs.reduce((a,r)=>a+r.porcentaje,0)/reqs.length)
 
   return (
     <Layout>
-      <Box sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <CheckCircle sx={{ color: GRC_COLOR, fontSize: 28 }} />
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#FFF', lineHeight: 1 }}>Matriz de Cumplimiento</Typography>
-              <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>GRC · ISO 37301 · Obligaciones · Procesos · Puntajes</Typography>
-            </Box>
-            <Chip label="GRC" size="small" sx={{ bgcolor: alpha(GRC_COLOR, 0.15), color: GRC_COLOR, fontWeight: 700, border: `1px solid ${alpha(GRC_COLOR, 0.35)}` }} />
+      <Box sx={{ p:3, background:PAGE_BG, minHeight:'100vh' }}>
+        <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'center', mb:3 }}>
+          <Box sx={{ display:'flex', alignItems:'center', gap:1.5 }}>
+            <VerifiedUser sx={{ color:GRC_COLOR, fontSize:28 }} />
+            <Box><Typography variant="h5" sx={{ fontWeight:800, color:'#FFF', lineHeight:1 }}>Gestión de Cumplimiento</Typography><Typography sx={{ fontSize:12, color:LBL }}>GRC · Monitoreo de requisitos normativos</Typography></Box>
+            <Chip label="GRC" size="small" sx={{ bgcolor:alpha(GRC_COLOR,.15), color:GRC_COLOR, fontWeight:700, border:`1px solid ${alpha(GRC_COLOR,.35)}` }} />
           </Box>
-          <Button startIcon={<Add />} size="small" variant="contained" onClick={() => setOpenDialog(true)}
-            sx={{ bgcolor: GRC_COLOR, '&:hover': { bgcolor: '#5B21B6' }, borderRadius: 2 }}>
-            Registrar Evaluación
-          </Button>
+          <Button startIcon={<Add />} size="small" variant="contained" onClick={openNew} sx={{ bgcolor:GRC_COLOR, '&:hover':{ bgcolor:'#5B21B6' }, borderRadius:2 }}>Nuevo Requisito</Button>
         </Box>
 
-        {/* Gauge general */}
-        <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${alpha(prom_general >= 80 ? '#059669' : prom_general >= 60 ? '#D97706' : '#DC2626', 0.35)}`, borderRadius: 2, mb: 3 }}>
-          <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 3, p: '16px !important' }}>
-            <Box sx={{ textAlign: 'center', minWidth: 80 }}>
-              <Typography sx={{ fontSize: 42, fontWeight: 800, color: prom_general >= 80 ? '#059669' : prom_general >= 60 ? '#D97706' : '#DC2626', lineHeight: 1 }}>{prom_general}%</Typography>
-              <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>Cumplimiento General</Typography>
-            </Box>
-            <Box sx={{ flex: 1 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Cumpliendo: {MATRIZ.filter(r => r.estado === 'CUMPLIENDO').length}</Typography>
-                <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Parcial: {MATRIZ.filter(r => r.estado === 'PARCIAL').length}</Typography>
-                <Typography sx={{ fontSize: 12, color: '#DC2626' }}>Incumplimiento: {MATRIZ.filter(r => r.estado === 'INCUMPLIMIENTO').length}</Typography>
-              </Box>
-              <LinearProgress variant="determinate" value={prom_general} sx={{ height: 10, borderRadius: 5, bgcolor: 'rgba(255,255,255,0.08)', '& .MuiLinearProgress-bar': { bgcolor: prom_general >= 80 ? '#059669' : '#D97706', borderRadius: 5 } }} />
-            </Box>
-          </CardContent>
-        </Card>
+        <Grid container spacing={2} sx={{ mb:3 }}>
+          {[{ label:'Global', value:`${promedio}%`, color:promedio>=80?'#059669':promedio>=60?'#D97706':'#DC2626' },{ label:'Cumple', value:reqs.filter(r=>r.estado==='CUMPLE').length, color:'#059669' },{ label:'Parcial', value:reqs.filter(r=>r.estado==='PARCIAL').length, color:'#D97706' },{ label:'Incumple', value:reqs.filter(r=>r.estado==='INCUMPLE').length, color:'#DC2626' }].map((k,i)=>(
+            <Grid key={i} size={{ xs:6, md:3 }}><Card sx={{ bgcolor:CARD_BG, border:`1px solid ${alpha(k.color,.3)}`, borderRadius:2 }}><CardContent sx={{ p:'14px !important' }}><Typography sx={{ fontSize:26, fontWeight:800, color:k.color, lineHeight:1 }}>{k.value}</Typography><Typography sx={{ fontSize:11, color:LBL }}>{k.label}</Typography></CardContent></Card></Grid>
+          ))}
+        </Grid>
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid rgba(255,255,255,0.08)', '& .MuiTab-root': { color: 'rgba(255,255,255,0.45)', fontSize: 13 }, '& .Mui-selected': { color: GRC_COLOR }, '& .MuiTabs-indicator': { bgcolor: GRC_COLOR } }}>
-          <Tab label="Matriz Detallada" />
-          <Tab label="Resumen por Marco" />
+        <Tabs value={tab} onChange={(_,v)=>setTab(v)} sx={{ mb:2, borderBottom:'1px solid rgba(255,255,255,0.08)', '& .MuiTab-root':{ color:'rgba(255,255,255,0.45)', fontSize:13 }, '& .Mui-selected':{ color:GRC_COLOR }, '& .MuiTabs-indicator':{ bgcolor:GRC_COLOR } }}>
+          <Tab label="Tabla de Requisitos" /><Tab label="Por Norma" />
         </Tabs>
 
-        <TabPanel value={tab} index={0}>
-          <Paper sx={{ bgcolor: 'transparent', overflowX: 'auto' }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow sx={{ '& th': { borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
-                  <TableCell>Obligación</TableCell><TableCell>Proceso</TableCell><TableCell>Responsable</TableCell><TableCell>Estado</TableCell><TableCell>Puntaje</TableCell><TableCell>Última Eval.</TableCell><TableCell>Próx. Eval.</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {MATRIZ.map((r, i) => (
-                  <TableRow key={i} sx={{ '& td': { borderColor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.7)', fontSize: 12 } }}>
-                    <TableCell sx={{ maxWidth: 200 }}><Typography sx={{ fontSize: 12.5, color: '#FFF', fontWeight: 600, lineHeight: 1.3 }}>{r.obligacion}</Typography></TableCell>
-                    <TableCell>{r.proceso}</TableCell>
-                    <TableCell>{r.responsable}</TableCell>
-                    <TableCell><Chip label={r.estado.replace('_', ' ')} size="small" sx={{ fontSize: 9, height: 18, bgcolor: alpha(ESTADO_COLOR[r.estado], 0.18), color: ESTADO_COLOR[r.estado] }} /></TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <LinearProgress variant="determinate" value={r.puntaje} sx={{ width: 60, height: 5, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.08)', '& .MuiLinearProgress-bar': { bgcolor: ESTADO_COLOR[r.estado] } }} />
-                        <Typography sx={{ fontSize: 12, fontWeight: 700, color: ESTADO_COLOR[r.estado] }}>{r.puntaje}%</Typography>
+        <Box sx={{ display:'flex', gap:2 }}>
+          <Box sx={{ flex:1, minWidth:0 }}>
+            {tab===0 && (
+              <Paper sx={{ bgcolor:'transparent', overflowX:'auto' }}>
+                <Table size="small">
+                  <TableHead><TableRow sx={{ '& th':{ borderColor:'rgba(255,255,255,0.06)', color:LBL, fontSize:11, fontWeight:700, textTransform:'uppercase' } }}>
+                    <TableCell>ID</TableCell><TableCell>Norma / Cláusula</TableCell><TableCell>Categoría</TableCell><TableCell>Responsable</TableCell><TableCell>Cumplimiento</TableCell><TableCell>Estado</TableCell><TableCell>Próx. Revisión</TableCell><TableCell>Acciones</TableCell>
+                  </TableRow></TableHead>
+                  <TableBody>
+                    {reqs.map(r=>(
+                      <TableRow key={r.id} onClick={()=>setSel(r)} sx={{ cursor:'pointer', bgcolor:sel?.id===r.id?alpha(GRC_COLOR,.06):'transparent', '&:hover':{ bgcolor:alpha(GRC_COLOR,.04) }, '& td':{ borderColor:'rgba(255,255,255,0.04)', color:'rgba(255,255,255,0.8)', fontSize:12 } }}>
+                        <TableCell sx={{ fontSize:10.5, color:LBL }}>{r.id}</TableCell>
+                        <TableCell><Typography sx={{ fontSize:12, color:'#FFF', fontWeight:600 }}>{r.norma}</Typography><Typography sx={{ fontSize:10.5, color:'rgba(255,255,255,0.5)' }}>{r.clausula}</Typography></TableCell>
+                        <TableCell><Chip label={r.categoria} size="small" sx={{ fontSize:9, height:18, bgcolor:alpha(GRC_COLOR,.12), color:GRC_COLOR }} /></TableCell>
+                        <TableCell>{r.responsable}</TableCell>
+                        <TableCell sx={{ minWidth:140 }}>
+                          <Box sx={{ display:'flex', alignItems:'center', gap:1 }}>
+                            <LinearProgress variant="determinate" value={r.porcentaje} sx={{ flex:1, height:5, borderRadius:2.5, bgcolor:'rgba(255,255,255,0.08)', '& .MuiLinearProgress-bar':{ bgcolor:ESTADO_COLOR[r.estado]||GRC_COLOR } }} />
+                            <Typography sx={{ fontSize:11, color:ESTADO_COLOR[r.estado]||GRC_COLOR, minWidth:30, fontWeight:700 }}>{r.porcentaje}%</Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell><Chip label={r.estado} size="small" sx={{ fontSize:9, height:18, bgcolor:alpha(ESTADO_COLOR[r.estado]||'#6B7280',.18), color:ESTADO_COLOR[r.estado]||'#6B7280' }} /></TableCell>
+                        <TableCell sx={{ whiteSpace:'nowrap', fontSize:11 }}>{r.proximaRevision}</TableCell>
+                        <TableCell>
+                          <Box sx={{ display:'flex', gap:.25 }} onClick={e=>e.stopPropagation()}>
+                            <IconButton size="small" title="Editar" onClick={e=>openEdit(r,e)} sx={{ color:GRC_COLOR, p:.5 }}><Edit sx={{ fontSize:14 }} /></IconButton>
+                            {r.evidencia && <IconButton size="small" title="Descargar evidencia" onClick={()=>handleDownload(r.evidencia)} sx={{ color:'#059669', p:.5 }}><FileDownload sx={{ fontSize:14 }} /></IconButton>}
+                            <IconButton size="small" title="Eliminar" onClick={e=>handleDelete(r.id,e)} sx={{ color:'#DC2626', p:.5 }}><Delete sx={{ fontSize:14 }} /></IconButton>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Paper>
+            )}
+            {tab===1 && (
+              <Grid container spacing={2}>
+                {[...new Set(reqs.map(r=>r.norma))].map(norma=>{
+                  const items=reqs.filter(r=>r.norma===norma); const avg=Math.round(items.reduce((a,r)=>a+r.porcentaje,0)/items.length); const color=avg>=80?'#059669':avg>=60?'#D97706':'#DC2626'
+                  return <Grid key={norma} size={{ xs:12, md:6 }}><Card sx={{ bgcolor:CARD_BG, border:`1px solid ${alpha(color,.3)}`, borderRadius:2 }}><CardContent sx={{ p:'14px !important' }}>
+                    <Box sx={{ display:'flex', justifyContent:'space-between', mb:1.5 }}><Typography sx={{ fontWeight:700, color:'#FFF', fontSize:14 }}>{norma}</Typography><Typography sx={{ fontSize:20, fontWeight:800, color, lineHeight:1 }}>{avg}%</Typography></Box>
+                    <LinearProgress variant="determinate" value={avg} sx={{ height:6, borderRadius:3, mb:1.5, bgcolor:'rgba(255,255,255,0.08)', '& .MuiLinearProgress-bar':{ bgcolor:color } }} />
+                    {items.map(r=><Box key={r.id} onClick={()=>{setSel(r);setTab(0)}} sx={{ display:'flex', justifyContent:'space-between', py:.6, cursor:'pointer', '&:hover':{ opacity:.8 } }}>
+                      <Typography sx={{ fontSize:11, color:'rgba(255,255,255,0.7)', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', pr:1 }}>{r.clausula}</Typography>
+                      <Box sx={{ display:'flex', alignItems:'center', gap:.75 }}>
+                        {r.estado==='CUMPLE'&&<CheckCircle sx={{ fontSize:13, color:'#059669' }} />}
+                        {r.estado==='PARCIAL'&&<Warning sx={{ fontSize:13, color:'#D97706' }} />}
+                        {r.estado==='INCUMPLE'&&<ErrorOutline sx={{ fontSize:13, color:'#DC2626' }} />}
+                        <Typography sx={{ fontSize:11, color:ESTADO_COLOR[r.estado], fontWeight:600, minWidth:28 }}>{r.porcentaje}%</Typography>
                       </Box>
-                    </TableCell>
-                    <TableCell sx={{ color: 'rgba(255,255,255,0.5)' }}>{r.ultima_eval}</TableCell>
-                    <TableCell sx={{ color: 'rgba(255,255,255,0.5)' }}>{r.prox_eval}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Paper>
-        </TabPanel>
+                    </Box>)}
+                  </CardContent></Card></Grid>
+                })}
+              </Grid>
+            )}
+          </Box>
 
-        <TabPanel value={tab} index={1}>
-          <Grid container spacing={2}>
-            {MARCOS_RESUMEN.map(m => {
-              const color = m.promedio >= 80 ? '#059669' : m.promedio >= 60 ? '#D97706' : '#DC2626'
-              return (
-                <Grid key={m.marco} size={{ xs: 12, sm: 6, md: 4 }}>
-                  <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${alpha(color, 0.3)}`, borderRadius: 2 }}>
-                    <CardContent sx={{ p: '16px !important' }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                        <Typography sx={{ fontWeight: 700, color: '#FFF', fontSize: 14 }}>{m.marco}</Typography>
-                        <Typography sx={{ fontSize: 22, fontWeight: 800, color, lineHeight: 1 }}>{m.promedio}%</Typography>
-                      </Box>
-                      <LinearProgress variant="determinate" value={m.promedio} sx={{ height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.08)', mb: 1.5, '& .MuiLinearProgress-bar': { bgcolor: color } }} />
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography sx={{ fontSize: 11, color: '#059669' }}>{m.cumpliendo} cumpliendo</Typography>
-                        <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{m.total} total</Typography>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              )
-            })}
-          </Grid>
-        </TabPanel>
+          {sel && (
+            <Box sx={{ width:370, flexShrink:0, bgcolor:CARD_BG, border:`1px solid ${CARD_BOR}`, borderRadius:2, p:2.5, height:'fit-content' }}>
+              <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', mb:1 }}>
+                <Typography sx={{ color:'#FFF', fontWeight:700, fontSize:13, flex:1, pr:1, lineHeight:1.4 }}>{sel.clausula}</Typography>
+                <IconButton size="small" onClick={()=>setSel(null)} sx={{ color:'rgba(255,255,255,0.4)' }}><Close fontSize="small" /></IconButton>
+              </Box>
+              <Box sx={{ display:'flex', gap:.75, mb:2 }}>
+                <Chip label={sel.norma} size="small" sx={{ bgcolor:alpha(GRC_COLOR,.18), color:GRC_COLOR, fontWeight:700, fontSize:10 }} />
+                <Chip label={sel.estado} size="small" sx={{ bgcolor:alpha(ESTADO_COLOR[sel.estado],.18), color:ESTADO_COLOR[sel.estado], fontWeight:700, fontSize:10 }} />
+              </Box>
+              <Box sx={{ mb:2 }}>
+                <Box sx={{ display:'flex', justifyContent:'space-between', mb:.5 }}><Typography sx={{ fontSize:10, color:LBL, textTransform:'uppercase' }}>Cumplimiento</Typography><Typography sx={{ fontSize:13, fontWeight:700, color:ESTADO_COLOR[sel.estado] }}>{sel.porcentaje}%</Typography></Box>
+                <LinearProgress variant="determinate" value={sel.porcentaje} sx={{ height:8, borderRadius:4, bgcolor:'rgba(255,255,255,0.08)', '& .MuiLinearProgress-bar':{ bgcolor:ESTADO_COLOR[sel.estado] } }} />
+              </Box>
+              <Row2 label="ID" value={sel.id} />
+              <Row2 label="Categoría" value={sel.categoria} />
+              <Row2 label="Responsable" value={sel.responsable} />
+              <Row2 label="Frecuencia" value={sel.frecuencia} />
+              <Row2 label="Última revisión" value={sel.ultimaRevision} />
+              <Row2 label="Próxima revisión" value={sel.proximaRevision} color={sel.estado==='INCUMPLE'?'#DC2626':undefined} />
+              <Divider sx={{ borderColor:'rgba(255,255,255,0.06)', my:1.5 }} />
+              <Typography sx={{ fontSize:10, color:LBL, textTransform:'uppercase', letterSpacing:'0.06em', mb:.75 }}>Descripción</Typography>
+              <Typography sx={{ fontSize:12, color:'rgba(255,255,255,0.7)', lineHeight:1.7, mb:2 }}>{sel.descripcion}</Typography>
+              {sel.evidencia && <>
+                <Divider sx={{ borderColor:'rgba(255,255,255,0.06)', my:1.5 }} />
+                <Box sx={{ display:'flex', alignItems:'center', gap:1, p:.75, bgcolor:'rgba(255,255,255,0.04)', borderRadius:1 }}>
+                  <FileDownload sx={{ fontSize:14, color:GRC_COLOR }} />
+                  <Typography sx={{ fontSize:11, color:'rgba(255,255,255,0.7)', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{sel.evidencia}</Typography>
+                  <Button size="small" onClick={()=>handleDownload(sel.evidencia)} sx={{ fontSize:10, color:'#059669', p:'2px 6px', minWidth:0 }}>Descargar</Button>
+                </Box>
+              </>}
+              <Divider sx={{ borderColor:'rgba(255,255,255,0.06)', my:1.5 }} />
+              <Box sx={{ display:'flex', flexDirection:'column', gap:1 }}>
+                <Button size="small" startIcon={<Edit />} variant="outlined" fullWidth onClick={()=>openEdit(sel)} sx={{ color:GRC_COLOR, borderColor:alpha(GRC_COLOR,.4) }}>Editar Requisito</Button>
+                <Button size="small" startIcon={<Delete />} variant="outlined" fullWidth onClick={()=>handleDelete(sel.id)} sx={{ color:'#DC2626', borderColor:alpha('#DC2626',.4) }}>Eliminar</Button>
+              </Box>
+            </Box>
+          )}
+        </Box>
 
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: '#FFF' } }}>
-          <DialogTitle sx={{ fontWeight: 700 }}>Registrar Evaluación de Cumplimiento</DialogTitle>
-          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
-            <FormControl size="small">
-              <InputLabel sx={{ color: 'rgba(255,255,255,0.5)' }}>Obligación</InputLabel>
-              <Select label="Obligación" defaultValue="" sx={{ color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } }}>
-                {['Ley 1581','ISO 9001','ISO 27001','Decreto 1072','BASC','SARLAFT'].map(o => <MenuItem key={o} value={o}>{o}</MenuItem>)}
-              </Select>
-            </FormControl>
-            <TextField label="Proceso" fullWidth size="small" InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
-            <TextField label="Responsable" fullWidth size="small" InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
-            <TextField label="Puntaje (0-100)" type="number" fullWidth size="small" InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
-            <FormControl size="small">
-              <InputLabel sx={{ color: 'rgba(255,255,255,0.5)' }}>Estado</InputLabel>
-              <Select label="Estado" defaultValue="" sx={{ color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } }}>
-                {Object.keys(ESTADO_COLOR).map(e => <MenuItem key={e} value={e}>{e.replace('_', ' ')}</MenuItem>)}
-              </Select>
-            </FormControl>
+        <Dialog open={dlgOpen} onClose={()=>setDlgOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx:{ bgcolor:'#1F2937', color:'#FFF' } }}>
+          <DialogTitle sx={{ fontWeight:700 }}>{editId?'Editar Requisito':'Nuevo Requisito de Cumplimiento'}</DialogTitle>
+          <DialogContent sx={{ display:'flex', flexDirection:'column', gap:2, pt:'16px !important' }}>
+            <TextField label="Norma" fullWidth size="small" value={form.norma} onChange={sf('norma')} InputLabelProps={ILB} sx={TF} />
+            <TextField label="Cláusula / Artículo" fullWidth size="small" value={form.clausula} onChange={sf('clausula')} InputLabelProps={ILB} sx={TF} />
+            <TextField label="Categoría" fullWidth size="small" value={form.categoria} onChange={sf('categoria')} InputLabelProps={ILB} sx={TF} />
+            <TextField label="Responsable" fullWidth size="small" value={form.responsable} onChange={sf('responsable')} InputLabelProps={ILB} sx={TF} />
+            <FormControl size="small"><InputLabel sx={{ color:'rgba(255,255,255,0.5)' }}>Frecuencia</InputLabel>
+              <Select label="Frecuencia" value={form.frecuencia} onChange={e=>ss('frecuencia',e.target.value)} sx={{ color:'#FFF', '& fieldset':{ borderColor:'rgba(255,255,255,0.15)' } }}>
+                {FRECUENCIAS.map(f=><MenuItem key={f} value={f}>{f}</MenuItem>)}
+              </Select></FormControl>
+            <FormControl size="small"><InputLabel sx={{ color:'rgba(255,255,255,0.5)' }}>Estado</InputLabel>
+              <Select label="Estado" value={form.estado} onChange={e=>ss('estado',e.target.value)} sx={{ color:'#FFF', '& fieldset':{ borderColor:'rgba(255,255,255,0.15)' } }}>
+                {ESTADOS_R.map(s=><MenuItem key={s} value={s}>{s}</MenuItem>)}
+              </Select></FormControl>
+            <TextField label="% Cumplimiento (0-100)" type="number" fullWidth size="small" value={form.porcentaje} onChange={e=>ss('porcentaje',Number(e.target.value))} InputLabelProps={ILB} sx={TF} inputProps={{ min:0, max:100 }} />
+            <TextField label="Descripción" multiline rows={3} fullWidth size="small" value={form.descripcion} onChange={sf('descripcion')} InputLabelProps={ILB} sx={TF} />
+            <TextField label="Próxima Revisión" type="date" fullWidth size="small" value={form.proximaRevision} onChange={sf('proximaRevision')} InputLabelProps={{ shrink:true, sx:{ color:'rgba(255,255,255,0.5)' } }} sx={TF} />
           </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setOpenDialog(false)} sx={{ color: 'rgba(255,255,255,0.5)' }}>Cancelar</Button>
-            <Button variant="contained" onClick={() => setOpenDialog(false)} sx={{ bgcolor: GRC_COLOR, '&:hover': { bgcolor: '#5B21B6' } }}>Guardar</Button>
+          <DialogActions sx={{ px:3, pb:2 }}>
+            <Button onClick={()=>setDlgOpen(false)} sx={{ color:'rgba(255,255,255,0.5)' }}>Cancelar</Button>
+            <Button variant="contained" onClick={handleSave} sx={{ bgcolor:GRC_COLOR, '&:hover':{ bgcolor:'#5B21B6' } }}>{editId?'Guardar Cambios':'Crear'}</Button>
           </DialogActions>
         </Dialog>
+
+        <Snackbar open={!!snack} autoHideDuration={3500} onClose={()=>setSnack('')} anchorOrigin={{ vertical:'bottom', horizontal:'center' }}>
+          <Alert severity="success" onClose={()=>setSnack('')} sx={{ bgcolor:'#1E3A2F', color:'#FFF', '& .MuiAlert-icon':{ color:'#4ADE80' } }}>{snack}</Alert>
+        </Snackbar>
       </Box>
     </Layout>
   )
