@@ -126,6 +126,10 @@ from app.infrastructure.models.aps import (
     APSAlerta, APSSOIPCiclo, APSSOIPRevision, APSDistribucion, APSTransporte,
     APSAuditoria, APSConsenso, APSKPIDiario,
 )
+from app.infrastructure.models.scm import (
+    ScmSolicitudCompra, ScmSolicitudItem, ScmOrdenCompra, ScmOrdenItem, ScmEvaluacionProveedor,
+    EstadoSolicitudSCM, PrioridadSCM, EstadoOrdenSCM, CategoriaSCM, ClasificacionProveedor,
+)
 
 __all__ = [
     "TimestampMixin", "SoftDeleteMixin",
