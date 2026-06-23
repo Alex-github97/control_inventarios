@@ -4,13 +4,15 @@ import {
   Table, TableBody, TableCell, TableHead, TableRow, TablePagination,
   IconButton, Tooltip, Chip, Select, MenuItem, FormControl, InputLabel,
   Skeleton, Alert, Dialog, DialogTitle, DialogContent, DialogActions, Grid, alpha,
+  Divider,
 } from '@mui/material'
 import {
   Search, Add, QrCode2, Visibility, FilterList,
-  ViewModule, ArrowDropDown, UploadFile,
+  ViewModule, ArrowDropDown, UploadFile, AddBox,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { estibasApi } from '@/api/estibas'
+import { apiClient } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 import { StatusChip } from '@/components/common/StatusChip'
 import { useNavigate } from 'react-router-dom'
@@ -24,9 +26,7 @@ const ESTADOS = [
 ]
 
 const PROPIETARIOS = ['PROPIA', 'ALQUILADA', 'CLIENTE', 'PROVEEDOR', 'TERCERO']
-
 const TIPOS = ['MADERA', 'PLASTICO', 'METAL', 'CARTON', 'MIXTA']
-
 const PRIMARY = '#32AC5C'
 
 const MATERIALES: Record<string, string[]> = {
@@ -37,12 +37,14 @@ const MATERIALES: Record<string, string[]> = {
   MIXTA:    ['MADERA_PINO', 'MADERA_EUCALIPTO', 'PLASTICO_HDPE', 'ACERO', 'ALUMINIO', 'CARTON_CORRUGADO'],
 }
 
+const TODAY = new Date().toISOString().split('T')[0]
+
 const EMPTY_FORM = {
   codigo_interno: '',
   tipo: 'MADERA',
   material: 'MADERA_PINO',
   tipo_propietario: 'PROPIA',
-  fecha_ingreso: new Date().toISOString().split('T')[0],
+  fecha_ingreso: TODAY,
   largo_cm: 120,
   ancho_cm: 100,
   alto_cm: 15,
@@ -50,11 +52,50 @@ const EMPTY_FORM = {
   capacidad_carga_kg: 1000,
   valor_compra: '',
   observaciones: '',
+  ubicacion_inicial_id: '' as string | number,
+}
+
+const EMPTY_MASIVO = {
+  tipo: 'MADERA',
+  material: 'MADERA_PINO',
+  tipo_propietario: 'PROPIA',
+  fecha_ingreso: TODAY,
+  largo_cm: 120,
+  ancho_cm: 100,
+  alto_cm: 15,
+  peso_kg: 25,
+  capacidad_carga_kg: 1000,
+  valor_compra: '' as string | number,
+  ubicacion_inicial_id: '' as string | number,
+}
+
+// Genera lista de códigos entre código inicial y final
+// Ej: "EST-001" a "EST-050" → ["EST-001", ..., "EST-050"]
+function generateCodes(start: string, end: string): string[] | null {
+  const matchStart = start.trim().match(/^(.*?)(\d+)$/)
+  const matchEnd   = end.trim().match(/^(.*?)(\d+)$/)
+  if (!matchStart || !matchEnd) return null
+
+  const prefix   = matchStart[1]
+  const startNum = parseInt(matchStart[2], 10)
+  const endNum   = parseInt(matchEnd[2], 10)
+  const padding  = matchStart[2].length
+
+  if (endNum < startNum) return null
+  if (endNum - startNum > 9999) return null  // límite de seguridad
+
+  const codes: string[] = []
+  for (let i = startNum; i <= endNum; i++) {
+    codes.push(prefix + String(i).padStart(padding, '0'))
+  }
+  return codes
 }
 
 export default function Estibas() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+
+  // ── Estado listado ────────────────────────────────────────────────────────
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(50)
   const [search, setSearch] = useState('')
@@ -62,11 +103,24 @@ export default function Estibas() {
   const [estado, setEstado] = useState('')
   const [propietario, setPropietario] = useState('')
   const [showFilters, setShowFilters] = useState(false)
+
+  // ── Estado diálogos ───────────────────────────────────────────────────────
   const [openDialog, setOpenDialog] = useState(false)
+  const [openMasivo, setOpenMasivo] = useState(false)
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null)
+
+  // ── Estado formulario Nueva Estiba ────────────────────────────────────────
   const [form, setForm] = useState({ ...EMPTY_FORM })
   const [formError, setFormError] = useState('')
 
+  // ── Estado formulario Creación Masiva ─────────────────────────────────────
+  const [codigoInicial, setCodigoInicial] = useState('')
+  const [codigoFinal, setCodigoFinal] = useState('')
+  const [masivoForm, setMasivoForm] = useState({ ...EMPTY_MASIVO })
+  const [masivoError, setMasivoError] = useState('')
+  const [masivoPreview, setMasivoPreview] = useState<string[]>([])
+
+  // ── Queries ───────────────────────────────────────────────────────────────
   const { data, isLoading, error } = useQuery({
     queryKey: ['estibas', page, pageSize, search, estado, propietario],
     queryFn: () => estibasApi.listar({
@@ -77,6 +131,13 @@ export default function Estibas() {
     }),
   })
 
+  const { data: ubicaciones = [] } = useQuery({
+    queryKey: ['ubicaciones-select'],
+    queryFn: () => apiClient.get('/ubicaciones', { params: { page_size: 500 } }).then(r => r.data?.items ?? r.data ?? []),
+    staleTime: 60000,
+  })
+
+  // ── Mutations ─────────────────────────────────────────────────────────────
   const createMutation = useMutation({
     mutationFn: (data: any) => estibasApi.crear(data),
     onSuccess: () => {
@@ -92,6 +153,24 @@ export default function Estibas() {
     },
   })
 
+  const masivaMutation = useMutation({
+    mutationFn: (items: any[]) => apiClient.post('/estibas/bulk', { items }).then(r => r.data),
+    onSuccess: (data) => {
+      toast.success(`${data.exitosos} de ${data.total} estibas creadas`)
+      queryClient.invalidateQueries({ queryKey: ['estibas'] })
+      if (data.errores?.length > 0) {
+        toast.error(`${data.errores.length} errores — revisa los códigos duplicados`)
+      }
+      setOpenMasivo(false)
+      resetMasivo()
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.detail ?? 'Error en la creación masiva'
+      setMasivoError(typeof msg === 'string' ? msg : JSON.stringify(msg))
+    },
+  })
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
   const handleSearch = () => setSearch(searchInput)
 
   const handleTipoChange = (tipo: string) => {
@@ -99,19 +178,66 @@ export default function Estibas() {
     setForm(f => ({ ...f, tipo, material: mats[0] ?? '' }))
   }
 
+  const resetMasivo = () => {
+    setCodigoInicial('')
+    setCodigoFinal('')
+    setMasivoForm({ ...EMPTY_MASIVO })
+    setMasivoError('')
+    setMasivoPreview([])
+  }
+
+  const handlePreviewMasivo = () => {
+    setMasivoError('')
+    if (!codigoInicial.trim() || !codigoFinal.trim()) {
+      setMasivoError('Ingresa el código inicial y el código final'); return
+    }
+    if (!masivoForm.ubicacion_inicial_id) {
+      setMasivoError('La bodega es obligatoria'); return
+    }
+    const codes = generateCodes(codigoInicial, codigoFinal)
+    if (!codes) {
+      setMasivoError('Los códigos deben terminar en número. Ej: EST-001 a EST-050'); return
+    }
+    if (codes.length === 0) {
+      setMasivoError('El código final debe ser mayor que el código inicial'); return
+    }
+    setMasivoPreview(codes)
+  }
+
+  const handleSubmitMasivo = () => {
+    if (masivoPreview.length === 0) { handlePreviewMasivo(); return }
+    const items = masivoPreview.map(codigo => ({
+      codigo_interno:      codigo,
+      tipo:                masivoForm.tipo,
+      material:            masivoForm.material,
+      tipo_propietario:    masivoForm.tipo_propietario,
+      fecha_ingreso:       masivoForm.fecha_ingreso,
+      largo_cm:            Number(masivoForm.largo_cm),
+      ancho_cm:            Number(masivoForm.ancho_cm),
+      alto_cm:             Number(masivoForm.alto_cm),
+      peso_kg:             Number(masivoForm.peso_kg),
+      capacidad_carga_kg:  Number(masivoForm.capacidad_carga_kg),
+      valor_compra:        masivoForm.valor_compra !== '' ? Number(masivoForm.valor_compra) : null,
+      ubicacion_inicial_id: Number(masivoForm.ubicacion_inicial_id),
+    }))
+    masivaMutation.mutate(items)
+  }
+
   const handleSubmit = () => {
     if (!form.codigo_interno.trim()) { setFormError('El código interno es obligatorio'); return }
     if (!form.fecha_ingreso) { setFormError('La fecha de ingreso es obligatoria'); return }
+    if (!form.ubicacion_inicial_id) { setFormError('La bodega es obligatoria'); return }
     setFormError('')
     createMutation.mutate({
       ...form,
-      largo_cm: Number(form.largo_cm),
-      ancho_cm: Number(form.ancho_cm),
-      alto_cm: Number(form.alto_cm),
-      peso_kg: Number(form.peso_kg),
-      capacidad_carga_kg: Number(form.capacidad_carga_kg),
-      valor_compra: form.valor_compra !== '' ? Number(form.valor_compra) : null,
-      observaciones: form.observaciones || null,
+      largo_cm:            Number(form.largo_cm),
+      ancho_cm:            Number(form.ancho_cm),
+      alto_cm:             Number(form.alto_cm),
+      peso_kg:             Number(form.peso_kg),
+      capacidad_carga_kg:  Number(form.capacidad_carga_kg),
+      valor_compra:        form.valor_compra !== '' ? Number(form.valor_compra) : null,
+      observaciones:       form.observaciones || null,
+      ubicacion_inicial_id: Number(form.ubicacion_inicial_id),
     })
   }
 
@@ -122,8 +248,10 @@ export default function Estibas() {
     setFormError('')
   }
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <Layout title="Estibas">
+
       {/* Toolbar */}
       <Box sx={{ display: 'flex', gap: 1.5, mb: 2.5, flexWrap: 'wrap', alignItems: 'center' }}>
         <TextField
@@ -166,6 +294,7 @@ export default function Estibas() {
             <ArrowDropDown />
           </Button>
         </ButtonGroup>
+
         <Menu
           anchorEl={menuAnchor}
           open={Boolean(menuAnchor)}
@@ -174,8 +303,10 @@ export default function Estibas() {
           transformOrigin={{ vertical: 'top', horizontal: 'right' }}
           PaperProps={{ elevation: 3, sx: { mt: 0.5, minWidth: 220, borderRadius: '10px' } }}
         >
-          <MenuItem onClick={() => { setMenuAnchor(null); navigate('/estibas/cargue-masivo') }}
-            sx={{ py: 1.25, px: 2 }}>
+          <MenuItem
+            onClick={() => { setMenuAnchor(null); navigate('/estibas/cargue-masivo') }}
+            sx={{ py: 1.25, px: 2 }}
+          >
             <UploadFile sx={{ fontSize: 18, mr: 1.5, color: PRIMARY }} />
             <Box>
               <Typography sx={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.2 }}>
@@ -183,6 +314,23 @@ export default function Estibas() {
               </Typography>
               <Typography sx={{ fontSize: 11, color: '#94A3B8' }}>
                 Importar desde Excel (.xlsx)
+              </Typography>
+            </Box>
+          </MenuItem>
+
+          <Divider sx={{ my: 0.5 }} />
+
+          <MenuItem
+            onClick={() => { setMenuAnchor(null); setOpenMasivo(true) }}
+            sx={{ py: 1.25, px: 2 }}
+          >
+            <AddBox sx={{ fontSize: 18, mr: 1.5, color: '#1A3A6B' }} />
+            <Box>
+              <Typography sx={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.2 }}>
+                Creación Masiva
+              </Typography>
+              <Typography sx={{ fontSize: 11, color: '#94A3B8' }}>
+                Rango de códigos consecutivos
               </Typography>
             </Box>
           </MenuItem>
@@ -261,19 +409,14 @@ export default function Estibas() {
                   ) : (
                     (data?.items ?? []).map((estiba) => (
                       <TableRow key={estiba.id} sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'rgba(50,172,92,0.04)' } }}
-                        onClick={() => navigate(`/estibas/${estiba.id}`)}
-                      >
+                        onClick={() => navigate(`/estibas/${estiba.id}`)}>
                         <TableCell>
                           <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: 'monospace', fontSize: 13 }}>
                             {estiba.codigo_interno}
                           </Typography>
                         </TableCell>
-                        <TableCell>
-                          <Typography variant="body2">{estiba.tipo}</Typography>
-                        </TableCell>
-                        <TableCell>
-                          <StatusChip status={estiba.estado} />
-                        </TableCell>
+                        <TableCell><Typography variant="body2">{estiba.tipo}</Typography></TableCell>
+                        <TableCell><StatusChip status={estiba.estado} /></TableCell>
                         <TableCell>
                           <Chip label={estiba.tipo_propietario} size="small" variant="outlined" sx={{ fontSize: 11 }} />
                         </TableCell>
@@ -282,9 +425,7 @@ export default function Estibas() {
                             {estiba.ubicacion_actual?.nombre ?? '—'}
                           </Typography>
                         </TableCell>
-                        <TableCell>
-                          <Typography variant="body2">{estiba.total_usos}</Typography>
-                        </TableCell>
+                        <TableCell><Typography variant="body2">{estiba.total_usos}</Typography></TableCell>
                         <TableCell>
                           <Typography variant="body2" sx={{ fontSize: 12 }}>
                             {format(new Date(estiba.fecha_ingreso), 'dd/MM/yyyy', { locale: es })}
@@ -297,9 +438,7 @@ export default function Estibas() {
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Ver QR">
-                            <IconButton size="small">
-                              <QrCode2 fontSize="small" />
-                            </IconButton>
+                            <IconButton size="small"><QrCode2 fontSize="small" /></IconButton>
                           </Tooltip>
                         </TableCell>
                       </TableRow>
@@ -323,11 +462,12 @@ export default function Estibas() {
         )}
       </Card>
 
-      {/* Diálogo Nueva Estiba */}
+      {/* ── Diálogo: Nueva Estiba ─────────────────────────────────────────── */}
       <Dialog open={openDialog} onClose={handleClose} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>Nueva Estiba</DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={2} sx={{ pt: 0.5 }}>
+
             <Grid item xs={12}>
               <TextField
                 label="Código Interno *"
@@ -364,6 +504,24 @@ export default function Estibas() {
                 <InputLabel>Propietario</InputLabel>
                 <Select value={form.tipo_propietario} label="Propietario" onChange={e => setForm(f => ({ ...f, tipo_propietario: e.target.value }))}>
                   {PROPIETARIOS.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth size="small" required>
+                <InputLabel>Bodega *</InputLabel>
+                <Select
+                  value={form.ubicacion_inicial_id}
+                  label="Bodega *"
+                  onChange={e => setForm(f => ({ ...f, ubicacion_inicial_id: e.target.value }))}
+                >
+                  <MenuItem value=""><em>Selecciona una bodega</em></MenuItem>
+                  {ubicaciones.map((u: any) => (
+                    <MenuItem key={u.id} value={u.id}>
+                      {u.nombre} {u.codigo ? `(${u.codigo})` : ''}
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>
@@ -424,15 +582,204 @@ export default function Estibas() {
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={handleClose} disabled={createMutation.isPending}>Cancelar</Button>
-          <Button
-            variant="contained"
-            onClick={handleSubmit}
-            disabled={createMutation.isPending}
-          >
+          <Button variant="contained" onClick={handleSubmit} disabled={createMutation.isPending}>
             {createMutation.isPending ? 'Guardando...' : 'Crear Estiba'}
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* ── Diálogo: Creación Masiva ──────────────────────────────────────── */}
+      <Dialog open={openMasivo} onClose={() => { if (!masivaMutation.isPending) { setOpenMasivo(false); resetMasivo() } }} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>
+          Creación Masiva de Estibas
+          <Typography variant="body2" sx={{ color: '#64748B', fontWeight: 400, mt: 0.25 }}>
+            Define el rango de códigos y la bodega de ingreso
+          </Typography>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Grid container spacing={2} sx={{ pt: 0.5 }}>
+
+            {/* Rango de códigos */}
+            <Grid item xs={12}>
+              <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#475569', mb: 1, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Rango de códigos
+              </Typography>
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Código inicial *"
+                fullWidth size="small"
+                value={codigoInicial}
+                onChange={e => { setCodigoInicial(e.target.value.toUpperCase()); setMasivoPreview([]) }}
+                placeholder="Ej: EST-001"
+                inputProps={{ maxLength: 80 }}
+                helperText="Primera estiba del rango"
+              />
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Código final *"
+                fullWidth size="small"
+                value={codigoFinal}
+                onChange={e => { setCodigoFinal(e.target.value.toUpperCase()); setMasivoPreview([]) }}
+                placeholder="Ej: EST-100"
+                inputProps={{ maxLength: 80 }}
+                helperText="Última estiba del rango"
+              />
+            </Grid>
+
+            {/* Vista previa del rango */}
+            {masivoPreview.length > 0 && (
+              <Grid item xs={12}>
+                <Box sx={{
+                  bgcolor: alpha(PRIMARY, 0.06), border: `1px solid ${alpha(PRIMARY, 0.25)}`,
+                  borderRadius: 1.5, px: 2, py: 1.25,
+                }}>
+                  <Typography sx={{ fontSize: 12, fontWeight: 700, color: PRIMARY, mb: 0.5 }}>
+                    {masivoPreview.length} estibas a crear
+                  </Typography>
+                  <Typography sx={{ fontSize: 11.5, color: '#475569', fontFamily: 'monospace' }}>
+                    {masivoPreview[0]} … {masivoPreview[masivoPreview.length - 1]}
+                  </Typography>
+                </Box>
+              </Grid>
+            )}
+
+            <Divider sx={{ width: '100%', mx: 2, mt: 1 }} />
+
+            {/* Configuración de la bodega */}
+            <Grid item xs={12}>
+              <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#475569', mb: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Bodega y configuración
+              </Typography>
+            </Grid>
+
+            <Grid item xs={12}>
+              <FormControl fullWidth size="small" required>
+                <InputLabel>Bodega de ingreso *</InputLabel>
+                <Select
+                  value={masivoForm.ubicacion_inicial_id}
+                  label="Bodega de ingreso *"
+                  onChange={e => setMasivoForm(f => ({ ...f, ubicacion_inicial_id: e.target.value }))}
+                >
+                  <MenuItem value=""><em>Selecciona una bodega</em></MenuItem>
+                  {ubicaciones.map((u: any) => (
+                    <MenuItem key={u.id} value={u.id}>
+                      {u.nombre} {u.codigo ? `(${u.codigo})` : ''}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Tipo</InputLabel>
+                <Select
+                  value={masivoForm.tipo} label="Tipo"
+                  onChange={e => {
+                    const tipo = e.target.value
+                    const mat = MATERIALES[tipo]?.[0] ?? ''
+                    setMasivoForm(f => ({ ...f, tipo, material: mat }))
+                  }}
+                >
+                  {TIPOS.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Material</InputLabel>
+                <Select value={masivoForm.material} label="Material" onChange={e => setMasivoForm(f => ({ ...f, material: e.target.value }))}>
+                  {(MATERIALES[masivoForm.tipo] ?? []).map(m => (
+                    <MenuItem key={m} value={m}>{m.replace(/_/g, ' ')}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Propietario</InputLabel>
+                <Select value={masivoForm.tipo_propietario} label="Propietario" onChange={e => setMasivoForm(f => ({ ...f, tipo_propietario: e.target.value }))}>
+                  {PROPIETARIOS.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Fecha de Ingreso *"
+                type="date" fullWidth size="small"
+                value={masivoForm.fecha_ingreso}
+                onChange={e => setMasivoForm(f => ({ ...f, fecha_ingreso: e.target.value }))}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+
+            <Grid item xs={6} sm={3}>
+              <TextField label="Largo (cm)" type="number" fullWidth size="small"
+                value={masivoForm.largo_cm} onChange={e => setMasivoForm(f => ({ ...f, largo_cm: Number(e.target.value) }))} />
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <TextField label="Ancho (cm)" type="number" fullWidth size="small"
+                value={masivoForm.ancho_cm} onChange={e => setMasivoForm(f => ({ ...f, ancho_cm: Number(e.target.value) }))} />
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <TextField label="Alto (cm)" type="number" fullWidth size="small"
+                value={masivoForm.alto_cm} onChange={e => setMasivoForm(f => ({ ...f, alto_cm: Number(e.target.value) }))} />
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <TextField label="Peso (kg)" type="number" fullWidth size="small"
+                value={masivoForm.peso_kg} onChange={e => setMasivoForm(f => ({ ...f, peso_kg: Number(e.target.value) }))} />
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <TextField label="Capacidad carga (kg)" type="number" fullWidth size="small"
+                value={masivoForm.capacidad_carga_kg} onChange={e => setMasivoForm(f => ({ ...f, capacidad_carga_kg: Number(e.target.value) }))} />
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <TextField label="Valor de compra (COP)" type="number" fullWidth size="small"
+                value={masivoForm.valor_compra}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMasivoForm((f: typeof EMPTY_MASIVO) => ({ ...f, valor_compra: e.target.value }))}
+                placeholder="Opcional"
+                InputProps={{ inputProps: { min: 0 } }} />
+            </Grid>
+
+            {masivoError && (
+              <Grid item xs={12}>
+                <Alert severity="error" sx={{ py: 0.5 }}>{masivoError}</Alert>
+              </Grid>
+            )}
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
+          <Button onClick={() => { setOpenMasivo(false); resetMasivo() }} disabled={masivaMutation.isPending}>
+            Cancelar
+          </Button>
+          {masivoPreview.length === 0 ? (
+            <Button variant="outlined" onClick={handlePreviewMasivo} disabled={masivaMutation.isPending}>
+              Previsualizar rango
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              onClick={handleSubmitMasivo}
+              disabled={masivaMutation.isPending}
+              sx={{ bgcolor: '#1A3A6B', '&:hover': { bgcolor: '#152D54' } }}
+            >
+              {masivaMutation.isPending
+                ? 'Creando...'
+                : `Crear ${masivoPreview.length} estibas`}
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
     </Layout>
   )
 }

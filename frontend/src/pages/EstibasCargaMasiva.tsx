@@ -4,13 +4,14 @@ import {
   Box, Card, CardContent, Typography, Button, Grid, Divider,
   Table, TableBody, TableCell, TableHead, TableRow,
   Chip, Alert, LinearProgress, alpha,
+  FormControl, InputLabel, Select, MenuItem,
 } from '@mui/material'
 import {
   FileDownload, UploadFile, ArrowBack, CloudUpload,
   Description, CheckCircle, ErrorOutline, TableChart,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
@@ -30,7 +31,7 @@ const CAMPOS = [
   { campo: 'capacidad_carga_kg', descripcion: 'Peso máximo de carga que soporta la estiba',           ejemplo: '1000',           requerido: false, tipo: 'Número decimal (default: 1000)' },
   { campo: 'valor_compra',       descripcion: 'Precio de compra en pesos colombianos (COP)',           ejemplo: '150000',         requerido: false, tipo: 'Número decimal' },
   { campo: 'vida_util_anos',     descripcion: 'Vida útil estimada en años',                            ejemplo: '5',              requerido: false, tipo: 'Número entero (default: 5)' },
-  { campo: 'ubicacion_inicial_id', descripcion: 'ID numérico de la bodega o ubicación inicial',       ejemplo: '1',              requerido: false, tipo: 'Número entero (ver módulo Ubicaciones)' },
+  { campo: 'ubicacion_inicial_id', descripcion: 'ID numérico de la bodega o ubicación inicial',       ejemplo: '1',              requerido: true,  tipo: 'Número entero (ver módulo Ubicaciones)' },
   { campo: 'proveedor_id',       descripcion: 'ID numérico del proveedor de la estiba',               ejemplo: '2',              requerido: false, tipo: 'Número entero (ver módulo Proveedores)' },
   { campo: 'fecha_fabricacion',  descripcion: 'Fecha de fabricación de la estiba',                    ejemplo: '2023-06-01',     requerido: false, tipo: 'Fecha YYYY-MM-DD' },
   { campo: 'observaciones',      descripcion: 'Notas o comentarios adicionales sobre la estiba',      ejemplo: 'Bodega central', requerido: false, tipo: 'Texto libre' },
@@ -38,7 +39,7 @@ const CAMPOS = [
 
 const REQUIRED = CAMPOS.filter(c => c.requerido).map(c => c.campo)
 
-function prepareItems(rows: any[]) {
+function prepareItems(rows: any[], bodegaId: number) {
   return rows.map(row => ({
     ...row,
     largo_cm:            row.largo_cm            ? parseFloat(row.largo_cm)            : 120,
@@ -48,7 +49,7 @@ function prepareItems(rows: any[]) {
     capacidad_carga_kg:  row.capacidad_carga_kg  ? parseFloat(row.capacidad_carga_kg)  : 1000,
     valor_compra:        row.valor_compra        ? parseFloat(row.valor_compra)        : null,
     vida_util_anos:      row.vida_util_anos      ? parseInt(row.vida_util_anos)        : 5,
-    ubicacion_inicial_id: row.ubicacion_inicial_id ? parseInt(row.ubicacion_inicial_id) : null,
+    ubicacion_inicial_id: bodegaId,
     proveedor_id:        row.proveedor_id        ? parseInt(row.proveedor_id)          : null,
     valor_actual:        null,
   }))
@@ -58,9 +59,16 @@ export default function EstibasCargaMasiva() {
   const navigate = useNavigate()
   const fileRef  = useRef<HTMLInputElement>(null)
 
-  const [fileName,    setFileName]    = useState<string | null>(null)
-  const [previewData, setPreviewData] = useState<any[]>([])
-  const [results,     setResults]     = useState<{ exitosos: number; errores: any[]; total: number } | null>(null)
+  const [fileName,      setFileName]      = useState<string | null>(null)
+  const [previewData,   setPreviewData]   = useState<any[]>([])
+  const [results,       setResults]       = useState<{ exitosos: number; errores: any[]; total: number } | null>(null)
+  const [selectedBodega, setSelectedBodega] = useState<number | ''>('')
+
+  const { data: ubicaciones = [] } = useQuery({
+    queryKey: ['ubicaciones-select'],
+    queryFn: () => apiClient.get('/ubicaciones', { params: { page_size: 500 } }).then((r: any) => r.data?.items ?? r.data ?? []),
+    staleTime: 60000,
+  })
 
   /* ── Descargar plantilla ── */
   const downloadTemplate = () => {
@@ -132,9 +140,9 @@ export default function EstibasCargaMasiva() {
 
   /* ── Mutation ── */
   const bulkMutation = useMutation({
-    mutationFn: (rows: any[]) =>
-      apiClient.post('/estibas/bulk', { items: prepareItems(rows) }).then(r => r.data),
-    onSuccess: (data) => {
+    mutationFn: ({ rows, bodegaId }: { rows: any[]; bodegaId: number }) =>
+      apiClient.post('/estibas/bulk', { items: prepareItems(rows, bodegaId) }).then((r: any) => r.data),
+    onSuccess: (data: any) => {
       setResults(data)
       setPreviewData([])
       setFileName(null)
@@ -160,6 +168,51 @@ export default function EstibasCargaMasiva() {
           Importa múltiples estibas desde un archivo Excel (.xlsx) en un solo paso
         </Typography>
       </Box>
+
+      {/* Bodega obligatoria */}
+      <Card sx={{
+        mb: 2.5, borderRadius: 2, boxShadow: 'none',
+        border: `1.5px solid ${selectedBodega ? alpha(PRIMARY, 0.35) : '#FBBF24'}`,
+        background: selectedBodega ? alpha(PRIMARY, 0.015) : '#FFFBEB',
+        transition: 'all 0.2s ease',
+      }}>
+        <CardContent sx={{ py: 2, px: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+            <Box sx={{ flex: '0 0 auto' }}>
+              <Typography sx={{ fontWeight: 700, fontSize: 14, color: '#0D1117', mb: 0.25 }}>
+                Bodega de ingreso <Box component="span" sx={{ color: '#DC2626' }}>*</Box>
+              </Typography>
+              <Typography sx={{ fontSize: 12, color: '#64748B' }}>
+                Se asignará a todas las estibas del archivo
+              </Typography>
+            </Box>
+            <Box sx={{ flex: '1 1 260px', maxWidth: 420 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Selecciona una bodega</InputLabel>
+                <Select
+                  value={selectedBodega}
+                  label="Selecciona una bodega"
+                  onChange={e => setSelectedBodega(e.target.value as number)}
+                >
+                  <MenuItem value=""><em>— Selecciona —</em></MenuItem>
+                  {ubicaciones.map((u: any) => (
+                    <MenuItem key={u.id} value={u.id}>
+                      {u.nombre} {u.codigo ? `(${u.codigo})` : ''}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+            {!selectedBodega && (
+              <Chip
+                label="Requerida antes de confirmar"
+                size="small"
+                sx={{ fontSize: 11, bgcolor: '#FEF9C3', color: '#854D0E', border: '1px solid #FDE68A', fontWeight: 600 }}
+              />
+            )}
+          </Box>
+        </CardContent>
+      </Card>
 
       {/* Tarjetas de acción */}
       <Grid container spacing={2.5} sx={{ mb: 3 }}>
@@ -294,7 +347,13 @@ export default function EstibasCargaMasiva() {
             </Box>
             <Button
               variant="contained"
-              onClick={() => bulkMutation.mutate(previewData)}
+              onClick={() => {
+                if (!selectedBodega) {
+                  toast.error('Selecciona una bodega antes de confirmar el cargue')
+                  return
+                }
+                bulkMutation.mutate({ rows: previewData, bodegaId: Number(selectedBodega) })
+              }}
               disabled={bulkMutation.isPending}
               sx={{ bgcolor: PRIMARY, fontWeight: 700, px: 3, '&:hover': { bgcolor: '#27884A' } }}
             >
