@@ -4,12 +4,13 @@ import {
   Table, TableBody, TableCell, TableHead, TableRow, TablePagination,
   IconButton, Tooltip, Chip, Select, MenuItem, FormControl, InputLabel,
   Skeleton, Alert, Dialog, DialogTitle, DialogContent, DialogActions, Grid, alpha,
-  Divider,
+  Divider, Tabs, Tab,
 } from '@mui/material'
 import {
   Search, Add, QrCode2, Visibility, FilterList,
-  ViewModule, ArrowDropDown, UploadFile, AddBox,
+  ViewModule, ArrowDropDown, UploadFile, AddBox, BarChart,
 } from '@mui/icons-material'
+import { EstibasInventario } from './EstibasInventario'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { estibasApi } from '@/api/estibas'
 import { apiClient } from '@/api/client'
@@ -94,6 +95,9 @@ function generateCodes(start: string, end: string): string[] | null {
 export default function Estibas() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+
+  // ── Tab activa ────────────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState(0)
 
   // ── Estado listado ────────────────────────────────────────────────────────
   const [page, setPage] = useState(0)
@@ -251,6 +255,33 @@ export default function Estibas() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <Layout title="Estibas">
+
+      {/* Tabs */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2.5 }}>
+        <Tabs
+          value={activeTab}
+          onChange={(_: React.SyntheticEvent, v: number) => setActiveTab(v)}
+          textColor="primary"
+          indicatorColor="primary"
+        >
+          <Tab
+            icon={<ViewModule sx={{ fontSize: 18 }} />}
+            iconPosition="start"
+            label="Gestión de Estibas"
+            sx={{ minHeight: 44, textTransform: 'none', fontWeight: 600 }}
+          />
+          <Tab
+            icon={<BarChart sx={{ fontSize: 18 }} />}
+            iconPosition="start"
+            label="Inventario / Movimientos"
+            sx={{ minHeight: 44, textTransform: 'none', fontWeight: 600 }}
+          />
+        </Tabs>
+      </Box>
+
+      {activeTab === 1 && <EstibasInventario />}
+
+      {activeTab === 0 && <>
 
       {/* Toolbar */}
       <Box sx={{ display: 'flex', gap: 1.5, mb: 2.5, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -779,6 +810,8 @@ export default function Estibas() {
           )}
         </DialogActions>
       </Dialog>
+
+      </>}
 
     </Layout>
   )

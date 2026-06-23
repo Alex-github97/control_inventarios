@@ -1,4 +1,5 @@
-from typing import List
+import math
+from typing import List, Optional
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
@@ -10,6 +11,10 @@ from app.infrastructure.models.usuario import Usuario
 from app.application.schemas.movimiento import (
     MovimientoCreate, RegistrarCargaRequest, RegistrarDescargaRequest
 )
+
+_TIPOS_ENTRADA = {"CARGA", "RECEPCION"}
+_TIPOS_SALIDA = {"DESCARGA", "DISPOSICION_FINAL"}
+_TIPOS_TRANSF = {"TRANSFERENCIA", "RETORNO"}
 
 TRANSICIONES_VALIDAS = {
     TipoMovimiento.CARGA: [EstadoEstiba.EN_INVENTARIO, EstadoEstiba.DISPONIBLE, EstadoEstiba.PENDIENTE_RETORNO],
@@ -107,6 +112,65 @@ class MovimientoService:
             movimiento = await self.registrar_movimiento(mv, usuario)
             movimientos.append(movimiento)
         return movimientos
+
+    def _movimiento_a_dict(self, m: Movimiento) -> dict:
+        return {
+            "id": m.id,
+            "tipo": m.tipo.value,
+            "fecha": m.fecha_movimiento.isoformat(),
+            "estiba_id": m.estiba_id,
+            "estiba_codigo": m.estiba.codigo_interno if m.estiba else str(m.estiba_id),
+            "usuario": m.usuario.nombre_completo if m.usuario else "Sistema",
+            "ubicacion_origen": m.ubicacion_origen.nombre if m.ubicacion_origen else None,
+            "ubicacion_destino": m.ubicacion_destino.nombre if m.ubicacion_destino else None,
+            "vehiculo": m.vehiculo.placa if m.vehiculo else None,
+            "estado_antes": m.estado_estiba_antes,
+            "estado_despues": m.estado_estiba_despues,
+            "observaciones": m.observaciones,
+        }
+
+    async def listar_movimientos(
+        self,
+        fecha_inicio: Optional[datetime],
+        fecha_fin: Optional[datetime],
+        tipo: Optional[TipoMovimiento],
+        page: int,
+        page_size: int,
+    ) -> dict:
+        items, total = await self.movimiento_repo.get_con_filtros(
+            fecha_inicio, fecha_fin, tipo, page, page_size
+        )
+        pages = math.ceil(total / page_size) if total > 0 else 1
+        return {
+            "items": [self._movimiento_a_dict(m) for m in items],
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "pages": pages,
+        }
+
+    async def obtener_resumen(
+        self,
+        fecha_inicio: Optional[datetime],
+        fecha_fin: Optional[datetime],
+    ) -> dict:
+        por_tipo = await self.movimiento_repo.get_resumen_por_tipo(fecha_inicio, fecha_fin)
+        entradas = sum(v for k, v in por_tipo.items() if k in _TIPOS_ENTRADA)
+        salidas = sum(v for k, v in por_tipo.items() if k in _TIPOS_SALIDA)
+        transferencias = sum(v for k, v in por_tipo.items() if k in _TIPOS_TRANSF)
+        otros = sum(v for k, v in por_tipo.items() if k not in _TIPOS_ENTRADA | _TIPOS_SALIDA | _TIPOS_TRANSF)
+        total = sum(por_tipo.values())
+        return {
+            "por_tipo": por_tipo,
+            "totales": {
+                "entradas": entradas,
+                "salidas": salidas,
+                "transferencias": transferencias,
+                "otros": otros,
+                "total": total,
+                "balance": entradas - salidas,
+            },
+        }
 
     async def obtener_trazabilidad(self, estiba_id: int) -> List[dict]:
         movimientos = await self.movimiento_repo.get_by_estiba(estiba_id)

@@ -1,4 +1,5 @@
-from typing import Optional, List
+from typing import Optional, List, Tuple
+from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 from sqlalchemy.orm import selectinload
@@ -53,3 +54,65 @@ class MovimientoRepository(BaseRepository[Movimiento]):
             .limit(limit)
         )
         return list(result.scalars().all())
+
+    def _build_conditions(
+        self,
+        fecha_inicio: Optional[datetime],
+        fecha_fin: Optional[datetime],
+        tipo: Optional[TipoMovimiento],
+    ) -> list:
+        conds = []
+        if fecha_inicio:
+            conds.append(Movimiento.fecha_movimiento >= fecha_inicio)
+        if fecha_fin:
+            conds.append(Movimiento.fecha_movimiento <= fecha_fin)
+        if tipo:
+            conds.append(Movimiento.tipo == tipo)
+        return conds
+
+    async def get_con_filtros(
+        self,
+        fecha_inicio: Optional[datetime],
+        fecha_fin: Optional[datetime],
+        tipo: Optional[TipoMovimiento],
+        page: int,
+        page_size: int,
+    ) -> Tuple[List[Movimiento], int]:
+        conds = self._build_conditions(fecha_inicio, fecha_fin, tipo)
+        where = and_(*conds) if conds else True
+
+        total_res = await self.db.execute(
+            select(func.count(Movimiento.id)).where(where)
+        )
+        total = total_res.scalar_one()
+
+        result = await self.db.execute(
+            select(Movimiento)
+            .where(where)
+            .options(
+                selectinload(Movimiento.estiba),
+                selectinload(Movimiento.usuario),
+                selectinload(Movimiento.ubicacion_origen),
+                selectinload(Movimiento.ubicacion_destino),
+                selectinload(Movimiento.vehiculo),
+            )
+            .order_by(Movimiento.fecha_movimiento.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+        return list(result.scalars().all()), total
+
+    async def get_resumen_por_tipo(
+        self,
+        fecha_inicio: Optional[datetime],
+        fecha_fin: Optional[datetime],
+    ) -> dict:
+        conds = self._build_conditions(fecha_inicio, fecha_fin, None)
+        where = and_(*conds) if conds else True
+
+        result = await self.db.execute(
+            select(Movimiento.tipo, func.count(Movimiento.id).label("cantidad"))
+            .where(where)
+            .group_by(Movimiento.tipo)
+        )
+        return {row.tipo.value: row.cantidad for row in result.all()}
