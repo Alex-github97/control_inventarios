@@ -59,7 +59,7 @@ class Estiba(Base, TimestampMixin, SoftDeleteMixin):
 
     id = Column(Integer, primary_key=True, index=True)
     codigo_interno = Column(String(80), unique=True, nullable=False, index=True)
-    codigo_qr = Column(String(500), nullable=True, unique=True, index=True)
+    codigo_qr = Column(Text, nullable=True, unique=True)
     codigo_rfid = Column(String(200), nullable=True, unique=True, index=True)
     codigo_sap = Column(String(80), nullable=True, index=True)
 
