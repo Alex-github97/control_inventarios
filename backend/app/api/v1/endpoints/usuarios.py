@@ -57,7 +57,7 @@ async def crear_usuario(
         raise HTTPException(status_code=409, detail="El email ya está registrado")
     if await repo.get_by_username(data.username):
         raise HTTPException(status_code=409, detail="El nombre de usuario ya está en uso")
-    rol_id = await _resolve_rol_id(db, data.rol.value)
+    rol_id = await _resolve_rol_id(db, data.rol)
     user = Usuario(
         nombre=data.nombre, apellido=data.apellido, email=data.email,
         username=data.username, hashed_password=hash_password(data.password),
@@ -92,7 +92,7 @@ async def actualizar_usuario(
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     update_data = data.model_dump(exclude_unset=True)
     if "rol" in update_data:
-        rol_id = await _resolve_rol_id(db, update_data["rol"].value)
+        rol_id = await _resolve_rol_id(db, update_data["rol"])
         update_data["rol_id"] = rol_id
     return await repo.update(user, update_data)
 

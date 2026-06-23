@@ -1,6 +1,27 @@
 import React from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Box, Typography, Tooltip, alpha } from '@mui/material'
+import { useAuthStore } from '@/store/authStore'
+import { useTranslation } from 'react-i18next'
+
+// Claves de permiso requeridas por workspace (vacío = siempre visible)
+const WORKSPACE_PERM_KEYS: Record<string, string[]> = {
+  control:  ['dashboard','estibas','movimientos','manifiestos','vehiculos','ubicaciones','proveedores','alertas','danos','trazabilidad','mantenimiento','costos','consultas'],
+  tarifax:  ['tx'],
+  grc:      ['grc'],
+  qms:      ['qms'],
+  dms:      ['dms'],
+  tms:      ['tms', 'ft'],
+  eam:      ['eam', 'gf', 'ml'],
+  wms:      ['wms'],
+  gh:       ['gh'],
+  command:  [],
+  lms:      ['lms'],
+  crm:      ['crm'],
+  mes:      ['mes'],
+  aps:      ['aps'],
+  config:   ['usuarios'],
+}
 
 const PANEL_BG         = '#060C1A'
 const CI_COLOR         = '#32AC5C'
@@ -25,7 +46,7 @@ const COMPACT_THRESHOLD = 80
 const WORKSPACES = [
   {
     id:    'control',
-    label: 'Control de Estibas',
+    label: 'ws.control',
     short: 'CE',
     color: CI_COLOR,
     path:  '/dashboard',
@@ -39,7 +60,7 @@ const WORKSPACES = [
   },
   {
     id:    'tarifax',
-    label: 'TarifaX',
+    label: 'ws.tarifax',
     short: 'TX',
     color: TX_COLOR,
     path:  '/tarifax/tablero',
@@ -47,7 +68,7 @@ const WORKSPACES = [
   },
   {
     id:    'grc',
-    label: 'GRC',
+    label: 'ws.grc',
     short: 'GRC',
     color: GRC_COLOR,
     path:  '/grc',
@@ -55,7 +76,7 @@ const WORKSPACES = [
   },
   {
     id:    'qms',
-    label: 'Calidad QMS',
+    label: 'ws.qms',
     short: 'QMS',
     color: QMS_COLOR,
     path:  '/qms',
@@ -63,7 +84,7 @@ const WORKSPACES = [
   },
   {
     id:    'dms',
-    label: 'DMS',
+    label: 'ws.dms',
     short: 'DMS',
     color: DMS_COLOR,
     path:  '/dms',
@@ -71,7 +92,7 @@ const WORKSPACES = [
   },
   {
     id:    'tms',
-    label: 'TMS',
+    label: 'ws.tms',
     short: 'TMS',
     color: TMS_COLOR,
     path:  '/tms',
@@ -79,7 +100,7 @@ const WORKSPACES = [
   },
   {
     id:    'eam',
-    label: 'CMMS / EAM',
+    label: 'ws.eam',
     short: 'EAM',
     color: EAM_COLOR,
     path:  '/eam',
@@ -87,7 +108,7 @@ const WORKSPACES = [
   },
   {
     id:    'wms',
-    label: 'WMS',
+    label: 'ws.wms',
     short: 'WMS',
     color: WMS_COLOR,
     path:  '/wms',
@@ -95,7 +116,7 @@ const WORKSPACES = [
   },
   {
     id:    'gh',
-    label: 'Gestión Humana',
+    label: 'ws.gh',
     short: 'GH',
     color: GH_COLOR,
     path:  '/gh',
@@ -103,7 +124,7 @@ const WORKSPACES = [
   },
   {
     id:    'command',
-    label: 'Command Center',
+    label: 'ws.command',
     short: 'CC',
     color: CC_COLOR,
     path:  '/command-center',
@@ -111,7 +132,7 @@ const WORKSPACES = [
   },
   {
     id:    'lms',
-    label: 'LMS',
+    label: 'ws.lms',
     short: 'LMS',
     color: LMS_COLOR,
     path:  '/lms',
@@ -119,7 +140,7 @@ const WORKSPACES = [
   },
   {
     id:    'crm',
-    label: 'CRM',
+    label: 'ws.crm',
     short: 'CRM',
     color: CRM_COLOR,
     path:  '/crm',
@@ -127,7 +148,7 @@ const WORKSPACES = [
   },
   {
     id:    'mes',
-    label: 'MES',
+    label: 'ws.mes',
     short: 'MES',
     color: MES_COLOR,
     path:  '/mes',
@@ -135,7 +156,7 @@ const WORKSPACES = [
   },
   {
     id:    'aps',
-    label: 'APS',
+    label: 'ws.aps',
     short: 'APS',
     color: APS_COLOR,
     path:  '/aps',
@@ -143,7 +164,7 @@ const WORKSPACES = [
   },
   {
     id:    'config',
-    label: 'Configuración',
+    label: 'ws.config',
     short: 'CF',
     color: CF_COLOR,
     path:  '/usuarios',
@@ -160,6 +181,16 @@ export function WorkspacePanel({ width, dragging }: WorkspacePanelProps) {
   const navigate        = useNavigate()
   const { pathname }    = useLocation()
   const showText        = width >= COMPACT_THRESHOLD
+  const { user }        = useAuthStore()
+  const { t }           = useTranslation()
+  const isAdmin         = user?.rol === 'ADMINISTRADOR'
+
+  const visibleWorkspaces = WORKSPACES.filter(ws => {
+    if (isAdmin) return true
+    const keys = WORKSPACE_PERM_KEYS[ws.id]
+    if (!keys || keys.length === 0) return true
+    return keys.some(k => user?.permisos?.[k])
+  })
 
   return (
     <Box
@@ -216,17 +247,17 @@ export function WorkspacePanel({ width, dragging }: WorkspacePanelProps) {
               whiteSpace: 'nowrap',
             }}
           >
-            Espacios
+            {t('ws.espacios')}
           </Typography>
         )}
       </Box>
 
       {/* Workspace items */}
       <Box sx={{ flex: 1, p: 0.75, pt: 1.5, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-        {WORKSPACES.map(ws => {
+        {visibleWorkspaces.map(ws => {
           const active = ws.isActive(pathname)
           return (
-            <Tooltip key={ws.id} title={!showText ? ws.label : ''} placement="right" arrow>
+            <Tooltip key={ws.id} title={!showText ? t(ws.label) : ''} placement="right" arrow>
               <Box
                 onClick={() => navigate(ws.path)}
                 sx={{
@@ -289,7 +320,7 @@ export function WorkspacePanel({ width, dragging }: WorkspacePanelProps) {
                         lineHeight: 1.3,
                       }}
                     >
-                      {ws.label}
+                      {t(ws.label)}
                     </Typography>
                     <Typography
                       sx={{

@@ -57,6 +57,14 @@ export default function Usuarios() {
     return r?.color || '#64748B'
   }
 
+  const extractError = (e: any, fallback: string): string => {
+    const detail = e?.response?.data?.detail
+    if (!detail) return fallback
+    if (typeof detail === 'string') return detail
+    if (Array.isArray(detail)) return detail.map((d: any) => d.msg || String(d)).join(' · ')
+    return fallback
+  }
+
   const createMutation = useMutation({
     mutationFn: (body: any) => apiClient.post('/usuarios/', body).then(r => r.data),
     onSuccess: () => {
@@ -65,7 +73,7 @@ export default function Usuarios() {
       setOpenCreate(false)
       setForm(emptyForm)
     },
-    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error creando usuario'),
+    onError: (e: any) => toast.error(extractError(e, 'Error creando usuario')),
   })
 
   const editMutation = useMutation({
@@ -76,7 +84,7 @@ export default function Usuarios() {
       queryClient.invalidateQueries({ queryKey: ['usuarios'] })
       setOpenEdit(false)
     },
-    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error actualizando usuario'),
+    onError: (e: any) => toast.error(extractError(e, 'Error actualizando usuario')),
   })
 
   const resetPwdMutation = useMutation({
@@ -87,7 +95,7 @@ export default function Usuarios() {
       setOpenPwd(false)
       setNewPwd('')
     },
-    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error restableciendo contraseña'),
+    onError: (e: any) => toast.error(extractError(e, 'Error restableciendo contraseña')),
   })
 
   const deleteMutation = useMutation({
@@ -142,7 +150,7 @@ export default function Usuarios() {
 
       {/* KPI */}
       <Grid container spacing={2} sx={{ mb: 2.5 }}>
-        <Grid item xs={6} sm={3}>
+        <Grid size={{ xs: 6, sm: 3 }}>
           <Card sx={{ p: 2, textAlign: 'center', borderRadius: '12px' }}>
             <Typography sx={{ fontSize: 28, fontWeight: 800, color: PRIMARY }}>
               {isLoading ? '—' : usuarios.length}
@@ -153,7 +161,7 @@ export default function Usuarios() {
           </Card>
         </Grid>
         {kpiRoles.map((r: any) => (
-          <Grid item xs={6} sm={3} key={r.nombre}>
+          <Grid size={{ xs: 6, sm: 3 }} key={r.nombre}>
             <Card sx={{ p: 2, textAlign: 'center', borderRadius: '12px' }}>
               <Typography sx={{ fontSize: 28, fontWeight: 800, color: r.color }}>
                 {isLoading ? '—' : usuarios.filter((u: any) => u.rol === r.nombre).length}
@@ -275,7 +283,7 @@ export default function Usuarios() {
               { label: 'Teléfono', key: 'telefono' },
               { label: 'Cargo', key: 'cargo' },
             ].map(f => (
-              <Grid item xs={12} sm={6} key={f.key}>
+              <Grid size={{ xs: 12, sm: 6 }} key={f.key}>
                 <TextField
                   fullWidth size="small" label={f.label} type={f.type || 'text'}
                   value={(form as any)[f.key]}
@@ -283,7 +291,7 @@ export default function Usuarios() {
                 />
               </Grid>
             ))}
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>Rol</InputLabel>
                 <Select value={form.rol} label="Rol" onChange={e => setForm({ ...form, rol: e.target.value })}>
@@ -323,7 +331,7 @@ export default function Usuarios() {
               { label: 'Teléfono', key: 'telefono' },
               { label: 'Cargo', key: 'cargo' },
             ].map(f => (
-              <Grid item xs={12} sm={6} key={f.key}>
+              <Grid size={{ xs: 12, sm: 6 }} key={f.key}>
                 <TextField
                   fullWidth size="small" label={f.label} type={f.type || 'text'}
                   value={editForm[f.key] || ''}
@@ -331,7 +339,7 @@ export default function Usuarios() {
                 />
               </Grid>
             ))}
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>Rol</InputLabel>
                 <Select

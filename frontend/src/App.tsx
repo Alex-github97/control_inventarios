@@ -1,11 +1,71 @@
 import React from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { ThemeProvider } from '@mui/material/styles'
-import { CssBaseline } from '@mui/material'
+import { CssBaseline, Box, Typography, Button } from '@mui/material'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
 import { theme } from '@/theme/theme'
 import { useAuthStore } from '@/store/authStore'
+
+// Prefijo de ruta → clave de permiso. Las rutas no listadas aquí son de libre acceso.
+const ROUTE_PERM_MAP: Record<string, string> = {
+  '/dashboard':    'dashboard',
+  '/estibas':      'estibas',
+  '/movimientos':  'movimientos',
+  '/manifiestos':  'manifiestos',
+  '/vehiculos':    'vehiculos',
+  '/ubicaciones':  'ubicaciones',
+  '/proveedores':  'proveedores',
+  '/alertas':      'alertas',
+  '/danos':        'danos',
+  '/trazabilidad': 'trazabilidad',
+  '/mantenimiento':'mantenimiento',
+  '/costos':       'costos',
+  '/consultas':    'consultas',
+  '/tarifax':      'tx',
+  '/fletes':       'ft',
+  '/flota':        'gf',
+  '/locativa':     'ml',
+  '/wms':          'wms',
+  '/gh':           'gh',
+  '/tms':          'tms',
+  '/dms':          'dms',
+  '/qms':          'qms',
+  '/grc':          'grc',
+  '/lms':          'lms',
+  '/crm':          'crm',
+  '/eam':          'eam',
+  '/mes':          'mes',
+  '/aps':          'aps',
+  '/usuarios':     'usuarios',
+}
+
+function SinAcceso() {
+  const navigate = useNavigate()
+  return (
+    <Box sx={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', height: '100vh', bgcolor: '#060C1A', gap: 2,
+    }}>
+      <Typography variant="h4" sx={{ color: '#EF4444', fontWeight: 800 }}>
+        Acceso restringido
+      </Typography>
+      <Typography sx={{ color: '#94A3B8', textAlign: 'center', maxWidth: 380 }}>
+        No tienes permiso para acceder a esta sección. Contacta a tu administrador si crees que es un error.
+      </Typography>
+      <Box sx={{ display: 'flex', gap: 1.5 }}>
+        <Button variant="outlined" onClick={() => navigate(-1)}
+          sx={{ borderColor: '#475569', color: '#94A3B8' }}>
+          Volver
+        </Button>
+        <Button variant="contained" onClick={() => navigate('/command-center')}
+          sx={{ bgcolor: '#32AC5C', '&:hover': { bgcolor: '#27884A' } }}>
+          Ir al inicio
+        </Button>
+      </Box>
+    </Box>
+  )
+}
 
 import Login from '@/pages/Login'
 import Dashboard from '@/pages/Dashboard'
@@ -193,6 +253,7 @@ import APSKPIs from '@/pages/APSKPIs'
 import APSAI from '@/pages/APSAI'
 import APSReportes from '@/pages/APSReportes'
 import APSConfig from '@/pages/APSConfig'
+import Configuracion from '@/pages/Configuracion'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -205,8 +266,26 @@ const queryClient = new QueryClient({
 })
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
+  const location = useLocation()
+
   if (!isAuthenticated) return <Navigate to="/login" replace />
+
+  // Sesión anterior sin permisos cargados → forzar re-login
+  if (user?.permisos === undefined) return <Navigate to="/login" replace />
+
+  // ADMINISTRADOR tiene acceso a todo
+  if (user.rol === 'ADMINISTRADOR') return <>{children}</>
+
+  // Buscar si la ruta actual requiere algún permiso
+  const matchedPrefix = Object.keys(ROUTE_PERM_MAP).find(prefix =>
+    location.pathname.startsWith(prefix)
+  )
+  if (matchedPrefix) {
+    const key = ROUTE_PERM_MAP[matchedPrefix]
+    if (!user.permisos[key]) return <Navigate to="/sin-acceso" replace />
+  }
+
   return <>{children}</>
 }
 
@@ -226,6 +305,8 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/sin-acceso" element={<SinAcceso />} />
+            <Route path="/configuracion" element={<ProtectedRoute><Configuracion /></ProtectedRoute>} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/estibas" element={<ProtectedRoute><Estibas /></ProtectedRoute>} />

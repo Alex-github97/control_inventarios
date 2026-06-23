@@ -1,5 +1,7 @@
 import React, { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { useAuthStore } from '@/store/authStore'
 import {
   List, ListItem, ListItemButton, ListItemIcon, ListItemText,
   Box, Typography, Tooltip, alpha,
@@ -217,266 +219,284 @@ interface NavItem {
 }
 
 const CI_NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard',     icon: <DashboardIcon     fontSize="small" />, path: '/dashboard',     section: 'Principal' },
-  { label: 'Estibas',       icon: <EstibasIcon       fontSize="small" />, path: '/estibas',       section: 'Principal' },
-  { label: 'Movimientos',   icon: <MovimientosIcon   fontSize="small" />, path: '/movimientos',   section: 'Operaciones' },
-  { label: 'Trazabilidad',  icon: <TrazabilidadIcon  fontSize="small" />, path: '/trazabilidad',  section: 'Operaciones' },
-  { label: 'Manifiestos',   icon: <ManifiestosIcon   fontSize="small" />, path: '/manifiestos',   section: 'Operaciones' },
-  { label: 'Mantenimiento', icon: <MantenimientoIcon fontSize="small" />, path: '/mantenimiento', section: 'Operaciones' },
-  { label: 'Vehículos',     icon: <VehiculosIcon     fontSize="small" />, path: '/vehiculos',     section: 'Recursos' },
-  { label: 'Ubicaciones',   icon: <UbicacionesIcon   fontSize="small" />, path: '/ubicaciones',   section: 'Recursos' },
-  { label: 'Proveedores',   icon: <ProveedoresIcon   fontSize="small" />, path: '/proveedores',   section: 'Recursos' },
-  { label: 'Daños',         icon: <DanosIcon         fontSize="small" />, path: '/danos',         section: 'Control' },
-  { label: 'Alertas',       icon: <AlertasIcon       fontSize="small" />, path: '/alertas',       section: 'Control' },
-  { label: 'Costos',        icon: <CostosIcon        fontSize="small" />, path: '/costos',        section: 'Control' },
-  { label: 'Consultas',     icon: <ConsultasIcon     fontSize="small" />, path: '/consultas',     section: 'Control' },
+  { label: 'nav.dashboard',     icon: <DashboardIcon     fontSize="small" />, path: '/dashboard',     section: 'section.principal' },
+  { label: 'nav.estibas',       icon: <EstibasIcon       fontSize="small" />, path: '/estibas',       section: 'section.principal' },
+  { label: 'nav.movimientos',   icon: <MovimientosIcon   fontSize="small" />, path: '/movimientos',   section: 'section.operaciones' },
+  { label: 'nav.trazabilidad',  icon: <TrazabilidadIcon  fontSize="small" />, path: '/trazabilidad',  section: 'section.operaciones' },
+  { label: 'nav.manifiestos',   icon: <ManifiestosIcon   fontSize="small" />, path: '/manifiestos',   section: 'section.operaciones' },
+  { label: 'nav.mantenimiento', icon: <MantenimientoIcon fontSize="small" />, path: '/mantenimiento', section: 'section.operaciones' },
+  { label: 'nav.vehiculos',     icon: <VehiculosIcon     fontSize="small" />, path: '/vehiculos',     section: 'section.recursos' },
+  { label: 'nav.ubicaciones',   icon: <UbicacionesIcon   fontSize="small" />, path: '/ubicaciones',   section: 'section.recursos' },
+  { label: 'nav.proveedores',   icon: <ProveedoresIcon   fontSize="small" />, path: '/proveedores',   section: 'section.recursos' },
+  { label: 'nav.danos',         icon: <DanosIcon         fontSize="small" />, path: '/danos',         section: 'section.control' },
+  { label: 'nav.alertas',       icon: <AlertasIcon       fontSize="small" />, path: '/alertas',       section: 'section.control' },
+  { label: 'nav.costos',        icon: <CostosIcon        fontSize="small" />, path: '/costos',        section: 'section.control' },
+  { label: 'nav.consultas',     icon: <ConsultasIcon     fontSize="small" />, path: '/consultas',     section: 'section.control' },
 ]
 
 const TX_NAV_ITEMS: NavItem[] = [
-  { label: 'Tablero',       icon: <TableroIcon fontSize="small" />, path: '/tarifax/tablero', section: 'TarifaX' },
-  { label: 'Motor TarifaX', icon: <MotorIcon   fontSize="small" />, path: '/tarifax/motor',   section: 'TarifaX' },
+  { label: 'nav.tablero',      icon: <TableroIcon fontSize="small" />, path: '/tarifax/tablero', section: 'section.tarifax' },
+  { label: 'nav.motorTarifax', icon: <MotorIcon   fontSize="small" />, path: '/tarifax/motor',   section: 'section.tarifax' },
 ]
 
 const FT_NAV_ITEMS: NavItem[] = [
-  { label: 'Despacho de Viajes',    icon: <FletesDespachoIcon    fontSize="small" />, path: '/fletes',              section: 'Despacho', exact: true },
-  { label: 'Generadores de Carga',  icon: <FletesGeneradoresIcon fontSize="small" />, path: '/fletes/generadores',  section: 'Catálogos' },
-  { label: 'Conductores',           icon: <FletesConductoresIcon fontSize="small" />, path: '/fletes/conductores',  section: 'Catálogos' },
+  { label: 'nav.despachoViajes',   icon: <FletesDespachoIcon    fontSize="small" />, path: '/fletes',             section: 'section.despacho', exact: true },
+  { label: 'nav.generadoresCarga', icon: <FletesGeneradoresIcon fontSize="small" />, path: '/fletes/generadores', section: 'section.catalogos' },
+  { label: 'nav.conductores',      icon: <FletesConductoresIcon fontSize="small" />, path: '/fletes/conductores', section: 'section.catalogos' },
 ]
 
 const GF_NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard',         icon: <TableroIcon          fontSize="small" />, path: '/flota',               section: 'General',         exact: true },
-  { label: 'Vehículos',         icon: <FlotaVehiculosIcon   fontSize="small" />, path: '/flota/vehiculos',     section: 'Flota' },
-  { label: 'Combustible',       icon: <FlotaCombustibleIcon fontSize="small" />, path: '/flota/combustible',   section: 'Flota' },
-  { label: 'Documentos',        icon: <FlotaDocumentosIcon  fontSize="small" />, path: '/flota/documentos',    section: 'Flota' },
-  { label: 'Personal',          icon: <FlotaPersonalIcon    fontSize="small" />, path: '/flota/personal',      section: 'Personal' },
-  { label: 'Órdenes de Trabajo',    icon: <FlotaMantenimientoIcon    fontSize="small" />, path: '/flota/mantenimiento',    section: 'Mantenimiento' },
-  { label: 'Programas de Mto.',     icon: <FlotaRutinasIcon          fontSize="small" />, path: '/flota/rutinas',          section: 'Mantenimiento' },
-  { label: 'Confiabilidad',         icon: <FlotaConfiabilidadIcon    fontSize="small" />, path: '/flota/confiabilidad',    section: 'Confiabilidad' },
-  { label: 'Configuración',         icon: <FlotaConfigIcon           fontSize="small" />, path: '/flota/config',           section: 'Sistema' },
+  { label: 'nav.dashboard',     icon: <TableroIcon          fontSize="small" />, path: '/flota',              section: 'section.general',         exact: true },
+  { label: 'nav.vehiculos',     icon: <FlotaVehiculosIcon   fontSize="small" />, path: '/flota/vehiculos',    section: 'section.flota' },
+  { label: 'nav.combustible',   icon: <FlotaCombustibleIcon fontSize="small" />, path: '/flota/combustible',  section: 'section.flota' },
+  { label: 'nav.documentos',    icon: <FlotaDocumentosIcon  fontSize="small" />, path: '/flota/documentos',   section: 'section.flota' },
+  { label: 'nav.personal',      icon: <FlotaPersonalIcon    fontSize="small" />, path: '/flota/personal',     section: 'section.personal' },
+  { label: 'nav.ordenesTrabajo',icon: <FlotaMantenimientoIcon fontSize="small" />, path: '/flota/mantenimiento', section: 'section.mantenimiento' },
+  { label: 'nav.programasMto',  icon: <FlotaRutinasIcon      fontSize="small" />, path: '/flota/rutinas',      section: 'section.mantenimiento' },
+  { label: 'nav.confiabilidad', icon: <FlotaConfiabilidadIcon fontSize="small" />, path: '/flota/confiabilidad', section: 'section.confiabilidad' },
+  { label: 'nav.configuracion', icon: <FlotaConfigIcon       fontSize="small" />, path: '/flota/config',       section: 'section.sistema' },
 ]
-const GF_SECTIONS = ['General', 'Flota', 'Personal', 'Mantenimiento', 'Confiabilidad', 'Sistema']
+const GF_SECTIONS = ['section.general', 'section.flota', 'section.personal', 'section.mantenimiento', 'section.confiabilidad', 'section.sistema']
 
 const ML_NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard',         icon: <TableroIcon            fontSize="small" />, path: '/locativa',            section: 'General',       exact: true },
-  { label: 'Activos',           icon: <LocativaActivosIcon    fontSize="small" />, path: '/locativa/activos',    section: 'Gestión' },
-  { label: 'Órdenes de Trabajo',icon: <LocativaOTMLIcon       fontSize="small" />, path: '/locativa/ordenes',    section: 'Gestión' },
-  { label: 'Riesgos',           icon: <LocativaRiesgoMLIcon   fontSize="small" />, path: '/locativa/riesgos',    section: 'Control' },
-  { label: 'Energía',           icon: <LocativaEnergiaMLIcon  fontSize="small" />, path: '/locativa/energia',    section: 'Control' },
-  { label: 'Configuración',     icon: <LocativaConfigMLIcon   fontSize="small" />, path: '/locativa/config',     section: 'Sistema' },
+  { label: 'nav.dashboard',     icon: <TableroIcon           fontSize="small" />, path: '/locativa',           section: 'section.general', exact: true },
+  { label: 'nav.activos',       icon: <LocativaActivosIcon   fontSize="small" />, path: '/locativa/activos',   section: 'section.gestion' },
+  { label: 'nav.ordenesTrabajo',icon: <LocativaOTMLIcon      fontSize="small" />, path: '/locativa/ordenes',   section: 'section.gestion' },
+  { label: 'nav.riesgos',       icon: <LocativaRiesgoMLIcon  fontSize="small" />, path: '/locativa/riesgos',   section: 'section.control' },
+  { label: 'nav.energia',       icon: <LocativaEnergiaMLIcon fontSize="small" />, path: '/locativa/energia',   section: 'section.control' },
+  { label: 'nav.configuracion', icon: <LocativaConfigMLIcon  fontSize="small" />, path: '/locativa/config',    section: 'section.sistema' },
 ]
-const ML_SECTIONS = ['General', 'Gestión', 'Control', 'Sistema']
+const ML_SECTIONS = ['section.general', 'section.gestion', 'section.control', 'section.sistema']
 
 const WMS_NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard',      icon: <WMSDashboardIcon    fontSize="small" />, path: '/wms',                 section: 'General',       exact: true },
-  { label: 'Recepción',      icon: <WMSInboundIcon      fontSize="small" />, path: '/wms/recepcion',       section: 'Inbound' },
-  { label: 'Inventario',     icon: <WMSInventoryIcon    fontSize="small" />, path: '/wms/inventario',      section: 'Almacenamiento' },
-  { label: 'Picking',        icon: <WMSPickingIcon      fontSize="small" />, path: '/wms/picking',         section: 'Outbound' },
-  { label: 'Despacho',       icon: <WMSDespachoIcon     fontSize="small" />, path: '/wms/despacho',        section: 'Outbound' },
-  { label: 'Trazabilidad',   icon: <WMSTrazabilidadIcon fontSize="small" />, path: '/wms/trazabilidad',    section: 'Control' },
-  { label: 'Configuración',  icon: <WMSConfigIcon       fontSize="small" />, path: '/wms/config',          section: 'Sistema' },
+  { label: 'nav.dashboard',     icon: <WMSDashboardIcon    fontSize="small" />, path: '/wms',              section: 'section.general',          exact: true },
+  { label: 'nav.recepcion',     icon: <WMSInboundIcon      fontSize="small" />, path: '/wms/recepcion',    section: 'section.inbound' },
+  { label: 'nav.inventario',    icon: <WMSInventoryIcon    fontSize="small" />, path: '/wms/inventario',   section: 'section.almacenamiento' },
+  { label: 'nav.picking',       icon: <WMSPickingIcon      fontSize="small" />, path: '/wms/picking',      section: 'section.outbound' },
+  { label: 'nav.despacho',      icon: <WMSDespachoIcon     fontSize="small" />, path: '/wms/despacho',     section: 'section.outbound' },
+  { label: 'nav.trazabilidad',  icon: <WMSTrazabilidadIcon fontSize="small" />, path: '/wms/trazabilidad', section: 'section.control' },
+  { label: 'nav.configuracion', icon: <WMSConfigIcon       fontSize="small" />, path: '/wms/config',       section: 'section.sistema' },
 ]
-const WMS_SECTIONS = ['General', 'Inbound', 'Almacenamiento', 'Outbound', 'Control', 'Sistema']
+const WMS_SECTIONS = ['section.general', 'section.inbound', 'section.almacenamiento', 'section.outbound', 'section.control', 'section.sistema']
 
 const GH_NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard',     icon: <GHDashboardIcon     fontSize="small" />, path: '/gh',               section: 'General',       exact: true },
-  { label: 'Colaboradores', icon: <GHColaboradoresIcon fontSize="small" />, path: '/gh/colaboradores', section: 'Personas' },
-  { label: 'Conductores',   icon: <GHConductoresIcon   fontSize="small" />, path: '/gh/conductores',   section: 'Personas' },
-  { label: 'Nómina',        icon: <GHNominaIcon        fontSize="small" />, path: '/gh/nomina',        section: 'Nómina' },
-  { label: 'Incapacidades', icon: <GHIncapIcon         fontSize="small" />, path: '/gh/incapacidades', section: 'Nómina' },
-  { label: 'Vacaciones',    icon: <GHVacacionesIcon    fontSize="small" />, path: '/gh/vacaciones',    section: 'Nómina' },
-  { label: 'Reclutamiento', icon: <GHReclutIcon        fontSize="small" />, path: '/gh/reclutamiento', section: 'Reclutamiento' },
-  { label: 'Evaluación',    icon: <GHEvalIcon          fontSize="small" />, path: '/gh/evaluacion',    section: 'Desarrollo' },
-  { label: 'Capacitación',  icon: <GHCapacitIcon       fontSize="small" />, path: '/gh/capacitacion',  section: 'Desarrollo' },
-  { label: 'SST',           icon: <GHSSTIcon           fontSize="small" />, path: '/gh/sst',           section: 'SST' },
-  { label: 'Configuración', icon: <GHConfigIcon        fontSize="small" />, path: '/gh/config',        section: 'Sistema' },
+  { label: 'nav.dashboard',     icon: <GHDashboardIcon     fontSize="small" />, path: '/gh',               section: 'section.general',       exact: true },
+  { label: 'nav.colaboradores', icon: <GHColaboradoresIcon fontSize="small" />, path: '/gh/colaboradores', section: 'section.personas' },
+  { label: 'nav.conductores',   icon: <GHConductoresIcon   fontSize="small" />, path: '/gh/conductores',   section: 'section.personas' },
+  { label: 'nav.nomina',        icon: <GHNominaIcon        fontSize="small" />, path: '/gh/nomina',        section: 'section.nomina' },
+  { label: 'nav.incapacidades', icon: <GHIncapIcon         fontSize="small" />, path: '/gh/incapacidades', section: 'section.nomina' },
+  { label: 'nav.vacaciones',    icon: <GHVacacionesIcon    fontSize="small" />, path: '/gh/vacaciones',    section: 'section.nomina' },
+  { label: 'nav.reclutamiento', icon: <GHReclutIcon        fontSize="small" />, path: '/gh/reclutamiento', section: 'section.reclutamiento' },
+  { label: 'nav.evaluacion',    icon: <GHEvalIcon          fontSize="small" />, path: '/gh/evaluacion',    section: 'section.desarrollo' },
+  { label: 'nav.capacitacion',  icon: <GHCapacitIcon       fontSize="small" />, path: '/gh/capacitacion',  section: 'section.desarrollo' },
+  { label: 'nav.sst',           icon: <GHSSTIcon           fontSize="small" />, path: '/gh/sst',           section: 'section.sst' },
+  { label: 'nav.configuracion', icon: <GHConfigIcon        fontSize="small" />, path: '/gh/config',        section: 'section.sistema' },
 ]
-const GH_SECTIONS = ['General', 'Personas', 'Nómina', 'Reclutamiento', 'Desarrollo', 'SST', 'Sistema']
+const GH_SECTIONS = ['section.general', 'section.personas', 'section.nomina', 'section.reclutamiento', 'section.desarrollo', 'section.sst', 'section.sistema']
 
 const TMS_NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard',        icon: <TMSDashIconTMS        fontSize="small" />, path: '/tms',               section: 'General',    exact: true },
-  { label: 'Viajes',           icon: <TMSViajesIconTMS      fontSize="small" />, path: '/tms/viajes',        section: 'Operación' },
-  { label: 'Planeación',       icon: <TMSPlaneacionIconTMS  fontSize="small" />, path: '/tms/planeacion',    section: 'Operación' },
-  { label: 'Despachos',        icon: <TMSDespachosIconTMS   fontSize="small" />, path: '/tms/despachos',     section: 'Operación' },
-  { label: 'Tracking',         icon: <TMSTrackingIconTMS    fontSize="small" />, path: '/tms/tracking',      section: 'Operación' },
-  { label: 'Vehículos',        icon: <TMSVehiculosIconTMS   fontSize="small" />, path: '/tms/vehiculos',     section: 'Recursos' },
-  { label: 'Conductores',      icon: <TMSConductoresIconTMS fontSize="small" />, path: '/tms/conductores',   section: 'Recursos' },
-  { label: 'Rutas',            icon: <TMSRutasIconTMS       fontSize="small" />, path: '/tms/rutas',         section: 'Logística' },
-  { label: 'Torre de Control', icon: <TMSTorreIconTMS       fontSize="small" />, path: '/tms/torre-control', section: 'Logística' },
-  { label: 'Costos',           icon: <TMSCostosIconTMS      fontSize="small" />, path: '/tms/costos',        section: 'Financiero' },
-  { label: 'OTIF',             icon: <TMSOTIFIconTMS        fontSize="small" />, path: '/tms/otif',          section: 'Financiero' },
-  { label: 'Liquidaciones',    icon: <TMSLiquidacionesIconTMS fontSize="small" />, path: '/tms/liquidaciones', section: 'Financiero' },
-  { label: 'Despacho Fletes',  icon: <FletesDespachoIcon    fontSize="small" />, path: '/fletes',            section: 'Fletes',    exact: true },
-  { label: 'Generadores',      icon: <FletesGeneradoresIcon fontSize="small" />, path: '/fletes/generadores',section: 'Fletes' },
-  { label: 'Cond. Fletes',     icon: <FletesConductoresIcon fontSize="small" />, path: '/fletes/conductores',section: 'Fletes' },
-  { label: 'Documentos',       icon: <TMSDocumentosIconTMS  fontSize="small" />, path: '/tms/documentos',    section: 'Sistema' },
-  { label: 'Configuración',    icon: <TMSConfigIconTMS      fontSize="small" />, path: '/tms/config',        section: 'Sistema' },
+  { label: 'nav.dashboard',     icon: <TMSDashIconTMS          fontSize="small" />, path: '/tms',               section: 'section.general',    exact: true },
+  { label: 'nav.viajes',        icon: <TMSViajesIconTMS        fontSize="small" />, path: '/tms/viajes',        section: 'section.operacion' },
+  { label: 'nav.planeacion',    icon: <TMSPlaneacionIconTMS    fontSize="small" />, path: '/tms/planeacion',    section: 'section.operacion' },
+  { label: 'nav.despachos',     icon: <TMSDespachosIconTMS     fontSize="small" />, path: '/tms/despachos',     section: 'section.operacion' },
+  { label: 'nav.tracking',      icon: <TMSTrackingIconTMS      fontSize="small" />, path: '/tms/tracking',      section: 'section.operacion' },
+  { label: 'nav.vehiculos',     icon: <TMSVehiculosIconTMS     fontSize="small" />, path: '/tms/vehiculos',     section: 'section.recursos' },
+  { label: 'nav.conductores',   icon: <TMSConductoresIconTMS   fontSize="small" />, path: '/tms/conductores',   section: 'section.recursos' },
+  { label: 'nav.rutas',         icon: <TMSRutasIconTMS         fontSize="small" />, path: '/tms/rutas',         section: 'section.logistica' },
+  { label: 'nav.torreControl',  icon: <TMSTorreIconTMS         fontSize="small" />, path: '/tms/torre-control', section: 'section.logistica' },
+  { label: 'nav.costos',        icon: <TMSCostosIconTMS        fontSize="small" />, path: '/tms/costos',        section: 'section.financiero' },
+  { label: 'nav.otif',          icon: <TMSOTIFIconTMS          fontSize="small" />, path: '/tms/otif',          section: 'section.financiero' },
+  { label: 'nav.liquidaciones', icon: <TMSLiquidacionesIconTMS fontSize="small" />, path: '/tms/liquidaciones', section: 'section.financiero' },
+  { label: 'nav.despachoFletes',icon: <FletesDespachoIcon      fontSize="small" />, path: '/fletes',            section: 'section.fletes',    exact: true },
+  { label: 'nav.generadores',   icon: <FletesGeneradoresIcon   fontSize="small" />, path: '/fletes/generadores',section: 'section.fletes' },
+  { label: 'nav.condFletes',    icon: <FletesConductoresIcon   fontSize="small" />, path: '/fletes/conductores',section: 'section.fletes' },
+  { label: 'nav.documentos',    icon: <TMSDocumentosIconTMS    fontSize="small" />, path: '/tms/documentos',    section: 'section.sistema' },
+  { label: 'nav.configuracion', icon: <TMSConfigIconTMS        fontSize="small" />, path: '/tms/config',        section: 'section.sistema' },
 ]
-const TMS_SECTIONS = ['General', 'Operación', 'Recursos', 'Logística', 'Financiero', 'Fletes', 'Sistema']
+const TMS_SECTIONS = ['section.general', 'section.operacion', 'section.recursos', 'section.logistica', 'section.financiero', 'section.fletes', 'section.sistema']
 
 const DMS_NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard',      icon: <DMSDashIconDMS          fontSize="small" />, path: '/dms',               section: 'General',       exact: true },
-  { label: 'Repositorio',    icon: <DMSRepositorioIconDMS   fontSize="small" />, path: '/dms/repositorio',   section: 'Repositorio' },
-  { label: 'Documentos',     icon: <DMSDocumentosIconDMS    fontSize="small" />, path: '/dms/documentos',    section: 'Repositorio' },
-  { label: 'Categorías',     icon: <DMSCategoriasIconDMS    fontSize="small" />, path: '/dms/categorias',    section: 'Clasificación' },
-  { label: 'Expedientes',    icon: <DMSExpedientesIconDMS   fontSize="small" />, path: '/dms/expedientes',   section: 'Clasificación' },
-  { label: 'Workflows',      icon: <DMSWorkflowIconDMS      fontSize="small" />, path: '/dms/workflow',      section: 'Flujos' },
-  { label: 'Firmas',         icon: <DMSFirmasIconDMS        fontSize="small" />, path: '/dms/firmas',        section: 'Flujos' },
-  { label: 'Búsqueda',       icon: <DMSBusquedaIconDMS      fontSize="small" />, path: '/dms/busqueda',      section: 'Búsqueda' },
-  { label: 'Retención',      icon: <DMSRetencionIconDMS     fontSize="small" />, path: '/dms/retencion',     section: 'Cumplimiento' },
-  { label: 'Auditoría',      icon: <DMSAuditoriaIconDMS     fontSize="small" />, path: '/dms/auditoria',     section: 'Cumplimiento' },
-  { label: 'Integraciones',  icon: <DMSIntegracionesIconDMS fontSize="small" />, path: '/dms/integraciones', section: 'Inteligencia' },
-  { label: 'IA Documental',  icon: <DMSIAIconDMS            fontSize="small" />, path: '/dms/ia',            section: 'Inteligencia' },
-  { label: 'Portal',         icon: <DMSPortalIconDMS        fontSize="small" />, path: '/dms/portal',        section: 'Portal' },
-  { label: 'Configuración',  icon: <DMSConfigIconDMS        fontSize="small" />, path: '/dms/config',        section: 'Sistema' },
+  { label: 'nav.dashboard',     icon: <DMSDashIconDMS          fontSize="small" />, path: '/dms',               section: 'section.general',      exact: true },
+  { label: 'nav.repositorio',   icon: <DMSRepositorioIconDMS   fontSize="small" />, path: '/dms/repositorio',   section: 'section.repositorio' },
+  { label: 'nav.documentos',    icon: <DMSDocumentosIconDMS    fontSize="small" />, path: '/dms/documentos',    section: 'section.repositorio' },
+  { label: 'nav.categorias',    icon: <DMSCategoriasIconDMS    fontSize="small" />, path: '/dms/categorias',    section: 'section.clasificacion' },
+  { label: 'nav.expedientes',   icon: <DMSExpedientesIconDMS   fontSize="small" />, path: '/dms/expedientes',   section: 'section.clasificacion' },
+  { label: 'nav.workflows',     icon: <DMSWorkflowIconDMS      fontSize="small" />, path: '/dms/workflow',      section: 'section.flujos' },
+  { label: 'nav.firmas',        icon: <DMSFirmasIconDMS        fontSize="small" />, path: '/dms/firmas',        section: 'section.flujos' },
+  { label: 'nav.busqueda',      icon: <DMSBusquedaIconDMS      fontSize="small" />, path: '/dms/busqueda',      section: 'section.busqueda' },
+  { label: 'nav.retencion',     icon: <DMSRetencionIconDMS     fontSize="small" />, path: '/dms/retencion',     section: 'section.cumplimiento' },
+  { label: 'nav.auditoria',     icon: <DMSAuditoriaIconDMS     fontSize="small" />, path: '/dms/auditoria',     section: 'section.cumplimiento' },
+  { label: 'nav.integraciones', icon: <DMSIntegracionesIconDMS fontSize="small" />, path: '/dms/integraciones', section: 'section.inteligencia' },
+  { label: 'nav.iaDocumental',  icon: <DMSIAIconDMS            fontSize="small" />, path: '/dms/ia',            section: 'section.inteligencia' },
+  { label: 'nav.portal',        icon: <DMSPortalIconDMS        fontSize="small" />, path: '/dms/portal',        section: 'section.portal' },
+  { label: 'nav.configuracion', icon: <DMSConfigIconDMS        fontSize="small" />, path: '/dms/config',        section: 'section.sistema' },
 ]
-const DMS_SECTIONS = ['General', 'Repositorio', 'Clasificación', 'Flujos', 'Búsqueda', 'Cumplimiento', 'Inteligencia', 'Portal', 'Sistema']
+const DMS_SECTIONS = ['section.general', 'section.repositorio', 'section.clasificacion', 'section.flujos', 'section.busqueda', 'section.cumplimiento', 'section.inteligencia', 'section.portal', 'section.sistema']
 
 const QMS_NAV_ITEMS: NavItem[] = [
-  { label: 'Torre de Control',  icon: <QMSDashIconQMS         fontSize="small" />, path: '/qms',                  section: 'General',        exact: true },
-  { label: 'Procesos',          icon: <QMSProcesosIconQMS     fontSize="small" />, path: '/qms/procesos',         section: 'Procesos' },
-  { label: 'Indicadores',       icon: <QMSIndicadoresIconQMS  fontSize="small" />, path: '/qms/indicadores',      section: 'Procesos' },
-  { label: 'No Conformidades',  icon: <QMSNCIconQMS           fontSize="small" />, path: '/qms/no-conformidades', section: 'Calidad' },
-  { label: 'Auditorías',        icon: <QMSAuditoriasIconQMS   fontSize="small" />, path: '/qms/auditorias',       section: 'Calidad' },
-  { label: 'Hallazgos',         icon: <QMSHallazgosIconQMS    fontSize="small" />, path: '/qms/hallazgos',        section: 'Calidad' },
-  { label: 'Riesgos',           icon: <QMSRiesgosIconQMS      fontSize="small" />, path: '/qms/riesgos',          section: 'Operacional' },
-  { label: 'Cambios',           icon: <QMSCambiosIconQMS      fontSize="small" />, path: '/qms/cambios',          section: 'Operacional' },
-  { label: 'Quejas y Reclamos', icon: <QMSQuejasIconQMS       fontSize="small" />, path: '/qms/quejas',           section: 'Operacional' },
-  { label: 'Proveedores',       icon: <QMSProveedoresIconQMS  fontSize="small" />, path: '/qms/proveedores',      section: 'Relacionamiento' },
-  { label: 'Encuestas',         icon: <QMSEncuestasIconQMS    fontSize="small" />, path: '/qms/encuestas',        section: 'Relacionamiento' },
-  { label: 'Mejora Continua',   icon: <QMSMejoraIconQMS       fontSize="small" />, path: '/qms/mejora',           section: 'Mejora' },
-  { label: 'IA Calidad',        icon: <QMSIAIconQMS           fontSize="small" />, path: '/qms/ia',               section: 'Mejora' },
-  { label: 'Configuración',     icon: <QMSConfigIconQMS       fontSize="small" />, path: '/qms/config',           section: 'Sistema' },
+  { label: 'nav.torreControl',    icon: <QMSDashIconQMS         fontSize="small" />, path: '/qms',                  section: 'section.general',        exact: true },
+  { label: 'nav.procesos',        icon: <QMSProcesosIconQMS     fontSize="small" />, path: '/qms/procesos',         section: 'section.procesos' },
+  { label: 'nav.indicadores',     icon: <QMSIndicadoresIconQMS  fontSize="small" />, path: '/qms/indicadores',      section: 'section.procesos' },
+  { label: 'nav.noConformidades', icon: <QMSNCIconQMS           fontSize="small" />, path: '/qms/no-conformidades', section: 'section.calidad' },
+  { label: 'nav.auditorias',      icon: <QMSAuditoriasIconQMS   fontSize="small" />, path: '/qms/auditorias',       section: 'section.calidad' },
+  { label: 'nav.hallazgos',       icon: <QMSHallazgosIconQMS    fontSize="small" />, path: '/qms/hallazgos',        section: 'section.calidad' },
+  { label: 'nav.riesgos',         icon: <QMSRiesgosIconQMS      fontSize="small" />, path: '/qms/riesgos',          section: 'section.operacional' },
+  { label: 'nav.cambios',         icon: <QMSCambiosIconQMS      fontSize="small" />, path: '/qms/cambios',          section: 'section.operacional' },
+  { label: 'nav.quejasReclamos',  icon: <QMSQuejasIconQMS       fontSize="small" />, path: '/qms/quejas',           section: 'section.operacional' },
+  { label: 'nav.proveedores',     icon: <QMSProveedoresIconQMS  fontSize="small" />, path: '/qms/proveedores',      section: 'section.relacionamiento' },
+  { label: 'nav.encuestas',       icon: <QMSEncuestasIconQMS    fontSize="small" />, path: '/qms/encuestas',        section: 'section.relacionamiento' },
+  { label: 'nav.mejoraContinua',  icon: <QMSMejoraIconQMS       fontSize="small" />, path: '/qms/mejora',           section: 'section.mejora' },
+  { label: 'nav.iaCalidad',       icon: <QMSIAIconQMS           fontSize="small" />, path: '/qms/ia',               section: 'section.mejora' },
+  { label: 'nav.configuracion',   icon: <QMSConfigIconQMS       fontSize="small" />, path: '/qms/config',           section: 'section.sistema' },
 ]
-const QMS_SECTIONS = ['General', 'Procesos', 'Calidad', 'Operacional', 'Relacionamiento', 'Mejora', 'Sistema']
+const QMS_SECTIONS = ['section.general', 'section.procesos', 'section.calidad', 'section.operacional', 'section.relacionamiento', 'section.mejora', 'section.sistema']
 
 const GRC_NAV_ITEMS: NavItem[] = [
-  { label: 'Torre de Control',  icon: <GRCDashIconGRC          fontSize="small" />, path: '/grc',                section: 'General',       exact: true },
-  { label: 'Gobierno',          icon: <GRCGobiernoIconGRC      fontSize="small" />, path: '/grc/gobierno',       section: 'Gobierno' },
-  { label: 'Políticas',         icon: <GRCPoliticasIconGRC     fontSize="small" />, path: '/grc/politicas',      section: 'Gobierno' },
-  { label: 'Obligaciones',      icon: <GRCObligacionesIconGRC  fontSize="small" />, path: '/grc/obligaciones',   section: 'Cumplimiento' },
-  { label: 'Cumplimiento',      icon: <GRCCumplimientoIconGRC  fontSize="small" />, path: '/grc/cumplimiento',   section: 'Cumplimiento' },
-  { label: 'Riesgos',           icon: <GRCRiesgosIconGRC       fontSize="small" />, path: '/grc/riesgos',        section: 'Riesgos' },
-  { label: 'Controles',         icon: <GRCControlesIconGRC     fontSize="small" />, path: '/grc/controles',      section: 'Riesgos' },
-  { label: 'Terceros',          icon: <GRCTercerosIconGRC      fontSize="small" />, path: '/grc/terceros',       section: 'Riesgos' },
-  { label: 'Auditorías',        icon: <GRCAuditoriasIconGRC    fontSize="small" />, path: '/grc/auditorias',     section: 'Auditoría' },
-  { label: 'Hallazgos',         icon: <GRCHallazgosIconGRC     fontSize="small" />, path: '/grc/hallazgos',      section: 'Auditoría' },
-  { label: 'Continuidad',       icon: <GRCContinuidadIconGRC   fontSize="small" />, path: '/grc/continuidad',    section: 'Continuidad' },
-  { label: 'Incidentes',        icon: <GRCIncidentesIconGRC    fontSize="small" />, path: '/grc/incidentes',     section: 'Continuidad' },
-  { label: 'IA GRC',            icon: <GRCIAIconGRC            fontSize="small" />, path: '/grc/ia',             section: 'Inteligencia' },
-  { label: 'Configuración',     icon: <GRCConfigIconGRC        fontSize="small" />, path: '/grc/config',         section: 'Sistema' },
+  { label: 'nav.torreControl',  icon: <GRCDashIconGRC         fontSize="small" />, path: '/grc',              section: 'section.general',      exact: true },
+  { label: 'nav.gobierno',      icon: <GRCGobiernoIconGRC     fontSize="small" />, path: '/grc/gobierno',     section: 'section.gobierno' },
+  { label: 'nav.politicas',     icon: <GRCPoliticasIconGRC    fontSize="small" />, path: '/grc/politicas',    section: 'section.gobierno' },
+  { label: 'nav.obligaciones',  icon: <GRCObligacionesIconGRC fontSize="small" />, path: '/grc/obligaciones', section: 'section.cumplimiento' },
+  { label: 'nav.cumplimiento',  icon: <GRCCumplimientoIconGRC fontSize="small" />, path: '/grc/cumplimiento', section: 'section.cumplimiento' },
+  { label: 'nav.riesgos',       icon: <GRCRiesgosIconGRC      fontSize="small" />, path: '/grc/riesgos',      section: 'section.riesgos' },
+  { label: 'nav.controles',     icon: <GRCControlesIconGRC    fontSize="small" />, path: '/grc/controles',    section: 'section.riesgos' },
+  { label: 'nav.terceros',      icon: <GRCTercerosIconGRC     fontSize="small" />, path: '/grc/terceros',     section: 'section.riesgos' },
+  { label: 'nav.auditorias',    icon: <GRCAuditoriasIconGRC   fontSize="small" />, path: '/grc/auditorias',   section: 'section.auditoria' },
+  { label: 'nav.hallazgos',     icon: <GRCHallazgosIconGRC    fontSize="small" />, path: '/grc/hallazgos',    section: 'section.auditoria' },
+  { label: 'nav.continuidad',   icon: <GRCContinuidadIconGRC  fontSize="small" />, path: '/grc/continuidad',  section: 'section.continuidad' },
+  { label: 'nav.incidentes',    icon: <GRCIncidentesIconGRC   fontSize="small" />, path: '/grc/incidentes',   section: 'section.continuidad' },
+  { label: 'nav.iaGrc',         icon: <GRCIAIconGRC           fontSize="small" />, path: '/grc/ia',           section: 'section.inteligencia' },
+  { label: 'nav.configuracion', icon: <GRCConfigIconGRC       fontSize="small" />, path: '/grc/config',       section: 'section.sistema' },
 ]
-const GRC_SECTIONS = ['General', 'Gobierno', 'Cumplimiento', 'Riesgos', 'Auditoría', 'Continuidad', 'Inteligencia', 'Sistema']
+const GRC_SECTIONS = ['section.general', 'section.gobierno', 'section.cumplimiento', 'section.riesgos', 'section.auditoria', 'section.continuidad', 'section.inteligencia', 'section.sistema']
 
 const LMS_NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard',       icon: <LMSReportesIcon      fontSize="small" />, path: '/lms',                section: 'General',    exact: true },
-  { label: 'Mi Aprendizaje',  icon: <LMSMiAprendizajeIcon fontSize="small" />, path: '/lms/mi-aprendizaje', section: 'General' },
-  { label: 'Universidad',     icon: <LMSUniversidadIcon   fontSize="small" />, path: '/lms/universidad',    section: 'Academia' },
-  { label: 'Catálogo',        icon: <LMSCatalogoIcon      fontSize="small" />, path: '/lms/catalogo',       section: 'Academia' },
-  { label: 'Rutas',           icon: <LMSRutasIcon         fontSize="small" />, path: '/lms/rutas',          section: 'Academia' },
-  { label: 'Onboarding',      icon: <LMSOnboardingIcon    fontSize="small" />, path: '/lms/onboarding',     section: 'Talento' },
-  { label: 'Competencias',    icon: <LMSCompetenciasIcon  fontSize="small" />, path: '/lms/competencias',   section: 'Talento' },
-  { label: 'Evaluaciones',    icon: <LMSEvaluacionesIcon  fontSize="small" />, path: '/lms/evaluaciones',   section: 'Evaluación' },
-  { label: 'Banco Preguntas', icon: <LMSBancoIcon         fontSize="small" />, path: '/lms/banco-preguntas',section: 'Evaluación' },
-  { label: 'Certificaciones', icon: <LMSCertificacionesIcon fontSize="small" />, path: '/lms/certificaciones', section: 'Evaluación' },
-  { label: 'Conocimiento',    icon: <LMSKnowledgeIcon     fontSize="small" />, path: '/lms/conocimiento',   section: 'Conocimiento' },
-  { label: 'Gamificación',    icon: <LMSGamificacionIcon  fontSize="small" />, path: '/lms/gamificacion',   section: 'Analítica' },
-  { label: 'IA LMS',          icon: <LMSIAIcon            fontSize="small" />, path: '/lms/ia',             section: 'Analítica' },
-  { label: 'Reportes',        icon: <LMSReportesIcon      fontSize="small" />, path: '/lms/reportes',       section: 'Analítica' },
-  { label: 'Configuración',   icon: <LMSConfigIcon        fontSize="small" />, path: '/lms/config',         section: 'Sistema' },
+  { label: 'nav.dashboard',       icon: <LMSReportesIcon       fontSize="small" />, path: '/lms',                 section: 'section.general',     exact: true },
+  { label: 'nav.miAprendizaje',   icon: <LMSMiAprendizajeIcon  fontSize="small" />, path: '/lms/mi-aprendizaje',  section: 'section.general' },
+  { label: 'nav.universidad',     icon: <LMSUniversidadIcon    fontSize="small" />, path: '/lms/universidad',     section: 'section.academia' },
+  { label: 'nav.catalogo',        icon: <LMSCatalogoIcon       fontSize="small" />, path: '/lms/catalogo',        section: 'section.academia' },
+  { label: 'nav.rutas',           icon: <LMSRutasIcon          fontSize="small" />, path: '/lms/rutas',           section: 'section.academia' },
+  { label: 'nav.onboarding',      icon: <LMSOnboardingIcon     fontSize="small" />, path: '/lms/onboarding',      section: 'section.talento' },
+  { label: 'nav.competencias',    icon: <LMSCompetenciasIcon   fontSize="small" />, path: '/lms/competencias',    section: 'section.talento' },
+  { label: 'nav.evaluaciones',    icon: <LMSEvaluacionesIcon   fontSize="small" />, path: '/lms/evaluaciones',    section: 'section.evaluacion' },
+  { label: 'nav.bancoPreguntas',  icon: <LMSBancoIcon          fontSize="small" />, path: '/lms/banco-preguntas', section: 'section.evaluacion' },
+  { label: 'nav.certificaciones', icon: <LMSCertificacionesIcon fontSize="small" />, path: '/lms/certificaciones', section: 'section.evaluacion' },
+  { label: 'nav.conocimiento',    icon: <LMSKnowledgeIcon      fontSize="small" />, path: '/lms/conocimiento',    section: 'section.conocimiento' },
+  { label: 'nav.gamificacion',    icon: <LMSGamificacionIcon   fontSize="small" />, path: '/lms/gamificacion',    section: 'section.analitica' },
+  { label: 'nav.iaLms',           icon: <LMSIAIcon             fontSize="small" />, path: '/lms/ia',              section: 'section.analitica' },
+  { label: 'nav.reportes',        icon: <LMSReportesIcon       fontSize="small" />, path: '/lms/reportes',        section: 'section.analitica' },
+  { label: 'nav.configuracion',   icon: <LMSConfigIcon         fontSize="small" />, path: '/lms/config',          section: 'section.sistema' },
 ]
-const LMS_SECTIONS = ['General', 'Academia', 'Talento', 'Evaluación', 'Conocimiento', 'Analítica', 'Sistema']
+const LMS_SECTIONS = ['section.general', 'section.academia', 'section.talento', 'section.evaluacion', 'section.conocimiento', 'section.analitica', 'section.sistema']
 
 const CRM_NAV_ITEMS: NavItem[] = [
-  { label: 'Torre Comercial',  icon: <CRMDashIconCRM         fontSize="small" />, path: '/crm',                section: 'General',    exact: true },
-  { label: 'Clientes 360',     icon: <CRMClientesIconCRM     fontSize="small" />, path: '/crm/clientes',       section: 'General' },
-  { label: 'Lead Scoring',     icon: <CRMLeadsIconCRM        fontSize="small" />, path: '/crm/leads',          section: 'Comercial' },
-  { label: 'Oportunidades',    icon: <CRMDashIconCRM         fontSize="small" />, path: '/crm/oportunidades', section: 'Comercial' },
-  { label: 'Cotizaciones',     icon: <CRMCotizacionesIconCRM fontSize="small" />, path: '/crm/cotizaciones',   section: 'Comercial' },
-  { label: 'Contratos & SLA',  icon: <CRMContratosIconCRM    fontSize="small" />, path: '/crm/contratos',      section: 'Contratos' },
-  { label: 'Cuentas Clave',    icon: <CRMCuentasIconCRM      fontSize="small" />, path: '/crm/cuentas-clave',  section: 'Contratos' },
-  { label: 'Tickets PQRS',     icon: <CRMTicketsIconCRM      fontSize="small" />, path: '/crm/tickets',        section: 'Servicio' },
-  { label: 'Interacciones',    icon: <CRMInteraccionesIconCRM fontSize="small" />, path: '/crm/interacciones', section: 'Servicio' },
-  { label: 'Campañas',         icon: <CRMCampanasIconCRM     fontSize="small" />, path: '/crm/campanas',       section: 'Marketing' },
-  { label: 'NPS & Encuestas',  icon: <CRMEncuestasIconCRM    fontSize="small" />, path: '/crm/encuestas',      section: 'Marketing' },
-  { label: 'Rentabilidad',     icon: <CRMRentabilidadIconCRM fontSize="small" />, path: '/crm/rentabilidad',   section: 'Analítica' },
-  { label: 'IA Comercial',     icon: <CRMIAIconCRM           fontSize="small" />, path: '/crm/ia',             section: 'Analítica' },
-  { label: 'Reportes',         icon: <CRMReportesIconCRM     fontSize="small" />, path: '/crm/reportes',       section: 'Analítica' },
-  { label: 'Configuración',    icon: <CRMConfigIconCRM       fontSize="small" />, path: '/crm/config',         section: 'Sistema' },
+  { label: 'nav.torreComercial', icon: <CRMDashIconCRM          fontSize="small" />, path: '/crm',               section: 'section.general',   exact: true },
+  { label: 'nav.clientes360',    icon: <CRMClientesIconCRM      fontSize="small" />, path: '/crm/clientes',      section: 'section.general' },
+  { label: 'nav.leadScoring',    icon: <CRMLeadsIconCRM         fontSize="small" />, path: '/crm/leads',         section: 'section.comercial' },
+  { label: 'nav.oportunidades',  icon: <CRMDashIconCRM          fontSize="small" />, path: '/crm/oportunidades', section: 'section.comercial' },
+  { label: 'nav.cotizaciones',   icon: <CRMCotizacionesIconCRM  fontSize="small" />, path: '/crm/cotizaciones',  section: 'section.comercial' },
+  { label: 'nav.contratosSla',   icon: <CRMContratosIconCRM     fontSize="small" />, path: '/crm/contratos',     section: 'section.contratos' },
+  { label: 'nav.cuentasClave',   icon: <CRMCuentasIconCRM       fontSize="small" />, path: '/crm/cuentas-clave', section: 'section.contratos' },
+  { label: 'nav.ticketsPqrs',    icon: <CRMTicketsIconCRM       fontSize="small" />, path: '/crm/tickets',       section: 'section.servicio' },
+  { label: 'nav.interacciones',  icon: <CRMInteraccionesIconCRM fontSize="small" />, path: '/crm/interacciones', section: 'section.servicio' },
+  { label: 'nav.campanas',       icon: <CRMCampanasIconCRM      fontSize="small" />, path: '/crm/campanas',      section: 'section.marketing' },
+  { label: 'nav.npsEncuestas',   icon: <CRMEncuestasIconCRM     fontSize="small" />, path: '/crm/encuestas',     section: 'section.marketing' },
+  { label: 'nav.rentabilidad',   icon: <CRMRentabilidadIconCRM  fontSize="small" />, path: '/crm/rentabilidad',  section: 'section.analitica' },
+  { label: 'nav.iaComercial',    icon: <CRMIAIconCRM            fontSize="small" />, path: '/crm/ia',            section: 'section.analitica' },
+  { label: 'nav.reportes',       icon: <CRMReportesIconCRM      fontSize="small" />, path: '/crm/reportes',      section: 'section.analitica' },
+  { label: 'nav.configuracion',  icon: <CRMConfigIconCRM        fontSize="small" />, path: '/crm/config',        section: 'section.sistema' },
 ]
-const CRM_SECTIONS = ['General', 'Comercial', 'Contratos', 'Servicio', 'Marketing', 'Analítica', 'Sistema']
+const CRM_SECTIONS = ['section.general', 'section.comercial', 'section.contratos', 'section.servicio', 'section.marketing', 'section.analitica', 'section.sistema']
 
 const EAM_NAV_ITEMS: NavItem[] = [
-  { label: 'Torre de Control',  icon: <EAMDashIconEAM          fontSize="small" />, path: '/eam',                 section: 'General',         exact: true },
-  { label: 'Activos',           icon: <EAMActivosIconEAM       fontSize="small" />, path: '/eam/activos',         section: 'General' },
-  { label: 'Órdenes de Trabajo',icon: <EAMOTIconEAM            fontSize="small" />, path: '/eam/ordenes-trabajo', section: 'Mantenimiento' },
-  { label: 'Planes de Mant.',   icon: <EAMPlanesIconEAM        fontSize="small" />, path: '/eam/planes',          section: 'Mantenimiento' },
-  { label: 'Checklists',        icon: <EAMChecklistIconEAM     fontSize="small" />, path: '/eam/checklists',      section: 'Mantenimiento' },
-  { label: 'Lubricación',       icon: <EAMLubricacionIconEAM   fontSize="small" />, path: '/eam/lubricacion',     section: 'Lubricación' },
-  { label: 'Neumáticos',        icon: <EAMNeumaticosIconEAM    fontSize="small" />, path: '/eam/neumaticos',      section: 'Lubricación' },
-  { label: 'Combustible',       icon: <EAMCombustibleIconEAM   fontSize="small" />, path: '/eam/combustible',     section: 'Lubricación' },
-  { label: 'Inventario',        icon: <EAMInventarioIconEAM    fontSize="small" />, path: '/eam/inventario',      section: 'Inventario' },
-  { label: 'Garantías',         icon: <EAMGarantiasIconEAM     fontSize="small" />, path: '/eam/garantias',       section: 'Inventario' },
-  { label: 'Confiabilidad',     icon: <EAMConfiabilidadIconEAM fontSize="small" />, path: '/eam/confiabilidad',   section: 'Confiabilidad' },
-  { label: 'IA Predictiva',     icon: <EAMIAIconEAM            fontSize="small" />, path: '/eam/ia',              section: 'Inteligencia' },
-  { label: 'Reportes',          icon: <EAMReportesIconEAM      fontSize="small" />, path: '/eam/reportes',        section: 'Inteligencia' },
-  { label: 'Configuración',     icon: <EAMConfigIconEAM        fontSize="small" />, path: '/eam/config',          section: 'Sistema' },
+  { label: 'nav.torreControl',   icon: <EAMDashIconEAM          fontSize="small" />, path: '/eam',                 section: 'section.general',         exact: true },
+  { label: 'nav.activos',        icon: <EAMActivosIconEAM       fontSize="small" />, path: '/eam/activos',         section: 'section.general' },
+  { label: 'nav.ordenesTrabajo', icon: <EAMOTIconEAM            fontSize="small" />, path: '/eam/ordenes-trabajo', section: 'section.mantenimiento' },
+  { label: 'nav.planesMant',     icon: <EAMPlanesIconEAM        fontSize="small" />, path: '/eam/planes',          section: 'section.mantenimiento' },
+  { label: 'nav.checklists',     icon: <EAMChecklistIconEAM     fontSize="small" />, path: '/eam/checklists',      section: 'section.mantenimiento' },
+  { label: 'nav.lubricacion',    icon: <EAMLubricacionIconEAM   fontSize="small" />, path: '/eam/lubricacion',     section: 'section.lubricacion' },
+  { label: 'nav.neumaticos',     icon: <EAMNeumaticosIconEAM    fontSize="small" />, path: '/eam/neumaticos',      section: 'section.lubricacion' },
+  { label: 'nav.combustible',    icon: <EAMCombustibleIconEAM   fontSize="small" />, path: '/eam/combustible',     section: 'section.lubricacion' },
+  { label: 'nav.inventario',     icon: <EAMInventarioIconEAM    fontSize="small" />, path: '/eam/inventario',      section: 'section.inventario' },
+  { label: 'nav.garantias',      icon: <EAMGarantiasIconEAM     fontSize="small" />, path: '/eam/garantias',       section: 'section.inventario' },
+  { label: 'nav.confiabilidad',  icon: <EAMConfiabilidadIconEAM fontSize="small" />, path: '/eam/confiabilidad',   section: 'section.confiabilidad' },
+  { label: 'nav.iaPredictiva',   icon: <EAMIAIconEAM            fontSize="small" />, path: '/eam/ia',              section: 'section.inteligencia' },
+  { label: 'nav.reportes',       icon: <EAMReportesIconEAM      fontSize="small" />, path: '/eam/reportes',        section: 'section.inteligencia' },
+  { label: 'nav.configuracion',  icon: <EAMConfigIconEAM        fontSize="small" />, path: '/eam/config',          section: 'section.sistema' },
 ]
-const EAM_SECTIONS = ['General', 'Mantenimiento', 'Lubricación', 'Inventario', 'Confiabilidad', 'Inteligencia', 'Sistema']
+const EAM_SECTIONS = ['section.general', 'section.mantenimiento', 'section.lubricacion', 'section.inventario', 'section.confiabilidad', 'section.inteligencia', 'section.sistema']
 
 const MES_NAV_ITEMS: NavItem[] = [
-  { label: 'Torre de Control',  icon: <MESDashIconMES          fontSize="small" />, path: '/mes',                 section: 'General',         exact: true },
-  { label: 'Plantas & Líneas',  icon: <MESPlantaIconMES        fontSize="small" />, path: '/mes/planta',          section: 'General' },
-  { label: 'Órdenes Producción',icon: <MESOrdenesIconMES       fontSize="small" />, path: '/mes/ordenes',         section: 'Producción' },
-  { label: 'Programación APS',  icon: <MESProgramacionIconMES  fontSize="small" />, path: '/mes/programacion',    section: 'Producción' },
-  { label: 'Ejecución Planta',  icon: <MESEjecucionIconMES     fontSize="small" />, path: '/mes/ejecucion',       section: 'Producción' },
-  { label: 'Trazabilidad',      icon: <MESTrazabilidadIconMES  fontSize="small" />, path: '/mes/trazabilidad',    section: 'Producción' },
-  { label: 'Control Calidad',   icon: <MESCalidadIconMES       fontSize="small" />, path: '/mes/calidad',         section: 'Calidad' },
-  { label: 'Scrap & Lean',      icon: <MESScrapIconMES         fontSize="small" />, path: '/mes/scrap',           section: 'Calidad' },
-  { label: 'OEE',               icon: <MESOEEIconMES           fontSize="small" />, path: '/mes/oee',             section: 'Analítica' },
-  { label: 'WIP & Materiales',  icon: <MESInventarioIconMES    fontSize="small" />, path: '/mes/inventario',      section: 'Analítica' },
-  { label: 'BOM & Recetas',     icon: <MESBOMIconMES           fontSize="small" />, path: '/mes/bom',             section: 'Ingeniería' },
-  { label: 'IA Manufactura',    icon: <MESIAIconMES            fontSize="small" />, path: '/mes/ia',              section: 'Inteligencia' },
-  { label: 'Reportes',          icon: <MESReportesIconMES      fontSize="small" />, path: '/mes/reportes',        section: 'Inteligencia' },
-  { label: 'Configuración',     icon: <MESConfigIconMES        fontSize="small" />, path: '/mes/config',          section: 'Sistema' },
+  { label: 'nav.torreControl',    icon: <MESDashIconMES         fontSize="small" />, path: '/mes',              section: 'section.general',     exact: true },
+  { label: 'nav.plantasLineas',   icon: <MESPlantaIconMES       fontSize="small" />, path: '/mes/planta',       section: 'section.general' },
+  { label: 'nav.ordenesProd',     icon: <MESOrdenesIconMES      fontSize="small" />, path: '/mes/ordenes',      section: 'section.produccion' },
+  { label: 'nav.programacionAps', icon: <MESProgramacionIconMES fontSize="small" />, path: '/mes/programacion', section: 'section.produccion' },
+  { label: 'nav.ejecucionPlanta', icon: <MESEjecucionIconMES    fontSize="small" />, path: '/mes/ejecucion',    section: 'section.produccion' },
+  { label: 'nav.trazabilidad',    icon: <MESTrazabilidadIconMES fontSize="small" />, path: '/mes/trazabilidad', section: 'section.produccion' },
+  { label: 'nav.controlCalidad',  icon: <MESCalidadIconMES      fontSize="small" />, path: '/mes/calidad',      section: 'section.calidad' },
+  { label: 'nav.scrapLean',       icon: <MESScrapIconMES        fontSize="small" />, path: '/mes/scrap',        section: 'section.calidad' },
+  { label: 'nav.oee',             icon: <MESOEEIconMES          fontSize="small" />, path: '/mes/oee',          section: 'section.analitica' },
+  { label: 'nav.wipMateriales',   icon: <MESInventarioIconMES   fontSize="small" />, path: '/mes/inventario',   section: 'section.analitica' },
+  { label: 'nav.bomRecetas',      icon: <MESBOMIconMES          fontSize="small" />, path: '/mes/bom',          section: 'section.ingenieria' },
+  { label: 'nav.iaManufactura',   icon: <MESIAIconMES           fontSize="small" />, path: '/mes/ia',           section: 'section.inteligencia' },
+  { label: 'nav.reportes',        icon: <MESReportesIconMES     fontSize="small" />, path: '/mes/reportes',     section: 'section.inteligencia' },
+  { label: 'nav.configuracion',   icon: <MESConfigIconMES       fontSize="small" />, path: '/mes/config',       section: 'section.sistema' },
 ]
-const MES_SECTIONS = ['General', 'Producción', 'Calidad', 'Analítica', 'Ingeniería', 'Inteligencia', 'Sistema']
+const MES_SECTIONS = ['section.general', 'section.produccion', 'section.calidad', 'section.analitica', 'section.ingenieria', 'section.inteligencia', 'section.sistema']
 
 const APS_NAV_ITEMS: NavItem[] = [
-  { label: 'Torre de Control',    icon: <APSDashIconAPS          fontSize="small" />, path: '/aps',                 section: 'General',      exact: true },
-  { label: 'Demand Planning',     icon: <APSDemandaIconAPS       fontSize="small" />, path: '/aps/demanda',         section: 'Demanda' },
-  { label: 'S&OP / IBP',          icon: <APSSOIPIconAPS          fontSize="small" />, path: '/aps/soip',            section: 'Demanda' },
-  { label: 'Plan Maestro MPS',    icon: <APSPlanIconAPS          fontSize="small" />, path: '/aps/plan',            section: 'Supply' },
-  { label: 'Capacidad CRP',       icon: <APSCapacidadIconAPS     fontSize="small" />, path: '/aps/capacidad',       section: 'Supply' },
-  { label: 'Inventario Multi-E',  icon: <APSInventarioIconAPS    fontSize="small" />, path: '/aps/inventario',      section: 'Supply' },
-  { label: 'Distribución DRP',    icon: <APSDistribucionIconAPS  fontSize="small" />, path: '/aps/distribucion',    section: 'Logística' },
-  { label: 'Transporte TRP',      icon: <APSTransporteIconAPS    fontSize="small" />, path: '/aps/transporte',      section: 'Logística' },
-  { label: 'Simulador What-If',   icon: <APSEscenariosIconAPS    fontSize="small" />, path: '/aps/escenarios',      section: 'Analítica' },
-  { label: 'Restricciones',       icon: <APSRestricionesIconAPS  fontSize="small" />, path: '/aps/restricciones',   section: 'Analítica' },
-  { label: 'KPIs & Control',      icon: <APSKPIsIconAPS          fontSize="small" />, path: '/aps/kpis',            section: 'Analítica' },
-  { label: 'IA Autónoma APS',     icon: <APSIAIconAPS            fontSize="small" />, path: '/aps/ia',              section: 'Inteligencia' },
-  { label: 'Reportes',            icon: <APSReportesIconAPS      fontSize="small" />, path: '/aps/reportes',        section: 'Inteligencia' },
-  { label: 'Configuración',       icon: <APSConfigIconAPS        fontSize="small" />, path: '/aps/config',          section: 'Sistema' },
+  { label: 'nav.torreControl',    icon: <APSDashIconAPS         fontSize="small" />, path: '/aps',               section: 'section.general',   exact: true },
+  { label: 'nav.demandPlanning',  icon: <APSDemandaIconAPS      fontSize="small" />, path: '/aps/demanda',       section: 'section.demanda' },
+  { label: 'nav.soipIbp',         icon: <APSSOIPIconAPS         fontSize="small" />, path: '/aps/soip',          section: 'section.demanda' },
+  { label: 'nav.planMaestroMps',  icon: <APSPlanIconAPS         fontSize="small" />, path: '/aps/plan',          section: 'section.supply' },
+  { label: 'nav.capacidadCrp',    icon: <APSCapacidadIconAPS    fontSize="small" />, path: '/aps/capacidad',     section: 'section.supply' },
+  { label: 'nav.inventarioMultiE',icon: <APSInventarioIconAPS   fontSize="small" />, path: '/aps/inventario',    section: 'section.supply' },
+  { label: 'nav.distribucionDrp', icon: <APSDistribucionIconAPS fontSize="small" />, path: '/aps/distribucion',  section: 'section.logistica' },
+  { label: 'nav.transporteTrp',   icon: <APSTransporteIconAPS   fontSize="small" />, path: '/aps/transporte',    section: 'section.logistica' },
+  { label: 'nav.simuladorWhatIf', icon: <APSEscenariosIconAPS   fontSize="small" />, path: '/aps/escenarios',    section: 'section.analitica' },
+  { label: 'nav.restricciones',   icon: <APSRestricionesIconAPS fontSize="small" />, path: '/aps/restricciones', section: 'section.analitica' },
+  { label: 'nav.kpisControl',     icon: <APSKPIsIconAPS         fontSize="small" />, path: '/aps/kpis',          section: 'section.analitica' },
+  { label: 'nav.iaAutonomaAps',   icon: <APSIAIconAPS           fontSize="small" />, path: '/aps/ia',            section: 'section.inteligencia' },
+  { label: 'nav.reportes',        icon: <APSReportesIconAPS     fontSize="small" />, path: '/aps/reportes',      section: 'section.inteligencia' },
+  { label: 'nav.configuracion',   icon: <APSConfigIconAPS       fontSize="small" />, path: '/aps/config',        section: 'section.sistema' },
 ]
-const APS_SECTIONS = ['General', 'Demanda', 'Supply', 'Logística', 'Analítica', 'Inteligencia', 'Sistema']
+const APS_SECTIONS = ['section.general', 'section.demanda', 'section.supply', 'section.logistica', 'section.analitica', 'section.inteligencia', 'section.sistema']
 
 const CONFIG_NAV_ITEMS: NavItem[] = [
-  { label: 'Usuarios', icon: <UsuariosIcon fontSize="small" />, path: '/usuarios',       section: 'Administración', exact: true },
-  { label: 'Roles',    icon: <RolesIcon   fontSize="small" />, path: '/usuarios/roles', section: 'Administración' },
+  { label: 'nav.usuarios',             icon: <UsuariosIcon   fontSize="small" />, path: '/usuarios',       section: 'section.administracion', exact: true },
+  { label: 'nav.roles',                icon: <RolesIcon      fontSize="small" />, path: '/usuarios/roles', section: 'section.administracion' },
+  { label: 'nav.configuracionGeneral', icon: <FlotaConfigIcon fontSize="small" />, path: '/configuracion',  section: 'section.administracion' },
 ]
 
 const CC_NAV_ITEMS: NavItem[] = COMMAND_CENTER_DASHBOARDS.map(d => ({
   label:   d.shortLabel,
   icon:    d.icon,
   path:    d.path,
-  section: 'Dashboards',
+  section: 'section.dashboards',
   exact:   true,
 }))
 
-const CI_SECTIONS     = ['Principal', 'Operaciones', 'Recursos', 'Control']
-const TX_SECTIONS     = ['TarifaX']
-const FT_SECTIONS     = ['Despacho', 'Catálogos']
-const CONFIG_SECTIONS = ['Administración']
-const CC_SECTIONS     = ['Dashboards']
+const CI_SECTIONS     = ['section.principal', 'section.operaciones', 'section.recursos', 'section.control']
+const TX_SECTIONS     = ['section.tarifax']
+const FT_SECTIONS     = ['section.despacho', 'section.catalogos']
+const CONFIG_SECTIONS = ['section.administracion']
+const CC_SECTIONS     = ['section.dashboards']
+
+// Mapeo de path de CI → clave de permiso
+const CI_PATH_TO_PERM: Record<string, string> = {
+  '/dashboard':    'dashboard',
+  '/estibas':      'estibas',
+  '/movimientos':  'movimientos',
+  '/manifiestos':  'manifiestos',
+  '/vehiculos':    'vehiculos',
+  '/ubicaciones':  'ubicaciones',
+  '/proveedores':  'proveedores',
+  '/alertas':      'alertas',
+  '/danos':        'danos',
+  '/trazabilidad': 'trazabilidad',
+  '/mantenimiento':'mantenimiento',
+  '/costos':       'costos',
+  '/consultas':    'consultas',
+}
 
 interface SidebarProps {
   open: boolean
@@ -489,6 +509,17 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
   const navigate  = useNavigate()
   const location  = useLocation()
   const [collapsed, setCollapsed] = useState(false)
+  const { t } = useTranslation()
+  const { user } = useAuthStore()
+  const isAdmin = user?.rol === 'ADMINISTRADOR'
+
+  // Filtrar ítems de CI según permisos del usuario
+  const visibleCIItems = isAdmin
+    ? CI_NAV_ITEMS
+    : CI_NAV_ITEMS.filter(item => {
+        const permKey = CI_PATH_TO_PERM[item.path]
+        return !permKey || !!user?.permisos?.[permKey]
+      })
 
   const isGRC      = location.pathname.startsWith('/grc')
   const isQMS      = location.pathname.startsWith('/qms')
@@ -509,12 +540,12 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
   const isAPS      = location.pathname.startsWith('/aps')
 
   const activeColor = isCommand ? CC_COLOR : isConfig ? CF_COLOR : isTarifax ? TX_COLOR : isGRC ? GRC_COLOR : isQMS ? QMS_COLOR : isDMS ? DMS_COLOR : isTMS ? TMS_COLOR : isFletes ? FT_COLOR : isFlota ? GF_COLOR : isLocativa ? ML_COLOR : isWMS ? WMS_COLOR : isGH ? GH_COLOR : isLMS ? LMS_COLOR : isCRM ? CRM_COLOR : isEAM ? EAM_COLOR : isMES ? MES_COLOR : isAPS ? APS_COLOR : CI_COLOR
-  const navItems    = isCommand ? CC_NAV_ITEMS : isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : isGRC ? GRC_NAV_ITEMS : isQMS ? QMS_NAV_ITEMS : isDMS ? DMS_NAV_ITEMS : isTMS ? TMS_NAV_ITEMS : isFletes ? FT_NAV_ITEMS : isFlota ? GF_NAV_ITEMS : isLocativa ? ML_NAV_ITEMS : isWMS ? WMS_NAV_ITEMS : isGH ? GH_NAV_ITEMS : isLMS ? LMS_NAV_ITEMS : isCRM ? CRM_NAV_ITEMS : isEAM ? EAM_NAV_ITEMS : isMES ? MES_NAV_ITEMS : isAPS ? APS_NAV_ITEMS : CI_NAV_ITEMS
+  const navItems    = isCommand ? CC_NAV_ITEMS : isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : isGRC ? GRC_NAV_ITEMS : isQMS ? QMS_NAV_ITEMS : isDMS ? DMS_NAV_ITEMS : isTMS ? TMS_NAV_ITEMS : isFletes ? FT_NAV_ITEMS : isFlota ? GF_NAV_ITEMS : isLocativa ? ML_NAV_ITEMS : isWMS ? WMS_NAV_ITEMS : isGH ? GH_NAV_ITEMS : isLMS ? LMS_NAV_ITEMS : isCRM ? CRM_NAV_ITEMS : isEAM ? EAM_NAV_ITEMS : isMES ? MES_NAV_ITEMS : isAPS ? APS_NAV_ITEMS : visibleCIItems
   const sections    = isCommand ? CC_SECTIONS  : isConfig ? CONFIG_SECTIONS  : isTarifax ? TX_SECTIONS  : isGRC ? GRC_SECTIONS  : isQMS ? QMS_SECTIONS  : isDMS ? DMS_SECTIONS  : isTMS ? TMS_SECTIONS  : isFletes ? FT_SECTIONS  : isFlota ? GF_SECTIONS  : isLocativa ? ML_SECTIONS  : isWMS ? WMS_SECTIONS : isGH ? GH_SECTIONS : isLMS ? LMS_SECTIONS : isCRM ? CRM_SECTIONS : isEAM ? EAM_SECTIONS : isMES ? MES_SECTIONS : isAPS ? APS_SECTIONS : CI_SECTIONS
 
   const logoShort = isCommand ? 'CC' : isConfig ? 'CF' : isTarifax ? 'TX' : isGRC ? 'GRC' : isQMS ? 'QMS' : isDMS ? 'DMS' : isTMS ? 'TMS' : isFletes ? 'FT' : isFlota ? 'GF' : isLocativa ? 'ML' : isWMS ? 'WMS' : isGH ? 'GH' : isLMS ? 'LMS' : isCRM ? 'CRM' : isEAM ? 'EAM' : isMES ? 'MES' : isAPS ? 'APS' : 'CE'
-  const logoLine1 = isCommand ? 'Command' : isConfig ? 'Configuración' : isTarifax ? 'TarifaX' : isGRC ? 'Governance' : isQMS ? 'Quality' : isDMS ? 'Document' : isTMS ? 'Transportation' : isFletes ? 'Módulo de' : isFlota ? 'Gestión de' : isLocativa ? 'Mantenimiento' : isWMS ? 'Warehouse' : isGH ? 'Gestión' : isLMS ? 'Learning' : isCRM ? 'Customer' : isEAM ? 'CMMS /' : isMES ? 'Manufacturing' : isAPS ? 'Advanced Planning' : 'Control de'
-  const logoLine2 = isCommand ? 'Center'  : isConfig ? 'del Sistema'  : isTarifax ? 'Motor de Tarifas' : isGRC ? 'Risk & Compliance' : isQMS ? 'Management System' : isDMS ? 'Management System' : isTMS ? 'Management System' : isFletes ? 'Fletes' : isFlota ? 'Flotas' : isLocativa ? 'Locativo' : isWMS ? 'Management' : isGH ? 'Humana' : isLMS ? 'Management System' : isCRM ? 'Relationship Mgmt' : isEAM ? 'Enterprise Assets' : isMES ? 'Execution System' : isAPS ? '& Scheduling' : 'Estibas'
+  const logoLine1 = isCommand ? t('logo.cc1') : isConfig ? t('logo.cfg1') : isTarifax ? t('logo.tx1') : isGRC ? t('logo.grc1') : isQMS ? t('logo.qms1') : isDMS ? t('logo.dms1') : isTMS ? t('logo.tms1') : isFletes ? t('logo.ft1') : isFlota ? t('logo.gf1') : isLocativa ? t('logo.ml1') : isWMS ? t('logo.wms1') : isGH ? t('logo.gh1') : isLMS ? t('logo.lms1') : isCRM ? t('logo.crm1') : isEAM ? t('logo.eam1') : isMES ? t('logo.mes1') : isAPS ? t('logo.aps1') : t('logo.ci1')
+  const logoLine2 = isCommand ? t('logo.cc2') : isConfig ? t('logo.cfg2') : isTarifax ? t('logo.tx2') : isGRC ? t('logo.grc2') : isQMS ? t('logo.qms2') : isDMS ? t('logo.dms2') : isTMS ? t('logo.tms2') : isFletes ? t('logo.ft2') : isFlota ? t('logo.gf2') : isLocativa ? t('logo.ml2') : isWMS ? t('logo.wms2') : isGH ? t('logo.gh2') : isLMS ? t('logo.lms2') : isCRM ? t('logo.crm2') : isEAM ? t('logo.eam2') : isMES ? t('logo.mes2') : isAPS ? t('logo.aps2') : t('logo.ci2')
 
   const width    = collapsed ? DRAWER_COLLAPSED : (widthProp ?? DRAWER_WIDTH)
   const showText = !collapsed && (widthProp === undefined || widthProp >= COMPACT_THRESHOLD)
@@ -632,7 +663,7 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
                   py: 1,
                   mt: section !== sections[0] ? 1 : 0,
                 }}>
-                  {section}
+                  {t(section)}
                 </Typography>
               )}
               <List disablePadding>
@@ -642,7 +673,7 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
                   return (
                     <Tooltip
                       key={item.path}
-                      title={!showText ? item.label : ''}
+                      title={!showText ? t(item.label) : ''}
                       placement="right"
                       arrow
                     >
@@ -681,7 +712,7 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
                           </ListItemIcon>
                           {showText && (
                             <ListItemText
-                              primary={item.label}
+                              primary={t(item.label)}
                               primaryTypographyProps={{
                                 fontSize: 13.5,
                                 fontWeight: active ? 600 : 400,
@@ -731,7 +762,7 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
           </ListItemIcon>
           {showText && (
             <ListItemText
-              primary="Colapsar"
+              primary={t('common.collapse')}
               primaryTypographyProps={{ fontSize: 12.5, color: 'inherit', fontWeight: 500 }}
             />
           )}

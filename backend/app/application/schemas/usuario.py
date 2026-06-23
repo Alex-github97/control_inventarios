@@ -1,7 +1,6 @@
 from pydantic import BaseModel, EmailStr, field_validator
-from typing import Optional
+from typing import Optional, Dict
 from datetime import datetime
-from app.infrastructure.models.usuario import RolUsuario
 
 
 class UsuarioBase(BaseModel):
@@ -9,7 +8,7 @@ class UsuarioBase(BaseModel):
     apellido: str
     email: EmailStr
     username: str
-    rol: RolUsuario = RolUsuario.CONSULTA
+    rol: str = "CONSULTA"
     telefono: Optional[str] = None
     cargo: Optional[str] = None
 
@@ -29,7 +28,7 @@ class UsuarioUpdate(BaseModel):
     nombre: Optional[str] = None
     apellido: Optional[str] = None
     email: Optional[EmailStr] = None
-    rol: Optional[RolUsuario] = None
+    rol: Optional[str] = None
     telefono: Optional[str] = None
     cargo: Optional[str] = None
     activo: Optional[bool] = None
@@ -40,6 +39,7 @@ class UsuarioResponse(UsuarioBase):
     activo: bool
     ultimo_login: Optional[datetime] = None
     created_at: datetime
+    permisos: Dict[str, bool] = {}
 
     model_config = {"from_attributes": True}
 

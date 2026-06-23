@@ -4,6 +4,7 @@ from datetime import datetime
 
 
 class RolPermisos(BaseModel):
+    # CI — Control de Inventarios
     dashboard: bool = False
     estibas: bool = False
     movimientos: bool = False
@@ -17,6 +18,23 @@ class RolPermisos(BaseModel):
     mantenimiento: bool = False
     costos: bool = False
     consultas: bool = False
+    # Otros módulos del sistema
+    tx: bool = False
+    ft: bool = False
+    gf: bool = False
+    ml: bool = False
+    wms: bool = False
+    gh: bool = False
+    tms: bool = False
+    dms: bool = False
+    qms: bool = False
+    grc: bool = False
+    lms: bool = False
+    crm: bool = False
+    eam: bool = False
+    mes: bool = False
+    aps: bool = False
+    # Administración
     usuarios: bool = False
 
 

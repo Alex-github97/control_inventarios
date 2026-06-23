@@ -9,6 +9,7 @@ export interface User {
   rol: string
   cargo?: string
   activo: boolean
+  permisos: Record<string, boolean>
 }
 
 export interface LoginResponse {
