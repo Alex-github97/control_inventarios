@@ -138,7 +138,19 @@
       "clientes": "Clientes",
       "usuarios": "사용자",
       "roles": "역할",
-      "configuracionGeneral": "일반 설정"
+      "configuracionGeneral": "일반 설정",
+      "contabilidad": "회계",
+      "tesoreria": "자금",
+      "cxc": "매출채권",
+      "cxp": "매입채무",
+      "facturacion": "청구",
+      "tributacion": "세무관리",
+      "presupuestos": "예산",
+      "costeo": "ABC원가",
+      "consolidacion": "연결",
+      "compras": "구매",
+      "proyectos": "프로젝트",
+      "epm": "EPM"
     },
     "section": {
       "principal": "메인",
@@ -199,7 +211,11 @@
       "supply": "Supply",
       "tarifax": "TarifaX",
       "despacho": "발송",
-      "catalogos": "카탈로그"
+      "catalogos": "카탈로그",
+      "contabilidad": "회계",
+      "cuentas": "계정",
+      "fiscal": "세무",
+      "corporativo": "기업"
     },
     "ws": {
       "control": "팔레트 관리",
@@ -252,6 +268,7 @@
       "mes2": "Execution System",
       "aps1": "Advanced Planning",
       "aps2": "& Scheduling",
+      "erp1": "Enterprise Resource", "erp2": "Planning",
       "cc1": "Command",
       "cc2": "Center",
       "cfg1": "시스템",

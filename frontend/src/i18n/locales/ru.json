@@ -138,7 +138,19 @@
       "clientes": "Clientes",
       "usuarios": "Пользователи",
       "roles": "Роли",
-      "configuracionGeneral": "Общие настройки"
+      "configuracionGeneral": "Общие настройки",
+      "contabilidad": "Бухгалтерия",
+      "tesoreria": "Казначейство",
+      "cxc": "Дебиторы",
+      "cxp": "Кредиторы",
+      "facturacion": "Выставление счетов",
+      "tributacion": "Налоговый учёт",
+      "presupuestos": "Бюджеты",
+      "costeo": "АВС-калькуляция",
+      "consolidacion": "Консолидация",
+      "compras": "Закупки",
+      "proyectos": "Проекты",
+      "epm": "EPM"
     },
     "section": {
       "principal": "Главная",
@@ -199,7 +211,11 @@
       "supply": "Supply",
       "tarifax": "TarifaX",
       "despacho": "Отправка",
-      "catalogos": "Каталоги"
+      "catalogos": "Каталоги",
+      "contabilidad": "Бухгалтерия",
+      "cuentas": "Счета",
+      "fiscal": "Налоги",
+      "corporativo": "Корпоративный"
     },
     "ws": {
       "control": "Контроль паллет",
@@ -252,6 +268,7 @@
       "mes2": "Execution System",
       "aps1": "Advanced Planning",
       "aps2": "& Scheduling",
+      "erp1": "Enterprise Resource", "erp2": "Planning",
       "cc1": "Command",
       "cc2": "Center",
       "cfg1": "Настройки",

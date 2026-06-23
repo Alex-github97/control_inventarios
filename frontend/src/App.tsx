@@ -37,6 +37,7 @@ const ROUTE_PERM_MAP: Record<string, string> = {
   '/eam':          'eam',
   '/mes':          'mes',
   '/aps':          'aps',
+  '/erp':          'erp',
   '/usuarios':     'usuarios',
 }
 
@@ -253,6 +254,22 @@ import APSKPIs from '@/pages/APSKPIs'
 import APSAI from '@/pages/APSAI'
 import APSReportes from '@/pages/APSReportes'
 import APSConfig from '@/pages/APSConfig'
+import ERPDashboard from '@/pages/ERPDashboard'
+import ERPContabilidad from '@/pages/ERPContabilidad'
+import ERPTesoreria from '@/pages/ERPTesoreria'
+import ERPCxC from '@/pages/ERPCxC'
+import ERPCxP from '@/pages/ERPCxP'
+import ERPFacturacion from '@/pages/ERPFacturacion'
+import ERPTributacion from '@/pages/ERPTributacion'
+import ERPPresupuestos from '@/pages/ERPPresupuestos'
+import ERPCosteo from '@/pages/ERPCosteo'
+import ERPConsolidacion from '@/pages/ERPConsolidacion'
+import ERPActivos from '@/pages/ERPActivos'
+import ERPCompras from '@/pages/ERPCompras'
+import ERPProyectos from '@/pages/ERPProyectos'
+import ERPEPM from '@/pages/ERPEPM'
+import ERPReportes from '@/pages/ERPReportes'
+import ERPConfig from '@/pages/ERPConfig'
 import Configuracion from '@/pages/Configuracion'
 import Clientes from '@/pages/Clientes'
 
@@ -496,6 +513,22 @@ export default function App() {
             <Route path="/aps/ia" element={<ProtectedRoute><APSAI /></ProtectedRoute>} />
             <Route path="/aps/reportes" element={<ProtectedRoute><APSReportes /></ProtectedRoute>} />
             <Route path="/aps/config" element={<ProtectedRoute><APSConfig /></ProtectedRoute>} />
+            <Route path="/erp" element={<ProtectedRoute><ERPDashboard /></ProtectedRoute>} />
+            <Route path="/erp/contabilidad" element={<ProtectedRoute><ERPContabilidad /></ProtectedRoute>} />
+            <Route path="/erp/tesoreria" element={<ProtectedRoute><ERPTesoreria /></ProtectedRoute>} />
+            <Route path="/erp/cxc" element={<ProtectedRoute><ERPCxC /></ProtectedRoute>} />
+            <Route path="/erp/cxp" element={<ProtectedRoute><ERPCxP /></ProtectedRoute>} />
+            <Route path="/erp/facturacion" element={<ProtectedRoute><ERPFacturacion /></ProtectedRoute>} />
+            <Route path="/erp/tributacion" element={<ProtectedRoute><ERPTributacion /></ProtectedRoute>} />
+            <Route path="/erp/presupuestos" element={<ProtectedRoute><ERPPresupuestos /></ProtectedRoute>} />
+            <Route path="/erp/costeo" element={<ProtectedRoute><ERPCosteo /></ProtectedRoute>} />
+            <Route path="/erp/consolidacion" element={<ProtectedRoute><ERPConsolidacion /></ProtectedRoute>} />
+            <Route path="/erp/activos" element={<ProtectedRoute><ERPActivos /></ProtectedRoute>} />
+            <Route path="/erp/compras" element={<ProtectedRoute><ERPCompras /></ProtectedRoute>} />
+            <Route path="/erp/proyectos" element={<ProtectedRoute><ERPProyectos /></ProtectedRoute>} />
+            <Route path="/erp/epm" element={<ProtectedRoute><ERPEPM /></ProtectedRoute>} />
+            <Route path="/erp/reportes" element={<ProtectedRoute><ERPReportes /></ProtectedRoute>} />
+            <Route path="/erp/config" element={<ProtectedRoute><ERPConfig /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </BrowserRouter>

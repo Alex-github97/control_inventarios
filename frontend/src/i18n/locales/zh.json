@@ -138,7 +138,19 @@
       "clientes": "Clientes",
       "usuarios": "用户",
       "roles": "角色",
-      "configuracionGeneral": "通用配置"
+      "configuracionGeneral": "通用配置",
+      "contabilidad": "会计",
+      "tesoreria": "财务",
+      "cxc": "应收账款",
+      "cxp": "应付账款",
+      "facturacion": "开票",
+      "tributacion": "税务管理",
+      "presupuestos": "预算",
+      "costeo": "ABC成本",
+      "consolidacion": "合并报表",
+      "compras": "采购",
+      "proyectos": "项目",
+      "epm": "EPM"
     },
     "section": {
       "principal": "主要",
@@ -199,7 +211,11 @@
       "supply": "Supply",
       "tarifax": "TarifaX",
       "despacho": "发货",
-      "catalogos": "目录"
+      "catalogos": "目录",
+      "contabilidad": "会计",
+      "cuentas": "账户",
+      "fiscal": "财税",
+      "corporativo": "集团"
     },
     "ws": {
       "control": "托盘控制",
@@ -252,6 +268,7 @@
       "mes2": "Execution System",
       "aps1": "Advanced Planning",
       "aps2": "& Scheduling",
+      "erp1": "企业资源", "erp2": "规划系统",
       "cc1": "Command",
       "cc2": "Center",
       "cfg1": "系统",

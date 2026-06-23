@@ -138,7 +138,19 @@
       "clientes": "Clientes",
       "usuarios": "Benutzer",
       "roles": "Rollen",
-      "configuracionGeneral": "Allgemeine Konfiguration"
+      "configuracionGeneral": "Allgemeine Konfiguration",
+      "contabilidad": "Buchhaltung",
+      "tesoreria": "Treasury",
+      "cxc": "Forderungen",
+      "cxp": "Verbindlichkeiten",
+      "facturacion": "Fakturierung",
+      "tributacion": "Steuerverwaltung",
+      "presupuestos": "Budgets",
+      "costeo": "ABC-Kalkulation",
+      "consolidacion": "Konsolidierung",
+      "compras": "Einkauf",
+      "proyectos": "Projekte",
+      "epm": "EPM"
     },
     "section": {
       "principal": "Hauptbereich",
@@ -199,7 +211,11 @@
       "supply": "Supply",
       "tarifax": "TarifaX",
       "despacho": "Versand",
-      "catalogos": "Kataloge"
+      "catalogos": "Kataloge",
+      "contabilidad": "Buchhaltung",
+      "cuentas": "Konten",
+      "fiscal": "Steuer",
+      "corporativo": "Konzern"
     },
     "ws": {
       "control": "Palettensteuerung",
@@ -252,6 +268,7 @@
       "mes2": "Execution System",
       "aps1": "Advanced Planning",
       "aps2": "& Scheduling",
+      "erp1": "Enterprise Resource", "erp2": "Planning",
       "cc1": "Command",
       "cc2": "Center",
       "cfg1": "System-",
