@@ -20,6 +20,7 @@ const WORKSPACE_PERM_KEYS: Record<string, string[]> = {
   crm:      ['crm'],
   mes:      ['mes'],
   aps:      ['aps'],
+  erp:      ['erp'],
   config:   ['usuarios'],
 }
 
@@ -41,6 +42,7 @@ const CRM_COLOR        = '#DC2626'
 const EAM_COLOR        = '#EA580C'
 const MES_COLOR        = '#0891B2'
 const APS_COLOR        = '#7C3AED'
+const ERP_COLOR        = '#1A3A6B'
 const COMPACT_THRESHOLD = 80
 
 const WORKSPACES = [
@@ -56,7 +58,7 @@ const WORKSPACES = [
       !p.startsWith('/tms') && !p.startsWith('/dms') && !p.startsWith('/qms') &&
       !p.startsWith('/grc') && !p.startsWith('/flota') && !p.startsWith('/locativa') &&
       !p.startsWith('/wms') && !p.startsWith('/gh') && !p.startsWith('/lms') &&
-      !p.startsWith('/crm') && !p.startsWith('/eam') && !p.startsWith('/mes') && !p.startsWith('/aps'),
+      !p.startsWith('/crm') && !p.startsWith('/eam') && !p.startsWith('/mes') && !p.startsWith('/aps') && !p.startsWith('/erp'),
   },
   {
     id:    'tarifax',
@@ -161,6 +163,14 @@ const WORKSPACES = [
     color: APS_COLOR,
     path:  '/aps',
     isActive: (p: string) => p.startsWith('/aps'),
+  },
+  {
+    id:    'erp',
+    label: 'ws.erp',
+    short: 'ERP',
+    color: ERP_COLOR,
+    path:  '/erp',
+    isActive: (p: string) => p.startsWith('/erp'),
   },
   {
     id:    'config',

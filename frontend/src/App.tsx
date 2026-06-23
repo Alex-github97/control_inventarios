@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { ThemeProvider } from '@mui/material/styles'
 import { CssBaseline, Box, Typography, Button } from '@mui/material'
@@ -68,210 +68,210 @@ function SinAcceso() {
   )
 }
 
-import Login from '@/pages/Login'
-import Dashboard from '@/pages/Dashboard'
-import Estibas from '@/pages/Estibas'
-import EstibaDetalle from '@/pages/EstibaDetalle'
-import Movimientos from '@/pages/Movimientos'
-import Manifiestos from '@/pages/Manifiestos'
-import Vehiculos from '@/pages/Vehiculos'
-import Ubicaciones from '@/pages/Ubicaciones'
-import Proveedores from '@/pages/Proveedores'
-import Alertas from '@/pages/Alertas'
-import Danos from '@/pages/Danos'
-import Trazabilidad from '@/pages/Trazabilidad'
-import EstibasCargaMasiva from '@/pages/EstibasCargaMasiva'
-import MovimientosCargaMasiva from '@/pages/MovimientosCargaMasiva'
-import TarifaxDashboard from '@/pages/TarifaxDashboard'
-import TarifaxMotor from '@/pages/TarifaxMotor'
-import Usuarios from '@/pages/Usuarios'
-import Roles from '@/pages/Roles'
-import CommandCenter from '@/pages/CommandCenter'
-import Mantenimiento from '@/pages/Mantenimiento'
-import CostosReporte from '@/pages/CostosReporte'
-import Consultas from '@/pages/Consultas'
-import Fletes from '@/pages/Fletes'
-import FletesGeneradores from '@/pages/FletesGeneradores'
-import FletesConductores from '@/pages/FletesConductores'
-import FlotaDashboard from '@/pages/FlotaDashboard'
-import FlotaVehiculos from '@/pages/FlotaVehiculos'
-import FlotaCombustible from '@/pages/FlotaCombustible'
-import FlotaDocumentos from '@/pages/FlotaDocumentos'
-import FlotaMantenimiento from '@/pages/FlotaMantenimiento'
-import FlotaPersonal from '@/pages/FlotaPersonal'
-import FlotaConfig from '@/pages/FlotaConfig'
-import FlotaRutinas from '@/pages/FlotaRutinas'
-import FlotaConfiabilidad from '@/pages/FlotaConfiabilidad'
-import LocativaDashboard from '@/pages/LocativaDashboard'
-import LocativaActivos from '@/pages/LocativaActivos'
-import LocativaOrdenes from '@/pages/LocativaOrdenes'
-import LocativaRiesgos from '@/pages/LocativaRiesgos'
-import LocativaEnergia from '@/pages/LocativaEnergia'
-import LocativaConfig from '@/pages/LocativaConfig'
-import WMSDashboard from '@/pages/WMSDashboard'
-import WMSRecepcion from '@/pages/WMSRecepcion'
-import WMSInventario from '@/pages/WMSInventario'
-import WMSPicking from '@/pages/WMSPicking'
-import WMSDespacho from '@/pages/WMSDespacho'
-import WMSTrazabilidad from '@/pages/WMSTrazabilidad'
-import WMSConfig from '@/pages/WMSConfig'
-import GHDashboard from '@/pages/GHDashboard'
-import GHColaboradores from '@/pages/GHColaboradores'
-import GHConductores from '@/pages/GHConductores'
-import GHIncapacidades from '@/pages/GHIncapacidades'
-import GHVacaciones from '@/pages/GHVacaciones'
-import GHReclutamiento from '@/pages/GHReclutamiento'
-import GHCapacitacion from '@/pages/GHCapacitacion'
-import GHSST from '@/pages/GHSST'
-import GHNomina from '@/pages/GHNomina'
-import GHEvaluacion from '@/pages/GHEvaluacion'
-import GHConfig from '@/pages/GHConfig'
-import TMSDashboard from '@/pages/TMSDashboard'
-import TMSViajes from '@/pages/TMSViajes'
-import TMSPlaneacion from '@/pages/TMSPlaneacion'
-import TMSDespachos from '@/pages/TMSDespachos'
-import TMSTracking from '@/pages/TMSTracking'
-import TMSVehiculos from '@/pages/TMSVehiculos'
-import TMSConductores from '@/pages/TMSConductores'
-import TMSTorreControl from '@/pages/TMSTorreControl'
-import TMSRutas from '@/pages/TMSRutas'
-import TMSDocumentos from '@/pages/TMSDocumentos'
-import TMSCostos from '@/pages/TMSCostos'
-import TMSOTIF from '@/pages/TMSOTIF'
-import TMSLiquidaciones from '@/pages/TMSLiquidaciones'
-import TMSConfig from '@/pages/TMSConfig'
-import DMSDashboard from '@/pages/DMSDashboard'
-import DMSRepositorio from '@/pages/DMSRepositorio'
-import DMSDocumentos from '@/pages/DMSDocumentos'
-import DMSCategorias from '@/pages/DMSCategorias'
-import DMSExpedientes from '@/pages/DMSExpedientes'
-import DMSWorkflow from '@/pages/DMSWorkflow'
-import DMSFirmas from '@/pages/DMSFirmas'
-import DMSBusqueda from '@/pages/DMSBusqueda'
-import DMSRetencion from '@/pages/DMSRetencion'
-import DMSAuditoria from '@/pages/DMSAuditoria'
-import DMSIntegraciones from '@/pages/DMSIntegraciones'
-import DMSIA from '@/pages/DMSIA'
-import DMSPortal from '@/pages/DMSPortal'
-import DMSConfig from '@/pages/DMSConfig'
-import QMSDashboard from '@/pages/QMSDashboard'
-import QMSProcesos from '@/pages/QMSProcesos'
-import QMSIndicadores from '@/pages/QMSIndicadores'
-import QMSNoConformidades from '@/pages/QMSNoConformidades'
-import QMSAuditorias from '@/pages/QMSAuditorias'
-import QMSHallazgos from '@/pages/QMSHallazgos'
-import QMSRiesgos from '@/pages/QMSRiesgos'
-import QMSQuejas from '@/pages/QMSQuejas'
-import QMSProveedores from '@/pages/QMSProveedores'
-import QMSMejora from '@/pages/QMSMejora'
-import QMSEncuestas from '@/pages/QMSEncuestas'
-import QMSCambios from '@/pages/QMSCambios'
-import QMSIA from '@/pages/QMSIA'
-import QMSConfig from '@/pages/QMSConfig'
-import GRCDashboard from '@/pages/GRCDashboard'
-import GRCGobierno from '@/pages/GRCGobierno'
-import GRCPoliticas from '@/pages/GRCPoliticas'
-import GRCObligaciones from '@/pages/GRCObligaciones'
-import GRCRiesgos from '@/pages/GRCRiesgos'
-import GRCControles from '@/pages/GRCControles'
-import GRCCumplimiento from '@/pages/GRCCumplimiento'
-import GRCTerceros from '@/pages/GRCTerceros'
-import GRCAuditorias from '@/pages/GRCAuditorias'
-import GRCHallazgos from '@/pages/GRCHallazgos'
-import GRCContinuidad from '@/pages/GRCContinuidad'
-import GRCIncidentes from '@/pages/GRCIncidentes'
-import GRCIA from '@/pages/GRCIA'
-import GRCConfig from '@/pages/GRCConfig'
-import LMSDashboard from '@/pages/LMSDashboard'
-import LMSMiAprendizaje from '@/pages/LMSMiAprendizaje'
-import LMSUniversidad from '@/pages/LMSUniversidad'
-import LMSCatalogo from '@/pages/LMSCatalogo'
-import LMSRutas from '@/pages/LMSRutas'
-import LMSOnboarding from '@/pages/LMSOnboarding'
-import LMSCompetencias from '@/pages/LMSCompetencias'
-import LMSEvaluaciones from '@/pages/LMSEvaluaciones'
-import LMSBancoPreguntas from '@/pages/LMSBancoPreguntas'
-import LMSCertificaciones from '@/pages/LMSCertificaciones'
-import LMSKnowledge from '@/pages/LMSKnowledge'
-import LMSGamificacion from '@/pages/LMSGamificacion'
-import LMSIA from '@/pages/LMSIA'
-import LMSReportes from '@/pages/LMSReportes'
-import LMSConfig from '@/pages/LMSConfig'
-import CRMDashboard from '@/pages/CRMDashboard'
-import CRMClientes from '@/pages/CRMClientes'
-import CRMLeads from '@/pages/CRMLeads'
-import CRMOportunidades from '@/pages/CRMOportunidades'
-import CRMCotizaciones from '@/pages/CRMCotizaciones'
-import CRMContratos from '@/pages/CRMContratos'
-import CRMTickets from '@/pages/CRMTickets'
-import CRMInteracciones from '@/pages/CRMInteracciones'
-import CRMCampanas from '@/pages/CRMCampanas'
-import CRMEncuestas from '@/pages/CRMEncuestas'
-import CRMCuentasClave from '@/pages/CRMCuentasClave'
-import CRMRentabilidad from '@/pages/CRMRentabilidad'
-import CRMIA from '@/pages/CRMIA'
-import CRMReportes from '@/pages/CRMReportes'
-import CRMConfig from '@/pages/CRMConfig'
-import EAMDashboard from '@/pages/EAMDashboard'
-import EAMActivos from '@/pages/EAMActivos'
-import EAMOrdenesTrabajo from '@/pages/EAMOrdenesTrabajo'
-import EAMPlanesMant from '@/pages/EAMPlanesMant'
-import EAMChecklists from '@/pages/EAMChecklists'
-import EAMLubricacion from '@/pages/EAMLubricacion'
-import EAMNeumaticos from '@/pages/EAMNeumaticos'
-import EAMCombustible from '@/pages/EAMCombustible'
-import EAMInventario from '@/pages/EAMInventario'
-import EAMConfiabilidad from '@/pages/EAMConfiabilidad'
-import EAMGarantias from '@/pages/EAMGarantias'
-import EAMIA from '@/pages/EAMIA'
-import EAMReportes from '@/pages/EAMReportes'
-import EAMConfig from '@/pages/EAMConfig'
-import MESDashboard from '@/pages/MESDashboard'
-import MESPlanta from '@/pages/MESPlanta'
-import MESOrdenes from '@/pages/MESOrdenes'
-import MESProgramacion from '@/pages/MESProgramacion'
-import MESEjecucion from '@/pages/MESEjecucion'
-import MESTrazabilidad from '@/pages/MESTrazabilidad'
-import MESCalidad from '@/pages/MESCalidad'
-import MESScrap from '@/pages/MESScrap'
-import MESOEE from '@/pages/MESOEE'
-import MESInventario from '@/pages/MESInventario'
-import MESBOM from '@/pages/MESBOM'
-import MESIA from '@/pages/MESIA'
-import MESReportes from '@/pages/MESReportes'
-import MESConfig from '@/pages/MESConfig'
-import APSDashboard from '@/pages/APSDashboard'
-import APSDemanda from '@/pages/APSDemanda'
-import APSSOIP from '@/pages/APSSOIP'
-import APSPlan from '@/pages/APSPlan'
-import APSCapacidad from '@/pages/APSCapacidad'
-import APSInventario from '@/pages/APSInventario'
-import APSDistribucion from '@/pages/APSDistribucion'
-import APSTransporte from '@/pages/APSTransporte'
-import APSEscenarios from '@/pages/APSEscenarios'
-import APSRestricciones from '@/pages/APSRestricciones'
-import APSKPIs from '@/pages/APSKPIs'
-import APSAI from '@/pages/APSAI'
-import APSReportes from '@/pages/APSReportes'
-import APSConfig from '@/pages/APSConfig'
-import ERPDashboard from '@/pages/ERPDashboard'
-import ERPContabilidad from '@/pages/ERPContabilidad'
-import ERPTesoreria from '@/pages/ERPTesoreria'
-import ERPCxC from '@/pages/ERPCxC'
-import ERPCxP from '@/pages/ERPCxP'
-import ERPFacturacion from '@/pages/ERPFacturacion'
-import ERPTributacion from '@/pages/ERPTributacion'
-import ERPPresupuestos from '@/pages/ERPPresupuestos'
-import ERPCosteo from '@/pages/ERPCosteo'
-import ERPConsolidacion from '@/pages/ERPConsolidacion'
-import ERPActivos from '@/pages/ERPActivos'
-import ERPCompras from '@/pages/ERPCompras'
-import ERPProyectos from '@/pages/ERPProyectos'
-import ERPEPM from '@/pages/ERPEPM'
-import ERPReportes from '@/pages/ERPReportes'
-import ERPConfig from '@/pages/ERPConfig'
-import Configuracion from '@/pages/Configuracion'
-import Clientes from '@/pages/Clientes'
+const Login = React.lazy(() => import('@/pages/Login'))
+const Dashboard = React.lazy(() => import('@/pages/Dashboard'))
+const Estibas = React.lazy(() => import('@/pages/Estibas'))
+const EstibaDetalle = React.lazy(() => import('@/pages/EstibaDetalle'))
+const Movimientos = React.lazy(() => import('@/pages/Movimientos'))
+const Manifiestos = React.lazy(() => import('@/pages/Manifiestos'))
+const Vehiculos = React.lazy(() => import('@/pages/Vehiculos'))
+const Ubicaciones = React.lazy(() => import('@/pages/Ubicaciones'))
+const Proveedores = React.lazy(() => import('@/pages/Proveedores'))
+const Alertas = React.lazy(() => import('@/pages/Alertas'))
+const Danos = React.lazy(() => import('@/pages/Danos'))
+const Trazabilidad = React.lazy(() => import('@/pages/Trazabilidad'))
+const EstibasCargaMasiva = React.lazy(() => import('@/pages/EstibasCargaMasiva'))
+const MovimientosCargaMasiva = React.lazy(() => import('@/pages/MovimientosCargaMasiva'))
+const TarifaxDashboard = React.lazy(() => import('@/pages/TarifaxDashboard'))
+const TarifaxMotor = React.lazy(() => import('@/pages/TarifaxMotor'))
+const Usuarios = React.lazy(() => import('@/pages/Usuarios'))
+const Roles = React.lazy(() => import('@/pages/Roles'))
+const CommandCenter = React.lazy(() => import('@/pages/CommandCenter'))
+const Mantenimiento = React.lazy(() => import('@/pages/Mantenimiento'))
+const CostosReporte = React.lazy(() => import('@/pages/CostosReporte'))
+const Consultas = React.lazy(() => import('@/pages/Consultas'))
+const Fletes = React.lazy(() => import('@/pages/Fletes'))
+const FletesGeneradores = React.lazy(() => import('@/pages/FletesGeneradores'))
+const FletesConductores = React.lazy(() => import('@/pages/FletesConductores'))
+const FlotaDashboard = React.lazy(() => import('@/pages/FlotaDashboard'))
+const FlotaVehiculos = React.lazy(() => import('@/pages/FlotaVehiculos'))
+const FlotaCombustible = React.lazy(() => import('@/pages/FlotaCombustible'))
+const FlotaDocumentos = React.lazy(() => import('@/pages/FlotaDocumentos'))
+const FlotaMantenimiento = React.lazy(() => import('@/pages/FlotaMantenimiento'))
+const FlotaPersonal = React.lazy(() => import('@/pages/FlotaPersonal'))
+const FlotaConfig = React.lazy(() => import('@/pages/FlotaConfig'))
+const FlotaRutinas = React.lazy(() => import('@/pages/FlotaRutinas'))
+const FlotaConfiabilidad = React.lazy(() => import('@/pages/FlotaConfiabilidad'))
+const LocativaDashboard = React.lazy(() => import('@/pages/LocativaDashboard'))
+const LocativaActivos = React.lazy(() => import('@/pages/LocativaActivos'))
+const LocativaOrdenes = React.lazy(() => import('@/pages/LocativaOrdenes'))
+const LocativaRiesgos = React.lazy(() => import('@/pages/LocativaRiesgos'))
+const LocativaEnergia = React.lazy(() => import('@/pages/LocativaEnergia'))
+const LocativaConfig = React.lazy(() => import('@/pages/LocativaConfig'))
+const WMSDashboard = React.lazy(() => import('@/pages/WMSDashboard'))
+const WMSRecepcion = React.lazy(() => import('@/pages/WMSRecepcion'))
+const WMSInventario = React.lazy(() => import('@/pages/WMSInventario'))
+const WMSPicking = React.lazy(() => import('@/pages/WMSPicking'))
+const WMSDespacho = React.lazy(() => import('@/pages/WMSDespacho'))
+const WMSTrazabilidad = React.lazy(() => import('@/pages/WMSTrazabilidad'))
+const WMSConfig = React.lazy(() => import('@/pages/WMSConfig'))
+const GHDashboard = React.lazy(() => import('@/pages/GHDashboard'))
+const GHColaboradores = React.lazy(() => import('@/pages/GHColaboradores'))
+const GHConductores = React.lazy(() => import('@/pages/GHConductores'))
+const GHIncapacidades = React.lazy(() => import('@/pages/GHIncapacidades'))
+const GHVacaciones = React.lazy(() => import('@/pages/GHVacaciones'))
+const GHReclutamiento = React.lazy(() => import('@/pages/GHReclutamiento'))
+const GHCapacitacion = React.lazy(() => import('@/pages/GHCapacitacion'))
+const GHSST = React.lazy(() => import('@/pages/GHSST'))
+const GHNomina = React.lazy(() => import('@/pages/GHNomina'))
+const GHEvaluacion = React.lazy(() => import('@/pages/GHEvaluacion'))
+const GHConfig = React.lazy(() => import('@/pages/GHConfig'))
+const TMSDashboard = React.lazy(() => import('@/pages/TMSDashboard'))
+const TMSViajes = React.lazy(() => import('@/pages/TMSViajes'))
+const TMSPlaneacion = React.lazy(() => import('@/pages/TMSPlaneacion'))
+const TMSDespachos = React.lazy(() => import('@/pages/TMSDespachos'))
+const TMSTracking = React.lazy(() => import('@/pages/TMSTracking'))
+const TMSVehiculos = React.lazy(() => import('@/pages/TMSVehiculos'))
+const TMSConductores = React.lazy(() => import('@/pages/TMSConductores'))
+const TMSTorreControl = React.lazy(() => import('@/pages/TMSTorreControl'))
+const TMSRutas = React.lazy(() => import('@/pages/TMSRutas'))
+const TMSDocumentos = React.lazy(() => import('@/pages/TMSDocumentos'))
+const TMSCostos = React.lazy(() => import('@/pages/TMSCostos'))
+const TMSOTIF = React.lazy(() => import('@/pages/TMSOTIF'))
+const TMSLiquidaciones = React.lazy(() => import('@/pages/TMSLiquidaciones'))
+const TMSConfig = React.lazy(() => import('@/pages/TMSConfig'))
+const DMSDashboard = React.lazy(() => import('@/pages/DMSDashboard'))
+const DMSRepositorio = React.lazy(() => import('@/pages/DMSRepositorio'))
+const DMSDocumentos = React.lazy(() => import('@/pages/DMSDocumentos'))
+const DMSCategorias = React.lazy(() => import('@/pages/DMSCategorias'))
+const DMSExpedientes = React.lazy(() => import('@/pages/DMSExpedientes'))
+const DMSWorkflow = React.lazy(() => import('@/pages/DMSWorkflow'))
+const DMSFirmas = React.lazy(() => import('@/pages/DMSFirmas'))
+const DMSBusqueda = React.lazy(() => import('@/pages/DMSBusqueda'))
+const DMSRetencion = React.lazy(() => import('@/pages/DMSRetencion'))
+const DMSAuditoria = React.lazy(() => import('@/pages/DMSAuditoria'))
+const DMSIntegraciones = React.lazy(() => import('@/pages/DMSIntegraciones'))
+const DMSIA = React.lazy(() => import('@/pages/DMSIA'))
+const DMSPortal = React.lazy(() => import('@/pages/DMSPortal'))
+const DMSConfig = React.lazy(() => import('@/pages/DMSConfig'))
+const QMSDashboard = React.lazy(() => import('@/pages/QMSDashboard'))
+const QMSProcesos = React.lazy(() => import('@/pages/QMSProcesos'))
+const QMSIndicadores = React.lazy(() => import('@/pages/QMSIndicadores'))
+const QMSNoConformidades = React.lazy(() => import('@/pages/QMSNoConformidades'))
+const QMSAuditorias = React.lazy(() => import('@/pages/QMSAuditorias'))
+const QMSHallazgos = React.lazy(() => import('@/pages/QMSHallazgos'))
+const QMSRiesgos = React.lazy(() => import('@/pages/QMSRiesgos'))
+const QMSQuejas = React.lazy(() => import('@/pages/QMSQuejas'))
+const QMSProveedores = React.lazy(() => import('@/pages/QMSProveedores'))
+const QMSMejora = React.lazy(() => import('@/pages/QMSMejora'))
+const QMSEncuestas = React.lazy(() => import('@/pages/QMSEncuestas'))
+const QMSCambios = React.lazy(() => import('@/pages/QMSCambios'))
+const QMSIA = React.lazy(() => import('@/pages/QMSIA'))
+const QMSConfig = React.lazy(() => import('@/pages/QMSConfig'))
+const GRCDashboard = React.lazy(() => import('@/pages/GRCDashboard'))
+const GRCGobierno = React.lazy(() => import('@/pages/GRCGobierno'))
+const GRCPoliticas = React.lazy(() => import('@/pages/GRCPoliticas'))
+const GRCObligaciones = React.lazy(() => import('@/pages/GRCObligaciones'))
+const GRCRiesgos = React.lazy(() => import('@/pages/GRCRiesgos'))
+const GRCControles = React.lazy(() => import('@/pages/GRCControles'))
+const GRCCumplimiento = React.lazy(() => import('@/pages/GRCCumplimiento'))
+const GRCTerceros = React.lazy(() => import('@/pages/GRCTerceros'))
+const GRCAuditorias = React.lazy(() => import('@/pages/GRCAuditorias'))
+const GRCHallazgos = React.lazy(() => import('@/pages/GRCHallazgos'))
+const GRCContinuidad = React.lazy(() => import('@/pages/GRCContinuidad'))
+const GRCIncidentes = React.lazy(() => import('@/pages/GRCIncidentes'))
+const GRCIA = React.lazy(() => import('@/pages/GRCIA'))
+const GRCConfig = React.lazy(() => import('@/pages/GRCConfig'))
+const LMSDashboard = React.lazy(() => import('@/pages/LMSDashboard'))
+const LMSMiAprendizaje = React.lazy(() => import('@/pages/LMSMiAprendizaje'))
+const LMSUniversidad = React.lazy(() => import('@/pages/LMSUniversidad'))
+const LMSCatalogo = React.lazy(() => import('@/pages/LMSCatalogo'))
+const LMSRutas = React.lazy(() => import('@/pages/LMSRutas'))
+const LMSOnboarding = React.lazy(() => import('@/pages/LMSOnboarding'))
+const LMSCompetencias = React.lazy(() => import('@/pages/LMSCompetencias'))
+const LMSEvaluaciones = React.lazy(() => import('@/pages/LMSEvaluaciones'))
+const LMSBancoPreguntas = React.lazy(() => import('@/pages/LMSBancoPreguntas'))
+const LMSCertificaciones = React.lazy(() => import('@/pages/LMSCertificaciones'))
+const LMSKnowledge = React.lazy(() => import('@/pages/LMSKnowledge'))
+const LMSGamificacion = React.lazy(() => import('@/pages/LMSGamificacion'))
+const LMSIA = React.lazy(() => import('@/pages/LMSIA'))
+const LMSReportes = React.lazy(() => import('@/pages/LMSReportes'))
+const LMSConfig = React.lazy(() => import('@/pages/LMSConfig'))
+const CRMDashboard = React.lazy(() => import('@/pages/CRMDashboard'))
+const CRMClientes = React.lazy(() => import('@/pages/CRMClientes'))
+const CRMLeads = React.lazy(() => import('@/pages/CRMLeads'))
+const CRMOportunidades = React.lazy(() => import('@/pages/CRMOportunidades'))
+const CRMCotizaciones = React.lazy(() => import('@/pages/CRMCotizaciones'))
+const CRMContratos = React.lazy(() => import('@/pages/CRMContratos'))
+const CRMTickets = React.lazy(() => import('@/pages/CRMTickets'))
+const CRMInteracciones = React.lazy(() => import('@/pages/CRMInteracciones'))
+const CRMCampanas = React.lazy(() => import('@/pages/CRMCampanas'))
+const CRMEncuestas = React.lazy(() => import('@/pages/CRMEncuestas'))
+const CRMCuentasClave = React.lazy(() => import('@/pages/CRMCuentasClave'))
+const CRMRentabilidad = React.lazy(() => import('@/pages/CRMRentabilidad'))
+const CRMIA = React.lazy(() => import('@/pages/CRMIA'))
+const CRMReportes = React.lazy(() => import('@/pages/CRMReportes'))
+const CRMConfig = React.lazy(() => import('@/pages/CRMConfig'))
+const EAMDashboard = React.lazy(() => import('@/pages/EAMDashboard'))
+const EAMActivos = React.lazy(() => import('@/pages/EAMActivos'))
+const EAMOrdenesTrabajo = React.lazy(() => import('@/pages/EAMOrdenesTrabajo'))
+const EAMPlanesMant = React.lazy(() => import('@/pages/EAMPlanesMant'))
+const EAMChecklists = React.lazy(() => import('@/pages/EAMChecklists'))
+const EAMLubricacion = React.lazy(() => import('@/pages/EAMLubricacion'))
+const EAMNeumaticos = React.lazy(() => import('@/pages/EAMNeumaticos'))
+const EAMCombustible = React.lazy(() => import('@/pages/EAMCombustible'))
+const EAMInventario = React.lazy(() => import('@/pages/EAMInventario'))
+const EAMConfiabilidad = React.lazy(() => import('@/pages/EAMConfiabilidad'))
+const EAMGarantias = React.lazy(() => import('@/pages/EAMGarantias'))
+const EAMIA = React.lazy(() => import('@/pages/EAMIA'))
+const EAMReportes = React.lazy(() => import('@/pages/EAMReportes'))
+const EAMConfig = React.lazy(() => import('@/pages/EAMConfig'))
+const MESDashboard = React.lazy(() => import('@/pages/MESDashboard'))
+const MESPlanta = React.lazy(() => import('@/pages/MESPlanta'))
+const MESOrdenes = React.lazy(() => import('@/pages/MESOrdenes'))
+const MESProgramacion = React.lazy(() => import('@/pages/MESProgramacion'))
+const MESEjecucion = React.lazy(() => import('@/pages/MESEjecucion'))
+const MESTrazabilidad = React.lazy(() => import('@/pages/MESTrazabilidad'))
+const MESCalidad = React.lazy(() => import('@/pages/MESCalidad'))
+const MESScrap = React.lazy(() => import('@/pages/MESScrap'))
+const MESOEE = React.lazy(() => import('@/pages/MESOEE'))
+const MESInventario = React.lazy(() => import('@/pages/MESInventario'))
+const MESBOM = React.lazy(() => import('@/pages/MESBOM'))
+const MESIA = React.lazy(() => import('@/pages/MESIA'))
+const MESReportes = React.lazy(() => import('@/pages/MESReportes'))
+const MESConfig = React.lazy(() => import('@/pages/MESConfig'))
+const APSDashboard = React.lazy(() => import('@/pages/APSDashboard'))
+const APSDemanda = React.lazy(() => import('@/pages/APSDemanda'))
+const APSSOIP = React.lazy(() => import('@/pages/APSSOIP'))
+const APSPlan = React.lazy(() => import('@/pages/APSPlan'))
+const APSCapacidad = React.lazy(() => import('@/pages/APSCapacidad'))
+const APSInventario = React.lazy(() => import('@/pages/APSInventario'))
+const APSDistribucion = React.lazy(() => import('@/pages/APSDistribucion'))
+const APSTransporte = React.lazy(() => import('@/pages/APSTransporte'))
+const APSEscenarios = React.lazy(() => import('@/pages/APSEscenarios'))
+const APSRestricciones = React.lazy(() => import('@/pages/APSRestricciones'))
+const APSKPIs = React.lazy(() => import('@/pages/APSKPIs'))
+const APSAI = React.lazy(() => import('@/pages/APSAI'))
+const APSReportes = React.lazy(() => import('@/pages/APSReportes'))
+const APSConfig = React.lazy(() => import('@/pages/APSConfig'))
+const ERPDashboard = React.lazy(() => import('@/pages/ERPDashboard'))
+const ERPContabilidad = React.lazy(() => import('@/pages/ERPContabilidad'))
+const ERPTesoreria = React.lazy(() => import('@/pages/ERPTesoreria'))
+const ERPCxC = React.lazy(() => import('@/pages/ERPCxC'))
+const ERPCxP = React.lazy(() => import('@/pages/ERPCxP'))
+const ERPFacturacion = React.lazy(() => import('@/pages/ERPFacturacion'))
+const ERPTributacion = React.lazy(() => import('@/pages/ERPTributacion'))
+const ERPPresupuestos = React.lazy(() => import('@/pages/ERPPresupuestos'))
+const ERPCosteo = React.lazy(() => import('@/pages/ERPCosteo'))
+const ERPConsolidacion = React.lazy(() => import('@/pages/ERPConsolidacion'))
+const ERPActivos = React.lazy(() => import('@/pages/ERPActivos'))
+const ERPCompras = React.lazy(() => import('@/pages/ERPCompras'))
+const ERPProyectos = React.lazy(() => import('@/pages/ERPProyectos'))
+const ERPEPM = React.lazy(() => import('@/pages/ERPEPM'))
+const ERPReportes = React.lazy(() => import('@/pages/ERPReportes'))
+const ERPConfig = React.lazy(() => import('@/pages/ERPConfig'))
+const Configuracion = React.lazy(() => import('@/pages/Configuracion'))
+const Clientes = React.lazy(() => import('@/pages/Clientes'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -307,6 +307,22 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+function PageLoader() {
+  return (
+    <Box sx={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      height: '100vh', bgcolor: '#060C1A',
+    }}>
+      <Box sx={{
+        width: 40, height: 40, borderRadius: '50%',
+        border: '3px solid #1E3A5F', borderTop: '3px solid #32AC5C',
+        animation: 'spin 0.7s linear infinite',
+        '@keyframes spin': { to: { transform: 'rotate(360deg)' } },
+      }} />
+    </Box>
+  )
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -321,6 +337,7 @@ export default function App() {
           }}
         />
         <BrowserRouter>
+          <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/sin-acceso" element={<SinAcceso />} />
@@ -531,6 +548,7 @@ export default function App() {
             <Route path="/erp/config" element={<ProtectedRoute><ERPConfig /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
+          </Suspense>
         </BrowserRouter>
       </ThemeProvider>
     </QueryClientProvider>

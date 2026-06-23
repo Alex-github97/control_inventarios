@@ -232,6 +232,7 @@
       "crm": "CRM",
       "mes": "MES",
       "aps": "APS",
+      "erp": "ERP",
       "config": "配置",
       "espacios": "空间"
     },

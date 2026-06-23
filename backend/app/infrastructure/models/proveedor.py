@@ -5,6 +5,15 @@ from app.core.database import Base
 from app.infrastructure.models.base import TimestampMixin, SoftDeleteMixin
 
 
+class TipoProveedor(Base):
+    __tablename__ = "tipos_proveedor"
+    __table_args__ = {"extend_existing": True}
+
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(100), nullable=False, unique=True)
+    activo = Column(Boolean, nullable=False, default=True)
+
+
 class EstadoContrato(str, enum.Enum):
     ACTIVO = "ACTIVO"
     VENCIDO = "VENCIDO"

@@ -1,23 +1,17 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, Column, Integer, String, Boolean
+from sqlalchemy import select
 from typing import Optional, List
 from pydantic import BaseModel
 from datetime import date
-from app.core.database import get_db, Base
+from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_admin
-from app.infrastructure.models.proveedor import Proveedor, Contrato, EstadoContrato
+from app.infrastructure.models.proveedor import Proveedor, Contrato, EstadoContrato, TipoProveedor
 from app.infrastructure.models.usuario import Usuario
 
 router = APIRouter(prefix="/proveedores", tags=["Proveedores"])
 
-
-class TipoProveedorCatalogo(Base):
-    __tablename__ = "tipos_proveedor"
-    __table_args__ = {"extend_existing": True}
-    id = Column(Integer, primary_key=True, index=True)
-    nombre = Column(String(100), nullable=False, unique=True)
-    activo = Column(Boolean, nullable=False, default=True)
+TipoProveedorCatalogo = TipoProveedor
 
 
 class TipoProveedorCreate(BaseModel):

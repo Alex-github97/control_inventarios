@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Box, Card, Typography, Button, Grid, TextField, Select,
   MenuItem, FormControl, InputLabel, alpha, Tabs, Tab,
@@ -62,8 +62,11 @@ export default function ERPConfig() {
   const { data: config, isLoading: loadingConfig } = useQuery<ConfigGeneral>({
     queryKey: ['erp-config-general'],
     queryFn: () => apiClient.get('/erp/config/general').then(r => r.data),
-    onSuccess: (d) => setConfigForm(d),
   })
+
+  useEffect(() => {
+    if (config) setConfigForm(config)
+  }, [config])
 
   const { data: tasas = [], isLoading: loadingTasas } = useQuery<TasaCambio[]>({
     queryKey: ['erp-tasas-cambio'],
