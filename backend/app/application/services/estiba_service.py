@@ -58,7 +58,12 @@ class EstibaService:
         return estiba
 
     async def buscar_por_codigo(self, codigo: str) -> Estiba:
-        estiba = await self.repo.get_by_codigo(codigo)
+        # Los QR impresos contienen "ESTIBA:{codigo_interno}:CI" — extraer el código interno
+        search_code = codigo
+        if codigo.startswith('ESTIBA:') and codigo.endswith(':CI'):
+            search_code = codigo[len('ESTIBA:'):-len(':CI')]
+
+        estiba = await self.repo.get_by_codigo(search_code)
         if not estiba:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Estiba '{codigo}' no encontrada")
         return estiba
