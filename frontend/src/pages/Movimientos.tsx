@@ -34,36 +34,50 @@ export default function Movimientos() {
   const [pageSize, setPageSize] = useState(50)
   const [openDialog, setOpenDialog] = useState(false)
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null)
-  const [form, setForm] = useState({ estiba_id: '', tipo: 'CARGA', ubicacion_destino_id: '', observaciones: '' })
+  const [form, setForm] = useState({ tipo: 'CARGA', ubicacion_destino_id: '', observaciones: '' })
+  const [estibaSearch, setEstibaSearch] = useState('')
+  const [selectedEstiba, setSelectedEstiba] = useState<any>(null)
 
   const { data: movimientos, isLoading } = useQuery({
     queryKey: ['movimientos-recientes', page],
-    queryFn: () => apiClient.get('/movimientos/recientes', { params: { limit: pageSize } }).then(r => r.data),
+    queryFn: () => apiClient.get('/movimientos/recientes', { params: { limit: pageSize } }).then((r: any) => r.data),
   })
 
   const { data: ubicaciones } = useQuery({
     queryKey: ['ubicaciones'],
-    queryFn: () => apiClient.get('/ubicaciones').then(r => r.data),
+    queryFn: () => apiClient.get('/ubicaciones').then((r: any) => r.data),
   })
+
+  const { data: estibasEncontradas } = useQuery({
+    queryKey: ['estibas-search', estibaSearch],
+    queryFn: () => apiClient.get('/estibas', { params: { search: estibaSearch, page_size: 20 } }).then((r: any) => r.data.items ?? []),
+    enabled: estibaSearch.length >= 2,
+  })
+
+  const handleClose = () => {
+    setOpenDialog(false)
+    setEstibaSearch('')
+    setSelectedEstiba(null)
+    setForm({ tipo: 'CARGA', ubicacion_destino_id: '', observaciones: '' })
+  }
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiClient.post('/movimientos', data).then(r => r.data),
     onSuccess: () => {
       toast.success('Movimiento registrado exitosamente')
       queryClient.invalidateQueries({ queryKey: ['movimientos-recientes'] })
-      setOpenDialog(false)
-      setForm({ estiba_id: '', tipo: 'CARGA', ubicacion_destino_id: '', observaciones: '' })
+      handleClose()
     },
     onError: (e: any) => toast.error(e.response?.data?.detail || 'Error registrando movimiento'),
   })
 
   const handleSubmit = () => {
-    if (!form.estiba_id || !form.tipo) {
-      toast.error('Estiba y tipo son requeridos')
+    if (!selectedEstiba || !form.tipo) {
+      toast.error('Selecciona una estiba y un tipo de movimiento')
       return
     }
     createMutation.mutate({
-      estiba_id: parseInt(form.estiba_id),
+      estiba_id: selectedEstiba.id,
       tipo: form.tipo,
       ubicacion_destino_id: form.ubicacion_destino_id ? parseInt(form.ubicacion_destino_id) : undefined,
       observaciones: form.observaciones,
@@ -152,21 +166,29 @@ export default function Movimientos() {
       </Card>
 
       {/* Dialog */}
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
+      <Dialog open={openDialog} onClose={handleClose} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>Registrar Movimiento</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
             <Grid item xs={12}>
-              <TextField
-                fullWidth label="ID de Estiba" size="small"
-                value={form.estiba_id} onChange={e => setForm({ ...form, estiba_id: e.target.value })}
-                required type="number"
+              <Autocomplete
+                options={estibasEncontradas ?? []}
+                getOptionLabel={(o: any) => `${o.codigo_interno} — ${o.estado}`}
+                inputValue={estibaSearch}
+                onInputChange={(_: any, v: string) => setEstibaSearch(v)}
+                onChange={(_: any, v: any) => setSelectedEstiba(v)}
+                noOptionsText={estibaSearch.length < 2 ? 'Escriba al menos 2 caracteres' : 'No se encontraron estibas'}
+                renderInput={(params: any) => (
+                  <TextField {...params} label="Buscar estiba por código" size="small" required
+                    placeholder="Ej: PRUEBA-001"
+                  />
+                )}
               />
             </Grid>
             <Grid item xs={12}>
               <FormControl fullWidth size="small">
                 <InputLabel>Tipo de Movimiento</InputLabel>
-                <Select value={form.tipo} label="Tipo de Movimiento" onChange={e => setForm({ ...form, tipo: e.target.value })}>
+                <Select value={form.tipo} label="Tipo de Movimiento" onChange={(e: any) => setForm({ ...form, tipo: e.target.value })}>
                   {TIPOS_MOVIMIENTO.map(t => <MenuItem key={t} value={t}>{t.replace('_', ' ')}</MenuItem>)}
                 </Select>
               </FormControl>
@@ -174,7 +196,7 @@ export default function Movimientos() {
             <Grid item xs={12}>
               <FormControl fullWidth size="small">
                 <InputLabel>Ubicación Destino</InputLabel>
-                <Select value={form.ubicacion_destino_id} label="Ubicación Destino" onChange={e => setForm({ ...form, ubicacion_destino_id: e.target.value })}>
+                <Select value={form.ubicacion_destino_id} label="Ubicación Destino" onChange={(e: any) => setForm({ ...form, ubicacion_destino_id: e.target.value })}>
                   <MenuItem value="">Sin ubicación</MenuItem>
                   {(ubicaciones || []).map((u: any) => <MenuItem key={u.id} value={u.id}>{u.nombre}</MenuItem>)}
                 </Select>
@@ -182,14 +204,14 @@ export default function Movimientos() {
             </Grid>
             <Grid item xs={12}>
               <TextField fullWidth label="Observaciones" size="small" multiline rows={2}
-                value={form.observaciones} onChange={e => setForm({ ...form, observaciones: e.target.value })}
+                value={form.observaciones} onChange={(e: any) => setForm({ ...form, observaciones: e.target.value })}
               />
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setOpenDialog(false)}>Cancelar</Button>
-          <Button variant="contained" onClick={handleSubmit} disabled={createMutation.isPending}>
+          <Button onClick={handleClose}>Cancelar</Button>
+          <Button variant="contained" onClick={handleSubmit} disabled={createMutation.isPending || !selectedEstiba}>
             {createMutation.isPending ? 'Registrando...' : 'Registrar'}
           </Button>
         </DialogActions>

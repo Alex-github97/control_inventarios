@@ -10,7 +10,7 @@ class MantenimientoCreate(BaseModel):
     tipo: TipoMantenimiento
     descripcion: Optional[str] = None
     costo: float = Field(..., ge=0, description="Costo en COP")
-    proveedor_servicio: Optional[str] = None
+    proveedor_id: int = Field(..., description="ID del proveedor registrado en el sistema")
 
 
 class MantenimientoResponse(BaseModel):
@@ -21,7 +21,8 @@ class MantenimientoResponse(BaseModel):
     tipo: TipoMantenimiento
     descripcion: Optional[str] = None
     costo: float
-    proveedor_servicio: Optional[str] = None
+    proveedor_id: int
+    proveedor_nombre: Optional[str] = None
     usuario_id: Optional[int] = None
     usuario_nombre: Optional[str] = None
     created_at: datetime

@@ -21,13 +21,21 @@ class EstibaRepository(BaseRepository[Estiba]):
 
     async def get_by_codigo(self, codigo: str) -> Optional[Estiba]:
         result = await self.db.execute(
-            select(Estiba).where(
+            select(Estiba)
+            .where(
                 or_(
                     Estiba.codigo_interno == codigo,
                     Estiba.codigo_qr == codigo,
                     Estiba.codigo_rfid == codigo,
                 ),
                 Estiba.activo == True,
+            )
+            .options(
+                selectinload(Estiba.ubicacion_actual),
+                selectinload(Estiba.proveedor),
+                selectinload(Estiba.contrato),
+                selectinload(Estiba.movimientos),
+                selectinload(Estiba.eventos_dano),
             )
         )
         return result.scalar_one_or_none()
@@ -54,8 +62,17 @@ class EstibaRepository(BaseRepository[Estiba]):
         proveedor_id: Optional[int] = None,
         search: Optional[str] = None,
     ) -> tuple[List[Estiba], int]:
-        query = select(Estiba).where(Estiba.activo == True)
-        count_query = select(func.count(Estiba.id)).where(Estiba.activo == True)
+        base_filter = Estiba.activo == True
+        query = (
+            select(Estiba)
+            .where(base_filter)
+            .options(
+                selectinload(Estiba.ubicacion_actual),
+                selectinload(Estiba.proveedor),
+                selectinload(Estiba.contrato),
+            )
+        )
+        count_query = select(func.count(Estiba.id)).where(base_filter)
 
         filters = []
         if estado:

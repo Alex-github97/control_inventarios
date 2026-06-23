@@ -1,16 +1,18 @@
-import React from 'react'
+import React, { useState } from 'react'
 import {
   Grid, Card, CardContent, Typography, Box, Chip, Button,
-  Divider, Skeleton, Alert, Avatar, Timeline, TimelineItem,
-  TimelineSeparator, TimelineConnector, TimelineContent, TimelineDot, TimelineOppositeContent
+  Divider, Skeleton, Alert, Avatar,
+  Dialog, DialogTitle, DialogContent, DialogActions,
+  FormControl, InputLabel, Select, MenuItem, TextField,
 } from '@mui/material'
 import {
   ArrowBack, QrCode2, Edit, LocalShipping, LocationOn,
-  CalendarToday, Person, Inventory2, Warning
+  Person, Inventory2, Warning
 } from '@mui/icons-material'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { estibasApi } from '@/api/estibas'
+import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
 import { StatusChip } from '@/components/common/StatusChip'
 import { format } from 'date-fns'
@@ -33,14 +35,75 @@ const TIPO_COLORS: Record<string, string> = {
   REPARACION: '#F97316',
 }
 
+const TIPOS = ['MADERA', 'PLASTICO', 'METAL', 'CARTON', 'MIXTA']
+const PROPIETARIOS = ['PROPIA', 'ALQUILADA', 'CLIENTE', 'PROVEEDOR', 'TERCERO']
+const MATERIALES: Record<string, string[]> = {
+  MADERA:   ['MADERA_PINO', 'MADERA_EUCALIPTO'],
+  PLASTICO: ['PLASTICO_HDPE'],
+  METAL:    ['ACERO', 'ALUMINIO'],
+  CARTON:   ['CARTON_CORRUGADO'],
+  MIXTA:    ['MADERA_PINO', 'MADERA_EUCALIPTO', 'PLASTICO_HDPE', 'ACERO', 'ALUMINIO', 'CARTON_CORRUGADO'],
+}
+
 export default function EstibaDetalle() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const [openEdit, setOpenEdit] = useState(false)
+  const [editForm, setEditForm] = useState<any>({})
+  const [editError, setEditError] = useState('')
+  const [openQr, setOpenQr] = useState(false)
 
   const { data: estiba, isLoading, error } = useQuery({
     queryKey: ['estiba', id],
     queryFn: () => estibasApi.obtener(Number(id)),
   })
+
+  const updateMutation = useMutation({
+    mutationFn: (data: any) => estibasApi.actualizar(Number(id), data),
+    onSuccess: () => {
+      toast.success('Estiba actualizada correctamente')
+      queryClient.invalidateQueries({ queryKey: ['estiba', id] })
+      queryClient.invalidateQueries({ queryKey: ['estibas'] })
+      setOpenEdit(false)
+      setEditError('')
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.detail ?? 'Error al actualizar la estiba'
+      setEditError(typeof msg === 'string' ? msg : JSON.stringify(msg))
+    },
+  })
+
+  const handleOpenEdit = () => {
+    if (!estiba) return
+    setEditForm({
+      tipo: estiba.tipo,
+      material: estiba.material,
+      tipo_propietario: estiba.tipo_propietario,
+      largo_cm: (estiba as any).largo_cm ?? 120,
+      ancho_cm: (estiba as any).ancho_cm ?? 100,
+      alto_cm: (estiba as any).alto_cm ?? 15,
+      peso_kg: (estiba as any).peso_kg ?? 25,
+      capacidad_carga_kg: (estiba as any).capacidad_carga_kg ?? 1000,
+      valor_compra: (estiba as any).valor_compra ?? '',
+      observaciones: estiba.observaciones ?? '',
+    })
+    setEditError('')
+    setOpenEdit(true)
+  }
+
+  const handleEditSubmit = () => {
+    updateMutation.mutate({
+      ...editForm,
+      largo_cm: Number(editForm.largo_cm),
+      ancho_cm: Number(editForm.ancho_cm),
+      alto_cm: Number(editForm.alto_cm),
+      peso_kg: Number(editForm.peso_kg),
+      capacidad_carga_kg: Number(editForm.capacidad_carga_kg),
+      valor_compra: editForm.valor_compra !== '' ? Number(editForm.valor_compra) : null,
+      observaciones: editForm.observaciones || null,
+    })
+  }
 
   const { data: trazabilidad } = useQuery({
     queryKey: ['trazabilidad', id],
@@ -70,8 +133,8 @@ export default function EstibaDetalle() {
             </Box>
           )}
         </Box>
-        <Button variant="outlined" startIcon={<QrCode2 />}>Ver QR</Button>
-        <Button variant="contained" startIcon={<Edit />}>Editar</Button>
+        <Button variant="outlined" startIcon={<QrCode2 />} onClick={() => setOpenQr(true)} disabled={isLoading || !estiba?.codigo_qr}>Ver QR</Button>
+        <Button variant="contained" startIcon={<Edit />} onClick={handleOpenEdit} disabled={isLoading}>Editar</Button>
       </Box>
 
       <Grid container spacing={2.5}>
@@ -213,6 +276,117 @@ export default function EstibaDetalle() {
           </Card>
         </Grid>
       </Grid>
+      {/* Dialog Ver QR */}
+      <Dialog open={openQr} onClose={() => setOpenQr(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700, textAlign: 'center' }}>
+          Código QR — {estiba?.codigo_interno}
+        </DialogTitle>
+        <DialogContent sx={{ textAlign: 'center', pb: 2 }}>
+          {estiba?.codigo_qr ? (
+            <>
+              <Box component="img" src={estiba.codigo_qr} alt="QR Code"
+                sx={{ width: '85%', maxWidth: 240, display: 'block', mx: 'auto', mb: 1.5 }} />
+              <Typography variant="caption" sx={{ fontFamily: 'monospace', color: '#64748B', display: 'block' }}>
+                {estiba.codigo_interno}
+              </Typography>
+            </>
+          ) : (
+            <Typography sx={{ color: '#94A3B8', py: 3 }}>Sin código QR generado</Typography>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'center', pb: 2, gap: 1 }}>
+          {estiba?.codigo_qr && (
+            <Button variant="contained" component="a" href={estiba.codigo_qr}
+              download={`${estiba.codigo_interno}_QR.png`}
+              sx={{ bgcolor: '#32AC5C', '&:hover': { bgcolor: '#27884A' } }}>
+              Descargar
+            </Button>
+          )}
+          <Button onClick={() => setOpenQr(false)}>Cerrar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog Editar */}
+      <Dialog open={openEdit} onClose={() => !updateMutation.isPending && setOpenEdit(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Editar Estiba — {estiba?.codigo_interno}</DialogTitle>
+        <DialogContent dividers>
+          <Grid container spacing={2} sx={{ pt: 0.5 }}>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Tipo</InputLabel>
+                <Select value={editForm.tipo ?? ''} label="Tipo"
+                  onChange={e => {
+                    const tipo = e.target.value
+                    const mats = MATERIALES[tipo] ?? []
+                    setEditForm((f: any) => ({ ...f, tipo, material: mats[0] ?? '' }))
+                  }}>
+                  {TIPOS.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Material</InputLabel>
+                <Select value={editForm.material ?? ''} label="Material"
+                  onChange={e => setEditForm((f: any) => ({ ...f, material: e.target.value }))}>
+                  {(MATERIALES[editForm.tipo] ?? []).map((m: string) => (
+                    <MenuItem key={m} value={m}>{m.replace(/_/g, ' ')}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Propietario</InputLabel>
+                <Select value={editForm.tipo_propietario ?? ''} label="Propietario"
+                  onChange={e => setEditForm((f: any) => ({ ...f, tipo_propietario: e.target.value }))}>
+                  {PROPIETARIOS.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <TextField label="Largo (cm)" type="number" fullWidth size="small"
+                value={editForm.largo_cm ?? ''} onChange={e => setEditForm((f: any) => ({ ...f, largo_cm: e.target.value }))} />
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <TextField label="Ancho (cm)" type="number" fullWidth size="small"
+                value={editForm.ancho_cm ?? ''} onChange={e => setEditForm((f: any) => ({ ...f, ancho_cm: e.target.value }))} />
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <TextField label="Alto (cm)" type="number" fullWidth size="small"
+                value={editForm.alto_cm ?? ''} onChange={e => setEditForm((f: any) => ({ ...f, alto_cm: e.target.value }))} />
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <TextField label="Peso (kg)" type="number" fullWidth size="small"
+                value={editForm.peso_kg ?? ''} onChange={e => setEditForm((f: any) => ({ ...f, peso_kg: e.target.value }))} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField label="Capacidad carga (kg)" type="number" fullWidth size="small"
+                value={editForm.capacidad_carga_kg ?? ''} onChange={e => setEditForm((f: any) => ({ ...f, capacidad_carga_kg: e.target.value }))} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField label="Valor de compra (COP)" type="number" fullWidth size="small"
+                value={editForm.valor_compra ?? ''} onChange={e => setEditForm((f: any) => ({ ...f, valor_compra: e.target.value }))}
+                placeholder="Opcional" />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField label="Observaciones" fullWidth size="small" multiline rows={2}
+                value={editForm.observaciones ?? ''} onChange={e => setEditForm((f: any) => ({ ...f, observaciones: e.target.value }))} />
+            </Grid>
+            {editError && (
+              <Grid item xs={12}>
+                <Alert severity="error" sx={{ py: 0.5 }}>{editError}</Alert>
+              </Grid>
+            )}
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setOpenEdit(false)} disabled={updateMutation.isPending}>Cancelar</Button>
+          <Button variant="contained" onClick={handleEditSubmit} disabled={updateMutation.isPending}>
+            {updateMutation.isPending ? 'Guardando...' : 'Guardar cambios'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Layout>
   )
 }

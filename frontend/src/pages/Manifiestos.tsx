@@ -3,14 +3,15 @@ import {
   Box, Card, Typography, Button, Table, TableBody, TableCell,
   TableHead, TableRow, Chip, Skeleton, Dialog, DialogTitle,
   DialogContent, DialogActions, Grid, TextField, FormControl,
-  InputLabel, Select, MenuItem, Alert
+  InputLabel, Select, MenuItem, Autocomplete, Tooltip, IconButton,
 } from '@mui/material'
-import { Add, Assignment } from '@mui/icons-material'
+import { Add, Assignment, OpenInNew } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 
 const ESTADO_COLORS: Record<string, { bg: string; color: string }> = {
@@ -24,10 +25,12 @@ const ESTADO_COLORS: Record<string, { bg: string; color: string }> = {
 
 export default function Manifiestos() {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
+  const [selectedCliente, setSelectedCliente] = useState<any>(null)
   const [form, setForm] = useState({
     numero: '', vehiculo_id: '', origen_id: '', destino_id: '',
-    cliente_nombre: '', fecha_programada: '', observaciones: ''
+    fecha_programada: '', observaciones: ''
   })
 
   const { data: manifiestos, isLoading } = useQuery({
@@ -40,15 +43,22 @@ export default function Manifiestos() {
   })
   const { data: ubicaciones } = useQuery({
     queryKey: ['ubicaciones'],
-    queryFn: () => apiClient.get('/ubicaciones').then(r => r.data),
+    queryFn: () => apiClient.get('/ubicaciones').then((r: any) => r.data),
+  })
+
+  const { data: clientes } = useQuery({
+    queryKey: ['clientes-manifiestos'],
+    queryFn: () => apiClient.get('/manifiestos/clientes').then((r: any) => r.data),
   })
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => apiClient.post('/manifiestos', data).then(r => r.data),
+    mutationFn: (data: any) => apiClient.post('/manifiestos', data).then((r: any) => r.data),
     onSuccess: () => {
       toast.success('Manifiesto creado exitosamente')
       queryClient.invalidateQueries({ queryKey: ['manifiestos'] })
       setOpen(false)
+      setSelectedCliente(null)
+      setForm({ numero: '', vehiculo_id: '', origen_id: '', destino_id: '', fecha_programada: '', observaciones: '' })
     },
     onError: (e: any) => toast.error(e.response?.data?.detail || 'Error creando manifiesto'),
   })
@@ -59,7 +69,8 @@ export default function Manifiestos() {
       vehiculo_id: parseInt(form.vehiculo_id),
       origen_id: parseInt(form.origen_id),
       destino_id: parseInt(form.destino_id),
-      cliente_nombre: form.cliente_nombre || undefined,
+      cliente_nombre: selectedCliente?.nombre || undefined,
+      cliente_nit: selectedCliente?.nit || undefined,
       fecha_programada: form.fecha_programada,
       observaciones: form.observaciones || undefined,
     })
@@ -164,7 +175,24 @@ export default function Manifiestos() {
               </FormControl>
             </Grid>
             <Grid item xs={12}>
-              <TextField fullWidth size="small" label="Nombre Cliente" value={form.cliente_nombre} onChange={e => setForm({ ...form, cliente_nombre: e.target.value })} />
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                <Autocomplete
+                  sx={{ flex: 1 }}
+                  options={clientes ?? []}
+                  getOptionLabel={(o: any) => o.nit ? `${o.nombre} — ${o.nit}` : o.nombre}
+                  value={selectedCliente}
+                  onChange={(_: any, v: any) => setSelectedCliente(v)}
+                  noOptionsText="Sin clientes. Créelos en Recursos > Clientes"
+                  renderInput={(params: any) => (
+                    <TextField {...params} label="Cliente" size="small" placeholder="Seleccione un cliente" />
+                  )}
+                />
+                <Tooltip title="Gestionar clientes">
+                  <IconButton size="small" onClick={() => navigate('/clientes')} sx={{ mt: 0.5 }}>
+                    <OpenInNew fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
             </Grid>
             <Grid item xs={12}>
               <TextField fullWidth size="small" label="Observaciones" multiline rows={2} value={form.observaciones} onChange={e => setForm({ ...form, observaciones: e.target.value })} />

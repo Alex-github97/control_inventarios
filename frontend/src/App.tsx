@@ -254,6 +254,7 @@ import APSAI from '@/pages/APSAI'
 import APSReportes from '@/pages/APSReportes'
 import APSConfig from '@/pages/APSConfig'
 import Configuracion from '@/pages/Configuracion'
+import Clientes from '@/pages/Clientes'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -318,6 +319,7 @@ export default function App() {
             <Route path="/vehiculos" element={<ProtectedRoute><Vehiculos /></ProtectedRoute>} />
             <Route path="/ubicaciones" element={<ProtectedRoute><Ubicaciones /></ProtectedRoute>} />
             <Route path="/proveedores" element={<ProtectedRoute><Proveedores /></ProtectedRoute>} />
+            <Route path="/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
             <Route path="/alertas" element={<ProtectedRoute><Alertas /></ProtectedRoute>} />
             <Route path="/danos" element={<ProtectedRoute><Danos /></ProtectedRoute>} />
             <Route path="/trazabilidad" element={<ProtectedRoute><Trazabilidad /></ProtectedRoute>} />

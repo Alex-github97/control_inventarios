@@ -24,8 +24,9 @@ class MantenimientoEstiba(Base, TimestampMixin):
     tipo = Column(Enum(TipoMantenimiento), nullable=False)
     descripcion = Column(Text, nullable=True)
     costo = Column(Float, nullable=False, default=0.0)
-    proveedor_servicio = Column(String(200), nullable=True)
+    proveedor_id = Column(Integer, ForeignKey("proveedores.id"), nullable=False)
     usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
 
     estiba = relationship("Estiba", back_populates="mantenimientos")
+    proveedor = relationship("Proveedor")
     usuario = relationship("Usuario")

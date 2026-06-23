@@ -1,15 +1,35 @@
 from datetime import date
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, outerjoin
+from sqlalchemy import select, func, Column, Integer, String, Boolean
+from pydantic import BaseModel
 import math
 
-from app.core.database import get_db
+from app.core.database import get_db, Base
 from app.core.dependencies import get_current_user, require_operador
 from app.infrastructure.models.usuario import Usuario
 from app.infrastructure.models.mantenimiento import MantenimientoEstiba
 from app.infrastructure.models.estiba import Estiba, TipoEstiba, EstadoEstiba, TipoPropietario
+from app.infrastructure.models.proveedor import Proveedor
+
+
+class ActividadMantenimiento(Base):
+    __tablename__ = "actividades_mantenimiento"
+    __table_args__ = {"extend_existing": True}
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(200), nullable=False, unique=True)
+    activo = Column(Boolean, nullable=False, default=True)
+
+
+class ActividadCreate(BaseModel):
+    nombre: str
+
+class ActividadResponse(BaseModel):
+    id: int
+    nombre: str
+    activo: bool
+    model_config = {"from_attributes": True}
 from app.application.schemas.mantenimiento import (
     MantenimientoCreate, MantenimientoResponse,
     MantenimientoListResponse, CostosReporteResponse, CostoEstibaItem,
@@ -113,8 +133,9 @@ async def listar_mantenimientos(
     current_user: Usuario = Depends(get_current_user),
 ):
     query = (
-        select(MantenimientoEstiba, Estiba.codigo_interno, Usuario.nombre)
+        select(MantenimientoEstiba, Estiba.codigo_interno, Usuario.nombre, Proveedor.razon_social)
         .join(Estiba, MantenimientoEstiba.estiba_id == Estiba.id)
+        .join(Proveedor, MantenimientoEstiba.proveedor_id == Proveedor.id)
         .outerjoin(Usuario, MantenimientoEstiba.usuario_id == Usuario.id)
     )
 
@@ -144,7 +165,7 @@ async def listar_mantenimientos(
     total_costo = tc_result.scalar_one()
 
     items = []
-    for mant, codigo, usuario_nombre in rows:
+    for mant, codigo, usuario_nombre, proveedor_nombre in rows:
         items.append(MantenimientoResponse(
             id=mant.id,
             estiba_id=mant.estiba_id,
@@ -153,7 +174,8 @@ async def listar_mantenimientos(
             tipo=mant.tipo,
             descripcion=mant.descripcion,
             costo=mant.costo,
-            proveedor_servicio=mant.proveedor_servicio,
+            proveedor_id=mant.proveedor_id,
+            proveedor_nombre=proveedor_nombre,
             usuario_id=mant.usuario_id,
             usuario_nombre=usuario_nombre,
             created_at=mant.created_at,
@@ -172,13 +194,17 @@ async def registrar_mantenimiento(
     if not estiba or not estiba.activo:
         raise HTTPException(status_code=404, detail="Estiba no encontrada")
 
+    proveedor = await db.get(Proveedor, data.proveedor_id)
+    if not proveedor or not proveedor.activo:
+        raise HTTPException(status_code=404, detail="Proveedor no encontrado")
+
     mant = MantenimientoEstiba(
         estiba_id=data.estiba_id,
         fecha=data.fecha,
         tipo=data.tipo,
         descripcion=data.descripcion,
         costo=data.costo,
-        proveedor_servicio=data.proveedor_servicio,
+        proveedor_id=data.proveedor_id,
         usuario_id=current_user.id,
     )
     db.add(mant)
@@ -193,7 +219,8 @@ async def registrar_mantenimiento(
         tipo=mant.tipo,
         descripcion=mant.descripcion,
         costo=mant.costo,
-        proveedor_servicio=mant.proveedor_servicio,
+        proveedor_id=mant.proveedor_id,
+        proveedor_nombre=proveedor.razon_social,
         usuario_id=mant.usuario_id,
         usuario_nombre=current_user.nombre,
         created_at=mant.created_at,
@@ -210,4 +237,53 @@ async def eliminar_mantenimiento(
     if not mant:
         raise HTTPException(status_code=404, detail="Registro de mantenimiento no encontrado")
     await db.delete(mant)
+    await db.commit()
+
+
+# ── Actividades de mantenimiento ─────────────────────────────────────────────
+
+@router.get("/actividades", response_model=List[ActividadResponse])
+async def listar_actividades(
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(ActividadMantenimiento)
+        .where(ActividadMantenimiento.activo == True)
+        .order_by(ActividadMantenimiento.nombre)
+    )
+    return list(result.scalars().all())
+
+
+@router.post("/actividades", response_model=ActividadResponse, status_code=201)
+async def crear_actividad(
+    data: ActividadCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(require_operador),
+):
+    nombre = data.nombre.strip()
+    if not nombre:
+        raise HTTPException(status_code=400, detail="El nombre no puede estar vacío")
+    existing = await db.execute(
+        select(ActividadMantenimiento).where(ActividadMantenimiento.nombre == nombre)
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Ya existe una actividad con ese nombre")
+    actividad = ActividadMantenimiento(nombre=nombre)
+    db.add(actividad)
+    await db.commit()
+    await db.refresh(actividad)
+    return actividad
+
+
+@router.delete("/actividades/{actividad_id}", status_code=204)
+async def eliminar_actividad(
+    actividad_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(require_operador),
+):
+    actividad = await db.get(ActividadMantenimiento, actividad_id)
+    if not actividad:
+        raise HTTPException(status_code=404, detail="Actividad no encontrada")
+    actividad.activo = False
     await db.commit()

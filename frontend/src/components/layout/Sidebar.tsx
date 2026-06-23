@@ -228,6 +228,7 @@ const CI_NAV_ITEMS: NavItem[] = [
   { label: 'nav.vehiculos',     icon: <VehiculosIcon     fontSize="small" />, path: '/vehiculos',     section: 'section.recursos' },
   { label: 'nav.ubicaciones',   icon: <UbicacionesIcon   fontSize="small" />, path: '/ubicaciones',   section: 'section.recursos' },
   { label: 'nav.proveedores',   icon: <ProveedoresIcon   fontSize="small" />, path: '/proveedores',   section: 'section.recursos' },
+  { label: 'nav.clientes',      icon: <UsuariosIcon      fontSize="small" />, path: '/clientes',      section: 'section.recursos' },
   { label: 'nav.danos',         icon: <DanosIcon         fontSize="small" />, path: '/danos',         section: 'section.control' },
   { label: 'nav.alertas',       icon: <AlertasIcon       fontSize="small" />, path: '/alertas',       section: 'section.control' },
   { label: 'nav.costos',        icon: <CostosIcon        fontSize="small" />, path: '/costos',        section: 'section.control' },

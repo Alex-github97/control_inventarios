@@ -1,15 +1,37 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, Column, Integer, String, Boolean
 from typing import Optional, List
 from pydantic import BaseModel
 from datetime import date, datetime
-from app.core.database import get_db
+from app.core.database import get_db, Base
 from app.core.dependencies import get_current_user, require_operador
 from app.infrastructure.models.manifiesto import Manifiesto, EstadoManifiesto
 from app.infrastructure.models.usuario import Usuario
 
 router = APIRouter(prefix="/manifiestos", tags=["Manifiestos"])
+
+
+class ClienteManifiesto(Base):
+    __tablename__ = "clientes_manifiestos"
+    __table_args__ = {"extend_existing": True}
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(200), nullable=False, unique=True)
+    nit = Column(String(50), nullable=True)
+    activo = Column(Boolean, nullable=False, default=True)
+
+
+class ClienteCreate(BaseModel):
+    nombre: str
+    nit: Optional[str] = None
+
+
+class ClienteResponse(BaseModel):
+    id: int
+    nombre: str
+    nit: Optional[str] = None
+    activo: bool
+    model_config = {"from_attributes": True}
 
 
 class ManifiestoCreate(BaseModel):
@@ -80,6 +102,55 @@ async def crear_manifiesto(
     await db.flush()
     await db.refresh(manifiesto)
     return manifiesto
+
+
+# ── Clientes de manifiestos ───────────────────────────────────────────────────
+
+@router.get("/clientes", response_model=List[ClienteResponse])
+async def listar_clientes(
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(ClienteManifiesto)
+        .where(ClienteManifiesto.activo == True)
+        .order_by(ClienteManifiesto.nombre)
+    )
+    return list(result.scalars().all())
+
+
+@router.post("/clientes", response_model=ClienteResponse, status_code=201)
+async def crear_cliente(
+    data: ClienteCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(require_operador),
+):
+    nombre = data.nombre.strip()
+    if not nombre:
+        raise HTTPException(status_code=400, detail="El nombre no puede estar vacío")
+    existing = await db.execute(
+        select(ClienteManifiesto).where(ClienteManifiesto.nombre == nombre)
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Ya existe un cliente con ese nombre")
+    cliente = ClienteManifiesto(nombre=nombre, nit=data.nit)
+    db.add(cliente)
+    await db.commit()
+    await db.refresh(cliente)
+    return cliente
+
+
+@router.delete("/clientes/{cliente_id}", status_code=204)
+async def eliminar_cliente(
+    cliente_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(require_operador),
+):
+    cliente = await db.get(ClienteManifiesto, cliente_id)
+    if not cliente:
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
+    cliente.activo = False
+    await db.commit()
 
 
 @router.get("/{manifiesto_id}", response_model=ManifiestoResponse)

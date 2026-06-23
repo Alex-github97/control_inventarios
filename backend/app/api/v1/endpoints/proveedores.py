@@ -1,22 +1,41 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, Column, Integer, String, Boolean
 from typing import Optional, List
 from pydantic import BaseModel
 from datetime import date
-from app.core.database import get_db
+from app.core.database import get_db, Base
 from app.core.dependencies import get_current_user, require_admin
-from app.infrastructure.models.proveedor import Proveedor, Contrato, TipoProveedor, EstadoContrato
+from app.infrastructure.models.proveedor import Proveedor, Contrato, EstadoContrato
 from app.infrastructure.models.usuario import Usuario
 
 router = APIRouter(prefix="/proveedores", tags=["Proveedores"])
+
+
+class TipoProveedorCatalogo(Base):
+    __tablename__ = "tipos_proveedor"
+    __table_args__ = {"extend_existing": True}
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(100), nullable=False, unique=True)
+    activo = Column(Boolean, nullable=False, default=True)
+
+
+class TipoProveedorCreate(BaseModel):
+    nombre: str
+
+
+class TipoProveedorResponse(BaseModel):
+    id: int
+    nombre: str
+    activo: bool
+    model_config = {"from_attributes": True}
 
 
 class ProveedorCreate(BaseModel):
     nit: str
     razon_social: str
     nombre_comercial: Optional[str] = None
-    tipo: TipoProveedor = TipoProveedor.COMPRA
+    tipo: str = "COMPRA"
     contacto_nombre: Optional[str] = None
     contacto_email: Optional[str] = None
     contacto_telefono: Optional[str] = None
@@ -34,7 +53,7 @@ class ProveedorResponse(ProveedorCreate):
 class ContratoCreate(BaseModel):
     numero: str
     proveedor_id: int
-    tipo: TipoProveedor
+    tipo: str
     descripcion: Optional[str] = None
     fecha_inicio: date
     fecha_fin: Optional[date] = None
@@ -50,9 +69,60 @@ class ContratoResponse(ContratoCreate):
     model_config = {"from_attributes": True}
 
 
+# ── Tipos de proveedor ────────────────────────────────────────────────────────
+
+@router.get("/tipos", response_model=List[TipoProveedorResponse])
+async def listar_tipos(
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(TipoProveedorCatalogo)
+        .where(TipoProveedorCatalogo.activo == True)
+        .order_by(TipoProveedorCatalogo.nombre)
+    )
+    return list(result.scalars().all())
+
+
+@router.post("/tipos", response_model=TipoProveedorResponse, status_code=201)
+async def crear_tipo(
+    data: TipoProveedorCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(require_admin),
+):
+    nombre = data.nombre.strip().upper()
+    if not nombre:
+        raise HTTPException(status_code=400, detail="El nombre no puede estar vacío")
+    existing = await db.execute(
+        select(TipoProveedorCatalogo).where(TipoProveedorCatalogo.nombre == nombre)
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Ya existe un tipo con ese nombre")
+    tipo = TipoProveedorCatalogo(nombre=nombre)
+    db.add(tipo)
+    await db.commit()
+    await db.refresh(tipo)
+    return tipo
+
+
+@router.delete("/tipos/{tipo_id}", status_code=204)
+async def eliminar_tipo(
+    tipo_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(require_admin),
+):
+    tipo = await db.get(TipoProveedorCatalogo, tipo_id)
+    if not tipo:
+        raise HTTPException(status_code=404, detail="Tipo no encontrado")
+    tipo.activo = False
+    await db.commit()
+
+
+# ── Proveedores ───────────────────────────────────────────────────────────────
+
 @router.get("/", response_model=List[ProveedorResponse])
 async def listar_proveedores(
-    tipo: Optional[TipoProveedor] = Query(None),
+    tipo: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),

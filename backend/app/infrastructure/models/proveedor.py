@@ -5,12 +5,6 @@ from app.core.database import Base
 from app.infrastructure.models.base import TimestampMixin, SoftDeleteMixin
 
 
-class TipoProveedor(str, enum.Enum):
-    COMPRA = "COMPRA"
-    ALQUILER = "ALQUILER"
-    AMBOS = "AMBOS"
-
-
 class EstadoContrato(str, enum.Enum):
     ACTIVO = "ACTIVO"
     VENCIDO = "VENCIDO"
@@ -25,7 +19,7 @@ class Proveedor(Base, TimestampMixin, SoftDeleteMixin):
     nit = Column(String(30), unique=True, nullable=False, index=True)
     razon_social = Column(String(300), nullable=False)
     nombre_comercial = Column(String(300), nullable=True)
-    tipo = Column(Enum(TipoProveedor), nullable=False, default=TipoProveedor.COMPRA)
+    tipo = Column(String(100), nullable=False, default="COMPRA")
     contacto_nombre = Column(String(150), nullable=True)
     contacto_email = Column(String(200), nullable=True)
     contacto_telefono = Column(String(30), nullable=True)
@@ -44,7 +38,7 @@ class Contrato(Base, TimestampMixin):
     id = Column(Integer, primary_key=True, index=True)
     numero = Column(String(100), unique=True, nullable=False, index=True)
     proveedor_id = Column(Integer, ForeignKey("proveedores.id"), nullable=False)
-    tipo = Column(Enum(TipoProveedor), nullable=False)
+    tipo = Column(String(100), nullable=False)
     descripcion = Column(Text, nullable=True)
     fecha_inicio = Column(Date, nullable=False)
     fecha_fin = Column(Date, nullable=True)

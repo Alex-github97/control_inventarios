@@ -3,10 +3,10 @@ import {
   Box, Card, Typography, Button, TextField, Table, TableBody, TableCell,
   TableHead, TableRow, Chip, Skeleton, Dialog, DialogTitle, DialogContent,
   DialogActions, Grid, FormControl, InputLabel, Select, MenuItem, InputAdornment,
-  Alert, alpha, Tooltip, IconButton,
+  alpha, Tooltip, IconButton, Autocomplete,
 } from '@mui/material'
 import {
-  Add, Build, Search, Delete, AttachMoney, FilterList,
+  Add, Build, Delete, FilterList, Settings,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
@@ -32,17 +32,65 @@ const formatCOP = (v: number) =>
 export default function Mantenimiento() {
   const queryClient = useQueryClient()
   const [openDialog, setOpenDialog] = useState(false)
-  const [filterEstiba, setFilterEstiba] = useState('')
+  const [filterEstiba, setFilterEstiba] = useState<any>(null)
+  const [filterEstibaSearch, setFilterEstibaSearch] = useState('')
   const [filterTipo, setFilterTipo] = useState('')
   const [filterDesde, setFilterDesde] = useState('')
   const [filterHasta, setFilterHasta] = useState('')
+  const [estibaSearch, setEstibaSearch] = useState('')
+  const [selectedEstiba, setSelectedEstiba] = useState<any>(null)
+  const [selectedProveedor, setSelectedProveedor] = useState<any>(null)
+  const [selectedActividad, setSelectedActividad] = useState<any>(null)
+  const [openConfigActividades, setOpenConfigActividades] = useState(false)
+  const [nuevaActividad, setNuevaActividad] = useState('')
   const [form, setForm] = useState({
-    estiba_id: '', tipo: 'PREVENTIVO', fecha: new Date().toISOString().slice(0, 10),
-    costo: '', descripcion: '', proveedor_servicio: '',
+    tipo: 'PREVENTIVO', fecha: new Date().toISOString().slice(0, 10),
+    costo: '',
+  })
+
+  const { data: proveedores } = useQuery({
+    queryKey: ['proveedores'],
+    queryFn: () => apiClient.get('/proveedores/').then((r: any) => Array.isArray(r.data) ? r.data : (r.data.items ?? [])),
+  })
+
+  const { data: estibasParaFiltro } = useQuery({
+    queryKey: ['estibas-filter-search', filterEstibaSearch],
+    queryFn: () => apiClient.get('/estibas', { params: { search: filterEstibaSearch, page_size: 20 } }).then((r: any) => r.data.items ?? []),
+    enabled: filterEstibaSearch.length >= 2,
+  })
+
+  const { data: estibasEncontradas } = useQuery({
+    queryKey: ['estibas-search', estibaSearch],
+    queryFn: () => apiClient.get('/estibas', { params: { search: estibaSearch, page_size: 20 } }).then((r: any) => r.data.items ?? []),
+    enabled: estibaSearch.length >= 2,
+  })
+
+  const { data: actividades } = useQuery({
+    queryKey: ['actividades-mantenimiento'],
+    queryFn: () => apiClient.get('/mantenimientos/actividades').then((r: any) => r.data),
+  })
+
+  const crearActividadMutation = useMutation({
+    mutationFn: (nombre: string) => apiClient.post('/mantenimientos/actividades', { nombre }).then(r => r.data),
+    onSuccess: () => {
+      toast.success('Actividad creada')
+      queryClient.invalidateQueries({ queryKey: ['actividades-mantenimiento'] })
+      setNuevaActividad('')
+    },
+    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error creando actividad'),
+  })
+
+  const eliminarActividadMutation = useMutation({
+    mutationFn: (id: number) => apiClient.delete(`/mantenimientos/actividades/${id}`),
+    onSuccess: () => {
+      toast.success('Actividad eliminada')
+      queryClient.invalidateQueries({ queryKey: ['actividades-mantenimiento'] })
+    },
+    onError: () => toast.error('Error eliminando actividad'),
   })
 
   const params: Record<string, string> = {}
-  if (filterEstiba) params.estiba_id = filterEstiba
+  if (filterEstiba) params.estiba_id = String(filterEstiba.id)
   if (filterTipo) params.tipo = filterTipo
   if (filterDesde) params.desde = filterDesde
   if (filterHasta) params.hasta = filterHasta
@@ -59,7 +107,11 @@ export default function Mantenimiento() {
       queryClient.invalidateQueries({ queryKey: ['mantenimientos'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       setOpenDialog(false)
-      setForm({ estiba_id: '', tipo: 'PREVENTIVO', fecha: new Date().toISOString().slice(0, 10), costo: '', descripcion: '', proveedor_servicio: '' })
+      setEstibaSearch('')
+      setSelectedEstiba(null)
+      setSelectedProveedor(null)
+      setSelectedActividad(null)
+      setForm({ tipo: 'PREVENTIVO', fecha: new Date().toISOString().slice(0, 10), costo: '' })
     },
     onError: (e: any) => toast.error(e.response?.data?.detail || 'Error registrando mantenimiento'),
   })
@@ -75,17 +127,17 @@ export default function Mantenimiento() {
   })
 
   const handleSubmit = () => {
-    if (!form.estiba_id || !form.tipo || !form.fecha || !form.costo) {
-      toast.error('Estiba, tipo, fecha y costo son obligatorios')
+    if (!selectedEstiba || !selectedProveedor || !selectedActividad || !form.tipo || !form.fecha || !form.costo) {
+      toast.error('Estiba, actividad, proveedor, tipo, fecha y costo son obligatorios')
       return
     }
     createMutation.mutate({
-      estiba_id: parseInt(form.estiba_id),
+      estiba_id: selectedEstiba.id,
+      proveedor_id: selectedProveedor.id,
       tipo: form.tipo,
       fecha: form.fecha,
       costo: parseFloat(form.costo),
-      descripcion: form.descripcion || undefined,
-      proveedor_servicio: form.proveedor_servicio || undefined,
+      descripcion: selectedActividad.nombre,
     })
   }
 
@@ -128,10 +180,18 @@ export default function Mantenimiento() {
       <Card sx={{ p: 2, mb: 2 }}>
         <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
           <FilterList sx={{ color: '#94A3B8', fontSize: 20 }} />
-          <TextField
-            size="small" label="ID Estiba" type="number"
-            value={filterEstiba} onChange={e => setFilterEstiba(e.target.value)}
-            sx={{ width: 130 }}
+          <Autocomplete
+            options={estibasParaFiltro ?? []}
+            getOptionLabel={(o: any) => o.codigo_interno}
+            value={filterEstiba}
+            inputValue={filterEstibaSearch}
+            onInputChange={(_: any, v: string) => setFilterEstibaSearch(v)}
+            onChange={(_: any, v: any) => setFilterEstiba(v)}
+            noOptionsText={filterEstibaSearch.length < 2 ? 'Escriba 2+ caracteres' : 'Sin resultados'}
+            sx={{ width: 200 }}
+            renderInput={(params: any) => (
+              <TextField {...params} size="small" label="Estiba" placeholder="Código..." />
+            )}
           />
           <FormControl size="small" sx={{ minWidth: 160 }}>
             <InputLabel>Tipo</InputLabel>
@@ -144,7 +204,7 @@ export default function Mantenimiento() {
             value={filterDesde} onChange={e => setFilterDesde(e.target.value)} sx={{ width: 145 }} />
           <TextField size="small" label="Hasta" type="date" InputLabelProps={{ shrink: true }}
             value={filterHasta} onChange={e => setFilterHasta(e.target.value)} sx={{ width: 145 }} />
-          <Button size="small" onClick={() => { setFilterEstiba(''); setFilterTipo(''); setFilterDesde(''); setFilterHasta('') }}
+          <Button size="small" onClick={() => { setFilterEstiba(null); setFilterEstibaSearch(''); setFilterTipo(''); setFilterDesde(''); setFilterHasta('') }}
             sx={{ color: '#64748B' }}>
             Limpiar
           </Button>
@@ -201,7 +261,7 @@ export default function Mantenimiento() {
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2" sx={{ fontSize: 12 }}>{m.proveedor_servicio || '—'}</Typography>
+                    <Typography variant="body2" sx={{ fontSize: 12 }}>{m.proveedor_nombre || '—'}</Typography>
                   </TableCell>
                   <TableCell align="right">
                     <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#1E293B' }}>
@@ -231,9 +291,19 @@ export default function Mantenimiento() {
         <DialogTitle sx={{ fontWeight: 700 }}>Registrar Mantenimiento</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
-            <Grid item xs={12} sm={6}>
-              <TextField fullWidth size="small" label="ID de Estiba" type="number" required
-                value={form.estiba_id} onChange={e => setForm({ ...form, estiba_id: e.target.value })} />
+            <Grid item xs={12}>
+              <Autocomplete
+                options={estibasEncontradas ?? []}
+                getOptionLabel={(o: any) => `${o.codigo_interno} — ${o.estado}`}
+                inputValue={estibaSearch}
+                onInputChange={(_: any, v: string) => setEstibaSearch(v)}
+                onChange={(_: any, v: any) => setSelectedEstiba(v)}
+                noOptionsText={estibaSearch.length < 2 ? 'Escriba al menos 2 caracteres' : 'No se encontraron estibas'}
+                renderInput={(params: any) => (
+                  <TextField {...params} label="Buscar estiba por código" size="small" required
+                    placeholder="Ej: PRUEBA-001" />
+                )}
+              />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField fullWidth size="small" label="Fecha" type="date" required
@@ -254,12 +324,37 @@ export default function Mantenimiento() {
                 value={form.costo} onChange={e => setForm({ ...form, costo: e.target.value })} />
             </Grid>
             <Grid item xs={12}>
-              <TextField fullWidth size="small" label="Proveedor del servicio"
-                value={form.proveedor_servicio} onChange={e => setForm({ ...form, proveedor_servicio: e.target.value })} />
+              <Autocomplete
+                options={proveedores ?? []}
+                getOptionLabel={(o: any) => `${o.razon_social} — ${o.nit}`}
+                value={selectedProveedor}
+                onChange={(_: any, v: any) => setSelectedProveedor(v)}
+                noOptionsText="No hay proveedores registrados"
+                renderInput={(params: any) => (
+                  <TextField {...params} label="Proveedor de servicio *" size="small"
+                    placeholder="Seleccione un proveedor" />
+                )}
+              />
             </Grid>
             <Grid item xs={12}>
-              <TextField fullWidth size="small" label="Descripción" multiline rows={2}
-                value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })} />
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                <Autocomplete
+                  sx={{ flex: 1 }}
+                  options={actividades ?? []}
+                  getOptionLabel={(o: any) => o.nombre}
+                  value={selectedActividad}
+                  onChange={(_: any, v: any) => setSelectedActividad(v)}
+                  noOptionsText="No hay actividades configuradas"
+                  renderInput={(params: any) => (
+                    <TextField {...params} label="Actividad / Descripción *" size="small" />
+                  )}
+                />
+                <Tooltip title="Configurar actividades">
+                  <IconButton size="small" onClick={() => setOpenConfigActividades(true)} sx={{ mt: 0.5 }}>
+                    <Settings fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
             </Grid>
           </Grid>
         </DialogContent>
@@ -269,6 +364,40 @@ export default function Mantenimiento() {
             sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#27884A' } }}>
             {createMutation.isPending ? 'Registrando...' : 'Registrar'}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal configuración de actividades */}
+      <Dialog open={openConfigActividades} onClose={() => setOpenConfigActividades(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Configurar Actividades</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+            <TextField size="small" fullWidth label="Nueva actividad"
+              value={nuevaActividad} onChange={(e: any) => setNuevaActividad(e.target.value)}
+              onKeyDown={(e: any) => e.key === 'Enter' && nuevaActividad.trim() && crearActividadMutation.mutate(nuevaActividad.trim())}
+              placeholder="Ej: Cambio de 4 tablas" />
+            <Button variant="contained" onClick={() => crearActividadMutation.mutate(nuevaActividad.trim())}
+              disabled={!nuevaActividad.trim() || crearActividadMutation.isPending}
+              sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#27884A' }, minWidth: 40, px: 1 }}>
+              <Add />
+            </Button>
+          </Box>
+          {(actividades ?? []).length === 0 ? (
+            <Typography variant="body2" sx={{ color: '#94A3B8', textAlign: 'center', py: 2 }}>
+              Sin actividades registradas
+            </Typography>
+          ) : (actividades ?? []).map((a: any) => (
+            <Box key={a.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 0.75, borderBottom: '1px solid #F1F5F9' }}>
+              <Typography variant="body2">{a.nombre}</Typography>
+              <IconButton size="small" onClick={() => eliminarActividadMutation.mutate(a.id)}
+                sx={{ color: '#94A3B8', '&:hover': { color: '#EF4444' } }}>
+                <Delete fontSize="small" />
+              </IconButton>
+            </Box>
+          ))}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenConfigActividades(false)}>Cerrar</Button>
         </DialogActions>
       </Dialog>
     </Layout>
