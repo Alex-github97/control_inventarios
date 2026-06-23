@@ -1,3 +1,6 @@
+# Claude Code — worktrees temporales internos
+.claude/worktrees/
+
 # Variables de entorno — nunca subir al repositorio
 .env
 .env.local
