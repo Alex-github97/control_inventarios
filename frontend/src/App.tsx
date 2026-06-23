@@ -38,6 +38,7 @@ const ROUTE_PERM_MAP: Record<string, string> = {
   '/mes':          'mes',
   '/aps':          'aps',
   '/erp':          'erp',
+  '/scm':          'scm',
   '/usuarios':     'usuarios',
 }
 
@@ -270,6 +271,17 @@ const ERPProyectos = React.lazy(() => import('@/pages/ERPProyectos'))
 const ERPEPM = React.lazy(() => import('@/pages/ERPEPM'))
 const ERPReportes = React.lazy(() => import('@/pages/ERPReportes'))
 const ERPConfig = React.lazy(() => import('@/pages/ERPConfig'))
+const SCMDashboard = React.lazy(() => import('@/pages/SCMDashboard'))
+const SCMProveedores = React.lazy(() => import('@/pages/SCMProveedores'))
+const SCMSolicitudes = React.lazy(() => import('@/pages/SCMSolicitudes'))
+const SCMCompras = React.lazy(() => import('@/pages/SCMCompras'))
+const SCMPlanificacion = React.lazy(() => import('@/pages/SCMPlanificacion'))
+const SCMInventario = React.lazy(() => import('@/pages/SCMInventario'))
+const SCMLogistica = React.lazy(() => import('@/pages/SCMLogistica'))
+const SCMAnalytica = React.lazy(() => import('@/pages/SCMAnalytica'))
+const SCMRiesgos = React.lazy(() => import('@/pages/SCMRiesgos'))
+const SCMDevoluciones = React.lazy(() => import('@/pages/SCMDevoluciones'))
+const SCMConfig = React.lazy(() => import('@/pages/SCMConfig'))
 const Configuracion = React.lazy(() => import('@/pages/Configuracion'))
 const Clientes = React.lazy(() => import('@/pages/Clientes'))
 const ScannerMovil = React.lazy(() => import('@/pages/ScannerMovil'))
@@ -548,6 +560,17 @@ export default function App() {
             <Route path="/erp/epm" element={<ProtectedRoute><ERPEPM /></ProtectedRoute>} />
             <Route path="/erp/reportes" element={<ProtectedRoute><ERPReportes /></ProtectedRoute>} />
             <Route path="/erp/config" element={<ProtectedRoute><ERPConfig /></ProtectedRoute>} />
+            <Route path="/scm" element={<ProtectedRoute><SCMDashboard /></ProtectedRoute>} />
+            <Route path="/scm/proveedores" element={<ProtectedRoute><SCMProveedores /></ProtectedRoute>} />
+            <Route path="/scm/solicitudes" element={<ProtectedRoute><SCMSolicitudes /></ProtectedRoute>} />
+            <Route path="/scm/ordenes-compra" element={<ProtectedRoute><SCMCompras /></ProtectedRoute>} />
+            <Route path="/scm/planificacion" element={<ProtectedRoute><SCMPlanificacion /></ProtectedRoute>} />
+            <Route path="/scm/inventario" element={<ProtectedRoute><SCMInventario /></ProtectedRoute>} />
+            <Route path="/scm/logistica" element={<ProtectedRoute><SCMLogistica /></ProtectedRoute>} />
+            <Route path="/scm/analitica" element={<ProtectedRoute><SCMAnalytica /></ProtectedRoute>} />
+            <Route path="/scm/riesgos" element={<ProtectedRoute><SCMRiesgos /></ProtectedRoute>} />
+            <Route path="/scm/devoluciones" element={<ProtectedRoute><SCMDevoluciones /></ProtectedRoute>} />
+            <Route path="/scm/config" element={<ProtectedRoute><SCMConfig /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
           </Suspense>
