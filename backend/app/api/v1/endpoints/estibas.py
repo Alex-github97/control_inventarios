@@ -2,7 +2,9 @@ from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
 from app.core.database import get_db
-from app.core.dependencies import get_current_user, require_operador, require_supervisor
+from app.core.dependencies import get_current_user, require_operador, require_supervisor, require_module_permission
+
+_require_estibas = require_module_permission("estibas")
 from app.infrastructure.models.usuario import Usuario
 from app.application.services.estiba_service import EstibaService
 from app.application.schemas.estiba import (
@@ -47,7 +49,7 @@ async def listar_estibas(
 async def crear_estiba(
     data: EstibaCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(require_operador),
+    current_user: Usuario = Depends(_require_estibas),
 ):
     service = EstibaService(db)
     return await service.crear_estiba(data, current_user)
@@ -57,7 +59,7 @@ async def crear_estiba(
 async def crear_estibas_masivo(
     data: EstibaBulkCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(require_operador),
+    current_user: Usuario = Depends(_require_estibas),
 ):
     service = EstibaService(db)
     exitosos = 0
@@ -100,7 +102,7 @@ async def obtener_estiba(
 async def actualizar_estiba(
     estiba_id: int, data: EstibaUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(require_operador),
+    current_user: Usuario = Depends(_require_estibas),
 ):
     service = EstibaService(db)
     return await service.actualizar_estiba(estiba_id, data)
@@ -111,7 +113,7 @@ async def dar_baja(
     estiba_id: int,
     motivo: str = Query(..., min_length=10),
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(require_supervisor),
+    current_user: Usuario = Depends(_require_estibas),
 ):
     service = EstibaService(db)
     estiba = await service.dar_de_baja(estiba_id, motivo, current_user)

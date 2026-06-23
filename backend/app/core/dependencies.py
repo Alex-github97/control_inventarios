@@ -62,3 +62,28 @@ async def require_conductor(current_user: Usuario = Depends(get_current_user)) -
     if current_user.rol not in allowed:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
     return current_user
+
+
+def require_module_permission(module: str):
+    """
+    Verifica acceso a un módulo específico.
+    - Roles sistema (ADMINISTRADOR, SUPERVISOR, OPERADOR) conservan su acceso actual.
+    - Roles personalizados: se consulta permisos[module] en el JSON del rol.
+    Uso: Depends(require_module_permission("estibas"))
+    """
+    async def _check(current_user: Usuario = Depends(get_current_user)) -> Usuario:
+        # Roles sistema con acceso operacional completo — ruta rápida
+        if current_user.rol in [
+            RolUsuario.ADMINISTRADOR,
+            RolUsuario.SUPERVISOR_LOGISTICO,
+            RolUsuario.OPERADOR_BODEGA,
+        ]:
+            return current_user
+        # Roles personalizados o restringidos: verificar el JSON permisos del rol
+        if current_user.permisos.get(module, False):
+            return current_user
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso denegado",
+        )
+    return _check

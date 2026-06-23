@@ -2,7 +2,9 @@ from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
 from app.core.database import get_db
-from app.core.dependencies import get_current_user, require_operador
+from app.core.dependencies import get_current_user, require_operador, require_module_permission
+
+_require_movimientos = require_module_permission("movimientos")
 from app.infrastructure.models.usuario import Usuario
 from app.application.services.movimiento_service import MovimientoService
 from app.application.schemas.movimiento import (
@@ -17,7 +19,7 @@ router = APIRouter(prefix="/movimientos", tags=["Movimientos"])
 async def registrar_movimiento(
     data: MovimientoCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(require_operador),
+    current_user: Usuario = Depends(_require_movimientos),
 ):
     service = MovimientoService(db)
     return await service.registrar_movimiento(data, current_user)
@@ -27,7 +29,7 @@ async def registrar_movimiento(
 async def registrar_carga_masiva(
     data: RegistrarCargaRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(require_operador),
+    current_user: Usuario = Depends(_require_movimientos),
 ):
     service = MovimientoService(db)
     movimientos = await service.registrar_carga_masiva(data, current_user)
@@ -38,7 +40,7 @@ async def registrar_carga_masiva(
 async def registrar_descarga_masiva(
     data: RegistrarDescargaRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(require_operador),
+    current_user: Usuario = Depends(_require_movimientos),
 ):
     service = MovimientoService(db)
     movimientos = await service.registrar_descarga_masiva(data, current_user)
@@ -49,7 +51,7 @@ async def registrar_descarga_masiva(
 async def registrar_movimientos_masivo(
     data: MovimientoBulkCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(require_operador),
+    current_user: Usuario = Depends(_require_movimientos),
 ):
     service = MovimientoService(db)
     exitosos = 0
