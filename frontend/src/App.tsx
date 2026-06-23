@@ -272,6 +272,7 @@ const ERPReportes = React.lazy(() => import('@/pages/ERPReportes'))
 const ERPConfig = React.lazy(() => import('@/pages/ERPConfig'))
 const Configuracion = React.lazy(() => import('@/pages/Configuracion'))
 const Clientes = React.lazy(() => import('@/pages/Clientes'))
+const ScannerMovil = React.lazy(() => import('@/pages/ScannerMovil'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -341,6 +342,7 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/sin-acceso" element={<SinAcceso />} />
+            <Route path="/scanner-movil" element={<ScannerMovil />} />
             <Route path="/configuracion" element={<ProtectedRoute><Configuracion /></ProtectedRoute>} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

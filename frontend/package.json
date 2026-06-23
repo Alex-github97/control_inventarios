@@ -19,6 +19,8 @@
     "@mui/x-date-pickers": "^7.22.3",
     "@tanstack/react-query": "^5.62.7",
     "@tanstack/react-table": "^8.20.5",
+    "@zxing/browser": "^0.2.0",
+    "@zxing/library": "^0.22.0",
     "axios": "^1.7.9",
     "date-fns": "^4.1.0",
     "framer-motion": "^11.13.1",
