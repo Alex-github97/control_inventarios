@@ -6,9 +6,18 @@ from app.infrastructure.repositories.base_repository import BaseRepository
 from app.infrastructure.models.estiba import Estiba, EstadoEstiba, TipoPropietario
 
 
+
 class EstibaRepository(BaseRepository[Estiba]):
     def __init__(self, db: AsyncSession):
         super().__init__(Estiba, db)
+
+    async def create(self, obj: Estiba) -> Estiba:
+        await super().create(obj)
+        return await self.get_with_relations(obj.id)
+
+    async def update(self, obj: Estiba, data: Dict[str, Any]) -> Estiba:
+        await super().update(obj, data)
+        return await self.get_with_relations(obj.id)
 
     async def get_by_codigo(self, codigo: str) -> Optional[Estiba]:
         result = await self.db.execute(
