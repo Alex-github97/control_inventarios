@@ -201,6 +201,18 @@ import {
   AutoGraph as ERPEPMIconERP,
   Assessment as ERPReportesIconERP,
   Settings as ERPConfigIconERP,
+  // SCM icons
+  Grain as SCMTorreIconSCM,
+  Store as SCMProvIconSCM,
+  NoteAdd as SCMSolicIconSCM,
+  AddShoppingCart as SCMOCIconSCM,
+  SignalCellularAlt as SCMPlanIconSCM,
+  CompareArrows as SCMInvIconSCM,
+  FlightTakeoff as SCMLogIconSCM,
+  AssignmentReturn as SCMDevIconSCM,
+  WaterfallChart as SCMAnalIconSCM,
+  GppBad as SCMRiskIconSCM,
+  AppSettingsAlt as SCMCfgIconSCM,
 } from '@mui/icons-material'
 import { COMMAND_CENTER_DASHBOARDS } from '@/config/commandCenter'
 
@@ -226,6 +238,7 @@ const EAM_COLOR = '#EA580C'
 const MES_COLOR = '#0891B2'
 const APS_COLOR = '#7C3AED'
 const ERP_COLOR = '#1A3A6B'
+const SCM_COLOR = '#0C4D8C'
 
 interface NavItem {
   label: string
@@ -499,6 +512,21 @@ const ERP_NAV_ITEMS: NavItem[] = [
 ]
 const ERP_SECTIONS = ['section.general', 'section.contabilidad', 'section.cuentas', 'section.fiscal', 'section.corporativo', 'section.analitica', 'section.sistema']
 
+const SCM_NAV_ITEMS: NavItem[] = [
+  { label: 'nav.torreScm',        icon: <SCMTorreIconSCM  fontSize="small" />, path: '/scm',                   section: 'section.general',       exact: true },
+  { label: 'nav.proveedoresScm',  icon: <SCMProvIconSCM   fontSize="small" />, path: '/scm/proveedores',       section: 'section.general' },
+  { label: 'nav.solicitudesCompra', icon: <SCMSolicIconSCM fontSize="small" />, path: '/scm/solicitudes',      section: 'section.compras' },
+  { label: 'nav.ordenesCompra',   icon: <SCMOCIconSCM     fontSize="small" />, path: '/scm/ordenes-compra',    section: 'section.compras' },
+  { label: 'nav.planificacionScm',icon: <SCMPlanIconSCM   fontSize="small" />, path: '/scm/planificacion',     section: 'section.planificacion' },
+  { label: 'nav.inventarioScm',   icon: <SCMInvIconSCM    fontSize="small" />, path: '/scm/inventario',        section: 'section.planificacion' },
+  { label: 'nav.logisticaScm',    icon: <SCMLogIconSCM    fontSize="small" />, path: '/scm/logistica',         section: 'section.logistica' },
+  { label: 'nav.devolucionesScm', icon: <SCMDevIconSCM    fontSize="small" />, path: '/scm/devoluciones',      section: 'section.logistica' },
+  { label: 'nav.analyticsScm',    icon: <SCMAnalIconSCM   fontSize="small" />, path: '/scm/analitica',         section: 'section.analitica' },
+  { label: 'nav.riesgosScm',      icon: <SCMRiskIconSCM   fontSize="small" />, path: '/scm/riesgos',           section: 'section.analitica' },
+  { label: 'nav.configuracion',   icon: <SCMCfgIconSCM    fontSize="small" />, path: '/scm/config',            section: 'section.sistema' },
+]
+const SCM_SECTIONS = ['section.general', 'section.compras', 'section.planificacion', 'section.logistica', 'section.analitica', 'section.sistema']
+
 const CONFIG_NAV_ITEMS: NavItem[] = [
   { label: 'nav.usuarios',             icon: <UsuariosIcon   fontSize="small" />, path: '/usuarios',       section: 'section.administracion', exact: true },
   { label: 'nav.roles',                icon: <RolesIcon      fontSize="small" />, path: '/usuarios/roles', section: 'section.administracion' },
@@ -577,14 +605,15 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
   const isMES      = location.pathname.startsWith('/mes')
   const isAPS      = location.pathname.startsWith('/aps')
   const isERP      = location.pathname.startsWith('/erp')
+  const isSCM      = location.pathname.startsWith('/scm')
 
-  const activeColor = isCommand ? CC_COLOR : isConfig ? CF_COLOR : isTarifax ? TX_COLOR : isGRC ? GRC_COLOR : isQMS ? QMS_COLOR : isDMS ? DMS_COLOR : isTMS ? TMS_COLOR : isFletes ? FT_COLOR : isFlota ? GF_COLOR : isLocativa ? ML_COLOR : isWMS ? WMS_COLOR : isGH ? GH_COLOR : isLMS ? LMS_COLOR : isCRM ? CRM_COLOR : isEAM ? EAM_COLOR : isMES ? MES_COLOR : isAPS ? APS_COLOR : isERP ? ERP_COLOR : CI_COLOR
-  const navItems    = isCommand ? CC_NAV_ITEMS : isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : isGRC ? GRC_NAV_ITEMS : isQMS ? QMS_NAV_ITEMS : isDMS ? DMS_NAV_ITEMS : isTMS ? TMS_NAV_ITEMS : isFletes ? FT_NAV_ITEMS : isFlota ? GF_NAV_ITEMS : isLocativa ? ML_NAV_ITEMS : isWMS ? WMS_NAV_ITEMS : isGH ? GH_NAV_ITEMS : isLMS ? LMS_NAV_ITEMS : isCRM ? CRM_NAV_ITEMS : isEAM ? EAM_NAV_ITEMS : isMES ? MES_NAV_ITEMS : isAPS ? APS_NAV_ITEMS : isERP ? ERP_NAV_ITEMS : visibleCIItems
-  const sections    = isCommand ? CC_SECTIONS  : isConfig ? CONFIG_SECTIONS  : isTarifax ? TX_SECTIONS  : isGRC ? GRC_SECTIONS  : isQMS ? QMS_SECTIONS  : isDMS ? DMS_SECTIONS  : isTMS ? TMS_SECTIONS  : isFletes ? FT_SECTIONS  : isFlota ? GF_SECTIONS  : isLocativa ? ML_SECTIONS  : isWMS ? WMS_SECTIONS : isGH ? GH_SECTIONS : isLMS ? LMS_SECTIONS : isCRM ? CRM_SECTIONS : isEAM ? EAM_SECTIONS : isMES ? MES_SECTIONS : isAPS ? APS_SECTIONS : isERP ? ERP_SECTIONS : CI_SECTIONS
+  const activeColor = isCommand ? CC_COLOR : isConfig ? CF_COLOR : isTarifax ? TX_COLOR : isGRC ? GRC_COLOR : isQMS ? QMS_COLOR : isDMS ? DMS_COLOR : isTMS ? TMS_COLOR : isFletes ? FT_COLOR : isFlota ? GF_COLOR : isLocativa ? ML_COLOR : isWMS ? WMS_COLOR : isGH ? GH_COLOR : isLMS ? LMS_COLOR : isCRM ? CRM_COLOR : isEAM ? EAM_COLOR : isMES ? MES_COLOR : isAPS ? APS_COLOR : isERP ? ERP_COLOR : isSCM ? SCM_COLOR : CI_COLOR
+  const navItems    = isCommand ? CC_NAV_ITEMS : isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : isGRC ? GRC_NAV_ITEMS : isQMS ? QMS_NAV_ITEMS : isDMS ? DMS_NAV_ITEMS : isTMS ? TMS_NAV_ITEMS : isFletes ? FT_NAV_ITEMS : isFlota ? GF_NAV_ITEMS : isLocativa ? ML_NAV_ITEMS : isWMS ? WMS_NAV_ITEMS : isGH ? GH_NAV_ITEMS : isLMS ? LMS_NAV_ITEMS : isCRM ? CRM_NAV_ITEMS : isEAM ? EAM_NAV_ITEMS : isMES ? MES_NAV_ITEMS : isAPS ? APS_NAV_ITEMS : isERP ? ERP_NAV_ITEMS : isSCM ? SCM_NAV_ITEMS : visibleCIItems
+  const sections    = isCommand ? CC_SECTIONS  : isConfig ? CONFIG_SECTIONS  : isTarifax ? TX_SECTIONS  : isGRC ? GRC_SECTIONS  : isQMS ? QMS_SECTIONS  : isDMS ? DMS_SECTIONS  : isTMS ? TMS_SECTIONS  : isFletes ? FT_SECTIONS  : isFlota ? GF_SECTIONS  : isLocativa ? ML_SECTIONS  : isWMS ? WMS_SECTIONS : isGH ? GH_SECTIONS : isLMS ? LMS_SECTIONS : isCRM ? CRM_SECTIONS : isEAM ? EAM_SECTIONS : isMES ? MES_SECTIONS : isAPS ? APS_SECTIONS : isERP ? ERP_SECTIONS : isSCM ? SCM_SECTIONS : CI_SECTIONS
 
-  const logoShort = isCommand ? 'CC' : isConfig ? 'CF' : isTarifax ? 'TX' : isGRC ? 'GRC' : isQMS ? 'QMS' : isDMS ? 'DMS' : isTMS ? 'TMS' : isFletes ? 'FT' : isFlota ? 'GF' : isLocativa ? 'ML' : isWMS ? 'WMS' : isGH ? 'GH' : isLMS ? 'LMS' : isCRM ? 'CRM' : isEAM ? 'EAM' : isMES ? 'MES' : isAPS ? 'APS' : isERP ? 'ERP' : 'CE'
-  const logoLine1 = isCommand ? t('logo.cc1') : isConfig ? t('logo.cfg1') : isTarifax ? t('logo.tx1') : isGRC ? t('logo.grc1') : isQMS ? t('logo.qms1') : isDMS ? t('logo.dms1') : isTMS ? t('logo.tms1') : isFletes ? t('logo.ft1') : isFlota ? t('logo.gf1') : isLocativa ? t('logo.ml1') : isWMS ? t('logo.wms1') : isGH ? t('logo.gh1') : isLMS ? t('logo.lms1') : isCRM ? t('logo.crm1') : isEAM ? t('logo.eam1') : isMES ? t('logo.mes1') : isAPS ? t('logo.aps1') : isERP ? t('logo.erp1') : t('logo.ci1')
-  const logoLine2 = isCommand ? t('logo.cc2') : isConfig ? t('logo.cfg2') : isTarifax ? t('logo.tx2') : isGRC ? t('logo.grc2') : isQMS ? t('logo.qms2') : isDMS ? t('logo.dms2') : isTMS ? t('logo.tms2') : isFletes ? t('logo.ft2') : isFlota ? t('logo.gf2') : isLocativa ? t('logo.ml2') : isWMS ? t('logo.wms2') : isGH ? t('logo.gh2') : isLMS ? t('logo.lms2') : isCRM ? t('logo.crm2') : isEAM ? t('logo.eam2') : isMES ? t('logo.mes2') : isAPS ? t('logo.aps2') : isERP ? t('logo.erp2') : t('logo.ci2')
+  const logoShort = isCommand ? 'CC' : isConfig ? 'CF' : isTarifax ? 'TX' : isGRC ? 'GRC' : isQMS ? 'QMS' : isDMS ? 'DMS' : isTMS ? 'TMS' : isFletes ? 'FT' : isFlota ? 'GF' : isLocativa ? 'ML' : isWMS ? 'WMS' : isGH ? 'GH' : isLMS ? 'LMS' : isCRM ? 'CRM' : isEAM ? 'EAM' : isMES ? 'MES' : isAPS ? 'APS' : isERP ? 'ERP' : isSCM ? 'SCM' : 'CE'
+  const logoLine1 = isCommand ? t('logo.cc1') : isConfig ? t('logo.cfg1') : isTarifax ? t('logo.tx1') : isGRC ? t('logo.grc1') : isQMS ? t('logo.qms1') : isDMS ? t('logo.dms1') : isTMS ? t('logo.tms1') : isFletes ? t('logo.ft1') : isFlota ? t('logo.gf1') : isLocativa ? t('logo.ml1') : isWMS ? t('logo.wms1') : isGH ? t('logo.gh1') : isLMS ? t('logo.lms1') : isCRM ? t('logo.crm1') : isEAM ? t('logo.eam1') : isMES ? t('logo.mes1') : isAPS ? t('logo.aps1') : isERP ? t('logo.erp1') : isSCM ? t('logo.scm1') : t('logo.ci1')
+  const logoLine2 = isCommand ? t('logo.cc2') : isConfig ? t('logo.cfg2') : isTarifax ? t('logo.tx2') : isGRC ? t('logo.grc2') : isQMS ? t('logo.qms2') : isDMS ? t('logo.dms2') : isTMS ? t('logo.tms2') : isFletes ? t('logo.ft2') : isFlota ? t('logo.gf2') : isLocativa ? t('logo.ml2') : isWMS ? t('logo.wms2') : isGH ? t('logo.gh2') : isLMS ? t('logo.lms2') : isCRM ? t('logo.crm2') : isEAM ? t('logo.eam2') : isMES ? t('logo.mes2') : isAPS ? t('logo.aps2') : isERP ? t('logo.erp2') : isSCM ? t('logo.scm2') : t('logo.ci2')
 
   const width    = collapsed ? DRAWER_COLLAPSED : (widthProp ?? DRAWER_WIDTH)
   const showText = !collapsed && (widthProp === undefined || widthProp >= COMPACT_THRESHOLD)
@@ -659,6 +688,8 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
               ? `linear-gradient(135deg, ${APS_COLOR} 0%, #6D28D9 100%)`
               : isERP
               ? `linear-gradient(135deg, ${ERP_COLOR} 0%, #1E40AF 100%)`
+              : isSCM
+              ? `linear-gradient(135deg, ${SCM_COLOR} 0%, #0A3D72 100%)`
               : `linear-gradient(135deg, ${activeColor} 0%, ${isTarifax ? '#1f6130' : '#27884A'} 100%)`,
             display: 'flex',
             alignItems: 'center',

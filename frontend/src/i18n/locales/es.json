@@ -150,7 +150,18 @@
       "consolidacion": "Consolidación",
       "compras": "Compras",
       "proyectos": "Proyectos",
-      "epm": "EPM"
+      "epm": "EPM",
+      "torreScm": "Torre SCM",
+      "proveedoresScm": "Proveedores SCM",
+      "solicitudesCompra": "Solicitudes de Compra",
+      "ordenesCompra": "Órdenes de Compra",
+      "planificacionScm": "Planificación",
+      "inventarioScm": "Inventario SCM",
+      "logisticaScm": "Logística SCM",
+      "devolucionesScm": "Devoluciones",
+      "analyticsScm": "Analítica SCM",
+      "riesgosScm": "Riesgos SCM",
+      "calidadScm": "Calidad Suministro"
     },
     "section": {
       "principal": "Principal",
@@ -215,7 +226,10 @@
       "contabilidad": "Contabilidad",
       "cuentas": "Cuentas",
       "fiscal": "Fiscal",
-      "corporativo": "Corporativo"
+      "corporativo": "Corporativo",
+      "compras": "Compras",
+      "planificacion": "Planificación",
+      "cadena": "Cadena de Suministro"
     },
     "ws": {
       "control": "Control de Estibas",
@@ -233,6 +247,7 @@
       "mes": "MES",
       "aps": "APS",
       "erp": "ERP",
+      "scm": "SCM",
       "config": "Configuración",
       "espacios": "Espacios"
     },
@@ -254,6 +269,7 @@
       "mes1": "Manufacturing", "mes2": "Execution System",
       "aps1": "Advanced Planning", "aps2": "& Scheduling",
       "erp1": "Enterprise Resource", "erp2": "Planning",
+      "scm1": "Supply Chain", "scm2": "Management",
       "cc1": "Command", "cc2": "Center",
       "cfg1": "Configuración", "cfg2": "del Sistema"
     },
