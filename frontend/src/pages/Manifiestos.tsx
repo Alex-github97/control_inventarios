@@ -462,7 +462,7 @@ export default function Manifiestos() {
                   >
                     <Undo sx={{ fontSize: 14, color: '#D97706' }} />
                     <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.05em', flex: 1 }}>
-                      Corregir estado por error
+                      Revertir estado
                     </Typography>
                     {showCorrection
                       ? <ExpandLess sx={{ fontSize: 16, color: '#D97706' }} />
