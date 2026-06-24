@@ -8,7 +8,7 @@ import {
 } from '@mui/material'
 import {
   Add, Assignment, OpenInNew, LocalShipping, ArrowForward,
-  CheckCircle, Close, Unarchive, Undo, ExpandMore, ExpandLess,
+  CheckCircle, Close, Unarchive, Undo, ExpandMore, ExpandLess, PictureAsPdf,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
@@ -235,6 +235,129 @@ export default function Manifiestos() {
   const todasSeleccionadas   = estibasPendientes.length > 0 && seleccionDescarga.size === estibasPendientes.length
   const revertInfo           = detailManifiesto ? REVERT_MAP[detailManifiesto.estado] : null
   const puedeRevertir        = esSupervisor && !!revertInfo
+
+  // ── PDF ───────────────────────────────────────────────────────────────────
+  const handlePrintPDF = () => {
+    if (!detailManifiesto) return
+    const m        = detailManifiesto
+    const estibas  = estibasManifiesto as any[]
+    const historial = historialManifiesto as any[]
+
+    const fmtDate = (d: string) => {
+      try { return new Date(d).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' }) }
+      catch { return d }
+    }
+    const fmtDatetime = (d: string) => {
+      try {
+        const dt = new Date(d)
+        return dt.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })
+             + ' ' + dt.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+      } catch { return d }
+    }
+
+    const ESTADO_HEX: Record<string, string> = {
+      PROGRAMADO: '#2563EB', EN_CARGUE: '#D97706', EN_TRANSITO: '#7C3AED',
+      ENTREGADO: '#16A34A', CANCELADO: '#DC2626', CON_NOVEDAD: '#DB2777',
+    }
+    const estadoColor = ESTADO_HEX[m.estado] ?? '#64748B'
+
+    const estibaRows = estibas.map(e => `
+      <tr>
+        <td style="font-family:monospace;font-weight:700">${e.codigo_interno}</td>
+        <td><span style="background:${ESTADO_HEX[e.estado_actual] ?? '#64748B'}1A;color:${ESTADO_HEX[e.estado_actual] ?? '#64748B'};padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">${e.estado_actual.replace(/_/g,' ')}</span></td>
+        <td>${fmtDatetime(e.fecha_carga)}</td>
+        <td style="text-align:center">${e.ya_descargada ? '✓' : '—'}</td>
+      </tr>`).join('')
+
+    const historialRows = historial.map(h => `
+      <tr>
+        <td>${fmtDatetime(h.fecha)}</td>
+        <td>${h.estado_anterior ? h.estado_anterior.replace(/_/g,' ') + ' → ' : ''}${h.estado_nuevo.replace(/_/g,' ')}${h.tipo_cambio==='CORRECCION'?' ⚠ CORRECCIÓN':''}</td>
+        <td>${h.usuario}</td>
+        <td style="font-style:italic;color:#555">${h.observacion ?? ''}</td>
+      </tr>`).join('')
+
+    const printWin = window.open('', '_blank', 'width=900,height=700')
+    if (!printWin) { return }
+
+    printWin.document.write(`<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Manifiesto ${m.numero}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0 }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #1E293B; background: #fff; padding: 32px 40px }
+    .header { display: flex; align-items: flex-start; justify-content: space-between; border-bottom: 2px solid #E2E8F0; padding-bottom: 16px; margin-bottom: 20px }
+    .company { font-size: 11px; color: #64748B; text-transform: uppercase; letter-spacing: .05em }
+    .numero { font-size: 22px; font-weight: 800; font-family: monospace; color: #0D1117 }
+    .badge { display: inline-block; padding: 3px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; background: ${estadoColor}1A; color: ${estadoColor}; margin-left: 10px; vertical-align: middle }
+    .meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 16px }
+    .meta-item label { display: block; font-size: 10px; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 3px }
+    .meta-item span { font-size: 13px; font-weight: 600; color: #1E293B }
+    h3 { font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; padding-bottom: 4px; border-bottom: 1px solid #E2E8F0 }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px }
+    th { text-align: left; font-size: 10px; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: .05em; padding: 6px 10px; background: #F8FAFC; border-bottom: 1px solid #E2E8F0 }
+    td { padding: 7px 10px; border-bottom: 1px solid #F1F5F9; font-size: 12.5px }
+    tr:last-child td { border-bottom: none }
+    .footer { margin-top: 28px; padding-top: 12px; border-top: 1px solid #E2E8F0; font-size: 10.5px; color: #94A3B8; display: flex; justify-content: space-between }
+    @media print {
+      body { padding: 16px 20px }
+      @page { margin: 12mm 15mm; size: A4 }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="company">Control de Estibas — Icoltrans</div>
+      <div style="margin-top:4px">
+        <span class="numero">${m.numero}</span>
+        <span class="badge">${m.estado.replace(/_/g,' ')}</span>
+      </div>
+    </div>
+    <div style="text-align:right;font-size:11px;color:#94A3B8">
+      <div>Generado: ${fmtDatetime(new Date().toISOString())}</div>
+    </div>
+  </div>
+
+  <div class="meta-grid">
+    <div class="meta-item"><label>Vehículo</label><span>${getVehiculoPlaca(m.vehiculo_id)}</span></div>
+    <div class="meta-item"><label>Ruta</label><span>${getUbicacionNombre(m.origen_id)} → ${getUbicacionNombre(m.destino_id)}</span></div>
+    <div class="meta-item"><label>Programado</label><span>${fmtDate(m.fecha_programada)}</span></div>
+    ${m.cliente_nombre ? `<div class="meta-item"><label>Cliente</label><span>${m.cliente_nombre}</span></div>` : ''}
+    ${m.fecha_salida  ? `<div class="meta-item"><label>Salida real</label><span>${fmtDatetime(m.fecha_salida)}</span></div>` : ''}
+    ${m.fecha_llegada ? `<div class="meta-item"><label>Llegada real</label><span>${fmtDatetime(m.fecha_llegada)}</span></div>` : ''}
+    <div class="meta-item"><label>Estibas cargadas</label><span>${m.total_estibas_cargadas}</span></div>
+    <div class="meta-item"><label>Estibas descargadas</label><span>${m.total_estibas_descargadas}</span></div>
+  </div>
+
+  <h3>Estibas en el manifiesto (${estibas.length})</h3>
+  ${estibas.length === 0
+    ? '<p style="color:#94A3B8;font-size:12px;margin-bottom:20px">Sin estibas asociadas.</p>'
+    : `<table>
+        <thead><tr><th>Código</th><th>Estado</th><th>Fecha de carga</th><th style="text-align:center">Descargada</th></tr></thead>
+        <tbody>${estibaRows}</tbody>
+      </table>`
+  }
+
+  ${historial.length > 0 ? `
+  <h3>Historial de cambios de estado</h3>
+  <table>
+    <thead><tr><th>Fecha</th><th>Transición</th><th>Usuario</th><th>Observación</th></tr></thead>
+    <tbody>${historialRows}</tbody>
+  </table>` : ''}
+
+  <div class="footer">
+    <span>Manifiesto ${m.numero} — ${m.estado.replace(/_/g,' ')}</span>
+    <span>Control de Estibas · Icoltrans</span>
+  </div>
+
+  <script>window.onload = function(){ window.print() }</script>
+</body>
+</html>`)
+    printWin.document.close()
+  }
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -720,6 +843,15 @@ export default function Manifiestos() {
             </DialogContent>
 
             <DialogActions sx={{ px: 3, pb: 2 }}>
+              <Button
+                startIcon={<PictureAsPdf />}
+                onClick={handlePrintPDF}
+                variant="outlined"
+                sx={{ borderColor: '#DC2626', color: '#DC2626', '&:hover': { bgcolor: 'rgba(220,38,38,0.06)', borderColor: '#DC2626' } }}
+              >
+                Descargar PDF
+              </Button>
+              <Box sx={{ flex: 1 }} />
               <Button onClick={closeDetail}>Cerrar</Button>
             </DialogActions>
           </>
