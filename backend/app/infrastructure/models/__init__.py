@@ -130,6 +130,11 @@ from app.infrastructure.models.scm import (
     ScmSolicitudCompra, ScmSolicitudItem, ScmOrdenCompra, ScmOrdenItem, ScmEvaluacionProveedor,
     EstadoSolicitudSCM, PrioridadSCM, EstadoOrdenSCM, CategoriaSCM, ClasificacionProveedor,
 )
+from app.infrastructure.models.sst import (
+    SstIncidente, SstRiesgo, SstInspeccion, SstEntregaEPP, SstCapacitacion, SstDocumento,
+    TipoIncidenteSST, GravedadSST, EstadoIncidenteSST, ClasePeligroSST, NivelRiesgoSST,
+    EstadoInspeccionSST, TipoEPP, EstadoCapacitacionSST, TipoDocumentoSST,
+)
 
 __all__ = [
     "TimestampMixin", "SoftDeleteMixin",
