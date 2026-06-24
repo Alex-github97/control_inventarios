@@ -286,7 +286,7 @@ export default function EstibaDetalle() {
                              : 'inherit',
                         fontStyle: (estiba?.estado === 'FALTANTE' || estiba?.estado === 'PERDIDA') ? 'italic' : 'normal',
                       }}>
-                        {estiba?.estado === 'FALTANTE' ? 'Paradero desconocido'
+                        {estiba?.estado === 'FALTANTE' ? 'Desconocida'
                         : estiba?.estado === 'PERDIDA'  ? 'Pérdida confirmada'
                         : (estiba?.ubicacion_actual?.nombre ?? 'Sin ubicación')}
                       </Typography>

@@ -99,7 +99,7 @@ export default function Trazabilidad() {
                 { label: 'Total Usos', value: estiba.total_usos },
                 {
                   label: 'Ubicación Actual',
-                  value: estiba.estado === 'FALTANTE' ? 'Paradero desconocido'
+                  value: estiba.estado === 'FALTANTE' ? 'Desconocida'
                        : estiba.estado === 'PERDIDA'  ? 'Pérdida confirmada'
                        : (estiba.ubicacion_actual?.nombre ?? '—'),
                 },
