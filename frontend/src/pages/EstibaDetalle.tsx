@@ -273,9 +273,22 @@ export default function EstibaDetalle() {
                   <Box>
                     <Typography variant="body2" sx={{ color: '#64748B', fontSize: 12, mb: 0.5 }}>Ubicación Actual</Typography>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <LocationOn sx={{ fontSize: 16, color: '#32AC5C' }} />
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                        {estiba?.ubicacion_actual?.nombre ?? 'Sin ubicación'}
+                      <LocationOn sx={{
+                        fontSize: 16,
+                        color: estiba?.estado === 'FALTANTE' ? '#F97316'
+                             : estiba?.estado === 'PERDIDA'  ? '#DC2626'
+                             : '#32AC5C',
+                      }} />
+                      <Typography variant="body2" sx={{
+                        fontWeight: 700,
+                        color: estiba?.estado === 'FALTANTE' ? '#C2410C'
+                             : estiba?.estado === 'PERDIDA'  ? '#DC2626'
+                             : 'inherit',
+                        fontStyle: (estiba?.estado === 'FALTANTE' || estiba?.estado === 'PERDIDA') ? 'italic' : 'normal',
+                      }}>
+                        {estiba?.estado === 'FALTANTE' ? 'Paradero desconocido'
+                        : estiba?.estado === 'PERDIDA'  ? 'Pérdida confirmada'
+                        : (estiba?.ubicacion_actual?.nombre ?? 'Sin ubicación')}
                       </Typography>
                     </Box>
                   </Box>
