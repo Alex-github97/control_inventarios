@@ -274,7 +274,7 @@ export default function Manifiestos() {
     doc.setTextColor(255, 255, 255)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(14)
-    doc.text('MANIFIESTO DE TRANSPORTE', 14, 10)
+    doc.text('INFORME DE MOVIMIENTO DE ESTIBAS', 14, 10)
     doc.setFontSize(9)
     doc.setFont('helvetica', 'normal')
     doc.text('Control de Estibas — Icoltrans', 14, 16.5)
