@@ -237,17 +237,20 @@ export default function Manifiestos() {
   const puedeRevertir        = esSupervisor && !!revertInfo
 
   // ── PDF ───────────────────────────────────────────────────────────────────
-  const handlePrintPDF = () => {
+  const handlePrintPDF = async () => {
     if (!detailManifiesto) return
     const m        = detailManifiesto
     const estibas  = estibasManifiesto as any[]
     const historial = historialManifiesto as any[]
 
+    const { jsPDF } = await import('jspdf')
+    const { default: autoTable } = await import('jspdf-autotable')
+
     const fmtDate = (d: string) => {
       try { return new Date(d).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' }) }
       catch { return d }
     }
-    const fmtDatetime = (d: string) => {
+    const fmtDT = (d: string) => {
       try {
         const dt = new Date(d)
         return dt.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -255,108 +258,170 @@ export default function Manifiestos() {
       } catch { return d }
     }
 
-    const ESTADO_HEX: Record<string, string> = {
-      PROGRAMADO: '#2563EB', EN_CARGUE: '#D97706', EN_TRANSITO: '#7C3AED',
-      ENTREGADO: '#16A34A', CANCELADO: '#DC2626', CON_NOVEDAD: '#DB2777',
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+    const W = doc.internal.pageSize.getWidth()
+    const ACCENT = '#1A3A6B'
+
+    const ESTADO_RGB: Record<string, [number,number,number]> = {
+      PROGRAMADO: [37,99,235], EN_CARGUE: [217,119,6], EN_TRANSITO: [124,58,237],
+      ENTREGADO: [22,163,74], CANCELADO: [220,38,38], CON_NOVEDAD: [219,39,119],
     }
-    const estadoColor = ESTADO_HEX[m.estado] ?? '#64748B'
+    const estadoRgb = ESTADO_RGB[m.estado] ?? [100,116,139]
 
-    const estibaRows = estibas.map(e => `
-      <tr>
-        <td style="font-family:monospace;font-weight:700">${e.codigo_interno}</td>
-        <td><span style="background:${ESTADO_HEX[e.estado_actual] ?? '#64748B'}1A;color:${ESTADO_HEX[e.estado_actual] ?? '#64748B'};padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">${e.estado_actual.replace(/_/g,' ')}</span></td>
-        <td>${fmtDatetime(e.fecha_carga)}</td>
-        <td style="text-align:center">${e.ya_descargada ? '✓' : '—'}</td>
-      </tr>`).join('')
+    // ── Franja de cabecera ──────────────────────────────────────────────
+    doc.setFillColor(26, 58, 107)
+    doc.rect(0, 0, W, 22, 'F')
+    doc.setTextColor(255, 255, 255)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(14)
+    doc.text('MANIFIESTO DE TRANSPORTE', 14, 10)
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.text('Control de Estibas — Icoltrans', 14, 16.5)
 
-    const historialRows = historial.map(h => `
-      <tr>
-        <td>${fmtDatetime(h.fecha)}</td>
-        <td>${h.estado_anterior ? h.estado_anterior.replace(/_/g,' ') + ' → ' : ''}${h.estado_nuevo.replace(/_/g,' ')}${h.tipo_cambio==='CORRECCION'?' ⚠ CORRECCIÓN':''}</td>
-        <td>${h.usuario}</td>
-        <td style="font-style:italic;color:#555">${h.observacion ?? ''}</td>
-      </tr>`).join('')
+    // ── Número + badge estado ────────────────────────────────────────────
+    doc.setTextColor(26, 58, 107)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(18)
+    doc.text(m.numero, 14, 33)
 
-    const printWin = window.open('', '_blank', 'width=900,height=700')
-    if (!printWin) { return }
+    const estadoLabel = m.estado.replace(/_/g, ' ')
+    doc.setFillColor(...estadoRgb)
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'bold')
+    const badgeW = doc.getTextWidth(estadoLabel) + 8
+    doc.roundedRect(W - 14 - badgeW, 26, badgeW, 6, 1.5, 1.5, 'F')
+    doc.text(estadoLabel, W - 14 - badgeW / 2, 30.2, { align: 'center' })
 
-    printWin.document.write(`<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <title>Manifiesto ${m.numero}</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0 }
-    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #1E293B; background: #fff; padding: 32px 40px }
-    .header { display: flex; align-items: flex-start; justify-content: space-between; border-bottom: 2px solid #E2E8F0; padding-bottom: 16px; margin-bottom: 20px }
-    .company { font-size: 11px; color: #64748B; text-transform: uppercase; letter-spacing: .05em }
-    .numero { font-size: 22px; font-weight: 800; font-family: monospace; color: #0D1117 }
-    .badge { display: inline-block; padding: 3px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; background: ${estadoColor}1A; color: ${estadoColor}; margin-left: 10px; vertical-align: middle }
-    .meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 16px }
-    .meta-item label { display: block; font-size: 10px; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 3px }
-    .meta-item span { font-size: 13px; font-weight: 600; color: #1E293B }
-    h3 { font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; padding-bottom: 4px; border-bottom: 1px solid #E2E8F0 }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 20px }
-    th { text-align: left; font-size: 10px; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: .05em; padding: 6px 10px; background: #F8FAFC; border-bottom: 1px solid #E2E8F0 }
-    td { padding: 7px 10px; border-bottom: 1px solid #F1F5F9; font-size: 12.5px }
-    tr:last-child td { border-bottom: none }
-    .footer { margin-top: 28px; padding-top: 12px; border-top: 1px solid #E2E8F0; font-size: 10.5px; color: #94A3B8; display: flex; justify-content: space-between }
-    @media print {
-      body { padding: 16px 20px }
-      @page { margin: 12mm 15mm; size: A4 }
+    // ── Fecha de generación ──────────────────────────────────────────────
+    doc.setTextColor(148, 163, 184)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(7.5)
+    doc.text(`Generado: ${fmtDT(new Date().toISOString())}`, W - 14, 37.5, { align: 'right' })
+
+    // ── Línea separadora ─────────────────────────────────────────────────
+    doc.setDrawColor(226, 232, 240)
+    doc.line(14, 39, W - 14, 39)
+
+    // ── Grilla de datos del viaje ────────────────────────────────────────
+    let cy = 43
+    const metaItems: [string, string][] = [
+      ['Vehículo',           getVehiculoPlaca(m.vehiculo_id)],
+      ['Ruta',               `${getUbicacionNombre(m.origen_id)} → ${getUbicacionNombre(m.destino_id)}`],
+      ['Fecha programada',   fmtDate(m.fecha_programada)],
+      ...(m.cliente_nombre ? [['Cliente', m.cliente_nombre] as [string,string]] : []),
+      ...(m.fecha_salida  ? [['Salida real',  fmtDT(m.fecha_salida)]  as [string,string]] : []),
+      ...(m.fecha_llegada ? [['Llegada real', fmtDT(m.fecha_llegada)] as [string,string]] : []),
+      ['Estibas cargadas',   String(m.total_estibas_cargadas)],
+      ['Estibas descargadas',String(m.total_estibas_descargadas)],
+    ]
+    const colW = (W - 28) / 2
+    metaItems.forEach(([label, value], i) => {
+      const cx = 14 + (i % 2 === 0 ? 0 : colW + 4)
+      if (i % 2 === 0 && i > 0) cy += 10
+      doc.setTextColor(148, 163, 184)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(7)
+      doc.text(label.toUpperCase(), cx, cy)
+      doc.setTextColor(30, 41, 59)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(9)
+      doc.text(value, cx, cy + 4.5)
+    })
+    cy += (metaItems.length % 2 === 0 ? 0 : 10) + 8
+
+    // ── Tabla de estibas ─────────────────────────────────────────────────
+    doc.setDrawColor(226, 232, 240)
+    doc.line(14, cy, W - 14, cy)
+    cy += 4
+    doc.setTextColor(71, 85, 105)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(8)
+    doc.text(`ESTIBAS EN EL MANIFIESTO (${estibas.length})`, 14, cy)
+    cy += 3
+
+    autoTable(doc, {
+      startY: cy,
+      margin: { left: 14, right: 14 },
+      head: [['Código', 'Estado', 'Fecha de carga', 'Descargada']],
+      body: estibas.length === 0
+        ? [['Sin estibas asociadas', '', '', '']]
+        : estibas.map(e => [
+            e.codigo_interno,
+            e.estado_actual.replace(/_/g, ' '),
+            fmtDT(e.fecha_carga),
+            e.ya_descargada ? 'Sí' : 'Pendiente',
+          ]),
+      headStyles: { fillColor: [26, 58, 107], fontSize: 8, fontStyle: 'bold', cellPadding: 3 },
+      bodyStyles: { fontSize: 8.5, cellPadding: 3 },
+      columnStyles: {
+        0: { fontStyle: 'bold', cellWidth: 42 },
+        1: { cellWidth: 38 },
+        2: { cellWidth: 48 },
+        3: { cellWidth: 'auto', halign: 'center' },
+      },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      didParseCell: (data: any) => {
+        if (data.section === 'body' && data.column.index === 3) {
+          const val = data.cell.raw as string
+          data.cell.styles.textColor = val === 'Sí' ? [22, 163, 74] : [217, 119, 6]
+          data.cell.styles.fontStyle = 'bold'
+        }
+      },
+    } as any)
+
+    // ── Historial ────────────────────────────────────────────────────────
+    if (historial.length > 0) {
+      const afterEstibas = (doc as any).lastAutoTable?.finalY ?? cy + 20
+      let hy = afterEstibas + 6
+      doc.setDrawColor(226, 232, 240)
+      doc.line(14, hy, W - 14, hy)
+      hy += 4
+      doc.setTextColor(71, 85, 105)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(8)
+      doc.text('HISTORIAL DE CAMBIOS DE ESTADO', 14, hy)
+      hy += 3
+      autoTable(doc, {
+        startY: hy,
+        margin: { left: 14, right: 14 },
+        head: [['Fecha', 'Transición', 'Usuario', 'Observación']],
+        body: historial.map(h => [
+          fmtDT(h.fecha),
+          `${h.estado_anterior ? h.estado_anterior.replace(/_/g,' ') + ' → ' : ''}${h.estado_nuevo.replace(/_/g,' ')}${h.tipo_cambio === 'CORRECCION' ? ' (CORR.)' : ''}`,
+          h.usuario,
+          h.observacion ?? '',
+        ]),
+        headStyles: { fillColor: [71, 85, 105], fontSize: 8, fontStyle: 'bold', cellPadding: 3 },
+        bodyStyles: { fontSize: 7.5, cellPadding: 3 },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+      } as any)
     }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div>
-      <div class="company">Control de Estibas — Icoltrans</div>
-      <div style="margin-top:4px">
-        <span class="numero">${m.numero}</span>
-        <span class="badge">${m.estado.replace(/_/g,' ')}</span>
-      </div>
-    </div>
-    <div style="text-align:right;font-size:11px;color:#94A3B8">
-      <div>Generado: ${fmtDatetime(new Date().toISOString())}</div>
-    </div>
-  </div>
 
-  <div class="meta-grid">
-    <div class="meta-item"><label>Vehículo</label><span>${getVehiculoPlaca(m.vehiculo_id)}</span></div>
-    <div class="meta-item"><label>Ruta</label><span>${getUbicacionNombre(m.origen_id)} → ${getUbicacionNombre(m.destino_id)}</span></div>
-    <div class="meta-item"><label>Programado</label><span>${fmtDate(m.fecha_programada)}</span></div>
-    ${m.cliente_nombre ? `<div class="meta-item"><label>Cliente</label><span>${m.cliente_nombre}</span></div>` : ''}
-    ${m.fecha_salida  ? `<div class="meta-item"><label>Salida real</label><span>${fmtDatetime(m.fecha_salida)}</span></div>` : ''}
-    ${m.fecha_llegada ? `<div class="meta-item"><label>Llegada real</label><span>${fmtDatetime(m.fecha_llegada)}</span></div>` : ''}
-    <div class="meta-item"><label>Estibas cargadas</label><span>${m.total_estibas_cargadas}</span></div>
-    <div class="meta-item"><label>Estibas descargadas</label><span>${m.total_estibas_descargadas}</span></div>
-  </div>
+    // ── Pie de página ────────────────────────────────────────────────────
+    const pageCount = (doc as any).internal.getNumberOfPages()
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i)
+      const pageH = doc.internal.pageSize.getHeight()
+      doc.setDrawColor(226, 232, 240)
+      doc.line(14, pageH - 12, W - 14, pageH - 12)
+      doc.setTextColor(148, 163, 184)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(7)
+      doc.text(`Manifiesto ${m.numero}  ·  Control de Estibas — Icoltrans`, 14, pageH - 7)
+      doc.text(`Página ${i} / ${pageCount}`, W - 14, pageH - 7, { align: 'right' })
+    }
 
-  <h3>Estibas en el manifiesto (${estibas.length})</h3>
-  ${estibas.length === 0
-    ? '<p style="color:#94A3B8;font-size:12px;margin-bottom:20px">Sin estibas asociadas.</p>'
-    : `<table>
-        <thead><tr><th>Código</th><th>Estado</th><th>Fecha de carga</th><th style="text-align:center">Descargada</th></tr></thead>
-        <tbody>${estibaRows}</tbody>
-      </table>`
-  }
-
-  ${historial.length > 0 ? `
-  <h3>Historial de cambios de estado</h3>
-  <table>
-    <thead><tr><th>Fecha</th><th>Transición</th><th>Usuario</th><th>Observación</th></tr></thead>
-    <tbody>${historialRows}</tbody>
-  </table>` : ''}
-
-  <div class="footer">
-    <span>Manifiesto ${m.numero} — ${m.estado.replace(/_/g,' ')}</span>
-    <span>Control de Estibas · Icoltrans</span>
-  </div>
-
-  <script>window.onload = function(){ window.print() }</script>
-</body>
-</html>`)
-    printWin.document.close()
+    // ── Nombre del archivo: NUMERO_YYYYMMDD_HHMM.pdf ────────────────────
+    const now = new Date()
+    const stamp = now.getFullYear().toString()
+      + String(now.getMonth() + 1).padStart(2, '0')
+      + String(now.getDate()).padStart(2, '0')
+      + '_'
+      + String(now.getHours()).padStart(2, '0')
+      + String(now.getMinutes()).padStart(2, '0')
+    doc.save(`${m.numero}_${stamp}.pdf`)
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
