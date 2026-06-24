@@ -22,6 +22,7 @@ const WORKSPACE_PERM_KEYS: Record<string, string[]> = {
   aps:      ['aps'],
   erp:      ['erp'],
   scm:      ['scm'],
+  sst:      ['sst'],
   config:   ['usuarios'],
 }
 
@@ -45,6 +46,7 @@ const MES_COLOR        = '#0891B2'
 const APS_COLOR        = '#7C3AED'
 const ERP_COLOR        = '#1A3A6B'
 const SCM_COLOR        = '#0C4D8C'
+const SST_COLOR        = '#C53030'
 const COMPACT_THRESHOLD = 80
 
 const WORKSPACES = [
@@ -181,6 +183,14 @@ const WORKSPACES = [
     color: SCM_COLOR,
     path:  '/scm',
     isActive: (p: string) => p.startsWith('/scm'),
+  },
+  {
+    id:    'sst',
+    label: 'ws.sst',
+    short: 'SST',
+    color: SST_COLOR,
+    path:  '/sst',
+    isActive: (p: string) => p.startsWith('/sst'),
   },
   {
     id:    'config',

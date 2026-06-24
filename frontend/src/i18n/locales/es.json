@@ -161,7 +161,16 @@
       "devolucionesScm": "Devoluciones",
       "analyticsScm": "Analítica SCM",
       "riesgosScm": "Riesgos SCM",
-      "calidadScm": "Calidad Suministro"
+      "calidadScm": "Calidad Suministro",
+      "sstDashboard": "Torre SST",
+      "sstIncidentes": "Incidentes",
+      "sstRiesgos": "Matriz IPER",
+      "sstInspecciones": "Inspecciones",
+      "sstEPP": "EPP",
+      "sstCapacitacion": "Capacitación",
+      "sstDocumentos": "Documentos",
+      "sstEmergencias": "Emergencias",
+      "sstIndicadores": "Indicadores"
     },
     "section": {
       "principal": "Principal",
@@ -177,6 +186,7 @@
       "confiabilidad": "Confiabilidad",
       "sistema": "Sistema",
       "gestion": "Gestión",
+      "programas": "Programas",
       "inbound": "Inbound",
       "almacenamiento": "Almacenamiento",
       "outbound": "Outbound",
@@ -248,6 +258,7 @@
       "aps": "APS",
       "erp": "ERP",
       "scm": "SCM",
+      "sst": "SG-SST",
       "config": "Configuración",
       "espacios": "Espacios"
     },
@@ -270,6 +281,7 @@
       "aps1": "Advanced Planning", "aps2": "& Scheduling",
       "erp1": "Enterprise Resource", "erp2": "Planning",
       "scm1": "Supply Chain", "scm2": "Management",
+      "sst1": "Seguridad y Salud", "sst2": "en el Trabajo",
       "cc1": "Command", "cc2": "Center",
       "cfg1": "Configuración", "cfg2": "del Sistema"
     },

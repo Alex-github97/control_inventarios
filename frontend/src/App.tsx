@@ -39,6 +39,7 @@ const ROUTE_PERM_MAP: Record<string, string> = {
   '/aps':          'aps',
   '/erp':          'erp',
   '/scm':          'scm',
+  '/sst':          'sst',
   '/usuarios':     'usuarios',
 }
 
@@ -282,6 +283,16 @@ const SCMAnalytica = React.lazy(() => import('@/pages/SCMAnalytica'))
 const SCMRiesgos = React.lazy(() => import('@/pages/SCMRiesgos'))
 const SCMDevoluciones = React.lazy(() => import('@/pages/SCMDevoluciones'))
 const SCMConfig = React.lazy(() => import('@/pages/SCMConfig'))
+const SSTDashboard = React.lazy(() => import('@/pages/SSTDashboard'))
+const SSTIncidentes = React.lazy(() => import('@/pages/SSTIncidentes'))
+const SSTRiesgos = React.lazy(() => import('@/pages/SSTRiesgos'))
+const SSTInspecciones = React.lazy(() => import('@/pages/SSTInspecciones'))
+const SSTEPP = React.lazy(() => import('@/pages/SSTEPP'))
+const SSTCapacitacion = React.lazy(() => import('@/pages/SSTCapacitacion'))
+const SSTDocumentos = React.lazy(() => import('@/pages/SSTDocumentos'))
+const SSTEmergencias = React.lazy(() => import('@/pages/SSTEmergencias'))
+const SSTIndicadores = React.lazy(() => import('@/pages/SSTIndicadores'))
+const SSTConfig = React.lazy(() => import('@/pages/SSTConfig'))
 const Configuracion = React.lazy(() => import('@/pages/Configuracion'))
 const Clientes = React.lazy(() => import('@/pages/Clientes'))
 const ScannerMovil = React.lazy(() => import('@/pages/ScannerMovil'))
@@ -571,6 +582,16 @@ export default function App() {
             <Route path="/scm/riesgos" element={<ProtectedRoute><SCMRiesgos /></ProtectedRoute>} />
             <Route path="/scm/devoluciones" element={<ProtectedRoute><SCMDevoluciones /></ProtectedRoute>} />
             <Route path="/scm/config" element={<ProtectedRoute><SCMConfig /></ProtectedRoute>} />
+            <Route path="/sst" element={<ProtectedRoute><SSTDashboard /></ProtectedRoute>} />
+            <Route path="/sst/incidentes" element={<ProtectedRoute><SSTIncidentes /></ProtectedRoute>} />
+            <Route path="/sst/riesgos" element={<ProtectedRoute><SSTRiesgos /></ProtectedRoute>} />
+            <Route path="/sst/inspecciones" element={<ProtectedRoute><SSTInspecciones /></ProtectedRoute>} />
+            <Route path="/sst/epp" element={<ProtectedRoute><SSTEPP /></ProtectedRoute>} />
+            <Route path="/sst/capacitacion" element={<ProtectedRoute><SSTCapacitacion /></ProtectedRoute>} />
+            <Route path="/sst/documentos" element={<ProtectedRoute><SSTDocumentos /></ProtectedRoute>} />
+            <Route path="/sst/emergencias" element={<ProtectedRoute><SSTEmergencias /></ProtectedRoute>} />
+            <Route path="/sst/indicadores" element={<ProtectedRoute><SSTIndicadores /></ProtectedRoute>} />
+            <Route path="/sst/config" element={<ProtectedRoute><SSTConfig /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
           </Suspense>
