@@ -1,6 +1,6 @@
 # Plataforma Empresarial ICOLTRANS — Sistema ERP Modular
 
-**Versión 2.0.0** | Industria Colombiana de Logística y Transporte (ICOLTRANS)
+**Versión 2.1.0** | Industria Colombiana de Logística y Transporte (ICOLTRANS)
 
 Plataforma empresarial unificada con 17 módulos de gestión operativa, diseñada para escala corporativa. Combina logística, transporte, mantenimiento, calidad, GRC y administración en una sola aplicación React con backend FastAPI.
 
@@ -134,7 +134,9 @@ Módulo central de gestión de estibas, movimientos y logística de bodega.
 ### Secciones
 
 #### Dashboard (`/dashboard`)
-- KPIs en tiempo real: estibas totales, disponibles, en tránsito, en cliente, dañadas, manifiestos, alertas
+- KPIs en tiempo real: estibas totales, disponibles, en tránsito, en cliente, dañadas, faltantes, pérdidas confirmadas, manifiestos, alertas
+- **KPI Faltantes**: conteo de estibas en estado FALTANTE pendientes de resolución
+- **KPI Pérdidas**: conteo de estibas en estado PERDIDA + valor total en COP (cuantificación monetaria de pérdidas)
 - Tiempo de uso por estiba: edad promedio en meses + histograma de distribución por antigüedad
 - Costos acumulados de mantenimiento + gráfico mensual (últimos 12 meses)
 - Tendencia de movimientos (30 días), distribución de daños, ocupación de ubicaciones
@@ -146,6 +148,30 @@ Módulo central de gestión de estibas, movimientos y logística de bodega.
 - Búsqueda por código interno, QR o RFID
 - KPIs en tiempo real por estado
 
+**Detalle de estiba (`/estibas/{id}`):**
+- Información general, código QR descargable e historial de trazabilidad en línea de tiempo
+- Ubicación actual muestra **"Desconocida"** cuando el estado es FALTANTE y **"Pérdida confirmada"** cuando es PERDIDA
+- **Panel de resolución FALTANTE** (visible solo cuando `estado = FALTANTE`):
+  - Botón **"Recuperar faltante"** (solo SUPERVISOR / ADMIN): observación obligatoria + bodega destino opcional → mueve la estiba a EN_INVENTARIO y registra movimiento tipo RETORNO en la trazabilidad
+  - Botón **"Confirmar pérdida"** (solo SUPERVISOR / ADMIN): observación obligatoria → mueve la estiba a PERDIDA (no BAJA) y registra movimiento tipo BAJA en la trazabilidad con el valor de la estiba en metadatos
+
+**Estados del ciclo de vida:**
+
+| Estado | Descripción |
+|--------|-------------|
+| DISPONIBLE | En bodega, lista para usar |
+| EN_INVENTARIO | Recuperada o recibida, en bodega |
+| EN_TRANSITO | En viaje activo |
+| CARGADA | Cargada en vehículo |
+| EN_CLIENTE | Entregada al cliente |
+| PENDIENTE_RETORNO | Cliente debe devolverla |
+| EN_REPARACION | En proceso de mantenimiento |
+| DANADA | Registrada con daño |
+| FALTANTE | No encontrada al cierre del manifiesto — genera alerta CRÍTICA automática |
+| PERDIDA | Pérdida confirmada por supervisor (viene de FALTANTE) |
+| BAJA | Dada de baja por otras causas |
+| DISPOSICION_FINAL | Fin de vida útil |
+
 #### Movimientos (`/movimientos`)
 - Registro individual con diálogo guiado
 - Cargue masivo desde Excel
@@ -156,20 +182,29 @@ Módulo central de gestión de estibas, movimientos y logística de bodega.
 - Ciclo: Programado → En Cargue → En Tránsito → Entregado
 - Asociación de estibas por manifiesto
 - Vinculación con vehículo y conductor
+- Al cerrar un manifiesto (ENTREGADO), las estibas no descargadas pasan automáticamente a FALTANTE con alerta CRÍTICA
+- Estibas FALTANTE en el diálogo de detalle muestran chip naranja diferenciado
+- **Descarga PDF del manifiesto**: botón "Descargar PDF" genera un informe titulado *"INFORME DE MOVIMIENTO DE ESTIBAS"* directamente en el navegador (sin diálogo de impresión) con nombre de archivo `{numero}_{YYYYMMDD_HHMM}.pdf`. Incluye encabezado con número y estado, datos del viaje, tabla de estibas y tabla de historial
 
 #### Trazabilidad (`/trazabilidad`)
-- Línea de tiempo completa de cada estiba
-- Registro de ubicación, vehículo, manifiesto, usuario, GPS, fecha
+- Búsqueda por código interno de estiba
+- Línea de tiempo completa con tipo de movimiento, estados antes/después, ubicación, vehículo, manifiesto, conductor y usuario
+- Muestra **"Desconocida"** como ubicación cuando la estiba está FALTANTE o PERDIDA
 
 #### Ubicaciones (`/ubicaciones`)
 - CRUD completo con soft-delete
 - Tipos: BODEGA, PLANTA, PATIO, CLIENTE, PROVEEDOR, VEHICULO, TRANSITO, DISPOSICION_FINAL
+- **Stock mínimo por tipo de estiba** (solo para BODEGA): configuración integrada en el formulario de creación/edición — permite definir cantidades mínimas por tipo (MADERA, PLASTICO, METAL, CARTON, MIXTA); genera alerta ADVERTENCIA automática cuando el stock cae por debajo del umbral
 
 #### Proveedores (`/proveedores`)
 - Maestro de proveedores con integración SAP preparada
 
 #### Alertas (`/alertas`)
 - Motor automático de alertas: Info, Advertencia, Crítica
+- Tipos activos: `ESTIBA_FALTANTE` (CRÍTICA) y `STOCK_BAJO` (ADVERTENCIA)
+- **Campana de alertas en el header**: popover con conteo de no leídas (badge rojo) y vista previa de las 5 más recientes; se refresca cada 60 segundos
+- **Dialog de detalle** al hacer clic en cualquier fila: muestra descripción completa de la novedad; para alertas `ESTIBA_FALTANTE` carga el detalle de la estiba involucrada (código, tipo, estado, valor, ubicación) y del manifiesto de origen (número, vehículo, conductor, ruta, fecha de salida), con botón directo al detalle de la estiba
+- **Resolución con observación obligatoria**: al resolver cualquier alerta (desde la tabla o desde el dialog de detalle) se abre un dialog que exige describir la acción tomada. La observación, la fecha y el nombre del usuario quedan registrados y son visibles al consultar la alerta resuelta
 
 #### Daños (`/danos`)
 - Registro y seguimiento de estibas dañadas
@@ -343,7 +378,21 @@ DELETE /api/v1/ubicaciones/{id}       # Soft-delete
 
 # Dashboard y Alertas
 GET    /api/v1/dashboard
-GET    /api/v1/alertas?resuelta=false
+GET    /api/v1/alertas?resuelta=false&nivel=CRITICA
+GET    /api/v1/alertas/no-leidas/count
+PATCH  /api/v1/alertas/{id}/resolver        # Body: { observacion: string }
+PATCH  /api/v1/alertas/{id}/leer
+
+# Estibas — resolución de faltantes
+POST   /api/v1/estibas/{id}/recuperar-faltante   # Body: { observacion, ubicacion_id? }
+POST   /api/v1/estibas/{id}/confirmar-perdida     # Body: { observacion }
+GET    /api/v1/estibas/stock-minimo/resumen
+
+# Ubicaciones — stock mínimo
+GET    /api/v1/ubicaciones/{id}/stock-minimo
+POST   /api/v1/ubicaciones/{id}/stock-minimo
+PUT    /api/v1/ubicaciones/{id}/stock-minimo/{sm_id}
+DELETE /api/v1/ubicaciones/{id}/stock-minimo/{sm_id}
 
 # Mantenimiento
 GET    /api/v1/mantenimientos/
@@ -443,6 +492,28 @@ DROP TYPE IF EXISTS rolusuario;
 ---
 
 ## Historial de Versiones
+
+### v2.1.0 (2026-06-24)
+
+#### CI — Gestión de faltantes y pérdidas
+- **Estado PERDIDA**: nuevo estado diferenciado de BAJA para estibas cuya pérdida es confirmada por un supervisor desde el estado FALTANTE. Permite cuantificar pérdidas monetarias por separado de bajas operativas
+- **Panel de resolución en detalle de estiba**: cuando una estiba está FALTANTE, aparece un panel naranja con dos acciones supervisadas — "Recuperar faltante" (→ EN_INVENTARIO) y "Confirmar pérdida" (→ PERDIDA). Ambas generan un registro de movimiento en la trazabilidad con la observación del supervisor
+- **Trazabilidad completa de resoluciones**: al recuperar o confirmar pérdida se crea un `Movimiento` (tipo RETORNO o BAJA) con `estado_estiba_antes`, `estado_estiba_despues` y observación — la resolución queda visible en la línea de tiempo de la estiba
+- **KPI Faltantes en dashboard**: tarjeta con conteo de estibas en estado FALTANTE pendientes de resolución
+- **KPI Pérdidas en dashboard**: tarjeta con conteo de estibas PERDIDA y valor total acumulado en COP, para cuantificar el impacto económico de las pérdidas por faltantes confirmados
+- **Ubicación coherente con estado**: en el detalle de estiba y en Trazabilidad, la ubicación actual muestra "Desconocida" para FALTANTE y "Pérdida confirmada" para PERDIDA en lugar de la última bodega registrada
+
+#### CI — Manifiestos
+- **Descarga PDF sin diálogo del sistema**: botón "Descargar PDF" en el diálogo de detalle del manifiesto genera el archivo directamente con jsPDF. El informe se titula *"INFORME DE MOVIMIENTO DE ESTIBAS"* y el nombre del archivo incluye el número del manifiesto y la marca de tiempo de descarga (`{numero}_{YYYYMMDD_HHMM}.pdf`)
+- **Visualización correcta de FALTANTE en manifiesto**: las estibas en estado FALTANTE dentro del diálogo de detalle muestran chip naranja en lugar del checkmark verde de "descargada"
+
+#### CI — Ubicaciones
+- **Stock mínimo por tipo de estiba en bodegas**: la configuración de stock mínimo se integra directamente en el formulario de creación/edición de ubicaciones tipo BODEGA. Se puede definir un umbral por tipo de estiba (MADERA, PLASTICO, METAL, CARTON, MIXTA); cuando el stock cae por debajo se genera automáticamente una alerta tipo ADVERTENCIA
+
+#### CI — Alertas
+- **Campana con popover en el header**: muestra badge con conteo de alertas no leídas y vista previa de las 5 más recientes; se refresca cada 60 segundos sin recargar la página
+- **Dialog de detalle por alerta**: al hacer clic en una fila del módulo de alertas se abre un dialog con la descripción completa de la novedad. Para alertas ESTIBA_FALTANTE carga el detalle de la estiba y del manifiesto involucrado, con acceso directo al detalle de la estiba donde el supervisor puede resolver
+- **Observación obligatoria al resolver alertas**: cualquier resolución (desde la tabla o desde el dialog) requiere describir la acción tomada. La observación, la fecha exacta y el nombre del usuario quedan registrados en la base de datos y son visibles al consultar la alerta resuelta
 
 ### v2.0.0 (2026-06-22)
 - **Expansión a 17 módulos**: la plataforma pasa de 2 apps (CI + TarifaX) a 17 módulos de gestión empresarial (CI, TX, FT, GF, ML, WMS, GH, TMS, DMS, QMS, GRC, LMS, CRM, EAM, MES, APS, Admin)
