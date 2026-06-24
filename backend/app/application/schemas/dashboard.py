@@ -19,6 +19,8 @@ class KPIResumen(BaseModel):
     edad_promedio_meses: float = 0.0
     total_costos_acumulados: float = 0.0
     faltantes: int = 0
+    perdidas: int = 0
+    valor_perdidas: float = 0.0
 
 
 class DanoEstadistica(BaseModel):
