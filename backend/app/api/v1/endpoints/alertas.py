@@ -61,13 +61,22 @@ async def marcar_leida(
     return {"message": "Alerta marcada como leída"}
 
 
+class ResolverAlertaRequest(BaseModel):
+    observacion: str
+
+
 @router.patch("/{alerta_id}/resolver")
 async def resolver_alerta(
     alerta_id: int,
+    data: ResolverAlertaRequest,
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
+    if not data.observacion or not data.observacion.strip():
+        from fastapi import HTTPException
+        raise HTTPException(400, "La observación es obligatoria para resolver una alerta")
     from datetime import timezone
+    import json
     result = await db.execute(select(Alerta).where(Alerta.id == alerta_id))
     alerta = result.scalar_one_or_none()
     if alerta:
@@ -75,6 +84,15 @@ async def resolver_alerta(
         alerta.leida = True
         alerta.fecha_resolucion = datetime.now(timezone.utc)
         alerta.usuario_resolucion_id = current_user.id
+        existing = {}
+        if alerta.metadatos:
+            try:
+                existing = json.loads(alerta.metadatos)
+            except Exception:
+                pass
+        existing["observacion_resolucion"] = data.observacion.strip()
+        existing["resuelto_por"] = current_user.nombre
+        alerta.metadatos = json.dumps(existing, ensure_ascii=False)
         await db.flush()
     return {"message": "Alerta resuelta exitosamente"}
 
