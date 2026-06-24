@@ -105,6 +105,15 @@ export default function Dashboard() {
             subtitle="Pendientes de resolución"
           />
         </Grid>
+        <Grid item xs={6} sm={4} md={2}>
+          <KPICard
+            title="Pérdidas"
+            value={isLoading ? '—' : (kpis?.perdidas ?? 0)}
+            icon={<Warning />}
+            color="#7F1D1D"
+            subtitle={isLoading ? '' : `${formatCOP(kpis?.valor_perdidas ?? 0)} en valor`}
+          />
+        </Grid>
       </Grid>
 
       {/* Second KPI Row */}
