@@ -120,6 +120,16 @@ async def dar_baja(
     return {"message": "Estiba dada de baja exitosamente", "id": estiba.id}
 
 
+@router.delete("/{estiba_id}", status_code=204)
+async def eliminar_estiba(
+    estiba_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(_require_estibas),
+):
+    service = EstibaService(db)
+    await service.eliminar_estiba(estiba_id)
+
+
 @router.get("/{estiba_id}/trazabilidad")
 async def trazabilidad_estiba(
     estiba_id: int,

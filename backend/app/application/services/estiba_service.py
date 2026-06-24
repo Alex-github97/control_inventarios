@@ -102,6 +102,12 @@ class EstibaService:
         await self.repo.db.flush()
         return estiba
 
+    async def eliminar_estiba(self, estiba_id: int) -> None:
+        estiba = await self.repo.get_by_id(estiba_id)
+        if not estiba:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Estiba no encontrada")
+        await self.repo.soft_delete(estiba)
+
     async def get_kpis(self) -> dict:
         return await self.repo.get_kpis()
 

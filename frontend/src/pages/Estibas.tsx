@@ -7,8 +7,8 @@ import {
   Divider, Tabs, Tab,
 } from '@mui/material'
 import {
-  Search, Add, QrCode2, Visibility, FilterList,
-  ViewModule, ArrowDropDown, UploadFile, AddBox, BarChart,
+  Search, Add, QrCode2, Visibility, FilterList, Close,
+  ViewModule, ArrowDropDown, UploadFile, AddBox, BarChart, Delete,
 } from '@mui/icons-material'
 import { EstibasInventario } from './EstibasInventario'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -112,6 +112,8 @@ export default function Estibas() {
   const [openDialog, setOpenDialog] = useState(false)
   const [openMasivo, setOpenMasivo] = useState(false)
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; codigo: string } | null>(null)
+  const [qrTarget, setQrTarget] = useState<{ codigo: string; qr: string } | null>(null)
 
   // ── Estado formulario Nueva Estiba ────────────────────────────────────────
   const [form, setForm] = useState({ ...EMPTY_FORM })
@@ -154,6 +156,20 @@ export default function Estibas() {
     onError: (err: any) => {
       const msg = err?.response?.data?.detail ?? 'Error al crear la estiba'
       setFormError(typeof msg === 'string' ? msg : JSON.stringify(msg))
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => apiClient.delete(`/estibas/${id}`),
+    onSuccess: () => {
+      toast.success('Estiba eliminada')
+      queryClient.invalidateQueries({ queryKey: ['estibas'] })
+      setDeleteTarget(null)
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.detail ?? 'Error al eliminar la estiba'
+      toast.error(typeof msg === 'string' ? msg : 'Error al eliminar')
+      setDeleteTarget(null)
     },
   })
 
@@ -462,15 +478,34 @@ export default function Estibas() {
                             {format(new Date(estiba.fecha_ingreso), 'dd/MM/yyyy', { locale: es })}
                           </Typography>
                         </TableCell>
-                        <TableCell align="right" onClick={e => e.stopPropagation()}>
-                          <Tooltip title="Ver detalle">
-                            <IconButton size="small" onClick={() => navigate(`/estibas/${estiba.id}`)}>
-                              <Visibility fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Ver QR">
-                            <IconButton size="small"><QrCode2 fontSize="small" /></IconButton>
-                          </Tooltip>
+                        <TableCell align="right" onClick={e => e.stopPropagation()} sx={{ whiteSpace: 'nowrap' }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.25 }}>
+                            <Tooltip title="Ver detalle">
+                              <IconButton size="small" onClick={() => navigate(`/estibas/${estiba.id}`)}>
+                                <Visibility fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Ver QR">
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  disabled={!estiba.codigo_qr}
+                                  onClick={() => estiba.codigo_qr && setQrTarget({ codigo: estiba.codigo_interno, qr: estiba.codigo_qr })}
+                                >
+                                  <QrCode2 fontSize="small" />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                            <Tooltip title="Eliminar estiba">
+                              <IconButton
+                                size="small"
+                                onClick={() => setDeleteTarget({ id: estiba.id, codigo: estiba.codigo_interno })}
+                                sx={{ color: '#EF4444', '&:hover': { bgcolor: 'rgba(239,68,68,0.08)' } }}
+                              >
+                                <Delete fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
                         </TableCell>
                       </TableRow>
                     ))
@@ -808,6 +843,75 @@ export default function Estibas() {
                 : `Crear ${masivoPreview.length} estibas`}
             </Button>
           )}
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Diálogo: Confirmar eliminación ───────────────────────────────── */}
+      <Dialog open={Boolean(deleteTarget)} onClose={() => !deleteMutation.isPending && setDeleteTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700, color: '#EF4444' }}>
+          Eliminar estiba
+        </DialogTitle>
+        <DialogContent>
+          <Typography>
+            ¿Estás seguro que deseas eliminar la estiba{' '}
+            <strong>{deleteTarget?.codigo}</strong>?
+          </Typography>
+          <Typography sx={{ mt: 1, fontSize: 13, color: '#64748B' }}>
+            Esta acción no se puede deshacer.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setDeleteTarget(null)} disabled={deleteMutation.isPending}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+            disabled={deleteMutation.isPending}
+            sx={{ bgcolor: '#EF4444', '&:hover': { bgcolor: '#DC2626' } }}
+          >
+            {deleteMutation.isPending ? 'Eliminando...' : 'Eliminar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Diálogo: Ver QR ──────────────────────────────────────────────── */}
+      <Dialog open={Boolean(qrTarget)} onClose={() => setQrTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
+          Código QR
+          <IconButton size="small" onClick={() => setQrTarget(null)}><Close fontSize="small" /></IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pt: '8px !important', pb: 1 }}>
+          {qrTarget?.qr ? (
+            <>
+              <Box
+                component="img"
+                src={qrTarget.qr}
+                alt={`QR ${qrTarget.codigo}`}
+                sx={{ width: 220, height: 220, display: 'block' }}
+              />
+              <Typography sx={{ mt: 1.5, fontSize: 13, color: '#64748B', fontFamily: 'monospace', fontWeight: 700 }}>
+                {qrTarget.codigo}
+              </Typography>
+            </>
+          ) : (
+            <Typography sx={{ color: '#94A3B8', my: 3 }}>Sin QR generado</Typography>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, justifyContent: 'center', gap: 1 }}>
+          {qrTarget?.qr && (
+            <Button
+              component="a"
+              href={qrTarget.qr}
+              download={`QR-${qrTarget.codigo}.png`}
+              variant="outlined"
+              size="small"
+              startIcon={<QrCode2 />}
+            >
+              Descargar
+            </Button>
+          )}
+          <Button onClick={() => setQrTarget(null)} size="small">Cerrar</Button>
         </DialogActions>
       </Dialog>
 
