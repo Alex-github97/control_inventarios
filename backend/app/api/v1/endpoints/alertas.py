@@ -18,9 +18,12 @@ class AlertaResponse(BaseModel):
     nivel: NivelAlerta
     titulo: str
     descripcion: Optional[str] = None
+    estiba_id: Optional[int] = None
+    manifiesto_id: Optional[int] = None
     leida: bool
     resuelta: bool
     created_at: datetime
+    fecha_resolucion: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 
