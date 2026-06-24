@@ -416,7 +416,7 @@ async def estibas_en_manifiesto(
             continue
         estiba = mov.estiba
         estado_val = estiba.estado.value if estiba.estado else "DESCONOCIDO"
-        ya_descargada = estado_val not in ("EN_TRANSITO", "CARGADA")
+        ya_descargada = estado_val not in ("EN_TRANSITO", "CARGADA", "FALTANTE")
         items.append({
             "estiba_id": estiba.id,
             "codigo_interno": estiba.codigo_interno,

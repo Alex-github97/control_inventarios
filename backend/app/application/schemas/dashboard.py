@@ -18,6 +18,7 @@ class KPIResumen(BaseModel):
     manifiestos_activos: int
     edad_promedio_meses: float = 0.0
     total_costos_acumulados: float = 0.0
+    faltantes: int = 0
 
 
 class DanoEstadistica(BaseModel):

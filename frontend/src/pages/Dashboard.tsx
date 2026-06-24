@@ -96,6 +96,15 @@ export default function Dashboard() {
             color="#EF4444"
           />
         </Grid>
+        <Grid item xs={6} sm={4} md={2}>
+          <KPICard
+            title="Faltantes"
+            value={isLoading ? '—' : (kpis?.faltantes ?? 0)}
+            icon={<Warning />}
+            color="#C2410C"
+            subtitle="Pendientes de resolución"
+          />
+        </Grid>
       </Grid>
 
       {/* Second KPI Row */}

@@ -99,6 +99,7 @@ class DashboardService:
             pendiente_retorno=counts.get(EstadoEstiba.PENDIENTE_RETORNO, 0),
             danadas=counts.get(EstadoEstiba.DANADA, 0),
             en_reparacion=counts.get(EstadoEstiba.EN_REPARACION, 0),
+            faltantes=counts.get(EstadoEstiba.FALTANTE, 0),
             propias=prop_counts.get(TipoPropietario.PROPIA, 0),
             alquiladas=prop_counts.get(TipoPropietario.ALQUILADA, 0),
             alertas_activas=alertas_activas.scalar_one(),

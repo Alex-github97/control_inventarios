@@ -778,9 +778,11 @@ export default function Manifiestos() {
                                 </Typography>
                               </TableCell>
                               <TableCell>
-                                {e.ya_descargada
-                                  ? <CheckCircle sx={{ fontSize: 16, color: '#16A34A' }} />
-                                  : <Chip label="Pendiente" size="small" sx={{ height: 18, fontSize: 10, bgcolor: '#FEF3C7', color: '#D97706', fontWeight: 700 }} />
+                                {e.estado_actual === 'FALTANTE'
+                                  ? <Chip label="Faltante" size="small" sx={{ height: 18, fontSize: 10, bgcolor: '#FFF7ED', color: '#C2410C', border: '1px solid #FED7AA', fontWeight: 700 }} />
+                                  : e.ya_descargada
+                                    ? <CheckCircle sx={{ fontSize: 16, color: '#16A34A' }} />
+                                    : <Chip label="Pendiente" size="small" sx={{ height: 18, fontSize: 10, bgcolor: '#FEF3C7', color: '#D97706', fontWeight: 700 }} />
                                 }
                               </TableCell>
                             </TableRow>
