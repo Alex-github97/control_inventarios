@@ -9,6 +9,7 @@ import {
 import {
   Search, Add, QrCode2, Visibility, FilterList, Close,
   ViewModule, ArrowDropDown, UploadFile, AddBox, BarChart, Delete,
+  Tune, Edit, WarningAmber, CheckCircle,
 } from '@mui/icons-material'
 import { EstibasInventario } from './EstibasInventario'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -23,7 +24,7 @@ import toast from 'react-hot-toast'
 
 const ESTADOS = [
   'DISPONIBLE', 'EN_INVENTARIO', 'EN_TRANSITO', 'CARGADA',
-  'EN_CLIENTE', 'PENDIENTE_RETORNO', 'EN_REPARACION', 'DANADA', 'BAJA',
+  'EN_CLIENTE', 'PENDIENTE_RETORNO', 'EN_REPARACION', 'DANADA', 'FALTANTE', 'BAJA',
 ]
 
 const PROPIETARIOS = ['PROPIA', 'ALQUILADA', 'CLIENTE', 'PROVEEDOR', 'TERCERO']
@@ -90,6 +91,245 @@ function generateCodes(start: string, end: string): string[] | null {
     codes.push(prefix + String(i).padStart(padding, '0'))
   }
   return codes
+}
+
+const TIPOS_ESTIBA = ['MADERA', 'PLASTICO', 'METAL', 'CARTON', 'MIXTA']
+
+function StockMinimoTab() {
+  const queryClient = useQueryClient()
+  const [openForm, setOpenForm] = useState(false)
+  const [editTarget, setEditTarget] = useState<any>(null)
+  const [form, setForm] = useState({ ubicacion_id: '', tipo_estiba: 'MADERA', cantidad_minima: 10 })
+  const [formError, setFormError] = useState('')
+
+  const { data: ubicaciones = [] } = useQuery({
+    queryKey: ['ubicaciones-select'],
+    queryFn: () => apiClient.get('/ubicaciones', { params: { page_size: 500 } }).then(r => r.data?.items ?? r.data ?? []),
+    staleTime: 60000,
+  })
+
+  const { data: configs = [], isLoading } = useQuery({
+    queryKey: ['stock-minimo'],
+    queryFn: () => apiClient.get('/estibas/stock-minimo/resumen').then(r => r.data),
+  })
+
+  const createMut = useMutation({
+    mutationFn: (d: any) => apiClient.post('/estibas/stock-minimo', d).then(r => r.data),
+    onSuccess: () => {
+      toast.success('Configuración guardada')
+      queryClient.invalidateQueries({ queryKey: ['stock-minimo'] })
+      handleCloseForm()
+    },
+    onError: (err: any) => setFormError(err?.response?.data?.detail ?? 'Error al guardar'),
+  })
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, ...d }: any) => apiClient.put(`/estibas/stock-minimo/${id}`, d).then(r => r.data),
+    onSuccess: () => {
+      toast.success('Configuración actualizada')
+      queryClient.invalidateQueries({ queryKey: ['stock-minimo'] })
+      handleCloseForm()
+    },
+    onError: (err: any) => setFormError(err?.response?.data?.detail ?? 'Error al actualizar'),
+  })
+
+  const deleteMut = useMutation({
+    mutationFn: (id: number) => apiClient.delete(`/estibas/stock-minimo/${id}`),
+    onSuccess: () => {
+      toast.success('Configuración eliminada')
+      queryClient.invalidateQueries({ queryKey: ['stock-minimo'] })
+    },
+    onError: () => toast.error('Error al eliminar'),
+  })
+
+  const handleOpenNew = () => {
+    setEditTarget(null)
+    setForm({ ubicacion_id: '', tipo_estiba: 'MADERA', cantidad_minima: 10 })
+    setFormError('')
+    setOpenForm(true)
+  }
+
+  const handleOpenEdit = (c: any) => {
+    setEditTarget(c)
+    setForm({ ubicacion_id: c.ubicacion_id, tipo_estiba: c.tipo_estiba, cantidad_minima: c.cantidad_minima })
+    setFormError('')
+    setOpenForm(true)
+  }
+
+  const handleCloseForm = () => {
+    setOpenForm(false)
+    setEditTarget(null)
+    setFormError('')
+  }
+
+  const handleSubmit = () => {
+    if (!form.ubicacion_id) { setFormError('Selecciona una bodega'); return }
+    if (!form.cantidad_minima || Number(form.cantidad_minima) < 1) { setFormError('La cantidad mínima debe ser mayor a 0'); return }
+    setFormError('')
+    if (editTarget) {
+      updateMut.mutate({ id: editTarget.id, cantidad_minima: Number(form.cantidad_minima), activo: true })
+    } else {
+      createMut.mutate({ ubicacion_id: Number(form.ubicacion_id), tipo_estiba: form.tipo_estiba, cantidad_minima: Number(form.cantidad_minima) })
+    }
+  }
+
+  const isPending = createMut.isPending || updateMut.isPending
+
+  return (
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Box>
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>Configuración de Stock Mínimo</Typography>
+          <Typography variant="body2" sx={{ color: '#64748B' }}>
+            El sistema genera una alerta cuando el stock EN_INVENTARIO de un tipo en una bodega cae por debajo del mínimo configurado.
+          </Typography>
+        </Box>
+        <Button variant="contained" startIcon={<Add />} onClick={handleOpenNew}>
+          Nueva regla
+        </Button>
+      </Box>
+
+      <Card>
+        <Box sx={{ overflowX: 'auto' }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Bodega</TableCell>
+                <TableCell>Tipo de estiba</TableCell>
+                <TableCell align="center">Mínimo</TableCell>
+                <TableCell align="center">Stock actual</TableCell>
+                <TableCell align="center">Estado</TableCell>
+                <TableCell align="right">Acciones</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {isLoading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <TableRow key={i}>
+                    {Array.from({ length: 6 }).map((_, j) => (
+                      <TableCell key={j}><Skeleton /></TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (configs as any[]).length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} align="center" sx={{ py: 5, color: '#94A3B8' }}>
+                    <Tune sx={{ fontSize: 32, mb: 1, opacity: 0.3, display: 'block', mx: 'auto' }} />
+                    Sin configuraciones — agrega una regla para empezar a monitorear
+                  </TableCell>
+                </TableRow>
+              ) : (
+                (configs as any[]).map((c: any) => {
+                  const bajo = c.stock_actual < c.cantidad_minima
+                  return (
+                    <TableRow key={c.id} sx={{ bgcolor: bajo && c.activo ? alpha('#F59E0B', 0.06) : 'inherit' }}>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{c.ubicacion_nombre ?? `ID ${c.ubicacion_id}`}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip label={c.tipo_estiba} size="small" variant="outlined" sx={{ fontSize: 11 }} />
+                      </TableCell>
+                      <TableCell align="center">
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>{c.cantidad_minima}</Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        <Typography
+                          variant="body2"
+                          sx={{ fontWeight: 700, color: bajo && c.activo ? '#C2410C' : '#16A34A' }}
+                        >
+                          {c.stock_actual}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        {!c.activo ? (
+                          <Chip label="Inactivo" size="small" sx={{ bgcolor: '#F1F5F9', color: '#64748B', fontSize: 11 }} />
+                        ) : bajo ? (
+                          <Chip icon={<WarningAmber sx={{ fontSize: 14 }} />} label="Bajo mínimo" size="small"
+                            sx={{ bgcolor: '#FFF7ED', color: '#C2410C', border: '1px solid #FED7AA', fontSize: 11 }} />
+                        ) : (
+                          <Chip icon={<CheckCircle sx={{ fontSize: 14 }} />} label="OK" size="small"
+                            sx={{ bgcolor: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0', fontSize: 11 }} />
+                        )}
+                      </TableCell>
+                      <TableCell align="right">
+                        <Tooltip title="Editar">
+                          <IconButton size="small" onClick={() => handleOpenEdit(c)}>
+                            <Edit fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Eliminar">
+                          <IconButton
+                            size="small"
+                            onClick={() => deleteMut.mutate(c.id)}
+                            sx={{ color: '#EF4444' }}
+                          >
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
+              )}
+            </TableBody>
+          </Table>
+        </Box>
+      </Card>
+
+      <Dialog open={openForm} onClose={handleCloseForm} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>
+          {editTarget ? 'Editar regla de stock mínimo' : 'Nueva regla de stock mínimo'}
+        </DialogTitle>
+        <DialogContent dividers>
+          <Grid container spacing={2} sx={{ pt: 0.5 }}>
+            <Grid item xs={12}>
+              <FormControl fullWidth size="small" disabled={!!editTarget}>
+                <InputLabel>Bodega *</InputLabel>
+                <Select value={form.ubicacion_id} label="Bodega *"
+                  onChange={e => setForm(f => ({ ...f, ubicacion_id: e.target.value as string }))}>
+                  <MenuItem value=""><em>Selecciona una bodega</em></MenuItem>
+                  {(ubicaciones as any[]).map((u: any) => (
+                    <MenuItem key={u.id} value={u.id}>{u.nombre} {u.codigo ? `(${u.codigo})` : ''}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <FormControl fullWidth size="small" disabled={!!editTarget}>
+                <InputLabel>Tipo de estiba *</InputLabel>
+                <Select value={form.tipo_estiba} label="Tipo de estiba *"
+                  onChange={e => setForm(f => ({ ...f, tipo_estiba: e.target.value }))}>
+                  {TIPOS_ESTIBA.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                label="Cantidad mínima *"
+                type="number"
+                fullWidth size="small"
+                value={form.cantidad_minima}
+                onChange={e => setForm(f => ({ ...f, cantidad_minima: Number(e.target.value) }))}
+                inputProps={{ min: 1 }}
+                helperText="Número mínimo de estibas EN_INVENTARIO antes de generar alerta"
+              />
+            </Grid>
+            {formError && (
+              <Grid item xs={12}>
+                <Alert severity="error" sx={{ py: 0.5 }}>{formError}</Alert>
+              </Grid>
+            )}
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={handleCloseForm} disabled={isPending}>Cancelar</Button>
+          <Button variant="contained" onClick={handleSubmit} disabled={isPending}>
+            {isPending ? 'Guardando...' : editTarget ? 'Actualizar' : 'Crear regla'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  )
 }
 
 export default function Estibas() {
@@ -292,10 +532,17 @@ export default function Estibas() {
             label="Inventario / Movimientos"
             sx={{ minHeight: 44, textTransform: 'none', fontWeight: 600 }}
           />
+          <Tab
+            icon={<Tune sx={{ fontSize: 18 }} />}
+            iconPosition="start"
+            label="Stock Mínimo"
+            sx={{ minHeight: 44, textTransform: 'none', fontWeight: 600 }}
+          />
         </Tabs>
       </Box>
 
       {activeTab === 1 && <EstibasInventario />}
+      {activeTab === 2 && <StockMinimoTab />}
 
       {activeTab === 0 && <>
 

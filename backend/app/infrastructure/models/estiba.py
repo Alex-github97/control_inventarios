@@ -1,7 +1,7 @@
 import enum
 from sqlalchemy import (
     Column, Integer, String, Boolean, Enum, Float, Date, Text,
-    ForeignKey, DateTime, JSON
+    ForeignKey, DateTime, JSON, UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 from app.core.database import Base
@@ -16,6 +16,7 @@ class EstadoEstiba(str, enum.Enum):
     PENDIENTE_RETORNO = "PENDIENTE_RETORNO"
     EN_REPARACION = "EN_REPARACION"
     DANADA = "DANADA"
+    FALTANTE = "FALTANTE"
     PERDIDA = "PERDIDA"
     BAJA = "BAJA"
     DISPOSICION_FINAL = "DISPOSICION_FINAL"
@@ -101,3 +102,19 @@ class Estiba(Base, TimestampMixin, SoftDeleteMixin):
     movimientos = relationship("Movimiento", back_populates="estiba", order_by="Movimiento.fecha_movimiento.desc()")
     eventos_dano = relationship("EventoDano", back_populates="estiba")
     mantenimientos = relationship("MantenimientoEstiba", back_populates="estiba", order_by="MantenimientoEstiba.fecha.desc()")
+
+
+class EstibaStockMinimo(Base, TimestampMixin):
+    """Configuración del stock mínimo de estibas por bodega y tipo."""
+    __tablename__ = "estiba_stock_minimo"
+    __table_args__ = (
+        UniqueConstraint("ubicacion_id", "tipo_estiba", name="uq_stock_minimo_ubicacion_tipo"),
+    )
+
+    id              = Column(Integer, primary_key=True, index=True)
+    ubicacion_id    = Column(Integer, ForeignKey("ubicaciones.id", ondelete="CASCADE"), nullable=False, index=True)
+    tipo_estiba     = Column(Enum(TipoEstiba), nullable=False)
+    cantidad_minima = Column(Integer, nullable=False)
+    activo          = Column(Boolean, nullable=False, default=True)
+
+    ubicacion = relationship("Ubicacion")

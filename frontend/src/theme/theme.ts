@@ -214,6 +214,7 @@ export const STATUS_COLORS: Record<string, { bg: string; color: string; border: 
   PENDIENTE_RETORNO: { bg: '#FFF7ED', color: '#EA580C', border: '#FED7AA', label: 'Pend. Retorno' },
   EN_REPARACION:     { bg: '#FEFCE8', color: '#CA8A04', border: '#FEF08A', label: 'En Reparación' },
   DANADA:            { bg: '#FEF2F2', color: '#DC2626', border: '#FECACA', label: 'Dañada' },
+  FALTANTE:          { bg: '#FFF7ED', color: '#C2410C', border: '#FED7AA', label: 'Faltante' },
   PERDIDA:           { bg: '#FDF2F8', color: '#DB2777', border: '#FBCFE8', label: 'Perdida' },
   BAJA:              { bg: '#F8FAFC', color: '#64748B', border: '#E2E8F0', label: 'Baja' },
   DISPOSICION_FINAL: { bg: '#F8FAFC', color: '#64748B', border: '#E2E8F0', label: 'Disp. Final' },

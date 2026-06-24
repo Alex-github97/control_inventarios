@@ -3,7 +3,7 @@ from app.infrastructure.models.rol import Rol, ROLES_DEFECTO, MODULOS_SISTEMA
 from app.infrastructure.models.usuario import Usuario, RolUsuario
 from app.infrastructure.models.ubicacion import Ubicacion, TipoUbicacion
 from app.infrastructure.models.proveedor import Proveedor, Contrato, TipoProveedor, EstadoContrato
-from app.infrastructure.models.estiba import Estiba, EstadoEstiba, TipoPropietario, TipoEstiba, NivelDano
+from app.infrastructure.models.estiba import Estiba, EstadoEstiba, TipoPropietario, TipoEstiba, NivelDano, EstibaStockMinimo
 from app.infrastructure.models.vehiculo import Vehiculo, Transportadora, Conductor, TipoVehiculo
 from app.infrastructure.models.manifiesto import Manifiesto, EstadoManifiesto, ManifiestoHistorial, TipoCambioEstado
 from app.infrastructure.models.movimiento import Movimiento, TipoMovimiento

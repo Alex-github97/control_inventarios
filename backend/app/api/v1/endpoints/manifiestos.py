@@ -1,15 +1,108 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, Column, Integer, String, Boolean
+from sqlalchemy import select, Column, Integer, String, Boolean, func
 from typing import Optional, List
 from pydantic import BaseModel
 from datetime import date, datetime, timezone
+import json
 from app.core.database import get_db, Base
 from app.core.dependencies import get_current_user, require_operador, require_supervisor
 from app.infrastructure.models.manifiesto import Manifiesto, EstadoManifiesto, ManifiestoHistorial, TipoCambioEstado
 from app.infrastructure.models.usuario import Usuario
 
 router = APIRouter(prefix="/manifiestos", tags=["Manifiestos"])
+
+
+async def _detectar_faltantes(db: AsyncSession, manifiesto_id: int, manifiesto_numero: str) -> int:
+    """Marca como FALTANTE toda estiba cargada en el manifiesto que no fue descargada, y crea alertas."""
+    from sqlalchemy.orm import selectinload
+    from app.infrastructure.models.movimiento import Movimiento, TipoMovimiento
+    from app.infrastructure.models.estiba import Estiba, EstadoEstiba
+    from app.infrastructure.models.alerta import Alerta, TipoAlerta, NivelAlerta
+
+    result = await db.execute(
+        select(Movimiento)
+        .where(Movimiento.manifiesto_id == manifiesto_id, Movimiento.tipo == TipoMovimiento.CARGA)
+        .options(selectinload(Movimiento.estiba))
+    )
+    faltantes = 0
+    for mov in result.scalars().all():
+        estiba = mov.estiba
+        if not estiba:
+            continue
+        if estiba.estado in (EstadoEstiba.CARGADA, EstadoEstiba.EN_TRANSITO):
+            estiba.estado = EstadoEstiba.FALTANTE
+            db.add(Alerta(
+                tipo=TipoAlerta.ESTIBA_FALTANTE,
+                nivel=NivelAlerta.CRITICA,
+                titulo=f"Estiba faltante — manifiesto {manifiesto_numero}",
+                descripcion=(
+                    f"La estiba {estiba.codigo_interno} estaba cargada en el manifiesto "
+                    f"{manifiesto_numero} pero no fue encontrada al cierre del viaje."
+                ),
+                estiba_id=estiba.id,
+                manifiesto_id=manifiesto_id,
+            ))
+            faltantes += 1
+    return faltantes
+
+
+async def _verificar_stock_minimo(db: AsyncSession, ubicacion_id: int, manifiesto_id: int, manifiesto_numero: str) -> None:
+    """Crea alertas STOCK_BAJO para tipos de estiba que caigan bajo el mínimo configurado en esta bodega."""
+    from app.infrastructure.models.estiba import Estiba, EstadoEstiba, EstibaStockMinimo
+    from app.infrastructure.models.alerta import Alerta, TipoAlerta, NivelAlerta
+
+    configs_r = await db.execute(
+        select(EstibaStockMinimo)
+        .where(EstibaStockMinimo.ubicacion_id == ubicacion_id, EstibaStockMinimo.activo == True)
+    )
+    configs = configs_r.scalars().all()
+    if not configs:
+        return
+
+    # Cargar alertas STOCK_BAJO activas para evitar duplicados
+    existing_r = await db.execute(
+        select(Alerta).where(Alerta.tipo == TipoAlerta.STOCK_BAJO, Alerta.resuelta == False)
+    )
+    alerted: set = set()
+    for ea in existing_r.scalars().all():
+        try:
+            m = json.loads(ea.metadatos or '{}')
+            alerted.add((m.get('ubicacion_id'), m.get('tipo_estiba')))
+        except Exception:
+            pass
+
+    for config in configs:
+        key = (config.ubicacion_id, config.tipo_estiba.value)
+        if key in alerted:
+            continue
+
+        count_r = await db.execute(
+            select(func.count(Estiba.id)).where(
+                Estiba.ubicacion_actual_id == ubicacion_id,
+                Estiba.tipo == config.tipo_estiba,
+                Estiba.estado == EstadoEstiba.EN_INVENTARIO,
+            )
+        )
+        stock_actual = count_r.scalar_one() or 0
+
+        if stock_actual < config.cantidad_minima:
+            db.add(Alerta(
+                tipo=TipoAlerta.STOCK_BAJO,
+                nivel=NivelAlerta.ADVERTENCIA,
+                titulo=f"Stock bajo: estibas {config.tipo_estiba.value} en bodega",
+                descripcion=(
+                    f"Stock actual: {stock_actual} | Mínimo configurado: {config.cantidad_minima}. "
+                    f"Detectado al cargar manifiesto {manifiesto_numero}."
+                ),
+                manifiesto_id=manifiesto_id,
+                metadatos=json.dumps({
+                    "ubicacion_id": ubicacion_id,
+                    "tipo_estiba":  config.tipo_estiba.value,
+                    "stock_actual": stock_actual,
+                    "stock_minimo": config.cantidad_minima,
+                }),
+            ))
 
 
 class ClienteManifiesto(Base):
@@ -206,8 +299,22 @@ async def cambiar_estado_manifiesto(
         tipo_cambio=TipoCambioEstado.AVANCE,
         usuario_id=current_user.id,
     ))
-    await db.flush()
-    return {"message": "Estado actualizado", "estado": nuevo_estado}
+
+    # Al salir en tránsito: verificar stock mínimo en bodega de origen
+    if nuevo_estado == EstadoManifiesto.EN_TRANSITO and m.origen_id:
+        await _verificar_stock_minimo(db, m.origen_id, manifiesto_id, m.numero)
+
+    # Al marcar como entregado: detectar estibas que no llegaron
+    faltantes = 0
+    if nuevo_estado == EstadoManifiesto.ENTREGADO:
+        faltantes = await _detectar_faltantes(db, manifiesto_id, m.numero)
+
+    await db.commit()
+    resp: dict = {"message": "Estado actualizado", "estado": nuevo_estado.value}
+    if faltantes:
+        resp["faltantes_detectados"] = faltantes
+        resp["advertencia"] = f"Se detectaron {faltantes} estiba(s) faltante(s). Revisa la sección de alertas."
+    return resp
 
 
 @router.post("/{manifiesto_id}/estado/revertir")
