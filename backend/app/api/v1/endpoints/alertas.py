@@ -24,6 +24,7 @@ class AlertaResponse(BaseModel):
     resuelta: bool
     created_at: datetime
     fecha_resolucion: Optional[datetime] = None
+    metadatos: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

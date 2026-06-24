@@ -186,15 +186,34 @@ function AlertaDetalleDialog({
         )}
 
         {/* Estado de resolución */}
-        {alerta.resuelta && (
-          <Box sx={{ px: 3, py: 1.5, bgcolor: '#F0FDF4', borderTop: '1px solid #BBF7D0' }}>
-            <Typography variant="body2" sx={{ color: '#16A34A', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <CheckCircle sx={{ fontSize: 14 }} />
-              Alerta resuelta
-              {alerta.fecha_resolucion && ` — ${format(new Date(alerta.fecha_resolucion), 'dd/MM/yyyy HH:mm', { locale: es })}`}
-            </Typography>
-          </Box>
-        )}
+        {alerta.resuelta && (() => {
+          let meta: Record<string, string> = {}
+          try { meta = alerta.metadatos ? JSON.parse(alerta.metadatos) : {} } catch {}
+          return (
+            <Box sx={{ px: 3, py: 2, bgcolor: '#F0FDF4', borderTop: '1px solid #BBF7D0' }}>
+              <Typography variant="body2" sx={{ color: '#16A34A', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 0.75, mb: meta.observacion_resolucion ? 1 : 0 }}>
+                <CheckCircle sx={{ fontSize: 14 }} />
+                Alerta resuelta
+                {alerta.fecha_resolucion && ` — ${format(new Date(alerta.fecha_resolucion), 'dd/MM/yyyy HH:mm', { locale: es })}`}
+              </Typography>
+              {meta.resuelto_por && (
+                <Typography variant="caption" sx={{ color: '#15803D', display: 'block', mb: 0.5 }}>
+                  Por: {meta.resuelto_por}
+                </Typography>
+              )}
+              {meta.observacion_resolucion && (
+                <Box sx={{ mt: 0.5, p: 1.5, bgcolor: '#DCFCE7', borderRadius: 1, border: '1px solid #BBF7D0' }}>
+                  <Typography variant="caption" sx={{ color: '#166534', fontWeight: 600, display: 'block', mb: 0.25 }}>
+                    Acción tomada:
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#166534', fontSize: 13 }}>
+                    {meta.observacion_resolucion}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          )
+        })()}
       </DialogContent>
 
       <DialogActions sx={{ px: 3, py: 2, justifyContent: 'space-between' }}>
