@@ -39,6 +39,8 @@ const MATERIALES: Record<string, string[]> = {
   MIXTA:    ['MADERA_PINO', 'MADERA_EUCALIPTO', 'PLASTICO_HDPE', 'ACERO', 'ALUMINIO', 'CARTON_CORRUGADO'],
 }
 
+const TIPOS_ESTIBA = ['MADERA', 'PLASTICO', 'METAL', 'CARTON', 'MIXTA']
+
 const TODAY = new Date().toISOString().split('T')[0]
 
 const EMPTY_FORM = {
@@ -92,8 +94,6 @@ function generateCodes(start: string, end: string): string[] | null {
   }
   return codes
 }
-
-const TIPOS_ESTIBA = ['MADERA', 'PLASTICO', 'METAL', 'CARTON', 'MIXTA']
 
 function StockMinimoTab() {
   const queryClient = useQueryClient()
@@ -532,17 +532,10 @@ export default function Estibas() {
             label="Inventario / Movimientos"
             sx={{ minHeight: 44, textTransform: 'none', fontWeight: 600 }}
           />
-          <Tab
-            icon={<Tune sx={{ fontSize: 18 }} />}
-            iconPosition="start"
-            label="Stock Mínimo"
-            sx={{ minHeight: 44, textTransform: 'none', fontWeight: 600 }}
-          />
         </Tabs>
       </Box>
 
       {activeTab === 1 && <EstibasInventario />}
-      {activeTab === 2 && <StockMinimoTab />}
 
       {activeTab === 0 && <>
 
