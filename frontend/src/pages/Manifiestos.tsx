@@ -4,19 +4,22 @@ import {
   TableHead, TableRow, Chip, Skeleton, Dialog, DialogTitle,
   DialogContent, DialogActions, Grid, TextField, FormControl,
   InputLabel, Select, MenuItem, Autocomplete, Tooltip, IconButton,
-  Checkbox, Alert, alpha,
+  Checkbox, Alert, alpha, Collapse,
 } from '@mui/material'
 import {
   Add, Assignment, OpenInNew, LocalShipping, ArrowForward,
-  CheckCircle, Close, Unarchive,
+  CheckCircle, Close, Unarchive, Undo, ExpandMore, ExpandLess,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
+import { useAuthStore } from '@/store/authStore'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
+
+const ROLES_SUPERVISION = new Set(['ADMINISTRADOR', 'SUPERVISOR_LOGISTICO'])
 
 const ESTADO_COLORS: Record<string, { bg: string; color: string }> = {
   PROGRAMADO:        { bg: '#EFF6FF', color: '#2563EB' },
@@ -63,9 +66,20 @@ const TRANS_NEXT: Record<string, Array<{ estado: string; label: string; color: s
 
 const ESTADO_PUEDE_DESCARGAR = new Set(['EN_TRANSITO', 'ENTREGADO', 'CON_NOVEDAD'])
 
+// Para cada estado indica a cuál se revierte y el texto descriptivo (solo supervisores/admin)
+const REVERT_MAP: Record<string, { estado: string; label: string }> = {
+  EN_CARGUE:   { estado: 'PROGRAMADO',  label: 'Volver a PROGRAMADO (cancelar inicio de cargue)' },
+  EN_TRANSITO: { estado: 'EN_CARGUE',   label: 'Volver a EN CARGUE (cancelar salida en tránsito)' },
+  ENTREGADO:   { estado: 'EN_TRANSITO', label: 'Volver a EN TRÁNSITO (anular entrega registrada)' },
+  CANCELADO:   { estado: 'PROGRAMADO',  label: 'Reactivar como PROGRAMADO (deshacer cancelación)' },
+  CON_NOVEDAD: { estado: 'EN_TRANSITO', label: 'Volver a EN TRÁNSITO (corregir novedad)' },
+}
+
 export default function Manifiestos() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const user = useAuthStore(s => s.user)
+  const esSupervisor = ROLES_SUPERVISION.has(user?.rol ?? '')
 
   // ── Crear manifiesto ──────────────────────────────────────────────────────
   const [openCreate, setOpenCreate] = useState(false)
@@ -79,6 +93,10 @@ export default function Manifiestos() {
   const [detailManifiesto, setDetailManifiesto] = useState<any>(null)
   const [descargaUbicacionId, setDescargaUbicacionId] = useState('')
   const [seleccionDescarga, setSeleccionDescarga] = useState<Set<number>>(new Set())
+
+  // ── Corrección de estado ──────────────────────────────────────────────────
+  const [showCorrection, setShowCorrection] = useState(false)
+  const [correctionMotivo, setCorrectionMotivo] = useState('')
 
   // ── Queries ───────────────────────────────────────────────────────────────
   const { data: manifiestos, isLoading } = useQuery({
@@ -128,6 +146,19 @@ export default function Manifiestos() {
     onError: (e: any) => toast.error(e.response?.data?.detail || 'Error cambiando estado'),
   })
 
+  const revertirEstadoMutation = useMutation({
+    mutationFn: ({ id, observacion }: { id: number; observacion: string }) =>
+      apiClient.post(`/manifiestos/${id}/estado/revertir`, { observacion }).then((r: any) => r.data),
+    onSuccess: (data: any) => {
+      toast.success(`Estado corregido: ${data.estado_anterior.replace(/_/g, ' ')} → ${data.estado.replace(/_/g, ' ')}`)
+      queryClient.invalidateQueries({ queryKey: ['manifiestos'] })
+      setDetailManifiesto((prev: any) => (prev ? { ...prev, estado: data.estado } : prev))
+      setShowCorrection(false)
+      setCorrectionMotivo('')
+    },
+    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error corrigiendo estado'),
+  })
+
   const descargarMutation = useMutation({
     mutationFn: (items: any[]) => apiClient.post('/movimientos/bulk', { items }).then((r: any) => r.data),
     onSuccess: (data: any) => {
@@ -162,6 +193,8 @@ export default function Manifiestos() {
     setDetailManifiesto(null)
     setSeleccionDescarga(new Set())
     setDescargaUbicacionId('')
+    setShowCorrection(false)
+    setCorrectionMotivo('')
   }
 
   const handleToggle = (id: number) =>
@@ -185,10 +218,12 @@ export default function Manifiestos() {
   }
 
   // ── Computed (before return) ──────────────────────────────────────────────
-  const estibasPendientes   = (estibasManifiesto as any[]).filter((e: any) => !e.ya_descargada)
+  const estibasPendientes    = (estibasManifiesto as any[]).filter((e: any) => !e.ya_descargada)
   const transicionesPosibles = detailManifiesto ? (TRANS_NEXT[detailManifiesto.estado] ?? []) : []
   const puedeDescargar       = detailManifiesto ? ESTADO_PUEDE_DESCARGAR.has(detailManifiesto.estado) : false
   const todasSeleccionadas   = estibasPendientes.length > 0 && seleccionDescarga.size === estibasPendientes.length
+  const revertInfo           = detailManifiesto ? REVERT_MAP[detailManifiesto.estado] : null
+  const puedeRevertir        = esSupervisor && !!revertInfo
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -415,6 +450,57 @@ export default function Manifiestos() {
                       {detailManifiesto.estado === 'ENTREGADO' ? 'Viaje completado — manifiesto entregado' : 'Manifiesto cancelado'}
                     </Typography>
                   </Box>
+                </Box>
+              )}
+
+              {/* Panel de corrección de estado (solo supervisores/admin) */}
+              {puedeRevertir && (
+                <Box sx={{ px: 3, py: 1.5, borderBottom: '1px solid #F1F5F9', bgcolor: alpha('#D97706', 0.03) }}>
+                  <Box
+                    onClick={() => setShowCorrection(v => !v)}
+                    sx={{ display: 'flex', alignItems: 'center', gap: 0.75, cursor: 'pointer', userSelect: 'none' }}
+                  >
+                    <Undo sx={{ fontSize: 14, color: '#D97706' }} />
+                    <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.05em', flex: 1 }}>
+                      Corregir estado por error
+                    </Typography>
+                    {showCorrection
+                      ? <ExpandLess sx={{ fontSize: 16, color: '#D97706' }} />
+                      : <ExpandMore sx={{ fontSize: 16, color: '#D97706' }} />
+                    }
+                  </Box>
+                  <Collapse in={showCorrection}>
+                    <Box sx={{ mt: 1.5, p: 2, border: '1px solid', borderColor: alpha('#D97706', 0.3), borderRadius: 1.5, bgcolor: '#FFFBEB' }}>
+                      <Typography sx={{ fontSize: 12, color: '#78350F', mb: 1.5 }}>
+                        Esta acción revierte el manifiesto de&nbsp;
+                        <strong>{detailManifiesto.estado.replace(/_/g, ' ')}</strong>&nbsp;a&nbsp;
+                        <strong>{revertInfo!.estado.replace(/_/g, ' ')}</strong>.
+                        Queda registrada en las observaciones del manifiesto con tu nombre y la fecha.
+                      </Typography>
+                      <TextField
+                        fullWidth size="small" multiline rows={2}
+                        label="Motivo de la corrección *"
+                        placeholder="Ej: Se marcó en tránsito antes de tiempo, el vehículo aún no había salido"
+                        value={correctionMotivo}
+                        onChange={(e: any) => setCorrectionMotivo(e.target.value)}
+                        sx={{ mb: 1.5, '& .MuiOutlinedInput-root': { bgcolor: 'white' } }}
+                      />
+                      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                        <Button size="small" onClick={() => { setShowCorrection(false); setCorrectionMotivo('') }}>
+                          Cancelar
+                        </Button>
+                        <Button
+                          size="small" variant="contained"
+                          startIcon={<Undo />}
+                          disabled={!correctionMotivo.trim() || revertirEstadoMutation.isPending}
+                          onClick={() => revertirEstadoMutation.mutate({ id: detailManifiesto.id, observacion: correctionMotivo })}
+                          sx={{ bgcolor: '#D97706', '&:hover': { bgcolor: '#B45309' } }}
+                        >
+                          {revertirEstadoMutation.isPending ? 'Revirtiendo...' : 'Confirmar corrección'}
+                        </Button>
+                      </Box>
+                    </Box>
+                  </Collapse>
                 </Box>
               )}
 

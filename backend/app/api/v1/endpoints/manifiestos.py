@@ -5,7 +5,7 @@ from typing import Optional, List
 from pydantic import BaseModel
 from datetime import date, datetime, timezone
 from app.core.database import get_db, Base
-from app.core.dependencies import get_current_user, require_operador
+from app.core.dependencies import get_current_user, require_operador, require_supervisor
 from app.infrastructure.models.manifiesto import Manifiesto, EstadoManifiesto
 from app.infrastructure.models.usuario import Usuario
 
@@ -32,6 +32,21 @@ class ClienteResponse(BaseModel):
     nit: Optional[str] = None
     activo: bool
     model_config = {"from_attributes": True}
+
+
+# Transiciones de corrección permitidas (hacia atrás).
+# Solo SUPERVISOR y ADMIN pueden ejecutarlas.
+_REVERT_TRANS: dict[EstadoManifiesto, EstadoManifiesto] = {
+    EstadoManifiesto.EN_CARGUE:   EstadoManifiesto.PROGRAMADO,
+    EstadoManifiesto.EN_TRANSITO: EstadoManifiesto.EN_CARGUE,
+    EstadoManifiesto.ENTREGADO:   EstadoManifiesto.EN_TRANSITO,
+    EstadoManifiesto.CANCELADO:   EstadoManifiesto.PROGRAMADO,
+    EstadoManifiesto.CON_NOVEDAD: EstadoManifiesto.EN_TRANSITO,
+}
+
+
+class RevertirEstadoRequest(BaseModel):
+    observacion: str
 
 
 class ManifiestoCreate(BaseModel):
@@ -184,6 +199,52 @@ async def cambiar_estado_manifiesto(
         m.fecha_llegada = datetime.now(timezone.utc)
     await db.flush()
     return {"message": "Estado actualizado", "estado": nuevo_estado}
+
+
+@router.post("/{manifiesto_id}/estado/revertir")
+async def revertir_estado_manifiesto(
+    manifiesto_id: int,
+    data: RevertirEstadoRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(require_supervisor),
+):
+    """Corrige un estado registrado por error. Solo SUPERVISOR y ADMIN.
+    La observación es obligatoria para dejar trazabilidad del motivo."""
+    if not data.observacion or not data.observacion.strip():
+        raise HTTPException(status_code=400, detail="La observación es obligatoria para corregir un estado")
+
+    result = await db.execute(select(Manifiesto).where(Manifiesto.id == manifiesto_id))
+    m = result.scalar_one_or_none()
+    if not m:
+        raise HTTPException(status_code=404, detail="Manifiesto no encontrado")
+
+    estado_anterior = m.estado
+    estado_destino = _REVERT_TRANS.get(estado_anterior)
+    if not estado_destino:
+        raise HTTPException(
+            status_code=400,
+            detail=f"El estado '{estado_anterior.value}' no puede ser revertido",
+        )
+
+    m.estado = estado_destino
+
+    # Limpiar fechas automáticas que ya no aplican
+    if estado_anterior == EstadoManifiesto.EN_TRANSITO:
+        m.fecha_salida = None
+    if estado_anterior == EstadoManifiesto.ENTREGADO:
+        m.fecha_llegada = None
+
+    # Registrar corrección en observaciones con timestamp
+    ahora = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
+    nota = f"[CORRECCIÓN {ahora} — {current_user.nombre} {current_user.apellido}]: {data.observacion.strip()}"
+    m.observaciones = (m.observaciones + "\n" + nota) if m.observaciones else nota
+
+    await db.flush()
+    return {
+        "message": "Estado corregido",
+        "estado_anterior": estado_anterior.value,
+        "estado": estado_destino.value,
+    }
 
 
 @router.get("/{manifiesto_id}/estibas")
