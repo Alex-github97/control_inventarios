@@ -184,7 +184,7 @@ function StockMinimoTab() {
             El sistema genera una alerta cuando el stock EN_INVENTARIO de un tipo en una bodega cae por debajo del mínimo configurado.
           </Typography>
         </Box>
-        <Button variant="contained" startIcon={<Add />} onClick={handleOpenNew}>
+        <Button variant="contained" startIcon={<Add />} onClick={handleOpenNew} sx={{ whiteSpace: 'nowrap' }}>
           Nueva regla
         </Button>
       </Box>

@@ -5,7 +5,7 @@ import {
   TablePagination, Chip, Skeleton, Alert, Grid, Divider, Tooltip, alpha,
 } from '@mui/material'
 import {
-  TrendingUp, TrendingDown, SwapHoriz, Inventory2, Scale,
+  TrendingUp, TrendingDown, CompareArrows, Inventory2, Scale,
   FileDownload, Refresh, FilterList,
 } from '@mui/icons-material'
 import { useQuery } from '@tanstack/react-query'
@@ -224,7 +224,7 @@ export function EstibasInventario() {
             <KpiCard
               label="Transferencias"
               value={totales.transferencias}
-              icon={<SwapHoriz />}
+              icon={<CompareArrows />}
               color="#F59E0B"
               hint="Transferencia + Retorno"
             />
