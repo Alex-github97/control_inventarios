@@ -4,8 +4,12 @@ import {
   TableHead, TableRow, Chip, Skeleton, Dialog, DialogTitle,
   DialogContent, DialogActions, Grid, TextField, FormControl,
   InputLabel, Select, MenuItem, Autocomplete, Tooltip, IconButton,
+  Checkbox, Alert, alpha,
 } from '@mui/material'
-import { Add, Assignment, OpenInNew } from '@mui/icons-material'
+import {
+  Add, Assignment, OpenInNew, LocalShipping, ArrowForward,
+  CheckCircle, Close, Unarchive,
+} from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
@@ -15,75 +19,189 @@ import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 
 const ESTADO_COLORS: Record<string, { bg: string; color: string }> = {
-  PROGRAMADO:   { bg: '#EFF6FF', color: '#2563EB' },
-  EN_CARGUE:    { bg: '#FEF3C7', color: '#D97706' },
-  EN_TRANSITO:  { bg: '#EDE9FE', color: '#7C3AED' },
-  ENTREGADO:    { bg: '#DCFCE7', color: '#16A34A' },
-  CANCELADO:    { bg: '#FEE2E2', color: '#DC2626' },
-  CON_NOVEDAD:  { bg: '#FCE7F3', color: '#DB2777' },
+  PROGRAMADO:        { bg: '#EFF6FF', color: '#2563EB' },
+  EN_CARGUE:         { bg: '#FEF3C7', color: '#D97706' },
+  EN_TRANSITO:       { bg: '#EDE9FE', color: '#7C3AED' },
+  ENTREGADO:         { bg: '#DCFCE7', color: '#16A34A' },
+  CANCELADO:         { bg: '#FEE2E2', color: '#DC2626' },
+  CON_NOVEDAD:       { bg: '#FCE7F3', color: '#DB2777' },
 }
+
+const ESTADO_COLORS_ESTIBA: Record<string, { bg: string; color: string }> = {
+  EN_INVENTARIO:     { bg: '#DCFCE7', color: '#16A34A' },
+  DISPONIBLE:        { bg: '#DCFCE7', color: '#16A34A' },
+  EN_TRANSITO:       { bg: '#EDE9FE', color: '#7C3AED' },
+  CARGADA:           { bg: '#DBEAFE', color: '#2563EB' },
+  EN_CLIENTE:        { bg: '#FEF9C3', color: '#CA8A04' },
+  PENDIENTE_RETORNO: { bg: '#FEF3C7', color: '#D97706' },
+  EN_REPARACION:     { bg: '#FFF7ED', color: '#C2410C' },
+  DANADA:            { bg: '#FEE2E2', color: '#DC2626' },
+  BAJA:              { bg: '#F1F5F9', color: '#64748B' },
+}
+
+const TRANS_NEXT: Record<string, Array<{ estado: string; label: string; color: string; outlined?: boolean }>> = {
+  PROGRAMADO:  [
+    { estado: 'EN_CARGUE',   label: 'Iniciar cargue',        color: '#D97706' },
+    { estado: 'CANCELADO',   label: 'Cancelar manifiesto',   color: '#DC2626', outlined: true },
+  ],
+  EN_CARGUE:   [
+    { estado: 'EN_TRANSITO', label: 'Salir en tránsito',     color: '#7C3AED' },
+    { estado: 'CON_NOVEDAD', label: 'Registrar novedad',     color: '#DB2777', outlined: true },
+    { estado: 'CANCELADO',   label: 'Cancelar',              color: '#DC2626', outlined: true },
+  ],
+  EN_TRANSITO: [
+    { estado: 'ENTREGADO',   label: 'Registrar entrega',     color: '#16A34A' },
+    { estado: 'CON_NOVEDAD', label: 'Registrar novedad',     color: '#DB2777', outlined: true },
+  ],
+  CON_NOVEDAD: [
+    { estado: 'EN_TRANSITO', label: 'Continuar en tránsito', color: '#7C3AED' },
+    { estado: 'ENTREGADO',   label: 'Registrar entrega',     color: '#16A34A' },
+  ],
+  ENTREGADO:   [],
+  CANCELADO:   [],
+}
+
+const ESTADO_PUEDE_DESCARGAR = new Set(['EN_TRANSITO', 'ENTREGADO', 'CON_NOVEDAD'])
 
 export default function Manifiestos() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
-  const [open, setOpen] = useState(false)
+
+  // ── Crear manifiesto ──────────────────────────────────────────────────────
+  const [openCreate, setOpenCreate] = useState(false)
   const [selectedCliente, setSelectedCliente] = useState<any>(null)
   const [form, setForm] = useState({
     numero: '', vehiculo_id: '', origen_id: '', destino_id: '',
-    fecha_programada: '', observaciones: ''
+    fecha_programada: '', observaciones: '',
   })
 
+  // ── Detalle manifiesto ────────────────────────────────────────────────────
+  const [detailManifiesto, setDetailManifiesto] = useState<any>(null)
+  const [descargaUbicacionId, setDescargaUbicacionId] = useState('')
+  const [seleccionDescarga, setSeleccionDescarga] = useState<Set<number>>(new Set())
+
+  // ── Queries ───────────────────────────────────────────────────────────────
   const { data: manifiestos, isLoading } = useQuery({
     queryKey: ['manifiestos'],
-    queryFn: () => apiClient.get('/manifiestos').then(r => r.data),
+    queryFn: () => apiClient.get('/manifiestos').then((r: any) => r.data),
   })
   const { data: vehiculos } = useQuery({
     queryKey: ['vehiculos'],
-    queryFn: () => apiClient.get('/vehiculos').then(r => r.data),
+    queryFn: () => apiClient.get('/vehiculos').then((r: any) => r.data),
   })
   const { data: ubicaciones } = useQuery({
     queryKey: ['ubicaciones'],
     queryFn: () => apiClient.get('/ubicaciones').then((r: any) => r.data),
   })
-
   const { data: clientes } = useQuery({
     queryKey: ['clientes-manifiestos'],
     queryFn: () => apiClient.get('/manifiestos/clientes').then((r: any) => r.data),
   })
+  const { data: estibasManifiesto = [] } = useQuery({
+    queryKey: ['estibas-manifiesto', detailManifiesto?.id],
+    queryFn: () =>
+      apiClient.get(`/manifiestos/${detailManifiesto!.id}/estibas`).then((r: any) => r.data ?? []),
+    enabled: !!detailManifiesto,
+  })
 
+  // ── Mutations ─────────────────────────────────────────────────────────────
   const createMutation = useMutation({
     mutationFn: (data: any) => apiClient.post('/manifiestos', data).then((r: any) => r.data),
     onSuccess: () => {
       toast.success('Manifiesto creado exitosamente')
       queryClient.invalidateQueries({ queryKey: ['manifiestos'] })
-      setOpen(false)
+      setOpenCreate(false)
       setSelectedCliente(null)
       setForm({ numero: '', vehiculo_id: '', origen_id: '', destino_id: '', fecha_programada: '', observaciones: '' })
     },
     onError: (e: any) => toast.error(e.response?.data?.detail || 'Error creando manifiesto'),
   })
 
+  const cambiarEstadoMutation = useMutation({
+    mutationFn: ({ id, estado }: { id: number; estado: string }) =>
+      apiClient.patch(`/manifiestos/${id}/estado`, null, { params: { nuevo_estado: estado } }).then((r: any) => r.data),
+    onSuccess: (data: any) => {
+      toast.success(`Estado: ${data.estado.replace(/_/g, ' ')}`)
+      queryClient.invalidateQueries({ queryKey: ['manifiestos'] })
+      setDetailManifiesto((prev: any) => (prev ? { ...prev, estado: data.estado } : prev))
+    },
+    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error cambiando estado'),
+  })
+
+  const descargarMutation = useMutation({
+    mutationFn: (items: any[]) => apiClient.post('/movimientos/bulk', { items }).then((r: any) => r.data),
+    onSuccess: (data: any) => {
+      toast.success(`${data.exitosos} estibas descargadas`)
+      if (data.errores?.length > 0) toast.error(`${data.errores.length} con error`)
+      queryClient.invalidateQueries({ queryKey: ['estibas-manifiesto'] })
+      queryClient.invalidateQueries({ queryKey: ['manifiestos'] })
+      setSeleccionDescarga(new Set())
+      setDescargaUbicacionId('')
+    },
+    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error registrando descarga'),
+  })
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
   const handleSubmit = () => {
     createMutation.mutate({
-      numero: form.numero,
-      vehiculo_id: parseInt(form.vehiculo_id),
-      origen_id: parseInt(form.origen_id),
-      destino_id: parseInt(form.destino_id),
-      cliente_nombre: selectedCliente?.nombre || undefined,
-      cliente_nit: selectedCliente?.nit || undefined,
+      numero:          form.numero,
+      vehiculo_id:     parseInt(form.vehiculo_id),
+      origen_id:       parseInt(form.origen_id),
+      destino_id:      parseInt(form.destino_id),
+      cliente_nombre:  selectedCliente?.nombre || undefined,
+      cliente_nit:     selectedCliente?.nit    || undefined,
       fecha_programada: form.fecha_programada,
-      observaciones: form.observaciones || undefined,
+      observaciones:   form.observaciones || undefined,
     })
   }
 
+  const getVehiculoPlaca    = (id: number) => (vehiculos  || []).find((v: any) => v.id === id)?.placa  ?? `#${id}`
+  const getUbicacionNombre  = (id: number) => (ubicaciones|| []).find((u: any) => u.id === id)?.nombre ?? `#${id}`
+
+  const closeDetail = () => {
+    setDetailManifiesto(null)
+    setSeleccionDescarga(new Set())
+    setDescargaUbicacionId('')
+  }
+
+  const handleToggle = (id: number) =>
+    setSeleccionDescarga(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+
+  const handleDescargar = () => {
+    if (!descargaUbicacionId)      { toast.error('Selecciona una bodega de destino'); return }
+    if (seleccionDescarga.size === 0) { toast.error('Selecciona al menos una estiba');   return }
+    descargarMutation.mutate(
+      Array.from(seleccionDescarga).map(estiba_id => ({
+        estiba_id,
+        tipo:                    'DESCARGA',
+        ubicacion_destino_id:    parseInt(descargaUbicacionId),
+        manifiesto_id:           detailManifiesto?.id,
+      }))
+    )
+  }
+
+  // ── Computed (before return) ──────────────────────────────────────────────
+  const estibasPendientes   = (estibasManifiesto as any[]).filter((e: any) => !e.ya_descargada)
+  const transicionesPosibles = detailManifiesto ? (TRANS_NEXT[detailManifiesto.estado] ?? []) : []
+  const puedeDescargar       = detailManifiesto ? ESTADO_PUEDE_DESCARGAR.has(detailManifiesto.estado) : false
+  const todasSeleccionadas   = estibasPendientes.length > 0 && seleccionDescarga.size === estibasPendientes.length
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <Layout title="Manifiestos">
+
+      {/* Toolbar */}
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2.5 }}>
-        <Button variant="contained" startIcon={<Add />} onClick={() => setOpen(true)}>
+        <Button variant="contained" startIcon={<Add />} onClick={() => setOpenCreate(true)}>
           Nuevo Manifiesto
         </Button>
       </Box>
 
+      {/* Tabla */}
       <Card>
         <Box sx={{ overflowX: 'auto' }}>
           <Table size="small">
@@ -98,63 +216,371 @@ export default function Manifiestos() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {isLoading ? Array.from({ length: 8 }).map((_, i) => (
-                <TableRow key={i}>{Array.from({ length: 6 }).map((_, j) => <TableCell key={j}><Skeleton /></TableCell>)}</TableRow>
-              )) : (manifiestos || []).length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 5, color: '#94A3B8' }}>
-                    <Assignment sx={{ fontSize: 36, mb: 1, opacity: 0.3, display: 'block', mx: 'auto' }} />
-                    Sin manifiestos registrados
-                  </TableCell>
-                </TableRow>
-              ) : (manifiestos || []).map((m: any) => {
-                const ec = ESTADO_COLORS[m.estado] || { bg: '#F1F5F9', color: '#64748B' }
-                return (
-                  <TableRow key={m.id} sx={{ '&:hover': { bgcolor: 'rgba(50,172,92,0.04)' }, cursor: 'pointer' }}>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: 'monospace' }}>{m.numero}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip label={m.estado.replace('_', ' ')} size="small"
-                        sx={{ bgcolor: ec.bg, color: ec.color, fontWeight: 700, fontSize: 11 }}
-                      />
-                    </TableCell>
-                    <TableCell><Typography variant="body2">{m.cliente_nombre || '—'}</Typography></TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontSize: 12 }}>
-                        {format(new Date(m.fecha_programada), 'dd/MM/yyyy', { locale: es })}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Chip label={m.total_estibas_cargadas} size="small" sx={{ bgcolor: '#DBEAFE', color: '#2563EB', fontWeight: 700 }} />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Chip label={m.total_estibas_descargadas} size="small" sx={{ bgcolor: '#DCFCE7', color: '#16A34A', fontWeight: 700 }} />
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
+              {isLoading
+                ? Array.from({ length: 8 }).map((_, i) => (
+                    <TableRow key={i}>
+                      {Array.from({ length: 6 }).map((_, j) => <TableCell key={j}><Skeleton /></TableCell>)}
+                    </TableRow>
+                  ))
+                : (manifiestos || []).length === 0
+                ? (
+                    <TableRow>
+                      <TableCell colSpan={6} align="center" sx={{ py: 5, color: '#94A3B8' }}>
+                        <Assignment sx={{ fontSize: 36, mb: 1, opacity: 0.3, display: 'block', mx: 'auto' }} />
+                        Sin manifiestos registrados
+                      </TableCell>
+                    </TableRow>
+                  )
+                : (manifiestos || []).map((m: any) => {
+                    const ec = ESTADO_COLORS[m.estado] ?? { bg: '#F1F5F9', color: '#64748B' }
+                    return (
+                      <TableRow
+                        key={m.id}
+                        onClick={() => setDetailManifiesto(m)}
+                        sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'rgba(50,172,92,0.04)' } }}
+                      >
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: 'monospace' }}>
+                            {m.numero}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={m.estado.replace(/_/g, ' ')} size="small"
+                            sx={{ bgcolor: ec.bg, color: ec.color, fontWeight: 700, fontSize: 11 }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">{m.cliente_nombre || '—'}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontSize: 12 }}>
+                            {format(new Date(m.fecha_programada), 'dd/MM/yyyy', { locale: es })}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip label={m.total_estibas_cargadas} size="small"
+                            sx={{ bgcolor: '#DBEAFE', color: '#2563EB', fontWeight: 700 }} />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip label={m.total_estibas_descargadas} size="small"
+                            sx={{ bgcolor: '#DCFCE7', color: '#16A34A', fontWeight: 700 }} />
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
+              }
             </TableBody>
           </Table>
         </Box>
       </Card>
 
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
+      {/* ── Diálogo detalle manifiesto ───────────────────────────────────── */}
+      <Dialog
+        open={Boolean(detailManifiesto)}
+        onClose={closeDetail}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 2.5, maxHeight: '92vh' } }}
+      >
+        {detailManifiesto && (
+          <>
+            {/* Cabecera */}
+            <DialogTitle sx={{ pb: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <Typography sx={{ fontWeight: 800, fontSize: 17, fontFamily: 'monospace' }}>
+                    {detailManifiesto.numero}
+                  </Typography>
+                  <Chip
+                    label={detailManifiesto.estado.replace(/_/g, ' ')}
+                    size="small"
+                    sx={{
+                      bgcolor: ESTADO_COLORS[detailManifiesto.estado]?.bg,
+                      color:   ESTADO_COLORS[detailManifiesto.estado]?.color,
+                      fontWeight: 700,
+                    }}
+                  />
+                </Box>
+                <IconButton size="small" onClick={closeDetail}><Close fontSize="small" /></IconButton>
+              </Box>
+            </DialogTitle>
+
+            <DialogContent dividers sx={{ p: 0 }}>
+
+              {/* Info del viaje */}
+              <Box sx={{ px: 3, py: 2, bgcolor: '#FAFAFA', borderBottom: '1px solid #F1F5F9' }}>
+                <Grid container spacing={2} alignItems="flex-start">
+                  <Grid item xs={12} sm={3}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
+                      <LocalShipping sx={{ fontSize: 14, color: '#94A3B8' }} />
+                      <Typography sx={{ fontSize: 11, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Vehículo
+                      </Typography>
+                    </Box>
+                    <Typography sx={{ fontWeight: 700, fontSize: 13.5 }}>
+                      {getVehiculoPlaca(detailManifiesto.vehiculo_id)}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <Typography sx={{ fontSize: 11, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', mb: 0.25 }}>
+                      Ruta
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                      <Typography sx={{ fontWeight: 600, fontSize: 13 }}>
+                        {getUbicacionNombre(detailManifiesto.origen_id)}
+                      </Typography>
+                      <ArrowForward sx={{ fontSize: 14, color: '#94A3B8' }} />
+                      <Typography sx={{ fontWeight: 600, fontSize: 13 }}>
+                        {getUbicacionNombre(detailManifiesto.destino_id)}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={6} sm={2}>
+                    <Typography sx={{ fontSize: 11, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', mb: 0.25 }}>
+                      Programado
+                    </Typography>
+                    <Typography sx={{ fontWeight: 600, fontSize: 13 }}>
+                      {format(new Date(detailManifiesto.fecha_programada), 'dd/MM/yyyy', { locale: es })}
+                    </Typography>
+                  </Grid>
+                  {detailManifiesto.cliente_nombre && (
+                    <Grid item xs={6} sm={3}>
+                      <Typography sx={{ fontSize: 11, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', mb: 0.25 }}>
+                        Cliente
+                      </Typography>
+                      <Typography sx={{ fontWeight: 600, fontSize: 13 }}>
+                        {detailManifiesto.cliente_nombre}
+                      </Typography>
+                    </Grid>
+                  )}
+                  {detailManifiesto.fecha_salida && (
+                    <Grid item xs={6} sm={3}>
+                      <Typography sx={{ fontSize: 11, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', mb: 0.25 }}>
+                        Salida real
+                      </Typography>
+                      <Typography sx={{ fontWeight: 600, fontSize: 13 }}>
+                        {format(new Date(detailManifiesto.fecha_salida), 'dd/MM HH:mm', { locale: es })}
+                      </Typography>
+                    </Grid>
+                  )}
+                  {detailManifiesto.fecha_llegada && (
+                    <Grid item xs={6} sm={3}>
+                      <Typography sx={{ fontSize: 11, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', mb: 0.25 }}>
+                        Llegada real
+                      </Typography>
+                      <Typography sx={{ fontWeight: 600, fontSize: 13 }}>
+                        {format(new Date(detailManifiesto.fecha_llegada), 'dd/MM HH:mm', { locale: es })}
+                      </Typography>
+                    </Grid>
+                  )}
+                </Grid>
+              </Box>
+
+              {/* Máquina de estados */}
+              {transicionesPosibles.length > 0 && (
+                <Box sx={{ px: 3, py: 2, borderBottom: '1px solid #F1F5F9' }}>
+                  <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', mb: 1.25 }}>
+                    Cambiar estado del viaje
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    {transicionesPosibles.map(t => (
+                      <Button
+                        key={t.estado}
+                        size="small"
+                        variant={t.outlined ? 'outlined' : 'contained'}
+                        onClick={() => cambiarEstadoMutation.mutate({ id: detailManifiesto.id, estado: t.estado })}
+                        disabled={cambiarEstadoMutation.isPending}
+                        sx={
+                          t.outlined
+                            ? { borderColor: t.color, color: t.color, '&:hover': { bgcolor: alpha(t.color, 0.07), borderColor: t.color } }
+                            : { bgcolor: t.color, '&:hover': { bgcolor: alpha(t.color, 0.85) } }
+                        }
+                      >
+                        {t.label}
+                      </Button>
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
+              {transicionesPosibles.length === 0 && (
+                <Box sx={{
+                  px: 3, py: 1.5, borderBottom: '1px solid #F1F5F9',
+                  bgcolor: detailManifiesto.estado === 'ENTREGADO' ? alpha('#16A34A', 0.05) : alpha('#DC2626', 0.05),
+                }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <CheckCircle sx={{ fontSize: 15, color: detailManifiesto.estado === 'ENTREGADO' ? '#16A34A' : '#DC2626' }} />
+                    <Typography sx={{ fontSize: 13, fontWeight: 600, color: detailManifiesto.estado === 'ENTREGADO' ? '#16A34A' : '#DC2626' }}>
+                      {detailManifiesto.estado === 'ENTREGADO' ? 'Viaje completado — manifiesto entregado' : 'Manifiesto cancelado'}
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
+
+              {/* Estibas del manifiesto */}
+              <Box sx={{ px: 3, py: 2 }}>
+                <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', mb: 1.5 }}>
+                  Estibas en el manifiesto ({(estibasManifiesto as any[]).length})
+                </Typography>
+
+                {(estibasManifiesto as any[]).length === 0 ? (
+                  <Typography sx={{ fontSize: 12.5, color: '#94A3B8', textAlign: 'center', py: 2.5 }}>
+                    Sin estibas asociadas. Registra movimientos de CARGA vinculados a este manifiesto para verlas aquí.
+                  </Typography>
+                ) : (
+                  <>
+                    <Table size="small" sx={{ mb: 2 }}>
+                      <TableHead>
+                        <TableRow>
+                          {puedeDescargar && (
+                            <TableCell padding="checkbox">
+                              <Tooltip title={todasSeleccionadas ? 'Deseleccionar todo' : 'Seleccionar pendientes'}>
+                                <Checkbox
+                                  size="small"
+                                  checked={todasSeleccionadas}
+                                  indeterminate={seleccionDescarga.size > 0 && !todasSeleccionadas}
+                                  onChange={() =>
+                                    setSeleccionDescarga(todasSeleccionadas
+                                      ? new Set()
+                                      : new Set(estibasPendientes.map((e: any) => e.estiba_id))
+                                    )
+                                  }
+                                  disabled={estibasPendientes.length === 0}
+                                />
+                              </Tooltip>
+                            </TableCell>
+                          )}
+                          <TableCell>Código</TableCell>
+                          <TableCell>Estado actual</TableCell>
+                          <TableCell>Fecha de carga</TableCell>
+                          <TableCell>Descarga</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {(estibasManifiesto as any[]).map((e: any) => {
+                          const ec2 = ESTADO_COLORS_ESTIBA[e.estado_actual] ?? { bg: '#F1F5F9', color: '#64748B' }
+                          return (
+                            <TableRow
+                              key={e.estiba_id}
+                              sx={{ opacity: e.ya_descargada ? 0.65 : 1 }}
+                            >
+                              {puedeDescargar && (
+                                <TableCell padding="checkbox">
+                                  <Checkbox
+                                    size="small"
+                                    checked={seleccionDescarga.has(e.estiba_id)}
+                                    disabled={e.ya_descargada}
+                                    onChange={() => handleToggle(e.estiba_id)}
+                                  />
+                                </TableCell>
+                              )}
+                              <TableCell>
+                                <Typography sx={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 12.5 }}>
+                                  {e.codigo_interno}
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                <Chip
+                                  label={e.estado_actual.replace(/_/g, ' ')}
+                                  size="small"
+                                  sx={{ height: 20, fontSize: 10, bgcolor: ec2.bg, color: ec2.color, fontWeight: 700 }}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Typography sx={{ fontSize: 11.5, color: '#64748B' }}>
+                                  {format(new Date(e.fecha_carga), 'dd/MM/yyyy HH:mm', { locale: es })}
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                {e.ya_descargada
+                                  ? <CheckCircle sx={{ fontSize: 16, color: '#16A34A' }} />
+                                  : <Chip label="Pendiente" size="small" sx={{ height: 18, fontSize: 10, bgcolor: '#FEF3C7', color: '#D97706', fontWeight: 700 }} />
+                                }
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+
+                    {/* Panel de descarga */}
+                    {puedeDescargar && estibasPendientes.length > 0 && (
+                      <Box sx={{ p: 2, bgcolor: alpha('#7C3AED', 0.04), border: '1px solid', borderColor: alpha('#7C3AED', 0.2), borderRadius: 1.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.5 }}>
+                          <Unarchive sx={{ fontSize: 16, color: '#7C3AED' }} />
+                          <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#7C3AED' }}>
+                            Registrar descarga
+                            {seleccionDescarga.size > 0 ? ` — ${seleccionDescarga.size} estiba(s) seleccionada(s)` : ''}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                          <FormControl size="small" sx={{ flex: 1, minWidth: 220, maxWidth: 380 }}>
+                            <InputLabel>Bodega destino *</InputLabel>
+                            <Select
+                              value={descargaUbicacionId}
+                              label="Bodega destino *"
+                              onChange={(e: any) => setDescargaUbicacionId(e.target.value)}
+                            >
+                              {(ubicaciones || []).map((u: any) => (
+                                <MenuItem key={u.id} value={u.id}>{u.nombre}</MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                          <Button
+                            variant="contained"
+                            startIcon={<Unarchive />}
+                            onClick={handleDescargar}
+                            disabled={descargarMutation.isPending || seleccionDescarga.size === 0}
+                            sx={{ bgcolor: '#7C3AED', '&:hover': { bgcolor: '#6D28D9' }, whiteSpace: 'nowrap' }}
+                          >
+                            {descargarMutation.isPending
+                              ? 'Descargando...'
+                              : `Descargar ${seleccionDescarga.size > 0 ? seleccionDescarga.size : ''} estibas`}
+                          </Button>
+                        </Box>
+                      </Box>
+                    )}
+
+                    {puedeDescargar && estibasPendientes.length === 0 && (
+                      <Alert severity="success" sx={{ fontSize: 12.5 }}>
+                        Todas las estibas del manifiesto ya fueron descargadas correctamente.
+                      </Alert>
+                    )}
+                  </>
+                )}
+              </Box>
+
+            </DialogContent>
+
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+              <Button onClick={closeDetail}>Cerrar</Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
+
+      {/* ── Diálogo crear manifiesto ─────────────────────────────────────── */}
+      <Dialog open={openCreate} onClose={() => setOpenCreate(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>Nuevo Manifiesto</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth size="small" label="Número *" value={form.numero} onChange={e => setForm({ ...form, numero: e.target.value })} />
+              <TextField fullWidth size="small" label="Número *"
+                value={form.numero} onChange={e => setForm({ ...form, numero: e.target.value })} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth size="small" type="date" label="Fecha Programada *" InputLabelProps={{ shrink: true }}
+              <TextField fullWidth size="small" type="date" label="Fecha Programada *"
+                InputLabelProps={{ shrink: true }}
                 value={form.fecha_programada} onChange={e => setForm({ ...form, fecha_programada: e.target.value })} />
             </Grid>
             <Grid item xs={12}>
               <FormControl fullWidth size="small">
                 <InputLabel>Vehículo *</InputLabel>
                 <Select value={form.vehiculo_id} label="Vehículo *" onChange={e => setForm({ ...form, vehiculo_id: e.target.value })}>
-                  {(vehiculos || []).map((v: any) => <MenuItem key={v.id} value={v.id}>{v.placa} — {v.tipo}</MenuItem>)}
+                  {(vehiculos || []).map((v: any) => (
+                    <MenuItem key={v.id} value={v.id}>{v.placa} — {v.tipo}</MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>
@@ -182,7 +608,7 @@ export default function Manifiestos() {
                   getOptionLabel={(o: any) => o.nit ? `${o.nombre} — ${o.nit}` : o.nombre}
                   value={selectedCliente}
                   onChange={(_: any, v: any) => setSelectedCliente(v)}
-                  noOptionsText="Sin clientes. Créelos en Recursos > Clientes"
+                  noOptionsText="Sin clientes registrados"
                   renderInput={(params: any) => (
                     <TextField {...params} label="Cliente" size="small" placeholder="Seleccione un cliente" />
                   )}
@@ -195,17 +621,19 @@ export default function Manifiestos() {
               </Box>
             </Grid>
             <Grid item xs={12}>
-              <TextField fullWidth size="small" label="Observaciones" multiline rows={2} value={form.observaciones} onChange={e => setForm({ ...form, observaciones: e.target.value })} />
+              <TextField fullWidth size="small" label="Observaciones" multiline rows={2}
+                value={form.observaciones} onChange={e => setForm({ ...form, observaciones: e.target.value })} />
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setOpen(false)}>Cancelar</Button>
+          <Button onClick={() => setOpenCreate(false)}>Cancelar</Button>
           <Button variant="contained" onClick={handleSubmit} disabled={createMutation.isPending}>
             {createMutation.isPending ? 'Creando...' : 'Crear Manifiesto'}
           </Button>
         </DialogActions>
       </Dialog>
+
     </Layout>
   )
 }

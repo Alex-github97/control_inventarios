@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, Column, Integer, String, Boolean
 from typing import Optional, List
 from pydantic import BaseModel
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from app.core.database import get_db, Base
 from app.core.dependencies import get_current_user, require_operador
 from app.infrastructure.models.manifiesto import Manifiesto, EstadoManifiesto
@@ -178,6 +178,10 @@ async def cambiar_estado_manifiesto(
     if not m:
         raise HTTPException(status_code=404, detail="Manifiesto no encontrado")
     m.estado = nuevo_estado
+    if nuevo_estado == EstadoManifiesto.EN_TRANSITO and not m.fecha_salida:
+        m.fecha_salida = datetime.now(timezone.utc)
+    if nuevo_estado == EstadoManifiesto.ENTREGADO and not m.fecha_llegada:
+        m.fecha_llegada = datetime.now(timezone.utc)
     await db.flush()
     return {"message": "Estado actualizado", "estado": nuevo_estado}
 
@@ -188,14 +192,28 @@ async def estibas_en_manifiesto(
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
-    from app.infrastructure.repositories.movimiento_repository import MovimientoRepository
-    repo = MovimientoRepository(db)
-    movimientos = await repo.get_by_manifiesto(manifiesto_id)
-    return [
-        {
-            "estiba_id": m.estiba_id,
-            "tipo": m.tipo.value,
-            "fecha": m.fecha_movimiento.isoformat(),
-        }
-        for m in movimientos
-    ]
+    from sqlalchemy.orm import selectinload
+    from app.infrastructure.models.movimiento import Movimiento, TipoMovimiento
+
+    result = await db.execute(
+        select(Movimiento)
+        .where(Movimiento.manifiesto_id == manifiesto_id, Movimiento.tipo == TipoMovimiento.CARGA)
+        .options(selectinload(Movimiento.estiba))
+        .order_by(Movimiento.fecha_movimiento)
+    )
+    cargas = list(result.scalars().all())
+    items = []
+    for mov in cargas:
+        if not mov.estiba:
+            continue
+        estiba = mov.estiba
+        estado_val = estiba.estado.value if estiba.estado else "DESCONOCIDO"
+        ya_descargada = estado_val not in ("EN_TRANSITO", "CARGADA")
+        items.append({
+            "estiba_id": estiba.id,
+            "codigo_interno": estiba.codigo_interno,
+            "estado_actual": estado_val,
+            "fecha_carga": mov.fecha_movimiento.isoformat(),
+            "ya_descargada": ya_descargada,
+        })
+    return items
