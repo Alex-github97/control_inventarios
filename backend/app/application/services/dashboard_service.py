@@ -90,6 +90,13 @@ class DashboardService:
         )
         total_costos = float(total_costos_result.scalar_one())
 
+        # Valor total de estibas PERDIDAS (para cuantificar pérdidas monetarias)
+        valor_perdidas_result = await self.db.execute(
+            select(func.coalesce(func.sum(Estiba.valor_actual), 0.0))
+            .where(Estiba.estado == EstadoEstiba.PERDIDA)
+        )
+        valor_perdidas = float(valor_perdidas_result.scalar_one())
+
         total = sum(counts.values())
         return KPIResumen(
             total_estibas=total,
@@ -100,6 +107,8 @@ class DashboardService:
             danadas=counts.get(EstadoEstiba.DANADA, 0),
             en_reparacion=counts.get(EstadoEstiba.EN_REPARACION, 0),
             faltantes=counts.get(EstadoEstiba.FALTANTE, 0),
+            perdidas=counts.get(EstadoEstiba.PERDIDA, 0),
+            valor_perdidas=valor_perdidas,
             propias=prop_counts.get(TipoPropietario.PROPIA, 0),
             alquiladas=prop_counts.get(TipoPropietario.ALQUILADA, 0),
             alertas_activas=alertas_activas.scalar_one(),
