@@ -1,10 +1,18 @@
-from logging.config import fileConfig
-from sqlalchemy import engine_from_config, pool
-from alembic import context
+import os
 import asyncio
+from logging.config import fileConfig
+from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
+from alembic import context
 
 config = context.config
+
+# Si existe DATABASE_URL en el entorno (dentro del contenedor Docker), úsala.
+# Esto permite ejecutar `alembic upgrade head` desde dentro del contenedor sin
+# modificar alembic.ini, que apunta a localhost para desarrollo local.
+_db_url = os.environ.get("DATABASE_URL")
+if _db_url:
+    config.set_main_option("sqlalchemy.url", _db_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)

@@ -121,6 +121,12 @@ export default function Manifiestos() {
       apiClient.get(`/manifiestos/${detailManifiesto!.id}/estibas`).then((r: any) => r.data ?? []),
     enabled: !!detailManifiesto,
   })
+  const { data: historialManifiesto = [] } = useQuery({
+    queryKey: ['historial-manifiesto', detailManifiesto?.id],
+    queryFn: () =>
+      apiClient.get(`/manifiestos/${detailManifiesto!.id}/historial`).then((r: any) => r.data ?? []),
+    enabled: !!detailManifiesto,
+  })
 
   // ── Mutations ─────────────────────────────────────────────────────────────
   const createMutation = useMutation({
@@ -141,6 +147,7 @@ export default function Manifiestos() {
     onSuccess: (data: any) => {
       toast.success(`Estado: ${data.estado.replace(/_/g, ' ')}`)
       queryClient.invalidateQueries({ queryKey: ['manifiestos'] })
+      queryClient.invalidateQueries({ queryKey: ['historial-manifiesto'] })
       setDetailManifiesto((prev: any) => (prev ? { ...prev, estado: data.estado } : prev))
     },
     onError: (e: any) => toast.error(e.response?.data?.detail || 'Error cambiando estado'),
@@ -152,6 +159,7 @@ export default function Manifiestos() {
     onSuccess: (data: any) => {
       toast.success(`Estado corregido: ${data.estado_anterior.replace(/_/g, ' ')} → ${data.estado.replace(/_/g, ' ')}`)
       queryClient.invalidateQueries({ queryKey: ['manifiestos'] })
+      queryClient.invalidateQueries({ queryKey: ['historial-manifiesto'] })
       setDetailManifiesto((prev: any) => (prev ? { ...prev, estado: data.estado } : prev))
       setShowCorrection(false)
       setCorrectionMotivo('')
@@ -195,7 +203,10 @@ export default function Manifiestos() {
     setDescargaUbicacionId('')
     setShowCorrection(false)
     setCorrectionMotivo('')
+    setShowHistorial(false)
   }
+
+  const [showHistorial, setShowHistorial] = useState(false)
 
   const handleToggle = (id: number) =>
     setSeleccionDescarga(prev => {
@@ -635,6 +646,75 @@ export default function Manifiestos() {
                     )}
                   </>
                 )}
+              </Box>
+
+              {/* Historial de cambios de estado */}
+              <Box sx={{ px: 3, py: 2, borderTop: '1px solid #F1F5F9' }}>
+                <Box
+                  onClick={() => setShowHistorial(v => !v)}
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.75, cursor: 'pointer', userSelect: 'none', mb: showHistorial ? 1.5 : 0 }}
+                >
+                  {showHistorial ? <ExpandLess sx={{ fontSize: 16, color: '#64748B' }} /> : <ExpandMore sx={{ fontSize: 16, color: '#64748B' }} />}
+                  <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em', flex: 1 }}>
+                    Historial de cambios de estado ({(historialManifiesto as any[]).length})
+                  </Typography>
+                </Box>
+                <Collapse in={showHistorial}>
+                  {(historialManifiesto as any[]).length === 0 ? (
+                    <Typography sx={{ fontSize: 12, color: '#94A3B8', py: 1 }}>
+                      Sin cambios registrados aún.
+                    </Typography>
+                  ) : (
+                    <Box sx={{ position: 'relative', pl: 2 }}>
+                      {/* línea vertical del timeline */}
+                      <Box sx={{ position: 'absolute', left: 7, top: 8, bottom: 8, width: 2, bgcolor: '#E2E8F0' }} />
+                      {(historialManifiesto as any[]).map((h: any, idx: number) => {
+                        const esCorreccion = h.tipo_cambio === 'CORRECCION'
+                        const dotColor = esCorreccion ? '#D97706' : (ESTADO_COLORS[h.estado_nuevo]?.color ?? '#64748B')
+                        return (
+                          <Box key={h.id} sx={{ display: 'flex', gap: 1.5, mb: idx < (historialManifiesto as any[]).length - 1 ? 2 : 0, position: 'relative' }}>
+                            {/* dot */}
+                            <Box sx={{
+                              width: 14, height: 14, borderRadius: '50%', flexShrink: 0, mt: 0.25,
+                              bgcolor: dotColor, border: '2px solid white',
+                              boxShadow: `0 0 0 2px ${dotColor}`,
+                              zIndex: 1,
+                            }} />
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                {h.estado_anterior && (
+                                  <>
+                                    <Chip label={h.estado_anterior.replace(/_/g, ' ')} size="small"
+                                      sx={{ height: 18, fontSize: 9.5, fontWeight: 700,
+                                        bgcolor: ESTADO_COLORS[h.estado_anterior]?.bg ?? '#F1F5F9',
+                                        color:   ESTADO_COLORS[h.estado_anterior]?.color ?? '#64748B' }} />
+                                    <ArrowForward sx={{ fontSize: 11, color: '#94A3B8' }} />
+                                  </>
+                                )}
+                                <Chip label={h.estado_nuevo.replace(/_/g, ' ')} size="small"
+                                  sx={{ height: 18, fontSize: 9.5, fontWeight: 700,
+                                    bgcolor: ESTADO_COLORS[h.estado_nuevo]?.bg ?? '#F1F5F9',
+                                    color:   ESTADO_COLORS[h.estado_nuevo]?.color ?? '#64748B' }} />
+                                {esCorreccion && (
+                                  <Chip label="CORRECCIÓN" size="small"
+                                    sx={{ height: 18, fontSize: 9, fontWeight: 700, bgcolor: '#FEF3C7', color: '#D97706' }} />
+                                )}
+                              </Box>
+                              <Typography sx={{ fontSize: 11, color: '#64748B', mt: 0.25 }}>
+                                {format(new Date(h.fecha), "dd/MM/yyyy HH:mm", { locale: es })} — {h.usuario}
+                              </Typography>
+                              {h.observacion && (
+                                <Typography sx={{ fontSize: 11.5, color: '#374151', mt: 0.5, fontStyle: 'italic' }}>
+                                  "{h.observacion}"
+                                </Typography>
+                              )}
+                            </Box>
+                          </Box>
+                        )
+                      })}
+                    </Box>
+                  )}
+                </Collapse>
               </Box>
 
             </DialogContent>

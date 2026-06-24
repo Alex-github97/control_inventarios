@@ -5,7 +5,7 @@ from app.infrastructure.models.ubicacion import Ubicacion, TipoUbicacion
 from app.infrastructure.models.proveedor import Proveedor, Contrato, TipoProveedor, EstadoContrato
 from app.infrastructure.models.estiba import Estiba, EstadoEstiba, TipoPropietario, TipoEstiba, NivelDano
 from app.infrastructure.models.vehiculo import Vehiculo, Transportadora, Conductor, TipoVehiculo
-from app.infrastructure.models.manifiesto import Manifiesto, EstadoManifiesto
+from app.infrastructure.models.manifiesto import Manifiesto, EstadoManifiesto, ManifiestoHistorial, TipoCambioEstado
 from app.infrastructure.models.movimiento import Movimiento, TipoMovimiento
 from app.infrastructure.models.dano import CodigoDano, EventoDano, ResponsableDano, AccionRecomendada
 from app.infrastructure.models.alerta import Alerta, TipoAlerta, NivelAlerta
@@ -144,7 +144,7 @@ __all__ = [
     "Proveedor", "Contrato", "TipoProveedor", "EstadoContrato",
     "Estiba", "EstadoEstiba", "TipoPropietario", "TipoEstiba", "NivelDano",
     "Vehiculo", "Transportadora", "Conductor", "TipoVehiculo",
-    "Manifiesto", "EstadoManifiesto",
+    "Manifiesto", "EstadoManifiesto", "ManifiestoHistorial", "TipoCambioEstado",
     "Movimiento", "TipoMovimiento",
     "CodigoDano", "EventoDano", "ResponsableDano", "AccionRecomendada",
     "Alerta", "TipoAlerta", "NivelAlerta",

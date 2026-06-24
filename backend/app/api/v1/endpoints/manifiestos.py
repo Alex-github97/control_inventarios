@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from datetime import date, datetime, timezone
 from app.core.database import get_db, Base
 from app.core.dependencies import get_current_user, require_operador, require_supervisor
-from app.infrastructure.models.manifiesto import Manifiesto, EstadoManifiesto
+from app.infrastructure.models.manifiesto import Manifiesto, EstadoManifiesto, ManifiestoHistorial, TipoCambioEstado
 from app.infrastructure.models.usuario import Usuario
 
 router = APIRouter(prefix="/manifiestos", tags=["Manifiestos"])
@@ -192,11 +192,20 @@ async def cambiar_estado_manifiesto(
     m = result.scalar_one_or_none()
     if not m:
         raise HTTPException(status_code=404, detail="Manifiesto no encontrado")
+    estado_anterior = m.estado
     m.estado = nuevo_estado
     if nuevo_estado == EstadoManifiesto.EN_TRANSITO and not m.fecha_salida:
         m.fecha_salida = datetime.now(timezone.utc)
     if nuevo_estado == EstadoManifiesto.ENTREGADO and not m.fecha_llegada:
         m.fecha_llegada = datetime.now(timezone.utc)
+
+    db.add(ManifiestoHistorial(
+        manifiesto_id=manifiesto_id,
+        estado_anterior=estado_anterior.value,
+        estado_nuevo=nuevo_estado.value,
+        tipo_cambio=TipoCambioEstado.AVANCE,
+        usuario_id=current_user.id,
+    ))
     await db.flush()
     return {"message": "Estado actualizado", "estado": nuevo_estado}
 
@@ -234,17 +243,48 @@ async def revertir_estado_manifiesto(
     if estado_anterior == EstadoManifiesto.ENTREGADO:
         m.fecha_llegada = None
 
-    # Registrar corrección en observaciones con timestamp
-    ahora = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
-    nota = f"[CORRECCIÓN {ahora} — {current_user.nombre} {current_user.apellido}]: {data.observacion.strip()}"
-    m.observaciones = (m.observaciones + "\n" + nota) if m.observaciones else nota
-
+    db.add(ManifiestoHistorial(
+        manifiesto_id=manifiesto_id,
+        estado_anterior=estado_anterior.value,
+        estado_nuevo=estado_destino.value,
+        tipo_cambio=TipoCambioEstado.CORRECCION,
+        observacion=data.observacion.strip(),
+        usuario_id=current_user.id,
+    ))
     await db.flush()
     return {
         "message": "Estado corregido",
         "estado_anterior": estado_anterior.value,
         "estado": estado_destino.value,
     }
+
+
+@router.get("/{manifiesto_id}/historial")
+async def historial_manifiesto(
+    manifiesto_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    from sqlalchemy.orm import selectinload
+    result = await db.execute(
+        select(ManifiestoHistorial)
+        .where(ManifiestoHistorial.manifiesto_id == manifiesto_id)
+        .options(selectinload(ManifiestoHistorial.usuario))
+        .order_by(ManifiestoHistorial.fecha.desc())
+    )
+    registros = list(result.scalars().all())
+    return [
+        {
+            "id":              r.id,
+            "estado_anterior": r.estado_anterior,
+            "estado_nuevo":    r.estado_nuevo,
+            "tipo_cambio":     r.tipo_cambio.value,
+            "observacion":     r.observacion,
+            "usuario":         f"{r.usuario.nombre} {r.usuario.apellido}" if r.usuario else "Sistema",
+            "fecha":           r.fecha.isoformat(),
+        }
+        for r in registros
+    ]
 
 
 @router.get("/{manifiesto_id}/estibas")
