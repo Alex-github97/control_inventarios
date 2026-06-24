@@ -3,7 +3,7 @@ import {
   Box, Card, Typography, Button, Table, TableBody, TableCell,
   TableHead, TableRow, Chip, Skeleton, IconButton, Tooltip, FormControl,
   InputLabel, Select, MenuItem, Alert as MuiAlert,
-  Dialog, DialogTitle, DialogContent, DialogActions, Divider,
+  Dialog, DialogTitle, DialogContent, DialogActions, Divider, TextField,
 } from '@mui/material'
 import {
   CheckCircle, NotificationsActive, OpenInNew,
@@ -40,12 +40,10 @@ function AlertaDetalleDialog({
   alerta,
   onClose,
   onResolver,
-  resolviendo,
 }: {
   alerta: any
   onClose: () => void
-  onResolver: (id: number) => void
-  resolviendo: boolean
+  onResolver: (alerta: { id: number; titulo: string }) => void
 }) {
   const navigate = useNavigate()
   const nc = NIVEL_COLORS[alerta.nivel] || { bg: '#F1F5F9', color: '#64748B' }
@@ -205,8 +203,7 @@ function AlertaDetalleDialog({
           <Button
             variant="contained"
             startIcon={<CheckCircle />}
-            onClick={() => { onResolver(alerta.id); onClose() }}
-            disabled={resolviendo}
+            onClick={() => { onResolver({ id: alerta.id, titulo: alerta.titulo }); onClose() }}
             sx={{ bgcolor: '#16A34A', '&:hover': { bgcolor: '#15803D' } }}
           >
             Marcar como resuelta
@@ -222,6 +219,8 @@ export default function Alertas() {
   const [filtroResuelta, setFiltroResuelta] = useState<string>('false')
   const [filtroNivel, setFiltroNivel] = useState<string>('')
   const [selectedAlerta, setSelectedAlerta] = useState<any | null>(null)
+  const [resolverDialog, setResolverDialog] = useState<{ id: number; titulo: string } | null>(null)
+  const [obsResolucion, setObsResolucion] = useState('')
 
   const { data: alertas, isLoading } = useQuery({
     queryKey: ['alertas', filtroResuelta, filtroNivel],
@@ -235,14 +234,23 @@ export default function Alertas() {
   })
 
   const resolverMutation = useMutation({
-    mutationFn: (id: number) => apiClient.patch(`/alertas/${id}/resolver`).then(r => r.data),
+    mutationFn: ({ id, observacion }: { id: number; observacion: string }) =>
+      apiClient.patch(`/alertas/${id}/resolver`, { observacion }).then(r => r.data),
     onSuccess: () => {
       toast.success('Alerta resuelta')
       queryClient.invalidateQueries({ queryKey: ['alertas'] })
       queryClient.invalidateQueries({ queryKey: ['alertas-count'] })
       queryClient.invalidateQueries({ queryKey: ['alertas-preview'] })
+      setResolverDialog(null)
+      setObsResolucion('')
+      setSelectedAlerta(null)
     },
   })
+
+  const abrirResolver = (e: React.MouseEvent, alerta: any) => {
+    e.stopPropagation()
+    setResolverDialog({ id: alerta.id, titulo: alerta.titulo })
+  }
 
   return (
     <Layout title="Alertas">
@@ -330,7 +338,7 @@ export default function Alertas() {
                     <TableCell align="right" onClick={e => e.stopPropagation()}>
                       {!a.resuelta && (
                         <Tooltip title="Resolver alerta">
-                          <IconButton size="small" color="success" onClick={() => resolverMutation.mutate(a.id)}>
+                          <IconButton size="small" color="success" onClick={(e) => abrirResolver(e, a)}>
                             <CheckCircle fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -348,10 +356,55 @@ export default function Alertas() {
         <AlertaDetalleDialog
           alerta={selectedAlerta}
           onClose={() => setSelectedAlerta(null)}
-          onResolver={(id) => resolverMutation.mutate(id)}
-          resolviendo={resolverMutation.isPending}
+          onResolver={(a) => setResolverDialog({ id: a.id, titulo: a.titulo })}
         />
       )}
+
+      {/* ── Dialog: Resolver alerta ────────────────────────────────────── */}
+      <Dialog
+        open={!!resolverDialog}
+        onClose={() => !resolverMutation.isPending && (setResolverDialog(null), setObsResolucion(''))}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <CheckCircle sx={{ color: '#16A34A' }} />
+          Resolver alerta
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" sx={{ color: '#64748B', mb: 2 }}>
+            {resolverDialog?.titulo}
+          </Typography>
+          <TextField
+            label="Observación / acción tomada *"
+            fullWidth
+            multiline
+            rows={3}
+            size="small"
+            value={obsResolucion}
+            onChange={e => setObsResolucion(e.target.value)}
+            placeholder="Describe qué acción se tomó para resolver esta alerta..."
+            autoFocus
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button
+            onClick={() => { setResolverDialog(null); setObsResolucion('') }}
+            disabled={resolverMutation.isPending}
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<CheckCircle />}
+            onClick={() => resolverMutation.mutate({ id: resolverDialog!.id, observacion: obsResolucion })}
+            disabled={!obsResolucion.trim() || resolverMutation.isPending}
+            sx={{ bgcolor: '#16A34A', '&:hover': { bgcolor: '#15803D' } }}
+          >
+            {resolverMutation.isPending ? 'Guardando...' : 'Confirmar resolución'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Layout>
   )
 }
