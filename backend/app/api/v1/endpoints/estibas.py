@@ -190,8 +190,22 @@ async def confirmar_perdida(
             f"Solo se pueden dar de baja estibas en estado FALTANTE. Estado actual: {estiba.estado.value}",
         )
 
-    estiba.estado = EstadoEstiba.BAJA
-    estiba.observaciones = f"BAJA POR PÉRDIDA CONFIRMADA: {data.observacion.strip()}"
+    estado_anterior = estiba.estado.value
+    estiba.estado = EstadoEstiba.PERDIDA
+    estiba.observaciones = f"PÉRDIDA CONFIRMADA: {data.observacion.strip()}"
+
+    from app.infrastructure.models.movimiento import Movimiento, TipoMovimiento
+    movimiento = Movimiento(
+        estiba_id=estiba_id,
+        tipo=TipoMovimiento.BAJA,
+        usuario_id=current_user.id,
+        ubicacion_origen_id=estiba.ubicacion_actual_id,
+        observaciones=f"Pérdida confirmada desde estado FALTANTE. {data.observacion.strip()}",
+        estado_estiba_antes=estado_anterior,
+        estado_estiba_despues=EstadoEstiba.PERDIDA.value,
+        metadatos={"motivo": "FALTANTE_CONFIRMADO", "valor_estiba": float(estiba.valor_actual or 0)},
+    )
+    db.add(movimiento)
 
     from app.infrastructure.models.alerta import Alerta, TipoAlerta
     alerts_r = await db.execute(
@@ -208,7 +222,7 @@ async def confirmar_perdida(
         alerta.usuario_resolucion_id = current_user.id
 
     await db.commit()
-    return {"message": "Pérdida confirmada. Estiba dada de baja.", "id": estiba_id}
+    return {"message": "Pérdida confirmada. Estiba marcada como PERDIDA.", "id": estiba_id}
 
 
 @router.post("/{estiba_id}/recuperar-faltante")
@@ -228,10 +242,25 @@ async def recuperar_faltante(
     if estiba.estado != EstadoEstiba.FALTANTE:
         raise HTTPException(400, "Solo se pueden recuperar estibas en estado FALTANTE")
 
+    estado_anterior = estiba.estado.value
     estiba.estado = EstadoEstiba.EN_INVENTARIO
     if data.ubicacion_id:
         estiba.ubicacion_actual_id = data.ubicacion_id
     estiba.observaciones = f"RECUPERADA: {data.observacion.strip()}"
+
+    from app.infrastructure.models.movimiento import Movimiento, TipoMovimiento
+    movimiento = Movimiento(
+        estiba_id=estiba_id,
+        tipo=TipoMovimiento.RETORNO,
+        usuario_id=current_user.id,
+        ubicacion_origen_id=estiba.ubicacion_actual_id,
+        ubicacion_destino_id=data.ubicacion_id,
+        observaciones=f"Estiba recuperada desde estado FALTANTE. {data.observacion.strip()}",
+        estado_estiba_antes=estado_anterior,
+        estado_estiba_despues=EstadoEstiba.EN_INVENTARIO.value,
+        metadatos={"motivo": "FALTANTE_RECUPERADO"},
+    )
+    db.add(movimiento)
 
     from app.infrastructure.models.alerta import Alerta, TipoAlerta
     alerts_r = await db.execute(
