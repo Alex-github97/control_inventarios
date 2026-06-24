@@ -3,22 +3,25 @@ import {
   Box, Paper, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, MenuItem, IconButton, Stack, Chip, Tooltip, CircularProgress, alpha,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Collapse,
-  Switch, FormControlLabel,
 } from '@mui/material'
 import {
   Add as AddIcon,
   LocalShipping as TruckIcon,
   CheckCircle as CheckIcon,
   Warning as WarningIcon,
-  Inbox as InboxIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   Assignment as AssignmentIcon,
   AssignmentReturn as ReturnIcon,
+  Close as CloseIcon,
+  ArrowForward as ArrowIcon,
+  History as HistoryIcon,
+  Undo as UndoIcon,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient as api } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
+import { useAuthStore } from '@/store/authStore'
 import toast from 'react-hot-toast'
 
 const WMS_COLOR = '#1E40AF'
@@ -26,18 +29,40 @@ const WMS_COLOR = '#1E40AF'
 // ─── Types ─────────────────────────────────────────────────────────────────────
 interface Orden { id: number; numero_orden: string; estado: string }
 interface Transportadora { id: number; nombre: string; codigo?: string }
+interface DespachoItem {
+  id: number
+  producto_id: number
+  producto?: { sku: string; nombre: string; unidad_medida: string }
+  lote_id?: number
+  cantidad: number
+  numero_tracking?: string
+}
 interface Despacho {
   id: number
   numero_despacho: string
-  orden_numero: string
+  orden_id: number
+  orden_numero?: string
+  transportadora_id?: number
   transportadora_nombre?: string
   vehiculo_placa?: string
   conductor_nombre?: string
   fecha_despacho?: string
   fecha_entrega_estimada?: string
+  fecha_entrega_real?: string
   estado: 'PREPARANDO' | 'LISTO' | 'EN_TRANSITO' | 'ENTREGADO' | 'INCIDENCIA'
   peso_total_kg?: number
+  volumen_total_m3?: number
   notas?: string
+  detalles?: DespachoItem[]
+}
+interface HistorialEntry {
+  id: number
+  estado_anterior: string | null
+  estado_nuevo: string
+  tipo_cambio: 'AVANCE' | 'CORRECCION'
+  observacion: string | null
+  usuario: string
+  fecha: string
 }
 interface Devolucion {
   id: number
@@ -50,6 +75,27 @@ interface Devolucion {
 interface Almacen { id: number; nombre: string }
 interface Cliente { id: number; nombre: string }
 interface Proveedor { id: number; nombre: string }
+
+// ─── State machine constants ────────────────────────────────────────────────────
+const TRANS_NEXT: Record<string, Array<{ estado: string; label: string; color: string; outlined?: boolean }>> = {
+  PREPARANDO:  [{ estado: 'LISTO', label: 'Listo para despachar', color: '#D97706' }],
+  LISTO:       [{ estado: 'EN_TRANSITO', label: 'Iniciar tránsito', color: '#EA580C' }],
+  EN_TRANSITO: [
+    { estado: 'ENTREGADO',  label: 'Confirmar entrega',    color: '#059669' },
+    { estado: 'INCIDENCIA', label: 'Registrar incidencia', color: '#DC2626', outlined: true },
+  ],
+  INCIDENCIA:  [{ estado: 'EN_TRANSITO', label: 'Resolver incidencia', color: '#7C3AED' }],
+  ENTREGADO:   [],
+}
+
+const REVERT_MAP: Record<string, { estado: string; label: string }> = {
+  LISTO:       { estado: 'PREPARANDO',   label: 'Volver a PREPARANDO (cancelar alistamiento)' },
+  EN_TRANSITO: { estado: 'LISTO',        label: 'Volver a LISTO (cancelar salida en tránsito)' },
+  ENTREGADO:   { estado: 'EN_TRANSITO',  label: 'Volver a EN TRÁNSITO (anular entrega registrada)' },
+  INCIDENCIA:  { estado: 'EN_TRANSITO',  label: 'Volver a EN TRÁNSITO (corregir incidencia)' },
+}
+
+const ROLES_SUPERVISION = new Set(['ADMINISTRADOR', 'SUPERVISOR_LOGISTICO'])
 
 // ─── Estado chip ───────────────────────────────────────────────────────────────
 const ESTADO_CFG = {
@@ -71,42 +117,24 @@ function EstadoChip({ estado }: { estado: Despacho['estado'] }) {
   )
 }
 
-// ─── Estado action button ──────────────────────────────────────────────────────
+// ─── Estado action button (table row) ─────────────────────────────────────────
 function EstadoButton({ despacho, onTransition }: { despacho: Despacho; onTransition: (id: number, estado: string) => void }) {
-  if (despacho.estado === 'PREPARANDO') {
-    return (
-      <Button size="small" variant="outlined"
-        sx={{ textTransform: 'none', fontSize: 11, borderColor: alpha(WMS_COLOR, 0.5), color: WMS_COLOR }}
-        onClick={() => onTransition(despacho.id, 'LISTO')}>
-        Listo para despachar
-      </Button>
-    )
+  const nexts = TRANS_NEXT[despacho.estado] ?? []
+  if (nexts.length === 0) {
+    if (despacho.estado === 'ENTREGADO') return <CheckIcon sx={{ color: '#059669', fontSize: 18 }} />
+    if (despacho.estado === 'INCIDENCIA') return <WarningIcon sx={{ color: '#DC2626', fontSize: 18 }} />
+    return null
   }
-  if (despacho.estado === 'LISTO') {
-    return (
-      <Button size="small" variant="outlined"
-        sx={{ textTransform: 'none', fontSize: 11, borderColor: '#D97706', color: '#D97706' }}
-        onClick={() => onTransition(despacho.id, 'EN_TRANSITO')}>
-        <TruckIcon sx={{ fontSize: 13, mr: 0.5 }} /> Iniciar tránsito
-      </Button>
-    )
-  }
-  if (despacho.estado === 'EN_TRANSITO') {
-    return (
-      <Button size="small" variant="outlined"
-        sx={{ textTransform: 'none', fontSize: 11, borderColor: '#059669', color: '#059669' }}
-        onClick={() => onTransition(despacho.id, 'ENTREGADO')}>
-        <CheckIcon sx={{ fontSize: 13, mr: 0.5 }} /> Confirmar entrega
-      </Button>
-    )
-  }
-  if (despacho.estado === 'ENTREGADO') {
-    return <CheckIcon sx={{ color: '#059669', fontSize: 18 }} />
-  }
-  if (despacho.estado === 'INCIDENCIA') {
-    return <WarningIcon sx={{ color: '#DC2626', fontSize: 18 }} />
-  }
-  return null
+  const first = nexts[0]
+  return (
+    <Button size="small" variant="outlined"
+      sx={{ textTransform: 'none', fontSize: 11, borderColor: first.outlined ? first.color : alpha(first.color, 0.6), color: first.color }}
+      onClick={e => { e.stopPropagation(); onTransition(despacho.id, first.estado) }}>
+      {first.estado === 'EN_TRANSITO' && <TruckIcon sx={{ fontSize: 13, mr: 0.5 }} />}
+      {first.estado === 'ENTREGADO' && <CheckIcon sx={{ fontSize: 13, mr: 0.5 }} />}
+      {first.label}
+    </Button>
+  )
 }
 
 // ─── Summary cards ─────────────────────────────────────────────────────────────
@@ -294,6 +322,258 @@ function NuevoDevolucionDialog({ open, onClose }: { open: boolean; onClose: () =
   )
 }
 
+// ─── Detalle dialog ─────────────────────────────────────────────────────────────
+function DetalleDialog({
+  despacho,
+  onClose,
+  onTransition,
+}: {
+  despacho: Despacho | null
+  onClose: () => void
+  onTransition: (id: number, estado: string) => void
+}) {
+  const qc = useQueryClient()
+  const user = useAuthStore(s => s.user)
+  const esSupervisor = ROLES_SUPERVISION.has(user?.rol ?? '')
+  const [showRevertir, setShowRevertir] = useState(false)
+  const [motivo, setMotivo] = useState('')
+
+  const { data: historial = [], isFetching: loadHist } = useQuery<HistorialEntry[]>({
+    queryKey: ['wms-despacho-historial', despacho?.id],
+    queryFn: () => api.get(`/wms/despachos/${despacho!.id}/historial`).then(r => r.data),
+    enabled: !!despacho,
+  })
+
+  const revertirMut = useMutation({
+    mutationFn: ({ id, observacion }: { id: number; observacion: string }) =>
+      api.post(`/wms/despachos/${id}/estado/revertir`, { observacion }).then(r => r.data),
+    onSuccess: (res) => {
+      toast.success(`Estado revertido a ${res.estado}`)
+      qc.invalidateQueries({ queryKey: ['wms-despachos'] })
+      qc.invalidateQueries({ queryKey: ['wms-despacho-historial', despacho?.id] })
+      setShowRevertir(false)
+      setMotivo('')
+      onClose()
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.detail ?? 'Error al revertir estado'),
+  })
+
+  const handleTransicion = (id: number, estado: string) => {
+    onTransition(id, estado)
+    qc.invalidateQueries({ queryKey: ['wms-despacho-historial', id] })
+  }
+
+  if (!despacho) return null
+
+  const nexts = TRANS_NEXT[despacho.estado] ?? []
+  const revert = REVERT_MAP[despacho.estado]
+  const items = despacho.detalles ?? []
+
+  const estadoColor = (ESTADO_CFG as any)[despacho.estado]?.color ?? '#374151'
+  const estadoBg = (ESTADO_CFG as any)[despacho.estado]?.bg ?? '#F3F4F6'
+
+  return (
+    <Dialog open={!!despacho} onClose={onClose} maxWidth="md" fullWidth
+      PaperProps={{ sx: { borderRadius: '16px', maxHeight: '90vh' } }}>
+      <DialogTitle sx={{ pb: 1 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+          <Box>
+            <Typography fontSize={16} fontWeight={800} letterSpacing="-0.02em">
+              Despacho {despacho.numero_despacho}
+            </Typography>
+            <Chip label={(ESTADO_CFG as any)[despacho.estado]?.label ?? despacho.estado} size="small"
+              sx={{ mt: 0.5, bgcolor: estadoBg, color: estadoColor, fontWeight: 700, fontSize: 11 }} />
+          </Box>
+          <IconButton size="small" onClick={onClose}><CloseIcon fontSize="small" /></IconButton>
+        </Stack>
+      </DialogTitle>
+
+      <DialogContent dividers sx={{ p: 0 }}>
+        {/* Información general */}
+        <Box sx={{ px: 3, py: 2, bgcolor: '#FAFAFA', borderBottom: '1px solid #E5E7EB' }}>
+          <Typography fontSize={11} fontWeight={700} color="text.secondary" textTransform="uppercase" letterSpacing="0.06em" mb={1.5}>
+            Información del despacho
+          </Typography>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2 }}>
+            {[
+              ['Orden', `#${despacho.orden_id}`],
+              ['Transportadora', despacho.transportadora_nombre ?? '—'],
+              ['Placa', despacho.vehiculo_placa ?? '—'],
+              ['Conductor', despacho.conductor_nombre ?? '—'],
+              ['F. Despacho', despacho.fecha_despacho ?? '—'],
+              ['F. Entrega Est.', despacho.fecha_entrega_estimada ?? '—'],
+              ['F. Entrega Real', despacho.fecha_entrega_real ?? '—'],
+              ['Peso (kg)', despacho.peso_total_kg != null ? `${despacho.peso_total_kg} kg` : '—'],
+              ['Notas', despacho.notas ?? '—'],
+            ].map(([label, value]) => (
+              <Box key={label}>
+                <Typography fontSize={11} color="text.secondary">{label}</Typography>
+                <Typography fontSize={12} fontWeight={600}>{value}</Typography>
+              </Box>
+            ))}
+          </Box>
+        </Box>
+
+        {/* Botones de transición */}
+        {nexts.length > 0 && (
+          <Box sx={{ px: 3, py: 1.75, borderBottom: '1px solid #E5E7EB', bgcolor: '#FFFFFF' }}>
+            <Typography fontSize={11} fontWeight={700} color="text.secondary" textTransform="uppercase" letterSpacing="0.06em" mb={1}>
+              Avanzar estado
+            </Typography>
+            <Stack direction="row" gap={1} flexWrap="wrap">
+              {nexts.map(t => (
+                <Button key={t.estado} size="small"
+                  variant={t.outlined ? 'outlined' : 'contained'}
+                  sx={{
+                    textTransform: 'none', fontSize: 12, borderRadius: '8px',
+                    bgcolor: t.outlined ? undefined : t.color,
+                    borderColor: t.color, color: t.outlined ? t.color : '#fff',
+                    '&:hover': { bgcolor: t.outlined ? alpha(t.color, 0.08) : t.color },
+                  }}
+                  onClick={() => handleTransicion(despacho.id, t.estado)}>
+                  {t.estado === 'ENTREGADO' && <CheckIcon sx={{ fontSize: 14, mr: 0.5 }} />}
+                  {t.estado === 'EN_TRANSITO' && <TruckIcon sx={{ fontSize: 14, mr: 0.5 }} />}
+                  {t.label}
+                </Button>
+              ))}
+            </Stack>
+          </Box>
+        )}
+
+        {/* Ítems */}
+        <Box sx={{ px: 3, py: 2, borderBottom: '1px solid #E5E7EB' }}>
+          <Typography fontSize={11} fontWeight={700} color="text.secondary" textTransform="uppercase" letterSpacing="0.06em" mb={1.5}>
+            Ítems del despacho ({items.length})
+          </Typography>
+          {items.length === 0 ? (
+            <Typography fontSize={12} color="text.secondary">Sin ítems registrados</Typography>
+          ) : (
+            <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '10px' }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ bgcolor: '#F9FAFB' }}>
+                    {['SKU', 'Producto', 'Cantidad', 'Tracking'].map(h => (
+                      <TableCell key={h} sx={{ fontSize: 11, fontWeight: 700, color: '#6B7280', py: 1 }}>{h}</TableCell>
+                    ))}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {items.map(item => (
+                    <TableRow key={item.id} sx={{ '&:last-child td': { border: 0 } }}>
+                      <TableCell sx={{ fontSize: 11, fontFamily: 'monospace', color: WMS_COLOR, fontWeight: 600 }}>{item.producto?.sku ?? `P-${item.producto_id}`}</TableCell>
+                      <TableCell sx={{ fontSize: 12 }}>{item.producto?.nombre ?? '—'}</TableCell>
+                      <TableCell sx={{ fontSize: 12 }}>{item.cantidad} {item.producto?.unidad_medida ?? ''}</TableCell>
+                      <TableCell sx={{ fontSize: 11, fontFamily: 'monospace' }}>{item.numero_tracking ?? '—'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </Box>
+
+        {/* Historial de estado */}
+        <Box sx={{ px: 3, py: 2, borderBottom: esSupervisor && revert ? '1px solid #E5E7EB' : undefined }}>
+          <Stack direction="row" alignItems="center" gap={1} mb={1.5}>
+            <HistoryIcon sx={{ fontSize: 15, color: '#9CA3AF' }} />
+            <Typography fontSize={11} fontWeight={700} color="text.secondary" textTransform="uppercase" letterSpacing="0.06em">
+              Historial de estado
+            </Typography>
+            {loadHist && <CircularProgress size={12} sx={{ color: WMS_COLOR }} />}
+          </Stack>
+
+          {historial.length === 0 && !loadHist ? (
+            <Typography fontSize={12} color="text.secondary">Sin registros de historial</Typography>
+          ) : (
+            <Stack gap={0}>
+              {historial.map((h, i) => {
+                const isCorreccion = h.tipo_cambio === 'CORRECCION'
+                const dotColor = isCorreccion ? '#D97706' : WMS_COLOR
+                return (
+                  <Box key={h.id} sx={{ display: 'flex', gap: 1.5 }}>
+                    {/* Timeline spine */}
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 20, flexShrink: 0 }}>
+                      <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: dotColor, flexShrink: 0, mt: 0.5, border: `2px solid ${isCorreccion ? '#FDE68A' : alpha(WMS_COLOR, 0.2)}` }} />
+                      {i < historial.length - 1 && <Box sx={{ width: 1.5, flex: 1, bgcolor: '#E5E7EB', my: 0.5 }} />}
+                    </Box>
+                    {/* Content */}
+                    <Box pb={i < historial.length - 1 ? 1.5 : 0}>
+                      <Stack direction="row" gap={0.75} alignItems="center" flexWrap="wrap">
+                        {h.estado_anterior && (
+                          <>
+                            <Chip label={h.estado_anterior} size="small"
+                              sx={{ fontSize: 10, height: 18, bgcolor: '#F3F4F6', color: '#6B7280' }} />
+                            <ArrowIcon sx={{ fontSize: 12, color: '#9CA3AF' }} />
+                          </>
+                        )}
+                        <Chip label={h.estado_nuevo} size="small"
+                          sx={{ fontSize: 10, height: 18, bgcolor: alpha(dotColor, 0.12), color: dotColor, fontWeight: 700 }} />
+                        {isCorreccion && (
+                          <Chip label="Corrección" size="small"
+                            sx={{ fontSize: 9, height: 16, bgcolor: '#FEF3C7', color: '#92400E', fontWeight: 700 }} />
+                        )}
+                      </Stack>
+                      <Typography fontSize={11} color="text.secondary" mt={0.25}>
+                        {h.usuario} · {new Date(h.fecha).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })}
+                      </Typography>
+                      {h.observacion && (
+                        <Typography fontSize={11} color="#92400E" fontStyle="italic" mt={0.25}>
+                          {h.observacion}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+                )
+              })}
+            </Stack>
+          )}
+        </Box>
+
+        {/* Revertir estado (supervisor) */}
+        {esSupervisor && revert && (
+          <Box sx={{ px: 3, py: 2 }}>
+            <Button
+              size="small"
+              startIcon={<UndoIcon sx={{ fontSize: 14 }} />}
+              onClick={() => setShowRevertir(v => !v)}
+              sx={{ textTransform: 'none', fontSize: 12, color: '#92400E', border: '1px solid #FDE68A', borderRadius: '8px', bgcolor: '#FFFBEB', '&:hover': { bgcolor: '#FEF3C7' } }}>
+              Revertir estado
+            </Button>
+
+            {showRevertir && (
+              <Box mt={2} p={2} sx={{ bgcolor: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '10px' }}>
+                <Typography fontSize={12} fontWeight={600} color="#92400E" mb={0.5}>
+                  {revert.label}
+                </Typography>
+                <Typography fontSize={11} color="#78350F" mb={1.5}>
+                  Esta acción quedará registrada en el historial con su nombre y la observación indicada.
+                </Typography>
+                <TextField
+                  label="Observación (obligatoria)"
+                  fullWidth size="small" multiline rows={2}
+                  value={motivo}
+                  onChange={e => setMotivo(e.target.value)}
+                  sx={{ mb: 1.5, '& .MuiOutlinedInput-root': { fontSize: 12 } }}
+                />
+                <Stack direction="row" justifyContent="flex-end" gap={1}>
+                  <Button size="small" onClick={() => { setShowRevertir(false); setMotivo('') }}
+                    sx={{ textTransform: 'none', fontSize: 12 }}>Cancelar</Button>
+                  <Button size="small" variant="contained" disabled={!motivo.trim() || revertirMut.isPending}
+                    startIcon={revertirMut.isPending ? <CircularProgress size={12} color="inherit" /> : <UndoIcon sx={{ fontSize: 14 }} />}
+                    sx={{ textTransform: 'none', fontSize: 12, bgcolor: '#D97706', '&:hover': { bgcolor: '#B45309' } }}
+                    onClick={() => revertirMut.mutate({ id: despacho.id, observacion: motivo })}>
+                    Revertir estado
+                  </Button>
+                </Stack>
+              </Box>
+            )}
+          </Box>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ─── Devoluciones section ──────────────────────────────────────────────────────
 function DevolucionesSection() {
   const qc = useQueryClient()
@@ -383,6 +663,7 @@ export default function WMSDespacho() {
   const qc = useQueryClient()
   const [openNew, setOpenNew] = useState(false)
   const [showDevoluciones, setShowDevoluciones] = useState(false)
+  const [detailDespacho, setDetailDespacho] = useState<Despacho | null>(null)
 
   const { data: despachos = [], isLoading } = useQuery<Despacho[]>({
     queryKey: ['wms-despachos'],
@@ -392,9 +673,19 @@ export default function WMSDespacho() {
   const transicionMut = useMutation({
     mutationFn: ({ id, estado }: { id: number; estado: string }) =>
       api.put(`/wms/despachos/${id}/estado`, { estado }).then(r => r.data),
-    onSuccess: () => { toast.success('Estado actualizado'); qc.invalidateQueries({ queryKey: ['wms-despachos'] }) },
+    onSuccess: (updated) => {
+      toast.success('Estado actualizado')
+      qc.invalidateQueries({ queryKey: ['wms-despachos'] })
+      if (detailDespacho && updated.id === detailDespacho.id) {
+        setDetailDespacho(prev => prev ? { ...prev, estado: updated.estado } : null)
+      }
+    },
     onError: () => toast.error('Error al actualizar estado'),
   })
+
+  const handleTransicion = (id: number, estado: string) => {
+    transicionMut.mutate({ id, estado })
+  }
 
   const counts = {
     preparando:    despachos.filter(d => d.estado === 'PREPARANDO').length,
@@ -455,9 +746,11 @@ export default function WMSDespacho() {
                   </TableCell>
                 </TableRow>
               ) : despachos.map(d => (
-                <TableRow key={d.id} hover sx={{ '&:last-child td': { border: 0 } }}>
-                  <TableCell sx={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 700 }}>{d.numero_despacho}</TableCell>
-                  <TableCell sx={{ fontSize: 12 }}>{d.orden_numero}</TableCell>
+                <TableRow key={d.id} hover
+                  onClick={() => setDetailDespacho(d)}
+                  sx={{ '&:last-child td': { border: 0 }, cursor: 'pointer', '&:hover': { bgcolor: alpha(WMS_COLOR, 0.035) } }}>
+                  <TableCell sx={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 700, color: WMS_COLOR }}>{d.numero_despacho}</TableCell>
+                  <TableCell sx={{ fontSize: 12 }}>{`#${d.orden_id}`}</TableCell>
                   <TableCell sx={{ fontSize: 12 }}>{d.transportadora_nombre ?? '—'}</TableCell>
                   <TableCell sx={{ fontSize: 12, fontFamily: 'monospace' }}>{d.vehiculo_placa ?? '—'}</TableCell>
                   <TableCell sx={{ fontSize: 12 }}>{d.conductor_nombre ?? '—'}</TableCell>
@@ -470,8 +763,8 @@ export default function WMSDespacho() {
                       <Typography fontSize={12} noWrap>{d.notas ?? '—'}</Typography>
                     </Tooltip>
                   </TableCell>
-                  <TableCell>
-                    <EstadoButton despacho={d} onTransition={(id, estado) => transicionMut.mutate({ id, estado })} />
+                  <TableCell onClick={e => e.stopPropagation()}>
+                    <EstadoButton despacho={d} onTransition={handleTransicion} />
                   </TableCell>
                 </TableRow>
               ))}
@@ -501,6 +794,12 @@ export default function WMSDespacho() {
       </Paper>
 
       <NuevoDespachoDialog open={openNew} onClose={() => setOpenNew(false)} />
+
+      <DetalleDialog
+        despacho={detailDespacho}
+        onClose={() => setDetailDespacho(null)}
+        onTransition={handleTransicion}
+      />
     </Layout>
   )
 }

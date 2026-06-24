@@ -2,15 +2,16 @@
 API endpoints — WMS (Warehouse Management System)
 Prefijo: /wms
 """
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import List, Optional, Dict, Any
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, func, and_, or_, Integer
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, require_supervisor
 from app.infrastructure.models.usuario import Usuario
 from app.infrastructure.models.wms import (
     WMSAlmacen, WMSZona, WMSUbicacion, WMSProducto, WMSLote, WMSSerie,
@@ -21,10 +22,22 @@ from app.infrastructure.models.wms import (
     WMSConteoInventario, WMSConteoDetalle,
     WMSOrdenSalida, WMSOrdenSalidaDetalle,
     WMSPickingTarea, WMSPickingDetalle,
-    WMSDespacho, WMSDespachoDetalle,
+    WMSDespacho, WMSDespachoDetalle, WMSHistorialEstado,
     WMSDevolucion, WMSDevolucionDetalle,
     WMSEventoTrazabilidad, WMSKPIDiario,
 )
+
+# ─── WMS — revertir estado ────────────────────────────────────────────────────
+_REVERT_DESPACHO_TRANS: dict[str, str] = {
+    "LISTO":       "PREPARANDO",
+    "EN_TRANSITO": "LISTO",
+    "ENTREGADO":   "EN_TRANSITO",
+    "INCIDENCIA":  "EN_TRANSITO",
+}
+
+
+class RevertirDespachoRequest(BaseModel):
+    observacion: str
 from app.application.schemas.wms import (
     WMSAlmacenCreate, WMSAlmacenUpdate, WMSAlmacenResponse,
     WMSZonaCreate, WMSZonaUpdate, WMSZonaResponse,
@@ -1441,19 +1454,27 @@ async def actualizar_estado_despacho(
     despacho_id: int,
     data: WMSDespachoEstado,
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    current_user: Usuario = Depends(get_current_user),
 ):
     obj = await db.get(WMSDespacho, despacho_id)
     if not obj or obj.deleted_at:
         raise HTTPException(404, "Despacho no encontrado")
+    estado_anterior = obj.estado
     obj.estado = data.estado
     if data.fecha_entrega_real:
         obj.fecha_entrega_real = data.fecha_entrega_real
     if data.estado == "ENTREGADO":
-        # Actualizar orden a ENTREGADO
         orden = await db.get(WMSOrdenSalida, obj.orden_id)
         if orden:
             orden.estado = "ENTREGADO"
+    db.add(WMSHistorialEstado(
+        entidad_tipo="DESPACHO",
+        entidad_id=despacho_id,
+        estado_anterior=estado_anterior,
+        estado_nuevo=data.estado,
+        tipo_cambio="AVANCE",
+        usuario_id=current_user.id,
+    ))
     await db.commit()
     r = await db.execute(
         select(WMSDespacho)
@@ -1464,6 +1485,82 @@ async def actualizar_estado_despacho(
         .where(WMSDespacho.id == despacho_id)
     )
     return r.scalar_one()
+
+
+@router.get("/despachos/{despacho_id}/historial")
+async def historial_despacho(
+    despacho_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: Usuario = Depends(get_current_user),
+):
+    """Retorna el historial completo de cambios de estado del despacho."""
+    result = await db.execute(
+        select(WMSHistorialEstado)
+        .options(selectinload(WMSHistorialEstado.usuario))
+        .where(
+            WMSHistorialEstado.entidad_tipo == "DESPACHO",
+            WMSHistorialEstado.entidad_id == despacho_id,
+        )
+        .order_by(WMSHistorialEstado.fecha.asc())
+    )
+    registros = list(result.scalars().all())
+    return [
+        {
+            "id":              r.id,
+            "estado_anterior": r.estado_anterior,
+            "estado_nuevo":    r.estado_nuevo,
+            "tipo_cambio":     r.tipo_cambio,
+            "observacion":     r.observacion,
+            "usuario":         f"{r.usuario.nombre} {r.usuario.apellido}" if r.usuario else "Sistema",
+            "fecha":           r.fecha.isoformat(),
+        }
+        for r in registros
+    ]
+
+
+@router.post("/despachos/{despacho_id}/estado/revertir")
+async def revertir_estado_despacho(
+    despacho_id: int,
+    data: RevertirDespachoRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(require_supervisor),
+):
+    """Corrige un estado de despacho registrado por error. Solo SUPERVISOR y ADMIN."""
+    if not data.observacion or not data.observacion.strip():
+        raise HTTPException(400, "La observación es obligatoria para revertir un estado")
+
+    obj = await db.get(WMSDespacho, despacho_id)
+    if not obj or obj.deleted_at:
+        raise HTTPException(404, "Despacho no encontrado")
+
+    estado_destino = _REVERT_DESPACHO_TRANS.get(obj.estado)
+    if not estado_destino:
+        raise HTTPException(400, f"El estado '{obj.estado}' no puede ser revertido")
+
+    estado_anterior = obj.estado
+    obj.estado = estado_destino
+
+    if estado_anterior == "ENTREGADO":
+        obj.fecha_entrega_real = None
+        orden = await db.get(WMSOrdenSalida, obj.orden_id)
+        if orden:
+            orden.estado = "DESPACHADO"
+
+    db.add(WMSHistorialEstado(
+        entidad_tipo="DESPACHO",
+        entidad_id=despacho_id,
+        estado_anterior=estado_anterior,
+        estado_nuevo=estado_destino,
+        tipo_cambio="CORRECCION",
+        observacion=data.observacion.strip(),
+        usuario_id=current_user.id,
+    ))
+    await db.commit()
+    return {
+        "message": "Estado revertido",
+        "estado_anterior": estado_anterior,
+        "estado": estado_destino,
+    }
 
 
 # ─── DEVOLUCIONES ─────────────────────────────────────────────────────────────
@@ -1592,7 +1689,33 @@ async def procesar_devolucion(
 
 # ─── TRAZABILIDAD ─────────────────────────────────────────────────────────────
 
-@router.get("/trazabilidad/producto/{sku}", response_model=List[WMSEventoTrazabilidadResponse])
+from app.infrastructure.models.usuario import Usuario as _UsuarioModel
+
+
+def _serialize_evento(ev: WMSEventoTrazabilidad, usuario_nombre: Optional[str] = None) -> Dict[str, Any]:
+    return {
+        "id":               ev.id,
+        "tipo_evento":      ev.tipo_evento,
+        "descripcion":      ev.descripcion,
+        "fecha_hora":       ev.created_at.isoformat() if ev.created_at else None,
+        "usuario_nombre":   usuario_nombre,
+        "datos_adicionales": ev.datos_adicionales,
+    }
+
+
+async def _eventos_con_usuario(db: AsyncSession, eventos: list) -> list:
+    usuario_ids = {ev.usuario_id for ev in eventos if ev.usuario_id}
+    nombres: Dict[int, str] = {}
+    if usuario_ids:
+        u_r = await db.execute(
+            select(_UsuarioModel).where(_UsuarioModel.id.in_(usuario_ids))
+        )
+        for u in u_r.scalars().all():
+            nombres[u.id] = f"{u.nombre} {u.apellido}"
+    return [_serialize_evento(ev, nombres.get(ev.usuario_id)) for ev in eventos]
+
+
+@router.get("/trazabilidad/producto/{sku}")
 async def trazabilidad_producto(
     sku: str,
     limit: int = Query(100, le=500),
@@ -1603,16 +1726,31 @@ async def trazabilidad_producto(
     prod = prod_r.scalar_one_or_none()
     if not prod:
         raise HTTPException(404, f"Producto con SKU '{sku}' no encontrado")
-    r = await db.execute(
+
+    stock_r = await db.execute(
+        select(func.coalesce(func.sum(WMSInventarioUbicacion.cantidad_disponible), 0.0))
+        .where(WMSInventarioUbicacion.producto_id == prod.id)
+    )
+    stock_total = float(stock_r.scalar() or 0)
+
+    ev_r = await db.execute(
         select(WMSEventoTrazabilidad)
         .where(WMSEventoTrazabilidad.producto_id == prod.id)
-        .order_by(WMSEventoTrazabilidad.created_at.desc())
+        .order_by(WMSEventoTrazabilidad.created_at.asc())
         .limit(limit)
     )
-    return r.scalars().all()
+    eventos_raw = list(ev_r.scalars().all())
+    eventos = await _eventos_con_usuario(db, eventos_raw)
+
+    return {
+        "nombre":      prod.nombre,
+        "sku":         prod.sku,
+        "stock_total": stock_total,
+        "eventos":     eventos,
+    }
 
 
-@router.get("/trazabilidad/lote/{numero_lote}", response_model=List[WMSEventoTrazabilidadResponse])
+@router.get("/trazabilidad/lote/{numero_lote}")
 async def trazabilidad_lote(
     numero_lote: str,
     limit: int = Query(100, le=500),
@@ -1623,33 +1761,58 @@ async def trazabilidad_lote(
     lote = lote_r.scalars().first()
     if not lote:
         raise HTTPException(404, f"Lote '{numero_lote}' no encontrado")
-    r = await db.execute(
+
+    ev_r = await db.execute(
         select(WMSEventoTrazabilidad)
         .where(WMSEventoTrazabilidad.lote_id == lote.id)
-        .order_by(WMSEventoTrazabilidad.created_at.desc())
+        .order_by(WMSEventoTrazabilidad.created_at.asc())
         .limit(limit)
     )
-    return r.scalars().all()
+    eventos_raw = list(ev_r.scalars().all())
+    eventos = await _eventos_con_usuario(db, eventos_raw)
+
+    venc = lote.fecha_vencimiento.isoformat() if lote.fecha_vencimiento else None
+    estado = "vencido" if (lote.fecha_vencimiento and str(lote.fecha_vencimiento) < str(date.today())) else "activo"
+
+    return {
+        "numero_lote":      lote.numero_lote,
+        "fecha_vencimiento": venc,
+        "estado":           estado if lote.activo else "inactivo",
+        "eventos":          eventos,
+    }
 
 
-@router.get("/trazabilidad/ubicacion/{codigo}", response_model=List[WMSEventoTrazabilidadResponse])
+@router.get("/trazabilidad/ubicacion/{codigo}")
 async def trazabilidad_ubicacion(
     codigo: str,
     limit: int = Query(100, le=500),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
-    ubic_r = await db.execute(select(WMSUbicacion).where(WMSUbicacion.codigo == codigo))
+    ubic_r = await db.execute(
+        select(WMSUbicacion)
+        .options(selectinload(WMSUbicacion.zona))
+        .where(WMSUbicacion.codigo == codigo)
+    )
     ubic = ubic_r.scalar_one_or_none()
     if not ubic:
         raise HTTPException(404, f"Ubicación '{codigo}' no encontrada")
-    r = await db.execute(
+
+    ev_r = await db.execute(
         select(WMSEventoTrazabilidad)
         .where(WMSEventoTrazabilidad.ubicacion_id == ubic.id)
-        .order_by(WMSEventoTrazabilidad.created_at.desc())
+        .order_by(WMSEventoTrazabilidad.created_at.asc())
         .limit(limit)
     )
-    return r.scalars().all()
+    eventos_raw = list(ev_r.scalars().all())
+    eventos = await _eventos_con_usuario(db, eventos_raw)
+
+    return {
+        "codigo":    ubic.codigo,
+        "zona":      ubic.zona.nombre if ubic.zona else "—",
+        "capacidad": ubic.capacidad_kg,
+        "eventos":   eventos,
+    }
 
 
 # ─── DASHBOARD — KPIs ─────────────────────────────────────────────────────────

@@ -29,7 +29,7 @@ from app.infrastructure.models.wms import (
     WMSOrdenCompra, WMSOrdenCompraDetalle, WMSRecepcion, WMSRecepcionDetalle,
     WMSInventarioUbicacion, WMSMovimientoInventario, WMSConteoInventario, WMSConteoDetalle,
     WMSOrdenSalida, WMSOrdenSalidaDetalle, WMSPickingTarea, WMSPickingDetalle,
-    WMSDespacho, WMSDespachoDetalle, WMSDevolucion, WMSDevolucionDetalle,
+    WMSDespacho, WMSDespachoDetalle, WMSHistorialEstado, WMSDevolucion, WMSDevolucionDetalle,
     WMSEventoTrazabilidad, WMSKPIDiario,
 )
 from app.infrastructure.models.locative import (

@@ -2,6 +2,7 @@
 Módulo WMS (Warehouse Management System) — Modelos de base de datos
 Prefijo de tabla: wms_
 """
+from datetime import datetime, timezone as _tz
 from sqlalchemy import (
     Column, Integer, String, Boolean, Float, ForeignKey, Text,
     Date, DateTime, JSON, UniqueConstraint, func
@@ -454,6 +455,28 @@ class WMSDespachoDetalle(Base, TimestampMixin):
     despacho = relationship("WMSDespacho", back_populates="detalles")
     producto  = relationship("WMSProducto", back_populates="despacho_detalles")
     lote      = relationship("WMSLote", back_populates="despacho_detalles")
+
+
+# ─── Historial de estado WMS ───────────────────────────────────────────────────
+
+class WMSHistorialEstado(Base):
+    """Registro inmutable de cada cambio de estado en entidades WMS (Despacho, OrdenSalida)."""
+    __tablename__ = "wms_historial_estado"
+
+    id              = Column(Integer, primary_key=True, index=True)
+    # DESPACHO / ORDEN_SALIDA
+    entidad_tipo    = Column(String(30), nullable=False, index=True)
+    entidad_id      = Column(Integer, nullable=False, index=True)
+    estado_anterior = Column(String(30), nullable=True)
+    estado_nuevo    = Column(String(30), nullable=False)
+    # AVANCE / CORRECCION
+    tipo_cambio     = Column(String(20), nullable=False, default="AVANCE")
+    observacion     = Column(Text, nullable=True)
+    usuario_id      = Column(Integer, ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True)
+    fecha           = Column(DateTime(timezone=True), nullable=False,
+                             default=lambda: datetime.now(_tz.utc))
+
+    usuario = relationship("Usuario")
 
 
 # ─── Devoluciones ──────────────────────────────────────────────────────────────
