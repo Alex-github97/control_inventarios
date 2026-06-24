@@ -97,7 +97,12 @@ export default function Trazabilidad() {
                 { label: 'Material', value: estiba.material },
                 { label: 'Propietario', value: estiba.tipo_propietario },
                 { label: 'Total Usos', value: estiba.total_usos },
-                { label: 'Ubicación Actual', value: estiba.ubicacion_actual?.nombre ?? '—' },
+                {
+                  label: 'Ubicación Actual',
+                  value: estiba.estado === 'FALTANTE' ? 'Paradero desconocido'
+                       : estiba.estado === 'PERDIDA'  ? 'Pérdida confirmada'
+                       : (estiba.ubicacion_actual?.nombre ?? '—'),
+                },
               ].map(({ label, value }) => (
                 <Box key={label} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.8, borderBottom: '1px solid #F1F5F9' }}>
                   <Typography variant="body2" sx={{ color: '#64748B', fontSize: 12 }}>{label}</Typography>
