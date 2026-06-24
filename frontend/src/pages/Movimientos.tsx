@@ -13,6 +13,7 @@ import {
   CheckCircle, ArrowForward, ArrowBack, QrCodeScanner, Close,
   Videocam, VideocamOff, KeyboardAlt, SwapHoriz, SwitchCamera,
   Refresh, Usb, Bluetooth, PhoneAndroid, QrCode2, WifiTethering, ContentCopy,
+  Warning, Edit,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -26,6 +27,15 @@ import toast from 'react-hot-toast'
 const PRIMARY = '#32AC5C'
 const PURPLE  = '#8B5CF6'
 const CYAN    = '#06B6D4'
+
+const NIVEL_DANO_COLORS: Record<string, string> = {
+  LEVE: '#F59E0B', MODERADO: '#F97316', GRAVE: '#EF4444', TOTAL: '#7F1D1D',
+}
+
+const EMPTY_DANO = {
+  codigo_dano_id: '', nivel_dano: 'GRAVE', responsable: 'DESCONOCIDO',
+  accion_recomendada: 'DAR_BAJA', descripcion_detalle: '', costo_reparacion: '',
+}
 
 const TIPOS_MOVIMIENTO = [
   'CARGA', 'DESCARGA', 'TRANSFERENCIA', 'RETORNO', 'RECEPCION',
@@ -59,6 +69,11 @@ export default function Movimientos() {
   const [form,           setForm]           = useState({ tipo: 'CARGA', ubicacion_destino_id: '', observaciones: '', manifiesto_id: '', vehiculo_id: '' })
   const [estibaSearch,   setEstibaSearch]   = useState('')
   const [selectedEstiba, setSelectedEstiba] = useState<any>(null)
+
+  // ── Daños (diálogo BAJA) ──────────────────────────────────────────────────
+  const [danoForm,      setDanoForm]      = useState({ ...EMPTY_DANO })
+  const [editingDanoId, setEditingDanoId] = useState<number | null>(null)
+  const [showDanoForm,  setShowDanoForm]  = useState(false)
 
   // ── Diálogo masivo ────────────────────────────────────────────────────────
   const [openMasivo,   setOpenMasivo]   = useState(false)
@@ -119,6 +134,16 @@ export default function Movimientos() {
     queryFn: () => apiClient.get('/manifiestos/', { params: { limit: 200 } }).then((r: any) => r.data ?? []),
     staleTime: 30000,
   })
+  const { data: codigosDano = [] } = useQuery({
+    queryKey: ['codigos-dano'],
+    queryFn: () => apiClient.get('/danos/codigos').then((r: any) => r.data ?? []),
+    staleTime: 60000,
+  })
+  const { data: eventosDano = [] } = useQuery({
+    queryKey: ['eventos-dano', selectedEstiba?.id],
+    queryFn: () => apiClient.get('/danos/eventos', { params: { estiba_id: selectedEstiba!.id } }).then((r: any) => r.data ?? []),
+    enabled: !!selectedEstiba && form.tipo === 'BAJA',
+  })
 
   // ── Mutations ─────────────────────────────────────────────────────────────
   const createMutation = useMutation({
@@ -140,6 +165,30 @@ export default function Movimientos() {
       resetMasivo()
     },
     onError: (e: any) => toast.error(e.response?.data?.detail || 'Error en movimientos masivos'),
+  })
+
+  const createDanoMutation = useMutation({
+    mutationFn: (data: any) => apiClient.post('/danos/eventos', data).then((r: any) => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['eventos-dano'] })
+      setDanoForm({ ...EMPTY_DANO }); setShowDanoForm(false); setEditingDanoId(null)
+      toast.success('Daño registrado')
+    },
+    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error al registrar daño'),
+  })
+  const updateDanoMutation = useMutation({
+    mutationFn: ({ id, ...data }: any) => apiClient.put(`/danos/eventos/${id}`, data).then((r: any) => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['eventos-dano'] })
+      setDanoForm({ ...EMPTY_DANO }); setShowDanoForm(false); setEditingDanoId(null)
+      toast.success('Daño actualizado')
+    },
+    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error al actualizar daño'),
+  })
+  const deleteDanoMutation = useMutation({
+    mutationFn: (id: number) => apiClient.delete(`/danos/eventos/${id}`),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['eventos-dano'] }); toast.success('Daño eliminado') },
+    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error al eliminar daño'),
   })
 
   // ── Procesamiento de código ───────────────────────────────────────────────
@@ -357,9 +406,29 @@ export default function Movimientos() {
   }
 
   // ── Handlers generales ────────────────────────────────────────────────────
+  const handleSaveDano = () => {
+    if (!danoForm.codigo_dano_id) { toast.error('Selecciona un código de daño'); return }
+    if (!selectedEstiba) return
+    const payload = {
+      estiba_id:          selectedEstiba.id,
+      codigo_dano_id:     parseInt(danoForm.codigo_dano_id),
+      nivel_dano:         danoForm.nivel_dano,
+      responsable:        danoForm.responsable,
+      ...(danoForm.accion_recomendada ? { accion_recomendada: danoForm.accion_recomendada } : {}),
+      ...(danoForm.descripcion_detalle ? { descripcion_detalle: danoForm.descripcion_detalle } : {}),
+      ...(danoForm.costo_reparacion   ? { costo_reparacion: parseFloat(danoForm.costo_reparacion) } : {}),
+    }
+    if (editingDanoId) {
+      updateDanoMutation.mutate({ id: editingDanoId, ...payload })
+    } else {
+      createDanoMutation.mutate(payload)
+    }
+  }
+
   const handleClose = () => {
     setOpenDialog(false); setEstibaSearch(''); setSelectedEstiba(null)
     setForm({ tipo: 'CARGA', ubicacion_destino_id: '', observaciones: '', manifiesto_id: '', vehiculo_id: '' })
+    setDanoForm({ ...EMPTY_DANO }); setShowDanoForm(false); setEditingDanoId(null)
   }
 
   const handleManifiestoIndividual = (manifiestoId: string) => {
@@ -503,7 +572,7 @@ export default function Movimientos() {
       </Card>
 
       {/* ── Diálogo individual ───────────────────────────────────────────── */}
-      <Dialog open={openDialog} onClose={handleClose} maxWidth="sm" fullWidth>
+      <Dialog open={openDialog} onClose={handleClose} maxWidth={form.tipo === 'BAJA' ? 'md' : 'sm'} fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>Registrar Movimiento</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
@@ -617,6 +686,183 @@ export default function Movimientos() {
               <TextField fullWidth label="Observaciones" size="small" multiline rows={2}
                 value={form.observaciones} onChange={(e: any) => setForm({ ...form, observaciones: e.target.value })} />
             </Grid>
+
+            {/* ── Sección daños — solo visible al dar de BAJA ── */}
+            {form.tipo === 'BAJA' && selectedEstiba && (
+              <Grid item xs={12}>
+                <Box sx={{ borderTop: '1.5px solid', borderColor: alpha('#EF4444', 0.25), pt: 2, mt: 0.5 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.25 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                      <Warning sx={{ fontSize: 17, color: '#EF4444' }} />
+                      <Typography sx={{ fontWeight: 700, fontSize: 13.5, color: '#EF4444' }}>
+                        Daños de la estiba
+                      </Typography>
+                      {(eventosDano as any[]).length > 0 && (
+                        <Chip label={(eventosDano as any[]).length} size="small"
+                          sx={{ height: 18, fontSize: 11, bgcolor: alpha('#EF4444', 0.12), color: '#EF4444', fontWeight: 700 }} />
+                      )}
+                    </Box>
+                    {!showDanoForm && (
+                      <Button size="small" startIcon={<Add />}
+                        onClick={() => { setShowDanoForm(true); setEditingDanoId(null); setDanoForm({ ...EMPTY_DANO }) }}>
+                        Agregar daño
+                      </Button>
+                    )}
+                  </Box>
+
+                  {/* Lista de daños existentes */}
+                  {(eventosDano as any[]).map((ev: any) => (
+                    <Box key={ev.id} sx={{
+                      display: 'flex', alignItems: 'flex-start', gap: 1, p: 1.25, mb: 0.75,
+                      bgcolor: alpha('#EF4444', 0.04), border: '1px solid', borderColor: alpha('#EF4444', 0.15),
+                      borderRadius: 1.5,
+                    }}>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#1E293B' }}>
+                          {ev.codigo_dano?.codigo} — {ev.codigo_dano?.descripcion}
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.4 }}>
+                          <Chip label={ev.nivel_dano} size="small" sx={{
+                            height: 18, fontSize: 10, fontWeight: 700,
+                            bgcolor: NIVEL_DANO_COLORS[ev.nivel_dano] ?? '#64748B', color: '#FFF',
+                          }} />
+                          <Chip label={ev.responsable?.replace(/_/g, ' ')} size="small" sx={{ height: 18, fontSize: 10 }} />
+                          {ev.accion_recomendada && (
+                            <Chip label={ev.accion_recomendada.replace(/_/g, ' ')} size="small" variant="outlined" sx={{ height: 18, fontSize: 10 }} />
+                          )}
+                        </Box>
+                        {ev.descripcion_detalle && (
+                          <Typography sx={{ fontSize: 11, color: '#64748B', mt: 0.4 }}>{ev.descripcion_detalle}</Typography>
+                        )}
+                        {ev.costo_reparacion && (
+                          <Typography sx={{ fontSize: 11, color: '#64748B', mt: 0.25 }}>
+                            Costo: ${ev.costo_reparacion.toLocaleString('es-CO')}
+                          </Typography>
+                        )}
+                      </Box>
+                      <Box sx={{ display: 'flex', gap: 0.25, flexShrink: 0 }}>
+                        <Tooltip title="Editar">
+                          <IconButton size="small" onClick={() => {
+                            setEditingDanoId(ev.id)
+                            setDanoForm({
+                              codigo_dano_id:     String(ev.codigo_dano_id),
+                              nivel_dano:         ev.nivel_dano,
+                              responsable:        ev.responsable,
+                              accion_recomendada: ev.accion_recomendada ?? '',
+                              descripcion_detalle: ev.descripcion_detalle ?? '',
+                              costo_reparacion:   ev.costo_reparacion ? String(ev.costo_reparacion) : '',
+                            })
+                            setShowDanoForm(true)
+                          }}>
+                            <Edit fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Eliminar">
+                          <IconButton size="small"
+                            onClick={() => deleteDanoMutation.mutate(ev.id)}
+                            disabled={deleteDanoMutation.isPending}
+                            sx={{ color: '#EF4444' }}>
+                            <DeleteOutline fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </Box>
+                  ))}
+
+                  {(eventosDano as any[]).length === 0 && !showDanoForm && (
+                    <Typography sx={{ fontSize: 12, color: '#94A3B8', textAlign: 'center', py: 1.5 }}>
+                      Sin daños registrados. Agrega los daños antes de dar de baja la estiba.
+                    </Typography>
+                  )}
+
+                  {/* Formulario agregar / editar daño */}
+                  {showDanoForm && (
+                    <Box sx={{ p: 2, bgcolor: '#FAFAFA', border: '1px solid #E2E8F0', borderRadius: 1.5, mt: 0.5 }}>
+                      <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#475569', mb: 1.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {editingDanoId ? 'Editar daño' : 'Nuevo daño'}
+                      </Typography>
+                      <Grid container spacing={1.5}>
+                        <Grid item xs={12}>
+                          <FormControl fullWidth size="small" required>
+                            <InputLabel>Código de daño *</InputLabel>
+                            <Select value={danoForm.codigo_dano_id} label="Código de daño *"
+                              onChange={(e: any) => setDanoForm((f: any) => ({ ...f, codigo_dano_id: e.target.value }))}>
+                              {(codigosDano as any[]).map((c: any) => (
+                                <MenuItem key={c.id} value={String(c.id)}>
+                                  {`${c.codigo} — ${c.descripcion}`}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                        </Grid>
+                        <Grid item xs={6}>
+                          <FormControl fullWidth size="small">
+                            <InputLabel>Nivel de daño *</InputLabel>
+                            <Select value={danoForm.nivel_dano} label="Nivel de daño *"
+                              onChange={(e: any) => setDanoForm((f: any) => ({ ...f, nivel_dano: e.target.value }))}>
+                              {['LEVE', 'MODERADO', 'GRAVE', 'TOTAL'].map(n => (
+                                <MenuItem key={n} value={n}>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: NIVEL_DANO_COLORS[n] }} />
+                                    {n}
+                                  </Box>
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                        </Grid>
+                        <Grid item xs={6}>
+                          <FormControl fullWidth size="small">
+                            <InputLabel>Responsable</InputLabel>
+                            <Select value={danoForm.responsable} label="Responsable"
+                              onChange={(e: any) => setDanoForm((f: any) => ({ ...f, responsable: e.target.value }))}>
+                              {['CLIENTE', 'TRANSPORTADORA', 'PROVEEDOR', 'OPERACION_INTERNA', 'DESCONOCIDO'].map(r => (
+                                <MenuItem key={r} value={r}>{r.replace(/_/g, ' ')}</MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                        </Grid>
+                        <Grid item xs={6}>
+                          <FormControl fullWidth size="small">
+                            <InputLabel>Acción recomendada</InputLabel>
+                            <Select value={danoForm.accion_recomendada} label="Acción recomendada"
+                              onChange={(e: any) => setDanoForm((f: any) => ({ ...f, accion_recomendada: e.target.value }))}>
+                              <MenuItem value="">Sin acción específica</MenuItem>
+                              {['REPARAR', 'DAR_BAJA', 'DISPOSICION_FINAL', 'MONITOREAR', 'REPONER'].map(a => (
+                                <MenuItem key={a} value={a}>{a.replace(/_/g, ' ')}</MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                        </Grid>
+                        <Grid item xs={6}>
+                          <TextField fullWidth size="small" label="Costo reparación (COP)" type="number"
+                            value={danoForm.costo_reparacion}
+                            onChange={(e: any) => setDanoForm((f: any) => ({ ...f, costo_reparacion: e.target.value }))} />
+                        </Grid>
+                        <Grid item xs={12}>
+                          <TextField fullWidth size="small" label="Descripción del daño" multiline rows={2}
+                            value={danoForm.descripcion_detalle}
+                            onChange={(e: any) => setDanoForm((f: any) => ({ ...f, descripcion_detalle: e.target.value }))} />
+                        </Grid>
+                        <Grid item xs={12}>
+                          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                            <Button size="small" onClick={() => { setShowDanoForm(false); setEditingDanoId(null); setDanoForm({ ...EMPTY_DANO }) }}>
+                              Cancelar
+                            </Button>
+                            <Button size="small" variant="contained" onClick={handleSaveDano}
+                              disabled={createDanoMutation.isPending || updateDanoMutation.isPending}
+                              sx={{ bgcolor: '#EF4444', '&:hover': { bgcolor: '#DC2626' } }}>
+                              {editingDanoId ? 'Actualizar daño' : 'Agregar daño'}
+                            </Button>
+                          </Box>
+                        </Grid>
+                      </Grid>
+                    </Box>
+                  )}
+                </Box>
+              </Grid>
+            )}
+
           </Grid>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
