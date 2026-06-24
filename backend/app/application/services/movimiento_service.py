@@ -2,18 +2,23 @@ import math
 from typing import List, Optional
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from fastapi import HTTPException, status
 from app.infrastructure.repositories.estiba_repository import EstibaRepository
 from app.infrastructure.repositories.movimiento_repository import MovimientoRepository
 from app.infrastructure.models.movimiento import Movimiento, TipoMovimiento
 from app.infrastructure.models.estiba import EstadoEstiba
+from app.infrastructure.models.ubicacion import Ubicacion, TipoUbicacion
 from app.infrastructure.models.usuario import Usuario
 from app.application.schemas.movimiento import (
     MovimientoCreate, RegistrarCargaRequest, RegistrarDescargaRequest
 )
 
-_TIPOS_ENTRADA = {"CARGA", "RECEPCION"}
-_TIPOS_SALIDA = {"DESCARGA", "DISPOSICION_FINAL"}
+# Desde la perspectiva del inventario de bodegas:
+# CARGA = la estiba SALE de la bodega al vehículo → SALIDA
+# DESCARGA = la estiba LLEGA a una bodega → ENTRADA
+_TIPOS_ENTRADA = {"RECEPCION", "DESCARGA"}
+_TIPOS_SALIDA = {"CARGA", "DISPOSICION_FINAL"}
 _TIPOS_TRANSF = {"TRANSFERENCIA", "RETORNO"}
 
 TRANSICIONES_VALIDAS = {
@@ -50,6 +55,16 @@ class MovimientoService:
 
         estado_antes = estiba.estado
         nuevo_estado = ESTADO_DESTINO.get(data.tipo, estiba.estado)
+
+        # Para DESCARGA: el estado final depende del tipo de bodega destino.
+        # Solo es EN_CLIENTE si la ubicación tiene tipo=CLIENTE; bodegas propias → EN_INVENTARIO.
+        if data.tipo == TipoMovimiento.DESCARGA and data.ubicacion_destino_id:
+            res = await self.db.execute(select(Ubicacion).where(Ubicacion.id == data.ubicacion_destino_id))
+            ub_dest = res.scalar_one_or_none()
+            if ub_dest and ub_dest.tipo == TipoUbicacion.CLIENTE:
+                nuevo_estado = EstadoEstiba.EN_CLIENTE
+            else:
+                nuevo_estado = EstadoEstiba.EN_INVENTARIO
 
         movimiento = Movimiento(
             estiba_id=data.estiba_id,
