@@ -253,6 +253,59 @@ async def recuperar_faltante(
 
 # ── Stock Mínimo por Bodega ──────────────────────────────────────────────────
 
+async def _evaluar_config_stock(db: AsyncSession, config: EstibaStockMinimo, manifiesto_id: int | None = None) -> bool:
+    """Evalúa una regla de stock mínimo y crea alerta STOCK_BAJO si aplica. Retorna True si creó alerta."""
+    from app.infrastructure.models.alerta import Alerta, TipoAlerta, NivelAlerta
+    from app.infrastructure.models.ubicacion import Ubicacion
+    import json
+
+    if not config.activo:
+        return False
+
+    count_r = await db.execute(
+        select(func.count(Estiba.id)).where(
+            Estiba.ubicacion_actual_id == config.ubicacion_id,
+            Estiba.tipo == config.tipo_estiba,
+            Estiba.estado == EstadoEstiba.EN_INVENTARIO,
+        )
+    )
+    stock_actual = count_r.scalar_one() or 0
+
+    if stock_actual >= config.cantidad_minima:
+        return False
+
+    # Verificar si ya existe una alerta activa para esta combinación
+    existing_r = await db.execute(
+        select(Alerta).where(Alerta.tipo == TipoAlerta.STOCK_BAJO, Alerta.resuelta == False)
+    )
+    for ea in existing_r.scalars().all():
+        try:
+            m = json.loads(ea.metadatos or '{}')
+            if m.get('ubicacion_id') == config.ubicacion_id and m.get('tipo_estiba') == config.tipo_estiba.value:
+                return False
+        except Exception:
+            pass
+
+    ub_r = await db.execute(select(Ubicacion).where(Ubicacion.id == config.ubicacion_id))
+    ub = ub_r.scalar_one_or_none()
+    ubicacion_nombre = ub.nombre if ub else f"bodega ID {config.ubicacion_id}"
+
+    db.add(Alerta(
+        tipo=TipoAlerta.STOCK_BAJO,
+        nivel=NivelAlerta.ADVERTENCIA,
+        titulo=f"Stock bajo: estibas {config.tipo_estiba.value} en {ubicacion_nombre}",
+        descripcion=f"Stock actual: {stock_actual} | Mínimo configurado: {config.cantidad_minima}.",
+        manifiesto_id=manifiesto_id,
+        metadatos=json.dumps({
+            "ubicacion_id": config.ubicacion_id,
+            "tipo_estiba":  config.tipo_estiba.value,
+            "stock_actual": stock_actual,
+            "stock_minimo": config.cantidad_minima,
+        }),
+    ))
+    return True
+
+
 @router.get("/stock-minimo/resumen")
 async def resumen_stock_minimo(
     db: AsyncSession = Depends(get_db),
@@ -315,6 +368,8 @@ async def crear_stock_minimo(
         cantidad_minima=data.cantidad_minima,
     )
     db.add(config)
+    await db.flush()
+    await _evaluar_config_stock(db, config)
     await db.commit()
     await db.refresh(config)
     return config
@@ -334,6 +389,9 @@ async def actualizar_stock_minimo(
         config.cantidad_minima = data.cantidad_minima
     if data.activo is not None:
         config.activo = data.activo
+    await db.flush()
+    await _evaluar_config_stock(db, config)
+
     await db.commit()
     await db.refresh(config)
     return config
