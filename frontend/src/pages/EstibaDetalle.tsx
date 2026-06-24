@@ -1,22 +1,26 @@
 import React, { useState } from 'react'
 import {
   Grid, Card, CardContent, Typography, Box, Chip, Button,
-  Divider, Skeleton, Alert, Avatar,
+  Divider, Skeleton, Alert, Avatar, alpha,
   Dialog, DialogTitle, DialogContent, DialogActions,
   FormControl, InputLabel, Select, MenuItem, TextField,
 } from '@mui/material'
 import {
   ArrowBack, QrCode2, Edit, LocalShipping, LocationOn,
-  Person, Inventory2, Warning
+  Person, Inventory2, Warning, CheckCircle, Cancel,
 } from '@mui/icons-material'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { estibasApi } from '@/api/estibas'
+import { apiClient } from '@/api/client'
+import { useAuthStore } from '@/store/authStore'
 import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
 import { StatusChip } from '@/components/common/StatusChip'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
+
+const ROLES_SUPERVISION = new Set(['ADMINISTRADOR', 'SUPERVISOR_LOGISTICO'])
 
 const TIPO_ICONS: Record<string, React.ReactNode> = {
   CARGA: <LocalShipping fontSize="small" />,
@@ -49,10 +53,61 @@ export default function EstibaDetalle() {
   const { id } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const user = useAuthStore(s => s.user)
+  const esSupervisor = ROLES_SUPERVISION.has(user?.rol ?? '')
+
   const [openEdit, setOpenEdit] = useState(false)
   const [editForm, setEditForm] = useState<any>({})
   const [editError, setEditError] = useState('')
   const [openQr, setOpenQr] = useState(false)
+
+  // ── Estado FALTANTE ───────────────────────────────────────────────────────
+  const [openRecuperar, setOpenRecuperar]   = useState(false)
+  const [openPerdida, setOpenPerdida]       = useState(false)
+  const [obsRecuperar, setObsRecuperar]     = useState('')
+  const [bodegaRecuperar, setBodegaRecuperar] = useState('')
+  const [obsPerdida, setObsPerdida]         = useState('')
+
+  const { data: ubicaciones = [] } = useQuery({
+    queryKey: ['ubicaciones-select'],
+    queryFn: () => apiClient.get('/ubicaciones', { params: { page_size: 500 } }).then(r => r.data?.items ?? r.data ?? []),
+    staleTime: 60000,
+    enabled: openRecuperar,
+  })
+
+  const recuperarMutation = useMutation({
+    mutationFn: () => apiClient.post(`/estibas/${id}/recuperar-faltante`, {
+      observacion: obsRecuperar,
+      ...(bodegaRecuperar ? { ubicacion_id: Number(bodegaRecuperar) } : {}),
+    }),
+    onSuccess: () => {
+      toast.success('Estiba recuperada y vuelta a inventario')
+      queryClient.invalidateQueries({ queryKey: ['estiba', id] })
+      queryClient.invalidateQueries({ queryKey: ['estibas'] })
+      queryClient.invalidateQueries({ queryKey: ['alertas-count'] })
+      queryClient.invalidateQueries({ queryKey: ['alertas-preview'] })
+      setOpenRecuperar(false)
+      setObsRecuperar('')
+      setBodegaRecuperar('')
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al recuperar'),
+  })
+
+  const perdidaMutation = useMutation({
+    mutationFn: () => apiClient.post(`/estibas/${id}/confirmar-perdida`, {
+      observacion: obsPerdida,
+    }),
+    onSuccess: () => {
+      toast.success('Pérdida confirmada. Estiba marcada como PERDIDA.')
+      queryClient.invalidateQueries({ queryKey: ['estiba', id] })
+      queryClient.invalidateQueries({ queryKey: ['estibas'] })
+      queryClient.invalidateQueries({ queryKey: ['alertas-count'] })
+      queryClient.invalidateQueries({ queryKey: ['alertas-preview'] })
+      setOpenPerdida(false)
+      setObsPerdida('')
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al confirmar pérdida'),
+  })
 
   const { data: estiba, isLoading, error } = useQuery({
     queryKey: ['estiba', id],
@@ -136,6 +191,58 @@ export default function EstibaDetalle() {
         <Button variant="outlined" startIcon={<QrCode2 />} onClick={() => setOpenQr(true)} disabled={isLoading || !estiba?.codigo_qr}>Ver QR</Button>
         <Button variant="contained" startIcon={<Edit />} onClick={handleOpenEdit} disabled={isLoading}>Editar</Button>
       </Box>
+
+      {/* ── Panel FALTANTE ───────────────────────────────────────────────── */}
+      {estiba?.estado === 'FALTANTE' && (
+        <Box sx={{
+          mb: 3,
+          p: 2.5,
+          borderRadius: 2,
+          border: '2px solid #FB923C',
+          bgcolor: alpha('#FB923C', 0.07),
+          display: 'flex',
+          alignItems: { xs: 'flex-start', sm: 'center' },
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: 2,
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
+            <Warning sx={{ color: '#C2410C', fontSize: 32, flexShrink: 0 }} />
+            <Box>
+              <Typography sx={{ fontWeight: 800, color: '#C2410C', fontSize: 15 }}>
+                Estiba reportada como FALTANTE
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#78350F', mt: 0.25 }}>
+                Esta estiba no fue entregada en el destino. Un supervisor debe resolver la novedad.
+              </Typography>
+            </Box>
+          </Box>
+          {esSupervisor ? (
+            <Box sx={{ display: 'flex', gap: 1.5, flexShrink: 0 }}>
+              <Button
+                variant="contained"
+                startIcon={<CheckCircle />}
+                onClick={() => setOpenRecuperar(true)}
+                sx={{ bgcolor: '#16A34A', '&:hover': { bgcolor: '#15803D' }, fontWeight: 700, whiteSpace: 'nowrap' }}
+              >
+                Recuperar faltante
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<Cancel />}
+                onClick={() => setOpenPerdida(true)}
+                sx={{ bgcolor: '#DC2626', '&:hover': { bgcolor: '#B91C1C' }, fontWeight: 700, whiteSpace: 'nowrap' }}
+              >
+                Confirmar pérdida
+              </Button>
+            </Box>
+          ) : (
+            <Chip
+              label="Requiere supervisor"
+              sx={{ bgcolor: '#FEF3C7', color: '#92400E', fontWeight: 700, border: '1px solid #FDE68A' }}
+            />
+          )}
+        </Box>
+      )}
 
       <Grid container spacing={2.5}>
         {/* Info principal */}
@@ -276,6 +383,90 @@ export default function EstibaDetalle() {
           </Card>
         </Grid>
       </Grid>
+      {/* ── Dialog: Recuperar faltante ──────────────────────────────────── */}
+      <Dialog open={openRecuperar} onClose={() => !recuperarMutation.isPending && setOpenRecuperar(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <CheckCircle sx={{ color: '#16A34A' }} />
+          Recuperar Estiba Faltante
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" sx={{ color: '#64748B', mb: 2.5 }}>
+            Confirme que la estiba fue recuperada. Se moverá al estado <strong>EN INVENTARIO</strong>.
+          </Typography>
+          <TextField
+            label="Observación *"
+            fullWidth
+            multiline
+            rows={3}
+            size="small"
+            value={obsRecuperar}
+            onChange={e => setObsRecuperar(e.target.value)}
+            placeholder="Describe cómo y dónde fue recuperada la estiba..."
+            sx={{ mb: 2 }}
+          />
+          <FormControl fullWidth size="small">
+            <InputLabel>Bodega destino (opcional)</InputLabel>
+            <Select
+              value={bodegaRecuperar}
+              label="Bodega destino (opcional)"
+              onChange={e => setBodegaRecuperar(e.target.value)}
+            >
+              <MenuItem value=""><em>Sin asignar</em></MenuItem>
+              {(ubicaciones as any[])
+                .filter((u: any) => u.tipo === 'BODEGA' && u.activo !== false)
+                .map((u: any) => (
+                  <MenuItem key={u.id} value={u.id}>{u.nombre}</MenuItem>
+                ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setOpenRecuperar(false)} disabled={recuperarMutation.isPending}>Cancelar</Button>
+          <Button
+            variant="contained"
+            onClick={() => recuperarMutation.mutate()}
+            disabled={!obsRecuperar.trim() || recuperarMutation.isPending}
+            sx={{ bgcolor: '#16A34A', '&:hover': { bgcolor: '#15803D' } }}
+          >
+            {recuperarMutation.isPending ? 'Guardando...' : 'Confirmar recuperación'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Dialog: Confirmar pérdida ────────────────────────────────────── */}
+      <Dialog open={openPerdida} onClose={() => !perdidaMutation.isPending && setOpenPerdida(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Cancel sx={{ color: '#DC2626' }} />
+          Confirmar Pérdida de Estiba
+        </DialogTitle>
+        <DialogContent dividers>
+          <Alert severity="error" sx={{ mb: 2 }}>
+            Esta acción moverá la estiba al estado <strong>BAJA</strong>. No se puede revertir fácilmente.
+          </Alert>
+          <TextField
+            label="Observación *"
+            fullWidth
+            multiline
+            rows={3}
+            size="small"
+            value={obsPerdida}
+            onChange={e => setObsPerdida(e.target.value)}
+            placeholder="Describe las circunstancias de la pérdida..."
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setOpenPerdida(false)} disabled={perdidaMutation.isPending}>Cancelar</Button>
+          <Button
+            variant="contained"
+            onClick={() => perdidaMutation.mutate()}
+            disabled={!obsPerdida.trim() || perdidaMutation.isPending}
+            sx={{ bgcolor: '#DC2626', '&:hover': { bgcolor: '#B91C1C' } }}
+          >
+            {perdidaMutation.isPending ? 'Guardando...' : 'Confirmar pérdida definitiva'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Dialog Ver QR */}
       <Dialog open={openQr} onClose={() => setOpenQr(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ fontWeight: 700, textAlign: 'center' }}>
