@@ -35,6 +35,10 @@ const TIPO_COLORS: Record<string, string> = {
   CARGA: '#3B82F6', DESCARGA: '#32AC5C', TRANSFERENCIA: '#8B5CF6',
   RETORNO: '#F59E0B', BAJA: '#EF4444', REPARACION: '#F97316', RECEPCION: '#06B6D4',
 }
+const ESTADO_MAN_COLOR: Record<string, string> = {
+  PROGRAMADO: '#64748B', EN_CARGUE: '#F59E0B', EN_TRANSITO: '#3B82F6',
+  ENTREGADO: '#22C55E', CANCELADO: '#EF4444', CON_NOVEDAD: '#F97316',
+}
 
 type DeviceMode = 'scanner' | 'camera' | 'mobile'
 
@@ -52,7 +56,7 @@ export default function Movimientos() {
 
   // ── Diálogo individual ────────────────────────────────────────────────────
   const [openDialog,     setOpenDialog]     = useState(false)
-  const [form,           setForm]           = useState({ tipo: 'CARGA', ubicacion_destino_id: '', observaciones: '' })
+  const [form,           setForm]           = useState({ tipo: 'CARGA', ubicacion_destino_id: '', observaciones: '', manifiesto_id: '', vehiculo_id: '' })
   const [estibaSearch,   setEstibaSearch]   = useState('')
   const [selectedEstiba, setSelectedEstiba] = useState<any>(null)
 
@@ -60,7 +64,7 @@ export default function Movimientos() {
   const [openMasivo,   setOpenMasivo]   = useState(false)
   const [masivoStep,   setMasivoStep]   = useState(0)
   const [scannedItems, setScannedItems] = useState<ScannedItem[]>([])
-  const [masivoForm,   setMasivoForm]   = useState({ tipo: 'DESCARGA', ubicacion_destino_id: '', observaciones: '' })
+  const [masivoForm,   setMasivoForm]   = useState({ tipo: 'DESCARGA', ubicacion_destino_id: '', observaciones: '', manifiesto_id: '', vehiculo_id: '' })
 
   // ── Dispositivo ───────────────────────────────────────────────────────────
   const [deviceMode,       setDeviceMode]       = useState<DeviceMode>('scanner')
@@ -109,6 +113,11 @@ export default function Movimientos() {
     queryKey: ['estibas-search', estibaSearch],
     queryFn: () => apiClient.get('/estibas', { params: { search: estibaSearch, page_size: 20 } }).then((r: any) => r.data.items ?? []),
     enabled: estibaSearch.length >= 2,
+  })
+  const { data: manifiestos = [] } = useQuery({
+    queryKey: ['manifiestos-select'],
+    queryFn: () => apiClient.get('/manifiestos/', { params: { limit: 200 } }).then((r: any) => r.data ?? []),
+    staleTime: 30000,
   })
 
   // ── Mutations ─────────────────────────────────────────────────────────────
@@ -350,15 +359,41 @@ export default function Movimientos() {
   // ── Handlers generales ────────────────────────────────────────────────────
   const handleClose = () => {
     setOpenDialog(false); setEstibaSearch(''); setSelectedEstiba(null)
-    setForm({ tipo: 'CARGA', ubicacion_destino_id: '', observaciones: '' })
+    setForm({ tipo: 'CARGA', ubicacion_destino_id: '', observaciones: '', manifiesto_id: '', vehiculo_id: '' })
   }
+
+  const handleManifiestoIndividual = (manifiestoId: string) => {
+    const m = (manifiestos as any[]).find(x => String(x.id) === manifiestoId)
+    setForm(f => ({
+      ...f,
+      manifiesto_id: manifiestoId,
+      vehiculo_id: m ? String(m.vehiculo_id) : '',
+    }))
+  }
+
+  const handleManifiestoMasivo = (manifiestoId: string) => {
+    const m = (manifiestos as any[]).find(x => String(x.id) === manifiestoId)
+    setMasivoForm(f => ({
+      ...f,
+      manifiesto_id: manifiestoId,
+      vehiculo_id: m ? String(m.vehiculo_id) : '',
+      ...(f.tipo === 'DESCARGA' && m && !f.ubicacion_destino_id ? { ubicacion_destino_id: String(m.destino_id) } : {}),
+    }))
+  }
+
   const handleSubmit = () => {
     if (!selectedEstiba) { toast.error('Selecciona una estiba'); return }
+    const manifId = form.manifiesto_id ? parseInt(form.manifiesto_id) : undefined
+    const vehicId = form.vehiculo_id ? parseInt(form.vehiculo_id) : undefined
+    const manifest = manifId ? (manifiestos as any[]).find(m => m.id === manifId) : null
     createMutation.mutate({
       estiba_id:            selectedEstiba.id,
       tipo:                 form.tipo,
-      ubicacion_destino_id: form.ubicacion_destino_id ? parseInt(form.ubicacion_destino_id) : undefined,
-      observaciones:        form.observaciones,
+      ...(form.ubicacion_destino_id ? { ubicacion_destino_id: parseInt(form.ubicacion_destino_id) } : {}),
+      ...(form.tipo === 'CARGA' && manifest ? { ubicacion_origen_id: manifest.origen_id } : {}),
+      ...(manifId ? { manifiesto_id: manifId } : {}),
+      ...(vehicId ? { vehiculo_id: vehicId } : {}),
+      observaciones: form.observaciones,
     })
   }
   const resetMasivo = () => {
@@ -368,21 +403,37 @@ export default function Movimientos() {
     setOpenMasivo(false); setMasivoStep(0)
     setScanCode(''); setScanError(''); setLastOk('')
     setScannedItems([])
-    setMasivoForm({ tipo: 'DESCARGA', ubicacion_destino_id: '', observaciones: '' })
+    setMasivoForm({ tipo: 'DESCARGA', ubicacion_destino_id: '', observaciones: '', manifiesto_id: '', vehiculo_id: '' })
     setCameraError(''); setCameraRunning(false); setCameras([])
     setSessionId(''); setQrDataUrl(''); setQrUrl(''); setMobileActive(false); setLocalIP('')
   }
   const removeScanned = (id: number) => setScannedItems(prev => prev.filter(i => i.id !== id))
   const handleSubmitMasivo = () => {
     if (scannedItems.length === 0) return
+    const manifId = masivoForm.manifiesto_id ? parseInt(masivoForm.manifiesto_id) : undefined
+    const vehicId = masivoForm.vehiculo_id ? parseInt(masivoForm.vehiculo_id) : undefined
+    const manifest = manifId ? (manifiestos as any[]).find(m => m.id === manifId) : null
     const bodegaId = masivoForm.ubicacion_destino_id ? parseInt(masivoForm.ubicacion_destino_id) : undefined
     masivoMutation.mutate(scannedItems.map(e => ({
-      estiba_id:            e.id,
-      tipo:                 masivoForm.tipo,
-      ...(bodegaId         && { ubicacion_destino_id: bodegaId }),
-      ...(masivoForm.observaciones && { observaciones: masivoForm.observaciones }),
+      estiba_id: e.id,
+      tipo:      masivoForm.tipo,
+      ...(masivoForm.tipo === 'CARGA' && manifest ? { ubicacion_origen_id: manifest.origen_id } : {}),
+      ...(bodegaId
+        ? { ubicacion_destino_id: bodegaId }
+        : masivoForm.tipo === 'DESCARGA' && manifest ? { ubicacion_destino_id: manifest.destino_id } : {}),
+      ...(manifId ? { manifiesto_id: manifId } : {}),
+      ...(vehicId ? { vehiculo_id: vehicId } : {}),
+      ...(masivoForm.observaciones ? { observaciones: masivoForm.observaciones } : {}),
     })))
   }
+
+  // ── Manifiestos seleccionados (computed para evitar IIFE en JSX) ────────
+  const manifiestoFormSel: any = form.manifiesto_id
+    ? (manifiestos as any[]).find(x => String(x.id) === form.manifiesto_id) ?? null
+    : null
+  const manifiestoMasivoSel: any = masivoForm.manifiesto_id
+    ? (manifiestos as any[]).find(x => String(x.id) === masivoForm.manifiesto_id) ?? null
+    : null
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -469,23 +520,99 @@ export default function Movimientos() {
                 )}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid item xs={12} sm={6}>
               <FormControl fullWidth size="small">
                 <InputLabel>Tipo de Movimiento</InputLabel>
                 <Select value={form.tipo} label="Tipo de Movimiento" onChange={(e: any) => setForm({ ...form, tipo: e.target.value })}>
-                  {TIPOS_MOVIMIENTO.map(t => <MenuItem key={t} value={t}>{t.replace(/_/g, ' ')}</MenuItem>)}
+                  {TIPOS_MOVIMIENTO.map(t => (
+                    <MenuItem key={t} value={t}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: TIPO_COLORS[t] || '#64748B' }} />
+                        {t.replace(/_/g, ' ')}
+                      </Box>
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12}>
+            <Grid item xs={12} sm={6}>
               <FormControl fullWidth size="small">
-                <InputLabel>Ubicación Destino</InputLabel>
-                <Select value={form.ubicacion_destino_id} label="Ubicación Destino" onChange={(e: any) => setForm({ ...form, ubicacion_destino_id: e.target.value })}>
-                  <MenuItem value="">Sin ubicación</MenuItem>
-                  {(ubicaciones || []).map((u: any) => <MenuItem key={u.id} value={u.id}>{u.nombre}</MenuItem>)}
+                <InputLabel>Manifiesto (opcional)</InputLabel>
+                <Select
+                  value={form.manifiesto_id}
+                  label="Manifiesto (opcional)"
+                  onChange={(e: any) => handleManifiestoIndividual(e.target.value)}
+                  renderValue={(v: any) => {
+                    if (!v) return 'Sin manifiesto'
+                    const m = (manifiestos as any[]).find(x => String(x.id) === v)
+                    return m ? `${m.numero} · ${m.estado}` : String(v)
+                  }}
+                >
+                  <MenuItem value="">Sin manifiesto</MenuItem>
+                  {(manifiestos as any[]).map((m: any) => (
+                    <MenuItem key={m.id} value={String(m.id)}>
+                      {m.numero} · {m.estado}{m.cliente_nombre ? ` · ${m.cliente_nombre}` : ''}
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>
+
+            {/* Info card manifiesto seleccionado */}
+            {manifiestoFormSel && (
+              <Grid item xs={12}>
+                <Box sx={{ px: 1.75, py: 1.25, bgcolor: alpha('#3B82F6', 0.06), border: '1px solid', borderColor: alpha('#3B82F6', 0.2), borderRadius: 1.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                    <Chip label={manifiestoFormSel.estado} size="small" sx={{ height: 20, fontSize: 10, bgcolor: alpha(ESTADO_MAN_COLOR[manifiestoFormSel.estado] ?? '#64748B', 0.15), color: ESTADO_MAN_COLOR[manifiestoFormSel.estado] ?? '#64748B', fontWeight: 700 }} />
+                    <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#1E40AF' }}>{manifiestoFormSel.numero}</Typography>
+                    {manifiestoFormSel.cliente_nombre && <Typography sx={{ fontSize: 12, color: '#64748B' }}>· {manifiestoFormSel.cliente_nombre}</Typography>}
+                  </Box>
+                  <Typography sx={{ fontSize: 11.5, color: '#475569' }}>
+                    {form.tipo === 'CARGA'
+                      ? 'Las estibas quedarán EN TRÁNSITO vinculadas a este manifiesto y al vehículo asignado.'
+                      : form.tipo === 'DESCARGA'
+                      ? 'Las estibas se descargarán y quedarán EN CLIENTE con referencia al manifiesto.'
+                      : 'El movimiento quedará vinculado a este manifiesto.'}
+                  </Typography>
+                </Box>
+              </Grid>
+            )}
+
+            {/* Bodega destino: solo cuando NO es CARGA con manifiesto */}
+            {form.tipo === 'CARGA' && manifiestoFormSel ? (
+              <Grid item xs={12}>
+                <Box sx={{ display:'flex', alignItems:'center', gap:1.5, px:1.75, py:1.25,
+                  bgcolor:'rgba(59,130,246,0.04)', border:'1px solid rgba(59,130,246,0.15)', borderRadius:1.5 }}>
+                  <Box sx={{ fontSize:20 }}>🚛</Box>
+                  <Box>
+                    <Typography sx={{ fontSize:12.5, fontWeight:700, color:'#1E40AF' }}>
+                      Ubicación temporal: vehículo del manifiesto
+                    </Typography>
+                    <Typography sx={{ fontSize:11.5, color:'#475569' }}>
+                      La estiba no tiene bodega asignada mientras viaja. La ubicación se actualizará al registrar la DESCARGA en destino.
+                    </Typography>
+                  </Box>
+                </Box>
+              </Grid>
+            ) : (
+              <Grid item xs={12}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>
+                    {form.tipo === 'DESCARGA' && manifiestoFormSel ? 'Bodega de llegada *' : 'Ubicación Destino'}
+                  </InputLabel>
+                  <Select
+                    value={form.ubicacion_destino_id}
+                    label={form.tipo === 'DESCARGA' && manifiestoFormSel ? 'Bodega de llegada *' : 'Ubicación Destino'}
+                    onChange={(e: any) => setForm({ ...form, ubicacion_destino_id: e.target.value })}
+                  >
+                    <MenuItem value="">
+                      {form.tipo === 'DESCARGA' && manifiestoFormSel ? 'Usar bodega del manifiesto' : 'Sin ubicación específica'}
+                    </MenuItem>
+                    {(ubicaciones || []).map((u: any) => <MenuItem key={u.id} value={u.id}>{u.nombre}</MenuItem>)}
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
             <Grid item xs={12}>
               <TextField fullWidth label="Observaciones" size="small" multiline rows={2}
                 value={form.observaciones} onChange={(e: any) => setForm({ ...form, observaciones: e.target.value })} />
@@ -1218,19 +1345,98 @@ export default function Movimientos() {
                     </Select>
                   </FormControl>
                 </Grid>
+
+                {/* ── Manifiesto ── */}
                 <Grid item xs={12} sm={6}>
                   <FormControl fullWidth size="small">
-                    <InputLabel>Bodega Destino</InputLabel>
-                    <Select value={masivoForm.ubicacion_destino_id} label="Bodega Destino"
-                      onChange={e => setMasivoForm(f => ({ ...f, ubicacion_destino_id: e.target.value }))}>
-                      <MenuItem value=""><em>Sin ubicación específica</em></MenuItem>
-                      {(ubicaciones || []).map((u: any) => (
-                        <MenuItem key={u.id} value={u.id}>{u.nombre} {u.codigo ? `(${u.codigo})` : ''}</MenuItem>
+                    <InputLabel>Manifiesto (opcional)</InputLabel>
+                    <Select
+                      value={masivoForm.manifiesto_id}
+                      label="Manifiesto (opcional)"
+                      onChange={e => handleManifiestoMasivo(e.target.value)}
+                      renderValue={(v: any) => {
+                        if (!v) return 'Sin manifiesto'
+                        const m = (manifiestos as any[]).find(x => String(x.id) === v)
+                        return m ? `${m.numero} · ${m.estado}` : String(v)
+                      }}
+                    >
+                      <MenuItem value="">Sin manifiesto</MenuItem>
+                      {(manifiestos as any[]).map((m: any) => (
+                        <MenuItem key={m.id} value={String(m.id)}>
+                          {m.numero} · {m.estado}{m.cliente_nombre ? ` · ${m.cliente_nombre}` : ''}
+                        </MenuItem>
                       ))}
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid item xs={12}>
+
+                {/* Info card manifiesto seleccionado */}
+                {manifiestoMasivoSel && (
+                  <Grid item xs={12}>
+                    <Box sx={{ px:1.75,py:1.25,bgcolor:alpha(PURPLE,0.06),border:`1px solid ${alpha(PURPLE,0.2)}`,borderRadius:1.5 }}>
+                      <Box sx={{ display:'flex',alignItems:'center',gap:1,mb:0.5 }}>
+                        <Chip
+                          label={manifiestoMasivoSel.estado}
+                          size="small"
+                          sx={{ height:20,fontSize:10,fontWeight:700,bgcolor:alpha(ESTADO_MAN_COLOR[manifiestoMasivoSel.estado]??'#64748B',0.15),color:ESTADO_MAN_COLOR[manifiestoMasivoSel.estado]??'#64748B' }}
+                        />
+                        <Typography sx={{ fontSize:12.5,fontWeight:700,color:PURPLE }}>{manifiestoMasivoSel.numero}</Typography>
+                        {manifiestoMasivoSel.cliente_nombre && (
+                          <Typography sx={{ fontSize:12,color:'#64748B' }}>· {manifiestoMasivoSel.cliente_nombre}</Typography>
+                        )}
+                      </Box>
+                      <Typography sx={{ fontSize:11.5,color:'#475569' }}>
+                        {masivoForm.tipo === 'CARGA'
+                          ? 'Las estibas quedarán EN TRÁNSITO vinculadas a este manifiesto. La bodega origen se toma del manifiesto.'
+                          : masivoForm.tipo === 'DESCARGA'
+                          ? 'Las estibas quedarán EN CLIENTE. Si no seleccionas bodega destino abajo, se usa la del manifiesto.'
+                          : 'Los movimientos quedarán vinculados a este manifiesto.'}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                )}
+
+                {/* Bodega destino: vehículo para CARGA+manifiesto, bodega para el resto */}
+                {masivoForm.tipo === 'CARGA' && manifiestoMasivoSel ? (
+                  <Grid item xs={12} sm={6}>
+                    <Box sx={{ display:'flex', alignItems:'center', gap:1.25, px:1.5, py:1.25,
+                      bgcolor:'rgba(59,130,246,0.04)', border:'1px solid rgba(59,130,246,0.15)', borderRadius:1.5, height:'100%' }}>
+                      <Box sx={{ fontSize:18, lineHeight:1 }}>🚛</Box>
+                      <Box>
+                        <Typography sx={{ fontSize:12, fontWeight:700, color:'#1E40AF', lineHeight:1.2 }}>
+                          Ubicación: vehículo en tránsito
+                        </Typography>
+                        <Typography sx={{ fontSize:11, color:'#64748B', mt:0.25 }}>
+                          Sin bodega hasta la descarga en destino
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Grid>
+                ) : (
+                  <Grid item xs={12} sm={6}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>
+                        {masivoForm.tipo === 'DESCARGA' && manifiestoMasivoSel ? 'Bodega de llegada' : 'Bodega Destino'}
+                      </InputLabel>
+                      <Select
+                        value={masivoForm.ubicacion_destino_id}
+                        label={masivoForm.tipo === 'DESCARGA' && manifiestoMasivoSel ? 'Bodega de llegada' : 'Bodega Destino'}
+                        onChange={(e: any) => setMasivoForm((f: any) => ({ ...f, ubicacion_destino_id: e.target.value }))}
+                      >
+                        <MenuItem value="">
+                          {masivoForm.tipo === 'DESCARGA' && manifiestoMasivoSel
+                            ? 'Usar bodega destino del manifiesto'
+                            : 'Sin ubicación específica'}
+                        </MenuItem>
+                        {(ubicaciones || []).map((u: any) => (
+                          <MenuItem key={u.id} value={u.id}>{u.nombre} {u.codigo ? `(${u.codigo})` : ''}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                )}
+
+                <Grid item xs={12} sm={6}>
                   <TextField fullWidth label="Observaciones" size="small" multiline rows={2}
                     value={masivoForm.observaciones}
                     onChange={e => setMasivoForm(f => ({ ...f, observaciones: e.target.value }))}
