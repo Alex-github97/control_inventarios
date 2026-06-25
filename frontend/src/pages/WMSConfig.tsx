@@ -51,7 +51,7 @@ function ItemCard({
 }) {
   return (
     <Paper elevation={0} sx={{
-      border: '1px solid #E5E7EB', borderRadius: '10px', p: 1.5,
+      border: '1px solid #E5E7EB', borderRadius: '10px', p: 2,
       '&:hover': { borderColor: alpha(WMS_COLOR, 0.3) }, transition: 'border-color 0.12s',
     }}>
       <Stack direction="row" alignItems="center" gap={1}>
@@ -653,7 +653,7 @@ function DevolucionesListSection() {
       ) : devoluciones.length === 0 ? (
         <Typography fontSize={13} color="text.secondary" textAlign="center" py={2}>Sin devoluciones registradas</Typography>
       ) : (
-        <Stack gap={0.75}>
+        <Stack gap={1.5}>
           {devoluciones.map(d => {
             const cfg = TIPO_CFG[d.tipo] ?? { color: '#374151', bg: '#F3F4F6' }
             return (
@@ -682,7 +682,7 @@ function DevolucionesListSection() {
 function SectionShell({ title, subtitle, onNew, isLoading, children }: { title: string; subtitle: string; onNew: () => void; isLoading: boolean; children: React.ReactNode }) {
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2.5}>
         <Box>
           <Typography fontSize={14} fontWeight={700}>{title}</Typography>
           <Typography fontSize={12} color="text.secondary">{subtitle}</Typography>
@@ -695,7 +695,7 @@ function SectionShell({ title, subtitle, onNew, isLoading, children }: { title: 
       {isLoading ? (
         <Box display="flex" justifyContent="center" py={3}><CircularProgress size={24} sx={{ color: WMS_COLOR }} /></Box>
       ) : (
-        <Stack gap={0.75}>{children}</Stack>
+        <Stack gap={1.5}>{children}</Stack>
       )}
     </Box>
   )
