@@ -755,8 +755,8 @@ export default function WMSConfig() {
         ))}
       </Tabs>
 
-      <Grid container spacing={3}>
-        <Grid size={{ xs: 12, md: 8 }}>
+      <Grid container spacing={4}>
+        <Grid size={{ xs: 12, md: 8 }} sx={{ pr: { md: 2 } }}>
           {tab === 0 && <AlmacenesSection />}
           {tab === 1 && <ZonasSection />}
           {tab === 2 && <UbicacionesSection />}
