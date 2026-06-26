@@ -1,11 +1,12 @@
-import React from 'react'
+import React, { useState } from 'react'
 import {
   Grid, Card, CardContent, Typography, Box, Skeleton, Alert, Chip, Table,
-  TableBody, TableCell, TableHead, TableRow, Paper, alpha
+  TableBody, TableCell, TableRow, MenuItem, Select, FormControl, InputLabel,
 } from '@mui/material'
 import {
   ViewModule, LocalShipping, LocationOn, Warning, Build,
-  TrendingUp, Assignment, NotificationsActive, Inventory2, AccessTime, AttachMoney
+  TrendingUp, Assignment, NotificationsActive, Inventory2, AccessTime, AttachMoney,
+  Timer,
 } from '@mui/icons-material'
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -16,7 +17,6 @@ import { useQuery } from '@tanstack/react-query'
 import { dashboardApi } from '@/api/dashboard'
 import { Layout } from '@/components/layout/Layout'
 import { KPICard } from '@/components/dashboard/KPICard'
-import { StatusChip } from '@/components/common/StatusChip'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -26,10 +26,24 @@ const formatCOP = (v: number) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', notation: 'compact', maximumFractionDigits: 1 }).format(v)
 
 export default function Dashboard() {
+  const [bodegaId, setBodegaId] = useState<number | ''>('')
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['dashboard'],
     queryFn: dashboardApi.get,
     refetchInterval: 60000,
+  })
+
+  const { data: bodegas = [] } = useQuery({
+    queryKey: ['dashboard-bodegas-cliente'],
+    queryFn: dashboardApi.ubicacionesClientes,
+    staleTime: 300000,
+  })
+
+  const { data: retornoData, isLoading: isLoadingRetorno } = useQuery({
+    queryKey: ['dashboard-retorno', bodegaId],
+    queryFn: () => dashboardApi.retorno(bodegaId === '' ? undefined : bodegaId),
+    staleTime: 60000,
   })
 
   if (error) return (
@@ -153,9 +167,9 @@ export default function Dashboard() {
         </Grid>
       </Grid>
 
-      {/* Third KPI Row — Tiempo de uso y Costos */}
+      {/* Third KPI Row — Tiempo de uso, Costos y Retorno */}
       <Grid container spacing={2.5} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6}>
+        <Grid item xs={12} sm={4}>
           <KPICard
             title="Edad Promedio (meses)"
             value={isLoading ? '—' : `${kpis?.edad_promedio_meses ?? 0} m`}
@@ -164,13 +178,22 @@ export default function Dashboard() {
             subtitle="Tiempo promedio en el sistema"
           />
         </Grid>
-        <Grid item xs={12} sm={6}>
+        <Grid item xs={12} sm={4}>
           <KPICard
             title="Costos Acumulados"
             value={isLoading ? '—' : formatCOP(kpis?.total_costos_acumulados ?? 0)}
             icon={<AttachMoney />}
             color="#F59E0B"
             subtitle="Total mantenimientos registrados"
+          />
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <KPICard
+            title="Tiempo Prom. Retorno"
+            value={isLoading ? '—' : `${kpis?.tiempo_promedio_retorno_dias ?? 0} días`}
+            icon={<Timer />}
+            color="#06B6D4"
+            subtitle="Promedio CARGA → RETORNO (12 meses)"
           />
         </Grid>
       </Grid>
@@ -294,6 +317,70 @@ export default function Dashboard() {
               )}
               <Typography variant="caption" sx={{ color: '#94A3B8', display: 'block', textAlign: 'center', mt: 0.5 }}>
                 Últimos 12 meses
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Tiempo Promedio de Retorno por Mes */}
+      <Grid container spacing={2.5} sx={{ mb: 3 }}>
+        <Grid item xs={12}>
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, gap: 2, flexWrap: 'wrap' }}>
+                <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                  Tiempo Promedio de Retorno por Mes
+                </Typography>
+                <FormControl size="small" sx={{ minWidth: 220 }}>
+                  <InputLabel>Bodega de cliente</InputLabel>
+                  <Select
+                    value={bodegaId}
+                    label="Bodega de cliente"
+                    onChange={e => setBodegaId(e.target.value as number | '')}
+                  >
+                    <MenuItem value="">Todas las bodegas</MenuItem>
+                    {bodegas.map(b => (
+                      <MenuItem key={b.id} value={b.id}>{b.nombre}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+              {isLoadingRetorno ? (
+                <Skeleton variant="rectangular" height={240} />
+              ) : (retornoData?.retorno_por_mes ?? []).length === 0 ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: '#94A3B8' }}>
+                  <Typography variant="body2">Sin retornos registrados en los últimos 12 meses</Typography>
+                </Box>
+              ) : (
+                <ResponsiveContainer width="100%" height={240}>
+                  <LineChart data={retornoData?.retorno_por_mes ?? []}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                    <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+                    <YAxis
+                      tick={{ fontSize: 11 }}
+                      tickFormatter={v => `${v}d`}
+                      label={{ value: 'Días', angle: -90, position: 'insideLeft', style: { fontSize: 11 } }}
+                    />
+                    <Tooltip
+                      formatter={(v: any, name: string) => [`${v} días`, 'Promedio retorno']}
+                      labelFormatter={label => `Mes: ${label}`}
+                    />
+                    <Legend formatter={() => 'Días promedio CARGA → RETORNO'} />
+                    <Line
+                      type="monotone"
+                      dataKey="promedio_dias"
+                      stroke="#06B6D4"
+                      strokeWidth={2.5}
+                      dot={{ r: 5, fill: '#06B6D4' }}
+                      activeDot={{ r: 7 }}
+                      name="promedio_dias"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+              <Typography variant="caption" sx={{ color: '#94A3B8', display: 'block', textAlign: 'center', mt: 0.5 }}>
+                Días transcurridos entre el movimiento de CARGA y el siguiente RETORNO por estiba — últimos 12 meses
               </Typography>
             </CardContent>
           </Card>

@@ -13,8 +13,9 @@ from app.infrastructure.models.mantenimiento import MantenimientoEstiba
 from app.application.schemas.dashboard import (
     DashboardResponse, KPIResumen, MovimientoTendencia,
     DanoEstadistica, UbicacionOcupacion, AlertaResumen,
-    EdadDistribucion, CostoMensual,
+    EdadDistribucion, CostoMensual, RetornoMensual, RetornoData,
 )
+from typing import Optional
 
 
 class DashboardService:
@@ -30,6 +31,7 @@ class DashboardService:
         movimientos_recientes = await self._get_movimientos_recientes()
         edad_distribucion = await self._get_edad_distribucion()
         costos_por_mes = await self._get_costos_por_mes()
+        kpis.tiempo_promedio_retorno_dias = await self._get_promedio_retorno()
 
         return DashboardResponse(
             kpis=kpis,
@@ -41,6 +43,71 @@ class DashboardService:
             edad_distribucion=edad_distribucion,
             costos_por_mes=costos_por_mes,
         )
+
+    async def get_retorno_data(self, bodega_id: Optional[int] = None) -> RetornoData:
+        avg_dias = await self._get_promedio_retorno(bodega_id)
+        por_mes = await self._get_retorno_por_mes(bodega_id)
+        return RetornoData(tiempo_promedio_dias=avg_dias, retorno_por_mes=por_mes)
+
+    def _retorno_lateral(self, bodega_id: Optional[int]) -> tuple:
+        bodega_clause = "" if bodega_id is None else "AND c_data.bodega_id = :bodega_id"
+        params: Dict[str, Any] = {} if bodega_id is None else {"bodega_id": bodega_id}
+        fragment = f"""
+            FROM movimientos r
+            JOIN LATERAL (
+                SELECT c.fecha_movimiento AS fecha_carga,
+                       man.destino_id    AS bodega_id
+                FROM movimientos c
+                LEFT JOIN manifiestos man ON c.manifiesto_id = man.id
+                WHERE c.estiba_id = r.estiba_id
+                    AND c.tipo = 'CARGA'
+                    AND c.fecha_movimiento < r.fecha_movimiento
+                ORDER BY c.fecha_movimiento DESC
+                LIMIT 1
+            ) c_data ON true
+            WHERE r.tipo = 'RETORNO'
+                AND r.fecha_movimiento >= NOW() - INTERVAL '12 months'
+                {bodega_clause}
+        """
+        return fragment, params
+
+    async def _get_promedio_retorno(self, bodega_id: Optional[int] = None) -> float:
+        lateral, params = self._retorno_lateral(bodega_id)
+        result = await self.db.execute(
+            text(f"""
+                SELECT COALESCE(
+                    ROUND(AVG(
+                        EXTRACT(EPOCH FROM (r.fecha_movimiento - c_data.fecha_carga)) / 86400.0
+                    )::numeric, 1),
+                    0
+                ) AS promedio_dias
+                {lateral}
+            """),
+            params,
+        )
+        return float(result.scalar_one() or 0.0)
+
+    async def _get_retorno_por_mes(self, bodega_id: Optional[int] = None) -> List[RetornoMensual]:
+        lateral, params = self._retorno_lateral(bodega_id)
+        result = await self.db.execute(
+            text(f"""
+                SELECT
+                    to_char(r.fecha_movimiento AT TIME ZONE 'America/Bogota', 'YYYY-MM') AS mes,
+                    ROUND(AVG(
+                        EXTRACT(EPOCH FROM (r.fecha_movimiento - c_data.fecha_carga)) / 86400.0
+                    )::numeric, 1) AS promedio_dias,
+                    COUNT(*) AS cantidad
+                {lateral}
+                GROUP BY to_char(r.fecha_movimiento AT TIME ZONE 'America/Bogota', 'YYYY-MM')
+                ORDER BY mes
+            """),
+            params,
+        )
+        rows = result.all()
+        return [
+            RetornoMensual(mes=r.mes, promedio_dias=float(r.promedio_dias), cantidad_retornos=int(r.cantidad))
+            for r in rows
+        ]
 
     async def _get_kpis(self) -> KPIResumen:
         estado_counts = await self.db.execute(

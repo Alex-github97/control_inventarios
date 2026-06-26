@@ -21,6 +21,7 @@ class KPIResumen(BaseModel):
     faltantes: int = 0
     perdidas: int = 0
     valor_perdidas: float = 0.0
+    tiempo_promedio_retorno_dias: float = 0.0
 
 
 class DanoEstadistica(BaseModel):
@@ -67,6 +68,17 @@ class CostoMensual(BaseModel):
     mes: str
     costo_total: float
     cantidad_mantenimientos: int
+
+
+class RetornoMensual(BaseModel):
+    mes: str
+    promedio_dias: float
+    cantidad_retornos: int
+
+
+class RetornoData(BaseModel):
+    tiempo_promedio_dias: float
+    retorno_por_mes: List[RetornoMensual]
 
 
 class DashboardResponse(BaseModel):
