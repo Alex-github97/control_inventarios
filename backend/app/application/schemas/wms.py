@@ -9,6 +9,113 @@ from pydantic import BaseModel, ConfigDict
 
 # ─── Catálogos ─────────────────────────────────────────────────────────────────
 
+class WMSTipoZonaCreate(BaseModel):
+    nombre: str
+    descripcion: Optional[str] = None
+    activo: bool = True
+
+class WMSTipoZonaUpdate(BaseModel):
+    nombre: Optional[str] = None
+    descripcion: Optional[str] = None
+    activo: Optional[bool] = None
+
+class WMSTipoZonaResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int; nombre: str; descripcion: Optional[str] = None; activo: bool
+
+
+class WMSTipoUbicacionCreate(BaseModel):
+    nombre: str
+    descripcion: Optional[str] = None
+    activo: bool = True
+
+class WMSTipoUbicacionUpdate(BaseModel):
+    nombre: Optional[str] = None
+    descripcion: Optional[str] = None
+    activo: Optional[bool] = None
+
+class WMSTipoUbicacionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int; nombre: str; descripcion: Optional[str] = None; activo: bool
+
+
+class WMSUnidadMedidaCreate(BaseModel):
+    nombre: str
+    abreviatura: Optional[str] = None
+    activo: bool = True
+
+class WMSUnidadMedidaUpdate(BaseModel):
+    nombre: Optional[str] = None
+    abreviatura: Optional[str] = None
+    activo: Optional[bool] = None
+
+class WMSUnidadMedidaResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int; nombre: str; abreviatura: Optional[str] = None; activo: bool
+
+
+class WMSCategoriaProductoCreate(BaseModel):
+    nombre: str
+    activo: bool = True
+
+class WMSCategoriaProductoUpdate(BaseModel):
+    nombre: Optional[str] = None
+    activo: Optional[bool] = None
+
+class WMSCategoriaProductoResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int; nombre: str; activo: bool
+
+
+class WMSFamiliaProductoCreate(BaseModel):
+    nombre: str
+    categoria_id: int
+    activo: bool = True
+
+class WMSFamiliaProductoUpdate(BaseModel):
+    nombre: Optional[str] = None
+    categoria_id: Optional[int] = None
+    activo: Optional[bool] = None
+
+class WMSFamiliaProductoResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int; nombre: str; categoria_id: int; activo: bool
+    categoria_nombre: Optional[str] = None
+
+
+class WMSPaisCreate(BaseModel):
+    nombre: str
+    codigo_iso: Optional[str] = None
+    activo: bool = True
+
+class WMSPaisUpdate(BaseModel):
+    nombre: Optional[str] = None
+    codigo_iso: Optional[str] = None
+    activo: Optional[bool] = None
+
+class WMSPaisResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int; nombre: str; codigo_iso: Optional[str] = None; activo: bool
+    created_at: Optional[datetime] = None
+
+
+class WMSCiudadCreate(BaseModel):
+    nombre: str
+    pais_id: int
+    activo: bool = True
+
+class WMSCiudadUpdate(BaseModel):
+    nombre: Optional[str] = None
+    pais_id: Optional[int] = None
+    activo: Optional[bool] = None
+
+class WMSCiudadResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int; nombre: str; pais_id: int; activo: bool
+    pais_nombre: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
 class WMSAlmacenCreate(BaseModel):
     codigo: str
     nombre: str

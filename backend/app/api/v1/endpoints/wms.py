@@ -14,6 +14,8 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_supervisor
 from app.infrastructure.models.usuario import Usuario
 from app.infrastructure.models.wms import (
+    WMSTipoZona, WMSTipoUbicacion, WMSUnidadMedida, WMSCategoriaProducto, WMSFamiliaProducto,
+    WMSPais, WMSCiudad,
     WMSAlmacen, WMSZona, WMSUbicacion, WMSProducto, WMSLote, WMSSerie,
     WMSProveedor, WMSCliente, WMSTransportadora,
     WMSOrdenCompra, WMSOrdenCompraDetalle,
@@ -39,6 +41,13 @@ _REVERT_DESPACHO_TRANS: dict[str, str] = {
 class RevertirDespachoRequest(BaseModel):
     observacion: str
 from app.application.schemas.wms import (
+    WMSTipoZonaCreate, WMSTipoZonaUpdate, WMSTipoZonaResponse,
+    WMSTipoUbicacionCreate, WMSTipoUbicacionUpdate, WMSTipoUbicacionResponse,
+    WMSUnidadMedidaCreate, WMSUnidadMedidaUpdate, WMSUnidadMedidaResponse,
+    WMSCategoriaProductoCreate, WMSCategoriaProductoUpdate, WMSCategoriaProductoResponse,
+    WMSFamiliaProductoCreate, WMSFamiliaProductoUpdate, WMSFamiliaProductoResponse,
+    WMSPaisCreate, WMSPaisUpdate, WMSPaisResponse,
+    WMSCiudadCreate, WMSCiudadUpdate, WMSCiudadResponse,
     WMSAlmacenCreate, WMSAlmacenUpdate, WMSAlmacenResponse,
     WMSZonaCreate, WMSZonaUpdate, WMSZonaResponse,
     WMSUbicacionCreate, WMSUbicacionUpdate, WMSUbicacionResponse,
@@ -118,6 +127,256 @@ async def _ajustar_inventario(
         db.add(inv)
     else:
         inv.cantidad_disponible = max(0, inv.cantidad_disponible + delta)
+
+
+# ─── CATÁLOGOS — Tipos de Zona ────────────────────────────────────────────────
+
+def _simple_crud(Model, router, prefix, tag, SchemaCreate, SchemaUpdate, SchemaResponse):
+    """Helper — genera CRUD genérico para catálogos simples sin relaciones."""
+    pass  # se expande manualmente por endpoint
+
+@router.get("/tipos-zona/", response_model=List[WMSTipoZonaResponse])
+async def listar_tipos_zona(activo: Optional[bool] = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    q = select(WMSTipoZona)
+    if activo is not None: q = q.where(WMSTipoZona.activo == activo)
+    r = await db.execute(q.order_by(WMSTipoZona.nombre))
+    return list(r.scalars().all())
+
+@router.post("/tipos-zona/", response_model=WMSTipoZonaResponse, status_code=201)
+async def crear_tipo_zona(data: WMSTipoZonaCreate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    obj = WMSTipoZona(**data.model_dump()); db.add(obj); await db.flush(); await db.refresh(obj); return obj
+
+@router.put("/tipos-zona/{id}", response_model=WMSTipoZonaResponse)
+async def actualizar_tipo_zona(id: int, data: WMSTipoZonaUpdate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    r = await db.execute(select(WMSTipoZona).where(WMSTipoZona.id == id))
+    obj = r.scalar_one_or_none()
+    if not obj: raise HTTPException(404, "No encontrado")
+    for k, v in data.model_dump(exclude_unset=True).items(): setattr(obj, k, v)
+    await db.flush(); await db.refresh(obj); return obj
+
+@router.delete("/tipos-zona/{id}", status_code=204)
+async def eliminar_tipo_zona(id: int, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    r = await db.execute(select(WMSTipoZona).where(WMSTipoZona.id == id))
+    obj = r.scalar_one_or_none()
+    if obj: await db.delete(obj); await db.flush()
+
+
+# ─── CATÁLOGOS — Tipos de Ubicación ───────────────────────────────────────────
+
+@router.get("/tipos-ubicacion/", response_model=List[WMSTipoUbicacionResponse])
+async def listar_tipos_ubicacion(activo: Optional[bool] = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    q = select(WMSTipoUbicacion)
+    if activo is not None: q = q.where(WMSTipoUbicacion.activo == activo)
+    r = await db.execute(q.order_by(WMSTipoUbicacion.nombre))
+    return list(r.scalars().all())
+
+@router.post("/tipos-ubicacion/", response_model=WMSTipoUbicacionResponse, status_code=201)
+async def crear_tipo_ubicacion(data: WMSTipoUbicacionCreate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    obj = WMSTipoUbicacion(**data.model_dump()); db.add(obj); await db.flush(); await db.refresh(obj); return obj
+
+@router.put("/tipos-ubicacion/{id}", response_model=WMSTipoUbicacionResponse)
+async def actualizar_tipo_ubicacion(id: int, data: WMSTipoUbicacionUpdate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    r = await db.execute(select(WMSTipoUbicacion).where(WMSTipoUbicacion.id == id))
+    obj = r.scalar_one_or_none()
+    if not obj: raise HTTPException(404, "No encontrado")
+    for k, v in data.model_dump(exclude_unset=True).items(): setattr(obj, k, v)
+    await db.flush(); await db.refresh(obj); return obj
+
+@router.delete("/tipos-ubicacion/{id}", status_code=204)
+async def eliminar_tipo_ubicacion(id: int, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    r = await db.execute(select(WMSTipoUbicacion).where(WMSTipoUbicacion.id == id))
+    obj = r.scalar_one_or_none()
+    if obj: await db.delete(obj); await db.flush()
+
+
+# ─── CATÁLOGOS — Unidades de Medida ───────────────────────────────────────────
+
+@router.get("/unidades-medida/", response_model=List[WMSUnidadMedidaResponse])
+async def listar_unidades_medida(activo: Optional[bool] = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    q = select(WMSUnidadMedida)
+    if activo is not None: q = q.where(WMSUnidadMedida.activo == activo)
+    r = await db.execute(q.order_by(WMSUnidadMedida.nombre))
+    return list(r.scalars().all())
+
+@router.post("/unidades-medida/", response_model=WMSUnidadMedidaResponse, status_code=201)
+async def crear_unidad_medida(data: WMSUnidadMedidaCreate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    obj = WMSUnidadMedida(**data.model_dump()); db.add(obj); await db.flush(); await db.refresh(obj); return obj
+
+@router.put("/unidades-medida/{id}", response_model=WMSUnidadMedidaResponse)
+async def actualizar_unidad_medida(id: int, data: WMSUnidadMedidaUpdate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    r = await db.execute(select(WMSUnidadMedida).where(WMSUnidadMedida.id == id))
+    obj = r.scalar_one_or_none()
+    if not obj: raise HTTPException(404, "No encontrado")
+    for k, v in data.model_dump(exclude_unset=True).items(): setattr(obj, k, v)
+    await db.flush(); await db.refresh(obj); return obj
+
+@router.delete("/unidades-medida/{id}", status_code=204)
+async def eliminar_unidad_medida(id: int, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    r = await db.execute(select(WMSUnidadMedida).where(WMSUnidadMedida.id == id))
+    obj = r.scalar_one_or_none()
+    if obj: await db.delete(obj); await db.flush()
+
+
+# ─── CATÁLOGOS — Categorías de Producto ───────────────────────────────────────
+
+@router.get("/categorias-producto/", response_model=List[WMSCategoriaProductoResponse])
+async def listar_categorias(activo: Optional[bool] = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    q = select(WMSCategoriaProducto)
+    if activo is not None: q = q.where(WMSCategoriaProducto.activo == activo)
+    r = await db.execute(q.order_by(WMSCategoriaProducto.nombre))
+    return list(r.scalars().all())
+
+@router.post("/categorias-producto/", response_model=WMSCategoriaProductoResponse, status_code=201)
+async def crear_categoria(data: WMSCategoriaProductoCreate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    obj = WMSCategoriaProducto(**data.model_dump()); db.add(obj); await db.flush(); await db.refresh(obj); return obj
+
+@router.put("/categorias-producto/{id}", response_model=WMSCategoriaProductoResponse)
+async def actualizar_categoria(id: int, data: WMSCategoriaProductoUpdate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    r = await db.execute(select(WMSCategoriaProducto).where(WMSCategoriaProducto.id == id))
+    obj = r.scalar_one_or_none()
+    if not obj: raise HTTPException(404, "No encontrado")
+    for k, v in data.model_dump(exclude_unset=True).items(): setattr(obj, k, v)
+    await db.flush(); await db.refresh(obj); return obj
+
+@router.delete("/categorias-producto/{id}", status_code=204)
+async def eliminar_categoria(id: int, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    r = await db.execute(select(WMSCategoriaProducto).where(WMSCategoriaProducto.id == id))
+    obj = r.scalar_one_or_none()
+    if obj: await db.delete(obj); await db.flush()
+
+
+# ─── CATÁLOGOS — Familias de Producto ─────────────────────────────────────────
+
+@router.get("/familias-producto/", response_model=List[WMSFamiliaProductoResponse])
+async def listar_familias(
+    activo: Optional[bool] = None,
+    categoria_id: Optional[int] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    q = select(WMSFamiliaProducto).options(selectinload(WMSFamiliaProducto.categoria))
+    if activo is not None: q = q.where(WMSFamiliaProducto.activo == activo)
+    if categoria_id is not None: q = q.where(WMSFamiliaProducto.categoria_id == categoria_id)
+    r = await db.execute(q.order_by(WMSFamiliaProducto.nombre))
+    items = list(r.scalars().all())
+    return [WMSFamiliaProductoResponse(id=f.id, nombre=f.nombre, categoria_id=f.categoria_id, activo=f.activo, categoria_nombre=f.categoria.nombre if f.categoria else None) for f in items]
+
+@router.post("/familias-producto/", response_model=WMSFamiliaProductoResponse, status_code=201)
+async def crear_familia(data: WMSFamiliaProductoCreate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    obj = WMSFamiliaProducto(**data.model_dump()); db.add(obj); await db.flush()
+    await db.refresh(obj)
+    r = await db.execute(select(WMSCategoriaProducto).where(WMSCategoriaProducto.id == obj.categoria_id))
+    cat = r.scalar_one_or_none()
+    return WMSFamiliaProductoResponse(id=obj.id, nombre=obj.nombre, categoria_id=obj.categoria_id, activo=obj.activo, categoria_nombre=cat.nombre if cat else None)
+
+@router.put("/familias-producto/{id}", response_model=WMSFamiliaProductoResponse)
+async def actualizar_familia(id: int, data: WMSFamiliaProductoUpdate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    r = await db.execute(select(WMSFamiliaProducto).options(selectinload(WMSFamiliaProducto.categoria)).where(WMSFamiliaProducto.id == id))
+    obj = r.scalar_one_or_none()
+    if not obj: raise HTTPException(404, "No encontrado")
+    for k, v in data.model_dump(exclude_unset=True).items(): setattr(obj, k, v)
+    await db.flush(); await db.refresh(obj)
+    r2 = await db.execute(select(WMSCategoriaProducto).where(WMSCategoriaProducto.id == obj.categoria_id))
+    cat = r2.scalar_one_or_none()
+    return WMSFamiliaProductoResponse(id=obj.id, nombre=obj.nombre, categoria_id=obj.categoria_id, activo=obj.activo, categoria_nombre=cat.nombre if cat else None)
+
+@router.delete("/familias-producto/{id}", status_code=204)
+async def eliminar_familia(id: int, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    r = await db.execute(select(WMSFamiliaProducto).where(WMSFamiliaProducto.id == id))
+    obj = r.scalar_one_or_none()
+    if obj: await db.delete(obj); await db.flush()
+
+
+# ─── CATÁLOGOS — Países ────────────────────────────────────────────────────────
+
+@router.get("/paises/", response_model=List[WMSPaisResponse])
+async def listar_paises(activo: Optional[bool] = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    q = select(WMSPais)
+    if activo is not None:
+        q = q.where(WMSPais.activo == activo)
+    r = await db.execute(q.order_by(WMSPais.nombre))
+    return list(r.scalars().all())
+
+@router.post("/paises/", response_model=WMSPaisResponse, status_code=201)
+async def crear_pais(data: WMSPaisCreate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    obj = WMSPais(**data.model_dump())
+    db.add(obj); await db.flush(); await db.refresh(obj)
+    return obj
+
+@router.put("/paises/{pais_id}", response_model=WMSPaisResponse)
+async def actualizar_pais(pais_id: int, data: WMSPaisUpdate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    r = await db.execute(select(WMSPais).where(WMSPais.id == pais_id))
+    obj = r.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(404, "País no encontrado")
+    for k, v in data.model_dump(exclude_unset=True).items():
+        setattr(obj, k, v)
+    await db.flush(); await db.refresh(obj)
+    return obj
+
+@router.delete("/paises/{pais_id}", status_code=204)
+async def eliminar_pais(pais_id: int, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    r = await db.execute(select(WMSPais).where(WMSPais.id == pais_id))
+    obj = r.scalar_one_or_none()
+    if obj:
+        await db.delete(obj)
+        await db.flush()
+
+
+# ─── CATÁLOGOS — Ciudades ──────────────────────────────────────────────────────
+
+@router.get("/ciudades/", response_model=List[WMSCiudadResponse])
+async def listar_ciudades(
+    activo: Optional[bool] = None,
+    pais_id: Optional[int] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    q = select(WMSCiudad).options(selectinload(WMSCiudad.pais))
+    if activo is not None:
+        q = q.where(WMSCiudad.activo == activo)
+    if pais_id is not None:
+        q = q.where(WMSCiudad.pais_id == pais_id)
+    r = await db.execute(q.order_by(WMSCiudad.nombre))
+    items = list(r.scalars().all())
+    return [
+        WMSCiudadResponse(
+            id=c.id, nombre=c.nombre, pais_id=c.pais_id,
+            activo=c.activo, pais_nombre=c.pais.nombre if c.pais else None,
+            created_at=c.created_at,
+        )
+        for c in items
+    ]
+
+@router.post("/ciudades/", response_model=WMSCiudadResponse, status_code=201)
+async def crear_ciudad(data: WMSCiudadCreate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    obj = WMSCiudad(**data.model_dump())
+    db.add(obj); await db.flush()
+    await db.refresh(obj)
+    r = await db.execute(select(WMSPais).where(WMSPais.id == obj.pais_id))
+    p = r.scalar_one_or_none()
+    return WMSCiudadResponse(id=obj.id, nombre=obj.nombre, pais_id=obj.pais_id, activo=obj.activo, pais_nombre=p.nombre if p else None, created_at=obj.created_at)
+
+@router.put("/ciudades/{ciudad_id}", response_model=WMSCiudadResponse)
+async def actualizar_ciudad(ciudad_id: int, data: WMSCiudadUpdate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    r = await db.execute(select(WMSCiudad).options(selectinload(WMSCiudad.pais)).where(WMSCiudad.id == ciudad_id))
+    obj = r.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(404, "Ciudad no encontrada")
+    for k, v in data.model_dump(exclude_unset=True).items():
+        setattr(obj, k, v)
+    await db.flush(); await db.refresh(obj)
+    r2 = await db.execute(select(WMSPais).where(WMSPais.id == obj.pais_id))
+    p = r2.scalar_one_or_none()
+    return WMSCiudadResponse(id=obj.id, nombre=obj.nombre, pais_id=obj.pais_id, activo=obj.activo, pais_nombre=p.nombre if p else None, created_at=obj.created_at)
+
+@router.delete("/ciudades/{ciudad_id}", status_code=204)
+async def eliminar_ciudad(ciudad_id: int, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    r = await db.execute(select(WMSCiudad).where(WMSCiudad.id == ciudad_id))
+    obj = r.scalar_one_or_none()
+    if obj:
+        await db.delete(obj)
+        await db.flush()
 
 
 # ─── CATÁLOGOS — Almacenes ─────────────────────────────────────────────────────

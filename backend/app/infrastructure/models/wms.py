@@ -13,6 +13,69 @@ from app.infrastructure.models.base import Base, TimestampMixin, SoftDeleteMixin
 
 # ─── Catálogos ─────────────────────────────────────────────────────────────────
 
+class WMSTipoZona(Base, TimestampMixin):
+    __tablename__ = "wms_tipos_zona"
+    id          = Column(Integer, primary_key=True, index=True)
+    nombre      = Column(String(60), nullable=False, unique=True)
+    descripcion = Column(String(255), nullable=True)
+    activo      = Column(Boolean, default=True)
+
+
+class WMSTipoUbicacion(Base, TimestampMixin):
+    __tablename__ = "wms_tipos_ubicacion"
+    id          = Column(Integer, primary_key=True, index=True)
+    nombre      = Column(String(60), nullable=False, unique=True)
+    descripcion = Column(String(255), nullable=True)
+    activo      = Column(Boolean, default=True)
+
+
+class WMSUnidadMedida(Base, TimestampMixin):
+    __tablename__ = "wms_unidades_medida"
+    id          = Column(Integer, primary_key=True, index=True)
+    nombre      = Column(String(60), nullable=False, unique=True)
+    abreviatura = Column(String(15), nullable=True)
+    activo      = Column(Boolean, default=True)
+
+
+class WMSCategoriaProducto(Base, TimestampMixin):
+    __tablename__ = "wms_categorias_producto"
+    id     = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(100), nullable=False, unique=True)
+    activo = Column(Boolean, default=True)
+
+    familias = relationship("WMSFamiliaProducto", back_populates="categoria")
+
+
+class WMSFamiliaProducto(Base, TimestampMixin):
+    __tablename__ = "wms_familias_producto"
+    id           = Column(Integer, primary_key=True, index=True)
+    nombre       = Column(String(100), nullable=False)
+    categoria_id = Column(Integer, ForeignKey("wms_categorias_producto.id"), nullable=False)
+    activo       = Column(Boolean, default=True)
+
+    categoria = relationship("WMSCategoriaProducto", back_populates="familias")
+
+
+class WMSPais(Base, TimestampMixin):
+    __tablename__ = "wms_paises"
+    id         = Column(Integer, primary_key=True, index=True)
+    nombre     = Column(String(100), nullable=False, unique=True)
+    codigo_iso = Column(String(5), nullable=True)
+    activo     = Column(Boolean, default=True)
+
+    ciudades = relationship("WMSCiudad", back_populates="pais")
+
+
+class WMSCiudad(Base, TimestampMixin):
+    __tablename__ = "wms_ciudades"
+    id      = Column(Integer, primary_key=True, index=True)
+    nombre  = Column(String(100), nullable=False)
+    pais_id = Column(Integer, ForeignKey("wms_paises.id"), nullable=False)
+    activo  = Column(Boolean, default=True)
+
+    pais = relationship("WMSPais", back_populates="ciudades")
+
+
 class WMSAlmacen(Base, TimestampMixin):
     __tablename__ = "wms_almacenes"
     id        = Column(Integer, primary_key=True, index=True)

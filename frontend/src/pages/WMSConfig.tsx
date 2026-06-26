@@ -89,17 +89,340 @@ function ConfirmDelete({ open, title, onConfirm, onCancel, loading }: { open: bo
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// TAB 1: Almacenes
+// Helper: CatalogSection — sección genérica nombre + campo extra opcional
+// ═══════════════════════════════════════════════════════════════════════════════
+interface TipoSimple extends SimpleItem { nombre: string; descripcion?: string; abreviatura?: string; activo: boolean }
+interface FamiliaItem extends SimpleItem { nombre: string; categoria_id: number; categoria_nombre?: string; activo: boolean }
+interface CategoriaItem extends SimpleItem { nombre: string; activo: boolean }
+
+function TiposZonaSection() {
+  const { data: items, isLoading, create, update, remove } = useCatalog<TipoSimple>('/wms/tipos-zona/', ['wms-tipos-zona'])
+  const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState<TipoSimple | null>(null)
+  const [deleteId, setDeleteId] = useState<number | null>(null)
+  const [form, setForm] = useState({ nombre: '', descripcion: '' })
+  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+
+  const openDialog = (item?: TipoSimple) => {
+    if (item) { setEditing(item); setForm({ nombre: item.nombre, descripcion: (item.descripcion as string) ?? '' }) }
+    else { setEditing(null); setForm({ nombre: '', descripcion: '' }) }
+    setOpen(true)
+  }
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.nombre) { toast.error('El nombre es obligatorio'); return }
+    const payload = Object.fromEntries(Object.entries(form).filter(([, v]) => v !== ''))
+    if (editing) update.mutate({ id: editing.id, d: payload }, { onSuccess: () => setOpen(false) })
+    else create.mutate(payload, { onSuccess: () => setOpen(false) })
+  }
+  return (
+    <SectionShell title="Tipos de Zona" subtitle="Clasificaciones de zonas dentro de los almacenes" onNew={() => openDialog()} isLoading={isLoading}>
+      {items.map(item => (
+        <ItemCard key={item.id} item={item} extraLabels={[{ key: 'descripcion', label: 'Descripción' }]}
+          onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
+      ))}
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontSize: 14, fontWeight: 700 }}>{editing ? 'Editar Tipo de Zona' : 'Nuevo Tipo de Zona'}</DialogTitle>
+        <Box component="form" onSubmit={handleSubmit}>
+          <DialogContent><Stack gap={1.5} pt={0.5}>
+            <TextField label="Nombre *" size="small" fullWidth value={form.nombre} onChange={e => set('nombre', e.target.value)} />
+            <TextField label="Descripción" size="small" fullWidth value={form.descripcion} onChange={e => set('descripcion', e.target.value)} />
+          </Stack></DialogContent>
+          <CrudActions onCancel={() => setOpen(false)} isPending={create.isPending || update.isPending} editing={!!editing} />
+        </Box>
+      </Dialog>
+      <ConfirmDelete open={deleteId !== null} title="Tipo de Zona" onConfirm={() => { if (deleteId) remove.mutate(deleteId, { onSuccess: () => setDeleteId(null) }) }} onCancel={() => setDeleteId(null)} loading={remove.isPending} />
+    </SectionShell>
+  )
+}
+
+function TiposUbicacionSection() {
+  const { data: items, isLoading, create, update, remove } = useCatalog<TipoSimple>('/wms/tipos-ubicacion/', ['wms-tipos-ubicacion'])
+  const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState<TipoSimple | null>(null)
+  const [deleteId, setDeleteId] = useState<number | null>(null)
+  const [form, setForm] = useState({ nombre: '', descripcion: '' })
+  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+
+  const openDialog = (item?: TipoSimple) => {
+    if (item) { setEditing(item); setForm({ nombre: item.nombre, descripcion: (item.descripcion as string) ?? '' }) }
+    else { setEditing(null); setForm({ nombre: '', descripcion: '' }) }
+    setOpen(true)
+  }
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.nombre) { toast.error('El nombre es obligatorio'); return }
+    const payload = Object.fromEntries(Object.entries(form).filter(([, v]) => v !== ''))
+    if (editing) update.mutate({ id: editing.id, d: payload }, { onSuccess: () => setOpen(false) })
+    else create.mutate(payload, { onSuccess: () => setOpen(false) })
+  }
+  return (
+    <SectionShell title="Tipos de Ubicación" subtitle="Clasificaciones de posiciones dentro de las zonas" onNew={() => openDialog()} isLoading={isLoading}>
+      {items.map(item => (
+        <ItemCard key={item.id} item={item} extraLabels={[{ key: 'descripcion', label: 'Descripción' }]}
+          onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
+      ))}
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontSize: 14, fontWeight: 700 }}>{editing ? 'Editar Tipo de Ubicación' : 'Nuevo Tipo de Ubicación'}</DialogTitle>
+        <Box component="form" onSubmit={handleSubmit}>
+          <DialogContent><Stack gap={1.5} pt={0.5}>
+            <TextField label="Nombre *" size="small" fullWidth value={form.nombre} onChange={e => set('nombre', e.target.value)} />
+            <TextField label="Descripción" size="small" fullWidth value={form.descripcion} onChange={e => set('descripcion', e.target.value)} />
+          </Stack></DialogContent>
+          <CrudActions onCancel={() => setOpen(false)} isPending={create.isPending || update.isPending} editing={!!editing} />
+        </Box>
+      </Dialog>
+      <ConfirmDelete open={deleteId !== null} title="Tipo de Ubicación" onConfirm={() => { if (deleteId) remove.mutate(deleteId, { onSuccess: () => setDeleteId(null) }) }} onCancel={() => setDeleteId(null)} loading={remove.isPending} />
+    </SectionShell>
+  )
+}
+
+function UnidadesMedidaSection() {
+  const { data: items, isLoading, create, update, remove } = useCatalog<TipoSimple>('/wms/unidades-medida/', ['wms-unidades-medida'])
+  const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState<TipoSimple | null>(null)
+  const [deleteId, setDeleteId] = useState<number | null>(null)
+  const [form, setForm] = useState({ nombre: '', abreviatura: '' })
+  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+
+  const openDialog = (item?: TipoSimple) => {
+    if (item) { setEditing(item); setForm({ nombre: item.nombre, abreviatura: (item.abreviatura as string) ?? '' }) }
+    else { setEditing(null); setForm({ nombre: '', abreviatura: '' }) }
+    setOpen(true)
+  }
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.nombre) { toast.error('El nombre es obligatorio'); return }
+    const payload = Object.fromEntries(Object.entries(form).filter(([, v]) => v !== ''))
+    if (editing) update.mutate({ id: editing.id, d: payload }, { onSuccess: () => setOpen(false) })
+    else create.mutate(payload, { onSuccess: () => setOpen(false) })
+  }
+  return (
+    <SectionShell title="Unidades de Medida" subtitle="Unidades para productos e inventario" onNew={() => openDialog()} isLoading={isLoading}>
+      {items.map(item => (
+        <ItemCard key={item.id} item={item} extraLabels={[{ key: 'abreviatura', label: 'Abreviatura' }]}
+          onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
+      ))}
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontSize: 14, fontWeight: 700 }}>{editing ? 'Editar Unidad de Medida' : 'Nueva Unidad de Medida'}</DialogTitle>
+        <Box component="form" onSubmit={handleSubmit}>
+          <DialogContent><Stack gap={1.5} pt={0.5}>
+            <TextField label="Nombre * (ej: Kilogramo)" size="small" fullWidth value={form.nombre} onChange={e => set('nombre', e.target.value)} />
+            <TextField label="Abreviatura (ej: kg)" size="small" fullWidth value={form.abreviatura} onChange={e => set('abreviatura', e.target.value)} inputProps={{ maxLength: 15 }} />
+          </Stack></DialogContent>
+          <CrudActions onCancel={() => setOpen(false)} isPending={create.isPending || update.isPending} editing={!!editing} />
+        </Box>
+      </Dialog>
+      <ConfirmDelete open={deleteId !== null} title="Unidad de Medida" onConfirm={() => { if (deleteId) remove.mutate(deleteId, { onSuccess: () => setDeleteId(null) }) }} onCancel={() => setDeleteId(null)} loading={remove.isPending} />
+    </SectionShell>
+  )
+}
+
+function CategoriasSection() {
+  const { data: items, isLoading, create, update, remove } = useCatalog<CategoriaItem>('/wms/categorias-producto/', ['wms-categorias'])
+  const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState<CategoriaItem | null>(null)
+  const [deleteId, setDeleteId] = useState<number | null>(null)
+  const [nombre, setNombre] = useState('')
+
+  const openDialog = (item?: CategoriaItem) => {
+    if (item) { setEditing(item); setNombre(item.nombre) }
+    else { setEditing(null); setNombre('') }
+    setOpen(true)
+  }
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!nombre) { toast.error('El nombre es obligatorio'); return }
+    if (editing) update.mutate({ id: editing.id, d: { nombre } }, { onSuccess: () => setOpen(false) })
+    else create.mutate({ nombre }, { onSuccess: () => setOpen(false) })
+  }
+  return (
+    <SectionShell title="Categorías de Producto" subtitle="Agrupaciones principales del catálogo de productos" onNew={() => openDialog()} isLoading={isLoading}>
+      {items.map(item => (
+        <ItemCard key={item.id} item={item} onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
+      ))}
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontSize: 14, fontWeight: 700 }}>{editing ? 'Editar Categoría' : 'Nueva Categoría'}</DialogTitle>
+        <Box component="form" onSubmit={handleSubmit}>
+          <DialogContent><TextField label="Nombre *" size="small" fullWidth value={nombre} onChange={e => setNombre(e.target.value)} sx={{ mt: 0.5 }} /></DialogContent>
+          <CrudActions onCancel={() => setOpen(false)} isPending={create.isPending || update.isPending} editing={!!editing} />
+        </Box>
+      </Dialog>
+      <ConfirmDelete open={deleteId !== null} title="Categoría" onConfirm={() => { if (deleteId) remove.mutate(deleteId, { onSuccess: () => setDeleteId(null) }) }} onCancel={() => setDeleteId(null)} loading={remove.isPending} />
+    </SectionShell>
+  )
+}
+
+function FamiliasSection() {
+  const { data: items, isLoading, create, update, remove } = useCatalog<FamiliaItem>('/wms/familias-producto/', ['wms-familias'])
+  const { data: categorias = [] } = useQuery<CategoriaItem[]>({ queryKey: ['wms-categorias'], queryFn: () => api.get('/wms/categorias-producto/').then(r => r.data) })
+  const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState<FamiliaItem | null>(null)
+  const [deleteId, setDeleteId] = useState<number | null>(null)
+  const [form, setForm] = useState({ nombre: '', categoria_id: '' })
+  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+
+  const openDialog = (item?: FamiliaItem) => {
+    if (item) { setEditing(item); setForm({ nombre: item.nombre, categoria_id: item.categoria_id.toString() }) }
+    else { setEditing(null); setForm({ nombre: '', categoria_id: '' }) }
+    setOpen(true)
+  }
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.nombre) { toast.error('El nombre es obligatorio'); return }
+    if (!form.categoria_id) { toast.error('La categoría es obligatoria'); return }
+    const payload = { nombre: form.nombre, categoria_id: Number(form.categoria_id) }
+    if (editing) update.mutate({ id: editing.id, d: payload }, { onSuccess: () => setOpen(false) })
+    else create.mutate(payload, { onSuccess: () => setOpen(false) })
+  }
+  return (
+    <SectionShell title="Familias de Producto" subtitle="Subagrupaciones dentro de cada categoría" onNew={() => openDialog()} isLoading={isLoading}>
+      {items.map(item => (
+        <ItemCard key={item.id} item={item} extraLabels={[{ key: 'categoria_nombre', label: 'Categoría' }]}
+          onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
+      ))}
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontSize: 14, fontWeight: 700 }}>{editing ? 'Editar Familia' : 'Nueva Familia'}</DialogTitle>
+        <Box component="form" onSubmit={handleSubmit}>
+          <DialogContent><Stack gap={1.5} pt={0.5}>
+            <TextField label="Nombre *" size="small" fullWidth value={form.nombre} onChange={e => set('nombre', e.target.value)} />
+            <TextField select label="Categoría *" size="small" fullWidth value={form.categoria_id} onChange={e => set('categoria_id', e.target.value)}>
+              <MenuItem value="">Seleccionar categoría</MenuItem>
+              {categorias.map(c => <MenuItem key={c.id} value={c.id.toString()}>{c.nombre}</MenuItem>)}
+            </TextField>
+          </Stack></DialogContent>
+          <CrudActions onCancel={() => setOpen(false)} isPending={create.isPending || update.isPending} editing={!!editing} />
+        </Box>
+      </Dialog>
+      <ConfirmDelete open={deleteId !== null} title="Familia" onConfirm={() => { if (deleteId) remove.mutate(deleteId, { onSuccess: () => setDeleteId(null) }) }} onCancel={() => setDeleteId(null)} loading={remove.isPending} />
+    </SectionShell>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TAB 1: Países
+// ═══════════════════════════════════════════════════════════════════════════════
+interface Pais extends SimpleItem { nombre: string; codigo_iso?: string; activo: boolean }
+
+function PaisesSection() {
+  const { data: items, isLoading, create, update, remove } = useCatalog<Pais>('/wms/paises/', ['wms-paises'])
+  const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState<Pais | null>(null)
+  const [deleteId, setDeleteId] = useState<number | null>(null)
+  const [form, setForm] = useState({ nombre: '', codigo_iso: '' })
+  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+
+  const openDialog = (item?: Pais) => {
+    if (item) { setEditing(item); setForm({ nombre: item.nombre, codigo_iso: (item.codigo_iso as string) ?? '' }) }
+    else { setEditing(null); setForm({ nombre: '', codigo_iso: '' }) }
+    setOpen(true)
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.nombre) { toast.error('El nombre es obligatorio'); return }
+    const payload = Object.fromEntries(Object.entries(form).filter(([, v]) => v !== ''))
+    if (editing) update.mutate({ id: editing.id, d: payload }, { onSuccess: () => setOpen(false) })
+    else create.mutate(payload, { onSuccess: () => setOpen(false) })
+  }
+
+  return (
+    <SectionShell title="Países" subtitle="Catálogo de países para almacenes y contactos" onNew={() => openDialog()} isLoading={isLoading}>
+      {(items as Pais[]).map(item => (
+        <ItemCard key={item.id} item={item}
+          extraLabels={[{ key: 'codigo_iso', label: 'Código ISO' }]}
+          onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
+      ))}
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontSize: 14, fontWeight: 700 }}>{editing ? 'Editar País' : 'Nuevo País'}</DialogTitle>
+        <Box component="form" onSubmit={handleSubmit}>
+          <DialogContent><Stack gap={1.5} pt={0.5}>
+            <TextField label="Nombre *" size="small" fullWidth value={form.nombre} onChange={e => set('nombre', e.target.value)} />
+            <TextField label="Código ISO (ej: CO, US)" size="small" fullWidth value={form.codigo_iso} onChange={e => set('codigo_iso', e.target.value)} inputProps={{ maxLength: 5 }} />
+          </Stack></DialogContent>
+          <CrudActions onCancel={() => setOpen(false)} isPending={create.isPending || update.isPending} editing={!!editing} />
+        </Box>
+      </Dialog>
+      <ConfirmDelete open={deleteId !== null} title="País" onConfirm={() => { if (deleteId) remove.mutate(deleteId, { onSuccess: () => setDeleteId(null) }) }} onCancel={() => setDeleteId(null)} loading={remove.isPending} />
+    </SectionShell>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TAB 2: Ciudades
+// ═══════════════════════════════════════════════════════════════════════════════
+interface Ciudad extends SimpleItem { nombre: string; pais_id: number; pais_nombre?: string; activo: boolean }
+
+function CiudadesSection() {
+  const { data: items, isLoading, create, update, remove } = useCatalog<Ciudad>('/wms/ciudades/', ['wms-ciudades'])
+  const { data: paises = [] } = useQuery<Pais[]>({ queryKey: ['wms-paises'], queryFn: () => api.get('/wms/paises/').then(r => r.data) })
+  const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState<Ciudad | null>(null)
+  const [deleteId, setDeleteId] = useState<number | null>(null)
+  const [form, setForm] = useState({ nombre: '', pais_id: '' })
+  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+
+  const openDialog = (item?: Ciudad) => {
+    if (item) { setEditing(item); setForm({ nombre: item.nombre, pais_id: item.pais_id.toString() }) }
+    else { setEditing(null); setForm({ nombre: '', pais_id: '' }) }
+    setOpen(true)
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.nombre) { toast.error('El nombre es obligatorio'); return }
+    if (!form.pais_id) { toast.error('El país es obligatorio'); return }
+    const payload = { nombre: form.nombre, pais_id: Number(form.pais_id) }
+    if (editing) update.mutate({ id: editing.id, d: payload }, { onSuccess: () => setOpen(false) })
+    else create.mutate(payload, { onSuccess: () => setOpen(false) })
+  }
+
+  return (
+    <SectionShell title="Ciudades" subtitle="Catálogo de ciudades para almacenes y contactos" onNew={() => openDialog()} isLoading={isLoading}>
+      {(items as Ciudad[]).map(item => (
+        <ItemCard key={item.id} item={item}
+          extraLabels={[{ key: 'pais_nombre', label: 'País' }]}
+          onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
+      ))}
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontSize: 14, fontWeight: 700 }}>{editing ? 'Editar Ciudad' : 'Nueva Ciudad'}</DialogTitle>
+        <Box component="form" onSubmit={handleSubmit}>
+          <DialogContent><Stack gap={1.5} pt={0.5}>
+            <TextField label="Nombre *" size="small" fullWidth value={form.nombre} onChange={e => set('nombre', e.target.value)} />
+            <TextField select label="País *" size="small" fullWidth value={form.pais_id} onChange={e => set('pais_id', e.target.value)}>
+              <MenuItem value="">Seleccionar país</MenuItem>
+              {(paises as Pais[]).map(p => <MenuItem key={p.id} value={p.id.toString()}>{p.nombre}</MenuItem>)}
+            </TextField>
+          </Stack></DialogContent>
+          <CrudActions onCancel={() => setOpen(false)} isPending={create.isPending || update.isPending} editing={!!editing} />
+        </Box>
+      </Dialog>
+      <ConfirmDelete open={deleteId !== null} title="Ciudad" onConfirm={() => { if (deleteId) remove.mutate(deleteId, { onSuccess: () => setDeleteId(null) }) }} onCancel={() => setDeleteId(null)} loading={remove.isPending} />
+    </SectionShell>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TAB 3: Almacenes
 // ═══════════════════════════════════════════════════════════════════════════════
 interface Almacen extends SimpleItem { codigo: string; nombre: string; direccion?: string; ciudad?: string; pais?: string }
 
 function AlmacenesSection() {
   const { data: items, isLoading, create, update, remove } = useCatalog<Almacen>('/wms/almacenes/', ['wms-almacenes'])
+  const { data: paises = [] } = useQuery<Pais[]>({ queryKey: ['wms-paises'], queryFn: () => api.get('/wms/paises/').then(r => r.data) })
+  const { data: ciudades = [] } = useQuery<Ciudad[]>({ queryKey: ['wms-ciudades'], queryFn: () => api.get('/wms/ciudades/').then(r => r.data) })
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Almacen | null>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [form, setForm] = useState({ codigo: '', nombre: '', direccion: '', ciudad: '', pais: '' })
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+
+  const ciudadesFiltradas = (paises as Pais[]).length > 0 && form.pais
+    ? (ciudades as Ciudad[]).filter(c => {
+        const p = (paises as Pais[]).find(p => p.nombre === form.pais)
+        return p ? c.pais_id === p.id : true
+      })
+    : (ciudades as Ciudad[])
 
   const openDialog = (item?: Almacen) => {
     if (item) { setEditing(item); setForm({ codigo: item.codigo, nombre: item.nombre, direccion: item.direccion ?? '', ciudad: item.ciudad ?? '', pais: item.pais ?? '' }) }
@@ -110,6 +433,8 @@ function AlmacenesSection() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.codigo || !form.nombre) { toast.error('Código y nombre son obligatorios'); return }
+    if (!form.pais) { toast.error('El país es obligatorio'); return }
+    if (!form.ciudad) { toast.error('La ciudad es obligatoria'); return }
     const payload = Object.fromEntries(Object.entries(form).filter(([, v]) => v !== ''))
     if (editing) update.mutate({ id: editing.id, d: payload }, { onSuccess: () => setOpen(false) })
     else create.mutate(payload, { onSuccess: () => setOpen(false) })
@@ -119,7 +444,7 @@ function AlmacenesSection() {
     <SectionShell title="Almacenes" subtitle="Instalaciones físicas del WMS" onNew={() => openDialog()} isLoading={isLoading}>
       {(items as Almacen[]).map(item => (
         <ItemCard key={item.id} item={item}
-          extraLabels={[{ key: 'codigo', label: 'Código' }, { key: 'ciudad', label: 'Ciudad' }]}
+          extraLabels={[{ key: 'codigo', label: 'Código' }, { key: 'ciudad', label: 'Ciudad' }, { key: 'pais', label: 'País' }]}
           onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
       ))}
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
@@ -131,10 +456,16 @@ function AlmacenesSection() {
               <TextField label="Nombre *" size="small" value={form.nombre} onChange={e => set('nombre', e.target.value)} sx={{ flex: 2 }} />
             </Stack>
             <TextField label="Dirección" size="small" value={form.direccion} onChange={e => set('direccion', e.target.value)} fullWidth />
-            <Stack direction="row" gap={1.5}>
-              <TextField label="Ciudad" size="small" value={form.ciudad} onChange={e => set('ciudad', e.target.value)} sx={{ flex: 1 }} />
-              <TextField label="País" size="small" value={form.pais} onChange={e => set('pais', e.target.value)} sx={{ flex: 1 }} />
-            </Stack>
+            <TextField select label="País *" size="small" fullWidth value={form.pais}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => { set('pais', e.target.value); set('ciudad', '') }}>
+              <MenuItem value="">Seleccionar país</MenuItem>
+              {(paises as Pais[]).map(p => <MenuItem key={p.id} value={p.nombre}>{p.nombre}</MenuItem>)}
+            </TextField>
+            <TextField select label="Ciudad *" size="small" fullWidth value={form.ciudad}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('ciudad', e.target.value)} disabled={!form.pais}>
+              <MenuItem value="">Seleccionar ciudad</MenuItem>
+              {ciudadesFiltradas.map(c => <MenuItem key={c.id} value={c.nombre}>{c.nombre}</MenuItem>)}
+            </TextField>
           </Stack></DialogContent>
           <CrudActions onCancel={() => setOpen(false)} isPending={create.isPending || update.isPending} editing={!!editing} />
         </Box>
@@ -148,11 +479,11 @@ function AlmacenesSection() {
 // TAB 2: Zonas
 // ═══════════════════════════════════════════════════════════════════════════════
 interface Zona extends SimpleItem { codigo: string; nombre: string; almacen_id?: number; tipo?: string; temperatura_controlada?: boolean }
-const TIPOS_ZONA = ['RECEPCION', 'ALMACENAMIENTO', 'DESPACHO', 'CUARENTENA', 'CROSS_DOCKING']
 
 function ZonasSection() {
   const { data: items, isLoading, create, update, remove } = useCatalog<Zona>('/wms/zonas/', ['wms-zonas'])
-  const { data: almacenes = [] } = useQuery<Almacen[]>({ queryKey: ['wms-almacenes'], queryFn: () => api.get('/wms/almacenes/').then(r => r.data) })
+  const { data: almacenes = [] } = useQuery<Almacen[]>({ queryKey: ['wms-almacenes'], queryFn: () => api.get('/wms/almacenes/').then((r: { data: Almacen[] }) => r.data) })
+  const { data: tiposZona = [] } = useQuery<TipoSimple[]>({ queryKey: ['wms-tipos-zona'], queryFn: () => api.get('/wms/tipos-zona/').then((r: { data: TipoSimple[] }) => r.data) })
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Zona | null>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)
@@ -168,9 +499,9 @@ function ZonasSection() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.codigo || !form.nombre) { toast.error('Código y nombre son obligatorios'); return }
-    const payload: Record<string, unknown> = { codigo: form.codigo, nombre: form.nombre, temperatura_controlada: form.temperatura_controlada }
+    if (!form.tipo) { toast.error('El tipo de zona es obligatorio'); return }
+    const payload: Record<string, unknown> = { codigo: form.codigo, nombre: form.nombre, tipo: form.tipo, temperatura_controlada: form.temperatura_controlada }
     if (form.almacen_id) payload.almacen_id = Number(form.almacen_id)
-    if (form.tipo) payload.tipo = form.tipo
     if (editing) update.mutate({ id: editing.id, d: payload }, { onSuccess: () => setOpen(false) })
     else create.mutate(payload, { onSuccess: () => setOpen(false) })
   }
@@ -192,11 +523,11 @@ function ZonasSection() {
             </Stack>
             <TextField select label="Almacén" fullWidth size="small" value={form.almacen_id} onChange={e => set('almacen_id', e.target.value)}>
               <MenuItem value="">Sin almacén</MenuItem>
-              {almacenes.map(a => <MenuItem key={a.id} value={a.id.toString()}>{a.nombre}</MenuItem>)}
+              {(almacenes as Almacen[]).map(a => <MenuItem key={a.id} value={a.id.toString()}>{a.nombre}</MenuItem>)}
             </TextField>
-            <TextField select label="Tipo" fullWidth size="small" value={form.tipo} onChange={e => set('tipo', e.target.value)}>
-              <MenuItem value="">Sin tipo</MenuItem>
-              {TIPOS_ZONA.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+            <TextField select label="Tipo *" fullWidth size="small" value={form.tipo} onChange={e => set('tipo', e.target.value)}>
+              <MenuItem value="">Seleccionar tipo</MenuItem>
+              {(tiposZona as TipoSimple[]).map(t => <MenuItem key={t.id} value={t.nombre}>{t.nombre}</MenuItem>)}
             </TextField>
             <FormControlLabel
               control={<Switch checked={form.temperatura_controlada} onChange={e => set('temperatura_controlada', e.target.checked)} sx={{ '& .MuiSwitch-switchBase.Mui-checked': { color: WMS_COLOR }, '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: WMS_COLOR } }} />}
@@ -215,11 +546,11 @@ function ZonasSection() {
 // TAB 3: Ubicaciones
 // ═══════════════════════════════════════════════════════════════════════════════
 interface Ubicacion extends SimpleItem { codigo: string; nombre: string; zona_id?: number; pasillo?: string; estanteria?: string; nivel?: string; posicion?: string; tipo?: string; capacidad_kg?: number; capacidad_m3?: number }
-const TIPOS_UBIC = ['ESTANDAR', 'PALLET', 'SUELO', 'CAMARA_FRIO', 'RESTRINGIDA', 'CUARENTENA']
 
 function UbicacionesSection() {
   const { data: items, isLoading, create, update, remove } = useCatalog<Ubicacion>('/wms/ubicaciones/', ['wms-ubicaciones'])
-  const { data: zonas = [] } = useQuery<Zona[]>({ queryKey: ['wms-zonas'], queryFn: () => api.get('/wms/zonas/').then(r => r.data) })
+  const { data: zonas = [] } = useQuery<Zona[]>({ queryKey: ['wms-zonas'], queryFn: () => api.get('/wms/zonas/').then((r: { data: Zona[] }) => r.data) })
+  const { data: tiposUbic = [] } = useQuery<TipoSimple[]>({ queryKey: ['wms-tipos-ubicacion'], queryFn: () => api.get('/wms/tipos-ubicacion/').then((r: { data: TipoSimple[] }) => r.data) })
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Ubicacion | null>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)
@@ -279,7 +610,7 @@ function UbicacionesSection() {
             </Stack>
             <TextField select label="Tipo" fullWidth size="small" value={form.tipo} onChange={e => set('tipo', e.target.value)}>
               <MenuItem value="">Sin tipo</MenuItem>
-              {TIPOS_UBIC.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+              {(tiposUbic as TipoSimple[]).map(t => <MenuItem key={t.id} value={t.nombre}>{t.nombre}</MenuItem>)}
             </TextField>
             <Stack direction="row" gap={1.5}>
               <TextField label="Capacidad (kg)" size="small" type="number" value={form.capacidad_kg} onChange={e => set('capacidad_kg', e.target.value)} sx={{ flex: 1 }} />
@@ -301,11 +632,21 @@ interface Producto extends SimpleItem { sku: string; nombre: string; categoria?:
 
 function ProductosSection() {
   const { data: items, isLoading, create, update, remove } = useCatalog<Producto>('/wms/productos/', ['wms-productos'])
+  const { data: categorias = [] } = useQuery<CategoriaItem[]>({ queryKey: ['wms-categorias'], queryFn: () => api.get('/wms/categorias-producto/').then((r: { data: CategoriaItem[] }) => r.data) })
+  const { data: familias = [] } = useQuery<FamiliaItem[]>({ queryKey: ['wms-familias'], queryFn: () => api.get('/wms/familias-producto/').then((r: { data: FamiliaItem[] }) => r.data) })
+  const { data: unidades = [] } = useQuery<TipoSimple[]>({ queryKey: ['wms-unidades-medida'], queryFn: () => api.get('/wms/unidades-medida/').then((r: { data: TipoSimple[] }) => r.data) })
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Producto | null>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [form, setForm] = useState({ sku: '', nombre: '', categoria: '', familia: '', unidad_medida: '', peso_kg: '', volumen_m3: '', vida_util_dias: '', requiere_refrigeracion: false, requiere_serial: false, requiere_lote: false })
   const set = (k: string, v: string | boolean) => setForm(f => ({ ...f, [k]: v }))
+
+  const familiasFiltradas = form.categoria
+    ? (familias as FamiliaItem[]).filter(f => {
+        const cat = (categorias as CategoriaItem[]).find(c => c.nombre === form.categoria)
+        return cat ? f.categoria_id === cat.id : true
+      })
+    : (familias as FamiliaItem[])
 
   const openDialog = (item?: Producto) => {
     if (item) {
@@ -354,11 +695,21 @@ function ProductosSection() {
               <TextField label="SKU *" size="small" value={form.sku} onChange={e => set('sku', e.target.value)} sx={{ flex: 1 }} />
               <TextField label="Nombre *" size="small" value={form.nombre} onChange={e => set('nombre', e.target.value)} sx={{ flex: 2 }} />
             </Stack>
-            <Stack direction="row" gap={1.5}>
-              <TextField label="Categoría" size="small" value={form.categoria} onChange={e => set('categoria', e.target.value)} sx={{ flex: 1 }} />
-              <TextField label="Familia" size="small" value={form.familia} onChange={e => set('familia', e.target.value)} sx={{ flex: 1 }} />
-              <TextField label="Unidad de medida" size="small" value={form.unidad_medida} onChange={e => set('unidad_medida', e.target.value)} sx={{ flex: 1 }} />
-            </Stack>
+            <TextField select label="Categoría" size="small" fullWidth value={form.categoria}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => { set('categoria', e.target.value); set('familia', '') }}>
+              <MenuItem value="">Sin categoría</MenuItem>
+              {(categorias as CategoriaItem[]).map(c => <MenuItem key={c.id} value={c.nombre}>{c.nombre}</MenuItem>)}
+            </TextField>
+            <TextField select label="Familia" size="small" fullWidth value={form.familia}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('familia', e.target.value)} disabled={!form.categoria}>
+              <MenuItem value="">Sin familia</MenuItem>
+              {familiasFiltradas.map(f => <MenuItem key={f.id} value={f.nombre}>{f.nombre}</MenuItem>)}
+            </TextField>
+            <TextField select label="Unidad de medida" size="small" fullWidth value={form.unidad_medida}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('unidad_medida', e.target.value)}>
+              <MenuItem value="">Sin unidad</MenuItem>
+              {(unidades as TipoSimple[]).map(u => <MenuItem key={u.id} value={u.nombre}>{u.nombre}{u.abreviatura ? ` (${u.abreviatura})` : ''}</MenuItem>)}
+            </TextField>
             <Stack direction="row" gap={1.5}>
               <TextField label="Peso (kg)" size="small" type="number" value={form.peso_kg} onChange={e => set('peso_kg', e.target.value)} sx={{ flex: 1 }} />
               <TextField label="Volumen (m³)" size="small" type="number" value={form.volumen_m3} onChange={e => set('volumen_m3', e.target.value)} sx={{ flex: 1 }} />
@@ -447,11 +798,17 @@ interface ProveedorWMS extends SimpleItem { codigo: string; nombre: string; nit?
 
 function ProveedoresWMSSection() {
   const { data: items, isLoading, create, update, remove } = useCatalog<ProveedorWMS>('/wms/proveedores/', ['wms-proveedores'])
+  const { data: paises = [] } = useQuery<Pais[]>({ queryKey: ['wms-paises'], queryFn: () => api.get('/wms/paises/').then((r: { data: Pais[] }) => r.data) })
+  const { data: ciudades = [] } = useQuery<Ciudad[]>({ queryKey: ['wms-ciudades'], queryFn: () => api.get('/wms/ciudades/').then((r: { data: Ciudad[] }) => r.data) })
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<ProveedorWMS | null>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [form, setForm] = useState({ codigo: '', nombre: '', nit: '', contacto: '', email: '', telefono: '', ciudad: '', pais: '' })
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+
+  const ciudadesFiltradas = form.pais
+    ? (ciudades as Ciudad[]).filter(c => { const p = (paises as Pais[]).find(p => p.nombre === form.pais); return p ? c.pais_id === p.id : true })
+    : (ciudades as Ciudad[])
 
   const openDialog = (item?: ProveedorWMS) => {
     if (item) { setEditing(item); setForm({ codigo: item.codigo, nombre: item.nombre, nit: item.nit ?? '', contacto: item.contacto ?? '', email: item.email ?? '', telefono: item.telefono ?? '', ciudad: item.ciudad ?? '', pais: item.pais ?? '' }) }
@@ -471,7 +828,7 @@ function ProveedoresWMSSection() {
     <SectionShell title="Proveedores" subtitle="Empresas proveedoras de mercancía" onNew={() => openDialog()} isLoading={isLoading}>
       {(items as ProveedorWMS[]).map(item => (
         <ItemCard key={item.id} item={item}
-          extraLabels={[{ key: 'codigo', label: 'Código' }, { key: 'nit', label: 'NIT' }, { key: 'ciudad', label: 'Ciudad' }]}
+          extraLabels={[{ key: 'codigo', label: 'Código' }, { key: 'nit', label: 'NIT' }, { key: 'ciudad', label: 'Ciudad' }, { key: 'pais', label: 'País' }]}
           onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
       ))}
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
@@ -490,10 +847,16 @@ function ProveedoresWMSSection() {
               <TextField label="Email" size="small" type="email" value={form.email} onChange={e => set('email', e.target.value)} sx={{ flex: 1 }} />
               <TextField label="Teléfono" size="small" value={form.telefono} onChange={e => set('telefono', e.target.value)} sx={{ flex: 1 }} />
             </Stack>
-            <Stack direction="row" gap={1.5}>
-              <TextField label="Ciudad" size="small" value={form.ciudad} onChange={e => set('ciudad', e.target.value)} sx={{ flex: 1 }} />
-              <TextField label="País" size="small" value={form.pais} onChange={e => set('pais', e.target.value)} sx={{ flex: 1 }} />
-            </Stack>
+            <TextField select label="País" size="small" fullWidth value={form.pais}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => { set('pais', e.target.value); set('ciudad', '') }}>
+              <MenuItem value="">Sin país</MenuItem>
+              {(paises as Pais[]).map(p => <MenuItem key={p.id} value={p.nombre}>{p.nombre}</MenuItem>)}
+            </TextField>
+            <TextField select label="Ciudad" size="small" fullWidth value={form.ciudad}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('ciudad', e.target.value)} disabled={!form.pais}>
+              <MenuItem value="">Sin ciudad</MenuItem>
+              {ciudadesFiltradas.map(c => <MenuItem key={c.id} value={c.nombre}>{c.nombre}</MenuItem>)}
+            </TextField>
           </Stack></DialogContent>
           <CrudActions onCancel={() => setOpen(false)} isPending={create.isPending || update.isPending} editing={!!editing} />
         </Box>
@@ -510,11 +873,17 @@ interface ClienteWMS extends SimpleItem { codigo: string; nombre: string; nit?: 
 
 function ClientesWMSSection() {
   const { data: items, isLoading, create, update, remove } = useCatalog<ClienteWMS>('/wms/clientes/', ['wms-clientes'])
+  const { data: paises = [] } = useQuery<Pais[]>({ queryKey: ['wms-paises'], queryFn: () => api.get('/wms/paises/').then((r: { data: Pais[] }) => r.data) })
+  const { data: ciudades = [] } = useQuery<Ciudad[]>({ queryKey: ['wms-ciudades'], queryFn: () => api.get('/wms/ciudades/').then((r: { data: Ciudad[] }) => r.data) })
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<ClienteWMS | null>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [form, setForm] = useState({ codigo: '', nombre: '', nit: '', contacto: '', email: '', telefono: '', ciudad: '', pais: '', segmento: '' })
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+
+  const ciudadesFiltradas = form.pais
+    ? (ciudades as Ciudad[]).filter(c => { const p = (paises as Pais[]).find(p => p.nombre === form.pais); return p ? c.pais_id === p.id : true })
+    : (ciudades as Ciudad[])
 
   const openDialog = (item?: ClienteWMS) => {
     if (item) { setEditing(item); setForm({ codigo: item.codigo, nombre: item.nombre, nit: item.nit ?? '', contacto: item.contacto ?? '', email: item.email ?? '', telefono: item.telefono ?? '', ciudad: item.ciudad ?? '', pais: item.pais ?? '', segmento: item.segmento ?? '' }) }
@@ -534,7 +903,7 @@ function ClientesWMSSection() {
     <SectionShell title="Clientes" subtitle="Clientes que reciben mercancía del WMS" onNew={() => openDialog()} isLoading={isLoading}>
       {(items as ClienteWMS[]).map(item => (
         <ItemCard key={item.id} item={item}
-          extraLabels={[{ key: 'codigo', label: 'Código' }, { key: 'nit', label: 'NIT' }, { key: 'segmento', label: 'Segmento' }]}
+          extraLabels={[{ key: 'codigo', label: 'Código' }, { key: 'nit', label: 'NIT' }, { key: 'segmento', label: 'Segmento' }, { key: 'ciudad', label: 'Ciudad' }]}
           onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
       ))}
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
@@ -554,10 +923,16 @@ function ClientesWMSSection() {
               <TextField label="Teléfono" size="small" value={form.telefono} onChange={e => set('telefono', e.target.value)} sx={{ flex: 1 }} />
             </Stack>
             <TextField label="Email" size="small" type="email" fullWidth value={form.email} onChange={e => set('email', e.target.value)} />
-            <Stack direction="row" gap={1.5}>
-              <TextField label="Ciudad" size="small" value={form.ciudad} onChange={e => set('ciudad', e.target.value)} sx={{ flex: 1 }} />
-              <TextField label="País" size="small" value={form.pais} onChange={e => set('pais', e.target.value)} sx={{ flex: 1 }} />
-            </Stack>
+            <TextField select label="País" size="small" fullWidth value={form.pais}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => { set('pais', e.target.value); set('ciudad', '') }}>
+              <MenuItem value="">Sin país</MenuItem>
+              {(paises as Pais[]).map(p => <MenuItem key={p.id} value={p.nombre}>{p.nombre}</MenuItem>)}
+            </TextField>
+            <TextField select label="Ciudad" size="small" fullWidth value={form.ciudad}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('ciudad', e.target.value)} disabled={!form.pais}>
+              <MenuItem value="">Sin ciudad</MenuItem>
+              {ciudadesFiltradas.map(c => <MenuItem key={c.id} value={c.nombre}>{c.nombre}</MenuItem>)}
+            </TextField>
           </Stack></DialogContent>
           <CrudActions onCancel={() => setOpen(false)} isPending={create.isPending || update.isPending} editing={!!editing} />
         </Box>
@@ -682,16 +1057,16 @@ function DevolucionesListSection() {
 function SectionShell({ title, subtitle, onNew, isLoading, children }: { title: string; subtitle: string; onNew: () => void; isLoading: boolean; children: React.ReactNode }) {
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2.5}>
-        <Box>
+      <Box mb={2.5}>
+        <Stack direction="row" alignItems="center" gap={2} mb={0.25}>
           <Typography fontSize={14} fontWeight={700}>{title}</Typography>
-          <Typography fontSize={12} color="text.secondary">{subtitle}</Typography>
-        </Box>
-        <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={onNew}
-          sx={{ borderRadius: '8px', textTransform: 'none', borderColor: alpha(WMS_COLOR, 0.5), color: WMS_COLOR }}>
-          Nuevo
-        </Button>
-      </Stack>
+          <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={onNew}
+            sx={{ borderRadius: '8px', textTransform: 'none', borderColor: alpha(WMS_COLOR, 0.5), color: WMS_COLOR, flexShrink: 0 }}>
+            Nuevo
+          </Button>
+        </Stack>
+        <Typography fontSize={12} color="text.secondary">{subtitle}</Typography>
+      </Box>
       {isLoading ? (
         <Box display="flex" justifyContent="center" py={3}><CircularProgress size={24} sx={{ color: WMS_COLOR }} /></Box>
       ) : (
@@ -719,19 +1094,21 @@ export default function WMSConfig() {
   const [tab, setTab] = useState(0)
 
   const tabs = [
+    'Países', 'Ciudades', 'Tipos Zona', 'Tipos Ubic.', 'Unidades', 'Categorías', 'Familias',
     'Almacenes', 'Zonas', 'Ubicaciones', 'Productos', 'Lotes',
     'Proveedores', 'Clientes', 'Transportadoras', 'Devoluciones',
   ]
 
   const GUIDE = [
-    { step: '1', text: 'Crea los Almacenes físicos antes de configurar zonas y ubicaciones.' },
-    { step: '2', text: 'Divide cada almacén en Zonas por función: Recepción, Almacenamiento, Despacho.' },
-    { step: '3', text: 'Define Ubicaciones (pasillos, estanterías, niveles) dentro de cada zona.' },
-    { step: '4', text: 'Registra los Productos con su SKU, peso y requisitos de trazabilidad.' },
-    { step: '5', text: 'Los Lotes permiten rastrear mercancía por fecha de vencimiento y origen.' },
-    { step: '6', text: 'Registra Proveedores y Clientes para asociarlos a recepciones y despachos.' },
-    { step: '7', text: 'Las Transportadoras se usan al crear Despachos y órdenes de entrega.' },
-    { step: '8', text: 'Consulta el historial completo de Devoluciones desde la última pestaña.' },
+    { step: '1', text: 'Configura Países y Ciudades — se usan en almacenes, proveedores y clientes.' },
+    { step: '2', text: 'Crea Tipos de Zona (Recepción, Almacenamiento...) y Tipos de Ubicación (Pallet, Suelo...).' },
+    { step: '3', text: 'Define Unidades de Medida, Categorías y Familias para el catálogo de productos.' },
+    { step: '4', text: 'Crea los Almacenes físicos seleccionando país y ciudad del catálogo.' },
+    { step: '5', text: 'Divide cada almacén en Zonas usando los tipos pre-configurados.' },
+    { step: '6', text: 'Define Ubicaciones (pasillos, estanterías, niveles) dentro de cada zona.' },
+    { step: '7', text: 'Registra Productos con SKU, categoría, familia y unidad de medida del catálogo.' },
+    { step: '8', text: 'Los Lotes permiten rastrear mercancía por fecha de vencimiento y origen.' },
+    { step: '9', text: 'Registra Proveedores y Clientes con ciudad y país del catálogo.' },
   ]
 
   return (
@@ -755,17 +1132,24 @@ export default function WMSConfig() {
         ))}
       </Tabs>
 
-      <Grid container spacing={4}>
-        <Grid size={{ xs: 12, md: 8 }} sx={{ pr: { md: 2 } }}>
-          {tab === 0 && <AlmacenesSection />}
-          {tab === 1 && <ZonasSection />}
-          {tab === 2 && <UbicacionesSection />}
-          {tab === 3 && <ProductosSection />}
-          {tab === 4 && <LotesSection />}
-          {tab === 5 && <ProveedoresWMSSection />}
-          {tab === 6 && <ClientesWMSSection />}
-          {tab === 7 && <TransportadorasSection />}
-          {tab === 8 && <DevolucionesListSection />}
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, md: 8 }}>
+          {tab === 0  && <PaisesSection />}
+          {tab === 1  && <CiudadesSection />}
+          {tab === 2  && <TiposZonaSection />}
+          {tab === 3  && <TiposUbicacionSection />}
+          {tab === 4  && <UnidadesMedidaSection />}
+          {tab === 5  && <CategoriasSection />}
+          {tab === 6  && <FamiliasSection />}
+          {tab === 7  && <AlmacenesSection />}
+          {tab === 8  && <ZonasSection />}
+          {tab === 9  && <UbicacionesSection />}
+          {tab === 10 && <ProductosSection />}
+          {tab === 11 && <LotesSection />}
+          {tab === 12 && <ProveedoresWMSSection />}
+          {tab === 13 && <ClientesWMSSection />}
+          {tab === 14 && <TransportadorasSection />}
+          {tab === 15 && <DevolucionesListSection />}
         </Grid>
 
         <Grid size={{ xs: 12, md: 4 }}>
