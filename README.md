@@ -1,6 +1,6 @@
 # Plataforma Empresarial ICOLTRANS — Sistema ERP Modular
 
-**Versión 2.1.0** | Industria Colombiana de Logística y Transporte (ICOLTRANS)
+**Versión 2.2.0** | Industria Colombiana de Logística y Transporte (ICOLTRANS)
 
 Plataforma empresarial unificada con 17 módulos de gestión operativa, diseñada para escala corporativa. Combina logística, transporte, mantenimiento, calidad, GRC y administración en una sola aplicación React con backend FastAPI.
 
@@ -137,8 +137,10 @@ Módulo central de gestión de estibas, movimientos y logística de bodega.
 - KPIs en tiempo real: estibas totales, disponibles, en tránsito, en cliente, dañadas, faltantes, pérdidas confirmadas, manifiestos, alertas
 - **KPI Faltantes**: conteo de estibas en estado FALTANTE pendientes de resolución
 - **KPI Pérdidas**: conteo de estibas en estado PERDIDA + valor total en COP (cuantificación monetaria de pérdidas)
+- **KPI Tiempo Promedio de Retorno**: días promedio entre el movimiento CARGA y el siguiente RETORNO para la misma estiba (últimos 12 meses)
 - Tiempo de uso por estiba: edad promedio en meses + histograma de distribución por antigüedad
 - Costos acumulados de mantenimiento + gráfico mensual (últimos 12 meses)
+- **Gráfico de retorno por mes**: LineChart con días promedio CARGA→RETORNO por mes, filtrable por bodega de cliente mediante selector desplegable
 - Tendencia de movimientos (30 días), distribución de daños, ocupación de ubicaciones
 
 #### Estibas (`/estibas`)
@@ -278,6 +280,48 @@ Módulo completo de gobierno corporativo, gestión de riesgos y cumplimiento nor
 
 ---
 
+## WMS — Almacén (Warehouse Management System)
+
+Módulo de gestión de almacenes con configuración por catálogos. Color: `#0891B2`.
+
+### Catálogos configurables (`/wms/config`)
+
+Todos los valores que alimentan los formularios del WMS se administran desde catálogos CRUD sin tocar código:
+
+| Pestaña | Entidad | Campos principales |
+|---------|---------|-------------------|
+| Países | `WMSPais` | Nombre, código ISO |
+| Ciudades | `WMSCiudad` | Nombre, País (cascada) |
+| Tipos de Zona | `WMSTipoZona` | Nombre, descripción |
+| Tipos de Ubicación | `WMSTipoUbicacion` | Nombre, descripción |
+| Unidades de Medida | `WMSUnidadMedida` | Nombre, abreviatura |
+| Categorías | `WMSCategoriaProducto` | Nombre |
+| Familias | `WMSFamiliaProducto` | Nombre, Categoría (cascada) |
+
+### Cómo impactan los catálogos en el resto del WMS
+
+| Sección | Campo controlado por catálogo |
+|---------|-------------------------------|
+| Almacenes | País → Ciudad (selección en cascada, ambos obligatorios) |
+| Zonas | Tipo de Zona (selección obligatoria) |
+| Ubicaciones WMS | Tipo de Ubicación (reemplaza array estático) |
+| Productos | Categoría → Familia (cascada) + Unidad de Medida |
+| Proveedores | País → Ciudad (cascada) |
+| Clientes | País → Ciudad (cascada) |
+
+### Patrón de almacenamiento
+
+Los campos de catálogo se guardan como **texto** en la entidad padre (ej: `almacen.ciudad = "Bogotá"`), no como FK numérico. Esto evita migraciones de esquema en tablas existentes y permite consultas simples sin joins. El catálogo es la fuente de verdad para los valores válidos.
+
+### Migraciones
+
+| Revisión | Contenido |
+|----------|-----------|
+| `007` | Tablas `wms_paises` y `wms_ciudades` |
+| `008` | Tablas `wms_tipos_zona`, `wms_tipos_ubicacion`, `wms_unidades_medida`, `wms_categorias_producto`, `wms_familias_producto` |
+
+---
+
 ## ML — Mantenimiento Locativo
 
 Gestión de mantenimiento de infraestructura física (instalaciones, equipos fijos, vehículos).
@@ -378,6 +422,7 @@ DELETE /api/v1/ubicaciones/{id}       # Soft-delete
 
 # Dashboard y Alertas
 GET    /api/v1/dashboard
+GET    /api/v1/dashboard/retorno?bodega_id=   # Promedio retorno por mes, filtrable por bodega
 GET    /api/v1/alertas?resuelta=false&nivel=CRITICA
 GET    /api/v1/alertas/no-leidas/count
 PATCH  /api/v1/alertas/{id}/resolver        # Body: { observacion: string }
@@ -417,6 +462,15 @@ DELETE /api/v1/roles/{id}
 # TarifaX
 GET    /api/v1/tarifax/template
 POST   /api/v1/tarifax/merge
+
+# WMS — Catálogos configurables
+GET/POST/PUT/DELETE  /api/v1/wms/paises/
+GET/POST/PUT/DELETE  /api/v1/wms/ciudades/?pais_id=
+GET/POST/PUT/DELETE  /api/v1/wms/tipos-zona/
+GET/POST/PUT/DELETE  /api/v1/wms/tipos-ubicacion/
+GET/POST/PUT/DELETE  /api/v1/wms/unidades-medida/
+GET/POST/PUT/DELETE  /api/v1/wms/categorias-producto/
+GET/POST/PUT/DELETE  /api/v1/wms/familias-producto/?categoria_id=
 ```
 
 Documentación interactiva completa en `/api/docs`.
@@ -492,6 +546,22 @@ DROP TYPE IF EXISTS rolusuario;
 ---
 
 ## Historial de Versiones
+
+### v2.2.0 (2026-06-26)
+
+#### WMS — Catálogos configurables
+- **7 catálogos CRUD desde la interfaz**: Países, Ciudades, Tipos de Zona, Tipos de Ubicación, Unidades de Medida, Categorías de Producto y Familias de Producto — administrados desde `/wms/config` sin tocar código
+- **Cascada País → Ciudad**: los formularios de Almacenes, Proveedores y Clientes usan selects en cascada; al seleccionar el país se filtran solo las ciudades correspondientes
+- **Cascada Categoría → Familia**: en Productos, seleccionar la categoría filtra las familias disponibles; ambos campos son obligatorios
+- **Tipo de Zona y Tipo de Ubicación controlados**: eliminado el array estático `TIPOS_UBIC`; ahora los valores provienen del catálogo configurable
+- **Patrón sin FK de catálogo**: los valores se almacenan como texto en la entidad padre — no requiere migración de FK en tablas existentes
+- **Migraciones Alembic 007 y 008**: crean las 7 tablas de catálogo con índices
+
+#### CI — Dashboard: tiempo promedio de retorno
+- **KPI "Tiempo Prom. Retorno"**: días promedio entre el movimiento CARGA y el siguiente RETORNO de la misma estiba (LATERAL JOIN en PostgreSQL, últimos 12 meses). Se muestra en la tercera fila de KPIs junto a Edad Promedio y Costos Acumulados
+- **Gráfico de líneas por mes**: LineChart con el promedio de días CARGA→RETORNO agrupado por mes, últimos 12 meses
+- **Filtro por bodega de cliente**: selector desplegable sobre el gráfico carga las ubicaciones tipo CLIENTE; al seleccionar una, el gráfico se actualiza mostrando solo los retornos cuya CARGA tenía como destino esa bodega
+- **Nuevo endpoint `GET /dashboard/retorno?bodega_id=`**: devuelve `RetornoData` (`tiempo_promedio_dias` + array `retorno_por_mes`) filtrable por ID de ubicación
 
 ### v2.1.0 (2026-06-24)
 
