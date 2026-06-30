@@ -1,9 +1,10 @@
-import React, { useState } from 'react'
+﻿import React, { useState } from 'react'
 import {
   Box, Typography, Tabs, Tab, Grid, Card, CardContent, Chip,
-  Stack, alpha, Divider, IconButton, Button, TextField,
+  Stack, alpha, Divider, IconButton, Button, TextField, MenuItem,
   Switch, FormControlLabel, InputAdornment, Avatar, Rating,
-  List, ListItem, ListItemText, ListItemSecondaryAction,
+  List, ListItem, ListItemText, ListItemSecondaryAction, Dialog,
+  DialogTitle, DialogContent, DialogActions,
 } from '@mui/material'
 import {
   Settings as SettingsIcon,
@@ -20,16 +21,55 @@ import {
   Cancel as InactiveIcon,
   Sync as SyncIcon,
   Warning as WarnIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const EAM_COLOR = '#EA580C'
+const EAM_COLOR = '#32AC5C'
 const CARD_BG = '#0F1E35'
 const DARK_BG = '#060C1A'
 
+// ── Tipos de Trabajo — catálogo rico ─────────────────────────────────────────
+
+type CatTrabajo = 'PREVENTIVO' | 'CORRECTIVO' | 'PREDICTIVO' | 'INSPECCION' | 'EMERGENCIA'
+
+interface TipoTrabajoConfig {
+  id: number
+  nombre: string
+  categoria: CatTrabajo
+  duracion: string
+  requiereTaller: boolean
+  requiereMateriales: boolean
+  sistema: string
+  subsistema: string
+}
+
+const CAT_COLOR: Record<CatTrabajo, string> = {
+  PREVENTIVO: '#16A34A',
+  CORRECTIVO: '#DC2626',
+  PREDICTIVO: '#3B82F6',
+  INSPECCION: '#F59E0B',
+  EMERGENCIA: '#7F1D1D',
+}
+
+const CATEGORIAS_TRABAJO: CatTrabajo[] = ['PREVENTIVO', 'CORRECTIVO', 'PREDICTIVO', 'INSPECCION', 'EMERGENCIA']
+
 // ── Catalogos mock ────────────────────────────────────────────────────────────
 
-const TIPOS_TRABAJO = ['Mantenimiento Preventivo', 'Mantenimiento Correctivo', 'Mantenimiento Predictivo', 'Inspección Visual', 'Cambio de Aceite', 'Servicio Eléctrico', 'Servicio Mecánico', 'Servicio Hidráulico', 'Pintura y Carrocería', 'Soldadura', 'Calibración', 'Lubricación']
+const TIPOS_TRABAJO_INIT: TipoTrabajoConfig[] = [
+  { id:  1, nombre: 'Mantenimiento Preventivo',    categoria: 'PREVENTIVO', duracion: '4h',       requiereTaller: false, requiereMateriales: true,  sistema: 'General',     subsistema: 'Varios componentes'   },
+  { id:  2, nombre: 'Mantenimiento Correctivo',    categoria: 'CORRECTIVO', duracion: 'Variable',  requiereTaller: true,  requiereMateriales: true,  sistema: 'Variable',    subsistema: 'Variable'             },
+  { id:  3, nombre: 'Mantenimiento Predictivo',    categoria: 'PREDICTIVO', duracion: '3h',       requiereTaller: false, requiereMateriales: false, sistema: 'General',     subsistema: 'Monitoreo'            },
+  { id:  4, nombre: 'Inspección Visual',           categoria: 'INSPECCION', duracion: '1h',       requiereTaller: false, requiereMateriales: false, sistema: 'General',     subsistema: 'Inspección general'   },
+  { id:  5, nombre: 'Cambio de Aceite y Filtros',  categoria: 'PREVENTIVO', duracion: '2h',       requiereTaller: false, requiereMateriales: true,  sistema: 'Motor',       subsistema: 'Lubricación'          },
+  { id:  6, nombre: 'Servicio Eléctrico',          categoria: 'CORRECTIVO', duracion: '3h',       requiereTaller: true,  requiereMateriales: false, sistema: 'Eléctrico',   subsistema: 'Circuitos y sensores' },
+  { id:  7, nombre: 'Servicio Mecánico',           categoria: 'CORRECTIVO', duracion: 'Variable',  requiereTaller: true,  requiereMateriales: true,  sistema: 'Mecánico',    subsistema: 'Transmisión'          },
+  { id:  8, nombre: 'Servicio Hidráulico',         categoria: 'CORRECTIVO', duracion: '4h',       requiereTaller: true,  requiereMateriales: true,  sistema: 'Hidráulico',  subsistema: 'Circuito hidráulico'  },
+  { id:  9, nombre: 'Calibración',                 categoria: 'PREDICTIVO', duracion: '2h',       requiereTaller: false, requiereMateriales: false, sistema: 'Control',     subsistema: 'Sensores y válvulas'  },
+  { id: 10, nombre: 'Lubricación',                 categoria: 'PREVENTIVO', duracion: '1h',       requiereTaller: false, requiereMateriales: true,  sistema: 'Lubricación', subsistema: 'Engrase general'      },
+  { id: 11, nombre: 'Soldadura',                   categoria: 'CORRECTIVO', duracion: 'Variable',  requiereTaller: true,  requiereMateriales: true,  sistema: 'Estructura',  subsistema: 'Carrocería y chasis'  },
+  { id: 12, nombre: 'Atención de Emergencia',      categoria: 'EMERGENCIA', duracion: '?',        requiereTaller: true,  requiereMateriales: true,  sistema: 'Variable',    subsistema: 'Variable'             },
+]
 const ACTIVIDADES = ['Revisión de frenos', 'Cambio de filtros', 'Alineación y balanceo', 'Diagnóstico electrónico', 'Revisión sistema eléctrico', 'Cambio de correas', 'Revisión de suspensión', 'Lavado y engrase', 'Revisión de neumáticos', 'Cambio de aceite motor', 'Revisión de batería', 'Ajuste de frenos', 'Revisión de luces', 'Revisión de niveles', 'Revisión de embrague', 'Revisión de dirección', 'Prueba de ruta', 'Documentación técnica']
 const REPUESTOS_CAT = ['Filtro de aire CUMMINS', 'Filtro de aceite CUMMINS', 'Correa de distribución', 'Bujías NGK', 'Pastillas de freno', 'Aceite sintético 15W-40', 'Líquido de frenos DOT4', 'Batería 12V 100Ah', 'Amortiguador trasero', 'Correa alternador', 'Termostato motor', 'Bomba de agua']
 const FALLAS = ['Fuga de aceite', 'Sobrecalentamiento motor', 'Falla eléctrica', 'Desgaste prematuro frenos', 'Vibración en marcha', 'Ruido en caja de cambios', 'Pérdida de potencia', 'Humo excesivo', 'Falla de arranque', 'Consumo excesivo combustible', 'Fuga hidráulica', 'Falla de suspensión']
@@ -93,9 +133,34 @@ interface UmbralState {
   calibracionActive: boolean
 }
 
+const EMPTY_TIPO: TipoTrabajoConfig = { id: 0, nombre: '', categoria: 'PREVENTIVO', duracion: '1h', requiereTaller: false, requiereMateriales: false, sistema: '', subsistema: '' }
+
 export default function EAMConfig() {
   const [tab, setTab] = useState(0)
   const [catSearch, setCatSearch] = useState<Record<string, string>>({})
+
+  // Tipos de Trabajo — CRUD
+  const [tiposTrabajo, setTiposTrabajo] = useState<TipoTrabajoConfig[]>(TIPOS_TRABAJO_INIT)
+  const [tipoDialog, setTipoDialog] = useState(false)
+  const [tipoEditing, setTipoEditing] = useState<TipoTrabajoConfig>(EMPTY_TIPO)
+  const [tipoSearch, setTipoSearch] = useState('')
+
+  const openNewTipo = () => { setTipoEditing({ ...EMPTY_TIPO, id: Date.now() }); setTipoDialog(true) }
+  const openEditTipo = (t: TipoTrabajoConfig) => { setTipoEditing({ ...t }); setTipoDialog(true) }
+  const saveTipo = () => {
+    setTiposTrabajo((prev) =>
+      prev.find((t) => t.id === tipoEditing.id)
+        ? prev.map((t) => (t.id === tipoEditing.id ? tipoEditing : t))
+        : [...prev, tipoEditing]
+    )
+    setTipoDialog(false)
+  }
+  const deleteTipo = (id: number) => setTiposTrabajo((p) => p.filter((t) => t.id !== id))
+
+  const filteredTipos = tiposTrabajo.filter((t) =>
+    t.nombre.toLowerCase().includes(tipoSearch.toLowerCase()) ||
+    t.categoria.toLowerCase().includes(tipoSearch.toLowerCase())
+  )
   const [intToggles, setIntToggles] = useState<Record<string, boolean>>(
     Object.fromEntries(INTEGRACIONES.map(i => [i.codigo, i.estado === 'ACTIVO']))
   )
@@ -178,9 +243,194 @@ export default function EAMConfig() {
         {/* Tab 0: Catálogos */}
         {tab === 0 && (
           <Grid container spacing={2}>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <CatalogCard title="Tipos de Trabajo" items={TIPOS_TRABAJO} catKey="tipos" total={12} />
+
+            {/* ── Tipos de Trabajo — card especial con CRUD ── */}
+            <Grid size={{ xs: 12 }}>
+              <Card sx={{ background: CARD_BG, border: `1px solid ${alpha(EAM_COLOR, 0.2)}` }}>
+                <CardContent>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight={700} color="white">Tipos de Trabajo</Typography>
+                      <Typography variant="caption" color="grey.500">{tiposTrabajo.length} tipos configurados — categorías, duración y requisitos</Typography>
+                    </Box>
+                    <Button size="small" startIcon={<AddIcon />} variant="contained"
+                      sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#27884A' }, textTransform: 'none', fontWeight: 600, fontSize: 12 }}
+                      onClick={openNewTipo}
+                    >
+                      Agregar tipo
+                    </Button>
+                  </Stack>
+
+                  {/* Buscador */}
+                  <TextField
+                    fullWidth size="small" placeholder="Buscar por nombre o categoría..."
+                    value={tipoSearch}
+                    onChange={(e) => setTipoSearch(e.target.value)}
+                    InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: 'grey.600', fontSize: 16 }} /></InputAdornment> }}
+                    sx={{ mb: 2, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.03), '& fieldset': { borderColor: alpha('#fff', 0.1) }, '&:hover fieldset': { borderColor: alpha(EAM_COLOR, 0.4) }, color: 'white', fontSize: 13 } }}
+                  />
+
+                  {/* Cabecera */}
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 130px 80px 1fr 36px 36px', gap: 1, px: 1, py: 0.5, bgcolor: alpha(EAM_COLOR, 0.05), borderRadius: '6px', mb: 0.5 }}>
+                    {['Nombre', 'Categoría', 'Duración', 'Atributos', '', ''].map((h) => (
+                      <Typography key={h} fontSize={10} fontWeight={700} color="rgba(255,255,255,0.35)" letterSpacing="0.4px">{h.toUpperCase()}</Typography>
+                    ))}
+                  </Box>
+
+                  {/* Filas */}
+                  <Stack spacing={0.5}>
+                    {filteredTipos.map((t) => (
+                      <Box key={t.id} sx={{
+                        display: 'grid', gridTemplateColumns: '1fr 130px 80px 1fr 36px 36px',
+                        gap: 1, px: 1, py: 0.75, alignItems: 'center',
+                        borderRadius: '8px', border: `1px solid rgba(255,255,255,0.04)`,
+                        '&:hover': { bgcolor: alpha('#fff', 0.02) },
+                      }}>
+                        <Typography fontSize={13} color="white" fontWeight={500}>{t.nombre}</Typography>
+
+                        <Chip
+                          label={t.categoria}
+                          size="small"
+                          sx={{ bgcolor: alpha(CAT_COLOR[t.categoria], 0.15), color: CAT_COLOR[t.categoria], fontWeight: 700, fontSize: 10, height: 20, border: `1px solid ${alpha(CAT_COLOR[t.categoria], 0.3)}`, width: 'fit-content' }}
+                        />
+
+                        <Typography fontSize={12} color="grey.400">{t.duracion}</Typography>
+
+                        <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                          {t.requiereTaller && (
+                            <Chip label="Taller" size="small" sx={{ bgcolor: alpha('#F59E0B', 0.1), color: '#F59E0B', fontSize: 9, height: 18, border: '1px solid rgba(245,158,11,0.2)' }} />
+                          )}
+                          {t.requiereMateriales && (
+                            <Chip label="Repuestos" size="small" sx={{ bgcolor: alpha('#3B82F6', 0.1), color: '#3B82F6', fontSize: 9, height: 18, border: '1px solid rgba(59,130,246,0.2)' }} />
+                          )}
+                          {!t.requiereTaller && !t.requiereMateriales && (
+                            <Typography fontSize={11} color="grey.600">Sin requisitos</Typography>
+                          )}
+                        </Stack>
+
+                        <IconButton size="small" sx={{ color: 'grey.500', '&:hover': { color: EAM_COLOR } }} onClick={() => openEditTipo(t)}>
+                          <EditIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                        <IconButton size="small" sx={{ color: 'grey.600', '&:hover': { color: '#EF4444' } }} onClick={() => deleteTipo(t.id)}>
+                          <DeleteIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                      </Box>
+                    ))}
+                  </Stack>
+                </CardContent>
+              </Card>
             </Grid>
+
+            {/* Diálogo crear/editar tipo de trabajo */}
+            <Dialog open={tipoDialog} onClose={() => setTipoDialog(false)} maxWidth="sm" fullWidth
+              PaperProps={{ sx: { bgcolor: CARD_BG, border: `1px solid ${alpha(EAM_COLOR, 0.3)}`, borderRadius: '14px' } }}
+            >
+              <DialogTitle sx={{ color: 'white', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
+                {tipoEditing.id && tiposTrabajo.find(t => t.id === tipoEditing.id) ? 'Editar tipo de trabajo' : 'Nuevo tipo de trabajo'}
+                <IconButton size="small" onClick={() => setTipoDialog(false)} sx={{ color: 'grey.500' }}><CloseIcon sx={{ fontSize: 18 }} /></IconButton>
+              </DialogTitle>
+              <DialogContent sx={{ pt: 1 }}>
+                <Stack spacing={2}>
+                  <TextField
+                    fullWidth size="small" label="Nombre del trabajo"
+                    value={tipoEditing.nombre}
+                    onChange={(e) => setTipoEditing((p) => ({ ...p, nombre: e.target.value }))}
+                    sx={{ '& .MuiOutlinedInput-root': { color: 'white', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
+                  />
+
+                  <Stack direction="row" spacing={2}>
+                    <TextField
+                      select fullWidth size="small" label="Categoría"
+                      value={tipoEditing.categoria}
+                      onChange={(e) => setTipoEditing((p) => ({ ...p, categoria: e.target.value as CatTrabajo }))}
+                      sx={{ '& .MuiOutlinedInput-root': { color: 'white', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) }, '& .MuiSvgIcon-root': { color: 'grey.500' } }}
+                    >
+                      {CATEGORIAS_TRABAJO.map((c) => (
+                        <MenuItem key={c} value={c}>
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: CAT_COLOR[c] }} />
+                            <span>{c}</span>
+                          </Stack>
+                        </MenuItem>
+                      ))}
+                    </TextField>
+
+                    <TextField
+                      fullWidth size="small" label="Duración estimada"
+                      value={tipoEditing.duracion}
+                      onChange={(e) => setTipoEditing((p) => ({ ...p, duracion: e.target.value }))}
+                      placeholder="Ej: 2h, 4h, Variable"
+                      sx={{ '& .MuiOutlinedInput-root': { color: 'white', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
+                    />
+                  </Stack>
+
+                  <Stack direction="row" spacing={2}>
+                    <TextField
+                      fullWidth size="small" label="Sistema del activo"
+                      value={tipoEditing.sistema}
+                      onChange={(e) => setTipoEditing((p) => ({ ...p, sistema: e.target.value }))}
+                      placeholder="Ej: Motor, Eléctrico, Hidráulico"
+                      sx={{ '& .MuiOutlinedInput-root': { color: 'white', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
+                    />
+                    <TextField
+                      fullWidth size="small" label="Subsistema del activo"
+                      value={tipoEditing.subsistema}
+                      onChange={(e) => setTipoEditing((p) => ({ ...p, subsistema: e.target.value }))}
+                      placeholder="Ej: Lubricación, Circuitos, Transmisión"
+                      sx={{ '& .MuiOutlinedInput-root': { color: 'white', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
+                    />
+                  </Stack>
+
+                  <Stack direction="row" spacing={3}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={tipoEditing.requiereTaller}
+                          onChange={(e) => setTipoEditing((p) => ({ ...p, requiereTaller: e.target.checked }))}
+                          sx={{ '& .MuiSwitch-switchBase.Mui-checked': { color: '#F59E0B' }, '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#F59E0B' } }}
+                        />
+                      }
+                      label={<Typography fontSize={13} color="grey.300">Requiere taller externo</Typography>}
+                    />
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={tipoEditing.requiereMateriales}
+                          onChange={(e) => setTipoEditing((p) => ({ ...p, requiereMateriales: e.target.checked }))}
+                          sx={{ '& .MuiSwitch-switchBase.Mui-checked': { color: '#3B82F6' }, '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#3B82F6' } }}
+                        />
+                      }
+                      label={<Typography fontSize={13} color="grey.300">Requiere repuestos</Typography>}
+                    />
+                  </Stack>
+
+                  {/* Preview del badge */}
+                  {tipoEditing.nombre && (
+                    <Box sx={{ p: 1.5, bgcolor: alpha('#fff', 0.03), borderRadius: '8px', border: `1px solid rgba(255,255,255,0.07)` }}>
+                      <Typography fontSize={11} color="grey.500" mb={0.75}>Vista previa de badges:</Typography>
+                      <Stack direction="row" spacing={0.75} flexWrap="wrap">
+                        <Chip label={tipoEditing.categoria} size="small" sx={{ bgcolor: alpha(CAT_COLOR[tipoEditing.categoria], 0.15), color: CAT_COLOR[tipoEditing.categoria], fontWeight: 700, fontSize: 10, height: 20 }} />
+                        <Chip label={`⏱ ${tipoEditing.duracion || '?'}`} size="small" sx={{ bgcolor: alpha('#fff', 0.05), color: 'rgba(255,255,255,0.55)', fontSize: 10, height: 20 }} />
+                        {tipoEditing.requiereTaller && <Chip label="Requiere taller" size="small" sx={{ bgcolor: alpha('#F59E0B', 0.1), color: '#F59E0B', fontSize: 10, height: 20 }} />}
+                        {tipoEditing.requiereMateriales && <Chip label="Requiere repuestos" size="small" sx={{ bgcolor: alpha('#3B82F6', 0.1), color: '#3B82F6', fontSize: 10, height: 20 }} />}
+                      </Stack>
+                    </Box>
+                  )}
+                </Stack>
+              </DialogContent>
+              <DialogActions sx={{ px: 3, pb: 2.5 }}>
+                <Button onClick={() => setTipoDialog(false)} sx={{ color: 'grey.400' }}>Cancelar</Button>
+                <Button
+                  variant="contained" onClick={saveTipo}
+                  disabled={!tipoEditing.nombre.trim()}
+                  sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#27884A' }, fontWeight: 700, borderRadius: '8px' }}
+                >
+                  Guardar
+                </Button>
+              </DialogActions>
+            </Dialog>
+
+            <Grid size={{ xs: 12, md: 6 }}>
             <Grid size={{ xs: 12, md: 6 }}>
               <CatalogCard title="Actividades" items={ACTIVIDADES} catKey="actividades" total={18} />
             </Grid>
@@ -203,7 +453,7 @@ export default function EAMConfig() {
         {tab === 1 && (
           <Box>
             <Stack direction="row" justifyContent="flex-end" mb={2}>
-              <Button startIcon={<AddIcon />} variant="contained" sx={{ textTransform: 'none', background: EAM_COLOR, '&:hover': { background: '#C2410C' } }}>
+              <Button startIcon={<AddIcon />} variant="contained" sx={{ textTransform: 'none', background: EAM_COLOR, '&:hover': { background: '#27884A' } }}>
                 Agregar Contratista
               </Button>
             </Stack>
