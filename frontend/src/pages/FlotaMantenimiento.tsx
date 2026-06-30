@@ -2,11 +2,12 @@ import React, { useState } from 'react'
 import {
   Box, Paper, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, MenuItem, IconButton, Stack, Chip, Grid, Tooltip, CircularProgress,
-  Tabs, Tab, alpha, Divider,
+  Tabs, Tab, alpha, Divider, InputAdornment,
 } from '@mui/material'
 import {
   Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Build as BuildIcon,
   CheckCircle as DoneIcon, Schedule as OpenIcon, Engineering as InProgressIcon,
+  Inventory2 as PartsIcon,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient as api } from '@/api/client'
@@ -18,11 +19,14 @@ const GF_COLOR = '#32AC5C'
 interface Vehiculo { id: number; placa: string }
 interface Personal { id: number; nombres: string; apellidos: string; tipo: string }
 interface TipoTrabajo { id: number; nombre: string; tipo: string; nivel_criticidad: string }
+interface Proveedor { id: number; nombre: string }
+interface Repuesto { id: number; codigo: string; nombre: string; unidad: string; costo_referencia?: number }
 interface OrdenDetalle { id: number; descripcion: string; estado: string; costo_repuestos: number; costo_mano_obra: number }
 interface Orden {
   id: number; numero: string; vehiculo_id: number; vehiculo?: Vehiculo
   fecha_apertura: string; fecha_cierre?: string; estado: string
   personal_id?: number; mecanico?: Personal
+  proveedor_id?: number; proveedor?: Proveedor
   tipo_taller: string; observaciones?: string
   costo_repuestos: number; costo_mano_obra: number
   detalles: OrdenDetalle[]
@@ -45,17 +49,26 @@ export default function FlotaMantenimiento() {
   const qc = useQueryClient()
   const [tab, setTab] = useState(0)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [formTab, setFormTab] = useState(0)
   const [estadoDialog, setEstadoDialog] = useState<Orden | null>(null)
   const [nuevoEstado, setNuevoEstado] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState<Orden | null>(null)
-  const [form, setForm] = useState({ vehiculo_id: '', fecha_apertura: new Date().toISOString().split('T')[0], personal_id: '', tipo_taller: 'INTERNO', observaciones: '', medicion_apertura: '' })
-  const [detalles, setDetalles] = useState([{ descripcion: '', tipo_trabajo_id: '', costo_repuestos: '', costo_mano_obra: '' }])
+
+  const [form, setForm] = useState({
+    vehiculo_id: '', fecha_apertura: new Date().toISOString().split('T')[0],
+    personal_id: '', tipo_taller: 'INTERNO', proveedor_id: '',
+    observaciones: '', medicion_apertura: '',
+  })
+  const [trabajos, setTrabajos] = useState([{ descripcion: '', tipo_trabajo_id: '', costo_mano_obra: '' }])
+  const [repuestoItems, setRepuestoItems] = useState([{ repuesto_id: '', cantidad: '1' }])
 
   const tabFiltros = ['todas', 'ABIERTA', 'EN_PROCESO', 'CERRADA']
 
   const { data: vehiculos = [] } = useQuery<Vehiculo[]>({ queryKey: ['flota-vehiculos'], queryFn: () => api.get('/flota/vehiculos/?activo=true').then(r => r.data) })
   const { data: personal = [] } = useQuery<Personal[]>({ queryKey: ['flota-personal-mecanicos'], queryFn: () => api.get('/flota/personal/?tipo=MECANICO').then(r => r.data) })
   const { data: tiposTrabajo = [] } = useQuery<TipoTrabajo[]>({ queryKey: ['flota-tipos-trabajo'], queryFn: () => api.get('/flota/tipos-trabajo/').then(r => r.data) })
+  const { data: proveedores = [] } = useQuery<Proveedor[]>({ queryKey: ['flota-proveedores'], queryFn: () => api.get('/flota/proveedores/').then(r => r.data) })
+  const { data: repuestosData = [] } = useQuery<Repuesto[]>({ queryKey: ['flota-repuestos'], queryFn: () => api.get('/flota/repuestos/').then(r => r.data) })
 
   const { data: ordenes = [], isLoading } = useQuery<Orden[]>({
     queryKey: ['flota-ordenes', tabFiltros[tab]],
@@ -82,20 +95,37 @@ export default function FlotaMantenimiento() {
   })
 
   const resetForm = () => {
-    setForm({ vehiculo_id: '', fecha_apertura: new Date().toISOString().split('T')[0], personal_id: '', tipo_taller: 'INTERNO', observaciones: '', medicion_apertura: '' })
-    setDetalles([{ descripcion: '', tipo_trabajo_id: '', costo_repuestos: '', costo_mano_obra: '' }])
+    setForm({ vehiculo_id: '', fecha_apertura: new Date().toISOString().split('T')[0], personal_id: '', tipo_taller: 'INTERNO', proveedor_id: '', observaciones: '', medicion_apertura: '' })
+    setTrabajos([{ descripcion: '', tipo_trabajo_id: '', costo_mano_obra: '' }])
+    setRepuestoItems([{ repuesto_id: '', cantidad: '1' }])
+    setFormTab(0)
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.vehiculo_id) { toast.error('Selecciona un vehículo'); return }
-    const dets = detalles.filter(d => d.descripcion.trim()).map(d => ({
-      descripcion: d.descripcion,
-      tipo_trabajo_id: d.tipo_trabajo_id ? Number(d.tipo_trabajo_id) : undefined,
-      costo_repuestos: Number(d.costo_repuestos) || 0,
-      costo_mano_obra: Number(d.costo_mano_obra) || 0,
+
+    const trabajoDets = trabajos.filter(t => t.descripcion.trim()).map(t => ({
+      descripcion: t.descripcion,
+      tipo_trabajo_id: t.tipo_trabajo_id ? Number(t.tipo_trabajo_id) : undefined,
+      costo_repuestos: 0,
+      costo_mano_obra: Number(t.costo_mano_obra) || 0,
     }))
-    if (dets.length === 0) { toast.error('Agrega al menos un trabajo'); return }
+
+    const repuestoDets = repuestoItems.filter(r => r.repuesto_id).map(r => {
+      const rep = repuestosData.find(rd => String(rd.id) === r.repuesto_id)
+      const costo = rep?.costo_referencia ? Number(r.cantidad) * rep.costo_referencia : 0
+      return {
+        descripcion: `${rep?.nombre ?? 'Repuesto'} ×${r.cantidad} ${rep?.unidad ?? ''}`.trim(),
+        tipo_trabajo_id: undefined,
+        costo_repuestos: costo,
+        costo_mano_obra: 0,
+      }
+    })
+
+    const dets = [...trabajoDets, ...repuestoDets]
+    if (dets.length === 0) { toast.error('Agrega al menos un trabajo o repuesto'); return }
+
     const payload: Record<string, unknown> = {
       vehiculo_id: Number(form.vehiculo_id),
       fecha_apertura: form.fecha_apertura,
@@ -105,12 +135,20 @@ export default function FlotaMantenimiento() {
     }
     if (form.personal_id) payload.personal_id = Number(form.personal_id)
     if (form.medicion_apertura) payload.medicion_apertura = Number(form.medicion_apertura)
+    if (form.proveedor_id) payload.proveedor_id = Number(form.proveedor_id)
     createMut.mutate(payload)
   }
 
   const abiertas = ordenes.filter(o => o.estado === 'ABIERTA').length
   const enProceso = ordenes.filter(o => o.estado === 'EN_PROCESO').length
   const cerradas = ordenes.filter(o => o.estado === 'CERRADA').length
+
+  const totalRepuestos = repuestoItems.reduce((sum, r) => {
+    const rep = repuestosData.find(rd => String(rd.id) === r.repuesto_id)
+    return sum + (rep?.costo_referencia ? Number(r.cantidad) * rep.costo_referencia : 0)
+  }, 0)
+
+  const vehiculoSeleccionado = vehiculos.find(v => String(v.id) === form.vehiculo_id)
 
   return (
     <Layout title="Mantenimiento — Gestión de Flotas">
@@ -185,6 +223,9 @@ export default function FlotaMantenimiento() {
                           size="small" sx={{ bgcolor: alpha(color, 0.1), color, height: 20, fontSize: 10 }} />
                         <Chip label={orden.vehiculo?.placa ?? `Veh. ${orden.vehiculo_id}`}
                           size="small" sx={{ bgcolor: alpha(GF_COLOR, 0.1), color: GF_COLOR, height: 20, fontSize: 10 }} />
+                        {orden.tipo_taller === 'EXTERNO' && (
+                          <Chip label="Externo" size="small" variant="outlined" sx={{ height: 20, fontSize: 10 }} />
+                        )}
                       </Stack>
                       <Stack direction="row" gap={2} mt={0.25} flexWrap="wrap">
                         <Typography fontSize={12} color="text.secondary">
@@ -195,7 +236,11 @@ export default function FlotaMantenimiento() {
                             Mecánico: {orden.mecanico.nombres} {orden.mecanico.apellidos}
                           </Typography>
                         )}
-                        <Typography fontSize={12} color="text.secondary">{orden.tipo_taller}</Typography>
+                        {orden.proveedor && (
+                          <Typography fontSize={12} color="text.secondary">
+                            Proveedor: {orden.proveedor.nombre}
+                          </Typography>
+                        )}
                       </Stack>
                     </Box>
                   </Stack>
@@ -244,108 +289,274 @@ export default function FlotaMantenimiento() {
         </Stack>
       )}
 
-      {/* Dialog nueva orden */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ fontSize: 15, fontWeight: 700 }}>Nueva Orden de Trabajo</DialogTitle>
-        <Box component="form" onSubmit={handleSubmit}>
-          <DialogContent>
-            <Grid container spacing={2} pt={0.5}>
-              <Grid size={4}>
-                <TextField select label="Vehículo *" fullWidth size="small" value={form.vehiculo_id}
-                  onChange={e => setForm(f => ({ ...f, vehiculo_id: e.target.value }))}>
-                  <MenuItem value=""><em>Seleccionar</em></MenuItem>
-                  {vehiculos.map(v => <MenuItem key={v.id} value={v.id}>{v.placa}</MenuItem>)}
-                </TextField>
-              </Grid>
-              <Grid size={4}>
-                <TextField label="Fecha de apertura" type="date" fullWidth size="small"
-                  InputLabelProps={{ shrink: true }} value={form.fecha_apertura}
-                  onChange={e => setForm(f => ({ ...f, fecha_apertura: e.target.value }))} />
-              </Grid>
-              <Grid size={4}>
-                <TextField label="Medición apertura (km)" type="number" fullWidth size="small"
-                  value={form.medicion_apertura}
-                  onChange={e => setForm(f => ({ ...f, medicion_apertura: e.target.value }))} />
-              </Grid>
-              <Grid size={6}>
-                <TextField select label="Mecánico asignado" fullWidth size="small" value={form.personal_id}
-                  onChange={e => setForm(f => ({ ...f, personal_id: e.target.value }))}>
-                  <MenuItem value=""><em>Sin asignar</em></MenuItem>
-                  {personal.map(p => <MenuItem key={p.id} value={p.id}>{p.nombres} {p.apellidos}</MenuItem>)}
-                </TextField>
-              </Grid>
-              <Grid size={6}>
-                <TextField select label="Tipo de taller" fullWidth size="small" value={form.tipo_taller}
-                  onChange={e => setForm(f => ({ ...f, tipo_taller: e.target.value }))}>
-                  <MenuItem value="INTERNO">Taller Interno</MenuItem>
-                  <MenuItem value="EXTERNO">Taller Externo</MenuItem>
-                </TextField>
-              </Grid>
-              <Grid size={12}>
-                <TextField label="Observaciones" fullWidth size="small" multiline rows={2}
-                  value={form.observaciones}
-                  onChange={e => setForm(f => ({ ...f, observaciones: e.target.value }))} />
-              </Grid>
+      {/* ═══ DIALOG: Nueva Orden ═══════════════════════════════════════════════ */}
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="lg" fullWidth
+        PaperProps={{ sx: { height: '92vh', display: 'flex', flexDirection: 'column' } }}>
 
-              <Grid size={12}>
-                <Divider><Typography fontSize={12} color="text.secondary">Trabajos a realizar</Typography></Divider>
-              </Grid>
+        {/* Title */}
+        <DialogTitle sx={{ borderBottom: '1px solid #E5E7EB', py: 2, px: 3, flexShrink: 0 }}>
+          <Stack direction="row" alignItems="center" gap={1}>
+            <Box sx={{ width: 32, height: 32, borderRadius: '8px', bgcolor: alpha(GF_COLOR, 0.12), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <BuildIcon sx={{ fontSize: 18, color: GF_COLOR }} />
+            </Box>
+            <Box>
+              <Typography fontSize={15} fontWeight={700} lineHeight={1.2}>
+                Crear Orden de Trabajo
+                {vehiculoSeleccionado && (
+                  <Typography component="span" fontSize={13} color="text.secondary" fontWeight={400} ml={1}>
+                    — vehículo {vehiculoSeleccionado.placa}
+                  </Typography>
+                )}
+              </Typography>
+              <Typography fontSize={11} color="text.secondary">Ingresa los datos de la orden y los trabajos/repuestos a realizar</Typography>
+            </Box>
+          </Stack>
+        </DialogTitle>
 
-              {detalles.map((det, i) => (
-                <React.Fragment key={i}>
-                  <Grid size={4}>
-                    <TextField label={`Descripción ${i + 1} *`} fullWidth size="small"
-                      value={det.descripcion}
-                      onChange={e => setDetalles(ds => ds.map((d, j) => j === i ? { ...d, descripcion: e.target.value } : d))} />
-                  </Grid>
-                  <Grid size={3}>
-                    <TextField select label="Tipo de trabajo" fullWidth size="small"
-                      value={det.tipo_trabajo_id}
-                      onChange={e => setDetalles(ds => ds.map((d, j) => j === i ? { ...d, tipo_trabajo_id: e.target.value } : d))}>
-                      <MenuItem value=""><em>Sin tipo</em></MenuItem>
-                      {tiposTrabajo.map(t => <MenuItem key={t.id} value={t.id}>{t.nombre}</MenuItem>)}
+        <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+
+          {/* ── Sección superior: datos generales ── */}
+          <Box sx={{ px: 3, pt: 2.5, pb: 0, flexShrink: 0 }}>
+            <Grid container spacing={2.5}>
+
+              {/* Columna izquierda */}
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Stack gap={2}>
+                  <TextField select label="Vehículo *" fullWidth size="small" value={form.vehiculo_id}
+                    onChange={e => setForm(f => ({ ...f, vehiculo_id: e.target.value }))}>
+                    <MenuItem value=""><em>Seleccionar vehículo</em></MenuItem>
+                    {vehiculos.map(v => <MenuItem key={v.id} value={v.id}>{v.placa}</MenuItem>)}
+                  </TextField>
+
+                  <Stack direction="row" gap={1.5}>
+                    <TextField label="Fecha de apertura *" type="date" size="small" fullWidth
+                      InputLabelProps={{ shrink: true }} value={form.fecha_apertura}
+                      onChange={e => setForm(f => ({ ...f, fecha_apertura: e.target.value }))} />
+                    <TextField label="Odómetro" type="number" size="small" fullWidth
+                      value={form.medicion_apertura}
+                      onChange={e => setForm(f => ({ ...f, medicion_apertura: e.target.value }))}
+                      InputProps={{ endAdornment: <InputAdornment position="end"><Typography fontSize={11} color="text.secondary">km</Typography></InputAdornment> }} />
+                  </Stack>
+
+                  <Stack direction="row" gap={1.5}>
+                    <TextField select label="Tipo de taller" fullWidth size="small" value={form.tipo_taller}
+                      onChange={e => setForm(f => ({ ...f, tipo_taller: e.target.value, proveedor_id: '' }))}>
+                      <MenuItem value="INTERNO">Taller Interno</MenuItem>
+                      <MenuItem value="EXTERNO">Taller Externo</MenuItem>
                     </TextField>
-                  </Grid>
-                  <Grid size={2}>
-                    <TextField label="Rep. ($)" type="number" fullWidth size="small"
-                      inputProps={{ min: 0 }} value={det.costo_repuestos}
-                      onChange={e => setDetalles(ds => ds.map((d, j) => j === i ? { ...d, costo_repuestos: e.target.value } : d))} />
-                  </Grid>
-                  <Grid size={2}>
-                    <TextField label="M.O. ($)" type="number" fullWidth size="small"
-                      inputProps={{ min: 0 }} value={det.costo_mano_obra}
-                      onChange={e => setDetalles(ds => ds.map((d, j) => j === i ? { ...d, costo_mano_obra: e.target.value } : d))} />
-                  </Grid>
-                  <Grid size={1} sx={{ display: 'flex', alignItems: 'center' }}>
-                    {detalles.length > 1 && (
-                      <IconButton size="small" onClick={() => setDetalles(ds => ds.filter((_, j) => j !== i))}>
-                        <DeleteIcon sx={{ fontSize: 16, color: '#EF4444' }} />
-                      </IconButton>
+                    {form.tipo_taller === 'EXTERNO' ? (
+                      <TextField select label="Proveedor *" fullWidth size="small" value={form.proveedor_id}
+                        onChange={e => setForm(f => ({ ...f, proveedor_id: e.target.value }))}>
+                        <MenuItem value=""><em>Seleccionar</em></MenuItem>
+                        {proveedores.map(p => <MenuItem key={p.id} value={p.id}>{p.nombre}</MenuItem>)}
+                      </TextField>
+                    ) : (
+                      <TextField select label="Mecánico asignado" fullWidth size="small" value={form.personal_id}
+                        onChange={e => setForm(f => ({ ...f, personal_id: e.target.value }))}>
+                        <MenuItem value=""><em>Sin asignar</em></MenuItem>
+                        {personal.map(p => <MenuItem key={p.id} value={p.id}>{p.nombres} {p.apellidos}</MenuItem>)}
+                      </TextField>
                     )}
-                  </Grid>
-                </React.Fragment>
-              ))}
+                  </Stack>
 
-              <Grid size={12}>
-                <Button size="small" onClick={() => setDetalles(ds => [...ds, { descripcion: '', tipo_trabajo_id: '', costo_repuestos: '', costo_mano_obra: '' }])}
-                  sx={{ textTransform: 'none', color: GF_COLOR }}>
-                  + Agregar trabajo
-                </Button>
+                  {form.tipo_taller === 'EXTERNO' && (
+                    <TextField select label="Mecánico asignado" fullWidth size="small" value={form.personal_id}
+                      onChange={e => setForm(f => ({ ...f, personal_id: e.target.value }))}>
+                      <MenuItem value=""><em>Sin asignar</em></MenuItem>
+                      {personal.map(p => <MenuItem key={p.id} value={p.id}>{p.nombres} {p.apellidos}</MenuItem>)}
+                    </TextField>
+                  )}
+                </Stack>
               </Grid>
+
+              {/* Columna derecha */}
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Stack gap={2} height="100%">
+                  <Box sx={{ p: 2, border: '1px solid #E5E7EB', borderRadius: '10px', bgcolor: '#F9FAFB', flex: 1 }}>
+                    <Typography fontSize={11} fontWeight={600} color="text.secondary" mb={1} textTransform="uppercase" letterSpacing="0.05em">
+                      Estado inicial
+                    </Typography>
+                    <Stack direction="row" gap={1} alignItems="center">
+                      <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#3B82F6' }} />
+                      <Typography fontSize={13} fontWeight={700} color="#3B82F6">ABIERTA</Typography>
+                      <Typography fontSize={11} color="text.secondary">— Se asignará automáticamente al crear</Typography>
+                    </Stack>
+                  </Box>
+                  <TextField
+                    label="Observaciones" fullWidth size="small" multiline rows={3}
+                    value={form.observaciones} placeholder="Descripción de la situación, síntomas observados..."
+                    onChange={e => setForm(f => ({ ...f, observaciones: e.target.value }))} />
+                </Stack>
+              </Grid>
+
             </Grid>
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+          </Box>
+
+          {/* ── Sección inferior: Trabajos y Repuestos (scrollable) ── */}
+          <Box sx={{ flex: 1, overflow: 'auto', px: 3, pb: 2 }}>
+            <Divider sx={{ my: 2 }} />
+
+            <Tabs value={formTab} onChange={(_, v) => setFormTab(v)}
+              sx={{ mb: 2, '& .MuiTabs-indicator': { bgcolor: GF_COLOR }, minHeight: 36 }}>
+              <Tab label={`Trabajos a realizar (${trabajos.length})`}
+                sx={{ textTransform: 'none', fontSize: 13, fontWeight: 600, minHeight: 36, py: 0.5, '&.Mui-selected': { color: GF_COLOR } }} />
+              <Tab
+                icon={<PartsIcon sx={{ fontSize: 14 }} />} iconPosition="start"
+                label={`Repuestos (${repuestoItems.filter(r => r.repuesto_id).length})`}
+                sx={{ textTransform: 'none', fontSize: 13, fontWeight: 600, minHeight: 36, py: 0.5, '&.Mui-selected': { color: GF_COLOR } }} />
+            </Tabs>
+
+            {/* Tab 0: Trabajos */}
+            {formTab === 0 && (
+              <Box>
+                {/* Header */}
+                <Grid container spacing={1} mb={0.5} px={0.5}>
+                  <Grid size={4}><Typography fontSize={11} fontWeight={600} color="text.secondary">Descripción del trabajo *</Typography></Grid>
+                  <Grid size={3}><Typography fontSize={11} fontWeight={600} color="text.secondary">Tipo de trabajo</Typography></Grid>
+                  <Grid size={3}><Typography fontSize={11} fontWeight={600} color="text.secondary">Costo M.O. ($)</Typography></Grid>
+                  <Grid size={2} />
+                </Grid>
+
+                <Stack gap={1}>
+                  {trabajos.map((t, i) => (
+                    <Grid container spacing={1} key={i} alignItems="center">
+                      <Grid size={4}>
+                        <TextField placeholder={`Trabajo ${i + 1}`} fullWidth size="small"
+                          value={t.descripcion}
+                          onChange={e => setTrabajos(ts => ts.map((x, j) => j === i ? { ...x, descripcion: e.target.value } : x))} />
+                      </Grid>
+                      <Grid size={3}>
+                        <TextField select fullWidth size="small" value={t.tipo_trabajo_id}
+                          onChange={e => setTrabajos(ts => ts.map((x, j) => j === i ? { ...x, tipo_trabajo_id: e.target.value } : x))}>
+                          <MenuItem value=""><em>Sin tipo</em></MenuItem>
+                          {tiposTrabajo.map(tt => <MenuItem key={tt.id} value={tt.id}>{tt.nombre}</MenuItem>)}
+                        </TextField>
+                      </Grid>
+                      <Grid size={3}>
+                        <TextField type="number" fullWidth size="small" inputProps={{ min: 0 }}
+                          value={t.costo_mano_obra} placeholder="0"
+                          InputProps={{ startAdornment: <InputAdornment position="start"><Typography fontSize={11}>$</Typography></InputAdornment> }}
+                          onChange={e => setTrabajos(ts => ts.map((x, j) => j === i ? { ...x, costo_mano_obra: e.target.value } : x))} />
+                      </Grid>
+                      <Grid size={2} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        {trabajos.length > 1 && (
+                          <IconButton size="small" onClick={() => setTrabajos(ts => ts.filter((_, j) => j !== i))}>
+                            <DeleteIcon sx={{ fontSize: 16, color: '#EF4444' }} />
+                          </IconButton>
+                        )}
+                      </Grid>
+                    </Grid>
+                  ))}
+                </Stack>
+
+                <Button size="small" startIcon={<AddIcon sx={{ fontSize: 14 }} />}
+                  onClick={() => setTrabajos(ts => [...ts, { descripcion: '', tipo_trabajo_id: '', costo_mano_obra: '' }])}
+                  sx={{ mt: 1.5, textTransform: 'none', color: GF_COLOR, fontSize: 12 }}>
+                  Agregar trabajo
+                </Button>
+              </Box>
+            )}
+
+            {/* Tab 1: Repuestos */}
+            {formTab === 1 && (
+              <Box>
+                {/* Header */}
+                <Grid container spacing={1} mb={0.5} px={0.5}>
+                  <Grid size={5}><Typography fontSize={11} fontWeight={600} color="text.secondary">Repuesto del catálogo</Typography></Grid>
+                  <Grid size={2}><Typography fontSize={11} fontWeight={600} color="text.secondary">Cantidad</Typography></Grid>
+                  <Grid size={2}><Typography fontSize={11} fontWeight={600} color="text.secondary">P. unitario</Typography></Grid>
+                  <Grid size={2}><Typography fontSize={11} fontWeight={600} color="text.secondary">Subtotal</Typography></Grid>
+                  <Grid size={1} />
+                </Grid>
+
+                <Stack gap={1}>
+                  {repuestoItems.map((r, i) => {
+                    const rep = repuestosData.find(rd => String(rd.id) === r.repuesto_id)
+                    const subtotal = rep?.costo_referencia ? Number(r.cantidad) * rep.costo_referencia : 0
+                    return (
+                      <Grid container spacing={1} key={i} alignItems="center">
+                        <Grid size={5}>
+                          <TextField select fullWidth size="small" value={r.repuesto_id}
+                            onChange={e => setRepuestoItems(rs => rs.map((x, j) => j === i ? { ...x, repuesto_id: e.target.value } : x))}>
+                            <MenuItem value=""><em>Seleccionar repuesto</em></MenuItem>
+                            {repuestosData.map(rd => (
+                              <MenuItem key={rd.id} value={rd.id}>
+                                <Box>
+                                  <Typography fontSize={12} fontWeight={600}>{rd.nombre}</Typography>
+                                  <Typography fontSize={10} color="text.secondary">{rd.codigo} · {rd.unidad}</Typography>
+                                </Box>
+                              </MenuItem>
+                            ))}
+                          </TextField>
+                        </Grid>
+                        <Grid size={2}>
+                          <TextField type="number" fullWidth size="small" inputProps={{ min: 1 }}
+                            value={r.cantidad}
+                            onChange={e => setRepuestoItems(rs => rs.map((x, j) => j === i ? { ...x, cantidad: e.target.value } : x))} />
+                        </Grid>
+                        <Grid size={2}>
+                          <Typography fontSize={12} color="text.secondary" sx={{ pl: 0.5 }}>
+                            {rep?.costo_referencia ? fmt(rep.costo_referencia) : '—'}
+                          </Typography>
+                        </Grid>
+                        <Grid size={2}>
+                          <Typography fontSize={12} fontWeight={700} color={subtotal > 0 ? GF_COLOR : 'text.secondary'} sx={{ pl: 0.5 }}>
+                            {subtotal > 0 ? fmt(subtotal) : '—'}
+                          </Typography>
+                        </Grid>
+                        <Grid size={1} sx={{ display: 'flex', alignItems: 'center' }}>
+                          {repuestoItems.length > 1 && (
+                            <IconButton size="small" onClick={() => setRepuestoItems(rs => rs.filter((_, j) => j !== i))}>
+                              <DeleteIcon sx={{ fontSize: 16, color: '#EF4444' }} />
+                            </IconButton>
+                          )}
+                        </Grid>
+                      </Grid>
+                    )
+                  })}
+                </Stack>
+
+                <Stack direction="row" justifyContent="space-between" alignItems="center" mt={1.5}>
+                  <Button size="small" startIcon={<AddIcon sx={{ fontSize: 14 }} />}
+                    onClick={() => setRepuestoItems(rs => [...rs, { repuesto_id: '', cantidad: '1' }])}
+                    sx={{ textTransform: 'none', color: GF_COLOR, fontSize: 12 }}>
+                    Agregar repuesto
+                  </Button>
+                  {totalRepuestos > 0 && (
+                    <Box sx={{ px: 2, py: 0.75, bgcolor: alpha(GF_COLOR, 0.08), borderRadius: '8px' }}>
+                      <Typography fontSize={12} fontWeight={700} color={GF_COLOR}>
+                        Total repuestos: {fmt(totalRepuestos)}
+                      </Typography>
+                    </Box>
+                  )}
+                </Stack>
+
+                {repuestosData.length === 0 && (
+                  <Box sx={{ mt: 2, p: 2, border: '1px dashed #D1D5DB', borderRadius: '10px', textAlign: 'center' }}>
+                    <PartsIcon sx={{ fontSize: 32, color: '#D1D5DB', mb: 1 }} />
+                    <Typography fontSize={12} color="text.secondary">
+                      No hay repuestos en el catálogo. Agrégalos desde{' '}
+                      <Typography component="span" fontSize={12} color={GF_COLOR} fontWeight={600}>Configuración → Repuestos</Typography>
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            )}
+          </Box>
+
+          {/* ── Acciones ── */}
+          <DialogActions sx={{ px: 3, py: 2, gap: 1, borderTop: '1px solid #E5E7EB', flexShrink: 0 }}>
             <Button size="small" onClick={() => setDialogOpen(false)} sx={{ textTransform: 'none' }}>Cancelar</Button>
             <Button type="submit" size="small" variant="contained" disabled={createMut.isPending}
               startIcon={createMut.isPending ? <CircularProgress size={14} color="inherit" /> : undefined}
-              sx={{ textTransform: 'none', bgcolor: GF_COLOR, '&:hover': { bgcolor: '#27884A' } }}>
-              Crear orden
+              sx={{ textTransform: 'none', fontWeight: 600, bgcolor: GF_COLOR, '&:hover': { bgcolor: '#27884A' }, px: 3 }}>
+              Crear orden de trabajo
             </Button>
           </DialogActions>
         </Box>
       </Dialog>
 
-      {/* Dialog cambiar estado */}
+      {/* ── Dialog cambiar estado ── */}
       <Dialog open={!!estadoDialog} onClose={() => setEstadoDialog(null)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ fontSize: 15, fontWeight: 700 }}>Cambiar Estado — {estadoDialog?.numero}</DialogTitle>
         <DialogContent>
@@ -364,6 +575,7 @@ export default function FlotaMantenimiento() {
         </DialogActions>
       </Dialog>
 
+      {/* ── Dialog eliminar ── */}
       <Dialog open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ fontSize: 15, fontWeight: 700 }}>Eliminar Orden</DialogTitle>
         <DialogContent>
