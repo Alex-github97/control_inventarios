@@ -135,6 +135,27 @@ interface UmbralState {
 
 const EMPTY_TIPO: TipoTrabajoConfig = { id: 0, nombre: '', categoria: 'PREVENTIVO', duracion: '1h', requiereTaller: false, requiereMateriales: false, sistema: '', subsistema: '' }
 
+interface CentroCosto {
+  id: number
+  codigo: string
+  nombre: string
+  ciudad: string
+  plataforma: string
+}
+
+const CENTROS_COSTO_INIT: CentroCosto[] = [
+  { id: 1, codigo: 'CC-001', nombre: 'Flota Bogotá',        ciudad: 'Bogotá',    plataforma: 'Plataforma Central' },
+  { id: 2, codigo: 'CC-002', nombre: 'Flota Medellín',       ciudad: 'Medellín',  plataforma: 'Plataforma Norte'   },
+  { id: 3, codigo: 'CC-003', nombre: 'Bodega Principal',      ciudad: 'Bogotá',    plataforma: 'Plataforma Central' },
+  { id: 4, codigo: 'CC-004', nombre: 'Infraestructura TI',    ciudad: 'Bogotá',    plataforma: 'Corporativo'        },
+  { id: 5, codigo: 'CC-005', nombre: 'Equipos de Frío',       ciudad: 'Bogotá',    plataforma: 'Plataforma Central' },
+  { id: 6, codigo: 'CC-006', nombre: 'Montacargas y Grúas',   ciudad: 'Bogotá',    plataforma: 'Plataforma Central' },
+]
+
+const EMPTY_CC: CentroCosto = { id: 0, codigo: '', nombre: '', ciudad: '', plataforma: '' }
+const CIUDADES = ['Bogotá', 'Medellín', 'Cali', 'Barranquilla', 'Cartagena', 'Bucaramanga']
+const PLATAFORMAS = ['Plataforma Central', 'Plataforma Norte', 'Plataforma Sur', 'Plataforma Oriente', 'Corporativo']
+
 export default function EAMConfig() {
   const [tab, setTab] = useState(0)
   const [catSearch, setCatSearch] = useState<Record<string, string>>({})
@@ -156,6 +177,30 @@ export default function EAMConfig() {
     setTipoDialog(false)
   }
   const deleteTipo = (id: number) => setTiposTrabajo((p) => p.filter((t) => t.id !== id))
+
+  // Centros de Costo — CRUD
+  const [centrosCosto, setCentrosCosto] = useState<CentroCosto[]>(CENTROS_COSTO_INIT)
+  const [ccDialog, setCcDialog] = useState(false)
+  const [ccEditing, setCcEditing] = useState<CentroCosto>(EMPTY_CC)
+  const [ccSearch, setCcSearch] = useState('')
+
+  const openNewCC = () => { setCcEditing({ ...EMPTY_CC, id: Date.now() }); setCcDialog(true) }
+  const openEditCC = (c: CentroCosto) => { setCcEditing({ ...c }); setCcDialog(true) }
+  const saveCC = () => {
+    setCentrosCosto((prev) =>
+      prev.find((c) => c.id === ccEditing.id)
+        ? prev.map((c) => (c.id === ccEditing.id ? ccEditing : c))
+        : [...prev, ccEditing]
+    )
+    setCcDialog(false)
+  }
+  const deleteCC = (id: number) => setCentrosCosto((p) => p.filter((c) => c.id !== id))
+
+  const filteredCC = centrosCosto.filter((c) =>
+    c.nombre.toLowerCase().includes(ccSearch.toLowerCase()) ||
+    c.codigo.toLowerCase().includes(ccSearch.toLowerCase()) ||
+    c.ciudad.toLowerCase().includes(ccSearch.toLowerCase())
+  )
 
   const filteredTipos = tiposTrabajo.filter((t) =>
     t.nombre.toLowerCase().includes(tipoSearch.toLowerCase()) ||
@@ -423,6 +468,113 @@ export default function EAMConfig() {
                 <Button
                   variant="contained" onClick={saveTipo}
                   disabled={!tipoEditing.nombre.trim()}
+                  sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#27884A' }, fontWeight: 700, borderRadius: '8px' }}
+                >
+                  Guardar
+                </Button>
+              </DialogActions>
+            </Dialog>
+
+            {/* ── Centros de Costo — card especial con CRUD ── */}
+            <Grid size={{ xs: 12 }}>
+              <Card sx={{ background: CARD_BG, border: `1px solid ${alpha(EAM_COLOR, 0.2)}` }}>
+                <CardContent>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight={700} color="white">Centros de Costo</Typography>
+                      <Typography variant="caption" color="grey.500">{centrosCosto.length} centros configurados — asociados a plataformas y ciudades</Typography>
+                    </Box>
+                    <Button size="small" startIcon={<AddIcon />} variant="contained"
+                      sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#27884A' }, textTransform: 'none', fontWeight: 600, fontSize: 12 }}
+                      onClick={openNewCC}
+                    >
+                      Agregar centro
+                    </Button>
+                  </Stack>
+                  <TextField
+                    fullWidth size="small" placeholder="Buscar por código, nombre o ciudad..."
+                    value={ccSearch} onChange={(e) => setCcSearch(e.target.value)}
+                    InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: 'grey.600', fontSize: 16 }} /></InputAdornment> }}
+                    sx={{ mb: 2, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.03), '& fieldset': { borderColor: alpha('#fff', 0.12) }, color: 'white', fontSize: 13 } }}
+                  />
+                  {/* Header */}
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '90px 1fr 130px 1fr 90px', gap: 1, px: 1, pb: 0.5, borderBottom: '1px solid rgba(255,255,255,0.07)', mb: 0.5 }}>
+                    {['Código', 'Nombre', 'Ciudad', 'Plataforma', ''].map((h) => (
+                      <Typography key={h} fontSize={10} fontWeight={700} color="rgba(255,255,255,0.3)" letterSpacing="0.04em" textTransform="uppercase">{h}</Typography>
+                    ))}
+                  </Box>
+                  <Stack spacing={0.25}>
+                    {filteredCC.map((c) => (
+                      <Box key={c.id} sx={{ display: 'grid', gridTemplateColumns: '90px 1fr 130px 1fr 90px', gap: 1, px: 1, py: 0.75, borderRadius: '6px', '&:hover': { bgcolor: alpha('#fff', 0.03) }, alignItems: 'center' }}>
+                        <Typography fontSize={11} fontWeight={700} color={EAM_COLOR}>{c.codigo}</Typography>
+                        <Typography fontSize={12} color="white" noWrap>{c.nombre}</Typography>
+                        <Typography fontSize={12} color="rgba(255,255,255,0.6)" noWrap>{c.ciudad}</Typography>
+                        <Typography fontSize={12} color="rgba(255,255,255,0.45)" noWrap>{c.plataforma}</Typography>
+                        <Stack direction="row" spacing={0.5}>
+                          <IconButton size="small" onClick={() => openEditCC(c)} sx={{ color: EAM_COLOR, '&:hover': { bgcolor: alpha(EAM_COLOR, 0.1) } }}><EditIcon sx={{ fontSize: 14 }} /></IconButton>
+                          <IconButton size="small" onClick={() => deleteCC(c.id)} sx={{ color: '#EF4444', '&:hover': { bgcolor: alpha('#EF4444', 0.1) } }}><DeleteIcon sx={{ fontSize: 14 }} /></IconButton>
+                        </Stack>
+                      </Box>
+                    ))}
+                    {filteredCC.length === 0 && (
+                      <Typography fontSize={12} color="rgba(255,255,255,0.3)" textAlign="center" py={2}>Sin resultados</Typography>
+                    )}
+                  </Stack>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            {/* Dialog Centros de Costo */}
+            <Dialog open={ccDialog} onClose={() => setCcDialog(false)} maxWidth="sm" fullWidth
+              PaperProps={{ sx: { bgcolor: CARD_BG, border: `1px solid ${alpha(EAM_COLOR, 0.3)}`, borderRadius: '14px' } }}
+            >
+              <DialogTitle sx={{ color: 'white', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
+                {ccEditing.id && centrosCosto.find((c) => c.id === ccEditing.id) ? 'Editar centro de costo' : 'Nuevo centro de costo'}
+                <IconButton size="small" onClick={() => setCcDialog(false)} sx={{ color: 'grey.500' }}><CloseIcon sx={{ fontSize: 18 }} /></IconButton>
+              </DialogTitle>
+              <DialogContent sx={{ pt: 1 }}>
+                <Stack spacing={2}>
+                  <Stack direction="row" spacing={2}>
+                    <TextField
+                      fullWidth size="small" label="Código"
+                      value={ccEditing.codigo}
+                      onChange={(e) => setCcEditing((p) => ({ ...p, codigo: e.target.value }))}
+                      placeholder="Ej: CC-007"
+                      sx={{ '& .MuiOutlinedInput-root': { color: 'white', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
+                    />
+                    <TextField
+                      fullWidth size="small" label="Nombre del centro de costo"
+                      value={ccEditing.nombre}
+                      onChange={(e) => setCcEditing((p) => ({ ...p, nombre: e.target.value }))}
+                      placeholder="Ej: Flota Cali"
+                      sx={{ '& .MuiOutlinedInput-root': { color: 'white', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
+                    />
+                  </Stack>
+                  <Stack direction="row" spacing={2}>
+                    <TextField
+                      select fullWidth size="small" label="Ciudad"
+                      value={ccEditing.ciudad}
+                      onChange={(e) => setCcEditing((p) => ({ ...p, ciudad: e.target.value }))}
+                      sx={{ '& .MuiOutlinedInput-root': { color: 'white', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) }, '& .MuiSvgIcon-root': { color: 'grey.500' } }}
+                    >
+                      {CIUDADES.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                    </TextField>
+                    <TextField
+                      select fullWidth size="small" label="Plataforma"
+                      value={ccEditing.plataforma}
+                      onChange={(e) => setCcEditing((p) => ({ ...p, plataforma: e.target.value }))}
+                      sx={{ '& .MuiOutlinedInput-root': { color: 'white', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) }, '& .MuiSvgIcon-root': { color: 'grey.500' } }}
+                    >
+                      {PLATAFORMAS.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+                    </TextField>
+                  </Stack>
+                </Stack>
+              </DialogContent>
+              <DialogActions sx={{ px: 3, pb: 2.5 }}>
+                <Button onClick={() => setCcDialog(false)} sx={{ color: 'grey.400' }}>Cancelar</Button>
+                <Button
+                  variant="contained" onClick={saveCC}
+                  disabled={!ccEditing.codigo.trim() || !ccEditing.nombre.trim()}
                   sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#27884A' }, fontWeight: 700, borderRadius: '8px' }}
                 >
                   Guardar
