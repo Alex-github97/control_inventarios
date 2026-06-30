@@ -13,7 +13,7 @@ import { apiClient as api } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
-const GF_COLOR = '#7C3AED'
+const GF_COLOR = '#32AC5C'
 
 interface Vehiculo { id: number; placa: string }
 interface Personal { id: number; nombres: string; apellidos: string; tipo: string }
@@ -124,7 +124,7 @@ export default function FlotaMantenimiento() {
           </Typography>
         </Box>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => { resetForm(); setDialogOpen(true) }}
-          sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 600, bgcolor: GF_COLOR, '&:hover': { bgcolor: '#6D28D9' }, boxShadow: `0 4px 12px ${alpha(GF_COLOR, 0.4)}` }}>
+          sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 600, bgcolor: GF_COLOR, '&:hover': { bgcolor: '#27884A' }, boxShadow: `0 4px 12px ${alpha(GF_COLOR, 0.4)}` }}>
           Nueva Orden
         </Button>
       </Stack>
@@ -293,10 +293,18 @@ export default function FlotaMantenimiento() {
 
               {detalles.map((det, i) => (
                 <React.Fragment key={i}>
-                  <Grid size={6}>
-                    <TextField label={`Descripción del trabajo ${i + 1} *`} fullWidth size="small"
+                  <Grid size={4}>
+                    <TextField label={`Descripción ${i + 1} *`} fullWidth size="small"
                       value={det.descripcion}
                       onChange={e => setDetalles(ds => ds.map((d, j) => j === i ? { ...d, descripcion: e.target.value } : d))} />
+                  </Grid>
+                  <Grid size={3}>
+                    <TextField select label="Tipo de trabajo" fullWidth size="small"
+                      value={det.tipo_trabajo_id}
+                      onChange={e => setDetalles(ds => ds.map((d, j) => j === i ? { ...d, tipo_trabajo_id: e.target.value } : d))}>
+                      <MenuItem value=""><em>Sin tipo</em></MenuItem>
+                      {tiposTrabajo.map(t => <MenuItem key={t.id} value={t.id}>{t.nombre}</MenuItem>)}
+                    </TextField>
                   </Grid>
                   <Grid size={2}>
                     <TextField label="Rep. ($)" type="number" fullWidth size="small"
@@ -308,7 +316,7 @@ export default function FlotaMantenimiento() {
                       inputProps={{ min: 0 }} value={det.costo_mano_obra}
                       onChange={e => setDetalles(ds => ds.map((d, j) => j === i ? { ...d, costo_mano_obra: e.target.value } : d))} />
                   </Grid>
-                  <Grid size={2} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Grid size={1} sx={{ display: 'flex', alignItems: 'center' }}>
                     {detalles.length > 1 && (
                       <IconButton size="small" onClick={() => setDetalles(ds => ds.filter((_, j) => j !== i))}>
                         <DeleteIcon sx={{ fontSize: 16, color: '#EF4444' }} />
@@ -330,7 +338,7 @@ export default function FlotaMantenimiento() {
             <Button size="small" onClick={() => setDialogOpen(false)} sx={{ textTransform: 'none' }}>Cancelar</Button>
             <Button type="submit" size="small" variant="contained" disabled={createMut.isPending}
               startIcon={createMut.isPending ? <CircularProgress size={14} color="inherit" /> : undefined}
-              sx={{ textTransform: 'none', bgcolor: GF_COLOR, '&:hover': { bgcolor: '#6D28D9' } }}>
+              sx={{ textTransform: 'none', bgcolor: GF_COLOR, '&:hover': { bgcolor: '#27884A' } }}>
               Crear orden
             </Button>
           </DialogActions>
@@ -350,7 +358,7 @@ export default function FlotaMantenimiento() {
           <Button size="small" onClick={() => setEstadoDialog(null)} sx={{ textTransform: 'none' }}>Cancelar</Button>
           <Button size="small" variant="contained" disabled={estadoMut.isPending}
             onClick={() => estadoDialog && estadoMut.mutate({ id: estadoDialog.id, estado: nuevoEstado })}
-            sx={{ textTransform: 'none', bgcolor: GF_COLOR, '&:hover': { bgcolor: '#6D28D9' } }}>
+            sx={{ textTransform: 'none', bgcolor: GF_COLOR, '&:hover': { bgcolor: '#27884A' } }}>
             Confirmar
           </Button>
         </DialogActions>

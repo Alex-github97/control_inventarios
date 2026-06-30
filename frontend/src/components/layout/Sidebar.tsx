@@ -235,7 +235,7 @@ const TX_COLOR  = '#369E4D'
 const CF_COLOR  = '#6366F1'
 const CC_COLOR  = '#0EA5E9'
 const FT_COLOR  = '#F59E0B'
-const GF_COLOR  = '#7C3AED'
+const GF_COLOR  = '#32AC5C'
 const ML_COLOR  = '#0D9488'
 const WMS_COLOR = '#1E40AF'
 const GH_COLOR  = '#BE185D'
@@ -692,7 +692,7 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
               : isTMS
               ? `linear-gradient(135deg, ${TMS_COLOR} 0%, #0284C7 100%)`
               : isFlota
-              ? `linear-gradient(135deg, ${GF_COLOR} 0%, #5B21B6 100%)`
+              ? `linear-gradient(135deg, ${GF_COLOR} 0%, #27884A 100%)`
               : isCommand
               ? `linear-gradient(135deg, ${CC_COLOR} 0%, #0284C7 100%)`
               : isLocativa

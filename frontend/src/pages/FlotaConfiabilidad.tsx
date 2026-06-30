@@ -17,7 +17,7 @@ import { apiClient as api } from '@/api/client'
 import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
 
-const GF_COLOR = '#7C3AED'
+const GF_COLOR = '#32AC5C'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 interface TipoVehiculo { id: number; nombre: string }
@@ -237,7 +237,7 @@ function FMEADialog({ open, editing, tiposVehiculo, rutinas, onClose, onSave, lo
           </Grid>
 
           <Grid size={{ xs: 12 }}>
-            <Paper sx={{ p: 2, bgcolor: '#F8F7FF', border: `1px solid ${GF_COLOR}30` }}>
+            <Paper sx={{ p: 2, bgcolor: '#F0FDF4', border: `1px solid ${GF_COLOR}30` }}>
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
                 <Box sx={{ flex: 1, minWidth: 140 }}>
                   <Typography variant="caption" fontWeight={700} color={GF_COLOR}>Severidad (S)</Typography>
