@@ -1,16 +1,24 @@
-import React, { useState } from 'react'
+﻿import React, { useState } from 'react'
 import {
   Box, Paper, Typography, Stack, Grid, Chip, Button, Tab, Tabs,
-  MenuItem, TextField, alpha,
+  MenuItem, TextField, alpha, Accordion, AccordionSummary, AccordionDetails,
+  IconButton, Switch, FormControlLabel, Divider, InputAdornment, Tooltip,
 } from '@mui/material'
 import {
   Add as AddIcon,
   Handyman as OTIcon,
+  ExpandMore as ExpandMoreIcon,
+  Build as WorkIcon,
+  Inventory2 as PartsIcon,
+  Delete as DeleteIcon,
+  CheckCircle as CheckIcon,
+  Schedule as ScheduleIcon,
+  Warning as FaultIcon,
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const EAM_COLOR = '#EA580C'
-const EAM_DARK  = '#C2410C'
+const EAM_COLOR = '#32AC5C'
+const EAM_DARK  = '#27884A'
 const DARK_BG   = '#060C1A'
 const CARD_BG   = '#0F1E35'
 
@@ -131,6 +139,86 @@ const TECNICOS_SELECT = [
   'Pedro Torres',
 ]
 
+const PROVEEDORES_SELECT = [
+  'AutoTaller Express S.A.',
+  'Cummins Service Center',
+  'ElectrAuto Ltda.',
+  'HydroTech SAS',
+  'Frenos y Suspensión del Valle',
+  'Taller Interno Bogotá',
+]
+
+type CatTrabajo = 'PREVENTIVO' | 'CORRECTIVO' | 'PREDICTIVO' | 'INSPECCION' | 'EMERGENCIA'
+
+interface TipoTrabajoConfig {
+  id: number
+  nombre: string
+  categoria: CatTrabajo
+  duracion: string
+  requiereTaller: boolean
+  requiereMateriales: boolean
+  sistema: string
+  subsistema: string
+}
+
+const CAT_COLOR: Record<CatTrabajo, string> = {
+  PREVENTIVO:  '#16A34A',
+  CORRECTIVO:  '#DC2626',
+  PREDICTIVO:  '#3B82F6',
+  INSPECCION:  '#F59E0B',
+  EMERGENCIA:  '#7F1D1D',
+}
+
+const TIPOS_TRABAJO_CONFIG: TipoTrabajoConfig[] = [
+  { id:  1, nombre: 'Mantenimiento Preventivo',    categoria: 'PREVENTIVO', duracion: '4h',       requiereTaller: false, requiereMateriales: true,  sistema: 'General',     subsistema: 'Varios componentes'   },
+  { id:  2, nombre: 'Mantenimiento Correctivo',    categoria: 'CORRECTIVO', duracion: 'Variable',  requiereTaller: true,  requiereMateriales: true,  sistema: 'Variable',    subsistema: 'Variable'             },
+  { id:  3, nombre: 'Mantenimiento Predictivo',    categoria: 'PREDICTIVO', duracion: '3h',       requiereTaller: false, requiereMateriales: false, sistema: 'General',     subsistema: 'Monitoreo'            },
+  { id:  4, nombre: 'Inspección Visual',           categoria: 'INSPECCION', duracion: '1h',       requiereTaller: false, requiereMateriales: false, sistema: 'General',     subsistema: 'Inspección general'   },
+  { id:  5, nombre: 'Cambio de Aceite y Filtros',  categoria: 'PREVENTIVO', duracion: '2h',       requiereTaller: false, requiereMateriales: true,  sistema: 'Motor',       subsistema: 'Lubricación'          },
+  { id:  6, nombre: 'Servicio Eléctrico',          categoria: 'CORRECTIVO', duracion: '3h',       requiereTaller: true,  requiereMateriales: false, sistema: 'Eléctrico',   subsistema: 'Circuitos y sensores' },
+  { id:  7, nombre: 'Servicio Mecánico',           categoria: 'CORRECTIVO', duracion: 'Variable',  requiereTaller: true,  requiereMateriales: true,  sistema: 'Mecánico',    subsistema: 'Transmisión'          },
+  { id:  8, nombre: 'Servicio Hidráulico',         categoria: 'CORRECTIVO', duracion: '4h',       requiereTaller: true,  requiereMateriales: true,  sistema: 'Hidráulico',  subsistema: 'Circuito hidráulico'  },
+  { id:  9, nombre: 'Calibración',                 categoria: 'PREDICTIVO', duracion: '2h',       requiereTaller: false, requiereMateriales: false, sistema: 'Control',     subsistema: 'Sensores y válvulas'  },
+  { id: 10, nombre: 'Lubricación',                 categoria: 'PREVENTIVO', duracion: '1h',       requiereTaller: false, requiereMateriales: true,  sistema: 'Lubricación', subsistema: 'Engrase general'      },
+  { id: 11, nombre: 'Soldadura',                   categoria: 'CORRECTIVO', duracion: 'Variable',  requiereTaller: true,  requiereMateriales: true,  sistema: 'Estructura',  subsistema: 'Carrocería y chasis'  },
+  { id: 12, nombre: 'Atención de Emergencia',      categoria: 'EMERGENCIA', duracion: '?',        requiereTaller: true,  requiereMateriales: true,  sistema: 'Variable',    subsistema: 'Variable'             },
+]
+
+const REPUESTOS_SELECT = [
+  'Filtro de aire CUMMINS',
+  'Filtro de aceite CUMMINS',
+  'Correa de distribución',
+  'Bujías NGK iridium',
+  'Pastillas de freno Brembo',
+  'Aceite sintético 15W-40',
+  'Líquido de frenos DOT4',
+  'Batería 12V 100Ah',
+  'Amortiguador trasero',
+  'Correa alternador',
+  'Termostato motor',
+  'Bomba de agua',
+  'Kit de embrague',
+  'Disco de freno ventilado',
+]
+
+interface TrabajoItem {
+  id: number
+  trabajo: string
+  observaciones: string
+  moObra: string
+  tipoMant: string
+  sistema: string
+  subsistema: string
+}
+
+interface RepuestoItem {
+  id: number
+  trabajoId: string
+  repuesto: string
+  cantidad: string
+  precioUnitario: string
+}
+
 // ─── OT Card (Kanban) ─────────────────────────────────────────────────────────
 
 function OTCard({ ot }: { ot: OT }) {
@@ -143,7 +231,7 @@ function OTCard({ ot }: { ot: OT }) {
         borderRadius: '10px',
         p: 1.5,
         mb: 1,
-        '&:hover': { border: `1px solid rgba(234,88,12,0.3)`, bgcolor: alpha(EAM_COLOR, 0.04) },
+        '&:hover': { border: `1px solid rgba(50,172,92,0.3)`, bgcolor: alpha(EAM_COLOR, 0.04) },
         transition: 'all 0.15s',
         cursor: 'pointer',
       }}
@@ -194,6 +282,9 @@ function OTCard({ ot }: { ot: OT }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+let _nextId = 1
+const nextId = () => _nextId++
+
 export default function EAMOrdenesTrabajo() {
   const [tab, setTab] = useState(0)
 
@@ -204,19 +295,70 @@ export default function EAMOrdenesTrabajo() {
 
   // Crear OT form
   const [form, setForm] = useState({
-    numero:     'OT-2025-0116',
-    activo:     '',
-    tipo:       'PREVENTIVA',
-    prioridad:  'MEDIA',
-    descripcion:'',
-    tecnico:    '',
-    fechaReq:   '',
-    falla:      '',
-    observaciones: '',
+    numero:          'OT-2026-0116',
+    activo:          '',
+    tipo:            'PREVENTIVA',
+    prioridad:       'MEDIA',
+    descripcion:     '',
+    tecnico:         '',
+    fechaApertura:   '',
+    posibleCierre:   '',
+    odometro:        '',
+    proveedor:       '',
+    centroCosto:     '',
+    ciudad:          '',
+    afectaDisp:      true,
+    esUnaFalla:      false,
+    observaciones:   '',
+    falla:           '',
   })
 
-  const setField = (field: string, value: string) =>
+  const setField = (field: string, value: string | boolean) =>
     setForm((prev) => ({ ...prev, [field]: value }))
+
+  // Trabajos y Repuestos
+  const [trabajos, setTrabajos] = useState<TrabajoItem[]>([
+    { id: nextId(), trabajo: '', observaciones: '', moObra: '', tipoMant: '', sistema: '', subsistema: '' },
+  ])
+  const [repuestos, setRepuestos] = useState<RepuestoItem[]>([
+    { id: nextId(), trabajoId: '', repuesto: '', cantidad: '1', precioUnitario: '' } as RepuestoItem,
+  ])
+  const [accTrabajos, setAccTrabajos] = useState(true)
+  const [accRepuestos, setAccRepuestos] = useState(false)
+
+  const addTrabajo = () =>
+    setTrabajos((p) => [...p, { id: nextId(), trabajo: '', observaciones: '', moObra: '', tipoMant: '', sistema: '', subsistema: '' }])
+  const removeTrabajo = (id: number) =>
+    setTrabajos((p) => p.filter((t) => t.id !== id))
+  const setTrabajo = (id: number, field: keyof TrabajoItem, val: string) => {
+    if (field === 'trabajo') {
+      const cfg = TIPOS_TRABAJO_CONFIG.find((c) => c.nombre === val)
+      setTrabajos((p) => p.map((t) => t.id === id ? {
+        ...t,
+        trabajo: val,
+        tipoMant: cfg ? cfg.categoria : '',
+        sistema:  cfg ? cfg.sistema   : '',
+        subsistema: cfg ? cfg.subsistema : '',
+      } : t))
+      return
+    }
+    setTrabajos((p) => p.map((t) => (t.id === id ? { ...t, [field]: val } : t)))
+  }
+
+  const addRepuesto = () =>
+    setRepuestos((p) => [...p, { id: nextId(), trabajoId: '', repuesto: '', cantidad: '1', precioUnitario: '' } as RepuestoItem])
+  const removeRepuesto = (id: number) =>
+    setRepuestos((p) => p.filter((r) => r.id !== id))
+  const setRepuesto = (id: number, field: keyof RepuestoItem, val: string) =>
+    setRepuestos((p) => p.map((r) => (r.id === id ? { ...r, [field]: val } : r)))
+
+  const totalMO = trabajos.reduce((s, t) => s + (parseFloat(t.moObra.replace(/[^0-9.]/g, '')) || 0), 0)
+  const totalRep = repuestos.reduce((s, r) => {
+    const qty = parseFloat(r.cantidad) || 0
+    const prc = parseFloat(r.precioUnitario.replace(/[^0-9.]/g, '')) || 0
+    return s + qty * prc
+  }, 0)
+  const fmt = (n: number) => '$' + n.toLocaleString('es-CO')
 
   const filteredOTs = OTS_MOCK.filter((ot) => {
     if (filterEstado !== 'Todos' && ot.estado !== filterEstado) return false
@@ -228,9 +370,17 @@ export default function EAMOrdenesTrabajo() {
   const inputSx = {
     '& .MuiOutlinedInput-root': { bgcolor: CARD_BG, color: '#fff' },
     '& label': { color: 'rgba(255,255,255,0.5)' },
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(234,88,12,0.25)' },
-    '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(234,88,12,0.5)' },
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.25)' },
+    '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.5)' },
     '& .MuiSvgIcon-root': { color: 'rgba(255,255,255,0.5)' },
+  }
+
+  const inputSxSm = {
+    '& .MuiOutlinedInput-root': { bgcolor: alpha('#060C1A', 0.6), color: '#fff', fontSize: 12 },
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' },
+    '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.2)' },
+    '& .MuiSvgIcon-root': { color: 'rgba(255,255,255,0.4)', fontSize: 16 },
+    '& input': { py: 0.6 },
   }
 
   return (
@@ -377,7 +527,7 @@ export default function EAMOrdenesTrabajo() {
               elevation={0}
               sx={{
                 bgcolor: CARD_BG,
-                border: `1px solid rgba(234,88,12,0.25)`,
+                border: `1px solid rgba(50,172,92,0.25)`,
                 borderRadius: '14px',
                 overflow: 'auto',
               }}
@@ -470,7 +620,7 @@ export default function EAMOrdenesTrabajo() {
                       variant="outlined"
                       sx={{
                         fontSize: 10, fontWeight: 700,
-                        borderColor: 'rgba(234,88,12,0.35)',
+                        borderColor: 'rgba(50,172,92,0.35)',
                         color: EAM_COLOR,
                         '&:hover': { borderColor: EAM_COLOR, bgcolor: alpha(EAM_COLOR, 0.07) },
                         borderRadius: '8px',
@@ -488,143 +638,652 @@ export default function EAMOrdenesTrabajo() {
 
         {/* ── Tab 2: Crear OT ── */}
         {tab === 2 && (
-          <Paper
-            elevation={0}
-            sx={{
-              bgcolor: CARD_BG,
-              border: `1px solid rgba(234,88,12,0.25)`,
-              borderRadius: '14px',
-              p: 3,
-              maxWidth: 860,
-            }}
-          >
-            <Stack direction="row" alignItems="center" spacing={1.5} mb={3}>
-              <OTIcon sx={{ fontSize: 22, color: EAM_COLOR }} />
-              <Typography fontWeight={700} fontSize={16} color="#fff">
-                Nueva Orden de Trabajo
-              </Typography>
-            </Stack>
+          <Box sx={{ maxWidth: 1100 }}>
 
-            <Grid container spacing={2.5}>
-              {/* Número OT */}
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth size="small" label="Número OT (auto)"
-                  value={form.numero}
-                  InputProps={{ readOnly: true }}
-                  sx={{ ...inputSx, '& .MuiOutlinedInput-root': { bgcolor: alpha('#0F1E35', 0.6), color: 'rgba(255,255,255,0.5)' } }}
+            {/* ── Encabezado de la OT ── */}
+            <Paper elevation={0} sx={{ bgcolor: CARD_BG, border: `1px solid rgba(50,172,92,0.25)`, borderRadius: '14px', p: 3, mb: 2 }}>
+
+              {/* Título */}
+              <Stack direction="row" alignItems="center" justifyContent="space-between" mb={3}>
+                <Stack direction="row" alignItems="center" spacing={1.5}>
+                  <Box sx={{ p: 1, borderRadius: '10px', bgcolor: alpha(EAM_COLOR, 0.15) }}>
+                    <OTIcon sx={{ fontSize: 22, color: EAM_COLOR }} />
+                  </Box>
+                  <Box>
+                    <Typography fontWeight={800} fontSize={17} color="#fff" letterSpacing="-0.3px">
+                      Nueva Orden de Trabajo
+                    </Typography>
+                    <Typography fontSize={12} color="rgba(255,255,255,0.4)">
+                      Complete los datos y agregue trabajos y repuestos
+                    </Typography>
+                  </Box>
+                </Stack>
+                <Chip
+                  label={form.numero}
+                  sx={{ bgcolor: alpha(EAM_COLOR, 0.12), color: EAM_COLOR, fontWeight: 800, fontSize: 13, height: 30, letterSpacing: '0.5px' }}
                 />
-              </Grid>
+              </Stack>
 
-              {/* Activo */}
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  select fullWidth size="small" label="Activo"
-                  value={form.activo}
-                  onChange={(e) => setField('activo', e.target.value)}
-                  sx={inputSx}
-                >
-                  <MenuItem value=""><em>Seleccionar activo...</em></MenuItem>
-                  {ACTIVOS_SELECT.map((a) => (
-                    <MenuItem key={a} value={a}>{a}</MenuItem>
+              <Grid container spacing={2.5}>
+
+                {/* ── COLUMNA IZQUIERDA ── */}
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Stack spacing={2}>
+
+                    {/* Activo */}
+                    <TextField
+                      select fullWidth size="small" label="Activo *"
+                      value={form.activo}
+                      onChange={(e) => setField('activo', e.target.value)}
+                      sx={inputSx}
+                    >
+                      <MenuItem value=""><em>Seleccionar activo...</em></MenuItem>
+                      {ACTIVOS_SELECT.map((a) => <MenuItem key={a} value={a}>{a}</MenuItem>)}
+                    </TextField>
+
+                    {/* Fecha apertura + Posible cierre */}
+                    <Stack direction="row" spacing={1.5}>
+                      <TextField
+                        fullWidth size="small" label="Fecha apertura *" type="date"
+                        value={form.fechaApertura}
+                        onChange={(e) => setField('fechaApertura', e.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                        sx={inputSx}
+                      />
+                      <TextField
+                        fullWidth size="small" label="Posible cierre" type="date"
+                        value={form.posibleCierre}
+                        onChange={(e) => setField('posibleCierre', e.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                        sx={inputSx}
+                      />
+                    </Stack>
+
+                    {/* Odómetro */}
+                    <TextField
+                      fullWidth size="small" label="Odómetro / Contador"
+                      value={form.odometro}
+                      onChange={(e) => setField('odometro', e.target.value)}
+                      InputProps={{ endAdornment: <InputAdornment position="end"><Typography fontSize={11} color="rgba(255,255,255,0.3)">km</Typography></InputAdornment> }}
+                      sx={inputSx}
+                    />
+
+                    {/* Proveedor */}
+                    <TextField
+                      select fullWidth size="small" label="Proveedor / Taller"
+                      value={form.proveedor}
+                      onChange={(e) => setField('proveedor', e.target.value)}
+                      sx={inputSx}
+                    >
+                      <MenuItem value=""><em>Seleccionar proveedor...</em></MenuItem>
+                      {PROVEEDORES_SELECT.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+                    </TextField>
+
+                    {/* Tipo OT */}
+                    <TextField
+                      select fullWidth size="small" label="Tipo de orden *"
+                      value={form.tipo}
+                      onChange={(e) => setField('tipo', e.target.value)}
+                      sx={inputSx}
+                    >
+                      {['PREVENTIVA', 'CORRECTIVA', 'PREDICTIVA', 'EMERGENCIA'].map((t) => (
+                        <MenuItem key={t} value={t}>{t}</MenuItem>
+                      ))}
+                    </TextField>
+
+                    {/* Observaciones */}
+                    <TextField
+                      fullWidth size="small" label="Observaciones" multiline rows={3}
+                      value={form.observaciones}
+                      onChange={(e) => setField('observaciones', e.target.value)}
+                      placeholder="Notas, recursos especiales, permisos requeridos..."
+                      sx={inputSx}
+                    />
+                  </Stack>
+                </Grid>
+
+                {/* ── COLUMNA DERECHA ── */}
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Stack spacing={2}>
+
+                    {/* Toggles */}
+                    <Paper elevation={0} sx={{ bgcolor: alpha('#fff', 0.03), border: `1px solid rgba(255,255,255,0.07)`, borderRadius: '10px', p: 1.5 }}>
+                      <Stack spacing={0.5}>
+                        <Stack direction="row" alignItems="center" justifyContent="space-between">
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <CheckIcon sx={{ fontSize: 16, color: form.afectaDisp ? EAM_COLOR : 'rgba(255,255,255,0.3)' }} />
+                            <Typography fontSize={13} color="rgba(255,255,255,0.7)">Afecta la disponibilidad</Typography>
+                          </Stack>
+                          <Switch
+                            size="small"
+                            checked={form.afectaDisp}
+                            onChange={(e) => setField('afectaDisp', e.target.checked)}
+                            sx={{ '& .MuiSwitch-switchBase.Mui-checked': { color: EAM_COLOR }, '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: EAM_COLOR } }}
+                          />
+                        </Stack>
+                        <Divider sx={{ borderColor: 'rgba(255,255,255,0.05)' }} />
+                        <Stack direction="row" alignItems="center" justifyContent="space-between">
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <FaultIcon sx={{ fontSize: 16, color: form.esUnaFalla ? '#F59E0B' : 'rgba(255,255,255,0.3)' }} />
+                            <Typography fontSize={13} color="rgba(255,255,255,0.7)">Es una falla</Typography>
+                          </Stack>
+                          <Switch
+                            size="small"
+                            checked={form.esUnaFalla}
+                            onChange={(e) => setField('esUnaFalla', e.target.checked)}
+                            sx={{ '& .MuiSwitch-switchBase.Mui-checked': { color: '#F59E0B' }, '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#F59E0B' } }}
+                          />
+                        </Stack>
+                      </Stack>
+                    </Paper>
+
+                    {/* Técnico */}
+                    <TextField
+                      select fullWidth size="small" label="Técnico asignado"
+                      value={form.tecnico}
+                      onChange={(e) => setField('tecnico', e.target.value)}
+                      sx={inputSx}
+                    >
+                      <MenuItem value=""><em>Sin asignar</em></MenuItem>
+                      {TECNICOS_SELECT.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                    </TextField>
+
+                    {/* Prioridad */}
+                    <TextField
+                      select fullWidth size="small" label="Prioridad *"
+                      value={form.prioridad}
+                      onChange={(e) => setField('prioridad', e.target.value)}
+                      sx={inputSx}
+                    >
+                      {[
+                        { v: 'URGENTE', color: '#DC2626' },
+                        { v: 'ALTA',    color: EAM_COLOR },
+                        { v: 'MEDIA',   color: '#F59E0B' },
+                        { v: 'BAJA',    color: '#6B7280' },
+                      ].map(({ v, color }) => (
+                        <MenuItem key={v} value={v}>
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: color }} />
+                            <span>{v}</span>
+                          </Stack>
+                        </MenuItem>
+                      ))}
+                    </TextField>
+
+                    {/* Falla del catálogo (solo si esUnaFalla) */}
+                    {form.esUnaFalla && (
+                      <TextField
+                        select fullWidth size="small" label="Tipo de falla (catálogo)"
+                        value={form.falla}
+                        onChange={(e) => setField('falla', e.target.value)}
+                        sx={inputSx}
+                      >
+                        <MenuItem value=""><em>Seleccionar falla...</em></MenuItem>
+                        {FALLAS_CATALOGO.map((f) => <MenuItem key={f} value={f}>{f}</MenuItem>)}
+                      </TextField>
+                    )}
+
+                    {/* Centro de costo + Ciudad */}
+                    <Stack direction="row" spacing={1.5}>
+                      <TextField
+                        fullWidth size="small" label="Centro de costo"
+                        value={form.centroCosto}
+                        onChange={(e) => setField('centroCosto', e.target.value)}
+                        sx={inputSx}
+                      />
+                      <TextField
+                        fullWidth size="small" label="Ciudad"
+                        value={form.ciudad}
+                        onChange={(e) => setField('ciudad', e.target.value)}
+                        sx={inputSx}
+                      />
+                    </Stack>
+
+                    {/* Descripción */}
+                    <TextField
+                      fullWidth size="small" label="Descripción del trabajo *" multiline rows={3}
+                      value={form.descripcion}
+                      onChange={(e) => setField('descripcion', e.target.value)}
+                      placeholder="Describa el trabajo a realizar..."
+                      sx={inputSx}
+                    />
+                  </Stack>
+                </Grid>
+              </Grid>
+            </Paper>
+
+            {/* ── Acordeón TRABAJOS ── */}
+            <Accordion
+              expanded={accTrabajos}
+              onChange={() => setAccTrabajos((p) => !p)}
+              elevation={0}
+              sx={{
+                bgcolor: CARD_BG, mb: 1.5,
+                border: `1px solid ${alpha(EAM_COLOR, accTrabajos ? 0.4 : 0.15)}`,
+                borderRadius: '12px !important',
+                '&:before': { display: 'none' },
+                transition: 'border-color 0.2s',
+              }}
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon sx={{ color: EAM_COLOR }} />}
+                sx={{ px: 2.5, py: 1, minHeight: 52, '&.Mui-expanded': { minHeight: 52 }, '& .MuiAccordionSummary-content': { my: 0 } }}
+              >
+                <Stack direction="row" alignItems="center" spacing={1.5} flex={1}>
+                  <WorkIcon sx={{ fontSize: 18, color: EAM_COLOR }} />
+                  <Typography fontWeight={700} fontSize={14} color="#fff">Trabajos</Typography>
+                  <Chip
+                    label={trabajos.length}
+                    size="small"
+                    sx={{ bgcolor: alpha(EAM_COLOR, 0.15), color: EAM_COLOR, fontWeight: 800, fontSize: 11, height: 20 }}
+                  />
+                  {totalMO > 0 && (
+                    <Typography fontSize={12} color="rgba(255,255,255,0.4)" ml="auto" mr={2}>
+                      M.O. total: <strong style={{ color: EAM_COLOR }}>{fmt(totalMO)}</strong>
+                    </Typography>
+                  )}
+                </Stack>
+              </AccordionSummary>
+
+              <AccordionDetails sx={{ px: 2.5, pt: 0, pb: 2 }}>
+                {/* Cabecera tabla */}
+                <Box sx={{
+                  display: 'grid', gridTemplateColumns: '28px 1fr 1fr 130px 36px',
+                  gap: 1, px: 1.5, py: 0.75, mb: 0.5,
+                  bgcolor: alpha(EAM_COLOR, 0.05), borderRadius: '8px',
+                }}>
+                  {['#', 'Trabajo (catálogo)', 'Observaciones', 'M.O. ($)', ''].map((h) => (
+                    <Typography key={h} fontSize={10} fontWeight={700} color="rgba(255,255,255,0.35)" letterSpacing="0.4px">
+                      {h.toUpperCase()}
+                    </Typography>
                   ))}
-                </TextField>
-              </Grid>
+                </Box>
 
-              {/* Tipo OT */}
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <TextField
-                  select fullWidth size="small" label="Tipo OT"
-                  value={form.tipo}
-                  onChange={(e) => setField('tipo', e.target.value)}
-                  sx={inputSx}
+                {/* Filas — cada una es un mini-card */}
+                <Stack spacing={1}>
+                  {trabajos.map((t, i) => {
+                    const cfg = TIPOS_TRABAJO_CONFIG.find((c) => c.nombre === t.trabajo)
+                    const catColor = cfg ? CAT_COLOR[cfg.categoria as CatTrabajo] : 'rgba(255,255,255,0.12)'
+                    return (
+                      <Paper
+                        key={t.id}
+                        elevation={0}
+                        sx={{
+                          bgcolor: alpha('#fff', 0.015),
+                          border: `1px solid ${cfg ? alpha(catColor, 0.3) : 'rgba(255,255,255,0.06)'}`,
+                          borderRadius: '10px',
+                          p: 1,
+                          transition: 'border-color 0.2s',
+                        }}
+                      >
+                        {/* ── Fila 1: número | trabajo | observaciones | M.O. | eliminar ── */}
+                        <Box sx={{ display: 'grid', gridTemplateColumns: '28px 1fr 1fr 130px 36px', gap: 1, alignItems: 'center' }}>
+                          <Typography fontSize={11} color="rgba(255,255,255,0.3)" fontWeight={700}>{i + 1}</Typography>
+
+                          {/* Trabajo — select del catálogo */}
+                          <TextField
+                            select size="small" fullWidth
+                            value={t.trabajo}
+                            onChange={(e) => setTrabajo(t.id, 'trabajo', e.target.value)}
+                            sx={{
+                              ...inputSxSm,
+                              '& .MuiOutlinedInput-root': {
+                                ...inputSxSm['& .MuiOutlinedInput-root'],
+                                bgcolor: cfg ? alpha(catColor, 0.07) : alpha('#060C1A', 0.6),
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: cfg ? alpha(catColor, 0.4) : 'rgba(255,255,255,0.08)',
+                              },
+                            }}
+                          >
+                            <MenuItem value=""><em style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11 }}>Seleccionar trabajo...</em></MenuItem>
+                            {TIPOS_TRABAJO_CONFIG.map((tp) => (
+                              <MenuItem key={tp.id} value={tp.nombre}>
+                                <Stack direction="row" alignItems="center" spacing={1}>
+                                  <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: CAT_COLOR[tp.categoria], flexShrink: 0 }} />
+                                  <span>{tp.nombre}</span>
+                                </Stack>
+                              </MenuItem>
+                            ))}
+                          </TextField>
+
+                          {/* Observaciones */}
+                          <TextField
+                            size="small" fullWidth placeholder="Notas u observaciones..."
+                            value={t.observaciones}
+                            onChange={(e) => setTrabajo(t.id, 'observaciones', e.target.value)}
+                            sx={inputSxSm}
+                          />
+
+                          {/* M.O. */}
+                          <TextField
+                            size="small" fullWidth placeholder="0"
+                            value={t.moObra}
+                            onChange={(e) => setTrabajo(t.id, 'moObra', e.target.value)}
+                            InputProps={{ startAdornment: <InputAdornment position="start"><Typography fontSize={11} color="rgba(255,255,255,0.3)">$</Typography></InputAdornment> }}
+                            sx={inputSxSm}
+                          />
+
+                          <Tooltip title="Eliminar">
+                            <IconButton
+                              size="small"
+                              onClick={() => removeTrabajo(t.id)}
+                              disabled={trabajos.length === 1}
+                              sx={{ color: '#EF4444', opacity: trabajos.length === 1 ? 0.3 : 1 }}
+                            >
+                              <DeleteIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+
+                        {/* ── Fila 2: campos auto-llenados cuando se selecciona un trabajo ── */}
+                        {cfg && (
+                          <Box
+                            sx={{
+                              mt: 0.75, ml: '36px',
+                              display: 'grid',
+                              gridTemplateColumns: '160px 1fr 1fr',
+                              gap: 1,
+                              alignItems: 'end',
+                            }}
+                          >
+                            {/* Tipo de mantenimiento — solo lectura */}
+                            <Box>
+                              <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', mb: 0.4, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                                Tipo de mantenimiento
+                              </Typography>
+                              <Box
+                                sx={{
+                                  display: 'flex', alignItems: 'center', gap: 0.75,
+                                  px: 1.25, height: 32, borderRadius: '6px',
+                                  bgcolor: alpha(catColor, 0.12),
+                                  border: `1px solid ${alpha(catColor, 0.35)}`,
+                                }}
+                              >
+                                <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: catColor, flexShrink: 0 }} />
+                                <Typography fontSize={11} fontWeight={700} color={catColor} noWrap>
+                                  {t.tipoMant}
+                                </Typography>
+                              </Box>
+                            </Box>
+
+                            {/* Sistema — editable, auto-llenado */}
+                            <Box>
+                              <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', mb: 0.4, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                                Sistema del activo
+                              </Typography>
+                              <TextField
+                                size="small" fullWidth
+                                value={t.sistema}
+                                onChange={(e) => setTrabajo(t.id, 'sistema', e.target.value)}
+                                sx={{
+                                  ...inputSxSm,
+                                  '& .MuiOutlinedInput-root': {
+                                    ...inputSxSm['& .MuiOutlinedInput-root'],
+                                    bgcolor: alpha('#fff', 0.04),
+                                  },
+                                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' },
+                                }}
+                                InputProps={{
+                                  endAdornment: (
+                                    <InputAdornment position="end">
+                                      <Tooltip title="Auto-llenado desde configuración del trabajo">
+                                        <Typography fontSize={9} color={alpha(EAM_COLOR, 0.6)} fontWeight={700} sx={{ cursor: 'default' }}>AUTO</Typography>
+                                      </Tooltip>
+                                    </InputAdornment>
+                                  ),
+                                }}
+                              />
+                            </Box>
+
+                            {/* Subsistema — editable, auto-llenado */}
+                            <Box>
+                              <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', mb: 0.4, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                                Subsistema del activo
+                              </Typography>
+                              <TextField
+                                size="small" fullWidth
+                                value={t.subsistema}
+                                onChange={(e) => setTrabajo(t.id, 'subsistema', e.target.value)}
+                                sx={{
+                                  ...inputSxSm,
+                                  '& .MuiOutlinedInput-root': {
+                                    ...inputSxSm['& .MuiOutlinedInput-root'],
+                                    bgcolor: alpha('#fff', 0.04),
+                                  },
+                                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' },
+                                }}
+                                InputProps={{
+                                  endAdornment: (
+                                    <InputAdornment position="end">
+                                      <Tooltip title="Auto-llenado desde configuración del trabajo">
+                                        <Typography fontSize={9} color={alpha(EAM_COLOR, 0.6)} fontWeight={700} sx={{ cursor: 'default' }}>AUTO</Typography>
+                                      </Tooltip>
+                                    </InputAdornment>
+                                  ),
+                                }}
+                              />
+                            </Box>
+                          </Box>
+                        )}
+                      </Paper>
+                    )
+                  })}
+                </Stack>
+
+                <Button
+                  size="small" startIcon={<AddIcon />}
+                  onClick={addTrabajo}
+                  sx={{ mt: 1.5, color: EAM_COLOR, borderColor: alpha(EAM_COLOR, 0.35), '&:hover': { bgcolor: alpha(EAM_COLOR, 0.08), borderColor: EAM_COLOR }, textTransform: 'none', fontWeight: 600 }}
+                  variant="outlined"
                 >
-                  {['PREVENTIVA', 'CORRECTIVA', 'PREDICTIVA', 'EMERGENCIA'].map((t) => (
-                    <MenuItem key={t} value={t}>{t}</MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
+                  Agregar trabajo
+                </Button>
+              </AccordionDetails>
+            </Accordion>
 
-              {/* Prioridad */}
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <TextField
-                  select fullWidth size="small" label="Prioridad"
-                  value={form.prioridad}
-                  onChange={(e) => setField('prioridad', e.target.value)}
-                  sx={inputSx}
+            {/* ── Acordeón REPUESTOS ── */}
+            <Accordion
+              expanded={accRepuestos}
+              onChange={() => setAccRepuestos((p) => !p)}
+              elevation={0}
+              sx={{
+                bgcolor: CARD_BG, mb: 2,
+                border: `1px solid ${alpha('#3B82F6', accRepuestos ? 0.4 : 0.15)}`,
+                borderRadius: '12px !important',
+                '&:before': { display: 'none' },
+                transition: 'border-color 0.2s',
+              }}
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon sx={{ color: '#3B82F6' }} />}
+                sx={{ px: 2.5, py: 1, minHeight: 52, '&.Mui-expanded': { minHeight: 52 }, '& .MuiAccordionSummary-content': { my: 0 } }}
+              >
+                <Stack direction="row" alignItems="center" spacing={1.5} flex={1}>
+                  <PartsIcon sx={{ fontSize: 18, color: '#3B82F6' }} />
+                  <Typography fontWeight={700} fontSize={14} color="#fff">Repuestos</Typography>
+                  <Chip
+                    label={repuestos.length}
+                    size="small"
+                    sx={{ bgcolor: alpha('#3B82F6', 0.15), color: '#3B82F6', fontWeight: 800, fontSize: 11, height: 20 }}
+                  />
+                  {totalRep > 0 && (
+                    <Typography fontSize={12} color="rgba(255,255,255,0.4)" ml="auto" mr={2}>
+                      Total repuestos: <strong style={{ color: '#3B82F6' }}>{fmt(totalRep)}</strong>
+                    </Typography>
+                  )}
+                </Stack>
+              </AccordionSummary>
+
+              <AccordionDetails sx={{ px: 2.5, pt: 0, pb: 2 }}>
+                {/* Cabecera tabla */}
+                <Box sx={{
+                  display: 'grid', gridTemplateColumns: '28px 180px 1fr 75px 125px 110px 36px',
+                  gap: 1, px: 1, py: 0.75, mb: 0.5,
+                  bgcolor: alpha('#3B82F6', 0.05), borderRadius: '8px',
+                }}>
+                  {['#', 'Trabajo asociado', 'Repuesto', 'Cant.', 'P. Unitario', 'Subtotal', ''].map((h) => (
+                    <Typography key={h} fontSize={10} fontWeight={700} color="rgba(255,255,255,0.35)" letterSpacing="0.4px">
+                      {h.toUpperCase()}
+                    </Typography>
+                  ))}
+                </Box>
+
+                {/* Filas */}
+                <Stack spacing={0.75}>
+                  {repuestos.map((r, i) => {
+                    const sub = (parseFloat(r.cantidad) || 0) * (parseFloat(r.precioUnitario.replace(/[^0-9.]/g, '')) || 0)
+                    return (
+                      <Box key={r.id} sx={{
+                        display: 'grid', gridTemplateColumns: '28px 180px 1fr 75px 125px 110px 36px',
+                        gap: 1, alignItems: 'center',
+                        px: 1, py: 0.5,
+                        bgcolor: alpha('#fff', 0.02), borderRadius: '8px',
+                        border: `1px solid rgba(255,255,255,0.05)`,
+                      }}>
+                        <Typography fontSize={11} color="rgba(255,255,255,0.3)" fontWeight={700}>{i + 1}</Typography>
+
+                        {/* Trabajo asociado */}
+                        <TextField
+                          select size="small" fullWidth
+                          value={r.trabajoId}
+                          onChange={(e) => setRepuesto(r.id, 'trabajoId', e.target.value)}
+                          SelectProps={{
+                            renderValue: (val) => {
+                              const idx = trabajos.findIndex((t) => (t.trabajo || `Trabajo ${trabajos.indexOf(t) + 1}`) === val)
+                              if (!val || idx === -1) return <em style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11 }}>Sin trabajo...</em>
+                              const t = trabajos[idx]
+                              return (
+                                <Stack direction="row" alignItems="center" spacing={0.75}>
+                                  <Box sx={{ width: 16, height: 16, borderRadius: '3px', bgcolor: alpha(EAM_COLOR, 0.25), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <Typography fontSize={9} fontWeight={800} color={EAM_COLOR}>{idx + 1}</Typography>
+                                  </Box>
+                                  <Typography fontSize={11} noWrap color="white">
+                                    {t.trabajo || `Trabajo ${idx + 1}`}
+                                  </Typography>
+                                </Stack>
+                              )
+                            },
+                          }}
+                          sx={{
+                            ...inputSxSm,
+                            '& .MuiOutlinedInput-root': {
+                              ...inputSxSm['& .MuiOutlinedInput-root'],
+                              bgcolor: r.trabajoId ? alpha(EAM_COLOR, 0.08) : alpha('#060C1A', 0.6),
+                            },
+                            '& .MuiOutlinedInput-notchedOutline': {
+                              borderColor: r.trabajoId ? alpha(EAM_COLOR, 0.4) : 'rgba(255,255,255,0.08)',
+                            },
+                          }}
+                        >
+                          <MenuItem value=""><em style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11 }}>Sin trabajo...</em></MenuItem>
+                          {trabajos.map((t, ti) => (
+                            <MenuItem key={t.id} value={t.trabajo || `Trabajo ${ti + 1}`}>
+                              <Stack direction="row" alignItems="center" spacing={0.75}>
+                                <Box sx={{ width: 18, height: 18, borderRadius: '4px', bgcolor: alpha(EAM_COLOR, 0.2), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                  <Typography fontSize={9} fontWeight={800} color={EAM_COLOR}>{ti + 1}</Typography>
+                                </Box>
+                                <Typography fontSize={11} noWrap>
+                                  {t.trabajo || `Trabajo ${ti + 1}`}
+                                </Typography>
+                              </Stack>
+                            </MenuItem>
+                          ))}
+                        </TextField>
+
+                        {/* Repuesto */}
+                        <TextField
+                          select size="small" fullWidth value={r.repuesto}
+                          onChange={(e) => setRepuesto(r.id, 'repuesto', e.target.value)}
+                          sx={inputSxSm}
+                        >
+                          <MenuItem value=""><em>Seleccionar...</em></MenuItem>
+                          {REPUESTOS_SELECT.map((rp) => <MenuItem key={rp} value={rp}>{rp}</MenuItem>)}
+                        </TextField>
+
+                        {/* Cantidad */}
+                        <TextField
+                          size="small" fullWidth placeholder="1"
+                          value={r.cantidad}
+                          onChange={(e) => setRepuesto(r.id, 'cantidad', e.target.value)}
+                          sx={inputSxSm}
+                        />
+
+                        {/* Precio unitario */}
+                        <TextField
+                          size="small" fullWidth placeholder="0"
+                          value={r.precioUnitario}
+                          onChange={(e) => setRepuesto(r.id, 'precioUnitario', e.target.value)}
+                          InputProps={{ startAdornment: <InputAdornment position="start"><Typography fontSize={11} color="rgba(255,255,255,0.3)">$</Typography></InputAdornment> }}
+                          sx={inputSxSm}
+                        />
+
+                        {/* Subtotal */}
+                        <Typography fontSize={12} fontWeight={600} color={sub > 0 ? '#3B82F6' : 'rgba(255,255,255,0.2)'}>
+                          {sub > 0 ? fmt(sub) : '—'}
+                        </Typography>
+
+                        {/* Eliminar */}
+                        <Tooltip title="Eliminar">
+                          <IconButton
+                            size="small"
+                            onClick={() => removeRepuesto(r.id)}
+                            disabled={repuestos.length === 1}
+                            sx={{ color: '#EF4444', opacity: repuestos.length === 1 ? 0.3 : 1 }}
+                          >
+                            <DeleteIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    )
+                  })}
+                </Stack>
+
+                <Button
+                  size="small" startIcon={<AddIcon />}
+                  onClick={addRepuesto}
+                  sx={{ mt: 1.5, color: '#3B82F6', borderColor: alpha('#3B82F6', 0.35), '&:hover': { bgcolor: alpha('#3B82F6', 0.08), borderColor: '#3B82F6' }, textTransform: 'none', fontWeight: 600 }}
+                  variant="outlined"
                 >
-                  {['URGENTE', 'ALTA', 'MEDIA', 'BAJA'].map((p) => (
-                    <MenuItem key={p} value={p}>{p}</MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
+                  Agregar repuesto
+                </Button>
+              </AccordionDetails>
+            </Accordion>
 
-              {/* Fecha requerida */}
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <TextField
-                  fullWidth size="small" label="Fecha requerida" type="date"
-                  value={form.fechaReq}
-                  onChange={(e) => setField('fechaReq', e.target.value)}
-                  InputLabelProps={{ shrink: true }}
-                  sx={inputSx}
-                />
-              </Grid>
+            {/* ── Resumen de costos + Acciones ── */}
+            <Paper elevation={0} sx={{ bgcolor: CARD_BG, border: `1px solid rgba(50,172,92,0.2)`, borderRadius: '12px', p: 2 }}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ sm: 'center' }} justifyContent="space-between" spacing={2}>
+                {/* Totales */}
+                <Stack direction="row" spacing={3}>
+                  <Box>
+                    <Typography fontSize={11} color="rgba(255,255,255,0.4)" mb={0.25}>Mano de obra</Typography>
+                    <Typography fontSize={16} fontWeight={800} color={EAM_COLOR}>{fmt(totalMO)}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography fontSize={11} color="rgba(255,255,255,0.4)" mb={0.25}>Repuestos</Typography>
+                    <Typography fontSize={16} fontWeight={800} color="#3B82F6">{fmt(totalRep)}</Typography>
+                  </Box>
+                  <Box sx={{ borderLeft: '1px solid rgba(255,255,255,0.08)', pl: 3 }}>
+                    <Typography fontSize={11} color="rgba(255,255,255,0.4)" mb={0.25}>Costo estimado total</Typography>
+                    <Typography fontSize={18} fontWeight={900} color="#fff">{fmt(totalMO + totalRep)}</Typography>
+                  </Box>
+                </Stack>
 
-              {/* Descripción */}
-              <Grid size={{ xs: 12 }}>
-                <TextField
-                  fullWidth size="small" label="Descripción del trabajo" multiline rows={3}
-                  value={form.descripcion}
-                  onChange={(e) => setField('descripcion', e.target.value)}
-                  placeholder="Describa el trabajo a realizar..."
-                  sx={inputSx}
-                />
-              </Grid>
-
-              {/* Técnico asignado */}
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  select fullWidth size="small" label="Técnico asignado"
-                  value={form.tecnico}
-                  onChange={(e) => setField('tecnico', e.target.value)}
-                  sx={inputSx}
-                >
-                  <MenuItem value=""><em>Seleccionar técnico...</em></MenuItem>
-                  {TECNICOS_SELECT.map((t) => (
-                    <MenuItem key={t} value={t}>{t}</MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-
-              {/* Falla */}
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  select fullWidth size="small" label="Tipo de falla (catálogo)"
-                  value={form.falla}
-                  onChange={(e) => setField('falla', e.target.value)}
-                  sx={inputSx}
-                >
-                  <MenuItem value=""><em>Seleccionar falla...</em></MenuItem>
-                  {FALLAS_CATALOGO.map((f) => (
-                    <MenuItem key={f} value={f}>{f}</MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-
-              {/* Observaciones */}
-              <Grid size={{ xs: 12 }}>
-                <TextField
-                  fullWidth size="small" label="Observaciones adicionales" multiline rows={2}
-                  value={form.observaciones}
-                  onChange={(e) => setField('observaciones', e.target.value)}
-                  placeholder="Notas, recursos especiales, permisos requeridos..."
-                  sx={inputSx}
-                />
-              </Grid>
-
-              {/* Submit */}
-              <Grid size={{ xs: 12 }}>
+                {/* Botones */}
                 <Stack direction="row" spacing={1.5}>
+                  <Button
+                    variant="outlined"
+                    size="large"
+                    onClick={() => setTab(0)}
+                    sx={{
+                      borderColor: 'rgba(255,255,255,0.15)',
+                      color: 'rgba(255,255,255,0.5)',
+                      borderRadius: '10px', fontWeight: 600,
+                      '&:hover': { borderColor: 'rgba(255,255,255,0.3)', bgcolor: 'rgba(255,255,255,0.04)' },
+                    }}
+                  >
+                    Cancelar
+                  </Button>
                   <Button
                     variant="contained"
                     size="large"
@@ -632,30 +1291,19 @@ export default function EAMOrdenesTrabajo() {
                     sx={{
                       bgcolor: EAM_COLOR,
                       '&:hover': { bgcolor: EAM_DARK },
-                      borderRadius: '12px',
+                      borderRadius: '10px',
                       fontWeight: 700,
-                      px: 4,
+                      px: 3.5,
+                      boxShadow: `0 4px 16px ${alpha(EAM_COLOR, 0.35)}`,
                     }}
                   >
                     Crear Orden de Trabajo
                   </Button>
-                  <Button
-                    variant="outlined"
-                    size="large"
-                    onClick={() => setTab(1)}
-                    sx={{
-                      borderColor: 'rgba(234,88,12,0.35)',
-                      color: 'rgba(255,255,255,0.6)',
-                      borderRadius: '12px',
-                      fontWeight: 600,
-                    }}
-                  >
-                    Cancelar
-                  </Button>
                 </Stack>
-              </Grid>
-            </Grid>
-          </Paper>
+              </Stack>
+            </Paper>
+
+          </Box>
         )}
       </Box>
     </Layout>
