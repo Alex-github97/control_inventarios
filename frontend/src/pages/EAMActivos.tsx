@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+﻿import React, { useState } from 'react'
 import {
   Box, Paper, Typography, Stack, Grid, Chip, Button, Tab, Tabs,
   MenuItem, TextField, alpha,
@@ -16,8 +16,8 @@ import {
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const EAM_COLOR = '#EA580C'
-const EAM_DARK  = '#C2410C'
+const EAM_COLOR = '#32AC5C'
+const EAM_DARK  = '#27884A'
 const DARK_BG   = '#060C1A'
 const CARD_BG   = '#0F1E35'
 
@@ -207,7 +207,7 @@ function TreeNodeItem({
       </Stack>
 
       {hasChildren && isExpanded && (
-        <Box sx={{ borderLeft: `1px dashed rgba(234,88,12,0.25)`, ml: depth * 2.5 + 1.5 }}>
+        <Box sx={{ borderLeft: `1px dashed rgba(50,172,92,0.25)`, ml: depth * 2.5 + 1.5 }}>
           {node.children!.map((child) => (
             <TreeNodeItem
               key={child.id}
@@ -303,7 +303,7 @@ export default function EAMActivos() {
               <TextField
                 select size="small" label="Tipo de activo" value={filterTipo}
                 onChange={(e) => setFilterTipo(e.target.value)}
-                sx={{ minWidth: 180, '& .MuiOutlinedInput-root': { bgcolor: CARD_BG }, '& label': { color: 'rgba(255,255,255,0.5)' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(234,88,12,0.25)' } }}
+                sx={{ minWidth: 180, '& .MuiOutlinedInput-root': { bgcolor: CARD_BG }, '& label': { color: 'rgba(255,255,255,0.5)' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.25)' } }}
                 inputProps={{ style: { color: '#fff' } }}
               >
                 {['Todos', 'Vehículo', 'Montacargas', 'Infraestructura', 'Equipo'].map((o) => (
@@ -313,7 +313,7 @@ export default function EAMActivos() {
               <TextField
                 select size="small" label="Estado" value={filterEstado}
                 onChange={(e) => setFilterEstado(e.target.value)}
-                sx={{ minWidth: 200, '& .MuiOutlinedInput-root': { bgcolor: CARD_BG }, '& label': { color: 'rgba(255,255,255,0.5)' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(234,88,12,0.25)' } }}
+                sx={{ minWidth: 200, '& .MuiOutlinedInput-root': { bgcolor: CARD_BG }, '& label': { color: 'rgba(255,255,255,0.5)' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.25)' } }}
                 inputProps={{ style: { color: '#fff' } }}
               >
                 {['Todos', 'OPERATIVO', 'EN_MANTENIMIENTO', 'FUERA_DE_SERVICIO'].map((o) => (
@@ -323,7 +323,7 @@ export default function EAMActivos() {
               <TextField
                 select size="small" label="Criticidad" value={filterCriticidad}
                 onChange={(e) => setFilterCriticidad(e.target.value)}
-                sx={{ minWidth: 160, '& .MuiOutlinedInput-root': { bgcolor: CARD_BG }, '& label': { color: 'rgba(255,255,255,0.5)' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(234,88,12,0.25)' } }}
+                sx={{ minWidth: 160, '& .MuiOutlinedInput-root': { bgcolor: CARD_BG }, '& label': { color: 'rgba(255,255,255,0.5)' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.25)' } }}
                 inputProps={{ style: { color: '#fff' } }}
               >
                 {['Todos', 'CRITICA', 'ALTA', 'MEDIA', 'BAJA'].map((o) => (
@@ -337,7 +337,7 @@ export default function EAMActivos() {
               elevation={0}
               sx={{
                 bgcolor: CARD_BG,
-                border: `1px solid rgba(234,88,12,0.25)`,
+                border: `1px solid rgba(50,172,92,0.25)`,
                 borderRadius: '14px',
                 overflow: 'hidden',
               }}
@@ -430,7 +430,7 @@ export default function EAMActivos() {
               elevation={0}
               sx={{
                 bgcolor: CARD_BG,
-                border: `1px solid rgba(234,88,12,0.25)`,
+                border: `1px solid rgba(50,172,92,0.25)`,
                 borderRadius: '14px',
                 p: 2.5,
                 mb: 2,
@@ -476,7 +476,7 @@ export default function EAMActivos() {
                     elevation={0}
                     sx={{
                       bgcolor: CARD_BG,
-                      border: `1px solid rgba(234,88,12,0.25)`,
+                      border: `1px solid rgba(50,172,92,0.25)`,
                       borderRadius: '12px',
                       p: 2,
                       textAlign: 'center',
@@ -500,7 +500,7 @@ export default function EAMActivos() {
                   elevation={0}
                   sx={{
                     bgcolor: CARD_BG,
-                    border: `1px solid rgba(234,88,12,0.25)`,
+                    border: `1px solid rgba(50,172,92,0.25)`,
                     borderRadius: '14px',
                     p: 2.5,
                   }}
@@ -564,7 +564,7 @@ export default function EAMActivos() {
                     elevation={0}
                     sx={{
                       bgcolor: CARD_BG,
-                      border: `1px solid rgba(234,88,12,0.25)`,
+                      border: `1px solid rgba(50,172,92,0.25)`,
                       borderRadius: '14px',
                       p: 2.5,
                     }}
@@ -599,7 +599,7 @@ export default function EAMActivos() {
                     elevation={0}
                     sx={{
                       bgcolor: CARD_BG,
-                      border: `1px solid rgba(234,88,12,0.25)`,
+                      border: `1px solid rgba(50,172,92,0.25)`,
                       borderRadius: '14px',
                       p: 2.5,
                     }}
@@ -643,7 +643,7 @@ export default function EAMActivos() {
             elevation={0}
             sx={{
               bgcolor: CARD_BG,
-              border: `1px solid rgba(234,88,12,0.25)`,
+              border: `1px solid rgba(50,172,92,0.25)`,
               borderRadius: '14px',
               p: 2.5,
             }}

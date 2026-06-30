@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import {
   Box,
@@ -31,7 +31,7 @@ import {
   RotateRight,
 } from '@mui/icons-material';
 
-const EAM_COLOR = '#EA580C';
+const EAM_COLOR = '#32AC5C';
 const CARD_BG = '#0F1E35';
 const DARK_BG = '#060C1A';
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+﻿import React, { useState } from 'react'
 import {
   Box,
   Card,
@@ -34,7 +34,7 @@ import { Layout } from '@/components/layout/Layout'
 
 // ─── Constantes de tema ───────────────────────────────────────────────────────
 
-const EAM_COLOR = '#EA580C'
+const EAM_COLOR = '#32AC5C'
 const CARD_BG   = '#0F1E35'
 const DARK_BG   = '#060C1A'
 
@@ -356,7 +356,7 @@ const RECLAMACIONES: Reclamacion[] = [
 
 function colorPorDias(dias: number): string {
   if (dias <= 7) return '#EF4444'
-  if (dias <= 15) return '#EA580C'
+  if (dias <= 15) return '#32AC5C'
   return '#EAB308'
 }
 

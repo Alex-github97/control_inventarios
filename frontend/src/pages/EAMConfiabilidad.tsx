@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+﻿import React, { useState } from 'react'
 import {
   Box, Typography, Tabs, Tab, Table, TableHead, TableBody, TableRow, TableCell,
   TableContainer, Paper, Chip, Grid, Card, CardContent, Divider, LinearProgress,
@@ -9,7 +9,7 @@ import {
 import { Layout } from '@/components/layout/Layout'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const EAM_COLOR = '#EA580C'
+const EAM_COLOR = '#32AC5C'
 const CARD_BG = '#0F1E35'
 const DARK_BG = '#060C1A'
 
@@ -296,7 +296,7 @@ function KpisTab() {
             </TableHead>
             <TableBody>
               {assetTypeRows.map((row) => (
-                <TableRow key={row.tipo} sx={{ '&:hover': { bgcolor: 'rgba(234,88,12,0.06)' } }}>
+                <TableRow key={row.tipo} sx={{ '&:hover': { bgcolor: 'rgba(50,172,92,0.06)' } }}>
                   <TableCell sx={{ color: '#e2e8f0', fontWeight: 600, borderColor: '#1e3a5f' }}>{row.tipo}</TableCell>
                   <TableCell sx={{ color: '#22c55e', fontWeight: 700, borderColor: '#1e3a5f' }}>{row.mtbf}</TableCell>
                   <TableCell sx={{ color: '#f59e0b', fontWeight: 700, borderColor: '#1e3a5f' }}>{row.mttr}</TableCell>
@@ -409,7 +409,7 @@ function KpisTab() {
             </TableHead>
             <TableBody>
               {topFailures.map((row) => (
-                <TableRow key={row.rank} sx={{ '&:hover': { bgcolor: 'rgba(234,88,12,0.06)' } }}>
+                <TableRow key={row.rank} sx={{ '&:hover': { bgcolor: 'rgba(50,172,92,0.06)' } }}>
                   <TableCell sx={{ borderColor: '#1e3a5f' }}>
                     <Box sx={{
                       width: 24, height: 24, borderRadius: '50%',
@@ -473,7 +473,7 @@ function FmeaTab() {
             {fmeaRows.map((row, idx) => {
               const rpn = row.s * row.o * row.d
               return (
-                <TableRow key={idx} sx={{ bgcolor: fmeaRowBg(rpn), '&:hover': { bgcolor: rpn >= 200 ? 'rgba(239,68,68,0.18)' : 'rgba(234,88,12,0.06)' } }}>
+                <TableRow key={idx} sx={{ bgcolor: fmeaRowBg(rpn), '&:hover': { bgcolor: rpn >= 200 ? 'rgba(239,68,68,0.18)' : 'rgba(50,172,92,0.06)' } }}>
                   <TableCell sx={{ color: '#e2e8f0', fontWeight: 600, borderColor: '#1e3a5f', whiteSpace: 'nowrap', fontSize: 12 }}>{row.activo}</TableCell>
                   <TableCell sx={{ color: '#94a3b8', borderColor: '#1e3a5f', whiteSpace: 'nowrap', fontSize: 12 }}>{row.componente}</TableCell>
                   <TableCell sx={{ color: '#94a3b8', borderColor: '#1e3a5f', fontSize: 12, maxWidth: 160 }}>{row.funcion}</TableCell>
@@ -608,11 +608,11 @@ function AnalisisFallasTab() {
             </TableHead>
             <TableBody>
               {monthlyFailures.map((row, idx) => (
-                <TableRow key={idx} sx={{ '&:hover': { bgcolor: 'rgba(234,88,12,0.06)' } }}>
+                <TableRow key={idx} sx={{ '&:hover': { bgcolor: 'rgba(50,172,92,0.06)' } }}>
                   <TableCell sx={{ color: '#e2e8f0', fontWeight: 600, borderColor: '#1e3a5f', fontSize: 12, whiteSpace: 'nowrap' }}>{row.activo}</TableCell>
                   <TableCell sx={{ color: '#fbbf24', borderColor: '#1e3a5f', fontSize: 12 }}>{row.descripcion}</TableCell>
                   <TableCell sx={{ borderColor: '#1e3a5f', fontSize: 12 }}>
-                    <Chip label={row.causaRaiz} size="small" sx={{ bgcolor: 'rgba(234,88,12,0.15)', color: EAM_COLOR, fontWeight: 600, fontSize: 10 }} />
+                    <Chip label={row.causaRaiz} size="small" sx={{ bgcolor: 'rgba(50,172,92,0.15)', color: EAM_COLOR, fontWeight: 600, fontSize: 10 }} />
                   </TableCell>
                   <TableCell sx={{ color: '#94a3b8', borderColor: '#1e3a5f', fontSize: 12 }}>{row.solucion}</TableCell>
                   <TableCell sx={{ color: '#f59e0b', fontWeight: 700, borderColor: '#1e3a5f', textAlign: 'center', fontSize: 12 }}>{row.tiempoParado}</TableCell>

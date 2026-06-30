@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
   Box, Typography, Tabs, Tab, Card, CardContent, Chip, Grid,
   Stack, Button, Divider, Table, TableBody, TableCell,
@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import { Layout } from '@/components/layout/Layout';
 
-const EAM_COLOR = '#EA580C';
+const EAM_COLOR = '#32AC5C';
 const CARD_BG = '#0F1E35';
 const DARK_BG = '#060C1A';
 
@@ -123,7 +123,7 @@ const NON_CONFORMANCES: NonConformance[] = [
 
 const SEVERITY_COLORS: Record<NonConformance['severity'], string> = {
   CRITICA: '#DC2626',
-  ALTA: '#EA580C',
+  ALTA: '#32AC5C',
   MEDIA: '#CA8A04',
   BAJA: '#6B7280',
 };
@@ -240,7 +240,7 @@ export default function EAMChecklists() {
                         onClick={() => handleToggleTemplate(tmpl.id)}
                         sx={{
                           borderColor: EAM_COLOR, color: EAM_COLOR, fontSize: '0.75rem',
-                          '&:hover': { borderColor: '#C2410C', bgcolor: '#EA580C15' },
+                          '&:hover': { borderColor: '#27884A', bgcolor: '#32AC5C15' },
                         }}
                       >
                         {expandedTemplate === tmpl.id ? 'Ocultar preguntas' : 'Ver preguntas'}
@@ -370,7 +370,7 @@ export default function EAMChecklists() {
                         <Chip
                           label={`OT Generada: ${nc.otId}`}
                           size="small"
-                          sx={{ bgcolor: '#EA580C22', color: EAM_COLOR, border: `1px solid ${EAM_COLOR}`, fontWeight: 700, fontSize: '0.65rem' }}
+                          sx={{ bgcolor: '#32AC5C22', color: EAM_COLOR, border: `1px solid ${EAM_COLOR}`, fontWeight: 700, fontSize: '0.65rem' }}
                         />
                       )}
                     </Stack>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
   Box, Typography, Tabs, Tab, Card, CardContent, Chip, Grid,
   Stack, LinearProgress, Divider, Table, TableBody, TableCell,
@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import { Layout } from '@/components/layout/Layout';
 
-const EAM_COLOR = '#EA580C';
+const EAM_COLOR = '#32AC5C';
 const CARD_BG = '#0F1E35';
 const DARK_BG = '#060C1A';
 
@@ -94,7 +94,7 @@ const PLAN_TYPE_COLORS: Record<PlanType, string> = {
 
 function DaysChip({ days }: { days: number }) {
   if (days <= 7) return <Chip label="URGENTE" size="small" sx={{ bgcolor: '#DC2626', color: '#fff', fontWeight: 700, fontSize: '0.65rem' }} />;
-  if (days <= 15) return <Chip label="PRONTO" size="small" sx={{ bgcolor: '#EA580C', color: '#fff', fontWeight: 700, fontSize: '0.65rem' }} />;
+  if (days <= 15) return <Chip label="PRONTO" size="small" sx={{ bgcolor: '#32AC5C', color: '#fff', fontWeight: 700, fontSize: '0.65rem' }} />;
   if (days <= 30) return <Chip label="PRÓXIMO" size="small" sx={{ bgcolor: '#CA8A04', color: '#fff', fontWeight: 700, fontSize: '0.65rem' }} />;
   return <Chip label="OK" size="small" sx={{ bgcolor: '#16A34A', color: '#fff', fontWeight: 700, fontSize: '0.65rem' }} />;
 }
@@ -236,14 +236,14 @@ export default function EAMPlanesMant() {
           </Typography>
           <Stack spacing={2}>
             {sorted.map(plan => (
-              <Card key={plan.id} sx={{ bgcolor: CARD_BG, border: `1px solid ${plan.daysRemaining <= 7 ? '#DC262640' : plan.daysRemaining <= 15 ? '#EA580C40' : '#1F2937'}`, borderRadius: 2 }}>
+              <Card key={plan.id} sx={{ bgcolor: CARD_BG, border: `1px solid ${plan.daysRemaining <= 7 ? '#DC262640' : plan.daysRemaining <= 15 ? '#32AC5C40' : '#1F2937'}`, borderRadius: 2 }}>
                 <CardContent>
                   <Stack direction="row" alignItems="center" spacing={2}>
                     <Box sx={{
                       minWidth: 64, height: 64, borderRadius: 2, display: 'flex', flexDirection: 'column',
                       alignItems: 'center', justifyContent: 'center',
-                      bgcolor: plan.daysRemaining <= 7 ? '#DC262620' : plan.daysRemaining <= 15 ? '#EA580C20' : plan.daysRemaining <= 30 ? '#CA8A0420' : '#16A34A20',
-                      border: `2px solid ${plan.daysRemaining <= 7 ? '#DC2626' : plan.daysRemaining <= 15 ? '#EA580C' : plan.daysRemaining <= 30 ? '#CA8A04' : '#16A34A'}`,
+                      bgcolor: plan.daysRemaining <= 7 ? '#DC262620' : plan.daysRemaining <= 15 ? '#32AC5C20' : plan.daysRemaining <= 30 ? '#CA8A0420' : '#16A34A20',
+                      border: `2px solid ${plan.daysRemaining <= 7 ? '#DC2626' : plan.daysRemaining <= 15 ? '#32AC5C' : plan.daysRemaining <= 30 ? '#CA8A04' : '#16A34A'}`,
                     }}>
                       <Typography sx={{ color: plan.daysRemaining <= 7 ? '#F87171' : plan.daysRemaining <= 15 ? '#FB923C' : plan.daysRemaining <= 30 ? '#FDE68A' : '#34D399', fontWeight: 900, fontSize: '1.5rem', lineHeight: 1 }}>
                         {plan.daysRemaining}

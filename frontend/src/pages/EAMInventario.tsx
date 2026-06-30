@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import {
   Box,
@@ -25,7 +25,7 @@ import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
-const EAM_COLOR = '#EA580C';
+const EAM_COLOR = '#32AC5C';
 const CARD_BG = '#0F1E35';
 const DARK_BG = '#060C1A';
 
@@ -748,7 +748,7 @@ function TabReorden() {
                   borderRadius: 2,
                   textTransform: 'none',
                   fontSize: '0.95rem',
-                  '&:hover': { bgcolor: '#C2410C' },
+                  '&:hover': { bgcolor: '#27884A' },
                 }}
               >
                 Generar Orden de Compra

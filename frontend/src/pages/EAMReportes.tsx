@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+﻿import React, { useState } from 'react'
 import {
   Box, Typography, Tabs, Tab, Grid, Card, CardContent, Chip,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -18,7 +18,7 @@ import {
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const EAM_COLOR = '#EA580C'
+const EAM_COLOR = '#32AC5C'
 const CARD_BG = '#0F1E35'
 const DARK_BG = '#060C1A'
 

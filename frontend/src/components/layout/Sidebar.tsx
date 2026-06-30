@@ -245,7 +245,7 @@ const QMS_COLOR = '#059669'
 const GRC_COLOR = '#6D28D9'
 const LMS_COLOR = '#D97706'
 const CRM_COLOR = '#DC2626'
-const EAM_COLOR = '#EA580C'
+const EAM_COLOR = '#32AC5C'
 const MES_COLOR = '#0891B2'
 const APS_COLOR = '#7C3AED'
 const ERP_COLOR = '#1A3A6B'
@@ -708,7 +708,7 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
               : isCRM
               ? `linear-gradient(135deg, ${CRM_COLOR} 0%, #B91C1C 100%)`
               : isEAM
-              ? `linear-gradient(135deg, ${EAM_COLOR} 0%, #C2410C 100%)`
+              ? `linear-gradient(135deg, ${EAM_COLOR} 0%, #27884A 100%)`
               : isMES
               ? `linear-gradient(135deg, ${MES_COLOR} 0%, #0E7490 100%)`
               : isAPS

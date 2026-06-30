@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
   Box, Typography, Tabs, Tab, Card, CardContent, Chip, Grid,
   Stack, Divider, Table, TableBody, TableCell,
@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import { Layout } from '@/components/layout/Layout';
 
-const EAM_COLOR = '#EA580C';
+const EAM_COLOR = '#32AC5C';
 const CARD_BG = '#0F1E35';
 const DARK_BG = '#060C1A';
 
@@ -79,7 +79,7 @@ const CONTAMINATION_COLORS: Record<Contamination, string> = {
 
 const ALERT_COLORS: Record<AlertLevel, string> = {
   URGENTE: '#DC2626',
-  ALTA: '#EA580C',
+  ALTA: '#32AC5C',
   MEDIA: '#CA8A04',
   BAJA: '#6B7280',
 };
@@ -492,7 +492,7 @@ export default function EAMLubricacion() {
                         <Box sx={{
                           width: '100%',
                           height: `${(m.liters / MAX_LITERS) * 110}px`,
-                          bgcolor: '#EA580C20',
+                          bgcolor: '#32AC5C20',
                           border: `2px solid ${EAM_COLOR}`,
                           borderRadius: '4px 4px 0 0',
                         }} />
