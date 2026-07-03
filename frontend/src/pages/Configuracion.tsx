@@ -8,7 +8,7 @@ import { Layout } from '@/components/layout/Layout'
 import { LanguageSelector } from '@/components/LanguageSelector'
 import { SUPPORTED_LANGUAGES } from '@/i18n'
 
-const CARD_BG   = '#0F1E35'
+const CARD_BG = '#FFFFFF'
 const ACCENT    = '#32AC5C'
 const SECTION_COLOR = '#6366F1'
 
