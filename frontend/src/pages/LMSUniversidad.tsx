@@ -4,9 +4,6 @@ import { School, MenuBook, EmojiEvents, AccountTree } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 const LMS_COLOR = '#D97706'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(217,119,6,0.25)'
-const DARK_BG   = '#060C1A'
 
 const FACULTADES = [
   {
@@ -92,7 +89,7 @@ export default function LMSUniversidad() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, bgcolor: DARK_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, minHeight: '100vh' }}>
         {/* Header */}
         <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box sx={{
@@ -101,13 +98,13 @@ export default function LMSUniversidad() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             boxShadow: `0 4px 14px ${alpha(LMS_COLOR, 0.4)}`,
           }}>
-            <AccountTree sx={{ color: '#FFF', fontSize: 22 }} />
+            <AccountTree sx={{ color: 'text.primary', fontSize: 22 }} />
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 800, color: '#FFF', lineHeight: 1.2 }}>
+            <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary', lineHeight: 1.2 }}>
               Universidad Corporativa
             </Typography>
-            <Typography sx={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>
+            <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
               Facultades · Escuelas · Programas · Estructura Académica
             </Typography>
           </Box>
@@ -118,7 +115,7 @@ export default function LMSUniversidad() {
           onChange={(_, v) => setTab(v)}
           sx={{
             mb: 3,
-            '& .MuiTab-root': { color: 'rgba(255,255,255,0.4)', textTransform: 'none', fontWeight: 600 },
+            '& .MuiTab-root': { color: 'text.secondary', textTransform: 'none', fontWeight: 600 },
             '& .Mui-selected': { color: `${LMS_COLOR} !important` },
             '& .MuiTabs-indicator': { bgcolor: LMS_COLOR },
           }}
@@ -134,7 +131,7 @@ export default function LMSUniversidad() {
             {FACULTADES.map((f, i) => (
               <Grid key={i} size={{ xs: 12, md: 6, lg: 4 }}>
                 <Box sx={{
-                  bgcolor: CARD_BG, border: `1px solid ${alpha(f.color, 0.3)}`,
+                  border: `1px solid ${alpha(f.color, 0.3)}`,
                   borderRadius: 2, p: 2.5, height: '100%',
                   '&:hover': { border: `1px solid ${alpha(f.color, 0.6)}` },
                   transition: 'border 0.2s ease',
@@ -145,11 +142,11 @@ export default function LMSUniversidad() {
                       background: `linear-gradient(135deg, ${f.color} 0%, ${alpha(f.color, 0.6)} 100%)`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
-                      <School sx={{ color: '#FFF', fontSize: 20 }} />
+                      <School sx={{ color: 'text.primary', fontSize: 20 }} />
                     </Box>
-                    <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#FFF' }}>{f.nombre}</Typography>
+                    <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary' }}>{f.nombre}</Typography>
                   </Box>
-                  <Typography sx={{ fontSize: 12.5, color: 'rgba(255,255,255,0.5)', mb: 2, lineHeight: 1.5 }}>
+                  <Typography sx={{ fontSize: 12.5, color: 'text.secondary', mb: 2, lineHeight: 1.5 }}>
                     {f.descripcion}
                   </Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2 }}>
@@ -162,12 +159,12 @@ export default function LMSUniversidad() {
                   </Box>
                   <Box sx={{ display: 'flex', gap: 2 }}>
                     <Box>
-                      <Typography sx={{ fontSize: 18, fontWeight: 800, color: '#FFF' }}>{f.cursos}</Typography>
-                      <Typography sx={{ fontSize: 10.5, color: 'rgba(255,255,255,0.35)' }}>cursos</Typography>
+                      <Typography sx={{ fontSize: 18, fontWeight: 800, color: 'text.primary' }}>{f.cursos}</Typography>
+                      <Typography sx={{ fontSize: 10.5, color: 'text.disabled' }}>cursos</Typography>
                     </Box>
                     <Box>
                       <Typography sx={{ fontSize: 18, fontWeight: 800, color: f.color }}>{f.inscritos}</Typography>
-                      <Typography sx={{ fontSize: 10.5, color: 'rgba(255,255,255,0.35)' }}>inscritos</Typography>
+                      <Typography sx={{ fontSize: 10.5, color: 'text.disabled' }}>inscritos</Typography>
                     </Box>
                   </Box>
                 </Box>
@@ -182,7 +179,7 @@ export default function LMSUniversidad() {
             {ESCUELAS.map((e, i) => (
               <Grid key={i} size={{ xs: 12, md: 6, lg: 4 }}>
                 <Box sx={{
-                  bgcolor: CARD_BG, border: `1px solid ${alpha(e.color, 0.3)}`,
+                  border: `1px solid ${alpha(e.color, 0.3)}`,
                   borderRadius: 2, p: 2.5,
                 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
@@ -191,11 +188,11 @@ export default function LMSUniversidad() {
                       background: `linear-gradient(135deg, ${e.color} 0%, ${alpha(e.color, 0.6)} 100%)`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
-                      <MenuBook sx={{ color: '#FFF', fontSize: 20 }} />
+                      <MenuBook sx={{ color: 'text.primary', fontSize: 20 }} />
                     </Box>
                     <Box>
-                      <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#FFF' }}>{e.nombre}</Typography>
-                      <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{e.facultad}</Typography>
+                      <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary' }}>{e.nombre}</Typography>
+                      <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{e.facultad}</Typography>
                     </Box>
                   </Box>
                   <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
@@ -206,7 +203,7 @@ export default function LMSUniversidad() {
                     ].map((m, j) => (
                       <Box key={j} sx={{ textAlign: 'center' }}>
                         <Typography sx={{ fontSize: 20, fontWeight: 800, color: j === 2 ? e.color : '#FFF' }}>{m.val}</Typography>
-                        <Typography sx={{ fontSize: 10.5, color: 'rgba(255,255,255,0.35)' }}>{m.label}</Typography>
+                        <Typography sx={{ fontSize: 10.5, color: 'text.disabled' }}>{m.label}</Typography>
                       </Box>
                     ))}
                   </Box>
@@ -218,16 +215,16 @@ export default function LMSUniversidad() {
 
         {/* Programas */}
         {tab === 2 && (
-          <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, overflow: 'hidden' }}>
-            <Box sx={{ p: 2, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-              <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#FFF' }}>Catálogo de Programas</Typography>
+          <Box sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2, overflow: 'hidden' }}>
+            <Box sx={{ p: 2, borderBottom: '1px solid #F1F5F9' }}>
+              <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary' }}>Catálogo de Programas</Typography>
             </Box>
             <Box sx={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
                     {['Código', 'Nombre', 'Tipo', 'Escuela', 'Cursos', 'Horas'].map(h => (
-                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.35)', borderBottom: '1px solid rgba(255,255,255,0.06)', whiteSpace: 'nowrap' }}>{h}</th>
+                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'text.disabled', borderBottom: '1px solid #F1F5F9', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -235,9 +232,9 @@ export default function LMSUniversidad() {
                   {PROGRAMAS.map((p, i) => {
                     const col = TIPO_COLORS[p.tipo] || LMS_COLOR
                     return (
-                      <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                      <tr key={i} style={{ borderBottom: '1px solid #F1F5F9' }}>
                         <td style={{ padding: '10px 14px', fontSize: 12, color: LMS_COLOR, fontWeight: 600 }}>{p.codigo}</td>
-                        <td style={{ padding: '10px 14px', fontSize: 13, color: '#FFF' }}>{p.nombre}</td>
+                        <td style={{ padding: '10px 14px', fontSize: 13, color: 'text.primary' }}>{p.nombre}</td>
                         <td style={{ padding: '10px 14px' }}>
                           <span style={{
                             padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600,
@@ -246,8 +243,8 @@ export default function LMSUniversidad() {
                             {TIPO_LABELS[p.tipo]}
                           </span>
                         </td>
-                        <td style={{ padding: '10px 14px', fontSize: 12.5, color: 'rgba(255,255,255,0.6)' }}>{p.escuela}</td>
-                        <td style={{ padding: '10px 14px', fontSize: 13, color: '#FFF', textAlign: 'center' }}>{p.cursos}</td>
+                        <td style={{ padding: '10px 14px', fontSize: 12.5, color: 'text.secondary' }}>{p.escuela}</td>
+                        <td style={{ padding: '10px 14px', fontSize: 13, color: 'text.primary', textAlign: 'center' }}>{p.cursos}</td>
                         <td style={{ padding: '10px 14px', fontSize: 13, color: LMS_COLOR, fontWeight: 700, textAlign: 'center' }}>{p.horas}h</td>
                       </tr>
                     )

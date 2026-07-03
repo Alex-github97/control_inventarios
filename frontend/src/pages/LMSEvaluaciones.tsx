@@ -4,9 +4,6 @@ import { Quiz, CheckCircle, Timer, TrendingUp } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 const LMS_COLOR = '#D97706'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(217,119,6,0.25)'
-const DARK_BG   = '#060C1A'
 
 const TIPO_COLORS: Record<string, string> = {
   DIAGNOSTICO: '#6D28D9', FORMATIVO: '#0EA5E9', CERTIFICACION: LMS_COLOR,
@@ -35,18 +32,18 @@ export default function LMSEvaluaciones() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, bgcolor: DARK_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, minHeight: '100vh' }}>
         <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box sx={{
             width: 44, height: 44, borderRadius: '12px',
             background: `linear-gradient(135deg, ${LMS_COLOR} 0%, #B45309 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Quiz sx={{ color: '#FFF', fontSize: 22 }} />
+            <Quiz sx={{ color: 'text.primary', fontSize: 22 }} />
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 800, color: '#FFF' }}>Evaluaciones</Typography>
-            <Typography sx={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>
+            <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Evaluaciones</Typography>
+            <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
               Diagnóstico · Formativo · Certificación · Práctico
             </Typography>
           </Box>
@@ -61,18 +58,18 @@ export default function LMSEvaluaciones() {
             { label: 'Tiempo Máx. Promedio', value: `${Math.round(EVALUACIONES.reduce((s, e) => s + e.tiempo, 0) / EVALUACIONES.length)} min`, color: '#7C3AED', icon: <Timer /> },
           ].map((k, i) => (
             <Grid key={i} size={{ xs: 6, md: 3 }}>
-              <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, p: 2, display: 'flex', gap: 1.5, alignItems: 'center' }}>
+              <Box sx={{ border: `1px solid #E5E7EB`, borderRadius: 2, p: 2, display: 'flex', gap: 1.5, alignItems: 'center' }}>
                 <Box sx={{
                   width: 38, height: 38, borderRadius: '10px', flexShrink: 0,
                   background: `linear-gradient(135deg, ${k.color} 0%, ${alpha(k.color, 0.6)} 100%)`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  '& svg': { color: '#FFF', fontSize: 20 },
+                  '& svg': { color: '#fff', fontSize: 20 },
                 }}>
                   {k.icon}
                 </Box>
                 <Box>
-                  <Typography sx={{ fontSize: 20, fontWeight: 800, color: '#FFF', lineHeight: 1 }}>{k.value}</Typography>
-                  <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', mt: 0.25 }}>{k.label}</Typography>
+                  <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>{k.value}</Typography>
+                  <Typography sx={{ fontSize: 11, color: 'text.secondary', mt: 0.25 }}>{k.label}</Typography>
                 </Box>
               </Box>
             </Grid>
@@ -82,7 +79,7 @@ export default function LMSEvaluaciones() {
         <Tabs value={tab} onChange={(_, v) => setTab(v)}
           sx={{
             mb: 3,
-            '& .MuiTab-root': { color: 'rgba(255,255,255,0.4)', textTransform: 'none', fontWeight: 600 },
+            '& .MuiTab-root': { color: 'text.secondary', textTransform: 'none', fontWeight: 600 },
             '& .Mui-selected': { color: `${LMS_COLOR} !important` },
             '& .MuiTabs-indicator': { bgcolor: LMS_COLOR },
           }}>
@@ -97,12 +94,12 @@ export default function LMSEvaluaciones() {
               const tasaCol = e.tasa_aprobacion >= 80 ? '#059669' : e.tasa_aprobacion >= 65 ? LMS_COLOR : '#EF4444'
               return (
                 <Grid key={e.id} size={{ xs: 12, md: 6 }}>
-                  <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, p: 2.5 }}>
+                  <Box sx={{ border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
                       <Box>
                         <Typography sx={{ fontSize: 11.5, color: LMS_COLOR, fontWeight: 600, mb: 0.25 }}>{e.codigo}</Typography>
-                        <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#FFF', lineHeight: 1.3 }}>{e.nombre}</Typography>
-                        <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', mt: 0.25 }}>{e.curso}</Typography>
+                        <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', lineHeight: 1.3 }}>{e.nombre}</Typography>
+                        <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 0.25 }}>{e.curso}</Typography>
                       </Box>
                       <Chip label={e.tipo} size="small" sx={{ bgcolor: alpha(col, 0.15), color: col, border: `1px solid ${alpha(col, 0.3)}`, fontSize: 10, fontWeight: 700 }} />
                     </Box>
@@ -114,13 +111,13 @@ export default function LMSEvaluaciones() {
                         { label: 'Intentos', val: e.intentos },
                       ].map((m, j) => (
                         <Box key={j}>
-                          <Typography sx={{ fontSize: 16, fontWeight: 800, color: '#FFF', lineHeight: 1 }}>{m.val}</Typography>
-                          <Typography sx={{ fontSize: 10.5, color: 'rgba(255,255,255,0.35)' }}>{m.label}</Typography>
+                          <Typography sx={{ fontSize: 16, fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>{m.val}</Typography>
+                          <Typography sx={{ fontSize: 10.5, color: 'text.disabled' }}>{m.label}</Typography>
                         </Box>
                       ))}
                       <Box>
                         <Typography sx={{ fontSize: 16, fontWeight: 800, color: tasaCol, lineHeight: 1 }}>{e.tasa_aprobacion}%</Typography>
-                        <Typography sx={{ fontSize: 10.5, color: 'rgba(255,255,255,0.35)' }}>Tasa Aprobación</Typography>
+                        <Typography sx={{ fontSize: 10.5, color: 'text.disabled' }}>Tasa Aprobación</Typography>
                       </Box>
                     </Box>
                   </Box>
@@ -131,12 +128,12 @@ export default function LMSEvaluaciones() {
         )}
 
         {tab === 1 && (
-          <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, overflow: 'hidden' }}>
+          <Box sx={{ border: `1px solid #E5E7EB`, borderRadius: 2, overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
                   {['Colaborador', 'Evaluación', 'Puntaje', 'Resultado', 'Fecha'].map(h => (
-                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.35)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{h}</th>
+                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'text.disabled', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -145,8 +142,8 @@ export default function LMSEvaluaciones() {
                   const col = i.aprobado ? '#059669' : '#EF4444'
                   return (
                     <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                      <td style={{ padding: '10px 14px', fontSize: 13, color: '#FFF', fontWeight: 500 }}>{i.colaborador}</td>
-                      <td style={{ padding: '10px 14px', fontSize: 12.5, color: 'rgba(255,255,255,0.6)' }}>{i.evaluacion}</td>
+                      <td style={{ padding: '10px 14px', fontSize: 13, color: 'text.primary', fontWeight: 500 }}>{i.colaborador}</td>
+                      <td style={{ padding: '10px 14px', fontSize: 12.5, color: 'text.secondary' }}>{i.evaluacion}</td>
                       <td style={{ padding: '10px 14px', fontSize: 15, fontWeight: 800, color: col }}>{i.puntaje}%</td>
                       <td style={{ padding: '10px 14px' }}>
                         <Chip
@@ -155,7 +152,7 @@ export default function LMSEvaluaciones() {
                           sx={{ bgcolor: alpha(col, 0.15), color: col, border: `1px solid ${alpha(col, 0.3)}`, fontWeight: 700, fontSize: 10 }}
                         />
                       </td>
-                      <td style={{ padding: '10px 14px', fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>{i.fecha}</td>
+                      <td style={{ padding: '10px 14px', fontSize: 12, color: 'text.secondary' }}>{i.fecha}</td>
                     </tr>
                   )
                 })}

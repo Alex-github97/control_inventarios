@@ -4,9 +4,7 @@ import { Settings, Extension, Notifications, Hub } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 const LMS_COLOR = '#D97706'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(217,119,6,0.25)'
-const DARK_BG   = '#060C1A'
+const #E5E7EB  = '#E5E7EB'
 
 const FRAMEWORKS = [
   { nombre: 'SCORM 1.2', desc: 'Estándar clásico de paquetes de curso. Compatible con la mayoría de LMS.', activo: true },
@@ -54,18 +52,18 @@ export default function LMSConfig() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, bgcolor: DARK_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, minHeight: '100vh' }}>
         <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box sx={{
             width: 44, height: 44, borderRadius: '12px',
             background: `linear-gradient(135deg, ${LMS_COLOR} 0%, #B45309 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Settings sx={{ color: '#FFF', fontSize: 22 }} />
+            <Settings sx={{ color: 'text.primary', fontSize: 22 }} />
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 800, color: '#FFF' }}>Configuración LMS</Typography>
-            <Typography sx={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>
+            <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Configuración LMS</Typography>
+            <Typography sx={{ fontSize: 13, color: 'text.disabled' }}>
               Frameworks · Umbrales · Notificaciones · Integraciones
             </Typography>
           </Box>
@@ -74,7 +72,7 @@ export default function LMSConfig() {
         <Tabs value={tab} onChange={(_, v) => setTab(v)}
           sx={{
             mb: 3,
-            '& .MuiTab-root': { color: 'rgba(255,255,255,0.4)', textTransform: 'none', fontWeight: 600 },
+            '& .MuiTab-root': { color: 'text.secondary', textTransform: 'none', fontWeight: 600 },
             '& .Mui-selected': { color: `${LMS_COLOR} !important` },
             '& .MuiTabs-indicator': { bgcolor: LMS_COLOR },
           }}>
@@ -88,11 +86,11 @@ export default function LMSConfig() {
           <Grid container spacing={2}>
             {FRAMEWORKS.map((f, i) => (
               <Grid key={i} size={{ xs: 12, md: 6 }}>
-                <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${fws[i] ? CARD_BOR : 'rgba(255,255,255,0.08)'}`, borderRadius: 2, p: 2.5 }}>
+                <Box sx={{ bgcolor: 'text.primary', border: `1px solid ${fws[i] ? #E5E7EB : '#E5E7EB'}`, borderRadius: 2, p: 2.5 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <Box sx={{ flex: 1 }}>
-                      <Typography sx={{ fontSize: 15, fontWeight: 800, color: '#FFF', mb: 0.5 }}>{f.nombre}</Typography>
-                      <Typography sx={{ fontSize: 12.5, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>{f.desc}</Typography>
+                      <Typography sx={{ fontSize: 15, fontWeight: 800, color: 'text.primary', mb: 0.5 }}>{f.nombre}</Typography>
+                      <Typography sx={{ fontSize: 12.5, color: 'text.secondary', lineHeight: 1.5 }}>{f.desc}</Typography>
                     </Box>
                     <Switch
                       checked={fws[i]}
@@ -109,7 +107,7 @@ export default function LMSConfig() {
                   </Box>
                   <Box sx={{ mt: 1.5 }}>
                     <Chip label={fws[i] ? 'Activo' : 'Inactivo'} size="small"
-                      sx={{ bgcolor: fws[i] ? alpha('#059669', 0.15) : 'rgba(255,255,255,0.05)', color: fws[i] ? '#059669' : 'rgba(255,255,255,0.35)', fontSize: 10, fontWeight: 600 }} />
+                      sx={{ bgcolor: fws[i] ? alpha('#059669', 0.15) : '#F1F5F9', color: fws[i] ? '#059669' : 'text.disabled', fontSize: 10, fontWeight: 600 }} />
                   </Box>
                 </Box>
               </Grid>
@@ -118,19 +116,19 @@ export default function LMSConfig() {
         )}
 
         {tab === 1 && (
-          <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, overflow: 'hidden' }}>
+          <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
                   {['Parámetro', 'Valor Actual', ''].map(h => (
-                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.35)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{h}</th>
+                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'rgba(0,0,0,0.35)', borderBottom: '1px solid #F1F5F9' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {UMBRALES.map((u, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                    <td style={{ padding: '10px 14px', fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>{u.nombre}</td>
+                  <tr key={i} style={{ borderBottom: '1px solid #F9FAFB' }}>
+                    <td style={{ padding: '10px 14px', fontSize: 13, color: 'rgba(0,0,0,0.7)' }}>{u.nombre}</td>
                     <td style={{ padding: '10px 14px', fontSize: 14, fontWeight: 800, color: LMS_COLOR }}>{u.valor}</td>
                     <td style={{ padding: '10px 14px' }}>
                       <Chip label="Editar" size="small" sx={{ bgcolor: alpha(LMS_COLOR, 0.1), color: LMS_COLOR, border: `1px solid ${alpha(LMS_COLOR, 0.2)}`, cursor: 'pointer', fontSize: 10 }} />
@@ -143,20 +141,20 @@ export default function LMSConfig() {
         )}
 
         {tab === 2 && (
-          <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, overflow: 'hidden' }}>
+          <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
                   {['Notificación', 'Canal', 'Activo'].map(h => (
-                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.35)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{h}</th>
+                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'rgba(0,0,0,0.35)', borderBottom: '1px solid #F1F5F9' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {NOTIFICACIONES.map((n, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                    <td style={{ padding: '10px 14px', fontSize: 13, color: 'rgba(255,255,255,0.75)' }}>{n.tipo}</td>
-                    <td style={{ padding: '10px 14px', fontSize: 11.5, color: 'rgba(255,255,255,0.4)' }}>{n.canal}</td>
+                  <tr key={i} style={{ borderBottom: '1px solid #F9FAFB' }}>
+                    <td style={{ padding: '10px 14px', fontSize: 13, color: 'rgba(0,0,0,0.75)' }}>{n.tipo}</td>
+                    <td style={{ padding: '10px 14px', fontSize: 11.5, color: 'rgba(0,0,0,0.4)' }}>{n.canal}</td>
                     <td style={{ padding: '10px 14px' }}>
                       <Switch
                         checked={notifs[i]}
@@ -183,7 +181,7 @@ export default function LMSConfig() {
           <Grid container spacing={2}>
             {INTEGRACIONES.map((int, i) => (
               <Grid key={i} size={{ xs: 12, md: 6 }}>
-                <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${ints[i] ? alpha(int.color, 0.3) : 'rgba(255,255,255,0.08)'}`, borderRadius: 2, p: 2.5 }}>
+                <Box sx={{ bgcolor: 'text.primary', border: `1px solid ${ints[i] ? alpha(int.color, 0.3) : '#E5E7EB'}`, borderRadius: 2, p: 2.5 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start', flex: 1 }}>
                       <Box sx={{
@@ -194,8 +192,8 @@ export default function LMSConfig() {
                         <Typography sx={{ fontSize: 12, fontWeight: 800, color: int.color }}>{int.modulo}</Typography>
                       </Box>
                       <Box>
-                        <Typography sx={{ fontSize: 14, fontWeight: 800, color: '#FFF', mb: 0.25 }}>{int.modulo} Integration</Typography>
-                        <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.4 }}>{int.descripcion}</Typography>
+                        <Typography sx={{ fontSize: 14, fontWeight: 800, color: 'text.primary', mb: 0.25 }}>{int.modulo} Integration</Typography>
+                        <Typography sx={{ fontSize: 12, color: 'text.secondary', lineHeight: 1.4 }}>{int.descripcion}</Typography>
                       </Box>
                     </Box>
                     <Switch
@@ -213,7 +211,7 @@ export default function LMSConfig() {
                   </Box>
                   <Box sx={{ mt: 1.5 }}>
                     <Chip label={ints[i] ? 'Conectado' : 'Desconectado'} size="small"
-                      sx={{ bgcolor: ints[i] ? alpha('#059669', 0.15) : 'rgba(255,255,255,0.05)', color: ints[i] ? '#059669' : 'rgba(255,255,255,0.35)', fontSize: 10, fontWeight: 600 }} />
+                      sx={{ bgcolor: ints[i] ? alpha('#059669', 0.15) : '#F1F5F9', color: ints[i] ? '#059669' : 'text.disabled', fontSize: 10, fontWeight: 600 }} />
                   </Box>
                 </Box>
               </Grid>

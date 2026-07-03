@@ -4,9 +4,6 @@ import { PersonAdd, CheckCircle, Schedule, RadioButtonUnchecked } from '@mui/ico
 import { Layout } from '@/components/layout/Layout'
 
 const LMS_COLOR = '#D97706'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(217,119,6,0.25)'
-const DARK_BG   = '#060C1A'
 
 const ESTADOS_COLOR: Record<string, string> = {
   EN_PROGRESO: '#0EA5E9', COMPLETADO: '#059669', PENDIENTE: '#F59E0B',
@@ -61,18 +58,18 @@ export default function LMSOnboarding() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, bgcolor: DARK_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, minHeight: '100vh' }}>
         <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box sx={{
             width: 44, height: 44, borderRadius: '12px',
             background: `linear-gradient(135deg, ${LMS_COLOR} 0%, #B45309 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <PersonAdd sx={{ color: '#FFF', fontSize: 22 }} />
+            <PersonAdd sx={{ color: 'text.primary', fontSize: 22 }} />
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 800, color: '#FFF' }}>Onboarding</Typography>
-            <Typography sx={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>
+            <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Onboarding</Typography>
+            <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
               Planes de inducción automáticos · Cursos obligatorios por cargo
             </Typography>
           </Box>
@@ -87,18 +84,18 @@ export default function LMSOnboarding() {
             { label: 'Cursos Oblig. Asignados', value: CURSOS_OBLIGATORIOS.length, color: LMS_COLOR, icon: <PersonAdd /> },
           ].map((k, i) => (
             <Grid key={i} size={{ xs: 6, md: 3 }}>
-              <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, p: 2, display: 'flex', gap: 1.5, alignItems: 'center' }}>
+              <Box sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2, p: 2, display: 'flex', gap: 1.5, alignItems: 'center' }}>
                 <Box sx={{
                   width: 38, height: 38, borderRadius: '10px', flexShrink: 0,
                   background: `linear-gradient(135deg, ${k.color} 0%, ${alpha(k.color, 0.6)} 100%)`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  '& svg': { color: '#FFF', fontSize: 20 },
+                  '& svg': { color: '#fff', fontSize: 20 },
                 }}>
                   {k.icon}
                 </Box>
                 <Box>
-                  <Typography sx={{ fontSize: 20, fontWeight: 800, color: '#FFF', lineHeight: 1 }}>{k.value}</Typography>
-                  <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', mt: 0.25 }}>{k.label}</Typography>
+                  <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>{k.value}</Typography>
+                  <Typography sx={{ fontSize: 11, color: 'text.secondary', mt: 0.25 }}>{k.label}</Typography>
                 </Box>
               </Box>
             </Grid>
@@ -108,9 +105,9 @@ export default function LMSOnboarding() {
         <Grid container spacing={2}>
           {/* Lista de onboardings */}
           <Grid size={{ xs: 12, md: 8 }}>
-            <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, overflow: 'hidden' }}>
-              <Box sx={{ p: 2, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#FFF' }}>Planes de Inducción Activos</Typography>
+            <Box sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2, overflow: 'hidden' }}>
+              <Box sx={{ p: 2, borderBottom: '1px solid #F1F5F9' }}>
+                <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary' }}>Planes de Inducción Activos</Typography>
               </Box>
               {ONBOARDINGS.map(o => {
                 const col = ESTADOS_COLOR[o.estado] || LMS_COLOR
@@ -120,21 +117,21 @@ export default function LMSOnboarding() {
                     key={o.id}
                     onClick={() => setSelected(expanded ? null : o.id)}
                     sx={{
-                      p: 2, borderBottom: '1px solid rgba(255,255,255,0.04)',
+                      p: 2, borderBottom: '1px solid #F1F5F9',
                       cursor: 'pointer',
-                      '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' },
+                      '&:hover': { bgcolor: '#F9FAFB' },
                     }}
                   >
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                       <Box>
-                        <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: '#FFF' }}>{o.colaborador}</Typography>
-                        <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>{o.cargo} · {o.area}</Typography>
-                        <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', mt: 0.25 }}>Ingreso: {o.fecha_ingreso}</Typography>
+                        <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: 'text.primary' }}>{o.colaborador}</Typography>
+                        <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{o.cargo} · {o.area}</Typography>
+                        <Typography sx={{ fontSize: 11, color: 'text.disabled', mt: 0.25 }}>Ingreso: {o.fecha_ingreso}</Typography>
                       </Box>
                       <Chip label={o.estado.replace('_', ' ')} size="small" sx={{ bgcolor: alpha(col, 0.15), color: col, border: `1px solid ${alpha(col, 0.3)}`, fontWeight: 700, fontSize: 10 }} />
                     </Box>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                      <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
+                      <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>
                         {o.cursos.filter(c => c.completado).length}/{o.cursos.length} cursos completados
                       </Typography>
                       <Typography sx={{ fontSize: 11, color: col, fontWeight: 700 }}>{o.progreso}%</Typography>
@@ -144,7 +141,7 @@ export default function LMSOnboarding() {
                       value={o.progreso}
                       sx={{
                         height: 5, borderRadius: 3,
-                        bgcolor: 'rgba(255,255,255,0.07)',
+                        bgcolor: '#F1F5F9',
                         '& .MuiLinearProgress-bar': { bgcolor: col, borderRadius: 3 },
                       }}
                     />
@@ -154,7 +151,7 @@ export default function LMSOnboarding() {
                           <Box key={ci} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.75 }}>
                             {c.completado
                               ? <CheckCircle sx={{ fontSize: 16, color: '#059669' }} />
-                              : <RadioButtonUnchecked sx={{ fontSize: 16, color: 'rgba(255,255,255,0.2)' }} />
+                              : <RadioButtonUnchecked sx={{ fontSize: 16, color: 'text.disabled' }} />
                             }
                             <Typography sx={{ fontSize: 12.5, color: c.completado ? '#FFF' : 'rgba(255,255,255,0.45)', flex: 1 }}>{c.nombre}</Typography>
                             {c.obligatorio && <Chip label="Obligatorio" size="small" sx={{ bgcolor: alpha('#EF4444', 0.1), color: '#EF4444', fontSize: 9 }} />}
@@ -170,16 +167,16 @@ export default function LMSOnboarding() {
 
           {/* Cursos obligatorios para onboarding */}
           <Grid size={{ xs: 12, md: 4 }}>
-            <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, p: 2.5 }}>
-              <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#FFF', mb: 2 }}>
+            <Box sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2, p: 2.5 }}>
+              <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 2 }}>
                 Cursos Obligatorios de Inducción
               </Typography>
               {CURSOS_OBLIGATORIOS.map((c, i) => (
-                <Box key={i} sx={{ mb: 1.5, pb: 1.5, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                  <Typography sx={{ fontSize: 13, color: '#FFF', fontWeight: 500 }}>{c.nombre}</Typography>
+                <Box key={i} sx={{ mb: 1.5, pb: 1.5, borderBottom: '1px solid #F1F5F9' }}>
+                  <Typography sx={{ fontSize: 13, color: 'text.primary', fontWeight: 500 }}>{c.nombre}</Typography>
                   <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
                     <Chip label={`${c.horas}h`} size="small" sx={{ bgcolor: alpha(LMS_COLOR, 0.12), color: LMS_COLOR, fontSize: 10 }} />
-                    <Chip label={`${c.asignados} asignados`} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', fontSize: 10 }} />
+                    <Chip label={`${c.asignados} asignados`} size="small" sx={{ bgcolor: '#F1F5F9', color: 'text.secondary', fontSize: 10 }} />
                   </Box>
                 </Box>
               ))}

@@ -4,9 +4,7 @@ import { Psychology, TrendingUp, Warning } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 const LMS_COLOR = '#D97706'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(217,119,6,0.25)'
-const DARK_BG   = '#060C1A'
+const #E5E7EB  = '#E5E7EB'
 
 const NIVEL_MAP: Record<string, number> = { INICIAL: 1, BASICO: 2, INTERMEDIO: 3, AVANZADO: 4, EXPERTO: 5 }
 const NIVEL_COLORS: Record<number, string> = { 1: '#EF4444', 2: '#F59E0B', 3: LMS_COLOR, 4: '#0EA5E9', 5: '#059669' }
@@ -56,7 +54,7 @@ const MATRIZ: Record<string, Record<string, { req: number; act: number }>> = {
 }
 
 function NivelDot({ nivel, size = 20 }: { nivel: number; size?: number }) {
-  const col = NIVEL_COLORS[nivel] || 'rgba(255,255,255,0.1)'
+  const col = NIVEL_COLORS[nivel] || '#E2E8F0'
   return (
     <Box sx={{
       width: size, height: size, borderRadius: '50%',
@@ -76,18 +74,18 @@ export default function LMSCompetencias() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, bgcolor: DARK_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, minHeight: '100vh' }}>
         <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box sx={{
             width: 44, height: 44, borderRadius: '12px',
             background: `linear-gradient(135deg, ${LMS_COLOR} 0%, #B45309 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Psychology sx={{ color: '#FFF', fontSize: 22 }} />
+            <Psychology sx={{ color: 'text.primary', fontSize: 22 }} />
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 800, color: '#FFF' }}>Matriz de Competencias</Typography>
-            <Typography sx={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>
+            <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Matriz de Competencias</Typography>
+            <Typography sx={{ fontSize: 13, color: 'text.disabled' }}>
               Requerido vs. Actual · Brecha por cargo y área
             </Typography>
           </Box>
@@ -98,7 +96,7 @@ export default function LMSCompetencias() {
           {[1, 2, 3, 4, 5].map(n => (
             <Box key={n} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
               <NivelDot nivel={n} size={18} />
-              <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>{n} - {NIVEL_LABELS[n]}</Typography>
+              <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{n} - {NIVEL_LABELS[n]}</Typography>
             </Box>
           ))}
         </Box>
@@ -106,7 +104,7 @@ export default function LMSCompetencias() {
         <Tabs value={tab} onChange={(_, v) => setTab(v)}
           sx={{
             mb: 3,
-            '& .MuiTab-root': { color: 'rgba(255,255,255,0.4)', textTransform: 'none', fontWeight: 600 },
+            '& .MuiTab-root': { color: 'text.secondary', textTransform: 'none', fontWeight: 600 },
             '& .Mui-selected': { color: `${LMS_COLOR} !important` },
             '& .MuiTabs-indicator': { bgcolor: LMS_COLOR },
           }}>
@@ -117,15 +115,15 @@ export default function LMSCompetencias() {
         {tab === 0 && (
           <>
             <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography sx={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>Cargo:</Typography>
+              <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>Cargo:</Typography>
               <Select
                 value={cargo}
                 onChange={e => setCargo(e.target.value)}
                 size="small"
                 sx={{
-                  color: '#FFF', bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`,
+                  color: 'text.primary', bgcolor: 'text.primary', border: `1px solid #E5E7EB`,
                   '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
-                  '& .MuiSvgIcon-root': { color: 'rgba(255,255,255,0.4)' },
+                  '& .MuiSvgIcon-root': { color: 'text.secondary' },
                   fontSize: 13, minWidth: 200,
                 }}
               >
@@ -135,12 +133,12 @@ export default function LMSCompetencias() {
               </Select>
             </Box>
 
-            <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, overflow: 'hidden' }}>
+            <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
                     {['Competencia', 'Requerido', 'Actual', 'Brecha', 'Estado'].map(h => (
-                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.35)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{h}</th>
+                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'rgba(0,0,0,0.35)', borderBottom: '1px solid #F1F5F9' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -150,18 +148,18 @@ export default function LMSCompetencias() {
                     const brecha = datos.req - datos.act
                     const col = brecha === 0 ? '#059669' : brecha === 1 ? LMS_COLOR : '#EF4444'
                     return (
-                      <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                        <td style={{ padding: '10px 14px', fontSize: 13, color: '#FFF', fontWeight: 500 }}>{comp}</td>
+                      <tr key={i} style={{ borderBottom: '1px solid #F9FAFB' }}>
+                        <td style={{ padding: '10px 14px', fontSize: 13, color: 'rgba(0,0,0,0.87)', fontWeight: 500 }}>{comp}</td>
                         <td style={{ padding: '10px 14px' }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <NivelDot nivel={datos.req} />
-                            <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>{NIVEL_LABELS[datos.req]}</Typography>
+                            <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{NIVEL_LABELS[datos.req]}</Typography>
                           </Box>
                         </td>
                         <td style={{ padding: '10px 14px' }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <NivelDot nivel={datos.act} />
-                            <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>{NIVEL_LABELS[datos.act]}</Typography>
+                            <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{NIVEL_LABELS[datos.act]}</Typography>
                           </Box>
                         </td>
                         <td style={{ padding: '10px 14px', fontSize: 15, fontWeight: 800, color: col }}>
@@ -196,7 +194,7 @@ export default function LMSCompetencias() {
               const col = b.brecha >= 2 ? '#EF4444' : LMS_COLOR
               return (
                 <Grid key={i} size={{ xs: 12, md: 6 }}>
-                  <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${alpha(col, 0.3)}`, borderRadius: 2, p: 2.5 }}>
+                  <Box sx={{ bgcolor: 'text.primary', border: `1px solid ${alpha(col, 0.3)}`, borderRadius: 2, p: 2.5 }}>
                     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
                       <Box sx={{
                         width: 36, height: 36, borderRadius: '10px', flexShrink: 0,
@@ -206,11 +204,11 @@ export default function LMSCompetencias() {
                         <Warning sx={{ color: col, fontSize: 18 }} />
                       </Box>
                       <Box sx={{ flex: 1 }}>
-                        <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: '#FFF' }}>{b.comp}</Typography>
-                        <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>{b.cargo}</Typography>
+                        <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: 'text.primary' }}>{b.comp}</Typography>
+                        <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{b.cargo}</Typography>
                         <Box sx={{ display: 'flex', gap: 1.5, mt: 1 }}>
-                          <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>Requerido: <strong style={{ color: '#FFF' }}>{NIVEL_LABELS[b.req]}</strong></Typography>
-                          <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>Actual: <strong style={{ color: '#FFF' }}>{NIVEL_LABELS[b.act]}</strong></Typography>
+                          <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>Requerido: <strong style={{ color: 'inherit' }}>{NIVEL_LABELS[b.req]}</strong></Typography>
+                          <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>Actual: <strong style={{ color: 'inherit' }}>{NIVEL_LABELS[b.act]}</strong></Typography>
                         </Box>
                       </Box>
                       <Chip

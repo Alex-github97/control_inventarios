@@ -4,9 +4,6 @@ import { Route, CheckCircle, RadioButtonUnchecked, ArrowForward } from '@mui/ico
 import { Layout } from '@/components/layout/Layout'
 
 const LMS_COLOR = '#D97706'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(217,119,6,0.25)'
-const DARK_BG   = '#060C1A'
 
 const RUTAS = [
   {
@@ -73,18 +70,18 @@ export default function LMSRutas() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, bgcolor: DARK_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, minHeight: '100vh' }}>
         <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box sx={{
             width: 44, height: 44, borderRadius: '12px',
             background: `linear-gradient(135deg, ${LMS_COLOR} 0%, #B45309 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Route sx={{ color: '#FFF', fontSize: 22 }} />
+            <Route sx={{ color: 'text.primary', fontSize: 22 }} />
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 800, color: '#FFF' }}>Rutas de Aprendizaje</Typography>
-            <Typography sx={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>
+            <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Rutas de Aprendizaje</Typography>
+            <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
               Itinerarios formativos por cargo, área y competencias
             </Typography>
           </Box>
@@ -102,8 +99,8 @@ export default function LMSRutas() {
                 <Box
                   onClick={() => setSeleccionada(expanded ? null : r.id)}
                   sx={{
-                    bgcolor: CARD_BG,
-                    border: `1px solid ${expanded ? alpha(r.color, 0.5) : CARD_BOR}`,
+                    bgcolor: '#FFFFFF',
+                    border: `1px solid ${expanded ? alpha(r.color, 0.5) : #E5E7EB}`,
                     borderRadius: 2, p: 2.5, cursor: 'pointer',
                     '&:hover': { border: `1px solid ${alpha(r.color, 0.4)}` },
                     transition: 'all 0.2s ease',
@@ -114,23 +111,23 @@ export default function LMSRutas() {
                     <Box sx={{ flex: 1 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                         <Typography sx={{ fontSize: 12, color: LMS_COLOR, fontWeight: 600 }}>{r.codigo}</Typography>
-                        <ArrowForward sx={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }} />
+                        <ArrowForward sx={{ fontSize: 12, color: 'text.disabled' }} />
                       </Box>
-                      <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#FFF', lineHeight: 1.3 }}>{r.nombre}</Typography>
-                      <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', mt: 0.5 }}>{r.descripcion}</Typography>
+                      <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', lineHeight: 1.3 }}>{r.nombre}</Typography>
+                      <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 0.5 }}>{r.descripcion}</Typography>
                     </Box>
                   </Box>
 
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2 }}>
                     <Chip label={r.cargo_objetivo} size="small" sx={{ bgcolor: alpha(r.color, 0.12), color: r.color, border: `1px solid ${alpha(r.color, 0.25)}`, fontSize: 10.5 }} />
-                    <Chip label={r.area_objetivo} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', fontSize: 10.5 }} />
-                    <Chip label={`${r.horas}h totales`} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', fontSize: 10.5 }} />
+                    <Chip label={r.area_objetivo} size="small" sx={{ bgcolor: '#F1F5F9', color: 'text.secondary', fontSize: 10.5 }} />
+                    <Chip label={`${r.horas}h totales`} size="small" sx={{ bgcolor: '#F1F5F9', color: 'text.secondary', fontSize: 10.5 }} />
                   </Box>
 
                   {/* Progress global */}
                   <Box sx={{ mb: 1.5 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                      <Typography sx={{ fontSize: 11.5, color: 'rgba(255,255,255,0.45)' }}>{r.inscritos} inscritos · {r.completados} completados</Typography>
+                      <Typography sx={{ fontSize: 11.5, color: 'text.secondary' }}>{r.inscritos} inscritos · {r.completados} completados</Typography>
                       <Typography sx={{ fontSize: 12, color: r.color, fontWeight: 700 }}>{pct}%</Typography>
                     </Box>
                     <LinearProgress
@@ -138,7 +135,7 @@ export default function LMSRutas() {
                       value={pct}
                       sx={{
                         height: 5, borderRadius: 3,
-                        bgcolor: 'rgba(255,255,255,0.07)',
+                        bgcolor: '#F1F5F9',
                         '& .MuiLinearProgress-bar': { bgcolor: r.color, borderRadius: 3 },
                       }}
                     />
@@ -146,8 +143,8 @@ export default function LMSRutas() {
 
                   {/* Detalle de cursos (expandible) */}
                   {expanded && (
-                    <Box sx={{ mt: 2, borderTop: '1px solid rgba(255,255,255,0.06)', pt: 2 }}>
-                      <Typography sx={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.6)', mb: 1.5, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+                    <Box sx={{ mt: 2, borderTop: '1px solid #F1F5F9', pt: 2 }}>
+                      <Typography sx={{ fontSize: 12, fontWeight: 700, color: 'text.secondary', mb: 1.5, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
                         Itinerario · Mi progreso ({completadosCurso}/{r.cursos.length})
                       </Typography>
                       {r.cursos.map((c, idx) => (
@@ -160,7 +157,7 @@ export default function LMSRutas() {
                           }}>
                             {c.completado
                               ? <CheckCircle sx={{ fontSize: 12, color: r.color }} />
-                              : <RadioButtonUnchecked sx={{ fontSize: 12, color: 'rgba(255,255,255,0.2)' }} />
+                              : <RadioButtonUnchecked sx={{ fontSize: 12, color: 'text.disabled' }} />
                             }
                           </Box>
                           <Typography sx={{
@@ -171,12 +168,12 @@ export default function LMSRutas() {
                           }}>
                             {idx + 1}. {c.nombre}
                           </Typography>
-                          <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', flexShrink: 0 }}>{c.horas}h</Typography>
+                          <Typography sx={{ fontSize: 11, color: 'text.disabled', flexShrink: 0 }}>{c.horas}h</Typography>
                         </Box>
                       ))}
                       <Box sx={{ mt: 1.5 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                          <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>Mi avance personal</Typography>
+                          <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>Mi avance personal</Typography>
                           <Typography sx={{ fontSize: 11.5, color: r.color, fontWeight: 700 }}>{progPersonal}%</Typography>
                         </Box>
                         <LinearProgress
@@ -184,7 +181,7 @@ export default function LMSRutas() {
                           value={progPersonal}
                           sx={{
                             height: 4, borderRadius: 2,
-                            bgcolor: 'rgba(255,255,255,0.07)',
+                            bgcolor: '#F1F5F9',
                             '& .MuiLinearProgress-bar': { bgcolor: r.color, borderRadius: 2 },
                           }}
                         />

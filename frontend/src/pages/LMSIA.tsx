@@ -5,10 +5,7 @@ import { Layout } from '@/components/layout/Layout'
 
 const LMS_COLOR = '#D97706'
 const AI_COLOR  = '#8B5CF6'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(217,119,6,0.25)'
 const AI_BOR    = 'rgba(139,92,246,0.25)'
-const DARK_BG   = '#060C1A'
 
 const RECOMENDACIONES = [
   { curso: 'Seguridad Vial Avanzada', razon: 'Tienes brecha de nivel 1 en competencia "Seguridad Vial"', score: 97, obligatorio: true },
@@ -50,7 +47,7 @@ export default function LMSIA() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, bgcolor: DARK_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, minHeight: '100vh' }}>
         <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box sx={{
             width: 44, height: 44, borderRadius: '12px',
@@ -58,11 +55,11 @@ export default function LMSIA() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             boxShadow: `0 4px 14px ${alpha(AI_COLOR, 0.4)}`,
           }}>
-            <AutoAwesome sx={{ color: '#FFF', fontSize: 22 }} />
+            <AutoAwesome sx={{ color: 'text.primary', fontSize: 22 }} />
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 800, color: '#FFF' }}>IA del LMS</Typography>
-            <Typography sx={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>
+            <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>IA del LMS</Typography>
+            <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
               Recomendaciones · Predicciones · Tendencias · Asistente Virtual
             </Typography>
           </Box>
@@ -71,7 +68,7 @@ export default function LMSIA() {
         <Tabs value={tab} onChange={(_, v) => setTab(v)}
           sx={{
             mb: 3,
-            '& .MuiTab-root': { color: 'rgba(255,255,255,0.4)', textTransform: 'none', fontWeight: 600 },
+            '& .MuiTab-root': { color: 'text.secondary', textTransform: 'none', fontWeight: 600 },
             '& .Mui-selected': { color: `${AI_COLOR} !important` },
             '& .MuiTabs-indicator': { bgcolor: AI_COLOR },
           }}>
@@ -85,15 +82,15 @@ export default function LMSIA() {
           <Grid container spacing={2}>
             {RECOMENDACIONES.map((r, i) => (
               <Grid key={i} size={{ xs: 12, md: 6 }}>
-                <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${AI_BOR}`, borderRadius: 2, p: 2.5 }}>
+                <Box sx={{ border: `1px solid ${AI_BOR}`, borderRadius: 2, p: 2.5 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                     <Box sx={{ flex: 1 }}>
-                      <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#FFF' }}>{r.curso}</Typography>
-                      <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', mt: 0.5, lineHeight: 1.5 }}>{r.razon}</Typography>
+                      <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary' }}>{r.curso}</Typography>
+                      <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 0.5, lineHeight: 1.5 }}>{r.razon}</Typography>
                     </Box>
                     <Box sx={{ textAlign: 'center', ml: 2, flexShrink: 0 }}>
                       <Typography sx={{ fontSize: 22, fontWeight: 800, color: AI_COLOR, lineHeight: 1 }}>{r.score}</Typography>
-                      <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>Score IA</Typography>
+                      <Typography sx={{ fontSize: 10, color: 'text.disabled' }}>Score IA</Typography>
                     </Box>
                   </Box>
                   <Box sx={{ display: 'flex', gap: 1 }}>
@@ -110,8 +107,8 @@ export default function LMSIA() {
           <Grid container spacing={2}>
             {PREDICCIONES.map((p, i) => (
               <Grid key={i} size={{ xs: 12, md: 6 }}>
-                <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${alpha(p.color, 0.25)}`, borderRadius: 2, p: 2.5 }}>
-                  <Typography sx={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', mb: 1 }}>{p.indicador}</Typography>
+                <Box sx={{ border: `1px solid ${alpha(p.color, 0.25)}`, borderRadius: 2, p: 2.5 }}>
+                  <Typography sx={{ fontSize: 13, color: 'text.secondary', mb: 1 }}>{p.indicador}</Typography>
                   <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 1 }}>
                     <Typography sx={{ fontSize: 38, fontWeight: 900, color: p.color, lineHeight: 1 }}>{p.valor}</Typography>
                     {p.tendencia === 'up'
@@ -119,7 +116,7 @@ export default function LMSIA() {
                       : <TrendingUp sx={{ color: p.color, fontSize: 20, transform: 'scaleY(-1)' }} />
                     }
                   </Box>
-                  <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.5 }}>{p.desc}</Typography>
+                  <Typography sx={{ fontSize: 12, color: 'text.secondary', lineHeight: 1.5 }}>{p.desc}</Typography>
                 </Box>
               </Grid>
             ))}
@@ -127,14 +124,14 @@ export default function LMSIA() {
               <Box sx={{ bgcolor: alpha(AI_COLOR, 0.05), border: `1px solid ${AI_BOR}`, borderRadius: 2, p: 2.5 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                   <AutoAwesome sx={{ color: AI_COLOR, fontSize: 18 }} />
-                  <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#FFF' }}>Alertas Inteligentes</Typography>
+                  <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary' }}>Alertas Inteligentes</Typography>
                 </Box>
                 {ALERTAS_IA.map((a, i) => {
                   const col = NIVEL_COLOR[a.nivel]
                   return (
                     <Box key={i} sx={{ display: 'flex', gap: 1.5, mb: 1.5, p: 1.5, bgcolor: alpha(col, 0.06), borderRadius: 1.5, border: `1px solid ${alpha(col, 0.15)}` }}>
                       <Chip label={a.nivel} size="small" sx={{ bgcolor: alpha(col, 0.2), color: col, fontSize: 10, fontWeight: 700, flexShrink: 0 }} />
-                      <Typography sx={{ fontSize: 12.5, color: 'rgba(255,255,255,0.75)', lineHeight: 1.5 }}>{a.texto}</Typography>
+                      <Typography sx={{ fontSize: 12.5, color: 'text.primary', lineHeight: 1.5 }}>{a.texto}</Typography>
                     </Box>
                   )
                 })}
@@ -146,8 +143,8 @@ export default function LMSIA() {
         {tab === 2 && (
           <Grid container spacing={2}>
             <Grid size={{ xs: 12 }}>
-              <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, p: 2.5 }}>
-                <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#FFF', mb: 2.5 }}>
+              <Box sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2, p: 2.5 }}>
+                <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 2.5 }}>
                   Horas de Capacitación — Últimos 6 Meses
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 140 }}>
@@ -164,7 +161,7 @@ export default function LMSIA() {
                           boxShadow: isMax ? `0 0 12px ${alpha(LMS_COLOR, 0.4)}` : 'none',
                           transition: 'height 0.6s ease',
                         }} />
-                        <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>{t.mes}</Typography>
+                        <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{t.mes}</Typography>
                       </Box>
                     )
                   })}
@@ -175,7 +172,7 @@ export default function LMSIA() {
               <Box sx={{ bgcolor: alpha(AI_COLOR, 0.05), border: `1px solid ${AI_BOR}`, borderRadius: 2, p: 2.5 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
                   <AutoAwesome sx={{ color: AI_COLOR, fontSize: 18 }} />
-                  <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#FFF' }}>Análisis IA de Tendencias</Typography>
+                  <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary' }}>Análisis IA de Tendencias</Typography>
                 </Box>
                 {[
                   'Las horas de capacitación crecieron 34.9% en el primer trimestre 2026 vs Q1 2025, impulsadas por la implementación del módulo LMS.',
@@ -185,7 +182,7 @@ export default function LMSIA() {
                 ].map((t, i) => (
                   <Box key={i} sx={{ display: 'flex', gap: 1.5, mb: 1 }}>
                     <Typography sx={{ fontSize: 11, color: AI_COLOR, fontWeight: 800, flexShrink: 0, mt: 0.25 }}>{i + 1}.</Typography>
-                    <Typography sx={{ fontSize: 12.5, color: 'rgba(255,255,255,0.7)', lineHeight: 1.6 }}>{t}</Typography>
+                    <Typography sx={{ fontSize: 12.5, color: 'text.primary', lineHeight: 1.6 }}>{t}</Typography>
                   </Box>
                 ))}
               </Box>
@@ -195,18 +192,18 @@ export default function LMSIA() {
 
         {tab === 3 && (
           <Box sx={{ maxWidth: 700, mx: 'auto' }}>
-            <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${AI_BOR}`, borderRadius: 2, p: 3, mb: 2 }}>
+            <Box sx={{ border: `1px solid ${AI_BOR}`, borderRadius: 2, p: 3, mb: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
                 <Box sx={{
                   width: 40, height: 40, borderRadius: '50%',
                   background: `linear-gradient(135deg, ${AI_COLOR} 0%, #6D28D9 100%)`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <SmartToy sx={{ color: '#FFF', fontSize: 22 }} />
+                  <SmartToy sx={{ color: 'text.primary', fontSize: 22 }} />
                 </Box>
                 <Box>
-                  <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#FFF' }}>Asistente Virtual de Aprendizaje</Typography>
-                  <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Impulsado por IA · Responde en segundos</Typography>
+                  <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary' }}>Asistente Virtual de Aprendizaje</Typography>
+                  <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>Impulsado por IA · Responde en segundos</Typography>
                 </Box>
               </Box>
               {[
@@ -217,15 +214,15 @@ export default function LMSIA() {
                 <Box key={i} sx={{ mb: 2 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
                     <Box sx={{ bgcolor: alpha(LMS_COLOR, 0.15), border: `1px solid ${alpha(LMS_COLOR, 0.25)}`, borderRadius: '12px 12px 4px 12px', px: 2, py: 1, maxWidth: '75%' }}>
-                      <Typography sx={{ fontSize: 13, color: '#FFF' }}>{item.q}</Typography>
+                      <Typography sx={{ fontSize: 13, color: 'text.primary' }}>{item.q}</Typography>
                     </Box>
                   </Box>
                   <Box sx={{ display: 'flex', gap: 1.5 }}>
                     <Box sx={{ width: 28, height: 28, borderRadius: '50%', bgcolor: alpha(AI_COLOR, 0.2), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <SmartToy sx={{ fontSize: 16, color: AI_COLOR }} />
                     </Box>
-                    <Box sx={{ bgcolor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '4px 12px 12px 12px', px: 2, py: 1, flex: 1 }}>
-                      <Typography sx={{ fontSize: 12.5, color: 'rgba(255,255,255,0.75)', lineHeight: 1.6 }}>{item.r}</Typography>
+                    <Box sx={{ bgcolor: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: '4px 12px 12px 12px', px: 2, py: 1, flex: 1 }}>
+                      <Typography sx={{ fontSize: 12.5, color: 'text.primary', lineHeight: 1.6 }}>{item.r}</Typography>
                     </Box>
                   </Box>
                 </Box>

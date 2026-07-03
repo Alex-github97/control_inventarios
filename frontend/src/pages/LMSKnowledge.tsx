@@ -4,9 +4,6 @@ import { LibraryBooks, Search, VideoLibrary, Article, Lightbulb, EmojiObjects } 
 import { Layout } from '@/components/layout/Layout'
 
 const LMS_COLOR = '#D97706'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(217,119,6,0.25)'
-const DARK_BG   = '#060C1A'
 
 const TIPO_COLORS: Record<string, string> = {
   VIDEO: '#EF4444', DOCUMENTO: '#0EA5E9', PRESENTACION: '#7C3AED',
@@ -55,18 +52,18 @@ export default function LMSKnowledge() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, bgcolor: DARK_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, minHeight: '100vh' }}>
         <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box sx={{
             width: 44, height: 44, borderRadius: '12px',
             background: `linear-gradient(135deg, ${LMS_COLOR} 0%, #B45309 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <LibraryBooks sx={{ color: '#FFF', fontSize: 22 }} />
+            <LibraryBooks sx={{ color: 'text.primary', fontSize: 22 }} />
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 800, color: '#FFF' }}>Repositorio de Conocimiento</Typography>
-            <Typography sx={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>
+            <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Repositorio de Conocimiento</Typography>
+            <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
               Manuales · Procedimientos · Videos · Lecciones Aprendidas
             </Typography>
           </Box>
@@ -75,7 +72,7 @@ export default function LMSKnowledge() {
         <Tabs value={tab} onChange={(_, v) => setTab(v)}
           sx={{
             mb: 3,
-            '& .MuiTab-root': { color: 'rgba(255,255,255,0.4)', textTransform: 'none', fontWeight: 600 },
+            '& .MuiTab-root': { color: 'text.secondary', textTransform: 'none', fontWeight: 600 },
             '& .Mui-selected': { color: `${LMS_COLOR} !important` },
             '& .MuiTabs-indicator': { bgcolor: LMS_COLOR },
           }}>
@@ -85,9 +82,9 @@ export default function LMSKnowledge() {
 
         {tab === 0 && (
           <>
-            <Box sx={{ display: 'flex', gap: 1, mb: 2, bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, px: 2, py: 1, alignItems: 'center' }}>
-              <Search sx={{ color: 'rgba(255,255,255,0.3)', fontSize: 20 }} />
-              <InputBase placeholder="Buscar recursos..." value={busqueda} onChange={e => setBusqueda(e.target.value)} sx={{ flex: 1, color: '#FFF', fontSize: 13.5 }} />
+            <Box sx={{ display: 'flex', gap: 1, mb: 2, 'border: "1px solid #E5E7EB"', borderRadius: 2, px: 2, py: 1, alignItems: 'center' }}>
+              <Search sx={{ color: 'text.disabled', fontSize: 20 }} />
+              <InputBase placeholder="Buscar recursos..." value={busqueda} onChange={e => setBusqueda(e.target.value)} sx={{ flex: 1, color: 'text.primary', fontSize: 13.5 }} />
             </Box>
             <Box sx={{ display: 'flex', gap: 1, mb: 3, flexWrap: 'wrap' }}>
               {CATEGORIAS.map(c => (
@@ -101,7 +98,7 @@ export default function LMSKnowledge() {
                 return (
                   <Grid key={i} size={{ xs: 12, sm: 6, lg: 4 }}>
                     <Box sx={{
-                      bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, p: 2.5,
+                      'border: "1px solid #E5E7EB"', borderRadius: 2, p: 2.5,
                       '&:hover': { border: `1px solid ${alpha(col, 0.4)}` }, transition: 'border 0.2s ease', cursor: 'pointer',
                     }}>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 1.5 }}>
@@ -115,15 +112,15 @@ export default function LMSKnowledge() {
                         </Box>
                         <Box sx={{ flex: 1 }}>
                           <Chip label={r.tipo} size="small" sx={{ bgcolor: alpha(col, 0.15), color: col, fontSize: 9.5, fontWeight: 600, mb: 0.5 }} />
-                          <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#FFF', lineHeight: 1.4 }}>{r.titulo}</Typography>
+                          <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary', lineHeight: 1.4 }}>{r.titulo}</Typography>
                         </Box>
                       </Box>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Box>
-                          <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{r.fuente}</Typography>
-                          <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>{r.fecha}</Typography>
+                          <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{r.fuente}</Typography>
+                          <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>{r.fecha}</Typography>
                         </Box>
-                        <Chip label={`${r.descargas} accesos`} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', fontSize: 10 }} />
+                        <Chip label={`${r.descargas} accesos`} size="small" sx={{ bgcolor: '#F1F5F9', color: 'text.secondary', fontSize: 10 }} />
                       </Box>
                     </Box>
                   </Grid>
@@ -141,17 +138,17 @@ export default function LMSKnowledge() {
               </Typography>
             </Box>
             {LECCIONES.map((l, i) => (
-              <Box key={i} sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, p: 2.5 }}>
+              <Box key={i} sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2, p: 2.5 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                   <Box sx={{ flex: 1 }}>
                     <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
                       <Chip label={l.origen} size="small" sx={{ bgcolor: alpha(LMS_COLOR, 0.15), color: LMS_COLOR, border: `1px solid ${alpha(LMS_COLOR, 0.3)}`, fontSize: 10, fontWeight: 600 }} />
-                      <Chip label={l.categoria} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', fontSize: 10 }} />
-                      <Chip label={l.area} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', fontSize: 10 }} />
+                      <Chip label={l.categoria} size="small" sx={{ bgcolor: '#F1F5F9', color: 'text.secondary', fontSize: 10 }} />
+                      <Chip label={l.area} size="small" sx={{ bgcolor: '#F1F5F9', color: 'text.secondary', fontSize: 10 }} />
                     </Box>
-                    <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: '#FFF', lineHeight: 1.4 }}>{l.titulo}</Typography>
+                    <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: 'text.primary', lineHeight: 1.4 }}>{l.titulo}</Typography>
                   </Box>
-                  <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', ml: 2, flexShrink: 0 }}>{l.fecha}</Typography>
+                  <Typography sx={{ fontSize: 11, color: 'text.disabled', ml: 2, flexShrink: 0 }}>{l.fecha}</Typography>
                 </Box>
               </Box>
             ))}

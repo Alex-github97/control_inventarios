@@ -7,9 +7,7 @@ import {
 import { Layout } from '@/components/layout/Layout'
 
 const LMS_COLOR  = '#D97706'
-const CARD_BG    = '#0F1E35'
-const CARD_BOR   = 'rgba(217,119,6,0.25)'
-const DARK_BG    = '#060C1A'
+const #E5E7EB   = '#E5E7EB'
 
 const kpis = [
   { label: 'Cursos Publicados',       value: 48,     unit: 'cursos',   icon: <School />,           color: LMS_COLOR },
@@ -49,7 +47,7 @@ const cumplimientoArea = [
 function KPICard({ kpi }: { kpi: typeof kpis[0] }) {
   return (
     <Box sx={{
-      bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2,
+      bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2,
       p: 2, display: 'flex', alignItems: 'center', gap: 2, height: 90,
     }}>
       <Box sx={{
@@ -57,16 +55,16 @@ function KPICard({ kpi }: { kpi: typeof kpis[0] }) {
         background: `linear-gradient(135deg, ${kpi.color} 0%, ${alpha(kpi.color, 0.6)} 100%)`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         boxShadow: `0 4px 12px ${alpha(kpi.color, 0.35)}`,
-        '& svg': { color: '#FFF', fontSize: 22 },
+        '& svg': { color: '#fff', fontSize: 22 },
       }}>
         {kpi.icon}
       </Box>
       <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontSize: 22, fontWeight: 800, color: '#FFF', lineHeight: 1 }}>
+        <Typography sx={{ fontSize: 22, fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>
           {kpi.value}
-          {kpi.unit && <Typography component="span" sx={{ fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.4)', ml: 0.5 }}>{kpi.unit}</Typography>}
+          {kpi.unit && <Typography component="span" sx={{ fontSize: 12, fontWeight: 500, color: 'text.disabled', ml: 0.5 }}>{kpi.unit}</Typography>}
         </Typography>
-        <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', mt: 0.3 }}>{kpi.label}</Typography>
+        <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 0.3 }}>{kpi.label}</Typography>
       </Box>
     </Box>
   )
@@ -75,7 +73,7 @@ function KPICard({ kpi }: { kpi: typeof kpis[0] }) {
 export default function LMSDashboard() {
   return (
     <Layout>
-      <Box sx={{ p: 3, bgcolor: DARK_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, minHeight: '100vh' }}>
         {/* Header */}
         <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box sx={{
@@ -84,13 +82,13 @@ export default function LMSDashboard() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             boxShadow: `0 4px 14px ${alpha(LMS_COLOR, 0.4)}`,
           }}>
-            <School sx={{ color: '#FFF', fontSize: 24 }} />
+            <School sx={{ color: 'text.primary', fontSize: 24 }} />
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 22, fontWeight: 800, color: '#FFF', lineHeight: 1.2 }}>
+            <Typography sx={{ fontSize: 22, fontWeight: 800, color: 'text.primary', lineHeight: 1.2 }}>
               Torre de Control — LMS
             </Typography>
-            <Typography sx={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>
+            <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
               Universidad Corporativa Digital · Formación · Competencias · Certificaciones
             </Typography>
           </Box>
@@ -108,14 +106,14 @@ export default function LMSDashboard() {
         <Grid container spacing={2}>
           {/* Top Cursos */}
           <Grid size={{ xs: 12, md: 6 }}>
-            <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, p: 2.5 }}>
-              <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#FFF', mb: 2 }}>
+            <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
+              <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 2 }}>
                 Top 5 Cursos por Inscripciones
               </Typography>
               {topCursos.map((c, i) => (
                 <Box key={i} sx={{ mb: 2 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                    <Typography sx={{ fontSize: 12.5, color: 'rgba(255,255,255,0.8)', flex: 1 }}>{c.nombre}</Typography>
+                    <Typography sx={{ fontSize: 12.5, color: 'text.primary', flex: 1 }}>{c.nombre}</Typography>
                     <Typography sx={{ fontSize: 12, color: LMS_COLOR, fontWeight: 700, ml: 1 }}>{c.pct}%</Typography>
                   </Box>
                   <LinearProgress
@@ -123,13 +121,13 @@ export default function LMSDashboard() {
                     value={c.pct}
                     sx={{
                       height: 6, borderRadius: 3,
-                      bgcolor: 'rgba(255,255,255,0.07)',
+                      bgcolor: '#E2E8F0',
                       '& .MuiLinearProgress-bar': { bgcolor: LMS_COLOR, borderRadius: 3 },
                     }}
                   />
                   <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
-                    <Typography sx={{ fontSize: 10.5, color: 'rgba(255,255,255,0.35)' }}>{c.inscritos} inscritos</Typography>
-                    <Typography sx={{ fontSize: 10.5, color: 'rgba(255,255,255,0.35)' }}>·</Typography>
+                    <Typography sx={{ fontSize: 10.5, color: 'text.disabled' }}>{c.inscritos} inscritos</Typography>
+                    <Typography sx={{ fontSize: 10.5, color: 'text.disabled' }}>·</Typography>
                     <Typography sx={{ fontSize: 10.5, color: '#10B981' }}>{c.completados} completados</Typography>
                   </Box>
                 </Box>
@@ -139,8 +137,8 @@ export default function LMSDashboard() {
 
           {/* Cumplimiento por Área */}
           <Grid size={{ xs: 12, md: 6 }}>
-            <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, p: 2.5 }}>
-              <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#FFF', mb: 2 }}>
+            <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
+              <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 2 }}>
                 Cumplimiento de Formación por Área
               </Typography>
               {cumplimientoArea.map((a, i) => {
@@ -148,7 +146,7 @@ export default function LMSDashboard() {
                 return (
                   <Box key={i} sx={{ mb: 1.8 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                      <Typography sx={{ fontSize: 12.5, color: 'rgba(255,255,255,0.8)' }}>{a.area}</Typography>
+                      <Typography sx={{ fontSize: 12.5, color: 'text.primary' }}>{a.area}</Typography>
                       <Typography sx={{ fontSize: 12, color: col, fontWeight: 700 }}>{a.pct}%</Typography>
                     </Box>
                     <LinearProgress
@@ -156,7 +154,7 @@ export default function LMSDashboard() {
                       value={a.pct}
                       sx={{
                         height: 6, borderRadius: 3,
-                        bgcolor: 'rgba(255,255,255,0.07)',
+                        bgcolor: '#E2E8F0',
                         '& .MuiLinearProgress-bar': { bgcolor: col, borderRadius: 3 },
                       }}
                     />
@@ -168,8 +166,8 @@ export default function LMSDashboard() {
 
           {/* Certificados por Vencer */}
           <Grid size={{ xs: 12, md: 6 }}>
-            <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, p: 2.5 }}>
-              <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#FFF', mb: 2 }}>
+            <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
+              <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 2 }}>
                 Certificaciones Próximas a Vencer
               </Typography>
               {certsVencer.map((c, i) => {
@@ -177,11 +175,11 @@ export default function LMSDashboard() {
                 return (
                   <Box key={i} sx={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    py: 1, borderBottom: '1px solid rgba(255,255,255,0.05)',
+                    py: 1, borderBottom: '1px solid #F1F5F9',
                   }}>
                     <Box>
-                      <Typography sx={{ fontSize: 13, color: '#FFF', fontWeight: 500 }}>{c.colaborador}</Typography>
-                      <Typography sx={{ fontSize: 11.5, color: 'rgba(255,255,255,0.4)' }}>{c.cert}</Typography>
+                      <Typography sx={{ fontSize: 13, color: 'text.primary', fontWeight: 500 }}>{c.colaborador}</Typography>
+                      <Typography sx={{ fontSize: 11.5, color: 'text.disabled' }}>{c.cert}</Typography>
                     </Box>
                     <Chip
                       label={`${c.dias} días`}
@@ -200,8 +198,8 @@ export default function LMSDashboard() {
 
           {/* Escuelas */}
           <Grid size={{ xs: 12, md: 6 }}>
-            <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, p: 2.5 }}>
-              <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#FFF', mb: 2 }}>
+            <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
+              <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 2 }}>
                 Actividad por Escuela
               </Typography>
               {[
@@ -213,14 +211,14 @@ export default function LMSDashboard() {
               ].map((e, i) => (
                 <Box key={i} sx={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  py: 1, borderBottom: '1px solid rgba(255,255,255,0.05)',
+                  py: 1, borderBottom: '1px solid #F1F5F9',
                 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                     <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: e.color }} />
-                    <Typography sx={{ fontSize: 13, color: 'rgba(255,255,255,0.8)' }}>{e.nombre}</Typography>
+                    <Typography sx={{ fontSize: 13, color: 'text.primary' }}>{e.nombre}</Typography>
                   </Box>
                   <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Chip label={`${e.cursos} cursos`} size="small" sx={{ fontSize: 10.5, bgcolor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)' }} />
+                    <Chip label={`${e.cursos} cursos`} size="small" sx={{ fontSize: 10.5, bgcolor: '#F1F5F9', color: 'text.secondary' }} />
                     <Chip label={`${e.inscritos} inscritos`} size="small" sx={{ fontSize: 10.5, bgcolor: alpha(e.color, 0.12), color: e.color }} />
                   </Box>
                 </Box>
