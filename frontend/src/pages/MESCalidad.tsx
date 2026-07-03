@@ -127,29 +127,29 @@ function InspeccionesTab() {
 
       {/* Tabla inspecciones */}
       <Box>
-        <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Registro de Inspecciones del Día</Typography>
-        <TableContainer component={Paper} sx={{ border: '1px solid #1e3a5f', overflowX: 'auto' }}>
+        <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 2 }}>Registro de Inspecciones del Día</Typography>
+        <TableContainer component={Paper} sx={{ border: '1px solid #E5E7EB', overflowX: 'auto' }}>
           <Table size="small" sx={{ minWidth: 900 }}>
             <TableHead>
               <TableRow>
                 {['N° Orden', 'Lote', 'Tipo', 'Inspector', 'Fecha', 'Tam. Muestra', 'Defectos', 'Resultado'].map((h) => (
-                  <TableCell key={h} sx={{ color: MES_COLOR, fontWeight: 700, fontSize: 11, borderColor: '#1e3a5f', whiteSpace: 'nowrap' }}>{h}</TableCell>
+                  <TableCell key={h} sx={{ color: MES_COLOR, fontWeight: 700, fontSize: 11, borderColor: '#E5E7EB', whiteSpace: 'nowrap' }}>{h}</TableCell>
                 ))}
               </TableRow>
             </TableHead>
             <TableBody>
               {inspecciones.map((row) => (
                 <TableRow key={row.orden} sx={{ '&:hover': { bgcolor: `${MES_COLOR}10` } }}>
-                  <TableCell sx={{ color: '#60a5fa', fontWeight: 700, borderColor: '#1e3a5f', fontFamily: 'monospace', fontSize: 12 }}>{row.orden}</TableCell>
-                  <TableCell sx={{ color: '#94a3b8', borderColor: '#1e3a5f', fontSize: 12 }}>{row.lote}</TableCell>
-                  <TableCell sx={{ borderColor: '#1e3a5f' }}><TipoChip t={row.tipo} /></TableCell>
-                  <TableCell sx={{ color: '#e2e8f0', borderColor: '#1e3a5f', fontSize: 12 }}>{row.inspector}</TableCell>
-                  <TableCell sx={{ color: '#94a3b8', borderColor: '#1e3a5f', fontSize: 11, whiteSpace: 'nowrap' }}>{row.fecha}</TableCell>
-                  <TableCell sx={{ color: '#e2e8f0', borderColor: '#1e3a5f', textAlign: 'center', fontSize: 12 }}>{row.muestra}</TableCell>
-                  <TableCell sx={{ borderColor: '#1e3a5f', textAlign: 'center' }}>
+                  <TableCell sx={{ color: '#60a5fa', fontWeight: 700, borderColor: '#E5E7EB', fontFamily: 'monospace', fontSize: 12 }}>{row.orden}</TableCell>
+                  <TableCell sx={{ color: '#94a3b8', borderColor: '#E5E7EB', fontSize: 12 }}>{row.lote}</TableCell>
+                  <TableCell sx={{ borderColor: '#E5E7EB' }}><TipoChip t={row.tipo} /></TableCell>
+                  <TableCell sx={{ color: '#334155', borderColor: '#E5E7EB', fontSize: 12 }}>{row.inspector}</TableCell>
+                  <TableCell sx={{ color: '#94a3b8', borderColor: '#E5E7EB', fontSize: 11, whiteSpace: 'nowrap' }}>{row.fecha}</TableCell>
+                  <TableCell sx={{ color: '#334155', borderColor: '#E5E7EB', textAlign: 'center', fontSize: 12 }}>{row.muestra}</TableCell>
+                  <TableCell sx={{ borderColor: '#E5E7EB', textAlign: 'center' }}>
                     <Typography sx={{ color: row.defectos > 0 ? '#ef4444' : '#22c55e', fontWeight: 700, fontSize: 13 }}>{row.defectos}</Typography>
                   </TableCell>
-                  <TableCell sx={{ borderColor: '#1e3a5f' }}><ResultadoChip r={row.resultado} /></TableCell>
+                  <TableCell sx={{ borderColor: '#E5E7EB' }}><ResultadoChip r={row.resultado} /></TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -159,53 +159,44 @@ function InspeccionesTab() {
 
       {/* Formulario rápido */}
       <Box>
-        <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Registro Rápido de Inspección</Typography>
-        <Card sx={{ border: '1px solid #1e3a5f', borderRadius: 2, p: 2 }}>
+        <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 2 }}>Registro Rápido de Inspección</Typography>
+        <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2, p: 2 }}>
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, md: 4 }}>
               <FormControl fullWidth size="small">
-                <InputLabel sx={{ color: '#94a3b8' }}>Orden de Producción</InputLabel>
-                <Select value={form.op} onChange={(e) => setForm({ ...form, op: e.target.value })}
-                  sx={{ color: '#e2e8f0', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#1e3a5f' }, '& .MuiSvgIcon-root': { color: '#94a3b8' } }}>
+                <InputLabel>Orden de Producción</InputLabel>
+                <Select value={form.op} onChange={(e) => setForm({ ...form, op: e.target.value })}>
                   {inspecciones.map((i) => <MenuItem key={i.orden} value={i.orden}>{i.orden}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
             <Grid size={{ xs: 12, md: 4 }}>
               <FormControl fullWidth size="small">
-                <InputLabel sx={{ color: '#94a3b8' }}>Tipo de Inspección</InputLabel>
-                <Select value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })}
-                  sx={{ color: '#e2e8f0', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#1e3a5f' }, '& .MuiSvgIcon-root': { color: '#94a3b8' } }}>
+                <InputLabel>Tipo de Inspección</InputLabel>
+                <Select value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })}>
                   {['INICIO', 'PROCESO', 'FINAL', 'LIBERACIÓN'].map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
             <Grid size={{ xs: 6, md: 2 }}>
               <TextField fullWidth size="small" label="Tam. Muestra" type="number"
-                value={form.muestra} onChange={(e) => setForm({ ...form, muestra: e.target.value })}
-                InputLabelProps={{ sx: { color: '#94a3b8' } }}
-                sx={{ '& input': { color: '#e2e8f0' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: '#1e3a5f' } }} />
+                value={form.muestra} onChange={(e) => setForm({ ...form, muestra: e.target.value })} />
             </Grid>
             <Grid size={{ xs: 6, md: 2 }}>
               <TextField fullWidth size="small" label="Defectos" type="number"
-                value={form.defectos} onChange={(e) => setForm({ ...form, defectos: e.target.value })}
-                InputLabelProps={{ sx: { color: '#94a3b8' } }}
-                sx={{ '& input': { color: '#e2e8f0' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: '#1e3a5f' } }} />
+                value={form.defectos} onChange={(e) => setForm({ ...form, defectos: e.target.value })} />
             </Grid>
             <Grid size={{ xs: 12, md: 4 }}>
               <FormControl fullWidth size="small">
-                <InputLabel sx={{ color: '#94a3b8' }}>Resultado</InputLabel>
-                <Select value={form.resultado} onChange={(e) => setForm({ ...form, resultado: e.target.value })}
-                  sx={{ color: '#e2e8f0', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#1e3a5f' }, '& .MuiSvgIcon-root': { color: '#94a3b8' } }}>
+                <InputLabel>Resultado</InputLabel>
+                <Select value={form.resultado} onChange={(e) => setForm({ ...form, resultado: e.target.value })}>
                   {['APROBADO', 'RECHAZADO', 'CONDICIONAL'].map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
             <Grid size={{ xs: 12, md: 8 }}>
               <TextField fullWidth size="small" label="Observaciones" multiline rows={2}
-                value={form.obs} onChange={(e) => setForm({ ...form, obs: e.target.value })}
-                InputLabelProps={{ sx: { color: '#94a3b8' } }}
-                sx={{ '& textarea': { color: '#e2e8f0' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: '#1e3a5f' } }} />
+                value={form.obs} onChange={(e) => setForm({ ...form, obs: e.target.value })} />
             </Grid>
             <Grid size={{ xs: 12 }}>
               <Button variant="contained" sx={{ bgcolor: MES_COLOR, '&:hover': { bgcolor: MES_DARK }, fontWeight: 700, borderRadius: 2 }}>
@@ -254,7 +245,7 @@ function SPCTab() {
             <Card sx={{ border: `1px solid ${k.color}33`, borderRadius: 2 }}>
               <CardContent sx={{ p: '12px !important' }}>
                 <Typography sx={{ color: k.color, fontWeight: 900, fontSize: 30, lineHeight: 1 }}>{k.value}</Typography>
-                <Typography sx={{ color: '#fff', fontSize: 12, fontWeight: 700 }}>{k.label}</Typography>
+                <Typography sx={{ color: '#1E293B', fontSize: 12, fontWeight: 700 }}>{k.label}</Typography>
                 <Typography sx={{ color: '#64748b', fontSize: 11 }}>{k.desc}</Typography>
               </CardContent>
             </Card>
@@ -279,10 +270,10 @@ function SPCTab() {
 
       {/* Carta de control CSS */}
       <Box>
-        <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>
+        <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 2 }}>
           Carta X-bar — {variable}
         </Typography>
-        <Card sx={{ border: '1px solid #1e3a5f', borderRadius: 2, p: 2 }}>
+        <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2, p: 2 }}>
           {/* Leyenda */}
           <Box sx={{ display: 'flex', gap: 3, mb: 2, flexWrap: 'wrap' }}>
             {[
@@ -345,25 +336,25 @@ function SPCTab() {
 
       {/* Tabla últimas 10 mediciones */}
       <Box>
-        <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Últimas 10 Mediciones</Typography>
-        <TableContainer component={Paper} sx={{ border: '1px solid #1e3a5f' }}>
+        <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 2 }}>Últimas 10 Mediciones</Typography>
+        <TableContainer component={Paper} sx={{ border: '1px solid #E5E7EB' }}>
           <Table size="small">
             <TableHead>
               <TableRow>
                 {['#', 'Valor', 'Desviación de CL', 'Estado'].map((h) => (
-                  <TableCell key={h} sx={{ color: MES_COLOR, fontWeight: 700, fontSize: 11, borderColor: '#1e3a5f' }}>{h}</TableCell>
+                  <TableCell key={h} sx={{ color: MES_COLOR, fontWeight: 700, fontSize: 11, borderColor: '#E5E7EB' }}>{h}</TableCell>
                 ))}
               </TableRow>
             </TableHead>
             <TableBody>
               {mediciones.map((m) => (
                 <TableRow key={m.num} sx={{ '&:hover': { bgcolor: `${MES_COLOR}10` } }}>
-                  <TableCell sx={{ color: '#94a3b8', borderColor: '#1e3a5f' }}>{m.num}</TableCell>
-                  <TableCell sx={{ color: '#e2e8f0', fontWeight: 700, borderColor: '#1e3a5f' }}>{m.valor}</TableCell>
-                  <TableCell sx={{ color: parseFloat(m.desv) >= 0 ? '#60a5fa' : '#f97316', fontWeight: 700, borderColor: '#1e3a5f' }}>
+                  <TableCell sx={{ color: '#94a3b8', borderColor: '#E5E7EB' }}>{m.num}</TableCell>
+                  <TableCell sx={{ color: '#334155', fontWeight: 700, borderColor: '#E5E7EB' }}>{m.valor}</TableCell>
+                  <TableCell sx={{ color: parseFloat(m.desv) >= 0 ? '#60a5fa' : '#f97316', fontWeight: 700, borderColor: '#E5E7EB' }}>
                     {parseFloat(m.desv) >= 0 ? '+' : ''}{m.desv}
                   </TableCell>
-                  <TableCell sx={{ borderColor: '#1e3a5f' }}>
+                  <TableCell sx={{ borderColor: '#E5E7EB' }}>
                     <Chip label={m.estado} size="small"
                       sx={{ bgcolor: m.estado === 'EN CONTROL' ? '#16a34a22' : '#dc262622',
                         color: m.estado === 'EN CONTROL' ? '#22c55e' : '#ef4444',
@@ -388,7 +379,7 @@ function NoConformidadesTab() {
       {/* Resumen mes */}
       <Card sx={{ border: `1px solid ${MES_COLOR}33`, borderRadius: 2 }}>
         <CardContent>
-          <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Resumen del Mes</Typography>
+          <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 2 }}>Resumen del Mes</Typography>
           <Grid container spacing={3}>
             {[
               { label: 'NCs Totales',   value: '18', color: MES_COLOR },
@@ -408,13 +399,13 @@ function NoConformidadesTab() {
       </Card>
 
       {/* Cards NC */}
-      <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700 }}>No Conformidades Abiertas / En CAPA</Typography>
+      <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700 }}>No Conformidades Abiertas / En CAPA</Typography>
       <Grid container spacing={2}>
         {noConformidades.map((nc) => (
           <Grid size={{ xs: 12, md: 6 }} key={nc.codigo}>
             <Card sx={{
               bgcolor: '#FFFFFF',
-              border: `1px solid ${nc.severidad === 'CRÍTICA' ? '#dc2626' : nc.severidad === 'MAYOR' ? '#ea580c' : '#1e3a5f'}44`,
+              border: `1px solid ${nc.severidad === 'CRÍTICA' ? '#dc2626' : nc.severidad === 'MAYOR' ? '#ea580c' : '#E5E7EB'}44`,
               borderRadius: 2,
             }}>
               <CardContent sx={{ p: '16px !important' }}>
@@ -425,10 +416,10 @@ function NoConformidadesTab() {
                     <EstadoNCChip e={nc.estado} />
                   </Box>
                 </Box>
-                <Typography sx={{ color: '#e2e8f0', fontWeight: 600, fontSize: 13, mb: 1 }}>{nc.descripcion}</Typography>
+                <Typography sx={{ color: '#334155', fontWeight: 600, fontSize: 13, mb: 1 }}>{nc.descripcion}</Typography>
                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 1.5 }}>
-                  <Typography sx={{ color: '#94a3b8', fontSize: 11 }}>OP: <span style={{ color: '#e2e8f0' }}>{nc.op}</span></Typography>
-                  <Typography sx={{ color: '#94a3b8', fontSize: 11 }}>Línea: <span style={{ color: '#e2e8f0' }}>{nc.linea}</span></Typography>
+                  <Typography sx={{ color: '#94a3b8', fontSize: 11 }}>OP: <span style={{ color: '#334155' }}>{nc.op}</span></Typography>
+                  <Typography sx={{ color: '#94a3b8', fontSize: 11 }}>Línea: <span style={{ color: '#334155' }}>{nc.linea}</span></Typography>
                   <Typography sx={{ color: '#94a3b8', fontSize: 11 }}>Días abierta: <span style={{ color: nc.dias > 10 ? '#ef4444' : '#f59e0b' }}>{nc.dias} días</span></Typography>
                 </Box>
                 {nc.estado !== 'CERRADA' && (
@@ -461,22 +452,22 @@ function DefectologiaTab() {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* Pareto horizontal */}
       <Box>
-        <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Diagrama de Pareto — Tipos de Defecto</Typography>
-        <Card sx={{ border: '1px solid #1e3a5f', borderRadius: 2, p: 3 }}>
+        <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 2 }}>Diagrama de Pareto — Tipos de Defecto</Typography>
+        <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2, p: 3 }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             {defectos.map((d, i) => {
               const barW = (d.freq / maxFreq) * 100
               return (
                 <Box key={d.nombre}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                    <Typography sx={{ color: '#e2e8f0', fontSize: 13, fontWeight: 600 }}>{d.nombre}</Typography>
+                    <Typography sx={{ color: '#334155', fontSize: 13, fontWeight: 600 }}>{d.nombre}</Typography>
                     <Box sx={{ display: 'flex', gap: 2 }}>
                       <Typography sx={{ color: barColors[i], fontWeight: 900, fontSize: 13 }}>{d.freq}</Typography>
                       <Typography sx={{ color: '#94a3b8', fontSize: 12, minWidth: 40 }}>{d.pct}%</Typography>
                       <Typography sx={{ color: '#64748b', fontSize: 11, minWidth: 60 }}>acum: {d.cumPct}%</Typography>
                     </Box>
                   </Box>
-                  <Box sx={{ position: 'relative', height: 22, bgcolor: '#0a1628', borderRadius: 1, overflow: 'hidden' }}>
+                  <Box sx={{ position: 'relative', height: 22, bgcolor: '#E5E7EB', borderRadius: 1, overflow: 'hidden' }}>
                     <Box sx={{
                       height: '100%', width: `${barW}%`, bgcolor: barColors[i], opacity: 0.85, borderRadius: 1,
                       transition: 'width 0.4s ease',
@@ -484,7 +475,7 @@ function DefectologiaTab() {
                     {/* Acumulado overlay */}
                     <Box sx={{
                       position: 'absolute', top: '50%', left: `${d.cumPct}%`, transform: 'translateX(-50%) translateY(-50%)',
-                      width: 2, height: '100%', bgcolor: '#fff', opacity: 0.4,
+                      width: 2, height: '100%', bgcolor: '#334155', opacity: 0.4,
                     }} />
                   </Box>
                 </Box>
@@ -500,37 +491,37 @@ function DefectologiaTab() {
             </Box>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-            <Box sx={{ width: 20, height: 2, bgcolor: '#fff', opacity: 0.4, borderTop: '2px dashed #fff' }} />
+            <Box sx={{ width: 20, height: 2, bgcolor: '#334155', opacity: 0.4, borderTop: '2px dashed #334155' }} />
             <Typography sx={{ color: '#64748b', fontSize: 11 }}>Línea de frecuencia acumulada</Typography>
           </Box>
         </Card>
       </Box>
 
       {/* Tabla Pareto */}
-      <TableContainer component={Paper} sx={{ border: '1px solid #1e3a5f' }}>
+      <TableContainer component={Paper} sx={{ border: '1px solid #E5E7EB' }}>
         <Table size="small">
           <TableHead>
             <TableRow>
               {['#', 'Tipo de Defecto', 'Frecuencia', 'Porcentaje', '% Acumulado'].map((h) => (
-                <TableCell key={h} sx={{ color: MES_COLOR, fontWeight: 700, fontSize: 11, borderColor: '#1e3a5f' }}>{h}</TableCell>
+                <TableCell key={h} sx={{ color: MES_COLOR, fontWeight: 700, fontSize: 11, borderColor: '#E5E7EB' }}>{h}</TableCell>
               ))}
             </TableRow>
           </TableHead>
           <TableBody>
             {defectos.map((d, i) => (
               <TableRow key={d.nombre} sx={{ '&:hover': { bgcolor: `${MES_COLOR}10` } }}>
-                <TableCell sx={{ borderColor: '#1e3a5f' }}>
+                <TableCell sx={{ borderColor: '#E5E7EB' }}>
                   <Box sx={{ width: 22, height: 22, borderRadius: '50%', bgcolor: barColors[i], display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 900, fontSize: 11 }}>
                     {i + 1}
                   </Box>
                 </TableCell>
-                <TableCell sx={{ color: '#e2e8f0', fontWeight: 600, borderColor: '#1e3a5f', fontSize: 13 }}>{d.nombre}</TableCell>
-                <TableCell sx={{ color: barColors[i], fontWeight: 900, fontSize: 14, borderColor: '#1e3a5f' }}>{d.freq}</TableCell>
-                <TableCell sx={{ color: '#e2e8f0', borderColor: '#1e3a5f' }}>{d.pct}%</TableCell>
-                <TableCell sx={{ borderColor: '#1e3a5f' }}>
+                <TableCell sx={{ color: '#334155', fontWeight: 600, borderColor: '#E5E7EB', fontSize: 13 }}>{d.nombre}</TableCell>
+                <TableCell sx={{ color: barColors[i], fontWeight: 900, fontSize: 14, borderColor: '#E5E7EB' }}>{d.freq}</TableCell>
+                <TableCell sx={{ color: '#334155', borderColor: '#E5E7EB' }}>{d.pct}%</TableCell>
+                <TableCell sx={{ borderColor: '#E5E7EB' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <LinearProgress variant="determinate" value={d.cumPct}
-                      sx={{ flex: 1, height: 6, borderRadius: 3, bgcolor: '#1e3a5f', '& .MuiLinearProgress-bar': { bgcolor: '#7c3aed' } }} />
+                      sx={{ flex: 1, height: 6, borderRadius: 3, bgcolor: '#E5E7EB', '& .MuiLinearProgress-bar': { bgcolor: '#7c3aed' } }} />
                     <Typography sx={{ color: '#7c3aed', fontSize: 12, fontWeight: 700, minWidth: 36 }}>{d.cumPct}%</Typography>
                   </Box>
                 </TableCell>
@@ -542,7 +533,7 @@ function DefectologiaTab() {
 
       {/* Causas raíz */}
       <Box>
-        <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Top 3 Causas Raíz y Acciones Correctivas</Typography>
+        <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 2 }}>Top 3 Causas Raíz y Acciones Correctivas</Typography>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {causasRaiz.map((c, i) => (
             <Card key={i} sx={{ border: `1px solid ${barColors[i]}33`, borderRadius: 2 }}>
@@ -552,7 +543,7 @@ function DefectologiaTab() {
                     {i + 1}
                   </Box>
                   <Box>
-                    <Typography sx={{ color: '#e2e8f0', fontWeight: 700, fontSize: 13 }}>{c.defecto}</Typography>
+                    <Typography sx={{ color: '#334155', fontWeight: 700, fontSize: 13 }}>{c.defecto}</Typography>
                     <Typography sx={{ color: '#94a3b8', fontSize: 12, mt: 0.3 }}>Causa: {c.causa}</Typography>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
                       <CheckCircle sx={{ fontSize: 14, color: '#22c55e' }} />
@@ -589,7 +580,7 @@ export default function MESCalidad() {
             <Science fontSize="medium" />
           </Box>
           <Box>
-            <Typography variant="h5" sx={{ color: '#fff', fontWeight: 800, lineHeight: 1 }}>
+            <Typography variant="h5" sx={{ color: '#1E293B', fontWeight: 800, lineHeight: 1 }}>
               MES — Control de Calidad
             </Typography>
             <Typography variant="body2" sx={{ color: '#64748b', mt: 0.3 }}>
@@ -598,7 +589,7 @@ export default function MESCalidad() {
           </Box>
         </Box>
 
-        <Divider sx={{ bgcolor: '#1e3a5f', mb: 3 }} />
+        <Divider sx={{ bgcolor: '#E5E7EB', mb: 3 }} />
 
         <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{
           mb: 1,
@@ -611,7 +602,7 @@ export default function MESCalidad() {
           ))}
         </Tabs>
 
-        <Divider sx={{ bgcolor: '#1e3a5f', mb: 1 }} />
+        <Divider sx={{ bgcolor: '#E5E7EB', mb: 1 }} />
 
         <TabPanel value={tab} index={0}><InspeccionesTab /></TabPanel>
         <TabPanel value={tab} index={1}><SPCTab /></TabPanel>

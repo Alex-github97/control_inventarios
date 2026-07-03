@@ -98,7 +98,7 @@ function GaugeSVG({ value, label, color = MES_COLOR }: { value: number; label: s
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <svg width={140} height={110} viewBox="0 0 140 110">
         {/* Track */}
-        <path d={arcPath(toRad(startAngle), toRad(endAngle), r - 14, r)} fill="#1e3a5f" />
+        <path d={arcPath(toRad(startAngle), toRad(endAngle), r - 14, r)} fill="#E5E7EB" />
         {/* Value fill */}
         <path d={arcPath(toRad(startAngle), toRad(valueAngle), r - 14, r)} fill={color} opacity={0.9} />
         {/* Needle */}
@@ -106,15 +106,15 @@ function GaugeSVG({ value, label, color = MES_COLOR }: { value: number; label: s
           x1={cx} y1={cy}
           x2={cx + (r - 7) * Math.cos(toRad(valueAngle))}
           y2={cy + (r - 7) * Math.sin(toRad(valueAngle))}
-          stroke="#fff" strokeWidth={2} strokeLinecap="round"
+          stroke="#1E293B" strokeWidth={2} strokeLinecap="round"
         />
         <circle cx={cx} cy={cy} r={5} fill={color} />
         {/* Value text */}
-        <text x={cx} y={cy + 26} textAnchor="middle" fill="#fff" fontSize={20} fontWeight={900}>
+        <text x={cx} y={cy + 26} textAnchor="middle" fill="#1E293B" fontSize={20} fontWeight={900}>
           {value}%
         </text>
       </svg>
-      <Typography sx={{ color: '#94a3b8', fontSize: 12, fontWeight: 700, mt: -1 }}>{label}</Typography>
+      <Typography sx={{ color: '#64748B', fontSize: 12, fontWeight: 700, mt: -1 }}>{label}</Typography>
     </Box>
   )
 }
@@ -148,7 +148,7 @@ function OEEGlobalTab() {
             {/* OEE resultante */}
             <Grid size={{ xs: 12, md: 5 }}>
               <Box sx={{ textAlign: 'center', p: 2 }}>
-                <Typography sx={{ color: '#94a3b8', fontSize: 13, fontWeight: 600, mb: 1 }}>OEE RESULTANTE</Typography>
+                <Typography sx={{ color: '#64748B', fontSize: 13, fontWeight: 600, mb: 1 }}>OEE RESULTANTE</Typography>
                 <Typography sx={{ color: MES_COLOR, fontWeight: 900, fontSize: 72, lineHeight: 1 }}>
                   {oee}%
                 </Typography>
@@ -162,24 +162,24 @@ function OEEGlobalTab() {
 
           {/* Stacked bar OEE */}
           <Box sx={{ mt: 3 }}>
-            <Typography sx={{ color: '#94a3b8', fontSize: 12, fontWeight: 600, mb: 1 }}>Composición OEE</Typography>
+            <Typography sx={{ color: '#64748B', fontSize: 12, fontWeight: 600, mb: 1 }}>Composición OEE</Typography>
             <Box sx={{ height: 28, display: 'flex', borderRadius: 1, overflow: 'hidden', gap: '2px' }}>
               <Box sx={{ width: `${disponibilidad}%`, bgcolor: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Typography sx={{ color: '#fff', fontSize: 10, fontWeight: 700 }}>D: {disponibilidad}%</Typography>
               </Box>
-              <Box sx={{ width: `${(rendimiento / 100) * (100 - disponibilidad)}%`, bgcolor: '#1e3a5f' }} />
+              <Box sx={{ width: `${(rendimiento / 100) * (100 - disponibilidad)}%`, bgcolor: '#E5E7EB' }} />
             </Box>
             <Box sx={{ height: 28, display: 'flex', borderRadius: 1, overflow: 'hidden', gap: '2px', mt: 1 }}>
               <Box sx={{ width: `${rendimiento}%`, bgcolor: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Typography sx={{ color: '#fff', fontSize: 10, fontWeight: 700 }}>R: {rendimiento}%</Typography>
               </Box>
-              <Box sx={{ width: `${100 - rendimiento}%`, bgcolor: '#1e3a5f' }} />
+              <Box sx={{ width: `${100 - rendimiento}%`, bgcolor: '#E5E7EB' }} />
             </Box>
             <Box sx={{ height: 28, display: 'flex', borderRadius: 1, overflow: 'hidden', gap: '2px', mt: 1 }}>
               <Box sx={{ width: `${calidad}%`, bgcolor: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Typography sx={{ color: '#fff', fontSize: 10, fontWeight: 700 }}>C: {calidad}%</Typography>
               </Box>
-              <Box sx={{ width: `${100 - calidad}%`, bgcolor: '#1e3a5f' }} />
+              <Box sx={{ width: `${100 - calidad}%`, bgcolor: '#E5E7EB' }} />
             </Box>
           </Box>
         </CardContent>
@@ -208,7 +208,7 @@ function OEEGlobalTab() {
             <Card sx={{ bgcolor: '#FFFFFF', border: `1px solid ${b.color}33`, borderRadius: 2 }}>
               <CardContent sx={{ p: '14px !important' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography sx={{ color: '#94a3b8', fontSize: 12, fontWeight: 600 }}>{b.label}</Typography>
+                  <Typography sx={{ color: '#64748B', fontSize: 12, fontWeight: 600 }}>{b.label}</Typography>
                   <Box sx={{ color: b.color }}>{b.icono}</Box>
                 </Box>
                 <Typography sx={{ color: b.color, fontWeight: 900, fontSize: 28, lineHeight: 1 }}>{b.valor}</Typography>
@@ -231,28 +231,28 @@ function PorLineaTab() {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <TableContainer component={Paper} sx={{ bgcolor: '#FFFFFF', border: '1px solid #1e3a5f', overflowX: 'auto' }}>
+      <TableContainer component={Paper} sx={{ bgcolor: '#FFFFFF', border: '1px solid #E5E7EB', overflowX: 'auto' }}>
         <Table size="small" sx={{ minWidth: 900 }}>
           <TableHead>
             <TableRow>
               {['Línea', 'Disponib.', 'Rendim.', 'Calidad', 'OEE%', 'Prod. Real', 'Prod. Nominal', 'vs Ant.', 'Estado'].map((h) => (
-                <TableCell key={h} sx={{ color: MES_COLOR, fontWeight: 700, fontSize: 11, borderColor: '#1e3a5f', whiteSpace: 'nowrap' }}>{h}</TableCell>
+                <TableCell key={h} sx={{ color: MES_COLOR, fontWeight: 700, fontSize: 11, borderColor: '#E5E7EB', whiteSpace: 'nowrap' }}>{h}</TableCell>
               ))}
             </TableRow>
           </TableHead>
           <TableBody>
             {lineasOEE.map((row) => (
               <TableRow key={row.nombre} sx={{ '&:hover': { bgcolor: `${MES_COLOR}10` } }}>
-                <TableCell sx={{ color: '#e2e8f0', fontWeight: 600, borderColor: '#1e3a5f', fontSize: 12, whiteSpace: 'nowrap' }}>{row.nombre}</TableCell>
-                <TableCell sx={{ color: '#3b82f6', fontWeight: 700, borderColor: '#1e3a5f' }}>{row.disp}%</TableCell>
-                <TableCell sx={{ color: '#f59e0b', fontWeight: 700, borderColor: '#1e3a5f' }}>{row.rend}%</TableCell>
-                <TableCell sx={{ color: '#22c55e', fontWeight: 700, borderColor: '#1e3a5f' }}>{row.cal}%</TableCell>
-                <TableCell sx={{ borderColor: '#1e3a5f' }}>
+                <TableCell sx={{ color: '#334155', fontWeight: 600, borderColor: '#E5E7EB', fontSize: 12, whiteSpace: 'nowrap' }}>{row.nombre}</TableCell>
+                <TableCell sx={{ color: '#3b82f6', fontWeight: 700, borderColor: '#E5E7EB' }}>{row.disp}%</TableCell>
+                <TableCell sx={{ color: '#f59e0b', fontWeight: 700, borderColor: '#E5E7EB' }}>{row.rend}%</TableCell>
+                <TableCell sx={{ color: '#22c55e', fontWeight: 700, borderColor: '#E5E7EB' }}>{row.cal}%</TableCell>
+                <TableCell sx={{ borderColor: '#E5E7EB' }}>
                   <Typography sx={{ color: oeeColor(row.oee), fontWeight: 900, fontSize: 15 }}>{row.oee}%</Typography>
                 </TableCell>
-                <TableCell sx={{ color: '#e2e8f0', borderColor: '#1e3a5f' }}>{row.real.toLocaleString('es-CO')}</TableCell>
-                <TableCell sx={{ color: '#64748b', borderColor: '#1e3a5f' }}>{row.nominal.toLocaleString('es-CO')}</TableCell>
-                <TableCell sx={{ borderColor: '#1e3a5f' }}>
+                <TableCell sx={{ color: '#334155', borderColor: '#E5E7EB' }}>{row.real.toLocaleString('es-CO')}</TableCell>
+                <TableCell sx={{ color: '#64748b', borderColor: '#E5E7EB' }}>{row.nominal.toLocaleString('es-CO')}</TableCell>
+                <TableCell sx={{ borderColor: '#E5E7EB' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     {row.vsAnterior >= 0
                       ? <TrendingUp sx={{ fontSize: 16, color: '#22c55e' }} />
@@ -263,7 +263,7 @@ function PorLineaTab() {
                     </Typography>
                   </Box>
                 </TableCell>
-                <TableCell sx={{ borderColor: '#1e3a5f' }}><SemaforoOEE oee={row.oee} /></TableCell>
+                <TableCell sx={{ borderColor: '#E5E7EB' }}><SemaforoOEE oee={row.oee} /></TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -272,8 +272,8 @@ function PorLineaTab() {
 
       {/* Barras OEE por línea */}
       <Box>
-        <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>OEE por Línea (mayor a menor)</Typography>
-        <Card sx={{ bgcolor: '#FFFFFF', border: '1px solid #1e3a5f', borderRadius: 2, p: 3 }}>
+        <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 2 }}>OEE por Línea (mayor a menor)</Typography>
+        <Card sx={{ bgcolor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 2, p: 3 }}>
           {/* Marca 85% */}
           <Box sx={{ position: 'relative' }}>
             <Box sx={{ position: 'absolute', left: `${(85 / maxOEE) * 100}%`, top: 0, bottom: 0, width: 1, bgcolor: '#22c55e', opacity: 0.6,
@@ -285,10 +285,10 @@ function PorLineaTab() {
               {sorted.map((l) => (
                 <Box key={l.nombre}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.4 }}>
-                    <Typography sx={{ color: '#e2e8f0', fontSize: 12, fontWeight: 600 }}>{l.nombre}</Typography>
+                    <Typography sx={{ color: '#334155', fontSize: 12, fontWeight: 600 }}>{l.nombre}</Typography>
                     <Typography sx={{ color: oeeColor(l.oee), fontWeight: 900, fontSize: 13 }}>{l.oee}%</Typography>
                   </Box>
-                  <Box sx={{ height: 22, bgcolor: '#0a1628', borderRadius: 1, overflow: 'hidden' }}>
+                  <Box sx={{ height: 22, bgcolor: '#E5E7EB', borderRadius: 1, overflow: 'hidden' }}>
                     <Box sx={{
                       height: '100%', width: `${(l.oee / maxOEE) * 100}%`,
                       bgcolor: oeeColor(l.oee), opacity: 0.85, borderRadius: 1,
@@ -309,12 +309,12 @@ function PorLineaTab() {
 function PorEquipoTab() {
   return (
     <Box>
-      <TableContainer component={Paper} sx={{ bgcolor: '#FFFFFF', border: '1px solid #1e3a5f', overflowX: 'auto' }}>
+      <TableContainer component={Paper} sx={{ bgcolor: '#FFFFFF', border: '1px solid #E5E7EB', overflowX: 'auto' }}>
         <Table size="small" sx={{ minWidth: 1100 }}>
           <TableHead>
             <TableRow>
               {['Código', 'Equipo', 'Disponib.', 'Rendim.', 'Calidad', 'OEE%', 'Hrs Op.', 'Paradas (min)', 'MTBF (hrs)', 'MTTR (min)'].map((h) => (
-                <TableCell key={h} sx={{ color: MES_COLOR, fontWeight: 700, fontSize: 11, borderColor: '#1e3a5f', whiteSpace: 'nowrap' }}>{h}</TableCell>
+                <TableCell key={h} sx={{ color: MES_COLOR, fontWeight: 700, fontSize: 11, borderColor: '#E5E7EB', whiteSpace: 'nowrap' }}>{h}</TableCell>
               ))}
             </TableRow>
           </TableHead>
@@ -327,26 +327,26 @@ function PorEquipoTab() {
                     bgcolor: critico ? 'rgba(220,38,38,0.08)' : 'transparent',
                     '&:hover': { bgcolor: critico ? 'rgba(220,38,38,0.14)' : `${MES_COLOR}10` },
                   }}>
-                  <TableCell sx={{ color: '#60a5fa', fontFamily: 'monospace', borderColor: '#1e3a5f', fontSize: 11 }}>{eq.codigo}</TableCell>
-                  <TableCell sx={{ color: critico ? '#ef4444' : '#e2e8f0', fontWeight: 600, borderColor: '#1e3a5f', fontSize: 12, whiteSpace: 'nowrap' }}>
+                  <TableCell sx={{ color: '#60a5fa', fontFamily: 'monospace', borderColor: '#E5E7EB', fontSize: 11 }}>{eq.codigo}</TableCell>
+                  <TableCell sx={{ color: critico ? '#ef4444' : '#334155', fontWeight: 600, borderColor: '#E5E7EB', fontSize: 12, whiteSpace: 'nowrap' }}>
                     {critico && <WarningAmber sx={{ fontSize: 13, mr: 0.5, color: '#ef4444', verticalAlign: 'middle' }} />}
                     {eq.nombre}
                   </TableCell>
-                  <TableCell sx={{ color: '#3b82f6', fontWeight: 700, borderColor: '#1e3a5f' }}>{eq.disp}%</TableCell>
-                  <TableCell sx={{ color: '#f59e0b', fontWeight: 700, borderColor: '#1e3a5f' }}>{eq.rend}%</TableCell>
-                  <TableCell sx={{ color: '#22c55e', fontWeight: 700, borderColor: '#1e3a5f' }}>{eq.cal}%</TableCell>
-                  <TableCell sx={{ borderColor: '#1e3a5f' }}>
+                  <TableCell sx={{ color: '#3b82f6', fontWeight: 700, borderColor: '#E5E7EB' }}>{eq.disp}%</TableCell>
+                  <TableCell sx={{ color: '#f59e0b', fontWeight: 700, borderColor: '#E5E7EB' }}>{eq.rend}%</TableCell>
+                  <TableCell sx={{ color: '#22c55e', fontWeight: 700, borderColor: '#E5E7EB' }}>{eq.cal}%</TableCell>
+                  <TableCell sx={{ borderColor: '#E5E7EB' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <LinearProgress variant="determinate" value={eq.oee}
-                        sx={{ flex: 1, height: 6, borderRadius: 3, bgcolor: '#1e3a5f',
+                        sx={{ flex: 1, height: 6, borderRadius: 3, bgcolor: '#E5E7EB',
                           '& .MuiLinearProgress-bar': { bgcolor: oeeColor(eq.oee) } }} />
                       <Typography sx={{ color: oeeColor(eq.oee), fontWeight: 900, fontSize: 13, minWidth: 40 }}>{eq.oee}%</Typography>
                     </Box>
                   </TableCell>
-                  <TableCell sx={{ color: '#e2e8f0', borderColor: '#1e3a5f' }}>{eq.hrsOp}</TableCell>
-                  <TableCell sx={{ color: eq.paradas > 300 ? '#ef4444' : '#f59e0b', fontWeight: 700, borderColor: '#1e3a5f' }}>{eq.paradas}</TableCell>
-                  <TableCell sx={{ color: eq.mtbf >= 200 ? '#22c55e' : eq.mtbf >= 100 ? '#f59e0b' : '#ef4444', fontWeight: 700, borderColor: '#1e3a5f' }}>{eq.mtbf}</TableCell>
-                  <TableCell sx={{ color: eq.mttr <= 30 ? '#22c55e' : eq.mttr <= 60 ? '#f59e0b' : '#ef4444', fontWeight: 700, borderColor: '#1e3a5f' }}>{eq.mttr}</TableCell>
+                  <TableCell sx={{ color: '#334155', borderColor: '#E5E7EB' }}>{eq.hrsOp}</TableCell>
+                  <TableCell sx={{ color: eq.paradas > 300 ? '#ef4444' : '#f59e0b', fontWeight: 700, borderColor: '#E5E7EB' }}>{eq.paradas}</TableCell>
+                  <TableCell sx={{ color: eq.mtbf >= 200 ? '#22c55e' : eq.mtbf >= 100 ? '#f59e0b' : '#ef4444', fontWeight: 700, borderColor: '#E5E7EB' }}>{eq.mtbf}</TableCell>
+                  <TableCell sx={{ color: eq.mttr <= 30 ? '#22c55e' : eq.mttr <= 60 ? '#f59e0b' : '#ef4444', fontWeight: 700, borderColor: '#E5E7EB' }}>{eq.mttr}</TableCell>
                 </TableRow>
               )
             })}
@@ -358,15 +358,15 @@ function PorEquipoTab() {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2, flexWrap: 'wrap' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Box sx={{ width: 14, height: 14, borderRadius: 1, bgcolor: '#22c55e' }} />
-          <Typography sx={{ color: '#94a3b8', fontSize: 12 }}>OEE ≥ 85% — Clase Mundial</Typography>
+          <Typography sx={{ color: '#64748B', fontSize: 12 }}>OEE ≥ 85% — Clase Mundial</Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Box sx={{ width: 14, height: 14, borderRadius: 1, bgcolor: '#f59e0b' }} />
-          <Typography sx={{ color: '#94a3b8', fontSize: 12 }}>OEE 70–85% — Aceptable</Typography>
+          <Typography sx={{ color: '#64748B', fontSize: 12 }}>OEE 70–85% — Aceptable</Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Box sx={{ width: 14, height: 14, borderRadius: 1, bgcolor: '#ef4444' }} />
-          <Typography sx={{ color: '#94a3b8', fontSize: 12 }}>OEE &lt; 70% — Crítico (fondo rojo)</Typography>
+          <Typography sx={{ color: '#64748B', fontSize: 12 }}>OEE &lt; 70% — Crítico (fondo rojo)</Typography>
         </Box>
       </Box>
     </Box>
@@ -393,7 +393,7 @@ function AnalisisParadasTab() {
               <CardContent sx={{ p: '12px !important' }}>
                 <Typography sx={{ color: k.color, fontWeight: 900, fontSize: 24, lineHeight: 1 }}>{k.value}</Typography>
                 {k.sub && <Typography sx={{ color: '#64748b', fontSize: 10, mt: 0.2 }}>{k.sub}</Typography>}
-                <Typography sx={{ color: '#94a3b8', fontSize: 11, mt: 0.3, fontWeight: 600 }}>{k.label}</Typography>
+                <Typography sx={{ color: '#64748B', fontSize: 11, mt: 0.3, fontWeight: 600 }}>{k.label}</Typography>
               </CardContent>
             </Card>
           </Grid>
@@ -402,28 +402,28 @@ function AnalisisParadasTab() {
 
       {/* Tabla clasificación paradas */}
       <Box>
-        <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Clasificación de Paradas por Tipo</Typography>
-        <TableContainer component={Paper} sx={{ bgcolor: '#FFFFFF', border: '1px solid #1e3a5f' }}>
+        <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 2 }}>Clasificación de Paradas por Tipo</Typography>
+        <TableContainer component={Paper} sx={{ bgcolor: '#FFFFFF', border: '1px solid #E5E7EB' }}>
           <Table size="small">
             <TableHead>
               <TableRow>
                 {['Tipo de Parada', 'Frecuencia', 'Duración Total (min)', '% Tiempo Total'].map((h) => (
-                  <TableCell key={h} sx={{ color: MES_COLOR, fontWeight: 700, fontSize: 11, borderColor: '#1e3a5f' }}>{h}</TableCell>
+                  <TableCell key={h} sx={{ color: MES_COLOR, fontWeight: 700, fontSize: 11, borderColor: '#E5E7EB' }}>{h}</TableCell>
                 ))}
               </TableRow>
             </TableHead>
             <TableBody>
               {tiposParada.map((t, i) => (
                 <TableRow key={t.tipo} sx={{ '&:hover': { bgcolor: `${MES_COLOR}10` } }}>
-                  <TableCell sx={{ borderColor: '#1e3a5f' }}>
+                  <TableCell sx={{ borderColor: '#E5E7EB' }}>
                     <Chip label={t.tipo} size="small" sx={{ bgcolor: `${paradaColors[i]}22`, color: paradaColors[i], fontWeight: 700, fontSize: 11, border: `1px solid ${paradaColors[i]}44` }} />
                   </TableCell>
-                  <TableCell sx={{ color: paradaColors[i], fontWeight: 900, fontSize: 15, borderColor: '#1e3a5f' }}>{t.frecuencia}</TableCell>
-                  <TableCell sx={{ color: '#e2e8f0', fontWeight: 700, borderColor: '#1e3a5f' }}>{t.duracion} min</TableCell>
-                  <TableCell sx={{ borderColor: '#1e3a5f' }}>
+                  <TableCell sx={{ color: paradaColors[i], fontWeight: 900, fontSize: 15, borderColor: '#E5E7EB' }}>{t.frecuencia}</TableCell>
+                  <TableCell sx={{ color: '#334155', fontWeight: 700, borderColor: '#E5E7EB' }}>{t.duracion} min</TableCell>
+                  <TableCell sx={{ borderColor: '#E5E7EB' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <LinearProgress variant="determinate" value={t.pctTiempo}
-                        sx={{ flex: 1, height: 8, borderRadius: 4, bgcolor: '#1e3a5f',
+                        sx={{ flex: 1, height: 8, borderRadius: 4, bgcolor: '#E5E7EB',
                           '& .MuiLinearProgress-bar': { bgcolor: paradaColors[i] } }} />
                       <Typography sx={{ color: paradaColors[i], fontWeight: 900, minWidth: 40, fontSize: 13 }}>{t.pctTiempo}%</Typography>
                     </Box>
@@ -437,23 +437,23 @@ function AnalisisParadasTab() {
 
       {/* Pareto horizontal paradas */}
       <Box>
-        <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Pareto de Paradas — Duración Total</Typography>
-        <Card sx={{ bgcolor: '#FFFFFF', border: '1px solid #1e3a5f', borderRadius: 2, p: 3 }}>
+        <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 2 }}>Pareto de Paradas — Duración Total</Typography>
+        <Card sx={{ bgcolor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 2, p: 3 }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             {tiposParada.map((t, i) => (
               <Box key={t.tipo}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.4 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: paradaColors[i] }} />
-                    <Typography sx={{ color: '#e2e8f0', fontSize: 13, fontWeight: 600 }}>{t.tipo}</Typography>
+                    <Typography sx={{ color: '#334155', fontSize: 13, fontWeight: 600 }}>{t.tipo}</Typography>
                   </Box>
                   <Box sx={{ display: 'flex', gap: 2 }}>
                     <Typography sx={{ color: paradaColors[i], fontWeight: 900, fontSize: 13 }}>{t.duracion} min</Typography>
-                    <Typography sx={{ color: '#94a3b8', fontSize: 12, minWidth: 40 }}>{t.pctTiempo}%</Typography>
+                    <Typography sx={{ color: '#64748B', fontSize: 12, minWidth: 40 }}>{t.pctTiempo}%</Typography>
                     <Typography sx={{ color: '#475569', fontSize: 11 }}>{t.frecuencia} ocur.</Typography>
                   </Box>
                 </Box>
-                <Box sx={{ height: 24, bgcolor: '#0a1628', borderRadius: 1, overflow: 'hidden', position: 'relative' }}>
+                <Box sx={{ height: 24, bgcolor: '#E5E7EB', borderRadius: 1, overflow: 'hidden', position: 'relative' }}>
                   <Box sx={{
                     height: '100%', width: `${(t.duracion / maxDur) * 100}%`,
                     bgcolor: paradaColors[i], opacity: 0.85, borderRadius: 1,
@@ -463,18 +463,18 @@ function AnalisisParadasTab() {
               </Box>
             ))}
           </Box>
-          <Divider sx={{ bgcolor: '#1e3a5f', my: 2 }} />
+          <Divider sx={{ bgcolor: '#E5E7EB', my: 2 }} />
           <Box sx={{ display: 'flex', gap: 4 }}>
             <Box>
-              <Typography sx={{ color: '#94a3b8', fontSize: 11 }}>Total tiempo perdido</Typography>
+              <Typography sx={{ color: '#64748B', fontSize: 11 }}>Total tiempo perdido</Typography>
               <Typography sx={{ color: '#ef4444', fontWeight: 900, fontSize: 18 }}>1,840 min</Typography>
             </Box>
             <Box>
-              <Typography sx={{ color: '#94a3b8', fontSize: 11 }}>Total paradas</Typography>
+              <Typography sx={{ color: '#64748B', fontSize: 11 }}>Total paradas</Typography>
               <Typography sx={{ color: '#f97316', fontWeight: 900, fontSize: 18 }}>127 eventos</Typography>
             </Box>
             <Box>
-              <Typography sx={{ color: '#94a3b8', fontSize: 11 }}>Promedio por evento</Typography>
+              <Typography sx={{ color: '#64748B', fontSize: 11 }}>Promedio por evento</Typography>
               <Typography sx={{ color: '#f59e0b', fontWeight: 900, fontSize: 18 }}>14.5 min</Typography>
             </Box>
           </Box>
@@ -504,7 +504,7 @@ export default function MESOEE() {
             <Speed fontSize="medium" />
           </Box>
           <Box>
-            <Typography variant="h5" sx={{ color: '#fff', fontWeight: 800, lineHeight: 1 }}>
+            <Typography variant="h5" sx={{ color: '#1E293B', fontWeight: 800, lineHeight: 1 }}>
               MES — OEE (Overall Equipment Effectiveness)
             </Typography>
             <Typography variant="body2" sx={{ color: '#64748b', mt: 0.3 }}>
@@ -513,7 +513,7 @@ export default function MESOEE() {
           </Box>
         </Box>
 
-        <Divider sx={{ bgcolor: '#1e3a5f', mb: 3 }} />
+        <Divider sx={{ bgcolor: '#E5E7EB', mb: 3 }} />
 
         <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{
           mb: 1,
@@ -526,7 +526,7 @@ export default function MESOEE() {
           ))}
         </Tabs>
 
-        <Divider sx={{ bgcolor: '#1e3a5f', mb: 1 }} />
+        <Divider sx={{ bgcolor: '#E5E7EB', mb: 1 }} />
 
         <TabPanel value={tab} index={0}><OEEGlobalTab /></TabPanel>
         <TabPanel value={tab} index={1}><PorLineaTab /></TabPanel>

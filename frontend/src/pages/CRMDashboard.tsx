@@ -60,7 +60,7 @@ export default function CRMDashboard() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             boxShadow: `0 4px 14px ${alpha(CRM_COLOR, 0.4)}`,
           }}>
-            <TrendingUp sx={{ color: 'text.primary', fontSize: 22 }} />
+            <TrendingUp sx={{ color: '#fff', fontSize: 22 }} />
           </Box>
           <Box>
             <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Torre de Control Comercial</Typography>
@@ -127,7 +127,7 @@ export default function CRMDashboard() {
               {OPO_RECIENTES.map((o, i) => {
                 const col = ETAPA_COLOR[o.etapa] || CRM_COLOR
                 return (
-                  <Box key={i} sx={{ mb: 1.5, p: 1.5, bgcolor: 'text.disabled', borderRadius: 1.5, border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <Box key={i} sx={{ mb: 1.5, p: 1.5, bgcolor: '#F8FAFC', borderRadius: 1.5, border: '1px solid #E5E7EB' }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                       <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: 'text.primary', flex: 1, pr: 1 }}>{o.nombre}</Typography>
                       <Typography sx={{ fontSize: 13, fontWeight: 800, color: CRM_COLOR, flexShrink: 0 }}>${o.valor}M</Typography>

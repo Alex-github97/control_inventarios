@@ -10,6 +10,7 @@ import { BugReport, Add, Edit, Delete, Close, InfoOutlined } from '@mui/icons-ma
 import { Layout } from '@/components/layout/Layout'
 
 const GRC_COLOR = '#6D28D9'
+const PAGE_BG   = '#F0F2F5'
 const LBL       = alpha(GRC_COLOR, 0.85)
 const NIVEL_COLOR: Record<string,string> = { CRITICO:'#DC2626', ALTO:'#EA580C', MEDIO:'#D97706', BAJO:'#059669', MUY_BAJO:'#6B7280' }
 const TRATAMIENTOS = ['MITIGAR','TRANSFERIR','ACEPTAR','EVITAR']
@@ -32,10 +33,8 @@ type Riesgo = typeof seed[0]
 type Form = { nombre:string; categoria:string; proceso:string; probabilidad:number; impacto:number; responsable:string; tratamiento:string; descripcion:string }
 const EMPTY: Form = { nombre:'', categoria:'Tecnológico', proceso:'', probabilidad:3, impacto:3, responsable:'', tratamiento:'MITIGAR', descripcion:'' }
 
-const TF = { '& .MuiOutlinedInput-root':{ color:'#FFF', '& fieldset':{ borderColor:'rgba(255,255,255,0.15)' }, '&.Mui-focused fieldset':{ borderColor:GRC_COLOR } } }
-const ILB = { sx:{ color:'rgba(255,255,255,0.5)' } }
-const Row2 = ({ label, value, color }:{ label:string; value:string; color?:string }) => (
-  <Box sx={{ mb:1.25 }}><Typography sx={{ fontSize:10, color:LBL, textTransform:'uppercase', letterSpacing:'0.06em', mb:.25 }}>{label}</Typography><Typography sx={{ fontSize:13, color:color||'#E2E8F0', fontWeight:500 }}>{value}</Typography></Box>
+const Row2 =({ label, value, color }:{ label:string; value:string; color?:string }) => (
+  <Box sx={{ mb:1.25 }}><Typography sx={{ fontSize:10, color:LBL, textTransform:'uppercase', letterSpacing:'0.06em', mb:.25 }}>{label}</Typography><Typography sx={{ fontSize:13, color:color||'#334155', fontWeight:500 }}>{value}</Typography></Box>
 )
 
 export default function GRCRiesgos() {
@@ -66,7 +65,7 @@ export default function GRCRiesgos() {
         <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'center', mb:3 }}>
           <Box sx={{ display:'flex', alignItems:'center', gap:1.5 }}>
             <BugReport sx={{ color:GRC_COLOR, fontSize:28 }} />
-            <Box><Typography variant="h5" sx={{ fontWeight:800, color:'#FFF', lineHeight:1 }}>Inventario de Riesgos</Typography><Typography sx={{ fontSize:12, color:LBL }}>GRC · Identificación, evaluación y tratamiento</Typography></Box>
+            <Box><Typography variant="h5" sx={{ fontWeight:800, color:'#1E293B', lineHeight:1 }}>Inventario de Riesgos</Typography><Typography sx={{ fontSize:12, color:LBL }}>GRC · Identificación, evaluación y tratamiento</Typography></Box>
             <Chip label="GRC" size="small" sx={{ bgcolor:alpha(GRC_COLOR,.15), color:GRC_COLOR, fontWeight:700, border:`1px solid ${alpha(GRC_COLOR,.35)}` }} />
           </Box>
           <Button startIcon={<Add />} size="small" variant="contained" onClick={openNew} sx={{ bgcolor:GRC_COLOR, '&:hover':{ bgcolor:'#5B21B6' }, borderRadius:2 }}>Nuevo Riesgo</Button>
@@ -78,7 +77,7 @@ export default function GRCRiesgos() {
           ))}
         </Grid>
 
-        <Tabs value={tab} onChange={(_,v)=>setTab(v)} sx={{ mb:2, borderBottom:'1px solid rgba(255,255,255,0.08)', '& .MuiTab-root':{ color:'rgba(255,255,255,0.45)', fontSize:13 }, '& .Mui-selected':{ color:GRC_COLOR }, '& .MuiTabs-indicator':{ bgcolor:GRC_COLOR } }}>
+        <Tabs value={tab} onChange={(_,v)=>setTab(v)} sx={{ mb:2, borderBottom:'1px solid #E5E7EB', '& .MuiTab-root':{ color:'#64748B', fontSize:13 }, '& .Mui-selected':{ color:GRC_COLOR }, '& .MuiTabs-indicator':{ bgcolor:GRC_COLOR } }}>
           <Tab label="Inventario" /><Tab label="Mapa de Calor 5×5" />
         </Tabs>
 
@@ -87,19 +86,19 @@ export default function GRCRiesgos() {
             {tab===0 && (
               <Paper sx={{ bgcolor:'transparent', overflowX:'auto' }}>
                 <Table size="small">
-                  <TableHead><TableRow sx={{ '& th':{ borderColor:'rgba(255,255,255,0.06)', color:LBL, fontSize:11, fontWeight:700, textTransform:'uppercase' } }}>
+                  <TableHead><TableRow sx={{ '& th':{ borderColor:'#E5E7EB', color:LBL, fontSize:11, fontWeight:700, textTransform:'uppercase' } }}>
                     <TableCell>ID</TableCell><TableCell>Riesgo</TableCell><TableCell>Categoría</TableCell><TableCell align="center">P</TableCell><TableCell align="center">I</TableCell><TableCell>Nivel</TableCell><TableCell>Tratamiento</TableCell><TableCell>Responsable</TableCell><TableCell>Acciones</TableCell>
                   </TableRow></TableHead>
                   <TableBody>
                     {riesgos.map(r=>{ const nivel=calcNivel(r.probabilidad,r.impacto); return (
-                      <TableRow key={r.id} onClick={()=>setSel(r)} sx={{ cursor:'pointer', bgcolor:sel?.id===r.id?alpha(GRC_COLOR,.06):'transparent', '&:hover':{ bgcolor:alpha(GRC_COLOR,.04) }, '& td':{ borderColor:'rgba(255,255,255,0.04)', color:'rgba(255,255,255,0.8)', fontSize:12 } }}>
+                      <TableRow key={r.id} onClick={()=>setSel(r)} sx={{ cursor:'pointer', bgcolor:sel?.id===r.id?alpha(GRC_COLOR,.06):'transparent', '&:hover':{ bgcolor:alpha(GRC_COLOR,.04) }, '& td':{ borderColor:'#E5E7EB', color:'#334155', fontSize:12 } }}>
                         <TableCell sx={{ fontSize:10.5, color:LBL }}>{r.id}</TableCell>
-                        <TableCell sx={{ maxWidth:200 }}><Typography sx={{ fontSize:12.5, color:'#FFF', fontWeight:600, lineHeight:1.3 }}>{r.nombre}</Typography></TableCell>
+                        <TableCell sx={{ maxWidth:200 }}><Typography sx={{ fontSize:12.5, color:'#1E293B', fontWeight:600, lineHeight:1.3 }}>{r.nombre}</Typography></TableCell>
                         <TableCell><Chip label={r.categoria} size="small" sx={{ fontSize:9, height:18, bgcolor:alpha(GRC_COLOR,.12), color:GRC_COLOR }} /></TableCell>
                         <TableCell align="center"><Box sx={{ width:22, height:22, borderRadius:'50%', bgcolor:alpha(NIVEL_COLOR[nivel],.25), display:'flex', alignItems:'center', justifyContent:'center', mx:'auto' }}><Typography sx={{ fontSize:11, color:NIVEL_COLOR[nivel], fontWeight:700 }}>{r.probabilidad}</Typography></Box></TableCell>
                         <TableCell align="center"><Box sx={{ width:22, height:22, borderRadius:'50%', bgcolor:alpha(NIVEL_COLOR[nivel],.25), display:'flex', alignItems:'center', justifyContent:'center', mx:'auto' }}><Typography sx={{ fontSize:11, color:NIVEL_COLOR[nivel], fontWeight:700 }}>{r.impacto}</Typography></Box></TableCell>
                         <TableCell><Chip label={nivel} size="small" sx={{ fontSize:9, height:18, bgcolor:alpha(NIVEL_COLOR[nivel],.18), color:NIVEL_COLOR[nivel], fontWeight:700 }} /></TableCell>
-                        <TableCell><Chip label={r.tratamiento} size="small" sx={{ fontSize:9, height:18, bgcolor:'rgba(255,255,255,0.07)', color:'rgba(255,255,255,0.6)' }} /></TableCell>
+                        <TableCell><Chip label={r.tratamiento} size="small" sx={{ fontSize:9, height:18, bgcolor:'#F1F5F9', color:'#64748B' }} /></TableCell>
                         <TableCell>{r.responsable}</TableCell>
                         <TableCell>
                           <Box sx={{ display:'flex', gap:.25 }} onClick={e=>e.stopPropagation()}>
@@ -137,11 +136,11 @@ export default function GRCRiesgos() {
                 </Box>
                 <Card sx={{ bgcolor:alpha(GRC_COLOR,.06), border:`1px solid ${alpha(GRC_COLOR,.2)}`, borderRadius:2 }}>
                   <CardContent sx={{ p:'14px !important' }}>
-                    <Box sx={{ display:'flex', alignItems:'center', gap:1, mb:1.5 }}><InfoOutlined sx={{ color:GRC_COLOR, fontSize:18 }} /><Typography sx={{ fontWeight:700, color:'#FFF', fontSize:13 }}>Cómo leer el Mapa de Calor</Typography></Box>
-                    <Typography sx={{ fontSize:12, color:'rgba(255,255,255,0.75)', lineHeight:1.8, mb:1.5 }}>La matriz 5×5 combina <strong style={{color:'#FFF'}}>Probabilidad (P)</strong> en el eje vertical e <strong style={{color:'#FFF'}}>Impacto (I)</strong> en el horizontal. Cada celda muestra el <em style={{color:GRC_COLOR}}>puntaje P×I</em>. Haz clic en una celda para ver el riesgo.</Typography>
+                    <Box sx={{ display:'flex', alignItems:'center', gap:1, mb:1.5 }}><InfoOutlined sx={{ color:GRC_COLOR, fontSize:18 }} /><Typography sx={{ fontWeight:700, color:'#1E293B', fontSize:13 }}>Cómo leer el Mapa de Calor</Typography></Box>
+                    <Typography sx={{ fontSize:12, color:'#334155', lineHeight:1.8, mb:1.5 }}>La matriz 5×5 combina <strong style={{color:'#1E293B'}}>Probabilidad (P)</strong> en el eje vertical e <strong style={{color:'#1E293B'}}>Impacto (I)</strong> en el horizontal. Cada celda muestra el <em style={{color:GRC_COLOR}}>puntaje P×I</em>. Haz clic en una celda para ver el riesgo.</Typography>
                     <Grid container spacing={1}>
                       {[{ nivel:'CRITICO', rango:'16–25', accion:'Acción inmediata. Plan de tratamiento ≤ 30 días.', color:'#DC2626' },{ nivel:'ALTO', rango:'9–15', accion:'Tratamiento urgente. Plan ≤ 60 días.', color:'#EA580C' },{ nivel:'MEDIO', rango:'4–8', accion:'Seguimiento trimestral con indicadores.', color:'#D97706' },{ nivel:'BAJO', rango:'1–3', accion:'Aceptar o monitorear. Revisión semestral.', color:'#059669' }].map(l=>(
-                        <Grid key={l.nivel} size={{ xs:12, md:6 }}><Box sx={{ p:1, bgcolor:alpha(l.color,.08), borderRadius:1, border:`1px solid ${alpha(l.color,.2)}` }}><Box sx={{ display:'flex', alignItems:'center', gap:.75, mb:.5 }}><Box sx={{ width:8, height:8, borderRadius:'50%', bgcolor:l.color }} /><Typography sx={{ fontSize:11, fontWeight:700, color:l.color }}>{l.nivel}</Typography><Typography sx={{ fontSize:10, color:'rgba(255,255,255,0.4)' }}>P×I: {l.rango}</Typography></Box><Typography sx={{ fontSize:11, color:'rgba(255,255,255,0.65)', lineHeight:1.6 }}>{l.accion}</Typography></Box></Grid>
+                        <Grid key={l.nivel} size={{ xs:12, md:6 }}><Box sx={{ p:1, bgcolor:alpha(l.color,.08), borderRadius:1, border:`1px solid ${alpha(l.color,.2)}` }}><Box sx={{ display:'flex', alignItems:'center', gap:.75, mb:.5 }}><Box sx={{ width:8, height:8, borderRadius:'50%', bgcolor:l.color }} /><Typography sx={{ fontSize:11, fontWeight:700, color:l.color }}>{l.nivel}</Typography><Typography sx={{ fontSize:10, color:'#64748B' }}>P×I: {l.rango}</Typography></Box><Typography sx={{ fontSize:11, color:'#334155', lineHeight:1.6 }}>{l.accion}</Typography></Box></Grid>
                       ))}
                     </Grid>
                   </CardContent>
@@ -153,8 +152,8 @@ export default function GRCRiesgos() {
           {sel && (
             <Box sx={{ width:370, flexShrink:0, bgcolor:'#FFFFFF', border:`1px solid #E5E7EB`, borderRadius:2, p:2.5, height:'fit-content' }}>
               <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', mb:1 }}>
-                <Typography sx={{ color:'#FFF', fontWeight:700, fontSize:13, flex:1, pr:1, lineHeight:1.4 }}>{sel.nombre}</Typography>
-                <IconButton size="small" onClick={()=>setSel(null)} sx={{ color:'rgba(255,255,255,0.4)' }}><Close fontSize="small" /></IconButton>
+                <Typography sx={{ color:'#1E293B', fontWeight:700, fontSize:13, flex:1, pr:1, lineHeight:1.4 }}>{sel.nombre}</Typography>
+                <IconButton size="small" onClick={()=>setSel(null)} sx={{ color:'#64748B' }}><Close fontSize="small" /></IconButton>
               </Box>
               <Box sx={{ display:'flex', gap:.75, mb:2 }}>
                 <Chip label={sel.categoria} size="small" sx={{ bgcolor:alpha(GRC_COLOR,.18), color:GRC_COLOR, fontSize:10 }} />
@@ -162,7 +161,7 @@ export default function GRCRiesgos() {
               </Box>
               <Box sx={{ display:'flex', gap:2, mb:2 }}>
                 {[{ l:'P', v:sel.probabilidad },{ l:'I', v:sel.impacto },{ l:'P×I', v:sel.probabilidad*sel.impacto }].map(x=>(
-                  <Box key={x.l} sx={{ flex:1, p:1, bgcolor:'rgba(255,255,255,0.04)', borderRadius:1, textAlign:'center' }}>
+                  <Box key={x.l} sx={{ flex:1, p:1, bgcolor:'#F8FAFC', borderRadius:1, textAlign:'center' }}>
                     <Typography sx={{ fontSize:22, fontWeight:800, color:NIVEL_COLOR[calcNivel(sel.probabilidad,sel.impacto)], lineHeight:1 }}>{x.v}</Typography>
                     <Typography sx={{ fontSize:9.5, color:LBL, textTransform:'uppercase', mt:.25 }}>{x.l}</Typography>
                   </Box>
@@ -173,11 +172,11 @@ export default function GRCRiesgos() {
               <Row2 label="Responsable" value={sel.responsable} />
               <Row2 label="Tratamiento" value={sel.tratamiento} />
               <Row2 label="Estado" value={sel.estado.replace('_',' ')} />
-              <Divider sx={{ borderColor:'rgba(255,255,255,0.06)', my:1.5 }} />
+              <Divider sx={{ borderColor:'#E5E7EB', my:1.5 }} />
               <Typography sx={{ fontSize:10, color:LBL, textTransform:'uppercase', letterSpacing:'0.06em', mb:.75 }}>Descripción</Typography>
-              <Typography sx={{ fontSize:12, color:'rgba(255,255,255,0.7)', lineHeight:1.7, mb:1.5 }}>{sel.descripcion}</Typography>
-              {sel.controles.length>0&&<><Typography sx={{ fontSize:10, color:LBL, textTransform:'uppercase', letterSpacing:'0.06em', mb:.75 }}>Controles Existentes</Typography>{sel.controles.map((c,i)=><Box key={i} sx={{ display:'flex', gap:1, mb:.6, alignItems:'flex-start' }}><Box sx={{ width:5, height:5, borderRadius:'50%', bgcolor:GRC_COLOR, mt:.8, flexShrink:0 }} /><Typography sx={{ fontSize:12, color:'rgba(255,255,255,0.7)' }}>{c}</Typography></Box>)}</>}
-              <Divider sx={{ borderColor:'rgba(255,255,255,0.06)', my:1.5 }} />
+              <Typography sx={{ fontSize:12, color:'#334155', lineHeight:1.7, mb:1.5 }}>{sel.descripcion}</Typography>
+              {sel.controles.length>0&&<><Typography sx={{ fontSize:10, color:LBL, textTransform:'uppercase', letterSpacing:'0.06em', mb:.75 }}>Controles Existentes</Typography>{sel.controles.map((c,i)=><Box key={i} sx={{ display:'flex', gap:1, mb:.6, alignItems:'flex-start' }}><Box sx={{ width:5, height:5, borderRadius:'50%', bgcolor:GRC_COLOR, mt:.8, flexShrink:0 }} /><Typography sx={{ fontSize:12, color:'#334155' }}>{c}</Typography></Box>)}</>}
+              <Divider sx={{ borderColor:'#E5E7EB', my:1.5 }} />
               <Box sx={{ display:'flex', flexDirection:'column', gap:1 }}>
                 <Button size="small" startIcon={<Edit />} variant="outlined" fullWidth onClick={()=>openEdit(sel)} sx={{ color:GRC_COLOR, borderColor:alpha(GRC_COLOR,.4) }}>Editar Riesgo</Button>
                 <Button size="small" startIcon={<Delete />} variant="outlined" fullWidth onClick={()=>handleDelete(sel.id)} sx={{ color:'#DC2626', borderColor:alpha('#DC2626',.4) }}>Eliminar</Button>
@@ -186,22 +185,22 @@ export default function GRCRiesgos() {
           )}
         </Box>
 
-        <Dialog open={dlgOpen} onClose={()=>setDlgOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx:{ bgcolor:'#1F2937', color:'#FFF' } }}>
+        <Dialog open={dlgOpen} onClose={()=>setDlgOpen(false)} maxWidth="sm" fullWidth>
           <DialogTitle sx={{ fontWeight:700 }}>{editId?'Editar Riesgo':'Nuevo Riesgo'}</DialogTitle>
           <DialogContent sx={{ display:'flex', flexDirection:'column', gap:2, pt:'16px !important' }}>
-            <TextField label="Nombre del Riesgo" fullWidth size="small" value={form.nombre} onChange={sf('nombre')} InputLabelProps={ILB} sx={TF} />
-            <FormControl size="small"><InputLabel sx={{ color:'rgba(255,255,255,0.5)' }}>Categoría</InputLabel><Select label="Categoría" value={form.categoria} onChange={e=>ss('categoria',e.target.value)} sx={{ color:'#FFF', '& fieldset':{ borderColor:'rgba(255,255,255,0.15)' } }}>{CATEGORIAS.map(c=><MenuItem key={c} value={c}>{c}</MenuItem>)}</Select></FormControl>
-            <TextField label="Proceso" fullWidth size="small" value={form.proceso} onChange={sf('proceso')} InputLabelProps={ILB} sx={TF} />
+            <TextField label="Nombre del Riesgo" fullWidth size="small" value={form.nombre} onChange={sf('nombre')} />
+            <FormControl size="small"><InputLabel>Categoría</InputLabel><Select label="Categoría" value={form.categoria} onChange={e=>ss('categoria',e.target.value)}>{CATEGORIAS.map(c=><MenuItem key={c} value={c}>{c}</MenuItem>)}</Select></FormControl>
+            <TextField label="Proceso" fullWidth size="small" value={form.proceso} onChange={sf('proceso')} />
             <Box sx={{ display:'flex', gap:2 }}>
-              <FormControl size="small" fullWidth><InputLabel sx={{ color:'rgba(255,255,255,0.5)' }}>Probabilidad (1-5)</InputLabel><Select label="Probabilidad (1-5)" value={form.probabilidad} onChange={e=>ss('probabilidad',Number(e.target.value))} sx={{ color:'#FFF', '& fieldset':{ borderColor:'rgba(255,255,255,0.15)' } }}>{[1,2,3,4,5].map(n=><MenuItem key={n} value={n}>{n} — {LABELS_P[n]}</MenuItem>)}</Select></FormControl>
-              <FormControl size="small" fullWidth><InputLabel sx={{ color:'rgba(255,255,255,0.5)' }}>Impacto (1-5)</InputLabel><Select label="Impacto (1-5)" value={form.impacto} onChange={e=>ss('impacto',Number(e.target.value))} sx={{ color:'#FFF', '& fieldset':{ borderColor:'rgba(255,255,255,0.15)' } }}>{[1,2,3,4,5].map(n=><MenuItem key={n} value={n}>{n} — {LABELS_I[n]}</MenuItem>)}</Select></FormControl>
+              <FormControl size="small" fullWidth><InputLabel>Probabilidad (1-5)</InputLabel><Select label="Probabilidad (1-5)" value={form.probabilidad} onChange={e=>ss('probabilidad',Number(e.target.value))}>{[1,2,3,4,5].map(n=><MenuItem key={n} value={n}>{n} — {LABELS_P[n]}</MenuItem>)}</Select></FormControl>
+              <FormControl size="small" fullWidth><InputLabel>Impacto (1-5)</InputLabel><Select label="Impacto (1-5)" value={form.impacto} onChange={e=>ss('impacto',Number(e.target.value))}>{[1,2,3,4,5].map(n=><MenuItem key={n} value={n}>{n} — {LABELS_I[n]}</MenuItem>)}</Select></FormControl>
             </Box>
-            <TextField label="Responsable" fullWidth size="small" value={form.responsable} onChange={sf('responsable')} InputLabelProps={ILB} sx={TF} />
-            <FormControl size="small"><InputLabel sx={{ color:'rgba(255,255,255,0.5)' }}>Tratamiento</InputLabel><Select label="Tratamiento" value={form.tratamiento} onChange={e=>ss('tratamiento',e.target.value)} sx={{ color:'#FFF', '& fieldset':{ borderColor:'rgba(255,255,255,0.15)' } }}>{TRATAMIENTOS.map(t=><MenuItem key={t} value={t}>{t}</MenuItem>)}</Select></FormControl>
-            <TextField label="Descripción" multiline rows={3} fullWidth size="small" value={form.descripcion} onChange={sf('descripcion')} InputLabelProps={ILB} sx={TF} />
+            <TextField label="Responsable" fullWidth size="small" value={form.responsable} onChange={sf('responsable')} />
+            <FormControl size="small"><InputLabel>Tratamiento</InputLabel><Select label="Tratamiento" value={form.tratamiento} onChange={e=>ss('tratamiento',e.target.value)}>{TRATAMIENTOS.map(t=><MenuItem key={t} value={t}>{t}</MenuItem>)}</Select></FormControl>
+            <TextField label="Descripción" multiline rows={3} fullWidth size="small" value={form.descripcion} onChange={sf('descripcion')} />
           </DialogContent>
           <DialogActions sx={{ px:3, pb:2 }}>
-            <Button onClick={()=>setDlgOpen(false)} sx={{ color:'rgba(255,255,255,0.5)' }}>Cancelar</Button>
+            <Button onClick={()=>setDlgOpen(false)} sx={{ color:'#64748B' }}>Cancelar</Button>
             <Button variant="contained" onClick={handleSave} sx={{ bgcolor:GRC_COLOR, '&:hover':{ bgcolor:'#5B21B6' } }}>{editId?'Guardar Cambios':'Crear'}</Button>
           </DialogActions>
         </Dialog>

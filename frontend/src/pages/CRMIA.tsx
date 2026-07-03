@@ -66,7 +66,7 @@ export default function CRMIA() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             boxShadow: `0 4px 14px rgba(139,92,246,0.4)`,
           }}>
-            <AutoAwesome sx={{ color: 'text.primary', fontSize: 22 }} />
+            <AutoAwesome sx={{ color: '#fff', fontSize: 22 }} />
           </Box>
           <Box>
             <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>IA Comercial</Typography>
@@ -156,9 +156,9 @@ export default function CRMIA() {
 
         {tab === 2 && (
           <Box sx={{ border: `1px solid ${AI_BOR}`, borderRadius: 2, display: 'flex', flexDirection: 'column', height: 560 }}>
-            <Box sx={{ p: 2, borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Box sx={{ p: 2, borderBottom: '1px solid #E5E7EB', display: 'flex', gap: 1, alignItems: 'center' }}>
               <Box sx={{ width: 32, height: 32, borderRadius: '50%', background: `linear-gradient(135deg, ${AI_COLOR} 0%, #7C3AED 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <AutoAwesome sx={{ fontSize: 16, color: 'text.primary' }} />
+                <AutoAwesome sx={{ fontSize: 16, color: '#fff' }} />
               </Box>
               <Box>
                 <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary' }}>Asistente Comercial IA</Typography>
@@ -178,7 +178,7 @@ export default function CRMIA() {
                 </Box>
               ))}
             </Box>
-            <Box sx={{ p: 2, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <Box sx={{ p: 2, borderTop: '1px solid #E5E7EB' }}>
               <Box sx={{ display: 'flex', gap: 1, mb: 1.5, flexWrap: 'wrap' }}>
                 {['Pipeline actual', 'Riesgo Nutresa', 'NPS global', 'Renovar Éxito'].map((q, i) => (
                   <Chip key={i} label={q} size="small" onClick={() => { setInput(q); }} sx={{ cursor: 'pointer', bgcolor: alpha(AI_COLOR, 0.1), color: AI_COLOR, border: `1px solid ${alpha(AI_COLOR, 0.25)}`, fontSize: 10 }} />
@@ -190,7 +190,7 @@ export default function CRMIA() {
                   placeholder="Pregunta sobre clientes, pipeline, NPS, contratos..."
                   sx={{ flex: 1, color: 'text.primary', fontSize: 13 }} />
                 <Box onClick={enviar} sx={{ width: 32, height: 32, borderRadius: '50%', bgcolor: AI_COLOR, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                  <Send sx={{ fontSize: 15, color: 'text.primary' }} />
+                  <Send sx={{ fontSize: 15, color: '#fff' }} />
                 </Box>
               </Box>
             </Box>

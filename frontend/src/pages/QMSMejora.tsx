@@ -65,7 +65,7 @@ export default function QMSMejora() {
             { label: 'Avance Promedio', value: `${Math.round(MEJORAS.filter(m => m.estado === 'en_curso').reduce((s, m) => s + m.avance, 0) / Math.max(MEJORAS.filter(m => m.estado === 'en_curso').length, 1))}%`, color: QMS_COLOR },
           ].map(k => (
             <Grid key={k.label} size={{ xs: 6, md: 3 }}>
-              <Card sx={{ bgcolor: 'text.primary', border: '1px solid rgba(59,130,246,0.18)', borderRadius: 2 }}>
+              <Card sx={{ bgcolor: 'background.paper', border: '1px solid #E5E7EB', borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important', textAlign: 'center' }}>
                   <Typography sx={{ fontSize: 26, fontWeight: 800, color: k.color }}>{k.value}</Typography>
                   <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{k.label}</Typography>
@@ -91,7 +91,7 @@ export default function QMSMejora() {
                 </Box>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                   {MEJORAS.filter(m => m.estado === col.id).map(m => (
-                    <Card key={m.codigo} sx={{ bgcolor: '#111827', border: `1px solid ${alpha(col.color, 0.2)}`, borderRadius: 2, cursor: 'pointer', '&:hover': { borderColor: alpha(col.color, 0.5) } }}>
+                    <Card key={m.codigo} sx={{ bgcolor: 'background.paper', border: `1px solid ${alpha(col.color, 0.2)}`, borderRadius: 2, cursor: 'pointer', '&:hover': { borderColor: alpha(col.color, 0.5) } }}>
                       <CardContent sx={{ p: '12px !important' }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75 }}>
                           <Typography sx={{ fontSize: 10, fontFamily: 'monospace', color: col.color }}>{m.codigo}</Typography>
@@ -121,7 +121,7 @@ export default function QMSMejora() {
         <TabPanel value={tab} index={1}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             {MEJORAS.map(m => (
-              <Card key={m.codigo} sx={{ bgcolor: '#111827', border: '1px solid #E5E7EB', borderRadius: 2 }}>
+              <Card key={m.codigo} sx={{ bgcolor: 'background.paper', border: '1px solid #E5E7EB', borderRadius: 2 }}>
                 <CardContent sx={{ p: '12px !important' }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <Box sx={{ flex: 1 }}>
@@ -145,7 +145,7 @@ export default function QMSMejora() {
           </Box>
         </TabPanel>
 
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary' } }}>
+        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
           <DialogTitle sx={{ fontWeight: 700 }}>Nueva Iniciativa de Mejora</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
             <TextField label="Título" fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />

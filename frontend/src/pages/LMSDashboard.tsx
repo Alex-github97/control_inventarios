@@ -7,7 +7,7 @@ import {
 import { Layout } from '@/components/layout/Layout'
 
 const LMS_COLOR  = '#D97706'
-const #E5E7EB   = '#E5E7EB'
+const BORDER   = '#E5E7EB'
 
 const kpis = [
   { label: 'Cursos Publicados',       value: 48,     unit: 'cursos',   icon: <School />,           color: LMS_COLOR },
@@ -47,7 +47,7 @@ const cumplimientoArea = [
 function KPICard({ kpi }: { kpi: typeof kpis[0] }) {
   return (
     <Box sx={{
-      bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2,
+      bgcolor: 'background.paper', border: `1px solid ${BORDER}`, borderRadius: 2,
       p: 2, display: 'flex', alignItems: 'center', gap: 2, height: 90,
     }}>
       <Box sx={{
@@ -82,7 +82,7 @@ export default function LMSDashboard() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             boxShadow: `0 4px 14px ${alpha(LMS_COLOR, 0.4)}`,
           }}>
-            <School sx={{ color: 'text.primary', fontSize: 24 }} />
+            <School sx={{ color: '#fff', fontSize: 24 }} />
           </Box>
           <Box>
             <Typography sx={{ fontSize: 22, fontWeight: 800, color: 'text.primary', lineHeight: 1.2 }}>
@@ -106,7 +106,7 @@ export default function LMSDashboard() {
         <Grid container spacing={2}>
           {/* Top Cursos */}
           <Grid size={{ xs: 12, md: 6 }}>
-            <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
+            <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${BORDER}`, borderRadius: 2, p: 2.5 }}>
               <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 2 }}>
                 Top 5 Cursos por Inscripciones
               </Typography>
@@ -137,7 +137,7 @@ export default function LMSDashboard() {
 
           {/* Cumplimiento por Área */}
           <Grid size={{ xs: 12, md: 6 }}>
-            <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
+            <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${BORDER}`, borderRadius: 2, p: 2.5 }}>
               <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 2 }}>
                 Cumplimiento de Formación por Área
               </Typography>
@@ -166,7 +166,7 @@ export default function LMSDashboard() {
 
           {/* Certificados por Vencer */}
           <Grid size={{ xs: 12, md: 6 }}>
-            <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
+            <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${BORDER}`, borderRadius: 2, p: 2.5 }}>
               <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 2 }}>
                 Certificaciones Próximas a Vencer
               </Typography>
@@ -198,7 +198,7 @@ export default function LMSDashboard() {
 
           {/* Escuelas */}
           <Grid size={{ xs: 12, md: 6 }}>
-            <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
+            <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${BORDER}`, borderRadius: 2, p: 2.5 }}>
               <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 2 }}>
                 Actividad por Escuela
               </Typography>

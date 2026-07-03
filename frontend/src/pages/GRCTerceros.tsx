@@ -29,10 +29,8 @@ type Tercero = typeof seed[0]
 type Form = { nombre:string; tipo:string; pais:string; nit:string; contacto:string; responsable:string; estado:string; riesgo:string; vencimientoContrato:string; descripcion:string }
 const EMPTY: Form = { nombre:'', tipo:'PROVEEDOR', pais:'Colombia', nit:'', contacto:'', responsable:'', estado:'ACTIVO', riesgo:'BAJO', vencimientoContrato:'', descripcion:'' }
 
-const TF = { '& .MuiOutlinedInput-root':{ color:'#FFF', '& fieldset':{ borderColor:'rgba(255,255,255,0.15)' }, '&.Mui-focused fieldset':{ borderColor:GRC_COLOR } } }
-const ILB = { sx:{ color:'rgba(255,255,255,0.5)' } }
 const Row2 = ({ label, value, color }:{ label:string; value:string; color?:string }) => (
-  <Box sx={{ mb:1.25 }}><Typography sx={{ fontSize:10, color:LBL, textTransform:'uppercase', letterSpacing:'0.06em', mb:.25 }}>{label}</Typography><Typography sx={{ fontSize:13, color:color||'#E2E8F0', fontWeight:500 }}>{value}</Typography></Box>
+  <Box sx={{ mb:1.25 }}><Typography sx={{ fontSize:10, color:LBL, textTransform:'uppercase', letterSpacing:'0.06em', mb:.25 }}>{label}</Typography><Typography sx={{ fontSize:13, color:color||'#334155', fontWeight:500 }}>{value}</Typography></Box>
 )
 
 export default function GRCTerceros() {
@@ -85,11 +83,11 @@ export default function GRCTerceros() {
 
   return (
     <Layout>
-      <Box sx={{ p:3, background:PAGE_BG, minHeight:'100vh' }}>
+      <Box sx={{ p:3, background:'#F0F2F5', minHeight:'100vh' }}>
         <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'center', mb:3 }}>
           <Box sx={{ display:'flex', alignItems:'center', gap:1.5 }}>
             <Business sx={{ color:GRC_COLOR, fontSize:28 }} />
-            <Box><Typography variant="h5" sx={{ fontWeight:800, color:'#FFF', lineHeight:1 }}>Gestión de Terceros</Typography><Typography sx={{ fontSize:12, color:LBL }}>GRC · Proveedores, clientes y partes relacionadas</Typography></Box>
+            <Box><Typography variant="h5" sx={{ fontWeight:800, color:'#1E293B', lineHeight:1 }}>Gestión de Terceros</Typography><Typography sx={{ fontSize:12, color:LBL }}>GRC · Proveedores, clientes y partes relacionadas</Typography></Box>
             <Chip label="GRC" size="small" sx={{ bgcolor:alpha(GRC_COLOR,.15), color:GRC_COLOR, fontWeight:700, border:`1px solid ${alpha(GRC_COLOR,.35)}` }} />
           </Box>
           <Button startIcon={<Add />} size="small" variant="contained" onClick={openNew} sx={{ bgcolor:GRC_COLOR, '&:hover':{ bgcolor:'#5B21B6' }, borderRadius:2 }}>Nuevo Tercero</Button>
@@ -102,7 +100,7 @@ export default function GRCTerceros() {
           <Grid size={{ xs:6, md:'auto' }} sx={{ flex:1 }}><Card sx={{ bgcolor:'#FFFFFF', border:`1px solid ${alpha('#DC2626',.3)}`, borderRadius:2 }}><CardContent sx={{ p:'12px !important', textAlign:'center' }}><Typography sx={{ fontSize:22, fontWeight:800, color:'#DC2626' }}>{terceros.filter(t=>t.riesgo==='ALTO'||t.riesgo==='CRITICO').length}</Typography><Typography sx={{ fontSize:10, color:'#DC2626', textTransform:'uppercase' }}>Alto/Crítico</Typography></CardContent></Card></Grid>
         </Grid>
 
-        <Tabs value={tab} onChange={(_,v)=>setTab(v)} sx={{ mb:2, borderBottom:'1px solid rgba(255,255,255,0.08)', '& .MuiTab-root':{ color:'rgba(255,255,255,0.45)', fontSize:12 }, '& .Mui-selected':{ color:GRC_COLOR }, '& .MuiTabs-indicator':{ bgcolor:GRC_COLOR } }}>
+        <Tabs value={tab} onChange={(_,v)=>setTab(v)} sx={{ mb:2, borderBottom:'1px solid #E5E7EB', '& .MuiTab-root':{ color:'#64748B', fontSize:12 }, '& .Mui-selected':{ color:GRC_COLOR }, '& .MuiTabs-indicator':{ bgcolor:GRC_COLOR } }}>
           <Tab label="Todos" />{TIPOS.map(t=><Tab key={t} label={t} />)}
         </Tabs>
 
@@ -110,14 +108,14 @@ export default function GRCTerceros() {
           <Box sx={{ flex:1, minWidth:0 }}>
             <Paper sx={{ bgcolor:'transparent', overflowX:'auto' }}>
               <Table size="small">
-                <TableHead><TableRow sx={{ '& th':{ borderColor:'rgba(255,255,255,0.06)', color:LBL, fontSize:11, fontWeight:700, textTransform:'uppercase' } }}>
+                <TableHead><TableRow sx={{ '& th':{ borderColor:'#E5E7EB', color:LBL, fontSize:11, fontWeight:700, textTransform:'uppercase' } }}>
                   <TableCell>ID</TableCell><TableCell>Nombre</TableCell><TableCell>Tipo</TableCell><TableCell>País</TableCell><TableCell>Responsable</TableCell><TableCell>Riesgo</TableCell><TableCell>Estado</TableCell><TableCell>Vence</TableCell><TableCell>Calif.</TableCell><TableCell>Acciones</TableCell>
                 </TableRow></TableHead>
                 <TableBody>
                   {filtered.map(t=>(
-                    <TableRow key={t.id} onClick={()=>setSel(t)} sx={{ cursor:'pointer', bgcolor:sel?.id===t.id?alpha(GRC_COLOR,.06):'transparent', '&:hover':{ bgcolor:alpha(GRC_COLOR,.04) }, '& td':{ borderColor:'rgba(255,255,255,0.04)', color:'rgba(255,255,255,0.8)', fontSize:12 } }}>
+                    <TableRow key={t.id} onClick={()=>setSel(t)} sx={{ cursor:'pointer', bgcolor:sel?.id===t.id?alpha(GRC_COLOR,.06):'transparent', '&:hover':{ bgcolor:alpha(GRC_COLOR,.04) }, '& td':{ borderColor:'#E5E7EB', color:'#334155', fontSize:12 } }}>
                       <TableCell sx={{ fontSize:10.5, color:LBL }}>{t.id}</TableCell>
-                      <TableCell><Typography sx={{ fontSize:12.5, color:'#FFF', fontWeight:600 }}>{t.nombre}</Typography><Typography sx={{ fontSize:10, color:'rgba(255,255,255,0.4)' }}>{t.nit}</Typography></TableCell>
+                      <TableCell><Typography sx={{ fontSize:12.5, color:'#1E293B', fontWeight:600 }}>{t.nombre}</Typography><Typography sx={{ fontSize:10, color:'#64748B' }}>{t.nit}</Typography></TableCell>
                       <TableCell><Chip label={t.tipo} size="small" sx={{ fontSize:9, height:18, bgcolor:alpha(GRC_COLOR,.12), color:GRC_COLOR }} /></TableCell>
                       <TableCell>{t.pais}</TableCell>
                       <TableCell>{t.responsable}</TableCell>
@@ -141,8 +139,8 @@ export default function GRCTerceros() {
           {sel&&(
             <Box sx={{ width:370, flexShrink:0, bgcolor:'#FFFFFF', border:`1px solid #E5E7EB`, borderRadius:2, p:2.5, height:'fit-content' }}>
               <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', mb:1 }}>
-                <Typography sx={{ color:'#FFF', fontWeight:700, fontSize:13, flex:1, pr:1, lineHeight:1.4 }}>{sel.nombre}</Typography>
-                <IconButton size="small" onClick={()=>setSel(null)} sx={{ color:'rgba(255,255,255,0.4)' }}><Close fontSize="small" /></IconButton>
+                <Typography sx={{ color:'#1E293B', fontWeight:700, fontSize:13, flex:1, pr:1, lineHeight:1.4 }}>{sel.nombre}</Typography>
+                <IconButton size="small" onClick={()=>setSel(null)} sx={{ color:'#64748B' }}><Close fontSize="small" /></IconButton>
               </Box>
               <Box sx={{ display:'flex', gap:.75, mb:2, flexWrap:'wrap' }}>
                 <Chip label={sel.tipo} size="small" sx={{ bgcolor:alpha(GRC_COLOR,.15), color:GRC_COLOR, fontSize:10 }} />
@@ -155,22 +153,22 @@ export default function GRCTerceros() {
               <Row2 label="Contacto" value={sel.contacto} />
               <Row2 label="Responsable Interno" value={sel.responsable} />
               <Row2 label="Vencimiento Contrato" value={sel.vencimientoContrato} />
-              <Divider sx={{ borderColor:'rgba(255,255,255,0.06)', my:1.5 }} />
+              <Divider sx={{ borderColor:'#E5E7EB', my:1.5 }} />
               <Typography sx={{ fontSize:10, color:LBL, textTransform:'uppercase', letterSpacing:'0.06em', mb:.75 }}>Descripción</Typography>
-              <Typography sx={{ fontSize:12, color:'rgba(255,255,255,0.7)', lineHeight:1.7, mb:2 }}>{sel.descripcion}</Typography>
-              <Divider sx={{ borderColor:'rgba(255,255,255,0.06)', my:1.5 }} />
+              <Typography sx={{ fontSize:12, color:'#334155', lineHeight:1.7, mb:2 }}>{sel.descripcion}</Typography>
+              <Divider sx={{ borderColor:'#E5E7EB', my:1.5 }} />
               <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'center', mb:1 }}>
                 <Typography sx={{ fontSize:10, color:LBL, textTransform:'uppercase', letterSpacing:'0.06em' }}>Documentos ({sel.documentos.length})</Typography>
                 <Button size="small" startIcon={<UploadFile sx={{ fontSize:12 }} />} onClick={()=>fileRef.current?.click()} sx={{ color:GRC_COLOR, fontSize:10, p:'2px 8px', minWidth:'auto' }}>Subir</Button>
               </Box>
               <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.xlsx,.png,.jpg" style={{ display:'none' }} onChange={handleUpload} />
               {sel.documentos.map((d,i)=>(
-                <Box key={i} sx={{ display:'flex', justifyContent:'space-between', alignItems:'center', p:.75, mb:.5, bgcolor:'rgba(255,255,255,0.03)', borderRadius:1, border:'1px solid rgba(255,255,255,0.06)' }}>
-                  <Typography sx={{ fontSize:11, color:'rgba(255,255,255,0.7)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1, mr:1 }}>{d}</Typography>
+                <Box key={i} sx={{ display:'flex', justifyContent:'space-between', alignItems:'center', p:.75, mb:.5, bgcolor:'#F8FAFC', borderRadius:1, border:'1px solid #E5E7EB' }}>
+                  <Typography sx={{ fontSize:11, color:'#334155', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1, mr:1 }}>{d}</Typography>
                   <IconButton size="small" title="Descargar" onClick={()=>handleDownload(d)} sx={{ color:GRC_COLOR, p:.5 }}><FileDownload sx={{ fontSize:14 }} /></IconButton>
                 </Box>
               ))}
-              <Divider sx={{ borderColor:'rgba(255,255,255,0.06)', my:1.5 }} />
+              <Divider sx={{ borderColor:'#E5E7EB', my:1.5 }} />
               <Box sx={{ display:'flex', flexDirection:'column', gap:1 }}>
                 <Button size="small" startIcon={<Edit />} variant="outlined" fullWidth onClick={()=>openEdit(sel)} sx={{ color:GRC_COLOR, borderColor:alpha(GRC_COLOR,.4) }}>Editar</Button>
                 <Button size="small" startIcon={<Delete />} variant="outlined" fullWidth onClick={()=>requestDelete(sel.id,sel.nombre)} sx={{ color:'#DC2626', borderColor:alpha('#DC2626',.4) }}>Eliminar</Button>
@@ -179,38 +177,38 @@ export default function GRCTerceros() {
           )}
         </Box>
 
-        <Dialog open={dlgOpen} onClose={()=>setDlgOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx:{ bgcolor:'#1F2937', color:'#FFF' } }}>
+        <Dialog open={dlgOpen} onClose={()=>setDlgOpen(false)} maxWidth="sm" fullWidth>
           <DialogTitle sx={{ fontWeight:700 }}>{editId?'Editar Tercero':'Nuevo Tercero'}</DialogTitle>
           <DialogContent sx={{ display:'flex', flexDirection:'column', gap:2, pt:'16px !important' }}>
-            <TextField label="Nombre / Razón Social" fullWidth size="small" value={form.nombre} onChange={sf('nombre')} InputLabelProps={ILB} sx={TF} />
+            <TextField label="Nombre / Razón Social" fullWidth size="small" value={form.nombre} onChange={sf('nombre')} />
             <Box sx={{ display:'flex', gap:2 }}>
-              <FormControl size="small" fullWidth><InputLabel sx={{ color:'rgba(255,255,255,0.5)' }}>Tipo</InputLabel><Select label="Tipo" value={form.tipo} onChange={e=>ss('tipo',e.target.value)} sx={{ color:'#FFF', '& fieldset':{ borderColor:'rgba(255,255,255,0.15)' } }}>{TIPOS.map(t=><MenuItem key={t} value={t}>{t}</MenuItem>)}</Select></FormControl>
-              <FormControl size="small" fullWidth><InputLabel sx={{ color:'rgba(255,255,255,0.5)' }}>Estado</InputLabel><Select label="Estado" value={form.estado} onChange={e=>ss('estado',e.target.value)} sx={{ color:'#FFF', '& fieldset':{ borderColor:'rgba(255,255,255,0.15)' } }}>{ESTADOS.map(s=><MenuItem key={s} value={s}>{s}</MenuItem>)}</Select></FormControl>
+              <FormControl size="small" fullWidth><InputLabel>Tipo</InputLabel><Select label="Tipo" value={form.tipo} onChange={e=>ss('tipo',e.target.value)}>{TIPOS.map(t=><MenuItem key={t} value={t}>{t}</MenuItem>)}</Select></FormControl>
+              <FormControl size="small" fullWidth><InputLabel>Estado</InputLabel><Select label="Estado" value={form.estado} onChange={e=>ss('estado',e.target.value)}>{ESTADOS.map(s=><MenuItem key={s} value={s}>{s}</MenuItem>)}</Select></FormControl>
             </Box>
             <Box sx={{ display:'flex', gap:2 }}>
-              <TextField label="NIT / Identificación" fullWidth size="small" value={form.nit} onChange={sf('nit')} InputLabelProps={ILB} sx={TF} />
-              <TextField label="País" fullWidth size="small" value={form.pais} onChange={sf('pais')} InputLabelProps={ILB} sx={TF} />
+              <TextField label="NIT / Identificación" fullWidth size="small" value={form.nit} onChange={sf('nit')} />
+              <TextField label="País" fullWidth size="small" value={form.pais} onChange={sf('pais')} />
             </Box>
-            <TextField label="Correo / Contacto" fullWidth size="small" value={form.contacto} onChange={sf('contacto')} InputLabelProps={ILB} sx={TF} />
+            <TextField label="Correo / Contacto" fullWidth size="small" value={form.contacto} onChange={sf('contacto')} />
             <Box sx={{ display:'flex', gap:2 }}>
-              <TextField label="Responsable Interno" fullWidth size="small" value={form.responsable} onChange={sf('responsable')} InputLabelProps={ILB} sx={TF} />
-              <FormControl size="small" fullWidth><InputLabel sx={{ color:'rgba(255,255,255,0.5)' }}>Riesgo</InputLabel><Select label="Riesgo" value={form.riesgo} onChange={e=>ss('riesgo',e.target.value)} sx={{ color:'#FFF', '& fieldset':{ borderColor:'rgba(255,255,255,0.15)' } }}>{RIESGOS.map(r=><MenuItem key={r} value={r}>{r}</MenuItem>)}</Select></FormControl>
+              <TextField label="Responsable Interno" fullWidth size="small" value={form.responsable} onChange={sf('responsable')} />
+              <FormControl size="small" fullWidth><InputLabel>Riesgo</InputLabel><Select label="Riesgo" value={form.riesgo} onChange={e=>ss('riesgo',e.target.value)}>{RIESGOS.map(r=><MenuItem key={r} value={r}>{r}</MenuItem>)}</Select></FormControl>
             </Box>
-            <TextField label="Vencimiento Contrato" type="date" fullWidth size="small" value={form.vencimientoContrato} onChange={sf('vencimientoContrato')} InputLabelProps={{ shrink:true, sx:{ color:'rgba(255,255,255,0.5)' } }} sx={TF} />
-            <TextField label="Descripción" multiline rows={3} fullWidth size="small" value={form.descripcion} onChange={sf('descripcion')} InputLabelProps={ILB} sx={TF} />
+            <TextField label="Vencimiento Contrato" type="date" fullWidth size="small" value={form.vencimientoContrato} onChange={sf('vencimientoContrato')} InputLabelProps={{ shrink:true }} />
+            <TextField label="Descripción" multiline rows={3} fullWidth size="small" value={form.descripcion} onChange={sf('descripcion')} />
           </DialogContent>
-          <DialogActions sx={{ px:3, pb:2 }}><Button onClick={()=>setDlgOpen(false)} sx={{ color:'rgba(255,255,255,0.5)' }}>Cancelar</Button><Button variant="contained" onClick={handleSave} sx={{ bgcolor:GRC_COLOR, '&:hover':{ bgcolor:'#5B21B6' } }}>{editId?'Guardar Cambios':'Crear'}</Button></DialogActions>
+          <DialogActions sx={{ px:3, pb:2 }}><Button onClick={()=>setDlgOpen(false)} sx={{ color:'#64748B' }}>Cancelar</Button><Button variant="contained" onClick={handleSave} sx={{ bgcolor:GRC_COLOR, '&:hover':{ bgcolor:'#5B21B6' } }}>{editId?'Guardar Cambios':'Crear'}</Button></DialogActions>
         </Dialog>
 
-        <Dialog open={!!delConfirm} onClose={()=>setDelConfirm(null)} maxWidth="xs" fullWidth PaperProps={{ sx:{ bgcolor:'#1F2937', color:'#FFF', border:'1px solid rgba(220,38,38,0.3)' } }}>
+        <Dialog open={!!delConfirm} onClose={()=>setDelConfirm(null)} maxWidth="xs" fullWidth PaperProps={{ sx:{ border:'1px solid rgba(220,38,38,0.3)' } }}>
           <DialogTitle sx={{ fontWeight:700, color:'#DC2626' }}>¿Eliminar registro?</DialogTitle>
           <DialogContent sx={{ pt:'8px !important' }}>
-            <Typography sx={{ fontSize:13, color:'rgba(255,255,255,0.7)', mb:2 }}>Va a eliminar <strong style={{ color:'#FFF' }}>"{delConfirm?.name}"</strong>. Esta acción no se puede deshacer.</Typography>
-            <Typography sx={{ fontSize:12, color:'rgba(255,255,255,0.5)', mb:1 }}>Escriba <strong style={{ color:'#DC2626' }}>ELIMINAR</strong> para confirmar:</Typography>
-            <TextField fullWidth size="small" placeholder="ELIMINAR" value={delInput} onChange={e=>setDelInput(e.target.value)} sx={{ '& .MuiOutlinedInput-root':{ color:'#FFF', '& fieldset':{ borderColor:'rgba(220,38,38,0.4)' }, '&.Mui-focused fieldset':{ borderColor:'#DC2626' } } }} />
+            <Typography sx={{ fontSize:13, color:'#334155', mb:2 }}>Va a eliminar <strong style={{ color:'#1E293B' }}>"{delConfirm?.name}"</strong>. Esta acción no se puede deshacer.</Typography>
+            <Typography sx={{ fontSize:12, color:'#64748B', mb:1 }}>Escriba <strong style={{ color:'#DC2626' }}>ELIMINAR</strong> para confirmar:</Typography>
+            <TextField fullWidth size="small" placeholder="ELIMINAR" value={delInput} onChange={e=>setDelInput(e.target.value)} sx={{ '& .MuiOutlinedInput-root':{ '& fieldset':{ borderColor:'rgba(220,38,38,0.4)' }, '&.Mui-focused fieldset':{ borderColor:'#DC2626' } } }} />
           </DialogContent>
           <DialogActions sx={{ px:3, pb:2 }}>
-            <Button onClick={()=>setDelConfirm(null)} sx={{ color:'rgba(255,255,255,0.5)' }}>Cancelar</Button>
+            <Button onClick={()=>setDelConfirm(null)} sx={{ color:'#64748B' }}>Cancelar</Button>
             <Button variant="contained" disabled={delInput!=='ELIMINAR'} onClick={confirmDelete} sx={{ bgcolor:'#DC2626', '&:hover':{ bgcolor:'#B91C1C' }, '&.Mui-disabled':{ bgcolor:'rgba(220,38,38,0.25)', color:'rgba(255,255,255,0.3)' } }}>Eliminar</Button>
           </DialogActions>
         </Dialog>

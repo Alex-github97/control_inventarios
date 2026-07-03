@@ -294,7 +294,7 @@ function OTCard({ ot, onOpen }: { ot: OT; onOpen: (ot: OT) => void }) {
       onClick={() => onOpen(ot)}
       sx={{
         bgcolor: alpha('#FFFFFF', 0.9),
-        border: `1px solid rgba(255,255,255,0.08)`,
+        border: `1px solid #E5E7EB`,
         borderRadius: '10px',
         p: 1.5,
         mb: 1,
@@ -319,7 +319,7 @@ function OTCard({ ot, onOpen }: { ot: OT; onOpen: (ot: OT) => void }) {
           }}
         />
       </Stack>
-      <Typography fontSize={12} color="rgba(255,255,255,0.8)" fontWeight={600} mb={0.5} noWrap>
+      <Typography fontSize={12} color="#1E293B" fontWeight={600} mb={0.5} noWrap>
         {ot.activo}
       </Typography>
       <Stack direction="row" alignItems="center" spacing={1} mb={0.75}>
@@ -336,10 +336,10 @@ function OTCard({ ot, onOpen }: { ot: OT; onOpen: (ot: OT) => void }) {
         />
       </Stack>
       <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Typography fontSize={11} color="rgba(255,255,255,0.45)">
+        <Typography fontSize={11} color="#64748B">
           👤 {ot.tecnico}
         </Typography>
-        <Typography fontSize={10} color="rgba(255,255,255,0.3)">
+        <Typography fontSize={10} color="#94A3B8">
           {ot.diasTranscurridos}d
         </Typography>
       </Stack>
@@ -576,24 +576,24 @@ export default function EAMOrdenesTrabajo() {
 
   const inputSxSm = {
     '& .MuiOutlinedInput-root': { bgcolor: alpha('#F8FAFC', 0.6), color: 'text.primary', fontSize: 12 },
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' },
-    '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.2)' },
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#E5E7EB' },
+    '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#CBD5E1' },
     '& .MuiSvgIcon-root': { color: 'text.secondary', fontSize: 16 },
     '& input': { py: 0.6 },
   }
 
   // Estilos para los campos dentro del Dialog de edición
   const dlgInputSx = {
-    '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) },
-    '& label': { color: 'grey.500' },
-    '& fieldset': { borderColor: alpha('#fff', 0.15) },
-    '& .MuiOutlinedInput-root:hover fieldset': { borderColor: alpha('#fff', 0.3) },
-    '& .MuiSvgIcon-root': { color: 'grey.400' },
+    '& .MuiOutlinedInput-root': { color: 'text.primary' },
+    '& label': { color: 'text.secondary' },
+    '& fieldset': { borderColor: '#E5E7EB' },
+    '& .MuiOutlinedInput-root:hover fieldset': { borderColor: '#CBD5E1' },
+    '& .MuiSvgIcon-root': { color: 'text.secondary' },
   }
   const dlgInputSxSm = {
     ...dlgInputSx,
-    '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04), fontSize: 12 },
-    '& label': { color: 'grey.500', fontSize: 12 },
+    '& .MuiOutlinedInput-root': { color: 'text.primary', fontSize: 12 },
+    '& label': { color: 'text.secondary', fontSize: 12 },
   }
 
   return (
@@ -609,7 +609,7 @@ export default function EAMOrdenesTrabajo() {
               <Typography variant="h5" fontWeight={800} color="text.primary" letterSpacing="-0.5px">
                 Órdenes de Trabajo
               </Typography>
-              <Typography fontSize={13} color="rgba(255,255,255,0.45)">
+              <Typography fontSize={13} color="#64748B">
                 Gestión integral de OTs — Kanban, tabla y creación
               </Typography>
             </Box>
@@ -649,7 +649,7 @@ export default function EAMOrdenesTrabajo() {
                 size="small" placeholder="Buscar por # OT o activo..."
                 value={filterBusqueda} onChange={(e) => setFilterBusqueda(e.target.value)}
                 sx={{ minWidth: 210, flex: '1 1 210px', ...inputSx }}
-                InputProps={{ startAdornment: <InputAdornment position="start"><Typography fontSize={13} color="rgba(255,255,255,0.3)">🔍</Typography></InputAdornment> }}
+                InputProps={{ startAdornment: <InputAdornment position="start"><Typography fontSize={13} color="#94A3B8">🔍</Typography></InputAdornment> }}
               />
               {/* Estado (solo en Tabla) */}
               {tab === 1 && (
@@ -746,7 +746,7 @@ export default function EAMOrdenesTrabajo() {
                         <OTCard key={ot.id} ot={ot} onOpen={openOTDialog} />
                       ))}
                       {colOTs.length === 0 && (
-                        <Typography fontSize={12} color="rgba(255,255,255,0.25)" textAlign="center" py={2}>
+                        <Typography fontSize={12} color="#94A3B8" textAlign="center" py={2}>
                           Sin OTs
                         </Typography>
                       )}
@@ -777,13 +777,13 @@ export default function EAMOrdenesTrabajo() {
                   gridTemplateColumns: '140px 1fr 120px 100px 160px 130px 110px 100px 90px',
                   gap: 1,
                   px: 2, py: 1.25,
-                  borderBottom: '1px solid rgba(255,255,255,0.07)',
+                  borderBottom: '1px solid #E5E7EB',
                   bgcolor: alpha(EAM_COLOR, 0.06),
                   minWidth: 1000,
                 }}
               >
                 {['# OT', 'Activo', 'Tipo', 'Prioridad', 'Estado', 'Técnico', 'Fecha Req.', 'Costo'].map((h) => (
-                  <Typography key={h} fontSize={11} fontWeight={700} color="rgba(255,255,255,0.4)" letterSpacing="0.5px">
+                  <Typography key={h} fontSize={11} fontWeight={700} color="#64748B" letterSpacing="0.5px">
                     {h.toUpperCase()}
                   </Typography>
                 ))}
@@ -800,7 +800,7 @@ export default function EAMOrdenesTrabajo() {
                       gap: 1,
                       px: 2, py: 1.25,
                       borderBottom: idx < filteredOTs.length - 1
-                        ? '1px solid rgba(255,255,255,0.04)'
+                        ? '1px solid #E5E7EB'
                         : 'none',
                       alignItems: 'center',
                       cursor: 'pointer',
@@ -810,14 +810,14 @@ export default function EAMOrdenesTrabajo() {
                     <Typography fontSize={11} fontWeight={700} color={EAM_COLOR} noWrap>
                       {ot.numero}
                     </Typography>
-                    <Typography fontSize={12} color="rgba(255,255,255,0.8)" noWrap>
+                    <Typography fontSize={12} color="#1E293B" noWrap>
                       {ot.activo}
                     </Typography>
                     <Chip label={ot.tipo} size="small" sx={{ bgcolor: alpha(TIPO_COLOR[ot.tipo], 0.15), color: TIPO_COLOR[ot.tipo], fontWeight: 700, fontSize: 9, height: 20 }} />
                     <Chip label={ot.prioridad} size="small" sx={{ bgcolor: alpha(PRIORIDAD_COLOR[ot.prioridad], 0.15), color: PRIORIDAD_COLOR[ot.prioridad], fontWeight: 700, fontSize: 9, height: 20 }} />
                     <Chip label={ot.estado.replace(/_/g, ' ')} size="small" sx={{ bgcolor: alpha(ESTADO_COLOR[ot.estado], 0.15), color: ESTADO_COLOR[ot.estado], fontWeight: 700, fontSize: 9, height: 20 }} />
-                    <Typography fontSize={12} color="rgba(255,255,255,0.65)" noWrap>{ot.tecnico}</Typography>
-                    <Typography fontSize={12} color="rgba(255,255,255,0.55)">{ot.fechaReq}</Typography>
+                    <Typography fontSize={12} color="#334155" noWrap>{ot.tecnico}</Typography>
+                    <Typography fontSize={12} color="#64748B">{ot.fechaReq}</Typography>
                     <Typography fontSize={12} fontWeight={600} color="#16A34A">{ot.costo}</Typography>
                   </Box>
                 ))}
@@ -843,7 +843,7 @@ export default function EAMOrdenesTrabajo() {
                     <Typography fontWeight={800} fontSize={17} color="text.primary" letterSpacing="-0.3px">
                       Nueva Orden de Trabajo
                     </Typography>
-                    <Typography fontSize={12} color="rgba(255,255,255,0.4)">
+                    <Typography fontSize={12} color="#64748B">
                       Complete los datos y agregue trabajos y repuestos
                     </Typography>
                   </Box>
@@ -894,7 +894,7 @@ export default function EAMOrdenesTrabajo() {
                       fullWidth size="small" label="Odómetro / Contador"
                       value={form.odometro}
                       onChange={(e) => setField('odometro', e.target.value)}
-                      InputProps={{ endAdornment: <InputAdornment position="end"><Typography fontSize={11} color="rgba(255,255,255,0.3)">km</Typography></InputAdornment> }}
+                      InputProps={{ endAdornment: <InputAdornment position="end"><Typography fontSize={11} color="#94A3B8">km</Typography></InputAdornment> }}
                       sx={inputSx}
                     />
 
@@ -937,12 +937,12 @@ export default function EAMOrdenesTrabajo() {
                   <Stack spacing={2}>
 
                     {/* Toggles */}
-                    <Paper elevation={0} sx={{ bgcolor: alpha('#fff', 0.03), border: `1px solid rgba(255,255,255,0.07)`, borderRadius: '10px', p: 1.5 }}>
+                    <Paper elevation={0} sx={{ bgcolor: '#F8FAFC', border: `1px solid #E5E7EB`, borderRadius: '10px', p: 1.5 }}>
                       <Stack spacing={0.5}>
                         <Stack direction="row" alignItems="center" justifyContent="space-between">
                           <Stack direction="row" alignItems="center" spacing={1}>
-                            <CheckIcon sx={{ fontSize: 16, color: form.afectaDisp ? EAM_COLOR : 'rgba(255,255,255,0.3)' }} />
-                            <Typography fontSize={13} color="rgba(255,255,255,0.7)">Afecta la disponibilidad</Typography>
+                            <CheckIcon sx={{ fontSize: 16, color: form.afectaDisp ? EAM_COLOR : '#94A3B8' }} />
+                            <Typography fontSize={13} color="#334155">Afecta la disponibilidad</Typography>
                           </Stack>
                           <Switch
                             size="small"
@@ -951,11 +951,11 @@ export default function EAMOrdenesTrabajo() {
                             sx={{ '& .MuiSwitch-switchBase.Mui-checked': { color: EAM_COLOR }, '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: EAM_COLOR } }}
                           />
                         </Stack>
-                        <Divider sx={{ borderColor: 'rgba(255,255,255,0.05)' }} />
+                        <Divider sx={{ borderColor: '#E5E7EB' }} />
                         <Stack direction="row" alignItems="center" justifyContent="space-between">
                           <Stack direction="row" alignItems="center" spacing={1}>
-                            <FaultIcon sx={{ fontSize: 16, color: form.esUnaFalla ? '#F59E0B' : 'rgba(255,255,255,0.3)' }} />
-                            <Typography fontSize={13} color="rgba(255,255,255,0.7)">Es una falla</Typography>
+                            <FaultIcon sx={{ fontSize: 16, color: form.esUnaFalla ? '#F59E0B' : '#94A3B8' }} />
+                            <Typography fontSize={13} color="#334155">Es una falla</Typography>
                           </Stack>
                           <Switch
                             size="small"
@@ -1068,7 +1068,7 @@ export default function EAMOrdenesTrabajo() {
                     sx={{ bgcolor: alpha(EAM_COLOR, 0.15), color: EAM_COLOR, fontWeight: 800, fontSize: 11, height: 20 }}
                   />
                   {totalMO > 0 && (
-                    <Typography fontSize={12} color="rgba(255,255,255,0.4)" ml="auto" mr={2}>
+                    <Typography fontSize={12} color="#64748B" ml="auto" mr={2}>
                       M.O. total: <strong style={{ color: EAM_COLOR }}>{fmt(totalMO)}</strong>
                     </Typography>
                   )}
@@ -1083,7 +1083,7 @@ export default function EAMOrdenesTrabajo() {
                   bgcolor: alpha(EAM_COLOR, 0.05), borderRadius: '8px',
                 }}>
                   {['#', 'Trabajo (catálogo)', 'Observaciones', 'M.O. ($)', ''].map((h) => (
-                    <Typography key={h} fontSize={10} fontWeight={700} color="rgba(255,255,255,0.35)" letterSpacing="0.4px">
+                    <Typography key={h} fontSize={10} fontWeight={700} color="#64748B" letterSpacing="0.4px">
                       {h.toUpperCase()}
                     </Typography>
                   ))}
@@ -1093,14 +1093,14 @@ export default function EAMOrdenesTrabajo() {
                 <Stack spacing={1}>
                   {trabajos.map((t, i) => {
                     const cfg = TIPOS_TRABAJO_CONFIG.find((c) => c.nombre === t.trabajo)
-                    const catColor = cfg ? CAT_COLOR[cfg.categoria as CatTrabajo] : 'rgba(255,255,255,0.12)'
+                    const catColor = cfg ? CAT_COLOR[cfg.categoria as CatTrabajo] : '#E5E7EB'
                     return (
                       <Paper
                         key={t.id}
                         elevation={0}
                         sx={{
-                          bgcolor: alpha('#fff', 0.015),
-                          border: `1px solid ${cfg ? alpha(catColor, 0.3) : 'rgba(255,255,255,0.06)'}`,
+                          bgcolor: '#F8FAFC',
+                          border: `1px solid ${cfg ? alpha(catColor, 0.3) : '#E5E7EB'}`,
                           borderRadius: '10px',
                           p: 1,
                           transition: 'border-color 0.2s',
@@ -1108,7 +1108,7 @@ export default function EAMOrdenesTrabajo() {
                       >
                         {/* ── Fila 1: número | trabajo | observaciones | M.O. | eliminar ── */}
                         <Box sx={{ display: 'grid', gridTemplateColumns: '28px 1fr 1fr 130px 36px', gap: 1, alignItems: 'center' }}>
-                          <Typography fontSize={11} color="rgba(255,255,255,0.3)" fontWeight={700}>{i + 1}</Typography>
+                          <Typography fontSize={11} color="#94A3B8" fontWeight={700}>{i + 1}</Typography>
 
                           {/* Trabajo — select del catálogo */}
                           <TextField
@@ -1122,7 +1122,7 @@ export default function EAMOrdenesTrabajo() {
                                 bgcolor: cfg ? alpha(catColor, 0.07) : alpha('#F8FAFC', 0.6),
                               },
                               '& .MuiOutlinedInput-notchedOutline': {
-                                borderColor: cfg ? alpha(catColor, 0.4) : 'rgba(255,255,255,0.08)',
+                                borderColor: cfg ? alpha(catColor, 0.4) : '#E5E7EB',
                               },
                             }}
                           >
@@ -1150,7 +1150,7 @@ export default function EAMOrdenesTrabajo() {
                             size="small" fullWidth placeholder="0"
                             value={t.moObra}
                             onChange={(e) => setTrabajo(t.id, 'moObra', e.target.value)}
-                            InputProps={{ startAdornment: <InputAdornment position="start"><Typography fontSize={11} color="rgba(255,255,255,0.3)">$</Typography></InputAdornment> }}
+                            InputProps={{ startAdornment: <InputAdornment position="start"><Typography fontSize={11} color="#94A3B8">$</Typography></InputAdornment> }}
                             sx={inputSxSm}
                           />
 
@@ -1206,14 +1206,7 @@ export default function EAMOrdenesTrabajo() {
                                 size="small" fullWidth
                                 value={t.sistema}
                                 onChange={(e) => setTrabajo(t.id, 'sistema', e.target.value)}
-                                sx={{
-                                  ...inputSxSm,
-                                  '& .MuiOutlinedInput-root': {
-                                    ...inputSxSm['& .MuiOutlinedInput-root'],
-                                    bgcolor: alpha('#fff', 0.04),
-                                  },
-                                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' },
-                                }}
+                                sx={inputSxSm}
                                 InputProps={{
                                   endAdornment: (
                                     <InputAdornment position="end">
@@ -1235,14 +1228,7 @@ export default function EAMOrdenesTrabajo() {
                                 size="small" fullWidth
                                 value={t.subsistema}
                                 onChange={(e) => setTrabajo(t.id, 'subsistema', e.target.value)}
-                                sx={{
-                                  ...inputSxSm,
-                                  '& .MuiOutlinedInput-root': {
-                                    ...inputSxSm['& .MuiOutlinedInput-root'],
-                                    bgcolor: alpha('#fff', 0.04),
-                                  },
-                                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' },
-                                }}
+                                sx={inputSxSm}
                                 InputProps={{
                                   endAdornment: (
                                     <InputAdornment position="end">
@@ -1298,7 +1284,7 @@ export default function EAMOrdenesTrabajo() {
                     sx={{ bgcolor: alpha('#3B82F6', 0.15), color: '#3B82F6', fontWeight: 800, fontSize: 11, height: 20 }}
                   />
                   {totalRep > 0 && (
-                    <Typography fontSize={12} color="rgba(255,255,255,0.4)" ml="auto" mr={2}>
+                    <Typography fontSize={12} color="#64748B" ml="auto" mr={2}>
                       Total repuestos: <strong style={{ color: '#3B82F6' }}>{fmt(totalRep)}</strong>
                     </Typography>
                   )}
@@ -1313,7 +1299,7 @@ export default function EAMOrdenesTrabajo() {
                   bgcolor: alpha('#3B82F6', 0.05), borderRadius: '8px',
                 }}>
                   {['#', 'Trabajo asociado', 'Repuesto', 'Cant.', 'P. Unitario', 'Subtotal', ''].map((h) => (
-                    <Typography key={h} fontSize={10} fontWeight={700} color="rgba(255,255,255,0.35)" letterSpacing="0.4px">
+                    <Typography key={h} fontSize={10} fontWeight={700} color="#64748B" letterSpacing="0.4px">
                       {h.toUpperCase()}
                     </Typography>
                   ))}
@@ -1328,10 +1314,10 @@ export default function EAMOrdenesTrabajo() {
                         display: 'grid', gridTemplateColumns: '28px 180px 1fr 75px 125px 110px 36px',
                         gap: 1, alignItems: 'center',
                         px: 1, py: 0.5,
-                        bgcolor: alpha('#fff', 0.02), borderRadius: '8px',
-                        border: `1px solid rgba(255,255,255,0.05)`,
+                        bgcolor: '#F8FAFC', borderRadius: '8px',
+                        border: `1px solid #E5E7EB`,
                       }}>
-                        <Typography fontSize={11} color="rgba(255,255,255,0.3)" fontWeight={700}>{i + 1}</Typography>
+                        <Typography fontSize={11} color="#94A3B8" fontWeight={700}>{i + 1}</Typography>
 
                         {/* Trabajo asociado */}
                         <TextField
@@ -1348,7 +1334,7 @@ export default function EAMOrdenesTrabajo() {
                                   <Box sx={{ width: 16, height: 16, borderRadius: '3px', bgcolor: alpha(EAM_COLOR, 0.25), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                     <Typography fontSize={9} fontWeight={800} color={EAM_COLOR}>{idx + 1}</Typography>
                                   </Box>
-                                  <Typography fontSize={11} noWrap color="white">
+                                  <Typography fontSize={11} noWrap color="#1E293B">
                                     {t.trabajo || `Trabajo ${idx + 1}`}
                                   </Typography>
                                 </Stack>
@@ -1362,7 +1348,7 @@ export default function EAMOrdenesTrabajo() {
                               bgcolor: r.trabajoId ? alpha(EAM_COLOR, 0.08) : alpha('#F8FAFC', 0.6),
                             },
                             '& .MuiOutlinedInput-notchedOutline': {
-                              borderColor: r.trabajoId ? alpha(EAM_COLOR, 0.4) : 'rgba(255,255,255,0.08)',
+                              borderColor: r.trabajoId ? alpha(EAM_COLOR, 0.4) : '#E5E7EB',
                             },
                           }}
                         >
@@ -1404,12 +1390,12 @@ export default function EAMOrdenesTrabajo() {
                           size="small" fullWidth placeholder="0"
                           value={r.precioUnitario}
                           onChange={(e) => setRepuesto(r.id, 'precioUnitario', e.target.value)}
-                          InputProps={{ startAdornment: <InputAdornment position="start"><Typography fontSize={11} color="rgba(255,255,255,0.3)">$</Typography></InputAdornment> }}
+                          InputProps={{ startAdornment: <InputAdornment position="start"><Typography fontSize={11} color="#94A3B8">$</Typography></InputAdornment> }}
                           sx={inputSxSm}
                         />
 
                         {/* Subtotal */}
-                        <Typography fontSize={12} fontWeight={600} color={sub > 0 ? '#3B82F6' : 'rgba(255,255,255,0.2)'}>
+                        <Typography fontSize={12} fontWeight={600} color={sub > 0 ? '#3B82F6' : '#94A3B8'}>
                           {sub > 0 ? fmt(sub) : '—'}
                         </Typography>
 
@@ -1446,15 +1432,15 @@ export default function EAMOrdenesTrabajo() {
                 {/* Totales */}
                 <Stack direction="row" spacing={3}>
                   <Box>
-                    <Typography fontSize={11} color="rgba(255,255,255,0.4)" mb={0.25}>Mano de obra</Typography>
+                    <Typography fontSize={11} color="#64748B" mb={0.25}>Mano de obra</Typography>
                     <Typography fontSize={16} fontWeight={800} color={EAM_COLOR}>{fmt(totalMO)}</Typography>
                   </Box>
                   <Box>
-                    <Typography fontSize={11} color="rgba(255,255,255,0.4)" mb={0.25}>Repuestos</Typography>
+                    <Typography fontSize={11} color="#64748B" mb={0.25}>Repuestos</Typography>
                     <Typography fontSize={16} fontWeight={800} color="#3B82F6">{fmt(totalRep)}</Typography>
                   </Box>
-                  <Box sx={{ borderLeft: '1px solid rgba(255,255,255,0.08)', pl: 3 }}>
-                    <Typography fontSize={11} color="rgba(255,255,255,0.4)" mb={0.25}>Costo estimado total</Typography>
+                  <Box sx={{ borderLeft: '1px solid #E5E7EB', pl: 3 }}>
+                    <Typography fontSize={11} color="#64748B" mb={0.25}>Costo estimado total</Typography>
                     <Typography fontSize={18} fontWeight={900} color="text.primary">{fmt(totalMO + totalRep)}</Typography>
                   </Box>
                 </Stack>
@@ -1466,10 +1452,10 @@ export default function EAMOrdenesTrabajo() {
                     size="large"
                     onClick={() => setTab(0)}
                     sx={{
-                      borderColor: 'rgba(255,255,255,0.15)',
+                      borderColor: '#E5E7EB',
                       color: 'text.secondary',
                       borderRadius: '10px', fontWeight: 600,
-                      '&:hover': { borderColor: 'rgba(255,255,255,0.3)', bgcolor: 'text.disabled' },
+                      '&:hover': { borderColor: '#CBD5E1', bgcolor: alpha('#64748B', 0.06) },
                     }}
                   >
                     Cancelar
@@ -1505,7 +1491,7 @@ export default function EAMOrdenesTrabajo() {
         onClose={closeOTDialog}
         maxWidth="lg"
         fullWidth
-        PaperProps={{ sx: { bgcolor: 'text.primary', border: `1px solid ${alpha(EAM_COLOR, 0.3)}`, borderRadius: '16px' } }}
+        PaperProps={{ sx: { bgcolor: 'background.paper', border: `1px solid ${alpha(EAM_COLOR, 0.3)}`, borderRadius: '16px' } }}
       >
         {otDialog.ot && (
           <>
@@ -1516,7 +1502,7 @@ export default function EAMOrdenesTrabajo() {
                 </Box>
                 <Box>
                   <Typography fontSize={13} fontWeight={800} color={EAM_COLOR}>{otDialog.ot.numero}</Typography>
-                  <Typography fontSize={11} color="rgba(255,255,255,0.45)" noWrap>{otDialog.ot.activo}</Typography>
+                  <Typography fontSize={11} color="#64748B" noWrap>{otDialog.ot.activo}</Typography>
                 </Box>
               </Stack>
               <IconButton size="small" onClick={closeOTDialog} sx={{ color: 'grey.500' }}>
@@ -1537,14 +1523,14 @@ export default function EAMOrdenesTrabajo() {
                       { label: 'Fecha req.',          value: otDialog.ot.fechaReq },
                       { label: 'Costo',               value: otDialog.ot.costo },
                     ].map(({ label, value }) => (
-                      <Box key={label} sx={{ bgcolor: alpha('#fff', 0.04), borderRadius: '8px', p: 1.25 }}>
-                        <Typography fontSize={10} color="rgba(255,255,255,0.35)" fontWeight={600} letterSpacing="0.04em" textTransform="uppercase" mb={0.25}>{label}</Typography>
-                        <Typography fontSize={13} fontWeight={600} color="white">{value}</Typography>
+                      <Box key={label} sx={{ bgcolor: '#F8FAFC', borderRadius: '8px', p: 1.25 }}>
+                        <Typography fontSize={10} color="#64748B" fontWeight={600} letterSpacing="0.04em" textTransform="uppercase" mb={0.25}>{label}</Typography>
+                        <Typography fontSize={13} fontWeight={600} color="#1E293B">{value}</Typography>
                       </Box>
                     ))}
                   </Box>
-                  <Box sx={{ bgcolor: alpha('#fff', 0.04), borderRadius: '8px', p: 1.25 }}>
-                    <Typography fontSize={10} color="rgba(255,255,255,0.35)" fontWeight={600} letterSpacing="0.04em" textTransform="uppercase" mb={0.5}>Estado actual</Typography>
+                  <Box sx={{ bgcolor: '#F8FAFC', borderRadius: '8px', p: 1.25 }}>
+                    <Typography fontSize={10} color="#64748B" fontWeight={600} letterSpacing="0.04em" textTransform="uppercase" mb={0.5}>Estado actual</Typography>
                     <Chip
                       label={otDialog.ot.estado.replace(/_/g, ' ')}
                       sx={{ bgcolor: alpha(ESTADO_COLOR[otDialog.ot.estado], 0.2), color: ESTADO_COLOR[otDialog.ot.estado], fontWeight: 700, fontSize: 11, height: 24, border: `1px solid ${alpha(ESTADO_COLOR[otDialog.ot.estado], 0.4)}` }}
@@ -1556,12 +1542,12 @@ export default function EAMOrdenesTrabajo() {
                       <Typography fontSize={10} color="#10B981" fontWeight={700} letterSpacing="0.04em" textTransform="uppercase" mb={1}>Datos de cierre</Typography>
                       <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1 }}>
                         <Box>
-                          <Typography fontSize={10} color="rgba(255,255,255,0.35)" fontWeight={600} textTransform="uppercase" mb={0.25}>Apertura</Typography>
-                          <Typography fontSize={12} color="white" fontWeight={600}>{otDialog.ot.fechaApertura.replace('T', ' ')}</Typography>
+                          <Typography fontSize={10} color="#64748B" fontWeight={600} textTransform="uppercase" mb={0.25}>Apertura</Typography>
+                          <Typography fontSize={12} color="#1E293B" fontWeight={600}>{otDialog.ot.fechaApertura.replace('T', ' ')}</Typography>
                         </Box>
                         <Box>
-                          <Typography fontSize={10} color="rgba(255,255,255,0.35)" fontWeight={600} textTransform="uppercase" mb={0.25}>Cierre</Typography>
-                          <Typography fontSize={12} color="white" fontWeight={600}>{otDialog.ot.fechaCierre.replace('T', ' ')}</Typography>
+                          <Typography fontSize={10} color="#64748B" fontWeight={600} textTransform="uppercase" mb={0.25}>Cierre</Typography>
+                          <Typography fontSize={12} color="#1E293B" fontWeight={600}>{otDialog.ot.fechaCierre.replace('T', ' ')}</Typography>
                         </Box>
                         <Box sx={{ bgcolor: alpha('#10B981', 0.12), borderRadius: '6px', p: 0.75, textAlign: 'center' }}>
                           <Typography fontSize={10} color="#10B981" fontWeight={700} textTransform="uppercase" mb={0.25}>Duración</Typography>
@@ -1592,7 +1578,7 @@ export default function EAMOrdenesTrabajo() {
                       fullWidth size="small" label="Centro de costo"
                       value={otDialog.editData.centroCosto}
                       InputProps={{ readOnly: true }}
-                      sx={{ ...dlgInputSx, '& .MuiOutlinedInput-root': { color: 'text.secondary', bgcolor: alpha('#fff', 0.02) } }}
+                      sx={{ ...dlgInputSx, '& .MuiOutlinedInput-root': { color: 'text.secondary', bgcolor: '#F8FAFC' } }}
                     />
                     {/* Tipo OT */}
                     <TextField
@@ -1729,17 +1715,17 @@ export default function EAMOrdenesTrabajo() {
                   />
 
                   {/* Trabajos */}
-                  <Accordion defaultExpanded sx={{ bgcolor: alpha('#fff', 0.03), border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px !important', '&:before': { display: 'none' } }}>
+                  <Accordion defaultExpanded sx={{ bgcolor: '#F8FAFC', border: '1px solid #E5E7EB', borderRadius: '10px !important', '&:before': { display: 'none' } }}>
                     <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: EAM_COLOR }} />}>
                       <Stack direction="row" alignItems="center" spacing={1}>
                         <WorkIcon sx={{ fontSize: 16, color: EAM_COLOR }} />
-                        <Typography fontSize={13} fontWeight={700} color="white">Trabajos ({otDialog.editTrabajos.length})</Typography>
+                        <Typography fontSize={13} fontWeight={700} color="#1E293B">Trabajos ({otDialog.editTrabajos.length})</Typography>
                       </Stack>
                     </AccordionSummary>
                     <AccordionDetails sx={{ pt: 0 }}>
                       <Stack spacing={1.5}>
                         {otDialog.editTrabajos.map((t) => (
-                          <Box key={t.id} sx={{ bgcolor: alpha('#fff', 0.04), borderRadius: '8px', p: 1.25 }}>
+                          <Box key={t.id} sx={{ bgcolor: '#fff', border: '1px solid #E5E7EB', borderRadius: '8px', p: 1.25 }}>
                             <Stack direction="row" alignItems="flex-start" spacing={1}>
                               <Box sx={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
                                 <TextField
@@ -1781,17 +1767,17 @@ export default function EAMOrdenesTrabajo() {
                   </Accordion>
 
                   {/* Repuestos */}
-                  <Accordion sx={{ bgcolor: alpha('#fff', 0.03), border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px !important', '&:before': { display: 'none' } }}>
+                  <Accordion sx={{ bgcolor: '#F8FAFC', border: '1px solid #E5E7EB', borderRadius: '10px !important', '&:before': { display: 'none' } }}>
                     <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: '#3B82F6' }} />}>
                       <Stack direction="row" alignItems="center" spacing={1}>
                         <PartsIcon sx={{ fontSize: 16, color: '#3B82F6' }} />
-                        <Typography fontSize={13} fontWeight={700} color="white">Repuestos ({otDialog.editRepuestos.length})</Typography>
+                        <Typography fontSize={13} fontWeight={700} color="#1E293B">Repuestos ({otDialog.editRepuestos.length})</Typography>
                       </Stack>
                     </AccordionSummary>
                     <AccordionDetails sx={{ pt: 0 }}>
                       <Stack spacing={1.5}>
                         {otDialog.editRepuestos.map((r) => (
-                          <Box key={r.id} sx={{ bgcolor: alpha('#fff', 0.04), borderRadius: '8px', p: 1.25 }}>
+                          <Box key={r.id} sx={{ bgcolor: '#fff', border: '1px solid #E5E7EB', borderRadius: '8px', p: 1.25 }}>
                             <Stack direction="row" alignItems="flex-start" spacing={1}>
                               <Box sx={{ flex: 1, display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 1 }}>
                                 <TextField size="small" label="Repuesto" value={r.repuesto}
@@ -1824,11 +1810,11 @@ export default function EAMOrdenesTrabajo() {
               {otDialog.mode === 'delete' && (
                 <Stack spacing={2} mt={1}>
                   <Box sx={{ bgcolor: alpha('#DC2626', 0.08), border: '1px solid rgba(220,38,38,0.25)', borderRadius: '10px', p: 2 }}>
-                    <Typography fontSize={13} color="#FCA5A5" fontWeight={600} mb={0.5}>
+                    <Typography fontSize={13} color="#DC2626" fontWeight={600} mb={0.5}>
                       ¿Eliminar la orden {otDialog.ot.numero}?
                     </Typography>
-                    <Typography fontSize={12} color="rgba(255,255,255,0.45)">
-                      Esta acción no se puede deshacer. Escribe <strong style={{ color: '#FCA5A5' }}>ELIMINAR</strong> en el campo de abajo para confirmar.
+                    <Typography fontSize={12} color="#64748B">
+                      Esta acción no se puede deshacer. Escribe <strong style={{ color: '#DC2626' }}>ELIMINAR</strong> en el campo de abajo para confirmar.
                     </Typography>
                   </Box>
                   <TextField
@@ -1836,8 +1822,8 @@ export default function EAMOrdenesTrabajo() {
                     value={otDialog.deleteText}
                     onChange={(e) => setOtDialog((p) => ({ ...p, deleteText: e.target.value }))}
                     sx={{
-                      '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) },
-                      '& fieldset': { borderColor: otDialog.deleteText === 'ELIMINAR' ? '#DC2626' : alpha('#fff', 0.15) },
+                      '& .MuiOutlinedInput-root': { color: 'text.primary' },
+                      '& fieldset': { borderColor: otDialog.deleteText === 'ELIMINAR' ? '#DC2626' : '#E5E7EB' },
                     }}
                   />
                 </Stack>

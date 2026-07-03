@@ -67,7 +67,7 @@ export default function QMSHallazgos() {
             { label: 'Cerrados este mes', value: '12', color: QMS_COLOR },
           ].map(k => (
             <Grid key={k.label} size={{ xs: 6, md: 3 }}>
-              <Card sx={{ bgcolor: 'text.primary', border: '1px solid rgba(59,130,246,0.18)', borderRadius: 2 }}>
+              <Card sx={{ bgcolor: 'background.paper', border: '1px solid rgba(59,130,246,0.18)', borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important', textAlign: 'center' }}>
                   <Typography sx={{ fontSize: 26, fontWeight: 800, color: k.color }}>{k.value}</Typography>
                   <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{k.label}</Typography>
@@ -81,12 +81,12 @@ export default function QMSHallazgos() {
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
           {Object.entries(TIPO_COLOR).map(([t, meta]) => (
             <Chip key={t} label={meta.label} size="small" onClick={() => setFiltroTipo(filtroTipo === t ? null : t)}
-              sx={{ fontSize: 11, cursor: 'pointer', bgcolor: filtroTipo === t ? alpha(meta.color, 0.2) : 'rgba(255,255,255,0.05)', color: filtroTipo === t ? meta.color : 'rgba(255,255,255,0.5)', border: `1px solid ${filtroTipo === t ? alpha(meta.color, 0.4) : 'transparent'}` }} />
+              sx={{ fontSize: 11, cursor: 'pointer', bgcolor: filtroTipo === t ? alpha(meta.color, 0.2) : '#F8FAFC', color: filtroTipo === t ? meta.color : '#64748B', border: `1px solid ${filtroTipo === t ? alpha(meta.color, 0.4) : '#E5E7EB'}` }} />
           ))}
-          <Box sx={{ mx: 0.5, borderLeft: '1px solid rgba(255,255,255,0.1)' }} />
+          <Box sx={{ mx: 0.5, borderLeft: '1px solid #E5E7EB' }} />
           {['ABIERTO', 'EN_TRATAMIENTO', 'VERIFICACION', 'CERRADO'].map(e => (
             <Chip key={e} label={e.replace('_', ' ')} size="small" onClick={() => setFiltroEstado(filtroEstado === e ? null : e)}
-              sx={{ fontSize: 11, cursor: 'pointer', bgcolor: filtroEstado === e ? alpha(EST_COLOR[e], 0.2) : 'rgba(255,255,255,0.05)', color: filtroEstado === e ? EST_COLOR[e] : 'rgba(255,255,255,0.5)', border: `1px solid ${filtroEstado === e ? alpha(EST_COLOR[e], 0.4) : 'transparent'}` }} />
+              sx={{ fontSize: 11, cursor: 'pointer', bgcolor: filtroEstado === e ? alpha(EST_COLOR[e], 0.2) : '#F8FAFC', color: filtroEstado === e ? EST_COLOR[e] : '#64748B', border: `1px solid ${filtroEstado === e ? alpha(EST_COLOR[e], 0.4) : '#E5E7EB'}` }} />
           ))}
         </Box>
 
@@ -122,7 +122,7 @@ export default function QMSHallazgos() {
           </Table>
         </Paper>
 
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary' } }}>
+        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: 'background.paper', color: 'text.primary' } }}>
           <DialogTitle sx={{ fontWeight: 700 }}>Registrar Hallazgo</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
             <TextField label="Descripción del Hallazgo" multiline rows={3} fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />

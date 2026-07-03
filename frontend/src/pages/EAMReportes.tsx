@@ -181,13 +181,6 @@ const OTS_DISP: OTDisp[] = [
   { id: 18, numero: 'OT-2026-0070', activo: 'CF-001 — Compresor Cuarto Frío',        fechaApertura: '2026-06-16T00:00', fechaCierre: '2026-06-16T08:00', horasMantenimiento: 8.0,  descripcion: 'Reparación urgente compresor — falla sistema refrigeración a 0°C' },
 ]
 
-const inputSx = {
-  '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) },
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: alpha('#fff', 0.12) },
-  '& .MuiInputLabel-root': { color: 'text.secondary' },
-  '& .MuiSvgIcon-root': { color: 'text.secondary' },
-}
-
 export default function EAMReportes() {
   const [tab, setTab] = useState(0)
   const [dispMes, setDispMes]           = useState('2026-06')
@@ -240,13 +233,13 @@ export default function EAMReportes() {
             <ReportIcon sx={{ fontSize: 28 }} />
           </Box>
           <Box>
-            <Typography variant="h5" fontWeight={700} color="white">Reportes EAM</Typography>
-            <Typography variant="body2" color="grey.400">Informes de flota, infraestructura, costos y gerencia</Typography>
+            <Typography variant="h5" fontWeight={700} color="#1E293B">Reportes EAM</Typography>
+            <Typography variant="body2" color="#64748B">Informes de flota, infraestructura, costos y gerencia</Typography>
           </Box>
         </Stack>
 
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-          <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ '& .MuiTab-root': { color: 'grey.400', textTransform: 'none', fontWeight: 600 }, '& .Mui-selected': { color: EAM_COLOR }, '& .MuiTabs-indicator': { backgroundColor: EAM_COLOR } }}>
+          <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ '& .MuiTab-root': { color: '#64748B', textTransform: 'none', fontWeight: 600 }, '& .Mui-selected': { color: EAM_COLOR }, '& .MuiTabs-indicator': { backgroundColor: EAM_COLOR } }}>
             {['Flota', 'Infraestructura', 'Presidencia', 'Costos', 'Disponibilidad'].map((l, i) => <Tab key={i} label={l} />)}
           </Tabs>
         </Box>
@@ -267,8 +260,8 @@ export default function EAMReportes() {
                       <Stack direction="row" spacing={1.5} alignItems="center">
                         <Box sx={{ color: k.color }}>{k.icon}</Box>
                         <Box>
-                          <Typography variant="h5" fontWeight={700} color="white">{k.value}</Typography>
-                          <Typography variant="caption" color="grey.400">{k.label}</Typography>
+                          <Typography variant="h5" fontWeight={700} color="#1E293B">{k.value}</Typography>
+                          <Typography variant="caption" color="#64748B">{k.label}</Typography>
                         </Box>
                       </Stack>
                     </CardContent>
@@ -277,10 +270,10 @@ export default function EAMReportes() {
               ))}
             </Grid>
 
-            <TableContainer component={Paper} sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
+            <TableContainer component={Paper} sx={{ background: '#FFFFFF', border: `1px solid ${'#E5E7EB'}` }}>
               <Table size="small">
                 <TableHead>
-                  <TableRow sx={{ '& th': { color: 'grey.400', fontWeight: 700, borderBottom: `1px solid ${alpha('#fff', 0.1)}` } }}>
+                  <TableRow sx={{ '& th': { color: '#64748B', fontWeight: 700, borderBottom: `1px solid ${'#E5E7EB'}` } }}>
                     <TableCell>Placa</TableCell>
                     <TableCell>Tipo</TableCell>
                     <TableCell align="right">Km Mes</TableCell>
@@ -294,7 +287,7 @@ export default function EAMReportes() {
                 </TableHead>
                 <TableBody>
                   {VEHICULOS.map((v, i) => (
-                    <TableRow key={i} sx={{ '& td': { color: 'grey.200', borderBottom: `1px solid ${alpha('#fff', 0.05)}` }, '&:hover': { background: alpha('#fff', 0.03) } }}>
+                    <TableRow key={i} sx={{ '& td': { color: '#334155', borderBottom: `1px solid ${'#E5E7EB'}` }, '&:hover': { background: alpha('#000', 0.03) } }}>
                       <TableCell><Typography variant="body2" fontWeight={700} color={EAM_COLOR}>{v.placa}</Typography></TableCell>
                       <TableCell>{v.tipo}</TableCell>
                       <TableCell align="right">{fmtN(v.kmMes)}</TableCell>
@@ -306,7 +299,7 @@ export default function EAMReportes() {
                       <TableCell align="center">
                         <Chip label={v.otsAbiertas} size="small" sx={{ background: v.otsAbiertas > 0 ? alpha('#F59E0B', 0.15) : alpha('#32AC5C', 0.15), color: v.otsAbiertas > 0 ? '#F59E0B' : '#32AC5C', fontWeight: 700, minWidth: 30 }} />
                       </TableCell>
-                      <TableCell><Typography variant="caption" color="grey.300">{v.pmProximo}</Typography></TableCell>
+                      <TableCell><Typography variant="caption" color="#64748B">{v.pmProximo}</Typography></TableCell>
                       <TableCell align="center">
                         <Chip label={v.estado.replace('_', ' ')} size="small" sx={{ background: alpha(estadoVehColor(v.estado), 0.15), color: estadoVehColor(v.estado), fontWeight: 600, fontSize: 10 }} />
                       </TableCell>
@@ -334,8 +327,8 @@ export default function EAMReportes() {
                       <Stack direction="row" spacing={1.5} alignItems="center">
                         <Box sx={{ color: k.color }}>{k.icon}</Box>
                         <Box>
-                          <Typography variant="h5" fontWeight={700} color="white">{k.value}</Typography>
-                          <Typography variant="caption" color="grey.400">{k.label}</Typography>
+                          <Typography variant="h5" fontWeight={700} color="#1E293B">{k.value}</Typography>
+                          <Typography variant="caption" color="#64748B">{k.label}</Typography>
                         </Box>
                       </Stack>
                     </CardContent>
@@ -344,10 +337,10 @@ export default function EAMReportes() {
               ))}
             </Grid>
 
-            <TableContainer component={Paper} sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
+            <TableContainer component={Paper} sx={{ background: '#FFFFFF', border: `1px solid ${'#E5E7EB'}` }}>
               <Table size="small">
                 <TableHead>
-                  <TableRow sx={{ '& th': { color: 'grey.400', fontWeight: 700, borderBottom: `1px solid ${alpha('#fff', 0.1)}` } }}>
+                  <TableRow sx={{ '& th': { color: '#64748B', fontWeight: 700, borderBottom: `1px solid ${'#E5E7EB'}` } }}>
                     <TableCell>Sede / Ubicación</TableCell>
                     <TableCell align="center">Activos</TableCell>
                     <TableCell align="center">OTs Abiertas</TableCell>
@@ -357,7 +350,7 @@ export default function EAMReportes() {
                 </TableHead>
                 <TableBody>
                   {SEDES.map((s, i) => (
-                    <TableRow key={i} sx={{ '& td': { color: 'grey.200', borderBottom: `1px solid ${alpha('#fff', 0.05)}` }, '&:hover': { background: alpha('#fff', 0.03) } }}>
+                    <TableRow key={i} sx={{ '& td': { color: '#334155', borderBottom: `1px solid ${'#E5E7EB'}` }, '&:hover': { background: alpha('#000', 0.03) } }}>
                       <TableCell><Typography variant="body2" fontWeight={600}>{s.nombre}</Typography></TableCell>
                       <TableCell align="center">{s.activos}</TableCell>
                       <TableCell align="center">
@@ -378,22 +371,22 @@ export default function EAMReportes() {
         {/* Tab 2: Presidencia */}
         {tab === 2 && (
           <Box>
-            <Typography variant="subtitle1" color="grey.300" mb={3} fontWeight={600}>Dashboard Ejecutivo — Junio 2025</Typography>
+            <Typography variant="subtitle1" color="#64748B" mb={3} fontWeight={600}>Dashboard Ejecutivo — Junio 2025</Typography>
             <Grid container spacing={3}>
               {/* Disponibilidad gauge */}
               <Grid size={{ xs: 12, md: 4 }}>
                 <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(EAM_COLOR, 0.3)}`, textAlign: 'center' }}>
                   <CardContent>
-                    <Typography variant="subtitle2" color="grey.400" mb={2} fontWeight={600}>Disponibilidad General</Typography>
+                    <Typography variant="subtitle2" color="#64748B" mb={2} fontWeight={600}>Disponibilidad General</Typography>
                     <Box sx={{ position: 'relative', width: 160, height: 160, mx: 'auto', mb: 1 }}>
-                      <Box sx={{ width: 160, height: 160, borderRadius: '50%', background: `conic-gradient(${EAM_COLOR} 0% 94.2%, ${alpha('#fff', 0.08)} 94.2% 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Box sx={{ width: 160, height: 160, borderRadius: '50%', background: `conic-gradient(${EAM_COLOR} 0% 94.2%, ${'#E5E7EB'} 94.2% 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <Box sx={{ width: 120, height: 120, borderRadius: '50%', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
                           <Typography variant="h4" fontWeight={800} color={EAM_COLOR}>94.2%</Typography>
-                          <Typography variant="caption" color="grey.400">Disponibilidad</Typography>
+                          <Typography variant="caption" color="#64748B">Disponibilidad</Typography>
                         </Box>
                       </Box>
                     </Box>
-                    <Typography variant="caption" color="grey.400">Objetivo: ≥ 95%</Typography>
+                    <Typography variant="caption" color="#64748B">Objetivo: ≥ 95%</Typography>
                   </CardContent>
                 </Card>
               </Grid>
@@ -402,18 +395,18 @@ export default function EAMReportes() {
               <Grid size={{ xs: 12, md: 4 }}>
                 <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#32AC5C', 0.3)}`, textAlign: 'center' }}>
                   <CardContent>
-                    <Typography variant="subtitle2" color="grey.400" mb={2} fontWeight={600}>Índice de Confiabilidad Global</Typography>
+                    <Typography variant="subtitle2" color="#64748B" mb={2} fontWeight={600}>Índice de Confiabilidad Global</Typography>
                     <Typography variant="h2" fontWeight={900} color="#32AC5C" sx={{ lineHeight: 1.1 }}>91.5</Typography>
-                    <Typography variant="h6" color="grey.400">/ 100</Typography>
-                    <Divider sx={{ borderColor: alpha('#fff', 0.08), my: 2 }} />
+                    <Typography variant="h6" color="#64748B">/ 100</Typography>
+                    <Divider sx={{ borderColor: '#E5E7EB', my: 2 }} />
                     <Stack direction="row" justifyContent="space-around">
                       <Box textAlign="center">
-                        <Typography variant="h6" fontWeight={700} color="white">337h</Typography>
-                        <Typography variant="caption" color="grey.400">MTBF</Typography>
+                        <Typography variant="h6" fontWeight={700} color="#1E293B">337h</Typography>
+                        <Typography variant="caption" color="#64748B">MTBF</Typography>
                       </Box>
                       <Box textAlign="center">
-                        <Typography variant="h6" fontWeight={700} color="white">4.2h</Typography>
-                        <Typography variant="caption" color="grey.400">MTTR</Typography>
+                        <Typography variant="h6" fontWeight={700} color="#1E293B">4.2h</Typography>
+                        <Typography variant="caption" color="#64748B">MTTR</Typography>
                       </Box>
                     </Stack>
                   </CardContent>
@@ -424,19 +417,19 @@ export default function EAMReportes() {
               <Grid size={{ xs: 12, md: 4 }}>
                 <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#3B82F6', 0.3)}` }}>
                   <CardContent>
-                    <Typography variant="subtitle2" color="grey.400" mb={2} fontWeight={600}>Costo Mantenimiento YTD vs Presupuesto</Typography>
+                    <Typography variant="subtitle2" color="#64748B" mb={2} fontWeight={600}>Costo Mantenimiento YTD vs Presupuesto</Typography>
                     <Stack spacing={2}>
                       <Box>
                         <Stack direction="row" justifyContent="space-between" mb={0.5}>
-                          <Typography variant="caption" color="grey.400">Ejecutado</Typography>
-                          <Typography variant="caption" fontWeight={700} color="white">$264M</Typography>
+                          <Typography variant="caption" color="#64748B">Ejecutado</Typography>
+                          <Typography variant="caption" fontWeight={700} color="#1E293B">$264M</Typography>
                         </Stack>
                         <LinearProgress variant="determinate" value={88} sx={{ height: 10, borderRadius: 5, backgroundColor: alpha('#3B82F6', 0.15), '& .MuiLinearProgress-bar': { backgroundColor: '#3B82F6', borderRadius: 5 } }} />
                       </Box>
                       <Box>
                         <Stack direction="row" justifyContent="space-between" mb={0.5}>
-                          <Typography variant="caption" color="grey.400">Presupuestado</Typography>
-                          <Typography variant="caption" fontWeight={700} color="white">$300M</Typography>
+                          <Typography variant="caption" color="#64748B">Presupuestado</Typography>
+                          <Typography variant="caption" fontWeight={700} color="#1E293B">$300M</Typography>
                         </Stack>
                         <LinearProgress variant="determinate" value={100} sx={{ height: 10, borderRadius: 5, backgroundColor: alpha('#32AC5C', 0.15), '& .MuiLinearProgress-bar': { backgroundColor: alpha('#32AC5C', 0.4), borderRadius: 5 } }} />
                       </Box>
@@ -448,19 +441,19 @@ export default function EAMReportes() {
 
               {/* Cumplimiento PM */}
               <Grid size={{ xs: 12, md: 6 }}>
-                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
+                <Card sx={{ background: '#FFFFFF', border: `1px solid ${'#E5E7EB'}` }}>
                   <CardContent>
-                    <Typography variant="subtitle2" color="grey.400" mb={2} fontWeight={600}>Cumplimiento PM</Typography>
+                    <Typography variant="subtitle2" color="#64748B" mb={2} fontWeight={600}>Cumplimiento PM</Typography>
                     <Stack direction="row" alignItems="center" spacing={3}>
                       <Box flex={1}>
                         <Stack direction="row" justifyContent="space-between" mb={1}>
-                          <Typography variant="body2" color="grey.300">Mantenimientos realizados</Typography>
+                          <Typography variant="body2" color="#334155">Mantenimientos realizados</Typography>
                           <Typography variant="body2" fontWeight={700} color={EAM_COLOR}>87%</Typography>
                         </Stack>
                         <LinearProgress variant="determinate" value={87} sx={{ height: 16, borderRadius: 8, backgroundColor: alpha(EAM_COLOR, 0.12), '& .MuiLinearProgress-bar': { backgroundColor: EAM_COLOR, borderRadius: 8 } }} />
                         <Stack direction="row" justifyContent="space-between" mt={0.5}>
-                          <Typography variant="caption" color="grey.500">52 de 60 PM programados</Typography>
-                          <Typography variant="caption" color="grey.500">Objetivo: 90%</Typography>
+                          <Typography variant="caption" color="#64748B">52 de 60 PM programados</Typography>
+                          <Typography variant="caption" color="#64748B">Objetivo: 90%</Typography>
                         </Stack>
                       </Box>
                     </Stack>
@@ -470,19 +463,19 @@ export default function EAMReportes() {
 
               {/* MTBF Trend */}
               <Grid size={{ xs: 12, md: 6 }}>
-                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
+                <Card sx={{ background: '#FFFFFF', border: `1px solid ${'#E5E7EB'}` }}>
                   <CardContent>
-                    <Typography variant="subtitle2" color="grey.400" mb={2} fontWeight={600}>MTBF Últimos 6 Meses (horas)</Typography>
+                    <Typography variant="subtitle2" color="#64748B" mb={2} fontWeight={600}>MTBF Últimos 6 Meses (horas)</Typography>
                     <Stack spacing={1}>
                       {MTBF_TREND.map((m, i) => (
                         <Stack key={i} direction="row" alignItems="center" spacing={1.5}>
-                          <Typography variant="caption" color="grey.400" sx={{ width: 28 }}>{m.mes}</Typography>
+                          <Typography variant="caption" color="#64748B" sx={{ width: 28 }}>{m.mes}</Typography>
                           <Box flex={1}>
-                            <Box sx={{ height: 8, borderRadius: 4, background: alpha('#fff', 0.05), overflow: 'hidden' }}>
+                            <Box sx={{ height: 8, borderRadius: 4, background: '#E5E7EB', overflow: 'hidden' }}>
                               <Box sx={{ height: '100%', width: `${(m.horas / maxMtbf) * 100}%`, background: m.horas >= 330 ? '#32AC5C' : m.horas >= 300 ? EAM_COLOR : '#EF4444', borderRadius: 4, transition: 'width 0.5s ease' }} />
                             </Box>
                           </Box>
-                          <Typography variant="caption" color="white" fontWeight={700} sx={{ width: 40, textAlign: 'right' }}>{m.horas}h</Typography>
+                          <Typography variant="caption" color="#1E293B" fontWeight={700} sx={{ width: 40, textAlign: 'right' }}>{m.horas}h</Typography>
                         </Stack>
                       ))}
                     </Stack>
@@ -492,21 +485,21 @@ export default function EAMReportes() {
 
               {/* Top 3 costosos */}
               <Grid size={{ xs: 12 }}>
-                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
+                <Card sx={{ background: '#FFFFFF', border: `1px solid ${'#E5E7EB'}` }}>
                   <CardContent>
                     <Stack direction="row" alignItems="center" spacing={1} mb={2}>
                       <StarsIcon sx={{ color: '#F59E0B', fontSize: 20 }} />
-                      <Typography variant="subtitle2" color="grey.400" fontWeight={600}>Top 3 Activos con Mayor Costo de Mantenimiento (Año)</Typography>
+                      <Typography variant="subtitle2" color="#64748B" fontWeight={600}>Top 3 Activos con Mayor Costo de Mantenimiento (Año)</Typography>
                     </Stack>
                     <Grid container spacing={2}>
                       {TOP_COSTOSOS_AÑO.map((t, i) => (
                         <Grid key={i} size={{ xs: 12, md: 4 }}>
                           <Box sx={{ p: 2, borderRadius: 2, background: alpha(i === 0 ? '#F59E0B' : i === 1 ? '#9CA3AF' : '#B45309', 0.1), border: `1px solid ${alpha(i === 0 ? '#F59E0B' : i === 1 ? '#9CA3AF' : '#B45309', 0.3)}` }}>
                             <Typography variant="caption" color={i === 0 ? '#F59E0B' : i === 1 ? '#9CA3AF' : '#B45309'} fontWeight={700}>#{i + 1}</Typography>
-                            <Typography variant="body1" fontWeight={700} color="white">{t.nombre}</Typography>
-                            <Typography variant="caption" color="grey.400">{t.tipo}</Typography>
-                            <Typography variant="h6" fontWeight={800} color="white" mt={1}>{fmt(t.costoAnio)}</Typography>
-                            <Typography variant="caption" color="grey.400">Costo acumulado 2025</Typography>
+                            <Typography variant="body1" fontWeight={700} color="#1E293B">{t.nombre}</Typography>
+                            <Typography variant="caption" color="#64748B">{t.tipo}</Typography>
+                            <Typography variant="h6" fontWeight={800} color="#1E293B" mt={1}>{fmt(t.costoAnio)}</Typography>
+                            <Typography variant="caption" color="#64748B">Costo acumulado 2025</Typography>
                           </Box>
                         </Grid>
                       ))}
@@ -534,8 +527,8 @@ export default function EAMReportes() {
                       <Stack direction="row" spacing={1.5} alignItems="center">
                         <Box sx={{ color: k.color }}>{k.icon}</Box>
                         <Box>
-                          <Typography variant="h5" fontWeight={700} color="white">{k.value}</Typography>
-                          <Typography variant="caption" color="grey.400">{k.label}</Typography>
+                          <Typography variant="h5" fontWeight={700} color="#1E293B">{k.value}</Typography>
+                          <Typography variant="caption" color="#64748B">{k.label}</Typography>
                         </Box>
                       </Stack>
                     </CardContent>
@@ -547,9 +540,9 @@ export default function EAMReportes() {
             <Grid container spacing={3}>
               {/* Breakdown por tipo OT */}
               <Grid size={{ xs: 12, md: 5 }}>
-                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
+                <Card sx={{ background: '#FFFFFF', border: `1px solid ${'#E5E7EB'}` }}>
                   <CardContent>
-                    <Typography variant="subtitle2" color="grey.400" mb={2} fontWeight={600}>Distribución por Tipo de OT</Typography>
+                    <Typography variant="subtitle2" color="#64748B" mb={2} fontWeight={600}>Distribución por Tipo de OT</Typography>
                     <Stack spacing={2}>
                       {[
                         { tipo: 'CORRECTIVA', pct: 52, color: '#EF4444' },
@@ -559,7 +552,7 @@ export default function EAMReportes() {
                       ].map((t, i) => (
                         <Box key={i}>
                           <Stack direction="row" justifyContent="space-between" mb={0.5}>
-                            <Typography variant="body2" color="grey.300">{t.tipo}</Typography>
+                            <Typography variant="body2" color="#334155">{t.tipo}</Typography>
                             <Typography variant="body2" fontWeight={700} color={t.color}>{t.pct}%</Typography>
                           </Stack>
                           <LinearProgress variant="determinate" value={t.pct} sx={{ height: 8, borderRadius: 4, backgroundColor: alpha(t.color, 0.1), '& .MuiLinearProgress-bar': { backgroundColor: t.color, borderRadius: 4 } }} />
@@ -572,15 +565,15 @@ export default function EAMReportes() {
 
               {/* Tendencia mensual */}
               <Grid size={{ xs: 12, md: 7 }}>
-                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
+                <Card sx={{ background: '#FFFFFF', border: `1px solid ${'#E5E7EB'}` }}>
                   <CardContent>
-                    <Typography variant="subtitle2" color="grey.400" mb={2} fontWeight={600}>Tendencia Costo Mensual (últimos 6 meses)</Typography>
+                    <Typography variant="subtitle2" color="#64748B" mb={2} fontWeight={600}>Tendencia Costo Mensual (últimos 6 meses)</Typography>
                     <Stack spacing={1.5}>
                       {TENDENCIA_MENSUAL.map((m, i) => (
                         <Stack key={i} direction="row" alignItems="center" spacing={2}>
-                          <Typography variant="caption" color="grey.400" sx={{ width: 28 }}>{m.mes}</Typography>
+                          <Typography variant="caption" color="#64748B" sx={{ width: 28 }}>{m.mes}</Typography>
                           <Box flex={1}>
-                            <Box sx={{ height: 20, borderRadius: 4, background: alpha('#fff', 0.05), overflow: 'hidden', position: 'relative' }}>
+                            <Box sx={{ height: 20, borderRadius: 4, background: '#E5E7EB', overflow: 'hidden', position: 'relative' }}>
                               <Box sx={{ height: '100%', width: `${(m.costo / maxCosto) * 100}%`, background: i === 5 ? EAM_COLOR : alpha(EAM_COLOR, 0.5), borderRadius: 4, transition: 'width 0.5s ease', display: 'flex', alignItems: 'center', pl: 1 }}>
                                 <Typography variant="caption" color="white" fontWeight={700} noWrap sx={{ fontSize: 11 }}>{fmt(m.costo)}</Typography>
                               </Box>
@@ -595,13 +588,13 @@ export default function EAMReportes() {
 
               {/* Top 10 activos costosos */}
               <Grid size={{ xs: 12 }}>
-                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
+                <Card sx={{ background: '#FFFFFF', border: `1px solid ${'#E5E7EB'}` }}>
                   <CardContent>
-                    <Typography variant="subtitle2" color="grey.400" mb={2} fontWeight={600}>Top 10 Activos por Costo de Mantenimiento</Typography>
+                    <Typography variant="subtitle2" color="#64748B" mb={2} fontWeight={600}>Top 10 Activos por Costo de Mantenimiento</Typography>
                     <TableContainer>
                       <Table size="small">
                         <TableHead>
-                          <TableRow sx={{ '& th': { color: 'grey.400', fontWeight: 700, borderBottom: `1px solid ${alpha('#fff', 0.1)}` } }}>
+                          <TableRow sx={{ '& th': { color: '#64748B', fontWeight: 700, borderBottom: `1px solid ${'#E5E7EB'}` } }}>
                             <TableCell>#</TableCell>
                             <TableCell>Activo</TableCell>
                             <TableCell>Tipo</TableCell>
@@ -612,8 +605,8 @@ export default function EAMReportes() {
                         </TableHead>
                         <TableBody>
                           {COSTOS_TOP.map((c, i) => (
-                            <TableRow key={i} sx={{ '& td': { color: 'grey.200', borderBottom: `1px solid ${alpha('#fff', 0.05)}` } }}>
-                              <TableCell><Typography variant="body2" fontWeight={700} color="grey.500">#{i + 1}</Typography></TableCell>
+                            <TableRow key={i} sx={{ '& td': { color: '#334155', borderBottom: `1px solid ${'#E5E7EB'}` } }}>
+                              <TableCell><Typography variant="body2" fontWeight={700} color="#64748B">#{i + 1}</Typography></TableCell>
                               <TableCell><Typography variant="body2" fontWeight={600}>{c.nombre}</Typography></TableCell>
                               <TableCell><Chip label={c.tipo} size="small" sx={{ background: alpha(c.tipo === 'Flota' ? EAM_COLOR : '#8B5CF6', 0.15), color: c.tipo === 'Flota' ? EAM_COLOR : '#8B5CF6', fontSize: 10 }} /></TableCell>
                               <TableCell align="right">{fmt(c.costoMes)}</TableCell>
@@ -662,7 +655,7 @@ export default function EAMReportes() {
                     size="small" label="Mes" type="month"
                     value={dispMes} onChange={(e) => { setDispMes(e.target.value); setExpanded(null) }}
                     InputLabelProps={{ shrink: true }}
-                    sx={{ minWidth: 170, ...inputSx }}
+                    sx={{ minWidth: 170 }}
                   />
                 </Stack>
               </Stack>
@@ -675,7 +668,7 @@ export default function EAMReportes() {
                   { label: 'Total horas no disponibles', value: `${totalHorasND}h`,           color: '#F59E0B' },
                 ].map(({ label, value, color }) => (
                   <Paper key={label} elevation={0} sx={{ border: `1px solid rgba(50,172,92,0.12)`, borderRadius: '12px', p: 2 }}>
-                    <Typography fontSize={11} color="rgba(255,255,255,0.4)" fontWeight={600} textTransform="uppercase" letterSpacing="0.04em">{label}</Typography>
+                    <Typography fontSize={11} color="#64748B" fontWeight={600} textTransform="uppercase" letterSpacing="0.04em">{label}</Typography>
                     <Typography fontSize={28} fontWeight={900} color={color} mt={0.5}>{value}</Typography>
                   </Paper>
                 ))}
@@ -684,9 +677,9 @@ export default function EAMReportes() {
               {/* Asset availability table */}
               <Paper elevation={0} sx={{ border: '1px solid rgba(50,172,92,0.12)', borderRadius: '12px', overflow: 'hidden' }}>
                 {/* Table header */}
-                <Box sx={{ display: 'grid', gridTemplateColumns: '36px 2fr 130px 100px 100px 100px 130px', gap: 1, px: 2, py: 1.25, bgcolor: alpha(EAM_COLOR, 0.06), borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '36px 2fr 130px 100px 100px 100px 130px', gap: 1, px: 2, py: 1.25, bgcolor: alpha(EAM_COLOR, 0.06), borderBottom: '1px solid #E5E7EB' }}>
                   {['', 'Activo', 'Categoría', 'Horas mes', 'No disp.', 'Disponibles', 'Disponibilidad'].map((h, i) => (
-                    <Typography key={i} fontSize={10} fontWeight={700} color="rgba(255,255,255,0.35)" letterSpacing="0.05em" textTransform="uppercase">{h}</Typography>
+                    <Typography key={i} fontSize={10} fontWeight={700} color="#64748B" letterSpacing="0.05em" textTransform="uppercase">{h}</Typography>
                   ))}
                 </Box>
 
@@ -703,10 +696,10 @@ export default function EAMReportes() {
                           display: 'grid',
                           gridTemplateColumns: '36px 2fr 130px 100px 100px 100px 130px',
                           gap: 1, px: 2, py: 1.25,
-                          borderBottom: isExpanded ? 'none' : '1px solid rgba(255,255,255,0.04)',
+                          borderBottom: isExpanded ? 'none' : '1px solid #E5E7EB',
                           alignItems: 'center',
                           cursor: 'pointer',
-                          '&:hover': { bgcolor: alpha('#fff', 0.025) },
+                          '&:hover': { bgcolor: alpha('#000', 0.025) },
                           bgcolor: isExpanded ? alpha(EAM_COLOR, 0.04) : 'transparent',
                           transition: 'background 0.15s',
                         }}
@@ -715,13 +708,13 @@ export default function EAMReportes() {
                           {isExpanded ? <ExpandLessIcon sx={{ fontSize: 18 }} /> : <ExpandMoreIcon sx={{ fontSize: 18 }} />}
                         </IconButton>
                         <Box>
-                          <Typography fontSize={12} fontWeight={600} color="white" noWrap>{r.nombre.split('—')[0].trim()}</Typography>
-                          <Typography fontSize={10} color="rgba(255,255,255,0.35)" noWrap>{r.nombre.split('—')[1]?.trim()}</Typography>
+                          <Typography fontSize={12} fontWeight={600} color="#1E293B" noWrap>{r.nombre.split('—')[0].trim()}</Typography>
+                          <Typography fontSize={10} color="#64748B" noWrap>{r.nombre.split('—')[1]?.trim()}</Typography>
                         </Box>
                         <Chip label={r.categoria} size="small" sx={{ bgcolor: alpha('#6B7280', 0.15), color: '#9CA3AF', fontSize: 10, height: 20, fontWeight: 600 }} />
                         <Box sx={{ textAlign: 'center' }}>
-                          <Typography fontSize={14} fontWeight={700} color="white">{r.horasEsp}h</Typography>
-                          <Typography fontSize={9} color="rgba(255,255,255,0.3)">configurado</Typography>
+                          <Typography fontSize={14} fontWeight={700} color="#1E293B">{r.horasEsp}h</Typography>
+                          <Typography fontSize={9} color="#64748B">configurado</Typography>
                         </Box>
                         <Typography fontSize={13} fontWeight={700} color="#F59E0B">{r.horasND}h</Typography>
                         <Typography fontSize={13} fontWeight={700} color="#3B82F6">{r.horasDis.toFixed(1)}h</Typography>
@@ -731,7 +724,7 @@ export default function EAMReportes() {
                             <Chip label={r.disp >= 95 ? 'Óptimo' : r.disp >= 90 ? 'Aceptable' : 'Crítico'} size="small"
                               sx={{ bgcolor: alpha(dispColor, 0.15), color: dispColor, border: `1px solid ${alpha(dispColor, 0.3)}`, fontWeight: 700, fontSize: 9, height: 18 }} />
                           </Stack>
-                          <Box sx={{ height: 4, borderRadius: '2px', bgcolor: 'text.disabled', overflow: 'hidden' }}>
+                          <Box sx={{ height: 4, borderRadius: '2px', bgcolor: '#E5E7EB', overflow: 'hidden' }}>
                             <Box sx={{ height: '100%', width: `${Math.min(r.disp, 100)}%`, bgcolor: dispColor, borderRadius: '2px', transition: 'width 0.4s' }} />
                           </Box>
                         </Box>
@@ -739,27 +732,27 @@ export default function EAMReportes() {
 
                       {/* Expandable OT panel */}
                       <Collapse in={isExpanded} unmountOnExit>
-                        <Box sx={{ mx: 2, mb: 1.5, borderRadius: '10px', bgcolor: alpha('#0B1628', 0.8), border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                        <Box sx={{ mx: 2, mb: 1.5, borderRadius: '10px', bgcolor: '#F8FAFC', border: '1px solid #E5E7EB', overflow: 'hidden' }}>
                           {otsActivo.length === 0 ? (
                             <Box sx={{ py: 2.5, textAlign: 'center' }}>
-                              <Typography fontSize={12} color="rgba(255,255,255,0.3)">Sin órdenes de trabajo completadas en {dispMes}</Typography>
+                              <Typography fontSize={12} color="#64748B">Sin órdenes de trabajo completadas en {dispMes}</Typography>
                             </Box>
                           ) : (
                             <>
                               {/* OT list header */}
-                              <Box sx={{ display: 'grid', gridTemplateColumns: '130px 1fr 220px 90px', gap: 1.5, px: 2, py: 1, bgcolor: alpha('#fff', 0.03), borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                              <Box sx={{ display: 'grid', gridTemplateColumns: '130px 1fr 220px 90px', gap: 1.5, px: 2, py: 1, bgcolor: alpha('#000', 0.03), borderBottom: '1px solid #E5E7EB' }}>
                                 {['Número OT', 'Descripción', 'Apertura → Cierre', 'Horas'].map((h) => (
-                                  <Typography key={h} fontSize={9} fontWeight={700} color="rgba(255,255,255,0.3)" letterSpacing="0.05em" textTransform="uppercase">{h}</Typography>
+                                  <Typography key={h} fontSize={9} fontWeight={700} color="#64748B" letterSpacing="0.05em" textTransform="uppercase">{h}</Typography>
                                 ))}
                               </Box>
 
                               {otsActivo.map((o) => (
-                                <Box key={o.id} sx={{ display: 'grid', gridTemplateColumns: '130px 1fr 220px 90px', gap: 1.5, px: 2, py: 1, borderBottom: '1px solid rgba(255,255,255,0.03)', alignItems: 'center', '&:last-of-type': { borderBottom: 'none' } }}>
+                                <Box key={o.id} sx={{ display: 'grid', gridTemplateColumns: '130px 1fr 220px 90px', gap: 1.5, px: 2, py: 1, borderBottom: '1px solid #E5E7EB', alignItems: 'center', '&:last-of-type': { borderBottom: 'none' } }}>
                                   <Typography fontSize={11} fontWeight={700} color={EAM_COLOR}>{o.numero}</Typography>
-                                  <Typography fontSize={11} color="rgba(255,255,255,0.65)" noWrap sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.descripcion}</Typography>
+                                  <Typography fontSize={11} color="#334155" noWrap sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.descripcion}</Typography>
                                   <Stack direction="row" alignItems="center" spacing={0.5}>
-                                    <ClockIcon sx={{ fontSize: 12, color: 'text.disabled' }} />
-                                    <Typography fontSize={10} color="rgba(255,255,255,0.45)" noWrap>
+                                    <ClockIcon sx={{ fontSize: 12, color: '#64748B' }} />
+                                    <Typography fontSize={10} color="#64748B" noWrap>
                                       {o.fechaApertura.replace('T', ' ')} → {o.fechaCierre.replace('T', ' ')}
                                     </Typography>
                                   </Stack>
@@ -771,7 +764,7 @@ export default function EAMReportes() {
                               {/* Sum row */}
                               <Box sx={{ display: 'grid', gridTemplateColumns: '130px 1fr 220px 90px', gap: 1.5, px: 2, py: 1, bgcolor: alpha('#F59E0B', 0.06), borderTop: '1px solid rgba(245,158,11,0.2)', alignItems: 'center' }}>
                                 <Box />
-                                <Typography fontSize={10} fontWeight={700} color="rgba(255,255,255,0.35)" textTransform="uppercase" letterSpacing="0.04em">Total horas no disponibles</Typography>
+                                <Typography fontSize={10} fontWeight={700} color="#64748B" textTransform="uppercase" letterSpacing="0.04em">Total horas no disponibles</Typography>
                                 <Box />
                                 <Chip
                                   label={`${r.horasND}h`}
@@ -790,7 +783,7 @@ export default function EAMReportes() {
 
               {otsMes.length === 0 && (
                 <Box sx={{ textAlign: 'center', py: 4 }}>
-                  <Typography fontSize={13} color="rgba(255,255,255,0.3)">
+                  <Typography fontSize={13} color="#64748B">
                     No hay órdenes de trabajo completadas en {dispMes}. La disponibilidad es 100% para todos los activos.
                   </Typography>
                 </Box>

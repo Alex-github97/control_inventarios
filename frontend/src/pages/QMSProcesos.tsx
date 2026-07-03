@@ -64,7 +64,7 @@ export default function QMSProcesos() {
           </Button>
         </Box>
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid rgba(255,255,255,0.08)', '& .MuiTab-root': { color: 'text.secondary', fontSize: 13 }, '& .Mui-selected': { color: QMS_COLOR }, '& .MuiTabs-indicator': { bgcolor: QMS_COLOR } }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid #E5E7EB', '& .MuiTab-root': { color: 'text.secondary', fontSize: 13 }, '& .Mui-selected': { color: QMS_COLOR }, '& .MuiTabs-indicator': { bgcolor: QMS_COLOR } }}>
           <Tab label="Mapa Visual" />
           <Tab label="Lista de Procesos" />
           <Tab label="Procedimientos" />
@@ -95,13 +95,13 @@ export default function QMSProcesos() {
           <Paper sx={{ bgcolor: 'transparent' }}>
             <Table size="small">
               <TableHead>
-                <TableRow sx={{ '& th': { borderColor: 'rgba(255,255,255,0.06)', color: 'text.secondary', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
+                <TableRow sx={{ '& th': { borderColor: '#E5E7EB', color: 'text.secondary', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
                   <TableCell>Código</TableCell><TableCell>Nombre</TableCell><TableCell>Tipo</TableCell><TableCell>Responsable</TableCell><TableCell>Norma</TableCell><TableCell>Estado</TableCell><TableCell>Acciones</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {TABLA_PROCESOS.map(p => (
-                  <TableRow key={p.codigo} sx={{ '& td': { borderColor: 'rgba(255,255,255,0.04)', color: 'text.primary', fontSize: 12.5 } }}>
+                  <TableRow key={p.codigo} sx={{ '& td': { borderColor: '#E5E7EB', color: 'text.primary', fontSize: 12.5 } }}>
                     <TableCell><Typography sx={{ fontSize: 12, fontFamily: 'monospace', color: QMS_COLOR }}>{p.codigo}</Typography></TableCell>
                     <TableCell>{p.nombre}</TableCell>
                     <TableCell><Chip label={p.tipo} size="small" sx={{ fontSize: 10, height: 20, bgcolor: alpha(TIPO_COLORS[p.tipo], 0.15), color: TIPO_COLORS[p.tipo] }} /></TableCell>
@@ -123,13 +123,13 @@ export default function QMSProcesos() {
           <Paper sx={{ bgcolor: 'transparent' }}>
             <Table size="small">
               <TableHead>
-                <TableRow sx={{ '& th': { borderColor: 'rgba(255,255,255,0.06)', color: 'text.secondary', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
+                <TableRow sx={{ '& th': { borderColor: '#E5E7EB', color: 'text.secondary', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
                   <TableCell>Código</TableCell><TableCell>Nombre</TableCell><TableCell>Proceso</TableCell><TableCell>Versión</TableCell><TableCell>Estado</TableCell><TableCell>Vigencia</TableCell><TableCell>Acciones</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {PROCEDIMIENTOS.map(p => (
-                  <TableRow key={p.codigo} sx={{ '& td': { borderColor: 'rgba(255,255,255,0.04)', color: 'text.primary', fontSize: 12.5 } }}>
+                  <TableRow key={p.codigo} sx={{ '& td': { borderColor: '#E5E7EB', color: 'text.primary', fontSize: 12.5 } }}>
                     <TableCell><Typography sx={{ fontSize: 12, fontFamily: 'monospace', color: QMS_COLOR }}>{p.codigo}</Typography></TableCell>
                     <TableCell>{p.nombre}</TableCell>
                     <TableCell>{p.proceso}</TableCell>
@@ -144,15 +144,15 @@ export default function QMSProcesos() {
           </Paper>
         </TabPanel>
 
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary' } }}>
+        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: 'background.paper', color: 'text.primary' } }}>
           <DialogTitle sx={{ fontWeight: 700 }}>Nuevo Proceso</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
             {[['Código', 'Ej: PE-004'], ['Nombre del Proceso', 'Nombre descriptivo'], ['Objetivo', 'Objetivo del proceso'], ['Norma ISO Aplicable', 'ISO 9001:2015']].map(([label, ph]) => (
-              <TextField key={label} label={label} placeholder={ph} fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
+              <TextField key={label} label={label} placeholder={ph} fullWidth size="small" />
             ))}
             <FormControl size="small">
-              <InputLabel sx={{ color: 'text.secondary' }}>Tipo de Proceso</InputLabel>
-              <Select label="Tipo de Proceso" defaultValue="" sx={{ color: 'text.primary', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } }}>
+              <InputLabel>Tipo de Proceso</InputLabel>
+              <Select label="Tipo de Proceso" defaultValue="">
                 {['ESTRATEGICO', 'MISIONAL', 'APOYO', 'EVALUACION'].map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
               </Select>
             </FormControl>

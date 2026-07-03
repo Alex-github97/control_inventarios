@@ -77,7 +77,7 @@ export default function LMSRutas() {
             background: `linear-gradient(135deg, ${LMS_COLOR} 0%, #B45309 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Route sx={{ color: 'text.primary', fontSize: 22 }} />
+            <Route sx={{ color: '#fff', fontSize: 22 }} />
           </Box>
           <Box>
             <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Rutas de Aprendizaje</Typography>
@@ -100,7 +100,7 @@ export default function LMSRutas() {
                   onClick={() => setSeleccionada(expanded ? null : r.id)}
                   sx={{
                     bgcolor: '#FFFFFF',
-                    border: `1px solid ${expanded ? alpha(r.color, 0.5) : #E5E7EB}`,
+                    border: `1px solid ${expanded ? alpha(r.color, 0.5) : '#E5E7EB'}`,
                     borderRadius: 2, p: 2.5, cursor: 'pointer',
                     '&:hover': { border: `1px solid ${alpha(r.color, 0.4)}` },
                     transition: 'all 0.2s ease',
@@ -151,8 +151,8 @@ export default function LMSRutas() {
                         <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
                           <Box sx={{
                             width: 22, height: 22, borderRadius: '50%',
-                            bgcolor: c.completado ? alpha(r.color, 0.2) : 'rgba(255,255,255,0.06)',
-                            border: `2px solid ${c.completado ? r.color : 'rgba(255,255,255,0.12)'}`,
+                            bgcolor: c.completado ? alpha(r.color, 0.2) : '#F1F5F9',
+                            border: `2px solid ${c.completado ? r.color : '#E5E7EB'}`,
                             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                           }}>
                             {c.completado
@@ -162,7 +162,7 @@ export default function LMSRutas() {
                           </Box>
                           <Typography sx={{
                             fontSize: 12.5,
-                            color: c.completado ? '#FFF' : 'rgba(255,255,255,0.45)',
+                            color: c.completado ? '#1E293B' : '#94A3B8',
                             textDecoration: c.completado ? 'none' : 'none',
                             flex: 1,
                           }}>

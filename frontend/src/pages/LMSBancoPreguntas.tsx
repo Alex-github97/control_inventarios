@@ -4,7 +4,7 @@ import { Lightbulb, Search } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 const LMS_COLOR = '#D97706'
-const #E5E7EB  = '#E5E7EB'
+const BORDER = '#E5E7EB'
 
 const TIPO_COLORS: Record<string, string> = {
   MULTIPLE: '#0EA5E9', VERDADERO_FALSO: '#059669',
@@ -74,7 +74,7 @@ export default function LMSBancoPreguntas() {
             const labels: Record<string, string> = { MULTIPLE: 'Selección Múltiple', VERDADERO_FALSO: 'Verdadero / Falso', CASO_PRACTICO: 'Caso Práctico', RESPUESTA_ABIERTA: 'Respuesta Abierta' }
             return (
               <Grid key={i} size={{ xs: 6, md: 3 }}>
-                <Box sx={{ bgcolor: 'text.primary', border: `1px solid ${alpha(col, 0.25)}`, borderRadius: 2, p: 2 }}>
+                <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${alpha(col, 0.25)}`, borderRadius: 2, p: 2 }}>
                   <Typography sx={{ fontSize: 22, fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>{t.count}</Typography>
                   <Typography sx={{ fontSize: 11, color: col, fontWeight: 600, mt: 0.25 }}>{labels[t.tipo]}</Typography>
                 </Box>
@@ -84,7 +84,7 @@ export default function LMSBancoPreguntas() {
         </Grid>
 
         {/* Filtros */}
-        <Box sx={{ display: 'flex', gap: 1, mb: 1.5, bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, px: 2, py: 1, alignItems: 'center' }}>
+        <Box sx={{ display: 'flex', gap: 1, mb: 1.5, bgcolor: 'background.paper', border: `1px solid #E5E7EB`, borderRadius: 2, px: 2, py: 1, alignItems: 'center' }}>
           <Search sx={{ color: 'text.disabled', fontSize: 20 }} />
           <InputBase
             placeholder="Buscar pregunta..."
@@ -117,7 +117,7 @@ export default function LMSBancoPreguntas() {
         </Box>
 
         {/* Tabla */}
-        <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, overflow: 'hidden' }}>
+        <Box sx={{ bgcolor: 'background.paper', border: `1px solid #E5E7EB`, borderRadius: 2, overflow: 'hidden' }}>
           <Box sx={{ p: 2, borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary' }}>Preguntas ({filtradas.length})</Typography>
           </Box>

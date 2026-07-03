@@ -50,7 +50,7 @@ export default function LMSMiAprendizaje() {
           ].map((s, i) => (
             <Grid key={i} size={{ xs: 6, md: 3 }}>
               <Box sx={{
-                'border: "1px solid #E5E7EB"', borderRadius: 2, p: 2,
+                bgcolor: 'background.paper', border: '1px solid #E5E7EB', borderRadius: 2, p: 2,
                 display: 'flex', alignItems: 'center', gap: 1.5,
               }}>
                 <Box sx={{
@@ -90,7 +90,7 @@ export default function LMSMiAprendizaje() {
               const col = ESTADO_COLOR[c.estado] || LMS_COLOR
               return (
                 <Grid key={c.id} size={{ xs: 12, md: 6 }}>
-                  <Box sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2, p: 2.5 }}>
+                  <Box sx={{ bgcolor: 'background.paper', border: '1px solid #E5E7EB', borderRadius: 2, p: 2.5 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
                       <Box sx={{ flex: 1 }}>
                         <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: 'text.primary', lineHeight: 1.4 }}>{c.nombre}</Typography>
@@ -133,7 +133,7 @@ export default function LMSMiAprendizaje() {
         )}
 
         {tab === 1 && (
-          <Box sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2, overflow: 'hidden' }}>
+          <Box sx={{ bgcolor: 'background.paper', border: '1px solid #E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>

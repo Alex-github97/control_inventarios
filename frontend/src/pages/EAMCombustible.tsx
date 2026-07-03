@@ -154,7 +154,7 @@ function KpiCard({ icon, label, value, sub }: KpiCardProps) {
           <Typography variant="caption" sx={{ color: '#94A3B8', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1 }}>
             {label}
           </Typography>
-          <Typography variant="h6" sx={{ color: '#F1F5F9', fontWeight: 700, lineHeight: 1.2 }}>
+          <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, lineHeight: 1.2 }}>
             {value}
           </Typography>
           {sub && (
@@ -170,8 +170,8 @@ function KpiCard({ icon, label, value, sub }: KpiCardProps) {
 
 // ─── Tab Panels ───────────────────────────────────────────────────────────────
 function TabRegistros() {
-  const cellSx = { color: '#CBD5E1', borderBottom: '1px solid #1E2D40', fontSize: '0.78rem', py: 0.8 };
-  const headSx = { color: '#94A3B8', borderBottom: `1px solid ${EAM_COLOR}55`, fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase' as const, letterSpacing: 0.8 };
+  const cellSx = { color: '#334155', borderBottom: '1px solid #E5E7EB', fontSize: '0.78rem', py: 0.8 };
+  const headSx = { color: '#64748B', borderBottom: `1px solid ${EAM_COLOR}55`, fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase' as const, letterSpacing: 0.8 };
 
   return (
     <Box>
@@ -212,7 +212,7 @@ function TabRegistros() {
       </Grid>
 
       {/* Registros Table */}
-      <TableContainer component={Paper} sx={{ border: `1px solid #1E2D40`, borderRadius: 2 }}>
+      <TableContainer component={Paper} sx={{ border: `1px solid #E5E7EB`, borderRadius: 2 }}>
         <Table size="small">
           <TableHead>
             <TableRow>
@@ -260,15 +260,15 @@ function TabRegistros() {
 }
 
 function TabRendimiento() {
-  const cellSx = { color: '#CBD5E1', borderBottom: '1px solid #1E2D40', fontSize: '0.78rem', py: 0.9 };
-  const headSx = { color: '#94A3B8', borderBottom: `1px solid ${EAM_COLOR}55`, fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase' as const, letterSpacing: 0.8 };
+  const cellSx = { color: '#334155', borderBottom: '1px solid #E5E7EB', fontSize: '0.78rem', py: 0.9 };
+  const headSx = { color: '#64748B', borderBottom: `1px solid ${EAM_COLOR}55`, fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase' as const, letterSpacing: 0.8 };
 
   return (
     <Box>
-      <Typography variant="subtitle1" sx={{ color: '#94A3B8', mb: 2 }}>
+      <Typography variant="subtitle1" sx={{ color: '#64748B', mb: 2 }}>
         Resumen de rendimiento por vehículo — Junio 2026
       </Typography>
-      <TableContainer component={Paper} sx={{ border: '1px solid #1E2D40', borderRadius: 2 }}>
+      <TableContainer component={Paper} sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
         <Table size="small">
           <TableHead>
             <TableRow>
@@ -313,7 +313,7 @@ function TabDesviaciones() {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
         <SmartToy sx={{ color: EAM_COLOR, fontSize: 28 }} />
         <Box>
-          <Typography variant="h6" sx={{ color: '#F1F5F9', fontWeight: 700, lineHeight: 1 }}>
+          <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, lineHeight: 1 }}>
             Alertas de Consumo Anormal
           </Typography>
           <Typography variant="caption" sx={{ color: '#64748B', letterSpacing: 0.5 }}>
@@ -328,7 +328,7 @@ function TabDesviaciones() {
         />
       </Box>
 
-      <Divider sx={{ borderColor: '#1E2D40', mb: 3 }} />
+      <Divider sx={{ borderColor: '#E5E7EB', mb: 3 }} />
 
       <Grid container spacing={2}>
         {DESVIACIONES.map((d) => (
@@ -366,17 +366,17 @@ function TabDesviaciones() {
                   icon={<Warning fontSize="small" />}
                   sx={{
                     bgcolor: d.severidad === 'Alta' ? '#F8717115' : '#FACC1515',
-                    color: '#CBD5E1',
+                    color: '#334155',
                     border: 'none',
                     py: 0.5,
                     mb: 1.5,
                     '& .MuiAlert-icon': { color: d.severidad === 'Alta' ? '#F87171' : '#FACC15' },
                   }}
                 >
-                  <AlertTitle sx={{ color: '#F1F5F9', fontWeight: 600, fontSize: '0.82rem', mb: 0.2 }}>
+                  <AlertTitle sx={{ color: '#1E293B', fontWeight: 600, fontSize: '0.82rem', mb: 0.2 }}>
                     Anomalía detectada
                   </AlertTitle>
-                  <Typography variant="body2" sx={{ fontSize: '0.78rem', color: '#94A3B8' }}>
+                  <Typography variant="body2" sx={{ fontSize: '0.78rem', color: '#64748B' }}>
                     {d.descripcion}
                   </Typography>
                 </Alert>
@@ -438,7 +438,7 @@ export default function EAMCombustible() {
             <LocalGasStation sx={{ color: EAM_COLOR, fontSize: 30 }} />
           </Box>
           <Box>
-            <Typography variant="h5" sx={{ color: '#F1F5F9', fontWeight: 700, lineHeight: 1.1 }}>
+            <Typography variant="h5" sx={{ color: '#1E293B', fontWeight: 700, lineHeight: 1.1 }}>
               Gestión de Combustible
             </Typography>
             <Typography variant="caption" sx={{ color: '#64748B', letterSpacing: 1, textTransform: 'uppercase' }}>
@@ -452,7 +452,7 @@ export default function EAMCombustible() {
           sx={{
             bgcolor: '#FFFFFF',
             borderRadius: 2,
-            border: '1px solid #1E2D40',
+            border: '1px solid #E5E7EB',
             overflow: 'hidden',
           }}
         >
@@ -460,7 +460,7 @@ export default function EAMCombustible() {
             value={activeTab}
             onChange={(_e, v: number) => setActiveTab(v)}
             sx={{
-              borderBottom: `1px solid #1E2D40`,
+              borderBottom: `1px solid #E5E7EB`,
               px: 2,
               '& .MuiTab-root': {
                 color: '#64748B',

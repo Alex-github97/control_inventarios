@@ -62,7 +62,7 @@ export default function CRMEncuestas() {
             background: `linear-gradient(135deg, ${CRM_COLOR} 0%, #B91C1C 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <StarRate sx={{ color: 'text.primary', fontSize: 22 }} />
+            <StarRate sx={{ color: '#FFFFFF', fontSize: 22 }} />
           </Box>
           <Box>
             <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Customer Experience</Typography>
@@ -128,7 +128,7 @@ export default function CRMEncuestas() {
                 {ENCUESTAS.filter(e => e.respondida && e.comentario).slice(0, 5).map((e, i) => {
                   const cfg = TIPO_CFG[e.tipo]
                   return (
-                    <Box key={i} sx={{ mb: 1.5, p: 1.5, bgcolor: 'text.disabled', borderRadius: 1.5 }}>
+                    <Box key={i} sx={{ mb: 1.5, p: 1.5, bgcolor: '#F8FAFC', borderRadius: 1.5 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75, flexWrap: 'wrap', gap: 1 }}>
                         <Typography sx={{ fontSize: 12, fontWeight: 600, color: 'text.primary' }}>{e.cliente}</Typography>
                         <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center' }}>
@@ -153,7 +153,7 @@ export default function CRMEncuestas() {
                 <thead>
                   <tr>
                     {['Código', 'Cliente', 'Tipo', 'Puntaje', 'Estado', 'Fecha', 'Comentario'].map(h => (
-                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'text.disabled', borderBottom: '1px solid rgba(255,255,255,0.06)', whiteSpace: 'nowrap' }}>{h}</th>
+                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'text.disabled', borderBottom: '1px solid #E5E7EB', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -161,7 +161,7 @@ export default function CRMEncuestas() {
                   {ENCUESTAS.map((e, i) => {
                     const cfg = TIPO_CFG[e.tipo]
                     return (
-                      <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                      <tr key={i} style={{ borderBottom: '1px solid #E5E7EB' }}>
                         <td style={{ padding: '10px 14px', fontSize: 11.5, color: CRM_COLOR, fontFamily: 'monospace' }}>{e.codigo}</td>
                         <td style={{ padding: '10px 14px', fontSize: 12.5, color: 'text.primary', fontWeight: 600, whiteSpace: 'nowrap' }}>{e.cliente}</td>
                         <td style={{ padding: '10px 14px' }}>

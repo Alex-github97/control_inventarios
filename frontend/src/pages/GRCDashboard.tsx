@@ -11,6 +11,7 @@ import {
 import { Layout } from '@/components/layout/Layout'
 
 const GRC_COLOR = '#6D28D9'
+const PAGE_BG   = '#F0F2F5'
 
 interface KPI { label: string; value: string | number; sub: string; color: string; icon: React.ReactNode; trend?: number }
 const KPIs: KPI[] = [
@@ -142,7 +143,7 @@ export default function GRCDashboard() {
                 <List dense disablePadding>
                   {PROXIMAS_AUDITORIAS.map((a, i) => (
                     <React.Fragment key={a.codigo}>
-                      {i > 0 && <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)', my: 1 }} />}
+                      {i > 0 && <Divider sx={{ borderColor: '#E5E7EB', my: 1 }} />}
                       <ListItem disablePadding>
                         <ListItemText
                           primary={<Typography sx={{ fontSize: 12, color: 'text.primary', lineHeight: 1.3 }}>{a.nombre}</Typography>}

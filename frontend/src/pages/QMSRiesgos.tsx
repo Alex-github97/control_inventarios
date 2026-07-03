@@ -79,7 +79,7 @@ export default function QMSRiesgos() {
             { label: 'Revisión Próxima', value: '4', color: '#0369A1' },
           ].map(k => (
             <Grid key={k.label} size={{ xs: 6, md: 3 }}>
-              <Card sx={{ bgcolor: 'text.primary', border: `1px solid ${alpha(k.color, 0.35)}`, borderRadius: 2 }}>
+              <Card sx={{ bgcolor: 'background.paper', border: `1px solid ${alpha(k.color, 0.35)}`, borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important', textAlign: 'center' }}>
                   <Typography sx={{ fontSize: 26, fontWeight: 800, color: k.color }}>{k.value}</Typography>
                   <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{k.label}</Typography>
@@ -95,7 +95,7 @@ export default function QMSRiesgos() {
         </Tabs>
 
         <TabPanel value={tab} index={0}>
-          <Card sx={{ bgcolor: '#111827', border: '1px solid #E5E7EB', borderRadius: 2 }}>
+          <Card sx={{ bgcolor: '#fff', border: '1px solid #E5E7EB', borderRadius: 2 }}>
             <CardContent>
               <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 2 }}>Matriz de Riesgos 5×5</Typography>
               <Box sx={{ display: 'flex', gap: 2 }}>
@@ -169,7 +169,7 @@ export default function QMSRiesgos() {
           </Paper>
         </TabPanel>
 
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary' } }}>
+        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
           <DialogTitle sx={{ fontWeight: 700 }}>Nuevo Riesgo</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
             <TextField label="Nombre del Riesgo" fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />

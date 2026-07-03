@@ -61,7 +61,7 @@ export default function QMSIA() {
           <Chip icon={<Psychology sx={{ fontSize: 14 }} />} label="Modelo activo" size="small" sx={{ bgcolor: alpha(QMS_COLOR, 0.1), color: QMS_COLOR, border: `1px solid ${alpha(QMS_COLOR, 0.3)}` }} />
         </Box>
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid rgba(255,255,255,0.08)', '& .MuiTab-root': { color: 'text.secondary', fontSize: 13 }, '& .Mui-selected': { color: AI_COLOR }, '& .MuiTabs-indicator': { bgcolor: AI_COLOR } }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid #E5E7EB', '& .MuiTab-root': { color: 'text.secondary', fontSize: 13 }, '& .Mui-selected': { color: AI_COLOR }, '& .MuiTabs-indicator': { bgcolor: AI_COLOR } }}>
           <Tab label="Insights IA" />
           <Tab label="Análisis Ishikawa" />
           <Tab label="Tendencias" />
@@ -71,7 +71,7 @@ export default function QMSIA() {
           <Grid container spacing={2}>
             {AI_INSIGHTS.map((ins, i) => (
               <Grid key={i} size={{ xs: 12, md: 6 }}>
-                <Card sx={{ bgcolor: '#111827', border: `1px solid ${alpha(ins.color, 0.25)}`, borderRadius: 2 }}>
+                <Card sx={{ bgcolor: '#fff', border: `1px solid ${alpha(ins.color, 0.25)}`, borderRadius: 2 }}>
                   <CardContent sx={{ p: '16px !important' }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -100,7 +100,7 @@ export default function QMSIA() {
         </TabPanel>
 
         <TabPanel value={tab} index={1}>
-          <Card sx={{ bgcolor: '#111827', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 2 }}>
+          <Card sx={{ bgcolor: '#fff', border: '1px solid #E5E7EB', borderRadius: 2 }}>
             <CardContent>
               <Box sx={{ mb: 2 }}>
                 <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 16 }}>Diagrama de Ishikawa — No Conformidades Operacionales</Typography>
@@ -144,7 +144,7 @@ export default function QMSIA() {
           <Grid container spacing={3}>
             {/* NC Trend */}
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ bgcolor: '#111827', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 2 }}>
+              <Card sx={{ bgcolor: '#fff', border: '1px solid #E5E7EB', borderRadius: 2 }}>
                 <CardContent>
                   <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 0.5 }}>No Conformidades por Mes</Typography>
                   <Typography sx={{ fontSize: 11, color: 'text.secondary', mb: 2 }}>2026 — tendencia con predicción IA</Typography>
@@ -163,7 +163,7 @@ export default function QMSIA() {
 
             {/* Hallazgos trend */}
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ bgcolor: '#111827', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 2 }}>
+              <Card sx={{ bgcolor: '#fff', border: '1px solid #E5E7EB', borderRadius: 2 }}>
                 <CardContent>
                   <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 0.5 }}>Hallazgos por Mes</Typography>
                   <Typography sx={{ fontSize: 11, color: 'text.secondary', mb: 2 }}>2026 — tendencia con predicción IA</Typography>

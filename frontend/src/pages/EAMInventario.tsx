@@ -371,7 +371,7 @@ function KpiCard({ icon, label, value, sub, alert }: KpiCardProps) {
     <Card
       sx={{
         bgcolor: '#FFFFFF',
-        border: `1px solid ${alert ? EAM_COLOR : '#1E3A5F'}`,
+        border: `1px solid ${alert ? EAM_COLOR : '#E5E7EB'}`,
         borderRadius: 2,
         height: '100%',
       }}
@@ -381,8 +381,8 @@ function KpiCard({ icon, label, value, sub, alert }: KpiCardProps) {
           sx={{
             p: 1.25,
             borderRadius: 1.5,
-            bgcolor: alert ? `${EAM_COLOR}22` : '#1E3A5F',
-            color: alert ? EAM_COLOR : '#60A5FA',
+            bgcolor: alert ? `${EAM_COLOR}22` : '#EFF6FF',
+            color: alert ? EAM_COLOR : '#2563EB',
             display: 'flex',
             alignItems: 'center',
           }}
@@ -390,12 +390,12 @@ function KpiCard({ icon, label, value, sub, alert }: KpiCardProps) {
           {icon}
         </Box>
         <Box>
-          <Typography variant="caption" sx={{ color: '#94A3B8' }}>
+          <Typography variant="caption" sx={{ color: '#64748B' }}>
             {label}
           </Typography>
           <Typography
             variant="h5"
-            sx={{ fontWeight: 700, color: alert ? EAM_COLOR : '#F1F5F9', lineHeight: 1.2 }}
+            sx={{ fontWeight: 700, color: alert ? EAM_COLOR : '#1E293B', lineHeight: 1.2 }}
           >
             {value}
           </Typography>
@@ -463,11 +463,11 @@ function TabRepuestos() {
       {/* Table */}
       <TableContainer
         component={Paper}
-        sx={{ borderRadius: 2, border: '1px solid #1E3A5F' }}
+        sx={{ borderRadius: 2, border: '1px solid #E5E7EB' }}
       >
         <Table size="small">
           <TableHead>
-            <TableRow sx={{ '& th': { bgcolor: '#0A1628', color: '#94A3B8', fontWeight: 600, fontSize: '0.75rem', borderBottom: '1px solid #1E3A5F' } }}>
+            <TableRow sx={{ '& th': { bgcolor: '#F8FAFC', color: '#64748B', fontWeight: 600, fontSize: '0.75rem', borderBottom: '1px solid #E5E7EB' } }}>
               <TableCell>Código</TableCell>
               <TableCell>Nombre</TableCell>
               <TableCell>Categoría</TableCell>
@@ -487,15 +487,15 @@ function TabRepuestos() {
                   key={r.codigo}
                   sx={{
                     '& td': {
-                      color: '#CBD5E1',
+                      color: '#334155',
                       fontSize: '0.8rem',
-                      borderBottom: '1px solid #0F2035',
+                      borderBottom: '1px solid #E5E7EB',
                     },
                     bgcolor: isLow ? `${EAM_COLOR}0A` : 'transparent',
-                    '&:hover': { bgcolor: '#0A1A30' },
+                    '&:hover': { bgcolor: '#F1F5F9' },
                   }}
                 >
-                  <TableCell sx={{ fontFamily: 'monospace', color: '#60A5FA !important' }}>
+                  <TableCell sx={{ fontFamily: 'monospace', color: '#2563EB !important' }}>
                     {r.codigo}
                   </TableCell>
                   <TableCell>
@@ -530,12 +530,12 @@ function TabRepuestos() {
                       }}
                     />
                   </TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 600, color: isLow ? `${EAM_COLOR} !important` : '#F1F5F9 !important' }}>
+                  <TableCell align="right" sx={{ fontWeight: 600, color: isLow ? `${EAM_COLOR} !important` : '#1E293B !important' }}>
                     {r.stock_actual}
                   </TableCell>
                   <TableCell align="right">{r.stock_minimo}</TableCell>
                   <TableCell align="right">{formatCOP(r.costo_unit)}</TableCell>
-                  <TableCell align="right" sx={{ color: '#34D399 !important' }}>
+                  <TableCell align="right" sx={{ color: '#16A34A !important' }}>
                     {formatCOP(r.stock_actual * r.costo_unit)}
                   </TableCell>
                   <TableCell>{r.proveedor_principal}</TableCell>
@@ -545,10 +545,10 @@ function TabRepuestos() {
             })}
           </TableBody>
         </Table>
-        <Box sx={{ p: 1.5, borderTop: '1px solid #1E3A5F', display: 'flex', justifyContent: 'flex-end' }}>
-          <Typography variant="caption" sx={{ color: '#94A3B8' }}>
+        <Box sx={{ p: 1.5, borderTop: '1px solid #E5E7EB', display: 'flex', justifyContent: 'flex-end' }}>
+          <Typography variant="caption" sx={{ color: '#64748B' }}>
             Valor total en muestra:{' '}
-            <strong style={{ color: '#34D399' }}>{formatCOP(valorTotal)}</strong>
+            <strong style={{ color: '#16A34A' }}>{formatCOP(valorTotal)}</strong>
           </Typography>
         </Box>
       </TableContainer>
@@ -559,16 +559,16 @@ function TabRepuestos() {
 function TabConsumos() {
   return (
     <Box>
-      <Typography variant="h6" sx={{ color: '#F1F5F9', mb: 2, fontWeight: 600 }}>
+      <Typography variant="h6" sx={{ color: '#1E293B', mb: 2, fontWeight: 600 }}>
         Registro de Consumos de Repuestos
       </Typography>
       <TableContainer
         component={Paper}
-        sx={{ borderRadius: 2, border: '1px solid #1E3A5F' }}
+        sx={{ borderRadius: 2, border: '1px solid #E5E7EB' }}
       >
         <Table size="small">
           <TableHead>
-            <TableRow sx={{ '& th': { bgcolor: '#0A1628', color: '#94A3B8', fontWeight: 600, fontSize: '0.75rem', borderBottom: '1px solid #1E3A5F' } }}>
+            <TableRow sx={{ '& th': { bgcolor: '#F8FAFC', color: '#64748B', fontWeight: 600, fontSize: '0.75rem', borderBottom: '1px solid #E5E7EB' } }}>
               <TableCell>Repuesto</TableCell>
               <TableCell>OT Relacionada</TableCell>
               <TableCell>Activo</TableCell>
@@ -583,11 +583,11 @@ function TabConsumos() {
                 key={idx}
                 sx={{
                   '& td': {
-                    color: '#CBD5E1',
+                    color: '#334155',
                     fontSize: '0.8rem',
-                    borderBottom: '1px solid #0F2035',
+                    borderBottom: '1px solid #E5E7EB',
                   },
-                  '&:hover': { bgcolor: '#0A1A30' },
+                  '&:hover': { bgcolor: '#F1F5F9' },
                 }}
               >
                 <TableCell>{c.repuesto}</TableCell>
@@ -596,8 +596,8 @@ function TabConsumos() {
                     label={c.ot_relacionada}
                     size="small"
                     sx={{
-                      bgcolor: '#1E3A5F',
-                      color: '#60A5FA',
+                      bgcolor: '#EFF6FF',
+                      color: '#2563EB',
                       fontSize: '0.7rem',
                       height: 20,
                       fontFamily: 'monospace',
@@ -605,21 +605,21 @@ function TabConsumos() {
                   />
                 </TableCell>
                 <TableCell>{c.activo}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700, color: '#F1F5F9 !important' }}>
+                <TableCell align="right" sx={{ fontWeight: 700, color: '#1E293B !important' }}>
                   {c.cantidad}
                 </TableCell>
                 <TableCell sx={{ color: '#64748B !important' }}>{c.fecha}</TableCell>
-                <TableCell align="right" sx={{ color: '#34D399 !important', fontWeight: 600 }}>
+                <TableCell align="right" sx={{ color: '#16A34A !important', fontWeight: 600 }}>
                   {formatCOP(c.costo)}
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
-        <Box sx={{ p: 1.5, borderTop: '1px solid #1E3A5F', display: 'flex', justifyContent: 'flex-end' }}>
-          <Typography variant="caption" sx={{ color: '#94A3B8' }}>
+        <Box sx={{ p: 1.5, borderTop: '1px solid #E5E7EB', display: 'flex', justifyContent: 'flex-end' }}>
+          <Typography variant="caption" sx={{ color: '#64748B' }}>
             Total consumido en período:{' '}
-            <strong style={{ color: '#34D399' }}>
+            <strong style={{ color: '#16A34A' }}>
               {formatCOP(CONSUMOS.reduce((a, c) => a + c.costo, 0))}
             </strong>
           </Typography>
@@ -635,7 +635,7 @@ function TabReorden() {
 
   return (
     <Box>
-      <Typography variant="h6" sx={{ color: '#F1F5F9', mb: 2, fontWeight: 600 }}>
+      <Typography variant="h6" sx={{ color: '#1E293B', mb: 2, fontWeight: 600 }}>
         Ítems que Requieren Reorden
       </Typography>
 
@@ -645,7 +645,7 @@ function TabReorden() {
       >
         <Table size="small">
           <TableHead>
-            <TableRow sx={{ '& th': { bgcolor: '#0A1628', color: '#94A3B8', fontWeight: 600, fontSize: '0.75rem', borderBottom: `1px solid ${EAM_COLOR}33` } }}>
+            <TableRow sx={{ '& th': { bgcolor: '#F8FAFC', color: '#64748B', fontWeight: 600, fontSize: '0.75rem', borderBottom: `1px solid ${EAM_COLOR}33` } }}>
               <TableCell>Nombre</TableCell>
               <TableCell align="right">Stock Actual</TableCell>
               <TableCell align="right">Stock Mínimo</TableCell>
@@ -665,17 +665,17 @@ function TabReorden() {
                   key={idx}
                   sx={{
                     '& td': {
-                      color: '#CBD5E1',
+                      color: '#334155',
                       fontSize: '0.8rem',
-                      borderBottom: '1px solid #0F2035',
+                      borderBottom: '1px solid #E5E7EB',
                     },
-                    '&:hover': { bgcolor: '#0A1A30' },
+                    '&:hover': { bgcolor: '#F1F5F9' },
                   }}
                 >
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <WarningIcon sx={{ fontSize: 14, color: urgencyColor }} />
-                      <Typography variant="body2" sx={{ color: '#F1F5F9' }}>
+                      <Typography variant="body2" sx={{ color: '#1E293B' }}>
                         {item.nombre}
                       </Typography>
                     </Box>
@@ -698,7 +698,7 @@ function TabReorden() {
                     />
                   </TableCell>
                   <TableCell>{item.proveedor}</TableCell>
-                  <TableCell align="right" sx={{ color: '#34D399 !important', fontWeight: 600 }}>
+                  <TableCell align="right" sx={{ color: '#16A34A !important', fontWeight: 600 }}>
                     {formatCOP(item.costo_estimado)}
                   </TableCell>
                 </TableRow>
@@ -720,7 +720,7 @@ function TabReorden() {
         <CardContent>
           <Grid container alignItems="center" justifyContent="space-between" spacing={2}>
             <Grid size={{ xs: 12, md: 'auto' }}>
-              <Typography variant="body2" sx={{ color: '#94A3B8', mb: 0.5 }}>
+              <Typography variant="body2" sx={{ color: '#64748B', mb: 0.5 }}>
                 Total Estimado de Compra
               </Typography>
               <Typography
@@ -756,7 +756,7 @@ function TabReorden() {
         </CardContent>
       </Card>
 
-      <Divider sx={{ borderColor: '#1E3A5F' }} />
+      <Divider sx={{ borderColor: '#E5E7EB' }} />
       <Typography variant="caption" sx={{ color: '#475569', mt: 1, display: 'block' }}>
         * Las cantidades sugeridas se calculan con base en consumo promedio mensual + cobertura de 30 días.
       </Typography>
@@ -787,7 +787,7 @@ export default function EAMInventario() {
             <Inventory2Icon sx={{ color: EAM_COLOR, fontSize: 28 }} />
           </Box>
           <Box>
-            <Typography variant="h5" sx={{ fontWeight: 700, color: '#F1F5F9' }}>
+            <Typography variant="h5" sx={{ fontWeight: 700, color: '#1E293B' }}>
               EAM — Inventario de Repuestos
             </Typography>
             <Typography variant="body2" sx={{ color: '#64748B' }}>
@@ -801,7 +801,7 @@ export default function EAMInventario() {
           sx={{
             bgcolor: '#FFFFFF',
             borderRadius: 2,
-            border: '1px solid #1E3A5F',
+            border: '1px solid #E5E7EB',
             mb: 3,
             overflow: 'hidden',
           }}
@@ -811,7 +811,7 @@ export default function EAMInventario() {
             onChange={(_e, v: number) => setActiveTab(v)}
             sx={{
               px: 2,
-              borderBottom: '1px solid #1E3A5F',
+              borderBottom: '1px solid #E5E7EB',
               '& .MuiTab-root': {
                 color: '#64748B',
                 textTransform: 'none',

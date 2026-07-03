@@ -4,7 +4,7 @@ import { Search, AccessTime, Person, MenuBook } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 const LMS_COLOR = '#D97706'
-const #E5E7EB  = '#E5E7EB'
+const BORDER  = '#E5E7EB'
 
 const MOD_COLORS: Record<string, string> = {
   VIRTUAL: '#0EA5E9', PRESENCIAL: '#059669', HIBRIDO: '#7C3AED',
@@ -69,7 +69,7 @@ export default function LMSCatalogo() {
         {/* Busqueda */}
         <Box sx={{
           display: 'flex', gap: 1, mb: 2,
-          bgcolor: 'text.primary', border: `1px solid #E5E7EB`,
+          bgcolor: 'background.paper', border: `1px solid ${BORDER}`,
           borderRadius: 2, px: 2, py: 1, alignItems: 'center',
         }}>
           <Search sx={{ color: 'text.disabled', fontSize: 20 }} />
@@ -115,7 +115,7 @@ export default function LMSCatalogo() {
                   cursor: 'pointer',
                   bgcolor: active ? alpha(col, 0.2) : 'transparent',
                   color: active ? col : 'text.disabled',
-                  border: `1px solid ${active ? alpha(col, 0.4) : '#E5E7EB'}`,
+                  border: `1px solid ${active ? alpha(col, 0.4) : BORDER}`,
                   fontWeight: active ? 700 : 400,
                 }}
               />
@@ -132,7 +132,7 @@ export default function LMSCatalogo() {
             return (
               <Grid key={c.id} size={{ xs: 12, sm: 6, lg: 4 }}>
                 <Box sx={{
-                  bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5,
+                  bgcolor: 'background.paper', border: `1px solid ${BORDER}`, borderRadius: 2, p: 2.5,
                   height: '100%', display: 'flex', flexDirection: 'column',
                   '&:hover': { border: `1px solid ${alpha(LMS_COLOR, 0.5)}`, transform: 'translateY(-2px)' },
                   transition: 'all 0.2s ease',

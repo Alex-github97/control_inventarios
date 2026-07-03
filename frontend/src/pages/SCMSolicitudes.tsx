@@ -13,7 +13,8 @@ import {
 } from '@/api/scm'
 
 const SCM_COLOR = '#0C4D8C'
-const #E5E7EB  = `rgba(12,77,140,0.25)`
+const PAGE_BG   = '#F0F2F5'
+const BORDER    = `rgba(12,77,140,0.25)`
 
 const ESTADO_META: Record<EstadoSolicitud, { label: string; color: string }> = {
   BORRADOR:   { label: 'Borrador',   color: '#64748b' },
@@ -106,7 +107,7 @@ export default function SCMSolicitudes() {
           </Box>
         </Box>
 
-        <Card sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2 }}>
+        <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
           <TableContainer>
             <Table size="small">
               <TableHead>
@@ -136,7 +137,7 @@ export default function SCMSolicitudes() {
                       <TableCell>
                         <Chip label={s.prioridad} size="small" sx={{
                           bgcolor: s.prioridad === 'URGENTE' ? alpha('#ef4444', 0.15) : s.prioridad === 'ALTA' ? alpha('#f97316', 0.15) : alpha('#64748b', 0.12),
-                          color: s.prioridad === 'URGENTE' ? '#ef4444' : s.prioridad === 'ALTA' ? '#f97316' : 'rgba(255,255,255,0.5)',
+                          color: s.prioridad === 'URGENTE' ? '#ef4444' : s.prioridad === 'ALTA' ? '#f97316' : '#64748b',
                           fontSize: 10, fontWeight: 700,
                         }} />
                       </TableCell>
@@ -165,7 +166,7 @@ export default function SCMSolicitudes() {
         </Card>
 
         {/* Dialog nueva solicitud */}
-        <Dialog open={openNew} onClose={() => setOpenNew(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#0A1628', color: 'text.primary' } }}>
+        <Dialog open={openNew} onClose={() => setOpenNew(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { color: 'text.primary' } }}>
           <DialogTitle sx={{ borderBottom: '1px solid #F1F5F9', fontWeight: 700 }}>Nueva Solicitud de Compra</DialogTitle>
           <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField label="Título *" value={form.titulo} onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))} fullWidth size="small" sx={SX_INPUT} />
@@ -198,7 +199,7 @@ export default function SCMSolicitudes() {
         </Dialog>
 
         {/* Dialog rechazo */}
-        <Dialog open={rechazarId !== null} onClose={() => setRechazarId(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { bgcolor: '#0A1628', color: 'text.primary' } }}>
+        <Dialog open={rechazarId !== null} onClose={() => setRechazarId(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { color: 'text.primary' } }}>
           <DialogTitle sx={{ fontWeight: 700 }}>Rechazar solicitud</DialogTitle>
           <DialogContent>
             <TextField label="Motivo *" value={motivo} onChange={e => setMotivo(e.target.value)} fullWidth multiline rows={3} size="small" sx={{ mt: 1, ...SX_INPUT }} />

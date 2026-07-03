@@ -167,34 +167,34 @@ export default function EAMPlanesMant() {
               <Grid container spacing={2}>
                 {grouped[type].map(plan => (
                   <Grid key={plan.id} size={{ xs: 12, md: 6 }}>
-                    <Card sx={{ border: `1px solid ${plan.daysRemaining <= 7 ? '#DC2626' : plan.daysRemaining <= 15 ? EAM_COLOR : '#1F2937'}`, borderRadius: 2 }}>
+                    <Card sx={{ border: `1px solid ${plan.daysRemaining <= 7 ? '#DC2626' : plan.daysRemaining <= 15 ? EAM_COLOR : '#E5E7EB'}`, borderRadius: 2 }}>
                       <CardContent>
                         <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1}>
-                          <Typography variant="subtitle2" sx={{ color: '#F9FAFB', fontWeight: 700, flex: 1, pr: 1 }}>
+                          <Typography variant="subtitle2" sx={{ color: '#1E293B', fontWeight: 700, flex: 1, pr: 1 }}>
                             {plan.name}
                           </Typography>
                           <DaysChip days={plan.daysRemaining} />
                         </Stack>
                         <Stack direction="row" spacing={1} mb={1.5} flexWrap="wrap" useFlexGap>
                           <Chip label={plan.otType} size="small" sx={{ bgcolor: OT_COLORS[plan.otType] + '22', color: OT_COLORS[plan.otType], border: `1px solid ${OT_COLORS[plan.otType]}`, fontSize: '0.65rem', fontWeight: 600 }} />
-                          <Chip label={plan.assetType} size="small" sx={{ bgcolor: '#1F2937', color: '#9CA3AF', fontSize: '0.65rem' }} />
+                          <Chip label={plan.assetType} size="small" sx={{ bgcolor: '#F1F5F9', color: '#64748B', fontSize: '0.65rem' }} />
                         </Stack>
                         <Grid container spacing={1} mb={1.5}>
                           <Grid size={{ xs: 6 }}>
                             <Typography variant="caption" sx={{ color: '#6B7280' }}>Activo</Typography>
-                            <Typography variant="body2" sx={{ color: '#D1D5DB', fontWeight: 600 }}>{plan.asset}</Typography>
+                            <Typography variant="body2" sx={{ color: '#334155', fontWeight: 600 }}>{plan.asset}</Typography>
                           </Grid>
                           <Grid size={{ xs: 6 }}>
                             <Typography variant="caption" sx={{ color: '#6B7280' }}>Frecuencia</Typography>
-                            <Typography variant="body2" sx={{ color: '#D1D5DB', fontWeight: 600 }}>{plan.frequency}</Typography>
+                            <Typography variant="body2" sx={{ color: '#334155', fontWeight: 600 }}>{plan.frequency}</Typography>
                           </Grid>
                           <Grid size={{ xs: 6 }}>
                             <Typography variant="caption" sx={{ color: '#6B7280' }}>Último cumplimiento</Typography>
-                            <Typography variant="body2" sx={{ color: '#D1D5DB' }}>{plan.lastFulfillment}</Typography>
+                            <Typography variant="body2" sx={{ color: '#334155' }}>{plan.lastFulfillment}</Typography>
                           </Grid>
                           <Grid size={{ xs: 6 }}>
                             <Typography variant="caption" sx={{ color: '#6B7280' }}>Próximo vencimiento</Typography>
-                            <Typography variant="body2" sx={{ color: plan.daysRemaining <= 7 ? '#F87171' : plan.daysRemaining <= 15 ? '#FB923C' : '#D1D5DB', fontWeight: 700 }}>
+                            <Typography variant="body2" sx={{ color: plan.daysRemaining <= 7 ? '#F87171' : plan.daysRemaining <= 15 ? '#FB923C' : '#334155', fontWeight: 700 }}>
                               {plan.nextDueDate} ({plan.daysRemaining}d)
                             </Typography>
                           </Grid>
@@ -210,7 +210,7 @@ export default function EAMPlanesMant() {
                             variant="determinate"
                             value={plan.compliance}
                             sx={{
-                              height: 6, borderRadius: 3, bgcolor: '#1F2937',
+                              height: 6, borderRadius: 3, bgcolor: '#E5E7EB',
                               '& .MuiLinearProgress-bar': {
                                 bgcolor: plan.compliance >= 90 ? '#34D399' : plan.compliance >= 75 ? '#FCD34D' : '#F87171',
                                 borderRadius: 3,
@@ -229,12 +229,12 @@ export default function EAMPlanesMant() {
 
         {/* TAB 1 — Calendario de Vencimientos */}
         <TabPanel value={tab} index={1}>
-          <Typography variant="h6" sx={{ color: '#F9FAFB', fontWeight: 700, mb: 2 }}>
+          <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 2 }}>
             Vencimientos ordenados por urgencia
           </Typography>
           <Stack spacing={2}>
             {sorted.map(plan => (
-              <Card key={plan.id} sx={{ border: `1px solid ${plan.daysRemaining <= 7 ? '#DC262640' : plan.daysRemaining <= 15 ? '#32AC5C40' : '#1F2937'}`, borderRadius: 2 }}>
+              <Card key={plan.id} sx={{ border: `1px solid ${plan.daysRemaining <= 7 ? '#DC262640' : plan.daysRemaining <= 15 ? '#32AC5C40' : '#E5E7EB'}`, borderRadius: 2 }}>
                 <CardContent>
                   <Stack direction="row" alignItems="center" spacing={2}>
                     <Box sx={{
@@ -250,15 +250,15 @@ export default function EAMPlanesMant() {
                     </Box>
                     <Box flex={1}>
                       <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
-                        <Typography variant="subtitle2" sx={{ color: '#F9FAFB', fontWeight: 700 }}>{plan.name}</Typography>
+                        <Typography variant="subtitle2" sx={{ color: '#1E293B', fontWeight: 700 }}>{plan.name}</Typography>
                         <DaysChip days={plan.daysRemaining} />
                       </Stack>
                       <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
                         <Typography variant="caption" sx={{ color: '#9CA3AF' }}>
-                          Activo: <Box component="span" sx={{ color: '#D1D5DB', fontWeight: 600 }}>{plan.asset}</Box>
+                          Activo: <Box component="span" sx={{ color: '#334155', fontWeight: 600 }}>{plan.asset}</Box>
                         </Typography>
                         <Typography variant="caption" sx={{ color: '#9CA3AF' }}>
-                          Fecha exacta: <Box component="span" sx={{ color: '#D1D5DB', fontWeight: 600 }}>{plan.nextDueDate}</Box>
+                          Fecha exacta: <Box component="span" sx={{ color: '#334155', fontWeight: 600 }}>{plan.nextDueDate}</Box>
                         </Typography>
                         <Typography variant="caption" sx={{ color: '#9CA3AF' }}>
                           Tipo: <Box component="span" sx={{ color: OT_COLORS[plan.otType], fontWeight: 600 }}>{plan.otType}</Box>
@@ -283,10 +283,10 @@ export default function EAMPlanesMant() {
               { label: 'Ahorro estimado vs correctivo', value: '$145M', color: '#FCD34D', sub: 'COP acumulado' },
             ].map(kpi => (
               <Grid key={kpi.label} size={{ xs: 12, md: 3 }}>
-                <Card sx={{ border: '1px solid #1F2937', borderRadius: 2, textAlign: 'center' }}>
+                <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2, textAlign: 'center' }}>
                   <CardContent>
                     <Typography variant="h4" sx={{ color: kpi.color, fontWeight: 900, mb: 0.5 }}>{kpi.value}</Typography>
-                    <Typography variant="body2" sx={{ color: '#F9FAFB', fontWeight: 600, mb: 0.25 }}>{kpi.label}</Typography>
+                    <Typography variant="body2" sx={{ color: '#1E293B', fontWeight: 600, mb: 0.25 }}>{kpi.label}</Typography>
                     <Typography variant="caption" sx={{ color: '#6B7280' }}>{kpi.sub}</Typography>
                   </CardContent>
                 </Card>
@@ -297,33 +297,33 @@ export default function EAMPlanesMant() {
           <Grid container spacing={3}>
             {/* Compliance by asset type */}
             <Grid size={{ xs: 12, md: 5 }}>
-              <Card sx={{ border: '1px solid #1F2937', borderRadius: 2 }}>
+              <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
                 <CardContent>
-                  <Typography variant="h6" sx={{ color: '#F9FAFB', fontWeight: 700, mb: 2 }}>Cumplimiento por tipo de activo</Typography>
+                  <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 2 }}>Cumplimiento por tipo de activo</Typography>
                   <TableContainer>
                     <Table size="small">
                       <TableHead>
                         <TableRow>
-                          <TableCell sx={{ color: '#6B7280', borderColor: '#1F2937', fontWeight: 600 }}>Tipo</TableCell>
-                          <TableCell sx={{ color: '#6B7280', borderColor: '#1F2937', fontWeight: 600 }}>Cumplimiento</TableCell>
-                          <TableCell sx={{ color: '#6B7280', borderColor: '#1F2937', fontWeight: 600 }}>Barra</TableCell>
+                          <TableCell sx={{ color: '#6B7280', borderColor: '#E5E7EB', fontWeight: 600 }}>Tipo</TableCell>
+                          <TableCell sx={{ color: '#6B7280', borderColor: '#E5E7EB', fontWeight: 600 }}>Cumplimiento</TableCell>
+                          <TableCell sx={{ color: '#6B7280', borderColor: '#E5E7EB', fontWeight: 600 }}>Barra</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
                         {ASSET_TYPE_COMPLIANCE.map(row => (
                           <TableRow key={row.type}>
-                            <TableCell sx={{ color: '#D1D5DB', borderColor: '#1F2937' }}>{row.type}</TableCell>
-                            <TableCell sx={{ borderColor: '#1F2937' }}>
+                            <TableCell sx={{ color: '#334155', borderColor: '#E5E7EB' }}>{row.type}</TableCell>
+                            <TableCell sx={{ borderColor: '#E5E7EB' }}>
                               <Typography sx={{ color: row.compliance >= 90 ? '#34D399' : row.compliance >= 80 ? '#FCD34D' : '#F87171', fontWeight: 700 }}>
                                 {row.compliance}%
                               </Typography>
                             </TableCell>
-                            <TableCell sx={{ borderColor: '#1F2937', width: 120 }}>
+                            <TableCell sx={{ borderColor: '#E5E7EB', width: 120 }}>
                               <LinearProgress
                                 variant="determinate"
                                 value={row.compliance}
                                 sx={{
-                                  height: 8, borderRadius: 4, bgcolor: '#1F2937',
+                                  height: 8, borderRadius: 4, bgcolor: '#E5E7EB',
                                   '& .MuiLinearProgress-bar': {
                                     bgcolor: row.compliance >= 90 ? '#34D399' : row.compliance >= 80 ? '#FCD34D' : '#F87171',
                                     borderRadius: 4,
@@ -342,9 +342,9 @@ export default function EAMPlanesMant() {
 
             {/* Monthly bar chart */}
             <Grid size={{ xs: 12, md: 7 }}>
-              <Card sx={{ border: '1px solid #1F2937', borderRadius: 2, height: '100%' }}>
+              <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2, height: '100%' }}>
                 <CardContent>
-                  <Typography variant="h6" sx={{ color: '#F9FAFB', fontWeight: 700, mb: 3 }}>
+                  <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 3 }}>
                     Cumplimiento mensual — últimos 6 meses
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 160, px: 1 }}>
@@ -365,7 +365,7 @@ export default function EAMPlanesMant() {
                       </Box>
                     ))}
                   </Box>
-                  <Divider sx={{ borderColor: '#1F2937', mt: 1, mb: 1.5 }} />
+                  <Divider sx={{ borderColor: '#E5E7EB', mt: 1, mb: 1.5 }} />
                   <Stack direction="row" spacing={2} justifyContent="center">
                     {[{ color: '#34D399', label: '≥ 90% Excelente' }, { color: '#FCD34D', label: '80-89% Aceptable' }, { color: '#F87171', label: '< 80% Requiere acción' }].map(l => (
                       <Stack key={l.label} direction="row" alignItems="center" spacing={0.5}>

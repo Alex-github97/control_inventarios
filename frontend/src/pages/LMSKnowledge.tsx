@@ -59,7 +59,7 @@ export default function LMSKnowledge() {
             background: `linear-gradient(135deg, ${LMS_COLOR} 0%, #B45309 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <LibraryBooks sx={{ color: 'text.primary', fontSize: 22 }} />
+            <LibraryBooks sx={{ color: '#FFF', fontSize: 22 }} />
           </Box>
           <Box>
             <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Repositorio de Conocimiento</Typography>
@@ -82,14 +82,14 @@ export default function LMSKnowledge() {
 
         {tab === 0 && (
           <>
-            <Box sx={{ display: 'flex', gap: 1, mb: 2, 'border: "1px solid #E5E7EB"', borderRadius: 2, px: 2, py: 1, alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', gap: 1, mb: 2, bgcolor: '#fff', border: '1px solid #E5E7EB', borderRadius: 2, px: 2, py: 1, alignItems: 'center' }}>
               <Search sx={{ color: 'text.disabled', fontSize: 20 }} />
               <InputBase placeholder="Buscar recursos..." value={busqueda} onChange={e => setBusqueda(e.target.value)} sx={{ flex: 1, color: 'text.primary', fontSize: 13.5 }} />
             </Box>
             <Box sx={{ display: 'flex', gap: 1, mb: 3, flexWrap: 'wrap' }}>
               {CATEGORIAS.map(c => (
                 <Chip key={c} label={c} size="small" onClick={() => setCategoria(c)}
-                  sx={{ cursor: 'pointer', bgcolor: categoria === c ? LMS_COLOR : 'rgba(255,255,255,0.06)', color: categoria === c ? '#FFF' : 'rgba(255,255,255,0.5)', fontWeight: categoria === c ? 700 : 400 }} />
+                  sx={{ cursor: 'pointer', bgcolor: categoria === c ? LMS_COLOR : '#F1F5F9', color: categoria === c ? '#FFF' : '#64748B', fontWeight: categoria === c ? 700 : 400 }} />
               ))}
             </Box>
             <Grid container spacing={2}>
@@ -98,7 +98,7 @@ export default function LMSKnowledge() {
                 return (
                   <Grid key={i} size={{ xs: 12, sm: 6, lg: 4 }}>
                     <Box sx={{
-                      'border: "1px solid #E5E7EB"', borderRadius: 2, p: 2.5,
+                      bgcolor: '#fff', border: '1px solid #E5E7EB', borderRadius: 2, p: 2.5,
                       '&:hover': { border: `1px solid ${alpha(col, 0.4)}` }, transition: 'border 0.2s ease', cursor: 'pointer',
                     }}>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 1.5 }}>
@@ -138,7 +138,7 @@ export default function LMSKnowledge() {
               </Typography>
             </Box>
             {LECCIONES.map((l, i) => (
-              <Box key={i} sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2, p: 2.5 }}>
+              <Box key={i} sx={{ bgcolor: '#fff', border: '1px solid #E5E7EB', borderRadius: 2, p: 2.5 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                   <Box sx={{ flex: 1 }}>
                     <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>

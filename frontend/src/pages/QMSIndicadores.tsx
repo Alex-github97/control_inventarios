@@ -76,7 +76,7 @@ export default function QMSIndicadores() {
               const spMax = Math.max(...ind.sparkline)
               return (
                 <Grid key={ind.nombre} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
-                  <Card sx={{ bgcolor: 'text.primary', border: `1px solid ${alpha(color, 0.35)}`, borderRadius: 2 }}>
+                  <Card sx={{ bgcolor: 'background.paper', border: `1px solid ${alpha(color, 0.35)}`, borderRadius: 2 }}>
                     <CardContent sx={{ p: '14px !important' }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                         <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: color, mt: 0.5 }} />
@@ -158,7 +158,7 @@ export default function QMSIndicadores() {
           </Paper>
         </TabPanel>
 
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary' } }}>
+        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { color: 'text.primary' } }}>
           <DialogTitle sx={{ fontWeight: 700 }}>Registrar Medición</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
             <FormControl size="small">

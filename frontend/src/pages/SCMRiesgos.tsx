@@ -4,7 +4,8 @@ import { GppBad, Warning, Info, Add, Shield } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 const SCM_COLOR = '#0C4D8C'
-const #E5E7EB  = `rgba(12,77,140,0.25)`
+const PAGE_BG   = '#F0F2F5'
+const BORDER    = `rgba(12,77,140,0.25)`
 
 type Impacto  = 'BAJO' | 'MEDIO' | 'ALTO' | 'CRÍTICO'
 type Prob     = 'BAJA' | 'MEDIA' | 'ALTA'
@@ -133,7 +134,7 @@ export default function SCMRiesgos() {
         </Box>
 
         {/* Dialog nuevo riesgo */}
-        <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#0A1628', color: 'text.primary' } }}>
+        <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: 'background.paper', color: 'text.primary' } }}>
           <DialogTitle sx={{ borderBottom: '1px solid #F1F5F9', fontWeight: 700 }}>Registrar Nuevo Riesgo</DialogTitle>
           <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField label="Título *" value={form.titulo} onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))} fullWidth size="small" sx={SX_INPUT} />

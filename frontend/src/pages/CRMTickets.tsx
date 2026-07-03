@@ -52,7 +52,7 @@ export default function CRMTickets() {
             background: `linear-gradient(135deg, ${CRM_COLOR} 0%, #B91C1C 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <SupportAgent sx={{ color: 'text.primary', fontSize: 22 }} />
+            <SupportAgent sx={{ color: '#FFF', fontSize: 22 }} />
           </Box>
           <Box>
             <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Servicio al Cliente — PQRS</Typography>
@@ -92,7 +92,7 @@ export default function CRMTickets() {
           </Box>
           {ESTADOS.map(e => (
             <Chip key={e} label={e === 'Todos' ? 'Todos' : e.replace('_', ' ')} size="small" onClick={() => setEstado(e)}
-              sx={{ cursor: 'pointer', bgcolor: estado === e ? (ESTADO_COLOR[e] || CRM_COLOR) : 'rgba(255,255,255,0.06)', color: estado === e ? '#FFF' : 'rgba(255,255,255,0.5)', fontWeight: estado === e ? 700 : 400 }} />
+              sx={{ cursor: 'pointer', bgcolor: estado === e ? (ESTADO_COLOR[e] || CRM_COLOR) : '#F1F5F9', color: estado === e ? '#FFF' : '#64748B', fontWeight: estado === e ? 700 : 400 }} />
           ))}
         </Box>
 
@@ -103,7 +103,7 @@ export default function CRMTickets() {
                 <thead>
                   <tr>
                     {['Código', 'Cliente', 'Tipo', 'Asunto', 'Prioridad', 'Estado', 'T. Respuesta', 'Satisf.', 'Ejecutivo'].map(h => (
-                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'text.disabled', borderBottom: '1px solid rgba(255,255,255,0.06)', whiteSpace: 'nowrap' }}>{h}</th>
+                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#64748B', borderBottom: '1px solid #E5E7EB', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -114,7 +114,7 @@ export default function CRMTickets() {
                     const pcol = PRIORIDAD_COLOR[t.prioridad] || '#94A3B8'
                     const urgente = t.estado === 'ESCALADO' || t.prioridad === 'CRITICA'
                     return (
-                      <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: urgente ? alpha(CRM_COLOR, 0.04) : undefined }}>
+                      <tr key={i} style={{ borderBottom: '1px solid #E5E7EB', background: urgente ? alpha(CRM_COLOR, 0.04) : undefined }}>
                         <td style={{ padding: '10px 14px' }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             {urgente && <Warning sx={{ fontSize: 13, color: CRM_COLOR }} />}
@@ -135,7 +135,7 @@ export default function CRMTickets() {
                           <Chip label={t.estado.replace('_', ' ')} size="small" sx={{ bgcolor: alpha(ecol, 0.15), color: ecol, fontSize: 9.5, fontWeight: 600 }} />
                         </td>
                         <td style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700, color: t.horas_resp > 24 ? CRM_COLOR : '#059669' }}>{t.horas_resp}h</td>
-                        <td style={{ padding: '10px 14px', fontSize: 13, color: t.satisfaccion ? '#F59E0B' : 'rgba(255,255,255,0.2)' }}>
+                        <td style={{ padding: '10px 14px', fontSize: 13, color: t.satisfaccion ? '#F59E0B' : '#CBD5E1' }}>
                           {t.satisfaccion ? '★'.repeat(t.satisfaccion) + '☆'.repeat(5 - t.satisfaccion) : '—'}
                         </td>
                         <td style={{ padding: '10px 14px', fontSize: 12, color: 'text.secondary', whiteSpace: 'nowrap' }}>{t.ejecutivo}</td>

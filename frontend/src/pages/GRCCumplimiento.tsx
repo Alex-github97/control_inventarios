@@ -10,6 +10,7 @@ import { VerifiedUser, Add, Edit, Delete, Close, CheckCircle, Warning, ErrorOutl
 import { Layout } from '@/components/layout/Layout'
 
 const GRC_COLOR = '#6D28D9'
+const PAGE_BG   = '#F0F2F5'
 const LBL       = alpha(GRC_COLOR, 0.85)
 const ESTADO_COLOR: Record<string,string> = { CUMPLE:'#059669', PARCIAL:'#D97706', INCUMPLE:'#DC2626', 'NO APLICA':'#6B7280', 'EN REVISION':'#0891B2' }
 const FRECUENCIAS = ['Mensual','Bimestral','Trimestral','Semestral','Anual']
@@ -28,10 +29,8 @@ type Req = typeof seed[0]
 type Form = { norma:string; clausula:string; categoria:string; responsable:string; frecuencia:string; descripcion:string; proximaRevision:string; porcentaje:number; estado:string }
 const EMPTY: Form = { norma:'', clausula:'', categoria:'', responsable:'', frecuencia:'Mensual', descripcion:'', proximaRevision:'', porcentaje:0, estado:'PARCIAL' }
 
-const TF = { '& .MuiOutlinedInput-root':{ color:'#FFF', '& fieldset':{ borderColor:'rgba(255,255,255,0.15)' }, '&.Mui-focused fieldset':{ borderColor:GRC_COLOR } } }
-const ILB = { sx:{ color:'rgba(255,255,255,0.5)' } }
 const Row2 = ({ label, value, color }:{ label:string; value:string; color?:string }) => (
-  <Box sx={{ mb:1.25 }}><Typography sx={{ fontSize:10, color:LBL, textTransform:'uppercase', letterSpacing:'0.06em', mb:.25 }}>{label}</Typography><Typography sx={{ fontSize:13, color:color||'#E2E8F0', fontWeight:500 }}>{value}</Typography></Box>
+  <Box sx={{ mb:1.25 }}><Typography sx={{ fontSize:10, color:LBL, textTransform:'uppercase', letterSpacing:'0.06em', mb:.25 }}>{label}</Typography><Typography sx={{ fontSize:13, color:color||'#334155', fontWeight:500 }}>{value}</Typography></Box>
 )
 
 export default function GRCCumplimiento() {
@@ -88,7 +87,7 @@ export default function GRCCumplimiento() {
         <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'center', mb:3 }}>
           <Box sx={{ display:'flex', alignItems:'center', gap:1.5 }}>
             <VerifiedUser sx={{ color:GRC_COLOR, fontSize:28 }} />
-            <Box><Typography variant="h5" sx={{ fontWeight:800, color:'#FFF', lineHeight:1 }}>Gestión de Cumplimiento</Typography><Typography sx={{ fontSize:12, color:LBL }}>GRC · Monitoreo de requisitos normativos</Typography></Box>
+            <Box><Typography variant="h5" sx={{ fontWeight:800, color:'#1E293B', lineHeight:1 }}>Gestión de Cumplimiento</Typography><Typography sx={{ fontSize:12, color:LBL }}>GRC · Monitoreo de requisitos normativos</Typography></Box>
             <Chip label="GRC" size="small" sx={{ bgcolor:alpha(GRC_COLOR,.15), color:GRC_COLOR, fontWeight:700, border:`1px solid ${alpha(GRC_COLOR,.35)}` }} />
           </Box>
           <Button startIcon={<Add />} size="small" variant="contained" onClick={openNew} sx={{ bgcolor:GRC_COLOR, '&:hover':{ bgcolor:'#5B21B6' }, borderRadius:2 }}>Nuevo Requisito</Button>
@@ -100,7 +99,7 @@ export default function GRCCumplimiento() {
           ))}
         </Grid>
 
-        <Tabs value={tab} onChange={(_,v)=>setTab(v)} sx={{ mb:2, borderBottom:'1px solid rgba(255,255,255,0.08)', '& .MuiTab-root':{ color:'rgba(255,255,255,0.45)', fontSize:13 }, '& .Mui-selected':{ color:GRC_COLOR }, '& .MuiTabs-indicator':{ bgcolor:GRC_COLOR } }}>
+        <Tabs value={tab} onChange={(_,v)=>setTab(v)} sx={{ mb:2, borderBottom:'1px solid #E5E7EB', '& .MuiTab-root':{ color:'#64748B', fontSize:13 }, '& .Mui-selected':{ color:GRC_COLOR }, '& .MuiTabs-indicator':{ bgcolor:GRC_COLOR } }}>
           <Tab label="Tabla de Requisitos" /><Tab label="Por Norma" />
         </Tabs>
 
@@ -109,19 +108,19 @@ export default function GRCCumplimiento() {
             {tab===0 && (
               <Paper sx={{ bgcolor:'transparent', overflowX:'auto' }}>
                 <Table size="small">
-                  <TableHead><TableRow sx={{ '& th':{ borderColor:'rgba(255,255,255,0.06)', color:LBL, fontSize:11, fontWeight:700, textTransform:'uppercase' } }}>
+                  <TableHead><TableRow sx={{ '& th':{ borderColor:'#E5E7EB', color:LBL, fontSize:11, fontWeight:700, textTransform:'uppercase' } }}>
                     <TableCell>ID</TableCell><TableCell>Norma / Cláusula</TableCell><TableCell>Categoría</TableCell><TableCell>Responsable</TableCell><TableCell>Cumplimiento</TableCell><TableCell>Estado</TableCell><TableCell>Próx. Revisión</TableCell><TableCell>Acciones</TableCell>
                   </TableRow></TableHead>
                   <TableBody>
                     {reqs.map(r=>(
-                      <TableRow key={r.id} onClick={()=>setSel(r)} sx={{ cursor:'pointer', bgcolor:sel?.id===r.id?alpha(GRC_COLOR,.06):'transparent', '&:hover':{ bgcolor:alpha(GRC_COLOR,.04) }, '& td':{ borderColor:'rgba(255,255,255,0.04)', color:'rgba(255,255,255,0.8)', fontSize:12 } }}>
+                      <TableRow key={r.id} onClick={()=>setSel(r)} sx={{ cursor:'pointer', bgcolor:sel?.id===r.id?alpha(GRC_COLOR,.06):'transparent', '&:hover':{ bgcolor:alpha(GRC_COLOR,.04) }, '& td':{ borderColor:'#E5E7EB', color:'#334155', fontSize:12 } }}>
                         <TableCell sx={{ fontSize:10.5, color:LBL }}>{r.id}</TableCell>
-                        <TableCell><Typography sx={{ fontSize:12, color:'#FFF', fontWeight:600 }}>{r.norma}</Typography><Typography sx={{ fontSize:10.5, color:'rgba(255,255,255,0.5)' }}>{r.clausula}</Typography></TableCell>
+                        <TableCell><Typography sx={{ fontSize:12, color:'#1E293B', fontWeight:600 }}>{r.norma}</Typography><Typography sx={{ fontSize:10.5, color:'#64748B' }}>{r.clausula}</Typography></TableCell>
                         <TableCell><Chip label={r.categoria} size="small" sx={{ fontSize:9, height:18, bgcolor:alpha(GRC_COLOR,.12), color:GRC_COLOR }} /></TableCell>
                         <TableCell>{r.responsable}</TableCell>
                         <TableCell sx={{ minWidth:140 }}>
                           <Box sx={{ display:'flex', alignItems:'center', gap:1 }}>
-                            <LinearProgress variant="determinate" value={r.porcentaje} sx={{ flex:1, height:5, borderRadius:2.5, bgcolor:'rgba(255,255,255,0.08)', '& .MuiLinearProgress-bar':{ bgcolor:ESTADO_COLOR[r.estado]||GRC_COLOR } }} />
+                            <LinearProgress variant="determinate" value={r.porcentaje} sx={{ flex:1, height:5, borderRadius:2.5, bgcolor:'#E5E7EB', '& .MuiLinearProgress-bar':{ bgcolor:ESTADO_COLOR[r.estado]||GRC_COLOR } }} />
                             <Typography sx={{ fontSize:11, color:ESTADO_COLOR[r.estado]||GRC_COLOR, minWidth:30, fontWeight:700 }}>{r.porcentaje}%</Typography>
                           </Box>
                         </TableCell>
@@ -145,10 +144,10 @@ export default function GRCCumplimiento() {
                 {[...new Set(reqs.map(r=>r.norma))].map(norma=>{
                   const items=reqs.filter(r=>r.norma===norma); const avg=Math.round(items.reduce((a,r)=>a+r.porcentaje,0)/items.length); const color=avg>=80?'#059669':avg>=60?'#D97706':'#DC2626'
                   return <Grid key={norma} size={{ xs:12, md:6 }}><Card sx={{ bgcolor:'#FFFFFF', border:`1px solid ${alpha(color,.3)}`, borderRadius:2 }}><CardContent sx={{ p:'14px !important' }}>
-                    <Box sx={{ display:'flex', justifyContent:'space-between', mb:1.5 }}><Typography sx={{ fontWeight:700, color:'#FFF', fontSize:14 }}>{norma}</Typography><Typography sx={{ fontSize:20, fontWeight:800, color, lineHeight:1 }}>{avg}%</Typography></Box>
-                    <LinearProgress variant="determinate" value={avg} sx={{ height:6, borderRadius:3, mb:1.5, bgcolor:'rgba(255,255,255,0.08)', '& .MuiLinearProgress-bar':{ bgcolor:color } }} />
+                    <Box sx={{ display:'flex', justifyContent:'space-between', mb:1.5 }}><Typography sx={{ fontWeight:700, color:'#1E293B', fontSize:14 }}>{norma}</Typography><Typography sx={{ fontSize:20, fontWeight:800, color, lineHeight:1 }}>{avg}%</Typography></Box>
+                    <LinearProgress variant="determinate" value={avg} sx={{ height:6, borderRadius:3, mb:1.5, bgcolor:'#E5E7EB', '& .MuiLinearProgress-bar':{ bgcolor:color } }} />
                     {items.map(r=><Box key={r.id} onClick={()=>{setSel(r);setTab(0)}} sx={{ display:'flex', justifyContent:'space-between', py:.6, cursor:'pointer', '&:hover':{ opacity:.8 } }}>
-                      <Typography sx={{ fontSize:11, color:'rgba(255,255,255,0.7)', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', pr:1 }}>{r.clausula}</Typography>
+                      <Typography sx={{ fontSize:11, color:'#64748B', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', pr:1 }}>{r.clausula}</Typography>
                       <Box sx={{ display:'flex', alignItems:'center', gap:.75 }}>
                         {r.estado==='CUMPLE'&&<CheckCircle sx={{ fontSize:13, color:'#059669' }} />}
                         {r.estado==='PARCIAL'&&<Warning sx={{ fontSize:13, color:'#D97706' }} />}
@@ -165,8 +164,8 @@ export default function GRCCumplimiento() {
           {sel && (
             <Box sx={{ width:370, flexShrink:0, bgcolor:'#FFFFFF', border:`1px solid #E5E7EB`, borderRadius:2, p:2.5, height:'fit-content' }}>
               <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', mb:1 }}>
-                <Typography sx={{ color:'#FFF', fontWeight:700, fontSize:13, flex:1, pr:1, lineHeight:1.4 }}>{sel.clausula}</Typography>
-                <IconButton size="small" onClick={()=>setSel(null)} sx={{ color:'rgba(255,255,255,0.4)' }}><Close fontSize="small" /></IconButton>
+                <Typography sx={{ color:'#1E293B', fontWeight:700, fontSize:13, flex:1, pr:1, lineHeight:1.4 }}>{sel.clausula}</Typography>
+                <IconButton size="small" onClick={()=>setSel(null)} sx={{ color:'#64748B' }}><Close fontSize="small" /></IconButton>
               </Box>
               <Box sx={{ display:'flex', gap:.75, mb:2 }}>
                 <Chip label={sel.norma} size="small" sx={{ bgcolor:alpha(GRC_COLOR,.18), color:GRC_COLOR, fontWeight:700, fontSize:10 }} />
@@ -174,7 +173,7 @@ export default function GRCCumplimiento() {
               </Box>
               <Box sx={{ mb:2 }}>
                 <Box sx={{ display:'flex', justifyContent:'space-between', mb:.5 }}><Typography sx={{ fontSize:10, color:LBL, textTransform:'uppercase' }}>Cumplimiento</Typography><Typography sx={{ fontSize:13, fontWeight:700, color:ESTADO_COLOR[sel.estado] }}>{sel.porcentaje}%</Typography></Box>
-                <LinearProgress variant="determinate" value={sel.porcentaje} sx={{ height:8, borderRadius:4, bgcolor:'rgba(255,255,255,0.08)', '& .MuiLinearProgress-bar':{ bgcolor:ESTADO_COLOR[sel.estado] } }} />
+                <LinearProgress variant="determinate" value={sel.porcentaje} sx={{ height:8, borderRadius:4, bgcolor:'#E5E7EB', '& .MuiLinearProgress-bar':{ bgcolor:ESTADO_COLOR[sel.estado] } }} />
               </Box>
               <Row2 label="ID" value={sel.id} />
               <Row2 label="Categoría" value={sel.categoria} />
@@ -182,18 +181,18 @@ export default function GRCCumplimiento() {
               <Row2 label="Frecuencia" value={sel.frecuencia} />
               <Row2 label="Última revisión" value={sel.ultimaRevision} />
               <Row2 label="Próxima revisión" value={sel.proximaRevision} color={sel.estado==='INCUMPLE'?'#DC2626':undefined} />
-              <Divider sx={{ borderColor:'rgba(255,255,255,0.06)', my:1.5 }} />
+              <Divider sx={{ borderColor:'#E5E7EB', my:1.5 }} />
               <Typography sx={{ fontSize:10, color:LBL, textTransform:'uppercase', letterSpacing:'0.06em', mb:.75 }}>Descripción</Typography>
-              <Typography sx={{ fontSize:12, color:'rgba(255,255,255,0.7)', lineHeight:1.7, mb:2 }}>{sel.descripcion}</Typography>
+              <Typography sx={{ fontSize:12, color:'#334155', lineHeight:1.7, mb:2 }}>{sel.descripcion}</Typography>
               {sel.evidencia && <>
-                <Divider sx={{ borderColor:'rgba(255,255,255,0.06)', my:1.5 }} />
-                <Box sx={{ display:'flex', alignItems:'center', gap:1, p:.75, bgcolor:'rgba(255,255,255,0.04)', borderRadius:1 }}>
+                <Divider sx={{ borderColor:'#E5E7EB', my:1.5 }} />
+                <Box sx={{ display:'flex', alignItems:'center', gap:1, p:.75, bgcolor:'#F8FAFC', borderRadius:1 }}>
                   <FileDownload sx={{ fontSize:14, color:GRC_COLOR }} />
-                  <Typography sx={{ fontSize:11, color:'rgba(255,255,255,0.7)', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{sel.evidencia}</Typography>
+                  <Typography sx={{ fontSize:11, color:'#334155', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{sel.evidencia}</Typography>
                   <Button size="small" onClick={()=>handleDownload(sel.evidencia)} sx={{ fontSize:10, color:'#059669', p:'2px 6px', minWidth:0 }}>Descargar</Button>
                 </Box>
               </>}
-              <Divider sx={{ borderColor:'rgba(255,255,255,0.06)', my:1.5 }} />
+              <Divider sx={{ borderColor:'#E5E7EB', my:1.5 }} />
               <Box sx={{ display:'flex', flexDirection:'column', gap:1 }}>
                 <Button size="small" startIcon={<Edit />} variant="outlined" fullWidth onClick={()=>openEdit(sel)} sx={{ color:GRC_COLOR, borderColor:alpha(GRC_COLOR,.4) }}>Editar Requisito</Button>
                 <Button size="small" startIcon={<Delete />} variant="outlined" fullWidth onClick={()=>handleDelete(sel.id)} sx={{ color:'#DC2626', borderColor:alpha('#DC2626',.4) }}>Eliminar</Button>
@@ -202,27 +201,27 @@ export default function GRCCumplimiento() {
           )}
         </Box>
 
-        <Dialog open={dlgOpen} onClose={()=>setDlgOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx:{ bgcolor:'#1F2937', color:'#FFF' } }}>
+        <Dialog open={dlgOpen} onClose={()=>setDlgOpen(false)} maxWidth="sm" fullWidth>
           <DialogTitle sx={{ fontWeight:700 }}>{editId?'Editar Requisito':'Nuevo Requisito de Cumplimiento'}</DialogTitle>
           <DialogContent sx={{ display:'flex', flexDirection:'column', gap:2, pt:'16px !important' }}>
-            <TextField label="Norma" fullWidth size="small" value={form.norma} onChange={sf('norma')} InputLabelProps={ILB} sx={TF} />
-            <TextField label="Cláusula / Artículo" fullWidth size="small" value={form.clausula} onChange={sf('clausula')} InputLabelProps={ILB} sx={TF} />
-            <TextField label="Categoría" fullWidth size="small" value={form.categoria} onChange={sf('categoria')} InputLabelProps={ILB} sx={TF} />
-            <TextField label="Responsable" fullWidth size="small" value={form.responsable} onChange={sf('responsable')} InputLabelProps={ILB} sx={TF} />
-            <FormControl size="small"><InputLabel sx={{ color:'rgba(255,255,255,0.5)' }}>Frecuencia</InputLabel>
-              <Select label="Frecuencia" value={form.frecuencia} onChange={e=>ss('frecuencia',e.target.value)} sx={{ color:'#FFF', '& fieldset':{ borderColor:'rgba(255,255,255,0.15)' } }}>
+            <TextField label="Norma" fullWidth size="small" value={form.norma} onChange={sf('norma')} />
+            <TextField label="Cláusula / Artículo" fullWidth size="small" value={form.clausula} onChange={sf('clausula')} />
+            <TextField label="Categoría" fullWidth size="small" value={form.categoria} onChange={sf('categoria')} />
+            <TextField label="Responsable" fullWidth size="small" value={form.responsable} onChange={sf('responsable')} />
+            <FormControl size="small"><InputLabel>Frecuencia</InputLabel>
+              <Select label="Frecuencia" value={form.frecuencia} onChange={e=>ss('frecuencia',e.target.value)}>
                 {FRECUENCIAS.map(f=><MenuItem key={f} value={f}>{f}</MenuItem>)}
               </Select></FormControl>
-            <FormControl size="small"><InputLabel sx={{ color:'rgba(255,255,255,0.5)' }}>Estado</InputLabel>
-              <Select label="Estado" value={form.estado} onChange={e=>ss('estado',e.target.value)} sx={{ color:'#FFF', '& fieldset':{ borderColor:'rgba(255,255,255,0.15)' } }}>
+            <FormControl size="small"><InputLabel>Estado</InputLabel>
+              <Select label="Estado" value={form.estado} onChange={e=>ss('estado',e.target.value)}>
                 {ESTADOS_R.map(s=><MenuItem key={s} value={s}>{s}</MenuItem>)}
               </Select></FormControl>
-            <TextField label="% Cumplimiento (0-100)" type="number" fullWidth size="small" value={form.porcentaje} onChange={e=>ss('porcentaje',Number(e.target.value))} InputLabelProps={ILB} sx={TF} inputProps={{ min:0, max:100 }} />
-            <TextField label="Descripción" multiline rows={3} fullWidth size="small" value={form.descripcion} onChange={sf('descripcion')} InputLabelProps={ILB} sx={TF} />
-            <TextField label="Próxima Revisión" type="date" fullWidth size="small" value={form.proximaRevision} onChange={sf('proximaRevision')} InputLabelProps={{ shrink:true, sx:{ color:'rgba(255,255,255,0.5)' } }} sx={TF} />
+            <TextField label="% Cumplimiento (0-100)" type="number" fullWidth size="small" value={form.porcentaje} onChange={e=>ss('porcentaje',Number(e.target.value))} inputProps={{ min:0, max:100 }} />
+            <TextField label="Descripción" multiline rows={3} fullWidth size="small" value={form.descripcion} onChange={sf('descripcion')} />
+            <TextField label="Próxima Revisión" type="date" fullWidth size="small" value={form.proximaRevision} onChange={sf('proximaRevision')} InputLabelProps={{ shrink:true }} />
           </DialogContent>
           <DialogActions sx={{ px:3, pb:2 }}>
-            <Button onClick={()=>setDlgOpen(false)} sx={{ color:'rgba(255,255,255,0.5)' }}>Cancelar</Button>
+            <Button onClick={()=>setDlgOpen(false)} sx={{ color:'#64748B' }}>Cancelar</Button>
             <Button variant="contained" onClick={handleSave} sx={{ bgcolor:GRC_COLOR, '&:hover':{ bgcolor:'#5B21B6' } }}>{editId?'Guardar Cambios':'Crear'}</Button>
           </DialogActions>
         </Dialog>

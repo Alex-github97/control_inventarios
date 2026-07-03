@@ -4,7 +4,7 @@ import { Handshake, Warning } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 const CRM_COLOR = '#DC2626'
-const #E5E7EB  = '#E5E7EB'
+const BORDER = '#E5E7EB'
 
 const ESTADO_COLOR: Record<string, string> = {
   ACTIVO: '#059669', BORRADOR: '#94A3B8', VENCIDO: '#EF4444', RENOVADO: '#0EA5E9', TERMINADO: '#6B7280',

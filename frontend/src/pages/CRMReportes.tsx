@@ -44,7 +44,7 @@ export default function CRMReportes() {
             background: `linear-gradient(135deg, ${CRM_COLOR} 0%, #B91C1C 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Assessment sx={{ color: 'text.primary', fontSize: 22 }} />
+            <Assessment sx={{ color: '#fff', fontSize: 22 }} />
           </Box>
           <Box>
             <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Analytics Comercial</Typography>
@@ -69,7 +69,7 @@ export default function CRMReportes() {
                 <thead>
                   <tr>
                     {['Ejecutivo', 'Clientes', 'Pipeline', 'Ganado', 'Win Rate', 'NPS Promedio', 'Tickets'].map(h => (
-                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'text.disabled', borderBottom: '1px solid rgba(255,255,255,0.06)', whiteSpace: 'nowrap' }}>{h}</th>
+                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'text.disabled', borderBottom: '1px solid #E5E7EB', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -78,7 +78,7 @@ export default function CRMReportes() {
                     const wrcol  = getCellColor(e.win_rate)
                     const npscol = e.nps >= 50 ? '#059669' : e.nps >= 30 ? '#F59E0B' : CRM_COLOR
                     return (
-                      <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                      <tr key={i} style={{ borderBottom: '1px solid #E5E7EB' }}>
                         <td style={{ padding: '10px 14px', fontSize: 13, color: 'text.primary', fontWeight: 700, whiteSpace: 'nowrap' }}>{e.nombre}</td>
                         <td style={{ padding: '10px 14px', fontSize: 13, color: 'text.primary' }}>{e.clientes}</td>
                         <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: CRM_COLOR }}>${(e.pipeline / 1000).toFixed(1)}B</td>
@@ -109,7 +109,7 @@ export default function CRMReportes() {
                 <thead>
                   <tr>
                     {['Segmento', 'Clientes', 'Ingresos', 'Margen %', 'Churn Avg', 'NPS'].map(h => (
-                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'text.disabled', borderBottom: '1px solid rgba(255,255,255,0.06)', whiteSpace: 'nowrap' }}>{h}</th>
+                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'text.disabled', borderBottom: '1px solid #E5E7EB', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -119,7 +119,7 @@ export default function CRMReportes() {
                     const chcol = s.churn_avg >= 30 ? '#EF4444' : s.churn_avg >= 20 ? CRM_COLOR : '#059669'
                     const npscol = s.nps >= 50 ? '#059669' : s.nps >= 40 ? '#F59E0B' : CRM_COLOR
                     return (
-                      <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                      <tr key={i} style={{ borderBottom: '1px solid #E5E7EB' }}>
                         <td style={{ padding: '10px 14px' }}>
                           <Chip label={s.seg} size="small" sx={{ bgcolor: alpha(CRM_COLOR, 0.12), color: CRM_COLOR, fontSize: 11, fontWeight: 700 }} />
                         </td>

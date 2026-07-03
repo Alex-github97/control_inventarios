@@ -191,14 +191,14 @@ function TreeNodeItem({
         <Box
           sx={{
             width: 8, height: 8, borderRadius: '50%',
-            bgcolor: hasChildren ? EAM_COLOR : 'rgba(255,255,255,0.3)',
+            bgcolor: hasChildren ? EAM_COLOR : '#CBD5E1',
             flexShrink: 0,
           }}
         />
         <Typography
           fontSize={13}
           fontWeight={hasChildren ? 600 : 400}
-          color={hasChildren ? '#fff' : 'rgba(255,255,255,0.7)'}
+          color={hasChildren ? '#1E293B' : '#64748B'}
         >
           {node.label}
         </Typography>
@@ -271,7 +271,7 @@ export default function EAMActivos() {
             <Typography variant="h5" fontWeight={800} color="text.primary" letterSpacing="-0.5px">
               Gestión de Activos
             </Typography>
-            <Typography fontSize={13} color="rgba(255,255,255,0.45)">
+            <Typography fontSize={13} color="#64748B">
               Portafolio, Vista 360° y Jerarquía de activos
             </Typography>
           </Box>
@@ -301,8 +301,7 @@ export default function EAMActivos() {
               <TextField
                 select size="small" label="Tipo de activo" value={filterTipo}
                 onChange={(e) => setFilterTipo(e.target.value)}
-                sx={{ minWidth: 180, '& .MuiOutlinedInput-root': { }, '& label': { color: 'text.secondary' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.25)' } }}
-                inputProps={{ style: { color: 'text.primary' } }}
+                sx={{ minWidth: 180, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.25)' } }}
               >
                 {['Todos', 'Vehículo', 'Montacargas', 'Infraestructura', 'Equipo'].map((o) => (
                   <MenuItem key={o} value={o}>{o}</MenuItem>
@@ -311,8 +310,7 @@ export default function EAMActivos() {
               <TextField
                 select size="small" label="Estado" value={filterEstado}
                 onChange={(e) => setFilterEstado(e.target.value)}
-                sx={{ minWidth: 200, '& .MuiOutlinedInput-root': { }, '& label': { color: 'text.secondary' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.25)' } }}
-                inputProps={{ style: { color: 'text.primary' } }}
+                sx={{ minWidth: 200, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.25)' } }}
               >
                 {['Todos', 'OPERATIVO', 'EN_MANTENIMIENTO', 'FUERA_DE_SERVICIO'].map((o) => (
                   <MenuItem key={o} value={o}>{o}</MenuItem>
@@ -321,8 +319,7 @@ export default function EAMActivos() {
               <TextField
                 select size="small" label="Criticidad" value={filterCriticidad}
                 onChange={(e) => setFilterCriticidad(e.target.value)}
-                sx={{ minWidth: 160, '& .MuiOutlinedInput-root': { }, '& label': { color: 'text.secondary' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.25)' } }}
-                inputProps={{ style: { color: 'text.primary' } }}
+                sx={{ minWidth: 160, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.25)' } }}
               >
                 {['Todos', 'CRITICA', 'ALTA', 'MEDIA', 'BAJA'].map((o) => (
                   <MenuItem key={o} value={o}>{o}</MenuItem>
@@ -347,12 +344,12 @@ export default function EAMActivos() {
                   gridTemplateColumns: '100px 1fr 120px 140px 110px 1fr 130px 110px',
                   gap: 1,
                   px: 2, py: 1.25,
-                  borderBottom: '1px solid rgba(255,255,255,0.07)',
+                  borderBottom: '1px solid #E5E7EB',
                   bgcolor: alpha(EAM_COLOR, 0.06),
                 }}
               >
                 {['Código', 'Nombre', 'Tipo', 'Estado', 'Criticidad', 'Ubicación', 'Odóm./Horám.', 'Último PM'].map((h) => (
-                  <Typography key={h} fontSize={11} fontWeight={700} color="rgba(255,255,255,0.4)" letterSpacing="0.5px">
+                  <Typography key={h} fontSize={11} fontWeight={700} color="#64748B" letterSpacing="0.5px">
                     {h.toUpperCase()}
                   </Typography>
                 ))}
@@ -367,7 +364,7 @@ export default function EAMActivos() {
                     gap: 1,
                     px: 2, py: 1.25,
                     borderBottom: idx < filtered.length - 1
-                      ? '1px solid rgba(255,255,255,0.04)'
+                      ? '1px solid #E5E7EB'
                       : 'none',
                     alignItems: 'center',
                     '&:hover': { bgcolor: alpha(EAM_COLOR, 0.04) },
@@ -376,12 +373,12 @@ export default function EAMActivos() {
                   <Typography fontSize={12} fontWeight={700} color={EAM_COLOR}>
                     {activo.codigo}
                   </Typography>
-                  <Typography fontSize={12} color="rgba(255,255,255,0.85)" noWrap>
+                  <Typography fontSize={12} color="#1E293B" noWrap>
                     {activo.nombre}
                   </Typography>
                   <Stack direction="row" alignItems="center" spacing={0.5}>
                     <Box sx={{ color: 'text.secondary' }}>{TIPO_ICON[activo.tipo]}</Box>
-                    <Typography fontSize={11} color="rgba(255,255,255,0.6)">{activo.tipo}</Typography>
+                    <Typography fontSize={11} color="#64748B">{activo.tipo}</Typography>
                   </Stack>
                   <Chip
                     label={activo.estado.replace(/_/g, ' ')}
@@ -405,13 +402,13 @@ export default function EAMActivos() {
                       height: 20,
                     }}
                   />
-                  <Typography fontSize={12} color="rgba(255,255,255,0.6)" noWrap>
+                  <Typography fontSize={12} color="#64748B" noWrap>
                     {activo.ubicacion}
                   </Typography>
-                  <Typography fontSize={12} color="rgba(255,255,255,0.65)">
+                  <Typography fontSize={12} color="#64748B">
                     {activo.odometro}
                   </Typography>
-                  <Typography fontSize={12} color="rgba(255,255,255,0.65)">
+                  <Typography fontSize={12} color="#64748B">
                     {activo.ultimoPM}
                   </Typography>
                 </Box>
@@ -436,7 +433,7 @@ export default function EAMActivos() {
             >
               <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} spacing={2}>
                 <Box>
-                  <Typography fontSize={11} fontWeight={700} color="rgba(255,255,255,0.4)" letterSpacing="0.5px" mb={0.5}>
+                  <Typography fontSize={11} fontWeight={700} color="#64748B" letterSpacing="0.5px" mb={0.5}>
                     VH-001
                   </Typography>
                   <Typography variant="h6" fontWeight={800} color="text.primary">
@@ -483,7 +480,7 @@ export default function EAMActivos() {
                     <Typography fontSize={22} fontWeight={900} color={k.color} lineHeight={1}>
                       {k.value}
                     </Typography>
-                    <Typography fontSize={11} color="rgba(255,255,255,0.45)" mt={0.5}>
+                    <Typography fontSize={11} color="#64748B" mt={0.5}>
                       {k.label}
                     </Typography>
                   </Paper>
@@ -516,8 +513,8 @@ export default function EAMActivos() {
                           gap: 1.5,
                           p: 1.25,
                           borderRadius: '10px',
-                          bgcolor: 'text.disabled',
-                          border: '1px solid rgba(255,255,255,0.06)',
+                          bgcolor: '#F8FAFC',
+                          border: '1px solid #E5E7EB',
                         }}
                       >
                         <Box flex={1} minWidth={0}>
@@ -537,7 +534,7 @@ export default function EAMActivos() {
                               }}
                             />
                           </Stack>
-                          <Typography fontSize={12} color="rgba(255,255,255,0.7)" noWrap>
+                          <Typography fontSize={12} color="#64748B" noWrap>
                             {ot.descripcion}
                           </Typography>
                         </Box>
@@ -545,7 +542,7 @@ export default function EAMActivos() {
                           <Typography fontSize={11} fontWeight={700} color="#16A34A">
                             {ot.costo}
                           </Typography>
-                          <Typography fontSize={10} color="rgba(255,255,255,0.4)">
+                          <Typography fontSize={10} color="#64748B">
                             {ot.fecha}
                           </Typography>
                         </Box>
@@ -576,7 +573,7 @@ export default function EAMActivos() {
                     <Stack spacing={1}>
                       {COMPONENTES.map((c) => (
                         <Stack key={c.nombre} direction="row" justifyContent="space-between" alignItems="center">
-                          <Typography fontSize={12} color="rgba(255,255,255,0.75)">{c.nombre}</Typography>
+                          <Typography fontSize={12} color="#64748B">{c.nombre}</Typography>
                           <Chip
                             label={c.estado}
                             size="small"

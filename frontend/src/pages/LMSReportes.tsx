@@ -58,7 +58,7 @@ export default function LMSReportes() {
               background: `linear-gradient(135deg, ${LMS_COLOR} 0%, #B45309 100%)`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <Assessment sx={{ color: 'text.primary', fontSize: 22 }} />
+              <Assessment sx={{ color: '#fff', fontSize: 22 }} />
             </Box>
             <Box>
               <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Reportes y Analítica</Typography>
@@ -102,7 +102,7 @@ export default function LMSReportes() {
         </Tabs>
 
         {tab === 0 && (
-          <Box sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2, overflow: 'hidden' }}>
+          <Box sx={{ border: '1px solid #E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
@@ -125,7 +125,7 @@ export default function LMSReportes() {
                         <Typography sx={{ fontSize: 12, fontWeight: 700, color: k.color }}>{k.cumplimiento}%</Typography>
                       </Box>
                     </td>
-                    <td style={{ padding: '10px 14px', fontSize: 12, color: k.brecha > 15 ? '#EF4444' : 'rgba(255,255,255,0.5)' }}>{k.brecha}%</td>
+                    <td style={{ padding: '10px 14px', fontSize: 12, color: k.brecha > 15 ? '#EF4444' : '#64748B' }}>{k.brecha}%</td>
                     <td style={{ padding: '10px 14px' }}>
                       <Chip
                         label={k.cumplimiento >= 90 ? 'Óptimo' : k.cumplimiento >= 80 ? 'Aceptable' : 'Crítico'}
@@ -141,7 +141,7 @@ export default function LMSReportes() {
         )}
 
         {tab === 1 && (
-          <Box sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2, p: 3 }}>
+          <Box sx={{ border: '1px solid #E5E7EB', borderRadius: 2, p: 3 }}>
             <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 3 }}>Horas de Capacitación por Área</Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {KPI_AREA.sort((a, b) => b.horas - a.horas).map((k, i) => {
@@ -156,7 +156,7 @@ export default function LMSReportes() {
                         transition: 'width 0.6s ease',
                         display: 'flex', alignItems: 'center', px: 1.5,
                       }}>
-                        <Typography sx={{ fontSize: 11, fontWeight: 700, color: 'text.primary' }}>{k.horas}h</Typography>
+                        <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#fff' }}>{k.horas}h</Typography>
                       </Box>
                     </Box>
                     <Typography sx={{ fontSize: 12, color: 'text.secondary', width: 80, textAlign: 'right', flexShrink: 0 }}>
@@ -170,7 +170,7 @@ export default function LMSReportes() {
         )}
 
         {tab === 2 && (
-          <Box sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2, overflow: 'hidden' }}>
+          <Box sx={{ border: '1px solid #E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
             <Box sx={{ p: 2, borderBottom: '1px solid #F1F5F9' }}>
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                 {[
@@ -218,7 +218,7 @@ export default function LMSReportes() {
         )}
 
         {tab === 3 && (
-          <Box sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2, overflow: 'hidden' }}>
+          <Box sx={{ border: '1px solid #E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>

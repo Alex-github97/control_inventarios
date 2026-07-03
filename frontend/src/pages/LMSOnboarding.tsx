@@ -65,7 +65,7 @@ export default function LMSOnboarding() {
             background: `linear-gradient(135deg, ${LMS_COLOR} 0%, #B45309 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <PersonAdd sx={{ color: 'text.primary', fontSize: 22 }} />
+            <PersonAdd sx={{ color: '#fff', fontSize: 22 }} />
           </Box>
           <Box>
             <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Onboarding</Typography>
@@ -84,7 +84,7 @@ export default function LMSOnboarding() {
             { label: 'Cursos Oblig. Asignados', value: CURSOS_OBLIGATORIOS.length, color: LMS_COLOR, icon: <PersonAdd /> },
           ].map((k, i) => (
             <Grid key={i} size={{ xs: 6, md: 3 }}>
-              <Box sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2, p: 2, display: 'flex', gap: 1.5, alignItems: 'center' }}>
+              <Box sx={{ border: '1px solid #E5E7EB', bgcolor: 'background.paper', borderRadius: 2, p: 2, display: 'flex', gap: 1.5, alignItems: 'center' }}>
                 <Box sx={{
                   width: 38, height: 38, borderRadius: '10px', flexShrink: 0,
                   background: `linear-gradient(135deg, ${k.color} 0%, ${alpha(k.color, 0.6)} 100%)`,
@@ -105,7 +105,7 @@ export default function LMSOnboarding() {
         <Grid container spacing={2}>
           {/* Lista de onboardings */}
           <Grid size={{ xs: 12, md: 8 }}>
-            <Box sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2, overflow: 'hidden' }}>
+            <Box sx={{ border: '1px solid #E5E7EB', bgcolor: 'background.paper', borderRadius: 2, overflow: 'hidden' }}>
               <Box sx={{ p: 2, borderBottom: '1px solid #F1F5F9' }}>
                 <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary' }}>Planes de Inducción Activos</Typography>
               </Box>
@@ -153,7 +153,7 @@ export default function LMSOnboarding() {
                               ? <CheckCircle sx={{ fontSize: 16, color: '#059669' }} />
                               : <RadioButtonUnchecked sx={{ fontSize: 16, color: 'text.disabled' }} />
                             }
-                            <Typography sx={{ fontSize: 12.5, color: c.completado ? '#FFF' : 'rgba(255,255,255,0.45)', flex: 1 }}>{c.nombre}</Typography>
+                            <Typography sx={{ fontSize: 12.5, color: c.completado ? '#1E293B' : '#94A3B8', flex: 1 }}>{c.nombre}</Typography>
                             {c.obligatorio && <Chip label="Obligatorio" size="small" sx={{ bgcolor: alpha('#EF4444', 0.1), color: '#EF4444', fontSize: 9 }} />}
                           </Box>
                         ))}
@@ -167,7 +167,7 @@ export default function LMSOnboarding() {
 
           {/* Cursos obligatorios para onboarding */}
           <Grid size={{ xs: 12, md: 4 }}>
-            <Box sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2, p: 2.5 }}>
+            <Box sx={{ border: '1px solid #E5E7EB', bgcolor: 'background.paper', borderRadius: 2, p: 2.5 }}>
               <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 2 }}>
                 Cursos Obligatorios de Inducción
               </Typography>

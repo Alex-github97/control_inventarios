@@ -49,7 +49,7 @@ export default function LMSGamificacion() {
             background: `linear-gradient(135deg, ${LMS_COLOR} 0%, #B45309 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <EmojiEvents sx={{ color: 'text.primary', fontSize: 22 }} />
+            <EmojiEvents sx={{ color: '#fff', fontSize: 22 }} />
           </Box>
           <Box>
             <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Gamificación</Typography>
@@ -74,7 +74,7 @@ export default function LMSGamificacion() {
         {tab === 0 && (
           <Box sx={{ border: `1px solid #E5E7EB`, borderRadius: 2, overflow: 'hidden' }}>
             {/* Top 3 visual */}
-            <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', gap: 3, borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
+            <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', gap: 3, borderBottom: '1px solid #E5E7EB', flexWrap: 'wrap' }}>
               {[RANKING[1], RANKING[0], RANKING[2]].map((r, i) => {
                 const podioPos = i === 0 ? 2 : i === 1 ? 1 : 3
                 const col = POS_COLORS[podioPos]
@@ -100,7 +100,7 @@ export default function LMSGamificacion() {
               <thead>
                 <tr>
                   {['#', 'Colaborador', 'Cargo', 'Puntos', 'Insignias', 'Completados'].map(h => (
-                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'text.disabled', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{h}</th>
+                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#64748B', borderBottom: '1px solid #E5E7EB' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -108,8 +108,8 @@ export default function LMSGamificacion() {
                 {RANKING.map((r, i) => {
                   const col = POS_COLORS[r.pos]
                   return (
-                    <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                      <td style={{ padding: '10px 14px', fontSize: 15, fontWeight: 800, color: col || 'rgba(255,255,255,0.3)', width: 40 }}>
+                    <tr key={i} style={{ borderBottom: '1px solid #E5E7EB' }}>
+                      <td style={{ padding: '10px 14px', fontSize: 15, fontWeight: 800, color: col || '#94A3B8', width: 40 }}>
                         {r.pos <= 3 ? ['🥇', '🥈', '🥉'][r.pos - 1] : r.pos}
                       </td>
                       <td style={{ padding: '10px 14px', fontSize: 13, color: 'text.primary', fontWeight: 600 }}>{r.nombre}</td>

@@ -39,7 +39,7 @@ export default function LMSEvaluaciones() {
             background: `linear-gradient(135deg, ${LMS_COLOR} 0%, #B45309 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Quiz sx={{ color: 'text.primary', fontSize: 22 }} />
+            <Quiz sx={{ color: '#fff', fontSize: 22 }} />
           </Box>
           <Box>
             <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Evaluaciones</Typography>
@@ -133,7 +133,7 @@ export default function LMSEvaluaciones() {
               <thead>
                 <tr>
                   {['Colaborador', 'Evaluación', 'Puntaje', 'Resultado', 'Fecha'].map(h => (
-                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'text.disabled', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{h}</th>
+                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'text.disabled', borderBottom: '1px solid #E5E7EB' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -141,7 +141,7 @@ export default function LMSEvaluaciones() {
                 {INTENTOS_RECIENTES.map((i, idx) => {
                   const col = i.aprobado ? '#059669' : '#EF4444'
                   return (
-                    <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                    <tr key={idx} style={{ borderBottom: '1px solid #E5E7EB' }}>
                       <td style={{ padding: '10px 14px', fontSize: 13, color: 'text.primary', fontWeight: 500 }}>{i.colaborador}</td>
                       <td style={{ padding: '10px 14px', fontSize: 12.5, color: 'text.secondary' }}>{i.evaluacion}</td>
                       <td style={{ padding: '10px 14px', fontSize: 15, fontWeight: 800, color: col }}>{i.puntaje}%</td>

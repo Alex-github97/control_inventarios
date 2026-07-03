@@ -13,6 +13,8 @@ import { Layout } from '@/components/layout/Layout';
 const MES_COLOR = '#0891B2';
 const MES_DARK = '#0E7490';
 const MES_BORDER = 'rgba(8,145,178,0.25)';
+const BG_CARD = '#FFFFFF';
+const BG_PAGE = '#F0F2F5';
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 interface KpiCard {
@@ -224,7 +226,7 @@ const LineCard: React.FC<{ line: ProductionLine }> = ({ line }) => {
     <Box
       sx={{
         bgcolor: '#F9FAFB',
-        border: `1px solid rgba(255,255,255,0.07)`,
+        border: `1px solid #E5E7EB`,
         borderRadius: 1.5,
         p: 1.25,
         display: 'flex',
@@ -233,7 +235,7 @@ const LineCard: React.FC<{ line: ProductionLine }> = ({ line }) => {
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-        <Typography sx={{ color: '#e2e8f0', fontSize: '0.72rem', fontWeight: 600, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <Typography sx={{ color: '#1E293B', fontSize: '0.72rem', fontWeight: 600, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {line.name}
         </Typography>
         <Box
@@ -264,7 +266,7 @@ const LineCard: React.FC<{ line: ProductionLine }> = ({ line }) => {
       {/* Production vs target */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
         <Typography sx={{ color: 'text.secondary', fontSize: '0.6rem' }}>
-          Prod: <Box component="span" sx={{ color: '#e2e8f0', fontWeight: 600 }}>{line.currentProduction.toLocaleString()}</Box>
+          Prod: <Box component="span" sx={{ color: '#1E293B', fontWeight: 600 }}>{line.currentProduction.toLocaleString()}</Box>
           {' / '}{line.target.toLocaleString()} un
         </Typography>
         <Typography sx={{ color: progressPct >= 80 ? '#22c55e' : '#f59e0b', fontSize: '0.6rem', fontWeight: 700 }}>
@@ -320,7 +322,7 @@ const OrderRow: React.FC<{ order: ActiveOrder }> = ({ order }) => {
       />
       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
         <Typography sx={{ color: 'text.disabled', fontSize: '0.58rem' }}>
-          Progreso: <Box component="span" sx={{ color: '#e2e8f0' }}>{order.progress}%</Box>
+          Progreso: <Box component="span" sx={{ color: '#1E293B' }}>{order.progress}%</Box>
         </Typography>
         <Typography sx={{ color: 'text.disabled', fontSize: '0.58rem' }}>
           Restante: <Box component="span" sx={{ color: '#f59e0b' }}>{order.remainingTime}</Box>
@@ -349,7 +351,7 @@ const StopRow: React.FC<{ stop: ActiveStop }> = ({ stop }) => {
       <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: dot, flexShrink: 0, boxShadow: `0 0 6px ${dot}` }} />
 
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography sx={{ color: '#e2e8f0', fontSize: '0.68rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <Typography sx={{ color: '#1E293B', fontSize: '0.68rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {stop.equipment}
         </Typography>
         <Typography sx={{ color: dot, fontSize: '0.6rem', mt: 0.15 }}>
@@ -415,7 +417,7 @@ const AlertRow: React.FC<{ alert: Alert }> = ({ alert }) => {
         <Typography sx={{ color: ac.text, fontSize: '0.57rem', fontWeight: 700 }}>{alert.level}</Typography>
       </Box>
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography sx={{ color: '#e2e8f0', fontSize: '0.68rem', lineHeight: 1.35 }}>
+        <Typography sx={{ color: '#1E293B', fontSize: '0.68rem', lineHeight: 1.35 }}>
           {alert.description}
         </Typography>
         <Typography sx={{ color: 'text.disabled', fontSize: '0.6rem', mt: 0.3 }}>
@@ -506,7 +508,7 @@ const MESDashboard: React.FC = () => {
             <Typography
               variant="h5"
               sx={{
-                color: '#f0f9ff',
+                color: '#1E293B',
                 fontWeight: 800,
                 fontSize: { xs: '1.1rem', md: '1.4rem' },
                 lineHeight: 1.2,
@@ -599,7 +601,7 @@ const MESDashboard: React.FC = () => {
                   sx={{
                     mt: 2,
                     pt: 1.5,
-                    borderTop: `1px solid rgba(255,255,255,0.07)`,
+                    borderTop: `1px solid #E5E7EB`,
                     display: 'flex',
                     gap: 2,
                     flexWrap: 'wrap',

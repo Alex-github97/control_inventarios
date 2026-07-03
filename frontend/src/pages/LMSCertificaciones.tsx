@@ -4,7 +4,7 @@ import { WorkspacePremium, Warning, CheckCircle } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 const LMS_COLOR = '#D97706'
-const #E5E7EB  = '#E5E7EB'
+const BORDER = '#E5E7EB'
 
 const ESTADO_COLORS: Record<string, string> = {
   VIGENTE: '#059669', POR_VENCER: '#F59E0B', VENCIDA: '#EF4444', CANCELADA: '#6B7280',
@@ -44,7 +44,7 @@ export default function LMSCertificaciones() {
             background: `linear-gradient(135deg, ${LMS_COLOR} 0%, #B45309 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <WorkspacePremium sx={{ color: 'text.primary', fontSize: 22 }} />
+            <WorkspacePremium sx={{ color: '#fff', fontSize: 22 }} />
           </Box>
           <Box>
             <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Certificaciones</Typography>
@@ -63,7 +63,7 @@ export default function LMSCertificaciones() {
             { label: 'Tipos de Certificación', value: CERTIFICACIONES.length, color: LMS_COLOR, icon: <WorkspacePremium /> },
           ].map((k, i) => (
             <Grid key={i} size={{ xs: 6, md: 3 }}>
-              <Box sx={{ bgcolor: 'text.primary', border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2, p: 2, display: 'flex', gap: 1.5, alignItems: 'center' }}>
+              <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2, p: 2, display: 'flex', gap: 1.5, alignItems: 'center' }}>
                 <Box sx={{
                   width: 38, height: 38, borderRadius: '10px', flexShrink: 0,
                   background: `linear-gradient(135deg, ${k.color} 0%, ${alpha(k.color, 0.6)} 100%)`,
@@ -98,14 +98,14 @@ export default function LMSCertificaciones() {
               const total = c.vigentes + c.vencidas + c.por_vencer
               return (
                 <Grid key={c.id} size={{ xs: 12, md: 6 }}>
-                  <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
+                  <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${BORDER}`, borderRadius: 2, p: 2.5 }}>
                     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 2 }}>
                       <Box sx={{
                         width: 38, height: 38, borderRadius: '10px', flexShrink: 0,
                         background: `linear-gradient(135deg, ${LMS_COLOR} 0%, #B45309 100%)`,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>
-                        <WorkspacePremium sx={{ color: 'text.primary', fontSize: 20 }} />
+                        <WorkspacePremium sx={{ color: '#fff', fontSize: 20 }} />
                       </Box>
                       <Box>
                         <Typography sx={{ fontSize: 11, color: LMS_COLOR, fontWeight: 600 }}>{c.codigo}</Typography>
@@ -127,7 +127,7 @@ export default function LMSCertificaciones() {
         )}
 
         {tab === 1 && (
-          <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, overflow: 'hidden' }}>
+          <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${BORDER}`, borderRadius: 2, overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>

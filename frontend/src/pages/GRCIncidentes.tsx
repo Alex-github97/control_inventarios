@@ -30,10 +30,8 @@ type Incidente = typeof seed[0]
 type Form = { titulo:string; tipo:string; area:string; responsable:string; severidad:string; estado:string; fechaDeteccion:string; fechaCierre:string; descripcion:string }
 const EMPTY: Form = { titulo:'', tipo:'OPERACIONAL', area:'', responsable:'', severidad:'MEDIO', estado:'ABIERTO', fechaDeteccion:'', fechaCierre:'', descripcion:'' }
 
-const TF = { '& .MuiOutlinedInput-root':{ color:'#FFF', '& fieldset':{ borderColor:'rgba(255,255,255,0.15)' }, '&.Mui-focused fieldset':{ borderColor:GRC_COLOR } } }
-const ILB = { sx:{ color:'rgba(255,255,255,0.5)' } }
 const Row2 = ({ label, value, color }:{ label:string; value:string; color?:string }) => (
-  <Box sx={{ mb:1.25 }}><Typography sx={{ fontSize:10, color:LBL, textTransform:'uppercase', letterSpacing:'0.06em', mb:.25 }}>{label}</Typography><Typography sx={{ fontSize:13, color:color||'#E2E8F0', fontWeight:500 }}>{value}</Typography></Box>
+  <Box sx={{ mb:1.25 }}><Typography sx={{ fontSize:10, color:LBL, textTransform:'uppercase', letterSpacing:'0.06em', mb:.25 }}>{label}</Typography><Typography sx={{ fontSize:13, color:color||'#1E293B', fontWeight:500 }}>{value}</Typography></Box>
 )
 
 export default function GRCIncidentes() {
@@ -82,11 +80,11 @@ export default function GRCIncidentes() {
 
   return (
     <Layout>
-      <Box sx={{ p:3, background:PAGE_BG, minHeight:'100vh' }}>
+      <Box sx={{ p:3, background:'#F0F2F5', minHeight:'100vh' }}>
         <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'center', mb:3 }}>
           <Box sx={{ display:'flex', alignItems:'center', gap:1.5 }}>
             <Security sx={{ color:GRC_COLOR, fontSize:28 }} />
-            <Box><Typography variant="h5" sx={{ fontWeight:800, color:'#FFF', lineHeight:1 }}>Gestión de Incidentes</Typography><Typography sx={{ fontSize:12, color:LBL }}>GRC · Registro, investigación y cierre de incidentes</Typography></Box>
+            <Box><Typography variant="h5" sx={{ fontWeight:800, color:'#1E293B', lineHeight:1 }}>Gestión de Incidentes</Typography><Typography sx={{ fontSize:12, color:LBL }}>GRC · Registro, investigación y cierre de incidentes</Typography></Box>
             <Chip label="GRC" size="small" sx={{ bgcolor:alpha(GRC_COLOR,.15), color:GRC_COLOR, fontWeight:700, border:`1px solid ${alpha(GRC_COLOR,.35)}` }} />
           </Box>
           <Button startIcon={<Add />} size="small" variant="contained" onClick={openNew} sx={{ bgcolor:GRC_COLOR, '&:hover':{ bgcolor:'#5B21B6' }, borderRadius:2 }}>Nuevo Incidente</Button>
@@ -98,7 +96,7 @@ export default function GRCIncidentes() {
           )})}
         </Grid>
 
-        <Tabs value={tab} onChange={(_,v)=>setTab(v)} sx={{ mb:2, borderBottom:'1px solid rgba(255,255,255,0.08)', '& .MuiTab-root':{ color:'rgba(255,255,255,0.45)', fontSize:12 }, '& .Mui-selected':{ color:GRC_COLOR }, '& .MuiTabs-indicator':{ bgcolor:GRC_COLOR } }}>
+        <Tabs value={tab} onChange={(_,v)=>setTab(v)} sx={{ mb:2, borderBottom:'1px solid #E5E7EB', '& .MuiTab-root':{ color:'#64748B', fontSize:12 }, '& .Mui-selected':{ color:GRC_COLOR }, '& .MuiTabs-indicator':{ bgcolor:GRC_COLOR } }}>
           <Tab label="Todos" /><Tab label="Activos" /><Tab label="Cerrados" />
         </Tabs>
 
@@ -106,20 +104,20 @@ export default function GRCIncidentes() {
           <Box sx={{ flex:1, minWidth:0 }}>
             <Paper sx={{ bgcolor:'transparent', overflowX:'auto' }}>
               <Table size="small">
-                <TableHead><TableRow sx={{ '& th':{ borderColor:'rgba(255,255,255,0.06)', color:LBL, fontSize:11, fontWeight:700, textTransform:'uppercase' } }}>
+                <TableHead><TableRow sx={{ '& th':{ borderColor:'#E5E7EB', color:LBL, fontSize:11, fontWeight:700, textTransform:'uppercase' } }}>
                   <TableCell>ID</TableCell><TableCell>Incidente</TableCell><TableCell>Tipo</TableCell><TableCell>Área</TableCell><TableCell>Severidad</TableCell><TableCell>Estado</TableCell><TableCell>Detectado</TableCell><TableCell>Cierre</TableCell><TableCell>Acciones</TableCell>
                 </TableRow></TableHead>
                 <TableBody>
                   {filtered.map(i=>(
-                    <TableRow key={i.id} onClick={()=>setSel(i)} sx={{ cursor:'pointer', bgcolor:sel?.id===i.id?alpha(GRC_COLOR,.06):'transparent', '&:hover':{ bgcolor:alpha(GRC_COLOR,.04) }, '& td':{ borderColor:'rgba(255,255,255,0.04)', color:'rgba(255,255,255,0.8)', fontSize:12 } }}>
+                    <TableRow key={i.id} onClick={()=>setSel(i)} sx={{ cursor:'pointer', bgcolor:sel?.id===i.id?alpha(GRC_COLOR,.06):'transparent', '&:hover':{ bgcolor:alpha(GRC_COLOR,.04) }, '& td':{ borderColor:'#E5E7EB', color:'#334155', fontSize:12 } }}>
                       <TableCell sx={{ fontSize:10.5, color:LBL }}>{i.id}</TableCell>
-                      <TableCell sx={{ maxWidth:220 }}><Typography sx={{ fontSize:12.5, color:'#FFF', fontWeight:600, lineHeight:1.3 }}>{i.titulo}</Typography></TableCell>
+                      <TableCell sx={{ maxWidth:220 }}><Typography sx={{ fontSize:12.5, color:'#1E293B', fontWeight:600, lineHeight:1.3 }}>{i.titulo}</Typography></TableCell>
                       <TableCell><Chip label={i.tipo} size="small" sx={{ fontSize:9, height:18, bgcolor:alpha(TIPO_COLOR[i.tipo]||GRC_COLOR,.18), color:TIPO_COLOR[i.tipo]||GRC_COLOR }} /></TableCell>
                       <TableCell sx={{ fontSize:11 }}>{i.area}</TableCell>
                       <TableCell><Chip label={i.severidad} size="small" sx={{ fontSize:9, height:18, bgcolor:alpha(SEVERIDAD_COLOR[i.severidad],.18), color:SEVERIDAD_COLOR[i.severidad] }} /></TableCell>
                       <TableCell><Chip label={i.estado} size="small" sx={{ fontSize:9, height:18, bgcolor:alpha(ESTADO_COLOR[i.estado],.18), color:ESTADO_COLOR[i.estado] }} /></TableCell>
                       <TableCell sx={{ fontSize:11 }}>{i.fechaDeteccion}</TableCell>
-                      <TableCell sx={{ fontSize:11, color:'rgba(255,255,255,0.5)' }}>{i.fechaCierre||'—'}</TableCell>
+                      <TableCell sx={{ fontSize:11, color:'#64748B' }}>{i.fechaCierre||'—'}</TableCell>
                       <TableCell>
                         <Box sx={{ display:'flex', gap:.25 }} onClick={e=>e.stopPropagation()}>
                           <IconButton size="small" title="Editar" onClick={e=>openEdit(i,e)} sx={{ color:GRC_COLOR, p:.5 }}><Edit sx={{ fontSize:14 }} /></IconButton>
@@ -136,8 +134,8 @@ export default function GRCIncidentes() {
           {sel&&(
             <Box sx={{ width:370, flexShrink:0, bgcolor:'#FFFFFF', border:`1px solid #E5E7EB`, borderRadius:2, p:2.5, height:'fit-content' }}>
               <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', mb:1 }}>
-                <Typography sx={{ color:'#FFF', fontWeight:700, fontSize:13, flex:1, pr:1, lineHeight:1.4 }}>{sel.titulo}</Typography>
-                <IconButton size="small" onClick={()=>setSel(null)} sx={{ color:'rgba(255,255,255,0.4)' }}><Close fontSize="small" /></IconButton>
+                <Typography sx={{ color:'#1E293B', fontWeight:700, fontSize:13, flex:1, pr:1, lineHeight:1.4 }}>{sel.titulo}</Typography>
+                <IconButton size="small" onClick={()=>setSel(null)} sx={{ color:'#64748B' }}><Close fontSize="small" /></IconButton>
               </Box>
               <Box sx={{ display:'flex', gap:.75, mb:2, flexWrap:'wrap' }}>
                 <Chip label={sel.tipo} size="small" sx={{ bgcolor:alpha(TIPO_COLOR[sel.tipo]||GRC_COLOR,.18), color:TIPO_COLOR[sel.tipo]||GRC_COLOR, fontSize:10 }} />
@@ -148,16 +146,16 @@ export default function GRCIncidentes() {
               <Row2 label="Responsable" value={sel.responsable} />
               <Row2 label="Detectado" value={sel.fechaDeteccion} />
               {sel.fechaCierre&&<Row2 label="Cerrado" value={sel.fechaCierre} color="#059669" />}
-              <Divider sx={{ borderColor:'rgba(255,255,255,0.06)', my:1.5 }} />
+              <Divider sx={{ borderColor:'#E5E7EB', my:1.5 }} />
               <Typography sx={{ fontSize:10, color:LBL, textTransform:'uppercase', letterSpacing:'0.06em', mb:.75 }}>Descripción</Typography>
-              <Typography sx={{ fontSize:12, color:'rgba(255,255,255,0.7)', lineHeight:1.7, mb:2 }}>{sel.descripcion}</Typography>
-              <Divider sx={{ borderColor:'rgba(255,255,255,0.06)', my:1.5 }} />
+              <Typography sx={{ fontSize:12, color:'#334155', lineHeight:1.7, mb:2 }}>{sel.descripcion}</Typography>
+              <Divider sx={{ borderColor:'#E5E7EB', my:1.5 }} />
               <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'center', mb:1 }}>
                 <Typography sx={{ fontSize:10, color:LBL, textTransform:'uppercase', letterSpacing:'0.06em' }}>Acciones ({sel.acciones.length})</Typography>
                 <IconButton size="small" title="Agregar acción" onClick={()=>setAccionDlg(true)} sx={{ color:GRC_COLOR, p:.5 }}><AddIcon sx={{ fontSize:14 }} /></IconButton>
               </Box>
-              {sel.acciones.map((a,i)=><Box key={i} sx={{ display:'flex', gap:1, mb:.75, alignItems:'flex-start', p:.75, bgcolor:'rgba(255,255,255,0.03)', borderRadius:1 }}><Box sx={{ width:5, height:5, borderRadius:'50%', bgcolor:GRC_COLOR, mt:.75, flexShrink:0 }} /><Typography sx={{ fontSize:11, color:'rgba(255,255,255,0.65)', lineHeight:1.5 }}>{a}</Typography></Box>)}
-              <Divider sx={{ borderColor:'rgba(255,255,255,0.06)', my:1.5 }} />
+              {sel.acciones.map((a,i)=><Box key={i} sx={{ display:'flex', gap:1, mb:.75, alignItems:'flex-start', p:.75, bgcolor:'#F8FAFC', borderRadius:1 }}><Box sx={{ width:5, height:5, borderRadius:'50%', bgcolor:GRC_COLOR, mt:.75, flexShrink:0 }} /><Typography sx={{ fontSize:11, color:'#334155', lineHeight:1.5 }}>{a}</Typography></Box>)}
+              <Divider sx={{ borderColor:'#E5E7EB', my:1.5 }} />
               <Box sx={{ display:'flex', flexDirection:'column', gap:1 }}>
                 {sel.estado!=='CERRADO'&&<Button size="small" startIcon={<CheckCircle />} variant="contained" fullWidth onClick={()=>cerrarIncidente(sel.id)} sx={{ bgcolor:'#059669', '&:hover':{ bgcolor:'#047857' } }}>Marcar como Cerrado</Button>}
                 <Button size="small" startIcon={<Edit />} variant="outlined" fullWidth onClick={()=>openEdit(sel)} sx={{ color:GRC_COLOR, borderColor:alpha(GRC_COLOR,.4) }}>Editar Incidente</Button>
@@ -168,44 +166,44 @@ export default function GRCIncidentes() {
         </Box>
 
         {/* Dialog acción */}
-        <Dialog open={accionDlg} onClose={()=>setAccionDlg(false)} maxWidth="xs" fullWidth PaperProps={{ sx:{ bgcolor:'#1F2937', color:'#FFF' } }}>
+        <Dialog open={accionDlg} onClose={()=>setAccionDlg(false)} maxWidth="xs" fullWidth>
           <DialogTitle sx={{ fontWeight:700, fontSize:15 }}>Registrar Acción</DialogTitle>
-          <DialogContent sx={{ pt:'12px !important' }}><TextField label="Descripción de la acción tomada" multiline rows={3} fullWidth size="small" value={nuevaAccion} onChange={e=>setNuevaAccion(e.target.value)} InputLabelProps={ILB} sx={TF} /></DialogContent>
-          <DialogActions sx={{ px:3, pb:2 }}><Button onClick={()=>setAccionDlg(false)} sx={{ color:'rgba(255,255,255,0.5)' }}>Cancelar</Button><Button variant="contained" onClick={addAccion} sx={{ bgcolor:GRC_COLOR, '&:hover':{ bgcolor:'#5B21B6' } }}>Registrar</Button></DialogActions>
+          <DialogContent sx={{ pt:'12px !important' }}><TextField label="Descripción de la acción tomada" multiline rows={3} fullWidth size="small" value={nuevaAccion} onChange={e=>setNuevaAccion(e.target.value)} /></DialogContent>
+          <DialogActions sx={{ px:3, pb:2 }}><Button onClick={()=>setAccionDlg(false)} sx={{ color:'#64748B' }}>Cancelar</Button><Button variant="contained" onClick={addAccion} sx={{ bgcolor:GRC_COLOR, '&:hover':{ bgcolor:'#5B21B6' } }}>Registrar</Button></DialogActions>
         </Dialog>
 
         {/* Dialog crear/editar */}
-        <Dialog open={dlgOpen} onClose={()=>setDlgOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx:{ bgcolor:'#1F2937', color:'#FFF' } }}>
+        <Dialog open={dlgOpen} onClose={()=>setDlgOpen(false)} maxWidth="sm" fullWidth>
           <DialogTitle sx={{ fontWeight:700 }}>{editId?'Editar Incidente':'Nuevo Incidente'}</DialogTitle>
           <DialogContent sx={{ display:'flex', flexDirection:'column', gap:2, pt:'16px !important' }}>
-            <TextField label="Título del Incidente" fullWidth size="small" value={form.titulo} onChange={sf('titulo')} InputLabelProps={ILB} sx={TF} />
+            <TextField label="Título del Incidente" fullWidth size="small" value={form.titulo} onChange={sf('titulo')} />
             <Box sx={{ display:'flex', gap:2 }}>
-              <FormControl size="small" fullWidth><InputLabel sx={{ color:'rgba(255,255,255,0.5)' }}>Tipo</InputLabel><Select label="Tipo" value={form.tipo} onChange={e=>ss('tipo',e.target.value)} sx={{ color:'#FFF', '& fieldset':{ borderColor:'rgba(255,255,255,0.15)' } }}>{TIPOS.map(t=><MenuItem key={t} value={t}>{t}</MenuItem>)}</Select></FormControl>
-              <FormControl size="small" fullWidth><InputLabel sx={{ color:'rgba(255,255,255,0.5)' }}>Severidad</InputLabel><Select label="Severidad" value={form.severidad} onChange={e=>ss('severidad',e.target.value)} sx={{ color:'#FFF', '& fieldset':{ borderColor:'rgba(255,255,255,0.15)' } }}>{SEVERIDADES.map(s=><MenuItem key={s} value={s}>{s}</MenuItem>)}</Select></FormControl>
+              <FormControl size="small" fullWidth><InputLabel>Tipo</InputLabel><Select label="Tipo" value={form.tipo} onChange={e=>ss('tipo',e.target.value)}>{TIPOS.map(t=><MenuItem key={t} value={t}>{t}</MenuItem>)}</Select></FormControl>
+              <FormControl size="small" fullWidth><InputLabel>Severidad</InputLabel><Select label="Severidad" value={form.severidad} onChange={e=>ss('severidad',e.target.value)}>{SEVERIDADES.map(s=><MenuItem key={s} value={s}>{s}</MenuItem>)}</Select></FormControl>
             </Box>
             <Box sx={{ display:'flex', gap:2 }}>
-              <TextField label="Área" fullWidth size="small" value={form.area} onChange={sf('area')} InputLabelProps={ILB} sx={TF} />
-              <TextField label="Responsable" fullWidth size="small" value={form.responsable} onChange={sf('responsable')} InputLabelProps={ILB} sx={TF} />
+              <TextField label="Área" fullWidth size="small" value={form.area} onChange={sf('area')} />
+              <TextField label="Responsable" fullWidth size="small" value={form.responsable} onChange={sf('responsable')} />
             </Box>
-            <FormControl size="small" fullWidth><InputLabel sx={{ color:'rgba(255,255,255,0.5)' }}>Estado</InputLabel><Select label="Estado" value={form.estado} onChange={e=>ss('estado',e.target.value)} sx={{ color:'#FFF', '& fieldset':{ borderColor:'rgba(255,255,255,0.15)' } }}>{ESTADOS.map(s=><MenuItem key={s} value={s}>{s}</MenuItem>)}</Select></FormControl>
+            <FormControl size="small" fullWidth><InputLabel>Estado</InputLabel><Select label="Estado" value={form.estado} onChange={e=>ss('estado',e.target.value)}>{ESTADOS.map(s=><MenuItem key={s} value={s}>{s}</MenuItem>)}</Select></FormControl>
             <Box sx={{ display:'flex', gap:2 }}>
-              <TextField label="Fecha Detección" type="date" fullWidth size="small" value={form.fechaDeteccion} onChange={sf('fechaDeteccion')} InputLabelProps={{ shrink:true, sx:{ color:'rgba(255,255,255,0.5)' } }} sx={TF} />
-              <TextField label="Fecha Cierre" type="date" fullWidth size="small" value={form.fechaCierre} onChange={sf('fechaCierre')} InputLabelProps={{ shrink:true, sx:{ color:'rgba(255,255,255,0.5)' } }} sx={TF} />
+              <TextField label="Fecha Detección" type="date" fullWidth size="small" value={form.fechaDeteccion} onChange={sf('fechaDeteccion')} InputLabelProps={{ shrink:true }} />
+              <TextField label="Fecha Cierre" type="date" fullWidth size="small" value={form.fechaCierre} onChange={sf('fechaCierre')} InputLabelProps={{ shrink:true }} />
             </Box>
-            <TextField label="Descripción" multiline rows={3} fullWidth size="small" value={form.descripcion} onChange={sf('descripcion')} InputLabelProps={ILB} sx={TF} />
+            <TextField label="Descripción" multiline rows={3} fullWidth size="small" value={form.descripcion} onChange={sf('descripcion')} />
           </DialogContent>
-          <DialogActions sx={{ px:3, pb:2 }}><Button onClick={()=>setDlgOpen(false)} sx={{ color:'rgba(255,255,255,0.5)' }}>Cancelar</Button><Button variant="contained" onClick={handleSave} sx={{ bgcolor:GRC_COLOR, '&:hover':{ bgcolor:'#5B21B6' } }}>{editId?'Guardar Cambios':'Registrar'}</Button></DialogActions>
+          <DialogActions sx={{ px:3, pb:2 }}><Button onClick={()=>setDlgOpen(false)} sx={{ color:'#64748B' }}>Cancelar</Button><Button variant="contained" onClick={handleSave} sx={{ bgcolor:GRC_COLOR, '&:hover':{ bgcolor:'#5B21B6' } }}>{editId?'Guardar Cambios':'Registrar'}</Button></DialogActions>
         </Dialog>
 
-        <Dialog open={!!delConfirm} onClose={()=>setDelConfirm(null)} maxWidth="xs" fullWidth PaperProps={{ sx:{ bgcolor:'#1F2937', color:'#FFF', border:'1px solid rgba(220,38,38,0.3)' } }}>
+        <Dialog open={!!delConfirm} onClose={()=>setDelConfirm(null)} maxWidth="xs" fullWidth PaperProps={{ sx:{ border:'1px solid rgba(220,38,38,0.3)' } }}>
           <DialogTitle sx={{ fontWeight:700, color:'#DC2626' }}>¿Eliminar registro?</DialogTitle>
           <DialogContent sx={{ pt:'8px !important' }}>
-            <Typography sx={{ fontSize:13, color:'rgba(255,255,255,0.7)', mb:2 }}>Va a eliminar <strong style={{ color:'#FFF' }}>"{delConfirm?.name}"</strong>. Esta acción no se puede deshacer.</Typography>
-            <Typography sx={{ fontSize:12, color:'rgba(255,255,255,0.5)', mb:1 }}>Escriba <strong style={{ color:'#DC2626' }}>ELIMINAR</strong> para confirmar:</Typography>
-            <TextField fullWidth size="small" placeholder="ELIMINAR" value={delInput} onChange={e=>setDelInput(e.target.value)} sx={{ '& .MuiOutlinedInput-root':{ color:'#FFF', '& fieldset':{ borderColor:'rgba(220,38,38,0.4)' }, '&.Mui-focused fieldset':{ borderColor:'#DC2626' } } }} />
+            <Typography sx={{ fontSize:13, color:'#334155', mb:2 }}>Va a eliminar <strong style={{ color:'#1E293B' }}>"{delConfirm?.name}"</strong>. Esta acción no se puede deshacer.</Typography>
+            <Typography sx={{ fontSize:12, color:'#64748B', mb:1 }}>Escriba <strong style={{ color:'#DC2626' }}>ELIMINAR</strong> para confirmar:</Typography>
+            <TextField fullWidth size="small" placeholder="ELIMINAR" value={delInput} onChange={e=>setDelInput(e.target.value)} sx={{ '& .MuiOutlinedInput-root':{ '& fieldset':{ borderColor:'rgba(220,38,38,0.4)' }, '&.Mui-focused fieldset':{ borderColor:'#DC2626' } } }} />
           </DialogContent>
           <DialogActions sx={{ px:3, pb:2 }}>
-            <Button onClick={()=>setDelConfirm(null)} sx={{ color:'rgba(255,255,255,0.5)' }}>Cancelar</Button>
+            <Button onClick={()=>setDelConfirm(null)} sx={{ color:'#64748B' }}>Cancelar</Button>
             <Button variant="contained" disabled={delInput!=='ELIMINAR'} onClick={confirmDelete} sx={{ bgcolor:'#DC2626', '&:hover':{ bgcolor:'#B91C1C' }, '&.Mui-disabled':{ bgcolor:'rgba(220,38,38,0.25)', color:'rgba(255,255,255,0.3)' } }}>Eliminar</Button>
           </DialogActions>
         </Dialog>

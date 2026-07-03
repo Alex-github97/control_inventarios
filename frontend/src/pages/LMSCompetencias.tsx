@@ -4,7 +4,7 @@ import { Psychology, TrendingUp, Warning } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 const LMS_COLOR = '#D97706'
-const #E5E7EB  = '#E5E7EB'
+const BORDER = '#E5E7EB'
 
 const NIVEL_MAP: Record<string, number> = { INICIAL: 1, BASICO: 2, INTERMEDIO: 3, AVANZADO: 4, EXPERTO: 5 }
 const NIVEL_COLORS: Record<number, string> = { 1: '#EF4444', 2: '#F59E0B', 3: LMS_COLOR, 4: '#0EA5E9', 5: '#059669' }
@@ -121,7 +121,7 @@ export default function LMSCompetencias() {
                 onChange={e => setCargo(e.target.value)}
                 size="small"
                 sx={{
-                  color: 'text.primary', bgcolor: 'text.primary', border: `1px solid #E5E7EB`,
+                  color: 'text.primary', bgcolor: 'background.paper', border: `1px solid #E5E7EB`,
                   '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
                   '& .MuiSvgIcon-root': { color: 'text.secondary' },
                   fontSize: 13, minWidth: 200,
@@ -133,7 +133,7 @@ export default function LMSCompetencias() {
               </Select>
             </Box>
 
-            <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, overflow: 'hidden' }}>
+            <Box sx={{ bgcolor: 'background.paper', border: `1px solid #E5E7EB`, borderRadius: 2, overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
@@ -194,7 +194,7 @@ export default function LMSCompetencias() {
               const col = b.brecha >= 2 ? '#EF4444' : LMS_COLOR
               return (
                 <Grid key={i} size={{ xs: 12, md: 6 }}>
-                  <Box sx={{ bgcolor: 'text.primary', border: `1px solid ${alpha(col, 0.3)}`, borderRadius: 2, p: 2.5 }}>
+                  <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${alpha(col, 0.3)}`, borderRadius: 2, p: 2.5 }}>
                     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
                       <Box sx={{
                         width: 36, height: 36, borderRadius: '10px', flexShrink: 0,

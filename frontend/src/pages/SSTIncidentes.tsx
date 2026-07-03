@@ -5,6 +5,8 @@ import { Layout } from '@/components/layout/Layout'
 import { apiClient } from '@/api/client'
 
 const SST_COLOR = '#C53030'
+const PAGE_BG = '#F0F2F5'
+const BORDER = '#E5E7EB'
 
 const SX_INPUT = {
   '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: '#F9FAFB', '& fieldset': { borderColor: '#E5E7EB' } },
@@ -123,7 +125,7 @@ export default function SSTIncidentes() {
           {(['', 'REPORTADO', 'EN_INVESTIGACION', 'INVESTIGADO', 'CERRADO'] as const).map(e => (
             <Chip key={e} label={e === '' ? 'Todos' : ESTADO_META[e as EstadoInc]?.label}
               onClick={() => setFiltro(e as EstadoInc | '')}
-              sx={{ bgcolor: filtro === e ? alpha(SST_COLOR, 0.2) : 'rgba(255,255,255,0.05)', color: filtro === e ? '#F87171' : 'rgba(255,255,255,0.5)', border: `1px solid ${filtro === e ? alpha(SST_COLOR, 0.4) : 'transparent'}`, cursor: 'pointer', fontSize: 11 }} />
+              sx={{ bgcolor: filtro === e ? alpha(SST_COLOR, 0.2) : '#fff', color: filtro === e ? SST_COLOR : 'text.secondary', border: `1px solid ${filtro === e ? alpha(SST_COLOR, 0.4) : BORDER}`, cursor: 'pointer', fontSize: 11 }} />
           ))}
         </Box>
 
@@ -133,7 +135,7 @@ export default function SSTIncidentes() {
             const est = ESTADO_META[inc.estado]
             const grav = inc.gravedad ? GRAVEDAD_META[inc.gravedad] : null
             return (
-              <Card key={inc.id} sx={{ border: `1px solid ${grav ? alpha(grav.color, 0.2) : #E5E7EB}`, borderRadius: 2 }}>
+              <Card key={inc.id} sx={{ border: `1px solid ${grav ? alpha(grav.color, 0.2) : BORDER}`, borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important' }}>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
                     <Box sx={{ flex: 1, minWidth: 200 }}>
@@ -158,7 +160,7 @@ export default function SSTIncidentes() {
         </Box>
 
         {/* Dialog */}
-        <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#0A1628', color: 'text.primary' } }}>
+        <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: 'background.paper', color: 'text.primary' } }}>
           <DialogTitle sx={{ borderBottom: '1px solid #F1F5F9', fontWeight: 700 }}>Reportar Evento de Seguridad</DialogTitle>
           <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Box sx={{ display: 'flex', gap: 2 }}>

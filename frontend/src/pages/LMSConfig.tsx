@@ -4,7 +4,7 @@ import { Settings, Extension, Notifications, Hub } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 const LMS_COLOR = '#D97706'
-const #E5E7EB  = '#E5E7EB'
+const BORDER = '#E5E7EB'
 
 const FRAMEWORKS = [
   { nombre: 'SCORM 1.2', desc: 'Estándar clásico de paquetes de curso. Compatible con la mayoría de LMS.', activo: true },
@@ -59,7 +59,7 @@ export default function LMSConfig() {
             background: `linear-gradient(135deg, ${LMS_COLOR} 0%, #B45309 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Settings sx={{ color: 'text.primary', fontSize: 22 }} />
+            <Settings sx={{ color: '#fff', fontSize: 22 }} />
           </Box>
           <Box>
             <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Configuración LMS</Typography>
@@ -86,7 +86,7 @@ export default function LMSConfig() {
           <Grid container spacing={2}>
             {FRAMEWORKS.map((f, i) => (
               <Grid key={i} size={{ xs: 12, md: 6 }}>
-                <Box sx={{ bgcolor: 'text.primary', border: `1px solid ${fws[i] ? #E5E7EB : '#E5E7EB'}`, borderRadius: 2, p: 2.5 }}>
+                <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${fws[i] ? BORDER : '#E5E7EB'}`, borderRadius: 2, p: 2.5 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <Box sx={{ flex: 1 }}>
                       <Typography sx={{ fontSize: 15, fontWeight: 800, color: 'text.primary', mb: 0.5 }}>{f.nombre}</Typography>
@@ -116,7 +116,7 @@ export default function LMSConfig() {
         )}
 
         {tab === 1 && (
-          <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, overflow: 'hidden' }}>
+          <Box sx={{ bgcolor: 'background.paper', border: `1px solid #E5E7EB`, borderRadius: 2, overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
@@ -141,7 +141,7 @@ export default function LMSConfig() {
         )}
 
         {tab === 2 && (
-          <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, overflow: 'hidden' }}>
+          <Box sx={{ bgcolor: 'background.paper', border: `1px solid #E5E7EB`, borderRadius: 2, overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
@@ -181,7 +181,7 @@ export default function LMSConfig() {
           <Grid container spacing={2}>
             {INTEGRACIONES.map((int, i) => (
               <Grid key={i} size={{ xs: 12, md: 6 }}>
-                <Box sx={{ bgcolor: 'text.primary', border: `1px solid ${ints[i] ? alpha(int.color, 0.3) : '#E5E7EB'}`, borderRadius: 2, p: 2.5 }}>
+                <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${ints[i] ? alpha(int.color, 0.3) : '#E5E7EB'}`, borderRadius: 2, p: 2.5 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start', flex: 1 }}>
                       <Box sx={{

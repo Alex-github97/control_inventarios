@@ -43,7 +43,7 @@ export default function CRMOportunidades() {
             background: `linear-gradient(135deg, ${CRM_COLOR} 0%, #B91C1C 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <TrendingUp sx={{ color: 'text.primary', fontSize: 22 }} />
+            <TrendingUp sx={{ color: '#fff', fontSize: 22 }} />
           </Box>
           <Box>
             <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Pipeline de Oportunidades</Typography>
@@ -89,7 +89,7 @@ export default function CRMOportunidades() {
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 0.75 }}>
                       <Chip label={opos.length} size="small" sx={{ bgcolor: alpha(cfg.color, 0.15), color: cfg.color, fontSize: 10, height: 18 }} />
-                      {totalEtapa > 0 && <Chip label={`$${totalEtapa}M`} size="small" sx={{ bgcolor: 'text.disabled', color: 'text.secondary', fontSize: 10, height: 18 }} />}
+                      {totalEtapa > 0 && <Chip label={`$${totalEtapa}M`} size="small" sx={{ bgcolor: '#F1F5F9', color: 'text.secondary', fontSize: 10, height: 18 }} />}
                     </Box>
                   </Box>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
@@ -113,7 +113,7 @@ export default function CRMOportunidades() {
                           <Typography sx={{ fontSize: 10, color: 'text.disabled' }}>{o.fecha}</Typography>
                           <Typography sx={{ fontSize: 11, fontWeight: 700, color: cfg.color }}>{o.prob}%</Typography>
                         </Box>
-                        <Box sx={{ mt: 0.75, height: 3, borderRadius: 2, bgcolor: 'text.disabled', overflow: 'hidden' }}>
+                        <Box sx={{ mt: 0.75, height: 3, borderRadius: 2, bgcolor: '#E5E7EB', overflow: 'hidden' }}>
                           <Box sx={{ height: '100%', width: `${o.prob}%`, bgcolor: cfg.color, borderRadius: 2 }} />
                         </Box>
                       </Box>
@@ -132,7 +132,7 @@ export default function CRMOportunidades() {
                 <thead>
                   <tr>
                     {['Código', 'Oportunidad', 'Cliente', 'Servicio', 'Valor', 'Etapa', 'Prob.', 'Fecha Esp.', 'Ejecutivo'].map(h => (
-                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'text.disabled', borderBottom: '1px solid rgba(255,255,255,0.06)', whiteSpace: 'nowrap' }}>{h}</th>
+                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'text.disabled', borderBottom: '1px solid #E5E7EB', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -140,7 +140,7 @@ export default function CRMOportunidades() {
                   {OPORTUNIDADES.map((o, i) => {
                     const cfg = ETAPA_CONFIG[o.etapa]
                     return (
-                      <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                      <tr key={i} style={{ borderBottom: '1px solid #E5E7EB' }}>
                         <td style={{ padding: '10px 14px', fontSize: 11.5, color: CRM_COLOR, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{o.codigo}</td>
                         <td style={{ padding: '10px 14px', fontSize: 13, color: 'text.primary', fontWeight: 600 }}>{o.nombre}</td>
                         <td style={{ padding: '10px 14px', fontSize: 12, color: 'text.secondary', whiteSpace: 'nowrap' }}>{o.cliente}</td>

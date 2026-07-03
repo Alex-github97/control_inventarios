@@ -245,26 +245,26 @@ function PanelContent({
         body: (
           <Stack spacing={1.25}>
             {PANEL_DISP_FLOTA.map((r) => (
-              <Box key={r.nombre} sx={{ p: 1.5, borderRadius: '10px', bgcolor: alpha('#fff', 0.03), border: '1px solid rgba(255,255,255,0.06)' }}>
+              <Box key={r.nombre} sx={{ p: 1.5, borderRadius: '10px', bgcolor: '#fff', border: '1px solid #E5E7EB' }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mb={0.75}>
                   <Box flex={1} minWidth={0}>
-                    <Typography fontSize={12} fontWeight={600} color="white" noWrap>{r.nombre.split('—')[0].trim()}</Typography>
-                    <Typography fontSize={10} color="rgba(255,255,255,0.4)" noWrap>{r.nombre.split('—')[1]?.trim()}</Typography>
+                    <Typography fontSize={12} fontWeight={600} color="#1E293B" noWrap>{r.nombre.split('—')[0].trim()}</Typography>
+                    <Typography fontSize={10} color="#64748B" noWrap>{r.nombre.split('—')[1]?.trim()}</Typography>
                   </Box>
                   <Stack alignItems="flex-end" ml={1.5}>
                     <Typography fontSize={16} fontWeight={900} color={dispColor(r.disp)}>{r.disp.toFixed(1)}%</Typography>
-                    <Typography fontSize={9} color="rgba(255,255,255,0.35)">{r.horasND}h no disp.</Typography>
+                    <Typography fontSize={9} color="#64748B">{r.horasND}h no disp.</Typography>
                   </Stack>
                 </Stack>
-                <Box sx={{ height: 5, borderRadius: 3, bgcolor: 'text.disabled', overflow: 'hidden' }}>
+                <Box sx={{ height: 5, borderRadius: 3, bgcolor: '#E5E7EB', overflow: 'hidden' }}>
                   <Box sx={{ height: '100%', width: `${Math.min(r.disp, 100)}%`, bgcolor: dispColor(r.disp), borderRadius: 3 }} />
                 </Box>
               </Box>
             ))}
             <Box sx={{ p: 1.5, borderRadius: '10px', bgcolor: alpha(EAM_COLOR, 0.06), border: `1px solid ${alpha(EAM_COLOR, 0.2)}`, textAlign: 'center' }}>
-              <Typography fontSize={11} color="rgba(255,255,255,0.5)">Disponibilidad promedio flota</Typography>
+              <Typography fontSize={11} color="#64748B">Disponibilidad promedio flota</Typography>
               <Typography fontSize={24} fontWeight={900} color="#F59E0B">{b.disponibilidad}</Typography>
-              <Typography fontSize={10} color="rgba(255,255,255,0.35)">Objetivo ≥ 90%</Typography>
+              <Typography fontSize={10} color="#64748B">Objetivo ≥ 90%</Typography>
             </Box>
           </Stack>
         ),
@@ -278,9 +278,9 @@ function PanelContent({
             {PANEL_ACTIVOS_DETALLE
               .filter((r) => filterTipo === 'Todos' || r.categoria === filterTipo)
               .map((r) => (
-                <Box key={r.categoria} sx={{ p: 1.75, borderRadius: '10px', bgcolor: alpha('#fff', 0.03), border: '1px solid rgba(255,255,255,0.06)' }}>
+                <Box key={r.categoria} sx={{ p: 1.75, borderRadius: '10px', bgcolor: '#fff', border: '1px solid #E5E7EB' }}>
                   <Stack direction="row" justifyContent="space-between" mb={1.25}>
-                    <Typography fontSize={13} fontWeight={700} color="white">{r.categoria}</Typography>
+                    <Typography fontSize={13} fontWeight={700} color="#1E293B">{r.categoria}</Typography>
                     <Typography fontSize={18} fontWeight={900} color={EAM_COLOR}>{r.total}</Typography>
                   </Stack>
                   <Stack direction="row" spacing={2}>
@@ -291,11 +291,11 @@ function PanelContent({
                     ].map((s) => (
                       <Box key={s.label} textAlign="center">
                         <Typography fontSize={14} fontWeight={800} color={s.color}>{s.val}</Typography>
-                        <Typography fontSize={9} color="rgba(255,255,255,0.35)">{s.label}</Typography>
+                        <Typography fontSize={9} color="#64748B">{s.label}</Typography>
                       </Box>
                     ))}
                   </Stack>
-                  <Box sx={{ mt: 1.25, height: 6, borderRadius: 3, bgcolor: 'text.disabled', overflow: 'hidden', display: 'flex' }}>
+                  <Box sx={{ mt: 1.25, height: 6, borderRadius: 3, bgcolor: '#E5E7EB', overflow: 'hidden', display: 'flex' }}>
                     <Box sx={{ width: `${(r.operativos/r.total)*100}%`, bgcolor: '#10B981', height: '100%' }} />
                     <Box sx={{ width: `${(r.mantenimiento/r.total)*100}%`, bgcolor: '#F59E0B', height: '100%' }} />
                     <Box sx={{ width: `${(r.inactivos/r.total)*100}%`, bgcolor: '#6B7280', height: '100%' }} />
@@ -324,12 +324,12 @@ function PanelContent({
                 return prefixes.some((p) => ot.activo.includes(p))
               })
               .map((ot) => (
-              <Box key={ot.numero} sx={{ p: 1.5, borderRadius: '10px', bgcolor: alpha('#fff', 0.03), border: '1px solid rgba(255,255,255,0.06)' }}>
+              <Box key={ot.numero} sx={{ p: 1.5, borderRadius: '10px', bgcolor: '#fff', border: '1px solid #E5E7EB' }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mb={0.5}>
                   <Typography fontSize={11} fontWeight={700} color={EAM_COLOR}>{ot.numero}</Typography>
                   <Chip label={ot.prioridad} size="small" sx={{ bgcolor: alpha(PRIORIDAD_COLOR[ot.prioridad], 0.15), color: PRIORIDAD_COLOR[ot.prioridad], fontWeight: 700, fontSize: 9, height: 18 }} />
                 </Stack>
-                <Typography fontSize={12} fontWeight={600} color="rgba(255,255,255,0.85)" mb={0.5}>{ot.activo}</Typography>
+                <Typography fontSize={12} fontWeight={600} color="#1E293B" mb={0.5}>{ot.activo}</Typography>
                 <Stack direction="row" spacing={0.75}>
                   <Chip label={ot.tipo} size="small" sx={{ bgcolor: alpha('#6B7280', 0.15), color: '#9CA3AF', fontSize: 9, height: 18 }} />
                   <Chip label={ot.estado} size="small" sx={{ bgcolor: alpha(ESTADO_OT_COLOR[ot.estado] ?? '#6B7280', 0.15), color: ESTADO_OT_COLOR[ot.estado] ?? '#9CA3AF', fontSize: 9, height: 18 }} />
@@ -353,19 +353,19 @@ function PanelContent({
                 return (
                   <Box key={r.categoria}>
                     <Stack direction="row" justifyContent="space-between" mb={0.75}>
-                      <Typography fontSize={13} fontWeight={600} color="white">{r.categoria}</Typography>
+                      <Typography fontSize={13} fontWeight={600} color="#1E293B">{r.categoria}</Typography>
                       <Typography fontSize={13} fontWeight={800} color={r.pct >= 90 ? '#10B981' : r.pct >= 80 ? '#F59E0B' : '#EF4444'}>{r.pct}%</Typography>
                     </Stack>
                     <LinearProgress variant="determinate" value={r.pct}
-                      sx={{ height: 10, borderRadius: 5, bgcolor: alpha('#fff', 0.07), '& .MuiLinearProgress-bar': { bgcolor: r.pct >= 90 ? '#10B981' : r.pct >= 80 ? '#F59E0B' : '#EF4444', borderRadius: 5 } }}
+                      sx={{ height: 10, borderRadius: 5, bgcolor: '#E5E7EB', '& .MuiLinearProgress-bar': { bgcolor: r.pct >= 90 ? '#10B981' : r.pct >= 80 ? '#F59E0B' : '#EF4444', borderRadius: 5 } }}
                     />
-                    <Typography fontSize={10} color="rgba(255,255,255,0.4)" mt={0.5}>{realizadosScaled} de {programadosScaled} PM realizados</Typography>
+                    <Typography fontSize={10} color="#64748B" mt={0.5}>{realizadosScaled} de {programadosScaled} PM realizados</Typography>
                   </Box>
                 )
               })}
-            <Divider sx={{ borderColor: 'rgba(255,255,255,0.07)' }} />
+            <Divider sx={{ borderColor: '#E5E7EB' }} />
             <Stack direction="row" justifyContent="space-between">
-              <Typography fontSize={12} color="rgba(255,255,255,0.5)">Total acumulado</Typography>
+              <Typography fontSize={12} color="#64748B">Total acumulado</Typography>
               <Typography fontSize={14} fontWeight={800} color="#F59E0B">{b.pm}</Typography>
             </Stack>
           </Stack>
@@ -383,24 +383,24 @@ function PanelContent({
                 const pct = Math.round((r.horas / 520) * 100)
                 const col = r.horas >= 300 ? '#10B981' : r.horas >= 150 ? '#F59E0B' : '#EF4444'
                 return (
-                  <Box key={r.categoria} sx={{ p: 1.5, borderRadius: '10px', bgcolor: alpha('#fff', 0.03), border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <Box key={r.categoria} sx={{ p: 1.5, borderRadius: '10px', bgcolor: '#fff', border: '1px solid #E5E7EB' }}>
                     <Stack direction="row" justifyContent="space-between" alignItems="center" mb={0.75}>
-                      <Typography fontSize={12} fontWeight={600} color="rgba(255,255,255,0.85)">{r.categoria}</Typography>
+                      <Typography fontSize={12} fontWeight={600} color="#1E293B">{r.categoria}</Typography>
                       <Stack direction="row" alignItems="center" spacing={0.75}>
                         <Typography fontSize={15} fontWeight={800} color={col}>{r.horas}h</Typography>
                         {tendIcon(r.tendencia)}
                       </Stack>
                     </Stack>
-                    <Box sx={{ height: 6, borderRadius: 3, bgcolor: 'text.disabled', overflow: 'hidden' }}>
+                    <Box sx={{ height: 6, borderRadius: 3, bgcolor: '#E5E7EB', overflow: 'hidden' }}>
                       <Box sx={{ height: '100%', width: `${pct}%`, bgcolor: col, borderRadius: 3 }} />
                     </Box>
                   </Box>
                 )
               })}
             <Box sx={{ p: 1.5, borderRadius: '10px', bgcolor: alpha('#8B5CF6', 0.07), border: '1px solid rgba(139,92,246,0.2)', textAlign: 'center' }}>
-              <Typography fontSize={11} color="rgba(255,255,255,0.45)">MTBF Promedio{filterTipo !== 'Todos' ? ` — ${filterTipo}` : ''}</Typography>
+              <Typography fontSize={11} color="#64748B">MTBF Promedio{filterTipo !== 'Todos' ? ` — ${filterTipo}` : ''}</Typography>
               <Typography fontSize={24} fontWeight={900} color="#8B5CF6">{b.mtbf}</Typography>
-              <Typography fontSize={10} color="rgba(255,255,255,0.35)">Benchmark industria: 280 hrs</Typography>
+              <Typography fontSize={10} color="#64748B">Benchmark industria: 280 hrs</Typography>
             </Box>
           </Stack>
         ),
@@ -415,17 +415,17 @@ function PanelContent({
               const vsRef = r.horas <= parseFloat(r.benchmark) ? 'bajo' : 'alto'
               const col = vsRef === 'bajo' ? '#10B981' : '#EF4444'
               return (
-                <Box key={r.tipo} sx={{ p: 1.5, borderRadius: '10px', bgcolor: alpha('#fff', 0.03), border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <Typography fontSize={12} fontWeight={600} color="rgba(255,255,255,0.85)" mb={0.5}>{r.tipo}</Typography>
+                <Box key={r.tipo} sx={{ p: 1.5, borderRadius: '10px', bgcolor: '#fff', border: '1px solid #E5E7EB' }}>
+                  <Typography fontSize={12} fontWeight={600} color="#1E293B" mb={0.5}>{r.tipo}</Typography>
                   <Stack direction="row" justifyContent="space-between" alignItems="center">
                     <Stack direction="row" spacing={2}>
                       <Box>
                         <Typography fontSize={18} fontWeight={900} color={col}>{r.horas}h</Typography>
-                        <Typography fontSize={9} color="rgba(255,255,255,0.35)">Actual</Typography>
+                        <Typography fontSize={9} color="#64748B">Actual</Typography>
                       </Box>
                       <Box>
-                        <Typography fontSize={14} fontWeight={600} color="rgba(255,255,255,0.4)">{r.benchmark}</Typography>
-                        <Typography fontSize={9} color="rgba(255,255,255,0.35)">Benchmark</Typography>
+                        <Typography fontSize={14} fontWeight={600} color="#334155">{r.benchmark}</Typography>
+                        <Typography fontSize={9} color="#64748B">Benchmark</Typography>
                       </Box>
                     </Stack>
                     <Chip label={vsRef === 'bajo' ? '↓ Bajo objetivo' : '↑ Sobre objetivo'} size="small"
@@ -435,7 +435,7 @@ function PanelContent({
               )
             })}
             <Box sx={{ p: 1.5, borderRadius: '10px', bgcolor: alpha('#06B6D4', 0.07), border: '1px solid rgba(6,182,212,0.2)', textAlign: 'center' }}>
-              <Typography fontSize={11} color="rgba(255,255,255,0.45)">MTTR Promedio{filterTipo !== 'Todos' ? ` — ${filterTipo}` : ''}</Typography>
+              <Typography fontSize={11} color="#64748B">MTTR Promedio{filterTipo !== 'Todos' ? ` — ${filterTipo}` : ''}</Typography>
               <Typography fontSize={24} fontWeight={900} color="#06B6D4">{b.mttr}</Typography>
             </Box>
           </Stack>
@@ -453,7 +453,7 @@ function PanelContent({
               return (
                 <Box key={c.concepto}>
                   <Stack direction="row" justifyContent="space-between" mb={0.5}>
-                    <Typography fontSize={12} color="rgba(255,255,255,0.8)">{c.concepto}</Typography>
+                    <Typography fontSize={12} color="#334155">{c.concepto}</Typography>
                     <Stack direction="row" spacing={1} alignItems="center">
                       <Typography fontSize={12} fontWeight={700} color={c.color}>${valorScaled}M</Typography>
                       <Chip label={`${c.pct}%`} size="small" sx={{ bgcolor: alpha(c.color, 0.15), color: c.color, fontWeight: 700, fontSize: 9, height: 18 }} />
@@ -465,15 +465,15 @@ function PanelContent({
                 </Box>
               )
             })}
-            <Divider sx={{ borderColor: 'rgba(255,255,255,0.07)' }} />
+            <Divider sx={{ borderColor: '#E5E7EB' }} />
             <Box sx={{ p: 1.5, borderRadius: '10px', bgcolor: alpha('#3B82F6', 0.07), border: '1px solid rgba(59,130,246,0.2)' }}>
               <Stack direction="row" justifyContent="space-between">
                 <Box>
-                  <Typography fontSize={11} color="rgba(255,255,255,0.45)">Presupuesto período</Typography>
-                  <Typography fontSize={15} fontWeight={800} color="white">${(52 * monthsInRange).toFixed(1)}M</Typography>
+                  <Typography fontSize={11} color="#64748B">Presupuesto período</Typography>
+                  <Typography fontSize={15} fontWeight={800} color="#1E293B">${(52 * monthsInRange).toFixed(1)}M</Typography>
                 </Box>
                 <Box textAlign="right">
-                  <Typography fontSize={11} color="rgba(255,255,255,0.45)">Ejecución</Typography>
+                  <Typography fontSize={11} color="#64748B">Ejecución</Typography>
                   <Typography fontSize={15} fontWeight={800} color="#10B981">
                     {((b.costo * monthsInRange) / (52 * monthsInRange) * 100).toFixed(1)}%
                   </Typography>
@@ -496,10 +496,10 @@ function PanelContent({
                 return (
                   <Box key={i} sx={{ p: 1.5, borderRadius: '10px', bgcolor: alpha(col, 0.06), border: `1px solid ${alpha(col, 0.2)}` }}>
                     <Stack direction="row" justifyContent="space-between" alignItems="center" mb={0.5}>
-                      <Typography fontSize={12} fontWeight={700} color="white" noWrap sx={{ flex: 1, mr: 1 }}>{a.activo.split('—')[0].trim()}</Typography>
+                      <Typography fontSize={12} fontWeight={700} color="#1E293B" noWrap sx={{ flex: 1, mr: 1 }}>{a.activo.split('—')[0].trim()}</Typography>
                       <Chip label={a.nivel} size="small" sx={{ bgcolor: alpha(col, 0.18), color: col, fontWeight: 700, fontSize: 9, height: 18, flexShrink: 0 }} />
                     </Stack>
-                    <Typography fontSize={10} color="rgba(255,255,255,0.35)" noWrap>{a.activo.split('—')[1]?.trim()}</Typography>
+                    <Typography fontSize={10} color="#64748B" noWrap>{a.activo.split('—')[1]?.trim()}</Typography>
                     <Typography fontSize={11} color={alpha(col, 0.9)} mt={0.5}>{a.motivo}</Typography>
                   </Box>
                 )
@@ -530,15 +530,15 @@ function PanelContent({
                 const col = kmColor(r.km, r.objetivo)
                 const pct = Math.min(Math.round((r.km / (r.objetivo * 2)) * 100), 100)
                 return (
-                  <Box key={r.nombre} sx={{ p: 1.5, borderRadius: '10px', bgcolor: alpha('#fff', 0.03), border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <Box key={r.nombre} sx={{ p: 1.5, borderRadius: '10px', bgcolor: '#fff', border: '1px solid #E5E7EB' }}>
                     <Stack direction="row" justifyContent="space-between" alignItems="center" mb={0.75}>
                       <Box flex={1} minWidth={0}>
-                        <Typography fontSize={12} fontWeight={600} color="white" noWrap>{r.nombre.split('—')[0].trim()}</Typography>
-                        <Typography fontSize={10} color="rgba(255,255,255,0.4)" noWrap>{r.nombre.split('—')[1]?.trim()}</Typography>
+                        <Typography fontSize={12} fontWeight={600} color="#1E293B" noWrap>{r.nombre.split('—')[0].trim()}</Typography>
+                        <Typography fontSize={10} color="#64748B" noWrap>{r.nombre.split('—')[1]?.trim()}</Typography>
                       </Box>
                       <Stack alignItems="flex-end" ml={1.5} flexShrink={0}>
                         <Typography fontSize={15} fontWeight={900} color={col}>{fmtKm(r.km)}</Typography>
-                        <Typography fontSize={9} color="rgba(255,255,255,0.35)">obj. {fmtKm(r.objetivo)}</Typography>
+                        <Typography fontSize={9} color="#64748B">obj. {fmtKm(r.objetivo)}</Typography>
                       </Stack>
                     </Stack>
                     <Box sx={{ height: 5, borderRadius: 3, bgcolor: 'text.disabled', overflow: 'hidden', position: 'relative' }}>
@@ -550,9 +550,9 @@ function PanelContent({
                 )
               })}
               <Box sx={{ p: 1.5, borderRadius: '10px', bgcolor: alpha('#14B8A6', 0.07), border: '1px solid rgba(20,184,166,0.25)', textAlign: 'center' }}>
-                <Typography fontSize={11} color="rgba(255,255,255,0.45)">DMEF Promedio{filterTipo !== 'Todos' ? ` — ${filterTipo}` : ''}</Typography>
+                <Typography fontSize={11} color="#64748B">DMEF Promedio{filterTipo !== 'Todos' ? ` — ${filterTipo}` : ''}</Typography>
                 <Typography fontSize={24} fontWeight={900} color="#14B8A6">{fmtKm(avg)}</Typography>
-                <Typography fontSize={10} color="rgba(255,255,255,0.35)">
+                <Typography fontSize={10} color="#64748B">
                   {avg >= (dmefRows[0]?.objetivo ?? 15000)
                     ? '↑ Sobre objetivo — confiabilidad favorable'
                     : '↓ Bajo objetivo — revisar mantenimiento preventivo'}
@@ -562,10 +562,10 @@ function PanelContent({
           ) : (
             <Box sx={{ py: 6, textAlign: 'center' }}>
               <RouteIcon sx={{ fontSize: 40, color: 'text.disabled', mb: 1.5 }} />
-              <Typography fontSize={13} color="rgba(255,255,255,0.3)">
+              <Typography fontSize={13} color="#64748B">
                 La DMEF aplica únicamente a activos móviles
               </Typography>
-              <Typography fontSize={11} color="rgba(255,255,255,0.2)" mt={0.5}>
+              <Typography fontSize={11} color="#94A3B8" mt={0.5}>
                 Selecciona Vehículos o Montacargas
               </Typography>
             </Box>
@@ -579,10 +579,10 @@ function PanelContent({
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ p: 2.5, pb: 2, borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
-        <Typography fontSize={16} fontWeight={800} color="white" lineHeight={1.2}>{panelData.title}</Typography>
+      <Box sx={{ p: 2.5, pb: 2, borderBottom: '1px solid #E5E7EB', flexShrink: 0 }}>
+        <Typography fontSize={16} fontWeight={800} color="#1E293B" lineHeight={1.2}>{panelData.title}</Typography>
         {panelData.subtitle && (
-          <Typography fontSize={12} color="rgba(255,255,255,0.4)" mt={0.5}>{panelData.subtitle}</Typography>
+          <Typography fontSize={12} color="#64748B" mt={0.5}>{panelData.subtitle}</Typography>
         )}
       </Box>
       <Box sx={{ flex: 1, overflowY: 'auto', p: 2.5, '&::-webkit-scrollbar': { width: 4 }, '&::-webkit-scrollbar-thumb': { bgcolor: 'text.disabled', borderRadius: 2 } }}>
@@ -601,19 +601,19 @@ function KPICardItem({ card, active, onClick }: { card: KPICard; active: boolean
       onClick={onClick}
       sx={{
         bgcolor: '#FFFFFF',
-        border: `1px solid ${active ? alpha(card.color, 0.7) : 'rgba(255,255,255,0.07)'}`,
+        border: `1px solid ${active ? alpha(card.color, 0.7) : '#E5E7EB'}`,
         borderRadius: '14px',
         p: 2.5,
         cursor: 'pointer',
         transition: 'all 0.18s ease',
         boxShadow: active
-          ? `0 0 0 2px ${alpha(card.color, 0.3)}, 0 6px 28px rgba(0,0,0,0.55)`
-          : '0 4px 24px rgba(0,0,0,0.45)',
+          ? `0 0 0 2px ${alpha(card.color, 0.3)}, 0 6px 28px rgba(0,0,0,0.10)`
+          : '0 4px 24px rgba(0,0,0,0.06)',
         '&:hover': {
           border: `1px solid ${alpha(card.color, 0.55)}`,
           bgcolor: alpha(card.color, 0.04),
           transform: 'translateY(-2px)',
-          boxShadow: `0 8px 32px rgba(0,0,0,0.6)`,
+          boxShadow: `0 8px 32px rgba(0,0,0,0.10)`,
         },
       }}
     >
@@ -622,8 +622,8 @@ function KPICardItem({ card, active, onClick }: { card: KPICard; active: boolean
           <Typography fontSize={26} fontWeight={800} color={card.color} lineHeight={1}>
             {card.value}
           </Typography>
-          <Typography fontSize={12} color="rgba(255,255,255,0.55)" mt={0.5}>{card.label}</Typography>
-          {card.sub && <Typography fontSize={10} color="rgba(255,255,255,0.35)" mt={0.25}>{card.sub}</Typography>}
+          <Typography fontSize={12} color="#64748B" mt={0.5}>{card.label}</Typography>
+          {card.sub && <Typography fontSize={10} color="#94A3B8" mt={0.25}>{card.sub}</Typography>}
         </Box>
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.5 }}>
           <Box sx={{ width: 36, height: 36, borderRadius: '10px', bgcolor: alpha(card.color, 0.15), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -710,21 +710,20 @@ export default function EAMDashboard() {
     borderRadius: '14px',
     p: 2.5,
     height: '100%',
-    boxShadow: '0 4px 24px rgba(0,0,0,0.45)',
+    boxShadow: '0 4px 24px rgba(0,0,0,0.06)',
   }
 
   const dateSx = {
     '& .MuiOutlinedInput-root': {
-      color: 'text.primary', bgcolor: alpha('#fff', 0.04), borderRadius: '10px',
+      borderRadius: '10px',
       '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: alpha(EAM_COLOR, 0.5) },
       '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: alpha(EAM_COLOR, 0.7) },
     },
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: alpha('#fff', 0.12) },
-    '& .MuiInputLabel-root': { color: 'text.secondary', fontSize: 12 },
+    '& .MuiInputLabel-root': { fontSize: 12 },
     '& .MuiInputLabel-root.Mui-focused': { color: EAM_COLOR },
-    '& input': { color: 'text.primary', fontSize: 13 },
+    '& input': { fontSize: 13 },
     '& input[type="date"]::-webkit-calendar-picker-indicator': {
-      filter: 'invert(0.5) brightness(2)', cursor: 'pointer',
+      cursor: 'pointer',
     },
   }
 
@@ -746,7 +745,7 @@ export default function EAMDashboard() {
                 sx={{ bgcolor: alpha(EAM_COLOR, 0.18), color: EAM_COLOR, fontWeight: 700, fontSize: 10, border: '1px solid rgba(50,172,92,0.35)' }}
               />
             </Stack>
-            <Typography fontSize={13} color="rgba(255,255,255,0.45)" mt={0.25}>
+            <Typography fontSize={13} color="#64748B" mt={0.25}>
               Enterprise Asset Management — Gestión integrada de activos industriales
             </Typography>
           </Box>
@@ -759,7 +758,7 @@ export default function EAMDashboard() {
             {/* Label */}
             <Stack direction="row" alignItems="center" spacing={1} flexShrink={0}>
               <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: EAM_COLOR }} />
-              <Typography fontSize={12} fontWeight={700} color="rgba(255,255,255,0.55)" textTransform="uppercase" letterSpacing="0.05em">
+              <Typography fontSize={12} fontWeight={700} color="#64748B" textTransform="uppercase" letterSpacing="0.05em">
                 Filtros
               </Typography>
             </Stack>
@@ -781,7 +780,7 @@ export default function EAMDashboard() {
                 InputLabelProps={{ shrink: true }}
                 sx={{ width: 158, ...dateSx }}
               />
-              <Typography fontSize={13} color="rgba(255,255,255,0.25)" fontWeight={300}>—</Typography>
+              <Typography fontSize={13} color="#94A3B8" fontWeight={300}>—</Typography>
               <TextField
                 size="small"
                 label="Hasta"
@@ -810,9 +809,9 @@ export default function EAMDashboard() {
               {TIPOS_ACTIVO.map((t) => (
                 <Chip key={t} label={t} size="small" clickable onClick={() => setFilterTipo(t)}
                   sx={{
-                    bgcolor: filterTipo === t ? alpha(EAM_COLOR, 0.2) : alpha('#fff', 0.05),
-                    color:   filterTipo === t ? EAM_COLOR : 'rgba(255,255,255,0.45)',
-                    border:  `1px solid ${filterTipo === t ? alpha(EAM_COLOR, 0.45) : 'rgba(255,255,255,0.08)'}`,
+                    bgcolor: filterTipo === t ? alpha(EAM_COLOR, 0.2) : '#F1F5F9',
+                    color:   filterTipo === t ? EAM_COLOR : '#64748B',
+                    border:  `1px solid ${filterTipo === t ? alpha(EAM_COLOR, 0.45) : '#E5E7EB'}`,
                     fontWeight: filterTipo === t ? 700 : 400,
                     fontSize: 12, height: 28,
                     transition: 'all 0.15s ease',
@@ -823,10 +822,10 @@ export default function EAMDashboard() {
 
             {/* Active filter summary */}
             {(filterTipo !== 'Todos' || monthsInRange > 1) && (
-              <Typography fontSize={11} color="rgba(255,255,255,0.3)" sx={{ ml: 'auto' }}>
+              <Typography fontSize={11} color="#64748B" sx={{ ml: 'auto' }}>
                 {filterTipo !== 'Todos' && <strong style={{ color: EAM_COLOR }}>{filterTipo}</strong>}
                 {filterTipo !== 'Todos' && monthsInRange > 1 && <span> · </span>}
-                {monthsInRange > 1 && <span style={{ color: 'text.secondary' }}>{periodLabel}</span>}
+                {monthsInRange > 1 && <span style={{ color: '#64748B' }}>{periodLabel}</span>}
               </Typography>
             )}
           </Stack>
@@ -857,7 +856,7 @@ export default function EAMDashboard() {
                     <Stack direction="row" justifyContent="space-between" alignItems="center" mb={0.75}>
                       <Stack direction="row" alignItems="center" spacing={0.75}>
                         <Box sx={{ color: item.color, display: 'flex' }}>{item.icon}</Box>
-                        <Typography fontSize={13} color={active ? 'white' : 'rgba(255,255,255,0.8)'} fontWeight={active ? 700 : 400}>
+                        <Typography fontSize={13} color={active ? '#1E293B' : '#334155'} fontWeight={active ? 700 : 400}>
                           {item.label}
                         </Typography>
                       </Stack>
@@ -877,7 +876,7 @@ export default function EAMDashboard() {
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2.5}>
               <Typography fontWeight={700} fontSize={14} color="text.primary">OTs por estado</Typography>
               {monthsInRange > 1 && (
-                <Typography fontSize={10} color="rgba(255,255,255,0.3)">{monthsInRange} meses acumulados</Typography>
+                <Typography fontSize={10} color="#64748B">{monthsInRange} meses acumulados</Typography>
               )}
             </Stack>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '12px', mb: '12px' }}>
@@ -933,7 +932,7 @@ export default function EAMDashboard() {
             <Stack spacing={1.5}>
               {alertasFiltradas.length === 0 ? (
                 <Box sx={{ py: 3, textAlign: 'center' }}>
-                  <Typography fontSize={12} color="rgba(255,255,255,0.3)">Sin alertas para {filterTipo}</Typography>
+                  <Typography fontSize={12} color="#64748B">Sin alertas para {filterTipo}</Typography>
                 </Box>
               ) : alertasFiltradas.map((alerta) => (
                 <Box key={alerta.id}
@@ -950,7 +949,7 @@ export default function EAMDashboard() {
                   <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: CRITICIDAD_COLOR[alerta.criticidad], flexShrink: 0 }} />
                   <Box flex={1} minWidth={0}>
                     <Typography fontSize={13} fontWeight={600} color="text.primary" noWrap>{alerta.activo}</Typography>
-                    <Typography fontSize={11} color="rgba(255,255,255,0.5)" noWrap>{alerta.descripcion}</Typography>
+                    <Typography fontSize={11} color="#64748B" noWrap>{alerta.descripcion}</Typography>
                   </Box>
                   <Chip label={alerta.criticidad} size="small"
                     sx={{ bgcolor: alpha(CRITICIDAD_COLOR[alerta.criticidad], 0.18), color: CRITICIDAD_COLOR[alerta.criticidad], fontWeight: 700, fontSize: 9, height: 20, flexShrink: 0 }}
@@ -963,14 +962,14 @@ export default function EAMDashboard() {
           {/* Confiabilidad por categoría */}
           <Paper elevation={0} sx={cardSx}>
             <Typography fontWeight={700} fontSize={14} color="text.primary" mb={2.5}>Confiabilidad por categoría</Typography>
-            <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 80px', gap: 1, pb: 1, borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 80px', gap: 1, pb: 1, borderBottom: '1px solid #E5E7EB' }}>
               {['Categoría', 'MTBF', 'MTTR', 'Disp.', 'Estado'].map((h) => (
                 <Typography key={h} sx={labelSx}>{h}</Typography>
               ))}
             </Box>
             {confiabilidadFiltrada.length === 0 ? (
               <Box sx={{ py: 3, textAlign: 'center' }}>
-                <Typography fontSize={12} color="rgba(255,255,255,0.3)">Sin datos para {filterTipo}</Typography>
+                <Typography fontSize={12} color="#64748B">Sin datos para {filterTipo}</Typography>
               </Box>
             ) : (
               <Stack spacing={0}>
@@ -980,16 +979,16 @@ export default function EAMDashboard() {
                     sx={{
                       display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 80px', gap: 1,
                       py: 1.25,
-                      borderBottom: idx < confiabilidadFiltrada.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                      borderBottom: idx < confiabilidadFiltrada.length - 1 ? '1px solid #E5E7EB' : 'none',
                       alignItems: 'center', cursor: 'pointer', borderRadius: '6px', px: 0.5,
                       transition: 'background 0.15s',
-                      bgcolor: panelOpen && panelKey === `confiabilidad:${row.categoria}` ? alpha('#fff', 0.04) : 'transparent',
-                      '&:hover': { bgcolor: alpha('#fff', 0.03) },
+                      bgcolor: panelOpen && panelKey === `confiabilidad:${row.categoria}` ? alpha(EAM_COLOR, 0.06) : 'transparent',
+                      '&:hover': { bgcolor: alpha(EAM_COLOR, 0.04) },
                     }}
                   >
-                    <Typography fontSize={12} color="rgba(255,255,255,0.8)">{row.categoria}</Typography>
-                    <Typography fontSize={12} color="rgba(255,255,255,0.6)">{row.mtbf}</Typography>
-                    <Typography fontSize={12} color="rgba(255,255,255,0.6)">{row.mttr}</Typography>
+                    <Typography fontSize={12} color="#334155">{row.categoria}</Typography>
+                    <Typography fontSize={12} color="#64748B">{row.mtbf}</Typography>
+                    <Typography fontSize={12} color="#64748B">{row.mttr}</Typography>
                     <Typography fontSize={12} fontWeight={700} color={ESTADO_CONF_COLOR[row.estado]}>{row.disponibilidad}</Typography>
                     <Chip label={row.estado} size="small"
                       sx={{ bgcolor: alpha(ESTADO_CONF_COLOR[row.estado], 0.15), color: ESTADO_CONF_COLOR[row.estado], fontWeight: 700, fontSize: 9, height: 20 }}
@@ -1017,14 +1016,14 @@ export default function EAMDashboard() {
         }}
       >
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2.5, py: 1.5, borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2.5, py: 1.5, borderBottom: '1px solid #E5E7EB', flexShrink: 0 }}>
             <Stack direction="row" alignItems="center" spacing={1}>
               <Chip label="Detalle" size="small" sx={{ bgcolor: alpha(EAM_COLOR, 0.15), color: EAM_COLOR, fontWeight: 700, fontSize: 10 }} />
               {filterTipo !== 'Todos' && (
-                <Chip label={filterTipo} size="small" sx={{ bgcolor: alpha('#fff', 0.06), color: 'text.secondary', fontSize: 10 }} />
+                <Chip label={filterTipo} size="small" sx={{ bgcolor: '#F1F5F9', color: 'text.secondary', fontSize: 10 }} />
               )}
             </Stack>
-            <IconButton onClick={closePanel} sx={{ color: 'text.secondary', '&:hover': { color: 'text.primary', bgcolor: alpha('#fff', 0.05) } }}>
+            <IconButton onClick={closePanel} sx={{ color: 'text.secondary', '&:hover': { color: 'text.primary', bgcolor: alpha('#000', 0.04) } }}>
               <CloseIcon sx={{ fontSize: 18 }} />
             </IconButton>
           </Box>

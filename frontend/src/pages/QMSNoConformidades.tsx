@@ -83,7 +83,7 @@ export default function QMSNoConformidades() {
             { label: 'Cerradas este mes', value: '9', color: QMS_COLOR },
           ].map(k => (
             <Grid key={k.label} size={{ xs: 6, sm: 4, md: 'auto' }} sx={{ flex: 1 }}>
-              <Card sx={{ bgcolor: 'text.primary', border: '1px solid rgba(59,130,246,0.18)', borderRadius: 2 }}>
+              <Card sx={{ bgcolor: 'background.paper', border: '1px solid rgba(59,130,246,0.18)', borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important', textAlign: 'center' }}>
                   <Typography sx={{ fontSize: 26, fontWeight: 800, color: k.color }}>{k.value}</Typography>
                   <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{k.label}</Typography>
@@ -104,12 +104,12 @@ export default function QMSNoConformidades() {
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
             {['ABIERTA', 'EN_TRATAMIENTO', 'VERIFICACION', 'CERRADA'].map(e => (
               <Chip key={e} label={e.replace('_', ' ')} size="small" onClick={() => setFiltroEstado(filtroEstado === e ? null : e)}
-                sx={{ fontSize: 11, cursor: 'pointer', bgcolor: filtroEstado === e ? alpha(EST_COLOR[e], 0.2) : 'rgba(255,255,255,0.05)', color: filtroEstado === e ? EST_COLOR[e] : 'rgba(255,255,255,0.5)', border: `1px solid ${filtroEstado === e ? alpha(EST_COLOR[e], 0.4) : 'transparent'}` }} />
+                sx={{ fontSize: 11, cursor: 'pointer', bgcolor: filtroEstado === e ? alpha(EST_COLOR[e], 0.2) : '#F1F5F9', color: filtroEstado === e ? EST_COLOR[e] : '#64748B', border: `1px solid ${filtroEstado === e ? alpha(EST_COLOR[e], 0.4) : 'transparent'}` }} />
             ))}
-            <Box sx={{ mx: 0.5, borderLeft: '1px solid rgba(255,255,255,0.1)' }} />
+            <Box sx={{ mx: 0.5, borderLeft: '1px solid #E5E7EB' }} />
             {['MENOR', 'MAYOR', 'CRITICA'].map(c => (
               <Chip key={c} label={c} size="small" onClick={() => setFiltroClasif(filtroClasif === c ? null : c)}
-                sx={{ fontSize: 11, cursor: 'pointer', bgcolor: filtroClasif === c ? alpha(CLS_COLOR[c], 0.2) : 'rgba(255,255,255,0.05)', color: filtroClasif === c ? CLS_COLOR[c] : 'rgba(255,255,255,0.5)', border: `1px solid ${filtroClasif === c ? alpha(CLS_COLOR[c], 0.4) : 'transparent'}` }} />
+                sx={{ fontSize: 11, cursor: 'pointer', bgcolor: filtroClasif === c ? alpha(CLS_COLOR[c], 0.2) : '#F1F5F9', color: filtroClasif === c ? CLS_COLOR[c] : '#64748B', border: `1px solid ${filtroClasif === c ? alpha(CLS_COLOR[c], 0.4) : 'transparent'}` }} />
             ))}
           </Box>
           <Paper sx={{ bgcolor: 'transparent' }}>
@@ -130,7 +130,7 @@ export default function QMSNoConformidades() {
                     <TableCell sx={{ fontSize: 11 }}>{nc.responsable}</TableCell>
                     <TableCell sx={{ fontSize: 11 }}>{nc.limite}</TableCell>
                     <TableCell><Chip label={nc.estado.replace('_', ' ')} size="small" sx={{ fontSize: 9, height: 18, bgcolor: alpha(EST_COLOR[nc.estado], 0.15), color: EST_COLOR[nc.estado], fontWeight: 700 }} /></TableCell>
-                    <TableCell sx={{ fontSize: 11, color: nc.capa ? '#D97706' : 'rgba(255,255,255,0.3)' }}>{nc.capa || '-'}</TableCell>
+                    <TableCell sx={{ fontSize: 11, color: nc.capa ? '#D97706' : '#94A3B8' }}>{nc.capa || '-'}</TableCell>
                     <TableCell>
                       <IconButton size="small" sx={{ color: 'text.secondary' }}><Visibility sx={{ fontSize: 14 }} /></IconButton>
                       <IconButton size="small" sx={{ color: 'text.secondary' }}><Edit sx={{ fontSize: 14 }} /></IconButton>
@@ -176,7 +176,7 @@ export default function QMSNoConformidades() {
         <TabPanel value={tab} index={2}>
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, md: 4 }}>
-              <Card sx={{ bgcolor: '#111827', border: '1px solid #E5E7EB', borderRadius: 2 }}>
+              <Card sx={{ bgcolor: '#fff', border: '1px solid #E5E7EB', borderRadius: 2 }}>
                 <CardContent>
                   <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 2 }}>NC por Origen</Typography>
                   {NC_ORIGEN_DATA.map(d => (
@@ -192,7 +192,7 @@ export default function QMSNoConformidades() {
               </Card>
             </Grid>
             <Grid size={{ xs: 12, md: 4 }}>
-              <Card sx={{ bgcolor: '#111827', border: '1px solid #E5E7EB', borderRadius: 2 }}>
+              <Card sx={{ bgcolor: '#fff', border: '1px solid #E5E7EB', borderRadius: 2 }}>
                 <CardContent>
                   <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 2 }}>NC por Clasificación</Typography>
                   {[{ label: 'Menor', pct: 45, color: '#0369A1' }, { label: 'Mayor', pct: 40, color: '#EA580C' }, { label: 'Crítica', pct: 15, color: '#DC2626' }].map(c => (
@@ -210,7 +210,7 @@ export default function QMSNoConformidades() {
               </Card>
             </Grid>
             <Grid size={{ xs: 12, md: 4 }}>
-              <Card sx={{ bgcolor: '#111827', border: '1px solid #E5E7EB', borderRadius: 2 }}>
+              <Card sx={{ bgcolor: '#fff', border: '1px solid #E5E7EB', borderRadius: 2 }}>
                 <CardContent>
                   <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 2 }}>Tendencia NC vs Cerradas</Typography>
                   {[
@@ -236,31 +236,31 @@ export default function QMSNoConformidades() {
           </Grid>
         </TabPanel>
 
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary' } }}>
+        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
           <DialogTitle sx={{ fontWeight: 700 }}>Registrar No Conformidad</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
-            <TextField label="Título" fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
-            <TextField label="Descripción" multiline rows={3} fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
+            <TextField label="Título" fullWidth size="small" />
+            <TextField label="Descripción" multiline rows={3} fullWidth size="small" />
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl size="small" fullWidth>
-                  <InputLabel sx={{ color: 'text.secondary' }}>Clasificación</InputLabel>
-                  <Select label="Clasificación" defaultValue="" sx={{ color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } }}>
+                  <InputLabel>Clasificación</InputLabel>
+                  <Select label="Clasificación" defaultValue="">
                     {['MENOR', 'MAYOR', 'CRITICA'].map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
                   </Select>
                 </FormControl>
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl size="small" fullWidth>
-                  <InputLabel sx={{ color: 'text.secondary' }}>Origen</InputLabel>
-                  <Select label="Origen" defaultValue="" sx={{ color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } }}>
+                  <InputLabel>Origen</InputLabel>
+                  <Select label="Origen" defaultValue="">
                     {['AUDITORIA', 'CLIENTE', 'OPERACION', 'TRANSPORTE', 'WMS', 'HCM', 'PROVEEDOR'].map(o => <MenuItem key={o} value={o}>{o}</MenuItem>)}
                   </Select>
                 </FormControl>
               </Grid>
             </Grid>
-            <TextField label="Responsable" fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
-            <TextField label="Fecha Límite" type="date" fullWidth size="small" InputLabelProps={{ shrink: true, sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
+            <TextField label="Responsable" fullWidth size="small" />
+            <TextField label="Fecha Límite" type="date" fullWidth size="small" InputLabelProps={{ shrink: true }} />
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
             <Button onClick={() => setOpenDialog(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>

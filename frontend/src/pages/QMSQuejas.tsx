@@ -68,7 +68,7 @@ export default function QMSQuejas() {
             { label: 'NPS Mes', value: '78', color: QMS_COLOR },
           ].map(k => (
             <Grid key={k.label} size={{ xs: 6, sm: 4, md: 'auto' }} sx={{ flex: 1 }}>
-              <Card sx={{ bgcolor: 'text.primary', border: '1px solid rgba(59,130,246,0.18)', borderRadius: 2 }}>
+              <Card sx={{ bgcolor: 'background.paper', border: '1px solid rgba(59,130,246,0.18)', borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important', textAlign: 'center' }}>
                   <Typography sx={{ fontSize: 24, fontWeight: 800, color: k.color }}>{k.value}</Typography>
                   <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{k.label}</Typography>
@@ -87,7 +87,7 @@ export default function QMSQuejas() {
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
             {Object.entries(TIPO_COLOR).map(([t, c]) => (
               <Chip key={t} label={t} size="small" onClick={() => setFiltroTipo(filtroTipo === t ? null : t)}
-                sx={{ fontSize: 11, cursor: 'pointer', textTransform: 'capitalize', bgcolor: filtroTipo === t ? alpha(c, 0.2) : 'rgba(255,255,255,0.05)', color: filtroTipo === t ? c : 'rgba(255,255,255,0.5)', border: `1px solid ${filtroTipo === t ? alpha(c, 0.4) : 'transparent'}` }} />
+                sx={{ fontSize: 11, cursor: 'pointer', textTransform: 'capitalize', bgcolor: filtroTipo === t ? alpha(c, 0.2) : '#F1F5F9', color: filtroTipo === t ? c : '#64748B', border: `1px solid ${filtroTipo === t ? alpha(c, 0.4) : 'transparent'}` }} />
             ))}
           </Box>
           <Paper sx={{ bgcolor: 'transparent' }}>
@@ -120,7 +120,7 @@ export default function QMSQuejas() {
           <Grid container spacing={3}>
             {/* NPS Panel */}
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ bgcolor: '#111827', border: '1px solid #E5E7EB', borderRadius: 2 }}>
+              <Card sx={{ bgcolor: '#fff', border: '1px solid #E5E7EB', borderRadius: 2 }}>
                 <CardContent>
                   <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 2 }}>Net Promoter Score (NPS)</Typography>
                   <Box sx={{ textAlign: 'center', mb: 3 }}>
@@ -152,7 +152,7 @@ export default function QMSQuejas() {
 
             {/* CSAT */}
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ bgcolor: '#111827', border: '1px solid #E5E7EB', borderRadius: 2 }}>
+              <Card sx={{ bgcolor: '#fff', border: '1px solid #E5E7EB', borderRadius: 2 }}>
                 <CardContent>
                   <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 2 }}>CSAT — Satisfacción del Cliente</Typography>
                   <Box sx={{ textAlign: 'center', mb: 2 }}>
@@ -172,7 +172,7 @@ export default function QMSQuejas() {
           </Grid>
         </TabPanel>
 
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary' } }}>
+        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { color: 'text.primary' } }}>
           <DialogTitle sx={{ fontWeight: 700 }}>Registrar PQRS</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
             <FormControl size="small" fullWidth>

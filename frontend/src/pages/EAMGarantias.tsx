@@ -497,7 +497,7 @@ function TabGarantiasVigentes() {
         sx={{
           bgcolor: '#FFFFFF',
           borderRadius: 2,
-          border: `1px solid ${alpha('#fff', 0.06)}`,
+          border: `1px solid ${alpha('#000', 0.06)}`,
         }}
       >
         <Table size="small">
@@ -506,11 +506,11 @@ function TabGarantiasVigentes() {
               sx={{
                 '& th': {
                   bgcolor: alpha(EAM_COLOR, 0.08),
-                  color: '#9CA3AF',
+                  color: '#64748B',
                   fontSize: '0.72rem',
                   textTransform: 'uppercase',
                   letterSpacing: 0.8,
-                  borderBottom: `1px solid ${alpha('#fff', 0.08)}`,
+                  borderBottom: `1px solid ${alpha('#000', 0.08)}`,
                 },
               }}
             >
@@ -531,10 +531,10 @@ function TabGarantiasVigentes() {
               <TableRow
                 key={row.id}
                 sx={{
-                  '&:hover': { bgcolor: alpha('#fff', 0.03) },
+                  '&:hover': { bgcolor: alpha('#000', 0.03) },
                   '& td': {
-                    borderBottom: `1px solid ${alpha('#fff', 0.05)}`,
-                    color: '#D1D5DB',
+                    borderBottom: `1px solid ${alpha('#000', 0.05)}`,
+                    color: '#334155',
                     fontSize: '0.8rem',
                     py: 1.2,
                   },
@@ -543,7 +543,7 @@ function TabGarantiasVigentes() {
                 <TableCell>
                   <Typography
                     variant="body2"
-                    sx={{ color: '#F3F4F6', fontSize: '0.8rem', fontWeight: 500 }}
+                    sx={{ color: '#1E293B', fontSize: '0.8rem', fontWeight: 500 }}
                   >
                     {row.descripcion}
                   </Typography>
@@ -567,7 +567,7 @@ function TabGarantiasVigentes() {
                   sx={{
                     fontFamily: 'monospace',
                     fontSize: '0.75rem !important',
-                    color: '#9CA3AF !important',
+                    color: '#64748B !important',
                   }}
                 >
                   {row.numeroGarantia}
@@ -667,18 +667,18 @@ function TabPorVencer() {
                     </Stack>
                     <Typography
                       variant="body2"
-                      sx={{ color: '#F3F4F6', fontWeight: 600, mb: 0.5 }}
+                      sx={{ color: '#1E293B', fontWeight: 600, mb: 0.5 }}
                     >
                       {g.descripcion}
                     </Typography>
                     <Stack direction="row" spacing={3} flexWrap="wrap">
-                      <Typography variant="caption" sx={{ color: '#9CA3AF' }}>
+                      <Typography variant="caption" sx={{ color: '#64748B' }}>
                         Activo:{' '}
-                        <span style={{ color: '#D1D5DB' }}>{g.activo}</span>
+                        <span style={{ color: '#334155' }}>{g.activo}</span>
                       </Typography>
-                      <Typography variant="caption" sx={{ color: '#9CA3AF' }}>
+                      <Typography variant="caption" sx={{ color: '#64748B' }}>
                         Proveedor:{' '}
-                        <span style={{ color: '#D1D5DB' }}>{g.proveedor}</span>
+                        <span style={{ color: '#334155' }}>{g.proveedor}</span>
                       </Typography>
                       <Typography variant="caption" sx={{ color: '#9CA3AF' }}>
                         Valor:{' '}
@@ -770,7 +770,7 @@ function TabReclamaciones() {
         </Grid>
       </Grid>
 
-      <Divider sx={{ borderColor: alpha('#fff', 0.07), mb: 3 }} />
+      <Divider sx={{ borderColor: alpha('#000', 0.07), mb: 3 }} />
 
       {/* Tabla de reclamaciones */}
       <TableContainer
@@ -778,7 +778,7 @@ function TabReclamaciones() {
         sx={{
           bgcolor: '#FFFFFF',
           borderRadius: 2,
-          border: `1px solid ${alpha('#fff', 0.06)}`,
+          border: `1px solid ${alpha('#000', 0.06)}`,
         }}
       >
         <Table size="small">
@@ -787,11 +787,11 @@ function TabReclamaciones() {
               sx={{
                 '& th': {
                   bgcolor: alpha(EAM_COLOR, 0.08),
-                  color: '#9CA3AF',
+                  color: '#64748B',
                   fontSize: '0.72rem',
                   textTransform: 'uppercase',
                   letterSpacing: 0.8,
-                  borderBottom: `1px solid ${alpha('#fff', 0.08)}`,
+                  borderBottom: `1px solid ${alpha('#000', 0.08)}`,
                 },
               }}
             >
@@ -809,10 +809,10 @@ function TabReclamaciones() {
               <TableRow
                 key={r.id}
                 sx={{
-                  '&:hover': { bgcolor: alpha('#fff', 0.03) },
+                  '&:hover': { bgcolor: alpha('#000', 0.03) },
                   '& td': {
-                    borderBottom: `1px solid ${alpha('#fff', 0.05)}`,
-                    color: '#D1D5DB',
+                    borderBottom: `1px solid ${alpha('#000', 0.05)}`,
+                    color: '#334155',
                     fontSize: '0.8rem',
                     py: 1.2,
                   },
@@ -822,7 +822,7 @@ function TabReclamaciones() {
                   sx={{
                     fontFamily: 'monospace',
                     fontSize: '0.75rem !important',
-                    color: '#9CA3AF !important',
+                    color: '#64748B !important',
                   }}
                 >
                   {r.fecha}
@@ -831,7 +831,7 @@ function TabReclamaciones() {
                   sx={{
                     fontFamily: 'monospace',
                     fontSize: '0.75rem !important',
-                    color: '#9CA3AF !important',
+                    color: '#64748B !important',
                   }}
                 >
                   {r.garantia}
@@ -840,7 +840,7 @@ function TabReclamaciones() {
                   <Typography
                     variant="body2"
                     sx={{
-                      color: '#F3F4F6',
+                      color: '#1E293B',
                       fontSize: '0.8rem',
                       fontWeight: 500,
                       maxWidth: 300,
@@ -911,7 +911,7 @@ export default function EAMGarantias() {
           <Box>
             <Typography
               variant="h6"
-              sx={{ color: '#F9FAFB', fontWeight: 700, lineHeight: 1.2 }}
+              sx={{ color: '#1E293B', fontWeight: 700, lineHeight: 1.2 }}
             >
               Gestión de Garantías
             </Typography>
@@ -944,7 +944,7 @@ export default function EAMGarantias() {
           sx={{
             bgcolor: '#FFFFFF',
             borderRadius: 2,
-            border: `1px solid ${alpha('#fff', 0.07)}`,
+            border: `1px solid ${alpha('#000', 0.07)}`,
             mb: 3,
           }}
         >

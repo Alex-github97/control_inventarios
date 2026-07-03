@@ -4,7 +4,7 @@ import { Settings } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 const CRM_COLOR = '#DC2626'
-const #E5E7EB  = '#E5E7EB'
+const BORDER  = '#E5E7EB'
 
 const INTEGRACIONES = [
   { nombre: 'ERP',  desc: 'Sincroniza facturación, pagos e ingresos reales en tiempo real',                color: '#0EA5E9', activa: true  },

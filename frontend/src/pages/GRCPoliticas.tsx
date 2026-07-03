@@ -10,6 +10,7 @@ import { Layout } from '@/components/layout/Layout'
 
 const GRC_COLOR = '#6D28D9'
 const LBL       = alpha(GRC_COLOR, 0.85)
+const PAGE_BG   = '#F0F2F5'
 
 const ESTADO_COLOR: Record<string, string> = {
   PUBLICADA: '#059669', BORRADOR: '#D97706', REVISION: '#0891B2',
@@ -51,7 +52,6 @@ const KPIs = [
   { label: 'Cobertura Total',      value: '94%', color: GRC_COLOR, icon: <HistoryEdu /> },
 ]
 
-const TF_SX = { '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' }, '&.Mui-focused fieldset': { borderColor: GRC_COLOR } } }
 const LBL_SX = { sx: { color: 'text.secondary' } }
 
 export default function GRCPoliticas() {
@@ -67,7 +67,7 @@ export default function GRCPoliticas() {
   const Row2 = ({ label, value, color }: { label: string; value: string; color?: string }) => (
     <Box sx={{ mb: 1.25 }}>
       <Typography sx={{ fontSize: 10, color: LBL, textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.25 }}>{label}</Typography>
-      <Typography sx={{ fontSize: 13, color: color || '#E2E8F0', fontWeight: 500 }}>{value}</Typography>
+      <Typography sx={{ fontSize: 13, color: color || '#334155', fontWeight: 500 }}>{value}</Typography>
     </Box>
   )
 
@@ -105,7 +105,7 @@ export default function GRCPoliticas() {
           ))}
         </Grid>
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid rgba(255,255,255,0.08)', '& .MuiTab-root': { color: 'text.secondary', fontSize: 13 }, '& .Mui-selected': { color: GRC_COLOR }, '& .MuiTabs-indicator': { bgcolor: GRC_COLOR } }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid #E5E7EB', '& .MuiTab-root': { color: 'text.secondary', fontSize: 13 }, '& .Mui-selected': { color: GRC_COLOR }, '& .MuiTabs-indicator': { bgcolor: GRC_COLOR } }}>
           <Tab label="Catálogo de Políticas" />
           <Tab label="Control de Aceptaciones" />
         </Tabs>
@@ -181,10 +181,10 @@ export default function GRCPoliticas() {
                     <Row2 label="Próxima Revisión" value={selPol.revision || 'No definida'} />
                     <Row2 label="Alcance" value={selPol.alcance} />
                     <Row2 label="Revisión Periódica" value={selPol.periodicidad_revision} />
-                    <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)', my: 1.5 }} />
+                    <Divider sx={{ borderColor: '#E5E7EB', my: 1.5 }} />
                     <Typography sx={{ fontSize: 10, color: LBL, textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.75 }}>Descripción</Typography>
                     <Typography sx={{ fontSize: 12, color: 'text.primary', lineHeight: 1.7 }}>{selPol.descripcion}</Typography>
-                    <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)', my: 1.5 }} />
+                    <Divider sx={{ borderColor: '#E5E7EB', my: 1.5 }} />
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                       <Button size="small" startIcon={<Edit />} variant="outlined" fullWidth sx={{ color: GRC_COLOR, borderColor: alpha(GRC_COLOR, 0.4) }}>Editar Política</Button>
                       <Button size="small" startIcon={<FileDownload />} variant="outlined" fullWidth sx={{ color: '#059669', borderColor: alpha('#059669', 0.4) }}>Descargar PDF</Button>
@@ -196,9 +196,9 @@ export default function GRCPoliticas() {
                   <>
                     <Typography sx={{ fontSize: 12, color: LBL, mb: 1.5 }}>Historial de versiones — {selPol.codigo}</Typography>
                     {(versiones[selPol.codigo] || [{ version: selPol.version, fecha: '2026-01-01', autor: selPol.propietario, cambios: 'Versión inicial' }]).map((v, i) => (
-                      <Box key={i} sx={{ p: 1.5, mb: 1, bgcolor: 'text.disabled', borderRadius: 1, borderLeft: i === 0 ? `3px solid ${GRC_COLOR}` : '3px solid rgba(255,255,255,0.1)' }}>
+                      <Box key={i} sx={{ p: 1.5, mb: 1, bgcolor: '#F8FAFC', borderRadius: 1, borderLeft: i === 0 ? `3px solid ${GRC_COLOR}` : '3px solid #E5E7EB' }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                          <Chip label={`v${v.version}`} size="small" sx={{ bgcolor: alpha(GRC_COLOR, i === 0 ? 0.2 : 0.08), color: i === 0 ? GRC_COLOR : 'rgba(255,255,255,0.5)', fontSize: 10 }} />
+                          <Chip label={`v${v.version}`} size="small" sx={{ bgcolor: alpha(GRC_COLOR, i === 0 ? 0.2 : 0.08), color: i === 0 ? GRC_COLOR : '#64748B', fontSize: 10 }} />
                           <Typography sx={{ fontSize: 10, color: 'text.secondary' }}>{v.fecha}</Typography>
                         </Box>
                         <Typography sx={{ fontSize: 11.5, color: 'text.primary' }}>{v.cambios}</Typography>
@@ -215,14 +215,14 @@ export default function GRCPoliticas() {
                       <Button size="small" startIcon={<HowToReg />} variant="contained" sx={{ bgcolor: GRC_COLOR, fontSize: 10, py: 0.25, '&:hover': { bgcolor: '#5B21B6' } }} onClick={() => setOpenAcept(true)}>Registrar</Button>
                     </Box>
                     {(aceptHist[selPol.codigo] || []).length > 0 ? (aceptHist[selPol.codigo] || []).map((a, i) => (
-                      <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', p: 1.25, mb: 0.75, bgcolor: 'text.disabled', borderRadius: 1 }}>
-                        <Box><Typography sx={{ fontSize: 12, color: '#E2E8F0', fontWeight: 600 }}>{a.quien}</Typography><Typography sx={{ fontSize: 10, color: 'text.secondary' }}>v{a.version}</Typography></Box>
+                      <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', p: 1.25, mb: 0.75, bgcolor: '#F8FAFC', borderRadius: 1 }}>
+                        <Box><Typography sx={{ fontSize: 12, color: '#1E293B', fontWeight: 600 }}>{a.quien}</Typography><Typography sx={{ fontSize: 10, color: 'text.secondary' }}>v{a.version}</Typography></Box>
                         <Typography sx={{ fontSize: 11, color: '#059669' }}>{a.fecha}</Typography>
                       </Box>
                     )) : (
                       <Box sx={{ p: 2, textAlign: 'center', color: 'text.disabled', fontSize: 12 }}>Sin aceptaciones registradas aún</Box>
                     )}
-                    <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)', my: 1.5 }} />
+                    <Divider sx={{ borderColor: '#E5E7EB', my: 1.5 }} />
                     <Box sx={{ p: 1.5, bgcolor: alpha(GRC_COLOR, 0.08), borderRadius: 1 }}>
                       <Typography sx={{ fontSize: 11, color: LBL, mb: 0.5 }}>Cobertura de aceptación</Typography>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
@@ -291,15 +291,15 @@ export default function GRCPoliticas() {
         <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary' } }}>
           <DialogTitle sx={{ fontWeight: 700 }}>Nueva Política</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
-            <TextField label="Nombre de la Política" fullWidth size="small" InputLabelProps={LBL_SX} sx={TF_SX} />
+            <TextField label="Nombre de la Política" fullWidth size="small" InputLabelProps={LBL_SX} />
             <FormControl size="small"><InputLabel sx={{ color: 'text.secondary' }}>Tipo</InputLabel>
-              <Select label="Tipo" defaultValue="" sx={{ color: 'text.primary', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } }}>
+              <Select label="Tipo" defaultValue="">
                 {['Riesgos','Compliance','Ciberseguridad','Continuidad','Privacidad','Ética','Terceros'].map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
               </Select></FormControl>
-            <TextField label="Propietario" fullWidth size="small" InputLabelProps={LBL_SX} sx={TF_SX} />
-            <TextField label="Aprobador" fullWidth size="small" InputLabelProps={LBL_SX} sx={TF_SX} />
-            <TextField label="Descripción / Alcance" multiline rows={3} fullWidth size="small" InputLabelProps={LBL_SX} sx={TF_SX} />
-            <TextField label="Fecha de Vigencia" type="date" fullWidth size="small" InputLabelProps={{ shrink: true, sx: { color: 'text.secondary' } }} sx={TF_SX} />
+            <TextField label="Propietario" fullWidth size="small" InputLabelProps={LBL_SX} />
+            <TextField label="Aprobador" fullWidth size="small" InputLabelProps={LBL_SX} />
+            <TextField label="Descripción / Alcance" multiline rows={3} fullWidth size="small" InputLabelProps={LBL_SX} />
+            <TextField label="Fecha de Vigencia" type="date" fullWidth size="small" InputLabelProps={{ shrink: true, sx: { color: 'text.secondary' } }} />
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
             <Button onClick={() => setOpenDialog(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>
@@ -311,10 +311,10 @@ export default function GRCPoliticas() {
         <Dialog open={openAcept} onClose={() => setOpenAcept(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary' } }}>
           <DialogTitle sx={{ fontWeight: 700 }}>Registrar Aceptación de Política</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
-            <TextField label="Nombre del Aceptante" fullWidth size="small" InputLabelProps={LBL_SX} sx={TF_SX} />
-            <TextField label="Cargo" fullWidth size="small" InputLabelProps={LBL_SX} sx={TF_SX} />
-            <TextField label="Área" fullWidth size="small" InputLabelProps={LBL_SX} sx={TF_SX} />
-            <TextField label="Fecha de Aceptación" type="date" fullWidth size="small" InputLabelProps={{ shrink: true, sx: { color: 'text.secondary' } }} sx={TF_SX} />
+            <TextField label="Nombre del Aceptante" fullWidth size="small" InputLabelProps={LBL_SX} />
+            <TextField label="Cargo" fullWidth size="small" InputLabelProps={LBL_SX} />
+            <TextField label="Área" fullWidth size="small" InputLabelProps={LBL_SX} />
+            <TextField label="Fecha de Aceptación" type="date" fullWidth size="small" InputLabelProps={{ shrink: true, sx: { color: 'text.secondary' } }} />
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
             <Button onClick={() => setOpenAcept(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>

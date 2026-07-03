@@ -27,12 +27,12 @@ export default function Configuracion() {
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, maxWidth: 680 }}>
 
         {/* Language section */}
-        <Card sx={{ borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <Card sx={{ borderRadius: '16px', overflow: 'hidden', border: '1px solid #E5E7EB' }}>
           {/* Header */}
           <Box sx={{
             px: 3, py: 2.5,
             background: `linear-gradient(135deg, ${alpha(ACCENT, 0.12)} 0%, ${alpha(ACCENT, 0.04)} 100%)`,
-            borderBottom: '1px solid rgba(255,255,255,0.05)',
+            borderBottom: '1px solid #E5E7EB',
             display: 'flex', alignItems: 'center', gap: 1.5,
           }}>
             <Box sx={{
@@ -42,7 +42,7 @@ export default function Configuracion() {
               <LanguageIcon sx={{ color: ACCENT, fontSize: 20 }} />
             </Box>
             <Box>
-              <Typography sx={{ fontWeight: 700, fontSize: 15, color: '#FFF' }}>
+              <Typography sx={{ fontWeight: 700, fontSize: 15, color: '#1E293B' }}>
                 {t('config.languageSection')}
               </Typography>
               <Typography sx={{ fontSize: 12, color: '#64748B' }}>
@@ -64,13 +64,13 @@ export default function Configuracion() {
                       display: 'flex', alignItems: 'center', gap: 1,
                       px: 2, py: 1.25,
                       borderRadius: '10px',
-                      border: `1px solid ${isActive ? ACCENT : 'rgba(255,255,255,0.09)'}`,
-                      bgcolor: isActive ? alpha(ACCENT, 0.12) : 'rgba(255,255,255,0.02)',
+                      border: `1px solid ${isActive ? ACCENT : '#E5E7EB'}`,
+                      bgcolor: isActive ? alpha(ACCENT, 0.12) : '#F8FAFC',
                       cursor: 'pointer',
                       transition: 'all 0.15s ease',
                       '&:hover': {
-                        bgcolor: isActive ? alpha(ACCENT, 0.18) : 'rgba(255,255,255,0.06)',
-                        borderColor: isActive ? ACCENT : 'rgba(255,255,255,0.2)',
+                        bgcolor: isActive ? alpha(ACCENT, 0.18) : '#F1F5F9',
+                        borderColor: isActive ? ACCENT : '#CBD5E1',
                       },
                     }}
                   >
@@ -78,7 +78,7 @@ export default function Configuracion() {
                     <Typography sx={{
                       fontSize: 13.5,
                       fontWeight: isActive ? 700 : 400,
-                      color: isActive ? '#FFF' : 'rgba(255,255,255,0.55)',
+                      color: isActive ? '#1E293B' : '#64748B',
                     }}>
                       {lang.name}
                     </Typography>
@@ -108,10 +108,10 @@ export default function Configuracion() {
         </Card>
 
         {/* Appearance placeholder (future feature) */}
-        <Card sx={{ borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)', opacity: 0.6 }}>
+        <Card sx={{ borderRadius: '16px', overflow: 'hidden', border: '1px solid #E5E7EB', opacity: 0.6 }}>
           <Box sx={{
             px: 3, py: 2.5,
-            borderBottom: '1px solid rgba(255,255,255,0.05)',
+            borderBottom: '1px solid #E5E7EB',
             display: 'flex', alignItems: 'center', gap: 1.5,
           }}>
             <Box sx={{
@@ -121,7 +121,7 @@ export default function Configuracion() {
               <PaletteIcon sx={{ color: SECTION_COLOR, fontSize: 20 }} />
             </Box>
             <Box>
-              <Typography sx={{ fontWeight: 700, fontSize: 15, color: '#FFF' }}>
+              <Typography sx={{ fontWeight: 700, fontSize: 15, color: '#1E293B' }}>
                 {t('config.appearanceSection')}
               </Typography>
               <Typography sx={{ fontSize: 12, color: '#64748B' }}>

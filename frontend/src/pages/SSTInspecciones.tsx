@@ -4,6 +4,7 @@ import { Checklist, Add, CheckCircle, Schedule, PlayArrow, Cancel } from '@mui/i
 import { Layout } from '@/components/layout/Layout'
 
 const SST_COLOR = '#C53030'
+const PAGE_BG = '#F0F2F5'
 
 const SX_INPUT = {
   '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: '#F9FAFB', '& fieldset': { borderColor: '#E5E7EB' } },
@@ -111,7 +112,7 @@ export default function SSTInspecciones() {
           {(['', 'PROGRAMADA', 'EN_CURSO', 'COMPLETADA', 'CANCELADA'] as const).map(e => (
             <Chip key={e} label={e === '' ? 'Todos' : ESTADO_META[e as EstadoInsp]?.label}
               onClick={() => setFiltroE(e as EstadoInsp | '')}
-              sx={{ bgcolor: filtroE === e ? alpha(SST_COLOR, 0.2) : 'rgba(255,255,255,0.05)', color: filtroE === e ? '#F87171' : 'rgba(255,255,255,0.5)', border: `1px solid ${filtroE === e ? alpha(SST_COLOR, 0.4) : 'transparent'}`, cursor: 'pointer', fontSize: 11 }} />
+              sx={{ bgcolor: filtroE === e ? alpha(SST_COLOR, 0.2) : '#F9FAFB', color: filtroE === e ? '#C53030' : '#64748B', border: `1px solid ${filtroE === e ? alpha(SST_COLOR, 0.4) : '#E5E7EB'}`, cursor: 'pointer', fontSize: 11 }} />
           ))}
         </Box>
 
@@ -120,7 +121,7 @@ export default function SSTInspecciones() {
           {visibles.map(i => {
             const meta = ESTADO_META[i.estado]
             return (
-              <Card key={i.id} sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2 }}>
+              <Card key={i.id} sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important' }}>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
                     <Box sx={{ flex: 1, minWidth: 200 }}>
@@ -132,7 +133,7 @@ export default function SSTInspecciones() {
                       <Typography sx={{ fontSize: 12, color: 'text.secondary', mb: 1 }}>{i.descripcion}</Typography>
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
                         <Chip label={`Inspector: ${i.inspector}`} size="small" sx={{ bgcolor: '#F9FAFB', color: 'text.secondary', fontSize: 10 }} />
-                        <Chip label={`${i.hallazgos_count} hallazgos`} size="small" sx={{ bgcolor: i.hallazgos_count > 0 ? alpha('#f59e0b', 0.12) : 'rgba(255,255,255,0.04)', color: i.hallazgos_count > 0 ? '#fbbf24' : 'rgba(255,255,255,0.4)', fontSize: 10 }} />
+                        <Chip label={`${i.hallazgos_count} hallazgos`} size="small" sx={{ bgcolor: i.hallazgos_count > 0 ? alpha('#f59e0b', 0.12) : '#F9FAFB', color: i.hallazgos_count > 0 ? '#fbbf24' : '#64748B', fontSize: 10 }} />
                       </Box>
                     </Box>
                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.75 }}>
@@ -148,7 +149,7 @@ export default function SSTInspecciones() {
         </Box>
 
         {/* Dialog */}
-        <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#0A1628', color: 'text.primary' } }}>
+        <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: 'background.paper', color: 'text.primary' } }}>
           <DialogTitle sx={{ borderBottom: '1px solid #F1F5F9', fontWeight: 700 }}>Programar Nueva Inspección</DialogTitle>
           <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Box sx={{ display: 'flex', gap: 2 }}>

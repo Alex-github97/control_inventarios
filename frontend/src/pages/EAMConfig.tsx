@@ -351,7 +351,7 @@ export default function EAMConfig() {
       <CardContent>
         <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.5}>
           <Box>
-            <Typography variant="subtitle2" fontWeight={700} color="white">{title}</Typography>
+            <Typography variant="subtitle2" fontWeight={700} color="#1E293B">{title}</Typography>
             <Typography variant="caption" color="grey.500">{total} registros</Typography>
           </Box>
           <Button size="small" startIcon={<AddIcon />} variant="outlined" sx={{ textTransform: 'none', borderColor: alpha(EAM_COLOR, 0.4), color: EAM_COLOR, fontSize: 11, '&:hover': { borderColor: EAM_COLOR, background: alpha(EAM_COLOR, 0.1) } }}>
@@ -393,7 +393,7 @@ export default function EAMConfig() {
             <SettingsIcon sx={{ fontSize: 28 }} />
           </Box>
           <Box>
-            <Typography variant="h5" fontWeight={700} color="white">Configuración EAM</Typography>
+            <Typography variant="h5" fontWeight={700} color="#1E293B">Configuración EAM</Typography>
             <Typography variant="body2" color="grey.400">Catálogos, contratistas, umbrales de alerta e integraciones</Typography>
           </Box>
         </Stack>
@@ -414,7 +414,7 @@ export default function EAMConfig() {
                 <CardContent>
                   <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                     <Box>
-                      <Typography variant="subtitle1" fontWeight={700} color="white">Tipos de Trabajo</Typography>
+                      <Typography variant="subtitle1" fontWeight={700} color="#1E293B">Tipos de Trabajo</Typography>
                       <Typography variant="caption" color="grey.500">{tiposTrabajo.length} tipos configurados — categorías, duración y requisitos</Typography>
                     </Box>
                     <Button size="small" startIcon={<AddIcon />} variant="contained"
@@ -437,7 +437,7 @@ export default function EAMConfig() {
                   {/* Cabecera */}
                   <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 130px 80px 1fr 36px 36px', gap: 1, px: 1, py: 0.5, bgcolor: alpha(EAM_COLOR, 0.05), borderRadius: '6px', mb: 0.5 }}>
                     {['Nombre', 'Categoría', 'Duración', 'Atributos', '', ''].map((h) => (
-                      <Typography key={h} fontSize={10} fontWeight={700} color="rgba(255,255,255,0.35)" letterSpacing="0.4px">{h.toUpperCase()}</Typography>
+                      <Typography key={h} fontSize={10} fontWeight={700} color="#64748B" letterSpacing="0.4px">{h.toUpperCase()}</Typography>
                     ))}
                   </Box>
 
@@ -447,10 +447,10 @@ export default function EAMConfig() {
                       <Box key={t.id} sx={{
                         display: 'grid', gridTemplateColumns: '1fr 130px 80px 1fr 36px 36px',
                         gap: 1, px: 1, py: 0.75, alignItems: 'center',
-                        borderRadius: '8px', border: `1px solid rgba(255,255,255,0.04)`,
+                        borderRadius: '8px', border: `1px solid #E5E7EB`,
                         '&:hover': { bgcolor: alpha('#fff', 0.02) },
                       }}>
-                        <Typography fontSize={13} color="white" fontWeight={500}>{t.nombre}</Typography>
+                        <Typography fontSize={13} color="#1E293B" fontWeight={500}>{t.nombre}</Typography>
 
                         <Chip
                           label={t.categoria}
@@ -570,7 +570,7 @@ export default function EAMConfig() {
 
                   {/* Preview del badge */}
                   {tipoEditing.nombre && (
-                    <Box sx={{ p: 1.5, bgcolor: alpha('#fff', 0.03), borderRadius: '8px', border: `1px solid rgba(255,255,255,0.07)` }}>
+                    <Box sx={{ p: 1.5, bgcolor: alpha('#fff', 0.03), borderRadius: '8px', border: `1px solid #E5E7EB` }}>
                       <Typography fontSize={11} color="grey.500" mb={0.75}>Vista previa de badges:</Typography>
                       <Stack direction="row" spacing={0.75} flexWrap="wrap">
                         <Chip label={tipoEditing.categoria} size="small" sx={{ bgcolor: alpha(CAT_COLOR[tipoEditing.categoria], 0.15), color: CAT_COLOR[tipoEditing.categoria], fontWeight: 700, fontSize: 10, height: 20 }} />
@@ -600,7 +600,7 @@ export default function EAMConfig() {
                 <CardContent>
                   <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                     <Box>
-                      <Typography variant="subtitle1" fontWeight={700} color="white">Centros de Costo</Typography>
+                      <Typography variant="subtitle1" fontWeight={700} color="#1E293B">Centros de Costo</Typography>
                       <Typography variant="caption" color="grey.500">{centrosCosto.length} centros configurados — asociados a plataformas y ciudades</Typography>
                     </Box>
                     <Button size="small" startIcon={<AddIcon />} variant="contained"
@@ -617,18 +617,18 @@ export default function EAMConfig() {
                     sx={{ mb: 2, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.03), '& fieldset': { borderColor: alpha('#fff', 0.12) }, color: 'text.primary', fontSize: 13 } }}
                   />
                   {/* Header */}
-                  <Box sx={{ display: 'grid', gridTemplateColumns: '90px 1fr 130px 1fr 90px', gap: 1, px: 1, pb: 0.5, borderBottom: '1px solid rgba(255,255,255,0.07)', mb: 0.5 }}>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '90px 1fr 130px 1fr 90px', gap: 1, px: 1, pb: 0.5, borderBottom: '1px solid #E5E7EB', mb: 0.5 }}>
                     {['Código', 'Nombre', 'Ciudad', 'Plataforma', ''].map((h) => (
-                      <Typography key={h} fontSize={10} fontWeight={700} color="rgba(255,255,255,0.3)" letterSpacing="0.04em" textTransform="uppercase">{h}</Typography>
+                      <Typography key={h} fontSize={10} fontWeight={700} color="#64748B" letterSpacing="0.04em" textTransform="uppercase">{h}</Typography>
                     ))}
                   </Box>
                   <Stack spacing={0.25}>
                     {filteredCC.map((c) => (
                       <Box key={c.id} sx={{ display: 'grid', gridTemplateColumns: '90px 1fr 130px 1fr 90px', gap: 1, px: 1, py: 0.75, borderRadius: '6px', '&:hover': { bgcolor: alpha('#fff', 0.03) }, alignItems: 'center' }}>
                         <Typography fontSize={11} fontWeight={700} color={EAM_COLOR}>{c.codigo}</Typography>
-                        <Typography fontSize={12} color="white" noWrap>{c.nombre}</Typography>
-                        <Typography fontSize={12} color="rgba(255,255,255,0.6)" noWrap>{c.ciudad}</Typography>
-                        <Typography fontSize={12} color="rgba(255,255,255,0.45)" noWrap>{c.plataforma}</Typography>
+                        <Typography fontSize={12} color="#1E293B" noWrap>{c.nombre}</Typography>
+                        <Typography fontSize={12} color="#64748B" noWrap>{c.ciudad}</Typography>
+                        <Typography fontSize={12} color="#64748B" noWrap>{c.plataforma}</Typography>
                         <Stack direction="row" spacing={0.5}>
                           <IconButton size="small" onClick={() => openEditCC(c)} sx={{ color: EAM_COLOR, '&:hover': { bgcolor: alpha(EAM_COLOR, 0.1) } }}><EditIcon sx={{ fontSize: 14 }} /></IconButton>
                           <IconButton size="small" onClick={() => deleteCC(c.id)} sx={{ color: '#EF4444', '&:hover': { bgcolor: alpha('#EF4444', 0.1) } }}><DeleteIcon sx={{ fontSize: 14 }} /></IconButton>
@@ -636,7 +636,7 @@ export default function EAMConfig() {
                       </Box>
                     ))}
                     {filteredCC.length === 0 && (
-                      <Typography fontSize={12} color="rgba(255,255,255,0.3)" textAlign="center" py={2}>Sin resultados</Typography>
+                      <Typography fontSize={12} color="#64748B" textAlign="center" py={2}>Sin resultados</Typography>
                     )}
                   </Stack>
                 </CardContent>
@@ -738,7 +738,7 @@ export default function EAMConfig() {
                             {c.tipo === 'TECNICO_EXTERNO' ? <PersonIcon sx={{ color: tipoContColor(c.tipo) }} /> : c.tipo === 'TALLER' ? <BuildIcon sx={{ color: tipoContColor(c.tipo) }} /> : <BusinessIcon sx={{ color: tipoContColor(c.tipo) }} />}
                           </Avatar>
                           <Box>
-                            <Typography variant="body2" fontWeight={700} color="white">{c.nombre}</Typography>
+                            <Typography variant="body2" fontWeight={700} color="#1E293B">{c.nombre}</Typography>
                             <Typography variant="caption" color="grey.500">{c.ciudad}</Typography>
                           </Box>
                         </Stack>
@@ -777,7 +777,7 @@ export default function EAMConfig() {
                 <CardContent>
                   <Stack direction="row" alignItems="center" spacing={1} mb={2}>
                     <AlertIcon sx={{ color: EAM_COLOR, fontSize: 20 }} />
-                    <Typography variant="subtitle2" fontWeight={700} color="white">Alertas de Mantenimiento</Typography>
+                    <Typography variant="subtitle2" fontWeight={700} color="#1E293B">Alertas de Mantenimiento</Typography>
                   </Stack>
                   <Stack spacing={2.5} divider={<Divider sx={{ borderColor: alpha('#fff', 0.06) }} />}>
                     {/* PM Vencido */}
@@ -785,7 +785,7 @@ export default function EAMConfig() {
                       <Box flex={1}>
                         <Stack direction="row" alignItems="center" spacing={1}>
                           <Switch checked={umbrales.pmActive} onChange={e => setU('pmActive', e.target.checked)} size="small" sx={{ '& .Mui-checked .MuiSwitch-thumb': { color: EAM_COLOR }, '& .Mui-checked + .MuiSwitch-track': { backgroundColor: EAM_COLOR } }} />
-                          <Typography variant="body2" color={umbrales.pmActive ? 'white' : 'grey.500'} fontWeight={600}>Alerta PM por vencer</Typography>
+                          <Typography variant="body2" color={umbrales.pmActive ? '#1E293B' : 'grey.500'} fontWeight={600}>Alerta PM por vencer</Typography>
                         </Stack>
                         <Typography variant="caption" color="grey.500" ml={5}>Notificar X días antes del vencimiento del PM</Typography>
                       </Box>
@@ -803,7 +803,7 @@ export default function EAMConfig() {
                       <Box flex={1}>
                         <Stack direction="row" alignItems="center" spacing={1}>
                           <Switch checked={umbrales.profActive} onChange={e => setU('profActive', e.target.checked)} size="small" sx={{ '& .Mui-checked .MuiSwitch-thumb': { color: EAM_COLOR }, '& .Mui-checked + .MuiSwitch-track': { backgroundColor: EAM_COLOR } }} />
-                          <Typography variant="body2" color={umbrales.profActive ? 'white' : 'grey.500'} fontWeight={600}>Profundidad mínima neumático</Typography>
+                          <Typography variant="body2" color={umbrales.profActive ? '#1E293B' : 'grey.500'} fontWeight={600}>Profundidad mínima neumático</Typography>
                         </Stack>
                         <Typography variant="caption" color="grey.500" ml={5}>Alerta cuando la profundidad sea menor a X mm</Typography>
                       </Box>
@@ -821,7 +821,7 @@ export default function EAMConfig() {
                       <Box flex={1}>
                         <Stack direction="row" alignItems="center" spacing={1}>
                           <Switch checked={umbrales.stockMin} onChange={e => setU('stockMin', e.target.checked)} size="small" sx={{ '& .Mui-checked .MuiSwitch-thumb': { color: EAM_COLOR }, '& .Mui-checked + .MuiSwitch-track': { backgroundColor: EAM_COLOR } }} />
-                          <Typography variant="body2" color={umbrales.stockMin ? 'white' : 'grey.500'} fontWeight={600}>Alerta stock mínimo repuestos</Typography>
+                          <Typography variant="body2" color={umbrales.stockMin ? '#1E293B' : 'grey.500'} fontWeight={600}>Alerta stock mínimo repuestos</Typography>
                         </Stack>
                         <Typography variant="caption" color="grey.500" ml={5}>Notificar cuando repuesto crítico esté por debajo del mínimo</Typography>
                       </Box>
@@ -837,7 +837,7 @@ export default function EAMConfig() {
                 <CardContent>
                   <Stack direction="row" alignItems="center" spacing={1} mb={2}>
                     <WarnIcon sx={{ color: '#F59E0B', fontSize: 20 }} />
-                    <Typography variant="subtitle2" fontWeight={700} color="white">Umbrales Operativos</Typography>
+                    <Typography variant="subtitle2" fontWeight={700} color="#1E293B">Umbrales Operativos</Typography>
                   </Stack>
                   <Stack spacing={2.5} divider={<Divider sx={{ borderColor: alpha('#fff', 0.06) }} />}>
                     {/* MTTR */}
@@ -845,7 +845,7 @@ export default function EAMConfig() {
                       <Box flex={1}>
                         <Stack direction="row" alignItems="center" spacing={1}>
                           <Switch checked={umbrales.mttrActive} onChange={e => setU('mttrActive', e.target.checked)} size="small" sx={{ '& .Mui-checked .MuiSwitch-thumb': { color: '#F59E0B' }, '& .Mui-checked + .MuiSwitch-track': { backgroundColor: '#F59E0B' } }} />
-                          <Typography variant="body2" color={umbrales.mttrActive ? 'white' : 'grey.500'} fontWeight={600}>MTTR excedido</Typography>
+                          <Typography variant="body2" color={umbrales.mttrActive ? '#1E293B' : 'grey.500'} fontWeight={600}>MTTR excedido</Typography>
                         </Stack>
                         <Typography variant="caption" color="grey.500" ml={5}>Alerta cuando el MTTR supere el umbral</Typography>
                       </Box>
@@ -863,7 +863,7 @@ export default function EAMConfig() {
                       <Box flex={1}>
                         <Stack direction="row" alignItems="center" spacing={1}>
                           <Switch checked={umbrales.combustibleActive} onChange={e => setU('combustibleActive', e.target.checked)} size="small" sx={{ '& .Mui-checked .MuiSwitch-thumb': { color: '#F59E0B' }, '& .Mui-checked + .MuiSwitch-track': { backgroundColor: '#F59E0B' } }} />
-                          <Typography variant="body2" color={umbrales.combustibleActive ? 'white' : 'grey.500'} fontWeight={600}>Desviación consumo combustible</Typography>
+                          <Typography variant="body2" color={umbrales.combustibleActive ? '#1E293B' : 'grey.500'} fontWeight={600}>Desviación consumo combustible</Typography>
                         </Stack>
                         <Typography variant="caption" color="grey.500" ml={5}>Alerta cuando el consumo supere en X% el promedio</Typography>
                       </Box>
@@ -881,7 +881,7 @@ export default function EAMConfig() {
                       <Box flex={1}>
                         <Stack direction="row" alignItems="center" spacing={1}>
                           <Switch checked={umbrales.garantiaActive} onChange={e => setU('garantiaActive', e.target.checked)} size="small" sx={{ '& .Mui-checked .MuiSwitch-thumb': { color: '#F59E0B' }, '& .Mui-checked + .MuiSwitch-track': { backgroundColor: '#F59E0B' } }} />
-                          <Typography variant="body2" color={umbrales.garantiaActive ? 'white' : 'grey.500'} fontWeight={600}>Garantía por vencer</Typography>
+                          <Typography variant="body2" color={umbrales.garantiaActive ? '#1E293B' : 'grey.500'} fontWeight={600}>Garantía por vencer</Typography>
                         </Stack>
                         <Typography variant="caption" color="grey.500" ml={5}>Alertar X días antes del vencimiento de garantía</Typography>
                       </Box>
@@ -899,7 +899,7 @@ export default function EAMConfig() {
                       <Box flex={1}>
                         <Stack direction="row" alignItems="center" spacing={1}>
                           <Switch checked={umbrales.calibracionActive} onChange={e => setU('calibracionActive', e.target.checked)} size="small" sx={{ '& .Mui-checked .MuiSwitch-thumb': { color: '#F59E0B' }, '& .Mui-checked + .MuiSwitch-track': { backgroundColor: '#F59E0B' } }} />
-                          <Typography variant="body2" color={umbrales.calibracionActive ? 'white' : 'grey.500'} fontWeight={600}>Calibración por vencer</Typography>
+                          <Typography variant="body2" color={umbrales.calibracionActive ? '#1E293B' : 'grey.500'} fontWeight={600}>Calibración por vencer</Typography>
                         </Stack>
                         <Typography variant="caption" color="grey.500" ml={5}>Alertar X días antes del vencimiento de calibración</Typography>
                       </Box>
@@ -938,7 +938,7 @@ export default function EAMConfig() {
                               <Typography variant="body2" fontWeight={800} color={intg.color}>{intg.codigo}</Typography>
                             </Box>
                             <Box>
-                              <Typography variant="body2" fontWeight={700} color="white">{intg.nombre}</Typography>
+                              <Typography variant="body2" fontWeight={700} color="#1E293B">{intg.nombre}</Typography>
                             </Box>
                           </Stack>
                           <Switch
@@ -984,7 +984,7 @@ export default function EAMConfig() {
           <Box>
             <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={3} flexWrap="wrap" gap={2}>
               <Box>
-                <Typography variant="h6" fontWeight={700} color="white">Configuración de Disponibilidad</Typography>
+                <Typography variant="h6" fontWeight={700} color="#1E293B">Configuración de Disponibilidad</Typography>
                 <Typography variant="body2" color="grey.500">Defina las horas operativas esperadas por activo, categoría o período para el cálculo de disponibilidad</Typography>
               </Box>
             </Stack>
@@ -994,7 +994,7 @@ export default function EAMConfig() {
               <CardContent>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                   <Box>
-                    <Typography variant="subtitle2" fontWeight={700} color="white">Períodos especiales</Typography>
+                    <Typography variant="subtitle2" fontWeight={700} color="#1E293B">Períodos especiales</Typography>
                     <Typography variant="caption" color="grey.500">Defina rangos de meses con horas distintas a las base (vacaciones, temporadas, mantenimientos programados)</Typography>
                   </Box>
                   <Button variant="outlined" size="small" startIcon={<AddIcon />}
@@ -1005,14 +1005,14 @@ export default function EAMConfig() {
                 </Stack>
 
                 {periodos.length === 0 ? (
-                  <Box sx={{ py: 2.5, textAlign: 'center', borderRadius: '8px', bgcolor: alpha('#fff', 0.02), border: '1px dashed rgba(255,255,255,0.08)' }}>
-                    <Typography fontSize={12} color="rgba(255,255,255,0.3)">Sin períodos especiales. Las horas base por activo aplican a todos los meses.</Typography>
+                  <Box sx={{ py: 2.5, textAlign: 'center', borderRadius: '8px', bgcolor: alpha('#fff', 0.02), border: '1px dashed #E5E7EB' }}>
+                    <Typography fontSize={12} color="#64748B">Sin períodos especiales. Las horas base por activo aplican a todos los meses.</Typography>
                   </Box>
                 ) : (
                   <TableContainer component={Paper} sx={{ bgcolor: 'transparent', boxShadow: 'none' }}>
                     <Table size="small">
                       <TableHead>
-                        <TableRow sx={{ '& th': { color: 'text.disabled', fontWeight: 700, fontSize: 10, letterSpacing: '0.05em', textTransform: 'uppercase', borderBottom: '1px solid rgba(255,255,255,0.07)', py: 1 } }}>
+                        <TableRow sx={{ '& th': { color: 'text.disabled', fontWeight: 700, fontSize: 10, letterSpacing: '0.05em', textTransform: 'uppercase', borderBottom: '1px solid #E5E7EB', py: 1 } }}>
                           <TableCell>Nombre</TableCell>
                           <TableCell>Período</TableCell>
                           <TableCell>Horas/mes</TableCell>
@@ -1022,10 +1022,10 @@ export default function EAMConfig() {
                       </TableHead>
                       <TableBody>
                         {periodos.map((p) => (
-                          <TableRow key={p.id} sx={{ '& td': { color: 'grey.200', borderBottom: '1px solid rgba(255,255,255,0.04)' }, '&:hover': { bgcolor: alpha('#fff', 0.02) } }}>
-                            <TableCell><Typography fontSize={12} fontWeight={600} color="white">{p.nombre}</Typography></TableCell>
+                          <TableRow key={p.id} sx={{ '& td': { color: 'grey.200', borderBottom: '1px solid #E5E7EB' }, '&:hover': { bgcolor: alpha('#fff', 0.02) } }}>
+                            <TableCell><Typography fontSize={12} fontWeight={600} color="#1E293B">{p.nombre}</Typography></TableCell>
                             <TableCell>
-                              <Typography fontSize={11} color="rgba(255,255,255,0.6)">{p.desde} → {p.hasta}</Typography>
+                              <Typography fontSize={11} color="#64748B">{p.desde} → {p.hasta}</Typography>
                             </TableCell>
                             <TableCell>
                               <Chip label={`${p.horas}h`} size="small" sx={{ bgcolor: alpha('#F59E0B', 0.12), color: '#F59E0B', fontWeight: 700, fontSize: 11 }} />
@@ -1068,7 +1068,7 @@ export default function EAMConfig() {
             {/* ── Sección 2: Horas base por activo ── */}
             <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(EAM_COLOR, 0.2)}`, mb: 3 }}>
               <CardContent>
-                <Typography variant="subtitle2" fontWeight={700} color="white" mb={0.5}>Horas base por activo</Typography>
+                <Typography variant="subtitle2" fontWeight={700} color="#1E293B" mb={0.5}>Horas base por activo</Typography>
                 <Typography variant="caption" color="grey.500" display="block" mb={2}>Horas operativas esperadas por mes para cada activo. Se aplican cuando no hay un período especial vigente.</Typography>
 
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="flex-end" flexWrap="wrap" useFlexGap mb={2}>
@@ -1103,8 +1103,8 @@ export default function EAMConfig() {
                         onClick={() => setDispSel((p) => p.includes(a.nombre) ? p.filter((x) => x !== a.nombre) : [...p, a.nombre])}
                         sx={{
                           bgcolor: dispSel.includes(a.nombre) ? alpha(EAM_COLOR, 0.2) : alpha('#fff', 0.05),
-                          color: dispSel.includes(a.nombre) ? EAM_COLOR : 'rgba(255,255,255,0.45)',
-                          border: `1px solid ${dispSel.includes(a.nombre) ? alpha(EAM_COLOR, 0.4) : 'rgba(255,255,255,0.07)'}`,
+                          color: dispSel.includes(a.nombre) ? EAM_COLOR : '#64748B',
+                          border: `1px solid ${dispSel.includes(a.nombre) ? alpha(EAM_COLOR, 0.4) : '#E5E7EB'}`,
                           fontWeight: dispSel.includes(a.nombre) ? 700 : 400, fontSize: 11,
                         }}
                       />
@@ -1113,20 +1113,20 @@ export default function EAMConfig() {
                 </Box>
 
                 {/* Tabla individual */}
-                <Box sx={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 140px 120px 130px', gap: 2, px: 3, py: 1.25, bgcolor: alpha(EAM_COLOR, 0.06), borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <Box sx={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid #E5E7EB' }}>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 140px 120px 130px', gap: 2, px: 3, py: 1.25, bgcolor: alpha(EAM_COLOR, 0.06), borderBottom: '1px solid #E5E7EB' }}>
                     {['Activo', 'Categoría', 'Centro costo', 'Horas/mes'].map((h) => (
-                      <Typography key={h} fontSize={10} fontWeight={700} color="rgba(255,255,255,0.35)" letterSpacing="0.05em" textTransform="uppercase">{h}</Typography>
+                      <Typography key={h} fontSize={10} fontWeight={700} color="#64748B" letterSpacing="0.05em" textTransform="uppercase">{h}</Typography>
                     ))}
                   </Box>
                   {ACTIVOS_CFG.map((a) => (
-                    <Box key={a.nombre} sx={{ display: 'grid', gridTemplateColumns: '2fr 140px 120px 130px', gap: 2, px: 3, py: 1.25, borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center', '&:hover': { bgcolor: alpha('#fff', 0.02) } }}>
+                    <Box key={a.nombre} sx={{ display: 'grid', gridTemplateColumns: '2fr 140px 120px 130px', gap: 2, px: 3, py: 1.25, borderBottom: '1px solid #E5E7EB', alignItems: 'center', '&:hover': { bgcolor: alpha('#fff', 0.02) } }}>
                       <Box>
-                        <Typography fontSize={12} fontWeight={600} color="white" noWrap>{a.nombre.split('—')[0].trim()}</Typography>
-                        <Typography fontSize={10} color="rgba(255,255,255,0.35)" noWrap>{a.nombre.split('—')[1]?.trim()}</Typography>
+                        <Typography fontSize={12} fontWeight={600} color="#1E293B" noWrap>{a.nombre.split('—')[0].trim()}</Typography>
+                        <Typography fontSize={10} color="#64748B" noWrap>{a.nombre.split('—')[1]?.trim()}</Typography>
                       </Box>
                       <Chip label={a.categoria} size="small" sx={{ bgcolor: alpha('#6B7280', 0.15), color: '#9CA3AF', fontSize: 10, height: 20, fontWeight: 600, width: 'fit-content' }} />
-                      <Typography fontSize={11} color="rgba(255,255,255,0.45)">{a.centroCosto}</Typography>
+                      <Typography fontSize={11} color="#64748B">{a.centroCosto}</Typography>
                       <TextField
                         size="small" type="number" value={horasCfg[a.nombre] ?? 720}
                         onChange={(e) => setHorasCfg((p) => ({ ...p, [a.nombre]: parseFloat(e.target.value) || 0 }))}
@@ -1152,7 +1152,7 @@ export default function EAMConfig() {
 
             {/* ── Dialog: Nuevo período ── */}
             <Dialog open={periodDlg} onClose={() => setPeriodDlg(false)} maxWidth="sm" fullWidth
-              PaperProps={{ sx: { bgcolor: '#0D1B2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px' } }}>
+              PaperProps={{ sx: { bgcolor: 'background.paper', border: '1px solid #E5E7EB', borderRadius: '14px' } }}>
               <DialogTitle sx={{ color: 'text.primary', fontWeight: 700, pb: 1 }}>
                 Nuevo período especial
                 <IconButton onClick={() => setPeriodDlg(false)} sx={{ position: 'absolute', right: 12, top: 12, color: 'grey.500' }}><CloseIcon /></IconButton>
@@ -1230,8 +1230,8 @@ export default function EAMConfig() {
                             onClick={() => togglePeriodActivo(a.nombre, newPeriodo.horas)}
                             sx={{
                               bgcolor: periodActSel.includes(a.nombre) ? alpha(EAM_COLOR, 0.2) : alpha('#fff', 0.05),
-                              color: periodActSel.includes(a.nombre) ? EAM_COLOR : 'rgba(255,255,255,0.45)',
-                              border: `1px solid ${periodActSel.includes(a.nombre) ? alpha(EAM_COLOR, 0.4) : 'rgba(255,255,255,0.07)'}`,
+                              color: periodActSel.includes(a.nombre) ? EAM_COLOR : '#64748B',
+                              border: `1px solid ${periodActSel.includes(a.nombre) ? alpha(EAM_COLOR, 0.4) : '#E5E7EB'}`,
                               fontWeight: periodActSel.includes(a.nombre) ? 700 : 400, fontSize: 11,
                             }}
                           />
@@ -1242,16 +1242,16 @@ export default function EAMConfig() {
                       {periodActSel.length > 0 && (
                         <Box sx={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid rgba(50,172,92,0.2)', bgcolor: alpha(EAM_COLOR, 0.03) }}>
                           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 130px', px: 2, py: 1, bgcolor: alpha(EAM_COLOR, 0.08), borderBottom: '1px solid rgba(50,172,92,0.15)' }}>
-                            <Typography fontSize={10} fontWeight={700} color="rgba(255,255,255,0.4)" letterSpacing="0.05em" textTransform="uppercase">Equipo</Typography>
-                            <Typography fontSize={10} fontWeight={700} color="rgba(255,255,255,0.4)" letterSpacing="0.05em" textTransform="uppercase">Horas/mes</Typography>
+                            <Typography fontSize={10} fontWeight={700} color="#64748B" letterSpacing="0.05em" textTransform="uppercase">Equipo</Typography>
+                            <Typography fontSize={10} fontWeight={700} color="#64748B" letterSpacing="0.05em" textTransform="uppercase">Horas/mes</Typography>
                           </Box>
                           {periodActSel.map((nombre) => {
                             const parts = nombre.split('—')
                             return (
-                              <Box key={nombre} sx={{ display: 'grid', gridTemplateColumns: '1fr 130px', px: 2, py: 1, borderTop: '1px solid rgba(255,255,255,0.04)', alignItems: 'center', '&:hover': { bgcolor: alpha('#fff', 0.02) } }}>
+                              <Box key={nombre} sx={{ display: 'grid', gridTemplateColumns: '1fr 130px', px: 2, py: 1, borderTop: '1px solid #E5E7EB', alignItems: 'center', '&:hover': { bgcolor: alpha('#fff', 0.02) } }}>
                                 <Box>
-                                  <Typography fontSize={12} fontWeight={600} color="white" noWrap>{parts[0].trim()}</Typography>
-                                  <Typography fontSize={10} color="rgba(255,255,255,0.35)" noWrap>{parts[1]?.trim()}</Typography>
+                                  <Typography fontSize={12} fontWeight={600} color="#1E293B" noWrap>{parts[0].trim()}</Typography>
+                                  <Typography fontSize={10} color="#64748B" noWrap>{parts[1]?.trim()}</Typography>
                                 </Box>
                                 <TextField
                                   size="small" type="number"

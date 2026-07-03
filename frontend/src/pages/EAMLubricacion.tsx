@@ -155,7 +155,7 @@ export default function EAMLubricacion() {
             value={tab}
             onChange={(_, v) => setTab(v)}
             sx={{
-              '& .MuiTab-root': { color: '#9CA3AF', fontWeight: 600 },
+              '& .MuiTab-root': { color: '#64748B', fontWeight: 600 },
               '& .Mui-selected': { color: EAM_COLOR },
               '& .MuiTabs-indicator': { backgroundColor: EAM_COLOR },
             }}
@@ -177,10 +177,10 @@ export default function EAMLubricacion() {
               { label: 'Análisis Este Mes', value: '23', color: '#34D399', sub: 'muestras procesadas' },
             ].map(kpi => (
               <Grid key={kpi.label} size={{ xs: 12, md: 3 }}>
-                <Card sx={{ border: '1px solid #1F2937', borderRadius: 2, textAlign: 'center' }}>
+                <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2, textAlign: 'center' }}>
                   <CardContent>
                     <Typography variant="h4" sx={{ color: kpi.color, fontWeight: 900, mb: 0.5 }}>{kpi.value}</Typography>
-                    <Typography variant="body2" sx={{ color: '#F9FAFB', fontWeight: 600, mb: 0.25 }}>{kpi.label}</Typography>
+                    <Typography variant="body2" sx={{ color: '#1E293B', fontWeight: 600, mb: 0.25 }}>{kpi.label}</Typography>
                     <Typography variant="caption" sx={{ color: '#6B7280' }}>{kpi.sub}</Typography>
                   </CardContent>
                 </Card>
@@ -189,16 +189,16 @@ export default function EAMLubricacion() {
           </Grid>
 
           {/* Samples table */}
-          <Card sx={{ border: '1px solid #1F2937', borderRadius: 2 }}>
+          <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
             <CardContent>
-              <Typography variant="h6" sx={{ color: '#F9FAFB', fontWeight: 700, mb: 2 }}>
+              <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 2 }}>
                 Muestras de laboratorio — resultados analíticos
               </Typography>
               <Box sx={{ overflowX: 'auto' }}>
                 <TableContainer>
                   <Table size="small" sx={{ minWidth: 900 }}>
                     <TableHead>
-                      <TableRow sx={{ '& .MuiTableCell-head': { bgcolor: '#F8FAFC', color: '#6B7280', fontWeight: 700, borderColor: '#1F2937', fontSize: '0.7rem', whiteSpace: 'nowrap' } }}>
+                      <TableRow sx={{ '& .MuiTableCell-head': { bgcolor: '#F8FAFC', color: '#6B7280', fontWeight: 700, borderColor: '#E5E7EB', fontSize: '0.7rem', whiteSpace: 'nowrap' } }}>
                         <TableCell>Muestra</TableCell>
                         <TableCell>Activo</TableCell>
                         <TableCell>Componente</TableCell>
@@ -217,24 +217,24 @@ export default function EAMLubricacion() {
                     </TableHead>
                     <TableBody>
                       {SAMPLES.map(s => (
-                        <TableRow key={s.id} sx={{ '&:hover': { bgcolor: '#1F293750' } }}>
-                          <TableCell sx={{ color: '#6B7280', borderColor: '#1F2937', fontSize: '0.75rem' }}>{s.id}</TableCell>
-                          <TableCell sx={{ color: '#D1D5DB', borderColor: '#1F2937', fontWeight: 700 }}>{s.asset}</TableCell>
-                          <TableCell sx={{ color: '#9CA3AF', borderColor: '#1F2937', fontSize: '0.8rem' }}>{s.component}</TableCell>
-                          <TableCell sx={{ color: '#9CA3AF', borderColor: '#1F2937', fontSize: '0.75rem' }}>{s.date}</TableCell>
-                          <TableCell sx={{ color: '#9CA3AF', borderColor: '#1F2937', fontSize: '0.72rem', maxWidth: 140, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.lubricant}</TableCell>
-                          <TableCell sx={{ color: '#D1D5DB', borderColor: '#1F2937' }}>{s.hours.toLocaleString()}</TableCell>
-                          <TableCell sx={{ borderColor: '#1F2937' }}>
+                        <TableRow key={s.id} sx={{ '&:hover': { bgcolor: '#F1F5F9' } }}>
+                          <TableCell sx={{ color: '#6B7280', borderColor: '#E5E7EB', fontSize: '0.75rem' }}>{s.id}</TableCell>
+                          <TableCell sx={{ color: '#334155', borderColor: '#E5E7EB', fontWeight: 700 }}>{s.asset}</TableCell>
+                          <TableCell sx={{ color: '#64748B', borderColor: '#E5E7EB', fontSize: '0.8rem' }}>{s.component}</TableCell>
+                          <TableCell sx={{ color: '#64748B', borderColor: '#E5E7EB', fontSize: '0.75rem' }}>{s.date}</TableCell>
+                          <TableCell sx={{ color: '#64748B', borderColor: '#E5E7EB', fontSize: '0.72rem', maxWidth: 140, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.lubricant}</TableCell>
+                          <TableCell sx={{ color: '#334155', borderColor: '#E5E7EB' }}>{s.hours.toLocaleString()}</TableCell>
+                          <TableCell sx={{ borderColor: '#E5E7EB' }}>
                             <Typography sx={{ color: s.fe > 75 ? '#F87171' : s.fe > 50 ? '#FCD34D' : '#34D399', fontWeight: 700 }}>{s.fe}</Typography>
                           </TableCell>
-                          <TableCell sx={{ color: s.cu > 20 ? '#FCD34D' : '#D1D5DB', borderColor: '#1F2937' }}>{s.cu}</TableCell>
-                          <TableCell sx={{ color: s.al > 10 ? '#FCD34D' : '#D1D5DB', borderColor: '#1F2937' }}>{s.al}</TableCell>
-                          <TableCell sx={{ borderColor: '#1F2937' }}>
-                            <Typography sx={{ color: s.si > 30 ? '#F87171' : s.si > 15 ? '#FCD34D' : '#D1D5DB', fontWeight: s.si > 30 ? 700 : 400 }}>{s.si}</Typography>
+                          <TableCell sx={{ color: s.cu > 20 ? '#FCD34D' : '#334155', borderColor: '#E5E7EB' }}>{s.cu}</TableCell>
+                          <TableCell sx={{ color: s.al > 10 ? '#FCD34D' : '#334155', borderColor: '#E5E7EB' }}>{s.al}</TableCell>
+                          <TableCell sx={{ borderColor: '#E5E7EB' }}>
+                            <Typography sx={{ color: s.si > 30 ? '#F87171' : s.si > 15 ? '#FCD34D' : '#334155', fontWeight: s.si > 30 ? 700 : 400 }}>{s.si}</Typography>
                           </TableCell>
-                          <TableCell sx={{ color: s.water > 0.1 ? '#F87171' : '#D1D5DB', borderColor: '#1F2937' }}>{s.water.toFixed(2)}</TableCell>
-                          <TableCell sx={{ color: '#D1D5DB', borderColor: '#1F2937' }}>{s.viscosity}</TableCell>
-                          <TableCell sx={{ borderColor: '#1F2937' }}>
+                          <TableCell sx={{ color: s.water > 0.1 ? '#F87171' : '#334155', borderColor: '#E5E7EB' }}>{s.water.toFixed(2)}</TableCell>
+                          <TableCell sx={{ color: '#334155', borderColor: '#E5E7EB' }}>{s.viscosity}</TableCell>
+                          <TableCell sx={{ borderColor: '#E5E7EB' }}>
                             <Chip
                               label={s.contamination}
                               size="small"
@@ -246,7 +246,7 @@ export default function EAMLubricacion() {
                               }}
                             />
                           </TableCell>
-                          <TableCell sx={{ borderColor: '#1F2937', maxWidth: 200 }}>
+                          <TableCell sx={{ borderColor: '#E5E7EB', maxWidth: 200 }}>
                             {s.alert ? (
                               <Typography variant="caption" sx={{ color: '#F87171', fontSize: '0.7rem' }}>{s.alert}</Typography>
                             ) : (
@@ -268,9 +268,9 @@ export default function EAMLubricacion() {
           <Grid container spacing={3}>
             {/* Fe trend chart */}
             <Grid size={{ xs: 12, md: 7 }}>
-              <Card sx={{ border: '1px solid #1F2937', borderRadius: 2 }}>
+              <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
                 <CardContent>
-                  <Typography variant="h6" sx={{ color: '#F9FAFB', fontWeight: 700, mb: 0.5 }}>
+                  <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 0.5 }}>
                     VH-001 Tractocamión Kenworth — Hierro (Fe ppm)
                   </Typography>
                   <Typography variant="caption" sx={{ color: '#6B7280' }}>Tendencia de las últimas 6 muestras</Typography>
@@ -315,14 +315,14 @@ export default function EAMLubricacion() {
                     </Box>
                   </Box>
 
-                  <Divider sx={{ borderColor: '#1F2937', my: 2 }} />
+                  <Divider sx={{ borderColor: '#E5E7EB', my: 2 }} />
 
                   {/* Interpretation */}
                   <Box sx={{ bgcolor: '#DC262615', border: '1px solid #DC262640', borderRadius: 1, p: 1.5 }}>
                     <Typography variant="caption" sx={{ color: '#F87171', fontWeight: 700, display: 'block', mb: 0.5 }}>
                       Diagnóstico actual — IA Tribológica
                     </Typography>
-                    <Typography variant="body2" sx={{ color: '#D1D5DB', fontSize: '0.8rem', lineHeight: 1.6 }}>
+                    <Typography variant="body2" sx={{ color: '#334155', fontSize: '0.8rem', lineHeight: 1.6 }}>
                       El hierro en VH-001 muestra una tendencia alcista sostenida de 28 ppm (dic-25) a 82 ppm (jun-26), superando el límite de alerta de 75 ppm.
                       La tasa de incremento (~9 ppm/mes) indica desgaste progresivo de cilindros o anillos de pistón.
                       Se recomienda cambio inmediato de aceite e inspección de motor antes de las próximas 500 km de operación.
@@ -334,15 +334,15 @@ export default function EAMLubricacion() {
 
             {/* Trend data table */}
             <Grid size={{ xs: 12, md: 5 }}>
-              <Card sx={{ border: '1px solid #1F2937', borderRadius: 2, height: '100%' }}>
+              <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2, height: '100%' }}>
                 <CardContent>
-                  <Typography variant="h6" sx={{ color: '#F9FAFB', fontWeight: 700, mb: 2 }}>
+                  <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 2 }}>
                     Historial de 6 muestras — VH-001 Motor
                   </Typography>
                   <TableContainer>
                     <Table size="small">
                       <TableHead>
-                        <TableRow sx={{ '& .MuiTableCell-head': { bgcolor: '#F8FAFC', color: '#6B7280', fontWeight: 700, borderColor: '#1F2937', fontSize: '0.68rem' } }}>
+                        <TableRow sx={{ '& .MuiTableCell-head': { bgcolor: '#F8FAFC', color: '#6B7280', fontWeight: 700, borderColor: '#E5E7EB', fontSize: '0.68rem' } }}>
                           <TableCell>Fecha</TableCell>
                           <TableCell>Fe</TableCell>
                           <TableCell>Cu</TableCell>
@@ -353,15 +353,15 @@ export default function EAMLubricacion() {
                       </TableHead>
                       <TableBody>
                         {VH001_TREND.map((s, i) => (
-                          <TableRow key={i} sx={{ '&:hover': { bgcolor: '#1F293750' } }}>
-                            <TableCell sx={{ color: '#9CA3AF', borderColor: '#1F2937', fontSize: '0.75rem' }}>{s.date}</TableCell>
-                            <TableCell sx={{ borderColor: '#1F2937' }}>
+                          <TableRow key={i} sx={{ '&:hover': { bgcolor: '#F1F5F9' } }}>
+                            <TableCell sx={{ color: '#64748B', borderColor: '#E5E7EB', fontSize: '0.75rem' }}>{s.date}</TableCell>
+                            <TableCell sx={{ borderColor: '#E5E7EB' }}>
                               <Typography sx={{ color: s.fe > FE_ALERT_LIMIT ? '#F87171' : '#34D399', fontWeight: 700, fontSize: '0.8rem' }}>{s.fe}</Typography>
                             </TableCell>
-                            <TableCell sx={{ color: '#D1D5DB', borderColor: '#1F2937' }}>{s.cu}</TableCell>
-                            <TableCell sx={{ color: '#D1D5DB', borderColor: '#1F2937' }}>{s.al}</TableCell>
-                            <TableCell sx={{ color: '#D1D5DB', borderColor: '#1F2937' }}>{s.si}</TableCell>
-                            <TableCell sx={{ borderColor: '#1F2937' }}>
+                            <TableCell sx={{ color: '#334155', borderColor: '#E5E7EB' }}>{s.cu}</TableCell>
+                            <TableCell sx={{ color: '#334155', borderColor: '#E5E7EB' }}>{s.al}</TableCell>
+                            <TableCell sx={{ color: '#334155', borderColor: '#E5E7EB' }}>{s.si}</TableCell>
+                            <TableCell sx={{ borderColor: '#E5E7EB' }}>
                               <Chip
                                 label={s.contamination}
                                 size="small"
@@ -386,7 +386,7 @@ export default function EAMLubricacion() {
         {/* TAB 2 — IA Predictiva Lubricación */}
         <TabPanel value={tab} index={2}>
           {/* Predictive alerts */}
-          <Typography variant="h6" sx={{ color: '#F9FAFB', fontWeight: 700, mb: 2 }}>
+          <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 2 }}>
             Alertas predictivas generadas por IA
           </Typography>
           <Grid container spacing={2} mb={4}>
@@ -413,16 +413,16 @@ export default function EAMLubricacion() {
                     </Stack>
 
                     <Typography variant="subtitle1" sx={{ color: EAM_COLOR, fontWeight: 700, mb: 0.25 }}>{alert.asset}</Typography>
-                    <Typography variant="caption" sx={{ color: '#9CA3AF', display: 'block', mb: 1.5 }}>{alert.component}</Typography>
+                    <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mb: 1.5 }}>{alert.component}</Typography>
 
-                    <Box sx={{ bgcolor: '#F8FAFC', borderRadius: 1, p: 1, mb: 1.5, border: '1px solid #1F2937' }}>
+                    <Box sx={{ bgcolor: '#F8FAFC', borderRadius: 1, p: 1, mb: 1.5, border: '1px solid #E5E7EB' }}>
                       <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.25, fontWeight: 600 }}>HALLAZGO</Typography>
-                      <Typography variant="body2" sx={{ color: '#D1D5DB', fontSize: '0.8rem', lineHeight: 1.5 }}>{alert.finding}</Typography>
+                      <Typography variant="body2" sx={{ color: '#334155', fontSize: '0.8rem', lineHeight: 1.5 }}>{alert.finding}</Typography>
                     </Box>
 
                     <Box sx={{ bgcolor: ALERT_COLORS[alert.level] + '10', borderRadius: 1, p: 1, border: `1px solid ${ALERT_COLORS[alert.level]}30` }}>
                       <Typography variant="caption" sx={{ color: ALERT_COLORS[alert.level], display: 'block', mb: 0.25, fontWeight: 700 }}>RECOMENDACIÓN</Typography>
-                      <Typography variant="body2" sx={{ color: '#D1D5DB', fontSize: '0.8rem', lineHeight: 1.5 }}>{alert.recommendation}</Typography>
+                      <Typography variant="body2" sx={{ color: '#334155', fontSize: '0.8rem', lineHeight: 1.5 }}>{alert.recommendation}</Typography>
                     </Box>
                   </CardContent>
                 </Card>
@@ -433,15 +433,15 @@ export default function EAMLubricacion() {
           <Grid container spacing={3}>
             {/* Change recommendations table */}
             <Grid size={{ xs: 12, md: 7 }}>
-              <Card sx={{ border: '1px solid #1F2937', borderRadius: 2 }}>
+              <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
                 <CardContent>
-                  <Typography variant="h6" sx={{ color: '#F9FAFB', fontWeight: 700, mb: 2 }}>
+                  <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 2 }}>
                     Recomendaciones de cambio programadas
                   </Typography>
                   <TableContainer>
                     <Table size="small">
                       <TableHead>
-                        <TableRow sx={{ '& .MuiTableCell-head': { bgcolor: '#F8FAFC', color: '#6B7280', fontWeight: 700, borderColor: '#1F2937', fontSize: '0.7rem' } }}>
+                        <TableRow sx={{ '& .MuiTableCell-head': { bgcolor: '#F8FAFC', color: '#6B7280', fontWeight: 700, borderColor: '#E5E7EB', fontSize: '0.7rem' } }}>
                           <TableCell>Activo</TableCell>
                           <TableCell>Lubricante</TableCell>
                           <TableCell>Hrs actuales</TableCell>
@@ -454,16 +454,16 @@ export default function EAMLubricacion() {
                           const diff = r.recommendedAt - r.currentHours;
                           const isOverdue = diff <= 0;
                           return (
-                            <TableRow key={i} sx={{ '&:hover': { bgcolor: '#1F293750' } }}>
-                              <TableCell sx={{ color: '#D1D5DB', borderColor: '#1F2937', fontWeight: 700 }}>{r.asset}</TableCell>
-                              <TableCell sx={{ color: '#9CA3AF', borderColor: '#1F2937', fontSize: '0.75rem' }}>{r.lubricant}</TableCell>
-                              <TableCell sx={{ color: '#D1D5DB', borderColor: '#1F2937' }}>{r.currentHours.toLocaleString()}</TableCell>
-                              <TableCell sx={{ borderColor: '#1F2937' }}>
+                            <TableRow key={i} sx={{ '&:hover': { bgcolor: '#F1F5F9' } }}>
+                              <TableCell sx={{ color: '#334155', borderColor: '#E5E7EB', fontWeight: 700 }}>{r.asset}</TableCell>
+                              <TableCell sx={{ color: '#64748B', borderColor: '#E5E7EB', fontSize: '0.75rem' }}>{r.lubricant}</TableCell>
+                              <TableCell sx={{ color: '#334155', borderColor: '#E5E7EB' }}>{r.currentHours.toLocaleString()}</TableCell>
+                              <TableCell sx={{ borderColor: '#E5E7EB' }}>
                                 <Typography sx={{ color: isOverdue ? '#F87171' : diff < 500 ? '#FCD34D' : '#34D399', fontWeight: 700 }}>
                                   {isOverdue ? `VENCIDO (${Math.abs(diff)} hrs)` : `${diff} hrs`}
                                 </Typography>
                               </TableCell>
-                              <TableCell sx={{ color: '#9CA3AF', borderColor: '#1F2937', fontSize: '0.75rem' }}>{r.reason}</TableCell>
+                              <TableCell sx={{ color: '#64748B', borderColor: '#E5E7EB', fontSize: '0.75rem' }}>{r.reason}</TableCell>
                             </TableRow>
                           );
                         })}
@@ -476,9 +476,9 @@ export default function EAMLubricacion() {
 
             {/* Monthly consumption */}
             <Grid size={{ xs: 12, md: 5 }}>
-              <Card sx={{ border: '1px solid #1F2937', borderRadius: 2, height: '100%' }}>
+              <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2, height: '100%' }}>
                 <CardContent>
-                  <Typography variant="h6" sx={{ color: '#F9FAFB', fontWeight: 700, mb: 3 }}>
+                  <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 3 }}>
                     Consumo de lubricantes — mensual
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.5, height: 130, mb: 1 }}>
@@ -498,19 +498,19 @@ export default function EAMLubricacion() {
                       </Box>
                     ))}
                   </Box>
-                  <Divider sx={{ borderColor: '#1F2937', mb: 1.5 }} />
+                  <Divider sx={{ borderColor: '#E5E7EB', mb: 1.5 }} />
                   <Stack spacing={0.5}>
                     {MONTHLY_CONSUMPTION.slice().reverse().slice(0, 3).map(m => (
                       <Stack key={m.month} direction="row" justifyContent="space-between">
-                        <Typography variant="caption" sx={{ color: '#9CA3AF' }}>{m.month} 2026</Typography>
+                        <Typography variant="caption" sx={{ color: '#64748B' }}>{m.month} 2026</Typography>
                         <Stack direction="row" spacing={2}>
-                          <Typography variant="caption" sx={{ color: '#D1D5DB', fontWeight: 600 }}>{m.liters} L</Typography>
+                          <Typography variant="caption" sx={{ color: '#334155', fontWeight: 600 }}>{m.liters} L</Typography>
                           <Typography variant="caption" sx={{ color: EAM_COLOR, fontWeight: 600 }}>{formatCOP(m.cost)}</Typography>
                         </Stack>
                       </Stack>
                     ))}
                   </Stack>
-                  <Divider sx={{ borderColor: '#1F2937', mt: 1.5, mb: 1 }} />
+                  <Divider sx={{ borderColor: '#E5E7EB', mt: 1.5, mb: 1 }} />
                   <Stack direction="row" justifyContent="space-between">
                     <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 700 }}>Total acumulado (6 meses)</Typography>
                     <Typography variant="caption" sx={{ color: '#FCD34D', fontWeight: 700 }}>

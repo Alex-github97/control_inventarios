@@ -37,7 +37,7 @@ export default function CRMRentabilidad() {
             background: `linear-gradient(135deg, ${CRM_COLOR} 0%, #B91C1C 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <AttachMoney sx={{ color: 'text.primary', fontSize: 22 }} />
+            <AttachMoney sx={{ color: '#fff', fontSize: 22 }} />
           </Box>
           <Box>
             <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Rentabilidad del Cliente</Typography>
@@ -76,7 +76,7 @@ export default function CRMRentabilidad() {
                 <thead>
                   <tr>
                     {['Cliente', 'Segmento', 'Ingresos', 'Costos', 'Margen', 'Margen %', 'CLV Estimado', 'Churn Risk'].map(h => (
-                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'text.disabled', borderBottom: '1px solid rgba(255,255,255,0.06)', whiteSpace: 'nowrap' }}>{h}</th>
+                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'text.disabled', borderBottom: '1px solid #E5E7EB', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -86,7 +86,7 @@ export default function CRMRentabilidad() {
                     const chcol  = c.churn_risk >= 30 ? '#EF4444' : c.churn_risk >= 15 ? '#F59E0B' : '#059669'
                     const segCol: Record<string, string> = { ESTRATEGICO: '#7C3AED', CORPORATIVO: CRM_COLOR, MEDIANA: '#0EA5E9' }
                     return (
-                      <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                      <tr key={i} style={{ borderBottom: '1px solid #E5E7EB' }}>
                         <td style={{ padding: '10px 14px', fontSize: 13, color: 'text.primary', fontWeight: 600, whiteSpace: 'nowrap' }}>{c.cliente}</td>
                         <td style={{ padding: '10px 14px' }}>
                           <Chip label={c.segmento} size="small" sx={{ bgcolor: alpha(segCol[c.segmento] || '#94A3B8', 0.12), color: segCol[c.segmento] || '#94A3B8', fontSize: 9.5 }} />

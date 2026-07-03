@@ -9,7 +9,8 @@ import { Layout } from '@/components/layout/Layout'
 import { getProveedoresSCM, ProveedorSCM, ClasificacionProveedor } from '@/api/scm'
 
 const SCM_COLOR = '#0C4D8C'
-const #E5E7EB  = `rgba(12,77,140,0.25)`
+const PAGE_BG   = '#F0F2F5'
+const BORDER    = `rgba(12,77,140,0.25)`
 
 const CLASIF_COLOR: Record<ClasificacionProveedor, string> = {
   A: '#22c55e', B: '#3b82f6', C: '#f59e0b', D: '#ef4444',
@@ -77,7 +78,7 @@ export default function SCMProveedores() {
           />
         </Box>
 
-        <Card sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2 }}>
+        <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
           <TableContainer>
             <Table size="small">
               <TableHead>

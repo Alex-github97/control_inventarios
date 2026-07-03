@@ -66,7 +66,7 @@ export default function CRMLeads() {
             background: `linear-gradient(135deg, ${CRM_COLOR} 0%, #B91C1C 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Whatshot sx={{ color: 'text.primary', fontSize: 22 }} />
+            <Whatshot sx={{ color: '#FFF', fontSize: 22 }} />
           </Box>
           <Box>
             <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Gestión de Leads</Typography>
@@ -110,14 +110,14 @@ export default function CRMLeads() {
             const info = ESTADO_COLOR[e]
             return (
               <Chip key={e} label={e === 'Todos' ? 'Todos los estados' : e} size="small" onClick={() => setEstado(e)}
-                sx={{ cursor: 'pointer', bgcolor: estado === e ? (info?.color || CRM_COLOR) : 'rgba(255,255,255,0.06)', color: estado === e ? '#FFF' : 'rgba(255,255,255,0.5)', fontWeight: estado === e ? 700 : 400 }} />
+                sx={{ cursor: 'pointer', bgcolor: estado === e ? (info?.color || CRM_COLOR) : '#F0F2F5', color: estado === e ? '#FFF' : '#64748B', fontWeight: estado === e ? 700 : 400 }} />
             )
           })}
         </Box>
 
         {/* Tabla */}
         <Box sx={{ border: `1px solid #E5E7EB`, borderRadius: 2, overflow: 'hidden' }}>
-          <Box sx={{ p: 2, borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box sx={{ p: 2, borderBottom: '1px solid #E5E7EB', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary' }}>Leads ({filtrados.length})</Typography>
             <Typography sx={{ fontSize: 12, color: CRM_COLOR, fontWeight: 700 }}>
               Pipeline potencial: ${(pipeline / 1000).toFixed(1)}B
@@ -128,7 +128,7 @@ export default function CRMLeads() {
               <thead>
                 <tr>
                   {['Código', 'Empresa', 'Contacto', 'Industria', 'Fuente', 'Estado', 'Score IA', 'Potencial', 'Ejecutivo'].map(h => (
-                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'text.disabled', borderBottom: '1px solid rgba(255,255,255,0.06)', whiteSpace: 'nowrap' }}>{h}</th>
+                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#64748B', borderBottom: '1px solid #E5E7EB', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -136,7 +136,7 @@ export default function CRMLeads() {
                 {filtrados.map((l, i) => {
                   const info = ESTADO_COLOR[l.estado] || { color: '#94A3B8', bg: 'rgba(255,255,255,0.06)', icon: null }
                   return (
-                    <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                    <tr key={i} style={{ borderBottom: '1px solid #E5E7EB' }}>
                       <td style={{ padding: '10px 14px', fontSize: 11.5, color: CRM_COLOR, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{l.codigo}</td>
                       <td style={{ padding: '10px 14px', fontSize: 13, color: 'text.primary', fontWeight: 600, whiteSpace: 'nowrap' }}>{l.empresa}</td>
                       <td style={{ padding: '10px 14px', fontSize: 12, color: 'text.secondary', whiteSpace: 'nowrap' }}>{l.contacto}</td>

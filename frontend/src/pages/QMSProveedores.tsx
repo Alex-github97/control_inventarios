@@ -79,7 +79,7 @@ export default function QMSProveedores() {
             { label: 'Deficientes', value: EVALUACIONES.filter(e => e.clasif === 'deficiente').length.toString(), color: '#DC2626' },
           ].map(k => (
             <Grid key={k.label} size={{ xs: 6, md: 3 }}>
-              <Card sx={{ bgcolor: 'text.primary', border: '1px solid rgba(59,130,246,0.18)', borderRadius: 2 }}>
+              <Card sx={{ bgcolor: 'background.paper', border: '1px solid rgba(59,130,246,0.18)', borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important', textAlign: 'center' }}>
                   <Typography sx={{ fontSize: 26, fontWeight: 800, color: k.color }}>{k.value}</Typography>
                   <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{k.label}</Typography>
@@ -128,7 +128,7 @@ export default function QMSProveedores() {
           <Grid container spacing={2}>
             {ranking.map((e, i) => (
               <Grid key={e.nit} size={{ xs: 12, md: 6 }}>
-                <Card sx={{ bgcolor: '#111827', border: `1px solid ${alpha(CLASIF_COLOR[e.clasif], 0.25)}`, borderRadius: 2 }}>
+                <Card sx={{ bgcolor: '#fff', border: `1px solid ${alpha(CLASIF_COLOR[e.clasif], 0.25)}`, borderRadius: 2 }}>
                   <CardContent sx={{ p: '14px !important' }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -155,7 +155,7 @@ export default function QMSProveedores() {
           </Grid>
         </TabPanel>
 
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary' } }}>
+        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: 'background.paper', color: 'text.primary' } }}>
           <DialogTitle sx={{ fontWeight: 700 }}>Nueva Evaluación de Proveedor</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
             <TextField label="Proveedor" fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />

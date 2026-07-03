@@ -5,6 +5,7 @@ import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Tool
 import { Layout } from '@/components/layout/Layout'
 
 const SST_COLOR = '#C53030'
+const PAGE_BG = '#F0F2F5'
 const TOOLTIP_STYLE = { contentStyle: { backgroundColor: '#FFFFFF', border: '1px solid rgba(197,48,48,0.2)', borderRadius: 8, color: 'text.primary', fontSize: 12 } }
 
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
@@ -97,15 +98,15 @@ export default function SSTIndicadores() {
         <Grid container spacing={2.5}>
           {/* Accidentalidad */}
           <Grid size={{ xs: 12, md: 8 }}>
-            <Card sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2, height: '100%' }}>
+            <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2, height: '100%' }}>
               <CardContent>
                 <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 0.25, fontSize: 14 }}>Accidentalidad mensual 2026</Typography>
                 <Typography sx={{ fontSize: 11, color: 'text.disabled', mb: 2 }}>Accidentes de trabajo e incidentes registrados</Typography>
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={DATA_ACCIDENTALIDAD} barGap={4}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-                    <XAxis dataKey="mes" tick={{ fill: 'rgba(255,255,255,0.45)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: 'rgba(255,255,255,0.35)', fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+                    <XAxis dataKey="mes" tick={{ fill: '#64748B', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: '#64748B', fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
                     <Tooltip {...TOOLTIP_STYLE} />
                     <Legend wrapperStyle={{ fontSize: 11, color: 'text.secondary' }} />
                     <Bar dataKey="AT" name="Accidentes trabajo" fill={SST_COLOR} radius={[3,3,0,0]} maxBarSize={28} />
@@ -118,7 +119,7 @@ export default function SSTIndicadores() {
 
           {/* EPP Pie */}
           <Grid size={{ xs: 12, md: 4 }}>
-            <Card sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2, height: '100%' }}>
+            <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2, height: '100%' }}>
               <CardContent>
                 <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 0.25, fontSize: 14 }}>EPP entregados por tipo</Typography>
                 <Typography sx={{ fontSize: 11, color: 'text.disabled', mb: 1.5 }}>Distribución de entregas activas</Typography>
@@ -137,15 +138,15 @@ export default function SSTIndicadores() {
 
           {/* IF / IS Línea */}
           <Grid size={{ xs: 12, md: 6 }}>
-            <Card sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2 }}>
+            <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
               <CardContent>
                 <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 0.25, fontSize: 14 }}>Evolución IF e IS — 2026</Typography>
                 <Typography sx={{ fontSize: 11, color: 'text.disabled', mb: 2 }}>Índice de frecuencia y severidad mensual</Typography>
                 <ResponsiveContainer width="100%" height={200}>
                   <LineChart data={DATA_IF_IS}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-                    <XAxis dataKey="mes" tick={{ fill: 'rgba(255,255,255,0.45)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: 'rgba(255,255,255,0.35)', fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+                    <XAxis dataKey="mes" tick={{ fill: '#64748B', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: '#64748B', fontSize: 10 }} axisLine={false} tickLine={false} />
                     <Tooltip {...TOOLTIP_STYLE} />
                     <Legend wrapperStyle={{ fontSize: 11, color: 'text.secondary' }} />
                     <Line type="monotone" dataKey="IF" name="Índice Frecuencia" stroke={SST_COLOR} strokeWidth={2.5} dot={{ r: 4, fill: SST_COLOR }} />
@@ -158,15 +159,15 @@ export default function SSTIndicadores() {
 
           {/* Capacitaciones */}
           <Grid size={{ xs: 12, md: 6 }}>
-            <Card sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2 }}>
+            <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
               <CardContent>
                 <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 0.25, fontSize: 14 }}>Capacitaciones — programadas vs. ejecutadas</Typography>
                 <Typography sx={{ fontSize: 11, color: 'text.disabled', mb: 2 }}>Cumplimiento del plan anual de formación</Typography>
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={DATA_CAPACITACION} barGap={4}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-                    <XAxis dataKey="mes" tick={{ fill: 'rgba(255,255,255,0.45)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: 'rgba(255,255,255,0.35)', fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+                    <XAxis dataKey="mes" tick={{ fill: '#64748B', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: '#64748B', fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
                     <Tooltip {...TOOLTIP_STYLE} />
                     <Legend wrapperStyle={{ fontSize: 11, color: 'text.secondary' }} />
                     <Bar dataKey="programadas" name="Programadas" fill="rgba(59,130,246,0.3)" radius={[3,3,0,0]} maxBarSize={28} />

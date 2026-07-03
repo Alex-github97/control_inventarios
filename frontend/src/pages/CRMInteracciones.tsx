@@ -43,7 +43,7 @@ export default function CRMInteracciones() {
             background: `linear-gradient(135deg, ${CRM_COLOR} 0%, #B91C1C 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Hub sx={{ color: 'text.primary', fontSize: 22 }} />
+            <Hub sx={{ color: '#fff', fontSize: 22 }} />
           </Box>
           <Box>
             <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Centro de Contacto</Typography>
@@ -76,10 +76,10 @@ export default function CRMInteracciones() {
         {/* Filtros rápidos */}
         <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
           <Chip label="Todas" size="small" onClick={() => setFiltroTipo('Todos')}
-            sx={{ cursor: 'pointer', bgcolor: filtroTipo === 'Todos' ? CRM_COLOR : 'rgba(255,255,255,0.06)', color: filtroTipo === 'Todos' ? '#FFF' : 'rgba(255,255,255,0.5)', fontWeight: filtroTipo === 'Todos' ? 700 : 400 }} />
+            sx={{ cursor: 'pointer', bgcolor: filtroTipo === 'Todos' ? CRM_COLOR : '#F1F5F9', color: filtroTipo === 'Todos' ? '#FFF' : '#64748B', fontWeight: filtroTipo === 'Todos' ? 700 : 400 }} />
           {Object.keys(TIPO_CFG).map(tipo => (
             <Chip key={tipo} label={TIPO_CFG[tipo].label} size="small" onClick={() => setFiltroTipo(tipo)}
-              sx={{ cursor: 'pointer', bgcolor: filtroTipo === tipo ? TIPO_CFG[tipo].color : 'rgba(255,255,255,0.06)', color: filtroTipo === tipo ? '#FFF' : 'rgba(255,255,255,0.5)', fontWeight: filtroTipo === tipo ? 700 : 400 }} />
+              sx={{ cursor: 'pointer', bgcolor: filtroTipo === tipo ? TIPO_CFG[tipo].color : '#F1F5F9', color: filtroTipo === tipo ? '#FFF' : '#64748B', fontWeight: filtroTipo === tipo ? 700 : 400 }} />
           ))}
         </Box>
 
@@ -101,13 +101,13 @@ export default function CRMInteracciones() {
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5, flexWrap: 'wrap', gap: 1 }}>
                     <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: 'text.primary' }}>{int.asunto}</Typography>
                     {int.duracion && (
-                      <Chip label={`${int.duracion} min`} size="small" sx={{ bgcolor: 'text.disabled', color: 'text.secondary', fontSize: 9.5 }} />
+                      <Chip label={`${int.duracion} min`} size="small" sx={{ bgcolor: '#F1F5F9', color: 'text.secondary', fontSize: 9.5 }} />
                     )}
                   </Box>
                   <Typography sx={{ fontSize: 11.5, color: 'text.secondary', mb: 0.75 }}>
                     {int.cliente} · {int.contacto} · Ejecutivo: {int.ejecutivo}
                   </Typography>
-                  <Box sx={{ p: 1.25, bgcolor: 'text.disabled', borderRadius: 1, border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <Box sx={{ p: 1.25, bgcolor: '#F8FAFC', borderRadius: 1, border: '1px solid #E5E7EB' }}>
                     <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
                       <Box component="span" sx={{ color: cfg.color, fontWeight: 600, mr: 0.5 }}>Resultado:</Box>
                       {int.resultado}

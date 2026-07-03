@@ -4,7 +4,7 @@ import { SignalCellularAlt, Timeline, Inventory2, TrendingUp, AccountBalance } f
 import { Layout } from '@/components/layout/Layout'
 
 const SCM_COLOR = '#0C4D8C'
-const #E5E7EB  = `rgba(12,77,140,0.25)`
+const PAGE_BG   = '#F0F2F5'
 
 const PLANES = [
   { nombre: 'Plan Maestro Q3 2026',          progreso: 68,  estado: 'EN CURSO',    items: 142, valor: '$ 1.24 B' },
@@ -67,7 +67,7 @@ export default function SCMPlanificacion() {
 
         <Grid container spacing={2}>
           <Grid size={{ xs: 12, md: 7 }}>
-            <Card sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2 }}>
+            <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2}}>
               <CardContent>
                 <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 14, mb: 2 }}>Planes de Compra Activos</Typography>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

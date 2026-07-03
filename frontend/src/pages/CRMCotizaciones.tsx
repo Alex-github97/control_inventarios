@@ -4,7 +4,7 @@ import { Receipt, CheckCircle, Schedule, Cancel } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 const CRM_COLOR = '#DC2626'
-const #E5E7EB  = '#E5E7EB'
+const BORDER = '#E5E7EB'
 
 const ESTADO_CFG: Record<string, { color: string; icon: React.ReactNode }> = {
   BORRADOR:  { color: '#94A3B8', icon: <Schedule sx={{ fontSize: 14 }} /> },
@@ -47,7 +47,7 @@ export default function CRMCotizaciones() {
             background: `linear-gradient(135deg, ${CRM_COLOR} 0%, #B91C1C 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Receipt sx={{ color: 'text.primary', fontSize: 22 }} />
+            <Receipt sx={{ color: '#fff', fontSize: 22 }} />
           </Box>
           <Box>
             <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Cotizaciones</Typography>

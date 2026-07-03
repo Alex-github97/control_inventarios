@@ -94,7 +94,7 @@ export default function GRCIA() {
           <Chip label="IA" size="small" sx={{ bgcolor: alpha(AI_COLOR, 0.18), color: AI_COLOR, fontWeight: 700, border: `1px solid ${alpha(AI_COLOR, 0.4)}` }} />
         </Box>
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid rgba(255,255,255,0.08)', '& .MuiTab-root': { color: 'text.secondary', fontSize: 13 }, '& .Mui-selected': { color: AI_COLOR }, '& .MuiTabs-indicator': { bgcolor: AI_COLOR } }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid #E5E7EB', '& .MuiTab-root': { color: 'text.secondary', fontSize: 13 }, '& .Mui-selected': { color: AI_COLOR }, '& .MuiTabs-indicator': { bgcolor: AI_COLOR } }}>
           <Tab label="Insights IA" />
           <Tab label="Predicciones de Riesgo" />
           <Tab label="Tendencias" />
@@ -167,7 +167,7 @@ export default function GRCIA() {
                       </Box>
                       <LinearProgress variant="determinate" value={p.prob_incumplimiento} sx={{ height: 5, borderRadius: 2, bgcolor: 'text.disabled', '& .MuiLinearProgress-bar': { bgcolor: p.prob_incumplimiento >= 60 ? '#EA580C' : GRC_COLOR } }} />
                     </Box>
-                    <Box sx={{ p: 1.25, borderRadius: 1, bgcolor: 'text.disabled', border: '1px solid rgba(255,255,255,0.07)' }}>
+                    <Box sx={{ p: 1.25, borderRadius: 1, bgcolor: '#F8FAFC', border: '1px solid #E5E7EB' }}>
                       <Typography sx={{ fontSize: 11.5, color: 'text.secondary', lineHeight: 1.4 }}>→ {p.recomendacion}</Typography>
                     </Box>
                   </CardContent>
