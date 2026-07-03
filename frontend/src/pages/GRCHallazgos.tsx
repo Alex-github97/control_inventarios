@@ -10,9 +10,6 @@ import { BugReport, Add, Edit, Delete, Close, FileDownload, UploadFile, CheckCir
 import { Layout } from '@/components/layout/Layout'
 
 const GRC_COLOR = '#6D28D9'
-const PAGE_BG   = '#060C1A'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(109,40,217,0.25)'
 const LBL       = alpha(GRC_COLOR, 0.85)
 const ESTADO_COLOR: Record<string,string> = { ABIERTO:'#DC2626', 'EN TRATAMIENTO':'#D97706', CERRADO:'#059669', VENCIDO:'#EA580C' }
 const SEVERIDAD_COLOR: Record<string,string> = { CRITICA:'#DC2626', ALTA:'#EA580C', MEDIA:'#D97706', BAJA:'#059669' }
@@ -101,7 +98,7 @@ export default function GRCHallazgos() {
 
         <Grid container spacing={2} sx={{ mb:3 }}>
           {ESTADOS.map(est=>{ const color=ESTADO_COLOR[est]; return (
-            <Grid key={est} size={{ xs:6, md:3 }}><Card sx={{ bgcolor:CARD_BG, border:`1px solid ${alpha(color,.3)}`, borderRadius:2 }}><CardContent sx={{ p:'14px !important' }}><Typography sx={{ fontSize:26, fontWeight:800, color, lineHeight:1 }}>{hallazgos.filter(h=>h.estado===est).length}</Typography><Typography sx={{ fontSize:11, color:LBL }}>{est}</Typography></CardContent></Card></Grid>
+            <Grid key={est} size={{ xs:6, md:3 }}><Card sx={{ bgcolor:'#FFFFFF', border:`1px solid ${alpha(color,.3)}`, borderRadius:2 }}><CardContent sx={{ p:'14px !important' }}><Typography sx={{ fontSize:26, fontWeight:800, color, lineHeight:1 }}>{hallazgos.filter(h=>h.estado===est).length}</Typography><Typography sx={{ fontSize:11, color:LBL }}>{est}</Typography></CardContent></Card></Grid>
           )})}
         </Grid>
 
@@ -140,7 +137,7 @@ export default function GRCHallazgos() {
           </Box>
 
           {sel&&(
-            <Box sx={{ width:370, flexShrink:0, bgcolor:CARD_BG, border:`1px solid ${CARD_BOR}`, borderRadius:2, p:2.5, height:'fit-content' }}>
+            <Box sx={{ width:370, flexShrink:0, bgcolor:'#FFFFFF', border:`1px solid #E5E7EB`, borderRadius:2, p:2.5, height:'fit-content' }}>
               <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', mb:1 }}>
                 <Typography sx={{ color:'#FFF', fontWeight:700, fontSize:13, flex:1, pr:1, lineHeight:1.4 }}>{sel.titulo}</Typography>
                 <IconButton size="small" onClick={()=>setSel(null)} sx={{ color:'rgba(255,255,255,0.4)' }}><Close fontSize="small" /></IconButton>

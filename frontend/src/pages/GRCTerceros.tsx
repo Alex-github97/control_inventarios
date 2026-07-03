@@ -10,9 +10,6 @@ import { Business, Add, Edit, Delete, Close, FileDownload, UploadFile } from '@m
 import { Layout } from '@/components/layout/Layout'
 
 const GRC_COLOR = '#6D28D9'
-const PAGE_BG   = '#060C1A'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(109,40,217,0.25)'
 const LBL       = alpha(GRC_COLOR, 0.85)
 const ESTADO_COLOR: Record<string,string> = { ACTIVO:'#059669', INACTIVO:'#6B7280', REVISION:'#D97706', SUSPENDIDO:'#DC2626' }
 const RIESGO_COLOR: Record<string,string> = { BAJO:'#059669', MEDIO:'#D97706', ALTO:'#EA580C', CRITICO:'#DC2626' }
@@ -100,9 +97,9 @@ export default function GRCTerceros() {
 
         <Grid container spacing={2} sx={{ mb:3 }}>
           {TIPOS.map(tipo=>{ const count=terceros.filter(t=>t.tipo===tipo).length; return (
-            <Grid key={tipo} size={{ xs:6, md:'auto' }} sx={{ flex:1 }}><Card sx={{ bgcolor:CARD_BG, border:`1px solid ${CARD_BOR}`, borderRadius:2 }}><CardContent sx={{ p:'12px !important', textAlign:'center' }}><Typography sx={{ fontSize:22, fontWeight:800, color:GRC_COLOR }}>{count}</Typography><Typography sx={{ fontSize:10, color:LBL, textTransform:'uppercase' }}>{tipo}</Typography></CardContent></Card></Grid>
+            <Grid key={tipo} size={{ xs:6, md:'auto' }} sx={{ flex:1 }}><Card sx={{ bgcolor:'#FFFFFF', border:`1px solid #E5E7EB`, borderRadius:2 }}><CardContent sx={{ p:'12px !important', textAlign:'center' }}><Typography sx={{ fontSize:22, fontWeight:800, color:GRC_COLOR }}>{count}</Typography><Typography sx={{ fontSize:10, color:LBL, textTransform:'uppercase' }}>{tipo}</Typography></CardContent></Card></Grid>
           )})}
-          <Grid size={{ xs:6, md:'auto' }} sx={{ flex:1 }}><Card sx={{ bgcolor:CARD_BG, border:`1px solid ${alpha('#DC2626',.3)}`, borderRadius:2 }}><CardContent sx={{ p:'12px !important', textAlign:'center' }}><Typography sx={{ fontSize:22, fontWeight:800, color:'#DC2626' }}>{terceros.filter(t=>t.riesgo==='ALTO'||t.riesgo==='CRITICO').length}</Typography><Typography sx={{ fontSize:10, color:'#DC2626', textTransform:'uppercase' }}>Alto/Crítico</Typography></CardContent></Card></Grid>
+          <Grid size={{ xs:6, md:'auto' }} sx={{ flex:1 }}><Card sx={{ bgcolor:'#FFFFFF', border:`1px solid ${alpha('#DC2626',.3)}`, borderRadius:2 }}><CardContent sx={{ p:'12px !important', textAlign:'center' }}><Typography sx={{ fontSize:22, fontWeight:800, color:'#DC2626' }}>{terceros.filter(t=>t.riesgo==='ALTO'||t.riesgo==='CRITICO').length}</Typography><Typography sx={{ fontSize:10, color:'#DC2626', textTransform:'uppercase' }}>Alto/Crítico</Typography></CardContent></Card></Grid>
         </Grid>
 
         <Tabs value={tab} onChange={(_,v)=>setTab(v)} sx={{ mb:2, borderBottom:'1px solid rgba(255,255,255,0.08)', '& .MuiTab-root':{ color:'rgba(255,255,255,0.45)', fontSize:12 }, '& .Mui-selected':{ color:GRC_COLOR }, '& .MuiTabs-indicator':{ bgcolor:GRC_COLOR } }}>
@@ -142,7 +139,7 @@ export default function GRCTerceros() {
           </Box>
 
           {sel&&(
-            <Box sx={{ width:370, flexShrink:0, bgcolor:CARD_BG, border:`1px solid ${CARD_BOR}`, borderRadius:2, p:2.5, height:'fit-content' }}>
+            <Box sx={{ width:370, flexShrink:0, bgcolor:'#FFFFFF', border:`1px solid #E5E7EB`, borderRadius:2, p:2.5, height:'fit-content' }}>
               <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', mb:1 }}>
                 <Typography sx={{ color:'#FFF', fontWeight:700, fontSize:13, flex:1, pr:1, lineHeight:1.4 }}>{sel.nombre}</Typography>
                 <IconButton size="small" onClick={()=>setSel(null)} sx={{ color:'rgba(255,255,255,0.4)' }}><Close fontSize="small" /></IconButton>

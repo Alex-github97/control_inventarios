@@ -10,9 +10,6 @@ import { Gavel, Add, Edit, Delete, Close, AttachFile, History, FileDownload, Upl
 import { Layout } from '@/components/layout/Layout'
 
 const GRC_COLOR = '#6D28D9'
-const PAGE_BG   = '#060C1A'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(109,40,217,0.25)'
 const LBL       = alpha(GRC_COLOR, 0.85)
 
 const TIPO_COLOR: Record<string,string> = { LEY:'#DC2626', DECRETO:'#EA580C', RESOLUCION:'#D97706', NORMA_ISO:GRC_COLOR, NORMA_TECNICA:'#0891B2', CONTRATO:'#059669', INTERNO:'#6B7280' }
@@ -134,7 +131,7 @@ export default function GRCObligaciones() {
 
         <Grid container spacing={2} sx={{ mb:3 }}>
           {[{ label:'Cumpliendo', value:obls.filter(o=>o.estado==='CUMPLIENDO').length, color:'#059669' },{ label:'Parcial', value:obls.filter(o=>o.estado==='PARCIAL').length, color:'#D97706' },{ label:'Incumplimiento', value:obls.filter(o=>o.estado==='INCUMPLIMIENTO').length, color:'#DC2626' },{ label:'Total', value:obls.length, color:GRC_COLOR }].map(k=>(
-            <Grid key={k.label} size={{ xs:6, md:3 }}><Card sx={{ bgcolor:CARD_BG, border:`1px solid ${alpha(k.color,.3)}`, borderRadius:2 }}><CardContent sx={{ p:'14px !important' }}><Typography sx={{ fontSize:26, fontWeight:800, color:k.color, lineHeight:1 }}>{k.value}</Typography><Typography sx={{ fontSize:11, color:LBL }}>{k.label}</Typography></CardContent></Card></Grid>
+            <Grid key={k.label} size={{ xs:6, md:3 }}><Card sx={{ bgcolor:'#FFFFFF', border:`1px solid ${alpha(k.color,.3)}`, borderRadius:2 }}><CardContent sx={{ p:'14px !important' }}><Typography sx={{ fontSize:26, fontWeight:800, color:k.color, lineHeight:1 }}>{k.value}</Typography><Typography sx={{ fontSize:11, color:LBL }}>{k.label}</Typography></CardContent></Card></Grid>
           ))}
         </Grid>
 
@@ -176,7 +173,7 @@ export default function GRCObligaciones() {
           </Box>
 
           {sel && (
-            <Box sx={{ width:370, flexShrink:0, bgcolor:CARD_BG, border:`1px solid ${CARD_BOR}`, borderRadius:2, p:2.5, height:'fit-content' }}>
+            <Box sx={{ width:370, flexShrink:0, bgcolor:'#FFFFFF', border:`1px solid #E5E7EB`, borderRadius:2, p:2.5, height:'fit-content' }}>
               <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', mb:1 }}>
                 <Typography sx={{ color:'#FFF', fontWeight:700, fontSize:13, flex:1, pr:1, lineHeight:1.4 }}>{sel.nombre}</Typography>
                 <IconButton size="small" onClick={()=>setSel(null)} sx={{ color:'rgba(255,255,255,0.4)' }}><Close fontSize="small" /></IconButton>

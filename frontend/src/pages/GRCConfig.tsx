@@ -10,8 +10,7 @@ import {
 import { Layout } from '@/components/layout/Layout'
 
 const GRC_COLOR = '#6D28D9'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(109,40,217,0.25)'
+const #E5E7EB  = '#E5E7EB'
 
 interface TabPanelProps { children?: React.ReactNode; index: number; value: number }
 function TabPanel({ children, value, index }: TabPanelProps) {
@@ -19,7 +18,7 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 }
 
 const SX_SWITCH = { '& .MuiSwitch-switchBase.Mui-checked': { color: GRC_COLOR }, '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: GRC_COLOR } }
-const SX_LABEL = { color: 'rgba(255,255,255,0.75)', '& .MuiFormControlLabel-label': { fontSize: 13 } }
+const SX_LABEL = { color: 'text.secondary', '& .MuiFormControlLabel-label': { fontSize: 13 } }
 
 const MARCOS = [
   { nombre: 'ISO 31000:2018', desc: 'Gestión del Riesgo', activo: true, version: '2018' },
@@ -66,8 +65,8 @@ export default function GRCConfig() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Settings sx={{ color: GRC_COLOR, fontSize: 28 }} />
             <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#FFF', lineHeight: 1 }}>Configuración GRC</Typography>
-              <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>GRC · Marcos Normativos · Umbrales · Notificaciones · Integraciones</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Configuración GRC</Typography>
+              <Typography sx={{ fontSize: 12, color: 'text.disabled' }}>GRC · Marcos Normativos · Umbrales · Notificaciones · Integraciones</Typography>
             </Box>
             <Chip label="GRC" size="small" sx={{ bgcolor: alpha(GRC_COLOR, 0.15), color: GRC_COLOR, fontWeight: 700, border: `1px solid ${alpha(GRC_COLOR, 0.35)}` }} />
           </Box>
@@ -77,7 +76,7 @@ export default function GRCConfig() {
           </Button>
         </Box>
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid rgba(255,255,255,0.08)', '& .MuiTab-root': { color: 'rgba(255,255,255,0.45)', fontSize: 13 }, '& .Mui-selected': { color: GRC_COLOR }, '& .MuiTabs-indicator': { bgcolor: GRC_COLOR } }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid #F1F5F9', '& .MuiTab-root': { color: 'text.disabled', fontSize: 13 }, '& .Mui-selected': { color: GRC_COLOR }, '& .MuiTabs-indicator': { bgcolor: GRC_COLOR } }}>
           <Tab label="Marcos Normativos" />
           <Tab label="Umbrales" />
           <Tab label="Notificaciones" />
@@ -88,17 +87,17 @@ export default function GRCConfig() {
           <Grid container spacing={2}>
             {MARCOS.map(m => (
               <Grid key={m.nombre} size={{ xs: 12, md: 6, lg: 4 }}>
-                <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${alpha(m.activo ? GRC_COLOR : '#374151', 0.4)}`, borderRadius: 2 }}>
+                <Card sx={{ bgcolor: '#fff', border: `1px solid ${alpha(m.activo ? GRC_COLOR : '#374151', 0.4)}`, borderRadius: 2 }}>
                   <CardContent sx={{ p: '14px !important' }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <Box>
-                        <Typography sx={{ fontWeight: 700, color: m.activo ? '#FFF' : 'rgba(255,255,255,0.45)', fontSize: 14 }}>{m.nombre}</Typography>
-                        <Typography sx={{ fontSize: 11.5, color: 'rgba(255,255,255,0.4)', mb: 1 }}>{m.desc}</Typography>
-                        <Chip label={`v${m.version}`} size="small" sx={{ fontSize: 9, height: 16, bgcolor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)' }} />
+                        <Typography sx={{ fontWeight: 700, color: m.activo ? 'text.primary' : 'text.disabled', fontSize: 14 }}>{m.nombre}</Typography>
+                        <Typography sx={{ fontSize: 11.5, color: 'text.disabled', mb: 1 }}>{m.desc}</Typography>
+                        <Chip label={`v${m.version}`} size="small" sx={{ fontSize: 9, height: 16, bgcolor: '#F1F5F9', color: 'text.secondary' }} />
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        {m.activo ? <CheckCircle sx={{ fontSize: 18, color: GRC_COLOR }} /> : <CheckCircleOutline sx={{ fontSize: 18, color: 'rgba(255,255,255,0.2)' }} />}
-                        <Typography sx={{ fontSize: 11, color: m.activo ? GRC_COLOR : 'rgba(255,255,255,0.3)' }}>{m.activo ? 'Activo' : 'Inactivo'}</Typography>
+                        {m.activo ? <CheckCircle sx={{ fontSize: 18, color: GRC_COLOR }} /> : <CheckCircleOutline sx={{ fontSize: 18, color: 'text.disabled' }} />}
+                        <Typography sx={{ fontSize: 11, color: m.activo ? GRC_COLOR : 'text.disabled' }}>{m.activo ? 'Activo' : 'Inactivo'}</Typography>
                       </Box>
                     </Box>
                   </CardContent>
@@ -109,7 +108,7 @@ export default function GRCConfig() {
         </TabPanel>
 
         <TabPanel value={tab} index={1}>
-          <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, maxWidth: 640 }}>
+          <Card sx={{ bgcolor: '#fff', border: `1px solid #E5E7EB`, borderRadius: 2, maxWidth: 640 }}>
             <CardContent sx={{ p: 3 }}>
               {[
                 { label: 'Nivel de riesgo crítico (umbral alerta)', value: umbralRiesgo, set: setUmbralRiesgo, min: 10, max: 25, color: '#DC2626', desc: 'Riesgos con nivel ≥ umbral se clasifican automáticamente como CRÍTICOS' },
@@ -119,12 +118,12 @@ export default function GRCConfig() {
               ].map(u => (
                 <Box key={u.label} sx={{ mb: 3 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                    <Typography sx={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>{u.label}</Typography>
+                    <Typography sx={{ fontSize: 13, color: 'text.primary', fontWeight: 600 }}>{u.label}</Typography>
                     <Typography sx={{ fontSize: 16, fontWeight: 800, color: u.color }}>{u.value}{u.min < 50 ? '' : '%'}</Typography>
                   </Box>
                   <Slider value={u.value} onChange={(_, v) => u.set(v as number)} min={u.min} max={u.max} step={1} marks sx={{ color: u.color, mb: 0.5 }} />
-                  <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{u.desc}</Typography>
-                  <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)', mt: 2 }} />
+                  <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>{u.desc}</Typography>
+                  <Divider sx={{ borderColor: '#F1F5F9', mt: 2 }} />
                 </Box>
               ))}
             </CardContent>
@@ -132,9 +131,9 @@ export default function GRCConfig() {
         </TabPanel>
 
         <TabPanel value={tab} index={2}>
-          <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, maxWidth: 520 }}>
+          <Card sx={{ bgcolor: '#fff', border: `1px solid #E5E7EB`, borderRadius: 2, maxWidth: 520 }}>
             <CardContent sx={{ p: 3 }}>
-              <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', mb: 2 }}>Activar o desactivar alertas automáticas del sistema GRC</Typography>
+              <Typography sx={{ fontSize: 12, color: 'text.disabled', mb: 2 }}>Activar o desactivar alertas automáticas del sistema GRC</Typography>
               {[
                 ['riesgo_critico',      'Nuevo riesgo clasificado como CRÍTICO'],
                 ['hallazgo_vencido',    'Hallazgo que supera la fecha límite'],
@@ -161,13 +160,13 @@ export default function GRCConfig() {
           <Grid container spacing={2}>
             {INTEGRACIONES.map(i => (
               <Grid key={i.nombre} size={{ xs: 12, sm: 6, md: 4 }}>
-                <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${alpha(i.estado === 'activo' ? i.color : '#374151', 0.35)}`, borderRadius: 2 }}>
+                <Card sx={{ bgcolor: '#fff', border: `1px solid ${alpha(i.estado === 'activo' ? i.color : '#374151', 0.35)}`, borderRadius: 2 }}>
                   <CardContent sx={{ p: '14px !important' }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                       <Chip label={i.nombre} sx={{ bgcolor: alpha(i.estado === 'activo' ? i.color : '#374151', 0.18), color: i.estado === 'activo' ? i.color : '#6B7280', fontWeight: 700, fontSize: 12 }} />
                       <Chip label={i.estado} size="small" sx={{ fontSize: 10, height: 20, bgcolor: alpha(i.estado === 'activo' ? '#059669' : '#374151', 0.2), color: i.estado === 'activo' ? '#059669' : '#6B7280' }} />
                     </Box>
-                    <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.4 }}>{i.desc}</Typography>
+                    <Typography sx={{ fontSize: 12, color: 'text.secondary', lineHeight: 1.4 }}>{i.desc}</Typography>
                   </CardContent>
                 </Card>
               </Grid>

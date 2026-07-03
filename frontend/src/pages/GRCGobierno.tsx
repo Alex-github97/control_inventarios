@@ -10,9 +10,6 @@ import { AccountTree, Add, Groups, Person, Edit, Delete, PowerSettingsNew, Close
 import { Layout } from '@/components/layout/Layout'
 
 const GRC_COLOR = '#6D28D9'
-const PAGE_BG   = '#060C1A'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(109,40,217,0.25)'
 const LBL       = alpha(GRC_COLOR, 0.85)
 const TIPO_COLOR: Record<string, string> = {
   Riesgos: '#DC2626', Auditoría: '#D97706', Compliance: '#0891B2',
@@ -48,8 +45,8 @@ type Resp    = typeof initResp[0]
 type DlgType = 'comite' | 'raci' | 'resp' | null
 type DelTarget = { name: string; action: () => void }
 
-const TF = { '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' }, '&:hover fieldset': { borderColor: GRC_COLOR }, '&.Mui-focused fieldset': { borderColor: GRC_COLOR } } }
-const ILB = { sx: { color: 'rgba(255,255,255,0.5)' } }
+const TF = { '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' }, '&:hover fieldset': { borderColor: GRC_COLOR }, '&.Mui-focused fieldset': { borderColor: GRC_COLOR } } }
+const ILB = { sx: { color: 'text.secondary' } }
 
 export default function GRCGobierno() {
   const [tab, setTab]           = useState(0)
@@ -171,10 +168,10 @@ export default function GRCGobierno() {
   const btnAction = () => tab === 0 ? openNewComite() : tab === 1 ? openNewRaci() : openNewResp()
 
   const Panel = ({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) => (
-    <Box sx={{ width: 360, flexShrink: 0, bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, p: 2.5, height: 'fit-content' }}>
+    <Box sx={{ width: 360, flexShrink: 0, border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5, height: 'fit-content' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography sx={{ color: '#FFF', fontWeight: 700, fontSize: 14, flex: 1, pr: 1, lineHeight: 1.3 }}>{title}</Typography>
-        <IconButton size="small" onClick={onClose} sx={{ color: 'rgba(255,255,255,0.4)' }}><Close fontSize="small" /></IconButton>
+        <Typography sx={{ color: 'text.primary', fontWeight: 700, fontSize: 14, flex: 1, pr: 1, lineHeight: 1.3 }}>{title}</Typography>
+        <IconButton size="small" onClick={onClose} sx={{ color: 'text.secondary' }}><Close fontSize="small" /></IconButton>
       </Box>
       {children}
     </Box>
@@ -194,7 +191,7 @@ export default function GRCGobierno() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <AccountTree sx={{ color: GRC_COLOR, fontSize: 28 }} />
             <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#FFF', lineHeight: 1 }}>Gobierno Corporativo</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Gobierno Corporativo</Typography>
               <Typography sx={{ fontSize: 12, color: LBL }}>GRC · Estructura de Gobierno · Comités · RACI</Typography>
             </Box>
             <Chip label="GRC" size="small" sx={{ bgcolor: alpha(GRC_COLOR, 0.15), color: GRC_COLOR, fontWeight: 700, border: `1px solid ${alpha(GRC_COLOR, 0.35)}` }} />
@@ -205,7 +202,7 @@ export default function GRCGobierno() {
           </Button>
         </Box>
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid rgba(255,255,255,0.08)', '& .MuiTab-root': { color: 'rgba(255,255,255,0.45)', fontSize: 13 }, '& .Mui-selected': { color: GRC_COLOR }, '& .MuiTabs-indicator': { bgcolor: GRC_COLOR } }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid rgba(255,255,255,0.08)', '& .MuiTab-root': { color: 'text.secondary', fontSize: 13 }, '& .Mui-selected': { color: GRC_COLOR }, '& .MuiTabs-indicator': { bgcolor: GRC_COLOR } }}>
           <Tab label="Comités" icon={<Groups sx={{ fontSize: 16 }} />} iconPosition="start" />
           <Tab label="Matriz RACI" icon={<AccountTree sx={{ fontSize: 16 }} />} iconPosition="start" />
           <Tab label="Responsables" icon={<Person sx={{ fontSize: 16 }} />} iconPosition="start" />
@@ -218,16 +215,16 @@ export default function GRCGobierno() {
               <Grid container spacing={2}>
                 {comites.map((c, i) => (
                   <Grid key={i} size={{ xs: 12, md: 6, lg: 4 }}>
-                    <Card onClick={() => setSelComite(c)} sx={{ bgcolor: CARD_BG, border: `1px solid ${selComite?.nombre === c.nombre ? alpha(GRC_COLOR, 0.5) : CARD_BOR}`, borderRadius: 2, cursor: 'pointer', '&:hover': { borderColor: alpha(GRC_COLOR, 0.4) } }}>
+                    <Card onClick={() => setSelComite(c)} sx={{ border: `1px solid ${selComite?.nombre === c.nombre ? alpha(GRC_COLOR, 0.5) : #E5E7EB}`, borderRadius: 2, cursor: 'pointer', '&:hover': { borderColor: alpha(GRC_COLOR, 0.4) } }}>
                       <CardContent sx={{ p: '16px !important' }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
                           <Chip label={c.tipo} size="small" sx={{ fontSize: 10, height: 20, bgcolor: alpha(TIPO_COLOR[c.tipo] || GRC_COLOR, 0.18), color: TIPO_COLOR[c.tipo] || GRC_COLOR }} />
                           <Chip label={c.activo ? 'Activo' : 'Inactivo'} size="small" sx={{ fontSize: 10, height: 20, bgcolor: alpha(c.activo ? GRC_COLOR : '#6B7280', 0.15), color: c.activo ? GRC_COLOR : '#6B7280' }} />
                         </Box>
-                        <Typography sx={{ fontWeight: 700, color: '#FFF', fontSize: 14, mb: 1, lineHeight: 1.3 }}>{c.nombre}</Typography>
+                        <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 14, mb: 1, lineHeight: 1.3 }}>{c.nombre}</Typography>
                         <Box sx={{ display: 'flex', gap: 2, mb: 1.5 }}>
-                          <Box><Typography sx={{ fontSize: 10, color: LBL, textTransform: 'uppercase' }}>Presidente</Typography><Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>{c.presidente}</Typography></Box>
-                          <Box><Typography sx={{ fontSize: 10, color: LBL, textTransform: 'uppercase' }}>Periodicidad</Typography><Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>{c.periodicidad}</Typography></Box>
+                          <Box><Typography sx={{ fontSize: 10, color: LBL, textTransform: 'uppercase' }}>Presidente</Typography><Typography sx={{ fontSize: 12, color: 'text.primary', fontWeight: 600 }}>{c.presidente}</Typography></Box>
+                          <Box><Typography sx={{ fontSize: 10, color: LBL, textTransform: 'uppercase' }}>Periodicidad</Typography><Typography sx={{ fontSize: 12, color: 'text.primary', fontWeight: 600 }}>{c.periodicidad}</Typography></Box>
                           <Box><Typography sx={{ fontSize: 10, color: LBL, textTransform: 'uppercase' }}>Miembros</Typography><Typography sx={{ fontSize: 12, color: GRC_COLOR, fontWeight: 700 }}>{c.miembros}</Typography></Box>
                         </Box>
                         <Box sx={{ display: 'flex', gap: 0.5 }} onClick={e => e.stopPropagation()}>
@@ -248,7 +245,7 @@ export default function GRCGobierno() {
                 <Row2 label="Periodicidad" value={selComite.periodicidad} />
                 <Row2 label="N.° Miembros" value={String(selComite.miembros)} />
                 <Row2 label="Estado" value={selComite.activo ? 'Activo' : 'Inactivo'} />
-                {selComite.descripcion && <><Divider sx={{ borderColor: 'rgba(255,255,255,0.06)', my: 1.5 }} /><Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', lineHeight: 1.6 }}>{selComite.descripcion}</Typography></>}
+                {selComite.descripcion && <><Divider sx={{ borderColor: 'rgba(255,255,255,0.06)', my: 1.5 }} /><Typography sx={{ fontSize: 12, color: 'text.secondary', lineHeight: 1.6 }}>{selComite.descripcion}</Typography></>}
                 <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
                   <Button size="small" startIcon={<Edit />} variant="outlined" sx={{ color: GRC_COLOR, borderColor: alpha(GRC_COLOR, 0.4), flex: 1 }}
                     onClick={() => openEditComite(comites.findIndex(c => c.nombre === selComite.nombre))}>
@@ -282,8 +279,8 @@ export default function GRCGobierno() {
                   </TableHead>
                   <TableBody>
                     {raciRows.map((r, i) => (
-                      <TableRow key={i} onClick={() => setSelRaci(r)} sx={{ cursor: 'pointer', bgcolor: selRaci?.proceso === r.proceso ? alpha(GRC_COLOR, 0.06) : 'transparent', '&:hover': { bgcolor: alpha(GRC_COLOR, 0.04) }, '& td': { borderColor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.85)', fontSize: 12.5 } }}>
-                        <TableCell sx={{ fontWeight: 600, color: '#FFF' }}>{r.proceso}</TableCell>
+                      <TableRow key={i} onClick={() => setSelRaci(r)} sx={{ cursor: 'pointer', bgcolor: selRaci?.proceso === r.proceso ? alpha(GRC_COLOR, 0.06) : 'transparent', '&:hover': { bgcolor: alpha(GRC_COLOR, 0.04) }, '& td': { borderColor: 'rgba(255,255,255,0.04)', color: 'text.primary', fontSize: 12.5 } }}>
+                        <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>{r.proceso}</TableCell>
                         <TableCell sx={{ color: '#DC2626', fontWeight: 600 }}>{r.responsable}</TableCell>
                         <TableCell sx={{ color: '#D97706', fontWeight: 600 }}>{r.aprobador}</TableCell>
                         <TableCell>{r.consultado}</TableCell>
@@ -302,14 +299,14 @@ export default function GRCGobierno() {
             </Box>
             {selRaci && (
               <Panel title="Detalle RACI" onClose={() => setSelRaci(null)}>
-                <Typography sx={{ color: '#FFF', fontWeight: 700, fontSize: 14, mb: 2 }}>{selRaci.proceso}</Typography>
+                <Typography sx={{ color: 'text.primary', fontWeight: 700, fontSize: 14, mb: 2 }}>{selRaci.proceso}</Typography>
                 <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
                   <Chip label={`R: ${selRaci.responsable}`} size="small" sx={{ bgcolor: alpha('#DC2626', 0.15), color: '#DC2626', fontWeight: 700, fontSize: 11 }} />
                   <Chip label={`A: ${selRaci.aprobador}`} size="small" sx={{ bgcolor: alpha('#D97706', 0.15), color: '#D97706', fontWeight: 700, fontSize: 11 }} />
                 </Box>
                 <Row2 label="Consultado" value={selRaci.consultado} />
                 <Row2 label="Informado" value={selRaci.informado} />
-                {selRaci.descripcion && <><Divider sx={{ borderColor: 'rgba(255,255,255,0.06)', my: 1.5 }} /><Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', lineHeight: 1.6 }}>{selRaci.descripcion}</Typography></>}
+                {selRaci.descripcion && <><Divider sx={{ borderColor: 'rgba(255,255,255,0.06)', my: 1.5 }} /><Typography sx={{ fontSize: 12, color: 'text.secondary', lineHeight: 1.6 }}>{selRaci.descripcion}</Typography></>}
                 <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
                   <Button size="small" startIcon={<Edit />} variant="outlined" sx={{ color: GRC_COLOR, borderColor: alpha(GRC_COLOR, 0.4), flex: 1 }}
                     onClick={() => openEditRaci(raciRows.findIndex(r => r.proceso === selRaci.proceso))}>
@@ -332,7 +329,7 @@ export default function GRCGobierno() {
               <Grid container spacing={2}>
                 {responsables.map((r, i) => (
                   <Grid key={i} size={{ xs: 12, md: 6 }}>
-                    <Card onClick={() => setSelResp(r)} sx={{ bgcolor: CARD_BG, border: `1px solid ${selResp?.nombre === r.nombre ? alpha(GRC_COLOR, 0.5) : CARD_BOR}`, borderRadius: 2, cursor: 'pointer', '&:hover': { borderColor: alpha(GRC_COLOR, 0.4) } }}>
+                    <Card onClick={() => setSelResp(r)} sx={{ border: `1px solid ${selResp?.nombre === r.nombre ? alpha(GRC_COLOR, 0.5) : #E5E7EB}`, borderRadius: 2, cursor: 'pointer', '&:hover': { borderColor: alpha(GRC_COLOR, 0.4) } }}>
                       <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, p: '16px !important' }}>
                         <Avatar sx={{ bgcolor: alpha(GRC_COLOR, 0.25), color: GRC_COLOR, width: 46, height: 46, fontWeight: 700, opacity: r.activo ? 1 : 0.4 }}>{r.nombre.slice(0, 2).toUpperCase()}</Avatar>
                         <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -344,11 +341,11 @@ export default function GRCGobierno() {
                               <IconButton size="small" title="Eliminar" onClick={e => requestDelete(r.nombre, () => deleteResp(i), e)} sx={{ color: '#DC2626', p: 0.5 }}><Delete sx={{ fontSize: 14 }} /></IconButton>
                             </Box>
                           </Box>
-                          <Typography sx={{ fontSize: 11.5, color: 'rgba(255,255,255,0.55)', lineHeight: 1.3 }}>{r.cargo}</Typography>
+                          <Typography sx={{ fontSize: 11.5, color: 'text.secondary', lineHeight: 1.3 }}>{r.cargo}</Typography>
                           <Box sx={{ display: 'flex', gap: 1, mt: 0.75 }}>
                             <Chip label={r.area} size="small" sx={{ fontSize: 10, height: 18, bgcolor: alpha(GRC_COLOR, 0.15), color: GRC_COLOR }} />
                             <Chip label={r.activo ? 'Activo' : 'Inactivo'} size="small" sx={{ fontSize: 10, height: 18, bgcolor: alpha(r.activo ? '#059669' : '#6B7280', 0.15), color: r.activo ? '#059669' : '#6B7280' }} />
-                            <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', alignSelf: 'center' }}>{r.procesos} procesos</Typography>
+                            <Typography sx={{ fontSize: 11, color: 'text.secondary', alignSelf: 'center' }}>{r.procesos} procesos</Typography>
                           </Box>
                         </Box>
                       </CardContent>
@@ -389,21 +386,21 @@ export default function GRCGobierno() {
         )}
 
         {/* ── DIALOG COMITÉ (crear / editar) ── */}
-        <Dialog open={dlg === 'comite'} onClose={closeAll} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: '#FFF' } }}>
+        <Dialog open={dlg === 'comite'} onClose={closeAll} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary' } }}>
           <DialogTitle sx={{ fontWeight: 700 }}>{editIdx !== null ? 'Editar Comité' : 'Nuevo Comité'}</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
             <TextField label="Nombre del Comité" fullWidth size="small" value={form.nombre || ''} onChange={e => f('nombre', e.target.value)} InputLabelProps={ILB} sx={TF} />
             <FormControl size="small">
-              <InputLabel sx={{ color: 'rgba(255,255,255,0.5)' }}>Tipo</InputLabel>
-              <Select label="Tipo" value={form.tipo || 'Riesgos'} onChange={e => f('tipo', e.target.value)} sx={{ color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } }}>
+              <InputLabel sx={{ color: 'text.secondary' }}>Tipo</InputLabel>
+              <Select label="Tipo" value={form.tipo || 'Riesgos'} onChange={e => f('tipo', e.target.value)} sx={{ color: 'text.primary', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } }}>
                 {Object.keys(TIPO_COLOR).map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
               </Select>
             </FormControl>
             <TextField label="Presidente" fullWidth size="small" value={form.presidente || ''} onChange={e => f('presidente', e.target.value)} InputLabelProps={ILB} sx={TF} />
             <Box sx={{ display: 'flex', gap: 2 }}>
               <FormControl size="small" fullWidth>
-                <InputLabel sx={{ color: 'rgba(255,255,255,0.5)' }}>Periodicidad</InputLabel>
-                <Select label="Periodicidad" value={form.periodicidad || 'Mensual'} onChange={e => f('periodicidad', e.target.value)} sx={{ color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } }}>
+                <InputLabel sx={{ color: 'text.secondary' }}>Periodicidad</InputLabel>
+                <Select label="Periodicidad" value={form.periodicidad || 'Mensual'} onChange={e => f('periodicidad', e.target.value)} sx={{ color: 'text.primary', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } }}>
                   {PERIODOS.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
                 </Select>
               </FormControl>
@@ -412,13 +409,13 @@ export default function GRCGobierno() {
             <TextField label="Descripción" multiline rows={2} fullWidth size="small" value={form.descripcion || ''} onChange={e => f('descripcion', e.target.value)} InputLabelProps={ILB} sx={TF} />
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={closeAll} sx={{ color: 'rgba(255,255,255,0.5)' }}>Cancelar</Button>
+            <Button onClick={closeAll} sx={{ color: 'text.secondary' }}>Cancelar</Button>
             <Button variant="contained" onClick={saveComite} sx={{ bgcolor: GRC_COLOR, '&:hover': { bgcolor: '#5B21B6' } }}>{editIdx !== null ? 'Guardar Cambios' : 'Crear'}</Button>
           </DialogActions>
         </Dialog>
 
         {/* ── DIALOG RACI (crear / editar) ── */}
-        <Dialog open={dlg === 'raci'} onClose={closeAll} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: '#FFF' } }}>
+        <Dialog open={dlg === 'raci'} onClose={closeAll} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary' } }}>
           <DialogTitle sx={{ fontWeight: 700 }}>{editIdx !== null ? 'Editar Entrada RACI' : 'Nueva Entrada RACI'}</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
             <TextField label="Proceso / Actividad" fullWidth size="small" value={form.proceso || ''} onChange={e => f('proceso', e.target.value)} InputLabelProps={ILB} sx={TF} />
@@ -429,13 +426,13 @@ export default function GRCGobierno() {
             <TextField label="Descripción" multiline rows={2} fullWidth size="small" value={form.descripcion || ''} onChange={e => f('descripcion', e.target.value)} InputLabelProps={ILB} sx={TF} />
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={closeAll} sx={{ color: 'rgba(255,255,255,0.5)' }}>Cancelar</Button>
+            <Button onClick={closeAll} sx={{ color: 'text.secondary' }}>Cancelar</Button>
             <Button variant="contained" onClick={saveRaci} sx={{ bgcolor: GRC_COLOR, '&:hover': { bgcolor: '#5B21B6' } }}>{editIdx !== null ? 'Guardar Cambios' : 'Crear'}</Button>
           </DialogActions>
         </Dialog>
 
         {/* ── DIALOG RESPONSABLE (crear / editar) ── */}
-        <Dialog open={dlg === 'resp'} onClose={closeAll} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: '#FFF' } }}>
+        <Dialog open={dlg === 'resp'} onClose={closeAll} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary' } }}>
           <DialogTitle sx={{ fontWeight: 700 }}>{editIdx !== null ? 'Editar Responsable' : 'Nuevo Responsable GRC'}</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
             <TextField label="Nombre Completo" fullWidth size="small" value={form.nombre || ''} onChange={e => f('nombre', e.target.value)} InputLabelProps={ILB} sx={TF} />
@@ -448,40 +445,40 @@ export default function GRCGobierno() {
             <TextField label="Teléfono" fullWidth size="small" value={form.telefono || ''} onChange={e => f('telefono', e.target.value)} InputLabelProps={ILB} sx={TF} />
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={closeAll} sx={{ color: 'rgba(255,255,255,0.5)' }}>Cancelar</Button>
+            <Button onClick={closeAll} sx={{ color: 'text.secondary' }}>Cancelar</Button>
             <Button variant="contained" onClick={saveResp} sx={{ bgcolor: GRC_COLOR, '&:hover': { bgcolor: '#5B21B6' } }}>{editIdx !== null ? 'Guardar Cambios' : 'Crear'}</Button>
           </DialogActions>
         </Dialog>
 
         {/* ── DIALOG CONFIRMACIÓN ELIMINAR ── */}
-        <Dialog open={!!delConfirm} onClose={() => setDelConfirm(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: '#FFF', border: '1px solid rgba(220,38,38,0.3)' } }}>
+        <Dialog open={!!delConfirm} onClose={() => setDelConfirm(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary', border: '1px solid rgba(220,38,38,0.3)' } }}>
           <DialogTitle sx={{ fontWeight: 700, color: '#DC2626', display: 'flex', alignItems: 'center', gap: 1 }}>
             <Delete /> ¿Eliminar registro?
           </DialogTitle>
           <DialogContent sx={{ pt: '8px !important' }}>
-            <Typography sx={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', mb: 2 }}>
-              Está a punto de eliminar <strong style={{ color: '#FFF' }}>"{delConfirm?.name}"</strong>. Esta acción no se puede deshacer.
+            <Typography sx={{ fontSize: 13, color: 'text.primary', mb: 2 }}>
+              Está a punto de eliminar <strong style={{ color: 'text.primary' }}>"{delConfirm?.name}"</strong>. Esta acción no se puede deshacer.
             </Typography>
-            <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', mb: 1 }}>
+            <Typography sx={{ fontSize: 12, color: 'text.secondary', mb: 1 }}>
               Escriba <strong style={{ color: '#DC2626' }}>ELIMINAR</strong> para confirmar:
             </Typography>
             <TextField
               fullWidth size="small" placeholder="ELIMINAR"
               value={delInput} onChange={e => setDelInput(e.target.value)}
-              sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(220,38,38,0.4)' }, '&.Mui-focused fieldset': { borderColor: '#DC2626' } } }}
+              sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: 'rgba(220,38,38,0.4)' }, '&.Mui-focused fieldset': { borderColor: '#DC2626' } } }}
             />
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setDelConfirm(null)} sx={{ color: 'rgba(255,255,255,0.5)' }}>Cancelar</Button>
+            <Button onClick={() => setDelConfirm(null)} sx={{ color: 'text.secondary' }}>Cancelar</Button>
             <Button variant="contained" disabled={delInput !== 'ELIMINAR'} onClick={confirmDelete}
-              sx={{ bgcolor: '#DC2626', '&:hover': { bgcolor: '#B91C1C' }, '&.Mui-disabled': { bgcolor: 'rgba(220,38,38,0.25)', color: 'rgba(255,255,255,0.3)' } }}>
+              sx={{ bgcolor: '#DC2626', '&:hover': { bgcolor: '#B91C1C' }, '&.Mui-disabled': { bgcolor: 'rgba(220,38,38,0.25)', color: 'text.disabled' } }}>
               Eliminar
             </Button>
           </DialogActions>
         </Dialog>
 
         <Snackbar open={!!snack} autoHideDuration={3500} onClose={() => setSnack('')} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
-          <Alert severity="success" onClose={() => setSnack('')} sx={{ bgcolor: '#1E3A2F', color: '#FFF', '& .MuiAlert-icon': { color: '#4ADE80' } }}>{snack}</Alert>
+          <Alert severity="success" onClose={() => setSnack('')} sx={{ bgcolor: '#1E3A2F', color: 'text.primary', '& .MuiAlert-icon': { color: '#4ADE80' } }}>{snack}</Alert>
         </Snackbar>
       </Box>
     </Layout>

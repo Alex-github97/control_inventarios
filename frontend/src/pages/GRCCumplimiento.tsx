@@ -10,9 +10,6 @@ import { VerifiedUser, Add, Edit, Delete, Close, CheckCircle, Warning, ErrorOutl
 import { Layout } from '@/components/layout/Layout'
 
 const GRC_COLOR = '#6D28D9'
-const PAGE_BG   = '#060C1A'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(109,40,217,0.25)'
 const LBL       = alpha(GRC_COLOR, 0.85)
 const ESTADO_COLOR: Record<string,string> = { CUMPLE:'#059669', PARCIAL:'#D97706', INCUMPLE:'#DC2626', 'NO APLICA':'#6B7280', 'EN REVISION':'#0891B2' }
 const FRECUENCIAS = ['Mensual','Bimestral','Trimestral','Semestral','Anual']
@@ -99,7 +96,7 @@ export default function GRCCumplimiento() {
 
         <Grid container spacing={2} sx={{ mb:3 }}>
           {[{ label:'Global', value:`${promedio}%`, color:promedio>=80?'#059669':promedio>=60?'#D97706':'#DC2626' },{ label:'Cumple', value:reqs.filter(r=>r.estado==='CUMPLE').length, color:'#059669' },{ label:'Parcial', value:reqs.filter(r=>r.estado==='PARCIAL').length, color:'#D97706' },{ label:'Incumple', value:reqs.filter(r=>r.estado==='INCUMPLE').length, color:'#DC2626' }].map((k,i)=>(
-            <Grid key={i} size={{ xs:6, md:3 }}><Card sx={{ bgcolor:CARD_BG, border:`1px solid ${alpha(k.color,.3)}`, borderRadius:2 }}><CardContent sx={{ p:'14px !important' }}><Typography sx={{ fontSize:26, fontWeight:800, color:k.color, lineHeight:1 }}>{k.value}</Typography><Typography sx={{ fontSize:11, color:LBL }}>{k.label}</Typography></CardContent></Card></Grid>
+            <Grid key={i} size={{ xs:6, md:3 }}><Card sx={{ bgcolor:'#FFFFFF', border:`1px solid ${alpha(k.color,.3)}`, borderRadius:2 }}><CardContent sx={{ p:'14px !important' }}><Typography sx={{ fontSize:26, fontWeight:800, color:k.color, lineHeight:1 }}>{k.value}</Typography><Typography sx={{ fontSize:11, color:LBL }}>{k.label}</Typography></CardContent></Card></Grid>
           ))}
         </Grid>
 
@@ -147,7 +144,7 @@ export default function GRCCumplimiento() {
               <Grid container spacing={2}>
                 {[...new Set(reqs.map(r=>r.norma))].map(norma=>{
                   const items=reqs.filter(r=>r.norma===norma); const avg=Math.round(items.reduce((a,r)=>a+r.porcentaje,0)/items.length); const color=avg>=80?'#059669':avg>=60?'#D97706':'#DC2626'
-                  return <Grid key={norma} size={{ xs:12, md:6 }}><Card sx={{ bgcolor:CARD_BG, border:`1px solid ${alpha(color,.3)}`, borderRadius:2 }}><CardContent sx={{ p:'14px !important' }}>
+                  return <Grid key={norma} size={{ xs:12, md:6 }}><Card sx={{ bgcolor:'#FFFFFF', border:`1px solid ${alpha(color,.3)}`, borderRadius:2 }}><CardContent sx={{ p:'14px !important' }}>
                     <Box sx={{ display:'flex', justifyContent:'space-between', mb:1.5 }}><Typography sx={{ fontWeight:700, color:'#FFF', fontSize:14 }}>{norma}</Typography><Typography sx={{ fontSize:20, fontWeight:800, color, lineHeight:1 }}>{avg}%</Typography></Box>
                     <LinearProgress variant="determinate" value={avg} sx={{ height:6, borderRadius:3, mb:1.5, bgcolor:'rgba(255,255,255,0.08)', '& .MuiLinearProgress-bar':{ bgcolor:color } }} />
                     {items.map(r=><Box key={r.id} onClick={()=>{setSel(r);setTab(0)}} sx={{ display:'flex', justifyContent:'space-between', py:.6, cursor:'pointer', '&:hover':{ opacity:.8 } }}>
@@ -166,7 +163,7 @@ export default function GRCCumplimiento() {
           </Box>
 
           {sel && (
-            <Box sx={{ width:370, flexShrink:0, bgcolor:CARD_BG, border:`1px solid ${CARD_BOR}`, borderRadius:2, p:2.5, height:'fit-content' }}>
+            <Box sx={{ width:370, flexShrink:0, bgcolor:'#FFFFFF', border:`1px solid #E5E7EB`, borderRadius:2, p:2.5, height:'fit-content' }}>
               <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', mb:1 }}>
                 <Typography sx={{ color:'#FFF', fontWeight:700, fontSize:13, flex:1, pr:1, lineHeight:1.4 }}>{sel.clausula}</Typography>
                 <IconButton size="small" onClick={()=>setSel(null)} sx={{ color:'rgba(255,255,255,0.4)' }}><Close fontSize="small" /></IconButton>

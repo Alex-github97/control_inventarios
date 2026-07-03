@@ -9,9 +9,6 @@ import { Policy, Add, CheckCircle, Warning, Schedule, HistoryEdu, Edit, Delete, 
 import { Layout } from '@/components/layout/Layout'
 
 const GRC_COLOR = '#6D28D9'
-const PAGE_BG   = '#060C1A'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(109,40,217,0.25)'
 const LBL       = alpha(GRC_COLOR, 0.85)
 
 const ESTADO_COLOR: Record<string, string> = {
@@ -54,8 +51,8 @@ const KPIs = [
   { label: 'Cobertura Total',      value: '94%', color: GRC_COLOR, icon: <HistoryEdu /> },
 ]
 
-const TF_SX = { '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' }, '&.Mui-focused fieldset': { borderColor: GRC_COLOR } } }
-const LBL_SX = { sx: { color: 'rgba(255,255,255,0.5)' } }
+const TF_SX = { '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' }, '&.Mui-focused fieldset': { borderColor: GRC_COLOR } } }
+const LBL_SX = { sx: { color: 'text.secondary' } }
 
 export default function GRCPoliticas() {
   const [tab, setTab]             = useState(0)
@@ -81,7 +78,7 @@ export default function GRCPoliticas() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Policy sx={{ color: GRC_COLOR, fontSize: 28 }} />
             <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#FFF', lineHeight: 1 }}>Repositorio de Políticas</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Repositorio de Políticas</Typography>
               <Typography sx={{ fontSize: 12, color: LBL }}>GRC · Control de Versiones · Vigencias · Aceptaciones</Typography>
             </Box>
             <Chip label="GRC" size="small" sx={{ bgcolor: alpha(GRC_COLOR, 0.15), color: GRC_COLOR, fontWeight: 700, border: `1px solid ${alpha(GRC_COLOR, 0.35)}` }} />
@@ -95,7 +92,7 @@ export default function GRCPoliticas() {
         <Grid container spacing={2} sx={{ mb: 3 }}>
           {KPIs.map(k => (
             <Grid key={k.label} size={{ xs: 6, md: 3 }}>
-              <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2 }}>
+              <Card sx={{ border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important', display: 'flex', alignItems: 'center', gap: 1.5 }}>
                   <Box sx={{ color: alpha(k.color, 0.5), '& svg': { fontSize: 22 } }}>{k.icon}</Box>
                   <Box>
@@ -108,7 +105,7 @@ export default function GRCPoliticas() {
           ))}
         </Grid>
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid rgba(255,255,255,0.08)', '& .MuiTab-root': { color: 'rgba(255,255,255,0.45)', fontSize: 13 }, '& .Mui-selected': { color: GRC_COLOR }, '& .MuiTabs-indicator': { bgcolor: GRC_COLOR } }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid rgba(255,255,255,0.08)', '& .MuiTab-root': { color: 'text.secondary', fontSize: 13 }, '& .Mui-selected': { color: GRC_COLOR }, '& .MuiTabs-indicator': { bgcolor: GRC_COLOR } }}>
           <Tab label="Catálogo de Políticas" />
           <Tab label="Control de Aceptaciones" />
         </Tabs>
@@ -123,17 +120,17 @@ export default function GRCPoliticas() {
                   const pct = p.requeridas > 0 ? Math.round((p.aceptaciones / p.requeridas) * 100) : 0
                   return (
                     <Grid key={p.codigo} size={{ xs: 12, md: 6, lg: 4 }}>
-                      <Card onClick={() => { setSelPol(p); setPanelTab(0) }} sx={{ bgcolor: CARD_BG, border: `1px solid ${selPol?.codigo === p.codigo ? alpha(GRC_COLOR, 0.5) : alpha(ec, 0.25)}`, borderRadius: 2, cursor: 'pointer', '&:hover': { borderColor: alpha(GRC_COLOR, 0.4) }, transition: 'border-color 0.15s' }}>
+                      <Card onClick={() => { setSelPol(p); setPanelTab(0) }} sx={{ border: `1px solid ${selPol?.codigo === p.codigo ? alpha(GRC_COLOR, 0.5) : alpha(ec, 0.25)}`, borderRadius: 2, cursor: 'pointer', '&:hover': { borderColor: alpha(GRC_COLOR, 0.4) }, transition: 'border-color 0.15s' }}>
                         <CardContent sx={{ p: '16px !important' }}>
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                             <Typography sx={{ fontSize: 10, color: LBL }}>{p.codigo} · v{p.version}</Typography>
                             <Chip label={p.estado} size="small" sx={{ fontSize: 9, height: 18, bgcolor: alpha(ec, 0.18), color: ec }} />
                           </Box>
-                          <Typography sx={{ fontWeight: 700, color: '#FFF', fontSize: 13, lineHeight: 1.3, mb: 1.5 }}>{p.nombre}</Typography>
+                          <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 13, lineHeight: 1.3, mb: 1.5 }}>{p.nombre}</Typography>
                           <Box sx={{ display: 'flex', gap: 2, mb: 1.5 }}>
-                            <Box><Typography sx={{ fontSize: 9.5, color: LBL, textTransform: 'uppercase' }}>Propietario</Typography><Typography sx={{ fontSize: 11.5, color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>{p.propietario}</Typography></Box>
-                            <Box><Typography sx={{ fontSize: 9.5, color: LBL, textTransform: 'uppercase' }}>Aprobador</Typography><Typography sx={{ fontSize: 11.5, color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>{p.aprobador}</Typography></Box>
-                            <Box><Typography sx={{ fontSize: 9.5, color: LBL, textTransform: 'uppercase' }}>Vigencia</Typography><Typography sx={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)' }}>{p.vigencia || '—'}</Typography></Box>
+                            <Box><Typography sx={{ fontSize: 9.5, color: LBL, textTransform: 'uppercase' }}>Propietario</Typography><Typography sx={{ fontSize: 11.5, color: 'text.primary', fontWeight: 600 }}>{p.propietario}</Typography></Box>
+                            <Box><Typography sx={{ fontSize: 9.5, color: LBL, textTransform: 'uppercase' }}>Aprobador</Typography><Typography sx={{ fontSize: 11.5, color: 'text.primary', fontWeight: 600 }}>{p.aprobador}</Typography></Box>
+                            <Box><Typography sx={{ fontSize: 9.5, color: LBL, textTransform: 'uppercase' }}>Vigencia</Typography><Typography sx={{ fontSize: 11.5, color: 'text.primary' }}>{p.vigencia || '—'}</Typography></Box>
                           </Box>
                           {p.requeridas > 0 && (
                             <>
@@ -141,7 +138,7 @@ export default function GRCPoliticas() {
                                 <Typography sx={{ fontSize: 10, color: LBL }}>Aceptaciones: {p.aceptaciones}/{p.requeridas}</Typography>
                                 <Typography sx={{ fontSize: 10, color: pct >= 90 ? '#059669' : pct >= 70 ? '#D97706' : '#DC2626', fontWeight: 700 }}>{pct}%</Typography>
                               </Box>
-                              <LinearProgress variant="determinate" value={pct} sx={{ height: 4, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.06)', '& .MuiLinearProgress-bar': { bgcolor: pct >= 90 ? '#059669' : pct >= 70 ? '#D97706' : '#DC2626' } }} />
+                              <LinearProgress variant="determinate" value={pct} sx={{ height: 4, borderRadius: 2, bgcolor: 'text.disabled', '& .MuiLinearProgress-bar': { bgcolor: pct >= 90 ? '#059669' : pct >= 70 ? '#D97706' : '#DC2626' } }} />
                             </>
                           )}
                           <Box sx={{ display: 'flex', gap: 0.5, mt: 1.5 }} onClick={e => e.stopPropagation()}>
@@ -160,17 +157,17 @@ export default function GRCPoliticas() {
 
             {/* PANEL DERECHO */}
             {selPol && (
-              <Box sx={{ width: 380, flexShrink: 0, bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, p: 2.5, height: 'fit-content' }}>
+              <Box sx={{ width: 380, flexShrink: 0, border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5, height: 'fit-content' }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
-                  <Typography sx={{ color: '#FFF', fontWeight: 700, fontSize: 14, flex: 1, pr: 1 }}>{selPol.nombre}</Typography>
-                  <IconButton size="small" onClick={() => setSelPol(null)} sx={{ color: 'rgba(255,255,255,0.4)' }}><Close fontSize="small" /></IconButton>
+                  <Typography sx={{ color: 'text.primary', fontWeight: 700, fontSize: 14, flex: 1, pr: 1 }}>{selPol.nombre}</Typography>
+                  <IconButton size="small" onClick={() => setSelPol(null)} sx={{ color: 'text.secondary' }}><Close fontSize="small" /></IconButton>
                 </Box>
                 <Box sx={{ display: 'flex', gap: 0.75, mb: 2 }}>
                   <Chip label={selPol.estado} size="small" sx={{ bgcolor: alpha(ESTADO_COLOR[selPol.estado], 0.18), color: ESTADO_COLOR[selPol.estado], fontWeight: 700, fontSize: 10 }} />
                   <Chip label={`v${selPol.version}`} size="small" sx={{ bgcolor: alpha(GRC_COLOR, 0.15), color: GRC_COLOR, fontSize: 10 }} />
-                  <Chip label={selPol.tipo} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)', fontSize: 10 }} />
+                  <Chip label={selPol.tipo} size="small" sx={{ bgcolor: 'text.disabled', color: 'text.secondary', fontSize: 10 }} />
                 </Box>
-                <Tabs value={panelTab} onChange={(_, v) => setPanelTab(v)} sx={{ mb: 1.5, '& .MuiTab-root': { color: 'rgba(255,255,255,0.4)', fontSize: 11, minHeight: 32, py: 0.5 }, '& .Mui-selected': { color: GRC_COLOR }, '& .MuiTabs-indicator': { bgcolor: GRC_COLOR } }}>
+                <Tabs value={panelTab} onChange={(_, v) => setPanelTab(v)} sx={{ mb: 1.5, '& .MuiTab-root': { color: 'text.secondary', fontSize: 11, minHeight: 32, py: 0.5 }, '& .Mui-selected': { color: GRC_COLOR }, '& .MuiTabs-indicator': { bgcolor: GRC_COLOR } }}>
                   <Tab label="Detalle" sx={{ minHeight: 32 }} />
                   <Tab label="Versiones" sx={{ minHeight: 32 }} />
                   <Tab label="Aceptaciones" sx={{ minHeight: 32 }} />
@@ -186,7 +183,7 @@ export default function GRCPoliticas() {
                     <Row2 label="Revisión Periódica" value={selPol.periodicidad_revision} />
                     <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)', my: 1.5 }} />
                     <Typography sx={{ fontSize: 10, color: LBL, textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.75 }}>Descripción</Typography>
-                    <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', lineHeight: 1.7 }}>{selPol.descripcion}</Typography>
+                    <Typography sx={{ fontSize: 12, color: 'text.primary', lineHeight: 1.7 }}>{selPol.descripcion}</Typography>
                     <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)', my: 1.5 }} />
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                       <Button size="small" startIcon={<Edit />} variant="outlined" fullWidth sx={{ color: GRC_COLOR, borderColor: alpha(GRC_COLOR, 0.4) }}>Editar Política</Button>
@@ -199,13 +196,13 @@ export default function GRCPoliticas() {
                   <>
                     <Typography sx={{ fontSize: 12, color: LBL, mb: 1.5 }}>Historial de versiones — {selPol.codigo}</Typography>
                     {(versiones[selPol.codigo] || [{ version: selPol.version, fecha: '2026-01-01', autor: selPol.propietario, cambios: 'Versión inicial' }]).map((v, i) => (
-                      <Box key={i} sx={{ p: 1.5, mb: 1, bgcolor: 'rgba(255,255,255,0.04)', borderRadius: 1, borderLeft: i === 0 ? `3px solid ${GRC_COLOR}` : '3px solid rgba(255,255,255,0.1)' }}>
+                      <Box key={i} sx={{ p: 1.5, mb: 1, bgcolor: 'text.disabled', borderRadius: 1, borderLeft: i === 0 ? `3px solid ${GRC_COLOR}` : '3px solid rgba(255,255,255,0.1)' }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                           <Chip label={`v${v.version}`} size="small" sx={{ bgcolor: alpha(GRC_COLOR, i === 0 ? 0.2 : 0.08), color: i === 0 ? GRC_COLOR : 'rgba(255,255,255,0.5)', fontSize: 10 }} />
-                          <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{v.fecha}</Typography>
+                          <Typography sx={{ fontSize: 10, color: 'text.secondary' }}>{v.fecha}</Typography>
                         </Box>
-                        <Typography sx={{ fontSize: 11.5, color: 'rgba(255,255,255,0.75)' }}>{v.cambios}</Typography>
-                        <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', mt: 0.25 }}>Autor: {v.autor}</Typography>
+                        <Typography sx={{ fontSize: 11.5, color: 'text.primary' }}>{v.cambios}</Typography>
+                        <Typography sx={{ fontSize: 10, color: 'text.secondary', mt: 0.25 }}>Autor: {v.autor}</Typography>
                       </Box>
                     ))}
                     <Button size="small" startIcon={<Add />} variant="outlined" fullWidth sx={{ color: GRC_COLOR, borderColor: alpha(GRC_COLOR, 0.4), mt: 1 }}>Nueva Versión</Button>
@@ -218,21 +215,21 @@ export default function GRCPoliticas() {
                       <Button size="small" startIcon={<HowToReg />} variant="contained" sx={{ bgcolor: GRC_COLOR, fontSize: 10, py: 0.25, '&:hover': { bgcolor: '#5B21B6' } }} onClick={() => setOpenAcept(true)}>Registrar</Button>
                     </Box>
                     {(aceptHist[selPol.codigo] || []).length > 0 ? (aceptHist[selPol.codigo] || []).map((a, i) => (
-                      <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', p: 1.25, mb: 0.75, bgcolor: 'rgba(255,255,255,0.04)', borderRadius: 1 }}>
-                        <Box><Typography sx={{ fontSize: 12, color: '#E2E8F0', fontWeight: 600 }}>{a.quien}</Typography><Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>v{a.version}</Typography></Box>
+                      <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', p: 1.25, mb: 0.75, bgcolor: 'text.disabled', borderRadius: 1 }}>
+                        <Box><Typography sx={{ fontSize: 12, color: '#E2E8F0', fontWeight: 600 }}>{a.quien}</Typography><Typography sx={{ fontSize: 10, color: 'text.secondary' }}>v{a.version}</Typography></Box>
                         <Typography sx={{ fontSize: 11, color: '#059669' }}>{a.fecha}</Typography>
                       </Box>
                     )) : (
-                      <Box sx={{ p: 2, textAlign: 'center', color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>Sin aceptaciones registradas aún</Box>
+                      <Box sx={{ p: 2, textAlign: 'center', color: 'text.disabled', fontSize: 12 }}>Sin aceptaciones registradas aún</Box>
                     )}
                     <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)', my: 1.5 }} />
                     <Box sx={{ p: 1.5, bgcolor: alpha(GRC_COLOR, 0.08), borderRadius: 1 }}>
                       <Typography sx={{ fontSize: 11, color: LBL, mb: 0.5 }}>Cobertura de aceptación</Typography>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                        <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>{selPol.aceptaciones} / {selPol.requeridas}</Typography>
+                        <Typography sx={{ fontSize: 12, color: 'text.primary' }}>{selPol.aceptaciones} / {selPol.requeridas}</Typography>
                         <Typography sx={{ fontSize: 13, fontWeight: 700, color: selPol.aceptaciones / selPol.requeridas >= 0.9 ? '#059669' : '#D97706' }}>{selPol.requeridas > 0 ? Math.round((selPol.aceptaciones / selPol.requeridas) * 100) : 0}%</Typography>
                       </Box>
-                      <LinearProgress variant="determinate" value={selPol.requeridas > 0 ? Math.round((selPol.aceptaciones / selPol.requeridas) * 100) : 0} sx={{ height: 5, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.08)', '& .MuiLinearProgress-bar': { bgcolor: GRC_COLOR } }} />
+                      <LinearProgress variant="determinate" value={selPol.requeridas > 0 ? Math.round((selPol.aceptaciones / selPol.requeridas) * 100) : 0} sx={{ height: 5, borderRadius: 3, bgcolor: 'text.disabled', '& .MuiLinearProgress-bar': { bgcolor: GRC_COLOR } }} />
                     </Box>
                   </>
                 )}
@@ -260,9 +257,9 @@ export default function GRCPoliticas() {
                 {politicas.filter(p => p.estado === 'PUBLICADA').map(p => {
                   const pct = Math.round((p.aceptaciones / p.requeridas) * 100)
                   return (
-                    <TableRow key={p.codigo} sx={{ '& td': { borderColor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.8)', fontSize: 12.5 } }}>
+                    <TableRow key={p.codigo} sx={{ '& td': { borderColor: 'rgba(255,255,255,0.04)', color: 'text.primary', fontSize: 12.5 } }}>
                       <TableCell sx={{ maxWidth: 280 }}>
-                        <Typography sx={{ fontSize: 12.5, color: '#FFF', fontWeight: 600 }}>{p.nombre}</Typography>
+                        <Typography sx={{ fontSize: 12.5, color: 'text.primary', fontWeight: 600 }}>{p.nombre}</Typography>
                         <Typography sx={{ fontSize: 10, color: LBL }}>{p.codigo}</Typography>
                       </TableCell>
                       <TableCell><Chip label={p.estado} size="small" sx={{ fontSize: 10, height: 18, bgcolor: alpha(ESTADO_COLOR[p.estado], 0.15), color: ESTADO_COLOR[p.estado] }} /></TableCell>
@@ -270,11 +267,11 @@ export default function GRCPoliticas() {
                       <TableCell sx={{ fontWeight: 700 }}>{p.aceptaciones}/{p.requeridas}</TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <LinearProgress variant="determinate" value={pct} sx={{ width: 70, height: 5, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.08)', '& .MuiLinearProgress-bar': { bgcolor: pct >= 90 ? '#059669' : '#D97706' } }} />
+                          <LinearProgress variant="determinate" value={pct} sx={{ width: 70, height: 5, borderRadius: 2, bgcolor: 'text.disabled', '& .MuiLinearProgress-bar': { bgcolor: pct >= 90 ? '#059669' : '#D97706' } }} />
                           <Typography sx={{ fontSize: 11, color: pct >= 90 ? '#059669' : '#D97706', fontWeight: 700 }}>{pct}%</Typography>
                         </Box>
                       </TableCell>
-                      <TableCell sx={{ color: 'rgba(255,255,255,0.6)' }}>{p.revision || '—'}</TableCell>
+                      <TableCell sx={{ color: 'text.secondary' }}>{p.revision || '—'}</TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', gap: 0.5 }}>
                           <Button size="small" startIcon={<HowToReg />} variant="contained" sx={{ bgcolor: GRC_COLOR, fontSize: 10, py: 0.25, px: 1, '&:hover': { bgcolor: '#5B21B6' } }} onClick={() => setOpenAcept(true)}>Aceptar</Button>
@@ -291,36 +288,36 @@ export default function GRCPoliticas() {
         )}
 
         {/* DIALOG NUEVA POLÍTICA */}
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: '#FFF' } }}>
+        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary' } }}>
           <DialogTitle sx={{ fontWeight: 700 }}>Nueva Política</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
             <TextField label="Nombre de la Política" fullWidth size="small" InputLabelProps={LBL_SX} sx={TF_SX} />
-            <FormControl size="small"><InputLabel sx={{ color: 'rgba(255,255,255,0.5)' }}>Tipo</InputLabel>
-              <Select label="Tipo" defaultValue="" sx={{ color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } }}>
+            <FormControl size="small"><InputLabel sx={{ color: 'text.secondary' }}>Tipo</InputLabel>
+              <Select label="Tipo" defaultValue="" sx={{ color: 'text.primary', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } }}>
                 {['Riesgos','Compliance','Ciberseguridad','Continuidad','Privacidad','Ética','Terceros'].map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
               </Select></FormControl>
             <TextField label="Propietario" fullWidth size="small" InputLabelProps={LBL_SX} sx={TF_SX} />
             <TextField label="Aprobador" fullWidth size="small" InputLabelProps={LBL_SX} sx={TF_SX} />
             <TextField label="Descripción / Alcance" multiline rows={3} fullWidth size="small" InputLabelProps={LBL_SX} sx={TF_SX} />
-            <TextField label="Fecha de Vigencia" type="date" fullWidth size="small" InputLabelProps={{ shrink: true, sx: { color: 'rgba(255,255,255,0.5)' } }} sx={TF_SX} />
+            <TextField label="Fecha de Vigencia" type="date" fullWidth size="small" InputLabelProps={{ shrink: true, sx: { color: 'text.secondary' } }} sx={TF_SX} />
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setOpenDialog(false)} sx={{ color: 'rgba(255,255,255,0.5)' }}>Cancelar</Button>
+            <Button onClick={() => setOpenDialog(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>
             <Button variant="contained" onClick={() => setOpenDialog(false)} sx={{ bgcolor: GRC_COLOR, '&:hover': { bgcolor: '#5B21B6' } }}>Guardar</Button>
           </DialogActions>
         </Dialog>
 
         {/* DIALOG REGISTRAR ACEPTACIÓN */}
-        <Dialog open={openAcept} onClose={() => setOpenAcept(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: '#FFF' } }}>
+        <Dialog open={openAcept} onClose={() => setOpenAcept(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary' } }}>
           <DialogTitle sx={{ fontWeight: 700 }}>Registrar Aceptación de Política</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
             <TextField label="Nombre del Aceptante" fullWidth size="small" InputLabelProps={LBL_SX} sx={TF_SX} />
             <TextField label="Cargo" fullWidth size="small" InputLabelProps={LBL_SX} sx={TF_SX} />
             <TextField label="Área" fullWidth size="small" InputLabelProps={LBL_SX} sx={TF_SX} />
-            <TextField label="Fecha de Aceptación" type="date" fullWidth size="small" InputLabelProps={{ shrink: true, sx: { color: 'rgba(255,255,255,0.5)' } }} sx={TF_SX} />
+            <TextField label="Fecha de Aceptación" type="date" fullWidth size="small" InputLabelProps={{ shrink: true, sx: { color: 'text.secondary' } }} sx={TF_SX} />
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setOpenAcept(false)} sx={{ color: 'rgba(255,255,255,0.5)' }}>Cancelar</Button>
+            <Button onClick={() => setOpenAcept(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>
             <Button variant="contained" onClick={() => setOpenAcept(false)} sx={{ bgcolor: GRC_COLOR, '&:hover': { bgcolor: '#5B21B6' } }}>Registrar Aceptación</Button>
           </DialogActions>
         </Dialog>
