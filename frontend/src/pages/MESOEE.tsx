@@ -11,8 +11,6 @@ import { Layout } from '@/components/layout/Layout'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const MES_COLOR = '#0891B2'
-const CARD_BG   = '#0F1E35'
-const DARK_BG   = '#060C1A'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface LineaOEE {
@@ -129,7 +127,7 @@ function OEEGlobalTab() {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* Gauges + OEE gigante */}
-      <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${MES_COLOR}33`, borderRadius: 2 }}>
+      <Card sx={{ bgcolor: '#FFFFFF', border: `1px solid ${MES_COLOR}33`, borderRadius: 2 }}>
         <CardContent>
           <Grid container spacing={2} alignItems="center">
             {/* 3 gauges */}
@@ -207,7 +205,7 @@ function OEEGlobalTab() {
           },
         ].map((b) => (
           <Grid size={{ xs: 12, md: 4 }} key={b.label}>
-            <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${b.color}33`, borderRadius: 2 }}>
+            <Card sx={{ bgcolor: '#FFFFFF', border: `1px solid ${b.color}33`, borderRadius: 2 }}>
               <CardContent sx={{ p: '14px !important' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
                   <Typography sx={{ color: '#94a3b8', fontSize: 12, fontWeight: 600 }}>{b.label}</Typography>
@@ -233,7 +231,7 @@ function PorLineaTab() {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <TableContainer component={Paper} sx={{ bgcolor: CARD_BG, border: '1px solid #1e3a5f', overflowX: 'auto' }}>
+      <TableContainer component={Paper} sx={{ bgcolor: '#FFFFFF', border: '1px solid #1e3a5f', overflowX: 'auto' }}>
         <Table size="small" sx={{ minWidth: 900 }}>
           <TableHead>
             <TableRow>
@@ -275,7 +273,7 @@ function PorLineaTab() {
       {/* Barras OEE por línea */}
       <Box>
         <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>OEE por Línea (mayor a menor)</Typography>
-        <Card sx={{ bgcolor: CARD_BG, border: '1px solid #1e3a5f', borderRadius: 2, p: 3 }}>
+        <Card sx={{ bgcolor: '#FFFFFF', border: '1px solid #1e3a5f', borderRadius: 2, p: 3 }}>
           {/* Marca 85% */}
           <Box sx={{ position: 'relative' }}>
             <Box sx={{ position: 'absolute', left: `${(85 / maxOEE) * 100}%`, top: 0, bottom: 0, width: 1, bgcolor: '#22c55e', opacity: 0.6,
@@ -311,7 +309,7 @@ function PorLineaTab() {
 function PorEquipoTab() {
   return (
     <Box>
-      <TableContainer component={Paper} sx={{ bgcolor: CARD_BG, border: '1px solid #1e3a5f', overflowX: 'auto' }}>
+      <TableContainer component={Paper} sx={{ bgcolor: '#FFFFFF', border: '1px solid #1e3a5f', overflowX: 'auto' }}>
         <Table size="small" sx={{ minWidth: 1100 }}>
           <TableHead>
             <TableRow>
@@ -391,7 +389,7 @@ function AnalisisParadasTab() {
           { label: '% Disp. Perdida',   value: '8.8%',     color: '#d97706', sub: 'vs turno teórico' },
         ].map((k) => (
           <Grid size={{ xs: 6, md: 3 }} key={k.label}>
-            <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${k.color}33`, borderRadius: 2 }}>
+            <Card sx={{ bgcolor: '#FFFFFF', border: `1px solid ${k.color}33`, borderRadius: 2 }}>
               <CardContent sx={{ p: '12px !important' }}>
                 <Typography sx={{ color: k.color, fontWeight: 900, fontSize: 24, lineHeight: 1 }}>{k.value}</Typography>
                 {k.sub && <Typography sx={{ color: '#64748b', fontSize: 10, mt: 0.2 }}>{k.sub}</Typography>}
@@ -405,7 +403,7 @@ function AnalisisParadasTab() {
       {/* Tabla clasificación paradas */}
       <Box>
         <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Clasificación de Paradas por Tipo</Typography>
-        <TableContainer component={Paper} sx={{ bgcolor: CARD_BG, border: '1px solid #1e3a5f' }}>
+        <TableContainer component={Paper} sx={{ bgcolor: '#FFFFFF', border: '1px solid #1e3a5f' }}>
           <Table size="small">
             <TableHead>
               <TableRow>
@@ -440,7 +438,7 @@ function AnalisisParadasTab() {
       {/* Pareto horizontal paradas */}
       <Box>
         <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Pareto de Paradas — Duración Total</Typography>
-        <Card sx={{ bgcolor: CARD_BG, border: '1px solid #1e3a5f', borderRadius: 2, p: 3 }}>
+        <Card sx={{ bgcolor: '#FFFFFF', border: '1px solid #1e3a5f', borderRadius: 2, p: 3 }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             {tiposParada.map((t, i) => (
               <Box key={t.tipo}>
@@ -495,7 +493,7 @@ export default function MESOEE() {
 
   return (
     <Layout>
-      <Box sx={{ minHeight: '100vh', bgcolor: DARK_BG, p: 3 }}>
+      <Box sx={{ minHeight: '100vh', bgcolor: '#F8FAFC', p: 3 }}>
         {/* Header */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
           <Box sx={{

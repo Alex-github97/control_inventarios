@@ -29,8 +29,7 @@ import { Layout } from '@/components/layout/Layout'
 
 const MES_COLOR = '#0891B2'
 const MES_DARK  = '#0E7490'
-const BG        = '#060C1A'
-const SURFACE   = '#0F1E35'
+const SURFACE   = '#FFFFFF'
 const BORDER    = '#1E3A5F'
 const TEXT      = '#E2E8F0'
 const MUTED     = '#94A3B8'
@@ -628,7 +627,7 @@ export default function MESTrazabilidad() {
 
   return (
     <Layout title="MES · Trazabilidad">
-      <Box sx={{ bgcolor: BG, minHeight: '100%', p: { xs: 2, sm: 3 }, mx: -3, mt: -3 }}>
+      <Box sx={{ minHeight: '100%', p: { xs: 2, sm: 3 }, mx: -3, mt: -3 }}>
         <Box sx={{ maxWidth: 1400, mx: 'auto' }}>
 
           {/* Header */}

@@ -23,8 +23,6 @@ import {
 import { Layout } from '@/components/layout/Layout'
 
 const MES_COLOR = '#0891B2'
-const CARD_BG = '#0F1E35'
-const DARK_BG = '#060C1A'
 const AI_COLOR = '#8B5CF6'
 
 const fmt = (n: number) =>
@@ -169,7 +167,7 @@ export default function MESIA() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, background: DARK_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, background: '#F8FAFC', minHeight: '100vh' }}>
         {/* Header */}
         <Stack direction="row" alignItems="center" spacing={2} mb={3}>
           <Box sx={{ p: 1.5, borderRadius: 2, background: alpha(AI_COLOR, 0.15), color: AI_COLOR }}>
@@ -201,7 +199,7 @@ export default function MESIA() {
                 { label: 'Ahorro estimado', value: '$142M COP', color: '#10B981', icon: <TrendIcon /> },
               ].map((k, i) => (
                 <Grid key={i} size={{ xs: 12, md: 4 }}>
-                  <Card sx={{ background: CARD_BG, border: `1px solid ${alpha(k.color, 0.3)}` }}>
+                  <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(k.color, 0.3)}` }}>
                     <CardContent sx={{ py: 2 }}>
                       <Stack direction="row" spacing={1.5} alignItems="center">
                         <Box sx={{ p: 1, borderRadius: 1.5, background: alpha(k.color, 0.12), color: k.color }}>{k.icon}</Box>
@@ -224,7 +222,7 @@ export default function MESIA() {
                 const esUrgente = eq.probabilidadFalla >= 70
                 return (
                   <Grid key={eq.id} size={{ xs: 12, md: 6 }}>
-                    <Card sx={{ background: CARD_BG, border: `2px solid ${alpha(color, esUrgente ? 0.6 : 0.3)}`, ...(esUrgente ? { boxShadow: `0 0 16px ${alpha(color, 0.25)}` } : {}) }}>
+                    <Card sx={{ background: '#FFFFFF', border: `2px solid ${alpha(color, esUrgente ? 0.6 : 0.3)}`, ...(esUrgente ? { boxShadow: `0 0 16px ${alpha(color, 0.25)}` } : {}) }}>
                       <CardContent>
                         <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
                           <Box>
@@ -299,7 +297,7 @@ export default function MESIA() {
                 { label: 'Reducción setup time', value: '-18%', color: '#10B981', icon: <TuneIcon /> },
               ].map((k, i) => (
                 <Grid key={i} size={{ xs: 12, md: 4 }}>
-                  <Card sx={{ background: CARD_BG, border: `1px solid ${alpha(k.color, 0.3)}` }}>
+                  <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(k.color, 0.3)}` }}>
                     <CardContent sx={{ py: 2 }}>
                       <Stack direction="row" spacing={1.5} alignItems="center">
                         <Box sx={{ p: 1, borderRadius: 1.5, background: alpha(k.color, 0.12), color: k.color }}>{k.icon}</Box>
@@ -317,7 +315,7 @@ export default function MESIA() {
             <Grid container spacing={3}>
               {/* Secuenciación óptima */}
               <Grid size={{ xs: 12, md: 6 }}>
-                <Card sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}` }}>
+                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
                   <CardContent>
                     <Stack direction="row" spacing={1} alignItems="center" mb={2}>
                       <AIIcon sx={{ color: AI_COLOR, fontSize: 18 }} />
@@ -355,7 +353,7 @@ export default function MESIA() {
 
               {/* Temperatura óptima para reducción scrap */}
               <Grid size={{ xs: 12, md: 6 }}>
-                <Card sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}` }}>
+                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
                   <CardContent>
                     <Stack direction="row" spacing={1} alignItems="center" mb={2}>
                       <TuneIcon sx={{ color: AI_COLOR, fontSize: 18 }} />
@@ -395,7 +393,7 @@ export default function MESIA() {
 
               {/* Cuellos de botella */}
               <Grid size={{ xs: 12 }}>
-                <Card sx={{ background: CARD_BG, border: `1px solid ${alpha('#EAB308', 0.3)}` }}>
+                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#EAB308', 0.3)}` }}>
                   <CardContent>
                     <Stack direction="row" spacing={1} alignItems="center" mb={2}>
                       <WarnIcon sx={{ color: '#EAB308', fontSize: 18 }} />
@@ -444,7 +442,7 @@ export default function MESIA() {
             <Grid container spacing={3}>
               {/* Timeline vertical */}
               <Grid size={{ xs: 12, md: 4 }}>
-                <Card sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}` }}>
+                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
                   <CardContent>
                     <Typography variant="subtitle2" color="grey.400" fontWeight={600} mb={2}>Timeline del día</Typography>
                     <Box sx={{ position: 'relative', pl: 3 }}>
@@ -478,7 +476,7 @@ export default function MESIA() {
 
               {/* Tabla anomalías */}
               <Grid size={{ xs: 12, md: 8 }}>
-                <TableContainer component={Paper} sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}` }}>
+                <TableContainer component={Paper} sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
                   <Table size="small">
                     <TableHead>
                       <TableRow sx={{ '& th': { color: 'grey.400', fontWeight: 700, fontSize: '0.7rem', textTransform: 'uppercase', borderBottom: `1px solid ${alpha('#fff', 0.1)}` } }}>
@@ -519,7 +517,7 @@ export default function MESIA() {
         {tab === 3 && (
           <Grid container spacing={3}>
             <Grid size={{ xs: 12, md: 8 }}>
-              <Card sx={{ background: CARD_BG, border: `1px solid ${alpha(AI_COLOR, 0.3)}`, height: 540, display: 'flex', flexDirection: 'column' }}>
+              <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(AI_COLOR, 0.3)}`, height: 540, display: 'flex', flexDirection: 'column' }}>
                 <CardContent sx={{ pb: 0 }}>
                   <Stack direction="row" alignItems="center" spacing={1}>
                     <BotIcon sx={{ color: AI_COLOR }} />
@@ -562,7 +560,7 @@ export default function MESIA() {
                       fullWidth size="small" placeholder="Consulta sobre producción, equipos, OEE, scrap…" value={chatInput}
                       onChange={e => setChatInput(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(chatInput) } }}
-                      sx={{ '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.05), '& fieldset': { borderColor: alpha('#fff', 0.15) }, '&:hover fieldset': { borderColor: AI_COLOR }, color: 'white', fontSize: 14 } }}
+                      sx={{ '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.05), '& fieldset': { borderColor: alpha('#fff', 0.15) }, '&:hover fieldset': { borderColor: AI_COLOR }, color: 'text.primary', fontSize: 14 } }}
                     />
                     <IconButton onClick={() => sendMsg(chatInput)} sx={{ background: alpha(AI_COLOR, 0.15), color: AI_COLOR, '&:hover': { background: alpha(AI_COLOR, 0.25) } }}>
                       <SendIcon fontSize="small" />
@@ -573,13 +571,13 @@ export default function MESIA() {
             </Grid>
 
             <Grid size={{ xs: 12, md: 4 }}>
-              <Card sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}` }}>
+              <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
                 <CardContent>
                   <Typography variant="subtitle2" color="grey.400" mb={2} fontWeight={600}>Consultas Rápidas</Typography>
                   <Stack spacing={1} mb={3}>
                     {QUICK_PROMPTS_MES.map((q, i) => (
                       <Button key={i} fullWidth variant="outlined" size="small" onClick={() => sendMsg(q)}
-                        sx={{ textTransform: 'none', justifyContent: 'flex-start', borderColor: alpha(AI_COLOR, 0.3), color: 'grey.300', fontSize: 12, py: 1, px: 1.5, '&:hover': { borderColor: AI_COLOR, color: 'white', background: alpha(AI_COLOR, 0.1) } }}>
+                        sx={{ textTransform: 'none', justifyContent: 'flex-start', borderColor: alpha(AI_COLOR, 0.3), color: 'grey.300', fontSize: 12, py: 1, px: 1.5, '&:hover': { borderColor: AI_COLOR, color: 'text.primary', background: alpha(AI_COLOR, 0.1) } }}>
                         {q}
                       </Button>
                     ))}

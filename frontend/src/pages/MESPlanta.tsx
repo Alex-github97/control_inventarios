@@ -32,8 +32,6 @@ import { Layout } from '@/components/layout/Layout';
 const MES_COLOR = '#0891B2';
 const MES_DARK = '#0E7490';
 const MES_BORDER = 'rgba(8,145,178,0.25)';
-const BG_MAIN = '#060C1A';
-const BG_CARD = '#0F1E35';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 interface PlantLine {
@@ -281,19 +279,19 @@ const PlantCard: React.FC<PlantCardProps> = ({ plant, expanded, onToggle }) => {
 
         {/* Stats Row */}
         <Box sx={{ display: 'flex', gap: 2 }}>
-          <Box sx={{ flex: 1, textAlign: 'center', background: 'rgba(255,255,255,0.03)', borderRadius: 1, p: 1.5 }}>
+          <Box sx={{ flex: 1, textAlign: 'center', background: '#F1F5F9', borderRadius: 1, p: 1.5 }}>
             <Typography sx={{ color: MES_COLOR, fontWeight: 700, fontSize: '1.3rem', lineHeight: 1 }}>
               {plant.lines}
             </Typography>
             <Typography sx={{ color: '#64748B', fontSize: '0.7rem', mt: 0.5 }}>Líneas</Typography>
           </Box>
-          <Box sx={{ flex: 1, textAlign: 'center', background: 'rgba(255,255,255,0.03)', borderRadius: 1, p: 1.5 }}>
+          <Box sx={{ flex: 1, textAlign: 'center', background: '#F1F5F9', borderRadius: 1, p: 1.5 }}>
             <Typography sx={{ color: MES_COLOR, fontWeight: 700, fontSize: '1.3rem', lineHeight: 1 }}>
               {plant.equipment}
             </Typography>
             <Typography sx={{ color: '#64748B', fontSize: '0.7rem', mt: 0.5 }}>Equipos</Typography>
           </Box>
-          <Box sx={{ flex: 1, textAlign: 'center', background: 'rgba(255,255,255,0.03)', borderRadius: 1, p: 1.5 }}>
+          <Box sx={{ flex: 1, textAlign: 'center', background: '#F1F5F9', borderRadius: 1, p: 1.5 }}>
             <Typography sx={{ color: getOEEColor(plant.avgOEE), fontWeight: 700, fontSize: '1.3rem', lineHeight: 1 }}>
               {plant.avgOEE}%
             </Typography>

@@ -13,8 +13,6 @@ import { Layout } from '@/components/layout/Layout';
 const MES_COLOR = '#0891B2';
 const MES_DARK = '#0E7490';
 const MES_BORDER = 'rgba(8,145,178,0.25)';
-const BG_PAGE = '#060C1A';
-const BG_CARD = '#0F1E35';
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 interface KpiCard {
@@ -162,7 +160,7 @@ const CssBar: React.FC<{ value: number; color?: string; height?: number }> = ({
       width: '100%',
       height,
       borderRadius: height / 2,
-      bgcolor: 'rgba(255,255,255,0.08)',
+      bgcolor: '#F1F5F9',
       overflow: 'hidden',
     }}
   >
@@ -195,13 +193,13 @@ const KpiCard: React.FC<{ card: KpiCard }> = ({ card }) => (
   >
     <Typography
       variant="caption"
-      sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.65rem', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+      sx={{ color: 'text.secondary', fontSize: '0.65rem', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
     >
       {card.label}
     </Typography>
     <Typography
       sx={{
-        color: '#fff',
+        color: 'text.primary',
         fontSize: '1.3rem',
         fontWeight: 700,
         lineHeight: 1,
@@ -225,7 +223,7 @@ const LineCard: React.FC<{ line: ProductionLine }> = ({ line }) => {
   return (
     <Box
       sx={{
-        bgcolor: 'rgba(255,255,255,0.03)',
+        bgcolor: '#F9FAFB',
         border: `1px solid rgba(255,255,255,0.07)`,
         borderRadius: 1.5,
         p: 1.25,
@@ -257,7 +255,7 @@ const LineCard: React.FC<{ line: ProductionLine }> = ({ line }) => {
       {/* OEE bar */}
       <Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.4 }}>
-          <Typography sx={{ color: 'rgba(255,255,255,0.45)', fontSize: '0.6rem' }}>OEE</Typography>
+          <Typography sx={{ color: 'text.secondary', fontSize: '0.6rem' }}>OEE</Typography>
           <Typography sx={{ color: MES_COLOR, fontSize: '0.6rem', fontWeight: 700 }}>{line.oee}%</Typography>
         </Box>
         <CssBar value={line.oee} color={line.oee >= 85 ? '#22c55e' : line.oee >= 65 ? '#f59e0b' : '#ef4444'} height={5} />
@@ -265,7 +263,7 @@ const LineCard: React.FC<{ line: ProductionLine }> = ({ line }) => {
 
       {/* Production vs target */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-        <Typography sx={{ color: 'rgba(255,255,255,0.45)', fontSize: '0.6rem' }}>
+        <Typography sx={{ color: 'text.secondary', fontSize: '0.6rem' }}>
           Prod: <Box component="span" sx={{ color: '#e2e8f0', fontWeight: 600 }}>{line.currentProduction.toLocaleString()}</Box>
           {' / '}{line.target.toLocaleString()} un
         </Typography>
@@ -274,7 +272,7 @@ const LineCard: React.FC<{ line: ProductionLine }> = ({ line }) => {
         </Typography>
       </Box>
 
-      <Typography sx={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.58rem' }}>{line.shift}</Typography>
+      <Typography sx={{ color: 'text.disabled', fontSize: '0.58rem' }}>{line.shift}</Typography>
     </Box>
   );
 };
@@ -289,7 +287,7 @@ const OrderRow: React.FC<{ order: ActiveOrder }> = ({ order }) => {
         flexDirection: 'column',
         gap: 0.6,
         py: 0.9,
-        borderBottom: '1px solid rgba(255,255,255,0.05)',
+        borderBottom: '1px solid #F1F5F9',
         '&:last-child': { borderBottom: 'none' },
       }}
     >
@@ -298,7 +296,7 @@ const OrderRow: React.FC<{ order: ActiveOrder }> = ({ order }) => {
           <Typography sx={{ color: MES_COLOR, fontSize: '0.65rem', fontWeight: 700, flexShrink: 0 }}>
             {order.number}
           </Typography>
-          <Typography sx={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.62rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <Typography sx={{ color: 'text.secondary', fontSize: '0.62rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {order.product}
           </Typography>
         </Box>
@@ -321,10 +319,10 @@ const OrderRow: React.FC<{ order: ActiveOrder }> = ({ order }) => {
         height={4}
       />
       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-        <Typography sx={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.58rem' }}>
+        <Typography sx={{ color: 'text.disabled', fontSize: '0.58rem' }}>
           Progreso: <Box component="span" sx={{ color: '#e2e8f0' }}>{order.progress}%</Box>
         </Typography>
-        <Typography sx={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.58rem' }}>
+        <Typography sx={{ color: 'text.disabled', fontSize: '0.58rem' }}>
           Restante: <Box component="span" sx={{ color: '#f59e0b' }}>{order.remainingTime}</Box>
         </Typography>
       </Box>
@@ -343,7 +341,7 @@ const StopRow: React.FC<{ stop: ActiveStop }> = ({ stop }) => {
         alignItems: 'center',
         gap: 1,
         py: 0.85,
-        borderBottom: '1px solid rgba(255,255,255,0.05)',
+        borderBottom: '1px solid #F1F5F9',
         '&:last-child': { borderBottom: 'none' },
       }}
     >
@@ -378,7 +376,7 @@ const StopRow: React.FC<{ stop: ActiveStop }> = ({ stop }) => {
 const ScrapBar: React.FC<{ entry: ScrapEntry }> = ({ entry }) => (
   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 1.5 }}>
     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-      <Typography sx={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.7rem' }}>{entry.label}</Typography>
+      <Typography sx={{ color: 'text.primary', fontSize: '0.7rem' }}>{entry.label}</Typography>
       <Typography sx={{ color: entry.color, fontSize: '0.7rem', fontWeight: 700 }}>{entry.percentage}%</Typography>
     </Box>
     <CssBar value={entry.percentage} color={entry.color} height={10} />
@@ -420,7 +418,7 @@ const AlertRow: React.FC<{ alert: Alert }> = ({ alert }) => {
         <Typography sx={{ color: '#e2e8f0', fontSize: '0.68rem', lineHeight: 1.35 }}>
           {alert.description}
         </Typography>
-        <Typography sx={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.6rem', mt: 0.3 }}>
+        <Typography sx={{ color: 'text.disabled', fontSize: '0.6rem', mt: 0.3 }}>
           {alert.time}
         </Typography>
       </Box>
@@ -475,7 +473,7 @@ const MESDashboard: React.FC = () => {
           bgcolor: BG_PAGE,
           minHeight: '100vh',
           p: { xs: 2, md: 3 },
-          color: '#fff',
+          color: 'text.primary',
         }}
       >
         {/* ── Header ── */}
@@ -610,7 +608,7 @@ const MESDashboard: React.FC = () => {
                   {scrapData.map((entry) => (
                     <Box key={entry.label} sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
                       <Box sx={{ width: 10, height: 10, borderRadius: 1, bgcolor: entry.color, flexShrink: 0 }} />
-                      <Typography sx={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.65rem' }}>
+                      <Typography sx={{ color: 'text.secondary', fontSize: '0.65rem' }}>
                         {entry.label} — {entry.percentage}%
                       </Typography>
                     </Box>

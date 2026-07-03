@@ -20,8 +20,6 @@ import {
 import { Layout } from '@/components/layout/Layout'
 
 const MES_COLOR = '#0891B2'
-const CARD_BG = '#0F1E35'
-const DARK_BG = '#060C1A'
 
 // ── Interfaces ───────────────────────────────────────────────────────────────
 interface CatalogItem {
@@ -208,7 +206,7 @@ export default function MESConfig() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, background: DARK_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, background: '#F8FAFC', minHeight: '100vh' }}>
         {/* Header */}
         <Stack direction="row" alignItems="center" spacing={2} mb={3}>
           <Box sx={{ p: 1.5, borderRadius: 2, background: alpha(MES_COLOR, 0.15), color: MES_COLOR }}>
@@ -248,7 +246,7 @@ export default function MESConfig() {
               )
               return (
                 <Grid key={ci} size={{ xs: 12, md: 4 }}>
-                  <Paper sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}`, height: '100%' }}>
+                  <Paper sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}`, height: '100%' }}>
                     <Box sx={{ p: 2, borderBottom: `1px solid ${alpha('#fff', 0.08)}` }}>
                       <Stack direction="row" justifyContent="space-between" alignItems="center">
                         <Box>
@@ -325,7 +323,7 @@ export default function MESConfig() {
             <Typography variant="body2" color="grey.400" mb={3}>
               Configure los umbrales y reglas de negocio que controlan alertas, bloqueos y comportamiento automático del MES.
             </Typography>
-            <Paper sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}` }}>
+            <Paper sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
               <Stack divider={<Divider sx={{ borderColor: alpha('#fff', 0.06) }} />}>
                 {parametros.map((p, i) => (
                   <Box key={i} sx={{ px: 3, py: 2, '&:hover': { background: alpha('#fff', 0.02) } }}>
@@ -351,7 +349,7 @@ export default function MESConfig() {
                           disabled={!p.activo}
                           sx={{
                             width: 80,
-                            '& .MuiInputBase-root': { background: alpha('#fff', 0.04), color: 'white', fontSize: 14, fontWeight: 700, textAlign: 'right' },
+                            '& .MuiInputBase-root': { background: alpha('#fff', 0.04), color: 'text.primary', fontSize: 14, fontWeight: 700, textAlign: 'right' },
                             '& .MuiOutlinedInput-notchedOutline': { borderColor: alpha(MES_COLOR, p.activo ? 0.4 : 0.1) },
                             '& input': { textAlign: 'center' },
                           }}
@@ -394,7 +392,7 @@ export default function MESConfig() {
             <Grid container spacing={2.5}>
               {integraciones.map((g, i) => (
                 <Grid key={i} size={{ xs: 12, sm: 6, md: 3 }}>
-                  <Paper sx={{ background: CARD_BG, border: `1px solid ${alpha(integColor(g.estado), 0.3)}`, height: '100%' }}>
+                  <Paper sx={{ background: '#FFFFFF', border: `1px solid ${alpha(integColor(g.estado), 0.3)}`, height: '100%' }}>
                     <Box sx={{ p: 2 }}>
                       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
                         <Box sx={{ p: 1, borderRadius: 1.5, background: alpha(integColor(g.estado), 0.12) }}>
@@ -452,7 +450,7 @@ export default function MESConfig() {
                 Agregar Usuario
               </Button>
             </Stack>
-            <Paper sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}` }}>
+            <Paper sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
               <TableContainer>
                 <Table size="small">
                   <TableHead>

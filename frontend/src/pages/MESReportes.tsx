@@ -18,8 +18,6 @@ import { Layout } from '@/components/layout/Layout'
 
 const MES_COLOR = '#0891B2'
 const MES_DARK = '#0E7490'
-const CARD_BG = '#0F1E35'
-const DARK_BG = '#060C1A'
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
@@ -194,7 +192,7 @@ export default function MESReportes() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, background: DARK_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, background: '#F8FAFC', minHeight: '100vh' }}>
         {/* Header */}
         <Stack direction="row" alignItems="center" spacing={2} mb={3}>
           <Box sx={{ p: 1.5, borderRadius: 2, background: alpha(MES_COLOR, 0.15), color: MES_COLOR }}>
@@ -232,7 +230,7 @@ export default function MESReportes() {
                 { label: 'Throughput', value: '420 un/h', sub: 'turno 8h promedio', icon: <SpeedIcon />, color: '#8B5CF6' },
               ].map((k, i) => (
                 <Grid key={i} size={{ xs: 12, sm: 6, md: 3 }}>
-                  <Card sx={{ background: CARD_BG, border: `1px solid ${alpha(k.color, 0.3)}` }}>
+                  <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(k.color, 0.3)}` }}>
                     <CardContent>
                       <Stack direction="row" spacing={1.5} alignItems="center">
                         <Box sx={{ color: k.color }}>{k.icon}</Box>
@@ -251,7 +249,7 @@ export default function MESReportes() {
             <Grid container spacing={3}>
               {/* Tabla OPs del día */}
               <Grid size={{ xs: 12, lg: 8 }}>
-                <Paper sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}` }}>
+                <Paper sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
                   <Box sx={{ p: 2, borderBottom: `1px solid ${alpha('#fff', 0.08)}` }}>
                     <Typography variant="subtitle2" color="grey.300" fontWeight={700}>Órdenes de Producción — Hoy</Typography>
                   </Box>
@@ -295,7 +293,7 @@ export default function MESReportes() {
 
               {/* OEE Trend */}
               <Grid size={{ xs: 12, lg: 4 }}>
-                <Card sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}`, height: '100%' }}>
+                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}`, height: '100%' }}>
                   <CardContent>
                     <Typography variant="subtitle2" color="grey.400" mb={2} fontWeight={600}>Tendencia OEE — Últimas 6 Semanas</Typography>
                     <Stack spacing={1.5}>
@@ -349,7 +347,7 @@ export default function MESReportes() {
                 { label: 'Defectos por Millón (DPMO)', value: '21,000', sub: 'objetivo sigma 4.0', color: '#8B5CF6', icon: <TrendIcon /> },
               ].map((k, i) => (
                 <Grid key={i} size={{ xs: 12, sm: 6, md: 3 }}>
-                  <Card sx={{ background: CARD_BG, border: `1px solid ${alpha(k.color, 0.3)}` }}>
+                  <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(k.color, 0.3)}` }}>
                     <CardContent>
                       <Stack direction="row" spacing={1.5} alignItems="center">
                         <Box sx={{ color: k.color }}>{k.icon}</Box>
@@ -368,7 +366,7 @@ export default function MESReportes() {
             <Grid container spacing={3}>
               {/* Tabla por línea */}
               <Grid size={{ xs: 12, lg: 7 }}>
-                <Paper sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}` }}>
+                <Paper sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
                   <Box sx={{ p: 2, borderBottom: `1px solid ${alpha('#fff', 0.08)}` }}>
                     <Typography variant="subtitle2" color="grey.300" fontWeight={700}>Indicadores de Calidad por Línea</Typography>
                   </Box>
@@ -409,7 +407,7 @@ export default function MESReportes() {
 
               {/* Pareto defectos */}
               <Grid size={{ xs: 12, lg: 5 }}>
-                <Card sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}`, height: '100%' }}>
+                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}`, height: '100%' }}>
                   <CardContent>
                     <Typography variant="subtitle2" color="grey.400" mb={2} fontWeight={600}>Pareto de Defectos — Top 5 Tipos</Typography>
                     <Stack spacing={2}>
@@ -455,7 +453,7 @@ export default function MESReportes() {
             {/* 4 Executive KPIs */}
             <Grid container spacing={3} mb={3}>
               <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <Card sx={{ background: CARD_BG, border: `1px solid ${alpha(MES_COLOR, 0.35)}`, textAlign: 'center' }}>
+                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(MES_COLOR, 0.35)}`, textAlign: 'center' }}>
                   <CardContent>
                     <Typography variant="subtitle2" color="grey.400" mb={1} fontWeight={600}>OEE Global</Typography>
                     <SvgGauge value={87.3} label="OEE" color={MES_COLOR} />
@@ -465,7 +463,7 @@ export default function MESReportes() {
               </Grid>
 
               <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <Card sx={{ background: CARD_BG, border: `1px solid ${alpha('#32AC5C', 0.35)}`, textAlign: 'center' }}>
+                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#32AC5C', 0.35)}`, textAlign: 'center' }}>
                   <CardContent>
                     <Typography variant="subtitle2" color="grey.400" mb={1} fontWeight={600}>Cumplimiento Programa</Typography>
                     <SvgGauge value={87.4} label="Cumpl." color="#32AC5C" />
@@ -475,7 +473,7 @@ export default function MESReportes() {
               </Grid>
 
               <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <Card sx={{ background: CARD_BG, border: `1px solid ${alpha('#EF4444', 0.35)}` }}>
+                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#EF4444', 0.35)}` }}>
                   <CardContent>
                     <Typography variant="subtitle2" color="grey.400" mb={2} fontWeight={600}>Costo Unitario vs Meta</Typography>
                     <Box textAlign="center">
@@ -498,7 +496,7 @@ export default function MESReportes() {
               </Grid>
 
               <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <Card sx={{ background: CARD_BG, border: `1px solid ${alpha('#8B5CF6', 0.35)}` }}>
+                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#8B5CF6', 0.35)}` }}>
                   <CardContent>
                     <Typography variant="subtitle2" color="grey.400" mb={2} fontWeight={600}>OTIF Productivo</Typography>
                     <Box textAlign="center">
@@ -521,7 +519,7 @@ export default function MESReportes() {
             <Grid container spacing={3}>
               {/* Top 5 productos */}
               <Grid size={{ xs: 12, lg: 7 }}>
-                <Paper sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}` }}>
+                <Paper sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
                   <Box sx={{ p: 2, borderBottom: `1px solid ${alpha('#fff', 0.08)}` }}>
                     <Typography variant="subtitle2" color="grey.300" fontWeight={700}>Top 5 Productos por Volumen</Typography>
                   </Box>
@@ -568,7 +566,7 @@ export default function MESReportes() {
 
               {/* Tendencia costo mensual */}
               <Grid size={{ xs: 12, lg: 5 }}>
-                <Card sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}`, height: '100%' }}>
+                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}`, height: '100%' }}>
                   <CardContent>
                     <Typography variant="subtitle2" color="grey.400" mb={2} fontWeight={600}>Tendencia Costo Mensual (6 meses)</Typography>
                     <Stack spacing={1.5}>
@@ -604,7 +602,7 @@ export default function MESReportes() {
                 { label: 'Varianza', value: '+3.7%', sub: 'sobre meta ($2,400/un)', color: '#F59E0B', icon: <WarnIcon /> },
               ].map((k, i) => (
                 <Grid key={i} size={{ xs: 12, sm: 6, md: 3 }}>
-                  <Card sx={{ background: CARD_BG, border: `1px solid ${alpha(k.color, 0.3)}` }}>
+                  <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(k.color, 0.3)}` }}>
                     <CardContent>
                       <Stack direction="row" spacing={1.5} alignItems="center">
                         <Box sx={{ color: k.color }}>{k.icon}</Box>
@@ -623,7 +621,7 @@ export default function MESReportes() {
             <Grid container spacing={3}>
               {/* Breakdown costos */}
               <Grid size={{ xs: 12, md: 4 }}>
-                <Card sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}` }}>
+                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
                   <CardContent>
                     <Typography variant="subtitle2" color="grey.400" mb={2} fontWeight={600}>Estructura de Costos</Typography>
                     <Stack spacing={2.5}>
@@ -665,7 +663,7 @@ export default function MESReportes() {
 
               {/* Top 5 productos costosos */}
               <Grid size={{ xs: 12, md: 8 }}>
-                <Paper sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}` }}>
+                <Paper sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
                   <Box sx={{ p: 2, borderBottom: `1px solid ${alpha('#fff', 0.08)}` }}>
                     <Typography variant="subtitle2" color="grey.300" fontWeight={700}>Top 5 Productos — Mayor Costo de Producción</Typography>
                   </Box>

@@ -18,8 +18,6 @@ import { Layout } from '@/components/layout/Layout'
 
 const MES_COLOR = '#0891B2'
 const MES_DARK = '#0E7490'
-const CARD_BG = '#0F1E35'
-const DARK_BG = '#060C1A'
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
@@ -162,7 +160,7 @@ export default function MESInventario() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, background: DARK_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, background: '#F8FAFC', minHeight: '100vh' }}>
         {/* Header */}
         <Stack direction="row" alignItems="center" spacing={2} mb={3}>
           <Box sx={{ p: 1.5, borderRadius: 2, background: alpha(MES_COLOR, 0.15), color: MES_COLOR }}>
@@ -195,7 +193,7 @@ export default function MESInventario() {
                 { label: 'Lead Time promedio', value: '6.2h', icon: <LoopIcon />, color: '#8B5CF6' },
               ].map((k, i) => (
                 <Grid key={i} size={{ xs: 12, md: 3 }}>
-                  <Card sx={{ background: CARD_BG, border: `1px solid ${alpha(k.color, 0.3)}` }}>
+                  <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(k.color, 0.3)}` }}>
                     <CardContent sx={{ py: 2 }}>
                       <Stack direction="row" spacing={1.5} alignItems="center">
                         <Box sx={{ p: 1, borderRadius: 1.5, background: alpha(k.color, 0.12), color: k.color }}>{k.icon}</Box>
@@ -211,7 +209,7 @@ export default function MESInventario() {
             </Grid>
 
             {/* Visual planta */}
-            <Card sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}`, mb: 3 }}>
+            <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}`, mb: 3 }}>
               <CardContent>
                 <Typography variant="subtitle1" fontWeight={700} color="white" mb={2}>Vista de Planta — WIP por Celda</Typography>
                 <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 2 }}>
@@ -235,7 +233,7 @@ export default function MESInventario() {
             </Card>
 
             {/* Tabla WIP */}
-            <TableContainer component={Paper} sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}` }}>
+            <TableContainer component={Paper} sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
               <Table size="small">
                 <TableHead>
                   <TableRow sx={{ '& th': { color: 'grey.400', fontWeight: 700, fontSize: '0.7rem', textTransform: 'uppercase', borderBottom: `1px solid ${alpha('#fff', 0.1)}` } }}>
@@ -284,7 +282,7 @@ export default function MESInventario() {
                 { label: 'Lotes por vencer', value: '3', icon: <ErrorIcon />, color: '#EF4444' },
               ].map((k, i) => (
                 <Grid key={i} size={{ xs: 12, md: 3 }}>
-                  <Card sx={{ background: CARD_BG, border: `1px solid ${alpha(k.color, 0.3)}` }}>
+                  <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(k.color, 0.3)}` }}>
                     <CardContent sx={{ py: 2 }}>
                       <Stack direction="row" spacing={1.5} alignItems="center">
                         <Box sx={{ p: 1, borderRadius: 1.5, background: alpha(k.color, 0.12), color: k.color }}>{k.icon}</Box>
@@ -299,7 +297,7 @@ export default function MESInventario() {
               ))}
             </Grid>
 
-            <TableContainer component={Paper} sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}` }}>
+            <TableContainer component={Paper} sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
               <Table size="small">
                 <TableHead>
                   <TableRow sx={{ '& th': { color: 'grey.400', fontWeight: 700, fontSize: '0.7rem', textTransform: 'uppercase', borderBottom: `1px solid ${alpha('#fff', 0.1)}` } }}>
@@ -349,7 +347,7 @@ export default function MESInventario() {
                 { label: 'MPs desviación >5%', value: '4', color: '#EF4444' },
               ].map((k, i) => (
                 <Grid key={i} size={{ xs: 12, md: 4 }}>
-                  <Card sx={{ background: CARD_BG, border: `1px solid ${alpha(k.color, 0.3)}` }}>
+                  <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(k.color, 0.3)}` }}>
                     <CardContent sx={{ py: 2 }}>
                       <Typography variant="h5" fontWeight={700} color={k.color}>{k.value}</Typography>
                       <Typography variant="caption" color="grey.400">{k.label}</Typography>
@@ -359,7 +357,7 @@ export default function MESInventario() {
               ))}
             </Grid>
 
-            <TableContainer component={Paper} sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}` }}>
+            <TableContainer component={Paper} sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
               <Table size="small">
                 <TableHead>
                   <TableRow sx={{ '& th': { color: 'grey.400', fontWeight: 700, fontSize: '0.7rem', textTransform: 'uppercase', borderBottom: `1px solid ${alpha('#fff', 0.1)}` } }}>
@@ -439,7 +437,7 @@ export default function MESInventario() {
                 const pct = Math.min((r.cantActual / r.puntoReorden) * 100, 100)
                 return (
                   <Grid key={r.id} size={{ xs: 12, md: 6 }}>
-                    <Card sx={{ background: CARD_BG, border: `1px solid ${alpha(prioColor, 0.35)}` }}>
+                    <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(prioColor, 0.35)}` }}>
                       <CardContent>
                         <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
                           <Typography variant="body1" fontWeight={700} color="white" sx={{ flex: 1, mr: 1 }}>{r.mp}</Typography>

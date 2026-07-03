@@ -33,8 +33,6 @@ import { Layout } from '@/components/layout/Layout';
 const MES_COLOR = '#0891B2';
 const MES_DARK = '#0E7490';
 const MES_BORDER = 'rgba(8,145,178,0.25)';
-const BG_PAGE = '#060C1A';
-const BG_CARD = '#0F1E35';
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 type EstadoOrden = 'PLANEADA' | 'LIBERADA' | 'EN EJECUCIÓN' | 'SUSPENDIDA' | 'CERRADA';
@@ -306,7 +304,7 @@ function ProgressBar({ value, color = MES_COLOR }: ProgressBarProps) {
         width: '100%',
         height: 6,
         borderRadius: 3,
-        bgcolor: 'rgba(255,255,255,0.08)',
+        bgcolor: '#F1F5F9',
         overflow: 'hidden',
       }}
     >
@@ -475,7 +473,7 @@ function TabTabla() {
   });
 
   const inputSx = {
-    '& .MuiInputBase-root': { bgcolor: BG_CARD, color: '#E2E8F0' },
+    '& .MuiInputBase-root': { color: '#E2E8F0' },
     '& .MuiOutlinedInput-notchedOutline': { borderColor: MES_BORDER },
     '& .MuiInputLabel-root': { color: '#94A3B8' },
     '& .MuiSvgIcon-root': { color: '#94A3B8' },
@@ -607,7 +605,7 @@ function TabTabla() {
                   </TableCell>
                   <TableCell sx={{ borderBottom: `1px solid rgba(255,255,255,0.04)`, minWidth: 120 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Box sx={{ flex: 1, height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                      <Box sx={{ flex: 1, height: 6, borderRadius: 3, bgcolor: '#F1F5F9', overflow: 'hidden' }}>
                         <Box
                           sx={{
                             width: `${avance}%`,
@@ -678,7 +676,7 @@ function TabNuevaOrden() {
   };
 
   const fieldSx = {
-    '& .MuiInputBase-root': { bgcolor: BG_CARD, color: '#E2E8F0' },
+    '& .MuiInputBase-root': { color: '#E2E8F0' },
     '& .MuiOutlinedInput-notchedOutline': { borderColor: MES_BORDER },
     '& .MuiInputLabel-root': { color: '#94A3B8' },
     '& .MuiSvgIcon-root': { color: '#94A3B8' },

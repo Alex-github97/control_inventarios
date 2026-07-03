@@ -13,8 +13,6 @@ import { Layout } from '@/components/layout/Layout'
 // ─── Constants ────────────────────────────────────────────────────────────────
 const MES_COLOR = '#0891B2'
 const MES_DARK  = '#0E7490'
-const CARD_BG   = '#0F1E35'
-const DARK_BG   = '#060C1A'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type TipoScrap    = 'MATERIAL' | 'PROCESO' | 'CONFIGURACIÓN' | 'OPERADOR'
@@ -135,7 +133,7 @@ function ScrapTab() {
           { label: 'Brecha',       value: '0.6 pp',   sub: 'por encima meta', color: '#dc2626' },
         ].map((k) => (
           <Grid size={{ xs: 6, md: 3 }} key={k.label}>
-            <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${k.color}33`, borderRadius: 2 }}>
+            <Card sx={{ border: `1px solid ${k.color}33`, borderRadius: 2 }}>
               <CardContent sx={{ p: '12px !important' }}>
                 <Typography sx={{ color: k.color, fontWeight: 900, fontSize: 26, lineHeight: 1 }}>{k.value}</Typography>
                 <Typography sx={{ color: '#94a3b8', fontSize: 11, mt: 0.3 }}>{k.sub}</Typography>
@@ -149,7 +147,7 @@ function ScrapTab() {
       {/* Tabla scrap */}
       <Box>
         <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Registros de Scrap</Typography>
-        <TableContainer component={Paper} sx={{ bgcolor: CARD_BG, border: '1px solid #1e3a5f', overflowX: 'auto' }}>
+        <TableContainer component={Paper} sx={{ border: '1px solid #1e3a5f', overflowX: 'auto' }}>
           <Table size="small" sx={{ minWidth: 900 }}>
             <TableHead>
               <TableRow>
@@ -187,7 +185,7 @@ function ScrapTab() {
       {/* Tendencia 6 meses */}
       <Box>
         <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Tendencia Scrap Rate — Últimos 6 Meses</Typography>
-        <Card sx={{ bgcolor: CARD_BG, border: '1px solid #1e3a5f', borderRadius: 2, p: 3 }}>
+        <Card sx={{ border: '1px solid #1e3a5f', borderRadius: 2, p: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 130 }}>
             {tendencia6m.map((t) => {
               const barH = (t.rate / 3.5) * 110
@@ -230,7 +228,7 @@ function ReprocesosTab() {
           { label: 'Tasa de Reproceso',         value: '0.8%',    color: '#d97706' },
         ].map((k) => (
           <Grid size={{ xs: 12, md: 4 }} key={k.label}>
-            <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${k.color}33`, borderRadius: 2 }}>
+            <Card sx={{ border: `1px solid ${k.color}33`, borderRadius: 2 }}>
               <CardContent sx={{ p: '14px !important' }}>
                 <Typography sx={{ color: k.color, fontWeight: 900, fontSize: 30, lineHeight: 1 }}>{k.value}</Typography>
                 <Typography sx={{ color: '#94a3b8', fontSize: 12, mt: 0.5, fontWeight: 600 }}>{k.label}</Typography>
@@ -243,7 +241,7 @@ function ReprocesosTab() {
       {/* Tabla reprocesos */}
       <Box>
         <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Órdenes de Reproceso</Typography>
-        <TableContainer component={Paper} sx={{ bgcolor: CARD_BG, border: '1px solid #1e3a5f', overflowX: 'auto' }}>
+        <TableContainer component={Paper} sx={{ border: '1px solid #1e3a5f', overflowX: 'auto' }}>
           <Table size="small" sx={{ minWidth: 800 }}>
             <TableHead>
               <TableRow>
@@ -271,7 +269,7 @@ function ReprocesosTab() {
       {/* Formulario registro */}
       <Box>
         <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Registrar Orden de Reproceso</Typography>
-        <Card sx={{ bgcolor: CARD_BG, border: '1px solid #1e3a5f', borderRadius: 2, p: 2 }}>
+        <Card sx={{ border: '1px solid #1e3a5f', borderRadius: 2, p: 2 }}>
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, md: 4 }}>
               <FormControl fullWidth size="small">
@@ -329,7 +327,7 @@ function LeanTab() {
 
         {/* Andon */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <Card sx={{ bgcolor: CARD_BG, border: '1px solid #1e3a5f', borderRadius: 2 }}>
+          <Card sx={{ border: '1px solid #1e3a5f', borderRadius: 2 }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                 <CircleOutlined sx={{ color: MES_COLOR }} />
@@ -364,7 +362,7 @@ function LeanTab() {
 
         {/* Kaizen */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <Card sx={{ bgcolor: CARD_BG, border: '1px solid #1e3a5f', borderRadius: 2 }}>
+          <Card sx={{ border: '1px solid #1e3a5f', borderRadius: 2 }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                 <EmojiObjects sx={{ color: '#f59e0b' }} />
@@ -397,7 +395,7 @@ function LeanTab() {
 
         {/* 5S */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <Card sx={{ bgcolor: CARD_BG, border: '1px solid #1e3a5f', borderRadius: 2 }}>
+          <Card sx={{ border: '1px solid #1e3a5f', borderRadius: 2 }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -428,7 +426,7 @@ function LeanTab() {
 
         {/* SMED */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <Card sx={{ bgcolor: CARD_BG, border: '1px solid #1e3a5f', borderRadius: 2 }}>
+          <Card sx={{ border: '1px solid #1e3a5f', borderRadius: 2 }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                 <Warning sx={{ color: MES_COLOR }} />
@@ -476,7 +474,7 @@ function AnalisisTab() {
       {/* Pareto causas */}
       <Box>
         <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Pareto de Causas de Scrap</Typography>
-        <Card sx={{ bgcolor: CARD_BG, border: '1px solid #1e3a5f', borderRadius: 2, p: 3 }}>
+        <Card sx={{ border: '1px solid #1e3a5f', borderRadius: 2, p: 3 }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             {causasScrap.map((c, i) => (
               <Box key={c.causa}>
@@ -499,7 +497,7 @@ function AnalisisTab() {
       {/* Scrap por línea */}
       <Box>
         <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Scrap por Línea de Producción</Typography>
-        <TableContainer component={Paper} sx={{ bgcolor: CARD_BG, border: '1px solid #1e3a5f' }}>
+        <TableContainer component={Paper} sx={{ border: '1px solid #1e3a5f' }}>
           <Table size="small">
             <TableHead>
               <TableRow>
@@ -532,7 +530,7 @@ function AnalisisTab() {
       {/* Sparkline tendencia diaria */}
       <Box>
         <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Tendencia Diaria Scrap Rate — Últimas 2 Semanas</Typography>
-        <Card sx={{ bgcolor: CARD_BG, border: '1px solid #1e3a5f', borderRadius: 2, p: 3 }}>
+        <Card sx={{ border: '1px solid #1e3a5f', borderRadius: 2, p: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1, height: 80 }}>
             {sparkline.map((v, i) => {
               const h = (v / sparkMax) * 70
@@ -563,7 +561,7 @@ export default function MESScrap() {
 
   return (
     <Layout>
-      <Box sx={{ minHeight: '100vh', bgcolor: DARK_BG, p: 3 }}>
+      <Box sx={{ minHeight: '100vh', p: 3 }}>
         {/* Header */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
           <Box sx={{

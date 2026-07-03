@@ -22,8 +22,6 @@ import { Layout } from '@/components/layout/Layout'
 
 const MES_COLOR = '#0891B2'
 const MES_DARK = '#0E7490'
-const CARD_BG = '#0F1E35'
-const DARK_BG = '#060C1A'
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
@@ -228,7 +226,7 @@ export default function MESBOM() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, background: DARK_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, background: '#F8FAFC', minHeight: '100vh' }}>
         {/* Header */}
         <Stack direction="row" alignItems="center" spacing={2} mb={3}>
           <Box sx={{ p: 1.5, borderRadius: 2, background: alpha(MES_COLOR, 0.15), color: MES_COLOR }}>
@@ -253,10 +251,10 @@ export default function MESBOM() {
               <TextField
                 size="small" placeholder="Buscar producto (ej. PT-001)" value={searchVal}
                 onChange={e => setSearchVal(e.target.value)}
-                sx={{ width: 320, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.05), '& fieldset': { borderColor: alpha('#fff', 0.15) }, '&:hover fieldset': { borderColor: MES_COLOR }, color: 'white', fontSize: 14 } }}
+                sx={{ width: 320, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.05), '& fieldset': { borderColor: alpha('#fff', 0.15) }, '&:hover fieldset': { borderColor: MES_COLOR }, color: 'text.primary', fontSize: 14 } }}
                 InputProps={{ startAdornment: <SearchIcon sx={{ color: 'grey.500', mr: 1, fontSize: 18 }} /> }}
               />
-              <Button variant="contained" sx={{ background: MES_DARK, color: 'white', textTransform: 'none', fontWeight: 700, '&:hover': { background: MES_COLOR } }}>
+              <Button variant="contained" sx={{ background: MES_DARK, color: 'text.primary', textTransform: 'none', fontWeight: 700, '&:hover': { background: MES_COLOR } }}>
                 Buscar BOM
               </Button>
               <Button variant="outlined" onClick={() => setShowCostBreakdown(!showCostBreakdown)} sx={{ textTransform: 'none', borderColor: alpha(MES_COLOR, 0.4), color: MES_COLOR, fontWeight: 600, '&:hover': { borderColor: MES_COLOR, background: alpha(MES_COLOR, 0.1) } }}>
@@ -265,7 +263,7 @@ export default function MESBOM() {
             </Stack>
 
             {showCostBreakdown && (
-              <Card sx={{ background: CARD_BG, border: `1px solid ${alpha(MES_COLOR, 0.3)}`, mb: 2 }}>
+              <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(MES_COLOR, 0.3)}`, mb: 2 }}>
                 <CardContent>
                   <Typography variant="subtitle2" fontWeight={700} color="white" mb={1.5}>Costo unitario PT-001</Typography>
                   <Grid container spacing={3}>
@@ -297,7 +295,7 @@ export default function MESBOM() {
               </Card>
             )}
 
-            <Card sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}` }}>
+            <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
               <CardContent sx={{ pb: 0 }}>
                 <Stack direction="row" spacing={3} mb={1.5}>
                   <Typography variant="caption" color="grey.400" sx={{ minWidth: 100 }}>Código</Typography>
@@ -321,12 +319,12 @@ export default function MESBOM() {
           <Box>
             <Grid container spacing={3}>
               <Grid size={{ xs: 12, md: 4 }}>
-                <Card sx={{ background: CARD_BG, border: `1px solid ${alpha(MES_COLOR, 0.3)}` }}>
+                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(MES_COLOR, 0.3)}` }}>
                   <CardContent>
                     <Typography variant="subtitle1" fontWeight={700} color="white" mb={2}>Producto activo</Typography>
                     <FormControl fullWidth size="small" sx={{ mb: 2 }}>
                       <InputLabel sx={{ color: 'grey.400' }}>Seleccionar producto</InputLabel>
-                      <Select defaultValue="PT-001" label="Seleccionar producto" sx={{ color: 'white', '& .MuiOutlinedInput-notchedOutline': { borderColor: alpha('#fff', 0.2) }, '& .MuiSvgIcon-root': { color: 'grey.400' } }}>
+                      <Select defaultValue="PT-001" label="Seleccionar producto" sx={{ color: 'text.primary', '& .MuiOutlinedInput-notchedOutline': { borderColor: alpha('#fff', 0.2) }, '& .MuiSvgIcon-root': { color: 'grey.400' } }}>
                         <MenuItem value="PT-001">PT-001 — Producto Terminado Premium</MenuItem>
                         <MenuItem value="PT-002">PT-002 — Producto Plus</MenuItem>
                         <MenuItem value="PT-003">PT-003 — Modelo X</MenuItem>
@@ -371,7 +369,7 @@ export default function MESBOM() {
               </Grid>
 
               <Grid size={{ xs: 12, md: 8 }}>
-                <Card sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}` }}>
+                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
                   <CardContent sx={{ pb: 1 }}>
                     <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                       <Typography variant="subtitle1" fontWeight={700} color="white">Ingredientes — FRM-PT001-A ({versionSeleccionada})</Typography>
@@ -432,7 +430,7 @@ export default function MESBOM() {
               </Stack>
             </Stack>
 
-            <TableContainer component={Paper} sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}` }}>
+            <TableContainer component={Paper} sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
               <Table size="small">
                 <TableHead>
                   <TableRow sx={{ '& th': { color: 'grey.400', fontWeight: 700, fontSize: '0.7rem', textTransform: 'uppercase', borderBottom: `1px solid ${alpha('#fff', 0.1)}` } }}>
@@ -482,7 +480,7 @@ export default function MESBOM() {
             <Grid container spacing={3}>
               {/* Breakdown de costos */}
               <Grid size={{ xs: 12, md: 4 }}>
-                <Card sx={{ background: CARD_BG, border: `1px solid ${alpha(MES_COLOR, 0.3)}` }}>
+                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(MES_COLOR, 0.3)}` }}>
                   <CardContent>
                     <Typography variant="subtitle1" fontWeight={700} color="white" mb={2}>Costo Unitario — PT-001</Typography>
                     <Stack spacing={2} mb={2}>
@@ -527,7 +525,7 @@ export default function MESBOM() {
 
               {/* Tabla componentes */}
               <Grid size={{ xs: 12, md: 8 }}>
-                <Card sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}` }}>
+                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
                   <CardContent sx={{ pb: 0 }}>
                     <Typography variant="subtitle1" fontWeight={700} color="white" mb={0}>Desglose por Componente</Typography>
                   </CardContent>

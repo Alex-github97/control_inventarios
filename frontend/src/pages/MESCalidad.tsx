@@ -12,8 +12,6 @@ import { Layout } from '@/components/layout/Layout'
 // ─── Constants ────────────────────────────────────────────────────────────────
 const MES_COLOR = '#0891B2'
 const MES_DARK  = '#0E7490'
-const CARD_BG   = '#0F1E35'
-const DARK_BG   = '#060C1A'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ResultadoInsp = 'APROBADO' | 'RECHAZADO' | 'CONDICIONAL'
@@ -117,7 +115,7 @@ function InspeccionesTab() {
       <Grid container spacing={2}>
         {kpis.map((k) => (
           <Grid size={{ xs: 6, sm: 4, md: 2.4 }} key={k.label}>
-            <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${k.color}33`, borderRadius: 2 }}>
+            <Card sx={{ border: `1px solid ${k.color}33`, borderRadius: 2 }}>
               <CardContent sx={{ p: '12px !important' }}>
                 <Typography sx={{ color: k.color, fontWeight: 900, fontSize: 28, lineHeight: 1 }}>{k.value}</Typography>
                 <Typography sx={{ color: '#94a3b8', fontSize: 11, mt: 0.5, fontWeight: 600 }}>{k.label}</Typography>
@@ -130,7 +128,7 @@ function InspeccionesTab() {
       {/* Tabla inspecciones */}
       <Box>
         <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Registro de Inspecciones del Día</Typography>
-        <TableContainer component={Paper} sx={{ bgcolor: CARD_BG, border: '1px solid #1e3a5f', overflowX: 'auto' }}>
+        <TableContainer component={Paper} sx={{ border: '1px solid #1e3a5f', overflowX: 'auto' }}>
           <Table size="small" sx={{ minWidth: 900 }}>
             <TableHead>
               <TableRow>
@@ -162,7 +160,7 @@ function InspeccionesTab() {
       {/* Formulario rápido */}
       <Box>
         <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Registro Rápido de Inspección</Typography>
-        <Card sx={{ bgcolor: CARD_BG, border: '1px solid #1e3a5f', borderRadius: 2, p: 2 }}>
+        <Card sx={{ border: '1px solid #1e3a5f', borderRadius: 2, p: 2 }}>
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, md: 4 }}>
               <FormControl fullWidth size="small">
@@ -253,7 +251,7 @@ function SPCTab() {
           { label: '% Fuera control', value: '2.1%', color: '#ef4444', desc: '1 de 20 puntos' },
         ].map((k) => (
           <Grid size={{ xs: 6, md: 3 }} key={k.label}>
-            <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${k.color}33`, borderRadius: 2 }}>
+            <Card sx={{ border: `1px solid ${k.color}33`, borderRadius: 2 }}>
               <CardContent sx={{ p: '12px !important' }}>
                 <Typography sx={{ color: k.color, fontWeight: 900, fontSize: 30, lineHeight: 1 }}>{k.value}</Typography>
                 <Typography sx={{ color: '#fff', fontSize: 12, fontWeight: 700 }}>{k.label}</Typography>
@@ -284,7 +282,7 @@ function SPCTab() {
         <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>
           Carta X-bar — {variable}
         </Typography>
-        <Card sx={{ bgcolor: CARD_BG, border: '1px solid #1e3a5f', borderRadius: 2, p: 2 }}>
+        <Card sx={{ border: '1px solid #1e3a5f', borderRadius: 2, p: 2 }}>
           {/* Leyenda */}
           <Box sx={{ display: 'flex', gap: 3, mb: 2, flexWrap: 'wrap' }}>
             {[
@@ -302,7 +300,7 @@ function SPCTab() {
           </Box>
 
           {/* Área de la carta */}
-          <Box sx={{ position: 'relative', height: 200, bgcolor: '#060C1A', borderRadius: 1, px: 2, py: 1, overflow: 'hidden' }}>
+          <Box sx={{ position: 'relative', height: 200, bgcolor: '#F8FAFC', borderRadius: 1, px: 2, py: 1, overflow: 'hidden' }}>
             {/* UCL */}
             <Box sx={{ position: 'absolute', left: 0, right: 0, bottom: uclY, height: 1, bgcolor: '#ef4444', opacity: 0.8 }} />
             <Typography sx={{ position: 'absolute', right: 4, bottom: uclY + 2, color: '#ef4444', fontSize: 9, fontWeight: 700 }}>UCL</Typography>
@@ -348,7 +346,7 @@ function SPCTab() {
       {/* Tabla últimas 10 mediciones */}
       <Box>
         <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Últimas 10 Mediciones</Typography>
-        <TableContainer component={Paper} sx={{ bgcolor: CARD_BG, border: '1px solid #1e3a5f' }}>
+        <TableContainer component={Paper} sx={{ border: '1px solid #1e3a5f' }}>
           <Table size="small">
             <TableHead>
               <TableRow>
@@ -388,7 +386,7 @@ function NoConformidadesTab() {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* Resumen mes */}
-      <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${MES_COLOR}33`, borderRadius: 2 }}>
+      <Card sx={{ border: `1px solid ${MES_COLOR}33`, borderRadius: 2 }}>
         <CardContent>
           <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Resumen del Mes</Typography>
           <Grid container spacing={3}>
@@ -415,7 +413,7 @@ function NoConformidadesTab() {
         {noConformidades.map((nc) => (
           <Grid size={{ xs: 12, md: 6 }} key={nc.codigo}>
             <Card sx={{
-              bgcolor: CARD_BG,
+              bgcolor: '#FFFFFF',
               border: `1px solid ${nc.severidad === 'CRÍTICA' ? '#dc2626' : nc.severidad === 'MAYOR' ? '#ea580c' : '#1e3a5f'}44`,
               borderRadius: 2,
             }}>
@@ -464,7 +462,7 @@ function DefectologiaTab() {
       {/* Pareto horizontal */}
       <Box>
         <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Diagrama de Pareto — Tipos de Defecto</Typography>
-        <Card sx={{ bgcolor: CARD_BG, border: '1px solid #1e3a5f', borderRadius: 2, p: 3 }}>
+        <Card sx={{ border: '1px solid #1e3a5f', borderRadius: 2, p: 3 }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             {defectos.map((d, i) => {
               const barW = (d.freq / maxFreq) * 100
@@ -509,7 +507,7 @@ function DefectologiaTab() {
       </Box>
 
       {/* Tabla Pareto */}
-      <TableContainer component={Paper} sx={{ bgcolor: CARD_BG, border: '1px solid #1e3a5f' }}>
+      <TableContainer component={Paper} sx={{ border: '1px solid #1e3a5f' }}>
         <Table size="small">
           <TableHead>
             <TableRow>
@@ -547,7 +545,7 @@ function DefectologiaTab() {
         <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Top 3 Causas Raíz y Acciones Correctivas</Typography>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {causasRaiz.map((c, i) => (
-            <Card key={i} sx={{ bgcolor: CARD_BG, border: `1px solid ${barColors[i]}33`, borderRadius: 2 }}>
+            <Card key={i} sx={{ border: `1px solid ${barColors[i]}33`, borderRadius: 2 }}>
               <CardContent sx={{ p: '14px !important' }}>
                 <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
                   <Box sx={{ width: 28, height: 28, borderRadius: '50%', bgcolor: barColors[i], display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 900, fontSize: 13, flexShrink: 0 }}>
@@ -580,7 +578,7 @@ export default function MESCalidad() {
 
   return (
     <Layout>
-      <Box sx={{ minHeight: '100vh', bgcolor: DARK_BG, p: 3 }}>
+      <Box sx={{ minHeight: '100vh', p: 3 }}>
         {/* Header */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
           <Box sx={{
