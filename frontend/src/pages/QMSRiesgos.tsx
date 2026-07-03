@@ -61,8 +61,8 @@ export default function QMSRiesgos() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Dangerous sx={{ color: QMS_COLOR, fontSize: 28 }} />
             <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#FFF', lineHeight: 1 }}>Riesgos Operacionales</Typography>
-              <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>QMS · Gestión de riesgos ISO 31000</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Riesgos Operacionales</Typography>
+              <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>QMS · Gestión de riesgos ISO 31000</Typography>
             </Box>
             <Chip label="QMS" size="small" sx={{ bgcolor: alpha(QMS_COLOR, 0.15), color: QMS_COLOR, fontWeight: 700, border: `1px solid ${alpha(QMS_COLOR, 0.3)}` }} />
           </Box>
@@ -79,60 +79,60 @@ export default function QMSRiesgos() {
             { label: 'Revisión Próxima', value: '4', color: '#0369A1' },
           ].map(k => (
             <Grid key={k.label} size={{ xs: 6, md: 3 }}>
-              <Card sx={{ bgcolor: '#0F1E35', border: `1px solid ${alpha(k.color, 0.35)}`, borderRadius: 2 }}>
+              <Card sx={{ bgcolor: 'text.primary', border: `1px solid ${alpha(k.color, 0.35)}`, borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important', textAlign: 'center' }}>
                   <Typography sx={{ fontSize: 26, fontWeight: 800, color: k.color }}>{k.value}</Typography>
-                  <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>{k.label}</Typography>
+                  <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{k.label}</Typography>
                 </CardContent>
               </Card>
             </Grid>
           ))}
         </Grid>
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid rgba(255,255,255,0.08)', '& .MuiTab-root': { color: 'rgba(255,255,255,0.45)', fontSize: 13 }, '& .Mui-selected': { color: QMS_COLOR }, '& .MuiTabs-indicator': { bgcolor: QMS_COLOR } }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid #F1F5F9', '& .MuiTab-root': { color: 'text.secondary', fontSize: 13 }, '& .Mui-selected': { color: QMS_COLOR }, '& .MuiTabs-indicator': { bgcolor: QMS_COLOR } }}>
           <Tab label="Matriz de Riesgos" />
           <Tab label="Lista de Riesgos" />
         </Tabs>
 
         <TabPanel value={tab} index={0}>
-          <Card sx={{ bgcolor: '#111827', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 2 }}>
+          <Card sx={{ bgcolor: '#111827', border: '1px solid #E5E7EB', borderRadius: 2 }}>
             <CardContent>
-              <Typography sx={{ fontWeight: 700, color: '#FFF', mb: 2 }}>Matriz de Riesgos 5×5</Typography>
+              <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 2 }}>Matriz de Riesgos 5×5</Typography>
               <Box sx={{ display: 'flex', gap: 2 }}>
                 {/* Eje Y label */}
                 <Box sx={{ display: 'flex', alignItems: 'center', flexDirection: 'column', justifyContent: 'center', width: 20 }}>
-                  <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', writingMode: 'vertical-rl', transform: 'rotate(180deg)', letterSpacing: '0.08em' }}>PROBABILIDAD →</Typography>
+                  <Typography sx={{ fontSize: 10, color: 'text.secondary', writingMode: 'vertical-rl', transform: 'rotate(180deg)', letterSpacing: '0.08em' }}>PROBABILIDAD →</Typography>
                 </Box>
                 <Box sx={{ flex: 1 }}>
                   {/* Eje X labels */}
                   <Box sx={{ display: 'flex', ml: 6, mb: 0.5 }}>
                     {IMP_LABELS.slice(1).map(l => (
-                      <Box key={l} sx={{ flex: 1, textAlign: 'center' }}><Typography sx={{ fontSize: 9, color: 'rgba(255,255,255,0.35)' }}>{l}</Typography></Box>
+                      <Box key={l} sx={{ flex: 1, textAlign: 'center' }}><Typography sx={{ fontSize: 9, color: 'text.disabled' }}>{l}</Typography></Box>
                     ))}
                   </Box>
                   {/* Filas de la matriz */}
                   {[5, 4, 3, 2, 1].map(p => (
                     <Box key={p} sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                      <Typography sx={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', width: 48, textAlign: 'right', pr: 1, flexShrink: 0 }}>{PROB_LABELS[p]}</Typography>
+                      <Typography sx={{ fontSize: 9, color: 'text.secondary', width: 48, textAlign: 'right', pr: 1, flexShrink: 0 }}>{PROB_LABELS[p]}</Typography>
                       {[1, 2, 3, 4, 5].map(i => {
                         const riesgosAqui = RIESGOS.filter(r => r.prob === p && r.imp === i)
                         return (
-                          <Box key={i} sx={{ flex: 1, minHeight: 52, bgcolor: cellColor(p, i), border: '1px solid rgba(255,255,255,0.06)', borderRadius: 1, display: 'flex', flexWrap: 'wrap', gap: 0.25, p: 0.5, alignContent: 'flex-start' }}>
+                          <Box key={i} sx={{ flex: 1, minHeight: 52, bgcolor: cellColor(p, i), border: '1px solid #E5E7EB', borderRadius: 1, display: 'flex', flexWrap: 'wrap', gap: 0.25, p: 0.5, alignContent: 'flex-start' }}>
                             {riesgosAqui.map(r => (
-                              <Chip key={r.codigo} label={r.codigo} size="small" sx={{ fontSize: 8, height: 16, bgcolor: alpha(nivelColor(r.nivel), 0.4), color: '#FFF', fontWeight: 700 }} />
+                              <Chip key={r.codigo} label={r.codigo} size="small" sx={{ fontSize: 8, height: 16, bgcolor: alpha(nivelColor(r.nivel), 0.4), color: 'text.primary', fontWeight: 700 }} />
                             ))}
                           </Box>
                         )
                       })}
                     </Box>
                   ))}
-                  <Box sx={{ display: 'flex', ml: 6, mt: 0.5 }}><Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.08em' }}>IMPACTO →</Typography></Box>
+                  <Box sx={{ display: 'flex', ml: 6, mt: 0.5 }}><Typography sx={{ fontSize: 10, color: 'text.secondary', letterSpacing: '0.08em' }}>IMPACTO →</Typography></Box>
                   {/* Leyenda */}
                   <Box sx={{ display: 'flex', gap: 2, mt: 2, flexWrap: 'wrap' }}>
                     {[{ label: 'BAJO (1-4)', c: QMS_COLOR }, { label: 'MEDIO (5-9)', c: '#D97706' }, { label: 'ALTO (10-14)', c: '#EA580C' }, { label: 'CRÍTICO (15-25)', c: '#DC2626' }].map(l => (
                       <Box key={l.label} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                         <Box sx={{ width: 14, height: 14, borderRadius: 0.5, bgcolor: alpha(l.c, 0.5) }} />
-                        <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>{l.label}</Typography>
+                        <Typography sx={{ fontSize: 10, color: 'text.secondary' }}>{l.label}</Typography>
                       </Box>
                     ))}
                   </Box>
@@ -146,18 +146,18 @@ export default function QMSRiesgos() {
           <Paper sx={{ bgcolor: 'transparent' }}>
             <Table size="small">
               <TableHead>
-                <TableRow sx={{ '& th': { borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
+                <TableRow sx={{ '& th': { borderColor: '#E5E7EB', color: 'text.secondary', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
                   <TableCell>Código</TableCell><TableCell>Nombre</TableCell><TableCell>Proceso</TableCell><TableCell>P</TableCell><TableCell>I</TableCell><TableCell>Nivel</TableCell><TableCell>Prioridad</TableCell><TableCell>Responsable</TableCell><TableCell>Controles</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {RIESGOS.map(r => (
-                  <TableRow key={r.codigo} sx={{ '& td': { borderColor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.7)', fontSize: 12 } }}>
+                  <TableRow key={r.codigo} sx={{ '& td': { borderColor: '#E5E7EB', color: 'text.primary', fontSize: 12 } }}>
                     <TableCell><Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: QMS_COLOR }}>{r.codigo}</Typography></TableCell>
                     <TableCell sx={{ maxWidth: 200 }}><Typography sx={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.nombre}</Typography></TableCell>
                     <TableCell sx={{ fontSize: 11 }}>{r.proceso}</TableCell>
-                    <TableCell><Chip label={r.prob} size="small" sx={{ fontSize: 10, height: 20, bgcolor: 'rgba(255,255,255,0.08)', color: '#FFF' }} /></TableCell>
-                    <TableCell><Chip label={r.imp} size="small" sx={{ fontSize: 10, height: 20, bgcolor: 'rgba(255,255,255,0.08)', color: '#FFF' }} /></TableCell>
+                    <TableCell><Chip label={r.prob} size="small" sx={{ fontSize: 10, height: 20, bgcolor: '#F1F5F9', color: 'text.primary' }} /></TableCell>
+                    <TableCell><Chip label={r.imp} size="small" sx={{ fontSize: 10, height: 20, bgcolor: '#F1F5F9', color: 'text.primary' }} /></TableCell>
                     <TableCell><Typography sx={{ fontWeight: 800, color: nivelColor(r.nivel), fontSize: 14 }}>{r.nivel}</Typography></TableCell>
                     <TableCell><Chip label={r.prioridad} size="small" sx={{ fontSize: 9, height: 18, bgcolor: alpha(PRIOR_COLOR[r.prioridad], 0.15), color: PRIOR_COLOR[r.prioridad], fontWeight: 700 }} /></TableCell>
                     <TableCell sx={{ fontSize: 11 }}>{r.responsable}</TableCell>
@@ -169,27 +169,27 @@ export default function QMSRiesgos() {
           </Paper>
         </TabPanel>
 
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: '#FFF' } }}>
+        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary' } }}>
           <DialogTitle sx={{ fontWeight: 700 }}>Nuevo Riesgo</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
-            <TextField label="Nombre del Riesgo" fullWidth size="small" InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
-            <TextField label="Descripción" multiline rows={2} fullWidth size="small" InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
+            <TextField label="Nombre del Riesgo" fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
+            <TextField label="Descripción" multiline rows={2} fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
             <Box>
-              <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', mb: 1 }}>Probabilidad: {prob} — {PROB_LABELS[prob]}</Typography>
+              <Typography sx={{ fontSize: 12, color: 'text.secondary', mb: 1 }}>Probabilidad: {prob} — {PROB_LABELS[prob]}</Typography>
               <Slider value={prob} min={1} max={5} step={1} marks onChange={(_, v) => setProb(v as number)} sx={{ color: QMS_COLOR }} />
             </Box>
             <Box>
-              <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', mb: 1 }}>Impacto: {imp} — {IMP_LABELS[imp]}</Typography>
+              <Typography sx={{ fontSize: 12, color: 'text.secondary', mb: 1 }}>Impacto: {imp} — {IMP_LABELS[imp]}</Typography>
               <Slider value={imp} min={1} max={5} step={1} marks onChange={(_, v) => setImp(v as number)} sx={{ color: QMS_COLOR }} />
             </Box>
             <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: alpha(nivelColor(nivel), 0.1), border: `1px solid ${alpha(nivelColor(nivel), 0.3)}` }}>
               <Typography sx={{ fontSize: 13, fontWeight: 700, color: nivelColor(nivel) }}>Nivel de Riesgo: {nivel} — {nivel >= 15 ? 'CRÍTICO' : nivel >= 10 ? 'ALTO' : nivel >= 5 ? 'MEDIO' : 'BAJO'}</Typography>
             </Box>
-            <TextField label="Controles Existentes" multiline rows={2} fullWidth size="small" InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
-            <TextField label="Responsable" fullWidth size="small" InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
+            <TextField label="Controles Existentes" multiline rows={2} fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
+            <TextField label="Responsable" fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setOpenDialog(false)} sx={{ color: 'rgba(255,255,255,0.5)' }}>Cancelar</Button>
+            <Button onClick={() => setOpenDialog(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>
             <Button variant="contained" onClick={() => setOpenDialog(false)} sx={{ bgcolor: QMS_COLOR, '&:hover': { bgcolor: '#047857' } }}>Guardar</Button>
           </DialogActions>
         </Dialog>

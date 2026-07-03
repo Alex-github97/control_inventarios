@@ -44,11 +44,11 @@ const AUDITORIAS = [
 interface KPICardProps { label: string; value: string; color?: string; icon?: React.ReactNode; trend?: number }
 function KPICard({ label, value, color = QMS_COLOR, icon, trend }: KPICardProps) {
   return (
-    <Card sx={{ bgcolor: '#0F1E35', border: '1px solid rgba(59,130,246,0.18)', borderRadius: 2 }}>
+    <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
       <CardContent sx={{ p: '16px !important' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Box>
-            <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</Typography>
+            <Typography sx={{ fontSize: 11, color: 'text.disabled', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</Typography>
             <Typography sx={{ fontSize: 26, fontWeight: 800, color, lineHeight: 1 }}>{value}</Typography>
             {trend !== undefined && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
@@ -76,8 +76,8 @@ export default function QMSDashboard() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <WorkspacePremium sx={{ color: QMS_COLOR, fontSize: 28 }} />
             <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#FFF', lineHeight: 1 }}>Torre de Control de Calidad</Typography>
-              <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>QMS · Indicadores en tiempo real</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Torre de Control de Calidad</Typography>
+              <Typography sx={{ fontSize: 12, color: 'text.disabled' }}>QMS · Indicadores en tiempo real</Typography>
             </Box>
             <Chip label="QMS" size="small" sx={{ bgcolor: alpha(QMS_COLOR, 0.15), color: QMS_COLOR, fontWeight: 700, border: `1px solid ${alpha(QMS_COLOR, 0.3)}` }} />
           </Box>
@@ -101,17 +101,17 @@ export default function QMSDashboard() {
         <Grid container spacing={2} sx={{ mb: 3 }}>
           {/* ISO Compliance */}
           <Grid size={{ xs: 12, md: 5 }}>
-            <Card sx={{ bgcolor: '#111827', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 2, height: '100%' }}>
+            <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2, height: '100%' }}>
               <CardContent>
-                <Typography sx={{ fontWeight: 700, color: '#FFF', mb: 2 }}>Cumplimiento ISO</Typography>
+                <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 2 }}>Cumplimiento ISO</Typography>
                 {ISO_STANDARDS.map(s => (
                   <Box key={s.name} sx={{ mb: 1.5 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                      <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>{s.name}</Typography>
+                      <Typography sx={{ fontSize: 12, color: 'text.secondary', fontWeight: 600 }}>{s.name}</Typography>
                       <Typography sx={{ fontSize: 12, color: s.pct >= 90 ? QMS_COLOR : s.pct >= 80 ? '#D97706' : '#DC2626', fontWeight: 700 }}>{s.pct}%</Typography>
                     </Box>
                     <LinearProgress variant="determinate" value={s.pct}
-                      sx={{ height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.08)',
+                      sx={{ height: 6, borderRadius: 3, bgcolor: '#E2E8F0',
                         '& .MuiLinearProgress-bar': { bgcolor: s.pct >= 90 ? QMS_COLOR : s.pct >= 80 ? '#D97706' : '#DC2626', borderRadius: 3 } }} />
                   </Box>
                 ))}
@@ -121,15 +121,15 @@ export default function QMSDashboard() {
 
           {/* NC Trend */}
           <Grid size={{ xs: 12, md: 4 }}>
-            <Card sx={{ bgcolor: '#111827', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 2, height: '100%' }}>
+            <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2, height: '100%' }}>
               <CardContent>
-                <Typography sx={{ fontWeight: 700, color: '#FFF', mb: 2 }}>Tendencia NC · Últimos 6 meses</Typography>
+                <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 2 }}>Tendencia NC · Últimos 6 meses</Typography>
                 <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1, height: 100, px: 1 }}>
                   {NC_TREND.map(d => (
                     <Box key={d.mes} sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
                       <Typography sx={{ fontSize: 10, color: '#DC2626', fontWeight: 700 }}>{d.nc}</Typography>
                       <Box sx={{ width: '100%', height: `${(d.nc / maxNC) * 80}px`, bgcolor: alpha('#DC2626', 0.7), borderRadius: '4px 4px 0 0' }} />
-                      <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{d.mes}</Typography>
+                      <Typography sx={{ fontSize: 10, color: 'text.disabled' }}>{d.mes}</Typography>
                     </Box>
                   ))}
                 </Box>
@@ -139,17 +139,17 @@ export default function QMSDashboard() {
 
           {/* Alertas */}
           <Grid size={{ xs: 12, md: 3 }}>
-            <Card sx={{ bgcolor: '#111827', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 2, height: '100%' }}>
+            <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2, height: '100%' }}>
               <CardContent sx={{ p: '16px !important' }}>
-                <Typography sx={{ fontWeight: 700, color: '#FFF', mb: 1.5 }}>Alertas de Calidad</Typography>
+                <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 1.5 }}>Alertas de Calidad</Typography>
                 <List dense disablePadding>
                   {ALERTAS.map((a, i) => (
                     <ListItem key={i} disablePadding sx={{ mb: 1, flexDirection: 'column', alignItems: 'flex-start' }}>
                       <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', width: '100%' }}>
                         <Chip label={a.nivel} size="small" sx={{ bgcolor: alpha(a.color, 0.15), color: a.color, fontSize: 9, fontWeight: 700, height: 18 }} />
                       </Box>
-                      <Typography sx={{ fontSize: 11.5, color: 'rgba(255,255,255,0.6)', mt: 0.25, pl: 0.5 }}>{a.texto}</Typography>
-                      {i < ALERTAS.length - 1 && <Divider sx={{ mt: 1, width: '100%', borderColor: 'rgba(255,255,255,0.05)' }} />}
+                      <Typography sx={{ fontSize: 11.5, color: 'text.secondary', mt: 0.25, pl: 0.5 }}>{a.texto}</Typography>
+                      {i < ALERTAS.length - 1 && <Divider sx={{ mt: 1, width: '100%', borderColor: '#F1F5F9' }} />}
                     </ListItem>
                   ))}
                 </List>
@@ -159,19 +159,19 @@ export default function QMSDashboard() {
         </Grid>
 
         {/* Próximas Auditorías */}
-        <Card sx={{ bgcolor: '#111827', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 2 }}>
+        <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
           <CardContent>
-            <Typography sx={{ fontWeight: 700, color: '#FFF', mb: 2 }}>Próximas Auditorías</Typography>
+            <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 2 }}>Próximas Auditorías</Typography>
             <Paper sx={{ bgcolor: 'transparent' }}>
               <Table size="small">
                 <TableHead>
-                  <TableRow sx={{ '& th': { borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' } }}>
+                  <TableRow sx={{ '& th': { borderColor: '#F1F5F9', color: 'text.disabled', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' } }}>
                     <TableCell>Código</TableCell><TableCell>Nombre</TableCell><TableCell>Tipo</TableCell><TableCell>Fecha</TableCell><TableCell>Estado</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {AUDITORIAS.map(a => (
-                    <TableRow key={a.codigo} sx={{ '& td': { borderColor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.7)', fontSize: 12.5 } }}>
+                    <TableRow key={a.codigo} sx={{ '& td': { borderColor: '#F9FAFB', color: 'text.secondary', fontSize: 12.5 } }}>
                       <TableCell><Typography sx={{ fontSize: 12, fontFamily: 'monospace', color: QMS_COLOR }}>{a.codigo}</Typography></TableCell>
                       <TableCell>{a.nombre}</TableCell>
                       <TableCell><Chip label={a.tipo} size="small" sx={{ fontSize: 10, height: 20 }} /></TableCell>

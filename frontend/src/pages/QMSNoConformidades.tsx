@@ -63,8 +63,8 @@ export default function QMSNoConformidades() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <BugReport sx={{ color: QMS_COLOR, fontSize: 28 }} />
             <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#FFF', lineHeight: 1 }}>No Conformidades</Typography>
-              <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>QMS · Ciclo NC → CAPA → Cierre</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>No Conformidades</Typography>
+              <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>QMS · Ciclo NC → CAPA → Cierre</Typography>
             </Box>
             <Chip label="QMS" size="small" sx={{ bgcolor: alpha(QMS_COLOR, 0.15), color: QMS_COLOR, fontWeight: 700, border: `1px solid ${alpha(QMS_COLOR, 0.3)}` }} />
           </Box>
@@ -83,17 +83,17 @@ export default function QMSNoConformidades() {
             { label: 'Cerradas este mes', value: '9', color: QMS_COLOR },
           ].map(k => (
             <Grid key={k.label} size={{ xs: 6, sm: 4, md: 'auto' }} sx={{ flex: 1 }}>
-              <Card sx={{ bgcolor: '#0F1E35', border: '1px solid rgba(59,130,246,0.18)', borderRadius: 2 }}>
+              <Card sx={{ bgcolor: 'text.primary', border: '1px solid rgba(59,130,246,0.18)', borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important', textAlign: 'center' }}>
                   <Typography sx={{ fontSize: 26, fontWeight: 800, color: k.color }}>{k.value}</Typography>
-                  <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>{k.label}</Typography>
+                  <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{k.label}</Typography>
                 </CardContent>
               </Card>
             </Grid>
           ))}
         </Grid>
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid rgba(255,255,255,0.08)', '& .MuiTab-root': { color: 'rgba(255,255,255,0.45)', fontSize: 13 }, '& .Mui-selected': { color: QMS_COLOR }, '& .MuiTabs-indicator': { bgcolor: QMS_COLOR } }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid #F1F5F9', '& .MuiTab-root': { color: 'text.secondary', fontSize: 13 }, '& .Mui-selected': { color: QMS_COLOR }, '& .MuiTabs-indicator': { bgcolor: QMS_COLOR } }}>
           <Tab label="No Conformidades" />
           <Tab label="Acciones CAPA" />
           <Tab label="Análisis" />
@@ -115,13 +115,13 @@ export default function QMSNoConformidades() {
           <Paper sx={{ bgcolor: 'transparent' }}>
             <Table size="small">
               <TableHead>
-                <TableRow sx={{ '& th': { borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
+                <TableRow sx={{ '& th': { borderColor: '#E5E7EB', color: 'text.secondary', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
                   <TableCell>Código</TableCell><TableCell>Título</TableCell><TableCell>Clasif.</TableCell><TableCell>Origen</TableCell><TableCell>Proceso</TableCell><TableCell>Responsable</TableCell><TableCell>Límite</TableCell><TableCell>Estado</TableCell><TableCell>CAPA</TableCell><TableCell sx={{ width: 80 }}>Acc.</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {ncFiltradas.map(nc => (
-                  <TableRow key={nc.codigo} sx={{ '& td': { borderColor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.7)', fontSize: 12 } }}>
+                  <TableRow key={nc.codigo} sx={{ '& td': { borderColor: '#E5E7EB', color: 'text.primary', fontSize: 12 } }}>
                     <TableCell><Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: QMS_COLOR }}>{nc.codigo}</Typography></TableCell>
                     <TableCell sx={{ maxWidth: 200 }}><Typography sx={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nc.titulo}</Typography></TableCell>
                     <TableCell><Chip label={nc.clas} size="small" sx={{ fontSize: 9, height: 18, bgcolor: alpha(CLS_COLOR[nc.clas], 0.15), color: CLS_COLOR[nc.clas], fontWeight: 700 }} /></TableCell>
@@ -132,8 +132,8 @@ export default function QMSNoConformidades() {
                     <TableCell><Chip label={nc.estado.replace('_', ' ')} size="small" sx={{ fontSize: 9, height: 18, bgcolor: alpha(EST_COLOR[nc.estado], 0.15), color: EST_COLOR[nc.estado], fontWeight: 700 }} /></TableCell>
                     <TableCell sx={{ fontSize: 11, color: nc.capa ? '#D97706' : 'rgba(255,255,255,0.3)' }}>{nc.capa || '-'}</TableCell>
                     <TableCell>
-                      <IconButton size="small" sx={{ color: 'rgba(255,255,255,0.4)' }}><Visibility sx={{ fontSize: 14 }} /></IconButton>
-                      <IconButton size="small" sx={{ color: 'rgba(255,255,255,0.4)' }}><Edit sx={{ fontSize: 14 }} /></IconButton>
+                      <IconButton size="small" sx={{ color: 'text.secondary' }}><Visibility sx={{ fontSize: 14 }} /></IconButton>
+                      <IconButton size="small" sx={{ color: 'text.secondary' }}><Edit sx={{ fontSize: 14 }} /></IconButton>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -146,13 +146,13 @@ export default function QMSNoConformidades() {
           <Paper sx={{ bgcolor: 'transparent' }}>
             <Table size="small">
               <TableHead>
-                <TableRow sx={{ '& th': { borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
+                <TableRow sx={{ '& th': { borderColor: '#E5E7EB', color: 'text.secondary', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
                   <TableCell>Código</TableCell><TableCell>Tipo</TableCell><TableCell>Título</TableCell><TableCell>NC Origen</TableCell><TableCell>Responsable</TableCell><TableCell>Fecha Límite</TableCell><TableCell>Avance</TableCell><TableCell>Estado</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {CAPAS.map(c => (
-                  <TableRow key={c.codigo} sx={{ '& td': { borderColor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.7)', fontSize: 12 } }}>
+                  <TableRow key={c.codigo} sx={{ '& td': { borderColor: '#E5E7EB', color: 'text.primary', fontSize: 12 } }}>
                     <TableCell><Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: '#D97706' }}>{c.codigo}</Typography></TableCell>
                     <TableCell><Chip label={c.tipo} size="small" sx={{ fontSize: 9, height: 18, bgcolor: alpha(TIPO_CAPA_COLOR[c.tipo], 0.15), color: TIPO_CAPA_COLOR[c.tipo], fontWeight: 700 }} /></TableCell>
                     <TableCell sx={{ maxWidth: 220 }}><Typography sx={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.titulo}</Typography></TableCell>
@@ -161,7 +161,7 @@ export default function QMSNoConformidades() {
                     <TableCell sx={{ fontSize: 11 }}>{c.limite}</TableCell>
                     <TableCell sx={{ minWidth: 120 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <LinearProgress variant="determinate" value={c.avance} sx={{ flex: 1, height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.08)', '& .MuiLinearProgress-bar': { bgcolor: c.avance === 100 ? QMS_COLOR : '#D97706' } }} />
+                        <LinearProgress variant="determinate" value={c.avance} sx={{ flex: 1, height: 6, borderRadius: 3, bgcolor: '#F1F5F9', '& .MuiLinearProgress-bar': { bgcolor: c.avance === 100 ? QMS_COLOR : '#D97706' } }} />
                         <Typography sx={{ fontSize: 11, minWidth: 30 }}>{c.avance}%</Typography>
                       </Box>
                     </TableCell>
@@ -176,32 +176,32 @@ export default function QMSNoConformidades() {
         <TabPanel value={tab} index={2}>
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, md: 4 }}>
-              <Card sx={{ bgcolor: '#111827', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 2 }}>
+              <Card sx={{ bgcolor: '#111827', border: '1px solid #E5E7EB', borderRadius: 2 }}>
                 <CardContent>
-                  <Typography sx={{ fontWeight: 700, color: '#FFF', mb: 2 }}>NC por Origen</Typography>
+                  <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 2 }}>NC por Origen</Typography>
                   {NC_ORIGEN_DATA.map(d => (
                     <Box key={d.origen} sx={{ mb: 1.5 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                        <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>{d.origen}</Typography>
+                        <Typography sx={{ fontSize: 12, color: 'text.primary' }}>{d.origen}</Typography>
                         <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#DC2626' }}>{d.count}</Typography>
                       </Box>
-                      <LinearProgress variant="determinate" value={(d.count / maxOrigen) * 100} sx={{ height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.08)', '& .MuiLinearProgress-bar': { bgcolor: '#DC2626' } }} />
+                      <LinearProgress variant="determinate" value={(d.count / maxOrigen) * 100} sx={{ height: 6, borderRadius: 3, bgcolor: '#F1F5F9', '& .MuiLinearProgress-bar': { bgcolor: '#DC2626' } }} />
                     </Box>
                   ))}
                 </CardContent>
               </Card>
             </Grid>
             <Grid size={{ xs: 12, md: 4 }}>
-              <Card sx={{ bgcolor: '#111827', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 2 }}>
+              <Card sx={{ bgcolor: '#111827', border: '1px solid #E5E7EB', borderRadius: 2 }}>
                 <CardContent>
-                  <Typography sx={{ fontWeight: 700, color: '#FFF', mb: 2 }}>NC por Clasificación</Typography>
+                  <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 2 }}>NC por Clasificación</Typography>
                   {[{ label: 'Menor', pct: 45, color: '#0369A1' }, { label: 'Mayor', pct: 40, color: '#EA580C' }, { label: 'Crítica', pct: 15, color: '#DC2626' }].map(c => (
                     <Box key={c.label} sx={{ mb: 1.5 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                        <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>{c.label}</Typography>
+                        <Typography sx={{ fontSize: 12, color: 'text.primary' }}>{c.label}</Typography>
                         <Typography sx={{ fontSize: 12, fontWeight: 700, color: c.color }}>{c.pct}%</Typography>
                       </Box>
-                      <Box sx={{ width: '100%', height: 8, borderRadius: 4, bgcolor: 'rgba(255,255,255,0.08)' }}>
+                      <Box sx={{ width: '100%', height: 8, borderRadius: 4, bgcolor: '#F1F5F9' }}>
                         <Box sx={{ width: `${c.pct}%`, height: '100%', borderRadius: 4, bgcolor: c.color }} />
                       </Box>
                     </Box>
@@ -210,25 +210,25 @@ export default function QMSNoConformidades() {
               </Card>
             </Grid>
             <Grid size={{ xs: 12, md: 4 }}>
-              <Card sx={{ bgcolor: '#111827', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 2 }}>
+              <Card sx={{ bgcolor: '#111827', border: '1px solid #E5E7EB', borderRadius: 2 }}>
                 <CardContent>
-                  <Typography sx={{ fontWeight: 700, color: '#FFF', mb: 2 }}>Tendencia NC vs Cerradas</Typography>
+                  <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 2 }}>Tendencia NC vs Cerradas</Typography>
                   {[
                     { mes: 'Ene', nc: 4, cerradas: 5 }, { mes: 'Feb', nc: 7, cerradas: 4 }, { mes: 'Mar', nc: 3, cerradas: 6 },
                     { mes: 'Abr', nc: 9, cerradas: 7 }, { mes: 'May', nc: 5, cerradas: 8 }, { mes: 'Jun', nc: 7, cerradas: 9 },
                   ].map(d => (
                     <Box key={d.mes} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75 }}>
-                      <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', width: 28 }}>{d.mes}</Typography>
+                      <Typography sx={{ fontSize: 11, color: 'text.secondary', width: 28 }}>{d.mes}</Typography>
                       <Box sx={{ flex: 1, display: 'flex', gap: 0.5 }}>
                         <Box sx={{ height: 10, width: `${(d.nc / 9) * 100}%`, maxWidth: '50%', bgcolor: alpha('#DC2626', 0.7), borderRadius: 1 }} />
                         <Box sx={{ height: 10, width: `${(d.cerradas / 9) * 100}%`, maxWidth: '50%', bgcolor: alpha(QMS_COLOR, 0.7), borderRadius: 1 }} />
                       </Box>
-                      <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{d.nc}/{d.cerradas}</Typography>
+                      <Typography sx={{ fontSize: 10, color: 'text.secondary' }}>{d.nc}/{d.cerradas}</Typography>
                     </Box>
                   ))}
                   <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><Box sx={{ width: 10, height: 10, bgcolor: '#DC2626', borderRadius: 1 }} /><Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>Abiertas</Typography></Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><Box sx={{ width: 10, height: 10, bgcolor: QMS_COLOR, borderRadius: 1 }} /><Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>Cerradas</Typography></Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><Box sx={{ width: 10, height: 10, bgcolor: '#DC2626', borderRadius: 1 }} /><Typography sx={{ fontSize: 10, color: 'text.secondary' }}>Abiertas</Typography></Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><Box sx={{ width: 10, height: 10, bgcolor: QMS_COLOR, borderRadius: 1 }} /><Typography sx={{ fontSize: 10, color: 'text.secondary' }}>Cerradas</Typography></Box>
                   </Box>
                 </CardContent>
               </Card>
@@ -236,34 +236,34 @@ export default function QMSNoConformidades() {
           </Grid>
         </TabPanel>
 
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: '#FFF' } }}>
+        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary' } }}>
           <DialogTitle sx={{ fontWeight: 700 }}>Registrar No Conformidad</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
-            <TextField label="Título" fullWidth size="small" InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
-            <TextField label="Descripción" multiline rows={3} fullWidth size="small" InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
+            <TextField label="Título" fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
+            <TextField label="Descripción" multiline rows={3} fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl size="small" fullWidth>
-                  <InputLabel sx={{ color: 'rgba(255,255,255,0.5)' }}>Clasificación</InputLabel>
-                  <Select label="Clasificación" defaultValue="" sx={{ color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } }}>
+                  <InputLabel sx={{ color: 'text.secondary' }}>Clasificación</InputLabel>
+                  <Select label="Clasificación" defaultValue="" sx={{ color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } }}>
                     {['MENOR', 'MAYOR', 'CRITICA'].map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
                   </Select>
                 </FormControl>
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl size="small" fullWidth>
-                  <InputLabel sx={{ color: 'rgba(255,255,255,0.5)' }}>Origen</InputLabel>
-                  <Select label="Origen" defaultValue="" sx={{ color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } }}>
+                  <InputLabel sx={{ color: 'text.secondary' }}>Origen</InputLabel>
+                  <Select label="Origen" defaultValue="" sx={{ color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } }}>
                     {['AUDITORIA', 'CLIENTE', 'OPERACION', 'TRANSPORTE', 'WMS', 'HCM', 'PROVEEDOR'].map(o => <MenuItem key={o} value={o}>{o}</MenuItem>)}
                   </Select>
                 </FormControl>
               </Grid>
             </Grid>
-            <TextField label="Responsable" fullWidth size="small" InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
-            <TextField label="Fecha Límite" type="date" fullWidth size="small" InputLabelProps={{ shrink: true, sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
+            <TextField label="Responsable" fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
+            <TextField label="Fecha Límite" type="date" fullWidth size="small" InputLabelProps={{ shrink: true, sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setOpenDialog(false)} sx={{ color: 'rgba(255,255,255,0.5)' }}>Cancelar</Button>
+            <Button onClick={() => setOpenDialog(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>
             <Button variant="contained" onClick={() => setOpenDialog(false)} sx={{ bgcolor: QMS_COLOR, '&:hover': { bgcolor: '#047857' } }}>Guardar</Button>
           </DialogActions>
         </Dialog>

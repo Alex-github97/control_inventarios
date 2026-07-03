@@ -47,8 +47,8 @@ export default function QMSMejora() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <TrendingUp sx={{ color: QMS_COLOR, fontSize: 28 }} />
             <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#FFF', lineHeight: 1 }}>Mejora Continua</Typography>
-              <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>QMS · Iniciativas · Kaizen · PDCA</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Mejora Continua</Typography>
+              <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>QMS · Iniciativas · Kaizen · PDCA</Typography>
             </Box>
             <Chip label="QMS" size="small" sx={{ bgcolor: alpha(QMS_COLOR, 0.15), color: QMS_COLOR, fontWeight: 700, border: `1px solid ${alpha(QMS_COLOR, 0.3)}` }} />
           </Box>
@@ -65,17 +65,17 @@ export default function QMSMejora() {
             { label: 'Avance Promedio', value: `${Math.round(MEJORAS.filter(m => m.estado === 'en_curso').reduce((s, m) => s + m.avance, 0) / Math.max(MEJORAS.filter(m => m.estado === 'en_curso').length, 1))}%`, color: QMS_COLOR },
           ].map(k => (
             <Grid key={k.label} size={{ xs: 6, md: 3 }}>
-              <Card sx={{ bgcolor: '#0F1E35', border: '1px solid rgba(59,130,246,0.18)', borderRadius: 2 }}>
+              <Card sx={{ bgcolor: 'text.primary', border: '1px solid rgba(59,130,246,0.18)', borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important', textAlign: 'center' }}>
                   <Typography sx={{ fontSize: 26, fontWeight: 800, color: k.color }}>{k.value}</Typography>
-                  <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>{k.label}</Typography>
+                  <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{k.label}</Typography>
                 </CardContent>
               </Card>
             </Grid>
           ))}
         </Grid>
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid rgba(255,255,255,0.08)', '& .MuiTab-root': { color: 'rgba(255,255,255,0.45)', fontSize: 13 }, '& .Mui-selected': { color: QMS_COLOR }, '& .MuiTabs-indicator': { bgcolor: QMS_COLOR } }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid #F1F5F9', '& .MuiTab-root': { color: 'text.secondary', fontSize: 13 }, '& .Mui-selected': { color: QMS_COLOR }, '& .MuiTabs-indicator': { bgcolor: QMS_COLOR } }}>
           <Tab label="Kanban" />
           <Tab label="Lista" />
         </Tabs>
@@ -97,18 +97,18 @@ export default function QMSMejora() {
                           <Typography sx={{ fontSize: 10, fontFamily: 'monospace', color: col.color }}>{m.codigo}</Typography>
                           <Chip label={m.tipo} size="small" sx={{ fontSize: 8, height: 16, bgcolor: alpha(TIPO_COLOR[m.tipo] || '#888', 0.15), color: TIPO_COLOR[m.tipo] || '#888' }} />
                         </Box>
-                        <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#FFF', mb: 0.5, lineHeight: 1.35 }}>{m.titulo}</Typography>
-                        <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', mb: 1 }}>{m.proceso} · {m.responsable}</Typography>
+                        <Typography sx={{ fontSize: 12, fontWeight: 700, color: 'text.primary', mb: 0.5, lineHeight: 1.35 }}>{m.titulo}</Typography>
+                        <Typography sx={{ fontSize: 10, color: 'text.secondary', mb: 1 }}>{m.proceso} · {m.responsable}</Typography>
                         {m.estado !== 'pendiente' && (
                           <Box>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.25 }}>
-                              <Typography sx={{ fontSize: 9, color: 'rgba(255,255,255,0.4)' }}>Avance</Typography>
+                              <Typography sx={{ fontSize: 9, color: 'text.secondary' }}>Avance</Typography>
                               <Typography sx={{ fontSize: 9, fontWeight: 700, color: col.color }}>{m.avance}%</Typography>
                             </Box>
-                            <LinearProgress variant="determinate" value={m.avance} sx={{ height: 4, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.08)', '& .MuiLinearProgress-bar': { bgcolor: col.color } }} />
+                            <LinearProgress variant="determinate" value={m.avance} sx={{ height: 4, borderRadius: 2, bgcolor: '#F1F5F9', '& .MuiLinearProgress-bar': { bgcolor: col.color } }} />
                           </Box>
                         )}
-                        <Typography sx={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', mt: 0.75 }}>{m.beneficio}</Typography>
+                        <Typography sx={{ fontSize: 9, color: 'text.disabled', mt: 0.75 }}>{m.beneficio}</Typography>
                       </CardContent>
                     </Card>
                   ))}
@@ -121,7 +121,7 @@ export default function QMSMejora() {
         <TabPanel value={tab} index={1}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             {MEJORAS.map(m => (
-              <Card key={m.codigo} sx={{ bgcolor: '#111827', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 2 }}>
+              <Card key={m.codigo} sx={{ bgcolor: '#111827', border: '1px solid #E5E7EB', borderRadius: 2 }}>
                 <CardContent sx={{ p: '12px !important' }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <Box sx={{ flex: 1 }}>
@@ -130,13 +130,13 @@ export default function QMSMejora() {
                         <Chip label={m.tipo} size="small" sx={{ fontSize: 9, height: 18, bgcolor: alpha(TIPO_COLOR[m.tipo] || '#888', 0.15), color: TIPO_COLOR[m.tipo] || '#888' }} />
                         <Chip label={m.estado.replace('_', ' ')} size="small" sx={{ fontSize: 9, height: 18, bgcolor: alpha(EST_COLOR[m.estado], 0.15), color: EST_COLOR[m.estado] }} />
                       </Box>
-                      <Typography sx={{ fontWeight: 700, color: '#FFF', fontSize: 13, mb: 0.25 }}>{m.titulo}</Typography>
-                      <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>{m.proceso} · {m.responsable} · Fecha límite: {m.fecha}</Typography>
-                      <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', mt: 0.25 }}>{m.beneficio}</Typography>
+                      <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 13, mb: 0.25 }}>{m.titulo}</Typography>
+                      <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{m.proceso} · {m.responsable} · Fecha límite: {m.fecha}</Typography>
+                      <Typography sx={{ fontSize: 11, color: 'text.disabled', mt: 0.25 }}>{m.beneficio}</Typography>
                     </Box>
                     <Box sx={{ ml: 2, minWidth: 120, textAlign: 'right' }}>
                       <Typography sx={{ fontSize: 18, fontWeight: 800, color: EST_COLOR[m.estado] }}>{m.avance}%</Typography>
-                      <LinearProgress variant="determinate" value={m.avance} sx={{ height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.08)', '& .MuiLinearProgress-bar': { bgcolor: EST_COLOR[m.estado] } }} />
+                      <LinearProgress variant="determinate" value={m.avance} sx={{ height: 6, borderRadius: 3, bgcolor: '#F1F5F9', '& .MuiLinearProgress-bar': { bgcolor: EST_COLOR[m.estado] } }} />
                     </Box>
                   </Box>
                 </CardContent>
@@ -145,23 +145,23 @@ export default function QMSMejora() {
           </Box>
         </TabPanel>
 
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: '#FFF' } }}>
+        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary' } }}>
           <DialogTitle sx={{ fontWeight: 700 }}>Nueva Iniciativa de Mejora</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
-            <TextField label="Título" fullWidth size="small" InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
+            <TextField label="Título" fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
             <FormControl size="small" fullWidth>
-              <InputLabel sx={{ color: 'rgba(255,255,255,0.5)' }}>Tipo de Mejora</InputLabel>
-              <Select label="Tipo de Mejora" defaultValue="" sx={{ color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } }}>
+              <InputLabel sx={{ color: 'text.secondary' }}>Tipo de Mejora</InputLabel>
+              <Select label="Tipo de Mejora" defaultValue="" sx={{ color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } }}>
                 {Object.keys(TIPO_COLOR).map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
               </Select>
             </FormControl>
-            <TextField label="Proceso Impactado" fullWidth size="small" InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
-            <TextField label="Responsable" fullWidth size="small" InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
-            <TextField label="Beneficio Esperado" multiline rows={2} fullWidth size="small" InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
-            <TextField label="Fecha Límite" type="date" fullWidth size="small" InputLabelProps={{ shrink: true, sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
+            <TextField label="Proceso Impactado" fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
+            <TextField label="Responsable" fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
+            <TextField label="Beneficio Esperado" multiline rows={2} fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
+            <TextField label="Fecha Límite" type="date" fullWidth size="small" InputLabelProps={{ shrink: true, sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setOpenDialog(false)} sx={{ color: 'rgba(255,255,255,0.5)' }}>Cancelar</Button>
+            <Button onClick={() => setOpenDialog(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>
             <Button variant="contained" onClick={() => setOpenDialog(false)} sx={{ bgcolor: QMS_COLOR, '&:hover': { bgcolor: '#047857' } }}>Guardar</Button>
           </DialogActions>
         </Dialog>

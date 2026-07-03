@@ -41,8 +41,8 @@ export default function QMSConfig() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <SettingsSuggest sx={{ color: QMS_COLOR, fontSize: 28 }} />
             <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#FFF', lineHeight: 1 }}>Configuración QMS</Typography>
-              <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>QMS · Normas ISO · Umbrales · Notificaciones</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Configuración QMS</Typography>
+              <Typography sx={{ fontSize: 12, color: 'text.disabled' }}>QMS · Normas ISO · Umbrales · Notificaciones</Typography>
             </Box>
             <Chip label="QMS" size="small" sx={{ bgcolor: alpha(QMS_COLOR, 0.15), color: QMS_COLOR, fontWeight: 700, border: `1px solid ${alpha(QMS_COLOR, 0.3)}` }} />
           </Box>
@@ -51,7 +51,7 @@ export default function QMSConfig() {
           </Button>
         </Box>
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid rgba(255,255,255,0.08)', '& .MuiTab-root': { color: 'rgba(255,255,255,0.45)', fontSize: 13 }, '& .Mui-selected': { color: QMS_COLOR }, '& .MuiTabs-indicator': { bgcolor: QMS_COLOR } }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid #F1F5F9', '& .MuiTab-root': { color: 'text.disabled', fontSize: 13 }, '& .Mui-selected': { color: QMS_COLOR }, '& .MuiTabs-indicator': { bgcolor: QMS_COLOR } }}>
           <Tab label="Normas ISO" />
           <Tab label="Umbrales" />
           <Tab label="Notificaciones" />
@@ -62,27 +62,27 @@ export default function QMSConfig() {
           <Grid container spacing={2}>
             {ISO_NORMAS.map(n => (
               <Grid key={n.codigo} size={{ xs: 12, md: 6 }}>
-                <Card sx={{ bgcolor: '#111827', border: `1px solid ${n.activa ? alpha(QMS_COLOR, 0.25) : 'rgba(255,255,255,0.07)'}`, borderRadius: 2 }}>
+                <Card sx={{ border: `1px solid ${n.activa ? alpha(QMS_COLOR, 0.25) : '#E5E7EB'}`, borderRadius: 2 }}>
                   <CardContent sx={{ p: '16px !important' }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
                       <Box>
-                        <Typography sx={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 700, color: n.activa ? QMS_COLOR : 'rgba(255,255,255,0.4)' }}>{n.codigo}</Typography>
-                        <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#FFF' }}>{n.titulo}</Typography>
+                        <Typography sx={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 700, color: n.activa ? QMS_COLOR : 'text.disabled' }}>{n.codigo}</Typography>
+                        <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary' }}>{n.titulo}</Typography>
                       </Box>
-                      <Chip label={n.activa ? 'Activa' : 'No activa'} size="small" sx={{ height: 22, fontSize: 10, bgcolor: n.activa ? alpha(QMS_COLOR, 0.15) : 'rgba(255,255,255,0.06)', color: n.activa ? QMS_COLOR : 'rgba(255,255,255,0.35)', fontWeight: 700 }} />
+                      <Chip label={n.activa ? 'Activa' : 'No activa'} size="small" sx={{ height: 22, fontSize: 10, bgcolor: n.activa ? alpha(QMS_COLOR, 0.15) : '#F1F5F9', color: n.activa ? QMS_COLOR : 'text.disabled', fontWeight: 700 }} />
                     </Box>
-                    <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)', mb: 1.5 }} />
+                    <Divider sx={{ borderColor: '#F1F5F9', mb: 1.5 }} />
                     <Grid container spacing={1}>
                       {[['Certificadora', n.certificadora], ['Vigente desde', n.desde], ['Vence', n.vence]].map(([l, v]) => (
                         <Grid key={l as string} size={{ xs: 4 }}>
-                          <Typography sx={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase' }}>{l}</Typography>
-                          <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>{v}</Typography>
+                          <Typography sx={{ fontSize: 9, color: 'text.disabled', textTransform: 'uppercase' }}>{l}</Typography>
+                          <Typography sx={{ fontSize: 11, color: 'text.secondary', fontWeight: 600 }}>{v}</Typography>
                         </Grid>
                       ))}
                     </Grid>
-                    <Box sx={{ mt: 1.5, p: 1, borderRadius: 1, bgcolor: 'rgba(255,255,255,0.03)' }}>
-                      <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', mb: 0.25 }}>ALCANCE</Typography>
-                      <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', lineHeight: 1.4 }}>{n.scope}</Typography>
+                    <Box sx={{ mt: 1.5, p: 1, borderRadius: 1, bgcolor: '#F9FAFB' }}>
+                      <Typography sx={{ fontSize: 10, color: 'text.disabled', mb: 0.25 }}>ALCANCE</Typography>
+                      <Typography sx={{ fontSize: 11, color: 'text.secondary', lineHeight: 1.4 }}>{n.scope}</Typography>
                     </Box>
                   </CardContent>
                 </Card>
@@ -94,9 +94,9 @@ export default function QMSConfig() {
         <TabPanel value={tab} index={1}>
           <Grid container spacing={3}>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ bgcolor: '#111827', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 2 }}>
+              <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
                 <CardContent>
-                  <Typography sx={{ fontWeight: 700, color: '#FFF', mb: 2 }}>Umbrales de Alerta</Typography>
+                  <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 2 }}>Umbrales de Alerta</Typography>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                     {[
                       { label: 'NC máx. por período (antes de alerta)', value: umbralNc, setter: setUmbralNc, min: 1, max: 50, unit: 'NCs', color: '#DC2626' },
@@ -106,7 +106,7 @@ export default function QMSConfig() {
                     ].map(t => (
                       <Box key={t.label}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                          <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>{t.label}</Typography>
+                          <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{t.label}</Typography>
                           <Typography sx={{ fontSize: 14, fontWeight: 800, color: t.color }}>{t.value}{t.unit}</Typography>
                         </Box>
                         <Slider value={t.value} min={t.min} max={t.max} step={1} onChange={(_, v) => t.setter(v as number)} sx={{ color: t.color }} />
@@ -118,9 +118,9 @@ export default function QMSConfig() {
             </Grid>
 
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ bgcolor: '#111827', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 2 }}>
+              <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
                 <CardContent>
-                  <Typography sx={{ fontWeight: 700, color: '#FFF', mb: 2 }}>Plazos Estándar</Typography>
+                  <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 2 }}>Plazos Estándar</Typography>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     {[
                       { label: 'Días máx. para respuesta a PQRS', placeholder: '15' },
@@ -129,7 +129,7 @@ export default function QMSConfig() {
                       { label: 'Frecuencia auditoría interna (días)', placeholder: '90' },
                       { label: 'Período de evaluación proveedores', placeholder: 'Trimestral' },
                     ].map(f => (
-                      <TextField key={f.label} label={f.label} placeholder={f.placeholder} size="small" fullWidth InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
+                      <TextField key={f.label} label={f.label} placeholder={f.placeholder} size="small" fullWidth />
                     ))}
                   </Box>
                 </CardContent>
@@ -139,9 +139,9 @@ export default function QMSConfig() {
         </TabPanel>
 
         <TabPanel value={tab} index={2}>
-          <Card sx={{ bgcolor: '#111827', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 2 }}>
+          <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
             <CardContent>
-              <Typography sx={{ fontWeight: 700, color: '#FFF', mb: 2 }}>Notificaciones Automáticas</Typography>
+              <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 2 }}>Notificaciones Automáticas</Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                 {[
                   { label: 'Alerta de NC sin CAPA asignado (> 48h)', on: true },
@@ -154,8 +154,8 @@ export default function QMSConfig() {
                   { label: 'Encuesta completada al 100%', on: false },
                   { label: 'Hallazgo de auditoría sin responsable', on: true },
                 ].map((n, i) => (
-                  <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 0.75, borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                    <Typography sx={{ fontSize: 13, color: 'rgba(255,255,255,0.75)' }}>{n.label}</Typography>
+                  <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 0.75, borderBottom: '1px solid #F9FAFB' }}>
+                    <Typography sx={{ fontSize: 13, color: 'text.primary' }}>{n.label}</Typography>
                     <FormControlLabel control={<Switch defaultChecked={n.on} size="small" sx={{ '& .MuiSwitch-switchBase.Mui-checked': { color: QMS_COLOR }, '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: QMS_COLOR } }} />} label="" />
                   </Box>
                 ))}
@@ -175,13 +175,13 @@ export default function QMSConfig() {
               { nombre: 'ERP Financiero', estado: 'no_conectado', desc: 'Pendiente: costos de no calidad y reclamaciones económicas' },
             ].map(int => (
               <Grid key={int.nombre} size={{ xs: 12, sm: 6, md: 4 }}>
-                <Card sx={{ bgcolor: '#111827', border: `1px solid ${int.estado === 'conectado' ? alpha(QMS_COLOR, 0.22) : int.estado === 'parcial' ? alpha('#D97706', 0.22) : 'rgba(255,255,255,0.07)'}`, borderRadius: 2 }}>
+                <Card sx={{ border: `1px solid ${int.estado === 'conectado' ? alpha(QMS_COLOR, 0.22) : int.estado === 'parcial' ? alpha('#D97706', 0.22) : '#E5E7EB'}`, borderRadius: 2 }}>
                   <CardContent sx={{ p: '14px !important' }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#FFF' }}>{int.nombre}</Typography>
-                      <Chip label={int.estado.replace('_', ' ')} size="small" sx={{ fontSize: 9, height: 18, bgcolor: int.estado === 'conectado' ? alpha(QMS_COLOR, 0.15) : int.estado === 'parcial' ? alpha('#D97706', 0.15) : 'rgba(255,255,255,0.06)', color: int.estado === 'conectado' ? QMS_COLOR : int.estado === 'parcial' ? '#D97706' : 'rgba(255,255,255,0.35)', fontWeight: 700 }} />
+                      <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary' }}>{int.nombre}</Typography>
+                      <Chip label={int.estado.replace('_', ' ')} size="small" sx={{ fontSize: 9, height: 18, bgcolor: int.estado === 'conectado' ? alpha(QMS_COLOR, 0.15) : int.estado === 'parcial' ? alpha('#D97706', 0.15) : '#F1F5F9', color: int.estado === 'conectado' ? QMS_COLOR : int.estado === 'parcial' ? '#D97706' : 'text.disabled', fontWeight: 700 }} />
                     </Box>
-                    <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', lineHeight: 1.4 }}>{int.desc}</Typography>
+                    <Typography sx={{ fontSize: 11, color: 'text.disabled', lineHeight: 1.4 }}>{int.desc}</Typography>
                   </CardContent>
                 </Card>
               </Grid>

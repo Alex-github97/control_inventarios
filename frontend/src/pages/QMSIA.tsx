@@ -53,15 +53,15 @@ export default function QMSIA() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <AutoFixHigh sx={{ color: AI_COLOR, fontSize: 28 }} />
             <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#FFF', lineHeight: 1 }}>IA & Análisis Avanzado</Typography>
-              <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>QMS · Causa raíz · Predicción · Ishikawa</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>IA & Análisis Avanzado</Typography>
+              <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>QMS · Causa raíz · Predicción · Ishikawa</Typography>
             </Box>
             <Chip label="QMS + IA" size="small" sx={{ bgcolor: alpha(AI_COLOR, 0.15), color: AI_COLOR, fontWeight: 700, border: `1px solid ${alpha(AI_COLOR, 0.3)}` }} />
           </Box>
           <Chip icon={<Psychology sx={{ fontSize: 14 }} />} label="Modelo activo" size="small" sx={{ bgcolor: alpha(QMS_COLOR, 0.1), color: QMS_COLOR, border: `1px solid ${alpha(QMS_COLOR, 0.3)}` }} />
         </Box>
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid rgba(255,255,255,0.08)', '& .MuiTab-root': { color: 'rgba(255,255,255,0.45)', fontSize: 13 }, '& .Mui-selected': { color: AI_COLOR }, '& .MuiTabs-indicator': { bgcolor: AI_COLOR } }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid rgba(255,255,255,0.08)', '& .MuiTab-root': { color: 'text.secondary', fontSize: 13 }, '& .Mui-selected': { color: AI_COLOR }, '& .MuiTabs-indicator': { bgcolor: AI_COLOR } }}>
           <Tab label="Insights IA" />
           <Tab label="Análisis Ishikawa" />
           <Tab label="Tendencias" />
@@ -80,15 +80,15 @@ export default function QMSIA() {
                         </Box>
                         <Box>
                           <Chip label={ins.tipo} size="small" sx={{ fontSize: 9, height: 16, bgcolor: alpha(ins.color, 0.12), color: ins.color, mb: 0.25 }} />
-                          <Typography sx={{ fontWeight: 700, color: '#FFF', fontSize: 13 }}>{ins.titulo}</Typography>
+                          <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 13 }}>{ins.titulo}</Typography>
                         </Box>
                       </Box>
                       <Box sx={{ textAlign: 'right', ml: 1, flexShrink: 0 }}>
                         <Typography sx={{ fontSize: 18, fontWeight: 800, color: ins.color }}>{ins.confianza}%</Typography>
-                        <Typography sx={{ fontSize: 9, color: 'rgba(255,255,255,0.35)' }}>confianza</Typography>
+                        <Typography sx={{ fontSize: 9, color: 'text.disabled' }}>confianza</Typography>
                       </Box>
                     </Box>
-                    <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', mb: 1.5, lineHeight: 1.5 }}>{ins.desc}</Typography>
+                    <Typography sx={{ fontSize: 12, color: 'text.secondary', mb: 1.5, lineHeight: 1.5 }}>{ins.desc}</Typography>
                     <Box sx={{ p: 1, borderRadius: 1, bgcolor: alpha(ins.color, 0.08), border: `1px solid ${alpha(ins.color, 0.2)}` }}>
                       <Typography sx={{ fontSize: 11, color: ins.color, fontWeight: 600 }}>→ {ins.accion}</Typography>
                     </Box>
@@ -103,15 +103,15 @@ export default function QMSIA() {
           <Card sx={{ bgcolor: '#111827', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 2 }}>
             <CardContent>
               <Box sx={{ mb: 2 }}>
-                <Typography sx={{ fontWeight: 700, color: '#FFF', fontSize: 16 }}>Diagrama de Ishikawa — No Conformidades Operacionales</Typography>
-                <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Análisis de causa raíz · Efecto: Entregas fuera de SLA</Typography>
+                <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 16 }}>Diagrama de Ishikawa — No Conformidades Operacionales</Typography>
+                <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>Análisis de causa raíz · Efecto: Entregas fuera de SLA</Typography>
               </Box>
 
               {/* Efecto */}
               <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
                 <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: alpha('#DC2626', 0.15), border: '2px solid #DC2626', minWidth: 180, textAlign: 'center' }}>
                   <Typography sx={{ fontSize: 11, color: '#DC2626', fontWeight: 700 }}>EFECTO PRINCIPAL</Typography>
-                  <Typography sx={{ fontSize: 14, color: '#FFF', fontWeight: 800 }}>Entregas fuera de SLA</Typography>
+                  <Typography sx={{ fontSize: 14, color: 'text.primary', fontWeight: 800 }}>Entregas fuera de SLA</Typography>
                 </Box>
               </Box>
 
@@ -127,7 +127,7 @@ export default function QMSIA() {
                           {cat.causas.map((causa, j) => (
                             <Box key={j} sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, mb: 0.5 }}>
                               <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: cat.color, flexShrink: 0, mt: 0.75 }} />
-                              <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', lineHeight: 1.4 }}>{causa}</Typography>
+                              <Typography sx={{ fontSize: 11, color: 'text.secondary', lineHeight: 1.4 }}>{causa}</Typography>
                             </Box>
                           ))}
                         </CardContent>
@@ -146,14 +146,14 @@ export default function QMSIA() {
             <Grid size={{ xs: 12, md: 6 }}>
               <Card sx={{ bgcolor: '#111827', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 2 }}>
                 <CardContent>
-                  <Typography sx={{ fontWeight: 700, color: '#FFF', mb: 0.5 }}>No Conformidades por Mes</Typography>
-                  <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', mb: 2 }}>2026 — tendencia con predicción IA</Typography>
+                  <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 0.5 }}>No Conformidades por Mes</Typography>
+                  <Typography sx={{ fontSize: 11, color: 'text.secondary', mb: 2 }}>2026 — tendencia con predicción IA</Typography>
                   <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1, height: 120 }}>
                     {TENDENCIAS.map((t, i) => (
                       <Box key={t.mes} sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
                         <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#DC2626' }}>{t.nc}</Typography>
                         <Box sx={{ width: '100%', height: `${(t.nc / maxNc) * 90}px`, borderRadius: '3px 3px 0 0', bgcolor: i === TENDENCIAS.length - 1 ? alpha('#DC2626', 0.4) : '#DC2626', border: i === TENDENCIAS.length - 1 ? '1px dashed #DC2626' : 'none' }} />
-                        <Typography sx={{ fontSize: 9, color: 'rgba(255,255,255,0.4)' }}>{t.mes}</Typography>
+                        <Typography sx={{ fontSize: 9, color: 'text.secondary' }}>{t.mes}</Typography>
                       </Box>
                     ))}
                   </Box>
@@ -165,14 +165,14 @@ export default function QMSIA() {
             <Grid size={{ xs: 12, md: 6 }}>
               <Card sx={{ bgcolor: '#111827', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 2 }}>
                 <CardContent>
-                  <Typography sx={{ fontWeight: 700, color: '#FFF', mb: 0.5 }}>Hallazgos por Mes</Typography>
-                  <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', mb: 2 }}>2026 — tendencia con predicción IA</Typography>
+                  <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 0.5 }}>Hallazgos por Mes</Typography>
+                  <Typography sx={{ fontSize: 11, color: 'text.secondary', mb: 2 }}>2026 — tendencia con predicción IA</Typography>
                   <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1, height: 120 }}>
                     {TENDENCIAS.map((t, i) => (
                       <Box key={t.mes} sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
                         <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#D97706' }}>{t.hallazgos}</Typography>
                         <Box sx={{ width: '100%', height: `${(t.hallazgos / maxH) * 90}px`, borderRadius: '3px 3px 0 0', bgcolor: i === TENDENCIAS.length - 1 ? alpha('#D97706', 0.4) : '#D97706', border: i === TENDENCIAS.length - 1 ? '1px dashed #D97706' : 'none' }} />
-                        <Typography sx={{ fontSize: 9, color: 'rgba(255,255,255,0.4)' }}>{t.mes}</Typography>
+                        <Typography sx={{ fontSize: 9, color: 'text.secondary' }}>{t.mes}</Typography>
                       </Box>
                     ))}
                   </Box>
@@ -196,7 +196,7 @@ export default function QMSIA() {
                   ].map((rec, i) => (
                     <Box key={i} sx={{ display: 'flex', gap: 1, mb: 0.75 }}>
                       <Typography sx={{ fontSize: 13, color: AI_COLOR, fontWeight: 700, flexShrink: 0 }}>{i + 1}.</Typography>
-                      <Typography sx={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', lineHeight: 1.5 }}>{rec}</Typography>
+                      <Typography sx={{ fontSize: 13, color: 'text.primary', lineHeight: 1.5 }}>{rec}</Typography>
                     </Box>
                   ))}
                 </CardContent>

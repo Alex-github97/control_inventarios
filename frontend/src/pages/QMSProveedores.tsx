@@ -34,7 +34,7 @@ const CLASIF_MEDAL: Record<string, string> = { excelente: '🥇', bueno: '🥈',
 function ScoreBar({ value, color }: { value: number; color: string }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <Box sx={{ flex: 1, height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.08)' }}>
+      <Box sx={{ flex: 1, height: 6, borderRadius: 3, bgcolor: '#F1F5F9' }}>
         <Box sx={{ width: `${value}%`, height: '100%', borderRadius: 3, bgcolor: color }} />
       </Box>
       <Typography sx={{ fontSize: 11, fontWeight: 700, color, minWidth: 30, textAlign: 'right' }}>{value}</Typography>
@@ -61,8 +61,8 @@ export default function QMSProveedores() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Storefront sx={{ color: QMS_COLOR, fontSize: 28 }} />
             <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#FFF', lineHeight: 1 }}>Evaluación de Proveedores</Typography>
-              <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>QMS · Calificación y seguimiento ISO 9001</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Evaluación de Proveedores</Typography>
+              <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>QMS · Calificación y seguimiento ISO 9001</Typography>
             </Box>
             <Chip label="QMS" size="small" sx={{ bgcolor: alpha(QMS_COLOR, 0.15), color: QMS_COLOR, fontWeight: 700, border: `1px solid ${alpha(QMS_COLOR, 0.3)}` }} />
           </Box>
@@ -79,17 +79,17 @@ export default function QMSProveedores() {
             { label: 'Deficientes', value: EVALUACIONES.filter(e => e.clasif === 'deficiente').length.toString(), color: '#DC2626' },
           ].map(k => (
             <Grid key={k.label} size={{ xs: 6, md: 3 }}>
-              <Card sx={{ bgcolor: '#0F1E35', border: '1px solid rgba(59,130,246,0.18)', borderRadius: 2 }}>
+              <Card sx={{ bgcolor: 'text.primary', border: '1px solid rgba(59,130,246,0.18)', borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important', textAlign: 'center' }}>
                   <Typography sx={{ fontSize: 26, fontWeight: 800, color: k.color }}>{k.value}</Typography>
-                  <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>{k.label}</Typography>
+                  <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{k.label}</Typography>
                 </CardContent>
               </Card>
             </Grid>
           ))}
         </Grid>
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid rgba(255,255,255,0.08)', '& .MuiTab-root': { color: 'rgba(255,255,255,0.45)', fontSize: 13 }, '& .Mui-selected': { color: QMS_COLOR }, '& .MuiTabs-indicator': { bgcolor: QMS_COLOR } }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid #F1F5F9', '& .MuiTab-root': { color: 'text.secondary', fontSize: 13 }, '& .Mui-selected': { color: QMS_COLOR }, '& .MuiTabs-indicator': { bgcolor: QMS_COLOR } }}>
           <Tab label="Evaluaciones" />
           <Tab label="Ranking" />
         </Tabs>
@@ -98,7 +98,7 @@ export default function QMSProveedores() {
           <Paper sx={{ bgcolor: 'transparent' }}>
             <Table size="small">
               <TableHead>
-                <TableRow sx={{ '& th': { borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
+                <TableRow sx={{ '& th': { borderColor: '#E5E7EB', color: 'text.secondary', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
                   <TableCell>Proveedor</TableCell><TableCell>NIT</TableCell><TableCell>Período</TableCell><TableCell>Calidad</TableCell><TableCell>Cumplimiento</TableCell><TableCell>Servicio</TableCell><TableCell>Tiempos</TableCell><TableCell>Total</TableCell><TableCell>Clasificación</TableCell>
                 </TableRow>
               </TableHead>
@@ -106,7 +106,7 @@ export default function QMSProveedores() {
                 {EVALUACIONES.map(e => {
                   const c = CLASIF_COLOR[e.clasif]
                   return (
-                    <TableRow key={e.nit} sx={{ '& td': { borderColor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.7)', fontSize: 12 } }}>
+                    <TableRow key={e.nit} sx={{ '& td': { borderColor: '#E5E7EB', color: 'text.primary', fontSize: 12 } }}>
                       <TableCell sx={{ maxWidth: 180 }}><Typography sx={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.proveedor}</Typography></TableCell>
                       <TableCell sx={{ fontSize: 11 }}>{e.nit}</TableCell>
                       <TableCell sx={{ fontSize: 11 }}>{e.periodo}</TableCell>
@@ -133,7 +133,7 @@ export default function QMSProveedores() {
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Typography sx={{ fontSize: 20 }}>{i < 3 ? ['🥇', '🥈', '🥉'][i] : `#${i + 1}`}</Typography>
-                        <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#FFF' }}>{e.proveedor}</Typography>
+                        <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary' }}>{e.proveedor}</Typography>
                       </Box>
                       <Box sx={{ textAlign: 'right' }}>
                         <Typography sx={{ fontSize: 20, fontWeight: 800, color: CLASIF_COLOR[e.clasif] }}>{e.total.toFixed(1)}</Typography>
@@ -143,8 +143,8 @@ export default function QMSProveedores() {
                     <Box sx={{ display: 'flex', gap: 2 }}>
                       {[['Cal.', e.calidad], ['Cum.', e.cumplimiento], ['Serv.', e.servicio], ['T.Entr.', e.tiempos]].map(([l, v]) => (
                         <Box key={l as string} sx={{ flex: 1, textAlign: 'center' }}>
-                          <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{l}</Typography>
-                          <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>{v}</Typography>
+                          <Typography sx={{ fontSize: 10, color: 'text.secondary' }}>{l}</Typography>
+                          <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary' }}>{v}</Typography>
                         </Box>
                       ))}
                     </Box>
@@ -155,15 +155,15 @@ export default function QMSProveedores() {
           </Grid>
         </TabPanel>
 
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: '#FFF' } }}>
+        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary' } }}>
           <DialogTitle sx={{ fontWeight: 700 }}>Nueva Evaluación de Proveedor</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
-            <TextField label="Proveedor" fullWidth size="small" InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
-            <TextField label="NIT" fullWidth size="small" InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
-            <TextField label="Período" type="month" defaultValue="2026-06" fullWidth size="small" InputLabelProps={{ shrink: true, sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
+            <TextField label="Proveedor" fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
+            <TextField label="NIT" fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
+            <TextField label="Período" type="month" defaultValue="2026-06" fullWidth size="small" InputLabelProps={{ shrink: true, sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
             {[['Calidad', calidad, setCalidad], ['Cumplimiento', cumplimiento, setCumplimiento], ['Servicio', servicio, setServicio], ['Tiempos de Entrega', tiempos, setTiempos]].map(([label, val, setter]) => (
               <Box key={label as string}>
-                <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', mb: 0.5 }}>{label}: {val}</Typography>
+                <Typography sx={{ fontSize: 12, color: 'text.secondary', mb: 0.5 }}>{label}: {val}</Typography>
                 <Slider value={val as number} min={0} max={100} step={1} onChange={(_, v) => (setter as (v: number) => void)(v as number)} sx={{ color: QMS_COLOR }} />
               </Box>
             ))}
@@ -172,7 +172,7 @@ export default function QMSProveedores() {
             </Box>
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setOpenDialog(false)} sx={{ color: 'rgba(255,255,255,0.5)' }}>Cancelar</Button>
+            <Button onClick={() => setOpenDialog(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>
             <Button variant="contained" onClick={() => setOpenDialog(false)} sx={{ bgcolor: QMS_COLOR, '&:hover': { bgcolor: '#047857' } }}>Guardar</Button>
           </DialogActions>
         </Dialog>

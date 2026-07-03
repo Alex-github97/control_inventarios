@@ -49,20 +49,20 @@ export default function QMSIndicadores() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Analytics sx={{ color: QMS_COLOR, fontSize: 28 }} />
             <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#FFF', lineHeight: 1 }}>Indicadores de Calidad</Typography>
-              <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>QMS · Motor de KPIs · Junio 2026</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Indicadores de Calidad</Typography>
+              <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>QMS · Motor de KPIs · Junio 2026</Typography>
             </Box>
             <Chip label="QMS" size="small" sx={{ bgcolor: alpha(QMS_COLOR, 0.15), color: QMS_COLOR, fontWeight: 700, border: `1px solid ${alpha(QMS_COLOR, 0.3)}` }} />
           </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
-            <TextField type="month" defaultValue="2026-06" size="small" sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', fontSize: 13, '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
+            <TextField type="month" defaultValue="2026-06" size="small" sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', fontSize: 13, '& fieldset': { borderColor: '#E5E7EB' } } }} />
             <Button startIcon={<Add />} size="small" variant="contained" onClick={() => setOpenDialog(true)} sx={{ bgcolor: QMS_COLOR, '&:hover': { bgcolor: '#047857' }, borderRadius: 2 }}>
               Nuevo Indicador
             </Button>
           </Box>
         </Box>
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid rgba(255,255,255,0.08)', '& .MuiTab-root': { color: 'rgba(255,255,255,0.45)', fontSize: 13 }, '& .Mui-selected': { color: QMS_COLOR }, '& .MuiTabs-indicator': { bgcolor: QMS_COLOR } }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid #F1F5F9', '& .MuiTab-root': { color: 'text.secondary', fontSize: 13 }, '& .Mui-selected': { color: QMS_COLOR }, '& .MuiTabs-indicator': { bgcolor: QMS_COLOR } }}>
           <Tab label="Tablero de KPIs" />
           <Tab label="Registro de Mediciones" />
           <Tab label="Metas" />
@@ -76,16 +76,16 @@ export default function QMSIndicadores() {
               const spMax = Math.max(...ind.sparkline)
               return (
                 <Grid key={ind.nombre} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
-                  <Card sx={{ bgcolor: '#0F1E35', border: `1px solid ${alpha(color, 0.35)}`, borderRadius: 2 }}>
+                  <Card sx={{ bgcolor: 'text.primary', border: `1px solid ${alpha(color, 0.35)}`, borderRadius: 2 }}>
                     <CardContent sx={{ p: '14px !important' }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                         <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: color, mt: 0.5 }} />
                         <Chip label={ind.proceso} size="small" sx={{ fontSize: 9, height: 16 }} />
                       </Box>
-                      <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', mb: 0.5 }}>{ind.nombre}</Typography>
+                      <Typography sx={{ fontSize: 12, color: 'text.secondary', mb: 0.5 }}>{ind.nombre}</Typography>
                       <Typography sx={{ fontSize: 24, fontWeight: 800, color, lineHeight: 1 }}>{ind.valor}{ind.unidad}</Typography>
-                      <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', mb: 1 }}>Meta: {ind.meta}{ind.unidad}</Typography>
-                      <LinearProgress variant="determinate" value={pct} sx={{ height: 4, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.08)', mb: 1.5, '& .MuiLinearProgress-bar': { bgcolor: color } }} />
+                      <Typography sx={{ fontSize: 11, color: 'text.secondary', mb: 1 }}>Meta: {ind.meta}{ind.unidad}</Typography>
+                      <LinearProgress variant="determinate" value={pct} sx={{ height: 4, borderRadius: 2, bgcolor: '#F1F5F9', mb: 1.5, '& .MuiLinearProgress-bar': { bgcolor: color } }} />
                       {/* Mini sparkline */}
                       <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 0.5, height: 24 }}>
                         {ind.sparkline.map((v, i) => (
@@ -113,13 +113,13 @@ export default function QMSIndicadores() {
           <Paper sx={{ bgcolor: 'transparent' }}>
             <Table size="small">
               <TableHead>
-                <TableRow sx={{ '& th': { borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
+                <TableRow sx={{ '& th': { borderColor: '#E5E7EB', color: 'text.secondary', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
                   <TableCell>Indicador</TableCell><TableCell>Período</TableCell><TableCell>Valor</TableCell><TableCell>Meta</TableCell><TableCell>Cumple</TableCell><TableCell>Variación</TableCell><TableCell>Registrado por</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {MEDICIONES.map((m, i) => (
-                  <TableRow key={i} sx={{ '& td': { borderColor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.7)', fontSize: 12.5 } }}>
+                  <TableRow key={i} sx={{ '& td': { borderColor: '#E5E7EB', color: 'text.primary', fontSize: 12.5 } }}>
                     <TableCell>{m.indicador}</TableCell>
                     <TableCell>{m.periodo}</TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>{m.valor}</TableCell>
@@ -138,13 +138,13 @@ export default function QMSIndicadores() {
           <Paper sx={{ bgcolor: 'transparent' }}>
             <Table size="small">
               <TableHead>
-                <TableRow sx={{ '& th': { borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
+                <TableRow sx={{ '& th': { borderColor: '#E5E7EB', color: 'text.secondary', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
                   <TableCell>Indicador</TableCell><TableCell>Período</TableCell><TableCell>Meta</TableCell><TableCell>Mín</TableCell><TableCell>Máx</TableCell><TableCell>Acciones</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {INDICADORES.map(ind => (
-                  <TableRow key={ind.nombre} sx={{ '& td': { borderColor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.7)', fontSize: 12.5 } }}>
+                  <TableRow key={ind.nombre} sx={{ '& td': { borderColor: '#E5E7EB', color: 'text.primary', fontSize: 12.5 } }}>
                     <TableCell>{ind.nombre}</TableCell>
                     <TableCell>2026-06</TableCell>
                     <TableCell sx={{ color: QMS_COLOR, fontWeight: 700 }}>{ind.meta}{ind.unidad}</TableCell>
@@ -158,21 +158,21 @@ export default function QMSIndicadores() {
           </Paper>
         </TabPanel>
 
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: '#FFF' } }}>
+        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary' } }}>
           <DialogTitle sx={{ fontWeight: 700 }}>Registrar Medición</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
             <FormControl size="small">
-              <InputLabel sx={{ color: 'rgba(255,255,255,0.5)' }}>Indicador</InputLabel>
-              <Select label="Indicador" defaultValue="" sx={{ color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } }}>
+              <InputLabel sx={{ color: 'text.secondary' }}>Indicador</InputLabel>
+              <Select label="Indicador" defaultValue="" sx={{ color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } }}>
                 {INDICADORES.map(i => <MenuItem key={i.nombre} value={i.nombre}>{i.nombre}</MenuItem>)}
               </Select>
             </FormControl>
-            <TextField label="Período" type="month" defaultValue="2026-06" fullWidth size="small" InputLabelProps={{ shrink: true, sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
-            <TextField label="Valor" type="number" fullWidth size="small" InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
-            <TextField label="Observaciones" multiline rows={2} fullWidth size="small" InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
+            <TextField label="Período" type="month" defaultValue="2026-06" fullWidth size="small" InputLabelProps={{ shrink: true, sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
+            <TextField label="Valor" type="number" fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
+            <TextField label="Observaciones" multiline rows={2} fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setOpenDialog(false)} sx={{ color: 'rgba(255,255,255,0.5)' }}>Cancelar</Button>
+            <Button onClick={() => setOpenDialog(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>
             <Button variant="contained" onClick={() => setOpenDialog(false)} sx={{ bgcolor: QMS_COLOR, '&:hover': { bgcolor: '#047857' } }}>Guardar</Button>
           </DialogActions>
         </Dialog>

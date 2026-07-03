@@ -41,8 +41,8 @@ export default function QMSCambios() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <ChangeCircle sx={{ color: QMS_COLOR, fontSize: 28 }} />
             <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#FFF', lineHeight: 1 }}>Gestión de Cambios</Typography>
-              <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>QMS · Control de cambios organizacionales</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Gestión de Cambios</Typography>
+              <Typography sx={{ fontSize: 12, color: 'text.disabled' }}>QMS · Control de cambios organizacionales</Typography>
             </Box>
             <Chip label="QMS" size="small" sx={{ bgcolor: alpha(QMS_COLOR, 0.15), color: QMS_COLOR, fontWeight: 700, border: `1px solid ${alpha(QMS_COLOR, 0.3)}` }} />
           </Box>
@@ -59,17 +59,17 @@ export default function QMSCambios() {
             { label: 'Completados', value: CAMBIOS.filter(c => c.estado === 'completado').length.toString(), color: QMS_COLOR },
           ].map(k => (
             <Grid key={k.label} size={{ xs: 6, md: 3 }}>
-              <Card sx={{ bgcolor: '#0F1E35', border: '1px solid rgba(59,130,246,0.18)', borderRadius: 2 }}>
+              <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important', textAlign: 'center' }}>
                   <Typography sx={{ fontSize: 26, fontWeight: 800, color: k.color }}>{k.value}</Typography>
-                  <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>{k.label}</Typography>
+                  <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>{k.label}</Typography>
                 </CardContent>
               </Card>
             </Grid>
           ))}
         </Grid>
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid rgba(255,255,255,0.08)', '& .MuiTab-root': { color: 'rgba(255,255,255,0.45)', fontSize: 13 }, '& .Mui-selected': { color: QMS_COLOR }, '& .MuiTabs-indicator': { bgcolor: QMS_COLOR } }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid #F1F5F9', '& .MuiTab-root': { color: 'text.disabled', fontSize: 13 }, '& .Mui-selected': { color: QMS_COLOR }, '& .MuiTabs-indicator': { bgcolor: QMS_COLOR } }}>
           <Tab label="Lista de Cambios" />
           <Tab label={`Detalle ${selected ? `— ${selected.codigo}` : ''}`} />
         </Tabs>
@@ -78,13 +78,13 @@ export default function QMSCambios() {
           <Paper sx={{ bgcolor: 'transparent' }}>
             <Table size="small">
               <TableHead>
-                <TableRow sx={{ '& th': { borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
+                <TableRow sx={{ '& th': { borderColor: '#F1F5F9', color: 'text.disabled', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
                   <TableCell>Código</TableCell><TableCell>Título</TableCell><TableCell>Proceso</TableCell><TableCell>Impacto</TableCell><TableCell>Solicitado</TableCell><TableCell>Aprobado</TableCell><TableCell>Etapa</TableCell><TableCell>Estado</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {CAMBIOS.map(c => (
-                  <TableRow key={c.codigo} onClick={() => { setSelected(c); setTab(1) }} sx={{ cursor: 'pointer', '& td': { borderColor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.7)', fontSize: 12 }, '&:hover': { bgcolor: 'rgba(255,255,255,0.03)' } }}>
+                  <TableRow key={c.codigo} onClick={() => { setSelected(c); setTab(1) }} sx={{ cursor: 'pointer', '& td': { borderColor: '#F9FAFB', color: 'text.secondary', fontSize: 12 }, '&:hover': { bgcolor: '#F9FAFB' } }}>
                     <TableCell><Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: QMS_COLOR }}>{c.codigo}</Typography></TableCell>
                     <TableCell sx={{ maxWidth: 220 }}><Typography sx={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.titulo}</Typography></TableCell>
                     <TableCell sx={{ fontSize: 11 }}>{c.proceso}</TableCell>
@@ -94,7 +94,7 @@ export default function QMSCambios() {
                     <TableCell>
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
                         {STEPS.map((_, i) => (
-                          <Box key={i} sx={{ width: 14, height: 4, borderRadius: 2, bgcolor: i < c.etapa ? QMS_COLOR : 'rgba(255,255,255,0.08)' }} />
+                          <Box key={i} sx={{ width: 14, height: 4, borderRadius: 2, bgcolor: i < c.etapa ? QMS_COLOR : '#E2E8F0' }} />
                         ))}
                       </Box>
                     </TableCell>
@@ -109,67 +109,67 @@ export default function QMSCambios() {
         <TabPanel value={tab} index={1}>
           {selected ? (
             <Box>
-              <Card sx={{ bgcolor: '#111827', border: `1px solid ${alpha(IMP_COLOR[selected.impacto], 0.25)}`, borderRadius: 2, mb: 2 }}>
+              <Card sx={{ border: `1px solid ${alpha(IMP_COLOR[selected.impacto], 0.25)}`, borderRadius: 2, mb: 2 }}>
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                     <Box>
                       <Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: QMS_COLOR }}>{selected.codigo}</Typography>
-                      <Typography sx={{ fontSize: 18, fontWeight: 800, color: '#FFF', mt: 0.25 }}>{selected.titulo}</Typography>
+                      <Typography sx={{ fontSize: 18, fontWeight: 800, color: 'text.primary', mt: 0.25 }}>{selected.titulo}</Typography>
                       <Box sx={{ display: 'flex', gap: 1, mt: 0.75 }}>
-                        <Chip label={selected.proceso} size="small" sx={{ fontSize: 9, height: 18, bgcolor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)' }} />
+                        <Chip label={selected.proceso} size="small" sx={{ fontSize: 9, height: 18, bgcolor: '#F1F5F9', color: 'text.secondary' }} />
                         <Chip label={`Impacto: ${selected.impacto}`} size="small" sx={{ fontSize: 9, height: 18, bgcolor: alpha(IMP_COLOR[selected.impacto], 0.15), color: IMP_COLOR[selected.impacto], fontWeight: 700 }} />
                       </Box>
                     </Box>
                     <Chip label={selected.estado.replace('_', ' ')} sx={{ bgcolor: alpha(EST_COLOR[selected.estado], 0.15), color: EST_COLOR[selected.estado], fontWeight: 700 }} />
                   </Box>
 
-                  <Stepper activeStep={selected.etapa - 1} sx={{ mb: 2, '& .MuiStepLabel-label': { color: 'rgba(255,255,255,0.5)', fontSize: 12 }, '& .MuiStepLabel-label.Mui-active': { color: QMS_COLOR }, '& .MuiStepLabel-label.Mui-completed': { color: QMS_COLOR } }}>
+                  <Stepper activeStep={selected.etapa - 1} sx={{ mb: 2, '& .MuiStepLabel-label': { color: 'text.secondary', fontSize: 12 }, '& .MuiStepLabel-label.Mui-active': { color: QMS_COLOR }, '& .MuiStepLabel-label.Mui-completed': { color: QMS_COLOR } }}>
                     {STEPS.map(s => (
                       <Step key={s}>
-                        <StepLabel StepIconProps={{ sx: { color: 'rgba(255,255,255,0.15)', '&.Mui-active': { color: QMS_COLOR }, '&.Mui-completed': { color: QMS_COLOR } } }}>{s}</StepLabel>
+                        <StepLabel StepIconProps={{ sx: { color: '#E2E8F0', '&.Mui-active': { color: QMS_COLOR }, '&.Mui-completed': { color: QMS_COLOR } } }}>{s}</StepLabel>
                       </Step>
                     ))}
                   </Stepper>
 
-                  <Typography sx={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', mb: 2 }}>{selected.descripcion}</Typography>
+                  <Typography sx={{ fontSize: 13, color: 'text.secondary', mb: 2 }}>{selected.descripcion}</Typography>
 
                   <Grid container spacing={2}>
                     {[['Solicitado por', selected.solicitado_por], ['Aprobado por', selected.aprobado_por], ['Fecha propuesta', selected.fecha]].map(([l, v]) => (
                       <Grid key={l as string} size={{ xs: 12, sm: 4 }}>
-                        <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', mb: 0.25 }}>{l}</Typography>
-                        <Typography sx={{ fontSize: 13, color: '#FFF', fontWeight: 600 }}>{v}</Typography>
+                        <Typography sx={{ fontSize: 10, color: 'text.disabled', textTransform: 'uppercase', mb: 0.25 }}>{l}</Typography>
+                        <Typography sx={{ fontSize: 13, color: 'text.primary', fontWeight: 600 }}>{v}</Typography>
                       </Grid>
                     ))}
                   </Grid>
                 </CardContent>
               </Card>
-              <Button variant="outlined" size="small" onClick={() => setTab(0)} sx={{ borderColor: 'rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.6)' }}>← Volver a la lista</Button>
+              <Button variant="outlined" size="small" onClick={() => setTab(0)} sx={{ borderColor: '#E5E7EB', color: 'text.secondary' }}>← Volver a la lista</Button>
             </Box>
           ) : (
             <Box sx={{ textAlign: 'center', py: 8 }}>
-              <ChangeCircle sx={{ fontSize: 48, color: 'rgba(255,255,255,0.1)', mb: 2 }} />
-              <Typography sx={{ color: 'rgba(255,255,255,0.3)' }}>Selecciona un cambio de la lista para ver su detalle</Typography>
+              <ChangeCircle sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
+              <Typography sx={{ color: 'text.disabled' }}>Selecciona un cambio de la lista para ver su detalle</Typography>
             </Box>
           )}
         </TabPanel>
 
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: '#FFF' } }}>
+        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
           <DialogTitle sx={{ fontWeight: 700 }}>Solicitar Cambio</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
-            <TextField label="Título del Cambio" fullWidth size="small" InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
-            <TextField label="Proceso Afectado" fullWidth size="small" InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
+            <TextField label="Título del Cambio" fullWidth size="small" />
+            <TextField label="Proceso Afectado" fullWidth size="small" />
             <FormControl size="small" fullWidth>
-              <InputLabel sx={{ color: 'rgba(255,255,255,0.5)' }}>Impacto</InputLabel>
-              <Select label="Impacto" defaultValue="" sx={{ color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } }}>
+              <InputLabel>Impacto</InputLabel>
+              <Select label="Impacto" defaultValue="">
                 {['bajo', 'medio', 'alto', 'critico'].map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
               </Select>
             </FormControl>
-            <TextField label="Descripción del Cambio" multiline rows={3} fullWidth size="small" InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
-            <TextField label="Justificación / Beneficio" multiline rows={2} fullWidth size="small" InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
-            <TextField label="Fecha Propuesta de Implementación" type="date" fullWidth size="small" InputLabelProps={{ shrink: true, sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
+            <TextField label="Descripción del Cambio" multiline rows={3} fullWidth size="small" />
+            <TextField label="Justificación / Beneficio" multiline rows={2} fullWidth size="small" />
+            <TextField label="Fecha Propuesta de Implementación" type="date" fullWidth size="small" InputLabelProps={{ shrink: true }} />
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setOpenDialog(false)} sx={{ color: 'rgba(255,255,255,0.5)' }}>Cancelar</Button>
+            <Button onClick={() => setOpenDialog(false)} color="inherit">Cancelar</Button>
             <Button variant="contained" onClick={() => setOpenDialog(false)} sx={{ bgcolor: QMS_COLOR, '&:hover': { bgcolor: '#047857' } }}>Enviar Solicitud</Button>
           </DialogActions>
         </Dialog>

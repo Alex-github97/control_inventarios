@@ -49,8 +49,8 @@ export default function QMSQuejas() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <SupportAgent sx={{ color: QMS_COLOR, fontSize: 28 }} />
             <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#FFF', lineHeight: 1 }}>Quejas y Reclamos</Typography>
-              <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>QMS · PQRS · Satisfacción del cliente</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Quejas y Reclamos</Typography>
+              <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>QMS · PQRS · Satisfacción del cliente</Typography>
             </Box>
             <Chip label="QMS" size="small" sx={{ bgcolor: alpha(QMS_COLOR, 0.15), color: QMS_COLOR, fontWeight: 700, border: `1px solid ${alpha(QMS_COLOR, 0.3)}` }} />
           </Box>
@@ -68,17 +68,17 @@ export default function QMSQuejas() {
             { label: 'NPS Mes', value: '78', color: QMS_COLOR },
           ].map(k => (
             <Grid key={k.label} size={{ xs: 6, sm: 4, md: 'auto' }} sx={{ flex: 1 }}>
-              <Card sx={{ bgcolor: '#0F1E35', border: '1px solid rgba(59,130,246,0.18)', borderRadius: 2 }}>
+              <Card sx={{ bgcolor: 'text.primary', border: '1px solid rgba(59,130,246,0.18)', borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important', textAlign: 'center' }}>
                   <Typography sx={{ fontSize: 24, fontWeight: 800, color: k.color }}>{k.value}</Typography>
-                  <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>{k.label}</Typography>
+                  <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{k.label}</Typography>
                 </CardContent>
               </Card>
             </Grid>
           ))}
         </Grid>
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid rgba(255,255,255,0.08)', '& .MuiTab-root': { color: 'rgba(255,255,255,0.45)', fontSize: 13 }, '& .Mui-selected': { color: QMS_COLOR }, '& .MuiTabs-indicator': { bgcolor: QMS_COLOR } }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid #F1F5F9', '& .MuiTab-root': { color: 'text.secondary', fontSize: 13 }, '& .Mui-selected': { color: QMS_COLOR }, '& .MuiTabs-indicator': { bgcolor: QMS_COLOR } }}>
           <Tab label="PQRS" />
           <Tab label="NPS y Satisfacción" />
         </Tabs>
@@ -93,13 +93,13 @@ export default function QMSQuejas() {
           <Paper sx={{ bgcolor: 'transparent' }}>
             <Table size="small">
               <TableHead>
-                <TableRow sx={{ '& th': { borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
+                <TableRow sx={{ '& th': { borderColor: '#E5E7EB', color: 'text.secondary', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
                   <TableCell>Código</TableCell><TableCell>Tipo</TableCell><TableCell>Descripción</TableCell><TableCell>Cliente</TableCell><TableCell>Proceso</TableCell><TableCell>Responsable</TableCell><TableCell>Fecha Límite</TableCell><TableCell>Estado</TableCell><TableCell>Acc.</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {filtered.map(q => (
-                  <TableRow key={q.codigo} sx={{ '& td': { borderColor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.7)', fontSize: 12 } }}>
+                  <TableRow key={q.codigo} sx={{ '& td': { borderColor: '#E5E7EB', color: 'text.primary', fontSize: 12 } }}>
                     <TableCell><Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: QMS_COLOR }}>{q.codigo}</Typography></TableCell>
                     <TableCell><Chip label={q.tipo} size="small" sx={{ fontSize: 9, height: 18, textTransform: 'capitalize', bgcolor: alpha(TIPO_COLOR[q.tipo], 0.15), color: TIPO_COLOR[q.tipo], fontWeight: 700 }} /></TableCell>
                     <TableCell sx={{ maxWidth: 200 }}><Typography sx={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.desc}</Typography></TableCell>
@@ -108,7 +108,7 @@ export default function QMSQuejas() {
                     <TableCell sx={{ fontSize: 11 }}>{q.responsable}</TableCell>
                     <TableCell sx={{ fontSize: 11 }}>{q.limite}</TableCell>
                     <TableCell><Chip label={q.estado.replace('_', ' ')} size="small" sx={{ fontSize: 9, height: 18, bgcolor: alpha(EST_COLOR[q.estado], 0.15), color: EST_COLOR[q.estado], fontWeight: 700 }} /></TableCell>
-                    <TableCell><IconButton size="small" sx={{ color: 'rgba(255,255,255,0.4)' }}><Visibility sx={{ fontSize: 14 }} /></IconButton></TableCell>
+                    <TableCell><IconButton size="small" sx={{ color: 'text.secondary' }}><Visibility sx={{ fontSize: 14 }} /></IconButton></TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -120,12 +120,12 @@ export default function QMSQuejas() {
           <Grid container spacing={3}>
             {/* NPS Panel */}
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ bgcolor: '#111827', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 2 }}>
+              <Card sx={{ bgcolor: '#111827', border: '1px solid #E5E7EB', borderRadius: 2 }}>
                 <CardContent>
-                  <Typography sx={{ fontWeight: 700, color: '#FFF', mb: 2 }}>Net Promoter Score (NPS)</Typography>
+                  <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 2 }}>Net Promoter Score (NPS)</Typography>
                   <Box sx={{ textAlign: 'center', mb: 3 }}>
                     <Typography sx={{ fontSize: 64, fontWeight: 900, color: NPS_DATA.score >= 70 ? QMS_COLOR : '#D97706', lineHeight: 1 }}>{NPS_DATA.score}</Typography>
-                    <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Escala: -100 a +100</Typography>
+                    <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>Escala: -100 a +100</Typography>
                   </Box>
                   <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
                     {[
@@ -143,7 +143,7 @@ export default function QMSQuejas() {
                   ].map(s => (
                     <Box key={s.label} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                       <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: s.color, flexShrink: 0 }} />
-                      <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{s.label}</Typography>
+                      <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{s.label}</Typography>
                     </Box>
                   ))}
                 </CardContent>
@@ -152,18 +152,18 @@ export default function QMSQuejas() {
 
             {/* CSAT */}
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ bgcolor: '#111827', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 2 }}>
+              <Card sx={{ bgcolor: '#111827', border: '1px solid #E5E7EB', borderRadius: 2 }}>
                 <CardContent>
-                  <Typography sx={{ fontWeight: 700, color: '#FFF', mb: 2 }}>CSAT — Satisfacción del Cliente</Typography>
+                  <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 2 }}>CSAT — Satisfacción del Cliente</Typography>
                   <Box sx={{ textAlign: 'center', mb: 2 }}>
                     <Typography sx={{ fontSize: 48, fontWeight: 900, color: '#D97706', lineHeight: 1 }}>4.3</Typography>
-                    <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>de 5.0 estrellas</Typography>
+                    <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>de 5.0 estrellas</Typography>
                   </Box>
                   {CSAT_DIST.map(d => (
                     <Box key={d.stars} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75 }}>
                       <Typography sx={{ fontSize: 12, color: '#D97706', width: 20 }}>{'★'.repeat(d.stars)}</Typography>
-                      <LinearProgress variant="determinate" value={d.pct} sx={{ flex: 1, height: 8, borderRadius: 4, bgcolor: 'rgba(255,255,255,0.08)', '& .MuiLinearProgress-bar': { bgcolor: '#D97706' } }} />
-                      <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', width: 32, textAlign: 'right' }}>{d.pct}%</Typography>
+                      <LinearProgress variant="determinate" value={d.pct} sx={{ flex: 1, height: 8, borderRadius: 4, bgcolor: '#F1F5F9', '& .MuiLinearProgress-bar': { bgcolor: '#D97706' } }} />
+                      <Typography sx={{ fontSize: 11, color: 'text.secondary', width: 32, textAlign: 'right' }}>{d.pct}%</Typography>
                     </Box>
                   ))}
                 </CardContent>
@@ -172,22 +172,22 @@ export default function QMSQuejas() {
           </Grid>
         </TabPanel>
 
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: '#FFF' } }}>
+        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary' } }}>
           <DialogTitle sx={{ fontWeight: 700 }}>Registrar PQRS</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
             <FormControl size="small" fullWidth>
-              <InputLabel sx={{ color: 'rgba(255,255,255,0.5)' }}>Tipo</InputLabel>
-              <Select label="Tipo" defaultValue="" sx={{ color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } }}>
+              <InputLabel sx={{ color: 'text.secondary' }}>Tipo</InputLabel>
+              <Select label="Tipo" defaultValue="" sx={{ color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } }}>
                 {['queja', 'reclamo', 'sugerencia', 'felicitacion'].map(t => <MenuItem key={t} value={t} sx={{ textTransform: 'capitalize' }}>{t}</MenuItem>)}
               </Select>
             </FormControl>
-            <TextField label="Descripción" multiline rows={3} fullWidth size="small" InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
-            <TextField label="Cliente / Empresa" fullWidth size="small" InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
-            <TextField label="Responsable de Gestión" fullWidth size="small" InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
-            <TextField label="Fecha Límite Respuesta" type="date" fullWidth size="small" InputLabelProps={{ shrink: true, sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
+            <TextField label="Descripción" multiline rows={3} fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
+            <TextField label="Cliente / Empresa" fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
+            <TextField label="Responsable de Gestión" fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
+            <TextField label="Fecha Límite Respuesta" type="date" fullWidth size="small" InputLabelProps={{ shrink: true, sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setOpenDialog(false)} sx={{ color: 'rgba(255,255,255,0.5)' }}>Cancelar</Button>
+            <Button onClick={() => setOpenDialog(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>
             <Button variant="contained" onClick={() => setOpenDialog(false)} sx={{ bgcolor: QMS_COLOR, '&:hover': { bgcolor: '#047857' } }}>Guardar</Button>
           </DialogActions>
         </Dialog>

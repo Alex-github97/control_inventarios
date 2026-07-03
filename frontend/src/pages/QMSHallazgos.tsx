@@ -49,8 +49,8 @@ export default function QMSHallazgos() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <FindInPage sx={{ color: QMS_COLOR, fontSize: 28 }} />
             <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#FFF', lineHeight: 1 }}>Gestión de Hallazgos</Typography>
-              <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>QMS · Hallazgos de auditorías y operación</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Gestión de Hallazgos</Typography>
+              <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>QMS · Hallazgos de auditorías y operación</Typography>
             </Box>
             <Chip label="QMS" size="small" sx={{ bgcolor: alpha(QMS_COLOR, 0.15), color: QMS_COLOR, fontWeight: 700, border: `1px solid ${alpha(QMS_COLOR, 0.3)}` }} />
           </Box>
@@ -67,10 +67,10 @@ export default function QMSHallazgos() {
             { label: 'Cerrados este mes', value: '12', color: QMS_COLOR },
           ].map(k => (
             <Grid key={k.label} size={{ xs: 6, md: 3 }}>
-              <Card sx={{ bgcolor: '#0F1E35', border: '1px solid rgba(59,130,246,0.18)', borderRadius: 2 }}>
+              <Card sx={{ bgcolor: 'text.primary', border: '1px solid rgba(59,130,246,0.18)', borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important', textAlign: 'center' }}>
                   <Typography sx={{ fontSize: 26, fontWeight: 800, color: k.color }}>{k.value}</Typography>
-                  <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>{k.label}</Typography>
+                  <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{k.label}</Typography>
                 </CardContent>
               </Card>
             </Grid>
@@ -93,7 +93,7 @@ export default function QMSHallazgos() {
         <Paper sx={{ bgcolor: 'transparent' }}>
           <Table size="small">
             <TableHead>
-              <TableRow sx={{ '& th': { borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
+              <TableRow sx={{ '& th': { borderColor: '#E5E7EB', color: 'text.secondary', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
                 <TableCell>Código</TableCell><TableCell>Descripción</TableCell><TableCell>Tipo</TableCell><TableCell>Auditoría</TableCell><TableCell>Proceso</TableCell><TableCell>Impacto</TableCell><TableCell>Responsable</TableCell><TableCell>Fecha Límite</TableCell><TableCell>Estado</TableCell><TableCell>Acc.</TableCell>
               </TableRow>
             </TableHead>
@@ -101,7 +101,7 @@ export default function QMSHallazgos() {
               {filtered.map(h => {
                 const meta = TIPO_COLOR[h.tipo]
                 return (
-                  <TableRow key={h.codigo} sx={{ '& td': { borderColor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.7)', fontSize: 12 } }}>
+                  <TableRow key={h.codigo} sx={{ '& td': { borderColor: '#E5E7EB', color: 'text.primary', fontSize: 12 } }}>
                     <TableCell><Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: QMS_COLOR }}>{h.codigo}</Typography></TableCell>
                     <TableCell sx={{ maxWidth: 200 }}><Typography sx={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.desc}</Typography></TableCell>
                     <TableCell><Chip label={meta.label} size="small" sx={{ fontSize: 9, height: 18, bgcolor: alpha(meta.color, 0.15), color: meta.color, fontWeight: 700 }} /></TableCell>
@@ -112,8 +112,8 @@ export default function QMSHallazgos() {
                     <TableCell sx={{ fontSize: 11 }}>{h.limite}</TableCell>
                     <TableCell><Chip label={h.estado.replace('_', ' ')} size="small" sx={{ fontSize: 9, height: 18, bgcolor: alpha(EST_COLOR[h.estado], 0.15), color: EST_COLOR[h.estado], fontWeight: 700 }} /></TableCell>
                     <TableCell>
-                      <IconButton size="small" sx={{ color: 'rgba(255,255,255,0.4)' }}><Visibility sx={{ fontSize: 14 }} /></IconButton>
-                      <IconButton size="small" sx={{ color: 'rgba(255,255,255,0.4)' }}><Edit sx={{ fontSize: 14 }} /></IconButton>
+                      <IconButton size="small" sx={{ color: 'text.secondary' }}><Visibility sx={{ fontSize: 14 }} /></IconButton>
+                      <IconButton size="small" sx={{ color: 'text.secondary' }}><Edit sx={{ fontSize: 14 }} /></IconButton>
                     </TableCell>
                   </TableRow>
                 )
@@ -122,34 +122,34 @@ export default function QMSHallazgos() {
           </Table>
         </Paper>
 
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: '#FFF' } }}>
+        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary' } }}>
           <DialogTitle sx={{ fontWeight: 700 }}>Registrar Hallazgo</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
-            <TextField label="Descripción del Hallazgo" multiline rows={3} fullWidth size="small" InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
+            <TextField label="Descripción del Hallazgo" multiline rows={3} fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl size="small" fullWidth>
-                  <InputLabel sx={{ color: 'rgba(255,255,255,0.5)' }}>Tipo</InputLabel>
-                  <Select label="Tipo" defaultValue="" sx={{ color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } }}>
+                  <InputLabel sx={{ color: 'text.secondary' }}>Tipo</InputLabel>
+                  <Select label="Tipo" defaultValue="" sx={{ color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } }}>
                     {['no_conformidad', 'observacion', 'oportunidad_mejora'].map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
                   </Select>
                 </FormControl>
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl size="small" fullWidth>
-                  <InputLabel sx={{ color: 'rgba(255,255,255,0.5)' }}>Impacto</InputLabel>
-                  <Select label="Impacto" defaultValue="" sx={{ color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } }}>
+                  <InputLabel sx={{ color: 'text.secondary' }}>Impacto</InputLabel>
+                  <Select label="Impacto" defaultValue="" sx={{ color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } }}>
                     {['alto', 'medio', 'bajo'].map(i => <MenuItem key={i} value={i}>{i}</MenuItem>)}
                   </Select>
                 </FormControl>
               </Grid>
             </Grid>
-            <TextField label="Responsable" fullWidth size="small" InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
-            <TextField label="Fecha Límite" type="date" fullWidth size="small" InputLabelProps={{ shrink: true, sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
-            <TextField label="Evidencia / Descripción" multiline rows={2} fullWidth size="small" InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#FFF', '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' } } }} />
+            <TextField label="Responsable" fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
+            <TextField label="Fecha Límite" type="date" fullWidth size="small" InputLabelProps={{ shrink: true, sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
+            <TextField label="Evidencia / Descripción" multiline rows={2} fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setOpenDialog(false)} sx={{ color: 'rgba(255,255,255,0.5)' }}>Cancelar</Button>
+            <Button onClick={() => setOpenDialog(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>
             <Button variant="contained" onClick={() => setOpenDialog(false)} sx={{ bgcolor: QMS_COLOR, '&:hover': { bgcolor: '#047857' } }}>Guardar</Button>
           </DialogActions>
         </Dialog>
