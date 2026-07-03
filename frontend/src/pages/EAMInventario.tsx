@@ -26,8 +26,6 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 const EAM_COLOR = '#32AC5C';
-const CARD_BG = '#0F1E35';
-const DARK_BG = '#060C1A';
 
 // --- Types ---
 
@@ -372,7 +370,7 @@ function KpiCard({ icon, label, value, sub, alert }: KpiCardProps) {
   return (
     <Card
       sx={{
-        bgcolor: CARD_BG,
+        bgcolor: '#FFFFFF',
         border: `1px solid ${alert ? EAM_COLOR : '#1E3A5F'}`,
         borderRadius: 2,
         height: '100%',
@@ -465,7 +463,7 @@ function TabRepuestos() {
       {/* Table */}
       <TableContainer
         component={Paper}
-        sx={{ bgcolor: CARD_BG, borderRadius: 2, border: '1px solid #1E3A5F' }}
+        sx={{ borderRadius: 2, border: '1px solid #1E3A5F' }}
       >
         <Table size="small">
           <TableHead>
@@ -566,7 +564,7 @@ function TabConsumos() {
       </Typography>
       <TableContainer
         component={Paper}
-        sx={{ bgcolor: CARD_BG, borderRadius: 2, border: '1px solid #1E3A5F' }}
+        sx={{ borderRadius: 2, border: '1px solid #1E3A5F' }}
       >
         <Table size="small">
           <TableHead>
@@ -643,7 +641,7 @@ function TabReorden() {
 
       <TableContainer
         component={Paper}
-        sx={{ bgcolor: CARD_BG, borderRadius: 2, border: `1px solid ${EAM_COLOR}55`, mb: 3 }}
+        sx={{ borderRadius: 2, border: `1px solid ${EAM_COLOR}55`, mb: 3 }}
       >
         <Table size="small">
           <TableHead>
@@ -713,7 +711,7 @@ function TabReorden() {
       {/* Summary Card */}
       <Card
         sx={{
-          bgcolor: CARD_BG,
+          bgcolor: '#FFFFFF',
           border: `1px solid ${EAM_COLOR}`,
           borderRadius: 2,
           mb: 2,
@@ -773,7 +771,7 @@ export default function EAMInventario() {
 
   return (
     <Layout>
-      <Box sx={{ bgcolor: DARK_BG, minHeight: '100vh', p: 3 }}>
+      <Box sx={{ minHeight: '100vh', p: 3 }}>
         {/* Header */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
           <Box
@@ -801,7 +799,7 @@ export default function EAMInventario() {
         {/* Tabs */}
         <Box
           sx={{
-            bgcolor: CARD_BG,
+            bgcolor: '#FFFFFF',
             borderRadius: 2,
             border: '1px solid #1E3A5F',
             mb: 3,

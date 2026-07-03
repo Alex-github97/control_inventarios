@@ -32,8 +32,6 @@ import { Layout } from '@/components/layout/Layout';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const EAM_COLOR = '#32AC5C';
-const CARD_BG   = '#0F1E35';
-const DARK_BG   = '#060C1A';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface RegistroRow {
@@ -135,7 +133,7 @@ interface KpiCardProps {
 
 function KpiCard({ icon, label, value, sub }: KpiCardProps) {
   return (
-    <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${EAM_COLOR}33`, borderRadius: 2, height: '100%' }}>
+    <Card sx={{ border: `1px solid ${EAM_COLOR}33`, borderRadius: 2, height: '100%' }}>
       <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 2 }}>
         <Box
           sx={{
@@ -214,7 +212,7 @@ function TabRegistros() {
       </Grid>
 
       {/* Registros Table */}
-      <TableContainer component={Paper} sx={{ bgcolor: CARD_BG, border: `1px solid #1E2D40`, borderRadius: 2 }}>
+      <TableContainer component={Paper} sx={{ border: `1px solid #1E2D40`, borderRadius: 2 }}>
         <Table size="small">
           <TableHead>
             <TableRow>
@@ -227,7 +225,7 @@ function TabRegistros() {
             {REGISTROS.map((r, i) => (
               <TableRow
                 key={i}
-                sx={{ '&:hover': { bgcolor: '#0F1E35CC' } }}
+                sx={{ '&:hover': { bgcolor: '#F3F4F6' } }}
               >
                 <TableCell sx={cellSx}>{r.fecha}</TableCell>
                 <TableCell sx={{ ...cellSx, color: EAM_COLOR, fontWeight: 600 }}>{r.vehiculo}</TableCell>
@@ -270,7 +268,7 @@ function TabRendimiento() {
       <Typography variant="subtitle1" sx={{ color: '#94A3B8', mb: 2 }}>
         Resumen de rendimiento por vehículo — Junio 2026
       </Typography>
-      <TableContainer component={Paper} sx={{ bgcolor: CARD_BG, border: '1px solid #1E2D40', borderRadius: 2 }}>
+      <TableContainer component={Paper} sx={{ border: '1px solid #1E2D40', borderRadius: 2 }}>
         <Table size="small">
           <TableHead>
             <TableRow>
@@ -281,7 +279,7 @@ function TabRendimiento() {
           </TableHead>
           <TableBody>
             {RENDIMIENTO_ROWS.map((r, i) => (
-              <TableRow key={i} sx={{ '&:hover': { bgcolor: '#0F1E35CC' } }}>
+              <TableRow key={i} sx={{ '&:hover': { bgcolor: '#F3F4F6' } }}>
                 <TableCell sx={{ ...cellSx, color: EAM_COLOR, fontWeight: 700 }}>{r.placa}</TableCell>
                 <TableCell sx={cellSx}>{r.nombre}</TableCell>
                 <TableCell sx={cellSx}>{r.kmMes.toLocaleString('es-CO')} km</TableCell>
@@ -337,7 +335,7 @@ function TabDesviaciones() {
           <Grid key={d.id} size={{ xs: 12, md: 6 }}>
             <Card
               sx={{
-                bgcolor: CARD_BG,
+                bgcolor: '#FFFFFF',
                 border: `1px solid ${d.severidad === 'Alta' ? '#F8717166' : '#FACC1566'}`,
                 borderLeft: `4px solid ${d.severidad === 'Alta' ? '#F87171' : '#FACC15'}`,
                 borderRadius: 2,
@@ -423,7 +421,7 @@ export default function EAMCombustible() {
 
   return (
     <Layout>
-      <Box sx={{ bgcolor: DARK_BG, minHeight: '100vh', p: 3 }}>
+      <Box sx={{ minHeight: '100vh', p: 3 }}>
         {/* Page Header */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
           <Box
@@ -452,7 +450,7 @@ export default function EAMCombustible() {
         {/* Tabs */}
         <Box
           sx={{
-            bgcolor: CARD_BG,
+            bgcolor: '#FFFFFF',
             borderRadius: 2,
             border: '1px solid #1E2D40',
             overflow: 'hidden',

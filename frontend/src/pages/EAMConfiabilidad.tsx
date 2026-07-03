@@ -10,8 +10,6 @@ import { Layout } from '@/components/layout/Layout'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const EAM_COLOR = '#32AC5C'
-const CARD_BG = '#0F1E35'
-const DARK_BG = '#060C1A'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface KpiCard {
@@ -248,7 +246,7 @@ function KpisTab() {
       <Grid container spacing={2}>
         {kpiCards.map((kpi) => (
           <Grid size={{ xs: 12, sm: 6, md: 4 }} key={kpi.label}>
-            <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${EAM_COLOR}33`, borderRadius: 2 }}>
+            <Card sx={{ border: `1px solid ${EAM_COLOR}33`, borderRadius: 2 }}>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
                   <Box sx={{ color: EAM_COLOR }}>{kpi.icon}</Box>
@@ -283,7 +281,7 @@ function KpisTab() {
         <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>
           Indicadores por Tipo de Activo
         </Typography>
-        <TableContainer component={Paper} sx={{ bgcolor: CARD_BG, border: `1px solid #1e3a5f` }}>
+        <TableContainer component={Paper} sx={{ border: `1px solid #1e3a5f` }}>
           <Table size="small">
             <TableHead>
               <TableRow>
@@ -336,7 +334,7 @@ function KpisTab() {
         <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>
           Curva de Bañera — Tasa de Fallas vs. Tiempo
         </Typography>
-        <Card sx={{ bgcolor: CARD_BG, border: `1px solid #1e3a5f`, borderRadius: 2, p: 2 }}>
+        <Card sx={{ border: `1px solid #1e3a5f`, borderRadius: 2, p: 2 }}>
           <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'flex-end', height: 160, position: 'relative' }}>
             {/* Y-axis label */}
             <Box sx={{ position: 'absolute', left: -8, top: '50%', transform: 'translateY(-50%) rotate(-90deg)', color: '#94a3b8', fontSize: 11, whiteSpace: 'nowrap' }}>
@@ -396,7 +394,7 @@ function KpisTab() {
         <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>
           Top 5 Activos con Mayor Número de Fallas este Año
         </Typography>
-        <TableContainer component={Paper} sx={{ bgcolor: CARD_BG, border: `1px solid #1e3a5f` }}>
+        <TableContainer component={Paper} sx={{ border: `1px solid #1e3a5f` }}>
           <Table size="small">
             <TableHead>
               <TableRow>
@@ -458,7 +456,7 @@ function FmeaTab() {
           <Typography sx={{ color: '#94a3b8', fontSize: 12 }}>RPN &lt; 100 — Normal</Typography>
         </Box>
       </Box>
-      <TableContainer component={Paper} sx={{ bgcolor: CARD_BG, border: `1px solid #1e3a5f`, overflowX: 'auto' }}>
+      <TableContainer component={Paper} sx={{ border: `1px solid #1e3a5f`, overflowX: 'auto' }}>
         <Table size="small" sx={{ minWidth: 1400 }}>
           <TableHead>
             <TableRow>
@@ -519,7 +517,7 @@ function AnalisisFallasTab() {
         <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>
           Diagrama de Pareto — Top 5 Tipos de Falla
         </Typography>
-        <Card sx={{ bgcolor: CARD_BG, border: `1px solid #1e3a5f`, borderRadius: 2, p: 3 }}>
+        <Card sx={{ border: `1px solid #1e3a5f`, borderRadius: 2, p: 3 }}>
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-end', height: 200 }}>
             {paretoData.map((d, i) => {
               const barColors = ['#ef4444', '#f97316', '#f59e0b', '#3b82f6', '#8b5cf6']
@@ -562,7 +560,7 @@ function AnalisisFallasTab() {
         <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>
           Causas Raíz más Frecuentes
         </Typography>
-        <Card sx={{ bgcolor: CARD_BG, border: `1px solid #1e3a5f`, borderRadius: 2, p: 3 }}>
+        <Card sx={{ border: `1px solid #1e3a5f`, borderRadius: 2, p: 3 }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {causasRaiz.map((c, i) => {
               const pct = Math.round((c.casos / maxCasos) * 100)
@@ -595,7 +593,7 @@ function AnalisisFallasTab() {
         <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>
           Fallas del Mes en Curso
         </Typography>
-        <TableContainer component={Paper} sx={{ bgcolor: CARD_BG, border: `1px solid #1e3a5f`, overflowX: 'auto' }}>
+        <TableContainer component={Paper} sx={{ border: `1px solid #1e3a5f`, overflowX: 'auto' }}>
           <Table size="small" sx={{ minWidth: 1100 }}>
             <TableHead>
               <TableRow>
@@ -641,7 +639,7 @@ export default function EAMConfiabilidad() {
 
   return (
     <Layout>
-      <Box sx={{ minHeight: '100vh', bgcolor: DARK_BG, p: 3 }}>
+      <Box sx={{ minHeight: '100vh', p: 3 }}>
         {/* Header */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
           <Box

@@ -7,8 +7,6 @@ import {
 import { Layout } from '@/components/layout/Layout';
 
 const EAM_COLOR = '#32AC5C';
-const CARD_BG = '#0F1E35';
-const DARK_BG = '#060C1A';
 
 interface TabPanelProps { children?: React.ReactNode; index: number; value: number; }
 function TabPanel({ children, value, index }: TabPanelProps) {
@@ -165,7 +163,7 @@ export default function EAMChecklists() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, minHeight: '100vh', background: DARK_BG }}>
+      <Box sx={{ p: 3, minHeight: '100vh', background: '#F8FAFC' }}>
         <Stack direction="row" alignItems="center" spacing={2} mb={1}>
           <Box sx={{ width: 6, height: 36, bgcolor: EAM_COLOR, borderRadius: 1 }} />
           <Typography variant="h4" sx={{ color: EAM_COLOR, fontWeight: 700 }}>
@@ -197,7 +195,7 @@ export default function EAMChecklists() {
           <Grid container spacing={2}>
             {TEMPLATES.map(tmpl => (
               <Grid key={tmpl.id} size={{ xs: 12, md: 6 }}>
-                <Card sx={{ bgcolor: CARD_BG, border: '1px solid #1F2937', borderRadius: 2 }}>
+                <Card sx={{ border: '1px solid #1F2937', borderRadius: 2 }}>
                   <CardContent>
                     <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
                       <Box flex={1}>
@@ -259,7 +257,7 @@ export default function EAMChecklists() {
                               <Stack spacing={1} mt={1}>
                                 {sec.questions.map((q, qi) => (
                                   <Stack key={qi} direction="row" alignItems="center" justifyContent="space-between"
-                                    sx={{ bgcolor: '#060C1A', borderRadius: 1, px: 1.5, py: 0.75, border: '1px solid #1F2937' }}>
+                                    sx={{ bgcolor: '#F8FAFC', borderRadius: 1, px: 1.5, py: 0.75, border: '1px solid #1F2937' }}>
                                     <Typography variant="body2" sx={{ color: '#D1D5DB', flex: 1 }}>{q.text}</Typography>
                                     <Chip
                                       label={QTYPE_LABEL[q.type]}
@@ -286,10 +284,10 @@ export default function EAMChecklists() {
           <Typography variant="h6" sx={{ color: '#F9FAFB', fontWeight: 700, mb: 2 }}>
             Ejecuciones recientes de checklists
           </Typography>
-          <TableContainer component={Paper} sx={{ bgcolor: CARD_BG, border: '1px solid #1F2937', borderRadius: 2 }}>
+          <TableContainer component={Paper} sx={{ border: '1px solid #1F2937', borderRadius: 2 }}>
             <Table size="small">
               <TableHead>
-                <TableRow sx={{ '& .MuiTableCell-head': { bgcolor: '#060C1A', color: '#6B7280', fontWeight: 700, borderColor: '#1F2937', fontSize: '0.75rem', letterSpacing: 0.5 } }}>
+                <TableRow sx={{ '& .MuiTableCell-head': { bgcolor: '#F8FAFC', color: '#6B7280', fontWeight: 700, borderColor: '#1F2937', fontSize: '0.75rem', letterSpacing: 0.5 } }}>
                   <TableCell>ID</TableCell>
                   <TableCell>Fecha</TableCell>
                   <TableCell>Activo</TableCell>
@@ -352,7 +350,7 @@ export default function EAMChecklists() {
 
           <Stack spacing={2}>
             {NON_CONFORMANCES.map(nc => (
-              <Card key={nc.id} sx={{ bgcolor: CARD_BG, border: `1px solid ${nc.status === 'ABIERTA' && nc.severity === 'CRITICA' ? '#DC262640' : '#1F2937'}`, borderRadius: 2 }}>
+              <Card key={nc.id} sx={{ border: `1px solid ${nc.status === 'ABIERTA' && nc.severity === 'CRITICA' ? '#DC262640' : '#1F2937'}`, borderRadius: 2 }}>
                 <CardContent>
                   <Stack direction="row" alignItems="flex-start" justifyContent="space-between" mb={1}>
                     <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>

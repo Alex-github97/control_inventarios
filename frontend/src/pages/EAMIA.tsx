@@ -22,8 +22,6 @@ import {
 import { Layout } from '@/components/layout/Layout'
 
 const EAM_COLOR = '#32AC5C'
-const CARD_BG = '#0F1E35'
-const DARK_BG = '#060C1A'
 const AI_COLOR = '#8B5CF6'
 
 const fmt = (n: number) =>
@@ -165,7 +163,7 @@ export default function EAMIA() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, background: DARK_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, background: '#F8FAFC', minHeight: '100vh' }}>
         {/* Header */}
         <Stack direction="row" alignItems="center" spacing={2} mb={3}>
           <Box sx={{ p: 1.5, borderRadius: 2, background: alpha(AI_COLOR, 0.15), color: AI_COLOR }}>
@@ -200,7 +198,7 @@ export default function EAMIA() {
                 const otCreada = otGeneradas.includes(p.id)
                 return (
                   <Grid key={p.id} size={{ xs: 12, md: 6 }}>
-                    <Card sx={{ background: CARD_BG, border: `1px solid ${alpha(p.critico ? '#EF4444' : color, 0.4)}`, ...(p.critico ? { boxShadow: `0 0 12px ${alpha('#EF4444', 0.3)}` } : {}) }}>
+                    <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(p.critico ? '#EF4444' : color, 0.4)}`, ...(p.critico ? { boxShadow: `0 0 12px ${alpha('#EF4444', 0.3)}` } : {}) }}>
                       <CardContent>
                         <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1}>
                           <Box>
@@ -262,7 +260,7 @@ export default function EAMIA() {
                     { label: 'Mejora Disponibilidad', value: '+12%', icon: <SpeedIcon />, color: AI_COLOR },
                   ].map((k, i) => (
                     <Grid key={i} size={{ xs: 12, md: 4 }}>
-                      <Card sx={{ background: CARD_BG, border: `1px solid ${alpha(k.color, 0.3)}` }}>
+                      <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(k.color, 0.3)}` }}>
                         <CardContent>
                           <Stack direction="row" spacing={1.5} alignItems="center">
                             <Box sx={{ color: k.color }}>{k.icon}</Box>
@@ -280,7 +278,7 @@ export default function EAMIA() {
 
               {/* Ventanas óptimas */}
               <Grid size={{ xs: 12, md: 7 }}>
-                <Card sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}` }}>
+                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
                   <CardContent>
                     <Typography variant="subtitle1" fontWeight={700} color="white" mb={2}>Ventanas de Mantenimiento Óptimas</Typography>
                     <TableContainer>
@@ -313,7 +311,7 @@ export default function EAMIA() {
 
               {/* Repuestos críticos */}
               <Grid size={{ xs: 12, md: 5 }}>
-                <Card sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}` }}>
+                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
                   <CardContent>
                     <Stack direction="row" alignItems="center" spacing={1} mb={2}>
                       <StockIcon sx={{ color: EAM_COLOR, fontSize: 20 }} />
@@ -360,7 +358,7 @@ export default function EAMIA() {
             </Stack>
 
             {/* Timeline visual simplificado */}
-            <Card sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}`, mb: 2 }}>
+            <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}`, mb: 2 }}>
               <CardContent>
                 <Typography variant="caption" color="grey.400" mb={1} display="block">Timeline de anomalías del día</Typography>
                 <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
@@ -376,7 +374,7 @@ export default function EAMIA() {
               </CardContent>
             </Card>
 
-            <TableContainer component={Paper} sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}` }}>
+            <TableContainer component={Paper} sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
               <Table size="small">
                 <TableHead>
                   <TableRow sx={{ '& th': { color: 'grey.400', fontWeight: 700, borderBottom: `1px solid ${alpha('#fff', 0.1)}` } }}>
@@ -421,7 +419,7 @@ export default function EAMIA() {
         {tab === 3 && (
           <Grid container spacing={3}>
             <Grid size={{ xs: 12, md: 8 }}>
-              <Card sx={{ background: CARD_BG, border: `1px solid ${alpha(AI_COLOR, 0.3)}`, height: 520, display: 'flex', flexDirection: 'column' }}>
+              <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(AI_COLOR, 0.3)}`, height: 520, display: 'flex', flexDirection: 'column' }}>
                 <CardContent sx={{ pb: 0 }}>
                   <Stack direction="row" alignItems="center" spacing={1}>
                     <BotIcon sx={{ color: AI_COLOR }} />
@@ -453,7 +451,7 @@ export default function EAMIA() {
                       fullWidth size="small" placeholder="Escribe tu consulta técnica..." value={chatInput}
                       onChange={e => setChatInput(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(chatInput) } }}
-                      sx={{ '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.05), '& fieldset': { borderColor: alpha('#fff', 0.15) }, '&:hover fieldset': { borderColor: AI_COLOR }, color: 'white', fontSize: 14 } }}
+                      sx={{ '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.05), '& fieldset': { borderColor: alpha('#fff', 0.15) }, '&:hover fieldset': { borderColor: AI_COLOR }, color: 'text.primary', fontSize: 14 } }}
                     />
                     <IconButton onClick={() => sendMsg(chatInput)} sx={{ background: alpha(AI_COLOR, 0.15), color: AI_COLOR, '&:hover': { background: alpha(AI_COLOR, 0.25) } }}>
                       <SendIcon fontSize="small" />
@@ -464,13 +462,13 @@ export default function EAMIA() {
             </Grid>
 
             <Grid size={{ xs: 12, md: 4 }}>
-              <Card sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}` }}>
+              <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
                 <CardContent>
                   <Typography variant="subtitle2" color="grey.400" mb={2} fontWeight={600}>Consultas Rápidas</Typography>
                   <Stack spacing={1}>
                     {QUICK_PROMPTS.map((q, i) => (
                       <Button key={i} fullWidth variant="outlined" size="small" onClick={() => sendMsg(q)}
-                        sx={{ textTransform: 'none', justifyContent: 'flex-start', borderColor: alpha(AI_COLOR, 0.3), color: 'grey.300', fontSize: 12, py: 1, px: 1.5, '&:hover': { borderColor: AI_COLOR, color: 'white', background: alpha(AI_COLOR, 0.1) } }}>
+                        sx={{ textTransform: 'none', justifyContent: 'flex-start', borderColor: alpha(AI_COLOR, 0.3), color: 'grey.300', fontSize: 12, py: 1, px: 1.5, '&:hover': { borderColor: AI_COLOR, color: 'text.primary', background: alpha(AI_COLOR, 0.1) } }}>
                         {q}
                       </Button>
                     ))}

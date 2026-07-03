@@ -1,10 +1,11 @@
-﻿import React, { useState } from 'react'
+﻿import React, { useState, useEffect } from 'react'
 import {
   Box, Typography, Tabs, Tab, Grid, Card, CardContent, Chip,
   Stack, alpha, Divider, IconButton, Button, TextField, MenuItem,
   Switch, FormControlLabel, InputAdornment, Avatar, Rating,
   List, ListItem, ListItemText, ListItemSecondaryAction, Dialog,
   DialogTitle, DialogContent, DialogActions,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Tooltip,
 } from '@mui/material'
 import {
   Settings as SettingsIcon,
@@ -26,8 +27,6 @@ import {
 import { Layout } from '@/components/layout/Layout'
 
 const EAM_COLOR = '#32AC5C'
-const CARD_BG = '#0F1E35'
-const DARK_BG = '#060C1A'
 
 // ── Tipos de Trabajo — catálogo rico ─────────────────────────────────────────
 
@@ -156,6 +155,55 @@ const EMPTY_CC: CentroCosto = { id: 0, codigo: '', nombre: '', ciudad: '', plata
 const CIUDADES = ['Bogotá', 'Medellín', 'Cali', 'Barranquilla', 'Cartagena', 'Bucaramanga']
 const PLATAFORMAS = ['Plataforma Central', 'Plataforma Norte', 'Plataforma Sur', 'Plataforma Oriente', 'Corporativo']
 
+// ── Configuración de Disponibilidad ──────────────────────────────────────────
+interface PeriodoCfg {
+  id: number
+  nombre: string
+  desde: string   // "YYYY-MM"
+  hasta: string   // "YYYY-MM"
+  horas: number   // valor base / default
+  aplica: 'todos' | 'categoria' | 'activos'
+  categoria?: string
+  activos?: string[]
+  horasPorActivo?: Record<string, number>  // horas individuales por equipo
+}
+
+interface ActivoCfg {
+  nombre: string
+  categoria: string
+  centroCosto: string
+}
+
+const ACTIVOS_CFG: ActivoCfg[] = [
+  { nombre: 'VH-001 — Tractocamión Kenworth T800',    categoria: 'Vehículos',      centroCosto: 'CC-001' },
+  { nombre: 'VH-002 — Camión Freightliner M2-106',    categoria: 'Vehículos',      centroCosto: 'CC-001' },
+  { nombre: 'VH-003 — Camioneta Ford Ranger',         categoria: 'Vehículos',      centroCosto: 'CC-002' },
+  { nombre: 'MC-001 — Montacargas Yale GLP050',       categoria: 'Montacargas',    centroCosto: 'CC-006' },
+  { nombre: 'MC-003 — Montacargas Toyota 8FGCU25',   categoria: 'Montacargas',    centroCosto: 'CC-006' },
+  { nombre: 'MC-004 — Reach Truck Crown RR5200',      categoria: 'Montacargas',    centroCosto: 'CC-006' },
+  { nombre: 'CF-001 — Compresor Cuarto Frío',         categoria: 'Equipos Frío',   centroCosto: 'CC-005' },
+  { nombre: 'CMP-07 — Compresor Atlas Copco GA22',    categoria: 'Industrial',     centroCosto: 'CC-003' },
+  { nombre: 'SRV-01 — Servidor Dell PowerEdge R740',  categoria: 'TI',             centroCosto: 'CC-004' },
+  { nombre: 'ELV-02 — Estibador Eléctrico Still EXU', categoria: 'Industrial',     centroCosto: 'CC-006' },
+  { nombre: 'BD-01  — Bodega Principal Bogotá',        categoria: 'Infraestructura',centroCosto: 'CC-003' },
+]
+
+const ACTIVOS_CATS_CFG = ['Vehículos', 'Montacargas', 'Equipos Frío', 'Industrial', 'TI', 'Infraestructura']
+
+const HORAS_DEFAULTS: Record<string, number> = {
+  'VH-001 — Tractocamión Kenworth T800':    720,
+  'VH-002 — Camión Freightliner M2-106':    720,
+  'VH-003 — Camioneta Ford Ranger':         480,
+  'MC-001 — Montacargas Yale GLP050':       480,
+  'MC-003 — Montacargas Toyota 8FGCU25':   480,
+  'MC-004 — Reach Truck Crown RR5200':      480,
+  'CF-001 — Compresor Cuarto Frío':         720,
+  'CMP-07 — Compresor Atlas Copco GA22':    480,
+  'SRV-01 — Servidor Dell PowerEdge R740':  720,
+  'ELV-02 — Estibador Eléctrico Still EXU': 480,
+  'BD-01  — Bodega Principal Bogotá':        480,
+}
+
 export default function EAMConfig() {
   const [tab, setTab] = useState(0)
   const [catSearch, setCatSearch] = useState<Record<string, string>>({})
@@ -222,13 +270,84 @@ export default function EAMConfig() {
   const setU = <K extends keyof UmbralState>(k: K, v: UmbralState[K]) =>
     setUmbrales(prev => ({ ...prev, [k]: v }))
 
+  // Disponibilidad — horas por activo
+  const [horasCfg, setHorasCfg] = useState<Record<string, number>>(() => {
+    try {
+      const s = localStorage.getItem('eam_horas_config')
+      return s ? { ...HORAS_DEFAULTS, ...JSON.parse(s) } : { ...HORAS_DEFAULTS }
+    } catch { return { ...HORAS_DEFAULTS } }
+  })
+  const [dispCat, setDispCat]   = useState('Todos')
+  const [dispBulk, setDispBulk] = useState('720')
+  const [dispSel, setDispSel]   = useState<string[]>([])
+
+  // Períodos especiales de disponibilidad
+  const [periodos, setPeriodos] = useState<PeriodoCfg[]>(() => {
+    try {
+      const s = localStorage.getItem('eam_periodos_config')
+      return s ? JSON.parse(s) : []
+    } catch { return [] }
+  })
+
+  const [periodDlg, setPeriodDlg] = useState(false)
+  const [newPeriodo, setNewPeriodo] = useState<Omit<PeriodoCfg, 'id'>>({
+    nombre: '', desde: '2026-07', hasta: '2026-07', horas: 720,
+    aplica: 'todos', categoria: '', activos: [],
+  })
+  const [periodActSel, setPeriodActSel]     = useState<string[]>([])
+  const [periodActHoras, setPeriodActHoras] = useState<Record<string, number>>({})
+  const [periodActCat, setPeriodActCat]     = useState('Todos')
+
+  useEffect(() => {
+    localStorage.setItem('eam_horas_config', JSON.stringify(horasCfg))
+  }, [horasCfg])
+
+  useEffect(() => {
+    localStorage.setItem('eam_periodos_config', JSON.stringify(periodos))
+  }, [periodos])
+
+  const activosFiltrados = dispCat === 'Todos' ? ACTIVOS_CFG : ACTIVOS_CFG.filter((a) => a.categoria === dispCat)
+  const applyDispBulk = () => {
+    const hs = parseFloat(dispBulk) || 0
+    if (hs <= 0) return
+    const targets = dispSel.length > 0 ? dispSel : activosFiltrados.map((a) => a.nombre)
+    setHorasCfg((p) => { const n = { ...p }; targets.forEach((nm) => { n[nm] = hs }); return n })
+  }
+
+  const savePeriodo = () => {
+    if (!newPeriodo.nombre || newPeriodo.horas <= 0 || newPeriodo.desde > newPeriodo.hasta) return
+    const entry: PeriodoCfg = {
+      ...newPeriodo,
+      id: Date.now(),
+      activos: newPeriodo.aplica === 'activos' ? periodActSel : [],
+      categoria: newPeriodo.aplica === 'categoria' ? newPeriodo.categoria : '',
+      horasPorActivo: newPeriodo.aplica === 'activos' ? { ...periodActHoras } : {},
+    }
+    setPeriodos((p) => [...p, entry])
+    setPeriodDlg(false)
+    setNewPeriodo({ nombre: '', desde: '2026-07', hasta: '2026-07', horas: 720, aplica: 'todos', categoria: '', activos: [] })
+    setPeriodActSel([])
+    setPeriodActHoras({})
+    setPeriodActCat('Todos')
+  }
+
+  const togglePeriodActivo = (nombre: string, horasBase: number) => {
+    if (periodActSel.includes(nombre)) {
+      setPeriodActSel((p) => p.filter((x) => x !== nombre))
+      setPeriodActHoras((p) => { const n = { ...p }; delete n[nombre]; return n })
+    } else {
+      setPeriodActSel((p) => [...p, nombre])
+      setPeriodActHoras((p) => ({ ...p, [nombre]: horasBase }))
+    }
+  }
+
   const getSearch = (cat: string) => catSearch[cat] ?? ''
   const setSearch = (cat: string, val: string) => setCatSearch(prev => ({ ...prev, [cat]: val }))
   const filterCat = (items: string[], cat: string) =>
     items.filter(i => i.toLowerCase().includes(getSearch(cat).toLowerCase())).slice(0, 5)
 
   const CatalogCard = ({ title, items, catKey, total }: { title: string; items: string[]; catKey: string; total: number }) => (
-    <Card sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}` }}>
+    <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
       <CardContent>
         <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.5}>
           <Box>
@@ -243,7 +362,7 @@ export default function EAMConfig() {
           fullWidth size="small" placeholder="Buscar..." value={getSearch(catKey)}
           onChange={e => setSearch(catKey, e.target.value)}
           InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: 'grey.600', fontSize: 16 }} /></InputAdornment> }}
-          sx={{ mb: 1.5, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.03), '& fieldset': { borderColor: alpha('#fff', 0.12) }, '&:hover fieldset': { borderColor: alpha(EAM_COLOR, 0.4) }, color: 'white', fontSize: 13 } }}
+          sx={{ mb: 1.5, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.03), '& fieldset': { borderColor: alpha('#fff', 0.12) }, '&:hover fieldset': { borderColor: alpha(EAM_COLOR, 0.4) }, color: 'text.primary', fontSize: 13 } }}
         />
         <List dense disablePadding>
           {filterCat(items, catKey).map((item, i) => (
@@ -267,7 +386,7 @@ export default function EAMConfig() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, background: DARK_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, background: '#F8FAFC', minHeight: '100vh' }}>
         {/* Header */}
         <Stack direction="row" alignItems="center" spacing={2} mb={3}>
           <Box sx={{ p: 1.5, borderRadius: 2, background: alpha(EAM_COLOR, 0.15), color: EAM_COLOR }}>
@@ -281,7 +400,7 @@ export default function EAMConfig() {
 
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
           <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ '& .MuiTab-root': { color: 'grey.400', textTransform: 'none', fontWeight: 600 }, '& .Mui-selected': { color: EAM_COLOR }, '& .MuiTabs-indicator': { backgroundColor: EAM_COLOR } }}>
-            {['Catálogos', 'Contratistas', 'Umbrales & Alertas', 'Integraciones'].map((l, i) => <Tab key={i} label={l} />)}
+            {['Catálogos', 'Contratistas', 'Umbrales & Alertas', 'Integraciones', 'Disponibilidad'].map((l, i) => <Tab key={i} label={l} />)}
           </Tabs>
         </Box>
 
@@ -291,7 +410,7 @@ export default function EAMConfig() {
 
             {/* ── Tipos de Trabajo — card especial con CRUD ── */}
             <Grid size={{ xs: 12 }}>
-              <Card sx={{ background: CARD_BG, border: `1px solid ${alpha(EAM_COLOR, 0.2)}` }}>
+              <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(EAM_COLOR, 0.2)}` }}>
                 <CardContent>
                   <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                     <Box>
@@ -312,7 +431,7 @@ export default function EAMConfig() {
                     value={tipoSearch}
                     onChange={(e) => setTipoSearch(e.target.value)}
                     InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: 'grey.600', fontSize: 16 }} /></InputAdornment> }}
-                    sx={{ mb: 2, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.03), '& fieldset': { borderColor: alpha('#fff', 0.1) }, '&:hover fieldset': { borderColor: alpha(EAM_COLOR, 0.4) }, color: 'white', fontSize: 13 } }}
+                    sx={{ mb: 2, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.03), '& fieldset': { borderColor: alpha('#fff', 0.1) }, '&:hover fieldset': { borderColor: alpha(EAM_COLOR, 0.4) }, color: 'text.primary', fontSize: 13 } }}
                   />
 
                   {/* Cabecera */}
@@ -368,9 +487,9 @@ export default function EAMConfig() {
 
             {/* Diálogo crear/editar tipo de trabajo */}
             <Dialog open={tipoDialog} onClose={() => setTipoDialog(false)} maxWidth="sm" fullWidth
-              PaperProps={{ sx: { bgcolor: CARD_BG, border: `1px solid ${alpha(EAM_COLOR, 0.3)}`, borderRadius: '14px' } }}
+              PaperProps={{ sx: { border: `1px solid ${alpha(EAM_COLOR, 0.3)}`, borderRadius: '14px' } }}
             >
-              <DialogTitle sx={{ color: 'white', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
+              <DialogTitle sx={{ color: 'text.primary', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
                 {tipoEditing.id && tiposTrabajo.find(t => t.id === tipoEditing.id) ? 'Editar tipo de trabajo' : 'Nuevo tipo de trabajo'}
                 <IconButton size="small" onClick={() => setTipoDialog(false)} sx={{ color: 'grey.500' }}><CloseIcon sx={{ fontSize: 18 }} /></IconButton>
               </DialogTitle>
@@ -380,7 +499,7 @@ export default function EAMConfig() {
                     fullWidth size="small" label="Nombre del trabajo"
                     value={tipoEditing.nombre}
                     onChange={(e) => setTipoEditing((p) => ({ ...p, nombre: e.target.value }))}
-                    sx={{ '& .MuiOutlinedInput-root': { color: 'white', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
+                    sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
                   />
 
                   <Stack direction="row" spacing={2}>
@@ -388,7 +507,7 @@ export default function EAMConfig() {
                       select fullWidth size="small" label="Categoría"
                       value={tipoEditing.categoria}
                       onChange={(e) => setTipoEditing((p) => ({ ...p, categoria: e.target.value as CatTrabajo }))}
-                      sx={{ '& .MuiOutlinedInput-root': { color: 'white', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) }, '& .MuiSvgIcon-root': { color: 'grey.500' } }}
+                      sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) }, '& .MuiSvgIcon-root': { color: 'grey.500' } }}
                     >
                       {CATEGORIAS_TRABAJO.map((c) => (
                         <MenuItem key={c} value={c}>
@@ -405,7 +524,7 @@ export default function EAMConfig() {
                       value={tipoEditing.duracion}
                       onChange={(e) => setTipoEditing((p) => ({ ...p, duracion: e.target.value }))}
                       placeholder="Ej: 2h, 4h, Variable"
-                      sx={{ '& .MuiOutlinedInput-root': { color: 'white', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
+                      sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
                     />
                   </Stack>
 
@@ -415,14 +534,14 @@ export default function EAMConfig() {
                       value={tipoEditing.sistema}
                       onChange={(e) => setTipoEditing((p) => ({ ...p, sistema: e.target.value }))}
                       placeholder="Ej: Motor, Eléctrico, Hidráulico"
-                      sx={{ '& .MuiOutlinedInput-root': { color: 'white', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
+                      sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
                     />
                     <TextField
                       fullWidth size="small" label="Subsistema del activo"
                       value={tipoEditing.subsistema}
                       onChange={(e) => setTipoEditing((p) => ({ ...p, subsistema: e.target.value }))}
                       placeholder="Ej: Lubricación, Circuitos, Transmisión"
-                      sx={{ '& .MuiOutlinedInput-root': { color: 'white', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
+                      sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
                     />
                   </Stack>
 
@@ -455,7 +574,7 @@ export default function EAMConfig() {
                       <Typography fontSize={11} color="grey.500" mb={0.75}>Vista previa de badges:</Typography>
                       <Stack direction="row" spacing={0.75} flexWrap="wrap">
                         <Chip label={tipoEditing.categoria} size="small" sx={{ bgcolor: alpha(CAT_COLOR[tipoEditing.categoria], 0.15), color: CAT_COLOR[tipoEditing.categoria], fontWeight: 700, fontSize: 10, height: 20 }} />
-                        <Chip label={`⏱ ${tipoEditing.duracion || '?'}`} size="small" sx={{ bgcolor: alpha('#fff', 0.05), color: 'rgba(255,255,255,0.55)', fontSize: 10, height: 20 }} />
+                        <Chip label={`⏱ ${tipoEditing.duracion || '?'}`} size="small" sx={{ bgcolor: alpha('#fff', 0.05), color: 'text.secondary', fontSize: 10, height: 20 }} />
                         {tipoEditing.requiereTaller && <Chip label="Requiere taller" size="small" sx={{ bgcolor: alpha('#F59E0B', 0.1), color: '#F59E0B', fontSize: 10, height: 20 }} />}
                         {tipoEditing.requiereMateriales && <Chip label="Requiere repuestos" size="small" sx={{ bgcolor: alpha('#3B82F6', 0.1), color: '#3B82F6', fontSize: 10, height: 20 }} />}
                       </Stack>
@@ -477,7 +596,7 @@ export default function EAMConfig() {
 
             {/* ── Centros de Costo — card especial con CRUD ── */}
             <Grid size={{ xs: 12 }}>
-              <Card sx={{ background: CARD_BG, border: `1px solid ${alpha(EAM_COLOR, 0.2)}` }}>
+              <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(EAM_COLOR, 0.2)}` }}>
                 <CardContent>
                   <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                     <Box>
@@ -495,7 +614,7 @@ export default function EAMConfig() {
                     fullWidth size="small" placeholder="Buscar por código, nombre o ciudad..."
                     value={ccSearch} onChange={(e) => setCcSearch(e.target.value)}
                     InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: 'grey.600', fontSize: 16 }} /></InputAdornment> }}
-                    sx={{ mb: 2, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.03), '& fieldset': { borderColor: alpha('#fff', 0.12) }, color: 'white', fontSize: 13 } }}
+                    sx={{ mb: 2, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.03), '& fieldset': { borderColor: alpha('#fff', 0.12) }, color: 'text.primary', fontSize: 13 } }}
                   />
                   {/* Header */}
                   <Box sx={{ display: 'grid', gridTemplateColumns: '90px 1fr 130px 1fr 90px', gap: 1, px: 1, pb: 0.5, borderBottom: '1px solid rgba(255,255,255,0.07)', mb: 0.5 }}>
@@ -526,9 +645,9 @@ export default function EAMConfig() {
 
             {/* Dialog Centros de Costo */}
             <Dialog open={ccDialog} onClose={() => setCcDialog(false)} maxWidth="sm" fullWidth
-              PaperProps={{ sx: { bgcolor: CARD_BG, border: `1px solid ${alpha(EAM_COLOR, 0.3)}`, borderRadius: '14px' } }}
+              PaperProps={{ sx: { border: `1px solid ${alpha(EAM_COLOR, 0.3)}`, borderRadius: '14px' } }}
             >
-              <DialogTitle sx={{ color: 'white', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
+              <DialogTitle sx={{ color: 'text.primary', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
                 {ccEditing.id && centrosCosto.find((c) => c.id === ccEditing.id) ? 'Editar centro de costo' : 'Nuevo centro de costo'}
                 <IconButton size="small" onClick={() => setCcDialog(false)} sx={{ color: 'grey.500' }}><CloseIcon sx={{ fontSize: 18 }} /></IconButton>
               </DialogTitle>
@@ -540,14 +659,14 @@ export default function EAMConfig() {
                       value={ccEditing.codigo}
                       onChange={(e) => setCcEditing((p) => ({ ...p, codigo: e.target.value }))}
                       placeholder="Ej: CC-007"
-                      sx={{ '& .MuiOutlinedInput-root': { color: 'white', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
+                      sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
                     />
                     <TextField
                       fullWidth size="small" label="Nombre del centro de costo"
                       value={ccEditing.nombre}
                       onChange={(e) => setCcEditing((p) => ({ ...p, nombre: e.target.value }))}
                       placeholder="Ej: Flota Cali"
-                      sx={{ '& .MuiOutlinedInput-root': { color: 'white', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
+                      sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
                     />
                   </Stack>
                   <Stack direction="row" spacing={2}>
@@ -555,7 +674,7 @@ export default function EAMConfig() {
                       select fullWidth size="small" label="Ciudad"
                       value={ccEditing.ciudad}
                       onChange={(e) => setCcEditing((p) => ({ ...p, ciudad: e.target.value }))}
-                      sx={{ '& .MuiOutlinedInput-root': { color: 'white', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) }, '& .MuiSvgIcon-root': { color: 'grey.500' } }}
+                      sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) }, '& .MuiSvgIcon-root': { color: 'grey.500' } }}
                     >
                       {CIUDADES.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
                     </TextField>
@@ -563,7 +682,7 @@ export default function EAMConfig() {
                       select fullWidth size="small" label="Plataforma"
                       value={ccEditing.plataforma}
                       onChange={(e) => setCcEditing((p) => ({ ...p, plataforma: e.target.value }))}
-                      sx={{ '& .MuiOutlinedInput-root': { color: 'white', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) }, '& .MuiSvgIcon-root': { color: 'grey.500' } }}
+                      sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) }, '& .MuiSvgIcon-root': { color: 'grey.500' } }}
                     >
                       {PLATAFORMAS.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
                     </TextField>
@@ -582,7 +701,6 @@ export default function EAMConfig() {
               </DialogActions>
             </Dialog>
 
-            <Grid size={{ xs: 12, md: 6 }}>
             <Grid size={{ xs: 12, md: 6 }}>
               <CatalogCard title="Actividades" items={ACTIVIDADES} catKey="actividades" total={18} />
             </Grid>
@@ -612,7 +730,7 @@ export default function EAMConfig() {
             <Grid container spacing={2}>
               {CONTRATISTAS.map(c => (
                 <Grid key={c.id} size={{ xs: 12, md: 6, lg: 4 }}>
-                  <Card sx={{ background: CARD_BG, border: `1px solid ${alpha(c.activo ? tipoContColor(c.tipo) : '#4B5563', 0.3)}`, opacity: c.activo ? 1 : 0.6 }}>
+                  <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(c.activo ? tipoContColor(c.tipo) : '#4B5563', 0.3)}`, opacity: c.activo ? 1 : 0.6 }}>
                     <CardContent>
                       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
                         <Stack direction="row" spacing={1.5} alignItems="center">
@@ -655,7 +773,7 @@ export default function EAMConfig() {
         {tab === 2 && (
           <Grid container spacing={3}>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}` }}>
+              <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
                 <CardContent>
                   <Stack direction="row" alignItems="center" spacing={1} mb={2}>
                     <AlertIcon sx={{ color: EAM_COLOR, fontSize: 20 }} />
@@ -676,7 +794,7 @@ export default function EAMConfig() {
                         onChange={e => setU('pmAntesDias', Number(e.target.value))}
                         disabled={!umbrales.pmActive}
                         InputProps={{ endAdornment: <InputAdornment position="end"><Typography variant="caption" color="grey.500">días</Typography></InputAdornment> }}
-                        sx={{ width: 100, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.04), '& fieldset': { borderColor: alpha('#fff', 0.12) }, color: 'white', fontSize: 13 } }}
+                        sx={{ width: 100, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.04), '& fieldset': { borderColor: alpha('#fff', 0.12) }, color: 'text.primary', fontSize: 13 } }}
                       />
                     </Stack>
 
@@ -694,7 +812,7 @@ export default function EAMConfig() {
                         onChange={e => setU('profNeumatico', Number(e.target.value))}
                         disabled={!umbrales.profActive}
                         InputProps={{ endAdornment: <InputAdornment position="end"><Typography variant="caption" color="grey.500">mm</Typography></InputAdornment> }}
-                        sx={{ width: 100, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.04), '& fieldset': { borderColor: alpha('#fff', 0.12) }, color: 'white', fontSize: 13 } }}
+                        sx={{ width: 100, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.04), '& fieldset': { borderColor: alpha('#fff', 0.12) }, color: 'text.primary', fontSize: 13 } }}
                       />
                     </Stack>
 
@@ -715,7 +833,7 @@ export default function EAMConfig() {
             </Grid>
 
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ background: CARD_BG, border: `1px solid ${alpha('#fff', 0.08)}` }}>
+              <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
                 <CardContent>
                   <Stack direction="row" alignItems="center" spacing={1} mb={2}>
                     <WarnIcon sx={{ color: '#F59E0B', fontSize: 20 }} />
@@ -736,7 +854,7 @@ export default function EAMConfig() {
                         onChange={e => setU('mttrHrs', Number(e.target.value))}
                         disabled={!umbrales.mttrActive}
                         InputProps={{ endAdornment: <InputAdornment position="end"><Typography variant="caption" color="grey.500">hrs</Typography></InputAdornment> }}
-                        sx={{ width: 100, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.04), '& fieldset': { borderColor: alpha('#fff', 0.12) }, color: 'white', fontSize: 13 } }}
+                        sx={{ width: 100, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.04), '& fieldset': { borderColor: alpha('#fff', 0.12) }, color: 'text.primary', fontSize: 13 } }}
                       />
                     </Stack>
 
@@ -754,7 +872,7 @@ export default function EAMConfig() {
                         onChange={e => setU('combustiblePct', Number(e.target.value))}
                         disabled={!umbrales.combustibleActive}
                         InputProps={{ endAdornment: <InputAdornment position="end"><Typography variant="caption" color="grey.500">%</Typography></InputAdornment> }}
-                        sx={{ width: 100, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.04), '& fieldset': { borderColor: alpha('#fff', 0.12) }, color: 'white', fontSize: 13 } }}
+                        sx={{ width: 100, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.04), '& fieldset': { borderColor: alpha('#fff', 0.12) }, color: 'text.primary', fontSize: 13 } }}
                       />
                     </Stack>
 
@@ -772,7 +890,7 @@ export default function EAMConfig() {
                         onChange={e => setU('garantiaDias', Number(e.target.value))}
                         disabled={!umbrales.garantiaActive}
                         InputProps={{ endAdornment: <InputAdornment position="end"><Typography variant="caption" color="grey.500">días</Typography></InputAdornment> }}
-                        sx={{ width: 100, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.04), '& fieldset': { borderColor: alpha('#fff', 0.12) }, color: 'white', fontSize: 13 } }}
+                        sx={{ width: 100, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.04), '& fieldset': { borderColor: alpha('#fff', 0.12) }, color: 'text.primary', fontSize: 13 } }}
                       />
                     </Stack>
 
@@ -790,7 +908,7 @@ export default function EAMConfig() {
                         onChange={e => setU('calibracionDias', Number(e.target.value))}
                         disabled={!umbrales.calibracionActive}
                         InputProps={{ endAdornment: <InputAdornment position="end"><Typography variant="caption" color="grey.500">días</Typography></InputAdornment> }}
-                        sx={{ width: 100, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.04), '& fieldset': { borderColor: alpha('#fff', 0.12) }, color: 'white', fontSize: 13 } }}
+                        sx={{ width: 100, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.04), '& fieldset': { borderColor: alpha('#fff', 0.12) }, color: 'text.primary', fontSize: 13 } }}
                       />
                     </Stack>
                   </Stack>
@@ -812,7 +930,7 @@ export default function EAMConfig() {
                 const statusColor = intg.estado === 'ACTIVO' ? '#32AC5C' : intg.estado === 'CONFIGURAR' ? '#3B82F6' : '#F59E0B'
                 return (
                   <Grid key={intg.codigo} size={{ xs: 12, md: 6, lg: 4 }}>
-                    <Card sx={{ background: CARD_BG, border: `1px solid ${alpha(isOn ? intg.color : '#4B5563', 0.3)}`, transition: 'border-color 0.3s' }}>
+                    <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(isOn ? intg.color : '#4B5563', 0.3)}`, transition: 'border-color 0.3s' }}>
                       <CardContent>
                         <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
                           <Stack direction="row" spacing={1.5} alignItems="center">
@@ -858,6 +976,312 @@ export default function EAMConfig() {
                 )
               })}
             </Grid>
+          </Box>
+        )}
+
+        {/* Tab 4: Disponibilidad */}
+        {tab === 4 && (
+          <Box>
+            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={3} flexWrap="wrap" gap={2}>
+              <Box>
+                <Typography variant="h6" fontWeight={700} color="white">Configuración de Disponibilidad</Typography>
+                <Typography variant="body2" color="grey.500">Defina las horas operativas esperadas por activo, categoría o período para el cálculo de disponibilidad</Typography>
+              </Box>
+            </Stack>
+
+            {/* ── Sección 1: Períodos especiales ── */}
+            <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#F59E0B', 0.25)}`, mb: 3 }}>
+              <CardContent>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                  <Box>
+                    <Typography variant="subtitle2" fontWeight={700} color="white">Períodos especiales</Typography>
+                    <Typography variant="caption" color="grey.500">Defina rangos de meses con horas distintas a las base (vacaciones, temporadas, mantenimientos programados)</Typography>
+                  </Box>
+                  <Button variant="outlined" size="small" startIcon={<AddIcon />}
+                    onClick={() => setPeriodDlg(true)}
+                    sx={{ borderColor: alpha('#F59E0B', 0.5), color: '#F59E0B', '&:hover': { borderColor: '#F59E0B', bgcolor: alpha('#F59E0B', 0.08) }, fontWeight: 700, borderRadius: '8px', flexShrink: 0 }}>
+                    Nuevo período
+                  </Button>
+                </Stack>
+
+                {periodos.length === 0 ? (
+                  <Box sx={{ py: 2.5, textAlign: 'center', borderRadius: '8px', bgcolor: alpha('#fff', 0.02), border: '1px dashed rgba(255,255,255,0.08)' }}>
+                    <Typography fontSize={12} color="rgba(255,255,255,0.3)">Sin períodos especiales. Las horas base por activo aplican a todos los meses.</Typography>
+                  </Box>
+                ) : (
+                  <TableContainer component={Paper} sx={{ bgcolor: 'transparent', boxShadow: 'none' }}>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow sx={{ '& th': { color: 'text.disabled', fontWeight: 700, fontSize: 10, letterSpacing: '0.05em', textTransform: 'uppercase', borderBottom: '1px solid rgba(255,255,255,0.07)', py: 1 } }}>
+                          <TableCell>Nombre</TableCell>
+                          <TableCell>Período</TableCell>
+                          <TableCell>Horas/mes</TableCell>
+                          <TableCell>Aplica a</TableCell>
+                          <TableCell align="right">Acciones</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {periodos.map((p) => (
+                          <TableRow key={p.id} sx={{ '& td': { color: 'grey.200', borderBottom: '1px solid rgba(255,255,255,0.04)' }, '&:hover': { bgcolor: alpha('#fff', 0.02) } }}>
+                            <TableCell><Typography fontSize={12} fontWeight={600} color="white">{p.nombre}</Typography></TableCell>
+                            <TableCell>
+                              <Typography fontSize={11} color="rgba(255,255,255,0.6)">{p.desde} → {p.hasta}</Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Chip label={`${p.horas}h`} size="small" sx={{ bgcolor: alpha('#F59E0B', 0.12), color: '#F59E0B', fontWeight: 700, fontSize: 11 }} />
+                            </TableCell>
+                            <TableCell>
+                              {p.aplica === 'todos' && <Chip label="Todos los activos" size="small" sx={{ bgcolor: alpha(EAM_COLOR, 0.12), color: EAM_COLOR, fontSize: 10 }} />}
+                              {p.aplica === 'categoria' && <Chip label={p.categoria} size="small" sx={{ bgcolor: alpha('#3B82F6', 0.12), color: '#93C5FD', fontSize: 10 }} />}
+                              {p.aplica === 'activos' && (
+                                <Tooltip
+                                  title={
+                                    <Box>
+                                      {p.activos?.map((nm) => (
+                                        <Box key={nm} sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, fontSize: 11 }}>
+                                          <span>{nm.split('—')[0].trim()}</span>
+                                          <strong>{p.horasPorActivo?.[nm] ?? p.horas}h</strong>
+                                        </Box>
+                                      ))}
+                                    </Box>
+                                  }
+                                  placement="top"
+                                >
+                                  <Chip label={`${p.activos?.length} equipos`} size="small" sx={{ bgcolor: alpha('#8B5CF6', 0.12), color: '#C4B5FD', fontSize: 10, cursor: 'help' }} />
+                                </Tooltip>
+                              )}
+                            </TableCell>
+                            <TableCell align="right">
+                              <IconButton size="small" onClick={() => setPeriodos((prev) => prev.filter((x) => x.id !== p.id))} sx={{ color: '#EF4444', '&:hover': { bgcolor: alpha('#EF4444', 0.1) } }}>
+                                <DeleteIcon sx={{ fontSize: 16 }} />
+                              </IconButton>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* ── Sección 2: Horas base por activo ── */}
+            <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(EAM_COLOR, 0.2)}`, mb: 3 }}>
+              <CardContent>
+                <Typography variant="subtitle2" fontWeight={700} color="white" mb={0.5}>Horas base por activo</Typography>
+                <Typography variant="caption" color="grey.500" display="block" mb={2}>Horas operativas esperadas por mes para cada activo. Se aplican cuando no hay un período especial vigente.</Typography>
+
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="flex-end" flexWrap="wrap" useFlexGap mb={2}>
+                  <TextField
+                    select size="small" label="Filtrar categoría" value={dispCat}
+                    onChange={(e) => { setDispCat(e.target.value); setDispSel([]) }}
+                    sx={{ minWidth: 180, '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) }, '& .MuiSvgIcon-root': { color: 'grey.400' } }}
+                  >
+                    <MenuItem value="Todos">Todas las categorías</MenuItem>
+                    {ACTIVOS_CATS_CFG.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                  </TextField>
+                  <TextField
+                    size="small" label="Horas/mes a aplicar" type="number" value={dispBulk}
+                    onChange={(e) => setDispBulk(e.target.value)}
+                    inputProps={{ min: 1, max: 744 }}
+                    sx={{ minWidth: 150, '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
+                  />
+                  <Button variant="contained" onClick={applyDispBulk}
+                    sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#27884A' }, fontWeight: 700, borderRadius: '8px', height: 36 }}>
+                    Aplicar a {dispSel.length > 0 ? `${dispSel.length} seleccionados` : (dispCat === 'Todos' ? 'todos' : dispCat)}
+                  </Button>
+                  {dispSel.length > 0 && (
+                    <Button size="small" onClick={() => setDispSel([])} sx={{ color: 'grey.500', fontSize: 11 }}>Limpiar selección</Button>
+                  )}
+                </Stack>
+
+                <Box mb={2}>
+                  <Typography variant="caption" color="grey.600" mb={0.75} display="block">Selección individual (opcional)</Typography>
+                  <Stack direction="row" flexWrap="wrap" gap={0.75}>
+                    {activosFiltrados.map((a) => (
+                      <Chip key={a.nombre} label={a.nombre.split('—')[0].trim()} size="small" clickable
+                        onClick={() => setDispSel((p) => p.includes(a.nombre) ? p.filter((x) => x !== a.nombre) : [...p, a.nombre])}
+                        sx={{
+                          bgcolor: dispSel.includes(a.nombre) ? alpha(EAM_COLOR, 0.2) : alpha('#fff', 0.05),
+                          color: dispSel.includes(a.nombre) ? EAM_COLOR : 'rgba(255,255,255,0.45)',
+                          border: `1px solid ${dispSel.includes(a.nombre) ? alpha(EAM_COLOR, 0.4) : 'rgba(255,255,255,0.07)'}`,
+                          fontWeight: dispSel.includes(a.nombre) ? 700 : 400, fontSize: 11,
+                        }}
+                      />
+                    ))}
+                  </Stack>
+                </Box>
+
+                {/* Tabla individual */}
+                <Box sx={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 140px 120px 130px', gap: 2, px: 3, py: 1.25, bgcolor: alpha(EAM_COLOR, 0.06), borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                    {['Activo', 'Categoría', 'Centro costo', 'Horas/mes'].map((h) => (
+                      <Typography key={h} fontSize={10} fontWeight={700} color="rgba(255,255,255,0.35)" letterSpacing="0.05em" textTransform="uppercase">{h}</Typography>
+                    ))}
+                  </Box>
+                  {ACTIVOS_CFG.map((a) => (
+                    <Box key={a.nombre} sx={{ display: 'grid', gridTemplateColumns: '2fr 140px 120px 130px', gap: 2, px: 3, py: 1.25, borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center', '&:hover': { bgcolor: alpha('#fff', 0.02) } }}>
+                      <Box>
+                        <Typography fontSize={12} fontWeight={600} color="white" noWrap>{a.nombre.split('—')[0].trim()}</Typography>
+                        <Typography fontSize={10} color="rgba(255,255,255,0.35)" noWrap>{a.nombre.split('—')[1]?.trim()}</Typography>
+                      </Box>
+                      <Chip label={a.categoria} size="small" sx={{ bgcolor: alpha('#6B7280', 0.15), color: '#9CA3AF', fontSize: 10, height: 20, fontWeight: 600, width: 'fit-content' }} />
+                      <Typography fontSize={11} color="rgba(255,255,255,0.45)">{a.centroCosto}</Typography>
+                      <TextField
+                        size="small" type="number" value={horasCfg[a.nombre] ?? 720}
+                        onChange={(e) => setHorasCfg((p) => ({ ...p, [a.nombre]: parseFloat(e.target.value) || 0 }))}
+                        inputProps={{ min: 1, max: 744, style: { textAlign: 'center', fontSize: 13, fontWeight: 700 } }}
+                        sx={{
+                          '& .MuiOutlinedInput-root': { color: EAM_COLOR, bgcolor: alpha(EAM_COLOR, 0.06), fontSize: 13 },
+                          '& fieldset': { borderColor: alpha(EAM_COLOR, 0.25) },
+                          '& .MuiOutlinedInput-root:hover fieldset': { borderColor: alpha(EAM_COLOR, 0.5) },
+                        }}
+                      />
+                    </Box>
+                  ))}
+                </Box>
+              </CardContent>
+            </Card>
+
+            {/* Nota */}
+            <Box sx={{ p: 2, bgcolor: alpha('#3B82F6', 0.06), border: '1px solid rgba(59,130,246,0.2)', borderRadius: '10px' }}>
+              <Typography fontSize={12} color="#93C5FD">
+                <strong>Referencia:</strong> 24 h/día × 30 días = 720 h/mes (continuo) · 1 turno (8h) = 240 h/mes · 2 turnos = 480 h/mes · 3 turnos = 720 h/mes. Los períodos especiales tienen precedencia sobre los valores base. La configuración se aplica automáticamente al informe de Disponibilidad.
+              </Typography>
+            </Box>
+
+            {/* ── Dialog: Nuevo período ── */}
+            <Dialog open={periodDlg} onClose={() => setPeriodDlg(false)} maxWidth="sm" fullWidth
+              PaperProps={{ sx: { bgcolor: '#0D1B2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px' } }}>
+              <DialogTitle sx={{ color: 'text.primary', fontWeight: 700, pb: 1 }}>
+                Nuevo período especial
+                <IconButton onClick={() => setPeriodDlg(false)} sx={{ position: 'absolute', right: 12, top: 12, color: 'grey.500' }}><CloseIcon /></IconButton>
+              </DialogTitle>
+              <DialogContent sx={{ pt: 1 }}>
+                <Stack spacing={2} mt={1}>
+                  <TextField size="small" label="Nombre del período" fullWidth
+                    value={newPeriodo.nombre} onChange={(e) => setNewPeriodo((p) => ({ ...p, nombre: e.target.value }))}
+                    placeholder="Ej: Vacaciones julio-agosto, Operación reducida..."
+                    sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
+                  />
+                  <Stack direction="row" spacing={2}>
+                    <TextField size="small" label="Mes inicio" type="month" fullWidth
+                      value={newPeriodo.desde} onChange={(e) => setNewPeriodo((p) => ({ ...p, desde: e.target.value }))}
+                      InputLabelProps={{ shrink: true }}
+                      sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
+                    />
+                    <TextField size="small" label="Mes fin" type="month" fullWidth
+                      value={newPeriodo.hasta} onChange={(e) => setNewPeriodo((p) => ({ ...p, hasta: e.target.value }))}
+                      InputLabelProps={{ shrink: true }}
+                      sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
+                    />
+                    <TextField size="small" label="Horas/mes" type="number" sx={{ minWidth: 100, '& .MuiOutlinedInput-root': { color: EAM_COLOR, bgcolor: alpha(EAM_COLOR, 0.06) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha(EAM_COLOR, 0.3) } }}
+                      value={newPeriodo.horas}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0
+                        setNewPeriodo((p) => ({ ...p, horas: val }))
+                        if (newPeriodo.aplica === 'activos' && periodActSel.length > 0) {
+                          setPeriodActHoras((p) => {
+                            const n = { ...p }
+                            periodActSel.forEach((nm) => { n[nm] = val })
+                            return n
+                          })
+                        }
+                      }}
+                      inputProps={{ min: 1, max: 744 }}
+                    />
+                  </Stack>
+
+                  <TextField select size="small" label="Aplica a" fullWidth
+                    value={newPeriodo.aplica} onChange={(e) => setNewPeriodo((p) => ({ ...p, aplica: e.target.value as PeriodoCfg['aplica'] }))}
+                    sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) }, '& .MuiSvgIcon-root': { color: 'grey.400' } }}
+                  >
+                    <MenuItem value="todos">Todos los activos</MenuItem>
+                    <MenuItem value="categoria">Por categoría</MenuItem>
+                    <MenuItem value="activos">Activos específicos</MenuItem>
+                  </TextField>
+
+                  {newPeriodo.aplica === 'categoria' && (
+                    <TextField select size="small" label="Categoría" fullWidth
+                      value={newPeriodo.categoria} onChange={(e) => setNewPeriodo((p) => ({ ...p, categoria: e.target.value }))}
+                      sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) }, '& .MuiSvgIcon-root': { color: 'grey.400' } }}
+                    >
+                      {ACTIVOS_CATS_CFG.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                    </TextField>
+                  )}
+
+                  {newPeriodo.aplica === 'activos' && (
+                    <Box>
+                      <Stack direction="row" spacing={1} alignItems="center" mb={1}>
+                        <TextField select size="small" label="Filtrar categoría" value={periodActCat}
+                          onChange={(e) => setPeriodActCat(e.target.value)}
+                          sx={{ minWidth: 160, '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) }, '& .MuiSvgIcon-root': { color: 'grey.400' } }}
+                        >
+                          <MenuItem value="Todos">Todas las categorías</MenuItem>
+                          {ACTIVOS_CATS_CFG.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                        </TextField>
+                        {periodActSel.length > 0 && (
+                          <Typography fontSize={11} color={EAM_COLOR} fontWeight={700}>{periodActSel.length} seleccionados</Typography>
+                        )}
+                      </Stack>
+                      <Stack direction="row" flexWrap="wrap" gap={0.75} mb={periodActSel.length > 0 ? 1.5 : 0}>
+                        {(periodActCat === 'Todos' ? ACTIVOS_CFG : ACTIVOS_CFG.filter((a) => a.categoria === periodActCat)).map((a) => (
+                          <Chip key={a.nombre} label={a.nombre.split('—')[0].trim()} size="small" clickable
+                            onClick={() => togglePeriodActivo(a.nombre, newPeriodo.horas)}
+                            sx={{
+                              bgcolor: periodActSel.includes(a.nombre) ? alpha(EAM_COLOR, 0.2) : alpha('#fff', 0.05),
+                              color: periodActSel.includes(a.nombre) ? EAM_COLOR : 'rgba(255,255,255,0.45)',
+                              border: `1px solid ${periodActSel.includes(a.nombre) ? alpha(EAM_COLOR, 0.4) : 'rgba(255,255,255,0.07)'}`,
+                              fontWeight: periodActSel.includes(a.nombre) ? 700 : 400, fontSize: 11,
+                            }}
+                          />
+                        ))}
+                      </Stack>
+
+                      {/* Tabla de horas individuales por equipo seleccionado */}
+                      {periodActSel.length > 0 && (
+                        <Box sx={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid rgba(50,172,92,0.2)', bgcolor: alpha(EAM_COLOR, 0.03) }}>
+                          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 130px', px: 2, py: 1, bgcolor: alpha(EAM_COLOR, 0.08), borderBottom: '1px solid rgba(50,172,92,0.15)' }}>
+                            <Typography fontSize={10} fontWeight={700} color="rgba(255,255,255,0.4)" letterSpacing="0.05em" textTransform="uppercase">Equipo</Typography>
+                            <Typography fontSize={10} fontWeight={700} color="rgba(255,255,255,0.4)" letterSpacing="0.05em" textTransform="uppercase">Horas/mes</Typography>
+                          </Box>
+                          {periodActSel.map((nombre) => {
+                            const parts = nombre.split('—')
+                            return (
+                              <Box key={nombre} sx={{ display: 'grid', gridTemplateColumns: '1fr 130px', px: 2, py: 1, borderTop: '1px solid rgba(255,255,255,0.04)', alignItems: 'center', '&:hover': { bgcolor: alpha('#fff', 0.02) } }}>
+                                <Box>
+                                  <Typography fontSize={12} fontWeight={600} color="white" noWrap>{parts[0].trim()}</Typography>
+                                  <Typography fontSize={10} color="rgba(255,255,255,0.35)" noWrap>{parts[1]?.trim()}</Typography>
+                                </Box>
+                                <TextField
+                                  size="small" type="number"
+                                  value={periodActHoras[nombre] ?? newPeriodo.horas}
+                                  onChange={(e) => setPeriodActHoras((p) => ({ ...p, [nombre]: parseFloat(e.target.value) || 0 }))}
+                                  inputProps={{ min: 1, max: 744, style: { textAlign: 'center', fontSize: 13, fontWeight: 700 } }}
+                                  sx={{
+                                    '& .MuiOutlinedInput-root': { color: EAM_COLOR, bgcolor: alpha(EAM_COLOR, 0.06), fontSize: 13 },
+                                    '& fieldset': { borderColor: alpha(EAM_COLOR, 0.25) },
+                                    '& .MuiOutlinedInput-root:hover fieldset': { borderColor: alpha(EAM_COLOR, 0.5) },
+                                  }}
+                                />
+                              </Box>
+                            )
+                          })}
+                        </Box>
+                      )}
+                    </Box>
+                  )}
+                </Stack>
+              </DialogContent>
+              <DialogActions sx={{ px: 3, pb: 2.5 }}>
+                <Button onClick={() => setPeriodDlg(false)} sx={{ color: 'grey.500' }}>Cancelar</Button>
+                <Button variant="contained" onClick={savePeriodo}
+                  disabled={!newPeriodo.nombre || newPeriodo.horas <= 0 || newPeriodo.desde > newPeriodo.hasta || (newPeriodo.aplica === 'activos' && periodActSel.length === 0)}
+                  sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#27884A' }, fontWeight: 700, borderRadius: '8px' }}>
+                  Agregar período
+                </Button>
+              </DialogActions>
+            </Dialog>
           </Box>
         )}
       </Box>

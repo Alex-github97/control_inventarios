@@ -7,8 +7,6 @@ import {
 import { Layout } from '@/components/layout/Layout';
 
 const EAM_COLOR = '#32AC5C';
-const CARD_BG = '#0F1E35';
-const DARK_BG = '#060C1A';
 
 interface TabPanelProps { children?: React.ReactNode; index: number; value: number; }
 function TabPanel({ children, value, index }: TabPanelProps) {
@@ -125,7 +123,7 @@ export default function EAMPlanesMant() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, minHeight: '100vh', background: DARK_BG }}>
+      <Box sx={{ p: 3, minHeight: '100vh', background: '#F8FAFC' }}>
         <Stack direction="row" alignItems="center" spacing={2} mb={1}>
           <Box sx={{ width: 6, height: 36, bgcolor: EAM_COLOR, borderRadius: 1 }} />
           <Typography variant="h4" sx={{ color: EAM_COLOR, fontWeight: 700 }}>
@@ -169,7 +167,7 @@ export default function EAMPlanesMant() {
               <Grid container spacing={2}>
                 {grouped[type].map(plan => (
                   <Grid key={plan.id} size={{ xs: 12, md: 6 }}>
-                    <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${plan.daysRemaining <= 7 ? '#DC2626' : plan.daysRemaining <= 15 ? EAM_COLOR : '#1F2937'}`, borderRadius: 2 }}>
+                    <Card sx={{ border: `1px solid ${plan.daysRemaining <= 7 ? '#DC2626' : plan.daysRemaining <= 15 ? EAM_COLOR : '#1F2937'}`, borderRadius: 2 }}>
                       <CardContent>
                         <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1}>
                           <Typography variant="subtitle2" sx={{ color: '#F9FAFB', fontWeight: 700, flex: 1, pr: 1 }}>
@@ -236,7 +234,7 @@ export default function EAMPlanesMant() {
           </Typography>
           <Stack spacing={2}>
             {sorted.map(plan => (
-              <Card key={plan.id} sx={{ bgcolor: CARD_BG, border: `1px solid ${plan.daysRemaining <= 7 ? '#DC262640' : plan.daysRemaining <= 15 ? '#32AC5C40' : '#1F2937'}`, borderRadius: 2 }}>
+              <Card key={plan.id} sx={{ border: `1px solid ${plan.daysRemaining <= 7 ? '#DC262640' : plan.daysRemaining <= 15 ? '#32AC5C40' : '#1F2937'}`, borderRadius: 2 }}>
                 <CardContent>
                   <Stack direction="row" alignItems="center" spacing={2}>
                     <Box sx={{
@@ -285,7 +283,7 @@ export default function EAMPlanesMant() {
               { label: 'Ahorro estimado vs correctivo', value: '$145M', color: '#FCD34D', sub: 'COP acumulado' },
             ].map(kpi => (
               <Grid key={kpi.label} size={{ xs: 12, md: 3 }}>
-                <Card sx={{ bgcolor: CARD_BG, border: '1px solid #1F2937', borderRadius: 2, textAlign: 'center' }}>
+                <Card sx={{ border: '1px solid #1F2937', borderRadius: 2, textAlign: 'center' }}>
                   <CardContent>
                     <Typography variant="h4" sx={{ color: kpi.color, fontWeight: 900, mb: 0.5 }}>{kpi.value}</Typography>
                     <Typography variant="body2" sx={{ color: '#F9FAFB', fontWeight: 600, mb: 0.25 }}>{kpi.label}</Typography>
@@ -299,7 +297,7 @@ export default function EAMPlanesMant() {
           <Grid container spacing={3}>
             {/* Compliance by asset type */}
             <Grid size={{ xs: 12, md: 5 }}>
-              <Card sx={{ bgcolor: CARD_BG, border: '1px solid #1F2937', borderRadius: 2 }}>
+              <Card sx={{ border: '1px solid #1F2937', borderRadius: 2 }}>
                 <CardContent>
                   <Typography variant="h6" sx={{ color: '#F9FAFB', fontWeight: 700, mb: 2 }}>Cumplimiento por tipo de activo</Typography>
                   <TableContainer>
@@ -344,7 +342,7 @@ export default function EAMPlanesMant() {
 
             {/* Monthly bar chart */}
             <Grid size={{ xs: 12, md: 7 }}>
-              <Card sx={{ bgcolor: CARD_BG, border: '1px solid #1F2937', borderRadius: 2, height: '100%' }}>
+              <Card sx={{ border: '1px solid #1F2937', borderRadius: 2, height: '100%' }}>
                 <CardContent>
                   <Typography variant="h6" sx={{ color: '#F9FAFB', fontWeight: 700, mb: 3 }}>
                     Cumplimiento mensual — últimos 6 meses

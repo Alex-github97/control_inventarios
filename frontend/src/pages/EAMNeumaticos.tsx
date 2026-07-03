@@ -32,8 +32,6 @@ import {
 } from '@mui/icons-material';
 
 const EAM_COLOR = '#32AC5C';
-const CARD_BG = '#0F1E35';
-const DARK_BG = '#060C1A';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -199,7 +197,7 @@ function KPICard({
   color?: string;
 }) {
   return (
-    <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${color ?? EAM_COLOR}22`, height: '100%' }}>
+    <Card sx={{ border: `1px solid ${color ?? EAM_COLOR}22`, height: '100%' }}>
       <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2.5 }}>
         <Avatar sx={{ bgcolor: `${color ?? EAM_COLOR}22`, color: color ?? EAM_COLOR, width: 48, height: 48 }}>
           {icon}
@@ -208,7 +206,7 @@ function KPICard({
           <Typography variant="h4" sx={{ color: color ?? EAM_COLOR, fontWeight: 700, lineHeight: 1 }}>
             {value}
           </Typography>
-          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.55)', mt: 0.5 }}>
+          <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5 }}>
             {label}
           </Typography>
         </Box>
@@ -239,10 +237,10 @@ function TabInventario() {
       </Grid>
 
       {/* Tabla */}
-      <TableContainer component={Paper} sx={{ bgcolor: CARD_BG, border: `1px solid ${EAM_COLOR}22` }}>
+      <TableContainer component={Paper} sx={{ border: `1px solid ${EAM_COLOR}22` }}>
         <Table size="small">
           <TableHead>
-            <TableRow sx={{ '& th': { bgcolor: '#0a1628', color: 'rgba(255,255,255,0.7)', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', borderBottom: `1px solid ${EAM_COLOR}44` } }}>
+            <TableRow sx={{ '& th': { bgcolor: '#0a1628', color: 'text.primary', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', borderBottom: `1px solid ${EAM_COLOR}44` } }}>
               <TableCell>Código</TableCell>
               <TableCell>Marca</TableCell>
               <TableCell>Referencia</TableCell>
@@ -265,8 +263,8 @@ function TabInventario() {
                 <TableRow
                   key={n.codigo}
                   sx={{
-                    '& td': { borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.85)', fontSize: 12 },
-                    '&:hover': { bgcolor: 'rgba(255,255,255,0.03)' },
+                    '& td': { borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'text.primary', fontSize: 12 },
+                    '&:hover': { bgcolor: 'text.disabled' },
                     bgcolor: alerta ? 'rgba(239,68,68,0.05)' : 'transparent',
                   }}
                 >
@@ -295,7 +293,7 @@ function TabInventario() {
                           flex: 1,
                           height: 6,
                           borderRadius: 3,
-                          bgcolor: 'rgba(255,255,255,0.1)',
+                          bgcolor: 'text.disabled',
                           '& .MuiLinearProgress-bar': { bgcolor: getDesgasteColor(vida), borderRadius: 3 },
                         }}
                       />
@@ -342,9 +340,9 @@ function TireBox({ pos }: { pos: NeumaticoPosicion }) {
         gap: 0.3,
       }}
     >
-      <Typography sx={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', lineHeight: 1 }}>{pos.posicion}</Typography>
-      <Typography sx={{ fontSize: 9, color: '#fff', fontWeight: 600, lineHeight: 1 }}>{pos.marca.substring(0, 6)}</Typography>
-      <Typography sx={{ fontSize: 8, color: 'rgba(255,255,255,0.6)', lineHeight: 1 }}>{pos.medida}</Typography>
+      <Typography sx={{ fontSize: 9, color: 'text.secondary', lineHeight: 1 }}>{pos.posicion}</Typography>
+      <Typography sx={{ fontSize: 9, color: 'text.primary', fontWeight: 600, lineHeight: 1 }}>{pos.marca.substring(0, 6)}</Typography>
+      <Typography sx={{ fontSize: 8, color: 'text.secondary', lineHeight: 1 }}>{pos.medida}</Typography>
       <Typography sx={{ fontSize: 9, color, fontWeight: 700, lineHeight: 1 }}>{pos.desgaste}%</Typography>
       <LinearProgress
         variant="determinate"
@@ -353,7 +351,7 @@ function TireBox({ pos }: { pos: NeumaticoPosicion }) {
           width: '100%',
           height: 3,
           borderRadius: 2,
-          bgcolor: 'rgba(255,255,255,0.1)',
+          bgcolor: 'text.disabled',
           '& .MuiLinearProgress-bar': { bgcolor: color },
         }}
       />
@@ -368,12 +366,12 @@ function DiagramaTractocamion({ posiciones }: { posiciones: NeumaticoPosicion[] 
 
   const AxleRow = ({ label, left, right }: { label: string; left: string[]; right: string[] }) => (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, my: 0.5 }}>
-      <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', width: 40, textAlign: 'right' }}>{label}</Typography>
+      <Typography sx={{ fontSize: 10, color: 'text.secondary', width: 40, textAlign: 'right' }}>{label}</Typography>
       <Box sx={{ display: 'flex', gap: 0.5 }}>
         {left.map(k => byPos[k] ? <TireBox key={k} pos={byPos[k]} /> : <Box key={k} sx={{ width: 80 }} />)}
       </Box>
       <Box sx={{ width: 120, height: 28, bgcolor: '#1a2840', borderRadius: 1, border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>{label}</Typography>
+        <Typography sx={{ fontSize: 10, color: 'text.disabled' }}>{label}</Typography>
       </Box>
       <Box sx={{ display: 'flex', gap: 0.5 }}>
         {right.map(k => byPos[k] ? <TireBox key={k} pos={byPos[k]} /> : <Box key={k} sx={{ width: 80 }} />)}
@@ -386,14 +384,14 @@ function DiagramaTractocamion({ posiciones }: { posiciones: NeumaticoPosicion[] 
       <Typography sx={{ fontSize: 11, color: EAM_COLOR, fontWeight: 700, mb: 1 }}>TRACTOCAMIÓN — 18 NEUMÁTICOS</Typography>
       {/* Tracto */}
       <Box sx={{ bgcolor: '#0a1628', border: `1px solid ${EAM_COLOR}33`, borderRadius: 2, p: 2, mb: 1 }}>
-        <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', textAlign: 'center', mb: 1 }}>TRACTO</Typography>
+        <Typography sx={{ fontSize: 10, color: 'text.secondary', textAlign: 'center', mb: 1 }}>TRACTO</Typography>
         <AxleRow label="EJE D" left={['DA-I']} right={['DA-D']} />
         <AxleRow label="EJE T-A" left={['TA-I-INT', 'TA-I-EXT']} right={['TA-D-EXT', 'TA-D-INT']} />
         <AxleRow label="EJE T-B" left={['TB-I-INT', 'TB-I-EXT']} right={['TB-D-EXT', 'TB-D-INT']} />
       </Box>
       {/* Semirremolque */}
       <Box sx={{ bgcolor: '#0a1628', border: `1px solid #3B82F633`, borderRadius: 2, p: 2 }}>
-        <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', textAlign: 'center', mb: 1 }}>SEMIRREMOLQUE</Typography>
+        <Typography sx={{ fontSize: 10, color: 'text.secondary', textAlign: 'center', mb: 1 }}>SEMIRREMOLQUE</Typography>
         <AxleRow label="EJE S-A" left={['SA-I-INT', 'SA-I-EXT']} right={['SA-D-EXT', 'SA-D-INT']} />
         <AxleRow label="EJE S-B" left={['SB-I-INT', 'SB-I-EXT']} right={['SB-D-EXT', 'SB-D-INT']} />
       </Box>
@@ -406,12 +404,12 @@ function DiagramaCamion({ posiciones }: { posiciones: NeumaticoPosicion[] }) {
 
   const AxleRow = ({ label, left, right }: { label: string; left: string[]; right: string[] }) => (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, my: 0.5 }}>
-      <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', width: 40, textAlign: 'right' }}>{label}</Typography>
+      <Typography sx={{ fontSize: 10, color: 'text.secondary', width: 40, textAlign: 'right' }}>{label}</Typography>
       <Box sx={{ display: 'flex', gap: 0.5 }}>
         {left.map(k => byPos[k] ? <TireBox key={k} pos={byPos[k]} /> : <Box key={k} sx={{ width: 80 }} />)}
       </Box>
       <Box sx={{ width: 140, height: 32, bgcolor: '#1a2840', borderRadius: 1, border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>{label}</Typography>
+        <Typography sx={{ fontSize: 10, color: 'text.disabled' }}>{label}</Typography>
       </Box>
       <Box sx={{ display: 'flex', gap: 0.5 }}>
         {right.map(k => byPos[k] ? <TireBox key={k} pos={byPos[k]} /> : <Box key={k} sx={{ width: 80 }} />)}
@@ -441,7 +439,7 @@ function TabMontados() {
     <Grid container spacing={2} sx={{ height: '100%' }}>
       {/* Vehicle list */}
       <Grid size={{ xs: 12, md: 3 }}>
-        <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${EAM_COLOR}22`, borderRadius: 2, overflow: 'hidden', height: '100%' }}>
+        <Box sx={{ border: `1px solid ${EAM_COLOR}22`, borderRadius: 2, overflow: 'hidden', height: '100%' }}>
           <Box sx={{ p: 1.5, borderBottom: `1px solid ${EAM_COLOR}33`, bgcolor: '#0a1628' }}>
             <Typography sx={{ fontSize: 12, fontWeight: 700, color: EAM_COLOR, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
               Vehículos
@@ -464,7 +462,7 @@ function TabMontados() {
               <Typography sx={{ fontSize: 13, fontWeight: 600, color: selectedId === v.id ? EAM_COLOR : '#fff' }}>
                 {v.placa}
               </Typography>
-              <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>{v.modelo}</Typography>
+              <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{v.modelo}</Typography>
               <Chip
                 label={v.tipo === 'tractocamion' ? 'Tractocamión' : 'Camión Simple'}
                 size="small"
@@ -483,7 +481,7 @@ function TabMontados() {
 
       {/* Diagram panel */}
       <Grid size={{ xs: 12, md: 9 }}>
-        <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${EAM_COLOR}22`, borderRadius: 2, overflow: 'auto', minHeight: 500 }}>
+        <Box sx={{ border: `1px solid ${EAM_COLOR}22`, borderRadius: 2, overflow: 'auto', minHeight: 500 }}>
           <Box sx={{ p: 1.5, borderBottom: `1px solid ${EAM_COLOR}33`, bgcolor: '#0a1628', display: 'flex', alignItems: 'center', gap: 1 }}>
             <LocalShipping sx={{ color: EAM_COLOR, fontSize: 18 }} />
             <Typography sx={{ fontSize: 12, fontWeight: 700, color: EAM_COLOR, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
@@ -496,7 +494,7 @@ function TabMontados() {
             {[['Bueno (<50%)', '#22C55E'], ['Medio (50-70%)', '#EAB308'], ['Alto (70-90%)', '#F97316'], ['Crítico (>90%)', '#EF4444']].map(([label, color]) => (
               <Box key={label} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: color }} />
-                <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.55)' }}>{label}</Typography>
+                <Typography sx={{ fontSize: 10, color: 'text.secondary' }}>{label}</Typography>
               </Box>
             ))}
           </Box>
@@ -537,7 +535,7 @@ function TabAnalisisCosto() {
       <Grid container spacing={2}>
         {/* Ranking por marca */}
         <Grid size={{ xs: 12, md: 7 }}>
-          <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${EAM_COLOR}22`, borderRadius: 2, overflow: 'hidden' }}>
+          <Box sx={{ border: `1px solid ${EAM_COLOR}22`, borderRadius: 2, overflow: 'hidden' }}>
             <Box sx={{ p: 1.5, borderBottom: `1px solid ${EAM_COLOR}33`, bgcolor: '#0a1628' }}>
               <Typography sx={{ fontSize: 12, fontWeight: 700, color: EAM_COLOR, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 Ranking Costo / km por Marca
@@ -546,7 +544,7 @@ function TabAnalisisCosto() {
             <TableContainer>
               <Table size="small">
                 <TableHead>
-                  <TableRow sx={{ '& th': { bgcolor: '#081020', color: 'rgba(255,255,255,0.6)', fontSize: 11, fontWeight: 700, borderBottom: `1px solid ${EAM_COLOR}33` } }}>
+                  <TableRow sx={{ '& th': { bgcolor: '#081020', color: 'text.secondary', fontSize: 11, fontWeight: 700, borderBottom: `1px solid ${EAM_COLOR}33` } }}>
                     <TableCell>#</TableCell>
                     <TableCell>Marca</TableCell>
                     <TableCell align="right">Costo/km</TableCell>
@@ -561,7 +559,7 @@ function TabAnalisisCosto() {
                     const pct = (b.costoPorKm / maxCosto) * 100;
                     const color = i === 0 ? '#22C55E' : i === 1 ? '#EAB308' : i === 2 ? '#F97316' : '#EF4444';
                     return (
-                      <TableRow key={b.marca} sx={{ '& td': { borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.85)', fontSize: 12 }, '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
+                      <TableRow key={b.marca} sx={{ '& td': { borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'text.primary', fontSize: 12 }, '&:hover': { bgcolor: 'text.disabled' } }}>
                         <TableCell>
                           <Avatar sx={{ width: 22, height: 22, fontSize: 11, bgcolor: `${color}33`, color }}>{i + 1}</Avatar>
                         </TableCell>
@@ -578,7 +576,7 @@ function TabAnalisisCosto() {
                                 flex: 1,
                                 height: 6,
                                 borderRadius: 3,
-                                bgcolor: 'rgba(255,255,255,0.08)',
+                                bgcolor: 'text.disabled',
                                 '& .MuiLinearProgress-bar': { bgcolor: color },
                               }}
                             />
@@ -598,7 +596,7 @@ function TabAnalisisCosto() {
 
         {/* Próximas rotaciones */}
         <Grid size={{ xs: 12, md: 5 }}>
-          <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${EAM_COLOR}22`, borderRadius: 2, overflow: 'hidden', height: '100%' }}>
+          <Box sx={{ border: `1px solid ${EAM_COLOR}22`, borderRadius: 2, overflow: 'hidden', height: '100%' }}>
             <Box sx={{ p: 1.5, borderBottom: `1px solid ${EAM_COLOR}33`, bgcolor: '#0a1628', display: 'flex', alignItems: 'center', gap: 1 }}>
               <RotateRight sx={{ color: EAM_COLOR, fontSize: 16 }} />
               <Typography sx={{ fontSize: 12, fontWeight: 700, color: EAM_COLOR, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
@@ -619,7 +617,7 @@ function TabAnalisisCosto() {
                       bgcolor: urgency === 'error' ? 'rgba(239,68,68,0.1)' : urgency === 'warning' ? 'rgba(249,115,22,0.1)' : 'rgba(59,130,246,0.1)',
                       border: '1px solid',
                       borderColor: urgency === 'error' ? '#EF444444' : urgency === 'warning' ? '#F9731644' : '#3B82F644',
-                      color: '#fff',
+                      color: 'text.primary',
                       '& .MuiAlert-icon': { fontSize: 16 },
                     }}
                   >
@@ -628,7 +626,7 @@ function TabAnalisisCosto() {
                         <Typography sx={{ fontSize: 12, fontWeight: 700 }}>
                           {r.codigo} — {r.activo} [{r.posicion}]
                         </Typography>
-                        <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.6)' }}>
+                        <Typography sx={{ fontSize: 10, color: 'text.secondary' }}>
                           {r.marca} · {r.kmActual.toLocaleString('es-CO')} km recorridos
                         </Typography>
                       </Box>
@@ -639,7 +637,7 @@ function TabAnalisisCosto() {
                           fontSize: 9,
                           height: 18,
                           bgcolor: urgency === 'error' ? '#EF444444' : urgency === 'warning' ? '#F9731644' : '#3B82F644',
-                          color: '#fff',
+                          color: 'text.primary',
                         }}
                       />
                     </Box>
@@ -664,7 +662,7 @@ export default function EAMNeumaticos() {
       <Box
         sx={{
           minHeight: '100vh',
-          bgcolor: DARK_BG,
+          bgcolor: '#F8FAFC',
           p: { xs: 2, md: 3 },
           display: 'flex',
           flexDirection: 'column',
@@ -679,10 +677,10 @@ export default function EAMNeumaticos() {
                 <TireRepair />
               </Avatar>
               <Box>
-                <Typography variant="h5" sx={{ fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>
+                <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1.2 }}>
                   Gestión de Neumáticos
                 </Typography>
-                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.45)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                   EAM · ICOLTRANS · Control de Inventarios
                 </Typography>
               </Box>
@@ -703,7 +701,7 @@ export default function EAMNeumaticos() {
             sx={{
               minHeight: 40,
               '& .MuiTab-root': {
-                color: 'rgba(255,255,255,0.45)',
+                color: 'text.secondary',
                 fontSize: 13,
                 fontWeight: 600,
                 textTransform: 'none',

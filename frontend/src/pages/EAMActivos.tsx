@@ -18,8 +18,6 @@ import { Layout } from '@/components/layout/Layout'
 
 const EAM_COLOR = '#32AC5C'
 const EAM_DARK  = '#27884A'
-const DARK_BG   = '#060C1A'
-const CARD_BG   = '#0F1E35'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -186,7 +184,7 @@ function TreeNodeItem({
         {hasChildren ? (
           isExpanded
             ? <ExpandIcon sx={{ fontSize: 16, color: EAM_COLOR }} />
-            : <CollapseIcon sx={{ fontSize: 16, color: 'rgba(255,255,255,0.4)' }} />
+            : <CollapseIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
         ) : (
           <Box sx={{ width: 16 }} />
         )}
@@ -264,13 +262,13 @@ export default function EAMActivos() {
 
   return (
     <Layout>
-      <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: DARK_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: { xs: 2, md: 3 }, minHeight: '100vh' }}>
 
         {/* Header */}
         <Stack direction="row" alignItems="center" spacing={2} mb={3}>
           <VehiculoIcon sx={{ fontSize: 28, color: EAM_COLOR }} />
           <Box>
-            <Typography variant="h5" fontWeight={800} color="#fff" letterSpacing="-0.5px">
+            <Typography variant="h5" fontWeight={800} color="text.primary" letterSpacing="-0.5px">
               Gestión de Activos
             </Typography>
             <Typography fontSize={13} color="rgba(255,255,255,0.45)">
@@ -285,7 +283,7 @@ export default function EAMActivos() {
           onChange={(_, v) => setTab(v)}
           sx={{
             mb: 3,
-            '& .MuiTab-root': { color: 'rgba(255,255,255,0.5)', fontWeight: 600, fontSize: 13 },
+            '& .MuiTab-root': { color: 'text.secondary', fontWeight: 600, fontSize: 13 },
             '& .Mui-selected': { color: EAM_COLOR },
             '& .MuiTabs-indicator': { bgcolor: EAM_COLOR },
           }}
@@ -303,8 +301,8 @@ export default function EAMActivos() {
               <TextField
                 select size="small" label="Tipo de activo" value={filterTipo}
                 onChange={(e) => setFilterTipo(e.target.value)}
-                sx={{ minWidth: 180, '& .MuiOutlinedInput-root': { bgcolor: CARD_BG }, '& label': { color: 'rgba(255,255,255,0.5)' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.25)' } }}
-                inputProps={{ style: { color: '#fff' } }}
+                sx={{ minWidth: 180, '& .MuiOutlinedInput-root': { }, '& label': { color: 'text.secondary' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.25)' } }}
+                inputProps={{ style: { color: 'text.primary' } }}
               >
                 {['Todos', 'Vehículo', 'Montacargas', 'Infraestructura', 'Equipo'].map((o) => (
                   <MenuItem key={o} value={o}>{o}</MenuItem>
@@ -313,8 +311,8 @@ export default function EAMActivos() {
               <TextField
                 select size="small" label="Estado" value={filterEstado}
                 onChange={(e) => setFilterEstado(e.target.value)}
-                sx={{ minWidth: 200, '& .MuiOutlinedInput-root': { bgcolor: CARD_BG }, '& label': { color: 'rgba(255,255,255,0.5)' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.25)' } }}
-                inputProps={{ style: { color: '#fff' } }}
+                sx={{ minWidth: 200, '& .MuiOutlinedInput-root': { }, '& label': { color: 'text.secondary' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.25)' } }}
+                inputProps={{ style: { color: 'text.primary' } }}
               >
                 {['Todos', 'OPERATIVO', 'EN_MANTENIMIENTO', 'FUERA_DE_SERVICIO'].map((o) => (
                   <MenuItem key={o} value={o}>{o}</MenuItem>
@@ -323,8 +321,8 @@ export default function EAMActivos() {
               <TextField
                 select size="small" label="Criticidad" value={filterCriticidad}
                 onChange={(e) => setFilterCriticidad(e.target.value)}
-                sx={{ minWidth: 160, '& .MuiOutlinedInput-root': { bgcolor: CARD_BG }, '& label': { color: 'rgba(255,255,255,0.5)' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.25)' } }}
-                inputProps={{ style: { color: '#fff' } }}
+                sx={{ minWidth: 160, '& .MuiOutlinedInput-root': { }, '& label': { color: 'text.secondary' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.25)' } }}
+                inputProps={{ style: { color: 'text.primary' } }}
               >
                 {['Todos', 'CRITICA', 'ALTA', 'MEDIA', 'BAJA'].map((o) => (
                   <MenuItem key={o} value={o}>{o}</MenuItem>
@@ -336,7 +334,7 @@ export default function EAMActivos() {
             <Paper
               elevation={0}
               sx={{
-                bgcolor: CARD_BG,
+                bgcolor: '#FFFFFF',
                 border: `1px solid rgba(50,172,92,0.25)`,
                 borderRadius: '14px',
                 overflow: 'hidden',
@@ -382,7 +380,7 @@ export default function EAMActivos() {
                     {activo.nombre}
                   </Typography>
                   <Stack direction="row" alignItems="center" spacing={0.5}>
-                    <Box sx={{ color: 'rgba(255,255,255,0.4)' }}>{TIPO_ICON[activo.tipo]}</Box>
+                    <Box sx={{ color: 'text.secondary' }}>{TIPO_ICON[activo.tipo]}</Box>
                     <Typography fontSize={11} color="rgba(255,255,255,0.6)">{activo.tipo}</Typography>
                   </Stack>
                   <Chip
@@ -429,7 +427,7 @@ export default function EAMActivos() {
             <Paper
               elevation={0}
               sx={{
-                bgcolor: CARD_BG,
+                bgcolor: '#FFFFFF',
                 border: `1px solid rgba(50,172,92,0.25)`,
                 borderRadius: '14px',
                 p: 2.5,
@@ -441,7 +439,7 @@ export default function EAMActivos() {
                   <Typography fontSize={11} fontWeight={700} color="rgba(255,255,255,0.4)" letterSpacing="0.5px" mb={0.5}>
                     VH-001
                   </Typography>
-                  <Typography variant="h6" fontWeight={800} color="#fff">
+                  <Typography variant="h6" fontWeight={800} color="text.primary">
                     Tractocamión Kenworth T800
                   </Typography>
                   <Stack direction="row" spacing={1} mt={1}>
@@ -475,7 +473,7 @@ export default function EAMActivos() {
                   <Paper
                     elevation={0}
                     sx={{
-                      bgcolor: CARD_BG,
+                      bgcolor: '#FFFFFF',
                       border: `1px solid rgba(50,172,92,0.25)`,
                       borderRadius: '12px',
                       p: 2,
@@ -499,13 +497,13 @@ export default function EAMActivos() {
                 <Paper
                   elevation={0}
                   sx={{
-                    bgcolor: CARD_BG,
+                    bgcolor: '#FFFFFF',
                     border: `1px solid rgba(50,172,92,0.25)`,
                     borderRadius: '14px',
                     p: 2.5,
                   }}
                 >
-                  <Typography fontWeight={700} fontSize={14} color="#fff" mb={2}>
+                  <Typography fontWeight={700} fontSize={14} color="text.primary" mb={2}>
                     Historial de OTs (últimas 5)
                   </Typography>
                   <Stack spacing={1}>
@@ -518,7 +516,7 @@ export default function EAMActivos() {
                           gap: 1.5,
                           p: 1.25,
                           borderRadius: '10px',
-                          bgcolor: 'rgba(255,255,255,0.03)',
+                          bgcolor: 'text.disabled',
                           border: '1px solid rgba(255,255,255,0.06)',
                         }}
                       >
@@ -563,7 +561,7 @@ export default function EAMActivos() {
                   <Paper
                     elevation={0}
                     sx={{
-                      bgcolor: CARD_BG,
+                      bgcolor: '#FFFFFF',
                       border: `1px solid rgba(50,172,92,0.25)`,
                       borderRadius: '14px',
                       p: 2.5,
@@ -571,7 +569,7 @@ export default function EAMActivos() {
                   >
                     <Stack direction="row" alignItems="center" spacing={1} mb={2}>
                       <ComponenteIcon sx={{ fontSize: 16, color: EAM_COLOR }} />
-                      <Typography fontWeight={700} fontSize={14} color="#fff">
+                      <Typography fontWeight={700} fontSize={14} color="text.primary">
                         Componentes críticos
                       </Typography>
                     </Stack>
@@ -598,7 +596,7 @@ export default function EAMActivos() {
                   <Paper
                     elevation={0}
                     sx={{
-                      bgcolor: CARD_BG,
+                      bgcolor: '#FFFFFF',
                       border: `1px solid rgba(50,172,92,0.25)`,
                       borderRadius: '14px',
                       p: 2.5,
@@ -606,7 +604,7 @@ export default function EAMActivos() {
                   >
                     <Stack direction="row" alignItems="center" spacing={1} mb={2}>
                       <DocIcon sx={{ fontSize: 16, color: EAM_COLOR }} />
-                      <Typography fontWeight={700} fontSize={14} color="#fff">
+                      <Typography fontWeight={700} fontSize={14} color="text.primary">
                         Documentos del activo
                       </Typography>
                     </Stack>
@@ -642,13 +640,13 @@ export default function EAMActivos() {
           <Paper
             elevation={0}
             sx={{
-              bgcolor: CARD_BG,
+              bgcolor: '#FFFFFF',
               border: `1px solid rgba(50,172,92,0.25)`,
               borderRadius: '14px',
               p: 2.5,
             }}
           >
-            <Typography fontWeight={700} fontSize={14} color="#fff" mb={2}>
+            <Typography fontWeight={700} fontSize={14} color="text.primary" mb={2}>
               Jerarquía de activos
             </Typography>
             <Stack spacing={0.25}>

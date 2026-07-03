@@ -35,8 +35,6 @@ import { Layout } from '@/components/layout/Layout'
 // ─── Constantes de tema ───────────────────────────────────────────────────────
 
 const EAM_COLOR = '#32AC5C'
-const CARD_BG   = '#0F1E35'
-const DARK_BG   = '#060C1A'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -414,7 +412,7 @@ function KPIBox({ label, value, color, icon, sub }: KPIBoxProps) {
   return (
     <Card
       sx={{
-        bgcolor: CARD_BG,
+        bgcolor: '#FFFFFF',
         border: `1px solid ${alpha(color, 0.25)}`,
         borderRadius: 2,
         height: '100%',
@@ -497,7 +495,7 @@ function TabGarantiasVigentes() {
       <TableContainer
         component={Paper}
         sx={{
-          bgcolor: CARD_BG,
+          bgcolor: '#FFFFFF',
           borderRadius: 2,
           border: `1px solid ${alpha('#fff', 0.06)}`,
         }}
@@ -636,7 +634,7 @@ function TabPorVencer() {
             <Card
               key={g.id}
               sx={{
-                bgcolor: CARD_BG,
+                bgcolor: '#FFFFFF',
                 border: `1px solid ${alpha(color, 0.35)}`,
                 borderLeft: `4px solid ${color}`,
                 borderRadius: 2,
@@ -778,7 +776,7 @@ function TabReclamaciones() {
       <TableContainer
         component={Paper}
         sx={{
-          bgcolor: CARD_BG,
+          bgcolor: '#FFFFFF',
           borderRadius: 2,
           border: `1px solid ${alpha('#fff', 0.06)}`,
         }}
@@ -892,7 +890,7 @@ export default function EAMGarantias() {
 
   return (
     <Layout>
-      <Box sx={{ bgcolor: DARK_BG, minHeight: '100vh', p: { xs: 2, md: 3 } }}>
+      <Box sx={{ minHeight: '100vh', p: { xs: 2, md: 3 } }}>
         {/* Encabezado */}
         <Stack direction="row" alignItems="center" spacing={2} mb={3}>
           <Box
@@ -944,7 +942,7 @@ export default function EAMGarantias() {
         {/* Tabs */}
         <Paper
           sx={{
-            bgcolor: CARD_BG,
+            bgcolor: '#FFFFFF',
             borderRadius: 2,
             border: `1px solid ${alpha('#fff', 0.07)}`,
             mb: 3,

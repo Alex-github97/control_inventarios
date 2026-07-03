@@ -22,8 +22,6 @@ import { Layout } from '@/components/layout/Layout'
 
 const EAM_COLOR = '#32AC5C'
 const EAM_DARK  = '#27884A'
-const DARK_BG   = '#060C1A'
-const CARD_BG   = '#0F1E35'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -40,8 +38,35 @@ interface OT {
   estado: OTEstado
   tecnico: string
   fechaReq: string
+  fechaApertura: string       // datetime-local ISO: "2025-06-01T08:00"
+  fechaCierre?: string        // datetime-local ISO, set when COMPLETADA
+  horasMantenimiento?: number // auto-calc: cierre - apertura in hours
+  posibleCierre?: string
+  proveedor?: string
+  centroCosto?: string
+  ciudad?: string
+  descripcion?: string
   costo: string
   diasTranscurridos: number
+  trabajos?: TrabajoItem[]
+  repuestos?: RepuestoItem[]
+}
+
+interface OTEditData {
+  estado: OTEstado
+  tecnico: string
+  prioridad: OTPrioridad
+  tipo: OTTipo
+  activo: string
+  proveedor: string
+  fechaReq: string
+  fechaApertura: string
+  fechaCierre: string
+  posibleCierre: string
+  centroCosto: string
+  ciudad: string
+  descripcion: string
+  costo: string
 }
 
 interface KanbanColumn {
@@ -55,9 +80,9 @@ interface OTDialogState {
   ot: OT | null
   mode: 'view' | 'edit' | 'delete'
   deleteText: string
-  editEstado: OTEstado
-  editTecnico: string
-  editPrioridad: OTPrioridad
+  editData: OTEditData
+  editTrabajos: TrabajoItem[]
+  editRepuestos: RepuestoItem[]
 }
 
 // ─── Color maps ───────────────────────────────────────────────────────────────
@@ -96,25 +121,28 @@ const KANBAN_COLUMNS: KanbanColumn[] = [
 
 const OTS_MOCK: OT[] = [
   // PENDIENTE
-  { id:  1, numero: 'OT-2025-0101', activo: 'VH-001 Kenworth T800',      tipo: 'PREVENTIVA', prioridad: 'ALTA',    estado: 'PENDIENTE',           tecnico: 'Jorge Méndez',   fechaReq: '2025-06-25', costo: '$850,000',   diasTranscurridos: 2  },
-  { id:  2, numero: 'OT-2025-0102', activo: 'MC-003 Toyota 8FGCU25',     tipo: 'CORRECTIVA', prioridad: 'URGENTE', estado: 'PENDIENTE',           tecnico: 'Sin asignar',    fechaReq: '2025-06-20', costo: '$1,200,000', diasTranscurridos: 0  },
-  { id:  3, numero: 'OT-2025-0103', activo: 'CMP-07 Atlas Copco',        tipo: 'PREDICTIVA', prioridad: 'MEDIA',   estado: 'PENDIENTE',           tecnico: 'Sin asignar',    fechaReq: '2025-06-28', costo: '$320,000',   diasTranscurridos: 1  },
+  { id:  1, numero: 'OT-2026-0101', activo: 'VH-001 — Tractocamión Kenworth T800',    tipo: 'PREVENTIVA', prioridad: 'ALTA',    estado: 'PENDIENTE',           tecnico: 'Jorge Méndez',  fechaReq: '2026-06-25', fechaApertura: '2026-06-23T08:00', costo: '$850,000',   diasTranscurridos: 2  },
+  { id:  2, numero: 'OT-2026-0102', activo: 'MC-003 — Montacargas Toyota 8FGCU25',   tipo: 'CORRECTIVA', prioridad: 'URGENTE', estado: 'PENDIENTE',           tecnico: 'Sin asignar',   fechaReq: '2026-06-24', fechaApertura: '2026-06-22T14:00', costo: '$1,200,000', diasTranscurridos: 0  },
+  { id:  3, numero: 'OT-2026-0103', activo: 'CMP-07 — Compresor Atlas Copco GA22',    tipo: 'PREDICTIVA', prioridad: 'MEDIA',   estado: 'PENDIENTE',           tecnico: 'Sin asignar',   fechaReq: '2026-06-28', fechaApertura: '2026-06-22T09:00', costo: '$320,000',   diasTranscurridos: 1  },
   // ASIGNADA
-  { id:  4, numero: 'OT-2025-0094', activo: 'CF-001 Compresor Frío',     tipo: 'PREVENTIVA', prioridad: 'ALTA',    estado: 'ASIGNADA',            tecnico: 'Luis Vargas',    fechaReq: '2025-06-22', costo: '$650,000',   diasTranscurridos: 3  },
-  { id:  5, numero: 'OT-2025-0095', activo: 'SRV-01 Dell PowerEdge',     tipo: 'CORRECTIVA', prioridad: 'URGENTE', estado: 'ASIGNADA',            tecnico: 'Ana Rojas',      fechaReq: '2025-06-19', costo: '$2,100,000', diasTranscurridos: 1  },
-  { id:  6, numero: 'OT-2025-0096', activo: 'VH-002 Freightliner M2',    tipo: 'PREVENTIVA', prioridad: 'MEDIA',   estado: 'ASIGNADA',            tecnico: 'Carlos Díaz',    fechaReq: '2025-06-30', costo: '$480,000',   diasTranscurridos: 4  },
+  { id:  4, numero: 'OT-2026-0094', activo: 'CF-001 — Compresor Cuarto Frío',         tipo: 'PREVENTIVA', prioridad: 'ALTA',    estado: 'ASIGNADA',            tecnico: 'Luis Vargas',   fechaReq: '2026-06-26', fechaApertura: '2026-06-20T07:30', costo: '$650,000',   diasTranscurridos: 3  },
+  { id:  5, numero: 'OT-2026-0095', activo: 'SRV-01 — Servidor Dell PowerEdge R740',  tipo: 'CORRECTIVA', prioridad: 'URGENTE', estado: 'ASIGNADA',            tecnico: 'Ana Rojas',     fechaReq: '2026-06-23', fechaApertura: '2026-06-21T10:00', costo: '$2,100,000', diasTranscurridos: 1  },
+  { id:  6, numero: 'OT-2026-0096', activo: 'VH-002 — Camión Freightliner M2-106',    tipo: 'PREVENTIVA', prioridad: 'MEDIA',   estado: 'ASIGNADA',            tecnico: 'Carlos Díaz',   fechaReq: '2026-06-30', fechaApertura: '2026-06-19T08:00', costo: '$480,000',   diasTranscurridos: 4  },
   // EN_EJECUCION
-  { id:  7, numero: 'OT-2025-0088', activo: 'MC-001 Yale GLP050',        tipo: 'CORRECTIVA', prioridad: 'ALTA',    estado: 'EN_EJECUCION',        tecnico: 'Jorge Méndez',   fechaReq: '2025-06-18', costo: '$1,800,000', diasTranscurridos: 5  },
-  { id:  8, numero: 'OT-2025-0089', activo: 'BD-01 Bodega Principal',    tipo: 'PREVENTIVA', prioridad: 'BAJA',    estado: 'EN_EJECUCION',        tecnico: 'Pedro Torres',   fechaReq: '2025-06-21', costo: '$250,000',   diasTranscurridos: 3  },
-  { id:  9, numero: 'OT-2025-0090', activo: 'ELV-02 Still EXU',         tipo: 'EMERGENCIA', prioridad: 'URGENTE', estado: 'EN_EJECUCION',        tecnico: 'Luis Vargas',    fechaReq: '2025-06-19', costo: '$3,400,000', diasTranscurridos: 1  },
+  { id:  7, numero: 'OT-2026-0088', activo: 'MC-001 — Montacargas Yale GLP050',       tipo: 'CORRECTIVA', prioridad: 'ALTA',    estado: 'EN_EJECUCION',        tecnico: 'Jorge Méndez',  fechaReq: '2026-06-22', fechaApertura: '2026-06-18T08:00', costo: '$1,800,000', diasTranscurridos: 5  },
+  { id:  8, numero: 'OT-2026-0089', activo: 'BD-01  — Bodega Principal Bogotá',        tipo: 'PREVENTIVA', prioridad: 'BAJA',    estado: 'EN_EJECUCION',        tecnico: 'Pedro Torres',  fechaReq: '2026-06-25', fechaApertura: '2026-06-20T09:00', costo: '$250,000',   diasTranscurridos: 3  },
+  { id:  9, numero: 'OT-2026-0090', activo: 'ELV-02 — Estibador Eléctrico Still EXU', tipo: 'EMERGENCIA', prioridad: 'URGENTE', estado: 'EN_EJECUCION',        tecnico: 'Luis Vargas',   fechaReq: '2026-06-22', fechaApertura: '2026-06-21T06:00', costo: '$3,400,000', diasTranscurridos: 1  },
   // EN_ESPERA_REPUESTOS
-  { id: 10, numero: 'OT-2025-0081', activo: 'VH-003 Ford Ranger',        tipo: 'CORRECTIVA', prioridad: 'ALTA',    estado: 'EN_ESPERA_REPUESTOS', tecnico: 'Carlos Díaz',    fechaReq: '2025-06-15', costo: '$950,000',   diasTranscurridos: 8  },
-  { id: 11, numero: 'OT-2025-0082', activo: 'MC-004 Crown RR5200',       tipo: 'CORRECTIVA', prioridad: 'MEDIA',   estado: 'EN_ESPERA_REPUESTOS', tecnico: 'Ana Rojas',      fechaReq: '2025-06-12', costo: '$1,650,000', diasTranscurridos: 11 },
-  { id: 12, numero: 'OT-2025-0083', activo: 'CF-001 Evaporador EV-001',  tipo: 'PREDICTIVA', prioridad: 'ALTA',    estado: 'EN_ESPERA_REPUESTOS', tecnico: 'Jorge Méndez',   fechaReq: '2025-06-16', costo: '$780,000',   diasTranscurridos: 7  },
-  // COMPLETADA
-  { id: 13, numero: 'OT-2025-0074', activo: 'VH-001 Kenworth T800',      tipo: 'PREVENTIVA', prioridad: 'MEDIA',   estado: 'COMPLETADA',          tecnico: 'Luis Vargas',    fechaReq: '2025-06-10', costo: '$850,000',   diasTranscurridos: 10 },
-  { id: 14, numero: 'OT-2025-0075', activo: 'MC-003 Toyota 8FGCU25',     tipo: 'PREDICTIVA', prioridad: 'BAJA',    estado: 'COMPLETADA',          tecnico: 'Pedro Torres',   fechaReq: '2025-06-08', costo: '$310,000',   diasTranscurridos: 12 },
-  { id: 15, numero: 'OT-2025-0076', activo: 'SRV-01 Dell PowerEdge',     tipo: 'PREVENTIVA', prioridad: 'ALTA',    estado: 'COMPLETADA',          tecnico: 'Ana Rojas',      fechaReq: '2025-06-05', costo: '$500,000',   diasTranscurridos: 15 },
+  { id: 10, numero: 'OT-2026-0081', activo: 'VH-003 — Camioneta Ford Ranger',         tipo: 'CORRECTIVA', prioridad: 'ALTA',    estado: 'EN_ESPERA_REPUESTOS', tecnico: 'Carlos Díaz',   fechaReq: '2026-06-20', fechaApertura: '2026-06-12T08:00', costo: '$950,000',   diasTranscurridos: 8  },
+  { id: 11, numero: 'OT-2026-0082', activo: 'MC-004 — Reach Truck Crown RR5200',      tipo: 'CORRECTIVA', prioridad: 'MEDIA',   estado: 'EN_ESPERA_REPUESTOS', tecnico: 'Ana Rojas',     fechaReq: '2026-06-18', fechaApertura: '2026-06-10T07:00', costo: '$1,650,000', diasTranscurridos: 11 },
+  { id: 12, numero: 'OT-2026-0083', activo: 'CF-001 — Compresor Cuarto Frío',         tipo: 'PREDICTIVA', prioridad: 'ALTA',    estado: 'EN_ESPERA_REPUESTOS', tecnico: 'Jorge Méndez',  fechaReq: '2026-06-21', fechaApertura: '2026-06-14T08:00', costo: '$780,000',   diasTranscurridos: 7  },
+  // COMPLETADA — con fechaApertura, fechaCierre y horasMantenimiento
+  { id: 13, numero: 'OT-2026-0074', activo: 'VH-001 — Tractocamión Kenworth T800',    tipo: 'PREVENTIVA', prioridad: 'MEDIA',   estado: 'COMPLETADA', tecnico: 'Luis Vargas',  fechaReq: '2026-06-10', fechaApertura: '2026-06-01T07:00', fechaCierre: '2026-06-01T11:30', horasMantenimiento: 4.5,  costo: '$850,000',   diasTranscurridos: 10 },
+  { id: 14, numero: 'OT-2026-0075', activo: 'MC-003 — Montacargas Toyota 8FGCU25',   tipo: 'PREDICTIVA', prioridad: 'BAJA',    estado: 'COMPLETADA', tecnico: 'Pedro Torres', fechaReq: '2026-06-08', fechaApertura: '2026-06-03T08:00', fechaCierre: '2026-06-03T11:00', horasMantenimiento: 3.0,  costo: '$310,000',   diasTranscurridos: 12 },
+  { id: 15, numero: 'OT-2026-0076', activo: 'SRV-01 — Servidor Dell PowerEdge R740',  tipo: 'PREVENTIVA', prioridad: 'ALTA',    estado: 'COMPLETADA', tecnico: 'Ana Rojas',    fechaReq: '2026-06-05', fechaApertura: '2026-06-05T06:00', fechaCierre: '2026-06-05T14:00', horasMantenimiento: 8.0,  costo: '$500,000',   diasTranscurridos: 15 },
+  { id: 16, numero: 'OT-2026-0068', activo: 'MC-001 — Montacargas Yale GLP050',       tipo: 'CORRECTIVA', prioridad: 'ALTA',    estado: 'COMPLETADA', tecnico: 'Jorge Méndez', fechaReq: '2026-06-12', fechaApertura: '2026-06-10T07:00', fechaCierre: '2026-06-11T15:00', horasMantenimiento: 32.0, costo: '$1,800,000', diasTranscurridos: 16 },
+  { id: 17, numero: 'OT-2026-0069', activo: 'VH-002 — Camión Freightliner M2-106',    tipo: 'PREVENTIVA', prioridad: 'MEDIA',   estado: 'COMPLETADA', tecnico: 'Carlos Díaz',  fechaReq: '2026-06-15', fechaApertura: '2026-06-15T08:00', fechaCierre: '2026-06-15T12:00', horasMantenimiento: 4.0,  costo: '$480,000',   diasTranscurridos: 9  },
+  { id: 18, numero: 'OT-2026-0070', activo: 'CF-001 — Compresor Cuarto Frío',         tipo: 'CORRECTIVA', prioridad: 'URGENTE', estado: 'COMPLETADA', tecnico: 'Luis Vargas',  fechaReq: '2026-06-18', fechaApertura: '2026-06-16T00:00', fechaCierre: '2026-06-16T08:00', horasMantenimiento: 8.0,  costo: '$2,200,000', diasTranscurridos: 8  },
 ]
 
 const FALLAS_CATALOGO = [
@@ -150,21 +178,24 @@ interface ActivoData {
   nombre: string
   centroCosto: string
   ciudad: string
+  categoria: string
 }
 
 const ACTIVOS_DATA: ActivoData[] = [
-  { nombre: 'VH-001 — Tractocamión Kenworth T800',    centroCosto: 'CC-001', ciudad: 'Bogotá'   },
-  { nombre: 'VH-002 — Camión Freightliner M2-106',    centroCosto: 'CC-001', ciudad: 'Bogotá'   },
-  { nombre: 'VH-003 — Camioneta Ford Ranger',         centroCosto: 'CC-002', ciudad: 'Medellín' },
-  { nombre: 'MC-001 — Montacargas Yale GLP050',       centroCosto: 'CC-006', ciudad: 'Bogotá'   },
-  { nombre: 'MC-003 — Montacargas Toyota 8FGCU25',   centroCosto: 'CC-006', ciudad: 'Bogotá'   },
-  { nombre: 'MC-004 — Reach Truck Crown RR5200',      centroCosto: 'CC-006', ciudad: 'Bogotá'   },
-  { nombre: 'CF-001 — Compresor Cuarto Frío',         centroCosto: 'CC-005', ciudad: 'Bogotá'   },
-  { nombre: 'CMP-07 — Compresor Atlas Copco GA22',    centroCosto: 'CC-003', ciudad: 'Bogotá'   },
-  { nombre: 'SRV-01 — Servidor Dell PowerEdge R740',  centroCosto: 'CC-004', ciudad: 'Bogotá'   },
-  { nombre: 'ELV-02 — Estibador Eléctrico Still EXU', centroCosto: 'CC-006', ciudad: 'Bogotá'   },
-  { nombre: 'BD-01  — Bodega Principal Bogotá',        centroCosto: 'CC-003', ciudad: 'Bogotá'   },
+  { nombre: 'VH-001 — Tractocamión Kenworth T800',    centroCosto: 'CC-001', ciudad: 'Bogotá',   categoria: 'Vehículos'    },
+  { nombre: 'VH-002 — Camión Freightliner M2-106',    centroCosto: 'CC-001', ciudad: 'Bogotá',   categoria: 'Vehículos'    },
+  { nombre: 'VH-003 — Camioneta Ford Ranger',         centroCosto: 'CC-002', ciudad: 'Medellín', categoria: 'Vehículos'    },
+  { nombre: 'MC-001 — Montacargas Yale GLP050',       centroCosto: 'CC-006', ciudad: 'Bogotá',   categoria: 'Montacargas'  },
+  { nombre: 'MC-003 — Montacargas Toyota 8FGCU25',   centroCosto: 'CC-006', ciudad: 'Bogotá',   categoria: 'Montacargas'  },
+  { nombre: 'MC-004 — Reach Truck Crown RR5200',      centroCosto: 'CC-006', ciudad: 'Bogotá',   categoria: 'Montacargas'  },
+  { nombre: 'CF-001 — Compresor Cuarto Frío',         centroCosto: 'CC-005', ciudad: 'Bogotá',   categoria: 'Equipos Frío' },
+  { nombre: 'CMP-07 — Compresor Atlas Copco GA22',    centroCosto: 'CC-003', ciudad: 'Bogotá',   categoria: 'Industrial'   },
+  { nombre: 'SRV-01 — Servidor Dell PowerEdge R740',  centroCosto: 'CC-004', ciudad: 'Bogotá',   categoria: 'TI'           },
+  { nombre: 'ELV-02 — Estibador Eléctrico Still EXU', centroCosto: 'CC-006', ciudad: 'Bogotá',   categoria: 'Industrial'   },
+  { nombre: 'BD-01  — Bodega Principal Bogotá',        centroCosto: 'CC-003', ciudad: 'Bogotá',   categoria: 'Infraestructura' },
 ]
+
+const ACTIVOS_CATEGORIAS = ['Vehículos', 'Montacargas', 'Equipos Frío', 'Industrial', 'TI', 'Infraestructura']
 
 const TECNICOS_SELECT = [
   'Jorge Méndez',
@@ -262,7 +293,7 @@ function OTCard({ ot, onOpen }: { ot: OT; onOpen: (ot: OT) => void }) {
       elevation={0}
       onClick={() => onOpen(ot)}
       sx={{
-        bgcolor: alpha('#0F1E35', 0.9),
+        bgcolor: alpha('#FFFFFF', 0.9),
         border: `1px solid rgba(255,255,255,0.08)`,
         borderRadius: '10px',
         p: 1.5,
@@ -327,41 +358,120 @@ export default function EAMOrdenesTrabajo() {
   // Lista de OTs en memoria (permite editar/eliminar)
   const [otsList, setOtsList] = useState<OT[]>(OTS_MOCK)
 
+
+  // ── Filtros compartidos Kanban + Tabla ──
+  const [filterBusqueda,  setFilterBusqueda]  = useState('')
+  const [filterEstado,    setFilterEstado]    = useState('Todos')
+  const [filterTipo,      setFilterTipo]      = useState('Todos')
+  const [filterPrioridad, setFilterPrioridad] = useState('Todos')
+  const [filterTecnico,   setFilterTecnico]   = useState('Todos')
+  const [filterActivo,    setFilterActivo]    = useState('Todos')
+
+  const resetFiltros = () => {
+    setFilterBusqueda(''); setFilterEstado('Todos'); setFilterTipo('Todos')
+    setFilterPrioridad('Todos'); setFilterTecnico('Todos'); setFilterActivo('Todos')
+  }
+
+  const EMPTY_EDIT_DATA: OTEditData = {
+    estado: 'PENDIENTE', tecnico: '', prioridad: 'MEDIA', tipo: 'PREVENTIVA',
+    activo: '', proveedor: '', fechaReq: '', fechaApertura: '', fechaCierre: '', posibleCierre: '',
+    centroCosto: '', ciudad: '', descripcion: '', costo: '',
+  }
+
   // Dialog de detalle/edición/eliminación de OT
   const [otDialog, setOtDialog] = useState<OTDialogState>({
     open: false, ot: null, mode: 'view', deleteText: '',
-    editEstado: 'PENDIENTE', editTecnico: '', editPrioridad: 'MEDIA',
+    editData: EMPTY_EDIT_DATA, editTrabajos: [], editRepuestos: [],
+  })
+
+  const otToEditData = (ot: OT): OTEditData => ({
+    estado:        ot.estado,
+    tecnico:       ot.tecnico,
+    prioridad:     ot.prioridad,
+    tipo:          ot.tipo,
+    activo:        ot.activo,
+    proveedor:     ot.proveedor    ?? '',
+    fechaReq:      ot.fechaReq,
+    fechaApertura: ot.fechaApertura,
+    fechaCierre:   ot.fechaCierre  ?? '',
+    posibleCierre: ot.posibleCierre ?? '',
+    centroCosto:   ot.centroCosto  ?? '',
+    ciudad:        ot.ciudad       ?? '',
+    descripcion:   ot.descripcion  ?? '',
+    costo:         ot.costo,
   })
 
   const openOTDialog = (ot: OT) =>
-    setOtDialog({ open: true, ot, mode: 'view', deleteText: '', editEstado: ot.estado, editTecnico: ot.tecnico, editPrioridad: ot.prioridad })
+    setOtDialog({ open: true, ot, mode: 'view', deleteText: '', editData: otToEditData(ot), editTrabajos: ot.trabajos ?? [], editRepuestos: ot.repuestos ?? [] })
   const closeOTDialog = () =>
     setOtDialog((p) => ({ ...p, open: false }))
   const toEditMode = () =>
-    setOtDialog((p) => ({ ...p, mode: 'edit', editEstado: p.ot!.estado, editTecnico: p.ot!.tecnico, editPrioridad: p.ot!.prioridad }))
+    setOtDialog((p) => ({ ...p, mode: 'edit', editData: otToEditData(p.ot!), editTrabajos: p.ot!.trabajos ?? [], editRepuestos: p.ot!.repuestos ?? [] }))
   const toDeleteMode = () =>
     setOtDialog((p) => ({ ...p, mode: 'delete', deleteText: '' }))
+  const setEditField = (field: keyof OTEditData, val: string) =>
+    setOtDialog((p) => ({ ...p, editData: { ...p.editData, [field]: val } }))
+  const setEditActivo = (nombre: string) => {
+    const data = ACTIVOS_DATA.find((a) => a.nombre === nombre)
+    setOtDialog((p) => ({ ...p, editData: { ...p.editData, activo: nombre, centroCosto: data?.centroCosto ?? p.editData.centroCosto, ciudad: data?.ciudad ?? p.editData.ciudad } }))
+  }
+
+  // Trabajos en edición
+  const addEditTrabajo = () =>
+    setOtDialog((p) => ({ ...p, editTrabajos: [...p.editTrabajos, { id: nextId(), trabajo: '', observaciones: '', moObra: '', tipoMant: '', sistema: '', subsistema: '' }] }))
+  const removeEditTrabajo = (id: number) =>
+    setOtDialog((p) => ({ ...p, editTrabajos: p.editTrabajos.filter((t) => t.id !== id) }))
+  const setEditTrabajo = (id: number, field: keyof TrabajoItem, val: string) => {
+    if (field === 'trabajo') {
+      const cfg = TIPOS_TRABAJO_CONFIG.find((c) => c.nombre === val)
+      setOtDialog((p) => ({ ...p, editTrabajos: p.editTrabajos.map((t) => t.id === id ? { ...t, trabajo: val, tipoMant: cfg?.categoria ?? '', sistema: cfg?.sistema ?? '', subsistema: cfg?.subsistema ?? '' } : t) }))
+      return
+    }
+    setOtDialog((p) => ({ ...p, editTrabajos: p.editTrabajos.map((t) => t.id === id ? { ...t, [field]: val } : t) }))
+  }
+
+  // Repuestos en edición
+  const addEditRepuesto = () =>
+    setOtDialog((p) => ({ ...p, editRepuestos: [...p.editRepuestos, { id: nextId(), trabajoId: '', repuesto: '', cantidad: '1', precioUnitario: '' } as RepuestoItem] }))
+  const removeEditRepuesto = (id: number) =>
+    setOtDialog((p) => ({ ...p, editRepuestos: p.editRepuestos.filter((r) => r.id !== id) }))
+  const setEditRepuesto = (id: number, field: keyof RepuestoItem, val: string) =>
+    setOtDialog((p) => ({ ...p, editRepuestos: p.editRepuestos.map((r) => r.id === id ? { ...r, [field]: val } : r) }))
+
   const saveOTEdit = () => {
-    setOtsList((prev) => prev.map((o) =>
-      o.id === otDialog.ot!.id
-        ? { ...o, estado: otDialog.editEstado, tecnico: otDialog.editTecnico, prioridad: otDialog.editPrioridad }
-        : o
-    ))
-    setOtDialog((p) => ({
-      ...p,
-      mode: 'view',
-      ot: p.ot ? { ...p.ot, estado: p.editEstado, tecnico: p.editTecnico, prioridad: p.editPrioridad } : p.ot,
-    }))
+    const d = otDialog.editData
+    let horasMantenimiento = otDialog.ot!.horasMantenimiento
+    if (d.estado === 'COMPLETADA' && d.fechaCierre && d.fechaApertura) {
+      const diffMs = new Date(d.fechaCierre).getTime() - new Date(d.fechaApertura).getTime()
+      if (diffMs > 0) horasMantenimiento = Math.round((diffMs / 3600000) * 100) / 100
+    }
+    const updated: OT = {
+      ...otDialog.ot!,
+      estado:            d.estado,
+      tecnico:           d.tecnico,
+      prioridad:         d.prioridad,
+      tipo:              d.tipo,
+      activo:            d.activo,
+      proveedor:         d.proveedor,
+      fechaReq:          d.fechaReq,
+      fechaApertura:     d.fechaApertura,
+      fechaCierre:       d.estado === 'COMPLETADA' ? d.fechaCierre : undefined,
+      horasMantenimiento,
+      posibleCierre:     d.posibleCierre,
+      centroCosto:       d.centroCosto,
+      ciudad:            d.ciudad,
+      descripcion:       d.descripcion,
+      costo:             d.costo,
+      trabajos:          otDialog.editTrabajos,
+      repuestos:         otDialog.editRepuestos,
+    }
+    setOtsList((prev) => prev.map((o) => o.id === updated.id ? updated : o))
+    setOtDialog((p) => ({ ...p, mode: 'view', ot: updated }))
   }
   const deleteOT = () => {
     setOtsList((prev) => prev.filter((o) => o.id !== otDialog.ot!.id))
     closeOTDialog()
   }
-
-  // Tabla filters
-  const [filterEstado, setFilterEstado] = useState('Todos')
-  const [filterTipo,   setFilterTipo]   = useState('Todos')
-  const [filterPrioridad, setFilterPrioridad] = useState('Todos')
 
   // Crear OT form
   const [form, setForm] = useState({
@@ -441,39 +551,62 @@ export default function EAMOrdenesTrabajo() {
   const fmt = (n: number) => '$' + n.toLocaleString('es-CO')
 
   const filteredOTs = otsList.filter((ot) => {
-    if (filterEstado !== 'Todos' && ot.estado !== filterEstado) return false
-    if (filterTipo   !== 'Todos' && ot.tipo   !== filterTipo)   return false
+    if (filterEstado    !== 'Todos' && ot.estado    !== filterEstado)    return false
+    if (filterTipo      !== 'Todos' && ot.tipo      !== filterTipo)      return false
     if (filterPrioridad !== 'Todos' && ot.prioridad !== filterPrioridad) return false
+    if (filterTecnico   !== 'Todos' && ot.tecnico   !== filterTecnico)   return false
+    if (filterActivo    !== 'Todos' && !ot.activo.toLowerCase().includes(filterActivo.toLowerCase())) return false
+    if (filterBusqueda) {
+      const q = filterBusqueda.toLowerCase()
+      if (!ot.numero.toLowerCase().includes(q) && !ot.activo.toLowerCase().includes(q)) return false
+    }
     return true
   })
 
+  const hayFiltrosActivos = filterBusqueda || filterEstado !== 'Todos' || filterTipo !== 'Todos' ||
+    filterPrioridad !== 'Todos' || filterTecnico !== 'Todos' || filterActivo !== 'Todos'
+
   const inputSx = {
-    '& .MuiOutlinedInput-root': { bgcolor: CARD_BG, color: '#fff' },
-    '& label': { color: 'rgba(255,255,255,0.5)' },
+    '& .MuiOutlinedInput-root': { color: 'text.primary' },
+    '& label': { color: 'text.secondary' },
     '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.25)' },
     '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.5)' },
-    '& .MuiSvgIcon-root': { color: 'rgba(255,255,255,0.5)' },
+    '& .MuiSvgIcon-root': { color: 'text.secondary' },
   }
 
   const inputSxSm = {
-    '& .MuiOutlinedInput-root': { bgcolor: alpha('#060C1A', 0.6), color: '#fff', fontSize: 12 },
+    '& .MuiOutlinedInput-root': { bgcolor: alpha('#F8FAFC', 0.6), color: 'text.primary', fontSize: 12 },
     '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' },
     '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.2)' },
-    '& .MuiSvgIcon-root': { color: 'rgba(255,255,255,0.4)', fontSize: 16 },
+    '& .MuiSvgIcon-root': { color: 'text.secondary', fontSize: 16 },
     '& input': { py: 0.6 },
+  }
+
+  // Estilos para los campos dentro del Dialog de edición
+  const dlgInputSx = {
+    '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) },
+    '& label': { color: 'grey.500' },
+    '& fieldset': { borderColor: alpha('#fff', 0.15) },
+    '& .MuiOutlinedInput-root:hover fieldset': { borderColor: alpha('#fff', 0.3) },
+    '& .MuiSvgIcon-root': { color: 'grey.400' },
+  }
+  const dlgInputSxSm = {
+    ...dlgInputSx,
+    '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04), fontSize: 12 },
+    '& label': { color: 'grey.500', fontSize: 12 },
   }
 
   return (
     <>
     <Layout>
-      <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: DARK_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: { xs: 2, md: 3 }, minHeight: '100vh' }}>
 
         {/* Header */}
         <Stack direction="row" alignItems="center" justifyContent="space-between" mb={3} flexWrap="wrap" gap={2}>
           <Stack direction="row" alignItems="center" spacing={2}>
             <OTIcon sx={{ fontSize: 28, color: EAM_COLOR }} />
             <Box>
-              <Typography variant="h5" fontWeight={800} color="#fff" letterSpacing="-0.5px">
+              <Typography variant="h5" fontWeight={800} color="text.primary" letterSpacing="-0.5px">
                 Órdenes de Trabajo
               </Typography>
               <Typography fontSize={13} color="rgba(255,255,255,0.45)">
@@ -497,7 +630,7 @@ export default function EAMOrdenesTrabajo() {
           onChange={(_, v) => setTab(v)}
           sx={{
             mb: 3,
-            '& .MuiTab-root': { color: 'rgba(255,255,255,0.5)', fontWeight: 600, fontSize: 13 },
+            '& .MuiTab-root': { color: 'text.secondary', fontWeight: 600, fontSize: 13 },
             '& .Mui-selected': { color: EAM_COLOR },
             '& .MuiTabs-indicator': { bgcolor: EAM_COLOR },
           }}
@@ -507,12 +640,67 @@ export default function EAMOrdenesTrabajo() {
           <Tab label="Crear OT" />
         </Tabs>
 
+        {/* ── Barra de filtros compartida (Kanban + Tabla) ── */}
+        {(tab === 0 || tab === 1) && (
+          <Paper elevation={0} sx={{ border: `1px solid rgba(50,172,92,0.15)`, borderRadius: '12px', p: 1.5, mb: 2 }}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
+              {/* Búsqueda */}
+              <TextField
+                size="small" placeholder="Buscar por # OT o activo..."
+                value={filterBusqueda} onChange={(e) => setFilterBusqueda(e.target.value)}
+                sx={{ minWidth: 210, flex: '1 1 210px', ...inputSx }}
+                InputProps={{ startAdornment: <InputAdornment position="start"><Typography fontSize={13} color="rgba(255,255,255,0.3)">🔍</Typography></InputAdornment> }}
+              />
+              {/* Estado (solo en Tabla) */}
+              {tab === 1 && (
+                <TextField select size="small" label="Estado" value={filterEstado}
+                  onChange={(e) => setFilterEstado(e.target.value)} sx={{ minWidth: 175, ...inputSx }}>
+                  {['Todos', 'PENDIENTE', 'ASIGNADA', 'EN_EJECUCION', 'EN_ESPERA_REPUESTOS', 'COMPLETADA'].map((o) => (
+                    <MenuItem key={o} value={o}>{o.replace(/_/g, ' ')}</MenuItem>
+                  ))}
+                </TextField>
+              )}
+              {/* Tipo OT */}
+              <TextField select size="small" label="Tipo OT" value={filterTipo}
+                onChange={(e) => setFilterTipo(e.target.value)} sx={{ minWidth: 145, ...inputSx }}>
+                {['Todos', 'PREVENTIVA', 'CORRECTIVA', 'PREDICTIVA', 'EMERGENCIA'].map((o) => <MenuItem key={o} value={o}>{o}</MenuItem>)}
+              </TextField>
+              {/* Prioridad */}
+              <TextField select size="small" label="Prioridad" value={filterPrioridad}
+                onChange={(e) => setFilterPrioridad(e.target.value)} sx={{ minWidth: 130, ...inputSx }}>
+                {['Todos', 'URGENTE', 'ALTA', 'MEDIA', 'BAJA'].map((o) => <MenuItem key={o} value={o}>{o}</MenuItem>)}
+              </TextField>
+              {/* Técnico */}
+              <TextField select size="small" label="Técnico" value={filterTecnico}
+                onChange={(e) => setFilterTecnico(e.target.value)} sx={{ minWidth: 145, ...inputSx }}>
+                <MenuItem value="Todos">Todos</MenuItem>
+                <MenuItem value="Sin asignar">Sin asignar</MenuItem>
+                {TECNICOS_SELECT.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+              </TextField>
+              {/* Activo */}
+              <TextField select size="small" label="Activo" value={filterActivo}
+                onChange={(e) => setFilterActivo(e.target.value)} sx={{ minWidth: 200, ...inputSx }}>
+                <MenuItem value="Todos">Todos los activos</MenuItem>
+                {ACTIVOS_DATA.map((a) => <MenuItem key={a.nombre} value={a.nombre}>{a.nombre}</MenuItem>)}
+              </TextField>
+              {/* Limpiar */}
+              {hayFiltrosActivos && (
+                <Button size="small" onClick={resetFiltros}
+                  sx={{ color: '#EF4444', borderColor: 'rgba(239,68,68,0.3)', '&:hover': { bgcolor: alpha('#EF4444', 0.08), borderColor: '#EF4444' }, fontWeight: 600, fontSize: 11, flexShrink: 0 }}
+                  variant="outlined">
+                  Limpiar
+                </Button>
+              )}
+            </Stack>
+          </Paper>
+        )}
+
         {/* ── Tab 0: Kanban ── */}
         {tab === 0 && (
           <Box sx={{ overflowX: 'auto' }}>
             <Stack direction="row" spacing={2} sx={{ minWidth: 1100, pb: 2 }}>
               {KANBAN_COLUMNS.map((col) => {
-                const colOTs = otsList.filter((o) => o.estado === col.estado)
+                const colOTs = filteredOTs.filter((o) => o.estado === col.estado)
                 return (
                   <Box
                     key={col.estado}
@@ -573,41 +761,10 @@ export default function EAMOrdenesTrabajo() {
         {/* ── Tab 1: Tabla ── */}
         {tab === 1 && (
           <Box>
-            {/* Filters */}
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} mb={2} flexWrap="wrap" useFlexGap>
-              <TextField
-                select size="small" label="Estado" value={filterEstado}
-                onChange={(e) => setFilterEstado(e.target.value)}
-                sx={{ minWidth: 190, ...inputSx }}
-              >
-                {['Todos', 'PENDIENTE', 'ASIGNADA', 'EN_EJECUCION', 'EN_ESPERA_REPUESTOS', 'COMPLETADA'].map((o) => (
-                  <MenuItem key={o} value={o}>{o}</MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                select size="small" label="Tipo OT" value={filterTipo}
-                onChange={(e) => setFilterTipo(e.target.value)}
-                sx={{ minWidth: 160, ...inputSx }}
-              >
-                {['Todos', 'PREVENTIVA', 'CORRECTIVA', 'PREDICTIVA', 'EMERGENCIA'].map((o) => (
-                  <MenuItem key={o} value={o}>{o}</MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                select size="small" label="Prioridad" value={filterPrioridad}
-                onChange={(e) => setFilterPrioridad(e.target.value)}
-                sx={{ minWidth: 150, ...inputSx }}
-              >
-                {['Todos', 'URGENTE', 'ALTA', 'MEDIA', 'BAJA'].map((o) => (
-                  <MenuItem key={o} value={o}>{o}</MenuItem>
-                ))}
-              </TextField>
-            </Stack>
-
             <Paper
               elevation={0}
               sx={{
-                bgcolor: CARD_BG,
+                bgcolor: '#FFFFFF',
                 border: `1px solid rgba(50,172,92,0.25)`,
                 borderRadius: '14px',
                 overflow: 'auto',
@@ -674,7 +831,7 @@ export default function EAMOrdenesTrabajo() {
           <Box sx={{ maxWidth: 1100 }}>
 
             {/* ── Encabezado de la OT ── */}
-            <Paper elevation={0} sx={{ bgcolor: CARD_BG, border: `1px solid rgba(50,172,92,0.25)`, borderRadius: '14px', p: 3, mb: 2 }}>
+            <Paper elevation={0} sx={{ border: `1px solid rgba(50,172,92,0.25)`, borderRadius: '14px', p: 3, mb: 2 }}>
 
               {/* Título */}
               <Stack direction="row" alignItems="center" justifyContent="space-between" mb={3}>
@@ -683,7 +840,7 @@ export default function EAMOrdenesTrabajo() {
                     <OTIcon sx={{ fontSize: 22, color: EAM_COLOR }} />
                   </Box>
                   <Box>
-                    <Typography fontWeight={800} fontSize={17} color="#fff" letterSpacing="-0.3px">
+                    <Typography fontWeight={800} fontSize={17} color="text.primary" letterSpacing="-0.3px">
                       Nueva Orden de Trabajo
                     </Typography>
                     <Typography fontSize={12} color="rgba(255,255,255,0.4)">
@@ -891,7 +1048,7 @@ export default function EAMOrdenesTrabajo() {
               onChange={() => setAccTrabajos((p) => !p)}
               elevation={0}
               sx={{
-                bgcolor: CARD_BG, mb: 1.5,
+                mb: 1.5,
                 border: `1px solid ${alpha(EAM_COLOR, accTrabajos ? 0.4 : 0.15)}`,
                 borderRadius: '12px !important',
                 '&:before': { display: 'none' },
@@ -904,7 +1061,7 @@ export default function EAMOrdenesTrabajo() {
               >
                 <Stack direction="row" alignItems="center" spacing={1.5} flex={1}>
                   <WorkIcon sx={{ fontSize: 18, color: EAM_COLOR }} />
-                  <Typography fontWeight={700} fontSize={14} color="#fff">Trabajos</Typography>
+                  <Typography fontWeight={700} fontSize={14} color="text.primary">Trabajos</Typography>
                   <Chip
                     label={trabajos.length}
                     size="small"
@@ -962,14 +1119,14 @@ export default function EAMOrdenesTrabajo() {
                               ...inputSxSm,
                               '& .MuiOutlinedInput-root': {
                                 ...inputSxSm['& .MuiOutlinedInput-root'],
-                                bgcolor: cfg ? alpha(catColor, 0.07) : alpha('#060C1A', 0.6),
+                                bgcolor: cfg ? alpha(catColor, 0.07) : alpha('#F8FAFC', 0.6),
                               },
                               '& .MuiOutlinedInput-notchedOutline': {
                                 borderColor: cfg ? alpha(catColor, 0.4) : 'rgba(255,255,255,0.08)',
                               },
                             }}
                           >
-                            <MenuItem value=""><em style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11 }}>Seleccionar trabajo...</em></MenuItem>
+                            <MenuItem value=""><em style={{ color: 'text.disabled', fontSize: 11 }}>Seleccionar trabajo...</em></MenuItem>
                             {TIPOS_TRABAJO_CONFIG.map((tp) => (
                               <MenuItem key={tp.id} value={tp.nombre}>
                                 <Stack direction="row" alignItems="center" spacing={1}>
@@ -1022,7 +1179,7 @@ export default function EAMOrdenesTrabajo() {
                           >
                             {/* Tipo de mantenimiento — solo lectura */}
                             <Box>
-                              <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', mb: 0.4, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                              <Typography sx={{ fontSize: 10, color: 'text.disabled', mb: 0.4, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
                                 Tipo de mantenimiento
                               </Typography>
                               <Box
@@ -1042,7 +1199,7 @@ export default function EAMOrdenesTrabajo() {
 
                             {/* Sistema — editable, auto-llenado */}
                             <Box>
-                              <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', mb: 0.4, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                              <Typography sx={{ fontSize: 10, color: 'text.disabled', mb: 0.4, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
                                 Sistema del activo
                               </Typography>
                               <TextField
@@ -1071,7 +1228,7 @@ export default function EAMOrdenesTrabajo() {
 
                             {/* Subsistema — editable, auto-llenado */}
                             <Box>
-                              <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', mb: 0.4, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                              <Typography sx={{ fontSize: 10, color: 'text.disabled', mb: 0.4, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
                                 Subsistema del activo
                               </Typography>
                               <TextField
@@ -1121,7 +1278,7 @@ export default function EAMOrdenesTrabajo() {
               onChange={() => setAccRepuestos((p) => !p)}
               elevation={0}
               sx={{
-                bgcolor: CARD_BG, mb: 2,
+                mb: 2,
                 border: `1px solid ${alpha('#3B82F6', accRepuestos ? 0.4 : 0.15)}`,
                 borderRadius: '12px !important',
                 '&:before': { display: 'none' },
@@ -1134,7 +1291,7 @@ export default function EAMOrdenesTrabajo() {
               >
                 <Stack direction="row" alignItems="center" spacing={1.5} flex={1}>
                   <PartsIcon sx={{ fontSize: 18, color: '#3B82F6' }} />
-                  <Typography fontWeight={700} fontSize={14} color="#fff">Repuestos</Typography>
+                  <Typography fontWeight={700} fontSize={14} color="text.primary">Repuestos</Typography>
                   <Chip
                     label={repuestos.length}
                     size="small"
@@ -1184,7 +1341,7 @@ export default function EAMOrdenesTrabajo() {
                           SelectProps={{
                             renderValue: (val) => {
                               const idx = trabajos.findIndex((t) => (t.trabajo || `Trabajo ${trabajos.indexOf(t) + 1}`) === val)
-                              if (!val || idx === -1) return <em style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11 }}>Sin trabajo...</em>
+                              if (!val || idx === -1) return <em style={{ color: 'text.disabled', fontSize: 11 }}>Sin trabajo...</em>
                               const t = trabajos[idx]
                               return (
                                 <Stack direction="row" alignItems="center" spacing={0.75}>
@@ -1202,14 +1359,14 @@ export default function EAMOrdenesTrabajo() {
                             ...inputSxSm,
                             '& .MuiOutlinedInput-root': {
                               ...inputSxSm['& .MuiOutlinedInput-root'],
-                              bgcolor: r.trabajoId ? alpha(EAM_COLOR, 0.08) : alpha('#060C1A', 0.6),
+                              bgcolor: r.trabajoId ? alpha(EAM_COLOR, 0.08) : alpha('#F8FAFC', 0.6),
                             },
                             '& .MuiOutlinedInput-notchedOutline': {
                               borderColor: r.trabajoId ? alpha(EAM_COLOR, 0.4) : 'rgba(255,255,255,0.08)',
                             },
                           }}
                         >
-                          <MenuItem value=""><em style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11 }}>Sin trabajo...</em></MenuItem>
+                          <MenuItem value=""><em style={{ color: 'text.disabled', fontSize: 11 }}>Sin trabajo...</em></MenuItem>
                           {trabajos.map((t, ti) => (
                             <MenuItem key={t.id} value={t.trabajo || `Trabajo ${ti + 1}`}>
                               <Stack direction="row" alignItems="center" spacing={0.75}>
@@ -1284,7 +1441,7 @@ export default function EAMOrdenesTrabajo() {
             </Accordion>
 
             {/* ── Resumen de costos + Acciones ── */}
-            <Paper elevation={0} sx={{ bgcolor: CARD_BG, border: `1px solid rgba(50,172,92,0.2)`, borderRadius: '12px', p: 2 }}>
+            <Paper elevation={0} sx={{ border: `1px solid rgba(50,172,92,0.2)`, borderRadius: '12px', p: 2 }}>
               <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ sm: 'center' }} justifyContent="space-between" spacing={2}>
                 {/* Totales */}
                 <Stack direction="row" spacing={3}>
@@ -1298,7 +1455,7 @@ export default function EAMOrdenesTrabajo() {
                   </Box>
                   <Box sx={{ borderLeft: '1px solid rgba(255,255,255,0.08)', pl: 3 }}>
                     <Typography fontSize={11} color="rgba(255,255,255,0.4)" mb={0.25}>Costo estimado total</Typography>
-                    <Typography fontSize={18} fontWeight={900} color="#fff">{fmt(totalMO + totalRep)}</Typography>
+                    <Typography fontSize={18} fontWeight={900} color="text.primary">{fmt(totalMO + totalRep)}</Typography>
                   </Box>
                 </Stack>
 
@@ -1310,9 +1467,9 @@ export default function EAMOrdenesTrabajo() {
                     onClick={() => setTab(0)}
                     sx={{
                       borderColor: 'rgba(255,255,255,0.15)',
-                      color: 'rgba(255,255,255,0.5)',
+                      color: 'text.secondary',
                       borderRadius: '10px', fontWeight: 600,
-                      '&:hover': { borderColor: 'rgba(255,255,255,0.3)', bgcolor: 'rgba(255,255,255,0.04)' },
+                      '&:hover': { borderColor: 'rgba(255,255,255,0.3)', bgcolor: 'text.disabled' },
                     }}
                   >
                     Cancelar
@@ -1338,6 +1495,7 @@ export default function EAMOrdenesTrabajo() {
 
           </Box>
         )}
+
       </Box>
     </Layout>
 
@@ -1345,13 +1503,13 @@ export default function EAMOrdenesTrabajo() {
       <Dialog
         open={otDialog.open}
         onClose={closeOTDialog}
-        maxWidth="sm"
+        maxWidth="lg"
         fullWidth
-        PaperProps={{ sx: { bgcolor: '#0F1E35', border: `1px solid ${alpha(EAM_COLOR, 0.3)}`, borderRadius: '16px' } }}
+        PaperProps={{ sx: { bgcolor: 'text.primary', border: `1px solid ${alpha(EAM_COLOR, 0.3)}`, borderRadius: '16px' } }}
       >
         {otDialog.ot && (
           <>
-            <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1, color: 'white' }}>
+            <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1, color: 'text.primary' }}>
               <Stack direction="row" alignItems="center" spacing={1.5}>
                 <Box sx={{ width: 36, height: 36, borderRadius: '10px', bgcolor: alpha(EAM_COLOR, 0.15), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <OTIcon sx={{ fontSize: 18, color: EAM_COLOR }} />
@@ -1372,12 +1530,12 @@ export default function EAMOrdenesTrabajo() {
                 <Stack spacing={1.5} mt={1}>
                   <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
                     {[
-                      { label: 'Tipo de orden', value: otDialog.ot.tipo },
-                      { label: 'Prioridad',     value: otDialog.ot.prioridad },
-                      { label: 'Técnico',        value: otDialog.ot.tecnico },
-                      { label: 'Fecha req.',     value: otDialog.ot.fechaReq },
-                      { label: 'Costo',          value: otDialog.ot.costo },
-                      { label: 'Días transcurridos', value: `${otDialog.ot.diasTranscurridos}d` },
+                      { label: 'Tipo de orden',      value: otDialog.ot.tipo },
+                      { label: 'Prioridad',           value: otDialog.ot.prioridad },
+                      { label: 'Técnico',             value: otDialog.ot.tecnico },
+                      { label: 'Fecha apertura',      value: otDialog.ot.fechaApertura?.replace('T', ' ') ?? '—' },
+                      { label: 'Fecha req.',          value: otDialog.ot.fechaReq },
+                      { label: 'Costo',               value: otDialog.ot.costo },
                     ].map(({ label, value }) => (
                       <Box key={label} sx={{ bgcolor: alpha('#fff', 0.04), borderRadius: '8px', p: 1.25 }}>
                         <Typography fontSize={10} color="rgba(255,255,255,0.35)" fontWeight={600} letterSpacing="0.04em" textTransform="uppercase" mb={0.25}>{label}</Typography>
@@ -1392,51 +1550,273 @@ export default function EAMOrdenesTrabajo() {
                       sx={{ bgcolor: alpha(ESTADO_COLOR[otDialog.ot.estado], 0.2), color: ESTADO_COLOR[otDialog.ot.estado], fontWeight: 700, fontSize: 11, height: 24, border: `1px solid ${alpha(ESTADO_COLOR[otDialog.ot.estado], 0.4)}` }}
                     />
                   </Box>
+                  {/* Datos de cierre (solo COMPLETADA) */}
+                  {otDialog.ot.estado === 'COMPLETADA' && otDialog.ot.fechaCierre && (
+                    <Box sx={{ bgcolor: alpha('#10B981', 0.06), border: '1px solid rgba(16,185,129,0.25)', borderRadius: '8px', p: 1.5 }}>
+                      <Typography fontSize={10} color="#10B981" fontWeight={700} letterSpacing="0.04em" textTransform="uppercase" mb={1}>Datos de cierre</Typography>
+                      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1 }}>
+                        <Box>
+                          <Typography fontSize={10} color="rgba(255,255,255,0.35)" fontWeight={600} textTransform="uppercase" mb={0.25}>Apertura</Typography>
+                          <Typography fontSize={12} color="white" fontWeight={600}>{otDialog.ot.fechaApertura.replace('T', ' ')}</Typography>
+                        </Box>
+                        <Box>
+                          <Typography fontSize={10} color="rgba(255,255,255,0.35)" fontWeight={600} textTransform="uppercase" mb={0.25}>Cierre</Typography>
+                          <Typography fontSize={12} color="white" fontWeight={600}>{otDialog.ot.fechaCierre.replace('T', ' ')}</Typography>
+                        </Box>
+                        <Box sx={{ bgcolor: alpha('#10B981', 0.12), borderRadius: '6px', p: 0.75, textAlign: 'center' }}>
+                          <Typography fontSize={10} color="#10B981" fontWeight={700} textTransform="uppercase" mb={0.25}>Duración</Typography>
+                          <Typography fontSize={18} fontWeight={900} color="#10B981">{otDialog.ot.horasMantenimiento ?? '—'}h</Typography>
+                        </Box>
+                      </Box>
+                    </Box>
+                  )}
                 </Stack>
               )}
 
               {/* ── MODO EDITAR ── */}
               {otDialog.mode === 'edit' && (
                 <Stack spacing={2} mt={1}>
-                  <TextField
-                    select fullWidth size="small" label="Estado (Kanban)"
-                    value={otDialog.editEstado}
-                    onChange={(e) => setOtDialog((p) => ({ ...p, editEstado: e.target.value as OTEstado }))}
-                    sx={{ '& .MuiOutlinedInput-root': { color: 'white', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) }, '& .MuiSvgIcon-root': { color: 'grey.400' } }}
-                  >
-                    {(['PENDIENTE', 'ASIGNADA', 'EN_EJECUCION', 'EN_ESPERA_REPUESTOS', 'COMPLETADA'] as OTEstado[]).map((e) => (
-                      <MenuItem key={e} value={e}>
-                        <Stack direction="row" alignItems="center" spacing={1}>
-                          <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: ESTADO_COLOR[e] }} />
-                          <span>{e.replace(/_/g, ' ')}</span>
+                  {/* Datos de cabecera */}
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
+                    {/* Activo */}
+                    <TextField
+                      select fullWidth size="small" label="Activo"
+                      value={otDialog.editData.activo}
+                      onChange={(e) => setEditActivo(e.target.value)}
+                      sx={dlgInputSx}
+                    >
+                      {ACTIVOS_DATA.map((a) => <MenuItem key={a.nombre} value={a.nombre}>{a.nombre}</MenuItem>)}
+                    </TextField>
+                    {/* Centro de costo (readonly, auto-filled) */}
+                    <TextField
+                      fullWidth size="small" label="Centro de costo"
+                      value={otDialog.editData.centroCosto}
+                      InputProps={{ readOnly: true }}
+                      sx={{ ...dlgInputSx, '& .MuiOutlinedInput-root': { color: 'text.secondary', bgcolor: alpha('#fff', 0.02) } }}
+                    />
+                    {/* Tipo OT */}
+                    <TextField
+                      select fullWidth size="small" label="Tipo de OT"
+                      value={otDialog.editData.tipo}
+                      onChange={(e) => setEditField('tipo', e.target.value)}
+                      sx={dlgInputSx}
+                    >
+                      {(['PREVENTIVA', 'CORRECTIVA', 'PREDICTIVA', 'EMERGENCIA'] as OTTipo[]).map((t) => (
+                        <MenuItem key={t} value={t}>{t}</MenuItem>
+                      ))}
+                    </TextField>
+                    {/* Estado */}
+                    <TextField
+                      select fullWidth size="small" label="Estado (Kanban)"
+                      value={otDialog.editData.estado}
+                      onChange={(e) => setEditField('estado', e.target.value)}
+                      sx={dlgInputSx}
+                    >
+                      {(['PENDIENTE', 'ASIGNADA', 'EN_EJECUCION', 'EN_ESPERA_REPUESTOS', 'COMPLETADA'] as OTEstado[]).map((e) => (
+                        <MenuItem key={e} value={e}>
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: ESTADO_COLOR[e] }} />
+                            <span>{e.replace(/_/g, ' ')}</span>
+                          </Stack>
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                    {/* Prioridad */}
+                    <TextField
+                      select fullWidth size="small" label="Prioridad"
+                      value={otDialog.editData.prioridad}
+                      onChange={(e) => setEditField('prioridad', e.target.value)}
+                      sx={dlgInputSx}
+                    >
+                      {(['URGENTE', 'ALTA', 'MEDIA', 'BAJA'] as OTPrioridad[]).map((p) => (
+                        <MenuItem key={p} value={p}>
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: PRIORIDAD_COLOR[p] }} />
+                            <span>{p}</span>
+                          </Stack>
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                    {/* Técnico */}
+                    <TextField
+                      select fullWidth size="small" label="Técnico asignado"
+                      value={otDialog.editData.tecnico}
+                      onChange={(e) => setEditField('tecnico', e.target.value)}
+                      sx={dlgInputSx}
+                    >
+                      <MenuItem value="Sin asignar">Sin asignar</MenuItem>
+                      {TECNICOS_SELECT.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                    </TextField>
+                    {/* Fecha apertura */}
+                    <TextField
+                      fullWidth size="small" label="Fecha y hora de apertura" type="datetime-local"
+                      value={otDialog.editData.fechaApertura}
+                      onChange={(e) => setEditField('fechaApertura', e.target.value)}
+                      InputLabelProps={{ shrink: true }}
+                      sx={dlgInputSx}
+                    />
+                    {/* Fecha requerida */}
+                    <TextField
+                      fullWidth size="small" label="Fecha requerida" type="date"
+                      value={otDialog.editData.fechaReq}
+                      onChange={(e) => setEditField('fechaReq', e.target.value)}
+                      InputLabelProps={{ shrink: true }}
+                      sx={dlgInputSx}
+                    />
+                    {/* Posible cierre */}
+                    <TextField
+                      fullWidth size="small" label="Posible cierre" type="date"
+                      value={otDialog.editData.posibleCierre}
+                      onChange={(e) => setEditField('posibleCierre', e.target.value)}
+                      InputLabelProps={{ shrink: true }}
+                      sx={dlgInputSx}
+                    />
+                    {/* Fecha cierre (solo cuando COMPLETADA) */}
+                    {otDialog.editData.estado === 'COMPLETADA' && (
+                      <Box sx={{ gridColumn: '1 / -1', bgcolor: alpha('#10B981', 0.06), border: '1px solid rgba(16,185,129,0.2)', borderRadius: '8px', p: 1.25 }}>
+                        <Typography fontSize={10} fontWeight={700} color="#10B981" letterSpacing="0.04em" textTransform="uppercase" mb={1}>
+                          Datos de cierre
+                        </Typography>
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                          <TextField
+                            fullWidth size="small" label="Fecha y hora de finalización" type="datetime-local"
+                            value={otDialog.editData.fechaCierre}
+                            onChange={(e) => setEditField('fechaCierre', e.target.value)}
+                            InputLabelProps={{ shrink: true }}
+                            sx={dlgInputSx}
+                          />
+                          {otDialog.editData.fechaCierre && otDialog.editData.fechaApertura && (() => {
+                            const diffMs = new Date(otDialog.editData.fechaCierre).getTime() - new Date(otDialog.editData.fechaApertura).getTime()
+                            const hrs = diffMs > 0 ? Math.round((diffMs / 3600000) * 100) / 100 : 0
+                            return (
+                              <Box sx={{ bgcolor: alpha('#10B981', 0.12), borderRadius: '8px', px: 2, py: 1, minWidth: 140, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                                <Typography fontSize={9} color="#10B981" fontWeight={700} letterSpacing="0.04em" textTransform="uppercase">Horas en mantenimiento</Typography>
+                                <Typography fontSize={20} fontWeight={900} color="#10B981">{hrs}h</Typography>
+                              </Box>
+                            )
+                          })()}
                         </Stack>
-                      </MenuItem>
-                    ))}
-                  </TextField>
+                      </Box>
+                    )}
+                    {/* Proveedor */}
+                    <TextField
+                      fullWidth size="small" label="Proveedor"
+                      value={otDialog.editData.proveedor}
+                      onChange={(e) => setEditField('proveedor', e.target.value)}
+                      sx={dlgInputSx}
+                    />
+                    {/* Ciudad */}
+                    <TextField
+                      fullWidth size="small" label="Ciudad"
+                      value={otDialog.editData.ciudad}
+                      onChange={(e) => setEditField('ciudad', e.target.value)}
+                      sx={dlgInputSx}
+                    />
+                    {/* Costo estimado */}
+                    <TextField
+                      fullWidth size="small" label="Costo estimado"
+                      value={otDialog.editData.costo}
+                      onChange={(e) => setEditField('costo', e.target.value)}
+                      sx={dlgInputSx}
+                    />
+                  </Box>
+                  {/* Descripción */}
                   <TextField
-                    select fullWidth size="small" label="Técnico asignado"
-                    value={otDialog.editTecnico}
-                    onChange={(e) => setOtDialog((p) => ({ ...p, editTecnico: e.target.value }))}
-                    sx={{ '& .MuiOutlinedInput-root': { color: 'white', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) }, '& .MuiSvgIcon-root': { color: 'grey.400' } }}
-                  >
-                    <MenuItem value="Sin asignar">Sin asignar</MenuItem>
-                    {TECNICOS_SELECT.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-                  </TextField>
-                  <TextField
-                    select fullWidth size="small" label="Prioridad"
-                    value={otDialog.editPrioridad}
-                    onChange={(e) => setOtDialog((p) => ({ ...p, editPrioridad: e.target.value as OTPrioridad }))}
-                    sx={{ '& .MuiOutlinedInput-root': { color: 'white', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) }, '& .MuiSvgIcon-root': { color: 'grey.400' } }}
-                  >
-                    {(['URGENTE', 'ALTA', 'MEDIA', 'BAJA'] as OTPrioridad[]).map((p) => (
-                      <MenuItem key={p} value={p}>
-                        <Stack direction="row" alignItems="center" spacing={1}>
-                          <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: PRIORIDAD_COLOR[p] }} />
-                          <span>{p}</span>
-                        </Stack>
-                      </MenuItem>
-                    ))}
-                  </TextField>
+                    fullWidth size="small" label="Descripción" multiline minRows={2}
+                    value={otDialog.editData.descripcion}
+                    onChange={(e) => setEditField('descripcion', e.target.value)}
+                    sx={dlgInputSx}
+                  />
+
+                  {/* Trabajos */}
+                  <Accordion defaultExpanded sx={{ bgcolor: alpha('#fff', 0.03), border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px !important', '&:before': { display: 'none' } }}>
+                    <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: EAM_COLOR }} />}>
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <WorkIcon sx={{ fontSize: 16, color: EAM_COLOR }} />
+                        <Typography fontSize={13} fontWeight={700} color="white">Trabajos ({otDialog.editTrabajos.length})</Typography>
+                      </Stack>
+                    </AccordionSummary>
+                    <AccordionDetails sx={{ pt: 0 }}>
+                      <Stack spacing={1.5}>
+                        {otDialog.editTrabajos.map((t) => (
+                          <Box key={t.id} sx={{ bgcolor: alpha('#fff', 0.04), borderRadius: '8px', p: 1.25 }}>
+                            <Stack direction="row" alignItems="flex-start" spacing={1}>
+                              <Box sx={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+                                <TextField
+                                  select size="small" label="Tipo de trabajo" fullWidth
+                                  value={t.trabajo}
+                                  onChange={(e) => setEditTrabajo(t.id, 'trabajo', e.target.value)}
+                                  sx={{ ...dlgInputSxSm, gridColumn: '1 / -1' }}
+                                >
+                                  {TIPOS_TRABAJO_CONFIG.map((c) => <MenuItem key={c.nombre} value={c.nombre}>{c.nombre}</MenuItem>)}
+                                </TextField>
+                                {t.tipoMant && (
+                                  <TextField size="small" label="Tipo mantenimiento" value={t.tipoMant} InputProps={{ readOnly: true }} sx={{ ...dlgInputSxSm, '& .MuiOutlinedInput-root': { color: 'text.secondary', bgcolor: 'transparent' } }} />
+                                )}
+                                {t.sistema && (
+                                  <TextField size="small" label="Sistema" value={t.sistema}
+                                    onChange={(e) => setEditTrabajo(t.id, 'sistema', e.target.value)} sx={dlgInputSxSm} />
+                                )}
+                                {t.subsistema && (
+                                  <TextField size="small" label="Subsistema" value={t.subsistema}
+                                    onChange={(e) => setEditTrabajo(t.id, 'subsistema', e.target.value)} sx={dlgInputSxSm} />
+                                )}
+                                <TextField size="small" label="M.O. ($)" value={t.moObra}
+                                  onChange={(e) => setEditTrabajo(t.id, 'moObra', e.target.value)} sx={dlgInputSxSm} />
+                                <TextField size="small" label="Observaciones" value={t.observaciones}
+                                  onChange={(e) => setEditTrabajo(t.id, 'observaciones', e.target.value)} sx={dlgInputSxSm} />
+                              </Box>
+                              <IconButton size="small" onClick={() => removeEditTrabajo(t.id)} sx={{ color: '#EF4444', mt: 0.5 }}>
+                                <DeleteIcon sx={{ fontSize: 16 }} />
+                              </IconButton>
+                            </Stack>
+                          </Box>
+                        ))}
+                        <Button size="small" startIcon={<AddIcon />} onClick={addEditTrabajo}
+                          sx={{ color: EAM_COLOR, alignSelf: 'flex-start', fontWeight: 600, fontSize: 12 }}>
+                          Agregar trabajo
+                        </Button>
+                      </Stack>
+                    </AccordionDetails>
+                  </Accordion>
+
+                  {/* Repuestos */}
+                  <Accordion sx={{ bgcolor: alpha('#fff', 0.03), border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px !important', '&:before': { display: 'none' } }}>
+                    <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: '#3B82F6' }} />}>
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <PartsIcon sx={{ fontSize: 16, color: '#3B82F6' }} />
+                        <Typography fontSize={13} fontWeight={700} color="white">Repuestos ({otDialog.editRepuestos.length})</Typography>
+                      </Stack>
+                    </AccordionSummary>
+                    <AccordionDetails sx={{ pt: 0 }}>
+                      <Stack spacing={1.5}>
+                        {otDialog.editRepuestos.map((r) => (
+                          <Box key={r.id} sx={{ bgcolor: alpha('#fff', 0.04), borderRadius: '8px', p: 1.25 }}>
+                            <Stack direction="row" alignItems="flex-start" spacing={1}>
+                              <Box sx={{ flex: 1, display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 1 }}>
+                                <TextField size="small" label="Repuesto" value={r.repuesto}
+                                  onChange={(e) => setEditRepuesto(r.id, 'repuesto', e.target.value)}
+                                  sx={{ ...dlgInputSxSm, gridColumn: '1 / -1' }} />
+                                <TextField size="small" label="Cantidad" type="number" value={r.cantidad}
+                                  onChange={(e) => setEditRepuesto(r.id, 'cantidad', e.target.value)} sx={dlgInputSxSm} />
+                                <TextField size="small" label="Precio unit." value={r.precioUnitario}
+                                  onChange={(e) => setEditRepuesto(r.id, 'precioUnitario', e.target.value)} sx={dlgInputSxSm} />
+                                <TextField size="small" label="Total" value={fmt((parseFloat(r.cantidad) || 0) * (parseFloat(r.precioUnitario.replace(/[^0-9.]/g, '')) || 0))}
+                                  InputProps={{ readOnly: true }} sx={{ ...dlgInputSxSm, '& .MuiOutlinedInput-root': { color: '#3B82F6' } }} />
+                              </Box>
+                              <IconButton size="small" onClick={() => removeEditRepuesto(r.id)} sx={{ color: '#EF4444', mt: 0.5 }}>
+                                <DeleteIcon sx={{ fontSize: 16 }} />
+                              </IconButton>
+                            </Stack>
+                          </Box>
+                        ))}
+                        <Button size="small" startIcon={<AddIcon />} onClick={addEditRepuesto}
+                          sx={{ color: '#3B82F6', alignSelf: 'flex-start', fontWeight: 600, fontSize: 12 }}>
+                          Agregar repuesto
+                        </Button>
+                      </Stack>
+                    </AccordionDetails>
+                  </Accordion>
                 </Stack>
               )}
 
@@ -1456,7 +1836,7 @@ export default function EAMOrdenesTrabajo() {
                     value={otDialog.deleteText}
                     onChange={(e) => setOtDialog((p) => ({ ...p, deleteText: e.target.value }))}
                     sx={{
-                      '& .MuiOutlinedInput-root': { color: 'white', bgcolor: alpha('#fff', 0.04) },
+                      '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) },
                       '& fieldset': { borderColor: otDialog.deleteText === 'ELIMINAR' ? '#DC2626' : alpha('#fff', 0.15) },
                     }}
                   />
@@ -1494,7 +1874,7 @@ export default function EAMOrdenesTrabajo() {
                     variant="contained"
                     onClick={deleteOT}
                     disabled={otDialog.deleteText !== 'ELIMINAR'}
-                    sx={{ bgcolor: '#DC2626', '&:hover': { bgcolor: '#B91C1C' }, '&:disabled': { bgcolor: 'rgba(220,38,38,0.3)', color: 'rgba(255,255,255,0.3)' }, fontWeight: 700, borderRadius: '8px' }}
+                    sx={{ bgcolor: '#DC2626', '&:hover': { bgcolor: '#B91C1C' }, '&:disabled': { bgcolor: 'rgba(220,38,38,0.3)', color: 'text.disabled' }, fontWeight: 700, borderRadius: '8px' }}
                     startIcon={<DeleteIcon />}
                   >
                     Eliminar definitivamente

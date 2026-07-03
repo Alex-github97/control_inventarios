@@ -7,8 +7,6 @@ import {
 import { Layout } from '@/components/layout/Layout';
 
 const EAM_COLOR = '#32AC5C';
-const CARD_BG = '#0F1E35';
-const DARK_BG = '#060C1A';
 
 interface TabPanelProps { children?: React.ReactNode; index: number; value: number; }
 function TabPanel({ children, value, index }: TabPanelProps) {
@@ -141,7 +139,7 @@ export default function EAMLubricacion() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, minHeight: '100vh', background: DARK_BG }}>
+      <Box sx={{ p: 3, minHeight: '100vh', background: '#F8FAFC' }}>
         <Stack direction="row" alignItems="center" spacing={2} mb={1}>
           <Box sx={{ width: 6, height: 36, bgcolor: EAM_COLOR, borderRadius: 1 }} />
           <Typography variant="h4" sx={{ color: EAM_COLOR, fontWeight: 700 }}>
@@ -179,7 +177,7 @@ export default function EAMLubricacion() {
               { label: 'Análisis Este Mes', value: '23', color: '#34D399', sub: 'muestras procesadas' },
             ].map(kpi => (
               <Grid key={kpi.label} size={{ xs: 12, md: 3 }}>
-                <Card sx={{ bgcolor: CARD_BG, border: '1px solid #1F2937', borderRadius: 2, textAlign: 'center' }}>
+                <Card sx={{ border: '1px solid #1F2937', borderRadius: 2, textAlign: 'center' }}>
                   <CardContent>
                     <Typography variant="h4" sx={{ color: kpi.color, fontWeight: 900, mb: 0.5 }}>{kpi.value}</Typography>
                     <Typography variant="body2" sx={{ color: '#F9FAFB', fontWeight: 600, mb: 0.25 }}>{kpi.label}</Typography>
@@ -191,7 +189,7 @@ export default function EAMLubricacion() {
           </Grid>
 
           {/* Samples table */}
-          <Card sx={{ bgcolor: CARD_BG, border: '1px solid #1F2937', borderRadius: 2 }}>
+          <Card sx={{ border: '1px solid #1F2937', borderRadius: 2 }}>
             <CardContent>
               <Typography variant="h6" sx={{ color: '#F9FAFB', fontWeight: 700, mb: 2 }}>
                 Muestras de laboratorio — resultados analíticos
@@ -200,7 +198,7 @@ export default function EAMLubricacion() {
                 <TableContainer>
                   <Table size="small" sx={{ minWidth: 900 }}>
                     <TableHead>
-                      <TableRow sx={{ '& .MuiTableCell-head': { bgcolor: '#060C1A', color: '#6B7280', fontWeight: 700, borderColor: '#1F2937', fontSize: '0.7rem', whiteSpace: 'nowrap' } }}>
+                      <TableRow sx={{ '& .MuiTableCell-head': { bgcolor: '#F8FAFC', color: '#6B7280', fontWeight: 700, borderColor: '#1F2937', fontSize: '0.7rem', whiteSpace: 'nowrap' } }}>
                         <TableCell>Muestra</TableCell>
                         <TableCell>Activo</TableCell>
                         <TableCell>Componente</TableCell>
@@ -270,7 +268,7 @@ export default function EAMLubricacion() {
           <Grid container spacing={3}>
             {/* Fe trend chart */}
             <Grid size={{ xs: 12, md: 7 }}>
-              <Card sx={{ bgcolor: CARD_BG, border: '1px solid #1F2937', borderRadius: 2 }}>
+              <Card sx={{ border: '1px solid #1F2937', borderRadius: 2 }}>
                 <CardContent>
                   <Typography variant="h6" sx={{ color: '#F9FAFB', fontWeight: 700, mb: 0.5 }}>
                     VH-001 Tractocamión Kenworth — Hierro (Fe ppm)
@@ -286,7 +284,7 @@ export default function EAMLubricacion() {
                       borderTop: '2px dashed #DC2626',
                       zIndex: 2,
                     }}>
-                      <Typography variant="caption" sx={{ color: '#F87171', fontSize: '0.65rem', ml: 0.5, bgcolor: CARD_BG, px: 0.5 }}>
+                      <Typography variant="caption" sx={{ color: '#F87171', fontSize: '0.65rem', ml: 0.5, px: 0.5 }}>
                         Límite: {FE_ALERT_LIMIT} ppm
                       </Typography>
                     </Box>
@@ -336,7 +334,7 @@ export default function EAMLubricacion() {
 
             {/* Trend data table */}
             <Grid size={{ xs: 12, md: 5 }}>
-              <Card sx={{ bgcolor: CARD_BG, border: '1px solid #1F2937', borderRadius: 2, height: '100%' }}>
+              <Card sx={{ border: '1px solid #1F2937', borderRadius: 2, height: '100%' }}>
                 <CardContent>
                   <Typography variant="h6" sx={{ color: '#F9FAFB', fontWeight: 700, mb: 2 }}>
                     Historial de 6 muestras — VH-001 Motor
@@ -344,7 +342,7 @@ export default function EAMLubricacion() {
                   <TableContainer>
                     <Table size="small">
                       <TableHead>
-                        <TableRow sx={{ '& .MuiTableCell-head': { bgcolor: '#060C1A', color: '#6B7280', fontWeight: 700, borderColor: '#1F2937', fontSize: '0.68rem' } }}>
+                        <TableRow sx={{ '& .MuiTableCell-head': { bgcolor: '#F8FAFC', color: '#6B7280', fontWeight: 700, borderColor: '#1F2937', fontSize: '0.68rem' } }}>
                           <TableCell>Fecha</TableCell>
                           <TableCell>Fe</TableCell>
                           <TableCell>Cu</TableCell>
@@ -395,7 +393,7 @@ export default function EAMLubricacion() {
             {PREDICTIVE_ALERTS.map(alert => (
               <Grid key={alert.id} size={{ xs: 12, md: 4 }}>
                 <Card sx={{
-                  bgcolor: CARD_BG,
+                  bgcolor: '#FFFFFF',
                   border: `2px solid ${ALERT_COLORS[alert.level]}40`,
                   borderRadius: 2, height: '100%',
                 }}>
@@ -417,7 +415,7 @@ export default function EAMLubricacion() {
                     <Typography variant="subtitle1" sx={{ color: EAM_COLOR, fontWeight: 700, mb: 0.25 }}>{alert.asset}</Typography>
                     <Typography variant="caption" sx={{ color: '#9CA3AF', display: 'block', mb: 1.5 }}>{alert.component}</Typography>
 
-                    <Box sx={{ bgcolor: '#060C1A', borderRadius: 1, p: 1, mb: 1.5, border: '1px solid #1F2937' }}>
+                    <Box sx={{ bgcolor: '#F8FAFC', borderRadius: 1, p: 1, mb: 1.5, border: '1px solid #1F2937' }}>
                       <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.25, fontWeight: 600 }}>HALLAZGO</Typography>
                       <Typography variant="body2" sx={{ color: '#D1D5DB', fontSize: '0.8rem', lineHeight: 1.5 }}>{alert.finding}</Typography>
                     </Box>
@@ -435,7 +433,7 @@ export default function EAMLubricacion() {
           <Grid container spacing={3}>
             {/* Change recommendations table */}
             <Grid size={{ xs: 12, md: 7 }}>
-              <Card sx={{ bgcolor: CARD_BG, border: '1px solid #1F2937', borderRadius: 2 }}>
+              <Card sx={{ border: '1px solid #1F2937', borderRadius: 2 }}>
                 <CardContent>
                   <Typography variant="h6" sx={{ color: '#F9FAFB', fontWeight: 700, mb: 2 }}>
                     Recomendaciones de cambio programadas
@@ -443,7 +441,7 @@ export default function EAMLubricacion() {
                   <TableContainer>
                     <Table size="small">
                       <TableHead>
-                        <TableRow sx={{ '& .MuiTableCell-head': { bgcolor: '#060C1A', color: '#6B7280', fontWeight: 700, borderColor: '#1F2937', fontSize: '0.7rem' } }}>
+                        <TableRow sx={{ '& .MuiTableCell-head': { bgcolor: '#F8FAFC', color: '#6B7280', fontWeight: 700, borderColor: '#1F2937', fontSize: '0.7rem' } }}>
                           <TableCell>Activo</TableCell>
                           <TableCell>Lubricante</TableCell>
                           <TableCell>Hrs actuales</TableCell>
@@ -478,7 +476,7 @@ export default function EAMLubricacion() {
 
             {/* Monthly consumption */}
             <Grid size={{ xs: 12, md: 5 }}>
-              <Card sx={{ bgcolor: CARD_BG, border: '1px solid #1F2937', borderRadius: 2, height: '100%' }}>
+              <Card sx={{ border: '1px solid #1F2937', borderRadius: 2, height: '100%' }}>
                 <CardContent>
                   <Typography variant="h6" sx={{ color: '#F9FAFB', fontWeight: 700, mb: 3 }}>
                     Consumo de lubricantes — mensual
