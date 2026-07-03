@@ -4,9 +4,7 @@ import { CompareArrows, Warehouse, Warning, TrendingDown } from '@mui/icons-mate
 import { Layout } from '@/components/layout/Layout'
 
 const SCM_COLOR = '#0C4D8C'
-const PAGE_BG   = '#060C1A'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = `rgba(12,77,140,0.25)`
+const #E5E7EB  = `rgba(12,77,140,0.25)`
 
 const UBICACIONES = [
   { nombre: 'Bodega Central — Bogotá',       skus: 412, valor: '$ 3.8 B', ocupacion: 78 },
@@ -24,14 +22,14 @@ const ALERTAS = [
 export default function SCMInventario() {
   return (
     <Layout>
-      <Box sx={{ p: 3, background: PAGE_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, minHeight: '100vh' }}>
 
         {/* Header */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
           <CompareArrows sx={{ color: SCM_COLOR, fontSize: 28 }} />
           <Box>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: '#FFF', lineHeight: 1 }}>Inventario Multi-Ubicación</Typography>
-            <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>Visibilidad unificada del stock en todas las bodegas</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Inventario Multi-Ubicación</Typography>
+            <Typography sx={{ fontSize: 12, color: 'text.disabled' }}>Visibilidad unificada del stock en todas las bodegas</Typography>
           </Box>
           <Chip label="SCM" size="small" sx={{ bgcolor: alpha(SCM_COLOR, 0.15), color: '#5B9BD5', fontWeight: 700, border: `1px solid ${alpha(SCM_COLOR, 0.35)}` }} />
         </Box>
@@ -42,19 +40,19 @@ export default function SCMInventario() {
             const ocupColor = u.ocupacion > 85 ? '#ef4444' : u.ocupacion > 60 ? '#f59e0b' : '#22c55e'
             return (
               <Grid key={u.nombre} size={{ xs: 12, sm: 6, md: 3 }}>
-                <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2 }}>
+                <Card sx={{ bgcolor: '#fff', border: `1px solid #E5E7EB`, borderRadius: 2 }}>
                   <CardContent sx={{ p: '14px !important' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
                       <Warehouse sx={{ fontSize: 18, color: alpha(SCM_COLOR, 0.8) }} />
-                      <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#fff', lineHeight: 1.3 }}>{u.nombre}</Typography>
+                      <Typography sx={{ fontSize: 12, fontWeight: 600, color: 'text.primary', lineHeight: 1.3 }}>{u.nombre}</Typography>
                     </Box>
-                    <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', mb: 0.3 }}>SKUs activos: <strong style={{ color: '#fff' }}>{u.skus}</strong></Typography>
-                    <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', mb: 1 }}>Valor: <strong style={{ color: '#fff' }}>{u.valor}</strong></Typography>
+                    <Typography sx={{ fontSize: 11, color: 'text.secondary', mb: 0.3 }}>SKUs activos: <strong style={{ color: '#111827' }}>{u.skus}</strong></Typography>
+                    <Typography sx={{ fontSize: 11, color: 'text.secondary', mb: 1 }}>Valor: <strong style={{ color: '#111827' }}>{u.valor}</strong></Typography>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                      <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Ocupación</Typography>
+                      <Typography sx={{ fontSize: 10, color: 'text.disabled' }}>Ocupación</Typography>
                       <Typography sx={{ fontSize: 10, color: ocupColor, fontWeight: 700 }}>{u.ocupacion}%</Typography>
                     </Box>
-                    <LinearProgress variant="determinate" value={u.ocupacion} sx={{ height: 5, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.07)', '& .MuiLinearProgress-bar': { bgcolor: ocupColor } }} />
+                    <LinearProgress variant="determinate" value={u.ocupacion} sx={{ height: 5, borderRadius: 2, bgcolor: '#E2E8F0', '& .MuiLinearProgress-bar': { bgcolor: ocupColor } }} />
                   </CardContent>
                 </Card>
               </Grid>
@@ -63,23 +61,23 @@ export default function SCMInventario() {
         </Grid>
 
         {/* Alertas */}
-        <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2 }}>
+        <Card sx={{ bgcolor: '#fff', border: `1px solid #E5E7EB`, borderRadius: 2 }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
               <Warning sx={{ color: '#f59e0b', fontSize: 18 }} />
-              <Typography sx={{ fontWeight: 700, color: '#FFF', fontSize: 14 }}>Alertas de Stock Mínimo</Typography>
+              <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 14 }}>Alertas de Stock Mínimo</Typography>
               <Chip label={ALERTAS.length} size="small" sx={{ bgcolor: alpha('#f59e0b', 0.15), color: '#f59e0b', fontWeight: 800, ml: 'auto' }} />
             </Box>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
               {ALERTAS.map(a => (
-                <Box key={a.sku} sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 1.5, bgcolor: 'rgba(255,255,255,0.03)', borderRadius: 1.5, border: `1px solid ${a.nivel === 'CRÍTICO' ? alpha('#ef4444', 0.2) : alpha('#f59e0b', 0.15)}` }}>
+                <Box key={a.sku} sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 1.5, bgcolor: '#F9FAFB', borderRadius: 1.5, border: `1px solid ${a.nivel === 'CRÍTICO' ? alpha('#ef4444', 0.2) : alpha('#f59e0b', 0.15)}` }}>
                   <TrendingDown sx={{ fontSize: 18, color: a.nivel === 'CRÍTICO' ? '#ef4444' : '#f59e0b' }} />
                   <Box sx={{ flex: 1 }}>
                     <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                       <Typography sx={{ fontSize: 12, fontFamily: 'monospace', color: '#5B9BD5' }}>{a.sku}</Typography>
-                      <Typography sx={{ fontSize: 12, color: '#fff' }}>{a.descripcion}</Typography>
+                      <Typography sx={{ fontSize: 12, color: 'text.primary' }}>{a.descripcion}</Typography>
                     </Box>
-                    <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>Stock actual: {a.stock} u. / Mínimo: {a.min} u.</Typography>
+                    <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>Stock actual: {a.stock} u. / Mínimo: {a.min} u.</Typography>
                   </Box>
                   <Chip label={a.nivel} size="small" sx={{ bgcolor: a.nivel === 'CRÍTICO' ? alpha('#ef4444', 0.15) : alpha('#f59e0b', 0.15), color: a.nivel === 'CRÍTICO' ? '#ef4444' : '#f59e0b', fontWeight: 700, fontSize: 10 }} />
                 </Box>

@@ -7,9 +7,7 @@ import { Layout } from '@/components/layout/Layout'
 import { getSCMDashboard, SCMDashboardData } from '@/api/scm'
 
 const SCM_COLOR = '#0C4D8C'
-const PAGE_BG   = '#060C1A'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = `rgba(12,77,140,0.25)`
+const #E5E7EB  = `rgba(12,77,140,0.25)`
 
 const ESTADO_COLORS: Record<string, string> = {
   BORRADOR: '#64748b', PENDIENTE: '#f59e0b', APROBADA: '#22c55e', RECHAZADA: '#ef4444',
@@ -21,13 +19,13 @@ const ESTADO_COLORS: Record<string, string> = {
 interface KPIProps { label: string; value: string | number; icon: React.ReactNode; color: string; sub?: string }
 function KPICard({ label, value, icon, color, sub }: KPIProps) {
   return (
-    <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${alpha(color, 0.3)}`, borderRadius: 2 }}>
+    <Card sx={{ bgcolor: '#fff', border: `1px solid ${alpha(color, 0.3)}`, borderRadius: 2 }}>
       <CardContent sx={{ p: '14px !important' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Box>
-            <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>{label}</Typography>
+            <Typography sx={{ fontSize: 11, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>{label}</Typography>
             <Typography sx={{ fontSize: 26, fontWeight: 800, color, lineHeight: 1 }}>{value}</Typography>
-            {sub && <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', mt: 0.5 }}>{sub}</Typography>}
+            {sub && <Typography sx={{ fontSize: 11, color: 'text.disabled', mt: 0.5 }}>{sub}</Typography>}
           </Box>
           <Box sx={{ color: alpha(color, 0.45), '& svg': { fontSize: 26 } }}>{icon}</Box>
         </Box>
@@ -38,19 +36,19 @@ function KPICard({ label, value, icon, color, sub }: KPIProps) {
 
 function EstadoBar({ data, max }: { data: Record<string, number>; max: number }) {
   const entries = Object.entries(data)
-  if (!entries.length) return <Typography sx={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>Sin datos aún</Typography>
+  if (!entries.length) return <Typography sx={{ color: 'text.disabled', fontSize: 12 }}>Sin datos aún</Typography>
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
       {entries.map(([estado, cantidad]) => (
         <Box key={estado}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-            <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.65)' }}>{estado.replace(/_/g, ' ')}</Typography>
+            <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{estado.replace(/_/g, ' ')}</Typography>
             <Typography sx={{ fontSize: 12, fontWeight: 700, color: ESTADO_COLORS[estado] ?? '#94a3b8' }}>{cantidad}</Typography>
           </Box>
           <LinearProgress
             variant="determinate"
             value={Math.min(100, max > 0 ? (cantidad / max) * 100 : 0)}
-            sx={{ height: 5, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.06)', '& .MuiLinearProgress-bar': { bgcolor: ESTADO_COLORS[estado] ?? '#64748b' } }}
+            sx={{ height: 5, borderRadius: 2, bgcolor: '#E2E8F0', '& .MuiLinearProgress-bar': { bgcolor: ESTADO_COLORS[estado] ?? '#64748b' } }}
           />
         </Box>
       ))}
@@ -72,14 +70,14 @@ export default function SCMDashboard() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, background: PAGE_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, minHeight: '100vh' }}>
 
         {/* Header */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
           <Grain sx={{ color: SCM_COLOR, fontSize: 30 }} />
           <Box>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: '#FFF', lineHeight: 1 }}>Torre de Control SCM</Typography>
-            <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>Supply Chain Management — visibilidad integral</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Torre de Control SCM</Typography>
+            <Typography sx={{ fontSize: 12, color: 'text.disabled' }}>Supply Chain Management — visibilidad integral</Typography>
           </Box>
           <Chip label="SCM" size="small" sx={{ bgcolor: alpha(SCM_COLOR, 0.15), color: '#5B9BD5', fontWeight: 700, border: `1px solid ${alpha(SCM_COLOR, 0.35)}` }} />
         </Box>
@@ -121,17 +119,17 @@ export default function SCMDashboard() {
             {/* Estado charts */}
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, md: 6 }}>
-                <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2 }}>
+                <Card sx={{ bgcolor: '#fff', border: `1px solid #E5E7EB`, borderRadius: 2 }}>
                   <CardContent>
-                    <Typography sx={{ fontWeight: 700, color: '#FFF', fontSize: 14, mb: 2 }}>Órdenes de Compra por Estado</Typography>
+                    <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 14, mb: 2 }}>Órdenes de Compra por Estado</Typography>
                     <EstadoBar data={data?.oc_por_estado ?? {}} max={maxOC} />
                   </CardContent>
                 </Card>
               </Grid>
               <Grid size={{ xs: 12, md: 6 }}>
-                <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2 }}>
+                <Card sx={{ bgcolor: '#fff', border: `1px solid #E5E7EB`, borderRadius: 2 }}>
                   <CardContent>
-                    <Typography sx={{ fontWeight: 700, color: '#FFF', fontSize: 14, mb: 2 }}>Solicitudes por Estado</Typography>
+                    <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 14, mb: 2 }}>Solicitudes por Estado</Typography>
                     <EstadoBar data={data?.sol_por_estado ?? {}} max={maxSol} />
                   </CardContent>
                 </Card>

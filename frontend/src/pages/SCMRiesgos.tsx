@@ -4,9 +4,7 @@ import { GppBad, Warning, Info, Add, Shield } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 const SCM_COLOR = '#0C4D8C'
-const PAGE_BG   = '#060C1A'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = `rgba(12,77,140,0.25)`
+const #E5E7EB  = `rgba(12,77,140,0.25)`
 
 type Impacto  = 'BAJO' | 'MEDIO' | 'ALTO' | 'CRÍTICO'
 type Prob     = 'BAJA' | 'MEDIA' | 'ALTA'
@@ -45,10 +43,10 @@ const ESTADOS: EstadoR[]   = ['IDENTIFICADO', 'EN_MITIGACION', 'MITIGADO', 'MATE
 const CATEGORIAS = ['Proveedor', 'Regulatorio', 'Operativo', 'Financiero', 'Tecnológico', 'Logístico', 'Otro']
 
 const SX_INPUT = {
-  '& .MuiOutlinedInput-root': { color: '#fff', bgcolor: 'rgba(255,255,255,0.04)', '& fieldset': { borderColor: 'rgba(255,255,255,0.12)' } },
-  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.5)' },
+  '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: '#F9FAFB', '& fieldset': { borderColor: '#E5E7EB' } },
+  '& .MuiInputLabel-root': { color: 'text.secondary' },
 }
-const SX_SELECT = { color: '#fff', bgcolor: 'rgba(255,255,255,0.04)', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' } }
+const SX_SELECT = { color: 'text.primary', bgcolor: '#F9FAFB', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#E5E7EB' } }
 
 interface Form { titulo: string; categoria: string; impacto: Impacto; probabilidad: Prob; responsable: string; descripcion: string }
 const EMPTY: Form = { titulo: '', categoria: 'Operativo', impacto: 'MEDIO', probabilidad: 'MEDIA', responsable: '', descripcion: '' }
@@ -80,8 +78,8 @@ export default function SCMRiesgos() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Shield sx={{ color: SCM_COLOR, fontSize: 28 }} />
             <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#FFF', lineHeight: 1 }}>Gestión de Riesgos SCM</Typography>
-              <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>Registro de riesgos de cadena de suministro y planes de mitigación</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Gestión de Riesgos SCM</Typography>
+              <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>Registro de riesgos de cadena de suministro y planes de mitigación</Typography>
             </Box>
             <Chip label="SCM" size="small" sx={{ bgcolor: alpha(SCM_COLOR, 0.15), color: '#5B9BD5', fontWeight: 700, border: `1px solid ${alpha(SCM_COLOR, 0.35)}` }} />
           </Box>
@@ -92,9 +90,9 @@ export default function SCMRiesgos() {
         <Grid container spacing={2} sx={{ mb: 3 }}>
           {(Object.entries(ESTADO_META) as [EstadoR, typeof ESTADO_META[EstadoR]][]).map(([k, v]) => (
             <Grid key={k} size={{ xs: 12, sm: 6, md: 3 }}>
-              <Card onClick={() => setFiltro(prev => prev === k ? '' : k)} sx={{ bgcolor: CARD_BG, border: `2px solid ${filtro === k ? v.color : alpha(v.color, 0.2)}`, borderRadius: 2, cursor: 'pointer', transition: 'border-color 0.15s' }}>
+              <Card onClick={() => setFiltro(prev => prev === k ? '' : k)} sx={{ border: `2px solid ${filtro === k ? v.color : alpha(v.color, 0.2)}`, borderRadius: 2, cursor: 'pointer', transition: 'border-color 0.15s' }}>
                 <CardContent sx={{ p: '12px !important' }}>
-                  <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: 0.8 }}>{v.label}</Typography>
+                  <Typography sx={{ fontSize: 11, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8 }}>{v.label}</Typography>
                   <Typography sx={{ fontSize: 30, fontWeight: 800, color: v.color, lineHeight: 1.2 }}>{conteo[k]}</Typography>
                 </CardContent>
               </Card>
@@ -108,24 +106,24 @@ export default function SCMRiesgos() {
             const imp = IMPACTO_META[r.impacto]
             const est = ESTADO_META[r.estado]
             return (
-              <Card key={r.id} sx={{ bgcolor: CARD_BG, border: `1px solid ${alpha(imp.color, 0.2)}`, borderRadius: 2 }}>
+              <Card key={r.id} sx={{ border: `1px solid ${alpha(imp.color, 0.2)}`, borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important' }}>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
                     <Box sx={{ flex: 1, minWidth: 220 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                         <Box sx={{ color: imp.color }}>{imp.icon}</Box>
-                        <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{r.titulo}</Typography>
+                        <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary' }}>{r.titulo}</Typography>
                       </Box>
-                      <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', mb: 1 }}>{r.descripcion}</Typography>
+                      <Typography sx={{ fontSize: 12, color: 'text.secondary', mb: 1 }}>{r.descripcion}</Typography>
                       <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                         <Chip label={r.categoria} size="small" sx={{ bgcolor: alpha(SCM_COLOR, 0.15), color: '#5B9BD5', fontSize: 10 }} />
                         <Chip label={`Impacto: ${r.impacto}`} size="small" sx={{ bgcolor: alpha(imp.color, 0.12), color: imp.color, fontSize: 10, fontWeight: 700 }} />
-                        <Chip label={`Prob.: ${r.probabilidad}`} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)', fontSize: 10 }} />
+                        <Chip label={`Prob.: ${r.probabilidad}`} size="small" sx={{ bgcolor: '#F1F5F9', color: 'text.secondary', fontSize: 10 }} />
                       </Box>
                     </Box>
                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.5 }}>
                       <Chip label={est.label} size="small" sx={{ bgcolor: alpha(est.color, 0.15), color: est.color, fontWeight: 700, fontSize: 10 }} />
-                      <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>Resp.: {r.responsable}</Typography>
+                      <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>Resp.: {r.responsable}</Typography>
                     </Box>
                   </Box>
                 </CardContent>
@@ -135,26 +133,26 @@ export default function SCMRiesgos() {
         </Box>
 
         {/* Dialog nuevo riesgo */}
-        <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#0A1628', color: '#fff' } }}>
-          <DialogTitle sx={{ borderBottom: '1px solid rgba(255,255,255,0.08)', fontWeight: 700 }}>Registrar Nuevo Riesgo</DialogTitle>
+        <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#0A1628', color: 'text.primary' } }}>
+          <DialogTitle sx={{ borderBottom: '1px solid #F1F5F9', fontWeight: 700 }}>Registrar Nuevo Riesgo</DialogTitle>
           <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField label="Título *" value={form.titulo} onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))} fullWidth size="small" sx={SX_INPUT} />
             <TextField label="Descripción" value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} fullWidth multiline rows={2} size="small" sx={SX_INPUT} />
             <Box sx={{ display: 'flex', gap: 2 }}>
               <FormControl fullWidth size="small">
-                <InputLabel sx={{ color: 'rgba(255,255,255,0.5)' }}>Categoría</InputLabel>
+                <InputLabel sx={{ color: 'text.secondary' }}>Categoría</InputLabel>
                 <Select value={form.categoria} label="Categoría" onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))} sx={SX_SELECT}>
                   {CATEGORIAS.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
                 </Select>
               </FormControl>
               <FormControl fullWidth size="small">
-                <InputLabel sx={{ color: 'rgba(255,255,255,0.5)' }}>Impacto</InputLabel>
+                <InputLabel sx={{ color: 'text.secondary' }}>Impacto</InputLabel>
                 <Select value={form.impacto} label="Impacto" onChange={e => setForm(f => ({ ...f, impacto: e.target.value as Impacto }))} sx={SX_SELECT}>
                   {IMPACTOS.map(i => <MenuItem key={i} value={i}>{i}</MenuItem>)}
                 </Select>
               </FormControl>
               <FormControl fullWidth size="small">
-                <InputLabel sx={{ color: 'rgba(255,255,255,0.5)' }}>Probabilidad</InputLabel>
+                <InputLabel sx={{ color: 'text.secondary' }}>Probabilidad</InputLabel>
                 <Select value={form.probabilidad} label="Probabilidad" onChange={e => setForm(f => ({ ...f, probabilidad: e.target.value as Prob }))} sx={SX_SELECT}>
                   {PROBS.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
                 </Select>
@@ -162,8 +160,8 @@ export default function SCMRiesgos() {
             </Box>
             <TextField label="Responsable" value={form.responsable} onChange={e => setForm(f => ({ ...f, responsable: e.target.value }))} fullWidth size="small" sx={SX_INPUT} />
           </DialogContent>
-          <DialogActions sx={{ p: 2, gap: 1, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-            <Button onClick={() => setOpen(false)} sx={{ color: 'rgba(255,255,255,0.5)' }}>Cancelar</Button>
+          <DialogActions sx={{ p: 2, gap: 1, borderTop: '1px solid #F1F5F9' }}>
+            <Button onClick={() => setOpen(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>
             <Button variant="contained" onClick={handleGuardar} disabled={!form.titulo.trim()} sx={{ bgcolor: SCM_COLOR }}>Registrar</Button>
           </DialogActions>
         </Dialog>

@@ -4,13 +4,10 @@ import { Settings, Notifications, IntegrationInstructions, Security, Save } from
 import { Layout } from '@/components/layout/Layout'
 
 const SCM_COLOR = '#0C4D8C'
-const PAGE_BG   = '#060C1A'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = `rgba(12,77,140,0.25)`
+const #E5E7EB  = `rgba(12,77,140,0.25)`
 
 const SX_INPUT = {
-  '& .MuiOutlinedInput-root': { color: '#fff', bgcolor: 'rgba(255,255,255,0.04)', '& fieldset': { borderColor: 'rgba(255,255,255,0.12)' } },
-  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.5)' },
+  '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#E5E7EB' } },
 }
 
 interface ConfigItem { label: string; description: string; key: string }
@@ -40,10 +37,10 @@ const INTEG_ITEMS: ConfigItem[] = [
 
 function ToggleCard({ item, checked, onChange }: { item: ConfigItem; checked: boolean; onChange: () => void }) {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, bgcolor: 'rgba(255,255,255,0.025)', borderRadius: 1.5, gap: 2 }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, bgcolor: '#F9FAFB', borderRadius: 1.5, gap: 2 }}>
       <Box>
-        <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{item.label}</Typography>
-        <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{item.description}</Typography>
+        <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'text.primary' }}>{item.label}</Typography>
+        <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>{item.description}</Typography>
       </Box>
       <Switch checked={checked} onChange={onChange} size="small"
         sx={{ '& .MuiSwitch-switchBase.Mui-checked': { color: SCM_COLOR }, '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: alpha(SCM_COLOR, 0.6) } }} />
@@ -72,15 +69,15 @@ export default function SCMConfig() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, background: PAGE_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, minHeight: '100vh' }}>
 
         {/* Header */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Settings sx={{ color: SCM_COLOR, fontSize: 28 }} />
             <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#FFF', lineHeight: 1 }}>Configuración SCM</Typography>
-              <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>Parámetros globales, notificaciones, flujos e integraciones</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Configuración SCM</Typography>
+              <Typography sx={{ fontSize: 12, color: 'text.disabled' }}>Parámetros globales, notificaciones, flujos e integraciones</Typography>
             </Box>
             <Chip label="SCM" size="small" sx={{ bgcolor: alpha(SCM_COLOR, 0.15), color: '#5B9BD5', fontWeight: 700, border: `1px solid ${alpha(SCM_COLOR, 0.35)}` }} />
           </Box>
@@ -90,7 +87,7 @@ export default function SCMConfig() {
         </Box>
 
         {/* Tabs */}
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3, borderBottom: '1px solid rgba(255,255,255,0.08)', '& .MuiTab-root': { color: 'rgba(255,255,255,0.45)', minHeight: 40, textTransform: 'none' }, '& .Mui-selected': { color: '#5B9BD5' }, '& .MuiTabs-indicator': { bgcolor: SCM_COLOR } }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3, borderBottom: '1px solid #E5E7EB', '& .MuiTab-root': { color: 'text.disabled', minHeight: 40, textTransform: 'none' }, '& .Mui-selected': { color: '#5B9BD5' }, '& .MuiTabs-indicator': { bgcolor: SCM_COLOR } }}>
           <Tab label="Notificaciones" icon={<Notifications sx={{ fontSize: 16 }} />} iconPosition="start" />
           <Tab label="Flujo de trabajo" icon={<Security sx={{ fontSize: 16 }} />} iconPosition="start" />
           <Tab label="Integraciones" icon={<IntegrationInstructions sx={{ fontSize: 16 }} />} iconPosition="start" />
@@ -99,9 +96,9 @@ export default function SCMConfig() {
 
         {/* Tab 0 — Notificaciones */}
         {tab === 0 && (
-          <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2 }}>
+          <Card sx={{ bgcolor: '#fff', border: `1px solid #E5E7EB`, borderRadius: 2 }}>
             <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>Alertas y notificaciones del módulo SCM</Typography>
+              <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>Alertas y notificaciones del módulo SCM</Typography>
               {NOTIF_ITEMS.map(item => (
                 <ToggleCard key={item.key} item={item} checked={toggles[item.key]} onChange={() => toggle(item.key)} />
               ))}
@@ -111,9 +108,9 @@ export default function SCMConfig() {
 
         {/* Tab 1 — Flujo de trabajo */}
         {tab === 1 && (
-          <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2 }}>
+          <Card sx={{ bgcolor: '#fff', border: `1px solid #E5E7EB`, borderRadius: 2 }}>
             <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>Reglas del flujo de aprobación y operación</Typography>
+              <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>Reglas del flujo de aprobación y operación</Typography>
               {FLUJO_ITEMS.map(item => (
                 <ToggleCard key={item.key} item={item} checked={toggles[item.key]} onChange={() => toggle(item.key)} />
               ))}
@@ -123,9 +120,9 @@ export default function SCMConfig() {
 
         {/* Tab 2 — Integraciones */}
         {tab === 2 && (
-          <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2 }}>
+          <Card sx={{ bgcolor: '#fff', border: `1px solid #E5E7EB`, borderRadius: 2 }}>
             <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>Conexiones con otros módulos y sistemas externos</Typography>
+              <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>Conexiones con otros módulos y sistemas externos</Typography>
               {INTEG_ITEMS.map(item => (
                 <ToggleCard key={item.key} item={item} checked={toggles[item.key]} onChange={() => toggle(item.key)} />
               ))}
@@ -137,9 +134,9 @@ export default function SCMConfig() {
         {tab === 3 && (
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2 }}>
+              <Card sx={{ bgcolor: '#fff', border: `1px solid #E5E7EB`, borderRadius: 2 }}>
                 <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 0.8 }}>Parámetros de aprobación</Typography>
+                  <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8 }}>Parámetros de aprobación</Typography>
                   <TextField
                     label="Monto máximo sin doble aprobación (COP)"
                     value={umbrales.aprobacion_monto}
@@ -162,9 +159,9 @@ export default function SCMConfig() {
               </Card>
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2 }}>
+              <Card sx={{ bgcolor: '#fff', border: `1px solid #E5E7EB`, borderRadius: 2 }}>
                 <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 0.8 }}>Contactos y correos</Typography>
+                  <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8 }}>Contactos y correos</Typography>
                   <TextField
                     label="Correo del equipo de compras"
                     value={umbrales.email_compras}
