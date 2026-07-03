@@ -4,9 +4,7 @@ import { People, Search, TrendingUp, Handshake, SupportAgent, StarRate } from '@
 import { Layout } from '@/components/layout/Layout'
 
 const CRM_COLOR = '#DC2626'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(220,38,38,0.25)'
-const DARK_BG   = '#060C1A'
+const #E5E7EB  = '#E5E7EB'
 
 const ESTADO_COLOR: Record<string, string> = {
   CLIENTE_ACTIVO: '#059669', PROSPECTO: '#94A3B8', LEAD: '#0EA5E9',
@@ -61,7 +59,7 @@ function HealthBar({ score }: { score: number }) {
   const col = score >= 75 ? '#059669' : score >= 50 ? CRM_COLOR : '#EF4444'
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <Box sx={{ width: 50, height: 5, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+      <Box sx={{ width: 50, height: 5, borderRadius: 3, bgcolor: '#EEF2F7', overflow: 'hidden' }}>
         <Box sx={{ height: '100%', width: `${score}%`, bgcolor: col, borderRadius: 3 }} />
       </Box>
       <Typography sx={{ fontSize: 11, fontWeight: 700, color: col }}>{score}</Typography>
@@ -83,25 +81,25 @@ export default function CRMClientes() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, bgcolor: DARK_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, minHeight: '100vh' }}>
         <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box sx={{
             width: 44, height: 44, borderRadius: '12px',
             background: `linear-gradient(135deg, ${CRM_COLOR} 0%, #B91C1C 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <People sx={{ color: '#FFF', fontSize: 22 }} />
+            <People sx={{ color: 'text.primary', fontSize: 22 }} />
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 800, color: '#FFF' }}>Clientes</Typography>
-            <Typography sx={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>
+            <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Clientes</Typography>
+            <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
               Customer 360 · Portafolio · Salud · Visión integrada
             </Typography>
           </Box>
         </Box>
 
         <Tabs value={tab} onChange={(_, v) => setTab(v)}
-          sx={{ mb: 3, '& .MuiTab-root': { color: 'rgba(255,255,255,0.4)', textTransform: 'none', fontWeight: 600 }, '& .Mui-selected': { color: `${CRM_COLOR} !important` }, '& .MuiTabs-indicator': { bgcolor: CRM_COLOR } }}>
+          sx={{ mb: 3, '& .MuiTab-root': { color: 'text.secondary', textTransform: 'none', fontWeight: 600 }, '& .Mui-selected': { color: `${CRM_COLOR} !important` }, '& .MuiTabs-indicator': { bgcolor: CRM_COLOR } }}>
           <Tab label={`Portafolio (${CLIENTES.length})`} />
           <Tab label="Vista 360°" />
         </Tabs>
@@ -109,22 +107,22 @@ export default function CRMClientes() {
         {tab === 0 && (
           <>
             <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-              <Box sx={{ display: 'flex', gap: 1, flex: 1, minWidth: 200, bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, px: 2, py: 1, alignItems: 'center' }}>
-                <Search sx={{ color: 'rgba(255,255,255,0.3)', fontSize: 20 }} />
-                <InputBase placeholder="Buscar cliente..." value={busqueda} onChange={e => setBus(e.target.value)} sx={{ flex: 1, color: '#FFF', fontSize: 13.5 }} />
+              <Box sx={{ display: 'flex', gap: 1, flex: 1, minWidth: 200, bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, px: 2, py: 1, alignItems: 'center' }}>
+                <Search sx={{ color: 'text.disabled', fontSize: 20 }} />
+                <InputBase placeholder="Buscar cliente..." value={busqueda} onChange={e => setBus(e.target.value)} sx={{ flex: 1, color: 'text.primary', fontSize: 13.5 }} />
               </Box>
               {ESTADOS.map(e => (
                 <Chip key={e} label={e === 'Todos' ? 'Todos' : e.replace('_', ' ')} size="small" onClick={() => setEstado(e)}
-                  sx={{ cursor: 'pointer', bgcolor: estado === e ? CRM_COLOR : 'rgba(255,255,255,0.06)', color: estado === e ? '#FFF' : 'rgba(255,255,255,0.5)', fontWeight: estado === e ? 700 : 400 }} />
+                  sx={{ cursor: 'pointer', bgcolor: estado === e ? CRM_COLOR : '#F1F5F9', color: estado === e ? '#FFF' : 'text.secondary', fontWeight: estado === e ? 700 : 400 }} />
               ))}
             </Box>
-            <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, overflow: 'hidden' }}>
+            <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, overflow: 'hidden' }}>
               <Box sx={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
                       {['Código', 'Cliente', 'NIT', 'Estado', 'Segmento', 'Industria', 'Health', 'Ingresos YTD', 'Ejecutivo'].map(h => (
-                        <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.35)', borderBottom: '1px solid rgba(255,255,255,0.06)', whiteSpace: 'nowrap' }}>{h}</th>
+                        <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#6B7280', borderBottom: '1px solid #F1F5F9', whiteSpace: 'nowrap' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -133,22 +131,22 @@ export default function CRMClientes() {
                       const ecol = ESTADO_COLOR[c.estado] || '#94A3B8'
                       const scol = SEGMENTO_COLOR[c.segmento] || '#94A3B8'
                       return (
-                        <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                        <tr key={i} style={{ borderBottom: '1px solid #F9FAFB' }}>
                           <td style={{ padding: '10px 14px', fontSize: 11.5, color: CRM_COLOR, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{c.codigo}</td>
-                          <td style={{ padding: '10px 14px', fontSize: 13, color: '#FFF', fontWeight: 600, whiteSpace: 'nowrap' }}>{c.razon_social}</td>
-                          <td style={{ padding: '10px 14px', fontSize: 11.5, color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace' }}>{c.nit}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 13, color: '#111827', fontWeight: 600, whiteSpace: 'nowrap' }}>{c.razon_social}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 11.5, color: '#6B7280', fontFamily: 'monospace' }}>{c.nit}</td>
                           <td style={{ padding: '10px 14px' }}>
                             <Chip label={c.estado.replace(/_/g, ' ')} size="small" sx={{ bgcolor: alpha(ecol, 0.15), color: ecol, border: `1px solid ${alpha(ecol, 0.3)}`, fontSize: 10, fontWeight: 600 }} />
                           </td>
                           <td style={{ padding: '10px 14px' }}>
                             <Chip label={c.segmento} size="small" sx={{ bgcolor: alpha(scol, 0.12), color: scol, fontSize: 10 }} />
                           </td>
-                          <td style={{ padding: '10px 14px', fontSize: 12, color: 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap' }}>{c.industria}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 12, color: '#6B7280', whiteSpace: 'nowrap' }}>{c.industria}</td>
                           <td style={{ padding: '10px 14px' }}><HealthBar score={c.health} /></td>
-                          <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: c.ingresos > 0 ? CRM_COLOR : 'rgba(255,255,255,0.3)' }}>
+                          <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: c.ingresos > 0 ? CRM_COLOR : '#9CA3AF' }}>
                             {c.ingresos > 0 ? `$${(c.ingresos / 1000).toFixed(1)}B` : '—'}
                           </td>
-                          <td style={{ padding: '10px 14px', fontSize: 12, color: 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap' }}>{c.ejecutivo}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 12, color: '#6B7280', whiteSpace: 'nowrap' }}>{c.ejecutivo}</td>
                         </tr>
                       )
                     })}
@@ -162,17 +160,17 @@ export default function CRMClientes() {
         {tab === 1 && (
           <Grid container spacing={2}>
             <Grid size={{ xs: 12 }}>
-              <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, p: 2.5 }}>
+              <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2, mb: 2 }}>
                   <Box>
-                    <Typography sx={{ fontSize: 18, fontWeight: 800, color: '#FFF' }}>{CLIENTE_360.razon_social}</Typography>
-                    <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>NIT: {CLIENTE_360.nit} · Ejecutivo: {CLIENTE_360.ejecutivo}</Typography>
+                    <Typography sx={{ fontSize: 18, fontWeight: 800, color: 'text.primary' }}>{CLIENTE_360.razon_social}</Typography>
+                    <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>NIT: {CLIENTE_360.nit} · Ejecutivo: {CLIENTE_360.ejecutivo}</Typography>
                   </Box>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                     <Chip label={CLIENTE_360.estado.replace('_', ' ')} size="small" sx={{ bgcolor: alpha('#059669', 0.15), color: '#059669', fontWeight: 700 }} />
                     <Chip label={CLIENTE_360.segmento} size="small" sx={{ bgcolor: alpha(CRM_COLOR, 0.15), color: CRM_COLOR, fontWeight: 700 }} />
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.5, py: 0.5, bgcolor: 'rgba(255,255,255,0.06)', borderRadius: 1 }}>
-                      <Typography sx={{ fontSize: 11.5, color: 'rgba(255,255,255,0.5)' }}>Health</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.5, py: 0.5, bgcolor: '#F1F5F9', borderRadius: 1 }}>
+                      <Typography sx={{ fontSize: 11.5, color: 'text.secondary' }}>Health</Typography>
                       <HealthBar score={CLIENTE_360.health} />
                     </Box>
                   </Box>
@@ -182,7 +180,7 @@ export default function CRMClientes() {
                     <Grid key={i} size={{ xs: 6, sm: 4, md: 2 }}>
                       <Box sx={{ bgcolor: alpha(k.color, 0.08), border: `1px solid ${alpha(k.color, 0.2)}`, borderRadius: 1.5, p: 1.5, textAlign: 'center' }}>
                         <Typography sx={{ fontSize: 20, fontWeight: 900, color: k.color }}>{k.value}</Typography>
-                        <Typography sx={{ fontSize: 10.5, color: 'rgba(255,255,255,0.4)' }}>{k.label}</Typography>
+                        <Typography sx={{ fontSize: 10.5, color: 'text.secondary' }}>{k.label}</Typography>
                       </Box>
                     </Grid>
                   ))}
@@ -191,30 +189,30 @@ export default function CRMClientes() {
             </Grid>
 
             <Grid size={{ xs: 12, md: 6 }}>
-              <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, p: 2.5 }}>
-                <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#FFF', mb: 1.5 }}>Contratos Activos</Typography>
+              <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
+                <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary', mb: 1.5 }}>Contratos Activos</Typography>
                 {CLIENTE_360.contratos.map((c, i) => (
-                  <Box key={i} sx={{ p: 1.5, mb: 1, bgcolor: 'rgba(255,255,255,0.03)', borderRadius: 1.5, border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <Box key={i} sx={{ p: 1.5, mb: 1, bgcolor: '#F9FAFB', borderRadius: 1.5, border: '1px solid #E5E7EB' }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: '#FFF' }}>{c.nombre}</Typography>
+                      <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: 'text.primary' }}>{c.nombre}</Typography>
                       <Chip label={c.estado} size="small" sx={{ bgcolor: alpha('#059669', 0.15), color: '#059669', fontSize: 9.5 }} />
                     </Box>
-                    <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', mt: 0.5 }}>Vence: {c.vencimiento} · {c.codigo}</Typography>
+                    <Typography sx={{ fontSize: 11, color: 'text.disabled', mt: 0.5 }}>Vence: {c.vencimiento} · {c.codigo}</Typography>
                   </Box>
                 ))}
               </Box>
             </Grid>
 
             <Grid size={{ xs: 12, md: 6 }}>
-              <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, p: 2.5 }}>
-                <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#FFF', mb: 1.5 }}>Historial de Interacciones</Typography>
+              <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
+                <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary', mb: 1.5 }}>Historial de Interacciones</Typography>
                 {CLIENTE_360.historial.map((h, i) => (
-                  <Box key={i} sx={{ display: 'flex', gap: 1.5, mb: 1.5, p: 1.5, bgcolor: 'rgba(255,255,255,0.03)', borderRadius: 1.5 }}>
+                  <Box key={i} sx={{ display: 'flex', gap: 1.5, mb: 1.5, p: 1.5, bgcolor: '#F9FAFB', borderRadius: 1.5 }}>
                     <Box sx={{ textAlign: 'center', flexShrink: 0 }}>
                       <Chip label={h.tipo} size="small" sx={{ bgcolor: alpha(CRM_COLOR, 0.15), color: CRM_COLOR, fontSize: 9.5 }} />
-                      <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', mt: 0.5, display: 'block' }}>{h.fecha}</Typography>
+                      <Typography sx={{ fontSize: 10, color: 'text.disabled', mt: 0.5, display: 'block' }}>{h.fecha}</Typography>
                     </Box>
-                    <Typography sx={{ fontSize: 12.5, color: 'rgba(255,255,255,0.65)', lineHeight: 1.5, pt: 0.5 }}>{h.desc}</Typography>
+                    <Typography sx={{ fontSize: 12.5, color: 'text.secondary', lineHeight: 1.5, pt: 0.5 }}>{h.desc}</Typography>
                   </Box>
                 ))}
               </Box>

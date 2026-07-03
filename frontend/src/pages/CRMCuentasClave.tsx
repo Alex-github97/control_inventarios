@@ -4,9 +4,6 @@ import { VpnKey } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 const CRM_COLOR = '#DC2626'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(220,38,38,0.25)'
-const DARK_BG   = '#060C1A'
 
 const RIESGO_COLOR: Record<string, string> = { BAJO: '#059669', MEDIO: '#F59E0B', ALTO: CRM_COLOR, CRITICO: '#EF4444' }
 
@@ -80,18 +77,18 @@ export default function CRMCuentasClave() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, bgcolor: DARK_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, minHeight: '100vh' }}>
         <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box sx={{
             width: 44, height: 44, borderRadius: '12px',
             background: `linear-gradient(135deg, ${CRM_COLOR} 0%, #B91C1C 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <VpnKey sx={{ color: '#FFF', fontSize: 22 }} />
+            <VpnKey sx={{ color: 'text.primary', fontSize: 22 }} />
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 800, color: '#FFF' }}>Key Accounts</Typography>
-            <Typography sx={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>
+            <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Key Accounts</Typography>
+            <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
               Cuentas Estratégicas · Planes Comerciales · Ejecutivos · Rentabilidad
             </Typography>
           </Box>
@@ -105,8 +102,8 @@ export default function CRMCuentasClave() {
             { label: 'Cumplimiento',    value: `${cumplimiento}%`,                              color: '#7C3AED' },
           ].map((k, i) => (
             <Grid key={i} size={{ xs: 6, md: 3 }}>
-              <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2, p: 2 }}>
-                <Typography sx={{ fontSize: 26, fontWeight: 900, color: '#FFF', lineHeight: 1 }}>{k.value}</Typography>
+              <Box sx={{ border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2, p: 2 }}>
+                <Typography sx={{ fontSize: 26, fontWeight: 900, color: 'text.primary', lineHeight: 1 }}>{k.value}</Typography>
                 <Typography sx={{ fontSize: 11, color: k.color, fontWeight: 600, mt: 0.25 }}>{k.label}</Typography>
               </Box>
             </Grid>
@@ -118,13 +115,13 @@ export default function CRMCuentasClave() {
             const rcol = RIESGO_COLOR[c.riesgo]
             const pctObj = Math.min(Math.round((c.ingreso / c.objetivo) * 100), 100)
             return (
-              <Box key={i} sx={{ bgcolor: CARD_BG, border: `1px solid ${alpha(rcol, 0.25)}`, borderRadius: 2, p: 2.5 }}>
+              <Box key={i} sx={{ border: `1px solid ${alpha(rcol, 0.25)}`, borderRadius: 2, p: 2.5 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2, mb: 2 }}>
                   <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                     <HealthRing score={c.health} />
                     <Box>
-                      <Typography sx={{ fontSize: 16, fontWeight: 800, color: '#FFF' }}>{c.cliente}</Typography>
-                      <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', mt: 0.25 }}>Ejecutivo: {c.ejecutivo} · Próx. reunión: {c.proxima_reunion}</Typography>
+                      <Typography sx={{ fontSize: 16, fontWeight: 800, color: 'text.primary' }}>{c.cliente}</Typography>
+                      <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 0.25 }}>Ejecutivo: {c.ejecutivo} · Próx. reunión: {c.proxima_reunion}</Typography>
                       <Box sx={{ display: 'flex', gap: 1, mt: 0.75 }}>
                         <Chip label={`Riesgo: ${c.riesgo}`} size="small" sx={{ bgcolor: alpha(rcol, 0.15), color: rcol, fontSize: 10, fontWeight: 700 }} />
                         <Chip label="KEY ACCOUNT" size="small" sx={{ bgcolor: alpha(CRM_COLOR, 0.1), color: CRM_COLOR, fontSize: 9.5 }} />
@@ -133,8 +130,8 @@ export default function CRMCuentasClave() {
                   </Box>
                   <Box sx={{ textAlign: 'right' }}>
                     <Typography sx={{ fontSize: 24, fontWeight: 900, color: CRM_COLOR }}>${(c.ingreso / 1000).toFixed(1)}B</Typography>
-                    <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>de ${(c.objetivo / 1000).toFixed(1)}B objetivo — {pctObj}%</Typography>
-                    <Box sx={{ mt: 0.75, height: 4, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.08)', overflow: 'hidden', width: 140 }}>
+                    <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>de ${(c.objetivo / 1000).toFixed(1)}B objetivo — {pctObj}%</Typography>
+                    <Box sx={{ mt: 0.75, height: 4, borderRadius: 2, bgcolor: 'text.disabled', overflow: 'hidden', width: 140 }}>
                       <Box sx={{ height: '100%', width: `${pctObj}%`, bgcolor: pctObj >= 80 ? '#059669' : CRM_COLOR, borderRadius: 2 }} />
                     </Box>
                   </Box>
@@ -145,22 +142,22 @@ export default function CRMCuentasClave() {
                     <Grid key={j} size={{ xs: 6, sm: 3 }}>
                       <Box sx={{ bgcolor: alpha(k.ok ? '#059669' : CRM_COLOR, 0.07), border: `1px solid ${alpha(k.ok ? '#059669' : CRM_COLOR, 0.2)}`, borderRadius: 1.5, p: 1.5 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.25 }}>
-                          <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{k.label}</Typography>
+                          <Typography sx={{ fontSize: 10, color: 'text.secondary' }}>{k.label}</Typography>
                           <Typography sx={{ fontSize: 10, color: k.ok ? '#059669' : CRM_COLOR, fontWeight: 700 }}>{k.ok ? '✓' : '!'}</Typography>
                         </Box>
                         <Typography sx={{ fontSize: 16, fontWeight: 900, color: k.ok ? '#059669' : CRM_COLOR }}>{k.valor}</Typography>
-                        <Typography sx={{ fontSize: 9.5, color: 'rgba(255,255,255,0.3)' }}>Meta: {k.meta}</Typography>
+                        <Typography sx={{ fontSize: 9.5, color: 'text.disabled' }}>Meta: {k.meta}</Typography>
                       </Box>
                     </Grid>
                   ))}
                 </Grid>
 
                 <Box>
-                  <Typography sx={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.5)', mb: 1 }}>PLAN COMERCIAL</Typography>
+                  <Typography sx={{ fontSize: 12, fontWeight: 600, color: 'text.secondary', mb: 1 }}>PLAN COMERCIAL</Typography>
                   {c.planes.map((p, j) => (
                     <Box key={j} sx={{ display: 'flex', gap: 1, mb: 0.75 }}>
                       <Box sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: CRM_COLOR, mt: 0.75, flexShrink: 0 }} />
-                      <Typography sx={{ fontSize: 12.5, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5 }}>{p}</Typography>
+                      <Typography sx={{ fontSize: 12.5, color: 'text.secondary', lineHeight: 1.5 }}>{p}</Typography>
                     </Box>
                   ))}
                 </Box>

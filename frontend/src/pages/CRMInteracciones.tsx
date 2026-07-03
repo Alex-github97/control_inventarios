@@ -4,9 +4,6 @@ import { Hub, Phone, Email, WhatsApp, Groups, Chat } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 const CRM_COLOR = '#DC2626'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(220,38,38,0.25)'
-const DARK_BG   = '#060C1A'
 
 const TIPO_CFG: Record<string, { color: string; icon: React.ReactNode; label: string }> = {
   LLAMADA:    { color: '#059669', icon: <Phone    sx={{ fontSize: 16 }} />, label: 'Llamada' },
@@ -39,18 +36,18 @@ export default function CRMInteracciones() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, bgcolor: DARK_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, minHeight: '100vh' }}>
         <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box sx={{
             width: 44, height: 44, borderRadius: '12px',
             background: `linear-gradient(135deg, ${CRM_COLOR} 0%, #B91C1C 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Hub sx={{ color: '#FFF', fontSize: 22 }} />
+            <Hub sx={{ color: 'text.primary', fontSize: 22 }} />
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 800, color: '#FFF' }}>Centro de Contacto</Typography>
-            <Typography sx={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>
+            <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Centro de Contacto</Typography>
+            <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
               Llamadas · Email · WhatsApp · Chat · Reuniones · Formularios
             </Typography>
           </Box>
@@ -64,12 +61,12 @@ export default function CRMInteracciones() {
               <Grid key={i} size={{ xs: 6, sm: 4, md: 2 }}>
                 <Box
                   onClick={() => setFiltroTipo(filtroTipo === tipo ? 'Todos' : tipo)}
-                  sx={{ bgcolor: CARD_BG, border: `1px solid ${filtroTipo === tipo ? alpha(cfg.color, 0.5) : alpha(cfg.color, 0.2)}`, borderRadius: 2, p: 2, cursor: 'pointer', transition: 'all 0.15s ease', '&:hover': { border: `1px solid ${alpha(cfg.color, 0.5)}` } }}>
+                  sx={{ border: `1px solid ${filtroTipo === tipo ? alpha(cfg.color, 0.5) : alpha(cfg.color, 0.2)}`, borderRadius: 2, p: 2, cursor: 'pointer', transition: 'all 0.15s ease', '&:hover': { border: `1px solid ${alpha(cfg.color, 0.5)}` } }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.5, '& svg': { color: cfg.color } }}>
                     {cfg.icon}
                     <Typography sx={{ fontSize: 11, color: cfg.color, fontWeight: 600 }}>{cfg.label}</Typography>
                   </Box>
-                  <Typography sx={{ fontSize: 24, fontWeight: 900, color: '#FFF', lineHeight: 1 }}>{count}</Typography>
+                  <Typography sx={{ fontSize: 24, fontWeight: 900, color: 'text.primary', lineHeight: 1 }}>{count}</Typography>
                 </Box>
               </Grid>
             )
@@ -91,27 +88,27 @@ export default function CRMInteracciones() {
           {filtradas.map((int, i) => {
             const cfg = TIPO_CFG[int.tipo]
             return (
-              <Box key={i} sx={{ bgcolor: CARD_BG, border: `1px solid ${alpha(cfg.color, 0.2)}`, borderRadius: 2, p: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              <Box key={i} sx={{ border: `1px solid ${alpha(cfg.color, 0.2)}`, borderRadius: 2, p: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                 <Box sx={{ flexShrink: 0, textAlign: 'center', minWidth: 80 }}>
                   <Box sx={{ width: 36, height: 36, borderRadius: '10px', bgcolor: alpha(cfg.color, 0.15), display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 0.5, '& svg': { color: cfg.color } }}>
                     {cfg.icon}
                   </Box>
                   <Typography sx={{ fontSize: 9.5, color: cfg.color, fontWeight: 600 }}>{cfg.label}</Typography>
-                  <Typography sx={{ fontSize: 9.5, color: 'rgba(255,255,255,0.3)', mt: 0.25 }}>{int.fecha.split(' ')[0]}</Typography>
-                  <Typography sx={{ fontSize: 9.5, color: 'rgba(255,255,255,0.2)' }}>{int.fecha.split(' ')[1]}</Typography>
+                  <Typography sx={{ fontSize: 9.5, color: 'text.disabled', mt: 0.25 }}>{int.fecha.split(' ')[0]}</Typography>
+                  <Typography sx={{ fontSize: 9.5, color: 'text.disabled' }}>{int.fecha.split(' ')[1]}</Typography>
                 </Box>
                 <Box sx={{ flex: 1 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5, flexWrap: 'wrap', gap: 1 }}>
-                    <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: '#FFF' }}>{int.asunto}</Typography>
+                    <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: 'text.primary' }}>{int.asunto}</Typography>
                     {int.duracion && (
-                      <Chip label={`${int.duracion} min`} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', fontSize: 9.5 }} />
+                      <Chip label={`${int.duracion} min`} size="small" sx={{ bgcolor: 'text.disabled', color: 'text.secondary', fontSize: 9.5 }} />
                     )}
                   </Box>
-                  <Typography sx={{ fontSize: 11.5, color: 'rgba(255,255,255,0.4)', mb: 0.75 }}>
+                  <Typography sx={{ fontSize: 11.5, color: 'text.secondary', mb: 0.75 }}>
                     {int.cliente} · {int.contacto} · Ejecutivo: {int.ejecutivo}
                   </Typography>
-                  <Box sx={{ p: 1.25, bgcolor: 'rgba(255,255,255,0.03)', borderRadius: 1, border: '1px solid rgba(255,255,255,0.05)' }}>
-                    <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
+                  <Box sx={{ p: 1.25, bgcolor: 'text.disabled', borderRadius: 1, border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
                       <Box component="span" sx={{ color: cfg.color, fontWeight: 600, mr: 0.5 }}>Resultado:</Box>
                       {int.resultado}
                     </Typography>

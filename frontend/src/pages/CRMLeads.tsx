@@ -4,9 +4,6 @@ import { Whatshot, Search, TrendingUp, AcUnit, Thermostat } from '@mui/icons-mat
 import { Layout } from '@/components/layout/Layout'
 
 const CRM_COLOR = '#DC2626'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(220,38,38,0.25)'
-const DARK_BG   = '#060C1A'
 
 const ESTADO_COLOR: Record<string, { color: string; bg: string; icon: React.ReactNode }> = {
   CALIENTE:  { color: CRM_COLOR,  bg: alpha(CRM_COLOR, 0.15),  icon: <Whatshot  sx={{ fontSize: 16, color: CRM_COLOR }}  /> },
@@ -34,7 +31,7 @@ function ScoreBar({ score }: { score: number }) {
   const col = score >= 75 ? CRM_COLOR : score >= 50 ? '#F59E0B' : '#0EA5E9'
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <Box sx={{ width: 64, height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+      <Box sx={{ width: 64, height: 6, borderRadius: 3, bgcolor: 'text.disabled', overflow: 'hidden' }}>
         <Box sx={{ height: '100%', width: `${score}%`, bgcolor: col, borderRadius: 3 }} />
       </Box>
       <Typography sx={{ fontSize: 12, fontWeight: 800, color: col }}>{score}</Typography>
@@ -62,18 +59,18 @@ export default function CRMLeads() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, bgcolor: DARK_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, minHeight: '100vh' }}>
         <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box sx={{
             width: 44, height: 44, borderRadius: '12px',
             background: `linear-gradient(135deg, ${CRM_COLOR} 0%, #B91C1C 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Whatshot sx={{ color: '#FFF', fontSize: 22 }} />
+            <Whatshot sx={{ color: 'text.primary', fontSize: 22 }} />
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 800, color: '#FFF' }}>Gestión de Leads</Typography>
-            <Typography sx={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>
+            <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Gestión de Leads</Typography>
+            <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
               Scoring IA · Clasificación · Pipeline inicial
             </Typography>
           </Box>
@@ -88,12 +85,12 @@ export default function CRMLeads() {
             { label: 'Convertidos', value: convertidos, color: '#059669', icon: <TrendingUp sx={{ fontSize: 20 }} /> },
           ].map((s, i) => (
             <Grid key={i} size={{ xs: 6, md: 3 }}>
-              <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${alpha(s.color, 0.3)}`, borderRadius: 2, p: 2, display: 'flex', gap: 1.5, alignItems: 'center' }}>
+              <Box sx={{ border: `1px solid ${alpha(s.color, 0.3)}`, borderRadius: 2, p: 2, display: 'flex', gap: 1.5, alignItems: 'center' }}>
                 <Box sx={{ width: 38, height: 38, borderRadius: '10px', bgcolor: alpha(s.color, 0.15), display: 'flex', alignItems: 'center', justifyContent: 'center', '& svg': { color: s.color } }}>
                   {s.icon}
                 </Box>
                 <Box>
-                  <Typography sx={{ fontSize: 24, fontWeight: 900, color: '#FFF', lineHeight: 1 }}>{s.value}</Typography>
+                  <Typography sx={{ fontSize: 24, fontWeight: 900, color: 'text.primary', lineHeight: 1 }}>{s.value}</Typography>
                   <Typography sx={{ fontSize: 11, color: s.color, fontWeight: 600 }}>{s.label}</Typography>
                 </Box>
               </Box>
@@ -103,9 +100,9 @@ export default function CRMLeads() {
 
         {/* Filtros */}
         <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-          <Box sx={{ display: 'flex', gap: 1, bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, px: 2, py: 1, alignItems: 'center', flex: 1, minWidth: 180 }}>
-            <Search sx={{ color: 'rgba(255,255,255,0.3)', fontSize: 20 }} />
-            <InputBase placeholder="Buscar lead..." value={busqueda} onChange={e => setBus(e.target.value)} sx={{ flex: 1, color: '#FFF', fontSize: 13.5 }} />
+          <Box sx={{ display: 'flex', gap: 1, border: `1px solid #E5E7EB`, borderRadius: 2, px: 2, py: 1, alignItems: 'center', flex: 1, minWidth: 180 }}>
+            <Search sx={{ color: 'text.disabled', fontSize: 20 }} />
+            <InputBase placeholder="Buscar lead..." value={busqueda} onChange={e => setBus(e.target.value)} sx={{ flex: 1, color: 'text.primary', fontSize: 13.5 }} />
           </Box>
         </Box>
         <Box sx={{ display: 'flex', gap: 1, mb: 1.5, flexWrap: 'wrap' }}>
@@ -119,9 +116,9 @@ export default function CRMLeads() {
         </Box>
 
         {/* Tabla */}
-        <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, overflow: 'hidden' }}>
+        <Box sx={{ border: `1px solid #E5E7EB`, borderRadius: 2, overflow: 'hidden' }}>
           <Box sx={{ p: 2, borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#FFF' }}>Leads ({filtrados.length})</Typography>
+            <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary' }}>Leads ({filtrados.length})</Typography>
             <Typography sx={{ fontSize: 12, color: CRM_COLOR, fontWeight: 700 }}>
               Pipeline potencial: ${(pipeline / 1000).toFixed(1)}B
             </Typography>
@@ -131,7 +128,7 @@ export default function CRMLeads() {
               <thead>
                 <tr>
                   {['Código', 'Empresa', 'Contacto', 'Industria', 'Fuente', 'Estado', 'Score IA', 'Potencial', 'Ejecutivo'].map(h => (
-                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.35)', borderBottom: '1px solid rgba(255,255,255,0.06)', whiteSpace: 'nowrap' }}>{h}</th>
+                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'text.disabled', borderBottom: '1px solid rgba(255,255,255,0.06)', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -141,10 +138,10 @@ export default function CRMLeads() {
                   return (
                     <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                       <td style={{ padding: '10px 14px', fontSize: 11.5, color: CRM_COLOR, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{l.codigo}</td>
-                      <td style={{ padding: '10px 14px', fontSize: 13, color: '#FFF', fontWeight: 600, whiteSpace: 'nowrap' }}>{l.empresa}</td>
-                      <td style={{ padding: '10px 14px', fontSize: 12, color: 'rgba(255,255,255,0.6)', whiteSpace: 'nowrap' }}>{l.contacto}</td>
-                      <td style={{ padding: '10px 14px', fontSize: 12, color: 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap' }}>{l.industria}</td>
-                      <td style={{ padding: '10px 14px', fontSize: 11.5, color: 'rgba(255,255,255,0.4)', whiteSpace: 'nowrap' }}>{l.fuente}</td>
+                      <td style={{ padding: '10px 14px', fontSize: 13, color: 'text.primary', fontWeight: 600, whiteSpace: 'nowrap' }}>{l.empresa}</td>
+                      <td style={{ padding: '10px 14px', fontSize: 12, color: 'text.secondary', whiteSpace: 'nowrap' }}>{l.contacto}</td>
+                      <td style={{ padding: '10px 14px', fontSize: 12, color: 'text.secondary', whiteSpace: 'nowrap' }}>{l.industria}</td>
+                      <td style={{ padding: '10px 14px', fontSize: 11.5, color: 'text.secondary', whiteSpace: 'nowrap' }}>{l.fuente}</td>
                       <td style={{ padding: '10px 14px' }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                           {info.icon}
@@ -153,7 +150,7 @@ export default function CRMLeads() {
                       </td>
                       <td style={{ padding: '10px 14px' }}><ScoreBar score={l.score} /></td>
                       <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: CRM_COLOR }}>${l.potencial}M</td>
-                      <td style={{ padding: '10px 14px', fontSize: 12, color: 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap' }}>{l.ejecutivo}</td>
+                      <td style={{ padding: '10px 14px', fontSize: 12, color: 'text.secondary', whiteSpace: 'nowrap' }}>{l.ejecutivo}</td>
                     </tr>
                   )
                 })}

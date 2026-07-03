@@ -4,9 +4,7 @@ import { Receipt, CheckCircle, Schedule, Cancel } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 const CRM_COLOR = '#DC2626'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(220,38,38,0.25)'
-const DARK_BG   = '#060C1A'
+const #E5E7EB  = '#E5E7EB'
 
 const ESTADO_CFG: Record<string, { color: string; icon: React.ReactNode }> = {
   BORRADOR:  { color: '#94A3B8', icon: <Schedule sx={{ fontSize: 14 }} /> },
@@ -42,18 +40,18 @@ export default function CRMCotizaciones() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, bgcolor: DARK_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, minHeight: '100vh' }}>
         <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box sx={{
             width: 44, height: 44, borderRadius: '12px',
             background: `linear-gradient(135deg, ${CRM_COLOR} 0%, #B91C1C 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Receipt sx={{ color: '#FFF', fontSize: 22 }} />
+            <Receipt sx={{ color: 'text.primary', fontSize: 22 }} />
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 800, color: '#FFF' }}>Cotizaciones</Typography>
-            <Typography sx={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>
+            <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Cotizaciones</Typography>
+            <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
               Generación · Versionamiento · Aprobaciones · Tarifarios
             </Typography>
           </Box>
@@ -67,8 +65,8 @@ export default function CRMCotizaciones() {
             { label: 'Tasa Conversión',    value: `${conversion}%`,    color: '#7C3AED' },
           ].map((k, i) => (
             <Grid key={i} size={{ xs: 6, md: 3 }}>
-              <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2, p: 2 }}>
-                <Typography sx={{ fontSize: 26, fontWeight: 900, color: '#FFF', lineHeight: 1 }}>{k.value}</Typography>
+              <Box sx={{ bgcolor: 'text.primary', border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2, p: 2 }}>
+                <Typography sx={{ fontSize: 26, fontWeight: 900, color: 'text.primary', lineHeight: 1 }}>{k.value}</Typography>
                 <Typography sx={{ fontSize: 11, color: k.color, fontWeight: 600, mt: 0.25 }}>{k.label}</Typography>
               </Box>
             </Grid>
@@ -76,15 +74,15 @@ export default function CRMCotizaciones() {
         </Grid>
 
         <Tabs value={tab} onChange={(_, v) => setTab(v)}
-          sx={{ mb: 3, '& .MuiTab-root': { color: 'rgba(255,255,255,0.4)', textTransform: 'none', fontWeight: 600 }, '& .Mui-selected': { color: `${CRM_COLOR} !important` }, '& .MuiTabs-indicator': { bgcolor: CRM_COLOR } }}>
+          sx={{ mb: 3, '& .MuiTab-root': { color: 'text.secondary', textTransform: 'none', fontWeight: 600 }, '& .Mui-selected': { color: `${CRM_COLOR} !important` }, '& .MuiTabs-indicator': { bgcolor: CRM_COLOR } }}>
           <Tab label="Lista de Cotizaciones" />
           <Tab label="Detalle de Cotización" />
         </Tabs>
 
         {tab === 0 && (
-          <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, overflow: 'hidden' }}>
-            <Box sx={{ p: 2, borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between' }}>
-              <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#FFF' }}>Cotizaciones ({COTIZACIONES.length})</Typography>
+          <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, overflow: 'hidden' }}>
+            <Box sx={{ p: 2, borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between' }}>
+              <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary' }}>Cotizaciones ({COTIZACIONES.length})</Typography>
               <Typography sx={{ fontSize: 12, color: CRM_COLOR, fontWeight: 700 }}>Pipeline cotizado: ${(totalVal / 1000).toFixed(1)}B</Typography>
             </Box>
             <Box sx={{ overflowX: 'auto' }}>
@@ -92,7 +90,7 @@ export default function CRMCotizaciones() {
                 <thead>
                   <tr>
                     {['Código', 'Ver.', 'Cliente', 'Servicios', 'Total', 'Estado', 'Válido hasta', 'Ejecutivo', 'Oportunidad'].map(h => (
-                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.35)', borderBottom: '1px solid rgba(255,255,255,0.06)', whiteSpace: 'nowrap' }}>{h}</th>
+                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#6B7280', borderBottom: '1px solid #F1F5F9', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -100,7 +98,7 @@ export default function CRMCotizaciones() {
                   {COTIZACIONES.map((c, i) => {
                     const cfg = ESTADO_CFG[c.estado]
                     return (
-                      <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}
+                      <tr key={i} style={{ borderBottom: '1px solid #F9FAFB', cursor: 'pointer' }}
                         onClick={() => setTab(1)}>
                         <td style={{ padding: '10px 14px', fontSize: 11.5, color: CRM_COLOR, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{c.codigo}</td>
                         <td style={{ padding: '10px 14px', textAlign: 'center' }}>
@@ -108,11 +106,11 @@ export default function CRMCotizaciones() {
                             <Typography sx={{ fontSize: 10, fontWeight: 800, color: CRM_COLOR }}>v{c.version}</Typography>
                           </Box>
                         </td>
-                        <td style={{ padding: '10px 14px', fontSize: 13, color: '#FFF', fontWeight: 600, whiteSpace: 'nowrap' }}>{c.cliente}</td>
+                        <td style={{ padding: '10px 14px', fontSize: 13, color: '#111827', fontWeight: 600, whiteSpace: 'nowrap' }}>{c.cliente}</td>
                         <td style={{ padding: '10px 14px' }}>
                           <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                             {c.servicios.map((s, j) => (
-                              <Chip key={j} label={s} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)', fontSize: 9.5 }} />
+                              <Chip key={j} label={s} size="small" sx={{ bgcolor: '#F1F5F9', color: 'text.secondary', fontSize: 9.5 }} />
                             ))}
                           </Box>
                         </td>
@@ -123,9 +121,9 @@ export default function CRMCotizaciones() {
                             <Chip label={c.estado} size="small" sx={{ bgcolor: alpha(cfg.color, 0.15), color: cfg.color, fontSize: 9.5, fontWeight: 600 }} />
                           </Box>
                         </td>
-                        <td style={{ padding: '10px 14px', fontSize: 11.5, color: 'rgba(255,255,255,0.4)', whiteSpace: 'nowrap' }}>{c.vencimiento || '—'}</td>
-                        <td style={{ padding: '10px 14px', fontSize: 12, color: 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap' }}>{c.ejecutivo}</td>
-                        <td style={{ padding: '10px 14px', fontSize: 11, color: 'rgba(255,255,255,0.3)', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{c.oportunidad}</td>
+                        <td style={{ padding: '10px 14px', fontSize: 11.5, color: '#6B7280', whiteSpace: 'nowrap' }}>{c.vencimiento || '—'}</td>
+                        <td style={{ padding: '10px 14px', fontSize: 12, color: '#6B7280', whiteSpace: 'nowrap' }}>{c.ejecutivo}</td>
+                        <td style={{ padding: '10px 14px', fontSize: 11, color: '#9CA3AF', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{c.oportunidad}</td>
                       </tr>
                     )
                   })}
@@ -138,17 +136,17 @@ export default function CRMCotizaciones() {
         {tab === 1 && (
           <Grid container spacing={2}>
             <Grid size={{ xs: 12 }}>
-              <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, p: 2.5 }}>
+              <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2, mb: 2 }}>
                   <Box>
-                    <Typography sx={{ fontSize: 18, fontWeight: 800, color: '#FFF' }}>COT-2026-042 — Almacenes Éxito S.A.</Typography>
-                    <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', mt: 0.5 }}>
+                    <Typography sx={{ fontSize: 18, fontWeight: 800, color: 'text.primary' }}>COT-2026-042 — Almacenes Éxito S.A.</Typography>
+                    <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 0.5 }}>
                       Versión 1 · Oportunidad OPO-2026-001 · Ejecutivo: Laura Soto
                     </Typography>
                   </Box>
                   <Box sx={{ display: 'flex', gap: 1 }}>
                     <Chip label="APROBADA" size="small" sx={{ bgcolor: alpha('#059669', 0.15), color: '#059669', fontWeight: 700 }} />
-                    <Chip label="Vence: 2026-07-01" size="small" sx={{ bgcolor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)' }} />
+                    <Chip label="Vence: 2026-07-01" size="small" sx={{ bgcolor: '#F1F5F9', color: 'text.secondary' }} />
                   </Box>
                 </Box>
                 <Box sx={{ overflowX: 'auto' }}>
@@ -156,25 +154,25 @@ export default function CRMCotizaciones() {
                     <thead>
                       <tr>
                         {['Descripción', 'Unidad', 'Cantidad', 'Precio Unit.', 'Dto.%', 'Total'].map(h => (
-                          <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.35)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>{h}</th>
+                          <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#6B7280', borderBottom: '1px solid #E5E7EB' }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {ITEMS_EJEMPLO.map((item, i) => (
-                        <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                          <td style={{ padding: '8px 12px', fontSize: 12.5, color: '#FFF' }}>{item.descripcion}</td>
-                          <td style={{ padding: '8px 12px', fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>{item.unidad}</td>
-                          <td style={{ padding: '8px 12px', fontSize: 12, color: 'rgba(255,255,255,0.7)', textAlign: 'right' }}>{item.cantidad}</td>
-                          <td style={{ padding: '8px 12px', fontSize: 12, color: 'rgba(255,255,255,0.7)', textAlign: 'right' }}>${item.precio}M</td>
-                          <td style={{ padding: '8px 12px', fontSize: 12, color: item.descuento > 0 ? CRM_COLOR : 'rgba(255,255,255,0.3)', textAlign: 'right' }}>{item.descuento}%</td>
+                        <tr key={i} style={{ borderBottom: '1px solid #F9FAFB' }}>
+                          <td style={{ padding: '8px 12px', fontSize: 12.5, color: '#111827' }}>{item.descripcion}</td>
+                          <td style={{ padding: '8px 12px', fontSize: 12, color: '#6B7280' }}>{item.unidad}</td>
+                          <td style={{ padding: '8px 12px', fontSize: 12, color: '#374151', textAlign: 'right' }}>{item.cantidad}</td>
+                          <td style={{ padding: '8px 12px', fontSize: 12, color: '#374151', textAlign: 'right' }}>${item.precio}M</td>
+                          <td style={{ padding: '8px 12px', fontSize: 12, color: item.descuento > 0 ? CRM_COLOR : '#9CA3AF', textAlign: 'right' }}>{item.descuento}%</td>
                           <td style={{ padding: '8px 12px', fontSize: 13, fontWeight: 700, color: CRM_COLOR, textAlign: 'right' }}>${item.total}M</td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot>
-                      <tr style={{ borderTop: '2px solid rgba(255,255,255,0.1)' }}>
-                        <td colSpan={5} style={{ padding: '10px 12px', fontSize: 14, fontWeight: 800, color: '#FFF', textAlign: 'right' }}>TOTAL</td>
+                      <tr style={{ borderTop: '2px solid #E5E7EB' }}>
+                        <td colSpan={5} style={{ padding: '10px 12px', fontSize: 14, fontWeight: 800, color: '#111827', textAlign: 'right' }}>TOTAL</td>
                         <td style={{ padding: '10px 12px', fontSize: 16, fontWeight: 900, color: CRM_COLOR, textAlign: 'right' }}>$5,580M</td>
                       </tr>
                     </tfoot>

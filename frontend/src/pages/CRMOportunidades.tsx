@@ -4,9 +4,6 @@ import { TrendingUp, EmojiEvents } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 const CRM_COLOR = '#DC2626'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(220,38,38,0.25)'
-const DARK_BG   = '#060C1A'
 
 const ETAPA_CONFIG: Record<string, { color: string; prob: number }> = {
   IDENTIFICACION: { color: '#94A3B8', prob: 10 },
@@ -39,18 +36,18 @@ export default function CRMOportunidades() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, bgcolor: DARK_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, minHeight: '100vh' }}>
         <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box sx={{
             width: 44, height: 44, borderRadius: '12px',
             background: `linear-gradient(135deg, ${CRM_COLOR} 0%, #B91C1C 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <TrendingUp sx={{ color: '#FFF', fontSize: 22 }} />
+            <TrendingUp sx={{ color: 'text.primary', fontSize: 22 }} />
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 800, color: '#FFF' }}>Pipeline de Oportunidades</Typography>
-            <Typography sx={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>
+            <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Pipeline de Oportunidades</Typography>
+            <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
               Prospección · Propuestas · Negociación · Cierre
             </Typography>
           </Box>
@@ -64,8 +61,8 @@ export default function CRMOportunidades() {
             { label: 'Total Cerrado',   value: `$${totalGanado}M`, color: '#7C3AED' },
           ].map((k, i) => (
             <Grid key={i} size={{ xs: 6, md: 3 }}>
-              <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2, p: 2 }}>
-                <Typography sx={{ fontSize: 26, fontWeight: 900, color: '#FFF', lineHeight: 1 }}>{k.value}</Typography>
+              <Box sx={{ border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2, p: 2 }}>
+                <Typography sx={{ fontSize: 26, fontWeight: 900, color: 'text.primary', lineHeight: 1 }}>{k.value}</Typography>
                 <Typography sx={{ fontSize: 11, color: k.color, fontWeight: 600, mt: 0.25 }}>{k.label}</Typography>
               </Box>
             </Grid>
@@ -73,7 +70,7 @@ export default function CRMOportunidades() {
         </Grid>
 
         <Tabs value={tab} onChange={(_, v) => setTab(v)}
-          sx={{ mb: 3, '& .MuiTab-root': { color: 'rgba(255,255,255,0.4)', textTransform: 'none', fontWeight: 600 }, '& .Mui-selected': { color: `${CRM_COLOR} !important` }, '& .MuiTabs-indicator': { bgcolor: CRM_COLOR } }}>
+          sx={{ mb: 3, '& .MuiTab-root': { color: 'text.secondary', textTransform: 'none', fontWeight: 600 }, '& .Mui-selected': { color: `${CRM_COLOR} !important` }, '& .MuiTabs-indicator': { bgcolor: CRM_COLOR } }}>
           <Tab label="Vista Kanban" />
           <Tab label="Vista Tabla" />
         </Tabs>
@@ -92,31 +89,31 @@ export default function CRMOportunidades() {
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 0.75 }}>
                       <Chip label={opos.length} size="small" sx={{ bgcolor: alpha(cfg.color, 0.15), color: cfg.color, fontSize: 10, height: 18 }} />
-                      {totalEtapa > 0 && <Chip label={`$${totalEtapa}M`} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', fontSize: 10, height: 18 }} />}
+                      {totalEtapa > 0 && <Chip label={`$${totalEtapa}M`} size="small" sx={{ bgcolor: 'text.disabled', color: 'text.secondary', fontSize: 10, height: 18 }} />}
                     </Box>
                   </Box>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                     {opos.length === 0 && (
-                      <Box sx={{ bgcolor: CARD_BG, border: `1px dashed ${alpha(cfg.color, 0.2)}`, borderRadius: 1.5, p: 2, textAlign: 'center' }}>
-                        <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.2)' }}>Sin oportunidades</Typography>
+                      <Box sx={{ border: `1px dashed ${alpha(cfg.color, 0.2)}`, borderRadius: 1.5, p: 2, textAlign: 'center' }}>
+                        <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>Sin oportunidades</Typography>
                       </Box>
                     )}
                     {opos.map((o, i) => (
                       <Box key={i} sx={{
-                        bgcolor: CARD_BG, border: `1px solid ${alpha(cfg.color, 0.25)}`, borderRadius: 1.5, p: 1.5,
+                        border: `1px solid ${alpha(cfg.color, 0.25)}`, borderRadius: 1.5, p: 1.5,
                         '&:hover': { border: `1px solid ${alpha(cfg.color, 0.5)}` }, transition: 'border 0.15s ease', cursor: 'pointer',
                       }}>
-                        <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#FFF', mb: 0.5, lineHeight: 1.3 }}>{o.nombre}</Typography>
-                        <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', mb: 1 }}>{o.cliente}</Typography>
+                        <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: 'text.primary', mb: 0.5, lineHeight: 1.3 }}>{o.nombre}</Typography>
+                        <Typography sx={{ fontSize: 11, color: 'text.secondary', mb: 1 }}>{o.cliente}</Typography>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75 }}>
-                          <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{o.servicio}</Typography>
+                          <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{o.servicio}</Typography>
                           <Typography sx={{ fontSize: 13, fontWeight: 800, color: cfg.color }}>${o.valor}M</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>{o.fecha}</Typography>
+                          <Typography sx={{ fontSize: 10, color: 'text.disabled' }}>{o.fecha}</Typography>
                           <Typography sx={{ fontSize: 11, fontWeight: 700, color: cfg.color }}>{o.prob}%</Typography>
                         </Box>
-                        <Box sx={{ mt: 0.75, height: 3, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+                        <Box sx={{ mt: 0.75, height: 3, borderRadius: 2, bgcolor: 'text.disabled', overflow: 'hidden' }}>
                           <Box sx={{ height: '100%', width: `${o.prob}%`, bgcolor: cfg.color, borderRadius: 2 }} />
                         </Box>
                       </Box>
@@ -129,13 +126,13 @@ export default function CRMOportunidades() {
         )}
 
         {tab === 1 && (
-          <Box sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, overflow: 'hidden' }}>
+          <Box sx={{ border: `1px solid #E5E7EB`, borderRadius: 2, overflow: 'hidden' }}>
             <Box sx={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
                     {['Código', 'Oportunidad', 'Cliente', 'Servicio', 'Valor', 'Etapa', 'Prob.', 'Fecha Esp.', 'Ejecutivo'].map(h => (
-                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.35)', borderBottom: '1px solid rgba(255,255,255,0.06)', whiteSpace: 'nowrap' }}>{h}</th>
+                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'text.disabled', borderBottom: '1px solid rgba(255,255,255,0.06)', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -145,16 +142,16 @@ export default function CRMOportunidades() {
                     return (
                       <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                         <td style={{ padding: '10px 14px', fontSize: 11.5, color: CRM_COLOR, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{o.codigo}</td>
-                        <td style={{ padding: '10px 14px', fontSize: 13, color: '#FFF', fontWeight: 600 }}>{o.nombre}</td>
-                        <td style={{ padding: '10px 14px', fontSize: 12, color: 'rgba(255,255,255,0.6)', whiteSpace: 'nowrap' }}>{o.cliente}</td>
-                        <td style={{ padding: '10px 14px', fontSize: 11.5, color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap' }}>{o.servicio}</td>
+                        <td style={{ padding: '10px 14px', fontSize: 13, color: 'text.primary', fontWeight: 600 }}>{o.nombre}</td>
+                        <td style={{ padding: '10px 14px', fontSize: 12, color: 'text.secondary', whiteSpace: 'nowrap' }}>{o.cliente}</td>
+                        <td style={{ padding: '10px 14px', fontSize: 11.5, color: 'text.secondary', whiteSpace: 'nowrap' }}>{o.servicio}</td>
                         <td style={{ padding: '10px 14px', fontSize: 14, fontWeight: 800, color: CRM_COLOR }}>${o.valor}M</td>
                         <td style={{ padding: '10px 14px' }}>
                           <Chip label={o.etapa.replace('_', ' ')} size="small" sx={{ bgcolor: alpha(cfg.color, 0.15), color: cfg.color, border: `1px solid ${alpha(cfg.color, 0.3)}`, fontSize: 9.5, fontWeight: 700 }} />
                         </td>
                         <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 800, color: cfg.color }}>{o.prob}%</td>
-                        <td style={{ padding: '10px 14px', fontSize: 11.5, color: 'rgba(255,255,255,0.4)', whiteSpace: 'nowrap' }}>{o.fecha}</td>
-                        <td style={{ padding: '10px 14px', fontSize: 12, color: 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap' }}>{o.ejecutivo}</td>
+                        <td style={{ padding: '10px 14px', fontSize: 11.5, color: 'text.secondary', whiteSpace: 'nowrap' }}>{o.fecha}</td>
+                        <td style={{ padding: '10px 14px', fontSize: 12, color: 'text.secondary', whiteSpace: 'nowrap' }}>{o.ejecutivo}</td>
                       </tr>
                     )
                   })}
