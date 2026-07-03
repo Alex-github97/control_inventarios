@@ -4,28 +4,26 @@ import { Settings, Notifications, Tune, Save } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 const SST_COLOR = '#C53030'
-const PAGE_BG   = '#060C1A'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(197,48,48,0.2)'
+const #E5E7EB  = 'rgba(197,48,48,0.2)'
 
 const SX_INPUT = {
-  '& .MuiOutlinedInput-root': { color: '#fff', bgcolor: 'rgba(255,255,255,0.04)', '& fieldset': { borderColor: 'rgba(255,255,255,0.12)' } },
-  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.5)' },
+  '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#E5E7EB' } },
+  '& .MuiInputLabel-root': { color: 'text.secondary' },
 }
 const SX_SWITCH = {
   '& .MuiSwitch-switchBase.Mui-checked': { color: SST_COLOR },
   '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: SST_COLOR },
 }
 const SX_TABS = {
-  borderBottom: '1px solid rgba(255,255,255,0.08)', mb: 3,
-  '& .MuiTab-root': { color: 'rgba(255,255,255,0.45)', fontSize: 13, textTransform: 'none' },
+  borderBottom: '1px solid #F1F5F9', mb: 3,
+  '& .MuiTab-root': { color: 'text.secondary', fontSize: 13, textTransform: 'none' },
   '& .Mui-selected': { color: '#F87171 !important' },
   '& .MuiTabs-indicator': { backgroundColor: SST_COLOR },
 }
 
 interface SectionTitleProps { children: React.ReactNode }
 function SectionTitle({ children }: SectionTitleProps) {
-  return <Typography sx={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'rgba(255,255,255,0.35)', mb: 1.5 }}>{children}</Typography>
+  return <Typography sx={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'text.disabled', mb: 1.5 }}>{children}</Typography>
 }
 
 export default function SSTConfig() {
@@ -71,15 +69,15 @@ export default function SSTConfig() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, background: PAGE_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, minHeight: '100vh' }}>
 
         {/* Header */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Settings sx={{ color: SST_COLOR, fontSize: 28 }} />
             <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#FFF', lineHeight: 1 }}>Configuración SST</Typography>
-              <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>Parámetros del SG-SST, alertas y umbrales de cumplimiento</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Configuración SST</Typography>
+              <Typography sx={{ fontSize: 12, color: 'text.disabled' }}>Parámetros del SG-SST, alertas y umbrales de cumplimiento</Typography>
             </Box>
             <Chip label="SG-SST" size="small" sx={{ bgcolor: alpha(SST_COLOR, 0.15), color: '#F87171', fontWeight: 700, border: `1px solid ${alpha(SST_COLOR, 0.35)}` }} />
           </Box>
@@ -99,7 +97,7 @@ export default function SSTConfig() {
         {tab === 0 && (
           <Grid container spacing={2.5}>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2 }}>
+              <Card sx={{ border: `1px solid #E5E7EB`, borderRadius: 2 }}>
                 <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <SectionTitle>Información de la empresa</SectionTitle>
                   <TextField label="Razón social" value={empresa} onChange={e => setEmpresa(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
@@ -115,7 +113,7 @@ export default function SSTConfig() {
               </Card>
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2 }}>
+              <Card sx={{ border: `1px solid #E5E7EB`, borderRadius: 2 }}>
                 <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <SectionTitle>Responsable del SG-SST</SectionTitle>
                   <TextField label="Coordinador SST" value={coord} onChange={e => setCoord(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
@@ -134,51 +132,51 @@ export default function SSTConfig() {
         {tab === 1 && (
           <Grid container spacing={2.5}>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2 }}>
+              <Card sx={{ border: `1px solid #E5E7EB`, borderRadius: 2 }}>
                 <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                   <SectionTitle>Alertas automáticas</SectionTitle>
-                  <FormControlLabel label={<Typography sx={{ fontSize: 13, color: '#fff' }}>Notificar nuevos incidentes/accidentes</Typography>}
+                  <FormControlLabel label={<Typography sx={{ fontSize: 13, color: 'text.primary' }}>Notificar nuevos incidentes/accidentes</Typography>}
                     control={<Switch checked={alertIncidente} onChange={e => setAlertIncidente(e.target.checked)} size="small" sx={SX_SWITCH} />} />
-                  <FormControlLabel label={<Typography sx={{ fontSize: 13, color: '#fff' }}>Inspecciones vencidas sin completar</Typography>}
+                  <FormControlLabel label={<Typography sx={{ fontSize: 13, color: 'text.primary' }}>Inspecciones vencidas sin completar</Typography>}
                     control={<Switch checked={alertInspeccion} onChange={e => setAlertInspeccion(e.target.checked)} size="small" sx={SX_SWITCH} />} />
-                  <Divider sx={{ borderColor: 'rgba(255,255,255,0.08)' }} />
-                  <FormControlLabel label={<Typography sx={{ fontSize: 13, color: '#fff' }}>EPP próximo a vencer</Typography>}
+                  <Divider sx={{ borderColor: '#F1F5F9' }} />
+                  <FormControlLabel label={<Typography sx={{ fontSize: 13, color: 'text.primary' }}>EPP próximo a vencer</Typography>}
                     control={<Switch checked={alertEPPVencer} onChange={e => setAlertEPPVencer(e.target.checked)} size="small" sx={SX_SWITCH} />} />
                   {alertEPPVencer && (
                     <Box sx={{ pl: 4 }}>
-                      <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', mb: 0.5 }}>Días de anticipación: {diasPrevioEPP}</Typography>
+                      <Typography sx={{ fontSize: 11, color: 'text.secondary', mb: 0.5 }}>Días de anticipación: {diasPrevioEPP}</Typography>
                       <Slider value={diasPrevioEPP} onChange={(_, v) => setDiasPrevioEPP(v as number)} min={7} max={180} step={7}
-                        sx={{ color: SST_COLOR, '& .MuiSlider-rail': { bgcolor: 'rgba(255,255,255,0.1)' } }} />
+                        sx={{ color: SST_COLOR, '& .MuiSlider-rail': { bgcolor: '#E2E8F0' } }} />
                     </Box>
                   )}
-                  <FormControlLabel label={<Typography sx={{ fontSize: 13, color: '#fff' }}>Capacitaciones próximas a realizarse</Typography>}
+                  <FormControlLabel label={<Typography sx={{ fontSize: 13, color: 'text.primary' }}>Capacitaciones próximas a realizarse</Typography>}
                     control={<Switch checked={alertCapacitacion} onChange={e => setAlertCapacitacion(e.target.checked)} size="small" sx={SX_SWITCH} />} />
                   {alertCapacitacion && (
                     <Box sx={{ pl: 4 }}>
-                      <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', mb: 0.5 }}>Días de anticipación: {diasPreviosCap}</Typography>
+                      <Typography sx={{ fontSize: 11, color: 'text.secondary', mb: 0.5 }}>Días de anticipación: {diasPreviosCap}</Typography>
                       <Slider value={diasPreviosCap} onChange={(_, v) => setDiasPreviosCap(v as number)} min={1} max={30}
-                        sx={{ color: SST_COLOR, '& .MuiSlider-rail': { bgcolor: 'rgba(255,255,255,0.1)' } }} />
+                        sx={{ color: SST_COLOR, '& .MuiSlider-rail': { bgcolor: '#E2E8F0' } }} />
                     </Box>
                   )}
-                  <FormControlLabel label={<Typography sx={{ fontSize: 13, color: '#fff' }}>Documentos próximos a vencer revisión</Typography>}
+                  <FormControlLabel label={<Typography sx={{ fontSize: 13, color: 'text.primary' }}>Documentos próximos a vencer revisión</Typography>}
                     control={<Switch checked={alertDocumentos} onChange={e => setAlertDocumentos(e.target.checked)} size="small" sx={SX_SWITCH} />} />
                   {alertDocumentos && (
                     <Box sx={{ pl: 4 }}>
-                      <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', mb: 0.5 }}>Días de anticipación: {diasPreviosDoc}</Typography>
+                      <Typography sx={{ fontSize: 11, color: 'text.secondary', mb: 0.5 }}>Días de anticipación: {diasPreviosDoc}</Typography>
                       <Slider value={diasPreviosDoc} onChange={(_, v) => setDiasPreviosDoc(v as number)} min={7} max={90} step={7}
-                        sx={{ color: SST_COLOR, '& .MuiSlider-rail': { bgcolor: 'rgba(255,255,255,0.1)' } }} />
+                        sx={{ color: SST_COLOR, '& .MuiSlider-rail': { bgcolor: '#E2E8F0' } }} />
                     </Box>
                   )}
                 </CardContent>
               </Card>
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2 }}>
+              <Card sx={{ border: `1px solid #E5E7EB`, borderRadius: 2 }}>
                 <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <SectionTitle>Destino de notificaciones</SectionTitle>
                   <TextField label="Correo para alertas SST" value={emailAlertas} onChange={e => setEmailAlertas(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
-                  <Box sx={{ p: 1.5, bgcolor: 'rgba(255,255,255,0.03)', borderRadius: 1.5, border: '1px solid rgba(255,255,255,0.08)' }}>
-                    <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
+                  <Box sx={{ p: 1.5, bgcolor: '#F9FAFB', borderRadius: 1.5, border: '1px solid #E5E7EB' }}>
+                    <Typography sx={{ fontSize: 12, color: 'text.secondary', lineHeight: 1.5 }}>
                       Las alertas también se enviarán al coordinador SST configurado en la pestaña "Empresa / SG-SST". Para múltiples destinatarios, separe los correos con coma.
                     </Typography>
                   </Box>
@@ -192,7 +190,7 @@ export default function SSTConfig() {
         {tab === 2 && (
           <Grid container spacing={2.5}>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2 }}>
+              <Card sx={{ border: `1px solid #E5E7EB`, borderRadius: 2 }}>
                 <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <SectionTitle>Metas de indicadores clave</SectionTitle>
                   {[
@@ -202,18 +200,18 @@ export default function SSTConfig() {
                   ].map(cfg => (
                     <Box key={cfg.label}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.25 }}>
-                        <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{cfg.label}</Typography>
+                        <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{cfg.label}</Typography>
                         <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#F87171' }}>{cfg.value}</Typography>
                       </Box>
                       <Slider value={cfg.value} onChange={(_, v) => cfg.set(v as number)} min={cfg.min} max={cfg.max}
-                        sx={{ color: SST_COLOR, '& .MuiSlider-rail': { bgcolor: 'rgba(255,255,255,0.1)' } }} />
+                        sx={{ color: SST_COLOR, '& .MuiSlider-rail': { bgcolor: '#E2E8F0' } }} />
                     </Box>
                   ))}
                 </CardContent>
               </Card>
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2 }}>
+              <Card sx={{ border: `1px solid #E5E7EB`, borderRadius: 2 }}>
                 <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <SectionTitle>Metas de cumplimiento (%)</SectionTitle>
                   {[
@@ -223,21 +221,21 @@ export default function SSTConfig() {
                   ].map(cfg => (
                     <Box key={cfg.label}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.25 }}>
-                        <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{cfg.label}</Typography>
+                        <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{cfg.label}</Typography>
                         <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#F87171' }}>{cfg.value}%</Typography>
                       </Box>
                       <Slider value={cfg.value} onChange={(_, v) => cfg.set(v as number)} min={50} max={100}
-                        sx={{ color: SST_COLOR, '& .MuiSlider-rail': { bgcolor: 'rgba(255,255,255,0.1)' } }} />
+                        sx={{ color: SST_COLOR, '& .MuiSlider-rail': { bgcolor: '#E2E8F0' } }} />
                     </Box>
                   ))}
-                  <Divider sx={{ borderColor: 'rgba(255,255,255,0.08)' }} />
-                  <FormControlLabel label={<Typography sx={{ fontSize: 13, color: '#fff' }}>Cierre automático de incidentes investigados</Typography>}
+                  <Divider sx={{ borderColor: '#F1F5F9' }} />
+                  <FormControlLabel label={<Typography sx={{ fontSize: 13, color: 'text.primary' }}>Cierre automático de incidentes investigados</Typography>}
                     control={<Switch checked={autoClose} onChange={e => setAutoClose(e.target.checked)} size="small" sx={SX_SWITCH} />} />
                   {autoClose && (
                     <Box sx={{ pl: 4 }}>
-                      <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', mb: 0.5 }}>Días tras investigación: {diasAutoClose}</Typography>
+                      <Typography sx={{ fontSize: 11, color: 'text.secondary', mb: 0.5 }}>Días tras investigación: {diasAutoClose}</Typography>
                       <Slider value={diasAutoClose} onChange={(_, v) => setDiasAutoClose(v as number)} min={7} max={90} step={7}
-                        sx={{ color: SST_COLOR, '& .MuiSlider-rail': { bgcolor: 'rgba(255,255,255,0.1)' } }} />
+                        sx={{ color: SST_COLOR, '& .MuiSlider-rail': { bgcolor: '#E2E8F0' } }} />
                     </Box>
                   )}
                 </CardContent>

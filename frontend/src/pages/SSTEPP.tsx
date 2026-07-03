@@ -4,15 +4,13 @@ import { SafetyDivider, Add, CheckCircle, Warning } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 const SST_COLOR = '#C53030'
-const PAGE_BG   = '#060C1A'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(197,48,48,0.2)'
+const #E5E7EB  = 'rgba(197,48,48,0.2)'
 
 const SX_INPUT = {
-  '& .MuiOutlinedInput-root': { color: '#fff', bgcolor: 'rgba(255,255,255,0.04)', '& fieldset': { borderColor: 'rgba(255,255,255,0.12)' } },
-  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.5)' },
+  '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#E5E7EB' } },
+  '& .MuiInputLabel-root': { color: 'text.secondary' },
 }
-const SX_SEL = { color: '#fff', bgcolor: 'rgba(255,255,255,0.04)', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' } }
+const SX_SEL = { '& .MuiOutlinedInput-notchedOutline': { borderColor: '#E5E7EB' } }
 
 type TipoEPP = 'CABEZA' | 'OJOS_CARA' | 'AUDITIVO' | 'RESPIRATORIO' | 'MANOS' | 'PIES' | 'CUERPO' | 'CAIDAS'
 
@@ -88,15 +86,15 @@ export default function SSTEPP() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, background: PAGE_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, minHeight: '100vh' }}>
 
         {/* Header */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <SafetyDivider sx={{ color: SST_COLOR, fontSize: 28 }} />
             <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#FFF', lineHeight: 1 }}>Gestión de EPP</Typography>
-              <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>Elementos de Protección Personal — entrega, trazabilidad y vencimientos</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Gestión de EPP</Typography>
+              <Typography sx={{ fontSize: 12, color: 'text.disabled' }}>Elementos de Protección Personal — entrega, trazabilidad y vencimientos</Typography>
             </Box>
             <Chip label="SG-SST" size="small" sx={{ bgcolor: alpha(SST_COLOR, 0.15), color: '#F87171', fontWeight: 700, border: `1px solid ${alpha(SST_COLOR, 0.35)}` }} />
           </Box>
@@ -107,9 +105,9 @@ export default function SSTEPP() {
         <Grid container spacing={2} sx={{ mb: 3 }}>
           {kpis.map(k => (
             <Grid key={k.label} size={{ xs: 12, sm: 6, md: 3 }}>
-              <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2 }}>
+              <Card sx={{ border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important' }}>
-                  <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>{k.label}</Typography>
+                  <Typography sx={{ fontSize: 11, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>{k.label}</Typography>
                   <Typography sx={{ fontSize: 26, fontWeight: 800, color: k.color, lineHeight: 1 }}>{k.value}</Typography>
                 </CardContent>
               </Card>
@@ -120,10 +118,10 @@ export default function SSTEPP() {
         {/* Filtros por tipo */}
         <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
           <Chip label="Todos" onClick={() => setFiltroT('')}
-            sx={{ bgcolor: filtroT === '' ? alpha(SST_COLOR, 0.2) : 'rgba(255,255,255,0.05)', color: filtroT === '' ? '#F87171' : 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 11 }} />
+            sx={{ bgcolor: filtroT === '' ? alpha(SST_COLOR, 0.2) : '#F9FAFB', color: filtroT === '' ? '#F87171' : 'text.secondary', cursor: 'pointer', fontSize: 11 }} />
           {TIPOS_EPP.map(t => (
             <Chip key={t} label={`${EPP_ICON[t]} ${EPP_LABEL[t]}`} onClick={() => setFiltroT(prev => prev === t ? '' : t)}
-              sx={{ bgcolor: filtroT === t ? alpha(SST_COLOR, 0.2) : 'rgba(255,255,255,0.05)', color: filtroT === t ? '#F87171' : 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 11 }} />
+              sx={{ bgcolor: filtroT === t ? alpha(SST_COLOR, 0.2) : '#F9FAFB', color: filtroT === t ? '#F87171' : 'text.secondary', cursor: 'pointer', fontSize: 11 }} />
           ))}
         </Box>
 
@@ -133,7 +131,7 @@ export default function SSTEPP() {
             const venceProx = e.fecha_vencimiento && !e.devuelto &&
               (new Date(e.fecha_vencimiento).getTime() - Date.now()) / (1000 * 86400) <= 90
             return (
-              <Card key={e.id} sx={{ bgcolor: CARD_BG, border: `1px solid ${venceProx ? alpha('#f59e0b', 0.3) : CARD_BOR}`, borderRadius: 2 }}>
+              <Card key={e.id} sx={{ border: `1px solid ${venceProx ? alpha('#f59e0b', 0.3) : #E5E7EB}`, borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important' }}>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
                     <Box sx={{ fontSize: 24 }}>{EPP_ICON[e.tipo_epp]}</Box>
@@ -141,17 +139,17 @@ export default function SSTEPP() {
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
                         <Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: '#F87171' }}>{e.numero}</Typography>
                       </Box>
-                      <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#fff', mb: 0.25 }}>{e.trabajador}</Typography>
-                      <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', mb: 0.5 }}>{e.cargo} · {e.area}</Typography>
-                      <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{e.descripcion_epp} × {e.cantidad}</Typography>
+                      <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 0.25 }}>{e.trabajador}</Typography>
+                      <Typography sx={{ fontSize: 12, color: 'text.secondary', mb: 0.5 }}>{e.cargo} · {e.area}</Typography>
+                      <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{e.descripcion_epp} × {e.cantidad}</Typography>
                     </Box>
                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.75 }}>
                       {e.firma_recibido
                         ? <Chip icon={<CheckCircle sx={{ fontSize: 13 }} />} label="Firmado" size="small" sx={{ bgcolor: alpha('#22c55e', 0.12), color: '#22c55e', fontSize: 10 }} />
                         : <Chip icon={<Warning sx={{ fontSize: 13 }} />} label="Sin firma" size="small" sx={{ bgcolor: alpha('#ef4444', 0.12), color: '#ef4444', fontSize: 10 }} />
                       }
-                      <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>Entrega: {e.fecha_entrega}</Typography>
-                      {e.fecha_vencimiento && <Typography sx={{ fontSize: 11, color: venceProx ? '#fbbf24' : 'rgba(255,255,255,0.3)' }}>Vence: {e.fecha_vencimiento}</Typography>}
+                      <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>Entrega: {e.fecha_entrega}</Typography>
+                      {e.fecha_vencimiento && <Typography sx={{ fontSize: 11, color: venceProx ? '#fbbf24' : 'text.disabled' }}>Vence: {e.fecha_vencimiento}</Typography>}
                     </Box>
                   </Box>
                 </CardContent>
@@ -161,8 +159,8 @@ export default function SSTEPP() {
         </Box>
 
         {/* Dialog */}
-        <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#0A1628', color: '#fff' } }}>
-          <DialogTitle sx={{ borderBottom: '1px solid rgba(255,255,255,0.08)', fontWeight: 700 }}>Registrar Entrega de EPP</DialogTitle>
+        <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle sx={{ borderBottom: '1px solid #F1F5F9', fontWeight: 700 }}>Registrar Entrega de EPP</DialogTitle>
           <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField label="Trabajador *" value={trabajador} onChange={e => setTrabajador(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
             <Box sx={{ display: 'flex', gap: 2 }}>
@@ -170,7 +168,7 @@ export default function SSTEPP() {
               <TextField label="Área" value={area} onChange={e => setArea(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
             </Box>
             <FormControl fullWidth size="small">
-              <InputLabel sx={{ color: 'rgba(255,255,255,0.5)' }}>Tipo de EPP *</InputLabel>
+              <InputLabel>Tipo de EPP *</InputLabel>
               <Select value={tipo} label="Tipo de EPP *" onChange={e => setTipo(e.target.value as TipoEPP)} sx={SX_SEL}>
                 {TIPOS_EPP.map(t => <MenuItem key={t} value={t}>{EPP_ICON[t]} {EPP_LABEL[t]}</MenuItem>)}
               </Select>
@@ -182,8 +180,8 @@ export default function SSTEPP() {
               <TextField label="Fecha vencimiento" type="date" value={fechaVenc} onChange={e => setFechaVenc(e.target.value)} fullWidth size="small" sx={SX_INPUT} InputLabelProps={{ shrink: true }} />
             </Box>
           </DialogContent>
-          <DialogActions sx={{ p: 2, gap: 1, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-            <Button onClick={() => setOpen(false)} sx={{ color: 'rgba(255,255,255,0.5)' }}>Cancelar</Button>
+          <DialogActions sx={{ p: 2, gap: 1, borderTop: '1px solid #F1F5F9' }}>
+            <Button onClick={() => setOpen(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>
             <Button variant="contained" onClick={handleCrear} disabled={!trabajador || !fechaEnt} sx={{ bgcolor: SST_COLOR }}>Registrar</Button>
           </DialogActions>
         </Dialog>

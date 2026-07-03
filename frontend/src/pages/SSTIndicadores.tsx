@@ -5,10 +5,7 @@ import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Tool
 import { Layout } from '@/components/layout/Layout'
 
 const SST_COLOR = '#C53030'
-const PAGE_BG   = '#060C1A'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(197,48,48,0.2)'
-const TOOLTIP_STYLE = { contentStyle: { backgroundColor: '#0F1E35', border: '1px solid rgba(197,48,48,0.2)', borderRadius: 8, color: '#fff', fontSize: 12 } }
+const TOOLTIP_STYLE = { contentStyle: { backgroundColor: '#FFFFFF', border: '1px solid rgba(197,48,48,0.2)', borderRadius: 8, color: 'text.primary', fontSize: 12 } }
 
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
@@ -66,8 +63,8 @@ export default function SSTIndicadores() {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
           <Analytics sx={{ color: SST_COLOR, fontSize: 28 }} />
           <Box>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: '#FFF', lineHeight: 1 }}>Indicadores SST</Typography>
-            <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>Tablero de seguimiento — IF, IS, ILI y cumplimiento del SG-SST · 2026</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Indicadores SST</Typography>
+            <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>Tablero de seguimiento — IF, IS, ILI y cumplimiento del SG-SST · 2026</Typography>
           </Box>
           <Chip label="SG-SST" size="small" sx={{ bgcolor: alpha(SST_COLOR, 0.15), color: '#F87171', fontWeight: 700, border: `1px solid ${alpha(SST_COLOR, 0.35)}` }} />
         </Box>
@@ -76,10 +73,10 @@ export default function SSTIndicadores() {
         <Grid container spacing={2} sx={{ mb: 3 }}>
           {KPIS.map(k => (
             <Grid key={k.label} size={{ xs: 12, sm: 6, md: 4 }}>
-              <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${alpha(k.ok ? '#22c55e' : SST_COLOR, 0.25)}`, borderRadius: 2 }}>
+              <Card sx={{ border: `1px solid ${alpha(k.ok ? '#22c55e' : SST_COLOR, 0.25)}`, borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important' }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                    <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: 0.7, flex: 1, lineHeight: 1.3 }}>{k.label}</Typography>
+                    <Typography sx={{ fontSize: 11, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.7, flex: 1, lineHeight: 1.3 }}>{k.label}</Typography>
                     {k.trend !== 'flat' && (k.trend === 'down'
                       ? <TrendingDown sx={{ fontSize: 16, color: '#22c55e' }} />
                       : <TrendingUp sx={{ fontSize: 16, color: k.ok ? '#22c55e' : '#ef4444' }} />
@@ -87,10 +84,10 @@ export default function SSTIndicadores() {
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, mb: 0.25 }}>
                     <Typography sx={{ fontSize: 28, fontWeight: 900, color: k.ok ? '#22c55e' : '#F87171', lineHeight: 1 }}>{k.value}</Typography>
-                    <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{k.unit}</Typography>
+                    <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{k.unit}</Typography>
                   </Box>
                   <Typography sx={{ fontSize: 10, color: k.ok ? '#22c55e' : '#fbbf24' }}>{k.meta}</Typography>
-                  <Typography sx={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', mt: 0.5, lineHeight: 1.3 }}>{k.desc}</Typography>
+                  <Typography sx={{ fontSize: 10, color: 'text.disabled', mt: 0.5, lineHeight: 1.3 }}>{k.desc}</Typography>
                 </CardContent>
               </Card>
             </Grid>
@@ -100,17 +97,17 @@ export default function SSTIndicadores() {
         <Grid container spacing={2.5}>
           {/* Accidentalidad */}
           <Grid size={{ xs: 12, md: 8 }}>
-            <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, height: '100%' }}>
+            <Card sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2, height: '100%' }}>
               <CardContent>
-                <Typography sx={{ fontWeight: 700, color: '#fff', mb: 0.25, fontSize: 14 }}>Accidentalidad mensual 2026</Typography>
-                <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', mb: 2 }}>Accidentes de trabajo e incidentes registrados</Typography>
+                <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 0.25, fontSize: 14 }}>Accidentalidad mensual 2026</Typography>
+                <Typography sx={{ fontSize: 11, color: 'text.disabled', mb: 2 }}>Accidentes de trabajo e incidentes registrados</Typography>
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={DATA_ACCIDENTALIDAD} barGap={4}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                     <XAxis dataKey="mes" tick={{ fill: 'rgba(255,255,255,0.45)', fontSize: 11 }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fill: 'rgba(255,255,255,0.35)', fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
                     <Tooltip {...TOOLTIP_STYLE} />
-                    <Legend wrapperStyle={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }} />
+                    <Legend wrapperStyle={{ fontSize: 11, color: 'text.secondary' }} />
                     <Bar dataKey="AT" name="Accidentes trabajo" fill={SST_COLOR} radius={[3,3,0,0]} maxBarSize={28} />
                     <Bar dataKey="incidentes" name="Incidentes" fill="#f59e0b" radius={[3,3,0,0]} maxBarSize={28} />
                   </BarChart>
@@ -121,17 +118,17 @@ export default function SSTIndicadores() {
 
           {/* EPP Pie */}
           <Grid size={{ xs: 12, md: 4 }}>
-            <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2, height: '100%' }}>
+            <Card sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2, height: '100%' }}>
               <CardContent>
-                <Typography sx={{ fontWeight: 700, color: '#fff', mb: 0.25, fontSize: 14 }}>EPP entregados por tipo</Typography>
-                <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', mb: 1.5 }}>Distribución de entregas activas</Typography>
+                <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 0.25, fontSize: 14 }}>EPP entregados por tipo</Typography>
+                <Typography sx={{ fontSize: 11, color: 'text.disabled', mb: 1.5 }}>Distribución de entregas activas</Typography>
                 <ResponsiveContainer width="100%" height={200}>
                   <PieChart>
                     <Pie data={DATA_EPP_PIE} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value">
                       {DATA_EPP_PIE.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                     </Pie>
                     <Tooltip {...TOOLTIP_STYLE} />
-                    <Legend wrapperStyle={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }} />
+                    <Legend wrapperStyle={{ fontSize: 10, color: 'text.secondary' }} />
                   </PieChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -140,17 +137,17 @@ export default function SSTIndicadores() {
 
           {/* IF / IS Línea */}
           <Grid size={{ xs: 12, md: 6 }}>
-            <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2 }}>
+            <Card sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2 }}>
               <CardContent>
-                <Typography sx={{ fontWeight: 700, color: '#fff', mb: 0.25, fontSize: 14 }}>Evolución IF e IS — 2026</Typography>
-                <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', mb: 2 }}>Índice de frecuencia y severidad mensual</Typography>
+                <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 0.25, fontSize: 14 }}>Evolución IF e IS — 2026</Typography>
+                <Typography sx={{ fontSize: 11, color: 'text.disabled', mb: 2 }}>Índice de frecuencia y severidad mensual</Typography>
                 <ResponsiveContainer width="100%" height={200}>
                   <LineChart data={DATA_IF_IS}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                     <XAxis dataKey="mes" tick={{ fill: 'rgba(255,255,255,0.45)', fontSize: 11 }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fill: 'rgba(255,255,255,0.35)', fontSize: 10 }} axisLine={false} tickLine={false} />
                     <Tooltip {...TOOLTIP_STYLE} />
-                    <Legend wrapperStyle={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }} />
+                    <Legend wrapperStyle={{ fontSize: 11, color: 'text.secondary' }} />
                     <Line type="monotone" dataKey="IF" name="Índice Frecuencia" stroke={SST_COLOR} strokeWidth={2.5} dot={{ r: 4, fill: SST_COLOR }} />
                     <Line type="monotone" dataKey="IS" name="Índice Severidad" stroke="#f59e0b" strokeWidth={2.5} dot={{ r: 4, fill: '#f59e0b' }} />
                   </LineChart>
@@ -161,17 +158,17 @@ export default function SSTIndicadores() {
 
           {/* Capacitaciones */}
           <Grid size={{ xs: 12, md: 6 }}>
-            <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2 }}>
+            <Card sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2 }}>
               <CardContent>
-                <Typography sx={{ fontWeight: 700, color: '#fff', mb: 0.25, fontSize: 14 }}>Capacitaciones — programadas vs. ejecutadas</Typography>
-                <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', mb: 2 }}>Cumplimiento del plan anual de formación</Typography>
+                <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 0.25, fontSize: 14 }}>Capacitaciones — programadas vs. ejecutadas</Typography>
+                <Typography sx={{ fontSize: 11, color: 'text.disabled', mb: 2 }}>Cumplimiento del plan anual de formación</Typography>
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={DATA_CAPACITACION} barGap={4}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                     <XAxis dataKey="mes" tick={{ fill: 'rgba(255,255,255,0.45)', fontSize: 11 }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fill: 'rgba(255,255,255,0.35)', fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
                     <Tooltip {...TOOLTIP_STYLE} />
-                    <Legend wrapperStyle={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }} />
+                    <Legend wrapperStyle={{ fontSize: 11, color: 'text.secondary' }} />
                     <Bar dataKey="programadas" name="Programadas" fill="rgba(59,130,246,0.3)" radius={[3,3,0,0]} maxBarSize={28} />
                     <Bar dataKey="completadas" name="Completadas" fill="#3b82f6" radius={[3,3,0,0]} maxBarSize={28} />
                   </BarChart>

@@ -5,15 +5,12 @@ import { Layout } from '@/components/layout/Layout'
 import { apiClient } from '@/api/client'
 
 const SST_COLOR = '#C53030'
-const PAGE_BG   = '#060C1A'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(197,48,48,0.2)'
 
 const SX_INPUT = {
-  '& .MuiOutlinedInput-root': { color: '#fff', bgcolor: 'rgba(255,255,255,0.04)', '& fieldset': { borderColor: 'rgba(255,255,255,0.12)' } },
-  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.5)' },
+  '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: '#F9FAFB', '& fieldset': { borderColor: '#E5E7EB' } },
+  '& .MuiInputLabel-root': { color: 'text.secondary' },
 }
-const SX_SEL = { color: '#fff', bgcolor: 'rgba(255,255,255,0.04)', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' } }
+const SX_SEL = { color: 'text.primary', bgcolor: '#F9FAFB', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#E5E7EB' } }
 
 type TipoInc = 'ACCIDENTE_TRABAJO' | 'INCIDENTE' | 'ENFERMEDAD_LABORAL' | 'CASI_ACCIDENTE'
 type Gravedad = 'LEVE' | 'MODERADO' | 'GRAVE' | 'MUY_GRAVE' | 'MORTAL'
@@ -99,8 +96,8 @@ export default function SSTIncidentes() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <ReportProblem sx={{ color: SST_COLOR, fontSize: 28 }} />
             <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#FFF', lineHeight: 1 }}>Incidentes y Accidentes</Typography>
-              <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>Registro, investigación y seguimiento de eventos de seguridad</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Incidentes y Accidentes</Typography>
+              <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>Registro, investigación y seguimiento de eventos de seguridad</Typography>
             </Box>
             <Chip label="SG-SST" size="small" sx={{ bgcolor: alpha(SST_COLOR, 0.15), color: '#F87171', fontWeight: 700, border: `1px solid ${alpha(SST_COLOR, 0.35)}` }} />
           </Box>
@@ -111,9 +108,9 @@ export default function SSTIncidentes() {
         <Grid container spacing={2} sx={{ mb: 3 }}>
           {kpis.map(k => (
             <Grid key={k.label} size={{ xs: 12, sm: 6, md: 3 }}>
-              <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2 }}>
+              <Card sx={{ border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important' }}>
-                  <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>{k.label}</Typography>
+                  <Typography sx={{ fontSize: 11, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>{k.label}</Typography>
                   <Typography sx={{ fontSize: 26, fontWeight: 800, color: k.color, lineHeight: 1 }}>{k.value}</Typography>
                 </CardContent>
               </Card>
@@ -136,21 +133,21 @@ export default function SSTIncidentes() {
             const est = ESTADO_META[inc.estado]
             const grav = inc.gravedad ? GRAVEDAD_META[inc.gravedad] : null
             return (
-              <Card key={inc.id} sx={{ bgcolor: CARD_BG, border: `1px solid ${grav ? alpha(grav.color, 0.2) : CARD_BOR}`, borderRadius: 2 }}>
+              <Card key={inc.id} sx={{ border: `1px solid ${grav ? alpha(grav.color, 0.2) : #E5E7EB}`, borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important' }}>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
                     <Box sx={{ flex: 1, minWidth: 200 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                         <Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: '#F87171' }}>{inc.numero}</Typography>
                       </Box>
-                      <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#fff', mb: 0.25 }}>{TIPO_LABEL[inc.tipo]}</Typography>
-                      {inc.trabajador && <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', mb: 0.5 }}>{inc.trabajador} · {inc.cargo} · {inc.area}</Typography>}
-                      {inc.descripcion && <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{inc.descripcion}</Typography>}
+                      <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 0.25 }}>{TIPO_LABEL[inc.tipo]}</Typography>
+                      {inc.trabajador && <Typography sx={{ fontSize: 12, color: 'text.secondary', mb: 0.5 }}>{inc.trabajador} · {inc.cargo} · {inc.area}</Typography>}
+                      {inc.descripcion && <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{inc.descripcion}</Typography>}
                     </Box>
                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.75 }}>
                       <Chip label={est.label} size="small" sx={{ bgcolor: alpha(est.color, 0.15), color: est.color, fontWeight: 700, fontSize: 10 }} />
                       {grav && <Chip label={grav.label} size="small" sx={{ bgcolor: alpha(grav.color, 0.12), color: grav.color, fontSize: 10 }} />}
-                      <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{inc.fecha_evento}</Typography>
+                      <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>{inc.fecha_evento}</Typography>
                       {inc.dias_incapacidad > 0 && <Chip label={`${inc.dias_incapacidad}d incap.`} size="small" sx={{ bgcolor: alpha('#ef4444', 0.1), color: '#ef4444', fontSize: 10 }} />}
                     </Box>
                   </Box>
@@ -161,18 +158,18 @@ export default function SSTIncidentes() {
         </Box>
 
         {/* Dialog */}
-        <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#0A1628', color: '#fff' } }}>
-          <DialogTitle sx={{ borderBottom: '1px solid rgba(255,255,255,0.08)', fontWeight: 700 }}>Reportar Evento de Seguridad</DialogTitle>
+        <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#0A1628', color: 'text.primary' } }}>
+          <DialogTitle sx={{ borderBottom: '1px solid #F1F5F9', fontWeight: 700 }}>Reportar Evento de Seguridad</DialogTitle>
           <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Box sx={{ display: 'flex', gap: 2 }}>
               <FormControl fullWidth size="small">
-                <InputLabel sx={{ color: 'rgba(255,255,255,0.5)' }}>Tipo *</InputLabel>
+                <InputLabel sx={{ color: 'text.secondary' }}>Tipo *</InputLabel>
                 <Select value={tipo} label="Tipo *" onChange={e => setTipo(e.target.value as TipoInc)} sx={SX_SEL}>
                   {TIPOS.map(t => <MenuItem key={t} value={t}>{TIPO_LABEL[t]}</MenuItem>)}
                 </Select>
               </FormControl>
               <FormControl fullWidth size="small">
-                <InputLabel sx={{ color: 'rgba(255,255,255,0.5)' }}>Gravedad</InputLabel>
+                <InputLabel sx={{ color: 'text.secondary' }}>Gravedad</InputLabel>
                 <Select value={gravedad} label="Gravedad" onChange={e => setGravedad(e.target.value as Gravedad)} sx={SX_SEL}>
                   {GRAVEDADES.map(g => <MenuItem key={g} value={g}>{GRAVEDAD_META[g].label}</MenuItem>)}
                 </Select>
@@ -183,8 +180,8 @@ export default function SSTIncidentes() {
             <TextField label="Área" value={area} onChange={e => setArea(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
             <TextField label="Descripción del evento" value={desc} onChange={e => setDesc(e.target.value)} fullWidth multiline rows={3} size="small" sx={SX_INPUT} />
           </DialogContent>
-          <DialogActions sx={{ p: 2, gap: 1, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-            <Button onClick={() => setOpen(false)} sx={{ color: 'rgba(255,255,255,0.5)' }}>Cancelar</Button>
+          <DialogActions sx={{ p: 2, gap: 1, borderTop: '1px solid #F1F5F9' }}>
+            <Button onClick={() => setOpen(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>
             <Button variant="contained" onClick={handleCrear} disabled={!fecha} sx={{ bgcolor: SST_COLOR }}>Reportar</Button>
           </DialogActions>
         </Dialog>

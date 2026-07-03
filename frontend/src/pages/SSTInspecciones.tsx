@@ -4,15 +4,12 @@ import { Checklist, Add, CheckCircle, Schedule, PlayArrow, Cancel } from '@mui/i
 import { Layout } from '@/components/layout/Layout'
 
 const SST_COLOR = '#C53030'
-const PAGE_BG   = '#060C1A'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(197,48,48,0.2)'
 
 const SX_INPUT = {
-  '& .MuiOutlinedInput-root': { color: '#fff', bgcolor: 'rgba(255,255,255,0.04)', '& fieldset': { borderColor: 'rgba(255,255,255,0.12)' } },
-  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.5)' },
+  '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: '#F9FAFB', '& fieldset': { borderColor: '#E5E7EB' } },
+  '& .MuiInputLabel-root': { color: 'text.secondary' },
 }
-const SX_SEL = { color: '#fff', bgcolor: 'rgba(255,255,255,0.04)', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' } }
+const SX_SEL = { color: 'text.primary', bgcolor: '#F9FAFB', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#E5E7EB' } }
 
 type EstadoInsp = 'PROGRAMADA' | 'EN_CURSO' | 'COMPLETADA' | 'CANCELADA'
 
@@ -80,14 +77,14 @@ export default function SSTInspecciones() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Checklist sx={{ color: SST_COLOR, fontSize: 28 }} />
             <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#FFF', lineHeight: 1 }}>Inspecciones SST</Typography>
-              <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>Inspecciones planeadas, no planeadas y seguimiento de hallazgos</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Inspecciones SST</Typography>
+              <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>Inspecciones planeadas, no planeadas y seguimiento de hallazgos</Typography>
             </Box>
             <Chip label="SG-SST" size="small" sx={{ bgcolor: alpha(SST_COLOR, 0.15), color: '#F87171', fontWeight: 700, border: `1px solid ${alpha(SST_COLOR, 0.35)}` }} />
           </Box>
           <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
             <ToggleButtonGroup value={vista} exclusive onChange={(_, v) => v && setVista(v)} size="small"
-              sx={{ '& .MuiToggleButton-root': { color: 'rgba(255,255,255,0.4)', borderColor: 'rgba(255,255,255,0.1)', '&.Mui-selected': { bgcolor: alpha(SST_COLOR, 0.2), color: '#F87171' } } }}>
+              sx={{ '& .MuiToggleButton-root': { color: 'text.secondary', borderColor: '#E5E7EB', '&.Mui-selected': { bgcolor: alpha(SST_COLOR, 0.2), color: '#F87171' } } }}>
               <ToggleButton value="TODAS">Todas</ToggleButton>
               <ToggleButton value="PLANEADA">Planeadas</ToggleButton>
             </ToggleButtonGroup>
@@ -99,9 +96,9 @@ export default function SSTInspecciones() {
         <Grid container spacing={2} sx={{ mb: 3 }}>
           {kpis.map(k => (
             <Grid key={k.label} size={{ xs: 12, sm: 6, md: 3 }}>
-              <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2 }}>
+              <Card sx={{ border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important' }}>
-                  <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>{k.label}</Typography>
+                  <Typography sx={{ fontSize: 11, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>{k.label}</Typography>
                   <Typography sx={{ fontSize: 26, fontWeight: 800, color: k.color, lineHeight: 1 }}>{k.value}</Typography>
                 </CardContent>
               </Card>
@@ -123,7 +120,7 @@ export default function SSTInspecciones() {
           {visibles.map(i => {
             const meta = ESTADO_META[i.estado]
             return (
-              <Card key={i.id} sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2 }}>
+              <Card key={i.id} sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important' }}>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
                     <Box sx={{ flex: 1, minWidth: 200 }}>
@@ -131,16 +128,16 @@ export default function SSTInspecciones() {
                         <Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: '#F87171' }}>{i.numero}</Typography>
                         <Chip label={i.tipo === 'PLANEADA' ? 'Planeada' : 'No Planeada'} size="small" sx={{ bgcolor: i.tipo === 'PLANEADA' ? alpha('#3b82f6', 0.12) : alpha('#f59e0b', 0.12), color: i.tipo === 'PLANEADA' ? '#60a5fa' : '#fbbf24', fontSize: 10 }} />
                       </Box>
-                      <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#fff', mb: 0.25 }}>{i.area}</Typography>
-                      <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', mb: 1 }}>{i.descripcion}</Typography>
+                      <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 0.25 }}>{i.area}</Typography>
+                      <Typography sx={{ fontSize: 12, color: 'text.secondary', mb: 1 }}>{i.descripcion}</Typography>
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        <Chip label={`Inspector: ${i.inspector}`} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.4)', fontSize: 10 }} />
+                        <Chip label={`Inspector: ${i.inspector}`} size="small" sx={{ bgcolor: '#F9FAFB', color: 'text.secondary', fontSize: 10 }} />
                         <Chip label={`${i.hallazgos_count} hallazgos`} size="small" sx={{ bgcolor: i.hallazgos_count > 0 ? alpha('#f59e0b', 0.12) : 'rgba(255,255,255,0.04)', color: i.hallazgos_count > 0 ? '#fbbf24' : 'rgba(255,255,255,0.4)', fontSize: 10 }} />
                       </Box>
                     </Box>
                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.75 }}>
                       <Chip label={meta.label} size="small" icon={meta.icon as any} sx={{ bgcolor: alpha(meta.color, 0.15), color: meta.color, fontWeight: 700, fontSize: 10, '& .MuiChip-icon': { color: meta.color } }} />
-                      <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{i.fecha_programada}</Typography>
+                      <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>{i.fecha_programada}</Typography>
                       {i.puntuacion !== undefined && <Chip label={`Score: ${i.puntuacion}%`} size="small" sx={{ bgcolor: alpha(i.puntuacion >= 80 ? '#22c55e' : '#f59e0b', 0.12), color: i.puntuacion >= 80 ? '#22c55e' : '#f59e0b', fontSize: 10, fontWeight: 700 }} />}
                     </Box>
                   </Box>
@@ -151,12 +148,12 @@ export default function SSTInspecciones() {
         </Box>
 
         {/* Dialog */}
-        <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#0A1628', color: '#fff' } }}>
-          <DialogTitle sx={{ borderBottom: '1px solid rgba(255,255,255,0.08)', fontWeight: 700 }}>Programar Nueva Inspección</DialogTitle>
+        <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#0A1628', color: 'text.primary' } }}>
+          <DialogTitle sx={{ borderBottom: '1px solid #F1F5F9', fontWeight: 700 }}>Programar Nueva Inspección</DialogTitle>
           <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Box sx={{ display: 'flex', gap: 2 }}>
               <FormControl fullWidth size="small">
-                <InputLabel sx={{ color: 'rgba(255,255,255,0.5)' }}>Tipo</InputLabel>
+                <InputLabel sx={{ color: 'text.secondary' }}>Tipo</InputLabel>
                 <Select value={tipo} label="Tipo" onChange={e => setTipo(e.target.value as 'PLANEADA' | 'NO_PLANEADA')} sx={SX_SEL}>
                   <MenuItem value="PLANEADA">Planeada</MenuItem>
                   <MenuItem value="NO_PLANEADA">No planeada</MenuItem>
@@ -168,8 +165,8 @@ export default function SSTInspecciones() {
             <TextField label="Inspector responsable" value={insp} onChange={e => setInsp(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
             <TextField label="Descripción / objetivo" value={desc} onChange={e => setDesc(e.target.value)} fullWidth multiline rows={2} size="small" sx={SX_INPUT} />
           </DialogContent>
-          <DialogActions sx={{ p: 2, gap: 1, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-            <Button onClick={() => setOpen(false)} sx={{ color: 'rgba(255,255,255,0.5)' }}>Cancelar</Button>
+          <DialogActions sx={{ p: 2, gap: 1, borderTop: '1px solid #F1F5F9' }}>
+            <Button onClick={() => setOpen(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>
             <Button variant="contained" onClick={handleCrear} disabled={!fecha || !area} sx={{ bgcolor: SST_COLOR }}>Programar</Button>
           </DialogActions>
         </Dialog>

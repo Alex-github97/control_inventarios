@@ -4,15 +4,12 @@ import { GppBad, Add, Warning, CheckCircle, Info } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 const SST_COLOR = '#C53030'
-const PAGE_BG   = '#060C1A'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(197,48,48,0.2)'
 
 const SX_INPUT = {
-  '& .MuiOutlinedInput-root': { color: '#fff', bgcolor: 'rgba(255,255,255,0.04)', '& fieldset': { borderColor: 'rgba(255,255,255,0.12)' } },
-  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.5)' },
+  '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: '#F9FAFB', '& fieldset': { borderColor: '#E5E7EB' } },
+  '& .MuiInputLabel-root': { color: 'text.secondary' },
 }
-const SX_SEL = { color: '#fff', bgcolor: 'rgba(255,255,255,0.04)', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' } }
+const SX_SEL = { color: 'text.primary', bgcolor: '#F9FAFB', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#E5E7EB' } }
 
 type NivelR = 'ACEPTABLE' | 'BAJO' | 'MEDIO' | 'ALTO' | 'INACEPTABLE'
 type ClaseP = 'FISICO' | 'QUIMICO' | 'BIOLOGICO' | 'BIOMECANICO' | 'PSICOSOCIAL' | 'SEGURIDAD' | 'FENOMENOS_NATURALES' | 'PUBLICO'
@@ -95,8 +92,8 @@ export default function SSTRiesgos() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <GppBad sx={{ color: SST_COLOR, fontSize: 28 }} />
             <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#FFF', lineHeight: 1 }}>Matriz IPER</Typography>
-              <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>Identificación de Peligros y Evaluación de Riesgos · Decreto 1072/2015</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Matriz IPER</Typography>
+              <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>Identificación de Peligros y Evaluación de Riesgos · Decreto 1072/2015</Typography>
             </Box>
             <Chip label="SG-SST" size="small" sx={{ bgcolor: alpha(SST_COLOR, 0.15), color: '#F87171', fontWeight: 700, border: `1px solid ${alpha(SST_COLOR, 0.35)}` }} />
           </Box>
@@ -110,9 +107,9 @@ export default function SSTRiesgos() {
             return (
               <Grid key={n} size={{ xs: 12, sm: 6, md: 'auto' }} sx={{ flex: 1 }}>
                 <Card onClick={() => setFiltroN(prev => prev === n ? '' : n)}
-                  sx={{ bgcolor: CARD_BG, border: `2px solid ${filtroN === n ? meta.color : alpha(meta.color, 0.2)}`, borderRadius: 2, cursor: 'pointer', transition: 'border-color 0.15s' }}>
+                  sx={{ border: `2px solid ${filtroN === n ? meta.color : alpha(meta.color, 0.2)}`, borderRadius: 2, cursor: 'pointer', transition: 'border-color 0.15s' }}>
                   <CardContent sx={{ p: '12px !important' }}>
-                    <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: 0.8 }}>{meta.label}</Typography>
+                    <Typography sx={{ fontSize: 11, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8 }}>{meta.label}</Typography>
                     <Typography sx={{ fontSize: 30, fontWeight: 900, color: meta.color, lineHeight: 1.2 }}>{conteo[n]}</Typography>
                   </CardContent>
                 </Card>
@@ -126,26 +123,26 @@ export default function SSTRiesgos() {
           {visibles.map(r => {
             const nmeta = NIVEL_META[r.nivel_riesgo]
             return (
-              <Card key={r.id} sx={{ bgcolor: CARD_BG, border: `1px solid ${alpha(nmeta.color, 0.25)}`, borderRadius: 2 }}>
+              <Card key={r.id} sx={{ border: `1px solid ${alpha(nmeta.color, 0.25)}`, borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important' }}>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
                     <Box sx={{ flex: 1, minWidth: 220 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                         <Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: '#F87171' }}>{r.codigo}</Typography>
-                        <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>·</Typography>
-                        <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{r.proceso} / {r.area}</Typography>
+                        <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>·</Typography>
+                        <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{r.proceso} / {r.area}</Typography>
                       </Box>
-                      <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#fff', mb: 0.25 }}>{r.actividad}</Typography>
-                      <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', mb: 1 }}>{r.descripcion_peligro} → {r.efecto_posible}</Typography>
+                      <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 0.25 }}>{r.actividad}</Typography>
+                      <Typography sx={{ fontSize: 12, color: 'text.secondary', mb: 1 }}>{r.descripcion_peligro} → {r.efecto_posible}</Typography>
                       <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                         <Chip label={CLASE_LABEL[r.clase_peligro]} size="small" sx={{ bgcolor: alpha(SST_COLOR, 0.12), color: '#F87171', fontSize: 10 }} />
-                        <Chip label={`P:${r.probabilidad} × I:${r.impacto}`} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)', fontSize: 10 }} />
-                        {r.controles_existentes && <Chip label={r.controles_existentes} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.35)', fontSize: 10 }} />}
+                        <Chip label={`P:${r.probabilidad} × I:${r.impacto}`} size="small" sx={{ bgcolor: '#F1F5F9', color: 'text.secondary', fontSize: 10 }} />
+                        {r.controles_existentes && <Chip label={r.controles_existentes} size="small" sx={{ bgcolor: '#F9FAFB', color: 'text.disabled', fontSize: 10 }} />}
                       </Box>
                     </Box>
                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.5 }}>
                       <Chip label={nmeta.label} size="small" sx={{ bgcolor: alpha(nmeta.color, 0.18), color: nmeta.color, fontWeight: 800, fontSize: 11 }} />
-                      <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>Resp.: {r.responsable}</Typography>
+                      <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>Resp.: {r.responsable}</Typography>
                     </Box>
                   </Box>
                 </CardContent>
@@ -155,8 +152,8 @@ export default function SSTRiesgos() {
         </Box>
 
         {/* Dialog */}
-        <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth PaperProps={{ sx: { bgcolor: '#0A1628', color: '#fff' } }}>
-          <DialogTitle sx={{ borderBottom: '1px solid rgba(255,255,255,0.08)', fontWeight: 700 }}>Registrar Peligro en Matriz IPER</DialogTitle>
+        <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth PaperProps={{ sx: { bgcolor: '#0A1628', color: 'text.primary' } }}>
+          <DialogTitle sx={{ borderBottom: '1px solid #F1F5F9', fontWeight: 700 }}>Registrar Peligro en Matriz IPER</DialogTitle>
           <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Box sx={{ display: 'flex', gap: 2 }}>
               <TextField label="Proceso" value={proceso} onChange={e => setProceso(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
@@ -165,13 +162,13 @@ export default function SSTRiesgos() {
             <TextField label="Actividad / Tarea *" value={actividad} onChange={e => setAct(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
             <Box sx={{ display: 'flex', gap: 2 }}>
               <FormControl fullWidth size="small">
-                <InputLabel sx={{ color: 'rgba(255,255,255,0.5)' }}>Clase de peligro</InputLabel>
+                <InputLabel sx={{ color: 'text.secondary' }}>Clase de peligro</InputLabel>
                 <Select value={clase} label="Clase de peligro" onChange={e => setClase(e.target.value as ClaseP)} sx={SX_SEL}>
                   {CLASES.map(c => <MenuItem key={c} value={c}>{CLASE_LABEL[c]}</MenuItem>)}
                 </Select>
               </FormControl>
               <FormControl fullWidth size="small">
-                <InputLabel sx={{ color: 'rgba(255,255,255,0.5)' }}>Nivel de riesgo</InputLabel>
+                <InputLabel sx={{ color: 'text.secondary' }}>Nivel de riesgo</InputLabel>
                 <Select value={nivel} label="Nivel de riesgo" onChange={e => setNivel(e.target.value as NivelR)} sx={SX_SEL}>
                   {NIVELES.map(n => <MenuItem key={n} value={n}>{NIVEL_META[n].label}</MenuItem>)}
                 </Select>
@@ -186,8 +183,8 @@ export default function SSTRiesgos() {
             </Box>
             <TextField label="Controles existentes" value={controles} onChange={e => setControles(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
           </DialogContent>
-          <DialogActions sx={{ p: 2, gap: 1, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-            <Button onClick={() => setOpen(false)} sx={{ color: 'rgba(255,255,255,0.5)' }}>Cancelar</Button>
+          <DialogActions sx={{ p: 2, gap: 1, borderTop: '1px solid #F1F5F9' }}>
+            <Button onClick={() => setOpen(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>
             <Button variant="contained" onClick={handleGuardar} disabled={!actividad.trim()} sx={{ bgcolor: SST_COLOR }}>Registrar</Button>
           </DialogActions>
         </Dialog>

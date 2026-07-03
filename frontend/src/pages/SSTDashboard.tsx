@@ -6,13 +6,11 @@ import { Layout } from '@/components/layout/Layout'
 import { apiClient } from '@/api/client'
 
 const SST_COLOR = '#C53030'
-const PAGE_BG   = '#060C1A'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(197,48,48,0.2)'
+const #E5E7EB  = 'rgba(197,48,48,0.2)'
 
 const TT = {
-  contentStyle: { background: '#0A1628', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff', fontSize: 11 },
-  labelStyle: { color: 'rgba(255,255,255,0.6)' },
+  contentStyle: { background: '#fff', border: '1px solid #E5E7EB', borderRadius: 8, color: '#111827', fontSize: 11 },
+  labelStyle: { color: '#6B7280' },
 }
 
 const ACCIDENTALIDAD = [
@@ -65,14 +63,14 @@ export default function SSTDashboard() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, background: PAGE_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, minHeight: '100vh' }}>
 
         {/* Header */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
           <HealthAndSafety sx={{ color: SST_COLOR, fontSize: 28 }} />
           <Box>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: '#FFF', lineHeight: 1 }}>Sistema de Gestión SST</Typography>
-            <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>SG-SST — Seguridad y Salud en el Trabajo · Normatividad colombiana</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Sistema de Gestión SST</Typography>
+            <Typography sx={{ fontSize: 12, color: 'text.disabled' }}>SG-SST — Seguridad y Salud en el Trabajo · Normatividad colombiana</Typography>
           </Box>
           <Chip label="SG-SST" size="small" sx={{ bgcolor: alpha(SST_COLOR, 0.15), color: '#F87171', fontWeight: 700, border: `1px solid ${alpha(SST_COLOR, 0.35)}` }} />
         </Box>
@@ -81,11 +79,11 @@ export default function SSTDashboard() {
         <Grid container spacing={2} sx={{ mb: 3 }}>
           {kpis.map(k => (
             <Grid key={k.label} size={{ xs: 12, sm: 6, md: 3 }}>
-              <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2 }}>
+              <Card sx={{ border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2 }}>
                 <CardContent sx={{ p: '16px !important' }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <Box>
-                      <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>{k.label}</Typography>
+                      <Typography sx={{ fontSize: 11, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>{k.label}</Typography>
                       <Typography sx={{ fontSize: 28, fontWeight: 900, color: k.color, lineHeight: 1 }}>{k.value}{k.suffix}</Typography>
                     </Box>
                     <Box sx={{ color: alpha(k.color, 0.4), '& svg': { fontSize: 28 } }}>{k.icon}</Box>
@@ -99,14 +97,14 @@ export default function SSTDashboard() {
         <Grid container spacing={2} sx={{ mb: 2 }}>
           {/* Accidentalidad mensual */}
           <Grid size={{ xs: 12, md: 7 }}>
-            <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2 }}>
+            <Card sx={{ border: `1px solid #E5E7EB`, borderRadius: 2 }}>
               <CardContent>
-                <Typography sx={{ fontWeight: 700, color: '#FFF', fontSize: 13, mb: 2 }}>Accidentalidad Mensual 2026</Typography>
+                <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 13, mb: 2 }}>Accidentalidad Mensual 2026</Typography>
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={ACCIDENTALIDAD} barGap={4}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                    <XAxis dataKey="mes" tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                    <XAxis dataKey="mes" tick={{ fill: '#6B7280', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: '#6B7280', fontSize: 11 }} axisLine={false} tickLine={false} />
                     <Tooltip {...TT} />
                     <Bar dataKey="at"        name="Accidentes AT"   fill={SST_COLOR}                 radius={[3, 3, 0, 0]} />
                     <Bar dataKey="incidentes" name="Incidentes"     fill={alpha(SST_COLOR, 0.4)}     radius={[3, 3, 0, 0]} />
@@ -118,9 +116,9 @@ export default function SSTDashboard() {
 
           {/* Riesgos por nivel */}
           <Grid size={{ xs: 12, md: 5 }}>
-            <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2 }}>
+            <Card sx={{ border: `1px solid #E5E7EB`, borderRadius: 2 }}>
               <CardContent>
-                <Typography sx={{ fontWeight: 700, color: '#FFF', fontSize: 13, mb: 2 }}>Distribución de Riesgos IPER</Typography>
+                <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 13, mb: 2 }}>Distribución de Riesgos IPER</Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                   <ResponsiveContainer width={120} height={120}>
                     <PieChart>
@@ -133,8 +131,8 @@ export default function SSTDashboard() {
                     {RIESGOS_PIE.map(c => (
                       <Box key={c.name} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: c.color, flexShrink: 0 }} />
-                        <Typography sx={{ fontSize: 11, color: '#fff', flex: 1 }}>{c.name}</Typography>
-                        <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', fontWeight: 700 }}>{c.value}</Typography>
+                        <Typography sx={{ fontSize: 11, color: 'text.primary', flex: 1 }}>{c.name}</Typography>
+                        <Typography sx={{ fontSize: 11, color: 'text.secondary', fontWeight: 700 }}>{c.value}</Typography>
                       </Box>
                     ))}
                   </Box>
@@ -145,17 +143,17 @@ export default function SSTDashboard() {
         </Grid>
 
         {/* Próximas inspecciones */}
-        <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2 }}>
+        <Card sx={{ border: `1px solid #E5E7EB`, borderRadius: 2 }}>
           <CardContent>
-            <Typography sx={{ fontWeight: 700, color: '#FFF', fontSize: 13, mb: 1.5 }}>Próximas Inspecciones</Typography>
+            <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 13, mb: 1.5 }}>Próximas Inspecciones</Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
               {PROXIMAS_INSP.map(i => (
-                <Box key={i.numero} sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 1.25, bgcolor: 'rgba(255,255,255,0.03)', borderRadius: 1.5, flexWrap: 'wrap' }}>
+                <Box key={i.numero} sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 1.25, bgcolor: '#F9FAFB', borderRadius: 1.5, flexWrap: 'wrap' }}>
                   <Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: '#F87171', minWidth: 160 }}>{i.numero}</Typography>
-                  <Typography sx={{ fontSize: 12, color: '#fff', flex: 1, minWidth: 120 }}>{i.area}</Typography>
+                  <Typography sx={{ fontSize: 12, color: 'text.primary', flex: 1, minWidth: 120 }}>{i.area}</Typography>
                   <Chip label={i.tipo === 'PLANEADA' ? 'Planeada' : 'No Planeada'} size="small" sx={{ bgcolor: i.tipo === 'PLANEADA' ? alpha('#3b82f6', 0.15) : alpha('#f59e0b', 0.15), color: i.tipo === 'PLANEADA' ? '#60a5fa' : '#fbbf24', fontSize: 10 }} />
-                  <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', minWidth: 90 }}>{i.fecha}</Typography>
-                  <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', minWidth: 100 }}>Resp.: {i.inspector}</Typography>
+                  <Typography sx={{ fontSize: 11, color: 'text.secondary', minWidth: 90 }}>{i.fecha}</Typography>
+                  <Typography sx={{ fontSize: 11, color: 'text.disabled', minWidth: 100 }}>Resp.: {i.inspector}</Typography>
                 </Box>
               ))}
             </Box>

@@ -4,15 +4,13 @@ import { School, Add, CheckCircle, Schedule, PlayArrow, People } from '@mui/icon
 import { Layout } from '@/components/layout/Layout'
 
 const SST_COLOR = '#C53030'
-const PAGE_BG   = '#060C1A'
-const CARD_BG   = '#0F1E35'
-const CARD_BOR  = 'rgba(197,48,48,0.2)'
+const #E5E7EB  = 'rgba(197,48,48,0.2)'
 
 const SX_INPUT = {
-  '& .MuiOutlinedInput-root': { color: '#fff', bgcolor: 'rgba(255,255,255,0.04)', '& fieldset': { borderColor: 'rgba(255,255,255,0.12)' } },
-  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.5)' },
+  '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#E5E7EB' } },
+  '& .MuiInputLabel-root': { color: 'text.secondary' },
 }
-const SX_SEL = { color: '#fff', bgcolor: 'rgba(255,255,255,0.04)', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' } }
+const SX_SEL = { '& .MuiOutlinedInput-notchedOutline': { borderColor: '#E5E7EB' } }
 
 type EstadoCap = 'PROGRAMADA' | 'EN_CURSO' | 'COMPLETADA' | 'CANCELADA'
 
@@ -84,15 +82,15 @@ export default function SSTCapacitacion() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, background: PAGE_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3, minHeight: '100vh' }}>
 
         {/* Header */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <School sx={{ color: SST_COLOR, fontSize: 28 }} />
             <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#FFF', lineHeight: 1 }}>Plan de Capacitación SST</Typography>
-              <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>Programa anual de formación, evaluaciones y certificaciones</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Plan de Capacitación SST</Typography>
+              <Typography sx={{ fontSize: 12, color: 'text.disabled' }}>Programa anual de formación, evaluaciones y certificaciones</Typography>
             </Box>
             <Chip label="SG-SST" size="small" sx={{ bgcolor: alpha(SST_COLOR, 0.15), color: '#F87171', fontWeight: 700, border: `1px solid ${alpha(SST_COLOR, 0.35)}` }} />
           </Box>
@@ -103,9 +101,9 @@ export default function SSTCapacitacion() {
         <Grid container spacing={2} sx={{ mb: 3 }}>
           {kpis.map(k => (
             <Grid key={k.label} size={{ xs: 12, sm: 6, md: 3 }}>
-              <Card sx={{ bgcolor: CARD_BG, border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2 }}>
+              <Card sx={{ border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important' }}>
-                  <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>{k.label}</Typography>
+                  <Typography sx={{ fontSize: 11, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>{k.label}</Typography>
                   <Typography sx={{ fontSize: 26, fontWeight: 800, color: k.color, lineHeight: 1 }}>{k.value}{(k as any).suffix}</Typography>
                 </CardContent>
               </Card>
@@ -118,7 +116,7 @@ export default function SSTCapacitacion() {
           {(['', 'PROGRAMADA', 'EN_CURSO', 'COMPLETADA', 'CANCELADA'] as const).map(e => (
             <Chip key={e} label={e === '' ? 'Todos' : ESTADO_META[e as EstadoCap]?.label}
               onClick={() => setFiltro(e as EstadoCap | '')}
-              sx={{ bgcolor: filtro === e ? alpha(SST_COLOR, 0.2) : 'rgba(255,255,255,0.05)', color: filtro === e ? '#F87171' : 'rgba(255,255,255,0.5)', border: `1px solid ${filtro === e ? alpha(SST_COLOR, 0.4) : 'transparent'}`, cursor: 'pointer', fontSize: 11 }} />
+              sx={{ bgcolor: filtro === e ? alpha(SST_COLOR, 0.2) : '#F9FAFB', color: filtro === e ? '#F87171' : 'text.secondary', border: `1px solid ${filtro === e ? alpha(SST_COLOR, 0.4) : 'transparent'}`, cursor: 'pointer', fontSize: 11 }} />
           ))}
         </Box>
 
@@ -128,25 +126,25 @@ export default function SSTCapacitacion() {
             const meta = ESTADO_META[c.estado]
             const pct = c.max_participantes > 0 ? Math.round(c.participantes / c.max_participantes * 100) : 0
             return (
-              <Card key={c.id} sx={{ bgcolor: CARD_BG, border: `1px solid ${CARD_BOR}`, borderRadius: 2 }}>
+              <Card key={c.id} sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important' }}>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
                     <Box sx={{ flex: 1, minWidth: 200 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                         <Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: '#F87171' }}>{c.codigo}</Typography>
                         <Chip label={c.tipo} size="small" sx={{ bgcolor: alpha(SST_COLOR, 0.1), color: '#F87171', fontSize: 9 }} />
-                        <Chip label={c.modalidad} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.45)', fontSize: 9 }} />
+                        <Chip label={c.modalidad} size="small" sx={{ bgcolor: '#F1F5F9', color: 'text.disabled', fontSize: 9 }} />
                       </Box>
-                      <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#fff', mb: 0.25 }}>{c.titulo}</Typography>
-                      <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', mb: 1 }}>Instructor: {c.instructor} · Área: {c.area_dirigida}</Typography>
+                      <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 0.25 }}>{c.titulo}</Typography>
+                      <Typography sx={{ fontSize: 12, color: 'text.disabled', mb: 1 }}>Instructor: {c.instructor} · Área: {c.area_dirigida}</Typography>
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        <Chip icon={<People sx={{ fontSize: 12 }} />} label={`${c.participantes}/${c.max_participantes}`} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)', fontSize: 10 }} />
-                        <Chip label={`${c.duracion_horas}h`} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.4)', fontSize: 10 }} />
+                        <Chip icon={<People sx={{ fontSize: 12 }} />} label={`${c.participantes}/${c.max_participantes}`} size="small" sx={{ bgcolor: '#F9FAFB', color: 'text.secondary', fontSize: 10 }} />
+                        <Chip label={`${c.duracion_horas}h`} size="small" sx={{ bgcolor: '#F9FAFB', color: 'text.secondary', fontSize: 10 }} />
                       </Box>
                     </Box>
                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.75 }}>
                       <Chip label={meta.label} size="small" sx={{ bgcolor: alpha(meta.color, 0.15), color: meta.color, fontWeight: 700, fontSize: 10 }} />
-                      <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{c.fecha_inicio}</Typography>
+                      <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>{c.fecha_inicio}</Typography>
                       {c.evaluacion_prom !== undefined && <Chip label={`Eval: ${c.evaluacion_prom}%`} size="small" sx={{ bgcolor: alpha('#22c55e', 0.12), color: '#22c55e', fontSize: 10, fontWeight: 700 }} />}
                     </Box>
                   </Box>
@@ -157,19 +155,19 @@ export default function SSTCapacitacion() {
         </Box>
 
         {/* Dialog */}
-        <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#0A1628', color: '#fff' } }}>
-          <DialogTitle sx={{ borderBottom: '1px solid rgba(255,255,255,0.08)', fontWeight: 700 }}>Programar Capacitación SST</DialogTitle>
+        <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle sx={{ borderBottom: '1px solid #F1F5F9', fontWeight: 700 }}>Programar Capacitación SST</DialogTitle>
           <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField label="Título de la capacitación *" value={titulo} onChange={e => setTitulo(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
             <Box sx={{ display: 'flex', gap: 2 }}>
               <FormControl fullWidth size="small">
-                <InputLabel sx={{ color: 'rgba(255,255,255,0.5)' }}>Tipo</InputLabel>
+                <InputLabel>Tipo</InputLabel>
                 <Select value={tipo} label="Tipo" onChange={e => setTipo(e.target.value)} sx={SX_SEL}>
                   {TIPOS_CAP.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
                 </Select>
               </FormControl>
               <FormControl fullWidth size="small">
-                <InputLabel sx={{ color: 'rgba(255,255,255,0.5)' }}>Modalidad</InputLabel>
+                <InputLabel>Modalidad</InputLabel>
                 <Select value={modal} label="Modalidad" onChange={e => setModal(e.target.value)} sx={SX_SEL}>
                   {MODALIDADES.map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
                 </Select>
@@ -186,8 +184,8 @@ export default function SSTCapacitacion() {
               <TextField label="Área / Grupo" value={area} onChange={e => setArea(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
             </Box>
           </DialogContent>
-          <DialogActions sx={{ p: 2, gap: 1, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-            <Button onClick={() => setOpen(false)} sx={{ color: 'rgba(255,255,255,0.5)' }}>Cancelar</Button>
+          <DialogActions sx={{ p: 2, gap: 1, borderTop: '1px solid #F1F5F9' }}>
+            <Button onClick={() => setOpen(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>
             <Button variant="contained" onClick={handleCrear} disabled={!titulo || !fIni} sx={{ bgcolor: SST_COLOR }}>Programar</Button>
           </DialogActions>
         </Dialog>
