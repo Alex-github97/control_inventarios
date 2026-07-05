@@ -108,7 +108,7 @@ export default function CRMIA() {
                       <Typography sx={{ fontSize: 10, color: 'text.disabled' }}>potencial</Typography>
                     </Box>
                   </Box>
-                  <Box sx={{ height: 4, borderRadius: 2, bgcolor: 'text.disabled', overflow: 'hidden' }}>
+                  <Box sx={{ height: 4, borderRadius: 2, bgcolor: '#E5E7EB', overflow: 'hidden' }}>
                     <Box sx={{ height: '100%', width: `${r.score}%`, bgcolor: col, borderRadius: 2 }} />
                   </Box>
                 </Box>
@@ -139,7 +139,7 @@ export default function CRMIA() {
                       sx={{ bgcolor: alpha(c.color, 0.15), color: c.color, fontSize: 9.5, fontWeight: 700 }} />
                   </Box>
                 </Box>
-                <Box sx={{ height: 8, borderRadius: 4, bgcolor: 'text.disabled', overflow: 'hidden', mb: 1.5 }}>
+                <Box sx={{ height: 8, borderRadius: 4, bgcolor: '#E5E7EB', overflow: 'hidden', mb: 1.5 }}>
                   <Box sx={{ height: '100%', width: `${c.riesgo * 2}%`, bgcolor: c.color, borderRadius: 4 }} />
                 </Box>
                 <Typography sx={{ fontSize: 11, fontWeight: 600, color: 'text.secondary', mb: 0.75 }}>FACTORES DE RIESGO</Typography>

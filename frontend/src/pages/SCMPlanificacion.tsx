@@ -43,7 +43,7 @@ export default function SCMPlanificacion() {
             <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Planificación de Compras</Typography>
             <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>Planes maestros, forecast de demanda y control presupuestal</Typography>
           </Box>
-          <Chip label="SCM" size="small" sx={{ bgcolor: alpha(SCM_COLOR, 0.15), color: '#5B9BD5', fontWeight: 700, border: `1px solid ${alpha(SCM_COLOR, 0.35)}` }} />
+          <Chip label="SCM" size="small" sx={{ bgcolor: alpha(SCM_COLOR, 0.15), color: SCM_COLOR, fontWeight: 700, border: `1px solid ${alpha(SCM_COLOR, 0.35)}` }} />
         </Box>
 
         {/* KPIs */}
@@ -90,7 +90,7 @@ export default function SCMPlanificacion() {
           </Grid>
 
           <Grid size={{ xs: 12, md: 5 }}>
-            <Card sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2, height: '100%' }}>
+            <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2, height: '100%' }}>
               <CardContent>
                 <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 14, mb: 2 }}>Forecast de Demanda — próximo trimestre</Typography>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>

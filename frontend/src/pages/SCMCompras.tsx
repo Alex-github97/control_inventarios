@@ -13,7 +13,7 @@ import {
 } from '@/api/scm'
 
 const SCM_COLOR = '#0C4D8C'
-const #E5E7EB  = `rgba(12,77,140,0.25)`
+const BORDER = `rgba(12,77,140,0.25)`
 
 const ESTADO_META: Record<EstadoOrden, { label: string; color: string }> = {
   BORRADOR:         { label: 'Borrador',       color: '#64748b' },
@@ -102,7 +102,7 @@ export default function SCMCompras() {
           </Box>
         </Box>
 
-        <Card sx={{ bgcolor: '#fff', border: `1px solid #E5E7EB`, borderRadius: 2 }}>
+        <Card sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: 2 }}>
           <TableContainer>
             <Table size="small">
               <TableHead>

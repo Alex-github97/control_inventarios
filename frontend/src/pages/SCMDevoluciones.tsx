@@ -4,7 +4,7 @@ import { AssignmentReturn, CheckCircle, Pending, Cancel, Add, HourglassEmpty } f
 import { Layout } from '@/components/layout/Layout'
 
 const SCM_COLOR = '#0C4D8C'
-const #E5E7EB  = `rgba(12,77,140,0.25)`
+const BORDER = `rgba(12,77,140,0.25)`
 
 type EstadoD = 'PENDIENTE' | 'EN_PROCESO' | 'APROBADA' | 'RECHAZADA' | 'CERRADA'
 type MotivoD = 'DEFECTO_CALIDAD' | 'CANTIDAD_INCORRECTA' | 'PRODUCTO_EQUIVOCADO' | 'DANOS_TRANSPORTE' | 'VENCIMIENTO' | 'OTRO'
@@ -114,7 +114,7 @@ export default function SCMDevoluciones() {
           {devs.map(d => {
             const meta = ESTADO_META[d.estado]
             return (
-              <Card key={d.id} sx={{ bgcolor: '#fff', border: `1px solid #E5E7EB`, borderRadius: 2 }}>
+              <Card key={d.id} sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important' }}>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
                     <Box sx={{ flex: 1, minWidth: 200 }}>

@@ -10,7 +10,7 @@ import { AccountTree, Add, Edit, Delete, Close, FileDownload, UploadFile, PlayAr
 import { Layout } from '@/components/layout/Layout'
 
 const GRC_COLOR = '#6D28D9'
-const #E5E7EB  = '#E5E7EB'
+const BORDER  = '#E5E7EB'
 const LBL       = alpha(GRC_COLOR, 0.85)
 const ESTADO_COLOR: Record<string,string> = { VIGENTE:'#059669', REVISION:'#D97706', VENCIDO:'#DC2626', BORRADOR:'#6B7280' }
 const TIPO_COLOR: Record<string,string> = { BCP:'#059669', DRP:'#0891B2', ERP:'#EA580C', PCP:GRC_COLOR }

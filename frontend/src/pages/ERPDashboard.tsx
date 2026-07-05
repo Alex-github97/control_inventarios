@@ -872,7 +872,7 @@ export default function ERPDashboard() {
         <Typography
           sx={{
             fontSize: 11,
-            color: '#CBD5E1',
+            color: '#64748B',
             textAlign: 'center',
             pb: 1,
           }}

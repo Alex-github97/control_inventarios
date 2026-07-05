@@ -67,7 +67,7 @@ export default function SSTIndicadores() {
             <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Indicadores SST</Typography>
             <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>Tablero de seguimiento — IF, IS, ILI y cumplimiento del SG-SST · 2026</Typography>
           </Box>
-          <Chip label="SG-SST" size="small" sx={{ bgcolor: alpha(SST_COLOR, 0.15), color: '#F87171', fontWeight: 700, border: `1px solid ${alpha(SST_COLOR, 0.35)}` }} />
+          <Chip label="SG-SST" size="small" sx={{ bgcolor: alpha(SST_COLOR, 0.15), color: SST_COLOR, fontWeight: 700, border: `1px solid ${alpha(SST_COLOR, 0.35)}` }} />
         </Box>
 
         {/* KPIs principales */}
@@ -84,7 +84,7 @@ export default function SSTIndicadores() {
                     )}
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, mb: 0.25 }}>
-                    <Typography sx={{ fontSize: 28, fontWeight: 900, color: k.ok ? '#22c55e' : '#F87171', lineHeight: 1 }}>{k.value}</Typography>
+                    <Typography sx={{ fontSize: 28, fontWeight: 900, color: k.ok ? '#22c55e' : SST_COLOR, lineHeight: 1 }}>{k.value}</Typography>
                     <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{k.unit}</Typography>
                   </Box>
                   <Typography sx={{ fontSize: 10, color: k.ok ? '#22c55e' : '#fbbf24' }}>{k.meta}</Typography>

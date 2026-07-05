@@ -43,7 +43,7 @@ export default function CRMContratos() {
             background: `linear-gradient(135deg, ${CRM_COLOR} 0%, #B91C1C 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Handshake sx={{ color: 'text.primary', fontSize: 22 }} />
+            <Handshake sx={{ color: '#fff', fontSize: 22 }} />
           </Box>
           <Box>
             <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Contratos + SLA</Typography>
@@ -61,7 +61,7 @@ export default function CRMContratos() {
             { label: 'Cumplimiento SLA',   value: '97.2%',               color: '#7C3AED' },
           ].map((k, i) => (
             <Grid key={i} size={{ xs: 6, md: 3 }}>
-              <Box sx={{ bgcolor: 'text.primary', border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2, p: 2 }}>
+              <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2, p: 2 }}>
                 <Typography sx={{ fontSize: 26, fontWeight: 900, color: 'text.primary', lineHeight: 1 }}>{k.value}</Typography>
                 <Typography sx={{ fontSize: 11, color: k.color, fontWeight: 600, mt: 0.25 }}>{k.label}</Typography>
               </Box>
@@ -77,7 +77,7 @@ export default function CRMContratos() {
         </Tabs>
 
         {tab === 0 && (
-          <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, overflow: 'hidden' }}>
+          <Box sx={{ bgcolor: 'background.paper', border: `1px solid #E5E7EB`, borderRadius: 2, overflow: 'hidden' }}>
             <Box sx={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
@@ -122,7 +122,7 @@ export default function CRMContratos() {
         )}
 
         {tab === 1 && (
-          <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
+          <Box sx={{ bgcolor: 'background.paper', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
             <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 0.5 }}>SLAs — Almacenes Éxito S.A. (CON-2026-012)</Typography>
             <Typography sx={{ fontSize: 12, color: 'text.disabled', mb: 2 }}>Medición mensual · Datos al 2026-06-01</Typography>
             {SLAS_EJEMPLO.map((s, i) => {
@@ -150,7 +150,7 @@ export default function CRMContratos() {
         )}
 
         {tab === 2 && (
-          <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
+          <Box sx={{ bgcolor: 'background.paper', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
             <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 2 }}>Calendario de Vencimientos</Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               {CONTRATOS.filter(c => c.estado === 'ACTIVO').sort((a, b) => a.dias_vence - b.dias_vence).map((c, i) => {

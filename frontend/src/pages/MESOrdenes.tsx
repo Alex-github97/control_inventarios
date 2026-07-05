@@ -33,6 +33,8 @@ import { Layout } from '@/components/layout/Layout';
 const MES_COLOR = '#0891B2';
 const MES_DARK = '#0E7490';
 const MES_BORDER = 'rgba(8,145,178,0.25)';
+const BG_PAGE = '#F0F2F5';
+const BG_CARD = '#FFFFFF';
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 type EstadoOrden = 'PLANEADA' | 'LIBERADA' | 'EN EJECUCIÓN' | 'SUSPENDIDA' | 'CERRADA';
@@ -331,7 +333,7 @@ function KanbanCard({ orden }: KanbanCardProps) {
   return (
     <Paper
       sx={{
-        bgcolor: BG_PAGE,
+        bgcolor: BG_CARD,
         border: `1px solid ${MES_BORDER}`,
         borderRadius: 2,
         p: 1.5,
@@ -353,7 +355,7 @@ function KanbanCard({ orden }: KanbanCardProps) {
         />
       </Box>
 
-      <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#E2E8F0', mb: 1, lineHeight: 1.3 }}>
+      <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#1E293B', mb: 1, lineHeight: 1.3 }}>
         {orden.producto}
       </Typography>
 
@@ -369,7 +371,7 @@ function KanbanCard({ orden }: KanbanCardProps) {
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography sx={{ fontSize: 10, color: '#94A3B8' }}>
-          Fin: <span style={{ color: '#CBD5E1' }}>{orden.fechaFin}</span>
+          Fin: <span style={{ color: '#334155' }}>{orden.fechaFin}</span>
         </Typography>
         <Typography sx={{ fontSize: 10, color: '#94A3B8', fontStyle: 'italic' }}>
           {orden.responsable.split(' ')[0]}
@@ -412,11 +414,11 @@ function TabKanban() {
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   mb: 1,
-                  border: `1px solid rgba(255,255,255,0.06)`,
+                  border: `1px solid #E5E7EB`,
                   borderTopColor: col.color,
                 }}
               >
-                <Typography sx={{ fontSize: 11, fontWeight: 800, color: col.textColor, letterSpacing: 1 }}>
+                <Typography sx={{ fontSize: 11, fontWeight: 800, color: col.color, letterSpacing: 1 }}>
                   {col.estado}
                 </Typography>
                 <Box
@@ -472,12 +474,7 @@ function TabTabla() {
     return matchSearch && matchEstado && matchPrioridad;
   });
 
-  const inputSx = {
-    '& .MuiInputBase-root': { color: '#E2E8F0' },
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: MES_BORDER },
-    '& .MuiInputLabel-root': { color: '#94A3B8' },
-    '& .MuiSvgIcon-root': { color: '#94A3B8' },
-  };
+  const inputSx = {};
 
   return (
     <Box>
@@ -562,20 +559,20 @@ function TabTabla() {
                 <TableRow
                   key={o.id}
                   sx={{
-                    bgcolor: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)',
+                    bgcolor: idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.02)',
                     '&:hover': { bgcolor: 'rgba(8,145,178,0.06)' },
                   }}
                 >
-                  <TableCell sx={{ color: MES_COLOR, fontSize: 12, fontWeight: 700, borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
+                  <TableCell sx={{ color: MES_COLOR, fontSize: 12, fontWeight: 700, borderBottom: `1px solid #E5E7EB` }}>
                     {o.numero}
                   </TableCell>
-                  <TableCell sx={{ color: '#CBD5E1', fontSize: 12, borderBottom: `1px solid rgba(255,255,255,0.04)`, maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <TableCell sx={{ color: '#334155', fontSize: 12, borderBottom: `1px solid #E5E7EB`, maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {o.producto}
                   </TableCell>
-                  <TableCell sx={{ color: '#94A3B8', fontSize: 12, borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
+                  <TableCell sx={{ color: '#64748B', fontSize: 12, borderBottom: `1px solid #E5E7EB` }}>
                     {o.linea}
                   </TableCell>
-                  <TableCell sx={{ borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
+                  <TableCell sx={{ borderBottom: `1px solid #E5E7EB` }}>
                     <Chip
                       label={o.estado}
                       size="small"
@@ -589,7 +586,7 @@ function TabTabla() {
                       }}
                     />
                   </TableCell>
-                  <TableCell sx={{ borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
+                  <TableCell sx={{ borderBottom: `1px solid #E5E7EB` }}>
                     <Chip
                       label={o.prioridad}
                       color={getPrioridadColor(o.prioridad)}
@@ -597,13 +594,13 @@ function TabTabla() {
                       sx={{ fontSize: 10, fontWeight: 700, height: 20 }}
                     />
                   </TableCell>
-                  <TableCell sx={{ color: '#CBD5E1', fontSize: 12, textAlign: 'right', borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
+                  <TableCell sx={{ color: '#334155', fontSize: 12, textAlign: 'right', borderBottom: `1px solid #E5E7EB` }}>
                     {o.cantidadPlanificada.toLocaleString()}
                   </TableCell>
-                  <TableCell sx={{ color: '#CBD5E1', fontSize: 12, textAlign: 'right', borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
+                  <TableCell sx={{ color: '#334155', fontSize: 12, textAlign: 'right', borderBottom: `1px solid #E5E7EB` }}>
                     {o.cantidadProducida.toLocaleString()}
                   </TableCell>
-                  <TableCell sx={{ borderBottom: `1px solid rgba(255,255,255,0.04)`, minWidth: 120 }}>
+                  <TableCell sx={{ borderBottom: `1px solid #E5E7EB`, minWidth: 120 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Box sx={{ flex: 1, height: 6, borderRadius: 3, bgcolor: '#F1F5F9', overflow: 'hidden' }}>
                         <Box
@@ -615,16 +612,16 @@ function TabTabla() {
                           }}
                         />
                       </Box>
-                      <Typography sx={{ fontSize: 11, color: '#CBD5E1', minWidth: 30 }}>{avance}%</Typography>
+                      <Typography sx={{ fontSize: 11, color: '#334155', minWidth: 30 }}>{avance}%</Typography>
                     </Box>
                   </TableCell>
-                  <TableCell sx={{ color: '#94A3B8', fontSize: 12, borderBottom: `1px solid rgba(255,255,255,0.04)`, whiteSpace: 'nowrap' }}>
+                  <TableCell sx={{ color: '#64748B', fontSize: 12, borderBottom: `1px solid #E5E7EB`, whiteSpace: 'nowrap' }}>
                     {o.fechaInicio}
                   </TableCell>
-                  <TableCell sx={{ color: '#94A3B8', fontSize: 12, borderBottom: `1px solid rgba(255,255,255,0.04)`, whiteSpace: 'nowrap' }}>
+                  <TableCell sx={{ color: '#64748B', fontSize: 12, borderBottom: `1px solid #E5E7EB`, whiteSpace: 'nowrap' }}>
                     {o.fechaFin}
                   </TableCell>
-                  <TableCell sx={{ color: o.scrap > 10 ? '#F87171' : '#94A3B8', fontSize: 12, textAlign: 'right', borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
+                  <TableCell sx={{ color: o.scrap > 10 ? '#DC2626' : '#64748B', fontSize: 12, textAlign: 'right', borderBottom: `1px solid #E5E7EB` }}>
                     {o.scrap}
                   </TableCell>
                 </TableRow>
@@ -675,22 +672,12 @@ function TabNuevaOrden() {
     setForm(initialForm);
   };
 
-  const fieldSx = {
-    '& .MuiInputBase-root': { color: '#E2E8F0' },
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: MES_BORDER },
-    '& .MuiInputLabel-root': { color: '#94A3B8' },
-    '& .MuiSvgIcon-root': { color: '#94A3B8' },
-    '& .MuiInputBase-input': { color: '#E2E8F0' },
-    '& .MuiSelect-icon': { color: '#94A3B8' },
-  };
+  const fieldSx = {};
 
   const menuProps = {
     PaperProps: {
       sx: {
-        bgcolor: '#1A2844',
-        color: '#E2E8F0',
-        border: `1px solid ${MES_BORDER}`,
-        '& .MuiMenuItem-root:hover': { bgcolor: 'rgba(8,145,178,0.15)' },
+        '& .MuiMenuItem-root:hover': { bgcolor: 'rgba(8,145,178,0.08)' },
       },
     },
   };
@@ -857,7 +844,7 @@ function TabNuevaOrden() {
                 justifyContent: 'center',
               }}
             >
-              <FormLabel sx={{ color: '#94A3B8', fontSize: 12, mb: 0.5 }}>Prioridad</FormLabel>
+              <FormLabel sx={{ color: '#64748B', fontSize: 12, mb: 0.5 }}>Prioridad</FormLabel>
               <RadioGroup
                 row
                 value={form.prioridad}
@@ -866,17 +853,17 @@ function TabNuevaOrden() {
                 <FormControlLabel
                   value="URGENTE"
                   control={<Radio size="small" sx={{ color: '#EF4444', '&.Mui-checked': { color: '#EF4444' } }} />}
-                  label={<Typography sx={{ fontSize: 12, color: '#FCA5A5' }}>Urgente</Typography>}
+                  label={<Typography sx={{ fontSize: 12, color: '#DC2626' }}>Urgente</Typography>}
                 />
                 <FormControlLabel
                   value="ALTA"
                   control={<Radio size="small" sx={{ color: '#F59E0B', '&.Mui-checked': { color: '#F59E0B' } }} />}
-                  label={<Typography sx={{ fontSize: 12, color: '#FDE68A' }}>Alta</Typography>}
+                  label={<Typography sx={{ fontSize: 12, color: '#B45309' }}>Alta</Typography>}
                 />
                 <FormControlLabel
                   value="NORMAL"
                   control={<Radio size="small" sx={{ color: MES_COLOR, '&.Mui-checked': { color: MES_COLOR } }} />}
-                  label={<Typography sx={{ fontSize: 12, color: '#A5F3FC' }}>Normal</Typography>}
+                  label={<Typography sx={{ fontSize: 12, color: MES_DARK }}>Normal</Typography>}
                 />
               </RadioGroup>
             </Box>
@@ -970,7 +957,7 @@ export default function MESOrdenes() {
             />
             <Typography
               variant="h5"
-              sx={{ fontWeight: 800, color: '#F1F5F9', letterSpacing: 0.5 }}
+              sx={{ fontWeight: 800, color: '#1E293B', letterSpacing: 0.5 }}
             >
               Órdenes de Producción
             </Typography>

@@ -33,8 +33,8 @@ function tipoColor(t: string) {
 }
 
 function estadoColor(e: string) {
-  const m: Record<string, string> = { APROBADO: '#10B981', COMPLETADO: '#3B82F6', EN_SIMULACION: '#F59E0B', BORRADOR: 'rgba(255,255,255,0.3)' }
-  return m[e] || 'rgba(255,255,255,0.3)'
+  const m: Record<string, string> = { APROBADO: '#10B981', COMPLETADO: '#3B82F6', EN_SIMULACION: '#F59E0B', BORRADOR: '#64748B' }
+  return m[e] || '#64748B'
 }
 
 function delta(val: number, base: number, kpi: string) {
@@ -72,21 +72,21 @@ export default function APSEscenarios() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, background: '#0F172A', minHeight: '100vh' }}>
+      <Box sx={{ p: 3, background: '#F0F2F5', minHeight: '100vh' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
           <Box sx={{ width: 42, height: 42, borderRadius: '12px', background: `linear-gradient(135deg, ${APS_COLOR} 0%, #6D28D9 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Explore sx={{ color: '#FFF', fontSize: 22 }} />
           </Box>
           <Box>
-            <Typography variant="h5" sx={{ color: '#F8FAFC', fontWeight: 700 }}>Simulador de Escenarios What-If</Typography>
-            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.45)' }}>Simula el impacto de cambios en demanda, capacidad y costos antes de comprometerte con un plan</Typography>
+            <Typography variant="h5" sx={{ color: '#1E293B', fontWeight: 700 }}>Simulador de Escenarios What-If</Typography>
+            <Typography variant="body2" sx={{ color: '#64748B' }}>Simula el impacto de cambios en demanda, capacidad y costos antes de comprometerte con un plan</Typography>
           </Box>
           <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
             <Chip label={`${escenarios.length} escenarios`} size="small" sx={{ bgcolor: alpha(APS_COLOR, 0.15), color: APS_COLOR, fontWeight: 700 }} />
           </Box>
         </Box>
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3, '& .MuiTab-root': { color: 'rgba(255,255,255,0.4)', fontSize: 13 }, '& .Mui-selected': { color: APS_COLOR }, '& .MuiTabs-indicator': { bgcolor: APS_COLOR } }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3, '& .MuiTab-root': { color: '#64748B', fontSize: 13 }, '& .Mui-selected': { color: APS_COLOR }, '& .MuiTabs-indicator': { bgcolor: APS_COLOR } }}>
           <Tab label="Escenarios" />
           <Tab label="Comparativa" />
           <Tab label="Simulación" />
@@ -102,30 +102,30 @@ export default function APSEscenarios() {
                 { label: 'Aprobados', value: '1', color: APS_COLOR },
               ].map(k => (
                 <Grid key={k.label} size={{ xs: 6, md: 3 }}>
-                  <Box sx={{ bgcolor: '#1E293B', borderRadius: '12px', p: 2, borderLeft: `4px solid ${k.color}` }}>
-                    <Typography sx={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, textTransform: 'uppercase' }}>{k.label}</Typography>
-                    <Typography sx={{ color: '#F8FAFC', fontSize: 32, fontWeight: 800 }}>{k.value}</Typography>
+                  <Box sx={{ bgcolor: '#fff', borderRadius: '12px', p: 2, borderLeft: `4px solid ${k.color}` }}>
+                    <Typography sx={{ color: '#64748B', fontSize: 11, textTransform: 'uppercase' }}>{k.label}</Typography>
+                    <Typography sx={{ color: '#1E293B', fontSize: 32, fontWeight: 800 }}>{k.value}</Typography>
                   </Box>
                 </Grid>
               ))}
             </Grid>
-            <Paper sx={{ bgcolor: '#1E293B', borderRadius: '12px', p: 2 }}>
+            <Paper sx={{ bgcolor: '#fff', borderRadius: '12px', p: 2 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography sx={{ color: '#F8FAFC', fontWeight: 700, fontSize: 15 }}>Biblioteca de Escenarios</Typography>
+                <Typography sx={{ color: '#1E293B', fontWeight: 700, fontSize: 15 }}>Biblioteca de Escenarios</Typography>
                 <Button size="small" variant="contained" sx={{ bgcolor: APS_COLOR, fontSize: 12, '&:hover': { bgcolor: '#6D28D9' } }}>+ Nuevo Escenario</Button>
               </Box>
               <Table size="small">
                 <TableHead>
                   <TableRow>
                     {['Nombre', 'Tipo', 'Estado', 'Δ Demanda', 'Δ Capacidad', 'Δ Costo MP', 'Creado Por', 'Fecha'].map(h => (
-                      <TableCell key={h} sx={{ color: 'rgba(255,255,255,0.4)', border: 'none', fontSize: 11 }}>{h}</TableCell>
+                      <TableCell key={h} sx={{ color: '#64748B', border: 'none', fontSize: 11 }}>{h}</TableCell>
                     ))}
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {escenarios.map(e => (
-                    <TableRow key={e.id} sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.03)' } }}>
-                      <TableCell sx={{ color: '#E2E8F0', border: 'none', fontSize: 12, fontWeight: 600 }}>
+                    <TableRow key={e.id} sx={{ '&:hover': { bgcolor: 'rgba(0,0,0,0.02)' } }}>
+                      <TableCell sx={{ color: '#1E293B', border: 'none', fontSize: 12, fontWeight: 600 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                           {e.id === 1 && <Star sx={{ fontSize: 14, color: '#F59E0B' }} />}
                           {e.nombre}
@@ -133,11 +133,11 @@ export default function APSEscenarios() {
                       </TableCell>
                       <TableCell sx={{ border: 'none' }}><Chip label={e.tipo} size="small" sx={{ bgcolor: alpha(tipoColor(e.tipo), 0.15), color: tipoColor(e.tipo), fontSize: 10 }} /></TableCell>
                       <TableCell sx={{ border: 'none' }}><Chip label={e.estado.replace('_', ' ')} size="small" sx={{ bgcolor: alpha(estadoColor(e.estado), 0.15), color: estadoColor(e.estado), fontSize: 10 }} /></TableCell>
-                      <TableCell sx={{ color: e.demanda > 0 ? '#10B981' : e.demanda < 0 ? '#EF4444' : 'rgba(255,255,255,0.4)', border: 'none', fontSize: 12 }}>{e.demanda > 0 ? '+' : ''}{e.demanda}%</TableCell>
-                      <TableCell sx={{ color: e.capacidad > 0 ? '#10B981' : e.capacidad < 0 ? '#EF4444' : 'rgba(255,255,255,0.4)', border: 'none', fontSize: 12 }}>{e.capacidad > 0 ? '+' : ''}{e.capacidad}%</TableCell>
-                      <TableCell sx={{ color: e.costo > 0 ? '#EF4444' : 'rgba(255,255,255,0.4)', border: 'none', fontSize: 12 }}>{e.costo > 0 ? '+' : ''}{e.costo}%</TableCell>
-                      <TableCell sx={{ color: 'rgba(255,255,255,0.5)', border: 'none', fontSize: 12 }}>{e.creado}</TableCell>
-                      <TableCell sx={{ color: 'rgba(255,255,255,0.4)', border: 'none', fontSize: 12 }}>{e.fecha}</TableCell>
+                      <TableCell sx={{ color: e.demanda > 0 ? '#10B981' : e.demanda < 0 ? '#EF4444' : '#64748B', border: 'none', fontSize: 12 }}>{e.demanda > 0 ? '+' : ''}{e.demanda}%</TableCell>
+                      <TableCell sx={{ color: e.capacidad > 0 ? '#10B981' : e.capacidad < 0 ? '#EF4444' : '#64748B', border: 'none', fontSize: 12 }}>{e.capacidad > 0 ? '+' : ''}{e.capacidad}%</TableCell>
+                      <TableCell sx={{ color: e.costo > 0 ? '#EF4444' : '#64748B', border: 'none', fontSize: 12 }}>{e.costo > 0 ? '+' : ''}{e.costo}%</TableCell>
+                      <TableCell sx={{ color: '#64748B', border: 'none', fontSize: 12 }}>{e.creado}</TableCell>
+                      <TableCell sx={{ color: '#64748B', border: 'none', fontSize: 12 }}>{e.fecha}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -147,24 +147,24 @@ export default function APSEscenarios() {
         )}
 
         {tab === 1 && (
-          <Paper sx={{ bgcolor: '#1E293B', borderRadius: '12px', p: 2 }}>
+          <Paper sx={{ bgcolor: '#fff', borderRadius: '12px', p: 2 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography sx={{ color: '#F8FAFC', fontWeight: 700, fontSize: 15 }}>Comparativa de KPIs por Escenario</Typography>
+              <Typography sx={{ color: '#1E293B', fontWeight: 700, fontSize: 15 }}>Comparativa de KPIs por Escenario</Typography>
               <Chip icon={<Star sx={{ fontSize: 12 }} />} label="Ganador: Optimista" size="small" sx={{ bgcolor: alpha('#10B981', 0.15), color: '#10B981', fontWeight: 700 }} />
             </Box>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ color: 'rgba(255,255,255,0.4)', border: 'none', fontSize: 11 }}>KPI</TableCell>
+                  <TableCell sx={{ color: '#64748B', border: 'none', fontSize: 11 }}>KPI</TableCell>
                   {['Base', 'Optimista', 'Pesimista', 'What-If 1', 'What-If 2'].map(h => (
-                    <TableCell key={h} sx={{ color: 'rgba(255,255,255,0.4)', border: 'none', fontSize: 11 }}>{h}</TableCell>
+                    <TableCell key={h} sx={{ color: '#64748B', border: 'none', fontSize: 11 }}>{h}</TableCell>
                   ))}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {comparativa.map(c => (
-                  <TableRow key={c.kpi} sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.03)' } }}>
-                    <TableCell sx={{ color: '#E2E8F0', border: 'none', fontSize: 12, fontWeight: 600 }}>{c.kpi}</TableCell>
+                  <TableRow key={c.kpi} sx={{ '&:hover': { bgcolor: 'rgba(0,0,0,0.02)' } }}>
+                    <TableCell sx={{ color: '#1E293B', border: 'none', fontSize: 12, fontWeight: 600 }}>{c.kpi}</TableCell>
                     <TableCell sx={{ color: '#3B82F6', border: 'none', fontSize: 12, fontWeight: 700 }}>{c.base.toLocaleString()}</TableCell>
                     {[c.optimista, c.pesimista, c.whatif1, c.whatif2].map((val, i) => {
                       const { d, isGood } = delta(val, c.base, c.kpi)
@@ -187,8 +187,8 @@ export default function APSEscenarios() {
         {tab === 2 && (
           <Grid container spacing={3}>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Paper sx={{ bgcolor: '#1E293B', borderRadius: '12px', p: 3 }}>
-                <Typography sx={{ color: '#F8FAFC', fontWeight: 700, mb: 3, fontSize: 15 }}>Parámetros de Simulación</Typography>
+              <Paper sx={{ bgcolor: '#fff', borderRadius: '12px', p: 3 }}>
+                <Typography sx={{ color: '#1E293B', fontWeight: 700, mb: 3, fontSize: 15 }}>Parámetros de Simulación</Typography>
 
                 {[
                   { label: 'Variación Demanda (%)', val: demandaDelta, set: setDemandaDelta, min: -40, max: 60 },
@@ -198,11 +198,11 @@ export default function APSEscenarios() {
                 ].map(s => (
                   <Box key={s.label} sx={{ mb: 3 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                      <Typography sx={{ color: 'rgba(255,255,255,0.65)', fontSize: 12 }}>{s.label}</Typography>
-                      <Typography sx={{ color: s.val > 0 ? '#10B981' : s.val < 0 ? '#EF4444' : 'rgba(255,255,255,0.4)', fontSize: 13, fontWeight: 700 }}>{s.val > 0 ? '+' : ''}{s.val}{s.label.includes('días') ? 'd' : '%'}</Typography>
+                      <Typography sx={{ color: '#64748B', fontSize: 12 }}>{s.label}</Typography>
+                      <Typography sx={{ color: s.val > 0 ? '#10B981' : s.val < 0 ? '#EF4444' : '#64748B', fontSize: 13, fontWeight: 700 }}>{s.val > 0 ? '+' : ''}{s.val}{s.label.includes('días') ? 'd' : '%'}</Typography>
                     </Box>
                     <Slider value={s.val} min={s.min} max={s.max} step={1} onChange={(_, v) => s.set(v as number)}
-                      sx={{ color: APS_COLOR, '& .MuiSlider-thumb': { bgcolor: APS_COLOR }, '& .MuiSlider-track': { bgcolor: APS_COLOR }, '& .MuiSlider-rail': { bgcolor: 'rgba(255,255,255,0.1)' } }} />
+                      sx={{ color: APS_COLOR, '& .MuiSlider-thumb': { bgcolor: APS_COLOR }, '& .MuiSlider-track': { bgcolor: APS_COLOR }, '& .MuiSlider-rail': { bgcolor: '#E5E7EB' } }} />
                   </Box>
                 ))}
 
@@ -211,25 +211,25 @@ export default function APSEscenarios() {
                   {simulando ? 'Simulando...' : 'Lanzar Simulación Completa'}
                 </Button>
                 {simulando && (
-                  <LinearProgress variant="determinate" value={progSim} sx={{ mt: 2, height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.06)', '& .MuiLinearProgress-bar': { bgcolor: APS_COLOR } }} />
+                  <LinearProgress variant="determinate" value={progSim} sx={{ mt: 2, height: 6, borderRadius: 3, bgcolor: '#E5E7EB', '& .MuiLinearProgress-bar': { bgcolor: APS_COLOR } }} />
                 )}
               </Paper>
             </Grid>
 
             <Grid size={{ xs: 12, md: 6 }}>
-              <Paper sx={{ bgcolor: '#1E293B', borderRadius: '12px', p: 3 }}>
-                <Typography sx={{ color: '#F8FAFC', fontWeight: 700, mb: 3, fontSize: 15 }}>Impacto Estimado (Preview)</Typography>
+              <Paper sx={{ bgcolor: '#fff', borderRadius: '12px', p: 3 }}>
+                <Typography sx={{ color: '#1E293B', fontWeight: 700, mb: 3, fontSize: 15 }}>Impacto Estimado (Preview)</Typography>
                 {[
                   { label: 'OTIF', val: `${otifEst}%`, base: '96.2%', good: otifEst >= 96.2 },
                   { label: 'Costo Total', val: `$${costoEst.toLocaleString()}M`, base: '$4,850M', good: costoEst <= 4850 },
                   { label: 'Revenue', val: `$${revenueEst.toLocaleString()}M`, base: '$8,420M', good: revenueEst >= 8420 },
                   { label: 'Service Level', val: `${serviceEst}%`, base: '97.1%', good: serviceEst >= 97.1 },
                 ].map(k => (
-                  <Box key={k.label} sx={{ mb: 2.5, p: 1.5, borderRadius: '10px', bgcolor: 'rgba(255,255,255,0.04)' }}>
+                  <Box key={k.label} sx={{ mb: 2.5, p: 1.5, borderRadius: '10px', bgcolor: '#F8FAFC' }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 12 }}>{k.label}</Typography>
+                      <Typography sx={{ color: '#64748B', fontSize: 12 }}>{k.label}</Typography>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography sx={{ color: 'rgba(255,255,255,0.3)', fontSize: 11 }}>Base: {k.base}</Typography>
+                        <Typography sx={{ color: '#94A3B8', fontSize: 11 }}>Base: {k.base}</Typography>
                         {k.good ? <TrendingUp sx={{ fontSize: 14, color: '#10B981' }} /> : <TrendingDown sx={{ fontSize: 14, color: '#EF4444' }} />}
                       </Box>
                     </Box>

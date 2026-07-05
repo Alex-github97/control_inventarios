@@ -4,6 +4,7 @@ import { LocalFireDepartment, Add, Groups, EventRepeat, CheckCircle, Warning } f
 import { Layout } from '@/components/layout/Layout'
 
 const SST_COLOR = '#C53030'
+const PAGE_BG   = '#F0F2F5'
 
 const SX_INPUT = {
   '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: '#F9FAFB', '& fieldset': { borderColor: '#E5E7EB' } },
@@ -96,7 +97,7 @@ export default function SSTEmergencias() {
         <Grid container spacing={2.5}>
           {/* Brigada */}
           <Grid size={{ xs: 12, md: 6 }}>
-            <Card sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2 }}>
+            <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                   <Groups sx={{ color: SST_COLOR, fontSize: 20 }} />
@@ -127,7 +128,7 @@ export default function SSTEmergencias() {
           {/* Planes y Simulacros */}
           <Grid size={{ xs: 12, md: 6 }}>
             {/* Planes */}
-            <Card sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2, mb: 2.5 }}>
+            <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2, mb: 2.5 }}>
               <CardContent>
                 <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 15, mb: 2 }}>Planes de Respuesta</Typography>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -145,7 +146,7 @@ export default function SSTEmergencias() {
             </Card>
 
             {/* Simulacros */}
-            <Card sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2 }}>
+            <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                   <EventRepeat sx={{ color: SST_COLOR, fontSize: 20 }} />
@@ -171,7 +172,7 @@ export default function SSTEmergencias() {
         </Grid>
 
         {/* Dialog simulacro */}
-        <Dialog open={openSim} onClose={() => setOpenSim(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#0A1628', color: 'text.primary' } }}>
+        <Dialog open={openSim} onClose={() => setOpenSim(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { color: 'text.primary' } }}>
           <DialogTitle sx={{ borderBottom: '1px solid #F1F5F9', fontWeight: 700 }}>Registrar Simulacro</DialogTitle>
           <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Box sx={{ display: 'flex', gap: 2 }}>

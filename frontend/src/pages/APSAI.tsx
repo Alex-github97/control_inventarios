@@ -81,21 +81,21 @@ export default function APSAI() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, background: '#0F172A', minHeight: '100vh' }}>
+      <Box sx={{ p: 3, background: '#F0F2F5', minHeight: '100vh' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
           <Box sx={{ width: 42, height: 42, borderRadius: '12px', background: `linear-gradient(135deg, ${AI_COLOR} 0%, #6D28D9 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 14px ${alpha(AI_COLOR, 0.4)}` }}>
             <Insights sx={{ color: '#FFF', fontSize: 22 }} />
           </Box>
           <Box>
-            <Typography variant="h5" sx={{ color: '#F8FAFC', fontWeight: 700 }}>IA Autónoma APS</Typography>
-            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.45)' }}>Motor de IA y Optimización Matemática · Programación Lineal Entera · Branch & Bound · Heurísticas</Typography>
+            <Typography variant="h5" sx={{ color: '#1E293B', fontWeight: 700 }}>IA Autónoma APS</Typography>
+            <Typography variant="body2" sx={{ color: '#64748B' }}>Motor de IA y Optimización Matemática · Programación Lineal Entera · Branch & Bound · Heurísticas</Typography>
           </Box>
           <Box sx={{ ml: 'auto' }}>
             <Chip label="IA Online" size="small" sx={{ bgcolor: alpha(AI_COLOR, 0.15), color: AI_COLOR, fontWeight: 700 }} />
           </Box>
         </Box>
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3, '& .MuiTab-root': { color: 'rgba(255,255,255,0.4)', fontSize: 13 }, '& .Mui-selected': { color: AI_COLOR }, '& .MuiTabs-indicator': { bgcolor: AI_COLOR } }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3, '& .MuiTab-root': { color: '#64748B', fontSize: 13 }, '& .Mui-selected': { color: AI_COLOR }, '& .MuiTabs-indicator': { bgcolor: AI_COLOR } }}>
           <Tab label="Predicciones" />
           <Tab label="Optimización" />
           <Tab label="Digital Twin SC" />
@@ -107,18 +107,18 @@ export default function APSAI() {
             <Grid container spacing={2} sx={{ mb: 3 }}>
               {predicciones.map((p, i) => (
                 <Grid key={i} size={{ xs: 12, md: 6 }}>
-                  <Paper sx={{ bgcolor: '#1E293B', borderRadius: '12px', p: 2.5, borderLeft: `4px solid ${p.prob > 85 ? '#EF4444' : p.prob > 70 ? '#F59E0B' : '#3B82F6'}` }}>
+                  <Paper sx={{ bgcolor: 'background.paper', borderRadius: '12px', p: 2.5, borderLeft: `4px solid ${p.prob > 85 ? '#EF4444' : p.prob > 70 ? '#F59E0B' : '#3B82F6'}` }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
-                      <Typography sx={{ color: '#F8FAFC', fontSize: 13, fontWeight: 600, flex: 1, pr: 1 }}>{p.titulo}</Typography>
+                      <Typography sx={{ color: '#1E293B', fontSize: 13, fontWeight: 600, flex: 1, pr: 1 }}>{p.titulo}</Typography>
                       <Chip label={p.nivel} size="small" sx={{ bgcolor: alpha(p.nivel === 'CRITICO' ? '#EF4444' : p.nivel === 'ALTO' ? '#F59E0B' : p.nivel === 'MEDIO' ? '#3B82F6' : '#10B981', 0.15), color: p.nivel === 'CRITICO' ? '#EF4444' : p.nivel === 'ALTO' ? '#F59E0B' : p.nivel === 'MEDIO' ? '#3B82F6' : '#10B981', fontSize: 10, fontWeight: 700, flexShrink: 0 }} />
                     </Box>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75 }}>
-                      <Typography sx={{ color: 'rgba(255,255,255,0.45)', fontSize: 11 }}>Probabilidad</Typography>
+                      <Typography sx={{ color: '#64748B', fontSize: 11 }}>Probabilidad</Typography>
                       <Typography sx={{ color: AI_COLOR, fontWeight: 700, fontSize: 12 }}>{p.prob}%</Typography>
                     </Box>
-                    <LinearProgress variant="determinate" value={p.prob} sx={{ mb: 1.5, height: 5, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.06)', '& .MuiLinearProgress-bar': { bgcolor: p.prob > 85 ? '#EF4444' : p.prob > 70 ? '#F59E0B' : '#3B82F6', borderRadius: 3 } }} />
+                    <LinearProgress variant="determinate" value={p.prob} sx={{ mb: 1.5, height: 5, borderRadius: 3, bgcolor: '#E5E7EB', '& .MuiLinearProgress-bar': { bgcolor: p.prob > 85 ? '#EF4444' : p.prob > 70 ? '#F59E0B' : '#3B82F6', borderRadius: 3 } }} />
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography sx={{ color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>Fuente: {p.fuente} · En {p.dias} días</Typography>
+                      <Typography sx={{ color: '#64748B', fontSize: 11 }}>Fuente: {p.fuente} · En {p.dias} días</Typography>
                       <Typography sx={{ color: AI_COLOR, fontSize: 11, fontWeight: 600 }}>→ {p.accion}</Typography>
                     </Box>
                   </Paper>
@@ -131,24 +131,24 @@ export default function APSAI() {
         {tab === 1 && (
           <Grid container spacing={3}>
             <Grid size={{ xs: 12, md: 5 }}>
-              <Paper sx={{ bgcolor: '#1E293B', borderRadius: '12px', p: 3 }}>
-                <Typography sx={{ color: '#F8FAFC', fontWeight: 700, mb: 1, fontSize: 15 }}>Motor de Optimización Matemática</Typography>
-                <Typography sx={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, mb: 3 }}>Programación Lineal Entera Mixta (MILP) · Branch & Bound · Heurísticas Constructivas · Multi-Objetivo</Typography>
+              <Paper sx={{ bgcolor: 'background.paper', borderRadius: '12px', p: 3 }}>
+                <Typography sx={{ color: '#1E293B', fontWeight: 700, mb: 1, fontSize: 15 }}>Motor de Optimización Matemática</Typography>
+                <Typography sx={{ color: '#64748B', fontSize: 12, mb: 3 }}>Programación Lineal Entera Mixta (MILP) · Branch & Bound · Heurísticas Constructivas · Multi-Objetivo</Typography>
                 <Button fullWidth variant="contained" onClick={lanzarOpt} disabled={optimizando}
                   sx={{ bgcolor: AI_COLOR, py: 1.5, fontWeight: 700, mb: 2, '&:hover': { bgcolor: '#7C3AED' } }}>
                   {optimizando ? 'Optimizando...' : '🚀 Lanzar Optimización'}
                 </Button>
                 {optimizando && (
                   <>
-                    <LinearProgress variant="determinate" value={progOpt} sx={{ mb: 1, height: 8, borderRadius: 4, bgcolor: 'rgba(255,255,255,0.06)', '& .MuiLinearProgress-bar': { bgcolor: AI_COLOR } }} />
-                    <Typography sx={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textAlign: 'center' }}>Evaluando {Math.round(progOpt * 18)} soluciones... {progOpt}%</Typography>
+                    <LinearProgress variant="determinate" value={progOpt} sx={{ mb: 1, height: 8, borderRadius: 4, bgcolor: '#E5E7EB', '& .MuiLinearProgress-bar': { bgcolor: AI_COLOR } }} />
+                    <Typography sx={{ color: '#64748B', fontSize: 11, textAlign: 'center' }}>Evaluando {Math.round(progOpt * 18)} soluciones... {progOpt}%</Typography>
                   </>
                 )}
                 <Box sx={{ mt: 3, p: 2, bgcolor: 'rgba(139,92,246,0.08)', borderRadius: '10px', border: `1px solid ${alpha(AI_COLOR, 0.2)}` }}>
-                  <Typography sx={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, mb: 1 }}>ÚLTIMA CORRIDA (hace 2h) · 38.4 seg</Typography>
+                  <Typography sx={{ color: '#64748B', fontSize: 11, mb: 1 }}>ÚLTIMA CORRIDA (hace 2h) · 38.4 seg</Typography>
                   {[{ l: 'Soluciones evaluadas', v: '1,247,839' }, { l: 'Función objetivo', v: '$4,312M (min)' }, { l: 'Gap optimidad', v: '0.3%' }].map(r => (
                     <Box key={r.l} sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                      <Typography sx={{ color: 'rgba(255,255,255,0.45)', fontSize: 11 }}>{r.l}</Typography>
+                      <Typography sx={{ color: '#64748B', fontSize: 11 }}>{r.l}</Typography>
                       <Typography sx={{ color: AI_COLOR, fontSize: 11, fontWeight: 700 }}>{r.v}</Typography>
                     </Box>
                   ))}
@@ -156,12 +156,12 @@ export default function APSAI() {
               </Paper>
             </Grid>
             <Grid size={{ xs: 12, md: 7 }}>
-              <Paper sx={{ bgcolor: '#1E293B', borderRadius: '12px', p: 3 }}>
-                <Typography sx={{ color: '#F8FAFC', fontWeight: 700, mb: 2, fontSize: 15 }}>Resultados vs Plan Manual</Typography>
+              <Paper sx={{ bgcolor: 'background.paper', borderRadius: '12px', p: 3 }}>
+                <Typography sx={{ color: '#1E293B', fontWeight: 700, mb: 2, fontSize: 15 }}>Resultados vs Plan Manual</Typography>
                 {optimizaciones.map(o => (
-                  <Box key={o.metrica} sx={{ mb: 2.5, p: 1.5, borderRadius: '10px', bgcolor: 'rgba(255,255,255,0.04)' }}>
+                  <Box key={o.metrica} sx={{ mb: 2.5, p: 1.5, borderRadius: '10px', bgcolor: '#F8FAFC' }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                      <Typography sx={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>{o.metrica}</Typography>
+                      <Typography sx={{ color: '#64748B', fontSize: 12 }}>{o.metrica}</Typography>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                         <Chip label={o.mejora} size="small" sx={{ bgcolor: alpha('#10B981', 0.15), color: '#10B981', fontWeight: 700, fontSize: 10 }} />
                         <TrendingUp sx={{ fontSize: 14, color: '#10B981' }} />
@@ -180,29 +180,29 @@ export default function APSAI() {
             <Grid container spacing={2} sx={{ mb: 3 }}>
               {twinComponentes.map(t => (
                 <Grid key={t.nombre} size={{ xs: 6, md: 4 }}>
-                  <Box sx={{ bgcolor: '#1E293B', borderRadius: '12px', p: 2, borderLeft: `4px solid ${t.color}` }}>
+                  <Box sx={{ bgcolor: 'background.paper', borderRadius: '12px', p: 2, borderLeft: `4px solid ${t.color}` }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography sx={{ color: '#F8FAFC', fontSize: 12, fontWeight: 600 }}>{t.nombre}</Typography>
+                      <Typography sx={{ color: '#1E293B', fontSize: 12, fontWeight: 600 }}>{t.nombre}</Typography>
                       <Chip label={t.estado} size="small" sx={{ bgcolor: alpha(t.color, 0.15), color: t.color, fontSize: 10 }} />
                     </Box>
                     <Typography sx={{ color: t.color, fontSize: 22, fontWeight: 800 }}>{t.precision}%</Typography>
-                    <Typography sx={{ color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>Precisión · Sync {t.sync}</Typography>
+                    <Typography sx={{ color: '#64748B', fontSize: 11 }}>Precisión · Sync {t.sync}</Typography>
                   </Box>
                 </Grid>
               ))}
             </Grid>
-            <Paper sx={{ bgcolor: '#1E293B', borderRadius: '12px', p: 2 }}>
-              <Typography sx={{ color: '#F8FAFC', fontWeight: 700, mb: 2, fontSize: 15 }}>Eventos Simulados en el Digital Twin</Typography>
+            <Paper sx={{ bgcolor: 'background.paper', borderRadius: '12px', p: 2 }}>
+              <Typography sx={{ color: '#1E293B', fontWeight: 700, mb: 2, fontSize: 15 }}>Eventos Simulados en el Digital Twin</Typography>
               {eventosTwin.map((e, i) => (
-                <Box key={i} sx={{ display: 'flex', gap: 2, p: 1.5, mb: 1, bgcolor: 'rgba(255,255,255,0.03)', borderRadius: '10px', alignItems: 'center' }}>
+                <Box key={i} sx={{ display: 'flex', gap: 2, p: 1.5, mb: 1, bgcolor: '#F8FAFC', borderRadius: '10px', alignItems: 'center' }}>
                   <Warning sx={{ color: '#F59E0B', fontSize: 18, flexShrink: 0 }} />
                   <Box sx={{ flex: 1 }}>
-                    <Typography sx={{ color: '#E2E8F0', fontSize: 12, fontWeight: 600 }}>{e.evento}</Typography>
-                    <Typography sx={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>Impacto: {e.impacto}</Typography>
+                    <Typography sx={{ color: '#1E293B', fontSize: 12, fontWeight: 600 }}>{e.evento}</Typography>
+                    <Typography sx={{ color: '#64748B', fontSize: 11 }}>Impacto: {e.impacto}</Typography>
                   </Box>
                   <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
                     <Typography sx={{ color: AI_COLOR, fontSize: 12, fontWeight: 700 }}>{e.prob}%</Typography>
-                    <Typography sx={{ color: 'rgba(255,255,255,0.35)', fontSize: 10 }}>probabilidad</Typography>
+                    <Typography sx={{ color: '#64748B', fontSize: 10 }}>probabilidad</Typography>
                   </Box>
                   <Box sx={{ bgcolor: alpha(AI_COLOR, 0.1), borderRadius: '8px', p: 1, flexShrink: 0, maxWidth: 160 }}>
                     <Typography sx={{ color: AI_COLOR, fontSize: 10, fontWeight: 600 }}>→ {e.respuesta}</Typography>
@@ -216,28 +216,28 @@ export default function APSAI() {
         {tab === 3 && (
           <Grid container spacing={3}>
             <Grid size={{ xs: 12, md: 7 }}>
-              <Paper sx={{ bgcolor: '#1E293B', borderRadius: '12px', p: 0, display: 'flex', flexDirection: 'column', height: 520 }}>
-                <Box sx={{ p: 2, borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Paper sx={{ bgcolor: 'background.paper', borderRadius: '12px', p: 0, display: 'flex', flexDirection: 'column', height: 520 }}>
+                <Box sx={{ p: 2, borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', gap: 1 }}>
                   <SmartToy sx={{ color: AI_COLOR, fontSize: 18 }} />
-                  <Typography sx={{ color: '#F8FAFC', fontWeight: 700, fontSize: 14 }}>Asistente IA APS</Typography>
+                  <Typography sx={{ color: '#1E293B', fontWeight: 700, fontSize: 14 }}>Asistente IA APS</Typography>
                   <Chip label="Online" size="small" sx={{ ml: 'auto', bgcolor: alpha('#10B981', 0.15), color: '#10B981', fontSize: 10 }} />
                 </Box>
                 <Box sx={{ flex: 1, p: 2, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                   {msgs.map((m, i) => (
                     <Box key={i} sx={{ display: 'flex', justifyContent: m.from === 'user' ? 'flex-end' : 'flex-start' }}>
-                      <Box sx={{ maxWidth: '80%', p: 1.5, borderRadius: m.from === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px', bgcolor: m.from === 'user' ? alpha(APS_COLOR, 0.25) : 'rgba(255,255,255,0.07)' }}>
+                      <Box sx={{ maxWidth: '80%', p: 1.5, borderRadius: m.from === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px', bgcolor: m.from === 'user' ? alpha(APS_COLOR, 0.12) : '#F8FAFC' }}>
                         {m.from === 'ai' && <Typography sx={{ color: AI_COLOR, fontSize: 10, fontWeight: 700, mb: 0.5 }}>IA APS</Typography>}
-                        <Typography sx={{ color: '#E2E8F0', fontSize: 12, lineHeight: 1.6 }}>{m.msg}</Typography>
+                        <Typography sx={{ color: '#1E293B', fontSize: 12, lineHeight: 1.6 }}>{m.msg}</Typography>
                       </Box>
                     </Box>
                   ))}
                 </Box>
-                <Box sx={{ p: 1.5, borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 1 }}>
+                <Box sx={{ p: 1.5, borderTop: '1px solid #E5E7EB', display: 'flex', gap: 1 }}>
                   <TextField
                     fullWidth size="small" placeholder="Pregunta sobre demanda, capacidad, inventario..."
                     value={input} onChange={e => setInput(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && sendMsg()}
-                    sx={{ '& .MuiOutlinedInput-root': { color: '#F8FAFC', fontSize: 12, bgcolor: 'rgba(255,255,255,0.05)', '& fieldset': { borderColor: 'rgba(255,255,255,0.1)' }, '&:hover fieldset': { borderColor: AI_COLOR }, '&.Mui-focused fieldset': { borderColor: AI_COLOR } }, '& .MuiInputBase-input::placeholder': { color: 'rgba(255,255,255,0.25)' } }}
+                    sx={{ '& .MuiOutlinedInput-root': { fontSize: 12, '&:hover fieldset': { borderColor: AI_COLOR }, '&.Mui-focused fieldset': { borderColor: AI_COLOR } } }}
                   />
                   <Button variant="contained" onClick={sendMsg} sx={{ bgcolor: AI_COLOR, minWidth: 44, px: 1.5, '&:hover': { bgcolor: APS_COLOR } }}>
                     <Send sx={{ fontSize: 16 }} />
@@ -246,20 +246,20 @@ export default function APSAI() {
               </Paper>
             </Grid>
             <Grid size={{ xs: 12, md: 5 }}>
-              <Paper sx={{ bgcolor: '#1E293B', borderRadius: '12px', p: 2, mb: 2 }}>
-                <Typography sx={{ color: '#F8FAFC', fontWeight: 700, mb: 2, fontSize: 14 }}>Preguntas Frecuentes</Typography>
+              <Paper sx={{ bgcolor: 'background.paper', borderRadius: '12px', p: 2, mb: 2 }}>
+                <Typography sx={{ color: '#1E293B', fontWeight: 700, mb: 2, fontSize: 14 }}>Preguntas Frecuentes</Typography>
                 {['¿Hay riesgo de quiebre de stock esta semana?', '¿Cuál es la capacidad disponible?', '¿Cómo está el forecast de demanda?', '¿Qué optimizaciones recomiendas?'].map((q, i) => (
-                  <Box key={i} onClick={() => { setInput(q) }} sx={{ p: 1.5, mb: 1, borderRadius: '8px', bgcolor: 'rgba(255,255,255,0.04)', cursor: 'pointer', '&:hover': { bgcolor: alpha(AI_COLOR, 0.1) } }}>
-                    <Typography sx={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>{q}</Typography>
+                  <Box key={i} onClick={() => { setInput(q) }} sx={{ p: 1.5, mb: 1, borderRadius: '8px', bgcolor: '#F8FAFC', cursor: 'pointer', '&:hover': { bgcolor: alpha(AI_COLOR, 0.1) } }}>
+                    <Typography sx={{ color: '#334155', fontSize: 12 }}>{q}</Typography>
                   </Box>
                 ))}
               </Paper>
-              <Paper sx={{ bgcolor: '#1E293B', borderRadius: '12px', p: 2 }}>
-                <Typography sx={{ color: '#F8FAFC', fontWeight: 700, mb: 1.5, fontSize: 14 }}>Capacidades del Asistente</Typography>
+              <Paper sx={{ bgcolor: 'background.paper', borderRadius: '12px', p: 2 }}>
+                <Typography sx={{ color: '#1E293B', fontWeight: 700, mb: 1.5, fontSize: 14 }}>Capacidades del Asistente</Typography>
                 {['Análisis de riesgos de quiebre', 'Cálculo de capacidad disponible', 'Revisión de forecast y accuracy', 'Recomendaciones de optimización', 'Simulación de escenarios What-If', 'Alertas predictivas por ML'].map((c, i) => (
                   <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75 }}>
                     <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: AI_COLOR, flexShrink: 0 }} />
-                    <Typography sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 12 }}>{c}</Typography>
+                    <Typography sx={{ color: '#334155', fontSize: 12 }}>{c}</Typography>
                   </Box>
                 ))}
               </Paper>

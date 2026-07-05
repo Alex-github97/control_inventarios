@@ -659,7 +659,7 @@ export default function Login() {
             </Button>
           </form>
 
-          <Typography sx={{ mt: 4, textAlign: 'center', color: '#CBD5E1', fontSize: 12 }}>
+          <Typography sx={{ mt: 4, textAlign: 'center', color: '#64748B', fontSize: 12 }}>
             © 2025 ICOLTRANS · Uso interno exclusivo
           </Typography>
         </motion.div>

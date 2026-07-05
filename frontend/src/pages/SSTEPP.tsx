@@ -4,7 +4,7 @@ import { SafetyDivider, Add, CheckCircle, Warning } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 const SST_COLOR = '#C53030'
-const #E5E7EB  = 'rgba(197,48,48,0.2)'
+const BORDER = 'rgba(197,48,48,0.2)'
 
 const SX_INPUT = {
   '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#E5E7EB' } },
@@ -131,7 +131,7 @@ export default function SSTEPP() {
             const venceProx = e.fecha_vencimiento && !e.devuelto &&
               (new Date(e.fecha_vencimiento).getTime() - Date.now()) / (1000 * 86400) <= 90
             return (
-              <Card key={e.id} sx={{ border: `1px solid ${venceProx ? alpha('#f59e0b', 0.3) : #E5E7EB}`, borderRadius: 2 }}>
+              <Card key={e.id} sx={{ border: `1px solid ${venceProx ? alpha('#f59e0b', 0.3) : BORDER}`, borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important' }}>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
                     <Box sx={{ fontSize: 24 }}>{EPP_ICON[e.tipo_epp]}</Box>

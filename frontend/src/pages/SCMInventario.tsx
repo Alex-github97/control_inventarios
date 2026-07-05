@@ -4,7 +4,7 @@ import { CompareArrows, Warehouse, Warning, TrendingDown } from '@mui/icons-mate
 import { Layout } from '@/components/layout/Layout'
 
 const SCM_COLOR = '#0C4D8C'
-const #E5E7EB  = `rgba(12,77,140,0.25)`
+const BORDER = `rgba(12,77,140,0.25)`
 
 const UBICACIONES = [
   { nombre: 'Bodega Central — Bogotá',       skus: 412, valor: '$ 3.8 B', ocupacion: 78 },
@@ -40,7 +40,7 @@ export default function SCMInventario() {
             const ocupColor = u.ocupacion > 85 ? '#ef4444' : u.ocupacion > 60 ? '#f59e0b' : '#22c55e'
             return (
               <Grid key={u.nombre} size={{ xs: 12, sm: 6, md: 3 }}>
-                <Card sx={{ bgcolor: '#fff', border: `1px solid #E5E7EB`, borderRadius: 2 }}>
+                <Card sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: 2 }}>
                   <CardContent sx={{ p: '14px !important' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
                       <Warehouse sx={{ fontSize: 18, color: alpha(SCM_COLOR, 0.8) }} />
@@ -61,7 +61,7 @@ export default function SCMInventario() {
         </Grid>
 
         {/* Alertas */}
-        <Card sx={{ bgcolor: '#fff', border: `1px solid #E5E7EB`, borderRadius: 2 }}>
+        <Card sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: 2 }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
               <Warning sx={{ color: '#f59e0b', fontSize: 18 }} />

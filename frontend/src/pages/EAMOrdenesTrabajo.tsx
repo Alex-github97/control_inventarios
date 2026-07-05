@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react'
+﻿import React, { useState, useRef } from 'react'
 import {
   Box, Paper, Typography, Stack, Grid, Chip, Button, Tab, Tabs,
   MenuItem, TextField, alpha, Accordion, AccordionSummary, AccordionDetails,
@@ -287,20 +287,38 @@ interface RepuestoItem {
 
 // ─── OT Card (Kanban) ─────────────────────────────────────────────────────────
 
-function OTCard({ ot, onOpen }: { ot: OT; onOpen: (ot: OT) => void }) {
+function OTCard({ ot, onOpen, onDragStart, onDragEnd, isDragging }: {
+  ot: OT
+  onOpen: (ot: OT) => void
+  onDragStart: (ot: OT) => void
+  onDragEnd: () => void
+  isDragging: boolean
+}) {
+  // Evita que un arrastre dispare el onClick que abre el detalle
+  const draggedRef = useRef(false)
   return (
     <Paper
       elevation={0}
-      onClick={() => onOpen(ot)}
+      draggable
+      onDragStart={(e) => {
+        draggedRef.current = true
+        e.dataTransfer.effectAllowed = 'move'
+        e.dataTransfer.setData('text/plain', String(ot.id))
+        onDragStart(ot)
+      }}
+      onDragEnd={() => { onDragEnd(); window.setTimeout(() => { draggedRef.current = false }, 50) }}
+      onClick={() => { if (!draggedRef.current) onOpen(ot) }}
       sx={{
         bgcolor: alpha('#FFFFFF', 0.9),
         border: `1px solid #E5E7EB`,
         borderRadius: '10px',
         p: 1.5,
         mb: 1,
-        '&:hover': { border: `1px solid rgba(50,172,92,0.3)`, bgcolor: alpha(EAM_COLOR, 0.04) },
-        transition: 'all 0.15s',
-        cursor: 'pointer',
+        opacity: isDragging ? 0.4 : 1,
+        '&:hover': { border: `1px solid rgba(50,172,92,0.3)`, bgcolor: alpha(EAM_COLOR, 0.04), boxShadow: '0 4px 12px rgba(0,0,0,0.08)' },
+        transition: 'opacity 0.15s, border-color 0.15s, background-color 0.15s, box-shadow 0.15s',
+        cursor: 'grab',
+        '&:active': { cursor: 'grabbing' },
       }}
     >
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={0.75}>
@@ -358,6 +376,33 @@ export default function EAMOrdenesTrabajo() {
   // Lista de OTs en memoria (permite editar/eliminar)
   const [otsList, setOtsList] = useState<OT[]>(OTS_MOCK)
 
+  // ── Drag & drop del Kanban ──
+  const [draggedOT, setDraggedOT]   = useState<OT | null>(null)
+  const [dragOverCol, setDragOverCol] = useState<OTEstado | null>(null)
+
+  const moveOT = (id: number, estado: OTEstado) => {
+    setOtsList((prev) =>
+      prev.map((o) => {
+        if (o.id !== id || o.estado === estado) return o
+        const upd: OT = { ...o, estado }
+        // Al completar, sella la fecha de cierre si no la tiene (coherencia con el detalle)
+        if (estado === 'COMPLETADA' && !o.fechaCierre) {
+          const n = new Date()
+          const p = (x: number) => String(x).padStart(2, '0')
+          upd.fechaCierre = `${n.getFullYear()}-${p(n.getMonth() + 1)}-${p(n.getDate())}T${p(n.getHours())}:${p(n.getMinutes())}`
+        }
+        return upd
+      }),
+    )
+  }
+
+  const handleDragStart = (ot: OT) => setDraggedOT(ot)
+  const handleDragEnd   = () => { setDraggedOT(null); setDragOverCol(null) }
+  const handleDrop = (estado: OTEstado) => {
+    if (draggedOT) moveOT(draggedOT.id, estado)
+    setDraggedOT(null)
+    setDragOverCol(null)
+  }
 
   // ── Filtros compartidos Kanban + Tabla ──
   const [filterBusqueda,  setFilterBusqueda]  = useState('')
@@ -701,16 +746,25 @@ export default function EAMOrdenesTrabajo() {
             <Stack direction="row" spacing={2} sx={{ minWidth: 1100, pb: 2 }}>
               {KANBAN_COLUMNS.map((col) => {
                 const colOTs = filteredOTs.filter((o) => o.estado === col.estado)
+                const isOver = dragOverCol === col.estado
                 return (
                   <Box
                     key={col.estado}
+                    onDragOver={(e) => {
+                      if (!draggedOT) return
+                      e.preventDefault()
+                      e.dataTransfer.dropEffect = 'move'
+                      if (dragOverCol !== col.estado) setDragOverCol(col.estado)
+                    }}
+                    onDrop={(e) => { e.preventDefault(); handleDrop(col.estado) }}
                     sx={{
                       flex: '1 1 200px',
                       minWidth: 200,
-                      bgcolor: alpha(col.color, 0.05),
-                      border: `1px solid ${alpha(col.color, 0.2)}`,
+                      bgcolor: isOver ? alpha(col.color, 0.16) : alpha(col.color, 0.05),
+                      border: `${isOver ? 2 : 1}px solid ${alpha(col.color, isOver ? 0.65 : 0.2)}`,
                       borderRadius: '14px',
                       overflow: 'hidden',
+                      transition: 'background-color 0.15s, border-color 0.15s',
                     }}
                   >
                     {/* Column header */}
@@ -741,13 +795,26 @@ export default function EAMOrdenesTrabajo() {
                     </Stack>
 
                     {/* Cards */}
-                    <Box sx={{ p: 1.25 }}>
+                    <Box sx={{ p: 1.25, minHeight: 80 }}>
                       {colOTs.map((ot) => (
-                        <OTCard key={ot.id} ot={ot} onOpen={openOTDialog} />
+                        <OTCard
+                          key={ot.id}
+                          ot={ot}
+                          onOpen={openOTDialog}
+                          onDragStart={handleDragStart}
+                          onDragEnd={handleDragEnd}
+                          isDragging={draggedOT?.id === ot.id}
+                        />
                       ))}
                       {colOTs.length === 0 && (
-                        <Typography fontSize={12} color="#94A3B8" textAlign="center" py={2}>
-                          Sin OTs
+                        <Typography
+                          fontSize={12}
+                          color={isOver ? col.color : '#94A3B8'}
+                          fontWeight={isOver ? 700 : 400}
+                          textAlign="center"
+                          py={2}
+                        >
+                          {isOver ? 'Soltar aquí' : draggedOT ? 'Arrastra una OT aquí' : 'Sin OTs'}
                         </Typography>
                       )}
                     </Box>

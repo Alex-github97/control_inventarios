@@ -69,8 +69,8 @@ export function LanguageSelector({ variant = 'button', accentColor = '#32AC5C' }
         slotProps={{
           paper: {
             sx: {
-              bgcolor: '#0F1E35',
-              border: '1px solid rgba(255,255,255,0.1)',
+              bgcolor: '#fff',
+              border: '1px solid #E5E7EB',
               borderRadius: '12px',
               minWidth: 200,
               mt: 0.5,
@@ -79,7 +79,7 @@ export function LanguageSelector({ variant = 'button', accentColor = '#32AC5C' }
           },
         }}
       >
-        <Typography sx={{ px: 2, py: 1, fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+        <Typography sx={{ px: 2, py: 1, fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
           {t('lang.selectLanguage')}
         </Typography>
         {SUPPORTED_LANGUAGES.map(lang => {
@@ -100,7 +100,7 @@ export function LanguageSelector({ variant = 'button', accentColor = '#32AC5C' }
               }}
             >
               <Typography sx={{ fontSize: 18, lineHeight: 1 }}>{lang.flag}</Typography>
-              <Typography sx={{ fontSize: 13.5, fontWeight: isActive ? 700 : 400, color: isActive ? '#FFF' : 'rgba(255,255,255,0.65)', flex: 1 }}>
+              <Typography sx={{ fontSize: 13.5, fontWeight: isActive ? 700 : 400, color: isActive ? '#1E293B' : '#64748B', flex: 1 }}>
                 {lang.name}
               </Typography>
               {isActive && <Check sx={{ fontSize: 16, color: accentColor }} />}

@@ -280,7 +280,7 @@ export default function GRCGobierno() {
                   </TableHead>
                   <TableBody>
                     {raciRows.map((r, i) => (
-                      <TableRow key={i} onClick={() => setSelRaci(r)} sx={{ cursor: 'pointer', bgcolor: selRaci?.proceso === r.proceso ? alpha(GRC_COLOR, 0.06) : 'transparent', '&:hover': { bgcolor: alpha(GRC_COLOR, 0.04) }, '& td': { borderColor: 'rgba(255,255,255,0.04)', color: 'text.primary', fontSize: 12.5 } }}>
+                      <TableRow key={i} onClick={() => setSelRaci(r)} sx={{ cursor: 'pointer', bgcolor: selRaci?.proceso === r.proceso ? alpha(GRC_COLOR, 0.06) : 'transparent', '&:hover': { bgcolor: alpha(GRC_COLOR, 0.04) }, '& td': { borderColor: '#E5E7EB', color: 'text.primary', fontSize: 12.5 } }}>
                         <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>{r.proceso}</TableCell>
                         <TableCell sx={{ color: '#DC2626', fontWeight: 600 }}>{r.responsable}</TableCell>
                         <TableCell sx={{ color: '#D97706', fontWeight: 600 }}>{r.aprobador}</TableCell>
@@ -387,7 +387,7 @@ export default function GRCGobierno() {
         )}
 
         {/* ── DIALOG COMITÉ (crear / editar) ── */}
-        <Dialog open={dlg === 'comite'} onClose={closeAll} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary' } }}>
+        <Dialog open={dlg === 'comite'} onClose={closeAll} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: 'background.paper', color: 'text.primary' } }}>
           <DialogTitle sx={{ fontWeight: 700 }}>{editIdx !== null ? 'Editar Comité' : 'Nuevo Comité'}</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
             <TextField label="Nombre del Comité" fullWidth size="small" value={form.nombre || ''} onChange={e => f('nombre', e.target.value)} InputLabelProps={ILB} sx={TF} />
@@ -416,7 +416,7 @@ export default function GRCGobierno() {
         </Dialog>
 
         {/* ── DIALOG RACI (crear / editar) ── */}
-        <Dialog open={dlg === 'raci'} onClose={closeAll} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary' } }}>
+        <Dialog open={dlg === 'raci'} onClose={closeAll} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: 'background.paper', color: 'text.primary' } }}>
           <DialogTitle sx={{ fontWeight: 700 }}>{editIdx !== null ? 'Editar Entrada RACI' : 'Nueva Entrada RACI'}</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
             <TextField label="Proceso / Actividad" fullWidth size="small" value={form.proceso || ''} onChange={e => f('proceso', e.target.value)} InputLabelProps={ILB} sx={TF} />
@@ -433,7 +433,7 @@ export default function GRCGobierno() {
         </Dialog>
 
         {/* ── DIALOG RESPONSABLE (crear / editar) ── */}
-        <Dialog open={dlg === 'resp'} onClose={closeAll} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary' } }}>
+        <Dialog open={dlg === 'resp'} onClose={closeAll} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: 'background.paper', color: 'text.primary' } }}>
           <DialogTitle sx={{ fontWeight: 700 }}>{editIdx !== null ? 'Editar Responsable' : 'Nuevo Responsable GRC'}</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
             <TextField label="Nombre Completo" fullWidth size="small" value={form.nombre || ''} onChange={e => f('nombre', e.target.value)} InputLabelProps={ILB} sx={TF} />
@@ -452,7 +452,7 @@ export default function GRCGobierno() {
         </Dialog>
 
         {/* ── DIALOG CONFIRMACIÓN ELIMINAR ── */}
-        <Dialog open={!!delConfirm} onClose={() => setDelConfirm(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary', border: '1px solid rgba(220,38,38,0.3)' } }}>
+        <Dialog open={!!delConfirm} onClose={() => setDelConfirm(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { bgcolor: 'background.paper', color: 'text.primary', border: '1px solid rgba(220,38,38,0.3)' } }}>
           <DialogTitle sx={{ fontWeight: 700, color: '#DC2626', display: 'flex', alignItems: 'center', gap: 1 }}>
             <Delete /> ¿Eliminar registro?
           </DialogTitle>
@@ -479,7 +479,7 @@ export default function GRCGobierno() {
         </Dialog>
 
         <Snackbar open={!!snack} autoHideDuration={3500} onClose={() => setSnack('')} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
-          <Alert severity="success" onClose={() => setSnack('')} sx={{ bgcolor: '#1E3A2F', color: 'text.primary', '& .MuiAlert-icon': { color: '#4ADE80' } }}>{snack}</Alert>
+          <Alert severity="success" onClose={() => setSnack('')}>{snack}</Alert>
         </Snackbar>
       </Box>
     </Layout>

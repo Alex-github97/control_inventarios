@@ -10,7 +10,7 @@ import { Gavel, Add, Edit, Delete, Close, FileDownload, UploadFile } from '@mui/
 import { Layout } from '@/components/layout/Layout'
 
 const GRC_COLOR = '#6D28D9'
-const #E5E7EB  = '#E5E7EB'
+const BORDER  = '#E5E7EB'
 const LBL       = alpha(GRC_COLOR, 0.85)
 const ESTADO_COLOR: Record<string,string> = { PLANIFICADA:'#0891B2', 'EN PROGRESO':'#D97706', COMPLETADA:'#059669', CANCELADA:'#6B7280' }
 const TIPO_COLOR: Record<string,string>   = { INTERNA:'#059669', EXTERNA:'#EA580C', SEGUIMIENTO:GRC_COLOR }

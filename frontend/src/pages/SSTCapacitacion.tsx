@@ -4,13 +4,13 @@ import { School, Add, CheckCircle, Schedule, PlayArrow, People } from '@mui/icon
 import { Layout } from '@/components/layout/Layout'
 
 const SST_COLOR = '#C53030'
-const #E5E7EB  = 'rgba(197,48,48,0.2)'
+const BORDER  = 'rgba(197,48,48,0.2)'
 
 const SX_INPUT = {
-  '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#E5E7EB' } },
+  '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: BORDER } },
   '& .MuiInputLabel-root': { color: 'text.secondary' },
 }
-const SX_SEL = { '& .MuiOutlinedInput-notchedOutline': { borderColor: '#E5E7EB' } }
+const SX_SEL = { '& .MuiOutlinedInput-notchedOutline': { borderColor: BORDER } }
 
 type EstadoCap = 'PROGRAMADA' | 'EN_CURSO' | 'COMPLETADA' | 'CANCELADA'
 
@@ -92,7 +92,7 @@ export default function SSTCapacitacion() {
               <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Plan de Capacitación SST</Typography>
               <Typography sx={{ fontSize: 12, color: 'text.disabled' }}>Programa anual de formación, evaluaciones y certificaciones</Typography>
             </Box>
-            <Chip label="SG-SST" size="small" sx={{ bgcolor: alpha(SST_COLOR, 0.15), color: '#F87171', fontWeight: 700, border: `1px solid ${alpha(SST_COLOR, 0.35)}` }} />
+            <Chip label="SG-SST" size="small" sx={{ bgcolor: alpha(SST_COLOR, 0.15), color: SST_COLOR, fontWeight: 700, border: `1px solid ${alpha(SST_COLOR, 0.35)}` }} />
           </Box>
           <Button variant="contained" startIcon={<Add />} onClick={() => setOpen(true)} sx={{ bgcolor: SST_COLOR }}>Programar Capacitación</Button>
         </Box>
@@ -116,7 +116,7 @@ export default function SSTCapacitacion() {
           {(['', 'PROGRAMADA', 'EN_CURSO', 'COMPLETADA', 'CANCELADA'] as const).map(e => (
             <Chip key={e} label={e === '' ? 'Todos' : ESTADO_META[e as EstadoCap]?.label}
               onClick={() => setFiltro(e as EstadoCap | '')}
-              sx={{ bgcolor: filtro === e ? alpha(SST_COLOR, 0.2) : '#F9FAFB', color: filtro === e ? '#F87171' : 'text.secondary', border: `1px solid ${filtro === e ? alpha(SST_COLOR, 0.4) : 'transparent'}`, cursor: 'pointer', fontSize: 11 }} />
+              sx={{ bgcolor: filtro === e ? alpha(SST_COLOR, 0.2) : '#F9FAFB', color: filtro === e ? SST_COLOR : 'text.secondary', border: `1px solid ${filtro === e ? alpha(SST_COLOR, 0.4) : 'transparent'}`, cursor: 'pointer', fontSize: 11 }} />
           ))}
         </Box>
 
@@ -126,13 +126,13 @@ export default function SSTCapacitacion() {
             const meta = ESTADO_META[c.estado]
             const pct = c.max_participantes > 0 ? Math.round(c.participantes / c.max_participantes * 100) : 0
             return (
-              <Card key={c.id} sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
+              <Card key={c.id} sx={{ border: `1px solid ${BORDER}`, borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important' }}>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
                     <Box sx={{ flex: 1, minWidth: 200 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                        <Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: '#F87171' }}>{c.codigo}</Typography>
-                        <Chip label={c.tipo} size="small" sx={{ bgcolor: alpha(SST_COLOR, 0.1), color: '#F87171', fontSize: 9 }} />
+                        <Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: SST_COLOR }}>{c.codigo}</Typography>
+                        <Chip label={c.tipo} size="small" sx={{ bgcolor: alpha(SST_COLOR, 0.1), color: SST_COLOR, fontSize: 9 }} />
                         <Chip label={c.modalidad} size="small" sx={{ bgcolor: '#F1F5F9', color: 'text.disabled', fontSize: 9 }} />
                       </Box>
                       <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 0.25 }}>{c.titulo}</Typography>

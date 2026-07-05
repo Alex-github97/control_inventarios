@@ -329,8 +329,8 @@ function TripCard({ viaje, selected, onClick }: { viaje: ViajeTracking; selected
         borderRadius: 2,
         cursor: 'pointer',
         border: '1px solid',
-        borderColor: selected ? TMS_COLOR : alpha('#fff', 0.06),
-        bgcolor: selected ? alpha(TMS_COLOR, 0.10) : alpha('#fff', 0.03),
+        borderColor: selected ? TMS_COLOR : '#E5E7EB',
+        bgcolor: selected ? alpha(TMS_COLOR, 0.10) : '#F8FAFC',
         transition: 'all 0.18s',
         '&:hover': { borderColor: alpha(TMS_COLOR, 0.5), bgcolor: alpha(TMS_COLOR, 0.06) },
       }}
@@ -339,7 +339,7 @@ function TripCard({ viaje, selected, onClick }: { viaje: ViajeTracking; selected
         <Chip
           label={viaje.codigo}
           size="small"
-          sx={{ bgcolor: alpha(TMS_COLOR, 0.18), color: '#60a5fa', fontWeight: 700, fontSize: 11, height: 22 }}
+          sx={{ bgcolor: alpha(TMS_COLOR, 0.18), color: TMS_COLOR, fontWeight: 700, fontSize: 11, height: 22 }}
         />
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <BlinkingDot color={est.color} />
@@ -350,28 +350,28 @@ function TripCard({ viaje, selected, onClick }: { viaje: ViajeTracking; selected
       </Stack>
 
       <Stack direction="row" alignItems="center" spacing={0.5} mb={0.4}>
-        <PersonPin sx={{ fontSize: 13, color: '#9ca3af' }} />
-        <Typography variant="caption" sx={{ color: '#d1d5db', fontSize: 11 }}>
+        <PersonPin sx={{ fontSize: 13, color: '#64748B' }} />
+        <Typography variant="caption" sx={{ color: '#334155', fontSize: 11 }}>
           {viaje.conductor}
         </Typography>
       </Stack>
 
       <Stack direction="row" alignItems="center" spacing={0.5} mb={0.8}>
-        <Typography variant="caption" sx={{ color: '#e2e8f0', fontWeight: 600, fontSize: 12 }}>
+        <Typography variant="caption" sx={{ color: '#1E293B', fontWeight: 600, fontSize: 12 }}>
           {viaje.origen}
         </Typography>
-        <ArrowForward sx={{ fontSize: 12, color: '#6b7280' }} />
-        <Typography variant="caption" sx={{ color: '#e2e8f0', fontWeight: 600, fontSize: 12 }}>
+        <ArrowForward sx={{ fontSize: 12, color: '#64748B' }} />
+        <Typography variant="caption" sx={{ color: '#1E293B', fontWeight: 600, fontSize: 12 }}>
           {viaje.destino}
         </Typography>
       </Stack>
 
       <Box mb={0.6}>
         <Stack direction="row" justifyContent="space-between" mb={0.3}>
-          <Typography variant="caption" sx={{ color: '#9ca3af', fontSize: 10 }}>
+          <Typography variant="caption" sx={{ color: '#64748B', fontSize: 10 }}>
             Progreso estimado
           </Typography>
-          <Typography variant="caption" sx={{ color: '#d1d5db', fontWeight: 700, fontSize: 10 }}>
+          <Typography variant="caption" sx={{ color: '#334155', fontWeight: 700, fontSize: 10 }}>
             {viaje.porcentaje}%
           </Typography>
         </Stack>
@@ -381,16 +381,16 @@ function TripCard({ viaje, selected, onClick }: { viaje: ViajeTracking; selected
           sx={{
             height: 5,
             borderRadius: 3,
-            bgcolor: alpha('#fff', 0.08),
+            bgcolor: '#E5E7EB',
             '& .MuiLinearProgress-bar': { bgcolor: est.color, borderRadius: 3 },
           }}
         />
       </Box>
 
       <Stack direction="row" alignItems="center" spacing={0.5}>
-        <Schedule sx={{ fontSize: 12, color: '#9ca3af' }} />
-        <Typography variant="caption" sx={{ color: '#9ca3af', fontSize: 10 }}>
-          ETA: <strong style={{ color: '#e2e8f0' }}>{viaje.etaEstimada}</strong>
+        <Schedule sx={{ fontSize: 12, color: '#64748B' }} />
+        <Typography variant="caption" sx={{ color: '#64748B', fontSize: 10 }}>
+          ETA: <strong style={{ color: '#1E293B' }}>{viaje.etaEstimada}</strong>
         </Typography>
       </Stack>
     </Box>
@@ -407,14 +407,14 @@ function EmptyDetail() {
         justifyContent: 'center',
         height: '100%',
         gap: 2,
-        color: '#6b7280',
+        color: '#64748B',
       }}
     >
       <MapIcon sx={{ fontSize: 72, color: alpha(TMS_COLOR, 0.25) }} />
-      <Typography variant="h6" sx={{ color: '#4b5563', fontWeight: 500 }}>
+      <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 500 }}>
         Selecciona un viaje para ver el tracking
       </Typography>
-      <Typography variant="body2" sx={{ color: '#6b7280', textAlign: 'center', maxWidth: 300 }}>
+      <Typography variant="body2" sx={{ color: '#64748B', textAlign: 'center', maxWidth: 300 }}>
         Haz clic en cualquier viaje de la lista para visualizar su posición actual, eventos y paradas programadas.
       </Typography>
     </Box>
@@ -552,7 +552,7 @@ function MapSimulation({ viaje }: { viaje: ViajeTracking }) {
 function EventTimeline({ eventos }: { eventos: EventoTracking[] }) {
   return (
     <Box>
-      <Typography variant="subtitle2" sx={{ color: '#e2e8f0', fontWeight: 700, mb: 1.5, fontSize: 13 }}>
+      <Typography variant="subtitle2" sx={{ color: '#1E293B', fontWeight: 700, mb: 1.5, fontSize: 13 }}>
         Línea de Eventos
       </Typography>
       <Stack spacing={0}>
@@ -572,7 +572,7 @@ function EventTimeline({ eventos }: { eventos: EventoTracking[] }) {
                   {cfg.icon}
                 </Avatar>
                 {!isLast && (
-                  <Box sx={{ width: 1.5, flexGrow: 1, bgcolor: alpha('#fff', 0.07), my: 0.3 }} />
+                  <Box sx={{ width: 1.5, flexGrow: 1, bgcolor: '#E5E7EB', my: 0.3 }} />
                 )}
               </Box>
               {/* Content */}
@@ -586,14 +586,14 @@ function EventTimeline({ eventos }: { eventos: EventoTracking[] }) {
                       fontSize: 9, height: 18, border: `1px solid ${alpha(cfg.color, 0.3)}`,
                     }}
                   />
-                  <Typography variant="caption" sx={{ color: '#9ca3af', fontSize: 10 }}>
+                  <Typography variant="caption" sx={{ color: '#64748B', fontSize: 10 }}>
                     {ev.timestamp}
                   </Typography>
                 </Stack>
-                <Typography variant="body2" sx={{ color: '#d1d5db', fontSize: 12, mt: 0.3, lineHeight: 1.4 }}>
+                <Typography variant="body2" sx={{ color: '#334155', fontSize: 12, mt: 0.3, lineHeight: 1.4 }}>
                   {ev.descripcion}
                 </Typography>
-                <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 10 }}>
+                <Typography variant="caption" sx={{ color: '#64748B', fontSize: 10 }}>
                   {ev.lat.toFixed(4)}, {ev.lng.toFixed(4)}
                 </Typography>
               </Box>
@@ -608,7 +608,7 @@ function EventTimeline({ eventos }: { eventos: EventoTracking[] }) {
 function TripStops({ paradas }: { paradas: Parada[] }) {
   return (
     <Box>
-      <Typography variant="subtitle2" sx={{ color: '#e2e8f0', fontWeight: 700, mb: 1.5, fontSize: 13 }}>
+      <Typography variant="subtitle2" sx={{ color: '#1E293B', fontWeight: 700, mb: 1.5, fontSize: 13 }}>
         Paradas del Viaje
       </Typography>
       <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
@@ -620,7 +620,7 @@ function TripStops({ paradas }: { paradas: Parada[] }) {
               sx={{
                 flex: '1 1 140px',
                 minWidth: 130,
-                bgcolor: alpha('#fff', 0.04),
+                bgcolor: '#F8FAFC',
                 border: '1px solid',
                 borderColor: alpha(cfg.color, 0.3),
                 borderRadius: 2,
@@ -629,7 +629,7 @@ function TripStops({ paradas }: { paradas: Parada[] }) {
             >
               <Stack direction="row" alignItems="center" spacing={0.8} mb={0.5}>
                 <Box sx={{ color: cfg.color, lineHeight: 1 }}>{cfg.icon}</Box>
-                <Typography variant="caption" sx={{ color: '#e2e8f0', fontWeight: 700, fontSize: 12 }}>
+                <Typography variant="caption" sx={{ color: '#1E293B', fontWeight: 700, fontSize: 12 }}>
                   {p.ciudad}
                 </Typography>
               </Stack>
@@ -641,7 +641,7 @@ function TripStops({ paradas }: { paradas: Parada[] }) {
                   fontWeight: 600, fontSize: 9, height: 18, mb: 0.8,
                 }}
               />
-              <Typography variant="caption" sx={{ color: '#9ca3af', fontSize: 10, display: 'block' }}>
+              <Typography variant="caption" sx={{ color: '#64748B', fontSize: 10, display: 'block' }}>
                 Est.: {p.horaEstimada}
               </Typography>
               {p.horaReal && (
@@ -668,7 +668,7 @@ function TripDetail({ viaje }: { viaje: ViajeTracking }) {
             <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
               <Chip
                 label={viaje.codigo}
-                sx={{ bgcolor: alpha(TMS_COLOR, 0.2), color: '#60a5fa', fontWeight: 700, fontSize: 13, height: 28 }}
+                sx={{ bgcolor: alpha(TMS_COLOR, 0.2), color: TMS_COLOR, fontWeight: 700, fontSize: 13, height: 28 }}
               />
               <Box sx={{ display: 'flex', alignItems: 'center', px: 1.2, py: 0.4, borderRadius: 5, bgcolor: est.bg }}>
                 <BlinkingDot color={est.color} />
@@ -678,18 +678,18 @@ function TripDetail({ viaje }: { viaje: ViajeTracking }) {
               </Box>
             </Stack>
             <Stack direction="row" alignItems="center" spacing={1}>
-              <Typography variant="h6" sx={{ color: '#e2e8f0', fontWeight: 700 }}>
+              <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700 }}>
                 {viaje.origen}
               </Typography>
-              <ArrowForward sx={{ color: '#60a5fa' }} />
-              <Typography variant="h6" sx={{ color: '#e2e8f0', fontWeight: 700 }}>
+              <ArrowForward sx={{ color: TMS_COLOR }} />
+              <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700 }}>
                 {viaje.destino}
               </Typography>
             </Stack>
           </Box>
           <Box sx={{ textAlign: 'right' }}>
-            <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 10 }}>Última actualización</Typography>
-            <Typography variant="body2" sx={{ color: '#9ca3af', fontSize: 12 }}>{viaje.ultimaActualizacion}</Typography>
+            <Typography variant="caption" sx={{ color: '#64748B', fontSize: 10 }}>Última actualización</Typography>
+            <Typography variant="body2" sx={{ color: '#334155', fontSize: 12 }}>{viaje.ultimaActualizacion}</Typography>
           </Box>
         </Stack>
 
@@ -700,10 +700,10 @@ function TripDetail({ viaje }: { viaje: ViajeTracking }) {
             { icon: <Schedule sx={{ fontSize: 14 }} />, label: 'ETA', value: viaje.etaEstimada },
           ].map((item, i) => (
             <Stack key={i} direction="row" alignItems="center" spacing={0.5}
-              sx={{ bgcolor: alpha('#fff', 0.04), borderRadius: 1.5, px: 1.5, py: 0.8 }}>
-              <Box sx={{ color: '#6b7280' }}>{item.icon}</Box>
-              <Typography variant="caption" sx={{ color: '#9ca3af', fontSize: 11 }}>{item.label}:</Typography>
-              <Typography variant="caption" sx={{ color: '#e2e8f0', fontWeight: 600, fontSize: 11 }}>{item.value}</Typography>
+              sx={{ bgcolor: '#F8FAFC', border: '1px solid #E5E7EB', borderRadius: 1.5, px: 1.5, py: 0.8 }}>
+              <Box sx={{ color: '#64748B' }}>{item.icon}</Box>
+              <Typography variant="caption" sx={{ color: '#64748B', fontSize: 11 }}>{item.label}:</Typography>
+              <Typography variant="caption" sx={{ color: '#1E293B', fontWeight: 600, fontSize: 11 }}>{item.value}</Typography>
             </Stack>
           ))}
         </Stack>
@@ -711,7 +711,7 @@ function TripDetail({ viaje }: { viaje: ViajeTracking }) {
 
       <MapSimulation viaje={viaje} />
       <EventTimeline eventos={viaje.eventos} />
-      <Divider sx={{ borderColor: alpha('#fff', 0.06) }} />
+      <Divider sx={{ borderColor: '#E5E7EB' }} />
       <TripStops paradas={viaje.paradas} />
     </Stack>
   )
@@ -742,9 +742,9 @@ export default function TMSTracking() {
 
   return (
     <Layout>
-      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#0b1120', p: 0 }}>
+      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#F0F2F5', p: 0 }}>
         {/* Page Header */}
-        <Box sx={{ px: 3, pt: 2.5, pb: 1.5, borderBottom: '1px solid', borderColor: alpha('#fff', 0.06) }}>
+        <Box sx={{ px: 3, pt: 2.5, pb: 1.5, borderBottom: '1px solid', borderColor: '#E5E7EB' }}>
           <Stack direction="row" alignItems="center" spacing={1.5} mb={0.3}>
             <Box
               sx={{
@@ -755,10 +755,10 @@ export default function TMSTracking() {
               <Route sx={{ color: TMS_COLOR, fontSize: 20 }} />
             </Box>
             <Box>
-              <Typography variant="h6" sx={{ color: '#e2e8f0', fontWeight: 700, lineHeight: 1.2 }}>
+              <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, lineHeight: 1.2 }}>
                 Tracking en Tiempo Real
               </Typography>
-              <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 11 }}>
+              <Typography variant="caption" sx={{ color: '#64748B', fontSize: 11 }}>
                 {MOCK_VIAJES.length} viajes en tránsito · TMS — Módulo de Seguimiento
               </Typography>
             </Box>
@@ -774,13 +774,13 @@ export default function TMSTracking() {
               minWidth: 280,
               maxWidth: 400,
               borderRight: '1px solid',
-              borderColor: alpha('#fff', 0.06),
+              borderColor: '#E5E7EB',
               display: 'flex',
               flexDirection: 'column',
-              bgcolor: alpha('#fff', 0.01),
+              bgcolor: 'background.paper',
             }}
           >
-            <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: alpha('#fff', 0.06) }}>
+            <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: '#E5E7EB' }}>
               <TextField
                 fullWidth
                 size="small"
@@ -790,26 +790,22 @@ export default function TMSTracking() {
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Search sx={{ fontSize: 16, color: '#6b7280' }} />
+                      <Search sx={{ fontSize: 16, color: '#64748B' }} />
                     </InputAdornment>
                   ),
                   sx: {
-                    bgcolor: alpha('#fff', 0.04),
-                    color: '#e2e8f0',
                     fontSize: 13,
-                    '& fieldset': { borderColor: alpha('#fff', 0.1) },
                     '&:hover fieldset': { borderColor: alpha(TMS_COLOR, 0.4) },
                     '&.Mui-focused fieldset': { borderColor: TMS_COLOR },
                   },
                 }}
-                inputProps={{ style: { color: '#e2e8f0' } }}
               />
             </Box>
 
             <Box sx={{ flex: 1, overflowY: 'auto', p: 1.5 }}>
               <Stack spacing={1}>
                 {filtered.length === 0 ? (
-                  <Typography variant="body2" sx={{ color: '#6b7280', textAlign: 'center', mt: 4 }}>
+                  <Typography variant="body2" sx={{ color: '#64748B', textAlign: 'center', mt: 4 }}>
                     No se encontraron viajes
                   </Typography>
                 ) : (
@@ -832,7 +828,7 @@ export default function TMSTracking() {
               flex: 1,
               overflowY: 'auto',
               p: 3,
-              bgcolor: '#0b1120',
+              bgcolor: '#F0F2F5',
             }}
           >
             {selectedViaje ? <TripDetail viaje={selectedViaje} /> : <EmptyDetail />}

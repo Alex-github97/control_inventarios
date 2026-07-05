@@ -4,10 +4,10 @@ import { Settings, Notifications, Tune, Save } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 const SST_COLOR = '#C53030'
-const #E5E7EB  = 'rgba(197,48,48,0.2)'
+const BORDER  = 'rgba(197,48,48,0.2)'
 
 const SX_INPUT = {
-  '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#E5E7EB' } },
+  '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: BORDER } },
   '& .MuiInputLabel-root': { color: 'text.secondary' },
 }
 const SX_SWITCH = {
@@ -97,7 +97,7 @@ export default function SSTConfig() {
         {tab === 0 && (
           <Grid container spacing={2.5}>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ border: `1px solid #E5E7EB`, borderRadius: 2 }}>
+              <Card sx={{ border: `1px solid ${BORDER}`, borderRadius: 2 }}>
                 <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <SectionTitle>Información de la empresa</SectionTitle>
                   <TextField label="Razón social" value={empresa} onChange={e => setEmpresa(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
@@ -113,7 +113,7 @@ export default function SSTConfig() {
               </Card>
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ border: `1px solid #E5E7EB`, borderRadius: 2 }}>
+              <Card sx={{ border: `1px solid ${BORDER}`, borderRadius: 2 }}>
                 <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <SectionTitle>Responsable del SG-SST</SectionTitle>
                   <TextField label="Coordinador SST" value={coord} onChange={e => setCoord(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
@@ -132,7 +132,7 @@ export default function SSTConfig() {
         {tab === 1 && (
           <Grid container spacing={2.5}>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ border: `1px solid #E5E7EB`, borderRadius: 2 }}>
+              <Card sx={{ border: `1px solid ${BORDER}`, borderRadius: 2 }}>
                 <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                   <SectionTitle>Alertas automáticas</SectionTitle>
                   <FormControlLabel label={<Typography sx={{ fontSize: 13, color: 'text.primary' }}>Notificar nuevos incidentes/accidentes</Typography>}
@@ -171,11 +171,11 @@ export default function SSTConfig() {
               </Card>
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ border: `1px solid #E5E7EB`, borderRadius: 2 }}>
+              <Card sx={{ border: `1px solid ${BORDER}`, borderRadius: 2 }}>
                 <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <SectionTitle>Destino de notificaciones</SectionTitle>
                   <TextField label="Correo para alertas SST" value={emailAlertas} onChange={e => setEmailAlertas(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
-                  <Box sx={{ p: 1.5, bgcolor: '#F9FAFB', borderRadius: 1.5, border: '1px solid #E5E7EB' }}>
+                  <Box sx={{ p: 1.5, bgcolor: '#F9FAFB', borderRadius: 1.5, border: `1px solid ${BORDER}` }}>
                     <Typography sx={{ fontSize: 12, color: 'text.secondary', lineHeight: 1.5 }}>
                       Las alertas también se enviarán al coordinador SST configurado en la pestaña "Empresa / SG-SST". Para múltiples destinatarios, separe los correos con coma.
                     </Typography>
@@ -190,7 +190,7 @@ export default function SSTConfig() {
         {tab === 2 && (
           <Grid container spacing={2.5}>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ border: `1px solid #E5E7EB`, borderRadius: 2 }}>
+              <Card sx={{ border: `1px solid ${BORDER}`, borderRadius: 2 }}>
                 <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <SectionTitle>Metas de indicadores clave</SectionTitle>
                   {[
@@ -211,7 +211,7 @@ export default function SSTConfig() {
               </Card>
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ border: `1px solid #E5E7EB`, borderRadius: 2 }}>
+              <Card sx={{ border: `1px solid ${BORDER}`, borderRadius: 2 }}>
                 <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <SectionTitle>Metas de cumplimiento (%)</SectionTitle>
                   {[

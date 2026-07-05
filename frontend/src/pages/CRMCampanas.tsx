@@ -4,7 +4,7 @@ import { Campaign } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 const CRM_COLOR = '#DC2626'
-const #E5E7EB  = '#E5E7EB'
+const BORDER = '#E5E7EB'
 
 const TIPO_CFG: Record<string, { color: string; label: string }> = {
   EMAIL_MARKETING: { color: '#0EA5E9', label: 'Email Marketing' },
@@ -65,7 +65,7 @@ export default function CRMCampanas() {
             { label: 'ROI Campañas',      value: `${roi}%`,                              color: '#7C3AED' },
           ].map((k, i) => (
             <Grid key={i} size={{ xs: 6, md: 3 }}>
-              <Box sx={{ bgcolor: 'text.primary', border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2, p: 2 }}>
+              <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2, p: 2 }}>
                 <Typography sx={{ fontSize: 26, fontWeight: 900, color: 'text.primary', lineHeight: 1 }}>{k.value}</Typography>
                 <Typography sx={{ fontSize: 11, color: k.color, fontWeight: 600, mt: 0.25 }}>{k.label}</Typography>
               </Box>
@@ -86,7 +86,7 @@ export default function CRMCampanas() {
               const tasa_conv = c.leads > 0 ? Math.round((c.conversiones / c.leads) * 100) : 0
               const roi_camp = c.presupuesto > 0 ? Math.round(((c.ingresos - c.presupuesto) / c.presupuesto) * 100) : 0
               return (
-                <Box key={i} sx={{ bgcolor: 'text.primary', border: `1px solid ${alpha(cfg.color, 0.2)}`, borderRadius: 2, p: 2 }}>
+                <Box key={i} sx={{ bgcolor: 'background.paper', border: `1px solid ${alpha(cfg.color, 0.2)}`, borderRadius: 2, p: 2 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2, mb: 1.5 }}>
                     <Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
@@ -122,7 +122,7 @@ export default function CRMCampanas() {
         )}
 
         {tab === 1 && (
-          <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
+          <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${BORDER}`, borderRadius: 2, p: 2.5 }}>
             <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 2.5 }}>Métricas Email — Newsletter Retail Q3</Typography>
             {METRICAS_EMAIL.map((m, i) => {
               const tasaApertura = Math.round((m.abiertos / m.enviados) * 100)

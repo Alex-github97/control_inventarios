@@ -5,7 +5,7 @@ import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, R
 import { Layout } from '@/components/layout/Layout'
 
 const SCM_COLOR = '#0C4D8C'
-const #E5E7EB  = `rgba(12,77,140,0.25)`
+const BORDER = `rgba(12,77,140,0.25)`
 
 const KPIS = [
   { icon: <AccountBalance />, label: 'Gasto total 2026', value: '$ 8.3 B', delta: '+12%', up: true,  color: '#3b82f6' },
@@ -89,7 +89,7 @@ export default function SCMAnalytica() {
         <Grid container spacing={2} sx={{ mb: 2 }}>
           {/* Gasto vs Presupuesto */}
           <Grid size={{ xs: 12, md: 7 }}>
-            <Card sx={{ bgcolor: '#fff', border: `1px solid #E5E7EB`, borderRadius: 2 }}>
+            <Card sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: 2 }}>
               <CardContent>
                 <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 13, mb: 2 }}>Gasto vs Presupuesto (M COP)</Typography>
                 <ResponsiveContainer width="100%" height={200}>
@@ -108,7 +108,7 @@ export default function SCMAnalytica() {
 
           {/* Distribución por categoría */}
           <Grid size={{ xs: 12, md: 5 }}>
-            <Card sx={{ bgcolor: '#fff', border: `1px solid #E5E7EB`, borderRadius: 2 }}>
+            <Card sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: 2 }}>
               <CardContent>
                 <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 13, mb: 2 }}>Distribución de Gasto por Categoría</Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -135,7 +135,7 @@ export default function SCMAnalytica() {
         </Grid>
 
         {/* OTD Trend */}
-        <Card sx={{ bgcolor: '#fff', border: `1px solid #E5E7EB`, borderRadius: 2 }}>
+        <Card sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: 2 }}>
           <CardContent>
             <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 13, mb: 2 }}>Tendencia On-Time Delivery (%)</Typography>
             <ResponsiveContainer width="100%" height={160}>

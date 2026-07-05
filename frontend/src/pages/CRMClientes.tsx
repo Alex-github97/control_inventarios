@@ -4,7 +4,7 @@ import { People, Search, TrendingUp, Handshake, SupportAgent, StarRate } from '@
 import { Layout } from '@/components/layout/Layout'
 
 const CRM_COLOR = '#DC2626'
-const #E5E7EB  = '#E5E7EB'
+const BORDER = '#E5E7EB'
 
 const ESTADO_COLOR: Record<string, string> = {
   CLIENTE_ACTIVO: '#059669', PROSPECTO: '#94A3B8', LEAD: '#0EA5E9',
@@ -88,7 +88,7 @@ export default function CRMClientes() {
             background: `linear-gradient(135deg, ${CRM_COLOR} 0%, #B91C1C 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <People sx={{ color: 'text.primary', fontSize: 22 }} />
+            <People sx={{ color: '#fff', fontSize: 22 }} />
           </Box>
           <Box>
             <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Clientes</Typography>
@@ -107,7 +107,7 @@ export default function CRMClientes() {
         {tab === 0 && (
           <>
             <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-              <Box sx={{ display: 'flex', gap: 1, flex: 1, minWidth: 200, bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, px: 2, py: 1, alignItems: 'center' }}>
+              <Box sx={{ display: 'flex', gap: 1, flex: 1, minWidth: 200, bgcolor: 'background.paper', border: `1px solid ${BORDER}`, borderRadius: 2, px: 2, py: 1, alignItems: 'center' }}>
                 <Search sx={{ color: 'text.disabled', fontSize: 20 }} />
                 <InputBase placeholder="Buscar cliente..." value={busqueda} onChange={e => setBus(e.target.value)} sx={{ flex: 1, color: 'text.primary', fontSize: 13.5 }} />
               </Box>
@@ -116,7 +116,7 @@ export default function CRMClientes() {
                   sx={{ cursor: 'pointer', bgcolor: estado === e ? CRM_COLOR : '#F1F5F9', color: estado === e ? '#FFF' : 'text.secondary', fontWeight: estado === e ? 700 : 400 }} />
               ))}
             </Box>
-            <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, overflow: 'hidden' }}>
+            <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${BORDER}`, borderRadius: 2, overflow: 'hidden' }}>
               <Box sx={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
@@ -160,7 +160,7 @@ export default function CRMClientes() {
         {tab === 1 && (
           <Grid container spacing={2}>
             <Grid size={{ xs: 12 }}>
-              <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
+              <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${BORDER}`, borderRadius: 2, p: 2.5 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2, mb: 2 }}>
                   <Box>
                     <Typography sx={{ fontSize: 18, fontWeight: 800, color: 'text.primary' }}>{CLIENTE_360.razon_social}</Typography>
@@ -189,10 +189,10 @@ export default function CRMClientes() {
             </Grid>
 
             <Grid size={{ xs: 12, md: 6 }}>
-              <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
+              <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${BORDER}`, borderRadius: 2, p: 2.5 }}>
                 <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary', mb: 1.5 }}>Contratos Activos</Typography>
                 {CLIENTE_360.contratos.map((c, i) => (
-                  <Box key={i} sx={{ p: 1.5, mb: 1, bgcolor: '#F9FAFB', borderRadius: 1.5, border: '1px solid #E5E7EB' }}>
+                  <Box key={i} sx={{ p: 1.5, mb: 1, bgcolor: '#F9FAFB', borderRadius: 1.5, border: `1px solid ${BORDER}` }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                       <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: 'text.primary' }}>{c.nombre}</Typography>
                       <Chip label={c.estado} size="small" sx={{ bgcolor: alpha('#059669', 0.15), color: '#059669', fontSize: 9.5 }} />
@@ -204,7 +204,7 @@ export default function CRMClientes() {
             </Grid>
 
             <Grid size={{ xs: 12, md: 6 }}>
-              <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
+              <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${BORDER}`, borderRadius: 2, p: 2.5 }}>
                 <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary', mb: 1.5 }}>Historial de Interacciones</Typography>
                 {CLIENTE_360.historial.map((h, i) => (
                   <Box key={i} sx={{ display: 'flex', gap: 1.5, mb: 1.5, p: 1.5, bgcolor: '#F9FAFB', borderRadius: 1.5 }}>

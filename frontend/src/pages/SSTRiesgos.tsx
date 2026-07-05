@@ -4,6 +4,7 @@ import { GppBad, Add, Warning, CheckCircle, Info } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 const SST_COLOR = '#C53030'
+const PAGE_BG   = '#F0F2F5'
 
 const SX_INPUT = {
   '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: '#F9FAFB', '& fieldset': { borderColor: '#E5E7EB' } },
@@ -152,7 +153,7 @@ export default function SSTRiesgos() {
         </Box>
 
         {/* Dialog */}
-        <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth PaperProps={{ sx: { bgcolor: '#0A1628', color: 'text.primary' } }}>
+        <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth PaperProps={{ sx: { color: 'text.primary' } }}>
           <DialogTitle sx={{ borderBottom: '1px solid #F1F5F9', fontWeight: 700 }}>Registrar Peligro en Matriz IPER</DialogTitle>
           <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Box sx={{ display: 'flex', gap: 2 }}>

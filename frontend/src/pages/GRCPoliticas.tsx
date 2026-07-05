@@ -243,7 +243,7 @@ export default function GRCPoliticas() {
           <Paper sx={{ bgcolor: 'transparent', overflowX: 'auto' }}>
             <Table size="small">
               <TableHead>
-                <TableRow sx={{ '& th': { borderColor: 'rgba(255,255,255,0.06)', color: LBL, fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
+                <TableRow sx={{ '& th': { borderColor: '#E5E7EB', color: LBL, fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
                   <TableCell>Política</TableCell>
                   <TableCell>Estado</TableCell>
                   <TableCell>Versión</TableCell>
@@ -257,7 +257,7 @@ export default function GRCPoliticas() {
                 {politicas.filter(p => p.estado === 'PUBLICADA').map(p => {
                   const pct = Math.round((p.aceptaciones / p.requeridas) * 100)
                   return (
-                    <TableRow key={p.codigo} sx={{ '& td': { borderColor: 'rgba(255,255,255,0.04)', color: 'text.primary', fontSize: 12.5 } }}>
+                    <TableRow key={p.codigo} sx={{ '& td': { borderColor: '#E5E7EB', color: 'text.primary', fontSize: 12.5 } }}>
                       <TableCell sx={{ maxWidth: 280 }}>
                         <Typography sx={{ fontSize: 12.5, color: 'text.primary', fontWeight: 600 }}>{p.nombre}</Typography>
                         <Typography sx={{ fontSize: 10, color: LBL }}>{p.codigo}</Typography>
@@ -288,7 +288,7 @@ export default function GRCPoliticas() {
         )}
 
         {/* DIALOG NUEVA POLÍTICA */}
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary' } }}>
+        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { color: 'text.primary' } }}>
           <DialogTitle sx={{ fontWeight: 700 }}>Nueva Política</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
             <TextField label="Nombre de la Política" fullWidth size="small" InputLabelProps={LBL_SX} />
@@ -308,7 +308,7 @@ export default function GRCPoliticas() {
         </Dialog>
 
         {/* DIALOG REGISTRAR ACEPTACIÓN */}
-        <Dialog open={openAcept} onClose={() => setOpenAcept(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { bgcolor: '#1F2937', color: 'text.primary' } }}>
+        <Dialog open={openAcept} onClose={() => setOpenAcept(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { color: 'text.primary' } }}>
           <DialogTitle sx={{ fontWeight: 700 }}>Registrar Aceptación de Política</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
             <TextField label="Nombre del Aceptante" fullWidth size="small" InputLabelProps={LBL_SX} />

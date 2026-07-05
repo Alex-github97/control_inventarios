@@ -62,18 +62,18 @@ export default function APSConfig() {
 
   return (
     <Layout>
-      <Box sx={{ p: 3, background: '#0F172A', minHeight: '100vh' }}>
+      <Box sx={{ p: 3, background: '#F0F2F5', minHeight: '100vh' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
           <Box sx={{ width: 42, height: 42, borderRadius: '12px', background: `linear-gradient(135deg, ${APS_COLOR} 0%, #6D28D9 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 14px ${alpha(APS_COLOR, 0.4)}` }}>
             <Settings sx={{ color: '#FFF', fontSize: 22 }} />
           </Box>
           <Box>
-            <Typography variant="h5" sx={{ color: '#F8FAFC', fontWeight: 700 }}>Configuración APS</Typography>
-            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.45)' }}>Catálogos, Parámetros, Integraciones y Usuarios del módulo APS</Typography>
+            <Typography variant="h5" sx={{ color: '#1E293B', fontWeight: 700 }}>Configuración APS</Typography>
+            <Typography variant="body2" sx={{ color: '#64748B' }}>Catálogos, Parámetros, Integraciones y Usuarios del módulo APS</Typography>
           </Box>
         </Box>
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3, '& .MuiTab-root': { color: 'rgba(255,255,255,0.4)', fontSize: 13 }, '& .Mui-selected': { color: APS_COLOR }, '& .MuiTabs-indicator': { bgcolor: APS_COLOR } }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3, '& .MuiTab-root': { color: '#64748B', fontSize: 13 }, '& .Mui-selected': { color: APS_COLOR }, '& .MuiTabs-indicator': { bgcolor: APS_COLOR } }}>
           <Tab label="Catálogos" />
           <Tab label="Parámetros Globales" />
           <Tab label="Integraciones" />
@@ -86,26 +86,26 @@ export default function APSConfig() {
               <TextField
                 size="small" placeholder="Buscar catálogo..." value={busqueda}
                 onChange={e => setBusqueda(e.target.value)}
-                InputProps={{ startAdornment: <InputAdornment position="start"><Search sx={{ color: 'rgba(255,255,255,0.3)', fontSize: 18 }} /></InputAdornment> }}
-                sx={{ flex: 1, maxWidth: 360, '& .MuiOutlinedInput-root': { color: '#F8FAFC', bgcolor: 'rgba(255,255,255,0.05)', '& fieldset': { borderColor: 'rgba(255,255,255,0.1)' }, '&:hover fieldset': { borderColor: APS_COLOR }, '&.Mui-focused fieldset': { borderColor: APS_COLOR } }, '& .MuiInputBase-input::placeholder': { color: 'rgba(255,255,255,0.25)' } }}
+                InputProps={{ startAdornment: <InputAdornment position="start"><Search sx={{ color: '#64748B', fontSize: 18 }} /></InputAdornment> }}
+                sx={{ flex: 1, maxWidth: 360, '& .MuiOutlinedInput-root': { '&:hover fieldset': { borderColor: APS_COLOR }, '&.Mui-focused fieldset': { borderColor: APS_COLOR } } }}
               />
               <Button variant="contained" sx={{ bgcolor: APS_COLOR, fontWeight: 700, '&:hover': { bgcolor: '#6D28D9' } }}>+ Nuevo Registro</Button>
             </Box>
-            <Paper sx={{ bgcolor: '#1E293B', borderRadius: '12px', overflow: 'hidden' }}>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr', px: 2.5, py: 1.5, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <Paper sx={{ bgcolor: '#fff', borderRadius: '12px', overflow: 'hidden' }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr', px: 2.5, py: 1.5, borderBottom: '1px solid #E5E7EB' }}>
                 {['Catálogo', 'Total Items', 'Activos', 'Última Actualización', ''].map(h => (
-                  <Typography key={h} sx={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</Typography>
+                  <Typography key={h} sx={{ color: '#64748B', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</Typography>
                 ))}
               </Box>
               {catFiltrados.map((c, i) => (
-                <Box key={i} sx={{ display: 'grid', gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr', px: 2.5, py: 1.75, borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center', '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
-                  <Typography sx={{ color: '#E2E8F0', fontSize: 13, fontWeight: 500 }}>{c.nombre}</Typography>
-                  <Typography sx={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>{c.items.toLocaleString()}</Typography>
+                <Box key={i} sx={{ display: 'grid', gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr', px: 2.5, py: 1.75, borderBottom: '1px solid #E5E7EB', alignItems: 'center', '&:hover': { bgcolor: '#F8FAFC' } }}>
+                  <Typography sx={{ color: '#1E293B', fontSize: 13, fontWeight: 500 }}>{c.nombre}</Typography>
+                  <Typography sx={{ color: '#334155', fontSize: 13 }}>{c.items.toLocaleString()}</Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Typography sx={{ color: '#10B981', fontSize: 13 }}>{c.activos}</Typography>
-                    {c.items - c.activos > 0 && <Typography sx={{ color: 'rgba(255,255,255,0.3)', fontSize: 11 }}>/ {c.items - c.activos} inac.</Typography>}
+                    {c.items - c.activos > 0 && <Typography sx={{ color: '#64748B', fontSize: 11 }}>/ {c.items - c.activos} inac.</Typography>}
                   </Box>
-                  <Typography sx={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>{c.ultima}</Typography>
+                  <Typography sx={{ color: '#64748B', fontSize: 12 }}>{c.ultima}</Typography>
                   <Button size="small" sx={{ color: APS_COLOR, fontSize: 11, textTransform: 'none' }}>Ver / Editar</Button>
                 </Box>
               ))}
@@ -116,22 +116,22 @@ export default function APSConfig() {
         {tab === 1 && (
           <Grid container spacing={3}>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Paper sx={{ bgcolor: '#1E293B', borderRadius: '12px', p: 3 }}>
-                <Typography sx={{ color: '#F8FAFC', fontWeight: 700, mb: 3, fontSize: 15 }}>Horizonte y Granularidad</Typography>
+              <Paper sx={{ bgcolor: '#fff', borderRadius: '12px', p: 3 }}>
+                <Typography sx={{ color: '#1E293B', fontWeight: 700, mb: 3, fontSize: 15 }}>Horizonte y Granularidad</Typography>
                 {parametros.map((p, i) => (
                   <Box key={p.label} sx={{ mb: 3 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography sx={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>{p.label}</Typography>
+                      <Typography sx={{ color: '#334155', fontSize: 13 }}>{p.label}</Typography>
                       <Chip label={`${sliderVals[i]} ${p.unit}`} size="small" sx={{ bgcolor: alpha(APS_COLOR, 0.15), color: APS_COLOR, fontWeight: 700, fontSize: 11 }} />
                     </Box>
                     <Slider
                       value={sliderVals[i]} min={p.min} max={p.max}
                       onChange={(_, v) => setSliderVals(vs => { const n = [...vs]; n[i] = v as number; return n })}
-                      sx={{ color: APS_COLOR, '& .MuiSlider-thumb': { width: 14, height: 14 }, '& .MuiSlider-rail': { bgcolor: 'rgba(255,255,255,0.1)' } }}
+                      sx={{ color: APS_COLOR, '& .MuiSlider-thumb': { width: 14, height: 14 }, '& .MuiSlider-rail': { bgcolor: '#E5E7EB' } }}
                     />
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography sx={{ color: 'rgba(255,255,255,0.3)', fontSize: 11 }}>{p.min} {p.unit}</Typography>
-                      <Typography sx={{ color: 'rgba(255,255,255,0.3)', fontSize: 11 }}>{p.max} {p.unit}</Typography>
+                      <Typography sx={{ color: '#64748B', fontSize: 11 }}>{p.min} {p.unit}</Typography>
+                      <Typography sx={{ color: '#64748B', fontSize: 11 }}>{p.max} {p.unit}</Typography>
                     </Box>
                   </Box>
                 ))}
@@ -139,13 +139,13 @@ export default function APSConfig() {
               </Paper>
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Paper sx={{ bgcolor: '#1E293B', borderRadius: '12px', p: 3 }}>
-                <Typography sx={{ color: '#F8FAFC', fontWeight: 700, mb: 3, fontSize: 15 }}>Funcionalidades Activas</Typography>
+              <Paper sx={{ bgcolor: '#fff', borderRadius: '12px', p: 3 }}>
+                <Typography sx={{ color: '#1E293B', fontWeight: 700, mb: 3, fontSize: 15 }}>Funcionalidades Activas</Typography>
                 {switches_.map((s, i) => (
-                  <Box key={s.label} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5, pb: 2.5, borderBottom: i < switches_.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                  <Box key={s.label} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5, pb: 2.5, borderBottom: i < switches_.length - 1 ? '1px solid #E5E7EB' : 'none' }}>
                     <Box>
-                      <Typography sx={{ color: '#E2E8F0', fontSize: 13, fontWeight: 500 }}>{s.label}</Typography>
-                      <Typography sx={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, mt: 0.25 }}>{s.desc}</Typography>
+                      <Typography sx={{ color: '#1E293B', fontSize: 13, fontWeight: 500 }}>{s.label}</Typography>
+                      <Typography sx={{ color: '#64748B', fontSize: 11, mt: 0.25 }}>{s.desc}</Typography>
                     </Box>
                     <Switch
                       checked={swVals[i]}
@@ -160,28 +160,28 @@ export default function APSConfig() {
         )}
 
         {tab === 2 && (
-          <Paper sx={{ bgcolor: '#1E293B', borderRadius: '12px', overflow: 'hidden' }}>
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr 1fr 1fr', px: 2.5, py: 1.5, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <Paper sx={{ bgcolor: '#fff', borderRadius: '12px', overflow: 'hidden' }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr 1fr 1fr', px: 2.5, py: 1.5, borderBottom: '1px solid #E5E7EB' }}>
               {['Sistema', 'Tipo', 'Estado', 'Sincronización', 'Última Sync', 'Registros'].map(h => (
-                <Typography key={h} sx={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</Typography>
+                <Typography key={h} sx={{ color: '#64748B', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</Typography>
               ))}
             </Box>
             {integraciones.map((int, i) => {
               const stColor = int.estado === 'CONECTADO' ? '#10B981' : int.estado === 'PARCIAL' ? '#F59E0B' : '#EF4444'
               return (
-                <Box key={i} sx={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr 1fr 1fr', px: 2.5, py: 2, borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center', '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
-                  <Typography sx={{ color: '#E2E8F0', fontSize: 13, fontWeight: 600 }}>{int.sistema}</Typography>
-                  <Typography sx={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>{int.tipo}</Typography>
+                <Box key={i} sx={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr 1fr 1fr', px: 2.5, py: 2, borderBottom: '1px solid #E5E7EB', alignItems: 'center', '&:hover': { bgcolor: '#F8FAFC' } }}>
+                  <Typography sx={{ color: '#1E293B', fontSize: 13, fontWeight: 600 }}>{int.sistema}</Typography>
+                  <Typography sx={{ color: '#64748B', fontSize: 12 }}>{int.tipo}</Typography>
                   <Chip label={int.estado} size="small" sx={{ bgcolor: alpha(stColor, 0.15), color: stColor, fontWeight: 700, fontSize: 10, width: 'fit-content' }} />
-                  <Typography sx={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>{int.sync}</Typography>
-                  <Typography sx={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>{int.ultima}</Typography>
-                  <Typography sx={{ color: int.estado === 'CONECTADO' ? '#10B981' : 'rgba(255,255,255,0.4)', fontSize: 13, fontWeight: int.estado === 'CONECTADO' ? 700 : 400 }}>{int.registros}</Typography>
+                  <Typography sx={{ color: '#64748B', fontSize: 12 }}>{int.sync}</Typography>
+                  <Typography sx={{ color: '#64748B', fontSize: 12 }}>{int.ultima}</Typography>
+                  <Typography sx={{ color: int.estado === 'CONECTADO' ? '#10B981' : '#64748B', fontSize: 13, fontWeight: int.estado === 'CONECTADO' ? 700 : 400 }}>{int.registros}</Typography>
                 </Box>
               )
             })}
             <Box sx={{ p: 2, display: 'flex', gap: 2 }}>
               <Button variant="outlined" size="small" sx={{ color: APS_COLOR, borderColor: alpha(APS_COLOR, 0.35), '&:hover': { borderColor: APS_COLOR, bgcolor: alpha(APS_COLOR, 0.08) } }}>+ Nueva Integración</Button>
-              <Button variant="outlined" size="small" sx={{ color: 'rgba(255,255,255,0.4)', borderColor: 'rgba(255,255,255,0.1)', '&:hover': { borderColor: 'rgba(255,255,255,0.25)', bgcolor: 'rgba(255,255,255,0.04)' } }}>Probar Conexiones</Button>
+              <Button variant="outlined" size="small" sx={{ color: '#64748B', borderColor: '#E5E7EB', '&:hover': { borderColor: '#CBD5E1', bgcolor: '#F8FAFC' } }}>Probar Conexiones</Button>
             </Box>
           </Paper>
         )}
@@ -191,24 +191,24 @@ export default function APSConfig() {
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
               <Button variant="contained" sx={{ bgcolor: APS_COLOR, fontWeight: 700, '&:hover': { bgcolor: '#6D28D9' } }}>+ Agregar Usuario</Button>
             </Box>
-            <Paper sx={{ bgcolor: '#1E293B', borderRadius: '12px', overflow: 'hidden' }}>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 2.5fr 2fr 2fr 1.5fr', px: 2.5, py: 1.5, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <Paper sx={{ bgcolor: '#fff', borderRadius: '12px', overflow: 'hidden' }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 2.5fr 2fr 2fr 1.5fr', px: 2.5, py: 1.5, borderBottom: '1px solid #E5E7EB' }}>
                 {['Nombre', 'Email', 'Rol APS', 'Acceso', 'Último Acceso'].map(h => (
-                  <Typography key={h} sx={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</Typography>
+                  <Typography key={h} sx={{ color: '#64748B', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</Typography>
                 ))}
               </Box>
               {usuarios.map((u, i) => (
-                <Box key={i} sx={{ display: 'grid', gridTemplateColumns: '2fr 2.5fr 2fr 2fr 1.5fr', px: 2.5, py: 2, borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center', '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
+                <Box key={i} sx={{ display: 'grid', gridTemplateColumns: '2fr 2.5fr 2fr 2fr 1.5fr', px: 2.5, py: 2, borderBottom: '1px solid #E5E7EB', alignItems: 'center', '&:hover': { bgcolor: '#F8FAFC' } }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Box sx={{ width: 30, height: 30, borderRadius: '50%', background: `linear-gradient(135deg, ${APS_COLOR} 0%, #6D28D9 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <Typography sx={{ color: '#FFF', fontSize: 11, fontWeight: 800 }}>{u.nombre.split(' ').map(n => n[0]).join('').slice(0, 2)}</Typography>
                     </Box>
-                    <Typography sx={{ color: '#E2E8F0', fontSize: 13, fontWeight: 600 }}>{u.nombre}</Typography>
+                    <Typography sx={{ color: '#1E293B', fontSize: 13, fontWeight: 600 }}>{u.nombre}</Typography>
                   </Box>
-                  <Typography sx={{ color: 'rgba(255,255,255,0.45)', fontSize: 12 }}>{u.email}</Typography>
+                  <Typography sx={{ color: '#64748B', fontSize: 12 }}>{u.email}</Typography>
                   <Typography sx={{ color: APS_COLOR, fontSize: 12, fontWeight: 500 }}>{u.rol}</Typography>
-                  <Typography sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 12 }}>{u.acceso}</Typography>
-                  <Typography sx={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>{u.ultimo}</Typography>
+                  <Typography sx={{ color: '#334155', fontSize: 12 }}>{u.acceso}</Typography>
+                  <Typography sx={{ color: '#64748B', fontSize: 12 }}>{u.ultimo}</Typography>
                 </Box>
               ))}
             </Paper>

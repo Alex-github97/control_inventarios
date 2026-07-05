@@ -30,9 +30,9 @@ import { Layout } from '@/components/layout/Layout'
 const MES_COLOR = '#0891B2'
 const MES_DARK  = '#0E7490'
 const SURFACE   = '#FFFFFF'
-const BORDER    = '#1E3A5F'
-const TEXT      = '#E2E8F0'
-const MUTED     = '#94A3B8'
+const BORDER    = '#E5E7EB'
+const TEXT      = '#1E293B'
+const MUTED     = '#64748B'
 
 const cardSx = {
   bgcolor: SURFACE,
@@ -50,16 +50,11 @@ const tabsSx = {
 
 const inputSx = {
   '& .MuiOutlinedInput-root': {
-    bgcolor: alpha(SURFACE, 0.5),
-    color: TEXT,
     borderRadius: '8px',
-    '& fieldset': { borderColor: BORDER },
     '&:hover fieldset': { borderColor: MES_COLOR },
     '&.Mui-focused fieldset': { borderColor: MES_COLOR },
   },
-  '& .MuiInputLabel-root': { color: MUTED },
   '& .MuiInputLabel-root.Mui-focused': { color: MES_COLOR },
-  '& .MuiSelect-icon': { color: MUTED },
 }
 
 // ─── Datos mock ───────────────────────────────────────────────────────────────

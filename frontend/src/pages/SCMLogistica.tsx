@@ -4,7 +4,7 @@ import { FlightTakeoff, LocalShipping, Route, AccessTime, CheckCircle } from '@m
 import { Layout } from '@/components/layout/Layout'
 
 const SCM_COLOR = '#0C4D8C'
-const #E5E7EB  = `rgba(12,77,140,0.25)`
+const BORDER = `rgba(12,77,140,0.25)`
 
 const KPIS = [
   { icon: <LocalShipping />, label: 'Embarques activos',   value: '3',   color: '#3b82f6' },
@@ -62,7 +62,7 @@ export default function SCMLogistica() {
         </Grid>
 
         {/* Embarques */}
-        <Card sx={{ bgcolor: '#fff', border: `1px solid #E5E7EB`, borderRadius: 2 }}>
+        <Card sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: 2 }}>
           <CardContent>
             <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 14, mb: 2 }}>Embarques en Seguimiento</Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>

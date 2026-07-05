@@ -1190,15 +1190,15 @@ export default function Movimientos() {
 
                       {cameras.length === 0 && (
                         <Box sx={{ display:'flex',flexDirection:'column',alignItems:'center',
-                          justifyContent:'center',py:3.5,px:3,bgcolor:'#0D1117',gap:2 }}>
+                          justifyContent:'center',py:3.5,px:3,bgcolor:'#F8FAFC',gap:2 }}>
                           {detectingCameras ? (
                             <>
                               <CircularProgress size={36} sx={{ color: CYAN }} />
-                              <Typography sx={{ fontSize:13,color:'#94A3B8' }}>Detectando cámaras...</Typography>
+                              <Typography sx={{ fontSize:13,color:'#64748B' }}>Detectando cámaras...</Typography>
                             </>
                           ) : (
                             <>
-                              <Videocam sx={{ fontSize:40,color:'#334155' }} />
+                              <Videocam sx={{ fontSize:40,color:'#CBD5E1' }} />
                               <Typography sx={{ fontSize:13,color:'#94A3B8',textAlign:'center' }}>
                                 Detecta las cámaras disponibles en este dispositivo
                               </Typography>
@@ -1506,7 +1506,7 @@ export default function Movimientos() {
                   <Typography sx={{ fontSize:14,color:'#94A3B8',fontWeight:500 }}>
                     Aún no has escaneado ninguna estiba
                   </Typography>
-                  <Typography sx={{ fontSize:12,color:'#CBD5E1',mt:0.5 }}>
+                  <Typography sx={{ fontSize:12,color:'#94A3B8',mt:0.5 }}>
                     {deviceMode === 'camera'
                       ? 'Selecciona una cámara e iníciala para comenzar'
                       : deviceMode === 'mobile'

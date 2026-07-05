@@ -32,6 +32,9 @@ import { Layout } from '@/components/layout/Layout';
 const MES_COLOR = '#0891B2';
 const MES_DARK = '#0E7490';
 const MES_BORDER = 'rgba(8,145,178,0.25)';
+// Vista de planta en modo oscuro (sala de control): texto claro sobre superficies oscuras
+const BG_MAIN = '#0F172A';
+const BG_CARD = '#1E293B';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 interface PlantLine {

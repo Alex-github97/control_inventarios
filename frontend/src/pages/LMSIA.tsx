@@ -143,7 +143,7 @@ export default function LMSIA() {
         {tab === 2 && (
           <Grid container spacing={2}>
             <Grid size={{ xs: 12 }}>
-              <Box sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2, p: 2.5 }}>
+              <Box sx={{ border: '1px solid #E5E7EB', borderRadius: 2, p: 2.5 }}>
                 <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 2.5 }}>
                   Horas de Capacitación — Últimos 6 Meses
                 </Typography>

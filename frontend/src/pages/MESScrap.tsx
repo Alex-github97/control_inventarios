@@ -136,7 +136,7 @@ function ScrapTab() {
             <Card sx={{ border: `1px solid ${k.color}33`, borderRadius: 2 }}>
               <CardContent sx={{ p: '12px !important' }}>
                 <Typography sx={{ color: k.color, fontWeight: 900, fontSize: 26, lineHeight: 1 }}>{k.value}</Typography>
-                <Typography sx={{ color: '#94a3b8', fontSize: 11, mt: 0.3 }}>{k.sub}</Typography>
+                <Typography sx={{ color: '#64748b', fontSize: 11, mt: 0.3 }}>{k.sub}</Typography>
                 <Typography sx={{ color: '#64748b', fontSize: 10, mt: 0.3, fontWeight: 600 }}>{k.label}</Typography>
               </CardContent>
             </Card>
@@ -146,30 +146,30 @@ function ScrapTab() {
 
       {/* Tabla scrap */}
       <Box>
-        <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Registros de Scrap</Typography>
-        <TableContainer component={Paper} sx={{ border: '1px solid #1e3a5f', overflowX: 'auto' }}>
+        <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 2 }}>Registros de Scrap</Typography>
+        <TableContainer component={Paper} sx={{ border: '1px solid #E5E7EB', overflowX: 'auto' }}>
           <Table size="small" sx={{ minWidth: 900 }}>
             <TableHead>
               <TableRow>
                 {['Fecha', 'OP', 'Producto', 'Tipo', 'Causa', 'Cantidad', 'Costo Est.', 'Operario', 'Reprocesable'].map((h) => (
-                  <TableCell key={h} sx={{ color: MES_COLOR, fontWeight: 700, fontSize: 11, borderColor: '#1e3a5f', whiteSpace: 'nowrap' }}>{h}</TableCell>
+                  <TableCell key={h} sx={{ color: MES_COLOR, fontWeight: 700, fontSize: 11, borderColor: '#E5E7EB', whiteSpace: 'nowrap' }}>{h}</TableCell>
                 ))}
               </TableRow>
             </TableHead>
             <TableBody>
               {scrapRows.map((row, i) => (
                 <TableRow key={i} sx={{ '&:hover': { bgcolor: `${MES_COLOR}10` } }}>
-                  <TableCell sx={{ color: '#94a3b8', borderColor: '#1e3a5f', fontSize: 12 }}>{row.fecha}</TableCell>
-                  <TableCell sx={{ color: '#60a5fa', fontFamily: 'monospace', borderColor: '#1e3a5f', fontSize: 12 }}>{row.op}</TableCell>
-                  <TableCell sx={{ color: '#e2e8f0', fontWeight: 600, borderColor: '#1e3a5f', fontSize: 12 }}>{row.producto}</TableCell>
-                  <TableCell sx={{ borderColor: '#1e3a5f' }}><TipoScrapChip t={row.tipo} /></TableCell>
-                  <TableCell sx={{ color: '#94a3b8', borderColor: '#1e3a5f', fontSize: 12 }}>{row.causa}</TableCell>
-                  <TableCell sx={{ color: '#f59e0b', fontWeight: 700, borderColor: '#1e3a5f', fontSize: 12 }}>{row.cantidad} kg</TableCell>
-                  <TableCell sx={{ color: '#22c55e', fontWeight: 700, borderColor: '#1e3a5f', fontSize: 12, whiteSpace: 'nowrap' }}>
+                  <TableCell sx={{ color: '#64748b', borderColor: '#E5E7EB', fontSize: 12 }}>{row.fecha}</TableCell>
+                  <TableCell sx={{ color: '#60a5fa', fontFamily: 'monospace', borderColor: '#E5E7EB', fontSize: 12 }}>{row.op}</TableCell>
+                  <TableCell sx={{ color: '#1E293B', fontWeight: 600, borderColor: '#E5E7EB', fontSize: 12 }}>{row.producto}</TableCell>
+                  <TableCell sx={{ borderColor: '#E5E7EB' }}><TipoScrapChip t={row.tipo} /></TableCell>
+                  <TableCell sx={{ color: '#64748b', borderColor: '#E5E7EB', fontSize: 12 }}>{row.causa}</TableCell>
+                  <TableCell sx={{ color: '#f59e0b', fontWeight: 700, borderColor: '#E5E7EB', fontSize: 12 }}>{row.cantidad} kg</TableCell>
+                  <TableCell sx={{ color: '#22c55e', fontWeight: 700, borderColor: '#E5E7EB', fontSize: 12, whiteSpace: 'nowrap' }}>
                     ${row.costo.toLocaleString('es-CO')}
                   </TableCell>
-                  <TableCell sx={{ color: '#e2e8f0', borderColor: '#1e3a5f', fontSize: 12 }}>{row.operario}</TableCell>
-                  <TableCell sx={{ borderColor: '#1e3a5f' }}>
+                  <TableCell sx={{ color: '#1E293B', borderColor: '#E5E7EB', fontSize: 12 }}>{row.operario}</TableCell>
+                  <TableCell sx={{ borderColor: '#E5E7EB' }}>
                     <Chip label={row.reprocesable ? 'SÍ' : 'NO'} size="small"
                       sx={{ bgcolor: row.reprocesable ? '#16a34a22' : '#dc262622',
                         color: row.reprocesable ? '#22c55e' : '#ef4444',
@@ -184,8 +184,8 @@ function ScrapTab() {
 
       {/* Tendencia 6 meses */}
       <Box>
-        <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Tendencia Scrap Rate — Últimos 6 Meses</Typography>
-        <Card sx={{ border: '1px solid #1e3a5f', borderRadius: 2, p: 3 }}>
+        <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 2 }}>Tendencia Scrap Rate — Últimos 6 Meses</Typography>
+        <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2, p: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 130 }}>
             {tendencia6m.map((t) => {
               const barH = (t.rate / 3.5) * 110
@@ -197,7 +197,7 @@ function ScrapTab() {
                     bgcolor: semaforoColor(t.rate), opacity: 0.8,
                     borderRadius: '4px 4px 0 0', transition: 'all 0.3s',
                   }} />
-                  <Box sx={{ width: '100%', height: 2, bgcolor: '#1e3a5f', mt: 0.5 }} />
+                  <Box sx={{ width: '100%', height: 2, bgcolor: '#E5E7EB', mt: 0.5 }} />
                   <Typography sx={{ color: '#94a3b8', fontSize: 12, mt: 0.5, fontWeight: 600 }}>{t.mes}</Typography>
                 </Box>
               )
@@ -240,25 +240,25 @@ function ReprocesosTab() {
 
       {/* Tabla reprocesos */}
       <Box>
-        <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Órdenes de Reproceso</Typography>
-        <TableContainer component={Paper} sx={{ border: '1px solid #1e3a5f', overflowX: 'auto' }}>
+        <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 2 }}>Órdenes de Reproceso</Typography>
+        <TableContainer component={Paper} sx={{ border: '1px solid #E5E7EB', overflowX: 'auto' }}>
           <Table size="small" sx={{ minWidth: 800 }}>
             <TableHead>
               <TableRow>
                 {['OP Original', 'Producto', 'Cantidad', 'Causa', 'Estado', 'Fecha'].map((h) => (
-                  <TableCell key={h} sx={{ color: MES_COLOR, fontWeight: 700, fontSize: 11, borderColor: '#1e3a5f', whiteSpace: 'nowrap' }}>{h}</TableCell>
+                  <TableCell key={h} sx={{ color: MES_COLOR, fontWeight: 700, fontSize: 11, borderColor: '#E5E7EB', whiteSpace: 'nowrap' }}>{h}</TableCell>
                 ))}
               </TableRow>
             </TableHead>
             <TableBody>
               {reprocRows.map((row, i) => (
                 <TableRow key={i} sx={{ '&:hover': { bgcolor: `${MES_COLOR}10` } }}>
-                  <TableCell sx={{ color: '#60a5fa', fontFamily: 'monospace', borderColor: '#1e3a5f', fontSize: 12 }}>{row.opOrigen}</TableCell>
-                  <TableCell sx={{ color: '#e2e8f0', fontWeight: 600, borderColor: '#1e3a5f', fontSize: 12 }}>{row.producto}</TableCell>
-                  <TableCell sx={{ color: '#f59e0b', fontWeight: 700, borderColor: '#1e3a5f', fontSize: 12 }}>{row.cantidad} uds</TableCell>
-                  <TableCell sx={{ color: '#94a3b8', borderColor: '#1e3a5f', fontSize: 12 }}>{row.causa}</TableCell>
-                  <TableCell sx={{ borderColor: '#1e3a5f' }}><EstadoReprocChip e={row.estado} /></TableCell>
-                  <TableCell sx={{ color: '#94a3b8', borderColor: '#1e3a5f', fontSize: 12 }}>{row.fecha}</TableCell>
+                  <TableCell sx={{ color: '#60a5fa', fontFamily: 'monospace', borderColor: '#E5E7EB', fontSize: 12 }}>{row.opOrigen}</TableCell>
+                  <TableCell sx={{ color: '#1E293B', fontWeight: 600, borderColor: '#E5E7EB', fontSize: 12 }}>{row.producto}</TableCell>
+                  <TableCell sx={{ color: '#f59e0b', fontWeight: 700, borderColor: '#E5E7EB', fontSize: 12 }}>{row.cantidad} uds</TableCell>
+                  <TableCell sx={{ color: '#64748b', borderColor: '#E5E7EB', fontSize: 12 }}>{row.causa}</TableCell>
+                  <TableCell sx={{ borderColor: '#E5E7EB' }}><EstadoReprocChip e={row.estado} /></TableCell>
+                  <TableCell sx={{ color: '#64748b', borderColor: '#E5E7EB', fontSize: 12 }}>{row.fecha}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -268,41 +268,32 @@ function ReprocesosTab() {
 
       {/* Formulario registro */}
       <Box>
-        <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Registrar Orden de Reproceso</Typography>
-        <Card sx={{ border: '1px solid #1e3a5f', borderRadius: 2, p: 2 }}>
+        <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 2 }}>Registrar Orden de Reproceso</Typography>
+        <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2, p: 2 }}>
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, md: 4 }}>
               <FormControl fullWidth size="small">
-                <InputLabel sx={{ color: '#94a3b8' }}>OP de Origen</InputLabel>
-                <Select value={form.op} onChange={(e) => setForm({ ...form, op: e.target.value })}
-                  sx={{ color: '#e2e8f0', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#1e3a5f' }, '& .MuiSvgIcon-root': { color: '#94a3b8' } }}>
+                <InputLabel>OP de Origen</InputLabel>
+                <Select value={form.op} label="OP de Origen" onChange={(e) => setForm({ ...form, op: e.target.value })}>
                   {reprocRows.map((r) => <MenuItem key={r.opOrigen} value={r.opOrigen}>{r.opOrigen}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
             <Grid size={{ xs: 6, md: 2 }}>
               <TextField fullWidth size="small" label="Cantidad" type="number"
-                value={form.cantidad} onChange={(e) => setForm({ ...form, cantidad: e.target.value })}
-                InputLabelProps={{ sx: { color: '#94a3b8' } }}
-                sx={{ '& input': { color: '#e2e8f0' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: '#1e3a5f' } }} />
+                value={form.cantidad} onChange={(e) => setForm({ ...form, cantidad: e.target.value })} />
             </Grid>
             <Grid size={{ xs: 6, md: 3 }}>
               <TextField fullWidth size="small" label="Operario responsable"
-                value={form.operario} onChange={(e) => setForm({ ...form, operario: e.target.value })}
-                InputLabelProps={{ sx: { color: '#94a3b8' } }}
-                sx={{ '& input': { color: '#e2e8f0' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: '#1e3a5f' } }} />
+                value={form.operario} onChange={(e) => setForm({ ...form, operario: e.target.value })} />
             </Grid>
             <Grid size={{ xs: 6, md: 3 }}>
               <TextField fullWidth size="small" label="Tiempo estimado (hrs)" type="number"
-                value={form.tiempo} onChange={(e) => setForm({ ...form, tiempo: e.target.value })}
-                InputLabelProps={{ sx: { color: '#94a3b8' } }}
-                sx={{ '& input': { color: '#e2e8f0' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: '#1e3a5f' } }} />
+                value={form.tiempo} onChange={(e) => setForm({ ...form, tiempo: e.target.value })} />
             </Grid>
             <Grid size={{ xs: 12 }}>
               <TextField fullWidth size="small" label="Descripción del trabajo" multiline rows={2}
-                value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
-                InputLabelProps={{ sx: { color: '#94a3b8' } }}
-                sx={{ '& textarea': { color: '#e2e8f0' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: '#1e3a5f' } }} />
+                value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} />
             </Grid>
             <Grid size={{ xs: 12 }}>
               <Button variant="contained" sx={{ bgcolor: MES_COLOR, '&:hover': { bgcolor: MES_DARK }, fontWeight: 700, borderRadius: 2 }}>
@@ -327,11 +318,11 @@ function LeanTab() {
 
         {/* Andon */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <Card sx={{ border: '1px solid #1e3a5f', borderRadius: 2 }}>
+          <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                 <CircleOutlined sx={{ color: MES_COLOR }} />
-                <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>Sistema Andon</Typography>
+                <Typography sx={{ color: '#1E293B', fontWeight: 700, fontSize: 16 }}>Sistema Andon</Typography>
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mb: 3 }}>
                 {(['VERDE', 'AMARILLO', 'ROJO'] as const).map((s) => (
@@ -362,18 +353,18 @@ function LeanTab() {
 
         {/* Kaizen */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <Card sx={{ border: '1px solid #1e3a5f', borderRadius: 2 }}>
+          <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                 <EmojiObjects sx={{ color: '#f59e0b' }} />
-                <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>Eventos Kaizen Activos</Typography>
+                <Typography sx={{ color: '#1E293B', fontWeight: 700, fontSize: 16 }}>Eventos Kaizen Activos</Typography>
               </Box>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                 {kaizens.map((k) => (
                   <Box key={k.nombre}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.4 }}>
                       <Box>
-                        <Typography sx={{ color: '#e2e8f0', fontSize: 12, fontWeight: 600 }}>{k.nombre}</Typography>
+                        <Typography sx={{ color: '#1E293B', fontSize: 12, fontWeight: 600 }}>{k.nombre}</Typography>
                         <Typography sx={{ color: '#64748b', fontSize: 10 }}>{k.area} · {k.lider}</Typography>
                       </Box>
                       <Box sx={{ textAlign: 'right' }}>
@@ -384,7 +375,7 @@ function LeanTab() {
                       </Box>
                     </Box>
                     <LinearProgress variant="determinate" value={k.avance}
-                      sx={{ height: 6, borderRadius: 3, bgcolor: '#1e3a5f',
+                      sx={{ height: 6, borderRadius: 3, bgcolor: '#E5E7EB',
                         '& .MuiLinearProgress-bar': { bgcolor: k.avance >= 80 ? '#22c55e' : k.avance >= 50 ? '#f59e0b' : MES_COLOR } }} />
                   </Box>
                 ))}
@@ -395,12 +386,12 @@ function LeanTab() {
 
         {/* 5S */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <Card sx={{ border: '1px solid #1e3a5f', borderRadius: 2 }}>
+          <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <CheckCircle sx={{ color: '#22c55e' }} />
-                  <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>Auditoría 5S</Typography>
+                  <Typography sx={{ color: '#1E293B', fontWeight: 700, fontSize: 16 }}>Auditoría 5S</Typography>
                 </Box>
                 <Typography sx={{ color: '#64748b', fontSize: 11 }}>Última: 15/06/2024</Typography>
               </Box>
@@ -410,11 +401,11 @@ function LeanTab() {
                   return (
                     <Box key={s.s}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.4 }}>
-                        <Typography sx={{ color: '#e2e8f0', fontSize: 12, fontWeight: 600 }}>{s.s}</Typography>
+                        <Typography sx={{ color: '#1E293B', fontSize: 12, fontWeight: 600 }}>{s.s}</Typography>
                         <Typography sx={{ color: colors[i], fontWeight: 900, fontSize: 13 }}>{s.pct}%</Typography>
                       </Box>
                       <LinearProgress variant="determinate" value={s.pct}
-                        sx={{ height: 8, borderRadius: 4, bgcolor: '#1e3a5f',
+                        sx={{ height: 8, borderRadius: 4, bgcolor: '#E5E7EB',
                           '& .MuiLinearProgress-bar': { bgcolor: colors[i] } }} />
                     </Box>
                   )
@@ -426,29 +417,29 @@ function LeanTab() {
 
         {/* SMED */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <Card sx={{ border: '1px solid #1e3a5f', borderRadius: 2 }}>
+          <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                 <Warning sx={{ color: MES_COLOR }} />
-                <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>SMED — Tiempos de Changeover</Typography>
+                <Typography sx={{ color: '#1E293B', fontWeight: 700, fontSize: 16 }}>SMED — Tiempos de Changeover</Typography>
               </Box>
               <TableContainer>
                 <Table size="small">
                   <TableHead>
                     <TableRow>
                       {['Referencia', 'Antes', 'Después', 'Reducción', 'Objetivo'].map((h) => (
-                        <TableCell key={h} sx={{ color: MES_COLOR, fontWeight: 700, fontSize: 10, borderColor: '#1e3a5f', p: '4px 8px' }}>{h}</TableCell>
+                        <TableCell key={h} sx={{ color: MES_COLOR, fontWeight: 700, fontSize: 10, borderColor: '#E5E7EB', p: '4px 8px' }}>{h}</TableCell>
                       ))}
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {smedRows.map((row) => (
                       <TableRow key={row.referencia} sx={{ '&:hover': { bgcolor: `${MES_COLOR}10` } }}>
-                        <TableCell sx={{ color: '#e2e8f0', borderColor: '#1e3a5f', fontSize: 11, p: '4px 8px' }}>{row.referencia}</TableCell>
-                        <TableCell sx={{ color: '#ef4444', fontWeight: 700, borderColor: '#1e3a5f', fontSize: 11, p: '4px 8px' }}>{row.antes} min</TableCell>
-                        <TableCell sx={{ color: '#22c55e', fontWeight: 700, borderColor: '#1e3a5f', fontSize: 11, p: '4px 8px' }}>{row.despues} min</TableCell>
-                        <TableCell sx={{ color: MES_COLOR, fontWeight: 900, borderColor: '#1e3a5f', fontSize: 12, p: '4px 8px' }}>{row.reduccion}%</TableCell>
-                        <TableCell sx={{ color: '#f59e0b', fontWeight: 700, borderColor: '#1e3a5f', fontSize: 11, p: '4px 8px' }}>{row.objetivo} min</TableCell>
+                        <TableCell sx={{ color: '#1E293B', borderColor: '#E5E7EB', fontSize: 11, p: '4px 8px' }}>{row.referencia}</TableCell>
+                        <TableCell sx={{ color: '#ef4444', fontWeight: 700, borderColor: '#E5E7EB', fontSize: 11, p: '4px 8px' }}>{row.antes} min</TableCell>
+                        <TableCell sx={{ color: '#22c55e', fontWeight: 700, borderColor: '#E5E7EB', fontSize: 11, p: '4px 8px' }}>{row.despues} min</TableCell>
+                        <TableCell sx={{ color: MES_COLOR, fontWeight: 900, borderColor: '#E5E7EB', fontSize: 12, p: '4px 8px' }}>{row.reduccion}%</TableCell>
+                        <TableCell sx={{ color: '#f59e0b', fontWeight: 700, borderColor: '#E5E7EB', fontSize: 11, p: '4px 8px' }}>{row.objetivo} min</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -473,19 +464,19 @@ function AnalisisTab() {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* Pareto causas */}
       <Box>
-        <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Pareto de Causas de Scrap</Typography>
-        <Card sx={{ border: '1px solid #1e3a5f', borderRadius: 2, p: 3 }}>
+        <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 2 }}>Pareto de Causas de Scrap</Typography>
+        <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2, p: 3 }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             {causasScrap.map((c, i) => (
               <Box key={c.causa}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                  <Typography sx={{ color: '#e2e8f0', fontSize: 13, fontWeight: 600 }}>{c.causa}</Typography>
+                  <Typography sx={{ color: '#1E293B', fontSize: 13, fontWeight: 600 }}>{c.causa}</Typography>
                   <Box sx={{ display: 'flex', gap: 2 }}>
                     <Typography sx={{ color: barColors[i], fontWeight: 900, fontSize: 13 }}>{c.kg} kg</Typography>
                     <Typography sx={{ color: '#94a3b8', fontSize: 12 }}>{c.pct}%</Typography>
                   </Box>
                 </Box>
-                <Box sx={{ height: 22, bgcolor: '#0a1628', borderRadius: 1, overflow: 'hidden' }}>
+                <Box sx={{ height: 22, bgcolor: '#F8FAFC', borderRadius: 1, overflow: 'hidden' }}>
                   <Box sx={{ height: '100%', width: `${(c.kg / maxKg) * 100}%`, bgcolor: barColors[i], opacity: 0.85, borderRadius: 1 }} />
                 </Box>
               </Box>
@@ -496,28 +487,28 @@ function AnalisisTab() {
 
       {/* Scrap por línea */}
       <Box>
-        <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Scrap por Línea de Producción</Typography>
-        <TableContainer component={Paper} sx={{ border: '1px solid #1e3a5f' }}>
+        <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 2 }}>Scrap por Línea de Producción</Typography>
+        <TableContainer component={Paper} sx={{ border: '1px solid #E5E7EB' }}>
           <Table size="small">
             <TableHead>
               <TableRow>
                 {['Línea', 'Kg Scrap', '% Rate', 'Costo', 'Estado'].map((h) => (
-                  <TableCell key={h} sx={{ color: MES_COLOR, fontWeight: 700, fontSize: 11, borderColor: '#1e3a5f' }}>{h}</TableCell>
+                  <TableCell key={h} sx={{ color: MES_COLOR, fontWeight: 700, fontSize: 11, borderColor: '#E5E7EB' }}>{h}</TableCell>
                 ))}
               </TableRow>
             </TableHead>
             <TableBody>
               {lineasScrap.map((l) => (
                 <TableRow key={l.linea} sx={{ '&:hover': { bgcolor: `${MES_COLOR}10` } }}>
-                  <TableCell sx={{ color: '#e2e8f0', fontWeight: 600, borderColor: '#1e3a5f', fontSize: 13 }}>{l.linea}</TableCell>
-                  <TableCell sx={{ color: '#f59e0b', fontWeight: 700, borderColor: '#1e3a5f' }}>{l.kg} kg</TableCell>
-                  <TableCell sx={{ borderColor: '#1e3a5f' }}>
+                  <TableCell sx={{ color: '#1E293B', fontWeight: 600, borderColor: '#E5E7EB', fontSize: 13 }}>{l.linea}</TableCell>
+                  <TableCell sx={{ color: '#f59e0b', fontWeight: 700, borderColor: '#E5E7EB' }}>{l.kg} kg</TableCell>
+                  <TableCell sx={{ borderColor: '#E5E7EB' }}>
                     <Typography sx={{ color: semaforoColor(l.pct), fontWeight: 900, fontSize: 14 }}>{l.pct}%</Typography>
                   </TableCell>
-                  <TableCell sx={{ color: '#22c55e', fontWeight: 700, borderColor: '#1e3a5f', whiteSpace: 'nowrap' }}>
+                  <TableCell sx={{ color: '#22c55e', fontWeight: 700, borderColor: '#E5E7EB', whiteSpace: 'nowrap' }}>
                     ${l.costo.toLocaleString('es-CO')}
                   </TableCell>
-                  <TableCell sx={{ borderColor: '#1e3a5f' }}>
+                  <TableCell sx={{ borderColor: '#E5E7EB' }}>
                     <Box sx={{ width: 14, height: 14, borderRadius: '50%', bgcolor: semaforoColor(l.pct) }} />
                   </TableCell>
                 </TableRow>
@@ -529,8 +520,8 @@ function AnalisisTab() {
 
       {/* Sparkline tendencia diaria */}
       <Box>
-        <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Tendencia Diaria Scrap Rate — Últimas 2 Semanas</Typography>
-        <Card sx={{ border: '1px solid #1e3a5f', borderRadius: 2, p: 3 }}>
+        <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 2 }}>Tendencia Diaria Scrap Rate — Últimas 2 Semanas</Typography>
+        <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2, p: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1, height: 80 }}>
             {sparkline.map((v, i) => {
               const h = (v / sparkMax) * 70
@@ -572,7 +563,7 @@ export default function MESScrap() {
             <DeleteSweep fontSize="medium" />
           </Box>
           <Box>
-            <Typography variant="h5" sx={{ color: '#fff', fontWeight: 800, lineHeight: 1 }}>
+            <Typography variant="h5" sx={{ color: '#1E293B', fontWeight: 800, lineHeight: 1 }}>
               MES — Scrap & Lean Manufacturing
             </Typography>
             <Typography variant="body2" sx={{ color: '#64748b', mt: 0.3 }}>
@@ -581,7 +572,7 @@ export default function MESScrap() {
           </Box>
         </Box>
 
-        <Divider sx={{ bgcolor: '#1e3a5f', mb: 3 }} />
+        <Divider sx={{ bgcolor: '#E5E7EB', mb: 3 }} />
 
         <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{
           mb: 1,
@@ -594,7 +585,7 @@ export default function MESScrap() {
           ))}
         </Tabs>
 
-        <Divider sx={{ bgcolor: '#1e3a5f', mb: 1 }} />
+        <Divider sx={{ bgcolor: '#E5E7EB', mb: 1 }} />
 
         <TabPanel value={tab} index={0}><ScrapTab /></TabPanel>
         <TabPanel value={tab} index={1}><ReprocesosTab /></TabPanel>

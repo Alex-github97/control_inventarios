@@ -57,7 +57,7 @@ export default function LMSBancoPreguntas() {
             background: `linear-gradient(135deg, ${LMS_COLOR} 0%, #B45309 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Lightbulb sx={{ color: 'text.primary', fontSize: 22 }} />
+            <Lightbulb sx={{ color: '#fff', fontSize: 22 }} />
           </Box>
           <Box>
             <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Banco de Preguntas</Typography>

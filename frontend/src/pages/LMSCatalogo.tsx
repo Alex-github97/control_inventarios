@@ -54,7 +54,7 @@ export default function LMSCatalogo() {
             background: `linear-gradient(135deg, ${LMS_COLOR} 0%, #B45309 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <MenuBook sx={{ color: 'text.primary', fontSize: 22 }} />
+            <MenuBook sx={{ color: '#FFF', fontSize: 22 }} />
           </Box>
           <Box>
             <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary', lineHeight: 1.2 }}>

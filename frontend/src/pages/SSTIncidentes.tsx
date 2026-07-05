@@ -101,7 +101,7 @@ export default function SSTIncidentes() {
               <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Incidentes y Accidentes</Typography>
               <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>Registro, investigación y seguimiento de eventos de seguridad</Typography>
             </Box>
-            <Chip label="SG-SST" size="small" sx={{ bgcolor: alpha(SST_COLOR, 0.15), color: '#F87171', fontWeight: 700, border: `1px solid ${alpha(SST_COLOR, 0.35)}` }} />
+            <Chip label="SG-SST" size="small" sx={{ bgcolor: alpha(SST_COLOR, 0.15), color: SST_COLOR, fontWeight: 700, border: `1px solid ${alpha(SST_COLOR, 0.35)}` }} />
           </Box>
           <Button variant="contained" startIcon={<Add />} onClick={() => setOpen(true)} sx={{ bgcolor: SST_COLOR }}>Reportar Evento</Button>
         </Box>
@@ -140,7 +140,7 @@ export default function SSTIncidentes() {
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
                     <Box sx={{ flex: 1, minWidth: 200 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                        <Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: '#F87171' }}>{inc.numero}</Typography>
+                        <Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: SST_COLOR }}>{inc.numero}</Typography>
                       </Box>
                       <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 0.25 }}>{TIPO_LABEL[inc.tipo]}</Typography>
                       {inc.trabajador && <Typography sx={{ fontSize: 12, color: 'text.secondary', mb: 0.5 }}>{inc.trabajador} · {inc.cargo} · {inc.area}</Typography>}

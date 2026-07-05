@@ -126,7 +126,7 @@ export default function SSTInspecciones() {
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
                     <Box sx={{ flex: 1, minWidth: 200 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                        <Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: '#F87171' }}>{i.numero}</Typography>
+                        <Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: '#C53030' }}>{i.numero}</Typography>
                         <Chip label={i.tipo === 'PLANEADA' ? 'Planeada' : 'No Planeada'} size="small" sx={{ bgcolor: i.tipo === 'PLANEADA' ? alpha('#3b82f6', 0.12) : alpha('#f59e0b', 0.12), color: i.tipo === 'PLANEADA' ? '#60a5fa' : '#fbbf24', fontSize: 10 }} />
                       </Box>
                       <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 0.25 }}>{i.area}</Typography>

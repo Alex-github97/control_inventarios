@@ -4,7 +4,7 @@ import { Folder, Add, Download, CheckCircle, Warning } from '@mui/icons-material
 import { Layout } from '@/components/layout/Layout'
 
 const SST_COLOR = '#C53030'
-const #E5E7EB  = 'rgba(197,48,48,0.2)'
+const BORDER  = 'rgba(197,48,48,0.2)'
 
 const SX_INPUT = {
   '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#E5E7EB' } },
@@ -92,7 +92,7 @@ export default function SSTDocumentos() {
               <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Documentos SG-SST</Typography>
               <Typography sx={{ fontSize: 12, color: 'text.disabled' }}>Políticas, procedimientos, planes y formatos del sistema de gestión</Typography>
             </Box>
-            <Chip label="SG-SST" size="small" sx={{ bgcolor: alpha(SST_COLOR, 0.15), color: '#F87171', fontWeight: 700, border: `1px solid ${alpha(SST_COLOR, 0.35)}` }} />
+            <Chip label="SG-SST" size="small" sx={{ bgcolor: alpha(SST_COLOR, 0.15), color: SST_COLOR, fontWeight: 700, border: `1px solid ${alpha(SST_COLOR, 0.35)}` }} />
           </Box>
           <Button variant="contained" startIcon={<Add />} onClick={() => setOpen(true)} sx={{ bgcolor: SST_COLOR }}>Agregar Documento</Button>
         </Box>
@@ -114,7 +114,7 @@ export default function SSTDocumentos() {
         {/* Filtros */}
         <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
           <Chip label="Todos" onClick={() => setFiltroT('')}
-            sx={{ bgcolor: filtroT === '' ? alpha(SST_COLOR, 0.2) : '#F9FAFB', color: filtroT === '' ? '#F87171' : 'text.secondary', cursor: 'pointer', fontSize: 11 }} />
+            sx={{ bgcolor: filtroT === '' ? alpha(SST_COLOR, 0.2) : '#F9FAFB', color: filtroT === '' ? SST_COLOR : 'text.secondary', cursor: 'pointer', fontSize: 11 }} />
           {TIPOS.filter(t => conteoTipo[t]).map(t => (
             <Chip key={t} label={`${TIPO_LABEL[t]} (${conteoTipo[t]})`}
               onClick={() => setFiltroT(prev => prev === t ? '' : t)}
@@ -125,7 +125,7 @@ export default function SSTDocumentos() {
         {/* Lista */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           {visibles.map(d => (
-            <Card key={d.id} sx={{ border: `1px solid ${d.vigente ? #E5E7EB : alpha('#f59e0b', 0.3)}`, borderRadius: 2 }}>
+            <Card key={d.id} sx={{ border: `1px solid ${d.vigente ? BORDER : alpha('#f59e0b', 0.3)}`, borderRadius: 2 }}>
               <CardContent sx={{ p: '14px !important' }}>
                 <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
                   <Box sx={{ flex: 1, minWidth: 200 }}>
@@ -140,7 +140,7 @@ export default function SSTDocumentos() {
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.75 }}>
                     {d.vigente
                       ? <Chip icon={<CheckCircle sx={{ fontSize: 13 }} />} label="Vigente" size="small" sx={{ bgcolor: alpha('#22c55e', 0.12), color: '#22c55e', fontSize: 10 }} />
-                      : <Chip icon={<Warning sx={{ fontSize: 13 }} />} label="Requiere actualización" size="small" sx={{ bgcolor: alpha('#f59e0b', 0.12), color: '#fbbf24', fontSize: 10 }} />
+                      : <Chip icon={<Warning sx={{ fontSize: 13 }} />} label="Requiere actualización" size="small" sx={{ bgcolor: alpha('#f59e0b', 0.12), color: '#f59e0b', fontSize: 10 }} />
                     }
                     <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>Aprobado: {d.fecha_aprobacion}</Typography>
                     <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>Revisión: {d.fecha_revision}</Typography>

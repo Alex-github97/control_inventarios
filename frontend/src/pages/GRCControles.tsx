@@ -10,7 +10,7 @@ import { Shield, Add, Edit, Delete, Close, CheckCircle, Warning, Add as AddIcon 
 import { Layout } from '@/components/layout/Layout'
 
 const GRC_COLOR = '#6D28D9'
-const #E5E7EB  = '#E5E7EB'
+const BORDER  = '#E5E7EB'
 const LBL       = alpha(GRC_COLOR, 0.85)
 const TIPO_COLOR: Record<string,string> = { PREVENTIVO:'#059669', DETECTIVO:'#0891B2', CORRECTIVO:'#D97706', DIRECTIVO:GRC_COLOR }
 const ESTADO_COLOR: Record<string,string> = { EFECTIVO:'#059669', PARCIAL:'#D97706', INEFECTIVO:'#DC2626', 'EN PRUEBA':'#0891B2' }

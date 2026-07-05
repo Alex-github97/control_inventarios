@@ -294,7 +294,7 @@ function KPICard({
       sx={{
         flex: 1,
         minWidth: 150,
-        bgcolor: alpha('#fff', 0.03),
+        bgcolor: 'background.paper',
         border: '1px solid',
         borderColor: alpha(color, 0.25),
         borderRadius: 2,
@@ -320,7 +320,7 @@ function KPICard({
             <Typography variant="h5" sx={{ color, fontWeight: 800, lineHeight: 1.1 }}>
               {value}
             </Typography>
-            <Typography variant="caption" sx={{ color: '#9ca3af', fontSize: 11 }}>
+            <Typography variant="caption" sx={{ color: '#64748B', fontSize: 11 }}>
               {label}
             </Typography>
           </Box>
@@ -353,16 +353,6 @@ function AsignarViajeDialog({
 
   const estadoConfig = estadoLaboralConfig(conductor.estadoLaboral)
 
-  const inputSx = {
-    '& .MuiInputBase-root': { bgcolor: alpha('#fff', 0.04), color: '#e2e8f0', fontSize: 13 },
-    '& .MuiInputLabel-root': { color: '#6b7280', fontSize: 13 },
-    '& .MuiInputLabel-root.Mui-focused': { color: TMS_COLOR },
-    '& fieldset': { borderColor: alpha('#fff', 0.1) },
-    '& .MuiOutlinedInput-root:hover fieldset': { borderColor: alpha(TMS_COLOR, 0.4) },
-    '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: TMS_COLOR },
-    '& .MuiSelect-icon': { color: '#6b7280' },
-  }
-
   function handleConfirm() {
     if (!viajeSeleccionado) {
       toast.error('Seleccione un viaje disponible')
@@ -379,14 +369,14 @@ function AsignarViajeDialog({
       fullWidth
       PaperProps={{
         sx: {
-          bgcolor: '#111827',
+          bgcolor: 'background.paper',
           border: '1px solid',
-          borderColor: alpha('#fff', 0.08),
+          borderColor: '#E5E7EB',
           borderRadius: 3,
         },
       }}
     >
-      <DialogTitle sx={{ color: '#e2e8f0', pb: 1 }}>
+      <DialogTitle sx={{ color: '#1E293B', pb: 1 }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between">
           <Stack direction="row" alignItems="center" spacing={1.5}>
             <Box
@@ -402,11 +392,11 @@ function AsignarViajeDialog({
             >
               <Assignment sx={{ color: TMS_COLOR, fontSize: 20 }} />
             </Box>
-            <Typography variant="h6" sx={{ color: '#e2e8f0', fontWeight: 700 }}>
+            <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700 }}>
               Asignar a Viaje
             </Typography>
           </Stack>
-          <IconButton onClick={onClose} sx={{ color: '#6b7280' }}>
+          <IconButton onClick={onClose} sx={{ color: '#64748B' }}>
             <Close />
           </IconButton>
         </Stack>
@@ -416,9 +406,9 @@ function AsignarViajeDialog({
         {/* Driver info summary */}
         <Box
           sx={{
-            bgcolor: alpha('#fff', 0.04),
+            bgcolor: '#F8FAFC',
             border: '1px solid',
-            borderColor: alpha('#fff', 0.08),
+            borderColor: '#E5E7EB',
             borderRadius: 2,
             p: 2,
             mb: 3,
@@ -438,7 +428,7 @@ function AsignarViajeDialog({
               {getInitials(conductor.nombre)}
             </Avatar>
             <Box sx={{ flex: 1 }}>
-              <Typography variant="body1" sx={{ color: '#e2e8f0', fontWeight: 700 }}>
+              <Typography variant="body1" sx={{ color: '#1E293B', fontWeight: 700 }}>
                 {conductor.nombre}
               </Typography>
               <Stack direction="row" alignItems="center" spacing={1} mt={0.4}>
@@ -446,7 +436,7 @@ function AsignarViajeDialog({
                   label={`Cat. ${conductor.tipoLicencia}`}
                   size="small"
                   variant="outlined"
-                  sx={{ fontSize: 10, color: '#9ca3af', borderColor: alpha('#fff', 0.15), height: 20 }}
+                  sx={{ fontSize: 10, color: '#64748B', borderColor: '#E5E7EB', height: 20 }}
                 />
                 <Chip
                   label={estadoConfig.label}
@@ -459,21 +449,20 @@ function AsignarViajeDialog({
         </Box>
 
         {/* Trip selector */}
-        <FormControl fullWidth size="small" sx={inputSx}>
+        <FormControl fullWidth size="small">
           <InputLabel>Seleccionar Viaje Disponible</InputLabel>
           <Select
             value={viajeSeleccionado}
             label="Seleccionar Viaje Disponible"
             onChange={(e) => setViajeSeleccionado(e.target.value)}
-            MenuProps={{ PaperProps: { sx: { bgcolor: '#1f2937', color: '#e2e8f0' } } }}
           >
             {MOCK_VIAJES.map((v) => (
               <MenuItem key={v.id} value={v.codigo} sx={{ fontSize: 13, py: 1.2 }}>
                 <Stack>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#60a5fa', fontSize: 13 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: TMS_COLOR, fontSize: 13 }}>
                     {v.codigo}
                   </Typography>
-                  <Typography variant="caption" sx={{ color: '#9ca3af', fontSize: 11 }}>
+                  <Typography variant="caption" sx={{ color: '#64748B', fontSize: 11 }}>
                     {v.origen} → {v.destino} · Salida: {v.fechaSalida}
                   </Typography>
                 </Stack>
@@ -489,9 +478,9 @@ function AsignarViajeDialog({
           variant="outlined"
           size="small"
           sx={{
-            color: '#9ca3af',
-            borderColor: alpha('#fff', 0.15),
-            '&:hover': { borderColor: '#9ca3af', bgcolor: alpha('#fff', 0.04) },
+            color: '#64748B',
+            borderColor: '#E5E7EB',
+            '&:hover': { borderColor: '#64748B', bgcolor: '#F8FAFC' },
           }}
         >
           Cancelar
@@ -525,9 +514,9 @@ function ConductorCard({
   return (
     <Card
       sx={{
-        bgcolor: alpha('#fff', 0.03),
+        bgcolor: 'background.paper',
         border: '1px solid',
-        borderColor: alpha('#fff', 0.08),
+        borderColor: '#E5E7EB',
         borderRadius: 2.5,
         height: '100%',
         transition: 'border-color 0.2s',
@@ -554,7 +543,7 @@ function ConductorCard({
             <Typography
               variant="body1"
               sx={{
-                color: '#e2e8f0',
+                color: '#1E293B',
                 fontWeight: 700,
                 fontSize: 14,
                 lineHeight: 1.3,
@@ -565,7 +554,7 @@ function ConductorCard({
             >
               {conductor.nombre}
             </Typography>
-            <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 11 }}>
+            <Typography variant="caption" sx={{ color: '#64748B', fontSize: 11 }}>
               {conductor.codigo} · CC {conductor.cedula}
             </Typography>
             <Stack direction="row" alignItems="center" spacing={0.8} mt={0.8} flexWrap="wrap" useFlexGap>
@@ -576,8 +565,8 @@ function ConductorCard({
                 sx={{
                   fontSize: 10,
                   height: 20,
-                  color: '#93c5fd',
-                  borderColor: alpha('#93c5fd', 0.4),
+                  color: TMS_COLOR,
+                  borderColor: alpha(TMS_COLOR, 0.4),
                 }}
               />
               <Chip
@@ -595,27 +584,27 @@ function ConductorCard({
           </Box>
         </Stack>
 
-        <Divider sx={{ borderColor: alpha('#fff', 0.07), mb: 1.5 }} />
+        <Divider sx={{ borderColor: '#E5E7EB', mb: 1.5 }} />
 
         {/* Details */}
         <Stack spacing={1} mb={1.5}>
           <Stack direction="row" alignItems="center" spacing={1}>
             <DirectionsCar sx={{ fontSize: 14, color: '#6b7280', flexShrink: 0 }} />
-            <Typography variant="caption" sx={{ color: '#9ca3af', fontSize: 11 }}>
+            <Typography variant="caption" sx={{ color: '#64748B', fontSize: 11 }}>
               {conductor.aniosExperiencia} años de experiencia
             </Typography>
           </Stack>
 
           <Stack direction="row" alignItems="center" spacing={1}>
             <LocationOn sx={{ fontSize: 14, color: '#6b7280', flexShrink: 0 }} />
-            <Typography variant="caption" sx={{ color: '#9ca3af', fontSize: 11 }}>
+            <Typography variant="caption" sx={{ color: '#64748B', fontSize: 11 }}>
               {conductor.ciudad}
             </Typography>
           </Stack>
 
           <Stack direction="row" alignItems="center" spacing={1}>
             <Phone sx={{ fontSize: 14, color: '#6b7280', flexShrink: 0 }} />
-            <Typography variant="caption" sx={{ color: '#9ca3af', fontSize: 11 }}>
+            <Typography variant="caption" sx={{ color: '#64748B', fontSize: 11 }}>
               {conductor.telefono}
             </Typography>
           </Stack>
@@ -623,7 +612,7 @@ function ConductorCard({
           {/* License expiry */}
           <Stack direction="row" alignItems="center" spacing={1}>
             <CalendarToday sx={{ fontSize: 14, color: '#6b7280', flexShrink: 0 }} />
-            <Typography variant="caption" sx={{ color: '#9ca3af', fontSize: 11 }}>
+            <Typography variant="caption" sx={{ color: '#64748B', fontSize: 11 }}>
               Licencia vence: {conductor.vencimientoLicencia}
             </Typography>
             {expBadge && (
@@ -638,9 +627,9 @@ function ConductorCard({
           {/* Last trip */}
           <Stack direction="row" alignItems="center" spacing={1}>
             <Assignment sx={{ fontSize: 14, color: '#6b7280', flexShrink: 0 }} />
-            <Typography variant="caption" sx={{ color: '#9ca3af', fontSize: 11 }}>
+            <Typography variant="caption" sx={{ color: '#64748B', fontSize: 11 }}>
               Último viaje:{' '}
-              <Box component="span" sx={{ color: '#60a5fa', fontWeight: 600 }}>
+              <Box component="span" sx={{ color: TMS_COLOR, fontWeight: 600 }}>
                 {conductor.ultimoViajeCodigo}
               </Box>{' '}
               · {conductor.ultimoViajesFecha}
@@ -659,7 +648,7 @@ function ConductorCard({
                 py: 0.6,
               }}
             >
-              <Typography variant="caption" sx={{ color: '#60a5fa', fontWeight: 700, fontSize: 11 }}>
+              <Typography variant="caption" sx={{ color: TMS_COLOR, fontWeight: 700, fontSize: 11 }}>
                 En viaje: {conductor.viajeActual}
               </Typography>
             </Box>
@@ -677,7 +666,7 @@ function ConductorCard({
             sx={{
               bgcolor: TMS_COLOR,
               '&:hover': { bgcolor: '#0284c7' },
-              '&.Mui-disabled': { bgcolor: alpha('#fff', 0.07), color: '#4b5563' },
+              '&.Mui-disabled': { bgcolor: '#E5E7EB', color: '#94A3B8' },
               fontWeight: 700,
               fontSize: 11,
             }}
@@ -690,9 +679,9 @@ function ConductorCard({
             fullWidth
             endIcon={<OpenInNew sx={{ fontSize: 12 }} />}
             sx={{
-              color: '#9ca3af',
-              borderColor: alpha('#fff', 0.15),
-              '&:hover': { borderColor: '#9ca3af', bgcolor: alpha('#fff', 0.04) },
+              color: '#64748B',
+              borderColor: '#E5E7EB',
+              '&:hover': { borderColor: '#64748B', bgcolor: '#F8FAFC' },
               fontSize: 11,
             }}
           >
@@ -765,19 +754,9 @@ export default function TMSConductores() {
     setAsignarOpen(false)
   }
 
-  const selectSx = {
-    '& .MuiInputBase-root': { bgcolor: alpha('#fff', 0.04), color: '#e2e8f0', fontSize: 13 },
-    '& .MuiInputLabel-root': { color: '#6b7280', fontSize: 13 },
-    '& .MuiInputLabel-root.Mui-focused': { color: TMS_COLOR },
-    '& fieldset': { borderColor: alpha('#fff', 0.1) },
-    '& .MuiOutlinedInput-root:hover fieldset': { borderColor: alpha(TMS_COLOR, 0.4) },
-    '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: TMS_COLOR },
-    '& .MuiSelect-icon': { color: '#6b7280' },
-  }
-
   return (
     <Layout>
-      <Box sx={{ minHeight: '100%', bgcolor: '#0b1120', p: 3 }}>
+      <Box sx={{ minHeight: '100%', bgcolor: '#F0F2F5', p: 3 }}>
         {/* Header */}
         <Stack direction="row" alignItems="flex-start" justifyContent="space-between" mb={3}>
           <Box>
@@ -796,10 +775,10 @@ export default function TMSConductores() {
                 <PersonOutline sx={{ color: TMS_COLOR, fontSize: 20 }} />
               </Box>
               <Box>
-                <Typography variant="h6" sx={{ color: '#e2e8f0', fontWeight: 700, lineHeight: 1.2 }}>
+                <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, lineHeight: 1.2 }}>
                   Conductores TMS
                 </Typography>
-                <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 11 }}>
+                <Typography variant="caption" sx={{ color: '#64748B', fontSize: 11 }}>
                   TMS — Gestión de Conductores · Integrado con HCM
                 </Typography>
               </Box>
@@ -815,8 +794,8 @@ export default function TMSConductores() {
             bgcolor: alpha('#0ea5e9', 0.08),
             border: '1px solid',
             borderColor: alpha('#0ea5e9', 0.25),
-            color: '#7dd3fc',
-            '& .MuiAlert-icon': { color: '#38bdf8' },
+            color: '#0369A1',
+            '& .MuiAlert-icon': { color: '#0284c7' },
             fontSize: 13,
           }}
         >
@@ -853,24 +832,22 @@ export default function TMSConductores() {
             placeholder="Buscar por nombre o cédula..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            sx={{ flex: 1, minWidth: 220, ...selectSx }}
+            sx={{ flex: 1, minWidth: 220 }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search sx={{ fontSize: 16, color: '#6b7280' }} />
+                  <Search sx={{ fontSize: 16, color: '#64748B' }} />
                 </InputAdornment>
               ),
             }}
-            inputProps={{ style: { color: '#e2e8f0' } }}
           />
 
-          <FormControl size="small" sx={{ minWidth: 190, ...selectSx }}>
+          <FormControl size="small" sx={{ minWidth: 190 }}>
             <InputLabel>Estado Laboral</InputLabel>
             <Select
               value={filterEstado}
               label="Estado Laboral"
               onChange={(e) => setFilterEstado(e.target.value as Conductor['estadoLaboral'] | '')}
-              MenuProps={{ PaperProps: { sx: { bgcolor: '#1f2937', color: '#e2e8f0' } } }}
             >
               <MenuItem value="" sx={{ fontSize: 13 }}>
                 Todos los estados
@@ -887,7 +864,7 @@ export default function TMSConductores() {
             </Select>
           </FormControl>
 
-          <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 12, whiteSpace: 'nowrap' }}>
+          <Typography variant="caption" sx={{ color: '#64748B', fontSize: 12, whiteSpace: 'nowrap' }}>
             {filtered.length} de {conductores.length} conductores
           </Typography>
         </Stack>
@@ -895,7 +872,7 @@ export default function TMSConductores() {
         {/* Driver Cards Grid */}
         {filtered.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 8 }}>
-            <Typography variant="body2" sx={{ color: '#6b7280' }}>
+            <Typography variant="body2" sx={{ color: '#64748B' }}>
               No se encontraron conductores con los filtros aplicados
             </Typography>
           </Box>
@@ -926,10 +903,10 @@ export default function TMSConductores() {
               <Warning sx={{ color: '#d97706', fontSize: 18 }} />
             </Box>
             <Box>
-              <Typography variant="subtitle1" sx={{ color: '#e2e8f0', fontWeight: 700, lineHeight: 1.2 }}>
+              <Typography variant="subtitle1" sx={{ color: '#1E293B', fontWeight: 700, lineHeight: 1.2 }}>
                 Alertas de Documentos
               </Typography>
-              <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 11 }}>
+              <Typography variant="caption" sx={{ color: '#64748B', fontSize: 11 }}>
                 Conductores con licencia próxima a vencer (menos de 60 días)
               </Typography>
             </Box>
@@ -948,7 +925,7 @@ export default function TMSConductores() {
             >
               <Stack direction="row" alignItems="center" justifyContent="center" spacing={1}>
                 <CheckCircle sx={{ color: '#16a34a', fontSize: 20 }} />
-                <Typography variant="body2" sx={{ color: '#4ade80', fontWeight: 600 }}>
+                <Typography variant="body2" sx={{ color: '#16a34a', fontWeight: 600 }}>
                   Todos los documentos están en regla
                 </Typography>
               </Stack>
@@ -956,9 +933,9 @@ export default function TMSConductores() {
           ) : (
             <Paper
               sx={{
-                bgcolor: alpha('#fff', 0.02),
+                bgcolor: 'background.paper',
                 border: '1px solid',
-                borderColor: alpha('#fff', 0.07),
+                borderColor: '#E5E7EB',
                 borderRadius: 2,
                 overflow: 'hidden',
               }}
@@ -966,17 +943,17 @@ export default function TMSConductores() {
               <TableContainer>
                 <Table size="small">
                   <TableHead>
-                    <TableRow sx={{ bgcolor: alpha('#fff', 0.03) }}>
+                    <TableRow sx={{ bgcolor: '#F8FAFC' }}>
                       {['Conductor', 'Documento', 'Fecha Vencimiento', 'Días Restantes', 'Estado'].map((h) => (
                         <TableCell
                           key={h}
                           sx={{
-                            color: '#6b7280',
+                            color: '#64748B',
                             fontSize: 11,
                             fontWeight: 700,
                             textTransform: 'uppercase',
                             letterSpacing: 0.5,
-                            borderBottom: `1px solid ${alpha('#fff', 0.07)}`,
+                            borderBottom: `1px solid #E5E7EB`,
                             py: 1.2,
                             px: 2,
                             whiteSpace: 'nowrap',
@@ -1003,13 +980,13 @@ export default function TMSConductores() {
                         <TableRow
                           key={conductor.id}
                           sx={{
-                            '&:hover': { bgcolor: alpha('#fff', 0.02) },
+                            '&:hover': { bgcolor: '#F8FAFC' },
                             '&:last-child td': { borderBottom: 'none' },
                           }}
                         >
                           <TableCell
                             sx={{
-                              borderBottom: `1px solid ${alpha('#fff', 0.04)}`,
+                              borderBottom: `1px solid #E5E7EB`,
                               px: 2,
                               py: 1.2,
                             }}
@@ -1020,7 +997,7 @@ export default function TMSConductores() {
                                   width: 28,
                                   height: 28,
                                   bgcolor: alpha(TMS_COLOR, 0.25),
-                                  color: '#60a5fa',
+                                  color: TMS_COLOR,
                                   fontSize: 10,
                                   fontWeight: 700,
                                 }}
@@ -1030,11 +1007,11 @@ export default function TMSConductores() {
                               <Box>
                                 <Typography
                                   variant="body2"
-                                  sx={{ color: '#e2e8f0', fontWeight: 600, fontSize: 12 }}
+                                  sx={{ color: '#1E293B', fontWeight: 600, fontSize: 12 }}
                                 >
                                   {conductor.nombre}
                                 </Typography>
-                                <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 10 }}>
+                                <Typography variant="caption" sx={{ color: '#64748B', fontSize: 10 }}>
                                   {conductor.codigo}
                                 </Typography>
                               </Box>
@@ -1042,9 +1019,9 @@ export default function TMSConductores() {
                           </TableCell>
                           <TableCell
                             sx={{
-                              color: '#d1d5db',
+                              color: '#334155',
                               fontSize: 12,
-                              borderBottom: `1px solid ${alpha('#fff', 0.04)}`,
+                              borderBottom: `1px solid #E5E7EB`,
                               px: 2,
                               py: 1.2,
                             }}
@@ -1056,9 +1033,9 @@ export default function TMSConductores() {
                           </TableCell>
                           <TableCell
                             sx={{
-                              color: '#9ca3af',
+                              color: '#64748B',
                               fontSize: 12,
-                              borderBottom: `1px solid ${alpha('#fff', 0.04)}`,
+                              borderBottom: `1px solid #E5E7EB`,
                               px: 2,
                               py: 1.2,
                             }}
@@ -1070,7 +1047,7 @@ export default function TMSConductores() {
                           </TableCell>
                           <TableCell
                             sx={{
-                              borderBottom: `1px solid ${alpha('#fff', 0.04)}`,
+                              borderBottom: `1px solid #E5E7EB`,
                               px: 2,
                               py: 1.2,
                             }}
@@ -1091,7 +1068,7 @@ export default function TMSConductores() {
                           </TableCell>
                           <TableCell
                             sx={{
-                              borderBottom: `1px solid ${alpha('#fff', 0.04)}`,
+                              borderBottom: `1px solid #E5E7EB`,
                               px: 2,
                               py: 1.2,
                             }}

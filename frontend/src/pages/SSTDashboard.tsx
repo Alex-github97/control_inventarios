@@ -6,7 +6,7 @@ import { Layout } from '@/components/layout/Layout'
 import { apiClient } from '@/api/client'
 
 const SST_COLOR = '#C53030'
-const #E5E7EB  = 'rgba(197,48,48,0.2)'
+const BORDER  = 'rgba(197,48,48,0.2)'
 
 const TT = {
   contentStyle: { background: '#fff', border: '1px solid #E5E7EB', borderRadius: 8, color: '#111827', fontSize: 11 },
@@ -97,7 +97,7 @@ export default function SSTDashboard() {
         <Grid container spacing={2} sx={{ mb: 2 }}>
           {/* Accidentalidad mensual */}
           <Grid size={{ xs: 12, md: 7 }}>
-            <Card sx={{ border: `1px solid #E5E7EB`, borderRadius: 2 }}>
+            <Card sx={{ border: `1px solid ${BORDER}`, borderRadius: 2 }}>
               <CardContent>
                 <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 13, mb: 2 }}>Accidentalidad Mensual 2026</Typography>
                 <ResponsiveContainer width="100%" height={200}>
@@ -116,7 +116,7 @@ export default function SSTDashboard() {
 
           {/* Riesgos por nivel */}
           <Grid size={{ xs: 12, md: 5 }}>
-            <Card sx={{ border: `1px solid #E5E7EB`, borderRadius: 2 }}>
+            <Card sx={{ border: `1px solid ${BORDER}`, borderRadius: 2 }}>
               <CardContent>
                 <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 13, mb: 2 }}>Distribución de Riesgos IPER</Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -143,7 +143,7 @@ export default function SSTDashboard() {
         </Grid>
 
         {/* Próximas inspecciones */}
-        <Card sx={{ border: `1px solid #E5E7EB`, borderRadius: 2 }}>
+        <Card sx={{ border: `1px solid ${BORDER}`, borderRadius: 2 }}>
           <CardContent>
             <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 13, mb: 1.5 }}>Próximas Inspecciones</Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>

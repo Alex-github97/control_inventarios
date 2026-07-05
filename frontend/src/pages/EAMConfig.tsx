@@ -347,7 +347,7 @@ export default function EAMConfig() {
     items.filter(i => i.toLowerCase().includes(getSearch(cat).toLowerCase())).slice(0, 5)
 
   const CatalogCard = ({ title, items, catKey, total }: { title: string; items: string[]; catKey: string; total: number }) => (
-    <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
+    <Card sx={{ background: '#FFFFFF', border: `1px solid #E5E7EB` }}>
       <CardContent>
         <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.5}>
           <Box>
@@ -362,12 +362,12 @@ export default function EAMConfig() {
           fullWidth size="small" placeholder="Buscar..." value={getSearch(catKey)}
           onChange={e => setSearch(catKey, e.target.value)}
           InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: 'grey.600', fontSize: 16 }} /></InputAdornment> }}
-          sx={{ mb: 1.5, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.03), '& fieldset': { borderColor: alpha('#fff', 0.12) }, '&:hover fieldset': { borderColor: alpha(EAM_COLOR, 0.4) }, color: 'text.primary', fontSize: 13 } }}
+          sx={{ mb: 1.5, '& .MuiOutlinedInput-root': { '&:hover fieldset': { borderColor: alpha(EAM_COLOR, 0.4) }, fontSize: 13 } }}
         />
         <List dense disablePadding>
           {filterCat(items, catKey).map((item, i) => (
             <ListItem key={i} disablePadding sx={{ py: 0.25, '&:hover .actions': { opacity: 1 } }}>
-              <ListItemText primary={<Typography variant="body2" color="grey.300">{item}</Typography>} />
+              <ListItemText primary={<Typography variant="body2" color="#334155">{item}</Typography>} />
               <ListItemSecondaryAction className="actions" sx={{ opacity: 0, transition: 'opacity 0.2s' }}>
                 <IconButton size="small" sx={{ color: 'grey.500', mr: 0.5 }}><EditIcon sx={{ fontSize: 14 }} /></IconButton>
                 <IconButton size="small" sx={{ color: '#EF4444' }}><DeleteIcon sx={{ fontSize: 14 }} /></IconButton>
@@ -431,7 +431,7 @@ export default function EAMConfig() {
                     value={tipoSearch}
                     onChange={(e) => setTipoSearch(e.target.value)}
                     InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: 'grey.600', fontSize: 16 }} /></InputAdornment> }}
-                    sx={{ mb: 2, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.03), '& fieldset': { borderColor: alpha('#fff', 0.1) }, '&:hover fieldset': { borderColor: alpha(EAM_COLOR, 0.4) }, color: 'text.primary', fontSize: 13 } }}
+                    sx={{ mb: 2, '& .MuiOutlinedInput-root': { '&:hover fieldset': { borderColor: alpha(EAM_COLOR, 0.4) }, fontSize: 13 } }}
                   />
 
                   {/* Cabecera */}
@@ -499,7 +499,7 @@ export default function EAMConfig() {
                     fullWidth size="small" label="Nombre del trabajo"
                     value={tipoEditing.nombre}
                     onChange={(e) => setTipoEditing((p) => ({ ...p, nombre: e.target.value }))}
-                    sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
+                    
                   />
 
                   <Stack direction="row" spacing={2}>
@@ -507,7 +507,7 @@ export default function EAMConfig() {
                       select fullWidth size="small" label="Categoría"
                       value={tipoEditing.categoria}
                       onChange={(e) => setTipoEditing((p) => ({ ...p, categoria: e.target.value as CatTrabajo }))}
-                      sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) }, '& .MuiSvgIcon-root': { color: 'grey.500' } }}
+                      sx={{ '& .MuiSvgIcon-root': { color: 'grey.500' } }}
                     >
                       {CATEGORIAS_TRABAJO.map((c) => (
                         <MenuItem key={c} value={c}>
@@ -524,7 +524,7 @@ export default function EAMConfig() {
                       value={tipoEditing.duracion}
                       onChange={(e) => setTipoEditing((p) => ({ ...p, duracion: e.target.value }))}
                       placeholder="Ej: 2h, 4h, Variable"
-                      sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
+                      
                     />
                   </Stack>
 
@@ -534,14 +534,14 @@ export default function EAMConfig() {
                       value={tipoEditing.sistema}
                       onChange={(e) => setTipoEditing((p) => ({ ...p, sistema: e.target.value }))}
                       placeholder="Ej: Motor, Eléctrico, Hidráulico"
-                      sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
+                      
                     />
                     <TextField
                       fullWidth size="small" label="Subsistema del activo"
                       value={tipoEditing.subsistema}
                       onChange={(e) => setTipoEditing((p) => ({ ...p, subsistema: e.target.value }))}
                       placeholder="Ej: Lubricación, Circuitos, Transmisión"
-                      sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
+                      
                     />
                   </Stack>
 
@@ -614,7 +614,7 @@ export default function EAMConfig() {
                     fullWidth size="small" placeholder="Buscar por código, nombre o ciudad..."
                     value={ccSearch} onChange={(e) => setCcSearch(e.target.value)}
                     InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: 'grey.600', fontSize: 16 }} /></InputAdornment> }}
-                    sx={{ mb: 2, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.03), '& fieldset': { borderColor: alpha('#fff', 0.12) }, color: 'text.primary', fontSize: 13 } }}
+                    sx={{ mb: 2, '& .MuiOutlinedInput-root': { fontSize: 13 } }}
                   />
                   {/* Header */}
                   <Box sx={{ display: 'grid', gridTemplateColumns: '90px 1fr 130px 1fr 90px', gap: 1, px: 1, pb: 0.5, borderBottom: '1px solid #E5E7EB', mb: 0.5 }}>
@@ -659,14 +659,14 @@ export default function EAMConfig() {
                       value={ccEditing.codigo}
                       onChange={(e) => setCcEditing((p) => ({ ...p, codigo: e.target.value }))}
                       placeholder="Ej: CC-007"
-                      sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
+                      
                     />
                     <TextField
                       fullWidth size="small" label="Nombre del centro de costo"
                       value={ccEditing.nombre}
                       onChange={(e) => setCcEditing((p) => ({ ...p, nombre: e.target.value }))}
                       placeholder="Ej: Flota Cali"
-                      sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
+                      
                     />
                   </Stack>
                   <Stack direction="row" spacing={2}>
@@ -674,7 +674,7 @@ export default function EAMConfig() {
                       select fullWidth size="small" label="Ciudad"
                       value={ccEditing.ciudad}
                       onChange={(e) => setCcEditing((p) => ({ ...p, ciudad: e.target.value }))}
-                      sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) }, '& .MuiSvgIcon-root': { color: 'grey.500' } }}
+                      sx={{ '& .MuiSvgIcon-root': { color: 'grey.500' } }}
                     >
                       {CIUDADES.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
                     </TextField>
@@ -682,7 +682,7 @@ export default function EAMConfig() {
                       select fullWidth size="small" label="Plataforma"
                       value={ccEditing.plataforma}
                       onChange={(e) => setCcEditing((p) => ({ ...p, plataforma: e.target.value }))}
-                      sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) }, '& .MuiSvgIcon-root': { color: 'grey.500' } }}
+                      sx={{ '& .MuiSvgIcon-root': { color: 'grey.500' } }}
                     >
                       {PLATAFORMAS.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
                     </TextField>
@@ -753,7 +753,7 @@ export default function EAMConfig() {
 
                       <Stack direction="row" alignItems="center" justifyContent="space-between">
                         <Stack direction="row" alignItems="center" spacing={0.5}>
-                          <Rating value={c.calificacion} precision={0.5} readOnly size="small" sx={{ '& .MuiRating-iconFilled': { color: '#F59E0B' }, '& .MuiRating-iconEmpty': { color: alpha('#fff', 0.2) } }} />
+                          <Rating value={c.calificacion} precision={0.5} readOnly size="small" sx={{ '& .MuiRating-iconFilled': { color: '#F59E0B' }, '& .MuiRating-iconEmpty': { color: '#E5E7EB' } }} />
                           <Typography variant="caption" color="grey.400">{c.calificacion}</Typography>
                         </Stack>
                         <Stack direction="row" spacing={0.5}>
@@ -773,13 +773,13 @@ export default function EAMConfig() {
         {tab === 2 && (
           <Grid container spacing={3}>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
+              <Card sx={{ background: '#FFFFFF', border: `1px solid #E5E7EB` }}>
                 <CardContent>
                   <Stack direction="row" alignItems="center" spacing={1} mb={2}>
                     <AlertIcon sx={{ color: EAM_COLOR, fontSize: 20 }} />
                     <Typography variant="subtitle2" fontWeight={700} color="#1E293B">Alertas de Mantenimiento</Typography>
                   </Stack>
-                  <Stack spacing={2.5} divider={<Divider sx={{ borderColor: alpha('#fff', 0.06) }} />}>
+                  <Stack spacing={2.5} divider={<Divider sx={{ borderColor: '#E5E7EB' }} />}>
                     {/* PM Vencido */}
                     <Stack direction="row" alignItems="center" justifyContent="space-between">
                       <Box flex={1}>
@@ -794,7 +794,7 @@ export default function EAMConfig() {
                         onChange={e => setU('pmAntesDias', Number(e.target.value))}
                         disabled={!umbrales.pmActive}
                         InputProps={{ endAdornment: <InputAdornment position="end"><Typography variant="caption" color="grey.500">días</Typography></InputAdornment> }}
-                        sx={{ width: 100, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.04), '& fieldset': { borderColor: alpha('#fff', 0.12) }, color: 'text.primary', fontSize: 13 } }}
+                        sx={{ width: 100, '& .MuiOutlinedInput-root': { fontSize: 13 } }}
                       />
                     </Stack>
 
@@ -812,7 +812,7 @@ export default function EAMConfig() {
                         onChange={e => setU('profNeumatico', Number(e.target.value))}
                         disabled={!umbrales.profActive}
                         InputProps={{ endAdornment: <InputAdornment position="end"><Typography variant="caption" color="grey.500">mm</Typography></InputAdornment> }}
-                        sx={{ width: 100, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.04), '& fieldset': { borderColor: alpha('#fff', 0.12) }, color: 'text.primary', fontSize: 13 } }}
+                        sx={{ width: 100, '& .MuiOutlinedInput-root': { fontSize: 13 } }}
                       />
                     </Stack>
 
@@ -833,13 +833,13 @@ export default function EAMConfig() {
             </Grid>
 
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
+              <Card sx={{ background: '#FFFFFF', border: `1px solid #E5E7EB` }}>
                 <CardContent>
                   <Stack direction="row" alignItems="center" spacing={1} mb={2}>
                     <WarnIcon sx={{ color: '#F59E0B', fontSize: 20 }} />
                     <Typography variant="subtitle2" fontWeight={700} color="#1E293B">Umbrales Operativos</Typography>
                   </Stack>
-                  <Stack spacing={2.5} divider={<Divider sx={{ borderColor: alpha('#fff', 0.06) }} />}>
+                  <Stack spacing={2.5} divider={<Divider sx={{ borderColor: '#E5E7EB' }} />}>
                     {/* MTTR */}
                     <Stack direction="row" alignItems="center" justifyContent="space-between">
                       <Box flex={1}>
@@ -854,7 +854,7 @@ export default function EAMConfig() {
                         onChange={e => setU('mttrHrs', Number(e.target.value))}
                         disabled={!umbrales.mttrActive}
                         InputProps={{ endAdornment: <InputAdornment position="end"><Typography variant="caption" color="grey.500">hrs</Typography></InputAdornment> }}
-                        sx={{ width: 100, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.04), '& fieldset': { borderColor: alpha('#fff', 0.12) }, color: 'text.primary', fontSize: 13 } }}
+                        sx={{ width: 100, '& .MuiOutlinedInput-root': { fontSize: 13 } }}
                       />
                     </Stack>
 
@@ -872,7 +872,7 @@ export default function EAMConfig() {
                         onChange={e => setU('combustiblePct', Number(e.target.value))}
                         disabled={!umbrales.combustibleActive}
                         InputProps={{ endAdornment: <InputAdornment position="end"><Typography variant="caption" color="grey.500">%</Typography></InputAdornment> }}
-                        sx={{ width: 100, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.04), '& fieldset': { borderColor: alpha('#fff', 0.12) }, color: 'text.primary', fontSize: 13 } }}
+                        sx={{ width: 100, '& .MuiOutlinedInput-root': { fontSize: 13 } }}
                       />
                     </Stack>
 
@@ -890,7 +890,7 @@ export default function EAMConfig() {
                         onChange={e => setU('garantiaDias', Number(e.target.value))}
                         disabled={!umbrales.garantiaActive}
                         InputProps={{ endAdornment: <InputAdornment position="end"><Typography variant="caption" color="grey.500">días</Typography></InputAdornment> }}
-                        sx={{ width: 100, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.04), '& fieldset': { borderColor: alpha('#fff', 0.12) }, color: 'text.primary', fontSize: 13 } }}
+                        sx={{ width: 100, '& .MuiOutlinedInput-root': { fontSize: 13 } }}
                       />
                     </Stack>
 
@@ -908,7 +908,7 @@ export default function EAMConfig() {
                         onChange={e => setU('calibracionDias', Number(e.target.value))}
                         disabled={!umbrales.calibracionActive}
                         InputProps={{ endAdornment: <InputAdornment position="end"><Typography variant="caption" color="grey.500">días</Typography></InputAdornment> }}
-                        sx={{ width: 100, '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.04), '& fieldset': { borderColor: alpha('#fff', 0.12) }, color: 'text.primary', fontSize: 13 } }}
+                        sx={{ width: 100, '& .MuiOutlinedInput-root': { fontSize: 13 } }}
                       />
                     </Stack>
                   </Stack>
@@ -1075,7 +1075,7 @@ export default function EAMConfig() {
                   <TextField
                     select size="small" label="Filtrar categoría" value={dispCat}
                     onChange={(e) => { setDispCat(e.target.value); setDispSel([]) }}
-                    sx={{ minWidth: 180, '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) }, '& .MuiSvgIcon-root': { color: 'grey.400' } }}
+                    sx={{ minWidth: 180, '& .MuiSvgIcon-root': { color: 'grey.500' } }}
                   >
                     <MenuItem value="Todos">Todas las categorías</MenuItem>
                     {ACTIVOS_CATS_CFG.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
@@ -1084,7 +1084,7 @@ export default function EAMConfig() {
                     size="small" label="Horas/mes a aplicar" type="number" value={dispBulk}
                     onChange={(e) => setDispBulk(e.target.value)}
                     inputProps={{ min: 1, max: 744 }}
-                    sx={{ minWidth: 150, '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
+                    sx={{ minWidth: 150 }}
                   />
                   <Button variant="contained" onClick={applyDispBulk}
                     sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#27884A' }, fontWeight: 700, borderRadius: '8px', height: 36 }}>
@@ -1162,18 +1162,18 @@ export default function EAMConfig() {
                   <TextField size="small" label="Nombre del período" fullWidth
                     value={newPeriodo.nombre} onChange={(e) => setNewPeriodo((p) => ({ ...p, nombre: e.target.value }))}
                     placeholder="Ej: Vacaciones julio-agosto, Operación reducida..."
-                    sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
+                    
                   />
                   <Stack direction="row" spacing={2}>
                     <TextField size="small" label="Mes inicio" type="month" fullWidth
                       value={newPeriodo.desde} onChange={(e) => setNewPeriodo((p) => ({ ...p, desde: e.target.value }))}
                       InputLabelProps={{ shrink: true }}
-                      sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
+                      
                     />
                     <TextField size="small" label="Mes fin" type="month" fullWidth
                       value={newPeriodo.hasta} onChange={(e) => setNewPeriodo((p) => ({ ...p, hasta: e.target.value }))}
                       InputLabelProps={{ shrink: true }}
-                      sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) } }}
+                      
                     />
                     <TextField size="small" label="Horas/mes" type="number" sx={{ minWidth: 100, '& .MuiOutlinedInput-root': { color: EAM_COLOR, bgcolor: alpha(EAM_COLOR, 0.06) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha(EAM_COLOR, 0.3) } }}
                       value={newPeriodo.horas}
@@ -1194,7 +1194,7 @@ export default function EAMConfig() {
 
                   <TextField select size="small" label="Aplica a" fullWidth
                     value={newPeriodo.aplica} onChange={(e) => setNewPeriodo((p) => ({ ...p, aplica: e.target.value as PeriodoCfg['aplica'] }))}
-                    sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) }, '& .MuiSvgIcon-root': { color: 'grey.400' } }}
+                    sx={{ '& .MuiSvgIcon-root': { color: 'grey.500' } }}
                   >
                     <MenuItem value="todos">Todos los activos</MenuItem>
                     <MenuItem value="categoria">Por categoría</MenuItem>
@@ -1204,7 +1204,7 @@ export default function EAMConfig() {
                   {newPeriodo.aplica === 'categoria' && (
                     <TextField select size="small" label="Categoría" fullWidth
                       value={newPeriodo.categoria} onChange={(e) => setNewPeriodo((p) => ({ ...p, categoria: e.target.value }))}
-                      sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) }, '& .MuiSvgIcon-root': { color: 'grey.400' } }}
+                      sx={{ '& .MuiSvgIcon-root': { color: 'grey.500' } }}
                     >
                       {ACTIVOS_CATS_CFG.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
                     </TextField>
@@ -1215,7 +1215,7 @@ export default function EAMConfig() {
                       <Stack direction="row" spacing={1} alignItems="center" mb={1}>
                         <TextField select size="small" label="Filtrar categoría" value={periodActCat}
                           onChange={(e) => setPeriodActCat(e.target.value)}
-                          sx={{ minWidth: 160, '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: alpha('#fff', 0.04) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha('#fff', 0.15) }, '& .MuiSvgIcon-root': { color: 'grey.400' } }}
+                          sx={{ minWidth: 160, '& .MuiSvgIcon-root': { color: 'grey.500' } }}
                         >
                           <MenuItem value="Todos">Todas las categorías</MenuItem>
                           {ACTIVOS_CATS_CFG.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}

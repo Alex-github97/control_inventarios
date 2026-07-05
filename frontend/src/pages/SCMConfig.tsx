@@ -4,10 +4,10 @@ import { Settings, Notifications, IntegrationInstructions, Security, Save } from
 import { Layout } from '@/components/layout/Layout'
 
 const SCM_COLOR = '#0C4D8C'
-const #E5E7EB  = `rgba(12,77,140,0.25)`
+const BORDER  = `rgba(12,77,140,0.25)`
 
 const SX_INPUT = {
-  '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#E5E7EB' } },
+  '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: BORDER } },
 }
 
 interface ConfigItem { label: string; description: string; key: string }
@@ -87,7 +87,7 @@ export default function SCMConfig() {
         </Box>
 
         {/* Tabs */}
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3, borderBottom: '1px solid #E5E7EB', '& .MuiTab-root': { color: 'text.disabled', minHeight: 40, textTransform: 'none' }, '& .Mui-selected': { color: '#5B9BD5' }, '& .MuiTabs-indicator': { bgcolor: SCM_COLOR } }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3, borderBottom: `1px solid ${BORDER}`, '& .MuiTab-root': { color: 'text.disabled', minHeight: 40, textTransform: 'none' }, '& .Mui-selected': { color: '#5B9BD5' }, '& .MuiTabs-indicator': { bgcolor: SCM_COLOR } }}>
           <Tab label="Notificaciones" icon={<Notifications sx={{ fontSize: 16 }} />} iconPosition="start" />
           <Tab label="Flujo de trabajo" icon={<Security sx={{ fontSize: 16 }} />} iconPosition="start" />
           <Tab label="Integraciones" icon={<IntegrationInstructions sx={{ fontSize: 16 }} />} iconPosition="start" />
@@ -96,7 +96,7 @@ export default function SCMConfig() {
 
         {/* Tab 0 — Notificaciones */}
         {tab === 0 && (
-          <Card sx={{ bgcolor: '#fff', border: `1px solid #E5E7EB`, borderRadius: 2 }}>
+          <Card sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: 2 }}>
             <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>Alertas y notificaciones del módulo SCM</Typography>
               {NOTIF_ITEMS.map(item => (
@@ -108,7 +108,7 @@ export default function SCMConfig() {
 
         {/* Tab 1 — Flujo de trabajo */}
         {tab === 1 && (
-          <Card sx={{ bgcolor: '#fff', border: `1px solid #E5E7EB`, borderRadius: 2 }}>
+          <Card sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: 2 }}>
             <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>Reglas del flujo de aprobación y operación</Typography>
               {FLUJO_ITEMS.map(item => (
@@ -120,7 +120,7 @@ export default function SCMConfig() {
 
         {/* Tab 2 — Integraciones */}
         {tab === 2 && (
-          <Card sx={{ bgcolor: '#fff', border: `1px solid #E5E7EB`, borderRadius: 2 }}>
+          <Card sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: 2 }}>
             <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>Conexiones con otros módulos y sistemas externos</Typography>
               {INTEG_ITEMS.map(item => (
@@ -134,7 +134,7 @@ export default function SCMConfig() {
         {tab === 3 && (
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ bgcolor: '#fff', border: `1px solid #E5E7EB`, borderRadius: 2 }}>
+              <Card sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: 2 }}>
                 <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8 }}>Parámetros de aprobación</Typography>
                   <TextField
@@ -159,7 +159,7 @@ export default function SCMConfig() {
               </Card>
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ bgcolor: '#fff', border: `1px solid #E5E7EB`, borderRadius: 2 }}>
+              <Card sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: 2 }}>
                 <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8 }}>Contactos y correos</Typography>
                   <TextField

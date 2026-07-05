@@ -134,7 +134,7 @@ export default function CRMLeads() {
               </thead>
               <tbody>
                 {filtrados.map((l, i) => {
-                  const info = ESTADO_COLOR[l.estado] || { color: '#94A3B8', bg: 'rgba(255,255,255,0.06)', icon: null }
+                  const info = ESTADO_COLOR[l.estado] || { color: '#64748B', bg: '#F0F2F5', icon: null }
                   return (
                     <tr key={i} style={{ borderBottom: '1px solid #E5E7EB' }}>
                       <td style={{ padding: '10px 14px', fontSize: 11.5, color: CRM_COLOR, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{l.codigo}</td>

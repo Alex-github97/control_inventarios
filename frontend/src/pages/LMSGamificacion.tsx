@@ -112,8 +112,8 @@ export default function LMSGamificacion() {
                       <td style={{ padding: '10px 14px', fontSize: 15, fontWeight: 800, color: col || '#94A3B8', width: 40 }}>
                         {r.pos <= 3 ? ['🥇', '🥈', '🥉'][r.pos - 1] : r.pos}
                       </td>
-                      <td style={{ padding: '10px 14px', fontSize: 13, color: 'text.primary', fontWeight: 600 }}>{r.nombre}</td>
-                      <td style={{ padding: '10px 14px', fontSize: 12, color: 'text.secondary' }}>{r.cargo}</td>
+                      <td style={{ padding: '10px 14px', fontSize: 13, color: '#1E293B', fontWeight: 600 }}>{r.nombre}</td>
+                      <td style={{ padding: '10px 14px', fontSize: 12, color: '#64748B' }}>{r.cargo}</td>
                       <td style={{ padding: '10px 14px', fontSize: 14, fontWeight: 800, color: LMS_COLOR }}>{r.puntos.toLocaleString()}</td>
                       <td style={{ padding: '10px 14px', fontSize: 13, color: '#F59E0B', textAlign: 'center' }}>⭐ {r.insignias}</td>
                       <td style={{ padding: '10px 14px', fontSize: 13, color: '#059669', textAlign: 'center' }}>✓ {r.completados}</td>

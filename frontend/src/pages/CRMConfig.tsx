@@ -62,7 +62,7 @@ export default function CRMConfig() {
             background: `linear-gradient(135deg, ${CRM_COLOR} 0%, #B91C1C 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Settings sx={{ color: 'text.primary', fontSize: 22 }} />
+            <Settings sx={{ color: '#fff', fontSize: 22 }} />
           </Box>
           <Box>
             <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Configuración CRM</Typography>
@@ -81,7 +81,7 @@ export default function CRMConfig() {
         </Tabs>
 
         {tab === 0 && (
-          <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
+          <Box sx={{ bgcolor: 'background.paper', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
             <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 2 }}>Parámetros y Umbrales del Sistema</Typography>
             {UMBRALES.map((u, i) => (
               <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1.75, borderBottom: '1px solid #F1F5F9' }}>
@@ -101,7 +101,7 @@ export default function CRMConfig() {
         )}
 
         {tab === 1 && (
-          <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
+          <Box sx={{ bgcolor: 'background.paper', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
             <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 2 }}>Configuración de Alertas y Notificaciones</Typography>
             {NOTIFICACIONES.map((n, i) => (
               <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1.75, borderBottom: '1px solid #F1F5F9' }}>
@@ -117,7 +117,7 @@ export default function CRMConfig() {
         )}
 
         {tab === 2 && (
-          <Box sx={{ bgcolor: 'text.primary', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
+          <Box sx={{ bgcolor: 'background.paper', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
             <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 0.5 }}>Modelo de Lead Scoring IA</Typography>
             <Typography sx={{ fontSize: 12, color: 'text.disabled', mb: 2.5 }}>Suma de pesos = 100 · Umbral CALIENTE: ≥75 · TIBIO: 50-74 · FRÍO: &lt;50</Typography>
             {LEAD_SCORING.map((f, i) => (
@@ -138,7 +138,7 @@ export default function CRMConfig() {
           <Grid container spacing={2}>
             {INTEGRACIONES.map((int, i) => (
               <Grid key={i} size={{ xs: 12, sm: 6, md: 4 }}>
-                <Box sx={{ bgcolor: 'text.primary', border: `1px solid ${alpha(integs[i] ? int.color : '#4B5563', 0.3)}`, borderRadius: 2, p: 2 }}>
+                <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${alpha(integs[i] ? int.color : '#4B5563', 0.3)}`, borderRadius: 2, p: 2 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
                     <Box>
                       <Box sx={{ display: 'inline-flex', px: 1.5, py: 0.5, bgcolor: alpha(int.color, 0.15), borderRadius: 1, mb: 0.75 }}>

@@ -215,7 +215,7 @@ export default function LMSUniversidad() {
 
         {/* Programas */}
         {tab === 2 && (
-          <Box sx={{ 'border: "1px solid #E5E7EB"', borderRadius: 2, overflow: 'hidden' }}>
+          <Box sx={{ border: '1px solid #E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
             <Box sx={{ p: 2, borderBottom: '1px solid #F1F5F9' }}>
               <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary' }}>Catálogo de Programas</Typography>
             </Box>

@@ -383,7 +383,7 @@ function KPICard({ label, value, color, icon }: { label: string; value: number; 
   return (
     <Card
       sx={{
-        bgcolor: alpha('#fff', 0.03),
+        bgcolor: 'background.paper',
         border: '1px solid',
         borderColor: alpha(color, 0.25),
         borderRadius: 2,
@@ -406,7 +406,7 @@ function KPICard({ label, value, color, icon }: { label: string; value: number; 
             <Typography variant="h5" sx={{ color, fontWeight: 800, lineHeight: 1.1 }}>
               {value}
             </Typography>
-            <Typography variant="caption" sx={{ color: '#9ca3af', fontSize: 11 }}>
+            <Typography variant="caption" sx={{ color: '#64748B', fontSize: 11 }}>
               {label}
             </Typography>
           </Box>
@@ -436,9 +436,9 @@ function VerVehiculoDialog({ vehiculo, open, onClose }: { vehiculo: Vehiculo | n
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth PaperProps={{
-      sx: { bgcolor: '#111827', border: '1px solid', borderColor: alpha('#fff', 0.08), borderRadius: 3 }
+      sx: { bgcolor: 'background.paper', border: '1px solid', borderColor: '#E5E7EB', borderRadius: 3 }
     }}>
-      <DialogTitle sx={{ color: '#e2e8f0', pb: 0 }}>
+      <DialogTitle sx={{ color: '#1E293B', pb: 0 }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between">
           <Stack direction="row" alignItems="center" spacing={1.5}>
             <Box
@@ -450,17 +450,17 @@ function VerVehiculoDialog({ vehiculo, open, onClose }: { vehiculo: Vehiculo | n
               <LocalShipping sx={{ color: TMS_COLOR, fontSize: 22 }} />
             </Box>
             <Box>
-              <Typography variant="h6" sx={{ color: '#e2e8f0', fontWeight: 700, lineHeight: 1.2 }}>
+              <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, lineHeight: 1.2 }}>
                 {vehiculo.placa}
               </Typography>
-              <Typography variant="caption" sx={{ color: '#6b7280' }}>
+              <Typography variant="caption" sx={{ color: '#64748B' }}>
                 {tipoLabel(vehiculo.tipoVehiculo)} · {vehiculo.marca} {vehiculo.modelo}
               </Typography>
             </Box>
           </Stack>
           <Stack direction="row" alignItems="center" spacing={1}>
             <Chip label={est.label} size="small" sx={{ bgcolor: est.bg, color: est.color, fontWeight: 700 }} />
-            <IconButton onClick={onClose} sx={{ color: '#6b7280' }}><Close /></IconButton>
+            <IconButton onClick={onClose} sx={{ color: '#64748B' }}><Close /></IconButton>
           </Stack>
         </Stack>
       </DialogTitle>
@@ -470,7 +470,7 @@ function VerVehiculoDialog({ vehiculo, open, onClose }: { vehiculo: Vehiculo | n
           value={tab}
           onChange={(_, v) => setTab(v)}
           sx={{
-            '& .MuiTab-root': { color: '#6b7280', fontSize: 13, textTransform: 'none', minHeight: 40 },
+            '& .MuiTab-root': { color: '#64748B', fontSize: 13, textTransform: 'none', minHeight: 40 },
             '& .Mui-selected': { color: TMS_COLOR },
             '& .MuiTabs-indicator': { bgcolor: TMS_COLOR },
           }}
@@ -479,7 +479,7 @@ function VerVehiculoDialog({ vehiculo, open, onClose }: { vehiculo: Vehiculo | n
           <Tab icon={<History sx={{ fontSize: 16 }} />} iconPosition="start" label="Historial de Viajes" />
           <Tab icon={<Description sx={{ fontSize: 16 }} />} iconPosition="start" label="Documentos" />
         </Tabs>
-        <Divider sx={{ borderColor: alpha('#fff', 0.06) }} />
+        <Divider sx={{ borderColor: '#E5E7EB' }} />
       </Box>
 
       <DialogContent sx={{ px: 3, pt: 1 }}>
@@ -501,9 +501,9 @@ function VerVehiculoDialog({ vehiculo, open, onClose }: { vehiculo: Vehiculo | n
               { label: 'Configuración', value: vehiculo.configuracion },
             ].map((item) => (
               <Grid key={item.label} size={{ xs: 12, sm: 6, md: 4 }}>
-                <Box sx={{ bgcolor: alpha('#fff', 0.04), borderRadius: 1.5, p: 1.5 }}>
-                  <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 10 }}>{item.label}</Typography>
-                  <Typography variant="body2" sx={{ color: '#e2e8f0', fontWeight: 600, mt: 0.2 }}>{item.value}</Typography>
+                <Box sx={{ bgcolor: '#F8FAFC', borderRadius: 1.5, p: 1.5 }}>
+                  <Typography variant="caption" sx={{ color: '#64748B', fontSize: 10 }}>{item.label}</Typography>
+                  <Typography variant="body2" sx={{ color: '#1E293B', fontWeight: 600, mt: 0.2 }}>{item.value}</Typography>
                 </Box>
               </Grid>
             ))}
@@ -520,9 +520,9 @@ function VerVehiculoDialog({ vehiculo, open, onClose }: { vehiculo: Vehiculo | n
               { label: 'Peso Bruto', value: formatNum(vehiculo.pesoBrutoKg) + ' kg' },
             ].map((item) => (
               <Grid key={item.label} size={{ xs: 12, sm: 6, md: 3 }}>
-                <Box sx={{ bgcolor: alpha('#fff', 0.04), borderRadius: 1.5, p: 1.5 }}>
-                  <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 10 }}>{item.label}</Typography>
-                  <Typography variant="body2" sx={{ color: '#e2e8f0', fontWeight: 600, mt: 0.2 }}>{item.value}</Typography>
+                <Box sx={{ bgcolor: '#F8FAFC', borderRadius: 1.5, p: 1.5 }}>
+                  <Typography variant="caption" sx={{ color: '#64748B', fontSize: 10 }}>{item.label}</Typography>
+                  <Typography variant="body2" sx={{ color: '#1E293B', fontWeight: 600, mt: 0.2 }}>{item.value}</Typography>
                 </Box>
               </Grid>
             ))}
@@ -533,14 +533,14 @@ function VerVehiculoDialog({ vehiculo, open, onClose }: { vehiculo: Vehiculo | n
               </Typography>
             </Grid>
             <Grid size={{ xs: 12, sm: 8 }}>
-              <Box sx={{ bgcolor: alpha('#fff', 0.04), borderRadius: 1.5, p: 1.5 }}>
-                <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 10 }}>Empresa / Propietario</Typography>
-                <Typography variant="body2" sx={{ color: '#e2e8f0', fontWeight: 600, mt: 0.2 }}>{vehiculo.empresa}</Typography>
+              <Box sx={{ bgcolor: '#F8FAFC', borderRadius: 1.5, p: 1.5 }}>
+                <Typography variant="caption" sx={{ color: '#64748B', fontSize: 10 }}>Empresa / Propietario</Typography>
+                <Typography variant="body2" sx={{ color: '#1E293B', fontWeight: 600, mt: 0.2 }}>{vehiculo.empresa}</Typography>
               </Box>
             </Grid>
             <Grid size={{ xs: 12, sm: 4 }}>
-              <Box sx={{ bgcolor: alpha('#fff', 0.04), borderRadius: 1.5, p: 1.5 }}>
-                <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 10 }}>Estado Operativo</Typography>
+              <Box sx={{ bgcolor: '#F8FAFC', borderRadius: 1.5, p: 1.5 }}>
+                <Typography variant="caption" sx={{ color: '#64748B', fontSize: 10 }}>Estado Operativo</Typography>
                 <Box sx={{ mt: 0.4 }}>
                   <Chip label={est.label} size="small" sx={{ bgcolor: est.bg, color: est.color, fontWeight: 700, fontSize: 11 }} />
                 </Box>
@@ -552,7 +552,7 @@ function VerVehiculoDialog({ vehiculo, open, onClose }: { vehiculo: Vehiculo | n
         {/* Tab 1: Historial */}
         <TabPanel value={tab} index={1}>
           {vehiculo.viajesHistorico.length === 0 ? (
-            <Typography variant="body2" sx={{ color: '#6b7280', textAlign: 'center', mt: 4 }}>
+            <Typography variant="body2" sx={{ color: '#64748B', textAlign: 'center', mt: 4 }}>
               Sin historial de viajes registrado
             </Typography>
           ) : (
@@ -561,7 +561,7 @@ function VerVehiculoDialog({ vehiculo, open, onClose }: { vehiculo: Vehiculo | n
                 <TableHead>
                   <TableRow>
                     {['Código', 'Origen', 'Destino', 'Fecha', 'Conductor', 'Estado'].map((h) => (
-                      <TableCell key={h} sx={{ color: '#6b7280', fontSize: 11, fontWeight: 700, borderBottom: `1px solid ${alpha('#fff', 0.07)}`, py: 1 }}>
+                      <TableCell key={h} sx={{ color: '#64748B', fontSize: 11, fontWeight: 700, borderBottom: `1px solid #E5E7EB`, py: 1 }}>
                         {h}
                       </TableCell>
                     ))}
@@ -571,15 +571,15 @@ function VerVehiculoDialog({ vehiculo, open, onClose }: { vehiculo: Vehiculo | n
                   {vehiculo.viajesHistorico.map((v) => {
                     const ec = viajeEstadoChip(v.estado)
                     return (
-                      <TableRow key={v.codigo} sx={{ '&:hover': { bgcolor: alpha('#fff', 0.03) } }}>
-                        <TableCell sx={{ color: '#60a5fa', fontWeight: 700, fontSize: 12, borderBottom: `1px solid ${alpha('#fff', 0.04)}` }}>
+                      <TableRow key={v.codigo} sx={{ '&:hover': { bgcolor: '#F8FAFC' } }}>
+                        <TableCell sx={{ color: TMS_COLOR, fontWeight: 700, fontSize: 12, borderBottom: `1px solid #E5E7EB` }}>
                           {v.codigo}
                         </TableCell>
-                        <TableCell sx={{ color: '#d1d5db', fontSize: 12, borderBottom: `1px solid ${alpha('#fff', 0.04)}` }}>{v.origen}</TableCell>
-                        <TableCell sx={{ color: '#d1d5db', fontSize: 12, borderBottom: `1px solid ${alpha('#fff', 0.04)}` }}>{v.destino}</TableCell>
-                        <TableCell sx={{ color: '#9ca3af', fontSize: 11, borderBottom: `1px solid ${alpha('#fff', 0.04)}` }}>{v.fecha}</TableCell>
-                        <TableCell sx={{ color: '#d1d5db', fontSize: 12, borderBottom: `1px solid ${alpha('#fff', 0.04)}` }}>{v.conductor}</TableCell>
-                        <TableCell sx={{ borderBottom: `1px solid ${alpha('#fff', 0.04)}` }}>
+                        <TableCell sx={{ color: '#334155', fontSize: 12, borderBottom: `1px solid #E5E7EB` }}>{v.origen}</TableCell>
+                        <TableCell sx={{ color: '#334155', fontSize: 12, borderBottom: `1px solid #E5E7EB` }}>{v.destino}</TableCell>
+                        <TableCell sx={{ color: '#64748B', fontSize: 11, borderBottom: `1px solid #E5E7EB` }}>{v.fecha}</TableCell>
+                        <TableCell sx={{ color: '#334155', fontSize: 12, borderBottom: `1px solid #E5E7EB` }}>{v.conductor}</TableCell>
+                        <TableCell sx={{ borderBottom: `1px solid #E5E7EB` }}>
                           <Chip
                             label={v.estado.replace('_', ' ')}
                             size="small"
@@ -605,7 +605,7 @@ function VerVehiculoDialog({ vehiculo, open, onClose }: { vehiculo: Vehiculo | n
                   key={i}
                   sx={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    bgcolor: alpha('#fff', 0.04), borderRadius: 2, p: 1.5,
+                    bgcolor: '#F8FAFC', borderRadius: 2, p: 1.5,
                     border: '1px solid', borderColor: alpha(dc.color, 0.2),
                   }}
                 >
@@ -620,10 +620,10 @@ function VerVehiculoDialog({ vehiculo, open, onClose }: { vehiculo: Vehiculo | n
                       <Description sx={{ fontSize: 18 }} />
                     </Box>
                     <Box>
-                      <Typography variant="body2" sx={{ color: '#e2e8f0', fontWeight: 700, fontSize: 13 }}>
+                      <Typography variant="body2" sx={{ color: '#1E293B', fontWeight: 700, fontSize: 13 }}>
                         {doc.tipo}
                       </Typography>
-                      <Typography variant="caption" sx={{ color: '#9ca3af', fontSize: 11 }}>
+                      <Typography variant="caption" sx={{ color: '#64748B', fontSize: 11 }}>
                         N°: {doc.numero}
                       </Typography>
                     </Box>
@@ -636,8 +636,8 @@ function VerVehiculoDialog({ vehiculo, open, onClose }: { vehiculo: Vehiculo | n
                       sx={{ bgcolor: dc.bg, color: dc.color, fontWeight: 700, fontSize: 10, height: 22 }}
                     />
                     <Stack direction="row" alignItems="center" spacing={0.4}>
-                      <CalendarToday sx={{ fontSize: 11, color: '#6b7280' }} />
-                      <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 10 }}>
+                      <CalendarToday sx={{ fontSize: 11, color: '#64748B' }} />
+                      <Typography variant="caption" sx={{ color: '#64748B', fontSize: 10 }}>
                         Vence: {doc.vencimiento}
                       </Typography>
                     </Stack>
@@ -651,7 +651,7 @@ function VerVehiculoDialog({ vehiculo, open, onClose }: { vehiculo: Vehiculo | n
 
       <DialogActions sx={{ px: 3, pb: 2.5 }}>
         <Button onClick={onClose} variant="outlined" size="small"
-          sx={{ color: '#9ca3af', borderColor: alpha('#fff', 0.15), '&:hover': { borderColor: '#9ca3af', bgcolor: alpha('#fff', 0.04) } }}>
+          sx={{ color: '#64748B', borderColor: '#E5E7EB', '&:hover': { borderColor: '#64748B', bgcolor: '#F8FAFC' } }}>
           Cerrar
         </Button>
       </DialogActions>
@@ -680,16 +680,11 @@ function FormVehiculoDialog({
   }
 
   const inputSx = {
-    '& .MuiInputBase-root': {
-      bgcolor: alpha('#fff', 0.04), color: '#e2e8f0', fontSize: 13,
-    },
-    '& .MuiInputLabel-root': { color: '#6b7280', fontSize: 13 },
+    '& .MuiInputBase-root': { fontSize: 13 },
+    '& .MuiInputLabel-root': { fontSize: 13 },
     '& .MuiInputLabel-root.Mui-focused': { color: TMS_COLOR },
-    '& fieldset': { borderColor: alpha('#fff', 0.1) },
     '& .MuiOutlinedInput-root:hover fieldset': { borderColor: alpha(TMS_COLOR, 0.4) },
     '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: TMS_COLOR },
-    '& .MuiSelect-icon': { color: '#6b7280' },
-    '& .MuiMenuItem-root': { color: '#e2e8f0' },
   }
 
   const sectionTitle = (label: string) => (
@@ -706,17 +701,17 @@ function FormVehiculoDialog({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth PaperProps={{
-      sx: { bgcolor: '#111827', border: '1px solid', borderColor: alpha('#fff', 0.08), borderRadius: 3 }
+      sx: { bgcolor: 'background.paper', border: '1px solid', borderColor: '#E5E7EB', borderRadius: 3 }
     }}>
-      <DialogTitle sx={{ color: '#e2e8f0' }}>
+      <DialogTitle sx={{ color: '#1E293B' }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between">
           <Stack direction="row" alignItems="center" spacing={1.5}>
             <Box sx={{ width: 36, height: 36, borderRadius: 2, bgcolor: alpha(TMS_COLOR, 0.2), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <LocalShipping sx={{ color: TMS_COLOR, fontSize: 20 }} />
             </Box>
-            <Typography variant="h6" sx={{ color: '#e2e8f0', fontWeight: 700 }}>{title}</Typography>
+            <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700 }}>{title}</Typography>
           </Stack>
-          <IconButton onClick={onClose} sx={{ color: '#6b7280' }}><Close /></IconButton>
+          <IconButton onClick={onClose} sx={{ color: '#64748B' }}><Close /></IconButton>
         </Stack>
       </DialogTitle>
 
@@ -728,7 +723,7 @@ function FormVehiculoDialog({
           <Grid size={{ xs: 12, sm: 4 }}>
             <TextField fullWidth size="small" label="Placa *" value={form.placa}
               onChange={(e) => field('placa', e.target.value.toUpperCase())}
-              sx={inputSx} inputProps={{ maxLength: 7, style: { color: '#e2e8f0', textTransform: 'uppercase' } }} />
+              sx={inputSx} inputProps={{ maxLength: 7, style: { textTransform: 'uppercase' } }} />
           </Grid>
 
           <Grid size={{ xs: 12, sm: 4 }}>
@@ -736,7 +731,8 @@ function FormVehiculoDialog({
               <InputLabel>Tipo Vehículo</InputLabel>
               <Select value={form.tipoVehiculo} label="Tipo Vehículo"
                 onChange={(e) => field('tipoVehiculo', e.target.value as TipoVehiculo)}
-                MenuProps={{ PaperProps: { sx: { bgcolor: '#1f2937', color: '#e2e8f0' } } }}>
+              >
+
                 {TIPOS_VEHICULO.map((t) => (
                   <MenuItem key={t} value={t} sx={{ fontSize: 13 }}>{tipoLabel(t)}</MenuItem>
                 ))}
@@ -749,7 +745,8 @@ function FormVehiculoDialog({
               <InputLabel>Tipo Carrocería</InputLabel>
               <Select value={form.tipoCarroceria} label="Tipo Carrocería"
                 onChange={(e) => field('tipoCarroceria', e.target.value as TipoCarroceria)}
-                MenuProps={{ PaperProps: { sx: { bgcolor: '#1f2937', color: '#e2e8f0' } } }}>
+              >
+
                 {TIPOS_CARROCERIA.map((t) => (
                   <MenuItem key={t} value={t} sx={{ fontSize: 13 }}>{t}</MenuItem>
                 ))}
@@ -759,23 +756,21 @@ function FormVehiculoDialog({
 
           <Grid size={{ xs: 12, sm: 4 }}>
             <TextField fullWidth size="small" label="Marca" value={form.marca}
-              onChange={(e) => field('marca', e.target.value)} sx={inputSx}
-              inputProps={{ style: { color: '#e2e8f0' } }} />
+              onChange={(e) => field('marca', e.target.value)} sx={inputSx} />
           </Grid>
           <Grid size={{ xs: 12, sm: 4 }}>
             <TextField fullWidth size="small" label="Modelo" value={form.modelo}
-              onChange={(e) => field('modelo', e.target.value)} sx={inputSx}
-              inputProps={{ style: { color: '#e2e8f0' } }} />
+              onChange={(e) => field('modelo', e.target.value)} sx={inputSx} />
           </Grid>
           <Grid size={{ xs: 12, sm: 2 }}>
             <TextField fullWidth size="small" label="Año" type="number" value={form.anio}
               onChange={(e) => field('anio', Number(e.target.value))} sx={inputSx}
-              inputProps={{ style: { color: '#e2e8f0' }, min: 2000, max: 2030 }} />
+              inputProps={{ min: 2000, max: 2030 }} />
           </Grid>
           <Grid size={{ xs: 12, sm: 2 }}>
             <TextField fullWidth size="small" label="Configuración" value={form.configuracion}
               onChange={(e) => field('configuracion', e.target.value)}
-              placeholder="Ej: 6x4" sx={inputSx} inputProps={{ style: { color: '#e2e8f0' } }} />
+              placeholder="Ej: 6x4" sx={inputSx} />
           </Grid>
 
           {/* Capacidades */}
@@ -784,22 +779,22 @@ function FormVehiculoDialog({
           <Grid size={{ xs: 12, sm: 3 }}>
             <TextField fullWidth size="small" label="Capacidad (kg)" type="number" value={form.capacidadKg}
               onChange={(e) => field('capacidadKg', Number(e.target.value))} sx={inputSx}
-              inputProps={{ style: { color: '#e2e8f0' }, min: 0 }} />
+              inputProps={{ min: 0 }} />
           </Grid>
           <Grid size={{ xs: 12, sm: 3 }}>
             <TextField fullWidth size="small" label="Volumen (m³)" type="number" value={form.volumenM3}
               onChange={(e) => field('volumenM3', Number(e.target.value))} sx={inputSx}
-              inputProps={{ style: { color: '#e2e8f0' }, min: 0 }} />
+              inputProps={{ min: 0 }} />
           </Grid>
           <Grid size={{ xs: 12, sm: 3 }}>
             <TextField fullWidth size="small" label="N° Ejes" type="number" value={form.numEjes}
               onChange={(e) => field('numEjes', Number(e.target.value))} sx={inputSx}
-              inputProps={{ style: { color: '#e2e8f0' }, min: 1, max: 10 }} />
+              inputProps={{ min: 1, max: 10 }} />
           </Grid>
           <Grid size={{ xs: 12, sm: 3 }}>
             <TextField fullWidth size="small" label="Peso Bruto (kg)" type="number" value={form.pesoBrutoKg}
               onChange={(e) => field('pesoBrutoKg', Number(e.target.value))} sx={inputSx}
-              inputProps={{ style: { color: '#e2e8f0' }, min: 0 }} />
+              inputProps={{ min: 0 }} />
           </Grid>
 
           {/* Propietario */}
@@ -807,15 +802,15 @@ function FormVehiculoDialog({
 
           <Grid size={{ xs: 12, sm: 8 }}>
             <TextField fullWidth size="small" label="Empresa / Propietario" value={form.empresa}
-              onChange={(e) => field('empresa', e.target.value)} sx={inputSx}
-              inputProps={{ style: { color: '#e2e8f0' } }} />
+              onChange={(e) => field('empresa', e.target.value)} sx={inputSx} />
           </Grid>
           <Grid size={{ xs: 12, sm: 4 }}>
             <FormControl fullWidth size="small" sx={inputSx}>
               <InputLabel>Estado Operativo</InputLabel>
               <Select value={form.estadoOperativo} label="Estado Operativo"
                 onChange={(e) => field('estadoOperativo', e.target.value as EstadoOperativo)}
-                MenuProps={{ PaperProps: { sx: { bgcolor: '#1f2937', color: '#e2e8f0' } } }}>
+              >
+
                 {ESTADOS_OPERATIVOS.map((e) => (
                   <MenuItem key={e} value={e} sx={{ fontSize: 13 }}>{e.replace(/_/g, ' ')}</MenuItem>
                 ))}
@@ -827,7 +822,7 @@ function FormVehiculoDialog({
 
       <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
         <Button onClick={onClose} variant="outlined" size="small"
-          sx={{ color: '#9ca3af', borderColor: alpha('#fff', 0.15), '&:hover': { borderColor: '#9ca3af', bgcolor: alpha('#fff', 0.04) } }}>
+          sx={{ color: '#64748B', borderColor: '#E5E7EB', '&:hover': { borderColor: '#64748B', bgcolor: '#F8FAFC' } }}>
           Cancelar
         </Button>
         <Button
@@ -862,29 +857,24 @@ function CambiarEstadoDialog({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth PaperProps={{
-      sx: { bgcolor: '#111827', border: '1px solid', borderColor: alpha('#fff', 0.08), borderRadius: 3 }
+      sx: { bgcolor: 'background.paper', border: '1px solid', borderColor: '#E5E7EB', borderRadius: 3 }
     }}>
-      <DialogTitle sx={{ color: '#e2e8f0' }}>
+      <DialogTitle sx={{ color: '#1E293B' }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between">
           <Typography variant="h6" sx={{ fontWeight: 700 }}>Cambiar Estado — {vehiculo.placa}</Typography>
-          <IconButton onClick={onClose} sx={{ color: '#6b7280' }}><Close /></IconButton>
+          <IconButton onClick={onClose} sx={{ color: '#64748B' }}><Close /></IconButton>
         </Stack>
       </DialogTitle>
       <DialogContent>
         <FormControl fullWidth size="small" sx={{ mt: 1,
-          '& .MuiInputBase-root': { bgcolor: alpha('#fff', 0.04), color: '#e2e8f0' },
-          '& .MuiInputLabel-root': { color: '#6b7280' },
           '& .MuiInputLabel-root.Mui-focused': { color: TMS_COLOR },
-          '& fieldset': { borderColor: alpha('#fff', 0.1) },
           '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: TMS_COLOR },
-          '& .MuiSelect-icon': { color: '#6b7280' },
         }}>
           <InputLabel>Nuevo Estado Operativo</InputLabel>
           <Select
             value={nuevoEstado}
             label="Nuevo Estado Operativo"
             onChange={(e) => setNuevoEstado(e.target.value as EstadoOperativo)}
-            MenuProps={{ PaperProps: { sx: { bgcolor: '#1f2937', color: '#e2e8f0' } } }}
           >
             {ESTADOS_OPERATIVOS.map((e) => {
               const c = estadoChip(e)
@@ -902,7 +892,7 @@ function CambiarEstadoDialog({
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
         <Button onClick={onClose} variant="outlined" size="small"
-          sx={{ color: '#9ca3af', borderColor: alpha('#fff', 0.15), '&:hover': { borderColor: '#9ca3af', bgcolor: alpha('#fff', 0.04) } }}>
+          sx={{ color: '#64748B', borderColor: '#E5E7EB', '&:hover': { borderColor: '#64748B', bgcolor: '#F8FAFC' } }}>
           Cancelar
         </Button>
         <Button
@@ -964,18 +954,16 @@ export default function TMSVehiculos() {
   }
 
   const selectSx = {
-    '& .MuiInputBase-root': { bgcolor: alpha('#fff', 0.04), color: '#e2e8f0', fontSize: 13 },
-    '& .MuiInputLabel-root': { color: '#6b7280', fontSize: 13 },
+    '& .MuiInputBase-root': { fontSize: 13 },
+    '& .MuiInputLabel-root': { fontSize: 13 },
     '& .MuiInputLabel-root.Mui-focused': { color: TMS_COLOR },
-    '& fieldset': { borderColor: alpha('#fff', 0.1) },
     '& .MuiOutlinedInput-root:hover fieldset': { borderColor: alpha(TMS_COLOR, 0.4) },
     '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: TMS_COLOR },
-    '& .MuiSelect-icon': { color: '#6b7280' },
   }
 
   return (
     <Layout>
-      <Box sx={{ minHeight: '100%', bgcolor: '#0b1120', p: 3 }}>
+      <Box sx={{ minHeight: '100%', bgcolor: '#F0F2F5', p: 3 }}>
         {/* Header */}
         <Stack direction="row" alignItems="flex-start" justifyContent="space-between" mb={3}>
           <Box>
@@ -984,10 +972,10 @@ export default function TMSVehiculos() {
                 <LocalShipping sx={{ color: TMS_COLOR, fontSize: 20 }} />
               </Box>
               <Box>
-                <Typography variant="h6" sx={{ color: '#e2e8f0', fontWeight: 700, lineHeight: 1.2 }}>
+                <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, lineHeight: 1.2 }}>
                   Gestión de Vehículos
                 </Typography>
-                <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 11 }}>
+                <Typography variant="caption" sx={{ color: '#64748B', fontSize: 11 }}>
                   TMS — Administración de Flota Vehicular
                 </Typography>
               </Box>
@@ -1025,11 +1013,10 @@ export default function TMSVehiculos() {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search sx={{ fontSize: 16, color: '#6b7280' }} />
+                  <Search sx={{ fontSize: 16, color: '#64748B' }} />
                 </InputAdornment>
               ),
             }}
-            inputProps={{ style: { color: '#e2e8f0' } }}
           />
 
           <FormControl size="small" sx={{ minWidth: 180, ...selectSx }}>
@@ -1038,8 +1025,7 @@ export default function TMSVehiculos() {
               value={filterTipo}
               label="Tipo Vehículo"
               onChange={(e) => setFilterTipo(e.target.value as TipoVehiculo | '')}
-              MenuProps={{ PaperProps: { sx: { bgcolor: '#1f2937', color: '#e2e8f0' } } }}
-            >
+              >
               <MenuItem value="" sx={{ fontSize: 13 }}>Todos los tipos</MenuItem>
               {TIPOS_VEHICULO.map((t) => (
                 <MenuItem key={t} value={t} sx={{ fontSize: 13 }}>{tipoLabel(t)}</MenuItem>
@@ -1053,8 +1039,7 @@ export default function TMSVehiculos() {
               value={filterEstado}
               label="Estado Operativo"
               onChange={(e) => setFilterEstado(e.target.value as EstadoOperativo | '')}
-              MenuProps={{ PaperProps: { sx: { bgcolor: '#1f2937', color: '#e2e8f0' } } }}
-            >
+              >
               <MenuItem value="" sx={{ fontSize: 13 }}>Todos los estados</MenuItem>
               {ESTADOS_OPERATIVOS.map((e) => (
                 <MenuItem key={e} value={e} sx={{ fontSize: 13 }}>{e.replace(/_/g, ' ')}</MenuItem>
@@ -1066,20 +1051,20 @@ export default function TMSVehiculos() {
         {/* Table */}
         <Paper
           sx={{
-            bgcolor: alpha('#fff', 0.02), border: '1px solid',
-            borderColor: alpha('#fff', 0.07), borderRadius: 2, overflow: 'hidden',
+            bgcolor: 'background.paper', border: '1px solid',
+            borderColor: '#E5E7EB', borderRadius: 2, overflow: 'hidden',
           }}
         >
           <TableContainer>
             <Table size="small">
               <TableHead>
-                <TableRow sx={{ bgcolor: alpha('#fff', 0.03) }}>
+                <TableRow sx={{ bgcolor: '#F8FAFC' }}>
                   {['Placa', 'Tipo Vehículo', 'Carrocería', 'Marca / Modelo / Año', 'Capacidad', 'Estado', 'Empresa / Propietario', 'Acciones'].map((h) => (
                     <TableCell
                       key={h}
                       sx={{
-                        color: '#6b7280', fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
-                        letterSpacing: 0.5, borderBottom: `1px solid ${alpha('#fff', 0.07)}`,
+                        color: '#64748B', fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
+                        letterSpacing: 0.5, borderBottom: `1px solid #E5E7EB`,
                         py: 1.2, px: 2, whiteSpace: 'nowrap',
                       }}
                     >
@@ -1091,7 +1076,7 @@ export default function TMSVehiculos() {
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} sx={{ textAlign: 'center', py: 5, color: '#6b7280', borderBottom: 'none' }}>
+                    <TableCell colSpan={8} sx={{ textAlign: 'center', py: 5, color: '#64748B', borderBottom: 'none' }}>
                       No se encontraron vehículos con los filtros aplicados
                     </TableCell>
                   </TableRow>
@@ -1102,56 +1087,56 @@ export default function TMSVehiculos() {
                       <TableRow
                         key={v.id}
                         sx={{
-                          '&:hover': { bgcolor: alpha('#fff', 0.03) },
+                          '&:hover': { bgcolor: '#F8FAFC' },
                           '&:last-child td': { borderBottom: 'none' },
                         }}
                       >
-                        <TableCell sx={{ borderBottom: `1px solid ${alpha('#fff', 0.04)}`, px: 2, py: 1.2 }}>
+                        <TableCell sx={{ borderBottom: `1px solid #E5E7EB`, px: 2, py: 1.2 }}>
                           <Chip
                             label={v.placa}
                             size="small"
-                            sx={{ bgcolor: alpha(TMS_COLOR, 0.18), color: '#60a5fa', fontWeight: 800, fontSize: 12, height: 24 }}
+                            sx={{ bgcolor: alpha(TMS_COLOR, 0.18), color: TMS_COLOR, fontWeight: 800, fontSize: 12, height: 24 }}
                           />
                         </TableCell>
-                        <TableCell sx={{ color: '#d1d5db', fontSize: 12, borderBottom: `1px solid ${alpha('#fff', 0.04)}`, px: 2, py: 1.2, whiteSpace: 'nowrap' }}>
+                        <TableCell sx={{ color: '#334155', fontSize: 12, borderBottom: `1px solid #E5E7EB`, px: 2, py: 1.2, whiteSpace: 'nowrap' }}>
                           {tipoLabel(v.tipoVehiculo)}
                         </TableCell>
-                        <TableCell sx={{ color: '#9ca3af', fontSize: 12, borderBottom: `1px solid ${alpha('#fff', 0.04)}`, px: 2, py: 1.2 }}>
+                        <TableCell sx={{ color: '#64748B', fontSize: 12, borderBottom: `1px solid #E5E7EB`, px: 2, py: 1.2 }}>
                           {v.tipoCarroceria}
                         </TableCell>
-                        <TableCell sx={{ borderBottom: `1px solid ${alpha('#fff', 0.04)}`, px: 2, py: 1.2 }}>
-                          <Typography variant="body2" sx={{ color: '#e2e8f0', fontWeight: 600, fontSize: 12 }}>
+                        <TableCell sx={{ borderBottom: `1px solid #E5E7EB`, px: 2, py: 1.2 }}>
+                          <Typography variant="body2" sx={{ color: '#1E293B', fontWeight: 600, fontSize: 12 }}>
                             {v.marca} {v.modelo}
                           </Typography>
-                          <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 10 }}>{v.anio} · {v.configuracion}</Typography>
+                          <Typography variant="caption" sx={{ color: '#64748B', fontSize: 10 }}>{v.anio} · {v.configuracion}</Typography>
                         </TableCell>
-                        <TableCell sx={{ color: '#d1d5db', fontSize: 12, borderBottom: `1px solid ${alpha('#fff', 0.04)}`, px: 2, py: 1.2, whiteSpace: 'nowrap' }}>
+                        <TableCell sx={{ color: '#334155', fontSize: 12, borderBottom: `1px solid #E5E7EB`, px: 2, py: 1.2, whiteSpace: 'nowrap' }}>
                           {formatNum(v.capacidadKg)} kg
                         </TableCell>
-                        <TableCell sx={{ borderBottom: `1px solid ${alpha('#fff', 0.04)}`, px: 2, py: 1.2 }}>
+                        <TableCell sx={{ borderBottom: `1px solid #E5E7EB`, px: 2, py: 1.2 }}>
                           <Chip
                             label={est.label}
                             size="small"
                             sx={{ bgcolor: est.bg, color: est.color, fontWeight: 700, fontSize: 11, height: 22 }}
                           />
                         </TableCell>
-                        <TableCell sx={{ color: '#9ca3af', fontSize: 12, borderBottom: `1px solid ${alpha('#fff', 0.04)}`, px: 2, py: 1.2 }}>
+                        <TableCell sx={{ color: '#64748B', fontSize: 12, borderBottom: `1px solid #E5E7EB`, px: 2, py: 1.2 }}>
                           <Stack direction="row" alignItems="center" spacing={0.5}>
-                            <Business sx={{ fontSize: 13, color: '#6b7280' }} />
+                            <Business sx={{ fontSize: 13, color: '#64748B' }} />
                             <span>{v.empresa}</span>
                           </Stack>
                         </TableCell>
-                        <TableCell sx={{ borderBottom: `1px solid ${alpha('#fff', 0.04)}`, px: 2, py: 1.2 }}>
+                        <TableCell sx={{ borderBottom: `1px solid #E5E7EB`, px: 2, py: 1.2 }}>
                           <Stack direction="row" spacing={0.3}>
                             <Tooltip title="Ver detalle">
                               <IconButton size="small" onClick={() => handleVer(v)}
-                                sx={{ color: '#60a5fa', '&:hover': { bgcolor: alpha('#60a5fa', 0.1) }, width: 28, height: 28 }}>
+                                sx={{ color: TMS_COLOR, '&:hover': { bgcolor: alpha(TMS_COLOR, 0.1) }, width: 28, height: 28 }}>
                                 <Visibility sx={{ fontSize: 15 }} />
                               </IconButton>
                             </Tooltip>
                             <Tooltip title="Editar">
                               <IconButton size="small" onClick={() => handleEditar(v)}
-                                sx={{ color: '#a3a3a3', '&:hover': { bgcolor: alpha('#a3a3a3', 0.1) }, width: 28, height: 28 }}>
+                                sx={{ color: '#64748B', '&:hover': { bgcolor: alpha('#64748B', 0.1) }, width: 28, height: 28 }}>
                                 <Edit sx={{ fontSize: 15 }} />
                               </IconButton>
                             </Tooltip>
@@ -1172,8 +1157,8 @@ export default function TMSVehiculos() {
           </TableContainer>
 
           {filtered.length > 0 && (
-            <Box sx={{ px: 2, py: 1.2, borderTop: `1px solid ${alpha('#fff', 0.06)}` }}>
-              <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 11 }}>
+            <Box sx={{ px: 2, py: 1.2, borderTop: `1px solid #E5E7EB` }}>
+              <Typography variant="caption" sx={{ color: '#64748B', fontSize: 11 }}>
                 Mostrando {filtered.length} de {vehiculos.length} vehículos
               </Typography>
             </Box>

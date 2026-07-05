@@ -7,7 +7,7 @@ import { Layout } from '@/components/layout/Layout'
 import { getSCMDashboard, SCMDashboardData } from '@/api/scm'
 
 const SCM_COLOR = '#0C4D8C'
-const #E5E7EB  = `rgba(12,77,140,0.25)`
+const BORDER  = `rgba(12,77,140,0.25)`
 
 const ESTADO_COLORS: Record<string, string> = {
   BORRADOR: '#64748b', PENDIENTE: '#f59e0b', APROBADA: '#22c55e', RECHAZADA: '#ef4444',
@@ -119,7 +119,7 @@ export default function SCMDashboard() {
             {/* Estado charts */}
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, md: 6 }}>
-                <Card sx={{ bgcolor: '#fff', border: `1px solid #E5E7EB`, borderRadius: 2 }}>
+                <Card sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: 2 }}>
                   <CardContent>
                     <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 14, mb: 2 }}>Órdenes de Compra por Estado</Typography>
                     <EstadoBar data={data?.oc_por_estado ?? {}} max={maxOC} />
@@ -127,7 +127,7 @@ export default function SCMDashboard() {
                 </Card>
               </Grid>
               <Grid size={{ xs: 12, md: 6 }}>
-                <Card sx={{ bgcolor: '#fff', border: `1px solid #E5E7EB`, borderRadius: 2 }}>
+                <Card sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: 2 }}>
                   <CardContent>
                     <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 14, mb: 2 }}>Solicitudes por Estado</Typography>
                     <EstadoBar data={data?.sol_por_estado ?? {}} max={maxSol} />

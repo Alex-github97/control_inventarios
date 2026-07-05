@@ -84,7 +84,7 @@ export default function CRMCuentasClave() {
             background: `linear-gradient(135deg, ${CRM_COLOR} 0%, #B91C1C 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <VpnKey sx={{ color: 'text.primary', fontSize: 22 }} />
+            <VpnKey sx={{ color: '#fff', fontSize: 22 }} />
           </Box>
           <Box>
             <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Key Accounts</Typography>
