@@ -141,6 +141,32 @@ const DESVIACIONES: DesviacionAlert[] = [
 const VEHICULOS_DISPONIBLES = ['VH-001', 'VH-002', 'VH-003', 'VH-004', 'VH-005', 'VH-006', 'VH-007', 'VH-009', 'VH-010', 'VH-012', 'VH-015', 'VH-018', 'VH-020'];
 const PROVEEDORES_DISPONIBLES = ['Terpel', 'Biomax', 'Primax'];
 
+// Dominios derivados de los datos reales (para Selects controlados)
+const CONDUCTORES_DISPONIBLES = Array.from(new Set(REGISTROS_SEED.map((r) => r.conductor))).sort();
+const ESTACIONES_DISPONIBLES = Array.from(new Set(REGISTROS_SEED.map((r) => r.estacion))).sort();
+const RUTAS_DISPONIBLES = Array.from(new Set(REGISTROS_SEED.map((r) => r.ruta))).sort();
+
+// Valores por vehículo para autocompletado (último tanqueo registrado)
+interface VehiculoDefaults {
+  tipoCombustible: 'ACPM' | 'Gasolina';
+  conductor: string;
+  proveedor: string;
+  estacion: string;
+  ruta: string;
+  precioPorLitro: number;
+}
+const VEHICULO_DEFAULTS: Record<string, VehiculoDefaults> = REGISTROS_SEED.reduce((acc, r) => {
+  acc[r.vehiculo] = {
+    tipoCombustible: r.tipoCombustible,
+    conductor: r.conductor,
+    proveedor: r.proveedor,
+    estacion: r.estacion,
+    ruta: r.ruta,
+    precioPorLitro: r.precioPorLitro,
+  };
+  return acc;
+}, {} as Record<string, VehiculoDefaults>);
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatCOPFull(value: number): string {
   return `$${value.toLocaleString('es-CO')}`;
@@ -641,6 +667,18 @@ const emptyForm: NuevoTanqueoForm = {
   observacion: '',
 };
 
+// Estilos de campos (tema claro, acento EAM)
+const formInputSx = {
+  '& .MuiInputBase-input': { color: '#1E293B' },
+  '& .MuiInputBase-input::placeholder': { color: '#94A3B8', opacity: 1 },
+  '& label': { color: '#64748B' },
+  '& label.Mui-focused': { color: EAM_DARK },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#E2E8F0' },
+  '&:hover .MuiOutlinedInput-root:not(.Mui-error) .MuiOutlinedInput-notchedOutline': { borderColor: `${EAM_COLOR}80` },
+  '& .MuiOutlinedInput-root.Mui-focused:not(.Mui-error) .MuiOutlinedInput-notchedOutline': { borderColor: EAM_COLOR },
+  '& .MuiFormHelperText-root': { marginLeft: 0 },
+};
+
 function NuevoTanqueoDialog({
   open,
   onClose,
@@ -651,21 +689,52 @@ function NuevoTanqueoDialog({
   onSave: (r: RegistroRow) => void;
 }) {
   const [form, setForm] = useState<NuevoTanqueoForm>(emptyForm);
+  const [triedSubmit, setTriedSubmit] = useState(false);
+  const [warnOpen, setWarnOpen] = useState(false);
 
   const set = <K extends keyof NuevoTanqueoForm>(k: K, v: NuevoTanqueoForm[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
+  // Al elegir vehículo, autocompletar tipo, conductor, proveedor, estación, ruta y precio
+  const handleVehiculo = (v: string) => {
+    const d = VEHICULO_DEFAULTS[v];
+    setForm((f) => ({
+      ...f,
+      vehiculo: v,
+      tipoCombustible: d ? d.tipoCombustible : f.tipoCombustible,
+      conductor: d ? d.conductor : f.conductor,
+      proveedor: d ? d.proveedor : f.proveedor,
+      estacion: d ? d.estacion : f.estacion,
+      ruta: d ? d.ruta : f.ruta,
+      precioPorLitro: d ? String(d.precioPorLitro) : f.precioPorLitro,
+    }));
+  };
+
   const litrosNum = parseFloat(form.litros) || 0;
   const precioNum = parseFloat(form.precioPorLitro) || 0;
   const kmNum = parseFloat(form.kmRecorridos) || 0;
+  const odometroNum = parseFloat(form.odometro) || 0;
   const costoCalc = litrosNum * precioNum;
   const galones = litrosNum / 3.785;
   const rendCalc = litrosNum > 0 ? kmNum / litrosNum : 0;
 
-  const valido = !!form.vehiculo && litrosNum > 0 && precioNum > 0 && !!form.conductor.trim();
+  // Validación de campos obligatorios
+  const errVehiculo = !form.vehiculo;
+  const errLitros = litrosNum <= 0;
+  const errPrecio = precioNum <= 0;
+  const errOdometro = odometroNum <= 0;
+  const errKm = kmNum <= 0;
+  const errConductor = !form.conductor;
+  const valido = !errVehiculo && !errLitros && !errPrecio && !errOdometro && !errKm && !errConductor;
+
+  const reqHelper = (isErr: boolean, msg = 'Requerido') => (triedSubmit && isErr ? msg : ' ');
 
   const handleSave = () => {
-    if (!valido) return;
+    if (!valido) {
+      setTriedSubmit(true);
+      setWarnOpen(true);
+      return;
+    }
     const nuevo: RegistroRow = {
       id: Date.now(),
       fecha: form.fecha,
@@ -674,9 +743,9 @@ function NuevoTanqueoDialog({
       litros: litrosNum,
       precioPorLitro: precioNum,
       costo: Math.round(costoCalc),
-      odometro: parseFloat(form.odometro) || 0,
+      odometro: odometroNum,
       rendimiento: parseFloat(rendCalc.toFixed(1)) || 0,
-      conductor: form.conductor.trim(),
+      conductor: form.conductor,
       proveedor: form.proveedor,
       estacion: form.estacion.trim() || `EDS ${form.proveedor}`,
       ruta: form.ruta.trim() || 'Sin especificar',
@@ -686,146 +755,213 @@ function NuevoTanqueoDialog({
     };
     onSave(nuevo);
     setForm(emptyForm);
+    setTriedSubmit(false);
   };
 
   const handleClose = () => {
     setForm(emptyForm);
+    setTriedSubmit(false);
     onClose();
   };
 
-  const inputSx = { '& .MuiInputBase-input': { color: '#1E293B' } };
-
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth scroll="paper" PaperProps={dialogPaperProps}>
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, borderBottom: '1px solid #E5E7EB', pb: 2 }}>
-        <Box sx={{ bgcolor: `${EAM_COLOR}1A`, borderRadius: 2, p: 1, display: 'flex' }}>
-          <LocalGasStation sx={{ color: EAM_COLOR }} />
-        </Box>
-        <Typography variant="h6" sx={{ flex: 1, fontWeight: 800, color: '#1E293B' }}>Registrar tanqueo</Typography>
-        <IconButton onClick={handleClose} size="small" sx={{ color: '#64748B' }}>
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
+    <>
+      <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth scroll="paper" PaperProps={dialogPaperProps}>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, borderBottom: '1px solid #E5E7EB', pb: 2 }}>
+          <Box sx={{ bgcolor: `${EAM_COLOR}1A`, borderRadius: 2, p: 1, display: 'flex' }}>
+            <LocalGasStation sx={{ color: EAM_COLOR }} />
+          </Box>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="h6" sx={{ fontWeight: 800, color: '#1E293B', lineHeight: 1.1 }}>Registrar tanqueo</Typography>
+            <Typography sx={{ fontSize: 12, color: '#64748B' }}>
+              Complete los campos obligatorios (*) para registrar el consumo
+            </Typography>
+          </Box>
+          <IconButton onClick={handleClose} size="small" sx={{ color: '#64748B' }}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
 
-      <DialogContent dividers sx={{ borderColor: '#E5E7EB' }}>
-        <Grid container spacing={2}>
-          <Grid size={{ xs: 6 }}>
-            <TextField
-              select fullWidth size="small" label="Vehículo" value={form.vehiculo}
-              onChange={(e) => set('vehiculo', e.target.value)} sx={inputSx}
-            >
-              {VEHICULOS_DISPONIBLES.map((v) => <MenuItem key={v} value={v}>{v}</MenuItem>)}
-            </TextField>
+        <DialogContent dividers sx={{ borderColor: '#E5E7EB' }}>
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                select fullWidth size="small" label="Vehículo *" value={form.vehiculo}
+                onChange={(e) => handleVehiculo(e.target.value)}
+                error={triedSubmit && errVehiculo}
+                helperText={reqHelper(errVehiculo, 'Seleccione un vehículo')}
+                sx={formInputSx}
+              >
+                {VEHICULOS_DISPONIBLES.map((v) => <MenuItem key={v} value={v}>{v}</MenuItem>)}
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                type="date" fullWidth size="small" label="Fecha" value={form.fecha}
+                onChange={(e) => set('fecha', e.target.value)} InputLabelProps={{ shrink: true }}
+                helperText=" " sx={formInputSx}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                select fullWidth size="small" label="Tipo combustible" value={form.tipoCombustible}
+                onChange={(e) => set('tipoCombustible', e.target.value as 'ACPM' | 'Gasolina')}
+                helperText={form.vehiculo ? 'Autocompletado del vehículo' : ' '} sx={formInputSx}
+              >
+                <MenuItem value="ACPM">ACPM</MenuItem>
+                <MenuItem value="Gasolina">Gasolina</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                select fullWidth size="small" label="Proveedor" value={form.proveedor}
+                onChange={(e) => set('proveedor', e.target.value)} helperText=" " sx={formInputSx}
+              >
+                {PROVEEDORES_DISPONIBLES.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                type="number" fullWidth size="small" label="Litros *" value={form.litros}
+                onChange={(e) => set('litros', e.target.value)}
+                error={triedSubmit && errLitros}
+                helperText={reqHelper(errLitros, 'Ingrese litros > 0')}
+                InputProps={{ endAdornment: <InputAdornment position="end">L</InputAdornment>, inputProps: { min: 0, step: 0.1 } }}
+                sx={formInputSx}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                type="number" fullWidth size="small" label="Precio / litro *" value={form.precioPorLitro}
+                onChange={(e) => set('precioPorLitro', e.target.value)}
+                error={triedSubmit && errPrecio}
+                helperText={reqHelper(errPrecio, 'Ingrese un precio > 0')}
+                InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment>, inputProps: { min: 0 } }}
+                sx={formInputSx}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                type="number" fullWidth size="small" label="Odómetro *" value={form.odometro}
+                onChange={(e) => set('odometro', e.target.value)}
+                error={triedSubmit && errOdometro}
+                helperText={reqHelper(errOdometro, 'Ingrese el odómetro')}
+                InputProps={{ endAdornment: <InputAdornment position="end">km</InputAdornment>, inputProps: { min: 0 } }}
+                sx={formInputSx}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                type="number" fullWidth size="small" label="km recorridos *" value={form.kmRecorridos}
+                onChange={(e) => set('kmRecorridos', e.target.value)}
+                error={triedSubmit && errKm}
+                helperText={reqHelper(errKm, 'Ingrese km recorridos')}
+                InputProps={{ endAdornment: <InputAdornment position="end">km</InputAdornment>, inputProps: { min: 0 } }}
+                sx={formInputSx}
+              />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <TextField
+                select fullWidth size="small" label="Conductor *" value={form.conductor}
+                onChange={(e) => set('conductor', e.target.value)}
+                error={triedSubmit && errConductor}
+                helperText={reqHelper(errConductor, 'Seleccione un conductor')}
+                sx={formInputSx}
+              >
+                {CONDUCTORES_DISPONIBLES.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                select fullWidth size="small" label="Estación" value={form.estacion}
+                onChange={(e) => set('estacion', e.target.value)} helperText=" " sx={formInputSx}
+              >
+                <MenuItem value="">
+                  <em>Sin especificar</em>
+                </MenuItem>
+                {ESTACIONES_DISPONIBLES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                select fullWidth size="small" label="Ruta" value={form.ruta}
+                onChange={(e) => set('ruta', e.target.value)} helperText=" " sx={formInputSx}
+              >
+                <MenuItem value="">
+                  <em>Sin especificar</em>
+                </MenuItem>
+                {RUTAS_DISPONIBLES.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                select fullWidth size="small" label="Tipo de tanqueo" value={form.tanqueoLleno ? 'lleno' : 'parcial'}
+                onChange={(e) => set('tanqueoLleno', e.target.value === 'lleno')} helperText=" " sx={formInputSx}
+              >
+                <MenuItem value="lleno">Tanque lleno</MenuItem>
+                <MenuItem value="parcial">Parcial</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <TextField
+                fullWidth size="small" label="Observación (opcional)" value={form.observacion}
+                onChange={(e) => set('observacion', e.target.value)} multiline minRows={2}
+                helperText=" " sx={formInputSx}
+              />
+            </Grid>
           </Grid>
-          <Grid size={{ xs: 6 }}>
-            <TextField
-              type="date" fullWidth size="small" label="Fecha" value={form.fecha}
-              onChange={(e) => set('fecha', e.target.value)} InputLabelProps={{ shrink: true }} sx={inputSx}
-            />
-          </Grid>
-          <Grid size={{ xs: 6 }}>
-            <TextField
-              select fullWidth size="small" label="Tipo combustible" value={form.tipoCombustible}
-              onChange={(e) => set('tipoCombustible', e.target.value as 'ACPM' | 'Gasolina')} sx={inputSx}
-            >
-              <MenuItem value="ACPM">ACPM</MenuItem>
-              <MenuItem value="Gasolina">Gasolina</MenuItem>
-            </TextField>
-          </Grid>
-          <Grid size={{ xs: 6 }}>
-            <TextField
-              select fullWidth size="small" label="Proveedor" value={form.proveedor}
-              onChange={(e) => set('proveedor', e.target.value)} sx={inputSx}
-            >
-              {PROVEEDORES_DISPONIBLES.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
-            </TextField>
-          </Grid>
-          <Grid size={{ xs: 6 }}>
-            <TextField
-              type="number" fullWidth size="small" label="Litros" value={form.litros}
-              onChange={(e) => set('litros', e.target.value)}
-              InputProps={{ endAdornment: <InputAdornment position="end">L</InputAdornment> }} sx={inputSx}
-            />
-          </Grid>
-          <Grid size={{ xs: 6 }}>
-            <TextField
-              type="number" fullWidth size="small" label="Precio / litro" value={form.precioPorLitro}
-              onChange={(e) => set('precioPorLitro', e.target.value)}
-              InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} sx={inputSx}
-            />
-          </Grid>
-          <Grid size={{ xs: 6 }}>
-            <TextField
-              type="number" fullWidth size="small" label="Odómetro" value={form.odometro}
-              onChange={(e) => set('odometro', e.target.value)}
-              InputProps={{ endAdornment: <InputAdornment position="end">km</InputAdornment> }} sx={inputSx}
-            />
-          </Grid>
-          <Grid size={{ xs: 6 }}>
-            <TextField
-              type="number" fullWidth size="small" label="km recorridos" value={form.kmRecorridos}
-              onChange={(e) => set('kmRecorridos', e.target.value)}
-              InputProps={{ endAdornment: <InputAdornment position="end">km</InputAdornment> }} sx={inputSx}
-            />
-          </Grid>
-          <Grid size={{ xs: 12 }}>
-            <TextField
-              fullWidth size="small" label="Conductor" value={form.conductor}
-              onChange={(e) => set('conductor', e.target.value)} sx={inputSx}
-            />
-          </Grid>
-          <Grid size={{ xs: 6 }}>
-            <TextField
-              fullWidth size="small" label="Estación (opcional)" value={form.estacion}
-              onChange={(e) => set('estacion', e.target.value)} sx={inputSx}
-            />
-          </Grid>
-          <Grid size={{ xs: 6 }}>
-            <TextField
-              fullWidth size="small" label="Ruta (opcional)" value={form.ruta}
-              onChange={(e) => set('ruta', e.target.value)} sx={inputSx}
-            />
-          </Grid>
-          <Grid size={{ xs: 12 }}>
-            <TextField
-              fullWidth size="small" label="Observación (opcional)" value={form.observacion}
-              onChange={(e) => set('observacion', e.target.value)} multiline minRows={2} sx={inputSx}
-            />
-          </Grid>
-        </Grid>
 
-        {/* Cálculo en vivo */}
-        <Paper elevation={0} sx={{ border: `1px solid ${EAM_COLOR}44`, borderRadius: 2, p: 1.5, mt: 2, bgcolor: `${EAM_COLOR}0A` }}>
-          <Stack direction="row" justifyContent="space-around" flexWrap="wrap" useFlexGap>
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography sx={{ fontSize: 10, color: '#64748B', textTransform: 'uppercase' }}>Costo total</Typography>
-              <Typography sx={{ fontSize: 15, fontWeight: 800, color: EAM_DARK }}>{formatCOPFull(Math.round(costoCalc))}</Typography>
-            </Box>
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography sx={{ fontSize: 10, color: '#64748B', textTransform: 'uppercase' }}>Galones</Typography>
-              <Typography sx={{ fontSize: 15, fontWeight: 800, color: '#8B5CF6' }}>{galones.toFixed(1)}</Typography>
-            </Box>
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography sx={{ fontSize: 10, color: '#64748B', textTransform: 'uppercase' }}>Rendimiento</Typography>
-              <Typography sx={{ fontSize: 15, fontWeight: 800, color: rendimientoColor(rendCalc) }}>{rendCalc.toFixed(1)} km/L</Typography>
-            </Box>
-          </Stack>
-        </Paper>
-      </DialogContent>
+          {/* Cálculo en vivo */}
+          <Paper elevation={0} sx={{ border: `1px solid ${EAM_COLOR}44`, borderRadius: 2, p: 1.5, mt: 1, bgcolor: `${EAM_COLOR}0A` }}>
+            <Stack direction="row" justifyContent="space-around" flexWrap="wrap" useFlexGap>
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography sx={{ fontSize: 10, color: '#64748B', textTransform: 'uppercase' }}>Costo total</Typography>
+                <Typography sx={{ fontSize: 15, fontWeight: 800, color: EAM_DARK }}>{formatCOPFull(Math.round(costoCalc))}</Typography>
+              </Box>
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography sx={{ fontSize: 10, color: '#64748B', textTransform: 'uppercase' }}>Galones</Typography>
+                <Typography sx={{ fontSize: 15, fontWeight: 800, color: '#8B5CF6' }}>{galones.toFixed(1)}</Typography>
+              </Box>
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography sx={{ fontSize: 10, color: '#64748B', textTransform: 'uppercase' }}>Rendimiento</Typography>
+                <Typography sx={{ fontSize: 15, fontWeight: 800, color: rendimientoColor(rendCalc) }}>{rendCalc.toFixed(1)} km/L</Typography>
+              </Box>
+            </Stack>
+          </Paper>
+        </DialogContent>
 
-      <DialogActions sx={{ p: 2 }}>
-        <Button onClick={handleClose} sx={{ color: '#64748B', textTransform: 'none' }}>Cancelar</Button>
-        <Button
-          variant="contained"
-          disabled={!valido}
-          startIcon={<AddIcon />}
-          onClick={handleSave}
-          sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={handleClose} sx={{ color: '#64748B', textTransform: 'none' }}>Cancelar</Button>
+          <Button
+            variant="contained"
+            disabled={!valido}
+            startIcon={<AddIcon />}
+            onClick={handleSave}
+            sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none', fontWeight: 700, borderRadius: 2, '&.Mui-disabled': { bgcolor: '#CBD5E1', color: '#F8FAFC' } }}
+          >
+            Guardar tanqueo
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Aviso de campos incompletos */}
+      <Snackbar
+        open={warnOpen}
+        autoHideDuration={4000}
+        onClose={() => setWarnOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setWarnOpen(false)}
+          severity="warning"
+          variant="filled"
+          icon={<Warning fontSize="inherit" />}
+          sx={{ fontWeight: 600 }}
         >
-          Guardar tanqueo
-        </Button>
-      </DialogActions>
-    </Dialog>
+          Complete los campos obligatorios (*) para guardar el tanqueo.
+        </Alert>
+      </Snackbar>
+    </>
   );
 }
 

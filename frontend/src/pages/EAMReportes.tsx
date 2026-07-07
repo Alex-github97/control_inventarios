@@ -337,8 +337,8 @@ export default function EAMReportes() {
   })
 
   // ── Estado de interactividad ──
-  const [snack, setSnack] = useState<{ open: boolean; msg: string; sev: 'success' | 'info' }>({ open: false, msg: '', sev: 'success' })
-  const notify = (msg: string, sev: 'success' | 'info' = 'success') => setSnack({ open: true, msg, sev })
+  const [snack, setSnack] = useState<{ open: boolean; msg: string; sev: 'success' | 'info' | 'warning' }>({ open: false, msg: '', sev: 'success' })
+  const notify = (msg: string, sev: 'success' | 'info' | 'warning' = 'success') => setSnack({ open: true, msg, sev })
 
   // Catálogo de reportes
   const [catFiltro, setCatFiltro] = useState<typeof CATEGORIAS_REP[number]>('Todas')
@@ -357,6 +357,32 @@ export default function EAMReportes() {
   const [programados, setProgramados] = useState<ReporteProgramado[]>(PROGRAMADOS_INICIAL)
   const [progDialog, setProgDialog]   = useState(false)
   const [progForm, setProgForm]       = useState<ReporteProgramado>({ id: '', reporte: REPORTES_CATALOGO[0].titulo, frecuencia: 'Mensual', formato: 'PDF', destinatario: '', proximaEjecucion: '2025-07-31' })
+  const [progTried, setProgTried]     = useState(false)
+
+  // Reporte seleccionado en el form → formatos disponibles y autocompletado
+  const progRepDef = useMemo(() => REPORTES_CATALOGO.find((r) => r.titulo === progForm.reporte), [progForm.reporte])
+  const formatosProgDisp = progRepDef?.formatos ?? [...FORMATOS_PROG]
+  const emailValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(progForm.destinatario.trim())
+  const progValido = !!progForm.reporte && !!progForm.frecuencia && !!progForm.formato && emailValido && !!progForm.proximaEjecucion
+
+  const abrirProg = () => {
+    const rep = REPORTES_CATALOGO[0]
+    setProgForm({ id: '', reporte: rep.titulo, frecuencia: rep.frecuencia, formato: rep.formatos[0], destinatario: '', proximaEjecucion: '2025-07-31' })
+    setProgTried(false)
+    setProgDialog(true)
+  }
+
+  const guardarProg = () => {
+    if (!progValido) {
+      setProgTried(true)
+      notify('Complete los campos obligatorios del reporte programado', 'warning')
+      return
+    }
+    const nuevo: ReporteProgramado = { ...progForm, destinatario: progForm.destinatario.trim(), id: `prog-${Date.now()}` }
+    setProgramados((prev) => [...prev, nuevo])
+    setProgDialog(false)
+    notify(`Reporte "${nuevo.reporte}" programado (${nuevo.frecuencia})`)
+  }
 
   // Filtros de tablas
   const [vehSearch, setVehSearch]   = useState('')
@@ -507,7 +533,7 @@ export default function EAMReportes() {
               </TextField>
               <Button
                 variant="contained" startIcon={<ScheduleIcon />}
-                onClick={() => { setProgForm({ id: '', reporte: REPORTES_CATALOGO[0].titulo, frecuencia: 'Mensual', formato: 'PDF', destinatario: '', proximaEjecucion: '2025-07-31' }); setProgDialog(true) }}
+                onClick={abrirProg}
                 sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none', fontWeight: 700, borderRadius: '10px', flexShrink: 0 }}
               >
                 Programar reporte
@@ -1585,20 +1611,56 @@ export default function EAMReportes() {
         </DialogTitle>
         <Divider sx={{ borderColor: '#E5E7EB' }} />
         <DialogContent sx={{ p: 2.5 }}>
-          <Stack spacing={2} mt={0.5}>
-            <TextField select fullWidth size="small" label="Reporte" value={progForm.reporte} onChange={(e) => setProgForm((p) => ({ ...p, reporte: e.target.value }))}>
+          <Stack spacing={1} mt={0.5}>
+            <TextField
+              select fullWidth size="small" label="Reporte *" value={progForm.reporte}
+              onChange={(e) => {
+                const rep = REPORTES_CATALOGO.find((r) => r.titulo === e.target.value)
+                setProgForm((p) => ({
+                  ...p,
+                  reporte: e.target.value,
+                  frecuencia: rep ? rep.frecuencia : p.frecuencia,
+                  formato: rep && !rep.formatos.includes(p.formato) ? rep.formatos[0] : p.formato,
+                }))
+              }}
+              error={progTried && !progForm.reporte}
+              helperText={progTried && !progForm.reporte ? 'Seleccione el reporte' : ' '}
+            >
               {REPORTES_CATALOGO.map((r) => <MenuItem key={r.id} value={r.titulo}>{r.titulo}</MenuItem>)}
             </TextField>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField select fullWidth size="small" label="Frecuencia" value={progForm.frecuencia} onChange={(e) => setProgForm((p) => ({ ...p, frecuencia: e.target.value }))}>
+              <TextField
+                select fullWidth size="small" label="Frecuencia *" value={progForm.frecuencia}
+                onChange={(e) => setProgForm((p) => ({ ...p, frecuencia: e.target.value }))}
+                error={progTried && !progForm.frecuencia}
+                helperText={progTried && !progForm.frecuencia ? 'Requerida' : ' '}
+              >
                 {FRECUENCIAS_PROG.map((f) => <MenuItem key={f} value={f}>{f}</MenuItem>)}
               </TextField>
-              <TextField select fullWidth size="small" label="Formato" value={progForm.formato} onChange={(e) => setProgForm((p) => ({ ...p, formato: e.target.value }))}>
-                {FORMATOS_PROG.map((f) => <MenuItem key={f} value={f}>{f}</MenuItem>)}
+              <TextField
+                select fullWidth size="small" label="Formato *" value={progForm.formato}
+                onChange={(e) => setProgForm((p) => ({ ...p, formato: e.target.value }))}
+                error={progTried && !progForm.formato}
+                helperText={progTried && !progForm.formato ? 'Requerido' : ' '}
+              >
+                {formatosProgDisp.map((f) => <MenuItem key={f} value={f}>{f}</MenuItem>)}
               </TextField>
             </Stack>
-            <TextField fullWidth size="small" label="Destinatario (email)" placeholder="correo@icoltrans.com.co" value={progForm.destinatario} onChange={(e) => setProgForm((p) => ({ ...p, destinatario: e.target.value }))} />
-            <TextField fullWidth size="small" label="Próxima ejecución" type="date" InputLabelProps={{ shrink: true }} value={progForm.proximaEjecucion} onChange={(e) => setProgForm((p) => ({ ...p, proximaEjecucion: e.target.value }))} />
+            <TextField
+              fullWidth size="small" type="email" label="Destinatario (email) *" placeholder="correo@icoltrans.com.co"
+              value={progForm.destinatario}
+              onChange={(e) => setProgForm((p) => ({ ...p, destinatario: e.target.value }))}
+              error={progTried && !emailValido}
+              helperText={progTried && !emailValido ? (progForm.destinatario.trim() ? 'Correo no válido' : 'Ingrese un correo destinatario') : ' '}
+              InputProps={{ startAdornment: <InputAdornment position="start"><DocIcon sx={{ fontSize: 16, color: '#94A3B8' }} /></InputAdornment> }}
+            />
+            <TextField
+              fullWidth size="small" label="Próxima ejecución *" type="date" InputLabelProps={{ shrink: true }}
+              value={progForm.proximaEjecucion}
+              onChange={(e) => setProgForm((p) => ({ ...p, proximaEjecucion: e.target.value }))}
+              error={progTried && !progForm.proximaEjecucion}
+              helperText={progTried && !progForm.proximaEjecucion ? 'Seleccione la fecha' : ' '}
+            />
           </Stack>
         </DialogContent>
         <Divider sx={{ borderColor: '#E5E7EB' }} />
@@ -1606,13 +1668,9 @@ export default function EAMReportes() {
           <Button onClick={() => setProgDialog(false)} sx={{ color: '#64748B', textTransform: 'none' }}>Cancelar</Button>
           <Button
             variant="contained"
-            onClick={() => {
-              const nuevo: ReporteProgramado = { ...progForm, id: `prog-${Date.now()}` }
-              setProgramados((prev) => [...prev, nuevo])
-              setProgDialog(false)
-              notify(`Reporte "${nuevo.reporte}" programado (${nuevo.frecuencia})`)
-            }}
-            sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none', fontWeight: 700, borderRadius: '10px' }}
+            disabled={!progValido}
+            onClick={guardarProg}
+            sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none', fontWeight: 700, borderRadius: '10px', '&.Mui-disabled': { bgcolor: '#CBD5E1', color: '#FFFFFF' } }}
           >
             Programar
           </Button>
@@ -1621,7 +1679,7 @@ export default function EAMReportes() {
 
       {/* ── Snackbar global ── */}
       <Snackbar open={snack.open} autoHideDuration={3500} onClose={() => setSnack((p) => ({ ...p, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
-        <Alert onClose={() => setSnack((p) => ({ ...p, open: false }))} severity={snack.sev} variant="filled" icon={<OkIcon fontSize="inherit" />} sx={{ bgcolor: snack.sev === 'success' ? EAM_COLOR : '#3B82F6', color: '#FFFFFF', fontWeight: 600 }}>
+        <Alert onClose={() => setSnack((p) => ({ ...p, open: false }))} severity={snack.sev} variant="filled" icon={<OkIcon fontSize="inherit" />} sx={{ bgcolor: snack.sev === 'success' ? EAM_COLOR : snack.sev === 'warning' ? '#F59E0B' : '#3B82F6', color: '#FFFFFF', fontWeight: 600 }}>
           {snack.msg}
         </Alert>
       </Snackbar>

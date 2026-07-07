@@ -329,9 +329,38 @@ export default function EAMChecklists() {
   const [newDialog, setNewDialog] = useState(false);
   const emptyNew = { name: '', assetType: 'VEHICULO' as AssetType, frequency: 'Diario', owner: '', linkedAsset: '', totalSections: '3', totalQuestions: '12' };
   const [newForm, setNewForm] = useState(emptyNew);
+  const [triedSubmit, setTriedSubmit] = useState(false);
   const setNewField = (f: keyof typeof emptyNew, v: string) => setNewForm(prev => ({ ...prev, [f]: v }));
 
+  // Dominios derivados de los datos reales de la página (para Selects controlados)
+  const ownerOptions = useMemo(
+    () => Array.from(new Set(templates.map(t => t.owner))).filter(o => o && o !== 'Sin asignar').sort(),
+    [templates],
+  );
+  const assetOptions = useMemo(
+    () => Array.from(new Set(templates.map(t => t.linkedAsset))).filter(a => a && a !== '—').sort(),
+    [templates],
+  );
+  const assetTypeByAsset = useMemo(() => {
+    const m: Record<string, AssetType> = {};
+    templates.forEach(t => { if (t.linkedAsset && t.linkedAsset !== '—') m[t.linkedAsset] = t.assetType; });
+    return m;
+  }, [templates]);
+
+  // Al elegir un activo, autocompletar su tipo (valor derivado)
+  const selectLinkedAsset = (asset: string) =>
+    setNewForm(prev => ({ ...prev, linkedAsset: asset, assetType: assetTypeByAsset[asset] ?? prev.assetType }));
+
+  const newValid = !!(newForm.name.trim() && newForm.owner && newForm.linkedAsset);
+
+  const openNew = () => { setNewForm(emptyNew); setTriedSubmit(false); setNewDialog(true); };
+
   const createTemplate = () => {
+    if (!newValid) {
+      setTriedSubmit(true);
+      notify('Complete los campos obligatorios: nombre, responsable y activo asociado', 'warning');
+      return;
+    }
     const num = templates.length + 1;
     const id = `CK-${String(num).padStart(3, '0')}`;
     const t: Template = {
@@ -425,7 +454,7 @@ export default function EAMChecklists() {
           <Button
             variant="contained"
             startIcon={<AddIcon />}
-            onClick={() => setNewDialog(true)}
+            onClick={openNew}
             sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, borderRadius: '10px', fontWeight: 700 }}
           >
             Nueva plantilla
@@ -1031,37 +1060,67 @@ export default function EAMChecklists() {
           <IconButton size="small" onClick={() => setNewDialog(false)} sx={{ color: '#94A3B8' }}><CloseIcon /></IconButton>
         </DialogTitle>
         <DialogContent dividers sx={{ borderColor: CARD_BORDER }}>
-          <Stack spacing={2} mt={1}>
-            <TextField label="Nombre de la plantilla *" size="small" fullWidth value={newForm.name}
-              onChange={e => setNewField('name', e.target.value)} sx={inputSx} />
-            <Stack direction="row" spacing={1.5}>
-              <TextField select label="Tipo de activo" size="small" fullWidth value={newForm.assetType}
-                onChange={e => setNewField('assetType', e.target.value)} sx={inputSx}>
-                {ASSET_TYPES.map(a => <MenuItem key={a} value={a}>{a.replace('_', ' ')}</MenuItem>)}
+          <Typography fontSize={12} color={TXT_SECONDARY} mt={1} mb={2}>
+            Los campos marcados con <Box component="span" sx={{ color: '#DC2626', fontWeight: 700 }}>*</Box> son obligatorios.
+          </Typography>
+          <Stack spacing={0.5}>
+            <TextField
+              label="Nombre de la plantilla *" size="small" fullWidth value={newForm.name}
+              onChange={e => setNewField('name', e.target.value)}
+              error={triedSubmit && !newForm.name.trim()}
+              helperText={triedSubmit && !newForm.name.trim() ? 'Ingrese un nombre para la plantilla' : ' '}
+              sx={inputSx}
+            />
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+              <TextField
+                select label="Activo asociado *" size="small" fullWidth value={newForm.linkedAsset}
+                onChange={e => selectLinkedAsset(e.target.value)}
+                error={triedSubmit && !newForm.linkedAsset}
+                helperText={triedSubmit && !newForm.linkedAsset ? 'Seleccione el activo a inspeccionar' : ' '}
+                sx={inputSx}
+              >
+                {assetOptions.map(a => <MenuItem key={a} value={a}>{a}</MenuItem>)}
               </TextField>
-              <TextField select label="Frecuencia" size="small" fullWidth value={newForm.frequency}
-                onChange={e => setNewField('frequency', e.target.value)} sx={inputSx}>
+              <TextField
+                label="Tipo de activo" size="small" fullWidth value={newForm.assetType.replace('_', ' ')}
+                InputProps={{ readOnly: true }} helperText="Derivado del activo seleccionado" sx={inputSx}
+              />
+            </Stack>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+              <TextField
+                select label="Responsable *" size="small" fullWidth value={newForm.owner}
+                onChange={e => setNewField('owner', e.target.value)}
+                error={triedSubmit && !newForm.owner}
+                helperText={triedSubmit && !newForm.owner ? 'Seleccione un responsable' : ' '}
+                sx={inputSx}
+              >
+                {ownerOptions.map(o => <MenuItem key={o} value={o}>{o}</MenuItem>)}
+              </TextField>
+              <TextField
+                select label="Frecuencia" size="small" fullWidth value={newForm.frequency}
+                onChange={e => setNewField('frequency', e.target.value)} helperText=" " sx={inputSx}
+              >
                 {['Diario', 'Semanal', 'Mensual'].map(f => <MenuItem key={f} value={f}>{f}</MenuItem>)}
               </TextField>
             </Stack>
-            <Stack direction="row" spacing={1.5}>
-              <TextField label="Responsable" size="small" fullWidth value={newForm.owner}
-                onChange={e => setNewField('owner', e.target.value)} sx={inputSx} />
-              <TextField label="Activo asociado" size="small" fullWidth value={newForm.linkedAsset}
-                onChange={e => setNewField('linkedAsset', e.target.value)} sx={inputSx} />
-            </Stack>
-            <Stack direction="row" spacing={1.5}>
-              <TextField label="N.º secciones" type="number" size="small" fullWidth value={newForm.totalSections}
-                onChange={e => setNewField('totalSections', e.target.value)} sx={inputSx} />
-              <TextField label="N.º preguntas" type="number" size="small" fullWidth value={newForm.totalQuestions}
-                onChange={e => setNewField('totalQuestions', e.target.value)} sx={inputSx} />
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+              <TextField
+                label="N.º secciones" type="number" size="small" fullWidth value={newForm.totalSections}
+                onChange={e => setNewField('totalSections', e.target.value)}
+                InputProps={{ inputProps: { min: 0 } }} helperText=" " sx={inputSx}
+              />
+              <TextField
+                label="N.º preguntas" type="number" size="small" fullWidth value={newForm.totalQuestions}
+                onChange={e => setNewField('totalQuestions', e.target.value)}
+                InputProps={{ inputProps: { min: 0 } }} helperText=" " sx={inputSx}
+              />
             </Stack>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setNewDialog(false)} sx={{ color: TXT_SECONDARY }}>Cancelar</Button>
-          <Button variant="contained" disabled={!newForm.name.trim()} onClick={createTemplate}
-            sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, fontWeight: 700 }}>
+          <Button variant="contained" disabled={!newValid} onClick={createTemplate}
+            sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, fontWeight: 700, '&.Mui-disabled': { bgcolor: '#E2E8F0', color: '#94A3B8' } }}>
             Crear plantilla
           </Button>
         </DialogActions>

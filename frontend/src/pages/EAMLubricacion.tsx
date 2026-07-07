@@ -207,6 +207,21 @@ function formatCOP(value: number): string {
 
 const cellSx = { color: '#334155', borderColor: '#E5E7EB' };
 
+// Métodos de aplicación disponibles (dominio conocido)
+const METHOD_OPTIONS = ['Manual (llenado)', 'Pistola engrasadora', 'Bomba de trasiego', 'Spray / brocha', 'Sistema automático'];
+const QUANTITY_UNITS = ['L', 'ml', 'g', 'kg'];
+
+// Estilo de inputs — tema claro, acento EAM
+const inputSx = {
+  '& .MuiOutlinedInput-root': { color: '#1E293B', bgcolor: '#FFFFFF' },
+  '& label': { color: '#64748B' },
+  '& label.Mui-focused': { color: EAM_DARK },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.25)' },
+  '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.5)' },
+  '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: EAM_COLOR },
+  '& .MuiSvgIcon-root': { color: '#94A3B8' },
+} as const;
+
 export default function EAMLubricacion() {
   const navigate = useNavigate();
   const [tab, setTab] = useState(0);
@@ -236,12 +251,34 @@ export default function EAMLubricacion() {
   // ── New lube point form ──
   const emptyForm = {
     asset: '', assetName: '', component: '', point: '', lubricant: '',
-    method: 'Manual (llenado)', quantity: '', frequency: '', frequencyDays: '30', responsible: '', notes: '',
+    method: 'Manual (llenado)', quantityValue: '', quantityUnit: 'L',
+    frequency: '', frequencyDays: '30', responsible: '', notes: '',
   };
   const [form, setForm] = useState({ ...emptyForm });
+  const [triedSubmit, setTriedSubmit] = useState(false);
 
   const assetOptions = useMemo(
     () => Array.from(new Set(lubePoints.map(p => p.asset))).sort(),
+    [lubePoints],
+  );
+
+  // ── Catálogos derivados de los datos reales para los Selects del formulario ──
+  const assetDirectory = useMemo(() => {
+    const m: Record<string, string> = {};
+    lubePoints.forEach(p => { if (p.asset && !m[p.asset]) m[p.asset] = p.assetName; });
+    return m;
+  }, [lubePoints]);
+
+  const componentOptions = useMemo(
+    () => Array.from(new Set(lubePoints.map(p => p.component).filter(Boolean))).sort(),
+    [lubePoints],
+  );
+  const lubricantOptions = useMemo(
+    () => Array.from(new Set(lubePoints.map(p => p.lubricant).filter(Boolean))).sort(),
+    [lubePoints],
+  );
+  const responsibleOptions = useMemo(
+    () => Array.from(new Set(lubePoints.map(p => p.responsible).filter(Boolean))).sort(),
     [lubePoints],
   );
 
@@ -286,9 +323,29 @@ export default function EAMLubricacion() {
 
   const sampleFor = (id?: string) => (id ? SAMPLES.find(s => s.id === id) ?? null : null);
 
+  // ── Validación de campos obligatorios del formulario ──
+  const missing = {
+    asset: !form.asset,
+    component: !form.component,
+    point: !form.point.trim(),
+    lubricant: !form.lubricant,
+    quantityValue: !form.quantityValue.trim() || Number(form.quantityValue) <= 0,
+    frequency: !form.frequency.trim(),
+    frequencyDays: !form.frequencyDays.trim() || Number(form.frequencyDays) <= 0,
+    responsible: !form.responsible,
+  };
+  const formValid = !Object.values(missing).some(Boolean);
+
+  const openCreate = () => { setForm({ ...emptyForm }); setTriedSubmit(false); setCreateOpen(true); };
+
+  // Al seleccionar un activo existente, autocompletar su nombre (readonly)
+  const handleAssetChange = (asset: string) =>
+    setForm(prev => ({ ...prev, asset, assetName: assetDirectory[asset] || '' }));
+
   const handleCreate = () => {
-    if (!form.asset.trim() || !form.point.trim() || !form.lubricant.trim()) {
-      notify('Completa activo, punto y lubricante.', 'warning');
+    if (!formValid) {
+      setTriedSubmit(true);
+      notify('Completa los campos obligatorios marcados.', 'warning');
       return;
     }
     const fdays = parseInt(form.frequencyDays, 10) || 30;
@@ -296,26 +353,27 @@ export default function EAMLubricacion() {
     next.setDate(next.getDate() + fdays);
     const newPoint: LubePoint = {
       id: `LP-${String(lubePoints.length + 1).padStart(3, '0')}`,
-      asset: form.asset.trim(),
-      assetName: form.assetName.trim() || form.asset.trim(),
-      component: form.component.trim() || 'General',
+      asset: form.asset,
+      assetName: form.assetName.trim() || assetDirectory[form.asset] || form.asset,
+      component: form.component,
       point: form.point.trim(),
-      lubricant: form.lubricant.trim(),
+      lubricant: form.lubricant,
       method: form.method,
-      quantity: form.quantity.trim() || '—',
-      frequency: form.frequency.trim() || `Cada ${fdays} días`,
+      quantity: `${form.quantityValue.trim()} ${form.quantityUnit}`,
+      frequency: form.frequency.trim(),
       frequencyDays: fdays,
       lastApplied: new Date().toISOString().slice(0, 10),
       nextApplied: next.toISOString().slice(0, 10),
       daysToNext: fdays,
       status: 'AL_DIA',
-      responsible: form.responsible.trim() || 'Sin asignar',
+      responsible: form.responsible,
       hasOilAnalysis: false,
       notes: form.notes.trim() || 'Punto de lubricación creado desde el plan.',
     };
     setLubePoints(prev => [newPoint, ...prev]);
     setCreateOpen(false);
     setForm({ ...emptyForm });
+    setTriedSubmit(false);
     notify(`Punto ${newPoint.id} agregado al plan de lubricación.`);
   };
 
@@ -416,7 +474,7 @@ export default function EAMLubricacion() {
               <MenuItem value="VENCIDO">Vencido</MenuItem>
             </TextField>
             <Button
-              variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}
+              variant="contained" startIcon={<AddIcon />} onClick={openCreate}
               sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
             >
               Nuevo punto
@@ -1290,59 +1348,146 @@ export default function EAMLubricacion() {
         {/* ═══════════ DIALOG — Nuevo punto de lubricación ═══════════ */}
         <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth scroll="paper" PaperProps={dialogPaper}>
           <DialogTitle sx={{ pb: 1 }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
               <Stack direction="row" spacing={1.5} alignItems="center">
-                <AddIcon sx={{ color: EAM_COLOR }} />
-                <Typography variant="h6" fontWeight={800} color="#1E293B">Nuevo punto de lubricación</Typography>
+                <Box sx={{ width: 40, height: 40, borderRadius: '10px', bgcolor: alpha(EAM_COLOR, 0.15), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <OilIcon sx={{ color: EAM_COLOR }} />
+                </Box>
+                <Box>
+                  <Typography variant="h6" fontWeight={800} color="#1E293B">Nuevo punto de lubricación</Typography>
+                  <Typography variant="caption" color="#64748B">Registra un punto en el plan seleccionando activo, lubricante y frecuencia</Typography>
+                </Box>
               </Stack>
-              <IconButton onClick={() => setCreateOpen(false)} size="small"><CloseIcon /></IconButton>
+              <IconButton onClick={() => setCreateOpen(false)} size="small" sx={{ color: 'grey.500' }}><CloseIcon sx={{ fontSize: 18 }} /></IconButton>
             </Stack>
           </DialogTitle>
           <Divider sx={{ borderColor: '#E5E7EB' }} />
           <DialogContent>
-            <Grid container spacing={2} sx={{ mt: 0 }}>
-              <Grid size={{ xs: 6 }}>
-                <TextField fullWidth size="small" label="Código de activo *" value={form.asset} onChange={e => setForm({ ...form, asset: e.target.value })} />
-              </Grid>
-              <Grid size={{ xs: 6 }}>
-                <TextField fullWidth size="small" label="Nombre del activo" value={form.assetName} onChange={e => setForm({ ...form, assetName: e.target.value })} />
-              </Grid>
-              <Grid size={{ xs: 6 }}>
-                <TextField fullWidth size="small" label="Componente" value={form.component} onChange={e => setForm({ ...form, component: e.target.value })} />
-              </Grid>
-              <Grid size={{ xs: 6 }}>
-                <TextField fullWidth size="small" label="Punto de aplicación *" value={form.point} onChange={e => setForm({ ...form, point: e.target.value })} />
-              </Grid>
-              <Grid size={{ xs: 12 }}>
-                <TextField fullWidth size="small" label="Lubricante *" value={form.lubricant} onChange={e => setForm({ ...form, lubricant: e.target.value })} />
-              </Grid>
-              <Grid size={{ xs: 6 }}>
-                <TextField select fullWidth size="small" label="Método" value={form.method} onChange={e => setForm({ ...form, method: e.target.value })}>
-                  {['Manual (llenado)', 'Pistola engrasadora', 'Bomba de trasiego', 'Spray / brocha', 'Sistema automático'].map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              {/* Activo + nombre autocompletado */}
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField
+                  select fullWidth size="small" label="Activo *" value={form.asset}
+                  onChange={e => handleAssetChange(e.target.value)}
+                  error={triedSubmit && missing.asset}
+                  helperText={triedSubmit && missing.asset ? 'Selecciona un activo' : ' '}
+                  sx={inputSx}
+                >
+                  {assetOptions.map(a => (
+                    <MenuItem key={a} value={a}>{a}{assetDirectory[a] ? ` — ${assetDirectory[a]}` : ''}</MenuItem>
+                  ))}
                 </TextField>
-              </Grid>
-              <Grid size={{ xs: 6 }}>
-                <TextField fullWidth size="small" label="Cantidad (ej. 12 L)" value={form.quantity} onChange={e => setForm({ ...form, quantity: e.target.value })} />
-              </Grid>
-              <Grid size={{ xs: 6 }}>
-                <TextField fullWidth size="small" label="Frecuencia (texto)" value={form.frequency} onChange={e => setForm({ ...form, frequency: e.target.value })} />
-              </Grid>
-              <Grid size={{ xs: 6 }}>
-                <TextField fullWidth size="small" type="number" label="Ciclo (días)" value={form.frequencyDays} onChange={e => setForm({ ...form, frequencyDays: e.target.value })} />
-              </Grid>
-              <Grid size={{ xs: 12 }}>
-                <TextField fullWidth size="small" label="Responsable" value={form.responsible} onChange={e => setForm({ ...form, responsible: e.target.value })} />
-              </Grid>
-              <Grid size={{ xs: 12 }}>
-                <TextField fullWidth size="small" multiline minRows={2} label="Observaciones" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
-              </Grid>
-            </Grid>
+                <TextField
+                  fullWidth size="small" label="Nombre del activo" value={form.assetName}
+                  InputProps={{ readOnly: true }}
+                  helperText="Autocompletado desde el activo"
+                  sx={inputSx}
+                />
+              </Stack>
+
+              {/* Componente + punto */}
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField
+                  select fullWidth size="small" label="Componente *" value={form.component}
+                  onChange={e => setForm({ ...form, component: e.target.value })}
+                  error={triedSubmit && missing.component}
+                  helperText={triedSubmit && missing.component ? 'Selecciona el componente' : ' '}
+                  sx={inputSx}
+                >
+                  {componentOptions.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                </TextField>
+                <TextField
+                  fullWidth size="small" label="Punto de aplicación *" value={form.point}
+                  onChange={e => setForm({ ...form, point: e.target.value })}
+                  error={triedSubmit && missing.point}
+                  helperText={triedSubmit && missing.point ? 'Indica el punto físico de aplicación' : ' '}
+                  sx={inputSx}
+                />
+              </Stack>
+
+              {/* Lubricante */}
+              <TextField
+                select fullWidth size="small" label="Lubricante *" value={form.lubricant}
+                onChange={e => setForm({ ...form, lubricant: e.target.value })}
+                error={triedSubmit && missing.lubricant}
+                helperText={triedSubmit && missing.lubricant ? 'Selecciona el lubricante' : ' '}
+                sx={inputSx}
+              >
+                {lubricantOptions.map(l => <MenuItem key={l} value={l}>{l}</MenuItem>)}
+              </TextField>
+
+              {/* Método + cantidad (valor numérico + unidad) */}
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField
+                  select fullWidth size="small" label="Método de aplicación" value={form.method}
+                  onChange={e => setForm({ ...form, method: e.target.value })}
+                  helperText=" " sx={inputSx}
+                >
+                  {METHOD_OPTIONS.map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
+                </TextField>
+                <TextField
+                  fullWidth size="small" type="number" label="Cantidad *" value={form.quantityValue}
+                  onChange={e => setForm({ ...form, quantityValue: e.target.value })}
+                  error={triedSubmit && missing.quantityValue}
+                  helperText={triedSubmit && missing.quantityValue ? 'Cantidad mayor a 0' : ' '}
+                  InputProps={{ inputProps: { min: 0, step: 'any' } }}
+                  sx={inputSx}
+                />
+                <TextField
+                  select size="small" label="Unidad" value={form.quantityUnit}
+                  onChange={e => setForm({ ...form, quantityUnit: e.target.value })}
+                  helperText=" " sx={{ ...inputSx, minWidth: 110 }}
+                >
+                  {QUANTITY_UNITS.map(u => <MenuItem key={u} value={u}>{u}</MenuItem>)}
+                </TextField>
+              </Stack>
+
+              {/* Frecuencia + ciclo en días */}
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField
+                  fullWidth size="small" label="Frecuencia *" placeholder="Ej. Cada 15.000 km" value={form.frequency}
+                  onChange={e => setForm({ ...form, frequency: e.target.value })}
+                  error={triedSubmit && missing.frequency}
+                  helperText={triedSubmit && missing.frequency ? 'Indica la frecuencia programada' : ' '}
+                  sx={inputSx}
+                />
+                <TextField
+                  fullWidth size="small" type="number" label="Ciclo (días) *" value={form.frequencyDays}
+                  onChange={e => setForm({ ...form, frequencyDays: e.target.value })}
+                  error={triedSubmit && missing.frequencyDays}
+                  helperText={triedSubmit && missing.frequencyDays ? 'Días mayor a 0' : 'Días entre aplicaciones'}
+                  InputProps={{ inputProps: { min: 1, step: 1 } }}
+                  sx={inputSx}
+                />
+              </Stack>
+
+              {/* Responsable */}
+              <TextField
+                select fullWidth size="small" label="Responsable *" value={form.responsible}
+                onChange={e => setForm({ ...form, responsible: e.target.value })}
+                error={triedSubmit && missing.responsible}
+                helperText={triedSubmit && missing.responsible ? 'Asigna un responsable' : ' '}
+                sx={inputSx}
+              >
+                {responsibleOptions.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+              </TextField>
+
+              {/* Observaciones */}
+              <TextField
+                fullWidth size="small" multiline minRows={2} label="Observaciones" value={form.notes}
+                onChange={e => setForm({ ...form, notes: e.target.value })}
+                helperText=" " sx={inputSx}
+              />
+            </Stack>
           </DialogContent>
           <DialogActions sx={{ p: 2 }}>
             <Button onClick={() => setCreateOpen(false)} sx={{ color: '#64748B', textTransform: 'none' }}>Cancelar</Button>
             <Button
-              variant="contained" startIcon={<AddIcon />} onClick={handleCreate}
-              sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none', fontWeight: 700 }}
+              variant="contained" startIcon={<AddIcon />} onClick={handleCreate} disabled={!formValid}
+              sx={{
+                bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none', fontWeight: 700,
+                '&.Mui-disabled': { bgcolor: '#CBD5E1', color: '#FFFFFF' },
+              }}
             >
               Agregar al plan
             </Button>

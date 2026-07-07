@@ -488,12 +488,12 @@ function RepuestoDetalleDialog({ repuesto, onClose, onGenerarOC, onVerOT }: Deta
 
 interface NuevoRepuestoDialogProps {
   open: boolean;
+  repuestos: Repuesto[];
   onClose: () => void;
   onSave: (r: Repuesto) => void;
 }
 
 const EMPTY_FORM = {
-  codigo: '',
   nombre: '',
   categoria: 'FILTROS',
   stock_actual: '',
@@ -506,117 +506,332 @@ const EMPTY_FORM = {
   consumo_mensual: '',
 };
 
-function NuevoRepuestoDialog({ open, onClose, onSave }: NuevoRepuestoDialogProps) {
+// Unidades de medida disponibles en el catálogo
+const UNIDADES = ['UND', 'JGO', 'GAL', 'LTR', 'MTR'];
+
+// Prefijo de código autogenerado según la categoría
+const CODIGO_PREFIX: Record<string, string> = {
+  FILTROS: 'FIL',
+  ACEITES: 'ACE',
+  FRENOS: 'FRE',
+  ELECTRICO: 'ELE',
+  HIDRAULICO: 'HID',
+  NEUMATICOS: 'NEU',
+};
+
+// Estilos de inputs (tema claro, acento EAM)
+const inputSx = {
+  '& .MuiOutlinedInput-root': { color: '#1E293B', bgcolor: '#FFFFFF' },
+  '& label': { color: '#64748B' },
+  '& label.Mui-focused': { color: EAM_DARK },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.25)' },
+  '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.5)' },
+  '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: EAM_COLOR },
+  '& .MuiSvgIcon-root': { color: '#94A3B8' },
+};
+
+function NuevoRepuestoDialog({ open, repuestos, onClose, onSave }: NuevoRepuestoDialogProps) {
   const [form, setForm] = useState({ ...EMPTY_FORM });
+  const [triedSubmit, setTriedSubmit] = useState(false);
+  const [warnOpen, setWarnOpen] = useState(false);
 
-  const set = (k: keyof typeof EMPTY_FORM) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm((f) => ({ ...f, [k]: e.target.value }));
+  // Dominios derivados de los datos reales del inventario
+  const proveedores = useMemo(
+    () => Array.from(new Set(repuestos.map((r) => r.proveedor_principal))).filter(Boolean).sort(),
+    [repuestos]
+  );
+  const ubicaciones = useMemo(
+    () => Array.from(new Set(repuestos.map((r) => r.ubicacion))).filter(Boolean).sort(),
+    [repuestos]
+  );
+  // Lead time típico por proveedor (autocompletado al elegir proveedor)
+  const leadTimePorProveedor = useMemo(() => {
+    const m: Record<string, number> = {};
+    repuestos.forEach((r) => { if (!(r.proveedor_principal in m)) m[r.proveedor_principal] = r.lead_time_dias; });
+    return m;
+  }, [repuestos]);
 
-  const valid = form.codigo.trim() !== '' && form.nombre.trim() !== '' && form.costo_unit !== '';
+  // Código autogenerado (derivado) a partir de la categoría + consecutivo existente
+  const codigoSugerido = useMemo(() => {
+    const prefix = CODIGO_PREFIX[form.categoria] ?? 'REP';
+    const nums = repuestos
+      .filter((r) => r.codigo.startsWith(`${prefix}-`))
+      .map((r) => parseInt(r.codigo.split('-')[1] ?? '', 10))
+      .filter((n) => !Number.isNaN(n));
+    const next = (nums.length ? Math.max(...nums) : 0) + 1;
+    return `${prefix}-${String(next).padStart(3, '0')}`;
+  }, [form.categoria, repuestos]);
+
+  const setField = (k: keyof typeof EMPTY_FORM, v: string) =>
+    setForm((f) => ({ ...f, [k]: v }));
+
+  // Al elegir proveedor, autocompletar el lead time típico
+  const handleProveedor = (p: string) =>
+    setForm((f) => ({
+      ...f,
+      proveedor_principal: p,
+      lead_time_dias: leadTimePorProveedor[p] != null ? String(leadTimePorProveedor[p]) : f.lead_time_dias,
+    }));
+
+  const errNombre = form.nombre.trim() === '';
+  const errProveedor = form.proveedor_principal === '';
+  const errUbicacion = form.ubicacion === '';
+  const errCosto = form.costo_unit === '' || Number(form.costo_unit) <= 0;
+  const errStockActual = form.stock_actual === '';
+  const errStockMinimo = form.stock_minimo === '';
+
+  const valid = !errNombre && !errProveedor && !errUbicacion && !errCosto && !errStockActual && !errStockMinimo;
+
+  const reset = () => { setForm({ ...EMPTY_FORM }); setTriedSubmit(false); };
 
   const handleSave = () => {
-    if (!valid) return;
+    if (!valid) {
+      setTriedSubmit(true);
+      setWarnOpen(true);
+      return;
+    }
     onSave({
-      codigo: form.codigo.trim().toUpperCase(),
+      codigo: codigoSugerido,
       nombre: form.nombre.trim(),
       categoria: form.categoria,
       stock_actual: Number(form.stock_actual) || 0,
       stock_minimo: Number(form.stock_minimo) || 0,
       costo_unit: Number(form.costo_unit) || 0,
-      proveedor_principal: form.proveedor_principal.trim() || 'Sin asignar',
+      proveedor_principal: form.proveedor_principal,
       ultimo_consumo: new Date().toISOString().slice(0, 10),
       unidad: form.unidad,
-      ubicacion: form.ubicacion.trim() || 'Sin ubicar',
+      ubicacion: form.ubicacion,
       lead_time_dias: Number(form.lead_time_dias) || 5,
       consumo_mensual: Number(form.consumo_mensual) || 0,
       compatibilidad: ['Flota general'],
     });
-    setForm({ ...EMPTY_FORM });
+    reset();
   };
 
   const handleClose = () => {
-    setForm({ ...EMPTY_FORM });
+    reset();
     onClose();
   };
 
   return (
-    <Dialog
-      open={open}
-      onClose={handleClose}
-      maxWidth="sm"
-      fullWidth
-      PaperProps={{ sx: { bgcolor: '#FFFFFF', border: `1px solid ${alpha(EAM_COLOR, 0.3)}`, borderRadius: '16px' } }}
-    >
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#1E293B' }}>
-        <Stack direction="row" alignItems="center" spacing={1}>
-          <AddIcon sx={{ color: EAM_COLOR }} />
-          <Typography variant="h6" fontWeight={800} color="#1E293B">
-            Nuevo Repuesto
-          </Typography>
-        </Stack>
-        <IconButton onClick={handleClose} size="small" sx={{ color: '#64748B' }}>
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
-      <DialogContent dividers sx={{ borderColor: '#E5E7EB' }}>
-        <Grid container spacing={2} sx={{ mt: 0 }}>
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <TextField label="Código *" size="small" fullWidth value={form.codigo} onChange={set('codigo')} placeholder="FIL-013" />
+    <>
+      <Dialog
+        open={open}
+        onClose={handleClose}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { bgcolor: '#FFFFFF', border: `1px solid ${alpha(EAM_COLOR, 0.3)}`, borderRadius: '16px' } }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#1E293B' }}>
+          <Stack direction="row" alignItems="center" spacing={1.5}>
+            <Box sx={{ width: 36, height: 36, borderRadius: '10px', bgcolor: alpha(EAM_COLOR, 0.15), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <AddIcon sx={{ color: EAM_COLOR }} />
+            </Box>
+            <Box>
+              <Typography variant="h6" fontWeight={800} color="#1E293B" lineHeight={1.2}>
+                Nuevo Repuesto
+              </Typography>
+              <Typography fontSize={12} color="#64748B">
+                Registre una nueva referencia en el inventario
+              </Typography>
+            </Box>
+          </Stack>
+          <IconButton onClick={handleClose} size="small" sx={{ color: '#64748B' }}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers sx={{ borderColor: '#E5E7EB' }}>
+          <Grid container spacing={2} sx={{ mt: 0 }}>
+            <Grid size={{ xs: 12, sm: 4 }}>
+              <TextField
+                label="Código"
+                size="small"
+                fullWidth
+                value={codigoSugerido}
+                InputProps={{ readOnly: true }}
+                helperText="Generado por categoría"
+                sx={{ ...inputSx, '& .MuiOutlinedInput-root': { color: '#2563EB', bgcolor: '#F8FAFC', fontFamily: 'monospace', fontWeight: 700 } }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 8 }}>
+              <TextField
+                label="Nombre *"
+                size="small"
+                fullWidth
+                value={form.nombre}
+                onChange={(e) => setField('nombre', e.target.value)}
+                placeholder="Ej. Filtro de aceite motor"
+                error={triedSubmit && errNombre}
+                helperText={triedSubmit && errNombre ? 'El nombre es obligatorio' : ' '}
+                sx={inputSx}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                select
+                label="Categoría"
+                size="small"
+                fullWidth
+                value={form.categoria}
+                onChange={(e) => setField('categoria', e.target.value)}
+                helperText="Define el prefijo del código"
+                sx={inputSx}
+              >
+                {CATEGORIAS.map((c) => (
+                  <MenuItem key={c} value={c}>{c}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <TextField
+                select
+                label="Unidad"
+                size="small"
+                fullWidth
+                value={form.unidad}
+                onChange={(e) => setField('unidad', e.target.value)}
+                helperText=" "
+                sx={inputSx}
+              >
+                {UNIDADES.map((u) => (
+                  <MenuItem key={u} value={u}>{u}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <TextField
+                label="Costo unit. *"
+                size="small"
+                fullWidth
+                type="number"
+                value={form.costo_unit}
+                onChange={(e) => setField('costo_unit', e.target.value)}
+                error={triedSubmit && errCosto}
+                helperText={triedSubmit && errCosto ? 'Requerido' : ' '}
+                InputProps={{ startAdornment: <InputAdornment position="start"><Typography fontSize={13} color="#94A3B8">$</Typography></InputAdornment> }}
+                sx={inputSx}
+              />
+            </Grid>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <TextField
+                label="Stock actual *"
+                size="small"
+                fullWidth
+                type="number"
+                value={form.stock_actual}
+                onChange={(e) => setField('stock_actual', e.target.value)}
+                error={triedSubmit && errStockActual}
+                helperText={triedSubmit && errStockActual ? 'Requerido' : ' '}
+                sx={inputSx}
+              />
+            </Grid>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <TextField
+                label="Stock mínimo *"
+                size="small"
+                fullWidth
+                type="number"
+                value={form.stock_minimo}
+                onChange={(e) => setField('stock_minimo', e.target.value)}
+                error={triedSubmit && errStockMinimo}
+                helperText={triedSubmit && errStockMinimo ? 'Requerido' : ' '}
+                sx={inputSx}
+              />
+            </Grid>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <TextField
+                label="Consumo/mes"
+                size="small"
+                fullWidth
+                type="number"
+                value={form.consumo_mensual}
+                onChange={(e) => setField('consumo_mensual', e.target.value)}
+                helperText=" "
+                sx={inputSx}
+              />
+            </Grid>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <TextField
+                label="Lead time (días)"
+                size="small"
+                fullWidth
+                type="number"
+                value={form.lead_time_dias}
+                onChange={(e) => setField('lead_time_dias', e.target.value)}
+                helperText="Se autocompleta"
+                sx={inputSx}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                select
+                label="Proveedor principal *"
+                size="small"
+                fullWidth
+                value={form.proveedor_principal}
+                onChange={(e) => handleProveedor(e.target.value)}
+                error={triedSubmit && errProveedor}
+                helperText={triedSubmit && errProveedor ? 'Seleccione un proveedor' : 'Autocompleta el lead time'}
+                sx={inputSx}
+              >
+                <MenuItem value=""><em>Seleccionar...</em></MenuItem>
+                {proveedores.map((p) => (
+                  <MenuItem key={p} value={p}>{p}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                select
+                label="Ubicación en bodega *"
+                size="small"
+                fullWidth
+                value={form.ubicacion}
+                onChange={(e) => setField('ubicacion', e.target.value)}
+                error={triedSubmit && errUbicacion}
+                helperText={triedSubmit && errUbicacion ? 'Seleccione una ubicación' : ' '}
+                sx={inputSx}
+              >
+                <MenuItem value=""><em>Seleccionar...</em></MenuItem>
+                {ubicaciones.map((u) => (
+                  <MenuItem key={u} value={u}>{u}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
           </Grid>
-          <Grid size={{ xs: 12, sm: 8 }}>
-            <TextField label="Nombre *" size="small" fullWidth value={form.nombre} onChange={set('nombre')} />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField select label="Categoría" size="small" fullWidth value={form.categoria} onChange={set('categoria')}>
-              {CATEGORIAS.map((c) => (
-                <MenuItem key={c} value={c}>{c}</MenuItem>
-              ))}
-            </TextField>
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <TextField select label="Unidad" size="small" fullWidth value={form.unidad} onChange={set('unidad')}>
-              {['UND', 'JGO', 'GAL', 'LTR', 'MTR'].map((u) => (
-                <MenuItem key={u} value={u}>{u}</MenuItem>
-              ))}
-            </TextField>
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <TextField label="Costo unit. *" size="small" fullWidth type="number" value={form.costo_unit} onChange={set('costo_unit')} />
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <TextField label="Stock actual" size="small" fullWidth type="number" value={form.stock_actual} onChange={set('stock_actual')} />
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <TextField label="Stock mínimo" size="small" fullWidth type="number" value={form.stock_minimo} onChange={set('stock_minimo')} />
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <TextField label="Lead time (días)" size="small" fullWidth type="number" value={form.lead_time_dias} onChange={set('lead_time_dias')} />
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <TextField label="Consumo/mes" size="small" fullWidth type="number" value={form.consumo_mensual} onChange={set('consumo_mensual')} />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField label="Proveedor principal" size="small" fullWidth value={form.proveedor_principal} onChange={set('proveedor_principal')} />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField label="Ubicación en bodega" size="small" fullWidth value={form.ubicacion} onChange={set('ubicacion')} />
-          </Grid>
-        </Grid>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2.5, pt: 1.5 }}>
-        <Button onClick={handleClose} sx={{ color: '#64748B', textTransform: 'none' }}>
-          Cancelar
-        </Button>
-        <Button
-          variant="contained"
-          disabled={!valid}
-          onClick={handleSave}
-          sx={{ bgcolor: EAM_COLOR, color: '#fff', fontWeight: 700, textTransform: 'none', borderRadius: 2, '&:hover': { bgcolor: EAM_DARK } }}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5, pt: 1.5 }}>
+          <Button onClick={handleClose} sx={{ color: '#64748B', textTransform: 'none' }}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            disabled={!valid}
+            onClick={handleSave}
+            sx={{ bgcolor: EAM_COLOR, color: '#fff', fontWeight: 700, textTransform: 'none', borderRadius: 2, px: 3, '&:hover': { bgcolor: EAM_DARK } }}
+          >
+            Agregar Repuesto
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={warnOpen}
+        autoHideDuration={3500}
+        onClose={() => setWarnOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setWarnOpen(false)}
+          severity="warning"
+          variant="filled"
+          sx={{ fontWeight: 600 }}
         >
-          Agregar Repuesto
-        </Button>
-      </DialogActions>
-    </Dialog>
+          Complete los campos obligatorios antes de guardar.
+        </Alert>
+      </Snackbar>
+    </>
   );
 }
 
@@ -1477,7 +1692,7 @@ export default function EAMInventario() {
         onGenerarOC={handleGenerarOCItem}
         onVerOT={handleVerOT}
       />
-      <NuevoRepuestoDialog open={nuevoOpen} onClose={() => setNuevoOpen(false)} onSave={handleAddRepuesto} />
+      <NuevoRepuestoDialog open={nuevoOpen} repuestos={repuestos} onClose={() => setNuevoOpen(false)} onSave={handleAddRepuesto} />
       <OrdenCompraDialog state={oc} onClose={() => setOc((prev) => ({ ...prev, open: false }))} onConfirm={handleConfirmOC} />
 
       {/* Snackbar */}

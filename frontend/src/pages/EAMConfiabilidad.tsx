@@ -237,6 +237,40 @@ const ESTADO_FMEA_COLOR: Record<FmeaRow['estado'], string> = {
   Cerrado: '#22c55e',
 }
 
+// ─── Catálogos derivados de los datos (para formularios controlados) ────────────
+const ACTIVOS_CATALOGO: string[] = Array.from(
+  new Set<string>([
+    ...initialFmeaRows.map((r) => r.activo),
+    ...topFailures.map((r) => r.activo),
+    ...monthlyFailures.map((r) => r.activo),
+    ...causasRaiz.flatMap((c) => c.activosAfectados),
+  ]),
+).sort((a, b) => a.localeCompare(b))
+
+const ACTIVO_CODIGO: Record<string, string> = (() => {
+  const m: Record<string, string> = {}
+  ;[...topFailures, ...monthlyFailures].forEach((r) => {
+    if (!m[r.activo]) m[r.activo] = r.codigo
+  })
+  return m
+})()
+
+const ACTIVO_DEFAULTS: Record<string, { componente: string; funcion: string; causa: string }> = (() => {
+  const m: Record<string, { componente: string; funcion: string; causa: string }> = {}
+  initialFmeaRows.forEach((r) => {
+    if (!m[r.activo]) m[r.activo] = { componente: r.componente, funcion: r.funcion, causa: r.causa }
+  })
+  return m
+})()
+
+const COMPONENTES_CATALOGO: string[] = Array.from(
+  new Set(initialFmeaRows.map((r) => r.componente)),
+).sort((a, b) => a.localeCompare(b))
+
+const RESPONSABLES_CATALOGO: string[] = Array.from(
+  new Set(initialFmeaRows.map((r) => r.responsable)),
+).sort((a, b) => a.localeCompare(b))
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 function TabPanel({ children, value, index }: { children: React.ReactNode; value: number; index: number }) {
   return value === index ? <Box sx={{ pt: 3 }}>{children}</Box> : null
@@ -263,6 +297,18 @@ function fmeaRowBg(rpn: number): string {
 
 const dialogPaperProps = {
   sx: { bgcolor: '#FFFFFF', borderRadius: '16px', border: '1px solid #E5E7EB' },
+}
+
+// Estilo de campos para el tema claro (texto oscuro, acento EAM)
+const formFieldSx = {
+  '& .MuiOutlinedInput-root': { color: '#1E293B', bgcolor: '#FFFFFF' },
+  '& label': { color: '#64748B' },
+  '& label.Mui-focused': { color: EAM_DARK },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.25)' },
+  '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.5)' },
+  '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: EAM_COLOR },
+  '& .MuiFormHelperText-root': { color: '#94A3B8' },
+  '& .MuiSvgIcon-root': { color: '#94A3B8' },
 }
 
 function DialogHeader({ code, title, subtitle, onClose }: { code: string; title: string; subtitle?: string; onClose: () => void }) {
@@ -679,19 +725,48 @@ const emptyFmeaForm: NewFmeaForm = {
   s: 5, o: 5, d: 5, accion: '', responsable: '', estado: 'Abierto', fechaObjetivo: '',
 }
 
-function NewFmeaDialog({ open, onClose, onCreate }: { open: boolean; onClose: () => void; onCreate: (f: NewFmeaForm) => void }) {
+function NewFmeaDialog({ open, onClose, onCreate, onWarn }: { open: boolean; onClose: () => void; onCreate: (f: NewFmeaForm) => void; onWarn: (msg: string) => void }) {
   const [form, setForm] = useState<NewFmeaForm>(emptyFmeaForm)
+  const [triedSubmit, setTriedSubmit] = useState(false)
   const set = (k: keyof NewFmeaForm, v: string | number) => setForm((p) => ({ ...p, [k]: v }))
   const rpn = form.s * form.o * form.d
   const rpnColor = rpn >= 200 ? '#ef4444' : rpn >= 100 ? '#f97316' : '#22c55e'
-  const valid = form.activo.trim() && form.componente.trim() && form.modoFalla.trim()
+  const rpnLabel = rpn >= 200 ? 'CRÍTICO' : rpn >= 100 ? 'ALTO' : 'NORMAL'
+
+  // Código / placa autocompletado a partir del activo seleccionado
+  const codigo = ACTIVO_CODIGO[form.activo] ?? ''
+
+  // Campos obligatorios
+  const errActivo = !form.activo
+  const errComponente = !form.componente
+  const errModo = !form.modoFalla.trim()
+  const errResponsable = !form.responsable
+  const errFecha = !form.fechaObjetivo
+  const valid = !errActivo && !errComponente && !errModo && !errResponsable && !errFecha
+
+  // Al elegir un activo, precargar componente/función/causa conocidos si están vacíos
+  const handleActivo = (activo: string) => {
+    const d = ACTIVO_DEFAULTS[activo]
+    setForm((p) => ({
+      ...p,
+      activo,
+      componente: p.componente || d?.componente || '',
+      funcion: p.funcion || d?.funcion || '',
+      causa: p.causa || d?.causa || '',
+    }))
+  }
 
   const handleCreate = () => {
-    if (!valid) return
+    if (!valid) {
+      setTriedSubmit(true)
+      onWarn('Complete los campos obligatorios: activo, componente, modo de falla, responsable y fecha objetivo')
+      return
+    }
     onCreate(form)
     setForm(emptyFmeaForm)
+    setTriedSubmit(false)
   }
-  const handleClose = () => { setForm(emptyFmeaForm); onClose() }
+  const handleClose = () => { setForm(emptyFmeaForm); setTriedSubmit(false); onClose() }
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth scroll="paper" PaperProps={dialogPaperProps}>
@@ -699,43 +774,107 @@ function NewFmeaDialog({ open, onClose, onCreate }: { open: boolean; onClose: ()
       <Divider sx={{ borderColor: '#E5E7EB' }} />
       <DialogContent>
         <Grid container spacing={2}>
-          <Grid size={{ xs: 12, sm: 6 }}><TextField label="Activo *" size="small" fullWidth value={form.activo} onChange={(e) => set('activo', e.target.value)} /></Grid>
-          <Grid size={{ xs: 12, sm: 6 }}><TextField label="Componente *" size="small" fullWidth value={form.componente} onChange={(e) => set('componente', e.target.value)} /></Grid>
-          <Grid size={{ xs: 12 }}><TextField label="Función del componente" size="small" fullWidth value={form.funcion} onChange={(e) => set('funcion', e.target.value)} /></Grid>
-          <Grid size={{ xs: 12, sm: 6 }}><TextField label="Modo de falla *" size="small" fullWidth value={form.modoFalla} onChange={(e) => set('modoFalla', e.target.value)} /></Grid>
-          <Grid size={{ xs: 12, sm: 6 }}><TextField label="Efecto de la falla" size="small" fullWidth value={form.efecto} onChange={(e) => set('efecto', e.target.value)} /></Grid>
-          <Grid size={{ xs: 12 }}><TextField label="Causa probable" size="small" fullWidth value={form.causa} onChange={(e) => set('causa', e.target.value)} /></Grid>
+          {/* Fila: activo + código autocompletado */}
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField
+              select label="Activo *" size="small" fullWidth sx={formFieldSx}
+              value={form.activo} onChange={(e) => handleActivo(e.target.value)}
+              error={triedSubmit && errActivo}
+              helperText={triedSubmit && errActivo ? 'Seleccione el activo' : 'Se autocompleta el código'}
+            >
+              {ACTIVOS_CATALOGO.map((a) => <MenuItem key={a} value={a}>{a}</MenuItem>)}
+            </TextField>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField
+              label="Código / Placa" size="small" fullWidth sx={formFieldSx}
+              value={codigo} InputProps={{ readOnly: true }}
+              placeholder="—" helperText="Derivado del activo"
+            />
+          </Grid>
+
+          {/* Fila: componente + responsable */}
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField
+              select label="Componente *" size="small" fullWidth sx={formFieldSx}
+              value={form.componente} onChange={(e) => set('componente', e.target.value)}
+              error={triedSubmit && errComponente}
+              helperText={triedSubmit && errComponente ? 'Seleccione el componente' : ' '}
+            >
+              {COMPONENTES_CATALOGO.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+            </TextField>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField
+              select label="Responsable *" size="small" fullWidth sx={formFieldSx}
+              value={form.responsable} onChange={(e) => set('responsable', e.target.value)}
+              error={triedSubmit && errResponsable}
+              helperText={triedSubmit && errResponsable ? 'Asigne un responsable' : ' '}
+            >
+              {RESPONSABLES_CATALOGO.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+            </TextField>
+          </Grid>
+
+          <Grid size={{ xs: 12 }}>
+            <TextField label="Función del componente" size="small" fullWidth sx={formFieldSx} value={form.funcion} onChange={(e) => set('funcion', e.target.value)} helperText=" " />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField
+              label="Modo de falla *" size="small" fullWidth sx={formFieldSx}
+              value={form.modoFalla} onChange={(e) => set('modoFalla', e.target.value)}
+              error={triedSubmit && errModo}
+              helperText={triedSubmit && errModo ? 'Describa el modo de falla' : ' '}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}><TextField label="Efecto de la falla" size="small" fullWidth sx={formFieldSx} value={form.efecto} onChange={(e) => set('efecto', e.target.value)} helperText=" " /></Grid>
+          <Grid size={{ xs: 12 }}><TextField label="Causa probable" size="small" fullWidth sx={formFieldSx} value={form.causa} onChange={(e) => set('causa', e.target.value)} helperText=" " /></Grid>
 
           <Grid size={{ xs: 4, sm: 3 }}>
-            <TextField select label="Severidad (S)" size="small" fullWidth value={form.s} onChange={(e) => set('s', Number(e.target.value))}>
+            <TextField select label="Severidad (S)" size="small" fullWidth sx={formFieldSx} value={form.s} onChange={(e) => set('s', Number(e.target.value))} helperText=" ">
               {[1,2,3,4,5,6,7,8,9,10].map((n) => <MenuItem key={n} value={n}>{n}</MenuItem>)}
             </TextField>
           </Grid>
           <Grid size={{ xs: 4, sm: 3 }}>
-            <TextField select label="Ocurrencia (O)" size="small" fullWidth value={form.o} onChange={(e) => set('o', Number(e.target.value))}>
+            <TextField select label="Ocurrencia (O)" size="small" fullWidth sx={formFieldSx} value={form.o} onChange={(e) => set('o', Number(e.target.value))} helperText=" ">
               {[1,2,3,4,5,6,7,8,9,10].map((n) => <MenuItem key={n} value={n}>{n}</MenuItem>)}
             </TextField>
           </Grid>
           <Grid size={{ xs: 4, sm: 3 }}>
-            <TextField select label="Detección (D)" size="small" fullWidth value={form.d} onChange={(e) => set('d', Number(e.target.value))}>
+            <TextField select label="Detección (D)" size="small" fullWidth sx={formFieldSx} value={form.d} onChange={(e) => set('d', Number(e.target.value))} helperText=" ">
               {[1,2,3,4,5,6,7,8,9,10].map((n) => <MenuItem key={n} value={n}>{n}</MenuItem>)}
             </TextField>
           </Grid>
           <Grid size={{ xs: 12, sm: 3 }}>
-            <Paper elevation={0} sx={{ bgcolor: alpha(rpnColor, 0.08), border: `1px solid ${alpha(rpnColor, 0.3)}`, borderRadius: '10px', p: 1, textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <Paper elevation={0} sx={{ bgcolor: alpha(rpnColor, 0.08), border: `1px solid ${alpha(rpnColor, 0.3)}`, borderRadius: '10px', p: 1, textAlign: 'center', height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
               <Typography fontSize={22} fontWeight={900} color={rpnColor} lineHeight={1}>{rpn}</Typography>
-              <Typography fontSize={10} color="#64748B">RPN calculado</Typography>
+              <Stack alignItems="flex-start">
+                <Typography fontSize={9.5} color="#64748B" lineHeight={1}>RPN</Typography>
+                <Typography fontSize={9.5} fontWeight={800} color={rpnColor} lineHeight={1.1}>{rpnLabel}</Typography>
+              </Stack>
             </Paper>
           </Grid>
 
-          <Grid size={{ xs: 12 }}><TextField label="Acción recomendada" size="small" fullWidth multiline minRows={2} value={form.accion} onChange={(e) => set('accion', e.target.value)} /></Grid>
-          <Grid size={{ xs: 12, sm: 5 }}><TextField label="Responsable" size="small" fullWidth value={form.responsable} onChange={(e) => set('responsable', e.target.value)} /></Grid>
-          <Grid size={{ xs: 6, sm: 4 }}>
-            <TextField select label="Estado" size="small" fullWidth value={form.estado} onChange={(e) => set('estado', e.target.value as FmeaRow['estado'])}>
-              {(['Abierto', 'En Proceso', 'Cerrado'] as const).map((o) => <MenuItem key={o} value={o}>{o}</MenuItem>)}
+          <Grid size={{ xs: 12 }}><TextField label="Acción recomendada" size="small" fullWidth multiline minRows={2} sx={formFieldSx} value={form.accion} onChange={(e) => set('accion', e.target.value)} helperText=" " /></Grid>
+          <Grid size={{ xs: 6, sm: 6 }}>
+            <TextField select label="Estado" size="small" fullWidth sx={formFieldSx} value={form.estado} onChange={(e) => set('estado', e.target.value as FmeaRow['estado'])} helperText=" ">
+              {(['Abierto', 'En Proceso', 'Cerrado'] as const).map((o) => (
+                <MenuItem key={o} value={o}>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <Box sx={{ width: 9, height: 9, borderRadius: '50%', bgcolor: ESTADO_FMEA_COLOR[o] }} />
+                    <span>{o}</span>
+                  </Stack>
+                </MenuItem>
+              ))}
             </TextField>
           </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}><TextField label="Fecha objetivo" type="date" size="small" fullWidth InputLabelProps={{ shrink: true }} value={form.fechaObjetivo} onChange={(e) => set('fechaObjetivo', e.target.value)} /></Grid>
+          <Grid size={{ xs: 6, sm: 6 }}>
+            <TextField
+              label="Fecha objetivo *" type="date" size="small" fullWidth sx={formFieldSx}
+              InputLabelProps={{ shrink: true }} value={form.fechaObjetivo} onChange={(e) => set('fechaObjetivo', e.target.value)}
+              error={triedSubmit && errFecha}
+              helperText={triedSubmit && errFecha ? 'Defina la fecha objetivo' : ' '}
+            />
+          </Grid>
         </Grid>
       </DialogContent>
       <DialogActions sx={{ p: 2, pt: 1 }}>
@@ -1194,8 +1333,8 @@ export default function EAMConfiabilidad() {
   const [newFmeaOpen, setNewFmeaOpen] = useState(false)
 
   // Snackbar
-  const [snack, setSnack] = useState<{ open: boolean; msg: string; severity: 'success' | 'info' }>({ open: false, msg: '', severity: 'success' })
-  const notify = (msg: string, severity: 'success' | 'info' = 'success') => setSnack({ open: true, msg, severity })
+  const [snack, setSnack] = useState<{ open: boolean; msg: string; severity: 'success' | 'info' | 'warning' }>({ open: false, msg: '', severity: 'success' })
+  const notify = (msg: string, severity: 'success' | 'info' | 'warning' = 'success') => setSnack({ open: true, msg, severity })
 
   const totalCausas = useMemo(() => causasRaiz.reduce((s, c) => s + c.casos, 0), [])
 
@@ -1311,7 +1450,7 @@ export default function EAMConfiabilidad() {
         onClose={() => setCausaSel(null)}
         onExport={(c) => { setCausaSel(null); notify(`Informe RCA de "${c.causa}" exportado`, 'info') }}
       />
-      <NewFmeaDialog open={newFmeaOpen} onClose={() => setNewFmeaOpen(false)} onCreate={handleCreateFmea} />
+      <NewFmeaDialog open={newFmeaOpen} onClose={() => setNewFmeaOpen(false)} onCreate={handleCreateFmea} onWarn={(msg) => notify(msg, 'warning')} />
 
       {/* Snackbar */}
       <Snackbar

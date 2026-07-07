@@ -535,6 +535,28 @@ function NeumaticoDialog({
 
 // ─── Nuevo Neumático Dialog ───────────────────────────────────────────────────
 
+// Presión recomendada derivada de la medida (regla usada también en PosicionDialog)
+function presionRecPorMedida(medida: string): string {
+  return medida.startsWith('11 ') ? '105' : '120';
+}
+
+// Referencias conocidas por marca (derivadas de los datos existentes) para
+// autocompletar / sugerir sin restringir el ingreso de nuevas referencias.
+const REFERENCIAS_POR_MARCA: Record<string, string[]> = mockNeumaticos.reduce((acc, n) => {
+  (acc[n.marca] ??= []);
+  if (!acc[n.marca].includes(n.referencia)) acc[n.marca].push(n.referencia);
+  return acc;
+}, {} as Record<string, string[]>);
+
+// Estilos de inputs — tema claro, acento EAM
+const nuevoInputSx = {
+  '& .MuiOutlinedInput-root': { bgcolor: '#FFFFFF', color: '#1E293B' },
+  '& label': { color: '#64748B' },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: alpha(EAM_COLOR, 0.25) },
+  '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: alpha(EAM_COLOR, 0.5) },
+  '& .MuiSvgIcon-root': { color: '#94A3B8' },
+};
+
 function NuevoNeumaticoDialog({
   open,
   onClose,
@@ -547,35 +569,65 @@ function NuevoNeumaticoDialog({
   const [marca, setMarca] = useState(MARCAS[0]);
   const [referencia, setReferencia] = useState('');
   const [medida, setMedida] = useState(MEDIDAS[0]);
+  const [vidaUtilKm, setVidaUtilKm] = useState('110000');
   const [costo, setCosto] = useState('2300000');
   const [profundidad, setProfundidad] = useState('16');
-  const [presion, setPresion] = useState('120');
+  const [presion, setPresion] = useState(presionRecPorMedida(MEDIDAS[0]));
   const [dot, setDot] = useState('');
+  const [triedSubmit, setTriedSubmit] = useState(false);
+  const [warnOpen, setWarnOpen] = useState(false);
 
   const reset = () => {
     setMarca(MARCAS[0]); setReferencia(''); setMedida(MEDIDAS[0]);
-    setCosto('2300000'); setProfundidad('16'); setPresion('120'); setDot('');
+    setVidaUtilKm('110000'); setCosto('2300000'); setProfundidad('16');
+    setPresion(presionRecPorMedida(MEDIDAS[0])); setDot('');
+    setTriedSubmit(false);
   };
 
+  // Al cambiar la medida, autocompletar la presión recomendada derivada.
+  const handleMedidaChange = (value: string) => {
+    setMedida(value);
+    setPresion(presionRecPorMedida(value));
+  };
+
+  const handleClose = () => { onClose(); };
+
+  // ── Validación de campos obligatorios ──
+  const num = (v: string) => Number(v);
+  const errReferencia = !referencia.trim();
+  const errDot = !/^\d{4}$/.test(dot.trim());
+  const errProfundidad = !(num(profundidad) > 0 && num(profundidad) <= 30);
+  const errPresion = !(num(presion) > 0);
+  const errCosto = !(num(costo) > 0);
+  const errVida = !(num(vidaUtilKm) > 0);
+  const isValid = !errReferencia && !errDot && !errProfundidad && !errPresion && !errCosto && !errVida;
+
+  const referenciasSugeridas = REFERENCIAS_POR_MARCA[marca] ?? [];
+
   const handleSave = () => {
-    const prof = parseInt(profundidad, 10) || 16;
+    if (!isValid) {
+      setTriedSubmit(true);
+      setWarnOpen(true);
+      return;
+    }
+    const prof = num(profundidad);
     const n: Neumatico = {
       codigo: `NEU-${String(Math.floor(Math.random() * 900) + 100)}`,
       marca,
-      referencia: referencia.trim() || 'Sin referencia',
+      referencia: referencia.trim(),
       medida,
       estado: 'En Almacén',
       activo: '-',
       posicion: '-',
       kmTotal: 0,
-      vidaUtilKm: 110000,
+      vidaUtilKm: num(vidaUtilKm),
       profundidadActual: prof,
       profundidadInicial: prof,
       presionActual: 0,
-      presionRecomendada: parseInt(presion, 10) || 120,
-      dot: dot.trim() || '0125',
+      presionRecomendada: num(presion),
+      dot: dot.trim(),
       fechaMontaje: '-',
-      costo: parseInt(costo, 10) || 0,
+      costo: num(costo),
       reencauches: 0,
       maxReencauches: 2,
       historial: [
@@ -586,58 +638,128 @@ function NuevoNeumaticoDialog({
     reset();
   };
 
-  const fieldSx = {
-    '& .MuiOutlinedInput-root': { bgcolor: '#FFFFFF' },
-  };
-
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#FFFFFF', borderRadius: '16px' } }}>
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#1E293B' }}>
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#FFFFFF', borderRadius: '16px' } }}>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#1E293B', pb: 1 }}>
         <Stack direction="row" alignItems="center" spacing={1.5}>
-          <Avatar sx={{ bgcolor: `${EAM_COLOR}22`, color: EAM_COLOR, width: 36, height: 36 }}><AddIcon /></Avatar>
-          <Typography sx={{ fontWeight: 800 }}>Registrar Neumático</Typography>
+          <Avatar sx={{ bgcolor: `${EAM_COLOR}22`, color: EAM_COLOR, width: 40, height: 40 }}><AddIcon /></Avatar>
+          <Box>
+            <Typography sx={{ fontWeight: 800, color: '#1E293B' }}>Registrar Neumático</Typography>
+            <Typography sx={{ fontSize: 12, color: '#64748B' }}>Alta de una unidad nueva en el almacén EAM</Typography>
+          </Box>
         </Stack>
-        <IconButton size="small" onClick={onClose} sx={{ color: 'grey.500' }}><CloseIcon fontSize="small" /></IconButton>
+        <IconButton size="small" onClick={handleClose} sx={{ color: 'grey.500' }}><CloseIcon fontSize="small" /></IconButton>
       </DialogTitle>
       <DialogContent dividers sx={{ bgcolor: '#F8FAFC' }}>
-        <Grid container spacing={2} sx={{ mt: 0 }}>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField select fullWidth size="small" label="Marca" value={marca} onChange={(e) => setMarca(e.target.value)} sx={fieldSx}>
+        <Stack spacing={2} sx={{ mt: 0.5 }}>
+          {/* Identificación */}
+          <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            Identificación
+          </Typography>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <TextField select fullWidth size="small" label="Marca" value={marca} onChange={(e) => setMarca(e.target.value)} helperText=" " sx={nuevoInputSx}>
               {MARCAS.map((m) => <MenuItem key={m} value={m}>{m}</MenuItem>)}
             </TextField>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField fullWidth size="small" label="Referencia / banda" value={referencia} onChange={(e) => setReferencia(e.target.value)} placeholder="Ej. X Multi D" sx={fieldSx} />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField select fullWidth size="small" label="Medida" value={medida} onChange={(e) => setMedida(e.target.value)} sx={fieldSx}>
+            <TextField
+              fullWidth size="small" label="Referencia / banda" value={referencia}
+              onChange={(e) => setReferencia(e.target.value)}
+              placeholder={referenciasSugeridas[0] ? `Ej. ${referenciasSugeridas[0]}` : 'Ej. X Multi D'}
+              error={triedSubmit && errReferencia}
+              helperText={triedSubmit && errReferencia ? 'Ingrese la referencia o banda' : ' '}
+              sx={nuevoInputSx}
+            />
+          </Stack>
+          {referenciasSugeridas.length > 0 && (
+            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: -1 }}>
+              <Typography sx={{ fontSize: 11, color: '#94A3B8', mr: 0.5 }}>Sugeridas {marca}:</Typography>
+              {referenciasSugeridas.map((r) => (
+                <Chip key={r} label={r} size="small" onClick={() => setReferencia(r)}
+                  sx={{ fontSize: 10, height: 20, cursor: 'pointer', bgcolor: alpha(EAM_COLOR, 0.1), color: EAM_DARK, '&:hover': { bgcolor: alpha(EAM_COLOR, 0.2) } }} />
+              ))}
+            </Stack>
+          )}
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <TextField select fullWidth size="small" label="Medida" value={medida} onChange={(e) => handleMedidaChange(e.target.value)} helperText=" " sx={nuevoInputSx}>
               {MEDIDAS.map((m) => <MenuItem key={m} value={m}>{m}</MenuItem>)}
             </TextField>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField fullWidth size="small" label="DOT (SSAA)" value={dot} onChange={(e) => setDot(e.target.value)} placeholder="Ej. 0125" sx={fieldSx} />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <TextField fullWidth size="small" type="number" label="Profundidad (mm)" value={profundidad} onChange={(e) => setProfundidad(e.target.value)} sx={fieldSx} />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <TextField fullWidth size="small" type="number" label="Presión rec. (psi)" value={presion} onChange={(e) => setPresion(e.target.value)} sx={fieldSx} />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <TextField fullWidth size="small" type="number" label="Costo (COP)" value={costo} onChange={(e) => setCosto(e.target.value)} sx={fieldSx} />
-          </Grid>
-        </Grid>
+            <TextField
+              fullWidth size="small" label="DOT (SSAA)" value={dot}
+              onChange={(e) => setDot(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              placeholder="Ej. 0125"
+              error={triedSubmit && errDot}
+              helperText={triedSubmit && errDot ? 'DOT de 4 dígitos (semana + año)' : ' '}
+              inputProps={{ inputMode: 'numeric', maxLength: 4 }}
+              sx={nuevoInputSx}
+            />
+          </Stack>
+
+          {/* Especificaciones */}
+          <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            Especificaciones
+          </Typography>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <TextField
+              fullWidth size="small" type="number" label="Profundidad (mm)" value={profundidad}
+              onChange={(e) => setProfundidad(e.target.value)}
+              error={triedSubmit && errProfundidad}
+              helperText={triedSubmit && errProfundidad ? 'Entre 1 y 30 mm' : ' '}
+              InputProps={{ endAdornment: <InputAdornment position="end">mm</InputAdornment> }}
+              inputProps={{ min: 1, max: 30 }}
+              sx={nuevoInputSx}
+            />
+            <TextField
+              fullWidth size="small" type="number" label="Presión rec." value={presion}
+              onChange={(e) => setPresion(e.target.value)}
+              error={triedSubmit && errPresion}
+              helperText={triedSubmit && errPresion ? 'Requerida' : 'Autocompletada por la medida'}
+              InputProps={{ endAdornment: <InputAdornment position="end">psi</InputAdornment> }}
+              inputProps={{ min: 1 }}
+              sx={nuevoInputSx}
+            />
+          </Stack>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <TextField
+              fullWidth size="small" type="number" label="Vida útil estimada" value={vidaUtilKm}
+              onChange={(e) => setVidaUtilKm(e.target.value)}
+              error={triedSubmit && errVida}
+              helperText={triedSubmit && errVida ? 'Requerida' : ' '}
+              InputProps={{ endAdornment: <InputAdornment position="end">km</InputAdornment> }}
+              inputProps={{ min: 1 }}
+              sx={nuevoInputSx}
+            />
+            <TextField
+              fullWidth size="small" type="number" label="Costo de adquisición" value={costo}
+              onChange={(e) => setCosto(e.target.value)}
+              error={triedSubmit && errCosto}
+              helperText={triedSubmit && errCosto ? 'Ingrese un costo válido' : ' '}
+              InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+              inputProps={{ min: 0 }}
+              sx={nuevoInputSx}
+            />
+          </Stack>
+        </Stack>
         <Alert severity="info" sx={{ mt: 2, borderRadius: '10px' }}>
           El neumático se registra en estado <strong>En Almacén</strong>. Podrá asignarlo a un vehículo desde la vista de detalle.
         </Alert>
       </DialogContent>
       <DialogActions sx={{ px: 3, py: 2, bgcolor: '#FFFFFF' }}>
-        <Button onClick={onClose} sx={{ textTransform: 'none', color: '#64748B' }}>Cancelar</Button>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={handleSave}
-          sx={{ textTransform: 'none', bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, fontWeight: 700 }}>
+        <Button onClick={handleClose} sx={{ textTransform: 'none', color: '#64748B' }}>Cancelar</Button>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={handleSave} disabled={!isValid}
+          sx={{ textTransform: 'none', bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, fontWeight: 700, '&.Mui-disabled': { bgcolor: alpha(EAM_COLOR, 0.4), color: '#FFFFFF' } }}>
           Registrar
         </Button>
       </DialogActions>
+
+      <Snackbar
+        open={warnOpen}
+        autoHideDuration={3500}
+        onClose={() => setWarnOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setWarnOpen(false)} severity="warning" variant="filled" sx={{ borderRadius: '10px' }}>
+          Complete los campos obligatorios antes de registrar el neumático.
+        </Alert>
+      </Snackbar>
     </Dialog>
   );
 }

@@ -672,6 +672,7 @@ export default function EAMGarantias() {
 
   // Diálogo crear garantía
   const [crearOpen, setCrearOpen] = useState(false)
+  const [triedSubmit, setTriedSubmit] = useState(false)
   const EMPTY_FORM = {
     descripcion: '', activo: '', tipo: 'ACTIVO' as TipoGarantia,
     proveedor: '', inicio: '', vencimiento: '', valorCubierto: '',
@@ -679,6 +680,48 @@ export default function EAMGarantias() {
   }
   const [form, setForm] = useState(EMPTY_FORM)
   const setField = (k: keyof typeof EMPTY_FORM, v: string) => setForm((p) => ({ ...p, [k]: v }))
+
+  // Activos reales derivados de los datos de la página
+  const activosDisponibles = useMemo(
+    () => Array.from(new Set([
+      ...garantias.map((g) => g.activo),
+      ...GARANTIAS_POR_VENCER.map((g) => g.activo),
+    ])).filter(Boolean).sort(),
+    [garantias],
+  )
+  // Mapas para autocompletado al elegir un activo
+  const tipoPorActivo = useMemo(() => {
+    const m: Record<string, TipoGarantia> = {}
+    garantias.forEach((g) => { if (!(g.activo in m)) m[g.activo] = g.tipo })
+    return m
+  }, [garantias])
+  const proveedorPorActivo = useMemo(() => {
+    const m: Record<string, string> = {}
+    garantias.forEach((g) => { if (!(g.activo in m)) m[g.activo] = g.proveedor })
+    return m
+  }, [garantias])
+
+  // Al elegir activo, autocompletar tipo y proveedor si se conocen
+  const onSelectActivo = (activo: string) =>
+    setForm((p) => ({
+      ...p,
+      activo,
+      tipo: tipoPorActivo[activo] ?? p.tipo,
+      proveedor: proveedorPorActivo[activo] ?? p.proveedor,
+    }))
+
+  // Validación de campos obligatorios
+  const faltaCampo = {
+    descripcion: !form.descripcion.trim(),
+    activo: !form.activo,
+    proveedor: !form.proveedor,
+    inicio: !form.inicio,
+    vencimiento: !form.vencimiento,
+    valorCubierto: !form.valorCubierto || parseMoney(form.valorCubierto) <= 0,
+  }
+  const formValido = !Object.values(faltaCampo).some(Boolean)
+
+  const abrirCrear = () => { setForm(EMPTY_FORM); setTriedSubmit(false); setCrearOpen(true) }
 
   const diasEntre = (venc: string): number => {
     if (!venc) return 0
@@ -688,6 +731,11 @@ export default function EAMGarantias() {
   }
 
   const crearGarantia = () => {
+    if (!formValido) {
+      setTriedSubmit(true)
+      notify('Complete los campos obligatorios señalados', 'warning')
+      return
+    }
     const dias = diasEntre(form.vencimiento)
     const nueva: Garantia = {
       id: nextId(),
@@ -832,7 +880,7 @@ export default function EAMGarantias() {
             variant="contained"
             size="small"
             startIcon={<AddIcon sx={{ fontSize: '0.9rem' }} />}
-            onClick={() => setCrearOpen(true)}
+            onClick={abrirCrear}
             sx={{
               bgcolor: EAM_COLOR,
               fontSize: '0.75rem',
@@ -1537,33 +1585,100 @@ export default function EAMGarantias() {
           </IconButton>
         </DialogTitle>
         <DialogContent dividers sx={{ borderColor: '#E5E7EB' }}>
-          <Stack spacing={2} mt={0.5}>
-            <TextField fullWidth size="small" label="Descripción *" value={form.descripcion} onChange={(e) => setField('descripcion', e.target.value)} sx={inputSx} />
+          <Stack spacing={1.5} mt={0.5}>
+            <TextField
+              fullWidth size="small" label="Descripción de la garantía *"
+              placeholder="Ej. Motor Cummins ISX 15L – Tracto 001"
+              value={form.descripcion}
+              onChange={(e) => setField('descripcion', e.target.value)}
+              error={triedSubmit && faltaCampo.descripcion}
+              helperText={triedSubmit && faltaCampo.descripcion ? 'La descripción es obligatoria' : ' '}
+              sx={inputSx}
+            />
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField fullWidth size="small" label="Activo / Repuesto" value={form.activo} onChange={(e) => setField('activo', e.target.value)} sx={inputSx}
-                InputProps={{ startAdornment: <InputAdornment position="start"><ActivoIcon sx={{ fontSize: 16, color: '#94A3B8' }} /></InputAdornment> }} />
-              <TextField select fullWidth size="small" label="Tipo *" value={form.tipo} onChange={(e) => setField('tipo', e.target.value)} sx={inputSx}>
-                {['ACTIVO', 'REPUESTO', 'SERVICIO'].map((o) => <MenuItem key={o} value={o}>{o}</MenuItem>)}
+              <TextField
+                select fullWidth size="small" label="Activo / Repuesto *"
+                value={form.activo}
+                onChange={(e) => onSelectActivo(e.target.value)}
+                error={triedSubmit && faltaCampo.activo}
+                helperText={triedSubmit && faltaCampo.activo ? 'Seleccione un activo' : ' '}
+                sx={inputSx}
+                InputProps={{ startAdornment: <InputAdornment position="start"><ActivoIcon sx={{ fontSize: 16, color: '#94A3B8' }} /></InputAdornment> }}
+              >
+                <MenuItem value=""><em>Seleccionar activo...</em></MenuItem>
+                {activosDisponibles.map((a) => <MenuItem key={a} value={a}>{a}</MenuItem>)}
+              </TextField>
+              <TextField
+                select fullWidth size="small" label="Tipo *"
+                value={form.tipo}
+                onChange={(e) => setField('tipo', e.target.value)}
+                helperText=" "
+                sx={inputSx}
+              >
+                {(['ACTIVO', 'REPUESTO', 'SERVICIO'] as TipoGarantia[]).map((o) => <MenuItem key={o} value={o}>{o}</MenuItem>)}
               </TextField>
             </Stack>
-            <TextField select fullWidth size="small" label="Proveedor" value={form.proveedor} onChange={(e) => setField('proveedor', e.target.value)} sx={inputSx}
-              InputProps={{ startAdornment: <InputAdornment position="start"><ProveedorIcon sx={{ fontSize: 16, color: '#94A3B8' }} /></InputAdornment> }}>
+            <TextField
+              select fullWidth size="small" label="Proveedor *"
+              value={form.proveedor}
+              onChange={(e) => setField('proveedor', e.target.value)}
+              error={triedSubmit && faltaCampo.proveedor}
+              helperText={triedSubmit && faltaCampo.proveedor ? 'Seleccione un proveedor' : ' '}
+              sx={inputSx}
+              InputProps={{ startAdornment: <InputAdornment position="start"><ProveedorIcon sx={{ fontSize: 16, color: '#94A3B8' }} /></InputAdornment> }}
+            >
               <MenuItem value=""><em>Seleccionar proveedor...</em></MenuItem>
               {PROVEEDORES_SELECT.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
             </TextField>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField fullWidth size="small" type="date" label="Fecha inicio" InputLabelProps={{ shrink: true }} value={form.inicio} onChange={(e) => setField('inicio', e.target.value)} sx={inputSx} />
-              <TextField fullWidth size="small" type="date" label="Fecha vencimiento *" InputLabelProps={{ shrink: true }} value={form.vencimiento} onChange={(e) => setField('vencimiento', e.target.value)} sx={inputSx} />
+              <TextField
+                fullWidth size="small" type="date" label="Fecha inicio *"
+                InputLabelProps={{ shrink: true }}
+                value={form.inicio}
+                onChange={(e) => setField('inicio', e.target.value)}
+                error={triedSubmit && faltaCampo.inicio}
+                helperText={triedSubmit && faltaCampo.inicio ? 'Indique la fecha de inicio' : ' '}
+                sx={inputSx}
+              />
+              <TextField
+                fullWidth size="small" type="date" label="Fecha vencimiento *"
+                InputLabelProps={{ shrink: true }}
+                value={form.vencimiento}
+                onChange={(e) => setField('vencimiento', e.target.value)}
+                error={triedSubmit && faltaCampo.vencimiento}
+                helperText={triedSubmit && faltaCampo.vencimiento ? 'Indique la fecha de vencimiento' : ' '}
+                sx={inputSx}
+              />
             </Stack>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField fullWidth size="small" label="Valor cubierto" value={form.valorCubierto} onChange={(e) => setField('valorCubierto', e.target.value)} sx={inputSx}
-                InputProps={{ startAdornment: <InputAdornment position="start"><DineroIcon sx={{ fontSize: 16, color: '#94A3B8' }} /></InputAdornment> }} />
-              <TextField select fullWidth size="small" label="Responsable" value={form.responsable} onChange={(e) => setField('responsable', e.target.value)} sx={inputSx}>
+              <TextField
+                fullWidth size="small" type="number" label="Valor cubierto *"
+                value={form.valorCubierto}
+                onChange={(e) => setField('valorCubierto', e.target.value)}
+                error={triedSubmit && faltaCampo.valorCubierto}
+                helperText={triedSubmit && faltaCampo.valorCubierto ? 'Ingrese un valor mayor a 0' : ' '}
+                sx={inputSx}
+                InputProps={{ startAdornment: <InputAdornment position="start"><DineroIcon sx={{ fontSize: 16, color: '#94A3B8' }} /></InputAdornment> }}
+                inputProps={{ min: 0 }}
+              />
+              <TextField
+                select fullWidth size="small" label="Responsable interno"
+                value={form.responsable}
+                onChange={(e) => setField('responsable', e.target.value)}
+                helperText=" "
+                sx={inputSx}
+              >
                 <MenuItem value=""><em>Sin asignar</em></MenuItem>
                 {RESPONSABLES_SELECT.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
               </TextField>
             </Stack>
-            <TextField fullWidth size="small" label="Condiciones" multiline rows={3} value={form.condiciones} onChange={(e) => setField('condiciones', e.target.value)} placeholder="Plazo, kilometraje, exclusiones, requisitos de mantenimiento..." sx={inputSx} />
+            <TextField
+              fullWidth size="small" label="Condiciones" multiline rows={3}
+              value={form.condiciones}
+              onChange={(e) => setField('condiciones', e.target.value)}
+              placeholder="Plazo, kilometraje, exclusiones, requisitos de mantenimiento..."
+              sx={inputSx}
+            />
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
@@ -1571,7 +1686,7 @@ export default function EAMGarantias() {
           <Button
             variant="contained"
             startIcon={<AddIcon />}
-            disabled={!form.descripcion.trim()}
+            disabled={!formValido}
             onClick={crearGarantia}
             sx={{ bgcolor: EAM_COLOR, textTransform: 'none', fontWeight: 700, borderRadius: '10px', '&:hover': { bgcolor: EAM_DARK }, '&.Mui-disabled': { bgcolor: '#CBD5E1', color: '#FFFFFF' } }}
           >
