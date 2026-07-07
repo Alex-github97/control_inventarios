@@ -505,7 +505,51 @@ export default function EAMReportes() {
               <TextField select size="small" label="Rango" value={catRango} onChange={(e) => setCatRango(e.target.value as typeof RANGOS[number])} sx={{ minWidth: 180 }}>
                 {RANGOS.map((o) => <MenuItem key={o} value={o}>{o}</MenuItem>)}
               </TextField>
+              <Button
+                variant="contained" startIcon={<ScheduleIcon />}
+                onClick={() => { setProgForm({ id: '', reporte: REPORTES_CATALOGO[0].titulo, frecuencia: 'Mensual', formato: 'PDF', destinatario: '', proximaEjecucion: '2025-07-31' }); setProgDialog(true) }}
+                sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none', fontWeight: 700, borderRadius: '10px', flexShrink: 0 }}
+              >
+                Programar reporte
+              </Button>
             </Stack>
+
+            {/* Reportes programados */}
+            {programados.length > 0 && (
+              <Paper elevation={0} sx={{ bgcolor: '#FFFFFF', border: `1px solid ${alpha(EAM_COLOR, 0.2)}`, borderRadius: '12px', p: 2, mb: 2.5 }}>
+                <Stack direction="row" alignItems="center" spacing={1} mb={1.5}>
+                  <ScheduleIcon sx={{ fontSize: 18, color: EAM_COLOR }} />
+                  <Typography fontWeight={700} fontSize={13} color="#1E293B">Reportes programados</Typography>
+                  <Chip label={programados.length} size="small" sx={{ bgcolor: alpha(EAM_COLOR, 0.12), color: EAM_DARK, fontWeight: 700, height: 20 }} />
+                </Stack>
+                <Stack spacing={1}>
+                  {programados.map((p) => (
+                    <Stack key={p.id} direction={{ xs: 'column', sm: 'row' }} alignItems={{ sm: 'center' }} spacing={1} sx={{ p: 1.25, borderRadius: '10px', border: '1px solid #E5E7EB', bgcolor: '#F8FAFC' }}>
+                      <Box flex={1}>
+                        <Typography fontSize={13} fontWeight={700} color="#1E293B">{p.reporte}</Typography>
+                        <Typography fontSize={11} color="#64748B">{p.destinatario || 'sin destinatario'}</Typography>
+                      </Box>
+                      <Chip label={p.frecuencia} size="small" sx={{ bgcolor: alpha('#3B82F6', 0.12), color: '#3B82F6', fontWeight: 700, fontSize: 10 }} />
+                      <Chip label={p.formato} size="small" variant="outlined" sx={{ fontSize: 10, color: '#64748B', borderColor: '#E5E7EB' }} />
+                      <Stack direction="row" spacing={0.5} alignItems="center" sx={{ minWidth: 130 }}>
+                        <ClockIcon sx={{ fontSize: 13, color: '#94A3B8' }} />
+                        <Typography fontSize={11} color="#64748B">Próx: {p.proximaEjecucion}</Typography>
+                      </Stack>
+                      <Tooltip title="Ejecutar ahora">
+                        <IconButton size="small" onClick={() => notify(`Reporte programado "${p.reporte}" ejecutado y enviado a ${p.destinatario || 'destinatario'}`)} sx={{ color: EAM_COLOR }}>
+                          <ExportIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Eliminar programación">
+                        <IconButton size="small" onClick={() => { setProgramados((prev) => prev.filter((x) => x.id !== p.id)); notify('Programación eliminada', 'info') }} sx={{ color: '#EF4444' }}>
+                          <CloseIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Stack>
+                  ))}
+                </Stack>
+              </Paper>
+            )}
 
             <Typography fontSize={12} color="#94A3B8" mb={2}>
               {catalogoFiltrado.length} reporte{catalogoFiltrado.length !== 1 ? 's' : ''} · haz clic en una tarjeta para ver la vista previa y exportar · Rango: {catRango}
@@ -695,7 +739,7 @@ export default function EAMReportes() {
             <Grid container spacing={3}>
               {/* Disponibilidad gauge */}
               <Grid size={{ xs: 12, md: 4 }}>
-                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(EAM_COLOR, 0.3)}`, textAlign: 'center' }}>
+                <Card onClick={() => setKpiSel(KPIS_GERENCIALES.disponibilidad)} sx={{ background: '#FFFFFF', border: `1px solid ${alpha(EAM_COLOR, 0.3)}`, textAlign: 'center', cursor: 'pointer', transition: 'all 0.15s', '&:hover': { boxShadow: `0 6px 20px ${alpha(EAM_COLOR, 0.18)}`, transform: 'translateY(-2px)' } }}>
                   <CardContent>
                     <Typography variant="subtitle2" color="#64748B" mb={2} fontWeight={600}>Disponibilidad General</Typography>
                     <Box sx={{ position: 'relative', width: 160, height: 160, mx: 'auto', mb: 1 }}>
@@ -713,7 +757,7 @@ export default function EAMReportes() {
 
               {/* Índice confiabilidad */}
               <Grid size={{ xs: 12, md: 4 }}>
-                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#32AC5C', 0.3)}`, textAlign: 'center' }}>
+                <Card onClick={() => setKpiSel(KPIS_GERENCIALES.confiabilidad)} sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#32AC5C', 0.3)}`, textAlign: 'center', cursor: 'pointer', transition: 'all 0.15s', '&:hover': { boxShadow: `0 6px 20px ${alpha(EAM_COLOR, 0.18)}`, transform: 'translateY(-2px)' } }}>
                   <CardContent>
                     <Typography variant="subtitle2" color="#64748B" mb={2} fontWeight={600}>Índice de Confiabilidad Global</Typography>
                     <Typography variant="h2" fontWeight={900} color="#32AC5C" sx={{ lineHeight: 1.1 }}>91.5</Typography>
@@ -735,7 +779,7 @@ export default function EAMReportes() {
 
               {/* Costo vs presupuesto */}
               <Grid size={{ xs: 12, md: 4 }}>
-                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#3B82F6', 0.3)}` }}>
+                <Card onClick={() => setKpiSel(KPIS_GERENCIALES.costo)} sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#3B82F6', 0.3)}`, cursor: 'pointer', transition: 'all 0.15s', '&:hover': { boxShadow: `0 6px 20px ${alpha('#3B82F6', 0.18)}`, transform: 'translateY(-2px)' } }}>
                   <CardContent>
                     <Typography variant="subtitle2" color="#64748B" mb={2} fontWeight={600}>Costo Mantenimiento YTD vs Presupuesto</Typography>
                     <Stack spacing={2}>
@@ -761,7 +805,7 @@ export default function EAMReportes() {
 
               {/* Cumplimiento PM */}
               <Grid size={{ xs: 12, md: 6 }}>
-                <Card sx={{ background: '#FFFFFF', border: `1px solid ${'#E5E7EB'}` }}>
+                <Card onClick={() => setKpiSel(KPIS_GERENCIALES.pm)} sx={{ background: '#FFFFFF', border: `1px solid ${'#E5E7EB'}`, cursor: 'pointer', transition: 'all 0.15s', '&:hover': { boxShadow: `0 6px 20px ${alpha(EAM_COLOR, 0.18)}`, transform: 'translateY(-2px)' } }}>
                   <CardContent>
                     <Typography variant="subtitle2" color="#64748B" mb={2} fontWeight={600}>Cumplimiento PM</Typography>
                     <Stack direction="row" alignItems="center" spacing={3}>
@@ -1068,7 +1112,7 @@ export default function EAMReportes() {
                               </Box>
 
                               {otsActivo.map((o) => (
-                                <Box key={o.id} sx={{ display: 'grid', gridTemplateColumns: '130px 1fr 220px 90px', gap: 1.5, px: 2, py: 1, borderBottom: '1px solid #E5E7EB', alignItems: 'center', '&:last-of-type': { borderBottom: 'none' } }}>
+                                <Box key={o.id} onClick={(e) => { e.stopPropagation(); setOtSel(o) }} sx={{ display: 'grid', gridTemplateColumns: '130px 1fr 220px 90px', gap: 1.5, px: 2, py: 1, borderBottom: '1px solid #E5E7EB', alignItems: 'center', cursor: 'pointer', '&:hover': { bgcolor: alpha(EAM_COLOR, 0.06) }, '&:last-of-type': { borderBottom: 'none' } }}>
                                   <Typography fontSize={11} fontWeight={700} color={EAM_COLOR}>{o.numero}</Typography>
                                   <Typography fontSize={11} color="#334155" noWrap sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.descripcion}</Typography>
                                   <Stack direction="row" alignItems="center" spacing={0.5}>
@@ -1390,6 +1434,189 @@ export default function EAMReportes() {
             </>
           )
         })()}
+      </Dialog>
+
+      {/* ── Dialog: Detalle de OT de mantenimiento (tab Disponibilidad) ── */}
+      <Dialog open={!!otSel} onClose={() => setOtSel(null)} maxWidth="sm" fullWidth scroll="paper" PaperProps={{ sx: dialogPaperSx }}>
+        {otSel && (() => {
+          const apertura = otSel.fechaApertura.replace('T', ' ')
+          const cierre = otSel.fechaCierre.replace('T', ' ')
+          const activoNombre = otSel.activo.split('—')[0].trim()
+          const activoDesc = otSel.activo.split('—')[1]?.trim() ?? ''
+          return (
+            <>
+              <DialogTitle sx={{ p: 2.5 }}>
+                <Stack direction="row" alignItems="center" spacing={1.5}>
+                  <Box sx={{ color: EAM_COLOR }}><BuildIcon /></Box>
+                  <Box flex={1}>
+                    <Typography variant="h6" fontWeight={800} color={EAM_COLOR}>{otSel.numero}</Typography>
+                    <Typography variant="caption" color="#64748B">{activoNombre} · {activoDesc}</Typography>
+                  </Box>
+                  <Chip label={`${otSel.horasMantenimiento}h`} size="small" sx={{ background: alpha('#F59E0B', 0.15), color: '#B45309', fontWeight: 700 }} />
+                  <IconButton onClick={() => setOtSel(null)} size="small" sx={{ color: '#64748B' }}><CloseIcon /></IconButton>
+                </Stack>
+              </DialogTitle>
+              <Divider sx={{ borderColor: '#E5E7EB' }} />
+              <DialogContent sx={{ p: 2.5 }}>
+                <Grid container spacing={1.5} mb={2}>
+                  {[
+                    { label: 'Horas de mantenimiento', value: `${otSel.horasMantenimiento} h`, color: '#F59E0B' },
+                    { label: 'Impacto disponibilidad', value: otSel.horasMantenimiento > 12 ? 'Alto' : otSel.horasMantenimiento > 4 ? 'Medio' : 'Bajo', color: otSel.horasMantenimiento > 12 ? '#EF4444' : otSel.horasMantenimiento > 4 ? '#F59E0B' : '#16A34A' },
+                    { label: 'Estado', value: 'Completada', color: EAM_DARK },
+                  ].map((k) => (
+                    <Grid key={k.label} size={{ xs: 4 }}>
+                      <Paper elevation={0} sx={{ p: 1.5, border: `1px solid ${alpha(k.color, 0.25)}`, borderRadius: '10px', textAlign: 'center', bgcolor: '#FFFFFF' }}>
+                        <Typography fontSize={14} fontWeight={800} color={k.color} noWrap>{k.value}</Typography>
+                        <Typography fontSize={10} color="#64748B">{k.label}</Typography>
+                      </Paper>
+                    </Grid>
+                  ))}
+                </Grid>
+
+                <Paper elevation={0} sx={{ p: 2, border: '1px solid #E5E7EB', borderRadius: '10px', mb: 2 }}>
+                  <Typography fontWeight={700} fontSize={13} color="#1E293B" mb={1.5}>Trazabilidad de la intervención</Typography>
+                  <Grid container spacing={1.5}>
+                    {[
+                      { label: 'Activo', value: activoNombre },
+                      { label: 'Descripción del activo', value: activoDesc || '—' },
+                      { label: 'Apertura', value: apertura },
+                      { label: 'Cierre', value: cierre },
+                      { label: 'Duración', value: `${otSel.horasMantenimiento} h` },
+                      { label: 'Mes de cierre', value: otSel.fechaCierre.slice(0, 7) },
+                    ].map((f) => (
+                      <Grid key={f.label} size={{ xs: 6, sm: 4 }}>
+                        <Typography fontSize={10} color="#94A3B8" fontWeight={700} textTransform="uppercase" letterSpacing="0.05em">{f.label}</Typography>
+                        <Typography fontSize={13} fontWeight={600} color="#1E293B">{f.value}</Typography>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Paper>
+
+                <Paper elevation={0} sx={{ p: 2, border: `1px solid ${alpha(EAM_COLOR, 0.3)}`, borderRadius: '10px', bgcolor: alpha(EAM_COLOR, 0.05) }}>
+                  <Typography fontSize={11} fontWeight={700} color={EAM_DARK} textTransform="uppercase" letterSpacing="0.05em" mb={0.5}>Trabajo realizado</Typography>
+                  <Typography fontSize={13} color="#334155">{otSel.descripcion}</Typography>
+                </Paper>
+              </DialogContent>
+              <Divider sx={{ borderColor: '#E5E7EB' }} />
+              <DialogActions sx={{ p: 2 }}>
+                <Button onClick={() => setOtSel(null)} sx={{ color: '#64748B', textTransform: 'none' }}>Cerrar</Button>
+                <Button variant="contained" startIcon={<ExportIcon />} onClick={() => notify(`Detalle de la OT ${otSel.numero} exportado a PDF`)} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none', fontWeight: 700, borderRadius: '10px' }}>Exportar</Button>
+              </DialogActions>
+            </>
+          )
+        })()}
+      </Dialog>
+
+      {/* ── Dialog: Drill-down de KPI gerencial (tab Presidencia) ── */}
+      <Dialog open={!!kpiSel} onClose={() => setKpiSel(null)} maxWidth="sm" fullWidth scroll="paper" PaperProps={{ sx: dialogPaperSx }}>
+        {kpiSel && (() => {
+          const maxSerie = Math.max(...kpiSel.serie.map((s) => s.valor)) || 1
+          return (
+            <>
+              <DialogTitle sx={{ p: 2.5 }}>
+                <Stack direction="row" alignItems="center" spacing={1.5}>
+                  <Box sx={{ color: kpiSel.color }}><AssessmentIcon /></Box>
+                  <Box flex={1}>
+                    <Typography variant="h6" fontWeight={800} color="#1E293B">{kpiSel.titulo}</Typography>
+                    <Typography variant="caption" color="#64748B">KPI gerencial · Objetivo: {kpiSel.objetivo}</Typography>
+                  </Box>
+                  <Chip label={kpiSel.estado.replace('_', ' ')} size="small" sx={{ background: alpha(kpiEstadoColor(kpiSel.estado), 0.15), color: kpiEstadoColor(kpiSel.estado), fontWeight: 700, fontSize: 10 }} />
+                  <IconButton onClick={() => setKpiSel(null)} size="small" sx={{ color: '#64748B' }}><CloseIcon /></IconButton>
+                </Stack>
+              </DialogTitle>
+              <Divider sx={{ borderColor: '#E5E7EB' }} />
+              <DialogContent sx={{ p: 2.5 }}>
+                <Stack direction="row" alignItems="baseline" spacing={1.5} mb={2}>
+                  <Typography variant="h3" fontWeight={900} color={kpiSel.color}>{kpiSel.valor}</Typography>
+                  <Typography variant="body2" color="#64748B">Objetivo {kpiSel.objetivo}</Typography>
+                </Stack>
+                <Typography variant="body2" color="#64748B" mb={2}>{kpiSel.descripcion}</Typography>
+
+                <Paper elevation={0} sx={{ p: 2, border: '1px solid #E5E7EB', borderRadius: '10px', mb: 2 }}>
+                  <Typography fontWeight={700} fontSize={13} color="#1E293B" mb={1.5}>Componentes del indicador</Typography>
+                  <Grid container spacing={1.5}>
+                    {kpiSel.detalle.map((d) => (
+                      <Grid key={d.label} size={{ xs: 6 }}>
+                        <Typography fontSize={10} color="#94A3B8" fontWeight={700} textTransform="uppercase" letterSpacing="0.05em">{d.label}</Typography>
+                        <Typography fontSize={13} fontWeight={600} color="#1E293B">{d.value}</Typography>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Paper>
+
+                <Paper elevation={0} sx={{ p: 2, border: '1px solid #E5E7EB', borderRadius: '10px' }}>
+                  <Typography fontWeight={700} fontSize={13} color="#1E293B" mb={1.5}>Tendencia últimos 6 meses</Typography>
+                  <Stack spacing={1}>
+                    {kpiSel.serie.map((s, i) => (
+                      <Stack key={i} direction="row" alignItems="center" spacing={1.5}>
+                        <Typography variant="caption" color="#64748B" sx={{ width: 28 }}>{s.mes}</Typography>
+                        <Box flex={1}>
+                          <Box sx={{ height: 8, borderRadius: 4, background: '#E5E7EB', overflow: 'hidden' }}>
+                            <Box sx={{ height: '100%', width: `${(s.valor / maxSerie) * 100}%`, background: i === kpiSel.serie.length - 1 ? kpiSel.color : alpha(kpiSel.color, 0.5), borderRadius: 4, transition: 'width 0.5s ease' }} />
+                          </Box>
+                        </Box>
+                        <Typography variant="caption" color="#1E293B" fontWeight={700} sx={{ width: 44, textAlign: 'right' }}>{s.valor}</Typography>
+                      </Stack>
+                    ))}
+                  </Stack>
+                </Paper>
+              </DialogContent>
+              <Divider sx={{ borderColor: '#E5E7EB' }} />
+              <DialogActions sx={{ p: 2 }}>
+                <Button onClick={() => setKpiSel(null)} sx={{ color: '#64748B', textTransform: 'none' }}>Cerrar</Button>
+                <Button variant="contained" startIcon={<ExportIcon />} onClick={() => notify(`KPI "${kpiSel.titulo}" exportado a PDF`)} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none', fontWeight: 700, borderRadius: '10px' }}>Exportar</Button>
+              </DialogActions>
+            </>
+          )
+        })()}
+      </Dialog>
+
+      {/* ── Dialog: Programar reporte (creación) ── */}
+      <Dialog open={progDialog} onClose={() => setProgDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: dialogPaperSx }}>
+        <DialogTitle sx={{ p: 2.5 }}>
+          <Stack direction="row" alignItems="center" spacing={1.5}>
+            <Box sx={{ p: 1.2, borderRadius: 2, background: alpha(EAM_COLOR, 0.15), color: EAM_COLOR }}><ScheduleIcon /></Box>
+            <Box flex={1}>
+              <Typography variant="h6" fontWeight={800} color="#1E293B">Programar reporte</Typography>
+              <Typography variant="caption" color="#64748B">Genera y envía este reporte de forma automática</Typography>
+            </Box>
+            <IconButton onClick={() => setProgDialog(false)} size="small" sx={{ color: '#64748B' }}><CloseIcon /></IconButton>
+          </Stack>
+        </DialogTitle>
+        <Divider sx={{ borderColor: '#E5E7EB' }} />
+        <DialogContent sx={{ p: 2.5 }}>
+          <Stack spacing={2} mt={0.5}>
+            <TextField select fullWidth size="small" label="Reporte" value={progForm.reporte} onChange={(e) => setProgForm((p) => ({ ...p, reporte: e.target.value }))}>
+              {REPORTES_CATALOGO.map((r) => <MenuItem key={r.id} value={r.titulo}>{r.titulo}</MenuItem>)}
+            </TextField>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <TextField select fullWidth size="small" label="Frecuencia" value={progForm.frecuencia} onChange={(e) => setProgForm((p) => ({ ...p, frecuencia: e.target.value }))}>
+                {FRECUENCIAS_PROG.map((f) => <MenuItem key={f} value={f}>{f}</MenuItem>)}
+              </TextField>
+              <TextField select fullWidth size="small" label="Formato" value={progForm.formato} onChange={(e) => setProgForm((p) => ({ ...p, formato: e.target.value }))}>
+                {FORMATOS_PROG.map((f) => <MenuItem key={f} value={f}>{f}</MenuItem>)}
+              </TextField>
+            </Stack>
+            <TextField fullWidth size="small" label="Destinatario (email)" placeholder="correo@icoltrans.com.co" value={progForm.destinatario} onChange={(e) => setProgForm((p) => ({ ...p, destinatario: e.target.value }))} />
+            <TextField fullWidth size="small" label="Próxima ejecución" type="date" InputLabelProps={{ shrink: true }} value={progForm.proximaEjecucion} onChange={(e) => setProgForm((p) => ({ ...p, proximaEjecucion: e.target.value }))} />
+          </Stack>
+        </DialogContent>
+        <Divider sx={{ borderColor: '#E5E7EB' }} />
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setProgDialog(false)} sx={{ color: '#64748B', textTransform: 'none' }}>Cancelar</Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              const nuevo: ReporteProgramado = { ...progForm, id: `prog-${Date.now()}` }
+              setProgramados((prev) => [...prev, nuevo])
+              setProgDialog(false)
+              notify(`Reporte "${nuevo.reporte}" programado (${nuevo.frecuencia})`)
+            }}
+            sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none', fontWeight: 700, borderRadius: '10px' }}
+          >
+            Programar
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* ── Snackbar global ── */}

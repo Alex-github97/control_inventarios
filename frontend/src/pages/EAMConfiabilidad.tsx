@@ -414,7 +414,7 @@ function TopFailureDialog({ row, onClose, onNav }: { row: TopFailureRow | null; 
 }
 
 // ─── Dialog: Detalle FMEA ──────────────────────────────────────────────────────
-function FmeaDialog({ row, onClose, onExport }: { row: FmeaRow | null; onClose: () => void; onExport: (r: FmeaRow) => void }) {
+function FmeaDialog({ row, onClose, onExport, onChangeEstado }: { row: FmeaRow | null; onClose: () => void; onExport: (r: FmeaRow) => void; onChangeEstado: (id: number, estado: FmeaRow['estado']) => void }) {
   if (!row) return null
   const rpn = row.s * row.o * row.d
   const rpnColor = rpn >= 200 ? '#ef4444' : rpn >= 100 ? '#f97316' : '#22c55e'
@@ -476,13 +476,35 @@ function FmeaDialog({ row, onClose, onExport }: { row: FmeaRow | null; onClose: 
           <Grid size={{ xs: 6, sm: 4 }}><DetailField label="Responsable" value={row.responsable} /></Grid>
           <Grid size={{ xs: 6, sm: 4 }}><DetailField label="Fecha objetivo" value={row.fechaObjetivo} /></Grid>
           <Grid size={{ xs: 12, sm: 4 }}>
-            <Typography fontSize={10.5} fontWeight={700} color="#94A3B8" textTransform="uppercase" letterSpacing="0.06em">Estado</Typography>
-            <Box mt={0.5}><EstadoChip estado={row.estado} /></Box>
+            <Typography fontSize={10.5} fontWeight={700} color="#94A3B8" textTransform="uppercase" letterSpacing="0.06em">Estado del análisis</Typography>
+            <TextField
+              select size="small" fullWidth value={row.estado}
+              onChange={(e) => onChangeEstado(row.id, e.target.value as FmeaRow['estado'])}
+              sx={{ mt: 0.5 }}
+            >
+              {(['Abierto', 'En Proceso', 'Cerrado'] as const).map((o) => (
+                <MenuItem key={o} value={o}>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <Box sx={{ width: 9, height: 9, borderRadius: '50%', bgcolor: ESTADO_FMEA_COLOR[o] }} />
+                    <span>{o}</span>
+                  </Stack>
+                </MenuItem>
+              ))}
+            </TextField>
           </Grid>
         </Grid>
       </DialogContent>
       <DialogActions sx={{ p: 2, pt: 1 }}>
         <Button onClick={onClose} sx={{ color: '#64748B', textTransform: 'none' }}>Cerrar</Button>
+        {row.estado !== 'Cerrado' && (
+          <Button
+            variant="outlined" startIcon={<CheckIcon />}
+            onClick={() => onChangeEstado(row.id, 'Cerrado')}
+            sx={{ color: '#16A34A', borderColor: alpha('#22c55e', 0.5), '&:hover': { borderColor: '#22c55e', bgcolor: alpha('#22c55e', 0.06) }, borderRadius: '10px', fontWeight: 700, textTransform: 'none' }}
+          >
+            Cerrar análisis
+          </Button>
+        )}
         <Button variant="contained" startIcon={<ExportIcon />} onClick={() => onExport(row)} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, borderRadius: '10px', fontWeight: 700, textTransform: 'none' }}>
           Exportar ficha FMEA
         </Button>
@@ -1014,7 +1036,7 @@ function FmeaTab({
 function AnalisisFallasTab({
   onCausaClick, onFailureClick, onExport, search, setSearch, categoriaFilter, setCategoriaFilter,
 }: {
-  onCausaClick: (c: { causa: string; casos: number; accion: string }) => void
+  onCausaClick: (c: CausaRaiz) => void
   onFailureClick: (f: MonthlyFailure) => void
   onExport: () => void
   search: string
@@ -1168,7 +1190,7 @@ export default function EAMConfiabilidad() {
   const [topFailSel, setTopFailSel] = useState<TopFailureRow | null>(null)
   const [fmeaSel, setFmeaSel] = useState<FmeaRow | null>(null)
   const [failureSel, setFailureSel] = useState<MonthlyFailure | null>(null)
-  const [causaSel, setCausaSel] = useState<{ causa: string; casos: number; accion: string } | null>(null)
+  const [causaSel, setCausaSel] = useState<CausaRaiz | null>(null)
   const [newFmeaOpen, setNewFmeaOpen] = useState(false)
 
   // Snackbar
@@ -1185,6 +1207,12 @@ export default function EAMConfiabilidad() {
     ])
     setNewFmeaOpen(false)
     notify(`Análisis FMEA agregado (RPN ${form.s * form.o * form.d})`)
+  }
+
+  const handleChangeFmeaEstado = (id: number, estado: FmeaRow['estado']) => {
+    setFmeaRows((prev) => prev.map((r) => (r.id === id ? { ...r, estado } : r)))
+    setFmeaSel((prev) => (prev && prev.id === id ? { ...prev, estado } : prev))
+    notify(`Estado del análisis FMEA actualizado a "${estado}"`)
   }
 
   const tabLabels = ['KPIs Confiabilidad', 'FMEA', 'Análisis de Fallas']
@@ -1270,13 +1298,19 @@ export default function EAMConfiabilidad() {
         row={fmeaSel}
         onClose={() => setFmeaSel(null)}
         onExport={(r) => { setFmeaSel(null); notify(`Ficha FMEA de "${r.componente}" exportada`, 'info') }}
+        onChangeEstado={handleChangeFmeaEstado}
       />
       <FailureDialog
         row={failureSel}
         onClose={() => setFailureSel(null)}
         onNav={(ot) => { setFailureSel(null); navigate(`/eam/ordenes-trabajo?ot=${encodeURIComponent(ot)}`) }}
       />
-      <CausaRaizDialog causa={causaSel} total={totalCausas} onClose={() => setCausaSel(null)} />
+      <CausaRaizDialog
+        causa={causaSel}
+        total={totalCausas}
+        onClose={() => setCausaSel(null)}
+        onExport={(c) => { setCausaSel(null); notify(`Informe RCA de "${c.causa}" exportado`, 'info') }}
+      />
       <NewFmeaDialog open={newFmeaOpen} onClose={() => setNewFmeaOpen(false)} onCreate={handleCreateFmea} />
 
       {/* Snackbar */}
