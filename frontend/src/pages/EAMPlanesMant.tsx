@@ -342,6 +342,7 @@ export default function EAMPlanesMant() {
   // Crear plan
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState<NewPlanForm>(EMPTY_FORM);
+  const [triedSubmit, setTriedSubmit] = useState(false);
 
   // Snackbar
   const [snack, setSnack] = useState<{ open: boolean; msg: string; sev: 'success' | 'info' | 'warning' }>({ open: false, msg: '', sev: 'success' });
@@ -353,6 +354,12 @@ export default function EAMPlanesMant() {
   const hayFiltros = search || filterOtType !== 'Todos' || filterAssetType !== 'Todos' || filterUrgencia !== 'Todos';
 
   const assetTypes = useMemo(() => Array.from(new Set(plans.map(p => p.assetType))), [plans]);
+  const assetOptions = useMemo(() => Array.from(new Set(plans.map(p => p.asset))).filter(Boolean).sort(), [plans]);
+  const assetTypeByCode = useMemo(() => {
+    const m: Record<string, string> = {};
+    plans.forEach(p => { if (p.asset) m[p.asset] = p.assetType; });
+    return m;
+  }, [plans]);
 
   const filteredPlans = useMemo(() => plans.filter(p => {
     if (filterOtType !== 'Todos' && p.otType !== filterOtType) return false;
@@ -375,9 +382,14 @@ export default function EAMPlanesMant() {
   const setField = (field: keyof NewPlanForm, value: string) =>
     setForm(prev => ({ ...prev, [field]: value }));
 
-  const openCreate = () => { setForm(EMPTY_FORM); setCreateOpen(true); };
+  const openCreate = () => { setForm(EMPTY_FORM); setTriedSubmit(false); setCreateOpen(true); };
 
   const handleCreate = () => {
+    if (!form.name.trim() || !form.asset) {
+      setTriedSubmit(true);
+      notify('Complete los campos obligatorios: nombre y activo', 'warning');
+      return;
+    }
     const nextNum = plans.length + 1;
     const newPlan: Plan = {
       id: `PM-${String(nextNum).padStart(3, '0')}`,
@@ -1022,12 +1034,19 @@ export default function EAMPlanesMant() {
         <DialogContent dividers sx={{ borderColor: '#E5E7EB' }}>
           <Stack spacing={2} mt={0.5}>
             <TextField fullWidth size="small" label="Nombre del plan *" value={form.name}
-              onChange={(e) => setField('name', e.target.value)} sx={inputSx} placeholder="Ej. Cambio de aceite motor VH-004" />
+              onChange={(e) => setField('name', e.target.value)} sx={inputSx} placeholder="Ej. Cambio de aceite motor VH-004"
+              error={triedSubmit && !form.name.trim()}
+              helperText={triedSubmit && !form.name.trim() ? 'El nombre es obligatorio' : ' '} />
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField fullWidth size="small" label="Activo *" value={form.asset}
-                onChange={(e) => setField('asset', e.target.value)} sx={inputSx} placeholder="Ej. VH-004" />
+              <TextField select fullWidth size="small" label="Activo *" value={form.asset}
+                onChange={(e) => { const code = e.target.value; setForm(prev => ({ ...prev, asset: code, assetType: assetTypeByCode[code] ?? prev.assetType })); }}
+                error={triedSubmit && !form.asset}
+                helperText={triedSubmit && !form.asset ? 'Seleccione el activo' : 'Se autocompleta el tipo'}
+                sx={inputSx}>
+                {assetOptions.map(o => <MenuItem key={o} value={o}>{o}</MenuItem>)}
+              </TextField>
               <TextField select fullWidth size="small" label="Tipo de activo" value={form.assetType}
-                onChange={(e) => setField('assetType', e.target.value)} sx={inputSx}>
+                onChange={(e) => setField('assetType', e.target.value)} sx={inputSx} helperText=" ">
                 {['Vehículo', 'Montacargas', 'Infraestructura', 'Equipo'].map(o => <MenuItem key={o} value={o}>{o}</MenuItem>)}
               </TextField>
             </Stack>
@@ -1073,7 +1092,7 @@ export default function EAMPlanesMant() {
             variant="contained"
             startIcon={<AddIcon />}
             onClick={handleCreate}
-            disabled={!form.name.trim()}
+            disabled={!form.name.trim() || !form.asset}
             sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, borderRadius: '10px', fontWeight: 700, px: 3 }}
           >
             Crear plan
