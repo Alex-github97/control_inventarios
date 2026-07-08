@@ -175,14 +175,17 @@ export default function TarifaxMotor() {
             </Box>
             <Box sx={{ mt: 2, p: 1.5, bgcolor: '#F8FAFC', borderRadius: '8px' }}>
               <Typography sx={{ fontSize: 11.5, color: '#64748B', lineHeight: 1.8 }}>
-                <strong style={{ color: '#475569' }}>Columna clave:</strong>{' '}
-                <code style={{ background: '#E2E8F0', padding: '1px 6px', borderRadius: 4, fontSize: 11 }}>ORIGEN</code>
+                <strong style={{ color: '#475569' }}>Cruce por:</strong>{' '}
+                <code style={{ background: '#E2E8F0', padding: '1px 6px', borderRadius: 4, fontSize: 11 }}>ORIGEN</code>{' '}
+                <code style={{ background: '#E2E8F0', padding: '1px 6px', borderRadius: 4, fontSize: 11 }}>DESTINO</code>{' '}
+                <code style={{ background: '#E2E8F0', padding: '1px 6px', borderRadius: 4, fontSize: 11 }}>TIPO_VEHICULO</code>{' '}
+                <code style={{ background: '#E2E8F0', padding: '1px 6px', borderRadius: 4, fontSize: 11 }}>CARROCERIA</code>
                 <br />
                 <strong style={{ color: '#475569' }}>Precio SICETAC:</strong>{' '}
                 <code style={{ background: '#E2E8F0', padding: '1px 6px', borderRadius: 4, fontSize: 11 }}>COSTO_TOTAL_VIAJE</code>
                 <br />
-                <strong style={{ color: '#475569' }}>Tipo de cruce:</strong>{' '}
-                <code style={{ background: '#E2E8F0', padding: '1px 6px', borderRadius: 4, fontSize: 11 }}>LEFT JOIN</code>
+                <strong style={{ color: '#475569' }}>Cruce:</strong>{' '}
+                <code style={{ background: '#E2E8F0', padding: '1px 6px', borderRadius: 4, fontSize: 11 }}>por ruta + categoría de vehículo</code>
               </Typography>
             </Box>
           </Card>
@@ -225,7 +228,7 @@ export default function TarifaxMotor() {
                   Clic para seleccionar archivo
                 </Typography>
                 <Typography sx={{ fontSize: 11, color: '#94A3B8', mt: 0.5 }}>
-                  Formato .xlsx o .xls · Debe incluir columna ORIGEN
+                  Formato .xlsx o .xls · Debe incluir ORIGEN, DESTINO, TIPO_VEHICULO y CARROCERIA
                 </Typography>
               </Box>
             ) : (
