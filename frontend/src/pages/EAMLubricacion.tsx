@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import {
   Box, Typography, Tabs, Tab, Card, CardContent, Chip, Grid,
   Stack, Divider, Table, TableBody, TableCell,
@@ -17,9 +18,12 @@ import {
   CalendarMonth as CalendarIcon,
   CheckCircle as CheckIcon,
   Warning as WarningIcon,
+  UploadFile as UploadFileIcon,
+  AutoAwesome as AutoAwesomeIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
+import { apiClient } from '@/api/client';
 
 const EAM_COLOR = '#32AC5C';
 const EAM_DARK = '#27884A';
@@ -236,6 +240,127 @@ export default function EAMLubricacion() {
   const [sampleSearch, setSampleSearch] = useState('');
   const [filterContamination, setFilterContamination] = useState('Todos');
 
+  // ── Laboratorio: muestras mutables + registro / IA / carga masiva ──
+  const [samples, setSamples] = useState<OilSample[]>(SAMPLES);
+  const emptySample = {
+    id: '', asset: '', component: '', date: '', lubricant: '', hours: '',
+    fe: '', cu: '', al: '', si: '', water: '', viscosity: '',
+    contamination: 'NORMAL' as Contamination, alert: '',
+  };
+  const [sampleForm, setSampleForm] = useState({ ...emptySample });
+  const [sampleDlgOpen, setSampleDlgOpen] = useState(false);
+  const [sampleTried, setSampleTried] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const ocrInputRef = useRef<HTMLInputElement>(null);
+  const bulkInputRef = useRef<HTMLInputElement>(null);
+
+  const guessContam = (fe: number, si: number, water: number): Contamination =>
+    (fe > 100 || si > 30 || water > 0.1) ? 'CRITICA'
+      : (fe > 50 || si > 15 || water > 0.05) ? 'MODERADA' : 'NORMAL';
+
+  const openSampleForm = (prefill?: Partial<typeof emptySample>) => {
+    setSampleForm({ ...emptySample, ...prefill });
+    setSampleTried(false);
+    setSampleDlgOpen(true);
+  };
+
+  const saveSample = () => {
+    if (!sampleForm.asset.trim() || !sampleForm.component.trim() || !sampleForm.date.trim()) {
+      setSampleTried(true);
+      notify('Complete al menos activo, componente y fecha', 'warning');
+      return;
+    }
+    const nueva: OilSample = {
+      id: sampleForm.id.trim() || `MU-${String(samples.length + 1).padStart(3, '0')}`,
+      asset: sampleForm.asset.trim(), component: sampleForm.component.trim(),
+      date: sampleForm.date.trim(), lubricant: sampleForm.lubricant.trim(),
+      hours: Number(sampleForm.hours) || 0,
+      fe: Number(sampleForm.fe) || 0, cu: Number(sampleForm.cu) || 0,
+      al: Number(sampleForm.al) || 0, si: Number(sampleForm.si) || 0,
+      water: Number(sampleForm.water) || 0, viscosity: Number(sampleForm.viscosity) || 0,
+      contamination: sampleForm.contamination,
+      alert: sampleForm.alert.trim() || null,
+    };
+    setSamples(prev => [nueva, ...prev]);
+    setSampleDlgOpen(false);
+    notify(`Muestra ${nueva.id} registrada`, 'success');
+  };
+
+  // Cargar PDF/foto -> extracción por IA (Claude vision en el backend)
+  const handleOcrFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setAiLoading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', f);
+      const res = await apiClient.post('/lubricacion/ocr', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }, timeout: 120000,
+      });
+      const c: Record<string, string> = res.data?.campos ?? {};
+      openSampleForm({
+        asset: c.activo || '', component: c.componente || '', date: c.fecha || '',
+        lubricant: c.lubricante || '', hours: c.horas || '',
+        fe: c.fe || '', cu: c.cu || '', al: c.al || '', si: c.si || '',
+        water: c.agua || '', viscosity: c.viscosidad || '',
+        contamination: guessContam(Number(c.fe) || 0, Number(c.si) || 0, Number(c.agua) || 0),
+      });
+      notify('Datos extraídos por IA — revisa y confirma antes de guardar', 'info');
+    } catch (err: any) {
+      notify(err?.response?.data?.detail || 'No se pudo extraer con IA. Ingresa los datos manualmente.', 'warning');
+      openSampleForm();
+    } finally {
+      setAiLoading(false);
+      if (ocrInputRef.current) ocrInputRef.current.value = '';
+    }
+  };
+
+  // Plantilla + carga masiva desde Excel
+  const downloadSampleTemplate = () => {
+    const headers = ['muestra_id', 'activo', 'componente', 'fecha', 'lubricante', 'horas', 'fe', 'cu', 'al', 'si', 'agua', 'viscosidad', 'contaminacion', 'alerta'];
+    const ejemplo = ['MU-EJ1', 'VH-001', 'Motor', '2026-06-10', 'Shell Rimula R4X 15W-40', '14520', '82', '12', '8', '18', '0.05', '108.4', 'MODERADA', 'Fe elevado'];
+    const ws = XLSX.utils.aoa_to_sheet([headers, ejemplo]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Muestras');
+    XLSX.writeFile(wb, 'plantilla_muestras_aceite.xlsx');
+  };
+
+  const handleBulkFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    try {
+      const buf = await f.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array' });
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+      const nuevas: OilSample[] = rows
+        .filter(r => String(r.activo ?? r.ACTIVO ?? '').trim())
+        .map((r, i) => {
+          const g = (k: string) => String((r as any)[k] ?? (r as any)[k.toUpperCase()] ?? '').trim();
+          const fe = Number(g('fe')) || 0, si = Number(g('si')) || 0, water = Number(g('agua')) || 0;
+          const rawC = g('contaminacion').toUpperCase();
+          const cont = (['NORMAL', 'MODERADA', 'CRITICA'].includes(rawC) ? rawC : guessContam(fe, si, water)) as Contamination;
+          return {
+            id: g('muestra_id') || `MU-${String(samples.length + i + 1).padStart(3, '0')}`,
+            asset: g('activo'), component: g('componente'), date: g('fecha'),
+            lubricant: g('lubricante'), hours: Number(g('horas')) || 0,
+            fe, cu: Number(g('cu')) || 0, al: Number(g('al')) || 0, si, water,
+            viscosity: Number(g('viscosidad')) || 0, contamination: cont,
+            alert: g('alerta') || null,
+          };
+        });
+      if (nuevas.length) {
+        setSamples(prev => [...nuevas, ...prev]);
+        notify(`${nuevas.length} muestra(s) cargadas desde el archivo`, 'success');
+      } else {
+        notify('No se encontraron filas válidas (revisa la columna "activo")', 'warning');
+      }
+    } catch {
+      notify('No se pudo leer el archivo. Usa la plantilla proporcionada.', 'warning');
+    } finally {
+      if (bulkInputRef.current) bulkInputRef.current.value = '';
+    }
+  };
+
   // ── Dialog states ──
   const [selectedPoint, setSelectedPoint] = useState<LubePoint | null>(null);
   const [selectedSample, setSelectedSample] = useState<OilSample | null>(null);
@@ -303,7 +428,7 @@ export default function EAMLubricacion() {
   const kpiOk = lubePoints.filter(p => p.status === 'AL_DIA').length;
 
   // ── Laboratorio: muestras filtradas + KPIs derivados ──
-  const filteredSamples = useMemo(() => SAMPLES.filter(s => {
+  const filteredSamples = useMemo(() => samples.filter(s => {
     if (filterContamination !== 'Todos' && s.contamination !== filterContamination) return false;
     if (sampleSearch.trim()) {
       const q = sampleSearch.toLowerCase();
@@ -315,13 +440,13 @@ export default function EAMLubricacion() {
       ) return false;
     }
     return true;
-  }), [filterContamination, sampleSearch]);
+  }), [filterContamination, sampleSearch, samples]);
 
-  const labAlerts = SAMPLES.filter(s => s.alert).length;
-  const labCritical = SAMPLES.filter(s => s.contamination === 'CRITICA').length;
-  const labModerate = SAMPLES.filter(s => s.contamination === 'MODERADA').length;
+  const labAlerts = samples.filter(s => s.alert).length;
+  const labCritical = samples.filter(s => s.contamination === 'CRITICA').length;
+  const labModerate = samples.filter(s => s.contamination === 'MODERADA').length;
 
-  const sampleFor = (id?: string) => (id ? SAMPLES.find(s => s.id === id) ?? null : null);
+  const sampleFor = (id?: string) => (id ? samples.find(s => s.id === id) ?? null : null);
 
   // ── Validación de campos obligatorios del formulario ──
   const missing = {
@@ -566,7 +691,7 @@ export default function EAMLubricacion() {
           {/* KPIs */}
           <Grid container spacing={2} mb={3}>
             {[
-              { label: 'Total Muestras', value: String(SAMPLES.length), color: '#60A5FA', sub: 'en el historial' },
+              { label: 'Total Muestras', value: String(samples.length), color: '#60A5FA', sub: 'en el historial' },
               { label: 'Alertas Activas', value: String(labAlerts), color: '#F87171', sub: 'requieren acción' },
               { label: 'Contaminación Crítica', value: String(labCritical), color: '#FCD34D', sub: 'cambio inmediato' },
               { label: 'En Vigilancia', value: String(labModerate), color: '#34D399', sub: 'tendencia moderada' },
@@ -592,6 +717,30 @@ export default function EAMLubricacion() {
               <Typography fontSize={12} color="#94A3B8" mb={2}>
                 Haz clic en una muestra para ver la interpretación tribológica completa
               </Typography>
+              <Stack direction="row" spacing={1} mb={2} flexWrap="wrap" useFlexGap>
+                <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={() => openSampleForm()}
+                  sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none', fontWeight: 700 }}>
+                  Registrar muestra
+                </Button>
+                <Button variant="contained" size="small" startIcon={<AutoAwesomeIcon />} disabled={aiLoading}
+                  onClick={() => ocrInputRef.current?.click()}
+                  sx={{ bgcolor: '#8B5CF6', '&:hover': { bgcolor: '#7C3AED' }, textTransform: 'none', fontWeight: 700 }}>
+                  {aiLoading ? 'Analizando…' : 'Cargar PDF/foto (IA)'}
+                </Button>
+                <Button variant="outlined" size="small" startIcon={<UploadFileIcon />} onClick={() => bulkInputRef.current?.click()}
+                  sx={{ color: EAM_DARK, borderColor: alpha(EAM_COLOR, 0.4), textTransform: 'none', fontWeight: 700 }}>
+                  Cargue masivo
+                </Button>
+                <Button variant="text" size="small" startIcon={<DownloadIcon />} onClick={downloadSampleTemplate}
+                  sx={{ color: '#64748B', textTransform: 'none' }}>
+                  Plantilla
+                </Button>
+                <input ref={ocrInputRef} type="file" hidden accept="image/*,application/pdf" onChange={handleOcrFile} />
+                <input ref={bulkInputRef} type="file" hidden accept=".xlsx,.xls,.csv" onChange={handleBulkFile} />
+              </Stack>
+              {aiLoading && (
+                <LinearProgress sx={{ mb: 2, borderRadius: 4, bgcolor: alpha('#8B5CF6', 0.15), '& .MuiLinearProgress-bar': { bgcolor: '#8B5CF6' } }} />
+              )}
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} mb={2} flexWrap="wrap" useFlexGap>
                 <TextField
                   size="small" placeholder="Buscar muestra, activo, componente o lubricante…" value={sampleSearch}
@@ -688,6 +837,76 @@ export default function EAMLubricacion() {
             </CardContent>
           </Card>
         </TabPanel>
+
+        {/* Dialog: registrar / confirmar muestra de laboratorio */}
+        <Dialog open={sampleDlgOpen} onClose={() => setSampleDlgOpen(false)} maxWidth="md" fullWidth
+          PaperProps={{ sx: { bgcolor: '#FFFFFF', border: `1px solid ${alpha(EAM_COLOR, 0.3)}`, borderRadius: '16px' } }}>
+          <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#1E293B' }}>
+            <Stack direction="row" alignItems="center" spacing={1.5}>
+              <Box sx={{ width: 36, height: 36, borderRadius: '10px', bgcolor: alpha(EAM_COLOR, 0.15), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <LabIcon sx={{ color: EAM_COLOR }} />
+              </Box>
+              <Box>
+                <Typography fontWeight={800} fontSize={16} color="#1E293B">Registrar muestra de aceite</Typography>
+                <Typography fontSize={12} color="#64748B">Verifica los valores antes de guardar</Typography>
+              </Box>
+            </Stack>
+            <IconButton size="small" onClick={() => setSampleDlgOpen(false)} sx={{ color: 'grey.500' }}>
+              <CloseIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent dividers sx={{ borderColor: '#E5E7EB' }}>
+            <Stack spacing={2} mt={0.5}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField fullWidth size="small" label="Activo *" value={sampleForm.asset}
+                  onChange={e => setSampleForm(f => ({ ...f, asset: e.target.value }))}
+                  error={sampleTried && !sampleForm.asset.trim()}
+                  helperText={sampleTried && !sampleForm.asset.trim() ? 'Requerido' : ' '} />
+                <TextField fullWidth size="small" label="Componente *" value={sampleForm.component}
+                  onChange={e => setSampleForm(f => ({ ...f, component: e.target.value }))}
+                  error={sampleTried && !sampleForm.component.trim()}
+                  helperText={sampleTried && !sampleForm.component.trim() ? 'Requerido' : ' '} />
+              </Stack>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField fullWidth size="small" label="Fecha *" type="date" value={sampleForm.date}
+                  onChange={e => setSampleForm(f => ({ ...f, date: e.target.value }))} InputLabelProps={{ shrink: true }}
+                  error={sampleTried && !sampleForm.date.trim()}
+                  helperText={sampleTried && !sampleForm.date.trim() ? 'Requerido' : ' '} />
+                <TextField fullWidth size="small" label="Horas / km" type="number" value={sampleForm.hours}
+                  onChange={e => setSampleForm(f => ({ ...f, hours: e.target.value }))} helperText=" " />
+              </Stack>
+              <TextField fullWidth size="small" label="Lubricante" value={sampleForm.lubricant}
+                onChange={e => setSampleForm(f => ({ ...f, lubricant: e.target.value }))} />
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField fullWidth size="small" label="Fe (ppm)" type="number" value={sampleForm.fe} onChange={e => setSampleForm(f => ({ ...f, fe: e.target.value }))} />
+                <TextField fullWidth size="small" label="Cu (ppm)" type="number" value={sampleForm.cu} onChange={e => setSampleForm(f => ({ ...f, cu: e.target.value }))} />
+                <TextField fullWidth size="small" label="Al (ppm)" type="number" value={sampleForm.al} onChange={e => setSampleForm(f => ({ ...f, al: e.target.value }))} />
+                <TextField fullWidth size="small" label="Si (ppm)" type="number" value={sampleForm.si} onChange={e => setSampleForm(f => ({ ...f, si: e.target.value }))} />
+              </Stack>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField fullWidth size="small" label="Agua (%)" type="number" value={sampleForm.water} onChange={e => setSampleForm(f => ({ ...f, water: e.target.value }))} />
+                <TextField fullWidth size="small" label="Viscosidad @40" type="number" value={sampleForm.viscosity} onChange={e => setSampleForm(f => ({ ...f, viscosity: e.target.value }))} />
+                <TextField select fullWidth size="small" label="Contaminación" value={sampleForm.contamination}
+                  onChange={e => setSampleForm(f => ({ ...f, contamination: e.target.value as Contamination }))}>
+                  <MenuItem value="NORMAL">Normal</MenuItem>
+                  <MenuItem value="MODERADA">Moderada</MenuItem>
+                  <MenuItem value="CRITICA">Crítica</MenuItem>
+                </TextField>
+              </Stack>
+              <TextField fullWidth size="small" label="Alerta / observación" value={sampleForm.alert}
+                onChange={e => setSampleForm(f => ({ ...f, alert: e.target.value }))}
+                placeholder="Ej. Fe elevado — posible desgaste de cilindros" />
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setSampleDlgOpen(false)} sx={{ color: '#64748B', fontWeight: 600 }}>Cancelar</Button>
+            <Button variant="contained" startIcon={<CheckIcon />} onClick={saveSample}
+              disabled={!sampleForm.asset.trim() || !sampleForm.component.trim() || !sampleForm.date.trim()}
+              sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, borderRadius: '10px', fontWeight: 700, px: 3 }}>
+              Guardar muestra
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         {/* TAB 2 — Tendencias */}
         <TabPanel value={tab} index={2}>

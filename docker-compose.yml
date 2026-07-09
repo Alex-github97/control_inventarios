@@ -40,6 +40,8 @@ services:
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production-super-secret-key-256bits}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       CORS_ORIGINS: '${CORS_ORIGINS:-["http://localhost:5173","http://localhost:3000"]}'
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LUBE_OCR_MODEL: ${LUBE_OCR_MODEL:-claude-opus-4-8}
     ports:
       - "8000:8000"
     volumes:

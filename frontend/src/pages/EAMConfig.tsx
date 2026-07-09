@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react'
+﻿import React, { useState, useEffect, useRef } from 'react'
 import {
   Box, Typography, Tabs, Tab, Grid, Card, CardContent, Chip,
   Stack, alpha, Divider, IconButton, Button, TextField, MenuItem,
@@ -25,6 +25,7 @@ import {
   Close as CloseIcon,
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { apiClient } from '@/api/client'
 
 const EAM_COLOR = '#32AC5C'
 
@@ -296,6 +297,54 @@ export default function EAMConfig() {
   })
   const [periodActSel, setPeriodActSel]     = useState<string[]>([])
   const [periodActHoras, setPeriodActHoras] = useState<Record<string, number>>({})
+
+  // ── IA de Lubricación: dataset de entrenamiento (ejemplos etiquetados few-shot) ──
+  const IA_GRUPOS: { titulo: string; campos: [string, string][] }[] = [
+    { titulo: 'Identificación', campos: [['activo', 'Activo'], ['componente', 'Componente'], ['lubricante', 'Lubricante'], ['fecha', 'Fecha'], ['horas', 'Horas / km'], ['laboratorio', 'Laboratorio'], ['muestra_id', 'N.º muestra']] },
+    { titulo: 'Metales de desgaste (ppm)', campos: [['fe', 'Hierro Fe'], ['cr', 'Cromo Cr'], ['pb', 'Plomo Pb'], ['cu', 'Cobre Cu'], ['sn', 'Estaño Sn'], ['al', 'Aluminio Al'], ['ni', 'Níquel Ni'], ['mo', 'Molibdeno Mo']] },
+    { titulo: 'Contaminación', campos: [['si', 'Silicio Si'], ['na', 'Sodio Na'], ['k', 'Potasio K'], ['agua', 'Agua %'], ['combustible', 'Combustible %'], ['hollin', 'Hollín %'], ['glicol', 'Glicol']] },
+    { titulo: 'Aditivos (ppm)', campos: [['ca', 'Calcio Ca'], ['mg', 'Magnesio Mg'], ['zn', 'Zinc Zn'], ['p', 'Fósforo P'], ['b', 'Boro B'], ['ba', 'Bario Ba']] },
+    { titulo: 'Propiedades y salud del aceite', campos: [['viscosidad', 'Visc. 40°C (cSt)'], ['visc100', 'Visc. 100°C (cSt)'], ['indice_viscosidad', 'Índice viscosidad'], ['tbn', 'TBN (mgKOH/g)'], ['tan', 'TAN (mgKOH/g)'], ['oxidacion', 'Oxidación'], ['nitracion', 'Nitración'], ['sulfatacion', 'Sulfatación']] },
+    { titulo: 'Conteo de partículas', campos: [['iso4406', 'Código ISO 4406'], ['pq', 'Índice PQ']] },
+    { titulo: 'Diagnóstico', campos: [['severidad', 'Estado / severidad'], ['recomendacion', 'Recomendación']] },
+  ]
+  const [iaEjemplos, setIaEjemplos] = useState<any[]>([])
+  const [iaFile, setIaFile] = useState<File | null>(null)
+  const [iaPreview, setIaPreview] = useState('')
+  const [iaDatos, setIaDatos] = useState<Record<string, string>>({})
+  const [iaSaving, setIaSaving] = useState(false)
+  const [iaMsg, setIaMsg] = useState('')
+  const iaInputRef = useRef<HTMLInputElement>(null)
+
+  const cargarEjemplos = async () => {
+    try { const r = await apiClient.get('/lubricacion/ia/ejemplos'); setIaEjemplos(r.data || []) } catch { /* servidor sin IA aún */ }
+  }
+  useEffect(() => { if (tab === 5) cargarEjemplos() }, [tab])
+
+  const onIaFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] || null
+    setIaFile(f)
+    setIaPreview(f && f.type.startsWith('image/') ? URL.createObjectURL(f) : '')
+  }
+  const guardarEjemplo = async () => {
+    if (!iaFile) { setIaMsg('Selecciona la imagen del boletín'); return }
+    setIaSaving(true); setIaMsg('')
+    try {
+      const fd = new FormData()
+      fd.append('file', iaFile)
+      fd.append('datos', JSON.stringify(iaDatos))
+      await apiClient.post('/lubricacion/ia/ejemplos', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      setIaFile(null); setIaPreview(''); setIaDatos({})
+      if (iaInputRef.current) iaInputRef.current.value = ''
+      setIaMsg('Ejemplo agregado al entrenamiento ✓')
+      cargarEjemplos()
+    } catch (err: any) {
+      setIaMsg(err?.response?.data?.detail || 'No se pudo guardar el ejemplo')
+    } finally { setIaSaving(false) }
+  }
+  const eliminarEjemplo = async (id: string) => {
+    try { await apiClient.delete(`/lubricacion/ia/ejemplos/${id}`); cargarEjemplos() } catch { /* ignore */ }
+  }
   const [periodActCat, setPeriodActCat]     = useState('Todos')
 
   useEffect(() => {
@@ -400,7 +449,7 @@ export default function EAMConfig() {
 
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
           <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ '& .MuiTab-root': { color: 'grey.400', textTransform: 'none', fontWeight: 600 }, '& .Mui-selected': { color: EAM_COLOR }, '& .MuiTabs-indicator': { backgroundColor: EAM_COLOR } }}>
-            {['Catálogos', 'Contratistas', 'Umbrales & Alertas', 'Integraciones', 'Disponibilidad'].map((l, i) => <Tab key={i} label={l} />)}
+            {['Catálogos', 'Contratistas', 'Umbrales & Alertas', 'Integraciones', 'Disponibilidad', 'IA de Lubricación'].map((l, i) => <Tab key={i} label={l} />)}
           </Tabs>
         </Box>
 
@@ -1282,6 +1331,89 @@ export default function EAMConfig() {
                 </Button>
               </DialogActions>
             </Dialog>
+          </Box>
+        )}
+
+        {/* ── Tab 5: IA de Lubricación (entrenamiento del lector de boletines) ── */}
+        {tab === 5 && (
+          <Box>
+            <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2, mb: 2 }}>
+              <CardContent>
+                <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 0.5 }}>
+                  Entrenamiento del lector de boletines (IA)
+                </Typography>
+                <Typography fontSize={12.5} color="#64748B" mb={2}>
+                  Sube imágenes o PDF de boletines de laboratorio y escribe sus valores correctos. Estos ejemplos se
+                  usan como referencia (few-shot) para que la extracción automática por IA — la opción "Cargar PDF/foto"
+                  en Lubricación → Laboratorio de Aceites — sea más precisa con tus formatos.
+                </Typography>
+                {/* Cargue del boletín — ancho completo y separado de las casillas */}
+                <Box
+                  onClick={() => iaInputRef.current?.click()}
+                  sx={{ border: '2px dashed', borderColor: alpha(EAM_COLOR, 0.4), borderRadius: 2, p: 3, textAlign: 'center', cursor: 'pointer', bgcolor: alpha(EAM_COLOR, 0.03), minHeight: 150, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 4 }}
+                >
+                  {iaPreview
+                    ? <Box component="img" src={iaPreview} sx={{ maxWidth: '100%', maxHeight: 240, borderRadius: 1 }} />
+                    : <Typography fontSize={13} color="#64748B">{iaFile ? `Archivo: ${iaFile.name}` : 'Clic para seleccionar imagen o PDF del boletín'}</Typography>}
+                </Box>
+                <input ref={iaInputRef} type="file" hidden accept="image/*,application/pdf" onChange={onIaFile} />
+
+                <Typography fontSize={12} color="#94A3B8" mb={2}>
+                  Escribe los valores exactos del boletín para cada parámetro (deja en blanco los que no aparezcan).
+                </Typography>
+
+                {/* Parámetros medidos, agrupados por categoría */}
+                {IA_GRUPOS.map((g) => (
+                  <Box key={g.titulo} sx={{ mb: 3 }}>
+                    <Typography sx={{ fontSize: 12, fontWeight: 800, color: EAM_COLOR, textTransform: 'uppercase', letterSpacing: '0.05em', mb: 1.25 }}>
+                      {g.titulo}
+                    </Typography>
+                    <Grid container spacing={1.5}>
+                      {g.campos.map(([k, label]) => (
+                        <Grid key={k} size={{ xs: 6, sm: 4, md: 3 }}>
+                          <TextField fullWidth size="small" label={label} value={iaDatos[k] ?? ''}
+                            onChange={(e) => setIaDatos((d) => ({ ...d, [k]: e.target.value }))} />
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </Box>
+                ))}
+                <Stack direction="row" alignItems="center" spacing={2} mt={2}>
+                  <Button variant="contained" onClick={guardarEjemplo} disabled={iaSaving || !iaFile}
+                    sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#27884A' }, fontWeight: 700, borderRadius: '8px', textTransform: 'none' }}>
+                    {iaSaving ? 'Guardando…' : 'Agregar ejemplo de entrenamiento'}
+                  </Button>
+                  {iaMsg && <Typography fontSize={12.5} color={iaMsg.includes('✓') ? '#16A34A' : '#DC2626'}>{iaMsg}</Typography>}
+                </Stack>
+              </CardContent>
+            </Card>
+
+            <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
+              <CardContent>
+                <Typography variant="subtitle1" sx={{ color: '#1E293B', fontWeight: 700, mb: 1 }}>
+                  Ejemplos de entrenamiento ({iaEjemplos.length})
+                </Typography>
+                {iaEjemplos.length === 0 ? (
+                  <Typography fontSize={13} color="#94A3B8">Aún no hay ejemplos. Agrega el primero arriba.</Typography>
+                ) : (
+                  <Stack spacing={1}>
+                    {iaEjemplos.map((ex) => (
+                      <Box key={ex.id} sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 1.25, border: '1px solid #E5E7EB', borderRadius: 1.5, bgcolor: '#F8FAFC' }}>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography fontSize={13} fontWeight={600} color="#1E293B" noWrap>
+                            {ex.campos?.activo || '—'} · {ex.campos?.componente || ''} {ex.campos?.fecha ? `· ${ex.campos.fecha}` : ''}
+                          </Typography>
+                          <Typography fontSize={11} color="#64748B" noWrap>
+                            Fe {ex.campos?.fe || '—'} · Cu {ex.campos?.cu || '—'} · Si {ex.campos?.si || '—'} · Visc {ex.campos?.viscosidad || '—'}{ex.created_at ? ` — ${ex.created_at}` : ''}
+                          </Typography>
+                        </Box>
+                        <Button size="small" color="error" onClick={() => eliminarEjemplo(ex.id)} sx={{ textTransform: 'none' }}>Eliminar</Button>
+                      </Box>
+                    ))}
+                  </Stack>
+                )}
+              </CardContent>
+            </Card>
           </Box>
         )}
       </Box>
