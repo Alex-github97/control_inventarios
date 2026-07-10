@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react'
+﻿import React, { useState, useEffect } from 'react'
 import {
   Box, Typography, Tabs, Tab, Grid, Card, CardContent, Chip,
   Stack, alpha, Divider, IconButton, Button, TextField, MenuItem,
@@ -308,42 +308,33 @@ export default function EAMConfig() {
     { titulo: 'Conteo de partículas', campos: [['iso4406', 'Código ISO 4406'], ['pq', 'Índice PQ']] },
     { titulo: 'Diagnóstico', campos: [['severidad', 'Estado / severidad'], ['recomendacion', 'Recomendación']] },
   ]
-  const [iaEjemplos, setIaEjemplos] = useState<any[]>([])
-  const [iaFile, setIaFile] = useState<File | null>(null)
-  const [iaPreview, setIaPreview] = useState('')
-  const [iaDatos, setIaDatos] = useState<Record<string, string>>({})
+  const [iaSinon, setIaSinon] = useState<Record<string, string>>({})
   const [iaSaving, setIaSaving] = useState(false)
   const [iaMsg, setIaMsg] = useState('')
-  const iaInputRef = useRef<HTMLInputElement>(null)
 
-  const cargarEjemplos = async () => {
-    try { const r = await apiClient.get('/lubricacion/ia/ejemplos'); setIaEjemplos(r.data || []) } catch { /* servidor sin IA aún */ }
+  const cargarConfig = async () => {
+    try {
+      const r = await apiClient.get('/lubricacion/config')
+      const sin: Record<string, string[]> = r.data?.sinonimos ?? {}
+      const asText: Record<string, string> = {}
+      Object.keys(sin).forEach((k) => { asText[k] = (sin[k] || []).join(', ') })
+      setIaSinon(asText)
+    } catch { /* servidor sin OCR configurado aún */ }
   }
-  useEffect(() => { if (tab === 5) cargarEjemplos() }, [tab])
+  useEffect(() => { if (tab === 5) cargarConfig() }, [tab])
 
-  const onIaFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0] || null
-    setIaFile(f)
-    setIaPreview(f && f.type.startsWith('image/') ? URL.createObjectURL(f) : '')
-  }
-  const guardarEjemplo = async () => {
-    if (!iaFile) { setIaMsg('Selecciona la imagen del boletín'); return }
+  const guardarConfig = async () => {
     setIaSaving(true); setIaMsg('')
     try {
-      const fd = new FormData()
-      fd.append('file', iaFile)
-      fd.append('datos', JSON.stringify(iaDatos))
-      await apiClient.post('/lubricacion/ia/ejemplos', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-      setIaFile(null); setIaPreview(''); setIaDatos({})
-      if (iaInputRef.current) iaInputRef.current.value = ''
-      setIaMsg('Ejemplo agregado al entrenamiento ✓')
-      cargarEjemplos()
+      const sinonimos: Record<string, string[]> = {}
+      Object.keys(iaSinon).forEach((k) => {
+        sinonimos[k] = iaSinon[k].split(',').map((s) => s.trim()).filter(Boolean)
+      })
+      await apiClient.put('/lubricacion/config', { sinonimos })
+      setIaMsg('Diccionario guardado ✓')
     } catch (err: any) {
-      setIaMsg(err?.response?.data?.detail || 'No se pudo guardar el ejemplo')
+      setIaMsg(err?.response?.data?.detail || 'No se pudo guardar el diccionario')
     } finally { setIaSaving(false) }
-  }
-  const eliminarEjemplo = async (id: string) => {
-    try { await apiClient.delete(`/lubricacion/ia/ejemplos/${id}`); cargarEjemplos() } catch { /* ignore */ }
   }
   const [periodActCat, setPeriodActCat]     = useState('Todos')
 
@@ -1334,84 +1325,44 @@ export default function EAMConfig() {
           </Box>
         )}
 
-        {/* ── Tab 5: IA de Lubricación (entrenamiento del lector de boletines) ── */}
+        {/* ── Tab 5: OCR de Lubricación (diccionario del motor propio de lectura) ── */}
         {tab === 5 && (
           <Box>
             <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2, mb: 2 }}>
               <CardContent>
                 <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 0.5 }}>
-                  Entrenamiento del lector de boletines (IA)
+                  Diccionario del lector de boletines (OCR local)
                 </Typography>
                 <Typography fontSize={12.5} color="#64748B" mb={2}>
-                  Sube imágenes o PDF de boletines de laboratorio y escribe sus valores correctos. Estos ejemplos se
-                  usan como referencia (few-shot) para que la extracción automática por IA — la opción "Cargar PDF/foto"
-                  en Lubricación → Laboratorio de Aceites — sea más precisa con tus formatos.
-                </Typography>
-                {/* Cargue del boletín — ancho completo y separado de las casillas */}
-                <Box
-                  onClick={() => iaInputRef.current?.click()}
-                  sx={{ border: '2px dashed', borderColor: alpha(EAM_COLOR, 0.4), borderRadius: 2, p: 3, textAlign: 'center', cursor: 'pointer', bgcolor: alpha(EAM_COLOR, 0.03), minHeight: 150, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 4 }}
-                >
-                  {iaPreview
-                    ? <Box component="img" src={iaPreview} sx={{ maxWidth: '100%', maxHeight: 240, borderRadius: 1 }} />
-                    : <Typography fontSize={13} color="#64748B">{iaFile ? `Archivo: ${iaFile.name}` : 'Clic para seleccionar imagen o PDF del boletín'}</Typography>}
-                </Box>
-                <input ref={iaInputRef} type="file" hidden accept="image/*,application/pdf" onChange={onIaFile} />
-
-                <Typography fontSize={12} color="#94A3B8" mb={2}>
-                  Escribe los valores exactos del boletín para cada parámetro (deja en blanco los que no aparezcan).
+                  El lector es un motor propio que corre en el servidor (sin IA externa): OCR local (Tesseract /
+                  extracción de PDF) + reglas. Para cada parámetro define las palabras o sinónimos que el motor debe
+                  buscar en el boletín, separadas por coma. Ajustarlas mejora la lectura con tus formatos de laboratorio.
+                  La lectura se usa en Lubricación → Laboratorio de Aceites → "Leer boletín".
                 </Typography>
 
-                {/* Parámetros medidos, agrupados por categoría */}
                 {IA_GRUPOS.map((g) => (
                   <Box key={g.titulo} sx={{ mb: 3 }}>
                     <Typography sx={{ fontSize: 12, fontWeight: 800, color: EAM_COLOR, textTransform: 'uppercase', letterSpacing: '0.05em', mb: 1.25 }}>
                       {g.titulo}
                     </Typography>
-                    <Grid container spacing={1.5}>
+                    <Stack spacing={1.5}>
                       {g.campos.map(([k, label]) => (
-                        <Grid key={k} size={{ xs: 6, sm: 4, md: 3 }}>
-                          <TextField fullWidth size="small" label={label} value={iaDatos[k] ?? ''}
-                            onChange={(e) => setIaDatos((d) => ({ ...d, [k]: e.target.value }))} />
-                        </Grid>
+                        <TextField key={k} fullWidth size="small" label={`${label} — sinónimos`}
+                          value={iaSinon[k] ?? ''}
+                          onChange={(e) => setIaSinon((d) => ({ ...d, [k]: e.target.value }))}
+                          placeholder="p. ej. hierro, fe, iron" helperText=" " />
                       ))}
-                    </Grid>
+                    </Stack>
                   </Box>
                 ))}
-                <Stack direction="row" alignItems="center" spacing={2} mt={2}>
-                  <Button variant="contained" onClick={guardarEjemplo} disabled={iaSaving || !iaFile}
+
+                <Stack direction="row" alignItems="center" spacing={2} mt={1}>
+                  <Button variant="contained" onClick={guardarConfig} disabled={iaSaving}
                     sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#27884A' }, fontWeight: 700, borderRadius: '8px', textTransform: 'none' }}>
-                    {iaSaving ? 'Guardando…' : 'Agregar ejemplo de entrenamiento'}
+                    {iaSaving ? 'Guardando…' : 'Guardar diccionario'}
                   </Button>
                   {iaMsg && <Typography fontSize={12.5} color={iaMsg.includes('✓') ? '#16A34A' : '#DC2626'}>{iaMsg}</Typography>}
                 </Stack>
-              </CardContent>
-            </Card>
-
-            <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
-              <CardContent>
-                <Typography variant="subtitle1" sx={{ color: '#1E293B', fontWeight: 700, mb: 1 }}>
-                  Ejemplos de entrenamiento ({iaEjemplos.length})
-                </Typography>
-                {iaEjemplos.length === 0 ? (
-                  <Typography fontSize={13} color="#94A3B8">Aún no hay ejemplos. Agrega el primero arriba.</Typography>
-                ) : (
-                  <Stack spacing={1}>
-                    {iaEjemplos.map((ex) => (
-                      <Box key={ex.id} sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 1.25, border: '1px solid #E5E7EB', borderRadius: 1.5, bgcolor: '#F8FAFC' }}>
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography fontSize={13} fontWeight={600} color="#1E293B" noWrap>
-                            {ex.campos?.activo || '—'} · {ex.campos?.componente || ''} {ex.campos?.fecha ? `· ${ex.campos.fecha}` : ''}
-                          </Typography>
-                          <Typography fontSize={11} color="#64748B" noWrap>
-                            Fe {ex.campos?.fe || '—'} · Cu {ex.campos?.cu || '—'} · Si {ex.campos?.si || '—'} · Visc {ex.campos?.viscosidad || '—'}{ex.created_at ? ` — ${ex.created_at}` : ''}
-                          </Typography>
-                        </Box>
-                        <Button size="small" color="error" onClick={() => eliminarEjemplo(ex.id)} sx={{ textTransform: 'none' }}>Eliminar</Button>
-                      </Box>
-                    ))}
-                  </Stack>
-                )}
               </CardContent>
             </Card>
           </Box>

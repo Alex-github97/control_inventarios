@@ -305,9 +305,9 @@ export default function EAMLubricacion() {
         water: c.agua || '', viscosity: c.viscosidad || '',
         contamination: guessContam(Number(c.fe) || 0, Number(c.si) || 0, Number(c.agua) || 0),
       });
-      notify('Datos extraídos por IA — revisa y confirma antes de guardar', 'info');
+      notify('Datos leídos del boletín — revisa y confirma antes de guardar', 'info');
     } catch (err: any) {
-      notify(err?.response?.data?.detail || 'No se pudo extraer con IA. Ingresa los datos manualmente.', 'warning');
+      notify(err?.response?.data?.detail || 'No se pudo leer el boletín. Ingresa los datos manualmente.', 'warning');
       openSampleForm();
     } finally {
       setAiLoading(false);
@@ -725,7 +725,7 @@ export default function EAMLubricacion() {
                 <Button variant="contained" size="small" startIcon={<AutoAwesomeIcon />} disabled={aiLoading}
                   onClick={() => ocrInputRef.current?.click()}
                   sx={{ bgcolor: '#8B5CF6', '&:hover': { bgcolor: '#7C3AED' }, textTransform: 'none', fontWeight: 700 }}>
-                  {aiLoading ? 'Analizando…' : 'Cargar PDF/foto (IA)'}
+                  {aiLoading ? 'Leyendo…' : 'Leer boletín (PDF/foto)'}
                 </Button>
                 <Button variant="outlined" size="small" startIcon={<UploadFileIcon />} onClick={() => bulkInputRef.current?.click()}
                   sx={{ color: EAM_DARK, borderColor: alpha(EAM_COLOR, 0.4), textTransform: 'none', fontWeight: 700 }}>
