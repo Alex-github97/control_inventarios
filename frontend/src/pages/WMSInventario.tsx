@@ -41,40 +41,56 @@ import { Layout } from '@/components/layout/Layout'
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
+interface ProductoRef {
+  id: number
+  sku: string
+  nombre: string
+  unidad_medida?: string
+}
+
+interface UbicacionRef {
+  id: number
+  codigo: string
+  pasillo?: string
+  estanteria?: string
+  nivel?: string
+  posicion?: string
+}
+
+interface LoteRef {
+  id: number
+  numero_lote: string
+  fecha_vencimiento?: string | null
+}
+
 interface StockItem {
   id: number
-  producto_sku: string
-  producto_nombre: string
-  ubicacion_codigo: string
-  pasillo: string
-  estanteria: string
-  nivel: string
-  posicion: string
-  lote_numero: string | null
+  producto_id: number
+  producto?: ProductoRef
+  ubicacion_id: number
+  ubicacion?: UbicacionRef
+  lote_id: number | null
+  lote?: LoteRef | null
   cantidad_disponible: number
   cantidad_reservada: number
   cantidad_bloqueada: number
-  almacen_id?: number
+  updated_at?: string
 }
 
-interface Ajuste {
+// Historial de movimientos (ajustes / transferencias) — WMSMovimientoResponse
+interface Movimiento {
   id: number
-  producto_nombre: string
-  ubicacion_codigo: string
+  tipo: string
+  producto_id: number
+  producto?: ProductoRef
+  ubicacion_origen_id: number | null
+  ubicacion_destino_id: number | null
+  lote_id: number | null
   cantidad: number
-  motivo: string
-  fecha: string
-  usuario: string
-}
-
-interface Transferencia {
-  id: number
-  producto_nombre: string
-  ubicacion_origen: string
-  ubicacion_destino: string
-  cantidad: number
-  fecha: string
-  notas?: string
+  referencia_documento?: string | null
+  usuario_id?: number | null
+  notas?: string | null
+  created_at: string
 }
 
 interface ConteoDetalle {
@@ -121,7 +137,7 @@ const EMPTY_AJUSTE = {
   producto_id: '',
   ubicacion_id: '',
   lote_id: '',
-  cantidad: '',
+  cantidad_nueva: '',
   motivo: '',
 }
 
@@ -174,7 +190,7 @@ export default function WMSInventario() {
     },
   })
 
-  const ajustesQuery = useQuery<Ajuste[]>({
+  const ajustesQuery = useQuery<Movimiento[]>({
     queryKey: ['wms-ajustes'],
     queryFn: async () => {
       const res = await api.get('/wms/inventario/ajustes/')
@@ -182,7 +198,7 @@ export default function WMSInventario() {
     },
   })
 
-  const transferenciasQuery = useQuery<Transferencia[]>({
+  const transferenciasQuery = useQuery<Movimiento[]>({
     queryKey: ['wms-transferencias'],
     queryFn: async () => {
       const res = await api.get('/wms/inventario/transferencias/')
@@ -226,7 +242,13 @@ export default function WMSInventario() {
 
   const mutAjuste = useMutation({
     mutationFn: (data: typeof EMPTY_AJUSTE) =>
-      api.post('/wms/inventario/ajuste/', data),
+      api.post('/wms/inventario/ajuste/', {
+        producto_id: Number(data.producto_id),
+        ubicacion_id: Number(data.ubicacion_id),
+        lote_id: data.lote_id ? Number(data.lote_id) : null,
+        cantidad_nueva: Number(data.cantidad_nueva),
+        motivo: data.motivo || undefined,
+      }),
     onSuccess: () => {
       toast.success('Ajuste registrado correctamente')
       setAjusteForm({ ...EMPTY_AJUSTE })
@@ -240,7 +262,14 @@ export default function WMSInventario() {
 
   const mutTransferencia = useMutation({
     mutationFn: (data: typeof EMPTY_TRANSFERENCIA) =>
-      api.post('/wms/inventario/transferencia/', data),
+      api.post('/wms/inventario/transferencia/', {
+        producto_id: Number(data.producto_id),
+        ubicacion_origen_id: Number(data.ubicacion_origen_id),
+        ubicacion_destino_id: Number(data.ubicacion_destino_id),
+        lote_id: data.lote_id ? Number(data.lote_id) : null,
+        cantidad: Number(data.cantidad),
+        notas: data.notas || undefined,
+      }),
     onSuccess: () => {
       toast.success('Transferencia registrada correctamente')
       setTransForm({ ...EMPTY_TRANSFERENCIA })
@@ -254,7 +283,13 @@ export default function WMSInventario() {
 
   const mutConteo = useMutation({
     mutationFn: (data: typeof EMPTY_CONTEO) =>
-      api.post('/wms/conteos/', data),
+      api.post('/wms/conteos/', {
+        almacen_id: Number(data.almacen_id),
+        tipo: data.tipo,
+        fecha_programada: data.fecha_programada,
+        notas: data.notas || undefined,
+        detalles: [],
+      }),
     onSuccess: () => {
       toast.success('Conteo creado correctamente')
       setConteoForm({ ...EMPTY_CONTEO })
@@ -303,9 +338,9 @@ export default function WMSInventario() {
   const estadoBadgeColor = (
     estado: string
   ): 'warning' | 'info' | 'success' | 'error' | 'default' => {
-    if (estado === 'PENDIENTE') return 'warning'
+    if (estado === 'PROGRAMADO') return 'warning'
     if (estado === 'EN_PROCESO') return 'info'
-    if (estado === 'COMPLETADO') return 'success'
+    if (estado === 'COMPLETO') return 'success'
     if (estado === 'CANCELADO') return 'error'
     return 'default'
   }
@@ -317,6 +352,27 @@ export default function WMSInventario() {
       return dateStr
     }
   }
+
+  const ubicacionLabel = (id: number | null | undefined) => {
+    if (id == null) return '-'
+    const u = ubicaciones.find((x) => x.id === id)
+    return u ? u.codigo : `#${id}`
+  }
+
+  const isNum = (v: string) => v.trim() !== '' && !Number.isNaN(Number(v))
+
+  const ajusteValido =
+    isNum(ajusteForm.producto_id) &&
+    isNum(ajusteForm.ubicacion_id) &&
+    isNum(ajusteForm.cantidad_nueva) &&
+    Number(ajusteForm.cantidad_nueva) >= 0
+
+  const transValido =
+    isNum(transForm.producto_id) &&
+    isNum(transForm.ubicacion_origen_id) &&
+    isNum(transForm.ubicacion_destino_id) &&
+    isNum(transForm.cantidad) &&
+    Number(transForm.cantidad) > 0
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -465,12 +521,30 @@ export default function WMSInventario() {
                             <TableRow key={item.id} hover>
                               <TableCell>
                                 <Typography variant="body2" fontFamily="monospace">
-                                  {item.producto_sku}
+                                  {item.producto?.sku ?? '-'}
                                 </Typography>
                               </TableCell>
-                              <TableCell>{item.producto_nombre}</TableCell>
-                              <TableCell>{item.ubicacion_codigo}</TableCell>
-                              <TableCell>{item.lote_numero ?? '-'}</TableCell>
+                              <TableCell>{item.producto?.nombre ?? '-'}</TableCell>
+                              <TableCell>
+                                {item.ubicacion?.codigo ?? '-'}
+                                {item.ubicacion &&
+                                (item.ubicacion.pasillo ||
+                                  item.ubicacion.estanteria ||
+                                  item.ubicacion.nivel ||
+                                  item.ubicacion.posicion) ? (
+                                  <Typography variant="caption" color="text.secondary" display="block">
+                                    {[
+                                      item.ubicacion.pasillo,
+                                      item.ubicacion.estanteria,
+                                      item.ubicacion.nivel,
+                                      item.ubicacion.posicion,
+                                    ]
+                                      .filter(Boolean)
+                                      .join(' · ')}
+                                  </Typography>
+                                ) : null}
+                              </TableCell>
+                              <TableCell>{item.lote?.numero_lote ?? '-'}</TableCell>
                               <TableCell align="right">
                                 <Chip
                                   label={item.cantidad_disponible}
@@ -619,12 +693,13 @@ export default function WMSInventario() {
                     <TextField
                       fullWidth
                       size="small"
-                      label="Cantidad"
+                      label="Nueva cantidad (stock resultante)"
                       type="number"
-                      helperText="Negativo = disminución"
-                      value={ajusteForm.cantidad}
+                      helperText="Nueva cantidad (stock resultante)"
+                      inputProps={{ min: 0 }}
+                      value={ajusteForm.cantidad_nueva}
                       onChange={(e) =>
-                        setAjusteForm((f) => ({ ...f, cantidad: e.target.value }))
+                        setAjusteForm((f) => ({ ...f, cantidad_nueva: e.target.value }))
                       }
                     />
 
@@ -642,7 +717,7 @@ export default function WMSInventario() {
 
                     <Button
                       variant="contained"
-                      disabled={mutAjuste.isPending}
+                      disabled={mutAjuste.isPending || !ajusteValido}
                       onClick={() => mutAjuste.mutate(ajusteForm)}
                       sx={{ bgcolor: WMS_COLOR, '&:hover': { bgcolor: '#1e3a8a' } }}
                     >
@@ -676,9 +751,9 @@ export default function WMSInventario() {
                           <TableCell sx={{ fontWeight: 700 }} align="right">
                             Cantidad
                           </TableCell>
-                          <TableCell sx={{ fontWeight: 700 }}>Motivo</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>Referencia</TableCell>
                           <TableCell sx={{ fontWeight: 700 }}>Fecha</TableCell>
-                          <TableCell sx={{ fontWeight: 700 }}>Usuario</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>Notas</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -694,21 +769,18 @@ export default function WMSInventario() {
                             ))
                           : ajustes.map((a) => (
                               <TableRow key={a.id} hover>
-                                <TableCell>{a.producto_nombre}</TableCell>
-                                <TableCell>{a.ubicacion_codigo}</TableCell>
+                                <TableCell>{a.producto?.nombre ?? `#${a.producto_id}`}</TableCell>
+                                <TableCell>
+                                  {ubicacionLabel(a.ubicacion_destino_id ?? a.ubicacion_origen_id)}
+                                </TableCell>
                                 <TableCell align="right">
-                                  <Typography
-                                    variant="body2"
-                                    fontWeight={600}
-                                    color={a.cantidad >= 0 ? 'success.main' : 'error.main'}
-                                  >
-                                    {a.cantidad >= 0 ? '+' : ''}
+                                  <Typography variant="body2" fontWeight={600}>
                                     {a.cantidad}
                                   </Typography>
                                 </TableCell>
-                                <TableCell>{a.motivo}</TableCell>
-                                <TableCell>{formatDate(a.fecha)}</TableCell>
-                                <TableCell>{a.usuario}</TableCell>
+                                <TableCell>{a.referencia_documento ?? '-'}</TableCell>
+                                <TableCell>{formatDate(a.created_at)}</TableCell>
+                                <TableCell>{a.notas ?? '-'}</TableCell>
                               </TableRow>
                             ))}
                         {!ajustesQuery.isLoading && ajustes.length === 0 && (
@@ -840,7 +912,7 @@ export default function WMSInventario() {
 
                     <Button
                       variant="contained"
-                      disabled={mutTransferencia.isPending}
+                      disabled={mutTransferencia.isPending || !transValido}
                       onClick={() => mutTransferencia.mutate(transForm)}
                       sx={{ bgcolor: WMS_COLOR, '&:hover': { bgcolor: '#1e3a8a' } }}
                     >
@@ -892,15 +964,15 @@ export default function WMSInventario() {
                             ))
                           : transferencias.map((t) => (
                               <TableRow key={t.id} hover>
-                                <TableCell>{t.producto_nombre}</TableCell>
-                                <TableCell>{t.ubicacion_origen}</TableCell>
-                                <TableCell>{t.ubicacion_destino}</TableCell>
+                                <TableCell>{t.producto?.nombre ?? `#${t.producto_id}`}</TableCell>
+                                <TableCell>{ubicacionLabel(t.ubicacion_origen_id)}</TableCell>
+                                <TableCell>{ubicacionLabel(t.ubicacion_destino_id)}</TableCell>
                                 <TableCell align="right">
                                   <Typography variant="body2" fontWeight={600}>
                                     {t.cantidad}
                                   </Typography>
                                 </TableCell>
-                                <TableCell>{formatDate(t.fecha)}</TableCell>
+                                <TableCell>{formatDate(t.created_at)}</TableCell>
                                 <TableCell>{t.notas ?? '-'}</TableCell>
                               </TableRow>
                             ))}
@@ -1013,7 +1085,7 @@ export default function WMSInventario() {
                               <TableCell>{conteo.operario_nombre ?? '-'}</TableCell>
                               <TableCell>
                                 {(conteo.estado === 'EN_PROCESO' ||
-                                  conteo.estado === 'PENDIENTE') && (
+                                  conteo.estado === 'PROGRAMADO') && (
                                   <Button
                                     size="small"
                                     variant="outlined"

@@ -46,18 +46,25 @@ import { Layout } from '@/components/layout/Layout'
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
+interface OrdenSalidaDetalle {
+  producto_id: number
+  producto?: { sku: string; nombre: string }
+  cantidad_solicitada: number
+  cantidad_preparada: number
+  cantidad_despachada: number
+  estado: string
+}
+
 interface OrdenSalida {
   id: number
   numero_orden: string
-  cliente_nombre: string
-  almacen_nombre: string
-  fecha_requerida: string
+  cliente?: { nombre: string }
+  almacen?: { nombre: string }
+  fecha_requerida: string | null
   prioridad: 'URGENTE' | 'ALTA' | 'NORMAL' | 'BAJA'
   estado: string
   canal: string
-  total_items: number
-  qty_solicitada: number
-  qty_preparada: number
+  detalles?: OrdenSalidaDetalle[]
 }
 
 interface OrdenLinea {
@@ -66,10 +73,30 @@ interface OrdenLinea {
   precio_unitario: string
 }
 
+interface OrdenDetallePayload {
+  producto_id: number
+  cantidad_solicitada: number
+  precio_unitario?: number
+  lote_id: number | null
+}
+
+interface OrdenSalidaPayload {
+  numero_orden?: string
+  cliente_id: number
+  almacen_id: number
+  fecha_requerida?: string | null
+  prioridad?: string
+  canal?: string
+  detalles: OrdenDetallePayload[]
+}
+
 interface TareaPickingDetalle {
   id: number
-  producto_nombre: string
-  ubicacion_codigo: string
+  producto_id: number
+  producto?: { sku: string; nombre: string }
+  ubicacion_id: number
+  ubicacion?: { codigo: string; pasillo?: string }
+  lote_id?: number | null
   cantidad_solicitada: number
   cantidad_pickeada: number
   confirmado: boolean
@@ -77,14 +104,13 @@ interface TareaPickingDetalle {
 
 interface TareaPicking {
   id: number
-  orden_numero: string
+  orden_id: number
+  operario_id?: number
   tipo: 'SINGLE' | 'BATCH' | 'ZONE' | 'CLUSTER' | 'WAVE'
-  operario_nombre?: string
   estado: string
-  fecha_asignacion?: string
   items_pickeados: number
-  total_items: number
-  detalle?: TareaPickingDetalle[]
+  ubicaciones_visitadas?: number
+  detalles?: TareaPickingDetalle[]
 }
 
 interface Cliente { id: number; nombre: string }
@@ -109,6 +135,18 @@ const EMPTY_ORDEN = {
   fecha_requerida: '',
   prioridad: 'NORMAL',
   canal: '',
+}
+
+// Extrae un mensaje legible del error de axios (soporta detail string o array 422 de FastAPI).
+function extractError(error: unknown, fallback: string): string {
+  const detail = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) {
+    return detail
+      .map((d: { msg?: string } | string) => (typeof d === 'string' ? d : d?.msg ?? JSON.stringify(d)))
+      .join(', ')
+  }
+  return fallback
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -182,7 +220,7 @@ export default function WMSPicking() {
   // ─── Mutations ────────────────────────────────────────────────────────────
 
   const mutCrearOrden = useMutation({
-    mutationFn: async (body: typeof EMPTY_ORDEN & { lineas: OrdenLinea[] }) => {
+    mutationFn: async (body: OrdenSalidaPayload) => {
       const res = await api.post('/wms/ordenes-salida/', body)
       return res.data
     },
@@ -193,6 +231,7 @@ export default function WMSPicking() {
       setLineas([{ producto_id: '', cantidad_solicitada: '', precio_unitario: '' }])
       setOpenOrdenDialog(false)
     },
+    onError: (error: unknown) => toast.error(extractError(error, 'No se pudo crear la orden')),
   })
 
   const mutGenerarPicking = useMutation({
@@ -205,6 +244,7 @@ export default function WMSPicking() {
       queryClient.invalidateQueries({ queryKey: ['wms-tareas'] })
       toast.success('Picking generado')
     },
+    onError: (error: unknown) => toast.error(extractError(error, 'No se pudo generar el picking')),
   })
 
   const mutConfirmarItem = useMutation({
@@ -216,6 +256,7 @@ export default function WMSPicking() {
       queryClient.invalidateQueries({ queryKey: ['wms-tareas'] })
       toast.success('Item confirmado')
     },
+    onError: (error: unknown) => toast.error(extractError(error, 'No se pudo confirmar el item')),
   })
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -233,15 +274,38 @@ export default function WMSPicking() {
   }
 
   const handleCrearOrden = () => {
-    if (!ordenForm.numero_orden.trim()) {
-      toast.error('El número de orden es requerido')
-      return
-    }
     if (!ordenForm.cliente_id) {
       toast.error('El cliente es requerido')
       return
     }
-    mutCrearOrden.mutate({ ...ordenForm, lineas })
+    if (!ordenForm.almacen_id) {
+      toast.error('El almacén es requerido')
+      return
+    }
+    const lineasValidas = lineas.every(
+      l => l.producto_id && Number(l.cantidad_solicitada) > 0,
+    )
+    if (lineas.length === 0 || !lineasValidas) {
+      toast.error('Cada línea requiere un producto y una cantidad mayor a 0')
+      return
+    }
+
+    const payload: OrdenSalidaPayload = {
+      cliente_id: Number(ordenForm.cliente_id),
+      almacen_id: Number(ordenForm.almacen_id),
+      prioridad: ordenForm.prioridad,
+      canal: ordenForm.canal || undefined,
+      detalles: lineas.map(l => ({
+        producto_id: Number(l.producto_id),
+        cantidad_solicitada: Number(l.cantidad_solicitada),
+        precio_unitario: l.precio_unitario ? Number(l.precio_unitario) : undefined,
+        lote_id: null,
+      })),
+    }
+    if (ordenForm.numero_orden.trim()) payload.numero_orden = ordenForm.numero_orden.trim()
+    if (ordenForm.fecha_requerida) payload.fecha_requerida = ordenForm.fecha_requerida
+
+    mutCrearOrden.mutate(payload)
   }
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -293,9 +357,10 @@ export default function WMSPicking() {
                 >
                   <MenuItem value="">Todos</MenuItem>
                   <MenuItem value="PENDIENTE">Pendiente</MenuItem>
-                  <MenuItem value="EN_PREPARACION">En Preparación</MenuItem>
-                  <MenuItem value="LISTO">Listo</MenuItem>
+                  <MenuItem value="EN_PICKING">En Picking</MenuItem>
+                  <MenuItem value="EMPACANDO">Empacando</MenuItem>
                   <MenuItem value="DESPACHADO">Despachado</MenuItem>
+                  <MenuItem value="ENTREGADO">Entregado</MenuItem>
                   <MenuItem value="CANCELADO">Cancelado</MenuItem>
                 </TextField>
 
@@ -378,15 +443,20 @@ export default function WMSPicking() {
                       </TableRow>
                     ) : (
                       (ordenes ?? []).map(orden => {
-                        const progreso = orden.qty_solicitada > 0
-                          ? (orden.qty_preparada / orden.qty_solicitada) * 100
+                        const detalles = orden.detalles ?? []
+                        const totalItems = detalles.length
+                        const qtySolicitada = detalles.reduce((s, d) => s + (d.cantidad_solicitada ?? 0), 0)
+                        const qtyPreparada = detalles.reduce((s, d) => s + (d.cantidad_preparada ?? 0), 0)
+                        const progreso = qtySolicitada > 0
+                          ? (qtyPreparada / qtySolicitada) * 100
                           : 0
 
-                        const estadoColor: Record<string, 'warning' | 'info' | 'success' | 'default' | 'error'> = {
+                        const estadoColor: Record<string, 'warning' | 'info' | 'primary' | 'success' | 'default' | 'error'> = {
                           PENDIENTE: 'warning',
-                          EN_PREPARACION: 'info',
-                          LISTO: 'success',
-                          DESPACHADO: 'default',
+                          EN_PICKING: 'info',
+                          EMPACANDO: 'primary',
+                          DESPACHADO: 'success',
+                          ENTREGADO: 'default',
                           CANCELADO: 'error',
                         }
 
@@ -397,10 +467,12 @@ export default function WMSPicking() {
                                 {orden.numero_orden}
                               </Typography>
                             </TableCell>
-                            <TableCell>{orden.cliente_nombre}</TableCell>
-                            <TableCell>{orden.almacen_nombre}</TableCell>
+                            <TableCell>{orden.cliente?.nombre ?? '-'}</TableCell>
+                            <TableCell>{orden.almacen?.nombre ?? '-'}</TableCell>
                             <TableCell>
-                              {new Date(orden.fecha_requerida).toLocaleDateString('es-CO')}
+                              {orden.fecha_requerida
+                                ? new Date(orden.fecha_requerida).toLocaleDateString('es-CO')
+                                : '-'}
                             </TableCell>
                             <TableCell>
                               <Chip
@@ -419,7 +491,7 @@ export default function WMSPicking() {
                             <TableCell>
                               <Chip size="small" variant="outlined" label={orden.canal || '-'} />
                             </TableCell>
-                            <TableCell align="center">{orden.total_items}</TableCell>
+                            <TableCell align="center">{totalItems}</TableCell>
                             <TableCell>
                               <LinearProgress
                                 variant="determinate"
@@ -427,11 +499,11 @@ export default function WMSPicking() {
                                 sx={{ height: 8, borderRadius: 4 }}
                               />
                               <Typography variant="caption" color="text.secondary">
-                                {orden.qty_preparada}/{orden.qty_solicitada}
+                                {qtyPreparada}/{qtySolicitada}
                               </Typography>
                             </TableCell>
                             <TableCell>
-                              {orden.estado === 'PENDIENTE' && (
+                              {(orden.estado === 'PENDIENTE' || orden.estado === 'EN_PICKING') && (
                                 <Tooltip title="Generar Picking">
                                   <span>
                                     <IconButton
@@ -473,8 +545,7 @@ export default function WMSPicking() {
                 >
                   <MenuItem value="">Todos</MenuItem>
                   <MenuItem value="PENDIENTE">Pendiente</MenuItem>
-                  <MenuItem value="ASIGNADA">Asignada</MenuItem>
-                  <MenuItem value="EN_PROCESO">En Proceso</MenuItem>
+                  <MenuItem value="EN_PROGRESO">En Progreso</MenuItem>
                   <MenuItem value="COMPLETADA">Completada</MenuItem>
                   <MenuItem value="CANCELADA">Cancelada</MenuItem>
                 </TextField>
@@ -492,7 +563,7 @@ export default function WMSPicking() {
                       <TableCell sx={{ fontWeight: 700 }}>Tipo</TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>Operario</TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>Estado</TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>Asignado</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Ubic.</TableCell>
                       <TableCell sx={{ fontWeight: 700, minWidth: 140 }}>Progreso</TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>Detalle</TableCell>
                     </TableRow>
@@ -532,14 +603,15 @@ export default function WMSPicking() {
 
                         const estadoTareaColor: Record<string, 'warning' | 'info' | 'primary' | 'success' | 'error'> = {
                           PENDIENTE:   'warning',
-                          ASIGNADA:    'info',
-                          EN_PROCESO:  'primary',
+                          EN_PROGRESO: 'primary',
                           COMPLETADA:  'success',
                           CANCELADA:   'error',
                         }
 
-                        const progreso = tarea.total_items > 0
-                          ? (tarea.items_pickeados / tarea.total_items) * 100
+                        const detallesTarea = tarea.detalles ?? []
+                        const totalItemsTarea = detallesTarea.length
+                        const progreso = totalItemsTarea > 0
+                          ? (tarea.items_pickeados / totalItemsTarea) * 100
                           : 0
 
                         const isExpanded = expandedTarea === tarea.id
@@ -552,7 +624,7 @@ export default function WMSPicking() {
                                   {tarea.id}
                                 </Typography>
                               </TableCell>
-                              <TableCell>{tarea.orden_numero}</TableCell>
+                              <TableCell>{`#${tarea.orden_id}`}</TableCell>
                               <TableCell>
                                 <Chip
                                   size="small"
@@ -560,7 +632,7 @@ export default function WMSPicking() {
                                   label={tarea.tipo}
                                 />
                               </TableCell>
-                              <TableCell>{tarea.operario_nombre || '-'}</TableCell>
+                              <TableCell>{tarea.operario_id ? `#${tarea.operario_id}` : '-'}</TableCell>
                               <TableCell>
                                 <Chip
                                   size="small"
@@ -568,11 +640,7 @@ export default function WMSPicking() {
                                   label={tarea.estado}
                                 />
                               </TableCell>
-                              <TableCell>
-                                {tarea.fecha_asignacion
-                                  ? new Date(tarea.fecha_asignacion).toLocaleDateString('es-CO')
-                                  : '-'}
-                              </TableCell>
+                              <TableCell>{tarea.ubicaciones_visitadas ?? '-'}</TableCell>
                               <TableCell>
                                 <LinearProgress
                                   variant="determinate"
@@ -580,7 +648,7 @@ export default function WMSPicking() {
                                   sx={{ height: 8, borderRadius: 4 }}
                                 />
                                 <Typography variant="caption" color="text.secondary">
-                                  {tarea.items_pickeados}/{tarea.total_items}
+                                  {tarea.items_pickeados}/{totalItemsTarea}
                                 </Typography>
                               </TableCell>
                               <TableCell>
@@ -602,7 +670,7 @@ export default function WMSPicking() {
                                       Líneas de Picking
                                     </Typography>
 
-                                    {!tarea.detalle || tarea.detalle.length === 0 ? (
+                                    {detallesTarea.length === 0 ? (
                                       <Typography variant="body2" color="text.secondary">
                                         Sin detalle disponible
                                       </Typography>
@@ -619,14 +687,14 @@ export default function WMSPicking() {
                                           </TableRow>
                                         </TableHead>
                                         <TableBody>
-                                          {tarea.detalle.map(detalle => (
+                                          {detallesTarea.map(detalle => (
                                             <TableRow key={detalle.id} hover>
-                                              <TableCell>{detalle.producto_nombre}</TableCell>
+                                              <TableCell>{detalle.producto?.nombre ?? '-'}</TableCell>
                                               <TableCell>
                                                 <Chip
                                                   size="small"
                                                   variant="outlined"
-                                                  label={detalle.ubicacion_codigo}
+                                                  label={detalle.ubicacion?.codigo ?? '-'}
                                                 />
                                               </TableCell>
                                               <TableCell>{detalle.cantidad_solicitada}</TableCell>

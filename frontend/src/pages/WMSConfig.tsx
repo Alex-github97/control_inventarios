@@ -500,8 +500,8 @@ function ZonasSection() {
     e.preventDefault()
     if (!form.codigo || !form.nombre) { toast.error('Código y nombre son obligatorios'); return }
     if (!form.tipo) { toast.error('El tipo de zona es obligatorio'); return }
-    const payload: Record<string, unknown> = { codigo: form.codigo, nombre: form.nombre, tipo: form.tipo, temperatura_controlada: form.temperatura_controlada }
-    if (form.almacen_id) payload.almacen_id = Number(form.almacen_id)
+    if (!form.almacen_id) { toast.error('El almacén es obligatorio'); return }
+    const payload: Record<string, unknown> = { codigo: form.codigo, nombre: form.nombre, tipo: form.tipo, temperatura_controlada: form.temperatura_controlada, almacen_id: Number(form.almacen_id) }
     if (editing) update.mutate({ id: editing.id, d: payload }, { onSuccess: () => setOpen(false) })
     else create.mutate(payload, { onSuccess: () => setOpen(false) })
   }
@@ -521,8 +521,8 @@ function ZonasSection() {
               <TextField label="Código *" size="small" value={form.codigo} onChange={e => set('codigo', e.target.value)} sx={{ flex: 1 }} />
               <TextField label="Nombre *" size="small" value={form.nombre} onChange={e => set('nombre', e.target.value)} sx={{ flex: 2 }} />
             </Stack>
-            <TextField select label="Almacén" fullWidth size="small" value={form.almacen_id} onChange={e => set('almacen_id', e.target.value)}>
-              <MenuItem value="">Sin almacén</MenuItem>
+            <TextField select label="Almacén *" fullWidth size="small" value={form.almacen_id} onChange={e => set('almacen_id', e.target.value)}>
+              <MenuItem value="" disabled>Seleccionar almacén</MenuItem>
               {(almacenes as Almacen[]).map(a => <MenuItem key={a.id} value={a.id.toString()}>{a.nombre}</MenuItem>)}
             </TextField>
             <TextField select label="Tipo *" fullWidth size="small" value={form.tipo} onChange={e => set('tipo', e.target.value)}>
@@ -571,8 +571,8 @@ function UbicacionesSection() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.codigo) { toast.error('El código es obligatorio'); return }
-    const payload: Record<string, unknown> = { codigo: form.codigo }
-    if (form.zona_id) payload.zona_id = Number(form.zona_id)
+    if (!form.zona_id) { toast.error('La zona es obligatoria'); return }
+    const payload: Record<string, unknown> = { codigo: form.codigo, zona_id: Number(form.zona_id) }
     if (form.pasillo) payload.pasillo = form.pasillo
     if (form.estanteria) payload.estanteria = form.estanteria
     if (form.nivel) payload.nivel = form.nivel
@@ -597,8 +597,8 @@ function UbicacionesSection() {
           <DialogContent><Stack gap={1.5} pt={0.5}>
             <Stack direction="row" gap={1.5}>
               <TextField label="Código *" size="small" value={form.codigo} onChange={e => set('codigo', e.target.value)} sx={{ flex: 1 }} />
-              <TextField select label="Zona" size="small" value={form.zona_id} onChange={e => set('zona_id', e.target.value)} sx={{ flex: 2 }}>
-                <MenuItem value="">Sin zona</MenuItem>
+              <TextField select label="Zona *" size="small" value={form.zona_id} onChange={e => set('zona_id', e.target.value)} sx={{ flex: 2 }}>
+                <MenuItem value="" disabled>Seleccionar zona</MenuItem>
                 {zonas.map(z => <MenuItem key={z.id} value={z.id.toString()}>{z.nombre}</MenuItem>)}
               </TextField>
             </Stack>

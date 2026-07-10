@@ -27,7 +27,14 @@ import toast from 'react-hot-toast'
 const WMS_COLOR = '#1E40AF'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
-interface Orden { id: number; numero_orden: string; estado: string }
+interface Orden {
+  id: number
+  numero_orden: string
+  estado: string
+  cliente?: { nombre: string }
+  almacen?: { nombre: string }
+  detalles?: unknown[]
+}
 interface Transportadora { id: number; nombre: string; codigo?: string }
 interface DespachoItem {
   id: number
@@ -97,6 +104,21 @@ const REVERT_MAP: Record<string, { estado: string; label: string }> = {
 
 const ROLES_SUPERVISION = new Set(['ADMINISTRADOR', 'SUPERVISOR_LOGISTICO'])
 
+// Estados de orden de salida elegibles para generar un despacho
+const ORDEN_ESTADOS_DESPACHABLES = ['EMPACANDO', 'EN_PICKING']
+
+// Extrae un mensaje legible del error de axios (incluye arrays de detalle 422)
+function parseApiError(err: any, fallback: string): string {
+  const detail = err?.response?.data?.detail
+  if (Array.isArray(detail)) {
+    return detail
+      .map((d: any) => (typeof d === 'string' ? d : d?.msg ?? JSON.stringify(d)))
+      .join(' · ')
+  }
+  if (typeof detail === 'string') return detail
+  return fallback
+}
+
 // ─── Estado chip ───────────────────────────────────────────────────────────────
 const ESTADO_CFG = {
   PREPARANDO:  { label: 'Preparando',   color: '#1E40AF', bg: '#DBEAFE' },
@@ -156,10 +178,11 @@ function NuevoDespachoDialog({ open, onClose }: { open: boolean; onClose: () => 
   })
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
 
-  const { data: ordenes = [] } = useQuery<Orden[]>({
+  const { data: ordenes = [], isError: ordenesError } = useQuery<Orden[]>({
     queryKey: ['wms-ordenes-despacho'],
-    queryFn: () => api.get('/wms/ordenes/?estado=EMPACANDO,EN_PICKING').then(r => r.data),
+    queryFn: () => api.get('/wms/ordenes-salida/').then(r => r.data),
     enabled: open,
+    select: (data) => data.filter(o => ORDEN_ESTADOS_DESPACHABLES.includes(o.estado)),
   })
   const { data: transportadoras = [] } = useQuery<Transportadora[]>({
     queryKey: ['wms-transportadoras'],
@@ -174,7 +197,7 @@ function NuevoDespachoDialog({ open, onClose }: { open: boolean; onClose: () => 
       qc.invalidateQueries({ queryKey: ['wms-despachos'] })
       onClose()
     },
-    onError: () => toast.error('Error al crear despacho'),
+    onError: (err: any) => toast.error(parseApiError(err, 'Error al crear despacho')),
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -203,9 +226,15 @@ function NuevoDespachoDialog({ open, onClose }: { open: boolean; onClose: () => 
       <Box component="form" onSubmit={handleSubmit}>
         <DialogContent>
           <Stack gap={1.5} pt={0.5}>
-            <TextField select label="Orden *" fullWidth size="small" value={form.orden_id} onChange={e => set('orden_id', e.target.value)}>
+            <TextField select label="Orden *" fullWidth size="small" value={form.orden_id} onChange={e => set('orden_id', e.target.value)}
+              error={ordenesError}
+              helperText={ordenesError ? 'No se pudieron cargar las órdenes de salida' : 'Las líneas se derivan del picking confirmado'}>
               <MenuItem value="">Seleccione una orden</MenuItem>
-              {ordenes.map(o => <MenuItem key={o.id} value={o.id.toString()}>{o.numero_orden} — {o.estado}</MenuItem>)}
+              {ordenes.map(o => (
+                <MenuItem key={o.id} value={o.id.toString()}>
+                  {o.numero_orden} — {o.estado}{o.cliente?.nombre ? ` · ${o.cliente.nombre}` : ''}
+                </MenuItem>
+              ))}
             </TextField>
             <TextField select label="Transportadora" fullWidth size="small" value={form.transportadora_id} onChange={e => set('transportadora_id', e.target.value)}>
               <MenuItem value="">Sin transportadora</MenuItem>
@@ -247,12 +276,12 @@ function NuevoDevolucionDialog({ open, onClose }: { open: boolean; onClose: () =
   const { data: almacenes = [] } = useQuery<Almacen[]>({ queryKey: ['wms-almacenes'], queryFn: () => api.get('/wms/almacenes/').then(r => r.data), enabled: open })
   const { data: clientes = [] } = useQuery<Cliente[]>({ queryKey: ['wms-clientes'], queryFn: () => api.get('/wms/clientes/').then(r => r.data), enabled: open })
   const { data: proveedores = [] } = useQuery<Proveedor[]>({ queryKey: ['wms-proveedores'], queryFn: () => api.get('/wms/proveedores/').then(r => r.data), enabled: open })
-  const { data: ordenes = [] } = useQuery<Orden[]>({ queryKey: ['wms-ordenes-dev'], queryFn: () => api.get('/wms/ordenes/').then(r => r.data), enabled: open })
+  const { data: ordenes = [], isError: ordenesError } = useQuery<Orden[]>({ queryKey: ['wms-ordenes-dev'], queryFn: () => api.get('/wms/ordenes-salida/').then(r => r.data), enabled: open })
 
   const createMut = useMutation({
     mutationFn: (d: object) => api.post('/wms/devoluciones/', d).then(r => r.data),
     onSuccess: () => { toast.success('Devolución registrada'); qc.invalidateQueries({ queryKey: ['wms-devoluciones'] }); onClose() },
-    onError: () => toast.error('Error al registrar devolución'),
+    onError: (err: any) => toast.error(parseApiError(err, 'Error al registrar devolución')),
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -297,9 +326,10 @@ function NuevoDevolucionDialog({ open, onClose }: { open: boolean; onClose: () =
                 {proveedores.map(p => <MenuItem key={p.id} value={p.id.toString()}>{p.nombre}</MenuItem>)}
               </TextField>
             )}
-            <TextField select label="Orden de referencia" fullWidth size="small" value={form.orden_referencia_id} onChange={e => set('orden_referencia_id', e.target.value)}>
+            <TextField select label="Orden de referencia" fullWidth size="small" value={form.orden_referencia_id} onChange={e => set('orden_referencia_id', e.target.value)}
+              error={ordenesError} helperText={ordenesError ? 'No se pudieron cargar las órdenes de salida' : undefined}>
               <MenuItem value="">Sin orden de referencia</MenuItem>
-              {ordenes.map(o => <MenuItem key={o.id} value={o.id.toString()}>{o.numero_orden}</MenuItem>)}
+              {ordenes.map(o => <MenuItem key={o.id} value={o.id.toString()}>{o.numero_orden}{o.cliente?.nombre ? ` · ${o.cliente.nombre}` : ''}</MenuItem>)}
             </TextField>
             <TextField select label="Almacén destino" fullWidth size="small" value={form.almacen_id} onChange={e => set('almacen_id', e.target.value)}>
               <MenuItem value="">Sin almacén asignado</MenuItem>
@@ -575,9 +605,15 @@ function DetalleDialog({
 }
 
 // ─── Devoluciones section ──────────────────────────────────────────────────────
+// Acciones seleccionables al procesar una devolución. REINGRESADA reingresa stock.
+const DEV_ACCIONES = ['APROBADA', 'RECHAZADA', 'REINGRESADA'] as const
+// Estados finales de una devolución: ya no admiten procesamiento
+const DEV_ESTADOS_FINALES = new Set(['REINGRESADA', 'RECHAZADA'])
+
 function DevolucionesSection() {
   const qc = useQueryClient()
   const [openNew, setOpenNew] = useState(false)
+  const [accion, setAccion] = useState<Record<number, string>>({})
 
   const { data: devoluciones = [], isLoading } = useQuery<Devolucion[]>({
     queryKey: ['wms-devoluciones'],
@@ -585,9 +621,10 @@ function DevolucionesSection() {
   })
 
   const procesarMut = useMutation({
-    mutationFn: (id: number) => api.put(`/wms/devoluciones/${id}/procesar`, {}).then(r => r.data),
+    mutationFn: ({ id, estado }: { id: number; estado: string }) =>
+      api.put(`/wms/devoluciones/${id}/procesar`, { estado }).then(r => r.data),
     onSuccess: () => { toast.success('Devolución procesada'); qc.invalidateQueries({ queryKey: ['wms-devoluciones'] }) },
-    onError: () => toast.error('Error al procesar devolución'),
+    onError: (err: any) => toast.error(parseApiError(err, 'Error al procesar devolución')),
   })
 
   const TIPO_CFG = {
@@ -637,12 +674,19 @@ function DevolucionesSection() {
                     <TableCell sx={{ fontSize: 12, maxWidth: 200 }}><Typography fontSize={12} noWrap>{d.motivo ?? '—'}</Typography></TableCell>
                     <TableCell sx={{ fontSize: 12 }}>{d.fecha_recepcion ?? '—'}</TableCell>
                     <TableCell>
-                      {d.estado !== 'PROCESADA' && (
-                        <Button size="small" variant="outlined" disabled={procesarMut.isPending}
-                          sx={{ textTransform: 'none', fontSize: 11, borderColor: alpha(WMS_COLOR, 0.4), color: WMS_COLOR }}
-                          onClick={() => procesarMut.mutate(d.id)}>
-                          <ReturnIcon sx={{ fontSize: 13, mr: 0.5 }} /> Procesar
-                        </Button>
+                      {!DEV_ESTADOS_FINALES.has(d.estado) && (
+                        <Stack direction="row" gap={0.75} alignItems="center">
+                          <TextField select size="small" value={accion[d.id] ?? 'REINGRESADA'}
+                            onChange={e => setAccion(a => ({ ...a, [d.id]: e.target.value }))}
+                            sx={{ minWidth: 120, '& .MuiInputBase-root': { fontSize: 11 } }}>
+                            {DEV_ACCIONES.map(a => <MenuItem key={a} value={a} sx={{ fontSize: 11 }}>{a}</MenuItem>)}
+                          </TextField>
+                          <Button size="small" variant="outlined" disabled={procesarMut.isPending}
+                            sx={{ textTransform: 'none', fontSize: 11, borderColor: alpha(WMS_COLOR, 0.4), color: WMS_COLOR, whiteSpace: 'nowrap' }}
+                            onClick={() => procesarMut.mutate({ id: d.id, estado: accion[d.id] ?? 'REINGRESADA' })}>
+                            <ReturnIcon sx={{ fontSize: 13, mr: 0.5 }} /> Procesar
+                          </Button>
+                        </Stack>
                       )}
                     </TableCell>
                   </TableRow>
@@ -671,16 +715,20 @@ export default function WMSDespacho() {
   })
 
   const transicionMut = useMutation({
-    mutationFn: ({ id, estado }: { id: number; estado: string }) =>
-      api.put(`/wms/despachos/${id}/estado`, { estado }).then(r => r.data),
+    mutationFn: ({ id, estado }: { id: number; estado: string }) => {
+      const body: Record<string, unknown> = { estado }
+      // Al confirmar entrega registramos la fecha real (hoy) explícitamente
+      if (estado === 'ENTREGADO') body.fecha_entrega_real = new Date().toISOString().slice(0, 10)
+      return api.put(`/wms/despachos/${id}/estado`, body).then(r => r.data)
+    },
     onSuccess: (updated) => {
       toast.success('Estado actualizado')
       qc.invalidateQueries({ queryKey: ['wms-despachos'] })
       if (detailDespacho && updated.id === detailDespacho.id) {
-        setDetailDespacho(prev => prev ? { ...prev, estado: updated.estado } : null)
+        setDetailDespacho(prev => prev ? { ...prev, estado: updated.estado, fecha_entrega_real: updated.fecha_entrega_real ?? prev.fecha_entrega_real } : null)
       }
     },
-    onError: () => toast.error('Error al actualizar estado'),
+    onError: (err: any) => toast.error(parseApiError(err, 'Error al actualizar estado')),
   })
 
   const handleTransicion = (id: number, estado: string) => {

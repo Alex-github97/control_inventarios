@@ -4,7 +4,7 @@ Módulo WMS (Warehouse Management System) — Schemas Pydantic
 from __future__ import annotations
 from datetime import date, datetime
 from typing import Optional, List, Any, Dict
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # ─── Catálogos ─────────────────────────────────────────────────────────────────
@@ -125,6 +125,7 @@ class WMSAlmacenCreate(BaseModel):
     activo: bool = True
 
 class WMSAlmacenUpdate(BaseModel):
+    codigo: Optional[str] = None
     nombre: Optional[str] = None
     direccion: Optional[str] = None
     ciudad: Optional[str] = None
@@ -147,6 +148,8 @@ class WMSZonaCreate(BaseModel):
     activo: bool = True
 
 class WMSZonaUpdate(BaseModel):
+    codigo: Optional[str] = None
+    almacen_id: Optional[int] = None
     nombre: Optional[str] = None
     tipo: Optional[str] = None
     temperatura_controlada: Optional[bool] = None
@@ -172,6 +175,8 @@ class WMSUbicacionCreate(BaseModel):
     activo: bool = True
 
 class WMSUbicacionUpdate(BaseModel):
+    codigo: Optional[str] = None
+    zona_id: Optional[int] = None
     pasillo: Optional[str] = None
     estanteria: Optional[str] = None
     nivel: Optional[str] = None
@@ -367,6 +372,8 @@ class WMSLoteBrief(BaseModel):
 class WMSUbicacionBrief(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int; codigo: str
+    pasillo: Optional[str] = None; estanteria: Optional[str] = None
+    nivel: Optional[str] = None; posicion: Optional[str] = None
 
 class WMSAlmacenBrief(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -385,7 +392,7 @@ class WMSProveedorBrief(BaseModel):
 
 class WMSOrdenCompraDetalleCreate(BaseModel):
     producto_id: int
-    cantidad_solicitada: float
+    cantidad_solicitada: float = Field(gt=0)
     precio_unitario: Optional[float] = None
     unidad_medida: Optional[str] = None
 
@@ -402,10 +409,10 @@ class WMSOrdenCompraDetalleResponse(BaseModel):
     precio_unitario: Optional[float]; unidad_medida: Optional[str]
 
 class WMSOrdenCompraCreate(BaseModel):
-    numero_oc: str
+    numero_oc: Optional[str] = None  # autogenerado si viene vacío
     proveedor_id: int
     almacen_id: int
-    fecha_emision: date
+    fecha_emision: Optional[date] = None  # por defecto hoy
     fecha_esperada: Optional[date] = None
     estado: str = "PENDIENTE"
     notas: Optional[str] = None
@@ -456,11 +463,11 @@ class WMSRecepcionDetalleResponse(BaseModel):
     estado_calidad: str; notas: Optional[str]
 
 class WMSRecepcionCreate(BaseModel):
-    numero_recepcion: str
+    numero_recepcion: Optional[str] = None  # autogenerado si viene vacío
     tipo: str = "CONTRA_OC"
     orden_compra_id: Optional[int] = None
     almacen_id: int
-    fecha_recepcion: date
+    fecha_recepcion: Optional[date] = None  # por defecto hoy
     estado: str = "BORRADOR"
     notas: Optional[str] = None
     detalles: List[WMSRecepcionDetalleCreate] = []
@@ -501,7 +508,7 @@ class WMSAjusteInventario(BaseModel):
     producto_id: int
     ubicacion_id: int
     lote_id: Optional[int] = None
-    cantidad_nueva: float
+    cantidad_nueva: float = Field(ge=0)  # valor absoluto del stock resultante
     motivo: Optional[str] = None
 
 class WMSTransferenciaInventario(BaseModel):
@@ -509,7 +516,7 @@ class WMSTransferenciaInventario(BaseModel):
     ubicacion_origen_id: int
     ubicacion_destino_id: int
     lote_id: Optional[int] = None
-    cantidad: float
+    cantidad: float = Field(gt=0)
     notas: Optional[str] = None
 
 class WMSMovimientoResponse(BaseModel):
@@ -571,7 +578,7 @@ class WMSConteoResponse(BaseModel):
 class WMSOrdenSalidaDetalleCreate(BaseModel):
     producto_id: int
     lote_id: Optional[int] = None
-    cantidad_solicitada: float
+    cantidad_solicitada: float = Field(gt=0)
     precio_unitario: Optional[float] = None
 
 class WMSOrdenSalidaDetalleResponse(BaseModel):
@@ -583,10 +590,10 @@ class WMSOrdenSalidaDetalleResponse(BaseModel):
     precio_unitario: Optional[float]; estado: str
 
 class WMSOrdenSalidaCreate(BaseModel):
-    numero_orden: str
+    numero_orden: Optional[str] = None  # autogenerado si viene vacío
     cliente_id: int
     almacen_id: int
-    fecha_emision: date
+    fecha_emision: Optional[date] = None  # por defecto hoy
     fecha_requerida: Optional[date] = None
     estado: str = "PENDIENTE"
     prioridad: str = "NORMAL"
@@ -641,7 +648,7 @@ class WMSPickingTareaUpdate(BaseModel):
 
 class WMSPickingConfirmItem(BaseModel):
     detalle_id: int
-    cantidad_pickeada: float
+    cantidad_pickeada: float = Field(gt=0)
 
 class WMSPickingTareaResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -656,7 +663,7 @@ class WMSPickingTareaResponse(BaseModel):
 class WMSDespachoDetalleCreate(BaseModel):
     producto_id: int
     lote_id: Optional[int] = None
-    cantidad: float
+    cantidad: float = Field(gt=0)
     numero_tracking: Optional[str] = None
 
 class WMSDespachoDetalleResponse(BaseModel):
@@ -666,12 +673,12 @@ class WMSDespachoDetalleResponse(BaseModel):
     lote_id: Optional[int]; cantidad: float; numero_tracking: Optional[str]
 
 class WMSDespachoCreate(BaseModel):
-    numero_despacho: str
+    numero_despacho: Optional[str] = None  # autogenerado si viene vacío
     orden_id: int
     transportadora_id: Optional[int] = None
     vehiculo_placa: Optional[str] = None
     conductor_nombre: Optional[str] = None
-    fecha_despacho: date
+    fecha_despacho: Optional[date] = None  # por defecto hoy
     fecha_entrega_estimada: Optional[date] = None
     estado: str = "PREPARANDO"
     peso_total_kg: Optional[float] = None

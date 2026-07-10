@@ -65,6 +65,29 @@ interface Producto {
   id: number
   nombre: string
   sku: string
+  requiere_lote?: boolean
+}
+
+interface Zona {
+  id: number
+  nombre?: string
+  almacen_id: number
+}
+
+interface Ubicacion {
+  id: number
+  codigo: string
+  pasillo?: string
+  estanteria?: string
+  nivel?: string
+  posicion?: string
+  zona_id: number
+}
+
+interface Lote {
+  id: number
+  numero_lote?: string
+  codigo?: string
 }
 
 interface LineaOC {
@@ -90,6 +113,8 @@ interface LineaRecepcion {
   producto_id: number
   cantidad_esperada: number
   cantidad_recibida: number
+  lote_id: number | null
+  ubicacion_id: number | null
   estado_calidad: 'APROBADO' | 'RECHAZADO' | 'CUARENTENA' | 'INSPECCION'
   notas: string
 }
@@ -126,6 +151,7 @@ const EMPTY_LINEA_OC: LineaOC = {
 }
 
 const EMPTY_RECEPCION = {
+  numero_recepcion: '',
   tipo: 'CONTRA_OC' as string,
   orden_compra_id: '' as string | number,
   almacen_id: '',
@@ -137,8 +163,24 @@ const EMPTY_LINEA_REC: LineaRecepcion = {
   producto_id: 0,
   cantidad_esperada: 1,
   cantidad_recibida: 0,
+  lote_id: null,
+  ubicacion_id: null,
   estado_calidad: 'APROBADO',
   notas: '',
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Convierte el `detail` de un error de axios/FastAPI en un texto legible.
+ *  Un 422 de FastAPI trae `detail` como arreglo de objetos `{ msg, loc, ... }`. */
+function parseApiError(err: any, fallback: string): string {
+  const detail = err?.response?.data?.detail
+  if (Array.isArray(detail)) {
+    return detail.map((d: any) => d?.msg ?? JSON.stringify(d)).join('; ')
+  }
+  if (typeof detail === 'string') return detail
+  if (detail) return JSON.stringify(detail)
+  return fallback
 }
 
 // ─── Chips ────────────────────────────────────────────────────────────────────
@@ -150,11 +192,11 @@ const OC_ESTADO_COLOR: Record<string, 'primary' | 'warning' | 'success' | 'defau
   CANCELADA: 'default',
 }
 
-const REC_ESTADO_COLOR: Record<string, 'primary' | 'warning' | 'success' | 'default' | 'error'> = {
-  PENDIENTE: 'primary',
-  EN_PROCESO: 'warning',
-  COMPLETADA: 'success',
-  CANCELADA: 'default',
+const REC_ESTADO_COLOR: Record<string, 'primary' | 'info' | 'warning' | 'success' | 'default' | 'error'> = {
+  BORRADOR: 'default',
+  EN_PROCESO: 'info',
+  COMPLETA: 'success',
+  RECHAZADA: 'error',
 }
 
 const CALIDAD_COLOR: Record<string, 'success' | 'error' | 'warning' | 'info'> = {
@@ -535,6 +577,145 @@ function OrdenesCompraTab() {
 
 // ─── Tab 2: Recepciones ───────────────────────────────────────────────────────
 
+/** Fila del detalle de una recepción. Se extrae como componente para poder
+ *  cargar los lotes del producto seleccionado con su propio `useQuery`. */
+function LineaRecepcionRow({
+  linea,
+  productos,
+  ubicaciones,
+  onUpdate,
+  onRemove,
+}: {
+  linea: LineaRecepcion
+  productos: Producto[]
+  ubicaciones: Ubicacion[]
+  onUpdate: (field: keyof LineaRecepcion, value: any) => void
+  onRemove: () => void
+}) {
+  const producto = productos.find((p) => p.id === linea.producto_id)
+  const requiereLote = !!producto?.requiere_lote
+
+  const { data: lotes = [] } = useQuery<Lote[]>({
+    queryKey: ['wms-lotes', linea.producto_id],
+    queryFn: () => api.get(`/wms/lotes/?producto_id=${linea.producto_id}`).then((r) => r.data),
+    enabled: requiereLote && linea.producto_id > 0,
+  })
+
+  return (
+    <Box
+      sx={{
+        mb: 1.5,
+        p: 1.5,
+        border: '1px solid #E5E7EB',
+        borderRadius: '10px',
+        bgcolor: '#FAFAFA',
+      }}
+    >
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="flex-start" flexWrap="wrap">
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel>Producto</InputLabel>
+          <Select
+            value={linea.producto_id || ''}
+            label="Producto"
+            onChange={(e) => {
+              // Al cambiar de producto, se limpia el lote seleccionado.
+              onUpdate('producto_id', Number(e.target.value))
+              onUpdate('lote_id', null)
+            }}
+          >
+            {productos.map((p) => (
+              <MenuItem key={p.id} value={p.id}>{p.nombre} ({p.sku})</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <TextField
+          label="Cant. Esperada"
+          type="number"
+          size="small"
+          sx={{ width: 130 }}
+          value={linea.cantidad_esperada}
+          onChange={(e) => onUpdate('cantidad_esperada', Number(e.target.value))}
+          inputProps={{ min: 0 }}
+        />
+        <TextField
+          label="Cant. Recibida"
+          type="number"
+          size="small"
+          sx={{ width: 130 }}
+          value={linea.cantidad_recibida}
+          onChange={(e) => onUpdate('cantidad_recibida', Number(e.target.value))}
+          inputProps={{ min: 0 }}
+        />
+        <FormControl size="small" sx={{ minWidth: 180 }}>
+          <InputLabel>Ubicación</InputLabel>
+          <Select
+            value={linea.ubicacion_id ?? ''}
+            label="Ubicación"
+            onChange={(e) =>
+              onUpdate('ubicacion_id', e.target.value === '' ? null : Number(e.target.value))
+            }
+          >
+            <MenuItem value=""><em>Por defecto del almacén</em></MenuItem>
+            {ubicaciones.map((u) => (
+              <MenuItem key={u.id} value={u.id}>{u.codigo}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        {requiereLote && (
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <InputLabel>Lote</InputLabel>
+            <Select
+              value={linea.lote_id ?? ''}
+              label="Lote"
+              onChange={(e) =>
+                onUpdate('lote_id', e.target.value === '' ? null : Number(e.target.value))
+              }
+            >
+              <MenuItem value=""><em>Sin lote</em></MenuItem>
+              {lotes.map((lt) => (
+                <MenuItem key={lt.id} value={lt.id}>
+                  {lt.numero_lote ?? lt.codigo ?? `Lote #${lt.id}`}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
+        <FormControl size="small" sx={{ minWidth: 140 }}>
+          <InputLabel>Calidad</InputLabel>
+          <Select
+            value={linea.estado_calidad}
+            label="Calidad"
+            onChange={(e) => onUpdate('estado_calidad', e.target.value)}
+          >
+            {(['APROBADO', 'RECHAZADO', 'CUARENTENA', 'INSPECCION'] as const).map((s) => (
+              <MenuItem key={s} value={s}>
+                <Chip
+                  label={s}
+                  size="small"
+                  color={CALIDAD_COLOR[s]}
+                  sx={{ fontSize: 10, fontWeight: 600, pointerEvents: 'none' }}
+                />
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <TextField
+          label="Notas"
+          size="small"
+          sx={{ flexGrow: 1, minWidth: 120 }}
+          value={linea.notas}
+          onChange={(e) => onUpdate('notas', e.target.value)}
+        />
+        <Tooltip title="Eliminar línea">
+          <IconButton size="small" color="error" onClick={onRemove}>
+            <DeleteOutline fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      </Stack>
+    </Box>
+  )
+}
+
 function RecepcionesTab() {
   const queryClient = useQueryClient()
 
@@ -568,6 +749,24 @@ function RecepcionesTab() {
     queryFn: () => api.get('/wms/productos/').then((r) => r.data),
   })
 
+  // Zonas del almacén seleccionado (para acotar las ubicaciones disponibles)
+  const { data: zonas = [] } = useQuery<Zona[]>({
+    queryKey: ['wms-zonas', form.almacen_id],
+    queryFn: () => api.get(`/wms/zonas/?almacen_id=${form.almacen_id}`).then((r) => r.data),
+    enabled: !!form.almacen_id,
+  })
+
+  const { data: ubicaciones = [] } = useQuery<Ubicacion[]>({
+    queryKey: ['wms-ubicaciones'],
+    queryFn: () => api.get('/wms/ubicaciones/').then((r) => r.data),
+  })
+
+  // Ubicaciones filtradas por las zonas del almacén elegido; si aún no hay
+  // zonas cargadas se ofrecen todas las ubicaciones para no bloquear al usuario.
+  const zonaIds = new Set(zonas.map((z) => z.id))
+  const ubicacionesFiltradas =
+    zonas.length > 0 ? ubicaciones.filter((u) => zonaIds.has(u.zona_id)) : ubicaciones
+
   // Create recepcion
   const createRec = useMutation({
     mutationFn: (data: any) => api.post('/wms/recepciones/', data).then((r) => r.data),
@@ -578,8 +777,7 @@ function RecepcionesTab() {
       handleClose()
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.detail ?? 'Error al registrar la recepción'
-      setFormError(typeof msg === 'string' ? msg : JSON.stringify(msg))
+      setFormError(parseApiError(err, 'Error al registrar la recepción'))
     },
   })
 
@@ -592,8 +790,7 @@ function RecepcionesTab() {
       queryClient.invalidateQueries({ queryKey: ['wms-kpis'] })
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.detail ?? 'Error al completar la recepción'
-      toast.error(typeof msg === 'string' ? msg : 'Error al completar')
+      toast.error(parseApiError(err, 'Error al completar la recepción'))
     },
   })
 
@@ -620,16 +817,49 @@ function RecepcionesTab() {
 
   function handleSubmit() {
     setFormError('')
-    if (!form.almacen_id || !form.fecha_recepcion) {
-      setFormError('Almacén y fecha de recepción son obligatorios')
+    if (!form.almacen_id) {
+      setFormError('El almacén es obligatorio')
       return
     }
-    createRec.mutate({
-      ...form,
+    if (lineas.length === 0) {
+      setFormError('Agrega al menos una línea de recepción')
+      return
+    }
+    for (const l of lineas) {
+      if (!(Number(l.producto_id) > 0)) {
+        setFormError('Cada línea debe tener un producto seleccionado')
+        return
+      }
+      if (!(Number(l.cantidad_recibida) > 0) && !(Number(l.cantidad_esperada) > 0)) {
+        setFormError('Cada línea debe tener cantidad recibida o esperada mayor a 0')
+        return
+      }
+    }
+
+    const detalles = lineas.map((l) => ({
+      producto_id: Number(l.producto_id),
+      cantidad_esperada: Number(l.cantidad_esperada) || 0,
+      cantidad_recibida: Number(l.cantidad_recibida) || 0,
+      lote_id: l.lote_id != null ? Number(l.lote_id) : null,
+      ubicacion_id: l.ubicacion_id != null ? Number(l.ubicacion_id) : null,
+      estado_calidad: l.estado_calidad,
+      notas: l.notas || '',
+    }))
+
+    const payload: any = {
+      tipo: form.tipo,
       almacen_id: Number(form.almacen_id),
       orden_compra_id: form.orden_compra_id ? Number(form.orden_compra_id) : null,
-      detalles: lineas,
-    })
+      fecha_recepcion: form.fecha_recepcion || undefined,
+      notas: form.notas || '',
+      detalles,
+    }
+    // El backend autogenera el número si va vacío; sólo lo enviamos si el usuario lo llenó.
+    if (form.numero_recepcion.trim()) {
+      payload.numero_recepcion = form.numero_recepcion.trim()
+    }
+
+    createRec.mutate(payload)
   }
 
   function addLinea() {
@@ -734,7 +964,7 @@ function RecepcionesTab() {
                     </TableCell>
                     <TableCell>{r.operario || '—'}</TableCell>
                     <TableCell align="center">
-                      {r.estado !== 'COMPLETADA' && r.estado !== 'CANCELADA' && (
+                      {r.estado !== 'COMPLETA' && r.estado !== 'RECHAZADA' && (
                         <Tooltip title="Completar Recepción">
                           <IconButton
                             size="small"
@@ -772,6 +1002,15 @@ function RecepcionesTab() {
         <DialogTitle sx={{ fontWeight: 700 }}>Nueva Recepción</DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={2} sx={{ pt: 0.5 }}>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                label="N° Recepción (dejar vacío para autoasignar)"
+                fullWidth
+                size="small"
+                value={form.numero_recepcion}
+                onChange={(e) => setForm((f) => ({ ...f, numero_recepcion: e.target.value }))}
+              />
+            </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>Tipo *</InputLabel>
@@ -859,80 +1098,14 @@ function RecepcionesTab() {
                 </Typography>
               )}
               {lineas.map((l, idx) => (
-                <Box
+                <LineaRecepcionRow
                   key={idx}
-                  sx={{
-                    mb: 1.5,
-                    p: 1.5,
-                    border: '1px solid #E5E7EB',
-                    borderRadius: '10px',
-                    bgcolor: '#FAFAFA',
-                  }}
-                >
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="flex-start" flexWrap="wrap">
-                    <FormControl size="small" sx={{ minWidth: 200 }}>
-                      <InputLabel>Producto</InputLabel>
-                      <Select
-                        value={l.producto_id || ''}
-                        label="Producto"
-                        onChange={(e) => updateLinea(idx, 'producto_id', Number(e.target.value))}
-                      >
-                        {productos.map((p) => (
-                          <MenuItem key={p.id} value={p.id}>{p.nombre} ({p.sku})</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                    <TextField
-                      label="Cant. Esperada"
-                      type="number"
-                      size="small"
-                      sx={{ width: 130 }}
-                      value={l.cantidad_esperada}
-                      onChange={(e) => updateLinea(idx, 'cantidad_esperada', Number(e.target.value))}
-                      inputProps={{ min: 0 }}
-                    />
-                    <TextField
-                      label="Cant. Recibida"
-                      type="number"
-                      size="small"
-                      sx={{ width: 130 }}
-                      value={l.cantidad_recibida}
-                      onChange={(e) => updateLinea(idx, 'cantidad_recibida', Number(e.target.value))}
-                      inputProps={{ min: 0 }}
-                    />
-                    <FormControl size="small" sx={{ minWidth: 140 }}>
-                      <InputLabel>Calidad</InputLabel>
-                      <Select
-                        value={l.estado_calidad}
-                        label="Calidad"
-                        onChange={(e) => updateLinea(idx, 'estado_calidad', e.target.value)}
-                      >
-                        {(['APROBADO', 'RECHAZADO', 'CUARENTENA', 'INSPECCION'] as const).map((s) => (
-                          <MenuItem key={s} value={s}>
-                            <Chip
-                              label={s}
-                              size="small"
-                              color={CALIDAD_COLOR[s]}
-                              sx={{ fontSize: 10, fontWeight: 600, pointerEvents: 'none' }}
-                            />
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                    <TextField
-                      label="Notas"
-                      size="small"
-                      sx={{ flexGrow: 1, minWidth: 120 }}
-                      value={l.notas}
-                      onChange={(e) => updateLinea(idx, 'notas', e.target.value)}
-                    />
-                    <Tooltip title="Eliminar línea">
-                      <IconButton size="small" color="error" onClick={() => removeLinea(idx)}>
-                        <DeleteOutline fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </Stack>
-                </Box>
+                  linea={l}
+                  productos={productos}
+                  ubicaciones={ubicacionesFiltradas}
+                  onUpdate={(field, value) => updateLinea(idx, field, value)}
+                  onRemove={() => removeLinea(idx)}
+                />
               ))}
             </Grid>
 
