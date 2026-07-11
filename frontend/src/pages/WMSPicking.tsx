@@ -28,6 +28,7 @@ import {
   Select,
   InputLabel,
   FormControl,
+  InputAdornment,
   Collapse,
   alpha,
 } from '@mui/material'
@@ -72,6 +73,7 @@ interface OrdenLinea {
   producto_id: string
   cantidad_solicitada: string
   precio_unitario: string
+  lote_id: string
 }
 
 interface OrdenDetallePayload {
@@ -116,7 +118,8 @@ interface TareaPicking {
 
 interface Cliente { id: number; nombre: string }
 interface Almacen { id: number; nombre: string }
-interface Producto { id: number; nombre: string; sku: string }
+interface Producto { id: number; nombre: string; sku: string; unidad_medida?: string }
+interface Lote { id: number; producto_id: number; numero_lote: string }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -165,7 +168,7 @@ export default function WMSPicking() {
   // ── Dialog state ──
   const [openOrdenDialog, setOpenOrdenDialog] = useState(false)
   const [ordenForm, setOrdenForm] = useState({ ...EMPTY_ORDEN })
-  const [lineas, setLineas] = useState<OrdenLinea[]>([{ producto_id: '', cantidad_solicitada: '', precio_unitario: '' }])
+  const [lineas, setLineas] = useState<OrdenLinea[]>([{ producto_id: '', cantidad_solicitada: '', precio_unitario: '', lote_id: '' }])
 
   // ── Expandable tarea ──
   const [expandedTarea, setExpandedTarea] = useState<number | null>(null)
@@ -218,6 +221,14 @@ export default function WMSPicking() {
     },
   })
 
+  const { data: lotes } = useQuery<Lote[]>({
+    queryKey: ['wms-lotes'],
+    queryFn: async () => {
+      const res = await api.get('/wms/lotes/')
+      return res.data
+    },
+  })
+
   // ─── Mutations ────────────────────────────────────────────────────────────
 
   const mutCrearOrden = useMutation({
@@ -229,7 +240,7 @@ export default function WMSPicking() {
       queryClient.invalidateQueries({ queryKey: ['wms-ordenes'] })
       toast.success('Orden creada')
       setOrdenForm({ ...EMPTY_ORDEN })
-      setLineas([{ producto_id: '', cantidad_solicitada: '', precio_unitario: '' }])
+      setLineas([{ producto_id: '', cantidad_solicitada: '', precio_unitario: '', lote_id: '' }])
       setOpenOrdenDialog(false)
     },
     onError: (error: unknown) => toast.error(extractError(error, 'No se pudo crear la orden')),
@@ -263,7 +274,7 @@ export default function WMSPicking() {
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
   const addLinea = () => {
-    setLineas(prev => [...prev, { producto_id: '', cantidad_solicitada: '', precio_unitario: '' }])
+    setLineas(prev => [...prev, { producto_id: '', cantidad_solicitada: '', precio_unitario: '', lote_id: '' }])
   }
 
   const removeLinea = (index: number) => {
@@ -300,7 +311,7 @@ export default function WMSPicking() {
         producto_id: Number(l.producto_id),
         cantidad_solicitada: Number(l.cantidad_solicitada),
         precio_unitario: l.precio_unitario ? Number(l.precio_unitario) : undefined,
-        lote_id: null,
+        lote_id: l.lote_id ? Number(l.lote_id) : null,
       })),
     }
     if (ordenForm.numero_orden.trim()) payload.numero_orden = ordenForm.numero_orden.trim()
@@ -768,13 +779,13 @@ export default function WMSPicking() {
           <Typography variant="caption" color="text.secondary" sx={{ px: 3, pb: 1, display: 'block' }}>
             Registra los datos del cliente y las líneas de producto a despachar.
           </Typography>
-          <DialogContent dividers>
+          <DialogContent dividers sx={{ px: 3, py: 2.5 }}>
 
             {/* Section 1 — Datos de la Orden */}
             <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.secondary', mb: 0.5 }}>
               DATOS DE LA ORDEN
             </Typography>
-            <Grid container spacing={2} sx={{ mt: 0.5 }}>
+            <Grid container spacing={2.5} sx={{ mt: 0.5 }}>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   label="Número de Orden"
@@ -893,51 +904,104 @@ export default function WMSPicking() {
                     </IconButton>
                   </Stack>
 
-                  <Grid container spacing={1.5} alignItems="center">
-                    <Grid size={{ xs: 12, sm: 6, md: 5 }}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel>Producto</InputLabel>
-                        <Select
-                          label="Producto"
-                          value={linea.producto_id}
-                          onChange={e => updateLinea(index, 'producto_id', e.target.value)}
-                        >
-                          <MenuItem value="">Seleccionar</MenuItem>
-                          {(productos ?? []).map(p => (
-                            <MenuItem key={p.id} value={String(p.id)}>
-                              {p.sku} — {p.nombre}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Grid>
+                  {(() => {
+                    const prod = (productos ?? []).find(p => String(p.id) === linea.producto_id)
+                    const unidad = prod?.unidad_medida ?? 'UNIDAD'
+                    const lotesProd = (lotes ?? []).filter(lt => String(lt.producto_id) === linea.producto_id)
+                    const subtotal = (Number(linea.cantidad_solicitada) || 0) * (Number(linea.precio_unitario) || 0)
+                    return (
+                      <Grid container spacing={2} alignItems="center">
+                        <Grid size={{ xs: 12, sm: 6 }}>
+                          <FormControl fullWidth size="small">
+                            <InputLabel>Producto</InputLabel>
+                            <Select
+                              label="Producto"
+                              value={linea.producto_id}
+                              onChange={e => { updateLinea(index, 'producto_id', e.target.value); updateLinea(index, 'lote_id', '') }}
+                            >
+                              <MenuItem value="">Seleccionar</MenuItem>
+                              {(productos ?? []).map(p => (
+                                <MenuItem key={p.id} value={String(p.id)}>
+                                  {p.sku} — {p.nombre}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                        </Grid>
 
-                    <Grid size={{ xs: 6, sm: 3 }}>
-                      <TextField
-                        label="Cantidad"
-                        type="number"
-                        fullWidth
-                        size="small"
-                        value={linea.cantidad_solicitada}
-                        onChange={e => updateLinea(index, 'cantidad_solicitada', e.target.value)}
-                        inputProps={{ min: 0 }}
-                      />
-                    </Grid>
+                        <Grid size={{ xs: 6, sm: 3 }}>
+                          <TextField
+                            label="Cantidad"
+                            type="number"
+                            fullWidth
+                            size="small"
+                            value={linea.cantidad_solicitada}
+                            onChange={e => updateLinea(index, 'cantidad_solicitada', e.target.value)}
+                            inputProps={{ min: 0 }}
+                          />
+                        </Grid>
 
-                    <Grid size={{ xs: 6, sm: 3, md: 4 }}>
-                      <TextField
-                        label="Precio Unit."
-                        type="number"
-                        fullWidth
-                        size="small"
-                        value={linea.precio_unitario}
-                        onChange={e => updateLinea(index, 'precio_unitario', e.target.value)}
-                        inputProps={{ min: 0 }}
-                      />
-                    </Grid>
-                  </Grid>
+                        <Grid size={{ xs: 6, sm: 3 }}>
+                          <TextField
+                            label="Unidad"
+                            fullWidth
+                            size="small"
+                            value={unidad}
+                            InputProps={{ readOnly: true }}
+                          />
+                        </Grid>
+
+                        <Grid size={{ xs: 12, sm: 6 }}>
+                          <FormControl fullWidth size="small">
+                            <InputLabel>Lote (opcional)</InputLabel>
+                            <Select
+                              label="Lote (opcional)"
+                              value={linea.lote_id}
+                              onChange={e => updateLinea(index, 'lote_id', e.target.value)}
+                              disabled={!linea.producto_id}
+                            >
+                              <MenuItem value=""><em>Sin lote</em></MenuItem>
+                              {lotesProd.map(lt => (
+                                <MenuItem key={lt.id} value={String(lt.id)}>{lt.numero_lote}</MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                        </Grid>
+
+                        <Grid size={{ xs: 6, sm: 3 }}>
+                          <TextField
+                            label="Precio Unit."
+                            type="number"
+                            fullWidth
+                            size="small"
+                            value={linea.precio_unitario}
+                            onChange={e => updateLinea(index, 'precio_unitario', e.target.value)}
+                            inputProps={{ min: 0 }}
+                            InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                          />
+                        </Grid>
+
+                        <Grid size={{ xs: 6, sm: 3 }}>
+                          <TextField
+                            label="Subtotal"
+                            fullWidth
+                            size="small"
+                            value={`$ ${subtotal.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                            InputProps={{ readOnly: true }}
+                            sx={{ '& .MuiInputBase-input': { fontWeight: 600 } }}
+                          />
+                        </Grid>
+                      </Grid>
+                    )
+                  })()}
                 </Box>
               ))}
+              <Stack direction="row" justifyContent="flex-end" alignItems="baseline" spacing={1} sx={{ mt: 0.5, pr: 0.5 }}>
+                <Typography variant="caption" color="text.secondary">Total pedido:</Typography>
+                <Typography fontWeight={700} sx={{ color: WMS_COLOR }}>
+                  $ {lineas.reduce((acc, l) => acc + (Number(l.cantidad_solicitada) || 0) * (Number(l.precio_unitario) || 0), 0).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </Typography>
+              </Stack>
             </Box>
 
           </DialogContent>
