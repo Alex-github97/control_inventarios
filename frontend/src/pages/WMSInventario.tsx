@@ -638,91 +638,121 @@ export default function WMSInventario() {
             <Grid size={{ xs: 12, md: 5 }}>
               <Card>
                 <CardContent>
-                  <Typography variant="h6" fontWeight={700} mb={2}>
-                    Nuevo Ajuste
-                  </Typography>
-
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel>Producto</InputLabel>
-                      <Select
-                        label="Producto"
-                        value={ajusteForm.producto_id}
-                        onChange={(e) =>
-                          setAjusteForm((f) => ({ ...f, producto_id: e.target.value }))
-                        }
-                      >
-                        <MenuItem value="">Seleccionar...</MenuItem>
-                        {productos.map((p) => (
-                          <MenuItem key={p.id} value={String(p.id)}>
-                            {p.sku} — {p.nombre}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-
-                    <FormControl fullWidth size="small">
-                      <InputLabel>Ubicación</InputLabel>
-                      <Select
-                        label="Ubicación"
-                        value={ajusteForm.ubicacion_id}
-                        onChange={(e) =>
-                          setAjusteForm((f) => ({ ...f, ubicacion_id: e.target.value }))
-                        }
-                      >
-                        <MenuItem value="">Seleccionar...</MenuItem>
-                        {ubicaciones.map((u) => (
-                          <MenuItem key={u.id} value={String(u.id)}>
-                            {u.codigo}
-                            {u.almacen_nombre ? ` (${u.almacen_nombre})` : ''}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Lote ID (opcional)"
-                      value={ajusteForm.lote_id}
-                      onChange={(e) =>
-                        setAjusteForm((f) => ({ ...f, lote_id: e.target.value }))
-                      }
-                    />
-
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Nueva cantidad (stock resultante)"
-                      type="number"
-                      helperText="Nueva cantidad (stock resultante)"
-                      inputProps={{ min: 0 }}
-                      value={ajusteForm.cantidad_nueva}
-                      onChange={(e) =>
-                        setAjusteForm((f) => ({ ...f, cantidad_nueva: e.target.value }))
-                      }
-                    />
-
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Motivo"
-                      multiline
-                      rows={2}
-                      value={ajusteForm.motivo}
-                      onChange={(e) =>
-                        setAjusteForm((f) => ({ ...f, motivo: e.target.value }))
-                      }
-                    />
-
-                    <Button
-                      variant="contained"
-                      disabled={mutAjuste.isPending || !ajusteValido}
-                      onClick={() => mutAjuste.mutate(ajusteForm)}
-                      sx={{ bgcolor: WMS_COLOR, '&:hover': { bgcolor: '#1e3a8a' } }}
+                  <Box
+                    sx={{
+                      borderRadius: 2,
+                      p: 2,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                    }}
+                  >
+                    <Typography
+                      sx={{
+                        fontSize: 12,
+                        fontWeight: 700,
+                        letterSpacing: 0.4,
+                        textTransform: 'uppercase',
+                        color: 'text.secondary',
+                        mb: 1,
+                      }}
                     >
-                      {mutAjuste.isPending ? 'Registrando...' : 'Registrar Ajuste'}
-                    </Button>
+                      REGISTRAR AJUSTE
+                    </Typography>
+
+                    <Grid container spacing={2}>
+                      <Grid size={{ xs: 12 }}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Producto</InputLabel>
+                          <Select
+                            label="Producto"
+                            value={ajusteForm.producto_id}
+                            onChange={(e) =>
+                              setAjusteForm((f) => ({ ...f, producto_id: e.target.value }))
+                            }
+                          >
+                            <MenuItem value="">Seleccionar...</MenuItem>
+                            {productos.map((p) => (
+                              <MenuItem key={p.id} value={String(p.id)}>
+                                {p.sku} — {p.nombre}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Ubicación</InputLabel>
+                          <Select
+                            label="Ubicación"
+                            value={ajusteForm.ubicacion_id}
+                            onChange={(e) =>
+                              setAjusteForm((f) => ({ ...f, ubicacion_id: e.target.value }))
+                            }
+                          >
+                            <MenuItem value="">Seleccionar...</MenuItem>
+                            {ubicaciones.map((u) => (
+                              <MenuItem key={u.id} value={String(u.id)}>
+                                {u.codigo}
+                                {u.almacen_nombre ? ` (${u.almacen_nombre})` : ''}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Lote ID (opcional)"
+                          value={ajusteForm.lote_id}
+                          onChange={(e) =>
+                            setAjusteForm((f) => ({ ...f, lote_id: e.target.value }))
+                          }
+                        />
+                      </Grid>
+
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Nueva cantidad (stock resultante)"
+                          type="number"
+                          helperText="Nueva cantidad (stock resultante)"
+                          inputProps={{ min: 0 }}
+                          value={ajusteForm.cantidad_nueva}
+                          onChange={(e) =>
+                            setAjusteForm((f) => ({ ...f, cantidad_nueva: e.target.value }))
+                          }
+                        />
+                      </Grid>
+
+                      <Grid size={{ xs: 12 }}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Motivo"
+                          multiline
+                          rows={2}
+                          value={ajusteForm.motivo}
+                          onChange={(e) =>
+                            setAjusteForm((f) => ({ ...f, motivo: e.target.value }))
+                          }
+                        />
+                      </Grid>
+
+                      <Grid size={{ xs: 12 }} sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                        <Button
+                          variant="contained"
+                          disabled={mutAjuste.isPending || !ajusteValido}
+                          onClick={() => mutAjuste.mutate(ajusteForm)}
+                          sx={{ bgcolor: WMS_COLOR, '&:hover': { bgcolor: '#1e3a8a' } }}
+                        >
+                          {mutAjuste.isPending ? 'Registrando...' : 'Registrar Ajuste'}
+                        </Button>
+                      </Grid>
+                    </Grid>
                   </Box>
                 </CardContent>
               </Card>
@@ -810,114 +840,146 @@ export default function WMSInventario() {
             <Grid size={{ xs: 12, md: 5 }}>
               <Card>
                 <CardContent>
-                  <Typography variant="h6" fontWeight={700} mb={2}>
-                    Nueva Transferencia
-                  </Typography>
-
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel>Producto</InputLabel>
-                      <Select
-                        label="Producto"
-                        value={transForm.producto_id}
-                        onChange={(e) =>
-                          setTransForm((f) => ({ ...f, producto_id: e.target.value }))
-                        }
-                      >
-                        <MenuItem value="">Seleccionar...</MenuItem>
-                        {productos.map((p) => (
-                          <MenuItem key={p.id} value={String(p.id)}>
-                            {p.sku} — {p.nombre}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-
-                    <FormControl fullWidth size="small">
-                      <InputLabel>Ubicación Origen</InputLabel>
-                      <Select
-                        label="Ubicación Origen"
-                        value={transForm.ubicacion_origen_id}
-                        onChange={(e) =>
-                          setTransForm((f) => ({
-                            ...f,
-                            ubicacion_origen_id: e.target.value,
-                          }))
-                        }
-                      >
-                        <MenuItem value="">Seleccionar...</MenuItem>
-                        {ubicaciones.map((u) => (
-                          <MenuItem key={u.id} value={String(u.id)}>
-                            {u.codigo}
-                            {u.almacen_nombre ? ` (${u.almacen_nombre})` : ''}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-
-                    <FormControl fullWidth size="small">
-                      <InputLabel>Ubicación Destino</InputLabel>
-                      <Select
-                        label="Ubicación Destino"
-                        value={transForm.ubicacion_destino_id}
-                        onChange={(e) =>
-                          setTransForm((f) => ({
-                            ...f,
-                            ubicacion_destino_id: e.target.value,
-                          }))
-                        }
-                      >
-                        <MenuItem value="">Seleccionar...</MenuItem>
-                        {ubicaciones.map((u) => (
-                          <MenuItem key={u.id} value={String(u.id)}>
-                            {u.codigo}
-                            {u.almacen_nombre ? ` (${u.almacen_nombre})` : ''}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Lote ID (opcional)"
-                      value={transForm.lote_id}
-                      onChange={(e) =>
-                        setTransForm((f) => ({ ...f, lote_id: e.target.value }))
-                      }
-                    />
-
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Cantidad"
-                      type="number"
-                      value={transForm.cantidad}
-                      onChange={(e) =>
-                        setTransForm((f) => ({ ...f, cantidad: e.target.value }))
-                      }
-                    />
-
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Notas"
-                      multiline
-                      rows={2}
-                      value={transForm.notas}
-                      onChange={(e) =>
-                        setTransForm((f) => ({ ...f, notas: e.target.value }))
-                      }
-                    />
-
-                    <Button
-                      variant="contained"
-                      disabled={mutTransferencia.isPending || !transValido}
-                      onClick={() => mutTransferencia.mutate(transForm)}
-                      sx={{ bgcolor: WMS_COLOR, '&:hover': { bgcolor: '#1e3a8a' } }}
+                  <Box
+                    sx={{
+                      borderRadius: 2,
+                      p: 2,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                    }}
+                  >
+                    <Typography
+                      sx={{
+                        fontSize: 12,
+                        fontWeight: 700,
+                        letterSpacing: 0.4,
+                        textTransform: 'uppercase',
+                        color: 'text.secondary',
+                        mb: 1,
+                      }}
                     >
-                      {mutTransferencia.isPending ? 'Registrando...' : 'Registrar Transferencia'}
-                    </Button>
+                      REGISTRAR TRANSFERENCIA
+                    </Typography>
+
+                    <Grid container spacing={2}>
+                      <Grid size={{ xs: 12 }}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Producto</InputLabel>
+                          <Select
+                            label="Producto"
+                            value={transForm.producto_id}
+                            onChange={(e) =>
+                              setTransForm((f) => ({ ...f, producto_id: e.target.value }))
+                            }
+                          >
+                            <MenuItem value="">Seleccionar...</MenuItem>
+                            {productos.map((p) => (
+                              <MenuItem key={p.id} value={String(p.id)}>
+                                {p.sku} — {p.nombre}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Ubicación Origen</InputLabel>
+                          <Select
+                            label="Ubicación Origen"
+                            value={transForm.ubicacion_origen_id}
+                            onChange={(e) =>
+                              setTransForm((f) => ({
+                                ...f,
+                                ubicacion_origen_id: e.target.value,
+                              }))
+                            }
+                          >
+                            <MenuItem value="">Seleccionar...</MenuItem>
+                            {ubicaciones.map((u) => (
+                              <MenuItem key={u.id} value={String(u.id)}>
+                                {u.codigo}
+                                {u.almacen_nombre ? ` (${u.almacen_nombre})` : ''}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Ubicación Destino</InputLabel>
+                          <Select
+                            label="Ubicación Destino"
+                            value={transForm.ubicacion_destino_id}
+                            onChange={(e) =>
+                              setTransForm((f) => ({
+                                ...f,
+                                ubicacion_destino_id: e.target.value,
+                              }))
+                            }
+                          >
+                            <MenuItem value="">Seleccionar...</MenuItem>
+                            {ubicaciones.map((u) => (
+                              <MenuItem key={u.id} value={String(u.id)}>
+                                {u.codigo}
+                                {u.almacen_nombre ? ` (${u.almacen_nombre})` : ''}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Lote ID (opcional)"
+                          value={transForm.lote_id}
+                          onChange={(e) =>
+                            setTransForm((f) => ({ ...f, lote_id: e.target.value }))
+                          }
+                        />
+                      </Grid>
+
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Cantidad"
+                          type="number"
+                          value={transForm.cantidad}
+                          onChange={(e) =>
+                            setTransForm((f) => ({ ...f, cantidad: e.target.value }))
+                          }
+                        />
+                      </Grid>
+
+                      <Grid size={{ xs: 12 }}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Notas"
+                          multiline
+                          rows={2}
+                          value={transForm.notas}
+                          onChange={(e) =>
+                            setTransForm((f) => ({ ...f, notas: e.target.value }))
+                          }
+                        />
+                      </Grid>
+
+                      <Grid size={{ xs: 12 }} sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                        <Button
+                          variant="contained"
+                          disabled={mutTransferencia.isPending || !transValido}
+                          onClick={() => mutTransferencia.mutate(transForm)}
+                          sx={{ bgcolor: WMS_COLOR, '&:hover': { bgcolor: '#1e3a8a' } }}
+                        >
+                          {mutTransferencia.isPending ? 'Registrando...' : 'Registrar Transferencia'}
+                        </Button>
+                      </Grid>
+                    </Grid>
                   </Box>
                 </CardContent>
               </Card>
@@ -1208,69 +1270,83 @@ export default function WMSInventario() {
           onClose={() => setOpenConteoDialog(false)}
           maxWidth="sm"
           fullWidth
+          PaperProps={{ sx: { borderRadius: 3 } }}
         >
-          <DialogTitle sx={{ fontWeight: 700 }}>Nuevo Conteo de Inventario</DialogTitle>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: 16, pb: 0.5 }}>
+            Nuevo Conteo de Inventario
+            <Typography variant="caption" color="text.secondary" display="block">
+              Programa un conteo físico para conciliar el stock del almacén
+            </Typography>
+          </DialogTitle>
           <DialogContent dividers>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Almacén</InputLabel>
-                <Select
-                  label="Almacén"
-                  value={conteoForm.almacen_id}
+            <Grid container spacing={2} sx={{ pt: 0.5 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Almacén</InputLabel>
+                  <Select
+                    label="Almacén"
+                    value={conteoForm.almacen_id}
+                    onChange={(e) =>
+                      setConteoForm((f) => ({ ...f, almacen_id: e.target.value }))
+                    }
+                  >
+                    <MenuItem value="">Seleccionar...</MenuItem>
+                    {almacenes.map((a) => (
+                      <MenuItem key={a.id} value={String(a.id)}>
+                        {a.nombre}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Tipo</InputLabel>
+                  <Select
+                    label="Tipo"
+                    value={conteoForm.tipo}
+                    onChange={(e) =>
+                      setConteoForm((f) => ({ ...f, tipo: e.target.value }))
+                    }
+                  >
+                    <MenuItem value="CICLICO">Cíclico</MenuItem>
+                    <MenuItem value="GENERAL">General</MenuItem>
+                    <MenuItem value="DIRIGIDO">Dirigido</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Fecha Programada"
+                  type="date"
+                  InputLabelProps={{ shrink: true }}
+                  value={conteoForm.fecha_programada}
                   onChange={(e) =>
-                    setConteoForm((f) => ({ ...f, almacen_id: e.target.value }))
+                    setConteoForm((f) => ({ ...f, fecha_programada: e.target.value }))
                   }
-                >
-                  <MenuItem value="">Seleccionar...</MenuItem>
-                  {almacenes.map((a) => (
-                    <MenuItem key={a.id} value={String(a.id)}>
-                      {a.nombre}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+                />
+              </Grid>
 
-              <FormControl fullWidth size="small">
-                <InputLabel>Tipo</InputLabel>
-                <Select
-                  label="Tipo"
-                  value={conteoForm.tipo}
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Notas"
+                  multiline
+                  rows={3}
+                  value={conteoForm.notas}
                   onChange={(e) =>
-                    setConteoForm((f) => ({ ...f, tipo: e.target.value }))
+                    setConteoForm((f) => ({ ...f, notas: e.target.value }))
                   }
-                >
-                  <MenuItem value="CICLICO">Cíclico</MenuItem>
-                  <MenuItem value="GENERAL">General</MenuItem>
-                  <MenuItem value="DIRIGIDO">Dirigido</MenuItem>
-                </Select>
-              </FormControl>
-
-              <TextField
-                fullWidth
-                size="small"
-                label="Fecha Programada"
-                type="date"
-                InputLabelProps={{ shrink: true }}
-                value={conteoForm.fecha_programada}
-                onChange={(e) =>
-                  setConteoForm((f) => ({ ...f, fecha_programada: e.target.value }))
-                }
-              />
-
-              <TextField
-                fullWidth
-                size="small"
-                label="Notas"
-                multiline
-                rows={3}
-                value={conteoForm.notas}
-                onChange={(e) =>
-                  setConteoForm((f) => ({ ...f, notas: e.target.value }))
-                }
-              />
-            </Box>
+                />
+              </Grid>
+            </Grid>
           </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
+          <DialogActions sx={{ px: 3, py: 2 }}>
             <Button onClick={() => setOpenConteoDialog(false)}>Cancelar</Button>
             <Button
               variant="contained"

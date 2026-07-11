@@ -77,10 +77,10 @@ function ItemCard({
 // ─── Confirm delete dialog ─────────────────────────────────────────────────────
 function ConfirmDelete({ open, title, onConfirm, onCancel, loading }: { open: boolean; title: string; onConfirm: () => void; onCancel: () => void; loading: boolean }) {
   return (
-    <Dialog open={open} onClose={onCancel} maxWidth="xs" fullWidth>
-      <DialogTitle sx={{ fontSize: 14, fontWeight: 700 }}>Eliminar {title}</DialogTitle>
+    <Dialog open={open} onClose={onCancel} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+      <DialogTitle sx={{ fontWeight: 700, fontSize: 15 }}>Eliminar {title}</DialogTitle>
       <DialogContent><Typography fontSize={13} color="text.secondary">¿Confirmar eliminación?</Typography></DialogContent>
-      <DialogActions sx={{ px: 2.5, pb: 2, gap: 1 }}>
+      <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
         <Button size="small" onClick={onCancel} sx={{ textTransform: 'none' }}>Cancelar</Button>
         <Button size="small" variant="contained" color="error" disabled={loading} onClick={onConfirm} sx={{ textTransform: 'none' }}>Eliminar</Button>
       </DialogActions>
@@ -121,8 +121,8 @@ function TiposZonaSection() {
         <ItemCard key={item.id} item={item} extraLabels={[{ key: 'descripcion', label: 'Descripción' }]}
           onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
       ))}
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontSize: 14, fontWeight: 700 }}>{editing ? 'Editar Tipo de Zona' : 'Nuevo Tipo de Zona'}</DialogTitle>
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 15 }}>{editing ? 'Editar Tipo de Zona' : 'Nuevo Tipo de Zona'}</DialogTitle>
         <Box component="form" onSubmit={handleSubmit}>
           <DialogContent><Stack gap={1.5} pt={0.5}>
             <TextField label="Nombre *" size="small" fullWidth value={form.nombre} onChange={e => set('nombre', e.target.value)} />
@@ -162,8 +162,8 @@ function TiposUbicacionSection() {
         <ItemCard key={item.id} item={item} extraLabels={[{ key: 'descripcion', label: 'Descripción' }]}
           onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
       ))}
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontSize: 14, fontWeight: 700 }}>{editing ? 'Editar Tipo de Ubicación' : 'Nuevo Tipo de Ubicación'}</DialogTitle>
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 15 }}>{editing ? 'Editar Tipo de Ubicación' : 'Nuevo Tipo de Ubicación'}</DialogTitle>
         <Box component="form" onSubmit={handleSubmit}>
           <DialogContent><Stack gap={1.5} pt={0.5}>
             <TextField label="Nombre *" size="small" fullWidth value={form.nombre} onChange={e => set('nombre', e.target.value)} />
@@ -203,8 +203,8 @@ function UnidadesMedidaSection() {
         <ItemCard key={item.id} item={item} extraLabels={[{ key: 'abreviatura', label: 'Abreviatura' }]}
           onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
       ))}
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontSize: 14, fontWeight: 700 }}>{editing ? 'Editar Unidad de Medida' : 'Nueva Unidad de Medida'}</DialogTitle>
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 15 }}>{editing ? 'Editar Unidad de Medida' : 'Nueva Unidad de Medida'}</DialogTitle>
         <Box component="form" onSubmit={handleSubmit}>
           <DialogContent><Stack gap={1.5} pt={0.5}>
             <TextField label="Nombre * (ej: Kilogramo)" size="small" fullWidth value={form.nombre} onChange={e => set('nombre', e.target.value)} />
@@ -241,8 +241,8 @@ function CategoriasSection() {
       {items.map(item => (
         <ItemCard key={item.id} item={item} onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
       ))}
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontSize: 14, fontWeight: 700 }}>{editing ? 'Editar Categoría' : 'Nueva Categoría'}</DialogTitle>
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 15 }}>{editing ? 'Editar Categoría' : 'Nueva Categoría'}</DialogTitle>
         <Box component="form" onSubmit={handleSubmit}>
           <DialogContent><TextField label="Nombre *" size="small" fullWidth value={nombre} onChange={e => setNombre(e.target.value)} sx={{ mt: 0.5 }} /></DialogContent>
           <CrudActions onCancel={() => setOpen(false)} isPending={create.isPending || update.isPending} editing={!!editing} />
@@ -281,8 +281,8 @@ function FamiliasSection() {
         <ItemCard key={item.id} item={item} extraLabels={[{ key: 'categoria_nombre', label: 'Categoría' }]}
           onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
       ))}
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontSize: 14, fontWeight: 700 }}>{editing ? 'Editar Familia' : 'Nueva Familia'}</DialogTitle>
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 15 }}>{editing ? 'Editar Familia' : 'Nueva Familia'}</DialogTitle>
         <Box component="form" onSubmit={handleSubmit}>
           <DialogContent><Stack gap={1.5} pt={0.5}>
             <TextField label="Nombre *" size="small" fullWidth value={form.nombre} onChange={e => set('nombre', e.target.value)} />
@@ -333,8 +333,8 @@ function PaisesSection() {
           extraLabels={[{ key: 'codigo_iso', label: 'Código ISO' }]}
           onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
       ))}
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontSize: 14, fontWeight: 700 }}>{editing ? 'Editar País' : 'Nuevo País'}</DialogTitle>
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 15 }}>{editing ? 'Editar País' : 'Nuevo País'}</DialogTitle>
         <Box component="form" onSubmit={handleSubmit}>
           <DialogContent><Stack gap={1.5} pt={0.5}>
             <TextField label="Nombre *" size="small" fullWidth value={form.nombre} onChange={e => set('nombre', e.target.value)} />
@@ -384,8 +384,8 @@ function CiudadesSection() {
           extraLabels={[{ key: 'pais_nombre', label: 'País' }]}
           onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
       ))}
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontSize: 14, fontWeight: 700 }}>{editing ? 'Editar Ciudad' : 'Nueva Ciudad'}</DialogTitle>
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 15 }}>{editing ? 'Editar Ciudad' : 'Nueva Ciudad'}</DialogTitle>
         <Box component="form" onSubmit={handleSubmit}>
           <DialogContent><Stack gap={1.5} pt={0.5}>
             <TextField label="Nombre *" size="small" fullWidth value={form.nombre} onChange={e => set('nombre', e.target.value)} />
@@ -447,8 +447,8 @@ function AlmacenesSection() {
           extraLabels={[{ key: 'codigo', label: 'Código' }, { key: 'ciudad', label: 'Ciudad' }, { key: 'pais', label: 'País' }]}
           onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
       ))}
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontSize: 14, fontWeight: 700 }}>{editing ? 'Editar Almacén' : 'Nuevo Almacén'}</DialogTitle>
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 15 }}>{editing ? 'Editar Almacén' : 'Nuevo Almacén'}</DialogTitle>
         <Box component="form" onSubmit={handleSubmit}>
           <DialogContent><Stack gap={1.5} pt={0.5}>
             <Stack direction="row" gap={1.5}>
@@ -513,8 +513,8 @@ function ZonasSection() {
           extraLabels={[{ key: 'codigo', label: 'Código' }, { key: 'tipo', label: 'Tipo' }]}
           onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
       ))}
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontSize: 14, fontWeight: 700 }}>{editing ? 'Editar Zona' : 'Nueva Zona'}</DialogTitle>
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 15 }}>{editing ? 'Editar Zona' : 'Nueva Zona'}</DialogTitle>
         <Box component="form" onSubmit={handleSubmit}>
           <DialogContent><Stack gap={1.5} pt={0.5}>
             <Stack direction="row" gap={1.5}>
@@ -591,8 +591,8 @@ function UbicacionesSection() {
           extraLabels={[{ key: 'tipo', label: 'Tipo' }, { key: 'pasillo', label: 'Pasillo' }]}
           onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
       ))}
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontSize: 14, fontWeight: 700 }}>{editing ? 'Editar Ubicación' : 'Nueva Ubicación'}</DialogTitle>
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 15 }}>{editing ? 'Editar Ubicación' : 'Nueva Ubicación'}</DialogTitle>
         <Box component="form" onSubmit={handleSubmit}>
           <DialogContent><Stack gap={1.5} pt={0.5}>
             <Stack direction="row" gap={1.5}>
@@ -687,8 +687,8 @@ function ProductosSection() {
           extraLabels={[{ key: 'sku', label: 'SKU' }, { key: 'categoria', label: 'Categoría' }, { key: 'unidad_medida', label: 'Unidad' }]}
           onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
       ))}
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontSize: 14, fontWeight: 700 }}>{editing ? 'Editar Producto' : 'Nuevo Producto'}</DialogTitle>
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 15 }}>{editing ? 'Editar Producto' : 'Nuevo Producto'}</DialogTitle>
         <Box component="form" onSubmit={handleSubmit}>
           <DialogContent><Stack gap={1.5} pt={0.5}>
             <Stack direction="row" gap={1.5}>
@@ -768,8 +768,8 @@ function LotesSection() {
           extraLabels={[{ key: 'fecha_vencimiento', label: 'Vencimiento' }, { key: 'proveedor_lote', label: 'Proveedor' }]}
           onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
       ))}
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontSize: 14, fontWeight: 700 }}>{editing ? 'Editar Lote' : 'Nuevo Lote'}</DialogTitle>
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 15 }}>{editing ? 'Editar Lote' : 'Nuevo Lote'}</DialogTitle>
         <Box component="form" onSubmit={handleSubmit}>
           <DialogContent><Stack gap={1.5} pt={0.5}>
             <TextField label="Número de lote *" fullWidth size="small" value={form.numero_lote} onChange={e => set('numero_lote', e.target.value)} />
@@ -831,8 +831,8 @@ function ProveedoresWMSSection() {
           extraLabels={[{ key: 'codigo', label: 'Código' }, { key: 'nit', label: 'NIT' }, { key: 'ciudad', label: 'Ciudad' }, { key: 'pais', label: 'País' }]}
           onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
       ))}
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontSize: 14, fontWeight: 700 }}>{editing ? 'Editar Proveedor' : 'Nuevo Proveedor'}</DialogTitle>
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 15 }}>{editing ? 'Editar Proveedor' : 'Nuevo Proveedor'}</DialogTitle>
         <Box component="form" onSubmit={handleSubmit}>
           <DialogContent><Stack gap={1.5} pt={0.5}>
             <Stack direction="row" gap={1.5}>
@@ -906,8 +906,8 @@ function ClientesWMSSection() {
           extraLabels={[{ key: 'codigo', label: 'Código' }, { key: 'nit', label: 'NIT' }, { key: 'segmento', label: 'Segmento' }, { key: 'ciudad', label: 'Ciudad' }]}
           onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
       ))}
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontSize: 14, fontWeight: 700 }}>{editing ? 'Editar Cliente' : 'Nuevo Cliente'}</DialogTitle>
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 15 }}>{editing ? 'Editar Cliente' : 'Nuevo Cliente'}</DialogTitle>
         <Box component="form" onSubmit={handleSubmit}>
           <DialogContent><Stack gap={1.5} pt={0.5}>
             <Stack direction="row" gap={1.5}>
@@ -976,8 +976,8 @@ function TransportadorasSection() {
           extraLabels={[{ key: 'codigo', label: 'Código' }, { key: 'nit', label: 'NIT' }, { key: 'telefono', label: 'Teléfono' }]}
           onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
       ))}
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontSize: 14, fontWeight: 700 }}>{editing ? 'Editar Transportadora' : 'Nueva Transportadora'}</DialogTitle>
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 15 }}>{editing ? 'Editar Transportadora' : 'Nueva Transportadora'}</DialogTitle>
         <Box component="form" onSubmit={handleSubmit}>
           <DialogContent><Stack gap={1.5} pt={0.5}>
             <Stack direction="row" gap={1.5}>
@@ -1078,7 +1078,7 @@ function SectionShell({ title, subtitle, onNew, isLoading, children }: { title: 
 
 function CrudActions({ onCancel, isPending, editing }: { onCancel: () => void; isPending: boolean; editing: boolean }) {
   return (
-    <DialogActions sx={{ px: 2.5, pb: 2, gap: 1 }}>
+    <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
       <Button size="small" onClick={onCancel} sx={{ textTransform: 'none' }}>Cancelar</Button>
       <Button type="submit" size="small" variant="contained" disabled={isPending}
         startIcon={isPending ? <CircularProgress size={12} color="inherit" /> : undefined}

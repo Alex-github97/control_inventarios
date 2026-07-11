@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import {
   Box,
+  Stack,
   Typography,
   Card,
   Tabs,
@@ -759,16 +760,22 @@ export default function WMSPicking() {
           onClose={() => setOpenOrdenDialog(false)}
           maxWidth="md"
           fullWidth
+          PaperProps={{ sx: { borderRadius: 3 } }}
         >
-          <DialogTitle>Nueva Orden de Salida</DialogTitle>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: 16, pb: 0.5 }}>
+            Nueva Orden de Salida
+          </DialogTitle>
+          <Typography variant="caption" color="text.secondary" sx={{ px: 3, pb: 1, display: 'block' }}>
+            Registra los datos del cliente y las líneas de producto a despachar.
+          </Typography>
           <DialogContent dividers>
 
             {/* Section 1 — Datos de la Orden */}
-            <Typography variant="subtitle2" sx={{ mb: 2 }}>
-              Datos de la Orden
+            <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.secondary', mb: 0.5 }}>
+              DATOS DE LA ORDEN
             </Typography>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, md: 6 }}>
+            <Grid container spacing={2} sx={{ mt: 0.5 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   label="Número de Orden"
                   fullWidth
@@ -778,7 +785,7 @@ export default function WMSPicking() {
                 />
               </Grid>
 
-              <Grid size={{ xs: 12, md: 6 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl fullWidth size="small">
                   <InputLabel>Cliente</InputLabel>
                   <Select
@@ -794,7 +801,7 @@ export default function WMSPicking() {
                 </FormControl>
               </Grid>
 
-              <Grid size={{ xs: 12, md: 6 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl fullWidth size="small">
                   <InputLabel>Almacén</InputLabel>
                   <Select
@@ -810,7 +817,7 @@ export default function WMSPicking() {
                 </FormControl>
               </Grid>
 
-              <Grid size={{ xs: 12, md: 6 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   label="Fecha Requerida"
                   type="date"
@@ -822,7 +829,7 @@ export default function WMSPicking() {
                 />
               </Grid>
 
-              <Grid size={{ xs: 12, md: 6 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl fullWidth size="small">
                   <InputLabel>Prioridad</InputLabel>
                   <Select
@@ -838,7 +845,7 @@ export default function WMSPicking() {
                 </FormControl>
               </Grid>
 
-              <Grid size={{ xs: 12, md: 6 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   label="Canal"
                   fullWidth
@@ -849,12 +856,15 @@ export default function WMSPicking() {
               </Grid>
             </Grid>
 
-            <Divider sx={{ my: 2 }} />
+            <Divider sx={{ my: 1.5 }} />
 
             {/* Section 2 — Líneas de Pedido */}
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-              <Typography variant="subtitle2">Líneas de Pedido</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+              <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.secondary' }}>
+                LÍNEAS DE PEDIDO
+              </Typography>
               <Button
+                variant="outlined"
                 size="small"
                 startIcon={<AddIcon />}
                 onClick={addLinea}
@@ -863,65 +873,75 @@ export default function WMSPicking() {
               </Button>
             </Box>
 
-            {lineas.map((linea, index) => (
-              <Grid container spacing={2} alignItems="center" key={index} sx={{ mb: 1 }}>
-                <Grid size={{ xs: 12, md: 5 }}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Producto</InputLabel>
-                    <Select
-                      label="Producto"
-                      value={linea.producto_id}
-                      onChange={e => updateLinea(index, 'producto_id', e.target.value)}
+            <Box sx={{ maxHeight: 340, overflowY: 'auto', pr: 0.5, mt: 1 }}>
+              {lineas.map((linea, index) => (
+                <Box
+                  key={index}
+                  sx={{ p: 1.5, mb: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: 'action.hover' }}
+                >
+                  <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                    <Typography variant="caption" fontWeight={700}>
+                      Línea {index + 1}
+                    </Typography>
+                    <IconButton
+                      size="small"
+                      color="error"
+                      disabled={lineas.length === 1}
+                      onClick={() => removeLinea(index)}
                     >
-                      <MenuItem value="">Seleccionar</MenuItem>
-                      {(productos ?? []).map(p => (
-                        <MenuItem key={p.id} value={String(p.id)}>
-                          {p.sku} — {p.nombre}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Stack>
 
-                <Grid size={{ xs: 12, md: 3 }}>
-                  <TextField
-                    label="Cantidad"
-                    type="number"
-                    fullWidth
-                    size="small"
-                    value={linea.cantidad_solicitada}
-                    onChange={e => updateLinea(index, 'cantidad_solicitada', e.target.value)}
-                    inputProps={{ min: 0 }}
-                  />
-                </Grid>
+                  <Grid container spacing={1.5} alignItems="center">
+                    <Grid size={{ xs: 12, sm: 6, md: 5 }}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Producto</InputLabel>
+                        <Select
+                          label="Producto"
+                          value={linea.producto_id}
+                          onChange={e => updateLinea(index, 'producto_id', e.target.value)}
+                        >
+                          <MenuItem value="">Seleccionar</MenuItem>
+                          {(productos ?? []).map(p => (
+                            <MenuItem key={p.id} value={String(p.id)}>
+                              {p.sku} — {p.nombre}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
 
-                <Grid size={{ xs: 12, md: 3 }}>
-                  <TextField
-                    label="Precio Unit."
-                    type="number"
-                    fullWidth
-                    size="small"
-                    value={linea.precio_unitario}
-                    onChange={e => updateLinea(index, 'precio_unitario', e.target.value)}
-                    inputProps={{ min: 0 }}
-                  />
-                </Grid>
+                    <Grid size={{ xs: 6, sm: 3 }}>
+                      <TextField
+                        label="Cantidad"
+                        type="number"
+                        fullWidth
+                        size="small"
+                        value={linea.cantidad_solicitada}
+                        onChange={e => updateLinea(index, 'cantidad_solicitada', e.target.value)}
+                        inputProps={{ min: 0 }}
+                      />
+                    </Grid>
 
-                <Grid size={{ xs: 12, md: 1 }}>
-                  <IconButton
-                    size="small"
-                    color="error"
-                    disabled={lineas.length === 1}
-                    onClick={() => removeLinea(index)}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Grid>
-              </Grid>
-            ))}
+                    <Grid size={{ xs: 6, sm: 3, md: 4 }}>
+                      <TextField
+                        label="Precio Unit."
+                        type="number"
+                        fullWidth
+                        size="small"
+                        value={linea.precio_unitario}
+                        onChange={e => updateLinea(index, 'precio_unitario', e.target.value)}
+                        inputProps={{ min: 0 }}
+                      />
+                    </Grid>
+                  </Grid>
+                </Box>
+              ))}
+            </Box>
 
           </DialogContent>
-          <DialogActions>
+          <DialogActions sx={{ px: 3, py: 2 }}>
             <Button onClick={() => setOpenOrdenDialog(false)}>
               Cancelar
             </Button>

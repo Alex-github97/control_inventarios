@@ -3,6 +3,7 @@ import {
   Box, Paper, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, MenuItem, IconButton, Stack, Chip, Tooltip, CircularProgress, alpha,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Collapse,
+  Grid, Divider,
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -221,41 +222,56 @@ function NuevoDespachoDialog({ open, onClose }: { open: boolean; onClose: () => 
   }
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ fontSize: 14, fontWeight: 700 }}>Nuevo Despacho</DialogTitle>
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+      <DialogTitle sx={{ fontWeight: 700, fontSize: 16, pb: 0.5 }}>
+        Nuevo Despacho
+        <Typography variant="caption" color="text.secondary" display="block">
+          Genera un despacho a partir de una orden de salida en picking
+        </Typography>
+      </DialogTitle>
       <Box component="form" onSubmit={handleSubmit}>
-        <DialogContent>
-          <Stack gap={1.5} pt={0.5}>
-            <TextField select label="Orden *" fullWidth size="small" value={form.orden_id} onChange={e => set('orden_id', e.target.value)}
-              error={ordenesError}
-              helperText={ordenesError ? 'No se pudieron cargar las órdenes de salida' : 'Las líneas se derivan del picking confirmado'}>
-              <MenuItem value="">Seleccione una orden</MenuItem>
-              {ordenes.map(o => (
-                <MenuItem key={o.id} value={o.id.toString()}>
-                  {o.numero_orden} — {o.estado}{o.cliente?.nombre ? ` · ${o.cliente.nombre}` : ''}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField select label="Transportadora" fullWidth size="small" value={form.transportadora_id} onChange={e => set('transportadora_id', e.target.value)}>
-              <MenuItem value="">Sin transportadora</MenuItem>
-              {transportadoras.map(t => <MenuItem key={t.id} value={t.id.toString()}>{t.nombre}</MenuItem>)}
-            </TextField>
-            <Stack direction="row" gap={1.5}>
-              <TextField label="Placa vehículo" size="small" value={form.vehiculo_placa} onChange={e => set('vehiculo_placa', e.target.value)} sx={{ flex: 1 }} />
-              <TextField label="Conductor" size="small" value={form.conductor_nombre} onChange={e => set('conductor_nombre', e.target.value)} sx={{ flex: 2 }} />
-            </Stack>
-            <Stack direction="row" gap={1.5}>
-              <TextField label="Fecha despacho" size="small" type="date" value={form.fecha_despacho} onChange={e => set('fecha_despacho', e.target.value)} sx={{ flex: 1 }} InputLabelProps={{ shrink: true }} />
-              <TextField label="Entrega estimada" size="small" type="date" value={form.fecha_entrega_estimada} onChange={e => set('fecha_entrega_estimada', e.target.value)} sx={{ flex: 1 }} InputLabelProps={{ shrink: true }} />
-            </Stack>
-            <TextField label="Notas" fullWidth size="small" multiline rows={2} value={form.notas} onChange={e => set('notas', e.target.value)} />
-          </Stack>
+        <DialogContent dividers>
+          <Grid container spacing={2} sx={{ pt: 0.5 }}>
+            <Grid size={{ xs: 12 }}>
+              <TextField select label="Orden *" fullWidth size="small" value={form.orden_id} onChange={e => set('orden_id', e.target.value)}
+                error={ordenesError}
+                helperText={ordenesError ? 'No se pudieron cargar las órdenes de salida' : 'Las líneas se derivan del picking confirmado'}>
+                <MenuItem value="">Seleccione una orden</MenuItem>
+                {ordenes.map(o => (
+                  <MenuItem key={o.id} value={o.id.toString()}>
+                    {o.numero_orden} — {o.estado}{o.cliente?.nombre ? ` · ${o.cliente.nombre}` : ''}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <TextField select label="Transportadora" fullWidth size="small" value={form.transportadora_id} onChange={e => set('transportadora_id', e.target.value)}>
+                <MenuItem value="">Sin transportadora</MenuItem>
+                {transportadoras.map(t => <MenuItem key={t.id} value={t.id.toString()}>{t.nombre}</MenuItem>)}
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField label="Placa vehículo" fullWidth size="small" value={form.vehiculo_placa} onChange={e => set('vehiculo_placa', e.target.value)} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField label="Conductor" fullWidth size="small" value={form.conductor_nombre} onChange={e => set('conductor_nombre', e.target.value)} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField label="Fecha despacho" fullWidth size="small" type="date" value={form.fecha_despacho} onChange={e => set('fecha_despacho', e.target.value)} InputLabelProps={{ shrink: true }} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField label="Entrega estimada" fullWidth size="small" type="date" value={form.fecha_entrega_estimada} onChange={e => set('fecha_entrega_estimada', e.target.value)} InputLabelProps={{ shrink: true }} />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <TextField label="Notas" fullWidth size="small" multiline rows={2} value={form.notas} onChange={e => set('notas', e.target.value)} />
+            </Grid>
+          </Grid>
         </DialogContent>
-        <DialogActions sx={{ px: 2.5, pb: 2, gap: 1 }}>
+        <DialogActions sx={{ px: 3, py: 2 }}>
           <Button size="small" onClick={handleClose} sx={{ textTransform: 'none' }}>Cancelar</Button>
           <Button type="submit" size="small" variant="contained" disabled={createMut.isPending}
             startIcon={createMut.isPending ? <CircularProgress size={12} color="inherit" /> : undefined}
-            sx={{ textTransform: 'none', bgcolor: WMS_COLOR, '&:hover': { bgcolor: '#1E3A8A' } }}>
+            sx={{ textTransform: 'none', bgcolor: WMS_COLOR, '&:hover': { bgcolor: alpha(WMS_COLOR, 0.85) } }}>
             Crear
           </Button>
         </DialogActions>
@@ -305,45 +321,64 @@ function NuevoDevolucionDialog({ open, onClose }: { open: boolean; onClose: () =
   }
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ fontSize: 14, fontWeight: 700 }}>Nueva Devolución</DialogTitle>
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+      <DialogTitle sx={{ fontWeight: 700, fontSize: 16, pb: 0.5 }}>
+        Nueva Devolución
+        <Typography variant="caption" color="text.secondary" display="block">
+          Registra la recepción de una devolución de cliente o proveedor
+        </Typography>
+      </DialogTitle>
       <Box component="form" onSubmit={handleSubmit}>
-        <DialogContent>
-          <Stack gap={1.5} pt={0.5}>
-            <TextField select label="Tipo *" fullWidth size="small" value={form.tipo} onChange={e => set('tipo', e.target.value)}>
-              <MenuItem value="CLIENTE">Cliente</MenuItem>
-              <MenuItem value="PROVEEDOR">Proveedor</MenuItem>
-            </TextField>
-            {form.tipo === 'CLIENTE' && (
-              <TextField select label="Cliente" fullWidth size="small" value={form.cliente_id} onChange={e => set('cliente_id', e.target.value)}>
-                <MenuItem value="">Sin cliente específico</MenuItem>
-                {clientes.map(c => <MenuItem key={c.id} value={c.id.toString()}>{c.nombre}</MenuItem>)}
+        <DialogContent dividers>
+          <Grid container spacing={2} sx={{ pt: 0.5 }}>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField select label="Tipo *" fullWidth size="small" value={form.tipo} onChange={e => set('tipo', e.target.value)}>
+                <MenuItem value="CLIENTE">Cliente</MenuItem>
+                <MenuItem value="PROVEEDOR">Proveedor</MenuItem>
               </TextField>
+            </Grid>
+            {form.tipo === 'CLIENTE' && (
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField select label="Cliente" fullWidth size="small" value={form.cliente_id} onChange={e => set('cliente_id', e.target.value)}>
+                  <MenuItem value="">Sin cliente específico</MenuItem>
+                  {clientes.map(c => <MenuItem key={c.id} value={c.id.toString()}>{c.nombre}</MenuItem>)}
+                </TextField>
+              </Grid>
             )}
             {form.tipo === 'PROVEEDOR' && (
-              <TextField select label="Proveedor" fullWidth size="small" value={form.proveedor_id} onChange={e => set('proveedor_id', e.target.value)}>
-                <MenuItem value="">Sin proveedor específico</MenuItem>
-                {proveedores.map(p => <MenuItem key={p.id} value={p.id.toString()}>{p.nombre}</MenuItem>)}
-              </TextField>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField select label="Proveedor" fullWidth size="small" value={form.proveedor_id} onChange={e => set('proveedor_id', e.target.value)}>
+                  <MenuItem value="">Sin proveedor específico</MenuItem>
+                  {proveedores.map(p => <MenuItem key={p.id} value={p.id.toString()}>{p.nombre}</MenuItem>)}
+                </TextField>
+              </Grid>
             )}
-            <TextField select label="Orden de referencia" fullWidth size="small" value={form.orden_referencia_id} onChange={e => set('orden_referencia_id', e.target.value)}
-              error={ordenesError} helperText={ordenesError ? 'No se pudieron cargar las órdenes de salida' : undefined}>
-              <MenuItem value="">Sin orden de referencia</MenuItem>
-              {ordenes.map(o => <MenuItem key={o.id} value={o.id.toString()}>{o.numero_orden}{o.cliente?.nombre ? ` · ${o.cliente.nombre}` : ''}</MenuItem>)}
-            </TextField>
-            <TextField select label="Almacén destino" fullWidth size="small" value={form.almacen_id} onChange={e => set('almacen_id', e.target.value)}>
-              <MenuItem value="">Sin almacén asignado</MenuItem>
-              {almacenes.map(a => <MenuItem key={a.id} value={a.id.toString()}>{a.nombre}</MenuItem>)}
-            </TextField>
-            <TextField label="Fecha de recepción" size="small" type="date" fullWidth value={form.fecha_recepcion} onChange={e => set('fecha_recepcion', e.target.value)} InputLabelProps={{ shrink: true }} />
-            <TextField label="Motivo *" fullWidth size="small" multiline rows={2} value={form.motivo} onChange={e => set('motivo', e.target.value)} />
-          </Stack>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField select label="Orden de referencia" fullWidth size="small" value={form.orden_referencia_id} onChange={e => set('orden_referencia_id', e.target.value)}
+                error={ordenesError} helperText={ordenesError ? 'No se pudieron cargar las órdenes de salida' : undefined}>
+                <MenuItem value="">Sin orden de referencia</MenuItem>
+                {ordenes.map(o => <MenuItem key={o.id} value={o.id.toString()}>{o.numero_orden}{o.cliente?.nombre ? ` · ${o.cliente.nombre}` : ''}</MenuItem>)}
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField select label="Almacén destino" fullWidth size="small" value={form.almacen_id} onChange={e => set('almacen_id', e.target.value)}>
+                <MenuItem value="">Sin almacén asignado</MenuItem>
+                {almacenes.map(a => <MenuItem key={a.id} value={a.id.toString()}>{a.nombre}</MenuItem>)}
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField label="Fecha de recepción" fullWidth size="small" type="date" value={form.fecha_recepcion} onChange={e => set('fecha_recepcion', e.target.value)} InputLabelProps={{ shrink: true }} />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <TextField label="Motivo *" fullWidth size="small" multiline rows={2} value={form.motivo} onChange={e => set('motivo', e.target.value)} />
+            </Grid>
+          </Grid>
         </DialogContent>
-        <DialogActions sx={{ px: 2.5, pb: 2, gap: 1 }}>
+        <DialogActions sx={{ px: 3, py: 2 }}>
           <Button size="small" onClick={handleClose} sx={{ textTransform: 'none' }}>Cancelar</Button>
           <Button type="submit" size="small" variant="contained" disabled={createMut.isPending}
             startIcon={createMut.isPending ? <CircularProgress size={12} color="inherit" /> : undefined}
-            sx={{ textTransform: 'none', bgcolor: WMS_COLOR, '&:hover': { bgcolor: '#1E3A8A' } }}>
+            sx={{ textTransform: 'none', bgcolor: WMS_COLOR, '&:hover': { bgcolor: alpha(WMS_COLOR, 0.85) } }}>
             Registrar
           </Button>
         </DialogActions>
@@ -404,11 +439,11 @@ function DetalleDialog({
 
   return (
     <Dialog open={!!despacho} onClose={onClose} maxWidth="md" fullWidth
-      PaperProps={{ sx: { borderRadius: '16px', maxHeight: '90vh' } }}>
-      <DialogTitle sx={{ pb: 1 }}>
+      PaperProps={{ sx: { borderRadius: 3, maxHeight: '90vh' } }}>
+      <DialogTitle sx={{ fontWeight: 700, fontSize: 16, pb: 0.5 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
           <Box>
-            <Typography fontSize={16} fontWeight={800} letterSpacing="-0.02em">
+            <Typography fontSize={16} fontWeight={700} letterSpacing="-0.02em">
               Despacho {despacho.numero_despacho}
             </Typography>
             <Chip label={(ESTADO_CFG as any)[despacho.estado]?.label ?? despacho.estado} size="small"
@@ -421,7 +456,7 @@ function DetalleDialog({
       <DialogContent dividers sx={{ p: 0 }}>
         {/* Información general */}
         <Box sx={{ px: 3, py: 2, bgcolor: '#FAFAFA', borderBottom: '1px solid #E5E7EB' }}>
-          <Typography fontSize={11} fontWeight={700} color="text.secondary" textTransform="uppercase" letterSpacing="0.06em" mb={1.5}>
+          <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.secondary', mb: 1.5 }}>
             Información del despacho
           </Typography>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2 }}>
@@ -447,7 +482,7 @@ function DetalleDialog({
         {/* Botones de transición */}
         {nexts.length > 0 && (
           <Box sx={{ px: 3, py: 1.75, borderBottom: '1px solid #E5E7EB', bgcolor: '#FFFFFF' }}>
-            <Typography fontSize={11} fontWeight={700} color="text.secondary" textTransform="uppercase" letterSpacing="0.06em" mb={1}>
+            <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.secondary', mb: 1 }}>
               Avanzar estado
             </Typography>
             <Stack direction="row" gap={1} flexWrap="wrap">
@@ -472,7 +507,7 @@ function DetalleDialog({
 
         {/* Ítems */}
         <Box sx={{ px: 3, py: 2, borderBottom: '1px solid #E5E7EB' }}>
-          <Typography fontSize={11} fontWeight={700} color="text.secondary" textTransform="uppercase" letterSpacing="0.06em" mb={1.5}>
+          <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.secondary', mb: 1.5 }}>
             Ítems del despacho ({items.length})
           </Typography>
           {items.length === 0 ? (
@@ -506,7 +541,7 @@ function DetalleDialog({
         <Box sx={{ px: 3, py: 2, borderBottom: esSupervisor && revert ? '1px solid #E5E7EB' : undefined }}>
           <Stack direction="row" alignItems="center" gap={1} mb={1.5}>
             <HistoryIcon sx={{ fontSize: 15, color: '#9CA3AF' }} />
-            <Typography fontSize={11} fontWeight={700} color="text.secondary" textTransform="uppercase" letterSpacing="0.06em">
+            <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.secondary' }}>
               Historial de estado
             </Typography>
             {loadHist && <CircularProgress size={12} sx={{ color: WMS_COLOR }} />}
@@ -678,7 +713,7 @@ function DevolucionesSection() {
                         <Stack direction="row" gap={0.75} alignItems="center">
                           <TextField select size="small" value={accion[d.id] ?? 'REINGRESADA'}
                             onChange={e => setAccion(a => ({ ...a, [d.id]: e.target.value }))}
-                            sx={{ minWidth: 120, '& .MuiInputBase-root': { fontSize: 11 } }}>
+                            sx={{ minWidth: 140, '& .MuiInputBase-root': { fontSize: 11 } }}>
                             {DEV_ACCIONES.map(a => <MenuItem key={a} value={a} sx={{ fontSize: 11 }}>{a}</MenuItem>)}
                           </TextField>
                           <Button size="small" variant="outlined" disabled={procesarMut.isPending}

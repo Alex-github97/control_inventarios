@@ -422,8 +422,13 @@ function OrdenesCompraTab() {
       </Card>
 
       {/* ── Create OC Dialog ───────────────────────────────────────────── */}
-      <Dialog open={openDialog} onClose={handleClose} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Nueva Orden de Compra</DialogTitle>
+      <Dialog open={openDialog} onClose={handleClose} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 16, pb: 0.5 }}>
+          Nueva Orden de Compra
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 400 }}>
+            Registra los artículos solicitados al proveedor y su fecha esperada de llegada
+          </Typography>
+        </DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={2} sx={{ pt: 0.5 }}>
             <Grid size={{ xs: 12, sm: 6 }}>
@@ -499,57 +504,76 @@ function OrdenesCompraTab() {
 
             {/* Line items */}
             <Grid size={{ xs: 12 }}>
-              <Divider sx={{ my: 0.5 }} />
+              <Divider sx={{ mb: 1.5 }} />
               <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
-                <Typography fontSize={13} fontWeight={700}>Artículos de la OC</Typography>
-                <Button size="small" startIcon={<Add />} onClick={addLinea}>
+                <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.secondary', mb: 0.5 }}>
+                  Artículos
+                </Typography>
+                <Button variant="outlined" size="small" startIcon={<Add />} onClick={addLinea}>
                   Agregar artículo
                 </Button>
               </Stack>
-              {lineas.length === 0 && (
-                <Typography fontSize={12} color="text.secondary" sx={{ mb: 1 }}>
+              {lineas.length === 0 ? (
+                <Typography fontSize={12} color="text.secondary" align="center" sx={{ py: 2 }}>
                   Sin artículos. Haz clic en "Agregar artículo" para añadir.
                 </Typography>
-              )}
-              {lineas.map((l, idx) => (
-                <Stack key={idx} direction="row" spacing={1} mb={1} alignItems="center">
-                  <FormControl size="small" sx={{ minWidth: 200 }}>
-                    <InputLabel>Producto</InputLabel>
-                    <Select
-                      value={l.producto_id || ''}
-                      label="Producto"
-                      onChange={(e) => updateLinea(idx, 'producto_id', Number(e.target.value))}
+              ) : (
+                <Box sx={{ maxHeight: 340, overflowY: 'auto', pr: 0.5 }}>
+                  {lineas.map((l, idx) => (
+                    <Box
+                      key={idx}
+                      sx={{ p: 1.5, mb: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: 'action.hover' }}
                     >
-                      {productos.map((p) => (
-                        <MenuItem key={p.id} value={p.id}>{p.nombre} ({p.sku})</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                  <TextField
-                    label="Cantidad"
-                    type="number"
-                    size="small"
-                    sx={{ width: 110 }}
-                    value={l.cantidad_solicitada}
-                    onChange={(e) => updateLinea(idx, 'cantidad_solicitada', Number(e.target.value))}
-                    inputProps={{ min: 1 }}
-                  />
-                  <TextField
-                    label="Precio Unit."
-                    type="number"
-                    size="small"
-                    sx={{ width: 130 }}
-                    value={l.precio_unitario}
-                    onChange={(e) => updateLinea(idx, 'precio_unitario', Number(e.target.value))}
-                    inputProps={{ min: 0, step: 0.01 }}
-                  />
-                  <Tooltip title="Eliminar">
-                    <IconButton size="small" color="error" onClick={() => removeLinea(idx)}>
-                      <DeleteOutline fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </Stack>
-              ))}
+                      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+                        <Typography variant="caption" fontWeight={700}>Línea {idx + 1}</Typography>
+                        <Tooltip title="Eliminar">
+                          <IconButton size="small" color="error" onClick={() => removeLinea(idx)}>
+                            <DeleteOutline fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                      <Grid container spacing={1.5}>
+                        <Grid size={{ xs: 12, sm: 6 }}>
+                          <FormControl size="small" fullWidth>
+                            <InputLabel>Producto</InputLabel>
+                            <Select
+                              value={l.producto_id || ''}
+                              label="Producto"
+                              onChange={(e) => updateLinea(idx, 'producto_id', Number(e.target.value))}
+                            >
+                              {productos.map((p) => (
+                                <MenuItem key={p.id} value={p.id}>{p.nombre} ({p.sku})</MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                        </Grid>
+                        <Grid size={{ xs: 6, sm: 3 }}>
+                          <TextField
+                            label="Cantidad"
+                            type="number"
+                            size="small"
+                            fullWidth
+                            value={l.cantidad_solicitada}
+                            onChange={(e) => updateLinea(idx, 'cantidad_solicitada', Number(e.target.value))}
+                            inputProps={{ min: 1 }}
+                          />
+                        </Grid>
+                        <Grid size={{ xs: 6, sm: 3 }}>
+                          <TextField
+                            label="Precio Unit."
+                            type="number"
+                            size="small"
+                            fullWidth
+                            value={l.precio_unitario}
+                            onChange={(e) => updateLinea(idx, 'precio_unitario', Number(e.target.value))}
+                            inputProps={{ min: 0, step: 0.01 }}
+                          />
+                        </Grid>
+                      </Grid>
+                    </Box>
+                  ))}
+                </Box>
+              )}
             </Grid>
 
             {formError && (
@@ -581,12 +605,14 @@ function OrdenesCompraTab() {
  *  cargar los lotes del producto seleccionado con su propio `useQuery`. */
 function LineaRecepcionRow({
   linea,
+  index,
   productos,
   ubicaciones,
   onUpdate,
   onRemove,
 }: {
   linea: LineaRecepcion
+  index: number
   productos: Producto[]
   ubicaciones: Ubicacion[]
   onUpdate: (field: keyof LineaRecepcion, value: any) => void
@@ -603,115 +629,126 @@ function LineaRecepcionRow({
 
   return (
     <Box
-      sx={{
-        mb: 1.5,
-        p: 1.5,
-        border: '1px solid #E5E7EB',
-        borderRadius: '10px',
-        bgcolor: '#FAFAFA',
-      }}
+      sx={{ p: 1.5, mb: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: 'action.hover' }}
     >
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="flex-start" flexWrap="wrap">
-        <FormControl size="small" sx={{ minWidth: 200 }}>
-          <InputLabel>Producto</InputLabel>
-          <Select
-            value={linea.producto_id || ''}
-            label="Producto"
-            onChange={(e) => {
-              // Al cambiar de producto, se limpia el lote seleccionado.
-              onUpdate('producto_id', Number(e.target.value))
-              onUpdate('lote_id', null)
-            }}
-          >
-            {productos.map((p) => (
-              <MenuItem key={p.id} value={p.id}>{p.nombre} ({p.sku})</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <TextField
-          label="Cant. Esperada"
-          type="number"
-          size="small"
-          sx={{ width: 130 }}
-          value={linea.cantidad_esperada}
-          onChange={(e) => onUpdate('cantidad_esperada', Number(e.target.value))}
-          inputProps={{ min: 0 }}
-        />
-        <TextField
-          label="Cant. Recibida"
-          type="number"
-          size="small"
-          sx={{ width: 130 }}
-          value={linea.cantidad_recibida}
-          onChange={(e) => onUpdate('cantidad_recibida', Number(e.target.value))}
-          inputProps={{ min: 0 }}
-        />
-        <FormControl size="small" sx={{ minWidth: 180 }}>
-          <InputLabel>Ubicación</InputLabel>
-          <Select
-            value={linea.ubicacion_id ?? ''}
-            label="Ubicación"
-            onChange={(e) =>
-              onUpdate('ubicacion_id', e.target.value === '' ? null : Number(e.target.value))
-            }
-          >
-            <MenuItem value=""><em>Por defecto del almacén</em></MenuItem>
-            {ubicaciones.map((u) => (
-              <MenuItem key={u.id} value={u.id}>{u.codigo}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        {requiereLote && (
-          <FormControl size="small" sx={{ minWidth: 160 }}>
-            <InputLabel>Lote</InputLabel>
-            <Select
-              value={linea.lote_id ?? ''}
-              label="Lote"
-              onChange={(e) =>
-                onUpdate('lote_id', e.target.value === '' ? null : Number(e.target.value))
-              }
-            >
-              <MenuItem value=""><em>Sin lote</em></MenuItem>
-              {lotes.map((lt) => (
-                <MenuItem key={lt.id} value={lt.id}>
-                  {lt.numero_lote ?? lt.codigo ?? `Lote #${lt.id}`}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        )}
-        <FormControl size="small" sx={{ minWidth: 140 }}>
-          <InputLabel>Calidad</InputLabel>
-          <Select
-            value={linea.estado_calidad}
-            label="Calidad"
-            onChange={(e) => onUpdate('estado_calidad', e.target.value)}
-          >
-            {(['APROBADO', 'RECHAZADO', 'CUARENTENA', 'INSPECCION'] as const).map((s) => (
-              <MenuItem key={s} value={s}>
-                <Chip
-                  label={s}
-                  size="small"
-                  color={CALIDAD_COLOR[s]}
-                  sx={{ fontSize: 10, fontWeight: 600, pointerEvents: 'none' }}
-                />
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <TextField
-          label="Notas"
-          size="small"
-          sx={{ flexGrow: 1, minWidth: 120 }}
-          value={linea.notas}
-          onChange={(e) => onUpdate('notas', e.target.value)}
-        />
+      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+        <Typography variant="caption" fontWeight={700}>Línea {index + 1}</Typography>
         <Tooltip title="Eliminar línea">
           <IconButton size="small" color="error" onClick={onRemove}>
             <DeleteOutline fontSize="small" />
           </IconButton>
         </Tooltip>
       </Stack>
+      <Grid container spacing={1.5}>
+        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+          <FormControl size="small" fullWidth>
+            <InputLabel>Producto</InputLabel>
+            <Select
+              value={linea.producto_id || ''}
+              label="Producto"
+              onChange={(e) => {
+                // Al cambiar de producto, se limpia el lote seleccionado.
+                onUpdate('producto_id', Number(e.target.value))
+                onUpdate('lote_id', null)
+              }}
+            >
+              {productos.map((p) => (
+                <MenuItem key={p.id} value={p.id}>{p.nombre} ({p.sku})</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Grid>
+        <Grid size={{ xs: 6, sm: 3, md: 2 }}>
+          <TextField
+            label="Cant. Esperada"
+            type="number"
+            size="small"
+            fullWidth
+            value={linea.cantidad_esperada}
+            onChange={(e) => onUpdate('cantidad_esperada', Number(e.target.value))}
+            inputProps={{ min: 0 }}
+          />
+        </Grid>
+        <Grid size={{ xs: 6, sm: 3, md: 2 }}>
+          <TextField
+            label="Cant. Recibida"
+            type="number"
+            size="small"
+            fullWidth
+            value={linea.cantidad_recibida}
+            onChange={(e) => onUpdate('cantidad_recibida', Number(e.target.value))}
+            inputProps={{ min: 0 }}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+          <FormControl size="small" fullWidth>
+            <InputLabel>Ubicación</InputLabel>
+            <Select
+              value={linea.ubicacion_id ?? ''}
+              label="Ubicación"
+              onChange={(e) =>
+                onUpdate('ubicacion_id', e.target.value === '' ? null : Number(e.target.value))
+              }
+            >
+              <MenuItem value=""><em>Por defecto del almacén</em></MenuItem>
+              {ubicaciones.map((u) => (
+                <MenuItem key={u.id} value={u.id}>{u.codigo}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Grid>
+        {requiereLote && (
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+            <FormControl size="small" fullWidth>
+              <InputLabel>Lote</InputLabel>
+              <Select
+                value={linea.lote_id ?? ''}
+                label="Lote"
+                onChange={(e) =>
+                  onUpdate('lote_id', e.target.value === '' ? null : Number(e.target.value))
+                }
+              >
+                <MenuItem value=""><em>Sin lote</em></MenuItem>
+                {lotes.map((lt) => (
+                  <MenuItem key={lt.id} value={lt.id}>
+                    {lt.numero_lote ?? lt.codigo ?? `Lote #${lt.id}`}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+        )}
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <FormControl size="small" fullWidth>
+            <InputLabel>Calidad</InputLabel>
+            <Select
+              value={linea.estado_calidad}
+              label="Calidad"
+              onChange={(e) => onUpdate('estado_calidad', e.target.value)}
+            >
+              {(['APROBADO', 'RECHAZADO', 'CUARENTENA', 'INSPECCION'] as const).map((s) => (
+                <MenuItem key={s} value={s}>
+                  <Chip
+                    label={s}
+                    size="small"
+                    color={CALIDAD_COLOR[s]}
+                    sx={{ fontSize: 10, fontWeight: 600, pointerEvents: 'none' }}
+                  />
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: requiereLote ? 12 : 5 }}>
+          <TextField
+            label="Notas"
+            size="small"
+            fullWidth
+            value={linea.notas}
+            onChange={(e) => onUpdate('notas', e.target.value)}
+          />
+        </Grid>
+      </Grid>
     </Box>
   )
 }
@@ -998,8 +1035,13 @@ function RecepcionesTab() {
       </Card>
 
       {/* ── Create Recepcion Dialog ────────────────────────────────────── */}
-      <Dialog open={openDialog} onClose={handleClose} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Nueva Recepción</DialogTitle>
+      <Dialog open={openDialog} onClose={handleClose} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 16, pb: 0.5 }}>
+          Nueva Recepción
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 400 }}>
+            Registra los artículos recibidos y su ubicación en bodega
+          </Typography>
+        </DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={2} sx={{ pt: 0.5 }}>
             <Grid size={{ xs: 12, sm: 6 }}>
@@ -1085,28 +1127,34 @@ function RecepcionesTab() {
 
             {/* Detail lines */}
             <Grid size={{ xs: 12 }}>
-              <Divider sx={{ my: 0.5 }} />
+              <Divider sx={{ mb: 1.5 }} />
               <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
-                <Typography fontSize={13} fontWeight={700}>Detalle de artículos</Typography>
-                <Button size="small" startIcon={<Add />} onClick={addLinea}>
+                <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.secondary', mb: 0.5 }}>
+                  Artículos
+                </Typography>
+                <Button variant="outlined" size="small" startIcon={<Add />} onClick={addLinea}>
                   Agregar línea
                 </Button>
               </Stack>
-              {lineas.length === 0 && (
-                <Typography fontSize={12} color="text.secondary" mb={1}>
+              {lineas.length === 0 ? (
+                <Typography fontSize={12} color="text.secondary" align="center" sx={{ py: 2 }}>
                   Sin líneas. Haz clic en "Agregar línea" para añadir artículos recibidos.
                 </Typography>
+              ) : (
+                <Box sx={{ maxHeight: 340, overflowY: 'auto', pr: 0.5 }}>
+                  {lineas.map((l, idx) => (
+                    <LineaRecepcionRow
+                      key={idx}
+                      index={idx}
+                      linea={l}
+                      productos={productos}
+                      ubicaciones={ubicacionesFiltradas}
+                      onUpdate={(field, value) => updateLinea(idx, field, value)}
+                      onRemove={() => removeLinea(idx)}
+                    />
+                  ))}
+                </Box>
               )}
-              {lineas.map((l, idx) => (
-                <LineaRecepcionRow
-                  key={idx}
-                  linea={l}
-                  productos={productos}
-                  ubicaciones={ubicacionesFiltradas}
-                  onUpdate={(field, value) => updateLinea(idx, field, value)}
-                  onRemove={() => removeLinea(idx)}
-                />
-              ))}
             </Grid>
 
             {formError && (
