@@ -14,7 +14,6 @@ import {
   TableRow,
   Skeleton,
   Alert,
-  Grid,
   TextField,
   Select,
   MenuItem,
@@ -30,6 +29,7 @@ import {
   DialogActions,
   alpha,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import Inventory2Icon from '@mui/icons-material/Inventory2'
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp'

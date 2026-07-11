@@ -24,7 +24,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Grid,
   Stack,
   Tab,
   Tabs,
@@ -32,6 +31,7 @@ import {
   Divider,
   InputAdornment,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   Add,
   Search,
@@ -94,7 +94,10 @@ interface LineaOC {
   producto_id: number
   cantidad_solicitada: number
   precio_unitario: number
+  unidad_medida: string
 }
+
+const UNIDADES_MEDIDA = ['UNIDAD', 'CAJA', 'PALLET', 'KG', 'LITRO', 'METRO', 'PAQUETE', 'DOCENA']
 
 interface OrdenCompra {
   id: number
@@ -148,6 +151,7 @@ const EMPTY_LINEA_OC: LineaOC = {
   producto_id: 0,
   cantidad_solicitada: 1,
   precio_unitario: 0,
+  unidad_medida: 'UNIDAD',
 }
 
 const EMPTY_RECEPCION = {
@@ -284,11 +288,25 @@ function OrdenesCompraTab() {
       setFormError('Proveedor, almacén y fecha esperada son obligatorios')
       return
     }
+    const validas = lineas.filter((l) => l.producto_id > 0 && l.cantidad_solicitada > 0)
+    if (validas.length === 0) {
+      setFormError('Agrega al menos un artículo con producto y cantidad válidos')
+      return
+    }
+    const detalles = validas.map((l) => ({
+      producto_id: Number(l.producto_id),
+      cantidad_solicitada: Number(l.cantidad_solicitada),
+      precio_unitario: Number(l.precio_unitario) || 0,
+      unidad_medida: l.unidad_medida || 'UNIDAD',
+    }))
     createOC.mutate({
-      ...form,
+      numero_oc: form.numero_oc || undefined,
       proveedor_id: Number(form.proveedor_id),
       almacen_id: Number(form.almacen_id),
-      lineas,
+      fecha_emision: form.fecha_emision || undefined,
+      fecha_esperada: form.fecha_esperada || undefined,
+      notas: form.notas || undefined,
+      detalles,
     })
   }
 
@@ -429,8 +447,8 @@ function OrdenesCompraTab() {
             Registra los artículos solicitados al proveedor y su fecha esperada de llegada
           </Typography>
         </DialogTitle>
-        <DialogContent dividers>
-          <Grid container spacing={2} sx={{ pt: 0.5 }}>
+        <DialogContent dividers sx={{ px: 3, py: 2.5 }}>
+          <Grid container spacing={2.5} sx={{ pt: 0.5 }}>
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 label="N° OC (dejar vacío para autoasignar)"
@@ -532,7 +550,7 @@ function OrdenesCompraTab() {
                           </IconButton>
                         </Tooltip>
                       </Stack>
-                      <Grid container spacing={1.5}>
+                      <Grid container spacing={2}>
                         <Grid size={{ xs: 12, sm: 6 }}>
                           <FormControl size="small" fullWidth>
                             <InputLabel>Producto</InputLabel>
@@ -559,6 +577,20 @@ function OrdenesCompraTab() {
                           />
                         </Grid>
                         <Grid size={{ xs: 6, sm: 3 }}>
+                          <FormControl size="small" fullWidth>
+                            <InputLabel>Unidad</InputLabel>
+                            <Select
+                              value={l.unidad_medida}
+                              label="Unidad"
+                              onChange={(e) => updateLinea(idx, 'unidad_medida', e.target.value)}
+                            >
+                              {UNIDADES_MEDIDA.map((u) => (
+                                <MenuItem key={u} value={u}>{u}</MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                        </Grid>
+                        <Grid size={{ xs: 6, sm: 4 }}>
                           <TextField
                             label="Precio Unit."
                             type="number"
@@ -567,11 +599,28 @@ function OrdenesCompraTab() {
                             value={l.precio_unitario}
                             onChange={(e) => updateLinea(idx, 'precio_unitario', Number(e.target.value))}
                             inputProps={{ min: 0, step: 0.01 }}
+                            InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                          />
+                        </Grid>
+                        <Grid size={{ xs: 6, sm: 8 }}>
+                          <TextField
+                            label="Subtotal"
+                            size="small"
+                            fullWidth
+                            value={`$ ${((Number(l.cantidad_solicitada) || 0) * (Number(l.precio_unitario) || 0)).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                            InputProps={{ readOnly: true }}
+                            sx={{ '& .MuiInputBase-input': { fontWeight: 600 } }}
                           />
                         </Grid>
                       </Grid>
                     </Box>
                   ))}
+                  <Stack direction="row" justifyContent="flex-end" alignItems="baseline" spacing={1} sx={{ mt: 0.5, pr: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary">Total OC:</Typography>
+                    <Typography fontWeight={700} color={WMS_COLOR}>
+                      $ {lineas.reduce((acc, l) => acc + (Number(l.cantidad_solicitada) || 0) * (Number(l.precio_unitario) || 0), 0).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </Typography>
+                  </Stack>
                 </Box>
               )}
             </Grid>
@@ -639,7 +688,7 @@ function LineaRecepcionRow({
           </IconButton>
         </Tooltip>
       </Stack>
-      <Grid container spacing={1.5}>
+      <Grid container spacing={2}>
         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
           <FormControl size="small" fullWidth>
             <InputLabel>Producto</InputLabel>
@@ -1042,8 +1091,8 @@ function RecepcionesTab() {
             Registra los artículos recibidos y su ubicación en bodega
           </Typography>
         </DialogTitle>
-        <DialogContent dividers>
-          <Grid container spacing={2} sx={{ pt: 0.5 }}>
+        <DialogContent dividers sx={{ px: 3, py: 2.5 }}>
+          <Grid container spacing={2.5} sx={{ pt: 0.5 }}>
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 label="N° Recepción (dejar vacío para autoasignar)"

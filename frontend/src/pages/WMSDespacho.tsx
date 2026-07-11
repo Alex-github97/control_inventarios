@@ -3,8 +3,9 @@ import {
   Box, Paper, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, MenuItem, IconButton, Stack, Chip, Tooltip, CircularProgress, alpha,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Collapse,
-  Grid, Divider,
+  Divider,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   Add as AddIcon,
   LocalShipping as TruckIcon,

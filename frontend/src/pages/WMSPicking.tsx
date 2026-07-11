@@ -24,7 +24,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Grid,
   Divider,
   Select,
   InputLabel,
@@ -32,6 +31,7 @@ import {
   Collapse,
   alpha,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import LocalShippingIcon from '@mui/icons-material/LocalShipping'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
