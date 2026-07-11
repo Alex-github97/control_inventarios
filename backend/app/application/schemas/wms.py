@@ -519,6 +519,14 @@ class WMSTransferenciaInventario(BaseModel):
     cantidad: float = Field(gt=0)
     notas: Optional[str] = None
 
+class WMSReservaBloqueo(BaseModel):
+    producto_id: int
+    ubicacion_id: int
+    lote_id: Optional[int] = None
+    cantidad: float = Field(gt=0)
+    accion: str  # RESERVAR / LIBERAR / BLOQUEAR / DESBLOQUEAR
+    motivo: Optional[str] = None
+
 class WMSMovimientoResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int; tipo: str; producto_id: int

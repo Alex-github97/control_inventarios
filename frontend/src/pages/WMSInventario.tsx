@@ -158,6 +158,20 @@ const EMPTY_CONTEO = {
   notas: '',
 }
 
+const EMPTY_RESERVA = {
+  inv_id: '',        // fila de inventario seleccionada (producto+ubicacion+lote)
+  cantidad: '',
+  accion: 'RESERVAR',
+  motivo: '',
+}
+
+const ACCIONES_RESERVA: { value: string; label: string }[] = [
+  { value: 'RESERVAR', label: 'Reservar (disponible → reservada)' },
+  { value: 'LIBERAR', label: 'Liberar reserva (reservada → disponible)' },
+  { value: 'BLOQUEAR', label: 'Bloquear (disponible → bloqueada)' },
+  { value: 'DESBLOQUEAR', label: 'Desbloquear (bloqueada → disponible)' },
+]
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function WMSInventario() {
@@ -174,6 +188,7 @@ export default function WMSInventario() {
   const [ajusteForm, setAjusteForm] = useState({ ...EMPTY_AJUSTE })
   const [transForm, setTransForm] = useState({ ...EMPTY_TRANSFERENCIA })
   const [conteoForm, setConteoForm] = useState({ ...EMPTY_CONTEO })
+  const [reservaForm, setReservaForm] = useState({ ...EMPTY_RESERVA })
   const [openConteoDialog, setOpenConteoDialog] = useState(false)
   const [expandedConteo, setExpandedConteo] = useState<number | null>(null)
   const [fisicaInput, setFisicaInput] = useState<Record<number, string>>({})
@@ -326,6 +341,22 @@ export default function WMSInventario() {
     },
   })
 
+  const mutReservaBloqueo = useMutation({
+    mutationFn: (payload: {
+      producto_id: number; ubicacion_id: number; lote_id: number | null
+      cantidad: number; accion: string; motivo?: string
+    }) => api.post('/wms/inventario/reserva-bloqueo/', payload),
+    onSuccess: () => {
+      toast.success('Movimiento de reserva/bloqueo aplicado')
+      setReservaForm((f) => ({ ...EMPTY_RESERVA, accion: f.accion }))
+      queryClient.invalidateQueries({ queryKey: ['wms-stock'] })
+    },
+    onError: (error: unknown) => {
+      const detail = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
+      toast.error(typeof detail === 'string' ? detail : 'Error al aplicar el movimiento')
+    },
+  })
+
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
   const stockItems = stockQuery.data ?? []
@@ -416,7 +447,7 @@ export default function WMSInventario() {
             '& .MuiTabs-indicator': { bgcolor: WMS_COLOR },
           }}
         >
-          {['Stock en Tiempo Real', 'Ajustes', 'Transferencias', 'Conteos de Inventario'].map(
+          {['Stock en Tiempo Real', 'Ajustes', 'Transferencias', 'Conteos de Inventario', 'Reservas y Bloqueos'].map(
             (label) => (
               <Tab
                 key={label}
@@ -1314,6 +1345,140 @@ export default function WMSInventario() {
             </Card>
           </Box>
         )}
+
+        {/* ══════════════════════════════════════════════════════════════════ */}
+        {/* TAB 4 — Reservas y Bloqueos                                       */}
+        {/* ══════════════════════════════════════════════════════════════════ */}
+        {tab === 4 && (() => {
+          const invSel = stockItems.find((i) => String(i.id) === reservaForm.inv_id)
+          const cantNum = Number(reservaForm.cantidad)
+          const reservaValida = !!invSel && cantNum > 0
+          const invLabel = (i: StockItem) =>
+            `${i.producto?.sku ?? '#' + i.producto_id} — ${i.producto?.nombre ?? ''} @ ${i.ubicacion?.codigo ?? '#' + i.ubicacion_id}` +
+            (i.lote?.numero_lote ? ` · ${i.lote.numero_lote}` : '') +
+            `  (disp ${i.cantidad_disponible} / res ${i.cantidad_reservada} / blq ${i.cantidad_bloqueada})`
+          const aplicar = () => {
+            if (!invSel) return
+            mutReservaBloqueo.mutate({
+              producto_id: invSel.producto_id,
+              ubicacion_id: invSel.ubicacion_id,
+              lote_id: invSel.lote_id,
+              cantidad: cantNum,
+              accion: reservaForm.accion,
+              motivo: reservaForm.motivo || undefined,
+            })
+          }
+          return (
+          <Grid container spacing={2}>
+            {/* Left: formulario */}
+            <Grid size={{ xs: 12, md: 5 }}>
+              <Card>
+                <CardContent>
+                  <Box sx={{ borderRadius: 2, p: 2, border: '1px solid', borderColor: 'divider' }}>
+                    <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.secondary', mb: 1 }}>
+                      RESERVAR / BLOQUEAR STOCK
+                    </Typography>
+                    <Grid container spacing={2}>
+                      <Grid size={{ xs: 12 }}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Acción</InputLabel>
+                          <Select
+                            label="Acción"
+                            value={reservaForm.accion}
+                            onChange={(e) => setReservaForm((f) => ({ ...f, accion: e.target.value }))}
+                          >
+                            {ACCIONES_RESERVA.map((a) => (
+                              <MenuItem key={a.value} value={a.value}>{a.label}</MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                      <Grid size={{ xs: 12 }}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Registro de inventario</InputLabel>
+                          <Select
+                            label="Registro de inventario"
+                            value={reservaForm.inv_id}
+                            onChange={(e) => setReservaForm((f) => ({ ...f, inv_id: e.target.value }))}
+                          >
+                            <MenuItem value="">Seleccionar...</MenuItem>
+                            {stockItems.map((i) => (
+                              <MenuItem key={i.id} value={String(i.id)}>{invLabel(i)}</MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <TextField
+                          fullWidth size="small" label="Cantidad" type="number"
+                          inputProps={{ min: 0 }}
+                          value={reservaForm.cantidad}
+                          onChange={(e) => setReservaForm((f) => ({ ...f, cantidad: e.target.value }))}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12 }}>
+                        <TextField
+                          fullWidth size="small" label="Motivo" multiline rows={2}
+                          value={reservaForm.motivo}
+                          onChange={(e) => setReservaForm((f) => ({ ...f, motivo: e.target.value }))}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12 }} sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                        <Button
+                          variant="contained"
+                          disabled={mutReservaBloqueo.isPending || !reservaValida}
+                          onClick={aplicar}
+                          sx={{ bgcolor: WMS_COLOR, '&:hover': { bgcolor: '#1e3a8a' } }}
+                        >
+                          {mutReservaBloqueo.isPending ? 'Aplicando...' : 'Aplicar'}
+                        </Button>
+                      </Grid>
+                    </Grid>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            {/* Right: estado actual del inventario seleccionado */}
+            <Grid size={{ xs: 12, md: 7 }}>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" fontWeight={700} mb={2}>
+                    Estado del inventario seleccionado
+                  </Typography>
+                  {invSel ? (
+                    <Grid container spacing={2}>
+                      <Grid size={{ xs: 12 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          {invSel.producto?.sku} — {invSel.producto?.nombre} @ {invSel.ubicacion?.codigo}
+                          {invSel.lote?.numero_lote ? ` · Lote ${invSel.lote.numero_lote}` : ''}
+                        </Typography>
+                      </Grid>
+                      {[
+                        { label: 'Disponible', val: invSel.cantidad_disponible, color: 'success' as const },
+                        { label: 'Reservada', val: invSel.cantidad_reservada, color: 'warning' as const },
+                        { label: 'Bloqueada', val: invSel.cantidad_bloqueada, color: 'error' as const },
+                      ].map((k) => (
+                        <Grid key={k.label} size={{ xs: 4 }}>
+                          <Box sx={{ p: 2, borderRadius: 2, border: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
+                            <Typography variant="caption" color="text.secondary">{k.label}</Typography>
+                            <Typography variant="h5" fontWeight={700} color={`${k.color}.main`}>{k.val}</Typography>
+                          </Box>
+                        </Grid>
+                      ))}
+                    </Grid>
+                  ) : (
+                    <Alert severity="info">
+                      Selecciona producto y ubicación (con stock existente) para ver disponible, reservada y bloqueada.
+                      La reserva y el bloqueo mueven cantidades sin cambiar el total.
+                    </Alert>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+          )
+        })()}
 
         {/* ══════════════════════════════════════════════════════════════════ */}
         {/* Dialog — Nuevo Conteo                                             */}

@@ -69,7 +69,7 @@ from app.application.schemas.wms import (
     WMSTransportadoraCreate, WMSTransportadoraUpdate, WMSTransportadoraResponse,
     WMSOrdenCompraCreate, WMSOrdenCompraUpdate, WMSOrdenCompraResponse,
     WMSRecepcionCreate, WMSRecepcionUpdate, WMSRecepcionResponse,
-    WMSInventarioResponse, WMSAjusteInventario, WMSTransferenciaInventario, WMSMovimientoResponse,
+    WMSInventarioResponse, WMSAjusteInventario, WMSTransferenciaInventario, WMSReservaBloqueo, WMSMovimientoResponse,
     WMSConteoCreate, WMSConteoUpdate, WMSConteoResponse, WMSConteoDetalleUpdate,
     WMSOrdenSalidaCreate, WMSOrdenSalidaUpdate, WMSOrdenSalidaEstado, WMSOrdenSalidaResponse,
     WMSPickingTareaCreate, WMSPickingTareaUpdate, WMSPickingTareaResponse, WMSPickingConfirmItem,
@@ -1276,6 +1276,79 @@ async def transferir_inventario(
         select(WMSMovimientoInventario)
         .options(selectinload(WMSMovimientoInventario.producto))
         .where(WMSMovimientoInventario.id == mov.id)
+    )
+    return r2.scalar_one()
+
+
+@router.post("/inventario/reserva-bloqueo/", response_model=WMSInventarioResponse)
+async def reservar_bloquear_inventario(
+    data: WMSReservaBloqueo,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    """
+    Reserva / libera / bloquea / desbloquea stock de una ubicación.
+    Mueve cantidades entre disponible ↔ reservada ↔ bloqueada sin cambiar el total.
+    """
+    accion = (data.accion or "").upper()
+    if accion not in ("RESERVAR", "LIBERAR", "BLOQUEAR", "DESBLOQUEAR"):
+        raise HTTPException(400, "Acción inválida (RESERVAR/LIBERAR/BLOQUEAR/DESBLOQUEAR)")
+
+    r = await db.execute(
+        select(WMSInventarioUbicacion).where(
+            and_(
+                WMSInventarioUbicacion.producto_id == data.producto_id,
+                WMSInventarioUbicacion.ubicacion_id == data.ubicacion_id,
+                WMSInventarioUbicacion.lote_id == data.lote_id,
+            )
+        )
+    )
+    inv = r.scalar_one_or_none()
+    if not inv:
+        raise HTTPException(404, "No existe inventario para ese producto/ubicación/lote")
+
+    disp = inv.cantidad_disponible or 0
+    res = inv.cantidad_reservada or 0
+    blo = inv.cantidad_bloqueada or 0
+    c = data.cantidad
+
+    if accion == "RESERVAR":
+        if disp < c:
+            raise HTTPException(400, f"Disponible insuficiente (disponible {disp:g}, solicitado {c:g})")
+        inv.cantidad_disponible = disp - c
+        inv.cantidad_reservada = res + c
+    elif accion == "LIBERAR":
+        if res < c:
+            raise HTTPException(400, f"Reservado insuficiente (reservado {res:g}, solicitado {c:g})")
+        inv.cantidad_reservada = res - c
+        inv.cantidad_disponible = disp + c
+    elif accion == "BLOQUEAR":
+        if disp < c:
+            raise HTTPException(400, f"Disponible insuficiente (disponible {disp:g}, solicitado {c:g})")
+        inv.cantidad_disponible = disp - c
+        inv.cantidad_bloqueada = blo + c
+    else:  # DESBLOQUEAR
+        if blo < c:
+            raise HTTPException(400, f"Bloqueado insuficiente (bloqueado {blo:g}, solicitado {c:g})")
+        inv.cantidad_bloqueada = blo - c
+        inv.cantidad_disponible = disp + c
+
+    await _registrar_evento(
+        db, f"INV_{accion}",
+        f"{accion} {c:g} unidades del producto {data.producto_id}" + (f" — {data.motivo}" if data.motivo else ""),
+        entidad_tipo="WMSInventarioUbicacion", entidad_id=inv.id,
+        usuario_id=current_user.id,
+        producto_id=data.producto_id, lote_id=data.lote_id, ubicacion_id=data.ubicacion_id,
+    )
+    await db.commit()
+    r2 = await db.execute(
+        select(WMSInventarioUbicacion)
+        .options(
+            selectinload(WMSInventarioUbicacion.producto),
+            selectinload(WMSInventarioUbicacion.ubicacion),
+            selectinload(WMSInventarioUbicacion.lote),
+        )
+        .where(WMSInventarioUbicacion.id == inv.id)
     )
     return r2.scalar_one()
 
