@@ -14,7 +14,7 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_supervisor
 from app.infrastructure.models.usuario import Usuario
 from app.infrastructure.models.wms import (
-    WMSTipoZona, WMSTipoUbicacion, WMSUnidadMedida, WMSCategoriaProducto, WMSFamiliaProducto,
+    WMSTipoZona, WMSTipoUbicacion, WMSUnidadMedida, WMSMotivoMovimiento, WMSCategoriaProducto, WMSFamiliaProducto,
     WMSPais, WMSCiudad,
     WMSAlmacen, WMSZona, WMSUbicacion, WMSProducto, WMSLote, WMSSerie,
     WMSProveedor, WMSCliente, WMSTransportadora,
@@ -53,6 +53,7 @@ class RevertirDespachoRequest(BaseModel):
 from app.application.schemas.wms import (
     WMSTipoZonaCreate, WMSTipoZonaUpdate, WMSTipoZonaResponse,
     WMSTipoUbicacionCreate, WMSTipoUbicacionUpdate, WMSTipoUbicacionResponse,
+    WMSMotivoMovimientoCreate, WMSMotivoMovimientoUpdate, WMSMotivoMovimientoResponse,
     WMSUnidadMedidaCreate, WMSUnidadMedidaUpdate, WMSUnidadMedidaResponse,
     WMSCategoriaProductoCreate, WMSCategoriaProductoUpdate, WMSCategoriaProductoResponse,
     WMSFamiliaProductoCreate, WMSFamiliaProductoUpdate, WMSFamiliaProductoResponse,
@@ -246,6 +247,46 @@ async def eliminar_unidad_medida(id: int, db: AsyncSession = Depends(get_db), _=
     r = await db.execute(select(WMSUnidadMedida).where(WMSUnidadMedida.id == id))
     obj = r.scalar_one_or_none()
     if obj: await db.delete(obj); await db.flush()
+
+
+# ─── CATÁLOGOS — Motivos de Reserva/Bloqueo ───────────────────────────────────
+
+@router.get("/motivos-movimiento/", response_model=List[WMSMotivoMovimientoResponse])
+async def listar_motivos_movimiento(
+    tipo: Optional[str] = None,
+    activo: Optional[bool] = None,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    q = select(WMSMotivoMovimiento)
+    if tipo:
+        q = q.where(WMSMotivoMovimiento.tipo == tipo)
+    if activo is not None:
+        q = q.where(WMSMotivoMovimiento.activo == activo)
+    r = await db.execute(q.order_by(WMSMotivoMovimiento.nombre))
+    return r.scalars().all()
+
+@router.post("/motivos-movimiento/", response_model=WMSMotivoMovimientoResponse, status_code=201)
+async def crear_motivo_movimiento(data: WMSMotivoMovimientoCreate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    obj = WMSMotivoMovimiento(**data.model_dump())
+    db.add(obj); await db.commit(); await db.refresh(obj)
+    return obj
+
+@router.put("/motivos-movimiento/{id}", response_model=WMSMotivoMovimientoResponse)
+async def actualizar_motivo_movimiento(id: int, data: WMSMotivoMovimientoUpdate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    obj = await db.get(WMSMotivoMovimiento, id)
+    if not obj:
+        raise HTTPException(404, "Motivo no encontrado")
+    for k, v in data.model_dump(exclude_none=True).items():
+        setattr(obj, k, v)
+    await db.commit(); await db.refresh(obj)
+    return obj
+
+@router.delete("/motivos-movimiento/{id}", status_code=204)
+async def eliminar_motivo_movimiento(id: int, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    obj = await db.get(WMSMotivoMovimiento, id)
+    if obj:
+        await db.delete(obj); await db.commit()
 
 
 # ─── CATÁLOGOS — Categorías de Producto ───────────────────────────────────────

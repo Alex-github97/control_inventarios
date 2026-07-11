@@ -37,6 +37,15 @@ class WMSUnidadMedida(Base, TimestampMixin):
     activo      = Column(Boolean, default=True)
 
 
+class WMSMotivoMovimiento(Base, TimestampMixin):
+    """Motivos configurables para reservas y bloqueos de inventario."""
+    __tablename__ = "wms_motivos_movimiento"
+    id     = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(120), nullable=False)
+    tipo   = Column(String(20), nullable=False, default="RESERVA")  # RESERVA / BLOQUEO
+    activo = Column(Boolean, default=True)
+
+
 class WMSCategoriaProducto(Base, TimestampMixin):
     __tablename__ = "wms_categorias_producto"
     id     = Column(Integer, primary_key=True, index=True)

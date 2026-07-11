@@ -54,6 +54,21 @@ class WMSUnidadMedidaResponse(BaseModel):
     id: int; nombre: str; abreviatura: Optional[str] = None; activo: bool
 
 
+class WMSMotivoMovimientoCreate(BaseModel):
+    nombre: str
+    tipo: str = "RESERVA"  # RESERVA / BLOQUEO
+    activo: bool = True
+
+class WMSMotivoMovimientoUpdate(BaseModel):
+    nombre: Optional[str] = None
+    tipo: Optional[str] = None
+    activo: Optional[bool] = None
+
+class WMSMotivoMovimientoResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int; nombre: str; tipo: str; activo: bool
+
+
 class WMSCategoriaProductoCreate(BaseModel):
     nombre: str
     activo: bool = True

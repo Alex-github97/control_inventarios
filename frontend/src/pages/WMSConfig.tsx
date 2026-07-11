@@ -219,6 +219,51 @@ function UnidadesMedidaSection() {
   )
 }
 
+interface MotivoItem extends SimpleItem { nombre: string; tipo: string }
+
+function MotivosMovimientoSection() {
+  const { data: items, isLoading, create, update, remove } = useCatalog<MotivoItem>('/wms/motivos-movimiento/', ['wms-motivos-movimiento'])
+  const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState<MotivoItem | null>(null)
+  const [deleteId, setDeleteId] = useState<number | null>(null)
+  const [form, setForm] = useState({ nombre: '', tipo: 'RESERVA' })
+  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+
+  const openDialog = (item?: MotivoItem) => {
+    if (item) { setEditing(item); setForm({ nombre: item.nombre, tipo: item.tipo ?? 'RESERVA' }) }
+    else { setEditing(null); setForm({ nombre: '', tipo: 'RESERVA' }) }
+    setOpen(true)
+  }
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.nombre) { toast.error('El nombre es obligatorio'); return }
+    if (editing) update.mutate({ id: editing.id, d: form }, { onSuccess: () => setOpen(false) })
+    else create.mutate(form, { onSuccess: () => setOpen(false) })
+  }
+  return (
+    <SectionShell title="Motivos de Reserva / Bloqueo" subtitle="Causas configurables para reservar o bloquear inventario" onNew={() => openDialog()} isLoading={isLoading}>
+      {items.map(item => (
+        <ItemCard key={item.id} item={item} extraLabels={[{ key: 'tipo', label: 'Aplica a' }]}
+          onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
+      ))}
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 15 }}>{editing ? 'Editar Motivo' : 'Nuevo Motivo'}</DialogTitle>
+        <Box component="form" onSubmit={handleSubmit}>
+          <DialogContent><Stack gap={1.5} pt={0.5}>
+            <TextField label="Nombre *" size="small" fullWidth value={form.nombre} onChange={e => set('nombre', e.target.value)} />
+            <TextField select label="Aplica a *" size="small" fullWidth value={form.tipo} onChange={e => set('tipo', e.target.value)}>
+              <MenuItem value="RESERVA">Reserva</MenuItem>
+              <MenuItem value="BLOQUEO">Bloqueo</MenuItem>
+            </TextField>
+          </Stack></DialogContent>
+          <CrudActions onCancel={() => setOpen(false)} isPending={create.isPending || update.isPending} editing={!!editing} />
+        </Box>
+      </Dialog>
+      <ConfirmDelete open={deleteId !== null} title="Motivo" onConfirm={() => { if (deleteId) remove.mutate(deleteId, { onSuccess: () => setDeleteId(null) }) }} onCancel={() => setDeleteId(null)} loading={remove.isPending} />
+    </SectionShell>
+  )
+}
+
 function CategoriasSection() {
   const { data: items, isLoading, create, update, remove } = useCatalog<CategoriaItem>('/wms/categorias-producto/', ['wms-categorias'])
   const [open, setOpen] = useState(false)
@@ -1097,7 +1142,7 @@ export default function WMSConfig() {
   const tabs = [
     'Países', 'Ciudades', 'Tipos Zona', 'Tipos Ubic.', 'Unidades', 'Categorías', 'Familias',
     'Almacenes', 'Zonas', 'Ubicaciones', 'Productos', 'Lotes',
-    'Proveedores', 'Clientes', 'Transportadoras', 'Devoluciones',
+    'Proveedores', 'Clientes', 'Transportadoras', 'Devoluciones', 'Motivos Res./Bloq.',
   ]
 
   const GUIDE = [
@@ -1151,6 +1196,7 @@ export default function WMSConfig() {
           {tab === 13 && <ClientesWMSSection />}
           {tab === 14 && <TransportadorasSection />}
           {tab === 15 && <DevolucionesListSection />}
+          {tab === 16 && <MotivosMovimientoSection />}
         </Grid>
 
         <Grid size={{ xs: 12, md: 4 }}>

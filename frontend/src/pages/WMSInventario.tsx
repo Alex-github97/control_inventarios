@@ -130,6 +130,12 @@ interface Almacen {
   nombre: string
 }
 
+interface MotivoMovimiento {
+  id: number
+  nombre: string
+  tipo: string
+}
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const WMS_COLOR = '#1E40AF'
@@ -162,7 +168,8 @@ const EMPTY_RESERVA = {
   inv_id: '',        // fila de inventario seleccionada (producto+ubicacion+lote)
   cantidad: '',
   accion: 'RESERVAR',
-  motivo: '',
+  motivo_id: '',     // motivo del catálogo configurable
+  detalle: '',       // contexto libre adicional
 }
 
 const ACCIONES_RESERVA: { value: string; label: string }[] = [
@@ -251,6 +258,14 @@ export default function WMSInventario() {
     queryKey: ['wms-almacenes'],
     queryFn: async () => {
       const res = await api.get('/wms/almacenes/')
+      return res.data
+    },
+  })
+
+  const motivosQuery = useQuery<MotivoMovimiento[]>({
+    queryKey: ['wms-motivos-movimiento'],
+    queryFn: async () => {
+      const res = await api.get('/wms/motivos-movimiento/', { params: { activo: true } })
       return res.data
     },
   })
@@ -366,6 +381,7 @@ export default function WMSInventario() {
   const productos = productosQuery.data ?? []
   const ubicaciones = ubicacionesQuery.data ?? []
   const almacenes = almacenesQuery.data ?? []
+  const motivos = motivosQuery.data ?? []
 
   const totalDisponible = stockItems.reduce((s, i) => s + i.cantidad_disponible, 0)
   const totalReservada = stockItems.reduce((s, i) => s + i.cantidad_reservada, 0)
@@ -1357,15 +1373,20 @@ export default function WMSInventario() {
             `${i.producto?.sku ?? '#' + i.producto_id} — ${i.producto?.nombre ?? ''} @ ${i.ubicacion?.codigo ?? '#' + i.ubicacion_id}` +
             (i.lote?.numero_lote ? ` · ${i.lote.numero_lote}` : '') +
             `  (disp ${i.cantidad_disponible} / res ${i.cantidad_reservada} / blq ${i.cantidad_bloqueada})`
+          // Los motivos aplicables dependen de la acción: reservar/liberar → RESERVA; bloquear/desbloquear → BLOQUEO
+          const tipoMotivo = reservaForm.accion === 'BLOQUEAR' || reservaForm.accion === 'DESBLOQUEAR' ? 'BLOQUEO' : 'RESERVA'
+          const motivosFiltrados = motivos.filter((m) => m.tipo === tipoMotivo)
           const aplicar = () => {
             if (!invSel) return
+            const motivoNombre = motivos.find((m) => String(m.id) === reservaForm.motivo_id)?.nombre
+            const motivo = [motivoNombre, reservaForm.detalle.trim() || undefined].filter(Boolean).join(' — ') || undefined
             mutReservaBloqueo.mutate({
               producto_id: invSel.producto_id,
               ubicacion_id: invSel.ubicacion_id,
               lote_id: invSel.lote_id,
               cantidad: cantNum,
               accion: reservaForm.accion,
-              motivo: reservaForm.motivo || undefined,
+              motivo,
             })
           }
           return (
@@ -1416,11 +1437,32 @@ export default function WMSInventario() {
                           onChange={(e) => setReservaForm((f) => ({ ...f, cantidad: e.target.value }))}
                         />
                       </Grid>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Motivo</InputLabel>
+                          <Select
+                            label="Motivo"
+                            value={reservaForm.motivo_id}
+                            onChange={(e) => setReservaForm((f) => ({ ...f, motivo_id: e.target.value }))}
+                          >
+                            <MenuItem value=""><em>Sin especificar</em></MenuItem>
+                            {motivosFiltrados.map((m) => (
+                              <MenuItem key={m.id} value={String(m.id)}>{m.nombre}</MenuItem>
+                            ))}
+                          </Select>
+                          {motivosFiltrados.length === 0 && (
+                            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                              Configura motivos en Configuración → Motivos Res./Bloq.
+                            </Typography>
+                          )}
+                        </FormControl>
+                      </Grid>
                       <Grid size={{ xs: 12 }}>
                         <TextField
-                          fullWidth size="small" label="Motivo" multiline rows={2}
-                          value={reservaForm.motivo}
-                          onChange={(e) => setReservaForm((f) => ({ ...f, motivo: e.target.value }))}
+                          fullWidth size="small" label="Detalle / contexto (opcional)" multiline rows={2}
+                          placeholder="Amplía la causa: cliente, documento, observación…"
+                          value={reservaForm.detalle}
+                          onChange={(e) => setReservaForm((f) => ({ ...f, detalle: e.target.value }))}
                         />
                       </Grid>
                       <Grid size={{ xs: 12 }} sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>

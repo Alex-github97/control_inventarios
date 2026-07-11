@@ -21,7 +21,7 @@ from app.infrastructure.models import *  # noqa: F401,F403
 from app.infrastructure.models import mantenimiento  # noqa: F401  (registra MantenimientoEstiba)
 from app.infrastructure.models.usuario import Usuario
 from app.infrastructure.models.wms import (
-    WMSTipoZona, WMSTipoUbicacion, WMSUnidadMedida,
+    WMSTipoZona, WMSTipoUbicacion, WMSUnidadMedida, WMSMotivoMovimiento,
     WMSCategoriaProducto, WMSFamiliaProducto,
     WMSPais, WMSCiudad,
     WMSAlmacen, WMSZona, WMSUbicacion,
@@ -42,10 +42,27 @@ HOY = date.today()
 
 async def seed():
     async with Session() as db:  # type: AsyncSession
+        # ── Motivos de reserva/bloqueo por defecto (idempotente aparte) ────────
+        mot_count = await db.execute(select(WMSMotivoMovimiento))
+        if not mot_count.scalars().first():
+            db.add_all([
+                WMSMotivoMovimiento(nombre="Pedido en preparación", tipo="RESERVA"),
+                WMSMotivoMovimiento(nombre="Apartado para cliente", tipo="RESERVA"),
+                WMSMotivoMovimiento(nombre="Reserva promocional", tipo="RESERVA"),
+                WMSMotivoMovimiento(nombre="Transferencia pendiente", tipo="RESERVA"),
+                WMSMotivoMovimiento(nombre="Producto averiado", tipo="BLOQUEO"),
+                WMSMotivoMovimiento(nombre="En inspección de calidad", tipo="BLOQUEO"),
+                WMSMotivoMovimiento(nombre="Vencido / próximo a vencer", tipo="BLOQUEO"),
+                WMSMotivoMovimiento(nombre="Cuarentena", tipo="BLOQUEO"),
+                WMSMotivoMovimiento(nombre="Retención por auditoría", tipo="BLOQUEO"),
+            ])
+            await db.commit()
+            print("Motivos de reserva/bloqueo por defecto creados.")
+
         # ── Idempotencia ──────────────────────────────────────────────────────
         ya = await db.execute(select(WMSAlmacen).where(WMSAlmacen.codigo == "ALM-BOG"))
         if ya.scalar_one_or_none():
-            print("WMS ya tiene datos sembrados (ALM-BOG existe). Nada que hacer.")
+            print("WMS ya tiene datos base (ALM-BOG existe). Solo se verificaron motivos.")
             return
 
         # Usuario operario (si existe alguno)
