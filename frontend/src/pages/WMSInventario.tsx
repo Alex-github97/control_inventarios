@@ -4,6 +4,7 @@ import {
   Typography,
   Card,
   CardContent,
+  Stack,
   Tabs,
   Tab,
   Table,
@@ -95,8 +96,8 @@ interface Movimiento {
 
 interface ConteoDetalle {
   id: number
-  producto_nombre: string
-  ubicacion_codigo: string
+  producto?: { sku?: string; nombre?: string }
+  ubicacion?: { codigo?: string }
   cantidad_sistema: number
   cantidad_fisica: number | null
   diferencia: number | null
@@ -104,12 +105,12 @@ interface ConteoDetalle {
 
 interface Conteo {
   id: number
-  almacen_nombre: string
+  almacen?: { nombre?: string }
   tipo: 'CICLICO' | 'GENERAL' | 'DIRIGIDO'
   estado: string
   fecha_programada: string
-  operario_nombre?: string
-  detalle?: ConteoDetalle[]
+  operario_id?: number
+  detalles?: ConteoDetalle[]
 }
 
 interface Producto {
@@ -175,6 +176,7 @@ export default function WMSInventario() {
   const [conteoForm, setConteoForm] = useState({ ...EMPTY_CONTEO })
   const [openConteoDialog, setOpenConteoDialog] = useState(false)
   const [expandedConteo, setExpandedConteo] = useState<number | null>(null)
+  const [fisicaInput, setFisicaInput] = useState<Record<number, string>>({})
 
   // ── Queries ─────────────────────────────────────────────────────────────────
 
@@ -305,11 +307,22 @@ export default function WMSInventario() {
     mutationFn: (id: number) =>
       api.put(`/wms/conteos/${id}/completar`),
     onSuccess: () => {
-      toast.success('Conteo completado')
+      toast.success('Conteo completado — inventario reconciliado')
       queryClient.invalidateQueries({ queryKey: ['wms-conteos'] })
     },
     onError: () => {
       toast.error('Error al completar el conteo')
+    },
+  })
+
+  const mutCapturarConteo = useMutation({
+    mutationFn: ({ conteoId, detalleId, cantidad_fisica }: { conteoId: number; detalleId: number; cantidad_fisica: number }) =>
+      api.put(`/wms/conteos/${conteoId}/detalles/${detalleId}`, { cantidad_fisica }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wms-conteos'] })
+    },
+    onError: () => {
+      toast.error('Error al guardar la cantidad física')
     },
   })
 
@@ -1127,7 +1140,7 @@ export default function WMSInventario() {
                                   )}
                                 </IconButton>
                               </TableCell>
-                              <TableCell>{conteo.almacen_nombre}</TableCell>
+                              <TableCell>{conteo.almacen?.nombre ?? '-'}</TableCell>
                               <TableCell>
                                 <Chip
                                   label={conteo.tipo}
@@ -1144,19 +1157,34 @@ export default function WMSInventario() {
                                 />
                               </TableCell>
                               <TableCell>{formatDate(conteo.fecha_programada)}</TableCell>
-                              <TableCell>{conteo.operario_nombre ?? '-'}</TableCell>
+                              <TableCell>{conteo.operario_id ? `#${conteo.operario_id}` : '-'}</TableCell>
                               <TableCell>
-                                {(conteo.estado === 'EN_PROCESO' ||
-                                  conteo.estado === 'PROGRAMADO') && (
-                                  <Button
-                                    size="small"
-                                    variant="outlined"
-                                    color="success"
-                                    disabled={mutCompletarConteo.isPending}
-                                    onClick={() => mutCompletarConteo.mutate(conteo.id)}
-                                  >
-                                    Completar
-                                  </Button>
+                                {conteo.estado !== 'COMPLETO' && conteo.estado !== 'CANCELADO' && (
+                                  <Stack direction="row" spacing={1}>
+                                    <Button
+                                      size="small"
+                                      variant="text"
+                                      onClick={() =>
+                                        setExpandedConteo(
+                                          expandedConteo === conteo.id ? null : conteo.id
+                                        )
+                                      }
+                                    >
+                                      Capturar
+                                    </Button>
+                                    <Button
+                                      size="small"
+                                      variant="outlined"
+                                      color="success"
+                                      disabled={
+                                        mutCompletarConteo.isPending ||
+                                        !(conteo.detalles ?? []).some((d) => d.cantidad_fisica !== null)
+                                      }
+                                      onClick={() => mutCompletarConteo.mutate(conteo.id)}
+                                    >
+                                      Completar
+                                    </Button>
+                                  </Stack>
                                 )}
                               </TableCell>
                             </TableRow>
@@ -1184,7 +1212,7 @@ export default function WMSInventario() {
                                     >
                                       Detalle del Conteo
                                     </Typography>
-                                    {conteo.detalle && conteo.detalle.length > 0 ? (
+                                    {conteo.detalles && conteo.detalles.length > 0 ? (
                                       <Table size="small">
                                         <TableHead>
                                           <TableRow>
@@ -1202,20 +1230,45 @@ export default function WMSInventario() {
                                           </TableRow>
                                         </TableHead>
                                         <TableBody>
-                                          {conteo.detalle.map((d) => (
+                                          {conteo.detalles.map((d) => {
+                                            const editable = conteo.estado !== 'COMPLETO' && conteo.estado !== 'CANCELADO'
+                                            const inputVal = fisicaInput[d.id] ?? (d.cantidad_fisica ?? '').toString()
+                                            const guardar = () => {
+                                              const v = inputVal.trim()
+                                              if (v === '' || Number(v) < 0) return
+                                              if (Number(v) === d.cantidad_fisica) return
+                                              mutCapturarConteo.mutate({ conteoId: conteo.id, detalleId: d.id, cantidad_fisica: Number(v) })
+                                            }
+                                            return (
                                             <TableRow key={d.id}>
-                                              <TableCell>{d.producto_nombre}</TableCell>
-                                              <TableCell>{d.ubicacion_codigo}</TableCell>
+                                              <TableCell>{d.producto?.nombre ?? d.producto?.sku ?? '-'}</TableCell>
+                                              <TableCell>{d.ubicacion?.codigo ?? '-'}</TableCell>
                                               <TableCell align="right">
                                                 {d.cantidad_sistema}
                                               </TableCell>
                                               <TableCell align="right">
-                                                {d.cantidad_fisica ?? '-'}
+                                                {editable ? (
+                                                  <TextField
+                                                    type="number"
+                                                    size="small"
+                                                    variant="standard"
+                                                    value={inputVal}
+                                                    placeholder="—"
+                                                    onChange={(e) => setFisicaInput((prev) => ({ ...prev, [d.id]: e.target.value }))}
+                                                    onBlur={guardar}
+                                                    onKeyDown={(e) => { if (e.key === 'Enter') { guardar(); (e.target as HTMLInputElement).blur() } }}
+                                                    inputProps={{ min: 0, style: { textAlign: 'right', width: 70 } }}
+                                                  />
+                                                ) : (
+                                                  d.cantidad_fisica ?? '-'
+                                                )}
                                               </TableCell>
                                               <TableCell align="right">
-                                                {d.diferencia !== null && d.diferencia !== 0 ? (
+                                                {d.cantidad_fisica === null ? (
+                                                  <Typography variant="caption" color="text.disabled">Pendiente</Typography>
+                                                ) : d.diferencia !== null && d.diferencia !== 0 ? (
                                                   <Chip
-                                                    label={d.diferencia}
+                                                    label={d.diferencia > 0 ? `+${d.diferencia}` : d.diferencia}
                                                     size="small"
                                                     color="error"
                                                     variant="outlined"
@@ -1231,7 +1284,7 @@ export default function WMSInventario() {
                                                 )}
                                               </TableCell>
                                             </TableRow>
-                                          ))}
+                                          )})}
                                         </TableBody>
                                       </Table>
                                     ) : (

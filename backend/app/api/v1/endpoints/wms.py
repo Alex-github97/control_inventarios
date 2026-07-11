@@ -1355,25 +1355,45 @@ async def crear_conteo(
     db.add(conteo)
     await db.flush()
 
-    for d in data.detalles:
-        # Cargar cantidad_sistema del inventario actual
-        inv_stmt = select(WMSInventarioUbicacion).where(
-            and_(
-                WMSInventarioUbicacion.producto_id == d.producto_id,
-                WMSInventarioUbicacion.ubicacion_id == d.ubicacion_id,
-                WMSInventarioUbicacion.lote_id == d.lote_id,
+    if data.detalles:
+        for d in data.detalles:
+            # Cargar cantidad_sistema del inventario actual
+            inv_stmt = select(WMSInventarioUbicacion).where(
+                and_(
+                    WMSInventarioUbicacion.producto_id == d.producto_id,
+                    WMSInventarioUbicacion.ubicacion_id == d.ubicacion_id,
+                    WMSInventarioUbicacion.lote_id == d.lote_id,
+                )
             )
+            inv_r = await db.execute(inv_stmt)
+            inv = inv_r.scalar_one_or_none()
+            det = WMSConteoDetalle(
+                conteo_id=conteo.id,
+                producto_id=d.producto_id,
+                ubicacion_id=d.ubicacion_id,
+                lote_id=d.lote_id,
+                cantidad_sistema=inv.cantidad_disponible if inv else 0,
+            )
+            db.add(det)
+    else:
+        # Sin detalles explícitos: tomar una foto del inventario del almacén
+        # (todas las ubicaciones con stock) para que el operario capture el físico.
+        inv_r = await db.execute(
+            select(WMSInventarioUbicacion)
+            .join(WMSUbicacion, WMSInventarioUbicacion.ubicacion_id == WMSUbicacion.id)
+            .join(WMSZona, WMSUbicacion.zona_id == WMSZona.id)
+            .where(WMSZona.almacen_id == conteo.almacen_id)
+            .order_by(WMSInventarioUbicacion.ubicacion_id.asc())
         )
-        inv_r = await db.execute(inv_stmt)
-        inv = inv_r.scalar_one_or_none()
-        det = WMSConteoDetalle(
-            conteo_id=conteo.id,
-            producto_id=d.producto_id,
-            ubicacion_id=d.ubicacion_id,
-            lote_id=d.lote_id,
-            cantidad_sistema=inv.cantidad_disponible if inv else 0,
-        )
-        db.add(det)
+        for inv in inv_r.scalars().all():
+            det = WMSConteoDetalle(
+                conteo_id=conteo.id,
+                producto_id=inv.producto_id,
+                ubicacion_id=inv.ubicacion_id,
+                lote_id=inv.lote_id,
+                cantidad_sistema=inv.cantidad_disponible or 0,
+            )
+            db.add(det)
 
     await db.commit()
     r = await db.execute(
@@ -1384,6 +1404,49 @@ async def crear_conteo(
             selectinload(WMSConteoInventario.detalles).selectinload(WMSConteoDetalle.ubicacion),
         )
         .where(WMSConteoInventario.id == conteo.id)
+    )
+    return r.scalar_one()
+
+
+@router.put("/conteos/{conteo_id}/detalles/{detalle_id}", response_model=WMSConteoResponse)
+async def actualizar_detalle_conteo(
+    conteo_id: int,
+    detalle_id: int,
+    data: WMSConteoDetalleUpdate,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """Captura la cantidad física de una línea del conteo (marca el conteo EN_PROCESO)."""
+    conteo = await db.get(WMSConteoInventario, conteo_id)
+    if not conteo:
+        raise HTTPException(404, "Conteo no encontrado")
+    if conteo.estado == "COMPLETO":
+        raise HTTPException(400, "El conteo ya está completo")
+    det = await db.get(WMSConteoDetalle, detalle_id)
+    if not det or det.conteo_id != conteo_id:
+        raise HTTPException(404, "Detalle de conteo no encontrado")
+
+    if data.cantidad_fisica is not None:
+        if data.cantidad_fisica < 0:
+            raise HTTPException(400, "La cantidad física no puede ser negativa")
+        det.cantidad_fisica = data.cantidad_fisica
+        det.diferencia = data.cantidad_fisica - det.cantidad_sistema
+    if data.ajustado is not None:
+        det.ajustado = data.ajustado
+    if conteo.estado == "PROGRAMADO":
+        conteo.estado = "EN_PROCESO"
+        if not conteo.fecha_inicio:
+            conteo.fecha_inicio = datetime.utcnow()
+
+    await db.commit()
+    r = await db.execute(
+        select(WMSConteoInventario)
+        .options(
+            selectinload(WMSConteoInventario.almacen),
+            selectinload(WMSConteoInventario.detalles).selectinload(WMSConteoDetalle.producto),
+            selectinload(WMSConteoInventario.detalles).selectinload(WMSConteoDetalle.ubicacion),
+        )
+        .where(WMSConteoInventario.id == conteo_id)
     )
     return r.scalar_one()
 
