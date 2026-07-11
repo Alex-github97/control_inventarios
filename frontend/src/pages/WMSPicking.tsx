@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   Box,
   Stack,
@@ -54,6 +54,7 @@ interface OrdenSalidaDetalle {
   cantidad_solicitada: number
   cantidad_preparada: number
   cantidad_despachada: number
+  precio_unitario?: number
   estado: string
 }
 
@@ -62,6 +63,7 @@ interface OrdenSalida {
   numero_orden: string
   cliente?: { nombre: string }
   almacen?: { nombre: string }
+  fecha_emision?: string | null
   fecha_requerida: string | null
   prioridad: 'URGENTE' | 'ALTA' | 'NORMAL' | 'BAJA'
   estado: string
@@ -141,6 +143,18 @@ const EMPTY_ORDEN = {
   canal: '',
 }
 
+// Formatea una fecha ISO a formato local; devuelve '—' si es null/indefinida/ inválida.
+function formatFecha(value?: string | null): string {
+  if (!value) return '—'
+  const d = new Date(value)
+  return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('es-CO')
+}
+
+// Formatea un valor monetario en pesos.
+function formatMoneda(value: number): string {
+  return `$ ${value.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
 // Extrae un mensaje legible del error de axios (soporta detail string o array 422 de FastAPI).
 function extractError(error: unknown, fallback: string): string {
   const detail = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
@@ -172,6 +186,9 @@ export default function WMSPicking() {
 
   // ── Expandable tarea ──
   const [expandedTarea, setExpandedTarea] = useState<number | null>(null)
+
+  // ── Detalle de orden (dialog) ──
+  const [detalleOrden, setDetalleOrden] = useState<OrdenSalida | null>(null)
 
   // ─── Queries ──────────────────────────────────────────────────────────────
 
@@ -473,7 +490,12 @@ export default function WMSPicking() {
                         }
 
                         return (
-                          <TableRow key={orden.id} hover>
+                          <TableRow
+                            key={orden.id}
+                            hover
+                            onClick={() => setDetalleOrden(orden)}
+                            sx={{ cursor: 'pointer' }}
+                          >
                             <TableCell>
                               <Typography fontWeight={600} variant="body2">
                                 {orden.numero_orden}
@@ -481,11 +503,7 @@ export default function WMSPicking() {
                             </TableCell>
                             <TableCell>{orden.cliente?.nombre ?? '-'}</TableCell>
                             <TableCell>{orden.almacen?.nombre ?? '-'}</TableCell>
-                            <TableCell>
-                              {orden.fecha_requerida
-                                ? new Date(orden.fecha_requerida).toLocaleDateString('es-CO')
-                                : '-'}
-                            </TableCell>
+                            <TableCell>{formatFecha(orden.fecha_requerida)}</TableCell>
                             <TableCell>
                               <Chip
                                 size="small"
@@ -521,7 +539,7 @@ export default function WMSPicking() {
                                     <IconButton
                                       size="small"
                                       disabled={mutGenerarPicking.isPending}
-                                      onClick={() => mutGenerarPicking.mutate(orden.id)}
+                                      onClick={e => { e.stopPropagation(); mutGenerarPicking.mutate(orden.id) }}
                                       sx={{ color: WMS_COLOR }}
                                     >
                                       <PlayArrowIcon fontSize="small" />
@@ -1018,6 +1036,161 @@ export default function WMSPicking() {
               Crear Orden
             </Button>
           </DialogActions>
+        </Dialog>
+
+        {/* ── Dialog: Detalle de Orden de Salida ────────────────────────────── */}
+        <Dialog
+          open={!!detalleOrden}
+          onClose={() => setDetalleOrden(null)}
+          maxWidth="md"
+          fullWidth
+          PaperProps={{ sx: { borderRadius: 3 } }}
+        >
+          {detalleOrden && (() => {
+            const estadoColor: Record<string, 'warning' | 'info' | 'primary' | 'success' | 'default' | 'error'> = {
+              PENDIENTE: 'warning',
+              EN_PICKING: 'info',
+              EMPACANDO: 'primary',
+              DESPACHADO: 'success',
+              ENTREGADO: 'default',
+              CANCELADO: 'error',
+            }
+            const detalles = detalleOrden.detalles ?? []
+            const totalPedido = detalles.reduce(
+              (acc, d) => acc + (d.cantidad_solicitada ?? 0) * (d.precio_unitario ?? 0),
+              0,
+            )
+            const sectionHeaderSx = {
+              fontSize: 12,
+              fontWeight: 700,
+              letterSpacing: 0.4,
+              textTransform: 'uppercase' as const,
+              color: 'text.secondary',
+            }
+            const Campo = ({ label, value }: { label: string; value: ReactNode }) => (
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <Typography variant="caption" color="text.secondary">{label}</Typography>
+                <Typography variant="body2" fontWeight={600}>{value}</Typography>
+              </Grid>
+            )
+
+            return (
+              <>
+                <DialogTitle sx={{ fontWeight: 700, fontSize: 16, pb: 1 }}>
+                  <Stack direction="row" alignItems="center" flexWrap="wrap" spacing={1}>
+                    <span>Orden {detalleOrden.numero_orden}</span>
+                    <Chip
+                      size="small"
+                      color={estadoColor[detalleOrden.estado] ?? 'default'}
+                      label={detalleOrden.estado}
+                    />
+                    <Chip
+                      size="small"
+                      color={PRIORIDAD_CONFIG[detalleOrden.prioridad]?.color ?? 'default'}
+                      label={PRIORIDAD_CONFIG[detalleOrden.prioridad]?.label ?? detalleOrden.prioridad}
+                    />
+                  </Stack>
+                </DialogTitle>
+                <DialogContent dividers sx={{ px: 3, py: 2.5 }}>
+
+                  {/* Section 1 — Datos de la Orden */}
+                  <Typography sx={{ ...sectionHeaderSx, mb: 1 }}>
+                    DATOS DE LA ORDEN
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Campo label="Cliente" value={detalleOrden.cliente?.nombre ?? '—'} />
+                    <Campo label="Almacén" value={detalleOrden.almacen?.nombre ?? '—'} />
+                    <Campo label="Fecha Emisión" value={formatFecha(detalleOrden.fecha_emision)} />
+                    <Campo label="Fecha Requerida" value={formatFecha(detalleOrden.fecha_requerida)} />
+                    <Campo label="Canal" value={detalleOrden.canal || '—'} />
+                    <Campo
+                      label="Prioridad"
+                      value={PRIORIDAD_CONFIG[detalleOrden.prioridad]?.label ?? detalleOrden.prioridad}
+                    />
+                    <Campo label="Estado" value={detalleOrden.estado} />
+                  </Grid>
+
+                  <Divider sx={{ my: 2 }} />
+
+                  {/* Section 2 — Líneas */}
+                  <Typography sx={{ ...sectionHeaderSx, mb: 1 }}>
+                    LÍNEAS
+                  </Typography>
+
+                  {detalles.length === 0 ? (
+                    <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+                      Esta orden no tiene líneas registradas.
+                    </Typography>
+                  ) : (
+                    <Box sx={{ overflowX: 'auto' }}>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow sx={{ bgcolor: alpha(WMS_COLOR, 0.06) }}>
+                            <TableCell sx={{ fontWeight: 700 }}>Producto</TableCell>
+                            <TableCell sx={{ fontWeight: 700 }} align="right">Solic.</TableCell>
+                            <TableCell sx={{ fontWeight: 700 }} align="right">Prep.</TableCell>
+                            <TableCell sx={{ fontWeight: 700 }} align="right">Desp.</TableCell>
+                            <TableCell sx={{ fontWeight: 700 }} align="right">Precio</TableCell>
+                            <TableCell sx={{ fontWeight: 700 }} align="right">Subtotal</TableCell>
+                            <TableCell sx={{ fontWeight: 700 }}>Estado</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {detalles.map((d, i) => {
+                            const solicitada = d.cantidad_solicitada ?? 0
+                            const preparada = d.cantidad_preparada ?? 0
+                            const precio = d.precio_unitario ?? 0
+                            const subtotal = solicitada * precio
+                            const progreso = solicitada > 0 ? (preparada / solicitada) * 100 : 0
+                            return (
+                              <TableRow key={d.producto_id ?? i} hover>
+                                <TableCell>
+                                  <Typography variant="body2" fontWeight={600}>
+                                    {d.producto?.sku ?? '—'}
+                                    {d.producto?.nombre ? ` — ${d.producto.nombre}` : ''}
+                                  </Typography>
+                                  <Box sx={{ mt: 0.5, maxWidth: 220 }}>
+                                    <LinearProgress
+                                      variant="determinate"
+                                      value={progreso}
+                                      sx={{ height: 6, borderRadius: 3 }}
+                                    />
+                                    <Typography variant="caption" color="text.secondary">
+                                      {preparada}/{solicitada} preparado
+                                    </Typography>
+                                  </Box>
+                                </TableCell>
+                                <TableCell align="right">{solicitada}</TableCell>
+                                <TableCell align="right">{preparada}</TableCell>
+                                <TableCell align="right">{d.cantidad_despachada ?? 0}</TableCell>
+                                <TableCell align="right">{formatMoneda(precio)}</TableCell>
+                                <TableCell align="right">{formatMoneda(subtotal)}</TableCell>
+                                <TableCell>
+                                  <Chip size="small" variant="outlined" label={d.estado} />
+                                </TableCell>
+                              </TableRow>
+                            )
+                          })}
+                        </TableBody>
+                      </Table>
+                      <Stack direction="row" justifyContent="flex-end" alignItems="baseline" spacing={1} sx={{ mt: 1.5, pr: 0.5 }}>
+                        <Typography variant="caption" color="text.secondary">Total pedido:</Typography>
+                        <Typography fontWeight={700} sx={{ color: WMS_COLOR }}>
+                          {formatMoneda(totalPedido)}
+                        </Typography>
+                      </Stack>
+                    </Box>
+                  )}
+
+                </DialogContent>
+                <DialogActions sx={{ px: 3, py: 2 }}>
+                  <Button onClick={() => setDetalleOrden(null)}>
+                    Cerrar
+                  </Button>
+                </DialogActions>
+              </>
+            )
+          })()}
         </Dialog>
 
       </Box>

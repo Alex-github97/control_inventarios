@@ -73,6 +73,15 @@ interface HistorialEntry {
   usuario: string
   fecha: string
 }
+interface DevolucionItem {
+  id?: number
+  producto?: { sku: string; nombre: string }
+  lote_id?: number
+  cantidad?: number
+  estado_calidad?: string
+  accion?: string
+  reingresado?: boolean
+}
 interface Devolucion {
   id: number
   numero_devolucion: string
@@ -80,6 +89,12 @@ interface Devolucion {
   estado: string
   motivo?: string
   fecha_recepcion?: string
+  orden_referencia_id?: number
+  cliente_id?: number
+  proveedor_id?: number
+  almacen_id?: number
+  notas?: string
+  detalles?: DevolucionItem[]
 }
 interface Almacen { id: number; nombre: string }
 interface Cliente { id: number; nombre: string }
@@ -646,10 +661,130 @@ const DEV_ACCIONES = ['APROBADA', 'RECHAZADA', 'REINGRESADA'] as const
 // Estados finales de una devolución: ya no admiten procesamiento
 const DEV_ESTADOS_FINALES = new Set(['REINGRESADA', 'RECHAZADA'])
 
+// Configuración de chip por tipo de devolución (compartida entre tabla y detalle)
+const DEV_TIPO_CFG = {
+  CLIENTE:   { label: 'Cliente',   color: '#1E40AF', bg: '#DBEAFE' },
+  PROVEEDOR: { label: 'Proveedor', color: '#4338CA', bg: '#E0E7FF' },
+} as const
+
+// Encabezado uniforme de sección (mismo estilo que el detalle de despacho)
+const DEV_SECTION_LABEL = {
+  fontSize: 12, fontWeight: 700, letterSpacing: 0.4,
+  textTransform: 'uppercase' as const, color: 'text.secondary',
+}
+
+// ─── Detalle devolución dialog ──────────────────────────────────────────────────
+function DetalleDevolucionDialog({ devolucion, onClose }: { devolucion: Devolucion | null; onClose: () => void }) {
+  if (!devolucion) return null
+
+  const tipoCfg = DEV_TIPO_CFG[devolucion.tipo] ?? { label: devolucion.tipo, color: '#374151', bg: '#F3F4F6' }
+  const items = devolucion.detalles ?? []
+
+  const info: Array<[string, string]> = [
+    ['Tipo', tipoCfg.label],
+    ['Estado', devolucion.estado],
+    ['Fecha de recepción', devolucion.fecha_recepcion ?? '—'],
+    ['Orden de referencia', devolucion.orden_referencia_id != null ? `#${devolucion.orden_referencia_id}` : '—'],
+    [devolucion.tipo === 'PROVEEDOR' ? 'Proveedor' : 'Cliente',
+      devolucion.tipo === 'PROVEEDOR'
+        ? (devolucion.proveedor_id != null ? `#${devolucion.proveedor_id}` : '—')
+        : (devolucion.cliente_id != null ? `#${devolucion.cliente_id}` : '—')],
+    ['Almacén', devolucion.almacen_id != null ? `#${devolucion.almacen_id}` : '—'],
+    ['Motivo', devolucion.motivo ?? '—'],
+    ['Notas', devolucion.notas ?? '—'],
+  ]
+
+  return (
+    <Dialog open={!!devolucion} onClose={onClose} maxWidth="md" fullWidth
+      PaperProps={{ sx: { borderRadius: 3, maxHeight: '90vh' } }}>
+      <DialogTitle sx={{ fontWeight: 700, fontSize: 16, pb: 0.5 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+          <Box>
+            <Typography fontSize={16} fontWeight={700} letterSpacing="-0.02em">
+              Devolución {devolucion.numero_devolucion}
+            </Typography>
+            <Stack direction="row" gap={0.75} mt={0.5} flexWrap="wrap">
+              <Chip label={devolucion.estado} size="small"
+                sx={{ bgcolor: '#F3F4F6', color: '#374151', fontWeight: 700, fontSize: 11, height: 22 }} />
+              <Chip label={tipoCfg.label} size="small"
+                sx={{ bgcolor: tipoCfg.bg, color: tipoCfg.color, fontWeight: 700, fontSize: 11, height: 22 }} />
+            </Stack>
+          </Box>
+          <IconButton size="small" onClick={onClose}><CloseIcon fontSize="small" /></IconButton>
+        </Stack>
+      </DialogTitle>
+
+      <DialogContent dividers>
+        {/* Información */}
+        <Box sx={{ mb: 3 }}>
+          <Typography sx={{ ...DEV_SECTION_LABEL, mb: 1.5 }}>Información</Typography>
+          <Grid container spacing={2}>
+            {info.map(([label, value]) => (
+              <Grid key={label} size={{ xs: 6, sm: 4 }}>
+                <Typography fontSize={11} color="text.secondary">{label}</Typography>
+                <Typography fontSize={12} fontWeight={600} sx={{ wordBreak: 'break-word' }}>{value}</Typography>
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
+
+        {/* Ítems */}
+        <Box>
+          <Typography sx={{ ...DEV_SECTION_LABEL, mb: 1.5 }}>Ítems ({items.length})</Typography>
+          {items.length === 0 ? (
+            <Typography fontSize={12} color="text.secondary">Sin ítems registrados</Typography>
+          ) : (
+            <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '10px' }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ bgcolor: '#F9FAFB' }}>
+                    {['Producto', 'Cantidad', 'Estado calidad', 'Acción', 'Reingresado'].map(h => (
+                      <TableCell key={h} sx={{ fontSize: 11, fontWeight: 700, color: '#6B7280', py: 1 }}>{h}</TableCell>
+                    ))}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {items.map((item, idx) => (
+                    <TableRow key={item.id ?? idx} sx={{ '&:last-child td': { border: 0 } }}>
+                      <TableCell sx={{ fontSize: 12 }}>
+                        {item.producto
+                          ? <><Box component="span" sx={{ fontFamily: 'monospace', color: WMS_COLOR, fontWeight: 600 }}>{item.producto.sku}</Box>{` — ${item.producto.nombre}`}</>
+                          : `Lote #${item.lote_id ?? '—'}`}
+                      </TableCell>
+                      <TableCell sx={{ fontSize: 12 }}>{item.cantidad ?? '—'}</TableCell>
+                      <TableCell>
+                        {item.estado_calidad
+                          ? <Chip label={item.estado_calidad} size="small" sx={{ bgcolor: '#F3F4F6', color: '#374151', fontSize: 10, height: 20 }} />
+                          : <Typography fontSize={12} color="text.secondary">—</Typography>}
+                      </TableCell>
+                      <TableCell sx={{ fontSize: 12 }}>{item.accion ?? '—'}</TableCell>
+                      <TableCell>
+                        <Chip label={item.reingresado ? 'Sí' : 'No'} size="small"
+                          sx={{ fontSize: 10, height: 20, fontWeight: 700,
+                            bgcolor: item.reingresado ? '#D1FAE5' : '#F3F4F6',
+                            color: item.reingresado ? '#065F46' : '#6B7280' }} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </Box>
+      </DialogContent>
+
+      <DialogActions sx={{ px: 3, py: 2 }}>
+        <Button size="small" onClick={onClose} sx={{ textTransform: 'none' }}>Cerrar</Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
 function DevolucionesSection() {
   const qc = useQueryClient()
   const [openNew, setOpenNew] = useState(false)
   const [accion, setAccion] = useState<Record<number, string>>({})
+  const [detalleDev, setDetalleDev] = useState<Devolucion | null>(null)
 
   const { data: devoluciones = [], isLoading } = useQuery<Devolucion[]>({
     queryKey: ['wms-devoluciones'],
@@ -663,10 +798,7 @@ function DevolucionesSection() {
     onError: (err: any) => toast.error(parseApiError(err, 'Error al procesar devolución')),
   })
 
-  const TIPO_CFG = {
-    CLIENTE:   { label: 'Cliente',   color: '#1E40AF', bg: '#DBEAFE' },
-    PROVEEDOR: { label: 'Proveedor', color: '#4338CA', bg: '#E0E7FF' },
-  } as const
+  const TIPO_CFG = DEV_TIPO_CFG
 
   return (
     <Box>
@@ -699,7 +831,9 @@ function DevolucionesSection() {
               {devoluciones.map(d => {
                 const tipoCfg = TIPO_CFG[d.tipo] ?? { label: d.tipo, color: '#374151', bg: '#F3F4F6' }
                 return (
-                  <TableRow key={d.id} hover sx={{ '&:last-child td': { border: 0 } }}>
+                  <TableRow key={d.id} hover
+                    onClick={() => setDetalleDev(d)}
+                    sx={{ '&:last-child td': { border: 0 }, cursor: 'pointer', '&:hover': { bgcolor: alpha(WMS_COLOR, 0.035) } }}>
                     <TableCell sx={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 700 }}>{d.numero_devolucion}</TableCell>
                     <TableCell>
                       <Chip label={tipoCfg.label} size="small" sx={{ bgcolor: tipoCfg.bg, color: tipoCfg.color, fontWeight: 700, fontSize: 10, height: 20 }} />
@@ -709,7 +843,7 @@ function DevolucionesSection() {
                     </TableCell>
                     <TableCell sx={{ fontSize: 12, maxWidth: 200 }}><Typography fontSize={12} noWrap>{d.motivo ?? '—'}</Typography></TableCell>
                     <TableCell sx={{ fontSize: 12 }}>{d.fecha_recepcion ?? '—'}</TableCell>
-                    <TableCell>
+                    <TableCell onClick={e => e.stopPropagation()}>
                       {!DEV_ESTADOS_FINALES.has(d.estado) && (
                         <Stack direction="row" gap={0.75} alignItems="center">
                           <TextField select size="small" value={accion[d.id] ?? 'REINGRESADA'}
@@ -734,6 +868,8 @@ function DevolucionesSection() {
       )}
 
       <NuevoDevolucionDialog open={openNew} onClose={() => setOpenNew(false)} />
+
+      <DetalleDevolucionDialog devolucion={detalleDev} onClose={() => setDetalleDev(null)} />
     </Box>
   )
 }

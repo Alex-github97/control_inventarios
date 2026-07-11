@@ -199,6 +199,8 @@ export default function WMSInventario() {
   const [openConteoDialog, setOpenConteoDialog] = useState(false)
   const [expandedConteo, setExpandedConteo] = useState<number | null>(null)
   const [fisicaInput, setFisicaInput] = useState<Record<number, string>>({})
+  const [detalleStock, setDetalleStock] = useState<StockItem | null>(null)
+  const [detalleMov, setDetalleMov] = useState<Movimiento | null>(null)
 
   // ── Queries ─────────────────────────────────────────────────────────────────
 
@@ -578,7 +580,12 @@ export default function WMSInventario() {
                             item.cantidad_reservada +
                             item.cantidad_bloqueada
                           return (
-                            <TableRow key={item.id} hover>
+                            <TableRow
+                              key={item.id}
+                              hover
+                              onClick={() => setDetalleStock(item)}
+                              sx={{ cursor: 'pointer' }}
+                            >
                               <TableCell>
                                 <Typography variant="body2" fontFamily="monospace">
                                   {item.producto?.sku ?? '-'}
@@ -858,7 +865,12 @@ export default function WMSInventario() {
                               </TableRow>
                             ))
                           : ajustes.map((a) => (
-                              <TableRow key={a.id} hover>
+                              <TableRow
+                                key={a.id}
+                                hover
+                                onClick={() => setDetalleMov(a)}
+                                sx={{ cursor: 'pointer' }}
+                              >
                                 <TableCell>{a.producto?.nombre ?? `#${a.producto_id}`}</TableCell>
                                 <TableCell>
                                   {ubicacionLabel(a.ubicacion_destino_id ?? a.ubicacion_origen_id)}
@@ -1085,7 +1097,12 @@ export default function WMSInventario() {
                               </TableRow>
                             ))
                           : transferencias.map((t) => (
-                              <TableRow key={t.id} hover>
+                              <TableRow
+                                key={t.id}
+                                hover
+                                onClick={() => setDetalleMov(t)}
+                                sx={{ cursor: 'pointer' }}
+                              >
                                 <TableCell>{t.producto?.nombre ?? `#${t.producto_id}`}</TableCell>
                                 <TableCell>{ubicacionLabel(t.ubicacion_origen_id)}</TableCell>
                                 <TableCell>{ubicacionLabel(t.ubicacion_destino_id)}</TableCell>
@@ -1617,6 +1634,155 @@ export default function WMSInventario() {
               {mutConteo.isPending ? 'Creando...' : 'Crear Conteo'}
             </Button>
           </DialogActions>
+        </Dialog>
+
+        {/* ══════════════════════════════════════════════════════════════════ */}
+        {/* Dialog — Detalle de Stock                                         */}
+        {/* ══════════════════════════════════════════════════════════════════ */}
+        <Dialog
+          open={!!detalleStock}
+          onClose={() => setDetalleStock(null)}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{ sx: { borderRadius: 3 } }}
+        >
+          {detalleStock && (() => {
+            const s = detalleStock
+            const total =
+              s.cantidad_disponible + s.cantidad_reservada + s.cantidad_bloqueada
+            const ruta = s.ubicacion
+              ? [
+                  s.ubicacion.pasillo,
+                  s.ubicacion.estanteria,
+                  s.ubicacion.nivel,
+                  s.ubicacion.posicion,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')
+              : ''
+            const sectionSx = {
+              fontSize: 12,
+              fontWeight: 700,
+              letterSpacing: 0.4,
+              textTransform: 'uppercase',
+              color: 'text.secondary',
+            } as const
+            const cantidades = [
+              { label: 'Disponible', val: s.cantidad_disponible, color: 'success' as const },
+              { label: 'Reservada', val: s.cantidad_reservada, color: 'warning' as const },
+              { label: 'Bloqueada', val: s.cantidad_bloqueada, color: 'error' as const },
+            ]
+            return (
+              <>
+                <DialogTitle sx={{ fontWeight: 700, fontSize: 16, pb: 0.5 }}>
+                  {s.producto?.sku ?? '-'} — {s.producto?.nombre ?? '-'}
+                  {s.producto?.unidad_medida ? (
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      Unidad de medida: {s.producto.unidad_medida}
+                    </Typography>
+                  ) : null}
+                </DialogTitle>
+                <DialogContent dividers>
+                  <Typography sx={{ ...sectionSx, mb: 1 }}>Ubicación y lote</Typography>
+                  <Grid container spacing={2} sx={{ mb: 1 }}>
+                    <Grid size={{ xs: 6 }}>
+                      <Typography variant="caption" color="text.secondary">Ubicación</Typography>
+                      <Typography variant="body2" fontWeight={600}>{s.ubicacion?.codigo ?? '-'}</Typography>
+                    </Grid>
+                    <Grid size={{ xs: 6 }}>
+                      <Typography variant="caption" color="text.secondary">Ruta</Typography>
+                      <Typography variant="body2" fontWeight={600}>{ruta || '-'}</Typography>
+                    </Grid>
+                    <Grid size={{ xs: 6 }}>
+                      <Typography variant="caption" color="text.secondary">Lote</Typography>
+                      <Typography variant="body2" fontWeight={600}>{s.lote?.numero_lote ?? '-'}</Typography>
+                    </Grid>
+                    <Grid size={{ xs: 6 }}>
+                      <Typography variant="caption" color="text.secondary">Vencimiento</Typography>
+                      <Typography variant="body2" fontWeight={600}>
+                        {s.lote?.fecha_vencimiento ? formatDate(s.lote.fecha_vencimiento) : '-'}
+                      </Typography>
+                    </Grid>
+                  </Grid>
+
+                  <Typography sx={{ ...sectionSx, mt: 2, mb: 1 }}>Cantidades</Typography>
+                  <Grid container spacing={2}>
+                    {cantidades.map((k) => (
+                      <Grid key={k.label} size={{ xs: 4 }}>
+                        <Box sx={{ p: 2, borderRadius: 2, border: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
+                          <Typography variant="caption" color="text.secondary">{k.label}</Typography>
+                          <Typography variant="h5" fontWeight={700} color={`${k.color}.main`}>{k.val}</Typography>
+                        </Box>
+                      </Grid>
+                    ))}
+                    <Grid size={{ xs: 12 }}>
+                      <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: alpha(WMS_COLOR, 0.06), display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="body2" fontWeight={600} color={WMS_COLOR}>Total</Typography>
+                        <Typography variant="h6" fontWeight={700} color={WMS_COLOR}>{total}</Typography>
+                      </Box>
+                    </Grid>
+                  </Grid>
+
+                  {s.updated_at ? (
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 2 }}>
+                      Última actualización: {formatDate(s.updated_at)}
+                    </Typography>
+                  ) : null}
+                </DialogContent>
+                <DialogActions sx={{ px: 3, py: 2 }}>
+                  <Button onClick={() => setDetalleStock(null)}>Cerrar</Button>
+                </DialogActions>
+              </>
+            )
+          })()}
+        </Dialog>
+
+        {/* ══════════════════════════════════════════════════════════════════ */}
+        {/* Dialog — Detalle de Movimiento (ajuste / transferencia)           */}
+        {/* ══════════════════════════════════════════════════════════════════ */}
+        <Dialog
+          open={!!detalleMov}
+          onClose={() => setDetalleMov(null)}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{ sx: { borderRadius: 3 } }}
+        >
+          {detalleMov && (() => {
+            const m = detalleMov
+            const pares: { label: string; value: string | number }[] = [
+              { label: 'Producto', value: m.producto?.nombre ?? `#${m.producto_id}` },
+              { label: 'SKU', value: m.producto?.sku ?? '-' },
+              { label: 'Origen', value: ubicacionLabel(m.ubicacion_origen_id) },
+              { label: 'Destino', value: ubicacionLabel(m.ubicacion_destino_id) },
+              { label: 'Cantidad', value: m.cantidad },
+              { label: 'Referencia', value: m.referencia_documento ?? '-' },
+              { label: 'Fecha', value: formatDate(m.created_at) },
+            ]
+            return (
+              <>
+                <DialogTitle sx={{ fontWeight: 700, fontSize: 16, pb: 0.5 }}>
+                  Movimiento {m.tipo} #{m.id}
+                </DialogTitle>
+                <DialogContent dividers>
+                  <Grid container spacing={2}>
+                    {pares.map((p) => (
+                      <Grid key={p.label} size={{ xs: 6 }}>
+                        <Typography variant="caption" color="text.secondary">{p.label}</Typography>
+                        <Typography variant="body2" fontWeight={600}>{p.value}</Typography>
+                      </Grid>
+                    ))}
+                    <Grid size={{ xs: 12 }}>
+                      <Typography variant="caption" color="text.secondary">Notas</Typography>
+                      <Typography variant="body2" fontWeight={600}>{m.notas ?? '-'}</Typography>
+                    </Grid>
+                  </Grid>
+                </DialogContent>
+                <DialogActions sx={{ px: 3, py: 2 }}>
+                  <Button onClick={() => setDetalleMov(null)}>Cerrar</Button>
+                </DialogActions>
+              </>
+            )
+          })()}
         </Dialog>
       </Box>
     </Layout>

@@ -99,17 +99,28 @@ interface LineaOC {
 
 const UNIDADES_MEDIDA = ['UNIDAD', 'CAJA', 'PALLET', 'KG', 'LITRO', 'METRO', 'PAQUETE', 'DOCENA']
 
+interface OrdenCompraDetalle {
+  producto?: { sku?: string; nombre?: string }
+  cantidad_solicitada?: number
+  cantidad_recibida?: number
+  precio_unitario?: number
+  unidad_medida?: string
+}
+
 interface OrdenCompra {
   id: number
   numero_oc: string
   proveedor_id: number
   proveedor_nombre: string
+  proveedor?: { nombre?: string }
   almacen_id: number
+  almacen?: { nombre?: string }
   fecha_emision: string
   fecha_esperada: string
   estado: 'PENDIENTE' | 'PARCIAL' | 'COMPLETA' | 'CANCELADA'
   notas: string
   lineas?: LineaOC[]
+  detalles?: OrdenCompraDetalle[]
 }
 
 interface LineaRecepcion {
@@ -122,6 +133,15 @@ interface LineaRecepcion {
   notas: string
 }
 
+interface RecepcionDetalle {
+  producto?: { sku?: string; nombre?: string }
+  lote?: { numero_lote?: string }
+  cantidad_esperada?: number
+  cantidad_recibida?: number
+  ubicacion?: { codigo?: string }
+  estado_calidad?: string
+}
+
 interface Recepcion {
   id: number
   numero_recepcion: string
@@ -130,10 +150,12 @@ interface Recepcion {
   numero_oc?: string
   almacen_id: number
   almacen_nombre: string
+  almacen?: { nombre?: string }
   fecha_recepcion: string
   estado: string
   operario: string
   notas: string
+  detalles?: RecepcionDetalle[]
 }
 
 // ─── Empty form shapes ────────────────────────────────────────────────────────
@@ -187,6 +209,35 @@ function parseApiError(err: any, fallback: string): string {
   return fallback
 }
 
+/** Formatea una fecha de forma segura; null/undefined/invalid → '—'. */
+function fmtFecha(x?: string | null): string {
+  if (!x) return '—'
+  const d = new Date(x)
+  if (isNaN(d.getTime())) return '—'
+  return format(d, 'dd MMM yyyy', { locale: es })
+}
+
+/** Par etiqueta/valor uniforme para las cabeceras de los diálogos de detalle. */
+function DetalleCampo({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <Box>
+      <Typography sx={{ fontSize: 11, fontWeight: 600, color: 'text.secondary' }}>{label}</Typography>
+      <Typography sx={{ fontSize: 13, color: 'text.primary', mt: 0.25 }}>{value ?? '—'}</Typography>
+    </Box>
+  )
+}
+
+/** Encabezado de sección uniforme para los diálogos de detalle. */
+function SeccionTitulo({ children }: { children: React.ReactNode }) {
+  return (
+    <Typography
+      sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.secondary' }}
+    >
+      {children}
+    </Typography>
+  )
+}
+
 // ─── Chips ────────────────────────────────────────────────────────────────────
 
 const OC_ESTADO_COLOR: Record<string, 'primary' | 'warning' | 'success' | 'default'> = {
@@ -226,6 +277,9 @@ function OrdenesCompraTab() {
   const [form, setForm] = useState({ ...EMPTY_OC })
   const [lineas, setLineas] = useState<LineaOC[]>([])
   const [formError, setFormError] = useState('')
+
+  // Detail dialog
+  const [detalleOC, setDetalleOC] = useState<OrdenCompra | null>(null)
 
   // Queries
   const { data: ordenes = [], isLoading } = useQuery<OrdenCompra[]>({
@@ -399,7 +453,12 @@ function OrdenesCompraTab() {
                   </TableRow>
                 )
                 : paginated.map((o) => (
-                  <TableRow key={o.id} hover sx={{ '& td': { fontSize: 12, py: 1 } }}>
+                  <TableRow
+                    key={o.id}
+                    hover
+                    onClick={() => setDetalleOC(o)}
+                    sx={{ cursor: 'pointer', '& td': { fontSize: 12, py: 1 } }}
+                  >
                     <TableCell sx={{ fontWeight: 700, color: WMS_COLOR }}>{o.numero_oc}</TableCell>
                     <TableCell>{o.proveedor_nombre}</TableCell>
                     <TableCell>
@@ -644,6 +703,117 @@ function OrdenesCompraTab() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* ── Detail OC Dialog ───────────────────────────────────────────── */}
+      <Dialog
+        open={!!detalleOC}
+        onClose={() => setDetalleOC(null)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        {detalleOC && (
+          <>
+            <DialogTitle sx={{ fontWeight: 700, fontSize: 16, pb: 1 }}>
+              <Stack direction="row" alignItems="center" spacing={1.5} flexWrap="wrap">
+                <span>Orden de Compra {detalleOC.numero_oc}</span>
+                <Chip
+                  label={detalleOC.estado}
+                  size="small"
+                  color={OC_ESTADO_COLOR[detalleOC.estado] ?? 'default'}
+                  sx={{ fontSize: 11, fontWeight: 600 }}
+                />
+              </Stack>
+            </DialogTitle>
+            <DialogContent dividers sx={{ px: 3, py: 2.5 }}>
+              {/* Cabecera */}
+              <SeccionTitulo>Información general</SeccionTitulo>
+              <Grid container spacing={2} sx={{ mt: 0.5, mb: 2.5 }}>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <DetalleCampo
+                    label="Proveedor"
+                    value={detalleOC.proveedor?.nombre ?? detalleOC.proveedor_nombre}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <DetalleCampo label="Almacén" value={detalleOC.almacen?.nombre} />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <DetalleCampo label="Fecha Emisión" value={fmtFecha(detalleOC.fecha_emision)} />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <DetalleCampo label="Fecha Esperada" value={fmtFecha(detalleOC.fecha_esperada)} />
+                </Grid>
+                <Grid size={{ xs: 12 }}>
+                  <DetalleCampo label="Notas" value={detalleOC.notas || '—'} />
+                </Grid>
+              </Grid>
+
+              {/* Artículos */}
+              <Divider sx={{ mb: 2 }} />
+              <SeccionTitulo>Artículos</SeccionTitulo>
+              {!detalleOC.detalles || detalleOC.detalles.length === 0 ? (
+                <Typography fontSize={12} color="text.secondary" sx={{ py: 2 }}>
+                  Esta orden no tiene artículos registrados.
+                </Typography>
+              ) : (
+                <Box sx={{ overflowX: 'auto', mt: 1 }}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow sx={{ '& th': { fontSize: 11, fontWeight: 700, color: 'text.secondary' } }}>
+                        <TableCell>Producto</TableCell>
+                        <TableCell align="right">Solicitada</TableCell>
+                        <TableCell align="right">Recibida</TableCell>
+                        <TableCell>Unidad</TableCell>
+                        <TableCell align="right">Precio Unit.</TableCell>
+                        <TableCell align="right">Subtotal</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {detalleOC.detalles.map((d, i) => {
+                        const cant = Number(d.cantidad_solicitada) || 0
+                        const precio = Number(d.precio_unitario) || 0
+                        return (
+                          <TableRow key={i} sx={{ '& td': { fontSize: 12 } }}>
+                            <TableCell>
+                              <Typography sx={{ fontSize: 12, fontWeight: 600 }}>
+                                {d.producto?.nombre ?? '—'}
+                              </Typography>
+                              {d.producto?.sku && (
+                                <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>
+                                  {d.producto.sku}
+                                </Typography>
+                              )}
+                            </TableCell>
+                            <TableCell align="right">{cant}</TableCell>
+                            <TableCell align="right">{Number(d.cantidad_recibida) || 0}</TableCell>
+                            <TableCell>{d.unidad_medida ?? '—'}</TableCell>
+                            <TableCell align="right">
+                              $ {precio.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 600 }}>
+                              $ {(cant * precio).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                  <Stack direction="row" justifyContent="flex-end" alignItems="baseline" spacing={1} sx={{ mt: 1, pr: 1 }}>
+                    <Typography variant="caption" color="text.secondary">Total OC:</Typography>
+                    <Typography fontWeight={700} color={WMS_COLOR}>
+                      $ {detalleOC.detalles.reduce((acc, d) => acc + (Number(d.cantidad_solicitada) || 0) * (Number(d.precio_unitario) || 0), 0).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </Typography>
+                  </Stack>
+                </Box>
+              )}
+            </DialogContent>
+            <DialogActions sx={{ px: 3, py: 2 }}>
+              <Button onClick={() => setDetalleOC(null)}>Cerrar</Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
     </Box>
   )
 }
@@ -813,6 +983,9 @@ function RecepcionesTab() {
   const [form, setForm] = useState({ ...EMPTY_RECEPCION })
   const [lineas, setLineas] = useState<LineaRecepcion[]>([])
   const [formError, setFormError] = useState('')
+
+  // Detail dialog
+  const [detalleRec, setDetalleRec] = useState<Recepcion | null>(null)
 
   // Queries
   const { data: recepciones = [], isLoading } = useQuery<Recepcion[]>({
@@ -1025,7 +1198,12 @@ function RecepcionesTab() {
                   </TableRow>
                 )
                 : paginated.map((r) => (
-                  <TableRow key={r.id} hover sx={{ '& td': { fontSize: 12, py: 1 } }}>
+                  <TableRow
+                    key={r.id}
+                    hover
+                    onClick={() => setDetalleRec(r)}
+                    sx={{ cursor: 'pointer', '& td': { fontSize: 12, py: 1 } }}
+                  >
                     <TableCell sx={{ fontWeight: 700, color: WMS_COLOR }}>{r.numero_recepcion}</TableCell>
                     <TableCell>
                       <Chip
@@ -1049,14 +1227,14 @@ function RecepcionesTab() {
                       />
                     </TableCell>
                     <TableCell>{r.operario || '—'}</TableCell>
-                    <TableCell align="center">
+                    <TableCell align="center" onClick={(e) => e.stopPropagation()}>
                       {r.estado !== 'COMPLETA' && r.estado !== 'RECHAZADA' && (
                         <Tooltip title="Completar Recepción">
                           <IconButton
                             size="small"
                             color="success"
                             disabled={completarRec.isPending}
-                            onClick={() => completarRec.mutate(r.id)}
+                            onClick={(e) => { e.stopPropagation(); completarRec.mutate(r.id) }}
                           >
                             <CheckCircleOutline fontSize="small" />
                           </IconButton>
@@ -1224,6 +1402,117 @@ function RecepcionesTab() {
             {createRec.isPending ? 'Guardando...' : 'Crear Recepción'}
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* ── Detail Recepcion Dialog ────────────────────────────────────── */}
+      <Dialog
+        open={!!detalleRec}
+        onClose={() => setDetalleRec(null)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        {detalleRec && (
+          <>
+            <DialogTitle sx={{ fontWeight: 700, fontSize: 16, pb: 1 }}>
+              <Stack direction="row" alignItems="center" spacing={1.5} flexWrap="wrap">
+                <span>Recepción {detalleRec.numero_recepcion}</span>
+                <Chip
+                  label={detalleRec.estado}
+                  size="small"
+                  color={REC_ESTADO_COLOR[detalleRec.estado] ?? 'default'}
+                  sx={{ fontSize: 11, fontWeight: 600 }}
+                />
+              </Stack>
+            </DialogTitle>
+            <DialogContent dividers sx={{ px: 3, py: 2.5 }}>
+              {/* Cabecera */}
+              <SeccionTitulo>Información general</SeccionTitulo>
+              <Grid container spacing={2} sx={{ mt: 0.5, mb: 2.5 }}>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <DetalleCampo label="Tipo" value={detalleRec.tipo} />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <DetalleCampo label="OC Referencia" value={detalleRec.numero_oc || '—'} />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <DetalleCampo
+                    label="Almacén"
+                    value={detalleRec.almacen?.nombre ?? detalleRec.almacen_nombre}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <DetalleCampo label="Fecha Recepción" value={fmtFecha(detalleRec.fecha_recepcion)} />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <DetalleCampo label="Operario" value={detalleRec.operario || '—'} />
+                </Grid>
+                <Grid size={{ xs: 12 }}>
+                  <DetalleCampo label="Notas" value={detalleRec.notas || '—'} />
+                </Grid>
+              </Grid>
+
+              {/* Artículos */}
+              <Divider sx={{ mb: 2 }} />
+              <SeccionTitulo>Artículos</SeccionTitulo>
+              {!detalleRec.detalles || detalleRec.detalles.length === 0 ? (
+                <Typography fontSize={12} color="text.secondary" sx={{ py: 2 }}>
+                  Esta recepción no tiene artículos registrados.
+                </Typography>
+              ) : (
+                <Box sx={{ overflowX: 'auto', mt: 1 }}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow sx={{ '& th': { fontSize: 11, fontWeight: 700, color: 'text.secondary' } }}>
+                        <TableCell>Producto</TableCell>
+                        <TableCell>Lote</TableCell>
+                        <TableCell align="right">Esperada</TableCell>
+                        <TableCell align="right">Recibida</TableCell>
+                        <TableCell>Ubicación</TableCell>
+                        <TableCell>Calidad</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {detalleRec.detalles.map((d, i) => (
+                        <TableRow key={i} sx={{ '& td': { fontSize: 12 } }}>
+                          <TableCell>
+                            <Typography sx={{ fontSize: 12, fontWeight: 600 }}>
+                              {d.producto?.nombre ?? '—'}
+                            </Typography>
+                            {d.producto?.sku && (
+                              <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>
+                                {d.producto.sku}
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell>{d.lote?.numero_lote ?? '—'}</TableCell>
+                          <TableCell align="right">{Number(d.cantidad_esperada) || 0}</TableCell>
+                          <TableCell align="right">{Number(d.cantidad_recibida) || 0}</TableCell>
+                          <TableCell>{d.ubicacion?.codigo ?? '—'}</TableCell>
+                          <TableCell>
+                            {d.estado_calidad ? (
+                              <Chip
+                                label={d.estado_calidad}
+                                size="small"
+                                color={CALIDAD_COLOR[d.estado_calidad] ?? 'default'}
+                                sx={{ fontSize: 10, fontWeight: 600 }}
+                              />
+                            ) : (
+                              '—'
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Box>
+              )}
+            </DialogContent>
+            <DialogActions sx={{ px: 3, py: 2 }}>
+              <Button onClick={() => setDetalleRec(null)}>Cerrar</Button>
+            </DialogActions>
+          </>
+        )}
       </Dialog>
     </Box>
   )
