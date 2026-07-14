@@ -27,6 +27,7 @@ import {
   TrendingFlat as MoveIcon,
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { exportarExcel } from '@/utils/exportar'
 
 const MES_COLOR = '#0891B2'
 const MES_DARK = '#0E7490'
@@ -372,6 +373,49 @@ export default function MESInventario() {
   const hayFiltros = search || filterTipo !== 'Todos' || filterUbic !== 'Todos' || filterEstado !== 'Todos'
   const resetFiltros = () => { setSearch(''); setFilterTipo('Todos'); setFilterUbic('Todos'); setFilterEstado('Todos') }
 
+  // ── Exportar inventario (respeta filtros activos) ──
+  const handleExportInventario = () => {
+    if (!filteredInv.length) { notify('No hay ítems para exportar con los filtros actuales', 'warning'); return }
+    exportarExcel({
+      archivo: 'mes-inventario',
+      titulo: 'Inventario de Manufactura',
+      columnas: [
+        { key: 'codigo', header: 'Código' },
+        { key: 'nombre', header: 'Nombre' },
+        { key: 'tipo', header: 'Tipo' },
+        { key: 'stock', header: 'Stock actual' },
+        { key: 'minimo', header: 'Stock mínimo' },
+        { key: 'reorden', header: 'Punto de reorden' },
+        { key: 'unidad', header: 'UM' },
+        { key: 'costoUnitario', header: 'Costo unitario' },
+        { key: 'valor', header: 'Valor en stock' },
+        { key: 'lote', header: 'Lote activo' },
+        { key: 'vencimiento', header: 'Vencimiento' },
+        { key: 'proveedor', header: 'Proveedor' },
+        { key: 'ubicacion', header: 'Ubicación' },
+        { key: 'estado', header: 'Estado' },
+      ],
+      filas: filteredInv.map((it) => ({
+        codigo: it.codigo,
+        nombre: it.nombre,
+        tipo: it.tipo,
+        stock: it.stockActual,
+        minimo: it.stockMinimo,
+        reorden: it.puntoReorden,
+        unidad: it.unidad,
+        costoUnitario: it.costoUnitario,
+        valor: it.stockActual * it.costoUnitario,
+        lote: it.loteActivo,
+        vencimiento: it.fechaVencimiento,
+        proveedor: it.proveedor,
+        ubicacion: it.ubicacion,
+        estado: it.estado,
+      })),
+      color: MES_COLOR,
+    })
+    notify(`Inventario exportado a Excel (${filteredInv.length} ítems)`, 'success')
+  }
+
   // ── Crear ítem ──
   const setField = (f: keyof NewItemForm, v: string) => setForm((p) => ({ ...p, [f]: v }))
   const openCreate = () => { setForm(EMPTY_ITEM); setTriedSubmit(false); setCreateOpen(true) }
@@ -464,7 +508,7 @@ export default function MESInventario() {
             <Chip label="● En tiempo real" size="small" sx={{ background: alpha(MES_COLOR, 0.12), color: MES_COLOR, fontWeight: 700 }} />
             <Button
               variant="outlined" startIcon={<ExportIcon />}
-              onClick={() => notify('Exportando inventario a Excel...', 'info')}
+              onClick={handleExportInventario}
               sx={{ borderColor: alpha(MES_COLOR, 0.4), color: MES_DARK, borderRadius: '10px', fontWeight: 600, textTransform: 'none', '&:hover': { borderColor: MES_COLOR, bgcolor: alpha(MES_COLOR, 0.06) } }}
             >
               Exportar

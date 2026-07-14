@@ -3,6 +3,7 @@ import { Box, Typography, Tab, Tabs, Chip, alpha } from '@mui/material'
 import Grid from '@mui/material/Grid2'
 import { Assessment, Download, TrendingUp } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { exportarExcel } from '@/utils/exportar'
 
 const LMS_COLOR = '#D97706'
 
@@ -48,6 +49,50 @@ export default function LMSReportes() {
   const totalHoras      = KPI_AREA.reduce((s, k) => s + k.horas, 0)
   const totalCompletados = KPI_AREA.reduce((s, k) => s + k.completados, 0)
   const promedCumplimiento = Math.round(KPI_AREA.reduce((s, k) => s + k.cumplimiento, 0) / KPI_AREA.length)
+
+  const handleExportar = () => {
+    if (tab === 2) {
+      exportarExcel({
+        archivo: 'lms-matriz-compliance',
+        titulo: 'Matriz de Compliance',
+        columnas: [
+          { key: 'area', header: 'Área' },
+          { key: 'seguridad_vial', header: 'Seguridad Vial' },
+          { key: 'compliance', header: 'Compliance' },
+          { key: 'sst', header: 'SST' },
+          { key: 'iso', header: 'ISO 9001' },
+          { key: 'total', header: 'Total' },
+        ],
+        filas: COMPLIANCE_MATRIX,
+      })
+    } else if (tab === 3) {
+      exportarExcel({
+        archivo: 'lms-top-cursos',
+        titulo: 'Top Cursos',
+        columnas: [
+          { key: 'nombre', header: 'Curso' },
+          { key: 'inscritos', header: 'Inscritos' },
+          { key: 'completados', header: 'Completados' },
+          { key: 'prom', header: 'Promedio' },
+          { key: 'tasa', header: 'Tasa (%)' },
+        ],
+        filas: CURSOS_TOP.map(c => ({ ...c, tasa: Math.round((c.completados / c.inscritos) * 100) })),
+      })
+    } else {
+      exportarExcel({
+        archivo: 'lms-kpis-por-area',
+        titulo: 'KPIs por Área',
+        columnas: [
+          { key: 'area', header: 'Área' },
+          { key: 'horas', header: 'Horas' },
+          { key: 'completados', header: 'Completados' },
+          { key: 'cumplimiento', header: 'Cumplimiento (%)' },
+          { key: 'brecha', header: 'Brecha (%)' },
+        ],
+        filas: KPI_AREA.map(k => ({ area: k.area, horas: k.horas, completados: k.completados, cumplimiento: k.cumplimiento, brecha: k.brecha })),
+      })
+    }
+  }
 
   return (
     <Layout>

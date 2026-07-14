@@ -34,6 +34,7 @@ import {
   alpha,
 } from '@mui/material'
 import Grid from '@mui/material/Grid2';
+import { exportarPDF, exportarExcel } from '@/utils/exportar';
 import {
   WarningAmber,
   TireRepair,

@@ -51,6 +51,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
+import { exportarExcel } from '@/utils/exportar';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const EAM_COLOR = '#32AC5C';
@@ -1339,7 +1340,95 @@ export default function EAMCombustible() {
   };
 
   const handleExport = () => {
-    notify(`Exportando ${registros.length} registros de combustible a CSV…`);
+    if (activeTab === 0) {
+      // Registros — respeta los filtros aplicados en la pestaña
+      const filas = registros.filter((r) => {
+        if (filtroTipo !== 'Todos' && r.tipoCombustible !== filtroTipo) return false;
+        if (filtroProveedor !== 'Todos' && r.proveedor !== filtroProveedor) return false;
+        if (search.trim()) {
+          const q = search.toLowerCase();
+          if (
+            !r.vehiculo.toLowerCase().includes(q) &&
+            !r.conductor.toLowerCase().includes(q) &&
+            !r.proveedor.toLowerCase().includes(q) &&
+            !r.estacion.toLowerCase().includes(q)
+          ) return false;
+        }
+        return true;
+      });
+      if (!filas.length) {
+        notify('No hay registros para exportar con los filtros actuales.');
+        return;
+      }
+      exportarExcel({
+        archivo: 'eam-combustible-registros',
+        titulo: 'Registros de Combustible',
+        columnas: [
+          { key: 'fecha', header: 'Fecha' },
+          { key: 'vehiculo', header: 'Vehículo' },
+          { key: 'tipoCombustible', header: 'Tipo Combustible' },
+          { key: 'litros', header: 'Litros' },
+          { key: 'precioPorLitro', header: 'Precio/Litro' },
+          { key: 'costo', header: 'Costo' },
+          { key: 'odometro', header: 'Odómetro (km)' },
+          { key: 'rendimiento', header: 'Rendimiento (km/L)' },
+          { key: 'conductor', header: 'Conductor' },
+          { key: 'proveedor', header: 'Proveedor' },
+          { key: 'estacion', header: 'Estación' },
+          { key: 'ruta', header: 'Ruta' },
+          { key: 'kmRecorridos', header: 'km Recorridos' },
+        ],
+        filas,
+      });
+      notify(`Exportando ${filas.length} registro${filas.length !== 1 ? 's' : ''} de combustible a Excel…`);
+    } else if (activeTab === 1) {
+      // Rendimiento — respeta el filtro de estado
+      const filas = RENDIMIENTO_ROWS.filter((r) => filtroEstado === 'Todos' || r.estado === filtroEstado);
+      if (!filas.length) {
+        notify('No hay vehículos para exportar con el filtro actual.');
+        return;
+      }
+      exportarExcel({
+        archivo: 'eam-combustible-rendimiento',
+        titulo: 'Rendimiento por Vehículo',
+        columnas: [
+          { key: 'placa', header: 'Placa' },
+          { key: 'nombre', header: 'Nombre Vehículo' },
+          { key: 'kmMes', header: 'km este Mes' },
+          { key: 'litros', header: 'Litros' },
+          { key: 'rendimiento', header: 'Rendimiento (km/L)' },
+          { key: 'meta', header: 'Meta (km/L)' },
+          { key: 'vsMetaPct', header: 'vs Meta (%)' },
+          { key: 'estado', header: 'Estado' },
+        ],
+        filas,
+      });
+      notify(`Exportando ${filas.length} vehículo${filas.length !== 1 ? 's' : ''} de rendimiento a Excel…`);
+    } else {
+      // Desviaciones
+      if (!desviaciones.length) {
+        notify('No hay alertas de desviación para exportar.');
+        return;
+      }
+      exportarExcel({
+        archivo: 'eam-combustible-desviaciones',
+        titulo: 'Alertas de Consumo Anormal',
+        columnas: [
+          { key: 'id', header: 'ID' },
+          { key: 'vehiculo', header: 'Vehículo' },
+          { key: 'metrica', header: 'Métrica' },
+          { key: 'descripcion', header: 'Descripción' },
+          { key: 'valorActual', header: 'Valor Actual' },
+          { key: 'valorEsperado', header: 'Valor Esperado' },
+          { key: 'costoDesviacion', header: 'Costo Desviación' },
+          { key: 'severidad', header: 'Severidad' },
+          { key: 'detectada', header: 'Detectada' },
+          { key: 'recomendacion', header: 'Recomendación' },
+        ],
+        filas: desviaciones,
+      });
+      notify(`Exportando ${desviaciones.length} alerta${desviaciones.length !== 1 ? 's' : ''} de desviación a Excel…`);
+    }
   };
 
   const handleVerActivo = (placa: string) => {

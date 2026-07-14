@@ -27,6 +27,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
+import { exportarPDF, exportarExcel, exportarCSV } from '@/utils/exportar';
 
 const EAM_COLOR = '#32AC5C';
 const EAM_DARK = '#27884A';
@@ -418,6 +419,100 @@ export default function EAMChecklists() {
     setNonConformances(prev => prev.map(nc => nc.id === id ? { ...nc, status: 'CERRADA' } : nc));
     setNcDialog(p => p.nc && p.nc.id === id ? { ...p, nc: { ...p.nc, status: 'CERRADA' } } : p);
     notify(`No conformidad ${id} marcada como CERRADA`);
+  };
+
+  // ── Exportaciones ──
+  const exportTemplates = () => {
+    if (!filteredTemplates.length) { notify('No hay plantillas para exportar', 'warning'); return; }
+    exportarCSV({
+      archivo: 'eam-checklists-plantillas',
+      titulo: 'Plantillas de inspección',
+      columnas: [
+        { key: 'id', header: 'ID' },
+        { key: 'nombre', header: 'Nombre' },
+        { key: 'tipoActivo', header: 'Tipo de activo' },
+        { key: 'frecuencia', header: 'Frecuencia' },
+        { key: 'responsable', header: 'Responsable' },
+        { key: 'activo', header: 'Activo asociado' },
+        { key: 'preguntas', header: 'Preguntas' },
+        { key: 'secciones', header: 'Secciones' },
+        { key: 'ejecuciones', header: 'Ejecuciones' },
+        { key: 'ultimaEjecucion', header: 'Última ejecución' },
+        { key: 'conformidad', header: 'Conformidad (%)' },
+        { key: 'version', header: 'Versión' },
+      ],
+      filas: filteredTemplates.map(t => ({
+        id: t.id,
+        nombre: t.name,
+        tipoActivo: t.assetType.replace('_', ' '),
+        frecuencia: t.frequency,
+        responsable: t.owner,
+        activo: t.linkedAsset,
+        preguntas: t.totalQuestions,
+        secciones: t.totalSections,
+        ejecuciones: t.totalRuns,
+        ultimaEjecucion: t.lastRun,
+        conformidad: t.lastConformance,
+        version: t.version,
+      })),
+    });
+    notify(`${filteredTemplates.length} plantillas exportadas a CSV`, 'info');
+  };
+
+  const exportExecs = () => {
+    if (!filteredExecs.length) { notify('No hay ejecuciones para exportar', 'warning'); return; }
+    exportarExcel({
+      archivo: 'eam-checklists-ejecuciones',
+      titulo: 'Ejecuciones',
+      columnas: [
+        { key: 'id', header: 'ID' },
+        { key: 'fecha', header: 'Fecha' },
+        { key: 'activo', header: 'Activo' },
+        { key: 'plantilla', header: 'Plantilla' },
+        { key: 'responsable', header: 'Responsable' },
+        { key: 'conformidad', header: 'Conformidad (%)' },
+        { key: 'estado', header: 'Estado' },
+        { key: 'duracion', header: 'Duración' },
+        { key: 'turno', header: 'Turno' },
+      ],
+      filas: filteredExecs.map(e => ({
+        id: e.id,
+        fecha: e.date,
+        activo: e.asset,
+        plantilla: e.template,
+        responsable: e.executedBy,
+        conformidad: e.conformance,
+        estado: e.status,
+        duracion: e.duracion ?? '—',
+        turno: e.turno ?? '—',
+      })),
+    });
+    notify(`${filteredExecs.length} ejecuciones exportadas a Excel`, 'info');
+  };
+
+  const exportExecPDF = (exec: Execution) => {
+    const puntos = exec.points ?? [];
+    exportarPDF({
+      archivo: `eam-checklists-ejecucion-${exec.id}`,
+      titulo: `Ejecución ${exec.id} — ${exec.template}`,
+      subtitulo: `Activo: ${exec.asset} · ${exec.date} · Responsable: ${exec.executedBy} · Conformidad: ${exec.conformance}% · Estado: ${exec.status}`,
+      color: EAM_COLOR,
+      columnas: [
+        { key: 'seccion', header: 'Sección' },
+        { key: 'punto', header: 'Punto de inspección' },
+        { key: 'tipo', header: 'Tipo' },
+        { key: 'estado', header: 'Estado' },
+        { key: 'nota', header: 'Observación' },
+      ],
+      filas: puntos.map(p => ({
+        seccion: p.section,
+        punto: p.text,
+        tipo: QTYPE_LABEL[p.type],
+        estado: POINT_STATE_META[p.state].label,
+        nota: p.note ?? '',
+      })),
+    });
+    notify(`Reporte de ${exec.id} descargado en PDF`, 'info');
   };
 
   // Estilos de input (tema claro)

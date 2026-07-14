@@ -48,6 +48,9 @@ import PriceCheckIcon from '@mui/icons-material/PriceCheck';
 import HistoryIcon from '@mui/icons-material/History';
 import CategoryIcon from '@mui/icons-material/Category';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import GridOnIcon from '@mui/icons-material/GridOn';
+import { exportarPDF, exportarExcel } from '@/utils/exportar';
 
 const EAM_COLOR = '#32AC5C';
 const EAM_DARK = '#27884A';

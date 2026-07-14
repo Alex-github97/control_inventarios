@@ -15,6 +15,7 @@ import {
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { Layout } from '@/components/layout/Layout'
+import { exportarPDF, exportarExcel } from '@/utils/exportar'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const EAM_COLOR = '#32AC5C'

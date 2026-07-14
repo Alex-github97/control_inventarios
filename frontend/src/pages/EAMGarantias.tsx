@@ -52,6 +52,7 @@ import {
   FactCheck as CoberturaIcon,
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { exportarPDF, exportarExcel } from '@/utils/exportar'
 
 // ─── Constantes de tema ───────────────────────────────────────────────────────
 
