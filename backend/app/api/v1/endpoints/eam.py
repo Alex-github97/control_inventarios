@@ -128,6 +128,8 @@ class ActivoCreate(BaseModel):
     horometro_actual: Optional[float] = 0
     tipo_combustible: Optional[str] = None
     capacidad_combustible: Optional[float] = None
+    numero_ejes: Optional[int] = None
+    tiene_repuesto: Optional[bool] = True
 
 class ActivoResponse(ActivoCreate):
     model_config = ConfigDict(from_attributes=True)
