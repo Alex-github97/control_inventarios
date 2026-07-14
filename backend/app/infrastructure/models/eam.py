@@ -215,6 +215,8 @@ class EAMActivo(Base, TimestampMixin):
     horometro_actual     = Column(Float, default=0)
     tipo_combustible     = Column(String(50))
     capacidad_combustible = Column(Float)
+    numero_ejes          = Column(Integer, nullable=True)   # para layout de neumáticos
+    tiene_repuesto       = Column(Boolean, default=True)
     imagen_url           = Column(String(500))
     especificaciones     = Column(JSON)
     activo               = Column(Boolean, default=True)
@@ -438,6 +440,10 @@ class EAMNeumatico(Base, TimestampMixin):
     costo            = Column(Float)
     proveedor        = Column(String(100))
     reencauches      = Column(Integer, default=0)
+    bodega_id        = Column(Integer, ForeignKey("eam_bodega_neumatico.id"), nullable=True)
+    dano_id          = Column(Integer, ForeignKey("eam_dano_neumatico_catalogo.id"), nullable=True)
+    motivo_baja      = Column(String(255), nullable=True)
+    fecha_baja       = Column(Date, nullable=True)
 
 
 class EAMMovimientoNeumatico(Base, TimestampMixin):
@@ -446,11 +452,37 @@ class EAMMovimientoNeumatico(Base, TimestampMixin):
     neumatico_id    = Column(Integer, ForeignKey("eam_neumatico.id"), nullable=False)
     tipo_movimiento = Column(String(30))
     activo_id       = Column(Integer, ForeignKey("eam_activo.id"), nullable=True)
-    posicion        = Column(String(30))
+    posicion_origen = Column(String(30))
+    posicion        = Column(String(30))   # posición destino
+    bodega_id       = Column(Integer, ForeignKey("eam_bodega_neumatico.id"), nullable=True)
     km_odometro     = Column(Float)
-    fecha           = Column(DateTime)
+    fecha           = Column(DateTime)      # fecha y hora del movimiento
     observaciones   = Column(Text)
     tecnico         = Column(String(100))
+
+
+class EAMBodegaNeumatico(Base, TimestampMixin):
+    """Bodega de almacenamiento de neumáticos (fuera de vehículo)."""
+    __tablename__ = "eam_bodega_neumatico"
+    id        = Column(Integer, primary_key=True, index=True)
+    codigo    = Column(String(50), unique=True, nullable=False)
+    nombre    = Column(String(150), nullable=False)
+    ubicacion = Column(String(200))
+    capacidad = Column(Integer, nullable=True)
+    activo    = Column(Boolean, default=True)
+
+
+class EAMDanoNeumaticoCatalogo(Base, TimestampMixin):
+    """Catálogo configurable de daños/causas de descarte de neumáticos."""
+    __tablename__ = "eam_dano_neumatico_catalogo"
+    id          = Column(Integer, primary_key=True, index=True)
+    codigo      = Column(String(50), unique=True, nullable=False)
+    nombre      = Column(String(150), nullable=False)
+    severidad   = Column(String(20), default="MODERADO")   # LEVE/MODERADO/GRAVE
+    descripcion = Column(String(300))
+    # accion sugerida: REENCAUCHE / DESCARTE / INSPECCION
+    accion      = Column(String(30), default="INSPECCION")
+    activo      = Column(Boolean, default=True)
 
 
 # ─── Combustible ──────────────────────────────────────────────────────────────
