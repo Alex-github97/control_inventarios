@@ -34,6 +34,7 @@ import {
   History as HistoryIcon,
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { exportarPDF, exportarExcel } from '@/utils/exportar'
 
 const EAM_COLOR = '#32AC5C'
 const EAM_DARK  = '#27884A'
@@ -476,7 +477,12 @@ export default function EAMReportes() {
   }
 
   const exportar = (rep: ReporteDef, formato: string) => {
-    notify(`Reporte "${rep.titulo}" exportado en ${formato} — Rango: ${catRango}`, 'success')
+    const { cols, rows } = previewRows(rep)
+    const columnas = cols.map((c, i) => ({ key: String(i), header: c }))
+    const filas = rows.map((r) => Object.fromEntries(r.map((cell, i) => [String(i), cell])))
+    const opts = { archivo: `eam-${rep.id}`, titulo: rep.titulo, subtitulo: `Rango: ${catRango}`, color: EAM_COLOR, columnas, filas }
+    const ok = formato === 'Excel' ? exportarExcel(opts) : exportarPDF(opts)
+    notify(ok ? `Reporte "${rep.titulo}" exportado en ${formato}` : `El reporte "${rep.titulo}" no tiene datos para exportar`, ok ? 'success' : 'info')
   }
 
   const kpiCard = (k: { label: string; value: string; icon?: React.ReactNode; color: string }, i: number) => (
@@ -1332,7 +1338,23 @@ export default function EAMReportes() {
             <Divider sx={{ borderColor: '#E5E7EB' }} />
             <DialogActions sx={{ p: 2 }}>
               <Button onClick={() => setVehSel(null)} sx={{ color: '#64748B', textTransform: 'none' }}>Cerrar</Button>
-              <Button variant="contained" startIcon={<ExportIcon />} onClick={() => { notify(`Ficha del vehículo ${vehSel.placa} exportada a PDF`); }} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none', fontWeight: 700, borderRadius: '10px' }}>Exportar ficha</Button>
+              <Button variant="contained" startIcon={<ExportIcon />} onClick={() => { exportarPDF({
+                archivo: `ficha-${vehSel.placa}`,
+                titulo: `Ficha del vehículo ${vehSel.placa}`,
+                color: EAM_COLOR,
+                columnas: [{ key: 'campo', header: 'Indicador' }, { key: 'valor', header: 'Valor' }],
+                filas: [
+                  { campo: 'Km recorridos (mes)', valor: `${fmtN(vehSel.kmMes)} km` },
+                  { campo: 'Combustible (mes)', valor: `${fmtN(vehSel.litrosMes)} L` },
+                  { campo: 'OTs abiertas', valor: String(vehSel.otsAbiertas) },
+                  { campo: 'Último PM', valor: vehSel.ultimoPM ?? '—' },
+                  { campo: 'Próximo PM', valor: vehSel.pmProximo },
+                  { campo: 'Conductor', valor: vehSel.conductor ?? '—' },
+                  { campo: 'Disponibilidad', valor: `${vehSel.disponibilidad ?? 0}%` },
+                  { campo: 'Costo año', valor: fmt(vehSel.costoAnio ?? 0) },
+                  { campo: 'Observaciones', valor: vehSel.observaciones ?? '—' },
+                ],
+              }); notify(`Ficha del vehículo ${vehSel.placa} exportada a PDF`) }} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none', fontWeight: 700, borderRadius: '10px' }}>Exportar ficha</Button>
             </DialogActions>
           </>
         )}

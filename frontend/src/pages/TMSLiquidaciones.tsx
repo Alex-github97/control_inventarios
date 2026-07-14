@@ -12,6 +12,7 @@ import {
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
+import { exportarPDF } from '@/utils/exportar'
 
 const TMS_COLOR = '#0369A1'
 const fmt = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(n)
@@ -336,7 +337,25 @@ export default function TMSLiquidaciones() {
                 </Stack>
               </DialogContent>
               <DialogActions>
-                <Button startIcon={<Download />} onClick={() => toast.success('Descargando liquidación...')}>Descargar</Button>
+                <Button startIcon={<Download />} onClick={() => exportarPDF({
+                  archivo: `liquidacion-${openVer.viaje_codigo}`,
+                  titulo: `Liquidación ${openVer.viaje_codigo}`,
+                  subtitulo: `${openVer.conductor} · ${openVer.periodo}`,
+                  color: TMS_COLOR,
+                  columnas: [{ key: 'campo', header: 'Concepto' }, { key: 'valor', header: 'Valor' }],
+                  filas: [
+                    { campo: 'Viaje', valor: `${openVer.viaje_codigo} | ${openVer.viaje_origen} → ${openVer.viaje_destino}` },
+                    { campo: 'Conductor', valor: openVer.conductor },
+                    { campo: 'Período', valor: openVer.periodo },
+                    { campo: 'Estado', valor: openVer.estado },
+                    { campo: 'Fecha de pago', valor: openVer.fecha_pago || '—' },
+                    { campo: 'Valor flete', valor: fmt(openVer.valor_flete) },
+                    { campo: 'Bonificaciones', valor: `+${fmt(openVer.bonificaciones)}` },
+                    { campo: 'Descuentos', valor: `-${fmt(openVer.descuentos)}` },
+                    { campo: 'Anticipos', valor: `-${fmt(openVer.anticipos)}` },
+                    { campo: 'Total a pagar', valor: fmt(calcTotal(openVer)) },
+                  ],
+                })}>Descargar</Button>
                 <Button onClick={() => setOpenVer(null)}>Cerrar</Button>
               </DialogActions>
             </>

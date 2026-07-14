@@ -31,6 +31,7 @@ import {
   Bolt as BoltIcon,
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { exportarPDF } from '@/utils/exportar'
 
 const MES_COLOR = '#0891B2'
 const MES_DARK = '#0E7490'
@@ -481,7 +482,23 @@ export default function MESReportes() {
     notify(`Programación ${id} eliminada`, 'warning')
   }
 
-  const exportar = (nombre: string) => notify(`Exportando "${nombre}"... el archivo estará disponible en Descargas`, 'info')
+  const exportar = (
+    nombre: string,
+    opts?: { columnas?: { key: string; header: string }[]; filas?: any[] },
+  ) => {
+    if (opts?.filas && opts.filas.length > 0) {
+      exportarPDF({
+        archivo: nombre.toLowerCase().replace(/\s+/g, '-'),
+        titulo: nombre,
+        color: MES_COLOR,
+        columnas: opts.columnas,
+        filas: opts.filas,
+      })
+      notify(`"${nombre}" exportado a PDF`, 'success')
+    } else {
+      notify(`Exportando "${nombre}"... el archivo estará disponible en Descargas`, 'info')
+    }
+  }
 
   const KpiCard = ({ label, value, sub, icon, color }: { label: string; value: string; sub: string; icon: React.ReactNode; color: string }) => (
     <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(color, 0.3)}`, borderRadius: 2 }}>
@@ -1117,7 +1134,10 @@ export default function MESReportes() {
                 </Stack>
               </DialogContent>
               <DialogActions sx={{ px: 3, py: 2, justifyContent: 'space-between' }}>
-                <Button startIcon={<ExportIcon />} onClick={() => exportar(`Detalle OP ${selOP.op}`)} sx={{ color: MES_DARK, fontWeight: 600 }}>Exportar detalle</Button>
+                <Button startIcon={<ExportIcon />} onClick={() => exportar(`Detalle OP ${selOP.op}`, {
+                  columnas: [{ key: 'motivo', header: 'Motivo de paro' }, { key: 'minutos', header: 'Minutos' }],
+                  filas: selOP.paros,
+                })} sx={{ color: MES_DARK, fontWeight: 600 }}>Exportar detalle</Button>
                 <Button variant="contained" onClick={() => setSelOP(null)} sx={{ bgcolor: MES_COLOR, '&:hover': { bgcolor: MES_DARK }, borderRadius: '10px', fontWeight: 700 }}>Cerrar</Button>
               </DialogActions>
             </>
@@ -1176,7 +1196,10 @@ export default function MESReportes() {
                 </Stack>
               </DialogContent>
               <DialogActions sx={{ px: 3, py: 2, justifyContent: 'space-between' }}>
-                <Button startIcon={<ExportIcon />} onClick={() => exportar(`Calidad ${selLinea.linea}`)} sx={{ color: MES_DARK, fontWeight: 600 }}>Exportar</Button>
+                <Button startIcon={<ExportIcon />} onClick={() => exportar(`Calidad ${selLinea.linea}`, {
+                  columnas: [{ key: 'tipo', header: 'Tipo de defecto' }, { key: 'cantidad', header: 'Cantidad' }],
+                  filas: selLinea.detalle,
+                })} sx={{ color: MES_DARK, fontWeight: 600 }}>Exportar</Button>
                 <Button variant="contained" onClick={() => setSelLinea(null)} sx={{ bgcolor: MES_COLOR, '&:hover': { bgcolor: MES_DARK }, borderRadius: '10px', fontWeight: 700 }}>Cerrar</Button>
               </DialogActions>
             </>

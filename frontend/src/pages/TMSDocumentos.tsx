@@ -14,6 +14,7 @@ import {
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
+import { exportarPDF } from '@/utils/exportar'
 
 const TMS_COLOR = '#0369A1'
 
@@ -250,7 +251,19 @@ export default function TMSDocumentos() {
                           {doc.observaciones && <Typography fontSize={11} color="error.main" mt={0.5}>{doc.observaciones}</Typography>}
                           <Stack direction="row" gap={1} mt={2}>
                             <Button size="small" startIcon={<Visibility fontSize="inherit" />} onClick={() => toast.success(`Abriendo ${doc.numero}`)}>Ver</Button>
-                            <Button size="small" startIcon={<CloudDownload fontSize="inherit" />} onClick={() => toast.success(`Descargando ${doc.numero}`)}>Descargar</Button>
+                            <Button size="small" startIcon={<CloudDownload fontSize="inherit" />} onClick={() => exportarPDF({
+                              archivo: `documento-${doc.numero}`,
+                              titulo: `${doc.tipo} ${doc.numero}`,
+                              color: TMS_COLOR,
+                              columnas: [{ key: 'campo', header: 'Campo' }, { key: 'valor', header: 'Valor' }],
+                              filas: [
+                                { campo: 'Tipo', valor: doc.tipo },
+                                { campo: 'Número', valor: doc.numero },
+                                { campo: 'Estado', valor: doc.estado },
+                                { campo: 'Fecha de emisión', valor: doc.fecha_emision },
+                                { campo: 'Observaciones', valor: doc.observaciones || '—' },
+                              ],
+                            })}>Descargar</Button>
                           </Stack>
                         </Paper>
                       </Grid>

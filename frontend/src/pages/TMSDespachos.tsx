@@ -49,6 +49,7 @@ import {
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
+import { exportarPDF } from '@/utils/exportar'
 
 const TMS_COLOR = '#0369A1'
 
@@ -468,7 +469,21 @@ export default function TMSDespachos() {
                               <IconButton size="small" sx={{ color: TMS_COLOR }}><Visibility sx={{ fontSize: 16 }} /></IconButton>
                             </Tooltip>
                             <Tooltip title="Descargar documentos">
-                              <IconButton size="small" sx={{ color: '#4B5563' }} onClick={() => toast.success(`Descargando documentos ${d.numero}`)}><Download sx={{ fontSize: 16 }} /></IconButton>
+                              <IconButton size="small" sx={{ color: '#4B5563' }} onClick={() => exportarPDF({
+                                archivo: `despacho-${d.numero}`,
+                                titulo: `Despacho ${d.numero}`,
+                                subtitulo: `Viaje ${d.viajeCodigo} · ${d.cliente}`,
+                                color: TMS_COLOR,
+                                columnas: [{ key: 'campo', header: 'Campo' }, { key: 'valor', header: 'Valor' }],
+                                filas: [
+                                  { campo: 'N° Despacho', valor: d.numero },
+                                  { campo: 'Viaje', valor: d.viajeCodigo },
+                                  { campo: 'Cliente', valor: d.cliente },
+                                  { campo: 'Fecha despacho', valor: d.fechaDespacho },
+                                  { campo: 'Fecha entrega', valor: d.fechaEntrega },
+                                  { campo: 'OTIF', valor: d.otif === 'ON_TIME' ? 'On time' : 'Tarde' },
+                                ],
+                              })}><Download sx={{ fontSize: 16 }} /></IconButton>
                             </Tooltip>
                           </Stack>
                         </TableCell>
