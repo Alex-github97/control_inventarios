@@ -170,7 +170,7 @@ export default function GRCGobierno() {
   const btnAction = () => tab === 0 ? openNewComite() : tab === 1 ? openNewRaci() : openNewResp()
 
   const Panel = ({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) => (
-    <Box sx={{ width: 360, flexShrink: 0, border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5, height: 'fit-content' }}>
+    <Box sx={{ width: 360, flexShrink: 0, bgcolor: '#FFFFFF', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5, height: 'fit-content' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography sx={{ color: 'text.primary', fontWeight: 700, fontSize: 14, flex: 1, pr: 1, lineHeight: 1.3 }}>{title}</Typography>
         <IconButton size="small" onClick={onClose} sx={{ color: 'text.secondary' }}><Close fontSize="small" /></IconButton>
@@ -267,7 +267,7 @@ export default function GRCGobierno() {
         {tab === 1 && (
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Paper sx={{ bgcolor: 'transparent', overflowX: 'auto' }}>
+              <Paper sx={{ bgcolor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 2, overflowX: 'auto' }}>
                 <Table size="small">
                   <TableHead>
                     <TableRow sx={{ '& th': { borderColor: '#E5E7EB', color: LBL, fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>

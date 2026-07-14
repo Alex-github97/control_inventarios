@@ -113,7 +113,7 @@ export default function GRCAuditorias() {
 
         <Box sx={{ display:'flex', gap:2 }}>
           <Box sx={{ flex:1, minWidth:0 }}>
-            <Paper sx={{ bgcolor:'transparent', overflowX:'auto' }}>
+            <Paper sx={{ bgcolor:'#FFFFFF', border:'1px solid #E5E7EB', borderRadius:2, overflowX:'auto' }}>
               <Table size="small">
                 <TableHead><TableRow sx={{ '& th':{ borderColor:'#F1F5F9', color:LBL, fontSize:11, fontWeight:700, textTransform:'uppercase' } }}>
                   <TableCell>ID</TableCell><TableCell>Auditoría</TableCell><TableCell>Tipo</TableCell><TableCell>Área</TableCell><TableCell>Auditor</TableCell><TableCell>Inicio</TableCell><TableCell>Fin</TableCell><TableCell>Avance</TableCell><TableCell>Estado</TableCell><TableCell>Acciones</TableCell>

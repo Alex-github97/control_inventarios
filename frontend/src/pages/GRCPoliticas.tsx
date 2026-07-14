@@ -158,7 +158,7 @@ export default function GRCPoliticas() {
 
             {/* PANEL DERECHO */}
             {selPol && (
-              <Box sx={{ width: 380, flexShrink: 0, border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5, height: 'fit-content' }}>
+              <Box sx={{ width: 380, flexShrink: 0, bgcolor: '#FFFFFF', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5, height: 'fit-content' }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
                   <Typography sx={{ color: 'text.primary', fontWeight: 700, fontSize: 14, flex: 1, pr: 1 }}>{selPol.nombre}</Typography>
                   <IconButton size="small" onClick={() => setSelPol(null)} sx={{ color: 'text.secondary' }}><Close fontSize="small" /></IconButton>
@@ -241,7 +241,7 @@ export default function GRCPoliticas() {
 
         {/* CONTROL DE ACEPTACIONES */}
         {tab === 1 && (
-          <Paper sx={{ bgcolor: 'transparent', overflowX: 'auto' }}>
+          <Paper sx={{ bgcolor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 2, overflowX: 'auto' }}>
             <Table size="small">
               <TableHead>
                 <TableRow sx={{ '& th': { borderColor: '#E5E7EB', color: LBL, fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>

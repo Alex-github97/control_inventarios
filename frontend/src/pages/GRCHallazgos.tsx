@@ -108,7 +108,7 @@ export default function GRCHallazgos() {
 
         <Box sx={{ display:'flex', gap:2 }}>
           <Box sx={{ flex:1, minWidth:0 }}>
-            <Paper sx={{ bgcolor:'transparent', overflowX:'auto' }}>
+            <Paper sx={{ bgcolor:'#FFFFFF', border:'1px solid #E5E7EB', borderRadius:2, overflowX:'auto' }}>
               <Table size="small">
                 <TableHead><TableRow sx={{ '& th':{ borderColor:'#E5E7EB', color:LBL, fontSize:11, fontWeight:700, textTransform:'uppercase' } }}>
                   <TableCell>ID</TableCell><TableCell>Hallazgo</TableCell><TableCell>Fuente</TableCell><TableCell>Área</TableCell><TableCell>Severidad</TableCell><TableCell>Estado</TableCell><TableCell>Límite</TableCell><TableCell>Acciones</TableCell>

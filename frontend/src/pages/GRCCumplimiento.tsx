@@ -107,7 +107,7 @@ export default function GRCCumplimiento() {
         <Box sx={{ display:'flex', gap:2 }}>
           <Box sx={{ flex:1, minWidth:0 }}>
             {tab===0 && (
-              <Paper sx={{ bgcolor:'transparent', overflowX:'auto' }}>
+              <Paper sx={{ bgcolor:'#FFFFFF', border:'1px solid #E5E7EB', borderRadius:2, overflowX:'auto' }}>
                 <Table size="small">
                   <TableHead><TableRow sx={{ '& th':{ borderColor:'#E5E7EB', color:LBL, fontSize:11, fontWeight:700, textTransform:'uppercase' } }}>
                     <TableCell>ID</TableCell><TableCell>Norma / Cláusula</TableCell><TableCell>Categoría</TableCell><TableCell>Responsable</TableCell><TableCell>Cumplimiento</TableCell><TableCell>Estado</TableCell><TableCell>Próx. Revisión</TableCell><TableCell>Acciones</TableCell>
@@ -228,7 +228,7 @@ export default function GRCCumplimiento() {
         </Dialog>
 
         <Snackbar open={!!snack} autoHideDuration={3500} onClose={()=>setSnack('')} anchorOrigin={{ vertical:'bottom', horizontal:'center' }}>
-          <Alert severity="success" onClose={()=>setSnack('')} sx={{ bgcolor:'#1E3A2F', color:'#FFF', '& .MuiAlert-icon':{ color:'#4ADE80' } }}>{snack}</Alert>
+          <Alert severity="success" onClose={()=>setSnack('')}>{snack}</Alert>
         </Snackbar>
       </Box>
     </Layout>
