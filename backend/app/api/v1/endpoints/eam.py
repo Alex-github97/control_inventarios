@@ -826,6 +826,24 @@ async def list_descarte_neumatico(db: AsyncSession = Depends(get_db)):
     return r.scalars().all()
 
 
+class ConfigEjes(BaseModel):
+    numero_ejes: int
+    tiene_repuesto: bool = True
+
+@router.put("/neumaticos/config-ejes/{activo_id}")
+async def config_ejes_vehiculo(activo_id: int, data: ConfigEjes, db: AsyncSession = Depends(get_db)):
+    """Configura el número de ejes y repuesto de un vehículo (no destructivo)."""
+    activo = await db.get(EAMActivo, activo_id)
+    if not activo:
+        raise HTTPException(404, "Activo no encontrado")
+    if data.numero_ejes < 1 or data.numero_ejes > 6:
+        raise HTTPException(400, "El número de ejes debe estar entre 1 y 6")
+    activo.numero_ejes = data.numero_ejes
+    activo.tiene_repuesto = data.tiene_repuesto
+    await db.commit()
+    return {"id": activo.id, "numero_ejes": activo.numero_ejes, "tiene_repuesto": activo.tiene_repuesto}
+
+
 # ── Layout de posiciones por vehículo ──
 @router.get("/neumaticos/layout/{activo_id}", response_model=List[PosicionLayout])
 async def layout_neumaticos(activo_id: int, db: AsyncSession = Depends(get_db)):

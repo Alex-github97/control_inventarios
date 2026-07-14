@@ -55,6 +55,8 @@ export default function EAMNeumaticos() {
   const [nuevoOpen, setNuevoOpen] = useState(false)
   const [nuevoForm, setNuevoForm] = useState({ ...EMPTY_NEUMATICO })
   const [histTire, setHistTire] = useState<Neumatico | null>(null)
+  const [ejesOpen, setEjesOpen] = useState(false)
+  const [ejesForm, setEjesForm] = useState({ numero_ejes: '2', tiene_repuesto: true })
 
   // ─── Queries ──────────────────────────────────────────────────────────────
   const { data: vehiculos = [] } = useQuery<Vehiculo[]>({ queryKey: ['eam-activos'], queryFn: () => api.get('/eam/activos').then(r => r.data) })
@@ -93,6 +95,36 @@ export default function EAMNeumaticos() {
     mutationFn: (body: Record<string, unknown>) => api.post('/eam/neumaticos', body),
     onSuccess: () => { toast.success('Neumático registrado'); qc.invalidateQueries({ queryKey: ['eam-neumaticos'] }); setNuevoOpen(false); setNuevoForm({ ...EMPTY_NEUMATICO }) },
     onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al registrar'),
+  })
+  const mutEjes = useMutation({
+    mutationFn: (body: { numero_ejes: number; tiene_repuesto: boolean }) => api.put(`/eam/neumaticos/config-ejes/${vehId}`, body),
+    onSuccess: () => { toast.success('Ejes configurados'); qc.invalidateQueries({ queryKey: ['eam-activos'] }); qc.invalidateQueries({ queryKey: ['eam-layout'] }); setEjesOpen(false) },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al configurar ejes'),
+  })
+  const abrirEjes = () => { setEjesForm({ numero_ejes: String(veh?.numero_ejes ?? 2), tiene_repuesto: veh?.tiene_repuesto ?? true }); setEjesOpen(true) }
+
+  // Config: bodegas y catálogo de daños
+  const [bodForm, setBodForm] = useState({ codigo: '', nombre: '', ubicacion: '' })
+  const [danoForm, setDanoForm] = useState({ codigo: '', nombre: '', severidad: 'MODERADO', accion: 'INSPECCION' })
+  const mutBodega = useMutation({
+    mutationFn: (b: Record<string, unknown>) => api.post('/eam/neumaticos/bodegas', b),
+    onSuccess: () => { toast.success('Bodega creada'); qc.invalidateQueries({ queryKey: ['eam-bodegas-neu'] }); setBodForm({ codigo: '', nombre: '', ubicacion: '' }) },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al crear bodega'),
+  })
+  const mutBodegaDel = useMutation({
+    mutationFn: (id: number) => api.delete(`/eam/neumaticos/bodegas/${id}`),
+    onSuccess: () => { toast.success('Bodega eliminada'); qc.invalidateQueries({ queryKey: ['eam-bodegas-neu'] }) },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo eliminar'),
+  })
+  const mutDano = useMutation({
+    mutationFn: (d: Record<string, unknown>) => api.post('/eam/neumaticos/danos-catalogo', d),
+    onSuccess: () => { toast.success('Daño creado'); qc.invalidateQueries({ queryKey: ['eam-danos-neu'] }); setDanoForm({ codigo: '', nombre: '', severidad: 'MODERADO', accion: 'INSPECCION' }) },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al crear daño'),
+  })
+  const mutDanoDel = useMutation({
+    mutationFn: (id: number) => api.delete(`/eam/neumaticos/danos-catalogo/${id}`),
+    onSuccess: () => { toast.success('Daño eliminado'); qc.invalidateQueries({ queryKey: ['eam-danos-neu'] }) },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo eliminar'),
   })
 
   // ─── Drag & drop ──────────────────────────────────────────────────────────
@@ -216,6 +248,7 @@ export default function EAMNeumaticos() {
           <Tab icon={<DirectionsCar sx={{ fontSize: 18 }} />} iconPosition="start" label="Vehículo / Diagrama" sx={{ textTransform: 'none', fontWeight: 600 }} />
           <Tab icon={<WarehouseIcon sx={{ fontSize: 18 }} />} iconPosition="start" label={`Bodega (${almacen.length})`} sx={{ textTransform: 'none', fontWeight: 600 }} />
           <Tab icon={<Recycling sx={{ fontSize: 18 }} />} iconPosition="start" label={`Descarte (${descarte.length})`} sx={{ textTransform: 'none', fontWeight: 600 }} />
+          <Tab icon={<WarehouseIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Configuración" sx={{ textTransform: 'none', fontWeight: 600 }} />
         </Tabs>
 
         {/* ── TAB 0: Diagrama del vehículo ── */}
@@ -224,10 +257,17 @@ export default function EAMNeumaticos() {
             <Grid size={{ xs: 12, md: 8 }}>
               <Card sx={{ bgcolor: '#FFFFFF' }}>
                 <CardContent>
-                  <TextField select fullWidth size="small" label="Vehículo" value={vehId} onChange={e => setVehId(e.target.value)} sx={{ mb: 2, maxWidth: 420 }}>
-                    <MenuItem value="">Seleccionar vehículo…</MenuItem>
-                    {vehiculos.map(v => <MenuItem key={v.id} value={String(v.id)}>{v.codigo} — {v.nombre}{v.placa ? ` (${v.placa})` : ''}</MenuItem>)}
-                  </TextField>
+                  <Stack direction="row" gap={1} alignItems="center" mb={2} flexWrap="wrap">
+                    <TextField select size="small" label="Vehículo" value={vehId} onChange={e => setVehId(e.target.value)} sx={{ minWidth: 320 }}>
+                      <MenuItem value="">Seleccionar vehículo…</MenuItem>
+                      {vehiculos.map(v => <MenuItem key={v.id} value={String(v.id)}>{v.codigo} — {v.nombre}{v.placa ? ` (${v.placa})` : ''}</MenuItem>)}
+                    </TextField>
+                    {veh && (
+                      <Button size="small" variant="outlined" startIcon={<SwapIcon />} onClick={abrirEjes} sx={{ color: EAM_DARK, borderColor: alpha(EAM_COLOR, 0.4), textTransform: 'none' }}>
+                        Configurar ejes{veh.numero_ejes ? ` (${veh.numero_ejes})` : ''}
+                      </Button>
+                    )}
+                  </Stack>
 
                   {!veh ? (
                     <Alert severity="info">Selecciona un vehículo para ver el diagrama de llantas.</Alert>
@@ -350,6 +390,75 @@ export default function EAMNeumaticos() {
           </Card>
         )}
 
+        {/* ── TAB 3: Configuración (bodegas + catálogo de daños) ── */}
+        {tab === 3 && (
+          <Grid container spacing={2}>
+            {/* Bodegas */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Card sx={{ bgcolor: '#FFFFFF' }}>
+                <CardContent>
+                  <Stack direction="row" alignItems="center" gap={1} mb={1.5}>
+                    <WarehouseIcon sx={{ color: EAM_DARK }} /><Typography fontWeight={700}>Bodegas de llantas</Typography>
+                  </Stack>
+                  <Grid container spacing={1} mb={1.5}>
+                    <Grid size={{ xs: 3 }}><TextField label="Código" size="small" fullWidth value={bodForm.codigo} onChange={e => setBodForm(f => ({ ...f, codigo: e.target.value }))} /></Grid>
+                    <Grid size={{ xs: 5 }}><TextField label="Nombre" size="small" fullWidth value={bodForm.nombre} onChange={e => setBodForm(f => ({ ...f, nombre: e.target.value }))} /></Grid>
+                    <Grid size={{ xs: 4 }}><TextField label="Ubicación" size="small" fullWidth value={bodForm.ubicacion} onChange={e => setBodForm(f => ({ ...f, ubicacion: e.target.value }))} /></Grid>
+                    <Grid size={{ xs: 12 }} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <Button size="small" variant="contained" startIcon={<AddIcon />} disabled={!bodForm.codigo || !bodForm.nombre || mutBodega.isPending} onClick={() => mutBodega.mutate({ codigo: bodForm.codigo, nombre: bodForm.nombre, ubicacion: bodForm.ubicacion || undefined })} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Agregar bodega</Button>
+                    </Grid>
+                  </Grid>
+                  <Table size="small">
+                    <TableHead><TableRow>{['Código', 'Nombre', 'Ubicación', ''].map(h => <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>)}</TableRow></TableHead>
+                    <TableBody>
+                      {bodegas.map(b => (
+                        <TableRow key={b.id} hover>
+                          <TableCell>{b.codigo}</TableCell><TableCell>{b.nombre}</TableCell><TableCell>{b.ubicacion ?? '—'}</TableCell>
+                          <TableCell align="right"><IconButton size="small" color="error" onClick={() => mutBodegaDel.mutate(b.id)}><DeleteForever sx={{ fontSize: 16 }} /></IconButton></TableCell>
+                        </TableRow>
+                      ))}
+                      {bodegas.length === 0 && <TableRow><TableCell colSpan={4} align="center"><Typography color="text.secondary" py={1}>Sin bodegas</Typography></TableCell></TableRow>}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </Grid>
+            {/* Catálogo de daños */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Card sx={{ bgcolor: '#FFFFFF' }}>
+                <CardContent>
+                  <Stack direction="row" alignItems="center" gap={1} mb={1.5}>
+                    <Recycling sx={{ color: EAM_DARK }} /><Typography fontWeight={700}>Catálogo de daños / descarte</Typography>
+                  </Stack>
+                  <Grid container spacing={1} mb={1.5}>
+                    <Grid size={{ xs: 3 }}><TextField label="Código" size="small" fullWidth value={danoForm.codigo} onChange={e => setDanoForm(f => ({ ...f, codigo: e.target.value }))} /></Grid>
+                    <Grid size={{ xs: 5 }}><TextField label="Nombre" size="small" fullWidth value={danoForm.nombre} onChange={e => setDanoForm(f => ({ ...f, nombre: e.target.value }))} /></Grid>
+                    <Grid size={{ xs: 4 }}><TextField select label="Severidad" size="small" fullWidth value={danoForm.severidad} onChange={e => setDanoForm(f => ({ ...f, severidad: e.target.value }))}>{['LEVE', 'MODERADO', 'GRAVE'].map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}</TextField></Grid>
+                    <Grid size={{ xs: 8 }}><TextField select label="Acción sugerida" size="small" fullWidth value={danoForm.accion} onChange={e => setDanoForm(f => ({ ...f, accion: e.target.value }))}>{['INSPECCION', 'REENCAUCHE', 'DESCARTE'].map(a => <MenuItem key={a} value={a}>{a}</MenuItem>)}</TextField></Grid>
+                    <Grid size={{ xs: 4 }} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+                      <Button size="small" variant="contained" startIcon={<AddIcon />} disabled={!danoForm.codigo || !danoForm.nombre || mutDano.isPending} onClick={() => mutDano.mutate({ ...danoForm })} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Agregar</Button>
+                    </Grid>
+                  </Grid>
+                  <Table size="small">
+                    <TableHead><TableRow>{['Nombre', 'Severidad', 'Acción', ''].map(h => <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>)}</TableRow></TableHead>
+                    <TableBody>
+                      {danos.map(d => (
+                        <TableRow key={d.id} hover>
+                          <TableCell>{d.nombre}</TableCell>
+                          <TableCell><Chip size="small" label={d.severidad} color={d.severidad === 'GRAVE' ? 'error' : d.severidad === 'MODERADO' ? 'warning' : 'default'} /></TableCell>
+                          <TableCell>{d.accion}</TableCell>
+                          <TableCell align="right"><IconButton size="small" color="error" onClick={() => mutDanoDel.mutate(d.id)}><DeleteForever sx={{ fontSize: 16 }} /></IconButton></TableCell>
+                        </TableRow>
+                      ))}
+                      {danos.length === 0 && <TableRow><TableCell colSpan={4} align="center"><Typography color="text.secondary" py={1}>Sin daños configurados</Typography></TableCell></TableRow>}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+        )}
+
         {/* ── Diálogo movimiento (instalación/rotación/desmontaje) ── */}
         <Dialog open={!!movDialog} onClose={() => setMovDialog(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
           <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>
@@ -429,6 +538,31 @@ export default function EAMNeumaticos() {
               profundidad_actual: nuevoForm.profundidad_actual ? Number(nuevoForm.profundidad_actual) : undefined,
               costo: nuevoForm.costo ? Number(nuevoForm.costo) : undefined, proveedor: nuevoForm.proveedor || undefined,
             })} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Registrar</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* ── Diálogo configurar ejes ── */}
+        <Dialog open={ejesOpen} onClose={() => setEjesOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Configurar ejes
+            <Typography variant="caption" color="text.secondary" display="block">{veh?.codigo} — {veh?.nombre}</Typography>
+          </DialogTitle>
+          <DialogContent dividers>
+            <Stack spacing={2} pt={0.5}>
+              <TextField select label="Número de ejes *" size="small" fullWidth value={ejesForm.numero_ejes} onChange={e => setEjesForm(f => ({ ...f, numero_ejes: e.target.value }))}>
+                {[1, 2, 3, 4, 5, 6].map(n => <MenuItem key={n} value={String(n)}>{n} eje{n > 1 ? 's' : ''}</MenuItem>)}
+              </TextField>
+              <TextField select label="¿Lleva repuesto?" size="small" fullWidth value={ejesForm.tiene_repuesto ? 'si' : 'no'} onChange={e => setEjesForm(f => ({ ...f, tiene_repuesto: e.target.value === 'si' }))}>
+                <MenuItem value="si">Sí</MenuItem>
+                <MenuItem value="no">No</MenuItem>
+              </TextField>
+              <Alert severity="info" sx={{ py: 0 }}>
+                Se generarán {(() => { const n = Number(ejesForm.numero_ejes) || 0; return (n >= 1 ? 2 : 0) + Math.max(0, n - 1) * 4 + (ejesForm.tiene_repuesto ? 1 : 0) })()} posiciones (eje 1 direccional; ejes siguientes duales{ejesForm.tiene_repuesto ? ' + repuesto' : ''}).
+              </Alert>
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setEjesOpen(false)}>Cancelar</Button>
+            <Button variant="contained" disabled={mutEjes.isPending} onClick={() => mutEjes.mutate({ numero_ejes: Number(ejesForm.numero_ejes), tiene_repuesto: ejesForm.tiene_repuesto })} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Guardar</Button>
           </DialogActions>
         </Dialog>
 
