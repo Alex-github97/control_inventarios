@@ -1,9 +1,10 @@
 // QMS Module - IA y Análisis Avanzado
 import React, { useState } from 'react'
 import {
-  Box, Typography, Grid, Card, CardContent, Chip, Button, Tab, Tabs,
+  Box, Typography, Card, CardContent, Chip, Button, Tab, Tabs,
   alpha, LinearProgress,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import { AutoFixHigh, Psychology, TrendingDown, Warning, Lightbulb } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 

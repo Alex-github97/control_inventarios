@@ -6,7 +6,6 @@ import {
   Tab,
   Card,
   CardContent,
-  Grid,
   Table,
   TableBody,
   TableCell,
@@ -17,6 +16,7 @@ import {
   Chip,
   Divider,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import { alpha } from '@mui/material/styles'
 import {
   TrendingUp,

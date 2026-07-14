@@ -27,11 +27,11 @@ import {
   Tabs,
   Tab,
   Paper,
-  Grid,
   Divider,
   alpha,
   Tooltip,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   Search,
   Add,

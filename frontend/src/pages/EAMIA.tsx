@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect, useMemo, type ChangeEvent, type SyntheticEvent, type MouseEvent } from 'react'
 import {
-  Box, Typography, Tabs, Tab, Grid, Card, CardContent, Chip,
+  Box, Typography, Tabs, Tab, Card, CardContent, Chip,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, Button, Stack, alpha, Divider, LinearProgress, TextField,
   IconButton, Avatar, Tooltip, MenuItem, InputAdornment,
   Dialog, DialogTitle, DialogContent, DialogActions, Snackbar, Alert,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   AutoAwesome as AIIcon,
   Build as BuildIcon,

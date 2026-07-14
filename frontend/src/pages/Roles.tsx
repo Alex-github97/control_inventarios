@@ -1,10 +1,11 @@
 import React, { useState } from 'react'
 import {
-  Box, Card, CardContent, Typography, Button, Grid, Chip, CircularProgress,
+  Box, Card, CardContent, Typography, Button, Chip, CircularProgress,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField,
   FormControlLabel, Checkbox, Table, TableBody, TableCell, TableHead, TableRow,
   IconButton, Tooltip, alpha, Divider, Tab, Tabs, Switch,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   Add, Edit, Delete, AdminPanelSettings, Check, Close, Group,
   Inventory2, LocalShipping, DirectionsCar, Build, Warehouse, People,

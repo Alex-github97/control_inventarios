@@ -15,7 +15,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Grid,
   TextField,
   Select,
   MenuItem,
@@ -26,6 +25,7 @@ import {
   alpha,
   Divider,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import Add from '@mui/icons-material/Add'
 import AccountBalance from '@mui/icons-material/AccountBalance'
 import SwapHoriz from '@mui/icons-material/SwapHoriz'

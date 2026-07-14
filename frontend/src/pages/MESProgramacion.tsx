@@ -6,7 +6,6 @@ import {
   CardContent,
   Tabs,
   Tab,
-  Grid,
   Chip,
   Button,
   Select,
@@ -32,6 +31,7 @@ import {
   Snackbar,
   Alert,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore'
 import NavigateNextIcon from '@mui/icons-material/NavigateNext'
 import TodayIcon from '@mui/icons-material/Today'

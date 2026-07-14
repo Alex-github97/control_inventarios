@@ -24,7 +24,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Grid,
   Stack,
   Tab,
   Tabs,
@@ -37,6 +36,7 @@ import {
   FormGroup,
   Collapse,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   Add,
   Search,

@@ -6,7 +6,6 @@ import {
   CardContent,
   Tabs,
   Tab,
-  Grid,
   Chip,
   Button,
   MenuItem,
@@ -30,6 +29,7 @@ import {
   InputAdornment,
   Tooltip,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import PauseIcon from '@mui/icons-material/Pause'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'

@@ -1,7 +1,8 @@
 import {
-  Box, Paper, Typography, Stack, Grid, Chip, Button, alpha,
+  Box, Paper, Typography, Stack, Chip, Button, alpha,
   Table, TableBody, TableCell, TableHead, TableRow,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   CheckCircle as CheckIcon,
   Warning as WarningIcon,

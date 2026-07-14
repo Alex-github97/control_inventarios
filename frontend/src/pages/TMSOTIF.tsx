@@ -1,9 +1,10 @@
 import React, { useState } from 'react'
 import {
-  Box, Paper, Typography, Stack, Tabs, Tab, Grid, Chip,
+  Box, Paper, Typography, Stack, Tabs, Tab, Chip,
   Table, TableBody, TableCell, TableHead, TableRow, TableContainer,
   MenuItem, TextField, alpha, Divider, Tooltip,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   CheckCircle, Cancel, TrendingUp, TrendingDown, TrendingFlat,
   EmojiEvents, Speed, AccessTime,

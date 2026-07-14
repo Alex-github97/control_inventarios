@@ -13,13 +13,13 @@ import {
   TableHead,
   TableRow,
   alpha,
-  Grid,
   Button,
   Tab,
   Tabs,
   IconButton,
   Divider,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   Speed,
   Warning,

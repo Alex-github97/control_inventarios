@@ -1,9 +1,10 @@
 // GRC Module — Torre de Control GRC
 import React from 'react'
 import {
-  Box, Typography, Grid, Card, CardContent, Chip, alpha, LinearProgress,
+  Box, Typography, Card, CardContent, Chip, alpha, LinearProgress,
   List, ListItem, ListItemText, Divider,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   Shield, Warning, CheckCircle, Policy, Gavel, Security,
   BugReport, Inventory, Timeline,

@@ -6,7 +6,6 @@ import {
   Typography,
   Tab,
   Tabs,
-  Grid,
   Avatar,
   CircularProgress,
   LinearProgress,
@@ -28,6 +27,7 @@ import {
   Tooltip,
   alpha,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   Folder,
   Description,

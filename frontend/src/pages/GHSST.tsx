@@ -32,7 +32,7 @@ import {
   TableCell,
   TableContainer,
 } from '@mui/material'
-import Grid from '@mui/material/Grid'
+import Grid from '@mui/material/Grid2'
 
 import {
   HealthAndSafety as HealthAndSafetyIcon,

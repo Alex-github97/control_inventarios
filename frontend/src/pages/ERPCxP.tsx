@@ -15,7 +15,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Grid,
   TextField,
   Select,
   MenuItem,
@@ -25,6 +24,7 @@ import {
   Tabs,
   Tab,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import AddIcon from '@mui/icons-material/Add'
 import PaymentIcon from '@mui/icons-material/Payment'
 import WarningIcon from '@mui/icons-material/Warning'

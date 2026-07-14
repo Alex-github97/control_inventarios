@@ -13,7 +13,6 @@ import {
   TableContainer,
   Paper,
   Chip,
-  Grid,
   Card,
   CardContent,
   LinearProgress,
@@ -33,7 +32,8 @@ import {
   Snackbar,
   Tooltip,
   alpha,
-} from '@mui/material';
+} from '@mui/material'
+import Grid from '@mui/material/Grid2';
 import {
   WarningAmber,
   TireRepair,

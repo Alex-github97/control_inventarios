@@ -13,7 +13,6 @@ import {
   TableHead,
   TableRow,
   alpha,
-  Grid,
   Avatar,
   Button,
   Divider,
@@ -22,6 +21,7 @@ import {
   ListItemAvatar,
   ListItemText,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   Description,
   CheckCircle,

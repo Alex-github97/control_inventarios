@@ -1,7 +1,8 @@
 import React from 'react'
 import {
-  Box, Paper, Typography, Stack, Grid, Chip, Button, CircularProgress, alpha, Divider,
+  Box, Paper, Typography, Stack, Chip, Button, CircularProgress, alpha, Divider,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   Inventory2 as ActivosIcon,
   Handyman as OTIcon,

@@ -1,11 +1,12 @@
 // QMS Module - Motor de Indicadores de Calidad
 import React, { useState } from 'react'
 import {
-  Box, Typography, Grid, Card, CardContent, Chip, Button, Tab, Tabs,
+  Box, Typography, Card, CardContent, Chip, Button, Tab, Tabs,
   Table, TableBody, TableCell, TableHead, TableRow, Paper, Dialog,
   DialogTitle, DialogContent, DialogActions, TextField, Select, MenuItem,
   FormControl, InputLabel, alpha, LinearProgress,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import { Analytics, Add, TrendingUp, TrendingDown } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 

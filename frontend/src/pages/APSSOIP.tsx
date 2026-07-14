@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
 import {
-  Box, Paper, Typography, Stack, Grid, Chip, Button, alpha, LinearProgress,
+  Box, Paper, Typography, Stack, Chip, Button, alpha, LinearProgress,
   Tabs, Tab, Table, TableBody, TableCell, TableHead, TableRow, Divider,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   CheckCircle as CheckIcon,
   HourglassEmpty as HourglassIcon,

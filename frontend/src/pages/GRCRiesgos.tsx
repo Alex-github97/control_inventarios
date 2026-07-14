@@ -1,11 +1,12 @@
 import React, { useState } from 'react'
 import {
-  Box, Typography, Grid, Card, CardContent, Chip, alpha, Tab, Tabs,
+  Box, Typography, Card, CardContent, Chip, alpha, Tab, Tabs,
   Table, TableBody, TableCell, TableHead, TableRow, Paper, Button,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField,
   IconButton, Divider, Select, MenuItem, FormControl, InputLabel,
   Snackbar, Alert,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import { BugReport, Add, Edit, Delete, Close, InfoOutlined } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 

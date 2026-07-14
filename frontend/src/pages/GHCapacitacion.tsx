@@ -35,11 +35,11 @@ import {
   ListItem,
   ListItemText,
   List,
-  Grid,
   CircularProgress,
   ToggleButtonGroup,
   ToggleButton,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 
 import SchoolIcon from '@mui/icons-material/School'
 import EditIcon from '@mui/icons-material/Edit'

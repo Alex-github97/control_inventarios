@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { Box, Grid, Typography, Chip, InputBase, alpha, LinearProgress } from '@mui/material'
+import { Box, Typography, Chip, InputBase, alpha, LinearProgress } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import { Search, AccessTime, Person, MenuBook } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 

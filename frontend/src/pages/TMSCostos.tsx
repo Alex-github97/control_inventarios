@@ -1,10 +1,11 @@
 import React, { useState } from 'react'
 import {
   Box, Paper, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, MenuItem, IconButton, Stack, Tabs, Tab, Grid, Chip, Tooltip,
+  TextField, MenuItem, IconButton, Stack, Tabs, Tab, Chip, Tooltip,
   Table, TableBody, TableCell, TableHead, TableRow, TableContainer,
   alpha, Divider,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   AttachMoney, TrendingUp, TrendingDown, BarChart, Visibility,
   Edit, LocalGasStation, Toll, HotelOutlined, WorkOutline,

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import {
-  Box, Typography, Grid, Card, CardContent, Chip, CircularProgress, alpha, LinearProgress,
+  Box, Typography, Card, CardContent, Chip, CircularProgress, alpha, LinearProgress,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import { Grain, ShoppingCart, Pending, LocalShipping, Business, TrendingUp, Warning } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 import { getSCMDashboard, SCMDashboardData } from '@/api/scm'

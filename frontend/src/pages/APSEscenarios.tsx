@@ -1,10 +1,11 @@
 import React, { useState } from 'react'
 import { Layout } from '@/components/layout/Layout'
 import {
-  Box, Typography, Grid, Chip, Table, TableBody, TableCell,
+  Box, Typography, Chip, Table, TableBody, TableCell,
   TableHead, TableRow, Paper, Tabs, Tab, Button, Slider,
   LinearProgress, alpha,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import { Explore, TrendingUp, TrendingDown, Star } from '@mui/icons-material'
 
 const APS_COLOR = '#7C3AED'

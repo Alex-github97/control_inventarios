@@ -3,7 +3,6 @@ import {
   Box,
   Card,
   Typography,
-  Grid,
   Chip,
   Skeleton,
   LinearProgress,
@@ -13,6 +12,7 @@ import {
   IconButton,
   Tooltip,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   TrendingUp,
   AccountBalance,

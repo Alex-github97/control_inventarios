@@ -4,7 +4,6 @@ import {
   Typography,
   Stack,
   Paper,
-  Grid,
   Chip,
   Button,
   Tabs,
@@ -19,6 +18,7 @@ import {
   Select,
   MenuItem,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   DirectionsBus,
   Person,

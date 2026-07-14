@@ -1,9 +1,10 @@
 import React, { useState } from 'react'
 import {
   Box, Paper, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, MenuItem, IconButton, Stack, Tabs, Tab, Grid, Tooltip,
+  TextField, MenuItem, IconButton, Stack, Tabs, Tab, Tooltip,
   CircularProgress, alpha, Switch, FormControlLabel, Chip,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient as api } from '@/api/client'

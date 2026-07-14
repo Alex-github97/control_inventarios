@@ -1,11 +1,12 @@
 // QMS Module - Gestión de Hallazgos
 import React, { useState } from 'react'
 import {
-  Box, Typography, Grid, Card, CardContent, Chip, Button,
+  Box, Typography, Card, CardContent, Chip, Button,
   Table, TableBody, TableCell, TableHead, TableRow, Paper, Dialog,
   DialogTitle, DialogContent, DialogActions, TextField, Select, MenuItem,
   FormControl, InputLabel, alpha, IconButton,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import { FindInPage, Add, Visibility, Edit } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 

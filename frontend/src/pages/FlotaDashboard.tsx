@@ -1,7 +1,8 @@
 import React from 'react'
 import {
-  Box, Paper, Typography, Stack, Grid, Chip, Button, CircularProgress, alpha,
+  Box, Paper, Typography, Stack, Chip, Button, CircularProgress, alpha,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   DirectionsCar as VehiculoIcon,
   Build as MantenimientoIcon,

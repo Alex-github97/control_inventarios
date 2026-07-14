@@ -1,9 +1,10 @@
 // GRC Module — Configuración
 import React, { useState } from 'react'
 import {
-  Box, Typography, Grid, Card, CardContent, Chip, alpha, Tab, Tabs,
+  Box, Typography, Card, CardContent, Chip, alpha, Tab, Tabs,
   Switch, FormControlLabel, Slider, Button, Divider,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   Settings, CheckCircle, CheckCircleOutline,
 } from '@mui/icons-material'

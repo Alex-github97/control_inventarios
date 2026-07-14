@@ -4,7 +4,7 @@ import {
   TextField, MenuItem, IconButton, Stack, Chip, Tooltip, CircularProgress,
   Avatar, InputAdornment, alpha, Tabs, Tab,
 } from '@mui/material'
-import Grid from '@mui/material/Grid'
+import Grid from '@mui/material/Grid2'
 import {
   PersonSearch as PersonSearchIcon,
   Add as AddIcon,

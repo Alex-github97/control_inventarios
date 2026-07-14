@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react'
 import {
-  Box, Typography, Tabs, Tab, Grid, Paper, Chip, Switch,
+  Box, Typography, Tabs, Tab, Paper, Chip, Switch,
   TextField, IconButton, Button, Stack, alpha, Divider,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   MenuItem, InputAdornment, Dialog, DialogTitle, DialogContent, DialogActions,
   Snackbar, Alert, Avatar, Card, CardContent, Tooltip,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   Settings as SettingsIcon,
   Edit as EditIcon,

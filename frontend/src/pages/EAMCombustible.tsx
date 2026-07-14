@@ -12,7 +12,6 @@ import {
   TableContainer,
   Paper,
   Chip,
-  Grid,
   Card,
   CardContent,
   Alert,
@@ -31,7 +30,8 @@ import {
   Stack,
   LinearProgress,
   Tooltip,
-} from '@mui/material';
+} from '@mui/material'
+import Grid from '@mui/material/Grid2';
 import {
   LocalGasStation,
   Speed,

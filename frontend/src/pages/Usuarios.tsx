@@ -2,9 +2,10 @@ import React, { useState } from 'react'
 import {
   Box, Card, Typography, Button, TextField, Table, TableBody, TableCell,
   TableHead, TableRow, Chip, Skeleton, Dialog, DialogTitle, DialogContent,
-  DialogActions, Grid, FormControl, InputLabel, Select, MenuItem, Avatar,
+  DialogActions, FormControl, InputLabel, Select, MenuItem, Avatar,
   alpha, IconButton, Tooltip,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import { Add, Edit, Lock, Close, AdminPanelSettings } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'

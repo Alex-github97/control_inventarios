@@ -8,7 +8,6 @@ import {
   Stack,
   Paper,
   alpha,
-  Grid,
   Avatar,
   Button,
   TextField,
@@ -24,6 +23,7 @@ import {
   ListItemText,
   CircularProgress,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   AutoAwesome,
   Upload,

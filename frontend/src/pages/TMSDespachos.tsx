@@ -4,7 +4,6 @@ import {
   Typography,
   Stack,
   Paper,
-  Grid,
   Chip,
   Button,
   Tabs,
@@ -34,6 +33,7 @@ import {
   FormControlLabel,
   alpha,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   Add,
   Visibility,

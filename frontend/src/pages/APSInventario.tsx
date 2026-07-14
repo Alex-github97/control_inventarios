@@ -13,7 +13,6 @@ import {
   TableHead,
   TableRow,
   alpha,
-  Grid,
   Button,
   Tab,
   Tabs,
@@ -23,6 +22,7 @@ import {
   InputLabel,
   Divider,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   Inventory,
   Refresh,

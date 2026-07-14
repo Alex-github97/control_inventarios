@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { Box, Typography, Grid, Card, CardContent, Chip, alpha, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, Select, FormControl, InputLabel } from '@mui/material'
+import { Box, Typography, Card, CardContent, Chip, alpha, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, Select, FormControl, InputLabel } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import { GppBad, Add, Warning, CheckCircle, Info } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 

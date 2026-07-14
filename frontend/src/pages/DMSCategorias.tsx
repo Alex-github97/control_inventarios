@@ -17,13 +17,13 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Grid,
   Switch,
   FormControlLabel,
   Tooltip,
   Divider,
   Badge,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   Add,
   Edit,

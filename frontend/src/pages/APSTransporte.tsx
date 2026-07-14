@@ -4,7 +4,6 @@ import {
   Typography,
   Tabs,
   Tab,
-  Grid,
   Paper,
   Table,
   TableBody,
@@ -19,6 +18,7 @@ import {
   Badge,
   Tooltip,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import { alpha } from '@mui/material/styles'
 import { Layout } from '@/components/layout/Layout'
 

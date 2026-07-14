@@ -1,10 +1,11 @@
 // QMS Module - Configuración del Sistema
 import React, { useState } from 'react'
 import {
-  Box, Typography, Grid, Card, CardContent, Chip, Button, Tab, Tabs,
+  Box, Typography, Card, CardContent, Chip, Button, Tab, Tabs,
   TextField, Switch, FormControlLabel, Select, MenuItem, FormControl,
   InputLabel, alpha, Divider, Slider,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import { SettingsSuggest, Save, CheckCircle } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 

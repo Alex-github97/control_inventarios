@@ -3,9 +3,10 @@ import {
   Box, Typography, Paper, Button, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, Select, MenuItem, FormControl, InputLabel, Switch, FormControlLabel,
   Chip, IconButton, Tooltip, Table, TableBody, TableCell, TableHead, TableRow,
-  Tabs, Tab, Grid, Divider, Alert, CircularProgress, Autocomplete,
+  Tabs, Tab, Divider, Alert, CircularProgress, Autocomplete,
   Card, CardContent, CardActions, List, ListItem, ListItemText, ListItemSecondaryAction,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon,
   Build as BuildIcon, AccountTree as SeqIcon, AssignmentTurnedIn as AsigIcon,

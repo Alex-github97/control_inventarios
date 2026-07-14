@@ -1,9 +1,10 @@
 // GRC Module — GRC Inteligencia Artificial
 import React, { useState } from 'react'
 import {
-  Box, Typography, Grid, Card, CardContent, Chip, alpha, Tab, Tabs,
+  Box, Typography, Card, CardContent, Chip, alpha, Tab, Tabs,
   LinearProgress,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import { Psychology, TrendingUp, TrendingDown, Warning, CheckCircle } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 

@@ -1,10 +1,11 @@
 // QMS Module - Torre de Control de Calidad
 import React, { useState } from 'react'
 import {
-  Box, Typography, Grid, Card, CardContent, Chip, LinearProgress,
+  Box, Typography, Card, CardContent, Chip, LinearProgress,
   List, ListItem, ListItemText, Button, alpha, Divider,
   Table, TableBody, TableCell, TableHead, TableRow, Paper,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   WorkspacePremium, Refresh, Warning, CheckCircle, Error,
   TrendingUp, TrendingDown, FactCheck, BugReport, Dangerous,

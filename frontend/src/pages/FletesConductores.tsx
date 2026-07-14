@@ -1,9 +1,10 @@
 import React, { useState } from 'react'
 import {
   Box, Paper, Typography, Button, Dialog, DialogTitle, DialogContent,
-  DialogActions, TextField, MenuItem, IconButton, Stack, Chip, Grid,
+  DialogActions, TextField, MenuItem, IconButton, Stack, Chip, 
   Tooltip, CircularProgress, Collapse, alpha, Divider,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   Add as AddIcon,
   Edit as EditIcon,

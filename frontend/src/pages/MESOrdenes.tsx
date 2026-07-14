@@ -3,7 +3,6 @@ import {
   Box,
   Typography,
   Chip,
-  Grid,
   Paper,
   Tabs,
   Tab,
@@ -35,7 +34,8 @@ import {
   Divider,
   InputAdornment,
   Stack,
-} from '@mui/material';
+} from '@mui/material'
+import Grid from '@mui/material/Grid2';
 import {
   Close as CloseIcon,
   Add as AddIcon,

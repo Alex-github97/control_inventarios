@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react'
 import {
   Box, Typography, Tabs, Tab, Table, TableHead, TableBody, TableRow, TableCell,
-  TableContainer, Paper, Chip, Grid, Card, CardContent, Divider, LinearProgress,
+  TableContainer, Paper, Chip, Card, CardContent, Divider, LinearProgress,
   TextField, MenuItem, Button, Select, FormControl, InputLabel, Stack, Avatar,
   Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Snackbar, Alert,
   InputAdornment, alpha,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   DeleteSweep, Autorenew, EmojiObjects, Analytics,
   CircleOutlined, Warning, CheckCircle,

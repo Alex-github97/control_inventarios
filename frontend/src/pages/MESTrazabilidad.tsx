@@ -6,7 +6,6 @@ import {
   CardContent,
   Tabs,
   Tab,
-  Grid,
   Chip,
   Button,
   TextField,
@@ -32,6 +31,7 @@ import {
   InputAdornment,
   LinearProgress,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import SearchIcon from '@mui/icons-material/Search'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'

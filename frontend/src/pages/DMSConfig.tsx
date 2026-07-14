@@ -8,7 +8,6 @@ import {
   Stack,
   Paper,
   alpha,
-  Grid,
   Avatar,
   Button,
   TextField,
@@ -33,6 +32,7 @@ import {
   IconButton,
   Alert,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   Settings,
   Storage,

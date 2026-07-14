@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react'
 import {
   Box, Typography, Tabs, Tab, Table, TableHead, TableBody, TableRow, TableCell,
-  TableContainer, Paper, Chip, Grid, Card, CardContent, Divider, LinearProgress,
+  TableContainer, Paper, Chip, Card, CardContent, Divider, LinearProgress,
   Button, TextField, MenuItem, InputAdornment, Stack,
   Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Snackbar, Alert, alpha,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   Speed, FactoryOutlined, PrecisionManufacturing, PauseCircle,
   TrendingUp, TrendingDown, WarningAmber, Add as AddIcon, Close as CloseIcon,

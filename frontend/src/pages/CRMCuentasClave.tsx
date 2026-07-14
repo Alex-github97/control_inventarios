@@ -1,5 +1,6 @@
 import React from 'react'
-import { Box, Grid, Typography, Chip, alpha } from '@mui/material'
+import { Box, Typography, Chip, alpha } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import { VpnKey } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 

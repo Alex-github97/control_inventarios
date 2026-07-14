@@ -6,7 +6,6 @@ import {
   Typography,
   Tab,
   Tabs,
-  Grid,
   Accordion,
   AccordionSummary,
   AccordionDetails,
@@ -37,6 +36,7 @@ import {
   Paper,
   SelectChangeEvent,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'

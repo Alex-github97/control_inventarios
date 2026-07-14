@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
 import {
-  Box, Paper, Typography, Stack, Grid, Chip, Button, alpha,
+  Box, Paper, Typography, Stack, Chip, Button, alpha,
   Tabs, Tab, Table, TableBody, TableCell, TableHead, TableRow,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   Add as AddIcon,
   AutoGraph as AutoGraphIcon,

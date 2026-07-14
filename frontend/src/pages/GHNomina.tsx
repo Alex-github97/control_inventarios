@@ -14,7 +14,6 @@ import {
   TableRow,
   Skeleton,
   Alert,
-  Grid,
   TextField,
   Select,
   MenuItem,
@@ -33,6 +32,7 @@ import {
   alpha,
   Divider,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import PaymentsIcon from '@mui/icons-material/Payments'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import LockIcon from '@mui/icons-material/Lock'

@@ -4,7 +4,7 @@ import {
   TextField, MenuItem, IconButton, Stack, Chip, Tooltip, CircularProgress,
   Avatar, InputAdornment, alpha, Tabs, Tab, Badge, Card, CardContent, CardActions,
 } from '@mui/material'
-import Grid from '@mui/material/Grid'
+import Grid from '@mui/material/Grid2'
 import {
   BeachAccess as BeachIcon,
   Add as AddIcon,

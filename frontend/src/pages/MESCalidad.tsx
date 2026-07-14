@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react'
 import {
   Box, Typography, Tabs, Tab, Table, TableHead, TableBody, TableRow, TableCell,
-  TableContainer, Paper, Chip, Grid, Card, CardContent, Divider, LinearProgress,
+  TableContainer, Paper, Chip, Card, CardContent, Divider, LinearProgress,
   TextField, MenuItem, Button, Stack, IconButton, InputAdornment,
   Dialog, DialogTitle, DialogContent, DialogActions, Snackbar, Alert,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   Science, BarChart, Report, BugReport, CheckCircle,
   Close as CloseIcon, Add as AddIcon, Search as SearchIcon,

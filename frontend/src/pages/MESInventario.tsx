@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react'
 import {
-  Box, Typography, Tabs, Tab, Grid, Card, CardContent, Chip,
+  Box, Typography, Tabs, Tab, Card, CardContent, Chip,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, Button, Stack, alpha, TextField, MenuItem,
   Dialog, DialogTitle, DialogContent, DialogActions, IconButton,
   Snackbar, Alert, InputAdornment, LinearProgress,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   Inventory as InventoryIcon,
   Science as ScienceIcon,

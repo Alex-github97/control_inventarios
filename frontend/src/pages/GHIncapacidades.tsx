@@ -4,7 +4,7 @@ import {
   TextField, MenuItem, IconButton, Stack, Chip, Tooltip, CircularProgress,
   Avatar, InputAdornment, alpha,
 } from '@mui/material'
-import Grid from '@mui/material/Grid'
+import Grid from '@mui/material/Grid2'
 import {
   MedicalServices as MedicalIcon,
   Add as AddIcon,

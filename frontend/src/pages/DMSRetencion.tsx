@@ -6,7 +6,6 @@ import {
   Typography,
   Tab,
   Tabs,
-  Grid,
   Chip,
   Button,
   Dialog,
@@ -33,6 +32,7 @@ import {
   Snackbar,
   alpha,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   Policy,
   Archive,

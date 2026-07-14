@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { Box, Typography, Grid, Card, CardContent, Chip, alpha } from '@mui/material'
+import { Box, Typography, Card, CardContent, Chip, alpha } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import { Analytics, TrendingUp, TrendingDown } from '@mui/icons-material'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts'
 import { Layout } from '@/components/layout/Layout'

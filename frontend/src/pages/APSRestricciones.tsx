@@ -1,13 +1,14 @@
 // APS Module - Gestión de Restricciones (Theory of Constraints)
 import React, { useState } from 'react'
 import {
-  Box, Typography, Grid, Card, CardContent, Chip, LinearProgress,
+  Box, Typography, Card, CardContent, Chip, LinearProgress,
   Table, TableBody, TableCell, TableHead, TableRow, Paper,
   Button, Switch, TextField, MenuItem, Select, FormControl,
   InputLabel, Dialog, DialogTitle, DialogContent, DialogActions,
   Tabs, Tab, Badge, alpha, Stepper, Step, StepLabel, StepContent,
   Divider, IconButton, Tooltip,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   Block, Warning, Speed, TrendingDown, Add, Edit, Save, Close,
   CheckCircle, RadioButtonUnchecked, PlayCircle, Inventory,

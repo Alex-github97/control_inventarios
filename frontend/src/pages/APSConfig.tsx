@@ -1,9 +1,10 @@
 import React, { useState } from 'react'
 import { Layout } from '@/components/layout/Layout'
 import {
-  Box, Typography, Grid, Chip, Paper, Tabs, Tab, Button,
+  Box, Typography, Chip, Paper, Tabs, Tab, Button,
   TextField, Switch, Slider, alpha, InputAdornment,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import { Settings, Search } from '@mui/icons-material'
 
 const APS_COLOR = '#7C3AED'

@@ -1,11 +1,12 @@
 // APS Module - KPIs & Supply Chain Control Tower
 import React, { useState } from 'react'
 import {
-  Box, Typography, Grid, Card, CardContent, Chip, LinearProgress,
+  Box, Typography, Card, CardContent, Chip, LinearProgress,
   Table, TableBody, TableCell, TableHead, TableRow, Paper,
   Button, Select, MenuItem, FormControl, InputLabel,
   Tabs, Tab, alpha, Divider, Tooltip,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   TrendingUp, TrendingDown, Remove, Dashboard, Timeline,
   Leaderboard, Assignment, TrafficOutlined, CheckCircle,

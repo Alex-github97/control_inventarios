@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import {
-  Box, Typography, Tabs, Tab, Card, CardContent, Chip, Grid,
+  Box, Typography, Tabs, Tab, Card, CardContent, Chip, 
   Stack, LinearProgress, Divider, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Button, TextField, MenuItem,
   InputAdornment, Dialog, DialogTitle, DialogContent, DialogActions,
   IconButton, Snackbar, Alert, alpha, Avatar,
-} from '@mui/material';
+} from '@mui/material'
+import Grid from '@mui/material/Grid2';
 import {
   Add as AddIcon,
   Close as CloseIcon,

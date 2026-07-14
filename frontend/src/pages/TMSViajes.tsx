@@ -12,7 +12,6 @@ import {
   TableContainer,
   Chip,
   Button,
-  Grid,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -32,6 +31,7 @@ import {
   alpha,
   Divider,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   Add,
   Search,

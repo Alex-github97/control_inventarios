@@ -14,7 +14,6 @@ import {
   TableContainer,
   Paper,
   Chip,
-  Grid,
   Card,
   CardContent,
   Button,
@@ -33,7 +32,8 @@ import {
   Alert,
   Tooltip,
   alpha,
-} from '@mui/material';
+} from '@mui/material'
+import Grid from '@mui/material/Grid2';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import WarningIcon from '@mui/icons-material/Warning';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';

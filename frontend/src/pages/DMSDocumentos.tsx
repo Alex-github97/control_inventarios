@@ -25,7 +25,6 @@ import {
   Stepper,
   Step,
   StepLabel,
-  Grid,
   Switch,
   FormControlLabel,
   Tab,
@@ -34,6 +33,7 @@ import {
   Avatar,
   Tooltip,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   Description,
   Add,

@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react'
 import {
-  Box, Typography, Tabs, Tab, Grid, Card, CardContent, Chip,
+  Box, Typography, Tabs, Tab, Card, CardContent, Chip,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, Button, Stack, alpha, Divider, LinearProgress, TextField,
   IconButton, Avatar,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   AutoAwesome as AIIcon,
   Warning as WarnIcon,

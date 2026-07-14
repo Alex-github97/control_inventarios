@@ -1,11 +1,12 @@
 // QMS Module - No Conformidades y CAPA
 import React, { useState } from 'react'
 import {
-  Box, Typography, Grid, Card, CardContent, Chip, Button, Tab, Tabs,
+  Box, Typography, Card, CardContent, Chip, Button, Tab, Tabs,
   Table, TableBody, TableCell, TableHead, TableRow, Paper, Dialog,
   DialogTitle, DialogContent, DialogActions, TextField, Select, MenuItem,
   FormControl, InputLabel, alpha, LinearProgress, IconButton,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import { BugReport, Add, Visibility, Edit } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 

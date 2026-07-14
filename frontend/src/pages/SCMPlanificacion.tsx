@@ -1,5 +1,6 @@
 import React from 'react'
-import { Box, Typography, Grid, Card, CardContent, Chip, alpha, LinearProgress } from '@mui/material'
+import { Box, Typography, Card, CardContent, Chip, alpha, LinearProgress } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import { SignalCellularAlt, Timeline, Inventory2, TrendingUp, AccountBalance } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 

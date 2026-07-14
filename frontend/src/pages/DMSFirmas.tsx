@@ -6,7 +6,6 @@ import {
   Typography,
   Tab,
   Tabs,
-  Grid,
   Chip,
   Button,
   Dialog,
@@ -35,6 +34,7 @@ import {
   InputAdornment,
   alpha,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   Draw,
   CheckCircle,

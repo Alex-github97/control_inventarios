@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react'
 import {
-  Box, Typography, Tabs, Tab, Grid, Card, CardContent, Chip,
+  Box, Typography, Tabs, Tab, Card, CardContent, Chip,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, Stack, alpha, Divider, Button, TextField, MenuItem,
   InputAdornment, Dialog, DialogTitle, DialogContent, DialogActions,
   IconButton, Snackbar, Alert, Avatar, LinearProgress,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   BarChart as ReportIcon,
   Factory as ProdIcon,

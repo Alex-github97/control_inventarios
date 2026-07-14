@@ -3,9 +3,10 @@ import {
   Box, Typography, Paper, Button, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, Select, MenuItem, FormControl, InputLabel, Switch, FormControlLabel,
   Chip, IconButton, Table, TableBody, TableCell, TableHead, TableRow,
-  Tabs, Tab, Grid, CircularProgress, Alert, LinearProgress, Tooltip,
+  Tabs, Tab, CircularProgress, Alert, LinearProgress, Tooltip,
   Card, CardContent,
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon,
   Warning as WarnIcon, Shield as ShieldIcon, Sensors as CBMIcon,

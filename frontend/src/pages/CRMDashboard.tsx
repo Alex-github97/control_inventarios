@@ -1,5 +1,6 @@
 import React from 'react'
-import { Box, Grid, Typography, Chip, LinearProgress, alpha } from '@mui/material'
+import { Box, Typography, Chip, LinearProgress, alpha } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import {
   TrendingUp, People, Receipt, SupportAgent,
   StarRate, Handshake, Warning, EmojiEvents,

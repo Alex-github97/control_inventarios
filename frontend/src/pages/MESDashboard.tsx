@@ -3,7 +3,6 @@ import {
   Box,
   Typography,
   Chip,
-  Grid,
   Paper,
   Stack,
   Divider,
@@ -20,7 +19,8 @@ import {
   Snackbar,
   Alert,
   alpha,
-} from '@mui/material';
+} from '@mui/material'
+import Grid from '@mui/material/Grid2';
 import PrecisionManufacturingIcon from '@mui/icons-material/PrecisionManufacturing';
 import CloseIcon from '@mui/icons-material/Close';
 import AddIcon from '@mui/icons-material/Add';
