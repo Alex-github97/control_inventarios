@@ -40,6 +40,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
+import { exportarPDF } from '@/utils/exportar'
 import { format } from 'date-fns'
 
 // ── Module brand ──────────────────────────────────────────────────────────────
@@ -656,7 +657,22 @@ export default function ERPFacturacion() {
                             <Tooltip title="Descargar PDF">
                               <IconButton
                                 size="small"
-                                onClick={() => toast('Descarga disponible próximamente', { icon: '📄' })}
+                                onClick={() => exportarPDF({
+                                  archivo: `factura-${f.numero}`,
+                                  titulo: `Factura ${f.numero}`,
+                                  subtitulo: f.cliente_nombre,
+                                  color: ERP_COLOR,
+                                  columnas: [{ key: 'campo', header: 'Campo' }, { key: 'valor', header: 'Valor' }],
+                                  filas: [
+                                    { campo: 'N° Factura', valor: f.numero },
+                                    { campo: 'Cliente', valor: f.cliente_nombre },
+                                    { campo: 'NIT', valor: f.cliente_nit },
+                                    { campo: 'Fecha', valor: f.fecha },
+                                    { campo: 'Vencimiento', valor: f.fecha_vencimiento },
+                                    { campo: 'Estado', valor: f.estado },
+                                    { campo: 'Total', valor: f.total },
+                                  ],
+                                })}
                                 sx={{ color: '#64748B', '&:hover': { bgcolor: '#F1F5F9' } }}
                               >
                                 <Download sx={{ fontSize: 16 }} />

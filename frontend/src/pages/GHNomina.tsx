@@ -42,6 +42,7 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import PrintIcon from '@mui/icons-material/Print'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import { exportarPDF } from '@/utils/exportar'
 import { apiClient as api } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 
@@ -962,7 +963,22 @@ export default function GHNomina() {
                       fullWidth
                       variant="outlined"
                       startIcon={<PrintIcon />}
-                      onClick={() => toast('Función de exportación próximamente')}
+                      onClick={() => exportarPDF({
+                        archivo: 'nomina-prenomina',
+                        titulo: 'Pre-nómina — Detalle por colaborador',
+                        color: GH_COLOR,
+                        columnas: [
+                          { key: 'colaborador_nombre', header: 'Colaborador' },
+                          { key: 'salario_base', header: 'Salario base' },
+                          { key: 'aux_transporte', header: 'Aux. transporte' },
+                          { key: 'total_devengado', header: 'Total devengado' },
+                          { key: 'salud', header: 'Salud' },
+                          { key: 'pension', header: 'Pensión' },
+                          { key: 'total_deducido', header: 'Total deducido' },
+                          { key: 'neto_pagar', header: 'Neto a pagar' },
+                        ],
+                        filas: preDetalles ?? [],
+                      })}
                       sx={{ borderColor: GH_COLOR, color: GH_COLOR }}
                     >
                       Imprimir / Exportar
