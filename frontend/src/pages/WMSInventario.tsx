@@ -320,18 +320,27 @@ export default function WMSInventario() {
       api.post('/wms/conteos/', {
         almacen_id: Number(data.almacen_id),
         tipo: data.tipo,
-        fecha_programada: data.fecha_programada,
+        fecha_programada: data.fecha_programada || new Date().toISOString().slice(0, 10),
         notas: data.notas || undefined,
         detalles: [],
-      }),
-    onSuccess: () => {
-      toast.success('Conteo creado correctamente')
+      }).then((r) => r.data),
+    onSuccess: (creado: Conteo) => {
+      const n = creado?.detalles?.length ?? 0
+      toast.success(n > 0
+        ? `Conteo creado — ${n} ítems listos para capturar el físico`
+        : 'Conteo creado (el almacén no tiene stock para contar)')
       setConteoForm({ ...EMPTY_CONTEO })
       setOpenConteoDialog(false)
       queryClient.invalidateQueries({ queryKey: ['wms-conteos'] })
+      // Despliega automáticamente el conteo recién creado para capturar el físico
+      if (creado?.id) setExpandedConteo(creado.id)
     },
-    onError: () => {
-      toast.error('Error al crear el conteo')
+    onError: (error: unknown) => {
+      const detail = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
+      const msg = typeof detail === 'string' ? detail
+        : Array.isArray(detail) ? detail.map((d: { msg?: string }) => d?.msg ?? '').join('; ')
+        : 'Error al crear el conteo'
+      toast.error(msg)
     },
   })
 
@@ -1276,6 +1285,27 @@ export default function WMSInventario() {
                                     >
                                       Detalle del Conteo
                                     </Typography>
+                                    {(() => {
+                                      const dets = conteo.detalles ?? []
+                                      const capturados = dets.filter((d) => d.cantidad_fisica !== null)
+                                      const novedades = capturados.filter((d) => (d.diferencia ?? 0) !== 0)
+                                      if (novedades.length > 0) {
+                                        return (
+                                          <Alert severity="warning" sx={{ mb: 1.5 }}>
+                                            <strong>{novedades.length}</strong> ítem(s) con novedad (físico ≠ sistema):{' '}
+                                            {novedades.slice(0, 4).map((d) => `${d.producto?.nombre ?? d.producto?.sku ?? 'ítem'} (${(d.diferencia ?? 0) > 0 ? '+' : ''}${d.diferencia})`).join(', ')}
+                                            {novedades.length > 4 ? '…' : ''}. Al completar se ajustará el inventario.
+                                          </Alert>
+                                        )
+                                      }
+                                      if (capturados.length > 0 && capturados.length === dets.length) {
+                                        return <Alert severity="success" sx={{ mb: 1.5 }}>Conteo sin novedades: el físico coincide con el sistema en todos los ítems.</Alert>
+                                      }
+                                      if (dets.length > 0) {
+                                        return <Alert severity="info" sx={{ mb: 1.5 }}>Captura la cantidad física de cada ítem; las diferencias se marcarán como novedad.</Alert>
+                                      }
+                                      return null
+                                    })()}
                                     {conteo.detalles && conteo.detalles.length > 0 ? (
                                       <Table size="small">
                                         <TableHead>
