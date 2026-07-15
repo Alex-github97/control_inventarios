@@ -2147,6 +2147,34 @@ async def crear_despacho(
     else:
         orden.estado = "EMPACANDO"
 
+    # Gestión de transporte por TMS: crea el viaje del despacho (vinculado).
+    if (data.gestion_transporte or "").upper() == "TMS":
+        alm = await db.get(WMSAlmacen, orden.almacen_id)
+        cli = await db.get(WMSCliente, orden.cliente_id)
+        tms_codigo = await _next_numero(db, TMSViaje, TMSViaje.codigo, "DESP")
+        fcarga = datetime.combine(despacho.fecha_despacho, datetime.min.time()) if despacho.fecha_despacho else datetime.now(timezone.utc)
+        fentrega = datetime.combine(despacho.fecha_entrega_estimada, datetime.min.time()) if despacho.fecha_entrega_estimada else None
+        viaje = TMSViaje(
+            codigo=tms_codigo,
+            tipo_servicio=TipoServicioTMSEnum.DISTRIBUCION,
+            estado=EstadoViajeTMSEnum.PROGRAMADO,
+            wms_despacho_id=despacho.id,
+            origen_ciudad=(alm.ciudad if alm else None),
+            origen_direccion=(f"{alm.nombre} — {alm.direccion or ''}".strip(" —") if alm else None),
+            destino_ciudad=(cli.ciudad if cli else None),
+            destino_direccion=(cli.nombre if cli else None),
+            peso_kg=data.peso_total_kg,
+            volumen_m3=data.volumen_total_m3,
+            num_entregas=1,
+            fecha_programada_cargue=fcarga,
+            fecha_programada_entrega=fentrega,
+            descripcion_carga=f"Despacho {payload['numero_despacho']} — orden {orden.numero_orden}",
+            notas=f"Generado desde WMS · despacho. Placa {despacho.vehiculo_placa or '-'} · conductor {despacho.conductor_nombre or '-'}",
+            creado_por_id=current_user.id,
+        )
+        db.add(viaje)
+        despacho.notas = f"{despacho.notas or ''} | Transporte gestionado por TMS ({tms_codigo})".strip(" |")
+
     await db.commit()
     r = await db.execute(
         select(WMSDespacho)

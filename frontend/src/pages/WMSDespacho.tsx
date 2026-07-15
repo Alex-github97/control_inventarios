@@ -3,7 +3,7 @@ import {
   Box, Paper, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, MenuItem, IconButton, Stack, Chip, Tooltip, CircularProgress, alpha,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Collapse,
-  Divider,
+  Divider, Alert,
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
 import {
@@ -191,7 +191,7 @@ function NuevoDespachoDialog({ open, onClose }: { open: boolean; onClose: () => 
   const qc = useQueryClient()
   const [form, setForm] = useState({
     orden_id: '', transportadora_id: '', vehiculo_placa: '', conductor_nombre: '',
-    fecha_despacho: '', fecha_entrega_estimada: '', notas: '',
+    fecha_despacho: '', fecha_entrega_estimada: '', notas: '', gestion_transporte: 'NINGUNA',
   })
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
 
@@ -209,8 +209,10 @@ function NuevoDespachoDialog({ open, onClose }: { open: boolean; onClose: () => 
 
   const createMut = useMutation({
     mutationFn: (d: object) => api.post('/wms/despachos/', d).then(r => r.data),
-    onSuccess: () => {
-      toast.success('Despacho creado')
+    onSuccess: (desp: any) => {
+      const n: string = desp?.notas || ''
+      const m = n.match(/TMS \(([^)]+)\)/)
+      toast.success(m ? `Despacho creado — viaje TMS ${m[1]} generado` : 'Despacho creado')
       qc.invalidateQueries({ queryKey: ['wms-despachos'] })
       onClose()
     },
@@ -228,12 +230,13 @@ function NuevoDespachoDialog({ open, onClose }: { open: boolean; onClose: () => 
       fecha_despacho: form.fecha_despacho || undefined,
       fecha_entrega_estimada: form.fecha_entrega_estimada || undefined,
       notas: form.notas || undefined,
+      gestion_transporte: form.gestion_transporte,
     }
     createMut.mutate(payload)
   }
 
   const handleClose = () => {
-    setForm({ orden_id: '', transportadora_id: '', vehiculo_placa: '', conductor_nombre: '', fecha_despacho: '', fecha_entrega_estimada: '', notas: '' })
+    setForm({ orden_id: '', transportadora_id: '', vehiculo_placa: '', conductor_nombre: '', fecha_despacho: '', fecha_entrega_estimada: '', notas: '', gestion_transporte: 'NINGUNA' })
     onClose()
   }
 
@@ -281,6 +284,19 @@ function NuevoDespachoDialog({ open, onClose }: { open: boolean; onClose: () => 
             <Grid size={{ xs: 12 }}>
               <TextField label="Notas" fullWidth size="small" multiline rows={2} value={form.notas} onChange={e => set('notas', e.target.value)} />
             </Grid>
+            <Grid size={{ xs: 12 }}>
+              <TextField select label="Gestión de transporte" fullWidth size="small" value={form.gestion_transporte} onChange={e => set('gestion_transporte', e.target.value)}>
+                <MenuItem value="NINGUNA">No gestionar en la plataforma</MenuItem>
+                <MenuItem value="TMS">Gestionar por TMS (crea viaje)</MenuItem>
+              </TextField>
+            </Grid>
+            {form.gestion_transporte === 'TMS' && (
+              <Grid size={{ xs: 12 }}>
+                <Alert severity="info" sx={{ py: 0 }}>
+                  Se creará un <b>viaje en TMS</b> vinculado a este despacho (origen: almacén de la orden; destino: ciudad del cliente).
+                </Alert>
+              </Grid>
+            )}
           </Grid>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>

@@ -713,6 +713,8 @@ class WMSDespachoCreate(BaseModel):
     volumen_total_m3: Optional[float] = None
     notas: Optional[str] = None
     detalles: List[WMSDespachoDetalleCreate] = []
+    # NINGUNA (no gestiona transporte en plataforma) o TMS (crea viaje en TMS)
+    gestion_transporte: str = "NINGUNA"
 
 class WMSDespachoUpdate(BaseModel):
     transportadora_id: Optional[int] = None
