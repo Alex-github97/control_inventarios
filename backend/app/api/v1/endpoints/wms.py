@@ -1322,14 +1322,24 @@ async def transferir_inventario(
         alm_des = await _almacen_de_ubicacion(db, data.ubicacion_destino_id)
         tms_codigo = await _next_numero(db, TMSViaje, TMSViaje.codigo, "TRAS")
         prod = await db.get(WMSProducto, data.producto_id)
+        # Datos logísticos derivados del producto y la cantidad trasladada
+        peso = round((prod.peso_kg or 0) * data.cantidad, 2) if prod else None
+        volumen = round((prod.volumen_m3 or 0) * data.cantidad, 3) if prod else None
+        # Servicio urbano si es dentro de la misma ciudad; nacional si es intermunicipal
+        misma_ciudad = bool(alm_ori and alm_des and alm_ori.ciudad and alm_ori.ciudad == alm_des.ciudad)
+        tipo_serv = TipoServicioTMSEnum.TERRESTRE_URBANO if misma_ciudad else TipoServicioTMSEnum.TERRESTRE_NACIONAL
         viaje = TMSViaje(
             codigo=tms_codigo,
-            tipo_servicio=TipoServicioTMSEnum.TERRESTRE_NACIONAL,
+            tipo_servicio=tipo_serv,
             estado=EstadoViajeTMSEnum.PROGRAMADO,
             origen_ciudad=(alm_ori.ciudad if alm_ori else None),
             origen_direccion=(f"{alm_ori.nombre} — {alm_ori.direccion or ''}".strip(" —") if alm_ori else None),
             destino_ciudad=(alm_des.ciudad if alm_des else None),
             destino_direccion=(f"{alm_des.nombre} — {alm_des.direccion or ''}".strip(" —") if alm_des else None),
+            peso_kg=peso or None,
+            volumen_m3=volumen or None,
+            num_entregas=1,
+            fecha_programada_cargue=datetime.now(timezone.utc),
             descripcion_carga=data.descripcion_carga or (f"Traslado de {data.cantidad:g} x {prod.nombre}" if prod else f"Traslado de {data.cantidad:g} unidades"),
             notas=f"Generado desde WMS · traslado entre almacenes. {data.notas or ''}".strip(),
             creado_por_id=current_user.id,
