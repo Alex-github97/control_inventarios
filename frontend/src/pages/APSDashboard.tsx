@@ -16,6 +16,7 @@ import {
   SwapHoriz as SwapIcon,
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { exportarPDF } from '@/utils/exportar'
 
 const APS_COLOR = '#7C3AED'
 const APS_COLOR_DARK = '#6D28D9'
@@ -179,7 +180,16 @@ export default function APSDashboard() {
           </Typography>
         </Box>
         <Stack direction="row" gap={1}>
-          <Button variant="outlined" size="small" sx={{ borderColor: APS_COLOR, color: APS_COLOR, textTransform: 'none', fontWeight: 600 }}>
+          <Button variant="outlined" size="small" onClick={() => exportarPDF({
+            archivo: 'aps-ordenes-sugeridas',
+            titulo: 'APS — Órdenes sugeridas',
+            color: APS_COLOR,
+            columnas: [
+              { key: 'tipo', header: 'Tipo' }, { key: 'producto', header: 'Producto' },
+              { key: 'cantidad', header: 'Cantidad' }, { key: 'fecha', header: 'Fecha' }, { key: 'prioridad', header: 'Prioridad' },
+            ],
+            filas: ordenesSugeridas,
+          })} sx={{ borderColor: APS_COLOR, color: APS_COLOR, textTransform: 'none', fontWeight: 600 }}>
             Exportar
           </Button>
           <Button variant="contained" size="small"

@@ -649,7 +649,11 @@ export default function MESReportes() {
                 <Paper sx={{ background: '#FFFFFF', border: `1px solid ${BORDER}`, borderRadius: 2 }}>
                   <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ p: 2, borderBottom: `1px solid ${BORDER}` }}>
                     <Typography variant="subtitle2" color={TXT} fontWeight={700}>Órdenes de Producción — {ordenesFiltradas.length} de {ORDENES.length}</Typography>
-                    <Button size="small" startIcon={<ExportIcon sx={{ fontSize: 16 }} />} onClick={() => exportar('Órdenes de Producción')}
+                    <Button size="small" startIcon={<ExportIcon sx={{ fontSize: 16 }} />} onClick={() => exportar('Órdenes de Producción', { columnas: [
+                      { key: 'op', header: 'OP' }, { key: 'producto', header: 'Producto' }, { key: 'linea', header: 'Línea' },
+                      { key: 'plan', header: 'Plan' }, { key: 'real', header: 'Real' }, { key: 'pct', header: '% Avance' },
+                      { key: 'scrap', header: 'Scrap' }, { key: 'estado', header: 'Estado' }, { key: 'responsable', header: 'Responsable' },
+                    ], filas: ordenesFiltradas })}
                       sx={{ color: MES_DARK, fontWeight: 600, fontSize: 11 }}>Exportar</Button>
                   </Stack>
                   <TableContainer>
@@ -740,7 +744,11 @@ export default function MESReportes() {
                 <Paper sx={{ background: '#FFFFFF', border: `1px solid ${BORDER}`, borderRadius: 2 }}>
                   <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ p: 2, borderBottom: `1px solid ${BORDER}` }}>
                     <Typography variant="subtitle2" color={TXT} fontWeight={700}>Calidad por Línea — {lineasFiltradas.length} de {LINEAS_CALIDAD.length}</Typography>
-                    <Button size="small" startIcon={<ExportIcon sx={{ fontSize: 16 }} />} onClick={() => exportar('Calidad por Línea')}
+                    <Button size="small" startIcon={<ExportIcon sx={{ fontSize: 16 }} />} onClick={() => exportar('Calidad por Línea', { columnas: [
+                      { key: 'linea', header: 'Línea' }, { key: 'fpy', header: 'FPY %' }, { key: 'scrap', header: 'Scrap %' },
+                      { key: 'defectos', header: 'Defectos' }, { key: 'inspecciones', header: 'Inspecciones' },
+                      { key: 'rechazos', header: 'Rechazos' }, { key: 'responsable', header: 'Responsable' },
+                    ], filas: lineasFiltradas })}
                       sx={{ color: MES_DARK, fontWeight: 600, fontSize: 11 }}>Exportar</Button>
                   </Stack>
                   <TableContainer>
@@ -889,7 +897,11 @@ export default function MESReportes() {
                 <Paper sx={{ background: '#FFFFFF', border: `1px solid ${BORDER}`, borderRadius: 2 }}>
                   <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ p: 2, borderBottom: `1px solid ${BORDER}` }}>
                     <Typography variant="subtitle2" color={TXT} fontWeight={700}>Top Productos por Volumen — {productosFiltrados.length} de {PRODUCTOS_TOP.length}</Typography>
-                    <Button size="small" startIcon={<ExportIcon sx={{ fontSize: 16 }} />} onClick={() => exportar('Top Productos por Volumen')}
+                    <Button size="small" startIcon={<ExportIcon sx={{ fontSize: 16 }} />} onClick={() => exportar('Top Productos por Volumen', { columnas: [
+                      { key: 'producto', header: 'Producto' }, { key: 'familia', header: 'Familia' }, { key: 'linea', header: 'Línea' },
+                      { key: 'unidades', header: 'Unidades' }, { key: 'pct', header: '% del total' }, { key: 'oee', header: 'OEE %' },
+                      { key: 'costo', header: 'Costo' }, { key: 'margen', header: 'Margen %' },
+                    ], filas: productosFiltrados })}
                       sx={{ color: MES_DARK, fontWeight: 600, fontSize: 11 }}>Exportar</Button>
                   </Stack>
                   <TableContainer>
@@ -1016,7 +1028,11 @@ export default function MESReportes() {
                 <Paper sx={{ background: '#FFFFFF', border: `1px solid ${BORDER}`, borderRadius: 2 }}>
                   <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ p: 2, borderBottom: `1px solid ${BORDER}` }}>
                     <Typography variant="subtitle2" color={TXT} fontWeight={700}>Costeo por Producto — {costosFiltrados.length} de {PRODUCTOS_COSTO.length}</Typography>
-                    <Button size="small" startIcon={<ExportIcon sx={{ fontSize: 16 }} />} onClick={() => exportar('Costeo por Producto')}
+                    <Button size="small" startIcon={<ExportIcon sx={{ fontSize: 16 }} />} onClick={() => exportar('Costeo por Producto', { columnas: [
+                      { key: 'producto', header: 'Producto' }, { key: 'linea', header: 'Línea' }, { key: 'unidades', header: 'Unidades' },
+                      { key: 'mp', header: 'Materia prima' }, { key: 'mod', header: 'Mano de obra' }, { key: 'cif', header: 'CIF' },
+                      { key: 'total', header: 'Costo total' }, { key: 'precio', header: 'Precio' }, { key: 'margen', header: 'Margen %' },
+                    ], filas: costosFiltrados })}
                       sx={{ color: MES_DARK, fontWeight: 600, fontSize: 11 }}>Exportar</Button>
                   </Stack>
                   <TableContainer>
@@ -1251,7 +1267,11 @@ export default function MESReportes() {
                 </Stack>
               </DialogContent>
               <DialogActions sx={{ px: 3, py: 2, justifyContent: 'space-between' }}>
-                <Button startIcon={<ExportIcon />} onClick={() => exportar(`Producto ${selProd.producto}`)} sx={{ color: MES_DARK, fontWeight: 600 }}>Exportar</Button>
+                <Button startIcon={<ExportIcon />} onClick={() => exportar(`Producto ${selProd.producto}`, { columnas: [
+                  { key: 'producto', header: 'Producto' }, { key: 'familia', header: 'Familia' }, { key: 'linea', header: 'Línea' },
+                  { key: 'unidades', header: 'Unidades' }, { key: 'pct', header: '% del total' }, { key: 'oee', header: 'OEE %' },
+                  { key: 'costo', header: 'Costo' }, { key: 'margen', header: 'Margen %' },
+                ], filas: [selProd] })} sx={{ color: MES_DARK, fontWeight: 600 }}>Exportar</Button>
                 <Button variant="contained" onClick={() => setSelProd(null)} sx={{ bgcolor: MES_COLOR, '&:hover': { bgcolor: MES_DARK }, borderRadius: '10px', fontWeight: 700 }}>Cerrar</Button>
               </DialogActions>
             </>
@@ -1322,7 +1342,11 @@ export default function MESReportes() {
                 </Stack>
               </DialogContent>
               <DialogActions sx={{ px: 3, py: 2, justifyContent: 'space-between' }}>
-                <Button startIcon={<ExportIcon />} onClick={() => exportar(`Costeo ${selCosto.producto}`)} sx={{ color: MES_DARK, fontWeight: 600 }}>Exportar</Button>
+                <Button startIcon={<ExportIcon />} onClick={() => exportar(`Costeo ${selCosto.producto}`, { columnas: [
+                  { key: 'producto', header: 'Producto' }, { key: 'linea', header: 'Línea' }, { key: 'unidades', header: 'Unidades' },
+                  { key: 'mp', header: 'Materia prima' }, { key: 'mod', header: 'Mano de obra' }, { key: 'cif', header: 'CIF' },
+                  { key: 'total', header: 'Costo total' }, { key: 'precio', header: 'Precio' }, { key: 'margen', header: 'Margen %' },
+                ], filas: [selCosto] })} sx={{ color: MES_DARK, fontWeight: 600 }}>Exportar</Button>
                 <Button variant="contained" onClick={() => setSelCosto(null)} sx={{ bgcolor: MES_COLOR, '&:hover': { bgcolor: MES_DARK }, borderRadius: '10px', fontWeight: 700 }}>Cerrar</Button>
               </DialogActions>
             </>
