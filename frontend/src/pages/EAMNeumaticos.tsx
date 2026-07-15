@@ -201,24 +201,42 @@ export default function EAMNeumaticos() {
   )
 
   // ─── Slot de posición (drop zone) ─────────────────────────────────────────
+  // Rueda del diagrama: neumático visto de lado (arrastrable, tooltip con detalle,
+  // clic abre historial, y es zona de drop para instalar/rotar).
   const Slot = ({ pos }: { pos: Posicion }) => {
     const t = tireEn(pos.codigo)
     const activo = overSlot === pos.codigo
     return (
-      <Box
-        onDragOver={(e) => { e.preventDefault(); setOverSlot(pos.codigo) }}
-        onDragLeave={() => setOverSlot('')}
-        onDrop={() => soltarEnPosicion(pos.codigo)}
-        sx={{
-          width: 120, minHeight: 70, p: 0.75, borderRadius: 2,
-          border: '2px dashed', borderColor: activo ? EAM_COLOR : t ? alpha(EAM_COLOR, 0.3) : '#CBD5E1',
-          bgcolor: activo ? alpha(EAM_COLOR, 0.08) : t ? '#FFFFFF' : '#F8FAFC',
-          transition: 'all .12s',
-        }}
-      >
-        <Typography fontSize={9} fontWeight={700} color="text.secondary" mb={0.5}>{pos.label}</Typography>
-        {t ? <TireCard n={t} compact /> : <Typography fontSize={10} color="text.disabled" textAlign="center" mt={1}>vacío</Typography>}
-      </Box>
+      <Tooltip arrow title={t
+        ? `${t.codigo} · ${t.marca ?? ''} ${t.medida ?? ''}${t.profundidad_actual != null ? ` · ${t.profundidad_actual}mm` : ''}${t.reencauches ? ` · R${t.reencauches}` : ''} — ${pos.label}`
+        : `${pos.label} · vacío`}>
+        <Box
+          draggable={!!t}
+          onDragStart={() => { if (t) setDraggedTire(t) }}
+          onDragEnd={() => setDraggedTire(null)}
+          onClick={() => { if (t) setHistTire(t) }}
+          onDragOver={(e) => { e.preventDefault(); setOverSlot(pos.codigo) }}
+          onDragLeave={() => setOverSlot('')}
+          onDrop={() => soltarEnPosicion(pos.codigo)}
+          sx={{
+            width: 44, height: 66, borderRadius: '11px',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            cursor: t ? 'grab' : 'default', '&:active': { cursor: t ? 'grabbing' : 'default' },
+            border: '2px solid', borderColor: activo ? EAM_COLOR : t ? '#0F172A' : '#CBD5E1',
+            bgcolor: activo ? alpha(EAM_COLOR, 0.18) : t ? '#1F2937' : '#F1F5F9',
+            color: t ? '#fff' : 'text.disabled',
+            boxShadow: t ? 'inset 0 0 0 4px #0F172A, 0 1px 3px rgba(0,0,0,.25)' : 'none',
+            transition: 'all .12s',
+          }}
+        >
+          {t ? (
+            <>
+              <TireRepair sx={{ fontSize: 15, color: '#CBD5E1' }} />
+              <Typography fontSize={7.5} fontWeight={700} sx={{ mt: 0.2, lineHeight: 1, textAlign: 'center', px: 0.25, maxWidth: 40 }} noWrap>{t.codigo}</Typography>
+            </>
+          ) : <Typography fontSize={18} fontWeight={300} color="text.disabled">+</Typography>}
+        </Box>
+      </Tooltip>
     )
   }
 
@@ -276,26 +294,41 @@ export default function EAMNeumaticos() {
                   ) : (
                     <Box>
                       <Typography fontSize={12} color="text.secondary" mb={1.5}>
-                        {veh.numero_ejes} eje(s) · arrastra una llanta desde la bodega (derecha) a una posición, o entre posiciones para rotar.
+                        {veh.numero_ejes} eje(s) · arrastra una llanta desde la bodega (derecha) a una rueda, o entre ruedas para rotar. La rueda oscura = instalada; clic para ver su historial.
                       </Typography>
-                      <Stack spacing={2}>
-                        {ejes.map(([eje, posics]) => (
-                          <Paper key={eje} variant="outlined" sx={{ p: 1.5, borderRadius: 2, bgcolor: '#FFFFFF' }}>
-                            <Typography fontSize={11} fontWeight={700} color={EAM_DARK} mb={1}>EJE {eje}{eje === 1 ? ' (direccional)' : ' (dual)'}</Typography>
-                            <Stack direction="row" justifyContent="space-between" alignItems="center" gap={2}>
-                              <Stack direction="row" gap={1}>{posics.filter(p => p.lado === 'IZQ').map(p => <Slot key={p.codigo} pos={p} />)}</Stack>
-                              <Box sx={{ width: 40, height: 6, bgcolor: '#94A3B8', borderRadius: 3 }} />
-                              <Stack direction="row" gap={1}>{posics.filter(p => p.lado === 'DER').map(p => <Slot key={p.codigo} pos={p} />)}</Stack>
-                            </Stack>
-                          </Paper>
-                        ))}
+                      {/* Diagrama tipo camión (vista superior) */}
+                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 2, bgcolor: '#FFFFFF', borderRadius: 3, border: '1px solid #E5E7EB' }}>
+                        {/* Cabina / frente */}
+                        <Box sx={{ width: 130, height: 44, bgcolor: alpha(EAM_COLOR, 0.14), border: `2px solid ${EAM_COLOR}`, borderRadius: '16px 16px 6px 6px', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 0.5 }}>
+                          <Typography fontSize={10} fontWeight={800} color={EAM_DARK} letterSpacing="0.06em">FRENTE / CABINA</Typography>
+                        </Box>
+                        {/* Chasis + ejes */}
+                        <Box sx={{ position: 'relative', px: 2 }}>
+                          <Box sx={{ position: 'absolute', left: '50%', top: 4, bottom: 4, width: 16, transform: 'translateX(-50%)', bgcolor: '#94A3B8', borderRadius: 2, zIndex: 0 }} />
+                          <Stack spacing={2.5} sx={{ position: 'relative', zIndex: 1, py: 1 }}>
+                            {ejes.map(([eje, posics]) => {
+                              const izq = posics.filter(p => p.lado === 'IZQ')
+                              const der = posics.filter(p => p.lado === 'DER')
+                              return (
+                                <Box key={eje} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.75 }}>
+                                  <Typography fontSize={9} fontWeight={700} color="text.secondary" sx={{ width: 74, textAlign: 'right' }}>Eje {eje}{eje === 1 ? ' · dir.' : ''}</Typography>
+                                  <Stack direction="row" gap={0.5}>{izq.map(p => <Slot key={p.codigo} pos={p} />)}</Stack>
+                                  <Box sx={{ width: 96, height: 8, bgcolor: '#64748B', borderRadius: 2 }} />
+                                  <Stack direction="row" gap={0.5}>{der.map(p => <Slot key={p.codigo} pos={p} />)}</Stack>
+                                  <Box sx={{ width: 74 }} />
+                                </Box>
+                              )
+                            })}
+                          </Stack>
+                        </Box>
+                        {/* Repuesto */}
                         {repuesto && (
-                          <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, bgcolor: '#FFFFFF', maxWidth: 160 }}>
-                            <Typography fontSize={11} fontWeight={700} color="text.secondary" mb={1}>REPUESTO</Typography>
+                          <Box sx={{ mt: 2, pt: 1.5, borderTop: '1px dashed #CBD5E1', display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography fontSize={9} fontWeight={700} color="text.secondary">REPUESTO</Typography>
                             <Slot pos={repuesto} />
-                          </Paper>
+                          </Box>
                         )}
-                      </Stack>
+                      </Box>
                     </Box>
                   )}
                 </CardContent>
