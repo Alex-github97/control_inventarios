@@ -48,6 +48,7 @@ import {
   Shield,
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { exportarPDF } from '@/utils/exportar'
 
 const DMS_COLOR = '#0E7490'
 
@@ -234,6 +235,20 @@ function DocDestacadoCard({ doc }: { doc: DocDestacado }) {
             variant="contained"
             size="small"
             startIcon={<CloudDownload />}
+            onClick={() => exportarPDF({
+              archivo: `documento-${doc.nombre}`,
+              titulo: doc.nombre,
+              subtitulo: `${doc.area} · v${doc.version} · ${doc.fechaActualizacion}`,
+              color: DMS_COLOR,
+              columnas: [{ key: 'campo', header: 'Campo' }, { key: 'valor', header: 'Valor' }],
+              filas: [
+                { campo: 'Documento', valor: doc.nombre },
+                { campo: 'Área', valor: doc.area },
+                { campo: 'Versión', valor: doc.version },
+                { campo: 'Actualización', valor: doc.fechaActualizacion },
+                { campo: 'Descripción', valor: doc.descripcion },
+              ],
+            })}
             sx={{ flex: 1, bgcolor: doc.color, '&:hover': { bgcolor: alpha(doc.color, 0.85) }, fontSize: '0.72rem' }}
           >
             Descargar

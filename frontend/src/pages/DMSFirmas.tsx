@@ -54,6 +54,7 @@ import {
   Close,
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { exportarPDF } from '@/utils/exportar'
 
 const DMS_COLOR = '#0E7490'
 
@@ -728,7 +729,17 @@ function CertificateDialog({ open, document, onClose }: CertificateDialogProps) 
       </DialogContent>
 
       <DialogActions sx={{ px: 3, pb: 2.5 }}>
-        <Button startIcon={<Download />} variant="contained" sx={{ background: '#065f46', '&:hover': { background: '#064e3b' } }}>
+        <Button startIcon={<Download />} variant="contained" onClick={() => exportarPDF({
+          archivo: `certificado-firma-${document?.verificationCode ?? ''}`,
+          titulo: 'Certificado de firma electrónica',
+          subtitulo: `Código: ${document?.verificationCode ?? '—'} · Fecha: ${document?.date ?? '—'} · Hash: ${document?.hash ?? '—'}`,
+          color: DMS_COLOR,
+          columnas: [
+            { key: 'order', header: '#' }, { key: 'name', header: 'Firmante' },
+            { key: 'role', header: 'Rol' }, { key: 'status', header: 'Estado' }, { key: 'ip', header: 'IP' },
+          ],
+          filas: document?.allFirmantes ?? [],
+        })} sx={{ background: '#065f46', '&:hover': { background: '#064e3b' } }}>
           Descargar Certificado
         </Button>
         <Button onClick={onClose} variant="outlined" color="inherit">
