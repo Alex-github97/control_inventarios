@@ -155,6 +155,8 @@ const EMPTY_TRANSFERENCIA = {
   lote_id: '',
   cantidad: '',
   notas: '',
+  gestion_transporte: 'NINGUNA',   // NINGUNA | TMS
+  descripcion_carga: '',
 }
 
 const EMPTY_CONTEO = {
@@ -303,9 +305,13 @@ export default function WMSInventario() {
         lote_id: data.lote_id ? Number(data.lote_id) : null,
         cantidad: Number(data.cantidad),
         notas: data.notas || undefined,
-      }),
-    onSuccess: () => {
-      toast.success('Transferencia registrada correctamente')
+        gestion_transporte: data.gestion_transporte,
+        descripcion_carga: data.descripcion_carga || undefined,
+      }).then(r => r.data),
+    onSuccess: (mov: Movimiento) => {
+      const ref = mov?.referencia_documento || ''
+      if (ref.includes('TMS:')) toast.success(`Traslado registrado — viaje TMS ${ref.split('TMS:')[1]} creado`)
+      else toast.success('Transferencia registrada correctamente')
       setTransForm({ ...EMPTY_TRANSFERENCIA })
       queryClient.invalidateQueries({ queryKey: ['wms-stock'] })
       queryClient.invalidateQueries({ queryKey: ['wms-transferencias'] })
@@ -1049,6 +1055,36 @@ export default function WMSInventario() {
                           }
                         />
                       </Grid>
+
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Gestión de transporte</InputLabel>
+                          <Select
+                            label="Gestión de transporte"
+                            value={transForm.gestion_transporte}
+                            onChange={(e) => setTransForm((f) => ({ ...f, gestion_transporte: e.target.value }))}
+                          >
+                            <MenuItem value="NINGUNA">No gestionar en la plataforma</MenuItem>
+                            <MenuItem value="TMS">Gestionar por TMS (crea viaje)</MenuItem>
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                      {transForm.gestion_transporte === 'TMS' && (
+                        <Grid size={{ xs: 12, sm: 6 }}>
+                          <TextField
+                            fullWidth size="small" label="Descripción de la carga"
+                            value={transForm.descripcion_carga}
+                            onChange={(e) => setTransForm((f) => ({ ...f, descripcion_carga: e.target.value }))}
+                          />
+                        </Grid>
+                      )}
+                      {transForm.gestion_transporte === 'TMS' && (
+                        <Grid size={{ xs: 12 }}>
+                          <Alert severity="info" sx={{ py: 0 }}>
+                            Se creará un <b>viaje en el módulo TMS</b> (origen y destino según los almacenes de las ubicaciones) para gestionar el transporte de este traslado.
+                          </Alert>
+                        </Grid>
+                      )}
 
                       <Grid size={{ xs: 12 }} sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
                         <Button

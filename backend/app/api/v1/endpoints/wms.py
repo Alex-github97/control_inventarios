@@ -28,6 +28,7 @@ from app.infrastructure.models.wms import (
     WMSDevolucion, WMSDevolucionDetalle,
     WMSEventoTrazabilidad, WMSKPIDiario,
 )
+from app.infrastructure.models.tms import TMSViaje, TipoServicioTMSEnum, EstadoViajeTMSEnum
 
 # ─── WMS — revertir estado ────────────────────────────────────────────────────
 _REVERT_DESPACHO_TRANS: dict[str, str] = {
@@ -151,6 +152,17 @@ async def _next_numero(db: AsyncSession, Model, numero_col, prefix: str) -> str:
         if ex.first() is None:
             return candidato
         n += 1
+
+
+async def _almacen_de_ubicacion(db: AsyncSession, ubicacion_id: int):
+    """Devuelve el WMSAlmacen al que pertenece una ubicación (via zona)."""
+    r = await db.execute(
+        select(WMSAlmacen)
+        .join(WMSZona, WMSAlmacen.id == WMSZona.almacen_id)
+        .join(WMSUbicacion, WMSZona.id == WMSUbicacion.zona_id)
+        .where(WMSUbicacion.id == ubicacion_id)
+    )
+    return r.scalar_one_or_none()
 
 
 async def _bloquear_si_dependientes(db: AsyncSession, DepModel, fk_col, valor: int, etiqueta: str):
@@ -1300,6 +1312,32 @@ async def transferir_inventario(
     await _ajustar_inventario(db, data.producto_id, data.ubicacion_origen_id, data.lote_id, -data.cantidad)
     await _ajustar_inventario(db, data.producto_id, data.ubicacion_destino_id, data.lote_id, data.cantidad)
 
+    referencia = "TRANSFERENCIA"
+    notas = data.notas
+    tms_codigo: Optional[str] = None
+
+    # Gestión de transporte por TMS: crea un viaje de traslado entre almacenes.
+    if (data.gestion_transporte or "").upper() == "TMS":
+        alm_ori = await _almacen_de_ubicacion(db, data.ubicacion_origen_id)
+        alm_des = await _almacen_de_ubicacion(db, data.ubicacion_destino_id)
+        tms_codigo = await _next_numero(db, TMSViaje, TMSViaje.codigo, "TRAS")
+        prod = await db.get(WMSProducto, data.producto_id)
+        viaje = TMSViaje(
+            codigo=tms_codigo,
+            tipo_servicio=TipoServicioTMSEnum.TERRESTRE_NACIONAL,
+            estado=EstadoViajeTMSEnum.PROGRAMADO,
+            origen_ciudad=(alm_ori.ciudad if alm_ori else None),
+            origen_direccion=(f"{alm_ori.nombre} — {alm_ori.direccion or ''}".strip(" —") if alm_ori else None),
+            destino_ciudad=(alm_des.ciudad if alm_des else None),
+            destino_direccion=(f"{alm_des.nombre} — {alm_des.direccion or ''}".strip(" —") if alm_des else None),
+            descripcion_carga=data.descripcion_carga or (f"Traslado de {data.cantidad:g} x {prod.nombre}" if prod else f"Traslado de {data.cantidad:g} unidades"),
+            notas=f"Generado desde WMS · traslado entre almacenes. {data.notas or ''}".strip(),
+            creado_por_id=current_user.id,
+        )
+        db.add(viaje)
+        referencia = f"TRASLADO/TMS:{tms_codigo}"
+        notas = f"{notas or ''} | Transporte gestionado por TMS ({tms_codigo})".strip(" |")
+
     mov = WMSMovimientoInventario(
         tipo="TRANSFERENCIA",
         producto_id=data.producto_id,
@@ -1307,9 +1345,9 @@ async def transferir_inventario(
         ubicacion_destino_id=data.ubicacion_destino_id,
         lote_id=data.lote_id,
         cantidad=data.cantidad,
-        referencia_documento="TRANSFERENCIA",
+        referencia_documento=referencia,
         usuario_id=current_user.id,
-        notas=data.notas,
+        notas=notas,
     )
     db.add(mov)
     await db.commit()

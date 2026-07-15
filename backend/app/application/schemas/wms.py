@@ -533,6 +533,11 @@ class WMSTransferenciaInventario(BaseModel):
     lote_id: Optional[int] = None
     cantidad: float = Field(gt=0)
     notas: Optional[str] = None
+    # Gestión del transporte del traslado: NINGUNA (no se gestiona en plataforma)
+    # o TMS (crea un viaje en el módulo TMS para su gestión).
+    gestion_transporte: str = "NINGUNA"
+    transportadora: Optional[str] = None
+    descripcion_carga: Optional[str] = None
 
 class WMSReservaBloqueo(BaseModel):
     producto_id: int
