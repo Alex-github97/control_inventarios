@@ -15,7 +15,7 @@ from app.infrastructure.models.eam import (
     EAMOrdenTrabajo, EAMChecklistEjecucion, EAMChecklistRespuesta,
     EAMOTMaterial, EAMOTManoObra,
     EAMMuestraAceite, EAMNeumatico, EAMMovimientoNeumatico,
-    EAMBodegaNeumatico, EAMDanoNeumaticoCatalogo, EAMActivo,
+    EAMBodegaNeumatico, EAMDanoNeumaticoCatalogo, EAMNeumaticoCatalogo, EAMActivo,
     EAMRegistroCombustible, EAMGarantia, EAMFMEA,
     EAMCalibracion, EAMKPIDiario,
 )
@@ -359,6 +359,17 @@ class PosicionLayout(BaseModel):
     label: str
     eje: int
     lado: str
+
+# ── Catálogo de atributos de neumático (marca/medida/referencia/vida) ──
+class CatalogoNeuCreate(BaseModel):
+    tipo: str                 # MARCA / MEDIDA / REFERENCIA / VIDA
+    nombre: str
+    valor: Optional[float] = None
+    activo: bool = True
+
+class CatalogoNeuResponse(CatalogoNeuCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
 
 class CombustibleCreate(BaseModel):
     activo_id: int
@@ -816,6 +827,27 @@ async def update_dano_neumatico(did: int, data: DanoNeumaticoCreate, db: AsyncSe
 @router.delete("/neumaticos/danos-catalogo/{did}", status_code=204)
 async def delete_dano_neumatico(did: int, db: AsyncSession = Depends(get_db)):
     obj = await db.get(EAMDanoNeumaticoCatalogo, did)
+    if obj: await db.delete(obj); await db.commit()
+
+
+# ── Catálogo de atributos (marca/medida/referencia/vida) ──
+@router.get("/neumaticos/catalogo", response_model=List[CatalogoNeuResponse])
+async def list_catalogo_neumatico(tipo: Optional[str] = None, db: AsyncSession = Depends(get_db)):
+    q = select(EAMNeumaticoCatalogo)
+    if tipo:
+        q = q.where(EAMNeumaticoCatalogo.tipo == tipo.upper())
+    r = await db.execute(q.order_by(EAMNeumaticoCatalogo.tipo, EAMNeumaticoCatalogo.nombre))
+    return r.scalars().all()
+
+@router.post("/neumaticos/catalogo", response_model=CatalogoNeuResponse)
+async def create_catalogo_neumatico(data: CatalogoNeuCreate, db: AsyncSession = Depends(get_db)):
+    obj = EAMNeumaticoCatalogo(**data.model_dump()); obj.tipo = obj.tipo.upper()
+    db.add(obj); await db.commit(); await db.refresh(obj)
+    return obj
+
+@router.delete("/neumaticos/catalogo/{cid}", status_code=204)
+async def delete_catalogo_neumatico(cid: int, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMNeumaticoCatalogo, cid)
     if obj: await db.delete(obj); await db.commit()
 
 

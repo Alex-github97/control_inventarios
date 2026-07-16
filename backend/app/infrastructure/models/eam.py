@@ -472,6 +472,17 @@ class EAMBodegaNeumatico(Base, TimestampMixin):
     activo    = Column(Boolean, default=True)
 
 
+class EAMNeumaticoCatalogo(Base, TimestampMixin):
+    """Catálogo configurable de atributos de neumáticos: marcas, medidas,
+    referencias y vidas útiles (una fila por opción, discriminada por tipo)."""
+    __tablename__ = "eam_neumatico_catalogo"
+    id     = Column(Integer, primary_key=True, index=True)
+    tipo   = Column(String(20), nullable=False)   # MARCA / MEDIDA / REFERENCIA / VIDA
+    nombre = Column(String(120), nullable=False)
+    valor  = Column(Float, nullable=True)          # p.ej. vida útil en km
+    activo = Column(Boolean, default=True)
+
+
 class EAMDanoNeumaticoCatalogo(Base, TimestampMixin):
     """Catálogo configurable de daños/causas de descarte de neumáticos."""
     __tablename__ = "eam_dano_neumatico_catalogo"

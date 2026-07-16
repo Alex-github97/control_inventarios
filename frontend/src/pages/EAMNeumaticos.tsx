@@ -30,9 +30,10 @@ interface Neumatico {
 interface Bodega { id: number; codigo: string; nombre: string; ubicacion?: string }
 interface Dano { id: number; codigo: string; nombre: string; severidad: string; accion: string }
 interface Posicion { codigo: string; label: string; eje: number; lado: string }
+interface CatItem { id: number; tipo: string; nombre: string; valor?: number | null }
 interface Movimiento { id: number; tipo_movimiento: string; posicion_origen?: string | null; posicion?: string | null; bodega_id?: number | null; km_odometro?: number | null; fecha?: string | null; tecnico?: string | null; observaciones?: string | null }
 
-const EMPTY_NEUMATICO = { codigo: '', marca: '', referencia: '', medida: '', tipo: '', bodega_id: '', costo: '', proveedor: '', profundidad_diseño: '', profundidad_actual: '' }
+const EMPTY_NEUMATICO = { codigo: '', marca: '', referencia: '', medida: '', tipo: '', bodega_id: '', costo: '', proveedor: '', profundidad_diseño: '', profundidad_actual: '', vida_util_km: '' }
 
 const ESTADO_COLOR: Record<string, 'success' | 'info' | 'warning' | 'error' | 'default'> = {
   INSTALADO: 'success', ALMACENADO: 'info', REENCAUCHE: 'warning', BAJA: 'error',
@@ -63,6 +64,8 @@ export default function EAMNeumaticos() {
   const { data: neumaticos = [] } = useQuery<Neumatico[]>({ queryKey: ['eam-neumaticos'], queryFn: () => api.get('/eam/neumaticos').then(r => r.data) })
   const { data: bodegas = [] } = useQuery<Bodega[]>({ queryKey: ['eam-bodegas-neu'], queryFn: () => api.get('/eam/neumaticos/bodegas').then(r => r.data) })
   const { data: danos = [] } = useQuery<Dano[]>({ queryKey: ['eam-danos-neu'], queryFn: () => api.get('/eam/neumaticos/danos-catalogo').then(r => r.data) })
+  const { data: catalogo = [] } = useQuery<CatItem[]>({ queryKey: ['eam-cat-neu'], queryFn: () => api.get('/eam/neumaticos/catalogo').then(r => r.data) })
+  const cat = (t: string) => catalogo.filter(c => c.tipo === t)
   const { data: layout = [] } = useQuery<Posicion[]>({
     queryKey: ['eam-layout', vehId],
     queryFn: () => api.get(`/eam/neumaticos/layout/${vehId}`).then(r => r.data),
@@ -125,6 +128,17 @@ export default function EAMNeumaticos() {
     mutationFn: (id: number) => api.delete(`/eam/neumaticos/danos-catalogo/${id}`),
     onSuccess: () => { toast.success('Daño eliminado'); qc.invalidateQueries({ queryKey: ['eam-danos-neu'] }) },
     onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo eliminar'),
+  })
+  const [catForm, setCatForm] = useState({ tipo: 'MARCA', nombre: '', valor: '' })
+  const mutCat = useMutation({
+    mutationFn: (c: Record<string, unknown>) => api.post('/eam/neumaticos/catalogo', c),
+    onSuccess: () => { toast.success('Opción agregada'); qc.invalidateQueries({ queryKey: ['eam-cat-neu'] }); setCatForm(f => ({ ...f, nombre: '', valor: '' })) },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al agregar'),
+  })
+  const mutCatDel = useMutation({
+    mutationFn: (id: number) => api.delete(`/eam/neumaticos/catalogo/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['eam-cat-neu'] }) },
+    onError: () => toast.error('No se pudo eliminar'),
   })
 
   // ─── Drag & drop ──────────────────────────────────────────────────────────
@@ -489,6 +503,43 @@ export default function EAMNeumaticos() {
                 </CardContent>
               </Card>
             </Grid>
+            <Grid size={{ xs: 12 }}>
+              <Card sx={{ bgcolor: '#FFFFFF' }}>
+                <CardContent>
+                  <Stack direction="row" alignItems="center" gap={1} mb={1.5}>
+                    <TireRepair sx={{ color: EAM_DARK }} /><Typography fontWeight={700}>Catálogo de llantas (marcas, medidas, referencias y vidas)</Typography>
+                  </Stack>
+                  <Grid container spacing={1} mb={2} alignItems="center">
+                    <Grid size={{ xs: 6, sm: 2 }}>
+                      <TextField select label="Tipo" size="small" fullWidth value={catForm.tipo} onChange={e => setCatForm(f => ({ ...f, tipo: e.target.value }))}>
+                        {[['MARCA', 'Marca'], ['MEDIDA', 'Medida'], ['REFERENCIA', 'Referencia'], ['VIDA', 'Vida útil']].map(([v, l]) => <MenuItem key={v} value={v}>{l}</MenuItem>)}
+                      </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 6, sm: 4 }}><TextField label="Nombre" size="small" fullWidth value={catForm.nombre} onChange={e => setCatForm(f => ({ ...f, nombre: e.target.value }))} /></Grid>
+                    {catForm.tipo === 'VIDA' && <Grid size={{ xs: 6, sm: 3 }}><TextField label="Km de vida útil" type="number" size="small" fullWidth value={catForm.valor} onChange={e => setCatForm(f => ({ ...f, valor: e.target.value }))} /></Grid>}
+                    <Grid size={{ xs: 6, sm: 3 }}>
+                      <Button size="small" variant="contained" startIcon={<AddIcon />} disabled={!catForm.nombre || mutCat.isPending} onClick={() => mutCat.mutate({ tipo: catForm.tipo, nombre: catForm.nombre, valor: catForm.valor ? Number(catForm.valor) : undefined })} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Agregar</Button>
+                    </Grid>
+                  </Grid>
+                  <Grid container spacing={2}>
+                    {[['MARCA', 'Marcas'], ['MEDIDA', 'Medidas'], ['REFERENCIA', 'Referencias'], ['VIDA', 'Vidas útiles']].map(([tipo, titulo]) => (
+                      <Grid key={tipo} size={{ xs: 12, sm: 6, md: 3 }}>
+                        <Typography variant="caption" fontWeight={700} color="text.secondary">{titulo}</Typography>
+                        <Stack spacing={0.5} mt={0.5}>
+                          {cat(tipo).map(c => (
+                            <Stack key={c.id} direction="row" alignItems="center" justifyContent="space-between" sx={{ bgcolor: '#F5F7FA', borderRadius: 1, px: 1, py: 0.25 }}>
+                              <Typography variant="body2" noWrap>{c.nombre}{c.valor ? ` · ${c.valor.toLocaleString()} km` : ''}</Typography>
+                              <IconButton size="small" color="error" onClick={() => mutCatDel.mutate(c.id)}><DeleteForever sx={{ fontSize: 15 }} /></IconButton>
+                            </Stack>
+                          ))}
+                          {cat(tipo).length === 0 && <Typography variant="caption" color="text.secondary">Sin registros</Typography>}
+                        </Stack>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
           </Grid>
         )}
 
@@ -551,9 +602,10 @@ export default function EAMNeumaticos() {
           <DialogContent dividers>
             <Grid container spacing={2} sx={{ pt: 0.5 }}>
               <Grid size={{ xs: 12, sm: 6 }}><TextField label="Código *" size="small" fullWidth value={nuevoForm.codigo} onChange={e => setNuevoForm(f => ({ ...f, codigo: e.target.value }))} /></Grid>
-              <Grid size={{ xs: 12, sm: 6 }}><TextField label="Marca" size="small" fullWidth value={nuevoForm.marca} onChange={e => setNuevoForm(f => ({ ...f, marca: e.target.value }))} /></Grid>
-              <Grid size={{ xs: 12, sm: 6 }}><TextField label="Referencia" size="small" fullWidth value={nuevoForm.referencia} onChange={e => setNuevoForm(f => ({ ...f, referencia: e.target.value }))} /></Grid>
-              <Grid size={{ xs: 12, sm: 6 }}><TextField label="Medida" size="small" fullWidth value={nuevoForm.medida} onChange={e => setNuevoForm(f => ({ ...f, medida: e.target.value }))} placeholder="295/80R22.5" /></Grid>
+              <Grid size={{ xs: 12, sm: 6 }}><TextField select label="Marca" size="small" fullWidth value={nuevoForm.marca} onChange={e => setNuevoForm(f => ({ ...f, marca: e.target.value }))}><MenuItem value="">—</MenuItem>{cat('MARCA').map(c => <MenuItem key={c.id} value={c.nombre}>{c.nombre}</MenuItem>)}</TextField></Grid>
+              <Grid size={{ xs: 12, sm: 6 }}><TextField select label="Referencia" size="small" fullWidth value={nuevoForm.referencia} onChange={e => setNuevoForm(f => ({ ...f, referencia: e.target.value }))}><MenuItem value="">—</MenuItem>{cat('REFERENCIA').map(c => <MenuItem key={c.id} value={c.nombre}>{c.nombre}</MenuItem>)}</TextField></Grid>
+              <Grid size={{ xs: 12, sm: 6 }}><TextField select label="Medida" size="small" fullWidth value={nuevoForm.medida} onChange={e => setNuevoForm(f => ({ ...f, medida: e.target.value }))}><MenuItem value="">—</MenuItem>{cat('MEDIDA').map(c => <MenuItem key={c.id} value={c.nombre}>{c.nombre}</MenuItem>)}</TextField></Grid>
+              <Grid size={{ xs: 12, sm: 6 }}><TextField select label="Vida útil" size="small" fullWidth value={nuevoForm.vida_util_km} onChange={e => setNuevoForm(f => ({ ...f, vida_util_km: e.target.value }))}><MenuItem value="">—</MenuItem>{cat('VIDA').map(c => <MenuItem key={c.id} value={String(c.valor ?? '')}>{c.nombre}{c.valor ? ` · ${c.valor.toLocaleString()} km` : ''}</MenuItem>)}</TextField></Grid>
               <Grid size={{ xs: 12, sm: 6 }}><TextField select label="Bodega" size="small" fullWidth value={nuevoForm.bodega_id} onChange={e => setNuevoForm(f => ({ ...f, bodega_id: e.target.value }))}><MenuItem value="">Sin bodega</MenuItem>{bodegas.map(b => <MenuItem key={b.id} value={String(b.id)}>{b.nombre}</MenuItem>)}</TextField></Grid>
               <Grid size={{ xs: 6, sm: 3 }}><TextField label="Prof. diseño" type="number" size="small" fullWidth value={nuevoForm.profundidad_diseño} onChange={e => setNuevoForm(f => ({ ...f, profundidad_diseño: e.target.value }))} /></Grid>
               <Grid size={{ xs: 6, sm: 3 }}><TextField label="Prof. actual" type="number" size="small" fullWidth value={nuevoForm.profundidad_actual} onChange={e => setNuevoForm(f => ({ ...f, profundidad_actual: e.target.value }))} /></Grid>
@@ -570,6 +622,7 @@ export default function EAMNeumaticos() {
               profundidad_diseño: nuevoForm.profundidad_diseño ? Number(nuevoForm.profundidad_diseño) : undefined,
               profundidad_actual: nuevoForm.profundidad_actual ? Number(nuevoForm.profundidad_actual) : undefined,
               costo: nuevoForm.costo ? Number(nuevoForm.costo) : undefined, proveedor: nuevoForm.proveedor || undefined,
+              vida_util_km: nuevoForm.vida_util_km ? Number(nuevoForm.vida_util_km) : undefined,
             })} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Registrar</Button>
           </DialogActions>
         </Dialog>
