@@ -217,6 +217,9 @@ class EAMActivo(Base, TimestampMixin):
     capacidad_combustible = Column(Float)
     numero_ejes          = Column(Integer, nullable=True)   # para layout de neumáticos
     tiene_repuesto       = Column(Boolean, default=True)
+    motor_marca          = Column(String(100), nullable=True)
+    motor_linea          = Column(String(100), nullable=True)
+    motor_cc             = Column(Float, nullable=True)
     imagen_url           = Column(String(500))
     especificaciones     = Column(JSON)
     activo               = Column(Boolean, default=True)

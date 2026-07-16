@@ -19,6 +19,7 @@ from app.infrastructure.models.eam import (
     EAMRegistroCombustible, EAMGarantia, EAMFMEA,
     EAMCalibracion, EAMKPIDiario,
 )
+from app.infrastructure.models.tms import TMSVehiculo
 
 router = APIRouter(prefix="/eam", tags=["eam"])
 
@@ -130,11 +131,31 @@ class ActivoCreate(BaseModel):
     capacidad_combustible: Optional[float] = None
     numero_ejes: Optional[int] = None
     tiene_repuesto: Optional[bool] = True
+    motor_marca: Optional[str] = None
+    motor_linea: Optional[str] = None
+    motor_cc: Optional[float] = None
 
 class ActivoResponse(ActivoCreate):
     model_config = ConfigDict(from_attributes=True)
     id: int
     activo: bool
+
+class VehiculoCombinadoResponse(BaseModel):
+    origen: str            # EAM | TMS
+    flota: str             # PROPIA | EXTERNA
+    id: int
+    placa: Optional[str] = None
+    tipo: Optional[str] = None
+    marca: Optional[str] = None
+    modelo: Optional[str] = None
+    anio: Optional[int] = None
+    numero_ejes: Optional[int] = None
+    capacidad_kg: Optional[float] = None
+    estado: Optional[str] = None
+    motor_marca: Optional[str] = None
+    motor_linea: Optional[str] = None
+    motor_cc: Optional[float] = None
+    propietario: Optional[str] = None
 
 class ComponenteCreate(BaseModel):
     activo_id: int
@@ -588,6 +609,39 @@ async def list_activos(
         q = q.where(EAMActivo.criticidad == criticidad)
     result = await db.execute(q)
     return result.scalars().all()
+
+@router.get("/vehiculos-combinados", response_model=List[VehiculoCombinadoResponse])
+async def list_vehiculos_combinados(
+    flota: Optional[str] = None,   # PROPIA | EXTERNA
+    db: AsyncSession = Depends(get_db),
+):
+    """Tabla unificada de vehículos: flota PROPIA (activos EAM/CMMS con placa)
+    + flota EXTERNA (vehículos registrados en el TMS)."""
+    filas: List[VehiculoCombinadoResponse] = []
+    if flota in (None, "PROPIA"):
+        res = await db.execute(
+            select(EAMActivo).where(EAMActivo.activo == True, EAMActivo.placa.isnot(None))
+        )
+        for a in res.scalars().all():
+            filas.append(VehiculoCombinadoResponse(
+                origen="EAM", flota="PROPIA", id=a.id, placa=a.placa, tipo=a.tipo_activo,
+                marca=a.marca, modelo=a.modelo, anio=a.anio, numero_ejes=a.numero_ejes,
+                capacidad_kg=a.capacidad_combustible, estado=a.estado,
+                motor_marca=a.motor_marca, motor_linea=a.motor_linea, motor_cc=a.motor_cc,
+                propietario=a.responsable,
+            ))
+    if flota in (None, "EXTERNA"):
+        res = await db.execute(select(TMSVehiculo).where(TMSVehiculo.deleted_at.is_(None)))
+        for v in res.scalars().all():
+            filas.append(VehiculoCombinadoResponse(
+                origen="TMS", flota="EXTERNA", id=v.id, placa=v.placa,
+                tipo=v.tipo_vehiculo.value if v.tipo_vehiculo else None,
+                marca=v.marca, modelo=v.modelo, anio=v.anio, numero_ejes=v.num_ejes,
+                capacidad_kg=v.capacidad_kg,
+                estado=v.estado_operativo.value if v.estado_operativo else None,
+                propietario=v.propietario,
+            ))
+    return filas
 
 @router.post("/activos", response_model=ActivoResponse)
 async def create_activo(data: ActivoCreate, db: AsyncSession = Depends(get_db)):

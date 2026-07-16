@@ -22,6 +22,7 @@ import {
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { Layout } from '@/components/layout/Layout'
+import { VehiculosCombinados } from '@/components/VehiculosCombinados'
 
 const EAM_COLOR = '#32AC5C'
 const EAM_DARK  = '#27884A'
@@ -643,6 +644,7 @@ export default function EAMActivos() {
           <Tab label="Portafolio" />
           <Tab label="Hoja de vida 360°" />
           <Tab label="Jerarquía" />
+          <Tab label="Flota combinada" />
         </Tabs>
 
         {/* ── Tab 0: Portafolio ── */}
@@ -786,6 +788,11 @@ export default function EAMActivos() {
               ))}
             </Stack>
           </Paper>
+        )}
+
+        {/* ── Tab 3: Flota combinada (propia CMMS + externa TMS) ── */}
+        {tab === 3 && (
+          <VehiculosCombinados color={EAM_COLOR} colorDark={EAM_DARK} permitirCrear />
         )}
       </Box>
     </Layout>

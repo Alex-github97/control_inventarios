@@ -56,6 +56,7 @@ import {
   Business,
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { VehiculosCombinados } from '@/components/VehiculosCombinados'
 import { apiClient as api } from '@/api/client'
 
 const TMS_COLOR = '#0369A1'
@@ -924,6 +925,7 @@ export default function TMSVehiculos() {
 
   const [estadoOpen, setEstadoOpen] = useState(false)
   const [estadoVehiculo, setEstadoVehiculo] = useState<Vehiculo | null>(null)
+  const [vista, setVista] = useState(0)   // 0 = flota TMS · 1 = flota combinada
 
   const filtered = useMemo(() => {
     return vehiculos.filter((v) => {
@@ -994,6 +996,17 @@ export default function TMSVehiculos() {
           </Button>
         </Stack>
 
+        {/* Selector de vista */}
+        <Tabs value={vista} onChange={(_, v) => setVista(v)} sx={{ mb: 2,
+          '& .MuiTab-root': { color: '#64748B', fontWeight: 600, fontSize: 13, textTransform: 'none' },
+          '& .Mui-selected': { color: TMS_COLOR }, '& .MuiTabs-indicator': { bgcolor: TMS_COLOR } }}>
+          <Tab label="Flota TMS" />
+          <Tab label="Flota combinada (propia + externa)" />
+        </Tabs>
+
+        {vista === 1 && <VehiculosCombinados color={TMS_COLOR} colorDark="#0284c7" />}
+
+        {vista === 0 && (<>
         {/* KPIs */}
         <Stack direction="row" spacing={1.5} mb={3} flexWrap="wrap" useFlexGap>
           <KPICard label="Total Vehículos" value={kpis.total} color={TMS_COLOR} icon={<LocalShipping sx={{ fontSize: 20 }} />} />
@@ -1164,6 +1177,7 @@ export default function TMSVehiculos() {
             </Box>
           )}
         </Paper>
+        </>)}
 
         {/* Dialogs */}
         <VerVehiculoDialog vehiculo={verVehiculo} open={verOpen} onClose={() => setVerOpen(false)} />
