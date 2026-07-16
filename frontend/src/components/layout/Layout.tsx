@@ -82,8 +82,45 @@ export function Layout({ children, title, noPadding = false }: LayoutProps) {
 
   const isAnyDragging = draggingSidebar || draggingWorkspace
 
+  const handleSx = (dragging: boolean, color: string) => ({
+    width: 5,
+    flexShrink: 0,
+    cursor: 'col-resize',
+    position: 'relative' as const,
+    zIndex: 10,
+    transition: 'background 0.15s',
+    bgcolor: dragging ? color : 'transparent',
+    // pastilla central visible al pasar el mouse
+    '&::after': {
+      content: '""',
+      position: 'absolute' as const,
+      top: '50%',
+      left: '50%',
+      transform: 'translate(-50%, -50%)',
+      width: 3,
+      height: 36,
+      borderRadius: 99,
+      bgcolor: dragging ? 'rgba(255,255,255,0.9)' : 'transparent',
+      transition: 'background 0.15s',
+    },
+    '&:hover': { bgcolor: color },
+    '&:hover::after': { bgcolor: 'rgba(255,255,255,0.85)' },
+  })
+
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#F5F7F8' }}>
+    <Box
+      sx={{
+        display: 'flex',
+        minHeight: '100vh',
+        bgcolor: '#F5F7F8',
+        // Tintes radiales muy sutiles: dan profundidad sin romper el tema claro
+        backgroundImage: `
+          radial-gradient(1100px 500px at 85% -10%, rgba(50,172,92,0.05), transparent 60%),
+          radial-gradient(900px 420px at -10% 110%, rgba(59,130,246,0.045), transparent 60%)
+        `,
+        backgroundAttachment: 'fixed',
+      }}
+    >
 
       {/* Overlay global durante arrastre — bloquea Monaco y otros elementos */}
       {isAnyDragging && (
@@ -94,41 +131,20 @@ export function Layout({ children, title, noPadding = false }: LayoutProps) {
       <WorkspacePanel width={workspaceWidth} dragging={draggingWorkspace} />
 
       {/* Handle workspace */}
-      <Box
-        onMouseDown={handleWorkspaceDrag}
-        sx={{
-          width: 4,
-          flexShrink: 0,
-          cursor: 'col-resize',
-          bgcolor: draggingWorkspace ? 'rgba(80,120,220,0.5)' : 'transparent',
-          transition: 'background 0.15s',
-          '&:hover': { bgcolor: 'rgba(80,120,220,0.35)' },
-          zIndex: 10,
-        }}
-      />
+      <Box onMouseDown={handleWorkspaceDrag} sx={handleSx(draggingWorkspace, 'rgba(80,120,220,0.45)')} />
 
       {/* Sidebar de navegación */}
       <Sidebar open={true} onClose={() => {}} width={sidebarWidth} dragging={draggingSidebar} />
 
       {/* Handle sidebar */}
-      <Box
-        onMouseDown={handleSidebarDrag}
-        sx={{
-          width: 4,
-          flexShrink: 0,
-          cursor: 'col-resize',
-          bgcolor: draggingSidebar ? 'rgba(50,172,92,0.5)' : 'transparent',
-          transition: 'background 0.15s',
-          '&:hover': { bgcolor: 'rgba(50,172,92,0.35)' },
-          zIndex: 10,
-        }}
-      />
+      <Box onMouseDown={handleSidebarDrag} sx={handleSx(draggingSidebar, 'rgba(50,172,92,0.45)')} />
 
       {/* Contenido principal */}
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
         <Header title={title} />
         <Box
           component="main"
+          className="anim-page-in"
           sx={{
             flex: 1,
             p: noPadding ? 0 : { xs: 2, sm: 3 },

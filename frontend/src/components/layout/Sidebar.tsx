@@ -658,7 +658,7 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
         flexDirection: 'column',
         overflowX: 'hidden',
         overflowY: 'auto',
-        background: '#111827',
+        background: 'linear-gradient(180deg, #0F172A 0%, #111827 45%, #0F1522 100%)',
         borderRight: '1px solid rgba(255,255,255,0.04)',
         boxSizing: 'border-box',
         transition: dragging ? 'none' : 'width 0.22s cubic-bezier(0.4,0,0.2,1)',
@@ -786,16 +786,35 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
                             py: showText ? 0.9 : 1.25,
                             px: 1.25,
                             minWidth: 0,
+                            position: 'relative',
+                            overflow: 'hidden',
                             justifyContent: showText ? 'flex-start' : 'center',
                             background: active
                               ? `linear-gradient(90deg, ${alpha(activeColor, 0.18)}, ${alpha(activeColor, 0.08)})`
                               : 'transparent',
+                            // Indicador lateral del ítem activo
+                            '&::before': {
+                              content: '""',
+                              position: 'absolute',
+                              left: 0,
+                              top: '22%',
+                              bottom: '22%',
+                              width: 3,
+                              borderRadius: '0 4px 4px 0',
+                              background: active
+                                ? `linear-gradient(180deg, ${activeColor}, ${alpha(activeColor, 0.55)})`
+                                : 'transparent',
+                              boxShadow: active ? `0 0 10px ${alpha(activeColor, 0.7)}` : 'none',
+                              transition: 'background 0.2s ease, box-shadow 0.2s ease',
+                            },
                             '&:hover': {
                               background: active
                                 ? `linear-gradient(90deg, ${alpha(activeColor, 0.22)}, ${alpha(activeColor, 0.12)})`
-                                : 'rgba(255,255,255,0.05)',
+                                : 'rgba(255,255,255,0.06)',
+                              transform: showText ? 'translateX(2px)' : 'none',
+                              '& .MuiListItemIcon-root': { transform: 'scale(1.12)' },
                             },
-                            transition: 'background 0.15s ease',
+                            transition: 'background 0.15s ease, transform 0.18s cubic-bezier(0.22,1,0.36,1)',
                           }}
                         >
                           <ListItemIcon
@@ -803,7 +822,7 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
                               minWidth: 0,
                               mr: showText ? 1.25 : 0,
                               color: active ? activeColor : 'rgba(255,255,255,0.4)',
-                              transition: 'color 0.15s ease',
+                              transition: 'color 0.15s ease, transform 0.18s cubic-bezier(0.22,1,0.36,1)',
                               '& svg': {
                                 filter: active ? `drop-shadow(0 0 6px ${alpha(activeColor, 0.5)})` : 'none',
                               },
@@ -819,7 +838,7 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
                                 fontWeight: active ? 600 : 400,
                                 color: active ? '#FFFFFF' : 'rgba(255,255,255,0.55)',
                                 letterSpacing: active ? '-0.01em' : 'normal',
-                                transition: 'color 0.15s ease',
+                                sx: { transition: 'color 0.15s ease' },
                               }}
                             />
                           )}

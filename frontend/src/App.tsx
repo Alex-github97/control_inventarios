@@ -354,10 +354,30 @@ export default function App() {
         <CssBaseline />
         <Toaster
           position="top-right"
+          gutter={10}
           toastOptions={{
             duration: 4000,
-            style: { fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 500 },
-            success: { iconTheme: { primary: '#32AC5C', secondary: '#FFF' } },
+            style: {
+              fontFamily: 'Inter, sans-serif',
+              fontSize: 13,
+              fontWeight: 500,
+              borderRadius: 12,
+              padding: '10px 14px',
+              background: 'rgba(15, 23, 42, 0.92)',
+              color: '#F8FAFC',
+              backdropFilter: 'blur(8px)',
+              boxShadow: '0 12px 32px -8px rgba(15,23,42,0.45), 0 0 0 1px rgba(255,255,255,0.06)',
+              maxWidth: 420,
+            },
+            success: {
+              iconTheme: { primary: '#5FD184', secondary: '#0F172A' },
+              style: { borderLeft: '3px solid #32AC5C' } as React.CSSProperties,
+            },
+            error: {
+              iconTheme: { primary: '#F87171', secondary: '#0F172A' },
+              style: { borderLeft: '3px solid #EF4444' } as React.CSSProperties,
+              duration: 5000,
+            },
           }}
         />
         <BrowserRouter>

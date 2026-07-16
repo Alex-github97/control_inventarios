@@ -6,7 +6,7 @@ import {
 import { Notifications, QrCode2, LogoutOutlined, NotificationsNone } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useIsFetching, useIsMutating } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -33,6 +33,9 @@ export function Header({ title }: HeaderProps) {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
   const [alertAnchor, setAlertAnchor] = useState<HTMLElement | null>(null)
+  const isFetching = useIsFetching()
+  const isMutating = useIsMutating()
+  const busy = isFetching + isMutating > 0
 
   const { data: alertCount } = useQuery({
     queryKey: ['alertas-count'],
@@ -233,6 +236,31 @@ export function Header({ title }: HeaderProps) {
           </Box>
         </Box>
       </Toolbar>
+
+      {/* Barra de progreso global — visible mientras hay peticiones en vuelo */}
+      <Box
+        sx={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: -1,
+          height: 2.5,
+          overflow: 'hidden',
+          pointerEvents: 'none',
+          opacity: busy ? 1 : 0,
+          transition: 'opacity 0.25s ease',
+        }}
+      >
+        <Box
+          sx={{
+            width: '45%',
+            height: '100%',
+            borderRadius: 99,
+            background: `linear-gradient(90deg, transparent, ${PRIMARY}, #5FD184, transparent)`,
+            animation: 'progressSlide 1.1s ease-in-out infinite',
+          }}
+        />
+      </Box>
     </AppBar>
   )
 }

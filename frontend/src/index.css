@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; }
 
@@ -9,11 +9,97 @@ html, body {
   background-color: #F5F7F8;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
+/* ── Scrollbars finos y modernos ─────────────────────────────────────────── */
+::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
+::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.16);
+  border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 23, 42, 0.32);
+  background-clip: content-box;
+}
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* ── Selección y focus ───────────────────────────────────────────────────── */
+::selection { background: rgba(50, 172, 92, 0.22); color: #0D1117; }
+
+:focus-visible {
+  outline: 2px solid rgba(50, 172, 92, 0.6);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
 
 * { transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+
+/* ── Animaciones reutilizables ───────────────────────────────────────────── */
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+@keyframes progressSlide {
+  0%   { transform: translateX(-100%); }
+  50%  { transform: translateX(30%); }
+  100% { transform: translateX(110%); }
+}
+
+@keyframes pulseSoft {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+
+@keyframes floatY {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-4px); }
+}
+
+/* Utilidades de animación (aplicables vía className) */
+.anim-page-in   { animation: pageIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.anim-fade-in   { animation: fadeIn 0.35s ease both; }
+.anim-slide-in  { animation: slideInRight 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Stagger para listas/grillas: retrasa la entrada de los primeros 12 hijos */
+.anim-stagger > * { animation: pageIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.anim-stagger > *:nth-child(1)  { animation-delay: 0.02s; }
+.anim-stagger > *:nth-child(2)  { animation-delay: 0.06s; }
+.anim-stagger > *:nth-child(3)  { animation-delay: 0.10s; }
+.anim-stagger > *:nth-child(4)  { animation-delay: 0.14s; }
+.anim-stagger > *:nth-child(5)  { animation-delay: 0.18s; }
+.anim-stagger > *:nth-child(6)  { animation-delay: 0.22s; }
+.anim-stagger > *:nth-child(7)  { animation-delay: 0.26s; }
+.anim-stagger > *:nth-child(8)  { animation-delay: 0.30s; }
+.anim-stagger > *:nth-child(9)  { animation-delay: 0.34s; }
+.anim-stagger > *:nth-child(10) { animation-delay: 0.38s; }
+.anim-stagger > *:nth-child(11) { animation-delay: 0.42s; }
+.anim-stagger > *:nth-child(12) { animation-delay: 0.46s; }
+
+/* Respeto por usuarios con movimiento reducido */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
