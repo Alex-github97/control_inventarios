@@ -16,6 +16,7 @@ from app.infrastructure.models.eam import (
     EAMOTMaterial, EAMOTManoObra,
     EAMMuestraAceite, EAMNeumatico, EAMMovimientoNeumatico,
     EAMBodegaNeumatico, EAMDanoNeumaticoCatalogo, EAMNeumaticoCatalogo, EAMActivo,
+    EAMInspeccionNeumatico, EAMReencaucheLote, EAMReencaucheDetalle, EAMNeumaticoConfig,
     EAMRegistroCombustible, EAMGarantia, EAMFMEA,
     EAMCalibracion, EAMKPIDiario,
 )
@@ -295,6 +296,8 @@ class NeumaticCreate(BaseModel):
     profundidad_actual: Optional[float] = None
     costo: Optional[float] = None
     proveedor: Optional[str] = None
+    tipo_uso: Optional[str] = None            # DIRECCIONAL/TRACCION/REMOLQUE/MULTIPOSICION/REPUESTO
+    presion_recomendada: Optional[float] = None
 
 class NeumaticUpdate(BaseModel):
     marca: Optional[str] = None
@@ -310,6 +313,8 @@ class NeumaticUpdate(BaseModel):
     km_actual: Optional[float] = None
     costo: Optional[float] = None
     proveedor: Optional[str] = None
+    tipo_uso: Optional[str] = None
+    presion_recomendada: Optional[float] = None
 
 class NeumaticResponse(NeumaticCreate):
     model_config = ConfigDict(from_attributes=True)
@@ -321,6 +326,7 @@ class NeumaticResponse(NeumaticCreate):
     dano_id: Optional[int] = None
     motivo_baja: Optional[str] = None
     fecha_baja: Optional[date] = None
+    presion_actual: Optional[float] = None
 
 # ── Bodegas de neumáticos ──
 class BodegaNeumaticoCreate(BaseModel):
@@ -391,6 +397,95 @@ class CatalogoNeuCreate(BaseModel):
 class CatalogoNeuResponse(CatalogoNeuCreate):
     model_config = ConfigDict(from_attributes=True)
     id: int
+
+# ── Inspecciones ──
+class InspeccionNeuCreate(BaseModel):
+    fecha: datetime
+    profundidad_izq: Optional[float] = None
+    profundidad_centro: Optional[float] = None
+    profundidad_der: Optional[float] = None
+    presion_psi: Optional[float] = None
+    km_odometro: Optional[float] = None
+    posicion: Optional[str] = None
+    estado_visual: Optional[str] = None      # BUENO/REGULAR/CRITICO
+    observaciones: Optional[str] = None
+    tecnico: Optional[str] = None
+
+class InspeccionNeuResponse(InspeccionNeuCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    neumatico_id: int
+    profundidad_min: Optional[float] = None
+
+# ── Reencauche ──
+class ReencaucheLoteCreate(BaseModel):
+    codigo: str
+    fecha_envio: date
+    proveedor: Optional[str] = None
+    remision: Optional[str] = None
+    observaciones: Optional[str] = None
+
+class ReencaucheLoteResponse(ReencaucheLoteCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    estado: str
+
+class ReencaucheDetalleCreate(BaseModel):
+    neumatico_id: int
+    banda: Optional[str] = None
+
+class ReencaucheDetalleUpdate(BaseModel):
+    resultado: str                # REENCAUCHADA/REMANENTE/RECHAZO
+    profundidad_nueva: Optional[float] = None
+    vida_remanente_km: Optional[float] = None
+    costo: Optional[float] = None
+    dano_id: Optional[int] = None    # requerido si RECHAZO
+
+class ReencaucheDetalleResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    lote_id: int
+    neumatico_id: int
+    banda: Optional[str] = None
+    resultado: str
+    profundidad_nueva: Optional[float] = None
+    vida_remanente_km: Optional[float] = None
+    costo: Optional[float] = None
+
+# ── Configuración global ──
+class NeuConfigSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    montaje_estricto: bool = True
+    profundidad_minima: float = 3.0
+    presion_min: float = 90.0
+    presion_max: float = 120.0
+    umbral_desalineacion: float = 2.0
+
+# ── Indicadores / alertas ──
+class IndicadorNeuResponse(BaseModel):
+    neumatico_id: int
+    codigo: str
+    marca: Optional[str] = None
+    medida: Optional[str] = None
+    estado: Optional[str] = None
+    posicion: Optional[str] = None
+    km_total: float
+    costo: Optional[float] = None
+    cpk: Optional[float] = None                 # costo por km
+    costo_mm: Optional[float] = None            # costo por mm gastado
+    mm_gastados: Optional[float] = None
+    vida_util_km: Optional[float] = None
+    km_proyectado: Optional[float] = None       # proyección de vida (km)
+    pct_desgaste: Optional[float] = None        # % de desgaste
+
+class AlertaNeuResponse(BaseModel):
+    neumatico_id: int
+    codigo: str
+    tipo: str                 # PROFUNDIDAD / PRESION / DESALINEACION
+    severidad: str            # ALTA / MEDIA
+    mensaje: str
+    posicion: Optional[str] = None
+    activo_id: Optional[int] = None
 
 class CombustibleCreate(BaseModel):
     activo_id: int
@@ -832,6 +927,44 @@ def _generar_posiciones(numero_ejes: Optional[int], tiene_repuesto: bool) -> Lis
     return pos
 
 
+def _eje_de_posicion(posicion: str) -> Optional[int]:
+    """Deduce el número de eje a partir del código de posición (E{n}-...)."""
+    if not posicion:
+        return None
+    if posicion.upper().startswith("REPUESTO"):
+        return 0
+    if posicion.upper().startswith("E"):
+        try:
+            return int(posicion[1:].split("-")[0])
+        except (ValueError, IndexError):
+            return None
+    return None
+
+
+def _validar_montaje(tipo_uso: Optional[str], posicion: str) -> Optional[str]:
+    """Valida que el tipo de uso de la llanta sea compatible con la posición.
+    Regla (montaje estricto): DIRECCIONAL solo en eje 1; TRACCION/REMOLQUE no en eje 1.
+    MULTIPOSICION y sin clasificar se permiten en cualquier posición."""
+    uso = (tipo_uso or "").upper()
+    eje = _eje_de_posicion(posicion)
+    if eje is None or eje == 0:      # repuesto o desconocido: permitido
+        return None
+    if uso == "DIRECCIONAL" and eje != 1:
+        return "Una llanta DIRECCIONAL solo puede montarse en el eje 1 (dirección)."
+    if uso in ("TRACCION", "REMOLQUE") and eje == 1:
+        return f"Una llanta {uso} no puede montarse en el eje 1 (dirección)."
+    return None
+
+
+async def _get_config_neu(db: AsyncSession) -> EAMNeumaticoConfig:
+    """Obtiene (o crea) la fila única de configuración del módulo de llantas."""
+    cfg = await db.get(EAMNeumaticoConfig, 1)
+    if not cfg:
+        cfg = EAMNeumaticoConfig(id=1)
+        db.add(cfg); await db.commit(); await db.refresh(cfg)
+    return cfg
+
+
 # ── Bodegas de neumáticos ──
 @router.get("/neumaticos/bodegas", response_model=List[BodegaNeumaticoResponse])
 async def list_bodegas_neumatico(db: AsyncSession = Depends(get_db)):
@@ -948,6 +1081,11 @@ async def crear_movimiento_neumatico(data: MovNeumaticoCreate, db: AsyncSession 
     tipo = (data.tipo_movimiento or "").upper()
     posicion_origen = neu.posicion
     if tipo in ("INSTALACION", "ROTACION"):
+        cfg = await _get_config_neu(db)
+        if cfg.montaje_estricto and data.posicion:
+            err = _validar_montaje(neu.tipo_uso, data.posicion)
+            if err:
+                raise HTTPException(409, err)
         neu.estado = "INSTALADO"; neu.activo_id = data.activo_id
         neu.posicion = data.posicion; neu.bodega_id = None
         if data.km_odometro is not None:
@@ -984,6 +1122,204 @@ async def list_movimientos_neumatico(nid: int, db: AsyncSession = Depends(get_db
         .order_by(EAMMovimientoNeumatico.fecha.desc())
     )
     return r.scalars().all()
+
+
+# ── Configuración global del módulo ──
+@router.get("/neumaticos/config", response_model=NeuConfigSchema)
+async def get_config_neumatico(db: AsyncSession = Depends(get_db)):
+    return await _get_config_neu(db)
+
+@router.put("/neumaticos/config", response_model=NeuConfigSchema)
+async def update_config_neumatico(data: NeuConfigSchema, db: AsyncSession = Depends(get_db)):
+    cfg = await _get_config_neu(db)
+    for k, v in data.model_dump().items():
+        setattr(cfg, k, v)
+    await db.commit(); await db.refresh(cfg)
+    return cfg
+
+
+# ── Inspecciones ──
+def _min_prof(*vals) -> Optional[float]:
+    xs = [v for v in vals if v is not None]
+    return min(xs) if xs else None
+
+@router.post("/neumaticos/{nid}/inspecciones", response_model=InspeccionNeuResponse)
+async def crear_inspeccion(nid: int, data: InspeccionNeuCreate, db: AsyncSession = Depends(get_db)):
+    neu = await db.get(EAMNeumatico, nid)
+    if not neu:
+        raise HTTPException(404, "Neumático no encontrado")
+    obj = EAMInspeccionNeumatico(neumatico_id=nid, **data.model_dump())
+    if obj.posicion is None:
+        obj.posicion = neu.posicion
+    db.add(obj)
+    # Actualiza el estado actual del neumático con la última medición
+    pmin = _min_prof(data.profundidad_izq, data.profundidad_centro, data.profundidad_der)
+    if pmin is not None:
+        neu.profundidad_actual = pmin
+    if data.presion_psi is not None:
+        neu.presion_actual = data.presion_psi
+    if data.km_odometro is not None:
+        neu.km_actual = data.km_odometro
+        neu.km_total = max(0.0, (neu.km_actual or 0) - (neu.km_inicio or 0))
+    await db.commit(); await db.refresh(obj)
+    r = InspeccionNeuResponse.model_validate(obj)
+    r.profundidad_min = _min_prof(obj.profundidad_izq, obj.profundidad_centro, obj.profundidad_der)
+    return r
+
+@router.get("/neumaticos/{nid}/inspecciones", response_model=List[InspeccionNeuResponse])
+async def list_inspecciones(nid: int, db: AsyncSession = Depends(get_db)):
+    r = await db.execute(
+        select(EAMInspeccionNeumatico).where(EAMInspeccionNeumatico.neumatico_id == nid)
+        .order_by(EAMInspeccionNeumatico.fecha.asc())
+    )
+    out = []
+    for i in r.scalars().all():
+        resp = InspeccionNeuResponse.model_validate(i)
+        resp.profundidad_min = _min_prof(i.profundidad_izq, i.profundidad_centro, i.profundidad_der)
+        out.append(resp)
+    return out
+
+
+# ── Indicadores / CPK ──
+@router.get("/neumaticos/indicadores", response_model=List[IndicadorNeuResponse])
+async def indicadores_neumaticos(db: AsyncSession = Depends(get_db)):
+    cfg = await _get_config_neu(db)
+    r = await db.execute(select(EAMNeumatico).where(EAMNeumatico.estado != "BAJA"))
+    out: List[IndicadorNeuResponse] = []
+    for n in r.scalars().all():
+        km = n.km_total or 0
+        pd = n.profundidad_diseño
+        pa = n.profundidad_actual
+        mm_gastados = (pd - pa) if (pd is not None and pa is not None) else None
+        usable = (pd - cfg.profundidad_minima) if pd is not None else None
+        cpk = (n.costo / km) if (n.costo and km > 0) else None
+        costo_mm = (n.costo / mm_gastados) if (n.costo and mm_gastados and mm_gastados > 0) else None
+        km_proy = None
+        if mm_gastados and mm_gastados > 0 and km > 0 and usable and usable > 0:
+            km_proy = round(usable * km / mm_gastados, 0)
+        pct = round(mm_gastados / usable * 100, 1) if (mm_gastados is not None and usable and usable > 0) else None
+        out.append(IndicadorNeuResponse(
+            neumatico_id=n.id, codigo=n.codigo, marca=n.marca, medida=n.medida,
+            estado=n.estado, posicion=n.posicion, km_total=km, costo=n.costo,
+            cpk=round(cpk, 2) if cpk else None, costo_mm=round(costo_mm, 2) if costo_mm else None,
+            mm_gastados=round(mm_gastados, 1) if mm_gastados is not None else None,
+            vida_util_km=n.vida_util_km, km_proyectado=km_proy, pct_desgaste=pct,
+        ))
+    return out
+
+
+# ── Alertas (profundidad / presión / desalineación) ──
+@router.get("/neumaticos/alertas", response_model=List[AlertaNeuResponse])
+async def alertas_neumaticos(db: AsyncSession = Depends(get_db)):
+    cfg = await _get_config_neu(db)
+    r = await db.execute(select(EAMNeumatico).where(EAMNeumatico.estado != "BAJA"))
+    neus = r.scalars().all()
+    alertas: List[AlertaNeuResponse] = []
+    for n in neus:
+        if n.profundidad_actual is not None and n.profundidad_actual <= cfg.profundidad_minima:
+            alertas.append(AlertaNeuResponse(
+                neumatico_id=n.id, codigo=n.codigo, tipo="PROFUNDIDAD", severidad="ALTA",
+                mensaje=f"Profundidad {n.profundidad_actual}mm ≤ mínimo {cfg.profundidad_minima}mm",
+                posicion=n.posicion, activo_id=n.activo_id))
+        if n.presion_actual is not None and (n.presion_actual < cfg.presion_min or n.presion_actual > cfg.presion_max):
+            alertas.append(AlertaNeuResponse(
+                neumatico_id=n.id, codigo=n.codigo, tipo="PRESION", severidad="MEDIA",
+                mensaje=f"Presión {n.presion_actual}psi fuera de rango [{cfg.presion_min}-{cfg.presion_max}]",
+                posicion=n.posicion, activo_id=n.activo_id))
+    # Desalineación: por (vehículo, eje) comparar profundidades instaladas
+    grupos: dict = {}
+    for n in neus:
+        if n.estado == "INSTALADO" and n.activo_id and n.profundidad_actual is not None:
+            eje = _eje_de_posicion(n.posicion or "")
+            if eje and eje > 0:
+                grupos.setdefault((n.activo_id, eje), []).append(n)
+    for (activo_id, eje), items in grupos.items():
+        if len(items) < 2:
+            continue
+        profs = [i.profundidad_actual for i in items]
+        dif = max(profs) - min(profs)
+        if dif > cfg.umbral_desalineacion:
+            peor = min(items, key=lambda x: x.profundidad_actual)
+            alertas.append(AlertaNeuResponse(
+                neumatico_id=peor.id, codigo=peor.codigo, tipo="DESALINEACION", severidad="MEDIA",
+                mensaje=f"Diferencia de {round(dif,1)}mm en el eje {eje} (umbral {cfg.umbral_desalineacion}mm)",
+                posicion=peor.posicion, activo_id=activo_id))
+    return alertas
+
+
+# ── Reencauche (lotes y detalle) ──
+@router.get("/neumaticos/reencauche", response_model=List[ReencaucheLoteResponse])
+async def list_reencauche_lotes(db: AsyncSession = Depends(get_db)):
+    r = await db.execute(select(EAMReencaucheLote).order_by(EAMReencaucheLote.fecha_envio.desc()))
+    return r.scalars().all()
+
+@router.post("/neumaticos/reencauche", response_model=ReencaucheLoteResponse)
+async def create_reencauche_lote(data: ReencaucheLoteCreate, db: AsyncSession = Depends(get_db)):
+    obj = EAMReencaucheLote(**data.model_dump(), estado="ABIERTO")
+    db.add(obj); await db.commit(); await db.refresh(obj)
+    return obj
+
+@router.get("/neumaticos/reencauche/{lote_id}/detalle", response_model=List[ReencaucheDetalleResponse])
+async def list_reencauche_detalle(lote_id: int, db: AsyncSession = Depends(get_db)):
+    r = await db.execute(select(EAMReencaucheDetalle).where(EAMReencaucheDetalle.lote_id == lote_id))
+    return r.scalars().all()
+
+@router.post("/neumaticos/reencauche/{lote_id}/detalle", response_model=ReencaucheDetalleResponse)
+async def add_reencauche_detalle(lote_id: int, data: ReencaucheDetalleCreate, db: AsyncSession = Depends(get_db)):
+    lote = await db.get(EAMReencaucheLote, lote_id)
+    if not lote:
+        raise HTTPException(404, "Lote no encontrado")
+    if lote.estado == "CERRADO":
+        raise HTTPException(409, "El lote está cerrado")
+    neu = await db.get(EAMNeumatico, data.neumatico_id)
+    if not neu:
+        raise HTTPException(404, "Neumático no encontrado")
+    obj = EAMReencaucheDetalle(lote_id=lote_id, neumatico_id=data.neumatico_id, banda=data.banda, resultado="PENDIENTE")
+    # el neumático pasa a estado REENCAUCHE mientras está en el proceso
+    neu.estado = "REENCAUCHE"; neu.activo_id = None; neu.posicion = None
+    db.add(obj); await db.commit(); await db.refresh(obj)
+    return obj
+
+@router.put("/neumaticos/reencauche/detalle/{det_id}", response_model=ReencaucheDetalleResponse)
+async def procesar_reencauche_detalle(det_id: int, data: ReencaucheDetalleUpdate, db: AsyncSession = Depends(get_db)):
+    det = await db.get(EAMReencaucheDetalle, det_id)
+    if not det:
+        raise HTTPException(404, "Detalle no encontrado")
+    neu = await db.get(EAMNeumatico, det.neumatico_id)
+    resultado = data.resultado.upper()
+    det.resultado = resultado
+    det.profundidad_nueva = data.profundidad_nueva
+    det.vida_remanente_km = data.vida_remanente_km
+    det.costo = data.costo
+    if neu:
+        if resultado == "REENCAUCHADA":
+            neu.reencauches = (neu.reencauches or 0) + 1
+            neu.estado = "ALMACENADO"
+            if data.profundidad_nueva is not None:
+                neu.profundidad_actual = data.profundidad_nueva
+                neu.profundidad_diseño = data.profundidad_nueva
+            neu.km_inicio = neu.km_actual or 0     # reinicia el conteo de vida
+            neu.km_total = 0
+            if data.costo:
+                neu.costo = data.costo
+        elif resultado == "REMANENTE":
+            neu.estado = "ALMACENADO"
+            if data.vida_remanente_km is not None:
+                neu.vida_util_km = data.vida_remanente_km
+        elif resultado == "RECHAZO":
+            neu.estado = "BAJA"; neu.motivo_baja = "Rechazado en reencauche"
+            neu.dano_id = data.dano_id
+    await db.commit(); await db.refresh(det)
+    return det
+
+@router.put("/neumaticos/reencauche/{lote_id}/cerrar", response_model=ReencaucheLoteResponse)
+async def cerrar_reencauche_lote(lote_id: int, db: AsyncSession = Depends(get_db)):
+    lote = await db.get(EAMReencaucheLote, lote_id)
+    if not lote:
+        raise HTTPException(404, "Lote no encontrado")
+    lote.estado = "CERRADO"
+    await db.commit(); await db.refresh(lote)
+    return lote
 
 
 @router.get("/neumaticos", response_model=List[NeumaticResponse])

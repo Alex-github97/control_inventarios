@@ -447,6 +447,10 @@ class EAMNeumatico(Base, TimestampMixin):
     dano_id          = Column(Integer, ForeignKey("eam_dano_neumatico_catalogo.id"), nullable=True)
     motivo_baja      = Column(String(255), nullable=True)
     fecha_baja       = Column(Date, nullable=True)
+    # tipo de uso: DIRECCIONAL / TRACCION / REMOLQUE / MULTIPOSICION / REPUESTO
+    tipo_uso            = Column(String(20), nullable=True)
+    presion_recomendada = Column(Float, nullable=True)   # psi
+    presion_actual      = Column(Float, nullable=True)   # psi (última inspección)
 
 
 class EAMMovimientoNeumatico(Base, TimestampMixin):
@@ -497,6 +501,60 @@ class EAMDanoNeumaticoCatalogo(Base, TimestampMixin):
     # accion sugerida: REENCAUCHE / DESCARTE / INSPECCION
     accion      = Column(String(30), default="INSPECCION")
     activo      = Column(Boolean, default=True)
+
+
+class EAMInspeccionNeumatico(Base, TimestampMixin):
+    """Inspección periódica de un neumático: profundidad multipunto, presión y estado."""
+    __tablename__ = "eam_inspeccion_neumatico"
+    id                 = Column(Integer, primary_key=True, index=True)
+    neumatico_id       = Column(Integer, ForeignKey("eam_neumatico.id"), nullable=False)
+    fecha              = Column(DateTime, nullable=False)
+    profundidad_izq    = Column(Float, nullable=True)   # mm
+    profundidad_centro = Column(Float, nullable=True)   # mm
+    profundidad_der    = Column(Float, nullable=True)   # mm
+    presion_psi        = Column(Float, nullable=True)
+    km_odometro        = Column(Float, nullable=True)
+    posicion           = Column(String(30), nullable=True)
+    estado_visual      = Column(String(30), nullable=True)   # BUENO/REGULAR/CRITICO
+    observaciones      = Column(Text, nullable=True)
+    tecnico            = Column(String(100), nullable=True)
+
+
+class EAMReencaucheLote(Base, TimestampMixin):
+    """Encabezado de un lote de reencauche enviado a un proveedor."""
+    __tablename__ = "eam_reencauche_lote"
+    id            = Column(Integer, primary_key=True, index=True)
+    codigo        = Column(String(40), unique=True, nullable=False)
+    fecha_envio   = Column(Date, nullable=False)
+    proveedor     = Column(String(150), nullable=True)
+    remision      = Column(String(80), nullable=True)
+    observaciones = Column(Text, nullable=True)
+    estado        = Column(String(20), default="ABIERTO")   # ABIERTO / CERRADO
+
+
+class EAMReencaucheDetalle(Base, TimestampMixin):
+    """Detalle por neumático dentro de un lote de reencauche."""
+    __tablename__ = "eam_reencauche_detalle"
+    id                = Column(Integer, primary_key=True, index=True)
+    lote_id           = Column(Integer, ForeignKey("eam_reencauche_lote.id"), nullable=False)
+    neumatico_id      = Column(Integer, ForeignKey("eam_neumatico.id"), nullable=False)
+    banda             = Column(String(80), nullable=True)
+    # PENDIENTE / REENCAUCHADA / REMANENTE / RECHAZO
+    resultado         = Column(String(20), default="PENDIENTE")
+    profundidad_nueva = Column(Float, nullable=True)
+    vida_remanente_km = Column(Float, nullable=True)
+    costo             = Column(Float, nullable=True)
+
+
+class EAMNeumaticoConfig(Base, TimestampMixin):
+    """Parámetros globales del módulo de llantas (fila única id=1)."""
+    __tablename__ = "eam_neumatico_config"
+    id                   = Column(Integer, primary_key=True, index=True)
+    montaje_estricto     = Column(Boolean, default=True)
+    profundidad_minima   = Column(Float, default=3.0)    # mm
+    presion_min          = Column(Float, default=90.0)   # psi
+    presion_max          = Column(Float, default=120.0)  # psi
+    umbral_desalineacion = Column(Float, default=2.0)    # mm de diferencia por eje
 
 
 # ─── Combustible ──────────────────────────────────────────────────────────────
