@@ -226,6 +226,14 @@ class OEECreate(BaseModel):
 class OEEResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int; linea_id: int; turno: str
+    fecha: Optional[datetime] = None
+    equipo_id: Optional[int] = None
+    tiempo_planificado_min: Optional[float] = None
+    tiempo_paradas_min: Optional[float] = None
+    tiempo_operativo_min: Optional[float] = None
+    produccion_real: Optional[float] = None
+    produccion_nominal: Optional[float] = None
+    produccion_buena: Optional[float] = None
     disponibilidad: Optional[float] = None
     rendimiento: Optional[float] = None
     calidad: Optional[float] = None
