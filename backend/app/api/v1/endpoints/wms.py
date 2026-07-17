@@ -1360,6 +1360,18 @@ async def transferir_inventario(
         notas=notas,
     )
     db.add(mov)
+    # Evento de trazabilidad (ISO 9001 §8.5.2): la transferencia queda en el
+    # historial del producto, del lote y de ambas ubicaciones.
+    await _registrar_evento(
+        db, "TRANSFERENCIA",
+        f"Transferencia de {data.cantidad:g} und · ubicación {data.ubicacion_origen_id} → {data.ubicacion_destino_id}"
+        + (f" · transporte TMS {tms_codigo}" if tms_codigo else ""),
+        entidad_tipo="MOVIMIENTO", usuario_id=current_user.id,
+        producto_id=data.producto_id, lote_id=data.lote_id,
+        ubicacion_id=data.ubicacion_destino_id,
+        datos={"origen_id": data.ubicacion_origen_id, "destino_id": data.ubicacion_destino_id,
+               "cantidad": data.cantidad, "referencia": referencia},
+    )
     await db.commit()
     r2 = await db.execute(
         select(WMSMovimientoInventario)
@@ -1655,6 +1667,17 @@ async def completar_conteo(
                     notas="Ajuste por conteo físico",
                 )
                 db.add(mov)
+                # Trazabilidad del ajuste por conteo (ISO 9001: la reconciliación
+                # de inventario queda registrada con usuario y diferencia)
+                await _registrar_evento(
+                    db, "AJUSTE",
+                    f"Ajuste por conteo físico #{conteo_id}: {'+' if det.diferencia > 0 else ''}{det.diferencia:g} und "
+                    f"({det.producto.nombre if det.producto else det.producto_id})",
+                    entidad_tipo="CONTEO", entidad_id=conteo_id, usuario_id=current_user.id,
+                    producto_id=det.producto_id, lote_id=det.lote_id, ubicacion_id=det.ubicacion_id,
+                    datos={"sistema": det.cantidad_sistema, "fisica": det.cantidad_fisica,
+                           "diferencia": det.diferencia},
+                )
             det.ajustado = True
 
     conteo.estado = "COMPLETO"
@@ -2175,6 +2198,17 @@ async def crear_despacho(
         db.add(viaje)
         despacho.notas = f"{despacho.notas or ''} | Transporte gestionado por TMS ({tms_codigo})".strip(" |")
 
+    # Evento de trazabilidad por cada línea despachada (ISO 9001 §8.5.2)
+    for d in lineas:
+        await _registrar_evento(
+            db, "DESPACHO",
+            f"Despacho {payload['numero_despacho']} · orden {orden.numero_orden} · {d.cantidad:g} und",
+            entidad_tipo="DESPACHO", entidad_id=despacho.id, usuario_id=current_user.id,
+            producto_id=d.producto_id, lote_id=d.lote_id,
+            datos={"numero_despacho": payload["numero_despacho"], "orden": orden.numero_orden,
+                   "cantidad": d.cantidad},
+        )
+
     await db.commit()
     r = await db.execute(
         select(WMSDespacho)
@@ -2420,6 +2454,16 @@ async def procesar_devolucion(
                     notas="Reingreso por devolución",
                 )
                 db.add(mov)
+                # Trazabilidad del reingreso (ISO 9001 §8.5.2 / §8.7)
+                await _registrar_evento(
+                    db, "DEVOLUCION",
+                    f"Reingreso por devolución {dev.numero_devolucion}: {det.cantidad:g} und "
+                    f"({det.producto.nombre if det.producto else det.producto_id})",
+                    entidad_tipo="DEVOLUCION", entidad_id=dev.id, usuario_id=current_user.id,
+                    producto_id=det.producto_id, lote_id=det.lote_id, ubicacion_id=ubic.id,
+                    datos={"numero_devolucion": dev.numero_devolucion, "accion": det.accion,
+                           "cantidad": det.cantidad},
+                )
 
     await db.commit()
     r2 = await db.execute(
