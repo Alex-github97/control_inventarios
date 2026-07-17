@@ -107,6 +107,7 @@ function KPICard({ label, value, target = 100, icon, greenAt = 95, yellowAt = 85
   return (
     <Paper
       elevation={0}
+      className="hover-lift"
       sx={{
         border: '1px solid #E5E7EB',
         borderRadius: '14px',
@@ -118,7 +119,7 @@ function KPICard({ label, value, target = 100, icon, greenAt = 95, yellowAt = 85
     >
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
         <Box>
-          <Typography fontSize={40} fontWeight={800} color={color} lineHeight={1}>
+          <Typography className="text-gradient" fontSize={40} fontWeight={800} color={color} lineHeight={1} sx={{ fontVariantNumeric: 'tabular-nums' }}>
             {value.toFixed(1)}%
           </Typography>
           <Typography fontSize={12} color="text.secondary" mt={0.5}>
@@ -342,12 +343,12 @@ export default function WMSDashboard() {
           </Alert>
         )}
 
-        {/* ── Row 1: KPI Cards ───────────────────────────────────────────── */}
+        {/* ── Row 1: KPI Cards (entrada escalonada) ─────────────────────── */}
         <Box>
           <Typography fontSize={13} fontWeight={700} color="text.secondary" mb={1.5} sx={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Indicadores de Servicio
           </Typography>
-          <Grid container spacing={2}>
+          <Grid container spacing={2} className="anim-stagger">
             {/* OT% */}
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               {isLoading ? (

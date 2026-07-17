@@ -598,6 +598,7 @@ function KPICardItem({ card, active, onClick }: { card: KPICard; active: boolean
   return (
     <Paper
       elevation={0}
+      className="hover-lift"
       onClick={onClick}
       sx={{
         bgcolor: '#FFFFFF',
@@ -619,7 +620,7 @@ function KPICardItem({ card, active, onClick }: { card: KPICard; active: boolean
     >
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
         <Box flex={1}>
-          <Typography fontSize={26} fontWeight={800} color={card.color} lineHeight={1}>
+          <Typography className="text-gradient" fontSize={26} fontWeight={800} color={card.color} lineHeight={1} sx={{ fontVariantNumeric: 'tabular-nums' }}>
             {card.value}
           </Typography>
           <Typography fontSize={12} color="#64748B" mt={0.5}>{card.label}</Typography>
@@ -832,7 +833,7 @@ export default function EAMDashboard() {
         </Paper>
 
         {/* ── KPI cards (reactivos a filtros) ── */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2,1fr)', sm: 'repeat(3,1fr)', md: 'repeat(3,1fr)' }, gap: '20px', mb: '28px' }}>
+        <Box className="anim-stagger" sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2,1fr)', sm: 'repeat(3,1fr)', md: 'repeat(3,1fr)' }, gap: '20px', mb: '28px' }}>
           {kpiData.map((kpi) => (
             <KPICardItem key={kpi.key} card={kpi} active={panelOpen && panelKey === kpi.key} onClick={() => openPanel(kpi.key)} />
           ))}

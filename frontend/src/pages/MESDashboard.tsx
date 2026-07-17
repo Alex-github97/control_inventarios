@@ -454,8 +454,9 @@ const KpiCard: React.FC<{ kpi: Kpi; onClick: () => void }> = ({ kpi, onClick }) 
         {kpi.label}
       </Typography>
       <Typography
+        className="text-gradient"
         sx={{
-          color: 'text.primary',
+          color: MES_COLOR,
           fontSize: '1.3rem',
           fontWeight: 700,
           lineHeight: 1,
@@ -1101,7 +1102,7 @@ const MESDashboard: React.FC = () => {
           </Paper>
 
           {/* ── KPI Strip ── */}
-          <Grid container spacing={1.5} sx={{ mb: 3 }}>
+          <Grid container spacing={1.5} sx={{ mb: 3 }} className="anim-stagger">
             {kpis.map((kpi) => (
               <Grid size={{ xs: 6, sm: 3, md: 1.5 }} key={kpi.id}>
                 <KpiCard kpi={kpi} onClick={() => setDetail({ kind: 'kpi', data: kpi })} />

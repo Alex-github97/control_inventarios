@@ -123,7 +123,7 @@ function capacidadColor(uso: number) {
 
 function KPICard({ label, value, icon, color, sub }: { label: string; value: string; icon: React.ReactElement; color: string; sub: string }) {
   return (
-    <Paper elevation={0} sx={{
+    <Paper elevation={0} className="hover-lift" sx={{
       border: '1px solid #E5E7EB',
       borderLeft: `4px solid ${color}`,
       borderRadius: '14px',
@@ -132,7 +132,7 @@ function KPICard({ label, value, icon, color, sub }: { label: string; value: str
     }}>
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
         <Box>
-          <Typography fontSize={26} fontWeight={800} color={color} lineHeight={1}>{value}</Typography>
+          <Typography className="text-gradient" fontSize={26} fontWeight={800} color={color} lineHeight={1} sx={{ fontVariantNumeric: 'tabular-nums' }}>{value}</Typography>
           <Typography fontSize={12} fontWeight={600} color="text.primary" mt={0.5}>{label}</Typography>
           <Typography fontSize={11} color="text.secondary" mt={0.25}>{sub}</Typography>
         </Box>
@@ -200,7 +200,7 @@ export default function APSDashboard() {
       </Stack>
 
       {/* KPIs */}
-      <Grid container spacing={2} mb={3}>
+      <Grid container spacing={2} mb={3} className="anim-stagger">
         {kpis.map((k, i) => (
           <Grid key={i} size={{ xs: 6, sm: 4, md: 3 }}>
             <KPICard {...k} />

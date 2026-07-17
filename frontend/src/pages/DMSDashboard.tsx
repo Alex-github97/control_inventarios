@@ -120,6 +120,7 @@ function KPICard({ label, value, icon, color, sublabel }: KPIProps) {
   return (
     <Paper
       elevation={0}
+      className="hover-lift"
       sx={{
         border: '1px solid #E5E7EB',
         borderRadius: '14px',
@@ -131,7 +132,7 @@ function KPICard({ label, value, icon, color, sublabel }: KPIProps) {
     >
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
         <Box>
-          <Typography fontSize={36} fontWeight={800} color={color} lineHeight={1.1}>
+          <Typography className="text-gradient" fontSize={36} fontWeight={800} color={color} lineHeight={1.1} sx={{ fontVariantNumeric: 'tabular-nums' }}>
             {value}
           </Typography>
           <Typography fontSize={12} color="text.secondary" mt={0.5} fontWeight={600}>
@@ -231,7 +232,7 @@ export default function DMSDashboard() {
         </Stack>
 
         {/* ── KPI Cards ─────────────────────────────────────────────────── */}
-        <Grid container spacing={2}>
+        <Grid container spacing={2} className="anim-stagger">
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <KPICard label="Total Documentos" value="1.847" icon={<Description />} color={DMS_COLOR} sublabel="En el repositorio" />
           </Grid>

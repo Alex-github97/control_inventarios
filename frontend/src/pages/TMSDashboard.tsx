@@ -103,10 +103,10 @@ const ENTREGAS: Entrega[] = [
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 const KPICard = ({ label, value, icon, color, sub }: KPI) => (
-  <Paper elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '14px', p: 2.5, height: '100%' }}>
+  <Paper elevation={0} className="hover-lift" sx={{ border: '1px solid #E5E7EB', borderRadius: '14px', p: 2.5, height: '100%' }}>
     <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
       <Box>
-        <Typography fontSize={28} fontWeight={800} color={color} lineHeight={1}>{value}</Typography>
+        <Typography className="text-gradient" fontSize={28} fontWeight={800} color={color} lineHeight={1} sx={{ fontVariantNumeric: 'tabular-nums' }}>{value}</Typography>
         <Typography fontSize={12} color="text.secondary" mt={0.5}>{label}</Typography>
         {sub && <Typography fontSize={11} color="text.secondary" mt={0.25}>{sub}</Typography>}
       </Box>
@@ -181,7 +181,7 @@ export default function TMSDashboard() {
         </Stack>
 
         {/* KPIs */}
-        <Grid container spacing={2} mb={3}>
+        <Grid container spacing={2} mb={3} className="anim-stagger">
           {kpis.map((kpi, i) => (
             <Grid key={i} size={{ xs: 12, sm: 6, md: 3 }}>
               <KPICard {...kpi} />

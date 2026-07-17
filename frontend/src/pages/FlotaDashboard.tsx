@@ -46,10 +46,10 @@ interface DocVehiculo {
 const fmt = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
 
 const KPICard = ({ label, value, color, icon, sub }: { label: string; value: string | number; color: string; icon: React.ReactNode; sub?: string }) => (
-  <Paper elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '14px', p: 2.5, height: '100%' }}>
+  <Paper elevation={0} className="hover-lift" sx={{ border: '1px solid #E5E7EB', borderRadius: '14px', p: 2.5, height: '100%' }}>
     <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
       <Box>
-        <Typography fontSize={28} fontWeight={800} color={color} lineHeight={1}>{value}</Typography>
+        <Typography className="text-gradient" fontSize={28} fontWeight={800} color={color} lineHeight={1} sx={{ fontVariantNumeric: 'tabular-nums' }}>{value}</Typography>
         <Typography fontSize={12} color="text.secondary" mt={0.25}>{label}</Typography>
         {sub && <Typography fontSize={11} color="text.secondary" mt={0.25}>{sub}</Typography>}
       </Box>
@@ -124,7 +124,7 @@ export default function FlotaDashboard() {
       </Stack>
 
       {/* KPIs flota */}
-      <Grid container spacing={2} mb={3}>
+      <Grid container spacing={2} mb={3} className="anim-stagger">
         <Grid size={{ xs: 6, md: 3 }}>
           <KPICard label="Vehículos activos" value={kpis?.vehiculos_activos ?? 0}
             color={GF_COLOR} icon={<VehiculoIcon />}
@@ -148,7 +148,7 @@ export default function FlotaDashboard() {
       </Grid>
 
       {/* KPIs económicos */}
-      <Grid container spacing={2} mb={3}>
+      <Grid container spacing={2} mb={3} className="anim-stagger">
         <Grid size={{ xs: 12, md: 4 }}>
           <Paper elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '14px', p: 2.5 }}>
             <Stack direction="row" gap={1.5} alignItems="center" mb={1}>

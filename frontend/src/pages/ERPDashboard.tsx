@@ -174,12 +174,14 @@ function KPICard({
         <Skeleton width="70%" height={44} />
       ) : (
         <Typography
+          className="text-gradient"
           sx={{
             fontSize: 26,
             fontWeight: 800,
-            color: '#0F172A',
+            color: iconColor,
             lineHeight: 1.1,
             letterSpacing: '-0.02em',
+            fontVariantNumeric: 'tabular-nums',
           }}
         >
           {value}
@@ -439,7 +441,7 @@ export default function ERPDashboard() {
         </Box>
 
         {/* ── KPI grid: 2 rows × 3 cols ─────────────────────────────────────── */}
-        <Grid container spacing={2}>
+        <Grid container spacing={2} className="anim-stagger">
 
           {/* 1. Total Facturado */}
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>

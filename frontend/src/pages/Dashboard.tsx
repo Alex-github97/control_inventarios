@@ -59,7 +59,7 @@ export default function Dashboard() {
   return (
     <Layout title="Dashboard">
       {/* KPIs Row */}
-      <Grid container spacing={2.5} sx={{ mb: 3 }}>
+      <Grid container spacing={2.5} sx={{ mb: 3 }} className="anim-stagger">
         <Grid item xs={6} sm={4} md={2}>
           <KPICard
             title="Total Estibas"

@@ -47,7 +47,7 @@ const cumplimientoArea = [
 
 function KPICard({ kpi }: { kpi: typeof kpis[0] }) {
   return (
-    <Box sx={{
+    <Box className="hover-lift" sx={{
       bgcolor: 'background.paper', border: `1px solid ${BORDER}`, borderRadius: 2,
       p: 2, display: 'flex', alignItems: 'center', gap: 2, height: 90,
     }}>
@@ -61,7 +61,7 @@ function KPICard({ kpi }: { kpi: typeof kpis[0] }) {
         {kpi.icon}
       </Box>
       <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontSize: 22, fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>
+        <Typography className="text-gradient" sx={{ fontSize: 22, fontWeight: 800, color: kpi.color, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
           {kpi.value}
           {kpi.unit && <Typography component="span" sx={{ fontSize: 12, fontWeight: 500, color: 'text.disabled', ml: 0.5 }}>{kpi.unit}</Typography>}
         </Typography>
@@ -96,7 +96,7 @@ export default function LMSDashboard() {
         </Box>
 
         {/* KPI Cards */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid container spacing={2} sx={{ mb: 3 }} className="anim-stagger">
           {kpis.map((k, i) => (
             <Grid key={i} size={{ xs: 12, sm: 6, md: 3 }}>
               <KPICard kpi={k} />

@@ -67,7 +67,7 @@ export default function GRCDashboard() {
         </Box>
 
         {/* KPI Cards */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid container spacing={2} sx={{ mb: 3 }} className="anim-stagger">
           {KPIs.map(k => (
             <Grid key={k.label} size={{ xs: 12, sm: 6, md: 3 }}>
               <Card sx={{ border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2 }}>
@@ -75,7 +75,7 @@ export default function GRCDashboard() {
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <Box>
                       <Typography sx={{ fontSize: 11, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>{k.label}</Typography>
-                      <Typography sx={{ fontSize: 26, fontWeight: 800, color: k.color, lineHeight: 1 }}>{k.value}</Typography>
+                      <Typography className="text-gradient" sx={{ fontSize: 26, fontWeight: 800, color: k.color, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{k.value}</Typography>
                       <Typography sx={{ fontSize: 11, color: 'text.secondary', mt: 0.5 }}>{k.sub}</Typography>
                     </Box>
                     <Box sx={{ color: alpha(k.color, 0.45), '& svg': { fontSize: 26 } }}>{k.icon}</Box>

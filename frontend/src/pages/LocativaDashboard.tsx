@@ -56,10 +56,10 @@ const KPICard = ({
 }: {
   label: string; value: string | number; color: string; icon: React.ReactNode; sub?: string
 }) => (
-  <Paper elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '14px', p: 2.5, height: '100%' }}>
+  <Paper elevation={0} className="hover-lift" sx={{ border: '1px solid #E5E7EB', borderRadius: '14px', p: 2.5, height: '100%' }}>
     <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
       <Box>
-        <Typography fontSize={28} fontWeight={800} color={color} lineHeight={1}>{value}</Typography>
+        <Typography className="text-gradient" fontSize={28} fontWeight={800} color={color} lineHeight={1} sx={{ fontVariantNumeric: 'tabular-nums' }}>{value}</Typography>
         <Typography fontSize={12} color="text.secondary" mt={0.25}>{label}</Typography>
         {sub && <Typography fontSize={11} color="text.secondary" mt={0.25}>{sub}</Typography>}
       </Box>
@@ -140,7 +140,7 @@ export default function LocativaDashboard() {
         <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: '0.08em', fontWeight: 700 }}>
           Activos
         </Typography>
-        <Grid container spacing={2} mt={0.25} mb={3}>
+        <Grid container spacing={2} mt={0.25} mb={3} className="anim-stagger">
           <Grid size={{ xs: 6, sm: 4, md: 2 }}>
             <KPICard label="Total activos" value={k?.total_activos ?? 0} color={ML_COLOR} icon={<ActivosIcon />} />
           </Grid>
@@ -171,7 +171,7 @@ export default function LocativaDashboard() {
         <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: '0.08em', fontWeight: 700 }}>
           Órdenes de trabajo · Confiabilidad
         </Typography>
-        <Grid container spacing={2} mt={0.25} mb={3}>
+        <Grid container spacing={2} mt={0.25} mb={3} className="anim-stagger">
           <Grid size={{ xs: 6, sm: 3 }}>
             <KPICard label="OT abiertas" value={k?.ot_abiertas ?? 0} color="#D97706" icon={<OTIcon />} />
           </Grid>

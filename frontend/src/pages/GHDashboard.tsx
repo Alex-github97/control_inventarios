@@ -119,6 +119,7 @@ function KPICard({ label, value, unit, target, icon, color, progressValue = 0, b
   return (
     <Paper
       elevation={0}
+      className="hover-lift"
       sx={{
         border: '1px solid #E5E7EB',
         borderRadius: '14px',
@@ -131,7 +132,7 @@ function KPICard({ label, value, unit, target, icon, color, progressValue = 0, b
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
         <Box>
           <Stack direction="row" alignItems="baseline" spacing={0.75}>
-            <Typography fontSize={60} fontWeight={800} color={color} lineHeight={1}>
+            <Typography className="text-gradient" fontSize={60} fontWeight={800} color={color} lineHeight={1} sx={{ fontVariantNumeric: 'tabular-nums' }}>
               {value}
             </Typography>
             {unit && (
@@ -196,6 +197,7 @@ function StatCard({ label, count, icon, color, sublabel, chip }: StatCardProps) 
   return (
     <Paper
       elevation={0}
+      className="hover-lift"
       sx={{
         border: '1px solid #E5E7EB',
         borderRadius: '14px',
@@ -205,7 +207,7 @@ function StatCard({ label, count, icon, color, sublabel, chip }: StatCardProps) 
     >
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
         <Box>
-          <Typography fontSize={36} fontWeight={800} color={color}>
+          <Typography className="text-gradient" fontSize={36} fontWeight={800} color={color} sx={{ fontVariantNumeric: 'tabular-nums' }}>
             {count}
           </Typography>
           <Typography fontSize={13} fontWeight={600} color="text.primary" mt={0.25}>
@@ -385,7 +387,7 @@ export default function GHDashboard() {
           >
             Indicadores de Fuerza Laboral
           </Typography>
-          <Grid container spacing={2}>
+          <Grid container spacing={2} className="anim-stagger">
             {/* Headcount Total */}
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               {kpisLoading ? (
@@ -503,7 +505,7 @@ export default function GHDashboard() {
           >
             Estado del Período
           </Typography>
-          <Grid container spacing={2}>
+          <Grid container spacing={2} className="anim-stagger">
             {/* Nuevos Ingresos */}
             <Grid size={{ xs: 12, sm: 4 }}>
               {kpisLoading ? (

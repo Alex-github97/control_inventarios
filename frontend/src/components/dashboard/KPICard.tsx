@@ -86,11 +86,11 @@ export function KPICard({
             </Box>
           </Box>
 
-          {/* Value */}
-          <Typography sx={{
-            fontSize: '2rem',
+          {/* Value — degradado hero derivado del color de acento */}
+          <Typography className="text-gradient" sx={{
+            fontSize: '2.1rem',
             fontWeight: 800,
-            color: '#0D1117',
+            color,
             lineHeight: 1,
             letterSpacing: '-0.03em',
             fontVariantNumeric: 'tabular-nums',

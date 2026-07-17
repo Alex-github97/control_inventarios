@@ -107,11 +107,20 @@ html, body {
   color: #F8FAFC;
 }
 
+/* Degradado hero que hereda el color del elemento (funciona con el color
+   de acento de cualquier módulo). Fallback: color sólido si no hay color-mix. */
 .text-gradient {
-  background: linear-gradient(92deg, #27884A, #32AC5C 45%, #5FD184);
+  background: linear-gradient(115deg, currentColor 25%, color-mix(in srgb, currentColor 45%, #ffffff) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+@supports not (color: color-mix(in srgb, red 50%, white)) {
+  .text-gradient {
+    background: none;
+    -webkit-text-fill-color: currentColor;
+  }
 }
 
 .hover-lift {

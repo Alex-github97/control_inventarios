@@ -77,7 +77,7 @@ export default function SSTDashboard() {
         </Box>
 
         {/* KPIs */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid container spacing={2} sx={{ mb: 3 }} className="anim-stagger">
           {kpis.map(k => (
             <Grid key={k.label} size={{ xs: 12, sm: 6, md: 3 }}>
               <Card sx={{ border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2 }}>
@@ -85,7 +85,7 @@ export default function SSTDashboard() {
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <Box>
                       <Typography sx={{ fontSize: 11, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>{k.label}</Typography>
-                      <Typography sx={{ fontSize: 28, fontWeight: 900, color: k.color, lineHeight: 1 }}>{k.value}{k.suffix}</Typography>
+                      <Typography className="text-gradient" sx={{ fontSize: 28, fontWeight: 900, color: k.color, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{k.value}{k.suffix}</Typography>
                     </Box>
                     <Box sx={{ color: alpha(k.color, 0.4), '& svg': { fontSize: 28 } }}>{k.icon}</Box>
                   </Box>

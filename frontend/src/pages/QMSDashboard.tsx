@@ -50,7 +50,7 @@ function KPICard({ label, value, color = QMS_COLOR, icon, trend }: KPICardProps)
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Box>
             <Typography sx={{ fontSize: 11, color: 'text.disabled', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</Typography>
-            <Typography sx={{ fontSize: 26, fontWeight: 800, color, lineHeight: 1 }}>{value}</Typography>
+            <Typography className="text-gradient" sx={{ fontSize: 26, fontWeight: 800, color, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{value}</Typography>
             {trend !== undefined && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
                 {trend >= 0 ? <TrendingUp sx={{ fontSize: 13, color: '#059669' }} /> : <TrendingDown sx={{ fontSize: 13, color: '#DC2626' }} />}
@@ -88,7 +88,7 @@ export default function QMSDashboard() {
         </Box>
 
         {/* KPIs Row 1 */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid container spacing={2} sx={{ mb: 3 }} className="anim-stagger">
           <Grid size={{ xs: 6, sm: 3 }}><KPICard label="Índice de Calidad" value="94.2%" color={QMS_COLOR} icon={<CheckCircle />} trend={1.3} /></Grid>
           <Grid size={{ xs: 6, sm: 3 }}><KPICard label="NC Abiertas" value="7" color="#DC2626" icon={<BugReport />} trend={-5} /></Grid>
           <Grid size={{ xs: 6, sm: 3 }}><KPICard label="Auditorías Pendientes" value="3" color="#D97706" icon={<FactCheck />} /></Grid>

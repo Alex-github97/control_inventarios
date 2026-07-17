@@ -25,7 +25,7 @@ function KPICard({ label, value, icon, color, sub }: KPIProps) {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Box>
             <Typography sx={{ fontSize: 11, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>{label}</Typography>
-            <Typography sx={{ fontSize: 26, fontWeight: 800, color, lineHeight: 1 }}>{value}</Typography>
+            <Typography className="text-gradient" sx={{ fontSize: 26, fontWeight: 800, color, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{value}</Typography>
             {sub && <Typography sx={{ fontSize: 11, color: 'text.disabled', mt: 0.5 }}>{sub}</Typography>}
           </Box>
           <Box sx={{ color: alpha(color, 0.45), '& svg': { fontSize: 26 } }}>{icon}</Box>
@@ -90,7 +90,7 @@ export default function SCMDashboard() {
         ) : (
           <>
             {/* KPIs */}
-            <Grid container spacing={2} sx={{ mb: 3 }}>
+            <Grid container spacing={2} sx={{ mb: 3 }} className="anim-stagger">
               <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                 <KPICard label="Solicitudes pendientes" value={kpis?.solicitudes_pendientes ?? 0} icon={<Pending />} color="#f59e0b" sub={`de ${kpis?.total_solicitudes ?? 0} totales`} />
               </Grid>

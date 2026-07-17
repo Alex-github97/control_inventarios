@@ -72,10 +72,10 @@ export default function CRMDashboard() {
         </Box>
 
         {/* KPI Cards */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid container spacing={2} sx={{ mb: 3 }} className="anim-stagger">
           {KPIS.map((k, i) => (
             <Grid key={i} size={{ xs: 6, sm: 4, lg: 3 }}>
-              <Box sx={{ border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2, p: 2, display: 'flex', gap: 1.5, alignItems: 'center' }}>
+              <Box className="hover-lift" sx={{ border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2, p: 2, display: 'flex', gap: 1.5, alignItems: 'center' }}>
                 <Box sx={{
                   width: 40, height: 40, borderRadius: '10px', flexShrink: 0,
                   background: `linear-gradient(135deg, ${k.color} 0%, ${alpha(k.color, 0.6)} 100%)`,
@@ -86,7 +86,7 @@ export default function CRMDashboard() {
                   {k.icon}
                 </Box>
                 <Box>
-                  <Typography sx={{ fontSize: 22, fontWeight: 900, color: 'text.primary', lineHeight: 1 }}>{k.value}</Typography>
+                  <Typography className="text-gradient" sx={{ fontSize: 22, fontWeight: 900, color: k.color, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{k.value}</Typography>
                   <Typography sx={{ fontSize: 10.5, color: 'text.secondary', mt: 0.25 }}>{k.label}</Typography>
                   <Typography sx={{ fontSize: 10, color: k.color, fontWeight: 600 }}>{k.sub}</Typography>
                 </Box>
