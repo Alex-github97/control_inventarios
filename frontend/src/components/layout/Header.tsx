@@ -57,12 +57,21 @@ export function Header({ title }: HeaderProps) {
       position="sticky"
       elevation={0}
       sx={{
-        bgcolor: 'rgba(255,255,255,0.85)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        borderBottom: '1px solid rgba(0,0,0,0.06)',
+        bgcolor: 'rgba(255,255,255,0.72)',
+        backdropFilter: 'blur(18px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(18px) saturate(180%)',
+        borderBottom: '1px solid rgba(0,0,0,0.05)',
         color: '#1E293B',
         zIndex: 1100,
+        // hairline degradado en el borde inferior
+        '&::after': {
+          content: '""',
+          position: 'absolute',
+          left: 0, right: 0, bottom: 0,
+          height: 1,
+          background: `linear-gradient(90deg, transparent, ${alpha(PRIMARY, 0.35)}, transparent)`,
+          pointerEvents: 'none',
+        },
       }}
     >
       <Toolbar sx={{ gap: 1, minHeight: '64px !important' }}>

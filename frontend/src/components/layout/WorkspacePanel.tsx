@@ -303,12 +303,19 @@ export function WorkspacePanel({ width, dragging }: WorkspacePanelProps) {
                   '&:hover': {
                     background: active ? alpha(ws.color, 0.2) : 'rgba(255,255,255,0.05)',
                     border: `1px solid ${active ? alpha(ws.color, 0.4) : 'rgba(255,255,255,0.08)'}`,
+                    transform: 'translateX(2px)',
+                    '& .ws-badge': {
+                      transform: 'scale(1.1) rotate(-3deg)',
+                      boxShadow: `0 6px 18px ${alpha(ws.color, 0.5)}`,
+                    },
                   },
-                  transition: 'all 0.15s ease',
+                  '&:active': { transform: 'translateX(2px) scale(0.98)' },
+                  transition: 'all 0.18s cubic-bezier(0.22,1,0.36,1)',
                 }}
               >
                 {/* Badge */}
                 <Box
+                  className="ws-badge"
                   sx={{
                     width: 34,
                     height: 34,
@@ -322,7 +329,7 @@ export function WorkspacePanel({ width, dragging }: WorkspacePanelProps) {
                     flexShrink: 0,
                     boxShadow: active ? `0 4px 14px ${alpha(ws.color, 0.38)}` : 'none',
                     border: active ? 'none' : '1px solid rgba(255,255,255,0.08)',
-                    transition: 'all 0.2s ease',
+                    transition: 'all 0.2s cubic-bezier(0.22,1,0.36,1)',
                   }}
                 >
                   <Typography

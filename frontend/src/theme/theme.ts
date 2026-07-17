@@ -239,13 +239,21 @@ export const theme = createTheme({
     MuiTableRow: {
       styleOverrides: {
         root: {
-          transition: 'background-color 0.12s ease',
-          '&:hover': { backgroundColor: alpha(PRIMARY, 0.035) },
+          transition: 'background-color 0.12s ease, box-shadow 0.12s ease',
+          '&:hover': {
+            backgroundColor: alpha(PRIMARY, 0.035),
+            // acento lateral tipo panel de instrumentos
+            boxShadow: `inset 2.5px 0 0 ${alpha(PRIMARY, 0.45)}`,
+          },
           '&:last-child td': { border: 0 },
           '&.Mui-selected': {
             backgroundColor: alpha(PRIMARY, 0.07),
+            boxShadow: `inset 2.5px 0 0 ${PRIMARY}`,
             '&:hover': { backgroundColor: alpha(PRIMARY, 0.10) },
           },
+        },
+        head: {
+          '&:hover': { backgroundColor: 'transparent', boxShadow: 'none' },
         },
       },
     },
@@ -255,6 +263,8 @@ export const theme = createTheme({
           borderColor: '#F1F5F9',
           padding: '12px 16px',
           fontSize: '0.875rem',
+          // dígitos de ancho fijo: las columnas numéricas quedan alineadas
+          fontVariantNumeric: 'tabular-nums',
         },
       },
     },
@@ -281,6 +291,9 @@ export const theme = createTheme({
       styleOverrides: {
         root: { borderRadius: 99, height: 6, backgroundColor: '#EEF2F6' },
         bar: { borderRadius: 99 },
+        barColorPrimary: {
+          background: `linear-gradient(90deg, ${PRIMARY_DARK}, ${PRIMARY} 60%, ${PRIMARY_LIGHT})`,
+        },
       },
     },
     MuiSkeleton: {
@@ -369,12 +382,15 @@ export const theme = createTheme({
       },
     },
     // ── Overlays ────────────────────────────────────────────────────────────
+    // Backdrop "deep-glass": desenfoca y desatura el fondo detrás de cualquier
+    // diálogo/detalle — el contenido queda flotando sobre la app distorsionada.
     MuiBackdrop: {
       styleOverrides: {
         root: {
           '&:not(.MuiBackdrop-invisible)': {
-            backgroundColor: 'rgba(15,23,42,0.45)',
-            backdropFilter: 'blur(3px)',
+            backgroundColor: 'rgba(10,15,28,0.42)',
+            backdropFilter: 'blur(12px) saturate(120%)',
+            WebkitBackdropFilter: 'blur(12px) saturate(120%)',
           },
         },
       },
@@ -382,11 +398,11 @@ export const theme = createTheme({
     MuiDialog: {
       styleOverrides: {
         paper: {
-          borderRadius: 20,
-          boxShadow: '0 24px 64px rgba(15,23,42,0.22), 0 0 0 1px rgba(15,23,42,0.05)',
-          animation: 'dialogIn 0.28s cubic-bezier(0.22,1,0.36,1)',
+          borderRadius: 22,
+          boxShadow: '0 32px 80px rgba(8,12,24,0.35), 0 8px 24px rgba(8,12,24,0.18), 0 0 0 1px rgba(255,255,255,0.55) inset',
+          animation: 'dialogIn 0.34s cubic-bezier(0.34,1.4,0.64,1)',
           '@keyframes dialogIn': {
-            from: { opacity: 0, transform: 'translateY(14px) scale(0.98)' },
+            from: { opacity: 0, transform: 'translateY(18px) scale(0.96)' },
             to:   { opacity: 1, transform: 'translateY(0) scale(1)' },
           },
         },
@@ -401,7 +417,10 @@ export const theme = createTheme({
       styleOverrides: {
         paper: {
           borderRadius: 12,
-          boxShadow: '0 12px 32px -8px rgba(15,23,42,0.18), 0 0 0 1px rgba(15,23,42,0.05)',
+          backgroundColor: 'rgba(255,255,255,0.88)',
+          backdropFilter: 'blur(16px) saturate(160%)',
+          WebkitBackdropFilter: 'blur(16px) saturate(160%)',
+          boxShadow: '0 16px 40px -8px rgba(15,23,42,0.22), 0 0 0 1px rgba(15,23,42,0.05)',
           marginTop: 4,
         },
         list: { padding: '6px' },
@@ -427,7 +446,25 @@ export const theme = createTheme({
       styleOverrides: {
         paper: {
           borderRadius: 12,
-          boxShadow: '0 12px 32px -8px rgba(15,23,42,0.18), 0 0 0 1px rgba(15,23,42,0.05)',
+          backgroundColor: 'rgba(255,255,255,0.9)',
+          backdropFilter: 'blur(16px) saturate(160%)',
+          WebkitBackdropFilter: 'blur(16px) saturate(160%)',
+          boxShadow: '0 16px 40px -8px rgba(15,23,42,0.22), 0 0 0 1px rgba(15,23,42,0.05)',
+        },
+      },
+    },
+    MuiAutocomplete: {
+      styleOverrides: {
+        paper: {
+          borderRadius: 12,
+          backgroundColor: 'rgba(255,255,255,0.92)',
+          backdropFilter: 'blur(16px) saturate(160%)',
+          boxShadow: '0 16px 40px -8px rgba(15,23,42,0.22), 0 0 0 1px rgba(15,23,42,0.05)',
+        },
+        option: {
+          borderRadius: 8,
+          margin: '2px 6px',
+          fontSize: '0.875rem',
         },
       },
     },

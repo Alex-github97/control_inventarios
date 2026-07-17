@@ -334,15 +334,43 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function PageLoader() {
   return (
     <Box sx={{
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      height: '100vh', bgcolor: '#060C1A',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      height: '100vh', gap: 3,
+      bgcolor: '#060C1A',
+      backgroundImage: `
+        radial-gradient(700px 380px at 50% 35%, rgba(50,172,92,0.10), transparent 65%),
+        radial-gradient(900px 460px at 80% 90%, rgba(59,130,246,0.06), transparent 60%)
+      `,
     }}>
-      <Box sx={{
-        width: 40, height: 40, borderRadius: '50%',
-        border: '3px solid #1E3A5F', borderTop: '3px solid #32AC5C',
-        animation: 'spin 0.7s linear infinite',
-        '@keyframes spin': { to: { transform: 'rotate(360deg)' } },
-      }} />
+      {/* Loader orbital: dos anillos contra-rotantes + núcleo pulsante */}
+      <Box sx={{ position: 'relative', width: 72, height: 72 }}>
+        <Box sx={{
+          position: 'absolute', inset: 0, borderRadius: '50%',
+          border: '2px solid transparent',
+          borderTopColor: '#32AC5C', borderRightColor: 'rgba(50,172,92,0.25)',
+          animation: 'orbit 1s cubic-bezier(0.6,0.15,0.4,0.85) infinite',
+        }} />
+        <Box sx={{
+          position: 'absolute', inset: 10, borderRadius: '50%',
+          border: '2px solid transparent',
+          borderBottomColor: '#3B82F6', borderLeftColor: 'rgba(59,130,246,0.2)',
+          animation: 'orbitReverse 1.6s cubic-bezier(0.6,0.15,0.4,0.85) infinite',
+        }} />
+        <Box sx={{
+          position: 'absolute', inset: 26, borderRadius: '50%',
+          background: 'radial-gradient(circle at 35% 30%, #5FD184, #27884A)',
+          boxShadow: '0 0 22px rgba(50,172,92,0.55)',
+          animation: 'pulseSoft 1.4s ease-in-out infinite',
+        }} />
+      </Box>
+      <Box sx={{ textAlign: 'center' }}>
+        <Typography sx={{ color: '#E2E8F0', fontWeight: 700, fontSize: 13.5, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+          Icoltrans
+        </Typography>
+        <Typography sx={{ color: 'rgba(148,163,184,0.7)', fontSize: 11.5, mt: 0.3, animation: 'pulseSoft 1.6s ease-in-out infinite' }}>
+          Cargando módulo…
+        </Typography>
+      </Box>
     </Box>
   )
 }
