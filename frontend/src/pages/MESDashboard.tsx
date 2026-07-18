@@ -29,7 +29,59 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import CloudDoneIcon from '@mui/icons-material/CloudDone';
+import { useQuery } from '@tanstack/react-query';
 import { Layout } from '@/components/layout/Layout';
+import { apiClient as api } from '@/api/client';
+
+// ─── Resumen operativo con datos REALES del backend ──────────────────────────
+interface KpisReales {
+  plantas: number; lineas: number; productos: number; ordenes_activas: number
+  boms_vigentes: number; operarios: number
+  oee_promedio?: number | null; unidades_producidas: number
+  scrap_rate: number; paradas_abiertas: number; inspecciones_pendientes: number
+}
+
+function ResumenOperativoReal() {
+  const { data: k } = useQuery<KpisReales>({
+    queryKey: ['mes-dashboard-kpis'],
+    queryFn: () => api.get('/mes/dashboard/kpis').then(r => r.data),
+    refetchInterval: 60000,
+  })
+  if (!k) return null
+  const items: { label: string; value: string; color: string; alerta?: boolean }[] = [
+    { label: 'OEE promedio', value: k.oee_promedio != null ? `${k.oee_promedio}%` : '—', color: (k.oee_promedio ?? 0) >= 85 ? '#16A34A' : (k.oee_promedio ?? 0) >= 60 ? '#D97706' : '#DC2626' },
+    { label: 'Unidades producidas', value: k.unidades_producidas.toLocaleString('es-CO'), color: '#0891B2' },
+    { label: 'Scrap rate', value: `${k.scrap_rate}%`, color: k.scrap_rate > 5 ? '#DC2626' : k.scrap_rate > 2.5 ? '#D97706' : '#16A34A' },
+    { label: 'Órdenes activas', value: String(k.ordenes_activas), color: '#2563EB' },
+    { label: 'Paradas abiertas', value: String(k.paradas_abiertas), color: k.paradas_abiertas > 0 ? '#DC2626' : '#16A34A', alerta: k.paradas_abiertas > 0 },
+    { label: 'Insp. pendientes', value: String(k.inspecciones_pendientes), color: k.inspecciones_pendientes > 0 ? '#D97706' : '#16A34A', alerta: k.inspecciones_pendientes > 0 },
+  ]
+  return (
+    <Paper elevation={0} sx={{ bgcolor: BG_CARD, border: `1px solid ${MES_BORDER}`, borderRadius: 2, p: 1.5, mb: 2 }}>
+      <Stack direction="row" alignItems="center" gap={0.75} mb={1}>
+        <CloudDoneIcon sx={{ fontSize: 15, color: '#16A34A' }} />
+        <Typography fontSize={11} fontWeight={700} color="text.secondary" letterSpacing="0.06em" textTransform="uppercase">
+          Resumen operativo · datos reales del sistema
+        </Typography>
+      </Stack>
+      <Grid container spacing={1.5} className="anim-stagger">
+        {items.map(it => (
+          <Grid key={it.label} size={{ xs: 6, sm: 4, md: 2 }}>
+            <Box sx={{ borderRadius: 1.5, p: 1, bgcolor: alpha(it.color, 0.06), border: `1px solid ${alpha(it.color, 0.2)}` }}>
+              <Typography className="text-gradient" fontSize={20} fontWeight={800} color={it.color} lineHeight={1.1} sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                {it.value}
+              </Typography>
+              <Typography fontSize={10} fontWeight={600} color="text.secondary" noWrap>
+                {it.label}{it.alerta ? ' ⚠' : ''}
+              </Typography>
+            </Box>
+          </Grid>
+        ))}
+      </Grid>
+    </Paper>
+  )
+}
 
 // ─── Theme Constants ──────────────────────────────────────────────────────────
 const MES_COLOR = '#0891B2';
@@ -1100,6 +1152,9 @@ const MESDashboard: React.FC = () => {
               )}
             </Stack>
           </Paper>
+
+          {/* ── Resumen operativo real (backend) ── */}
+          <ResumenOperativoReal />
 
           {/* ── KPI Strip ── */}
           <Grid container spacing={1.5} sx={{ mb: 3 }} className="anim-stagger">
