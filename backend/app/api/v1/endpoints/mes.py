@@ -16,6 +16,7 @@ from app.infrastructure.models.mes import (
     MESChecklistEjecucion, MESKPIDiario,
     EstadoOrdenProduccionEnum, PrioridadOrdenMESEnum,
     EstadoEjecucionMESEnum, ResultadoInspeccionMESEnum, EstadoLoteMESEnum,
+    TipoMovimientoWIPEnum,
 )
 
 router = APIRouter(prefix='/mes', tags=['MES'])
@@ -152,6 +153,10 @@ class OrdenResponse(BaseModel):
     id: int; numero: str; producto_id: int; estado: str; prioridad: str
     cantidad_planificada: float; cantidad_producida: float; cantidad_scrap: float
     linea_id: Optional[int] = None
+    fecha_inicio_plan: Optional[datetime] = None
+    fecha_fin_plan: Optional[datetime] = None
+    fecha_inicio_real: Optional[datetime] = None
+    fecha_fin_real: Optional[datetime] = None
 
 class LoteCreate(BaseModel):
     numero_lote: str
@@ -419,6 +424,140 @@ async def add_bom_detalle(bom_id: int, data: BOMDetalleCreate, db: AsyncSession 
     return obj
 
 
+# ─── Celdas de trabajo ───────────────────────────────────────────────────────
+
+class CeldaCreate(BaseModel):
+    linea_id: int
+    codigo: str
+    nombre: str
+    descripcion: Optional[str] = None
+
+class CeldaResponse(CeldaCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    activo: bool
+
+@router.get('/celdas', response_model=List[CeldaResponse])
+async def list_celdas(linea_id: Optional[int] = None, db: AsyncSession = Depends(get_db)):
+    q = select(MESCeldaTrabajo).where(MESCeldaTrabajo.activo == True)
+    if linea_id:
+        q = q.where(MESCeldaTrabajo.linea_id == linea_id)
+    result = await db.execute(q)
+    return result.scalars().all()
+
+@router.post('/celdas', response_model=CeldaResponse, status_code=201)
+async def create_celda(data: CeldaCreate, db: AsyncSession = Depends(get_db)):
+    if not await db.get(MESLinea, data.linea_id):
+        raise HTTPException(404, 'Línea no encontrada')
+    obj = MESCeldaTrabajo(**data.model_dump())
+    db.add(obj)
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+
+# ─── WIP (inventario en proceso) ─────────────────────────────────────────────
+
+class WIPCreate(BaseModel):
+    orden_id: int
+    celda_id: int
+    producto_id: int
+    lote_id: Optional[int] = None
+    tipo_mov: str = 'ENTRADA'          # ENTRADA/SALIDA/TRANSFERENCIA/AJUSTE
+    cantidad: float
+    unidad_medida: str = 'UN'
+    observaciones: Optional[str] = None
+
+class WIPResponse(WIPCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    fecha_mov: Optional[datetime] = None
+
+@router.get('/wip', response_model=List[WIPResponse])
+async def list_wip(
+    orden_id: Optional[int] = None,
+    celda_id: Optional[int] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    q = select(MESWIP)
+    if orden_id:
+        q = q.where(MESWIP.orden_id == orden_id)
+    if celda_id:
+        q = q.where(MESWIP.celda_id == celda_id)
+    result = await db.execute(q.order_by(MESWIP.fecha_mov.desc()))
+    return result.scalars().all()
+
+@router.post('/wip', response_model=WIPResponse, status_code=201)
+async def create_wip(data: WIPCreate, db: AsyncSession = Depends(get_db)):
+    if data.tipo_mov not in TipoMovimientoWIPEnum.__members__:
+        raise HTTPException(422, f'Tipo de movimiento inválido: {data.tipo_mov}')
+    if data.cantidad <= 0:
+        raise HTTPException(422, 'La cantidad debe ser mayor que cero')
+    orden = await db.get(MESOrdenProduccion, data.orden_id)
+    if not orden:
+        raise HTTPException(404, 'Orden no encontrada')
+    if orden.estado not in (EstadoOrdenProduccionEnum.LIBERADA, EstadoOrdenProduccionEnum.EN_EJECUCION):
+        raise HTTPException(409, f'La orden está {orden.estado.value}: el WIP solo se mueve con la orden liberada o en ejecución')
+    if not await db.get(MESCeldaTrabajo, data.celda_id):
+        raise HTTPException(404, 'Celda de trabajo no encontrada')
+    obj = MESWIP(**data.model_dump(), fecha_mov=datetime.utcnow())
+    db.add(obj)
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+@router.get('/wip/saldos')
+async def saldos_wip(db: AsyncSession = Depends(get_db)):
+    """Saldo de WIP por (celda, producto): entradas − salidas ± ajustes."""
+    r = await db.execute(select(MESWIP))
+    saldos: dict = {}
+    for w in r.scalars().all():
+        key = (w.celda_id, w.producto_id)
+        signo = 1 if w.tipo_mov in (TipoMovimientoWIPEnum.ENTRADA, TipoMovimientoWIPEnum.AJUSTE) else -1
+        if w.tipo_mov == TipoMovimientoWIPEnum.AJUSTE:
+            signo = 1  # el ajuste llega con signo implícito positivo; negativo se registra como SALIDA
+        saldos[key] = saldos.get(key, 0) + signo * w.cantidad
+    return [
+        {'celda_id': c, 'producto_id': p, 'saldo': round(s, 3)}
+        for (c, p), s in sorted(saldos.items()) if abs(s) > 1e-9
+    ]
+
+
+# ─── Consumos de material ────────────────────────────────────────────────────
+
+class ConsumoCreate(BaseModel):
+    orden_id: int
+    producto_id: int
+    lote_id: Optional[int] = None
+    cantidad_plan: float
+    cantidad_real: float = 0.0
+    unidad_medida: str = 'UN'
+    operario_id: Optional[int] = None
+
+class ConsumoResponse(ConsumoCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    fecha_consumo: Optional[datetime] = None
+
+@router.get('/consumos', response_model=List[ConsumoResponse])
+async def list_consumos(orden_id: Optional[int] = None, db: AsyncSession = Depends(get_db)):
+    q = select(MESConsumoMaterial)
+    if orden_id:
+        q = q.where(MESConsumoMaterial.orden_id == orden_id)
+    result = await db.execute(q.order_by(MESConsumoMaterial.created_at.desc()))
+    return result.scalars().all()
+
+@router.post('/consumos', response_model=ConsumoResponse, status_code=201)
+async def create_consumo(data: ConsumoCreate, db: AsyncSession = Depends(get_db)):
+    if not await db.get(MESOrdenProduccion, data.orden_id):
+        raise HTTPException(404, 'Orden no encontrada')
+    obj = MESConsumoMaterial(**data.model_dump(), fecha_consumo=datetime.utcnow())
+    db.add(obj)
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+
 # ─── Recetas ─────────────────────────────────────────────────────────────────
 
 @router.get('/recetas', response_model=List[RecetaResponse])
@@ -491,6 +630,41 @@ async def get_orden(orden_id: int, db: AsyncSession = Depends(get_db)):
     if not obj:
         raise HTTPException(404, 'Orden no encontrada')
     return obj
+
+class OrdenReplan(BaseModel):
+    linea_id: Optional[int] = None
+    prioridad: Optional[str] = None
+    fecha_inicio_plan: Optional[datetime] = None
+    fecha_fin_plan: Optional[datetime] = None
+    observaciones: Optional[str] = None
+
+@router.put('/ordenes/{orden_id}', response_model=OrdenResponse)
+async def replanificar_orden(orden_id: int, data: OrdenReplan, db: AsyncSession = Depends(get_db)):
+    """Replanificación controlada: solo órdenes PLANEADA o LIBERADA admiten
+    cambios de línea/fechas/prioridad (cambio controlado — ISO 9001 §8.5.6)."""
+    obj = await db.get(MESOrdenProduccion, orden_id)
+    if not obj:
+        raise HTTPException(404, 'Orden no encontrada')
+    if obj.estado not in (EstadoOrdenProduccionEnum.PLANEADA, EstadoOrdenProduccionEnum.LIBERADA):
+        raise HTTPException(409, f'La orden está {obj.estado.value}: solo se replanifica en PLANEADA o LIBERADA')
+    if data.prioridad is not None:
+        if data.prioridad not in PrioridadOrdenMESEnum.__members__:
+            raise HTTPException(422, f'Prioridad inválida: {data.prioridad}')
+        obj.prioridad = PrioridadOrdenMESEnum[data.prioridad]
+    if data.linea_id is not None:
+        if not await db.get(MESLinea, data.linea_id):
+            raise HTTPException(404, 'Línea no encontrada')
+        obj.linea_id = data.linea_id
+    if data.fecha_inicio_plan is not None:
+        obj.fecha_inicio_plan = data.fecha_inicio_plan
+    if data.fecha_fin_plan is not None:
+        obj.fecha_fin_plan = data.fecha_fin_plan
+    if data.observaciones:
+        obj.observaciones = data.observaciones
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
 
 @router.put('/ordenes/{orden_id}/estado')
 async def update_orden_estado(orden_id: int, estado: str, db: AsyncSession = Depends(get_db)):
