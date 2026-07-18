@@ -4,7 +4,7 @@ import {
   Box, Typography, Tabs, Tab, Table, TableHead, TableBody, TableRow, TableCell,
   Paper, Chip, Card, CardContent, Alert, TextField, MenuItem, Button, Dialog,
   DialogTitle, DialogContent, DialogActions, IconButton, Stack, Tooltip, alpha,
-  Switch, FormControlLabel, Badge, Divider,
+  Switch, FormControlLabel, Badge, Divider, Menu, ListItemIcon, ListItemText,
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
 import {
@@ -65,6 +65,7 @@ export default function EAMNeumaticos() {
   const [overSlot, setOverSlot] = useState<string>('')
 
   // Diálogos
+  const [slotMenu, setSlotMenu] = useState<null | { anchor: HTMLElement; tire: Neumatico; pos: string }>(null)
   const [movDialog, setMovDialog] = useState<null | { tire: Neumatico; tipo: string; posicion?: string }>(null)
   const [movForm, setMovForm] = useState({ fecha: nowLocal(), km_odometro: '', bodega_id: '', tecnico: '', observaciones: '' })
   const [bajaDialog, setBajaDialog] = useState<Neumatico | null>(null)
@@ -332,33 +333,38 @@ export default function EAMNeumaticos() {
   const Slot = ({ pos }: { pos: Posicion }) => {
     const t = tireEn(pos.codigo)
     const activo = overSlot === pos.codigo
+    const bajo = t?.profundidad_actual != null && t.profundidad_actual <= cfgForm.profundidad_minima
+    const invertida = t?.orientacion === 'INVERTIDA'
     return (
       <Tooltip arrow title={t
-        ? `${t.codigo} · ${t.marca ?? ''} ${t.medida ?? ''}${t.profundidad_actual != null ? ` · ${t.profundidad_actual}mm` : ''}${t.reencauches ? ` · R${t.reencauches}` : ''} — ${pos.label}`
+        ? `${t.codigo} · ${t.marca ?? ''} ${t.medida ?? ''}${t.profundidad_actual != null ? ` · ${t.profundidad_actual}mm` : ''}${t.reencauches ? ` · R${t.reencauches}` : ''}${invertida ? ' · ⇅ invertida' : ''} — ${pos.label} · clic para acciones`
         : `${pos.label} · vacío`}>
         <Box
           draggable={!!t}
           onDragStart={() => { if (t) setDraggedTire(t) }}
           onDragEnd={() => setDraggedTire(null)}
-          onClick={() => { if (t) setHistTire(t) }}
+          onClick={(e) => { if (t) setSlotMenu({ anchor: e.currentTarget, tire: t, pos: pos.codigo }) }}
           onDragOver={(e) => { e.preventDefault(); setOverSlot(pos.codigo) }}
           onDragLeave={() => setOverSlot('')}
           onDrop={() => soltarEnPosicion(pos.codigo)}
           sx={{
+            position: 'relative',
             width: 44, height: 66, borderRadius: '11px',
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            cursor: t ? 'grab' : 'default', '&:active': { cursor: t ? 'grabbing' : 'default' },
-            border: '2px solid', borderColor: activo ? EAM_COLOR : t ? '#0F172A' : '#CBD5E1',
+            cursor: t ? 'pointer' : 'default', '&:active': { cursor: t ? 'grabbing' : 'default' },
+            border: '2px solid', borderColor: activo ? EAM_COLOR : bajo ? '#DC2626' : t ? '#0F172A' : '#CBD5E1',
             bgcolor: activo ? alpha(EAM_COLOR, 0.18) : t ? '#1F2937' : '#F1F5F9',
             color: t ? '#fff' : 'text.disabled',
-            boxShadow: t ? 'inset 0 0 0 4px #0F172A, 0 1px 3px rgba(0,0,0,.25)' : 'none',
+            boxShadow: t ? `inset 0 0 0 4px ${bajo ? '#7F1D1D' : '#0F172A'}, 0 1px 3px rgba(0,0,0,.25)` : 'none',
             transition: 'all .12s',
           }}
         >
+          {invertida && <Box sx={{ position: 'absolute', top: -5, right: -5, width: 14, height: 14, borderRadius: '50%', bgcolor: '#7C3AED', color: '#fff', fontSize: 9, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 2px rgba(0,0,0,.4)' }}>⇅</Box>}
           {t ? (
             <>
-              <TireRepair sx={{ fontSize: 15, color: '#CBD5E1' }} />
+              <TireRepair sx={{ fontSize: 15, color: bajo ? '#FCA5A5' : '#CBD5E1' }} />
               <Typography fontSize={7.5} fontWeight={700} sx={{ mt: 0.2, lineHeight: 1, textAlign: 'center', px: 0.25, maxWidth: 40 }} noWrap>{t.codigo}</Typography>
+              {t.profundidad_actual != null && <Typography fontSize={7} fontWeight={700} sx={{ color: bajo ? '#FCA5A5' : '#94A3B8', lineHeight: 1 }}>{t.profundidad_actual}mm</Typography>}
             </>
           ) : <Typography fontSize={18} fontWeight={300} color="text.disabled">+</Typography>}
         </Box>
@@ -1016,6 +1022,33 @@ export default function EAMNeumaticos() {
             </Grid>
           </Grid>
         )}
+
+        {/* ── Menú contextual de la llanta en el diagrama ── */}
+        <Menu anchorEl={slotMenu?.anchor} open={!!slotMenu} onClose={() => setSlotMenu(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }} transformOrigin={{ vertical: 'top', horizontal: 'center' }}>
+          {slotMenu && [
+            <Box key="hdr" sx={{ px: 2, py: 1, borderBottom: '1px solid #F1F5F9' }}>
+              <Typography fontSize={13} fontWeight={800} color={EAM_DARK}>{slotMenu.tire.codigo}</Typography>
+              <Typography fontSize={11} color="text.secondary">{slotMenu.tire.marca ?? ''} {slotMenu.tire.medida ?? ''} · {slotMenu.pos}{slotMenu.tire.orientacion === 'INVERTIDA' ? ' · ⇅ invertida' : ''}</Typography>
+            </Box>,
+            <MenuItem key="insp" onClick={() => { setInspForm({ ...EMPTY_INSP, km_odometro: veh?.odometro_actual != null ? String(veh.odometro_actual) : '' }); setInspDialog(slotMenu.tire); setSlotMenu(null) }}>
+              <ListItemIcon><Straighten sx={{ fontSize: 18, color: EAM_COLOR }} /></ListItemIcon><ListItemText>Inspeccionar</ListItemText>
+            </MenuItem>,
+            <MenuItem key="rot" onClick={() => { setRotTarget(''); setRotDialog(slotMenu.tire); setSlotMenu(null) }}>
+              <ListItemIcon><SwapIcon sx={{ fontSize: 18, color: '#D97706' }} /></ListItemIcon><ListItemText>Rotar (intercambiar)</ListItemText>
+            </MenuItem>,
+            <MenuItem key="volt" disabled={!/-(INT|EXT)$/.test(slotMenu.pos)} onClick={() => { setVoltearDialog(slotMenu.tire); setSlotMenu(null) }}>
+              <ListItemIcon><Autorenew sx={{ fontSize: 18, color: '#7C3AED' }} /></ListItemIcon><ListItemText>Voltear (int↔ext)</ListItemText>
+            </MenuItem>,
+            <Divider key="d1" />,
+            <MenuItem key="hist" onClick={() => { setHistTire(slotMenu.tire); setSlotMenu(null) }}>
+              <ListItemIcon><HistoryIcon sx={{ fontSize: 18, color: '#2563EB' }} /></ListItemIcon><ListItemText>Historial de movimientos</ListItemText>
+            </MenuItem>,
+            <MenuItem key="desm" onClick={() => { setMovForm({ fecha: nowLocal(), km_odometro: '', bodega_id: '', tecnico: '', observaciones: '' }); setMovDialog({ tire: slotMenu.tire, tipo: 'DESMONTAJE' }); setSlotMenu(null) }}>
+              <ListItemIcon><WarehouseIcon sx={{ fontSize: 18, color: '#64748B' }} /></ListItemIcon><ListItemText>Desmontar a bodega</ListItemText>
+            </MenuItem>,
+          ]}
+        </Menu>
 
         {/* ── Diálogo movimiento (instalación/rotación/desmontaje) ── */}
         <Dialog open={!!movDialog} onClose={() => setMovDialog(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
