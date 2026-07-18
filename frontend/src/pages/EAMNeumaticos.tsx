@@ -34,6 +34,7 @@ interface Neumatico {
   km_actual: number; km_total: number; profundidad_actual?: number | null; profundidad_diseño?: number | null
   reencauches: number; costo?: number | null; proveedor?: string | null
   tipo_uso?: string | null; presion_actual?: number | null; presion_recomendada?: number | null; vida_util_km?: number | null; km_inicio?: number
+  orientacion?: string | null; profundidad_externa?: number | null; profundidad_interna?: number | null
 }
 interface Bodega { id: number; codigo: string; nombre: string; ubicacion?: string }
 interface Dano { id: number; codigo: string; nombre: string; severidad: string; accion: string }
@@ -77,6 +78,9 @@ export default function EAMNeumaticos() {
   const [inspVehId, setInspVehId] = useState<string>('')
   const [inspDialog, setInspDialog] = useState<Neumatico | null>(null)   // llanta a inspeccionar
   const [chartTire, setChartTire] = useState<Neumatico | null>(null)     // llanta cuya gráfica/historial se ve
+  const [rotDialog, setRotDialog] = useState<Neumatico | null>(null)     // llanta a intercambiar (rotación)
+  const [rotTarget, setRotTarget] = useState<string>('')                 // llanta destino del intercambio
+  const [voltearDialog, setVoltearDialog] = useState<Neumatico | null>(null)
   const EMPTY_INSP = { fecha: nowLocal(), profundidad_izq: '', profundidad_centro: '', profundidad_der: '', presion_psi: '', km_odometro: '', estado_visual: 'BUENO', tecnico: '', observaciones: '' }
   const [inspForm, setInspForm] = useState({ ...EMPTY_INSP })
   // Consultas
@@ -208,6 +212,18 @@ export default function EAMNeumaticos() {
     mutationFn: (body: Record<string, unknown>) => api.post(`/eam/neumaticos/${inspDialog!.id}/inspecciones`, body),
     onSuccess: () => { toast.success('Inspección registrada'); qc.invalidateQueries({ queryKey: ['eam-insp'] }); invalidarNeu(); setInspDialog(null); setInspForm({ ...EMPTY_INSP }) },
     onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al registrar inspección'),
+  })
+  // Voltear (invertir interna↔externa en la misma posición)
+  const mutVoltear = useMutation({
+    mutationFn: (nid: number) => api.post('/eam/neumaticos/movimiento', { neumatico_id: nid, tipo_movimiento: 'VOLTEO', fecha: new Date().toISOString() }),
+    onSuccess: () => { toast.success('Llanta volteada · hombros interno/externo invertidos'); invalidarNeu(); qc.invalidateQueries({ queryKey: ['eam-mov'] }); setVoltearDialog(null) },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo voltear'),
+  })
+  // Rotación por intercambio de posiciones entre dos llantas
+  const mutIntercambio = useMutation({
+    mutationFn: (body: Record<string, unknown>) => api.post('/eam/neumaticos/rotacion-intercambio', body),
+    onSuccess: () => { toast.success('Rotación realizada · posiciones intercambiadas'); invalidarNeu(); qc.invalidateQueries({ queryKey: ['eam-mov'] }); setRotDialog(null); setRotTarget('') },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo rotar'),
   })
   // Configuración global
   const mutCfg = useMutation({
@@ -553,27 +569,34 @@ export default function EAMNeumaticos() {
                     <Box sx={{ overflowX: 'auto' }}>
                       <Table size="small">
                         <TableHead><TableRow sx={{ bgcolor: alpha(EAM_COLOR, 0.08) }}>
-                          {['Pos.', 'Código', 'Llanta', 'Uso', 'Vida (R)', 'Prof. actual (mm)', 'Presión (psi)', 'Km recorridos', 'Acciones'].map(h => <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11, whiteSpace: 'nowrap' }}>{h}</TableCell>)}
+                          {['Pos.', 'Código', 'Llanta', 'Uso', 'Vida (R)', 'Prof. actual (mm)', 'Ext / Int (mm)', 'Presión (psi)', 'Km recorridos', 'Acciones'].map(h => <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11, whiteSpace: 'nowrap' }}>{h}</TableCell>)}
                         </TableRow></TableHead>
                         <TableBody>
                           {inspLayout.map(p => {
                             const t = tireEnInsp(p.codigo)
                             const cfg = cfgForm
                             const bajo = t?.profundidad_actual != null && t.profundidad_actual <= cfg.profundidad_minima
+                            const dualPos = /-(INT|EXT)$/.test(p.codigo)   // posición dual (permite volteo)
                             return (
                               <TableRow key={p.codigo} hover>
                                 <TableCell><Chip size="small" label={p.label} sx={{ fontSize: 10 }} /></TableCell>
-                                <TableCell sx={{ fontWeight: 700 }}>{t?.codigo ?? '—'}</TableCell>
+                                <TableCell sx={{ fontWeight: 700 }}>
+                                  {t?.codigo ?? '—'}
+                                  {t?.orientacion === 'INVERTIDA' && <Tooltip title="Montaje invertido (volteada)"><Chip size="small" label="⇅" sx={{ ml: 0.5, height: 16, fontSize: 10, bgcolor: alpha('#7C3AED', 0.12), color: '#7C3AED' }} /></Tooltip>}
+                                </TableCell>
                                 <TableCell>{t ? `${t.marca ?? ''} ${t.medida ?? ''}`.trim() || '—' : <Typography fontSize={12} color="text.secondary">Vacía</Typography>}</TableCell>
-                                <TableCell>{t?.tipo ?? '—'}</TableCell>
+                                <TableCell>{t?.tipo_uso ?? t?.tipo ?? '—'}</TableCell>
                                 <TableCell>{t ? (t.reencauches ? `R${t.reencauches}` : 'VN') : '—'}</TableCell>
                                 <TableCell sx={{ fontWeight: 700, color: bajo ? '#DC2626' : 'inherit' }}>{t?.profundidad_actual ?? '—'}</TableCell>
-                                <TableCell>{(t as any)?.presion_actual ?? '—'}</TableCell>
+                                <TableCell sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{t?.profundidad_externa != null || t?.profundidad_interna != null ? `${t?.profundidad_externa ?? '–'} / ${t?.profundidad_interna ?? '–'}` : '—'}</TableCell>
+                                <TableCell>{t?.presion_actual ?? '—'}</TableCell>
                                 <TableCell>{t?.km_total != null ? t.km_total.toLocaleString('es-CO') : '—'}</TableCell>
                                 <TableCell>
                                   {t && (
-                                    <Stack direction="row" gap={0.5}>
+                                    <Stack direction="row" gap={0.25}>
                                       <Tooltip title="Crear inspección"><IconButton size="small" onClick={() => { setInspForm({ ...EMPTY_INSP, km_odometro: inspVeh.odometro_actual != null ? String(inspVeh.odometro_actual) : '' }); setInspDialog(t) }} sx={{ color: EAM_COLOR }}><Straighten sx={{ fontSize: 17 }} /></IconButton></Tooltip>
+                                      <Tooltip title="Rotar (intercambiar posición)"><IconButton size="small" onClick={() => { setRotTarget(''); setRotDialog(t) }} sx={{ color: '#D97706' }}><SwapIcon sx={{ fontSize: 17 }} /></IconButton></Tooltip>
+                                      <Tooltip title={dualPos ? 'Voltear (invertir interno↔externo)' : 'El volteo aplica a llantas duales'}><span><IconButton size="small" disabled={!dualPos} onClick={() => setVoltearDialog(t)} sx={{ color: '#7C3AED' }}><Autorenew sx={{ fontSize: 17 }} /></IconButton></span></Tooltip>
                                       <Tooltip title="Gráfica / historial"><IconButton size="small" onClick={() => setChartTire(t)} sx={{ color: '#2563EB' }}><ShowChart sx={{ fontSize: 17 }} /></IconButton></Tooltip>
                                     </Stack>
                                   )}
@@ -581,7 +604,7 @@ export default function EAMNeumaticos() {
                               </TableRow>
                             )
                           })}
-                          {inspLayout.length === 0 && <TableRow><TableCell colSpan={9} align="center"><Typography color="text.secondary" py={2}>Configure el número de ejes del vehículo en la pestaña Vehículo / Diagrama.</Typography></TableCell></TableRow>}
+                          {inspLayout.length === 0 && <TableRow><TableCell colSpan={10} align="center"><Typography color="text.secondary" py={2}>Configure el número de ejes del vehículo en la pestaña Vehículo / Diagrama.</Typography></TableCell></TableRow>}
                         </TableBody>
                       </Table>
                     </Box>
@@ -1154,9 +1177,9 @@ export default function EAMNeumaticos() {
           <DialogContent dividers>
             <Grid container spacing={1.5} sx={{ pt: 0.5 }}>
               <Grid size={{ xs: 12 }}><TextField label="Fecha y hora *" type="datetime-local" size="small" fullWidth value={inspForm.fecha} onChange={e => setInspForm(f => ({ ...f, fecha: e.target.value }))} InputLabelProps={{ shrink: true }} /></Grid>
-              <Grid size={{ xs: 4 }}><TextField label="Prof. Izq (mm)" type="number" size="small" fullWidth value={inspForm.profundidad_izq} onChange={e => setInspForm(f => ({ ...f, profundidad_izq: e.target.value }))} /></Grid>
+              <Grid size={{ xs: 4 }}><TextField label="Prof. Externa (mm)" type="number" size="small" fullWidth value={inspForm.profundidad_izq} onChange={e => setInspForm(f => ({ ...f, profundidad_izq: e.target.value }))} helperText="Hombro externo" /></Grid>
               <Grid size={{ xs: 4 }}><TextField label="Centro" type="number" size="small" fullWidth value={inspForm.profundidad_centro} onChange={e => setInspForm(f => ({ ...f, profundidad_centro: e.target.value }))} /></Grid>
-              <Grid size={{ xs: 4 }}><TextField label="Der" type="number" size="small" fullWidth value={inspForm.profundidad_der} onChange={e => setInspForm(f => ({ ...f, profundidad_der: e.target.value }))} /></Grid>
+              <Grid size={{ xs: 4 }}><TextField label="Interna" type="number" size="small" fullWidth value={inspForm.profundidad_der} onChange={e => setInspForm(f => ({ ...f, profundidad_der: e.target.value }))} helperText="Hombro interno" /></Grid>
               <Grid size={{ xs: 6 }}><TextField label="Presión (psi)" type="number" size="small" fullWidth value={inspForm.presion_psi} onChange={e => setInspForm(f => ({ ...f, presion_psi: e.target.value }))} /></Grid>
               <Grid size={{ xs: 6 }}><TextField label="Odómetro (km)" type="number" size="small" fullWidth value={inspForm.km_odometro} onChange={e => setInspForm(f => ({ ...f, km_odometro: e.target.value }))} /></Grid>
               <Grid size={{ xs: 6 }}><TextField select label="Estado visual" size="small" fullWidth value={inspForm.estado_visual} onChange={e => setInspForm(f => ({ ...f, estado_visual: e.target.value }))}>{['BUENO', 'REGULAR', 'CRITICO'].map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}</TextField></Grid>
@@ -1178,6 +1201,58 @@ export default function EAMNeumaticos() {
                 observaciones: inspForm.observaciones || undefined,
               })}
               sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Guardar inspección</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* ── Diálogo rotar (intercambiar posición) ── */}
+        <Dialog open={!!rotDialog} onClose={() => setRotDialog(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: 16, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <SwapIcon sx={{ color: '#D97706' }} /> Rotar llanta
+          </DialogTitle>
+          <DialogContent dividers>
+            <Typography fontSize={13} mb={1.5}>
+              Intercambia <b>{rotDialog?.codigo}</b> ({rotDialog?.posicion}) con otra llanta instalada. Ambas quedan en la posición de la otra.
+            </Typography>
+            <TextField select label="Intercambiar con *" size="small" fullWidth value={rotTarget} onChange={e => setRotTarget(e.target.value)}>
+              <MenuItem value="">Seleccionar llanta…</MenuItem>
+              {neumaticos.filter(n => n.estado === 'INSTALADO' && n.id !== rotDialog?.id && n.activo_id === rotDialog?.activo_id).map(n => (
+                <MenuItem key={n.id} value={String(n.id)}>{n.posicion} · {n.codigo} ({n.tipo_uso ?? '—'})</MenuItem>
+              ))}
+            </TextField>
+            <Alert severity="info" sx={{ mt: 1.5, fontSize: 12.5 }}>El sistema valida el montaje estricto (una direccional no puede ir a tracción/remolque).</Alert>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setRotDialog(null)}>Cancelar</Button>
+            <Button variant="contained" disabled={!rotTarget || mutIntercambio.isPending}
+              onClick={() => mutIntercambio.mutate({ neumatico_a_id: rotDialog!.id, neumatico_b_id: Number(rotTarget), fecha: new Date().toISOString(), km_odometro: vehiculos.find(v => v.id === rotDialog?.activo_id)?.odometro_actual })}
+              sx={{ bgcolor: '#D97706', '&:hover': { bgcolor: '#B45309' } }}>Rotar</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* ── Diálogo voltear (invertir interno↔externo) ── */}
+        <Dialog open={!!voltearDialog} onClose={() => setVoltearDialog(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: 16, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Autorenew sx={{ color: '#7C3AED' }} /> Voltear llanta
+          </DialogTitle>
+          <DialogContent dividers>
+            <Typography fontSize={13.5} mb={1}>
+              Voltear <b>{voltearDialog?.codigo}</b> en la posición <b>{voltearDialog?.posicion}</b>: se invierte el sentido de montaje para emparejar el desgaste.
+            </Typography>
+            <Box sx={{ bgcolor: '#F5F3FF', borderRadius: 2, p: 1.5, display: 'flex', justifyContent: 'space-around', textAlign: 'center' }}>
+              <Box>
+                <Typography fontSize={10.5} fontWeight={700} color="#94A3B8">EXTERNA</Typography>
+                <Typography fontSize={18} fontWeight={800} color="#7C3AED">{voltearDialog?.profundidad_externa ?? '–'}<Box component="span" sx={{ mx: 0.5, color: '#CBD5E1' }}>→</Box>{voltearDialog?.profundidad_interna ?? '–'}</Typography>
+              </Box>
+              <Box>
+                <Typography fontSize={10.5} fontWeight={700} color="#94A3B8">INTERNA</Typography>
+                <Typography fontSize={18} fontWeight={800} color="#7C3AED">{voltearDialog?.profundidad_interna ?? '–'}<Box component="span" sx={{ mx: 0.5, color: '#CBD5E1' }}>→</Box>{voltearDialog?.profundidad_externa ?? '–'}</Typography>
+              </Box>
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setVoltearDialog(null)}>Cancelar</Button>
+            <Button variant="contained" disabled={mutVoltear.isPending} onClick={() => mutVoltear.mutate(voltearDialog!.id)}
+              sx={{ bgcolor: '#7C3AED', '&:hover': { bgcolor: '#6D28D9' } }}>Confirmar volteo</Button>
           </DialogActions>
         </Dialog>
 

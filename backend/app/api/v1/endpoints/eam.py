@@ -327,6 +327,9 @@ class NeumaticResponse(NeumaticCreate):
     motivo_baja: Optional[str] = None
     fecha_baja: Optional[date] = None
     presion_actual: Optional[float] = None
+    orientacion: Optional[str] = None
+    profundidad_externa: Optional[float] = None
+    profundidad_interna: Optional[float] = None
 
 # ── Bodegas de neumáticos ──
 class BodegaNeumaticoCreate(BaseModel):
@@ -1098,6 +1101,14 @@ async def crear_movimiento_neumatico(data: MovNeumaticoCreate, db: AsyncSession 
         neu.bodega_id = data.bodega_id
         neu.reencauches = (neu.reencauches or 0) + 1
         if data.dano_id: neu.dano_id = data.dano_id
+    elif tipo == "VOLTEO":
+        # Voltear la llanta en la MISMA posición: invierte el sentido de montaje
+        # para emparejar el desgaste irregular entre hombros (interno ↔ externo).
+        if neu.estado != "INSTALADO" or not neu.posicion:
+            raise HTTPException(409, "Solo se puede voltear una llanta instalada en un vehículo")
+        neu.orientacion = "INVERTIDA" if (neu.orientacion or "NORMAL") == "NORMAL" else "NORMAL"
+        neu.profundidad_externa, neu.profundidad_interna = neu.profundidad_interna, neu.profundidad_externa
+        data.posicion = neu.posicion   # se mantiene en la misma posición
     elif tipo == "BAJA":
         neu.estado = "BAJA"; neu.activo_id = None; neu.posicion = None; neu.bodega_id = None
         neu.dano_id = data.dano_id; neu.motivo_baja = data.motivo
@@ -1106,13 +1117,56 @@ async def crear_movimiento_neumatico(data: MovNeumaticoCreate, db: AsyncSession 
         raise HTTPException(400, f"Tipo de movimiento inválido: {tipo}")
 
     mov = EAMMovimientoNeumatico(
-        neumatico_id=neu.id, tipo_movimiento=tipo, activo_id=data.activo_id,
+        neumatico_id=neu.id, tipo_movimiento=tipo, activo_id=data.activo_id or neu.activo_id,
         posicion_origen=posicion_origen, posicion=data.posicion, bodega_id=data.bodega_id,
         km_odometro=data.km_odometro, fecha=data.fecha,
-        observaciones=data.observaciones or data.motivo, tecnico=data.tecnico,
+        observaciones=(data.observaciones or data.motivo or (f"Volteo: orientación → {neu.orientacion}" if tipo == "VOLTEO" else None)),
+        tecnico=data.tecnico,
     )
     db.add(mov); await db.commit(); await db.refresh(mov)
     return mov
+
+
+class RotacionIntercambio(BaseModel):
+    neumatico_a_id: int
+    neumatico_b_id: int
+    fecha: datetime
+    km_odometro: Optional[float] = None
+    tecnico: Optional[str] = None
+    observaciones: Optional[str] = None
+
+@router.post("/neumaticos/rotacion-intercambio")
+async def rotacion_intercambio(data: RotacionIntercambio, db: AsyncSession = Depends(get_db)):
+    """Intercambia dos llantas instaladas: cada una toma la posición de la otra
+    (rotación clásica), validando el montaje estricto para ambas."""
+    a = await db.get(EAMNeumatico, data.neumatico_a_id)
+    b = await db.get(EAMNeumatico, data.neumatico_b_id)
+    if not a or not b:
+        raise HTTPException(404, "Neumático no encontrado")
+    if a.estado != "INSTALADO" or b.estado != "INSTALADO":
+        raise HTTPException(409, "Ambas llantas deben estar instaladas para intercambiarse")
+    pos_a, pos_b = a.posicion, b.posicion
+    veh_a, veh_b = a.activo_id, b.activo_id
+    cfg = await _get_config_neu(db)
+    if cfg.montaje_estricto:
+        for neu, pos in ((a, pos_b), (b, pos_a)):
+            err = _validar_montaje(neu.tipo_uso, pos)
+            if err:
+                raise HTTPException(409, f"{neu.codigo}: {err}")
+    # Intercambio de posiciones (y vehículo, por si son distintos)
+    a.posicion, a.activo_id = pos_b, veh_b
+    b.posicion, b.activo_id = pos_a, veh_a
+    if data.km_odometro is not None:
+        a.km_actual = b.km_actual = data.km_odometro
+    obs = data.observaciones or f"Intercambio de rotación: {a.codigo} ⇄ {b.codigo}"
+    for neu, origen, destino, veh in ((a, pos_a, pos_b, veh_b), (b, pos_b, pos_a, veh_a)):
+        db.add(EAMMovimientoNeumatico(
+            neumatico_id=neu.id, tipo_movimiento="ROTACION", activo_id=veh,
+            posicion_origen=origen, posicion=destino, km_odometro=data.km_odometro,
+            fecha=data.fecha, observaciones=obs, tecnico=data.tecnico,
+        ))
+    await db.commit()
+    return {"ok": True, "a": {"codigo": a.codigo, "posicion": a.posicion}, "b": {"codigo": b.codigo, "posicion": b.posicion}}
 
 
 @router.get("/neumaticos/{nid}/movimientos", response_model=List[MovNeumaticoResponse])
@@ -1152,10 +1206,15 @@ async def crear_inspeccion(nid: int, data: InspeccionNeuCreate, db: AsyncSession
     if obj.posicion is None:
         obj.posicion = neu.posicion
     db.add(obj)
-    # Actualiza el estado actual del neumático con la última medición
+    # Actualiza el estado actual del neumático con la última medición.
+    # Convención: profundidad_izq = hombro EXTERNO, profundidad_der = hombro INTERNO.
     pmin = _min_prof(data.profundidad_izq, data.profundidad_centro, data.profundidad_der)
     if pmin is not None:
         neu.profundidad_actual = pmin
+    if data.profundidad_izq is not None:
+        neu.profundidad_externa = data.profundidad_izq
+    if data.profundidad_der is not None:
+        neu.profundidad_interna = data.profundidad_der
     if data.presion_psi is not None:
         neu.presion_actual = data.presion_psi
     if data.km_odometro is not None:

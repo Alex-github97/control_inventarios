@@ -451,6 +451,10 @@ class EAMNeumatico(Base, TimestampMixin):
     tipo_uso            = Column(String(20), nullable=True)
     presion_recomendada = Column(Float, nullable=True)   # psi
     presion_actual      = Column(Float, nullable=True)   # psi (última inspección)
+    # orientación de montaje: NORMAL / INVERTIDA (para volteo de duales)
+    orientacion         = Column(String(15), default="NORMAL")
+    profundidad_externa = Column(Float, nullable=True)   # mm hombro externo
+    profundidad_interna = Column(Float, nullable=True)   # mm hombro interno
 
 
 class EAMMovimientoNeumatico(Base, TimestampMixin):
