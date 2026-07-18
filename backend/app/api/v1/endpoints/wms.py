@@ -1786,12 +1786,19 @@ async def actualizar_estado_orden_salida(
 async def generar_picking(
     orden_id: int,
     tipo: str = Query("SINGLE"),
+    dias_vida_minima: int = Query(0, ge=0, description="Vida útil mínima (días) exigida al momento del despacho"),
+    dias_alerta_vencimiento: int = Query(30, ge=0, description="Umbral para marcar lotes próximos a vencer"),
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
     """
-    Auto-genera una tarea de picking a partir del inventario disponible (FIFO por vencimiento de lote).
-    Reserva stock en WMSInventarioUbicacion y crea los WMSPickingDetalle.
+    Auto-genera una tarea de picking a partir del inventario disponible aplicando
+    FEFO (First-Expired, First-Out): asigna primero los lotes que vencen antes.
+
+    Control ISO 9001 §8.5.4 (preservación) / §8.7 (no conforme): NO se asignan
+    lotes vencidos, lotes bloqueados (activo=False) ni lotes cuya vida útil
+    remanente sea menor a `dias_vida_minima`. Los lotes próximos a vencer
+    (dentro de `dias_alerta_vencimiento`) se asignan pero se registra alerta.
     """
     r = await db.execute(
         select(WMSOrdenSalida)
@@ -1816,13 +1823,20 @@ async def generar_picking(
     db.add(tarea)
     await db.flush()
 
+    hoy = date.today()
+    fecha_min_venc = hoy + timedelta(days=dias_vida_minima)   # el lote debe vencer DESPUÉS de esta fecha
+    fecha_alerta   = hoy + timedelta(days=dias_alerta_vencimiento)
+
     faltantes: list[str] = []
+    por_vencer: list[str] = []
     for det in orden.detalles:
         cantidad_pendiente = det.cantidad_solicitada - det.cantidad_preparada
         if cantidad_pendiente <= 0:
             continue
 
-        # FIFO: inventario del ALMACÉN de la orden, ordenado por fecha_vencimiento (ASC nulls last)
+        # FEFO: inventario del ALMACÉN de la orden, ordenado por fecha_vencimiento (ASC nulls last).
+        # Se excluyen lotes vencidos/insuficiente vida útil y lotes bloqueados (activo=False).
+        # El stock sin lote (fecha_vencimiento NULL → producto no perecedero) siempre es elegible.
         inv_q = (
             select(WMSInventarioUbicacion)
             .join(WMSUbicacion, WMSInventarioUbicacion.ubicacion_id == WMSUbicacion.id)
@@ -1832,6 +1846,17 @@ async def generar_picking(
                 WMSInventarioUbicacion.producto_id == det.producto_id,
                 WMSInventarioUbicacion.cantidad_disponible > 0,
                 WMSZona.almacen_id == orden.almacen_id,
+                # sin lote, o lote activo y con vida útil suficiente
+                or_(
+                    WMSInventarioUbicacion.lote_id.is_(None),
+                    and_(
+                        WMSLote.activo == True,
+                        or_(
+                            WMSLote.fecha_vencimiento.is_(None),
+                            WMSLote.fecha_vencimiento >= fecha_min_venc,
+                        ),
+                    ),
+                ),
             )
             .order_by(
                 WMSLote.fecha_vencimiento.asc().nullslast(),
@@ -1863,6 +1888,13 @@ async def generar_picking(
             )
             db.add(pick_det)
 
+            # Alerta si el lote asignado está próximo a vencer
+            if inv.lote_id:
+                lote = await db.get(WMSLote, inv.lote_id)
+                if lote and lote.fecha_vencimiento and lote.fecha_vencimiento <= fecha_alerta:
+                    dias = (lote.fecha_vencimiento - hoy).days
+                    por_vencer.append(f"{lote.numero_lote} (vence en {dias}d, {tomar:g} und)")
+
         # Reflejar avance de reserva en la línea de la orden
         det.cantidad_preparada = (det.cantidad_preparada or 0) + preparado
         if cantidad_pendiente > 0:
@@ -1872,7 +1904,15 @@ async def generar_picking(
     if faltantes:
         await _registrar_evento(
             db, "PICKING_PARCIAL",
-            "Picking parcial por stock insuficiente: " + "; ".join(faltantes),
+            "Picking parcial por stock elegible insuficiente (FEFO, sin vencidos/bloqueados): "
+            + "; ".join(faltantes),
+            entidad_tipo="WMSOrdenSalida", entidad_id=orden_id,
+            usuario_id=current_user.id,
+        )
+    if por_vencer:
+        await _registrar_evento(
+            db, "ALERTA_VENCIMIENTO",
+            "Lotes próximos a vencer asignados en picking: " + "; ".join(por_vencer),
             entidad_tipo="WMSOrdenSalida", entidad_id=orden_id,
             usuario_id=current_user.id,
         )
@@ -2476,6 +2516,64 @@ async def procesar_devolucion(
         .where(WMSDevolucion.id == dev_id)
     )
     return r2.scalar_one()
+
+
+# ─── CONTROL DE VENCIMIENTOS (FEFO) ───────────────────────────────────────────
+
+@router.get("/inventario/vencimientos")
+async def inventario_vencimientos(
+    dias: int = Query(30, ge=0, description="Umbral de días para 'por vencer'"),
+    almacen_id: Optional[int] = None,
+    incluir_vencidos: bool = True,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """Inventario perecedero (con lote y fecha de vencimiento) clasificado por
+    estado de vida útil — insumo de FEFO y control ISO 9001 §8.5.4."""
+    hoy = date.today()
+    limite = hoy + timedelta(days=dias)
+    q = (
+        select(WMSInventarioUbicacion, WMSLote, WMSProducto, WMSUbicacion)
+        .join(WMSLote, WMSInventarioUbicacion.lote_id == WMSLote.id)
+        .join(WMSProducto, WMSInventarioUbicacion.producto_id == WMSProducto.id)
+        .join(WMSUbicacion, WMSInventarioUbicacion.ubicacion_id == WMSUbicacion.id)
+        .join(WMSZona, WMSUbicacion.zona_id == WMSZona.id)
+        .where(
+            WMSLote.fecha_vencimiento.isnot(None),
+            WMSInventarioUbicacion.cantidad_disponible > 0,
+            WMSLote.fecha_vencimiento <= limite,
+        )
+    )
+    if almacen_id:
+        q = q.where(WMSZona.almacen_id == almacen_id)
+    q = q.order_by(WMSLote.fecha_vencimiento.asc())
+    r = await db.execute(q)
+
+    filas = []
+    for inv, lote, prod, ubic in r.all():
+        dias_rest = (lote.fecha_vencimiento - hoy).days
+        if dias_rest < 0 and not incluir_vencidos:
+            continue
+        estado = "VENCIDO" if dias_rest < 0 else ("CRITICO" if dias_rest <= 7 else "POR_VENCER")
+        if not lote.activo:
+            estado = "BLOQUEADO"
+        filas.append({
+            "inventario_id": inv.id,
+            "producto": {"id": prod.id, "sku": prod.sku, "nombre": prod.nombre},
+            "lote": lote.numero_lote,
+            "ubicacion": ubic.codigo,
+            "fecha_vencimiento": lote.fecha_vencimiento.isoformat(),
+            "dias_restantes": dias_rest,
+            "cantidad_disponible": inv.cantidad_disponible,
+            "estado": estado,
+        })
+    resumen = {
+        "vencidos":    sum(1 for f in filas if f["estado"] == "VENCIDO"),
+        "criticos":    sum(1 for f in filas if f["estado"] == "CRITICO"),
+        "por_vencer":  sum(1 for f in filas if f["estado"] == "POR_VENCER"),
+        "bloqueados":  sum(1 for f in filas if f["estado"] == "BLOQUEADO"),
+    }
+    return {"resumen": resumen, "items": filas}
 
 
 # ─── TRAZABILIDAD ─────────────────────────────────────────────────────────────

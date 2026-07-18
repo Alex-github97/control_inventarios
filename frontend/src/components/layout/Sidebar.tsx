@@ -61,6 +61,7 @@ import {
   ContentPasteSearch as WMSPickingIcon,
   Send as WMSDespachoIcon,
   QrCodeScanner as WMSTrazabilidadIcon,
+  EventBusy as WMSVencimientosIcon,
   ManageAccounts as WMSConfigIcon,
   PeopleAlt as GHDashboardIcon,
   Groups as GHColaboradoresIcon,
@@ -318,6 +319,7 @@ const WMS_NAV_ITEMS: NavItem[] = [
   { label: 'nav.picking',       icon: <WMSPickingIcon      fontSize="small" />, path: '/wms/picking',      section: 'section.outbound' },
   { label: 'nav.despacho',      icon: <WMSDespachoIcon     fontSize="small" />, path: '/wms/despacho',     section: 'section.outbound' },
   { label: 'nav.trazabilidad',  icon: <WMSTrazabilidadIcon fontSize="small" />, path: '/wms/trazabilidad', section: 'section.control' },
+  { label: 'nav.vencimientos',  icon: <WMSVencimientosIcon fontSize="small" />, path: '/wms/vencimientos', section: 'section.control' },
   { label: 'nav.configuracion', icon: <WMSConfigIcon       fontSize="small" />, path: '/wms/config',       section: 'section.sistema' },
 ]
 const WMS_SECTIONS = ['section.general', 'section.inbound', 'section.almacenamiento', 'section.outbound', 'section.control', 'section.sistema']
