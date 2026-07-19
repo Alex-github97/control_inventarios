@@ -441,6 +441,58 @@ async def crear_indicador(
     return item
 
 
+def _f(v):
+    return float(v) if v is not None else None
+
+@router.get("/indicadores/tablero")
+async def tablero_indicadores(
+    solo_activos: bool = True,
+    db: AsyncSession = Depends(get_db),
+    _: Usuario = Depends(get_current_user),
+):
+    """Tablero de KPIs: cada indicador configurado con su última medición,
+    cumplimiento vs meta y un histórico corto para el sparkline."""
+    q = select(QMSIndicador)
+    if solo_activos:
+        q = q.where(QMSIndicador.activo == True)
+    r = await db.execute(q.order_by(QMSIndicador.nombre))
+    out = []
+    for ind in r.scalars().all():
+        rm = await db.execute(
+            select(QMSMedicionIndicador)
+            .where(QMSMedicionIndicador.indicador_id == ind.id)
+            .order_by(QMSMedicionIndicador.periodo.desc())
+            .limit(8)
+        )
+        meds = rm.scalars().all()
+        ultima = meds[0] if meds else None
+        out.append({
+            "id": ind.id, "codigo": ind.codigo, "nombre": ind.nombre,
+            "tipo": ind.tipo, "unidad": ind.unidad, "frecuencia": ind.frecuencia,
+            "modulo_origen": ind.modulo_origen, "proceso_id": ind.proceso_id, "activo": ind.activo,
+            "meta": _f(ind.meta), "meta_min": _f(ind.meta_min), "meta_max": _f(ind.meta_max),
+            "valor_actual": _f(ultima.valor) if ultima else None,
+            "periodo_actual": ultima.periodo if ultima else None,
+            "cumple": ultima.cumple_meta if ultima else None,
+            "variacion_pct": _f(ultima.variacion_pct) if ultima else None,
+            "historico": [_f(m.valor) for m in reversed(meds)],
+        })
+    return out
+
+@router.get("/mediciones", response_model=List[QMSMedicionIndicadorResponse])
+async def listar_mediciones(
+    indicador_id: Optional[int] = None,
+    limit: int = Query(100, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+    _: Usuario = Depends(get_current_user),
+):
+    q = select(QMSMedicionIndicador)
+    if indicador_id is not None:
+        q = q.where(QMSMedicionIndicador.indicador_id == indicador_id)
+    q = q.order_by(QMSMedicionIndicador.created_at.desc()).limit(limit)
+    r = await db.execute(q)
+    return r.scalars().all()
+
 @router.get("/indicadores/{ind_id}", response_model=QMSIndicadorResponse)
 async def obtener_indicador(
     ind_id: int,
