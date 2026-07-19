@@ -3,12 +3,14 @@ API endpoints — QMS (Quality Management System)
 Prefijo: /qms
 """
 from datetime import date, datetime
-from typing import List, Optional
+from typing import List, Optional, Dict
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.infrastructure.models.mes import MESOEERegistro, MESOrdenProduccion, MESParada
 from app.core.dependencies import get_current_user
 from app.infrastructure.models.usuario import Usuario
 from app.infrastructure.models.qms import (
@@ -492,6 +494,184 @@ async def listar_mediciones(
     q = q.order_by(QMSMedicionIndicador.created_at.desc()).limit(limit)
     r = await db.execute(q)
     return r.scalars().all()
+
+# ─── Fuentes de indicadores de la plataforma (para arrastrar al QMS) ──────────
+# `auto`=True: el valor se calcula desde los datos reales del módulo origen.
+# `direccion`: 'mayor' → cumple si valor >= meta; 'menor' → cumple si valor <= meta.
+PLATFORM_SOURCES: List[dict] = [
+    {"key": "MES_OEE",            "nombre": "OEE Global (MES)",                 "modulo": "MES",      "unidad": "%",   "tipo": "operativo",   "meta": 85, "direccion": "mayor", "auto": True},
+    {"key": "MES_CUMPLIMIENTO",   "nombre": "Cumplimiento de producción (MES)", "modulo": "MES",      "unidad": "%",   "tipo": "operativo",   "meta": 95, "direccion": "mayor", "auto": True},
+    {"key": "MES_SCRAP",          "nombre": "Scrap rate (MES)",                 "modulo": "MES",      "unidad": "%",   "tipo": "operativo",   "meta": 3,  "direccion": "menor", "auto": True},
+    {"key": "MES_PARADAS",        "nombre": "Minutos de parada (MES)",          "modulo": "MES",      "unidad": "min", "tipo": "operativo",   "meta": 0,  "direccion": "menor", "auto": True},
+    {"key": "TMS_OTIF",           "nombre": "OTIF Transporte (TMS)",            "modulo": "TMS",      "unidad": "%",   "tipo": "operativo",   "meta": 95, "direccion": "mayor", "auto": False},
+    {"key": "WMS_EXACTITUD",      "nombre": "Exactitud de inventario (WMS)",    "modulo": "WMS",      "unidad": "%",   "tipo": "operativo",   "meta": 98, "direccion": "mayor", "auto": False},
+    {"key": "WMS_RECHAZO",        "nombre": "Índice de rechazo (WMS)",          "modulo": "WMS",      "unidad": "%",   "tipo": "operativo",   "meta": 1,  "direccion": "menor", "auto": False},
+    {"key": "CRM_SATISFACCION",   "nombre": "Satisfacción del cliente (CRM)",   "modulo": "CRM",      "unidad": "/5",  "tipo": "tactico",     "meta": 4.5, "direccion": "mayor", "auto": False},
+    {"key": "SST_ACCIDENTES",     "nombre": "Accidentes SST",                   "modulo": "SST",      "unidad": "und", "tipo": "estrategico", "meta": 0,  "direccion": "menor", "auto": False},
+    {"key": "COMPRAS_PROVEEDORES","nombre": "Proveedores aprobados (Compras)",  "modulo": "Compras",  "unidad": "%",   "tipo": "tactico",     "meta": 90, "direccion": "mayor", "auto": False},
+    {"key": "EAM_DISPONIBILIDAD", "nombre": "Disponibilidad de flota (EAM)",    "modulo": "EAM",      "unidad": "%",   "tipo": "operativo",   "meta": 92, "direccion": "mayor", "auto": False},
+]
+_SOURCE_BY_KEY = {s["key"]: s for s in PLATFORM_SOURCES}
+
+
+def _cumple(valor: Optional[float], meta: Optional[float], direccion: str) -> Optional[bool]:
+    if valor is None or meta is None:
+        return None
+    return valor <= meta if direccion == "menor" else valor >= meta
+
+
+def _rango_periodos(desde: str, hasta: str) -> List[str]:
+    y1, m1 = int(desde[:4]), int(desde[5:7])
+    y2, m2 = int(hasta[:4]), int(hasta[5:7])
+    out: List[str] = []
+    y, m = y1, m1
+    while (y, m) <= (y2, m2) and len(out) < 60:
+        out.append(f"{y:04d}-{m:02d}")
+        m += 1
+        if m > 12:
+            m = 1; y += 1
+    return out
+
+
+async def _serie_fuente(db: AsyncSession, key: str, desde: str, hasta: str) -> Dict[str, float]:
+    """Calcula el valor real del indicador por período (YYYY-MM) desde el módulo origen."""
+    out: Dict[str, float] = {}
+    if key == "MES_OEE":
+        per = func.to_char(MESOEERegistro.fecha, "YYYY-MM")
+        q = select(per, func.avg(MESOEERegistro.oee)).where(per >= desde, per <= hasta).group_by(per)
+        for p, v in (await db.execute(q)).all():
+            if v is not None:
+                out[p] = round(float(v), 2)
+    elif key in ("MES_CUMPLIMIENTO", "MES_SCRAP"):
+        per = func.to_char(MESOrdenProduccion.fecha_fin_real, "YYYY-MM")
+        q = (select(per, func.sum(MESOrdenProduccion.cantidad_producida), func.sum(MESOrdenProduccion.cantidad_scrap),
+                    func.sum(MESOrdenProduccion.cantidad_planificada))
+             .where(MESOrdenProduccion.fecha_fin_real.isnot(None), per >= desde, per <= hasta).group_by(per))
+        for p, prod, scrap, plan in (await db.execute(q)).all():
+            prod = float(prod or 0); scrap = float(scrap or 0); plan = float(plan or 0)
+            if key == "MES_CUMPLIMIENTO" and plan > 0:
+                out[p] = round(prod / plan * 100, 2)
+            elif key == "MES_SCRAP" and (prod + scrap) > 0:
+                out[p] = round(scrap / (prod + scrap) * 100, 2)
+    elif key == "MES_PARADAS":
+        per = func.to_char(MESParada.fecha_inicio, "YYYY-MM")
+        q = select(per, func.sum(MESParada.duracion_min)).where(per >= desde, per <= hasta).group_by(per)
+        for p, v in (await db.execute(q)).all():
+            out[p] = round(float(v or 0), 1)
+    return out
+
+
+@router.get("/fuentes")
+async def fuentes_indicadores(db: AsyncSession = Depends(get_db), _: Usuario = Depends(get_current_user)):
+    """Catálogo de indicadores disponibles en la plataforma para arrastrar al QMS."""
+    r = await db.execute(select(QMSIndicador.codigo))
+    existentes = {c for (c,) in r.all() if c}
+    return [{**s, "importado": s["key"] in existentes} for s in PLATFORM_SOURCES]
+
+
+class ImportarReq(BaseModel):
+    claves: List[str]
+
+@router.post("/indicadores/importar")
+async def importar_indicadores(data: ImportarReq, db: AsyncSession = Depends(get_db), _: Usuario = Depends(get_current_user)):
+    """Da de alta en el QMS los indicadores seleccionados del resto de módulos."""
+    creados = 0
+    for key in data.claves:
+        src = _SOURCE_BY_KEY.get(key)
+        if not src:
+            continue
+        ex = await db.execute(select(QMSIndicador).where(QMSIndicador.codigo == key))
+        if ex.scalar_one_or_none():
+            continue
+        db.add(QMSIndicador(
+            codigo=key, nombre=src["nombre"], modulo_origen=src["modulo"], unidad=src["unidad"],
+            tipo=src["tipo"], frecuencia="mensual", meta=src["meta"], activo=True,
+        ))
+        creados += 1
+    await db.commit()
+    return {"creados": creados}
+
+
+class SincronizarReq(BaseModel):
+    desde: str   # YYYY-MM
+    hasta: str
+
+@router.post("/indicadores/sincronizar")
+async def sincronizar_indicadores(data: SincronizarReq, db: AsyncSession = Depends(get_db), _: Usuario = Depends(get_current_user)):
+    """Arrastra (upsert) los valores reales por período de los indicadores automáticos."""
+    r = await db.execute(select(QMSIndicador).where(QMSIndicador.codigo.isnot(None)))
+    inds = r.scalars().all()
+    total, autos = 0, 0
+    for ind in inds:
+        src = _SOURCE_BY_KEY.get(ind.codigo or "")
+        if not src or not src["auto"]:
+            continue
+        autos += 1
+        serie = await _serie_fuente(db, ind.codigo, data.desde, data.hasta)
+        meta = float(ind.meta) if ind.meta is not None else None
+        for periodo, valor in serie.items():
+            ex = await db.execute(
+                select(QMSMedicionIndicador).where(
+                    QMSMedicionIndicador.indicador_id == ind.id,
+                    QMSMedicionIndicador.periodo == periodo,
+                )
+            )
+            m = ex.scalar_one_or_none()
+            cumple = _cumple(valor, meta, src["direccion"])
+            if m:
+                m.valor = valor; m.cumple_meta = cumple
+            else:
+                db.add(QMSMedicionIndicador(indicador_id=ind.id, periodo=periodo, valor=valor, cumple_meta=cumple))
+            total += 1
+    await db.commit()
+    return {"indicadores_automaticos": autos, "mediciones_sincronizadas": total}
+
+
+@router.get("/matriz")
+async def matriz_cumplimiento(
+    desde: str = Query(..., description="YYYY-MM"),
+    hasta: str = Query(..., description="YYYY-MM"),
+    modulo: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    _: Usuario = Depends(get_current_user),
+):
+    """Matriz de cumplimiento indicadores × períodos (auditoría y seguimiento)."""
+    periodos = _rango_periodos(desde, hasta)
+    q = select(QMSIndicador).where(QMSIndicador.activo == True)
+    if modulo:
+        q = q.where(QMSIndicador.modulo_origen == modulo)
+    r = await db.execute(q.order_by(QMSIndicador.modulo_origen, QMSIndicador.nombre))
+    filas = []
+    for ind in r.scalars().all():
+        rm = await db.execute(
+            select(QMSMedicionIndicador).where(
+                QMSMedicionIndicador.indicador_id == ind.id,
+                QMSMedicionIndicador.periodo >= desde,
+                QMSMedicionIndicador.periodo <= hasta,
+            )
+        )
+        med = {m.periodo: m for m in rm.scalars().all()}
+        valores = {}
+        cumplidos = contados = 0
+        for p in periodos:
+            m = med.get(p)
+            if m:
+                valores[p] = {"valor": float(m.valor), "cumple": m.cumple_meta}
+                contados += 1
+                if m.cumple_meta:
+                    cumplidos += 1
+            else:
+                valores[p] = None
+        filas.append({
+            "id": ind.id, "codigo": ind.codigo, "nombre": ind.nombre,
+            "modulo_origen": ind.modulo_origen, "unidad": ind.unidad,
+            "meta": float(ind.meta) if ind.meta is not None else None,
+            "auto": _SOURCE_BY_KEY.get(ind.codigo or "", {}).get("auto", False),
+            "valores": valores,
+            "cumplimiento_pct": round(cumplidos / contados * 100, 1) if contados else None,
+        })
+    return {"periodos": periodos, "filas": filas}
+
 
 @router.get("/indicadores/{ind_id}", response_model=QMSIndicadorResponse)
 async def obtener_indicador(
