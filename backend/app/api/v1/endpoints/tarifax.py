@@ -125,18 +125,23 @@ def _cpk_column(df1: pd.DataFrame) -> str | None:
     return None
 
 
-def _cpk_por_origen() -> tuple[dict[str, float], pd.DataFrame]:
-    """CPK (costo por km) promedio por municipio de ORIGEN.
+_CPK_PIVOT_COLS = ["MUNICIPIO_ORIGEN", "TIPO_VEHICULO", "CPK_PROMEDIO", "RUTAS_SICETAC"]
 
-    Usa la columna de CPK del tarifario si existe; si no, lo deriva de
-    COSTO_TOTAL_VIAJE / DISTANCIA. Devuelve (mapa origen_normalizado -> cpk_promedio,
-    tabla-resumen tipo pivot para la hoja del libro).
+
+def _cpk_por_origen() -> tuple[dict[tuple[str, str], float], pd.DataFrame]:
+    """CPK (costo por km) promedio por municipio de ORIGEN Y tipologia de vehiculo.
+
+    El CPK no es igual entre tipologias (tractocamion vs sencillo vs turbo…), por eso
+    se clasifica por (ORIGEN, TIPO_VEHICULO). Usa la columna de CPK del tarifario si
+    existe; si no, lo deriva de COSTO_TOTAL_VIAJE / DISTANCIA. Devuelve
+    (mapa (origen_norm, tipo_veh_norm) -> cpk_promedio, tabla-resumen pivot).
     """
     df1 = _load_df1().copy()
-    if "ORIGEN" not in df1.columns:
-        return {}, pd.DataFrame(columns=["MUNICIPIO_ORIGEN", "CPK_PROMEDIO", "RUTAS_SICETAC"])
+    if "ORIGEN" not in df1.columns or "TIPO_VEHICULO" not in df1.columns:
+        return {}, pd.DataFrame(columns=_CPK_PIVOT_COLS)
 
     df1["__origen"] = _norm(df1["ORIGEN"])
+    df1["__tveh"] = _norm(df1["TIPO_VEHICULO"])
     cpk_col = _cpk_column(df1)
     if cpk_col:
         df1["__cpk"] = pd.to_numeric(df1[cpk_col], errors="coerce")
@@ -146,22 +151,24 @@ def _cpk_por_origen() -> tuple[dict[str, float], pd.DataFrame]:
     else:
         df1["__cpk"] = pd.NA
 
-    valid = df1[df1["__origen"].ne("") & df1["__cpk"].notna()]
+    valid = df1[df1["__origen"].ne("") & df1["__tveh"].ne("") & df1["__cpk"].notna()]
     if valid.empty:
-        return {}, pd.DataFrame(columns=["MUNICIPIO_ORIGEN", "CPK_PROMEDIO", "RUTAS_SICETAC"])
+        return {}, pd.DataFrame(columns=_CPK_PIVOT_COLS)
 
-    pivot = valid.groupby("__origen", as_index=False).agg(
+    pivot = valid.groupby(["__origen", "__tveh"], as_index=False).agg(
         cpk_promedio=("__cpk", "mean"), rutas=("__cpk", "size")
     )
-    nombres = df1.groupby("__origen")["ORIGEN"].first()
-    pivot["MUNICIPIO_ORIGEN"] = pivot["__origen"].map(nombres)
+    nombres_o = df1.groupby("__origen")["ORIGEN"].first()
+    nombres_v = df1.groupby("__tveh")["TIPO_VEHICULO"].first()
+    pivot["MUNICIPIO_ORIGEN"] = pivot["__origen"].map(nombres_o)
+    pivot["TIPO_VEHICULO"] = pivot["__tveh"].map(nombres_v)
     pivot["cpk_promedio"] = pivot["cpk_promedio"].round(2)
 
-    cpk_map = dict(zip(pivot["__origen"], pivot["cpk_promedio"]))
+    cpk_map = {(r["__origen"], r["__tveh"]): r["cpk_promedio"] for _, r in pivot.iterrows()}
     pivot_out = (
-        pivot[["MUNICIPIO_ORIGEN", "cpk_promedio", "rutas"]]
+        pivot[["MUNICIPIO_ORIGEN", "TIPO_VEHICULO", "cpk_promedio", "rutas"]]
         .rename(columns={"cpk_promedio": "CPK_PROMEDIO", "rutas": "RUTAS_SICETAC"})
-        .sort_values("MUNICIPIO_ORIGEN")
+        .sort_values(["MUNICIPIO_ORIGEN", "TIPO_VEHICULO"])
         .reset_index(drop=True)
     )
     return cpk_map, pivot_out
@@ -271,6 +278,7 @@ async def merge_tarifas(
 
     o_norm = _norm(cpk_sheet["ORIGEN"]) if "ORIGEN" in cpk_sheet.columns else pd.Series([""] * n)
     d_norm = _norm(cpk_sheet["DESTINO"]) if "DESTINO" in cpk_sheet.columns else pd.Series([""] * n)
+    v_norm = _norm(cpk_sheet["TIPO_VEHICULO"]) if "TIPO_VEHICULO" in cpk_sheet.columns else pd.Series([""] * n)
 
     # Distancia: la del archivo del cliente si viene; si no, la de SICETAC por ruta.
     if COL_DISTANCIA in cpk_sheet.columns:
@@ -281,7 +289,10 @@ async def merge_tarifas(
         [dist_map.get((o_norm.iloc[i], d_norm.iloc[i])) for i in range(n)], dtype="Float64"
     )
     dist_final = dist.fillna(lookup)
-    cpk_series = pd.Series([cpk_map.get(o_norm.iloc[i]) for i in range(n)], dtype="Float64")
+    # CPK segun (municipio origen, tipologia de vehiculo) de cada fila.
+    cpk_series = pd.Series(
+        [cpk_map.get((o_norm.iloc[i], v_norm.iloc[i])) for i in range(n)], dtype="Float64"
+    )
 
     cpk_sheet["DISTANCIA_KM"] = dist_final
     cpk_sheet["CPK_PROMEDIO_ORIGEN"] = cpk_series.round(2)
