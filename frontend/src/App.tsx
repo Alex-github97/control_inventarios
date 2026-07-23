@@ -86,6 +86,7 @@ const EstibasCargaMasiva = React.lazy(() => import('@/pages/EstibasCargaMasiva')
 const MovimientosCargaMasiva = React.lazy(() => import('@/pages/MovimientosCargaMasiva'))
 const TarifaxDashboard = React.lazy(() => import('@/pages/TarifaxDashboard'))
 const TarifaxMotor = React.lazy(() => import('@/pages/TarifaxMotor'))
+const TarifaxDistancias = React.lazy(() => import('@/pages/TarifaxDistancias'))
 const Usuarios = React.lazy(() => import('@/pages/Usuarios'))
 const Roles = React.lazy(() => import('@/pages/Roles'))
 const CommandCenter = React.lazy(() => import('@/pages/CommandCenter'))
@@ -458,6 +459,7 @@ export default function App() {
             <Route path="/locativa/config" element={<ProtectedRoute><LocativaConfig /></ProtectedRoute>} />
             <Route path="/tarifax/tablero" element={<ProtectedRoute><TarifaxDashboard /></ProtectedRoute>} />
             <Route path="/tarifax/motor" element={<ProtectedRoute><TarifaxMotor /></ProtectedRoute>} />
+            <Route path="/tarifax/distancias" element={<ProtectedRoute><TarifaxDistancias /></ProtectedRoute>} />
             <Route path="/wms" element={<ProtectedRoute><WMSDashboard /></ProtectedRoute>} />
             <Route path="/wms/recepcion" element={<ProtectedRoute><WMSRecepcion /></ProtectedRoute>} />
             <Route path="/wms/inventario" element={<ProtectedRoute><WMSInventario /></ProtectedRoute>} />

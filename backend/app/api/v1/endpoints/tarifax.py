@@ -1,12 +1,14 @@
 import io
 import json
 import base64
+import asyncio
 import unicodedata
 from datetime import datetime
 from pathlib import Path
 
+import httpx
 import pandas as pd
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, Query
 from fastapi.responses import Response
 from pydantic import BaseModel
 
@@ -251,6 +253,154 @@ async def put_mapeo_vehiculos(
     limpio = {str(k).strip(): str(v).strip() for k, v in data.mapeo.items() if str(k).strip() and str(v).strip()}
     MAPEO_PATH.write_text(json.dumps(limpio, ensure_ascii=False, indent=2), encoding="utf-8")
     return {"ok": True, "categorias": len(limpio)}
+
+
+# ─── Ruteo por carretera (geocodificacion Nominatim + ruta OSRM) ──────────────
+# OSRM implementa Dijkstra sobre Contraction Hierarchies para calcular la ruta
+# minima por la red vial real. Nominatim resuelve nombres de lugar -> lat/lon.
+_NOMINATIM = "https://nominatim.openstreetmap.org/search"
+_OSRM = "https://router.project-osrm.org/route/v1/driving"
+_UA = {"User-Agent": "ICOLTRANS-TarifaX/1.0 (logistica@icoltrans.com.co)"}
+_geo_cache: dict[str, dict | None] = {}
+_geo_lock = asyncio.Lock()
+
+
+async def _geocode(client: httpx.AsyncClient, lugar: str) -> dict | None:
+    """Resuelve un nombre de lugar (cualquier parte del mundo) a coordenadas.
+    Cachea resultados y respeta el limite de uso de Nominatim (1 req/s)."""
+    key = (lugar or "").strip().lower()
+    if not key:
+        return None
+    if key in _geo_cache:
+        return _geo_cache[key]
+    async with _geo_lock:
+        if key in _geo_cache:
+            return _geo_cache[key]
+        try:
+            r = await client.get(_NOMINATIM, params={"q": lugar, "format": "json", "limit": 1},
+                                  headers=_UA, timeout=20)
+            data = r.json() if r.status_code == 200 else []
+        except Exception:
+            data = []
+        await asyncio.sleep(1.0)  # politica de uso Nominatim
+        res = None
+        if data:
+            top = data[0]
+            res = {"nombre": top.get("display_name"), "lat": float(top["lat"]), "lon": float(top["lon"])}
+        _geo_cache[key] = res
+        return res
+
+
+async def _ruta(client: httpx.AsyncClient, o: dict, d: dict, con_geometria: bool) -> dict | None:
+    ov = "full" if con_geometria else "false"
+    url = f"{_OSRM}/{o['lon']},{o['lat']};{d['lon']},{d['lat']}"
+    try:
+        r = await client.get(url, params={"overview": ov, "geometries": "geojson"}, timeout=25)
+        data = r.json()
+    except Exception:
+        return None
+    if data.get("code") != "Ok" or not data.get("routes"):
+        return None
+    ruta = data["routes"][0]
+    out = {"distancia_km": round(ruta["distance"] / 1000, 1), "duracion_min": round(ruta["duration"] / 60, 1)}
+    if con_geometria:
+        out["geometria"] = [[c[1], c[0]] for c in ruta["geometry"]["coordinates"]]  # [lat, lon] para Leaflet
+    return out
+
+
+@router.get("/geocode")
+async def geocode_lugar(q: str, current_user: Usuario = Depends(get_current_user)):
+    async with httpx.AsyncClient() as client:
+        res = await _geocode(client, q)
+    if not res:
+        raise HTTPException(status_code=404, detail=f"No se encontró el lugar: {q}")
+    return res
+
+
+@router.get("/ruta")
+async def calcular_ruta(
+    origen: str,
+    destino: str,
+    current_user: Usuario = Depends(get_current_user),
+):
+    """Distancia y ruta por carretera entre dos lugares (consulta puntual)."""
+    async with httpx.AsyncClient() as client:
+        o = await _geocode(client, origen)
+        if not o:
+            raise HTTPException(404, f"Origen no encontrado: {origen}")
+        d = await _geocode(client, destino)
+        if not d:
+            raise HTTPException(404, f"Destino no encontrado: {destino}")
+        r = await _ruta(client, o, d, con_geometria=True)
+    if not r:
+        raise HTTPException(502, "No se pudo calcular la ruta entre esos puntos")
+    return {"origen": o, "destino": d, **r}
+
+
+@router.post("/ruta-masiva")
+async def ruta_masiva(
+    file: UploadFile = File(...),
+    limite: int = Query(500, ge=1, le=2000),
+    current_user: Usuario = Depends(get_current_user),
+):
+    """Carga un Excel con ORIGEN/DESTINO y devuelve otro con la distancia por
+    carretera de cada par (Dijkstra sobre Contraction Hierarchies via OSRM)."""
+    content = await file.read()
+    try:
+        df = pd.read_excel(io.BytesIO(content))
+    except Exception as e:
+        raise HTTPException(400, f"No se pudo leer el archivo: {e}")
+    df.columns = [str(c).strip() for c in df.columns]
+
+    def _col(*cands):
+        for c in cands:
+            if c in df.columns:
+                return c
+        return None
+
+    col_o = _col("ORIGEN", "Origen", "origen")
+    col_d = _col("DESTINO", "Destino", "destino")
+    if not col_o or not col_d:
+        raise HTTPException(400, f"El archivo debe tener columnas ORIGEN y DESTINO. Columnas: {', '.join(df.columns)}")
+
+    total_filas = len(df)
+    df = df.head(limite).copy()
+
+    dist_km: list = []
+    dur_min: list = []
+    estado: list = []
+    async with httpx.AsyncClient() as client:
+        for _, row in df.iterrows():
+            o_txt, d_txt = str(row[col_o]).strip(), str(row[col_d]).strip()
+            if not o_txt or not d_txt or o_txt.lower() == "nan" or d_txt.lower() == "nan":
+                dist_km.append(None); dur_min.append(None); estado.append("FALTAN DATOS"); continue
+            o = await _geocode(client, o_txt)
+            d = await _geocode(client, d_txt)
+            if not o:
+                dist_km.append(None); dur_min.append(None); estado.append(f"ORIGEN no ubicado"); continue
+            if not d:
+                dist_km.append(None); dur_min.append(None); estado.append(f"DESTINO no ubicado"); continue
+            r = await _ruta(client, o, d, con_geometria=False)
+            if not r:
+                dist_km.append(None); dur_min.append(None); estado.append("SIN RUTA"); continue
+            dist_km.append(r["distancia_km"]); dur_min.append(r["duracion_min"]); estado.append("OK")
+
+    df["DISTANCIA_KM"] = dist_km
+    df["DURACION_MIN"] = dur_min
+    df["ESTADO_RUTA"] = estado
+
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Distancias")
+    output.seek(0)
+    filename = f"TarifaX_distancias_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    ok = sum(1 for e in estado if e == "OK")
+    return {
+        "stats": {"filas": len(df), "total_archivo": total_filas, "calculadas": ok,
+                  "sin_ruta": len(df) - ok, "truncado": total_filas > len(df)},
+        "filename": filename,
+        "file_base64": base64.b64encode(output.read()).decode("utf-8"),
+    }
 
 
 @router.get("/template")
