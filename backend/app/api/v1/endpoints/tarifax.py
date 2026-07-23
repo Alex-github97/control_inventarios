@@ -444,6 +444,35 @@ async def descargar_plantilla(
     )
 
 
+@router.get("/plantilla-distancias")
+async def plantilla_distancias(current_user: Usuario = Depends(get_current_user)):
+    """Genera un Excel con los encabezados esperados por el calculo masivo de
+    distancias (obligatorios + opcionales) y dos filas de ejemplo."""
+    cols = [
+        "ORIGEN", "DEPARTAMENTO_ORIGEN", "PAIS_ORIGEN", "DIRECCION_ORIGEN",
+        "DESTINO", "DEPARTAMENTO_DESTINO", "PAIS_DESTINO", "DIRECCION_DESTINO",
+    ]
+    ejemplo = pd.DataFrame([
+        {"ORIGEN": "Bogotá", "DEPARTAMENTO_ORIGEN": "Cundinamarca", "PAIS_ORIGEN": "Colombia", "DIRECCION_ORIGEN": "",
+         "DESTINO": "Medellín", "DEPARTAMENTO_DESTINO": "Antioquia", "PAIS_DESTINO": "Colombia", "DIRECCION_DESTINO": ""},
+        {"ORIGEN": "Cali", "DEPARTAMENTO_ORIGEN": "Valle del Cauca", "PAIS_ORIGEN": "Colombia", "DIRECCION_ORIGEN": "",
+         "DESTINO": "Barranquilla", "DEPARTAMENTO_DESTINO": "Atlántico", "PAIS_DESTINO": "Colombia", "DIRECCION_DESTINO": ""},
+    ], columns=cols)
+
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        ejemplo.to_excel(writer, index=False, sheet_name="Distancias")
+        ws = writer.sheets["Distancias"]
+        for i, col in enumerate(cols):
+            ws.column_dimensions[chr(65 + i)].width = max(16, len(col) + 2)
+    output.seek(0)
+    return Response(
+        content=output.read(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=plantilla_distancias_tarifax.xlsx"},
+    )
+
+
 @router.post("/merge")
 async def merge_tarifas(
     file: UploadFile = File(...),

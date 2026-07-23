@@ -146,6 +146,17 @@ export default function TarifaxDistancias() {
     } finally { setProcesando(false) }
   }
 
+  const descargarPlantilla = async () => {
+    try {
+      const res = await apiClient.get('/tarifax/plantilla-distancias', { responseType: 'blob' })
+      const url = URL.createObjectURL(res.data as Blob)
+      const a = document.createElement('a'); a.href = url; a.download = 'plantilla_distancias_tarifax.xlsx'; a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error('No se pudo descargar la plantilla')
+    }
+  }
+
   const descargarMasiva = () => {
     if (!masiva) return
     const bytes = atob(masiva.file_base64)
@@ -217,7 +228,13 @@ export default function TarifaxDistancias() {
 
       {/* Cálculo masivo */}
       <Card sx={{ p: 2.5, border: '1px solid #E5E7EB', borderRadius: '14px' }}>
-        <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#1E293B', mb: 0.5 }}>Cálculo masivo desde Excel</Typography>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 0.5, gap: 1 }}>
+          <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#1E293B' }}>Cálculo masivo desde Excel</Typography>
+          <Button size="small" variant="outlined" startIcon={<Download />} onClick={descargarPlantilla}
+            sx={{ color: TX_DARK, borderColor: alpha(TX_COLOR, 0.5), textTransform: 'none', fontWeight: 700, borderRadius: '9px', whiteSpace: 'nowrap', '&:hover': { borderColor: TX_COLOR, bgcolor: alpha(TX_COLOR, 0.06) } }}>
+            Descargar plantilla
+          </Button>
+        </Stack>
         <Typography sx={{ fontSize: 12, color: '#64748B', mb: 2 }}>
           Sube un Excel con columnas <code>ORIGEN</code> y <code>DESTINO</code>; se devuelve el mismo archivo con la distancia (km) y duración de cada par.
           Para mayor precisión puedes añadir columnas opcionales <code>DIRECCION_ORIGEN</code>, <code>DEPARTAMENTO_ORIGEN</code>, <code>PAIS_ORIGEN</code> (y sus equivalentes <code>_DESTINO</code>).
