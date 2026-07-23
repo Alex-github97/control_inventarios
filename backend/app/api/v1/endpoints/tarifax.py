@@ -122,6 +122,15 @@ def _grouped_df1(keys: list[tuple[str, str]]) -> pd.DataFrame:
     return grouped
 
 
+def _preview(df: pd.DataFrame, n: int = 25) -> dict:
+    """Muestra JSON-safe de las primeras filas para previsualizar en la UI."""
+    return {
+        "columns": [str(c) for c in df.columns],
+        "rows": json.loads(df.head(n).to_json(orient="records", date_format="iso")),
+        "total": int(len(df)),
+    }
+
+
 def _cpk_column(df1: pd.DataFrame) -> str | None:
     for c in CPK_COL_CANDIDATES:
         if c in df1.columns:
@@ -392,6 +401,10 @@ async def merge_tarifas(
             "tarifa_teorica_calculada": con_teorica,
             "municipios_origen_cpk": len(pivot_cpk),
             "vehiculos_mapeados": vehiculos_mapeados,
+        },
+        "preview": {
+            "cruzados": _preview(matched),
+            "calculo_por_cpk": _preview(cpk_sheet),
         },
         "filename": filename,
         "file_base64": base64.b64encode(output.read()).decode("utf-8"),

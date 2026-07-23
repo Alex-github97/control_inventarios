@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react'
 import {
   Box, Typography, Card, Button, Chip, LinearProgress, Alert, Grid, alpha,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField,
-  IconButton, Stack, Tooltip, Autocomplete,
+  IconButton, Stack, Tooltip, Autocomplete, Tabs, Tab,
 } from '@mui/material'
 import {
   Upload, Download, CheckCircle, MergeType, InsertDriveFile, Close,
@@ -15,6 +15,7 @@ import toast from 'react-hot-toast'
 const TX_COLOR = '#369E4D'
 const TX_DARK = '#1f6130'
 
+interface PreviewTabla { columns: string[]; rows: Record<string, unknown>[]; total: number }
 interface MergeResult {
   stats: {
     registros: number
@@ -25,6 +26,7 @@ interface MergeResult {
     municipios_origen_cpk?: number
     vehiculos_mapeados?: number
   }
+  preview?: { cruzados: PreviewTabla; calculo_por_cpk: PreviewTabla }
   filename: string
   file_base64: string
 }
@@ -150,6 +152,14 @@ export default function TarifaxMotor() {
   const [processing, setProcessing] = useState(false)
   const [result, setResult] = useState<MergeResult | null>(null)
   const [configOpen, setConfigOpen] = useState(false)
+  const [mapeo, setMapeo] = useState<Record<string, string>>({})
+  const [previewTab, setPreviewTab] = useState(0)
+
+  const loadMapeo = React.useCallback(() => {
+    apiClient.get<Record<string, string>>('/tarifax/mapeo-vehiculos')
+      .then(r => setMapeo(r.data || {})).catch(() => {})
+  }, [])
+  React.useEffect(() => { loadMapeo() }, [loadMapeo])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] ?? null
@@ -241,7 +251,32 @@ export default function TarifaxMotor() {
         </Button>
       </Box>
 
-      <ConfigVehiculos open={configOpen} onClose={() => setConfigOpen(false)} />
+      <ConfigVehiculos open={configOpen} onClose={() => { setConfigOpen(false); loadMapeo() }} />
+
+      {/* Resumen del mapeo de tipologías activo */}
+      {Object.keys(mapeo).length === 0 ? (
+        <Alert
+          severity="warning" sx={{ mb: 2.5, borderRadius: '12px' }}
+          action={<Button size="small" variant="contained" onClick={() => setConfigOpen(true)} sx={{ bgcolor: TX_COLOR, '&:hover': { bgcolor: TX_DARK }, fontWeight: 700, whiteSpace: 'nowrap' }}>Configurar</Button>}
+        >
+          <strong>Sin equivalencias configuradas.</strong> Si tu archivo usa nombres internos (TRACTOCAMIÓN, SENCILLO…), configúralas para que crucen con SICETAC.
+        </Alert>
+      ) : (
+        <Card sx={{ mb: 2.5, p: 2, border: `1px solid ${alpha(TX_COLOR, 0.2)}`, borderRadius: '12px' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, flexWrap: 'wrap', gap: 1 }}>
+            <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#1E293B' }}>
+              <DirectionsCar sx={{ fontSize: 15, color: TX_COLOR, verticalAlign: 'middle', mr: 0.5 }} />
+              Equivalencias activas ({Object.keys(mapeo).length})
+            </Typography>
+            <Button size="small" onClick={() => setConfigOpen(true)} sx={{ textTransform: 'none', color: TX_COLOR, fontWeight: 700 }}>Editar</Button>
+          </Box>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+            {Object.entries(mapeo).map(([interna, sic]) => (
+              <Chip key={interna} size="small" label={`${interna} → ${sic}`} sx={{ bgcolor: alpha(TX_COLOR, 0.08), color: TX_DARK, fontWeight: 600, fontSize: 11 }} />
+            ))}
+          </Box>
+        </Card>
+      )}
 
       {/* Steps */}
       <Box sx={{ display: 'flex', gap: 0, mb: 3, borderRadius: '12px', overflow: 'hidden', border: '1px solid #E2E8F0' }}>
@@ -492,6 +527,59 @@ export default function TarifaxMotor() {
           >
             <strong>Cruce completado.</strong> Archivo: <code style={{ fontSize: 11 }}>{result.filename}</code>
           </Alert>
+
+          {/* Vista previa de resultados (sin descargar) */}
+          {result.preview && (() => {
+            const tabla = previewTab === 0 ? result.preview!.cruzados : result.preview!.calculo_por_cpk
+            return (
+              <Card sx={{ mt: 2.5, border: '1px solid #E5E7EB', borderRadius: '12px', overflow: 'hidden' }}>
+                <Tabs
+                  value={previewTab} onChange={(_, v) => setPreviewTab(v)}
+                  sx={{ borderBottom: '1px solid #E5E7EB', px: 1, '& .Mui-selected': { color: TX_COLOR }, '& .MuiTabs-indicator': { bgcolor: TX_COLOR } }}
+                >
+                  <Tab sx={{ textTransform: 'none', fontWeight: 700 }} label={`Cruzados (${result.preview!.cruzados.total})`} />
+                  <Tab sx={{ textTransform: 'none', fontWeight: 700 }} label={`Cálculo por CPK (${result.preview!.calculo_por_cpk.total})`} />
+                </Tabs>
+                {tabla.total === 0 ? (
+                  <Box sx={{ p: 3, textAlign: 'center' }}><Typography sx={{ fontSize: 13, color: '#64748B' }}>Sin filas en esta hoja.</Typography></Box>
+                ) : (
+                  <>
+                    <Box sx={{ overflowX: 'auto', maxHeight: 380 }}>
+                      <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12 }}>
+                        <thead>
+                          <tr>
+                            {tabla.columns.map(c => (
+                              <th key={c} style={{ position: 'sticky', top: 0, background: '#F8FAFC', textAlign: 'left', padding: '8px 12px', fontSize: 10.5, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', whiteSpace: 'nowrap', borderBottom: '1px solid #E5E7EB' }}>{c}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {tabla.rows.map((row, ri) => (
+                            <tr key={ri} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                              {tabla.columns.map(c => {
+                                const val = row[c]
+                                const num = typeof val === 'number'
+                                return (
+                                  <td key={c} style={{ padding: '7px 12px', whiteSpace: 'nowrap', color: '#1E293B', textAlign: num ? 'right' as const : 'left' as const, fontVariantNumeric: 'tabular-nums' }}>
+                                    {val === null || val === undefined ? '—' : num ? (val as number).toLocaleString('es-CO') : String(val)}
+                                  </td>
+                                )
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </Box>
+                    <Box sx={{ px: 2, py: 1, bgcolor: '#F8FAFC', borderTop: '1px solid #E5E7EB' }}>
+                      <Typography sx={{ fontSize: 11, color: '#64748B' }}>
+                        Mostrando {tabla.rows.length} de {tabla.total.toLocaleString('es-CO')} filas · descarga el Excel para el detalle completo.
+                      </Typography>
+                    </Box>
+                  </>
+                )}
+              </Card>
+            )
+          })()}
         </Box>
       )}
     </Layout>
