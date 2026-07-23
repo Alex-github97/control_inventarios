@@ -25,6 +25,7 @@ interface MergeResult {
     tarifa_teorica_calculada?: number
     municipios_origen_cpk?: number
     vehiculos_mapeados?: number
+    distancias_por_ruta?: number
   }
   preview?: { cruzados: PreviewTabla; calculo_por_cpk: PreviewTabla }
   filename: string
@@ -189,7 +190,7 @@ export default function TarifaxMotor() {
       formData.append('file', file)
       const res = await apiClient.post<MergeResult>('/tarifax/merge', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 120000,
+        timeout: 600000,
       })
       setResult(res.data)
       toast.success('Cruce completado exitosamente')
@@ -484,6 +485,7 @@ export default function TarifaxMotor() {
               { label: 'Tasa de cruce', value: `${result.stats.tasa_cruce}%` },
               { label: 'Vehículos mapeados', value: (result.stats.vehiculos_mapeados ?? 0).toLocaleString() },
               { label: 'Tarifa teórica calculada', value: (result.stats.tarifa_teorica_calculada ?? 0).toLocaleString() },
+              { label: 'Distancias por carretera', value: (result.stats.distancias_por_ruta ?? 0).toLocaleString() },
             ].map((stat) => (
               <Grid item xs={6} md={3} key={stat.label}>
                 <Card sx={{

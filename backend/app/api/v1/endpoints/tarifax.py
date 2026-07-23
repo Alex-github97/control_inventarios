@@ -566,24 +566,69 @@ async def merge_tarifas(
     d_norm = _norm(cpk_sheet["DESTINO"]) if "DESTINO" in cpk_sheet.columns else pd.Series([""] * n)
     v_norm = _norm(cpk_sheet["TIPO_VEHICULO"]) if "TIPO_VEHICULO" in cpk_sheet.columns else pd.Series([""] * n)
 
-    # Distancia: la del archivo del cliente si viene; si no, la de SICETAC por ruta.
+    # Distancia por carretera con el MISMO motor del modulo de Distancias
+    # (geocodificacion + OSRM / Dijkstra sobre Contraction Hierarchies) para las
+    # rutas sin coincidencia. Es mas exacta que el promedio de SICETAC al
+    # multiplicar CPK x distancia. Se calcula una sola vez por ruta unica y se
+    # apoya en el cache de geocodificacion (los municipios se repiten mucho).
+    LIMITE_RUTEO = 400
+    routing_km: dict = {}
+    if "ORIGEN" in cpk_sheet.columns and "DESTINO" in cpk_sheet.columns:
+        rutas_unicas: dict = {}
+        for i in range(n):
+            k = (o_norm.iloc[i], d_norm.iloc[i])
+            if not o_norm.iloc[i] or not d_norm.iloc[i] or k in rutas_unicas:
+                continue
+            rutas_unicas[k] = (str(cpk_sheet["ORIGEN"].iloc[i]).strip(),
+                               str(cpk_sheet["DESTINO"].iloc[i]).strip())
+
+        def _con_pais(t: str) -> str:
+            # Sesga la geocodificacion a Colombia (carga domestica) si no se
+            # especifico ya un pais/detalle con coma.
+            return t if "," in t else f"{t}, Colombia"
+
+        async with httpx.AsyncClient() as client:
+            for k, (o_txt, d_txt) in list(rutas_unicas.items())[:LIMITE_RUTEO]:
+                if not o_txt or not d_txt or o_txt.lower() == "nan" or d_txt.lower() == "nan":
+                    continue
+                o = await _geocode(client, _con_pais(o_txt))
+                d = await _geocode(client, _con_pais(d_txt))
+                if not o or not d:
+                    continue
+                r = await _ruta(client, o, d, con_geometria=False)
+                if r:
+                    routing_km[k] = r["distancia_km"]
+
+    # Distancia por fila. Prioridad: motor de rutas (mas exacto) > archivo cliente > SICETAC.
     if COL_DISTANCIA in cpk_sheet.columns:
-        dist = pd.to_numeric(cpk_sheet[COL_DISTANCIA], errors="coerce").astype("Float64")
+        dist_cli = pd.to_numeric(cpk_sheet[COL_DISTANCIA], errors="coerce").astype("Float64")
     else:
-        dist = pd.Series([pd.NA] * n, dtype="Float64")
-    lookup = pd.Series(
+        dist_cli = pd.Series([pd.NA] * n, dtype="Float64")
+    dist_sicetac = pd.Series(
         [dist_map.get((o_norm.iloc[i], d_norm.iloc[i])) for i in range(n)], dtype="Float64"
     )
-    dist_final = dist.fillna(lookup)
+    dist_ruta = pd.Series(
+        [routing_km.get((o_norm.iloc[i], d_norm.iloc[i])) for i in range(n)], dtype="Float64"
+    )
+    dist_final = dist_ruta.fillna(dist_cli).fillna(dist_sicetac)
+
+    def _fuente(i: int) -> str:
+        if pd.notna(dist_ruta.iloc[i]): return "Ruta por carretera (OSRM)"
+        if pd.notna(dist_cli.iloc[i]): return "Archivo cliente"
+        if pd.notna(dist_sicetac.iloc[i]): return "Promedio SICETAC"
+        return "Sin dato"
+
     # CPK segun (municipio origen, tipologia de vehiculo) de cada fila.
     cpk_series = pd.Series(
         [cpk_map.get((o_norm.iloc[i], v_norm.iloc[i])) for i in range(n)], dtype="Float64"
     )
 
-    cpk_sheet["DISTANCIA_KM"] = dist_final
+    cpk_sheet["DISTANCIA_KM"] = dist_final.round(1)
+    cpk_sheet["FUENTE_DISTANCIA"] = [_fuente(i) for i in range(n)]
     cpk_sheet["CPK_PROMEDIO_ORIGEN"] = cpk_series.round(2)
     cpk_sheet["TARIFA_TEORICA_CPK"] = (dist_final * cpk_series).round(0)
     con_teorica = int(cpk_sheet["TARIFA_TEORICA_CPK"].notna().sum())
+    dist_ruteadas = int(dist_ruta.notna().sum())
 
     matched = result[matched_mask]
 
@@ -606,6 +651,7 @@ async def merge_tarifas(
             "tarifa_teorica_calculada": con_teorica,
             "municipios_origen_cpk": len(pivot_cpk),
             "vehiculos_mapeados": vehiculos_mapeados,
+            "distancias_por_ruta": dist_ruteadas,
         },
         "preview": {
             "cruzados": _preview(matched),
