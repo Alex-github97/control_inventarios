@@ -1,4 +1,5 @@
 import io
+import json
 import base64
 import unicodedata
 from datetime import datetime
@@ -7,6 +8,7 @@ from pathlib import Path
 import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
+from pydantic import BaseModel
 
 from app.core.dependencies import get_current_user
 from app.infrastructure.models.usuario import Usuario
@@ -16,6 +18,8 @@ router = APIRouter(prefix="/tarifax", tags=["TarifaX"])
 DATA_DIR = Path(__file__).parents[4] / "data"
 DF1_PATH = DATA_DIR / "TARIFARIO_SICETAC.xlsx"
 TEMPLATE_PATH = DATA_DIR / "plantilla_cotizacion_tarifax.xlsx"
+# Mapeo categorias internas de la empresa -> tipologia de vehiculo SICETAC.
+MAPEO_PATH = DATA_DIR / "tarifax_mapeo_vehiculos.json"
 
 COL_PRECIO_ACTUAL = "TARIFA_CLIENTE"      # precio del cliente (archivo DF2)
 COL_PRECIO_SICETAC = "COSTO_TOTAL_VIAJE"  # costo de referencia SICETAC (base DF1)
@@ -190,6 +194,56 @@ def _distancia_origen_destino() -> dict[tuple[str, str], float]:
     return {(r["__o"], r["__d"]): float(r["__dist"]) for _, r in g.iterrows()}
 
 
+def _load_mapeo_raw() -> dict[str, str]:
+    """Mapeo crudo {categoria_interna_empresa: tipo_vehiculo_sicetac}."""
+    if MAPEO_PATH.exists():
+        try:
+            data = json.loads(MAPEO_PATH.read_text(encoding="utf-8"))
+            return {str(k): str(v) for k, v in data.items()} if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+    return {}
+
+
+def _mapeo_norm() -> dict[str, str]:
+    """Mapeo con la clave normalizada (para cruzar con el TIPO_VEHICULO del cliente)."""
+    out: dict[str, str] = {}
+    for interna, sicetac in _load_mapeo_raw().items():
+        k = _norm(pd.Series([interna])).iloc[0]
+        if k and sicetac:
+            out[k] = sicetac
+    return out
+
+
+@router.get("/tipos-sicetac")
+async def tipos_sicetac(current_user: Usuario = Depends(get_current_user)):
+    """Tipologias de vehiculo tal como SICETAC las nombra (para el mapeo)."""
+    df1 = _load_df1()
+    if "TIPO_VEHICULO" not in df1.columns:
+        return []
+    vals = df1["TIPO_VEHICULO"].dropna().astype(str).str.strip()
+    return sorted(v for v in vals.unique().tolist() if v)
+
+
+@router.get("/mapeo-vehiculos")
+async def get_mapeo_vehiculos(current_user: Usuario = Depends(get_current_user)):
+    return _load_mapeo_raw()
+
+
+class MapeoVehiculosReq(BaseModel):
+    mapeo: dict[str, str]
+
+
+@router.put("/mapeo-vehiculos")
+async def put_mapeo_vehiculos(
+    data: MapeoVehiculosReq,
+    current_user: Usuario = Depends(get_current_user),
+):
+    limpio = {str(k).strip(): str(v).strip() for k, v in data.mapeo.items() if str(k).strip() and str(v).strip()}
+    MAPEO_PATH.write_text(json.dumps(limpio, ensure_ascii=False, indent=2), encoding="utf-8")
+    return {"ok": True, "categorias": len(limpio)}
+
+
 @router.get("/template")
 async def descargar_plantilla(
     current_user: Usuario = Depends(get_current_user),
@@ -232,11 +286,29 @@ async def merge_tarifas(
 
     df1 = _load_df1()
 
+    # Traduce la tipologia interna de la empresa (p.ej. TRACTOCAMION) al codigo
+    # SICETAC (p.ej. 3S2) segun el mapeo configurado, para que el cruce y el CPK calcen.
+    mapeo = _mapeo_norm()
+    vehiculos_mapeados = 0
+    if mapeo and "TIPO_VEHICULO" in df2.columns:
+        tvn = _norm(df2["TIPO_VEHICULO"])
+        nuevos = []
+        for i in range(len(df2)):
+            dest = mapeo.get(tvn.iloc[i])
+            if dest:
+                nuevos.append(dest); vehiculos_mapeados += 1
+            else:
+                nuevos.append(df2["TIPO_VEHICULO"].iloc[i])
+        df2["TIPO_VEHICULO"] = nuevos
+
     # Columnas originales del archivo del cliente (para la hoja de no-coincidencias).
     df2_cols = list(df2.columns)
 
-    # Llaves efectivas: solo las que existen en ambos archivos.
+    # Llaves efectivas: solo las que existen en ambos archivos...
     keys = [(a, b) for (a, b) in JOIN_KEYS if a in df2.columns and b in df1.columns]
+    # ...y descartar las que vienen totalmente en blanco en el archivo del cliente
+    # (p.ej. CARROCERIA vacia), para no forzar todo a "sin coincidencia".
+    keys = [(a, b) for (a, b) in keys if _norm(df2[a]).ne("").any()]
 
     # Columnas normalizadas de cruce en el archivo del cliente.
     norm_cols: list[str] = []
@@ -319,6 +391,7 @@ async def merge_tarifas(
             "llaves_cruce": [a for a, _ in keys],
             "tarifa_teorica_calculada": con_teorica,
             "municipios_origen_cpk": len(pivot_cpk),
+            "vehiculos_mapeados": vehiculos_mapeados,
         },
         "filename": filename,
         "file_base64": base64.b64encode(output.read()).decode("utf-8"),

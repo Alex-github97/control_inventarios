@@ -1,9 +1,12 @@
 import React, { useRef, useState } from 'react'
 import {
   Box, Typography, Card, Button, Chip, LinearProgress, Alert, Grid, alpha,
+  Dialog, DialogTitle, DialogContent, DialogActions, TextField,
+  IconButton, Stack, Tooltip, Autocomplete,
 } from '@mui/material'
 import {
   Upload, Download, CheckCircle, MergeType, InsertDriveFile, Close,
+  DirectionsCar, Add as AddIcon, DeleteOutline,
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 import { apiClient } from '@/api/client'
@@ -18,9 +21,98 @@ interface MergeResult {
     cruzados: number
     sin_coincidencia: number
     tasa_cruce: number
+    tarifa_teorica_calculada?: number
+    municipios_origen_cpk?: number
+    vehiculos_mapeados?: number
   }
   filename: string
   file_base64: string
+}
+
+interface MapeoRow { interna: string; sicetac: string }
+
+// ─── Configuración de mapeo de tipologías de vehículo (interna ↔ SICETAC) ─────
+function ConfigVehiculos({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [rows, setRows] = useState<MapeoRow[]>([])
+  const [tipos, setTipos] = useState<string[]>([])
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  React.useEffect(() => {
+    if (!open) return
+    setLoading(true)
+    Promise.all([
+      apiClient.get<Record<string, string>>('/tarifax/mapeo-vehiculos'),
+      apiClient.get<string[]>('/tarifax/tipos-sicetac'),
+    ]).then(([m, t]) => {
+      const dict = (m.data || {}) as Record<string, string>
+      const entries = Object.entries(dict)
+      setRows(entries.length ? entries.map(([interna, sicetac]) => ({ interna, sicetac: String(sicetac) })) : [{ interna: '', sicetac: '' }])
+      setTipos(t.data || [])
+    }).catch(() => toast.error('No se pudo cargar la configuración'))
+      .finally(() => setLoading(false))
+  }, [open])
+
+  const setRow = (i: number, patch: Partial<MapeoRow>) => setRows(rs => rs.map((r, idx) => idx === i ? { ...r, ...patch } : r))
+  const addRow = () => setRows(rs => [...rs, { interna: '', sicetac: '' }])
+  const delRow = (i: number) => setRows(rs => rs.filter((_, idx) => idx !== i))
+
+  const guardar = async () => {
+    const mapeo: Record<string, string> = {}
+    for (const r of rows) {
+      const k = r.interna.trim(); const v = r.sicetac.trim()
+      if (k && v) mapeo[k] = v
+    }
+    setSaving(true)
+    try {
+      const res = await apiClient.put('/tarifax/mapeo-vehiculos', { mapeo })
+      toast.success(`Configuración guardada (${(res.data as any)?.categorias ?? Object.keys(mapeo).length} categorías)`)
+      onClose()
+    } catch {
+      toast.error('No se pudo guardar')
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+      <DialogTitle sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <DirectionsCar sx={{ color: TX_COLOR }} /> Configuración de tipologías de vehículo
+      </DialogTitle>
+      <DialogContent dividers>
+        <Alert severity="info" sx={{ mb: 2, fontSize: 12.5 }}>
+          Asocia la categoría con la que <b>tu empresa</b> nombra los vehículos (ej. TRACTOCAMIÓN, SENCILLO, TURBO)
+          con la tipología equivalente en <b>SICETAC</b>. El cruce y el cálculo de CPK usarán esta equivalencia.
+        </Alert>
+        {loading ? <LinearProgress /> : (
+          <Stack spacing={1.25}>
+            <Stack direction="row" sx={{ px: 0.5 }}>
+              <Typography sx={{ flex: 1, fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Categoría interna</Typography>
+              <Typography sx={{ flex: 1, fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Tipología SICETAC</Typography>
+              <Box sx={{ width: 36 }} />
+            </Stack>
+            {rows.map((r, i) => (
+              <Stack key={i} direction="row" spacing={1} alignItems="center">
+                <TextField size="small" placeholder="TRACTOCAMION" value={r.interna} onChange={e => setRow(i, { interna: e.target.value })} sx={{ flex: 1 }} />
+                <Autocomplete
+                  size="small" options={tipos} value={r.sicetac || null} freeSolo
+                  onChange={(_, v) => setRow(i, { sicetac: v || '' })}
+                  onInputChange={(_, v) => setRow(i, { sicetac: v })}
+                  sx={{ flex: 1 }}
+                  renderInput={(p) => <TextField {...p} placeholder="3S2" />}
+                />
+                <Tooltip title="Quitar"><IconButton size="small" onClick={() => delRow(i)} sx={{ color: '#DC2626' }}><DeleteOutline sx={{ fontSize: 18 }} /></IconButton></Tooltip>
+              </Stack>
+            ))}
+            <Button startIcon={<AddIcon />} onClick={addRow} sx={{ alignSelf: 'flex-start', textTransform: 'none', color: TX_COLOR, fontWeight: 700 }}>Agregar categoría</Button>
+          </Stack>
+        )}
+      </DialogContent>
+      <DialogActions sx={{ px: 3, py: 2 }}>
+        <Button onClick={onClose} sx={{ color: '#64748B' }}>Cancelar</Button>
+        <Button variant="contained" disabled={saving} onClick={guardar} sx={{ bgcolor: TX_COLOR, '&:hover': { bgcolor: TX_DARK }, fontWeight: 700 }}>Guardar configuración</Button>
+      </DialogActions>
+    </Dialog>
+  )
 }
 
 export default function TarifaxMotor() {
@@ -28,6 +120,7 @@ export default function TarifaxMotor() {
   const [file, setFile] = useState<File | null>(null)
   const [processing, setProcessing] = useState(false)
   const [result, setResult] = useState<MergeResult | null>(null)
+  const [configOpen, setConfigOpen] = useState(false)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] ?? null
@@ -103,7 +196,7 @@ export default function TarifaxMotor() {
         >
           <MergeType sx={{ color: '#fff', fontSize: 18 }} />
         </Box>
-        <Box>
+        <Box sx={{ flex: 1 }}>
           <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2, color: '#1E293B' }}>
             Motor de Cruce TarifaX
           </Typography>
@@ -111,7 +204,15 @@ export default function TarifaxMotor() {
             Cruza tu archivo Excel contra el tarifario interno SICETAC
           </Typography>
         </Box>
+        <Button
+          variant="outlined" startIcon={<DirectionsCar />} onClick={() => setConfigOpen(true)}
+          sx={{ borderColor: alpha(TX_COLOR, 0.4), color: TX_COLOR, fontWeight: 700, textTransform: 'none', borderRadius: '10px', '&:hover': { borderColor: TX_COLOR, bgcolor: alpha(TX_COLOR, 0.06) } }}
+        >
+          Configurar vehículos
+        </Button>
       </Box>
+
+      <ConfigVehiculos open={configOpen} onClose={() => setConfigOpen(false)} />
 
       {/* Steps */}
       <Box sx={{ display: 'flex', gap: 0, mb: 3, borderRadius: '12px', overflow: 'hidden', border: '1px solid #E2E8F0' }}>
@@ -315,8 +416,10 @@ export default function TarifaxMotor() {
             {[
               { label: 'Registros resultado', value: result.stats.registros.toLocaleString() },
               { label: 'Cruzados correctamente', value: result.stats.cruzados.toLocaleString() },
-              { label: 'Sin coincidencia', value: result.stats.sin_coincidencia.toLocaleString() },
+              { label: 'Sin coincidencia (hoja CPK)', value: result.stats.sin_coincidencia.toLocaleString() },
               { label: 'Tasa de cruce', value: `${result.stats.tasa_cruce}%` },
+              { label: 'Vehículos mapeados', value: (result.stats.vehiculos_mapeados ?? 0).toLocaleString() },
+              { label: 'Tarifa teórica calculada', value: (result.stats.tarifa_teorica_calculada ?? 0).toLocaleString() },
             ].map((stat) => (
               <Grid item xs={6} md={3} key={stat.label}>
                 <Card sx={{
