@@ -276,17 +276,24 @@ async def _geocode(client: httpx.AsyncClient, lugar: str) -> dict | None:
     async with _geo_lock:
         if key in _geo_cache:
             return _geo_cache[key]
-        try:
-            r = await client.get(_NOMINATIM, params={"q": lugar, "format": "json", "limit": 1},
-                                  headers=_UA, timeout=20)
-            data = r.json() if r.status_code == 200 else []
-        except Exception:
-            data = []
-        await asyncio.sleep(1.0)  # politica de uso Nominatim
+        # Fallback progresivo: intentamos la cadena completa (mas precisa) y, si
+        # Nominatim no la ubica, vamos soltando la parte mas especifica de la
+        # izquierda (p.ej. una direccion/POI) hasta que quede ciudad, depto, pais.
+        partes = [p.strip() for p in lugar.split(",") if p.strip()]
+        intentos = [", ".join(partes[i:]) for i in range(max(1, len(partes)))] or [lugar]
         res = None
-        if data:
-            top = data[0]
-            res = {"nombre": top.get("display_name"), "lat": float(top["lat"]), "lon": float(top["lon"])}
+        for intento in intentos:
+            try:
+                r = await client.get(_NOMINATIM, params={"q": intento, "format": "json", "limit": 1},
+                                      headers=_UA, timeout=20)
+                data = r.json() if r.status_code == 200 else []
+            except Exception:
+                data = []
+            await asyncio.sleep(1.0)  # politica de uso Nominatim
+            if data:
+                top = data[0]
+                res = {"nombre": top.get("display_name"), "lat": float(top["lat"]), "lon": float(top["lon"])}
+                break
         _geo_cache[key] = res
         return res
 
@@ -358,10 +365,28 @@ async def ruta_masiva(
                 return c
         return None
 
-    col_o = _col("ORIGEN", "Origen", "origen")
-    col_d = _col("DESTINO", "Destino", "destino")
+    col_o = _col("ORIGEN", "Origen", "origen", "MUNICIPIO_ORIGEN", "CIUDAD_ORIGEN")
+    col_d = _col("DESTINO", "Destino", "destino", "MUNICIPIO_DESTINO", "CIUDAD_DESTINO")
     if not col_o or not col_d:
         raise HTTPException(400, f"El archivo debe tener columnas ORIGEN y DESTINO. Columnas: {', '.join(df.columns)}")
+
+    # Columnas opcionales para afinar la geocodificacion (direccion, depto/estado, pais)
+    col_dir_o = _col("DIRECCION_ORIGEN", "DIR_ORIGEN", "DIRECCION ORIGEN")
+    col_dir_d = _col("DIRECCION_DESTINO", "DIR_DESTINO", "DIRECCION DESTINO")
+    col_dep_o = _col("DEPARTAMENTO_ORIGEN", "DEPTO_ORIGEN", "ESTADO_ORIGEN", "PROVINCIA_ORIGEN")
+    col_dep_d = _col("DEPARTAMENTO_DESTINO", "DEPTO_DESTINO", "ESTADO_DESTINO", "PROVINCIA_DESTINO")
+    col_pais_o = _col("PAIS_ORIGEN", "PAIS ORIGEN")
+    col_pais_d = _col("PAIS_DESTINO", "PAIS DESTINO")
+
+    def _componer(row, c_dir, c_mun, c_dep, c_pais) -> str:
+        partes = []
+        for c in (c_dir, c_mun, c_dep, c_pais):
+            if not c:
+                continue
+            v = str(row[c]).strip()
+            if v and v.lower() != "nan":
+                partes.append(v)
+        return ", ".join(partes)
 
     total_filas = len(df)
     df = df.head(limite).copy()
@@ -371,8 +396,9 @@ async def ruta_masiva(
     estado: list = []
     async with httpx.AsyncClient() as client:
         for _, row in df.iterrows():
-            o_txt, d_txt = str(row[col_o]).strip(), str(row[col_d]).strip()
-            if not o_txt or not d_txt or o_txt.lower() == "nan" or d_txt.lower() == "nan":
+            o_txt = _componer(row, col_dir_o, col_o, col_dep_o, col_pais_o)
+            d_txt = _componer(row, col_dir_d, col_d, col_dep_d, col_pais_d)
+            if not o_txt or not d_txt:
                 dist_km.append(None); dur_min.append(None); estado.append("FALTAN DATOS"); continue
             o = await _geocode(client, o_txt)
             d = await _geocode(client, d_txt)

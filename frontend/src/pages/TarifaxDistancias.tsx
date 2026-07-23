@@ -14,6 +14,10 @@ const TX_DARK = '#1f6130'
 
 interface Punto { nombre: string; lat: number; lon: number }
 interface RutaResp { origen: Punto; destino: Punto; distancia_km: number; duracion_min: number; geometria: [number, number][] }
+interface Lugar { direccion: string; municipio: string; depto: string; pais: string }
+const LUGAR_VACIO: Lugar = { direccion: '', municipio: '', depto: '', pais: '' }
+// Componemos la consulta de más específico a más general (así lo prefiere el geocodificador)
+const componerLugar = (l: Lugar) => [l.direccion, l.municipio, l.depto, l.pais].map(s => s.trim()).filter(Boolean).join(', ')
 interface MasivaResp {
   stats: { filas: number; total_archivo: number; calculadas: number; sin_ruta: number; truncado: boolean }
   filename: string; file_base64: string
@@ -54,7 +58,7 @@ function MapaRuta({ ruta }: { ruta: RutaResp | null }) {
     loadLeaflet().then((L) => {
       if (cancel || !ref.current) return
       if (!mapRef.current) {
-        mapRef.current = L.map(ref.current, { scrollWheelZoom: false }).setView([4.6, -74.08], 5)
+        mapRef.current = L.map(ref.current, { scrollWheelZoom: true }).setView([4.6, -74.08], 5)
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '&copy; OpenStreetMap', maxZoom: 19,
         }).addTo(mapRef.current)
@@ -80,9 +84,29 @@ function MapaRuta({ ruta }: { ruta: RutaResp | null }) {
   return <Box ref={ref} sx={{ height: 420, width: '100%', borderRadius: '12px', overflow: 'hidden', border: '1px solid #E5E7EB', bgcolor: '#EEF2F6' }} />
 }
 
+function CamposLugar({ titulo, color, lugar, onChange, onEnter }: {
+  titulo: string; color: string; lugar: Lugar; onChange: (l: Lugar) => void; onEnter: () => void
+}) {
+  const upd = (k: keyof Lugar) => (e: any) => onChange({ ...lugar, [k]: e.target.value })
+  const enter = (e: any) => { if (e.key === 'Enter') onEnter() }
+  return (
+    <Box sx={{ flex: 1, minWidth: 0 }}>
+      <Typography sx={{ fontSize: 11, fontWeight: 800, color, textTransform: 'uppercase', mb: 0.75, letterSpacing: 0.4 }}>{titulo}</Typography>
+      <Stack spacing={1}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+          <TextField size="small" label="Municipio / Ciudad" value={lugar.municipio} onChange={upd('municipio')} onKeyDown={enter} sx={{ flex: 1 }} />
+          <TextField size="small" label="Depto / Estado / Provincia" value={lugar.depto} onChange={upd('depto')} onKeyDown={enter} sx={{ flex: 1 }} />
+          <TextField size="small" label="País" value={lugar.pais} onChange={upd('pais')} onKeyDown={enter} sx={{ width: { sm: 120 } }} />
+        </Stack>
+        <TextField size="small" label="Dirección (opcional)" placeholder="Calle 26 # 68-35, terminal de carga…" value={lugar.direccion} onChange={upd('direccion')} onKeyDown={enter} fullWidth />
+      </Stack>
+    </Box>
+  )
+}
+
 export default function TarifaxDistancias() {
-  const [origen, setOrigen] = useState('')
-  const [destino, setDestino] = useState('')
+  const [org, setOrg] = useState<Lugar>({ ...LUGAR_VACIO })
+  const [des, setDes] = useState<Lugar>({ ...LUGAR_VACIO })
   const [buscando, setBuscando] = useState(false)
   const [ruta, setRuta] = useState<RutaResp | null>(null)
 
@@ -92,7 +116,8 @@ export default function TarifaxDistancias() {
   const [masiva, setMasiva] = useState<MasivaResp | null>(null)
 
   const consultar = async () => {
-    if (!origen.trim() || !destino.trim()) { toast.error('Ingresa origen y destino'); return }
+    const origen = componerLugar(org), destino = componerLugar(des)
+    if (!origen || !destino) { toast.error('Ingresa al menos el municipio/ciudad de origen y destino'); return }
     setBuscando(true)
     try {
       const res = await apiClient.get<RutaResp>('/tarifax/ruta', {
@@ -104,7 +129,7 @@ export default function TarifaxDistancias() {
     } finally { setBuscando(false) }
   }
 
-  const invertir = () => { setOrigen(destino); setDestino(origen) }
+  const invertir = () => { setOrg(des); setDes(org) }
 
   const procesarMasiva = async () => {
     if (!file) return
@@ -148,16 +173,20 @@ export default function TarifaxDistancias() {
 
       {/* Consulta puntual */}
       <Card sx={{ p: 2.5, mb: 2.5, border: `1px solid ${alpha(TX_COLOR, 0.2)}`, borderRadius: '14px' }}>
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ md: 'center' }} sx={{ mb: 2 }}>
-          <TextField size="small" label="Origen" placeholder="Bogotá, Colombia" value={origen} onChange={e => setOrigen(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && consultar()} sx={{ flex: 1 }} />
-          <Button onClick={invertir} sx={{ minWidth: 0, color: TX_COLOR }}><SwapHoriz /></Button>
-          <TextField size="small" label="Destino" placeholder="Medellín, Colombia" value={destino} onChange={e => setDestino(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && consultar()} sx={{ flex: 1 }} />
-          <Button variant="contained" startIcon={<TravelExplore />} onClick={consultar} disabled={buscando}
-            sx={{ bgcolor: TX_COLOR, '&:hover': { bgcolor: TX_DARK }, fontWeight: 700, textTransform: 'none', borderRadius: '10px', whiteSpace: 'nowrap' }}>
-            {buscando ? 'Calculando…' : 'Calcular ruta'}
-          </Button>
+        <Stack spacing={2} sx={{ mb: 2 }}>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ md: 'flex-start' }}>
+            <CamposLugar titulo="Origen" color="#2563EB" lugar={org} onChange={setOrg} onEnter={consultar} />
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', pt: { md: 3.5 } }}>
+              <Button onClick={invertir} title="Invertir origen y destino" sx={{ minWidth: 0, color: TX_COLOR }}><SwapHoriz /></Button>
+            </Box>
+            <CamposLugar titulo="Destino" color="#DC2626" lugar={des} onChange={setDes} onEnter={consultar} />
+          </Stack>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Button variant="contained" startIcon={<TravelExplore />} onClick={consultar} disabled={buscando}
+              sx={{ bgcolor: TX_COLOR, '&:hover': { bgcolor: TX_DARK }, fontWeight: 700, textTransform: 'none', borderRadius: '10px', whiteSpace: 'nowrap' }}>
+              {buscando ? 'Calculando…' : 'Calcular ruta'}
+            </Button>
+          </Box>
         </Stack>
         {buscando && <LinearProgress sx={{ mb: 2, borderRadius: 4, bgcolor: alpha(TX_COLOR, 0.1), '& .MuiLinearProgress-bar': { bgcolor: TX_COLOR } }} />}
 
@@ -191,6 +220,7 @@ export default function TarifaxDistancias() {
         <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#1E293B', mb: 0.5 }}>Cálculo masivo desde Excel</Typography>
         <Typography sx={{ fontSize: 12, color: '#64748B', mb: 2 }}>
           Sube un Excel con columnas <code>ORIGEN</code> y <code>DESTINO</code>; se devuelve el mismo archivo con la distancia (km) y duración de cada par.
+          Para mayor precisión puedes añadir columnas opcionales <code>DIRECCION_ORIGEN</code>, <code>DEPARTAMENTO_ORIGEN</code>, <code>PAIS_ORIGEN</code> (y sus equivalentes <code>_DESTINO</code>).
         </Typography>
         <input ref={fileRef} type="file" accept=".xlsx,.xls" hidden onChange={e => { setFile(e.target.files?.[0] ?? null); setMasiva(null) }} />
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'center' }}>
