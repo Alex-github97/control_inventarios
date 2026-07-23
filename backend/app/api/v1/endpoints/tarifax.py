@@ -35,6 +35,14 @@ REQUIRED_DF2_KEYS = ["ORIGEN", "DESTINO", "TIPO_VEHICULO"]
 # Columnas de SICETAC que se arrastran al resultado (ademas del costo).
 DF1_EXTRA_COLS = ["DPTO_ORIGEN", "DPTO_DESTINO", "DISTANCIA", "CATEGORIA_VEHICULO"]
 
+COL_DISTANCIA = "DISTANCIA"
+# Nombres posibles de la columna de CPK (costo por km) en el tarifario SICETAC.
+# El usuario agrega esta columna; si no existe, el CPK se deriva de COSTO/DISTANCIA.
+CPK_COL_CANDIDATES = [
+    "CPK", "COSTO_KM", "COSTO_POR_KM", "COSTO_POR_KILOMETRO",
+    "COSTO_KILOMETRO", "CPK_ORIGEN", "COSTO_X_KM",
+]
+
 _df1_cache: pd.DataFrame | None = None
 _grouped_cache: dict[tuple, pd.DataFrame] = {}
 
@@ -110,6 +118,71 @@ def _grouped_df1(keys: list[tuple[str, str]]) -> pd.DataFrame:
     return grouped
 
 
+def _cpk_column(df1: pd.DataFrame) -> str | None:
+    for c in CPK_COL_CANDIDATES:
+        if c in df1.columns:
+            return c
+    return None
+
+
+def _cpk_por_origen() -> tuple[dict[str, float], pd.DataFrame]:
+    """CPK (costo por km) promedio por municipio de ORIGEN.
+
+    Usa la columna de CPK del tarifario si existe; si no, lo deriva de
+    COSTO_TOTAL_VIAJE / DISTANCIA. Devuelve (mapa origen_normalizado -> cpk_promedio,
+    tabla-resumen tipo pivot para la hoja del libro).
+    """
+    df1 = _load_df1().copy()
+    if "ORIGEN" not in df1.columns:
+        return {}, pd.DataFrame(columns=["MUNICIPIO_ORIGEN", "CPK_PROMEDIO", "RUTAS_SICETAC"])
+
+    df1["__origen"] = _norm(df1["ORIGEN"])
+    cpk_col = _cpk_column(df1)
+    if cpk_col:
+        df1["__cpk"] = pd.to_numeric(df1[cpk_col], errors="coerce")
+    elif COL_PRECIO_SICETAC in df1.columns and COL_DISTANCIA in df1.columns:
+        dist = pd.to_numeric(df1[COL_DISTANCIA], errors="coerce").replace(0, pd.NA)
+        df1["__cpk"] = pd.to_numeric(df1[COL_PRECIO_SICETAC], errors="coerce") / dist
+    else:
+        df1["__cpk"] = pd.NA
+
+    valid = df1[df1["__origen"].ne("") & df1["__cpk"].notna()]
+    if valid.empty:
+        return {}, pd.DataFrame(columns=["MUNICIPIO_ORIGEN", "CPK_PROMEDIO", "RUTAS_SICETAC"])
+
+    pivot = valid.groupby("__origen", as_index=False).agg(
+        cpk_promedio=("__cpk", "mean"), rutas=("__cpk", "size")
+    )
+    nombres = df1.groupby("__origen")["ORIGEN"].first()
+    pivot["MUNICIPIO_ORIGEN"] = pivot["__origen"].map(nombres)
+    pivot["cpk_promedio"] = pivot["cpk_promedio"].round(2)
+
+    cpk_map = dict(zip(pivot["__origen"], pivot["cpk_promedio"]))
+    pivot_out = (
+        pivot[["MUNICIPIO_ORIGEN", "cpk_promedio", "rutas"]]
+        .rename(columns={"cpk_promedio": "CPK_PROMEDIO", "rutas": "RUTAS_SICETAC"})
+        .sort_values("MUNICIPIO_ORIGEN")
+        .reset_index(drop=True)
+    )
+    return cpk_map, pivot_out
+
+
+def _distancia_origen_destino() -> dict[tuple[str, str], float]:
+    """Distancia promedio por ruta (ORIGEN, DESTINO) desde SICETAC, para estimar
+    la tarifa teorica de las rutas que no cruzaron por categoria de vehiculo."""
+    df1 = _load_df1().copy()
+    if COL_DISTANCIA not in df1.columns or "ORIGEN" not in df1.columns or "DESTINO" not in df1.columns:
+        return {}
+    df1["__o"] = _norm(df1["ORIGEN"])
+    df1["__d"] = _norm(df1["DESTINO"])
+    df1["__dist"] = pd.to_numeric(df1[COL_DISTANCIA], errors="coerce")
+    valid = df1[df1["__o"].ne("") & df1["__d"].ne("") & df1["__dist"].notna()]
+    if valid.empty:
+        return {}
+    g = valid.groupby(["__o", "__d"], as_index=False)["__dist"].mean()
+    return {(r["__o"], r["__d"]): float(r["__dist"]) for _, r in g.iterrows()}
+
+
 @router.get("/template")
 async def descargar_plantilla(
     current_user: Usuario = Depends(get_current_user),
@@ -152,6 +225,9 @@ async def merge_tarifas(
 
     df1 = _load_df1()
 
+    # Columnas originales del archivo del cliente (para la hoja de no-coincidencias).
+    df2_cols = list(df2.columns)
+
     # Llaves efectivas: solo las que existen en ambos archivos.
     keys = [(a, b) for (a, b) in JOIN_KEYS if a in df2.columns and b in df1.columns]
 
@@ -176,15 +252,49 @@ async def merge_tarifas(
 
     total = len(result)
     if COL_PRECIO_SICETAC in result.columns:
-        cruzados = int(result[COL_PRECIO_SICETAC].notna().sum())
+        matched_mask = result[COL_PRECIO_SICETAC].notna()
     else:
-        cruzados = 0
+        matched_mask = pd.Series([False] * total, index=result.index)
+    cruzados = int(matched_mask.sum())
     unmatched = total - cruzados
     match_rate = round(cruzados / total * 100, 1) if total > 0 else 0.0
 
+    # ── Hoja 2 "calculo por cpk": rutas SIN coincidencia con tarifa teorica ──
+    # Tarifa teorica = distancia(origen, destino) x CPK promedio del municipio origen.
+    cpk_map, pivot_cpk = _cpk_por_origen()
+    dist_map = _distancia_origen_destino()
+
+    sin = result[~matched_mask].copy()
+    cpk_cols = [c for c in df2_cols if c in sin.columns]
+    cpk_sheet = sin[cpk_cols].reset_index(drop=True)
+    n = len(cpk_sheet)
+
+    o_norm = _norm(cpk_sheet["ORIGEN"]) if "ORIGEN" in cpk_sheet.columns else pd.Series([""] * n)
+    d_norm = _norm(cpk_sheet["DESTINO"]) if "DESTINO" in cpk_sheet.columns else pd.Series([""] * n)
+
+    # Distancia: la del archivo del cliente si viene; si no, la de SICETAC por ruta.
+    if COL_DISTANCIA in cpk_sheet.columns:
+        dist = pd.to_numeric(cpk_sheet[COL_DISTANCIA], errors="coerce").astype("Float64")
+    else:
+        dist = pd.Series([pd.NA] * n, dtype="Float64")
+    lookup = pd.Series(
+        [dist_map.get((o_norm.iloc[i], d_norm.iloc[i])) for i in range(n)], dtype="Float64"
+    )
+    dist_final = dist.fillna(lookup)
+    cpk_series = pd.Series([cpk_map.get(o_norm.iloc[i]) for i in range(n)], dtype="Float64")
+
+    cpk_sheet["DISTANCIA_KM"] = dist_final
+    cpk_sheet["CPK_PROMEDIO_ORIGEN"] = cpk_series.round(2)
+    cpk_sheet["TARIFA_TEORICA_CPK"] = (dist_final * cpk_series).round(0)
+    con_teorica = int(cpk_sheet["TARIFA_TEORICA_CPK"].notna().sum())
+
+    matched = result[matched_mask]
+
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        result.to_excel(writer, index=False, sheet_name="TarifaX_Resultado")
+        matched.to_excel(writer, index=False, sheet_name="TarifaX_Resultado")
+        cpk_sheet.to_excel(writer, index=False, sheet_name="calculo por cpk")
+        pivot_cpk.to_excel(writer, index=False, sheet_name="CPK por Origen")
     output.seek(0)
 
     filename = f"TarifaX_resultado_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
@@ -196,6 +306,8 @@ async def merge_tarifas(
             "sin_coincidencia": unmatched,
             "tasa_cruce": match_rate,
             "llaves_cruce": [a for a, _ in keys],
+            "tarifa_teorica_calculada": con_teorica,
+            "municipios_origen_cpk": len(pivot_cpk),
         },
         "filename": filename,
         "file_base64": base64.b64encode(output.read()).decode("utf-8"),
