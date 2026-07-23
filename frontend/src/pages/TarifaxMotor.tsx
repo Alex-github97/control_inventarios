@@ -6,7 +6,7 @@ import {
 } from '@mui/material'
 import {
   Upload, Download, CheckCircle, MergeType, InsertDriveFile, Close,
-  DirectionsCar, Add as AddIcon, DeleteOutline,
+  DirectionsCar, Add as AddIcon, DeleteOutline, AutoFixHigh,
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 import { apiClient } from '@/api/client'
@@ -30,6 +30,20 @@ interface MergeResult {
 }
 
 interface MapeoRow { interna: string; sicetac: string }
+
+// Equivalencias tipicas del transporte de carga en Colombia (punto de partida
+// editable). La izquierda es como suele nombrarlas la empresa; la derecha, el
+// codigo SICETAC. El usuario las ajusta antes de guardar.
+const EQUIVALENCIAS_SUGERIDAS: MapeoRow[] = [
+  { interna: 'TURBO', sicetac: '2L3 Liviano entre 7.5 y 8 Tonel.' },
+  { interna: 'SENCILLO', sicetac: '2' },
+  { interna: 'CAMION', sicetac: '2' },
+  { interna: 'DOBLETROQUE', sicetac: '3' },
+  { interna: 'PATINETA', sicetac: '2S2' },
+  { interna: 'TRACTOCAMION', sicetac: '3S2' },
+  { interna: 'TRACTOMULA', sicetac: '3S3' },
+  { interna: 'MULA', sicetac: '3S3' },
+]
 
 // ─── Configuración de mapeo de tipologías de vehículo (interna ↔ SICETAC) ─────
 function ConfigVehiculos({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -56,6 +70,18 @@ function ConfigVehiculos({ open, onClose }: { open: boolean; onClose: () => void
   const setRow = (i: number, patch: Partial<MapeoRow>) => setRows(rs => rs.map((r, idx) => idx === i ? { ...r, ...patch } : r))
   const addRow = () => setRows(rs => [...rs, { interna: '', sicetac: '' }])
   const delRow = (i: number) => setRows(rs => rs.filter((_, idx) => idx !== i))
+
+  // Precarga las equivalencias tipicas sin pisar las que el usuario ya definio.
+  const cargarSugeridas = () => {
+    setRows(rs => {
+      const base = rs.filter(r => r.interna.trim() || r.sicetac.trim())
+      const existentes = new Set(base.map(r => r.interna.trim().toUpperCase()))
+      const nuevas = EQUIVALENCIAS_SUGERIDAS.filter(s => !existentes.has(s.interna.toUpperCase()))
+      const merged = [...base, ...nuevas]
+      return merged.length ? merged : [{ interna: '', sicetac: '' }]
+    })
+    toast.success('Equivalencias sugeridas cargadas · revísalas y guarda')
+  }
 
   const guardar = async () => {
     const mapeo: Record<string, string> = {}
@@ -103,7 +129,10 @@ function ConfigVehiculos({ open, onClose }: { open: boolean; onClose: () => void
                 <Tooltip title="Quitar"><IconButton size="small" onClick={() => delRow(i)} sx={{ color: '#DC2626' }}><DeleteOutline sx={{ fontSize: 18 }} /></IconButton></Tooltip>
               </Stack>
             ))}
-            <Button startIcon={<AddIcon />} onClick={addRow} sx={{ alignSelf: 'flex-start', textTransform: 'none', color: TX_COLOR, fontWeight: 700 }}>Agregar categoría</Button>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+              <Button startIcon={<AddIcon />} onClick={addRow} sx={{ textTransform: 'none', color: TX_COLOR, fontWeight: 700 }}>Agregar categoría</Button>
+              <Button startIcon={<AutoFixHigh />} onClick={cargarSugeridas} sx={{ textTransform: 'none', color: '#64748B', fontWeight: 700 }}>Cargar equivalencias sugeridas</Button>
+            </Stack>
           </Stack>
         )}
       </DialogContent>
