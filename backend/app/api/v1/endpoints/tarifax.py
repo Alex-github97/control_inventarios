@@ -364,14 +364,24 @@ def _load_cotizacion_config() -> dict:
     return json.loads(json.dumps(DEFAULT_COTIZACION_CONFIG))
 
 
-def _calcular_cotizacion(plataforma: dict, config: dict) -> dict:
+def _calcular_cotizacion(plataforma: dict, config: dict | None = None) -> dict:
     """Costeo de almacenamiento -> VALOR y COBRO por posicion. Igual que la UI.
+
+    Los rubros (nomina, servicios, maquinaria, equipos) y los parametros son
+    PROPIOS DE CADA PLATAFORMA. Si faltan (datos viejos), se usa la plantilla
+    global como respaldo.
 
     total_operacion = nomina + arriendo + servicios + maquinaria + equipos
     valor_posicion  = total_operacion / capacidad_posiciones
     cobro_posicion  = valor_posicion * (1 + margen)
     """
-    par = config.get("parametros", {})
+    tmpl = config or _load_cotizacion_config()
+    par = plataforma.get("parametros") or tmpl.get("parametros", {})
+    cargos = (plataforma.get("nomina") or tmpl.get("nomina") or {}).get("cargos", [])
+    serv_src = (plataforma.get("servicios_publicos") or tmpl.get("servicios_publicos") or {}).get("items", [])
+    maq_src = plataforma.get("maquinaria") or tmpl.get("maquinaria") or {}
+    eq_src = plataforma.get("equipos_tecnologicos") or tmpl.get("equipos_tecnologicos") or {}
+
     m2_tot = _num(plataforma.get("m2_totales"))
     arriendo_val = _num(plataforma.get("valor_arriendo"))
     posiciones = _num(plataforma.get("capacidad_posiciones"))
@@ -379,7 +389,7 @@ def _calcular_cotizacion(plataforma: dict, config: dict) -> dict:
     # Nomina
     nomina_items = []
     total_nomina = 0.0
-    for c in config.get("nomina", {}).get("cargos", []):
+    for c in cargos:
         base = _num(c.get("salario")) + _num(c.get("dotacion")) + _num(c.get("carga_prestacional"))
         total = _num(c.get("cantidad")) * base
         total_nomina += total
@@ -396,24 +406,24 @@ def _calcular_cotizacion(plataforma: dict, config: dict) -> dict:
     # Servicios publicos: prorrateo por % de m2 utilizado
     serv_items = []
     total_serv = 0.0
-    for s in config.get("servicios_publicos", {}).get("items", []):
+    for s in serv_src:
         asignado = _num(s.get("gasto_total")) * pct_util
         total_serv += asignado
         serv_items.append({**s, "asignado": asignado})
 
-    inc_maq = _num(config.get("maquinaria", {}).get("incremento_pct")) / 100
+    inc_maq = _num(maq_src.get("incremento_pct")) / 100
     maq_items = []
     total_maq = 0.0
-    for m in config.get("maquinaria", {}).get("items", []):
+    for m in maq_src.get("items", []):
         t = _num(m.get("cantidad")) * _num(m.get("valor"))
         ti = t * (1 + inc_maq)
         total_maq += ti
         maq_items.append({**m, "total": t, "total_incremento": ti})
 
-    inc_eq = _num(config.get("equipos_tecnologicos", {}).get("incremento_pct")) / 100
+    inc_eq = _num(eq_src.get("incremento_pct")) / 100
     eq_items = []
     total_eq = 0.0
-    for e in config.get("equipos_tecnologicos", {}).get("items", []):
+    for e in eq_src.get("items", []):
         t = _num(e.get("cantidad")) * _num(e.get("valor"))
         ti = t * (1 + inc_eq)
         total_eq += ti
@@ -467,7 +477,24 @@ class Plataforma(BaseModel):
     valor_arriendo: float = 0
     capacidad_posiciones: float = 0
     areas: list = []
+    # Rubros e inputs PROPIOS de cada plataforma (se siembran desde la plantilla)
+    parametros: dict = {}
+    nomina: dict = {}
+    servicios_publicos: dict = {}
+    maquinaria: dict = {}
+    equipos_tecnologicos: dict = {}
     notas: str = ""
+
+
+def _sembrar_plataforma(rec: dict) -> dict:
+    """Rellena areas, parametros y rubros vacios de una plataforma con la plantilla."""
+    tmpl = _load_cotizacion_config()
+    if not rec.get("areas"):
+        rec["areas"] = json.loads(json.dumps(DEFAULT_AREAS))
+    for k in ("parametros", "nomina", "servicios_publicos", "maquinaria", "equipos_tecnologicos"):
+        if not rec.get(k):
+            rec[k] = json.loads(json.dumps(tmpl.get(k, {})))
+    return rec
 
 
 class CotizacionReq(BaseModel):
@@ -485,10 +512,8 @@ async def list_plataformas(current_user: Usuario = Depends(get_current_user)):
 async def create_plataforma(p: Plataforma, current_user: Usuario = Depends(get_current_user)):
     items = _load_plataformas()
     new_id = (max((int(i.get("id", 0)) for i in items), default=0) + 1)
-    rec = p.model_dump()
+    rec = _sembrar_plataforma(p.model_dump())
     rec["id"] = new_id
-    if not rec.get("areas"):
-        rec["areas"] = json.loads(json.dumps(DEFAULT_AREAS))
     rec["creado_en"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     items.append(rec)
     _save_plataformas(items)
@@ -500,7 +525,7 @@ async def update_plataforma(pid: int, p: Plataforma, current_user: Usuario = Dep
     items = _load_plataformas()
     for i, rec in enumerate(items):
         if int(rec.get("id", -1)) == pid:
-            upd = p.model_dump()
+            upd = _sembrar_plataforma(p.model_dump())
             upd["id"] = pid
             upd["creado_en"] = rec.get("creado_en")
             items[i] = upd
