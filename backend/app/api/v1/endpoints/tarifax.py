@@ -255,6 +255,365 @@ async def put_mapeo_vehiculos(
     return {"ok": True, "categorias": len(limpio)}
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Cotizacion de almacenamiento: plataformas + rubros configurables -> costo/pallet
+# ─────────────────────────────────────────────────────────────────────────────
+PLATAFORMAS_PATH = DATA_DIR / "tarifax_plataformas.json"
+COTIZACION_CONFIG_PATH = DATA_DIR / "tarifax_cotizacion_config.json"
+
+# Rubros y valores POR DEFECTO. Los valores son solo un punto de partida editable;
+# los rubros (estructura) son los que definen el costeo. Todo es configurable.
+DEFAULT_COTIZACION_CONFIG = {
+    "nomina": {"cargos": [
+        {"cargo": "Auxiliares de bodega", "cantidad": 0.05, "salario": 2000000, "dotacion": 143000, "carga_prestacional": 840000},
+        {"cargo": "Asistente de calidad", "cantidad": 0, "salario": 2000000, "dotacion": 143000, "carga_prestacional": 840000},
+        {"cargo": "Montacarguista", "cantidad": 4, "salario": 2089296, "dotacion": 143000, "carga_prestacional": 877504},
+        {"cargo": "Asistente de inventarios", "cantidad": 1, "salario": 2451991, "dotacion": 143000, "carga_prestacional": 1029836},
+        {"cargo": "Aux de inventarios", "cantidad": 0.05, "salario": 2000000, "dotacion": 143000, "carga_prestacional": 840000},
+        {"cargo": "Jefe de bodega", "cantidad": 0.05, "salario": 2338377, "dotacion": 143000, "carga_prestacional": 982118},
+        {"cargo": "Vigilante", "cantidad": 0.05, "salario": 2000000, "dotacion": 143000, "carga_prestacional": 840000},
+    ]},
+    "arriendo": {"areas": [
+        {"area": "Mts 2 Almacenamiento", "m2": 5200},
+        {"area": "Mts 2 Transito (alistamiento-Cross)", "m2": 0},
+        {"area": "Mts 2 Muelle (recibo - despacho)", "m2": 0},
+        {"area": "Mts 2 patio de maniobras", "m2": 0},
+        {"area": "Mts 2 Devoluciones", "m2": 0},
+        {"area": "Mts 2 Despacho ruta nacional", "m2": 0},
+        {"area": "Mts 2 area maquila", "m2": 0},
+    ]},
+    "servicios_publicos": {"items": [
+        {"servicio": "Acueducto y alcantarillado", "gasto_total": 2988080},
+        {"servicio": "Energia", "gasto_total": 20476396},
+        {"servicio": "Gas", "gasto_total": 0},
+        {"servicio": "Internet", "gasto_total": 4703111},
+    ]},
+    "maquinaria": {"incremento_pct": 0, "items": [
+        {"item": "Estanteria", "cantidad": 0, "valor": 0},
+        {"item": "Montacargas (incluye bateria y cargador)", "cantidad": 0.23, "valor": 5500000},
+        {"item": "Bateria montacargas (respaldo)", "cantidad": 0, "valor": 1000000},
+        {"item": "Estibadores Manuales", "cantidad": 1, "valor": 150000},
+        {"item": "Strech", "cantidad": 0, "valor": 34510},
+        {"item": "Estibas", "cantidad": 3000, "valor": 50},
+    ]},
+    "equipos_tecnologicos": {"incremento_pct": 6, "items": [
+        {"item": "Computadores", "cantidad": 0.1, "valor": 125000},
+        {"item": "Impresoras regular", "cantidad": 0.1, "valor": 125000},
+        {"item": "Impresoras Zebra", "cantidad": 0.1, "valor": 75000},
+        {"item": "Scanner", "cantidad": 0, "valor": 125000},
+        {"item": "radiofrecuencias", "cantidad": 0.1, "valor": 250000},
+        {"item": "Baterias RF", "cantidad": 0.1, "valor": 100000},
+        {"item": "Telefonia", "cantidad": 0, "valor": 26000},
+    ]},
+    "margen_utilidad_pct": 0,
+}
+
+
+def _num(v) -> float:
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _load_plataformas() -> list:
+    if PLATAFORMAS_PATH.exists():
+        try:
+            data = json.loads(PLATAFORMAS_PATH.read_text(encoding="utf-8"))
+            return data if isinstance(data, list) else []
+        except Exception:
+            return []
+    return []
+
+
+def _save_plataformas(items: list) -> None:
+    PLATAFORMAS_PATH.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _load_cotizacion_config() -> dict:
+    if COTIZACION_CONFIG_PATH.exists():
+        try:
+            data = json.loads(COTIZACION_CONFIG_PATH.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                return data
+        except Exception:
+            pass
+    return DEFAULT_COTIZACION_CONFIG
+
+
+def _calcular_cotizacion(plataforma: dict, config: dict) -> dict:
+    """Costeo de almacenamiento -> costo y cobro por pallet. Misma formula que la UI."""
+    m2_tot = _num(plataforma.get("m2_totales"))
+    arriendo_val = _num(plataforma.get("valor_arriendo"))
+    pallets = _num(plataforma.get("capacidad_pallets"))
+
+    nomina_items = []
+    total_nomina = 0.0
+    for c in config.get("nomina", {}).get("cargos", []):
+        base = _num(c.get("salario")) + _num(c.get("dotacion")) + _num(c.get("carga_prestacional"))
+        total = _num(c.get("cantidad")) * base
+        total_nomina += total
+        nomina_items.append({**c, "salario_dotacion_carga": base, "total": total})
+
+    m2_util = sum(_num(a.get("m2")) for a in config.get("arriendo", {}).get("areas", []))
+    valor_m2 = arriendo_val / m2_tot if m2_tot else 0.0
+    pct_util = m2_util / m2_tot if m2_tot else 0.0
+    total_arriendo = m2_util * valor_m2
+
+    serv_items = []
+    total_serv = 0.0
+    for s in config.get("servicios_publicos", {}).get("items", []):
+        asignado = _num(s.get("gasto_total")) * pct_util
+        total_serv += asignado
+        serv_items.append({**s, "asignado": asignado})
+
+    inc_maq = _num(config.get("maquinaria", {}).get("incremento_pct")) / 100
+    maq_items = []
+    total_maq = 0.0
+    for m in config.get("maquinaria", {}).get("items", []):
+        t = _num(m.get("cantidad")) * _num(m.get("valor"))
+        ti = t * (1 + inc_maq)
+        total_maq += ti
+        maq_items.append({**m, "total": t, "total_incremento": ti})
+
+    inc_eq = _num(config.get("equipos_tecnologicos", {}).get("incremento_pct")) / 100
+    eq_items = []
+    total_eq = 0.0
+    for e in config.get("equipos_tecnologicos", {}).get("items", []):
+        t = _num(e.get("cantidad")) * _num(e.get("valor"))
+        ti = t * (1 + inc_eq)
+        total_eq += ti
+        eq_items.append({**e, "total": t, "total_incremento": ti})
+
+    total_mensual = total_nomina + total_arriendo + total_serv + total_maq + total_eq
+    margen = _num(config.get("margen_utilidad_pct")) / 100
+    costo_pallet = total_mensual / pallets if pallets else 0.0
+    cobro_pallet = costo_pallet * (1 + margen)
+
+    def part(x):
+        return x / total_mensual if total_mensual else 0.0
+
+    return {
+        "nomina": {"items": nomina_items, "total": total_nomina, "participacion": part(total_nomina)},
+        "arriendo": {"m2_utilizados": m2_util, "m2_totales": m2_tot, "valor_m2": valor_m2,
+                     "pct_utilizado": pct_util, "total": total_arriendo, "participacion": part(total_arriendo)},
+        "servicios_publicos": {"items": serv_items, "pct_utilizado": pct_util,
+                               "total": total_serv, "participacion": part(total_serv)},
+        "maquinaria": {"items": maq_items, "incremento_pct": inc_maq * 100,
+                       "total": total_maq, "participacion": part(total_maq)},
+        "equipos_tecnologicos": {"items": eq_items, "incremento_pct": inc_eq * 100,
+                                 "total": total_eq, "participacion": part(total_eq)},
+        "resumen": {
+            "total_mensual": total_mensual,
+            "capacidad_pallets": pallets,
+            "costo_por_pallet": costo_pallet,
+            "margen_utilidad_pct": margen * 100,
+            "cobro_por_pallet": cobro_pallet,
+        },
+    }
+
+
+class Plataforma(BaseModel):
+    id: int | None = None
+    nombre: str
+    pais: str = ""
+    ciudad: str = ""
+    direccion: str = ""
+    posicion: str = ""
+    m2_totales: float = 0
+    valor_arriendo: float = 0
+    capacidad_pallets: float = 0
+    notas: str = ""
+
+
+class CotizacionReq(BaseModel):
+    plataforma: dict
+    config: dict | None = None
+
+
+@router.get("/plataformas")
+async def list_plataformas(current_user: Usuario = Depends(get_current_user)):
+    return _load_plataformas()
+
+
+@router.post("/plataformas")
+async def create_plataforma(p: Plataforma, current_user: Usuario = Depends(get_current_user)):
+    items = _load_plataformas()
+    new_id = (max((int(i.get("id", 0)) for i in items), default=0) + 1)
+    rec = p.model_dump()
+    rec["id"] = new_id
+    rec["creado_en"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    items.append(rec)
+    _save_plataformas(items)
+    return rec
+
+
+@router.put("/plataformas/{pid}")
+async def update_plataforma(pid: int, p: Plataforma, current_user: Usuario = Depends(get_current_user)):
+    items = _load_plataformas()
+    for i, rec in enumerate(items):
+        if int(rec.get("id", -1)) == pid:
+            upd = p.model_dump()
+            upd["id"] = pid
+            upd["creado_en"] = rec.get("creado_en")
+            items[i] = upd
+            _save_plataformas(items)
+            return upd
+    raise HTTPException(404, "Plataforma no encontrada")
+
+
+@router.delete("/plataformas/{pid}")
+async def delete_plataforma(pid: int, current_user: Usuario = Depends(get_current_user)):
+    items = _load_plataformas()
+    nuevos = [r for r in items if int(r.get("id", -1)) != pid]
+    if len(nuevos) == len(items):
+        raise HTTPException(404, "Plataforma no encontrada")
+    _save_plataformas(nuevos)
+    return {"ok": True}
+
+
+@router.get("/cotizacion-config")
+async def get_cotizacion_config(current_user: Usuario = Depends(get_current_user)):
+    return _load_cotizacion_config()
+
+
+@router.put("/cotizacion-config")
+async def put_cotizacion_config(config: dict, current_user: Usuario = Depends(get_current_user)):
+    COTIZACION_CONFIG_PATH.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
+    return {"ok": True}
+
+
+@router.post("/cotizacion-config/reset")
+async def reset_cotizacion_config(current_user: Usuario = Depends(get_current_user)):
+    return DEFAULT_COTIZACION_CONFIG
+
+
+@router.post("/cotizacion/calcular")
+async def calcular_cotizacion(req: CotizacionReq, current_user: Usuario = Depends(get_current_user)):
+    config = req.config or _load_cotizacion_config()
+    return _calcular_cotizacion(req.plataforma, config)
+
+
+@router.post("/cotizacion/exportar")
+async def exportar_cotizacion(req: CotizacionReq, current_user: Usuario = Depends(get_current_user)):
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+
+    config = req.config or _load_cotizacion_config()
+    r = _calcular_cotizacion(req.plataforma, config)
+    p = req.plataforma
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Cotizacion"
+    ws.column_dimensions["A"].width = 16
+    ws.column_dimensions["B"].width = 40
+    for col in "CDEFG":
+        ws.column_dimensions[col].width = 17
+    money = '"$" #,##0'
+    hdr = PatternFill("solid", fgColor="D9D9D9")
+    bold = Font(bold=True)
+
+    row = [1]
+
+    def emit(vals, *, b=False, fills=None, fmts=None):
+        for j, v in enumerate(vals):
+            cell = ws.cell(row=row[0], column=j + 1, value=v)
+            if b:
+                cell.font = bold
+            if fills and j in fills:
+                cell.fill = hdr
+            if fmts and j in fmts:
+                cell.number_format = fmts[j]
+        row[0] += 1
+
+    # Cabecera de la plataforma
+    emit(["COTIZACION DE ALMACENAMIENTO"], b=True)
+    emit(["Plataforma", p.get("nombre", "")])
+    emit(["Ubicacion", ", ".join([x for x in [p.get("ciudad", ""), p.get("pais", "")] if x])])
+    emit(["Direccion", p.get("direccion", "")])
+    emit(["M2 totales", _num(p.get("m2_totales")), "Valor arriendo", _num(p.get("valor_arriendo"))],
+         fmts={3: money})
+    emit(["Valor / M2", r["arriendo"]["valor_m2"], "Capacidad (pallets)", _num(p.get("capacidad_pallets"))],
+         fmts={1: money})
+    row[0] += 1
+
+    # NOMINA
+    emit(["NOMINA", "CARGO", "CANT", "SALARIO", "DOTACION", "CARGA PREST.", "SUBTOTAL"], b=True,
+         fills={0, 1, 2, 3, 4, 5, 6})
+    for it in r["nomina"]["items"]:
+        emit(["", it.get("cargo", ""), _num(it.get("cantidad")), _num(it.get("salario")),
+              _num(it.get("dotacion")), _num(it.get("carga_prestacional")), it["total"]],
+             fmts={3: money, 4: money, 5: money, 6: money})
+    emit(["", "TOTAL NOMINA", "", "", "", "", r["nomina"]["total"]], b=True, fmts={6: money})
+    row[0] += 1
+
+    # ARRIENDO
+    emit(["ARRIENDO", "AREA", "M2", "", "", "", ""], b=True, fills={0, 1, 2})
+    for a in config.get("arriendo", {}).get("areas", []):
+        emit(["", a.get("area", ""), _num(a.get("m2"))])
+    emit(["", f"M2 utilizados ({r['arriendo']['pct_utilizado']*100:.1f}% de {r['arriendo']['m2_totales']:.0f})",
+          r["arriendo"]["m2_utilizados"], "Valor/M2", r["arriendo"]["valor_m2"], "TOTAL", r["arriendo"]["total"]],
+         b=True, fmts={4: money, 6: money})
+    row[0] += 1
+
+    # SERVICIOS PUBLICOS
+    emit(["SERVICIOS", "SERVICIO", "GASTO TOTAL", "% M2 UTIL", "ASIGNADO", "", ""], b=True,
+         fills={0, 1, 2, 3, 4})
+    for s in r["servicios_publicos"]["items"]:
+        emit(["", s.get("servicio", ""), _num(s.get("gasto_total")),
+              f"{r['servicios_publicos']['pct_utilizado']*100:.1f}%", s["asignado"]],
+             fmts={2: money, 4: money})
+    emit(["", "TOTAL SERVICIOS", "", "", r["servicios_publicos"]["total"]], b=True, fmts={4: money})
+    row[0] += 1
+
+    # MAQUINARIA
+    emit([f"MAQUINARIA (+{r['maquinaria']['incremento_pct']:.0f}%)", "ITEM", "CANT", "VALOR", "TOTAL", "TOTAL+INCR", ""],
+         b=True, fills={0, 1, 2, 3, 4, 5})
+    for m in r["maquinaria"]["items"]:
+        emit(["", m.get("item", ""), _num(m.get("cantidad")), _num(m.get("valor")), m["total"], m["total_incremento"]],
+             fmts={3: money, 4: money, 5: money})
+    emit(["", "TOTAL MAQUINARIA", "", "", "", r["maquinaria"]["total"]], b=True, fmts={5: money})
+    row[0] += 1
+
+    # EQUIPOS TECNOLOGICOS
+    emit([f"EQUIPOS TEC. (+{r['equipos_tecnologicos']['incremento_pct']:.0f}%)", "ITEM", "CANT", "VALOR", "TOTAL", "TOTAL+INCR", ""],
+         b=True, fills={0, 1, 2, 3, 4, 5})
+    for e in r["equipos_tecnologicos"]["items"]:
+        emit(["", e.get("item", ""), _num(e.get("cantidad")), _num(e.get("valor")), e["total"], e["total_incremento"]],
+             fmts={3: money, 4: money, 5: money})
+    emit(["", "TOTAL EQUIPOS", "", "", "", r["equipos_tecnologicos"]["total"]], b=True, fmts={5: money})
+    row[0] += 2
+
+    # RESUMEN
+    emit(["RESUMEN"], b=True, fills={0})
+    emit(["", "Nomina", r["nomina"]["total"], f"{r['nomina']['participacion']*100:.1f}%"], fmts={2: money})
+    emit(["", "Arriendo", r["arriendo"]["total"], f"{r['arriendo']['participacion']*100:.1f}%"], fmts={2: money})
+    emit(["", "Servicios publicos", r["servicios_publicos"]["total"], f"{r['servicios_publicos']['participacion']*100:.1f}%"], fmts={2: money})
+    emit(["", "Maquinaria y equipo", r["maquinaria"]["total"], f"{r['maquinaria']['participacion']*100:.1f}%"], fmts={2: money})
+    emit(["", "Equipos tecnologicos", r["equipos_tecnologicos"]["total"], f"{r['equipos_tecnologicos']['participacion']*100:.1f}%"], fmts={2: money})
+    emit(["", "TOTAL MENSUAL", r["resumen"]["total_mensual"]], b=True, fmts={2: money})
+    emit(["", "Costo por pallet", r["resumen"]["costo_por_pallet"]], b=True, fmts={2: money})
+    emit(["", f"Cobro por pallet (+{r['resumen']['margen_utilidad_pct']:.0f}% margen)", r["resumen"]["cobro_por_pallet"]],
+         b=True, fmts={2: money})
+
+    for rr in ws.iter_rows():
+        for c in rr:
+            if isinstance(c.value, str) and c.column == 2:
+                c.alignment = Alignment(wrap_text=False)
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    nombre = (p.get("nombre") or "plataforma").replace(" ", "_")
+    filename = f"Cotizacion_{nombre}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    return {
+        "filename": filename,
+        "file_base64": base64.b64encode(output.read()).decode("utf-8"),
+        "resumen": r["resumen"],
+    }
+
+
 # ─── Ruteo por carretera (geocodificacion Nominatim + ruta OSRM) ──────────────
 # OSRM implementa Dijkstra sobre Contraction Hierarchies para calcular la ruta
 # minima por la red vial real. Nominatim resuelve nombres de lugar -> lat/lon.

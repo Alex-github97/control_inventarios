@@ -37,6 +37,7 @@ import {
   BarChart as TableroIcon,
   MergeType as MotorIcon,
   Route as DistanciasIcon,
+  Warehouse as AlmacenamientoIcon,
   Monitor as TMSDashIconTMS,
   CalendarMonth as TMSPlaneacionIconTMS,
   AirportShuttle as TMSViajesIconTMS,
@@ -283,6 +284,7 @@ const TX_NAV_ITEMS: NavItem[] = [
   { label: 'nav.tablero',      icon: <TableroIcon fontSize="small" />, path: '/tarifax/tablero', section: 'section.tarifax' },
   { label: 'nav.motorTarifax', icon: <MotorIcon   fontSize="small" />, path: '/tarifax/motor',   section: 'section.tarifax' },
   { label: 'nav.distancias',   icon: <DistanciasIcon fontSize="small" />, path: '/tarifax/distancias', section: 'section.tarifax' },
+  { label: 'nav.almacenamiento', icon: <AlmacenamientoIcon fontSize="small" />, path: '/tarifax/almacenamiento', section: 'section.tarifax' },
 ]
 
 const FT_NAV_ITEMS: NavItem[] = [
