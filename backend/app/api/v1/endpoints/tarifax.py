@@ -256,31 +256,43 @@ async def put_mapeo_vehiculos(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Cotizacion de almacenamiento: plataformas + rubros configurables -> costo/pallet
+# Cotizacion de almacenamiento: plataformas + inputs configurables -> $/posicion
 # ─────────────────────────────────────────────────────────────────────────────
 PLATAFORMAS_PATH = DATA_DIR / "tarifax_plataformas.json"
 COTIZACION_CONFIG_PATH = DATA_DIR / "tarifax_cotizacion_config.json"
 
-# Rubros y valores POR DEFECTO. Los valores son solo un punto de partida editable;
-# los rubros (estructura) son los que definen el costeo. Todo es configurable.
+# Distribucion de areas por defecto de una plataforma (m2). La suma son los m2
+# utilizados que determinan el % de ocupacion y el prorrateo de servicios.
+DEFAULT_AREAS = [
+    {"area": "Almacenamiento", "m2": 5200},
+    {"area": "Transito (alistamiento - Cross)", "m2": 0},
+    {"area": "Muelle (recibo - despacho)", "m2": 0},
+    {"area": "Patio de maniobras", "m2": 0},
+    {"area": "Devoluciones", "m2": 0},
+    {"area": "Despacho ruta nacional", "m2": 0},
+    {"area": "Area maquila", "m2": 0},
+]
+
+# INPUTS pre-configurados (globales). Los valores son un punto de partida
+# editable; la ESTRUCTURA de rubros es la que define el costeo por posicion.
 DEFAULT_COTIZACION_CONFIG = {
+    "parametros": {
+        "pallet_largo_m": 1.2,
+        "pallet_ancho_m": 1.0,
+        "margen_utilidad_pct": 20,
+        "ipc_pct": 5.35,
+        "smlv": 1750905,
+        "aux_transporte": 249095,
+        "hr_mensuales": 220,
+    },
     "nomina": {"cargos": [
-        {"cargo": "Auxiliares de bodega", "cantidad": 0.05, "salario": 2000000, "dotacion": 143000, "carga_prestacional": 840000},
+        {"cargo": "Auxiliares de bodega", "cantidad": 0.045, "salario": 2000000, "dotacion": 143000, "carga_prestacional": 840000},
         {"cargo": "Asistente de calidad", "cantidad": 0, "salario": 2000000, "dotacion": 143000, "carga_prestacional": 840000},
         {"cargo": "Montacarguista", "cantidad": 4, "salario": 2089296, "dotacion": 143000, "carga_prestacional": 877504},
         {"cargo": "Asistente de inventarios", "cantidad": 1, "salario": 2451991, "dotacion": 143000, "carga_prestacional": 1029836},
-        {"cargo": "Aux de inventarios", "cantidad": 0.05, "salario": 2000000, "dotacion": 143000, "carga_prestacional": 840000},
-        {"cargo": "Jefe de bodega", "cantidad": 0.05, "salario": 2338377, "dotacion": 143000, "carga_prestacional": 982118},
-        {"cargo": "Vigilante", "cantidad": 0.05, "salario": 2000000, "dotacion": 143000, "carga_prestacional": 840000},
-    ]},
-    "arriendo": {"areas": [
-        {"area": "Mts 2 Almacenamiento", "m2": 5200},
-        {"area": "Mts 2 Transito (alistamiento-Cross)", "m2": 0},
-        {"area": "Mts 2 Muelle (recibo - despacho)", "m2": 0},
-        {"area": "Mts 2 patio de maniobras", "m2": 0},
-        {"area": "Mts 2 Devoluciones", "m2": 0},
-        {"area": "Mts 2 Despacho ruta nacional", "m2": 0},
-        {"area": "Mts 2 area maquila", "m2": 0},
+        {"cargo": "Aux de inventarios", "cantidad": 0.045, "salario": 2000000, "dotacion": 143000, "carga_prestacional": 840000},
+        {"cargo": "Jefe de bodega", "cantidad": 0.045, "salario": 2338377, "dotacion": 143000, "carga_prestacional": 982118},
+        {"cargo": "Vigilante", "cantidad": 0.045, "salario": 2000000, "dotacion": 143000, "carga_prestacional": 840000},
     ]},
     "servicios_publicos": {"items": [
         {"servicio": "Acueducto y alcantarillado", "gasto_total": 2988080},
@@ -305,7 +317,6 @@ DEFAULT_COTIZACION_CONFIG = {
         {"item": "Baterias RF", "cantidad": 0.1, "valor": 100000},
         {"item": "Telefonia", "cantidad": 0, "valor": 26000},
     ]},
-    "margen_utilidad_pct": 0,
 }
 
 
@@ -330,23 +341,42 @@ def _save_plataformas(items: list) -> None:
     PLATAFORMAS_PATH.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def _merge_config(cfg: dict) -> dict:
+    """Completa un config guardado con las claves nuevas del default (p.ej. parametros)."""
+    out = json.loads(json.dumps(DEFAULT_COTIZACION_CONFIG))
+    if isinstance(cfg, dict):
+        for k, v in cfg.items():
+            if k == "parametros" and isinstance(v, dict):
+                out["parametros"].update(v)
+            else:
+                out[k] = v
+    return out
+
+
 def _load_cotizacion_config() -> dict:
     if COTIZACION_CONFIG_PATH.exists():
         try:
             data = json.loads(COTIZACION_CONFIG_PATH.read_text(encoding="utf-8"))
             if isinstance(data, dict):
-                return data
+                return _merge_config(data)
         except Exception:
             pass
-    return DEFAULT_COTIZACION_CONFIG
+    return json.loads(json.dumps(DEFAULT_COTIZACION_CONFIG))
 
 
 def _calcular_cotizacion(plataforma: dict, config: dict) -> dict:
-    """Costeo de almacenamiento -> costo y cobro por pallet. Misma formula que la UI."""
+    """Costeo de almacenamiento -> VALOR y COBRO por posicion. Igual que la UI.
+
+    total_operacion = nomina + arriendo + servicios + maquinaria + equipos
+    valor_posicion  = total_operacion / capacidad_posiciones
+    cobro_posicion  = valor_posicion * (1 + margen)
+    """
+    par = config.get("parametros", {})
     m2_tot = _num(plataforma.get("m2_totales"))
     arriendo_val = _num(plataforma.get("valor_arriendo"))
-    pallets = _num(plataforma.get("capacidad_pallets"))
+    posiciones = _num(plataforma.get("capacidad_posiciones"))
 
+    # Nomina
     nomina_items = []
     total_nomina = 0.0
     for c in config.get("nomina", {}).get("cargos", []):
@@ -355,11 +385,15 @@ def _calcular_cotizacion(plataforma: dict, config: dict) -> dict:
         total_nomina += total
         nomina_items.append({**c, "salario_dotacion_carga": base, "total": total})
 
-    m2_util = sum(_num(a.get("m2")) for a in config.get("arriendo", {}).get("areas", []))
+    # Arriendo: las areas viven en la plataforma (varian por bodega)
+    areas = plataforma.get("areas") or []
+    m2_util = sum(_num(a.get("m2")) for a in areas)
     valor_m2 = arriendo_val / m2_tot if m2_tot else 0.0
     pct_util = m2_util / m2_tot if m2_tot else 0.0
     total_arriendo = m2_util * valor_m2
+    areas_calc = [{**a, "asignado": _num(a.get("m2")) * valor_m2} for a in areas]
 
+    # Servicios publicos: prorrateo por % de m2 utilizado
     serv_items = []
     total_serv = 0.0
     for s in config.get("servicios_publicos", {}).get("items", []):
@@ -385,17 +419,20 @@ def _calcular_cotizacion(plataforma: dict, config: dict) -> dict:
         total_eq += ti
         eq_items.append({**e, "total": t, "total_incremento": ti})
 
-    total_mensual = total_nomina + total_arriendo + total_serv + total_maq + total_eq
-    margen = _num(config.get("margen_utilidad_pct")) / 100
-    costo_pallet = total_mensual / pallets if pallets else 0.0
-    cobro_pallet = costo_pallet * (1 + margen)
+    total_operacion = total_nomina + total_arriendo + total_serv + total_maq + total_eq
+    margen = _num(par.get("margen_utilidad_pct")) / 100
+    valor_posicion = total_operacion / posiciones if posiciones else 0.0
+    cobro_posicion = valor_posicion * (1 + margen)
+
+    pallet_area = _num(par.get("pallet_largo_m")) * _num(par.get("pallet_ancho_m"))
+    m2_por_posicion = m2_util / posiciones if posiciones else 0.0
 
     def part(x):
-        return x / total_mensual if total_mensual else 0.0
+        return x / total_operacion if total_operacion else 0.0
 
     return {
         "nomina": {"items": nomina_items, "total": total_nomina, "participacion": part(total_nomina)},
-        "arriendo": {"m2_utilizados": m2_util, "m2_totales": m2_tot, "valor_m2": valor_m2,
+        "arriendo": {"areas": areas_calc, "m2_utilizados": m2_util, "m2_totales": m2_tot, "valor_m2": valor_m2,
                      "pct_utilizado": pct_util, "total": total_arriendo, "participacion": part(total_arriendo)},
         "servicios_publicos": {"items": serv_items, "pct_utilizado": pct_util,
                                "total": total_serv, "participacion": part(total_serv)},
@@ -404,11 +441,17 @@ def _calcular_cotizacion(plataforma: dict, config: dict) -> dict:
         "equipos_tecnologicos": {"items": eq_items, "incremento_pct": inc_eq * 100,
                                  "total": total_eq, "participacion": part(total_eq)},
         "resumen": {
-            "total_mensual": total_mensual,
-            "capacidad_pallets": pallets,
-            "costo_por_pallet": costo_pallet,
+            "total_operacion": total_operacion,
+            "capacidad_posiciones": posiciones,
+            "valor_por_posicion": valor_posicion,
             "margen_utilidad_pct": margen * 100,
-            "cobro_por_pallet": cobro_pallet,
+            "cobro_por_posicion": cobro_posicion,
+            "m2_utilizados": m2_util,
+            "m2_totales": m2_tot,
+            "pct_utilizado": pct_util,
+            "valor_m2": valor_m2,
+            "pallet_area_m2": pallet_area,
+            "m2_por_posicion": m2_por_posicion,
         },
     }
 
@@ -416,19 +459,21 @@ def _calcular_cotizacion(plataforma: dict, config: dict) -> dict:
 class Plataforma(BaseModel):
     id: int | None = None
     nombre: str
-    pais: str = ""
+    pais: str = "Colombia"
     ciudad: str = ""
     direccion: str = ""
     posicion: str = ""
     m2_totales: float = 0
     valor_arriendo: float = 0
-    capacidad_pallets: float = 0
+    capacidad_posiciones: float = 0
+    areas: list = []
     notas: str = ""
 
 
 class CotizacionReq(BaseModel):
     plataforma: dict
     config: dict | None = None
+    cliente: dict | None = None
 
 
 @router.get("/plataformas")
@@ -442,6 +487,8 @@ async def create_plataforma(p: Plataforma, current_user: Usuario = Depends(get_c
     new_id = (max((int(i.get("id", 0)) for i in items), default=0) + 1)
     rec = p.model_dump()
     rec["id"] = new_id
+    if not rec.get("areas"):
+        rec["areas"] = json.loads(json.dumps(DEFAULT_AREAS))
     rec["creado_en"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     items.append(rec)
     _save_plataformas(items)
@@ -485,13 +532,22 @@ async def put_cotizacion_config(config: dict, current_user: Usuario = Depends(ge
 
 @router.post("/cotizacion-config/reset")
 async def reset_cotizacion_config(current_user: Usuario = Depends(get_current_user)):
-    return DEFAULT_COTIZACION_CONFIG
+    return json.loads(json.dumps(DEFAULT_COTIZACION_CONFIG))
+
+
+@router.get("/cotizacion/areas-default")
+async def areas_default(current_user: Usuario = Depends(get_current_user)):
+    return json.loads(json.dumps(DEFAULT_AREAS))
 
 
 @router.post("/cotizacion/calcular")
 async def calcular_cotizacion(req: CotizacionReq, current_user: Usuario = Depends(get_current_user)):
-    config = req.config or _load_cotizacion_config()
+    config = _merge_config(req.config) if req.config else _load_cotizacion_config()
     return _calcular_cotizacion(req.plataforma, config)
+
+
+def _money(x) -> str:
+    return "$ " + f"{_num(x):,.0f}".replace(",", ".")
 
 
 @router.post("/cotizacion/exportar")
@@ -499,9 +555,10 @@ async def exportar_cotizacion(req: CotizacionReq, current_user: Usuario = Depend
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment
 
-    config = req.config or _load_cotizacion_config()
+    config = _merge_config(req.config) if req.config else _load_cotizacion_config()
     r = _calcular_cotizacion(req.plataforma, config)
     p = req.plataforma
+    rs = r["resumen"]
 
     wb = Workbook()
     ws = wb.active
@@ -513,7 +570,6 @@ async def exportar_cotizacion(req: CotizacionReq, current_user: Usuario = Depend
     money = '"$" #,##0'
     hdr = PatternFill("solid", fgColor="D9D9D9")
     bold = Font(bold=True)
-
     row = [1]
 
     def emit(vals, *, b=False, fills=None, fmts=None):
@@ -527,20 +583,15 @@ async def exportar_cotizacion(req: CotizacionReq, current_user: Usuario = Depend
                 cell.number_format = fmts[j]
         row[0] += 1
 
-    # Cabecera de la plataforma
     emit(["COTIZACION DE ALMACENAMIENTO"], b=True)
     emit(["Plataforma", p.get("nombre", "")])
     emit(["Ubicacion", ", ".join([x for x in [p.get("ciudad", ""), p.get("pais", "")] if x])])
     emit(["Direccion", p.get("direccion", "")])
-    emit(["M2 totales", _num(p.get("m2_totales")), "Valor arriendo", _num(p.get("valor_arriendo"))],
-         fmts={3: money})
-    emit(["Valor / M2", r["arriendo"]["valor_m2"], "Capacidad (pallets)", _num(p.get("capacidad_pallets"))],
-         fmts={1: money})
+    emit(["M2 totales", _num(p.get("m2_totales")), "Valor arriendo", _num(p.get("valor_arriendo"))], fmts={3: money})
+    emit(["Valor / M2", rs["valor_m2"], "Capacidad (posiciones)", rs["capacidad_posiciones"]], fmts={1: money})
     row[0] += 1
 
-    # NOMINA
-    emit(["NOMINA", "CARGO", "CANT", "SALARIO", "DOTACION", "CARGA PREST.", "SUBTOTAL"], b=True,
-         fills={0, 1, 2, 3, 4, 5, 6})
+    emit(["NOMINA", "CARGO", "CANT", "SALARIO", "DOTACION", "CARGA PREST.", "SUBTOTAL"], b=True, fills={0, 1, 2, 3, 4, 5, 6})
     for it in r["nomina"]["items"]:
         emit(["", it.get("cargo", ""), _num(it.get("cantidad")), _num(it.get("salario")),
               _num(it.get("dotacion")), _num(it.get("carga_prestacional")), it["total"]],
@@ -548,54 +599,43 @@ async def exportar_cotizacion(req: CotizacionReq, current_user: Usuario = Depend
     emit(["", "TOTAL NOMINA", "", "", "", "", r["nomina"]["total"]], b=True, fmts={6: money})
     row[0] += 1
 
-    # ARRIENDO
-    emit(["ARRIENDO", "AREA", "M2", "", "", "", ""], b=True, fills={0, 1, 2})
-    for a in config.get("arriendo", {}).get("areas", []):
-        emit(["", a.get("area", ""), _num(a.get("m2"))])
+    emit(["ARRIENDO", "AREA", "M2", "COSTO ASIGNADO", "", "", ""], b=True, fills={0, 1, 2, 3})
+    for a in r["arriendo"]["areas"]:
+        emit(["", a.get("area", ""), _num(a.get("m2")), a.get("asignado", 0)], fmts={3: money})
     emit(["", f"M2 utilizados ({r['arriendo']['pct_utilizado']*100:.1f}% de {r['arriendo']['m2_totales']:.0f})",
-          r["arriendo"]["m2_utilizados"], "Valor/M2", r["arriendo"]["valor_m2"], "TOTAL", r["arriendo"]["total"]],
-         b=True, fmts={4: money, 6: money})
+          r["arriendo"]["m2_utilizados"], "", "Valor/M2", rs["valor_m2"], r["arriendo"]["total"]],
+         b=True, fmts={5: money, 6: money})
     row[0] += 1
 
-    # SERVICIOS PUBLICOS
-    emit(["SERVICIOS", "SERVICIO", "GASTO TOTAL", "% M2 UTIL", "ASIGNADO", "", ""], b=True,
-         fills={0, 1, 2, 3, 4})
+    emit(["SERVICIOS", "SERVICIO", "GASTO TOTAL", "% M2 UTIL", "ASIGNADO", "", ""], b=True, fills={0, 1, 2, 3, 4})
     for s in r["servicios_publicos"]["items"]:
         emit(["", s.get("servicio", ""), _num(s.get("gasto_total")),
-              f"{r['servicios_publicos']['pct_utilizado']*100:.1f}%", s["asignado"]],
-             fmts={2: money, 4: money})
+              f"{r['servicios_publicos']['pct_utilizado']*100:.1f}%", s["asignado"]], fmts={2: money, 4: money})
     emit(["", "TOTAL SERVICIOS", "", "", r["servicios_publicos"]["total"]], b=True, fmts={4: money})
     row[0] += 1
 
-    # MAQUINARIA
-    emit([f"MAQUINARIA (+{r['maquinaria']['incremento_pct']:.0f}%)", "ITEM", "CANT", "VALOR", "TOTAL", "TOTAL+INCR", ""],
-         b=True, fills={0, 1, 2, 3, 4, 5})
+    emit([f"MAQUINARIA (+{r['maquinaria']['incremento_pct']:.0f}%)", "ITEM", "CANT", "VALOR", "TOTAL", "TOTAL+INCR", ""], b=True, fills={0, 1, 2, 3, 4, 5})
     for m in r["maquinaria"]["items"]:
-        emit(["", m.get("item", ""), _num(m.get("cantidad")), _num(m.get("valor")), m["total"], m["total_incremento"]],
-             fmts={3: money, 4: money, 5: money})
+        emit(["", m.get("item", ""), _num(m.get("cantidad")), _num(m.get("valor")), m["total"], m["total_incremento"]], fmts={3: money, 4: money, 5: money})
     emit(["", "TOTAL MAQUINARIA", "", "", "", r["maquinaria"]["total"]], b=True, fmts={5: money})
     row[0] += 1
 
-    # EQUIPOS TECNOLOGICOS
-    emit([f"EQUIPOS TEC. (+{r['equipos_tecnologicos']['incremento_pct']:.0f}%)", "ITEM", "CANT", "VALOR", "TOTAL", "TOTAL+INCR", ""],
-         b=True, fills={0, 1, 2, 3, 4, 5})
+    emit([f"EQUIPOS TEC. (+{r['equipos_tecnologicos']['incremento_pct']:.0f}%)", "ITEM", "CANT", "VALOR", "TOTAL", "TOTAL+INCR", ""], b=True, fills={0, 1, 2, 3, 4, 5})
     for e in r["equipos_tecnologicos"]["items"]:
-        emit(["", e.get("item", ""), _num(e.get("cantidad")), _num(e.get("valor")), e["total"], e["total_incremento"]],
-             fmts={3: money, 4: money, 5: money})
+        emit(["", e.get("item", ""), _num(e.get("cantidad")), _num(e.get("valor")), e["total"], e["total_incremento"]], fmts={3: money, 4: money, 5: money})
     emit(["", "TOTAL EQUIPOS", "", "", "", r["equipos_tecnologicos"]["total"]], b=True, fmts={5: money})
     row[0] += 2
 
-    # RESUMEN
     emit(["RESUMEN"], b=True, fills={0})
     emit(["", "Nomina", r["nomina"]["total"], f"{r['nomina']['participacion']*100:.1f}%"], fmts={2: money})
     emit(["", "Arriendo", r["arriendo"]["total"], f"{r['arriendo']['participacion']*100:.1f}%"], fmts={2: money})
     emit(["", "Servicios publicos", r["servicios_publicos"]["total"], f"{r['servicios_publicos']['participacion']*100:.1f}%"], fmts={2: money})
     emit(["", "Maquinaria y equipo", r["maquinaria"]["total"], f"{r['maquinaria']['participacion']*100:.1f}%"], fmts={2: money})
     emit(["", "Equipos tecnologicos", r["equipos_tecnologicos"]["total"], f"{r['equipos_tecnologicos']['participacion']*100:.1f}%"], fmts={2: money})
-    emit(["", "TOTAL MENSUAL", r["resumen"]["total_mensual"]], b=True, fmts={2: money})
-    emit(["", "Costo por pallet", r["resumen"]["costo_por_pallet"]], b=True, fmts={2: money})
-    emit(["", f"Cobro por pallet (+{r['resumen']['margen_utilidad_pct']:.0f}% margen)", r["resumen"]["cobro_por_pallet"]],
-         b=True, fmts={2: money})
+    emit(["", "TOTAL OPERACION MENSUAL", rs["total_operacion"]], b=True, fmts={2: money})
+    emit(["", "Posiciones de almacenamiento", rs["capacidad_posiciones"]], b=True)
+    emit(["", "VALOR POR POSICION", rs["valor_por_posicion"]], b=True, fmts={2: money})
+    emit(["", f"COBRO POR POSICION (+{rs['margen_utilidad_pct']:.0f}% margen)", rs["cobro_por_posicion"]], b=True, fmts={2: money})
 
     for rr in ws.iter_rows():
         for c in rr:
@@ -610,7 +650,200 @@ async def exportar_cotizacion(req: CotizacionReq, current_user: Usuario = Depend
     return {
         "filename": filename,
         "file_base64": base64.b64encode(output.read()).decode("utf-8"),
-        "resumen": r["resumen"],
+        "resumen": rs,
+    }
+
+
+@router.post("/cotizacion/pdf")
+async def pdf_cotizacion(req: CotizacionReq, current_user: Usuario = Depends(get_current_user)):
+    """Genera una cotizacion FORMAL (PDF) para el cliente: oferta por posicion,
+    que incluye el servicio y un desglose de la estructura de costos."""
+    from fpdf import FPDF
+
+    config = _merge_config(req.config) if req.config else _load_cotizacion_config()
+    r = _calcular_cotizacion(req.plataforma, config)
+    p = req.plataforma
+    rs = r["resumen"]
+    cli = req.cliente or {}
+
+    GREEN = (54, 158, 77)
+    DARK = (31, 97, 48)
+    GREY = (100, 116, 139)
+    LIGHT = (238, 244, 240)
+
+    def lat(s):
+        return str(s).encode("latin-1", "replace").decode("latin-1")
+
+    pdf = FPDF(format="A4", unit="mm")
+    pdf.set_auto_page_break(True, margin=16)
+    pdf.add_page()
+    W = 210
+    M = 14
+
+    # Banda superior
+    pdf.set_fill_color(*GREEN)
+    pdf.rect(0, 0, W, 30, "F")
+    pdf.set_xy(M, 8)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font("helvetica", "B", 20)
+    pdf.cell(120, 9, lat("COTIZACION"), ln=1)
+    pdf.set_x(M)
+    pdf.set_font("helvetica", "", 10)
+    pdf.cell(120, 5, lat("Servicio de almacenamiento y operacion logistica"), ln=1)
+    # Numero / fecha a la derecha
+    hoy = datetime.now()
+    num = f"COT-{hoy.strftime('%Y%m%d-%H%M')}"
+    pdf.set_xy(W - 78, 9)
+    pdf.set_font("helvetica", "B", 10)
+    pdf.cell(64, 6, lat(f"No. {num}"), align="R", ln=2)
+    pdf.set_x(W - 78)
+    pdf.set_font("helvetica", "", 9)
+    pdf.cell(64, 5, lat(f"Fecha: {hoy.strftime('%Y-%m-%d')}"), align="R", ln=2)
+    pdf.set_x(W - 78)
+    pdf.cell(64, 5, lat("Validez: 30 dias"), align="R", ln=2)
+
+    pdf.set_text_color(30, 41, 59)
+    pdf.set_y(37)
+
+    def seccion(titulo):
+        pdf.ln(2)
+        pdf.set_font("helvetica", "B", 11)
+        pdf.set_text_color(*DARK)
+        pdf.set_x(M)
+        pdf.cell(0, 7, lat(titulo), ln=1)
+        pdf.set_draw_color(*GREEN)
+        pdf.set_line_width(0.5)
+        pdf.line(M, pdf.get_y(), W - M, pdf.get_y())
+        pdf.ln(1.5)
+        pdf.set_text_color(30, 41, 59)
+
+    def kv(label, value, x, w_label=38, w_val=52):
+        pdf.set_x(x)
+        pdf.set_font("helvetica", "B", 9)
+        pdf.set_text_color(*GREY)
+        pdf.cell(w_label, 6, lat(label), ln=0)
+        pdf.set_font("helvetica", "", 9)
+        pdf.set_text_color(30, 41, 59)
+        pdf.cell(w_val, 6, lat(value), ln=0)
+
+    # Datos cliente / operacion
+    seccion("Cliente y operacion")
+    y0 = pdf.get_y()
+    kv("Cliente:", cli.get("nombre", "________________________"), M)
+    kv("Plataforma:", p.get("nombre", ""), W / 2)
+    pdf.ln(6)
+    kv("Contacto:", cli.get("contacto", ""), M)
+    ubic = ", ".join([x for x in [p.get("ciudad", ""), p.get("pais", "")] if x])
+    kv("Ubicacion:", ubic, W / 2)
+    pdf.ln(6)
+    kv("NIT / ID:", cli.get("nit", ""), M)
+    kv("Direccion:", p.get("direccion", ""), W / 2)
+    pdf.ln(8)
+
+    # Caja de oferta destacada
+    seccion("Nuestra oferta")
+    box_y = pdf.get_y()
+    pdf.set_fill_color(*LIGHT)
+    pdf.rect(M, box_y, W - 2 * M, 26, "F")
+    pdf.set_xy(M + 4, box_y + 4)
+    pdf.set_font("helvetica", "B", 9)
+    pdf.set_text_color(*GREY)
+    pdf.cell(90, 5, lat("TARIFA POR POSICION / MES"), ln=2)
+    pdf.set_x(M + 4)
+    pdf.set_font("helvetica", "B", 26)
+    pdf.set_text_color(*DARK)
+    pdf.cell(100, 12, lat(_money(rs["cobro_por_posicion"])), ln=2)
+    # Datos a la derecha de la caja
+    pdf.set_xy(W / 2 + 6, box_y + 4)
+    pdf.set_font("helvetica", "", 9)
+    pdf.set_text_color(30, 41, 59)
+    pdf.cell(80, 5, lat(f"Posiciones cotizadas: {rs['capacidad_posiciones']:,.0f}".replace(",", ".")), ln=2)
+    pdf.set_x(W / 2 + 6)
+    valor_mes = rs["cobro_por_posicion"] * rs["capacidad_posiciones"]
+    pdf.cell(80, 5, lat(f"Valor mensual estimado: {_money(valor_mes)}"), ln=2)
+    pdf.set_x(W / 2 + 6)
+    pdf.cell(80, 5, lat(f"Dimension posicion (pallet): {_num(config['parametros'].get('pallet_largo_m')):.2g} x {_num(config['parametros'].get('pallet_ancho_m')):.2g} m"), ln=2)
+    pdf.set_y(box_y + 30)
+
+    # El servicio incluye
+    seccion("El servicio incluye")
+    incluye = [
+        ("Talento humano de bodega", "Auxiliares, montacarguistas, inventarios, calidad y supervision."),
+        ("Espacio de almacenamiento", f"{rs['m2_utilizados']:,.0f} m2 en operacion ({rs['pct_utilizado']*100:.1f}% de la bodega).".replace(",", ".")),
+        ("Servicios publicos", "Energia, acueducto, gas e internet prorrateados a la operacion."),
+        ("Maquinaria y equipo", "Montacargas, estibadores y estibas para el manejo de carga."),
+        ("Equipos tecnologicos", "Computadores, impresoras, radiofrecuencias y sistema WMS."),
+    ]
+    for t, d in incluye:
+        pdf.set_x(M)
+        pdf.set_font("helvetica", "B", 9)
+        pdf.set_text_color(*DARK)
+        pdf.cell(3, 5, lat("-"), ln=0)
+        pdf.cell(52, 5, lat(t), ln=0)
+        pdf.set_font("helvetica", "", 9)
+        pdf.set_text_color(30, 41, 59)
+        pdf.multi_cell(W - 2 * M - 55, 5, lat(d))
+    pdf.ln(2)
+
+    # Estructura de costos (resumen por concepto)
+    seccion("Estructura de la operacion (mensual)")
+    filas = [
+        ("Nomina", r["nomina"]["total"], r["nomina"]["participacion"]),
+        ("Arriendo de espacio", r["arriendo"]["total"], r["arriendo"]["participacion"]),
+        ("Servicios publicos", r["servicios_publicos"]["total"], r["servicios_publicos"]["participacion"]),
+        ("Maquinaria y equipo", r["maquinaria"]["total"], r["maquinaria"]["participacion"]),
+        ("Equipos tecnologicos", r["equipos_tecnologicos"]["total"], r["equipos_tecnologicos"]["participacion"]),
+    ]
+    pdf.set_x(M)
+    pdf.set_font("helvetica", "B", 9)
+    pdf.set_fill_color(*GREEN)
+    pdf.set_text_color(255, 255, 255)
+    pdf.cell(90, 7, lat("  Concepto"), border=0, fill=True, ln=0)
+    pdf.cell(56, 7, lat("Valor mensual"), border=0, fill=True, align="R", ln=0)
+    pdf.cell(36, 7, lat("Participacion  "), border=0, fill=True, align="R", ln=1)
+    pdf.set_text_color(30, 41, 59)
+    alt = False
+    for concepto, val, pp in filas:
+        pdf.set_x(M)
+        pdf.set_fill_color(245, 248, 246) if alt else pdf.set_fill_color(255, 255, 255)
+        pdf.set_font("helvetica", "", 9)
+        pdf.cell(90, 6.5, lat("  " + concepto), border=0, fill=True, ln=0)
+        pdf.cell(56, 6.5, lat(_money(val)), border=0, fill=True, align="R", ln=0)
+        pdf.cell(36, 6.5, lat(f"{pp*100:.1f}%  "), border=0, fill=True, align="R", ln=1)
+        alt = not alt
+    pdf.set_x(M)
+    pdf.set_font("helvetica", "B", 9)
+    pdf.set_fill_color(*LIGHT)
+    pdf.cell(90, 7, lat("  TOTAL OPERACION"), border=0, fill=True, ln=0)
+    pdf.cell(56, 7, lat(_money(rs["total_operacion"])), border=0, fill=True, align="R", ln=0)
+    pdf.cell(36, 7, lat("100%  "), border=0, fill=True, align="R", ln=1)
+    pdf.set_x(M)
+    pdf.cell(90, 7, lat("  Costo por posicion"), border=0, ln=0)
+    pdf.cell(56, 7, lat(_money(rs["valor_por_posicion"])), border=0, align="R", ln=0)
+    pdf.cell(36, 7, lat(f"margen {rs['margen_utilidad_pct']:.0f}%  "), border=0, align="R", ln=1)
+
+    # Terminos
+    seccion("Condiciones comerciales")
+    pdf.set_font("helvetica", "", 8.5)
+    pdf.set_text_color(*GREY)
+    terminos = (
+        "Los valores estan expresados en pesos colombianos (COP) y no incluyen IVA. "
+        "La tarifa por posicion aplica sobre las posiciones contratadas mensualmente. "
+        "Esta cotizacion tiene una validez de 30 dias a partir de la fecha de emision y esta "
+        "sujeta a la firma del contrato de prestacion de servicios logisticos. Servicios "
+        "adicionales (maquila, cross-docking, transporte) se cotizan por separado."
+    )
+    pdf.set_x(M)
+    pdf.multi_cell(W - 2 * M, 4.5, lat(terminos))
+
+    out = pdf.output()
+    data = bytes(out)
+    nombre = (p.get("nombre") or "plataforma").replace(" ", "_")
+    filename = f"Cotizacion_{nombre}_{hoy.strftime('%Y%m%d_%H%M%S')}.pdf"
+    return {
+        "filename": filename,
+        "file_base64": base64.b64encode(data).decode("utf-8"),
+        "resumen": rs,
     }
 
 
