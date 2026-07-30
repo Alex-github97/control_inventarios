@@ -39,7 +39,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production-super-secret-key-256bits}
       ENVIRONMENT: ${ENVIRONMENT:-development}
-      CORS_ORIGINS: '${CORS_ORIGINS:-["http://localhost:5173","http://localhost:3000"]}'
+      CORS_ORIGINS: '${CORS_ORIGINS:-["http://localhost:5173","http://localhost:3000","http://127.0.0.1:5173","http://127.0.0.1:3000"]}'
     ports:
       - "8000:8000"
     volumes:
