@@ -38,6 +38,9 @@ import {
   MergeType as MotorIcon,
   Route as DistanciasIcon,
   Warehouse as AlmacenamientoIcon,
+  CompareArrows as CrossDockingIcon,
+  Storefront as PopIcon,
+  AssignmentReturn as LogInversaIcon,
   Monitor as TMSDashIconTMS,
   CalendarMonth as TMSPlaneacionIconTMS,
   AirportShuttle as TMSViajesIconTMS,
@@ -285,6 +288,9 @@ const TX_NAV_ITEMS: NavItem[] = [
   { label: 'nav.motorTarifax', icon: <MotorIcon   fontSize="small" />, path: '/tarifax/motor',   section: 'section.tarifax' },
   { label: 'nav.distancias',   icon: <DistanciasIcon fontSize="small" />, path: '/tarifax/distancias', section: 'section.tarifax' },
   { label: 'nav.almacenamiento', icon: <AlmacenamientoIcon fontSize="small" />, path: '/tarifax/almacenamiento', section: 'section.tarifax' },
+  { label: 'nav.crossDocking', icon: <CrossDockingIcon fontSize="small" />, path: '/tarifax/cross-docking', section: 'section.tarifax' },
+  { label: 'nav.pop', icon: <PopIcon fontSize="small" />, path: '/tarifax/pop', section: 'section.tarifax' },
+  { label: 'nav.logisticaInversa', icon: <LogInversaIcon fontSize="small" />, path: '/tarifax/logistica-inversa', section: 'section.tarifax' },
 ]
 
 const FT_NAV_ITEMS: NavItem[] = [

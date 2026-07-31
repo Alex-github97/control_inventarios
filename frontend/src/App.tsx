@@ -88,6 +88,9 @@ const TarifaxDashboard = React.lazy(() => import('@/pages/TarifaxDashboard'))
 const TarifaxMotor = React.lazy(() => import('@/pages/TarifaxMotor'))
 const TarifaxDistancias = React.lazy(() => import('@/pages/TarifaxDistancias'))
 const TarifaxAlmacenamiento = React.lazy(() => import('@/pages/TarifaxAlmacenamiento'))
+const TarifaxCrossDocking = React.lazy(() => import('@/pages/TarifaxCrossDocking'))
+const TarifaxPOP = React.lazy(() => import('@/pages/TarifaxPOP'))
+const TarifaxLogisticaInversa = React.lazy(() => import('@/pages/TarifaxLogisticaInversa'))
 const Usuarios = React.lazy(() => import('@/pages/Usuarios'))
 const Roles = React.lazy(() => import('@/pages/Roles'))
 const CommandCenter = React.lazy(() => import('@/pages/CommandCenter'))
@@ -462,6 +465,9 @@ export default function App() {
             <Route path="/tarifax/motor" element={<ProtectedRoute><TarifaxMotor /></ProtectedRoute>} />
             <Route path="/tarifax/distancias" element={<ProtectedRoute><TarifaxDistancias /></ProtectedRoute>} />
             <Route path="/tarifax/almacenamiento" element={<ProtectedRoute><TarifaxAlmacenamiento /></ProtectedRoute>} />
+            <Route path="/tarifax/cross-docking" element={<ProtectedRoute><TarifaxCrossDocking /></ProtectedRoute>} />
+            <Route path="/tarifax/pop" element={<ProtectedRoute><TarifaxPOP /></ProtectedRoute>} />
+            <Route path="/tarifax/logistica-inversa" element={<ProtectedRoute><TarifaxLogisticaInversa /></ProtectedRoute>} />
             <Route path="/wms" element={<ProtectedRoute><WMSDashboard /></ProtectedRoute>} />
             <Route path="/wms/recepcion" element={<ProtectedRoute><WMSRecepcion /></ProtectedRoute>} />
             <Route path="/wms/inventario" element={<ProtectedRoute><WMSInventario /></ProtectedRoute>} />
