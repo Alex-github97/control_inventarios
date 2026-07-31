@@ -273,6 +273,16 @@ DEFAULT_AREAS = [
     {"area": "Area maquila", "m2": 0},
 ]
 
+# Productividad por defecto: dimensiona el personal a partir del volumen semanal
+# y el rendimiento (unidades por hora-hombre). horas_mes = vol/rend * semanas;
+# personas = horas_mes / hr_mensuales.
+DEFAULT_PRODUCTIVIDAD = [
+    {"actividad": "Recepcion", "volumen_semanal": 0, "unidad": "cajas", "rendimiento_hh": 390},
+    {"actividad": "Almacenamiento", "volumen_semanal": 0, "unidad": "estibas", "rendimiento_hh": 12},
+    {"actividad": "Alistamiento", "volumen_semanal": 0, "unidad": "cajas", "rendimiento_hh": 0},
+    {"actividad": "Despacho", "volumen_semanal": 0, "unidad": "estibas", "rendimiento_hh": 0},
+]
+
 # INPUTS pre-configurados (globales). Los valores son un punto de partida
 # editable; la ESTRUCTURA de rubros es la que define el costeo por posicion.
 DEFAULT_COTIZACION_CONFIG = {
@@ -284,6 +294,7 @@ DEFAULT_COTIZACION_CONFIG = {
         "smlv": 1750905,
         "aux_transporte": 249095,
         "hr_mensuales": 220,
+        "semanas_mes": 4.33,
     },
     "nomina": {"cargos": [
         {"cargo": "Auxiliares de bodega", "cantidad": 0.045, "salario": 2000000, "dotacion": 143000, "carga_prestacional": 840000},
@@ -444,8 +455,33 @@ def _calcular_rubros(plataforma: dict, tmpl: dict) -> dict:
     }
 
 
+def _calcular_productividad(plataforma: dict, tmpl: dict) -> dict:
+    """Dimensiona el personal segun volumen semanal y rendimiento (u/HH).
+
+    horas_mes = volumen_semanal / rendimiento_hh * semanas_mes
+    personas  = horas_mes / hr_mensuales
+    """
+    par = plataforma.get("parametros") or tmpl.get("parametros", {})
+    hr_mens = _num(par.get("hr_mensuales")) or 220.0
+    semanas = _num(par.get("semanas_mes")) or 4.33
+    actividades = (plataforma.get("productividad") or {}).get("actividades", [])
+    items = []
+    total_personas = 0.0
+    total_horas = 0.0
+    for a in actividades:
+        vol = _num(a.get("volumen_semanal"))
+        rend = _num(a.get("rendimiento_hh"))
+        horas = (vol / rend) * semanas if rend else 0.0
+        personas = horas / hr_mens if hr_mens else 0.0
+        total_horas += horas
+        total_personas += personas
+        items.append({**a, "horas_mes": horas, "personas_equiv": personas})
+    return {"items": items, "total_horas": total_horas, "total_personas": total_personas,
+            "hr_mensuales": hr_mens, "semanas_mes": semanas}
+
+
 def _calcular_cotizacion(plataforma: dict, config: dict | None = None) -> dict:
-    """Costeo de ALMACENAMIENTO -> valor y cobro por POSICION."""
+    """Costeo de ALMACENAMIENTO -> valor y cobro por POSICION (y por caja/kg)."""
     tmpl = config or _load_cotizacion_config()
     rub = _calcular_rubros(plataforma, tmpl)
     posiciones = _num(plataforma.get("capacidad_posiciones"))
@@ -453,15 +489,30 @@ def _calcular_cotizacion(plataforma: dict, config: dict | None = None) -> dict:
     margen = rub["margen"]
     valor_posicion = total / posiciones if posiciones else 0.0
     m2_por_posicion = rub["m2_utilizados"] / posiciones if posiciones else 0.0
+
+    # Denominadores alternativos (como en la hoja: posiciones / cajas / kg)
+    cajas = _num(plataforma.get("cajas_movilizadas_mes"))
+    kg = _num(plataforma.get("kg_movilizados_mes"))
+    valor_caja = total / cajas if cajas else 0.0
+    valor_kg = total / kg if kg else 0.0
+
+    prod = _calcular_productividad(plataforma, tmpl)
+
     return {
         "nomina": rub["nomina"], "arriendo": rub["arriendo"], "servicios_publicos": rub["servicios_publicos"],
         "maquinaria": rub["maquinaria"], "equipos_tecnologicos": rub["equipos_tecnologicos"],
+        "productividad": prod,
         "resumen": {
             "total_operacion": total,
             "capacidad_posiciones": posiciones,
             "valor_por_posicion": valor_posicion,
             "margen_utilidad_pct": margen * 100,
             "cobro_por_posicion": valor_posicion * (1 + margen),
+            "cajas_movilizadas_mes": cajas,
+            "valor_por_caja": valor_caja, "cobro_por_caja": valor_caja * (1 + margen),
+            "kg_movilizados_mes": kg,
+            "valor_por_kg": valor_kg, "cobro_por_kg": valor_kg * (1 + margen),
+            "personas_sugeridas": prod["total_personas"],
             "m2_utilizados": rub["m2_utilizados"], "m2_totales": rub["m2_totales"],
             "pct_utilizado": rub["pct_utilizado"], "valor_m2": rub["valor_m2"],
             "pallet_area_m2": rub["pallet_area_m2"], "m2_por_posicion": m2_por_posicion,
@@ -479,7 +530,10 @@ class Plataforma(BaseModel):
     m2_totales: float = 0
     valor_arriendo: float = 0
     capacidad_posiciones: float = 0
+    cajas_movilizadas_mes: float = 0
+    kg_movilizados_mes: float = 0
     areas: list = []
+    productividad: dict = {}
     # Rubros e inputs PROPIOS de cada plataforma (se siembran desde la plantilla)
     parametros: dict = {}
     nomina: dict = {}
@@ -490,10 +544,12 @@ class Plataforma(BaseModel):
 
 
 def _sembrar_plataforma(rec: dict) -> dict:
-    """Rellena areas, parametros y rubros vacios de una plataforma con la plantilla."""
+    """Rellena areas, productividad, parametros y rubros vacios con la plantilla."""
     tmpl = _load_cotizacion_config()
     if not rec.get("areas"):
         rec["areas"] = json.loads(json.dumps(DEFAULT_AREAS))
+    if not rec.get("productividad") or not rec["productividad"].get("actividades"):
+        rec["productividad"] = {"actividades": json.loads(json.dumps(DEFAULT_PRODUCTIVIDAD))}
     for k in ("parametros", "nomina", "servicios_publicos", "maquinaria", "equipos_tecnologicos"):
         if not rec.get(k):
             rec[k] = json.loads(json.dumps(tmpl.get(k, {})))
@@ -661,9 +717,25 @@ async def exportar_cotizacion(req: CotizacionReq, current_user: Usuario = Depend
     emit(["", "Maquinaria y equipo", r["maquinaria"]["total"], f"{r['maquinaria']['participacion']*100:.1f}%"], fmts={2: money})
     emit(["", "Equipos tecnologicos", r["equipos_tecnologicos"]["total"], f"{r['equipos_tecnologicos']['participacion']*100:.1f}%"], fmts={2: money})
     emit(["", "TOTAL OPERACION MENSUAL", rs["total_operacion"]], b=True, fmts={2: money})
-    emit(["", "Posiciones de almacenamiento", rs["capacidad_posiciones"]], b=True)
-    emit(["", "VALOR POR POSICION", rs["valor_por_posicion"]], b=True, fmts={2: money})
-    emit(["", f"COBRO POR POSICION (+{rs['margen_utilidad_pct']:.0f}% margen)", rs["cobro_por_posicion"]], b=True, fmts={2: money})
+    row[0] += 1
+
+    # Valor por unidad (posiciones / cajas / kg movilizados)
+    emit(["UNIDAD", "DENOMINADOR", "CANTIDAD/MES", "COSTO UNITARIO", f"COBRO (+{rs['margen_utilidad_pct']:.0f}%)"], b=True, fills={0, 1, 2, 3, 4})
+    emit(["", "Posicion de almacenamiento", rs["capacidad_posiciones"], rs["valor_por_posicion"], rs["cobro_por_posicion"]], fmts={3: money, 4: money})
+    if rs.get("cajas_movilizadas_mes"):
+        emit(["", "Caja movilizada", rs["cajas_movilizadas_mes"], rs["valor_por_caja"], rs["cobro_por_caja"]], fmts={3: money, 4: money})
+    if rs.get("kg_movilizados_mes"):
+        emit(["", "Kilo movilizado", rs["kg_movilizados_mes"], rs["valor_por_kg"], rs["cobro_por_kg"]], fmts={3: money, 4: money})
+    row[0] += 1
+
+    # Productividad (dimensionamiento de personal)
+    prod = r.get("productividad", {})
+    if prod.get("items"):
+        emit(["PRODUCTIVIDAD", "ACTIVIDAD", "VOL/SEMANA", "REND (u/HH)", "HORAS/MES", "PERSONAS"], b=True, fills={0, 1, 2, 3, 4, 5})
+        for a in prod["items"]:
+            emit(["", a.get("actividad", ""), _num(a.get("volumen_semanal")), _num(a.get("rendimiento_hh")),
+                  round(a.get("horas_mes", 0), 1), round(a.get("personas_equiv", 0), 2)])
+        emit(["", "TOTAL PERSONAS SUGERIDAS", "", "", round(prod.get("total_horas", 0), 1), round(prod.get("total_personas", 0), 2)], b=True)
 
     for rr in ws.iter_rows():
         for c in rr:
@@ -849,6 +921,22 @@ async def pdf_cotizacion(req: CotizacionReq, current_user: Usuario = Depends(get
     pdf.cell(90, 7, lat("  Costo por posicion"), border=0, ln=0)
     pdf.cell(56, 7, lat(_money(rs["valor_por_posicion"])), border=0, align="R", ln=0)
     pdf.cell(36, 7, lat(f"margen {rs['margen_utilidad_pct']:.0f}%  "), border=0, align="R", ln=1)
+
+    # Tarifas alternativas (caja / kg movilizados) cuando aplican
+    otras = []
+    if rs.get("cajas_movilizadas_mes"):
+        otras.append(("Cobro por caja movilizada", rs["cobro_por_caja"]))
+    if rs.get("kg_movilizados_mes"):
+        otras.append(("Cobro por kilo movilizado", rs["cobro_por_kg"]))
+    if otras:
+        pdf.ln(2)
+        seccion("Tarifas alternativas")
+        for lbl, val in otras:
+            pdf.set_x(M)
+            pdf.set_font("helvetica", "", 9)
+            pdf.cell(120, 6, lat("- " + lbl), ln=0)
+            pdf.set_font("helvetica", "B", 9)
+            pdf.cell(60, 6, lat(_money(val)), align="R", ln=1)
 
     # Terminos
     seccion("Condiciones comerciales")

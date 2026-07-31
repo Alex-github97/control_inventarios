@@ -20,14 +20,18 @@ interface AreaRow { area: string; m2: number | string }
 interface CargoRow { cargo: string; cantidad: number | string; salario: number | string; dotacion: number | string; carga_prestacional: number | string }
 interface ServRow { servicio: string; gasto_total: number | string }
 interface EquipoRow { item: string; cantidad: number | string; valor: number | string }
+interface ActividadRow { actividad: string; volumen_semanal: number | string; rendimiento_hh: number | string; unidad?: string }
 interface Parametros {
   pallet_largo_m: number | string; pallet_ancho_m: number | string; margen_utilidad_pct: number | string
   ipc_pct: number | string; smlv: number | string; aux_transporte: number | string; hr_mensuales: number | string
+  semanas_mes: number | string
 }
 interface Plataforma {
   id?: number; nombre: string; pais: string; ciudad: string; direccion: string; posicion: string
   m2_totales: number | string; valor_arriendo: number | string; capacidad_posiciones: number | string
+  cajas_movilizadas_mes: number | string; kg_movilizados_mes: number | string
   areas: AreaRow[]
+  productividad: { actividades: ActividadRow[] }
   parametros: Parametros
   nomina: { cargos: CargoRow[] }
   servicios_publicos: { items: ServRow[] }
@@ -35,6 +39,12 @@ interface Plataforma {
   equipos_tecnologicos: { incremento_pct: number | string; items: EquipoRow[] }
   notas?: string
 }
+const PROD_DEFAULT: ActividadRow[] = [
+  { actividad: 'Recepción', volumen_semanal: '', rendimiento_hh: 390 },
+  { actividad: 'Almacenamiento', volumen_semanal: '', rendimiento_hh: 12 },
+  { actividad: 'Alistamiento', volumen_semanal: '', rendimiento_hh: '' },
+  { actividad: 'Despacho', volumen_semanal: '', rendimiento_hh: '' },
+]
 type Config = Pick<Plataforma, 'parametros' | 'nomina' | 'servicios_publicos' | 'maquinaria' | 'equipos_tecnologicos'>
 interface Cliente { nombre: string; nit: string; contacto: string }
 
@@ -50,7 +60,9 @@ function plataformaNueva(tmpl: Config): Plataforma {
   return {
     nombre: '', pais: 'Colombia', ciudad: '', direccion: '', posicion: '',
     m2_totales: '', valor_arriendo: '', capacidad_posiciones: '',
+    cajas_movilizadas_mes: '', kg_movilizados_mes: '',
     areas: AREAS_DEFAULT.map(a => ({ ...a })),
+    productividad: { actividades: PROD_DEFAULT.map(a => ({ ...a })) },
     parametros: { ...tmpl.parametros },
     nomina: { cargos: tmpl.nomina.cargos.map(c => ({ ...c })) },
     servicios_publicos: { items: tmpl.servicios_publicos.items.map(s => ({ ...s })) },
@@ -99,11 +111,29 @@ function calcular(p: Plataforma) {
   const valorPosicion = posiciones ? totalOperacion / posiciones : 0
   const cobroPosicion = valorPosicion * (1 + margen)
   const m2PorPosicion = posiciones ? m2Util / posiciones : 0
+
+  // Denominadores alternativos (posición / caja / kg movilizados)
+  const cajas = num(p.cajas_movilizadas_mes), kg = num(p.kg_movilizados_mes)
+  const valorCaja = cajas ? totalOperacion / cajas : 0
+  const valorKg = kg ? totalOperacion / kg : 0
+
+  // Productividad: dimensiona el personal por volumen y rendimiento
+  const hrMens = num(p.parametros.hr_mensuales) || 220
+  const semanas = num(p.parametros.semanas_mes) || 4.33
+  const prod = (p.productividad?.actividades || []).map(a => {
+    const vol = num(a.volumen_semanal), rend = num(a.rendimiento_hh)
+    const horas = rend ? (vol / rend) * semanas : 0
+    return { ...a, horas, personas: hrMens ? horas / hrMens : 0 }
+  })
+  const totalPersonas = sum(prod.map(a => a.personas))
+
   const part = (x: number) => (totalOperacion ? x / totalOperacion : 0)
 
   return {
     nomina, totalNomina, m2Util, valorM2, pctUtil, totalArriendo, serv, totalServ,
-    maq, totalMaq, eq, totalEq, totalOperacion, valorPosicion, cobroPosicion, posiciones, m2PorPosicion,
+    maq, totalMaq, eq, totalEq, totalOperacion, valorPosicion, cobroPosicion, posiciones, m2PorPosicion, margen,
+    cajas, kg, valorCaja, cobroCaja: valorCaja * (1 + margen), valorKg, cobroKg: valorKg * (1 + margen),
+    prod, totalPersonas,
     part: { nomina: part(totalNomina), arriendo: part(totalArriendo), serv: part(totalServ), maq: part(totalMaq), eq: part(totalEq) },
   }
 }
@@ -181,7 +211,9 @@ export default function TarifaxAlmacenamiento() {
     const payload = {
       ...p,
       m2_totales: num(p.m2_totales), valor_arriendo: num(p.valor_arriendo), capacidad_posiciones: num(p.capacidad_posiciones),
+      cajas_movilizadas_mes: num(p.cajas_movilizadas_mes), kg_movilizados_mes: num(p.kg_movilizados_mes),
       areas: p.areas.map(a => ({ area: a.area, m2: num(a.m2) })),
+      productividad: { actividades: (p.productividad?.actividades || []).map(a => ({ actividad: a.actividad, volumen_semanal: num(a.volumen_semanal), rendimiento_hh: num(a.rendimiento_hh), unidad: a.unidad || '' })) },
     }
     return p.id
       ? (await apiClient.put<Plataforma>(`/tarifax/plataformas/${p.id}`, payload)).data
@@ -387,6 +419,37 @@ export default function TarifaxAlmacenamiento() {
                 <Typography sx={{ fontSize: 28, fontWeight: 800, color: '#fff', lineHeight: 1.15, fontVariantNumeric: 'tabular-nums' }}>{money(r.cobroPosicion)}</Typography>
                 {r.posiciones > 0 && <Typography sx={{ fontSize: 11, color: alpha('#fff', 0.85), mt: 0.25 }}>≈ {money(r.cobroPosicion * r.posiciones)} / mes</Typography>}
               </Box>
+
+              {/* Denominadores alternativos */}
+              {(r.cajas > 0 || r.kg > 0) && (
+                <Stack spacing={0.75} sx={{ mt: 1 }}>
+                  {r.cajas > 0 && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, borderRadius: '10px', bgcolor: alpha(TX_COLOR, 0.08) }}>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: TX_DARK }}>Cobro por caja movilizada</Typography>
+                        <Typography sx={{ fontSize: 9.5, color: '#64748B' }}>{fmt(r.cajas)} cajas/mes · costo {money(r.valorCaja)}</Typography>
+                      </Box>
+                      <Typography sx={{ fontSize: 16, fontWeight: 800, color: TX_DARK, fontVariantNumeric: 'tabular-nums' }}>{money(r.cobroCaja)}</Typography>
+                    </Box>
+                  )}
+                  {r.kg > 0 && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, borderRadius: '10px', bgcolor: alpha(TX_COLOR, 0.08) }}>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: TX_DARK }}>Cobro por kilo movilizado</Typography>
+                        <Typography sx={{ fontSize: 9.5, color: '#64748B' }}>{fmt(r.kg)} kg/mes · costo {money(r.valorKg)}</Typography>
+                      </Box>
+                      <Typography sx={{ fontSize: 16, fontWeight: 800, color: TX_DARK, fontVariantNumeric: 'tabular-nums' }}>{money(r.cobroKg)}</Typography>
+                    </Box>
+                  )}
+                </Stack>
+              )}
+              {r.totalPersonas > 0 && (
+                <Box sx={{ mt: 1, p: 1, borderRadius: '10px', border: `1px dashed ${alpha(TX_COLOR, 0.4)}`, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Groups sx={{ fontSize: 16, color: TX_DARK }} />
+                  <Typography sx={{ fontSize: 11.5, color: '#475569', flex: 1 }}>Personal sugerido (productividad)</Typography>
+                  <Typography sx={{ fontSize: 15, fontWeight: 800, color: TX_DARK }}>{fmt(r.totalPersonas, 2)}</Typography>
+                </Box>
+              )}
             </Card>
           </Box>
 
@@ -409,6 +472,7 @@ export default function TarifaxAlmacenamiento() {
                   { l: 'SMLV', k: 'smlv' as const, adorn: '$' },
                   { l: 'Aux. transporte', k: 'aux_transporte' as const, adorn: '$' },
                   { l: 'Horas mensuales', k: 'hr_mensuales' as const, adorn: 'h' },
+                  { l: 'Semanas / mes', k: 'semanas_mes' as const, adorn: 'sem' },
                 ].map(f => (
                   <Grid item xs={6} sm={4} md={3} key={f.k}>
                     <TextField size="small" label={f.l} value={draft.parametros[f.k]} onChange={e => setPar({ [f.k]: e.target.value } as Partial<Parametros>)} fullWidth
@@ -527,6 +591,47 @@ export default function TarifaxAlmacenamiento() {
               onItem={(i, patch) => setD({ equipos_tecnologicos: { ...draft.equipos_tecnologicos, items: updRow(draft.equipos_tecnologicos.items, i, patch) } })}
               onDel={i => setD({ equipos_tecnologicos: { ...draft.equipos_tecnologicos, items: draft.equipos_tecnologicos.items.filter((_, k) => k !== i) } })}
               onAdd={() => setD({ equipos_tecnologicos: { ...draft.equipos_tecnologicos, items: [...draft.equipos_tecnologicos.items, { item: '', cantidad: 1, valor: 0 }] } })} />
+
+            {/* PRODUCTIVIDAD */}
+            <Card sx={{ p: 2.25, mb: 2, border: '1px solid #E5E7EB', borderRadius: '14px' }}>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                <Box sx={{ width: 26, height: 26, borderRadius: '7px', bgcolor: alpha(TX_COLOR, 0.12), display: 'flex', alignItems: 'center', justifyContent: 'center', color: TX_DARK }}><Groups fontSize="small" /></Box>
+                <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: '#1E293B', flex: 1 }}>Productividad <Typography component="span" sx={{ fontSize: 11, color: '#94A3B8', fontWeight: 500 }}>(dimensiona el personal)</Typography></Typography>
+                <Chip size="small" label={`${fmt(r.totalPersonas, 2)} personas`} sx={{ height: 20, fontSize: 10.5, fontWeight: 700, bgcolor: alpha(TX_COLOR, 0.12), color: TX_DARK }} />
+              </Stack>
+              <Typography sx={{ fontSize: 11.5, color: '#64748B', mb: 1 }}>
+                Horas/mes = volumen semanal ÷ rendimiento × {fmt(num(draft.parametros.semanas_mes) || 4.33, 2)} sem · Personas = horas ÷ {fmt(num(draft.parametros.hr_mensuales) || 220)} h. Úsalo para fijar la cantidad de cada cargo en Nómina.
+              </Typography>
+              <Box sx={{ overflowX: 'auto' }}>
+                <Table size="small" sx={{ minWidth: 560 }}>
+                  <TableHead><TableRow>
+                    {['Actividad', 'Vol / semana', 'Rend. (u/HH)', 'Horas / mes', 'Personas', ''].map((h, i) =>
+                      <TableCell key={h + i} sx={{ ...HEAD_SX, textAlign: i === 0 ? 'left' : 'right' }}>{h}</TableCell>)}
+                  </TableRow></TableHead>
+                  <TableBody>
+                    {draft.productividad.actividades.map((a, i) => (
+                      <TableRow key={i}>
+                        <TableCell sx={CELL_SX}><TxtCell value={a.actividad} width={180} onChange={v => setD({ productividad: { actividades: updRow(draft.productividad.actividades, i, { actividad: v }) } })} /></TableCell>
+                        <TableCell sx={{ ...CELL_SX, textAlign: 'right' }}><NumCell value={a.volumen_semanal} width={90} onChange={v => setD({ productividad: { actividades: updRow(draft.productividad.actividades, i, { volumen_semanal: v }) } })} /></TableCell>
+                        <TableCell sx={{ ...CELL_SX, textAlign: 'right' }}><NumCell value={a.rendimiento_hh} width={80} onChange={v => setD({ productividad: { actividades: updRow(draft.productividad.actividades, i, { rendimiento_hh: v }) } })} /></TableCell>
+                        <TableCell sx={{ ...CELL_SX, textAlign: 'right', fontSize: 12.5, color: '#64748B', whiteSpace: 'nowrap' }}>{fmt(r.prod[i].horas, 1)}</TableCell>
+                        <TableCell sx={{ ...CELL_SX, textAlign: 'right', fontSize: 12.5, fontWeight: 700, color: '#1E293B', whiteSpace: 'nowrap' }}>{fmt(r.prod[i].personas, 2)}</TableCell>
+                        <TableCell sx={{ ...CELL_SX, textAlign: 'right', px: 0 }}><IconButton size="small" onClick={() => setD({ productividad: { actividades: draft.productividad.actividades.filter((_, k) => k !== i) } })} sx={{ color: '#CBD5E1', '&:hover': { color: '#DC2626' } }}><DeleteOutline sx={{ fontSize: 16 }} /></IconButton></TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow>
+                      <TableCell sx={{ ...CELL_SX, fontWeight: 800, fontSize: 12.5, color: TX_DARK }}>Total</TableCell>
+                      <TableCell sx={CELL_SX} /><TableCell sx={CELL_SX} />
+                      <TableCell sx={{ ...CELL_SX, textAlign: 'right', fontWeight: 800, fontSize: 12.5, color: TX_DARK }}>{fmt(sum(r.prod.map(a => a.horas)), 1)}</TableCell>
+                      <TableCell sx={{ ...CELL_SX, textAlign: 'right', fontWeight: 800, fontSize: 12.5, color: TX_DARK }}>{fmt(r.totalPersonas, 2)}</TableCell>
+                      <TableCell sx={CELL_SX} />
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </Box>
+              <Button size="small" startIcon={<Add />} onClick={() => setD({ productividad: { actividades: [...draft.productividad.actividades, { actividad: '', volumen_semanal: '', rendimiento_hh: '' }] } })}
+                sx={{ mt: 1, color: TX_DARK, textTransform: 'none', fontWeight: 700 }}>Agregar actividad</Button>
+            </Card>
           </Box>
         </Box>
       )}
@@ -559,6 +664,8 @@ export default function TarifaxAlmacenamiento() {
               <Grid item xs={12} sm={4}><TextField size="small" type="number" label="M² totales de la bodega" value={dlgData.m2_totales} onChange={e => setDlgData({ ...dlgData, m2_totales: e.target.value })} fullWidth /></Grid>
               <Grid item xs={12} sm={4}><TextField size="small" type="number" label="Valor arriendo mensual" value={dlgData.valor_arriendo} onChange={e => setDlgData({ ...dlgData, valor_arriendo: e.target.value })} fullWidth InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
               <Grid item xs={12} sm={4}><TextField size="small" type="number" label="Capacidad (posiciones)" value={dlgData.capacidad_posiciones} onChange={e => setDlgData({ ...dlgData, capacidad_posiciones: e.target.value })} fullWidth helperText="Posiciones de almacenamiento (pallets)" /></Grid>
+              <Grid item xs={12} sm={6}><TextField size="small" type="number" label="Cajas movilizadas / mes" value={dlgData.cajas_movilizadas_mes} onChange={e => setDlgData({ ...dlgData, cajas_movilizadas_mes: e.target.value })} fullWidth helperText="Opcional · para costo por caja" /></Grid>
+              <Grid item xs={12} sm={6}><TextField size="small" type="number" label="Kg movilizados / mes" value={dlgData.kg_movilizados_mes} onChange={e => setDlgData({ ...dlgData, kg_movilizados_mes: e.target.value })} fullWidth helperText="Opcional · para costo por kilo" /></Grid>
             </Grid>
             {(() => {
               const m2u = sum(dlgData.areas.map(a => num(a.m2)))
