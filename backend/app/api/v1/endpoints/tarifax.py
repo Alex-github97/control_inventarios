@@ -402,7 +402,10 @@ def _calcular_rubros(plataforma: dict, tmpl: dict) -> dict:
 
     areas = plataforma.get("areas") or []
     m2_util = sum(_num(a.get("m2")) for a in areas)
-    valor_m2 = arriendo_val / m2_tot if m2_tot else 0.0
+    # valor/m2: derivado del arriendo, salvo que se fije un valor/m2 manual
+    # (p.ej. tarifa proyectada 2026 distinta del arriendo historico).
+    vm2_manual = _num(plataforma.get("valor_m2_manual"))
+    valor_m2 = vm2_manual if vm2_manual > 0 else (arriendo_val / m2_tot if m2_tot else 0.0)
     pct_util = m2_util / m2_tot if m2_tot else 0.0
     total_arriendo = m2_util * valor_m2
     areas_calc = [{**a, "asignado": _num(a.get("m2")) * valor_m2} for a in areas]
@@ -529,6 +532,7 @@ class Plataforma(BaseModel):
     posicion: str = ""
     m2_totales: float = 0
     valor_arriendo: float = 0
+    valor_m2_manual: float = 0
     capacidad_posiciones: float = 0
     cajas_movilizadas_mes: float = 0
     kg_movilizados_mes: float = 0
@@ -1071,6 +1075,7 @@ class PlataformaCosteo(BaseModel):
     posicion: str = ""
     m2_totales: float = 0
     valor_arriendo: float = 0
+    valor_m2_manual: float = 0
     unidades: list = []
     areas: list = []
     parametros: dict = {}

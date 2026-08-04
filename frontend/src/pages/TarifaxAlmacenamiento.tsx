@@ -28,7 +28,7 @@ interface Parametros {
 }
 interface Plataforma {
   id?: number; nombre: string; pais: string; ciudad: string; direccion: string; posicion: string
-  m2_totales: number | string; valor_arriendo: number | string; capacidad_posiciones: number | string
+  m2_totales: number | string; valor_arriendo: number | string; valor_m2_manual: number | string; capacidad_posiciones: number | string
   cajas_movilizadas_mes: number | string; kg_movilizados_mes: number | string
   areas: AreaRow[]
   productividad: { actividades: ActividadRow[] }
@@ -59,7 +59,7 @@ const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x))
 function plataformaNueva(tmpl: Config): Plataforma {
   return {
     nombre: '', pais: 'Colombia', ciudad: '', direccion: '', posicion: '',
-    m2_totales: '', valor_arriendo: '', capacidad_posiciones: '',
+    m2_totales: '', valor_arriendo: '', valor_m2_manual: '', capacidad_posiciones: '',
     cajas_movilizadas_mes: '', kg_movilizados_mes: '',
     areas: AREAS_DEFAULT.map(a => ({ ...a })),
     productividad: { actividades: PROD_DEFAULT.map(a => ({ ...a })) },
@@ -91,7 +91,8 @@ function calcular(p: Plataforma) {
   const totalNomina = sum(nomina.map(x => x.total))
 
   const m2Util = sum(p.areas.map(a => num(a.m2)))
-  const valorM2 = m2Tot ? arr / m2Tot : 0
+  const vm2Manual = num(p.valor_m2_manual)
+  const valorM2 = vm2Manual > 0 ? vm2Manual : (m2Tot ? arr / m2Tot : 0)
   const pctUtil = m2Tot ? m2Util / m2Tot : 0
   const totalArriendo = m2Util * valorM2
 
@@ -210,7 +211,7 @@ export default function TarifaxAlmacenamiento() {
   const persistir = async (p: Plataforma): Promise<Plataforma> => {
     const payload = {
       ...p,
-      m2_totales: num(p.m2_totales), valor_arriendo: num(p.valor_arriendo), capacidad_posiciones: num(p.capacidad_posiciones),
+      m2_totales: num(p.m2_totales), valor_arriendo: num(p.valor_arriendo), valor_m2_manual: num(p.valor_m2_manual), capacidad_posiciones: num(p.capacidad_posiciones),
       cajas_movilizadas_mes: num(p.cajas_movilizadas_mes), kg_movilizados_mes: num(p.kg_movilizados_mes),
       areas: p.areas.map(a => ({ area: a.area, m2: num(a.m2) })),
       productividad: { actividades: (p.productividad?.actividades || []).map(a => ({ actividad: a.actividad, volumen_semanal: num(a.volumen_semanal), rendimiento_hh: num(a.rendimiento_hh), unidad: a.unidad || '' })) },
@@ -662,14 +663,15 @@ export default function TarifaxAlmacenamiento() {
             <Typography sx={{ fontSize: 11, fontWeight: 800, color: TX_DARK, textTransform: 'uppercase', letterSpacing: '0.05em', mt: 2.5, mb: 1 }}>Capacidades</Typography>
             <Grid container spacing={1.5}>
               <Grid item xs={12} sm={4}><TextField size="small" type="number" label="M² totales de la bodega" value={dlgData.m2_totales} onChange={e => setDlgData({ ...dlgData, m2_totales: e.target.value })} fullWidth /></Grid>
-              <Grid item xs={12} sm={4}><TextField size="small" type="number" label="Valor arriendo mensual" value={dlgData.valor_arriendo} onChange={e => setDlgData({ ...dlgData, valor_arriendo: e.target.value })} fullWidth InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
+              <Grid item xs={12} sm={4}><TextField size="small" type="number" label="Valor arriendo mensual" value={dlgData.valor_arriendo} onChange={e => setDlgData({ ...dlgData, valor_arriendo: e.target.value })} fullWidth InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} helperText="Contrato (histórico)" /></Grid>
+              <Grid item xs={12} sm={4}><TextField size="small" type="number" label="Valor / m² (manual)" value={dlgData.valor_m2_manual} onChange={e => setDlgData({ ...dlgData, valor_m2_manual: e.target.value })} fullWidth InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} helperText="Opcional · si >0 se usa esta tarifa/m² (p. ej. 2026)" /></Grid>
               <Grid item xs={12} sm={4}><TextField size="small" type="number" label="Capacidad (posiciones)" value={dlgData.capacidad_posiciones} onChange={e => setDlgData({ ...dlgData, capacidad_posiciones: e.target.value })} fullWidth helperText="Posiciones de almacenamiento (pallets)" /></Grid>
               <Grid item xs={12} sm={6}><TextField size="small" type="number" label="Cajas movilizadas / mes" value={dlgData.cajas_movilizadas_mes} onChange={e => setDlgData({ ...dlgData, cajas_movilizadas_mes: e.target.value })} fullWidth helperText="Opcional · para costo por caja" /></Grid>
               <Grid item xs={12} sm={6}><TextField size="small" type="number" label="Kg movilizados / mes" value={dlgData.kg_movilizados_mes} onChange={e => setDlgData({ ...dlgData, kg_movilizados_mes: e.target.value })} fullWidth helperText="Opcional · para costo por kilo" /></Grid>
             </Grid>
             {(() => {
               const m2u = sum(dlgData.areas.map(a => num(a.m2)))
-              const vm2 = num(dlgData.m2_totales) ? num(dlgData.valor_arriendo) / num(dlgData.m2_totales) : 0
+              const vm2 = num(dlgData.valor_m2_manual) > 0 ? num(dlgData.valor_m2_manual) : (num(dlgData.m2_totales) ? num(dlgData.valor_arriendo) / num(dlgData.m2_totales) : 0)
               const pct = num(dlgData.m2_totales) ? m2u / num(dlgData.m2_totales) : 0
               const chips = [
                 { l: 'Valor / m²', v: money(vm2) }, { l: 'M² utilizados', v: `${fmt(m2u)} m²` },
