@@ -26,8 +26,9 @@ interface Parametros {
   ipc_pct: number | string; smlv: number | string; aux_transporte: number | string; hr_mensuales: number | string
 }
 interface Plataforma {
-  id?: number; nombre: string; pais: string; ciudad: string; direccion: string; posicion: string
-  m2_totales: number | string; valor_arriendo: number | string
+  id?: number; nombre: string; base_almacenamiento_id?: number | null
+  pais: string; ciudad: string; direccion: string; posicion: string
+  m2_totales: number | string; valor_arriendo: number | string; valor_m2_manual?: number | string
   unidades: UnidadRow[]; areas: AreaRow[]
   parametros: Parametros
   nomina: { cargos: CargoRow[] }
@@ -36,6 +37,8 @@ interface Plataforma {
   equipos_tecnologicos: { incremento_pct: number | string; items: EquipoRow[] }
   notas?: string
 }
+// Bodega base de almacenamiento (solo los campos de la instalacion que se heredan)
+interface Bodega { id: number; nombre: string; ciudad?: string; direccion?: string; pais?: string; m2_totales: number; valor_arriendo: number; valor_m2_manual?: number }
 type Config = Pick<Plataforma, 'parametros' | 'nomina' | 'servicios_publicos' | 'maquinaria' | 'equipos_tecnologicos'>
 interface Cliente { nombre: string; nit: string; contacto: string }
 interface Meta { servicio: string; label: string; subtitulo: string; unidades_sugeridas: string[] }
@@ -55,10 +58,18 @@ const sum = (arr: number[]) => arr.reduce((a, b) => a + b, 0)
 const fmt = (v: number, dec = 0) => v.toLocaleString('es-CO', { minimumFractionDigits: dec, maximumFractionDigits: dec })
 const money = (v: number) => `$ ${fmt(v)}`
 
+// Si la plataforma esta vinculada a una bodega, hereda los datos de la instalacion.
+function resolverBase(p: Plataforma, bases: Bodega[]): Plataforma {
+  if (!p.base_almacenamiento_id) return p
+  const b = bases.find(x => x.id === p.base_almacenamiento_id)
+  if (!b) return p
+  return { ...p, m2_totales: b.m2_totales, valor_arriendo: b.valor_arriendo, valor_m2_manual: b.valor_m2_manual ?? 0, pais: b.pais || p.pais, ciudad: b.ciudad || p.ciudad, direccion: b.direccion || p.direccion }
+}
+
 function plataformaNueva(tmpl: Config, unidadesSugeridas: string[]): Plataforma {
   return {
-    nombre: '', pais: 'Colombia', ciudad: '', direccion: '', posicion: '',
-    m2_totales: '', valor_arriendo: '',
+    nombre: '', base_almacenamiento_id: null, pais: 'Colombia', ciudad: '', direccion: '', posicion: '',
+    m2_totales: '', valor_arriendo: '', valor_m2_manual: '',
     unidades: unidadesSugeridas.map(u => ({ unidad: u, cantidad: '' })),
     areas: AREAS_DEFAULT.map(a => ({ ...a })),
     parametros: { ...tmpl.parametros },
@@ -79,7 +90,8 @@ function calcular(p: Plataforma) {
   })
   const totalNomina = sum(nomina.map(x => x.total))
   const m2Util = sum(p.areas.map(a => num(a.m2)))
-  const valorM2 = m2Tot ? arr / m2Tot : 0
+  const vm2Manual = num(p.valor_m2_manual)
+  const valorM2 = vm2Manual > 0 ? vm2Manual : (m2Tot ? arr / m2Tot : 0)
   const pctUtil = m2Tot ? m2Util / m2Tot : 0
   const totalArriendo = m2Util * valorM2
   const serv = p.servicios_publicos.items.map(s => ({ ...s, asignado: num(s.gasto_total) * pctUtil }))
@@ -152,6 +164,7 @@ export default function CosteoServicio({ servicio }: { servicio: string }) {
   const [guardando, setGuardando] = useState(false)
   const [exportando, setExportando] = useState<'' | 'excel' | 'pdf'>('')
 
+  const [bases, setBases] = useState<Bodega[]>([])
   const [dlgOpen, setDlgOpen] = useState(false)
   const [dlgMode, setDlgMode] = useState<'new' | 'edit'>('new')
   const [dlgData, setDlgData] = useState<Plataforma | null>(null)
@@ -162,8 +175,9 @@ export default function CosteoServicio({ servicio }: { servicio: string }) {
       apiClient.get<Meta>(`${API}/meta`),
       apiClient.get<Plataforma[]>(`${API}/plataformas`),
       apiClient.get<Config>(`${API}/config`),
-    ]).then(([mt, pl, cf]) => {
-      setMeta(mt.data); setTemplate(cf.data); setPlataformas(pl.data || [])
+      apiClient.get<Bodega[]>('/tarifax/plataformas'),  // bodegas de almacenamiento (base)
+    ]).then(([mt, pl, cf, bo]) => {
+      setMeta(mt.data); setTemplate(cf.data); setPlataformas(pl.data || []); setBases(bo.data || [])
       if (pl.data?.length) cargarDraft(pl.data[0]); else { setDraft(null); setSelId(null) }
     }).catch(() => toast.error('No se pudo cargar la cotización'))
       .finally(() => setCargando(false))
@@ -173,7 +187,9 @@ export default function CosteoServicio({ servicio }: { servicio: string }) {
   const cargarDraft = (p: Plataforma) => { setSelId(p.id!); setDraft(clone(p)); setBaseline(JSON.stringify(p)) }
   const seleccionar = (id: number) => { const p = plataformas.find(x => x.id === id); if (p) cargarDraft(p) }
   const dirty = useMemo(() => !!draft && JSON.stringify(draft) !== baseline, [draft, baseline])
-  const r = useMemo(() => (draft ? calcular(draft) : null), [draft])
+  const draftBase = useMemo(() => (draft ? resolverBase(draft, bases) : null), [draft, bases])
+  const r = useMemo(() => (draftBase ? calcular(draftBase) : null), [draftBase])
+  const baseNombre = draft?.base_almacenamiento_id ? (bases.find(b => b.id === draft.base_almacenamiento_id)?.nombre || '') : ''
 
   const setD = (patch: Partial<Plataforma>) => setDraft(d => (d ? { ...d, ...patch } : d))
   const setPar = (patch: Partial<Parametros>) => setDraft(d => (d ? { ...d, parametros: { ...d.parametros, ...patch } } : d))
@@ -189,7 +205,8 @@ export default function CosteoServicio({ servicio }: { servicio: string }) {
   const persistir = (p: Plataforma) => {
     const payload = {
       ...p,
-      m2_totales: num(p.m2_totales), valor_arriendo: num(p.valor_arriendo),
+      base_almacenamiento_id: p.base_almacenamiento_id || null,
+      m2_totales: num(p.m2_totales), valor_arriendo: num(p.valor_arriendo), valor_m2_manual: num(p.valor_m2_manual),
       unidades: p.unidades.filter(u => u.unidad.trim()).map(u => ({ unidad: u.unidad.trim(), cantidad: num(u.cantidad) })),
       areas: p.areas.map(a => ({ area: a.area, m2: num(a.m2) })),
     }
@@ -311,13 +328,17 @@ export default function CosteoServicio({ servicio }: { servicio: string }) {
                   sx={{ color: '#475569', borderColor: '#CBD5E1', textTransform: 'none', fontWeight: 700, borderRadius: '8px' }}>Datos, unidades y áreas</Button>
                 <Tooltip title="Eliminar"><IconButton onClick={eliminar} sx={{ color: '#DC2626', border: '1px solid #FCA5A5', borderRadius: '8px' }}><DeleteOutline fontSize="small" /></IconButton></Tooltip>
               </Stack>
+              {baseNombre && (
+                <Chip size="small" icon={<WarehouseIcon sx={{ fontSize: 14 }} />} label={`Vinculada a bodega: ${baseNombre}`}
+                  sx={{ mt: 1.5, width: '100%', justifyContent: 'flex-start', fontSize: 11, fontWeight: 700, bgcolor: alpha(TX_COLOR, 0.12), color: TX_DARK }} />
+              )}
               <Divider sx={{ my: 1.5 }} />
-              {draft.direccion && <Typography sx={{ fontSize: 12, color: '#64748B', mb: 1 }}>{draft.direccion}{draft.ciudad ? `, ${draft.ciudad}` : ''}{draft.pais ? `, ${draft.pais}` : ''}</Typography>}
+              {(draftBase!.direccion || draftBase!.ciudad) && <Typography sx={{ fontSize: 12, color: '#64748B', mb: 1 }}>{draftBase!.direccion}{draftBase!.ciudad ? `, ${draftBase!.ciudad}` : ''}{draftBase!.pais ? `, ${draftBase!.pais}` : ''}</Typography>}
               <Grid container spacing={1}>
                 {[
-                  { l: 'M² totales', v: fmt(num(draft.m2_totales)) },
+                  { l: 'M² totales', v: fmt(num(draftBase!.m2_totales)) },
                   { l: 'M² utilizados', v: fmt(r.m2Util) },
-                  { l: 'Valor arriendo', v: money(num(draft.valor_arriendo)) },
+                  { l: 'Valor arriendo', v: money(num(draftBase!.valor_arriendo)) },
                   { l: 'Valor / m²', v: money(r.valorM2) },
                   { l: '% ocupación', v: `${fmt(r.pctUtil * 100, 1)}%` },
                   { l: 'Unidades cobro', v: fmt(unidadesConCantidad.length) },
@@ -541,11 +562,39 @@ export default function CosteoServicio({ servicio }: { servicio: string }) {
               <Grid item xs={12} sm={4}><TextField size="small" label="Posición / referencia" value={dlgData.posicion} onChange={e => setDlgData({ ...dlgData, posicion: e.target.value })} fullWidth /></Grid>
             </Grid>
 
-            <Typography sx={{ fontSize: 11, fontWeight: 800, color: TX_DARK, textTransform: 'uppercase', letterSpacing: '0.05em', mt: 2.5, mb: 1 }}>Capacidades (espacio)</Typography>
-            <Grid container spacing={1.5}>
-              <Grid item xs={12} sm={6}><TextField size="small" type="number" label="M² totales de la bodega" value={dlgData.m2_totales} onChange={e => setDlgData({ ...dlgData, m2_totales: e.target.value })} fullWidth /></Grid>
-              <Grid item xs={12} sm={6}><TextField size="small" type="number" label="Valor arriendo mensual" value={dlgData.valor_arriendo} onChange={e => setDlgData({ ...dlgData, valor_arriendo: e.target.value })} fullWidth InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
-            </Grid>
+            <Typography sx={{ fontSize: 11, fontWeight: 800, color: TX_DARK, textTransform: 'uppercase', letterSpacing: '0.05em', mt: 2.5, mb: 1 }}>Instalación (espacio)</Typography>
+            <TextField select fullWidth size="small" label="Vincular a bodega de Almacenamiento"
+              value={dlgData.base_almacenamiento_id ?? ''}
+              onChange={e => {
+                const v = e.target.value === '' ? null : Number(e.target.value)
+                const b = v ? bases.find(x => x.id === v) : null
+                setDlgData({ ...dlgData, base_almacenamiento_id: v,
+                  ...(b ? { nombre: dlgData.nombre || `${meta.label} · ${b.nombre}`, ciudad: b.ciudad || dlgData.ciudad, direccion: b.direccion || dlgData.direccion, pais: b.pais || dlgData.pais } : {}) })
+              }}
+              helperText="Hereda m², arriendo, valor/m² y ubicación de la bodega. Vacío = instalación propia." sx={{ mb: 1.5 }}>
+              <MenuItem value="">— Sin vincular (instalación propia) —</MenuItem>
+              {bases.map(b => <MenuItem key={b.id} value={b.id}>{b.nombre}{b.ciudad ? ` · ${b.ciudad}` : ''}</MenuItem>)}
+            </TextField>
+            {dlgData.base_almacenamiento_id ? (() => {
+              const b = bases.find(x => x.id === dlgData.base_almacenamiento_id)
+              const vm2 = b ? (num(b.valor_m2_manual) > 0 ? num(b.valor_m2_manual) : (num(b.m2_totales) ? num(b.valor_arriendo) / num(b.m2_totales) : 0)) : 0
+              return (
+                <Stack direction="row" spacing={1.5}>
+                  {[{ l: 'M² totales', v: fmt(num(b?.m2_totales)) }, { l: 'Arriendo', v: money(num(b?.valor_arriendo)) }, { l: 'Valor / m²', v: money(vm2) }].map(x => (
+                    <Box key={x.l} sx={{ flex: 1, p: 1, borderRadius: '8px', bgcolor: alpha(TX_COLOR, 0.06), textAlign: 'center' }}>
+                      <Typography sx={{ fontSize: 9.5, fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>{x.l} <Typography component="span" sx={{ fontSize: 8.5, color: TX_DARK }}>(bodega)</Typography></Typography>
+                      <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: TX_DARK }}>{x.v}</Typography>
+                    </Box>
+                  ))}
+                </Stack>
+              )
+            })() : (
+              <Grid container spacing={1.5}>
+                <Grid item xs={12} sm={4}><TextField size="small" type="number" label="M² totales de la bodega" value={dlgData.m2_totales} onChange={e => setDlgData({ ...dlgData, m2_totales: e.target.value })} fullWidth /></Grid>
+                <Grid item xs={12} sm={4}><TextField size="small" type="number" label="Valor arriendo mensual" value={dlgData.valor_arriendo} onChange={e => setDlgData({ ...dlgData, valor_arriendo: e.target.value })} fullWidth InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
+                <Grid item xs={12} sm={4}><TextField size="small" type="number" label="Valor / m² (manual)" value={dlgData.valor_m2_manual ?? ''} onChange={e => setDlgData({ ...dlgData, valor_m2_manual: e.target.value })} fullWidth InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} helperText="Opcional" /></Grid>
+              </Grid>
+            )}
 
             {/* Unidades de cobro */}
             <Stack direction="row" alignItems="center" sx={{ mt: 2.5, mb: 1 }}>

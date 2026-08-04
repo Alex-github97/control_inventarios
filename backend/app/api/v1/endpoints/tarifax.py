@@ -1043,8 +1043,30 @@ def _sembrar_svc(rec: dict, servicio: str) -> dict:
     return rec
 
 
+def _resolver_base(plataforma: dict) -> dict:
+    """Si la plataforma de servicio esta VINCULADA a una bodega de almacenamiento,
+    hereda de ella los datos de la instalacion (m2, arriendo, valor/m2, ubicacion).
+    Los rubros, areas y unidades siguen siendo propios del servicio."""
+    bid = plataforma.get("base_almacenamiento_id")
+    if not bid:
+        return plataforma
+    try:
+        bases = {int(b.get("id")): b for b in _load_plataformas() if b.get("id") is not None}
+        base = bases.get(int(bid))
+    except (TypeError, ValueError):
+        base = None
+    if not base:
+        return plataforma
+    p = dict(plataforma)
+    for k in ("m2_totales", "valor_arriendo", "valor_m2_manual", "pais", "ciudad", "direccion"):
+        p[k] = base.get(k, p.get(k))
+    p["_base_nombre"] = base.get("nombre", "")
+    return p
+
+
 def _calcular_costeo(plataforma: dict, config: dict | None, servicio: str) -> dict:
     """Costeo generico -> costo y cobro por CADA unidad de cobro configurada."""
+    plataforma = _resolver_base(plataforma)
     tmpl = config or _load_svc_config(servicio)
     rub = _calcular_rubros(plataforma, tmpl)
     total = rub["total_operacion"]
@@ -1062,6 +1084,8 @@ def _calcular_costeo(plataforma: dict, config: dict | None, servicio: str) -> di
             "servicio": servicio, "total_operacion": total, "margen_utilidad_pct": margen * 100,
             "unidades": unidades, "m2_utilizados": rub["m2_utilizados"], "m2_totales": rub["m2_totales"],
             "pct_utilizado": rub["pct_utilizado"], "valor_m2": rub["valor_m2"],
+            "base_almacenamiento_id": plataforma.get("base_almacenamiento_id"),
+            "base_nombre": plataforma.get("_base_nombre", ""),
         },
     }
 
@@ -1069,6 +1093,7 @@ def _calcular_costeo(plataforma: dict, config: dict | None, servicio: str) -> di
 class PlataformaCosteo(BaseModel):
     id: int | None = None
     nombre: str
+    base_almacenamiento_id: int | None = None
     pais: str = "Colombia"
     ciudad: str = ""
     direccion: str = ""
@@ -1175,7 +1200,7 @@ async def svc_exportar(servicio: str, req: CosteoReq, current_user: Usuario = De
     s = _svc(servicio)
     config = _merge_config(req.config) if req.config else _load_svc_config(servicio)
     r = _calcular_costeo(req.plataforma, config, servicio)
-    p = req.plataforma
+    p = _resolver_base(req.plataforma)
     rs = r["resumen"]
 
     wb = Workbook()
@@ -1267,7 +1292,7 @@ async def svc_pdf(servicio: str, req: CosteoReq, current_user: Usuario = Depends
     s = _svc(servicio)
     config = _merge_config(req.config) if req.config else _load_svc_config(servicio)
     r = _calcular_costeo(req.plataforma, config, servicio)
-    p = req.plataforma
+    p = _resolver_base(req.plataforma)
     rs = r["resumen"]
     cli = req.cliente or {}
 
