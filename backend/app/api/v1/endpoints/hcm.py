@@ -1032,6 +1032,121 @@ async def crear_periodo(
     )
 
 
+# ─── MOTOR DE NÓMINA COLOMBIA (parámetros 2025; actualizables) ────────────────
+SMMLV = 1_423_500          # Salario mínimo mensual legal vigente
+AUX_TRANSPORTE_LEGAL = 200_000
+UVT = 47_065               # Unidad de Valor Tributario
+
+
+def _fsp_pct(ibc_en_smmlv: float) -> float:
+    """Fondo de Solidaridad Pensional: aporte adicional del trabajador según IBC."""
+    if ibc_en_smmlv < 4:
+        return 0.0
+    if ibc_en_smmlv < 16:
+        return 0.010
+    if ibc_en_smmlv < 17:
+        return 0.012
+    if ibc_en_smmlv < 18:
+        return 0.014
+    if ibc_en_smmlv < 19:
+        return 0.016
+    if ibc_en_smmlv < 20:
+        return 0.018
+    return 0.020
+
+
+def _retencion_fuente(base_gravable_mes: float) -> float:
+    """Retención en la fuente por salarios (Art. 383 ET, tabla UVT mensual)."""
+    b = base_gravable_mes / UVT
+    if b <= 95:
+        r = 0.0
+    elif b <= 150:
+        r = (b - 95) * 0.19
+    elif b <= 360:
+        r = (b - 150) * 0.28 + 10.45
+    elif b <= 640:
+        r = (b - 360) * 0.33 + 69.45
+    elif b <= 945:
+        r = (b - 640) * 0.35 + 162.45
+    elif b <= 2300:
+        r = (b - 945) * 0.37 + 268.45
+    else:
+        r = (b - 2300) * 0.39 + 770.45
+    return round(r * UVT / 1000) * 1000  # aproximación al mil más cercano
+
+
+def _liquidar_colaborador(c, novedades) -> dict:
+    """Liquidación de nómina de un colaborador para un período, con novedades."""
+    nv: dict[str, float] = {}
+    for n in novedades:
+        t = n.tipo_novedad.value if hasattr(n.tipo_novedad, "value") else str(n.tipo_novedad)
+        nv[t] = nv.get(t, 0.0) + float(n.valor or 0)
+
+    salario = float(c.salario_base or 0)
+    horas_extras = nv.get("HORA_EXTRA", 0.0)
+    recargo = nv.get("RECARGO_NOCTURNO", 0.0)
+    dominicales = nv.get("DOMINICAL", 0.0)
+    festivos = nv.get("FESTIVO", 0.0)
+    bonificaciones = float(c.bonificaciones_fijas or 0) + nv.get("BONIFICACION", 0.0)
+    comisiones = nv.get("COMISION", 0.0)
+    viaticos = nv.get("VIATICO", 0.0)
+    desc_varios = nv.get("DESCUENTO", 0.0) + nv.get("OTRO", 0.0)
+    embargo = nv.get("EMBARGO", 0.0)
+    retencion_manual = nv.get("RETENCION", 0.0)
+
+    # Auxilio de transporte: solo si devenga hasta 2 SMMLV
+    aux = float(c.auxilio_transporte or 0) if salario <= 2 * SMMLV else 0.0
+
+    total_dev = (salario + aux + horas_extras + recargo + dominicales + festivos
+                 + bonificaciones + comisiones + viaticos)
+
+    # IBC (salario constitutivo, sin auxilio de transporte ni viáticos), piso 1 SMMLV, techo 25
+    ibc = salario + horas_extras + recargo + dominicales + festivos + bonificaciones + comisiones
+    ibc = max(min(ibc, 25 * SMMLV), SMMLV)
+
+    salud = round(ibc * 0.04)
+    pension = round(ibc * 0.04)
+    fsp = round(ibc * _fsp_pct(ibc / SMMLV))
+
+    # Retención en la fuente (depuración simplificada)
+    base_dep = (salario + horas_extras + recargo + dominicales + festivos
+                + bonificaciones + comisiones) - salud - pension - fsp
+    renta_exenta = min(base_dep * 0.25, (790 / 12) * UVT)  # 25% exenta, tope 790 UVT/año
+    base_grav = max(base_dep - renta_exenta, 0.0)
+    retefuente = _retencion_fuente(base_grav) + retencion_manual
+
+    total_ded = salud + pension + fsp + retefuente + embargo + desc_varios
+    neto = total_dev - total_ded
+
+    # Aportes patronales y provisiones (costo empleador). Exoneración Ley 1607 (<10 SMMLV).
+    exonerado = salario < 10 * SMMLV
+    salud_pat = 0.0 if exonerado else round(ibc * 0.085)
+    pension_pat = round(ibc * 0.12)
+    arl = round(ibc * 0.00522)         # riesgo I por defecto
+    caja = round(ibc * 0.04)
+    sena = 0.0 if exonerado else round(ibc * 0.02)
+    icbf = 0.0 if exonerado else round(ibc * 0.03)
+    base_prest = salario + aux
+    cesantias = round(base_prest * 0.0833)
+    int_cesantias = round(base_prest * 0.01)
+    prima = round(base_prest * 0.0833)
+    vacaciones = round(salario * 0.0417)
+    aportes_pat = salud_pat + pension_pat + arl + caja + sena + icbf
+    provisiones = cesantias + int_cesantias + prima + vacaciones
+
+    return {
+        "salario_base": salario, "horas_extras": horas_extras, "recargo_nocturno": recargo,
+        "dominicales": dominicales, "festivos": festivos, "bonificaciones": bonificaciones,
+        "comisiones": comisiones, "viaticos": viaticos, "auxilio_transporte": aux,
+        "otros_devengados": 0.0, "total_devengado": total_dev,
+        "salud": salud, "pension": pension, "fondo_solidaridad": fsp,
+        "retencion_fuente": retefuente, "embargo": embargo, "otros_descuentos": desc_varios,
+        "total_deducido": total_ded, "neto_pagado": neto,
+        "aportes_patronales": aportes_pat, "provisiones": provisiones,
+        "costo_empleador": total_dev + aportes_pat + provisiones,
+    }
+
+
 @router.post("/nomina/periodos/{periodo_id}/procesar")
 async def procesar_periodo(
     periodo_id: int,
@@ -1053,8 +1168,19 @@ async def procesar_periodo(
     )
     colaboradores = colaboradores_r.scalars().all()
 
+    # Novedades del período agrupadas por colaborador
+    nov_r = await db.execute(
+        select(HCMNovedad).where(HCMNovedad.periodo_id == periodo_id)
+    )
+    novedades_por_colab: dict[int, list] = {}
+    for n in nov_r.scalars().all():
+        novedades_por_colab.setdefault(n.colaborador_id, []).append(n)
+
     total_dev = 0.0
     total_ded = 0.0
+    total_aportes = 0.0
+    total_provisiones = 0.0
+    procesados = 0
 
     for c in colaboradores:
         existing_r = await db.execute(
@@ -1066,35 +1192,41 @@ async def procesar_periodo(
         if existing_r.scalar_one_or_none():
             continue
 
-        salud = round(c.salario_base * 0.04, 2)
-        pension = round(c.salario_base * 0.04, 2)
-        devengado = c.salario_base + c.auxilio_transporte + c.bonificaciones_fijas
-        deducido = salud + pension
-        neto = devengado - deducido
-
+        liq = _liquidar_colaborador(c, novedades_por_colab.get(c.id, []))
         detalle = HCMNominaDetalle(
-            periodo_id=periodo_id,
-            colaborador_id=c.id,
-            salario_base=c.salario_base,
-            horas_extras=0, recargo_nocturno=0, dominicales=0, festivos=0,
-            bonificaciones=c.bonificaciones_fijas, comisiones=0, viaticos=0,
-            auxilio_transporte=c.auxilio_transporte, otros_devengados=0,
-            total_devengado=devengado,
-            salud=salud, pension=pension,
-            fondo_solidaridad=0, retencion_fuente=0, embargo=0, otros_descuentos=0,
-            total_deducido=deducido,
-            neto_pagado=neto,
+            periodo_id=periodo_id, colaborador_id=c.id,
+            salario_base=liq["salario_base"], horas_extras=liq["horas_extras"],
+            recargo_nocturno=liq["recargo_nocturno"], dominicales=liq["dominicales"],
+            festivos=liq["festivos"], bonificaciones=liq["bonificaciones"],
+            comisiones=liq["comisiones"], viaticos=liq["viaticos"],
+            auxilio_transporte=liq["auxilio_transporte"], otros_devengados=liq["otros_devengados"],
+            total_devengado=liq["total_devengado"], salud=liq["salud"], pension=liq["pension"],
+            fondo_solidaridad=liq["fondo_solidaridad"], retencion_fuente=liq["retencion_fuente"],
+            embargo=liq["embargo"], otros_descuentos=liq["otros_descuentos"],
+            total_deducido=liq["total_deducido"], neto_pagado=liq["neto_pagado"],
         )
         db.add(detalle)
-        total_dev += devengado
-        total_ded += deducido
+        total_dev += liq["total_devengado"]
+        total_ded += liq["total_deducido"]
+        total_aportes += liq["aportes_patronales"]
+        total_provisiones += liq["provisiones"]
+        procesados += 1
 
     periodo.estado = EstadoNominaEnum.EN_PROCESO
     periodo.total_devengado = total_dev
     periodo.total_deducido = total_ded
     periodo.total_neto = total_dev - total_ded
     await db.commit()
-    return {"mensaje": f"Período procesado con {len(colaboradores)} colaboradores"}
+    return {
+        "mensaje": f"Período procesado con {procesados} colaboradores",
+        "procesados": procesados,
+        "total_devengado": round(total_dev),
+        "total_deducido": round(total_ded),
+        "total_neto": round(total_dev - total_ded),
+        "aportes_patronales": round(total_aportes),
+        "provisiones": round(total_provisiones),
+        "costo_total_empleador": round(total_dev + total_aportes + total_provisiones),
+    }
 
 
 @router.post("/nomina/periodos/{periodo_id}/cerrar")
