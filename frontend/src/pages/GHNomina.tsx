@@ -321,7 +321,7 @@ export default function GHNomina() {
   const empresasQuery = useQuery<Empresa[]>({
     queryKey: ['gh-empresas'],
     queryFn: async () => {
-      const res = await api.get('/hcm/empresas')
+      const res = await api.get('/hcm/config/empresas')
       return res.data
     },
   })
@@ -349,7 +349,7 @@ export default function GHNomina() {
   const liquidacionesQuery = useQuery<Liquidacion[]>({
     queryKey: ['gh-liquidaciones'],
     queryFn: async () => {
-      const res = await api.get('/hcm/liquidaciones')
+      const res = await api.get('/hcm/nomina/liquidaciones')
       return res.data
     },
   })
@@ -441,7 +441,7 @@ export default function GHNomina() {
   })
 
   const mutCrearLiquidacion = useMutation({
-    mutationFn: (data: Record<string, unknown>) => api.post('/hcm/liquidaciones', data),
+    mutationFn: (data: Record<string, unknown>) => api.post('/hcm/nomina/liquidaciones', data),
     onSuccess: () => {
       toast.success('Liquidación creada exitosamente')
       setOpenLiqDialog(false)

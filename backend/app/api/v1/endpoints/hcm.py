@@ -58,7 +58,7 @@ from app.application.schemas.hcm import (
     HCMKPIsDashboard, HCMAlertaItem,
 )
 
-router = APIRouter(prefix="/gh", tags=["hcm"])
+router = APIRouter(prefix="/hcm", tags=["hcm"])
 
 
 # ─── Utilidades ───────────────────────────────────────────────────────────────
@@ -256,6 +256,32 @@ async def get_alertas(
         ))
 
     return alertas
+
+
+@router.get("/dashboard/ausentismo")
+async def get_ausentismo_reciente(
+    dias: int = 7,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """Incapacidades registradas en los últimos N días (ausentismo reciente)."""
+    from datetime import timedelta
+    desde = date.today() - timedelta(days=dias)
+    r = await db.execute(
+        select(HCMIncapacidad).where(HCMIncapacidad.fecha_inicio >= desde)
+        .order_by(HCMIncapacidad.fecha_inicio.desc())
+    )
+    out = []
+    for inc in r.scalars().all():
+        colab = await db.get(HCMColaborador, inc.colaborador_id)
+        out.append({
+            "id": inc.id,
+            "colaborador": _nombre_completo(colab) if colab else "—",
+            "tipo": inc.tipo_incapacidad.value if hasattr(inc.tipo_incapacidad, "value") else str(inc.tipo_incapacidad),
+            "dias": inc.dias,
+            "fecha_inicio": inc.fecha_inicio.isoformat() if inc.fecha_inicio else None,
+        })
+    return out
 
 
 # ─── CONFIGURACIÓN — Empresas ─────────────────────────────────────────────────
@@ -705,6 +731,37 @@ async def actualizar_contrato(
 
 
 # ─── CONDUCTORES ──────────────────────────────────────────────────────────────
+
+@router.get("/conductores/alertas-vencimiento")
+async def conductores_alertas_vencimiento(
+    dias: int = 60,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """Conductores con licencia vencida o por vencer en los próximos N días."""
+    from datetime import timedelta
+    hoy = date.today()
+    limite = hoy + timedelta(days=dias)
+    r = await db.execute(
+        select(HCMConductor).where(
+            HCMConductor.activo_conduccion == True,
+            HCMConductor.fecha_vencimiento_licencia <= limite,
+        ).order_by(HCMConductor.fecha_vencimiento_licencia.asc())
+    )
+    out = []
+    for cond in r.scalars().all():
+        colab = await db.get(HCMColaborador, cond.colaborador_id)
+        tl = cond.tipo_licencia.value if hasattr(cond.tipo_licencia, "value") else str(cond.tipo_licencia)
+        out.append({
+            "conductor_id": cond.id,
+            "nombre": _nombre_completo(colab) if colab else "—",
+            "num_licencia": cond.num_licencia,
+            "tipo_licencia": tl,
+            "fecha_vencimiento_licencia": cond.fecha_vencimiento_licencia.isoformat() if cond.fecha_vencimiento_licencia else None,
+            "dias_restantes": (cond.fecha_vencimiento_licencia - hoy).days if cond.fecha_vencimiento_licencia else None,
+        })
+    return out
+
 
 @router.get("/conductores", response_model=List[HCMConductorResponse])
 async def listar_conductores(
@@ -1838,6 +1895,64 @@ async def crear_detalles_evaluacion(
 
 
 # ─── CAPACITACIONES ───────────────────────────────────────────────────────────
+
+@router.get("/capacitaciones/vencimientos")
+async def capacitaciones_vencimientos(
+    dias: int = 60,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """Certificaciones/capacitaciones con fecha de vencimiento en los próximos N días."""
+    from datetime import timedelta
+    hoy = date.today()
+    limite = hoy + timedelta(days=dias)
+    r = await db.execute(
+        select(HCMColaboradorCapacitacion).where(
+            HCMColaboradorCapacitacion.fecha_vencimiento != None,
+            HCMColaboradorCapacitacion.fecha_vencimiento <= limite,
+        ).order_by(HCMColaboradorCapacitacion.fecha_vencimiento.asc())
+    )
+    out = []
+    for a in r.scalars().all():
+        colab = await db.get(HCMColaborador, a.colaborador_id)
+        cap = await db.get(HCMCapacitacion, a.capacitacion_id)
+        out.append({
+            "id": a.id,
+            "colaborador_nombre": _nombre_completo(colab) if colab else "—",
+            "capacitacion_nombre": cap.nombre if cap else "—",
+            "fecha_vencimiento": a.fecha_vencimiento.isoformat() if a.fecha_vencimiento else None,
+            "dias_restantes": (a.fecha_vencimiento - hoy).days if a.fecha_vencimiento else None,
+        })
+    return out
+
+
+@router.get("/capacitaciones/{capacitacion_id}/asignaciones", response_model=List[HCMColaboradorCapacitacionResponse])
+async def listar_asignaciones_de_capacitacion(
+    capacitacion_id: int,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    r = await db.execute(
+        select(HCMColaboradorCapacitacion).where(
+            HCMColaboradorCapacitacion.capacitacion_id == capacitacion_id
+        )
+    )
+    result = []
+    for a in r.scalars().all():
+        colab = await db.get(HCMColaborador, a.colaborador_id)
+        cap = await db.get(HCMCapacitacion, a.capacitacion_id)
+        result.append(HCMColaboradorCapacitacionResponse(
+            id=a.id, colaborador_id=a.colaborador_id,
+            colaborador_nombre=_nombre_completo(colab) if colab else None,
+            capacitacion_id=a.capacitacion_id,
+            capacitacion_nombre=cap.nombre if cap else None,
+            estado=a.estado, fecha_completado=a.fecha_completado,
+            calificacion=a.calificacion, certificado_url=a.certificado_url,
+            fecha_vencimiento=a.fecha_vencimiento, notas=a.notas,
+            created_at=a.created_at,
+        ))
+    return result
+
 
 @router.get("/capacitaciones", response_model=List[HCMCapacitacionResponse])
 async def listar_capacitaciones(

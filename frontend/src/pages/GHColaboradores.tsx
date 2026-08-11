@@ -181,11 +181,11 @@ function StepPersonal({ form, onChange }: { form: FormPersonal; onChange: (k: ke
 function StepLaboral({ form, onChange }: { form: FormLaboral; onChange: (k: keyof FormLaboral, v: string) => void }) {
   const empId = form.empresa_id ? Number(form.empresa_id) : undefined
 
-  const { data: empresas = [] } = useQuery<CatalogItem[]>({ queryKey: ['hcm-empresas'], queryFn: () => api.get('/hcm/empresas').then(r => r.data) })
-  const { data: sedes = [] } = useQuery<CatalogItem[]>({ queryKey: ['hcm-sedes', empId], queryFn: () => api.get(`/hcm/sedes${empId ? `?empresa_id=${empId}` : ''}`).then(r => r.data), enabled: true })
-  const { data: areas = [] } = useQuery<CatalogItem[]>({ queryKey: ['hcm-areas', empId], queryFn: () => api.get(`/hcm/areas${empId ? `?empresa_id=${empId}` : ''}`).then(r => r.data), enabled: true })
-  const { data: cargos = [] } = useQuery<CatalogItem[]>({ queryKey: ['hcm-cargos', empId], queryFn: () => api.get(`/hcm/cargos${empId ? `?empresa_id=${empId}` : ''}`).then(r => r.data), enabled: true })
-  const { data: centros = [] } = useQuery<CatalogItem[]>({ queryKey: ['hcm-centros-costo', empId], queryFn: () => api.get(`/hcm/centros-costo${empId ? `?empresa_id=${empId}` : ''}`).then(r => r.data), enabled: true })
+  const { data: empresas = [] } = useQuery<CatalogItem[]>({ queryKey: ['hcm-empresas'], queryFn: () => api.get('/hcm/config/empresas').then(r => r.data) })
+  const { data: sedes = [] } = useQuery<CatalogItem[]>({ queryKey: ['hcm-sedes', empId], queryFn: () => api.get(`/hcm/config/sedes${empId ? `?empresa_id=${empId}` : ''}`).then(r => r.data), enabled: true })
+  const { data: areas = [] } = useQuery<CatalogItem[]>({ queryKey: ['hcm-areas', empId], queryFn: () => api.get(`/hcm/config/areas${empId ? `?empresa_id=${empId}` : ''}`).then(r => r.data), enabled: true })
+  const { data: cargos = [] } = useQuery<CatalogItem[]>({ queryKey: ['hcm-cargos', empId], queryFn: () => api.get(`/hcm/config/cargos${empId ? `?empresa_id=${empId}` : ''}`).then(r => r.data), enabled: true })
+  const { data: centros = [] } = useQuery<CatalogItem[]>({ queryKey: ['hcm-centros-costo', empId], queryFn: () => api.get(`/hcm/config/centros-costo${empId ? `?empresa_id=${empId}` : ''}`).then(r => r.data), enabled: true })
   const { data: colabData } = useQuery<PaginatedResponse>({ queryKey: ['hcm-colab-jefes'], queryFn: () => api.get('/hcm/colaboradores?per_page=100').then(r => r.data) })
   const jefes = colabData?.items ?? []
 
@@ -503,8 +503,8 @@ function DirectorioTab() {
     queryFn: () => api.get(`/hcm/colaboradores?${params.toString()}`).then(r => r.data),
   })
 
-  const { data: areas = [] } = useQuery<CatalogItem[]>({ queryKey: ['hcm-areas'], queryFn: () => api.get('/hcm/areas').then(r => r.data) })
-  const { data: cargos = [] } = useQuery<CatalogItem[]>({ queryKey: ['hcm-cargos'], queryFn: () => api.get('/hcm/cargos').then(r => r.data) })
+  const { data: areas = [] } = useQuery<CatalogItem[]>({ queryKey: ['hcm-areas'], queryFn: () => api.get('/hcm/config/areas').then(r => r.data) })
+  const { data: cargos = [] } = useQuery<CatalogItem[]>({ queryKey: ['hcm-cargos'], queryFn: () => api.get('/hcm/config/cargos').then(r => r.data) })
 
   const items = data?.items ?? []
   const totalPages = data?.pages ?? 1

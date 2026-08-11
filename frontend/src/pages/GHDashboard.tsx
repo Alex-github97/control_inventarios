@@ -28,8 +28,6 @@ import {
 import { useQuery } from '@tanstack/react-query'
 import { Layout } from '@/components/layout/Layout'
 import { apiClient as api } from '@/api/client'
-import { format, differenceInDays } from 'date-fns'
-import { es } from 'date-fns/locale'
 
 const GH_COLOR = '#BE185D'
 
@@ -37,24 +35,25 @@ const GH_COLOR = '#BE185D'
 
 interface HCMKPIs {
   headcount_total: number
-  colaboradores_activos: number
-  conductores_activos: number
+  headcount_activo: number
+  headcount_retirado: number
+  nuevos_ingresos_mes: number
   rotacion_mensual: number
-  nuevos_ingresos: number
+  conductores_activos: number
+  conductores_licencias_por_vencer: number
   incapacidades_activas: number
-  vacaciones_pendientes_aprobacion: number
-  ausentismo_reciente?: AusentismoItem[]
+  vacaciones_pendientes: number
+  ausentismo_rate: number
+  costo_nomina_mes: number
 }
 
 interface HCMAlerta {
-  id: number
   tipo: string
   mensaje: string
-  severidad: 'danger' | 'warning' | 'info'
-  conductor_nombre?: string
-  licencia_tipo?: string
-  fecha_vencimiento?: string
+  colaborador_id?: number
+  colaborador_nombre?: string
   dias_restantes?: number
+  nivel: 'danger' | 'warning' | 'info'
 }
 
 interface AusentismoItem {
@@ -285,15 +284,21 @@ export default function GHDashboard() {
     refetchInterval: 60_000,
   })
 
+  const { data: ausentismoData } = useQuery<AusentismoItem[]>({
+    queryKey: ['hcm-ausentismo'],
+    queryFn: () => api.get('/hcm/dashboard/ausentismo').then((r) => r.data),
+    refetchInterval: 60_000,
+  })
+
   const headcount = kpis?.headcount_total ?? 0
-  const activos = kpis?.colaboradores_activos ?? 0
+  const activos = kpis?.headcount_activo ?? 0
   const activosPct = headcount > 0 ? Math.round((activos / headcount) * 100) : 0
   const rotacion = kpis?.rotacion_mensual ?? 0
   const rotacionColor =
     rotacion < 5 ? '#16A34A' : rotacion < 10 ? '#D97706' : '#DC2626'
 
-  const licencias = alertas?.filter((a) => a.fecha_vencimiento) ?? []
-  const ausentismo = kpis?.ausentismo_reciente ?? []
+  const licencias = alertas?.filter((a) => a.tipo === 'LICENCIA_POR_VENCER') ?? []
+  const ausentismo = ausentismoData ?? []
 
   return (
     <Layout title="HCM — Gestión Humana">
@@ -336,9 +341,9 @@ export default function GHDashboard() {
               '&::-webkit-scrollbar-thumb': { borderRadius: 2, bgcolor: '#D1D5DB' },
             }}
           >
-            {alertas.slice(0, 5).map((a) => (
+            {alertas.slice(0, 5).map((a, idx) => (
               <Chip
-                key={a.id}
+                key={idx}
                 label={a.mensaje}
                 size="small"
                 sx={{
@@ -346,21 +351,21 @@ export default function GHDashboard() {
                   fontSize: 11,
                   fontWeight: 600,
                   bgcolor:
-                    a.severidad === 'danger'
+                    a.nivel === 'danger'
                       ? alpha('#DC2626', 0.1)
-                      : a.severidad === 'warning'
+                      : a.nivel === 'warning'
                       ? alpha('#D97706', 0.1)
                       : alpha('#2563EB', 0.1),
                   color:
-                    a.severidad === 'danger'
+                    a.nivel === 'danger'
                       ? '#DC2626'
-                      : a.severidad === 'warning'
+                      : a.nivel === 'warning'
                       ? '#D97706'
                       : '#2563EB',
                   border: `1px solid ${
-                    a.severidad === 'danger'
+                    a.nivel === 'danger'
                       ? alpha('#DC2626', 0.3)
-                      : a.severidad === 'warning'
+                      : a.nivel === 'warning'
                       ? alpha('#D97706', 0.3)
                       : alpha('#2563EB', 0.3)
                   }`,
@@ -513,7 +518,7 @@ export default function GHDashboard() {
               ) : (
                 <StatCard
                   label="Nuevos Ingresos"
-                  count={kpis?.nuevos_ingresos ?? 0}
+                  count={kpis?.nuevos_ingresos_mes ?? 0}
                   icon={<TrendingUp />}
                   color="#2563EB"
                   sublabel="Este mes"
@@ -560,12 +565,12 @@ export default function GHDashboard() {
               ) : (
                 <StatCard
                   label="Vacaciones Pend. Aprobación"
-                  count={kpis?.vacaciones_pendientes_aprobacion ?? 0}
+                  count={kpis?.vacaciones_pendientes ?? 0}
                   icon={<BeachAccess />}
                   color="#D97706"
                   sublabel="Solicitudes por aprobar"
                   chip={
-                    (kpis?.vacaciones_pendientes_aprobacion ?? 0) > 3 ? (
+                    (kpis?.vacaciones_pendientes ?? 0) > 3 ? (
                       <Chip
                         label="REVISAR"
                         size="small"
@@ -605,9 +610,8 @@ export default function GHDashboard() {
                       <TableRow
                         sx={{ '& th': { fontSize: 11, fontWeight: 700, color: 'text.secondary', py: 1 } }}
                       >
-                        <TableCell>Conductor</TableCell>
-                        <TableCell>Licencia</TableCell>
-                        <TableCell>Vence</TableCell>
+                        <TableCell>Colaborador</TableCell>
+                        <TableCell>Alerta</TableCell>
                         <TableCell>Días</TableCell>
                       </TableRow>
                     </TableHead>
@@ -625,33 +629,22 @@ export default function GHDashboard() {
                         : licencias.length === 0
                         ? (
                           <TableRow>
-                            <TableCell colSpan={4} align="center" sx={{ py: 4, color: 'text.secondary', fontSize: 13 }}>
+                            <TableCell colSpan={3} align="center" sx={{ py: 4, color: 'text.secondary', fontSize: 13 }}>
                               Sin vencimientos próximos
                             </TableCell>
                           </TableRow>
                         )
-                        : licencias.map((a) => {
-                            const dias =
-                              a.fecha_vencimiento
-                                ? differenceInDays(new Date(a.fecha_vencimiento), new Date())
-                                : 999
-                            return (
-                              <TableRow key={a.id} hover sx={{ '& td': { fontSize: 12, py: 1 } }}>
+                        : licencias.map((a, idx) => (
+                              <TableRow key={idx} hover sx={{ '& td': { fontSize: 12, py: 1 } }}>
                                 <TableCell sx={{ fontWeight: 600 }}>
-                                  {a.conductor_nombre ?? '—'}
+                                  {a.colaborador_nombre ?? '—'}
                                 </TableCell>
-                                <TableCell>{a.licencia_tipo ?? '—'}</TableCell>
+                                <TableCell>{a.mensaje}</TableCell>
                                 <TableCell>
-                                  {a.fecha_vencimiento
-                                    ? format(new Date(a.fecha_vencimiento), 'dd MMM yyyy', { locale: es })
-                                    : '—'}
-                                </TableCell>
-                                <TableCell>
-                                  <DiasChip dias={dias} />
+                                  <DiasChip dias={a.dias_restantes ?? 999} />
                                 </TableCell>
                               </TableRow>
-                            )
-                          })}
+                            ))}
                     </TableBody>
                   </Table>
                 </Box>

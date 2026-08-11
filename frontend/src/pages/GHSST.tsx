@@ -252,17 +252,17 @@ export default function GHSST() {
   // ─── Shared data ──────────────────────────────────────────────────────────
   const { data: empresas = [] } = useQuery<Empresa[]>({
     queryKey: ['hcm-empresas'],
-    queryFn: () => api.get('/hcm/empresas').then(r => r.data),
+    queryFn: () => api.get('/hcm/config/empresas').then(r => r.data),
   })
 
   const { data: sedes = [] } = useQuery<Sede[]>({
     queryKey: ['hcm-sedes'],
-    queryFn: () => api.get('/hcm/sedes').then(r => r.data),
+    queryFn: () => api.get('/hcm/config/sedes').then(r => r.data),
   })
 
   const { data: areas = [] } = useQuery<Area[]>({
     queryKey: ['hcm-areas'],
-    queryFn: () => api.get('/hcm/areas').then(r => r.data),
+    queryFn: () => api.get('/hcm/config/areas').then(r => r.data),
   })
 
   const { data: colaboradores = [] } = useQuery<Colaborador[]>({

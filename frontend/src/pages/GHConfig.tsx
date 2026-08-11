@@ -141,7 +141,7 @@ interface Empresa extends SimpleItem {
 }
 
 function EmpresasSection() {
-  const { data: items, isLoading, create, update, remove } = useCatalog<Empresa>('/hcm/empresas/', ['gh-empresas'])
+  const { data: items, isLoading, create, update, remove } = useCatalog<Empresa>('/hcm/config/empresas/', ['gh-empresas'])
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Empresa | null>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)
@@ -214,8 +214,8 @@ interface Sede extends SimpleItem {
 }
 
 function SedesSection() {
-  const { data: items, isLoading, create, update, remove } = useCatalog<Sede>('/hcm/sedes/', ['gh-sedes'])
-  const { data: empresas = [] } = useQuery<Empresa[]>({ queryKey: ['gh-empresas'], queryFn: () => api.get('/hcm/empresas/').then(r => r.data) })
+  const { data: items, isLoading, create, update, remove } = useCatalog<Sede>('/hcm/config/sedes/', ['gh-sedes'])
+  const { data: empresas = [] } = useQuery<Empresa[]>({ queryKey: ['gh-empresas'], queryFn: () => api.get('/hcm/config/empresas/').then(r => r.data) })
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Sede | null>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)
@@ -292,8 +292,8 @@ interface Area extends SimpleItem {
 }
 
 function AreasSection() {
-  const { data: items, isLoading, create, update, remove } = useCatalog<Area>('/hcm/areas/', ['gh-areas'])
-  const { data: empresas = [] } = useQuery<Empresa[]>({ queryKey: ['gh-empresas'], queryFn: () => api.get('/hcm/empresas/').then(r => r.data) })
+  const { data: items, isLoading, create, update, remove } = useCatalog<Area>('/hcm/config/areas/', ['gh-areas'])
+  const { data: empresas = [] } = useQuery<Empresa[]>({ queryKey: ['gh-empresas'], queryFn: () => api.get('/hcm/config/empresas/').then(r => r.data) })
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Area | null>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)
@@ -367,9 +367,9 @@ interface Cargo extends SimpleItem {
 const NIVELES_CARGO = ['OPERATIVO', 'TÁCTICO', 'ESTRATÉGICO']
 
 function CargosSection() {
-  const { data: items, isLoading, create, update, remove } = useCatalog<Cargo>('/hcm/cargos/', ['gh-cargos'])
-  const { data: empresas = [] } = useQuery<Empresa[]>({ queryKey: ['gh-empresas'], queryFn: () => api.get('/hcm/empresas/').then(r => r.data) })
-  const { data: areas = [] } = useQuery<Area[]>({ queryKey: ['gh-areas'], queryFn: () => api.get('/hcm/areas/').then(r => r.data) })
+  const { data: items, isLoading, create, update, remove } = useCatalog<Cargo>('/hcm/config/cargos/', ['gh-cargos'])
+  const { data: empresas = [] } = useQuery<Empresa[]>({ queryKey: ['gh-empresas'], queryFn: () => api.get('/hcm/config/empresas/').then(r => r.data) })
+  const { data: areas = [] } = useQuery<Area[]>({ queryKey: ['gh-areas'], queryFn: () => api.get('/hcm/config/areas/').then(r => r.data) })
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Cargo | null>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)
@@ -453,8 +453,8 @@ interface CentroCosto extends SimpleItem {
 }
 
 function CentrosCostoSection() {
-  const { data: items, isLoading, create, update, remove } = useCatalog<CentroCosto>('/hcm/centros-costo/', ['gh-centros-costo'])
-  const { data: empresas = [] } = useQuery<Empresa[]>({ queryKey: ['gh-empresas'], queryFn: () => api.get('/hcm/empresas/').then(r => r.data) })
+  const { data: items, isLoading, create, update, remove } = useCatalog<CentroCosto>('/hcm/config/centros-costo/', ['gh-centros-costo'])
+  const { data: empresas = [] } = useQuery<Empresa[]>({ queryKey: ['gh-empresas'], queryFn: () => api.get('/hcm/config/empresas/').then(r => r.data) })
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<CentroCosto | null>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)

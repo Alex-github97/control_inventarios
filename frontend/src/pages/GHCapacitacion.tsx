@@ -222,7 +222,7 @@ export default function GHCapacitacion() {
 
   const { data: empresas = [] } = useQuery<Empresa[]>({
     queryKey: ['gh-empresas'],
-    queryFn: () => api.get('/hcm/empresas').then(r => r.data),
+    queryFn: () => api.get('/hcm/config/empresas').then(r => r.data),
   })
 
   const { data: colaboradores = [] } = useQuery<Colaborador[]>({
