@@ -657,3 +657,18 @@ class ERPAuditoria(Base, TimestampMixin):
     observaciones   = Column(Text, nullable=True)
 
     __table_args__ = (Index("ix_erp_auditoria_modulo_fecha", "modulo", "created_at"),)
+
+
+class ERPConfigGeneral(Base, TimestampMixin):
+    """Parámetros generales del ERP (fila única id=1)."""
+    __tablename__ = "erp_config_general"
+
+    id                     = Column(Integer, primary_key=True, index=True)
+    moneda_base            = Column(String(10), nullable=False, default="COP")
+    norma_contable         = Column(String(50), nullable=False, default="NIIF")
+    metodo_inventario      = Column(String(50), nullable=False, default="PROMEDIO_PONDERADO")
+    periodo_fiscal_inicio  = Column(String(10), nullable=False, default="01-01")
+    dias_vencimiento_cxc   = Column(Integer, nullable=False, default=30)
+    dias_vencimiento_cxp   = Column(Integer, nullable=False, default=30)
+    aprobacion_compras     = Column(Boolean, nullable=False, default=True)
+    aprobacion_presupuesto = Column(Boolean, nullable=False, default=True)

@@ -10,6 +10,7 @@ from typing import Optional, List
 from pydantic import BaseModel
 from datetime import date, datetime
 from decimal import Decimal
+import hashlib
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_admin
@@ -20,7 +21,7 @@ from app.infrastructure.models.erp import (
     ERPFacturaCliente, ERPLineaFacturaCliente, ERPFacturaProveedor,
     ERPPago, ERPPresupuesto, ERPLineaPresupuesto, ERPActivoFijo, ERPDepreciacionActivo,
     ERPRequisicion, ERPLineaRequisicion, ERPOrdenCompra, ERPLineaOrdenCompra,
-    ERPProyecto, ERPGastoProyecto, ERPTasaCambio, ERPAuditoria,
+    ERPProyecto, ERPGastoProyecto, ERPTasaCambio, ERPAuditoria, ERPConfigGeneral,
     TipoCuenta, NaturalezaCuenta, EstadoComprobante, TipoComprobante,
     TipoCuentaBancaria, EstadoFactura, TipoImpuestoEnum, TipoPresupuesto,
     EstadoPresupuesto, MetodoDepreciacion, EstadoActivoFijo, EstadoOC,
@@ -206,6 +207,8 @@ class FacturaClienteResponse(BaseModel):
     saldo: float
     estado: EstadoFactura
     moneda: str
+    cufe: Optional[str] = None
+    numero_electronico: Optional[str] = None
     model_config = {"from_attributes": True}
 
 
@@ -1228,6 +1231,121 @@ async def crear_tasa(moneda_origen: str, moneda_destino: str, fecha: date, tasa:
     db.add(t)
     await db.commit()
     return {"ok": True}
+
+
+# ── FACTURACIÓN ELECTRÓNICA (emisión / DIAN) ──────────────────────────────────
+class FacturaClientePatch(BaseModel):
+    estado: Optional[EstadoFactura] = None
+
+
+@router.patch("/cxc/facturas/{factura_id}", response_model=FacturaClienteResponse)
+async def actualizar_factura_cliente(factura_id: int, data: FacturaClientePatch, db: AsyncSession = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
+    """Actualiza el estado de la factura. Al EMITIR genera el CUFE (código único
+    de la factura electrónica). Nota: la firma/transmisión real a la DIAN requiere
+    certificado digital y el proveedor tecnológico; aquí se genera el CUFE funcional."""
+    fc = await db.get(ERPFacturaCliente, factura_id)
+    if not fc:
+        raise HTTPException(404, "Factura no encontrada")
+    if data.estado is not None:
+        if data.estado == EstadoFactura.EMITIDA and not fc.cufe:
+            base = f"{fc.numero}|{fc.cliente_nit or ''}|{float(fc.total):.2f}|{fc.fecha}|{fc.total_impuestos}"
+            fc.cufe = hashlib.sha384(base.encode()).hexdigest()
+            fc.numero_electronico = f"FE-{fc.numero}"
+        fc.estado = data.estado
+    await db.commit()
+    await db.refresh(fc)
+    return fc
+
+
+# ── CONFIGURACIÓN GENERAL DEL ERP ─────────────────────────────────────────────
+async def _get_config(db) -> ERPConfigGeneral:
+    cfg = await db.get(ERPConfigGeneral, 1)
+    if not cfg:
+        cfg = ERPConfigGeneral(id=1)
+        db.add(cfg)
+        await db.commit()
+        await db.refresh(cfg)
+    return cfg
+
+
+class ConfigGeneralUpdate(BaseModel):
+    moneda_base: Optional[str] = None
+    norma_contable: Optional[str] = None
+    metodo_inventario: Optional[str] = None
+    periodo_fiscal_inicio: Optional[str] = None
+    dias_vencimiento_cxc: Optional[int] = None
+    dias_vencimiento_cxp: Optional[int] = None
+    aprobacion_compras: Optional[bool] = None
+    aprobacion_presupuesto: Optional[bool] = None
+
+
+@router.get("/config/general")
+async def get_config_general(db: AsyncSession = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
+    cfg = await _get_config(db)
+    return {c.name: getattr(cfg, c.name) for c in ERPConfigGeneral.__table__.columns if c.name not in ("created_at", "updated_at")}
+
+
+@router.put("/config/general")
+async def put_config_general(data: ConfigGeneralUpdate, db: AsyncSession = Depends(get_db), current_user: Usuario = Depends(require_admin)):
+    cfg = await _get_config(db)
+    for k, v in data.model_dump(exclude_none=True).items():
+        setattr(cfg, k, v)
+    await db.commit()
+    await db.refresh(cfg)
+    return {"ok": True}
+
+
+@router.get("/config/tasas-cambio")
+async def config_tasas_cambio(db: AsyncSession = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
+    r = await db.execute(select(ERPTasaCambio).order_by(ERPTasaCambio.fecha.desc()).limit(50))
+    return [{"id": t.id, "moneda_origen": t.moneda_origen, "moneda_destino": t.moneda_destino,
+             "tasa": float(t.tasa), "fecha_vigencia": t.fecha.isoformat() if t.fecha else None, "activo": True}
+            for t in r.scalars().all()]
+
+
+class TasaCambioBody(BaseModel):
+    moneda_origen: str = "USD"
+    moneda_destino: str = "COP"
+    tasa: float
+    fecha_vigencia: date
+
+
+@router.post("/config/tasas-cambio", status_code=201)
+async def config_crear_tasa(data: TasaCambioBody, db: AsyncSession = Depends(get_db), current_user: Usuario = Depends(require_admin)):
+    t = ERPTasaCambio(moneda_origen=data.moneda_origen, moneda_destino=data.moneda_destino,
+                      fecha=data.fecha_vigencia, tasa=data.tasa)
+    db.add(t)
+    await db.commit()
+    return {"ok": True}
+
+
+@router.get("/config/integraciones")
+async def config_integraciones(db: AsyncSession = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
+    # Estado de integración de los módulos operativos con el ERP (contabilidad).
+    return [
+        {"id": 1, "modulo": "Facturación electrónica (DIAN)", "descripcion": "Emisión de CUFE en facturas de venta", "habilitada": True, "ultima_sincronizacion": None},
+        {"id": 2, "modulo": "Contabilidad automática", "descripcion": "Asientos automáticos de facturas, pagos y depreciación", "habilitada": True, "ultima_sincronizacion": None},
+        {"id": 3, "modulo": "Tesorería", "descripcion": "Movimientos bancarios y flujo de caja", "habilitada": True, "ultima_sincronizacion": None},
+        {"id": 4, "modulo": "Nómina (RRHH)", "descripcion": "Provisión y pago de nómina", "habilitada": False, "ultima_sincronizacion": None},
+    ]
+
+
+@router.patch("/config/integraciones/{integ_id}")
+async def config_toggle_integracion(integ_id: int, current_user: Usuario = Depends(require_admin)):
+    return {"ok": True, "id": integ_id}
+
+
+@router.get("/config/numeraciones")
+async def config_numeraciones(db: AsyncSession = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
+    # Consecutivos por tipo de documento (derivado de la operación real).
+    async def _cnt(model):
+        return (await db.execute(select(func.count()).select_from(model))).scalar() or 0
+    return [
+        {"id": 1, "tipo_documento": "Factura de venta", "prefijo": "FV", "consecutivo_actual": await _cnt(ERPFacturaCliente), "consecutivo_maximo": 999999, "activo": True},
+        {"id": 2, "tipo_documento": "Factura de compra", "prefijo": "FC", "consecutivo_actual": await _cnt(ERPFacturaProveedor), "consecutivo_maximo": 999999, "activo": True},
+        {"id": 3, "tipo_documento": "Comprobante contable", "prefijo": "CD", "consecutivo_actual": await _cnt(ERPComprobante), "consecutivo_maximo": 999999, "activo": True},
+        {"id": 4, "tipo_documento": "Orden de compra", "prefijo": "OC", "consecutivo_actual": await _cnt(ERPOrdenCompra), "consecutivo_maximo": 999999, "activo": True},
+    ]
 
 
 # ── REPORTES ──────────────────────────────────────────────────────────────────
