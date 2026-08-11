@@ -1437,6 +1437,70 @@ async def listar_liquidaciones(
     return result
 
 
+@router.get("/colaboradores/{colaborador_id}/liquidacion-calcular")
+async def liquidacion_calcular(
+    colaborador_id: int,
+    fecha_retiro: Optional[str] = None,
+    motivo: str = "Retiro voluntario",
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """Calcula las prestaciones sociales de una liquidación definitiva a partir del
+    salario y el tiempo laborado (cesantías, intereses, prima, vacaciones)."""
+    c = await db.get(HCMColaborador, colaborador_id)
+    if not c:
+        raise HTTPException(status_code=404, detail="Colaborador no encontrado")
+    fr = date.fromisoformat(fecha_retiro) if fecha_retiro else date.today()
+    fi = c.fecha_ingreso or fr
+    dias_trab = max((fr - fi).days, 0)
+    salario = float(c.salario_base or 0)
+    aux = float(c.auxilio_transporte or 0) if salario <= 2 * SMMLV else 0.0
+    base_prest = salario + aux
+
+    # Cesantías: días del año en curso (desde 1-ene o ingreso) / 360
+    inicio_ces = max(date(fr.year, 1, 1), fi)
+    dias_ces = max((fr - inicio_ces).days, 0)
+    cesantias = round(base_prest * dias_ces / 360)
+    intereses = round(cesantias * dias_ces * 0.12 / 360)
+
+    # Prima: días del semestre en curso / 360
+    inicio_sem = max(date(fr.year, 1 if fr.month <= 6 else 7, 1), fi)
+    dias_sem = max((fr - inicio_sem).days, 0)
+    prima = round(base_prest * dias_sem / 360)
+
+    # Vacaciones: días causados no tomados x salario/30
+    meses = max((fr.year - fi.year) * 12 + (fr.month - fi.month), 0)
+    causados = meses * 1.25
+    tomados = (await db.execute(
+        select(func.coalesce(func.sum(HCMVacacion.dias_disfrutados), 0)).where(
+            HCMVacacion.colaborador_id == colaborador_id,
+            HCMVacacion.estado.notin_(["PENDIENTE", "RECHAZADA", "RECHAZADO"]),
+        )
+    )).scalar() or 0
+    dias_vac = max(causados - tomados, 0)
+    vacaciones = round(dias_vac * salario / 30)
+
+    total = cesantias + intereses + prima + vacaciones
+    return {
+        "colaborador_id": colaborador_id,
+        "colaborador_nombre": _nombre_completo(c),
+        "fecha_ingreso": fi.isoformat(),
+        "fecha_retiro": fr.isoformat(),
+        "motivo_retiro": motivo,
+        "dias_trabajados": dias_trab,
+        "salario_base": salario,
+        "prima": prima,
+        "cesantias": cesantias,
+        "intereses_cesantias": intereses,
+        "vacaciones_compensadas": vacaciones,
+        "dias_vacaciones_pendientes": round(dias_vac, 1),
+        "indemnizacion": 0,   # aplica solo por despido sin justa causa (ingresar manual)
+        "otros_conceptos": 0,
+        "deducciones": 0,
+        "total_pagar": total,
+    }
+
+
 @router.post("/nomina/liquidaciones", response_model=HCMLiquidacionResponse, status_code=201)
 async def crear_liquidacion(
     data: HCMLiquidacionCreate,
@@ -1583,6 +1647,43 @@ async def listar_vacaciones(
             notas=v.notas, created_at=v.created_at,
         ))
     return result
+
+
+@router.get("/vacaciones/saldos")
+async def vacaciones_saldos(
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """Saldo de vacaciones por colaborador: causadas (1.25 días/mes), tomadas, disponibles."""
+    hoy = date.today()
+    colabs = (await db.execute(
+        select(HCMColaborador).where(
+            HCMColaborador.deleted_at.is_(None),
+            HCMColaborador.estado_laboral == EstadoLaboralEnum.ACTIVO,
+        )
+    )).scalars().all()
+    out = []
+    for c in colabs:
+        if not c.fecha_ingreso:
+            continue
+        meses = max((hoy.year - c.fecha_ingreso.year) * 12 + (hoy.month - c.fecha_ingreso.month), 0)
+        causados = round(meses * 1.25, 1)
+        tomados = (await db.execute(
+            select(func.coalesce(func.sum(HCMVacacion.dias_disfrutados), 0)).where(
+                HCMVacacion.colaborador_id == c.id,
+                HCMVacacion.estado.notin_(["PENDIENTE", "RECHAZADA", "RECHAZADO"]),
+            )
+        )).scalar() or 0
+        out.append({
+            "colaborador_id": c.id,
+            "colaborador_nombre": _nombre_completo(c),
+            "fecha_ingreso": c.fecha_ingreso.isoformat(),
+            "dias_causados": causados,
+            "dias_tomados": tomados,
+            "dias_disponibles": round(causados - tomados, 1),
+        })
+    out.sort(key=lambda x: x["dias_disponibles"], reverse=True)
+    return out
 
 
 @router.post("/vacaciones", response_model=HCMVacacionResponse, status_code=201)
