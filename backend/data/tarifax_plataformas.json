@@ -10,8 +10,8 @@
     "valor_arriendo": 314302800.0,
     "valor_m2_manual": 18719.0,
     "capacidad_posiciones": 11381.0,
-    "cajas_movilizadas_mes": 0,
-    "kg_movilizados_mes": 0,
+    "cajas_movilizadas_mes": 0.0,
+    "kg_movilizados_mes": 0.0,
     "areas": [
       {
         "area": "Almacenamiento",
