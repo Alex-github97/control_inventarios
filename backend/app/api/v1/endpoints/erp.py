@@ -1114,37 +1114,172 @@ async def crear_tasa(moneda_origen: str, moneda_destino: str, fecha: date, tasa:
 
 # ── REPORTES ──────────────────────────────────────────────────────────────────
 
+async def _sum_lineas(db, anio, *, tipo=None, cod_like=None, signo=1, acumulado=False):
+    """Suma de líneas de comprobantes CONTABILIZADOS (libro mayor).
+    signo +1 => débito-crédito (cuentas de naturaleza débito: activo/gasto);
+    signo -1 => crédito-débito (pasivo/patrimonio/ingreso)."""
+    expr = (func.sum(ERPComprobanteLinea.debito - ERPComprobanteLinea.credito) if signo > 0
+            else func.sum(ERPComprobanteLinea.credito - ERPComprobanteLinea.debito))
+    q = select(func.coalesce(expr, 0)).join(ERPComprobante).join(ERPPlanCuenta).where(
+        ERPComprobante.estado == EstadoComprobante.CONTABILIZADO
+    )
+    if acumulado:
+        q = q.where(func.substr(ERPComprobante.periodo, 1, 4) <= str(anio))
+    else:
+        q = q.where(func.substr(ERPComprobante.periodo, 1, 4) == str(anio))
+    if tipo is not None:
+        q = q.where(ERPPlanCuenta.tipo == tipo)
+    if cod_like:
+        q = q.where(ERPPlanCuenta.codigo.like(cod_like))
+    return float((await db.execute(q)).scalar() or 0)
+
+
 @router.get("/reportes/estado-resultados")
 async def estado_resultados(
-    anio: int = Query(...),
+    anio: Optional[int] = Query(None),
     mes: Optional[int] = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
-    # Ingresos y egresos del periodo via comprobantes contabilizados
-    periodo_filter = f"{anio:04d}-{mes:02d}" if mes else str(anio)
-    q_ingresos = select(func.coalesce(func.sum(ERPComprobanteLinea.credito - ERPComprobanteLinea.debito), 0)).join(
-        ERPComprobante
-    ).join(ERPPlanCuenta).where(
-        and_(ERPComprobante.estado == EstadoComprobante.CONTABILIZADO,
-             ERPPlanCuenta.tipo == TipoCuenta.INGRESO,
-             ERPComprobante.periodo.like(f"{anio}%") if not mes else ERPComprobante.periodo == periodo_filter)
-    )
-    q_egresos = select(func.coalesce(func.sum(ERPComprobanteLinea.debito - ERPComprobanteLinea.credito), 0)).join(
-        ERPComprobante
-    ).join(ERPPlanCuenta).where(
-        and_(ERPComprobante.estado == EstadoComprobante.CONTABILIZADO,
-             ERPPlanCuenta.tipo == TipoCuenta.EGRESO,
-             ERPComprobante.periodo.like(f"{anio}%") if not mes else ERPComprobante.periodo == periodo_filter)
-    )
-    r_i = await db.execute(q_ingresos)
-    r_e = await db.execute(q_egresos)
-    ingresos = float(r_i.scalar() or 0)
-    egresos = float(r_e.scalar() or 0)
+    anio = anio or date.today().year
+    ingresos_op = await _sum_lineas(db, anio, tipo=TipoCuenta.INGRESO, cod_like="41%", signo=-1)
+    ingresos_tot = await _sum_lineas(db, anio, tipo=TipoCuenta.INGRESO, signo=-1)
+    if ingresos_op == 0:
+        ingresos_op = ingresos_tot
+    otros_ingresos = ingresos_tot - ingresos_op
+
+    costo_ventas = await _sum_lineas(db, anio, tipo=TipoCuenta.EGRESO, cod_like="6%", signo=1)
+    gastos_admin = await _sum_lineas(db, anio, tipo=TipoCuenta.EGRESO, cod_like="51%", signo=1)
+    gastos_ventas = await _sum_lineas(db, anio, tipo=TipoCuenta.EGRESO, cod_like="52%", signo=1)
+    gastos_fin = await _sum_lineas(db, anio, tipo=TipoCuenta.EGRESO, cod_like="53%", signo=1)
+    depreciacion = (await _sum_lineas(db, anio, tipo=TipoCuenta.EGRESO, cod_like="5160%", signo=1)
+                    + await _sum_lineas(db, anio, tipo=TipoCuenta.EGRESO, cod_like="5260%", signo=1))
+    egresos_tot = await _sum_lineas(db, anio, tipo=TipoCuenta.EGRESO, signo=1)
+    # Egresos no clasificados por código -> a gastos de administración
+    clasificados = costo_ventas + gastos_admin + gastos_ventas + gastos_fin
+    if egresos_tot > clasificados:
+        gastos_admin += egresos_tot - clasificados
+
+    ingresos_base = ingresos_op + otros_ingresos
+    utilidad_bruta = ingresos_base - costo_ventas
+    ebit = utilidad_bruta - gastos_admin - gastos_ventas - depreciacion
+    ebitda = ebit + depreciacion
+    uai = ebit - gastos_fin
+    impuestos = round(max(uai, 0) * 0.35)
+    utilidad_neta = uai - impuestos
+
+    def m(x):
+        return round(x / ingresos_base * 100, 2) if ingresos_base > 0 else 0.0
+
     return {
-        "periodo": periodo_filter,
-        "ingresos": ingresos,
-        "egresos": egresos,
-        "utilidad_neta": ingresos - egresos,
-        "margen": round((ingresos - egresos) / ingresos * 100, 2) if ingresos > 0 else 0,
+        "anio": anio,
+        "ingresos_operacionales": ingresos_op, "costo_ventas": costo_ventas,
+        "utilidad_bruta": utilidad_bruta, "gastos_admin": gastos_admin,
+        "gastos_ventas": gastos_ventas, "ebitda": ebitda, "depreciacion": depreciacion,
+        "ebit": ebit, "gastos_financieros": gastos_fin,
+        "utilidad_antes_impuestos": uai, "impuestos": impuestos, "utilidad_neta": utilidad_neta,
+        "margen_bruto_pct": m(utilidad_bruta), "margen_ebitda_pct": m(ebitda), "margen_neto_pct": m(utilidad_neta),
     }
+
+
+@router.get("/reportes/balance-general")
+async def balance_general(
+    anio: Optional[int] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    anio = anio or date.today().year
+    total_activos = await _sum_lineas(db, anio, tipo=TipoCuenta.ACTIVO, signo=1, acumulado=True)
+    activos_fijos = await _sum_lineas(db, anio, tipo=TipoCuenta.ACTIVO, cod_like="15%", signo=1, acumulado=True)
+    activos_corr = sum([await _sum_lineas(db, anio, tipo=TipoCuenta.ACTIVO, cod_like=f"{p}%", signo=1, acumulado=True)
+                        for p in ("11", "12", "13", "14")])
+    otros_activos = total_activos - activos_fijos - activos_corr
+
+    total_pasivos = await _sum_lineas(db, anio, tipo=TipoCuenta.PASIVO, signo=-1, acumulado=True)
+    pasivos_corr = sum([await _sum_lineas(db, anio, tipo=TipoCuenta.PASIVO, cod_like=f"{p}%", signo=-1, acumulado=True)
+                        for p in ("21", "22", "23", "24", "25")])
+    pasivos_lp = total_pasivos - pasivos_corr
+
+    patrimonio_ctas = await _sum_lineas(db, anio, tipo=TipoCuenta.PATRIMONIO, signo=-1, acumulado=True)
+    ingresos_acum = await _sum_lineas(db, anio, tipo=TipoCuenta.INGRESO, signo=-1, acumulado=True)
+    egresos_acum = await _sum_lineas(db, anio, tipo=TipoCuenta.EGRESO, signo=1, acumulado=True)
+    utilidad_acum = ingresos_acum - egresos_acum
+    patrimonio = patrimonio_ctas + utilidad_acum
+
+    return {
+        "anio": anio,
+        "activos_corrientes": activos_corr, "activos_fijos": activos_fijos,
+        "otros_activos": otros_activos, "total_activos": total_activos,
+        "pasivos_corrientes": pasivos_corr, "pasivos_largo_plazo": pasivos_lp,
+        "total_pasivos": total_pasivos, "patrimonio": patrimonio,
+        "total_pasivos_patrimonio": total_pasivos + patrimonio,
+    }
+
+
+@router.get("/reportes/flujo-caja")
+async def flujo_caja(
+    anio: Optional[int] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    anio = anio or date.today().year
+    r = await db.execute(
+        select(
+            func.extract("month", ERPMovimientoBancario.fecha).label("mes"),
+            ERPMovimientoBancario.tipo,
+            func.coalesce(func.sum(ERPMovimientoBancario.monto), 0),
+        ).where(func.extract("year", ERPMovimientoBancario.fecha) == anio)
+        .group_by("mes", ERPMovimientoBancario.tipo)
+    )
+    ingresos = {i: 0.0 for i in range(1, 13)}
+    egresos = {i: 0.0 for i in range(1, 13)}
+    for mes, tipo, total in r.all():
+        mi = int(mes)
+        if tipo == TipoMovimientoBancario.CREDITO:
+            ingresos[mi] += float(total)
+        else:
+            egresos[mi] += float(total)
+
+    nombres = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+    out = []
+    saldo = 0.0
+    for i in range(1, 13):
+        operacional = ingresos[i] - egresos[i]
+        saldo_inicial = saldo
+        saldo += operacional
+        out.append({
+            "mes": nombres[i - 1], "operacional": round(operacional), "inversion": 0,
+            "financiacion": 0, "flujo_neto": round(operacional),
+            "saldo_inicial": round(saldo_inicial), "saldo_final": round(saldo),
+        })
+    return out
+
+
+@router.get("/reportes/kpis")
+async def reportes_kpis(
+    anio: Optional[int] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    anio = anio or date.today().year
+    bg = await balance_general(anio, db, current_user)  # type: ignore
+    er = await estado_resultados(anio, None, db, current_user)  # type: ignore
+    act_c = bg["activos_corrientes"] or 0
+    pas_c = bg["pasivos_corrientes"] or 1
+    total_act = bg["total_activos"] or 1
+    patrim = bg["patrimonio"] or 1
+    ingresos = er["ingresos_operacionales"] or 1
+    return [
+        {"nombre": "Liquidez corriente", "valor": round(act_c / pas_c, 2), "unidad": "veces",
+         "variacion": 0, "benchmark": ">1.5"},
+        {"nombre": "Endeudamiento", "valor": round(bg["total_pasivos"] / total_act * 100, 1), "unidad": "%",
+         "variacion": 0, "benchmark": "<60%"},
+        {"nombre": "Margen neto", "valor": er["margen_neto_pct"], "unidad": "%",
+         "variacion": 0, "benchmark": ">5%"},
+        {"nombre": "Margen EBITDA", "valor": er["margen_ebitda_pct"], "unidad": "%",
+         "variacion": 0, "benchmark": ">15%"},
+        {"nombre": "ROE", "valor": round(er["utilidad_neta"] / patrim * 100, 1), "unidad": "%",
+         "variacion": 0, "benchmark": ">15%"},
+        {"nombre": "Utilidad neta", "valor": round(er["utilidad_neta"]), "unidad": "COP",
+         "variacion": 0, "benchmark": ""},
+    ]
