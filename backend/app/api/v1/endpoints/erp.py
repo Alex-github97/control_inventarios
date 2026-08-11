@@ -1074,6 +1074,28 @@ async def crear_proyecto(data: ProyectoCreate, db: AsyncSession = Depends(get_db
     await db.refresh(proy)
     return proy
 
+@router.get("/proyectos/rentabilidad")
+async def rentabilidad_proyectos(
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    """Rentabilidad de todos los proyectos (ingresos vs costos ejecutados)."""
+    r = await db.execute(select(ERPProyecto).where(ERPProyecto.deleted_at.is_(None)))
+    out = []
+    for p in r.scalars().all():
+        ingresos = float(p.ingresos_total or 0)
+        costos = float(p.ejecutado_total or 0)
+        margen = ingresos - costos
+        out.append({
+            "proyecto_id": p.id, "nombre": p.nombre,
+            "ingresos": ingresos, "costos": costos, "margen_bruto": margen,
+            "margen_pct": round(margen / ingresos * 100, 2) if ingresos > 0 else 0.0,
+            "roi": round(margen / costos * 100, 2) if costos > 0 else 0.0,
+        })
+    out.sort(key=lambda x: x["margen_bruto"], reverse=True)
+    return out
+
+
 @router.get("/proyectos/{proy_id}/rentabilidad")
 async def rentabilidad_proyecto(proy_id: int, db: AsyncSession = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
     proy = await db.get(ERPProyecto, proy_id)
