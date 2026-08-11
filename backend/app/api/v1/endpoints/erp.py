@@ -740,6 +740,62 @@ async def listar_facturas_cliente(
     r = await db.execute(q.order_by(ERPFacturaCliente.fecha.desc()))
     return list(r.scalars().all())
 
+# ─── INTEGRACIÓN CONTABLE (subledger -> libro mayor) ──────────────────────────
+# Cada operación (factura, pago, depreciación) genera automáticamente su asiento
+# contable CONTABILIZADO, de modo que el mayor y los estados financieros reflejan
+# la operación sin captura manual. PUC básico usado para las cuentas de los asientos:
+_PUC = {
+    "110505": ("Caja", TipoCuenta.ACTIVO, NaturalezaCuenta.DEBITO),
+    "111005": ("Bancos", TipoCuenta.ACTIVO, NaturalezaCuenta.DEBITO),
+    "130505": ("Clientes nacionales", TipoCuenta.ACTIVO, NaturalezaCuenta.DEBITO),
+    "150000": ("Propiedad, planta y equipo", TipoCuenta.ACTIVO, NaturalezaCuenta.DEBITO),
+    "159200": ("Depreciacion acumulada", TipoCuenta.ACTIVO, NaturalezaCuenta.CREDITO),
+    "220505": ("Proveedores nacionales", TipoCuenta.PASIVO, NaturalezaCuenta.CREDITO),
+    "240805": ("IVA generado (por pagar)", TipoCuenta.PASIVO, NaturalezaCuenta.CREDITO),
+    "236540": ("Retencion en la fuente", TipoCuenta.PASIVO, NaturalezaCuenta.CREDITO),
+    "413500": ("Ingresos operacionales", TipoCuenta.INGRESO, NaturalezaCuenta.CREDITO),
+    "516005": ("Gasto depreciacion", TipoCuenta.EGRESO, NaturalezaCuenta.DEBITO),
+    "519900": ("Gastos / costos varios", TipoCuenta.EGRESO, NaturalezaCuenta.DEBITO),
+}
+
+
+async def _get_or_create_cuenta(db, empresa_id, codigo):
+    r = await db.execute(select(ERPPlanCuenta).where(ERPPlanCuenta.codigo == codigo).limit(1))
+    c = r.scalar_one_or_none()
+    if c:
+        return c
+    nombre, tipo, nat = _PUC.get(codigo, (f"Cuenta {codigo}", TipoCuenta.ACTIVO, NaturalezaCuenta.DEBITO))
+    c = ERPPlanCuenta(empresa_id=empresa_id, codigo=codigo, nombre=nombre, tipo=tipo,
+                      naturaleza=nat, nivel=max(1, len(codigo) // 2), acepta_movimientos=True)
+    db.add(c)
+    await db.flush()
+    return c
+
+
+async def _generar_asiento(db, empresa_id, tipo, fecha, concepto, referencia, movimientos, creado_por="sistema"):
+    """movimientos: lista de (codigo_cuenta, debito, credito, tercero). Cuadra o no genera."""
+    movs = [(cod, round(float(d), 2), round(float(cr), 2), ter) for (cod, d, cr, ter) in movimientos if (d or cr)]
+    total_d = sum(m[1] for m in movs)
+    total_c = sum(m[2] for m in movs)
+    if not movs or total_d <= 0 or abs(total_d - total_c) > 1.0:
+        return None
+    n = (await db.execute(select(func.count()).select_from(ERPComprobante).where(ERPComprobante.tipo == tipo))).scalar() or 0
+    prefix = {TipoComprobante.INGRESO: "RC", TipoComprobante.EGRESO: "CE", TipoComprobante.DIARIO: "CD"}.get(tipo, "CD")
+    comp = ERPComprobante(
+        empresa_id=empresa_id, numero=f"{prefix}-{n + 1:06d}", tipo=tipo, fecha=fecha,
+        concepto=concepto, referencia=referencia, estado=EstadoComprobante.CONTABILIZADO,
+        total_debito=total_d, total_credito=total_c, periodo=fecha.strftime("%Y-%m"),
+        creado_por=creado_por, contabilizado_por=creado_por, contabilizado_en=datetime.utcnow(),
+    )
+    db.add(comp)
+    await db.flush()
+    for cod, deb, cred, ter in movs:
+        cta = await _get_or_create_cuenta(db, empresa_id, cod)
+        db.add(ERPComprobanteLinea(comprobante_id=comp.id, cuenta_id=cta.id,
+                                   debito=deb, credito=cred, concepto=concepto, tercero=ter))
+    return comp
+
+
 @router.post("/cxc/facturas", response_model=FacturaClienteResponse, status_code=201)
 async def crear_factura_cliente(data: FacturaClienteCreate, db: AsyncSession = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
     existing = await db.execute(select(ERPFacturaCliente).where(ERPFacturaCliente.numero == data.numero))
@@ -775,6 +831,15 @@ async def crear_factura_cliente(data: FacturaClienteCreate, db: AsyncSession = D
             subtotal=base, total_impuesto=imp, total=base + imp,
         )
         db.add(linea)
+    # Asiento automático: Db Clientes / Cr Ingresos + IVA
+    await _generar_asiento(
+        db, fc.empresa_id, TipoComprobante.DIARIO, fc.fecha,
+        f"Factura de venta {fc.numero} - {fc.cliente_nombre}", fc.numero,
+        [("130505", total, 0, fc.cliente_nombre),
+         ("413500", 0, subtotal, fc.cliente_nombre),
+         ("240805", 0, total_imp, fc.cliente_nombre)],
+        creado_por=current_user.nombre,
+    )
     await db.commit()
     await db.refresh(fc)
     return fc
@@ -827,6 +892,19 @@ async def crear_factura_proveedor(data: FacturaProveedorCreate, db: AsyncSession
     neto = data.total - data.retenciones
     fp = ERPFacturaProveedor(**data.model_dump(), neto_pagar=neto, saldo=neto)
     db.add(fp)
+    await db.flush()
+    # Asiento automático: Db Gasto+IVA / Cr Proveedores (neto) + Retenciones
+    subt = float(fp.subtotal or (float(fp.total) - float(fp.total_impuestos or 0)))
+    iva = float(fp.total_impuestos or 0)
+    await _generar_asiento(
+        db, fp.empresa_id, TipoComprobante.DIARIO, fp.fecha,
+        f"Factura de compra {fp.numero_proveedor} - {fp.proveedor_nombre}", fp.numero_proveedor,
+        [("519900", subt, 0, fp.proveedor_nombre),
+         ("240805", iva, 0, fp.proveedor_nombre),
+         ("236540", 0, float(fp.retenciones or 0), fp.proveedor_nombre),
+         ("220505", 0, neto, fp.proveedor_nombre)],
+        creado_por=current_user.nombre,
+    )
     await db.commit()
     await db.refresh(fp)
     return fp
@@ -866,6 +944,19 @@ async def registrar_pago(data: PagoCreate, db: AsyncSession = Depends(get_db), c
             nuevo_saldo = max(0, float(fp.saldo) - data.monto)
             fp.saldo = nuevo_saldo
             fp.estado = EstadoFactura.PAGADA if nuevo_saldo == 0 else EstadoFactura.PARCIALMENTE_PAGADA
+    # Asiento automático del pago
+    if data.factura_cliente_id:
+        # Recaudo: Db Bancos / Cr Clientes
+        await _generar_asiento(db, pago.empresa_id, TipoComprobante.INGRESO, pago.fecha,
+            f"Recaudo pago cliente", getattr(pago, "referencia", None) or "",
+            [("111005", data.monto, 0, None), ("130505", 0, data.monto, None)],
+            creado_por=current_user.nombre)
+    elif data.factura_proveedor_id:
+        # Egreso: Db Proveedores / Cr Bancos
+        await _generar_asiento(db, pago.empresa_id, TipoComprobante.EGRESO, pago.fecha,
+            f"Pago a proveedor", getattr(pago, "referencia", None) or "",
+            [("220505", data.monto, 0, None), ("111005", 0, data.monto, None)],
+            creado_por=current_user.nombre)
     await db.commit()
     await db.refresh(pago)
     return pago
@@ -953,6 +1044,11 @@ async def calcular_depreciacion(activo_id: int, fecha: date = Query(...), db: As
     af.depreciacion_acumulada = nueva_acum
     af.valor_libro = nuevo_libro
     db.add(dep)
+    # Asiento automático: Db Gasto depreciación / Cr Depreciación acumulada
+    await _generar_asiento(db, af.empresa_id, TipoComprobante.DIARIO, fecha,
+        f"Depreciacion {af.codigo} - {af.nombre}", af.codigo,
+        [("516005", dep_mensual, 0, None), ("159200", 0, dep_mensual, None)],
+        creado_por=current_user.nombre)
     await db.commit()
     return {"depreciacion": dep_mensual, "acumulada": nueva_acum, "valor_libro": nuevo_libro}
 
