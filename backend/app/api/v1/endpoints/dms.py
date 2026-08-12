@@ -1,6 +1,10 @@
 from datetime import date, datetime
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pathlib import Path
+import hashlib
+import io
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, File, Form
+from fastapi.responses import FileResponse
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -39,6 +43,27 @@ from app.application.schemas.dms import (
 
 router = APIRouter(prefix="/dms", tags=["dms"])
 
+# Almacenamiento de archivos del DMS (bind-mount en /app/data, persiste)
+DMS_STORAGE = Path(__file__).resolve().parents[4] / "data" / "dms_files"
+
+
+def _extraer_texto(contenido: bytes, mime: Optional[str], filename: Optional[str]) -> Optional[str]:
+    """Extrae texto para búsqueda de contenido (PDF via pdfplumber, texto plano)."""
+    fn = (filename or "").lower()
+    try:
+        if (mime and "pdf" in mime) or fn.endswith(".pdf"):
+            import pdfplumber
+            partes = []
+            with pdfplumber.open(io.BytesIO(contenido)) as pdf:
+                for page in pdf.pages[:30]:
+                    partes.append(page.extract_text() or "")
+            return ("\n".join(partes)).strip()[:20000] or None
+        if (mime and mime.startswith("text")) or fn.endswith((".txt", ".csv", ".md")):
+            return contenido.decode("utf-8", "ignore")[:20000] or None
+    except Exception:
+        return None
+    return None
+
 
 # ---------------------------------------------------------------------------
 # Helper interno para registrar auditoría
@@ -53,15 +78,26 @@ async def _registrar_auditoria(
     datos_anteriores: Optional[dict] = None,
     datos_nuevos: Optional[dict] = None,
     ip: Optional[str] = None,
+    version_id: Optional[int] = None,
 ) -> DMSAuditoria:
+    # El modelo DMSAuditoria expone 'detalle' e 'ip_origen' (no descripcion/datos/ip).
+    # Consolidamos la descripción y los cambios (antes/después) en 'detalle'.
+    import json as _json
+    detalle = (descripcion or "").strip()
+    extra: dict = {}
+    if datos_anteriores:
+        extra["antes"] = datos_anteriores
+    if datos_nuevos:
+        extra["despues"] = datos_nuevos
+    if extra:
+        detalle = (detalle + " " + _json.dumps(extra, ensure_ascii=False, default=str)).strip()
     entrada = DMSAuditoria(
         documento_id=documento_id,
+        version_id=version_id,
         accion=accion,
         usuario_id=usuario_id,
-        descripcion=descripcion,
-        datos_anteriores=datos_anteriores,
-        datos_nuevos=datos_nuevos,
-        ip=ip or "0.0.0.0",
+        detalle=detalle or None,
+        ip_origen=ip or "0.0.0.0",
     )
     db.add(entrada)
     await db.flush()
@@ -743,6 +779,86 @@ async def crear_version(
     await db.commit()
     await db.refresh(item)
     return item
+
+
+@router.post("/documentos/{documento_id}/upload", response_model=DMSVersionResponse)
+async def subir_archivo_version(
+    documento_id: int,
+    request: Request,
+    file: UploadFile = File(...),
+    comentario: Optional[str] = Form(None),
+    es_mayor: bool = Form(True),
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    """Carga REAL de un archivo: lo almacena en disco, calcula hash/tamaño, extrae
+    texto (PDF/plano) para búsqueda de contenido y crea una nueva versión."""
+    doc = await db.get(DMSDocumento, documento_id)
+    if not doc or doc.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Documento no encontrado")
+    contenido = await file.read()
+    if not contenido:
+        raise HTTPException(status_code=400, detail="Archivo vacío")
+    md5 = hashlib.md5(contenido).hexdigest()
+    nuevo_num = (doc.version_numero or 0) + 1
+    numero_str = f"{nuevo_num}.0"
+    DMS_STORAGE.mkdir(parents=True, exist_ok=True)
+    safe = (file.filename or "archivo").replace("/", "_").replace("\\", "_")
+    ruta = DMS_STORAGE / f"doc{documento_id}_v{nuevo_num}_{md5[:8]}_{safe}"
+    ruta.write_bytes(contenido)
+    ocr = _extraer_texto(contenido, file.content_type, file.filename)
+    ver = DMSVersion(
+        documento_id=documento_id, numero_version=numero_str, version_numero=nuevo_num,
+        es_mayor=es_mayor, nombre_archivo=file.filename or safe, ruta_archivo=str(ruta),
+        tamanio_bytes=len(contenido), tipo_mime=file.content_type, hash_md5=md5,
+        comentario=comentario, ocr_texto=ocr, creado_por_id=getattr(current_user, "id", None),
+    )
+    db.add(ver)
+    await db.flush()
+    doc.version_actual = numero_str
+    doc.version_numero = nuevo_num
+    await _registrar_auditoria(
+        db=db, documento_id=documento_id, accion=AccionAuditoriaDMSEnum.VERSION_NUEVA,
+        usuario_id=getattr(current_user, "id", None),
+        descripcion=f"Archivo '{file.filename}' cargado (v{numero_str}, {len(contenido)} bytes)",
+        version_id=ver.id, ip=request.client.host if request.client else None,
+    )
+    await db.commit()
+    await db.refresh(ver)
+    return ver
+
+
+@router.get("/versiones/{version_id}/download")
+async def descargar_version(
+    version_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    ver = await db.get(DMSVersion, version_id)
+    if not ver or not ver.ruta_archivo or not Path(ver.ruta_archivo).exists():
+        raise HTTPException(status_code=404, detail="Archivo no encontrado")
+    return FileResponse(ver.ruta_archivo, filename=ver.nombre_archivo,
+                        media_type=ver.tipo_mime or "application/octet-stream")
+
+
+@router.get("/documentos/{documento_id}/download")
+async def descargar_documento(
+    documento_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    """Descarga la última versión con archivo del documento."""
+    r = await db.execute(
+        select(DMSVersion).where(
+            DMSVersion.documento_id == documento_id,
+            DMSVersion.ruta_archivo.isnot(None),
+        ).order_by(DMSVersion.version_numero.desc())
+    )
+    ver = r.scalars().first()
+    if not ver or not ver.ruta_archivo or not Path(ver.ruta_archivo).exists():
+        raise HTTPException(status_code=404, detail="El documento no tiene archivo")
+    return FileResponse(ver.ruta_archivo, filename=ver.nombre_archivo,
+                        media_type=ver.tipo_mime or "application/octet-stream")
 
 
 @router.get("/versiones/{version_id}", response_model=DMSVersionResponse)
