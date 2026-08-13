@@ -717,7 +717,7 @@ async def cambiar_estado_documento(
     await _registrar_auditoria(
         db=db,
         documento_id=doc_id,
-        accion=AccionAuditoriaDMSEnum.CAMBIO_ESTADO,
+        accion=AccionAuditoriaDMSEnum.MODIFICACION,
         usuario_id=getattr(current_user, "id", None),
         descripcion=comentario or f"Cambio de estado: {estado_anterior} → {nuevo_estado}",
         datos_anteriores={"estado": str(estado_anterior)},
