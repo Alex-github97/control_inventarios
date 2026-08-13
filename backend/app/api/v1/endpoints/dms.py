@@ -713,19 +713,23 @@ async def cambiar_estado_documento(
     item.estado = nuevo_estado
     await db.flush()
 
+    # Valores legibles (evita "EstadoDocumentoDMSEnum.X" en el detalle de auditoría)
+    _ant = getattr(estado_anterior, "value", estado_anterior)
+    _nue = getattr(nuevo_estado, "value", nuevo_estado)
+
     # Registrar auditoría
     await _registrar_auditoria(
         db=db,
         documento_id=doc_id,
         accion=AccionAuditoriaDMSEnum.MODIFICACION,
         usuario_id=getattr(current_user, "id", None),
-        descripcion=comentario or f"Cambio de estado: {estado_anterior} → {nuevo_estado}",
-        datos_anteriores={"estado": str(estado_anterior)},
-        datos_nuevos={"estado": str(nuevo_estado)},
+        descripcion=comentario or f"Cambio de estado: {_ant} → {_nue}",
+        datos_anteriores={"estado": _ant},
+        datos_nuevos={"estado": _nue},
     )
 
     await db.commit()
-    return {"mensaje": "Estado actualizado", "estado": nuevo_estado}
+    return {"mensaje": "Estado actualizado", "estado": _nue}
 
 
 # ===========================================================================
