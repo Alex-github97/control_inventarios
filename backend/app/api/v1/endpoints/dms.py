@@ -1205,12 +1205,11 @@ async def crear_instancia(
     db.add(instancia)
     await db.flush()
 
-    # Crear pasos de instancia
+    # Crear pasos de instancia (el orden se deriva del DMSWorkflowPaso via paso_id)
     for paso in pasos:
         ip = DMSInstanciaPaso(
             instancia_id=instancia.id,
             paso_id=paso.id,
-            orden=paso.orden,
             estado="pendiente",
         )
         db.add(ip)
@@ -1233,12 +1232,14 @@ async def avanzar_instancia(
     if instancia.estado != EstadoInstanciaDMSEnum.EN_CURSO:
         raise HTTPException(status_code=400, detail="La instancia no está en curso")
 
-    # Marcar paso actual como completado
+    # Marcar paso actual como completado (orden vive en DMSWorkflowPaso via paso_id)
     paso_actual_r = await db.execute(
-        select(DMSInstanciaPaso).where(
+        select(DMSInstanciaPaso)
+        .join(DMSWorkflowPaso, DMSInstanciaPaso.paso_id == DMSWorkflowPaso.id)
+        .where(
             and_(
                 DMSInstanciaPaso.instancia_id == inst_id,
-                DMSInstanciaPaso.orden == instancia.paso_actual,
+                DMSWorkflowPaso.orden == instancia.paso_actual,
             )
         )
     )
@@ -1247,22 +1248,24 @@ async def avanzar_instancia(
         paso_actual_obj.estado = "completado"
         paso_actual_obj.accion = body.get("accion", "aprobado")
         paso_actual_obj.comentario = body.get("comentario")
-        paso_actual_obj.fecha_completado = datetime.utcnow()
+        paso_actual_obj.fecha_respuesta = datetime.utcnow()
 
-    # Buscar siguiente paso
+    # Buscar siguiente paso (por orden del DMSWorkflowPaso)
     siguiente_paso_r = await db.execute(
-        select(DMSInstanciaPaso).where(
+        select(DMSWorkflowPaso.orden)
+        .join(DMSInstanciaPaso, DMSInstanciaPaso.paso_id == DMSWorkflowPaso.id)
+        .where(
             and_(
                 DMSInstanciaPaso.instancia_id == inst_id,
-                DMSInstanciaPaso.orden > instancia.paso_actual,
+                DMSWorkflowPaso.orden > instancia.paso_actual,
                 DMSInstanciaPaso.estado == "pendiente",
             )
-        ).order_by(DMSInstanciaPaso.orden).limit(1)
+        ).order_by(DMSWorkflowPaso.orden).limit(1)
     )
-    siguiente = siguiente_paso_r.scalar_one_or_none()
+    siguiente_orden = siguiente_paso_r.scalar_one_or_none()
 
-    if siguiente:
-        instancia.paso_actual = siguiente.orden
+    if siguiente_orden is not None:
+        instancia.paso_actual = siguiente_orden
     else:
         instancia.estado = EstadoInstanciaDMSEnum.COMPLETADO
         instancia.fecha_fin = datetime.utcnow()
@@ -1284,7 +1287,7 @@ async def cancelar_instancia(
         raise HTTPException(status_code=404, detail="Instancia no encontrada")
 
     instancia.estado = EstadoInstanciaDMSEnum.CANCELADO
-    instancia.comentario_cancelacion = body.get("comentario")
+    instancia.comentario_cierre = body.get("comentario")
     instancia.fecha_fin = datetime.utcnow()
 
     await db.commit()
