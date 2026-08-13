@@ -58,6 +58,9 @@ import {
 import { Layout } from '@/components/layout/Layout'
 import { VehiculosCombinados } from '@/components/VehiculosCombinados'
 import { apiClient as api } from '@/api/client'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
+import { CircularProgress } from '@mui/material'
 
 const TMS_COLOR = '#0369A1'
 
@@ -663,12 +666,14 @@ function VerVehiculoDialog({ vehiculo, open, onClose }: { vehiculo: Vehiculo | n
 // ─── Dialog: Registrar/Editar Vehículo ────────────────────────────────────────
 
 function FormVehiculoDialog({
-  open, onClose, initial, title
+  open, onClose, initial, title, onSave, saving
 }: {
   open: boolean
   onClose: () => void
   initial: Omit<Vehiculo, 'id' | 'viajesHistorico' | 'documentos'>
   title: string
+  onSave: (form: Omit<Vehiculo, 'id' | 'viajesHistorico' | 'documentos'>) => void
+  saving: boolean
 }) {
   const [form, setForm] = useState({ ...initial })
 
@@ -828,10 +833,11 @@ function FormVehiculoDialog({
         </Button>
         <Button
           variant="contained" size="small"
+          disabled={saving || !form.placa}
           sx={{ bgcolor: TMS_COLOR, '&:hover': { bgcolor: '#0284c7' }, fontWeight: 700 }}
-          onClick={onClose}
+          onClick={() => onSave(form)}
         >
-          Guardar
+          {saving ? 'Guardando…' : 'Guardar'}
         </Button>
       </DialogActions>
     </Dialog>
@@ -846,7 +852,7 @@ function CambiarEstadoDialog({
   vehiculo: Vehiculo | null
   open: boolean
   onClose: () => void
-  onConfirm: (placa: string, estado: EstadoOperativo) => void
+  onConfirm: (id: number, estado: EstadoOperativo) => void
 }) {
   const [nuevoEstado, setNuevoEstado] = useState<EstadoOperativo>('DISPONIBLE')
 
@@ -899,7 +905,7 @@ function CambiarEstadoDialog({
         <Button
           variant="contained" size="small"
           sx={{ bgcolor: TMS_COLOR, '&:hover': { bgcolor: '#0284c7' }, fontWeight: 700 }}
-          onClick={() => { onConfirm(vehiculo.placa, nuevoEstado); onClose() }}
+          onClick={() => { onConfirm(vehiculo.id, nuevoEstado); onClose() }}
         >
           Confirmar
         </Button>
@@ -908,10 +914,55 @@ function CambiarEstadoDialog({
   )
 }
 
+// ─── Mapeo backend <-> VM ─────────────────────────────────────────────────────
+
+function mapVehiculo(v: any): Vehiculo {
+  return {
+    id: v.id,
+    placa: v.placa,
+    tipoVehiculo: v.tipo_vehiculo,
+    tipoCarroceria: v.tipo_carroceria || 'FURGON',
+    marca: v.marca || '',
+    modelo: v.modelo || '',
+    anio: v.anio || 0,
+    configuracion: v.configuracion || '',
+    capacidadKg: v.capacidad_kg || 0,
+    volumenM3: v.volumen_m3 || 0,
+    numEjes: v.num_ejes || 0,
+    pesoBrutoKg: v.peso_bruto_kg || 0,
+    empresa: v.propietario || '—',
+    estadoOperativo: v.estado_operativo,
+    viajesHistorico: [],
+    documentos: [],
+  }
+}
+
+function vehiculoToPayload(f: Omit<Vehiculo, 'id' | 'viajesHistorico' | 'documentos'>): any {
+  return {
+    placa: f.placa,
+    tipo_vehiculo: f.tipoVehiculo,
+    tipo_carroceria: f.tipoCarroceria || undefined,
+    marca: f.marca || undefined,
+    modelo: f.modelo || undefined,
+    anio: f.anio ? Number(f.anio) : undefined,
+    configuracion: f.configuracion || undefined,
+    capacidad_kg: f.capacidadKg ? Number(f.capacidadKg) : undefined,
+    volumen_m3: f.volumenM3 ? Number(f.volumenM3) : undefined,
+    num_ejes: f.numEjes ? Number(f.numEjes) : undefined,
+    peso_bruto_kg: f.pesoBrutoKg ? Number(f.pesoBrutoKg) : undefined,
+    propietario: f.empresa && f.empresa !== '—' ? f.empresa : undefined,
+  }
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function TMSVehiculos() {
-  const [vehiculos, setVehiculos] = useState<Vehiculo[]>(MOCK_VEHICULOS)
+  const qc = useQueryClient()
+  const { data: rawVehiculos = [], isLoading } = useQuery<any[]>({
+    queryKey: ['tms-vehiculos'],
+    queryFn: () => api.get('/tms/vehiculos').then((r) => r.data),
+  })
+  const vehiculos = useMemo(() => rawVehiculos.map(mapVehiculo), [rawVehiculos])
   const [search, setSearch] = useState('')
   const [filterTipo, setFilterTipo] = useState<TipoVehiculo | ''>('')
   const [filterEstado, setFilterEstado] = useState<EstadoOperativo | ''>('')
@@ -922,6 +973,8 @@ export default function TMSVehiculos() {
   const [formOpen, setFormOpen] = useState(false)
   const [formTitle, setFormTitle] = useState('Registrar Vehículo')
   const [formInitial, setFormInitial] = useState<Omit<Vehiculo, 'id' | 'viajesHistorico' | 'documentos'>>(EMPTY_FORM)
+  const [editId, setEditId] = useState<number | null>(null)
+  const [saving, setSaving] = useState(false)
 
   const [estadoOpen, setEstadoOpen] = useState(false)
   const [estadoVehiculo, setEstadoVehiculo] = useState<Vehiculo | null>(null)
@@ -947,12 +1000,30 @@ export default function TMSVehiculos() {
   function handleVer(v: Vehiculo) { setVerVehiculo(v); setVerOpen(true) }
   function handleEditar(v: Vehiculo) {
     const { id, viajesHistorico, documentos, ...rest } = v
-    setFormInitial(rest); setFormTitle(`Editar — ${v.placa}`); setFormOpen(true)
+    setEditId(id); setFormInitial(rest); setFormTitle(`Editar — ${v.placa}`); setFormOpen(true)
   }
-  function handleNuevo() { setFormInitial({ ...EMPTY_FORM }); setFormTitle('Registrar Vehículo'); setFormOpen(true) }
+  function handleNuevo() { setEditId(null); setFormInitial({ ...EMPTY_FORM }); setFormTitle('Registrar Vehículo'); setFormOpen(true) }
   function handleCambiarEstado(v: Vehiculo) { setEstadoVehiculo(v); setEstadoOpen(true) }
-  function handleConfirmarEstado(placa: string, estado: EstadoOperativo) {
-    setVehiculos((prev) => prev.map((v) => v.placa === placa ? { ...v, estadoOperativo: estado } : v))
+
+  async function handleGuardar(form: Omit<Vehiculo, 'id' | 'viajesHistorico' | 'documentos'>) {
+    setSaving(true)
+    try {
+      const payload = vehiculoToPayload(form)
+      if (editId) await api.put(`/tms/vehiculos/${editId}`, payload)
+      else await api.post('/tms/vehiculos', payload)
+      toast.success(editId ? 'Vehículo actualizado' : 'Vehículo registrado')
+      qc.invalidateQueries({ queryKey: ['tms-vehiculos'] })
+      setFormOpen(false)
+    } catch (e: any) { toast.error(e.response?.data?.detail || 'No se pudo guardar el vehículo') }
+    finally { setSaving(false) }
+  }
+
+  async function handleConfirmarEstado(id: number, estado: EstadoOperativo) {
+    try {
+      await api.put(`/tms/vehiculos/${id}/estado`, null, { params: { estado_operativo: estado } })
+      toast.success('Estado actualizado')
+      qc.invalidateQueries({ queryKey: ['tms-vehiculos'] })
+    } catch (e: any) { toast.error(e.response?.data?.detail || 'No se pudo cambiar el estado') }
   }
 
   const selectSx = {
@@ -1087,10 +1158,14 @@ export default function TMSVehiculos() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filtered.length === 0 ? (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={8} sx={{ textAlign: 'center', py: 5, borderBottom: 'none' }}><CircularProgress size={26} /></TableCell>
+                  </TableRow>
+                ) : filtered.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} sx={{ textAlign: 'center', py: 5, color: '#64748B', borderBottom: 'none' }}>
-                      No se encontraron vehículos con los filtros aplicados
+                      {vehiculos.length === 0 ? 'Aún no hay vehículos registrados. Usa “Registrar Vehículo”.' : 'No se encontraron vehículos con los filtros aplicados'}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -1181,7 +1256,7 @@ export default function TMSVehiculos() {
 
         {/* Dialogs */}
         <VerVehiculoDialog vehiculo={verVehiculo} open={verOpen} onClose={() => setVerOpen(false)} />
-        <FormVehiculoDialog open={formOpen} onClose={() => setFormOpen(false)} initial={formInitial} title={formTitle} />
+        <FormVehiculoDialog open={formOpen} onClose={() => setFormOpen(false)} initial={formInitial} title={formTitle} onSave={handleGuardar} saving={saving} />
         <CambiarEstadoDialog
           vehiculo={estadoVehiculo}
           open={estadoOpen}
