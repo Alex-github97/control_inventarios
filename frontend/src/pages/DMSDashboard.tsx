@@ -34,21 +34,24 @@ import {
   Visibility,
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { useQuery } from '@tanstack/react-query'
+import { apiClient } from '@/api/client'
 
 const DMS_COLOR = '#0E7490'
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
+const fmtN = (n: number | undefined) => (n ?? 0).toLocaleString('es-CO')
+const fmtFecha = (s?: string | null) => (s ? new Date(s).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—')
 
-const DOCUMENTOS_RECIENTES = [
-  { codigo: 'DOC-2024-001', nombre: 'Contrato Marco Servicios Logísticos', tipo: 'Contrato', estado: 'PUBLICADO', version: 'v3.1', area: 'Comercial', fecha: '15/06/2026' },
-  { codigo: 'DOC-2024-002', nombre: 'Política de Seguridad Vial', tipo: 'Política', estado: 'EN_REVISION', version: 'v2.0', area: 'SST', fecha: '14/06/2026' },
-  { codigo: 'DOC-2024-003', nombre: 'Manual de Procedimientos TMS', tipo: 'Manual', estado: 'APROBADO', version: 'v1.4', area: 'Operaciones', fecha: '13/06/2026' },
-  { codigo: 'DOC-2024-004', nombre: 'Acuerdo de Confidencialidad Proveedor Bogotá', tipo: 'Acuerdo', estado: 'BORRADOR', version: 'v1.0', area: 'Jurídico', fecha: '12/06/2026' },
-  { codigo: 'DOC-2024-005', nombre: 'Procedimiento de Carga y Descarga', tipo: 'Procedimiento', estado: 'PUBLICADO', version: 'v5.2', area: 'Operaciones', fecha: '11/06/2026' },
-  { codigo: 'DOC-2024-006', nombre: 'Reglamento Interno de Trabajo', tipo: 'Reglamento', estado: 'OBSOLETO', version: 'v1.0', area: 'RRHH', fecha: '10/06/2026' },
-  { codigo: 'DOC-2024-007', nombre: 'Certificado BASC 2026', tipo: 'Certificado', estado: 'PUBLICADO', version: 'v1.0', area: 'Calidad', fecha: '09/06/2026' },
-  { codigo: 'DOC-2024-008', nombre: 'Formato de Inspección Vehículos', tipo: 'Formato', estado: 'ARCHIVADO', version: 'v4.0', area: 'Flota', fecha: '08/06/2026' },
-]
+interface DMSKpis {
+  total_documentos: number; documentos_activos: number; documentos_vencidos: number
+  documentos_proximos_vencer: number; firmas_pendientes: number; cumplimiento_pct: number
+}
+interface DocReciente {
+  id: number; codigo?: string | null; nombre: string; tipo_nombre?: string | null
+  estado: string; version_actual: string; propietario_nombre?: string | null; updated_at?: string
+}
+
+// ─── Mock data ────────────────────────────────────────────────────────────────
 
 const ALERTAS = [
   { id: 1, tipo: 'vencido', doc: 'SOAT-TK-4521', msg: 'SOAT Tracto Kenworth placa TUL-431 — vencido hace 3 días', nivel: 'error' },
@@ -65,16 +68,6 @@ const ACTIVIDAD_RECIENTE = [
   { id: 4, usuario: 'Luis Peña', inicial: 'LP', color: '#D97706', accion: 'Creó', doc: 'Acuerdo Servicio Cliente Éxito S.A.', tiempo: 'Hace 2h' },
   { id: 5, usuario: 'Sandra Torres', inicial: 'ST', color: '#DC2626', accion: 'Rechazó', doc: 'Procedimiento Despacho Urgente v1.0', tiempo: 'Hace 3h' },
   { id: 6, usuario: 'Jhon Vargas', inicial: 'JV', color: '#0891B2', accion: 'Publicó', doc: 'Política de Gestión Ambiental 2026', tiempo: 'Hace 4h' },
-]
-
-const CATEGORIAS_CHART = [
-  { nombre: 'Contratos', cantidad: 412, pct: 100 },
-  { nombre: 'Vehículos', cantidad: 387, pct: 94 },
-  { nombre: 'Conductores', cantidad: 298, pct: 72 },
-  { nombre: 'RR.HH.', cantidad: 276, pct: 67 },
-  { nombre: 'Financiero', cantidad: 254, pct: 62 },
-  { nombre: 'Calidad', cantidad: 143, pct: 35 },
-  { nombre: 'Operaciones', cantidad: 77, pct: 19 },
 ]
 
 const WORKFLOWS = [
@@ -192,6 +185,21 @@ function LiveBadge() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DMSDashboard() {
+  const { data: kpis } = useQuery<DMSKpis>({
+    queryKey: ['dms-kpis'],
+    queryFn: () => apiClient.get('/dms/dashboard/kpis').then((r) => r.data),
+    refetchInterval: 60_000,
+  })
+  const { data: recientes = [] } = useQuery<DocReciente[]>({
+    queryKey: ['dms-recientes'],
+    queryFn: () => apiClient.get('/dms/documentos', { params: { per_page: 8 } }).then((r) => r.data),
+  })
+  const { data: categorias = [] } = useQuery<any[]>({
+    queryKey: ['dms-categorias'],
+    queryFn: () => apiClient.get('/dms/categorias').then((r) => r.data),
+  })
+  const maxCat = Math.max(1, ...categorias.map((c: any) => c.total_documentos ?? c.documentos_count ?? 0))
+
   return (
     <Layout title="DMS — Dashboard">
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -234,22 +242,22 @@ export default function DMSDashboard() {
         {/* ── KPI Cards ─────────────────────────────────────────────────── */}
         <Grid container spacing={2} className="anim-stagger">
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <KPICard label="Total Documentos" value="1.847" icon={<Description />} color={DMS_COLOR} sublabel="En el repositorio" />
+            <KPICard label="Total Documentos" value={fmtN(kpis?.total_documentos)} icon={<Description />} color={DMS_COLOR} sublabel="En el repositorio" />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <KPICard label="Documentos Activos" value="1.203" icon={<CheckCircle />} color="#16A34A" sublabel="Vigentes y publicados" />
+            <KPICard label="Documentos Activos" value={fmtN(kpis?.documentos_activos)} icon={<CheckCircle />} color="#16A34A" sublabel="Vigentes y publicados" />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <KPICard label="Documentos Vencidos" value="23" icon={<Warning />} color="#DC2626" sublabel="Requieren renovación" />
+            <KPICard label="Documentos Vencidos" value={fmtN(kpis?.documentos_vencidos)} icon={<Warning />} color="#DC2626" sublabel="Requieren renovación" />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <KPICard label="Próximos a Vencer" value="67" icon={<Schedule />} color="#D97706" sublabel="Menos de 30 días" />
+            <KPICard label="Próximos a Vencer" value={fmtN(kpis?.documentos_proximos_vencer)} icon={<Schedule />} color="#D97706" sublabel="Menos de 30 días" />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <KPICard label="Firmas Pendientes" value="14" icon={<Draw />} color="#2563EB" sublabel="Esperando firma digital" />
+            <KPICard label="Firmas Pendientes" value={fmtN(kpis?.firmas_pendientes)} icon={<Draw />} color="#2563EB" sublabel="Esperando firma digital" />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <KPICard label="Cumplimiento" value="91.4%" icon={<Shield />} color={DMS_COLOR} sublabel="Índice documental" />
+            <KPICard label="Cumplimiento" value={`${(kpis?.cumplimiento_pct ?? 0).toFixed(1)}%`} icon={<Shield />} color={DMS_COLOR} sublabel="Índice documental" />
           </Grid>
         </Grid>
 
@@ -279,21 +287,23 @@ export default function DMSDashboard() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {DOCUMENTOS_RECIENTES.map((doc) => (
-                    <TableRow key={doc.codigo} hover sx={{ '& td': { fontSize: 12, py: 1 } }}>
-                      <TableCell sx={{ fontWeight: 700, color: DMS_COLOR, fontFamily: 'monospace' }}>{doc.codigo}</TableCell>
+                  {recientes.length === 0 ? (
+                    <TableRow><TableCell colSpan={8} align="center" sx={{ py: 5, color: 'text.secondary', fontSize: 13 }}>Aún no hay documentos en el repositorio</TableCell></TableRow>
+                  ) : recientes.map((doc) => (
+                    <TableRow key={doc.id} hover sx={{ '& td': { fontSize: 12, py: 1 } }}>
+                      <TableCell sx={{ fontWeight: 700, color: DMS_COLOR, fontFamily: 'monospace' }}>{doc.codigo ?? `DOC-${doc.id}`}</TableCell>
                       <TableCell sx={{ maxWidth: 240 }}>
                         <Typography fontSize={12} noWrap>{doc.nombre}</Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography fontSize={11} color="text.secondary">{doc.tipo}</Typography>
+                        <Typography fontSize={11} color="text.secondary">{doc.tipo_nombre ?? '—'}</Typography>
                       </TableCell>
                       <TableCell><EstadoChip estado={doc.estado} /></TableCell>
                       <TableCell>
-                        <Chip label={doc.version} size="small" sx={{ fontSize: 10, height: 20, bgcolor: alpha(DMS_COLOR, 0.08), color: DMS_COLOR, fontWeight: 700 }} />
+                        <Chip label={`v${doc.version_actual}`} size="small" sx={{ fontSize: 10, height: 20, bgcolor: alpha(DMS_COLOR, 0.08), color: DMS_COLOR, fontWeight: 700 }} />
                       </TableCell>
-                      <TableCell>{doc.area}</TableCell>
-                      <TableCell sx={{ color: 'text.secondary' }}>{doc.fecha}</TableCell>
+                      <TableCell>{doc.propietario_nombre ?? '—'}</TableCell>
+                      <TableCell sx={{ color: 'text.secondary' }}>{fmtFecha(doc.updated_at)}</TableCell>
                       <TableCell>
                         <Visibility sx={{ fontSize: 16, color: 'text.disabled', cursor: 'pointer', '&:hover': { color: DMS_COLOR } }} />
                       </TableCell>
@@ -389,17 +399,21 @@ export default function DMSDashboard() {
                   Documentos por Categoría
                 </Typography>
                 <Stack spacing={1.5}>
-                  {CATEGORIAS_CHART.map((cat) => (
-                    <Box key={cat.nombre}>
+                  {categorias.length === 0 ? (
+                    <Typography fontSize={12.5} color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>Sin categorías configuradas</Typography>
+                  ) : categorias.map((cat: any) => {
+                    const cant = cat.total_documentos ?? cat.documentos_count ?? 0
+                    return (
+                    <Box key={cat.id ?? cat.nombre}>
                       <Stack direction="row" justifyContent="space-between" mb={0.5}>
                         <Typography fontSize={12} fontWeight={600}>{cat.nombre}</Typography>
-                        <Typography fontSize={12} color="text.secondary">{cat.cantidad}</Typography>
+                        <Typography fontSize={12} color="text.secondary">{cant}</Typography>
                       </Stack>
                       <Box sx={{ height: 8, borderRadius: 4, bgcolor: '#F3F4F6', overflow: 'hidden' }}>
                         <Box
                           sx={{
                             height: '100%',
-                            width: `${cat.pct}%`,
+                            width: `${Math.round((cant / maxCat) * 100)}%`,
                             borderRadius: 4,
                             bgcolor: DMS_COLOR,
                             transition: 'width 0.6s ease',
@@ -407,7 +421,8 @@ export default function DMSDashboard() {
                         />
                       </Box>
                     </Box>
-                  ))}
+                    )
+                  })}
                 </Stack>
               </CardContent>
             </Card>
