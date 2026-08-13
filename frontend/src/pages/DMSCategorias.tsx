@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
   Box,
   Typography,
@@ -21,14 +21,12 @@ import {
   FormControlLabel,
   Tooltip,
   Divider,
-  Badge,
+  CircularProgress,
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
 import {
   Add,
-  Edit,
   Delete,
-  DragHandle,
   Description,
   DirectionsCar,
   Person,
@@ -42,226 +40,180 @@ import {
   CalendarMonth,
   List as ListIcon,
 } from '@mui/icons-material'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { apiClient } from '@/api/client'
+import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
 
 const DMS_COLOR = '#0E7490'
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
-
-interface MetaField {
-  id: number
-  etiqueta: string
-  tipo: 'texto' | 'numero' | 'fecha' | 'lista'
-  obligatorio: boolean
-}
-
-interface TipoDoc {
-  id: number
-  nombre: string
-  requiereFirma: boolean
-  requiereAprobacion: boolean
-  extensiones: string[]
-  diasVigencia: number
-  campos: MetaField[]
-}
+// ─── Tipos ────────────────────────────────────────────────────────────────────
 
 interface Categoria {
   id: number
   nombre: string
-  codigo: string
-  color: string
-  icon: React.ReactElement
-  tipos: TipoDoc[]
+  codigo?: string | null
+  color?: string | null
+  icono?: string | null
+  activo: boolean
+}
+interface TipoDoc {
+  id: number
+  nombre: string
+  categoria_id: number
+  requiere_firma: boolean
+  requiere_aprobacion: boolean
+  extensiones_permitidas?: string | null
+  dias_vigencia?: number | null
+  activo: boolean
+}
+interface Campo {
+  id: number
+  tipo_documento_id: number
+  etiqueta: string
+  nombre: string
+  tipo_dato: string
+  requerido: boolean
+  orden: number
 }
 
-const CATEGORIAS: Categoria[] = [
-  {
-    id: 1, nombre: 'Contratos', codigo: 'CON', color: '#7C3AED',
-    icon: <Description />,
-    tipos: [
-      { id: 101, nombre: 'Contrato Laboral', requiereFirma: true, requiereAprobacion: true, extensiones: ['pdf', 'docx'], diasVigencia: 365, campos: [
-        { id: 1, etiqueta: 'Número contrato', tipo: 'texto', obligatorio: true },
-        { id: 2, etiqueta: 'Nombre empleado', tipo: 'texto', obligatorio: true },
-        { id: 3, etiqueta: 'Salario mensual', tipo: 'numero', obligatorio: true },
-        { id: 4, etiqueta: 'Fecha inicio', tipo: 'fecha', obligatorio: true },
-      ]},
-      { id: 102, nombre: 'Contrato Comercial', requiereFirma: true, requiereAprobacion: true, extensiones: ['pdf', 'docx'], diasVigencia: 365, campos: [
-        { id: 5, etiqueta: 'Número contrato', tipo: 'texto', obligatorio: true },
-        { id: 6, etiqueta: 'Cliente / Empresa', tipo: 'texto', obligatorio: true },
-        { id: 7, etiqueta: 'Valor contrato', tipo: 'numero', obligatorio: false },
-      ]},
-      { id: 103, nombre: 'Contrato de Servicios', requiereFirma: true, requiereAprobacion: false, extensiones: ['pdf'], diasVigencia: 180, campos: [] },
-      { id: 104, nombre: 'Acuerdo de Confidencialidad (NDA)', requiereFirma: true, requiereAprobacion: false, extensiones: ['pdf', 'docx'], diasVigencia: 730, campos: [] },
-      { id: 105, nombre: 'Otrosí / Adición', requiereFirma: true, requiereAprobacion: true, extensiones: ['pdf'], diasVigencia: 0, campos: [] },
-      { id: 106, nombre: 'Contrato Arrendamiento', requiereFirma: true, requiereAprobacion: true, extensiones: ['pdf'], diasVigencia: 365, campos: [] },
-      { id: 107, nombre: 'Contrato Marco', requiereFirma: true, requiereAprobacion: true, extensiones: ['pdf', 'docx'], diasVigencia: 365, campos: [] },
-      { id: 108, nombre: 'Promesa de Compraventa', requiereFirma: true, requiereAprobacion: true, extensiones: ['pdf'], diasVigencia: 90, campos: [] },
-    ],
-  },
-  {
-    id: 2, nombre: 'Vehículos', codigo: 'VEH', color: '#0E7490',
-    icon: <DirectionsCar />,
-    tipos: [
-      { id: 201, nombre: 'SOAT', requiereFirma: false, requiereAprobacion: false, extensiones: ['pdf', 'jpg'], diasVigencia: 365, campos: [
-        { id: 10, etiqueta: 'Placa vehículo', tipo: 'texto', obligatorio: true },
-        { id: 11, etiqueta: 'Número póliza', tipo: 'texto', obligatorio: true },
-        { id: 12, etiqueta: 'Aseguradora', tipo: 'lista', obligatorio: true },
-      ]},
-      { id: 202, nombre: 'Revisión Técnico-Mecánica (RTM)', requiereFirma: false, requiereAprobacion: false, extensiones: ['pdf'], diasVigencia: 730, campos: [] },
-      { id: 203, nombre: 'Tarjeta de Propiedad', requiereFirma: false, requiereAprobacion: false, extensiones: ['pdf', 'jpg'], diasVigencia: 0, campos: [] },
-      { id: 204, nombre: 'Seguro Todo Riesgo', requiereFirma: false, requiereAprobacion: true, extensiones: ['pdf'], diasVigencia: 365, campos: [] },
-      { id: 205, nombre: 'Licencia de Tránsito', requiereFirma: false, requiereAprobacion: false, extensiones: ['pdf', 'jpg'], diasVigencia: 365, campos: [] },
-      { id: 206, nombre: 'Permiso de Operación', requiereFirma: false, requiereAprobacion: true, extensiones: ['pdf'], diasVigencia: 365, campos: [] },
-    ],
-  },
-  {
-    id: 3, nombre: 'Conductores', codigo: 'COD', color: '#D97706',
-    icon: <Person />,
-    tipos: [
-      { id: 301, nombre: 'Licencia de Conducción', requiereFirma: false, requiereAprobacion: false, extensiones: ['pdf', 'jpg'], diasVigencia: 1825, campos: [
-        { id: 20, etiqueta: 'Número licencia', tipo: 'texto', obligatorio: true },
-        { id: 21, etiqueta: 'Categoría', tipo: 'lista', obligatorio: true },
-        { id: 22, etiqueta: 'Fecha vencimiento', tipo: 'fecha', obligatorio: true },
-      ]},
-      { id: 302, nombre: 'Examen Médico Ocupacional', requiereFirma: false, requiereAprobacion: false, extensiones: ['pdf'], diasVigencia: 365, campos: [] },
-      { id: 303, nombre: 'Certificado Capacitación PESV', requiereFirma: false, requiereAprobacion: false, extensiones: ['pdf'], diasVigencia: 365, campos: [] },
-      { id: 304, nombre: 'Antecedentes Judiciales', requiereFirma: false, requiereAprobacion: false, extensiones: ['pdf', 'jpg'], diasVigencia: 90, campos: [] },
-      { id: 305, nombre: 'Hoja de Vida', requiereFirma: false, requiereAprobacion: false, extensiones: ['pdf', 'docx'], diasVigencia: 0, campos: [] },
-    ],
-  },
-  {
-    id: 4, nombre: 'Financiero', codigo: 'FIN', color: '#16A34A',
-    icon: <AccountBalance />,
-    tipos: [
-      { id: 401, nombre: 'Factura de Venta', requiereFirma: false, requiereAprobacion: true, extensiones: ['pdf', 'xml'], diasVigencia: 0, campos: [] },
-      { id: 402, nombre: 'Orden de Compra', requiereFirma: true, requiereAprobacion: true, extensiones: ['pdf', 'xlsx'], diasVigencia: 0, campos: [] },
-      { id: 403, nombre: 'Remesa de Transporte', requiereFirma: true, requiereAprobacion: false, extensiones: ['pdf'], diasVigencia: 0, campos: [] },
-      { id: 404, nombre: 'Cuenta de Cobro', requiereFirma: false, requiereAprobacion: true, extensiones: ['pdf', 'docx'], diasVigencia: 0, campos: [] },
-      { id: 405, nombre: 'Comprobante de Pago', requiereFirma: false, requiereAprobacion: false, extensiones: ['pdf', 'jpg'], diasVigencia: 0, campos: [] },
-      { id: 406, nombre: 'Estado de Cuenta', requiereFirma: false, requiereAprobacion: false, extensiones: ['pdf', 'xlsx'], diasVigencia: 0, campos: [] },
-      { id: 407, nombre: 'Liquidación de Flete', requiereFirma: true, requiereAprobacion: true, extensiones: ['pdf', 'xlsx'], diasVigencia: 0, campos: [] },
-    ],
-  },
-  {
-    id: 5, nombre: 'RR.HH.', codigo: 'RRH', color: '#DC2626',
-    icon: <PeopleAlt />,
-    tipos: [
-      { id: 501, nombre: 'Colilla de Nómina', requiereFirma: false, requiereAprobacion: false, extensiones: ['pdf'], diasVigencia: 0, campos: [] },
-      { id: 502, nombre: 'Incapacidad Médica', requiereFirma: false, requiereAprobacion: true, extensiones: ['pdf', 'jpg'], diasVigencia: 0, campos: [] },
-      { id: 503, nombre: 'Solicitud de Vacaciones', requiereFirma: true, requiereAprobacion: true, extensiones: ['pdf', 'docx'], diasVigencia: 0, campos: [] },
-      { id: 504, nombre: 'Acta de Descargo', requiereFirma: true, requiereAprobacion: false, extensiones: ['pdf', 'docx'], diasVigencia: 0, campos: [] },
-      { id: 505, nombre: 'Carta de Terminación', requiereFirma: true, requiereAprobacion: true, extensiones: ['pdf'], diasVigencia: 0, campos: [] },
-      { id: 506, nombre: 'Certificado Laboral', requiereFirma: true, requiereAprobacion: false, extensiones: ['pdf'], diasVigencia: 90, campos: [] },
-      { id: 507, nombre: 'Evaluación de Desempeño', requiereFirma: true, requiereAprobacion: true, extensiones: ['pdf', 'xlsx'], diasVigencia: 0, campos: [] },
-      { id: 508, nombre: 'Acuerdo de Teletrabajo', requiereFirma: true, requiereAprobacion: true, extensiones: ['pdf', 'docx'], diasVigencia: 365, campos: [] },
-      { id: 509, nombre: 'Plan de Capacitación', requiereFirma: false, requiereAprobacion: true, extensiones: ['pdf', 'xlsx'], diasVigencia: 365, campos: [] },
-    ],
-  },
-]
+// ─── Iconos y colores ──────────────────────────────────────────────────────────
 
-// ─── Tipo field icon ──────────────────────────────────────────────────────────
+const ICON_OPTS: { key: string; label: string; el: React.ReactElement }[] = [
+  { key: 'folder', label: 'Carpeta general', el: <FolderSpecial /> },
+  { key: 'description', label: 'Documento', el: <Description /> },
+  { key: 'car', label: 'Vehículo', el: <DirectionsCar /> },
+  { key: 'person', label: 'Persona', el: <Person /> },
+  { key: 'people', label: 'Recursos humanos', el: <PeopleAlt /> },
+  { key: 'finance', label: 'Financiero', el: <AccountBalance /> },
+]
+const iconoDe = (key?: string | null): React.ReactElement => ICON_OPTS.find((o) => o.key === key)?.el ?? <FolderSpecial />
+const colorDe = (c?: string | null) => c || DMS_COLOR
+
+const COLORES = ['#0E7490', '#7C3AED', '#16A34A', '#D97706', '#DC2626', '#2563EB', '#BE185D', '#374151']
+const EXTS = ['pdf', 'docx', 'xlsx', 'jpg', 'png', 'xml']
+const TIPO_DATO_LABEL: Record<string, string> = { texto: 'Texto', numero: 'Número', fecha: 'Fecha', lista: 'Lista' }
 
 function TipoFieldIcon({ tipo }: { tipo: string }) {
   switch (tipo) {
-    case 'texto':  return <TextFields sx={{ fontSize: 16, color: '#2563EB' }} />
     case 'numero': return <Numbers sx={{ fontSize: 16, color: '#16A34A' }} />
     case 'fecha':  return <CalendarMonth sx={{ fontSize: 16, color: '#D97706' }} />
     case 'lista':  return <ListIcon sx={{ fontSize: 16, color: '#7C3AED' }} />
-    default: return <TextFields sx={{ fontSize: 16 }} />
+    default:       return <TextFields sx={{ fontSize: 16, color: '#2563EB' }} />
   }
 }
 
 // ─── Dialogs ──────────────────────────────────────────────────────────────────
 
-function DialogNuevaCategoria({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const COLORES = ['#0E7490', '#7C3AED', '#16A34A', '#D97706', '#DC2626', '#2563EB', '#BE185D', '#374151']
+function DialogNuevaCategoria({ open, onClose, onSaved }: { open: boolean; onClose: () => void; onSaved: () => void }) {
+  const [nombre, setNombre] = useState('')
+  const [codigo, setCodigo] = useState('')
+  const [icono, setIcono] = useState('folder')
   const [colorSel, setColorSel] = useState('#0E7490')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => { if (open) { setNombre(''); setCodigo(''); setIcono('folder'); setColorSel('#0E7490') } }, [open])
+
+  const guardar = async () => {
+    if (!nombre.trim()) { toast.error('El nombre es obligatorio'); return }
+    setSaving(true)
+    try {
+      await apiClient.post('/dms/categorias', { nombre: nombre.trim(), codigo: codigo.trim() || undefined, icono, color: colorSel })
+      toast.success('Categoría creada'); onSaved(); onClose()
+    } catch (e: any) { toast.error(e.response?.data?.detail || 'No se pudo crear') }
+    finally { setSaving(false) }
+  }
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: '16px' } }}>
       <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Nueva Categoría</DialogTitle>
       <DialogContent>
         <Stack spacing={2.5} mt={1}>
-          <TextField label="Nombre de la categoría" size="small" fullWidth />
-          <TextField label="Código (3 letras)" size="small" fullWidth inputProps={{ maxLength: 3 }} />
+          <TextField label="Nombre de la categoría" size="small" fullWidth value={nombre} onChange={(e) => setNombre(e.target.value)} />
+          <TextField label="Código (3 letras)" size="small" fullWidth inputProps={{ maxLength: 3 }} value={codigo} onChange={(e) => setCodigo(e.target.value.toUpperCase())} />
           <FormControl size="small" fullWidth>
             <InputLabel>Icono</InputLabel>
-            <Select label="Icono" defaultValue="folder">
-              <MenuItem value="folder">Carpeta general</MenuItem>
-              <MenuItem value="description">Documento</MenuItem>
-              <MenuItem value="car">Vehículo</MenuItem>
-              <MenuItem value="person">Persona</MenuItem>
-              <MenuItem value="finance">Financiero</MenuItem>
+            <Select label="Icono" value={icono} onChange={(e) => setIcono(String(e.target.value))}>
+              {ICON_OPTS.map((o) => <MenuItem key={o.key} value={o.key}>{o.label}</MenuItem>)}
             </Select>
           </FormControl>
           <Box>
             <Typography fontSize={12} fontWeight={600} color="text.secondary" mb={1}>Color</Typography>
-            <Stack direction="row" spacing={1} flexWrap="wrap">
+            <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
               {COLORES.map((c) => (
-                <Box
-                  key={c}
-                  onClick={() => setColorSel(c)}
-                  sx={{
-                    width: 28, height: 28, borderRadius: '50%', bgcolor: c, cursor: 'pointer',
-                    border: colorSel === c ? `3px solid ${alpha(c, 0.5)}` : '2px solid transparent',
-                    outline: colorSel === c ? `2px solid ${c}` : 'none',
-                    transition: 'all 0.15s',
-                  }}
-                />
+                <Box key={c} onClick={() => setColorSel(c)}
+                  sx={{ width: 28, height: 28, borderRadius: '50%', bgcolor: c, cursor: 'pointer', border: colorSel === c ? `3px solid ${alpha(c, 0.5)}` : '2px solid transparent', outline: colorSel === c ? `2px solid ${c}` : 'none', transition: 'all 0.15s' }} />
               ))}
             </Stack>
           </Box>
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2.5 }}>
-        <Button onClick={onClose} sx={{ color: 'text.secondary' }}>Cancelar</Button>
-        <Button variant="contained" onClick={onClose} sx={{ bgcolor: DMS_COLOR, '&:hover': { bgcolor: '#0C6479' }, borderRadius: '8px' }}>Guardar</Button>
+        <Button onClick={onClose} sx={{ color: 'text.secondary' }} disabled={saving}>Cancelar</Button>
+        <Button variant="contained" onClick={guardar} disabled={saving} sx={{ bgcolor: DMS_COLOR, '&:hover': { bgcolor: '#0C6479' }, borderRadius: '8px' }}>{saving ? 'Guardando…' : 'Guardar'}</Button>
       </DialogActions>
     </Dialog>
   )
 }
 
-function DialogNuevoTipo({ open, onClose, categorias }: { open: boolean; onClose: () => void; categorias: string[] }) {
+function DialogNuevoTipo({ open, onClose, onSaved, categoria }: { open: boolean; onClose: () => void; onSaved: () => void; categoria: Categoria | null }) {
+  const [nombre, setNombre] = useState('')
+  const [dias, setDias] = useState('365')
+  const [exts, setExts] = useState<string[]>(['pdf'])
+  const [firma, setFirma] = useState(false)
+  const [aprob, setAprob] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => { if (open) { setNombre(''); setDias('365'); setExts(['pdf']); setFirma(false); setAprob(false) } }, [open])
+
+  const guardar = async () => {
+    if (!categoria) { toast.error('Selecciona una categoría'); return }
+    if (!nombre.trim()) { toast.error('El nombre es obligatorio'); return }
+    setSaving(true)
+    try {
+      await apiClient.post('/dms/tipos-documento', {
+        nombre: nombre.trim(),
+        categoria_id: categoria.id,
+        dias_vigencia: dias ? Number(dias) : null,
+        extensiones_permitidas: exts.join(','),
+        requiere_firma: firma,
+        requiere_aprobacion: aprob,
+      })
+      toast.success('Tipo creado'); onSaved(); onClose()
+    } catch (e: any) { toast.error(e.response?.data?.detail || 'No se pudo crear') }
+    finally { setSaving(false) }
+  }
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '16px' } }}>
-      <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Nuevo Tipo de Documento</DialogTitle>
+      <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Nuevo Tipo de Documento{categoria ? ` — ${categoria.nombre}` : ''}</DialogTitle>
       <DialogContent>
         <Grid container spacing={2} mt={0.5}>
           <Grid size={{ xs: 12 }}>
-            <TextField label="Nombre del tipo" size="small" fullWidth />
+            <TextField label="Nombre del tipo" size="small" fullWidth value={nombre} onChange={(e) => setNombre(e.target.value)} />
           </Grid>
           <Grid size={{ xs: 12, sm: 6 }}>
-            <FormControl size="small" fullWidth>
-              <InputLabel>Categoría</InputLabel>
-              <Select label="Categoría" defaultValue="">
-                {categorias.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
-              </Select>
-            </FormControl>
+            <TextField label="Días de vigencia (0 = sin vencimiento)" size="small" fullWidth type="number" value={dias} onChange={(e) => setDias(e.target.value)} />
           </Grid>
           <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField label="Días de vigencia (0 = sin vencimiento)" size="small" fullWidth type="number" defaultValue={365} />
-          </Grid>
-          <Grid size={{ xs: 12 }}>
             <FormControl size="small" fullWidth>
               <InputLabel>Extensiones permitidas</InputLabel>
-              <Select label="Extensiones permitidas" multiple defaultValue={['pdf']} renderValue={(sel) => (sel as string[]).join(', ')}>
-                {['pdf', 'docx', 'xlsx', 'jpg', 'png', 'xml'].map((ext) => (
-                  <MenuItem key={ext} value={ext}>.{ext}</MenuItem>
-                ))}
+              <Select label="Extensiones permitidas" multiple value={exts} onChange={(e) => setExts(typeof e.target.value === 'string' ? e.target.value.split(',') : (e.target.value as string[]))} renderValue={(sel) => (sel as string[]).map((s) => `.${s}`).join(', ')}>
+                {EXTS.map((ext) => <MenuItem key={ext} value={ext}>.{ext}</MenuItem>)}
               </Select>
             </FormControl>
           </Grid>
           <Grid size={{ xs: 12 }}>
             <Stack direction="row" spacing={3}>
-              <FormControlLabel control={<Switch size="small" />} label={<Typography fontSize={13}>Requiere Firma</Typography>} />
-              <FormControlLabel control={<Switch size="small" />} label={<Typography fontSize={13}>Requiere Aprobación</Typography>} />
+              <FormControlLabel control={<Switch size="small" checked={firma} onChange={(e) => setFirma(e.target.checked)} />} label={<Typography fontSize={13}>Requiere Firma</Typography>} />
+              <FormControlLabel control={<Switch size="small" checked={aprob} onChange={(e) => setAprob(e.target.checked)} />} label={<Typography fontSize={13}>Requiere Aprobación</Typography>} />
             </Stack>
           </Grid>
         </Grid>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2.5 }}>
-        <Button onClick={onClose} sx={{ color: 'text.secondary' }}>Cancelar</Button>
-        <Button variant="contained" onClick={onClose} sx={{ bgcolor: DMS_COLOR, '&:hover': { bgcolor: '#0C6479' }, borderRadius: '8px' }}>Guardar</Button>
+        <Button onClick={onClose} sx={{ color: 'text.secondary' }} disabled={saving}>Cancelar</Button>
+        <Button variant="contained" onClick={guardar} disabled={saving} sx={{ bgcolor: DMS_COLOR, '&:hover': { bgcolor: '#0C6479' }, borderRadius: '8px' }}>{saving ? 'Guardando…' : 'Guardar'}</Button>
       </DialogActions>
     </Dialog>
   )
@@ -270,13 +222,72 @@ function DialogNuevoTipo({ open, onClose, categorias }: { open: boolean; onClose
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DMSCategorias() {
-  const [catSel, setCatSel] = useState<Categoria>(CATEGORIAS[0])
-  const [tipoSel, setTipoSel] = useState<TipoDoc>(CATEGORIAS[0].tipos[0])
+  const qc = useQueryClient()
+  const [catSelId, setCatSelId] = useState<number | null>(null)
+  const [tipoSelId, setTipoSelId] = useState<number | null>(null)
   const [catOpen, setCatOpen] = useState(false)
   const [tipoOpen, setTipoOpen] = useState(false)
 
-  const TIPO_DATO_LABEL: Record<string, string> = {
-    texto: 'Texto', numero: 'Número', fecha: 'Fecha', lista: 'Lista',
+  // Nuevo campo inline
+  const [nuevoCampo, setNuevoCampo] = useState('')
+  const [nuevoCampoTipo, setNuevoCampoTipo] = useState('texto')
+  const [nuevoCampoOblig, setNuevoCampoOblig] = useState(false)
+
+  const { data: categorias = [], isLoading: loadingCat } = useQuery<Categoria[]>({
+    queryKey: ['dms-categorias-cfg'],
+    queryFn: () => apiClient.get('/dms/categorias').then((r) => r.data),
+  })
+
+  // Selección por defecto
+  useEffect(() => {
+    if (categorias.length && (catSelId === null || !categorias.some((c) => c.id === catSelId))) {
+      setCatSelId(categorias[0].id)
+    }
+  }, [categorias, catSelId])
+
+  const catSel = useMemo(() => categorias.find((c) => c.id === catSelId) ?? null, [categorias, catSelId])
+
+  const { data: tipos = [], isLoading: loadingTipos } = useQuery<TipoDoc[]>({
+    queryKey: ['dms-tipos-cfg', catSelId],
+    queryFn: () => apiClient.get('/dms/tipos-documento', { params: { categoria_id: catSelId } }).then((r) => r.data),
+    enabled: catSelId !== null,
+  })
+
+  useEffect(() => {
+    if (tipos.length && (tipoSelId === null || !tipos.some((t) => t.id === tipoSelId))) setTipoSelId(tipos[0].id)
+    if (!tipos.length) setTipoSelId(null)
+  }, [tipos, tipoSelId])
+
+  const tipoSel = useMemo(() => tipos.find((t) => t.id === tipoSelId) ?? null, [tipos, tipoSelId])
+
+  const { data: campos = [], isLoading: loadingCampos } = useQuery<Campo[]>({
+    queryKey: ['dms-campos-cfg', tipoSelId],
+    queryFn: () => apiClient.get(`/dms/tipos-documento/${tipoSelId}/campos`).then((r) => r.data),
+    enabled: tipoSelId !== null,
+  })
+
+  const agregarCampo = async () => {
+    if (!tipoSel) return
+    if (!nuevoCampo.trim()) { toast.error('Escribe la etiqueta del campo'); return }
+    try {
+      await apiClient.post('/dms/campos-metadato', {
+        tipo_documento_id: tipoSel.id,
+        nombre: nuevoCampo.trim().toLowerCase().replace(/\s+/g, '_'),
+        etiqueta: nuevoCampo.trim(),
+        tipo_dato: nuevoCampoTipo,
+        requerido: nuevoCampoOblig,
+        orden: campos.length + 1,
+      })
+      setNuevoCampo(''); setNuevoCampoOblig(false); setNuevoCampoTipo('texto')
+      qc.invalidateQueries({ queryKey: ['dms-campos-cfg', tipoSelId] })
+    } catch (e: any) { toast.error(e.response?.data?.detail || 'No se pudo agregar el campo') }
+  }
+
+  const eliminarCampo = async (id: number) => {
+    try {
+      await apiClient.delete(`/dms/campos-metadato/${id}`)
+      qc.invalidateQueries({ queryKey: ['dms-campos-cfg', tipoSelId] })
+    } catch (e: any) { toast.error(e.response?.data?.detail || 'No se pudo eliminar') }
   }
 
   return (
@@ -304,39 +315,24 @@ export default function DMSCategorias() {
             <Paper elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '14px', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Typography fontSize={13} fontWeight={700}>Categorías</Typography>
-                <Button
-                  size="small"
-                  startIcon={<Add sx={{ fontSize: 14 }} />}
-                  onClick={() => setCatOpen(true)}
-                  sx={{ fontSize: 11, color: DMS_COLOR, fontWeight: 700, py: 0.25 }}
-                >
-                  Nueva
-                </Button>
+                <Button size="small" startIcon={<Add sx={{ fontSize: 14 }} />} onClick={() => setCatOpen(true)} sx={{ fontSize: 11, color: DMS_COLOR, fontWeight: 700, py: 0.25 }}>Nueva</Button>
               </Box>
               <Box sx={{ flex: 1, overflowY: 'auto', py: 1 }}>
-                {CATEGORIAS.map((cat) => {
-                  const isSelected = catSel.id === cat.id
+                {loadingCat ? <Box textAlign="center" py={4}><CircularProgress size={22} /></Box>
+                : categorias.length === 0 ? <Typography fontSize={12} color="text.secondary" sx={{ px: 2, py: 2 }}>Sin categorías. Crea la primera.</Typography>
+                : categorias.map((cat) => {
+                  const isSelected = catSelId === cat.id
+                  const color = colorDe(cat.color)
                   return (
-                    <Box
-                      key={cat.id}
-                      onClick={() => { setCatSel(cat); setTipoSel(cat.tipos[0]) }}
-                      sx={{
-                        display: 'flex', alignItems: 'center', gap: 1.5,
-                        px: 2, py: 1.25, mx: 0.75, cursor: 'pointer', borderRadius: '10px',
-                        bgcolor: isSelected ? alpha(cat.color, 0.1) : 'transparent',
-                        '&:hover': { bgcolor: isSelected ? alpha(cat.color, 0.12) : '#F9FAFB' },
-                      }}
-                    >
-                      <Box sx={{ width: 36, height: 36, borderRadius: '9px', bgcolor: isSelected ? alpha(cat.color, 0.2) : '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        {React.cloneElement(cat.icon, { sx: { fontSize: 18, color: isSelected ? cat.color : '#9CA3AF' } })}
+                    <Box key={cat.id} onClick={() => { setCatSelId(cat.id); setTipoSelId(null) }}
+                      sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.25, mx: 0.75, cursor: 'pointer', borderRadius: '10px', bgcolor: isSelected ? alpha(color, 0.1) : 'transparent', '&:hover': { bgcolor: isSelected ? alpha(color, 0.12) : '#F9FAFB' } }}>
+                      <Box sx={{ width: 36, height: 36, borderRadius: '9px', bgcolor: isSelected ? alpha(color, 0.2) : '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {React.cloneElement(iconoDe(cat.icono), { sx: { fontSize: 18, color: isSelected ? color : '#9CA3AF' } })}
                       </Box>
                       <Box flex={1} overflow="hidden">
-                        <Typography fontSize={13} fontWeight={isSelected ? 700 : 500} color={isSelected ? cat.color : 'text.primary'} noWrap>
-                          {cat.nombre}
-                        </Typography>
-                        <Typography fontSize={11} color="text.disabled">{cat.codigo}</Typography>
+                        <Typography fontSize={13} fontWeight={isSelected ? 700 : 500} color={isSelected ? color : 'text.primary'} noWrap>{cat.nombre}</Typography>
+                        <Typography fontSize={11} color="text.disabled">{cat.codigo || '—'}</Typography>
                       </Box>
-                      <Badge badgeContent={cat.tipos.length} color="default" sx={{ '& .MuiBadge-badge': { fontSize: 10, height: 18, minWidth: 18, bgcolor: isSelected ? alpha(cat.color, 0.15) : '#F3F4F6', color: isSelected ? cat.color : '#6B7280', fontWeight: 700 } }} />
                     </Box>
                   )
                 })}
@@ -350,57 +346,23 @@ export default function DMSCategorias() {
               <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Stack direction="row" alignItems="center" spacing={1}>
                   <Typography fontSize={13} fontWeight={700}>Tipos</Typography>
-                  <Chip label={catSel.nombre} size="small" sx={{ fontSize: 10, height: 20, bgcolor: alpha(catSel.color, 0.1), color: catSel.color, fontWeight: 700 }} />
+                  {catSel && <Chip label={catSel.nombre} size="small" sx={{ fontSize: 10, height: 20, bgcolor: alpha(colorDe(catSel.color), 0.1), color: colorDe(catSel.color), fontWeight: 700 }} />}
                 </Stack>
-                <Button
-                  size="small"
-                  startIcon={<Add sx={{ fontSize: 14 }} />}
-                  onClick={() => setTipoOpen(true)}
-                  sx={{ fontSize: 11, color: DMS_COLOR, fontWeight: 700, py: 0.25 }}
-                >
-                  Nuevo
-                </Button>
+                <Button size="small" startIcon={<Add sx={{ fontSize: 14 }} />} onClick={() => catSel && setTipoOpen(true)} disabled={!catSel} sx={{ fontSize: 11, color: DMS_COLOR, fontWeight: 700, py: 0.25 }}>Nuevo</Button>
               </Box>
               <Box sx={{ flex: 1, overflowY: 'auto', py: 1 }}>
-                {catSel.tipos.map((tipo) => {
-                  const isSelected = tipoSel?.id === tipo.id
+                {loadingTipos ? <Box textAlign="center" py={4}><CircularProgress size={22} /></Box>
+                : tipos.length === 0 ? <Typography fontSize={12} color="text.secondary" sx={{ px: 2, py: 2 }}>Esta categoría no tiene tipos configurados.</Typography>
+                : tipos.map((tipo) => {
+                  const isSelected = tipoSelId === tipo.id
                   return (
-                    <Box
-                      key={tipo.id}
-                      onClick={() => setTipoSel(tipo)}
-                      sx={{
-                        px: 2, py: 1.25, mx: 0.75, cursor: 'pointer', borderRadius: '10px',
-                        bgcolor: isSelected ? alpha(DMS_COLOR, 0.08) : 'transparent',
-                        '&:hover': { bgcolor: isSelected ? alpha(DMS_COLOR, 0.1) : '#F9FAFB' },
-                      }}
-                    >
-                      <Typography fontSize={13} fontWeight={isSelected ? 700 : 500} color={isSelected ? DMS_COLOR : 'text.primary'}>
-                        {tipo.nombre}
-                      </Typography>
+                    <Box key={tipo.id} onClick={() => setTipoSelId(tipo.id)}
+                      sx={{ px: 2, py: 1.25, mx: 0.75, cursor: 'pointer', borderRadius: '10px', bgcolor: isSelected ? alpha(DMS_COLOR, 0.08) : 'transparent', '&:hover': { bgcolor: isSelected ? alpha(DMS_COLOR, 0.1) : '#F9FAFB' } }}>
+                      <Typography fontSize={13} fontWeight={isSelected ? 700 : 500} color={isSelected ? DMS_COLOR : 'text.primary'}>{tipo.nombre}</Typography>
                       <Stack direction="row" spacing={0.75} mt={0.5} flexWrap="wrap" gap={0.5}>
-                        {tipo.requiereFirma && (
-                          <Chip
-                            icon={<Draw sx={{ fontSize: 11 }} />}
-                            label="Requiere Firma"
-                            size="small"
-                            sx={{ fontSize: 9, height: 18, fontWeight: 700, bgcolor: alpha('#2563EB', 0.1), color: '#2563EB', '& .MuiChip-icon': { fontSize: 11, color: '#2563EB' } }}
-                          />
-                        )}
-                        {tipo.requiereAprobacion && (
-                          <Chip
-                            icon={<CheckCircle sx={{ fontSize: 11 }} />}
-                            label="Requiere Aprobación"
-                            size="small"
-                            sx={{ fontSize: 9, height: 18, fontWeight: 700, bgcolor: alpha('#16A34A', 0.1), color: '#16A34A', '& .MuiChip-icon': { fontSize: 11, color: '#16A34A' } }}
-                          />
-                        )}
-                        {tipo.diasVigencia > 0 && (
-                          <Chip
-                            label={`${tipo.diasVigencia}d vigencia`}
-                            size="small"
-                            sx={{ fontSize: 9, height: 18, fontWeight: 600, bgcolor: '#F3F4F6', color: '#6B7280' }}
-                          />
-                        )}
+                        {tipo.requiere_firma && <Chip icon={<Draw sx={{ fontSize: 11 }} />} label="Requiere Firma" size="small" sx={{ fontSize: 9, height: 18, fontWeight: 700, bgcolor: alpha('#2563EB', 0.1), color: '#2563EB', '& .MuiChip-icon': { fontSize: 11, color: '#2563EB' } }} />}
+                        {tipo.requiere_aprobacion && <Chip icon={<CheckCircle sx={{ fontSize: 11 }} />} label="Requiere Aprobación" size="small" sx={{ fontSize: 9, height: 18, fontWeight: 700, bgcolor: alpha('#16A34A', 0.1), color: '#16A34A', '& .MuiChip-icon': { fontSize: 11, color: '#16A34A' } }} />}
+                        {!!tipo.dias_vigencia && tipo.dias_vigencia > 0 && <Chip label={`${tipo.dias_vigencia}d vigencia`} size="small" sx={{ fontSize: 9, height: 18, fontWeight: 600, bgcolor: '#F3F4F6', color: '#6B7280' }} />}
                       </Stack>
                     </Box>
                   )
@@ -415,84 +377,54 @@ export default function DMSCategorias() {
               <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Box>
                   <Typography fontSize={13} fontWeight={700}>Campos de Metadatos</Typography>
-                  {tipoSel && (
-                    <Typography fontSize={11} color="text.secondary" noWrap>{tipoSel.nombre}</Typography>
-                  )}
+                  {tipoSel && <Typography fontSize={11} color="text.secondary" noWrap>{tipoSel.nombre}</Typography>}
                 </Box>
-                <Button
-                  size="small"
-                  startIcon={<Add sx={{ fontSize: 14 }} />}
-                  sx={{ fontSize: 11, color: DMS_COLOR, fontWeight: 700, py: 0.25 }}
-                >
-                  Campo
-                </Button>
               </Box>
               <Box sx={{ flex: 1, overflowY: 'auto', p: 1.5 }}>
-                {tipoSel && tipoSel.campos.length > 0 ? (
+                {!tipoSel ? (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '80%', gap: 1 }}>
+                    <Description sx={{ fontSize: 40, color: '#D1D5DB' }} />
+                    <Typography fontSize={13} color="text.secondary" textAlign="center">Selecciona un tipo de documento</Typography>
+                  </Box>
+                ) : loadingCampos ? <Box textAlign="center" py={4}><CircularProgress size={22} /></Box>
+                : campos.length > 0 ? (
                   <Stack spacing={1}>
-                    {tipoSel.campos.map((campo) => (
-                      <Box
-                        key={campo.id}
-                        sx={{
-                          display: 'flex', alignItems: 'center', gap: 1.5,
-                          p: 1.5, border: '1px solid #E5E7EB', borderRadius: '10px',
-                          '&:hover': { borderColor: alpha(DMS_COLOR, 0.4), '& .actions': { opacity: 1 } },
-                        }}
-                      >
-                        {/* Drag handle */}
-                        <DragHandle sx={{ fontSize: 18, color: '#D1D5DB', cursor: 'grab' }} />
-
-                        {/* Field type icon */}
+                    {campos.map((campo) => (
+                      <Box key={campo.id} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1.5, border: '1px solid #E5E7EB', borderRadius: '10px', '&:hover': { borderColor: alpha(DMS_COLOR, 0.4), '& .actions': { opacity: 1 } } }}>
                         <Box sx={{ width: 28, height: 28, borderRadius: '7px', bgcolor: '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <TipoFieldIcon tipo={campo.tipo} />
+                          <TipoFieldIcon tipo={campo.tipo_dato} />
                         </Box>
-
-                        {/* Info */}
                         <Box flex={1} overflow="hidden">
                           <Typography fontSize={13} fontWeight={600} noWrap>{campo.etiqueta}</Typography>
                           <Stack direction="row" spacing={0.75} alignItems="center">
-                            <Typography fontSize={11} color="text.secondary">{TIPO_DATO_LABEL[campo.tipo]}</Typography>
-                            {campo.obligatorio && (
-                              <Chip label="Obligatorio" size="small" sx={{ fontSize: 9, height: 16, fontWeight: 700, bgcolor: alpha('#DC2626', 0.08), color: '#DC2626' }} />
-                            )}
+                            <Typography fontSize={11} color="text.secondary">{TIPO_DATO_LABEL[campo.tipo_dato] ?? campo.tipo_dato}</Typography>
+                            {campo.requerido && <Chip label="Obligatorio" size="small" sx={{ fontSize: 9, height: 16, fontWeight: 700, bgcolor: alpha('#DC2626', 0.08), color: '#DC2626' }} />}
                           </Stack>
                         </Box>
-
-                        {/* Actions */}
                         <Stack direction="row" spacing={0} className="actions" sx={{ opacity: 0, transition: 'opacity 0.15s' }}>
-                          <Tooltip title="Editar"><IconButton size="small"><Edit sx={{ fontSize: 15, color: 'text.disabled' }} /></IconButton></Tooltip>
-                          <Tooltip title="Eliminar"><IconButton size="small"><Delete sx={{ fontSize: 15, color: '#DC2626' }} /></IconButton></Tooltip>
+                          <Tooltip title="Eliminar"><IconButton size="small" onClick={() => eliminarCampo(campo.id)}><Delete sx={{ fontSize: 15, color: '#DC2626' }} /></IconButton></Tooltip>
                         </Stack>
                       </Box>
                     ))}
                   </Stack>
                 ) : (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '80%', gap: 1 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60%', gap: 1 }}>
                     <Description sx={{ fontSize: 40, color: '#D1D5DB' }} />
-                    <Typography fontSize={13} color="text.secondary" textAlign="center">
-                      {tipoSel
-                        ? 'Este tipo de documento no tiene campos de metadatos configurados'
-                        : 'Selecciona un tipo de documento'}
-                    </Typography>
-                    {tipoSel && (
-                      <Button size="small" startIcon={<Add />} sx={{ color: DMS_COLOR, fontSize: 12, mt: 1 }}>
-                        Agregar primer campo
-                      </Button>
-                    )}
+                    <Typography fontSize={13} color="text.secondary" textAlign="center">Este tipo no tiene campos de metadatos configurados</Typography>
                   </Box>
                 )}
               </Box>
 
-              {/* Selector de tipo de dato (inline form) */}
-              {tipoSel && tipoSel.campos.length > 0 && (
+              {/* Agregar nuevo campo (inline) */}
+              {tipoSel && (
                 <>
                   <Divider />
                   <Box sx={{ p: 1.5 }}>
                     <Typography fontSize={12} fontWeight={600} color="text.secondary" mb={1}>Agregar nuevo campo</Typography>
                     <Stack direction="row" spacing={1}>
-                      <TextField size="small" placeholder="Etiqueta del campo" sx={{ flex: 1, '& input': { fontSize: 12 } }} />
+                      <TextField size="small" placeholder="Etiqueta del campo" value={nuevoCampo} onChange={(e) => setNuevoCampo(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') agregarCampo() }} sx={{ flex: 1, '& input': { fontSize: 12 } }} />
                       <FormControl size="small" sx={{ minWidth: 110 }}>
-                        <Select defaultValue="texto" sx={{ fontSize: 12 }}>
+                        <Select value={nuevoCampoTipo} onChange={(e) => setNuevoCampoTipo(String(e.target.value))} sx={{ fontSize: 12 }}>
                           <MenuItem value="texto" sx={{ fontSize: 12 }}>Texto</MenuItem>
                           <MenuItem value="numero" sx={{ fontSize: 12 }}>Número</MenuItem>
                           <MenuItem value="fecha" sx={{ fontSize: 12 }}>Fecha</MenuItem>
@@ -500,16 +432,12 @@ export default function DMSCategorias() {
                         </Select>
                       </FormControl>
                       <Tooltip title="Agregar campo">
-                        <IconButton size="small" sx={{ bgcolor: DMS_COLOR, color: '#fff', '&:hover': { bgcolor: '#0C6479' }, borderRadius: '8px', width: 34, height: 34 }}>
+                        <IconButton size="small" onClick={agregarCampo} sx={{ bgcolor: DMS_COLOR, color: '#fff', '&:hover': { bgcolor: '#0C6479' }, borderRadius: '8px', width: 34, height: 34 }}>
                           <Add sx={{ fontSize: 18 }} />
                         </IconButton>
                       </Tooltip>
                     </Stack>
-                    <FormControlLabel
-                      control={<Switch size="small" />}
-                      label={<Typography fontSize={12} color="text.secondary">Campo obligatorio</Typography>}
-                      sx={{ mt: 0.5 }}
-                    />
+                    <FormControlLabel control={<Switch size="small" checked={nuevoCampoOblig} onChange={(e) => setNuevoCampoOblig(e.target.checked)} />} label={<Typography fontSize={12} color="text.secondary">Campo obligatorio</Typography>} sx={{ mt: 0.5 }} />
                   </Box>
                 </>
               )}
@@ -520,33 +448,35 @@ export default function DMSCategorias() {
         {/* ── Resumen rápido ──────────────────────────────────────────────── */}
         <Paper elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '14px', p: 2.5 }}>
           <Typography fontSize={13} fontWeight={700} mb={2}>Resumen de Configuración</Typography>
-          <Grid container spacing={2}>
-            {CATEGORIAS.map((cat) => (
-              <Grid key={cat.id} size={{ xs: 12, sm: 6, md: 'auto' }} sx={{ flex: 1 }}>
-                <Box sx={{ p: 1.5, border: `1px solid ${alpha(cat.color, 0.3)}`, borderRadius: '10px', bgcolor: alpha(cat.color, 0.04) }}>
-                  <Stack direction="row" alignItems="center" spacing={1} mb={1}>
-                    {React.cloneElement(cat.icon, { sx: { fontSize: 16, color: cat.color } })}
-                    <Typography fontSize={12} fontWeight={700} color={cat.color}>{cat.nombre}</Typography>
-                  </Stack>
-                  <Typography fontSize={24} fontWeight={800} color={cat.color}>{cat.tipos.length}</Typography>
-                  <Typography fontSize={11} color="text.secondary">tipos de documento</Typography>
-                  <Divider sx={{ my: 1 }} />
-                  <Typography fontSize={11} color="text.disabled">
-                    {cat.tipos.filter((t) => t.requiereFirma).length} con firma ·{' '}
-                    {cat.tipos.filter((t) => t.requiereAprobacion).length} con aprobación
-                  </Typography>
-                </Box>
-              </Grid>
-            ))}
-          </Grid>
+          {categorias.length === 0 ? (
+            <Typography fontSize={12} color="text.secondary">Aún no hay categorías configuradas.</Typography>
+          ) : (
+            <Grid container spacing={2}>
+              {categorias.map((cat) => {
+                const color = colorDe(cat.color)
+                const nTipos = catSelId === cat.id ? tipos.length : undefined
+                return (
+                  <Grid key={cat.id} size={{ xs: 12, sm: 6, md: 'auto' }} sx={{ flex: 1 }}>
+                    <Box sx={{ p: 1.5, border: `1px solid ${alpha(color, 0.3)}`, borderRadius: '10px', bgcolor: alpha(color, 0.04) }}>
+                      <Stack direction="row" alignItems="center" spacing={1} mb={1}>
+                        {React.cloneElement(iconoDe(cat.icono), { sx: { fontSize: 16, color } })}
+                        <Typography fontSize={12} fontWeight={700} color={color}>{cat.nombre}</Typography>
+                      </Stack>
+                      <Typography fontSize={24} fontWeight={800} color={color}>{nTipos ?? '—'}</Typography>
+                      <Typography fontSize={11} color="text.secondary">tipos de documento</Typography>
+                    </Box>
+                  </Grid>
+                )
+              })}
+            </Grid>
+          )}
         </Paper>
 
       </Box>
 
       {/* Dialogs */}
-      <DialogNuevaCategoria open={catOpen} onClose={() => setCatOpen(false)} />
-      <DialogNuevoTipo open={tipoOpen} onClose={() => setTipoOpen(false)} categorias={CATEGORIAS.map((c) => c.nombre)} />
-
+      <DialogNuevaCategoria open={catOpen} onClose={() => setCatOpen(false)} onSaved={() => qc.invalidateQueries({ queryKey: ['dms-categorias-cfg'] })} />
+      <DialogNuevoTipo open={tipoOpen} onClose={() => setTipoOpen(false)} categoria={catSel} onSaved={() => qc.invalidateQueries({ queryKey: ['dms-tipos-cfg', catSelId] })} />
     </Layout>
   )
 }
