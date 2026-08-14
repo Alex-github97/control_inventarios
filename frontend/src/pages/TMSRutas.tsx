@@ -53,30 +53,73 @@ import {
   Toll,
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { apiClient } from '@/api/client'
 import toast from 'react-hot-toast'
 
 const TMS_COLOR = '#0369A1'
 
-// ─── Interfaces ──────────────────────────────────────────────────────────────
+// ─── Interfaces (alineadas con backend /tms/rutas) ────────────────────────────
+
+type TipoParadaRuta = 'ORIGEN' | 'PARADA_INTERMEDIA' | 'DESTINO' | 'CROSS_DOCK'
 
 interface PuntoRuta {
+  id?: number
   secuencia: number
   ciudad: string
-  tipo: 'ORIGEN' | 'PARADA' | 'DESTINO'
+  tipo: TipoParadaRuta
 }
+
+type TipoServicioRuta =
+  | 'TERRESTRE_URBANO' | 'TERRESTRE_REGIONAL' | 'TERRESTRE_NACIONAL' | 'INTERNACIONAL'
+  | 'DISTRIBUCION' | 'ULTIMA_MILLA' | 'PRIMERA_MILLA' | 'CROSS_DOCKING' | 'DEDICADO' | 'TERCERIZADO'
 
 interface Ruta {
   id: number
   nombre: string
-  codigo: string
+  codigo: string | null
   origen: string
   destino: string
   distanciaKm: number
   tiempoEstimadoMin: number
-  tipoServicio: 'CARGA_GENERAL' | 'REFRIGERADO' | 'PELIGROSO' | 'EXPRESO' | 'MASIVO'
+  tipoServicio: TipoServicioRuta
   costoReferencia: number
   estado: 'ACTIVA' | 'INACTIVA'
   puntosRuta: PuntoRuta[]
+}
+
+const TIPO_SERVICIO_OPTS: { value: TipoServicioRuta; label: string }[] = [
+  { value: 'TERRESTRE_URBANO', label: 'Terrestre urbano' },
+  { value: 'TERRESTRE_REGIONAL', label: 'Terrestre regional' },
+  { value: 'TERRESTRE_NACIONAL', label: 'Terrestre nacional' },
+  { value: 'INTERNACIONAL', label: 'Internacional' },
+  { value: 'DISTRIBUCION', label: 'Distribución' },
+  { value: 'ULTIMA_MILLA', label: 'Última milla' },
+  { value: 'PRIMERA_MILLA', label: 'Primera milla' },
+  { value: 'CROSS_DOCKING', label: 'Cross Docking' },
+  { value: 'DEDICADO', label: 'Dedicado' },
+  { value: 'TERCERIZADO', label: 'Tercerizado' },
+]
+const tipoServicioLabel = (v: TipoServicioRuta) => TIPO_SERVICIO_OPTS.find((o) => o.value === v)?.label || v
+
+function rutaFromApi(r: any): Ruta {
+  return {
+    id: r.id,
+    nombre: r.nombre,
+    codigo: r.codigo,
+    origen: r.origen,
+    destino: r.destino,
+    distanciaKm: r.distancia_km ?? 0,
+    tiempoEstimadoMin: r.tiempo_estimado_min ?? 0,
+    tipoServicio: (r.tipo_servicio ?? 'TERRESTRE_NACIONAL') as TipoServicioRuta,
+    costoReferencia: r.costo_referencia ?? 0,
+    estado: r.activo ? 'ACTIVA' : 'INACTIVA',
+    puntosRuta: [],
+  }
+}
+
+function puntoFromApi(p: any): PuntoRuta {
+  return { id: p.id, secuencia: p.secuencia, ciudad: p.ciudad, tipo: p.tipo ?? 'PARADA_INTERMEDIA' }
 }
 
 interface AlternativaRuta {
@@ -104,151 +147,7 @@ interface RutaAnalisis {
   tiempoPromMin: number
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-
-const MOCK_RUTAS: Ruta[] = [
-  {
-    id: 1,
-    nombre: 'Bogotá-Medellín Express',
-    codigo: 'RT-001',
-    origen: 'Bogotá',
-    destino: 'Medellín',
-    distanciaKm: 415,
-    tiempoEstimadoMin: 480,
-    tipoServicio: 'EXPRESO',
-    costoReferencia: 850000,
-    estado: 'ACTIVA',
-    puntosRuta: [
-      { secuencia: 1, ciudad: 'Bogotá', tipo: 'ORIGEN' },
-      { secuencia: 2, ciudad: 'Honda', tipo: 'PARADA' },
-      { secuencia: 3, ciudad: 'La Pintada', tipo: 'PARADA' },
-      { secuencia: 4, ciudad: 'Medellín', tipo: 'DESTINO' },
-    ],
-  },
-  {
-    id: 2,
-    nombre: 'Bogotá-Barranquilla',
-    codigo: 'RT-002',
-    origen: 'Bogotá',
-    destino: 'Barranquilla',
-    distanciaKm: 1050,
-    tiempoEstimadoMin: 900,
-    tipoServicio: 'CARGA_GENERAL',
-    costoReferencia: 1800000,
-    estado: 'ACTIVA',
-    puntosRuta: [
-      { secuencia: 1, ciudad: 'Bogotá', tipo: 'ORIGEN' },
-      { secuencia: 2, ciudad: 'Bucaramanga', tipo: 'PARADA' },
-      { secuencia: 3, ciudad: 'Santa Marta', tipo: 'PARADA' },
-      { secuencia: 4, ciudad: 'Barranquilla', tipo: 'DESTINO' },
-    ],
-  },
-  {
-    id: 3,
-    nombre: 'Medellín-Cali',
-    codigo: 'RT-003',
-    origen: 'Medellín',
-    destino: 'Cali',
-    distanciaKm: 295,
-    tiempoEstimadoMin: 360,
-    tipoServicio: 'CARGA_GENERAL',
-    costoReferencia: 580000,
-    estado: 'ACTIVA',
-    puntosRuta: [
-      { secuencia: 1, ciudad: 'Medellín', tipo: 'ORIGEN' },
-      { secuencia: 2, ciudad: 'Manizales', tipo: 'PARADA' },
-      { secuencia: 3, ciudad: 'Cali', tipo: 'DESTINO' },
-    ],
-  },
-  {
-    id: 4,
-    nombre: 'Bogotá-Cali Refrigerado',
-    codigo: 'RT-004',
-    origen: 'Bogotá',
-    destino: 'Cali',
-    distanciaKm: 462,
-    tiempoEstimadoMin: 540,
-    tipoServicio: 'REFRIGERADO',
-    costoReferencia: 1200000,
-    estado: 'ACTIVA',
-    puntosRuta: [
-      { secuencia: 1, ciudad: 'Bogotá', tipo: 'ORIGEN' },
-      { secuencia: 2, ciudad: 'Ibagué', tipo: 'PARADA' },
-      { secuencia: 3, ciudad: 'Armenia', tipo: 'PARADA' },
-      { secuencia: 4, ciudad: 'Cali', tipo: 'DESTINO' },
-    ],
-  },
-  {
-    id: 5,
-    nombre: 'Cartagena-Bogotá',
-    codigo: 'RT-005',
-    origen: 'Cartagena',
-    destino: 'Bogotá',
-    distanciaKm: 1050,
-    tiempoEstimadoMin: 960,
-    tipoServicio: 'MASIVO',
-    costoReferencia: 1650000,
-    estado: 'ACTIVA',
-    puntosRuta: [
-      { secuencia: 1, ciudad: 'Cartagena', tipo: 'ORIGEN' },
-      { secuencia: 2, ciudad: 'Montería', tipo: 'PARADA' },
-      { secuencia: 3, ciudad: 'Medellín', tipo: 'PARADA' },
-      { secuencia: 4, ciudad: 'Bogotá', tipo: 'DESTINO' },
-    ],
-  },
-  {
-    id: 6,
-    nombre: 'Bucaramanga-Bogotá',
-    codigo: 'RT-006',
-    origen: 'Bucaramanga',
-    destino: 'Bogotá',
-    distanciaKm: 400,
-    tiempoEstimadoMin: 420,
-    tipoServicio: 'CARGA_GENERAL',
-    costoReferencia: 720000,
-    estado: 'ACTIVA',
-    puntosRuta: [
-      { secuencia: 1, ciudad: 'Bucaramanga', tipo: 'ORIGEN' },
-      { secuencia: 2, ciudad: 'Tunja', tipo: 'PARADA' },
-      { secuencia: 3, ciudad: 'Bogotá', tipo: 'DESTINO' },
-    ],
-  },
-  {
-    id: 7,
-    nombre: 'Cali-Cartagena Peligroso',
-    codigo: 'RT-007',
-    origen: 'Cali',
-    destino: 'Cartagena',
-    distanciaKm: 1200,
-    tiempoEstimadoMin: 1080,
-    tipoServicio: 'PELIGROSO',
-    costoReferencia: 2400000,
-    estado: 'INACTIVA',
-    puntosRuta: [
-      { secuencia: 1, ciudad: 'Cali', tipo: 'ORIGEN' },
-      { secuencia: 2, ciudad: 'Medellín', tipo: 'PARADA' },
-      { secuencia: 3, ciudad: 'Montería', tipo: 'PARADA' },
-      { secuencia: 4, ciudad: 'Cartagena', tipo: 'DESTINO' },
-    ],
-  },
-  {
-    id: 8,
-    nombre: 'Bogotá-Bucaramanga',
-    codigo: 'RT-008',
-    origen: 'Bogotá',
-    destino: 'Bucaramanga',
-    distanciaKm: 400,
-    tiempoEstimadoMin: 440,
-    tipoServicio: 'EXPRESO',
-    costoReferencia: 780000,
-    estado: 'ACTIVA',
-    puntosRuta: [
-      { secuencia: 1, ciudad: 'Bogotá', tipo: 'ORIGEN' },
-      { secuencia: 2, ciudad: 'Tunja', tipo: 'PARADA' },
-      { secuencia: 3, ciudad: 'Bucaramanga', tipo: 'DESTINO' },
-    ],
-  },
-]
+// ─── Mock Data (solo para el simulador/análisis, aún no cableados) ────────────
 
 const MOCK_ANALISIS: RutaAnalisis[] = [
   { ruta: 'RT-001 Bogotá-Medellín', nViajes: 45, otifRate: 94.4, costoPromKm: 2048, tiempoPromMin: 475 },
@@ -273,20 +172,26 @@ function formatCOP(value: number): string {
   return `$${value.toLocaleString('es-CO')}`
 }
 
+const TIPO_SERVICIO_COLOR: Record<TipoServicioRuta, string> = {
+  TERRESTRE_URBANO: '#1565C0',
+  TERRESTRE_REGIONAL: '#1565C0',
+  TERRESTRE_NACIONAL: '#1565C0',
+  INTERNACIONAL: '#4A148C',
+  DISTRIBUCION: '#006064',
+  ULTIMA_MILLA: '#E65100',
+  PRIMERA_MILLA: '#E65100',
+  CROSS_DOCKING: '#00695C',
+  DEDICADO: '#B71C1C',
+  TERCERIZADO: '#6B7280',
+}
+
 function getTipoServicioChip(tipo: Ruta['tipoServicio']) {
-  const map: Record<Ruta['tipoServicio'], { label: string; color: string; bg: string }> = {
-    CARGA_GENERAL: { label: 'Carga General', color: '#1565C0', bg: alpha('#1565C0', 0.1) },
-    REFRIGERADO: { label: 'Refrigerado', color: '#006064', bg: alpha('#00BCD4', 0.12) },
-    PELIGROSO: { label: 'Peligroso', color: '#B71C1C', bg: alpha('#F44336', 0.1) },
-    EXPRESO: { label: 'Expreso', color: '#E65100', bg: alpha('#FF9800', 0.12) },
-    MASIVO: { label: 'Masivo', color: '#4A148C', bg: alpha('#9C27B0', 0.1) },
-  }
-  const cfg = map[tipo]
+  const color = TIPO_SERVICIO_COLOR[tipo] ?? '#64748B'
   return (
     <Chip
-      label={cfg.label}
+      label={tipoServicioLabel(tipo)}
       size="small"
-      sx={{ fontWeight: 600, fontSize: 11, color: cfg.color, bgcolor: cfg.bg, border: 'none' }}
+      sx={{ fontWeight: 600, fontSize: 11, color, bgcolor: alpha(color, 0.1), border: 'none' }}
     />
   )
 }
@@ -314,9 +219,10 @@ interface RutaDialogProps {
   ruta: Ruta | null
   onClose: () => void
   onSave: (ruta: Ruta) => void
+  saving?: boolean
 }
 
-function RutaDialog({ open, ruta, onClose, onSave }: RutaDialogProps) {
+function RutaDialog({ open, ruta, onClose, onSave, saving }: RutaDialogProps) {
   const isEdit = ruta !== null
 
   const emptyForm = {
@@ -377,7 +283,7 @@ function RutaDialog({ open, ruta, onClose, onSave }: RutaDialogProps) {
   const handleAddPunto = () => {
     setPuntos(prev => [
       ...prev,
-      { secuencia: prev.length + 1, ciudad: '', tipo: 'PARADA' },
+      { secuencia: prev.length + 1, ciudad: '', tipo: 'PARADA_INTERMEDIA' },
     ])
   }
 
@@ -492,11 +398,7 @@ function RutaDialog({ open, ruta, onClose, onSave }: RutaDialogProps) {
                 value={form.tipoServicio}
                 onChange={e => handleChange('tipoServicio', e.target.value)}
               >
-                <MenuItem value="CARGA_GENERAL">Carga General</MenuItem>
-                <MenuItem value="REFRIGERADO">Refrigerado</MenuItem>
-                <MenuItem value="PELIGROSO">Peligroso</MenuItem>
-                <MenuItem value="EXPRESO">Expreso</MenuItem>
-                <MenuItem value="MASIVO">Masivo</MenuItem>
+                {TIPO_SERVICIO_OPTS.map(o => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
               </Select>
             </FormControl>
           </Grid>
@@ -585,15 +487,16 @@ function RutaDialog({ open, ruta, onClose, onSave }: RutaDialogProps) {
       </DialogContent>
 
       <DialogActions sx={{ px: 3, py: 2 }}>
-        <Button onClick={onClose} color="inherit">
+        <Button onClick={onClose} color="inherit" disabled={saving}>
           Cancelar
         </Button>
         <Button
           variant="contained"
           onClick={handleSave}
+          disabled={saving}
           sx={{ bgcolor: TMS_COLOR, '&:hover': { bgcolor: '#025E91' } }}
         >
-          {isEdit ? 'Guardar Cambios' : 'Crear Ruta'}
+          {saving ? 'Guardando...' : isEdit ? 'Guardar Cambios' : 'Crear Ruta'}
         </Button>
       </DialogActions>
     </Dialog>
@@ -607,9 +510,10 @@ interface Tab1Props {
   onEdit: (ruta: Ruta) => void
   onToggleEstado: (id: number) => void
   onNew: () => void
+  onVerDetalle: (ruta: Ruta) => void
 }
 
-function TabRutasRegistradas({ rutas, onEdit, onToggleEstado, onNew }: Tab1Props) {
+function TabRutasRegistradas({ rutas, onEdit, onToggleEstado, onNew, onVerDetalle }: Tab1Props) {
   const [search, setSearch] = useState('')
   const [estadoFilter, setEstadoFilter] = useState<'TODAS' | 'ACTIVA' | 'INACTIVA'>('TODAS')
 
@@ -620,7 +524,7 @@ function TabRutasRegistradas({ rutas, onEdit, onToggleEstado, onNew }: Tab1Props
         r.nombre.toLowerCase().includes(search.toLowerCase()) ||
         r.origen.toLowerCase().includes(search.toLowerCase()) ||
         r.destino.toLowerCase().includes(search.toLowerCase()) ||
-        r.codigo.toLowerCase().includes(search.toLowerCase())
+        (r.codigo ?? '').toLowerCase().includes(search.toLowerCase())
       const matchEstado = estadoFilter === 'TODAS' || r.estado === estadoFilter
       return matchSearch && matchEstado
     })
@@ -687,7 +591,7 @@ function TabRutasRegistradas({ rutas, onEdit, onToggleEstado, onNew }: Tab1Props
               </TableRow>
             ) : (
               filtered.map(ruta => (
-                <TableRow key={ruta.id} hover>
+                <TableRow key={ruta.id} hover onClick={() => onVerDetalle(ruta)} sx={{ cursor: 'pointer' }}>
                   <TableCell>
                     <Typography variant="body2" fontWeight={600}>
                       {ruta.nombre}
@@ -1119,7 +1023,7 @@ function TabOptimizador() {
 
 // ─── Tab 3: Análisis ──────────────────────────────────────────────────────────
 
-function TabAnalisis() {
+function TabAnalisis({ totalActivas, totalRutas }: { totalActivas: number; totalRutas: number }) {
   const sorted = useMemo(
     () => [...MOCK_ANALISIS].sort((a, b) => b.otifRate - a.otifRate),
     [],
@@ -1127,7 +1031,6 @@ function TabAnalisis() {
   const mejores = sorted.slice(0, 3)
   const peores = sorted.slice(-3).reverse()
 
-  const totalActivas = MOCK_RUTAS.filter(r => r.estado === 'ACTIVA').length
   const otifGlobal = (MOCK_ANALISIS.reduce((acc, r) => acc + r.otifRate, 0) / MOCK_ANALISIS.length).toFixed(1)
   const masEficiente = sorted[0].ruta
 
@@ -1272,7 +1175,7 @@ function TabAnalisis() {
           {
             label: 'Total Rutas Activas',
             value: String(totalActivas),
-            sub: 'De 8 rutas registradas',
+            sub: `De ${totalRutas} rutas registradas`,
             color: TMS_COLOR,
             bg: alpha(TMS_COLOR, 0.08),
             icon: <Route sx={{ fontSize: 28, color: TMS_COLOR }} />,
@@ -1331,10 +1234,34 @@ function TabAnalisis() {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function TMSRutas() {
+  const qc = useQueryClient()
   const [tab, setTab] = useState(0)
-  const [rutas, setRutas] = useState<Ruta[]>(MOCK_RUTAS)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingRuta, setEditingRuta] = useState<Ruta | null>(null)
+  const [verRuta, setVerRuta] = useState<Ruta | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  const { data: rutasApi = [], isLoading } = useQuery<any[]>({
+    queryKey: ['tms-rutas'],
+    queryFn: () => apiClient.get('/tms/rutas').then(r => r.data),
+  })
+  const rutas = useMemo(() => rutasApi.map(rutaFromApi), [rutasApi])
+
+  const { data: puntosVer = [] } = useQuery<PuntoRuta[]>({
+    queryKey: ['tms-ruta-puntos', verRuta?.id],
+    queryFn: () => apiClient.get(`/tms/rutas/${verRuta!.id}/puntos`).then(r => r.data.map(puntoFromApi)),
+    enabled: !!verRuta,
+  })
+
+  const toggleEstadoMutation = useMutation({
+    mutationFn: ({ id, activo }: { id: number; activo: boolean }) =>
+      apiClient.put(`/tms/rutas/${id}`, { activo }),
+    onSuccess: () => {
+      toast.success('Estado de la ruta actualizado')
+      qc.invalidateQueries({ queryKey: ['tms-rutas'] })
+    },
+    onError: () => toast.error('Error al actualizar el estado de la ruta'),
+  })
 
   const handleNew = () => {
     setEditingRuta(null)
@@ -1347,32 +1274,54 @@ export default function TMSRutas() {
   }
 
   const handleToggleEstado = (id: number) => {
-    setRutas(prev =>
-      prev.map(r =>
-        r.id === id
-          ? { ...r, estado: r.estado === 'ACTIVA' ? 'INACTIVA' : 'ACTIVA' }
-          : r,
-      ),
-    )
     const ruta = rutas.find(r => r.id === id)
-    if (ruta) {
-      const newEstado = ruta.estado === 'ACTIVA' ? 'Inactiva' : 'Activa'
-      toast.success(`Ruta ${ruta.codigo} marcada como ${newEstado}`)
+    if (!ruta) return
+    toggleEstadoMutation.mutate({ id, activo: ruta.estado !== 'ACTIVA' })
+  }
+
+  const persistirPuntos = async (rutaId: number, puntos: PuntoRuta[]) => {
+    await apiClient.delete(`/tms/rutas/${rutaId}/puntos`)
+    for (const p of puntos) {
+      await apiClient.post(`/tms/rutas/${rutaId}/puntos`, {
+        ruta_id: rutaId,
+        secuencia: p.secuencia,
+        ciudad: p.ciudad,
+        tipo: p.tipo,
+      })
     }
   }
 
-  const handleSave = (saved: Ruta) => {
-    setRutas(prev => {
-      const exists = prev.find(r => r.id === saved.id)
-      if (exists) {
-        toast.success(`Ruta ${saved.codigo} actualizada`)
-        return prev.map(r => (r.id === saved.id ? saved : r))
-      } else {
-        toast.success(`Ruta ${saved.codigo} creada exitosamente`)
-        return [...prev, saved]
+  const handleSave = async (saved: Ruta) => {
+    setSaving(true)
+    try {
+      const payload = {
+        nombre: saved.nombre,
+        codigo: saved.codigo || undefined,
+        origen: saved.origen,
+        destino: saved.destino,
+        distancia_km: saved.distanciaKm,
+        tiempo_estimado_min: saved.tiempoEstimadoMin,
+        tipo_servicio: saved.tipoServicio,
+        costo_referencia: saved.costoReferencia,
       }
-    })
-    setDialogOpen(false)
+      let rutaId = editingRuta?.id
+      if (editingRuta) {
+        await apiClient.put(`/tms/rutas/${editingRuta.id}`, payload)
+        toast.success(`Ruta ${saved.codigo ?? ''} actualizada`)
+      } else {
+        const resp = await apiClient.post('/tms/rutas', payload)
+        rutaId = resp.data.id
+        toast.success(`Ruta ${resp.data.codigo ?? ''} creada exitosamente`)
+      }
+      if (rutaId) await persistirPuntos(rutaId, saved.puntosRuta)
+      qc.invalidateQueries({ queryKey: ['tms-rutas'] })
+      qc.invalidateQueries({ queryKey: ['tms-ruta-puntos', rutaId] })
+      setDialogOpen(false)
+    } catch (e: any) {
+      toast.error(e?.response?.data?.detail ?? 'Error al guardar la ruta')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -1423,7 +1372,7 @@ export default function TMSRutas() {
             },
             {
               label: 'Km Promedio',
-              value: Math.round(rutas.reduce((s, r) => s + r.distanciaKm, 0) / rutas.length),
+              value: rutas.length ? Math.round(rutas.reduce((s, r) => s + r.distanciaKm, 0) / rutas.length) : 0,
               suffix: ' km',
               icon: <Speed sx={{ fontSize: 24, color: '#7C3AED' }} />,
               bg: alpha('#7C3AED', 0.08),
@@ -1431,7 +1380,7 @@ export default function TMSRutas() {
             },
             {
               label: 'Costo Prom. Referencia',
-              value: Math.round(rutas.reduce((s, r) => s + r.costoReferencia, 0) / rutas.length),
+              value: rutas.length ? Math.round(rutas.reduce((s, r) => s + r.costoReferencia, 0) / rutas.length) : 0,
               suffix: '',
               prefix: '$',
               icon: <AttachMoney sx={{ fontSize: 24, color: '#D97706' }} />,
@@ -1495,10 +1444,16 @@ export default function TMSRutas() {
                 onEdit={handleEdit}
                 onToggleEstado={handleToggleEstado}
                 onNew={handleNew}
+                onVerDetalle={setVerRuta}
               />
             )}
             {tab === 1 && <TabOptimizador />}
-            {tab === 2 && <TabAnalisis />}
+            {tab === 2 && (
+              <TabAnalisis
+                totalActivas={rutas.filter(r => r.estado === 'ACTIVA').length}
+                totalRutas={rutas.length}
+              />
+            )}
           </Box>
         </Paper>
       </Box>
@@ -1508,7 +1463,91 @@ export default function TMSRutas() {
         ruta={editingRuta}
         onClose={() => setDialogOpen(false)}
         onSave={handleSave}
+        saving={saving}
+      />
+
+      <VerRutaDialog
+        ruta={verRuta}
+        puntos={puntosVer}
+        open={!!verRuta}
+        onClose={() => setVerRuta(null)}
+        onEditar={() => { if (verRuta) { handleEdit(verRuta); setVerRuta(null) } }}
       />
     </Layout>
+  )
+}
+
+// ─── Dialog: Ver Detalle de Ruta ───────────────────────────────────────────────
+
+function VerRutaDialog({
+  ruta,
+  puntos,
+  open,
+  onClose,
+  onEditar,
+}: {
+  ruta: Ruta | null
+  puntos: PuntoRuta[]
+  open: boolean
+  onClose: () => void
+  onEditar: () => void
+}) {
+  if (!ruta) return null
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
+        <Box>
+          <Typography variant="h6" fontWeight={700}>{ruta.nombre}</Typography>
+          <Typography variant="caption" sx={{ fontFamily: 'monospace', color: TMS_COLOR, fontWeight: 600 }}>
+            {ruta.codigo ?? 'Sin código'}
+          </Typography>
+        </Box>
+        <IconButton onClick={onClose} size="small"><Close fontSize="small" /></IconButton>
+      </DialogTitle>
+      <DialogContent dividers>
+        <Stack direction="row" spacing={1} mb={2.5}>
+          {getEstadoChip(ruta.estado)}
+          {getTipoServicioChip(ruta.tipoServicio)}
+        </Stack>
+
+        <Grid container spacing={2} mb={2.5}>
+          {[
+            { label: 'Origen', value: ruta.origen },
+            { label: 'Destino', value: ruta.destino },
+            { label: 'Distancia', value: `${ruta.distanciaKm.toLocaleString('es-CO')} km` },
+            { label: 'Tiempo estimado', value: formatMinutes(ruta.tiempoEstimadoMin) },
+            { label: 'Costo referencia', value: formatCOP(ruta.costoReferencia) },
+          ].map((f) => (
+            <Grid key={f.label} size={{ xs: 6 }}>
+              <Typography variant="caption" sx={{ color: '#64748B', display: 'block' }}>{f.label}</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>{f.value}</Typography>
+            </Grid>
+          ))}
+        </Grid>
+
+        <Divider sx={{ my: 1.5 }} />
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Puntos de ruta</Typography>
+        {puntos.length === 0 ? (
+          <Typography variant="body2" sx={{ color: '#94A3B8', py: 1 }}>Sin puntos intermedios definidos</Typography>
+        ) : (
+          <Stack spacing={0.75}>
+            {puntos.map((p, idx) => (
+              <Stack key={p.id ?? idx} direction="row" alignItems="center" spacing={1}>
+                <Chip label={p.secuencia} size="small" sx={{ minWidth: 28, fontWeight: 700 }} />
+                <Typography variant="body2" sx={{ flex: 1 }}>{p.ciudad}</Typography>
+                <Chip label={p.tipo.replace(/_/g, ' ')} size="small" variant="outlined" sx={{ fontSize: 10 }} />
+              </Stack>
+            ))}
+          </Stack>
+        )}
+      </DialogContent>
+      <DialogActions sx={{ px: 3, py: 2 }}>
+        <Button onClick={onClose}>Cerrar</Button>
+        <Button variant="contained" startIcon={<Edit />} onClick={onEditar} sx={{ bgcolor: TMS_COLOR, '&:hover': { bgcolor: '#025E91' } }}>
+          Editar Ruta
+        </Button>
+      </DialogActions>
+    </Dialog>
   )
 }

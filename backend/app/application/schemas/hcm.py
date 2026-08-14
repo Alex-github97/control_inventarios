@@ -353,6 +353,9 @@ class HCMConductorResponse(BaseModel):
     colaborador_id: int
     colaborador_nombre: Optional[str] = None
     colaborador_documento: Optional[str] = None
+    colaborador_codigo: Optional[str] = None
+    colaborador_telefono: Optional[str] = None
+    colaborador_ciudad: Optional[str] = None
     num_licencia: str
     tipo_licencia: str
     fecha_expedicion_licencia: date

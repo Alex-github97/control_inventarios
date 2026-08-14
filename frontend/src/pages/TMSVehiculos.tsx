@@ -1174,7 +1174,9 @@ export default function TMSVehiculos() {
                     return (
                       <TableRow
                         key={v.id}
+                        onClick={() => handleVer(v)}
                         sx={{
+                          cursor: 'pointer',
                           '&:hover': { bgcolor: '#F8FAFC' },
                           '&:last-child td': { borderBottom: 'none' },
                         }}
@@ -1214,7 +1216,7 @@ export default function TMSVehiculos() {
                             <span>{v.empresa}</span>
                           </Stack>
                         </TableCell>
-                        <TableCell sx={{ borderBottom: `1px solid #E5E7EB`, px: 2, py: 1.2 }}>
+                        <TableCell sx={{ borderBottom: `1px solid #E5E7EB`, px: 2, py: 1.2 }} onClick={e => e.stopPropagation()}>
                           <Stack direction="row" spacing={0.3}>
                             <Tooltip title="Ver detalle">
                               <IconButton size="small" onClick={() => handleVer(v)}
