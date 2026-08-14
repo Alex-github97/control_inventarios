@@ -1,0 +1,4 @@
+CONTRATO DE PRESTACION DE SERVICIOS
+Cliente: ACME
+Valor: 5000000
+Este es el contenido de prueba para OCR.

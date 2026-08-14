@@ -1,0 +1,4 @@
+CONTRATO DE PRESTACION
+Cliente: ACME
+Valor: 5000000
+Contenido para OCR/busqueda.
