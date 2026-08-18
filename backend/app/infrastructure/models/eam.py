@@ -455,6 +455,10 @@ class EAMNeumatico(Base, TimestampMixin):
     orientacion         = Column(String(15), default="NORMAL")
     profundidad_externa = Column(Float, nullable=True)   # mm hombro externo
     profundidad_interna = Column(Float, nullable=True)   # mm hombro interno
+    zona_id             = Column(Integer, ForeignKey("eam_zona_neumatico.id"), nullable=True)
+    motivo_fin_vida_id  = Column(Integer, ForeignKey("eam_motivo_fin_vida.id"), nullable=True)
+    dot                 = Column(String(20), nullable=True)   # código DOT (fecha de fabricación)
+    tipo_rin            = Column(String(30), nullable=True)   # ACERO / ALUMINIO / OTRO
 
 
 class EAMMovimientoNeumatico(Base, TimestampMixin):
@@ -542,7 +546,8 @@ class EAMReencaucheDetalle(Base, TimestampMixin):
     id                = Column(Integer, primary_key=True, index=True)
     lote_id           = Column(Integer, ForeignKey("eam_reencauche_lote.id"), nullable=False)
     neumatico_id      = Column(Integer, ForeignKey("eam_neumatico.id"), nullable=False)
-    banda             = Column(String(80), nullable=True)
+    banda             = Column(String(80), nullable=True)   # legacy: texto libre si no viene del catálogo
+    banda_id          = Column(Integer, ForeignKey("eam_banda_reencauche.id"), nullable=True)
     # PENDIENTE / REENCAUCHADA / REMANENTE / RECHAZO
     resultado         = Column(String(20), default="PENDIENTE")
     profundidad_nueva = Column(Float, nullable=True)
@@ -559,6 +564,185 @@ class EAMNeumaticoConfig(Base, TimestampMixin):
     presion_min          = Column(Float, default=90.0)   # psi
     presion_max          = Column(Float, default=120.0)  # psi
     umbral_desalineacion = Column(Float, default=2.0)    # mm de diferencia por eje
+
+
+# ─── Catálogos de configuración de llantas (zonas, bandas, motivos, ajustes,
+#     esquemas de vehículo y trabajos con periodicidad) ────────────────────────
+
+class EAMZonaNeumatico(Base, TimestampMixin):
+    """Zona de segmentación/visibilidad de llantas (p.ej. por sede o regional)."""
+    __tablename__ = "eam_zona_neumatico"
+    id     = Column(Integer, primary_key=True, index=True)
+    codigo = Column(String(30), unique=True, nullable=False)
+    nombre = Column(String(100), nullable=False)
+    activo = Column(Boolean, default=True)
+
+
+class EAMBandaReencauche(Base, TimestampMixin):
+    """Catálogo de bandas (insumo) usadas al reencauchar una carcasa."""
+    __tablename__ = "eam_banda_reencauche"
+    id                   = Column(Integer, primary_key=True, index=True)
+    marca                = Column(String(100), nullable=False)
+    referencia           = Column(String(100))
+    dimension            = Column(String(50))
+    profundidad_original = Column(Float, nullable=True)
+    profundidad_minima   = Column(Float, nullable=True)
+    tipo_posicion        = Column(String(20), nullable=True)   # DIRECCIONAL/TRACCION/REMOLQUE/MULTIPOSICION
+    sentido_rotacion     = Column(String(20), nullable=True)   # UNIDIRECCIONAL/BIDIRECCIONAL
+    reesculturable       = Column(Boolean, default=False)
+    costo_defecto        = Column(Float, nullable=True)
+    presion_minima       = Column(Float, nullable=True)
+    presion_maxima       = Column(Float, nullable=True)
+    comentarios          = Column(Text, nullable=True)
+    activo               = Column(Boolean, default=True)
+
+
+class EAMMotivoFinVida(Base, TimestampMixin):
+    """Causa de descarte o de cierre de una vida de la llanta (explosión, desgaste normal, etc.)."""
+    __tablename__ = "eam_motivo_fin_vida"
+    id               = Column(Integer, primary_key=True, index=True)
+    nombre           = Column(String(150), nullable=False)
+    aplica_descarte  = Column(Boolean, default=True)
+    aplica_fin_vida  = Column(Boolean, default=True)
+    activo           = Column(Boolean, default=True)
+
+
+class EAMAjusteNeumaticoCatalogo(Base, TimestampMixin):
+    """Categorías de ajuste (deducción de valor) definidas libremente por el usuario."""
+    __tablename__ = "eam_ajuste_neumatico_catalogo"
+    id     = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(150), nullable=False)
+    activo = Column(Boolean, default=True)
+
+
+class EAMAjusteNeumatico(Base, TimestampMixin):
+    """Aplicación real de un ajuste sobre una llanta específica (reduce su valor para CPK)."""
+    __tablename__ = "eam_ajuste_neumatico"
+    id            = Column(Integer, primary_key=True, index=True)
+    neumatico_id  = Column(Integer, ForeignKey("eam_neumatico.id"), nullable=False)
+    motivo_id     = Column(Integer, ForeignKey("eam_ajuste_neumatico_catalogo.id"), nullable=False)
+    fecha         = Column(Date, nullable=False)
+    valor         = Column(Float, nullable=False)
+    comentarios   = Column(Text, nullable=True)
+
+
+class EAMEsquemaVehiculo(Base, TimestampMixin):
+    """Plantilla reutilizable de configuración de ejes/repuestos por tipo de vehículo."""
+    __tablename__ = "eam_esquema_vehiculo"
+    id                  = Column(Integer, primary_key=True, index=True)
+    nombre              = Column(String(150), nullable=False)
+    tipo_activo         = Column(String(30), nullable=True)
+    numero_ejes         = Column(Integer, nullable=False, default=2)
+    tiene_repuesto      = Column(Boolean, default=True)
+    cantidad_repuestos  = Column(Integer, default=1)
+    observaciones       = Column(Text, nullable=True)
+    activo              = Column(Boolean, default=True)
+
+
+class EAMEsquemaAsignacion(Base, TimestampMixin):
+    """Historial de asignación de un esquema de llantas a un vehículo, con vigencia."""
+    __tablename__ = "eam_esquema_asignacion"
+    id             = Column(Integer, primary_key=True, index=True)
+    activo_id      = Column(Integer, ForeignKey("eam_activo.id"), nullable=False)
+    esquema_id     = Column(Integer, ForeignKey("eam_esquema_vehiculo.id"), nullable=False)
+    fecha_vigencia = Column(Date, nullable=False)
+    observaciones  = Column(Text, nullable=True)
+
+
+class EAMTrabajoNeumatico(Base, TimestampMixin):
+    """Tipo de trabajo/reparación aplicable a una llanta (más allá de inspección/rotación)."""
+    __tablename__ = "eam_trabajo_neumatico"
+    id                 = Column(Integer, primary_key=True, index=True)
+    nombre             = Column(String(150), nullable=False)
+    observaciones      = Column(Text, nullable=True)
+    es_predeterminado  = Column(Boolean, default=False)
+    activo             = Column(Boolean, default=True)
+
+
+class EAMPeriodicidadTrabajoNeumatico(Base, TimestampMixin):
+    """Frecuencia (km/horas/días) con la que debe repetirse un trabajo, por tipo de vehículo."""
+    __tablename__ = "eam_periodicidad_trabajo_neumatico"
+    id           = Column(Integer, primary_key=True, index=True)
+    trabajo_id   = Column(Integer, ForeignKey("eam_trabajo_neumatico.id"), nullable=False)
+    tipo_activo  = Column(String(30), nullable=True)
+    valor        = Column(Float, nullable=False)
+    unidad       = Column(String(15), nullable=False, default="KILOMETROS")   # KILOMETROS/HORAS/DIAS
+    activo       = Column(Boolean, default=True)
+
+
+class EAMTrabajoRealizadoNeumatico(Base, TimestampMixin):
+    """Registro de un trabajo/reparación efectivamente realizado sobre una llanta."""
+    __tablename__ = "eam_trabajo_realizado_neumatico"
+    id              = Column(Integer, primary_key=True, index=True)
+    neumatico_id    = Column(Integer, ForeignKey("eam_neumatico.id"), nullable=False)
+    trabajo_id      = Column(Integer, ForeignKey("eam_trabajo_neumatico.id"), nullable=False)
+    fecha           = Column(DateTime, nullable=False)
+    km_odometro     = Column(Float, nullable=True)
+    cantidad        = Column(Integer, default=1)
+    costo_unitario  = Column(Float, nullable=True)
+    proveedor       = Column(String(150), nullable=True)
+    observaciones   = Column(Text, nullable=True)
+
+
+class EAMReesculturado(Base, TimestampMixin):
+    """Re-grooving: corta más profundidad en el remanente de caucho sin cambiar
+    la carcasa. Es la única transición del ciclo de vida que se puede deshacer."""
+    __tablename__ = "eam_reesculturado_neumatico"
+    id                     = Column(Integer, primary_key=True, index=True)
+    neumatico_id           = Column(Integer, ForeignKey("eam_neumatico.id"), nullable=False)
+    fecha                  = Column(DateTime, nullable=False)
+    km_odometro            = Column(Float, nullable=True)
+    proveedor              = Column(String(150), nullable=True)
+    costo                  = Column(Float, nullable=True)
+    profundidad_anterior   = Column(Float, nullable=True)
+    profundidad_nueva      = Column(Float, nullable=True)
+    deshecho               = Column(Boolean, default=False)
+    fecha_deshecho         = Column(DateTime, nullable=True)
+
+
+class EAMVidaNeumatico(Base, TimestampMixin):
+    """Periodo operativo de una llanta entre cambios de carcasa (nueva → reencauchada
+    → ...). Cada vida acumula sus propias métricas de km y costo."""
+    __tablename__ = "eam_vida_neumatico"
+    id                   = Column(Integer, primary_key=True, index=True)
+    neumatico_id         = Column(Integer, ForeignKey("eam_neumatico.id"), nullable=False)
+    numero_vida          = Column(Integer, nullable=False, default=1)
+    tipo                 = Column(String(20), nullable=False, default="NUEVA")   # NUEVA/REENCAUCHADA
+    fecha_inicio         = Column(DateTime, nullable=False)
+    fecha_fin            = Column(DateTime, nullable=True)
+    km_inicio            = Column(Float, default=0)
+    km_fin               = Column(Float, nullable=True)
+    costo                = Column(Float, nullable=True)
+    profundidad_inicial  = Column(Float, nullable=True)
+    profundidad_final    = Column(Float, nullable=True)
+    motivo_cierre_id     = Column(Integer, ForeignKey("eam_motivo_fin_vida.id"), nullable=True)
+
+
+class EAMCongeladoNeumatico(Base, TimestampMixin):
+    """Encabezado de un snapshot ('congelado') del catálogo de llantas, para
+    comparar la evolución de costo/km y mm/km entre periodos."""
+    __tablename__ = "eam_congelado_neumatico"
+    id          = Column(Integer, primary_key=True, index=True)
+    fecha       = Column(DateTime, nullable=False)
+    descripcion = Column(String(255), nullable=True)
+
+
+class EAMCongeladoDetalleNeumatico(Base, TimestampMixin):
+    """Fila de un snapshot: valores calculados de una llanta al momento de congelar."""
+    __tablename__ = "eam_congelado_detalle_neumatico"
+    id              = Column(Integer, primary_key=True, index=True)
+    congelado_id    = Column(Integer, ForeignKey("eam_congelado_neumatico.id"), nullable=False)
+    neumatico_id    = Column(Integer, ForeignKey("eam_neumatico.id"), nullable=False)
+    codigo          = Column(String(50), nullable=False)
+    marca           = Column(String(100), nullable=True)
+    medida          = Column(String(50), nullable=True)
+    estado          = Column(String(30), nullable=True)
+    km_total        = Column(Float, nullable=True)
+    costo           = Column(Float, nullable=True)
+    costo_neto      = Column(Float, nullable=True)
+    cpk             = Column(Float, nullable=True)
+    costo_mm        = Column(Float, nullable=True)
+    mm_gastados     = Column(Float, nullable=True)
 
 
 # ─── Combustible ──────────────────────────────────────────────────────────────

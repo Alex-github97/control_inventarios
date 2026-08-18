@@ -1,17 +1,20 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, Profiler } from 'react'
+import * as XLSX from 'xlsx'
 import { Layout } from '@/components/layout/Layout'
 import {
   Box, Typography, Tabs, Tab, Table, TableHead, TableBody, TableRow, TableCell,
   Paper, Chip, Card, CardContent, Alert, TextField, MenuItem, Button, Dialog,
   DialogTitle, DialogContent, DialogActions, IconButton, Stack, Tooltip, alpha,
-  Switch, FormControlLabel, Badge, Divider, Menu, ListItemIcon, ListItemText,
+  Switch, FormControlLabel, Badge, Divider, Menu, ListItemIcon, ListItemText, Checkbox,
+  Autocomplete,
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
 import {
   TireRepair, Inventory2, Recycling, Add as AddIcon, Close as CloseIcon,
   History as HistoryIcon, SwapHoriz as SwapIcon, Warehouse as WarehouseIcon,
   DeleteForever, DirectionsCar, ShowChart, TrendingUp, NotificationsActive,
-  Autorenew, Download, Straighten, Compress,
+  Autorenew, Download, Straighten, Compress, AttachMoney, Build, Map as MapIcon, Timeline, Undo,
+  UploadFile, CameraAlt, Checklist,
 } from '@mui/icons-material'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer,
@@ -35,10 +38,11 @@ interface Neumatico {
   reencauches: number; costo?: number | null; proveedor?: string | null
   tipo_uso?: string | null; presion_actual?: number | null; presion_recomendada?: number | null; vida_util_km?: number | null; km_inicio?: number
   orientacion?: string | null; profundidad_externa?: number | null; profundidad_interna?: number | null
+  zona_id?: number | null; motivo_fin_vida_id?: number | null; dot?: string | null; tipo_rin?: string | null
 }
 interface Bodega { id: number; codigo: string; nombre: string; ubicacion?: string }
 interface Dano { id: number; codigo: string; nombre: string; severidad: string; accion: string }
-interface Posicion { codigo: string; label: string; eje: number; lado: string }
+interface Posicion { codigo: string; label: string; eje: number; lado: string; numero?: number | null }
 interface CatItem { id: number; tipo: string; nombre: string; valor?: number | null }
 interface Movimiento { id: number; tipo_movimiento: string; posicion_origen?: string | null; posicion?: string | null; bodega_id?: number | null; km_odometro?: number | null; fecha?: string | null; tecnico?: string | null; observaciones?: string | null }
 interface Inspeccion { id: number; neumatico_id: number; fecha: string; profundidad_izq?: number | null; profundidad_centro?: number | null; profundidad_der?: number | null; profundidad_min?: number | null; presion_psi?: number | null; km_odometro?: number | null; estado_visual?: string | null; observaciones?: string | null; tecnico?: string | null }
@@ -47,15 +51,134 @@ interface AlertaNeu { neumatico_id: number; codigo: string; tipo: string; severi
 interface LoteReencauche { id: number; codigo: string; fecha_envio: string; proveedor?: string | null; remision?: string | null; observaciones?: string | null; estado: string }
 interface DetalleReencauche { id: number; lote_id: number; neumatico_id: number; banda?: string | null; resultado: string; profundidad_nueva?: number | null; vida_remanente_km?: number | null; costo?: number | null }
 interface ConfigNeu { montaje_estricto: boolean; profundidad_minima: number; presion_min: number; presion_max: number; umbral_desalineacion: number }
+interface ZonaNeu { id: number; codigo: string; nombre: string; activo: boolean }
+interface BandaReencauche { id: number; marca: string; referencia?: string | null; dimension?: string | null; profundidad_original?: number | null; profundidad_minima?: number | null; tipo_posicion?: string | null; sentido_rotacion?: string | null; reesculturable: boolean; costo_defecto?: number | null; presion_minima?: number | null; presion_maxima?: number | null; comentarios?: string | null; activo: boolean }
+interface MotivoFinVida { id: number; nombre: string; aplica_descarte: boolean; aplica_fin_vida: boolean; activo: boolean }
+interface AjusteCatalogo { id: number; nombre: string; activo: boolean }
+interface AjusteNeu { id: number; neumatico_id: number; motivo_id: number; fecha: string; valor: number; comentarios?: string | null }
+interface EsquemaVehiculo { id: number; nombre: string; tipo_activo?: string | null; numero_ejes: number; tiene_repuesto: boolean; cantidad_repuestos: number; observaciones?: string | null; activo: boolean }
+interface TrabajoNeu { id: number; nombre: string; observaciones?: string | null; es_predeterminado: boolean; activo: boolean }
+interface PeriodicidadTrabajo { id: number; trabajo_id: number; tipo_activo?: string | null; valor: number; unidad: string; activo: boolean }
+interface TrabajoRealizado { id: number; neumatico_id: number; trabajo_id: number; fecha: string; km_odometro?: number | null; cantidad: number; costo_unitario?: number | null; proveedor?: string | null; observaciones?: string | null }
+interface Reesculturado { id: number; neumatico_id: number; fecha: string; km_odometro?: number | null; proveedor?: string | null; costo?: number | null; profundidad_anterior?: number | null; profundidad_nueva?: number | null; deshecho: boolean; fecha_deshecho?: string | null }
+interface VidaNeu { id: number; neumatico_id: number; numero_vida: number; tipo: string; fecha_inicio: string; fecha_fin?: string | null; km_inicio: number; km_fin?: number | null; costo?: number | null; profundidad_inicial?: number | null; profundidad_final?: number | null; motivo_cierre_id?: number | null }
 
 const TIPOS_USO = ['DIRECCIONAL', 'TRACCION', 'REMOLQUE', 'MULTIPOSICION', 'REPUESTO']
-const EMPTY_NEUMATICO = { codigo: '', marca: '', referencia: '', medida: '', tipo: '', tipo_uso: '', bodega_id: '', costo: '', proveedor: '', profundidad_diseño: '', profundidad_actual: '', vida_util_km: '', presion_recomendada: '' }
+const EMPTY_NEUMATICO = { codigo: '', marca: '', referencia: '', medida: '', tipo: '', tipo_uso: '', bodega_id: '', costo: '', proveedor: '', profundidad_diseño: '', profundidad_actual: '', vida_util_km: '', presion_recomendada: '', zona_id: '', dot: '', tipo_rin: '' }
+const TIPOS_RIN = ['ACERO', 'ALUMINIO', 'OTRO']
 
 const ESTADO_COLOR: Record<string, 'success' | 'info' | 'warning' | 'error' | 'default'> = {
   INSTALADO: 'success', ALMACENADO: 'info', REENCAUCHE: 'warning', BAJA: 'error',
 }
 const nowLocal = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)
 const fmtFecha = (s?: string | null) => { if (!s) return '—'; const d = new Date(s); return isNaN(d.getTime()) ? '—' : d.toLocaleString('es-CO') }
+
+// ─── Diálogo: agregar llanta desde bodega ──────────────────────────────────────
+// Componente propio con estado local: escribir/seleccionar aquí NO vuelve a
+// renderizar el diagrama ni el resto de la página (antes el formulario vivía
+// en el componente principal y cada tecla re-renderizaba todo).
+interface AgregarLlantaPayload {
+  neumatico_id: number; posicion: string; fecha: string
+  km_odometro?: number; tecnico?: string; observaciones?: string
+}
+function AgregarLlantaDialog({
+  open, onClose, veh, layout, almacen, tireEnVeh, onSubmit, isPending,
+}: {
+  open: boolean
+  onClose: () => void
+  veh: Vehiculo | null | undefined
+  layout: Posicion[]
+  almacen: Neumatico[]
+  tireEnVeh: (posicion: string) => Neumatico | undefined
+  onSubmit: (payload: AgregarLlantaPayload) => void
+  isPending: boolean
+}) {
+  const EMPTY = { neumatico_id: '', posicion: '', fecha: nowLocal(), km_odometro: '', tecnico: '', observaciones: '' }
+  const [form, setForm] = useState(EMPTY)
+  const [wasOpen, setWasOpen] = useState(false)
+  if (open && !wasOpen) {
+    setWasOpen(true)
+    setForm({ ...EMPTY, km_odometro: veh?.odometro_actual != null ? String(veh.odometro_actual) : '' })
+  } else if (!open && wasOpen) {
+    setWasOpen(false)
+  }
+
+  const disponibles = almacen.filter(n => n.estado === 'ALMACENADO')
+  const libres = layout.filter(p => !tireEnVeh(p.codigo))
+
+  const perfOpen = (label: string) => {
+    const t0 = performance.now()
+    console.log(`[PERF] ${label}: click -> onOpen ${(t0 - (window as any).__perfClickT0 || 0).toFixed?.(1) ?? ''}`)
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      console.log(`[PERF] ${label}: onOpen -> painted = ${(performance.now() - t0).toFixed(1)}ms`)
+    }))
+  }
+  const markClick = () => { (window as any).__perfClickT0 = performance.now() }
+
+  return (
+    <Profiler id="AgregarLlantaDialog" onRender={(id, phase, actualDuration) => {
+      if (actualDuration > 2) console.log(`[PERF][Profiler] ${id} ${phase} actualDuration=${actualDuration.toFixed(1)}ms`)
+    }}>
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+      <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Agregar llanta desde bodega
+        <Typography variant="caption" color="text.secondary" display="block">{veh?.codigo}{veh?.placa ? ` · ${veh.placa}` : ''} — {veh?.nombre}</Typography>
+      </DialogTitle>
+      <DialogContent dividers>
+        <Stack spacing={2} pt={0.5}>
+          <Autocomplete
+            size="small"
+            options={disponibles}
+            value={disponibles.find(n => String(n.id) === form.neumatico_id) ?? null}
+            onChange={(_e, v) => setForm(f => ({ ...f, neumatico_id: v ? String(v.id) : '' }))}
+            onOpen={() => perfOpen('Llanta Autocomplete')}
+            getOptionLabel={n => `${n.codigo} · ${n.marca ?? ''} ${n.medida ?? ''}`}
+            isOptionEqualToValue={(a, b) => a.id === b.id}
+            noOptionsText="Sin resultados"
+            renderInput={params => <TextField {...params} onMouseDown={markClick} label="Llanta en bodega *" placeholder="Buscar por código, marca o medida…" />}
+            renderOption={(props, n) => (
+              <li {...props} key={n.id}>
+                <Stack>
+                  <Typography fontSize={13.5} fontWeight={600}>{n.codigo}</Typography>
+                  <Typography fontSize={11.5} color="text.secondary">{n.marca ?? '—'} · {n.medida ?? '—'}</Typography>
+                </Stack>
+              </li>
+            )}
+          />
+          {disponibles.length === 0 && <Alert severity="info" sx={{ py: 0.5 }}>No hay llantas disponibles en bodega.</Alert>}
+          {libres.length === 0 ? (
+            <Alert severity="warning" sx={{ py: 0.5 }}>Este vehículo no tiene posiciones libres. Desmonta una llanta primero.</Alert>
+          ) : (
+            <TextField
+              select label="Posición *" size="small" fullWidth value={form.posicion}
+              onChange={e => setForm(f => ({ ...f, posicion: e.target.value }))}
+              onMouseDown={markClick}
+              SelectProps={{ onOpen: () => perfOpen('Posición Select'), MenuProps: { transitionDuration: 0 } }}
+            >
+              <MenuItem value="">Seleccionar…</MenuItem>
+              {libres.map(p => <MenuItem key={p.codigo} value={p.codigo}>{p.label}</MenuItem>)}
+            </TextField>
+          )}
+          <TextField label="Fecha y hora *" type="datetime-local" size="small" fullWidth value={form.fecha} onChange={e => setForm(f => ({ ...f, fecha: e.target.value }))} InputLabelProps={{ shrink: true }} />
+          <TextField label="Odómetro (km)" type="number" size="small" fullWidth value={form.km_odometro} onChange={e => setForm(f => ({ ...f, km_odometro: e.target.value }))} />
+          <TextField label="Técnico" size="small" fullWidth value={form.tecnico} onChange={e => setForm(f => ({ ...f, tecnico: e.target.value }))} />
+          <TextField label="Observaciones" size="small" fullWidth multiline rows={2} value={form.observaciones} onChange={e => setForm(f => ({ ...f, observaciones: e.target.value }))} />
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, py: 2 }}>
+        <Button onClick={onClose}>Cancelar</Button>
+        <Button variant="contained" disabled={!form.neumatico_id || !form.posicion || !form.fecha || isPending}
+          onClick={() => onSubmit({
+            neumatico_id: Number(form.neumatico_id), posicion: form.posicion,
+            fecha: new Date(form.fecha).toISOString(),
+            km_odometro: form.km_odometro ? Number(form.km_odometro) : undefined,
+            tecnico: form.tecnico || undefined, observaciones: form.observaciones || undefined,
+          })}
+          sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Agregar</Button>
+      </DialogActions>
+    </Dialog>
+    </Profiler>
+  )
+}
 
 export default function EAMNeumaticos() {
   const qc = useQueryClient()
@@ -69,19 +192,32 @@ export default function EAMNeumaticos() {
   const [movDialog, setMovDialog] = useState<null | { tire: Neumatico; tipo: string; posicion?: string }>(null)
   const [movForm, setMovForm] = useState({ fecha: nowLocal(), km_odometro: '', bodega_id: '', tecnico: '', observaciones: '' })
   const [bajaDialog, setBajaDialog] = useState<Neumatico | null>(null)
-  const [bajaForm, setBajaForm] = useState({ fecha: nowLocal(), dano_id: '', motivo: '' })
+  const [bajaForm, setBajaForm] = useState({ fecha: nowLocal(), dano_id: '', motivo: '', motivo_fin_vida_id: '' })
   const [nuevoOpen, setNuevoOpen] = useState(false)
   const [nuevoForm, setNuevoForm] = useState({ ...EMPTY_NEUMATICO })
   const [histTire, setHistTire] = useState<Neumatico | null>(null)
   const [ejesOpen, setEjesOpen] = useState(false)
   const [ejesForm, setEjesForm] = useState({ numero_ejes: '2', tiene_repuesto: true })
-  // Inspecciones (por vehículo)
-  const [inspVehId, setInspVehId] = useState<string>('')
+  // Inspecciones
   const [inspDialog, setInspDialog] = useState<Neumatico | null>(null)   // llanta a inspeccionar
   const [chartTire, setChartTire] = useState<Neumatico | null>(null)     // llanta cuya gráfica/historial se ve
   const [rotDialog, setRotDialog] = useState<Neumatico | null>(null)     // llanta a intercambiar (rotación)
   const [rotTarget, setRotTarget] = useState<string>('')                 // llanta destino del intercambio
   const [voltearDialog, setVoltearDialog] = useState<Neumatico | null>(null)
+  // Montaje por botón (alternativa al arrastrar y soltar)
+  const [montarDialog, setMontarDialog] = useState<Neumatico | null>(null)
+  const [montarForm, setMontarForm] = useState({ activo_id: '', posicion: '', fecha: nowLocal(), km_odometro: '', tecnico: '', observaciones: '' })
+  // Agregar llanta desde bodega al vehículo seleccionado (desde "Llantas por Vehículo")
+  const [agregarLlantaOpen, setAgregarLlantaOpen] = useState(false)
+  // Rotación en el rin (misma posición, sin desmontar)
+  const [rotRinDialog, setRotRinDialog] = useState<Neumatico | null>(null)
+  const [rotRinForm, setRotRinForm] = useState({ fecha: nowLocal(), km_odometro: '', tecnico: '', observaciones: '' })
+  // Inspección de sesión: todas las llantas montadas de un vehículo a la vez
+  const [inspSesionOpen, setInspSesionOpen] = useState(false)
+  const [inspSesionCabecera, setInspSesionCabecera] = useState({ fecha: nowLocal(), km_odometro: '', tecnico: '' })
+  const [inspSesionRapido, setInspSesionRapido] = useState({ profundidad: '', presion: '' })
+  const [inspSesionRows, setInspSesionRows] = useState<Record<number, { profundidad_izq: string; profundidad_centro: string; profundidad_der: string; presion_psi: string; estado_visual: string }>>({})
+  const [inspSesionEnviando, setInspSesionEnviando] = useState(false)
   const EMPTY_INSP = { fecha: nowLocal(), profundidad_izq: '', profundidad_centro: '', profundidad_der: '', presion_psi: '', km_odometro: '', estado_visual: 'BUENO', tecnico: '', observaciones: '' }
   const [inspForm, setInspForm] = useState({ ...EMPTY_INSP })
   // Consultas
@@ -89,16 +225,70 @@ export default function EAMNeumaticos() {
   const [consUbic, setConsUbic] = useState('')
   const [consEstado, setConsEstado] = useState('')
   const [consBusca, setConsBusca] = useState('')
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState('')
+  const [importOpen, setImportOpen] = useState(false)
+  const [importRows, setImportRows] = useState<any[]>([])
+  const [importResult, setImportResult] = useState<{ total: number; exitosos: number; errores: any[] } | null>(null)
+  // Inspecciones masivas por archivo plano
+  const [inspImportOpen, setInspImportOpen] = useState(false)
+  const [inspImportRows, setInspImportRows] = useState<any[]>([])
+  const [inspImportResult, setInspImportResult] = useState<{ total: number; exitosos: number; errores: any[] } | null>(null)
+  const inspFileInputRef = useRef<HTMLInputElement>(null)
+  // Descartes (baja) masivos por archivo plano
+  const [bajaImportOpen, setBajaImportOpen] = useState(false)
+  const [bajaImportRows, setBajaImportRows] = useState<any[]>([])
+  const [bajaImportResult, setBajaImportResult] = useState<{ total: number; exitosos: number; errores: any[] } | null>(null)
+  const bajaFileInputRef = useRef<HTMLInputElement>(null)
+  const [congelarOpen, setCongelarOpen] = useState(false)
+  const [congelarDesc, setCongelarDesc] = useState('')
+  const [congeladosOpen, setCongeladosOpen] = useState(false)
+  const [congeladoDetalleId, setCongeladoDetalleId] = useState<number | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   // Reencauche
   const [selLote, setSelLote] = useState<number | null>(null)
   const [loteOpen, setLoteOpen] = useState(false)
   const [loteForm, setLoteForm] = useState({ codigo: '', fecha_envio: new Date().toISOString().slice(0, 10), proveedor: '', remision: '', observaciones: '' })
   const [addTireLote, setAddTireLote] = useState('')
   const [procDialog, setProcDialog] = useState<null | DetalleReencauche>(null)
-  const [procForm, setProcForm] = useState({ resultado: 'REENCAUCHADA', profundidad_nueva: '', vida_remanente_km: '', costo: '', dano_id: '' })
+  const [procForm, setProcForm] = useState({ resultado: 'REENCAUCHADA', profundidad_nueva: '', vida_remanente_km: '', costo: '', dano_id: '', motivo_fin_vida_id: '' })
   // Configuración global
   const EMPTY_CFG: ConfigNeu = { montaje_estricto: true, profundidad_minima: 3, presion_min: 90, presion_max: 120, umbral_desalineacion: 2 }
   const [cfgForm, setCfgForm] = useState<ConfigNeu>({ ...EMPTY_CFG })
+  // Catálogos nuevos: zonas, bandas de reencauche, motivos de fin de vida, ajustes
+  const [zonaForm, setZonaForm] = useState({ codigo: '', nombre: '' })
+  const [bandaForm, setBandaForm] = useState({ marca: '', referencia: '', dimension: '', profundidad_original: '', profundidad_minima: '', costo_defecto: '', reesculturable: false })
+  const [motivoForm, setMotivoForm] = useState({ nombre: '', aplica_descarte: true, aplica_fin_vida: true })
+  const [ajusteCatForm, setAjusteCatForm] = useState({ nombre: '' })
+  // Esquemas de vehículo (plantillas + asignación)
+  const [esquemaForm, setEsquemaForm] = useState({ nombre: '', tipo_activo: '', numero_ejes: '2', tiene_repuesto: true, cantidad_repuestos: '1' })
+  const [asignarEsquemaVeh, setAsignarEsquemaVeh] = useState('')
+  const [asignarEsquemaId, setAsignarEsquemaId] = useState('')
+  const [asignarEsquemaFecha, setAsignarEsquemaFecha] = useState(new Date().toISOString().slice(0, 10))
+  // Trabajos y periodicidad
+  const [trabajoForm, setTrabajoForm] = useState({ nombre: '', observaciones: '' })
+  const [periodForm, setPeriodForm] = useState({ trabajo_id: '', tipo_activo: '', valor: '', unidad: 'KILOMETROS' })
+  // Ajuste de valor aplicado a una llanta específica
+  const [ajusteDialog, setAjusteDialog] = useState<Neumatico | null>(null)
+  const [ajusteForm, setAjusteForm] = useState({ motivo_id: '', fecha: new Date().toISOString().slice(0, 10), valor: '', comentarios: '' })
+  // Trabajo realizado sobre una llanta específica
+  const [trabajoDialog, setTrabajoDialog] = useState<Neumatico | null>(null)
+  const [trabajoRealForm, setTrabajoRealForm] = useState({ trabajo_id: '', fecha: nowLocal(), km_odometro: '', cantidad: '1', costo_unitario: '', proveedor: '', observaciones: '' })
+  // Banda de reencauche seleccionada al agregar una llanta al lote
+  const [addTireLoteBanda, setAddTireLoteBanda] = useState('')
+  // Reesculturado
+  const [rescDialog, setRescDialog] = useState<Neumatico | null>(null)
+  const [rescForm, setRescForm] = useState({ fecha: nowLocal(), km_odometro: '', proveedor: '', costo: '', profundidad_nueva: '' })
+  // Recuperar banda
+  const [recBandaDialog, setRecBandaDialog] = useState<Neumatico | null>(null)
+  const [recBandaForm, setRecBandaForm] = useState({ neumatico_destino_id: '', fecha: nowLocal(), mm_transferidos: '', costo_transferido: '', observaciones: '' })
+  // Cambiar zona
+  const [zonaDialog, setZonaDialog] = useState<Neumatico | null>(null)
+  const [zonaCambioForm, setZonaCambioForm] = useState({ zona_id: '', fecha: nowLocal(), observaciones: '' })
+  // Vidas de la llanta
+  const [vidasDialog, setVidasDialog] = useState<Neumatico | null>(null)
+  const [informeTab, setInformeTab] = useState(0)
 
   // ─── Queries ──────────────────────────────────────────────────────────────
   const { data: vehiculos = [] } = useQuery<Vehiculo[]>({ queryKey: ['eam-activos'], queryFn: () => api.get('/eam/activos').then(r => r.data) })
@@ -117,10 +307,10 @@ export default function EAMNeumaticos() {
     queryFn: () => api.get(`/eam/neumaticos/${histTire!.id}/movimientos`).then(r => r.data),
     enabled: !!histTire,
   })
-  const { data: inspLayout = [] } = useQuery<Posicion[]>({
-    queryKey: ['eam-layout', inspVehId],
-    queryFn: () => api.get(`/eam/neumaticos/layout/${inspVehId}`).then(r => r.data),
-    enabled: !!inspVehId,
+  const { data: montarLayout = [] } = useQuery<Posicion[]>({
+    queryKey: ['eam-layout', montarForm.activo_id],
+    queryFn: () => api.get(`/eam/neumaticos/layout/${montarForm.activo_id}`).then(r => r.data),
+    enabled: !!montarForm.activo_id,
   })
   const { data: inspecciones = [] } = useQuery<Inspeccion[]>({
     queryKey: ['eam-insp', chartTire?.id],
@@ -138,6 +328,54 @@ export default function EAMNeumaticos() {
   useQuery<ConfigNeu>({
     queryKey: ['eam-cfg-neu'],
     queryFn: async () => { const r = await api.get('/eam/neumaticos/config'); setCfgForm(r.data); return r.data },
+  })
+  // Catálogos de configuración
+  const { data: zonas = [] } = useQuery<ZonaNeu[]>({ queryKey: ['eam-zonas-neu'], queryFn: () => api.get('/eam/neumaticos/zonas').then(r => r.data) })
+  const { data: bandas = [] } = useQuery<BandaReencauche[]>({ queryKey: ['eam-bandas-reenc'], queryFn: () => api.get('/eam/neumaticos/bandas-reencauche').then(r => r.data) })
+  const { data: motivosFinVida = [] } = useQuery<MotivoFinVida[]>({ queryKey: ['eam-motivos-fv'], queryFn: () => api.get('/eam/neumaticos/motivos-fin-vida').then(r => r.data) })
+  const { data: ajustesCat = [] } = useQuery<AjusteCatalogo[]>({ queryKey: ['eam-ajustes-cat'], queryFn: () => api.get('/eam/neumaticos/ajustes-catalogo').then(r => r.data) })
+  const { data: esquemas = [] } = useQuery<EsquemaVehiculo[]>({ queryKey: ['eam-esquemas'], queryFn: () => api.get('/eam/neumaticos/esquemas').then(r => r.data) })
+  const { data: trabajosCat = [] } = useQuery<TrabajoNeu[]>({ queryKey: ['eam-trabajos-cat'], queryFn: () => api.get('/eam/neumaticos/trabajos').then(r => r.data) })
+  const { data: periodicidades = [] } = useQuery<PeriodicidadTrabajo[]>({ queryKey: ['eam-periodicidad'], queryFn: () => api.get('/eam/neumaticos/trabajos/periodicidad').then(r => r.data) })
+  const { data: ajustesNeu = [] } = useQuery<AjusteNeu[]>({
+    queryKey: ['eam-ajustes-neu', ajusteDialog?.id],
+    queryFn: () => api.get(`/eam/neumaticos/${ajusteDialog!.id}/ajustes`).then(r => r.data),
+    enabled: !!ajusteDialog,
+  })
+  const { data: trabajosRealizados = [] } = useQuery<TrabajoRealizado[]>({
+    queryKey: ['eam-trabajos-neu', trabajoDialog?.id],
+    queryFn: () => api.get(`/eam/neumaticos/${trabajoDialog!.id}/trabajos`).then(r => r.data),
+    enabled: !!trabajoDialog,
+  })
+  const { data: reesculturados = [] } = useQuery<Reesculturado[]>({
+    queryKey: ['eam-resc-neu', rescDialog?.id],
+    queryFn: () => api.get(`/eam/neumaticos/${rescDialog!.id}/reesculturados`).then(r => r.data),
+    enabled: !!rescDialog,
+  })
+  const { data: vidasNeu = [] } = useQuery<VidaNeu[]>({
+    queryKey: ['eam-vidas-neu', vidasDialog?.id],
+    queryFn: () => api.get(`/eam/neumaticos/${vidasDialog!.id}/vidas`).then(r => r.data),
+    enabled: !!vidasDialog,
+  })
+  const { data: informeNeu } = useQuery<any>({
+    queryKey: ['eam-informe-neu', vidasDialog?.id],
+    queryFn: () => api.get(`/eam/neumaticos/${vidasDialog!.id}/informe`).then(r => r.data),
+    enabled: !!vidasDialog,
+  })
+  const { data: historicoNeu } = useQuery<any>({
+    queryKey: ['eam-historico-neu', vidasDialog?.id],
+    queryFn: () => api.get(`/eam/neumaticos/${vidasDialog!.id}/historico`).then(r => r.data),
+    enabled: !!vidasDialog,
+  })
+  const { data: congelados = [] } = useQuery<{ id: number; fecha: string; descripcion?: string | null }[]>({
+    queryKey: ['eam-congelados'],
+    queryFn: () => api.get('/eam/neumaticos/congelados').then(r => r.data),
+    enabled: congeladosOpen,
+  })
+  const { data: congeladoDetalle = [] } = useQuery<any[]>({
+    queryKey: ['eam-congelado-detalle', congeladoDetalleId],
+    queryFn: () => api.get(`/eam/neumaticos/congelados/${congeladoDetalleId}/detalle`).then(r => r.data),
+    enabled: !!congeladoDetalleId,
   })
 
   const veh = vehiculos.find(v => String(v.id) === vehId)
@@ -203,6 +441,353 @@ export default function EAMNeumaticos() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['eam-cat-neu'] }) },
     onError: () => toast.error('No se pudo eliminar'),
   })
+  // Zonas
+  const mutZona = useMutation({
+    mutationFn: (b: Record<string, unknown>) => api.post('/eam/neumaticos/zonas', b),
+    onSuccess: () => { toast.success('Zona creada'); qc.invalidateQueries({ queryKey: ['eam-zonas-neu'] }); setZonaForm({ codigo: '', nombre: '' }) },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al crear zona'),
+  })
+  const mutZonaDel = useMutation({
+    mutationFn: (id: number) => api.delete(`/eam/neumaticos/zonas/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['eam-zonas-neu'] }),
+    onError: () => toast.error('No se pudo eliminar'),
+  })
+  // Bandas de reencauche
+  const mutBanda = useMutation({
+    mutationFn: (b: Record<string, unknown>) => api.post('/eam/neumaticos/bandas-reencauche', b),
+    onSuccess: () => { toast.success('Banda creada'); qc.invalidateQueries({ queryKey: ['eam-bandas-reenc'] }); setBandaForm({ marca: '', referencia: '', dimension: '', profundidad_original: '', profundidad_minima: '', costo_defecto: '', reesculturable: false }) },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al crear banda'),
+  })
+  const mutBandaDel = useMutation({
+    mutationFn: (id: number) => api.delete(`/eam/neumaticos/bandas-reencauche/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['eam-bandas-reenc'] }),
+    onError: () => toast.error('No se pudo eliminar'),
+  })
+  // Motivos de fin de vida
+  const mutMotivo = useMutation({
+    mutationFn: (b: Record<string, unknown>) => api.post('/eam/neumaticos/motivos-fin-vida', b),
+    onSuccess: () => { toast.success('Motivo creado'); qc.invalidateQueries({ queryKey: ['eam-motivos-fv'] }); setMotivoForm({ nombre: '', aplica_descarte: true, aplica_fin_vida: true }) },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al crear motivo'),
+  })
+  const mutMotivoDel = useMutation({
+    mutationFn: (id: number) => api.delete(`/eam/neumaticos/motivos-fin-vida/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['eam-motivos-fv'] }),
+    onError: () => toast.error('No se pudo eliminar'),
+  })
+  // Ajustes: catálogo de motivos + aplicación por llanta
+  const mutAjusteCat = useMutation({
+    mutationFn: (b: Record<string, unknown>) => api.post('/eam/neumaticos/ajustes-catalogo', b),
+    onSuccess: () => { toast.success('Categoría de ajuste creada'); qc.invalidateQueries({ queryKey: ['eam-ajustes-cat'] }); setAjusteCatForm({ nombre: '' }) },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al crear'),
+  })
+  const mutAjusteCatDel = useMutation({
+    mutationFn: (id: number) => api.delete(`/eam/neumaticos/ajustes-catalogo/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['eam-ajustes-cat'] }),
+    onError: () => toast.error('No se pudo eliminar'),
+  })
+  const mutAjusteAplicar = useMutation({
+    mutationFn: (b: Record<string, unknown>) => api.post(`/eam/neumaticos/${ajusteDialog!.id}/ajustes`, b),
+    onSuccess: () => {
+      toast.success('Ajuste aplicado')
+      qc.invalidateQueries({ queryKey: ['eam-ajustes-neu'] })
+      qc.invalidateQueries({ queryKey: ['eam-indic'] })
+      setAjusteForm({ motivo_id: '', fecha: new Date().toISOString().slice(0, 10), valor: '', comentarios: '' })
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al aplicar el ajuste'),
+  })
+  // Esquemas de vehículo
+  const mutEsquema = useMutation({
+    mutationFn: (b: Record<string, unknown>) => api.post('/eam/neumaticos/esquemas', b),
+    onSuccess: () => { toast.success('Esquema creado'); qc.invalidateQueries({ queryKey: ['eam-esquemas'] }); setEsquemaForm({ nombre: '', tipo_activo: '', numero_ejes: '2', tiene_repuesto: true, cantidad_repuestos: '1' }) },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al crear esquema'),
+  })
+  const mutEsquemaDel = useMutation({
+    mutationFn: (id: number) => api.delete(`/eam/neumaticos/esquemas/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['eam-esquemas'] }),
+    onError: () => toast.error('No se pudo eliminar'),
+  })
+  const mutAsignarEsquema = useMutation({
+    mutationFn: (b: Record<string, unknown>) => api.post('/eam/neumaticos/esquemas/asignar', b),
+    onSuccess: () => {
+      toast.success('Esquema asignado al vehículo')
+      qc.invalidateQueries({ queryKey: ['eam-activos'] })
+      qc.invalidateQueries({ queryKey: ['eam-layout'] })
+      setAsignarEsquemaVeh(''); setAsignarEsquemaId('')
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al asignar esquema'),
+  })
+  // Trabajos y periodicidad
+  const mutTrabajo = useMutation({
+    mutationFn: (b: Record<string, unknown>) => api.post('/eam/neumaticos/trabajos', b),
+    onSuccess: () => { toast.success('Trabajo creado'); qc.invalidateQueries({ queryKey: ['eam-trabajos-cat'] }); setTrabajoForm({ nombre: '', observaciones: '' }) },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al crear trabajo'),
+  })
+  const mutTrabajoDel = useMutation({
+    mutationFn: (id: number) => api.delete(`/eam/neumaticos/trabajos/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['eam-trabajos-cat'] }),
+    onError: () => toast.error('No se pudo eliminar'),
+  })
+  const mutPeriodicidad = useMutation({
+    mutationFn: (b: Record<string, unknown>) => api.post('/eam/neumaticos/trabajos/periodicidad', b),
+    onSuccess: () => { toast.success('Periodicidad creada'); qc.invalidateQueries({ queryKey: ['eam-periodicidad'] }); setPeriodForm({ trabajo_id: '', tipo_activo: '', valor: '', unidad: 'KILOMETROS' }) },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al crear periodicidad'),
+  })
+  const mutPeriodicidadDel = useMutation({
+    mutationFn: (id: number) => api.delete(`/eam/neumaticos/trabajos/periodicidad/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['eam-periodicidad'] }),
+    onError: () => toast.error('No se pudo eliminar'),
+  })
+  const mutTrabajoRealizado = useMutation({
+    mutationFn: (b: Record<string, unknown>) => api.post(`/eam/neumaticos/${trabajoDialog!.id}/trabajos`, b),
+    onSuccess: () => {
+      toast.success('Trabajo registrado')
+      qc.invalidateQueries({ queryKey: ['eam-trabajos-neu'] })
+      setTrabajoRealForm({ trabajo_id: '', fecha: nowLocal(), km_odometro: '', cantidad: '1', costo_unitario: '', proveedor: '', observaciones: '' })
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al registrar el trabajo'),
+  })
+  // Reesculturado
+  const mutResc = useMutation({
+    mutationFn: (b: Record<string, unknown>) => api.post(`/eam/neumaticos/${rescDialog!.id}/reesculturar`, b),
+    onSuccess: () => {
+      toast.success('Reesculturado registrado')
+      qc.invalidateQueries({ queryKey: ['eam-resc-neu'] })
+      invalidarNeu()
+      setRescForm({ fecha: nowLocal(), km_odometro: '', proveedor: '', costo: '', profundidad_nueva: '' })
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al reesculturar'),
+  })
+  const mutDeshacerResc = useMutation({
+    mutationFn: (id: number) => api.put(`/eam/neumaticos/reesculturado/${id}/deshacer`),
+    onSuccess: () => { toast.success('Reesculturado deshecho'); qc.invalidateQueries({ queryKey: ['eam-resc-neu'] }); invalidarNeu() },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo deshacer'),
+  })
+  // Recuperar banda
+  const mutRecBanda = useMutation({
+    mutationFn: (b: Record<string, unknown>) => api.post(`/eam/neumaticos/${recBandaDialog!.id}/recuperar-banda`, b),
+    onSuccess: () => {
+      toast.success('Banda recuperada exitosamente')
+      invalidarNeu()
+      qc.invalidateQueries({ queryKey: ['eam-mov'] })
+      setRecBandaDialog(null)
+      setRecBandaForm({ neumatico_destino_id: '', fecha: nowLocal(), mm_transferidos: '', costo_transferido: '', observaciones: '' })
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al recuperar la banda'),
+  })
+  // Cambiar zona
+  const mutCambiarZona = useMutation({
+    mutationFn: (b: Record<string, unknown>) => api.post(`/eam/neumaticos/${zonaDialog!.id}/cambiar-zona`, b),
+    onSuccess: () => {
+      toast.success('Zona actualizada')
+      qc.invalidateQueries({ queryKey: ['eam-neumaticos'] })
+      qc.invalidateQueries({ queryKey: ['eam-mov'] })
+      setZonaDialog(null)
+      setZonaCambioForm({ zona_id: '', fecha: nowLocal(), observaciones: '' })
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al cambiar la zona'),
+  })
+  // Congelar datos
+  const mutCongelar = useMutation({
+    mutationFn: (b: Record<string, unknown>) => api.post('/eam/neumaticos/congelar', b),
+    onSuccess: () => {
+      toast.success('Datos congelados exitosamente')
+      qc.invalidateQueries({ queryKey: ['eam-congelados'] })
+      setCongelarOpen(false); setCongelarDesc('')
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al congelar datos'),
+  })
+  const mutDeleteCongelado = useMutation({
+    mutationFn: (id: number) => api.delete(`/eam/neumaticos/congelados/${id}`),
+    onSuccess: () => { toast.success('Congelado eliminado'); qc.invalidateQueries({ queryKey: ['eam-congelados'] }) },
+    onError: () => toast.error('No se pudo eliminar'),
+  })
+  // Importación masiva
+  const mutImportar = useMutation({
+    mutationFn: (items: any[]) => api.post('/eam/neumaticos/bulk', { items }).then(r => r.data),
+    onSuccess: (data) => {
+      setImportResult(data)
+      qc.invalidateQueries({ queryKey: ['eam-neumaticos'] })
+      if (data.exitosos > 0) toast.success(`${data.exitosos} de ${data.total} llantas creadas`)
+      if (data.errores?.length) toast.error(`${data.errores.length} filas con errores`)
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error en la importación'),
+  })
+  // Eliminación masiva
+  const mutBulkDelete = useMutation({
+    mutationFn: () => api.post('/eam/neumaticos/bulk-delete', { ids: Array.from(selectedIds), confirmacion: bulkDeleteConfirm }),
+    onSuccess: (r: any) => {
+      toast.success(`${r.data.eliminados} llantas eliminadas`)
+      qc.invalidateQueries({ queryKey: ['eam-neumaticos'] })
+      setSelectedIds(new Set()); setBulkDeleteOpen(false); setBulkDeleteConfirm('')
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al eliminar'),
+  })
+  // Inspecciones masivas
+  const mutImportarInsp = useMutation({
+    mutationFn: (items: any[]) => api.post('/eam/neumaticos/inspecciones/bulk', { items }).then(r => r.data),
+    onSuccess: (data) => {
+      setInspImportResult(data)
+      qc.invalidateQueries({ queryKey: ['eam-neumaticos'] })
+      qc.invalidateQueries({ queryKey: ['eam-indic'] })
+      qc.invalidateQueries({ queryKey: ['eam-alertas'] })
+      qc.invalidateQueries({ queryKey: ['eam-insp'] })
+      if (data.exitosos > 0) toast.success(`${data.exitosos} de ${data.total} inspecciones registradas`)
+      if (data.errores?.length) toast.error(`${data.errores.length} filas con errores`)
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error en la importación'),
+  })
+  // Descartes (baja) masivos
+  const mutImportarBaja = useMutation({
+    mutationFn: (items: any[]) => api.post('/eam/neumaticos/baja/bulk', { items }).then(r => r.data),
+    onSuccess: (data) => {
+      setBajaImportResult(data)
+      qc.invalidateQueries({ queryKey: ['eam-neumaticos'] })
+      qc.invalidateQueries({ queryKey: ['eam-indic'] })
+      qc.invalidateQueries({ queryKey: ['eam-alertas'] })
+      if (data.exitosos > 0) toast.success(`${data.exitosos} de ${data.total} llantas dadas de baja`)
+      if (data.errores?.length) toast.error(`${data.errores.length} filas con errores`)
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error en la importación'),
+  })
+
+  const descargarPlantillaImportacion = () => {
+    const headers = ['codigo', 'marca', 'referencia', 'medida', 'tipo_uso', 'bodega', 'costo', 'proveedor', 'profundidad_diseño', 'profundidad_actual', 'vida_util_km', 'presion_recomendada', 'dot', 'tipo_rin']
+    const ejemplo = ['LL-1001', 'Michelin', 'XZA2', '295/80R22.5', 'TRACCION', bodegas[0]?.nombre ?? '', 950000, 'Distribuidora XYZ', 18, 18, 90000, 110, '2523', 'ACERO']
+    const ws = XLSX.utils.aoa_to_sheet([headers, ejemplo])
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Llantas')
+    XLSX.writeFile(wb, 'plantilla_importacion_llantas.xlsx')
+  }
+
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImportResult(null)
+    const reader = new FileReader()
+    reader.onload = (evt) => {
+      const data = new Uint8Array(evt.target?.result as ArrayBuffer)
+      const wb = XLSX.read(data, { type: 'array' })
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const rows: any[] = XLSX.utils.sheet_to_json(ws, { raw: false, defval: '' })
+      setImportRows(rows)
+    }
+    reader.readAsArrayBuffer(file)
+    e.target.value = ''
+  }
+
+  const confirmarImportacion = () => {
+    const items = importRows.map(row => {
+      const bodega = bodegas.find(b => b.nombre?.toLowerCase() === String(row.bodega ?? '').toLowerCase())
+      return {
+        codigo: String(row.codigo ?? '').trim(),
+        marca: row.marca || undefined, referencia: row.referencia || undefined, medida: row.medida || undefined,
+        tipo_uso: row.tipo_uso || undefined, bodega_id: bodega?.id, estado: 'ALMACENADO',
+        costo: row.costo ? Number(row.costo) : undefined, proveedor: row.proveedor || undefined,
+        profundidad_diseño: row['profundidad_diseño'] ? Number(row['profundidad_diseño']) : undefined,
+        profundidad_actual: row.profundidad_actual ? Number(row.profundidad_actual) : undefined,
+        vida_util_km: row.vida_util_km ? Number(row.vida_util_km) : undefined,
+        presion_recomendada: row.presion_recomendada ? Number(row.presion_recomendada) : undefined,
+        dot: row.dot || undefined, tipo_rin: row.tipo_rin || undefined,
+      }
+    }).filter(i => i.codigo)
+    mutImportar.mutate(items)
+  }
+
+  const parseFechaExcel = (v: unknown) => {
+    const d = new Date(String(v ?? ''))
+    return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString()
+  }
+
+  // ── Inspecciones masivas por archivo plano ──
+  const descargarPlantillaInspecciones = () => {
+    const headers = ['codigo', 'fecha', 'profundidad_izq', 'profundidad_centro', 'profundidad_der', 'presion_psi', 'km_odometro', 'estado_visual', 'tecnico', 'observaciones']
+    const ejemplo = ['LL-1001', '2026-08-18 08:00', 7.5, 8, 7.8, 110, 125000, 'BUENO', 'Juan Pérez', '']
+    const ws = XLSX.utils.aoa_to_sheet([headers, ejemplo])
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Inspecciones')
+    XLSX.writeFile(wb, 'plantilla_inspecciones_masivas.xlsx')
+  }
+
+  const handleImportInspFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setInspImportResult(null)
+    const reader = new FileReader()
+    reader.onload = (evt) => {
+      const data = new Uint8Array(evt.target?.result as ArrayBuffer)
+      const wb = XLSX.read(data, { type: 'array' })
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const rows: any[] = XLSX.utils.sheet_to_json(ws, { raw: false, defval: '' })
+      setInspImportRows(rows)
+    }
+    reader.readAsArrayBuffer(file)
+    e.target.value = ''
+  }
+
+  const confirmarImportacionInsp = () => {
+    const items = inspImportRows.map(row => ({
+      codigo: String(row.codigo ?? '').trim(),
+      fecha: parseFechaExcel(row.fecha),
+      profundidad_izq: row.profundidad_izq ? Number(row.profundidad_izq) : undefined,
+      profundidad_centro: row.profundidad_centro ? Number(row.profundidad_centro) : undefined,
+      profundidad_der: row.profundidad_der ? Number(row.profundidad_der) : undefined,
+      presion_psi: row.presion_psi ? Number(row.presion_psi) : undefined,
+      km_odometro: row.km_odometro ? Number(row.km_odometro) : undefined,
+      estado_visual: row.estado_visual || undefined,
+      tecnico: row.tecnico || undefined,
+      observaciones: row.observaciones || undefined,
+    })).filter(i => i.codigo)
+    mutImportarInsp.mutate(items)
+  }
+
+  // ── Descartes (baja) masivos por archivo plano ──
+  const descargarPlantillaBajas = () => {
+    const headers = ['codigo', 'fecha', 'dano', 'motivo_fin_vida', 'motivo', 'km_odometro']
+    const ejemplo = ['LL-1001', '2026-08-18', danos[0]?.nombre ?? '', motivosFinVida[0]?.nombre ?? '', 'Desgaste irregular', 125000]
+    const ws = XLSX.utils.aoa_to_sheet([headers, ejemplo])
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Descartes')
+    XLSX.writeFile(wb, 'plantilla_descartes_masivos.xlsx')
+  }
+
+  const handleImportBajaFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setBajaImportResult(null)
+    const reader = new FileReader()
+    reader.onload = (evt) => {
+      const data = new Uint8Array(evt.target?.result as ArrayBuffer)
+      const wb = XLSX.read(data, { type: 'array' })
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const rows: any[] = XLSX.utils.sheet_to_json(ws, { raw: false, defval: '' })
+      setBajaImportRows(rows)
+    }
+    reader.readAsArrayBuffer(file)
+    e.target.value = ''
+  }
+
+  const confirmarImportacionBaja = () => {
+    const items = bajaImportRows.map(row => {
+      const dano = danos.find(d => d.nombre?.toLowerCase() === String(row.dano ?? '').toLowerCase())
+      const motivoFV = motivosFinVida.find(m => m.nombre?.toLowerCase() === String(row.motivo_fin_vida ?? '').toLowerCase())
+      return {
+        codigo: String(row.codigo ?? '').trim(),
+        fecha: parseFechaExcel(row.fecha),
+        dano_id: dano?.id, motivo_fin_vida_id: motivoFV?.id,
+        motivo: row.motivo || undefined,
+        km_odometro: row.km_odometro ? Number(row.km_odometro) : undefined,
+      }
+    }).filter(i => i.codigo)
+    mutImportarBaja.mutate(items)
+  }
+
+  const toggleSeleccionTodas = (ids: number[], checked: boolean) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      ids.forEach(id => checked ? next.add(id) : next.delete(id))
+      return next
+    })
+  }
   const invalidarNeu = () => {
     qc.invalidateQueries({ queryKey: ['eam-neumaticos'] })
     qc.invalidateQueries({ queryKey: ['eam-indic'] })
@@ -286,12 +871,90 @@ export default function EAMNeumaticos() {
     })
     setMovDialog(null)
   }
+  const confirmarMontar = () => {
+    if (!montarDialog || !montarForm.activo_id || !montarForm.posicion) return
+    mutMov.mutate({
+      neumatico_id: montarDialog.id,
+      tipo_movimiento: 'INSTALACION',
+      fecha: new Date(montarForm.fecha).toISOString(),
+      activo_id: Number(montarForm.activo_id),
+      posicion: montarForm.posicion,
+      km_odometro: montarForm.km_odometro ? Number(montarForm.km_odometro) : undefined,
+      tecnico: montarForm.tecnico || undefined,
+      observaciones: montarForm.observaciones || undefined,
+    })
+    setMontarDialog(null)
+  }
+  const confirmarRotacionRin = () => {
+    if (!rotRinDialog) return
+    mutMov.mutate({
+      neumatico_id: rotRinDialog.id,
+      tipo_movimiento: 'ROTACION',
+      fecha: new Date(rotRinForm.fecha).toISOString(),
+      activo_id: rotRinDialog.activo_id ?? undefined,
+      posicion: rotRinDialog.posicion ?? undefined,
+      km_odometro: rotRinForm.km_odometro ? Number(rotRinForm.km_odometro) : undefined,
+      tecnico: rotRinForm.tecnico || undefined,
+      observaciones: rotRinForm.observaciones || `Rotación en el rin (posición ${rotRinDialog.posicion ?? ''}, sin desmontar)`,
+    })
+    setRotRinDialog(null)
+  }
+  const abrirInspSesion = (montadas: Neumatico[], odometroActual?: number | null) => {
+    setInspSesionCabecera({ fecha: nowLocal(), km_odometro: odometroActual != null ? String(odometroActual) : '', tecnico: '' })
+    setInspSesionRapido({ profundidad: '', presion: '' })
+    const rows: typeof inspSesionRows = {}
+    montadas.forEach(t => { rows[t.id] = { profundidad_izq: '', profundidad_centro: '', profundidad_der: '', presion_psi: '', estado_visual: 'BUENO' } })
+    setInspSesionRows(rows)
+    setInspSesionOpen(true)
+  }
+  const aplicarRapidoATodos = () => {
+    setInspSesionRows(prev => {
+      const next = { ...prev }
+      Object.keys(next).forEach(id => {
+        const row = next[Number(id)]
+        next[Number(id)] = {
+          ...row,
+          profundidad_izq: row.profundidad_izq || inspSesionRapido.profundidad,
+          profundidad_centro: row.profundidad_centro || inspSesionRapido.profundidad,
+          profundidad_der: row.profundidad_der || inspSesionRapido.profundidad,
+          presion_psi: row.presion_psi || inspSesionRapido.presion,
+        }
+      })
+      return next
+    })
+  }
+  const enviarInspSesion = async () => {
+    setInspSesionEnviando(true)
+    const entradas = Object.entries(inspSesionRows).filter(([, r]) => r.profundidad_izq || r.profundidad_centro || r.profundidad_der || r.presion_psi)
+    try {
+      for (const [nid, r] of entradas) {
+        await api.post(`/eam/neumaticos/${nid}/inspecciones`, {
+          fecha: inspSesionCabecera.fecha,
+          profundidad_izq: r.profundidad_izq ? Number(r.profundidad_izq) : undefined,
+          profundidad_centro: r.profundidad_centro ? Number(r.profundidad_centro) : undefined,
+          profundidad_der: r.profundidad_der ? Number(r.profundidad_der) : undefined,
+          presion_psi: r.presion_psi ? Number(r.presion_psi) : undefined,
+          km_odometro: inspSesionCabecera.km_odometro ? Number(inspSesionCabecera.km_odometro) : undefined,
+          estado_visual: r.estado_visual, tecnico: inspSesionCabecera.tecnico || undefined,
+        })
+      }
+      toast.success(`${entradas.length} inspecciones registradas`)
+      invalidarNeu()
+      qc.invalidateQueries({ queryKey: ['eam-insp'] })
+      setInspSesionOpen(false)
+    } catch (e: any) {
+      toast.error(e?.response?.data?.detail ?? 'Error al registrar alguna inspección')
+    } finally {
+      setInspSesionEnviando(false)
+    }
+  }
   const confirmarBaja = () => {
     if (!bajaDialog) return
     mutMov.mutate({
       neumatico_id: bajaDialog.id, tipo_movimiento: 'BAJA',
       fecha: new Date(bajaForm.fecha).toISOString(),
       dano_id: bajaForm.dano_id ? Number(bajaForm.dano_id) : undefined,
+      motivo_fin_vida_id: bajaForm.motivo_fin_vida_id ? Number(bajaForm.motivo_fin_vida_id) : undefined,
       motivo: bajaForm.motivo || undefined,
     })
     setBajaDialog(null)
@@ -301,7 +964,7 @@ export default function EAMNeumaticos() {
   const TireCard = ({ n, compact }: { n: Neumatico; compact?: boolean }) => (
     <Box
       draggable
-      onDragStart={() => setDraggedTire(n)}
+      onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(n.id)); setDraggedTire(n) }}
       onDragEnd={() => setDraggedTire(null)}
       sx={{
         p: compact ? 1 : 1.25, borderRadius: 2, border: '1px solid', borderColor: alpha(EAM_COLOR, 0.35),
@@ -320,8 +983,9 @@ export default function EAMNeumaticos() {
         <Stack direction="row" gap={0.5} mt={0.5} flexWrap="wrap">
           {n.profundidad_actual != null && <Chip size="small" label={`${n.profundidad_actual} mm`} sx={{ height: 18, fontSize: 9 }} />}
           {n.reencauches > 0 && <Chip size="small" label={`R${n.reencauches}`} color="warning" sx={{ height: 18, fontSize: 9 }} />}
+          <Tooltip title="Montar en vehículo"><IconButton size="small" sx={{ p: 0.25, color: EAM_COLOR }} onClick={() => { setMontarForm({ activo_id: veh ? String(veh.id) : '', posicion: '', fecha: nowLocal(), km_odometro: '', tecnico: '', observaciones: '' }); setMontarDialog(n) }}><DirectionsCar sx={{ fontSize: 14 }} /></IconButton></Tooltip>
           <Tooltip title="Historial"><IconButton size="small" onClick={() => setHistTire(n)} sx={{ p: 0.25 }}><HistoryIcon sx={{ fontSize: 14 }} /></IconButton></Tooltip>
-          <Tooltip title="Dar de baja"><IconButton size="small" color="error" onClick={() => { setBajaForm({ fecha: nowLocal(), dano_id: '', motivo: '' }); setBajaDialog(n) }} sx={{ p: 0.25 }}><DeleteForever sx={{ fontSize: 14 }} /></IconButton></Tooltip>
+          <Tooltip title="Dar de baja"><IconButton size="small" color="error" onClick={() => { setBajaForm({ fecha: nowLocal(), dano_id: '', motivo: '', motivo_fin_vida_id: '' }); setBajaDialog(n) }} sx={{ p: 0.25 }}><DeleteForever sx={{ fontSize: 14 }} /></IconButton></Tooltip>
         </Stack>
       )}
     </Box>
@@ -341,12 +1005,12 @@ export default function EAMNeumaticos() {
         : `${pos.label} · vacío`}>
         <Box
           draggable={!!t}
-          onDragStart={() => { if (t) setDraggedTire(t) }}
+          onDragStart={e => { if (t) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(t.id)); setDraggedTire(t) } }}
           onDragEnd={() => setDraggedTire(null)}
           onClick={(e) => { if (t) setSlotMenu({ anchor: e.currentTarget, tire: t, pos: pos.codigo }) }}
           onDragOver={(e) => { e.preventDefault(); setOverSlot(pos.codigo) }}
           onDragLeave={() => setOverSlot('')}
-          onDrop={() => soltarEnPosicion(pos.codigo)}
+          onDrop={e => { e.preventDefault(); soltarEnPosicion(pos.codigo) }}
           sx={{
             position: 'relative',
             width: 44, height: 66, borderRadius: '11px',
@@ -391,13 +1055,14 @@ export default function EAMNeumaticos() {
               <Typography fontSize={12} color="text.secondary">CMMS · Instalación, rotación, bodega, reencauche y descarte de llantas</Typography>
             </Box>
           </Stack>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setNuevoOpen(true)} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none', fontWeight: 700, borderRadius: 2 }}>Registrar llanta</Button>
+          {[0, 1, 5].includes(tab) && (
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => setNuevoOpen(true)} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none', fontWeight: 700, borderRadius: 2 }}>Registrar llanta</Button>
+          )}
         </Stack>
 
         <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto" sx={{ mb: 2, borderBottom: '1px solid #E5E7EB', '& .Mui-selected': { color: EAM_COLOR }, '& .MuiTabs-indicator': { bgcolor: EAM_COLOR } }}>
-          <Tab icon={<DirectionsCar sx={{ fontSize: 18 }} />} iconPosition="start" label="Vehículo / Diagrama" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          <Tab icon={<DirectionsCar sx={{ fontSize: 18 }} />} iconPosition="start" label="Llantas por Vehículo" sx={{ textTransform: 'none', fontWeight: 600 }} />
           <Tab icon={<WarehouseIcon sx={{ fontSize: 18 }} />} iconPosition="start" label={`Bodega (${almacen.length})`} sx={{ textTransform: 'none', fontWeight: 600 }} />
-          <Tab icon={<ShowChart sx={{ fontSize: 18 }} />} iconPosition="start" label="Inspecciones" sx={{ textTransform: 'none', fontWeight: 600 }} />
           <Tab icon={<TrendingUp sx={{ fontSize: 18 }} />} iconPosition="start" label="Indicadores / CPK" sx={{ textTransform: 'none', fontWeight: 600 }} />
           <Tab icon={<Badge badgeContent={alertas.length} color="error"><NotificationsActive sx={{ fontSize: 18 }} /></Badge>} iconPosition="start" label="Alertas" sx={{ textTransform: 'none', fontWeight: 600 }} />
           <Tab icon={<Autorenew sx={{ fontSize: 18 }} />} iconPosition="start" label="Reencauche" sx={{ textTransform: 'none', fontWeight: 600 }} />
@@ -406,8 +1071,23 @@ export default function EAMNeumaticos() {
           <Tab icon={<WarehouseIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Configuración" sx={{ textTransform: 'none', fontWeight: 600 }} />
         </Tabs>
 
-        {/* ── TAB 0: Diagrama del vehículo ── */}
-        {tab === 0 && (
+        {/* ── TAB 0: Llantas por Vehículo (diagrama + montaje/desmontaje + rotación + inspección) ── */}
+        {tab === 0 && (() => {
+          const montadas = layout.map(p => tireEn(p.codigo)).filter((t): t is Neumatico => !!t)
+          // Cualquier diálogo abierto desde esta pestaña tapa el diagrama y la tabla de detalle
+          // (llenos de Tooltips) con su backdrop de todas formas; se desmontan mientras tanto para
+          // que abrir un select/autocomplete de CUALQUIER diálogo no tenga que recalcular
+          // layout/estilos de todo este árbol pesado.
+          // Nota: slotMenu es un <Menu> anclado (menú contextual pequeño), no un <Dialog> de
+          // pantalla completa con backdrop — no se incluye aquí porque el diagrama debe seguir
+          // visible alrededor de él.
+          const algunDialogoAbierto = agregarLlantaOpen || inspImportOpen || !!movDialog ||
+            !!bajaDialog || !!histTire || ejesOpen || !!inspDialog || !!chartTire || !!rotDialog ||
+            !!voltearDialog || !!montarDialog || !!rotRinDialog || inspSesionOpen ||
+            !!ajusteDialog || !!trabajoDialog || !!zonaDialog || !!vidasDialog
+          return (
+          <Stack spacing={2}>
+          {!algunDialogoAbierto && <>
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, md: 8 }}>
               <Card sx={{ bgcolor: '#FFFFFF' }}>
@@ -422,6 +1102,22 @@ export default function EAMNeumaticos() {
                         Configurar ejes{veh.numero_ejes ? ` (${veh.numero_ejes})` : ''}
                       </Button>
                     )}
+                    {veh && veh.numero_ejes && (
+                      <Button
+                        size="small" variant="contained" startIcon={<AddIcon />}
+                        onClick={() => setAgregarLlantaOpen(true)}
+                        sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none' }}
+                      >
+                        Agregar llanta desde bodega
+                      </Button>
+                    )}
+                    <Button
+                      size="small" variant="outlined" startIcon={<UploadFile />}
+                      onClick={() => setInspImportOpen(true)}
+                      sx={{ color: EAM_DARK, borderColor: alpha(EAM_COLOR, 0.4), textTransform: 'none' }}
+                    >
+                      Importar inspecciones (Excel)
+                    </Button>
                   </Stack>
 
                   {!veh ? (
@@ -478,7 +1174,7 @@ export default function EAMNeumaticos() {
                 sx={{ bgcolor: '#FFFFFF', borderTop: `3px solid ${EAM_COLOR}` }}
                 onDragOver={(e) => { e.preventDefault(); setOverSlot('BODEGA') }}
                 onDragLeave={() => setOverSlot('')}
-                onDrop={soltarEnBodega}
+                onDrop={e => { e.preventDefault(); soltarEnBodega() }}
               >
                 <CardContent sx={{ bgcolor: overSlot === 'BODEGA' ? alpha(EAM_COLOR, 0.06) : undefined }}>
                   <Stack direction="row" alignItems="center" gap={1} mb={1.5}>
@@ -499,10 +1195,109 @@ export default function EAMNeumaticos() {
               </Card>
             </Grid>
           </Grid>
-        )}
+
+          {veh && veh.numero_ejes && (
+            <Card sx={{ bgcolor: '#FFFFFF' }}>
+              <CardContent>
+                <Stack direction="row" alignItems="center" justifyContent="space-between" gap={1.5} mb={2} flexWrap="wrap">
+                  <Stack direction="row" alignItems="center" gap={1}>
+                    <Straighten sx={{ color: EAM_DARK }} />
+                    <Typography fontWeight={700}>Detalle e inspección de llantas montadas</Typography>
+                  </Stack>
+                  <Button
+                    size="small" variant="contained" startIcon={<Straighten />}
+                    disabled={montadas.length === 0}
+                    onClick={() => abrirInspSesion(montadas, veh.odometro_actual)}
+                    sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none' }}
+                  >
+                    Nueva inspección ({montadas.length} llantas)
+                  </Button>
+                </Stack>
+
+                {/* Ficha del vehículo */}
+                <Box sx={{ bgcolor: '#F8FAFC', borderRadius: 2, p: 2, mb: 2 }}>
+                  <Grid container spacing={2}>
+                    {[
+                      ['Vehículo', `${veh.codigo}${veh.placa ? ` · ${veh.placa}` : ''}`],
+                      ['Marca', veh.marca ?? '—'],
+                      ['Tipo', veh.tipo_activo ?? '—'],
+                      ['Motor', veh.motor_marca ? `${veh.motor_marca}${veh.motor_linea ? ` ${veh.motor_linea}` : ''}${veh.motor_cc ? ` (${veh.motor_cc.toLocaleString('es-CO')}cc)` : ''}` : '—'],
+                      ['Odómetro', veh.odometro_actual != null ? `${veh.odometro_actual.toLocaleString('es-CO')} km` : '—'],
+                      ['Ejes', `${veh.numero_ejes ?? '—'}`],
+                    ].map(([l, v]) => (
+                      <Grid key={l} size={{ xs: 6, sm: 4, md: 2 }}>
+                        <Typography fontSize={10.5} fontWeight={700} color="#94A3B8" textTransform="uppercase">{l}</Typography>
+                        <Typography fontSize={13} fontWeight={600} color="#1E293B">{v}</Typography>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Box>
+
+                {/* Tabla de posiciones montadas */}
+                <Box sx={{ overflowX: 'auto' }}>
+                  <Table size="small">
+                    <TableHead><TableRow sx={{ bgcolor: alpha(EAM_COLOR, 0.08) }}>
+                      {['Pos.', 'Código', 'Llanta', 'Uso', 'Vida (R)', 'Prof. actual (mm)', 'Ext / Int (mm)', 'Presión (psi)', 'Km recorridos', 'Acciones'].map(h => <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11, whiteSpace: 'nowrap' }}>{h}</TableCell>)}
+                    </TableRow></TableHead>
+                    <TableBody>
+                      {layout.map(p => {
+                        const t = tireEn(p.codigo)
+                        const cfg = cfgForm
+                        const bajo = t?.profundidad_actual != null && t.profundidad_actual <= cfg.profundidad_minima
+                        const dualPos = /-(INT|EXT)$/.test(p.codigo)   // posición dual (permite volteo)
+                        return (
+                          <TableRow key={p.codigo} hover>
+                            <TableCell>
+                              <Tooltip title={p.label}>
+                                <Chip size="small" label={p.numero != null ? `Pos. ${p.numero}` : 'Repuesto'} sx={{ fontSize: 10 }} />
+                              </Tooltip>
+                            </TableCell>
+                            <TableCell sx={{ fontWeight: 700 }}>
+                              {t?.codigo ?? '—'}
+                              {t?.orientacion === 'INVERTIDA' && <Tooltip title="Montaje invertido (volteada)"><Chip size="small" label="⇅" sx={{ ml: 0.5, height: 16, fontSize: 10, bgcolor: alpha('#7C3AED', 0.12), color: '#7C3AED' }} /></Tooltip>}
+                            </TableCell>
+                            <TableCell>{t ? `${t.marca ?? ''} ${t.medida ?? ''}`.trim() || '—' : <Typography fontSize={12} color="text.secondary">Vacía</Typography>}</TableCell>
+                            <TableCell>{t?.tipo_uso ?? t?.tipo ?? '—'}</TableCell>
+                            <TableCell>{t ? (t.reencauches ? `R${t.reencauches}` : 'VN') : '—'}</TableCell>
+                            <TableCell sx={{ fontWeight: 700, color: bajo ? '#DC2626' : 'inherit' }}>{t?.profundidad_actual ?? '—'}</TableCell>
+                            <TableCell sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{t?.profundidad_externa != null || t?.profundidad_interna != null ? `${t?.profundidad_externa ?? '–'} / ${t?.profundidad_interna ?? '–'}` : '—'}</TableCell>
+                            <TableCell>{t?.presion_actual ?? '—'}</TableCell>
+                            <TableCell>{t?.km_total != null ? t.km_total.toLocaleString('es-CO') : '—'}</TableCell>
+                            <TableCell>
+                              {t && (
+                                <Stack direction="row" gap={0.25}>
+                                  <Tooltip title="Crear inspección"><IconButton size="small" onClick={() => { setInspForm({ ...EMPTY_INSP, km_odometro: veh.odometro_actual != null ? String(veh.odometro_actual) : '' }); setInspDialog(t) }} sx={{ color: EAM_COLOR }}><Straighten sx={{ fontSize: 17 }} /></IconButton></Tooltip>
+                                  <Tooltip title="Rotar (intercambiar posición)"><IconButton size="small" onClick={() => { setRotTarget(''); setRotDialog(t) }} sx={{ color: '#D97706' }}><SwapIcon sx={{ fontSize: 17 }} /></IconButton></Tooltip>
+                                  <Tooltip title="Rotación en el rin (misma posición)"><IconButton size="small" onClick={() => { setRotRinForm({ fecha: nowLocal(), km_odometro: veh.odometro_actual != null ? String(veh.odometro_actual) : '', tecnico: '', observaciones: '' }); setRotRinDialog(t) }} sx={{ color: '#D97706' }}><Autorenew sx={{ fontSize: 17 }} /></IconButton></Tooltip>
+                                  <Tooltip title={dualPos ? 'Voltear (invertir interno↔externo)' : 'El volteo aplica a llantas duales'}><span><IconButton size="small" disabled={!dualPos} onClick={() => setVoltearDialog(t)} sx={{ color: '#7C3AED' }}><Autorenew sx={{ fontSize: 17 }} /></IconButton></span></Tooltip>
+                                  <Tooltip title="Gráfica / historial"><IconButton size="small" onClick={() => setChartTire(t)} sx={{ color: '#2563EB' }}><ShowChart sx={{ fontSize: 17 }} /></IconButton></Tooltip>
+                                  <Tooltip title="Desmontar a bodega"><IconButton size="small" onClick={() => { setMovForm({ fecha: nowLocal(), km_odometro: '', bodega_id: '', tecnico: '', observaciones: '' }); setMovDialog({ tire: t, tipo: 'DESMONTAJE' }) }} sx={{ color: '#64748B' }}><WarehouseIcon sx={{ fontSize: 17 }} /></IconButton></Tooltip>
+                                </Stack>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                      {layout.length === 0 && <TableRow><TableCell colSpan={10} align="center"><Typography color="text.secondary" py={2}>Sin posiciones configuradas para este vehículo.</Typography></TableCell></TableRow>}
+                    </TableBody>
+                  </Table>
+                </Box>
+              </CardContent>
+            </Card>
+          )}
+          </>}
+          </Stack>
+          )
+        })()}
 
         {/* ── TAB 1: Bodega ── */}
         {tab === 1 && (
+          <Stack spacing={2}>
+          <Stack direction="row" justifyContent="flex-end">
+            <Button size="small" variant="outlined" startIcon={<UploadFile />} onClick={() => setImportOpen(true)} sx={{ color: EAM_DARK, borderColor: alpha(EAM_COLOR, 0.4), textTransform: 'none' }}>
+              Importar Excel (llantas nuevas)
+            </Button>
+          </Stack>
           <Card sx={{ bgcolor: '#FFFFFF' }}>
             <Box sx={{ overflowX: 'auto' }}>
               <Table size="small">
@@ -520,8 +1315,15 @@ export default function EAMNeumaticos() {
                       <TableCell>{n.profundidad_actual ?? '—'}</TableCell>
                       <TableCell>{n.reencauches}</TableCell>
                       <TableCell>
+                        {n.estado === 'ALMACENADO' && (
+                          <Tooltip title="Montar en vehículo">
+                            <IconButton size="small" sx={{ color: EAM_COLOR }} onClick={() => { setMontarForm({ activo_id: '', posicion: '', fecha: nowLocal(), km_odometro: '', tecnico: '', observaciones: '' }); setMontarDialog(n) }}>
+                              <DirectionsCar sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Tooltip>
+                        )}
                         <Tooltip title="Historial"><IconButton size="small" onClick={() => setHistTire(n)}><HistoryIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
-                        <Tooltip title="Dar de baja"><IconButton size="small" color="error" onClick={() => { setBajaForm({ fecha: nowLocal(), dano_id: '', motivo: '' }); setBajaDialog(n) }}><DeleteForever sx={{ fontSize: 16 }} /></IconButton></Tooltip>
+                        <Tooltip title="Dar de baja"><IconButton size="small" color="error" onClick={() => { setBajaForm({ fecha: nowLocal(), dano_id: '', motivo: '', motivo_fin_vida_id: '' }); setBajaDialog(n) }}><DeleteForever sx={{ fontSize: 16 }} /></IconButton></Tooltip>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -530,99 +1332,11 @@ export default function EAMNeumaticos() {
               </Table>
             </Box>
           </Card>
+          </Stack>
         )}
 
-        {/* ── TAB 2: Inspecciones por vehículo (esquema + llanta por llanta) ── */}
-        {tab === 2 && (() => {
-          const inspVeh = vehiculos.find(v => String(v.id) === inspVehId)
-          const tireEnInsp = (pos: string) => neumaticos.find(n => n.activo_id === inspVeh?.id && n.posicion === pos)
-          return (
-            <Card sx={{ bgcolor: '#FFFFFF' }}>
-              <CardContent>
-                <Stack direction="row" alignItems="center" gap={1.5} mb={2} flexWrap="wrap">
-                  <Straighten sx={{ color: EAM_DARK }} />
-                  <Typography fontWeight={700}>Inspección por vehículo</Typography>
-                  <TextField select size="small" label="Vehículo" value={inspVehId} onChange={e => setInspVehId(e.target.value)} sx={{ minWidth: 320 }}>
-                    <MenuItem value="">Seleccionar vehículo…</MenuItem>
-                    {vehiculos.map(v => <MenuItem key={v.id} value={String(v.id)}>{v.codigo}{v.placa ? ` · ${v.placa}` : ''} — {v.nombre}</MenuItem>)}
-                  </TextField>
-                </Stack>
-
-                {!inspVeh ? (
-                  <Alert severity="info">Seleccione un vehículo para ver sus llantas montadas e inspeccionarlas una a una.</Alert>
-                ) : (
-                  <>
-                    {/* Ficha del vehículo */}
-                    <Box sx={{ bgcolor: '#F8FAFC', borderRadius: 2, p: 2, mb: 2 }}>
-                      <Grid container spacing={2}>
-                        {[
-                          ['Vehículo', `${inspVeh.codigo}${inspVeh.placa ? ` · ${inspVeh.placa}` : ''}`],
-                          ['Marca', inspVeh.marca ?? '—'],
-                          ['Tipo', inspVeh.tipo_activo ?? '—'],
-                          ['Motor', inspVeh.motor_marca ? `${inspVeh.motor_marca}${inspVeh.motor_linea ? ` ${inspVeh.motor_linea}` : ''}${inspVeh.motor_cc ? ` (${inspVeh.motor_cc.toLocaleString('es-CO')}cc)` : ''}` : '—'],
-                          ['Odómetro', inspVeh.odometro_actual != null ? `${inspVeh.odometro_actual.toLocaleString('es-CO')} km` : '—'],
-                          ['Ejes', `${inspVeh.numero_ejes ?? '—'}`],
-                        ].map(([l, v]) => (
-                          <Grid key={l} size={{ xs: 6, sm: 4, md: 2 }}>
-                            <Typography fontSize={10.5} fontWeight={700} color="#94A3B8" textTransform="uppercase">{l}</Typography>
-                            <Typography fontSize={13} fontWeight={600} color="#1E293B">{v}</Typography>
-                          </Grid>
-                        ))}
-                      </Grid>
-                    </Box>
-
-                    {/* Tabla de posiciones montadas */}
-                    <Box sx={{ overflowX: 'auto' }}>
-                      <Table size="small">
-                        <TableHead><TableRow sx={{ bgcolor: alpha(EAM_COLOR, 0.08) }}>
-                          {['Pos.', 'Código', 'Llanta', 'Uso', 'Vida (R)', 'Prof. actual (mm)', 'Ext / Int (mm)', 'Presión (psi)', 'Km recorridos', 'Acciones'].map(h => <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11, whiteSpace: 'nowrap' }}>{h}</TableCell>)}
-                        </TableRow></TableHead>
-                        <TableBody>
-                          {inspLayout.map(p => {
-                            const t = tireEnInsp(p.codigo)
-                            const cfg = cfgForm
-                            const bajo = t?.profundidad_actual != null && t.profundidad_actual <= cfg.profundidad_minima
-                            const dualPos = /-(INT|EXT)$/.test(p.codigo)   // posición dual (permite volteo)
-                            return (
-                              <TableRow key={p.codigo} hover>
-                                <TableCell><Chip size="small" label={p.label} sx={{ fontSize: 10 }} /></TableCell>
-                                <TableCell sx={{ fontWeight: 700 }}>
-                                  {t?.codigo ?? '—'}
-                                  {t?.orientacion === 'INVERTIDA' && <Tooltip title="Montaje invertido (volteada)"><Chip size="small" label="⇅" sx={{ ml: 0.5, height: 16, fontSize: 10, bgcolor: alpha('#7C3AED', 0.12), color: '#7C3AED' }} /></Tooltip>}
-                                </TableCell>
-                                <TableCell>{t ? `${t.marca ?? ''} ${t.medida ?? ''}`.trim() || '—' : <Typography fontSize={12} color="text.secondary">Vacía</Typography>}</TableCell>
-                                <TableCell>{t?.tipo_uso ?? t?.tipo ?? '—'}</TableCell>
-                                <TableCell>{t ? (t.reencauches ? `R${t.reencauches}` : 'VN') : '—'}</TableCell>
-                                <TableCell sx={{ fontWeight: 700, color: bajo ? '#DC2626' : 'inherit' }}>{t?.profundidad_actual ?? '—'}</TableCell>
-                                <TableCell sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{t?.profundidad_externa != null || t?.profundidad_interna != null ? `${t?.profundidad_externa ?? '–'} / ${t?.profundidad_interna ?? '–'}` : '—'}</TableCell>
-                                <TableCell>{t?.presion_actual ?? '—'}</TableCell>
-                                <TableCell>{t?.km_total != null ? t.km_total.toLocaleString('es-CO') : '—'}</TableCell>
-                                <TableCell>
-                                  {t && (
-                                    <Stack direction="row" gap={0.25}>
-                                      <Tooltip title="Crear inspección"><IconButton size="small" onClick={() => { setInspForm({ ...EMPTY_INSP, km_odometro: inspVeh.odometro_actual != null ? String(inspVeh.odometro_actual) : '' }); setInspDialog(t) }} sx={{ color: EAM_COLOR }}><Straighten sx={{ fontSize: 17 }} /></IconButton></Tooltip>
-                                      <Tooltip title="Rotar (intercambiar posición)"><IconButton size="small" onClick={() => { setRotTarget(''); setRotDialog(t) }} sx={{ color: '#D97706' }}><SwapIcon sx={{ fontSize: 17 }} /></IconButton></Tooltip>
-                                      <Tooltip title={dualPos ? 'Voltear (invertir interno↔externo)' : 'El volteo aplica a llantas duales'}><span><IconButton size="small" disabled={!dualPos} onClick={() => setVoltearDialog(t)} sx={{ color: '#7C3AED' }}><Autorenew sx={{ fontSize: 17 }} /></IconButton></span></Tooltip>
-                                      <Tooltip title="Gráfica / historial"><IconButton size="small" onClick={() => setChartTire(t)} sx={{ color: '#2563EB' }}><ShowChart sx={{ fontSize: 17 }} /></IconButton></Tooltip>
-                                    </Stack>
-                                  )}
-                                </TableCell>
-                              </TableRow>
-                            )
-                          })}
-                          {inspLayout.length === 0 && <TableRow><TableCell colSpan={10} align="center"><Typography color="text.secondary" py={2}>Configure el número de ejes del vehículo en la pestaña Vehículo / Diagrama.</Typography></TableCell></TableRow>}
-                        </TableBody>
-                      </Table>
-                    </Box>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          )
-        })()}
-
-        {/* ── TAB 3: Indicadores / CPK ── */}
-        {tab === 3 && (
+        {/* ── TAB 2: Indicadores / CPK ── */}
+        {tab === 2 && (
           <Card sx={{ bgcolor: '#FFFFFF' }}>
             <CardContent>
               <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1.5} flexWrap="wrap" gap={1}>
@@ -668,8 +1382,8 @@ export default function EAMNeumaticos() {
           </Card>
         )}
 
-        {/* ── TAB 4: Alertas ── */}
-        {tab === 4 && (
+        {/* ── TAB 3: Alertas ── */}
+        {tab === 3 && (
           <Card sx={{ bgcolor: '#FFFFFF' }}>
             <CardContent>
               <Stack direction="row" alignItems="center" gap={1} mb={1.5}>
@@ -695,8 +1409,8 @@ export default function EAMNeumaticos() {
           </Card>
         )}
 
-        {/* ── TAB 5: Reencauche ── */}
-        {tab === 5 && (
+        {/* ── TAB 4: Reencauche ── */}
+        {tab === 4 && (
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, md: 4 }}>
               <Card sx={{ bgcolor: '#FFFFFF' }}>
@@ -738,7 +1452,11 @@ export default function EAMNeumaticos() {
                               <MenuItem value="">Seleccionar…</MenuItem>
                               {almacen.filter(n => n.estado === 'ALMACENADO').map(n => <MenuItem key={n.id} value={String(n.id)}>{n.codigo} · {n.marca ?? ''} {n.medida ?? ''}</MenuItem>)}
                             </TextField>
-                            <Button size="small" variant="contained" disabled={!addTireLote || mutAddDet.isPending} onClick={() => mutAddDet.mutate({ neumatico_id: Number(addTireLote) })} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none' }}>Agregar</Button>
+                            <TextField select size="small" label="Banda de reencauche" value={addTireLoteBanda} onChange={e => setAddTireLoteBanda(e.target.value)} sx={{ minWidth: 220 }}>
+                              <MenuItem value="">Sin especificar</MenuItem>
+                              {bandas.filter(b => b.activo).map(b => <MenuItem key={b.id} value={String(b.id)}>{b.marca} {b.referencia ?? ''} · {b.dimension ?? ''}</MenuItem>)}
+                            </TextField>
+                            <Button size="small" variant="contained" disabled={!addTireLote || mutAddDet.isPending} onClick={() => { mutAddDet.mutate({ neumatico_id: Number(addTireLote), banda_id: addTireLoteBanda ? Number(addTireLoteBanda) : undefined }); setAddTireLoteBanda('') }} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none' }}>Agregar</Button>
                           </Stack>
                         )}
                         <Box sx={{ overflowX: 'auto' }}>
@@ -755,7 +1473,7 @@ export default function EAMNeumaticos() {
                                     <TableCell>{d.profundidad_nueva ?? '—'}</TableCell>
                                     <TableCell>
                                       {d.resultado === 'PENDIENTE' && abierto && (
-                                        <Button size="small" variant="text" onClick={() => { setProcForm({ resultado: 'REENCAUCHADA', profundidad_nueva: '', vida_remanente_km: '', costo: '', dano_id: '' }); setProcDialog(d) }} sx={{ textTransform: 'none', color: EAM_COLOR }}>Procesar</Button>
+                                        <Button size="small" variant="text" onClick={() => { setProcForm({ resultado: 'REENCAUCHADA', profundidad_nueva: '', vida_remanente_km: '', costo: '', dano_id: '', motivo_fin_vida_id: '' }); setProcDialog(d) }} sx={{ textTransform: 'none', color: EAM_COLOR }}>Procesar</Button>
                                       )}
                                     </TableCell>
                                   </TableRow>
@@ -774,8 +1492,8 @@ export default function EAMNeumaticos() {
           </Grid>
         )}
 
-        {/* ── TAB 6: Consultas (por vehículo / llanta / ubicación / total) ── */}
-        {tab === 6 && (() => {
+        {/* ── TAB 5: Consultas (por vehículo / llanta / ubicación / total) ── */}
+        {tab === 5 && (() => {
           const vehNombre = (id?: number | null) => { const v = vehiculos.find(x => x.id === id); return v ? `${v.codigo}${v.placa ? ` (${v.placa})` : ''}` : '—' }
           const ubicacionDe = (n: Neumatico) => n.activo_id ? `${vehNombre(n.activo_id)}${n.posicion ? ` · ${n.posicion}` : ''}` : n.bodega_id ? `Bodega: ${bodegaNombre(n.bodega_id)}` : '—'
           const filtradas = neumaticos.filter(n => {
@@ -786,7 +1504,7 @@ export default function EAMNeumaticos() {
             if (consEstado && n.estado !== consEstado) return false
             if (consBusca.trim()) {
               const q = consBusca.toLowerCase()
-              if (![n.codigo, n.marca, n.referencia, n.medida].some(x => (x ?? '').toLowerCase().includes(q))) return false
+              if (![n.codigo, n.marca, n.referencia, n.medida, n.proveedor].some(x => (x ?? '').toLowerCase().includes(q))) return false
             }
             return true
           })
@@ -804,6 +1522,8 @@ export default function EAMNeumaticos() {
             { key: 'presion', header: 'Presión' }, { key: 'km_total', header: 'Km total' }, { key: 'reencauches', header: 'Reenc.' },
             { key: 'costo', header: 'Costo' }, { key: 'vida_util_km', header: 'Vida útil km' },
           ]
+          const idsVisibles = filtradas.map(n => n.id)
+          const todasSeleccionadas = idsVisibles.length > 0 && idsVisibles.every(id => selectedIds.has(id))
           return (
             <Card sx={{ bgcolor: '#FFFFFF' }}>
               <CardContent>
@@ -811,7 +1531,14 @@ export default function EAMNeumaticos() {
                   <Stack direction="row" alignItems="center" gap={1}>
                     <Inventory2 sx={{ color: EAM_DARK }} /><Typography fontWeight={700}>Consulta general de llantas ({filtradas.length} de {neumaticos.length})</Typography>
                   </Stack>
-                  <Stack direction="row" gap={1}>
+                  <Stack direction="row" gap={1} flexWrap="wrap">
+                    {selectedIds.size > 0 && (
+                      <Button size="small" variant="contained" color="error" startIcon={<DeleteForever />} onClick={() => setBulkDeleteOpen(true)} sx={{ textTransform: 'none' }}>
+                        Eliminar seleccionadas ({selectedIds.size})
+                      </Button>
+                    )}
+                    <Button size="small" variant="outlined" startIcon={<CameraAlt />} onClick={() => setCongelarOpen(true)} sx={{ textTransform: 'none' }}>Congelar datos</Button>
+                    <Button size="small" variant="outlined" startIcon={<Checklist />} onClick={() => setCongeladosOpen(true)} sx={{ textTransform: 'none' }}>Ver congelados</Button>
                     <Button size="small" variant="outlined" startIcon={<Download />} onClick={() => exportarPDF({ archivo: 'consulta-llantas', titulo: 'Consulta de neumáticos', color: EAM_COLOR, columnas, filas })} sx={{ textTransform: 'none' }}>PDF</Button>
                     <Button size="small" variant="outlined" startIcon={<Download />} onClick={() => exportarExcel({ archivo: 'consulta-llantas', titulo: 'Consulta de neumáticos', columnas, filas })} sx={{ textTransform: 'none' }}>Excel</Button>
                   </Stack>
@@ -831,16 +1558,22 @@ export default function EAMNeumaticos() {
                     <MenuItem value="">Todos</MenuItem>
                     {['INSTALADO', 'ALMACENADO', 'REENCAUCHE', 'BAJA'].map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
                   </TextField>
-                  <TextField size="small" label="Buscar (código, marca, medida…)" value={consBusca} onChange={e => setConsBusca(e.target.value)} sx={{ minWidth: 240, flex: 1 }} />
+                  <TextField size="small" label="Buscar (código, marca, medida, proveedor…)" value={consBusca} onChange={e => setConsBusca(e.target.value)} sx={{ minWidth: 240, flex: 1 }} />
                 </Stack>
                 <Box sx={{ overflowX: 'auto' }}>
                   <Table size="small">
                     <TableHead><TableRow sx={{ bgcolor: alpha(EAM_COLOR, 0.08) }}>
+                      <TableCell padding="checkbox">
+                        <Checkbox size="small" checked={todasSeleccionadas} onChange={e => toggleSeleccionTodas(idsVisibles, e.target.checked)} />
+                      </TableCell>
                       {columnas.map(c => <TableCell key={c.key} sx={{ fontWeight: 700, fontSize: 11, whiteSpace: 'nowrap' }}>{c.header}</TableCell>)}
                     </TableRow></TableHead>
                     <TableBody>
                       {filtradas.map(n => (
-                        <TableRow key={n.id} hover>
+                        <TableRow key={n.id} hover selected={selectedIds.has(n.id)}>
+                          <TableCell padding="checkbox">
+                            <Checkbox size="small" checked={selectedIds.has(n.id)} onChange={e => toggleSeleccionTodas([n.id], e.target.checked)} />
+                          </TableCell>
                           <TableCell sx={{ fontWeight: 700 }}>{n.codigo}</TableCell>
                           <TableCell>{n.marca ?? '—'}</TableCell>
                           <TableCell>{n.referencia ?? '—'}</TableCell>
@@ -857,7 +1590,7 @@ export default function EAMNeumaticos() {
                           <TableCell>{n.vida_util_km != null ? n.vida_util_km.toLocaleString('es-CO') : '—'}</TableCell>
                         </TableRow>
                       ))}
-                      {filtradas.length === 0 && <TableRow><TableCell colSpan={columnas.length} align="center"><Typography color="text.secondary" py={2}>Sin resultados con los filtros aplicados</Typography></TableCell></TableRow>}
+                      {filtradas.length === 0 && <TableRow><TableCell colSpan={columnas.length + 1} align="center"><Typography color="text.secondary" py={2}>Sin resultados con los filtros aplicados</Typography></TableCell></TableRow>}
                     </TableBody>
                   </Table>
                 </Box>
@@ -866,8 +1599,18 @@ export default function EAMNeumaticos() {
           )
         })()}
 
-        {/* ── TAB 7: Descarte ── */}
-        {tab === 7 && (
+        {/* ── TAB 6: Descarte ── */}
+        {tab === 6 && (
+          <Stack spacing={2}>
+          <Stack direction="row" justifyContent="flex-end">
+            <Button
+              size="small" variant="outlined" startIcon={<UploadFile />}
+              onClick={() => setBajaImportOpen(true)}
+              sx={{ color: '#DC2626', borderColor: alpha('#DC2626', 0.4), textTransform: 'none' }}
+            >
+              Importar descartes masivos (Excel)
+            </Button>
+          </Stack>
           <Card sx={{ bgcolor: '#FFFFFF' }}>
             <Box sx={{ overflowX: 'auto' }}>
               <Table size="small">
@@ -892,10 +1635,11 @@ export default function EAMNeumaticos() {
               </Table>
             </Box>
           </Card>
+          </Stack>
         )}
 
-        {/* ── TAB 8: Configuración (bodegas + catálogo de daños) ── */}
-        {tab === 8 && (
+        {/* ── TAB 7: Configuración (bodegas + catálogo de daños) ── */}
+        {tab === 7 && (
           <Grid container spacing={2}>
             {/* Parámetros globales */}
             <Grid size={{ xs: 12 }}>
@@ -1020,6 +1764,251 @@ export default function EAMNeumaticos() {
                 </CardContent>
               </Card>
             </Grid>
+
+            {/* Zonas */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Card sx={{ bgcolor: '#FFFFFF' }}>
+                <CardContent>
+                  <Stack direction="row" alignItems="center" gap={1} mb={1.5}>
+                    <Inventory2 sx={{ color: EAM_DARK }} /><Typography fontWeight={700}>Zonas de llantas</Typography>
+                  </Stack>
+                  <Grid container spacing={1} mb={1.5}>
+                    <Grid size={{ xs: 4 }}><TextField label="Código" size="small" fullWidth value={zonaForm.codigo} onChange={e => setZonaForm(f => ({ ...f, codigo: e.target.value }))} /></Grid>
+                    <Grid size={{ xs: 5 }}><TextField label="Nombre" size="small" fullWidth value={zonaForm.nombre} onChange={e => setZonaForm(f => ({ ...f, nombre: e.target.value }))} /></Grid>
+                    <Grid size={{ xs: 3 }} sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Button size="small" variant="contained" startIcon={<AddIcon />} disabled={!zonaForm.codigo || !zonaForm.nombre || mutZona.isPending} onClick={() => mutZona.mutate({ ...zonaForm })} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Agregar</Button>
+                    </Grid>
+                  </Grid>
+                  <Table size="small">
+                    <TableHead><TableRow>{['Código', 'Nombre', ''].map(h => <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>)}</TableRow></TableHead>
+                    <TableBody>
+                      {zonas.map(z => (
+                        <TableRow key={z.id} hover>
+                          <TableCell>{z.codigo}</TableCell><TableCell>{z.nombre}</TableCell>
+                          <TableCell align="right"><IconButton size="small" color="error" onClick={() => mutZonaDel.mutate(z.id)}><DeleteForever sx={{ fontSize: 16 }} /></IconButton></TableCell>
+                        </TableRow>
+                      ))}
+                      {zonas.length === 0 && <TableRow><TableCell colSpan={3} align="center"><Typography color="text.secondary" py={1}>Sin zonas configuradas</Typography></TableCell></TableRow>}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            {/* Motivos de fin de vida */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Card sx={{ bgcolor: '#FFFFFF' }}>
+                <CardContent>
+                  <Stack direction="row" alignItems="center" gap={1} mb={1.5}>
+                    <Recycling sx={{ color: EAM_DARK }} /><Typography fontWeight={700}>Motivos de fin de vida</Typography>
+                  </Stack>
+                  <Grid container spacing={1} mb={1.5}>
+                    <Grid size={{ xs: 6 }}><TextField label="Nombre" size="small" fullWidth value={motivoForm.nombre} onChange={e => setMotivoForm(f => ({ ...f, nombre: e.target.value }))} /></Grid>
+                    <Grid size={{ xs: 3 }}><FormControlLabel control={<Switch size="small" checked={motivoForm.aplica_descarte} onChange={e => setMotivoForm(f => ({ ...f, aplica_descarte: e.target.checked }))} />} label={<Typography fontSize={12}>Descarte</Typography>} /></Grid>
+                    <Grid size={{ xs: 3 }}><FormControlLabel control={<Switch size="small" checked={motivoForm.aplica_fin_vida} onChange={e => setMotivoForm(f => ({ ...f, aplica_fin_vida: e.target.checked }))} />} label={<Typography fontSize={12}>Fin de vida</Typography>} /></Grid>
+                    <Grid size={{ xs: 12 }} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <Button size="small" variant="contained" startIcon={<AddIcon />} disabled={!motivoForm.nombre || mutMotivo.isPending} onClick={() => mutMotivo.mutate({ ...motivoForm })} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Agregar</Button>
+                    </Grid>
+                  </Grid>
+                  <Table size="small">
+                    <TableHead><TableRow>{['Nombre', 'Descarte', 'Fin de vida', ''].map(h => <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>)}</TableRow></TableHead>
+                    <TableBody>
+                      {motivosFinVida.map(m => (
+                        <TableRow key={m.id} hover>
+                          <TableCell>{m.nombre}</TableCell>
+                          <TableCell>{m.aplica_descarte ? '✓' : '—'}</TableCell>
+                          <TableCell>{m.aplica_fin_vida ? '✓' : '—'}</TableCell>
+                          <TableCell align="right"><IconButton size="small" color="error" onClick={() => mutMotivoDel.mutate(m.id)}><DeleteForever sx={{ fontSize: 16 }} /></IconButton></TableCell>
+                        </TableRow>
+                      ))}
+                      {motivosFinVida.length === 0 && <TableRow><TableCell colSpan={4} align="center"><Typography color="text.secondary" py={1}>Sin motivos configurados</Typography></TableCell></TableRow>}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            {/* Bandas de reencauche */}
+            <Grid size={{ xs: 12 }}>
+              <Card sx={{ bgcolor: '#FFFFFF' }}>
+                <CardContent>
+                  <Stack direction="row" alignItems="center" gap={1} mb={1.5}>
+                    <Autorenew sx={{ color: EAM_DARK }} /><Typography fontWeight={700}>Bandas de reencauche</Typography>
+                  </Stack>
+                  <Grid container spacing={1} mb={1.5} alignItems="center">
+                    <Grid size={{ xs: 6, sm: 2 }}><TextField label="Marca *" size="small" fullWidth value={bandaForm.marca} onChange={e => setBandaForm(f => ({ ...f, marca: e.target.value }))} /></Grid>
+                    <Grid size={{ xs: 6, sm: 2 }}><TextField label="Referencia" size="small" fullWidth value={bandaForm.referencia} onChange={e => setBandaForm(f => ({ ...f, referencia: e.target.value }))} /></Grid>
+                    <Grid size={{ xs: 6, sm: 2 }}><TextField label="Dimensión" size="small" fullWidth value={bandaForm.dimension} onChange={e => setBandaForm(f => ({ ...f, dimension: e.target.value }))} /></Grid>
+                    <Grid size={{ xs: 6, sm: 2 }}><TextField label="Prof. original" type="number" size="small" fullWidth value={bandaForm.profundidad_original} onChange={e => setBandaForm(f => ({ ...f, profundidad_original: e.target.value }))} /></Grid>
+                    <Grid size={{ xs: 6, sm: 2 }}><TextField label="Prof. mínima" type="number" size="small" fullWidth value={bandaForm.profundidad_minima} onChange={e => setBandaForm(f => ({ ...f, profundidad_minima: e.target.value }))} /></Grid>
+                    <Grid size={{ xs: 6, sm: 2 }}><TextField label="Costo por defecto" type="number" size="small" fullWidth value={bandaForm.costo_defecto} onChange={e => setBandaForm(f => ({ ...f, costo_defecto: e.target.value }))} /></Grid>
+                    <Grid size={{ xs: 6, sm: 3 }}><FormControlLabel control={<Switch size="small" checked={bandaForm.reesculturable} onChange={e => setBandaForm(f => ({ ...f, reesculturable: e.target.checked }))} />} label={<Typography fontSize={12}>Reesculturable</Typography>} /></Grid>
+                    <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Button size="small" variant="contained" startIcon={<AddIcon />} disabled={!bandaForm.marca || mutBanda.isPending}
+                        onClick={() => mutBanda.mutate({
+                          marca: bandaForm.marca, referencia: bandaForm.referencia || undefined, dimension: bandaForm.dimension || undefined,
+                          profundidad_original: bandaForm.profundidad_original ? Number(bandaForm.profundidad_original) : undefined,
+                          profundidad_minima: bandaForm.profundidad_minima ? Number(bandaForm.profundidad_minima) : undefined,
+                          costo_defecto: bandaForm.costo_defecto ? Number(bandaForm.costo_defecto) : undefined,
+                          reesculturable: bandaForm.reesculturable,
+                        })} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Agregar</Button>
+                    </Grid>
+                  </Grid>
+                  <Box sx={{ overflowX: 'auto' }}>
+                    <Table size="small">
+                      <TableHead><TableRow>{['Marca', 'Referencia', 'Dimensión', 'Prof. orig/mín', 'Costo', 'Reesculturable', ''].map(h => <TableCell key={h} sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</TableCell>)}</TableRow></TableHead>
+                      <TableBody>
+                        {bandas.map(b => (
+                          <TableRow key={b.id} hover>
+                            <TableCell>{b.marca}</TableCell><TableCell>{b.referencia ?? '—'}</TableCell><TableCell>{b.dimension ?? '—'}</TableCell>
+                            <TableCell>{b.profundidad_original ?? '—'} / {b.profundidad_minima ?? '—'}</TableCell>
+                            <TableCell>{b.costo_defecto ? `$${b.costo_defecto.toLocaleString('es-CO')}` : '—'}</TableCell>
+                            <TableCell>{b.reesculturable ? 'Sí' : 'No'}</TableCell>
+                            <TableCell align="right"><IconButton size="small" color="error" onClick={() => mutBandaDel.mutate(b.id)}><DeleteForever sx={{ fontSize: 16 }} /></IconButton></TableCell>
+                          </TableRow>
+                        ))}
+                        {bandas.length === 0 && <TableRow><TableCell colSpan={7} align="center"><Typography color="text.secondary" py={1}>Sin bandas configuradas</Typography></TableCell></TableRow>}
+                      </TableBody>
+                    </Table>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            {/* Ajustes de valor (catálogo) */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Card sx={{ bgcolor: '#FFFFFF' }}>
+                <CardContent>
+                  <Stack direction="row" alignItems="center" gap={1} mb={1.5}>
+                    <AttachMoney sx={{ color: EAM_DARK }} /><Typography fontWeight={700}>Categorías de ajuste de valor</Typography>
+                  </Stack>
+                  <Typography fontSize={11} color="text.secondary" mb={1}>Deducciones que reducen el costo de la llanta al calcular CPK (garantías, venta de carcasa, etc.).</Typography>
+                  <Stack direction="row" gap={1} mb={1.5}>
+                    <TextField label="Nombre" size="small" fullWidth value={ajusteCatForm.nombre} onChange={e => setAjusteCatForm({ nombre: e.target.value })} />
+                    <Button size="small" variant="contained" startIcon={<AddIcon />} disabled={!ajusteCatForm.nombre || mutAjusteCat.isPending} onClick={() => mutAjusteCat.mutate({ ...ajusteCatForm })} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, whiteSpace: 'nowrap' }}>Agregar</Button>
+                  </Stack>
+                  <Stack spacing={0.5}>
+                    {ajustesCat.map(a => (
+                      <Stack key={a.id} direction="row" alignItems="center" justifyContent="space-between" sx={{ bgcolor: '#F5F7FA', borderRadius: 1, px: 1, py: 0.5 }}>
+                        <Typography variant="body2">{a.nombre}</Typography>
+                        <IconButton size="small" color="error" onClick={() => mutAjusteCatDel.mutate(a.id)}><DeleteForever sx={{ fontSize: 15 }} /></IconButton>
+                      </Stack>
+                    ))}
+                    {ajustesCat.length === 0 && <Typography variant="caption" color="text.secondary">Sin categorías configuradas</Typography>}
+                  </Stack>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            {/* Trabajos y periodicidad */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Card sx={{ bgcolor: '#FFFFFF' }}>
+                <CardContent>
+                  <Stack direction="row" alignItems="center" gap={1} mb={1.5}>
+                    <Build sx={{ color: EAM_DARK }} /><Typography fontWeight={700}>Trabajos y periodicidad</Typography>
+                  </Stack>
+                  <Stack direction="row" gap={1} mb={1}>
+                    <TextField label="Nombre del trabajo" size="small" fullWidth value={trabajoForm.nombre} onChange={e => setTrabajoForm(f => ({ ...f, nombre: e.target.value }))} />
+                    <Button size="small" variant="contained" startIcon={<AddIcon />} disabled={!trabajoForm.nombre || mutTrabajo.isPending} onClick={() => mutTrabajo.mutate({ ...trabajoForm })} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, whiteSpace: 'nowrap' }}>Agregar</Button>
+                  </Stack>
+                  <Stack spacing={0.5} mb={2}>
+                    {trabajosCat.map(t => (
+                      <Stack key={t.id} direction="row" alignItems="center" justifyContent="space-between" sx={{ bgcolor: '#F5F7FA', borderRadius: 1, px: 1, py: 0.5 }}>
+                        <Typography variant="body2">{t.nombre}{t.es_predeterminado ? ' · predeterminado' : ''}</Typography>
+                        <IconButton size="small" color="error" onClick={() => mutTrabajoDel.mutate(t.id)}><DeleteForever sx={{ fontSize: 15 }} /></IconButton>
+                      </Stack>
+                    ))}
+                    {trabajosCat.length === 0 && <Typography variant="caption" color="text.secondary">Sin trabajos configurados</Typography>}
+                  </Stack>
+                  <Divider sx={{ mb: 1.5 }} />
+                  <Typography variant="caption" fontWeight={700} color="text.secondary">Periodicidad (repetir cada…)</Typography>
+                  <Grid container spacing={1} mt={0.25} mb={1.5} alignItems="center">
+                    <Grid size={{ xs: 12, sm: 5 }}>
+                      <TextField select label="Trabajo" size="small" fullWidth value={periodForm.trabajo_id} onChange={e => setPeriodForm(f => ({ ...f, trabajo_id: e.target.value }))}>
+                        <MenuItem value="">Seleccionar…</MenuItem>
+                        {trabajosCat.map(t => <MenuItem key={t.id} value={String(t.id)}>{t.nombre}</MenuItem>)}
+                      </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 6, sm: 3 }}><TextField label="Valor" type="number" size="small" fullWidth value={periodForm.valor} onChange={e => setPeriodForm(f => ({ ...f, valor: e.target.value }))} /></Grid>
+                    <Grid size={{ xs: 6, sm: 4 }}>
+                      <TextField select label="Unidad" size="small" fullWidth value={periodForm.unidad} onChange={e => setPeriodForm(f => ({ ...f, unidad: e.target.value }))}>
+                        {['KILOMETROS', 'HORAS', 'DIAS'].map(u => <MenuItem key={u} value={u}>{u}</MenuItem>)}
+                      </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 12 }} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <Button size="small" variant="contained" startIcon={<AddIcon />} disabled={!periodForm.trabajo_id || !periodForm.valor || mutPeriodicidad.isPending}
+                        onClick={() => mutPeriodicidad.mutate({ trabajo_id: Number(periodForm.trabajo_id), valor: Number(periodForm.valor), unidad: periodForm.unidad })}
+                        sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Agregar</Button>
+                    </Grid>
+                  </Grid>
+                  <Stack spacing={0.5}>
+                    {periodicidades.map(p => (
+                      <Stack key={p.id} direction="row" alignItems="center" justifyContent="space-between" sx={{ bgcolor: '#F5F7FA', borderRadius: 1, px: 1, py: 0.5 }}>
+                        <Typography variant="body2">{trabajosCat.find(t => t.id === p.trabajo_id)?.nombre ?? '—'} · cada {p.valor.toLocaleString('es-CO')} {p.unidad.toLowerCase()}</Typography>
+                        <IconButton size="small" color="error" onClick={() => mutPeriodicidadDel.mutate(p.id)}><DeleteForever sx={{ fontSize: 15 }} /></IconButton>
+                      </Stack>
+                    ))}
+                    {periodicidades.length === 0 && <Typography variant="caption" color="text.secondary">Sin periodicidades configuradas</Typography>}
+                  </Stack>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            {/* Esquemas de vehículo */}
+            <Grid size={{ xs: 12 }}>
+              <Card sx={{ bgcolor: '#FFFFFF' }}>
+                <CardContent>
+                  <Stack direction="row" alignItems="center" gap={1} mb={1.5}>
+                    <DirectionsCar sx={{ color: EAM_DARK }} /><Typography fontWeight={700}>Esquemas de vehículo (plantillas de ejes/repuesto)</Typography>
+                  </Stack>
+                  <Grid container spacing={1} mb={2} alignItems="center">
+                    <Grid size={{ xs: 12, sm: 3 }}><TextField label="Nombre *" size="small" fullWidth value={esquemaForm.nombre} onChange={e => setEsquemaForm(f => ({ ...f, nombre: e.target.value }))} /></Grid>
+                    <Grid size={{ xs: 6, sm: 2 }}><TextField label="N° ejes" type="number" size="small" fullWidth value={esquemaForm.numero_ejes} onChange={e => setEsquemaForm(f => ({ ...f, numero_ejes: e.target.value }))} /></Grid>
+                    <Grid size={{ xs: 6, sm: 2 }}><TextField label="Repuestos" type="number" size="small" fullWidth value={esquemaForm.cantidad_repuestos} onChange={e => setEsquemaForm(f => ({ ...f, cantidad_repuestos: e.target.value }))} /></Grid>
+                    <Grid size={{ xs: 6, sm: 2 }}><FormControlLabel control={<Switch size="small" checked={esquemaForm.tiene_repuesto} onChange={e => setEsquemaForm(f => ({ ...f, tiene_repuesto: e.target.checked }))} />} label={<Typography fontSize={12}>Con repuesto</Typography>} /></Grid>
+                    <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Button size="small" variant="contained" startIcon={<AddIcon />} disabled={!esquemaForm.nombre || mutEsquema.isPending}
+                        onClick={() => mutEsquema.mutate({ nombre: esquemaForm.nombre, tipo_activo: esquemaForm.tipo_activo || undefined, numero_ejes: Number(esquemaForm.numero_ejes) || 2, tiene_repuesto: esquemaForm.tiene_repuesto, cantidad_repuestos: Number(esquemaForm.cantidad_repuestos) || 1 })}
+                        sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Crear esquema</Button>
+                    </Grid>
+                  </Grid>
+                  <Grid container spacing={2}>
+                    <Grid size={{ xs: 12, md: 6 }}>
+                      <Table size="small">
+                        <TableHead><TableRow>{['Nombre', 'Ejes', 'Repuesto', ''].map(h => <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>)}</TableRow></TableHead>
+                        <TableBody>
+                          {esquemas.map(es => (
+                            <TableRow key={es.id} hover>
+                              <TableCell>{es.nombre}</TableCell><TableCell>{es.numero_ejes}</TableCell>
+                              <TableCell>{es.tiene_repuesto ? `Sí (${es.cantidad_repuestos})` : 'No'}</TableCell>
+                              <TableCell align="right"><IconButton size="small" color="error" onClick={() => mutEsquemaDel.mutate(es.id)}><DeleteForever sx={{ fontSize: 16 }} /></IconButton></TableCell>
+                            </TableRow>
+                          ))}
+                          {esquemas.length === 0 && <TableRow><TableCell colSpan={4} align="center"><Typography color="text.secondary" py={1}>Sin esquemas configurados</Typography></TableCell></TableRow>}
+                        </TableBody>
+                      </Table>
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 6 }}>
+                      <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" mb={0.5}>Asignar esquema a un vehículo</Typography>
+                      <Stack spacing={1}>
+                        <TextField select size="small" label="Vehículo" value={asignarEsquemaVeh} onChange={e => setAsignarEsquemaVeh(e.target.value)}>
+                          <MenuItem value="">Seleccionar…</MenuItem>
+                          {vehiculos.map(v => <MenuItem key={v.id} value={String(v.id)}>{v.codigo}{v.placa ? ` · ${v.placa}` : ''}</MenuItem>)}
+                        </TextField>
+                        <TextField select size="small" label="Esquema" value={asignarEsquemaId} onChange={e => setAsignarEsquemaId(e.target.value)}>
+                          <MenuItem value="">Seleccionar…</MenuItem>
+                          {esquemas.map(es => <MenuItem key={es.id} value={String(es.id)}>{es.nombre}</MenuItem>)}
+                        </TextField>
+                        <TextField type="date" size="small" label="Fecha de vigencia" value={asignarEsquemaFecha} onChange={e => setAsignarEsquemaFecha(e.target.value)} InputLabelProps={{ shrink: true }} />
+                        <Button size="small" variant="contained" disabled={!asignarEsquemaVeh || !asignarEsquemaId || mutAsignarEsquema.isPending}
+                          onClick={() => mutAsignarEsquema.mutate({ activo_id: Number(asignarEsquemaVeh), esquema_id: Number(asignarEsquemaId), fecha_vigencia: asignarEsquemaFecha })}
+                          sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Asignar esquema</Button>
+                      </Stack>
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
           </Grid>
         )}
 
@@ -1035,7 +2024,10 @@ export default function EAMNeumaticos() {
               <ListItemIcon><Straighten sx={{ fontSize: 18, color: EAM_COLOR }} /></ListItemIcon><ListItemText>Inspeccionar</ListItemText>
             </MenuItem>,
             <MenuItem key="rot" onClick={() => { setRotTarget(''); setRotDialog(slotMenu.tire); setSlotMenu(null) }}>
-              <ListItemIcon><SwapIcon sx={{ fontSize: 18, color: '#D97706' }} /></ListItemIcon><ListItemText>Rotar (intercambiar)</ListItemText>
+              <ListItemIcon><SwapIcon sx={{ fontSize: 18, color: '#D97706' }} /></ListItemIcon><ListItemText>Rotar (intercambiar posición)</ListItemText>
+            </MenuItem>,
+            <MenuItem key="rotrin" onClick={() => { setRotRinForm({ fecha: nowLocal(), km_odometro: veh?.odometro_actual != null ? String(veh.odometro_actual) : '', tecnico: '', observaciones: '' }); setRotRinDialog(slotMenu.tire); setSlotMenu(null) }}>
+              <ListItemIcon><Autorenew sx={{ fontSize: 18, color: '#D97706' }} /></ListItemIcon><ListItemText>Rotación en el rin (misma posición)</ListItemText>
             </MenuItem>,
             <MenuItem key="volt" disabled={!/-(INT|EXT)$/.test(slotMenu.pos)} onClick={() => { setVoltearDialog(slotMenu.tire); setSlotMenu(null) }}>
               <ListItemIcon><Autorenew sx={{ fontSize: 18, color: '#7C3AED' }} /></ListItemIcon><ListItemText>Voltear (int↔ext)</ListItemText>
@@ -1046,6 +2038,26 @@ export default function EAMNeumaticos() {
             </MenuItem>,
             <MenuItem key="desm" onClick={() => { setMovForm({ fecha: nowLocal(), km_odometro: '', bodega_id: '', tecnico: '', observaciones: '' }); setMovDialog({ tire: slotMenu.tire, tipo: 'DESMONTAJE' }); setSlotMenu(null) }}>
               <ListItemIcon><WarehouseIcon sx={{ fontSize: 18, color: '#64748B' }} /></ListItemIcon><ListItemText>Desmontar a bodega</ListItemText>
+            </MenuItem>,
+            <Divider key="d2" />,
+            <MenuItem key="ajuste" onClick={() => { setAjusteForm({ motivo_id: '', fecha: new Date().toISOString().slice(0, 10), valor: '', comentarios: '' }); setAjusteDialog(slotMenu.tire); setSlotMenu(null) }}>
+              <ListItemIcon><AttachMoney sx={{ fontSize: 18, color: '#16A34A' }} /></ListItemIcon><ListItemText>Aplicar ajuste de valor</ListItemText>
+            </MenuItem>,
+            <MenuItem key="trabajo" onClick={() => { setTrabajoRealForm({ trabajo_id: '', fecha: nowLocal(), km_odometro: veh?.odometro_actual != null ? String(veh.odometro_actual) : '', cantidad: '1', costo_unitario: '', proveedor: '', observaciones: '' }); setTrabajoDialog(slotMenu.tire); setSlotMenu(null) }}>
+              <ListItemIcon><Build sx={{ fontSize: 18, color: '#D97706' }} /></ListItemIcon><ListItemText>Registrar trabajo</ListItemText>
+            </MenuItem>,
+            <Divider key="d3" />,
+            <MenuItem key="resc" onClick={() => { setRescForm({ fecha: nowLocal(), km_odometro: veh?.odometro_actual != null ? String(veh.odometro_actual) : '', proveedor: '', costo: '', profundidad_nueva: '' }); setRescDialog(slotMenu.tire); setSlotMenu(null) }}>
+              <ListItemIcon><Compress sx={{ fontSize: 18, color: '#0369A1' }} /></ListItemIcon><ListItemText>Reesculturar</ListItemText>
+            </MenuItem>,
+            <MenuItem key="recban" onClick={() => { setRecBandaForm({ neumatico_destino_id: '', fecha: nowLocal(), mm_transferidos: '', costo_transferido: '', observaciones: '' }); setRecBandaDialog(slotMenu.tire); setSlotMenu(null) }}>
+              <ListItemIcon><Recycling sx={{ fontSize: 18, color: '#7C3AED' }} /></ListItemIcon><ListItemText>Recuperar banda</ListItemText>
+            </MenuItem>,
+            <MenuItem key="zona" onClick={() => { setZonaCambioForm({ zona_id: slotMenu.tire.zona_id ? String(slotMenu.tire.zona_id) : '', fecha: nowLocal(), observaciones: '' }); setZonaDialog(slotMenu.tire); setSlotMenu(null) }}>
+              <ListItemIcon><MapIcon sx={{ fontSize: 18, color: '#0891B2' }} /></ListItemIcon><ListItemText>Cambiar zona</ListItemText>
+            </MenuItem>,
+            <MenuItem key="vidas" onClick={() => { setInformeTab(0); setVidasDialog(slotMenu.tire); setSlotMenu(null) }}>
+              <ListItemIcon><Timeline sx={{ fontSize: 18, color: '#16A34A' }} /></ListItemIcon><ListItemText>Informe / Histórico / Vidas</ListItemText>
             </MenuItem>,
           ]}
         </Menu>
@@ -1081,6 +2093,81 @@ export default function EAMNeumaticos() {
           </DialogActions>
         </Dialog>
 
+        {/* ── Diálogo: montar llanta por botón (alternativa a arrastrar y soltar) ── */}
+        <Dialog open={!!montarDialog} onClose={() => setMontarDialog(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Montar en vehículo
+            <Typography variant="caption" color="text.secondary" display="block">{montarDialog?.codigo} · {montarDialog?.marca ?? ''} {montarDialog?.medida ?? ''}</Typography>
+          </DialogTitle>
+          <DialogContent dividers>
+            <Stack spacing={2} pt={0.5}>
+              <TextField select label="Vehículo *" size="small" fullWidth value={montarForm.activo_id}
+                onChange={e => setMontarForm(f => ({ ...f, activo_id: e.target.value, posicion: '' }))}>
+                <MenuItem value="">Seleccionar…</MenuItem>
+                {vehiculos.map(v => <MenuItem key={v.id} value={String(v.id)}>{v.codigo}{v.placa ? ` · ${v.placa}` : ''} — {v.nombre}</MenuItem>)}
+              </TextField>
+              {montarForm.activo_id && (
+                (() => {
+                  const activoIdNum = Number(montarForm.activo_id)
+                  const libres = montarLayout.filter(p => !neumaticos.some(n => n.activo_id === activoIdNum && n.posicion === p.codigo))
+                  return libres.length === 0 ? (
+                    <Alert severity="warning" sx={{ py: 0.5 }}>Este vehículo no tiene posiciones libres. Desmonta una llanta primero.</Alert>
+                  ) : (
+                    <TextField select label="Posición *" size="small" fullWidth value={montarForm.posicion} onChange={e => setMontarForm(f => ({ ...f, posicion: e.target.value }))}>
+                      <MenuItem value="">Seleccionar…</MenuItem>
+                      {libres.map(p => <MenuItem key={p.codigo} value={p.codigo}>{p.label}</MenuItem>)}
+                    </TextField>
+                  )
+                })()
+              )}
+              <TextField label="Fecha y hora *" type="datetime-local" size="small" fullWidth value={montarForm.fecha} onChange={e => setMontarForm(f => ({ ...f, fecha: e.target.value }))} InputLabelProps={{ shrink: true }} />
+              <TextField label="Odómetro (km)" type="number" size="small" fullWidth value={montarForm.km_odometro} onChange={e => setMontarForm(f => ({ ...f, km_odometro: e.target.value }))} />
+              <TextField label="Técnico" size="small" fullWidth value={montarForm.tecnico} onChange={e => setMontarForm(f => ({ ...f, tecnico: e.target.value }))} />
+              <TextField label="Observaciones" size="small" fullWidth multiline rows={2} value={montarForm.observaciones} onChange={e => setMontarForm(f => ({ ...f, observaciones: e.target.value }))} />
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setMontarDialog(null)}>Cancelar</Button>
+            <Button variant="contained" disabled={!montarForm.activo_id || !montarForm.posicion || !montarForm.fecha || mutMov.isPending}
+              onClick={confirmarMontar} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Montar</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* ── Diálogo: agregar llanta desde bodega al vehículo seleccionado ── */}
+        <AgregarLlantaDialog
+          open={agregarLlantaOpen}
+          onClose={() => setAgregarLlantaOpen(false)}
+          veh={veh}
+          layout={layout}
+          almacen={almacen}
+          tireEnVeh={tireEn}
+          isPending={mutMov.isPending}
+          onSubmit={payload => {
+            if (!veh) return
+            mutMov.mutate({ ...payload, tipo_movimiento: 'INSTALACION', activo_id: veh.id })
+            setAgregarLlantaOpen(false)
+          }}
+        />
+
+        {/* ── Diálogo: rotación en el rin (misma posición, sin desmontar) ── */}
+        <Dialog open={!!rotRinDialog} onClose={() => setRotRinDialog(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Rotación en el rin
+            <Typography variant="caption" color="text.secondary" display="block">{rotRinDialog?.codigo} · posición {rotRinDialog?.posicion ?? '—'} (no se desmonta)</Typography>
+          </DialogTitle>
+          <DialogContent dividers>
+            <Stack spacing={2} pt={0.5}>
+              <Alert severity="info" sx={{ py: 0.5 }}>Registra el evento de rotación sin mover la llanta de posición — útil para dejar constancia periódica sin desmontar.</Alert>
+              <TextField label="Fecha y hora *" type="datetime-local" size="small" fullWidth value={rotRinForm.fecha} onChange={e => setRotRinForm(f => ({ ...f, fecha: e.target.value }))} InputLabelProps={{ shrink: true }} />
+              <TextField label="Odómetro (km)" type="number" size="small" fullWidth value={rotRinForm.km_odometro} onChange={e => setRotRinForm(f => ({ ...f, km_odometro: e.target.value }))} />
+              <TextField label="Técnico" size="small" fullWidth value={rotRinForm.tecnico} onChange={e => setRotRinForm(f => ({ ...f, tecnico: e.target.value }))} />
+              <TextField label="Observaciones" size="small" fullWidth multiline rows={2} value={rotRinForm.observaciones} onChange={e => setRotRinForm(f => ({ ...f, observaciones: e.target.value }))} />
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setRotRinDialog(null)}>Cancelar</Button>
+            <Button variant="contained" disabled={!rotRinForm.fecha || mutMov.isPending} onClick={confirmarRotacionRin} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Registrar</Button>
+          </DialogActions>
+        </Dialog>
+
         {/* ── Diálogo dar de baja ── */}
         <Dialog open={!!bajaDialog} onClose={() => setBajaDialog(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
           <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Dar de baja / descartar
@@ -1094,12 +2181,392 @@ export default function EAMNeumaticos() {
                 {danos.map(d => <MenuItem key={d.id} value={String(d.id)}>{d.nombre} ({d.severidad})</MenuItem>)}
               </TextField>
               {danos.length === 0 && <Alert severity="info" sx={{ py: 0 }}>Configura el catálogo de daños en Configuración → EAM.</Alert>}
+              <TextField select label="Motivo de fin de vida" size="small" fullWidth value={bajaForm.motivo_fin_vida_id} onChange={e => setBajaForm(f => ({ ...f, motivo_fin_vida_id: e.target.value }))}>
+                <MenuItem value="">Sin especificar</MenuItem>
+                {motivosFinVida.filter(m => m.aplica_descarte).map(m => <MenuItem key={m.id} value={String(m.id)}>{m.nombre}</MenuItem>)}
+              </TextField>
               <TextField label="Motivo / observación" size="small" fullWidth multiline rows={2} value={bajaForm.motivo} onChange={e => setBajaForm(f => ({ ...f, motivo: e.target.value }))} />
             </Stack>
           </DialogContent>
           <DialogActions sx={{ px: 3, py: 2 }}>
             <Button onClick={() => setBajaDialog(null)}>Cancelar</Button>
             <Button variant="contained" color="error" onClick={confirmarBaja} disabled={!bajaForm.fecha || mutMov.isPending}>Dar de baja</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* ── Diálogo: aplicar ajuste de valor a la llanta ── */}
+        <Dialog open={!!ajusteDialog} onClose={() => setAjusteDialog(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Aplicar ajuste de valor
+            <Typography variant="caption" color="text.secondary" display="block">{ajusteDialog?.codigo} · reduce el costo usado para CPK</Typography>
+          </DialogTitle>
+          <DialogContent dividers>
+            <Stack spacing={2} pt={0.5}>
+              <TextField select label="Motivo *" size="small" fullWidth value={ajusteForm.motivo_id} onChange={e => setAjusteForm(f => ({ ...f, motivo_id: e.target.value }))}>
+                <MenuItem value="">Seleccionar…</MenuItem>
+                {ajustesCat.filter(a => a.activo).map(a => <MenuItem key={a.id} value={String(a.id)}>{a.nombre}</MenuItem>)}
+              </TextField>
+              {ajustesCat.length === 0 && <Alert severity="info" sx={{ py: 0 }}>Configura categorías de ajuste en Configuración.</Alert>}
+              <TextField label="Fecha *" type="date" size="small" fullWidth value={ajusteForm.fecha} onChange={e => setAjusteForm(f => ({ ...f, fecha: e.target.value }))} InputLabelProps={{ shrink: true }} />
+              <TextField label="Valor a deducir (COP) *" type="number" size="small" fullWidth value={ajusteForm.valor} onChange={e => setAjusteForm(f => ({ ...f, valor: e.target.value }))} />
+              <TextField label="Comentarios" size="small" fullWidth multiline rows={2} value={ajusteForm.comentarios} onChange={e => setAjusteForm(f => ({ ...f, comentarios: e.target.value }))} />
+              {ajusteDialog && ajustesNeu.length > 0 && (
+                <Box>
+                  <Typography variant="caption" fontWeight={700} color="text.secondary">Ajustes ya aplicados</Typography>
+                  <Stack spacing={0.5} mt={0.5}>
+                    {ajustesNeu.map(a => (
+                      <Stack key={a.id} direction="row" justifyContent="space-between" sx={{ bgcolor: '#F5F7FA', borderRadius: 1, px: 1, py: 0.5 }}>
+                        <Typography variant="body2">{ajustesCat.find(c => c.id === a.motivo_id)?.nombre ?? '—'}</Typography>
+                        <Typography variant="body2" fontWeight={700} color="error.main">-${a.valor.toLocaleString('es-CO')}</Typography>
+                      </Stack>
+                    ))}
+                  </Stack>
+                </Box>
+              )}
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setAjusteDialog(null)}>Cerrar</Button>
+            <Button variant="contained" disabled={!ajusteForm.motivo_id || !ajusteForm.valor || mutAjusteAplicar.isPending}
+              onClick={() => mutAjusteAplicar.mutate({ motivo_id: Number(ajusteForm.motivo_id), fecha: ajusteForm.fecha, valor: Number(ajusteForm.valor), comentarios: ajusteForm.comentarios || undefined })}
+              sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Aplicar ajuste</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* ── Diálogo: registrar trabajo realizado en la llanta ── */}
+        <Dialog open={!!trabajoDialog} onClose={() => setTrabajoDialog(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Registrar trabajo
+            <Typography variant="caption" color="text.secondary" display="block">{trabajoDialog?.codigo}</Typography>
+          </DialogTitle>
+          <DialogContent dividers>
+            <Stack spacing={2} pt={0.5}>
+              <TextField select label="Trabajo *" size="small" fullWidth value={trabajoRealForm.trabajo_id} onChange={e => setTrabajoRealForm(f => ({ ...f, trabajo_id: e.target.value }))}>
+                <MenuItem value="">Seleccionar…</MenuItem>
+                {trabajosCat.filter(t => t.activo).map(t => <MenuItem key={t.id} value={String(t.id)}>{t.nombre}</MenuItem>)}
+              </TextField>
+              {trabajosCat.length === 0 && <Alert severity="info" sx={{ py: 0 }}>Configura el catálogo de trabajos en Configuración.</Alert>}
+              <TextField label="Fecha y hora *" type="datetime-local" size="small" fullWidth value={trabajoRealForm.fecha} onChange={e => setTrabajoRealForm(f => ({ ...f, fecha: e.target.value }))} InputLabelProps={{ shrink: true }} />
+              <TextField label="Odómetro (km)" type="number" size="small" fullWidth value={trabajoRealForm.km_odometro} onChange={e => setTrabajoRealForm(f => ({ ...f, km_odometro: e.target.value }))} />
+              <Stack direction="row" spacing={1.5}>
+                <TextField label="Cantidad" type="number" size="small" fullWidth value={trabajoRealForm.cantidad} onChange={e => setTrabajoRealForm(f => ({ ...f, cantidad: e.target.value }))} />
+                <TextField label="Costo unitario" type="number" size="small" fullWidth value={trabajoRealForm.costo_unitario} onChange={e => setTrabajoRealForm(f => ({ ...f, costo_unitario: e.target.value }))} />
+              </Stack>
+              <TextField label="Proveedor" size="small" fullWidth value={trabajoRealForm.proveedor} onChange={e => setTrabajoRealForm(f => ({ ...f, proveedor: e.target.value }))} />
+              <TextField label="Observaciones" size="small" fullWidth multiline rows={2} value={trabajoRealForm.observaciones} onChange={e => setTrabajoRealForm(f => ({ ...f, observaciones: e.target.value }))} />
+              {trabajoDialog && trabajosRealizados.length > 0 && (
+                <Box>
+                  <Typography variant="caption" fontWeight={700} color="text.secondary">Trabajos previos</Typography>
+                  <Stack spacing={0.5} mt={0.5}>
+                    {trabajosRealizados.map(t => (
+                      <Stack key={t.id} direction="row" justifyContent="space-between" sx={{ bgcolor: '#F5F7FA', borderRadius: 1, px: 1, py: 0.5 }}>
+                        <Typography variant="body2">{trabajosCat.find(c => c.id === t.trabajo_id)?.nombre ?? '—'} · {fmtFecha(t.fecha)}</Typography>
+                        <Typography variant="body2" fontWeight={700}>{t.costo_unitario ? `$${(t.costo_unitario * t.cantidad).toLocaleString('es-CO')}` : '—'}</Typography>
+                      </Stack>
+                    ))}
+                  </Stack>
+                </Box>
+              )}
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setTrabajoDialog(null)}>Cerrar</Button>
+            <Button variant="contained" disabled={!trabajoRealForm.trabajo_id || !trabajoRealForm.fecha || mutTrabajoRealizado.isPending}
+              onClick={() => mutTrabajoRealizado.mutate({
+                trabajo_id: Number(trabajoRealForm.trabajo_id),
+                fecha: new Date(trabajoRealForm.fecha).toISOString(),
+                km_odometro: trabajoRealForm.km_odometro ? Number(trabajoRealForm.km_odometro) : undefined,
+                cantidad: Number(trabajoRealForm.cantidad) || 1,
+                costo_unitario: trabajoRealForm.costo_unitario ? Number(trabajoRealForm.costo_unitario) : undefined,
+                proveedor: trabajoRealForm.proveedor || undefined,
+                observaciones: trabajoRealForm.observaciones || undefined,
+              })}
+              sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Registrar</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* ── Diálogo: reesculturar (re-grooving) ── */}
+        <Dialog open={!!rescDialog} onClose={() => setRescDialog(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Reesculturar
+            <Typography variant="caption" color="text.secondary" display="block">{rescDialog?.codigo} · profundidad actual: {rescDialog?.profundidad_actual ?? '—'} mm</Typography>
+          </DialogTitle>
+          <DialogContent dividers>
+            <Stack spacing={2} pt={0.5}>
+              <TextField label="Fecha y hora *" type="datetime-local" size="small" fullWidth value={rescForm.fecha} onChange={e => setRescForm(f => ({ ...f, fecha: e.target.value }))} InputLabelProps={{ shrink: true }} />
+              <TextField label="Odómetro (km)" type="number" size="small" fullWidth value={rescForm.km_odometro} onChange={e => setRescForm(f => ({ ...f, km_odometro: e.target.value }))} />
+              <TextField label="Proveedor" size="small" fullWidth value={rescForm.proveedor} onChange={e => setRescForm(f => ({ ...f, proveedor: e.target.value }))} />
+              <TextField label="Costo" type="number" size="small" fullWidth value={rescForm.costo} onChange={e => setRescForm(f => ({ ...f, costo: e.target.value }))} />
+              <TextField label="Profundidad resultante (mm) *" type="number" size="small" fullWidth value={rescForm.profundidad_nueva} onChange={e => setRescForm(f => ({ ...f, profundidad_nueva: e.target.value }))} />
+              {rescDialog && reesculturados.length > 0 && (
+                <Box>
+                  <Typography variant="caption" fontWeight={700} color="text.secondary">Historial de reesculturados</Typography>
+                  <Stack spacing={0.5} mt={0.5}>
+                    {reesculturados.map(r => (
+                      <Stack key={r.id} direction="row" alignItems="center" justifyContent="space-between" sx={{ bgcolor: r.deshecho ? '#FEF2F2' : '#F5F7FA', borderRadius: 1, px: 1, py: 0.5 }}>
+                        <Typography variant="body2" sx={{ textDecoration: r.deshecho ? 'line-through' : 'none' }}>
+                          {fmtFecha(r.fecha)} · {r.profundidad_anterior ?? '—'}→{r.profundidad_nueva ?? '—'} mm
+                        </Typography>
+                        {!r.deshecho && (
+                          <Tooltip title="Deshacer reesculturado">
+                            <IconButton size="small" onClick={() => mutDeshacerResc.mutate(r.id)}><Undo sx={{ fontSize: 15 }} /></IconButton>
+                          </Tooltip>
+                        )}
+                      </Stack>
+                    ))}
+                  </Stack>
+                </Box>
+              )}
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setRescDialog(null)}>Cerrar</Button>
+            <Button variant="contained" disabled={!rescForm.fecha || !rescForm.profundidad_nueva || mutResc.isPending}
+              onClick={() => mutResc.mutate({
+                fecha: new Date(rescForm.fecha).toISOString(),
+                km_odometro: rescForm.km_odometro ? Number(rescForm.km_odometro) : undefined,
+                proveedor: rescForm.proveedor || undefined,
+                costo: rescForm.costo ? Number(rescForm.costo) : undefined,
+                profundidad_nueva: Number(rescForm.profundidad_nueva),
+              })}
+              sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Reesculturar</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* ── Diálogo: recuperar banda ── */}
+        <Dialog open={!!recBandaDialog} onClose={() => setRecBandaDialog(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Recuperar banda
+            <Typography variant="caption" color="text.secondary" display="block">Origen (carcasa dañada): {recBandaDialog?.codigo}</Typography>
+          </DialogTitle>
+          <DialogContent dividers>
+            <Stack spacing={2} pt={0.5}>
+              <Alert severity="warning" sx={{ py: 0 }}>La llanta origen quedará descartada al confirmar.</Alert>
+              <TextField select label="Llanta destino *" size="small" fullWidth value={recBandaForm.neumatico_destino_id} onChange={e => setRecBandaForm(f => ({ ...f, neumatico_destino_id: e.target.value }))}>
+                <MenuItem value="">Seleccionar…</MenuItem>
+                {neumaticos.filter(n => n.id !== recBandaDialog?.id && n.medida === recBandaDialog?.medida).map(n => <MenuItem key={n.id} value={String(n.id)}>{n.codigo} · {n.marca ?? ''} {n.medida ?? ''}</MenuItem>)}
+              </TextField>
+              <TextField label="Fecha y hora *" type="datetime-local" size="small" fullWidth value={recBandaForm.fecha} onChange={e => setRecBandaForm(f => ({ ...f, fecha: e.target.value }))} InputLabelProps={{ shrink: true }} />
+              <TextField label="Mm transferidos" type="number" size="small" fullWidth value={recBandaForm.mm_transferidos} onChange={e => setRecBandaForm(f => ({ ...f, mm_transferidos: e.target.value }))} placeholder={recBandaDialog?.profundidad_actual != null ? String(recBandaDialog.profundidad_actual) : ''} />
+              <TextField label="Costo transferido" type="number" size="small" fullWidth value={recBandaForm.costo_transferido} onChange={e => setRecBandaForm(f => ({ ...f, costo_transferido: e.target.value }))} />
+              <TextField label="Observaciones" size="small" fullWidth multiline rows={2} value={recBandaForm.observaciones} onChange={e => setRecBandaForm(f => ({ ...f, observaciones: e.target.value }))} />
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setRecBandaDialog(null)}>Cancelar</Button>
+            <Button variant="contained" color="warning" disabled={!recBandaForm.neumatico_destino_id || !recBandaForm.fecha || mutRecBanda.isPending}
+              onClick={() => mutRecBanda.mutate({
+                neumatico_destino_id: Number(recBandaForm.neumatico_destino_id),
+                fecha: new Date(recBandaForm.fecha).toISOString(),
+                mm_transferidos: recBandaForm.mm_transferidos ? Number(recBandaForm.mm_transferidos) : undefined,
+                costo_transferido: recBandaForm.costo_transferido ? Number(recBandaForm.costo_transferido) : undefined,
+                observaciones: recBandaForm.observaciones || undefined,
+              })}>Confirmar recuperación</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* ── Diálogo: cambiar zona ── */}
+        <Dialog open={!!zonaDialog} onClose={() => setZonaDialog(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Cambiar zona
+            <Typography variant="caption" color="text.secondary" display="block">{zonaDialog?.codigo}</Typography>
+          </DialogTitle>
+          <DialogContent dividers>
+            <Stack spacing={2} pt={0.5}>
+              <TextField select label="Nueva zona *" size="small" fullWidth value={zonaCambioForm.zona_id} onChange={e => setZonaCambioForm(f => ({ ...f, zona_id: e.target.value }))}>
+                <MenuItem value="">Seleccionar…</MenuItem>
+                {zonas.map(z => <MenuItem key={z.id} value={String(z.id)}>{z.nombre}</MenuItem>)}
+              </TextField>
+              {zonas.length === 0 && <Alert severity="info" sx={{ py: 0 }}>Configura zonas en Configuración.</Alert>}
+              <TextField label="Fecha y hora *" type="datetime-local" size="small" fullWidth value={zonaCambioForm.fecha} onChange={e => setZonaCambioForm(f => ({ ...f, fecha: e.target.value }))} InputLabelProps={{ shrink: true }} />
+              <TextField label="Observaciones" size="small" fullWidth multiline rows={2} value={zonaCambioForm.observaciones} onChange={e => setZonaCambioForm(f => ({ ...f, observaciones: e.target.value }))} />
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setZonaDialog(null)}>Cancelar</Button>
+            <Button variant="contained" disabled={!zonaCambioForm.zona_id || !zonaCambioForm.fecha || mutCambiarZona.isPending}
+              onClick={() => mutCambiarZona.mutate({
+                zona_id: Number(zonaCambioForm.zona_id),
+                fecha: new Date(zonaCambioForm.fecha).toISOString(),
+                observaciones: zonaCambioForm.observaciones || undefined,
+              })}
+              sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Cambiar zona</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* ── Diálogo: informe consolidado / histórico / vidas de la llanta ── */}
+        <Dialog open={!!vidasDialog} onClose={() => setVidasDialog(null)} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Informe de llanta
+            <Typography variant="caption" color="text.secondary" display="block">{vidasDialog?.codigo}</Typography>
+          </DialogTitle>
+          <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}>
+            <Tabs value={informeTab} onChange={(_e, v) => setInformeTab(v)} variant="scrollable" scrollButtons="auto">
+              <Tab label="Resumen" sx={{ textTransform: 'none', fontSize: 12.5 }} />
+              <Tab label="Vidas" sx={{ textTransform: 'none', fontSize: 12.5 }} />
+              <Tab label="Montajes / Rotaciones" sx={{ textTransform: 'none', fontSize: 12.5 }} />
+              <Tab label="Inspecciones" sx={{ textTransform: 'none', fontSize: 12.5 }} />
+              <Tab label="Trabajos" sx={{ textTransform: 'none', fontSize: 12.5 }} />
+              <Tab label="Ubicaciones / Zonas" sx={{ textTransform: 'none', fontSize: 12.5 }} />
+            </Tabs>
+          </Box>
+          <DialogContent dividers sx={{ minHeight: 320 }}>
+            {informeTab === 0 && (
+              historicoNeu ? (
+                <Stack spacing={2}>
+                  <Grid container spacing={1.5}>
+                    {[
+                      { label: 'Marca / Medida', value: `${historicoNeu.informacion_basica.marca ?? '—'} · ${historicoNeu.informacion_basica.medida ?? '—'}` },
+                      { label: 'Ubicación actual', value: historicoNeu.informacion_basica.ubicacion_actual },
+                      { label: 'N° de vidas', value: historicoNeu.resumen_estadistico.numero_vidas },
+                      { label: 'N° de reencauches', value: historicoNeu.resumen_estadistico.numero_reencauches },
+                      { label: 'Vehículos distintos', value: historicoNeu.resumen_estadistico.vehiculos_distintos },
+                      { label: 'Km total acumulado', value: historicoNeu.resumen_estadistico.km_total_acumulado?.toLocaleString('es-CO') ?? '—' },
+                    ].map(f => (
+                      <Grid key={f.label} size={{ xs: 6, sm: 4 }}>
+                        <Typography variant="caption" color="text.secondary" display="block">{f.label}</Typography>
+                        <Typography fontWeight={700} fontSize={13.5}>{f.value}</Typography>
+                      </Grid>
+                    ))}
+                  </Grid>
+                  <Divider />
+                  <Typography variant="caption" fontWeight={700} color="text.secondary">Desglose de costos</Typography>
+                  <Grid container spacing={1.5}>
+                    {[
+                      { label: 'Llanta nueva', value: historicoNeu.resumen_estadistico.costo_nueva },
+                      { label: 'Reencauches', value: historicoNeu.resumen_estadistico.costo_reencauches },
+                      { label: 'Reesculturados', value: historicoNeu.resumen_estadistico.costo_reesculturados },
+                      { label: 'Trabajos', value: historicoNeu.resumen_estadistico.costo_trabajos },
+                      { label: 'Ajustes (deducción)', value: historicoNeu.resumen_estadistico.costo_ajustes },
+                    ].map(f => (
+                      <Grid key={f.label} size={{ xs: 6, sm: 4 }}>
+                        <Typography variant="caption" color="text.secondary" display="block">{f.label}</Typography>
+                        <Typography fontWeight={700} fontSize={13.5}>{f.value ? `$${Number(f.value).toLocaleString('es-CO')}` : '—'}</Typography>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Stack>
+              ) : <Typography color="text.secondary" py={2} textAlign="center">Cargando…</Typography>
+            )}
+
+            {informeTab === 1 && (
+              vidasNeu.length === 0 ? (
+                <Typography color="text.secondary" py={2} textAlign="center">Sin vidas registradas aún</Typography>
+              ) : (
+                <Stack spacing={1}>
+                  {vidasNeu.map(v => (
+                    <Box key={v.id} sx={{ border: '1px solid #E5E7EB', borderRadius: 2, p: 1.5, bgcolor: v.fecha_fin ? '#F9FAFB' : alpha(EAM_COLOR, 0.06) }}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={0.5}>
+                        <Typography fontWeight={700} fontSize={13}>Vida {v.numero_vida} · {v.tipo}</Typography>
+                        <Chip size="small" label={v.fecha_fin ? 'Cerrada' : 'Activa'} color={v.fecha_fin ? 'default' : 'success'} />
+                      </Stack>
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        {fmtFecha(v.fecha_inicio)} → {v.fecha_fin ? fmtFecha(v.fecha_fin) : 'actualidad'}
+                      </Typography>
+                      <Stack direction="row" gap={2} mt={0.5} flexWrap="wrap">
+                        <Typography variant="caption">Km: {v.km_inicio?.toLocaleString('es-CO')} → {v.km_fin != null ? v.km_fin.toLocaleString('es-CO') : '—'}</Typography>
+                        <Typography variant="caption">Prof.: {v.profundidad_inicial ?? '—'} → {v.profundidad_final ?? '—'} mm</Typography>
+                        <Typography variant="caption">Costo: {v.costo ? `$${v.costo.toLocaleString('es-CO')}` : '—'}</Typography>
+                      </Stack>
+                    </Box>
+                  ))}
+                </Stack>
+              )
+            )}
+
+            {informeTab === 2 && (
+              !informeNeu || informeNeu.montajes_rotaciones.length === 0 ? (
+                <Typography color="text.secondary" py={2} textAlign="center">Sin montajes ni rotaciones registrados</Typography>
+              ) : (
+                <Table size="small">
+                  <TableHead><TableRow>{['Fecha', 'Tipo', 'Posición', 'Odómetro', 'Distancia', 'Técnico'].map(h => <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>)}</TableRow></TableHead>
+                  <TableBody>
+                    {informeNeu.montajes_rotaciones.map((m: any) => (
+                      <TableRow key={m.id}>
+                        <TableCell>{fmtFecha(m.fecha)}</TableCell>
+                        <TableCell>{m.tipo}</TableCell>
+                        <TableCell>{m.posicion_origen ? `${m.posicion_origen} → ` : ''}{m.posicion ?? '—'}</TableCell>
+                        <TableCell>{m.km_odometro?.toLocaleString('es-CO') ?? '—'}</TableCell>
+                        <TableCell>{m.distancia_recorrida != null ? `${m.distancia_recorrida.toLocaleString('es-CO')} km` : '—'}</TableCell>
+                        <TableCell>{m.tecnico ?? '—'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )
+            )}
+
+            {informeTab === 3 && (
+              !informeNeu || informeNeu.inspecciones.length === 0 ? (
+                <Typography color="text.secondary" py={2} textAlign="center">Sin inspecciones registradas</Typography>
+              ) : (
+                <Table size="small">
+                  <TableHead><TableRow>{['Fecha', 'Profundidad mín.', 'Presión', 'Estado', 'Técnico'].map(h => <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>)}</TableRow></TableHead>
+                  <TableBody>
+                    {informeNeu.inspecciones.map((i: any) => (
+                      <TableRow key={i.id}>
+                        <TableCell>{fmtFecha(i.fecha)}</TableCell>
+                        <TableCell>{i.profundidad_min ?? '—'} mm</TableCell>
+                        <TableCell>{i.presion_psi ?? '—'} psi</TableCell>
+                        <TableCell>{i.estado_visual ?? '—'}</TableCell>
+                        <TableCell>{i.tecnico ?? '—'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )
+            )}
+
+            {informeTab === 4 && (
+              !informeNeu || informeNeu.trabajos.length === 0 ? (
+                <Typography color="text.secondary" py={2} textAlign="center">Sin trabajos registrados</Typography>
+              ) : (
+                <Table size="small">
+                  <TableHead><TableRow>{['Fecha', 'Trabajo', 'Cantidad', 'Costo', 'Proveedor'].map(h => <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>)}</TableRow></TableHead>
+                  <TableBody>
+                    {informeNeu.trabajos.map((t: any) => (
+                      <TableRow key={t.id}>
+                        <TableCell>{fmtFecha(t.fecha)}</TableCell>
+                        <TableCell>{trabajosCat.find(c => c.id === t.trabajo_id)?.nombre ?? '—'}</TableCell>
+                        <TableCell>{t.cantidad}</TableCell>
+                        <TableCell>{t.costo_unitario ? `$${(t.costo_unitario * t.cantidad).toLocaleString('es-CO')}` : '—'}</TableCell>
+                        <TableCell>{t.proveedor ?? '—'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )
+            )}
+
+            {informeTab === 5 && (
+              !informeNeu || (informeNeu.ubicaciones.length === 0 && informeNeu.zonas.length === 0) ? (
+                <Typography color="text.secondary" py={2} textAlign="center">Sin cambios de ubicación ni zona registrados</Typography>
+              ) : (
+                <Stack spacing={2}>
+                  <Box>
+                    <Typography variant="caption" fontWeight={700} color="text.secondary">Ubicaciones (bodegas)</Typography>
+                    <Stack spacing={0.5} mt={0.5}>
+                      {informeNeu.ubicaciones.map((u: any) => (
+                        <Stack key={u.id} direction="row" justifyContent="space-between" sx={{ bgcolor: '#F5F7FA', borderRadius: 1, px: 1, py: 0.5 }}>
+                          <Typography variant="body2">{bodegaNombre(u.bodega_id)}</Typography>
+                          <Typography variant="caption" color="text.secondary">{fmtFecha(u.fecha)}</Typography>
+                        </Stack>
+                      ))}
+                      {informeNeu.ubicaciones.length === 0 && <Typography variant="caption" color="text.secondary">Sin registros</Typography>}
+                    </Stack>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" fontWeight={700} color="text.secondary">Zonas</Typography>
+                    <Stack spacing={0.5} mt={0.5}>
+                      {informeNeu.zonas.map((z: any) => (
+                        <Stack key={z.id} direction="row" justifyContent="space-between" sx={{ bgcolor: '#F5F7FA', borderRadius: 1, px: 1, py: 0.5 }}>
+                          <Typography variant="body2">{z.observaciones ?? '—'}</Typography>
+                          <Typography variant="caption" color="text.secondary">{fmtFecha(z.fecha)}</Typography>
+                        </Stack>
+                      ))}
+                      {informeNeu.zonas.length === 0 && <Typography variant="caption" color="text.secondary">Sin registros</Typography>}
+                    </Stack>
+                  </Box>
+                </Stack>
+              )
+            )}
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => { setVidasDialog(null); setInformeTab(0) }}>Cerrar</Button>
           </DialogActions>
         </Dialog>
 
@@ -1120,6 +2587,9 @@ export default function EAMNeumaticos() {
               <Grid size={{ xs: 12, sm: 6 }}><TextField label="Presión recomendada (psi)" type="number" size="small" fullWidth value={nuevoForm.presion_recomendada} onChange={e => setNuevoForm(f => ({ ...f, presion_recomendada: e.target.value }))} /></Grid>
               <Grid size={{ xs: 6, sm: 6 }}><TextField label="Costo" type="number" size="small" fullWidth value={nuevoForm.costo} onChange={e => setNuevoForm(f => ({ ...f, costo: e.target.value }))} /></Grid>
               <Grid size={{ xs: 6, sm: 6 }}><TextField label="Proveedor" size="small" fullWidth value={nuevoForm.proveedor} onChange={e => setNuevoForm(f => ({ ...f, proveedor: e.target.value }))} /></Grid>
+              <Grid size={{ xs: 12, sm: 4 }}><TextField select label="Zona" size="small" fullWidth value={nuevoForm.zona_id} onChange={e => setNuevoForm(f => ({ ...f, zona_id: e.target.value }))}><MenuItem value="">Sin zona</MenuItem>{zonas.map(z => <MenuItem key={z.id} value={String(z.id)}>{z.nombre}</MenuItem>)}</TextField></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><TextField label="DOT" size="small" fullWidth value={nuevoForm.dot} onChange={e => setNuevoForm(f => ({ ...f, dot: e.target.value }))} placeholder="Ej: 2523" /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><TextField select label="Tipo de rin" size="small" fullWidth value={nuevoForm.tipo_rin} onChange={e => setNuevoForm(f => ({ ...f, tipo_rin: e.target.value }))}><MenuItem value="">—</MenuItem>{TIPOS_RIN.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}</TextField></Grid>
             </Grid>
           </DialogContent>
           <DialogActions sx={{ px: 3, py: 2 }}>
@@ -1134,6 +2604,8 @@ export default function EAMNeumaticos() {
               vida_util_km: nuevoForm.vida_util_km ? Number(nuevoForm.vida_util_km) : undefined,
               tipo_uso: nuevoForm.tipo_uso || undefined,
               presion_recomendada: nuevoForm.presion_recomendada ? Number(nuevoForm.presion_recomendada) : undefined,
+              zona_id: nuevoForm.zona_id ? Number(nuevoForm.zona_id) : undefined,
+              dot: nuevoForm.dot || undefined, tipo_rin: nuevoForm.tipo_rin || undefined,
             })} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Registrar</Button>
           </DialogActions>
         </Dialog>
@@ -1178,10 +2650,16 @@ export default function EAMNeumaticos() {
                 <TextField label="Vida remanente recomendada (km)" type="number" size="small" fullWidth value={procForm.vida_remanente_km} onChange={e => setProcForm(f => ({ ...f, vida_remanente_km: e.target.value }))} />
               )}
               {procForm.resultado === 'RECHAZO' && (
-                <TextField select label="Daño / motivo de descarte" size="small" fullWidth value={procForm.dano_id} onChange={e => setProcForm(f => ({ ...f, dano_id: e.target.value }))}>
-                  <MenuItem value="">Sin especificar</MenuItem>
-                  {danos.map(d => <MenuItem key={d.id} value={String(d.id)}>{d.nombre}</MenuItem>)}
-                </TextField>
+                <>
+                  <TextField select label="Daño / motivo de descarte" size="small" fullWidth value={procForm.dano_id} onChange={e => setProcForm(f => ({ ...f, dano_id: e.target.value }))}>
+                    <MenuItem value="">Sin especificar</MenuItem>
+                    {danos.map(d => <MenuItem key={d.id} value={String(d.id)}>{d.nombre}</MenuItem>)}
+                  </TextField>
+                  <TextField select label="Motivo de fin de vida" size="small" fullWidth value={procForm.motivo_fin_vida_id} onChange={e => setProcForm(f => ({ ...f, motivo_fin_vida_id: e.target.value }))}>
+                    <MenuItem value="">Sin especificar</MenuItem>
+                    {motivosFinVida.filter(m => m.aplica_fin_vida).map(m => <MenuItem key={m.id} value={String(m.id)}>{m.nombre}</MenuItem>)}
+                  </TextField>
+                </>
               )}
             </Stack>
           </DialogContent>
@@ -1194,6 +2672,7 @@ export default function EAMNeumaticos() {
                 vida_remanente_km: procForm.vida_remanente_km ? Number(procForm.vida_remanente_km) : undefined,
                 costo: procForm.costo ? Number(procForm.costo) : undefined,
                 dano_id: procForm.dano_id ? Number(procForm.dano_id) : undefined,
+                motivo_fin_vida_id: procForm.motivo_fin_vida_id ? Number(procForm.motivo_fin_vida_id) : undefined,
               })}
               sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Registrar</Button>
           </DialogActions>
@@ -1234,6 +2713,61 @@ export default function EAMNeumaticos() {
                 observaciones: inspForm.observaciones || undefined,
               })}
               sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Guardar inspección</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* ── Diálogo: inspección de sesión (todo el vehículo a la vez) ── */}
+        <Dialog open={inspSesionOpen} onClose={() => setInspSesionOpen(false)} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Nueva inspección — todas las llantas del vehículo</DialogTitle>
+          <DialogContent dividers>
+            <Grid container spacing={1.5} mb={2}>
+              <Grid size={{ xs: 12, sm: 5 }}><TextField label="Fecha y hora *" type="datetime-local" size="small" fullWidth value={inspSesionCabecera.fecha} onChange={e => setInspSesionCabecera(f => ({ ...f, fecha: e.target.value }))} InputLabelProps={{ shrink: true }} /></Grid>
+              <Grid size={{ xs: 6, sm: 3 }}><TextField label="Odómetro (km)" type="number" size="small" fullWidth value={inspSesionCabecera.km_odometro} onChange={e => setInspSesionCabecera(f => ({ ...f, km_odometro: e.target.value }))} /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><TextField label="Técnico" size="small" fullWidth value={inspSesionCabecera.tecnico} onChange={e => setInspSesionCabecera(f => ({ ...f, tecnico: e.target.value }))} /></Grid>
+            </Grid>
+            <Box sx={{ bgcolor: '#F8FAFC', borderRadius: 2, p: 1.5, mb: 2 }}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" mb={1}>Asignación rápida — rellena los campos vacíos de todas las llantas</Typography>
+              <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
+                <TextField label="Profundidad (mm)" type="number" size="small" value={inspSesionRapido.profundidad} onChange={e => setInspSesionRapido(f => ({ ...f, profundidad: e.target.value }))} sx={{ width: 160 }} />
+                <TextField label="Presión (psi)" type="number" size="small" value={inspSesionRapido.presion} onChange={e => setInspSesionRapido(f => ({ ...f, presion: e.target.value }))} sx={{ width: 140 }} />
+                <Button size="small" variant="outlined" onClick={aplicarRapidoATodos} sx={{ textTransform: 'none' }}>Aplicar a vacíos</Button>
+              </Stack>
+            </Box>
+            <Box sx={{ overflowX: 'auto' }}>
+              <Table size="small">
+                <TableHead><TableRow sx={{ bgcolor: alpha(EAM_COLOR, 0.08) }}>
+                  {['Posición', 'Código', 'Ext.', 'Centro', 'Int.', 'Presión', 'Estado'].map(h => <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11 }}>{h}</TableCell>)}
+                </TableRow></TableHead>
+                <TableBody>
+                  {Object.keys(inspSesionRows).map(nid => {
+                    const t = neumaticos.find(n => n.id === Number(nid))
+                    const row = inspSesionRows[Number(nid)]
+                    const setRow = (patch: Partial<typeof row>) => setInspSesionRows(prev => ({ ...prev, [Number(nid)]: { ...prev[Number(nid)], ...patch } }))
+                    return (
+                      <TableRow key={nid}>
+                        <TableCell><Chip size="small" label={t?.posicion ?? '—'} sx={{ fontSize: 10 }} /></TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>{t?.codigo ?? '—'}</TableCell>
+                        <TableCell><TextField type="number" size="small" value={row.profundidad_izq} onChange={e => setRow({ profundidad_izq: e.target.value })} sx={{ width: 70 }} /></TableCell>
+                        <TableCell><TextField type="number" size="small" value={row.profundidad_centro} onChange={e => setRow({ profundidad_centro: e.target.value })} sx={{ width: 70 }} /></TableCell>
+                        <TableCell><TextField type="number" size="small" value={row.profundidad_der} onChange={e => setRow({ profundidad_der: e.target.value })} sx={{ width: 70 }} /></TableCell>
+                        <TableCell><TextField type="number" size="small" value={row.presion_psi} onChange={e => setRow({ presion_psi: e.target.value })} sx={{ width: 80 }} /></TableCell>
+                        <TableCell>
+                          <TextField select size="small" value={row.estado_visual} onChange={e => setRow({ estado_visual: e.target.value })} sx={{ width: 110 }}>
+                            {['BUENO', 'REGULAR', 'CRITICO'].map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                          </TextField>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setInspSesionOpen(false)} disabled={inspSesionEnviando}>Cancelar</Button>
+            <Button variant="contained" disabled={!inspSesionCabecera.fecha || inspSesionEnviando} onClick={enviarInspSesion} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>
+              {inspSesionEnviando ? 'Guardando...' : 'Guardar inspecciones'}
+            </Button>
           </DialogActions>
         </Dialog>
 
@@ -1384,6 +2918,210 @@ export default function EAMNeumaticos() {
               </Table>
             )}
           </DialogContent>
+        </Dialog>
+
+        {/* ── Diálogo: eliminación masiva ── */}
+        <Dialog open={bulkDeleteOpen} onClose={() => !mutBulkDelete.isPending && setBulkDeleteOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: 16, color: '#DC2626' }}>Eliminar {selectedIds.size} llanta(s)</DialogTitle>
+          <DialogContent dividers>
+            <Alert severity="error" sx={{ mb: 2 }}>Esta acción no se puede deshacer. Se eliminará toda la información asociada (movimientos, inspecciones, vidas, trabajos, ajustes).</Alert>
+            <TextField label='Escribe "ELIMINAR" para confirmar' size="small" fullWidth value={bulkDeleteConfirm} onChange={e => setBulkDeleteConfirm(e.target.value)} />
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setBulkDeleteOpen(false)} disabled={mutBulkDelete.isPending}>Cancelar</Button>
+            <Button variant="contained" color="error" disabled={bulkDeleteConfirm.trim().toUpperCase() !== 'ELIMINAR' || mutBulkDelete.isPending}
+              onClick={() => mutBulkDelete.mutate()}>Eliminar definitivamente</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* ── Diálogo: importación masiva ── */}
+        <Dialog open={importOpen} onClose={() => { setImportOpen(false); setImportRows([]); setImportResult(null) }} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Importación masiva de llantas</DialogTitle>
+          <DialogContent dividers>
+            <Stack spacing={2}>
+              <Alert severity="info" sx={{ py: 0.5 }}>Descarga la plantilla, complétala en Excel y súbela. La columna "bodega" debe coincidir con el nombre de una bodega ya configurada.</Alert>
+              <Button variant="outlined" startIcon={<Download />} onClick={descargarPlantillaImportacion} sx={{ alignSelf: 'flex-start', textTransform: 'none' }}>Descargar plantilla</Button>
+              <input ref={fileInputRef} type="file" accept=".xlsx,.xls" hidden onChange={handleImportFile} />
+              <Button variant="outlined" startIcon={<UploadFile />} onClick={() => fileInputRef.current?.click()} sx={{ alignSelf: 'flex-start', textTransform: 'none' }}>
+                Seleccionar archivo Excel
+              </Button>
+              {importRows.length > 0 && !importResult && (
+                <Alert severity="success" sx={{ py: 0.5 }}>{importRows.length} filas detectadas · códigos: {importRows.slice(0, 3).map(r => r.codigo).join(', ')}{importRows.length > 3 ? '…' : ''}</Alert>
+              )}
+              {importResult && (
+                <Box>
+                  <Alert severity={importResult.errores.length ? 'warning' : 'success'} sx={{ mb: 1 }}>
+                    {importResult.exitosos} de {importResult.total} llantas creadas exitosamente
+                  </Alert>
+                  {importResult.errores.length > 0 && (
+                    <Stack spacing={0.5}>
+                      {importResult.errores.map((e: any, i: number) => (
+                        <Typography key={i} variant="caption" color="error.main" display="block">Fila {e.fila} ({e.codigo || '—'}): {e.mensaje}</Typography>
+                      ))}
+                    </Stack>
+                  )}
+                </Box>
+              )}
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => { setImportOpen(false); setImportRows([]); setImportResult(null) }}>Cerrar</Button>
+            <Button variant="contained" disabled={importRows.length === 0 || mutImportar.isPending} onClick={confirmarImportacion} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>
+              {mutImportar.isPending ? 'Cargando...' : `Importar ${importRows.length} llantas`}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* ── Diálogo: inspecciones masivas por archivo plano ── */}
+        <Dialog open={inspImportOpen} onClose={() => { setInspImportOpen(false); setInspImportRows([]); setInspImportResult(null) }} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Importación masiva de inspecciones</DialogTitle>
+          <DialogContent dividers>
+            <Stack spacing={2}>
+              <Alert severity="info" sx={{ py: 0.5 }}>Descarga la plantilla, complétala en Excel y súbela. La columna "codigo" debe coincidir con el código de una llanta ya registrada (montada o en bodega).</Alert>
+              <Button variant="outlined" startIcon={<Download />} onClick={descargarPlantillaInspecciones} sx={{ alignSelf: 'flex-start', textTransform: 'none' }}>Descargar plantilla</Button>
+              <input ref={inspFileInputRef} type="file" accept=".xlsx,.xls" hidden onChange={handleImportInspFile} />
+              <Button variant="outlined" startIcon={<UploadFile />} onClick={() => inspFileInputRef.current?.click()} sx={{ alignSelf: 'flex-start', textTransform: 'none' }}>
+                Seleccionar archivo Excel
+              </Button>
+              {inspImportRows.length > 0 && !inspImportResult && (
+                <Alert severity="success" sx={{ py: 0.5 }}>{inspImportRows.length} filas detectadas · códigos: {inspImportRows.slice(0, 3).map(r => r.codigo).join(', ')}{inspImportRows.length > 3 ? '…' : ''}</Alert>
+              )}
+              {inspImportResult && (
+                <Box>
+                  <Alert severity={inspImportResult.errores.length ? 'warning' : 'success'} sx={{ mb: 1 }}>
+                    {inspImportResult.exitosos} de {inspImportResult.total} inspecciones registradas exitosamente
+                  </Alert>
+                  {inspImportResult.errores.length > 0 && (
+                    <Stack spacing={0.5}>
+                      {inspImportResult.errores.map((e: any, i: number) => (
+                        <Typography key={i} variant="caption" color="error.main" display="block">Fila {e.fila} ({e.codigo || '—'}): {e.mensaje}</Typography>
+                      ))}
+                    </Stack>
+                  )}
+                </Box>
+              )}
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => { setInspImportOpen(false); setInspImportRows([]); setInspImportResult(null) }}>Cerrar</Button>
+            <Button variant="contained" disabled={inspImportRows.length === 0 || mutImportarInsp.isPending} onClick={confirmarImportacionInsp} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>
+              {mutImportarInsp.isPending ? 'Cargando...' : `Importar ${inspImportRows.length} inspecciones`}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* ── Diálogo: descartes masivos por archivo plano ── */}
+        <Dialog open={bajaImportOpen} onClose={() => { setBajaImportOpen(false); setBajaImportRows([]); setBajaImportResult(null) }} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Descarte masivo de llantas</DialogTitle>
+          <DialogContent dividers>
+            <Stack spacing={2}>
+              <Alert severity="info" sx={{ py: 0.5 }}>Descarga la plantilla, complétala en Excel y súbela. Las columnas "dano" y "motivo_fin_vida" deben coincidir con nombres ya configurados en Configuración; ambas son opcionales.</Alert>
+              <Button variant="outlined" startIcon={<Download />} onClick={descargarPlantillaBajas} sx={{ alignSelf: 'flex-start', textTransform: 'none' }}>Descargar plantilla</Button>
+              <input ref={bajaFileInputRef} type="file" accept=".xlsx,.xls" hidden onChange={handleImportBajaFile} />
+              <Button variant="outlined" startIcon={<UploadFile />} onClick={() => bajaFileInputRef.current?.click()} sx={{ alignSelf: 'flex-start', textTransform: 'none' }}>
+                Seleccionar archivo Excel
+              </Button>
+              {bajaImportRows.length > 0 && !bajaImportResult && (
+                <Alert severity="warning" sx={{ py: 0.5 }}>{bajaImportRows.length} filas detectadas · códigos: {bajaImportRows.slice(0, 3).map(r => r.codigo).join(', ')}{bajaImportRows.length > 3 ? '…' : ''} · esta acción no se puede deshacer.</Alert>
+              )}
+              {bajaImportResult && (
+                <Box>
+                  <Alert severity={bajaImportResult.errores.length ? 'warning' : 'success'} sx={{ mb: 1 }}>
+                    {bajaImportResult.exitosos} de {bajaImportResult.total} llantas dadas de baja exitosamente
+                  </Alert>
+                  {bajaImportResult.errores.length > 0 && (
+                    <Stack spacing={0.5}>
+                      {bajaImportResult.errores.map((e: any, i: number) => (
+                        <Typography key={i} variant="caption" color="error.main" display="block">Fila {e.fila} ({e.codigo || '—'}): {e.mensaje}</Typography>
+                      ))}
+                    </Stack>
+                  )}
+                </Box>
+              )}
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => { setBajaImportOpen(false); setBajaImportRows([]); setBajaImportResult(null) }}>Cerrar</Button>
+            <Button variant="contained" color="error" disabled={bajaImportRows.length === 0 || mutImportarBaja.isPending} onClick={confirmarImportacionBaja}>
+              {mutImportarBaja.isPending ? 'Cargando...' : `Dar de baja ${bajaImportRows.length} llantas`}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* ── Diálogo: congelar datos ── */}
+        <Dialog open={congelarOpen} onClose={() => setCongelarOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Congelar datos</DialogTitle>
+          <DialogContent dividers>
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              Crea una fotografía del estado actual de todas las llantas activas (costo/km, mm gastados) para comparar su evolución más adelante.
+            </Typography>
+            <TextField label="Descripción (opcional)" size="small" fullWidth value={congelarDesc} onChange={e => setCongelarDesc(e.target.value)} placeholder="Ej: Cierre de mes julio 2026" />
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setCongelarOpen(false)}>Cancelar</Button>
+            <Button variant="contained" disabled={mutCongelar.isPending} onClick={() => mutCongelar.mutate({ descripcion: congelarDesc || undefined })} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>
+              {mutCongelar.isPending ? 'Congelando...' : 'Congelar ahora'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* ── Diálogo: ver congelados ── */}
+        <Dialog open={congeladosOpen} onClose={() => setCongeladosOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Congelados</DialogTitle>
+          <DialogContent dividers>
+            {congelados.length === 0 ? (
+              <Typography color="text.secondary" py={2} textAlign="center">Aún no hay congelados</Typography>
+            ) : (
+              <Stack spacing={1}>
+                {congelados.map(c => (
+                  <Stack key={c.id} direction="row" alignItems="center" justifyContent="space-between" sx={{ bgcolor: '#F5F7FA', borderRadius: 1.5, px: 1.5, py: 1 }}>
+                    <Box>
+                      <Typography variant="body2" fontWeight={700}>{c.descripcion || `Congelado #${c.id}`}</Typography>
+                      <Typography variant="caption" color="text.secondary">{fmtFecha(c.fecha)}</Typography>
+                    </Box>
+                    <Stack direction="row" gap={0.5}>
+                      <Button size="small" onClick={() => setCongeladoDetalleId(c.id)} sx={{ textTransform: 'none' }}>Ver detalle</Button>
+                      <IconButton size="small" color="error" onClick={() => mutDeleteCongelado.mutate(c.id)}><DeleteForever sx={{ fontSize: 16 }} /></IconButton>
+                    </Stack>
+                  </Stack>
+                ))}
+              </Stack>
+            )}
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setCongeladosOpen(false)}>Cerrar</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* ── Diálogo: detalle de congelado ── */}
+        <Dialog open={!!congeladoDetalleId} onClose={() => setCongeladoDetalleId(null)} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Detalle del congelado</DialogTitle>
+          <DialogContent dividers>
+            <Box sx={{ overflowX: 'auto' }}>
+              <Table size="small">
+                <TableHead><TableRow>{['Código', 'Marca', 'Medida', 'Estado', 'Km total', 'Costo neto', 'CPK', 'Costo/mm', 'Mm gastados'].map(h => <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>)}</TableRow></TableHead>
+                <TableBody>
+                  {congeladoDetalle.map((d: any) => (
+                    <TableRow key={d.id}>
+                      <TableCell sx={{ fontWeight: 700 }}>{d.codigo}</TableCell>
+                      <TableCell>{d.marca ?? '—'}</TableCell>
+                      <TableCell>{d.medida ?? '—'}</TableCell>
+                      <TableCell><Chip size="small" label={d.estado} color={ESTADO_COLOR[d.estado] ?? 'default'} /></TableCell>
+                      <TableCell>{d.km_total?.toLocaleString('es-CO') ?? '—'}</TableCell>
+                      <TableCell>{d.costo_neto ? `$${d.costo_neto.toLocaleString('es-CO')}` : '—'}</TableCell>
+                      <TableCell>{d.cpk ? `$${d.cpk.toLocaleString('es-CO')}/km` : '—'}</TableCell>
+                      <TableCell>{d.costo_mm ? `$${d.costo_mm.toLocaleString('es-CO')}/mm` : '—'}</TableCell>
+                      <TableCell>{d.mm_gastados ?? '—'}</TableCell>
+                    </TableRow>
+                  ))}
+                  {congeladoDetalle.length === 0 && <TableRow><TableCell colSpan={9} align="center"><Typography color="text.secondary" py={2}>Sin datos</Typography></TableCell></TableRow>}
+                </TableBody>
+              </Table>
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setCongeladoDetalleId(null)}>Cerrar</Button>
+          </DialogActions>
         </Dialog>
       </Box>
     </Layout>

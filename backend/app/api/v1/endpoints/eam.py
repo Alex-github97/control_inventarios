@@ -19,6 +19,12 @@ from app.infrastructure.models.eam import (
     EAMInspeccionNeumatico, EAMReencaucheLote, EAMReencaucheDetalle, EAMNeumaticoConfig,
     EAMRegistroCombustible, EAMGarantia, EAMFMEA,
     EAMCalibracion, EAMKPIDiario,
+    EAMZonaNeumatico, EAMBandaReencauche, EAMMotivoFinVida,
+    EAMAjusteNeumaticoCatalogo, EAMAjusteNeumatico,
+    EAMEsquemaVehiculo, EAMEsquemaAsignacion,
+    EAMTrabajoNeumatico, EAMPeriodicidadTrabajoNeumatico, EAMTrabajoRealizadoNeumatico,
+    EAMReesculturado, EAMVidaNeumatico,
+    EAMCongeladoNeumatico, EAMCongeladoDetalleNeumatico,
 )
 from app.infrastructure.models.tms import TMSVehiculo
 
@@ -298,6 +304,9 @@ class NeumaticCreate(BaseModel):
     proveedor: Optional[str] = None
     tipo_uso: Optional[str] = None            # DIRECCIONAL/TRACCION/REMOLQUE/MULTIPOSICION/REPUESTO
     presion_recomendada: Optional[float] = None
+    zona_id: Optional[int] = None
+    dot: Optional[str] = None
+    tipo_rin: Optional[str] = None
 
 class NeumaticUpdate(BaseModel):
     marca: Optional[str] = None
@@ -315,6 +324,10 @@ class NeumaticUpdate(BaseModel):
     proveedor: Optional[str] = None
     tipo_uso: Optional[str] = None
     presion_recomendada: Optional[float] = None
+    zona_id: Optional[int] = None
+    motivo_fin_vida_id: Optional[int] = None
+    dot: Optional[str] = None
+    tipo_rin: Optional[str] = None
 
 class NeumaticResponse(NeumaticCreate):
     model_config = ConfigDict(from_attributes=True)
@@ -325,6 +338,7 @@ class NeumaticResponse(NeumaticCreate):
     reencauches: int
     dano_id: Optional[int] = None
     motivo_baja: Optional[str] = None
+    motivo_fin_vida_id: Optional[int] = None
     fecha_baja: Optional[date] = None
     presion_actual: Optional[float] = None
     orientacion: Optional[str] = None
@@ -366,6 +380,7 @@ class MovNeumaticoCreate(BaseModel):
     bodega_id: Optional[int] = None       # bodega destino (desmontaje/almacenamiento)
     km_odometro: Optional[float] = None
     dano_id: Optional[int] = None         # para BAJA/REENCAUCHE
+    motivo_fin_vida_id: Optional[int] = None   # para BAJA (catálogo estructurado)
     motivo: Optional[str] = None
     observaciones: Optional[str] = None
     tecnico: Optional[str] = None
@@ -389,6 +404,7 @@ class PosicionLayout(BaseModel):
     label: str
     eje: int
     lado: str
+    numero: Optional[int] = None
 
 # ── Catálogo de atributos de neumático (marca/medida/referencia/vida) ──
 class CatalogoNeuCreate(BaseModel):
@@ -435,7 +451,8 @@ class ReencaucheLoteResponse(ReencaucheLoteCreate):
 
 class ReencaucheDetalleCreate(BaseModel):
     neumatico_id: int
-    banda: Optional[str] = None
+    banda: Optional[str] = None       # legacy: texto libre si no viene del catálogo
+    banda_id: Optional[int] = None
 
 class ReencaucheDetalleUpdate(BaseModel):
     resultado: str                # REENCAUCHADA/REMANENTE/RECHAZO
@@ -443,6 +460,7 @@ class ReencaucheDetalleUpdate(BaseModel):
     vida_remanente_km: Optional[float] = None
     costo: Optional[float] = None
     dano_id: Optional[int] = None    # requerido si RECHAZO
+    motivo_fin_vida_id: Optional[int] = None   # requerido si RECHAZO
 
 class ReencaucheDetalleResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -450,6 +468,7 @@ class ReencaucheDetalleResponse(BaseModel):
     lote_id: int
     neumatico_id: int
     banda: Optional[str] = None
+    banda_id: Optional[int] = None
     resultado: str
     profundidad_nueva: Optional[float] = None
     vida_remanente_km: Optional[float] = None
@@ -464,6 +483,204 @@ class NeuConfigSchema(BaseModel):
     presion_max: float = 120.0
     umbral_desalineacion: float = 2.0
 
+# ── Zonas de llantas ──
+class ZonaNeumaticoCreate(BaseModel):
+    codigo: str
+    nombre: str
+    activo: bool = True
+
+class ZonaNeumaticoResponse(ZonaNeumaticoCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+
+# ── Bandas de reencauche ──
+class BandaReencaucheCreate(BaseModel):
+    marca: str
+    referencia: Optional[str] = None
+    dimension: Optional[str] = None
+    profundidad_original: Optional[float] = None
+    profundidad_minima: Optional[float] = None
+    tipo_posicion: Optional[str] = None
+    sentido_rotacion: Optional[str] = None
+    reesculturable: bool = False
+    costo_defecto: Optional[float] = None
+    presion_minima: Optional[float] = None
+    presion_maxima: Optional[float] = None
+    comentarios: Optional[str] = None
+    activo: bool = True
+
+class BandaReencaucheResponse(BandaReencaucheCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+
+# ── Motivos de fin de vida ──
+class MotivoFinVidaCreate(BaseModel):
+    nombre: str
+    aplica_descarte: bool = True
+    aplica_fin_vida: bool = True
+    activo: bool = True
+
+class MotivoFinVidaResponse(MotivoFinVidaCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+
+# ── Ajustes de valor ──
+class AjusteNeuCatalogoCreate(BaseModel):
+    nombre: str
+    activo: bool = True
+
+class AjusteNeuCatalogoResponse(AjusteNeuCatalogoCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+
+class AjusteNeuCreate(BaseModel):
+    motivo_id: int
+    fecha: date
+    valor: float
+    comentarios: Optional[str] = None
+
+class AjusteNeuResponse(AjusteNeuCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    neumatico_id: int
+
+# ── Esquemas de vehículo ──
+class EsquemaVehiculoCreate(BaseModel):
+    nombre: str
+    tipo_activo: Optional[str] = None
+    numero_ejes: int = 2
+    tiene_repuesto: bool = True
+    cantidad_repuestos: int = 1
+    observaciones: Optional[str] = None
+    activo: bool = True
+
+class EsquemaVehiculoResponse(EsquemaVehiculoCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+
+class EsquemaAsignacionCreate(BaseModel):
+    activo_id: int
+    esquema_id: int
+    fecha_vigencia: date
+    observaciones: Optional[str] = None
+
+class EsquemaAsignacionResponse(EsquemaAsignacionCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+
+# ── Trabajos y periodicidad ──
+class TrabajoNeumaticoCreate(BaseModel):
+    nombre: str
+    observaciones: Optional[str] = None
+    es_predeterminado: bool = False
+    activo: bool = True
+
+class TrabajoNeumaticoResponse(TrabajoNeumaticoCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+
+class PeriodicidadTrabajoCreate(BaseModel):
+    trabajo_id: int
+    tipo_activo: Optional[str] = None
+    valor: float
+    unidad: str = "KILOMETROS"
+    activo: bool = True
+
+class PeriodicidadTrabajoResponse(PeriodicidadTrabajoCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+
+class TrabajoRealizadoCreate(BaseModel):
+    trabajo_id: int
+    fecha: datetime
+    km_odometro: Optional[float] = None
+    cantidad: int = 1
+    costo_unitario: Optional[float] = None
+    proveedor: Optional[str] = None
+    observaciones: Optional[str] = None
+
+class TrabajoRealizadoResponse(TrabajoRealizadoCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    neumatico_id: int
+
+# ── Reesculturado (re-grooving) ──
+class ReesculturadoCreate(BaseModel):
+    fecha: datetime
+    km_odometro: Optional[float] = None
+    proveedor: Optional[str] = None
+    costo: Optional[float] = None
+    profundidad_nueva: float
+
+class ReesculturadoResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    neumatico_id: int
+    fecha: datetime
+    km_odometro: Optional[float] = None
+    proveedor: Optional[str] = None
+    costo: Optional[float] = None
+    profundidad_anterior: Optional[float] = None
+    profundidad_nueva: Optional[float] = None
+    deshecho: bool
+    fecha_deshecho: Optional[datetime] = None
+
+# ── Recuperar banda ──
+class RecuperarBandaCreate(BaseModel):
+    neumatico_destino_id: int
+    fecha: datetime
+    mm_transferidos: Optional[float] = None
+    costo_transferido: Optional[float] = None
+    observaciones: Optional[str] = None
+
+# ── Cambiar zona ──
+class CambiarZonaCreate(BaseModel):
+    zona_id: int
+    fecha: datetime
+    observaciones: Optional[str] = None
+
+# ── Vidas de la llanta ──
+class VidaNeumaticoResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    neumatico_id: int
+    numero_vida: int
+    tipo: str
+    fecha_inicio: datetime
+    fecha_fin: Optional[datetime] = None
+    km_inicio: float
+    km_fin: Optional[float] = None
+    costo: Optional[float] = None
+    profundidad_inicial: Optional[float] = None
+    profundidad_final: Optional[float] = None
+    motivo_cierre_id: Optional[int] = None
+
+# ── Congelar datos (snapshot histórico) ──
+class CongeladoCreate(BaseModel):
+    descripcion: Optional[str] = None
+
+class CongeladoResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    fecha: datetime
+    descripcion: Optional[str] = None
+
+class CongeladoDetalleResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    congelado_id: int
+    neumatico_id: int
+    codigo: str
+    marca: Optional[str] = None
+    medida: Optional[str] = None
+    estado: Optional[str] = None
+    km_total: Optional[float] = None
+    costo: Optional[float] = None
+    costo_neto: Optional[float] = None
+    cpk: Optional[float] = None
+    costo_mm: Optional[float] = None
+    mm_gastados: Optional[float] = None
+
 # ── Indicadores / alertas ──
 class IndicadorNeuResponse(BaseModel):
     neumatico_id: int
@@ -474,8 +691,10 @@ class IndicadorNeuResponse(BaseModel):
     posicion: Optional[str] = None
     km_total: float
     costo: Optional[float] = None
-    cpk: Optional[float] = None                 # costo por km
-    costo_mm: Optional[float] = None            # costo por mm gastado
+    ajustes: Optional[float] = None             # total de ajustes (deducciones) aplicados
+    costo_neto: Optional[float] = None          # costo - ajustes, usado para cpk/costo_mm
+    cpk: Optional[float] = None                 # costo neto por km
+    costo_mm: Optional[float] = None            # costo neto por mm gastado
     mm_gastados: Optional[float] = None
     vida_util_km: Optional[float] = None
     km_proyectado: Optional[float] = None       # proyección de vida (km)
@@ -914,19 +1133,28 @@ async def create_muestra(data: MuestraAceiteCreate, db: AsyncSession = Depends(g
 
 def _generar_posiciones(numero_ejes: Optional[int], tiene_repuesto: bool) -> List[dict]:
     """Layout estándar de posiciones de neumáticos según el número de ejes.
-    Eje 1 = direccional (2 llantas). Ejes 2..N = duales (4 llantas)."""
+    Eje 1 = direccional (2 llantas). Ejes 2..N = duales (4 llantas).
+    Cada posición de rueda recibe un número secuencial (Pos. 1, 2, 3…) siguiendo
+    el orden estándar izquierda→derecha por eje, además del código técnico."""
     pos: List[dict] = []
+    numero = 0
+
+    def _add(codigo: str, label: str, eje: int, lado: str) -> None:
+        nonlocal numero
+        numero += 1
+        pos.append({"codigo": codigo, "label": f"Pos. {numero} · {label}", "eje": eje, "lado": lado, "numero": numero})
+
     for eje in range(1, (numero_ejes or 0) + 1):
         if eje == 1:
-            pos.append({"codigo": "E1-IZQ", "label": "Eje 1 · Izq", "eje": 1, "lado": "IZQ"})
-            pos.append({"codigo": "E1-DER", "label": "Eje 1 · Der", "eje": 1, "lado": "DER"})
+            _add("E1-IZQ", "Eje 1 · Izq", 1, "IZQ")
+            _add("E1-DER", "Eje 1 · Der", 1, "DER")
         else:
-            pos.append({"codigo": f"E{eje}-IZQ-EXT", "label": f"Eje {eje} · Izq Ext", "eje": eje, "lado": "IZQ"})
-            pos.append({"codigo": f"E{eje}-IZQ-INT", "label": f"Eje {eje} · Izq Int", "eje": eje, "lado": "IZQ"})
-            pos.append({"codigo": f"E{eje}-DER-INT", "label": f"Eje {eje} · Der Int", "eje": eje, "lado": "DER"})
-            pos.append({"codigo": f"E{eje}-DER-EXT", "label": f"Eje {eje} · Der Ext", "eje": eje, "lado": "DER"})
+            _add(f"E{eje}-IZQ-EXT", f"Eje {eje} · Izq Ext", eje, "IZQ")
+            _add(f"E{eje}-IZQ-INT", f"Eje {eje} · Izq Int", eje, "IZQ")
+            _add(f"E{eje}-DER-INT", f"Eje {eje} · Der Int", eje, "DER")
+            _add(f"E{eje}-DER-EXT", f"Eje {eje} · Der Ext", eje, "DER")
     if tiene_repuesto:
-        pos.append({"codigo": "REPUESTO", "label": "Repuesto", "eje": 0, "lado": "-"})
+        pos.append({"codigo": "REPUESTO", "label": "Repuesto", "eje": 0, "lado": "-", "numero": None})
     return pos
 
 
@@ -956,6 +1184,28 @@ def _validar_montaje(tipo_uso: Optional[str], posicion: str) -> Optional[str]:
         return "Una llanta DIRECCIONAL solo puede montarse en el eje 1 (dirección)."
     if uso in ("TRACCION", "REMOLQUE") and eje == 1:
         return f"Una llanta {uso} no puede montarse en el eje 1 (dirección)."
+    return None
+
+
+async def _validar_fecha_movimiento(db: AsyncSession, neu: "EAMNeumatico", fecha) -> Optional[str]:
+    """No permite registrar un movimiento con fecha anterior a una inspección o a
+    otro movimiento ya registrados para la misma llanta (evita romper el orden
+    cronológico del historial)."""
+    insp_r = await db.execute(
+        select(EAMInspeccionNeumatico.fecha).where(EAMInspeccionNeumatico.neumatico_id == neu.id)
+        .order_by(EAMInspeccionNeumatico.fecha.desc()).limit(1)
+    )
+    ultima_insp = insp_r.scalar_one_or_none()
+    if ultima_insp and fecha < ultima_insp:
+        return f"Existe una inspección posterior ({ultima_insp:%Y-%m-%d %H:%M}) a la fecha de este movimiento. Corrige la fecha."
+
+    mov_r = await db.execute(
+        select(EAMMovimientoNeumatico.fecha).where(EAMMovimientoNeumatico.neumatico_id == neu.id)
+        .order_by(EAMMovimientoNeumatico.fecha.desc()).limit(1)
+    )
+    ultimo_mov = mov_r.scalar_one_or_none()
+    if ultimo_mov and fecha < ultimo_mov:
+        return f"Existe un movimiento posterior ({ultimo_mov:%Y-%m-%d %H:%M}) registrado para esta llanta. Los movimientos deben registrarse en orden cronológico."
     return None
 
 
@@ -1083,7 +1333,48 @@ async def crear_movimiento_neumatico(data: MovNeumaticoCreate, db: AsyncSession 
         raise HTTPException(404, "Neumático no encontrado")
     tipo = (data.tipo_movimiento or "").upper()
     posicion_origen = neu.posicion
-    if tipo in ("INSTALACION", "ROTACION"):
+
+    err_fecha = await _validar_fecha_movimiento(db, neu, data.fecha)
+    if err_fecha:
+        raise HTTPException(409, err_fecha)
+
+    if tipo == "INSTALACION":
+        if neu.estado == "BAJA":
+            raise HTTPException(409, f"La llanta {neu.codigo} fue descartada y no se puede montar.")
+        if neu.estado == "REENCAUCHE":
+            raise HTTPException(409, f"La llanta {neu.codigo} está en proceso de reencauche y no se puede montar.")
+        if neu.estado == "INSTALADO" and neu.activo_id and neu.activo_id != data.activo_id:
+            raise HTTPException(409, f"La llanta {neu.codigo} ya está instalada en otro vehículo (posición {neu.posicion}). Desmóntala primero.")
+        if data.activo_id and data.posicion:
+            ocupada_r = await db.execute(
+                select(EAMNeumatico).where(
+                    EAMNeumatico.activo_id == data.activo_id, EAMNeumatico.posicion == data.posicion,
+                    EAMNeumatico.estado == "INSTALADO", EAMNeumatico.id != neu.id,
+                )
+            )
+            ocupante = ocupada_r.scalar_one_or_none()
+            if ocupante:
+                raise HTTPException(409, f"La posición {data.posicion} ya está ocupada por la llanta {ocupante.codigo}.")
+        cfg = await _get_config_neu(db)
+        if cfg.montaje_estricto and data.posicion:
+            err = _validar_montaje(neu.tipo_uso, data.posicion)
+            if err:
+                raise HTTPException(409, err)
+        neu.estado = "INSTALADO"; neu.activo_id = data.activo_id
+        neu.posicion = data.posicion; neu.bodega_id = None
+        if data.km_odometro is not None:
+            neu.km_actual = data.km_odometro
+    elif tipo == "ROTACION":
+        if data.activo_id and data.posicion:
+            ocupada_r = await db.execute(
+                select(EAMNeumatico).where(
+                    EAMNeumatico.activo_id == data.activo_id, EAMNeumatico.posicion == data.posicion,
+                    EAMNeumatico.estado == "INSTALADO", EAMNeumatico.id != neu.id,
+                )
+            )
+            ocupante = ocupada_r.scalar_one_or_none()
+            if ocupante:
+                raise HTTPException(409, f"La posición {data.posicion} ya está ocupada por la llanta {ocupante.codigo}. Usa la rotación por intercambio.")
         cfg = await _get_config_neu(db)
         if cfg.montaje_estricto and data.posicion:
             err = _validar_montaje(neu.tipo_uso, data.posicion)
@@ -1112,7 +1403,14 @@ async def crear_movimiento_neumatico(data: MovNeumaticoCreate, db: AsyncSession 
     elif tipo == "BAJA":
         neu.estado = "BAJA"; neu.activo_id = None; neu.posicion = None; neu.bodega_id = None
         neu.dano_id = data.dano_id; neu.motivo_baja = data.motivo
+        neu.motivo_fin_vida_id = data.motivo_fin_vida_id
         neu.fecha_baja = data.fecha.date()
+        vida_actual = await _vida_abierta(db, neu.id)
+        if vida_actual:
+            vida_actual.fecha_fin = data.fecha
+            vida_actual.km_fin = data.km_odometro if data.km_odometro is not None else neu.km_actual
+            vida_actual.profundidad_final = neu.profundidad_actual
+            vida_actual.motivo_cierre_id = data.motivo_fin_vida_id
     else:
         raise HTTPException(400, f"Tipo de movimiento inválido: {tipo}")
 
@@ -1125,6 +1423,58 @@ async def crear_movimiento_neumatico(data: MovNeumaticoCreate, db: AsyncSession 
     )
     db.add(mov); await db.commit(); await db.refresh(mov)
     return mov
+
+
+# ── Descartes masivos (BAJA, carga por archivo plano, referenciando la llanta por código) ──
+class BajaBulkItem(BaseModel):
+    codigo: str
+    fecha: datetime
+    dano_id: Optional[int] = None
+    motivo_fin_vida_id: Optional[int] = None
+    motivo: Optional[str] = None
+    km_odometro: Optional[float] = None
+
+class BajaBulkCreate(BaseModel):
+    items: List[BajaBulkItem]
+
+@router.post("/neumaticos/baja/bulk")
+async def dar_baja_masivo(data: BajaBulkCreate, db: AsyncSession = Depends(get_db)):
+    exitosos = 0
+    errores = []
+    for i, item in enumerate(data.items):
+        try:
+            async with db.begin_nested():
+                r = await db.execute(select(EAMNeumatico).where(EAMNeumatico.codigo == item.codigo))
+                neu = r.scalar_one_or_none()
+                if not neu:
+                    raise ValueError(f"Llanta con código '{item.codigo}' no encontrada")
+                if neu.estado == "BAJA":
+                    raise ValueError(f"La llanta {item.codigo} ya está dada de baja")
+                err_fecha = await _validar_fecha_movimiento(db, neu, item.fecha)
+                if err_fecha:
+                    raise ValueError(err_fecha)
+                posicion_origen = neu.posicion
+                activo_id_origen = neu.activo_id
+                neu.estado = "BAJA"; neu.activo_id = None; neu.posicion = None; neu.bodega_id = None
+                neu.dano_id = item.dano_id; neu.motivo_baja = item.motivo
+                neu.motivo_fin_vida_id = item.motivo_fin_vida_id
+                neu.fecha_baja = item.fecha.date()
+                vida_actual = await _vida_abierta(db, neu.id)
+                if vida_actual:
+                    vida_actual.fecha_fin = item.fecha
+                    vida_actual.km_fin = item.km_odometro if item.km_odometro is not None else neu.km_actual
+                    vida_actual.profundidad_final = neu.profundidad_actual
+                    vida_actual.motivo_cierre_id = item.motivo_fin_vida_id
+                db.add(EAMMovimientoNeumatico(
+                    neumatico_id=neu.id, tipo_movimiento="BAJA", activo_id=activo_id_origen,
+                    posicion_origen=posicion_origen, posicion=None, bodega_id=None,
+                    km_odometro=item.km_odometro, fecha=item.fecha, observaciones=item.motivo,
+                ))
+            exitosos += 1
+        except Exception as e:
+            errores.append({"fila": i + 2, "codigo": item.codigo, "mensaje": str(e)})
+    await db.commit()
+    return {"total": len(data.items), "exitosos": exitosos, "errores": errores}
 
 
 class RotacionIntercambio(BaseModel):
@@ -1192,6 +1542,612 @@ async def update_config_neumatico(data: NeuConfigSchema, db: AsyncSession = Depe
     return cfg
 
 
+# ── Zonas de llantas ──
+@router.get("/neumaticos/zonas", response_model=List[ZonaNeumaticoResponse])
+async def list_zonas_neumatico(db: AsyncSession = Depends(get_db)):
+    r = await db.execute(select(EAMZonaNeumatico).order_by(EAMZonaNeumatico.nombre))
+    return r.scalars().all()
+
+@router.post("/neumaticos/zonas", response_model=ZonaNeumaticoResponse)
+async def create_zona_neumatico(data: ZonaNeumaticoCreate, db: AsyncSession = Depends(get_db)):
+    obj = EAMZonaNeumatico(**data.model_dump())
+    db.add(obj); await db.commit(); await db.refresh(obj)
+    return obj
+
+@router.put("/neumaticos/zonas/{zid}", response_model=ZonaNeumaticoResponse)
+async def update_zona_neumatico(zid: int, data: ZonaNeumaticoCreate, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMZonaNeumatico, zid)
+    if not obj:
+        raise HTTPException(404, "Zona no encontrada")
+    for k, v in data.model_dump().items():
+        setattr(obj, k, v)
+    await db.commit(); await db.refresh(obj)
+    return obj
+
+@router.delete("/neumaticos/zonas/{zid}", status_code=204)
+async def delete_zona_neumatico(zid: int, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMZonaNeumatico, zid)
+    if obj:
+        await db.delete(obj); await db.commit()
+
+
+# ── Bandas de reencauche ──
+@router.get("/neumaticos/bandas-reencauche", response_model=List[BandaReencaucheResponse])
+async def list_bandas_reencauche(db: AsyncSession = Depends(get_db)):
+    r = await db.execute(select(EAMBandaReencauche).order_by(EAMBandaReencauche.marca))
+    return r.scalars().all()
+
+@router.post("/neumaticos/bandas-reencauche", response_model=BandaReencaucheResponse)
+async def create_banda_reencauche(data: BandaReencaucheCreate, db: AsyncSession = Depends(get_db)):
+    obj = EAMBandaReencauche(**data.model_dump())
+    db.add(obj); await db.commit(); await db.refresh(obj)
+    return obj
+
+@router.put("/neumaticos/bandas-reencauche/{bid}", response_model=BandaReencaucheResponse)
+async def update_banda_reencauche(bid: int, data: BandaReencaucheCreate, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMBandaReencauche, bid)
+    if not obj:
+        raise HTTPException(404, "Banda no encontrada")
+    for k, v in data.model_dump().items():
+        setattr(obj, k, v)
+    await db.commit(); await db.refresh(obj)
+    return obj
+
+@router.delete("/neumaticos/bandas-reencauche/{bid}", status_code=204)
+async def delete_banda_reencauche(bid: int, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMBandaReencauche, bid)
+    if obj:
+        await db.delete(obj); await db.commit()
+
+
+# ── Motivos de fin de vida ──
+@router.get("/neumaticos/motivos-fin-vida", response_model=List[MotivoFinVidaResponse])
+async def list_motivos_fin_vida(db: AsyncSession = Depends(get_db)):
+    r = await db.execute(select(EAMMotivoFinVida).order_by(EAMMotivoFinVida.nombre))
+    return r.scalars().all()
+
+@router.post("/neumaticos/motivos-fin-vida", response_model=MotivoFinVidaResponse)
+async def create_motivo_fin_vida(data: MotivoFinVidaCreate, db: AsyncSession = Depends(get_db)):
+    obj = EAMMotivoFinVida(**data.model_dump())
+    db.add(obj); await db.commit(); await db.refresh(obj)
+    return obj
+
+@router.put("/neumaticos/motivos-fin-vida/{mid}", response_model=MotivoFinVidaResponse)
+async def update_motivo_fin_vida(mid: int, data: MotivoFinVidaCreate, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMMotivoFinVida, mid)
+    if not obj:
+        raise HTTPException(404, "Motivo no encontrado")
+    for k, v in data.model_dump().items():
+        setattr(obj, k, v)
+    await db.commit(); await db.refresh(obj)
+    return obj
+
+@router.delete("/neumaticos/motivos-fin-vida/{mid}", status_code=204)
+async def delete_motivo_fin_vida(mid: int, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMMotivoFinVida, mid)
+    if obj:
+        await db.delete(obj); await db.commit()
+
+
+# ── Ajustes de valor (catálogo + aplicación por llanta) ──
+@router.get("/neumaticos/ajustes-catalogo", response_model=List[AjusteNeuCatalogoResponse])
+async def list_ajustes_catalogo(db: AsyncSession = Depends(get_db)):
+    r = await db.execute(select(EAMAjusteNeumaticoCatalogo).order_by(EAMAjusteNeumaticoCatalogo.nombre))
+    return r.scalars().all()
+
+@router.post("/neumaticos/ajustes-catalogo", response_model=AjusteNeuCatalogoResponse)
+async def create_ajuste_catalogo(data: AjusteNeuCatalogoCreate, db: AsyncSession = Depends(get_db)):
+    obj = EAMAjusteNeumaticoCatalogo(**data.model_dump())
+    db.add(obj); await db.commit(); await db.refresh(obj)
+    return obj
+
+@router.put("/neumaticos/ajustes-catalogo/{aid}", response_model=AjusteNeuCatalogoResponse)
+async def update_ajuste_catalogo(aid: int, data: AjusteNeuCatalogoCreate, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMAjusteNeumaticoCatalogo, aid)
+    if not obj:
+        raise HTTPException(404, "Categoría de ajuste no encontrada")
+    for k, v in data.model_dump().items():
+        setattr(obj, k, v)
+    await db.commit(); await db.refresh(obj)
+    return obj
+
+@router.delete("/neumaticos/ajustes-catalogo/{aid}", status_code=204)
+async def delete_ajuste_catalogo(aid: int, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMAjusteNeumaticoCatalogo, aid)
+    if obj:
+        await db.delete(obj); await db.commit()
+
+@router.get("/neumaticos/{nid}/ajustes", response_model=List[AjusteNeuResponse])
+async def list_ajustes_neumatico(nid: int, db: AsyncSession = Depends(get_db)):
+    r = await db.execute(
+        select(EAMAjusteNeumatico).where(EAMAjusteNeumatico.neumatico_id == nid)
+        .order_by(EAMAjusteNeumatico.fecha.desc())
+    )
+    return r.scalars().all()
+
+@router.post("/neumaticos/{nid}/ajustes", response_model=AjusteNeuResponse)
+async def create_ajuste_neumatico(nid: int, data: AjusteNeuCreate, db: AsyncSession = Depends(get_db)):
+    neu = await db.get(EAMNeumatico, nid)
+    if not neu:
+        raise HTTPException(404, "Neumático no encontrado")
+    obj = EAMAjusteNeumatico(neumatico_id=nid, **data.model_dump())
+    db.add(obj); await db.commit(); await db.refresh(obj)
+    return obj
+
+
+# ── Esquemas de vehículo (plantillas reutilizables) ──
+@router.get("/neumaticos/esquemas", response_model=List[EsquemaVehiculoResponse])
+async def list_esquemas_vehiculo(db: AsyncSession = Depends(get_db)):
+    r = await db.execute(select(EAMEsquemaVehiculo).order_by(EAMEsquemaVehiculo.nombre))
+    return r.scalars().all()
+
+@router.post("/neumaticos/esquemas", response_model=EsquemaVehiculoResponse)
+async def create_esquema_vehiculo(data: EsquemaVehiculoCreate, db: AsyncSession = Depends(get_db)):
+    obj = EAMEsquemaVehiculo(**data.model_dump())
+    db.add(obj); await db.commit(); await db.refresh(obj)
+    return obj
+
+@router.put("/neumaticos/esquemas/{eid}", response_model=EsquemaVehiculoResponse)
+async def update_esquema_vehiculo(eid: int, data: EsquemaVehiculoCreate, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMEsquemaVehiculo, eid)
+    if not obj:
+        raise HTTPException(404, "Esquema no encontrado")
+    for k, v in data.model_dump().items():
+        setattr(obj, k, v)
+    await db.commit(); await db.refresh(obj)
+    return obj
+
+@router.delete("/neumaticos/esquemas/{eid}", status_code=204)
+async def delete_esquema_vehiculo(eid: int, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMEsquemaVehiculo, eid)
+    if obj:
+        await db.delete(obj); await db.commit()
+
+@router.get("/neumaticos/esquemas/asignaciones/{activo_id}", response_model=List[EsquemaAsignacionResponse])
+async def list_esquema_asignaciones(activo_id: int, db: AsyncSession = Depends(get_db)):
+    r = await db.execute(
+        select(EAMEsquemaAsignacion).where(EAMEsquemaAsignacion.activo_id == activo_id)
+        .order_by(EAMEsquemaAsignacion.fecha_vigencia.desc())
+    )
+    return r.scalars().all()
+
+@router.post("/neumaticos/esquemas/asignar", response_model=EsquemaAsignacionResponse)
+async def asignar_esquema_vehiculo(data: EsquemaAsignacionCreate, db: AsyncSession = Depends(get_db)):
+    """Asigna un esquema de llantas a un vehículo: aplica número de ejes/repuesto
+    directamente sobre el activo (reutiliza el generador de layout existente) y
+    deja registro histórico de la vigencia."""
+    activo = await db.get(EAMActivo, data.activo_id)
+    if not activo:
+        raise HTTPException(404, "Vehículo no encontrado")
+    esquema = await db.get(EAMEsquemaVehiculo, data.esquema_id)
+    if not esquema:
+        raise HTTPException(404, "Esquema no encontrado")
+    activo.numero_ejes = esquema.numero_ejes
+    activo.tiene_repuesto = esquema.tiene_repuesto
+    obj = EAMEsquemaAsignacion(**data.model_dump())
+    db.add(obj); await db.commit(); await db.refresh(obj)
+    return obj
+
+
+# ── Trabajos de llantas y periodicidad ──
+@router.get("/neumaticos/trabajos", response_model=List[TrabajoNeumaticoResponse])
+async def list_trabajos_neumatico(db: AsyncSession = Depends(get_db)):
+    r = await db.execute(select(EAMTrabajoNeumatico).order_by(EAMTrabajoNeumatico.nombre))
+    return r.scalars().all()
+
+@router.post("/neumaticos/trabajos", response_model=TrabajoNeumaticoResponse)
+async def create_trabajo_neumatico(data: TrabajoNeumaticoCreate, db: AsyncSession = Depends(get_db)):
+    obj = EAMTrabajoNeumatico(**data.model_dump())
+    db.add(obj); await db.commit(); await db.refresh(obj)
+    return obj
+
+@router.put("/neumaticos/trabajos/{tid}", response_model=TrabajoNeumaticoResponse)
+async def update_trabajo_neumatico(tid: int, data: TrabajoNeumaticoCreate, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMTrabajoNeumatico, tid)
+    if not obj:
+        raise HTTPException(404, "Trabajo no encontrado")
+    for k, v in data.model_dump().items():
+        setattr(obj, k, v)
+    await db.commit(); await db.refresh(obj)
+    return obj
+
+@router.delete("/neumaticos/trabajos/{tid}", status_code=204)
+async def delete_trabajo_neumatico(tid: int, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMTrabajoNeumatico, tid)
+    if obj:
+        await db.delete(obj); await db.commit()
+
+@router.get("/neumaticos/trabajos/periodicidad", response_model=List[PeriodicidadTrabajoResponse])
+async def list_periodicidad_trabajos(db: AsyncSession = Depends(get_db)):
+    r = await db.execute(select(EAMPeriodicidadTrabajoNeumatico))
+    return r.scalars().all()
+
+@router.post("/neumaticos/trabajos/periodicidad", response_model=PeriodicidadTrabajoResponse)
+async def create_periodicidad_trabajo(data: PeriodicidadTrabajoCreate, db: AsyncSession = Depends(get_db)):
+    obj = EAMPeriodicidadTrabajoNeumatico(**data.model_dump())
+    db.add(obj); await db.commit(); await db.refresh(obj)
+    return obj
+
+@router.delete("/neumaticos/trabajos/periodicidad/{pid}", status_code=204)
+async def delete_periodicidad_trabajo(pid: int, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMPeriodicidadTrabajoNeumatico, pid)
+    if obj:
+        await db.delete(obj); await db.commit()
+
+@router.get("/neumaticos/{nid}/trabajos", response_model=List[TrabajoRealizadoResponse])
+async def list_trabajos_realizados(nid: int, db: AsyncSession = Depends(get_db)):
+    r = await db.execute(
+        select(EAMTrabajoRealizadoNeumatico).where(EAMTrabajoRealizadoNeumatico.neumatico_id == nid)
+        .order_by(EAMTrabajoRealizadoNeumatico.fecha.desc())
+    )
+    return r.scalars().all()
+
+@router.post("/neumaticos/{nid}/trabajos", response_model=TrabajoRealizadoResponse)
+async def create_trabajo_realizado(nid: int, data: TrabajoRealizadoCreate, db: AsyncSession = Depends(get_db)):
+    neu = await db.get(EAMNeumatico, nid)
+    if not neu:
+        raise HTTPException(404, "Neumático no encontrado")
+    obj = EAMTrabajoRealizadoNeumatico(neumatico_id=nid, **data.model_dump())
+    db.add(obj); await db.commit(); await db.refresh(obj)
+    return obj
+
+
+# ── Ciclo de vida: reesculturado, recuperar banda, cambiar zona, vidas ──
+
+async def _get_or_create_ajuste_motivo(db: AsyncSession, nombre: str) -> EAMAjusteNeumaticoCatalogo:
+    r = await db.execute(select(EAMAjusteNeumaticoCatalogo).where(EAMAjusteNeumaticoCatalogo.nombre == nombre))
+    obj = r.scalar_one_or_none()
+    if not obj:
+        obj = EAMAjusteNeumaticoCatalogo(nombre=nombre, activo=True)
+        db.add(obj)
+        await db.flush()
+    return obj
+
+async def _vida_abierta(db: AsyncSession, neumatico_id: int) -> Optional[EAMVidaNeumatico]:
+    r = await db.execute(
+        select(EAMVidaNeumatico)
+        .where(EAMVidaNeumatico.neumatico_id == neumatico_id, EAMVidaNeumatico.fecha_fin.is_(None))
+        .order_by(EAMVidaNeumatico.numero_vida.desc())
+    )
+    return r.scalars().first()
+
+@router.post("/neumaticos/{nid}/reesculturar", response_model=ReesculturadoResponse)
+async def reesculturar_neumatico(nid: int, data: ReesculturadoCreate, db: AsyncSession = Depends(get_db)):
+    neu = await db.get(EAMNeumatico, nid)
+    if not neu:
+        raise HTTPException(404, "Neumático no encontrado")
+    obj = EAMReesculturado(
+        neumatico_id=nid, fecha=data.fecha, km_odometro=data.km_odometro,
+        proveedor=data.proveedor, costo=data.costo,
+        profundidad_anterior=neu.profundidad_actual, profundidad_nueva=data.profundidad_nueva,
+    )
+    neu.profundidad_actual = data.profundidad_nueva
+    if data.costo:
+        neu.costo = (neu.costo or 0) + data.costo
+    db.add(obj); await db.commit(); await db.refresh(obj)
+    return obj
+
+@router.put("/neumaticos/reesculturado/{resc_id}/deshacer", response_model=ReesculturadoResponse)
+async def deshacer_reesculturado(resc_id: int, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMReesculturado, resc_id)
+    if not obj:
+        raise HTTPException(404, "Registro de reesculturado no encontrado")
+    if obj.deshecho:
+        raise HTTPException(409, "Este reesculturado ya fue deshecho")
+    neu = await db.get(EAMNeumatico, obj.neumatico_id)
+    if neu:
+        neu.profundidad_actual = obj.profundidad_anterior
+        if obj.costo:
+            neu.costo = max((neu.costo or 0) - obj.costo, 0)
+    obj.deshecho = True
+    obj.fecha_deshecho = datetime.utcnow()
+    await db.commit(); await db.refresh(obj)
+    return obj
+
+@router.get("/neumaticos/{nid}/reesculturados", response_model=List[ReesculturadoResponse])
+async def list_reesculturados(nid: int, db: AsyncSession = Depends(get_db)):
+    r = await db.execute(
+        select(EAMReesculturado).where(EAMReesculturado.neumatico_id == nid)
+        .order_by(EAMReesculturado.fecha.desc())
+    )
+    return r.scalars().all()
+
+@router.post("/neumaticos/{nid}/recuperar-banda")
+async def recuperar_banda(nid: int, data: RecuperarBandaCreate, db: AsyncSession = Depends(get_db)):
+    """Transfiere la banda en buen estado de una carcasa dañada (origen) hacia
+    otra llanta destino: mueve mm/costo proporcional y descarta la llanta origen."""
+    origen = await db.get(EAMNeumatico, nid)
+    destino = await db.get(EAMNeumatico, data.neumatico_destino_id)
+    if not origen or not destino:
+        raise HTTPException(404, "Neumático no encontrado")
+    if origen.id == destino.id:
+        raise HTTPException(400, "El origen y destino deben ser llantas distintas")
+
+    mm = data.mm_transferidos if data.mm_transferidos is not None else origen.profundidad_actual
+    costo = data.costo_transferido or 0
+
+    if mm is not None:
+        destino.profundidad_actual = mm
+        if destino.profundidad_diseño is None or destino.profundidad_diseño < mm:
+            destino.profundidad_diseño = mm
+    if costo:
+        destino.costo = (destino.costo or 0) + costo
+        motivo = await _get_or_create_ajuste_motivo(db, "Recuperación de banda")
+        db.add(EAMAjusteNeumatico(
+            neumatico_id=origen.id, motivo_id=motivo.id, fecha=data.fecha.date(),
+            valor=costo, comentarios=data.observaciones or f"Banda recuperada hacia {destino.codigo}",
+        ))
+
+    origen.estado = "BAJA"
+    origen.motivo_baja = f"Recuperación de banda hacia {destino.codigo}"
+    origen.fecha_baja = data.fecha.date()
+    origen.activo_id = None; origen.posicion = None
+
+    vida = await _vida_abierta(db, origen.id)
+    if vida:
+        vida.fecha_fin = data.fecha
+        vida.km_fin = origen.km_actual
+        vida.profundidad_final = origen.profundidad_actual
+
+    obs = data.observaciones or f"Recuperación de banda: {origen.codigo} → {destino.codigo}"
+    db.add(EAMMovimientoNeumatico(neumatico_id=origen.id, tipo_movimiento="RECUPERACION_BANDA", fecha=data.fecha, observaciones=obs))
+    db.add(EAMMovimientoNeumatico(neumatico_id=destino.id, tipo_movimiento="RECUPERACION_BANDA", fecha=data.fecha, observaciones=obs))
+
+    await db.commit()
+    return {"ok": True, "origen": origen.codigo, "destino": destino.codigo, "mm_transferidos": mm, "costo_transferido": costo}
+
+@router.post("/neumaticos/{nid}/cambiar-zona")
+async def cambiar_zona_neumatico(nid: int, data: CambiarZonaCreate, db: AsyncSession = Depends(get_db)):
+    neu = await db.get(EAMNeumatico, nid)
+    if not neu:
+        raise HTTPException(404, "Neumático no encontrado")
+    zona = await db.get(EAMZonaNeumatico, data.zona_id)
+    if not zona:
+        raise HTTPException(404, "Zona no encontrada")
+    zona_anterior = neu.zona_id
+    neu.zona_id = data.zona_id
+    db.add(EAMMovimientoNeumatico(
+        neumatico_id=nid, tipo_movimiento="CAMBIO_ZONA", fecha=data.fecha,
+        observaciones=data.observaciones or f"Cambio de zona → {zona.nombre}",
+    ))
+    await db.commit()
+    return {"ok": True, "zona_id": neu.zona_id, "zona_anterior_id": zona_anterior}
+
+@router.get("/neumaticos/{nid}/vidas", response_model=List[VidaNeumaticoResponse])
+async def list_vidas_neumatico(nid: int, db: AsyncSession = Depends(get_db)):
+    r = await db.execute(
+        select(EAMVidaNeumatico).where(EAMVidaNeumatico.neumatico_id == nid)
+        .order_by(EAMVidaNeumatico.numero_vida.desc())
+    )
+    return r.scalars().all()
+
+
+# ── Informe consolidado y Histórico de la llanta ──
+
+@router.get("/neumaticos/{nid}/informe")
+async def informe_neumatico(nid: int, db: AsyncSession = Depends(get_db)):
+    neu = await db.get(EAMNeumatico, nid)
+    if not neu:
+        raise HTTPException(404, "Neumático no encontrado")
+
+    mov_r = await db.execute(
+        select(EAMMovimientoNeumatico).where(EAMMovimientoNeumatico.neumatico_id == nid)
+        .order_by(EAMMovimientoNeumatico.fecha.asc())
+    )
+    movimientos = mov_r.scalars().all()
+
+    montajes_rotaciones, ubicaciones, zonas_hist = [], [], []
+    km_anterior = None
+    for m in movimientos:
+        if m.tipo_movimiento in ("INSTALACION", "ROTACION", "DESMONTAJE", "VOLTEO"):
+            distancia = None
+            if km_anterior is not None and m.km_odometro is not None:
+                distancia = max(m.km_odometro - km_anterior, 0)
+            if m.km_odometro is not None:
+                km_anterior = m.km_odometro
+            montajes_rotaciones.append({
+                "id": m.id, "tipo": m.tipo_movimiento, "fecha": m.fecha, "activo_id": m.activo_id,
+                "posicion_origen": m.posicion_origen, "posicion": m.posicion,
+                "km_odometro": m.km_odometro, "distancia_recorrida": distancia,
+                "observaciones": m.observaciones, "tecnico": m.tecnico,
+            })
+        if m.bodega_id:
+            ubicaciones.append({"id": m.id, "fecha": m.fecha, "bodega_id": m.bodega_id, "observaciones": m.observaciones})
+        if m.tipo_movimiento == "CAMBIO_ZONA":
+            zonas_hist.append({"id": m.id, "fecha": m.fecha, "observaciones": m.observaciones})
+
+    insp_r = await db.execute(
+        select(EAMInspeccionNeumatico).where(EAMInspeccionNeumatico.neumatico_id == nid)
+        .order_by(EAMInspeccionNeumatico.fecha.desc())
+    )
+    trab_r = await db.execute(
+        select(EAMTrabajoRealizadoNeumatico).where(EAMTrabajoRealizadoNeumatico.neumatico_id == nid)
+        .order_by(EAMTrabajoRealizadoNeumatico.fecha.desc())
+    )
+
+    return {
+        "neumatico_id": neu.id, "codigo": neu.codigo,
+        "montajes_rotaciones": montajes_rotaciones,
+        "ubicaciones": ubicaciones,
+        "zonas": zonas_hist,
+        "inspecciones": [InspeccionNeuResponse.model_validate(i) for i in insp_r.scalars().all()],
+        "trabajos": [TrabajoRealizadoResponse.model_validate(t) for t in trab_r.scalars().all()],
+    }
+
+@router.get("/neumaticos/{nid}/historico")
+async def historico_neumatico(nid: int, db: AsyncSession = Depends(get_db)):
+    neu = await db.get(EAMNeumatico, nid)
+    if not neu:
+        raise HTTPException(404, "Neumático no encontrado")
+
+    vidas_r = await db.execute(
+        select(EAMVidaNeumatico).where(EAMVidaNeumatico.neumatico_id == nid).order_by(EAMVidaNeumatico.numero_vida)
+    )
+    vidas = vidas_r.scalars().all()
+
+    resc_r = await db.execute(
+        select(EAMReesculturado).where(EAMReesculturado.neumatico_id == nid, EAMReesculturado.deshecho == False)  # noqa: E712
+    )
+    costo_reesculturados = sum((r.costo or 0) for r in resc_r.scalars().all())
+
+    trab_r = await db.execute(select(EAMTrabajoRealizadoNeumatico).where(EAMTrabajoRealizadoNeumatico.neumatico_id == nid))
+    costo_trabajos = sum((t.costo_unitario or 0) * (t.cantidad or 1) for t in trab_r.scalars().all())
+
+    ajustes_r = await db.execute(select(EAMAjusteNeumatico).where(EAMAjusteNeumatico.neumatico_id == nid))
+    costo_ajustes = sum(a.valor for a in ajustes_r.scalars().all())
+
+    veh_r = await db.execute(
+        select(EAMMovimientoNeumatico.activo_id).where(
+            EAMMovimientoNeumatico.neumatico_id == nid, EAMMovimientoNeumatico.activo_id.isnot(None)
+        ).distinct()
+    )
+    vehiculos_ids = [v for (v,) in veh_r.all()]
+
+    costo_nueva = next((v.costo for v in vidas if v.tipo == "NUEVA"), None)
+    costo_reencauches = sum((v.costo or 0) for v in vidas if v.tipo == "REENCAUCHADA")
+
+    ubicacion_actual = "—"
+    if neu.activo_id:
+        ubicacion_actual = f"Vehículo #{neu.activo_id}" + (f" · {neu.posicion}" if neu.posicion else "")
+    elif neu.bodega_id:
+        bodega = await db.get(EAMBodegaNeumatico, neu.bodega_id)
+        ubicacion_actual = bodega.nombre if bodega else f"Bodega #{neu.bodega_id}"
+
+    return {
+        "informacion_basica": {
+            "id": neu.id, "codigo": neu.codigo, "marca": neu.marca, "referencia": neu.referencia,
+            "medida": neu.medida, "estado": neu.estado, "ubicacion_actual": ubicacion_actual,
+        },
+        "resumen_estadistico": {
+            "numero_vidas": len(vidas),
+            "numero_reencauches": neu.reencauches,
+            "vehiculos_distintos": len(vehiculos_ids),
+            "km_total_acumulado": neu.km_total,
+            "costo_nueva": costo_nueva,
+            "costo_reencauches": round(costo_reencauches, 2) if costo_reencauches else costo_reencauches,
+            "costo_reesculturados": round(costo_reesculturados, 2) if costo_reesculturados else costo_reesculturados,
+            "costo_trabajos": round(costo_trabajos, 2) if costo_trabajos else costo_trabajos,
+            "costo_ajustes": round(costo_ajustes, 2) if costo_ajustes else costo_ajustes,
+        },
+        "vidas": [VidaNeumaticoResponse.model_validate(v) for v in vidas],
+    }
+
+
+# ── Congelar datos (snapshot histórico para comparación) ──
+
+@router.post("/neumaticos/congelar", response_model=CongeladoResponse)
+async def crear_congelado(data: CongeladoCreate, db: AsyncSession = Depends(get_db)):
+    cfg = await _get_config_neu(db)
+    r = await db.execute(select(EAMNeumatico).where(EAMNeumatico.estado != "BAJA"))
+    neumaticos = r.scalars().all()
+
+    ajustes_r = await db.execute(
+        select(EAMAjusteNeumatico.neumatico_id, func.sum(EAMAjusteNeumatico.valor))
+        .group_by(EAMAjusteNeumatico.neumatico_id)
+    )
+    ajustes_map = {nid: total or 0 for nid, total in ajustes_r.all()}
+
+    congelado = EAMCongeladoNeumatico(fecha=datetime.utcnow(), descripcion=data.descripcion)
+    db.add(congelado)
+    await db.flush()
+
+    for n in neumaticos:
+        km = n.km_total or 0
+        pd_ = n.profundidad_diseño
+        pa = n.profundidad_actual
+        mm_gastados = (pd_ - pa) if (pd_ is not None and pa is not None) else None
+        ajustes = ajustes_map.get(n.id, 0)
+        costo_neto = max((n.costo or 0) - ajustes, 0) if (n.costo or ajustes) else None
+        cpk = (costo_neto / km) if (costo_neto and km > 0) else None
+        costo_mm = (costo_neto / mm_gastados) if (costo_neto and mm_gastados and mm_gastados > 0) else None
+        db.add(EAMCongeladoDetalleNeumatico(
+            congelado_id=congelado.id, neumatico_id=n.id, codigo=n.codigo, marca=n.marca, medida=n.medida,
+            estado=n.estado, km_total=km, costo=n.costo, costo_neto=costo_neto,
+            cpk=round(cpk, 2) if cpk else None, costo_mm=round(costo_mm, 2) if costo_mm else None,
+            mm_gastados=round(mm_gastados, 1) if mm_gastados is not None else None,
+        ))
+
+    await db.commit()
+    await db.refresh(congelado)
+    return congelado
+
+@router.get("/neumaticos/congelados", response_model=List[CongeladoResponse])
+async def list_congelados(db: AsyncSession = Depends(get_db)):
+    r = await db.execute(select(EAMCongeladoNeumatico).order_by(EAMCongeladoNeumatico.fecha.desc()))
+    return r.scalars().all()
+
+@router.get("/neumaticos/congelados/{cid}/detalle", response_model=List[CongeladoDetalleResponse])
+async def list_congelado_detalle(cid: int, db: AsyncSession = Depends(get_db)):
+    r = await db.execute(
+        select(EAMCongeladoDetalleNeumatico).where(EAMCongeladoDetalleNeumatico.congelado_id == cid)
+        .order_by(EAMCongeladoDetalleNeumatico.codigo)
+    )
+    return r.scalars().all()
+
+@router.delete("/neumaticos/congelados/{cid}", status_code=204)
+async def delete_congelado(cid: int, db: AsyncSession = Depends(get_db)):
+    from sqlalchemy import delete as sa_delete
+    obj = await db.get(EAMCongeladoNeumatico, cid)
+    if obj:
+        await db.execute(sa_delete(EAMCongeladoDetalleNeumatico).where(EAMCongeladoDetalleNeumatico.congelado_id == cid))
+        await db.delete(obj)
+        await db.commit()
+
+
+# ── Importación y eliminación masiva de llantas ──
+
+class NeumaticoBulkCreate(BaseModel):
+    items: List[NeumaticCreate]
+
+class NeumaticoBulkDeleteRequest(BaseModel):
+    ids: List[int]
+    confirmacion: str
+
+async def _eliminar_neumatico_con_hijos(db: AsyncSession, nid: int) -> None:
+    from sqlalchemy import delete as sa_delete
+    for modelo in (
+        EAMMovimientoNeumatico, EAMInspeccionNeumatico, EAMVidaNeumatico,
+        EAMReesculturado, EAMAjusteNeumatico, EAMTrabajoRealizadoNeumatico,
+        EAMReencaucheDetalle, EAMCongeladoDetalleNeumatico,
+    ):
+        await db.execute(sa_delete(modelo).where(modelo.neumatico_id == nid))
+    await db.execute(sa_delete(EAMNeumatico).where(EAMNeumatico.id == nid))
+
+@router.post("/neumaticos/bulk")
+async def crear_neumaticos_masivo(data: NeumaticoBulkCreate, db: AsyncSession = Depends(get_db)):
+    exitosos = 0
+    errores = []
+    for i, item in enumerate(data.items):
+        try:
+            async with db.begin_nested():
+                obj = EAMNeumatico(**item.model_dump())
+                db.add(obj)
+                await db.flush()
+                db.add(EAMVidaNeumatico(
+                    neumatico_id=obj.id, numero_vida=1, tipo="NUEVA",
+                    fecha_inicio=datetime.utcnow(), km_inicio=obj.km_inicio or 0,
+                    costo=obj.costo, profundidad_inicial=obj.profundidad_diseño,
+                ))
+            exitosos += 1
+        except Exception as e:
+            errores.append({"fila": i + 2, "codigo": item.codigo, "mensaje": str(e)})
+    await db.commit()
+    return {"total": len(data.items), "exitosos": exitosos, "errores": errores}
+
+@router.post("/neumaticos/bulk-delete")
+async def eliminar_neumaticos_masivo(data: NeumaticoBulkDeleteRequest, db: AsyncSession = Depends(get_db)):
+    if data.confirmacion.strip().upper() != "ELIMINAR":
+        raise HTTPException(400, "Debes escribir ELIMINAR para confirmar")
+    eliminados = 0
+    for nid in data.ids:
+        obj = await db.get(EAMNeumatico, nid)
+        if obj:
+            await _eliminar_neumatico_con_hijos(db, nid)
+            eliminados += 1
+    await db.commit()
+    return {"eliminados": eliminados, "solicitados": len(data.ids)}
+
+
 # ── Inspecciones ──
 def _min_prof(*vals) -> Optional[float]:
     xs = [v for v in vals if v is not None]
@@ -1225,6 +2181,60 @@ async def crear_inspeccion(nid: int, data: InspeccionNeuCreate, db: AsyncSession
     r.profundidad_min = _min_prof(obj.profundidad_izq, obj.profundidad_centro, obj.profundidad_der)
     return r
 
+
+# ── Inspecciones masivas (carga por archivo plano, referenciando la llanta por código) ──
+class InspeccionBulkItem(BaseModel):
+    codigo: str
+    fecha: datetime
+    profundidad_izq: Optional[float] = None
+    profundidad_centro: Optional[float] = None
+    profundidad_der: Optional[float] = None
+    presion_psi: Optional[float] = None
+    km_odometro: Optional[float] = None
+    estado_visual: Optional[str] = None
+    tecnico: Optional[str] = None
+    observaciones: Optional[str] = None
+
+class InspeccionBulkCreate(BaseModel):
+    items: List[InspeccionBulkItem]
+
+@router.post("/neumaticos/inspecciones/bulk")
+async def crear_inspecciones_masivo(data: InspeccionBulkCreate, db: AsyncSession = Depends(get_db)):
+    exitosos = 0
+    errores = []
+    for i, item in enumerate(data.items):
+        try:
+            async with db.begin_nested():
+                r = await db.execute(select(EAMNeumatico).where(EAMNeumatico.codigo == item.codigo))
+                neu = r.scalar_one_or_none()
+                if not neu:
+                    raise ValueError(f"Llanta con código '{item.codigo}' no encontrada")
+                obj = EAMInspeccionNeumatico(
+                    neumatico_id=neu.id, posicion=neu.posicion, fecha=item.fecha,
+                    profundidad_izq=item.profundidad_izq, profundidad_centro=item.profundidad_centro,
+                    profundidad_der=item.profundidad_der, presion_psi=item.presion_psi,
+                    km_odometro=item.km_odometro, estado_visual=item.estado_visual,
+                    tecnico=item.tecnico, observaciones=item.observaciones,
+                )
+                db.add(obj)
+                pmin = _min_prof(item.profundidad_izq, item.profundidad_centro, item.profundidad_der)
+                if pmin is not None:
+                    neu.profundidad_actual = pmin
+                if item.profundidad_izq is not None:
+                    neu.profundidad_externa = item.profundidad_izq
+                if item.profundidad_der is not None:
+                    neu.profundidad_interna = item.profundidad_der
+                if item.presion_psi is not None:
+                    neu.presion_actual = item.presion_psi
+                if item.km_odometro is not None:
+                    neu.km_actual = item.km_odometro
+                    neu.km_total = max(0.0, (neu.km_actual or 0) - (neu.km_inicio or 0))
+            exitosos += 1
+        except Exception as e:
+            errores.append({"fila": i + 2, "codigo": item.codigo, "mensaje": str(e)})
+    await db.commit()
+    return {"total": len(data.items), "exitosos": exitosos, "errores": errores}
+
 @router.get("/neumaticos/{nid}/inspecciones", response_model=List[InspeccionNeuResponse])
 async def list_inspecciones(nid: int, db: AsyncSession = Depends(get_db)):
     r = await db.execute(
@@ -1244,15 +2254,25 @@ async def list_inspecciones(nid: int, db: AsyncSession = Depends(get_db)):
 async def indicadores_neumaticos(db: AsyncSession = Depends(get_db)):
     cfg = await _get_config_neu(db)
     r = await db.execute(select(EAMNeumatico).where(EAMNeumatico.estado != "BAJA"))
+    neumaticos = r.scalars().all()
+
+    ajustes_r = await db.execute(
+        select(EAMAjusteNeumatico.neumatico_id, func.sum(EAMAjusteNeumatico.valor))
+        .group_by(EAMAjusteNeumatico.neumatico_id)
+    )
+    ajustes_map = {nid: total or 0 for nid, total in ajustes_r.all()}
+
     out: List[IndicadorNeuResponse] = []
-    for n in r.scalars().all():
+    for n in neumaticos:
         km = n.km_total or 0
         pd = n.profundidad_diseño
         pa = n.profundidad_actual
         mm_gastados = (pd - pa) if (pd is not None and pa is not None) else None
         usable = (pd - cfg.profundidad_minima) if pd is not None else None
-        cpk = (n.costo / km) if (n.costo and km > 0) else None
-        costo_mm = (n.costo / mm_gastados) if (n.costo and mm_gastados and mm_gastados > 0) else None
+        ajustes = ajustes_map.get(n.id, 0)
+        costo_neto = max((n.costo or 0) - ajustes, 0) if (n.costo or ajustes) else None
+        cpk = (costo_neto / km) if (costo_neto and km > 0) else None
+        costo_mm = (costo_neto / mm_gastados) if (costo_neto and mm_gastados and mm_gastados > 0) else None
         km_proy = None
         if mm_gastados and mm_gastados > 0 and km > 0 and usable and usable > 0:
             km_proy = round(usable * km / mm_gastados, 0)
@@ -1260,6 +2280,8 @@ async def indicadores_neumaticos(db: AsyncSession = Depends(get_db)):
         out.append(IndicadorNeuResponse(
             neumatico_id=n.id, codigo=n.codigo, marca=n.marca, medida=n.medida,
             estado=n.estado, posicion=n.posicion, km_total=km, costo=n.costo,
+            ajustes=round(ajustes, 2) if ajustes else None,
+            costo_neto=round(costo_neto, 2) if costo_neto is not None else None,
             cpk=round(cpk, 2) if cpk else None, costo_mm=round(costo_mm, 2) if costo_mm else None,
             mm_gastados=round(mm_gastados, 1) if mm_gastados is not None else None,
             vida_util_km=n.vida_util_km, km_proyectado=km_proy, pct_desgaste=pct,
@@ -1333,7 +2355,10 @@ async def add_reencauche_detalle(lote_id: int, data: ReencaucheDetalleCreate, db
     neu = await db.get(EAMNeumatico, data.neumatico_id)
     if not neu:
         raise HTTPException(404, "Neumático no encontrado")
-    obj = EAMReencaucheDetalle(lote_id=lote_id, neumatico_id=data.neumatico_id, banda=data.banda, resultado="PENDIENTE")
+    obj = EAMReencaucheDetalle(
+        lote_id=lote_id, neumatico_id=data.neumatico_id,
+        banda=data.banda, banda_id=data.banda_id, resultado="PENDIENTE",
+    )
     # el neumático pasa a estado REENCAUCHE mientras está en el proceso
     neu.estado = "REENCAUCHE"; neu.activo_id = None; neu.posicion = None
     db.add(obj); await db.commit(); await db.refresh(obj)
@@ -1346,12 +2371,22 @@ async def procesar_reencauche_detalle(det_id: int, data: ReencaucheDetalleUpdate
         raise HTTPException(404, "Detalle no encontrado")
     neu = await db.get(EAMNeumatico, det.neumatico_id)
     resultado = data.resultado.upper()
+    costo = data.costo
+    if costo is None and det.banda_id:
+        banda = await db.get(EAMBandaReencauche, det.banda_id)
+        if banda and banda.costo_defecto:
+            costo = banda.costo_defecto
     det.resultado = resultado
     det.profundidad_nueva = data.profundidad_nueva
     det.vida_remanente_km = data.vida_remanente_km
-    det.costo = data.costo
+    det.costo = costo
     if neu:
         if resultado == "REENCAUCHADA":
+            vida_anterior = await _vida_abierta(db, neu.id)
+            if vida_anterior:
+                vida_anterior.fecha_fin = datetime.utcnow()
+                vida_anterior.km_fin = neu.km_actual
+                vida_anterior.profundidad_final = neu.profundidad_actual
             neu.reencauches = (neu.reencauches or 0) + 1
             neu.estado = "ALMACENADO"
             if data.profundidad_nueva is not None:
@@ -1359,8 +2394,13 @@ async def procesar_reencauche_detalle(det_id: int, data: ReencaucheDetalleUpdate
                 neu.profundidad_diseño = data.profundidad_nueva
             neu.km_inicio = neu.km_actual or 0     # reinicia el conteo de vida
             neu.km_total = 0
-            if data.costo:
-                neu.costo = data.costo
+            if costo:
+                neu.costo = costo
+            db.add(EAMVidaNeumatico(
+                neumatico_id=neu.id, numero_vida=(vida_anterior.numero_vida + 1) if vida_anterior else (neu.reencauches + 1),
+                tipo="REENCAUCHADA", fecha_inicio=datetime.utcnow(), km_inicio=0,
+                costo=costo, profundidad_inicial=data.profundidad_nueva,
+            ))
         elif resultado == "REMANENTE":
             neu.estado = "ALMACENADO"
             if data.vida_remanente_km is not None:
@@ -1368,6 +2408,13 @@ async def procesar_reencauche_detalle(det_id: int, data: ReencaucheDetalleUpdate
         elif resultado == "RECHAZO":
             neu.estado = "BAJA"; neu.motivo_baja = "Rechazado en reencauche"
             neu.dano_id = data.dano_id
+            neu.motivo_fin_vida_id = data.motivo_fin_vida_id
+            vida_actual = await _vida_abierta(db, neu.id)
+            if vida_actual:
+                vida_actual.fecha_fin = datetime.utcnow()
+                vida_actual.km_fin = neu.km_actual
+                vida_actual.profundidad_final = neu.profundidad_actual
+                vida_actual.motivo_cierre_id = data.motivo_fin_vida_id
     await db.commit(); await db.refresh(det)
     return det
 
@@ -1402,6 +2449,12 @@ async def list_neumaticos(
 async def create_neumatico(data: NeumaticCreate, db: AsyncSession = Depends(get_db)):
     obj = EAMNeumatico(**data.model_dump())
     db.add(obj); await db.commit(); await db.refresh(obj)
+    db.add(EAMVidaNeumatico(
+        neumatico_id=obj.id, numero_vida=1, tipo="NUEVA",
+        fecha_inicio=datetime.utcnow(), km_inicio=obj.km_inicio or 0,
+        costo=obj.costo, profundidad_inicial=obj.profundidad_diseño,
+    ))
+    await db.commit()
     return obj
 
 @router.put("/neumaticos/{nid}", response_model=NeumaticResponse)

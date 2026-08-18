@@ -55,6 +55,28 @@ async def lifespan(app: FastAPI):
             "ADD COLUMN IF NOT EXISTS usuario_id INTEGER "
             "REFERENCES usuarios(id) ON DELETE SET NULL"
         ))
+        # Catálogos nuevos de llantas: zona, motivo de fin de vida y banda de reencauche
+        await conn.execute(text(
+            "ALTER TABLE eam_neumatico "
+            "ADD COLUMN IF NOT EXISTS zona_id INTEGER "
+            "REFERENCES eam_zona_neumatico(id) ON DELETE SET NULL"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE eam_neumatico "
+            "ADD COLUMN IF NOT EXISTS motivo_fin_vida_id INTEGER "
+            "REFERENCES eam_motivo_fin_vida(id) ON DELETE SET NULL"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE eam_neumatico ADD COLUMN IF NOT EXISTS dot VARCHAR(20)"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE eam_neumatico ADD COLUMN IF NOT EXISTS tipo_rin VARCHAR(30)"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE eam_reencauche_detalle "
+            "ADD COLUMN IF NOT EXISTS banda_id INTEGER "
+            "REFERENCES eam_banda_reencauche(id) ON DELETE SET NULL"
+        ))
 
     # 3. Sembrar roles y migrar usuarios
     async with AsyncSession(engine) as db:
