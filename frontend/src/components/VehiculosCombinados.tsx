@@ -156,7 +156,7 @@ export function VehiculosCombinados({
 
       <Typography fontSize={12} color="#94A3B8" mb={1}>
         Flota propia = registrada en el CMMS · Flota externa = vehículos del TMS/Flota · a cada vehículo se le
-        asigna una categoría de ejes/llantas ya creada (las categorías se pre-configuran en Neumáticos → Configuración → Esquemas de vehículo).
+        asigna una categoría de ejes/llantas ya creada (las categorías se pre-configuran en EAM → Configuración → Catálogos → Esquemas de vehículo).
       </Typography>
 
       <Paper elevation={0} sx={{ bgcolor: '#FFFFFF', border: `1px solid ${color}40`, borderRadius: '14px', overflowX: 'auto' }}>
@@ -234,7 +234,7 @@ export function VehiculosCombinados({
                   {esquemas.map(es => <MenuItem key={es.id} value={String(es.id)}>{es.nombre} · {es.numero_ejes} eje(s){es.tiene_repuesto ? ` + repuesto` : ''}</MenuItem>)}
                 </TextField>
               </Grid>
-              {esquemas.length === 0 && <Grid size={{ xs: 12 }}><Alert severity="info" sx={{ py: 0.5 }}>Aún no hay categorías creadas. Pre-configúralas en <b>Neumáticos → Configuración → Esquemas de vehículo</b> y luego solo se asignan aquí.</Alert></Grid>}
+              {esquemas.length === 0 && <Grid size={{ xs: 12 }}><Alert severity="info" sx={{ py: 0.5 }}>Aún no hay categorías creadas. Pre-configúralas en <b>EAM → Configuración → Catálogos → Esquemas de vehículo</b> y luego solo se asignan aquí.</Alert></Grid>}
             </>}
             <Grid size={{ xs: 12 }}><Typography fontSize={12} fontWeight={700} color="#94A3B8" mt={1}>MOTOR</Typography></Grid>
             <Grid size={{ xs: 12, sm: 5 }}><TextField label="Marca del motor" size="small" fullWidth value={form.motor_marca} onChange={e => setForm(f => ({ ...f, motor_marca: e.target.value }))} /></Grid>
@@ -273,7 +273,7 @@ export function VehiculosCombinados({
                 <MenuItem value="">Seleccionar…</MenuItem>
                 {esquemas.map(es => <MenuItem key={es.id} value={String(es.id)}>{es.nombre} · {es.numero_ejes} eje(s){es.tiene_repuesto ? ` + repuesto` : ''}</MenuItem>)}
               </TextField>
-              {esquemas.length === 0 && <Alert severity="info" sx={{ py: 0.5 }}>Aún no hay categorías creadas. Pre-configúralas en <b>Neumáticos → Configuración → Esquemas de vehículo</b> y luego solo se asignan aquí.</Alert>}
+              {esquemas.length === 0 && <Alert severity="info" sx={{ py: 0.5 }}>Aún no hay categorías creadas. Pre-configúralas en <b>EAM → Configuración → Catálogos → Esquemas de vehículo</b> y luego solo se asignan aquí.</Alert>}
             </Stack>
           )}
         </DialogContent>

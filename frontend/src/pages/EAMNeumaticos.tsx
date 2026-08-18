@@ -262,11 +262,6 @@ export default function EAMNeumaticos() {
   const [bandaForm, setBandaForm] = useState({ marca: '', referencia: '', dimension: '', profundidad_original: '', profundidad_minima: '', costo_defecto: '', reesculturable: false })
   const [motivoForm, setMotivoForm] = useState({ nombre: '', aplica_descarte: true, aplica_fin_vida: true })
   const [ajusteCatForm, setAjusteCatForm] = useState({ nombre: '' })
-  // Esquemas de vehículo (plantillas + asignación)
-  const [esquemaForm, setEsquemaForm] = useState({ nombre: '', tipo_activo: '', numero_ejes: '2', tiene_repuesto: true, cantidad_repuestos: '1' })
-  const [asignarEsquemaVeh, setAsignarEsquemaVeh] = useState('')
-  const [asignarEsquemaId, setAsignarEsquemaId] = useState('')
-  const [asignarEsquemaFecha, setAsignarEsquemaFecha] = useState(new Date().toISOString().slice(0, 10))
   // Trabajos y periodicidad
   const [trabajoForm, setTrabajoForm] = useState({ nombre: '', observaciones: '' })
   const [periodForm, setPeriodForm] = useState({ trabajo_id: '', tipo_activo: '', valor: '', unidad: 'KILOMETROS' })
@@ -524,27 +519,6 @@ export default function EAMNeumaticos() {
       setAjusteForm({ motivo_id: '', fecha: new Date().toISOString().slice(0, 10), valor: '', comentarios: '' })
     },
     onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al aplicar el ajuste'),
-  })
-  // Esquemas de vehículo
-  const mutEsquema = useMutation({
-    mutationFn: (b: Record<string, unknown>) => api.post('/eam/neumaticos/esquemas', b),
-    onSuccess: () => { toast.success('Esquema creado'); qc.invalidateQueries({ queryKey: ['eam-esquemas'] }); setEsquemaForm({ nombre: '', tipo_activo: '', numero_ejes: '2', tiene_repuesto: true, cantidad_repuestos: '1' }) },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al crear esquema'),
-  })
-  const mutEsquemaDel = useMutation({
-    mutationFn: (id: number) => api.delete(`/eam/neumaticos/esquemas/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['eam-esquemas'] }),
-    onError: () => toast.error('No se pudo eliminar'),
-  })
-  const mutAsignarEsquema = useMutation({
-    mutationFn: (b: Record<string, unknown>) => api.post('/eam/neumaticos/esquemas/asignar', b),
-    onSuccess: () => {
-      toast.success('Esquema asignado al vehículo')
-      qc.invalidateQueries({ queryKey: ['eam-activos'] })
-      qc.invalidateQueries({ queryKey: ['eam-layout'] })
-      setAsignarEsquemaVeh(''); setAsignarEsquemaId('')
-    },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al asignar esquema'),
   })
   // Trabajos y periodicidad
   const mutTrabajo = useMutation({
@@ -1995,61 +1969,8 @@ export default function EAMNeumaticos() {
               </Card>
             </Grid>
 
-            {/* Esquemas de vehículo */}
-            <Grid size={{ xs: 12 }}>
-              <Card sx={{ bgcolor: '#FFFFFF' }}>
-                <CardContent>
-                  <Stack direction="row" alignItems="center" gap={1} mb={1.5}>
-                    <DirectionsCar sx={{ color: EAM_DARK }} /><Typography fontWeight={700}>Esquemas de vehículo (plantillas de ejes/repuesto)</Typography>
-                  </Stack>
-                  <Grid container spacing={1} mb={2} alignItems="center">
-                    <Grid size={{ xs: 12, sm: 3 }}><TextField label="Nombre *" size="small" fullWidth value={esquemaForm.nombre} onChange={e => setEsquemaForm(f => ({ ...f, nombre: e.target.value }))} /></Grid>
-                    <Grid size={{ xs: 6, sm: 2 }}><TextField label="N° ejes" type="number" size="small" fullWidth value={esquemaForm.numero_ejes} onChange={e => setEsquemaForm(f => ({ ...f, numero_ejes: e.target.value }))} /></Grid>
-                    <Grid size={{ xs: 6, sm: 2 }}><TextField label="Repuestos" type="number" size="small" fullWidth value={esquemaForm.cantidad_repuestos} onChange={e => setEsquemaForm(f => ({ ...f, cantidad_repuestos: e.target.value }))} /></Grid>
-                    <Grid size={{ xs: 6, sm: 2 }}><FormControlLabel control={<Switch size="small" checked={esquemaForm.tiene_repuesto} onChange={e => setEsquemaForm(f => ({ ...f, tiene_repuesto: e.target.checked }))} />} label={<Typography fontSize={12}>Con repuesto</Typography>} /></Grid>
-                    <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Button size="small" variant="contained" startIcon={<AddIcon />} disabled={!esquemaForm.nombre || mutEsquema.isPending}
-                        onClick={() => mutEsquema.mutate({ nombre: esquemaForm.nombre, tipo_activo: esquemaForm.tipo_activo || undefined, numero_ejes: Number(esquemaForm.numero_ejes) || 2, tiene_repuesto: esquemaForm.tiene_repuesto, cantidad_repuestos: Number(esquemaForm.cantidad_repuestos) || 1 })}
-                        sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Crear esquema</Button>
-                    </Grid>
-                  </Grid>
-                  <Grid container spacing={2}>
-                    <Grid size={{ xs: 12, md: 6 }}>
-                      <Table size="small">
-                        <TableHead><TableRow>{['Nombre', 'Ejes', 'Repuesto', ''].map(h => <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>)}</TableRow></TableHead>
-                        <TableBody>
-                          {esquemas.map(es => (
-                            <TableRow key={es.id} hover>
-                              <TableCell>{es.nombre}</TableCell><TableCell>{es.numero_ejes}</TableCell>
-                              <TableCell>{es.tiene_repuesto ? `Sí (${es.cantidad_repuestos})` : 'No'}</TableCell>
-                              <TableCell align="right"><IconButton size="small" color="error" onClick={() => mutEsquemaDel.mutate(es.id)}><DeleteForever sx={{ fontSize: 16 }} /></IconButton></TableCell>
-                            </TableRow>
-                          ))}
-                          {esquemas.length === 0 && <TableRow><TableCell colSpan={4} align="center"><Typography color="text.secondary" py={1}>Sin esquemas configurados</Typography></TableCell></TableRow>}
-                        </TableBody>
-                      </Table>
-                    </Grid>
-                    <Grid size={{ xs: 12, md: 6 }}>
-                      <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" mb={0.5}>Asignar esquema a un vehículo</Typography>
-                      <Stack spacing={1}>
-                        <TextField select size="small" label="Vehículo" value={asignarEsquemaVeh} onChange={e => setAsignarEsquemaVeh(e.target.value)}>
-                          <MenuItem value="">Seleccionar…</MenuItem>
-                          {vehiculos.map(v => <MenuItem key={v.id} value={String(v.id)}>{v.codigo}{v.placa ? ` · ${v.placa}` : ''}</MenuItem>)}
-                        </TextField>
-                        <TextField select size="small" label="Esquema" value={asignarEsquemaId} onChange={e => setAsignarEsquemaId(e.target.value)}>
-                          <MenuItem value="">Seleccionar…</MenuItem>
-                          {esquemas.map(es => <MenuItem key={es.id} value={String(es.id)}>{es.nombre}</MenuItem>)}
-                        </TextField>
-                        <TextField type="date" size="small" label="Fecha de vigencia" value={asignarEsquemaFecha} onChange={e => setAsignarEsquemaFecha(e.target.value)} InputLabelProps={{ shrink: true }} />
-                        <Button size="small" variant="contained" disabled={!asignarEsquemaVeh || !asignarEsquemaId || mutAsignarEsquema.isPending}
-                          onClick={() => mutAsignarEsquema.mutate({ activo_id: Number(asignarEsquemaVeh), esquema_id: Number(asignarEsquemaId), fecha_vigencia: asignarEsquemaFecha })}
-                          sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Asignar esquema</Button>
-                      </Stack>
-                    </Grid>
-                  </Grid>
-                </CardContent>
-              </Card>
-            </Grid>
+            {/* Esquemas de vehículo: se crean y editan en EAM → Configuración → Catálogos.
+                Aquí solo se asignan (ver botón "Configurar ejes" en Llantas por Vehículo). */}
           </Grid>
         )}
 
@@ -2923,7 +2844,7 @@ export default function EAMNeumaticos() {
                 {esquemas.map(es => <MenuItem key={es.id} value={String(es.id)}>{es.nombre} · {es.numero_ejes} eje(s){es.tiene_repuesto ? ' + repuesto' : ''}</MenuItem>)}
               </TextField>
               {esquemas.length === 0 ? (
-                <Alert severity="warning" sx={{ py: 0.5 }}>Aún no hay categorías creadas. Pre-configúralas en la pestaña <b>Configuración → Esquemas de vehículo</b> y luego solo se asignan aquí.</Alert>
+                <Alert severity="warning" sx={{ py: 0.5 }}>Aún no hay categorías creadas. Pre-configúralas en <b>EAM → Configuración → Catálogos → Esquemas de vehículo</b> y luego solo se asignan aquí.</Alert>
               ) : (
                 <Alert severity="info" sx={{ py: 0 }}>Las categorías se pre-configuran una sola vez en <b>Activos</b>; aquí solo se le asigna una a este vehículo.</Alert>
               )}

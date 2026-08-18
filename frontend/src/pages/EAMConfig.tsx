@@ -206,9 +206,54 @@ const HORAS_DEFAULTS: Record<string, number> = {
   'BD-01  — Bodega Principal Bogotá':        480,
 }
 
+interface EsquemaVehiculoCfg { id: number; nombre: string; tipo_activo?: string | null; numero_ejes: number; tiene_repuesto: boolean; cantidad_repuestos: number }
+interface TipoActivoCfg { id: number; codigo: string; nombre: string; usa_llantas: boolean }
+const EMPTY_ESQUEMA = { nombre: '', tipo_activo: '', numero_ejes: '2', tiene_repuesto: true, cantidad_repuestos: '1' }
+
 export default function EAMConfig() {
   const [tab, setTab] = useState(0)
   const [catSearch, setCatSearch] = useState<Record<string, string>>({})
+
+  // Esquemas de vehículo (categorías de ejes/llantas) — catálogo real, consumido
+  // por Activos (alta/vinculación de vehículos) y por Neumáticos (asignación).
+  const [esquemas, setEsquemas] = useState<EsquemaVehiculoCfg[]>([])
+  const [tiposActivoCfg, setTiposActivoCfg] = useState<TipoActivoCfg[]>([])
+  const [esquemaDialog, setEsquemaDialog] = useState(false)
+  const [esquemaEditingId, setEsquemaEditingId] = useState<number | null>(null)
+  const [esquemaForm, setEsquemaForm] = useState({ ...EMPTY_ESQUEMA })
+
+  const cargarEsquemas = async () => {
+    const r = await apiClient.get('/eam/neumaticos/esquemas')
+    setEsquemas(r.data)
+  }
+  useEffect(() => {
+    cargarEsquemas()
+    apiClient.get('/eam/tipos-activo').then(r => setTiposActivoCfg(r.data))
+  }, [])
+
+  const abrirNuevoEsquema = () => { setEsquemaEditingId(null); setEsquemaForm({ ...EMPTY_ESQUEMA }); setEsquemaDialog(true) }
+  const abrirEditarEsquema = (e: EsquemaVehiculoCfg) => {
+    setEsquemaEditingId(e.id)
+    setEsquemaForm({ nombre: e.nombre, tipo_activo: e.tipo_activo ?? '', numero_ejes: String(e.numero_ejes), tiene_repuesto: e.tiene_repuesto, cantidad_repuestos: String(e.cantidad_repuestos) })
+    setEsquemaDialog(true)
+  }
+  const guardarEsquema = async () => {
+    const payload = {
+      nombre: esquemaForm.nombre,
+      tipo_activo: esquemaForm.tipo_activo || undefined,
+      numero_ejes: Number(esquemaForm.numero_ejes) || 2,
+      tiene_repuesto: esquemaForm.tiene_repuesto,
+      cantidad_repuestos: esquemaForm.tiene_repuesto ? (Number(esquemaForm.cantidad_repuestos) || 1) : 0,
+    }
+    if (esquemaEditingId) await apiClient.put(`/eam/neumaticos/esquemas/${esquemaEditingId}`, payload)
+    else await apiClient.post('/eam/neumaticos/esquemas', payload)
+    await cargarEsquemas()
+    setEsquemaDialog(false)
+  }
+  const eliminarEsquema = async (id: number) => {
+    await apiClient.delete(`/eam/neumaticos/esquemas/${id}`)
+    await cargarEsquemas()
+  }
 
   // Tipos de Trabajo — CRUD
   const [tiposTrabajo, setTiposTrabajo] = useState<TipoTrabajoConfig[]>(TIPOS_TRABAJO_INIT)
@@ -757,6 +802,96 @@ export default function EAMConfig() {
             <Grid size={{ xs: 12, md: 6 }}>
               <CatalogCard title="Soluciones" items={SOLUCIONES} catKey="soluciones" total={28} />
             </Grid>
+
+            {/* ── Esquemas de vehículo — categorías de ejes/llantas, catálogo real ── */}
+            <Grid size={{ xs: 12 }}>
+              <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(EAM_COLOR, 0.2)}` }}>
+                <CardContent>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight={700} color="#1E293B">Esquemas de vehículo (ejes / llantas)</Typography>
+                      <Typography variant="caption" color="grey.500">
+                        {esquemas.length} categorías configuradas — se pre-configuran aquí una sola vez; en Activos y en Neumáticos solo se le asigna una a cada vehículo
+                      </Typography>
+                    </Box>
+                    <Button size="small" startIcon={<AddIcon />} variant="contained"
+                      sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#27884A' }, textTransform: 'none', fontWeight: 600, fontSize: 12 }}
+                      onClick={abrirNuevoEsquema}
+                    >
+                      Agregar categoría
+                    </Button>
+                  </Stack>
+
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 80px 100px 100px 36px 36px', gap: 1, px: 1, py: 0.5, bgcolor: alpha(EAM_COLOR, 0.05), borderRadius: '6px', mb: 0.5 }}>
+                    {['Nombre', 'Tipo de activo', 'Ejes', 'Repuesto', 'Cant. rep.', '', ''].map((h) => (
+                      <Typography key={h} fontSize={10} fontWeight={700} color="#64748B" letterSpacing="0.4px">{h.toUpperCase()}</Typography>
+                    ))}
+                  </Box>
+
+                  <Stack spacing={0.5}>
+                    {esquemas.map((e) => (
+                      <Box key={e.id} sx={{
+                        display: 'grid', gridTemplateColumns: '1fr 1fr 80px 100px 100px 36px 36px',
+                        gap: 1, px: 1, py: 0.75, alignItems: 'center',
+                        borderRadius: '8px', border: '1px solid #E5E7EB',
+                      }}>
+                        <Typography fontSize={13} color="#1E293B" fontWeight={500}>{e.nombre}</Typography>
+                        <Typography fontSize={12} color="grey.500">{tiposActivoCfg.find(t => t.codigo === e.tipo_activo)?.nombre ?? e.tipo_activo ?? '—'}</Typography>
+                        <Typography fontSize={12} color="grey.500">{e.numero_ejes}</Typography>
+                        <Chip label={e.tiene_repuesto ? 'Sí' : 'No'} size="small" sx={{ bgcolor: alpha(e.tiene_repuesto ? EAM_COLOR : '#94A3B8', 0.12), color: e.tiene_repuesto ? EAM_COLOR : '#64748B', fontSize: 10, height: 20, width: 'fit-content' }} />
+                        <Typography fontSize={12} color="grey.500">{e.tiene_repuesto ? e.cantidad_repuestos : '—'}</Typography>
+                        <IconButton size="small" sx={{ color: 'grey.500', '&:hover': { color: EAM_COLOR } }} onClick={() => abrirEditarEsquema(e)}>
+                          <EditIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                        <IconButton size="small" sx={{ color: 'grey.600', '&:hover': { color: '#EF4444' } }} onClick={() => eliminarEsquema(e.id)}>
+                          <DeleteIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                      </Box>
+                    ))}
+                    {esquemas.length === 0 && <Typography fontSize={12} color="grey.500" textAlign="center" py={2}>Sin categorías creadas aún</Typography>}
+                  </Stack>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Dialog open={esquemaDialog} onClose={() => setEsquemaDialog(false)} maxWidth="sm" fullWidth
+              PaperProps={{ sx: { border: `1px solid ${alpha(EAM_COLOR, 0.3)}`, borderRadius: '14px' } }}
+            >
+              <DialogTitle sx={{ color: 'text.primary', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
+                {esquemaEditingId ? 'Editar categoría de ejes/llantas' : 'Nueva categoría de ejes/llantas'}
+                <IconButton size="small" onClick={() => setEsquemaDialog(false)} sx={{ color: 'grey.500' }}><CloseIcon sx={{ fontSize: 18 }} /></IconButton>
+              </DialogTitle>
+              <DialogContent sx={{ pt: 1 }}>
+                <Stack spacing={2}>
+                  <TextField fullWidth size="small" label="Nombre *" placeholder="Ej: Tractocamión 3 ejes"
+                    value={esquemaForm.nombre} onChange={(e) => setEsquemaForm(f => ({ ...f, nombre: e.target.value }))} />
+                  <TextField select fullWidth size="small" label="Tipo de activo (opcional)"
+                    value={esquemaForm.tipo_activo} onChange={(e) => setEsquemaForm(f => ({ ...f, tipo_activo: e.target.value }))}>
+                    <MenuItem value="">Cualquiera</MenuItem>
+                    {tiposActivoCfg.map(t => <MenuItem key={t.codigo} value={t.codigo}>{t.nombre}</MenuItem>)}
+                  </TextField>
+                  <Stack direction="row" spacing={2}>
+                    <TextField fullWidth size="small" type="number" label="N.º de ejes"
+                      value={esquemaForm.numero_ejes} onChange={(e) => setEsquemaForm(f => ({ ...f, numero_ejes: e.target.value }))} />
+                    <FormControlLabel sx={{ whiteSpace: 'nowrap' }} control={<Switch checked={esquemaForm.tiene_repuesto} onChange={(e) => setEsquemaForm(f => ({ ...f, tiene_repuesto: e.target.checked }))} />} label="Tiene repuesto" />
+                    {esquemaForm.tiene_repuesto && (
+                      <TextField fullWidth size="small" type="number" label="Cant. repuestos"
+                        value={esquemaForm.cantidad_repuestos} onChange={(e) => setEsquemaForm(f => ({ ...f, cantidad_repuestos: e.target.value }))} />
+                    )}
+                  </Stack>
+                </Stack>
+              </DialogContent>
+              <DialogActions sx={{ px: 3, pb: 2.5 }}>
+                <Button onClick={() => setEsquemaDialog(false)} sx={{ color: 'grey.400' }}>Cancelar</Button>
+                <Button
+                  variant="contained" onClick={guardarEsquema}
+                  disabled={!esquemaForm.nombre.trim() || !esquemaForm.numero_ejes}
+                  sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#27884A' }, fontWeight: 700, borderRadius: '8px' }}
+                >
+                  Guardar
+                </Button>
+              </DialogActions>
+            </Dialog>
           </Grid>
         )}
 
