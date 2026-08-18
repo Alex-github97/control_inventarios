@@ -1,8 +1,8 @@
 # Plataforma Empresarial ICOLTRANS — Sistema ERP Modular
 
-**Versión 2.2.0** | Industria Colombiana de Logística y Transporte (ICOLTRANS)
+**Versión 2.3.0** | Industria Colombiana de Logística y Transporte (ICOLTRANS)
 
-Plataforma empresarial unificada con 17 módulos de gestión operativa, diseñada para escala corporativa. Combina logística, transporte, mantenimiento, calidad, GRC y administración en una sola aplicación React con backend FastAPI.
+Plataforma empresarial unificada con 20 módulos de gestión operativa, diseñada para escala corporativa. Combina logística, transporte, mantenimiento, manufactura, calidad, talento humano, finanzas, GRC y administración en una sola aplicación React con backend FastAPI.
 
 ---
 
@@ -22,7 +22,7 @@ control-inventarios/
 │   └── scripts/                # Seed y utilidades
 └── frontend/
     └── src/
-        ├── pages/              # 124+ páginas distribuidas en 17 módulos
+        ├── pages/              # 234+ páginas distribuidas en 20 módulos
         ├── components/
         │   └── layout/         # Layout.tsx, Sidebar, WorkspacePanel (tres paneles)
         ├── api/                # apiClient (axios)
@@ -101,29 +101,34 @@ docker compose exec backend python -m scripts.seed
 
 ---
 
-## Módulos del Sistema (17)
+## Módulos del Sistema (20)
 
-La plataforma está organizada en 17 módulos independientes. Cada módulo tiene su propio color identificador y aparece en la matriz de permisos de roles.
+La plataforma tiene 20 módulos con páginas y/o endpoints propios. **Existe una inconsistencia real en el código, no solo de esta documentación:** el color de navegación de cada módulo (`frontend/src/components/layout/Sidebar.tsx`) y el color usado en la matriz de permisos de roles (`frontend/src/pages/Roles.tsx`) divergieron con el tiempo — no siempre coinciden. La tabla siguiente muestra ambos.
 
-| Clave | Módulo | Color |
-|-------|--------|-------|
-| `ci` | Control de Inventarios | `#16A34A` |
-| `tx` | TarifaX | `#D97706` |
-| `ft` | Fletes | `#2563EB` |
-| `gf` | Gestión de Flotas | `#7C3AED` |
-| `ml` | Mantenimiento Locativo | `#EA580C` |
-| `wms` | Almacén WMS | `#0891B2` |
-| `gh` | Gestión Humana | `#DB2777` |
-| `tms` | Transporte TMS | `#0D9488` |
-| `dms` | Documentos DMS | `#4F46E5` |
-| `qms` | Calidad QMS | `#059669` |
-| `grc` | Gobierno GRC | `#6D28D9` |
-| `lms` | Aprendizaje LMS | `#B45309` |
-| `crm` | CRM Clientes | `#DC2626` |
-| `eam` | Activos EAM | `#475569` |
-| `mes` | Manufactura MES | `#9333EA` |
-| `aps` | Planeación APS | `#0284C7` |
-| `admin` | Administración | `#B91C1C` |
+| Clave | Módulo | Color (Sidebar) | Color (Roles/permisos) |
+|-------|--------|------------------|-------------------------|
+| `ci` | Control de Inventarios | `#32AC5C` | `#16A34A` |
+| `tx` | TarifaX | `#369E4D` | `#D97706` |
+| `ft` | Fletes | `#F59E0B` | `#2563EB` |
+| `gf` | Gestión de Flotas | `#32AC5C` | `#7C3AED` |
+| `ml` | Locativa (ex "Mantenimiento Locativo") | `#0D9488` | `#EA580C` |
+| `wms` | Almacén WMS | `#1E40AF` | `#0891B2` |
+| `gh` | Gestión Humana (HCM) | `#BE185D` | `#DB2777` |
+| `tms` | Transporte TMS | `#0369A1` | `#0D9488` |
+| `dms` | Documentos DMS | `#0E7490` | `#4F46E5` |
+| `qms` | Calidad QMS | `#059669` | `#059669` |
+| `grc` | Gobierno GRC | `#6D28D9` | `#6D28D9` |
+| `lms` | Aprendizaje LMS | `#D97706` | `#B45309` |
+| `crm` | CRM Clientes | `#DC2626` | `#DC2626` |
+| `eam` | Activos EAM (incluye Neumáticos) | `#32AC5C` | `#475569` |
+| `mes` | Manufactura MES | `#0891B2` | `#9333EA` |
+| `aps` | Planeación APS | `#7C3AED` | `#0284C7` |
+| `erp` | ERP Financiero/Contable | `#1A3A6B` | *(no existe en la matriz de permisos)* |
+| `scm` | Cadena de Suministro SCM | `#0C4D8C` | *(no existe en la matriz de permisos)* |
+| `sst` | Seguridad y Salud en el Trabajo | `#C53030` | *(no existe en la matriz de permisos)* |
+| `admin` | Administración | — | `#B91C1C` |
+
+> **Brecha funcional real**: ERP, SCM y SST no están dados de alta en `Roles.tsx` — hoy no es posible restringir el acceso a esos 3 módulos desde la matriz de permisos de roles; cualquier rol con acceso general los ve. Pendiente de agregar como filas de la matriz si se requiere control de acceso granular sobre ellos.
 
 ---
 
@@ -322,9 +327,111 @@ Los campos de catálogo se guardan como **texto** en la entidad padre (ej: `alma
 
 ---
 
-## ML — Mantenimiento Locativo
+## ML — Locativa (ex "Mantenimiento Locativo")
 
-Gestión de mantenimiento de infraestructura física (instalaciones, equipos fijos, vehículos).
+Gestión de infraestructura física y mantenimiento locativo. Color: `#0D9488`.
+
+Sedes, espacios y categorías; activos locativos; medidores y lecturas de energía; catálogo de tareas de mantenimiento y modos de falla; fallas registradas; órdenes de mantenimiento; proveedores; riesgos asociados a espacios/activos; y un dashboard de KPIs. Páginas: `LocativaDashboard`, `LocativaActivos`, `LocativaConfig`, `LocativaEnergia`, `LocativaOrdenes`, `LocativaRiesgos`.
+
+---
+
+## EAM — Activos Empresariales (incluye Neumáticos)
+
+Gestión de mantenimiento de activos (CMMS/EAM). Color: `#32AC5C`. 13 páginas.
+
+Órdenes de trabajo, planes de mantenimiento preventivo, checklists, lubricación, combustible, inventario de repuestos, confiabilidad, garantías y un dashboard general — más un submódulo de **Neumáticos** (`EAMNeumaticos.tsx`) con alcance propio:
+
+- **Ciclo de vida completo**: catálogo de llantas, zonas de vehículo, esquemas de vehículo (plantillas por número de ejes), bandas de reencauche, motivos de fin de vida, vidas del neumático (nueva → reencauchada → reencauchada N veces), ajustes de valor, reesculturado y recuperación de banda
+- **Montaje / desmontaje / rotación**: diagrama interactivo del vehículo (arrastrar y soltar o por botón), rotación por intercambio entre posiciones, rotación en el rin (misma posición), volteo interno↔externo — con validaciones reales de negocio (no permite montar una llanta de baja, en reencauche, ya instalada en otro vehículo, o en una posición ya ocupada; valida consistencia cronológica contra inspecciones previas)
+- **Inspecciones**: individual, por sesión (todas las llantas montadas de un vehículo a la vez) y **masiva por archivo Excel** (referencia la llanta por código)
+- **Descarte**: individual y **masivo por archivo Excel**, con las mismas validaciones que el flujo individual
+- **Bodega**: importación masiva de llantas nuevas por Excel (plantilla descargable), eliminación masiva con confirmación
+- **Reportes**: informe consolidado y histórico por llanta, indicadores CPK, alertas automáticas (profundidad mínima, presión fuera de rango, desalineación), congelado de datos (snapshot histórico) y lotes de reencauche con proveedor externo
+
+---
+
+## MES — Manufactura
+
+Ejecución de manufactura en planta (Manufacturing Execution System). Color: `#0891B2`. 13 páginas.
+
+Plantas, líneas, turnos, equipos y operarios; productos y BOM (lista de materiales, con detalle); celdas de trabajo e inventario WIP (con saldos y consumos); recetas; órdenes de producción con máquina de estados; lotes con trazabilidad completa; ejecuciones de orden (con cierre) y registro de paradas; calidad, scrap y OEE; programación y reportes. Páginas: `MESDashboard`, `MESOrdenes`, `MESEjecucion`, `MESCalidad`, `MESScrap`, `MESTrazabilidad`, `MESOEE`, `MESConfig`, `MESPlanta`, `MESBOM`, `MESInventario`, `MESProgramacion`, `MESReportes`.
+
+---
+
+## TMS — Transporte
+
+Torre de control de transporte. Color: `#0369A1`. 13 páginas, 53 rutas de API — el módulo con más endpoints del sistema.
+
+Vehículos y conductores; viajes (con paradas, eventos y documentos/POD de entrega); rutas; despachos; liquidaciones (crear → aprobar → pagar); indicador OTIF (on-time-in-full) con resumen; costos; alertas; configuración de zonas y tipos de servicio; y un dashboard de KPIs. Páginas: `TMSDashboard`, `TMSVehiculos`, `TMSViajes`, `TMSRutas`, `TMSConductores`, `TMSDespachos`, `TMSDocumentos`, `TMSCostos`, `TMSLiquidaciones`, `TMSOTIF`, `TMSPlaneacion`, `TMSTorreControl`, `TMSTracking`.
+
+---
+
+## DMS — Gestión Documental
+
+Gestión documental empresarial con firma electrónica y BPM real. Color: `#0E7490`. 13 páginas.
+
+Repositorio de documentos con versiones, metadatos y campos configurables; carpetas y categorías; expedientes; búsqueda; portal externo e integraciones; retención (control de vencimientos); auditoría (registro y consulta de acciones). Dos capacidades destacadas:
+
+- **Firma electrónica** (`DMSFirmas.tsx`): solicitar firma, firmar, rechazar — con firmante, orden de firma y estado (pendiente/firmado)
+- **Motor de workflow BPM** (`DMSWorkflow.tsx`): plantillas de flujo con pasos, instancias por documento, avanzar paso e historial, cancelar instancia
+
+---
+
+## GH — Gestión Humana (HCM)
+
+Human Capital Management. Color: `#BE185D`. 11 páginas.
+
+Colaboradores y contratos; nómina (períodos, liquidaciones, novedades y detalle); capacitaciones (asignaciones y vencimientos); evaluaciones de desempeño; incapacidades; vacaciones; reclutamiento (vacantes, postulaciones, entrevistas); conductores (con accidentes, documentos y alertas de vencimiento de licencias/exámenes); configuración organizacional (áreas, cargos, sedes, centros de costo, empresas); dashboards de ausentismo y alertas. También embebe rutas de **SST** (incidentes, inspecciones, riesgos) en una pestaña propia (`GHSST.tsx`) — coexiste con el módulo SST independiente (ver abajo).
+
+---
+
+## APS — Planeación Avanzada
+
+Advanced Planning & Scheduling. Color: `#7C3AED`. 13 páginas.
+
+Pronósticos de demanda; planes de producción/distribución; capacidad y carga-capacidad; distribución e inventario óptimo; MRP con órdenes sugeridas; restricciones y parámetros; recursos, ubicaciones y productos de planeación; escenarios y simulaciones (`APSEscenarios.tsx`); colaboración/consenso y ciclos de revisión S&OP; KPIs diarios y dashboard. Incluye `APSAI.tsx` — ver la nota sobre páginas "IA" más abajo.
+
+---
+
+## ERP — Financiero / Contable
+
+Módulo financiero y contable completo (no es un stub). Color: `#1A3A6B`. 11 páginas.
+
+Contabilidad (cuentas y comprobantes, centros de costo); cuentas por cobrar y por pagar (con antigüedad de cartera); tesorería (bancos, cuentas, movimientos); presupuestos; proyectos y rentabilidad; activos fijos; compras (requisiciones y órdenes); consolidación multi-empresa; tributación; reportes financieros (balance general, estado de resultados, flujo de caja); configuración (numeraciones, tasas de cambio, integraciones).
+
+---
+
+## SCM — Cadena de Suministro
+
+Supply Chain Management. Color: `#0C4D8C`. 11 páginas.
+
+Proveedores (con evaluaciones), solicitudes y órdenes de compra tienen respaldo completo en el backend. Las secciones de inventario, logística, planificación, devoluciones y riesgos existen como pantallas en el frontend pero **aún no todas tienen endpoints dedicados** — es el módulo con mayor brecha entre interfaz y backend real.
+
+---
+
+## SST — Seguridad y Salud en el Trabajo
+
+Color: `#C53030`. 10 páginas.
+
+Incidentes, inspecciones, EPP (equipo de protección personal), capacitaciones, documentos, riesgos e indicadores, con dashboard propio. Nota: existe tanto como módulo independiente (`sst.py`) como embebido dentro de GH/HCM (rutas `/sst/incidentes`, `/sst/inspecciones`, `/sst/riesgos` en `hcm.py` + pestaña `GHSST.tsx`) — la fuente de verdad para cada caso de uso depende de si se accede desde el módulo SST o desde GH.
+
+---
+
+## QMS, LMS y CRM (resumen)
+
+- **QMS — Calidad** (`#059669`, 13 páginas): procesos (con árbol jerárquico), procedimientos, auditorías, hallazgos, no conformidades, CAPAs, mejoras, riesgos, gestión de cambios, quejas, encuestas, indicadores (tablero, sincronizar, importar), evaluación de proveedores, matriz de calidad.
+- **LMS — Aprendizaje corporativo** (`#D97706`, 14 páginas): cursos, programas, rutas de aprendizaje, inscripciones, evaluaciones y banco de preguntas, certificaciones, competencias, gamificación/ranking, foros, onboarding, escuelas/facultades, instructores, reportes.
+- **CRM — Clientes** (`#DC2626`, 13 páginas): leads, oportunidades, clientes/contactos/cuentas clave, cotizaciones, contratos, tickets, interacciones, campañas, encuestas, rentabilidad por cliente, dashboards de KPIs.
+
+---
+
+## Funcionalidades Transversales
+
+### Scanner móvil (real y funcional)
+`ScannerMovil.tsx` + endpoint `scan_sessions.py`: convierte un celular en un lector remoto de QR/código de barras. El backend mantiene sesiones de escaneo en memoria (TTL de 1 hora); el celular se abre escaneando un QR que apunta a la IP LAN del equipo host, y cualquier pantalla del sistema que esté escuchando esa sesión recibe los códigos escaneados en tiempo real. No requiere autenticación en el celular.
+
+### Páginas "IA" (`*IA.tsx`) — son maquetas, no IA real
+Existen 7 páginas con sufijo IA: `CRMIA`, `DMSIA`, `EAMIA`, `GRCIA`, `LMSIA`, `MESIA`, `QMSIA` (más `APSAI.tsx`). **Ninguna llama a un modelo de lenguaje real** — son maquetas de interfaz: listas de alertas fijas en el código, estados de "clasificando/extrayendo" simulados con `setTimeout`, y paneles de chat cuyas respuestas se eligen al azar (`Math.random()`) de un arreglo de respuestas predefinidas. No hay integración con OpenAI/Anthropic/ningún LLM en `requirements.txt` ni en `package.json`. Documentado aquí explícitamente para que no se asuma una capacidad que no existe.
 
 ---
 
@@ -471,6 +578,15 @@ GET/POST/PUT/DELETE  /api/v1/wms/tipos-ubicacion/
 GET/POST/PUT/DELETE  /api/v1/wms/unidades-medida/
 GET/POST/PUT/DELETE  /api/v1/wms/categorias-producto/
 GET/POST/PUT/DELETE  /api/v1/wms/familias-producto/?categoria_id=
+
+# EAM — Neumáticos (operaciones masivas)
+POST   /api/v1/eam/neumaticos/bulk                 # Creación masiva (Excel), llantas nuevas
+POST   /api/v1/eam/neumaticos/bulk-delete           # Eliminación masiva (requiere confirmación="ELIMINAR")
+POST   /api/v1/eam/neumaticos/inspecciones/bulk     # Inspecciones masivas (Excel), resuelve por código
+POST   /api/v1/eam/neumaticos/baja/bulk             # Descartes masivos (Excel), resuelve por código
+POST   /api/v1/eam/neumaticos/movimiento            # Instalación/rotación/desmontaje/reencauche/baja
+POST   /api/v1/eam/neumaticos/rotacion-intercambio  # Intercambio de posición entre dos llantas
+GET    /api/v1/eam/neumaticos/layout/{activo_id}    # Diagrama de posiciones del vehículo
 ```
 
 Documentación interactiva completa en `/api/docs`.
@@ -546,6 +662,22 @@ DROP TYPE IF EXISTS rolusuario;
 ---
 
 ## Historial de Versiones
+
+### v2.3.0 (2026-08-18)
+
+#### EAM — Neumáticos: ciclo de vida completo y operaciones masivas
+- Catálogos y ciclo de vida: zonas, bandas de reencauche, motivos de fin de vida, ajustes de valor, esquemas de vehículo, trabajos/periodicidad, reesculturado, vidas del neumático, congelado de datos e informe consolidado/histórico
+- Validaciones reales de negocio en movimientos: consistencia cronológica contra inspecciones previas, bloqueo de montaje si la llanta está de baja/en reencauche/ya instalada en otro vehículo, bloqueo de posición ya ocupada (instalación y rotación)
+- Unifica las pestañas "Vehículo/Diagrama" e "Inspecciones" en una sola pestaña "Llantas por Vehículo"; nueva opción "Agregar llanta desde bodega" con las mismas validaciones de negocio que el resto de movimientos
+- Corrige drag & drop (faltaba `dataTransfer.setData`) y agrega alternativas por botón para montar, rotar (incluida rotación en el rin) e inspeccionar por sesión
+- Numeración secuencial de posiciones en el diagrama (Pos. 1, 2, 3…)
+- **Inspecciones y descartes masivos por archivo Excel**, reutilizando las validaciones del movimiento individual (`POST /eam/neumaticos/inspecciones/bulk`, `POST /eam/neumaticos/baja/bulk`); reubica "Importar Excel" de llantas nuevas de la pestaña Consultas a Bodega
+- Optimización de rendimiento: aísla diálogos pesados en componentes con estado propio y desmonta el diagrama/tabla de detalle mientras hay cualquier diálogo abierto en esa pestaña (queda tapado por el backdrop de todas formas, evita recalcular layout/estilos de un árbol con decenas de `Tooltip`)
+
+#### Documentación
+- El README pasa de documentar 5 de 20 módulos en profundidad a documentar los 20 (ERP, SCM, SST, TMS, DMS, MES, GH/HCM, APS, QMS, LMS, CRM y EAM/Neumáticos no tenían sección propia)
+- Nueva sección "Funcionalidades Transversales": documenta el Scanner móvil (real) y aclara que las páginas `*IA.tsx` son maquetas de interfaz sin integración real con un LLM
+- **Hallazgo real, no solo documental**: los colores de módulo en `Sidebar.tsx` (navegación) y `Roles.tsx` (matriz de permisos) divergieron y ya no coinciden; y **ERP, SCM y SST no están dados de alta en la matriz de permisos de roles** — hoy no se puede restringir el acceso a esos 3 módulos por rol. Documentado en la tabla de módulos; pendiente de decidir si se corrige
 
 ### v2.2.0 (2026-06-26)
 
