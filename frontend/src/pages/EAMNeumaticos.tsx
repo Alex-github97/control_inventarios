@@ -24,6 +24,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { apiClient as api } from '@/api/client'
 import { exportarPDF, exportarExcel } from '@/utils/exportar'
+import type { VehiculoCombinado } from '@/components/VehiculosCombinados'
 
 const EAM_COLOR = '#32AC5C'
 const EAM_DARK = '#27884A'
@@ -197,7 +198,7 @@ export default function EAMNeumaticos() {
   const [nuevoForm, setNuevoForm] = useState({ ...EMPTY_NEUMATICO })
   const [histTire, setHistTire] = useState<Neumatico | null>(null)
   const [ejesOpen, setEjesOpen] = useState(false)
-  const [ejesForm, setEjesForm] = useState({ numero_ejes: '2', tiene_repuesto: true })
+  const [ejesForm, setEjesForm] = useState({ esquema_id: '' })
   // Inspecciones
   const [inspDialog, setInspDialog] = useState<Neumatico | null>(null)   // llanta a inspeccionar
   const [chartTire, setChartTire] = useState<Neumatico | null>(null)     // llanta cuya gráfica/historial se ve
@@ -292,6 +293,32 @@ export default function EAMNeumaticos() {
 
   // ─── Queries ──────────────────────────────────────────────────────────────
   const { data: vehiculos = [] } = useQuery<Vehiculo[]>({ queryKey: ['eam-activos'], queryFn: () => api.get('/eam/activos').then(r => r.data) })
+  // Vehículos seleccionables en "Llantas por Vehículo": no solo activos EAM, también
+  // vehículos de TMS/Flota (jerarquía por tipo de activo: usa_llantas=true) — ver
+  // VehiculosCombinados.tsx / sección Activos del CMMS, que es donde se configuran
+  // ejes/repuesto y se vinculan al CMMS.
+  const [vehSelKey, setVehSelKey] = useState<string>('')
+  const { data: vehiculosDisponibles = [] } = useQuery<VehiculoCombinado[]>({
+    queryKey: ['eam-vehiculos-disponibles'],
+    queryFn: () => api.get('/eam/vehiculos-combinados', { params: { usa_llantas: true } }).then(r => r.data),
+  })
+  const mutVincularVeh = useMutation({
+    mutationFn: (v: VehiculoCombinado) => api.post('/eam/activos/vincular-externo', { origen: v.origen, origen_id: v.id }).then(r => r.data),
+    onSuccess: (activo) => {
+      qc.invalidateQueries({ queryKey: ['eam-activos'] })
+      qc.invalidateQueries({ queryKey: ['eam-vehiculos-disponibles'] })
+      setVehId(String(activo.id))
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo vincular el vehículo al CMMS'),
+  })
+  const seleccionarVehiculo = (key: string) => {
+    setVehSelKey(key)
+    if (!key) { setVehId(''); return }
+    const v = vehiculosDisponibles.find(x => `${x.origen}:${x.id}` === key)
+    if (!v) return
+    if (v.activo_id) setVehId(String(v.activo_id))
+    else mutVincularVeh.mutate(v)
+  }
   const { data: neumaticos = [] } = useQuery<Neumatico[]>({ queryKey: ['eam-neumaticos'], queryFn: () => api.get('/eam/neumaticos').then(r => r.data) })
   const { data: bodegas = [] } = useQuery<Bodega[]>({ queryKey: ['eam-bodegas-neu'], queryFn: () => api.get('/eam/neumaticos/bodegas').then(r => r.data) })
   const { data: danos = [] } = useQuery<Dano[]>({ queryKey: ['eam-danos-neu'], queryFn: () => api.get('/eam/neumaticos/danos-catalogo').then(r => r.data) })
@@ -400,12 +427,15 @@ export default function EAMNeumaticos() {
     onSuccess: () => { toast.success('Neumático registrado'); qc.invalidateQueries({ queryKey: ['eam-neumaticos'] }); setNuevoOpen(false); setNuevoForm({ ...EMPTY_NEUMATICO }) },
     onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al registrar'),
   })
+  // Asigna una categoría de ejes/llantas ya pre-configurada (esquema) al vehículo
+  // seleccionado — no se digitan números eje por eje aquí, esa configuración vive
+  // en Activos ("Esquemas de vehículo").
   const mutEjes = useMutation({
-    mutationFn: (body: { numero_ejes: number; tiene_repuesto: boolean }) => api.put(`/eam/neumaticos/config-ejes/${vehId}`, body),
-    onSuccess: () => { toast.success('Ejes configurados'); qc.invalidateQueries({ queryKey: ['eam-activos'] }); qc.invalidateQueries({ queryKey: ['eam-layout'] }); setEjesOpen(false) },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al configurar ejes'),
+    mutationFn: (esquema_id: number) => api.post('/eam/neumaticos/esquemas/asignar', { activo_id: Number(vehId), esquema_id, fecha_vigencia: new Date().toISOString().slice(0, 10) }),
+    onSuccess: () => { toast.success('Categoría de ejes/llantas asignada'); qc.invalidateQueries({ queryKey: ['eam-activos'] }); qc.invalidateQueries({ queryKey: ['eam-layout'] }); setEjesOpen(false) },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al asignar la categoría'),
   })
-  const abrirEjes = () => { setEjesForm({ numero_ejes: String(veh?.numero_ejes ?? 2), tiene_repuesto: veh?.tiene_repuesto ?? true }); setEjesOpen(true) }
+  const abrirEjes = () => { setEjesForm({ esquema_id: '' }); setEjesOpen(true) }
 
   // Config: bodegas y catálogo de daños
   const [bodForm, setBodForm] = useState({ codigo: '', nombre: '', ubicacion: '' })
@@ -1093,9 +1123,20 @@ export default function EAMNeumaticos() {
               <Card sx={{ bgcolor: '#FFFFFF' }}>
                 <CardContent>
                   <Stack direction="row" gap={1} alignItems="center" mb={2} flexWrap="wrap">
-                    <TextField select size="small" label="Vehículo" value={vehId} onChange={e => setVehId(e.target.value)} sx={{ minWidth: 320 }}>
+                    <TextField
+                      select size="small" label="Vehículo" value={vehSelKey}
+                      onChange={e => seleccionarVehiculo(e.target.value)}
+                      disabled={mutVincularVeh.isPending}
+                      helperText={mutVincularVeh.isPending ? 'Vinculando al CMMS…' : undefined}
+                      sx={{ minWidth: 320 }}
+                    >
                       <MenuItem value="">Seleccionar vehículo…</MenuItem>
-                      {vehiculos.map(v => <MenuItem key={v.id} value={String(v.id)}>{v.codigo} — {v.nombre}{v.placa ? ` (${v.placa})` : ''}</MenuItem>)}
+                      {vehiculosDisponibles.map(v => (
+                        <MenuItem key={`${v.origen}:${v.id}`} value={`${v.origen}:${v.id}`}>
+                          {v.placa ?? v.tipo ?? '—'}{v.marca ? ` — ${v.marca}` : ''}{v.modelo ? ` ${v.modelo}` : ''}
+                          {v.origen !== 'EAM' ? ` · ${v.origen}` : ''}
+                        </MenuItem>
+                      ))}
                     </TextField>
                     {veh && (
                       <Button size="small" variant="outlined" startIcon={<SwapIcon />} onClick={abrirEjes} sx={{ color: EAM_DARK, borderColor: alpha(EAM_COLOR, 0.4), textTransform: 'none' }}>
@@ -2870,28 +2911,27 @@ export default function EAMNeumaticos() {
           </DialogContent>
         </Dialog>
 
-        {/* ── Diálogo configurar ejes ── */}
+        {/* ── Diálogo configurar ejes: asigna una categoría (esquema) ya pre-configurada ── */}
         <Dialog open={ejesOpen} onClose={() => setEjesOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
-          <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Configurar ejes
+          <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Ejes y llantas
             <Typography variant="caption" color="text.secondary" display="block">{veh?.codigo} — {veh?.nombre}</Typography>
           </DialogTitle>
           <DialogContent dividers>
             <Stack spacing={2} pt={0.5}>
-              <TextField select label="Número de ejes *" size="small" fullWidth value={ejesForm.numero_ejes} onChange={e => setEjesForm(f => ({ ...f, numero_ejes: e.target.value }))}>
-                {[1, 2, 3, 4, 5, 6].map(n => <MenuItem key={n} value={String(n)}>{n} eje{n > 1 ? 's' : ''}</MenuItem>)}
+              <TextField select label="Categoría de ejes/llantas *" size="small" fullWidth value={ejesForm.esquema_id} onChange={e => setEjesForm({ esquema_id: e.target.value })}>
+                <MenuItem value="">Seleccionar…</MenuItem>
+                {esquemas.map(es => <MenuItem key={es.id} value={String(es.id)}>{es.nombre} · {es.numero_ejes} eje(s){es.tiene_repuesto ? ' + repuesto' : ''}</MenuItem>)}
               </TextField>
-              <TextField select label="¿Lleva repuesto?" size="small" fullWidth value={ejesForm.tiene_repuesto ? 'si' : 'no'} onChange={e => setEjesForm(f => ({ ...f, tiene_repuesto: e.target.value === 'si' }))}>
-                <MenuItem value="si">Sí</MenuItem>
-                <MenuItem value="no">No</MenuItem>
-              </TextField>
-              <Alert severity="info" sx={{ py: 0 }}>
-                Se generarán {(() => { const n = Number(ejesForm.numero_ejes) || 0; return (n >= 1 ? 2 : 0) + Math.max(0, n - 1) * 4 + (ejesForm.tiene_repuesto ? 1 : 0) })()} posiciones (eje 1 direccional; ejes siguientes duales{ejesForm.tiene_repuesto ? ' + repuesto' : ''}).
-              </Alert>
+              {esquemas.length === 0 ? (
+                <Alert severity="warning" sx={{ py: 0.5 }}>Aún no hay categorías creadas. Pre-configúralas en <b>Activos → Esquemas de vehículo</b> (pestaña Configuración) y luego solo se asignan aquí.</Alert>
+              ) : (
+                <Alert severity="info" sx={{ py: 0 }}>Las categorías se pre-configuran una sola vez en <b>Activos</b>; aquí solo se le asigna una a este vehículo.</Alert>
+              )}
             </Stack>
           </DialogContent>
           <DialogActions sx={{ px: 3, py: 2 }}>
             <Button onClick={() => setEjesOpen(false)}>Cancelar</Button>
-            <Button variant="contained" disabled={mutEjes.isPending} onClick={() => mutEjes.mutate({ numero_ejes: Number(ejesForm.numero_ejes), tiene_repuesto: ejesForm.tiene_repuesto })} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Guardar</Button>
+            <Button variant="contained" disabled={!ejesForm.esquema_id || mutEjes.isPending} onClick={() => mutEjes.mutate(Number(ejesForm.esquema_id))} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Guardar</Button>
           </DialogActions>
         </Dialog>
 

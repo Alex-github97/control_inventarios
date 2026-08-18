@@ -674,6 +674,13 @@ DROP TYPE IF EXISTS rolusuario;
 - **Inspecciones y descartes masivos por archivo Excel**, reutilizando las validaciones del movimiento individual (`POST /eam/neumaticos/inspecciones/bulk`, `POST /eam/neumaticos/baja/bulk`); reubica "Importar Excel" de llantas nuevas de la pestaña Consultas a Bodega
 - Optimización de rendimiento: aísla diálogos pesados en componentes con estado propio y desmonta el diagrama/tabla de detalle mientras hay cualquier diálogo abierto en esa pestaña (queda tapado por el backdrop de todas formas, evita recalcular layout/estilos de un árbol con decenas de `Tooltip`)
 
+#### EAM — Jerarquía de activos y unificación de vehículos (TMS/Flota → CMMS)
+- **Catálogo `EAMTipoActivo`** con bandera `usa_llantas`: determina qué tipos de activo aparecen como vehículo seleccionable en Neumáticos — antes era implícito, ahora es explícito y editable (`GET/POST/PUT/DELETE /eam/tipos-activo`)
+- **`/eam/vehiculos-combinados` ahora también incluye vehículos de Gestión de Flotas** (antes solo EAM + TMS), y soporta `?usa_llantas=true` para filtrar solo los que aplican a neumáticos
+- **`POST /eam/activos/vincular-externo`**: crea (idempotente) el activo "espejo" en el CMMS la primera vez que se usa un vehículo de TMS/Flota en algo que requiera historial de mantenimiento — evita duplicar el registro maestro del vehículo entre módulos
+- **Esquemas de vehículo como categorías reutilizables, no campos por vehículo**: la cantidad de ejes/repuesto/llantas se pre-configura una sola vez como "esquema" (`Activos → Esquemas de vehículo`) y luego cada vehículo solo se le **asigna** una categoría ya creada — no se digitan números eje por eje en cada alta. El antiguo botón "Configurar ejes" en Neumáticos ahora asigna un esquema en vez de pedir números sueltos
+- El selector de "Vehículo" en Neumáticos lista EAM + TMS + Flota (filtrados por `usa_llantas`) y vincula automáticamente al CMMS la primera vez que se elige uno externo
+
 #### Documentación
 - El README pasa de documentar 5 de 20 módulos en profundidad a documentar los 20 (ERP, SCM, SST, TMS, DMS, MES, GH/HCM, APS, QMS, LMS, CRM y EAM/Neumáticos no tenían sección propia)
 - Nueva sección "Funcionalidades Transversales": documenta el Scanner móvil (real) y aclara que las páginas `*IA.tsx` son maquetas de interfaz sin integración real con un LLM

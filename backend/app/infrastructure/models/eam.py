@@ -184,6 +184,21 @@ class EAMContratista(Base, TimestampMixin):
     activo       = Column(Boolean, default=True)
 
 
+# ─── Catálogo de tipos de activo ───────────────────────────────────────────────
+
+class EAMTipoActivo(Base, TimestampMixin):
+    """Catálogo de tipos de activo (jerarquía sobre EAMActivo.tipo_activo, guardado
+    como texto por código — mismo patrón usado en los catálogos de WMS). La bandera
+    `usa_llantas` determina qué activos aparecen como vehículo seleccionable en el
+    módulo de Neumáticos."""
+    __tablename__ = "eam_tipo_activo"
+    id          = Column(Integer, primary_key=True, index=True)
+    codigo      = Column(String(50), unique=True, nullable=False)
+    nombre      = Column(String(100), nullable=False)
+    usa_llantas = Column(Boolean, default=False)
+    activo      = Column(Boolean, default=True)
+
+
 # ─── Maestro de activos ───────────────────────────────────────────────────────
 
 class EAMActivo(Base, TimestampMixin):
@@ -217,12 +232,18 @@ class EAMActivo(Base, TimestampMixin):
     capacidad_combustible = Column(Float)
     numero_ejes          = Column(Integer, nullable=True)   # para layout de neumáticos
     tiene_repuesto       = Column(Boolean, default=True)
+    cantidad_repuestos   = Column(Integer, default=1)
     motor_marca          = Column(String(100), nullable=True)
     motor_linea          = Column(String(100), nullable=True)
     motor_cc             = Column(Float, nullable=True)
     imagen_url           = Column(String(500))
     especificaciones     = Column(JSON)
     activo               = Column(Boolean, default=True)
+    # Trazabilidad del "espejo" cuando este activo representa un vehículo creado
+    # originalmente en otro módulo (TMS, Flota) y vinculado aquí para poder
+    # llevarle historial de mantenimiento/neumáticos. origen='EAM' = nativo.
+    origen               = Column(String(20), default="EAM")
+    origen_id            = Column(Integer, nullable=True)
 
 
 class EAMComponente(Base, TimestampMixin):

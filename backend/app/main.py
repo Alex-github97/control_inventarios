@@ -77,6 +77,40 @@ async def lifespan(app: FastAPI):
             "ADD COLUMN IF NOT EXISTS banda_id INTEGER "
             "REFERENCES eam_banda_reencauche(id) ON DELETE SET NULL"
         ))
+        # Jerarquía de activos que usan llantas: cantidad de repuestos en el activo
+        # (ya existía numero_ejes/tiene_repuesto) + trazabilidad de espejo cuando
+        # el vehículo se creó originalmente en TMS/Flota y se vinculó al CMMS.
+        await conn.execute(text(
+            "ALTER TABLE eam_activo ADD COLUMN IF NOT EXISTS cantidad_repuestos INTEGER DEFAULT 1"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE eam_activo ADD COLUMN IF NOT EXISTS origen VARCHAR(20) DEFAULT 'EAM'"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE eam_activo ADD COLUMN IF NOT EXISTS origen_id INTEGER"
+        ))
+        # Catálogo de tipos de activo (jerarquía: qué tipos usan llantas y por lo
+        # tanto aparecen como vehículo seleccionable en el módulo de Neumáticos).
+        await conn.execute(text("""
+            INSERT INTO eam_tipo_activo (codigo, nombre, usa_llantas, activo, created_at, updated_at)
+            VALUES
+                ('VEHICULO', 'Vehículo', true, true, now(), now()),
+                ('REMOLQUE', 'Remolque', true, true, now(), now()),
+                ('MOTOCICLETA', 'Motocicleta', true, true, now(), now()),
+                ('MONTACARGAS', 'Montacargas', true, true, now(), now()),
+                ('EQUIPO_PATIO', 'Equipo de patio', true, true, now(), now()),
+                ('EQUIPO_LOGISTICO', 'Equipo logístico', false, true, now(), now()),
+                ('MAQUINARIA', 'Maquinaria', false, true, now(), now()),
+                ('INFRAESTRUCTURA', 'Infraestructura', false, true, now(), now()),
+                ('BODEGA', 'Bodega', false, true, now(), now()),
+                ('EDIFICACION', 'Edificación', false, true, now(), now()),
+                ('EQUIPO_TECNOLOGICO', 'Equipo tecnológico', false, true, now(), now()),
+                ('EQUIPO_INDUSTRIAL', 'Equipo industrial', false, true, now(), now()),
+                ('HERRAMIENTA', 'Herramienta', false, true, now(), now()),
+                ('ACTIVO_CRITICO', 'Activo crítico', false, true, now(), now()),
+                ('OTRO', 'Otro', false, true, now(), now())
+            ON CONFLICT (codigo) DO NOTHING
+        """))
 
     # 3. Sembrar roles y migrar usuarios
     async with AsyncSession(engine) as db:

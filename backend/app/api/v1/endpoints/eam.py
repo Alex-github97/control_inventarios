@@ -25,8 +25,11 @@ from app.infrastructure.models.eam import (
     EAMTrabajoNeumatico, EAMPeriodicidadTrabajoNeumatico, EAMTrabajoRealizadoNeumatico,
     EAMReesculturado, EAMVidaNeumatico,
     EAMCongeladoNeumatico, EAMCongeladoDetalleNeumatico,
+    EAMTipoActivo,
 )
 from app.infrastructure.models.tms import TMSVehiculo
+from app.infrastructure.models.flota import FlotaVehiculo
+from sqlalchemy.orm import selectinload
 
 router = APIRouter(prefix="/eam", tags=["eam"])
 
@@ -138,6 +141,7 @@ class ActivoCreate(BaseModel):
     capacidad_combustible: Optional[float] = None
     numero_ejes: Optional[int] = None
     tiene_repuesto: Optional[bool] = True
+    cantidad_repuestos: Optional[int] = 1
     motor_marca: Optional[str] = None
     motor_linea: Optional[str] = None
     motor_cc: Optional[float] = None
@@ -146,23 +150,41 @@ class ActivoResponse(ActivoCreate):
     model_config = ConfigDict(from_attributes=True)
     id: int
     activo: bool
+    origen: Optional[str] = "EAM"
+    origen_id: Optional[int] = None
+
+class TipoActivoCreate(BaseModel):
+    codigo: str
+    nombre: str
+    usa_llantas: Optional[bool] = False
+
+class TipoActivoResponse(TipoActivoCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    activo: bool
 
 class VehiculoCombinadoResponse(BaseModel):
-    origen: str            # EAM | TMS
+    origen: str            # EAM | TMS | FLOTA
     flota: str             # PROPIA | EXTERNA
-    id: int
+    id: int                # id en la tabla de origen (eam_activo.id si origen=EAM)
+    activo_id: Optional[int] = None   # eam_activo.id ya vinculado, si existe (permite usarlo en Neumáticos sin re-vincular)
     placa: Optional[str] = None
     tipo: Optional[str] = None
     marca: Optional[str] = None
     modelo: Optional[str] = None
     anio: Optional[int] = None
     numero_ejes: Optional[int] = None
+    tiene_repuesto: Optional[bool] = None
     capacidad_kg: Optional[float] = None
     estado: Optional[str] = None
     motor_marca: Optional[str] = None
     motor_linea: Optional[str] = None
     motor_cc: Optional[float] = None
     propietario: Optional[str] = None
+
+class VincularExternoRequest(BaseModel):
+    origen: str      # TMS | FLOTA
+    origen_id: int
 
 class ComponenteCreate(BaseModel):
     activo_id: int
@@ -929,20 +951,35 @@ async def list_activos(
 
 @router.get("/vehiculos-combinados", response_model=List[VehiculoCombinadoResponse])
 async def list_vehiculos_combinados(
-    flota: Optional[str] = None,   # PROPIA | EXTERNA
+    flota: Optional[str] = None,        # PROPIA | EXTERNA
+    usa_llantas: Optional[bool] = None,  # filtra PROPIA por el catálogo de tipos; TMS/Flota siempre son vehículo
     db: AsyncSession = Depends(get_db),
 ):
     """Tabla unificada de vehículos: flota PROPIA (activos EAM/CMMS con placa)
-    + flota EXTERNA (vehículos registrados en el TMS)."""
+    + flota EXTERNA (vehículos registrados en TMS y en Gestión de Flotas).
+    Los de origen EAM que ya son espejo de uno externo (origen != 'EAM') no se
+    repiten como PROPIA — figuran como el externo, con `activo_id` ya resuelto."""
     filas: List[VehiculoCombinadoResponse] = []
+    tipos_con_llantas: set = set()
+    if usa_llantas:
+        r = await db.execute(select(EAMTipoActivo.codigo).where(EAMTipoActivo.usa_llantas == True))
+        tipos_con_llantas = {c for c, in r.all()}
+
+    espejos: dict[tuple, EAMActivo] = {}
     if flota in (None, "PROPIA"):
         res = await db.execute(
             select(EAMActivo).where(EAMActivo.activo == True, EAMActivo.placa.isnot(None))
         )
         for a in res.scalars().all():
+            if a.origen and a.origen != "EAM" and a.origen_id:
+                espejos[(a.origen, a.origen_id)] = a
+                continue   # es espejo de un externo: se representa como TMS/FLOTA, no como PROPIA
+            if usa_llantas and a.tipo_activo not in tipos_con_llantas:
+                continue
             filas.append(VehiculoCombinadoResponse(
-                origen="EAM", flota="PROPIA", id=a.id, placa=a.placa, tipo=a.tipo_activo,
+                origen="EAM", flota="PROPIA", id=a.id, activo_id=a.id, placa=a.placa, tipo=a.tipo_activo,
                 marca=a.marca, modelo=a.modelo, anio=a.anio, numero_ejes=a.numero_ejes,
+                tiene_repuesto=a.tiene_repuesto,
                 capacidad_kg=a.capacidad_combustible, estado=a.estado,
                 motor_marca=a.motor_marca, motor_linea=a.motor_linea, motor_cc=a.motor_cc,
                 propietario=a.responsable,
@@ -950,15 +987,107 @@ async def list_vehiculos_combinados(
     if flota in (None, "EXTERNA"):
         res = await db.execute(select(TMSVehiculo).where(TMSVehiculo.deleted_at.is_(None)))
         for v in res.scalars().all():
+            espejo = espejos.get(("TMS", v.id))
             filas.append(VehiculoCombinadoResponse(
-                origen="TMS", flota="EXTERNA", id=v.id, placa=v.placa,
-                tipo=v.tipo_vehiculo.value if v.tipo_vehiculo else None,
-                marca=v.marca, modelo=v.modelo, anio=v.anio, numero_ejes=v.num_ejes,
+                origen="TMS", flota="EXTERNA", id=v.id, activo_id=espejo.id if espejo else None,
+                placa=v.placa, tipo=v.tipo_vehiculo.value if v.tipo_vehiculo else None,
+                marca=v.marca, modelo=v.modelo, anio=v.anio,
+                numero_ejes=espejo.numero_ejes if espejo else v.num_ejes,
+                tiene_repuesto=espejo.tiene_repuesto if espejo else None,
                 capacidad_kg=v.capacidad_kg,
                 estado=v.estado_operativo.value if v.estado_operativo else None,
                 propietario=v.propietario,
             ))
+        res = await db.execute(
+            select(FlotaVehiculo)
+            .options(selectinload(FlotaVehiculo.marca), selectinload(FlotaVehiculo.tipo_vehiculo))
+            .where(FlotaVehiculo.deleted_at.is_(None))
+        )
+        for v in res.scalars().all():
+            espejo = espejos.get(("FLOTA", v.id))
+            filas.append(VehiculoCombinadoResponse(
+                origen="FLOTA", flota="EXTERNA", id=v.id, activo_id=espejo.id if espejo else None,
+                placa=v.placa, tipo=v.tipo_vehiculo.nombre if v.tipo_vehiculo else None,
+                marca=v.marca.nombre if v.marca else None, modelo=str(v.modelo) if v.modelo else None,
+                numero_ejes=espejo.numero_ejes if espejo else None,
+                tiene_repuesto=espejo.tiene_repuesto if espejo else None,
+                estado="BAJA" if v.fecha_baja else "OPERATIVO",
+            ))
     return filas
+
+
+@router.post("/activos/vincular-externo", response_model=ActivoResponse)
+async def vincular_activo_externo(data: VincularExternoRequest, db: AsyncSession = Depends(get_db)):
+    """Crea (o devuelve, si ya existe) el activo EAM 'espejo' de un vehículo
+    registrado originalmente en TMS o en Gestión de Flotas — para poder llevarle
+    historial de mantenimiento/neumáticos sin duplicar su registro maestro."""
+    origen = data.origen.upper()
+    if origen not in ("TMS", "FLOTA"):
+        raise HTTPException(400, "Origen inválido, debe ser TMS o FLOTA")
+
+    existente_r = await db.execute(
+        select(EAMActivo).where(EAMActivo.origen == origen, EAMActivo.origen_id == data.origen_id)
+    )
+    existente = existente_r.scalar_one_or_none()
+    if existente:
+        return existente
+
+    if origen == "TMS":
+        fuente = await db.get(TMSVehiculo, data.origen_id)
+        if not fuente:
+            raise HTTPException(404, "Vehículo TMS no encontrado")
+        placa, marca, modelo, numero_ejes = fuente.placa, fuente.marca, fuente.modelo, fuente.num_ejes
+    else:
+        r = await db.execute(
+            select(FlotaVehiculo).options(selectinload(FlotaVehiculo.marca))
+            .where(FlotaVehiculo.id == data.origen_id)
+        )
+        fuente = r.scalar_one_or_none()
+        if not fuente:
+            raise HTTPException(404, "Vehículo de Flota no encontrado")
+        placa = fuente.placa
+        marca = fuente.marca.nombre if fuente.marca else None
+        modelo = str(fuente.modelo) if fuente.modelo else None
+        numero_ejes = None
+
+    codigo = f"{origen}-{placa or data.origen_id}"
+    obj = EAMActivo(
+        codigo=codigo, nombre=f"Vehículo {placa or data.origen_id}", tipo_activo="VEHICULO",
+        placa=placa, marca=marca, modelo=modelo, numero_ejes=numero_ejes,
+        origen=origen, origen_id=data.origen_id,
+    )
+    db.add(obj); await db.commit(); await db.refresh(obj)
+    return obj
+
+
+# ── Catálogo de tipos de activo (jerarquía: qué tipos usan llantas) ──
+@router.get("/tipos-activo", response_model=List[TipoActivoResponse])
+async def list_tipos_activo(db: AsyncSession = Depends(get_db)):
+    r = await db.execute(select(EAMTipoActivo).where(EAMTipoActivo.activo == True).order_by(EAMTipoActivo.nombre))
+    return r.scalars().all()
+
+@router.post("/tipos-activo", response_model=TipoActivoResponse)
+async def crear_tipo_activo(data: TipoActivoCreate, db: AsyncSession = Depends(get_db)):
+    obj = EAMTipoActivo(**data.model_dump())
+    db.add(obj); await db.commit(); await db.refresh(obj)
+    return obj
+
+@router.put("/tipos-activo/{tid}", response_model=TipoActivoResponse)
+async def actualizar_tipo_activo(tid: int, data: TipoActivoCreate, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMTipoActivo, tid)
+    if not obj:
+        raise HTTPException(404, "Tipo de activo no encontrado")
+    for k, v in data.model_dump().items():
+        setattr(obj, k, v)
+    await db.commit(); await db.refresh(obj)
+    return obj
+
+@router.delete("/tipos-activo/{tid}", status_code=204)
+async def desactivar_tipo_activo(tid: int, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMTipoActivo, tid)
+    if obj:
+        obj.activo = False
+        await db.commit()
 
 @router.post("/activos", response_model=ActivoResponse)
 async def create_activo(data: ActivoCreate, db: AsyncSession = Depends(get_db)):
@@ -1724,6 +1853,7 @@ async def asignar_esquema_vehiculo(data: EsquemaAsignacionCreate, db: AsyncSessi
         raise HTTPException(404, "Esquema no encontrado")
     activo.numero_ejes = esquema.numero_ejes
     activo.tiene_repuesto = esquema.tiene_repuesto
+    activo.cantidad_repuestos = esquema.cantidad_repuestos
     obj = EAMEsquemaAsignacion(**data.model_dump())
     db.add(obj); await db.commit(); await db.refresh(obj)
     return obj

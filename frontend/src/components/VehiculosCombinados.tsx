@@ -3,26 +3,31 @@ import {
   Box, Typography, Table, TableHead, TableBody, TableRow, TableCell, Paper, Chip,
   Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem,
   Stack, ToggleButton, ToggleButtonGroup, Tooltip, InputAdornment,
+  FormControlLabel, Switch, Alert,
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { Add as AddIcon, DirectionsCar, Search as SearchIcon, Download } from '@mui/icons-material'
+import { Add as AddIcon, DirectionsCar, Search as SearchIcon, Download, Link as LinkIcon, Edit as EditIcon } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { apiClient as api } from '@/api/client'
 import { exportarPDF, exportarExcel } from '@/utils/exportar'
 
 export interface VehiculoCombinado {
-  origen: string; flota: string; id: number; placa?: string; tipo?: string
-  marca?: string; modelo?: string; anio?: number; numero_ejes?: number
+  origen: string; flota: string; id: number; activo_id?: number | null; placa?: string; tipo?: string
+  marca?: string; modelo?: string; anio?: number; numero_ejes?: number; tiene_repuesto?: boolean | null
   capacidad_kg?: number; estado?: string; motor_marca?: string
   motor_linea?: string; motor_cc?: number; propietario?: string
 }
 
+interface TipoActivo { id: number; codigo: string; nombre: string; usa_llantas: boolean }
+interface EsquemaVehiculo { id: number; nombre: string; tipo_activo?: string | null; numero_ejes: number; tiene_repuesto: boolean; cantidad_repuestos: number }
+
 const EMPTY = {
   codigo: '', nombre: '', placa: '', tipo_activo: 'VEHICULO', marca: '', modelo: '',
-  anio: '', numero_ejes: '', tiene_repuesto: true, motor_marca: '', motor_linea: '',
+  anio: '', esquema_id: '', motor_marca: '', motor_linea: '',
   motor_cc: '', responsable: '', sede: '',
 }
+const EMPTY_ESQUEMA_RAPIDO = { nombre: '', numero_ejes: '2', tiene_repuesto: true, cantidad_repuestos: '1' }
 
 /**
  * Tabla unificada de vehículos: flota PROPIA (activos del CMMS/EAM) + flota EXTERNA (TMS).
@@ -36,21 +41,81 @@ export function VehiculosCombinados({
   const [search, setSearch] = useState('')
   const [nuevoOpen, setNuevoOpen] = useState(false)
   const [form, setForm] = useState({ ...EMPTY })
+  const [layoutVeh, setLayoutVeh] = useState<VehiculoCombinado | null>(null)
+  const [layoutEsquemaId, setLayoutEsquemaId] = useState('')
+  const [esquemaRapidoOpen, setEsquemaRapidoOpen] = useState(false)
+  const [esquemaRapidoForm, setEsquemaRapidoForm] = useState({ ...EMPTY_ESQUEMA_RAPIDO })
 
   const { data: vehiculos = [], isLoading } = useQuery<VehiculoCombinado[]>({
     queryKey: ['vehiculos-combinados'],
     queryFn: () => api.get('/eam/vehiculos-combinados').then(r => r.data),
   })
+  const { data: tiposActivo = [] } = useQuery<TipoActivo[]>({
+    queryKey: ['eam-tipos-activo'],
+    queryFn: () => api.get('/eam/tipos-activo').then(r => r.data),
+  })
+  // Esquemas (categorías) de ejes/llantas — se pre-configuran una sola vez aquí
+  // y luego cada vehículo simplemente se le asigna una; no se digitan números
+  // vehículo por vehículo.
+  const { data: esquemas = [] } = useQuery<EsquemaVehiculo[]>({
+    queryKey: ['eam-esquemas'],
+    queryFn: () => api.get('/eam/neumaticos/esquemas').then(r => r.data),
+  })
+
+  const mutCrearEsquemaRapido = useMutation({
+    mutationFn: (payload: Record<string, unknown>) => api.post('/eam/neumaticos/esquemas', payload).then(r => r.data),
+    onSuccess: (esquema) => {
+      toast.success('Categoría de ejes/llantas creada')
+      qc.invalidateQueries({ queryKey: ['eam-esquemas'] })
+      setEsquemaRapidoOpen(false); setEsquemaRapidoForm({ ...EMPTY_ESQUEMA_RAPIDO })
+      if (layoutVeh) setLayoutEsquemaId(String(esquema.id)); else setForm(f => ({ ...f, esquema_id: String(esquema.id) }))
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo crear la categoría'),
+  })
+
+  const mutAsignarEsquema = useMutation({
+    mutationFn: ({ activo_id, esquema_id }: { activo_id: number; esquema_id: number }) =>
+      api.post('/eam/neumaticos/esquemas/asignar', { activo_id, esquema_id, fecha_vigencia: new Date().toISOString().slice(0, 10) }),
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo asignar la categoría de ejes/llantas'),
+  })
 
   const mutCrear = useMutation({
-    mutationFn: (payload: Record<string, unknown>) => api.post('/eam/activos', payload),
-    onSuccess: () => {
+    mutationFn: (payload: Record<string, unknown>) => api.post('/eam/activos', payload).then(r => r.data),
+    onSuccess: async (activo) => {
+      if (form.esquema_id) await mutAsignarEsquema.mutateAsync({ activo_id: activo.id, esquema_id: Number(form.esquema_id) })
       toast.success('Vehículo de flota propia registrado')
       qc.invalidateQueries({ queryKey: ['vehiculos-combinados'] })
       setNuevoOpen(false); setForm({ ...EMPTY })
     },
     onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo registrar'),
   })
+
+  // Vincula un vehículo EXTERNO (TMS/Flota) al CMMS, o si ya está vinculado
+  // simplemente abre el diálogo para asignarle una categoría de ejes/llantas.
+  const mutVincular = useMutation({
+    mutationFn: (v: VehiculoCombinado) => api.post('/eam/activos/vincular-externo', { origen: v.origen, origen_id: v.id }).then(r => r.data),
+    onSuccess: (activo) => {
+      qc.invalidateQueries({ queryKey: ['vehiculos-combinados'] })
+      setLayoutVeh(prev => prev ? { ...prev, activo_id: activo.id } : prev)
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo vincular al CMMS'),
+  })
+
+  const abrirLayout = (v: VehiculoCombinado) => {
+    setLayoutVeh(v)
+    setLayoutEsquemaId('')
+  }
+
+  const guardarLayout = () => {
+    if (!layoutVeh?.activo_id || !layoutEsquemaId) return
+    mutAsignarEsquema.mutate({ activo_id: layoutVeh.activo_id, esquema_id: Number(layoutEsquemaId) }, {
+      onSuccess: () => {
+        toast.success('Categoría de ejes/llantas asignada')
+        qc.invalidateQueries({ queryKey: ['vehiculos-combinados'] })
+        setLayoutVeh(null)
+      },
+    })
+  }
 
   const filtered = vehiculos.filter(v => {
     if (flota !== 'TODAS' && v.flota !== flota) return false
@@ -67,6 +132,7 @@ export function VehiculosCombinados({
     { key: 'modelo', header: 'Modelo' }, { key: 'anio', header: 'Año' },
     { key: 'numero_ejes', header: 'Ejes' }, { key: 'motor_marca', header: 'Motor' },
     { key: 'motor_cc', header: 'CC' }, { key: 'propietario', header: 'Responsable/Propietario' },
+    { key: 'cmms', header: 'Config. llantas (CMMS)' },
   ]
 
   const exportar = (tipo: 'pdf' | 'excel') => {
@@ -104,7 +170,8 @@ export function VehiculosCombinados({
       </Stack>
 
       <Typography fontSize={12} color="#94A3B8" mb={1}>
-        Flota propia = registrada en el CMMS · Flota externa = vehículos del TMS · vista unificada de solo lectura
+        Flota propia = registrada en el CMMS · Flota externa = vehículos del TMS/Flota · la cantidad de ejes,
+        repuesto y llantas de cada vehículo se configura aquí, en Activos — no en el módulo de Neumáticos.
       </Typography>
 
       <Paper elevation={0} sx={{ bgcolor: '#FFFFFF', border: `1px solid ${color}40`, borderRadius: '14px', overflowX: 'auto' }}>
@@ -130,6 +197,21 @@ export function VehiculosCombinados({
                 <TableCell>{v.motor_marca ? `${v.motor_marca}${v.motor_linea ? ` ${v.motor_linea}` : ''}` : '—'}</TableCell>
                 <TableCell>{v.motor_cc ? `${v.motor_cc.toLocaleString()} cc` : '—'}</TableCell>
                 <TableCell>{v.propietario ?? '—'}</TableCell>
+                <TableCell>
+                  {v.activo_id ? (
+                    <Button size="small" startIcon={<EditIcon sx={{ fontSize: 15 }} />} onClick={() => abrirLayout(v)} sx={{ textTransform: 'none', fontSize: 11.5 }}>
+                      {v.numero_ejes != null ? `${v.numero_ejes} eje(s)` : 'Configurar'}
+                    </Button>
+                  ) : (
+                    <Tooltip title="Vincula este vehículo al CMMS para poder configurar ejes/llantas y usarlo en Neumáticos">
+                      <Button size="small" variant="outlined" startIcon={<LinkIcon sx={{ fontSize: 15 }} />}
+                        onClick={() => { setLayoutVeh(v); mutVincular.mutate(v) }} disabled={mutVincular.isPending}
+                        sx={{ textTransform: 'none', fontSize: 11.5, color, borderColor: `${color}66` }}>
+                        Vincular al CMMS
+                      </Button>
+                    </Tooltip>
+                  )}
+                </TableCell>
               </TableRow>
             ))}
             {filtered.length === 0 && (
@@ -153,13 +235,25 @@ export function VehiculosCombinados({
             <Grid size={{ xs: 12 }}><TextField label="Nombre / descripción *" size="small" fullWidth value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} /></Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField select label="Tipo" size="small" fullWidth value={form.tipo_activo} onChange={e => setForm(f => ({ ...f, tipo_activo: e.target.value }))}>
-                {['VEHICULO', 'MONTACARGAS', 'MAQUINARIA'].map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                {(tiposActivo.length ? tiposActivo : [{ codigo: 'VEHICULO', nombre: 'Vehículo' }]).map(t => <MenuItem key={t.codigo} value={t.codigo}>{t.nombre}</MenuItem>)}
               </TextField>
             </Grid>
             <Grid size={{ xs: 6, sm: 3 }}><TextField label="Marca" size="small" fullWidth value={form.marca} onChange={e => setForm(f => ({ ...f, marca: e.target.value }))} /></Grid>
             <Grid size={{ xs: 6, sm: 3 }}><TextField label="Modelo" size="small" fullWidth value={form.modelo} onChange={e => setForm(f => ({ ...f, modelo: e.target.value }))} /></Grid>
             <Grid size={{ xs: 6, sm: 3 }}><TextField label="Año" type="number" size="small" fullWidth value={form.anio} onChange={e => setForm(f => ({ ...f, anio: e.target.value }))} /></Grid>
-            <Grid size={{ xs: 6, sm: 3 }}><TextField label="N.º de ejes" type="number" size="small" fullWidth value={form.numero_ejes} onChange={e => setForm(f => ({ ...f, numero_ejes: e.target.value }))} /></Grid>
+            {(tiposActivo.find(t => t.codigo === form.tipo_activo)?.usa_llantas ?? form.tipo_activo === 'VEHICULO') && <>
+              <Grid size={{ xs: 12 }}><Typography fontSize={12} fontWeight={700} color="#94A3B8" mt={1}>EJES Y LLANTAS</Typography></Grid>
+              <Grid size={{ xs: 9 }}>
+                <TextField select label="Categoría de ejes/llantas" size="small" fullWidth value={form.esquema_id} onChange={e => setForm(f => ({ ...f, esquema_id: e.target.value }))}>
+                  <MenuItem value="">Sin asignar (configurar después)</MenuItem>
+                  {esquemas.map(es => <MenuItem key={es.id} value={String(es.id)}>{es.nombre} · {es.numero_ejes} eje(s){es.tiene_repuesto ? ` + repuesto` : ''}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid size={{ xs: 3 }}>
+                <Button size="small" variant="outlined" fullWidth sx={{ height: '100%', textTransform: 'none' }} onClick={() => setEsquemaRapidoOpen(true)}>+ Nueva</Button>
+              </Grid>
+              {esquemas.length === 0 && <Grid size={{ xs: 12 }}><Alert severity="info" sx={{ py: 0.5 }}>Aún no hay categorías creadas — pre-configúralas una vez ("+ Nueva") y luego solo se asignan.</Alert></Grid>}
+            </>}
             <Grid size={{ xs: 12 }}><Typography fontSize={12} fontWeight={700} color="#94A3B8" mt={1}>MOTOR</Typography></Grid>
             <Grid size={{ xs: 12, sm: 5 }}><TextField label="Marca del motor" size="small" fullWidth value={form.motor_marca} onChange={e => setForm(f => ({ ...f, motor_marca: e.target.value }))} /></Grid>
             <Grid size={{ xs: 12, sm: 4 }}><TextField label="Línea del motor" size="small" fullWidth value={form.motor_linea} onChange={e => setForm(f => ({ ...f, motor_linea: e.target.value }))} /></Grid>
@@ -175,12 +269,68 @@ export function VehiculosCombinados({
               codigo: form.codigo, nombre: form.nombre, tipo_activo: form.tipo_activo,
               placa: form.placa || undefined, marca: form.marca || undefined, modelo: form.modelo || undefined,
               anio: form.anio ? Number(form.anio) : undefined,
-              numero_ejes: form.numero_ejes ? Number(form.numero_ejes) : undefined,
               motor_marca: form.motor_marca || undefined, motor_linea: form.motor_linea || undefined,
               motor_cc: form.motor_cc ? Number(form.motor_cc) : undefined,
               responsable: form.responsable || undefined, sede: form.sede || undefined,
             })}
             sx={{ bgcolor: color, '&:hover': { bgcolor: colorDark } }}>Registrar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Asignar categoría de ejes/llantas (pre-configurada) a un vehículo ya vinculado al CMMS */}
+      <Dialog open={!!layoutVeh} onClose={() => setLayoutVeh(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Ejes y llantas
+          <Typography variant="caption" color="text.secondary" display="block">{layoutVeh?.placa} — usado por el módulo de Neumáticos</Typography>
+        </DialogTitle>
+        <DialogContent dividers>
+          {!layoutVeh?.activo_id ? (
+            <Alert severity="info">Vinculando al CMMS…</Alert>
+          ) : (
+            <Stack spacing={2} pt={0.5}>
+              <Stack direction="row" spacing={1} alignItems="flex-start">
+                <TextField select label="Categoría de ejes/llantas" size="small" fullWidth value={layoutEsquemaId} onChange={e => setLayoutEsquemaId(e.target.value)}>
+                  <MenuItem value="">Seleccionar…</MenuItem>
+                  {esquemas.map(es => <MenuItem key={es.id} value={String(es.id)}>{es.nombre} · {es.numero_ejes} eje(s){es.tiene_repuesto ? ` + repuesto` : ''}</MenuItem>)}
+                </TextField>
+                <Button size="small" variant="outlined" sx={{ textTransform: 'none', whiteSpace: 'nowrap' }} onClick={() => setEsquemaRapidoOpen(true)}>+ Nueva</Button>
+              </Stack>
+              {esquemas.length === 0 && <Alert severity="info" sx={{ py: 0.5 }}>Aún no hay categorías creadas — pre-configúralas una vez ("+ Nueva") y luego solo se asignan.</Alert>}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setLayoutVeh(null)}>Cerrar</Button>
+          <Button
+            variant="contained" disabled={!layoutVeh?.activo_id || !layoutEsquemaId || mutAsignarEsquema.isPending}
+            onClick={guardarLayout}
+            sx={{ bgcolor: color, '&:hover': { bgcolor: colorDark } }}>Guardar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Crear una nueva categoría (esquema) de ejes/llantas, sin salir de Activos */}
+      <Dialog open={esquemaRapidoOpen} onClose={() => setEsquemaRapidoOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Nueva categoría de ejes/llantas</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} pt={0.5}>
+            <TextField label="Nombre *" size="small" fullWidth placeholder="Ej: Tractocamión 3 ejes" value={esquemaRapidoForm.nombre} onChange={e => setEsquemaRapidoForm(f => ({ ...f, nombre: e.target.value }))} />
+            <TextField label="N.º de ejes" type="number" size="small" fullWidth value={esquemaRapidoForm.numero_ejes} onChange={e => setEsquemaRapidoForm(f => ({ ...f, numero_ejes: e.target.value }))} />
+            <FormControlLabel control={<Switch checked={esquemaRapidoForm.tiene_repuesto} onChange={e => setEsquemaRapidoForm(f => ({ ...f, tiene_repuesto: e.target.checked }))} />} label="Tiene repuesto" />
+            {esquemaRapidoForm.tiene_repuesto && (
+              <TextField label="Cantidad de repuestos" type="number" size="small" fullWidth value={esquemaRapidoForm.cantidad_repuestos} onChange={e => setEsquemaRapidoForm(f => ({ ...f, cantidad_repuestos: e.target.value }))} />
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setEsquemaRapidoOpen(false)}>Cancelar</Button>
+          <Button
+            variant="contained" disabled={!esquemaRapidoForm.nombre || !esquemaRapidoForm.numero_ejes || mutCrearEsquemaRapido.isPending}
+            onClick={() => mutCrearEsquemaRapido.mutate({
+              nombre: esquemaRapidoForm.nombre,
+              numero_ejes: Number(esquemaRapidoForm.numero_ejes),
+              tiene_repuesto: esquemaRapidoForm.tiene_repuesto,
+              cantidad_repuestos: esquemaRapidoForm.tiene_repuesto ? Number(esquemaRapidoForm.cantidad_repuestos || 1) : 0,
+            })}
+            sx={{ bgcolor: color, '&:hover': { bgcolor: colorDark } }}>Crear</Button>
         </DialogActions>
       </Dialog>
     </Box>
