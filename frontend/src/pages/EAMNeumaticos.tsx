@@ -2923,7 +2923,7 @@ export default function EAMNeumaticos() {
                 {esquemas.map(es => <MenuItem key={es.id} value={String(es.id)}>{es.nombre} · {es.numero_ejes} eje(s){es.tiene_repuesto ? ' + repuesto' : ''}</MenuItem>)}
               </TextField>
               {esquemas.length === 0 ? (
-                <Alert severity="warning" sx={{ py: 0.5 }}>Aún no hay categorías creadas. Pre-configúralas en <b>Activos → Esquemas de vehículo</b> (pestaña Configuración) y luego solo se asignan aquí.</Alert>
+                <Alert severity="warning" sx={{ py: 0.5 }}>Aún no hay categorías creadas. Pre-configúralas en la pestaña <b>Configuración → Esquemas de vehículo</b> y luego solo se asignan aquí.</Alert>
               ) : (
                 <Alert severity="info" sx={{ py: 0 }}>Las categorías se pre-configuran una sola vez en <b>Activos</b>; aquí solo se le asigna una a este vehículo.</Alert>
               )}
