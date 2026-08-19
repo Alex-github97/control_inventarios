@@ -6,7 +6,7 @@ import {
   Paper, Chip, Card, CardContent, Alert, TextField, MenuItem, Button, Dialog,
   DialogTitle, DialogContent, DialogActions, IconButton, Stack, Tooltip, alpha,
   Switch, FormControlLabel, Badge, Divider, Menu, ListItemIcon, ListItemText, Checkbox,
-  Autocomplete,
+  Autocomplete, ButtonGroup,
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
 import {
@@ -14,7 +14,7 @@ import {
   History as HistoryIcon, SwapHoriz as SwapIcon, Warehouse as WarehouseIcon,
   DeleteForever, DirectionsCar, ShowChart, TrendingUp, NotificationsActive,
   Autorenew, Download, Straighten, Compress, AttachMoney, Build, Map as MapIcon, Timeline, Undo,
-  UploadFile, CameraAlt, Checklist,
+  UploadFile, CameraAlt, Checklist, ArrowDropDown, AddBox,
 } from '@mui/icons-material'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer,
@@ -73,6 +73,23 @@ const TIPOS_RIN = ['ACERO', 'ALUMINIO', 'OTRO']
 const ESTADO_COLOR: Record<string, 'success' | 'info' | 'warning' | 'error' | 'default'> = {
   INSTALADO: 'success', ALMACENADO: 'info', REENCAUCHE: 'warning', BAJA: 'error',
 }
+// Genera la lista de códigos entre uno inicial y uno final: "LL-001" a "LL-050"
+// → ["LL-001", …, "LL-050"]. Mismo criterio que el cargue masivo de Estibas.
+function generarCodigos(inicio: string, fin: string): string[] | null {
+  const mi = inicio.trim().match(/^(.*?)(\d+)$/)
+  const mf = fin.trim().match(/^(.*?)(\d+)$/)
+  if (!mi || !mf) return null
+  const prefijo = mi[1]
+  const desde = parseInt(mi[2], 10)
+  const hasta = parseInt(mf[2], 10)
+  const relleno = mi[2].length
+  if (hasta < desde) return null
+  if (hasta - desde > 999) return null   // límite de seguridad
+  const codigos: string[] = []
+  for (let i = desde; i <= hasta; i++) codigos.push(prefijo + String(i).padStart(relleno, '0'))
+  return codigos
+}
+
 const nowLocal = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)
 const fmtFecha = (s?: string | null) => { if (!s) return '—'; const d = new Date(s); return isNaN(d.getTime()) ? '—' : d.toLocaleString('es-CO') }
 
@@ -234,6 +251,14 @@ export default function EAMNeumaticos() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState('')
+  const [menuNuevaLlanta, setMenuNuevaLlanta] = useState<null | HTMLElement>(null)
+  // Creación masiva por rango de códigos (sin Excel), como en Estibas
+  const [masivoOpen, setMasivoOpen] = useState(false)
+  const [masivoCodIni, setMasivoCodIni] = useState('')
+  const [masivoCodFin, setMasivoCodFin] = useState('')
+  const [masivoPreview, setMasivoPreview] = useState<string[]>([])
+  const [masivoError, setMasivoError] = useState('')
+  const [masivoForm, setMasivoForm] = useState({ ...EMPTY_NEUMATICO })
   const [importOpen, setImportOpen] = useState(false)
   const [importRows, setImportRows] = useState<any[]>([])
   const [importResult, setImportResult] = useState<{ total: number; exitosos: number; errores: any[] } | null>(null)
@@ -722,6 +747,47 @@ export default function EAMNeumaticos() {
     e.target.value = ''
   }
 
+  // ── Creación masiva por rango de códigos (sin archivo) ──
+  const abrirMasivo = () => {
+    setMasivoCodIni(''); setMasivoCodFin('')
+    setMasivoPreview([]); setMasivoError('')
+    setMasivoForm({ ...EMPTY_NEUMATICO })
+    setImportResult(null)
+    setMasivoOpen(true)
+  }
+  const previsualizarMasivo = () => {
+    setMasivoError('')
+    if (!masivoCodIni.trim() || !masivoCodFin.trim()) {
+      setMasivoError('Indica el código inicial y el final'); return
+    }
+    const codigos = generarCodigos(masivoCodIni, masivoCodFin)
+    if (!codigos) {
+      setMasivoError('Los códigos deben terminar en número y el final debe ser mayor o igual al inicial (máximo 1000 por lote). Ej: LL-001 a LL-050')
+      return
+    }
+    const yaExisten = codigos.filter(c => neumaticos.some(n => n.codigo === c))
+    if (yaExisten.length) {
+      setMasivoError(`Estos códigos ya existen: ${yaExisten.slice(0, 5).join(', ')}${yaExisten.length > 5 ? ` y ${yaExisten.length - 5} más` : ''}`)
+      return
+    }
+    setMasivoPreview(codigos)
+  }
+  const confirmarMasivo = () => {
+    const f = masivoForm
+    const items = masivoPreview.map(codigo => ({
+      codigo, estado: 'ALMACENADO',
+      marca: f.marca || undefined, referencia: f.referencia || undefined, medida: f.medida || undefined,
+      tipo_uso: f.tipo_uso || undefined, bodega_id: f.bodega_id ? Number(f.bodega_id) : undefined,
+      costo: f.costo ? Number(f.costo) : undefined, proveedor: f.proveedor || undefined,
+      profundidad_diseño: f['profundidad_diseño'] ? Number(f['profundidad_diseño']) : undefined,
+      profundidad_actual: f.profundidad_actual ? Number(f.profundidad_actual) : undefined,
+      vida_util_km: f.vida_util_km ? Number(f.vida_util_km) : undefined,
+      presion_recomendada: f.presion_recomendada ? Number(f.presion_recomendada) : undefined,
+    }))
+    mutImportar.mutate(items)
+    setMasivoPreview([])
+  }
+
   const confirmarImportacion = () => {
     const items = importRows.map(row => {
       const bodega = bodegas.find(b => b.nombre?.toLowerCase() === String(row.bodega ?? '').toLowerCase())
@@ -1103,7 +1169,14 @@ export default function EAMNeumaticos() {
             </Box>
           </Stack>
           {[0, 1, 5].includes(tab) && (
-            <Button variant="contained" startIcon={<AddIcon />} onClick={() => setNuevoOpen(true)} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none', fontWeight: 700, borderRadius: 2 }}>Registrar llanta</Button>
+            <ButtonGroup variant="contained" disableElevation sx={{ borderRadius: 2, '& .MuiButton-root': { bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } } }}>
+              <Button startIcon={<AddIcon />} onClick={() => setNuevoOpen(true)} sx={{ textTransform: 'none', fontWeight: 700 }}>
+                Registrar llanta
+              </Button>
+              <Button size="small" aria-haspopup="true" onClick={e => setMenuNuevaLlanta(e.currentTarget)} sx={{ px: 0.75, borderLeft: '1px solid rgba(255,255,255,0.35)' }}>
+                <ArrowDropDown />
+              </Button>
+            </ButtonGroup>
           )}
         </Stack>
 
@@ -1347,11 +1420,6 @@ export default function EAMNeumaticos() {
         {/* ── TAB 1: Bodega ── */}
         {tab === 1 && (
           <Stack spacing={2}>
-          <Stack direction="row" justifyContent="flex-end">
-            <Button size="small" variant="outlined" startIcon={<UploadFile />} onClick={() => setImportOpen(true)} sx={{ color: EAM_DARK, borderColor: alpha(EAM_COLOR, 0.4), textTransform: 'none' }}>
-              Importar Excel (llantas nuevas)
-            </Button>
-          </Stack>
           <Card sx={{ bgcolor: '#FFFFFF' }}>
             <Box sx={{ overflowX: 'auto' }}>
               <Table size="small">
@@ -3036,6 +3104,121 @@ export default function EAMNeumaticos() {
             <Button onClick={() => setBulkDeleteOpen(false)} disabled={mutBulkDelete.isPending}>Cancelar</Button>
             <Button variant="contained" color="error" disabled={bulkDeleteConfirm.trim().toUpperCase() !== 'ELIMINAR' || mutBulkDelete.isPending}
               onClick={() => mutBulkDelete.mutate()}>Eliminar definitivamente</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* ── Menú del botón "Registrar llanta" ── */}
+        <Menu
+          anchorEl={menuNuevaLlanta}
+          open={!!menuNuevaLlanta}
+          onClose={() => setMenuNuevaLlanta(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          PaperProps={{ sx: { mt: 0.5, minWidth: 260, borderRadius: '10px' } }}
+        >
+          <MenuItem onClick={() => { setMenuNuevaLlanta(null); abrirMasivo() }} sx={{ py: 1.25, px: 2 }}>
+            <AddBox sx={{ fontSize: 18, mr: 1.5, color: EAM_DARK }} />
+            <Box>
+              <Typography fontSize={13.5} fontWeight={600} lineHeight={1.2}>Creación masiva</Typography>
+              <Typography fontSize={11} color="#94A3B8">Por rango de códigos, sin archivo</Typography>
+            </Box>
+          </MenuItem>
+          <Divider sx={{ my: 0.5 }} />
+          <MenuItem onClick={() => { setMenuNuevaLlanta(null); setImportOpen(true) }} sx={{ py: 1.25, px: 2 }}>
+            <UploadFile sx={{ fontSize: 18, mr: 1.5, color: EAM_COLOR }} />
+            <Box>
+              <Typography fontSize={13.5} fontWeight={600} lineHeight={1.2}>Importar desde Excel</Typography>
+              <Typography fontSize={11} color="#94A3B8">Cargue masivo desde .xlsx</Typography>
+            </Box>
+          </MenuItem>
+        </Menu>
+
+        {/* ── Diálogo: creación masiva por rango de códigos ── */}
+        <Dialog open={masivoOpen} onClose={() => { if (!mutImportar.isPending) setMasivoOpen(false) }} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Creación masiva de llantas
+            <Typography variant="caption" color="text.secondary" display="block">
+              Define el rango de códigos y los datos que comparten todas
+            </Typography>
+          </DialogTitle>
+          <DialogContent dividers>
+            <Grid container spacing={2} sx={{ pt: 0.5 }}>
+              <Grid size={{ xs: 12 }}>
+                <Typography fontSize={11} fontWeight={700} color="#94A3B8" letterSpacing="0.06em">RANGO DE CÓDIGOS</Typography>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  label="Código inicial *" size="small" fullWidth placeholder="Ej: LL-001"
+                  value={masivoCodIni}
+                  onChange={e => { setMasivoCodIni(e.target.value.toUpperCase()); setMasivoPreview([]); setMasivoError('') }}
+                  helperText="Debe terminar en número"
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  label="Código final *" size="small" fullWidth placeholder="Ej: LL-050"
+                  value={masivoCodFin}
+                  onChange={e => { setMasivoCodFin(e.target.value.toUpperCase()); setMasivoPreview([]); setMasivoError('') }}
+                  helperText="Máximo 1000 llantas por lote"
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12 }}>
+                <Typography fontSize={11} fontWeight={700} color="#94A3B8" letterSpacing="0.06em" mt={1}>DATOS COMUNES A TODAS</Typography>
+              </Grid>
+              <Grid size={{ xs: 6, sm: 3 }}><TextField label="Marca" size="small" fullWidth value={masivoForm.marca} onChange={e => setMasivoForm(f => ({ ...f, marca: e.target.value }))} /></Grid>
+              <Grid size={{ xs: 6, sm: 3 }}><TextField label="Referencia" size="small" fullWidth value={masivoForm.referencia} onChange={e => setMasivoForm(f => ({ ...f, referencia: e.target.value }))} /></Grid>
+              <Grid size={{ xs: 6, sm: 3 }}><TextField label="Medida" size="small" fullWidth value={masivoForm.medida} onChange={e => setMasivoForm(f => ({ ...f, medida: e.target.value }))} /></Grid>
+              <Grid size={{ xs: 6, sm: 3 }}>
+                <TextField select label="Tipo de uso" size="small" fullWidth value={masivoForm.tipo_uso} onChange={e => setMasivoForm(f => ({ ...f, tipo_uso: e.target.value }))}>
+                  <MenuItem value="">Sin especificar</MenuItem>
+                  {TIPOS_USO.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField select label="Bodega de ingreso" size="small" fullWidth value={masivoForm.bodega_id} onChange={e => setMasivoForm(f => ({ ...f, bodega_id: e.target.value }))}>
+                  <MenuItem value="">Sin bodega</MenuItem>
+                  {bodegas.map(b => <MenuItem key={b.id} value={String(b.id)}>{b.nombre}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid size={{ xs: 6, sm: 3 }}><TextField label="Costo unitario" type="number" size="small" fullWidth value={masivoForm.costo} onChange={e => setMasivoForm(f => ({ ...f, costo: e.target.value }))} /></Grid>
+              <Grid size={{ xs: 6, sm: 3 }}><TextField label="Proveedor" size="small" fullWidth value={masivoForm.proveedor} onChange={e => setMasivoForm(f => ({ ...f, proveedor: e.target.value }))} /></Grid>
+              <Grid size={{ xs: 6, sm: 3 }}><TextField label="Prof. diseño (mm)" type="number" size="small" fullWidth value={masivoForm.profundidad_diseño} onChange={e => setMasivoForm(f => ({ ...f, profundidad_diseño: e.target.value }))} /></Grid>
+              <Grid size={{ xs: 6, sm: 3 }}><TextField label="Prof. actual (mm)" type="number" size="small" fullWidth value={masivoForm.profundidad_actual} onChange={e => setMasivoForm(f => ({ ...f, profundidad_actual: e.target.value }))} /></Grid>
+              <Grid size={{ xs: 6, sm: 3 }}><TextField label="Vida útil (km)" type="number" size="small" fullWidth value={masivoForm.vida_util_km} onChange={e => setMasivoForm(f => ({ ...f, vida_util_km: e.target.value }))} /></Grid>
+              <Grid size={{ xs: 6, sm: 3 }}><TextField label="Presión rec. (psi)" type="number" size="small" fullWidth value={masivoForm.presion_recomendada} onChange={e => setMasivoForm(f => ({ ...f, presion_recomendada: e.target.value }))} /></Grid>
+
+              {masivoError && <Grid size={{ xs: 12 }}><Alert severity="error" sx={{ py: 0.5 }}>{masivoError}</Alert></Grid>}
+              {masivoPreview.length > 0 && (
+                <Grid size={{ xs: 12 }}>
+                  <Alert severity="success" sx={{ py: 0.5 }}>
+                    Se crearán <b>{masivoPreview.length}</b> llantas: {masivoPreview.slice(0, 3).join(', ')}
+                    {masivoPreview.length > 3 ? ` … ${masivoPreview[masivoPreview.length - 1]}` : ''}
+                  </Alert>
+                </Grid>
+              )}
+              {importResult && (
+                <Grid size={{ xs: 12 }}>
+                  <Alert severity={importResult.errores.length ? 'warning' : 'success'}>
+                    {importResult.exitosos} de {importResult.total} llantas creadas
+                  </Alert>
+                  {importResult.errores.slice(0, 5).map((e: any, i: number) => (
+                    <Typography key={i} variant="caption" color="error.main" display="block">{e.codigo || '—'}: {e.mensaje}</Typography>
+                  ))}
+                </Grid>
+              )}
+            </Grid>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setMasivoOpen(false)}>Cerrar</Button>
+            {masivoPreview.length === 0 ? (
+              <Button variant="contained" onClick={previsualizarMasivo} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>
+                Previsualizar
+              </Button>
+            ) : (
+              <Button variant="contained" disabled={mutImportar.isPending} onClick={confirmarMasivo} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>
+                {mutImportar.isPending ? 'Creando…' : `Crear ${masivoPreview.length} llantas`}
+              </Button>
+            )}
           </DialogActions>
         </Dialog>
 

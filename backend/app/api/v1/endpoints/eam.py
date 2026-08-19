@@ -2324,6 +2324,23 @@ async def _eliminar_neumatico_con_hijos(db: AsyncSession, nid: int) -> None:
         await db.execute(sa_delete(modelo).where(modelo.neumatico_id == nid))
     await db.execute(sa_delete(EAMNeumatico).where(EAMNeumatico.id == nid))
 
+def _mensaje_error_fila(e: Exception, codigo: Optional[str] = None) -> str:
+    """Traduce los errores de base de datos a algo entendible para el usuario.
+    Sin esto, la interfaz mostraba el volcado completo de SQLAlchemy (SQL,
+    parámetros y traza) dentro del listado de errores de la carga masiva."""
+    texto = str(e)
+    if "UniqueViolationError" in texto or "duplicate key value" in texto:
+        return f"El código {codigo} ya está registrado." if codigo else "El código ya está registrado."
+    if "ForeignKeyViolationError" in texto or "violates foreign key" in texto:
+        return "Alguna referencia no existe (bodega, zona o catálogo). Verifica los datos de la fila."
+    if "NotNullViolationError" in texto or "null value in column" in texto:
+        return "Faltan datos obligatorios en la fila."
+    if "invalid input syntax" in texto or "DataError" in texto:
+        return "Hay un valor con formato inválido (por ejemplo texto donde se espera un número)."
+    # Caso no contemplado: se recorta para no volcar la traza entera en pantalla.
+    return texto.splitlines()[0][:200] if texto else "Error al procesar la fila."
+
+
 @router.post("/neumaticos/bulk")
 async def crear_neumaticos_masivo(data: NeumaticoBulkCreate, db: AsyncSession = Depends(get_db)):
     exitosos = 0
@@ -2341,7 +2358,7 @@ async def crear_neumaticos_masivo(data: NeumaticoBulkCreate, db: AsyncSession = 
                 ))
             exitosos += 1
         except Exception as e:
-            errores.append({"fila": i + 2, "codigo": item.codigo, "mensaje": str(e)})
+            errores.append({"fila": i + 2, "codigo": item.codigo, "mensaje": _mensaje_error_fila(e, item.codigo)})
     await db.commit()
     return {"total": len(data.items), "exitosos": exitosos, "errores": errores}
 
