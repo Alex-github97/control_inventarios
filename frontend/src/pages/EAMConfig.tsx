@@ -26,6 +26,7 @@ import {
   Close as CloseIcon,
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { EsquemaLlantasPreview } from '@/components/EsquemaLlantasPreview'
 import { apiClient } from '@/api/client'
 
 const EAM_COLOR = '#32AC5C'
@@ -861,7 +862,17 @@ export default function EAMConfig() {
                         borderRadius: '8px', border: '1px solid #E5E7EB',
                       }}>
                         <Typography fontSize={11} color="grey.500" fontFamily="monospace">{e.codigo ?? '—'}</Typography>
-                        <Typography fontSize={13} color="#1E293B" fontWeight={500}>{e.nombre}</Typography>
+                        <Tooltip
+                          placement="right" arrow
+                          title={<EsquemaLlantasPreview
+                            layout={e.layout} numeroEjes={e.numero_ejes}
+                            tieneRepuesto={e.tiene_repuesto} cantidadRepuestos={e.cantidad_repuestos}
+                            nombre={e.nombre}
+                          />}
+                          componentsProps={{ tooltip: { sx: { bgcolor: '#0F172A', maxWidth: 'none' } }, arrow: { sx: { color: '#0F172A' } } }}
+                        >
+                          <Typography fontSize={13} color="#1E293B" fontWeight={500} sx={{ cursor: 'help', width: 'fit-content' }}>{e.nombre}</Typography>
+                        </Tooltip>
                         <Typography fontSize={12} color="grey.500">{tiposActivoCfg.find(t => t.codigo === e.tipo_activo)?.nombre ?? (e.tipo_activo ? e.tipo_activo : 'Cualquiera')}</Typography>
                         <Typography fontSize={12} color="grey.500">{e.numero_ejes}</Typography>
                         <Typography fontSize={12} color="grey.500" fontWeight={600}>{e.layout?.length ? totalLlantas(e.layout) : e.numero_ejes * 2}</Typography>

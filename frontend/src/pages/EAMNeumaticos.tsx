@@ -25,6 +25,7 @@ import toast from 'react-hot-toast'
 import { useSearchParams } from 'react-router-dom'
 import { apiClient as api } from '@/api/client'
 import { exportarPDF, exportarExcel } from '@/utils/exportar'
+import { EsquemaLlantasPreview } from '@/components/EsquemaLlantasPreview'
 import type { VehiculoCombinado } from '@/components/VehiculosCombinados'
 
 const EAM_COLOR = '#32AC5C'
@@ -58,7 +59,7 @@ interface BandaReencauche { id: number; marca: string; referencia?: string | nul
 interface MotivoFinVida { id: number; nombre: string; aplica_descarte: boolean; aplica_fin_vida: boolean; activo: boolean }
 interface AjusteCatalogo { id: number; nombre: string; activo: boolean }
 interface AjusteNeu { id: number; neumatico_id: number; motivo_id: number; fecha: string; valor: number; comentarios?: string | null }
-interface EsquemaVehiculo { id: number; nombre: string; tipo_activo?: string | null; numero_ejes: number; tiene_repuesto: boolean; cantidad_repuestos: number; observaciones?: string | null; activo: boolean }
+interface EsquemaVehiculo { id: number; codigo?: string | null; nombre: string; tipo_activo?: string | null; numero_ejes: number; layout?: number[] | null; tiene_repuesto: boolean; cantidad_repuestos: number; observaciones?: string | null; activo: boolean }
 interface TrabajoNeu { id: number; nombre: string; observaciones?: string | null; es_predeterminado: boolean; activo: boolean }
 interface PeriodicidadTrabajo { id: number; trabajo_id: number; tipo_activo?: string | null; valor: number; unidad: string; activo: boolean }
 interface TrabajoRealizado { id: number; neumatico_id: number; trabajo_id: number; fecha: string; km_odometro?: number | null; cantidad: number; costo_unitario?: number | null; proveedor?: string | null; observaciones?: string | null }
@@ -2853,7 +2854,25 @@ export default function EAMNeumaticos() {
             <Stack spacing={2} pt={0.5}>
               <TextField select label="Categoría de ejes/llantas *" size="small" fullWidth value={ejesForm.esquema_id} onChange={e => setEjesForm({ esquema_id: e.target.value })}>
                 <MenuItem value="">Seleccionar…</MenuItem>
-                {esquemas.map(es => <MenuItem key={es.id} value={String(es.id)}>{es.nombre} · {es.numero_ejes} eje(s){es.tiene_repuesto ? ' + repuesto' : ''}</MenuItem>)}
+                {/* El Tooltip va DENTRO del MenuItem: MUI Select necesita que sus
+                    hijos directos sean MenuItem para leer el `value`. */}
+                {esquemas.map(es => (
+                  <MenuItem key={es.id} value={String(es.id)}>
+                    <Tooltip
+                      placement="right" arrow
+                      title={<EsquemaLlantasPreview
+                        layout={es.layout} numeroEjes={es.numero_ejes}
+                        tieneRepuesto={es.tiene_repuesto} cantidadRepuestos={es.cantidad_repuestos}
+                        nombre={es.nombre}
+                      />}
+                      componentsProps={{ tooltip: { sx: { bgcolor: '#0F172A', maxWidth: 'none' } }, arrow: { sx: { color: '#0F172A' } } }}
+                    >
+                      <Box sx={{ width: '100%' }}>
+                        {es.nombre} · {es.numero_ejes} eje(s){es.tiene_repuesto ? ' + repuesto' : ''}
+                      </Box>
+                    </Tooltip>
+                  </MenuItem>
+                ))}
               </TextField>
               {esquemas.length === 0 ? (
                 <Alert severity="warning" sx={{ py: 0.5 }}>Aún no hay categorías creadas. Pre-configúralas en <b>EAM → Configuración → Catálogos → Esquemas de vehículo</b> y luego solo se asignan aquí.</Alert>

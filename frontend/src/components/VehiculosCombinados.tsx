@@ -10,6 +10,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { apiClient as api } from '@/api/client'
 import { exportarPDF, exportarExcel } from '@/utils/exportar'
+import { EsquemaLlantasPreview } from '@/components/EsquemaLlantasPreview'
 
 export interface VehiculoCombinado {
   origen: string; flota: string; id: number; activo_id?: number | null
@@ -20,7 +21,7 @@ export interface VehiculoCombinado {
 }
 
 interface TipoActivo { id: number; codigo: string; nombre: string; usa_llantas: boolean }
-interface EsquemaVehiculo { id: number; nombre: string; tipo_activo?: string | null; numero_ejes: number; tiene_repuesto: boolean; cantidad_repuestos: number }
+interface EsquemaVehiculo { id: number; nombre: string; tipo_activo?: string | null; numero_ejes: number; layout?: number[] | null; tiene_repuesto: boolean; cantidad_repuestos: number }
 
 const EMPTY = {
   codigo: '', nombre: '', placa: '', tipo_activo: 'VEHICULO', marca: '', modelo: '',
@@ -232,7 +233,23 @@ export function VehiculosCombinados({
               <Grid size={{ xs: 12 }}>
                 <TextField select label="Categoría de ejes/llantas" size="small" fullWidth value={form.esquema_id} onChange={e => setForm(f => ({ ...f, esquema_id: e.target.value }))}>
                   <MenuItem value="">Sin asignar (configurar después)</MenuItem>
-                  {esquemas.map(es => <MenuItem key={es.id} value={String(es.id)}>{es.nombre} · {es.numero_ejes} eje(s){es.tiene_repuesto ? ` + repuesto` : ''}</MenuItem>)}
+                  {esquemas.map(es => (
+                    <MenuItem key={es.id} value={String(es.id)}>
+                      <Tooltip
+                        placement="right" arrow
+                        title={<EsquemaLlantasPreview
+                          layout={es.layout} numeroEjes={es.numero_ejes}
+                          tieneRepuesto={es.tiene_repuesto} cantidadRepuestos={es.cantidad_repuestos}
+                          nombre={es.nombre}
+                        />}
+                        componentsProps={{ tooltip: { sx: { bgcolor: '#0F172A', maxWidth: 'none' } }, arrow: { sx: { color: '#0F172A' } } }}
+                      >
+                        <Box sx={{ width: '100%' }}>
+                          {es.nombre} · {es.numero_ejes} eje(s){es.tiene_repuesto ? ` + repuesto` : ''}
+                        </Box>
+                      </Tooltip>
+                    </MenuItem>
+                  ))}
                 </TextField>
               </Grid>
               {esquemas.length === 0 && <Grid size={{ xs: 12 }}><Alert severity="info" sx={{ py: 0.5 }}>Aún no hay categorías creadas. Pre-configúralas en <b>EAM → Configuración → Catálogos → Esquemas de vehículo</b> y luego solo se asignan aquí.</Alert></Grid>}
@@ -272,7 +289,23 @@ export function VehiculosCombinados({
             <Stack spacing={2} pt={0.5}>
               <TextField select label="Categoría de ejes/llantas" size="small" fullWidth value={layoutEsquemaId} onChange={e => setLayoutEsquemaId(e.target.value)}>
                 <MenuItem value="">Seleccionar…</MenuItem>
-                {esquemas.map(es => <MenuItem key={es.id} value={String(es.id)}>{es.nombre} · {es.numero_ejes} eje(s){es.tiene_repuesto ? ` + repuesto` : ''}</MenuItem>)}
+                {esquemas.map(es => (
+                    <MenuItem key={es.id} value={String(es.id)}>
+                      <Tooltip
+                        placement="right" arrow
+                        title={<EsquemaLlantasPreview
+                          layout={es.layout} numeroEjes={es.numero_ejes}
+                          tieneRepuesto={es.tiene_repuesto} cantidadRepuestos={es.cantidad_repuestos}
+                          nombre={es.nombre}
+                        />}
+                        componentsProps={{ tooltip: { sx: { bgcolor: '#0F172A', maxWidth: 'none' } }, arrow: { sx: { color: '#0F172A' } } }}
+                      >
+                        <Box sx={{ width: '100%' }}>
+                          {es.nombre} · {es.numero_ejes} eje(s){es.tiene_repuesto ? ` + repuesto` : ''}
+                        </Box>
+                      </Tooltip>
+                    </MenuItem>
+                  ))}
               </TextField>
               {esquemas.length === 0 && <Alert severity="info" sx={{ py: 0.5 }}>Aún no hay categorías creadas. Pre-configúralas en <b>EAM → Configuración → Catálogos → Esquemas de vehículo</b> y luego solo se asignan aquí.</Alert>}
             </Stack>
