@@ -169,6 +169,8 @@ class VehiculoCombinadoResponse(BaseModel):
     flota: str             # PROPIA | EXTERNA
     id: int                # id en la tabla de origen (eam_activo.id si origen=EAM)
     activo_id: Optional[int] = None   # eam_activo.id ya vinculado, si existe (permite usarlo en Neumáticos sin re-vincular)
+    codigo: Optional[str] = None      # código del activo EAM (identifica los que no tienen placa)
+    nombre: Optional[str] = None
     placa: Optional[str] = None
     tipo: Optional[str] = None
     marca: Optional[str] = None
@@ -970,9 +972,13 @@ async def list_vehiculos_combinados(
 
     espejos: dict[tuple, EAMActivo] = {}
     if flota in (None, "PROPIA"):
-        res = await db.execute(
-            select(EAMActivo).where(EAMActivo.activo == True, EAMActivo.placa.isnot(None))
-        )
+        # Para la vista de flota se exige placa (es un listado de vehículos), pero
+        # cuando se piden los que usan llantas el criterio válido es el tipo de
+        # activo: un montacargas o equipo de patio lleva llantas y no tiene placa.
+        q_propia = select(EAMActivo).where(EAMActivo.activo == True)
+        if not usa_llantas:
+            q_propia = q_propia.where(EAMActivo.placa.isnot(None))
+        res = await db.execute(q_propia)
         for a in res.scalars().all():
             if a.origen and a.origen != "EAM" and a.origen_id:
                 espejos[(a.origen, a.origen_id)] = a
@@ -980,7 +986,8 @@ async def list_vehiculos_combinados(
             if usa_llantas and a.tipo_activo not in tipos_con_llantas:
                 continue
             filas.append(VehiculoCombinadoResponse(
-                origen="EAM", flota="PROPIA", id=a.id, activo_id=a.id, placa=a.placa, tipo=a.tipo_activo,
+                origen="EAM", flota="PROPIA", id=a.id, activo_id=a.id,
+                codigo=a.codigo, nombre=a.nombre, placa=a.placa, tipo=a.tipo_activo,
                 marca=a.marca, modelo=a.modelo, anio=a.anio, numero_ejes=a.numero_ejes,
                 tiene_repuesto=a.tiene_repuesto,
                 capacidad_kg=a.capacidad_combustible, estado=a.estado,

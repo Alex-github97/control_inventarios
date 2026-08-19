@@ -22,6 +22,7 @@ import {
 } from 'recharts'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import { useSearchParams } from 'react-router-dom'
 import { apiClient as api } from '@/api/client'
 import { exportarPDF, exportarExcel } from '@/utils/exportar'
 import type { VehiculoCombinado } from '@/components/VehiculosCombinados'
@@ -183,6 +184,7 @@ function AgregarLlantaDialog({
 
 export default function EAMNeumaticos() {
   const qc = useQueryClient()
+  const [searchParams] = useSearchParams()
   const [tab, setTab] = useState(0)
   const [vehId, setVehId] = useState<string>('')
   const [draggedTire, setDraggedTire] = useState<Neumatico | null>(null)
@@ -313,6 +315,15 @@ export default function EAMNeumaticos() {
     if (!v) return
     if (v.activo_id) setVehId(String(v.activo_id))
     else mutVincularVeh.mutate(v)
+  }
+  // Llegada desde Activos con un vehículo ya elegido (?activo=<id de eam_activo>):
+  // se preselecciona en cuanto carga la lista, para no obligar a buscarlo de nuevo.
+  const activoParam = searchParams.get('activo')
+  const [preseleccionAplicada, setPreseleccionAplicada] = useState(false)
+  if (activoParam && !preseleccionAplicada && vehiculosDisponibles.length > 0) {
+    setPreseleccionAplicada(true)
+    const v = vehiculosDisponibles.find(x => String(x.activo_id) === activoParam)
+    if (v) { setVehSelKey(`${v.origen}:${v.id}`); setVehId(String(v.activo_id)) }
   }
   const { data: neumaticos = [] } = useQuery<Neumatico[]>({ queryKey: ['eam-neumaticos'], queryFn: () => api.get('/eam/neumaticos').then(r => r.data) })
   const { data: bodegas = [] } = useQuery<Bodega[]>({ queryKey: ['eam-bodegas-neu'], queryFn: () => api.get('/eam/neumaticos/bodegas').then(r => r.data) })
@@ -1107,7 +1118,8 @@ export default function EAMNeumaticos() {
                       <MenuItem value="">Seleccionar vehículo…</MenuItem>
                       {vehiculosDisponibles.map(v => (
                         <MenuItem key={`${v.origen}:${v.id}`} value={`${v.origen}:${v.id}`}>
-                          {v.placa ?? v.tipo ?? '—'}{v.marca ? ` — ${v.marca}` : ''}{v.modelo ? ` ${v.modelo}` : ''}
+                          {v.placa ?? v.codigo ?? v.tipo ?? '—'}
+                          {v.nombre ? ` — ${v.nombre}` : v.marca ? ` — ${v.marca}${v.modelo ? ` ${v.modelo}` : ''}` : ''}
                           {v.origen !== 'EAM' ? ` · ${v.origen}` : ''}
                         </MenuItem>
                       ))}

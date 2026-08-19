@@ -957,7 +957,7 @@ export default function EAMActivos() {
               <ListItemText primaryTypographyProps={{ fontSize: 13 }}>Ver órdenes de trabajo</ListItemText>
             </MenuItem>,
             ...(tiposActivo.find(t => t.codigo === menuFila.activo.tipo_activo)?.usa_llantas ? [
-              <MenuItem key="llantas" onClick={() => { navigate('/eam/neumaticos'); setMenuFila(null) }}>
+              <MenuItem key="llantas" onClick={() => { navigate(`/eam/neumaticos?activo=${menuFila.activo.id}`); setMenuFila(null) }}>
                 <ListItemIcon><LlantaIcon sx={{ fontSize: 18, color: EAM_DARK }} /></ListItemIcon>
                 <ListItemText primaryTypographyProps={{ fontSize: 13 }}
                   secondary={menuFila.activo.numero_ejes ? `${menuFila.activo.numero_ejes} eje(s) configurados` : 'Sin ejes configurados'}
