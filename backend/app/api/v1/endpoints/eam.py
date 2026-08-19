@@ -1115,6 +1115,36 @@ async def update_activo(activo_id: int, data: ActivoCreate, db: AsyncSession = D
     await db.commit(); await db.refresh(obj)
     return obj
 
+@router.delete("/activos/{activo_id}", status_code=204)
+async def delete_activo(activo_id: int, db: AsyncSession = Depends(get_db)):
+    """Baja lógica del activo (activo=False): conserva el histórico de órdenes de
+    trabajo, movimientos de neumáticos y demás registros que lo referencian.
+    Se bloquea si todavía tiene llantas montadas u órdenes de trabajo abiertas,
+    para no dejar registros huérfanos apuntando a un activo dado de baja."""
+    obj = await db.get(EAMActivo, activo_id)
+    if not obj:
+        raise HTTPException(404, "Activo no encontrado")
+
+    r = await db.execute(
+        select(func.count()).select_from(EAMNeumatico)
+        .where(EAMNeumatico.activo_id == activo_id, EAMNeumatico.estado == "INSTALADO")
+    )
+    montadas = r.scalar() or 0
+    if montadas:
+        raise HTTPException(409, f"El activo tiene {montadas} llanta(s) montada(s). Desmóntalas antes de darlo de baja.")
+
+    r = await db.execute(
+        select(func.count()).select_from(EAMOrdenTrabajo)
+        .where(EAMOrdenTrabajo.activo_id == activo_id, EAMOrdenTrabajo.estado.notin_(["CERRADA", "CANCELADA"]))
+    )
+    ots_abiertas = r.scalar() or 0
+    if ots_abiertas:
+        raise HTTPException(409, f"El activo tiene {ots_abiertas} orden(es) de trabajo abierta(s). Ciérralas o cancélalas antes de darlo de baja.")
+
+    obj.activo = False
+    await db.commit()
+
+
 @router.get("/activos/{activo_id}/componentes", response_model=List[ComponenteResponse])
 async def get_componentes_activo(activo_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(EAMComponente).where(EAMComponente.activo_id == activo_id))

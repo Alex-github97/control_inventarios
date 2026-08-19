@@ -1,9 +1,14 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState } from 'react'
 import {
   Box, Paper, Typography, Stack, Chip, Button, Tab, Tabs,
-  MenuItem, TextField, alpha, InputAdornment, LinearProgress, Divider,
+  MenuItem, TextField, alpha, InputAdornment, Divider,
+  IconButton, Menu, ListItemIcon, ListItemText, Dialog, DialogTitle,
+  DialogContent, DialogActions, Tooltip, Alert,
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
+import { apiClient } from '@/api/client'
 import {
   DirectionsCar as VehiculoIcon,
   PrecisionManufacturing as MontacargasIcon,
@@ -12,13 +17,17 @@ import {
   ExpandMore as ExpandIcon,
   ChevronRight as CollapseIcon,
   Handyman as OTIcon,
-  Description as DocIcon,
   Build as ComponenteIcon,
   Search as SearchIcon,
   ArrowBack as BackIcon,
   Speed as MetricIcon,
-  CalendarMonth as CalendarIcon,
   Place as PlaceIcon,
+  Add as AddIcon,
+  MoreVert as MoreIcon,
+  Edit as EditIcon,
+  DeleteForever as DeleteIcon,
+  TireRepair as LlantaIcon,
+  Visibility as VerIcon,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { Layout } from '@/components/layout/Layout'
@@ -30,52 +39,33 @@ const EAM_DARK  = '#27884A'
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type TipoActivo = 'Vehículo' | 'Montacargas' | 'Infraestructura' | 'Equipo'
-type EstadoActivo = 'OPERATIVO' | 'EN_MANTENIMIENTO' | 'FUERA_DE_SERVICIO'
-type Criticidad = 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAJA'
 
-interface Activo {
+// Activo tal como lo devuelve el backend (/eam/activos)
+export interface ActivoAPI {
   id: number
   codigo: string
   nombre: string
-  tipo: TipoActivo
-  estado: EstadoActivo
-  criticidad: Criticidad
-  ubicacion: string
-  odometro: string          // valor de medidor a mostrar en tabla
-  ultimoPM: string
-  // Ficha técnica / hoja de vida
-  marca: string
-  modelo: string
-  anio: number
-  serie: string
-  adquisicion: string       // fecha de adquisición
-  valorCompra: number
-  responsable: string
-  proximoPM: string
-  // Métricas de confiabilidad
-  disponibilidad: number    // %
-  mtbf: string
-  mttr: string
-  costoAcumulado: number
-}
-
-interface OTHistorial {
-  numero: string
-  tipo: string
-  descripcion: string
-  fecha: string
-  costo: number
-  estado: string
-}
-
-interface Componente {
-  nombre: string
-  estado: 'BUENO' | 'REGULAR' | 'CRITICO'
-}
-
-interface DocItem {
-  label: string
-  color: string
+  tipo_activo?: string | null
+  estado?: string | null
+  criticidad?: string | null
+  marca?: string | null
+  modelo?: string | null
+  anio?: number | null
+  numero_serie?: string | null
+  placa?: string | null
+  ubicacion?: string | null
+  sede?: string | null
+  area?: string | null
+  responsable?: string | null
+  odometro_actual?: number | null
+  horometro_actual?: number | null
+  fecha_adquisicion?: string | null
+  costo_adquisicion?: number | null
+  vida_util_anios?: number | null
+  tipo_combustible?: string | null
+  numero_ejes?: number | null
+  origen?: string | null
+  activo?: boolean
 }
 
 interface TreeNode {
@@ -85,118 +75,29 @@ interface TreeNode {
   children?: TreeNode[]
 }
 
-// ─── Static data ─────────────────────────────────────────────────────────────
+interface TipoActivoCat { id: number; codigo: string; nombre: string; usa_llantas: boolean }
+interface ComponenteAPI { id: number; nombre: string; estado?: string | null; marca?: string | null; numero_parte?: string | null }
+interface OTAPI { id: number; numero?: string | null; tipo_ot?: string | null; descripcion?: string | null; estado?: string | null; fecha_creacion?: string | null; costo_total?: number | null }
 
-const ACTIVOS_MOCK: Activo[] = [
-  { id:  1, codigo: 'VH-001', nombre: 'Tractocamión Kenworth T800',   tipo: 'Vehículo',        estado: 'OPERATIVO',         criticidad: 'CRITICA', ubicacion: 'Bogotá DC',     odometro: '124,500 km', ultimoPM: '22 días', marca: 'Kenworth',    modelo: 'T800',         anio: 2019, serie: '1XKDD40X5KJ256781', adquisicion: '2019-03-12', valorCompra: 420000000, responsable: 'Jorge Méndez',  proximoPM: 'en 8 días',  disponibilidad: 96.1, mtbf: '412 hrs', mttr: '3.8 hrs', costoAcumulado: 28400000 },
-  { id:  2, codigo: 'VH-002', nombre: 'Camión Freightliner M2-106',   tipo: 'Vehículo',        estado: 'EN_MANTENIMIENTO',  criticidad: 'ALTA',    ubicacion: 'Medellín',      odometro: '98,320 km',  ultimoPM: '8 días',  marca: 'Freightliner', modelo: 'M2-106',      anio: 2020, serie: '3ALACWDT8LDLM4512', adquisicion: '2020-06-01', valorCompra: 310000000, responsable: 'Carlos Díaz',   proximoPM: 'vencido 2 días', disponibilidad: 88.4, mtbf: '298 hrs', mttr: '5.2 hrs', costoAcumulado: 19750000 },
-  { id:  3, codigo: 'VH-003', nombre: 'Camioneta Ford Ranger',        tipo: 'Vehículo',        estado: 'OPERATIVO',         criticidad: 'BAJA',    ubicacion: 'Cali',          odometro: '45,100 km',  ultimoPM: '15 días', marca: 'Ford',         modelo: 'Ranger XLT',  anio: 2021, serie: '8AFAR22P9M6512340', adquisicion: '2021-09-20', valorCompra: 145000000, responsable: 'Ana Rojas',     proximoPM: 'en 20 días', disponibilidad: 98.7, mtbf: '640 hrs', mttr: '2.1 hrs', costoAcumulado: 6400000 },
-  { id:  4, codigo: 'MC-001', nombre: 'Montacargas Yale GLP050',      tipo: 'Montacargas',     estado: 'OPERATIVO',         criticidad: 'ALTA',    ubicacion: 'Bodega Bogotá', odometro: '8,230 hrs',  ultimoPM: '30 días', marca: 'Yale',         modelo: 'GLP050VX',    anio: 2018, serie: 'E177V02510P',       adquisicion: '2018-02-15', valorCompra: 98000000,  responsable: 'Luis Vargas',   proximoPM: 'en 12 días', disponibilidad: 94.0, mtbf: '355 hrs', mttr: '4.0 hrs', costoAcumulado: 15200000 },
-  { id:  5, codigo: 'MC-003', nombre: 'Montacargas Toyota 8FGCU25',   tipo: 'Montacargas',     estado: 'EN_MANTENIMIENTO',  criticidad: 'ALTA',    ubicacion: 'Bodega Cali',   odometro: '6,540 hrs',  ultimoPM: '45 días', marca: 'Toyota',       modelo: '8FGCU25',     anio: 2017, serie: '8FGCU25-70012',     adquisicion: '2017-11-03', valorCompra: 92000000,  responsable: 'Pedro Torres',  proximoPM: 'vencido 15 días', disponibilidad: 82.5, mtbf: '210 hrs', mttr: '6.5 hrs', costoAcumulado: 21800000 },
-  { id:  6, codigo: 'MC-004', nombre: 'Reach Truck Crown RR5200',     tipo: 'Montacargas',     estado: 'FUERA_DE_SERVICIO', criticidad: 'MEDIA',   ubicacion: 'Bodega Bogotá', odometro: '4,100 hrs',  ultimoPM: '60 días', marca: 'Crown',        modelo: 'RR5220-45',   anio: 2016, serie: 'RR5220-1A234567',   adquisicion: '2016-07-19', valorCompra: 110000000, responsable: 'Luis Vargas',   proximoPM: 'suspendido', disponibilidad: 61.0, mtbf: '150 hrs', mttr: '9.0 hrs', costoAcumulado: 27300000 },
-  { id:  7, codigo: 'BD-01',  nombre: 'Bodega Principal Bogotá',      tipo: 'Infraestructura', estado: 'OPERATIVO',         criticidad: 'ALTA',    ubicacion: 'Bogotá DC',     odometro: '—',          ultimoPM: '90 días', marca: 'ICOLTRANS',    modelo: 'Nave 4.200 m²', anio: 2012, serie: 'PRED-BTA-04',     adquisicion: '2012-01-10', valorCompra: 4800000000, responsable: 'Marco Vargas', proximoPM: 'en 5 días',  disponibilidad: 99.2, mtbf: '—',       mttr: '8.0 hrs', costoAcumulado: 42000000 },
-  { id:  8, codigo: 'CF-001', nombre: 'Cuarto Frío #1',               tipo: 'Infraestructura', estado: 'OPERATIVO',         criticidad: 'CRITICA', ubicacion: 'Bogotá DC',     odometro: '—',          ultimoPM: '15 días', marca: 'Bohn',         modelo: 'BHT-2200',    anio: 2019, serie: 'BHT2200-CF01',      adquisicion: '2019-05-22', valorCompra: 680000000, responsable: 'Marco Vargas',  proximoPM: 'en 10 días', disponibilidad: 97.8, mtbf: '520 hrs', mttr: '4.5 hrs', costoAcumulado: 18900000 },
-  { id:  9, codigo: 'BD-02',  nombre: 'Plataforma Medellín',          tipo: 'Infraestructura', estado: 'OPERATIVO',         criticidad: 'MEDIA',   ubicacion: 'Medellín',      odometro: '—',          ultimoPM: '45 días', marca: 'ICOLTRANS',    modelo: 'Cross-dock 1.800 m²', anio: 2015, serie: 'PRED-MDE-02', adquisicion: '2015-08-30', valorCompra: 2100000000, responsable: 'Diana Castro', proximoPM: 'en 30 días', disponibilidad: 98.5, mtbf: '—',       mttr: '6.0 hrs', costoAcumulado: 12400000 },
-  { id: 10, codigo: 'CMP-07', nombre: 'Compresor Atlas Copco GA22',   tipo: 'Equipo',          estado: 'EN_MANTENIMIENTO',  criticidad: 'ALTA',    ubicacion: 'Bogotá DC',     odometro: '12,400 hrs', ultimoPM: '5 días',  marca: 'Atlas Copco',  modelo: 'GA22',        anio: 2018, serie: 'API-GA22-778901',   adquisicion: '2018-04-11', valorCompra: 74000000,  responsable: 'Luis Herrera',  proximoPM: 'en 3 días',  disponibilidad: 90.3, mtbf: '380 hrs', mttr: '4.2 hrs', costoAcumulado: 9800000 },
-  { id: 11, codigo: 'SRV-01', nombre: 'Servidor Dell PowerEdge R740', tipo: 'Equipo',          estado: 'OPERATIVO',         criticidad: 'CRITICA', ubicacion: 'Data Center',   odometro: '—',          ultimoPM: '35 días', marca: 'Dell',         modelo: 'PowerEdge R740', anio: 2021, serie: 'DPE-R740-CN0X4', adquisicion: '2021-02-18', valorCompra: 56000000, responsable: 'Ana Rojas',     proximoPM: 'en 25 días', disponibilidad: 99.9, mtbf: '8760 hrs', mttr: '1.5 hrs', costoAcumulado: 3200000 },
-  { id: 12, codigo: 'ELV-02', nombre: 'Estibador Eléctrico Still EXU', tipo: 'Equipo',         estado: 'OPERATIVO',         criticidad: 'BAJA',    ubicacion: 'Bodega Cali',   odometro: '2,850 hrs',  ultimoPM: '12 días', marca: 'Still',        modelo: 'EXU-18',      anio: 2022, serie: 'STILL-EXU18-4412', adquisicion: '2022-03-05', valorCompra: 38000000,  responsable: 'Pedro Torres',  proximoPM: 'en 18 días', disponibilidad: 97.1, mtbf: '460 hrs', mttr: '2.8 hrs', costoAcumulado: 2100000 },
-]
+// Familia visual (iconos y agrupación) a partir del código de tipo del catálogo.
+const FAMILIA_POR_TIPO: Record<string, TipoActivo> = {
+  VEHICULO: 'Vehículo', REMOLQUE: 'Vehículo', MOTOCICLETA: 'Vehículo',
+  MONTACARGAS: 'Montacargas', EQUIPO_PATIO: 'Montacargas',
+  INFRAESTRUCTURA: 'Infraestructura', BODEGA: 'Infraestructura', EDIFICACION: 'Infraestructura',
+}
+const familiaDe = (codigo?: string | null): TipoActivo => FAMILIA_POR_TIPO[codigo ?? ''] ?? 'Equipo'
 
-// ─── Contenido derivado por activo (hoja de vida) ──────────────────────────────
+const ESTADOS_ACTIVO = ['OPERATIVO', 'EN_MANTENIMIENTO', 'FUERA_DE_SERVICIO', 'DADO_DE_BAJA', 'STANDBY', 'EN_GARANTIA']
+const CRITICIDADES = ['CRITICA', 'ALTA', 'MEDIA', 'BAJA']
 
-const COMPONENTES_POR_TIPO: Record<TipoActivo, string[]> = {
-  'Vehículo':        ['Motor', 'Caja de velocidades', 'Sistema de frenos', 'Dirección hidráulica', 'Suspensión', 'Sistema eléctrico'],
-  'Montacargas':     ['Mástil', 'Sistema hidráulico', 'Motor / Batería', 'Horquillas', 'Transmisión'],
-  'Infraestructura': ['Estructura', 'Sistema eléctrico', 'Refrigeración / Clima', 'Sistema contra incendios'],
-  'Equipo':          ['Unidad principal', 'Motor eléctrico', 'Sistema de control', 'Refrigeración'],
+const EMPTY_ACTIVO = {
+  codigo: '', nombre: '', tipo_activo: 'VEHICULO', estado: 'OPERATIVO', criticidad: 'MEDIA',
+  marca: '', modelo: '', anio: '', numero_serie: '', placa: '',
+  ubicacion: '', sede: '', area: '', responsable: '',
+  odometro_actual: '', horometro_actual: '', fecha_adquisicion: '', costo_adquisicion: '',
+  vida_util_anios: '', tipo_combustible: '',
 }
 
-const ESTADOS_COMP: Componente['estado'][] = ['BUENO', 'REGULAR', 'CRITICO']
-
-function componentesDe(a: Activo): Componente[] {
-  const nombres = COMPONENTES_POR_TIPO[a.tipo]
-  const sesgo = a.estado === 'FUERA_DE_SERVICIO' ? 2 : a.estado === 'EN_MANTENIMIENTO' ? 1 : 0
-  return nombres.map((nombre, i) => {
-    // Estado determinístico según posición + estado global del activo
-    const idx = Math.min(2, (i + sesgo + a.id) % 3 === 0 ? 2 - sesgo : (i + a.id) % 3)
-    const estado = sesgo === 2 && i === 0 ? 'CRITICO' : ESTADOS_COMP[Math.max(0, Math.min(2, idx))]
-    return { nombre, estado }
-  })
-}
-
-const OTS_POR_TIPO: Record<TipoActivo, { tipo: string; desc: string; costo: number }[]> = {
-  'Vehículo': [
-    { tipo: 'PREVENTIVA', desc: 'Cambio de aceite y filtros', costo: 850000 },
-    { tipo: 'CORRECTIVA', desc: 'Reparación sistema de frenos', costo: 2400000 },
-    { tipo: 'PREVENTIVA', desc: 'Revisión mayor programada', costo: 1200000 },
-    { tipo: 'PREDICTIVA', desc: 'Análisis de vibraciones', costo: 320000 },
-    { tipo: 'CORRECTIVA', desc: 'Cambio de neumático posterior', costo: 780000 },
-  ],
-  'Montacargas': [
-    { tipo: 'PREVENTIVA', desc: 'Inspección de mástil y cadenas', costo: 480000 },
-    { tipo: 'CORRECTIVA', desc: 'Reparación de fuga hidráulica', costo: 1650000 },
-    { tipo: 'PREVENTIVA', desc: 'Mantenimiento de batería', costo: 520000 },
-    { tipo: 'PREDICTIVA', desc: 'Termografía de motor', costo: 280000 },
-    { tipo: 'CORRECTIVA', desc: 'Cambio de horquillas', costo: 920000 },
-  ],
-  'Infraestructura': [
-    { tipo: 'PREVENTIVA', desc: 'Mantenimiento sistema eléctrico', costo: 1400000 },
-    { tipo: 'CORRECTIVA', desc: 'Reparación de compresor de frío', costo: 3200000 },
-    { tipo: 'PREVENTIVA', desc: 'Inspección estructural anual', costo: 2100000 },
-    { tipo: 'PREDICTIVA', desc: 'Medición de consumo energético', costo: 650000 },
-    { tipo: 'PREVENTIVA', desc: 'Recarga de extintores', costo: 380000 },
-  ],
-  'Equipo': [
-    { tipo: 'PREVENTIVA', desc: 'Cambio de filtros y sellos', costo: 620000 },
-    { tipo: 'CORRECTIVA', desc: 'Reemplazo de válvulas', costo: 1240000 },
-    { tipo: 'PREDICTIVA', desc: 'Análisis de aceite', costo: 290000 },
-    { tipo: 'PREVENTIVA', desc: 'Calibración y ajuste', costo: 450000 },
-    { tipo: 'CORRECTIVA', desc: 'Reparación de motor eléctrico', costo: 1800000 },
-  ],
-}
-
-function historialDe(a: Activo): OTHistorial[] {
-  const pool = OTS_POR_TIPO[a.tipo]
-  const fechas = ['15/01/2025', '28/11/2024', '10/10/2024', '05/09/2024', '12/08/2024']
-  return pool.map((p, i) => ({
-    numero: `OT-2024-${String(900 - a.id * 7 - i).padStart(4, '0')}`,
-    tipo: p.tipo,
-    descripcion: p.desc,
-    fecha: fechas[i],
-    costo: p.costo,
-    estado: 'COMPLETADA',
-  }))
-}
-
-function documentosDe(a: Activo): DocItem[] {
-  if (a.tipo === 'Vehículo') {
-    return [
-      { label: 'SOAT vigente', color: '#16A34A' },
-      { label: a.criticidad === 'CRITICA' ? 'Tecno-mecánica vence 15 días' : 'Tecno-mecánica vigente', color: a.criticidad === 'CRITICA' ? '#F59E0B' : '#16A34A' },
-      { label: 'Tarjeta de propiedad', color: '#3B82F6' },
-      { label: 'Póliza todo riesgo', color: '#7C3AED' },
-    ]
-  }
-  if (a.tipo === 'Montacargas') {
-    return [
-      { label: 'Certificado de operación', color: '#16A34A' },
-      { label: 'Póliza de responsabilidad', color: '#7C3AED' },
-      { label: 'Manual del fabricante', color: '#3B82F6' },
-    ]
-  }
-  if (a.tipo === 'Infraestructura') {
-    return [
-      { label: 'Certificado RETIE', color: '#16A34A' },
-      { label: 'Póliza de inmueble', color: '#7C3AED' },
-      { label: 'Plan de mantenimiento', color: '#3B82F6' },
-    ]
-  }
-  return [
-    { label: 'Garantía de fabricante', color: '#16A34A' },
-    { label: 'Manual técnico', color: '#3B82F6' },
-    { label: 'Póliza de equipo', color: '#7C3AED' },
-  ]
-}
 
 const TREE_DATA: TreeNode[] = [
   {
@@ -229,7 +130,11 @@ const ESTADO_COLOR: Record<string, string> = {
   OPERATIVO:         '#16A34A',
   EN_MANTENIMIENTO:  EAM_COLOR,
   FUERA_DE_SERVICIO: '#DC2626',
+  DADO_DE_BAJA:      '#6B7280',
+  STANDBY:           '#F59E0B',
+  EN_GARANTIA:       '#3B82F6',
 }
+const colorEstado = (e?: string | null) => ESTADO_COLOR[e ?? ''] ?? '#6B7280'
 
 const CRITICIDAD_COLOR: Record<string, string> = {
   CRITICA: '#DC2626',
@@ -338,32 +243,64 @@ function TreeNodeItem({
 
 // ─── Vista 360° (hoja de vida del activo seleccionado) ─────────────────────────
 
-function Vista360({ activo, onBack, onVerOTs }: { activo: Activo; onBack: () => void; onVerOTs: (a: Activo) => void }) {
-  const componentes = useMemo(() => componentesDe(activo), [activo])
-  const historial   = useMemo(() => historialDe(activo), [activo])
-  const documentos  = useMemo(() => documentosDe(activo), [activo])
-  const medidorEsHoras = activo.odometro.includes('hrs')
+function Vista360({ activo, onBack, onVerOTs, onEditar, nombreTipo }: {
+  activo: ActivoAPI | null
+  onBack: () => void
+  onVerOTs: (a: ActivoAPI) => void
+  onEditar: (a: ActivoAPI) => void
+  nombreTipo: (c?: string | null) => string
+}) {
+  // Datos reales del activo: componentes registrados y órdenes de trabajo.
+  const { data: componentes = [] } = useQuery<ComponenteAPI[]>({
+    queryKey: ['eam-activo-componentes', activo?.id],
+    queryFn: () => apiClient.get(`/eam/activos/${activo!.id}/componentes`).then(r => r.data),
+    enabled: !!activo,
+  })
+  const { data: ots = [] } = useQuery<OTAPI[]>({
+    queryKey: ['eam-activo-ots', activo?.id],
+    queryFn: () => apiClient.get('/eam/ots', { params: { activo_id: activo!.id } }).then(r => r.data),
+    enabled: !!activo,
+  })
+
+  if (!activo) {
+    return (
+      <Paper elevation={0} sx={{ bgcolor: '#FFFFFF', border: `1px solid rgba(50,172,92,0.25)`, borderRadius: '14px', p: 4, textAlign: 'center' }}>
+        <Typography fontSize={13} color="#94A3B8" mb={2}>Selecciona un activo en el Portafolio para ver su hoja de vida.</Typography>
+        <Button onClick={onBack} startIcon={<BackIcon />} sx={{ textTransform: 'none', color: EAM_COLOR }}>Ir al Portafolio</Button>
+      </Paper>
+    )
+  }
+
+  const costoOTs = ots.reduce((s, o) => s + (o.costo_total ?? 0), 0)
+  const otsAbiertas = ots.filter(o => !['CERRADA', 'CANCELADA'].includes(o.estado ?? '')).length
+  const medidor = activo.odometro_actual
+    ? { label: 'Odómetro', value: `${activo.odometro_actual.toLocaleString('es-CO')} km` }
+    : activo.horometro_actual
+      ? { label: 'Horómetro', value: `${activo.horometro_actual.toLocaleString('es-CO')} hrs` }
+      : { label: 'Medidor', value: '—' }
 
   const kpis = [
-    { label: medidorEsHoras ? 'Horómetro' : activo.odometro === '—' ? 'Antigüedad' : 'Odómetro', value: activo.odometro === '—' ? `${new Date().getFullYear() - activo.anio} años` : activo.odometro, color: '#3B82F6' },
-    { label: 'Último PM',      value: `hace ${activo.ultimoPM}`,        color: '#F59E0B' },
-    { label: 'Próximo PM',     value: activo.proximoPM,                 color: activo.proximoPM.includes('vencido') || activo.proximoPM.includes('suspendido') ? '#DC2626' : EAM_COLOR },
-    { label: 'Disponibilidad', value: `${activo.disponibilidad}%`,      color: activo.disponibilidad >= 95 ? '#16A34A' : activo.disponibilidad >= 85 ? '#F59E0B' : '#DC2626' },
-    { label: 'MTBF',           value: activo.mtbf,                      color: '#06B6D4' },
-    { label: 'MTTR',           value: activo.mttr,                      color: '#0EA5E9' },
-    { label: 'Costo acumulado', value: formatCOP(activo.costoAcumulado), color: EAM_DARK },
-    { label: 'OTs históricas', value: String(historial.length),        color: '#8B5CF6' },
+    { label: medidor.label,      value: medidor.value, color: '#3B82F6' },
+    { label: 'Antigüedad',       value: activo.anio ? `${new Date().getFullYear() - activo.anio} años` : '—', color: '#F59E0B' },
+    { label: 'OTs registradas',  value: String(ots.length), color: '#8B5CF6' },
+    { label: 'OTs abiertas',     value: String(otsAbiertas), color: otsAbiertas ? '#DC2626' : '#16A34A' },
+    { label: 'Costo en OTs',     value: costoOTs ? formatCOP(costoOTs) : '—', color: EAM_DARK },
+    { label: 'Componentes',      value: String(componentes.length), color: '#06B6D4' },
+    { label: 'Valor de compra',  value: activo.costo_adquisicion ? formatCOP(activo.costo_adquisicion) : '—', color: '#0EA5E9' },
+    { label: 'Vida útil',        value: activo.vida_util_anios ? `${activo.vida_util_anios} años` : '—', color: '#64748B' },
   ]
 
   const ficha = [
-    { label: 'Marca',            value: activo.marca },
-    { label: 'Modelo',           value: activo.modelo },
-    { label: 'Año',              value: String(activo.anio) },
-    { label: 'Serie / VIN',      value: activo.serie },
-    { label: 'Ubicación',        value: activo.ubicacion },
-    { label: 'Responsable',      value: activo.responsable },
-    { label: 'Fecha adquisición', value: activo.adquisicion },
-    { label: 'Valor de compra',  value: formatCOP(activo.valorCompra) },
+    { label: 'Marca',            value: activo.marca ?? '—' },
+    { label: 'Modelo',           value: activo.modelo ?? '—' },
+    { label: 'Año',              value: activo.anio ? String(activo.anio) : '—' },
+    { label: 'Serie / VIN',      value: activo.numero_serie ?? '—' },
+    { label: 'Placa',            value: activo.placa ?? '—' },
+    { label: 'Ubicación',        value: activo.ubicacion ?? '—' },
+    { label: 'Sede / Área',      value: [activo.sede, activo.area].filter(Boolean).join(' · ') || '—' },
+    { label: 'Responsable',      value: activo.responsable ?? '—' },
+    { label: 'Fecha adquisición', value: activo.fecha_adquisicion ?? '—' },
+    { label: 'Combustible',      value: activo.tipo_combustible ?? '—' },
   ]
 
   return (
@@ -384,37 +321,46 @@ function Vista360({ activo, onBack, onVerOTs }: { activo: Activo; onBack: () => 
               Portafolio
             </Button>
             <Divider orientation="vertical" flexItem sx={{ borderColor: '#E5E7EB' }} />
-            <Box sx={{ color: EAM_COLOR }}>{TIPO_ICON[activo.tipo]}</Box>
+            <Box sx={{ color: EAM_COLOR }}>{TIPO_ICON[familiaDe(activo.tipo_activo)]}</Box>
             <Box>
               <Typography fontSize={11} fontWeight={700} color="#64748B" letterSpacing="0.5px">
-                {activo.codigo} · {activo.tipo}
+                {activo.codigo} · {nombreTipo(activo.tipo_activo)}
               </Typography>
               <Typography variant="h6" fontWeight={800} color="text.primary">
                 {activo.nombre}
               </Typography>
               <Stack direction="row" spacing={1} mt={1}>
                 <Chip
-                  label={activo.estado.replace(/_/g, ' ')}
+                  label={(activo.estado ?? '—').replace(/_/g, ' ')}
                   size="small"
-                  sx={{ bgcolor: alpha(ESTADO_COLOR[activo.estado], 0.15), color: ESTADO_COLOR[activo.estado], fontWeight: 700, fontSize: 10 }}
+                  sx={{ bgcolor: alpha(colorEstado(activo.estado), 0.15), color: colorEstado(activo.estado), fontWeight: 700, fontSize: 10 }}
                 />
                 <Chip
-                  label={activo.criticidad}
+                  label={activo.criticidad ?? '—'}
                   size="small"
-                  sx={{ bgcolor: alpha(CRITICIDAD_COLOR[activo.criticidad], 0.15), color: CRITICIDAD_COLOR[activo.criticidad], fontWeight: 700, fontSize: 10 }}
+                  sx={{ bgcolor: alpha(CRITICIDAD_COLOR[activo.criticidad ?? ''] ?? '#6B7280', 0.15), color: CRITICIDAD_COLOR[activo.criticidad ?? ''] ?? '#6B7280', fontWeight: 700, fontSize: 10 }}
                 />
               </Stack>
             </Box>
           </Stack>
-          <Button
-            variant="contained"
-            startIcon={<OTIcon />}
-            size="small"
-            onClick={() => onVerOTs(activo)}
-            sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, borderRadius: '10px', fontWeight: 700 }}
-          >
-            Ver Órdenes de Trabajo
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined" startIcon={<EditIcon />} size="small"
+              onClick={() => onEditar(activo)}
+              sx={{ color: EAM_DARK, borderColor: alpha(EAM_COLOR, 0.4), borderRadius: '10px', fontWeight: 700, textTransform: 'none' }}
+            >
+              Editar
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<OTIcon />}
+              size="small"
+              onClick={() => onVerOTs(activo)}
+              sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, borderRadius: '10px', fontWeight: 700 }}
+            >
+              Ver Órdenes de Trabajo
+            </Button>
+          </Stack>
         </Stack>
       </Paper>
 
@@ -458,23 +404,6 @@ function Vista360({ activo, onBack, onVerOTs }: { activo: Activo; onBack: () => 
             </Grid>
           ))}
         </Grid>
-        {/* Salud del activo */}
-        <Box mt={2.5}>
-          <Stack direction="row" justifyContent="space-between" mb={0.5}>
-            <Typography fontSize={11} color="#64748B">Disponibilidad operativa</Typography>
-            <Typography fontSize={11} fontWeight={700} color={activo.disponibilidad >= 95 ? '#16A34A' : activo.disponibilidad >= 85 ? '#F59E0B' : '#DC2626'}>
-              {activo.disponibilidad}%
-            </Typography>
-          </Stack>
-          <LinearProgress
-            variant="determinate"
-            value={activo.disponibilidad}
-            sx={{
-              height: 8, borderRadius: 5, bgcolor: '#F1F5F9',
-              '& .MuiLinearProgress-bar': { bgcolor: activo.disponibilidad >= 95 ? '#16A34A' : activo.disponibilidad >= 85 ? '#F59E0B' : '#DC2626', borderRadius: 5 },
-            }}
-          />
-        </Box>
       </Paper>
 
       <Grid container spacing={2}>
@@ -486,35 +415,45 @@ function Vista360({ activo, onBack, onVerOTs }: { activo: Activo; onBack: () => 
           >
             <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2}>
               <Typography fontWeight={700} fontSize={14} color="text.primary">
-                Historial de OTs (últimas {historial.length})
+                Historial de OTs ({ots.length})
               </Typography>
-              <Typography fontSize={12} fontWeight={700} color="#16A34A">
-                {formatCOP(historial.reduce((s, o) => s + o.costo, 0))}
-              </Typography>
+              {costoOTs > 0 && (
+                <Typography fontSize={12} fontWeight={700} color="#16A34A">{formatCOP(costoOTs)}</Typography>
+              )}
             </Stack>
             <Stack spacing={1}>
-              {historial.map((ot) => (
+              {ots.map((ot) => (
                 <Box
-                  key={ot.numero}
+                  key={ot.id}
                   sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1.25, borderRadius: '10px', bgcolor: '#F8FAFC', border: '1px solid #E5E7EB' }}
                 >
                   <Box flex={1} minWidth={0}>
                     <Stack direction="row" alignItems="center" spacing={1} mb={0.25}>
-                      <Typography fontSize={11} fontWeight={700} color={EAM_COLOR}>{ot.numero}</Typography>
-                      <Chip
-                        label={ot.tipo}
-                        size="small"
-                        sx={{ bgcolor: alpha(OT_TIPO_COLOR[ot.tipo] ?? '#6B7280', 0.15), color: OT_TIPO_COLOR[ot.tipo] ?? '#6B7280', fontWeight: 700, fontSize: 9, height: 18 }}
-                      />
+                      <Typography fontSize={11} fontWeight={700} color={EAM_COLOR}>{ot.numero ?? `OT-${ot.id}`}</Typography>
+                      {ot.tipo_ot && (
+                        <Chip
+                          label={ot.tipo_ot}
+                          size="small"
+                          sx={{ bgcolor: alpha(OT_TIPO_COLOR[ot.tipo_ot] ?? '#6B7280', 0.15), color: OT_TIPO_COLOR[ot.tipo_ot] ?? '#6B7280', fontWeight: 700, fontSize: 9, height: 18 }}
+                        />
+                      )}
+                      {ot.estado && (
+                        <Chip label={ot.estado} size="small" sx={{ bgcolor: '#E2E8F0', color: '#475569', fontWeight: 700, fontSize: 9, height: 18 }} />
+                      )}
                     </Stack>
-                    <Typography fontSize={12} color="#64748B" noWrap>{ot.descripcion}</Typography>
+                    <Typography fontSize={12} color="#64748B" noWrap>{ot.descripcion ?? '—'}</Typography>
                   </Box>
                   <Box textAlign="right" flexShrink={0}>
-                    <Typography fontSize={11} fontWeight={700} color="#16A34A">{formatCOP(ot.costo)}</Typography>
-                    <Typography fontSize={10} color="#64748B">{ot.fecha}</Typography>
+                    {ot.costo_total != null && <Typography fontSize={11} fontWeight={700} color="#16A34A">{formatCOP(ot.costo_total)}</Typography>}
+                    <Typography fontSize={10} color="#64748B">{ot.fecha_creacion ? new Date(ot.fecha_creacion).toLocaleDateString('es-CO') : '—'}</Typography>
                   </Box>
                 </Box>
               ))}
+              {ots.length === 0 && (
+                <Typography fontSize={12.5} color="#94A3B8" textAlign="center" py={3}>
+                  Este activo aún no tiene órdenes de trabajo registradas.
+                </Typography>
+              )}
             </Stack>
           </Paper>
         </Grid>
@@ -532,35 +471,25 @@ function Vista360({ activo, onBack, onVerOTs }: { activo: Activo; onBack: () => 
               </Stack>
               <Stack spacing={1}>
                 {componentes.map((c) => (
-                  <Stack key={c.nombre} direction="row" justifyContent="space-between" alignItems="center">
-                    <Typography fontSize={12} color="#64748B">{c.nombre}</Typography>
+                  <Stack key={c.id} direction="row" justifyContent="space-between" alignItems="center">
+                    <Box minWidth={0}>
+                      <Typography fontSize={12} color="#64748B" noWrap>{c.nombre}</Typography>
+                      {(c.marca || c.numero_parte) && (
+                        <Typography fontSize={10} color="#94A3B8" noWrap>{[c.marca, c.numero_parte].filter(Boolean).join(' · ')}</Typography>
+                      )}
+                    </Box>
                     <Chip
-                      label={c.estado}
+                      label={c.estado ?? '—'}
                       size="small"
-                      sx={{ bgcolor: alpha(COMP_COLOR[c.estado], 0.15), color: COMP_COLOR[c.estado], fontWeight: 700, fontSize: 9, height: 20 }}
+                      sx={{ bgcolor: alpha(COMP_COLOR[c.estado ?? ''] ?? '#6B7280', 0.15), color: COMP_COLOR[c.estado ?? ''] ?? '#6B7280', fontWeight: 700, fontSize: 9, height: 20 }}
                     />
                   </Stack>
                 ))}
-              </Stack>
-            </Paper>
-
-            <Paper
-              elevation={0}
-              sx={{ bgcolor: '#FFFFFF', border: `1px solid rgba(50,172,92,0.25)`, borderRadius: '14px', p: 2.5 }}
-            >
-              <Stack direction="row" alignItems="center" spacing={1} mb={2}>
-                <DocIcon sx={{ fontSize: 16, color: EAM_COLOR }} />
-                <Typography fontWeight={700} fontSize={14} color="text.primary">Documentos del activo</Typography>
-              </Stack>
-              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                {documentos.map((doc) => (
-                  <Chip
-                    key={doc.label}
-                    label={doc.label}
-                    size="small"
-                    sx={{ bgcolor: alpha(doc.color, 0.15), color: doc.color, fontWeight: 600, fontSize: 11, border: `1px solid ${alpha(doc.color, 0.3)}` }}
-                  />
-                ))}
+                {componentes.length === 0 && (
+                  <Typography fontSize={12} color="#94A3B8" textAlign="center" py={2}>
+                    Sin componentes registrados para este activo.
+                  </Typography>
+                )}
               </Stack>
             </Paper>
           </Stack>
@@ -570,10 +499,135 @@ function Vista360({ activo, onBack, onVerOTs }: { activo: Activo; onBack: () => 
   )
 }
 
+// ─── Diálogo crear / editar activo ────────────────────────────────────────────
+// Componente propio con estado local: escribir aquí no re-renderiza la tabla.
+function ActivoDialog({
+  open, onClose, editando, tipos, onSubmit, isPending,
+}: {
+  open: boolean
+  onClose: () => void
+  editando: ActivoAPI | null
+  tipos: TipoActivoCat[]
+  onSubmit: (payload: Record<string, unknown>) => void
+  isPending: boolean
+}) {
+  const [form, setForm] = useState({ ...EMPTY_ACTIVO })
+  const [wasOpen, setWasOpen] = useState(false)
+  if (open && !wasOpen) {
+    setWasOpen(true)
+    setForm(editando ? {
+      codigo: editando.codigo ?? '', nombre: editando.nombre ?? '',
+      tipo_activo: editando.tipo_activo ?? 'VEHICULO', estado: editando.estado ?? 'OPERATIVO',
+      criticidad: editando.criticidad ?? 'MEDIA', marca: editando.marca ?? '', modelo: editando.modelo ?? '',
+      anio: editando.anio != null ? String(editando.anio) : '', numero_serie: editando.numero_serie ?? '',
+      placa: editando.placa ?? '', ubicacion: editando.ubicacion ?? '', sede: editando.sede ?? '',
+      area: editando.area ?? '', responsable: editando.responsable ?? '',
+      odometro_actual: editando.odometro_actual != null ? String(editando.odometro_actual) : '',
+      horometro_actual: editando.horometro_actual != null ? String(editando.horometro_actual) : '',
+      fecha_adquisicion: editando.fecha_adquisicion ?? '',
+      costo_adquisicion: editando.costo_adquisicion != null ? String(editando.costo_adquisicion) : '',
+      vida_util_anios: editando.vida_util_anios != null ? String(editando.vida_util_anios) : '',
+      tipo_combustible: editando.tipo_combustible ?? '',
+    } : { ...EMPTY_ACTIVO })
+  } else if (!open && wasOpen) {
+    setWasOpen(false)
+  }
+
+  const set = (k: keyof typeof EMPTY_ACTIVO) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm(f => ({ ...f, [k]: e.target.value }))
+  const num = (v: string) => (v.trim() === '' ? undefined : Number(v))
+  const txt = (v: string) => (v.trim() === '' ? undefined : v.trim())
+  const usaLlantas = tipos.find(t => t.codigo === form.tipo_activo)?.usa_llantas ?? false
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: '14px' } }}>
+      <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>
+        {editando ? `Editar activo · ${editando.codigo}` : 'Crear activo'}
+      </DialogTitle>
+      <DialogContent dividers>
+        <Grid container spacing={2} sx={{ pt: 0.5 }}>
+          <Grid size={{ xs: 12 }}><Typography fontSize={11} fontWeight={700} color="#94A3B8" letterSpacing="0.06em">IDENTIFICACIÓN</Typography></Grid>
+          <Grid size={{ xs: 12, sm: 4 }}><TextField label="Código *" size="small" fullWidth value={form.codigo} onChange={set('codigo')} disabled={!!editando} helperText={editando ? 'El código no se cambia' : undefined} /></Grid>
+          <Grid size={{ xs: 12, sm: 8 }}><TextField label="Nombre / descripción *" size="small" fullWidth value={form.nombre} onChange={set('nombre')} /></Grid>
+          <Grid size={{ xs: 12, sm: 4 }}>
+            <TextField select label="Tipo de activo *" size="small" fullWidth value={form.tipo_activo} onChange={set('tipo_activo')}>
+              {(tipos.length ? tipos : [{ codigo: 'VEHICULO', nombre: 'Vehículo' } as TipoActivoCat]).map(t => (
+                <MenuItem key={t.codigo} value={t.codigo}>{t.nombre}</MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 4 }}>
+            <TextField select label="Estado" size="small" fullWidth value={form.estado} onChange={set('estado')}>
+              {ESTADOS_ACTIVO.map(e => <MenuItem key={e} value={e}>{e.replace(/_/g, ' ')}</MenuItem>)}
+            </TextField>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 4 }}>
+            <TextField select label="Criticidad" size="small" fullWidth value={form.criticidad} onChange={set('criticidad')}>
+              {CRITICIDADES.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+            </TextField>
+          </Grid>
+
+          <Grid size={{ xs: 12 }}><Typography fontSize={11} fontWeight={700} color="#94A3B8" letterSpacing="0.06em" mt={1}>FICHA TÉCNICA</Typography></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><TextField label="Marca" size="small" fullWidth value={form.marca} onChange={set('marca')} /></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><TextField label="Modelo" size="small" fullWidth value={form.modelo} onChange={set('modelo')} /></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><TextField label="Año" type="number" size="small" fullWidth value={form.anio} onChange={set('anio')} /></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><TextField label="Placa" size="small" fullWidth value={form.placa} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm(f => ({ ...f, placa: e.target.value.toUpperCase() }))} /></Grid>
+          <Grid size={{ xs: 12, sm: 6 }}><TextField label="N.º de serie / VIN" size="small" fullWidth value={form.numero_serie} onChange={set('numero_serie')} /></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><TextField label="Tipo de combustible" size="small" fullWidth value={form.tipo_combustible} onChange={set('tipo_combustible')} /></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><TextField label="Vida útil (años)" type="number" size="small" fullWidth value={form.vida_util_anios} onChange={set('vida_util_anios')} /></Grid>
+
+          <Grid size={{ xs: 12 }}><Typography fontSize={11} fontWeight={700} color="#94A3B8" letterSpacing="0.06em" mt={1}>UBICACIÓN Y RESPONSABLE</Typography></Grid>
+          <Grid size={{ xs: 12, sm: 3 }}><TextField label="Ubicación" size="small" fullWidth value={form.ubicacion} onChange={set('ubicacion')} /></Grid>
+          <Grid size={{ xs: 12, sm: 3 }}><TextField label="Sede" size="small" fullWidth value={form.sede} onChange={set('sede')} /></Grid>
+          <Grid size={{ xs: 12, sm: 3 }}><TextField label="Área" size="small" fullWidth value={form.area} onChange={set('area')} /></Grid>
+          <Grid size={{ xs: 12, sm: 3 }}><TextField label="Responsable" size="small" fullWidth value={form.responsable} onChange={set('responsable')} /></Grid>
+
+          <Grid size={{ xs: 12 }}><Typography fontSize={11} fontWeight={700} color="#94A3B8" letterSpacing="0.06em" mt={1}>MEDIDORES Y COMPRA</Typography></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><TextField label="Odómetro (km)" type="number" size="small" fullWidth value={form.odometro_actual} onChange={set('odometro_actual')} /></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><TextField label="Horómetro (hrs)" type="number" size="small" fullWidth value={form.horometro_actual} onChange={set('horometro_actual')} /></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><TextField label="Fecha de adquisición" type="date" size="small" fullWidth value={form.fecha_adquisicion} onChange={set('fecha_adquisicion')} InputLabelProps={{ shrink: true }} /></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><TextField label="Costo de adquisición" type="number" size="small" fullWidth value={form.costo_adquisicion} onChange={set('costo_adquisicion')} /></Grid>
+
+          {usaLlantas && (
+            <Grid size={{ xs: 12 }}>
+              <Alert severity="info" sx={{ py: 0.5 }}>
+                Este tipo de activo usa llantas. La configuración de ejes se asigna después con una
+                categoría ya creada, desde la acción <b>“Ejes y llantas”</b> de la fila o desde el módulo de Neumáticos.
+              </Alert>
+            </Grid>
+          )}
+        </Grid>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, py: 2 }}>
+        <Button onClick={onClose} sx={{ color: '#64748B' }}>Cancelar</Button>
+        <Button
+          variant="contained"
+          disabled={!form.codigo.trim() || !form.nombre.trim() || isPending}
+          onClick={() => onSubmit({
+            codigo: form.codigo.trim(), nombre: form.nombre.trim(),
+            tipo_activo: form.tipo_activo, estado: form.estado, criticidad: form.criticidad,
+            marca: txt(form.marca), modelo: txt(form.modelo), anio: num(form.anio),
+            numero_serie: txt(form.numero_serie), placa: txt(form.placa),
+            ubicacion: txt(form.ubicacion), sede: txt(form.sede), area: txt(form.area),
+            responsable: txt(form.responsable),
+            odometro_actual: num(form.odometro_actual), horometro_actual: num(form.horometro_actual),
+            fecha_adquisicion: txt(form.fecha_adquisicion), costo_adquisicion: num(form.costo_adquisicion),
+            vida_util_anios: num(form.vida_util_anios), tipo_combustible: txt(form.tipo_combustible),
+          })}
+          sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, fontWeight: 700, borderRadius: '8px' }}
+        >
+          {isPending ? 'Guardando…' : editando ? 'Guardar cambios' : 'Crear activo'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function EAMActivos() {
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const [tab, setTab] = useState(0)
 
   // Portafolio filters
@@ -583,7 +637,13 @@ export default function EAMActivos() {
   const [search, setSearch] = useState('')
 
   // Activo seleccionado para Vista 360°
-  const [selectedId, setSelectedId] = useState<number>(1)
+  const [selectedId, setSelectedId] = useState<number | null>(null)
+
+  // CRUD de activos
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editando, setEditando] = useState<ActivoAPI | null>(null)
+  const [menuFila, setMenuFila] = useState<null | { anchor: HTMLElement; activo: ActivoAPI }>(null)
+  const [aEliminar, setAEliminar] = useState<ActivoAPI | null>(null)
 
   // Jerarquía expanded state
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
@@ -593,25 +653,73 @@ export default function EAMActivos() {
 
   const handleToggle = (id: string) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] }))
 
-  const selectedActivo = ACTIVOS_MOCK.find((a) => a.id === selectedId) ?? ACTIVOS_MOCK[0]
+  // ── Datos reales ──
+  const { data: activos = [], isLoading } = useQuery<ActivoAPI[]>({
+    queryKey: ['eam-activos'],
+    queryFn: () => apiClient.get('/eam/activos').then(r => r.data),
+  })
+  const { data: tiposActivo = [] } = useQuery<TipoActivoCat[]>({
+    queryKey: ['eam-tipos-activo'],
+    queryFn: () => apiClient.get('/eam/tipos-activo').then(r => r.data),
+  })
+  const nombreTipo = (codigo?: string | null) => tiposActivo.find(t => t.codigo === codigo)?.nombre ?? codigo ?? '—'
+  const invalidar = () => {
+    qc.invalidateQueries({ queryKey: ['eam-activos'] })
+    qc.invalidateQueries({ queryKey: ['vehiculos-combinados'] })
+  }
 
-  const openActivo = (a: Activo) => { setSelectedId(a.id); setTab(1) }
+  const mutGuardar = useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      editando
+        ? apiClient.put(`/eam/activos/${editando.id}`, payload).then(r => r.data)
+        : apiClient.post('/eam/activos', payload).then(r => r.data),
+    onSuccess: () => {
+      toast.success(editando ? 'Activo actualizado' : 'Activo creado')
+      invalidar(); setDialogOpen(false); setEditando(null)
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo guardar el activo'),
+  })
+
+  const mutEliminar = useMutation({
+    mutationFn: (id: number) => apiClient.delete(`/eam/activos/${id}`),
+    onSuccess: () => { toast.success('Activo dado de baja'); invalidar(); setAEliminar(null) },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo dar de baja el activo'),
+  })
+
+  const mutEstado = useMutation({
+    mutationFn: ({ id, estado }: { id: number; estado: string }) => apiClient.put(`/eam/activos/${id}`, { estado }),
+    onSuccess: () => { toast.success('Estado actualizado'); invalidar() },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo cambiar el estado'),
+  })
+
+  const abrirCrear = () => { setEditando(null); setDialogOpen(true) }
+  const abrirEditar = (a: ActivoAPI) => { setEditando(a); setDialogOpen(true); setMenuFila(null) }
+
+  const selectedActivo = activos.find((a) => a.id === selectedId) ?? null
+  const openActivo = (a: ActivoAPI) => { setSelectedId(a.id); setTab(1) }
   const openActivoByCodigo = (codigo: string) => {
-    const a = ACTIVOS_MOCK.find((x) => x.codigo === codigo)
+    const a = activos.find((x) => x.codigo === codigo)
     if (a) { setSelectedId(a.id); setTab(1) }
   }
-  const verOTs = (a: Activo) => navigate(`/eam/ordenes-trabajo?activo=${encodeURIComponent(a.codigo)}`)
+  const verOTs = (a: ActivoAPI) => navigate(`/eam/ordenes-trabajo?activo=${encodeURIComponent(a.codigo)}`)
 
-  const filtered = ACTIVOS_MOCK.filter((a) => {
-    if (filterTipo !== 'Todos' && a.tipo !== filterTipo) return false
+  const filtered = activos.filter((a) => {
+    if (filterTipo !== 'Todos' && a.tipo_activo !== filterTipo) return false
     if (filterEstado !== 'Todos' && a.estado !== filterEstado) return false
     if (filterCriticidad !== 'Todos' && a.criticidad !== filterCriticidad) return false
     if (search.trim()) {
       const q = search.toLowerCase()
-      if (!a.codigo.toLowerCase().includes(q) && !a.nombre.toLowerCase().includes(q) && !a.ubicacion.toLowerCase().includes(q)) return false
+      const campos = [a.codigo, a.nombre, a.ubicacion, a.placa, a.marca]
+      if (!campos.some(c => (c ?? '').toLowerCase().includes(q))) return false
     }
     return true
   })
+
+  const medidorDe = (a: ActivoAPI) => {
+    if (a.odometro_actual) return `${a.odometro_actual.toLocaleString('es-CO')} km`
+    if (a.horometro_actual) return `${a.horometro_actual.toLocaleString('es-CO')} hrs`
+    return '—'
+  }
 
   return (
     <Layout>
@@ -663,8 +771,9 @@ export default function EAMActivos() {
                 onChange={(e) => setFilterTipo(e.target.value)}
                 sx={{ minWidth: 170 }}
               >
-                {['Todos', 'Vehículo', 'Montacargas', 'Infraestructura', 'Equipo'].map((o) => (
-                  <MenuItem key={o} value={o}>{o}</MenuItem>
+                <MenuItem value="Todos">Todos</MenuItem>
+                {tiposActivo.map((t) => (
+                  <MenuItem key={t.codigo} value={t.codigo}>{t.nombre}</MenuItem>
                 ))}
               </TextField>
               <TextField
@@ -672,7 +781,7 @@ export default function EAMActivos() {
                 onChange={(e) => setFilterEstado(e.target.value)}
                 sx={{ minWidth: 190 }}
               >
-                {['Todos', 'OPERATIVO', 'EN_MANTENIMIENTO', 'FUERA_DE_SERVICIO'].map((o) => (
+                {['Todos', ...ESTADOS_ACTIVO].map((o) => (
                   <MenuItem key={o} value={o}>{o === 'Todos' ? 'Todos' : o.replace(/_/g, ' ')}</MenuItem>
                 ))}
               </TextField>
@@ -681,14 +790,20 @@ export default function EAMActivos() {
                 onChange={(e) => setFilterCriticidad(e.target.value)}
                 sx={{ minWidth: 150 }}
               >
-                {['Todos', 'CRITICA', 'ALTA', 'MEDIA', 'BAJA'].map((o) => (
+                {['Todos', ...CRITICIDADES].map((o) => (
                   <MenuItem key={o} value={o}>{o}</MenuItem>
                 ))}
               </TextField>
+              <Button
+                variant="contained" startIcon={<AddIcon />} onClick={abrirCrear}
+                sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none', fontWeight: 700, borderRadius: '10px', whiteSpace: 'nowrap' }}
+              >
+                Crear Activo
+              </Button>
             </Stack>
 
             <Typography fontSize={12} color="#94A3B8" mb={1}>
-              {filtered.length} activo{filtered.length !== 1 ? 's' : ''} · haz clic en una fila para ver su hoja de vida
+              {filtered.length} activo{filtered.length !== 1 ? 's' : ''} · haz clic en una fila para ver su hoja de vida · usa el menú ⋮ para editar, dar de baja y más
             </Typography>
 
             {/* Table */}
@@ -700,14 +815,14 @@ export default function EAMActivos() {
               <Box
                 sx={{
                   display: 'grid',
-                  gridTemplateColumns: '100px 1fr 120px 140px 110px 1fr 130px 110px',
+                  gridTemplateColumns: '100px 1fr 130px 150px 100px 1fr 120px 90px 48px',
                   gap: 1, px: 2, py: 1.25,
                   borderBottom: '1px solid #E5E7EB',
                   bgcolor: alpha(EAM_COLOR, 0.06),
                 }}
               >
-                {['Código', 'Nombre', 'Tipo', 'Estado', 'Criticidad', 'Ubicación', 'Odóm./Horám.', 'Último PM'].map((h) => (
-                  <Typography key={h} fontSize={11} fontWeight={700} color="#64748B" letterSpacing="0.5px">
+                {['Código', 'Nombre', 'Tipo', 'Estado', 'Criticidad', 'Ubicación', 'Odóm./Horám.', 'Placa', ''].map((h, i) => (
+                  <Typography key={`${h}-${i}`} fontSize={11} fontWeight={700} color="#64748B" letterSpacing="0.5px">
                     {h.toUpperCase()}
                   </Typography>
                 ))}
@@ -719,7 +834,7 @@ export default function EAMActivos() {
                   onClick={() => openActivo(activo)}
                   sx={{
                     display: 'grid',
-                    gridTemplateColumns: '100px 1fr 120px 140px 110px 1fr 130px 110px',
+                    gridTemplateColumns: '100px 1fr 130px 150px 100px 1fr 120px 90px 48px',
                     gap: 1, px: 2, py: 1.25,
                     borderBottom: idx < filtered.length - 1 ? '1px solid #E5E7EB' : 'none',
                     alignItems: 'center',
@@ -731,28 +846,41 @@ export default function EAMActivos() {
                   <Typography fontSize={12} fontWeight={700} color={EAM_COLOR}>{activo.codigo}</Typography>
                   <Typography fontSize={12} color="#1E293B" noWrap>{activo.nombre}</Typography>
                   <Stack direction="row" alignItems="center" spacing={0.5}>
-                    <Box sx={{ color: 'text.secondary' }}>{TIPO_ICON[activo.tipo]}</Box>
-                    <Typography fontSize={11} color="#64748B">{activo.tipo}</Typography>
+                    <Box sx={{ color: 'text.secondary' }}>{TIPO_ICON[familiaDe(activo.tipo_activo)]}</Box>
+                    <Typography fontSize={11} color="#64748B" noWrap>{nombreTipo(activo.tipo_activo)}</Typography>
                   </Stack>
                   <Chip
-                    label={activo.estado.replace(/_/g, ' ')}
+                    label={(activo.estado ?? '—').replace(/_/g, ' ')}
                     size="small"
-                    sx={{ bgcolor: alpha(ESTADO_COLOR[activo.estado], 0.15), color: ESTADO_COLOR[activo.estado], fontWeight: 700, fontSize: 9, height: 20 }}
+                    sx={{ bgcolor: alpha(colorEstado(activo.estado), 0.15), color: colorEstado(activo.estado), fontWeight: 700, fontSize: 9, height: 20 }}
                   />
                   <Chip
-                    label={activo.criticidad}
+                    label={activo.criticidad ?? '—'}
                     size="small"
-                    sx={{ bgcolor: alpha(CRITICIDAD_COLOR[activo.criticidad], 0.15), color: CRITICIDAD_COLOR[activo.criticidad], fontWeight: 700, fontSize: 9, height: 20 }}
+                    sx={{ bgcolor: alpha(CRITICIDAD_COLOR[activo.criticidad ?? ''] ?? '#6B7280', 0.15), color: CRITICIDAD_COLOR[activo.criticidad ?? ''] ?? '#6B7280', fontWeight: 700, fontSize: 9, height: 20 }}
                   />
-                  <Typography fontSize={12} color="#64748B" noWrap>{activo.ubicacion}</Typography>
-                  <Typography fontSize={12} color="#64748B">{activo.odometro}</Typography>
-                  <Typography fontSize={12} color="#64748B">hace {activo.ultimoPM}</Typography>
+                  <Typography fontSize={12} color="#64748B" noWrap>{activo.ubicacion ?? '—'}</Typography>
+                  <Typography fontSize={12} color="#64748B">{medidorDe(activo)}</Typography>
+                  <Typography fontSize={12} color="#64748B" noWrap>{activo.placa ?? '—'}</Typography>
+                  <Tooltip title="Acciones del activo">
+                    <IconButton
+                      size="small"
+                      onClick={(e) => { e.stopPropagation(); setMenuFila({ anchor: e.currentTarget, activo }) }}
+                      sx={{ color: '#94A3B8', '&:hover': { color: EAM_COLOR } }}
+                    >
+                      <MoreIcon sx={{ fontSize: 18 }} />
+                    </IconButton>
+                  </Tooltip>
                 </Box>
               ))}
 
               {filtered.length === 0 && (
                 <Box sx={{ p: 4, textAlign: 'center' }}>
-                  <Typography fontSize={13} color="#94A3B8">No se encontraron activos con los filtros aplicados.</Typography>
+                  <Typography fontSize={13} color="#94A3B8">
+                    {isLoading ? 'Cargando activos…'
+                      : activos.length === 0 ? 'Aún no hay activos registrados. Usa “Crear Activo” para registrar el primero.'
+                      : 'No se encontraron activos con los filtros aplicados.'}
+                  </Typography>
                 </Box>
               )}
             </Paper>
@@ -761,7 +889,13 @@ export default function EAMActivos() {
 
         {/* ── Tab 1: Hoja de vida 360° ── */}
         {tab === 1 && (
-          <Vista360 activo={selectedActivo} onBack={() => setTab(0)} onVerOTs={verOTs} />
+          <Vista360
+            activo={selectedActivo}
+            onBack={() => setTab(0)}
+            onVerOTs={verOTs}
+            onEditar={abrirEditar}
+            nombreTipo={nombreTipo}
+          />
         )}
 
         {/* ── Tab 2: Jerarquía ── */}
@@ -794,6 +928,96 @@ export default function EAMActivos() {
         {tab === 3 && (
           <VehiculosCombinados color={EAM_COLOR} colorDark={EAM_DARK} permitirCrear />
         )}
+
+        {/* ── Menú de acciones por activo ── */}
+        <Menu
+          anchorEl={menuFila?.anchor}
+          open={!!menuFila}
+          onClose={() => setMenuFila(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          PaperProps={{ sx: { borderRadius: '12px', minWidth: 230 } }}
+        >
+          {menuFila && [
+            <Box key="head" sx={{ px: 2, py: 1 }}>
+              <Typography fontSize={12.5} fontWeight={800} color={EAM_DARK}>{menuFila.activo.codigo}</Typography>
+              <Typography fontSize={11} color="#64748B" noWrap>{menuFila.activo.nombre}</Typography>
+            </Box>,
+            <Divider key="d1" />,
+            <MenuItem key="ver" onClick={() => { openActivo(menuFila.activo); setMenuFila(null) }}>
+              <ListItemIcon><VerIcon sx={{ fontSize: 18, color: '#3B82F6' }} /></ListItemIcon>
+              <ListItemText primaryTypographyProps={{ fontSize: 13 }}>Ver hoja de vida 360°</ListItemText>
+            </MenuItem>,
+            <MenuItem key="edit" onClick={() => abrirEditar(menuFila.activo)}>
+              <ListItemIcon><EditIcon sx={{ fontSize: 18, color: EAM_COLOR }} /></ListItemIcon>
+              <ListItemText primaryTypographyProps={{ fontSize: 13 }}>Editar activo</ListItemText>
+            </MenuItem>,
+            <MenuItem key="ots" onClick={() => { verOTs(menuFila.activo); setMenuFila(null) }}>
+              <ListItemIcon><OTIcon sx={{ fontSize: 18, color: '#8B5CF6' }} /></ListItemIcon>
+              <ListItemText primaryTypographyProps={{ fontSize: 13 }}>Ver órdenes de trabajo</ListItemText>
+            </MenuItem>,
+            ...(tiposActivo.find(t => t.codigo === menuFila.activo.tipo_activo)?.usa_llantas ? [
+              <MenuItem key="llantas" onClick={() => { navigate('/eam/neumaticos'); setMenuFila(null) }}>
+                <ListItemIcon><LlantaIcon sx={{ fontSize: 18, color: EAM_DARK }} /></ListItemIcon>
+                <ListItemText primaryTypographyProps={{ fontSize: 13 }}
+                  secondary={menuFila.activo.numero_ejes ? `${menuFila.activo.numero_ejes} eje(s) configurados` : 'Sin ejes configurados'}
+                  secondaryTypographyProps={{ fontSize: 10.5 }}>
+                  Ejes y llantas
+                </ListItemText>
+              </MenuItem>,
+            ] : []),
+            <Divider key="d2" />,
+            <Box key="estados" sx={{ px: 2, py: 0.5 }}>
+              <Typography fontSize={10} fontWeight={700} color="#94A3B8" letterSpacing="0.06em">CAMBIAR ESTADO</Typography>
+            </Box>,
+            ...ESTADOS_ACTIVO.filter(e => e !== menuFila.activo.estado).map(e => (
+              <MenuItem key={`estado-${e}`} onClick={() => { mutEstado.mutate({ id: menuFila.activo.id, estado: e }); setMenuFila(null) }}>
+                <ListItemIcon><Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: colorEstado(e), ml: 0.5 }} /></ListItemIcon>
+                <ListItemText primaryTypographyProps={{ fontSize: 12.5 }}>{e.replace(/_/g, ' ')}</ListItemText>
+              </MenuItem>
+            )),
+            <Divider key="d3" />,
+            <MenuItem key="del" onClick={() => { setAEliminar(menuFila.activo); setMenuFila(null) }} sx={{ color: '#DC2626' }}>
+              <ListItemIcon><DeleteIcon sx={{ fontSize: 18, color: '#DC2626' }} /></ListItemIcon>
+              <ListItemText primaryTypographyProps={{ fontSize: 13 }}>Eliminar activo</ListItemText>
+            </MenuItem>,
+          ]}
+        </Menu>
+
+        {/* ── Crear / editar activo ── */}
+        <ActivoDialog
+          open={dialogOpen}
+          onClose={() => { setDialogOpen(false); setEditando(null) }}
+          editando={editando}
+          tipos={tiposActivo}
+          isPending={mutGuardar.isPending}
+          onSubmit={(payload) => mutGuardar.mutate(payload)}
+        />
+
+        {/* ── Confirmar baja del activo ── */}
+        <Dialog open={!!aEliminar} onClose={() => setAEliminar(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: '14px' } }}>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Eliminar activo
+            <Typography variant="caption" color="text.secondary" display="block">{aEliminar?.codigo} — {aEliminar?.nombre}</Typography>
+          </DialogTitle>
+          <DialogContent dividers>
+            <Alert severity="warning" sx={{ py: 0.5 }}>
+              El activo se da de baja y deja de aparecer en los listados, pero <b>se conserva su histórico</b>
+              (órdenes de trabajo, movimientos de llantas y demás registros asociados).
+            </Alert>
+            <Typography fontSize={12.5} color="#64748B" mt={1.5}>
+              No se podrá dar de baja si todavía tiene llantas montadas u órdenes de trabajo abiertas.
+            </Typography>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setAEliminar(null)} sx={{ color: '#64748B' }}>Cancelar</Button>
+            <Button
+              variant="contained" color="error" disabled={mutEliminar.isPending}
+              onClick={() => aEliminar && mutEliminar.mutate(aEliminar.id)}
+            >
+              {mutEliminar.isPending ? 'Eliminando…' : 'Eliminar activo'}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </Layout>
   )
