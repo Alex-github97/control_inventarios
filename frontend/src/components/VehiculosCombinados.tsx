@@ -15,7 +15,8 @@ import { EsquemaLlantasPreview } from '@/components/EsquemaLlantasPreview'
 export interface VehiculoCombinado {
   origen: string; flota: string; id: number; activo_id?: number | null
   codigo?: string | null; nombre?: string | null; placa?: string; tipo?: string
-  marca?: string; modelo?: string; anio?: number; numero_ejes?: number; tiene_repuesto?: boolean | null
+  marca?: string; modelo?: string; anio?: number; numero_ejes?: number
+  layout_llantas?: number[] | null; tiene_repuesto?: boolean | null
   capacidad_kg?: number; estado?: string; motor_marca?: string
   motor_linea?: string; motor_cc?: number; propietario?: string
 }

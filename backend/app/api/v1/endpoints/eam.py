@@ -177,6 +177,7 @@ class VehiculoCombinadoResponse(BaseModel):
     modelo: Optional[str] = None
     anio: Optional[int] = None
     numero_ejes: Optional[int] = None
+    layout_llantas: Optional[List[int]] = None   # llantas por eje ya asignadas al activo
     tiene_repuesto: Optional[bool] = None
     capacidad_kg: Optional[float] = None
     estado: Optional[str] = None
@@ -989,7 +990,7 @@ async def list_vehiculos_combinados(
                 origen="EAM", flota="PROPIA", id=a.id, activo_id=a.id,
                 codigo=a.codigo, nombre=a.nombre, placa=a.placa, tipo=a.tipo_activo,
                 marca=a.marca, modelo=a.modelo, anio=a.anio, numero_ejes=a.numero_ejes,
-                tiene_repuesto=a.tiene_repuesto,
+                layout_llantas=a.layout_llantas, tiene_repuesto=a.tiene_repuesto,
                 capacidad_kg=a.capacidad_combustible, estado=a.estado,
                 motor_marca=a.motor_marca, motor_linea=a.motor_linea, motor_cc=a.motor_cc,
                 propietario=a.responsable,
@@ -1003,6 +1004,7 @@ async def list_vehiculos_combinados(
                 placa=v.placa, tipo=v.tipo_vehiculo.value if v.tipo_vehiculo else None,
                 marca=v.marca, modelo=v.modelo, anio=v.anio,
                 numero_ejes=espejo.numero_ejes if espejo else v.num_ejes,
+                layout_llantas=espejo.layout_llantas if espejo else None,
                 tiene_repuesto=espejo.tiene_repuesto if espejo else None,
                 capacidad_kg=v.capacidad_kg,
                 estado=v.estado_operativo.value if v.estado_operativo else None,
@@ -1020,6 +1022,7 @@ async def list_vehiculos_combinados(
                 placa=v.placa, tipo=v.tipo_vehiculo.nombre if v.tipo_vehiculo else None,
                 marca=v.marca.nombre if v.marca else None, modelo=str(v.modelo) if v.modelo else None,
                 numero_ejes=espejo.numero_ejes if espejo else None,
+                layout_llantas=espejo.layout_llantas if espejo else None,
                 tiene_repuesto=espejo.tiene_repuesto if espejo else None,
                 estado="BAJA" if v.fecha_baja else "OPERATIVO",
             ))

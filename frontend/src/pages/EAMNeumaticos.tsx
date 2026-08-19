@@ -200,8 +200,10 @@ export default function EAMNeumaticos() {
   const [nuevoOpen, setNuevoOpen] = useState(false)
   const [nuevoForm, setNuevoForm] = useState({ ...EMPTY_NEUMATICO })
   const [histTire, setHistTire] = useState<Neumatico | null>(null)
-  const [ejesOpen, setEjesOpen] = useState(false)
+  // Vehículo al que se le está configurando el esquema de ejes/llantas (desde Configuración)
+  const [ejesVeh, setEjesVeh] = useState<VehiculoCombinado | null>(null)
   const [ejesForm, setEjesForm] = useState({ esquema_id: '' })
+  const [ejesBusca, setEjesBusca] = useState('')
   // Inspecciones
   const [inspDialog, setInspDialog] = useState<Neumatico | null>(null)   // llanta a inspeccionar
   const [chartTire, setChartTire] = useState<Neumatico | null>(null)     // llanta cuya gráfica/historial se ve
@@ -438,11 +440,40 @@ export default function EAMNeumaticos() {
   // seleccionado — no se digitan números eje por eje aquí, esa configuración vive
   // en Activos ("Esquemas de vehículo").
   const mutEjes = useMutation({
-    mutationFn: (esquema_id: number) => api.post('/eam/neumaticos/esquemas/asignar', { activo_id: Number(vehId), esquema_id, fecha_vigencia: new Date().toISOString().slice(0, 10) }),
-    onSuccess: () => { toast.success('Categoría de ejes/llantas asignada'); qc.invalidateQueries({ queryKey: ['eam-activos'] }); qc.invalidateQueries({ queryKey: ['eam-layout'] }); setEjesOpen(false) },
+    mutationFn: (esquema_id: number) => api.post('/eam/neumaticos/esquemas/asignar', {
+      activo_id: ejesVeh!.activo_id, esquema_id, fecha_vigencia: new Date().toISOString().slice(0, 10),
+    }),
+    onSuccess: () => {
+      toast.success('Categoría de ejes/llantas asignada')
+      qc.invalidateQueries({ queryKey: ['eam-activos'] })
+      qc.invalidateQueries({ queryKey: ['eam-layout'] })
+      qc.invalidateQueries({ queryKey: ['eam-vehiculos-disponibles'] })
+      setEjesVeh(null)
+    },
     onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al asignar la categoría'),
   })
-  const abrirEjes = () => { setEjesForm({ esquema_id: '' }); setEjesOpen(true) }
+  // Abre la configuración de ejes de un vehículo cualquiera (desde Configuración).
+  // Si es externo (TMS/Flota) y aún no está vinculado al CMMS, se vincula primero.
+  const mutVincularParaEjes = useMutation({
+    mutationFn: (v: VehiculoCombinado) => api.post('/eam/activos/vincular-externo', { origen: v.origen, origen_id: v.id }).then(r => r.data),
+    onSuccess: (activo) => {
+      qc.invalidateQueries({ queryKey: ['eam-vehiculos-disponibles'] })
+      setEjesVeh(prev => prev ? { ...prev, activo_id: activo.id } : prev)
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo vincular el vehículo al CMMS'),
+  })
+  // Total de llantas del vehículo: si ya tiene layout asignado se suma tal cual;
+  // si no, se estima con el patrón clásico (eje 1 = 2, resto = 4), igual que el backend.
+  const totalLlantasDe = (v: VehiculoCombinado) => {
+    if (v.layout_llantas?.length) return v.layout_llantas.reduce((a, b) => a + b, 0)
+    if (v.numero_ejes == null) return '—'
+    return 2 + Math.max(0, v.numero_ejes - 1) * 4
+  }
+  const abrirEjes = (v: VehiculoCombinado) => {
+    setEjesForm({ esquema_id: '' })
+    setEjesVeh(v)
+    if (!v.activo_id) mutVincularParaEjes.mutate(v)
+  }
 
   // Config: bodegas y catálogo de daños
   const [bodForm, setBodForm] = useState({ codigo: '', nombre: '', ubicacion: '' })
@@ -1098,7 +1129,7 @@ export default function EAMNeumaticos() {
           // pantalla completa con backdrop — no se incluye aquí porque el diagrama debe seguir
           // visible alrededor de él.
           const algunDialogoAbierto = agregarLlantaOpen || inspImportOpen || !!movDialog ||
-            !!bajaDialog || !!histTire || ejesOpen || !!inspDialog || !!chartTire || !!rotDialog ||
+            !!bajaDialog || !!histTire || !!ejesVeh || !!inspDialog || !!chartTire || !!rotDialog ||
             !!voltearDialog || !!montarDialog || !!rotRinDialog || inspSesionOpen ||
             !!ajusteDialog || !!trabajoDialog || !!zonaDialog || !!vidasDialog
           return (
@@ -1125,11 +1156,6 @@ export default function EAMNeumaticos() {
                         </MenuItem>
                       ))}
                     </TextField>
-                    {veh && (
-                      <Button size="small" variant="outlined" startIcon={<SwapIcon />} onClick={abrirEjes} sx={{ color: EAM_DARK, borderColor: alpha(EAM_COLOR, 0.4), textTransform: 'none' }}>
-                        Configurar ejes{veh.numero_ejes ? ` (${veh.numero_ejes})` : ''}
-                      </Button>
-                    )}
                     {veh && veh.numero_ejes && (
                       <Button
                         size="small" variant="contained" startIcon={<AddIcon />}
@@ -1151,7 +1177,7 @@ export default function EAMNeumaticos() {
                   {!veh ? (
                     <Alert severity="info">Selecciona un vehículo para ver el diagrama de llantas.</Alert>
                   ) : !veh.numero_ejes ? (
-                    <Alert severity="warning">El vehículo <b>{veh.codigo}</b> no tiene configurado el número de ejes. Configúralo en <b>Activos / EAM</b> para generar el diagrama de posiciones.</Alert>
+                    <Alert severity="warning">El vehículo <b>{veh.codigo}</b> no tiene configurado el número de ejes. Asígnale una categoría de ejes/llantas en la pestaña <b>Configuración</b> para generar el diagrama de posiciones.</Alert>
                   ) : (
                     <Box>
                       <Typography fontSize={12} color="text.secondary" mb={1.5}>
@@ -1982,8 +2008,92 @@ export default function EAMNeumaticos() {
               </Card>
             </Grid>
 
-            {/* Esquemas de vehículo: se crean y editan en EAM → Configuración → Catálogos.
-                Aquí solo se asignan (ver botón "Configurar ejes" en Llantas por Vehículo). */}
+            {/* ── Ejes y llantas por vehículo ──
+                Las categorías (esquemas) se crean en EAM → Configuración → Catálogos;
+                aquí se le asigna una a cada vehículo de la flota. */}
+            <Grid size={{ xs: 12 }}>
+              <Card sx={{ bgcolor: '#FFFFFF' }}>
+                <CardContent>
+                  <Stack direction="row" alignItems="center" justifyContent="space-between" gap={1.5} mb={1.5} flexWrap="wrap">
+                    <Stack direction="row" alignItems="center" gap={1}>
+                      <DirectionsCar sx={{ color: EAM_DARK }} />
+                      <Box>
+                        <Typography fontWeight={700}>Ejes y llantas por vehículo</Typography>
+                        <Typography fontSize={11.5} color="text.secondary">
+                          Asigna a cada vehículo una categoría ya creada · las categorías se configuran en <b>EAM → Configuración → Catálogos</b>
+                        </Typography>
+                      </Box>
+                    </Stack>
+                    <TextField
+                      size="small" placeholder="Buscar por placa, código o nombre…"
+                      value={ejesBusca} onChange={e => setEjesBusca(e.target.value)}
+                      sx={{ minWidth: 280 }}
+                    />
+                  </Stack>
+
+                  <Box sx={{ overflowX: 'auto' }}>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow sx={{ bgcolor: alpha(EAM_COLOR, 0.08) }}>
+                          {['Placa / Código', 'Vehículo', 'Origen', 'Ejes', 'Llantas', 'Estado', ''].map(h => (
+                            <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11, whiteSpace: 'nowrap' }}>{h}</TableCell>
+                          ))}
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {vehiculosDisponibles
+                          .filter(v => {
+                            const q = ejesBusca.trim().toLowerCase()
+                            if (!q) return true
+                            return [v.placa, v.codigo, v.nombre, v.marca, v.modelo].some(x => (x ?? '').toLowerCase().includes(q))
+                          })
+                          .map(v => {
+                            const configurado = v.numero_ejes != null
+                            return (
+                              <TableRow key={`${v.origen}:${v.id}`} hover>
+                                <TableCell sx={{ fontWeight: 700 }}>{v.placa ?? v.codigo ?? '—'}</TableCell>
+                                <TableCell>{v.nombre ?? ([v.marca, v.modelo].filter(Boolean).join(' ') || '—')}</TableCell>
+                                <TableCell>
+                                  <Chip size="small" label={v.origen} sx={{ fontSize: 10, height: 20, bgcolor: v.origen === 'EAM' ? alpha(EAM_COLOR, 0.14) : '#E0E7FF', color: v.origen === 'EAM' ? EAM_DARK : '#3730A3' }} />
+                                </TableCell>
+                                <TableCell>{v.numero_ejes ?? '—'}</TableCell>
+                                <TableCell>{totalLlantasDe(v)}</TableCell>
+                                <TableCell>
+                                  <Chip
+                                    size="small"
+                                    label={configurado ? 'Configurado' : 'Sin configurar'}
+                                    color={configurado ? 'success' : 'warning'}
+                                    sx={{ fontSize: 10, height: 20 }}
+                                  />
+                                </TableCell>
+                                <TableCell align="right">
+                                  <Button
+                                    size="small" variant={configurado ? 'text' : 'contained'}
+                                    startIcon={<SwapIcon sx={{ fontSize: 16 }} />}
+                                    onClick={() => abrirEjes(v)}
+                                    sx={configurado
+                                      ? { textTransform: 'none', fontSize: 12, color: EAM_DARK }
+                                      : { textTransform: 'none', fontSize: 12, bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}
+                                  >
+                                    {configurado ? 'Cambiar' : 'Configurar'}
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            )
+                          })}
+                        {vehiculosDisponibles.length === 0 && (
+                          <TableRow><TableCell colSpan={7} align="center">
+                            <Typography color="text.secondary" py={2} fontSize={13}>
+                              No hay vehículos que usen llantas. Regístralos en <b>Activos</b> con un tipo que use llantas.
+                            </Typography>
+                          </TableCell></TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
           </Grid>
         )}
 
@@ -2846,13 +2956,16 @@ export default function EAMNeumaticos() {
         </Dialog>
 
         {/* ── Diálogo configurar ejes: asigna una categoría (esquema) ya pre-configurada ── */}
-        <Dialog open={ejesOpen} onClose={() => setEjesOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <Dialog open={!!ejesVeh} onClose={() => setEjesVeh(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
           <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Ejes y llantas
-            <Typography variant="caption" color="text.secondary" display="block">{veh?.codigo} — {veh?.nombre}</Typography>
+            <Typography variant="caption" color="text.secondary" display="block">
+              {ejesVeh?.placa ?? ejesVeh?.codigo ?? ''}{ejesVeh?.nombre ? ` — ${ejesVeh.nombre}` : ''}
+            </Typography>
           </DialogTitle>
           <DialogContent dividers>
             <Stack spacing={2} pt={0.5}>
-              <TextField select label="Categoría de ejes/llantas *" size="small" fullWidth value={ejesForm.esquema_id} onChange={e => setEjesForm({ esquema_id: e.target.value })}>
+              {!ejesVeh?.activo_id && <Alert severity="info" sx={{ py: 0.5 }}>Vinculando el vehículo al CMMS…</Alert>}
+              <TextField select label="Categoría de ejes/llantas *" size="small" fullWidth value={ejesForm.esquema_id} onChange={e => setEjesForm({ esquema_id: e.target.value })} disabled={!ejesVeh?.activo_id}>
                 <MenuItem value="">Seleccionar…</MenuItem>
                 {/* El Tooltip va DENTRO del MenuItem: MUI Select necesita que sus
                     hijos directos sean MenuItem para leer el `value`. */}
@@ -2877,13 +2990,13 @@ export default function EAMNeumaticos() {
               {esquemas.length === 0 ? (
                 <Alert severity="warning" sx={{ py: 0.5 }}>Aún no hay categorías creadas. Pre-configúralas en <b>EAM → Configuración → Catálogos → Esquemas de vehículo</b> y luego solo se asignan aquí.</Alert>
               ) : (
-                <Alert severity="info" sx={{ py: 0 }}>Las categorías se pre-configuran una sola vez en <b>Activos</b>; aquí solo se le asigna una a este vehículo.</Alert>
+                <Alert severity="info" sx={{ py: 0 }}>Pasa el cursor sobre cada categoría para ver el diagrama de ejes y llantas que aplicaría.</Alert>
               )}
             </Stack>
           </DialogContent>
           <DialogActions sx={{ px: 3, py: 2 }}>
-            <Button onClick={() => setEjesOpen(false)}>Cancelar</Button>
-            <Button variant="contained" disabled={!ejesForm.esquema_id || mutEjes.isPending} onClick={() => mutEjes.mutate(Number(ejesForm.esquema_id))} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Guardar</Button>
+            <Button onClick={() => setEjesVeh(null)}>Cancelar</Button>
+            <Button variant="contained" disabled={!ejesForm.esquema_id || !ejesVeh?.activo_id || mutEjes.isPending} onClick={() => mutEjes.mutate(Number(ejesForm.esquema_id))} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Guardar</Button>
           </DialogActions>
         </Dialog>
 
