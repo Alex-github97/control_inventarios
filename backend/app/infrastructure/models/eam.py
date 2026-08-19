@@ -1,5 +1,5 @@
 import enum
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text, ForeignKey, JSON, Date
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text, ForeignKey, JSON, Date, UniqueConstraint
 from app.infrastructure.models.base import Base, TimestampMixin
 
 
@@ -465,6 +465,9 @@ class EAMNeumatico(Base, TimestampMixin):
     costo            = Column(Float)
     proveedor        = Column(String(100))
     reencauches      = Column(Integer, default=0)
+    # Llanta que entra al inventario ya usada: se captura su profundidad y
+    # kilometraje actuales en lugar de asumir que arranca nueva.
+    es_usada         = Column(Boolean, default=False)
     bodega_id        = Column(Integer, ForeignKey("eam_bodega_neumatico.id"), nullable=True)
     dano_id          = Column(Integer, ForeignKey("eam_dano_neumatico_catalogo.id"), nullable=True)
     motivo_baja      = Column(String(255), nullable=True)
@@ -507,6 +510,55 @@ class EAMBodegaNeumatico(Base, TimestampMixin):
     ubicacion = Column(String(200))
     capacidad = Column(Integer, nullable=True)
     activo    = Column(Boolean, default=True)
+
+
+class EAMMarcaNeumatico(Base, TimestampMixin):
+    """Marca de llanta o de banda de reencauche. `ambito` separa ambos catálogos
+    (una misma marca puede fabricar los dos, pero con referencias distintas)."""
+    __tablename__ = "eam_marca_neumatico"
+    __table_args__ = (UniqueConstraint("nombre", "ambito", name="uq_eam_marca_neumatico_nombre_ambito"),)
+    id     = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(120), nullable=False)
+    ambito = Column(String(10), nullable=False, default="LLANTA")   # LLANTA | BANDA
+    activo = Column(Boolean, default=True)
+
+
+class EAMDimensionNeumatico(Base, TimestampMixin):
+    """Dimensión/medida (ej. 295/80R22.5)."""
+    __tablename__ = "eam_dimension_neumatico"
+    __table_args__ = (UniqueConstraint("nombre", "ambito", name="uq_eam_dimension_neumatico_nombre_ambito"),)
+    id     = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(60), nullable=False)
+    ambito = Column(String(10), nullable=False, default="LLANTA")
+    activo = Column(Boolean, default=True)
+
+
+class EAMReferenciaNeumatico(Base, TimestampMixin):
+    """Referencia (diseño/modelo) que pertenece a una marca."""
+    __tablename__ = "eam_referencia_neumatico"
+    __table_args__ = (UniqueConstraint("marca_id", "nombre", name="uq_eam_referencia_neumatico_marca_nombre"),)
+    id       = Column(Integer, primary_key=True, index=True)
+    marca_id = Column(Integer, ForeignKey("eam_marca_neumatico.id", ondelete="CASCADE"), nullable=False)
+    nombre   = Column(String(120), nullable=False)
+    ambito   = Column(String(10), nullable=False, default="LLANTA")
+    tipo_uso = Column(String(20), nullable=True)   # sugerencia: DIRECCIONAL/TRACCION/...
+    activo   = Column(Boolean, default=True)
+
+
+class EAMReferenciaDimension(Base, TimestampMixin):
+    """Profundidad inicial de una referencia EN una dimensión concreta: la misma
+    referencia calza distinto según la medida, por eso el dato vive aquí y no en
+    la referencia ni en la dimensión por separado."""
+    __tablename__ = "eam_referencia_dimension"
+    __table_args__ = (UniqueConstraint("referencia_id", "dimension_id", name="uq_eam_referencia_dimension"),)
+    id                  = Column(Integer, primary_key=True, index=True)
+    referencia_id       = Column(Integer, ForeignKey("eam_referencia_neumatico.id", ondelete="CASCADE"), nullable=False)
+    dimension_id        = Column(Integer, ForeignKey("eam_dimension_neumatico.id", ondelete="CASCADE"), nullable=False)
+    profundidad_inicial = Column(Float, nullable=False)
+    profundidad_minima  = Column(Float, nullable=True)
+    vida_util_km        = Column(Float, nullable=True)
+    presion_recomendada = Column(Float, nullable=True)
+    activo              = Column(Boolean, default=True)
 
 
 class EAMNeumaticoCatalogo(Base, TimestampMixin):

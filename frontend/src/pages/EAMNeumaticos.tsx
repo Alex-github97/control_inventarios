@@ -26,6 +26,9 @@ import { useSearchParams } from 'react-router-dom'
 import { apiClient as api } from '@/api/client'
 import { exportarPDF, exportarExcel } from '@/utils/exportar'
 import { EsquemaLlantasPreview } from '@/components/EsquemaLlantasPreview'
+import { CatalogoLlantas } from '@/components/CatalogoLlantas'
+import { SelectorCatalogoLlanta, SELECCION_VACIA } from '@/components/SelectorCatalogoLlanta'
+import type { SeleccionCatalogo } from '@/components/SelectorCatalogoLlanta'
 import type { VehiculoCombinado } from '@/components/VehiculosCombinados'
 
 const EAM_COLOR = '#32AC5C'
@@ -216,6 +219,11 @@ export default function EAMNeumaticos() {
   const [bajaForm, setBajaForm] = useState({ fecha: nowLocal(), dano_id: '', motivo: '', motivo_fin_vida_id: '' })
   const [nuevoOpen, setNuevoOpen] = useState(false)
   const [nuevoForm, setNuevoForm] = useState({ ...EMPTY_NEUMATICO })
+  // Seleccion contra el catalogo + vida (VN / R{n}) + datos de llanta usada
+  const [nuevoCat, setNuevoCat] = useState<SeleccionCatalogo>({ ...SELECCION_VACIA })
+  const [nuevoVida, setNuevoVida] = useState({ reencauches: '0', es_usada: false, profundidad_actual: '', km_actual: '' })
+  const [masivoCat, setMasivoCat] = useState<SeleccionCatalogo>({ ...SELECCION_VACIA })
+  const [masivoVida, setMasivoVida] = useState({ reencauches: '0', es_usada: false, profundidad_actual: '', km_actual: '' })
   const [histTire, setHistTire] = useState<Neumatico | null>(null)
   // Vehículo al que se le está configurando el esquema de ejes/llantas (desde Configuración)
   const [ejesVeh, setEjesVeh] = useState<VehiculoCombinado | null>(null)
@@ -723,9 +731,13 @@ export default function EAMNeumaticos() {
   })
 
   const descargarPlantillaImportacion = () => {
-    const headers = ['codigo', 'marca', 'referencia', 'medida', 'tipo_uso', 'bodega', 'costo', 'proveedor', 'profundidad_diseño', 'profundidad_actual', 'vida_util_km', 'presion_recomendada', 'dot', 'tipo_rin']
-    const ejemplo = ['LL-1001', 'Michelin', 'XZA2', '295/80R22.5', 'TRACCION', bodegas[0]?.nombre ?? '', 950000, 'Distribuidora XYZ', 18, 18, 90000, 110, '2523', 'ACERO']
-    const ws = XLSX.utils.aoa_to_sheet([headers, ejemplo])
+    // marca / referencia / medida deben existir en el catálogo (Configuración →
+    // Catálogo de llantas); la profundidad inicial la pone el catálogo, por eso
+    // no va en la plantilla. profundidad_actual y km_actual solo si es_usada.
+    const headers = ['codigo', 'marca', 'referencia', 'medida', 'reencauches', 'es_usada', 'profundidad_actual', 'km_actual', 'tipo_uso', 'bodega', 'costo', 'proveedor', 'presion_recomendada', 'dot', 'tipo_rin']
+    const ejemplo = ['LL-1001', 'Michelin', 'XZA2', '295/80R22.5', 0, 'NO', '', '', 'TRACCION', bodegas[0]?.nombre ?? '', 950000, 'Distribuidora XYZ', 110, '2523', 'ACERO']
+    const ejemploUsada = ['LL-1002', 'Michelin', 'XZA2', '295/80R22.5', 1, 'SI', 9.5, 62000, 'TRACCION', bodegas[0]?.nombre ?? '', 700000, 'Distribuidora XYZ', 110, '2422', 'ACERO']
+    const ws = XLSX.utils.aoa_to_sheet([headers, ejemplo, ejemploUsada])
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Llantas')
     XLSX.writeFile(wb, 'plantilla_importacion_llantas.xlsx')
@@ -752,6 +764,8 @@ export default function EAMNeumaticos() {
     setMasivoCodIni(''); setMasivoCodFin('')
     setMasivoPreview([]); setMasivoError('')
     setMasivoForm({ ...EMPTY_NEUMATICO })
+    setMasivoCat({ ...SELECCION_VACIA })
+    setMasivoVida({ reencauches: '0', es_usada: false, profundidad_actual: '', km_actual: '' })
     setImportResult(null)
     setMasivoOpen(true)
   }
@@ -776,12 +790,16 @@ export default function EAMNeumaticos() {
     const f = masivoForm
     const items = masivoPreview.map(codigo => ({
       codigo, estado: 'ALMACENADO',
-      marca: f.marca || undefined, referencia: f.referencia || undefined, medida: f.medida || undefined,
-      tipo_uso: f.tipo_uso || undefined, bodega_id: f.bodega_id ? Number(f.bodega_id) : undefined,
+      // Marca, referencia y dimensión salen del catálogo; la profundidad inicial
+      // la resuelve el backend con esa combinación.
+      marca: masivoCat.marca, referencia: masivoCat.referencia, medida: masivoCat.medida,
+      reencauches: Number(masivoVida.reencauches) || 0,
+      es_usada: masivoVida.es_usada,
+      profundidad_actual: masivoVida.es_usada && masivoVida.profundidad_actual ? Number(masivoVida.profundidad_actual) : undefined,
+      km_actual: masivoVida.es_usada && masivoVida.km_actual ? Number(masivoVida.km_actual) : undefined,
+      tipo_uso: f.tipo_uso || masivoCat.tipo_uso || undefined,
+      bodega_id: f.bodega_id ? Number(f.bodega_id) : undefined,
       costo: f.costo ? Number(f.costo) : undefined, proveedor: f.proveedor || undefined,
-      profundidad_diseño: f['profundidad_diseño'] ? Number(f['profundidad_diseño']) : undefined,
-      profundidad_actual: f.profundidad_actual ? Number(f.profundidad_actual) : undefined,
-      vida_util_km: f.vida_util_km ? Number(f.vida_util_km) : undefined,
       presion_recomendada: f.presion_recomendada ? Number(f.presion_recomendada) : undefined,
     }))
     mutImportar.mutate(items)
@@ -791,14 +809,16 @@ export default function EAMNeumaticos() {
   const confirmarImportacion = () => {
     const items = importRows.map(row => {
       const bodega = bodegas.find(b => b.nombre?.toLowerCase() === String(row.bodega ?? '').toLowerCase())
+      const esUsada = ['SI', 'SÍ', 'TRUE', '1', 'X'].includes(String(row.es_usada ?? '').trim().toUpperCase())
       return {
         codigo: String(row.codigo ?? '').trim(),
         marca: row.marca || undefined, referencia: row.referencia || undefined, medida: row.medida || undefined,
+        reencauches: row.reencauches ? Number(row.reencauches) : 0,
+        es_usada: esUsada,
+        profundidad_actual: esUsada && row.profundidad_actual ? Number(row.profundidad_actual) : undefined,
+        km_actual: esUsada && row.km_actual ? Number(row.km_actual) : undefined,
         tipo_uso: row.tipo_uso || undefined, bodega_id: bodega?.id, estado: 'ALMACENADO',
         costo: row.costo ? Number(row.costo) : undefined, proveedor: row.proveedor || undefined,
-        profundidad_diseño: row['profundidad_diseño'] ? Number(row['profundidad_diseño']) : undefined,
-        profundidad_actual: row.profundidad_actual ? Number(row.profundidad_actual) : undefined,
-        vida_util_km: row.vida_util_km ? Number(row.vida_util_km) : undefined,
         presion_recomendada: row.presion_recomendada ? Number(row.presion_recomendada) : undefined,
         dot: row.dot || undefined, tipo_rin: row.tipo_rin || undefined,
       }
@@ -1763,6 +1783,32 @@ export default function EAMNeumaticos() {
         {/* ── TAB 7: Configuración (bodegas + catálogo de daños) ── */}
         {tab === 7 && (
           <Grid container spacing={2}>
+            {/* Catálogo de llantas: marca -> referencia -> dimensión -> profundidad */}
+            <Grid size={{ xs: 12 }}>
+              <Card sx={{ bgcolor: '#FFFFFF' }}>
+                <CardContent>
+                  <Stack direction="row" alignItems="center" gap={1} mb={1.5}>
+                    <TireRepair sx={{ color: EAM_DARK }} />
+                    <Typography fontWeight={700}>Catálogo de llantas</Typography>
+                  </Stack>
+                  <CatalogoLlantas ambito="LLANTA" color={EAM_COLOR} colorDark={EAM_DARK} />
+                </CardContent>
+              </Card>
+            </Grid>
+
+            {/* Mismo catálogo para las bandas de reencauche */}
+            <Grid size={{ xs: 12 }}>
+              <Card sx={{ bgcolor: '#FFFFFF' }}>
+                <CardContent>
+                  <Stack direction="row" alignItems="center" gap={1} mb={1.5}>
+                    <Autorenew sx={{ color: EAM_DARK }} />
+                    <Typography fontWeight={700}>Catálogo de bandas de reencauche</Typography>
+                  </Stack>
+                  <CatalogoLlantas ambito="BANDA" color={EAM_COLOR} colorDark={EAM_DARK} />
+                </CardContent>
+              </Card>
+            </Grid>
+
             {/* Parámetros globales */}
             <Grid size={{ xs: 12 }}>
               <Card sx={{ bgcolor: '#FFFFFF' }}>
@@ -2729,14 +2775,51 @@ export default function EAMNeumaticos() {
           <DialogContent dividers>
             <Grid container spacing={2} sx={{ pt: 0.5 }}>
               <Grid size={{ xs: 12, sm: 6 }}><TextField label="Código *" size="small" fullWidth value={nuevoForm.codigo} onChange={e => setNuevoForm(f => ({ ...f, codigo: e.target.value }))} /></Grid>
-              <Grid size={{ xs: 12, sm: 6 }}><TextField select label="Marca" size="small" fullWidth value={nuevoForm.marca} onChange={e => setNuevoForm(f => ({ ...f, marca: e.target.value }))}><MenuItem value="">—</MenuItem>{cat('MARCA').map(c => <MenuItem key={c.id} value={c.nombre}>{c.nombre}</MenuItem>)}</TextField></Grid>
-              <Grid size={{ xs: 12, sm: 6 }}><TextField select label="Referencia" size="small" fullWidth value={nuevoForm.referencia} onChange={e => setNuevoForm(f => ({ ...f, referencia: e.target.value }))}><MenuItem value="">—</MenuItem>{cat('REFERENCIA').map(c => <MenuItem key={c.id} value={c.nombre}>{c.nombre}</MenuItem>)}</TextField></Grid>
-              <Grid size={{ xs: 12, sm: 6 }}><TextField select label="Medida" size="small" fullWidth value={nuevoForm.medida} onChange={e => setNuevoForm(f => ({ ...f, medida: e.target.value }))}><MenuItem value="">—</MenuItem>{cat('MEDIDA').map(c => <MenuItem key={c.id} value={c.nombre}>{c.nombre}</MenuItem>)}</TextField></Grid>
-              <Grid size={{ xs: 12, sm: 6 }}><TextField select label="Vida útil" size="small" fullWidth value={nuevoForm.vida_util_km} onChange={e => setNuevoForm(f => ({ ...f, vida_util_km: e.target.value }))}><MenuItem value="">—</MenuItem>{cat('VIDA').map(c => <MenuItem key={c.id} value={String(c.valor ?? '')}>{c.nombre}{c.valor ? ` · ${c.valor.toLocaleString()} km` : ''}</MenuItem>)}</TextField></Grid>
+              <SelectorCatalogoLlanta valor={nuevoCat} onChange={setNuevoCat} color={EAM_COLOR} />
+
+              <Grid size={{ xs: 12 }}><Typography fontSize={11} fontWeight={700} color="#94A3B8" letterSpacing="0.06em" mt={0.5}>VIDA DE LA LLANTA</Typography></Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <TextField select label="Vida *" size="small" fullWidth
+                  value={nuevoVida.reencauches === '0' ? 'VN' : 'R'}
+                  onChange={e => setNuevoVida(v => ({ ...v, reencauches: e.target.value === 'VN' ? '0' : '1' }))}>
+                  <MenuItem value="VN">VN · Vida nueva</MenuItem>
+                  <MenuItem value="R">R · Reencauche</MenuItem>
+                </TextField>
+              </Grid>
+              {nuevoVida.reencauches !== '0' && (
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <TextField select label="N.º de reencauche *" size="small" fullWidth
+                    value={nuevoVida.reencauches}
+                    onChange={e => setNuevoVida(v => ({ ...v, reencauches: e.target.value }))}>
+                    {[1, 2, 3, 4, 5, 6].map(n => <MenuItem key={n} value={String(n)}>R{n}</MenuItem>)}
+                  </TextField>
+                </Grid>
+              )}
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <FormControlLabel
+                  control={<Switch checked={nuevoVida.es_usada} onChange={e => setNuevoVida(v => ({ ...v, es_usada: e.target.checked }))} />}
+                  label={<Typography fontSize={13}>Llanta usada</Typography>}
+                />
+              </Grid>
+              {nuevoVida.es_usada && (
+                <>
+                  <Grid size={{ xs: 6, sm: 4 }}>
+                    <TextField label="Prof. actual (mm) *" type="number" size="small" fullWidth
+                      value={nuevoVida.profundidad_actual}
+                      onChange={e => setNuevoVida(v => ({ ...v, profundidad_actual: e.target.value }))}
+                      helperText={nuevoCat.profundidad_inicial != null ? `Máximo ${nuevoCat.profundidad_inicial} mm` : undefined} />
+                  </Grid>
+                  <Grid size={{ xs: 6, sm: 4 }}>
+                    <TextField label="Kilometraje actual *" type="number" size="small" fullWidth
+                      value={nuevoVida.km_actual}
+                      onChange={e => setNuevoVida(v => ({ ...v, km_actual: e.target.value }))} />
+                  </Grid>
+                </>
+              )}
+
+              <Grid size={{ xs: 12 }}><Typography fontSize={11} fontWeight={700} color="#94A3B8" letterSpacing="0.06em" mt={0.5}>DATOS ADICIONALES</Typography></Grid>
               <Grid size={{ xs: 12, sm: 6 }}><TextField select label="Bodega" size="small" fullWidth value={nuevoForm.bodega_id} onChange={e => setNuevoForm(f => ({ ...f, bodega_id: e.target.value }))}><MenuItem value="">Sin bodega</MenuItem>{bodegas.map(b => <MenuItem key={b.id} value={String(b.id)}>{b.nombre}</MenuItem>)}</TextField></Grid>
-              <Grid size={{ xs: 6, sm: 3 }}><TextField label="Prof. diseño" type="number" size="small" fullWidth value={nuevoForm.profundidad_diseño} onChange={e => setNuevoForm(f => ({ ...f, profundidad_diseño: e.target.value }))} /></Grid>
-              <Grid size={{ xs: 6, sm: 3 }}><TextField label="Prof. actual" type="number" size="small" fullWidth value={nuevoForm.profundidad_actual} onChange={e => setNuevoForm(f => ({ ...f, profundidad_actual: e.target.value }))} /></Grid>
-              <Grid size={{ xs: 12, sm: 6 }}><TextField select label="Tipo de uso" size="small" fullWidth value={nuevoForm.tipo_uso} onChange={e => setNuevoForm(f => ({ ...f, tipo_uso: e.target.value }))}><MenuItem value="">Sin clasificar</MenuItem>{TIPOS_USO.map(u => <MenuItem key={u} value={u}>{u}</MenuItem>)}</TextField></Grid>
+              <Grid size={{ xs: 12, sm: 6 }}><TextField select label="Tipo de uso" size="small" fullWidth value={nuevoForm.tipo_uso || nuevoCat.tipo_uso || ''} onChange={e => setNuevoForm(f => ({ ...f, tipo_uso: e.target.value }))}><MenuItem value="">Sin clasificar</MenuItem>{TIPOS_USO.map(u => <MenuItem key={u} value={u}>{u}</MenuItem>)}</TextField></Grid>
               <Grid size={{ xs: 12, sm: 6 }}><TextField label="Presión recomendada (psi)" type="number" size="small" fullWidth value={nuevoForm.presion_recomendada} onChange={e => setNuevoForm(f => ({ ...f, presion_recomendada: e.target.value }))} /></Grid>
               <Grid size={{ xs: 6, sm: 6 }}><TextField label="Costo" type="number" size="small" fullWidth value={nuevoForm.costo} onChange={e => setNuevoForm(f => ({ ...f, costo: e.target.value }))} /></Grid>
               <Grid size={{ xs: 6, sm: 6 }}><TextField label="Proveedor" size="small" fullWidth value={nuevoForm.proveedor} onChange={e => setNuevoForm(f => ({ ...f, proveedor: e.target.value }))} /></Grid>
@@ -2747,19 +2830,27 @@ export default function EAMNeumaticos() {
           </DialogContent>
           <DialogActions sx={{ px: 3, py: 2 }}>
             <Button onClick={() => setNuevoOpen(false)}>Cancelar</Button>
-            <Button variant="contained" disabled={!nuevoForm.codigo || mutNuevo.isPending} onClick={() => mutNuevo.mutate({
-              codigo: nuevoForm.codigo, marca: nuevoForm.marca || undefined, referencia: nuevoForm.referencia || undefined,
-              medida: nuevoForm.medida || undefined, estado: 'ALMACENADO',
-              bodega_id: nuevoForm.bodega_id ? Number(nuevoForm.bodega_id) : undefined,
-              profundidad_diseño: nuevoForm.profundidad_diseño ? Number(nuevoForm.profundidad_diseño) : undefined,
-              profundidad_actual: nuevoForm.profundidad_actual ? Number(nuevoForm.profundidad_actual) : undefined,
-              costo: nuevoForm.costo ? Number(nuevoForm.costo) : undefined, proveedor: nuevoForm.proveedor || undefined,
-              vida_util_km: nuevoForm.vida_util_km ? Number(nuevoForm.vida_util_km) : undefined,
-              tipo_uso: nuevoForm.tipo_uso || undefined,
-              presion_recomendada: nuevoForm.presion_recomendada ? Number(nuevoForm.presion_recomendada) : undefined,
-              zona_id: nuevoForm.zona_id ? Number(nuevoForm.zona_id) : undefined,
-              dot: nuevoForm.dot || undefined, tipo_rin: nuevoForm.tipo_rin || undefined,
-            })} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Registrar</Button>
+            <Button
+              variant="contained"
+              disabled={
+                !nuevoForm.codigo || !nuevoCat.dimension_id || mutNuevo.isPending ||
+                (nuevoVida.es_usada && (!nuevoVida.profundidad_actual || !nuevoVida.km_actual))
+              }
+              onClick={() => mutNuevo.mutate({
+                codigo: nuevoForm.codigo, marca: nuevoCat.marca, referencia: nuevoCat.referencia,
+                medida: nuevoCat.medida, estado: 'ALMACENADO',
+                reencauches: Number(nuevoVida.reencauches) || 0,
+                es_usada: nuevoVida.es_usada,
+                profundidad_actual: nuevoVida.es_usada && nuevoVida.profundidad_actual ? Number(nuevoVida.profundidad_actual) : undefined,
+                km_actual: nuevoVida.es_usada && nuevoVida.km_actual ? Number(nuevoVida.km_actual) : undefined,
+                bodega_id: nuevoForm.bodega_id ? Number(nuevoForm.bodega_id) : undefined,
+                costo: nuevoForm.costo ? Number(nuevoForm.costo) : undefined, proveedor: nuevoForm.proveedor || undefined,
+                tipo_uso: nuevoForm.tipo_uso || nuevoCat.tipo_uso || undefined,
+                presion_recomendada: nuevoForm.presion_recomendada ? Number(nuevoForm.presion_recomendada) : undefined,
+                zona_id: nuevoForm.zona_id ? Number(nuevoForm.zona_id) : undefined,
+                dot: nuevoForm.dot || undefined, tipo_rin: nuevoForm.tipo_rin || undefined,
+              })}
+              sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Registrar</Button>
           </DialogActions>
         </Dialog>
 
@@ -3165,11 +3256,48 @@ export default function EAMNeumaticos() {
               <Grid size={{ xs: 12 }}>
                 <Typography fontSize={11} fontWeight={700} color="#94A3B8" letterSpacing="0.06em" mt={1}>DATOS COMUNES A TODAS</Typography>
               </Grid>
-              <Grid size={{ xs: 6, sm: 3 }}><TextField label="Marca" size="small" fullWidth value={masivoForm.marca} onChange={e => setMasivoForm(f => ({ ...f, marca: e.target.value }))} /></Grid>
-              <Grid size={{ xs: 6, sm: 3 }}><TextField label="Referencia" size="small" fullWidth value={masivoForm.referencia} onChange={e => setMasivoForm(f => ({ ...f, referencia: e.target.value }))} /></Grid>
-              <Grid size={{ xs: 6, sm: 3 }}><TextField label="Medida" size="small" fullWidth value={masivoForm.medida} onChange={e => setMasivoForm(f => ({ ...f, medida: e.target.value }))} /></Grid>
-              <Grid size={{ xs: 6, sm: 3 }}>
-                <TextField select label="Tipo de uso" size="small" fullWidth value={masivoForm.tipo_uso} onChange={e => setMasivoForm(f => ({ ...f, tipo_uso: e.target.value }))}>
+              <SelectorCatalogoLlanta valor={masivoCat} onChange={setMasivoCat} color={EAM_COLOR} />
+
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <TextField select label="Vida *" size="small" fullWidth
+                  value={masivoVida.reencauches === '0' ? 'VN' : 'R'}
+                  onChange={e => setMasivoVida(v => ({ ...v, reencauches: e.target.value === 'VN' ? '0' : '1' }))}>
+                  <MenuItem value="VN">VN · Vida nueva</MenuItem>
+                  <MenuItem value="R">R · Reencauche</MenuItem>
+                </TextField>
+              </Grid>
+              {masivoVida.reencauches !== '0' && (
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <TextField select label="N.º de reencauche *" size="small" fullWidth
+                    value={masivoVida.reencauches}
+                    onChange={e => setMasivoVida(v => ({ ...v, reencauches: e.target.value }))}>
+                    {[1, 2, 3, 4, 5, 6].map(n => <MenuItem key={n} value={String(n)}>R{n}</MenuItem>)}
+                  </TextField>
+                </Grid>
+              )}
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <FormControlLabel
+                  control={<Switch checked={masivoVida.es_usada} onChange={e => setMasivoVida(v => ({ ...v, es_usada: e.target.checked }))} />}
+                  label={<Typography fontSize={13}>Llantas usadas</Typography>}
+                />
+              </Grid>
+              {masivoVida.es_usada && (
+                <>
+                  <Grid size={{ xs: 6, sm: 4 }}>
+                    <TextField label="Prof. actual (mm) *" type="number" size="small" fullWidth
+                      value={masivoVida.profundidad_actual}
+                      onChange={e => setMasivoVida(v => ({ ...v, profundidad_actual: e.target.value }))}
+                      helperText={masivoCat.profundidad_inicial != null ? `Máximo ${masivoCat.profundidad_inicial} mm` : undefined} />
+                  </Grid>
+                  <Grid size={{ xs: 6, sm: 4 }}>
+                    <TextField label="Kilometraje actual *" type="number" size="small" fullWidth
+                      value={masivoVida.km_actual}
+                      onChange={e => setMasivoVida(v => ({ ...v, km_actual: e.target.value }))} />
+                  </Grid>
+                </>
+              )}
+              <Grid size={{ xs: 6, sm: 4 }}>
+                <TextField select label="Tipo de uso" size="small" fullWidth value={masivoForm.tipo_uso || masivoCat.tipo_uso || ''} onChange={e => setMasivoForm(f => ({ ...f, tipo_uso: e.target.value }))}>
                   <MenuItem value="">Sin especificar</MenuItem>
                   {TIPOS_USO.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
                 </TextField>
@@ -3182,9 +3310,6 @@ export default function EAMNeumaticos() {
               </Grid>
               <Grid size={{ xs: 6, sm: 3 }}><TextField label="Costo unitario" type="number" size="small" fullWidth value={masivoForm.costo} onChange={e => setMasivoForm(f => ({ ...f, costo: e.target.value }))} /></Grid>
               <Grid size={{ xs: 6, sm: 3 }}><TextField label="Proveedor" size="small" fullWidth value={masivoForm.proveedor} onChange={e => setMasivoForm(f => ({ ...f, proveedor: e.target.value }))} /></Grid>
-              <Grid size={{ xs: 6, sm: 3 }}><TextField label="Prof. diseño (mm)" type="number" size="small" fullWidth value={masivoForm.profundidad_diseño} onChange={e => setMasivoForm(f => ({ ...f, profundidad_diseño: e.target.value }))} /></Grid>
-              <Grid size={{ xs: 6, sm: 3 }}><TextField label="Prof. actual (mm)" type="number" size="small" fullWidth value={masivoForm.profundidad_actual} onChange={e => setMasivoForm(f => ({ ...f, profundidad_actual: e.target.value }))} /></Grid>
-              <Grid size={{ xs: 6, sm: 3 }}><TextField label="Vida útil (km)" type="number" size="small" fullWidth value={masivoForm.vida_util_km} onChange={e => setMasivoForm(f => ({ ...f, vida_util_km: e.target.value }))} /></Grid>
               <Grid size={{ xs: 6, sm: 3 }}><TextField label="Presión rec. (psi)" type="number" size="small" fullWidth value={masivoForm.presion_recomendada} onChange={e => setMasivoForm(f => ({ ...f, presion_recomendada: e.target.value }))} /></Grid>
 
               {masivoError && <Grid size={{ xs: 12 }}><Alert severity="error" sx={{ py: 0.5 }}>{masivoError}</Alert></Grid>}
@@ -3211,7 +3336,7 @@ export default function EAMNeumaticos() {
           <DialogActions sx={{ px: 3, py: 2 }}>
             <Button onClick={() => setMasivoOpen(false)}>Cerrar</Button>
             {masivoPreview.length === 0 ? (
-              <Button variant="contained" onClick={previsualizarMasivo} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>
+              <Button variant="contained" disabled={!masivoCat.dimension_id} onClick={previsualizarMasivo} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>
                 Previsualizar
               </Button>
             ) : (
@@ -3227,7 +3352,7 @@ export default function EAMNeumaticos() {
           <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Importación masiva de llantas</DialogTitle>
           <DialogContent dividers>
             <Stack spacing={2}>
-              <Alert severity="info" sx={{ py: 0.5 }}>Descarga la plantilla, complétala en Excel y súbela. La columna "bodega" debe coincidir con el nombre de una bodega ya configurada.</Alert>
+              <Alert severity="info" sx={{ py: 0.5 }}>Descarga la plantilla, complétala en Excel y súbela. <b>marca</b>, <b>referencia</b> y <b>medida</b> deben existir en el catálogo (Configuración → Catálogo de llantas) y la referencia debe tener configurada esa dimensión; si no, la fila se reporta con el error correspondiente. La profundidad inicial la toma el catálogo. Usa <b>es_usada</b> = SI para cargar profundidad y kilometraje actuales.</Alert>
               <Button variant="outlined" startIcon={<Download />} onClick={descargarPlantillaImportacion} sx={{ alignSelf: 'flex-start', textTransform: 'none' }}>Descargar plantilla</Button>
               <input ref={fileInputRef} type="file" accept=".xlsx,.xls" hidden onChange={handleImportFile} />
               <Button variant="outlined" startIcon={<UploadFile />} onClick={() => fileInputRef.current?.click()} sx={{ alignSelf: 'flex-start', textTransform: 'none' }}>

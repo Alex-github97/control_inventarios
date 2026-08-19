@@ -168,6 +168,56 @@ async def lifespan(app: FastAPI):
                 ('OTRO', 'Otro', false, true, now(), now())
             ON CONFLICT (codigo) DO NOTHING
         """))
+        await conn.execute(text(
+            "ALTER TABLE eam_neumatico ADD COLUMN IF NOT EXISTS es_usada BOOLEAN DEFAULT false"
+        ))
+        # Catálogo jerárquico de llantas/bandas: las marcas, dimensiones y
+        # referencias que ya estaban escritas a mano en los registros existentes
+        # se suben al catálogo para no perder nada al pasar a listas cerradas.
+        await conn.execute(text("""
+            INSERT INTO eam_marca_neumatico (nombre, ambito, activo, created_at, updated_at)
+            SELECT DISTINCT TRIM(marca), 'LLANTA', true, now(), now()
+            FROM eam_neumatico WHERE marca IS NOT NULL AND TRIM(marca) <> ''
+            ON CONFLICT (nombre, ambito) DO NOTHING
+        """))
+        await conn.execute(text("""
+            INSERT INTO eam_dimension_neumatico (nombre, ambito, activo, created_at, updated_at)
+            SELECT DISTINCT TRIM(medida), 'LLANTA', true, now(), now()
+            FROM eam_neumatico WHERE medida IS NOT NULL AND TRIM(medida) <> ''
+            ON CONFLICT (nombre, ambito) DO NOTHING
+        """))
+        await conn.execute(text("""
+            INSERT INTO eam_referencia_neumatico (marca_id, nombre, ambito, activo, created_at, updated_at)
+            SELECT DISTINCT m.id, TRIM(n.referencia), 'LLANTA', true, now(), now()
+            FROM eam_neumatico n
+            JOIN eam_marca_neumatico m ON m.nombre = TRIM(n.marca) AND m.ambito = 'LLANTA'
+            WHERE n.referencia IS NOT NULL AND TRIM(n.referencia) <> ''
+            ON CONFLICT (marca_id, nombre) DO NOTHING
+        """))
+        # Profundidad inicial por referencia+dimensión, tomada de lo ya registrado
+        await conn.execute(text("""
+            INSERT INTO eam_referencia_dimension (referencia_id, dimension_id, profundidad_inicial, activo, created_at, updated_at)
+            SELECT DISTINCT ON (r.id, d.id) r.id, d.id, n."profundidad_diseño", true, now(), now()
+            FROM eam_neumatico n
+            JOIN eam_marca_neumatico m ON m.nombre = TRIM(n.marca) AND m.ambito = 'LLANTA'
+            JOIN eam_referencia_neumatico r ON r.marca_id = m.id AND r.nombre = TRIM(n.referencia)
+            JOIN eam_dimension_neumatico d ON d.nombre = TRIM(n.medida) AND d.ambito = 'LLANTA'
+            WHERE n."profundidad_diseño" IS NOT NULL
+            ON CONFLICT (referencia_id, dimension_id) DO NOTHING
+        """))
+        # Mismo criterio para las bandas de reencauche ya registradas
+        await conn.execute(text("""
+            INSERT INTO eam_marca_neumatico (nombre, ambito, activo, created_at, updated_at)
+            SELECT DISTINCT TRIM(marca), 'BANDA', true, now(), now()
+            FROM eam_banda_reencauche WHERE marca IS NOT NULL AND TRIM(marca) <> ''
+            ON CONFLICT (nombre, ambito) DO NOTHING
+        """))
+        await conn.execute(text("""
+            INSERT INTO eam_dimension_neumatico (nombre, ambito, activo, created_at, updated_at)
+            SELECT DISTINCT TRIM(dimension), 'BANDA', true, now(), now()
+            FROM eam_banda_reencauche WHERE dimension IS NOT NULL AND TRIM(dimension) <> ''
+            ON CONFLICT (nombre, ambito) DO NOTHING
+        """))
         # Configuración de llantas por eje (no solo un número global de ejes):
         # cuántas llantas trae cada eje individual, para representar vehículos
         # reales que no siguen el patrón simple "eje1=2, resto=4" (uniformes,

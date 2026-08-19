@@ -26,6 +26,7 @@ from app.infrastructure.models.eam import (
     EAMReesculturado, EAMVidaNeumatico,
     EAMCongeladoNeumatico, EAMCongeladoDetalleNeumatico,
     EAMTipoActivo,
+    EAMMarcaNeumatico, EAMDimensionNeumatico, EAMReferenciaNeumatico, EAMReferenciaDimension,
 )
 from app.infrastructure.models.tms import TMSVehiculo
 from app.infrastructure.models.flota import FlotaVehiculo
@@ -333,6 +334,12 @@ class NeumaticCreate(BaseModel):
     zona_id: Optional[int] = None
     dot: Optional[str] = None
     tipo_rin: Optional[str] = None
+    # Vida con la que entra: VN (vida nueva) o R{n} (n-esimo reencauche).
+    # `reencauches` = 0 -> VN; 1..n -> R1..Rn
+    reencauches: Optional[int] = 0
+    # Llanta que ingresa ya usada: se toman su profundidad y kilometraje reales
+    es_usada: Optional[bool] = False
+    km_actual: Optional[float] = None
 
 class NeumaticUpdate(BaseModel):
     marca: Optional[str] = None
@@ -1476,7 +1483,268 @@ async def delete_dano_neumatico(did: int, db: AsyncSession = Depends(get_db)):
     if obj: await db.delete(obj); await db.commit()
 
 
-# ── Catálogo de atributos (marca/medida/referencia/vida) ──
+# -- Catalogo jerarquico de llantas y bandas ------------------------------------
+# marca -> referencia -> (referencia + dimension) -> profundidad inicial.
+# `ambito` = LLANTA | BANDA: las bandas de reencauche usan el mismo catalogo con
+# sus propias marcas y referencias.
+
+class MarcaNeuCreate(BaseModel):
+    nombre: str
+    ambito: str = "LLANTA"
+    activo: bool = True
+
+class MarcaNeuResponse(MarcaNeuCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+
+class DimensionNeuCreate(BaseModel):
+    nombre: str
+    ambito: str = "LLANTA"
+    activo: bool = True
+
+class DimensionNeuResponse(DimensionNeuCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+
+class ReferenciaNeuCreate(BaseModel):
+    marca_id: int
+    nombre: str
+    ambito: str = "LLANTA"
+    tipo_uso: Optional[str] = None
+    activo: bool = True
+
+class ReferenciaNeuResponse(ReferenciaNeuCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    marca_nombre: Optional[str] = None
+
+class ReferenciaDimensionCreate(BaseModel):
+    referencia_id: int
+    dimension_id: int
+    profundidad_inicial: float
+    profundidad_minima: Optional[float] = None
+    vida_util_km: Optional[float] = None
+    presion_recomendada: Optional[float] = None
+    activo: bool = True
+
+class ReferenciaDimensionResponse(ReferenciaDimensionCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    dimension_nombre: Optional[str] = None
+
+
+@router.get("/neumaticos/catalogo/marcas", response_model=List[MarcaNeuResponse])
+async def list_marcas_neu(ambito: str = "LLANTA", db: AsyncSession = Depends(get_db)):
+    r = await db.execute(
+        select(EAMMarcaNeumatico)
+        .where(EAMMarcaNeumatico.ambito == ambito.upper(), EAMMarcaNeumatico.activo == True)
+        .order_by(EAMMarcaNeumatico.nombre)
+    )
+    return r.scalars().all()
+
+@router.post("/neumaticos/catalogo/marcas", response_model=MarcaNeuResponse)
+async def crear_marca_neu(data: MarcaNeuCreate, db: AsyncSession = Depends(get_db)):
+    obj = EAMMarcaNeumatico(**data.model_dump())
+    obj.ambito = obj.ambito.upper()
+    obj.nombre = obj.nombre.strip()
+    db.add(obj)
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise HTTPException(409, "La marca '%s' ya existe en %s" % (data.nombre, obj.ambito))
+    await db.refresh(obj)
+    return obj
+
+@router.delete("/neumaticos/catalogo/marcas/{mid}", status_code=204)
+async def eliminar_marca_neu(mid: int, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMMarcaNeumatico, mid)
+    if obj:
+        obj.activo = False
+        await db.commit()
+
+
+@router.get("/neumaticos/catalogo/dimensiones", response_model=List[DimensionNeuResponse])
+async def list_dimensiones_neu(ambito: str = "LLANTA", db: AsyncSession = Depends(get_db)):
+    r = await db.execute(
+        select(EAMDimensionNeumatico)
+        .where(EAMDimensionNeumatico.ambito == ambito.upper(), EAMDimensionNeumatico.activo == True)
+        .order_by(EAMDimensionNeumatico.nombre)
+    )
+    return r.scalars().all()
+
+@router.post("/neumaticos/catalogo/dimensiones", response_model=DimensionNeuResponse)
+async def crear_dimension_neu(data: DimensionNeuCreate, db: AsyncSession = Depends(get_db)):
+    obj = EAMDimensionNeumatico(**data.model_dump())
+    obj.ambito = obj.ambito.upper()
+    obj.nombre = obj.nombre.strip()
+    db.add(obj)
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise HTTPException(409, "La dimension '%s' ya existe en %s" % (data.nombre, obj.ambito))
+    await db.refresh(obj)
+    return obj
+
+@router.delete("/neumaticos/catalogo/dimensiones/{did}", status_code=204)
+async def eliminar_dimension_neu(did: int, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMDimensionNeumatico, did)
+    if obj:
+        obj.activo = False
+        await db.commit()
+
+
+@router.get("/neumaticos/catalogo/referencias", response_model=List[ReferenciaNeuResponse])
+async def list_referencias_neu(
+    ambito: str = "LLANTA", marca_id: Optional[int] = None, db: AsyncSession = Depends(get_db),
+):
+    q = (
+        select(EAMReferenciaNeumatico, EAMMarcaNeumatico.nombre)
+        .join(EAMMarcaNeumatico, EAMMarcaNeumatico.id == EAMReferenciaNeumatico.marca_id)
+        .where(EAMReferenciaNeumatico.ambito == ambito.upper(), EAMReferenciaNeumatico.activo == True)
+    )
+    if marca_id:
+        q = q.where(EAMReferenciaNeumatico.marca_id == marca_id)
+    r = await db.execute(q.order_by(EAMReferenciaNeumatico.nombre))
+    salida = []
+    for ref, marca_nombre in r.all():
+        item = ReferenciaNeuResponse.model_validate(ref)
+        item.marca_nombre = marca_nombre
+        salida.append(item)
+    return salida
+
+@router.post("/neumaticos/catalogo/referencias", response_model=ReferenciaNeuResponse)
+async def crear_referencia_neu(data: ReferenciaNeuCreate, db: AsyncSession = Depends(get_db)):
+    marca = await db.get(EAMMarcaNeumatico, data.marca_id)
+    if not marca:
+        raise HTTPException(404, "La marca no existe")
+    obj = EAMReferenciaNeumatico(**data.model_dump())
+    obj.ambito = obj.ambito.upper()
+    obj.nombre = obj.nombre.strip()
+    db.add(obj)
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise HTTPException(409, "La referencia '%s' ya existe para la marca %s" % (data.nombre, marca.nombre))
+    await db.refresh(obj)
+    return obj
+
+@router.delete("/neumaticos/catalogo/referencias/{rid}", status_code=204)
+async def eliminar_referencia_neu(rid: int, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMReferenciaNeumatico, rid)
+    if obj:
+        obj.activo = False
+        await db.commit()
+
+
+@router.get("/neumaticos/catalogo/referencias/{rid}/dimensiones", response_model=List[ReferenciaDimensionResponse])
+async def list_dimensiones_de_referencia(rid: int, db: AsyncSession = Depends(get_db)):
+    r = await db.execute(
+        select(EAMReferenciaDimension, EAMDimensionNeumatico.nombre)
+        .join(EAMDimensionNeumatico, EAMDimensionNeumatico.id == EAMReferenciaDimension.dimension_id)
+        .where(EAMReferenciaDimension.referencia_id == rid, EAMReferenciaDimension.activo == True)
+        .order_by(EAMDimensionNeumatico.nombre)
+    )
+    salida = []
+    for rd, dim_nombre in r.all():
+        item = ReferenciaDimensionResponse.model_validate(rd)
+        item.dimension_nombre = dim_nombre
+        salida.append(item)
+    return salida
+
+@router.post("/neumaticos/catalogo/referencia-dimension", response_model=ReferenciaDimensionResponse)
+async def crear_referencia_dimension(data: ReferenciaDimensionCreate, db: AsyncSession = Depends(get_db)):
+    if not await db.get(EAMReferenciaNeumatico, data.referencia_id):
+        raise HTTPException(404, "La referencia no existe")
+    if not await db.get(EAMDimensionNeumatico, data.dimension_id):
+        raise HTTPException(404, "La dimension no existe")
+    if data.profundidad_inicial is None or data.profundidad_inicial <= 0:
+        raise HTTPException(400, "La profundidad inicial debe ser mayor que cero")
+    obj = EAMReferenciaDimension(**data.model_dump())
+    db.add(obj)
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise HTTPException(409, "Esa referencia ya tiene configurada esa dimension")
+    await db.refresh(obj)
+    return obj
+
+@router.put("/neumaticos/catalogo/referencia-dimension/{rdid}", response_model=ReferenciaDimensionResponse)
+async def actualizar_referencia_dimension(rdid: int, data: ReferenciaDimensionCreate, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMReferenciaDimension, rdid)
+    if not obj:
+        raise HTTPException(404, "Combinacion no encontrada")
+    for k, v in data.model_dump().items():
+        setattr(obj, k, v)
+    await db.commit(); await db.refresh(obj)
+    return obj
+
+@router.delete("/neumaticos/catalogo/referencia-dimension/{rdid}", status_code=204)
+async def eliminar_referencia_dimension(rdid: int, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMReferenciaDimension, rdid)
+    if obj:
+        await db.delete(obj)
+        await db.commit()
+
+
+async def _resolver_catalogo_llanta(
+    db: AsyncSession, marca, referencia, medida, ambito: str = "LLANTA",
+):
+    """Valida marca/referencia/medida contra el catalogo y devuelve la fila de
+    referencia+dimension (de donde sale la profundidad inicial). Lanza ValueError
+    con un mensaje entendible: quien llama decide si es 409 o error de fila."""
+    if not marca or not str(marca).strip():
+        raise ValueError("La marca es obligatoria")
+    if not medida or not str(medida).strip():
+        raise ValueError("La dimension/medida es obligatoria")
+
+    r = await db.execute(select(EAMMarcaNeumatico).where(
+        func.lower(EAMMarcaNeumatico.nombre) == str(marca).strip().lower(),
+        EAMMarcaNeumatico.ambito == ambito, EAMMarcaNeumatico.activo == True,
+    ))
+    obj_marca = r.scalar_one_or_none()
+    if not obj_marca:
+        raise ValueError("La marca '%s' no esta en el catalogo" % marca)
+
+    r = await db.execute(select(EAMDimensionNeumatico).where(
+        func.lower(EAMDimensionNeumatico.nombre) == str(medida).strip().lower(),
+        EAMDimensionNeumatico.ambito == ambito, EAMDimensionNeumatico.activo == True,
+    ))
+    obj_dim = r.scalar_one_or_none()
+    if not obj_dim:
+        raise ValueError("La dimension '%s' no esta en el catalogo" % medida)
+
+    if not referencia or not str(referencia).strip():
+        raise ValueError("La referencia es obligatoria")
+    r = await db.execute(select(EAMReferenciaNeumatico).where(
+        EAMReferenciaNeumatico.marca_id == obj_marca.id,
+        func.lower(EAMReferenciaNeumatico.nombre) == str(referencia).strip().lower(),
+        EAMReferenciaNeumatico.activo == True,
+    ))
+    obj_ref = r.scalar_one_or_none()
+    if not obj_ref:
+        raise ValueError(
+            "La referencia '%s' no pertenece a la marca '%s'" % (referencia, obj_marca.nombre)
+        )
+
+    r = await db.execute(select(EAMReferenciaDimension).where(
+        EAMReferenciaDimension.referencia_id == obj_ref.id,
+        EAMReferenciaDimension.dimension_id == obj_dim.id,
+        EAMReferenciaDimension.activo == True,
+    ))
+    obj_rd = r.scalar_one_or_none()
+    if not obj_rd:
+        raise ValueError(
+            "La referencia '%s' no tiene configurada la dimension '%s'"
+            % (obj_ref.nombre, obj_dim.nombre)
+        )
+    return obj_marca, obj_ref, obj_dim, obj_rd
+
+
+# -- Catalogo de atributos (marca/medida/referencia/vida) --
 @router.get("/neumaticos/catalogo", response_model=List[CatalogoNeuResponse])
 async def list_catalogo_neumatico(tipo: Optional[str] = None, db: AsyncSession = Depends(get_db)):
     q = select(EAMNeumaticoCatalogo)
@@ -2347,16 +2615,22 @@ async def crear_neumaticos_masivo(data: NeumaticoBulkCreate, db: AsyncSession = 
     errores = []
     for i, item in enumerate(data.items):
         try:
+            valores = await _preparar_neumatico(db, item)
             async with db.begin_nested():
-                obj = EAMNeumatico(**item.model_dump())
+                obj = EAMNeumatico(**valores)
                 db.add(obj)
                 await db.flush()
+                reencauches = obj.reencauches or 0
                 db.add(EAMVidaNeumatico(
-                    neumatico_id=obj.id, numero_vida=1, tipo="NUEVA",
+                    neumatico_id=obj.id,
+                    numero_vida=reencauches + 1,
+                    tipo="NUEVA" if reencauches == 0 else "REENCAUCHADA",
                     fecha_inicio=datetime.utcnow(), km_inicio=obj.km_inicio or 0,
                     costo=obj.costo, profundidad_inicial=obj.profundidad_diseño,
                 ))
             exitosos += 1
+        except ValueError as e:
+            errores.append({"fila": i + 2, "codigo": item.codigo, "mensaje": str(e)})
         except Exception as e:
             errores.append({"fila": i + 2, "codigo": item.codigo, "mensaje": _mensaje_error_fila(e, item.codigo)})
     await db.commit()
@@ -2673,12 +2947,66 @@ async def list_neumaticos(
     result = await db.execute(q.order_by(EAMNeumatico.codigo))
     return result.scalars().all()
 
+async def _preparar_neumatico(db: AsyncSession, data: "NeumaticCreate") -> dict:
+    """Valida contra el catalogo y completa los datos derivados de una llanta:
+    profundidad de diseno segun referencia+dimension, profundidad actual segun
+    sea nueva o usada, y coherencia del numero de reencauches."""
+    _, ref, dim, rd = await _resolver_catalogo_llanta(db, data.marca, data.referencia, data.medida)
+
+    valores = data.model_dump()
+    # Se normalizan a los nombres del catalogo (evita duplicados por mayusculas)
+    valores["marca"] = (await db.get(EAMMarcaNeumatico, ref.marca_id)).nombre
+    valores["referencia"] = ref.nombre
+    valores["medida"] = dim.nombre
+    # La profundidad inicial la manda el catalogo, no quien captura
+    valores["profundidad_diseño"] = rd.profundidad_inicial
+    if rd.vida_util_km and not valores.get("vida_util_km"):
+        valores["vida_util_km"] = rd.vida_util_km
+    if rd.presion_recomendada and not valores.get("presion_recomendada"):
+        valores["presion_recomendada"] = rd.presion_recomendada
+
+    reencauches = valores.get("reencauches") or 0
+    if reencauches < 0:
+        raise ValueError("El numero de reencauches no puede ser negativo")
+    valores["reencauches"] = reencauches
+
+    es_usada = bool(valores.get("es_usada"))
+    prof_actual = valores.get("profundidad_actual")
+    if es_usada:
+        if prof_actual is None:
+            raise ValueError("Una llanta usada requiere la profundidad actual")
+        if prof_actual > rd.profundidad_inicial:
+            raise ValueError(
+                "La profundidad actual (%s mm) no puede superar la inicial de la referencia (%s mm)"
+                % (prof_actual, rd.profundidad_inicial)
+            )
+        if valores.get("km_actual") is None:
+            raise ValueError("Una llanta usada requiere el kilometraje actual")
+    else:
+        # Nueva: arranca con la profundidad de diseno y sin kilometraje recorrido
+        valores["profundidad_actual"] = rd.profundidad_inicial
+        valores["km_actual"] = valores.get("km_actual") or 0
+
+    km_actual = valores.get("km_actual") or 0
+    valores["km_inicio"] = 0
+    valores["km_actual"] = km_actual
+    valores["km_total"] = km_actual
+    return valores
+
+
 @router.post("/neumaticos", response_model=NeumaticResponse)
 async def create_neumatico(data: NeumaticCreate, db: AsyncSession = Depends(get_db)):
-    obj = EAMNeumatico(**data.model_dump())
+    try:
+        valores = await _preparar_neumatico(db, data)
+    except ValueError as e:
+        raise HTTPException(409, str(e))
+    obj = EAMNeumatico(**valores)
     db.add(obj); await db.commit(); await db.refresh(obj)
+    reencauches = obj.reencauches or 0
     db.add(EAMVidaNeumatico(
-        neumatico_id=obj.id, numero_vida=1, tipo="NUEVA",
+        neumatico_id=obj.id,
+        numero_vida=reencauches + 1,
+        tipo="NUEVA" if reencauches == 0 else "REENCAUCHADA",
         fecha_inicio=datetime.utcnow(), km_inicio=obj.km_inicio or 0,
         costo=obj.costo, profundidad_inicial=obj.profundidad_diseño,
     ))
