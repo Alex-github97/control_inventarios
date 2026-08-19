@@ -69,7 +69,6 @@ interface TrabajoRealizado { id: number; neumatico_id: number; trabajo_id: numbe
 interface Reesculturado { id: number; neumatico_id: number; fecha: string; km_odometro?: number | null; proveedor?: string | null; costo?: number | null; profundidad_anterior?: number | null; profundidad_nueva?: number | null; deshecho: boolean; fecha_deshecho?: string | null }
 interface VidaNeu { id: number; neumatico_id: number; numero_vida: number; tipo: string; fecha_inicio: string; fecha_fin?: string | null; km_inicio: number; km_fin?: number | null; costo?: number | null; profundidad_inicial?: number | null; profundidad_final?: number | null; motivo_cierre_id?: number | null }
 
-const TIPOS_USO = ['DIRECCIONAL', 'TRACCION', 'REMOLQUE', 'MULTIPOSICION', 'REPUESTO']
 const EMPTY_NEUMATICO = { codigo: '', marca: '', referencia: '', medida: '', tipo: '', tipo_uso: '', bodega_id: '', costo: '', proveedor: '', profundidad_diseño: '', profundidad_actual: '', vida_util_km: '', presion_recomendada: '', zona_id: '', dot: '', tipo_rin: '' }
 const TIPOS_RIN = ['ACERO', 'ALUMINIO', 'OTRO']
 
@@ -734,9 +733,9 @@ export default function EAMNeumaticos() {
     // marca / referencia / medida deben existir en el catálogo (Configuración →
     // Catálogo de llantas); la profundidad inicial la pone el catálogo, por eso
     // no va en la plantilla. profundidad_actual y km_actual solo si es_usada.
-    const headers = ['codigo', 'marca', 'referencia', 'medida', 'reencauches', 'es_usada', 'profundidad_actual', 'km_actual', 'tipo_uso', 'bodega', 'costo', 'proveedor', 'presion_recomendada', 'dot', 'tipo_rin']
-    const ejemplo = ['LL-1001', 'Michelin', 'XZA2', '295/80R22.5', 0, 'NO', '', '', 'TRACCION', bodegas[0]?.nombre ?? '', 950000, 'Distribuidora XYZ', 110, '2523', 'ACERO']
-    const ejemploUsada = ['LL-1002', 'Michelin', 'XZA2', '295/80R22.5', 1, 'SI', 9.5, 62000, 'TRACCION', bodegas[0]?.nombre ?? '', 700000, 'Distribuidora XYZ', 110, '2422', 'ACERO']
+    const headers = ['codigo', 'marca', 'referencia', 'medida', 'reencauches', 'es_usada', 'profundidad_actual', 'km_actual', 'bodega', 'costo', 'proveedor', 'presion_recomendada', 'dot', 'tipo_rin']
+    const ejemplo = ['LL-1001', 'Michelin', 'XZA2', '295/80R22.5', 0, 'NO', '', '', bodegas[0]?.nombre ?? '', 950000, 'Distribuidora XYZ', 110, '2523', 'ACERO']
+    const ejemploUsada = ['LL-1002', 'Michelin', 'XZA2', '295/80R22.5', 1, 'SI', 9.5, 62000, bodegas[0]?.nombre ?? '', 700000, 'Distribuidora XYZ', 110, '2422', 'ACERO']
     const ws = XLSX.utils.aoa_to_sheet([headers, ejemplo, ejemploUsada])
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Llantas')
@@ -797,7 +796,6 @@ export default function EAMNeumaticos() {
       es_usada: masivoVida.es_usada,
       profundidad_actual: masivoVida.es_usada && masivoVida.profundidad_actual ? Number(masivoVida.profundidad_actual) : undefined,
       km_actual: masivoVida.es_usada && masivoVida.km_actual ? Number(masivoVida.km_actual) : undefined,
-      tipo_uso: f.tipo_uso || masivoCat.tipo_uso || undefined,
       bodega_id: f.bodega_id ? Number(f.bodega_id) : undefined,
       costo: f.costo ? Number(f.costo) : undefined, proveedor: f.proveedor || undefined,
       presion_recomendada: f.presion_recomendada ? Number(f.presion_recomendada) : undefined,
@@ -817,7 +815,7 @@ export default function EAMNeumaticos() {
         es_usada: esUsada,
         profundidad_actual: esUsada && row.profundidad_actual ? Number(row.profundidad_actual) : undefined,
         km_actual: esUsada && row.km_actual ? Number(row.km_actual) : undefined,
-        tipo_uso: row.tipo_uso || undefined, bodega_id: bodega?.id, estado: 'ALMACENADO',
+        bodega_id: bodega?.id, estado: 'ALMACENADO',
         costo: row.costo ? Number(row.costo) : undefined, proveedor: row.proveedor || undefined,
         presion_recomendada: row.presion_recomendada ? Number(row.presion_recomendada) : undefined,
         dot: row.dot || undefined, tipo_rin: row.tipo_rin || undefined,
@@ -2819,7 +2817,7 @@ export default function EAMNeumaticos() {
 
               <Grid size={{ xs: 12 }}><Typography fontSize={11} fontWeight={700} color="#94A3B8" letterSpacing="0.06em" mt={0.5}>DATOS ADICIONALES</Typography></Grid>
               <Grid size={{ xs: 12, sm: 6 }}><TextField select label="Bodega" size="small" fullWidth value={nuevoForm.bodega_id} onChange={e => setNuevoForm(f => ({ ...f, bodega_id: e.target.value }))}><MenuItem value="">Sin bodega</MenuItem>{bodegas.map(b => <MenuItem key={b.id} value={String(b.id)}>{b.nombre}</MenuItem>)}</TextField></Grid>
-              <Grid size={{ xs: 12, sm: 6 }}><TextField select label="Tipo de uso" size="small" fullWidth value={nuevoForm.tipo_uso || nuevoCat.tipo_uso || ''} onChange={e => setNuevoForm(f => ({ ...f, tipo_uso: e.target.value }))}><MenuItem value="">Sin clasificar</MenuItem>{TIPOS_USO.map(u => <MenuItem key={u} value={u}>{u}</MenuItem>)}</TextField></Grid>
+
               <Grid size={{ xs: 12, sm: 6 }}><TextField label="Presión recomendada (psi)" type="number" size="small" fullWidth value={nuevoForm.presion_recomendada} onChange={e => setNuevoForm(f => ({ ...f, presion_recomendada: e.target.value }))} /></Grid>
               <Grid size={{ xs: 6, sm: 6 }}><TextField label="Costo" type="number" size="small" fullWidth value={nuevoForm.costo} onChange={e => setNuevoForm(f => ({ ...f, costo: e.target.value }))} /></Grid>
               <Grid size={{ xs: 6, sm: 6 }}><TextField label="Proveedor" size="small" fullWidth value={nuevoForm.proveedor} onChange={e => setNuevoForm(f => ({ ...f, proveedor: e.target.value }))} /></Grid>
@@ -2845,7 +2843,6 @@ export default function EAMNeumaticos() {
                 km_actual: nuevoVida.es_usada && nuevoVida.km_actual ? Number(nuevoVida.km_actual) : undefined,
                 bodega_id: nuevoForm.bodega_id ? Number(nuevoForm.bodega_id) : undefined,
                 costo: nuevoForm.costo ? Number(nuevoForm.costo) : undefined, proveedor: nuevoForm.proveedor || undefined,
-                tipo_uso: nuevoForm.tipo_uso || nuevoCat.tipo_uso || undefined,
                 presion_recomendada: nuevoForm.presion_recomendada ? Number(nuevoForm.presion_recomendada) : undefined,
                 zona_id: nuevoForm.zona_id ? Number(nuevoForm.zona_id) : undefined,
                 dot: nuevoForm.dot || undefined, tipo_rin: nuevoForm.tipo_rin || undefined,
@@ -3296,12 +3293,7 @@ export default function EAMNeumaticos() {
                   </Grid>
                 </>
               )}
-              <Grid size={{ xs: 6, sm: 4 }}>
-                <TextField select label="Tipo de uso" size="small" fullWidth value={masivoForm.tipo_uso || masivoCat.tipo_uso || ''} onChange={e => setMasivoForm(f => ({ ...f, tipo_uso: e.target.value }))}>
-                  <MenuItem value="">Sin especificar</MenuItem>
-                  {TIPOS_USO.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-                </TextField>
-              </Grid>
+
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField select label="Bodega de ingreso" size="small" fullWidth value={masivoForm.bodega_id} onChange={e => setMasivoForm(f => ({ ...f, bodega_id: e.target.value }))}>
                   <MenuItem value="">Sin bodega</MenuItem>

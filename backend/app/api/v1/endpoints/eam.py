@@ -2960,6 +2960,9 @@ async def _preparar_neumatico(db: AsyncSession, data: "NeumaticCreate") -> dict:
     valores["medida"] = dim.nombre
     # La profundidad inicial la manda el catalogo, no quien captura
     valores["profundidad_diseño"] = rd.profundidad_inicial
+    # El tipo de uso es propio del diseno de la llanta: lo define la referencia
+    # en el catalogo, no quien registra cada unidad.
+    valores["tipo_uso"] = ref.tipo_uso
     if rd.vida_util_km and not valores.get("vida_util_km"):
         valores["vida_util_km"] = rd.vida_util_km
     if rd.presion_recomendada and not valores.get("presion_recomendada"):
