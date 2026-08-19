@@ -382,15 +382,15 @@ export const theme = createTheme({
       },
     },
     // ── Overlays ────────────────────────────────────────────────────────────
-    // Backdrop "deep-glass": desenfoca y desatura el fondo detrás de cualquier
-    // diálogo/detalle — el contenido queda flotando sobre la app distorsionada.
+    // Sin backdrop-filter a propósito: desenfocar el viewport completo obliga al
+    // compositor a rasterizar y convolucionar toda la pantalla en cada apertura,
+    // lo que hacía que abrir cualquier diálogo o menú se sintiera trabado. El
+    // oscurecido da la misma separación visual con costo cero.
     MuiBackdrop: {
       styleOverrides: {
         root: {
           '&:not(.MuiBackdrop-invisible)': {
-            backgroundColor: 'rgba(10,15,28,0.42)',
-            backdropFilter: 'blur(12px) saturate(120%)',
-            WebkitBackdropFilter: 'blur(12px) saturate(120%)',
+            backgroundColor: 'rgba(10,15,28,0.55)',
           },
         },
       },
@@ -417,9 +417,7 @@ export const theme = createTheme({
       styleOverrides: {
         paper: {
           borderRadius: 12,
-          backgroundColor: 'rgba(255,255,255,0.88)',
-          backdropFilter: 'blur(16px) saturate(160%)',
-          WebkitBackdropFilter: 'blur(16px) saturate(160%)',
+          backgroundColor: '#FFFFFF',
           boxShadow: '0 16px 40px -8px rgba(15,23,42,0.22), 0 0 0 1px rgba(15,23,42,0.05)',
           marginTop: 4,
         },
@@ -446,9 +444,7 @@ export const theme = createTheme({
       styleOverrides: {
         paper: {
           borderRadius: 12,
-          backgroundColor: 'rgba(255,255,255,0.9)',
-          backdropFilter: 'blur(16px) saturate(160%)',
-          WebkitBackdropFilter: 'blur(16px) saturate(160%)',
+          backgroundColor: '#FFFFFF',
           boxShadow: '0 16px 40px -8px rgba(15,23,42,0.22), 0 0 0 1px rgba(15,23,42,0.05)',
         },
       },
@@ -457,8 +453,7 @@ export const theme = createTheme({
       styleOverrides: {
         paper: {
           borderRadius: 12,
-          backgroundColor: 'rgba(255,255,255,0.92)',
-          backdropFilter: 'blur(16px) saturate(160%)',
+          backgroundColor: '#FFFFFF',
           boxShadow: '0 16px 40px -8px rgba(15,23,42,0.22), 0 0 0 1px rgba(15,23,42,0.05)',
         },
         option: {
@@ -472,7 +467,6 @@ export const theme = createTheme({
       styleOverrides: {
         root: {
           boxShadow: 'none',
-          backdropFilter: 'blur(8px)',
         },
       },
     },
@@ -487,8 +481,7 @@ export const theme = createTheme({
           borderRadius: 8,
           fontSize: '0.75rem',
           fontWeight: 500,
-          backgroundColor: 'rgba(15,23,42,0.94)',
-          backdropFilter: 'blur(6px)',
+          backgroundColor: 'rgba(15,23,42,0.96)',
           padding: '6px 10px',
           boxShadow: '0 8px 24px -6px rgba(15,23,42,0.4)',
         },

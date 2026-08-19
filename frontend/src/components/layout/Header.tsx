@@ -57,9 +57,7 @@ export function Header({ title }: HeaderProps) {
       position="sticky"
       elevation={0}
       sx={{
-        bgcolor: 'rgba(255,255,255,0.72)',
-        backdropFilter: 'blur(18px) saturate(180%)',
-        WebkitBackdropFilter: 'blur(18px) saturate(180%)',
+        bgcolor: '#FFFFFF',
         borderBottom: '1px solid rgba(0,0,0,0.05)',
         color: '#1E293B',
         zIndex: 1100,

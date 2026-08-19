@@ -1160,7 +1160,6 @@ export default function Movimientos() {
                             position: 'absolute', bottom: 0, left: 0, right: 0,
                             px: 2, py: 0.75,
                             bgcolor: scanError ? 'rgba(185,28,28,0.88)' : 'rgba(20,83,45,0.88)',
-                            backdropFilter: 'blur(4px)',
                             display: 'flex', alignItems: 'center', gap: 0.75,
                           }}>
                             {scanError

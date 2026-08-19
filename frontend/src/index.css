@@ -92,6 +92,11 @@ html, body {
 }
 
 /* ── Utilidades premium (opt-in por className) ──────────────────────────── */
+/* OJO: .glass y .glass-dark usan backdrop-filter, que obliga al compositor a
+   rasterizar y desenfocar todo lo que hay detrás en cada repintado. Se quitó del
+   tema global (menús, diálogos, header) justamente porque hacía que abrir
+   cualquier menú se sintiera trabado. Hoy no se usan en ninguna parte; si se
+   llegan a usar, que sea en áreas pequeñas y estáticas. */
 .glass {
   background: rgba(255, 255, 255, 0.72) !important;
   backdrop-filter: blur(16px) saturate(160%);
