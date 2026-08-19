@@ -140,6 +140,7 @@ class ActivoCreate(BaseModel):
     tipo_combustible: Optional[str] = None
     capacidad_combustible: Optional[float] = None
     numero_ejes: Optional[int] = None
+    layout_llantas: Optional[List[int]] = None
     tiene_repuesto: Optional[bool] = True
     cantidad_repuestos: Optional[int] = 1
     motor_marca: Optional[str] = None
@@ -568,9 +569,11 @@ class AjusteNeuResponse(AjusteNeuCreate):
 
 # ── Esquemas de vehículo ──
 class EsquemaVehiculoCreate(BaseModel):
+    codigo: Optional[str] = None
     nombre: str
     tipo_activo: Optional[str] = None
     numero_ejes: int = 2
+    layout: Optional[List[int]] = None   # llantas por eje, en orden; None = patrón clásico
     tiene_repuesto: bool = True
     cantidad_repuestos: int = 1
     observaciones: Optional[str] = None
@@ -1260,11 +1263,32 @@ async def create_muestra(data: MuestraAceiteCreate, db: AsyncSession = Depends(g
 
 # ─── Neumáticos ───────────────────────────────────────────────────────────────
 
-def _generar_posiciones(numero_ejes: Optional[int], tiene_repuesto: bool) -> List[dict]:
-    """Layout estándar de posiciones de neumáticos según el número de ejes.
-    Eje 1 = direccional (2 llantas). Ejes 2..N = duales (4 llantas).
-    Cada posición de rueda recibe un número secuencial (Pos. 1, 2, 3…) siguiendo
-    el orden estándar izquierda→derecha por eje, además del código técnico."""
+def _lado_suffixes(n: int) -> List[str]:
+    """Sufijos de código para `n` llantas de un mismo lado de un eje, de afuera
+    hacia adentro: 1→[''], 2→['-EXT','-INT'], 3→['-EXT','-INT2','-INT'], etc."""
+    if n <= 0:
+        return []
+    if n == 1:
+        return [""]
+    if n == 2:
+        return ["-EXT", "-INT"]
+    return ["-EXT"] + [f"-INT{i}" for i in range(2, n)] + ["-INT"]
+
+
+def _sufijo_label(suf: str) -> str:
+    return "" if not suf else " " + suf.lstrip("-").replace("INT", "Int ").replace("EXT", "Ext").strip()
+
+
+def _generar_posiciones(
+    numero_ejes: Optional[int], tiene_repuesto: bool,
+    layout: Optional[List[int]] = None, cantidad_repuestos: int = 1,
+) -> List[dict]:
+    """Layout de posiciones de neumáticos. Si `layout` trae la cantidad de
+    llantas por cada eje (ej. [2,4,4]), genera posiciones a la medida de esa
+    configuración real (soporta ejes simples, duales o con más llantas por
+    lado). Si no, usa el patrón clásico: eje 1 direccional (2 llantas), ejes
+    2..N duales (4 llantas) — se mantiene igual por compatibilidad con activos
+    ya configurados antes de que existiera `layout`."""
     pos: List[dict] = []
     numero = 0
 
@@ -1273,17 +1297,30 @@ def _generar_posiciones(numero_ejes: Optional[int], tiene_repuesto: bool) -> Lis
         numero += 1
         pos.append({"codigo": codigo, "label": f"Pos. {numero} · {label}", "eje": eje, "lado": lado, "numero": numero})
 
-    for eje in range(1, (numero_ejes or 0) + 1):
-        if eje == 1:
-            _add("E1-IZQ", "Eje 1 · Izq", 1, "IZQ")
-            _add("E1-DER", "Eje 1 · Der", 1, "DER")
-        else:
-            _add(f"E{eje}-IZQ-EXT", f"Eje {eje} · Izq Ext", eje, "IZQ")
-            _add(f"E{eje}-IZQ-INT", f"Eje {eje} · Izq Int", eje, "IZQ")
-            _add(f"E{eje}-DER-INT", f"Eje {eje} · Der Int", eje, "DER")
-            _add(f"E{eje}-DER-EXT", f"Eje {eje} · Der Ext", eje, "DER")
+    if layout:
+        for eje, cantidad in enumerate(layout, start=1):
+            izq = (cantidad + 1) // 2
+            der = cantidad - izq
+            for suf in _lado_suffixes(izq):
+                _add(f"E{eje}-IZQ{suf}", f"Eje {eje} · Izq{_sufijo_label(suf)}", eje, "IZQ")
+            for suf in reversed(_lado_suffixes(der)):
+                _add(f"E{eje}-DER{suf}", f"Eje {eje} · Der{_sufijo_label(suf)}", eje, "DER")
+    else:
+        for eje in range(1, (numero_ejes or 0) + 1):
+            if eje == 1:
+                _add("E1-IZQ", "Eje 1 · Izq", 1, "IZQ")
+                _add("E1-DER", "Eje 1 · Der", 1, "DER")
+            else:
+                _add(f"E{eje}-IZQ-EXT", f"Eje {eje} · Izq Ext", eje, "IZQ")
+                _add(f"E{eje}-IZQ-INT", f"Eje {eje} · Izq Int", eje, "IZQ")
+                _add(f"E{eje}-DER-INT", f"Eje {eje} · Der Int", eje, "DER")
+                _add(f"E{eje}-DER-EXT", f"Eje {eje} · Der Ext", eje, "DER")
+
     if tiene_repuesto:
-        pos.append({"codigo": "REPUESTO", "label": "Repuesto", "eje": 0, "lado": "-", "numero": None})
+        for r in range(max(1, cantidad_repuestos)):
+            codigo = "REPUESTO" if r == 0 else f"REPUESTO{r + 1}"
+            label = "Repuesto" if r == 0 else f"Repuesto {r + 1}"
+            pos.append({"codigo": codigo, "label": label, "eje": 0, "lado": "-", "numero": None})
     return pos
 
 
@@ -1451,7 +1488,10 @@ async def layout_neumaticos(activo_id: int, db: AsyncSession = Depends(get_db)):
     activo = await db.get(EAMActivo, activo_id)
     if not activo:
         raise HTTPException(404, "Activo no encontrado")
-    return _generar_posiciones(activo.numero_ejes, activo.tiene_repuesto if activo.tiene_repuesto is not None else True)
+    return _generar_posiciones(
+        activo.numero_ejes, activo.tiene_repuesto if activo.tiene_repuesto is not None else True,
+        layout=activo.layout_llantas, cantidad_repuestos=activo.cantidad_repuestos or 1,
+    )
 
 
 # ── Movimiento (instalación / rotación / desmontaje / reencauche / baja) ──
@@ -1852,6 +1892,7 @@ async def asignar_esquema_vehiculo(data: EsquemaAsignacionCreate, db: AsyncSessi
     if not esquema:
         raise HTTPException(404, "Esquema no encontrado")
     activo.numero_ejes = esquema.numero_ejes
+    activo.layout_llantas = esquema.layout
     activo.tiene_repuesto = esquema.tiene_repuesto
     activo.cantidad_repuestos = esquema.cantidad_repuestos
     obj = EAMEsquemaAsignacion(**data.model_dump())

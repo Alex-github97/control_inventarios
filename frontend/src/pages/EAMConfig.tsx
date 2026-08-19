@@ -206,9 +206,13 @@ const HORAS_DEFAULTS: Record<string, number> = {
   'BD-01  — Bodega Principal Bogotá':        480,
 }
 
-interface EsquemaVehiculoCfg { id: number; nombre: string; tipo_activo?: string | null; numero_ejes: number; tiene_repuesto: boolean; cantidad_repuestos: number }
+interface EsquemaVehiculoCfg { id: number; codigo?: string | null; nombre: string; tipo_activo?: string | null; numero_ejes: number; layout?: number[] | null; tiene_repuesto: boolean; cantidad_repuestos: number }
 interface TipoActivoCfg { id: number; codigo: string; nombre: string; usa_llantas: boolean }
-const EMPTY_ESQUEMA = { nombre: '', tipo_activo: '', numero_ejes: '2', tiene_repuesto: true, cantidad_repuestos: '1' }
+// `layout` = cantidad de llantas de cada eje, una fila editable por eje (no un
+// solo "N.º de ejes" global) — así se puede representar cualquier combinación
+// real (uniforme, direccional+dual, combos cabezote+trailer, motos, etc.)
+const EMPTY_ESQUEMA = { codigo: '', nombre: '', tipo_activo: '', layout: ['2', '4'] as string[], tiene_repuesto: true, cantidad_repuestos: '1' }
+const totalLlantas = (layout?: number[] | null) => (layout ?? []).reduce((a, b) => a + b, 0)
 
 export default function EAMConfig() {
   const [tab, setTab] = useState(0)
@@ -231,17 +235,24 @@ export default function EAMConfig() {
     apiClient.get('/eam/tipos-activo').then(r => setTiposActivoCfg(r.data))
   }, [])
 
-  const abrirNuevoEsquema = () => { setEsquemaEditingId(null); setEsquemaForm({ ...EMPTY_ESQUEMA }); setEsquemaDialog(true) }
+  const abrirNuevoEsquema = () => { setEsquemaEditingId(null); setEsquemaForm({ ...EMPTY_ESQUEMA, layout: [...EMPTY_ESQUEMA.layout] }); setEsquemaDialog(true) }
   const abrirEditarEsquema = (e: EsquemaVehiculoCfg) => {
     setEsquemaEditingId(e.id)
-    setEsquemaForm({ nombre: e.nombre, tipo_activo: e.tipo_activo ?? '', numero_ejes: String(e.numero_ejes), tiene_repuesto: e.tiene_repuesto, cantidad_repuestos: String(e.cantidad_repuestos) })
+    const layout = e.layout && e.layout.length ? e.layout.map(String) : Array.from({ length: e.numero_ejes || 1 }, (_, i) => (i === 0 ? '2' : '4'))
+    setEsquemaForm({ codigo: e.codigo ?? '', nombre: e.nombre, tipo_activo: e.tipo_activo ?? '', layout, tiene_repuesto: e.tiene_repuesto, cantidad_repuestos: String(e.cantidad_repuestos) })
     setEsquemaDialog(true)
   }
+  const agregarEje = () => setEsquemaForm(f => ({ ...f, layout: [...f.layout, '4'] }))
+  const quitarEje = (i: number) => setEsquemaForm(f => ({ ...f, layout: f.layout.filter((_, idx) => idx !== i) }))
+  const cambiarLlantasEje = (i: number, v: string) => setEsquemaForm(f => ({ ...f, layout: f.layout.map((x, idx) => idx === i ? v : x) }))
   const guardarEsquema = async () => {
+    const layoutNum = esquemaForm.layout.map(x => Number(x) || 0)
     const payload = {
+      codigo: esquemaForm.codigo || undefined,
       nombre: esquemaForm.nombre,
       tipo_activo: esquemaForm.tipo_activo || undefined,
-      numero_ejes: Number(esquemaForm.numero_ejes) || 2,
+      numero_ejes: layoutNum.length,
+      layout: layoutNum,
       tiene_repuesto: esquemaForm.tiene_repuesto,
       cantidad_repuestos: esquemaForm.tiene_repuesto ? (Number(esquemaForm.cantidad_repuestos) || 1) : 0,
     }
@@ -822,24 +833,39 @@ export default function EAMConfig() {
                     </Button>
                   </Stack>
 
-                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 80px 100px 100px 36px 36px', gap: 1, px: 1, py: 0.5, bgcolor: alpha(EAM_COLOR, 0.05), borderRadius: '6px', mb: 0.5 }}>
-                    {['Nombre', 'Tipo de activo', 'Ejes', 'Repuesto', 'Cant. rep.', '', ''].map((h) => (
+                  <TextField
+                    fullWidth size="small" placeholder="Buscar por nombre o código..."
+                    value={catSearch.esquemas ?? ''}
+                    onChange={(e) => setCatSearch(s => ({ ...s, esquemas: e.target.value }))}
+                    InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: 'grey.600', fontSize: 16 }} /></InputAdornment> }}
+                    sx={{ mb: 2, '& .MuiOutlinedInput-root': { '&:hover fieldset': { borderColor: alpha(EAM_COLOR, 0.4) }, fontSize: 13 } }}
+                  />
+
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '70px 1.4fr 1fr 90px 90px 90px 36px 36px', gap: 1, px: 1, py: 0.5, bgcolor: alpha(EAM_COLOR, 0.05), borderRadius: '6px', mb: 0.5 }}>
+                    {['Código', 'Nombre', 'Tipo de activo', 'Ejes', 'Llantas', 'Repuesto', '', ''].map((h) => (
                       <Typography key={h} fontSize={10} fontWeight={700} color="#64748B" letterSpacing="0.4px">{h.toUpperCase()}</Typography>
                     ))}
                   </Box>
 
-                  <Stack spacing={0.5}>
-                    {esquemas.map((e) => (
+                  <Stack spacing={0.5} sx={{ maxHeight: 480, overflowY: 'auto' }}>
+                    {esquemas
+                      .filter(e => {
+                        const q = (catSearch.esquemas ?? '').toLowerCase()
+                        if (!q) return true
+                        return e.nombre.toLowerCase().includes(q) || (e.codigo ?? '').toLowerCase().includes(q)
+                      })
+                      .map((e) => (
                       <Box key={e.id} sx={{
-                        display: 'grid', gridTemplateColumns: '1fr 1fr 80px 100px 100px 36px 36px',
+                        display: 'grid', gridTemplateColumns: '70px 1.4fr 1fr 90px 90px 90px 36px 36px',
                         gap: 1, px: 1, py: 0.75, alignItems: 'center',
                         borderRadius: '8px', border: '1px solid #E5E7EB',
                       }}>
+                        <Typography fontSize={11} color="grey.500" fontFamily="monospace">{e.codigo ?? '—'}</Typography>
                         <Typography fontSize={13} color="#1E293B" fontWeight={500}>{e.nombre}</Typography>
-                        <Typography fontSize={12} color="grey.500">{tiposActivoCfg.find(t => t.codigo === e.tipo_activo)?.nombre ?? e.tipo_activo ?? '—'}</Typography>
+                        <Typography fontSize={12} color="grey.500">{tiposActivoCfg.find(t => t.codigo === e.tipo_activo)?.nombre ?? (e.tipo_activo ? e.tipo_activo : 'Cualquiera')}</Typography>
                         <Typography fontSize={12} color="grey.500">{e.numero_ejes}</Typography>
-                        <Chip label={e.tiene_repuesto ? 'Sí' : 'No'} size="small" sx={{ bgcolor: alpha(e.tiene_repuesto ? EAM_COLOR : '#94A3B8', 0.12), color: e.tiene_repuesto ? EAM_COLOR : '#64748B', fontSize: 10, height: 20, width: 'fit-content' }} />
-                        <Typography fontSize={12} color="grey.500">{e.tiene_repuesto ? e.cantidad_repuestos : '—'}</Typography>
+                        <Typography fontSize={12} color="grey.500" fontWeight={600}>{e.layout?.length ? totalLlantas(e.layout) : e.numero_ejes * 2}</Typography>
+                        <Chip label={e.tiene_repuesto ? `Sí (${e.cantidad_repuestos})` : 'No'} size="small" sx={{ bgcolor: alpha(e.tiene_repuesto ? EAM_COLOR : '#94A3B8', 0.12), color: e.tiene_repuesto ? EAM_COLOR : '#64748B', fontSize: 10, height: 20, width: 'fit-content' }} />
                         <IconButton size="small" sx={{ color: 'grey.500', '&:hover': { color: EAM_COLOR } }} onClick={() => abrirEditarEsquema(e)}>
                           <EditIcon sx={{ fontSize: 14 }} />
                         </IconButton>
@@ -863,16 +889,39 @@ export default function EAMConfig() {
               </DialogTitle>
               <DialogContent sx={{ pt: 1 }}>
                 <Stack spacing={2}>
-                  <TextField fullWidth size="small" label="Nombre *" placeholder="Ej: Tractocamión 3 ejes"
-                    value={esquemaForm.nombre} onChange={(e) => setEsquemaForm(f => ({ ...f, nombre: e.target.value }))} />
+                  <Stack direction="row" spacing={2}>
+                    <TextField fullWidth size="small" label="Código (opcional)" placeholder="Ej: esq53"
+                      value={esquemaForm.codigo} onChange={(e) => setEsquemaForm(f => ({ ...f, codigo: e.target.value }))} />
+                    <TextField fullWidth size="small" label="Nombre *" placeholder="Ej: Tractocamión 3 ejes"
+                      value={esquemaForm.nombre} onChange={(e) => setEsquemaForm(f => ({ ...f, nombre: e.target.value }))} />
+                  </Stack>
                   <TextField select fullWidth size="small" label="Tipo de activo (opcional)"
                     value={esquemaForm.tipo_activo} onChange={(e) => setEsquemaForm(f => ({ ...f, tipo_activo: e.target.value }))}>
                     <MenuItem value="">Cualquiera</MenuItem>
                     {tiposActivoCfg.map(t => <MenuItem key={t.codigo} value={t.codigo}>{t.nombre}</MenuItem>)}
                   </TextField>
-                  <Stack direction="row" spacing={2}>
-                    <TextField fullWidth size="small" type="number" label="N.º de ejes"
-                      value={esquemaForm.numero_ejes} onChange={(e) => setEsquemaForm(f => ({ ...f, numero_ejes: e.target.value }))} />
+
+                  <Box>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+                      <Typography fontSize={12} fontWeight={700} color="grey.500">
+                        LLANTAS POR EJE — {esquemaForm.layout.length} eje(s), {totalLlantas(esquemaForm.layout.map(x => Number(x) || 0))} llantas en total
+                      </Typography>
+                      <Button size="small" startIcon={<AddIcon sx={{ fontSize: 14 }} />} onClick={agregarEje} sx={{ textTransform: 'none', fontSize: 11.5 }}>Agregar eje</Button>
+                    </Stack>
+                    <Stack spacing={1}>
+                      {esquemaForm.layout.map((cant, i) => (
+                        <Stack key={i} direction="row" spacing={1} alignItems="center">
+                          <Typography fontSize={12} color="grey.500" sx={{ width: 48 }}>Eje {i + 1}</Typography>
+                          <TextField size="small" type="number" label="Llantas" fullWidth value={cant} onChange={(e) => cambiarLlantasEje(i, e.target.value)} />
+                          <IconButton size="small" disabled={esquemaForm.layout.length <= 1} sx={{ color: 'grey.500', '&:hover': { color: '#EF4444' } }} onClick={() => quitarEje(i)}>
+                            <DeleteIcon sx={{ fontSize: 14 }} />
+                          </IconButton>
+                        </Stack>
+                      ))}
+                    </Stack>
+                  </Box>
+
+                  <Stack direction="row" spacing={2} alignItems="center">
                     <FormControlLabel sx={{ whiteSpace: 'nowrap' }} control={<Switch checked={esquemaForm.tiene_repuesto} onChange={(e) => setEsquemaForm(f => ({ ...f, tiene_repuesto: e.target.checked }))} />} label="Tiene repuesto" />
                     {esquemaForm.tiene_repuesto && (
                       <TextField fullWidth size="small" type="number" label="Cant. repuestos"
@@ -885,7 +934,7 @@ export default function EAMConfig() {
                 <Button onClick={() => setEsquemaDialog(false)} sx={{ color: 'grey.400' }}>Cancelar</Button>
                 <Button
                   variant="contained" onClick={guardarEsquema}
-                  disabled={!esquemaForm.nombre.trim() || !esquemaForm.numero_ejes}
+                  disabled={!esquemaForm.nombre.trim() || esquemaForm.layout.length === 0 || esquemaForm.layout.some(x => !x || Number(x) <= 0)}
                   sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#27884A' }, fontWeight: 700, borderRadius: '8px' }}
                 >
                   Guardar

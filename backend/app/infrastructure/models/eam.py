@@ -231,6 +231,7 @@ class EAMActivo(Base, TimestampMixin):
     tipo_combustible     = Column(String(50))
     capacidad_combustible = Column(Float)
     numero_ejes          = Column(Integer, nullable=True)   # para layout de neumáticos
+    layout_llantas       = Column(JSON, nullable=True)      # llantas por eje; NULL = patrón clásico (eje1=2, resto=4)
     tiene_repuesto       = Column(Boolean, default=True)
     cantidad_repuestos   = Column(Integer, default=1)
     motor_marca          = Column(String(100), nullable=True)
@@ -651,9 +652,13 @@ class EAMEsquemaVehiculo(Base, TimestampMixin):
     """Plantilla reutilizable de configuración de ejes/repuestos por tipo de vehículo."""
     __tablename__ = "eam_esquema_vehiculo"
     id                  = Column(Integer, primary_key=True, index=True)
+    codigo              = Column(String(30), unique=True, nullable=True)
     nombre              = Column(String(150), nullable=False)
     tipo_activo         = Column(String(30), nullable=True)
     numero_ejes         = Column(Integer, nullable=False, default=2)
+    # Cantidad de llantas por cada eje, en orden (ej. [2,4,4] = eje1 simple,
+    # ejes 2-3 duales). Si es NULL, se asume el patrón clásico (eje1=2, resto=4).
+    layout              = Column(JSON, nullable=True)
     tiene_repuesto      = Column(Boolean, default=True)
     cantidad_repuestos  = Column(Integer, default=1)
     observaciones       = Column(Text, nullable=True)

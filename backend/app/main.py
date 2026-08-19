@@ -13,6 +13,63 @@ import app.infrastructure.models  # noqa: F401 — registra todos los modelos
 from app.infrastructure.models.rol import Rol, ROLES_DEFECTO
 from app.infrastructure.models.usuario import Usuario
 
+# Catálogo estándar de esquemas de ejes/llantas (referencia de la industria del
+# transporte de carga). `layout` = cantidad de llantas por cada eje, en orden.
+ESQUEMAS_VEHICULO_SEED = """
+                ('esq1_2', '2 Ejes, 4 llantas tracción 4 Ruedas (4WD)', 2, '[2, 2]'::json, false, 0, true, now(), now()),
+                ('esq1', '2 Ejes, 4 llantas tracción delantera (FWD)', 2, '[2, 2]'::json, false, 0, true, now(), now()),
+                ('esq1_1', '2 Ejes, 4 llantas tracción trasera (RWD)', 2, '[2, 2]'::json, false, 0, true, now(), now()),
+                ('esq1_3', '2 Ejes, 4 llantas, tracción delantera, dirección trasera', 2, '[2, 2]'::json, false, 0, true, now(), now()),
+                ('esq2', '2 Ejes, 6 Llantas', 2, '[2, 4]'::json, false, 0, true, now(), now()),
+                ('esq38', '2 Ejes, 6 llantas dirección trasera', 2, '[4, 2]'::json, false, 0, true, now(), now()),
+                ('esq4', '3 Ejes, 10 Llantas', 3, '[2, 4, 4]'::json, false, 0, true, now(), now()),
+                ('esq3', '3 Ejes, 6 Llantas', 3, '[2, 2, 2]'::json, false, 0, true, now(), now()),
+                ('esq35', '3 Ejes, 8 Llantas', 3, '[2, 2, 4]'::json, false, 0, true, now(), now()),
+                ('esq28', '5 ejes 10 llantas', 5, '[2, 2, 2, 2, 2]'::json, false, 0, true, now(), now()),
+                ('esq26', 'Articulado 3 ejes 10 llantas', 3, '[2, 4, 4]'::json, false, 0, true, now(), now()),
+                ('esq27', 'Biarticulado 4 ejes 14 llantas', 4, '[2, 4, 4, 4]'::json, false, 0, true, now(), now()),
+                ('esq31', 'Bus 3 ejes, 8 Llantas', 3, '[2, 2, 4]'::json, false, 0, true, now(), now()),
+                ('esq52', 'Bus 4 ejes, 10 llantas', 4, '[2, 2, 2, 4]'::json, false, 0, true, now(), now()),
+                ('esq47', 'Cabezote 2 Ejes + Trailer 2 Ejes + Trailer 2 Ejes + Trailer 2 Ejes, 30 llantas', 8, '[2, 4, 4, 4, 4, 4, 4, 4]'::json, false, 0, true, now(), now()),
+                ('esq42', 'Cabezote 2 Ejes + Trailer 2 Ejes, 10 llantas', 4, '[2, 2, 2, 4]'::json, false, 0, true, now(), now()),
+                ('esq10', 'Cabezote 2 Ejes + Trailer 2 Ejes, 14 llantas', 4, '[2, 4, 4, 4]'::json, false, 0, true, now(), now()),
+                ('esq11', 'Cabezote 2 Ejes + Trailer 3 Ejes, 18 llantas', 5, '[2, 4, 4, 4, 4]'::json, false, 0, true, now(), now()),
+                ('esq48', 'Cabezote 3 Ejes + Trailer 2 Ejes + Trailer 2 Ejes + Trailer 2 Ejes, 34 llantas', 9, '[2, 4, 4, 4, 4, 4, 4, 4, 4]'::json, false, 0, true, now(), now()),
+                ('esq18', 'Cabezote 3 Ejes + Trailer 2 Ejes, 14 llantas', 5, '[2, 3, 3, 3, 3]'::json, false, 0, true, now(), now()),
+                ('esq8', 'Cabezote 3 Ejes + Trailer 2 Ejes, 18 llantas', 5, '[2, 4, 4, 4, 4]'::json, false, 0, true, now(), now()),
+                ('esq20', 'Cabezote 3 Ejes + Trailer 3 Ejes, 16 llantas', 6, '[2, 2, 2, 2, 4, 4]'::json, false, 0, true, now(), now()),
+                ('esq9', 'Cabezote 3 Ejes + Trailer 3 Ejes, 22 llantas', 6, '[2, 4, 4, 4, 4, 4]'::json, false, 0, true, now(), now()),
+                ('esq17', 'Cabezote 3 Ejes + Trailer 4 Ejes, 26 llantas', 7, '[2, 4, 4, 4, 4, 4, 4]'::json, false, 0, true, now(), now()),
+                ('esq45', 'Cabezote 3 Ejes + Trailer 5 Ejes, 30 llantas', 8, '[2, 4, 4, 4, 4, 4, 4, 4]'::json, false, 0, true, now(), now()),
+                ('esq43', 'Cabezote 3 Ejes + Trailer 6 Ejes, 34 llantas', 9, '[2, 4, 4, 4, 4, 4, 4, 4, 4]'::json, false, 0, true, now(), now()),
+                ('esq44', 'Cabezote 3 ejes, 8 llantas', 3, '[2, 2, 4]'::json, false, 0, true, now(), now()),
+                ('esq7', 'Cuatro Direccionales 4 Ejes, 12 Llantas', 4, '[2, 2, 4, 4]'::json, false, 0, true, now(), now()),
+                ('esq41', 'Grúa 4 ejes, 8 llantas', 4, '[2, 2, 2, 2]'::json, false, 0, true, now(), now()),
+                ('esq49', 'Grúa 5 ejes, 14 llantas', 5, '[2, 2, 2, 4, 4]'::json, false, 0, true, now(), now()),
+                ('esq50', 'Grúa 6 ejes, 18 llantas', 6, '[2, 2, 2, 4, 4, 4]'::json, false, 0, true, now(), now()),
+                ('esq22', 'Mixer 4 Ejes, 12 Llantas', 4, '[2, 2, 4, 4]'::json, false, 0, true, now(), now()),
+                ('esq23', 'Mixer 4 Ejes, 14 Llantas', 4, '[2, 4, 4, 4]'::json, false, 0, true, now(), now()),
+                ('esq12', 'Moto 2 Ejes, 2 llantas', 2, '[1, 1]'::json, false, 0, true, now(), now()),
+                ('esq14', 'Moto 2 Ejes, 3 llantas', 2, '[1, 2]'::json, false, 0, true, now(), now()),
+                ('esq40', 'Moto 2 Ejes, 5 llantas', 2, '[1, 4]'::json, false, 0, true, now(), now()),
+                ('esq24', 'Trailer 1 Eje, 4 Llantas', 1, '[4]'::json, false, 0, true, now(), now()),
+                ('esq32', 'Trailer 2 ejes, 16 Llantas', 2, '[8, 8]'::json, false, 0, true, now(), now()),
+                ('esq15', 'Trailer 2 Ejes, 4 Llantas', 2, '[2, 2]'::json, false, 0, true, now(), now()),
+                ('esq5', 'Trailer 2 Ejes, 8 Llantas', 2, '[4, 4]'::json, false, 0, true, now(), now()),
+                ('esq51', 'Trailer 3 Ejes, 10 Llantas', 3, '[2, 4, 4]'::json, false, 0, true, now(), now()),
+                ('esq6', 'Trailer 3 Ejes, 12 Llantas', 3, '[4, 4, 4]'::json, false, 0, true, now(), now()),
+                ('esq33', 'Trailer 3 ejes, 24 Llantas', 3, '[8, 8, 8]'::json, false, 0, true, now(), now()),
+                ('esq16', 'Trailer 3 Ejes, 6 Llantas', 3, '[2, 2, 2]'::json, false, 0, true, now(), now()),
+                ('esq13', 'Trailer 4 Ejes 16 llantas', 4, '[4, 4, 4, 4]'::json, false, 0, true, now(), now()),
+                ('esq25', 'Trailer 4 Ejes 32 llantas', 4, '[8, 8, 8, 8]'::json, false, 0, true, now(), now()),
+                ('esq46', 'Trailer 5 Ejes 20 llantas', 5, '[4, 4, 4, 4, 4]'::json, false, 0, true, now(), now()),
+                ('esq34', 'Trailer 6 ejes, 48 Llantas', 6, '[8, 8, 8, 8, 8, 8]'::json, false, 0, true, now(), now()),
+                ('esq29', 'Trailer Cama Baja 5 Ejes, 20 Llantas', 5, '[4, 4, 4, 4, 4]'::json, false, 0, true, now(), now()),
+                ('esq30', 'Trailer Cama Baja 6 Ejes, 24 Llantas', 6, '[4, 4, 4, 4, 4, 4]'::json, false, 0, true, now(), now()),
+                ('esq19', 'Tranvía de 6 ejes, 12 llantas', 6, '[2, 2, 2, 2, 2, 2]'::json, false, 0, true, now(), now()),
+                ('esq21', 'Vibrocompactador, Rodillo frontal 2 ruedas traseras', 1, '[2]'::json, false, 0, true, now(), now())
+"""
+
 
 async def _seed_roles_and_migrate(db: AsyncSession) -> None:
     # Sembrar roles por defecto si la tabla está vacía
@@ -109,6 +166,36 @@ async def lifespan(app: FastAPI):
                 ('HERRAMIENTA', 'Herramienta', false, true, now(), now()),
                 ('ACTIVO_CRITICO', 'Activo crítico', false, true, now(), now()),
                 ('OTRO', 'Otro', false, true, now(), now())
+            ON CONFLICT (codigo) DO NOTHING
+        """))
+        # Configuración de llantas por eje (no solo un número global de ejes):
+        # cuántas llantas trae cada eje individual, para representar vehículos
+        # reales que no siguen el patrón simple "eje1=2, resto=4" (uniformes,
+        # combos cabezote+trailer, motos, etc.)
+        await conn.execute(text(
+            "ALTER TABLE eam_esquema_vehiculo ADD COLUMN IF NOT EXISTS codigo VARCHAR(30)"
+        ))
+        await conn.execute(text(
+            "DO $$ BEGIN "
+            "IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_eam_esquema_vehiculo_codigo') THEN "
+            "ALTER TABLE eam_esquema_vehiculo ADD CONSTRAINT uq_eam_esquema_vehiculo_codigo UNIQUE (codigo); "
+            "END IF; END $$;"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE eam_esquema_vehiculo ADD COLUMN IF NOT EXISTS layout JSON"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE eam_activo ADD COLUMN IF NOT EXISTS layout_llantas JSON"
+        ))
+        # Catálogo estándar de esquemas de ejes/llantas (referencia de la industria
+        # de transporte: uniformes, camiones con eje direccional simple + ejes
+        # duales, combos cabezote+trailer, motos, trailers especializados). Los
+        # arreglos `layout` son la cantidad de llantas por cada eje, en orden.
+        await conn.execute(text(f"""
+            INSERT INTO eam_esquema_vehiculo
+                (codigo, nombre, numero_ejes, layout, tiene_repuesto, cantidad_repuestos, activo, created_at, updated_at)
+            VALUES
+{ESQUEMAS_VEHICULO_SEED}
             ON CONFLICT (codigo) DO NOTHING
         """))
 
