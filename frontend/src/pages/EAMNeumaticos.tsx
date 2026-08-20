@@ -1277,13 +1277,6 @@ export default function EAMNeumaticos() {
                         Agregar llanta desde bodega
                       </Button>
                     )}
-                    <Button
-                      size="small" variant="outlined" startIcon={<UploadFile />}
-                      onClick={() => setInspImportOpen(true)}
-                      sx={{ color: EAM_DARK, borderColor: alpha(EAM_COLOR, 0.4), textTransform: 'none' }}
-                    >
-                      Importar inspecciones (Excel)
-                    </Button>
                   </Stack>
 
                   {!veh ? (
