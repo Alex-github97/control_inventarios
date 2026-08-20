@@ -2791,7 +2791,114 @@ async def indicadores_neumaticos(db: AsyncSession = Depends(get_db)):
     return out
 
 
-# ── Alertas (profundidad / presión / desalineación) ──
+class UltimaInspeccionResponse(BaseModel):
+    neumatico_id: int
+    codigo: str
+    marca: Optional[str] = None
+    referencia: Optional[str] = None
+    medida: Optional[str] = None
+    estado: Optional[str] = None
+    # Ubicacion actual
+    activo_id: Optional[int] = None
+    vehiculo: Optional[str] = None
+    posicion: Optional[str] = None
+    # Vida en curso: VN o R{n}
+    vida: Optional[str] = None
+    # Ultima inspeccion registrada
+    fecha_ultima: Optional[datetime] = None
+    profundidad_min: Optional[float] = None
+    presion_psi: Optional[float] = None
+    tecnico: Optional[str] = None
+    dias_desde: Optional[int] = None
+    # Metricas de la vida actual
+    km_vida: Optional[float] = None
+    costo_vida: Optional[float] = None
+    cpk: Optional[float] = None
+
+
+@router.get("/neumaticos/inspecciones/ultimas", response_model=List[UltimaInspeccionResponse])
+async def ultimas_inspecciones(db: AsyncSession = Depends(get_db)):
+    """Una fila por llanta con su ultima inspeccion y los indicadores de la vida
+    en curso: profundidad minima medida, kilometraje recorrido en esa vida y CPK.
+    Se ordena por fecha de inspeccion descendente; las que nunca se inspeccionaron
+    quedan al final."""
+    r = await db.execute(select(EAMNeumatico).where(EAMNeumatico.estado != "BAJA"))
+    neumaticos = r.scalars().all()
+    if not neumaticos:
+        return []
+    ids = [n.id for n in neumaticos]
+
+    # Ultima inspeccion de cada llanta
+    r = await db.execute(
+        select(EAMInspeccionNeumatico)
+        .where(EAMInspeccionNeumatico.neumatico_id.in_(ids))
+        .order_by(EAMInspeccionNeumatico.neumatico_id, EAMInspeccionNeumatico.fecha.desc())
+    )
+    ultima_por_llanta = {}
+    for insp in r.scalars().all():
+        if insp.neumatico_id not in ultima_por_llanta:
+            ultima_por_llanta[insp.neumatico_id] = insp
+
+    # Vida abierta de cada llanta (para km y costo de esa vida)
+    r = await db.execute(
+        select(EAMVidaNeumatico)
+        .where(EAMVidaNeumatico.neumatico_id.in_(ids), EAMVidaNeumatico.fecha_fin.is_(None))
+    )
+    vida_por_llanta = {v.neumatico_id: v for v in r.scalars().all()}
+
+    # Nombre del vehiculo donde esta montada
+    activos_ids = [n.activo_id for n in neumaticos if n.activo_id]
+    vehiculos = {}
+    if activos_ids:
+        r = await db.execute(select(EAMActivo).where(EAMActivo.id.in_(activos_ids)))
+        for a in r.scalars().all():
+            vehiculos[a.id] = a.placa or a.codigo
+
+    ahora = datetime.utcnow()
+    salida: List[UltimaInspeccionResponse] = []
+    for n in neumaticos:
+        insp = ultima_por_llanta.get(n.id)
+        vida = vida_por_llanta.get(n.id)
+
+        # Con registro de vida se toma el km recorrido desde que inicio esa vida.
+        # Las llantas anteriores al registro de vidas no lo tienen: para esas se
+        # usa el km acumulado de la llanta, que es la mejor aproximacion y es el
+        # mismo criterio que usa el calculo de indicadores.
+        if vida is not None and n.km_actual is not None:
+            km_vida = max(0.0, (n.km_actual or 0) - (vida.km_inicio or 0))
+        else:
+            km_vida = n.km_total
+        costo_vida = (vida.costo if vida is not None else None) or n.costo
+        cpk = (costo_vida / km_vida) if (costo_vida and km_vida and km_vida > 0) else None
+
+        reenc = n.reencauches or 0
+        dias = None
+        if insp is not None and insp.fecha is not None:
+            dias = max(0, (ahora - insp.fecha).days)
+
+        salida.append(UltimaInspeccionResponse(
+            neumatico_id=n.id, codigo=n.codigo, marca=n.marca, referencia=n.referencia,
+            medida=n.medida, estado=n.estado,
+            activo_id=n.activo_id, vehiculo=vehiculos.get(n.activo_id), posicion=n.posicion,
+            vida="VN" if reenc == 0 else "R%d" % reenc,
+            fecha_ultima=insp.fecha if insp is not None else None,
+            profundidad_min=_min_prof(
+                insp.profundidad_izq, insp.profundidad_centro, insp.profundidad_der
+            ) if insp is not None else n.profundidad_actual,
+            presion_psi=insp.presion_psi if insp is not None else n.presion_actual,
+            tecnico=insp.tecnico if insp is not None else None,
+            dias_desde=dias,
+            km_vida=round(km_vida, 1) if km_vida is not None else None,
+            costo_vida=costo_vida,
+            cpk=round(cpk, 2) if cpk else None,
+        ))
+
+    # Mas reciente primero; sin inspeccion al final
+    salida.sort(key=lambda x: (x.fecha_ultima is None, -(x.fecha_ultima.timestamp() if x.fecha_ultima else 0)))
+    return salida
+
+
+# -- Alertas (profundidad / presion / desalineacion) --
 @router.get("/neumaticos/alertas", response_model=List[AlertaNeuResponse])
 async def alertas_neumaticos(db: AsyncSession = Depends(get_db)):
     cfg = await _get_config_neu(db)

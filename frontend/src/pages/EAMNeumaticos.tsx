@@ -6,7 +6,7 @@ import {
   Paper, Chip, Card, CardContent, Alert, TextField, MenuItem, Button, Dialog,
   DialogTitle, DialogContent, DialogActions, IconButton, Stack, Tooltip, alpha,
   Switch, FormControlLabel, Badge, Divider, Menu, ListItemIcon, ListItemText, Checkbox,
-  Autocomplete, ButtonGroup,
+  Autocomplete, ButtonGroup, InputAdornment, ToggleButton, ToggleButtonGroup,
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
 import {
@@ -14,7 +14,7 @@ import {
   History as HistoryIcon, SwapHoriz as SwapIcon, Warehouse as WarehouseIcon,
   DeleteForever, DirectionsCar, ShowChart, TrendingUp, NotificationsActive,
   Autorenew, Download, Straighten, Compress, AttachMoney, Build, Map as MapIcon, Timeline, Undo,
-  UploadFile, CameraAlt, Checklist, ArrowDropDown, AddBox,
+  UploadFile, CameraAlt, Checklist, ArrowDropDown, AddBox, Search as SearchIcon,
 } from '@mui/icons-material'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer,
@@ -62,6 +62,16 @@ interface BandaReencauche { id: number; marca: string; referencia?: string | nul
 interface MotivoFinVida { id: number; nombre: string; aplica_descarte: boolean; aplica_fin_vida: boolean; activo: boolean }
 interface AjusteCatalogo { id: number; nombre: string; activo: boolean }
 interface AjusteNeu { id: number; neumatico_id: number; motivo_id: number; fecha: string; valor: number; comentarios?: string | null }
+interface UltimaInspeccion {
+  neumatico_id: number; codigo: string; marca?: string | null; referencia?: string | null
+  medida?: string | null; estado?: string | null
+  activo_id?: number | null; vehiculo?: string | null; posicion?: string | null
+  vida?: string | null
+  fecha_ultima?: string | null; profundidad_min?: number | null; presion_psi?: number | null
+  tecnico?: string | null; dias_desde?: number | null
+  km_vida?: number | null; costo_vida?: number | null; cpk?: number | null
+}
+
 interface EsquemaVehiculo { id: number; codigo?: string | null; nombre: string; tipo_activo?: string | null; numero_ejes: number; layout?: number[] | null; tiene_repuesto: boolean; cantidad_repuestos: number; observaciones?: string | null; activo: boolean }
 interface TrabajoNeu { id: number; nombre: string; observaciones?: string | null; es_predeterminado: boolean; activo: boolean }
 interface PeriodicidadTrabajo { id: number; trabajo_id: number; tipo_activo?: string | null; valor: number; unidad: string; activo: boolean }
@@ -228,6 +238,12 @@ export default function EAMNeumaticos() {
   const [ejesVeh, setEjesVeh] = useState<VehiculoCombinado | null>(null)
   const [ejesForm, setEjesForm] = useState({ esquema_id: '' })
   const [ejesBusca, setEjesBusca] = useState('')
+  // Filtros de la pestana Inspecciones
+  const [inspBusca, setInspBusca] = useState('')
+  const [inspVeh, setInspVeh] = useState('')
+  const [inspEstado, setInspEstado] = useState('')
+  const [inspVida, setInspVida] = useState('')
+  const [inspCobertura, setInspCobertura] = useState<'TODAS' | 'CON' | 'SIN'>('TODAS')
   // Inspecciones
   const [inspDialog, setInspDialog] = useState<Neumatico | null>(null)   // llanta a inspeccionar
   const [chartTire, setChartTire] = useState<Neumatico | null>(null)     // llanta cuya gráfica/historial se ve
@@ -360,6 +376,10 @@ export default function EAMNeumaticos() {
     const v = vehiculosDisponibles.find(x => String(x.activo_id) === activoParam)
     if (v) { setVehSelKey(`${v.origen}:${v.id}`); setVehId(String(v.activo_id)) }
   }
+  const { data: ultimasInsp = [] } = useQuery<UltimaInspeccion[]>({
+    queryKey: ['eam-ultimas-inspecciones'],
+    queryFn: () => api.get('/eam/neumaticos/inspecciones/ultimas').then(r => r.data),
+  })
   const { data: neumaticos = [] } = useQuery<Neumatico[]>({ queryKey: ['eam-neumaticos'], queryFn: () => api.get('/eam/neumaticos').then(r => r.data) })
   const { data: bodegas = [] } = useQuery<Bodega[]>({ queryKey: ['eam-bodegas-neu'], queryFn: () => api.get('/eam/neumaticos/bodegas').then(r => r.data) })
   const { data: danos = [] } = useQuery<Dano[]>({ queryKey: ['eam-danos-neu'], queryFn: () => api.get('/eam/neumaticos/danos-catalogo').then(r => r.data) })
@@ -709,7 +729,7 @@ export default function EAMNeumaticos() {
       qc.invalidateQueries({ queryKey: ['eam-neumaticos'] })
       qc.invalidateQueries({ queryKey: ['eam-indic'] })
       qc.invalidateQueries({ queryKey: ['eam-alertas'] })
-      qc.invalidateQueries({ queryKey: ['eam-insp'] })
+      qc.invalidateQueries({ queryKey: ['eam-insp'] }); qc.invalidateQueries({ queryKey: ['eam-ultimas-inspecciones'] })
       if (data.exitosos > 0) toast.success(`${data.exitosos} de ${data.total} inspecciones registradas`)
       if (data.errores?.length) toast.error(`${data.errores.length} filas con errores`)
     },
@@ -927,7 +947,7 @@ export default function EAMNeumaticos() {
   // Inspecciones
   const mutInsp = useMutation({
     mutationFn: (body: Record<string, unknown>) => api.post(`/eam/neumaticos/${inspDialog!.id}/inspecciones`, body),
-    onSuccess: () => { toast.success('Inspección registrada'); qc.invalidateQueries({ queryKey: ['eam-insp'] }); invalidarNeu(); setInspDialog(null); setInspForm({ ...EMPTY_INSP }) },
+    onSuccess: () => { toast.success('Inspección registrada'); qc.invalidateQueries({ queryKey: ['eam-insp'] }); qc.invalidateQueries({ queryKey: ['eam-ultimas-inspecciones'] }); invalidarNeu(); setInspDialog(null); setInspForm({ ...EMPTY_INSP }) },
     onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al registrar inspección'),
   })
   // Voltear (invertir interna↔externa en la misma posición)
@@ -1071,7 +1091,7 @@ export default function EAMNeumaticos() {
       }
       toast.success(`${entradas.length} inspecciones registradas`)
       invalidarNeu()
-      qc.invalidateQueries({ queryKey: ['eam-insp'] })
+      qc.invalidateQueries({ queryKey: ['eam-insp'] }); qc.invalidateQueries({ queryKey: ['eam-ultimas-inspecciones'] })
       setInspSesionOpen(false)
     } catch (e: any) {
       toast.error(e?.response?.data?.detail ?? 'Error al registrar alguna inspección')
@@ -1186,7 +1206,7 @@ export default function EAMNeumaticos() {
               <Typography fontSize={12} color="text.secondary">CMMS · Instalación, rotación, bodega, reencauche y descarte de llantas</Typography>
             </Box>
           </Stack>
-          {[0, 1, 5].includes(tab) && (
+          {[0, 2, 6].includes(tab) && (
             <ButtonGroup variant="contained" disableElevation sx={{ borderRadius: 2, '& .MuiButton-root': { bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } } }}>
               <Button startIcon={<AddIcon />} onClick={() => setNuevoOpen(true)} sx={{ textTransform: 'none', fontWeight: 700 }}>
                 Registrar llanta
@@ -1200,6 +1220,7 @@ export default function EAMNeumaticos() {
 
         <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto" sx={{ mb: 2, borderBottom: '1px solid #E5E7EB', '& .Mui-selected': { color: EAM_COLOR }, '& .MuiTabs-indicator': { bgcolor: EAM_COLOR } }}>
           <Tab icon={<DirectionsCar sx={{ fontSize: 18 }} />} iconPosition="start" label="Llantas por Vehículo" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          <Tab icon={<Straighten sx={{ fontSize: 18 }} />} iconPosition="start" label="Inspecciones" sx={{ textTransform: 'none', fontWeight: 600 }} />
           <Tab icon={<WarehouseIcon sx={{ fontSize: 18 }} />} iconPosition="start" label={`Bodega (${almacen.length})`} sx={{ textTransform: 'none', fontWeight: 600 }} />
           <Tab icon={<TrendingUp sx={{ fontSize: 18 }} />} iconPosition="start" label="Indicadores / CPK" sx={{ textTransform: 'none', fontWeight: 600 }} />
           <Tab icon={<Badge badgeContent={alertas.length} color="error"><NotificationsActive sx={{ fontSize: 18 }} /></Badge>} iconPosition="start" label="Alertas" sx={{ textTransform: 'none', fontWeight: 600 }} />
@@ -1435,8 +1456,167 @@ export default function EAMNeumaticos() {
           )
         })()}
 
-        {/* ── TAB 1: Bodega ── */}
-        {tab === 1 && (
+        {/* ── TAB 1: Inspecciones — ultima inspeccion de cada llanta ── */}
+        {tab === 1 && (() => {
+          const filas = ultimasInsp.filter(r => {
+            if (inspVeh && String(r.activo_id ?? '') !== inspVeh) return false
+            if (inspEstado && r.estado !== inspEstado) return false
+            if (inspVida && r.vida !== inspVida) return false
+            if (inspCobertura === 'CON' && !r.fecha_ultima) return false
+            if (inspCobertura === 'SIN' && r.fecha_ultima) return false
+            const q = inspBusca.trim().toLowerCase()
+            if (q && ![r.codigo, r.marca, r.referencia, r.medida, r.vehiculo].some(x => (x ?? '').toLowerCase().includes(q))) return false
+            return true
+          })
+          const vehiculosEnLista = Array.from(
+            new Map(ultimasInsp.filter(r => r.activo_id).map(r => [r.activo_id, r.vehiculo])).entries()
+          )
+          const vidasEnLista = Array.from(new Set(ultimasInsp.map(r => r.vida).filter(Boolean))) as string[]
+          const sinInspeccion = ultimasInsp.filter(r => !r.fecha_ultima).length
+          const colorProf = (p?: number | null) => {
+            if (p == null) return 'inherit'
+            if (p <= cfgForm.profundidad_minima) return '#DC2626'
+            if (p <= cfgForm.profundidad_minima * 1.5) return '#D97706'
+            return '#16A34A'
+          }
+          return (
+            <Stack spacing={2}>
+              {/* Encabezado + carga masiva */}
+              <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1.5}>
+                <Box>
+                  <Typography fontWeight={700}>Última inspección por llanta</Typography>
+                  <Typography fontSize={12} color="text.secondary">
+                    {filas.length} de {ultimasInsp.length} llantas · ordenadas de la inspección más reciente a la más antigua
+                    {sinInspeccion > 0 ? ` · ${sinInspeccion} sin inspeccionar` : ''}
+                  </Typography>
+                </Box>
+                <Button
+                  variant="contained" startIcon={<UploadFile />} onClick={() => setInspImportOpen(true)}
+                  sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
+                >
+                  Cargue masivo de inspecciones
+                </Button>
+              </Stack>
+
+              {/* Filtros */}
+              <Card sx={{ bgcolor: '#FFFFFF' }}>
+                <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
+                  <Stack direction={{ xs: 'column', lg: 'row' }} spacing={1.5} alignItems={{ lg: 'center' }} flexWrap="wrap" useFlexGap>
+                    <TextField
+                      size="small" placeholder="Buscar código, marca, referencia o vehículo…"
+                      value={inspBusca} onChange={e => setInspBusca(e.target.value)}
+                      sx={{ minWidth: 300, flex: 1 }}
+                      InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 18, color: '#94A3B8' }} /></InputAdornment> }}
+                    />
+                    <TextField select size="small" label="Vehículo" value={inspVeh} onChange={e => setInspVeh(e.target.value)} sx={{ minWidth: 170 }}>
+                      <MenuItem value="">Todos</MenuItem>
+                      {vehiculosEnLista.map(([id, nombre]) => <MenuItem key={id} value={String(id)}>{nombre}</MenuItem>)}
+                    </TextField>
+                    <TextField select size="small" label="Estado" value={inspEstado} onChange={e => setInspEstado(e.target.value)} sx={{ minWidth: 150 }}>
+                      <MenuItem value="">Todos</MenuItem>
+                      {['INSTALADO', 'ALMACENADO', 'REENCAUCHE'].map(e => <MenuItem key={e} value={e}>{e}</MenuItem>)}
+                    </TextField>
+                    <TextField select size="small" label="Vida" value={inspVida} onChange={e => setInspVida(e.target.value)} sx={{ minWidth: 120 }}>
+                      <MenuItem value="">Todas</MenuItem>
+                      {vidasEnLista.map(v => <MenuItem key={v} value={v}>{v}</MenuItem>)}
+                    </TextField>
+                    <ToggleButtonGroup
+                      size="small" exclusive value={inspCobertura}
+                      onChange={(_e, v) => v && setInspCobertura(v)}
+                      sx={{ '& .Mui-selected': { bgcolor: `${EAM_COLOR}22 !important`, color: `${EAM_DARK} !important` } }}
+                    >
+                      <ToggleButton value="TODAS" sx={{ textTransform: 'none', fontSize: 12.5 }}>Todas</ToggleButton>
+                      <ToggleButton value="CON" sx={{ textTransform: 'none', fontSize: 12.5 }}>Inspeccionadas</ToggleButton>
+                      <ToggleButton value="SIN" sx={{ textTransform: 'none', fontSize: 12.5 }}>Sin inspeccionar</ToggleButton>
+                    </ToggleButtonGroup>
+                    {(inspBusca || inspVeh || inspEstado || inspVida || inspCobertura !== 'TODAS') && (
+                      <Button size="small" onClick={() => { setInspBusca(''); setInspVeh(''); setInspEstado(''); setInspVida(''); setInspCobertura('TODAS') }}
+                        sx={{ textTransform: 'none', color: '#64748B' }}>Limpiar</Button>
+                    )}
+                  </Stack>
+                </CardContent>
+              </Card>
+
+              {/* Tabla */}
+              <Card sx={{ bgcolor: '#FFFFFF' }}>
+                <Box sx={{ overflowX: 'auto' }}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: alpha(EAM_COLOR, 0.08) }}>
+                        {['Código', 'Llanta', 'Ubicación', 'Vida', 'Última inspección', 'Prof. mín.', 'Km de la vida', 'CPK', ''].map((h, i) => (
+                          <TableCell key={`${h}-${i}`} sx={{ fontWeight: 700, fontSize: 11, whiteSpace: 'nowrap' }}>{h}</TableCell>
+                        ))}
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {filas.map(r => (
+                        <TableRow key={r.neumatico_id} hover>
+                          <TableCell sx={{ fontWeight: 700 }}>{r.codigo}</TableCell>
+                          <TableCell>
+                            <Typography fontSize={12.5}>{r.marca ?? '—'}{r.referencia ? ` · ${r.referencia}` : ''}</Typography>
+                            <Typography fontSize={10.5} color="text.secondary">{r.medida ?? '—'}</Typography>
+                          </TableCell>
+                          <TableCell>
+                            {r.vehiculo
+                              ? <><Typography fontSize={12.5}>{r.vehiculo}</Typography>
+                                  <Typography fontSize={10.5} color="text.secondary">{r.posicion ?? '—'}</Typography></>
+                              : <Chip size="small" label={r.estado ?? '—'} sx={{ fontSize: 10, height: 20 }} />}
+                          </TableCell>
+                          <TableCell>
+                            <Chip size="small" label={r.vida ?? '—'}
+                              sx={{ fontSize: 10, height: 20, fontWeight: 700, bgcolor: r.vida === 'VN' ? alpha(EAM_COLOR, 0.15) : '#FEF3C7', color: r.vida === 'VN' ? EAM_DARK : '#92400E' }} />
+                          </TableCell>
+                          <TableCell>
+                            {r.fecha_ultima ? (
+                              <>
+                                <Typography fontSize={12.5}>{fmtFecha(r.fecha_ultima)}</Typography>
+                                <Typography fontSize={10.5} color="text.secondary">
+                                  {r.dias_desde === 0 ? 'hoy' : `hace ${r.dias_desde} día(s)`}
+                                </Typography>
+                              </>
+                            ) : (
+                              <Chip size="small" label="Sin inspeccionar" color="warning" sx={{ fontSize: 10, height: 20 }} />
+                            )}
+                          </TableCell>
+                          <TableCell sx={{ fontWeight: 700, color: colorProf(r.profundidad_min) }}>
+                            {r.profundidad_min != null ? `${r.profundidad_min} mm` : '—'}
+                          </TableCell>
+                          <TableCell>{r.km_vida != null ? `${r.km_vida.toLocaleString('es-CO')} km` : '—'}</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>{r.cpk != null ? `$${r.cpk.toLocaleString('es-CO')}` : '—'}</TableCell>
+                          <TableCell align="right">
+                            <Tooltip title="Registrar inspección de esta llanta">
+                              <IconButton size="small" sx={{ color: EAM_COLOR }}
+                                onClick={() => {
+                                  const n = neumaticos.find(x => x.id === r.neumatico_id)
+                                  if (!n) return
+                                  setInspForm({ ...EMPTY_INSP })
+                                  setInspDialog(n)
+                                }}>
+                                <Straighten sx={{ fontSize: 17 }} />
+                              </IconButton>
+                            </Tooltip>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {filas.length === 0 && (
+                        <TableRow><TableCell colSpan={9} align="center">
+                          <Typography color="text.secondary" py={3} fontSize={13}>
+                            {ultimasInsp.length === 0
+                              ? 'No hay llantas registradas.'
+                              : 'Ninguna llanta coincide con los filtros aplicados.'}
+                          </Typography>
+                        </TableCell></TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </Box>
+              </Card>
+            </Stack>
+          )
+        })()}
+
+        {/* ── TAB 2: Bodega ── */}
+        {tab === 2 && (
           <Stack spacing={2}>
           <Card sx={{ bgcolor: '#FFFFFF' }}>
             <Box sx={{ overflowX: 'auto' }}>
@@ -1475,8 +1655,8 @@ export default function EAMNeumaticos() {
           </Stack>
         )}
 
-        {/* ── TAB 2: Indicadores / CPK ── */}
-        {tab === 2 && (
+        {/* ── TAB 3: Indicadores / CPK ── */}
+        {tab === 3 && (
           <Card sx={{ bgcolor: '#FFFFFF' }}>
             <CardContent>
               <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1.5} flexWrap="wrap" gap={1}>
@@ -1522,8 +1702,8 @@ export default function EAMNeumaticos() {
           </Card>
         )}
 
-        {/* ── TAB 3: Alertas ── */}
-        {tab === 3 && (
+        {/* ── TAB 4: Alertas ── */}
+        {tab === 4 && (
           <Card sx={{ bgcolor: '#FFFFFF' }}>
             <CardContent>
               <Stack direction="row" alignItems="center" gap={1} mb={1.5}>
@@ -1549,8 +1729,8 @@ export default function EAMNeumaticos() {
           </Card>
         )}
 
-        {/* ── TAB 4: Reencauche ── */}
-        {tab === 4 && (
+        {/* ── TAB 5: Reencauche ── */}
+        {tab === 5 && (
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, md: 4 }}>
               <Card sx={{ bgcolor: '#FFFFFF' }}>
@@ -1632,8 +1812,8 @@ export default function EAMNeumaticos() {
           </Grid>
         )}
 
-        {/* ── TAB 5: Consultas (por vehículo / llanta / ubicación / total) ── */}
-        {tab === 5 && (() => {
+        {/* ── TAB 6: Consultas (por vehículo / llanta / ubicación / total) ── */}
+        {tab === 6 && (() => {
           const vehNombre = (id?: number | null) => { const v = vehiculos.find(x => x.id === id); return v ? `${v.codigo}${v.placa ? ` (${v.placa})` : ''}` : '—' }
           const ubicacionDe = (n: Neumatico) => n.activo_id ? `${vehNombre(n.activo_id)}${n.posicion ? ` · ${n.posicion}` : ''}` : n.bodega_id ? `Bodega: ${bodegaNombre(n.bodega_id)}` : '—'
           const filtradas = neumaticos.filter(n => {
@@ -1739,8 +1919,8 @@ export default function EAMNeumaticos() {
           )
         })()}
 
-        {/* ── TAB 6: Descarte ── */}
-        {tab === 6 && (
+        {/* ── TAB 7: Descarte ── */}
+        {tab === 7 && (
           <Stack spacing={2}>
           <Stack direction="row" justifyContent="flex-end">
             <Button
@@ -1778,8 +1958,8 @@ export default function EAMNeumaticos() {
           </Stack>
         )}
 
-        {/* ── TAB 7: Configuración (bodegas + catálogo de daños) ── */}
-        {tab === 7 && (
+        {/* ── TAB 8: Configuración (bodegas + catálogo de daños) ── */}
+        {tab === 8 && (
           <Grid container spacing={2}>
             {/* Catálogo de llantas: marca -> referencia -> dimensión -> profundidad */}
             <Grid size={{ xs: 12 }}>
