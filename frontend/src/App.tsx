@@ -228,6 +228,13 @@ const EAMChecklists = React.lazy(() => import('@/pages/EAMChecklists'))
 const EAMLubricacion = React.lazy(() => import('@/pages/EAMLubricacion'))
 const EAMNeumaticos = React.lazy(() => import('@/pages/EAMNeumaticos'))
 const EAMNeumaticosReportes = React.lazy(() => import('@/pages/EAMNeumaticosReportes'))
+const AGSDashboard = React.lazy(() => import('@/pages/AGSDashboard'))
+const AGSAgenda = React.lazy(() => import('@/pages/AGSAgenda'))
+const AGSServicios = React.lazy(() => import('@/pages/AGSServicios'))
+const AGSEquipo = React.lazy(() => import('@/pages/AGSEquipo'))
+const AGSClientes = React.lazy(() => import('@/pages/AGSClientes'))
+const AGSIngresos = React.lazy(() => import('@/pages/AGSIngresos'))
+const AGSConfig = React.lazy(() => import('@/pages/AGSConfig'))
 const EAMCombustible = React.lazy(() => import('@/pages/EAMCombustible'))
 const EAMInventario = React.lazy(() => import('@/pages/EAMInventario'))
 const EAMConfiabilidad = React.lazy(() => import('@/pages/EAMConfiabilidad'))
@@ -574,6 +581,13 @@ export default function App() {
             <Route path="/crm/reportes" element={<ProtectedRoute><CRMReportes /></ProtectedRoute>} />
             <Route path="/crm/config" element={<ProtectedRoute><CRMConfig /></ProtectedRoute>} />
             <Route path="/eam" element={<ProtectedRoute><EAMDashboard /></ProtectedRoute>} />
+            <Route path="/ags" element={<ProtectedRoute><AGSDashboard /></ProtectedRoute>} />
+            <Route path="/ags/agenda" element={<ProtectedRoute><AGSAgenda /></ProtectedRoute>} />
+            <Route path="/ags/servicios" element={<ProtectedRoute><AGSServicios /></ProtectedRoute>} />
+            <Route path="/ags/equipo" element={<ProtectedRoute><AGSEquipo /></ProtectedRoute>} />
+            <Route path="/ags/clientes" element={<ProtectedRoute><AGSClientes /></ProtectedRoute>} />
+            <Route path="/ags/ingresos" element={<ProtectedRoute><AGSIngresos /></ProtectedRoute>} />
+            <Route path="/ags/config" element={<ProtectedRoute><AGSConfig /></ProtectedRoute>} />
             <Route path="/eam/activos" element={<ProtectedRoute><EAMActivos /></ProtectedRoute>} />
             <Route path="/eam/ordenes-trabajo" element={<ProtectedRoute><EAMOrdenesTrabajo /></ProtectedRoute>} />
             <Route path="/eam/planes" element={<ProtectedRoute><EAMPlanesMant /></ProtectedRoute>} />

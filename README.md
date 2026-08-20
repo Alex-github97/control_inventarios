@@ -101,9 +101,9 @@ docker compose exec backend python -m scripts.seed
 
 ---
 
-## Módulos del Sistema (20)
+## Módulos del Sistema (21)
 
-La plataforma tiene 20 módulos con páginas y/o endpoints propios. **Existe una inconsistencia real en el código, no solo de esta documentación:** el color de navegación de cada módulo (`frontend/src/components/layout/Sidebar.tsx`) y el color usado en la matriz de permisos de roles (`frontend/src/pages/Roles.tsx`) divergieron con el tiempo — no siempre coinciden. La tabla siguiente muestra ambos.
+La plataforma tiene 21 módulos con páginas y/o endpoints propios. **Existe una inconsistencia real en el código, no solo de esta documentación:** el color de navegación de cada módulo (`frontend/src/components/layout/Sidebar.tsx`) y el color usado en la matriz de permisos de roles (`frontend/src/pages/Roles.tsx`) divergieron con el tiempo — no siempre coinciden. La tabla siguiente muestra ambos.
 
 | Clave | Módulo | Color (Sidebar) | Color (Roles/permisos) |
 |-------|--------|------------------|-------------------------|
@@ -126,9 +126,10 @@ La plataforma tiene 20 módulos con páginas y/o endpoints propios. **Existe una
 | `erp` | ERP Financiero/Contable | `#1A3A6B` | *(no existe en la matriz de permisos)* |
 | `scm` | Cadena de Suministro SCM | `#0C4D8C` | *(no existe en la matriz de permisos)* |
 | `sst` | Seguridad y Salud en el Trabajo | `#C53030` | *(no existe en la matriz de permisos)* |
+| `ags` | Agenda de Servicios | `#A21CAF` | *(no existe en la matriz de permisos)* |
 | `admin` | Administración | — | `#B91C1C` |
 
-> **Brecha funcional real**: ERP, SCM y SST no están dados de alta en `Roles.tsx` — hoy no es posible restringir el acceso a esos 3 módulos desde la matriz de permisos de roles; cualquier rol con acceso general los ve. Pendiente de agregar como filas de la matriz si se requiere control de acceso granular sobre ellos.
+> **Brecha funcional real**: ERP, SCM, SST y AGS no están dados de alta en `Roles.tsx` — hoy no es posible restringir el acceso a esos 4 módulos desde la matriz de permisos de roles; cualquier rol con acceso general los ve. AGS sí tiene su clave `ags` registrada en `MODULOS_SISTEMA` (backend), así que basta agregarle la fila en la matriz. Pendiente si se requiere control de acceso granular sobre ellos.
 
 ---
 
@@ -435,6 +436,98 @@ Existen 7 páginas con sufijo IA: `CRMIA`, `DMSIA`, `EAMIA`, `GRCIA`, `LMSIA`, `
 
 ---
 
+## AGS — Agenda de Servicios
+
+Módulo para negocios de servicio con cita previa: salones de belleza, barberías, spa,
+salones de uñas, plomeros, albañiles, electricistas y técnicos a domicilio. Resuelve las
+tres cosas que este tipo de negocio necesita y normalmente lleva en un cuaderno: **la
+agenda**, **el precio de cada servicio** y **cuánto ha dejado cada cliente**.
+
+**Workspace**: `ags` · color `#A21CAF` · ruta base `/ags` · prefijo de API `/api/v1/ags`
+· prefijo de tablas `ags_`
+
+### Secciones (7)
+
+| Ruta | Qué hace |
+|------|----------|
+| `/ags` | Tablero: cómo va el día (citas, facturado, ocupación) y el mes (ingresos vs. mes anterior, ticket promedio, comisiones, inasistencias) |
+| `/ags/agenda` | Vista de día con una columna por profesional. Clic en un espacio libre agenda; clic en una cita abre sus acciones |
+| `/ags/clientes` | Directorio con métricas de valor: total gastado, ticket promedio, última visita, días sin venir y saldo pendiente |
+| `/ags/ingresos` | Cinco vistas del periodo: evolución, producción del equipo, servicios, clientes y cierre de caja |
+| `/ags/servicios` | Catálogo: categorías y servicios con precio, duración, costo de insumos y margen |
+| `/ags/equipo` | Personas, jornada por día de la semana, comisión, servicios que presta y bloqueos de agenda |
+| `/ags/config` | Datos del negocio, horario general, políticas de agenda y plantilla del recordatorio |
+
+### Reglas de negocio que aplica el backend
+
+- **Sin doble reserva**: al agendar o reprogramar se valida que el profesional no tenga otra
+  cita activa que se cruce, ni una ausencia registrada. Una cita cancelada o con inasistencia
+  libera el horario y deja de bloquear. Se puede desactivar con `permite_sobrecupo`.
+- **Disponibilidad calculada, no adivinada**: `GET /ags/agenda/disponibilidad` parte de la
+  jornada de cada persona, le resta las citas tomadas y las ausencias, y devuelve solo los
+  espacios donde cabe completo un servicio de la duración pedida. Respeta el día no laboral
+  del negocio y la anticipación mínima.
+- **Ciclo de vida con transiciones válidas**: `AGENDADA → CONFIRMADA → EN_CURSO → COMPLETADA`,
+  con salida a `CANCELADA` / `NO_ASISTIO`. **Completar exige que la cita esté cobrada**: es el
+  punto donde el trabajo se vuelve ingreso y dejarlo pasar sin pago descuadra la caja.
+- **Precio histórico congelado**: cada línea de la cita guarda copia del nombre y del precio
+  del momento. Si mañana sube la tarifa, los ingresos ya registrados no cambian.
+- **Comisión solo sobre mano de obra**: se calcula sobre los servicios, nunca sobre materiales
+  (los pone el negocio) ni sobre la propina (va completa al profesional).
+- **Anticipos**: cada cita acepta abonos parciales con su propio medio de pago, para trabajos
+  largos que se pagan por partes (una obra de albañilería).
+- **Hora local del negocio**: el servidor corre en UTC, así que el módulo usa
+  `America/Bogota` para la agenda del día, el cierre de caja y el "no agendar en el pasado".
+  Sin esto un pago recibido a las 8pm caería en la caja del día siguiente.
+
+### Servicios a domicilio
+
+Los oficios que van donde el cliente (plomería, albañilería, electricidad) se modelan con dos
+banderas por servicio: `permite_domicilio` (la cita pide dirección, y si se deja vacía toma la
+del cliente) y `cobra_materiales` (al cobrar se capturan los insumos aparte de la mano de obra).
+
+### Recordatorios por WhatsApp
+
+`POST /ags/citas/{id}/recordatorio` arma el mensaje desde la plantilla configurable y devuelve
+un enlace `wa.me` listo para abrir, agregando el indicativo `57` cuando el número viene con 10
+dígitos. **El sistema no envía nada por su cuenta**: entrega el texto para que el negocio lo
+revise antes de mandarlo.
+
+### Reportes
+
+- `/reportes/ingresos` — serie por día, semana o mes con servicios, materiales, descuentos,
+  propinas, comisiones y utilidad (descontando el costo de insumos del catálogo)
+- `/reportes/por-profesional` — producción, comisión a pagar y **ocupación** (minutos vendidos
+  sobre minutos de jornada configurada en el rango)
+- `/reportes/por-servicio` — incluye **ingreso por hora**, que ordena mejor que el ingreso
+  total: un servicio caro de tres horas puede rendir menos que uno barato de veinte minutos
+- `/reportes/por-cliente` — ranking con saldo pendiente y días sin venir
+- `/reportes/caja` — cuadre del día por medio de pago (Efectivo, Nequi, Daviplata, tarjeta,
+  transferencia, QR), calculado sobre los pagos recibidos ese día
+
+### Datos sembrados
+
+`lifespan()` en `backend/app/main.py` crea la fila única de configuración, **9 categorías** y
+**22 servicios de ejemplo** con precio y duración de referencia del mercado colombiano, para
+que el módulo sea usable sin configurar nada primero. Equipo y clientes empiezan vacíos.
+
+### Tablas (12)
+
+`ags_config`, `ags_categoria_servicio`, `ags_servicio`, `ags_profesional`,
+`ags_profesional_servicio`, `ags_horario_profesional`, `ags_ausencia`, `ags_cliente`,
+`ags_cita`, `ags_cita_servicio`, `ags_cita_material`, `ags_pago_cita`
+
+### Pendiente / no implementado
+
+- **Autoagendamiento por el cliente**: el modelo ya distingue el origen `ONLINE` y la
+  disponibilidad se calcula del lado del servidor, pero no existe la página pública sin login
+  donde el cliente reserve por sí mismo.
+- **Paquetes o bonos prepagados** (ej. 10 cortes pagados por anticipado).
+- **Envío automático** de recordatorios (hoy es un enlace que se abre manualmente).
+- Fila en la matriz de permisos de `Roles.tsx`.
+
+---
+
 ## Administración
 
 ### Usuarios (`/usuarios`)
@@ -662,6 +755,25 @@ DROP TYPE IF EXISTS rolusuario;
 ---
 
 ## Historial de Versiones
+
+### v2.4.0 (2026-08-20)
+
+**Nuevo módulo AGS — Agenda de Servicios** (21.º módulo)
+
+Módulo completo para negocios de servicio con cita previa (salones, barberías, plomeros,
+albañiles, técnicos a domicilio): agenda con una columna por profesional, catálogo de
+servicios con precio y duración preconfigurados, e ingresos trazables por cliente,
+profesional y servicio.
+
+- 12 tablas nuevas (`ags_*`), 40+ endpoints bajo `/api/v1/ags`
+- 7 páginas de frontend + 2 diálogos (agendar y cobrar)
+- Validación de doble reserva y cálculo real de disponibilidad a partir de la jornada
+- Ciclo de vida de la cita con transiciones válidas; completar exige cobro
+- Comisiones, propinas, materiales, anticipos y cierre de caja por medio de pago
+- Recordatorios por WhatsApp mediante enlace `wa.me` (no envía por su cuenta)
+- Hora local `America/Bogota` para agenda y caja, en lugar del UTC del servidor
+- Semilla de 9 categorías y 22 servicios con precios de referencia del mercado colombiano
+- i18n en los 10 idiomas del proyecto
 
 ### v2.3.0 (2026-08-18)
 

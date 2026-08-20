@@ -163,6 +163,13 @@ import {
   PrecisionManufacturing as EAMIAIconEAM,
   BarChart as EAMReportesIconEAM,
   Tune as EAMConfigIconEAM,
+  Insights as AGSDashIconAGS,
+  CalendarMonth as AGSAgendaIconAGS,
+  ContentCut as AGSServiciosIconAGS,
+  Groups as AGSEquipoIconAGS,
+  ContactPhone as AGSClientesIconAGS,
+  PointOfSale as AGSIngresosIconAGS,
+  SettingsSuggest as AGSConfigIconAGS,
   Factory as MESDashIconMES,
   DeviceHub as MESPlantaIconMES,
   ListAlt as MESOrdenesIconMES,
@@ -252,6 +259,7 @@ const GRC_COLOR = '#6D28D9'
 const LMS_COLOR = '#D97706'
 const CRM_COLOR = '#DC2626'
 const EAM_COLOR = '#32AC5C'
+const AGS_COLOR = '#A21CAF'
 const MES_COLOR = '#0891B2'
 const APS_COLOR = '#7C3AED'
 const ERP_COLOR = '#1A3A6B'
@@ -462,6 +470,16 @@ const CRM_NAV_ITEMS: NavItem[] = [
 ]
 const CRM_SECTIONS = ['section.general', 'section.comercial', 'section.contratos', 'section.servicio', 'section.marketing', 'section.analitica', 'section.sistema']
 
+const AGS_NAV_ITEMS: NavItem[] = [
+  { label: 'nav.agsTablero',   icon: <AGSDashIconAGS      fontSize="small" />, path: '/ags',            section: 'section.general', exact: true },
+  { label: 'nav.agsAgenda',    icon: <AGSAgendaIconAGS    fontSize="small" />, path: '/ags/agenda',     section: 'section.general' },
+  { label: 'nav.agsClientes',  icon: <AGSClientesIconAGS  fontSize="small" />, path: '/ags/clientes',   section: 'section.comercial' },
+  { label: 'nav.agsIngresos',  icon: <AGSIngresosIconAGS  fontSize="small" />, path: '/ags/ingresos',   section: 'section.comercial' },
+  { label: 'nav.agsServicios', icon: <AGSServiciosIconAGS fontSize="small" />, path: '/ags/servicios',  section: 'section.catalogos' },
+  { label: 'nav.agsEquipo',    icon: <AGSEquipoIconAGS    fontSize="small" />, path: '/ags/equipo',     section: 'section.catalogos' },
+  { label: 'nav.configuracion',icon: <AGSConfigIconAGS    fontSize="small" />, path: '/ags/config',     section: 'section.sistema' },
+]
+
 const EAM_NAV_ITEMS: NavItem[] = [
   { label: 'nav.torreControl',   icon: <EAMDashIconEAM          fontSize="small" />, path: '/eam',                 section: 'section.general',         exact: true },
   { label: 'nav.activos',        icon: <EAMActivosIconEAM       fontSize="small" />, path: '/eam/activos',         section: 'section.general' },
@@ -640,14 +658,15 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
   const isLMS      = location.pathname.startsWith('/lms')
   const isCRM      = location.pathname.startsWith('/crm')
   const isEAM      = location.pathname.startsWith('/eam')
+  const isAGS      = location.pathname.startsWith('/ags')
   const isMES      = location.pathname.startsWith('/mes')
   const isAPS      = location.pathname.startsWith('/aps')
   const isERP      = location.pathname.startsWith('/erp')
   const isSCM      = location.pathname.startsWith('/scm')
   const isSST      = location.pathname.startsWith('/sst')
 
-  const activeColor = isCommand ? CC_COLOR : isConfig ? CF_COLOR : isTarifax ? TX_COLOR : isGRC ? GRC_COLOR : isQMS ? QMS_COLOR : isDMS ? DMS_COLOR : isTMS ? TMS_COLOR : isFletes ? FT_COLOR : isFlota ? GF_COLOR : isLocativa ? ML_COLOR : isWMS ? WMS_COLOR : isGH ? GH_COLOR : isLMS ? LMS_COLOR : isCRM ? CRM_COLOR : isEAM ? EAM_COLOR : isMES ? MES_COLOR : isAPS ? APS_COLOR : isERP ? ERP_COLOR : isSCM ? SCM_COLOR : isSST ? SST_COLOR : CI_COLOR
-  const navItems    = isCommand ? CC_NAV_ITEMS : isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : isGRC ? GRC_NAV_ITEMS : isQMS ? QMS_NAV_ITEMS : isDMS ? DMS_NAV_ITEMS : isTMS ? TMS_NAV_ITEMS : isFletes ? FT_NAV_ITEMS : isFlota ? GF_NAV_ITEMS : isLocativa ? ML_NAV_ITEMS : isWMS ? WMS_NAV_ITEMS : isGH ? GH_NAV_ITEMS : isLMS ? LMS_NAV_ITEMS : isCRM ? CRM_NAV_ITEMS : isEAM ? EAM_NAV_ITEMS : isMES ? MES_NAV_ITEMS : isAPS ? APS_NAV_ITEMS : isERP ? ERP_NAV_ITEMS : isSCM ? SCM_NAV_ITEMS : isSST ? SST_NAV_ITEMS : visibleCIItems
+  const activeColor = isCommand ? CC_COLOR : isConfig ? CF_COLOR : isTarifax ? TX_COLOR : isGRC ? GRC_COLOR : isQMS ? QMS_COLOR : isDMS ? DMS_COLOR : isTMS ? TMS_COLOR : isFletes ? FT_COLOR : isFlota ? GF_COLOR : isLocativa ? ML_COLOR : isWMS ? WMS_COLOR : isGH ? GH_COLOR : isLMS ? LMS_COLOR : isCRM ? CRM_COLOR : isEAM ? EAM_COLOR : isMES ? MES_COLOR : isAPS ? APS_COLOR : isERP ? ERP_COLOR : isSCM ? SCM_COLOR : isSST ? SST_COLOR : isAGS ? AGS_COLOR : CI_COLOR
+  const navItems    = isCommand ? CC_NAV_ITEMS : isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : isGRC ? GRC_NAV_ITEMS : isQMS ? QMS_NAV_ITEMS : isDMS ? DMS_NAV_ITEMS : isTMS ? TMS_NAV_ITEMS : isFletes ? FT_NAV_ITEMS : isFlota ? GF_NAV_ITEMS : isLocativa ? ML_NAV_ITEMS : isWMS ? WMS_NAV_ITEMS : isGH ? GH_NAV_ITEMS : isLMS ? LMS_NAV_ITEMS : isCRM ? CRM_NAV_ITEMS : isEAM ? EAM_NAV_ITEMS : isMES ? MES_NAV_ITEMS : isAPS ? APS_NAV_ITEMS : isERP ? ERP_NAV_ITEMS : isSCM ? SCM_NAV_ITEMS : isSST ? SST_NAV_ITEMS : isAGS ? AGS_NAV_ITEMS : visibleCIItems
   const sections    = isCommand ? CC_SECTIONS  : isConfig ? CONFIG_SECTIONS  : isTarifax ? TX_SECTIONS  : isGRC ? GRC_SECTIONS  : isQMS ? QMS_SECTIONS  : isDMS ? DMS_SECTIONS  : isTMS ? TMS_SECTIONS  : isFletes ? FT_SECTIONS  : isFlota ? GF_SECTIONS  : isLocativa ? ML_SECTIONS  : isWMS ? WMS_SECTIONS : isGH ? GH_SECTIONS : isLMS ? LMS_SECTIONS : isCRM ? CRM_SECTIONS : isEAM ? EAM_SECTIONS : isMES ? MES_SECTIONS : isAPS ? APS_SECTIONS : isERP ? ERP_SECTIONS : isSCM ? SCM_SECTIONS : isSST ? SST_SECTIONS : CI_SECTIONS
 
   const logoShort = isCommand ? 'CC' : isConfig ? 'CF' : isTarifax ? 'TX' : isGRC ? 'GRC' : isQMS ? 'QMS' : isDMS ? 'DMS' : isTMS ? 'TMS' : isFletes ? 'FT' : isFlota ? 'GF' : isLocativa ? 'ML' : isWMS ? 'WMS' : isGH ? 'GH' : isLMS ? 'LMS' : isCRM ? 'CRM' : isEAM ? 'EAM' : isMES ? 'MES' : isAPS ? 'APS' : isERP ? 'ERP' : isSCM ? 'SCM' : isSST ? 'SST' : 'CE'

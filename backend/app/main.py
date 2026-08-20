@@ -249,6 +249,83 @@ async def lifespan(app: FastAPI):
             ON CONFLICT (codigo) DO NOTHING
         """))
 
+        # ── AGS · Agenda de Servicios ────────────────────────────────────
+        # Configuración del negocio: una sola fila, con la jornada típica de
+        # un local de servicios en Colombia (lunes a sábado, 8am–7pm).
+        await conn.execute(text("""
+            INSERT INTO ags_config
+                (id, nombre_negocio, tipo_negocio, hora_apertura, hora_cierre,
+                 dias_laborales, intervalo_agenda_min, moneda, iva_pct,
+                 comision_defecto_pct, permite_sobrecupo, anticipacion_minima_min,
+                 tolerancia_no_show_min, mensaje_recordatorio, created_at, updated_at)
+            VALUES
+                (1, 'Mi negocio', 'SALON_BELLEZA', '08:00', '19:00',
+                 '[1,2,3,4,5,6]'::json, 30, 'COP', 0,
+                 0, false, 0,
+                 15,
+                 'Hola {cliente}, le recordamos su cita en {negocio} el {fecha} '
+                 'a las {hora} para {servicio}. Cualquier cambio nos avisa.',
+                 now(), now())
+            ON CONFLICT (id) DO NOTHING
+        """))
+
+        # Categorías de arranque que cubren los oficios más comunes del
+        # segmento: belleza y barbería (cita corta en local) junto a plomería
+        # y albañilería (visita a domicilio que además cobra materiales).
+        await conn.execute(text("""
+            INSERT INTO ags_categoria_servicio (nombre, descripcion, color, orden, activo, created_at, updated_at)
+            VALUES
+                ('Peluquería',   'Corte, peinado, cepillado y tratamientos de cabello', '#A21CAF', 1, true, now(), now()),
+                ('Barbería',     'Corte masculino, barba y perfilado',                  '#7E22CE', 2, true, now(), now()),
+                ('Color y químicos', 'Tinte, mechas, alisado y keratina',               '#C026D3', 3, true, now(), now()),
+                ('Manos y pies', 'Manicure, pedicure y uñas',                           '#DB2777', 4, true, now(), now()),
+                ('Estética',     'Depilación, limpieza facial y masajes',               '#9333EA', 5, true, now(), now()),
+                ('Plomería',     'Instalaciones y reparaciones hidráulicas',            '#0891B2', 6, true, now(), now()),
+                ('Albañilería',  'Obra gris, enchape y remodelación',                   '#B45309', 7, true, now(), now()),
+                ('Electricidad', 'Instalaciones y reparaciones eléctricas',             '#CA8A04', 8, true, now(), now()),
+                ('Otros',        'Servicios varios',                                    '#64748B', 9, true, now(), now())
+            ON CONFLICT (nombre) DO NOTHING
+        """))
+
+        # Servicios de ejemplo con precio y duración de referencia. La duración
+        # es lo que permite a la agenda calcular la hora de fin y detectar
+        # cruces; los oficios a domicilio quedan marcados para que pidan
+        # dirección y puedan cobrar materiales aparte de la mano de obra.
+        await conn.execute(text("""
+            INSERT INTO ags_servicio
+                (codigo, nombre, categoria_id, duracion_min, precio, costo_insumos,
+                 permite_domicilio, cobra_materiales, requiere_anticipo, activo,
+                 created_at, updated_at)
+            SELECT v.codigo, v.nombre, c.id, v.duracion, v.precio, v.costo,
+                   v.domicilio, v.materiales, v.anticipo, true, now(), now()
+            FROM (VALUES
+                ('SRV-0001', 'Corte de cabello dama',      'Peluquería',       45,  35000,  2000, false, false, false),
+                ('SRV-0002', 'Cepillado / peinado',        'Peluquería',       40,  30000,  3000, false, false, false),
+                ('SRV-0003', 'Corte de cabello caballero', 'Barbería',         30,  20000,  1000, false, false, false),
+                ('SRV-0004', 'Corte + barba',              'Barbería',         45,  30000,  2000, false, false, false),
+                ('SRV-0005', 'Perfilado de barba',         'Barbería',         20,  15000,  1000, false, false, false),
+                ('SRV-0006', 'Tinte raíz',                 'Color y químicos', 90,  85000, 25000, false, false, false),
+                ('SRV-0007', 'Mechas / balayage',          'Color y químicos',180, 220000, 60000, false, false, false),
+                ('SRV-0008', 'Keratina',                   'Color y químicos',120, 150000, 45000, false, false, false),
+                ('SRV-0009', 'Manicure',                   'Manos y pies',     45,  25000,  4000, false, false, false),
+                ('SRV-0010', 'Pedicure',                   'Manos y pies',     60,  35000,  6000, false, false, false),
+                ('SRV-0011', 'Uñas acrílicas',             'Manos y pies',    120,  90000, 25000, false, false, false),
+                ('SRV-0012', 'Depilación cera',            'Estética',         40,  40000,  8000, false, false, false),
+                ('SRV-0013', 'Limpieza facial',            'Estética',         60,  70000, 15000, false, false, false),
+                ('SRV-0014', 'Masaje relajante',           'Estética',         60,  80000,  8000, false, false, false),
+                ('SRV-0015', 'Visita diagnóstico',         'Plomería',         30,  40000,     0, true,  false, false),
+                ('SRV-0016', 'Destape de tubería',         'Plomería',         90, 120000,     0, true,  true,  false),
+                ('SRV-0017', 'Cambio de grifería',         'Plomería',         60,  90000,     0, true,  true,  false),
+                ('SRV-0018', 'Reparación de fuga',         'Plomería',        120, 150000,     0, true,  true,  false),
+                ('SRV-0019', 'Enchape m2',                 'Albañilería',     240,  60000,     0, true,  true,  true),
+                ('SRV-0020', 'Resane y pintura',           'Albañilería',     300, 180000,     0, true,  true,  true),
+                ('SRV-0021', 'Instalación de tomacorriente','Electricidad',    60,  70000,     0, true,  true,  false),
+                ('SRV-0022', 'Revisión eléctrica general', 'Electricidad',     90, 110000,     0, true,  false, false)
+            ) AS v(codigo, nombre, categoria, duracion, precio, costo, domicilio, materiales, anticipo)
+            LEFT JOIN ags_categoria_servicio c ON c.nombre = v.categoria
+            ON CONFLICT (codigo) DO NOTHING
+        """))
+
     # 3. Sembrar roles y migrar usuarios
     async with AsyncSession(engine) as db:
         async with db.begin():

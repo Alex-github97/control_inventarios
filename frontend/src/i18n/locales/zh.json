@@ -150,7 +150,13 @@
       "consolidacion": "合并报表",
       "compras": "采购",
       "proyectos": "项目",
-      "epm": "EPM"
+      "epm": "EPM",
+      "agsTablero": "概览",
+      "agsAgenda": "预约",
+      "agsClientes": "客户",
+      "agsIngresos": "收入",
+      "agsServicios": "服务",
+      "agsEquipo": "团队"
     },
     "section": {
       "principal": "主要",
@@ -234,7 +240,8 @@
       "aps": "APS",
       "erp": "ERP",
       "config": "配置",
-      "espacios": "空间"
+      "espacios": "空间",
+      "ags": "服务预约"
     },
     "logo": {
       "ci1": "托盘",
@@ -269,7 +276,8 @@
       "mes2": "Execution System",
       "aps1": "Advanced Planning",
       "aps2": "& Scheduling",
-      "erp1": "企业资源", "erp2": "规划系统",
+      "erp1": "企业资源",
+      "erp2": "规划系统",
       "cc1": "Command",
       "cc2": "Center",
       "cfg1": "系统",

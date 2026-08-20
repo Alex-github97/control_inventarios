@@ -150,7 +150,13 @@
       "consolidacion": "Консолидация",
       "compras": "Закупки",
       "proyectos": "Проекты",
-      "epm": "EPM"
+      "epm": "EPM",
+      "agsTablero": "Панель",
+      "agsAgenda": "Расписание",
+      "agsClientes": "Клиенты",
+      "agsIngresos": "Доходы",
+      "agsServicios": "Услуги",
+      "agsEquipo": "Команда"
     },
     "section": {
       "principal": "Главная",
@@ -234,7 +240,8 @@
       "aps": "APS",
       "erp": "ERP",
       "config": "Настройки",
-      "espacios": "Пространства"
+      "espacios": "Пространства",
+      "ags": "Запись на услуги"
     },
     "logo": {
       "ci1": "Контроль",
@@ -269,7 +276,8 @@
       "mes2": "Execution System",
       "aps1": "Advanced Planning",
       "aps2": "& Scheduling",
-      "erp1": "Enterprise Resource", "erp2": "Planning",
+      "erp1": "Enterprise Resource",
+      "erp2": "Planning",
       "cc1": "Command",
       "cc2": "Center",
       "cfg1": "Настройки",

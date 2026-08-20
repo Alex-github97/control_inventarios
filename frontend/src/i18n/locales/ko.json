@@ -150,7 +150,13 @@
       "consolidacion": "연결",
       "compras": "구매",
       "proyectos": "프로젝트",
-      "epm": "EPM"
+      "epm": "EPM",
+      "agsTablero": "대시보드",
+      "agsAgenda": "예약",
+      "agsClientes": "고객",
+      "agsIngresos": "매출",
+      "agsServicios": "서비스",
+      "agsEquipo": "팀"
     },
     "section": {
       "principal": "메인",
@@ -234,7 +240,8 @@
       "aps": "APS",
       "erp": "ERP",
       "config": "설정",
-      "espacios": "공간"
+      "espacios": "공간",
+      "ags": "서비스 예약"
     },
     "logo": {
       "ci1": "팔레트",
@@ -269,7 +276,8 @@
       "mes2": "Execution System",
       "aps1": "Advanced Planning",
       "aps2": "& Scheduling",
-      "erp1": "Enterprise Resource", "erp2": "Planning",
+      "erp1": "Enterprise Resource",
+      "erp2": "Planning",
       "cc1": "Command",
       "cc2": "Center",
       "cfg1": "시스템",

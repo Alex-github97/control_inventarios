@@ -150,7 +150,13 @@
       "consolidacion": "Consolidamento",
       "compras": "Acquisti",
       "proyectos": "Progetti",
-      "epm": "EPM"
+      "epm": "EPM",
+      "agsTablero": "Pannello",
+      "agsAgenda": "Agenda",
+      "agsClientes": "Clienti",
+      "agsIngresos": "Ricavi",
+      "agsServicios": "Servizi",
+      "agsEquipo": "Squadra"
     },
     "section": {
       "principal": "Principale",
@@ -234,7 +240,8 @@
       "aps": "APS",
       "erp": "ERP",
       "config": "Configurazione",
-      "espacios": "Spazi"
+      "espacios": "Spazi",
+      "ags": "Agenda Servizi"
     },
     "logo": {
       "ci1": "Controllo",
@@ -269,7 +276,8 @@
       "mes2": "Execution System",
       "aps1": "Advanced Planning",
       "aps2": "& Scheduling",
-      "erp1": "Enterprise Resource", "erp2": "Planning",
+      "erp1": "Enterprise Resource",
+      "erp2": "Planning",
       "cc1": "Command",
       "cc2": "Center",
       "cfg1": "Configurazione",

@@ -23,6 +23,7 @@ const WORKSPACE_PERM_KEYS: Record<string, string[]> = {
   erp:      ['erp'],
   scm:      ['scm'],
   sst:      ['sst'],
+  ags:      ['ags'],
   config:   ['usuarios'],
 }
 
@@ -47,6 +48,7 @@ const APS_COLOR        = '#7C3AED'
 const ERP_COLOR        = '#1A3A6B'
 const SCM_COLOR        = '#0C4D8C'
 const SST_COLOR        = '#C53030'
+const AGS_COLOR        = '#A21CAF'
 const COMPACT_THRESHOLD = 80
 
 const WORKSPACES = [
@@ -62,7 +64,7 @@ const WORKSPACES = [
       !p.startsWith('/tms') && !p.startsWith('/dms') && !p.startsWith('/qms') &&
       !p.startsWith('/grc') && !p.startsWith('/flota') && !p.startsWith('/locativa') &&
       !p.startsWith('/wms') && !p.startsWith('/gh') && !p.startsWith('/lms') &&
-      !p.startsWith('/crm') && !p.startsWith('/eam') && !p.startsWith('/mes') && !p.startsWith('/aps') && !p.startsWith('/erp'),
+      !p.startsWith('/crm') && !p.startsWith('/eam') && !p.startsWith('/mes') && !p.startsWith('/aps') && !p.startsWith('/erp') && !p.startsWith('/ags'),
   },
   {
     id:    'tarifax',
@@ -111,6 +113,14 @@ const WORKSPACES = [
     color: EAM_COLOR,
     path:  '/eam',
     isActive: (p: string) => p.startsWith('/eam') || p.startsWith('/flota') || p.startsWith('/locativa'),
+  },
+  {
+    id:    'ags',
+    label: 'ws.ags',
+    short: 'AGS',
+    color: AGS_COLOR,
+    path:  '/ags',
+    isActive: (p: string) => p.startsWith('/ags'),
   },
   {
     id:    'wms',

@@ -135,6 +135,12 @@ from app.infrastructure.models.sst import (
     TipoIncidenteSST, GravedadSST, EstadoIncidenteSST, ClasePeligroSST, NivelRiesgoSST,
     EstadoInspeccionSST, TipoEPP, EstadoCapacitacionSST, TipoDocumentoSST,
 )
+from app.infrastructure.models.ags import (
+    AGSConfig, AGSCategoriaServicio, AGSServicio,
+    AGSProfesional, AGSProfesionalServicio, AGSHorarioProfesional, AGSAusencia,
+    AGSCliente, AGSCita, AGSCitaServicio, AGSCitaMaterial, AGSPagoCita,
+    EstadoCitaEnum, LugarServicioEnum, OrigenCitaEnum, MedioPagoEnum, TipoPagoEnum,
+)
 
 __all__ = [
     "TimestampMixin", "SoftDeleteMixin",

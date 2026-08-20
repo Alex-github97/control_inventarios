@@ -150,7 +150,13 @@
       "consolidacion": "連結",
       "compras": "購買",
       "proyectos": "プロジェクト",
-      "epm": "EPM"
+      "epm": "EPM",
+      "agsTablero": "ダッシュボード",
+      "agsAgenda": "予約",
+      "agsClientes": "顧客",
+      "agsIngresos": "売上",
+      "agsServicios": "サービス",
+      "agsEquipo": "チーム"
     },
     "section": {
       "principal": "メイン",
@@ -234,7 +240,8 @@
       "aps": "APS",
       "erp": "ERP",
       "config": "設定",
-      "espacios": "スペース"
+      "espacios": "スペース",
+      "ags": "サービス予約"
     },
     "logo": {
       "ci1": "管理",
@@ -269,7 +276,8 @@
       "mes2": "Execution System",
       "aps1": "Advanced Planning",
       "aps2": "& Scheduling",
-      "erp1": "Enterprise Resource", "erp2": "Planning",
+      "erp1": "Enterprise Resource",
+      "erp2": "Planning",
       "cc1": "Command",
       "cc2": "Center",
       "cfg1": "システム",
