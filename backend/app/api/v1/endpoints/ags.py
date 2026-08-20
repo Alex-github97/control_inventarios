@@ -221,6 +221,14 @@ class ConfigResponse(BaseModel):
     anticipacion_minima_min: Optional[int] = None
     tolerancia_no_show_min: Optional[int] = None
     mensaje_recordatorio: Optional[str] = None
+    reserva_online_activa: Optional[bool] = None
+    slug: Optional[str] = None
+    mensaje_bienvenida: Optional[str] = None
+    dias_max_anticipacion: Optional[int] = None
+    max_citas_pendientes_cliente: Optional[int] = None
+    permite_cancelar_online: Optional[bool] = None
+    horas_min_cancelacion: Optional[int] = None
+    requiere_confirmacion_online: Optional[bool] = None
 
 
 class ConfigUpdate(BaseModel):
@@ -241,6 +249,14 @@ class ConfigUpdate(BaseModel):
     anticipacion_minima_min: Optional[int] = None
     tolerancia_no_show_min: Optional[int] = None
     mensaje_recordatorio: Optional[str] = None
+    reserva_online_activa: Optional[bool] = None
+    slug: Optional[str] = None
+    mensaje_bienvenida: Optional[str] = None
+    dias_max_anticipacion: Optional[int] = None
+    max_citas_pendientes_cliente: Optional[int] = None
+    permite_cancelar_online: Optional[bool] = None
+    horas_min_cancelacion: Optional[int] = None
+    requiere_confirmacion_online: Optional[bool] = None
 
 
 @router.get("/config", response_model=ConfigResponse)
@@ -2421,4 +2437,452 @@ async def dashboard(db: AsyncSession = Depends(get_db)):
         res.top_servicios = []
 
     return res
+
+# ──────────────────────────────────────────
+# RESERVA ONLINE (publico, sin login)
+# ──────────────────────────────────────────
+#
+# Todo lo que esta debajo lo consume la pagina publica /reservar/{slug}, que no
+# pide login. Por eso expone deliberadamente el minimo: el catalogo activo, los
+# nombres del equipo y las horas libres. Nunca ingresos, ni comisiones, ni el
+# listado de clientes, ni datos de otras citas.
+
+
+async def _config_publica(db: AsyncSession, slug: str) -> AGSConfig:
+    """Busca el negocio por su slug y exige que la reserva online este abierta."""
+    limpio = (slug or "").strip().lower()
+    r = await db.execute(select(AGSConfig).where(func.lower(AGSConfig.slug) == limpio))
+    cfg = r.scalar_one_or_none()
+    if cfg is None:
+        raise HTTPException(404, "No encontramos este negocio.")
+    if not cfg.reserva_online_activa:
+        raise HTTPException(
+            403, "Este negocio no esta recibiendo reservas por internet en este momento.")
+    return cfg
+
+
+class NegocioPublico(BaseModel):
+    nombre: str
+    tipo_negocio: Optional[str] = None
+    telefono: Optional[str] = None
+    direccion: Optional[str] = None
+    ciudad: Optional[str] = None
+    hora_apertura: Optional[str] = None
+    hora_cierre: Optional[str] = None
+    dias_laborales: Optional[List[int]] = None
+    mensaje_bienvenida: Optional[str] = None
+    dias_max_anticipacion: int = 30
+    permite_cancelar_online: bool = True
+    horas_min_cancelacion: int = 4
+    requiere_confirmacion: bool = True
+
+
+@router.get("/publico/{slug}", response_model=NegocioPublico)
+async def negocio_publico(slug: str, db: AsyncSession = Depends(get_db)):
+    """Datos de presentacion del negocio para la pagina de reservas."""
+    cfg = await _config_publica(db, slug)
+    return NegocioPublico(
+        nombre=cfg.nombre_negocio, tipo_negocio=cfg.tipo_negocio,
+        telefono=cfg.telefono, direccion=cfg.direccion, ciudad=cfg.ciudad,
+        hora_apertura=cfg.hora_apertura, hora_cierre=cfg.hora_cierre,
+        dias_laborales=cfg.dias_laborales or [1, 2, 3, 4, 5, 6],
+        mensaje_bienvenida=cfg.mensaje_bienvenida,
+        dias_max_anticipacion=int(cfg.dias_max_anticipacion or 30),
+        permite_cancelar_online=bool(cfg.permite_cancelar_online),
+        horas_min_cancelacion=int(cfg.horas_min_cancelacion or 0),
+        requiere_confirmacion=bool(cfg.requiere_confirmacion_online),
+    )
+
+
+class ServicioPublico(BaseModel):
+    """Version reducida del servicio: sin costo de insumos ni margen."""
+    id: int
+    nombre: str
+    descripcion: Optional[str] = None
+    categoria: Optional[str] = None
+    categoria_color: Optional[str] = None
+    duracion_min: int
+    precio: float
+    permite_domicilio: bool = False
+
+
+@router.get("/publico/{slug}/servicios", response_model=List[ServicioPublico])
+async def servicios_publicos(slug: str, db: AsyncSession = Depends(get_db)):
+    await _config_publica(db, slug)
+    r = await db.execute(select(AGSServicio).where(AGSServicio.activo == True)
+                         .order_by(AGSServicio.nombre))
+    servicios = r.scalars().all()
+    rc = await db.execute(select(AGSCategoriaServicio))
+    cats = {c.id: c for c in rc.scalars().all()}
+    salida = []
+    for x in servicios:
+        cat = cats.get(x.categoria_id)
+        if cat is not None and cat.activo is False:
+            continue
+        salida.append(ServicioPublico(
+            id=x.id, nombre=x.nombre, descripcion=x.descripcion,
+            categoria=cat.nombre if cat else None,
+            categoria_color=cat.color if cat else None,
+            duracion_min=int(x.duracion_min or 0), precio=float(x.precio or 0),
+            permite_domicilio=bool(x.permite_domicilio),
+        ))
+    return salida
+
+
+class ProfesionalPublico(BaseModel):
+    id: int
+    nombre: str
+    especialidad: Optional[str] = None
+    color: Optional[str] = None
+
+
+@router.get("/publico/{slug}/profesionales", response_model=List[ProfesionalPublico])
+async def profesionales_publicos(
+    slug: str, servicio_id: Optional[int] = None, db: AsyncSession = Depends(get_db),
+):
+    """Quien puede atender. Si se pasa un servicio, solo quienes lo prestan."""
+    await _config_publica(db, slug)
+    r = await db.execute(select(AGSProfesional).where(AGSProfesional.activo == True)
+                         .order_by(AGSProfesional.nombre))
+    profesionales = r.scalars().all()
+
+    if servicio_id is not None and profesionales:
+        rs = await db.execute(select(AGSProfesionalServicio.profesional_id).where(
+            AGSProfesionalServicio.servicio_id == servicio_id))
+        capacitados = {pid for (pid,) in rs.all()}
+        if capacitados:
+            profesionales = [p for p in profesionales if p.id in capacitados]
+
+    return [ProfesionalPublico(
+        id=p.id, nombre=p.nombre, especialidad=p.especialidad, color=p.color,
+    ) for p in profesionales]
+
+
+class SlotPublico(BaseModel):
+    hora_inicio: str
+    hora_fin: str
+    inicio: datetime
+    profesional_id: int
+    profesional: str
+
+
+@router.get("/publico/{slug}/disponibilidad", response_model=List[SlotPublico])
+async def disponibilidad_publica(
+    slug: str, fecha: date, servicio_id: int,
+    profesional_id: Optional[int] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Horas libres de la fecha, ya aplanadas en una sola lista.
+
+    Cuando el cliente no elige profesional se devuelven las horas de todo el
+    equipo y se deja una sola entrada por hora (la del primero disponible):
+    a quien reserva le interesa la hora, no quien lo atiende.
+    """
+    cfg = await _config_publica(db, slug)
+
+    hoy = _hoy()
+    if fecha < hoy:
+        raise HTTPException(400, "Esa fecha ya paso.")
+    limite = hoy + timedelta(days=int(cfg.dias_max_anticipacion or 30))
+    if fecha > limite:
+        raise HTTPException(
+            400, "Solo se pueden reservar citas hasta el %s." % limite.strftime("%d/%m/%Y"))
+
+    disponibilidad = await disponibilidad_publica_interna(
+        db, fecha, servicio_id, profesional_id)
+
+    salida: List[SlotPublico] = []
+    vistas = set()
+    for d in disponibilidad:
+        for s in d.slots:
+            if profesional_id is None and s.hora_inicio in vistas:
+                continue
+            vistas.add(s.hora_inicio)
+            salida.append(SlotPublico(
+                hora_inicio=s.hora_inicio, hora_fin=s.hora_fin, inicio=s.inicio,
+                profesional_id=d.profesional_id, profesional=d.profesional,
+            ))
+    return sorted(salida, key=lambda x: x.hora_inicio)
+
+
+async def disponibilidad_publica_interna(
+    db: AsyncSession, fecha: date, servicio_id: int, profesional_id: Optional[int],
+) -> List[DisponibilidadProfesional]:
+    """Reusa el calculo de disponibilidad del panel interno."""
+    return await disponibilidad(
+        fecha=fecha, duracion_min=30, profesional_id=profesional_id,
+        servicio_id=servicio_id, db=db,
+    )
+
+
+class ReservaPublicaIn(BaseModel):
+    nombre: str
+    telefono: str
+    servicio_id: int
+    fecha_inicio: datetime
+    profesional_id: Optional[int] = None
+    email: Optional[str] = None
+    notas: Optional[str] = None
+    lugar: Optional[str] = None
+    direccion_servicio: Optional[str] = None
+
+
+class ReservaPublicaOut(BaseModel):
+    codigo: str
+    estado: str
+    fecha_inicio: datetime
+    fecha_fin: datetime
+    servicio: str
+    profesional: str
+    total: float
+    requiere_confirmacion: bool
+    mensaje: str
+
+
+@router.post("/publico/{slug}/reservar", response_model=ReservaPublicaOut, status_code=201)
+async def reservar_publico(
+    slug: str, data: ReservaPublicaIn, db: AsyncSession = Depends(get_db),
+):
+    """Crea la cita desde la pagina publica.
+
+    El cliente se identifica por telefono: si ya existe se reutiliza su ficha
+    (y con ella su historial), si no se crea. Asi el mostrador no termina con
+    tres registros de la misma persona.
+    """
+    cfg = await _config_publica(db, slug)
+
+    telefono = "".join(ch for ch in (data.telefono or "") if ch.isdigit())
+    if len(telefono) < 7:
+        raise HTTPException(400, "El telefono no parece valido. Revise el numero.")
+    nombre = (data.nombre or "").strip()
+    if len(nombre) < 3:
+        raise HTTPException(400, "Escriba su nombre completo.")
+
+    srv = await db.get(AGSServicio, data.servicio_id)
+    if srv is None or not srv.activo:
+        raise HTTPException(404, "Ese servicio ya no esta disponible.")
+
+    inicio = _sin_tz(data.fecha_inicio)
+    ahora = _ahora()
+    if inicio <= ahora:
+        raise HTTPException(400, "Esa hora ya paso. Elija otra.")
+    minimo = ahora + timedelta(minutes=int(cfg.anticipacion_minima_min or 0))
+    if inicio < minimo:
+        raise HTTPException(
+            400, "Las reservas se toman con al menos %d minutos de anticipacion."
+                 % int(cfg.anticipacion_minima_min or 0))
+    limite = ahora + timedelta(days=int(cfg.dias_max_anticipacion or 30))
+    if inicio > limite:
+        raise HTTPException(
+            400, "Solo se pueden reservar citas hasta el %s." % limite.strftime("%d/%m/%Y"))
+
+    # Cliente: buscar por telefono o crear
+    rc = await db.execute(select(AGSCliente).where(AGSCliente.telefono == telefono))
+    cliente = rc.scalar_one_or_none()
+    if cliente is None:
+        cliente = AGSCliente(
+            codigo=await _siguiente_codigo(db, AGSCliente, "CLI", 5),
+            nombre=nombre, telefono=telefono, email=data.email or None,
+            direccion=data.direccion_servicio or None,
+            como_nos_conocio="Reserva online", acepta_recordatorios=True,
+        )
+        db.add(cliente)
+        await db.flush()
+    else:
+        if not cliente.activo:
+            raise HTTPException(
+                403, "No podemos tomar la reserva. Comuniquese con el negocio.")
+        if data.email and not cliente.email:
+            cliente.email = data.email
+
+    # Tope de citas pendientes: freno simple contra reservas en masa
+    tope = int(cfg.max_citas_pendientes_cliente or 0)
+    if tope > 0:
+        rp = await db.execute(select(func.count()).select_from(AGSCita).where(
+            AGSCita.cliente_id == cliente.id,
+            AGSCita.estado.in_([EstadoCitaEnum.AGENDADA.value,
+                                EstadoCitaEnum.CONFIRMADA.value]),
+            AGSCita.fecha_inicio >= ahora,
+        ))
+        if (rp.scalar() or 0) >= tope:
+            raise HTTPException(
+                409, "Ya tiene %d cita(s) pendiente(s). Para agendar otra, "
+                     "comuniquese con el negocio." % tope)
+
+    # Profesional: el elegido, o el primero libre a esa hora
+    profesional_id = data.profesional_id
+    if profesional_id is None:
+        libres = await disponibilidad_publica_interna(db, inicio.date(), srv.id, None)
+        hhmm = inicio.strftime("%H:%M")
+        for d in libres:
+            if any(x.hora_inicio == hhmm for x in d.slots):
+                profesional_id = d.profesional_id
+                break
+        if profesional_id is None:
+            raise HTTPException(409, "Esa hora acaba de ocuparse. Elija otra, por favor.")
+
+    pro = await db.get(AGSProfesional, profesional_id)
+    if pro is None or not pro.activo:
+        raise HTTPException(404, "Ese profesional no esta disponible.")
+
+    lugar = data.lugar or LugarServicioEnum.LOCAL.value
+    if lugar == LugarServicioEnum.DOMICILIO.value:
+        if not srv.permite_domicilio:
+            raise HTTPException(400, "Ese servicio no se presta a domicilio.")
+        if not (data.direccion_servicio or cliente.direccion):
+            raise HTTPException(400, "Indique la direccion para el servicio a domicilio.")
+
+    cita = AGSCita(
+        codigo=await _siguiente_codigo(db, AGSCita, "CITA", 5),
+        cliente_id=cliente.id, profesional_id=profesional_id,
+        fecha_inicio=inicio, fecha_fin=inicio + timedelta(minutes=30), duracion_min=30,
+        lugar=lugar,
+        direccion_servicio=data.direccion_servicio or (
+            cliente.direccion if lugar == LugarServicioEnum.DOMICILIO.value else None),
+        estado=(EstadoCitaEnum.AGENDADA.value if cfg.requiere_confirmacion_online
+                else EstadoCitaEnum.CONFIRMADA.value),
+        origen=OrigenCitaEnum.ONLINE.value,
+        notas=data.notas, creado_por="Reserva online",
+    )
+    db.add(cita)
+    await db.flush()
+
+    lineas = await _construir_lineas(db, cita.id, [LineaServicioIn(servicio_id=srv.id)])
+    for l in lineas:
+        db.add(l)
+    _recalcular_totales(cita, lineas, [],
+                        float(pro.comision_pct or cfg.comision_defecto_pct or 0))
+
+    await _validar_disponibilidad(
+        db, profesional_id, cita.fecha_inicio, cita.fecha_fin,
+        excluir_cita_id=cita.id, permite_sobrecupo=bool(cfg.permite_sobrecupo),
+    )
+
+    await db.commit()
+    await db.refresh(cita)
+
+    requiere = bool(cfg.requiere_confirmacion_online)
+    return ReservaPublicaOut(
+        codigo=cita.codigo, estado=cita.estado,
+        fecha_inicio=cita.fecha_inicio, fecha_fin=cita.fecha_fin,
+        servicio=srv.nombre, profesional=pro.nombre, total=float(cita.total or 0),
+        requiere_confirmacion=requiere,
+        mensaje=("Su reserva quedo registrada. El negocio la confirmara pronto."
+                 if requiere else "Su cita quedo confirmada. Lo esperamos."),
+    )
+
+
+class CitaPublica(BaseModel):
+    codigo: str
+    estado: str
+    fecha_inicio: datetime
+    fecha_fin: datetime
+    servicios: str
+    profesional: str
+    total: float
+    lugar: Optional[str] = None
+    direccion_servicio: Optional[str] = None
+    puede_cancelar: bool = False
+    motivo_no_cancelable: Optional[str] = None
+
+
+@router.get("/publico/{slug}/cita", response_model=CitaPublica)
+async def consultar_cita_publica(
+    slug: str, codigo: str, telefono: str, db: AsyncSession = Depends(get_db),
+):
+    """Consulta una cita con su codigo mas el telefono con el que se reservo.
+
+    Pedir las dos cosas evita que con solo adivinar un codigo consecutivo se
+    pueda ver la cita de otra persona.
+    """
+    cfg = await _config_publica(db, slug)
+
+    solo_digitos = "".join(ch for ch in (telefono or "") if ch.isdigit())
+    r = await db.execute(select(AGSCita).where(
+        func.upper(AGSCita.codigo) == (codigo or "").strip().upper()))
+    cita = r.scalar_one_or_none()
+    if cita is None:
+        raise HTTPException(404, "No encontramos esa cita.")
+
+    cliente = await db.get(AGSCliente, cita.cliente_id)
+    tel_cliente = "".join(ch for ch in (cliente.telefono or "") if ch.isdigit()) if cliente else ""
+    if not solo_digitos or not tel_cliente or not tel_cliente.endswith(solo_digitos[-7:]):
+        raise HTTPException(404, "No encontramos esa cita con ese telefono.")
+
+    pro = await db.get(AGSProfesional, cita.profesional_id)
+    rs = await db.execute(select(AGSCitaServicio).where(AGSCitaServicio.cita_id == cita.id))
+    servicios = ", ".join(l.nombre_servicio for l in rs.scalars().all())
+
+    puede, motivo = _puede_cancelar_online(cfg, cita)
+    return CitaPublica(
+        codigo=cita.codigo, estado=cita.estado,
+        fecha_inicio=cita.fecha_inicio, fecha_fin=cita.fecha_fin,
+        servicios=servicios, profesional=pro.nombre if pro else "",
+        total=float(cita.total or 0), lugar=cita.lugar,
+        direccion_servicio=cita.direccion_servicio,
+        puede_cancelar=puede, motivo_no_cancelable=motivo,
+    )
+
+
+def _puede_cancelar_online(cfg: AGSConfig, cita: AGSCita):
+    """Reglas de cancelacion desde la pagina publica."""
+    if not cfg.permite_cancelar_online:
+        return False, "Este negocio no permite cancelar por internet. Comuniquese con el."
+    if cita.estado not in (EstadoCitaEnum.AGENDADA.value, EstadoCitaEnum.CONFIRMADA.value):
+        return False, "Esta cita ya no se puede cancelar."
+    if float(cita.total_pagado or 0) > 0:
+        return False, "Esta cita tiene pagos registrados. Comuniquese con el negocio."
+    horas = int(cfg.horas_min_cancelacion or 0)
+    if horas > 0:
+        limite = _sin_tz(cita.fecha_inicio) - timedelta(hours=horas)
+        if _ahora() > limite:
+            return False, ("Ya paso el plazo para cancelar por internet "
+                           "(%d horas antes). Comuniquese con el negocio." % horas)
+    return True, None
+
+
+class CancelarPublicoIn(BaseModel):
+    codigo: str
+    telefono: str
+    motivo: Optional[str] = None
+
+
+@router.post("/publico/{slug}/cancelar", response_model=CitaPublica)
+async def cancelar_cita_publica(
+    slug: str, data: CancelarPublicoIn, db: AsyncSession = Depends(get_db),
+):
+    cfg = await _config_publica(db, slug)
+
+    solo_digitos = "".join(ch for ch in (data.telefono or "") if ch.isdigit())
+    r = await db.execute(select(AGSCita).where(
+        func.upper(AGSCita.codigo) == (data.codigo or "").strip().upper()))
+    cita = r.scalar_one_or_none()
+    if cita is None:
+        raise HTTPException(404, "No encontramos esa cita.")
+
+    cliente = await db.get(AGSCliente, cita.cliente_id)
+    tel_cliente = "".join(ch for ch in (cliente.telefono or "") if ch.isdigit()) if cliente else ""
+    if not solo_digitos or not tel_cliente or not tel_cliente.endswith(solo_digitos[-7:]):
+        raise HTTPException(404, "No encontramos esa cita con ese telefono.")
+
+    puede, motivo = _puede_cancelar_online(cfg, cita)
+    if not puede:
+        raise HTTPException(409, motivo or "Esta cita no se puede cancelar.")
+
+    cita.estado = EstadoCitaEnum.CANCELADA.value
+    cita.motivo_cancelacion = (data.motivo or "Cancelada por el cliente desde la web")[:200]
+    await db.commit()
+    await db.refresh(cita)
+
+    pro = await db.get(AGSProfesional, cita.profesional_id)
+    rs = await db.execute(select(AGSCitaServicio).where(AGSCitaServicio.cita_id == cita.id))
+    servicios = ", ".join(l.nombre_servicio for l in rs.scalars().all())
+    return CitaPublica(
+        codigo=cita.codigo, estado=cita.estado,
+        fecha_inicio=cita.fecha_inicio, fecha_fin=cita.fecha_fin,
+        servicios=servicios, profesional=pro.nombre if pro else "",
+        total=float(cita.total or 0), lugar=cita.lugar,
+        direccion_servicio=cita.direccion_servicio,
+        puede_cancelar=False, motivo_no_cancelable="La cita esta cancelada.",
+    )
 

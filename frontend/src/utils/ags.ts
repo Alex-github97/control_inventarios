@@ -170,6 +170,15 @@ export interface AGSConfigData {
   anticipacion_minima_min?: number | null
   tolerancia_no_show_min?: number | null
   mensaje_recordatorio?: string | null
+  // Reserva online (página pública /reservar/{slug})
+  reserva_online_activa?: boolean | null
+  slug?: string | null
+  mensaje_bienvenida?: string | null
+  dias_max_anticipacion?: number | null
+  max_citas_pendientes_cliente?: number | null
+  permite_cancelar_online?: boolean | null
+  horas_min_cancelacion?: number | null
+  requiere_confirmacion_online?: boolean | null
 }
 
 export interface Categoria {

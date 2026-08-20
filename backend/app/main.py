@@ -269,6 +269,37 @@ async def lifespan(app: FastAPI):
             ON CONFLICT (id) DO NOTHING
         """))
 
+        # Reserva online: columnas añadidas después del módulo inicial. Se
+        # entrega apagada (reserva_online_activa=false) para que el negocio
+        # decida cuándo abrir su agenda al público.
+        for columna, tipo in [
+            ("reserva_online_activa", "BOOLEAN DEFAULT false"),
+            ("slug", "VARCHAR(80)"),
+            ("mensaje_bienvenida", "TEXT"),
+            ("dias_max_anticipacion", "INTEGER DEFAULT 30"),
+            ("max_citas_pendientes_cliente", "INTEGER DEFAULT 3"),
+            ("permite_cancelar_online", "BOOLEAN DEFAULT true"),
+            ("horas_min_cancelacion", "INTEGER DEFAULT 4"),
+            ("requiere_confirmacion_online", "BOOLEAN DEFAULT true"),
+        ]:
+            await conn.execute(text(
+                "ALTER TABLE ags_config ADD COLUMN IF NOT EXISTS %s %s" % (columna, tipo)
+            ))
+        await conn.execute(text("""
+            DO $$ BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conname = 'uq_ags_config_slug'
+                ) THEN
+                    ALTER TABLE ags_config ADD CONSTRAINT uq_ags_config_slug UNIQUE (slug);
+                END IF;
+            END $$;
+        """))
+        # Slug inicial para que el enlace público exista desde el primer día
+        await conn.execute(text("""
+            UPDATE ags_config SET slug = 'mi-negocio'
+            WHERE slug IS NULL OR TRIM(slug) = ''
+        """))
+
         # Categorías de arranque que cubren los oficios más comunes del
         # segmento: belleza y barbería (cita corta en local) junto a plomería
         # y albañilería (visita a domicilio que además cobra materiales).

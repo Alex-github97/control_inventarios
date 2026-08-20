@@ -7,7 +7,10 @@ import {
   Switch, FormControlLabel, alpha, Divider, Alert, InputAdornment, Tooltip,
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { Save, Storefront, Schedule, Policy, WhatsApp, RestartAlt } from '@mui/icons-material'
+import {
+  Save, Storefront, Schedule, Policy, WhatsApp, RestartAlt,
+  Public, ContentCopy, OpenInNew,
+} from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
@@ -285,6 +288,179 @@ export default function AGSConfig() {
                         si de verdad atiende a dos personas en paralelo.
                       </Alert>
                     )}
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* ── Reserva online ── */}
+          <Grid size={12}>
+            <Card>
+              <CardContent>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                  <Public sx={{ color: AGS_COLOR }} />
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="subtitle1" fontWeight={800}>
+                      Reserva online
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Una página propia donde sus clientes se agendan solos, sin llamar
+                    </Typography>
+                  </Box>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={Boolean(form.reserva_online_activa)}
+                        onChange={e => set('reserva_online_activa', e.target.checked)}
+                      />
+                    }
+                    label={
+                      <Typography variant="body2" fontWeight={700}>
+                        {form.reserva_online_activa ? 'Activa' : 'Apagada'}
+                      </Typography>
+                    }
+                  />
+                </Stack>
+
+                {!form.reserva_online_activa && (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    Mientras esté apagada, la página pública responde que el negocio no está
+                    recibiendo reservas. Actívela cuando ya tenga su equipo con jornada y su
+                    lista de servicios lista.
+                  </Alert>
+                )}
+
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <TextField
+                      fullWidth size="small" label="Dirección de su página"
+                      value={form.slug ?? ''}
+                      onChange={e => set('slug', e.target.value
+                        .toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-'))}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Typography variant="caption" color="text.secondary">
+                              /reservar/
+                            </Typography>
+                          </InputAdornment>
+                        ),
+                      }}
+                      helperText="Solo letras, números y guiones"
+                    />
+                  </Grid>
+
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <Stack direction="row" spacing={1} sx={{ height: '100%' }} alignItems="center">
+                      <Button
+                        variant="outlined" startIcon={<ContentCopy />}
+                        onClick={() => {
+                          const url = `${window.location.origin}/reservar/${form.slug ?? ''}`
+                          navigator.clipboard?.writeText(url)
+                          toast.success('Enlace copiado. Péguelo en su bio de Instagram o WhatsApp.')
+                        }}
+                        disabled={!form.slug}
+                      >
+                        Copiar enlace
+                      </Button>
+                      <Button
+                        variant="outlined" startIcon={<OpenInNew />}
+                        href={`/reservar/${form.slug ?? ''}`} target="_blank" rel="noopener"
+                        disabled={!form.slug}
+                      >
+                        Ver la página
+                      </Button>
+                    </Stack>
+                  </Grid>
+
+                  {form.slug && (
+                    <Grid size={12}>
+                      <Box sx={{
+                        p: 1.2, borderRadius: 1.5, bgcolor: alpha(AGS_COLOR, 0.06),
+                        border: `1px dashed ${alpha(AGS_COLOR, 0.35)}`,
+                      }}>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          Este es el enlace que comparte con sus clientes
+                        </Typography>
+                        <Typography variant="body2" fontWeight={700} sx={{ wordBreak: 'break-all' }}>
+                          {window.location.origin}/reservar/{form.slug}
+                        </Typography>
+                      </Box>
+                    </Grid>
+                  )}
+
+                  <Grid size={12}>
+                    <TextField
+                      fullWidth size="small" label="Mensaje de bienvenida" multiline rows={2}
+                      value={form.mensaje_bienvenida ?? ''}
+                      onChange={e => set('mensaje_bienvenida', e.target.value)}
+                      placeholder="Agenda tu cita en línea. Te confirmamos por WhatsApp."
+                      helperText="Se muestra arriba en la página pública"
+                    />
+                  </Grid>
+
+                  <Grid size={12}><Divider textAlign="left">
+                    <Typography variant="caption" fontWeight={700}>REGLAS DE LA AGENDA PÚBLICA</Typography>
+                  </Divider></Grid>
+
+                  <Grid size={{ xs: 6, md: 3 }}>
+                    <TextField
+                      type="number" fullWidth size="small" label="Reservar hasta"
+                      value={form.dias_max_anticipacion ?? 30}
+                      onChange={e => set('dias_max_anticipacion', Number(e.target.value) || 1)}
+                      InputProps={{ endAdornment: <InputAdornment position="end">días</InputAdornment> }}
+                      helperText="Cuán lejos puede agendar"
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 6, md: 3 }}>
+                    <TextField
+                      type="number" fullWidth size="small" label="Máx. citas pendientes"
+                      value={form.max_citas_pendientes_cliente ?? 3}
+                      onChange={e => set('max_citas_pendientes_cliente', Number(e.target.value) || 0)}
+                      helperText="Por cliente, evita reservas basura"
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 6, md: 3 }}>
+                    <TextField
+                      type="number" fullWidth size="small" label="Cancelar hasta"
+                      value={form.horas_min_cancelacion ?? 4}
+                      onChange={e => set('horas_min_cancelacion', Number(e.target.value) || 0)}
+                      InputProps={{ endAdornment: <InputAdornment position="end">h antes</InputAdornment> }}
+                      disabled={!form.permite_cancelar_online}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 6, md: 3 }}>
+                    <Stack>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            size="small" checked={Boolean(form.permite_cancelar_online)}
+                            onChange={e => set('permite_cancelar_online', e.target.checked)}
+                          />
+                        }
+                        label={<Typography variant="caption">Permitir cancelar</Typography>}
+                      />
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            size="small" checked={Boolean(form.requiere_confirmacion_online)}
+                            onChange={e => set('requiere_confirmacion_online', e.target.checked)}
+                          />
+                        }
+                        label={<Typography variant="caption">Confirmar a mano</Typography>}
+                      />
+                    </Stack>
+                  </Grid>
+
+                  <Grid size={12}>
+                    <Alert severity={form.requiere_confirmacion_online ? 'info' : 'warning'} sx={{ py: 0.3 }}>
+                      {form.requiere_confirmacion_online
+                        ? 'Las reservas online entran como AGENDADA y usted las confirma desde la agenda. '
+                          + 'Es lo recomendable al empezar.'
+                        : 'Las reservas online entran ya CONFIRMADAS, sin que usted intervenga. '
+                          + 'Cómodo, pero pierde el filtro de revisar quién agendó antes de comprometer la hora.'}
+                    </Alert>
                   </Grid>
                 </Grid>
               </CardContent>

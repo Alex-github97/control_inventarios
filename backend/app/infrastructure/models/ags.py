@@ -96,6 +96,25 @@ class AGSConfig(Base, TimestampMixin):
                 "el {fecha} a las {hora} para {servicio}. Cualquier cambio nos avisa.",
     )
 
+    # ── Reserva online (el cliente se agenda a si mismo) ──────────────
+    # La pagina publica se sirve en /reservar/{slug} y no pide login. Se
+    # entrega apagada: el negocio decide cuando abrirla.
+    reserva_online_activa = sa.Column(sa.Boolean, default=False)
+    slug = sa.Column(sa.String(80), nullable=True, unique=True, index=True)
+    mensaje_bienvenida = sa.Column(sa.Text, nullable=True)
+
+    # Limites que evitan que la agenda publica se llene de reservas basura
+    dias_max_anticipacion = sa.Column(sa.Integer, default=30)
+    max_citas_pendientes_cliente = sa.Column(sa.Integer, default=3)
+
+    # Politica de cancelacion desde la pagina publica
+    permite_cancelar_online = sa.Column(sa.Boolean, default=True)
+    horas_min_cancelacion = sa.Column(sa.Integer, default=4)
+
+    # Si esta activo, la cita online entra como AGENDADA y el negocio la
+    # confirma; si no, entra ya CONFIRMADA.
+    requiere_confirmacion_online = sa.Column(sa.Boolean, default=True)
+
 
 # ──────────────────────────────────────────
 # CATALOGO DE SERVICIOS

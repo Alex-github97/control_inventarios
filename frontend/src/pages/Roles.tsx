@@ -11,7 +11,7 @@ import {
   Inventory2, LocalShipping, DirectionsCar, Build, Warehouse, People,
   Route, Description, VerifiedUser, Policy, School, Business,
   Construction, PrecisionManufacturing, BarChart, MonetizationOn, Remove,
-  Security,
+  Security, EventAvailable,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
@@ -123,6 +123,11 @@ const MODULE_GROUPS: ModuleGroup[] = [
     key: 'aps', label: 'Planeación APS', abbr: 'APS', color: '#0284C7',
     Icon: BarChart,
     perms: [{ key: 'aps', label: 'Planeación Avanzada' }],
+  },
+  {
+    key: 'ags', label: 'Agenda de Servicios', abbr: 'AGS', color: '#A21CAF',
+    Icon: EventAvailable,
+    perms: [{ key: 'ags', label: 'Agenda de Servicios' }],
   },
   {
     key: 'admin', label: 'Administración', abbr: 'ADM', color: '#B91C1C',

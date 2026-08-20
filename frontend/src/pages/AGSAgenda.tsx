@@ -14,7 +14,7 @@ import {
 import {
   ChevronLeft, ChevronRight, Today as TodayIcon, Add as AddIcon,
   CheckCircle, PlayArrow, PointOfSale, WhatsApp, Cancel, PersonOff,
-  Edit as EditIcon, MoreVert, EventBusy, Payments, Place,
+  Edit as EditIcon, MoreVert, EventBusy, Payments, Place, Public,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
@@ -149,6 +149,11 @@ export default function AGSAgenda() {
     }
   }, [citas])
 
+  const onlineSinConfirmar = useMemo(
+    () => citas.filter(c => c.origen === 'ONLINE' && c.estado === 'AGENDADA').length,
+    [citas],
+  )
+
   const altoTablero = (minFin - minInicio) * PX_POR_MIN
 
   /** Click sobre un espacio vacío: agenda a esa hora con ese profesional. */
@@ -260,6 +265,15 @@ export default function AGSAgenda() {
             </Button>
           </Stack>
         </Card>
+
+        {/* Las reservas que entran por internet necesitan una mirada: el
+            negocio no eligió al cliente ni la hora, solo las recibió. */}
+        {onlineSinConfirmar > 0 && (
+          <Alert severity="info" icon={<Public />} sx={{ mb: 2 }}>
+            Llegaron <strong>{onlineSinConfirmar}</strong> reserva(s) por internet sin
+            confirmar. Ábralas y confirme la asistencia para asegurar la hora.
+          </Alert>
+        )}
 
         {/* ── Tablero ── */}
         {profesionales.length === 0 ? (
@@ -385,6 +399,9 @@ export default function AGSAgenda() {
                                   {fmtHora(cita.fecha_inicio)}
                                 </Typography>
                                 {cita.lugar === 'DOMICILIO' && <Place sx={{ fontSize: 11 }} />}
+                                {cita.origen === 'ONLINE' && (
+                                  <Public sx={{ fontSize: 11, color: AGS_COLOR }} />
+                                )}
                                 {cita.pagado && <Payments sx={{ fontSize: 11, color: '#16A34A' }} />}
                               </Stack>
                               <Typography variant="caption" fontWeight={700} noWrap display="block" sx={{ fontSize: 11.5 }}>

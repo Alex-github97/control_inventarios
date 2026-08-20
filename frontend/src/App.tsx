@@ -235,6 +235,7 @@ const AGSEquipo = React.lazy(() => import('@/pages/AGSEquipo'))
 const AGSClientes = React.lazy(() => import('@/pages/AGSClientes'))
 const AGSIngresos = React.lazy(() => import('@/pages/AGSIngresos'))
 const AGSConfig = React.lazy(() => import('@/pages/AGSConfig'))
+const AGSReservaPublica = React.lazy(() => import('@/pages/AGSReservaPublica'))
 const EAMCombustible = React.lazy(() => import('@/pages/EAMCombustible'))
 const EAMInventario = React.lazy(() => import('@/pages/EAMInventario'))
 const EAMConfiabilidad = React.lazy(() => import('@/pages/EAMConfiabilidad'))
@@ -425,6 +426,8 @@ export default function App() {
           <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route path="/login" element={<Login />} />
+            {/* Reserva online: pagina publica del negocio, sin login */}
+            <Route path="/reservar/:slug" element={<AGSReservaPublica />} />
             <Route path="/sin-acceso" element={<SinAcceso />} />
             <Route path="/scanner-movil" element={<ScannerMovil />} />
             <Route path="/configuracion" element={<ProtectedRoute><Configuracion /></ProtectedRoute>} />

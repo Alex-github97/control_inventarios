@@ -126,10 +126,10 @@ La plataforma tiene 21 módulos con páginas y/o endpoints propios. **Existe una
 | `erp` | ERP Financiero/Contable | `#1A3A6B` | *(no existe en la matriz de permisos)* |
 | `scm` | Cadena de Suministro SCM | `#0C4D8C` | *(no existe en la matriz de permisos)* |
 | `sst` | Seguridad y Salud en el Trabajo | `#C53030` | *(no existe en la matriz de permisos)* |
-| `ags` | Agenda de Servicios | `#A21CAF` | *(no existe en la matriz de permisos)* |
+| `ags` | Agenda de Servicios | `#A21CAF` | `#A21CAF` |
 | `admin` | Administración | — | `#B91C1C` |
 
-> **Brecha funcional real**: ERP, SCM, SST y AGS no están dados de alta en `Roles.tsx` — hoy no es posible restringir el acceso a esos 4 módulos desde la matriz de permisos de roles; cualquier rol con acceso general los ve. AGS sí tiene su clave `ags` registrada en `MODULOS_SISTEMA` (backend), así que basta agregarle la fila en la matriz. Pendiente si se requiere control de acceso granular sobre ellos.
+> **Brecha funcional real**: ERP, SCM y SST no están dados de alta en `Roles.tsx` — hoy no es posible restringir el acceso a esos 3 módulos desde la matriz de permisos de roles; cualquier rol con acceso general los ve. Pendiente de agregar como filas de la matriz si se requiere control de acceso granular sobre ellos. (AGS sí quedó registrado, tanto en `MODULOS_SISTEMA` como en la matriz.)
 
 ---
 
@@ -446,7 +446,7 @@ agenda**, **el precio de cada servicio** y **cuánto ha dejado cada cliente**.
 **Workspace**: `ags` · color `#A21CAF` · ruta base `/ags` · prefijo de API `/api/v1/ags`
 · prefijo de tablas `ags_`
 
-### Secciones (7)
+### Secciones (7 internas + 1 pública)
 
 | Ruta | Qué hace |
 |------|----------|
@@ -456,7 +456,8 @@ agenda**, **el precio de cada servicio** y **cuánto ha dejado cada cliente**.
 | `/ags/ingresos` | Cinco vistas del periodo: evolución, producción del equipo, servicios, clientes y cierre de caja |
 | `/ags/servicios` | Catálogo: categorías y servicios con precio, duración, costo de insumos y margen |
 | `/ags/equipo` | Personas, jornada por día de la semana, comisión, servicios que presta y bloqueos de agenda |
-| `/ags/config` | Datos del negocio, horario general, políticas de agenda y plantilla del recordatorio |
+| `/ags/config` | Datos del negocio, horario general, políticas de agenda, reserva online y plantilla del recordatorio |
+| `/reservar/{slug}` | **Página pública sin login**: el cliente se agenda, consulta o cancela su cita |
 
 ### Reglas de negocio que aplica el backend
 
@@ -485,6 +486,46 @@ agenda**, **el precio de cada servicio** y **cuánto ha dejado cada cliente**.
 Los oficios que van donde el cliente (plomería, albañilería, electricidad) se modelan con dos
 banderas por servicio: `permite_domicilio` (la cita pide dirección, y si se deja vacía toma la
 del cliente) y `cobra_materiales` (al cobrar se capturan los insumos aparte de la mano de obra).
+
+### Reserva online (página pública)
+
+El cliente final se agenda solo, sin llamar y sin cuenta. La página vive en
+**`/reservar/{slug}`**, fuera de `ProtectedRoute`, y se configura en `/ags/config`.
+
+**Se entrega apagada** (`reserva_online_activa = false`): mientras lo esté, la página
+responde que el negocio no está recibiendo reservas. Conviene activarla solo cuando ya haya
+equipo con jornada y catálogo publicado.
+
+Flujo de 4 pasos, pensado para el celular: servicio → quién atiende (o «cualquiera
+disponible») → día y hora sobre los cupos reales → nombre y teléfono. Al final entrega un
+código con el que el cliente puede **consultar o cancelar** su cita desde la misma página.
+
+**Lo que expone y lo que no.** Los endpoints `/ags/publico/{slug}/*` devuelven a propósito el
+mínimo: catálogo activo (sin `costo_insumos`, sin margen, sin comisión), nombres y colores del
+equipo, y horas libres. Nunca ingresos, comisiones, listado de clientes ni datos de otras
+citas. Usan un cliente HTTP aparte (`frontend/src/api/publico.ts`) porque `apiClient`
+adjunta el token guardado y ante un 401 redirige a `/login` — un visitante sin sesión no debe
+terminar en una pantalla de login.
+
+**Frenos contra el abuso**, todos configurables:
+
+| Regla | Para qué |
+|-------|----------|
+| `dias_max_anticipacion` (30) | Que nadie aparte una hora a un año |
+| `max_citas_pendientes_cliente` (3) | Evita reservas en masa desde un mismo teléfono |
+| `anticipacion_minima_min` | No ofrecer horas encima del momento actual |
+| `horas_min_cancelacion` (4) | Plazo para cancelar por internet |
+| `requiere_confirmacion_online` | La reserva entra `AGENDADA` y el negocio la confirma |
+| `permite_cancelar_online` | Apagarlo obliga a llamar para cancelar |
+
+**Identidad por teléfono**: si el número ya existe se reutiliza la ficha del cliente con todo
+su historial, en lugar de crear un tercer registro de la misma persona. Consultar o cancelar
+exige **código + teléfono**, para que adivinar un consecutivo no alcance para ver la cita de
+otro.
+
+Las citas que entran por internet quedan con `origen = ONLINE`, se marcan con un icono en la
+agenda y el tablero avisa cuántas llegaron sin confirmar: el negocio no eligió esa hora, solo
+la recibió.
 
 ### Recordatorios por WhatsApp
 
@@ -519,12 +560,12 @@ que el módulo sea usable sin configurar nada primero. Equipo y clientes empieza
 
 ### Pendiente / no implementado
 
-- **Autoagendamiento por el cliente**: el modelo ya distingue el origen `ONLINE` y la
-  disponibilidad se calcula del lado del servidor, pero no existe la página pública sin login
-  donde el cliente reserve por sí mismo.
 - **Paquetes o bonos prepagados** (ej. 10 cortes pagados por anticipado).
 - **Envío automático** de recordatorios (hoy es un enlace que se abre manualmente).
-- Fila en la matriz de permisos de `Roles.tsx`.
+- **Citas recurrentes** (el cliente que viene cada 15 días): el modelo ya reserva el origen
+  `RECURRENTE`, pero no hay generación automática.
+- **Sin límite por IP** en la reserva online: los frenos son por teléfono y por cantidad de
+  citas pendientes, no hay rate limiting de infraestructura.
 
 ---
 
@@ -755,6 +796,24 @@ DROP TYPE IF EXISTS rolusuario;
 ---
 
 ## Historial de Versiones
+
+### v2.5.0 (2026-08-20)
+
+**AGS · Reserva online** — la agenda se abre al público
+
+- Página pública `/reservar/{slug}`, sin login, en 4 pasos y pensada para celular
+- Endpoints `/ags/publico/{slug}/*` que exponen solo el mínimo: catálogo activo sin costos
+  ni márgenes, nombres del equipo y horas libres
+- Cliente HTTP aparte (`api/publico.ts`) para que un visitante sin sesión no sea redirigido
+  a `/login` por el interceptor de 401
+- Identidad del cliente por teléfono: reutiliza su ficha e historial en vez de duplicarlo
+- Consulta y cancelación con código + teléfono, con plazo mínimo configurable
+- Frenos contra abuso: tope de citas pendientes por cliente, ventana máxima de
+  anticipación y anticipación mínima
+- 8 columnas nuevas en `ags_config` y panel de control en `/ags/config` con el enlace listo
+  para copiar
+- Las citas `ONLINE` se marcan en la agenda y el tablero avisa las que llegan sin confirmar
+- Fila de `ags` agregada a la matriz de permisos de `Roles.tsx`
 
 ### v2.4.0 (2026-08-20)
 
