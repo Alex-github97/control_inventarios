@@ -2898,6 +2898,272 @@ async def ultimas_inspecciones(db: AsyncSession = Depends(get_db)):
     return salida
 
 
+class InspeccionHistorialResponse(BaseModel):
+    id: int
+    neumatico_id: int
+    codigo: str
+    marca: Optional[str] = None
+    referencia: Optional[str] = None
+    medida: Optional[str] = None
+    estado_llanta: Optional[str] = None
+    vida: Optional[str] = None
+    activo_id: Optional[int] = None
+    vehiculo: Optional[str] = None
+    posicion: Optional[str] = None
+    fecha: Optional[datetime] = None
+    profundidad_izq: Optional[float] = None
+    profundidad_centro: Optional[float] = None
+    profundidad_der: Optional[float] = None
+    profundidad_min: Optional[float] = None
+    presion_psi: Optional[float] = None
+    km_odometro: Optional[float] = None
+    estado_visual: Optional[str] = None
+    observaciones: Optional[str] = None
+    tecnico: Optional[str] = None
+
+
+@router.get("/neumaticos/inspecciones", response_model=List[InspeccionHistorialResponse])
+async def historial_inspecciones(
+    desde: Optional[datetime] = None,
+    hasta: Optional[datetime] = None,
+    activo_id: Optional[int] = None,
+    neumatico_id: Optional[int] = None,
+    limite: int = 5000,
+    db: AsyncSession = Depends(get_db),
+):
+    """Todas las inspecciones registradas (no solo la ultima de cada llanta),
+    de la mas reciente a la mas antigua, con los datos de la llanta y del
+    vehiculo donde estaba montada."""
+    q = select(EAMInspeccionNeumatico, EAMNeumatico).join(
+        EAMNeumatico, EAMNeumatico.id == EAMInspeccionNeumatico.neumatico_id
+    )
+    if desde is not None:
+        q = q.where(EAMInspeccionNeumatico.fecha >= desde)
+    if hasta is not None:
+        q = q.where(EAMInspeccionNeumatico.fecha <= hasta)
+    if activo_id is not None:
+        q = q.where(EAMNeumatico.activo_id == activo_id)
+    if neumatico_id is not None:
+        q = q.where(EAMInspeccionNeumatico.neumatico_id == neumatico_id)
+    r = await db.execute(q.order_by(EAMInspeccionNeumatico.fecha.desc()).limit(limite))
+    filas = r.all()
+
+    activos_ids = {n.activo_id for _, n in filas if n.activo_id}
+    vehiculos = {}
+    if activos_ids:
+        ra = await db.execute(select(EAMActivo).where(EAMActivo.id.in_(activos_ids)))
+        for a in ra.scalars().all():
+            vehiculos[a.id] = a.placa or a.codigo
+
+    salida = []
+    for insp, n in filas:
+        reenc = n.reencauches or 0
+        salida.append(InspeccionHistorialResponse(
+            id=insp.id, neumatico_id=n.id, codigo=n.codigo, marca=n.marca,
+            referencia=n.referencia, medida=n.medida, estado_llanta=n.estado,
+            vida="VN" if reenc == 0 else "R%d" % reenc,
+            activo_id=n.activo_id, vehiculo=vehiculos.get(n.activo_id),
+            posicion=insp.posicion or n.posicion,
+            fecha=insp.fecha,
+            profundidad_izq=insp.profundidad_izq, profundidad_centro=insp.profundidad_centro,
+            profundidad_der=insp.profundidad_der,
+            profundidad_min=_min_prof(insp.profundidad_izq, insp.profundidad_centro, insp.profundidad_der),
+            presion_psi=insp.presion_psi, km_odometro=insp.km_odometro,
+            estado_visual=insp.estado_visual, observaciones=insp.observaciones, tecnico=insp.tecnico,
+        ))
+    return salida
+
+
+# -- Reportes de neumaticos ----------------------------------------------------
+
+class LlantaEnPosicionReporte(BaseModel):
+    posicion: str
+    posicion_label: Optional[str] = None
+    numero: Optional[int] = None
+    eje: Optional[int] = None
+    lado: Optional[str] = None
+    neumatico_id: Optional[int] = None
+    codigo: Optional[str] = None
+    marca: Optional[str] = None
+    referencia: Optional[str] = None
+    medida: Optional[str] = None
+    vida: Optional[str] = None
+    profundidad_min: Optional[float] = None
+    presion_psi: Optional[float] = None
+    fecha_inspeccion: Optional[datetime] = None
+    observaciones: Optional[str] = None
+    alerta: Optional[str] = None
+
+
+class VehiculoReporte(BaseModel):
+    activo_id: int
+    codigo: str
+    placa: Optional[str] = None
+    nombre: Optional[str] = None
+    numero_ejes: Optional[int] = None
+    layout: Optional[List[int]] = None
+    tiene_repuesto: Optional[bool] = None
+    cantidad_repuestos: Optional[int] = None
+    odometro: Optional[float] = None
+    posiciones: List[LlantaEnPosicionReporte] = []
+    observaciones: List[str] = []
+    total_posiciones: int = 0
+    posiciones_ocupadas: int = 0
+    criticas: int = 0
+
+
+@router.get("/neumaticos/reportes/estado-flota", response_model=List[VehiculoReporte])
+async def reporte_estado_flota(
+    desde: Optional[datetime] = None,
+    hasta: Optional[datetime] = None,
+    activo_id: Optional[int] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Estado actual de la flota: por cada vehiculo, su esquema de posiciones con
+    la llanta montada en cada una, la profundidad de su ultima inspeccion dentro
+    del periodo y las observaciones registradas."""
+    cfg = await _get_config_neu(db)
+
+    q = select(EAMActivo).where(EAMActivo.activo == True, EAMActivo.numero_ejes.isnot(None))
+    if activo_id is not None:
+        q = q.where(EAMActivo.id == activo_id)
+    r = await db.execute(q.order_by(EAMActivo.codigo))
+    activos = r.scalars().all()
+    if not activos:
+        return []
+
+    r = await db.execute(select(EAMNeumatico).where(
+        EAMNeumatico.estado == "INSTALADO",
+        EAMNeumatico.activo_id.in_([a.id for a in activos]),
+    ))
+    montadas = r.scalars().all()
+    por_activo_pos = {(n.activo_id, n.posicion): n for n in montadas}
+
+    # Ultima inspeccion de cada llanta dentro del periodo pedido
+    ultima_insp = {}
+    if montadas:
+        qi = select(EAMInspeccionNeumatico).where(
+            EAMInspeccionNeumatico.neumatico_id.in_([n.id for n in montadas])
+        )
+        if desde is not None:
+            qi = qi.where(EAMInspeccionNeumatico.fecha >= desde)
+        if hasta is not None:
+            qi = qi.where(EAMInspeccionNeumatico.fecha <= hasta)
+        ri = await db.execute(qi.order_by(
+            EAMInspeccionNeumatico.neumatico_id, EAMInspeccionNeumatico.fecha.desc()
+        ))
+        for insp in ri.scalars().all():
+            if insp.neumatico_id not in ultima_insp:
+                ultima_insp[insp.neumatico_id] = insp
+
+    salida: List[VehiculoReporte] = []
+    for a in activos:
+        posiciones_layout = _generar_posiciones(
+            a.numero_ejes, a.tiene_repuesto if a.tiene_repuesto is not None else True,
+            layout=a.layout_llantas, cantidad_repuestos=a.cantidad_repuestos or 1,
+        )
+        filas: List[LlantaEnPosicionReporte] = []
+        observaciones: List[str] = []
+        criticas = 0
+        ocupadas = 0
+
+        for p in posiciones_layout:
+            n = por_activo_pos.get((a.id, p["codigo"]))
+            fila = LlantaEnPosicionReporte(
+                posicion=p["codigo"], posicion_label=p.get("label"),
+                numero=p.get("numero"), eje=p.get("eje"), lado=p.get("lado"),
+            )
+            if n is not None:
+                ocupadas += 1
+                insp = ultima_insp.get(n.id)
+                prof = None
+                if insp is not None:
+                    prof = _min_prof(insp.profundidad_izq, insp.profundidad_centro, insp.profundidad_der)
+                if prof is None:
+                    prof = n.profundidad_actual
+                reenc = n.reencauches or 0
+                fila.neumatico_id = n.id
+                fila.codigo = n.codigo
+                fila.marca = n.marca
+                fila.referencia = n.referencia
+                fila.medida = n.medida
+                fila.vida = "VN" if reenc == 0 else "R%d" % reenc
+                fila.profundidad_min = prof
+                fila.presion_psi = insp.presion_psi if insp is not None else n.presion_actual
+                fila.fecha_inspeccion = insp.fecha if insp is not None else None
+                fila.observaciones = insp.observaciones if insp is not None else None
+
+                if prof is not None and prof <= cfg.profundidad_minima:
+                    fila.alerta = "Profundidad en o bajo el minimo (%s mm)" % cfg.profundidad_minima
+                    criticas += 1
+                elif insp is None:
+                    fila.alerta = "Sin inspeccion en el periodo"
+
+                if fila.observaciones:
+                    etiqueta = p.get("label") or p["codigo"]
+                    observaciones.append("%s (%s): %s" % (etiqueta, n.codigo, fila.observaciones))
+                if fila.alerta:
+                    etiqueta = p.get("label") or p["codigo"]
+                    observaciones.append("%s (%s): %s" % (etiqueta, n.codigo, fila.alerta))
+            filas.append(fila)
+
+        salida.append(VehiculoReporte(
+            activo_id=a.id, codigo=a.codigo, placa=a.placa, nombre=a.nombre,
+            numero_ejes=a.numero_ejes, layout=a.layout_llantas,
+            tiene_repuesto=a.tiene_repuesto, cantidad_repuestos=a.cantidad_repuestos,
+            odometro=a.odometro_actual, posiciones=filas, observaciones=observaciones,
+            total_posiciones=len(filas), posiciones_ocupadas=ocupadas, criticas=criticas,
+        ))
+    return salida
+
+
+class ComposicionItem(BaseModel):
+    grupo: str
+    valor: str
+    cantidad: int
+    porcentaje: float
+
+
+@router.get("/neumaticos/reportes/composicion", response_model=List[ComposicionItem])
+async def reporte_composicion(
+    solo_montadas: bool = True, db: AsyncSession = Depends(get_db),
+):
+    """Composicion de las llantas: como se reparte el parque por marca, medida,
+    vida (VN/R) y estado. Por defecto solo las que estan a piso (montadas)."""
+    q = select(EAMNeumatico).where(EAMNeumatico.estado != "BAJA")
+    if solo_montadas:
+        q = q.where(EAMNeumatico.estado == "INSTALADO")
+    r = await db.execute(q)
+    llantas = r.scalars().all()
+    total = len(llantas)
+    if total == 0:
+        return []
+
+    def contar(clave):
+        conteo = {}
+        for n in llantas:
+            v = clave(n) or "Sin dato"
+            conteo[v] = conteo.get(v, 0) + 1
+        return conteo
+
+    grupos = [
+        ("Marca", contar(lambda n: n.marca)),
+        ("Medida", contar(lambda n: n.medida)),
+        ("Referencia", contar(lambda n: n.referencia)),
+        ("Vida", contar(lambda n: "VN" if (n.reencauches or 0) == 0 else "R%d" % n.reencauches)),
+        ("Estado", contar(lambda n: n.estado)),
+        ("Tipo de uso", contar(lambda n: n.tipo_uso)),
+    ]
+    salida: List[ComposicionItem] = []
+    for nombre, conteo in grupos:
+        for valor, cantidad in sorted(conteo.items(), key=lambda kv: -kv[1]):
+            salida.append(ComposicionItem(
+                grupo=nombre, valor=str(valor), cantidad=cantidad,
+                porcentaje=round(cantidad / total * 100, 1),
+            ))
+    return salida
+
+
 # -- Alertas (profundidad / presion / desalineacion) --
 @router.get("/neumaticos/alertas", response_model=List[AlertaNeuResponse])
 async def alertas_neumaticos(db: AsyncSession = Depends(get_db)):
