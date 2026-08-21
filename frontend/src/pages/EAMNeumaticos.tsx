@@ -15,6 +15,7 @@ import {
   DeleteForever, DirectionsCar, ShowChart, TrendingUp, NotificationsActive,
   Autorenew, Download, Straighten, Compress, AttachMoney, Build, Map as MapIcon, Timeline, Undo,
   UploadFile, CameraAlt, Checklist, ArrowDropDown, AddBox, Search as SearchIcon,
+  FilterAltOff, TireRepair as TireIcon,
 } from '@mui/icons-material'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer,
@@ -308,7 +309,7 @@ export default function EAMNeumaticos() {
   // Reencauche
   const [selLote, setSelLote] = useState<number | null>(null)
   const [loteOpen, setLoteOpen] = useState(false)
-  const [loteForm, setLoteForm] = useState({ codigo: '', fecha_envio: new Date().toISOString().slice(0, 10), proveedor: '', remision: '', observaciones: '' })
+  const [loteForm, setLoteForm] = useState({ fecha_envio: new Date().toISOString().slice(0, 10), proveedor: '', remision: '', observaciones: '' })
   const [addTireLote, setAddTireLote] = useState('')
   const [procDialog, setProcDialog] = useState<null | DetalleReencauche>(null)
   const [procForm, setProcForm] = useState({ resultado: 'REENCAUCHADA', profundidad_nueva: '', vida_remanente_km: '', costo: '', dano_id: '', motivo_fin_vida_id: '' })
@@ -343,6 +344,24 @@ export default function EAMNeumaticos() {
   // Vidas de la llanta
   const [vidasDialog, setVidasDialog] = useState<Neumatico | null>(null)
   const [informeTab, setInformeTab] = useState(0)
+
+  // ─── Filtros de "Llantas por Vehículo" ────────────────────────────────────
+  // El selector de vehículo era un <select> plano: con una flota grande hay que
+  // recorrer la lista entera para hallar una placa. Ahora se escribe la placa y
+  // además se acota la lista por las categorías que de verdad discriminan.
+  // Se filtra por la tipologia del vehiculo: eso es lo que sirve para hallarlo.
+  // El estado de sus llantas (esquema de ejes, montaje completo o no) no es una
+  // categoria del vehiculo, asi que se muestra en cada opcion de la lista pero
+  // no se usa para filtrar.
+  const [vehTipo, setVehTipo] = useState('')
+  const [vehMarca, setVehMarca] = useState('')
+  const [vehLinea, setVehLinea] = useState('')
+  // Filtros del panel de almacén (a la derecha del diagrama)
+  const [almBusq, setAlmBusq] = useState('')
+  const [almMedida, setAlmMedida] = useState('')
+  const [almMarca, setAlmMarca] = useState('')
+  const [almVida, setAlmVida] = useState('')
+  const [almBodega, setAlmBodega] = useState('')
 
   // ─── Queries ──────────────────────────────────────────────────────────────
   const { data: vehiculos = [] } = useQuery<Vehiculo[]>({ queryKey: ['eam-activos'], queryFn: () => api.get('/eam/activos').then(r => r.data) })
@@ -481,6 +500,137 @@ export default function EAMNeumaticos() {
   const descarte = useMemo(() => neumaticos.filter(n => n.estado === 'BAJA'), [neumaticos])
   const tireEn = (pos: string) => neumaticos.find(n => n.activo_id === veh?.id && n.posicion === pos)
   const bodegaNombre = (id?: number | null) => bodegas.find(b => b.id === id)?.nombre ?? '—'
+
+  // ─── Derivados de los filtros de "Llantas por Vehículo" ───────────────────
+
+  /** Ruedas de calzada que espera el vehículo según su esquema de ejes.
+   *  Espeja `_generar_posiciones` del backend: si hay layout por eje se suma,
+   *  y si no se cae al patrón clásico (eje 1 con 2 llantas, el resto con 4).
+   *  El repuesto no se cuenta: un vehículo con todas las ruedas puestas y sin
+   *  repuesto está completo para rodar, que es lo que interesa aquí. */
+  const ruedasEsperadas = (v: VehiculoCombinado): number => {
+    if (!v.numero_ejes) return 0
+    const layoutV = v.layout_llantas
+    if (Array.isArray(layoutV) && layoutV.length > 0) {
+      return layoutV.reduce((a, b) => a + (Number(b) || 0), 0)
+    }
+    return 2 + Math.max(v.numero_ejes - 1, 0) * 4
+  }
+
+  /** Llantas instaladas por vehículo del CMMS, en una sola pasada. */
+  const montadasPorActivo = useMemo(() => {
+    const mapa = new Map<number, number>()
+    for (const n of neumaticos) {
+      if (n.estado === 'INSTALADO' && n.activo_id) {
+        mapa.set(n.activo_id, (mapa.get(n.activo_id) ?? 0) + 1)
+      }
+    }
+    return mapa
+  }, [neumaticos])
+
+  /** Vehículos con al menos una llanta en alerta. */
+  const activosConAlerta = useMemo(
+    () => new Set(alertas.map(a => a.activo_id).filter((x): x is number => !!x)),
+    [alertas],
+  )
+
+  const opcionesVeh = useMemo(() => {
+    const unico = (vals: (string | undefined | null)[]) =>
+      Array.from(new Set(vals.filter((x): x is string => !!x && x.trim() !== ''))).sort()
+    return {
+      tipos: unico(vehiculosDisponibles.map(v => v.tipo)),
+      marcas: unico(vehiculosDisponibles.map(v => v.marca)),
+      lineas: unico(vehiculosDisponibles.map(v => v.modelo)),
+    }
+  }, [vehiculosDisponibles])
+
+  const vehiculosFiltrados = useMemo(() => {
+    return vehiculosDisponibles.filter(v => {
+      if (vehTipo && v.tipo !== vehTipo) return false
+      if (vehMarca && v.marca !== vehMarca) return false
+      if (vehLinea && v.modelo !== vehLinea) return false
+      return true
+    })
+  }, [vehiculosDisponibles, vehTipo, vehMarca, vehLinea])
+
+  const vehSeleccionado = useMemo(
+    () => vehiculosDisponibles.find(v => `${v.origen}:${v.id}` === vehSelKey) ?? null,
+    [vehiculosDisponibles, vehSelKey],
+  )
+
+  /** Opciones del selector. Si un filtro de categoría deja fuera al vehículo
+   *  que ya estaba elegido, se lo vuelve a incluir: de lo contrario el valor no
+   *  estaría entre las opciones, MUI advierte y el campo se ve vacío aunque el
+   *  diagrama siga mostrando ese vehículo. */
+  const vehiculosParaSelector = useMemo(() => {
+    if (!vehSeleccionado) return vehiculosFiltrados
+    const dentro = vehiculosFiltrados.some(
+      v => v.origen === vehSeleccionado.origen && v.id === vehSeleccionado.id)
+    return dentro ? vehiculosFiltrados : [vehSeleccionado, ...vehiculosFiltrados]
+  }, [vehiculosFiltrados, vehSeleccionado])
+
+  /** Búsqueda libre del vehículo. Se hace como filterOptions del Autocomplete
+   *  (y no filtrando `options`) para que el vehículo ya seleccionado siga
+   *  estando entre las opciones mientras se escribe. Cubre más campos que la
+   *  etiqueta visible: también tipo y propietario. */
+  const buscarVehiculos = (opciones: VehiculoCombinado[], texto: string) => {
+    const q = texto.trim().toLowerCase()
+    if (!q) return opciones
+    return opciones.filter(v =>
+      [v.placa, v.codigo, v.nombre, v.marca, v.modelo, v.tipo, v.propietario]
+        .some(x => (x ?? '').toString().toLowerCase().includes(q)))
+  }
+
+  const filtrosVehActivos = Boolean(vehTipo || vehMarca || vehLinea)
+  const limpiarFiltrosVeh = () => { setVehTipo(''); setVehMarca(''); setVehLinea('') }
+
+  // ─── Derivados de los filtros del almacén ─────────────────────────────────
+  const vidaDe = (n: Neumatico) => ((n.reencauches ?? 0) === 0 ? 'VN' : `R${n.reencauches}`)
+
+  const opcionesAlm = useMemo(() => {
+    const unico = (vals: (string | undefined | null)[]) =>
+      Array.from(new Set(vals.filter((x): x is string => !!x && x.trim() !== ''))).sort()
+    return {
+      medidas: unico(almacen.map(n => n.medida)),
+      marcas: unico(almacen.map(n => n.marca)),
+      vidas: unico(almacen.map(vidaDe)),
+      bodegas: Array.from(new Set(almacen.map(n => n.bodega_id).filter((x): x is number => !!x))),
+    }
+  }, [almacen])
+
+  const almacenFiltrado = useMemo(() => {
+    const q = almBusq.trim().toLowerCase()
+    return almacen.filter(n => {
+      if (almMedida && n.medida !== almMedida) return false
+      if (almMarca && n.marca !== almMarca) return false
+      if (almVida && vidaDe(n) !== almVida) return false
+      if (almBodega && String(n.bodega_id ?? '') !== almBodega) return false
+      if (!q) return true
+      return [n.codigo, n.marca, n.referencia, n.medida, n.dot]
+        .some(x => (x ?? '').toString().toLowerCase().includes(q))
+    })
+  }, [almacen, almBusq, almMedida, almMarca, almVida, almBodega])
+
+  const filtrosAlmActivos = Boolean(almBusq || almMedida || almMarca || almVida || almBodega)
+  const limpiarFiltrosAlm = () => {
+    setAlmBusq(''); setAlmMedida(''); setAlmMarca(''); setAlmVida(''); setAlmBodega('')
+  }
+
+  /** Medida predominante de las llantas ya montadas en el vehículo elegido.
+   *  Sirve de atajo: al montar se busca casi siempre la misma medida. */
+  const medidaDelVehiculo = useMemo(() => {
+    if (!veh) return ''
+    const conteo = new Map<string, number>()
+    for (const n of neumaticos) {
+      if (n.estado === 'INSTALADO' && n.activo_id === veh.id && n.medida) {
+        conteo.set(n.medida, (conteo.get(n.medida) ?? 0) + 1)
+      }
+    }
+    let mejor = ''
+    let max = 0
+    conteo.forEach((c, m) => { if (c > max) { max = c; mejor = m } })
+    return mejor
+  }, [veh, neumaticos])
 
   const invalidar = () => {
     qc.invalidateQueries({ queryKey: ['eam-neumaticos'] })
@@ -981,7 +1131,7 @@ export default function EAMNeumaticos() {
   // Reencauche
   const mutLote = useMutation({
     mutationFn: (body: Record<string, unknown>) => api.post('/eam/neumaticos/reencauche', body),
-    onSuccess: (r: any) => { toast.success('Lote creado'); qc.invalidateQueries({ queryKey: ['eam-reencauche'] }); setLoteOpen(false); setSelLote(r.data.id); setLoteForm({ codigo: '', fecha_envio: new Date().toISOString().slice(0, 10), proveedor: '', remision: '', observaciones: '' }) },
+    onSuccess: (r: any) => { toast.success('Lote creado'); qc.invalidateQueries({ queryKey: ['eam-reencauche'] }); setLoteOpen(false); setSelLote(r.data.id); setLoteForm({ fecha_envio: new Date().toISOString().slice(0, 10), proveedor: '', remision: '', observaciones: '' }) },
     onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al crear lote'),
   })
   const mutAddDet = useMutation({
@@ -1261,32 +1411,110 @@ export default function EAMNeumaticos() {
             <Grid size={{ xs: 12, md: 8 }}>
               <Card sx={{ bgcolor: '#FFFFFF' }}>
                 <CardContent>
-                  <Stack direction="row" gap={1} alignItems="center" mb={2} flexWrap="wrap">
-                    <TextField
-                      select size="small" label="Vehículo" value={vehSelKey}
-                      onChange={e => seleccionarVehiculo(e.target.value)}
-                      disabled={mutVincularVeh.isPending}
-                      helperText={mutVincularVeh.isPending ? 'Vinculando al CMMS…' : undefined}
-                      sx={{ minWidth: 320 }}
-                    >
-                      <MenuItem value="">Seleccionar vehículo…</MenuItem>
-                      {vehiculosDisponibles.map(v => (
-                        <MenuItem key={`${v.origen}:${v.id}`} value={`${v.origen}:${v.id}`}>
-                          {v.placa ?? v.codigo ?? v.tipo ?? '—'}
-                          {v.nombre ? ` — ${v.nombre}` : v.marca ? ` — ${v.marca}${v.modelo ? ` ${v.modelo}` : ''}` : ''}
-                          {v.origen !== 'EAM' ? ` · ${v.origen}` : ''}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                    {veh && veh.numero_ejes && (
-                      <Button
-                        size="small" variant="contained" startIcon={<AddIcon />}
-                        onClick={() => setAgregarLlantaOpen(true)}
-                        sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none' }}
-                      >
-                        Agregar llanta desde bodega
-                      </Button>
-                    )}
+                  <Stack gap={1.25} mb={2}>
+                    <Stack direction="row" gap={1} alignItems="flex-start" flexWrap="wrap">
+                      <Autocomplete
+                        size="small"
+                        options={vehiculosParaSelector}
+                        value={vehSeleccionado}
+                        onChange={(_e, v) => seleccionarVehiculo(v ? `${v.origen}:${v.id}` : '')}
+                        filterOptions={(ops, estado) => buscarVehiculos(ops, estado.inputValue)}
+                        disabled={mutVincularVeh.isPending}
+                        getOptionLabel={v =>
+                          `${v.placa ?? v.codigo ?? v.tipo ?? '—'}${v.nombre ? ` — ${v.nombre}` : v.marca ? ` — ${v.marca}${v.modelo ? ` ${v.modelo}` : ''}` : ''}`}
+                        isOptionEqualToValue={(a, b) => a.origen === b.origen && a.id === b.id}
+                        renderOption={(props, v) => {
+                          const puestas = v.activo_id ? (montadasPorActivo.get(v.activo_id) ?? 0) : 0
+                          const esperadas = ruedasEsperadas(v)
+                          return (
+                            <Box component="li" {...props} key={`${v.origen}:${v.id}`}>
+                              <Stack direction="row" alignItems="center" gap={1} sx={{ width: '100%' }}>
+                                <Box sx={{ minWidth: 0, flex: 1 }}>
+                                  <Typography fontSize={13} fontWeight={700} noWrap>
+                                    {v.placa ?? v.codigo ?? v.tipo ?? '—'}
+                                  </Typography>
+                                  <Typography fontSize={11} color="text.secondary" noWrap>
+                                    {[v.nombre, v.marca && `${v.marca}${v.modelo ? ` ${v.modelo}` : ''}`, v.tipo]
+                                      .filter(Boolean).join(' · ') || '—'}
+                                  </Typography>
+                                </Box>
+                                {v.origen !== 'EAM' && (
+                                  <Chip label={v.origen} size="small" sx={{ height: 17, fontSize: 9 }} />
+                                )}
+                                {!v.numero_ejes ? (
+                                  <Chip label="sin ejes" size="small" color="warning" variant="outlined"
+                                    sx={{ height: 17, fontSize: 9 }} />
+                                ) : (
+                                  <Chip
+                                    label={`${puestas}/${esperadas}`} size="small"
+                                    sx={{
+                                      height: 17, fontSize: 9, fontWeight: 700,
+                                      bgcolor: alpha(puestas >= esperadas ? EAM_COLOR : '#CA8A04', 0.15),
+                                      color: puestas >= esperadas ? EAM_DARK : '#A16207',
+                                    }}
+                                  />
+                                )}
+                                {v.activo_id && activosConAlerta.has(v.activo_id) && (
+                                  <NotificationsActive sx={{ fontSize: 14, color: '#DC2626' }} />
+                                )}
+                              </Stack>
+                            </Box>
+                          )
+                        }}
+                        sx={{ minWidth: 340, flex: 1, maxWidth: 460 }}
+                        renderInput={p => (
+                          <TextField
+                            {...p} label="Vehículo · escriba la placa"
+                            placeholder="Buscar por placa, código, nombre o marca…"
+                            helperText={mutVincularVeh.isPending ? 'Vinculando al CMMS…' : undefined}
+                          />
+                        )}
+                        noOptionsText={
+                          vehiculosDisponibles.length === 0
+                            ? 'No hay vehículos que usen llantas'
+                            : 'Ningún vehículo coincide con los filtros'
+                        }
+                      />
+                      {veh && veh.numero_ejes && (
+                        <Button
+                          size="small" variant="contained" startIcon={<AddIcon />}
+                          onClick={() => setAgregarLlantaOpen(true)}
+                          sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none', mt: 0.25 }}
+                        >
+                          Agregar llanta desde bodega
+                        </Button>
+                      )}
+                    </Stack>
+
+                    {/* Filtros por la tipología del vehículo: es lo que sirve
+                        para encontrarlo en una flota grande. Cada desplegable se
+                        arma con los valores que existen en los datos. */}
+                    <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap">
+                      <TextField select size="small" label="Tipología" value={vehTipo}
+                        onChange={e => setVehTipo(e.target.value)} sx={{ minWidth: 165 }}>
+                        <MenuItem value="">Todas</MenuItem>
+                        {opcionesVeh.tipos.map(o => <MenuItem key={o} value={o}>{o}</MenuItem>)}
+                      </TextField>
+                      <TextField select size="small" label="Marca" value={vehMarca}
+                        onChange={e => setVehMarca(e.target.value)} sx={{ minWidth: 145 }}>
+                        <MenuItem value="">Todas</MenuItem>
+                        {opcionesVeh.marcas.map(o => <MenuItem key={o} value={o}>{o}</MenuItem>)}
+                      </TextField>
+                      <TextField select size="small" label="Línea" value={vehLinea}
+                        onChange={e => setVehLinea(e.target.value)} sx={{ minWidth: 145 }}>
+                        <MenuItem value="">Todas</MenuItem>
+                        {opcionesVeh.lineas.map(o => <MenuItem key={o} value={o}>{o}</MenuItem>)}
+                      </TextField>
+                      <Typography fontSize={11} color="text.secondary">
+                        {vehiculosFiltrados.length} de {vehiculosDisponibles.length} vehículo(s)
+                      </Typography>
+                      {filtrosVehActivos && (
+                        <Button size="small" startIcon={<FilterAltOff sx={{ fontSize: 15 }} />}
+                          onClick={limpiarFiltrosVeh} sx={{ textTransform: 'none' }}>
+                          Limpiar
+                        </Button>
+                      )}
+                    </Stack>
                   </Stack>
 
                   {!veh ? (
@@ -1351,9 +1579,85 @@ export default function EAMNeumaticos() {
                     <Typography fontWeight={700} fontSize={14}>Disponibles en almacén</Typography>
                   </Stack>
                   <Typography fontSize={11} color="text.secondary" mb={1.5}>Arrastra una llanta a una posición del vehículo para instalarla. Suelta aquí una llanta instalada para desmontarla a bodega.</Typography>
+
+                  {/* Filtros del almacén: con decenas de llantas en bodega, hallar
+                      la de la medida correcta a ojo es la parte lenta del montaje. */}
+                  <Stack gap={1} mb={1.5}>
+                    <TextField
+                      size="small" placeholder="Buscar código, marca, referencia o DOT…"
+                      value={almBusq} onChange={e => setAlmBusq(e.target.value)}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start"><SearchIcon sx={{ fontSize: 16 }} /></InputAdornment>
+                        ),
+                      }}
+                    />
+                    <Stack direction="row" gap={0.75} flexWrap="wrap">
+                      {opcionesAlm.medidas.length > 1 && (
+                        <TextField select size="small" label="Medida" value={almMedida}
+                          onChange={e => setAlmMedida(e.target.value)} sx={{ minWidth: 128 }}>
+                          <MenuItem value="">Todas</MenuItem>
+                          {opcionesAlm.medidas.map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
+                        </TextField>
+                      )}
+                      {opcionesAlm.marcas.length > 1 && (
+                        <TextField select size="small" label="Marca" value={almMarca}
+                          onChange={e => setAlmMarca(e.target.value)} sx={{ minWidth: 118 }}>
+                          <MenuItem value="">Todas</MenuItem>
+                          {opcionesAlm.marcas.map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
+                        </TextField>
+                      )}
+                      {opcionesAlm.vidas.length > 1 && (
+                        <TextField select size="small" label="Vida" value={almVida}
+                          onChange={e => setAlmVida(e.target.value)} sx={{ minWidth: 96 }}>
+                          <MenuItem value="">Todas</MenuItem>
+                          {opcionesAlm.vidas.map(v => <MenuItem key={v} value={v}>{v}</MenuItem>)}
+                        </TextField>
+                      )}
+                      {opcionesAlm.bodegas.length > 1 && (
+                        <TextField select size="small" label="Bodega" value={almBodega}
+                          onChange={e => setAlmBodega(e.target.value)} sx={{ minWidth: 140 }}>
+                          <MenuItem value="">Todas</MenuItem>
+                          {opcionesAlm.bodegas.map(b => (
+                            <MenuItem key={b} value={String(b)}>{bodegaNombre(b)}</MenuItem>
+                          ))}
+                        </TextField>
+                      )}
+                    </Stack>
+                    <Stack direction="row" gap={0.75} alignItems="center" flexWrap="wrap">
+                      {medidaDelVehiculo && (
+                        <Tooltip title={`Medida que ya está montada en ${veh?.placa ?? veh?.codigo ?? 'el vehículo'}`}>
+                          <Chip
+                            size="small" icon={<TireIcon sx={{ fontSize: 14 }} />}
+                            label={medidaDelVehiculo}
+                            onClick={() => setAlmMedida(m => m === medidaDelVehiculo ? '' : medidaDelVehiculo)}
+                            variant={almMedida === medidaDelVehiculo ? 'filled' : 'outlined'}
+                            sx={almMedida === medidaDelVehiculo
+                              ? { bgcolor: EAM_COLOR, color: '#fff', '& .MuiChip-icon': { color: '#fff' } }
+                              : undefined}
+                          />
+                        </Tooltip>
+                      )}
+                      <Typography fontSize={11} color="text.secondary">
+                        {almacenFiltrado.length} de {almacen.length}
+                      </Typography>
+                      {filtrosAlmActivos && (
+                        <Button size="small" startIcon={<FilterAltOff sx={{ fontSize: 15 }} />}
+                          onClick={limpiarFiltrosAlm} sx={{ textTransform: 'none' }}>
+                          Limpiar
+                        </Button>
+                      )}
+                    </Stack>
+                  </Stack>
+
                   <Stack spacing={1} sx={{ maxHeight: 460, overflowY: 'auto', pr: 0.5 }}>
                     {almacen.length === 0 && <Typography fontSize={12} color="text.disabled" textAlign="center" py={2}>Sin llantas en almacén</Typography>}
-                    {almacen.map(n => (
+                    {almacen.length > 0 && almacenFiltrado.length === 0 && (
+                      <Typography fontSize={12} color="text.disabled" textAlign="center" py={2}>
+                        Ninguna llanta del almacén coincide con los filtros
+                      </Typography>
+                    )}
+                    {almacenFiltrado.map(n => (
                       <Box key={n.id}>
                         <TireCard n={n} />
                         <Typography fontSize={9} color="text.secondary" mt={0.25}>{n.estado === 'REENCAUCHE' ? 'En reencauche' : bodegaNombre(n.bodega_id)}</Typography>
@@ -3049,17 +3353,23 @@ export default function EAMNeumaticos() {
           <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Nuevo lote de reencauche</DialogTitle>
           <DialogContent dividers>
             <Stack spacing={2} pt={0.5}>
-              <TextField label="Código *" size="small" fullWidth value={loteForm.codigo} onChange={e => setLoteForm(f => ({ ...f, codigo: e.target.value }))} />
+              {/* El lote se identifica por su número de remisión: es el documento
+                  real con el que las llantas salen al reencauchador y vuelven, y
+                  el que se cruza contra la factura. Un código aparte era un dato
+                  inventado que nadie tenía a mano. */}
+              <TextField label="N.º de remisión *" size="small" fullWidth
+                value={loteForm.remision}
+                onChange={e => setLoteForm(f => ({ ...f, remision: e.target.value }))}
+                helperText="Identifica el lote. El de la remisión física que acompaña las llantas." />
               <TextField label="Fecha de envío *" type="date" size="small" fullWidth value={loteForm.fecha_envio} onChange={e => setLoteForm(f => ({ ...f, fecha_envio: e.target.value }))} InputLabelProps={{ shrink: true }} />
               <TextField label="Proveedor" size="small" fullWidth value={loteForm.proveedor} onChange={e => setLoteForm(f => ({ ...f, proveedor: e.target.value }))} />
-              <TextField label="N.º de remisión" size="small" fullWidth value={loteForm.remision} onChange={e => setLoteForm(f => ({ ...f, remision: e.target.value }))} />
               <TextField label="Observaciones" size="small" fullWidth multiline rows={2} value={loteForm.observaciones} onChange={e => setLoteForm(f => ({ ...f, observaciones: e.target.value }))} />
             </Stack>
           </DialogContent>
           <DialogActions sx={{ px: 3, py: 2 }}>
             <Button onClick={() => setLoteOpen(false)}>Cancelar</Button>
-            <Button variant="contained" disabled={!loteForm.codigo || !loteForm.fecha_envio || mutLote.isPending}
-              onClick={() => mutLote.mutate({ codigo: loteForm.codigo, fecha_envio: loteForm.fecha_envio, proveedor: loteForm.proveedor || undefined, remision: loteForm.remision || undefined, observaciones: loteForm.observaciones || undefined })}
+            <Button variant="contained" disabled={!loteForm.remision.trim() || !loteForm.fecha_envio || mutLote.isPending}
+              onClick={() => mutLote.mutate({ codigo: loteForm.remision.trim(), fecha_envio: loteForm.fecha_envio, proveedor: loteForm.proveedor || undefined, remision: loteForm.remision.trim(), observaciones: loteForm.observaciones || undefined })}
               sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Crear lote</Button>
           </DialogActions>
         </Dialog>

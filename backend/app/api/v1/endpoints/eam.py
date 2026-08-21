@@ -3211,6 +3211,19 @@ async def list_reencauche_lotes(db: AsyncSession = Depends(get_db)):
 
 @router.post("/neumaticos/reencauche", response_model=ReencaucheLoteResponse)
 async def create_reencauche_lote(data: ReencaucheLoteCreate, db: AsyncSession = Depends(get_db)):
+    # El lote se identifica por su numero de remision, asi que repetirlo es un
+    # error de digitacion frecuente. Se avisa antes de que la restriccion unica
+    # de la tabla devuelva un error de base de datos sin contexto.
+    r = await db.execute(select(EAMReencaucheLote).where(
+        EAMReencaucheLote.codigo == data.codigo))
+    existente = r.scalar_one_or_none()
+    if existente is not None:
+        raise HTTPException(
+            status_code=400,
+            detail="Ya existe un lote con la remision %s (enviado el %s). "
+                   "Verifique el numero o abra el lote existente."
+                   % (existente.codigo, existente.fecha_envio),
+        )
     obj = EAMReencaucheLote(**data.model_dump(), estado="ABIERTO")
     db.add(obj); await db.commit(); await db.refresh(obj)
     return obj
