@@ -9,6 +9,7 @@ import {
 import Grid from '@mui/material/Grid2'
 import { Business, Add, Edit, Delete, Close, FileDownload, UploadFile } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { SelectorResponsable } from '@/components/catalogo/SelectorResponsable'
 
 const GRC_COLOR = '#6D28D9'
 const LBL       = alpha(GRC_COLOR, 0.85)
@@ -192,7 +193,7 @@ export default function GRCTerceros() {
             </Box>
             <TextField label="Correo / Contacto" fullWidth size="small" value={form.contacto} onChange={sf('contacto')} />
             <Box sx={{ display:'flex', gap:2 }}>
-              <TextField label="Responsable Interno" fullWidth size="small" value={form.responsable} onChange={sf('responsable')} />
+              <SelectorResponsable label="Responsable Interno" valor={form.responsable} onChangeEvento={sf('responsable')} />
               <FormControl size="small" fullWidth><InputLabel>Riesgo</InputLabel><Select label="Riesgo" value={form.riesgo} onChange={e=>ss('riesgo',e.target.value)}>{RIESGOS.map(r=><MenuItem key={r} value={r}>{r}</MenuItem>)}</Select></FormControl>
             </Box>
             <TextField label="Vencimiento Contrato" type="date" fullWidth size="small" value={form.vencimientoContrato} onChange={sf('vencimientoContrato')} InputLabelProps={{ shrink:true }} />

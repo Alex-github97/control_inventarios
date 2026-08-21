@@ -9,6 +9,7 @@ import {
 import Grid from '@mui/material/Grid2'
 import { BugReport, Add, Edit, Delete, Close, FileDownload, UploadFile, CheckCircle } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { SelectorResponsable } from '@/components/catalogo/SelectorResponsable'
 import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
 
 const GRC_COLOR = '#6D28D9'
@@ -194,7 +195,7 @@ export default function GRCHallazgos() {
             </Box>
             <Box sx={{ display:'flex', gap:2 }}>
               <SelectorCatalogo modulo="GLOBAL" tipo="AREA" label="Área" valor={form.area} onChangeEvento={sf('area')} />
-              <TextField label="Responsable" fullWidth size="small" value={form.responsable} onChange={sf('responsable')} />
+              <SelectorResponsable label="Responsable" valor={form.responsable} onChangeEvento={sf('responsable')} />
             </Box>
             <Box sx={{ display:'flex', gap:2 }}>
               <TextField label="Fecha Detección" type="date" fullWidth size="small" value={form.fechaDeteccion} onChange={sf('fechaDeteccion')} InputLabelProps={{ shrink:true }} />

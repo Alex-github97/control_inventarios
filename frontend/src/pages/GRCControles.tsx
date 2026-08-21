@@ -9,6 +9,7 @@ import {
 import Grid from '@mui/material/Grid2'
 import { Shield, Add, Edit, Delete, Close, CheckCircle, Warning, Add as AddIcon } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { SelectorResponsable } from '@/components/catalogo/SelectorResponsable'
 
 const GRC_COLOR = '#6D28D9'
 const BORDER  = '#E5E7EB'
@@ -188,7 +189,7 @@ export default function GRCControles() {
             <FormControl size="small"><InputLabel>Tipo</InputLabel><Select label="Tipo" value={form.tipo} onChange={e=>ss('tipo',e.target.value)}>{TIPOS.map(t=><MenuItem key={t} value={t}>{t}</MenuItem>)}</Select></FormControl>
             <TextField label="Categoría" fullWidth size="small" value={form.categoria} onChange={sf('categoria')} InputLabelProps={ILB} sx={TF} />
             <TextField label="Riesgo Vinculado (ID)" fullWidth size="small" value={form.riesgo} onChange={sf('riesgo')} InputLabelProps={ILB} sx={TF} />
-            <TextField label="Responsable" fullWidth size="small" value={form.responsable} onChange={sf('responsable')} InputLabelProps={ILB} sx={TF} />
+            <SelectorResponsable label="Responsable" valor={form.responsable} onChangeEvento={sf('responsable')} sx={TF} />
             <Box sx={{ display:'flex', gap:2 }}>
               <TextField label="% Efectividad" type="number" fullWidth size="small" value={form.efectividad} onChange={e=>ss('efectividad',Number(e.target.value))} InputLabelProps={ILB} sx={TF} inputProps={{ min:0,max:100 }} />
               <FormControl size="small" fullWidth><InputLabel>Estado</InputLabel><Select label="Estado" value={form.estado} onChange={e=>ss('estado',e.target.value)}>{ESTADOS.map(s=><MenuItem key={s} value={s}>{s}</MenuItem>)}</Select></FormControl>

@@ -9,6 +9,7 @@ import {
 import Grid from '@mui/material/Grid2'
 import { AccountTree, Add, Edit, Delete, Close, FileDownload, UploadFile, PlayArrow } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { SelectorResponsable } from '@/components/catalogo/SelectorResponsable'
 import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
 
 const GRC_COLOR = '#6D28D9'
@@ -198,7 +199,7 @@ export default function GRCContinuidad() {
             </Box>
             <Box sx={{ display:'flex', gap:2 }}>
               <SelectorCatalogo modulo="GLOBAL" tipo="AREA" label="Área" valor={form.area} onChangeEvento={sf('area')} sx={TF} />
-              <TextField label="Responsable" fullWidth size="small" value={form.responsable} onChange={sf('responsable')} InputLabelProps={ILB} sx={TF} />
+              <SelectorResponsable label="Responsable" valor={form.responsable} onChangeEvento={sf('responsable')} sx={TF} />
             </Box>
             <Box sx={{ display:'flex', gap:2 }}>
               <TextField label="RTO Objetivo" fullWidth size="small" value={form.rto} onChange={sf('rto')} InputLabelProps={ILB} sx={TF} placeholder="ej: 4 horas" />

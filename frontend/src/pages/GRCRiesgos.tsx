@@ -9,6 +9,7 @@ import {
 import Grid from '@mui/material/Grid2'
 import { BugReport, Add, Edit, Delete, Close, InfoOutlined } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { SelectorResponsable } from '@/components/catalogo/SelectorResponsable'
 import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
 
 const GRC_COLOR = '#6D28D9'
@@ -197,7 +198,7 @@ export default function GRCRiesgos() {
               <FormControl size="small" fullWidth><InputLabel>Probabilidad (1-5)</InputLabel><Select label="Probabilidad (1-5)" value={form.probabilidad} onChange={e=>ss('probabilidad',Number(e.target.value))}>{[1,2,3,4,5].map(n=><MenuItem key={n} value={n}>{n} — {LABELS_P[n]}</MenuItem>)}</Select></FormControl>
               <FormControl size="small" fullWidth><InputLabel>Impacto (1-5)</InputLabel><Select label="Impacto (1-5)" value={form.impacto} onChange={e=>ss('impacto',Number(e.target.value))}>{[1,2,3,4,5].map(n=><MenuItem key={n} value={n}>{n} — {LABELS_I[n]}</MenuItem>)}</Select></FormControl>
             </Box>
-            <TextField label="Responsable" fullWidth size="small" value={form.responsable} onChange={sf('responsable')} />
+            <SelectorResponsable label="Responsable" valor={form.responsable} onChangeEvento={sf('responsable')} />
             <FormControl size="small"><InputLabel>Tratamiento</InputLabel><Select label="Tratamiento" value={form.tratamiento} onChange={e=>ss('tratamiento',e.target.value)}>{TRATAMIENTOS.map(t=><MenuItem key={t} value={t}>{t}</MenuItem>)}</Select></FormControl>
             <TextField label="Descripción" multiline rows={3} fullWidth size="small" value={form.descripcion} onChange={sf('descripcion')} />
           </DialogContent>

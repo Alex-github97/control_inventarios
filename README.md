@@ -797,6 +797,52 @@ DROP TYPE IF EXISTS rolusuario;
 
 ## Historial de Versiones
 
+### v2.7.1 (2026-08-21)
+
+**Adopción del catálogo maestro en los módulos**
+
+Al medir los formularios reales, el trabajo pendiente resultó mucho menor de lo que sugerían
+los modelos: de los ~190 candidatos que salieron de contar columnas `String`, en las pantallas
+hay **27 campos** de clasificación en texto libre. La mayoría de módulos ya usa selects con FK
+para sus propias entidades; lo que quedaba libre son los transversales.
+
+| Situación | Cantidad | Qué se hizo |
+|-----------|----------|-------------|
+| Cableados (guardan datos) | 14 | Convertidos a selector |
+| Maquetas sin `value` ni `onChange` | 12 | Se dejan como están: no guardan en ninguna parte |
+| Solo lectura | 1 | No aplica |
+
+- **6 campos** a `SelectorCatalogo` (área, proceso, ciudad) en GRC y Locativa
+- **8 campos** a `SelectorResponsable` en GRC
+- Sembrados los catálogos que estaban vacíos, porque un desplegable sin valores es peor que el
+  texto libre: 14 áreas, 21 cargos, 14 procesos
+
+**`SelectorResponsable` no usa el catálogo maestro a propósito.** Un catálogo manual de
+responsables sería un segundo lugar donde mantener personas, en paralelo a la nómina, y las
+dos listas se desincronizarían al primer ingreso o retiro. Lee los colaboradores de Gestión
+Humana, admite escribir un nombre que no esté en la nómina (un contratista), conserva el valor
+guardado de alguien que ya se retiró marcándolo, y si Gestión Humana no responde se degrada a
+texto libre en lugar de dejar el campo inservible.
+
+Dos ajustes al registro, por lo que midieron los datos y no por suposición:
+
+- **Cargo** y **Proceso** los usan GRC, MES, QMS y SST por igual, así que pasaron de un módulo
+  a `GLOBAL`. Dejarlos por módulo habría dado cuatro listas paralelas de lo mismo
+- **Área** estaba declarada dependiente de Sede; pasó a plana porque en los formularios se usa
+  suelta y exigir una sede antes sería fricción sin ganancia
+
+Ambos fueron una línea en el registro, que es para lo que sirve el diseño declarativo.
+
+Se agregó el adaptador `onChangeEvento` a los dos selectores: varias páginas manejan el estado
+con handlers *curried* (`onChange={f('ciudad')}`), y así el reemplazo del `TextField` queda 1:1
+sin reescribir el manejo de estado de cada página.
+
+**Pendiente**: 12 campos son formularios de maqueta sin estado cableado
+(`GRCPoliticas`, `QMSCambios`, `QMSHallazgos`, `QMSMejora`, `QMSNoConformidades`, `QMSQuejas`,
+`QMSRiesgos`, `GHSST`, `WMSPicking`). Hay que cablearlos al backend antes de que tenga sentido
+ponerles catálogo. Y las pestañas de catálogos por módulo son opcionales: `/catalogos`
+administra los de todos con selector de módulo.
+
 ### v2.7.0 (2026-08-21)
 
 **Catálogo maestro de la plataforma** — la metodología de jerarquías, para todos los módulos

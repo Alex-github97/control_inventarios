@@ -9,6 +9,7 @@ import {
 import Grid from '@mui/material/Grid2'
 import { VerifiedUser, Add, Edit, Delete, Close, CheckCircle, Warning, ErrorOutline, FileDownload } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { SelectorResponsable } from '@/components/catalogo/SelectorResponsable'
 
 const GRC_COLOR = '#6D28D9'
 const PAGE_BG   = '#F0F2F5'
@@ -208,7 +209,7 @@ export default function GRCCumplimiento() {
             <TextField label="Norma" fullWidth size="small" value={form.norma} onChange={sf('norma')} />
             <TextField label="Cláusula / Artículo" fullWidth size="small" value={form.clausula} onChange={sf('clausula')} />
             <TextField label="Categoría" fullWidth size="small" value={form.categoria} onChange={sf('categoria')} />
-            <TextField label="Responsable" fullWidth size="small" value={form.responsable} onChange={sf('responsable')} />
+            <SelectorResponsable label="Responsable" valor={form.responsable} onChangeEvento={sf('responsable')} />
             <FormControl size="small"><InputLabel>Frecuencia</InputLabel>
               <Select label="Frecuencia" value={form.frecuencia} onChange={e=>ss('frecuencia',e.target.value)}>
                 {FRECUENCIAS.map(f=><MenuItem key={f} value={f}>{f}</MenuItem>)}

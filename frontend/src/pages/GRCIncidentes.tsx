@@ -9,6 +9,7 @@ import {
 import Grid from '@mui/material/Grid2'
 import { Security, Add, Edit, Delete, Close, Add as AddIcon, CheckCircle } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { SelectorResponsable } from '@/components/catalogo/SelectorResponsable'
 import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
 
 const GRC_COLOR = '#6D28D9'
@@ -185,7 +186,7 @@ export default function GRCIncidentes() {
             </Box>
             <Box sx={{ display:'flex', gap:2 }}>
               <SelectorCatalogo modulo="GLOBAL" tipo="AREA" label="Área" valor={form.area} onChangeEvento={sf('area')} />
-              <TextField label="Responsable" fullWidth size="small" value={form.responsable} onChange={sf('responsable')} />
+              <SelectorResponsable label="Responsable" valor={form.responsable} onChangeEvento={sf('responsable')} />
             </Box>
             <FormControl size="small" fullWidth><InputLabel>Estado</InputLabel><Select label="Estado" value={form.estado} onChange={e=>ss('estado',e.target.value)}>{ESTADOS.map(s=><MenuItem key={s} value={s}>{s}</MenuItem>)}</Select></FormControl>
             <Box sx={{ display:'flex', gap:2 }}>

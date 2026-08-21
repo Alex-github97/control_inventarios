@@ -9,6 +9,7 @@ import {
 import Grid from '@mui/material/Grid2'
 import { Gavel, Add, Edit, Delete, Close, FileDownload, UploadFile } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { SelectorResponsable } from '@/components/catalogo/SelectorResponsable'
 import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
 
 const GRC_COLOR = '#6D28D9'
@@ -200,7 +201,7 @@ export default function GRCAuditorias() {
             <SelectorCatalogo modulo="GLOBAL" tipo="AREA" label="Área de alcance" valor={form.area} onChangeEvento={sf('area')} sx={TF} />
             <Box sx={{ display:'flex', gap:2 }}>
               <TextField label="Auditor" fullWidth size="small" value={form.auditor} onChange={sf('auditor')} InputLabelProps={ILB} sx={TF} />
-              <TextField label="Responsable Interno" fullWidth size="small" value={form.responsable} onChange={sf('responsable')} InputLabelProps={ILB} sx={TF} />
+              <SelectorResponsable label="Responsable Interno" valor={form.responsable} onChangeEvento={sf('responsable')} sx={TF} />
             </Box>
             <Box sx={{ display:'flex', gap:2 }}>
               <TextField label="Fecha Inicio" type="date" fullWidth size="small" value={form.inicio} onChange={sf('inicio')} InputLabelProps={{ shrink:true }} sx={TF} />
