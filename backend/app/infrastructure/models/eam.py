@@ -211,6 +211,7 @@ class EAMActivo(Base, TimestampMixin):
     criticidad           = Column(String(20), default="MEDIA")
     parent_id            = Column(Integer, ForeignKey("eam_activo.id"), nullable=True)
     marca                = Column(String(100))
+    linea                = Column(String(100))   # jerarquía marca > línea > modelo
     modelo               = Column(String(100))
     anio                 = Column(Integer)
     numero_serie         = Column(String(100))
@@ -932,3 +933,96 @@ class EAMKPIDiario(Base, TimestampMixin):
     costo_total            = Column(Float, default=0)
     indice_confiabilidad   = Column(Float, default=0)
     alertas_activas        = Column(Integer, default=0)
+
+# ──────────────────────────────────────────
+# CATÁLOGO DE VEHÍCULOS / ACTIVOS
+# ──────────────────────────────────────────
+#
+# Misma idea que el catálogo de llantas (marca > referencia > dimensión): el
+# dato se preconfigura una vez y en la creación del activo se elige de listas
+# encadenadas. Sin esto la ficha técnica se llena a mano y termina con
+# "Kenworth", "KENWORTH" y "Ken worth" como tres marcas distintas, lo que
+# arruina cualquier reporte por marca o por línea.
+#
+# La jerarquía es: tipo de activo > marca > línea > modelo. El modelo es la
+# hoja y lleva la ficha técnica de referencia (motor, combustible, ejes), que
+# el activo hereda al crearse — igual que la referencia+dimensión de una llanta
+# aporta su profundidad inicial.
+
+
+class EAMMotorActivo(Base, TimestampMixin):
+    """Catálogo de motores. Se comparte entre modelos: el mismo Cummins ISX15
+    monta en varias líneas de varias marcas."""
+    __tablename__ = "eam_motor_activo"
+    __table_args__ = (UniqueConstraint("nombre", name="uq_eam_motor_activo_nombre"),)
+    id           = Column(Integer, primary_key=True, index=True)
+    nombre       = Column(String(120), nullable=False)
+    marca        = Column(String(100), nullable=True)   # Cummins, Detroit, Paccar…
+    cilindraje_cc = Column(Float, nullable=True)
+    potencia_hp  = Column(Float, nullable=True)
+    activo       = Column(Boolean, default=True)
+
+
+class EAMTipoCombustible(Base, TimestampMixin):
+    """Catálogo plano de combustibles (Diésel, Gasolina, GNV, Eléctrico…)."""
+    __tablename__ = "eam_tipo_combustible"
+    __table_args__ = (UniqueConstraint("nombre", name="uq_eam_tipo_combustible_nombre"),)
+    id     = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(80), nullable=False)
+    activo = Column(Boolean, default=True)
+
+
+class EAMMarcaActivo(Base, TimestampMixin):
+    """Marca del activo, opcionalmente acotada a un tipo.
+
+    `tipo_activo` nulo = la marca sirve para cualquier tipo. Con valor, solo se
+    ofrece en ese tipo: así al crear un montacargas no aparecen marcas de
+    tractocamión. Se permite el mismo nombre en tipos distintos porque hay
+    fabricantes que hacen de todo (Toyota hace carros y montacargas).
+    """
+    __tablename__ = "eam_marca_activo"
+    __table_args__ = (UniqueConstraint("nombre", "tipo_activo", name="uq_eam_marca_activo_nombre_tipo"),)
+    id          = Column(Integer, primary_key=True, index=True)
+    nombre      = Column(String(120), nullable=False)
+    tipo_activo = Column(String(50), nullable=True)   # código de eam_tipo_activo
+    activo      = Column(Boolean, default=True)
+
+
+class EAMLineaActivo(Base, TimestampMixin):
+    """Línea comercial que pertenece a una marca (Kenworth > T880)."""
+    __tablename__ = "eam_linea_activo"
+    __table_args__ = (UniqueConstraint("marca_id", "nombre", name="uq_eam_linea_activo_marca_nombre"),)
+    id       = Column(Integer, primary_key=True, index=True)
+    marca_id = Column(Integer, ForeignKey("eam_marca_activo.id", ondelete="CASCADE"), nullable=False)
+    nombre   = Column(String(120), nullable=False)
+    activo   = Column(Boolean, default=True)
+
+
+class EAMModeloActivo(Base, TimestampMixin):
+    """Versión concreta de una línea, con su ficha técnica de referencia.
+
+    Es la hoja de la jerarquía. Al crear un activo con este modelo se heredan
+    motor, combustible, ejes y vida útil, de modo que dos vehículos iguales no
+    queden con datos técnicos distintos por quien los registró.
+    """
+    __tablename__ = "eam_modelo_activo"
+    __table_args__ = (UniqueConstraint("linea_id", "nombre", name="uq_eam_modelo_activo_linea_nombre"),)
+    id       = Column(Integer, primary_key=True, index=True)
+    linea_id = Column(Integer, ForeignKey("eam_linea_activo.id", ondelete="CASCADE"), nullable=False)
+    nombre   = Column(String(120), nullable=False)
+
+    anio_desde = Column(Integer, nullable=True)
+    anio_hasta = Column(Integer, nullable=True)
+
+    # Ficha técnica que hereda el activo
+    motor_id              = Column(Integer, ForeignKey("eam_motor_activo.id", ondelete="SET NULL"), nullable=True)
+    tipo_combustible      = Column(String(80), nullable=True)
+    capacidad_combustible = Column(Float, nullable=True)
+    numero_ejes           = Column(Integer, nullable=True)
+    esquema_codigo        = Column(String(50), nullable=True)   # código de eam_esquema_vehiculo
+    vida_util_anios       = Column(Integer, nullable=True)
+    vida_util_km          = Column(Float, nullable=True)
+    capacidad_kg          = Column(Float, nullable=True)
+
+    activo = Column(Boolean, default=True)
+

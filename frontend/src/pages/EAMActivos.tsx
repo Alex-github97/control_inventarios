@@ -31,6 +31,12 @@ import {
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { Layout } from '@/components/layout/Layout'
+import {
+  SelectorCatalogoVehiculo, SELECCION_VEHICULO_VACIA,
+} from '@/components/SelectorCatalogoVehiculo'
+import type {
+  SeleccionVehiculo, CombustibleActivo,
+} from '@/components/SelectorCatalogoVehiculo'
 import { VehiculosCombinados } from '@/components/VehiculosCombinados'
 
 const EAM_COLOR = '#32AC5C'
@@ -49,6 +55,7 @@ export interface ActivoAPI {
   estado?: string | null
   criticidad?: string | null
   marca?: string | null
+  linea?: string | null
   modelo?: string | null
   anio?: number | null
   numero_serie?: string | null
@@ -92,7 +99,7 @@ const CRITICIDADES = ['CRITICA', 'ALTA', 'MEDIA', 'BAJA']
 
 const EMPTY_ACTIVO = {
   codigo: '', nombre: '', tipo_activo: 'VEHICULO', estado: 'OPERATIVO', criticidad: 'MEDIA',
-  marca: '', modelo: '', anio: '', numero_serie: '', placa: '',
+  anio: '', numero_serie: '', placa: '',
   ubicacion: '', sede: '', area: '', responsable: '',
   odometro_actual: '', horometro_actual: '', fecha_adquisicion: '', costo_adquisicion: '',
   vida_util_anios: '', tipo_combustible: '',
@@ -292,6 +299,7 @@ function Vista360({ activo, onBack, onVerOTs, onEditar, nombreTipo }: {
 
   const ficha = [
     { label: 'Marca',            value: activo.marca ?? '—' },
+    { label: 'Línea',            value: activo.linea ?? '—' },
     { label: 'Modelo',           value: activo.modelo ?? '—' },
     { label: 'Año',              value: activo.anio ? String(activo.anio) : '—' },
     { label: 'Serie / VIN',      value: activo.numero_serie ?? '—' },
@@ -512,13 +520,23 @@ function ActivoDialog({
   isPending: boolean
 }) {
   const [form, setForm] = useState({ ...EMPTY_ACTIVO })
+  // Marca, línea y modelo viven en el selector de catálogo, no en el formulario:
+  // son una jerarquía encadenada y elegir un nivel invalida los de abajo.
+  const [cat, setCat] = useState<SeleccionVehiculo>({ ...SELECCION_VEHICULO_VACIA })
   const [wasOpen, setWasOpen] = useState(false)
   if (open && !wasOpen) {
     setWasOpen(true)
+    // Al editar solo se conservan los nombres: los ids se resuelven cuando el
+    // usuario vuelve a tocar la cascada, y mientras tanto se muestran tal cual.
+    setCat({
+      ...SELECCION_VEHICULO_VACIA,
+      marca: editando?.marca ?? '', linea: editando?.linea ?? '',
+      modelo: editando?.modelo ?? '',
+    })
     setForm(editando ? {
       codigo: editando.codigo ?? '', nombre: editando.nombre ?? '',
       tipo_activo: editando.tipo_activo ?? 'VEHICULO', estado: editando.estado ?? 'OPERATIVO',
-      criticidad: editando.criticidad ?? 'MEDIA', marca: editando.marca ?? '', modelo: editando.modelo ?? '',
+      criticidad: editando.criticidad ?? 'MEDIA',
       anio: editando.anio != null ? String(editando.anio) : '', numero_serie: editando.numero_serie ?? '',
       placa: editando.placa ?? '', ubicacion: editando.ubicacion ?? '', sede: editando.sede ?? '',
       area: editando.area ?? '', responsable: editando.responsable ?? '',
@@ -539,6 +557,20 @@ function ActivoDialog({
   const txt = (v: string) => (v.trim() === '' ? undefined : v.trim())
   const usaLlantas = tipos.find(t => t.codigo === form.tipo_activo)?.usa_llantas ?? false
 
+  // El combustible también sale de catálogo: escribirlo a mano dejaba "Diesel",
+  // "DIESEL" y "Diésel" como tres valores distintos en los reportes.
+  const { data: combustibles = [] } = useQuery<CombustibleActivo[]>({
+    queryKey: ['eam-cat-veh-combustibles'],
+    queryFn: () => apiClient.get('/eam/catalogo-vehiculos/combustibles',
+      { params: { solo_activos: true } }).then(r => r.data),
+    enabled: open,
+  })
+
+  /** El modelo del catálogo manda sobre lo que el usuario no haya tocado. */
+  const combustibleEfectivo = form.tipo_combustible || cat.tipo_combustible || ''
+  const vidaUtilEfectiva = form.vida_util_anios
+    || (cat.vida_util_anios != null ? String(cat.vida_util_anios) : '')
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: '14px' } }}>
       <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>
@@ -549,32 +581,67 @@ function ActivoDialog({
           <Grid size={{ xs: 12 }}><Typography fontSize={11} fontWeight={700} color="#94A3B8" letterSpacing="0.06em">IDENTIFICACIÓN</Typography></Grid>
           <Grid size={{ xs: 12, sm: 4 }}><TextField label="Código *" size="small" fullWidth value={form.codigo} onChange={set('codigo')} disabled={!!editando} helperText={editando ? 'El código no se cambia' : undefined} /></Grid>
           <Grid size={{ xs: 12, sm: 8 }}><TextField label="Nombre / descripción *" size="small" fullWidth value={form.nombre} onChange={set('nombre')} /></Grid>
-          <Grid size={{ xs: 12, sm: 4 }}>
+          <Grid size={{ xs: 12, sm: editando ? 4 : 6 }}>
             <TextField select label="Tipo de activo *" size="small" fullWidth value={form.tipo_activo} onChange={set('tipo_activo')}>
               {(tipos.length ? tipos : [{ codigo: 'VEHICULO', nombre: 'Vehículo' } as TipoActivoCat]).map(t => (
                 <MenuItem key={t.codigo} value={t.codigo}>{t.nombre}</MenuItem>
               ))}
             </TextField>
           </Grid>
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <TextField select label="Estado" size="small" fullWidth value={form.estado} onChange={set('estado')}>
-              {ESTADOS_ACTIVO.map(e => <MenuItem key={e} value={e}>{e.replace(/_/g, ' ')}</MenuItem>)}
-            </TextField>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <TextField select label="Criticidad" size="small" fullWidth value={form.criticidad} onChange={set('criticidad')}>
-              {CRITICIDADES.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
-            </TextField>
-          </Grid>
+          {/* Estado y criticidad solo al editar: un activo que se registra entra
+              nuevo y operativo, así que preguntarlo al crear es una decisión que
+              nadie tiene que tomar todavía. Se cambian después, cuando el activo
+              sale de servicio o se reclasifica. */}
+          {editando && (
+            <>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <TextField select label="Estado" size="small" fullWidth value={form.estado} onChange={set('estado')}>
+                  {ESTADOS_ACTIVO.map(e => <MenuItem key={e} value={e}>{e.replace(/_/g, ' ')}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <TextField select label="Criticidad" size="small" fullWidth value={form.criticidad} onChange={set('criticidad')}>
+                  {CRITICIDADES.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                </TextField>
+              </Grid>
+            </>
+          )}
 
           <Grid size={{ xs: 12 }}><Typography fontSize={11} fontWeight={700} color="#94A3B8" letterSpacing="0.06em" mt={1}>FICHA TÉCNICA</Typography></Grid>
-          <Grid size={{ xs: 6, sm: 3 }}><TextField label="Marca" size="small" fullWidth value={form.marca} onChange={set('marca')} /></Grid>
-          <Grid size={{ xs: 6, sm: 3 }}><TextField label="Modelo" size="small" fullWidth value={form.modelo} onChange={set('modelo')} /></Grid>
+          {/* Jerarquía del catálogo: marca → línea → modelo. El modelo trae la
+              ficha técnica, así que motor, combustible y ejes no se digitan. */}
+          <Grid size={{ xs: 12 }}>
+            <SelectorCatalogoVehiculo
+              tipoActivo={form.tipo_activo}
+              valor={cat}
+              onChange={setCat}
+              color={EAM_COLOR}
+            />
+          </Grid>
           <Grid size={{ xs: 6, sm: 3 }}><TextField label="Año" type="number" size="small" fullWidth value={form.anio} onChange={set('anio')} /></Grid>
           <Grid size={{ xs: 6, sm: 3 }}><TextField label="Placa" size="small" fullWidth value={form.placa} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm(f => ({ ...f, placa: e.target.value.toUpperCase() }))} /></Grid>
           <Grid size={{ xs: 12, sm: 6 }}><TextField label="N.º de serie / VIN" size="small" fullWidth value={form.numero_serie} onChange={set('numero_serie')} /></Grid>
-          <Grid size={{ xs: 6, sm: 3 }}><TextField label="Tipo de combustible" size="small" fullWidth value={form.tipo_combustible} onChange={set('tipo_combustible')} /></Grid>
-          <Grid size={{ xs: 6, sm: 3 }}><TextField label="Vida útil (años)" type="number" size="small" fullWidth value={form.vida_util_anios} onChange={set('vida_util_anios')} /></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <TextField
+              select label="Tipo de combustible" size="small" fullWidth
+              value={combustibleEfectivo}
+              onChange={e => setForm(f => ({ ...f, tipo_combustible: e.target.value }))}
+              helperText={!form.tipo_combustible && cat.tipo_combustible
+                ? 'Viene del modelo elegido' : undefined}
+            >
+              <MenuItem value="">Sin especificar</MenuItem>
+              {combustibles.map(c => <MenuItem key={c.id} value={c.nombre}>{c.nombre}</MenuItem>)}
+            </TextField>
+          </Grid>
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <TextField
+              label="Vida útil (años)" type="number" size="small" fullWidth
+              value={vidaUtilEfectiva}
+              onChange={e => setForm(f => ({ ...f, vida_util_anios: e.target.value }))}
+              helperText={!form.vida_util_anios && cat.vida_util_anios != null
+                ? 'Viene del modelo elegido' : undefined}
+            />
+          </Grid>
 
           <Grid size={{ xs: 12 }}><Typography fontSize={11} fontWeight={700} color="#94A3B8" letterSpacing="0.06em" mt={1}>UBICACIÓN Y RESPONSABLE</Typography></Grid>
           <Grid size={{ xs: 12, sm: 3 }}><TextField label="Ubicación" size="small" fullWidth value={form.ubicacion} onChange={set('ubicacion')} /></Grid>
@@ -606,13 +673,22 @@ function ActivoDialog({
           onClick={() => onSubmit({
             codigo: form.codigo.trim(), nombre: form.nombre.trim(),
             tipo_activo: form.tipo_activo, estado: form.estado, criticidad: form.criticidad,
-            marca: txt(form.marca), modelo: txt(form.modelo), anio: num(form.anio),
+            // La jerarquía sale del selector de catálogo; el backend la valida
+            // y devuelve error si la combinación no existe.
+            marca: txt(cat.marca), linea: txt(cat.linea), modelo: txt(cat.modelo),
+            anio: num(form.anio),
             numero_serie: txt(form.numero_serie), placa: txt(form.placa),
             ubicacion: txt(form.ubicacion), sede: txt(form.sede), area: txt(form.area),
             responsable: txt(form.responsable),
             odometro_actual: num(form.odometro_actual), horometro_actual: num(form.horometro_actual),
             fecha_adquisicion: txt(form.fecha_adquisicion), costo_adquisicion: num(form.costo_adquisicion),
-            vida_util_anios: num(form.vida_util_anios), tipo_combustible: txt(form.tipo_combustible),
+            vida_util_anios: num(vidaUtilEfectiva), tipo_combustible: txt(combustibleEfectivo),
+            // Ficha técnica heredada del modelo del catálogo
+            motor_marca: cat.motor_marca ?? undefined,
+            motor_linea: cat.motor_linea ?? undefined,
+            numero_ejes: cat.numero_ejes ?? undefined,
+            capacidad_combustible: cat.capacidad_combustible ?? undefined,
+            vida_util_km: cat.vida_util_km ?? undefined,
           })}
           sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, fontWeight: 700, borderRadius: '8px' }}
         >

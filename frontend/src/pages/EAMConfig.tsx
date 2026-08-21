@@ -26,6 +26,7 @@ import {
   Close as CloseIcon,
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { CatalogoVehiculos } from '@/components/CatalogoVehiculos'
 import { EsquemaLlantasPreview } from '@/components/EsquemaLlantasPreview'
 import { apiClient } from '@/api/client'
 
@@ -505,6 +506,24 @@ export default function EAMConfig() {
         {/* Tab 0: Catálogos */}
         {tab === 0 && (
           <Grid container spacing={2}>
+
+            {/* ── Catálogo de vehículos: tipo > marca > línea > modelo ── */}
+            <Grid size={{ xs: 12 }}>
+              <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(EAM_COLOR, 0.2)}` }}>
+                <CardContent>
+                  <Box mb={2}>
+                    <Typography variant="subtitle1" fontWeight={700} color="#1E293B">
+                      Catálogo de vehículos y equipos
+                    </Typography>
+                    <Typography variant="caption" color="grey.500">
+                      Tipo → marca → línea → modelo, con motores y combustibles. Es lo que se
+                      ofrece al crear un activo.
+                    </Typography>
+                  </Box>
+                  <CatalogoVehiculos color={EAM_COLOR} />
+                </CardContent>
+              </Card>
+            </Grid>
 
             {/* ── Tipos de Trabajo — card especial con CRUD ── */}
             <Grid size={{ xs: 12 }}>

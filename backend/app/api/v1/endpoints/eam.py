@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -27,6 +27,7 @@ from app.infrastructure.models.eam import (
     EAMCongeladoNeumatico, EAMCongeladoDetalleNeumatico,
     EAMTipoActivo,
     EAMMarcaNeumatico, EAMDimensionNeumatico, EAMReferenciaNeumatico, EAMReferenciaDimension,
+    EAMMarcaActivo, EAMLineaActivo, EAMModeloActivo, EAMMotorActivo, EAMTipoCombustible,
 )
 from app.infrastructure.models.tms import TMSVehiculo
 from app.infrastructure.models.flota import FlotaVehiculo
@@ -122,6 +123,7 @@ class ActivoCreate(BaseModel):
     criticidad: Optional[str] = "MEDIA"
     parent_id: Optional[int] = None
     marca: Optional[str] = None
+    linea: Optional[str] = None
     modelo: Optional[str] = None
     anio: Optional[int] = None
     numero_serie: Optional[str] = None
@@ -175,6 +177,7 @@ class VehiculoCombinadoResponse(BaseModel):
     placa: Optional[str] = None
     tipo: Optional[str] = None
     marca: Optional[str] = None
+    linea: Optional[str] = None
     modelo: Optional[str] = None
     anio: Optional[int] = None
     numero_ejes: Optional[int] = None
@@ -1111,7 +1114,12 @@ async def desactivar_tipo_activo(tid: int, db: AsyncSession = Depends(get_db)):
 
 @router.post("/activos", response_model=ActivoResponse)
 async def create_activo(data: ActivoCreate, db: AsyncSession = Depends(get_db)):
-    obj = EAMActivo(**data.model_dump())
+    valores = data.model_dump()
+    try:
+        await _resolver_catalogo_activo(db, valores)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    obj = EAMActivo(**valores)
     db.add(obj); await db.commit(); await db.refresh(obj)
     return obj
 
@@ -1127,7 +1135,30 @@ async def update_activo(activo_id: int, data: ActivoCreate, db: AsyncSession = D
     obj = await db.get(EAMActivo, activo_id)
     if not obj:
         raise HTTPException(404, "Activo no encontrado")
-    for k, v in data.model_dump(exclude_unset=True).items():
+    valores = data.model_dump(exclude_unset=True)
+    # Se valida sobre la jerarquia completa, no solo sobre lo que llego: cambiar
+    # la marca sin cambiar la linea dejaria una combinacion que no existe.
+    if any(c in valores for c in ("marca", "linea", "modelo", "tipo_activo")):
+        completo = {
+            "marca": valores.get("marca", obj.marca),
+            "linea": valores.get("linea", obj.linea),
+            "modelo": valores.get("modelo", obj.modelo),
+            "tipo_activo": valores.get("tipo_activo", obj.tipo_activo),
+            "motor_marca": valores.get("motor_marca", obj.motor_marca),
+            "motor_linea": valores.get("motor_linea", obj.motor_linea),
+            "motor_cc": valores.get("motor_cc", obj.motor_cc),
+            "tipo_combustible": valores.get("tipo_combustible", obj.tipo_combustible),
+            "capacidad_combustible": valores.get("capacidad_combustible", obj.capacidad_combustible),
+            "numero_ejes": valores.get("numero_ejes", obj.numero_ejes),
+            "vida_util_anios": valores.get("vida_util_anios", obj.vida_util_anios),
+            "vida_util_km": valores.get("vida_util_km", obj.vida_util_km),
+        }
+        try:
+            await _resolver_catalogo_activo(db, completo)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        valores.update(completo)
+    for k, v in valores.items():
         setattr(obj, k, v)
     await db.commit(); await db.refresh(obj)
     return obj
@@ -3162,6 +3193,501 @@ async def reporte_composicion(
                 porcentaje=round(cantidad / total * 100, 1),
             ))
     return salida
+
+
+# ──────────────────────────────────────────
+# CATALOGO DE VEHICULOS (tipo > marca > linea > modelo)
+# ──────────────────────────────────────────
+#
+# Mismo criterio que el catalogo de llantas: el dato se preconfigura y en la
+# creacion del activo se elige de listas encadenadas, para que la ficha tecnica
+# no termine con "Kenworth", "KENWORTH" y "Ken worth" como tres marcas.
+
+
+class MarcaActivoBase(BaseModel):
+    nombre: str
+    tipo_activo: Optional[str] = None
+    activo: Optional[bool] = True
+
+
+class MarcaActivoResponse(MarcaActivoBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    total_lineas: int = 0
+
+
+@router.get("/catalogo-vehiculos/marcas", response_model=List[MarcaActivoResponse])
+async def listar_marcas_activo(
+    tipo_activo: Optional[str] = None,
+    solo_activas: bool = False,
+    db: AsyncSession = Depends(get_db),
+):
+    """Marcas del catalogo. Si se pasa un tipo se devuelven las de ese tipo mas
+    las generales (tipo nulo), que sirven para cualquiera."""
+    q = select(EAMMarcaActivo)
+    if tipo_activo:
+        q = q.where(or_(EAMMarcaActivo.tipo_activo == tipo_activo,
+                        EAMMarcaActivo.tipo_activo.is_(None)))
+    if solo_activas:
+        q = q.where(EAMMarcaActivo.activo == True)
+    r = await db.execute(q.order_by(EAMMarcaActivo.nombre))
+    marcas = r.scalars().all()
+
+    rl = await db.execute(select(EAMLineaActivo.marca_id, func.count())
+                          .group_by(EAMLineaActivo.marca_id))
+    conteo = {mid: n for mid, n in rl.all()}
+
+    salida = []
+    for m in marcas:
+        item = MarcaActivoResponse.model_validate(m)
+        item.total_lineas = conteo.get(m.id, 0)
+        salida.append(item)
+    return salida
+
+
+@router.post("/catalogo-vehiculos/marcas", response_model=MarcaActivoResponse, status_code=201)
+async def crear_marca_activo(data: MarcaActivoBase, db: AsyncSession = Depends(get_db)):
+    nombre = (data.nombre or "").strip()
+    if not nombre:
+        raise HTTPException(400, "El nombre de la marca es obligatorio.")
+    r = await db.execute(select(EAMMarcaActivo).where(
+        func.lower(EAMMarcaActivo.nombre) == nombre.lower(),
+        EAMMarcaActivo.tipo_activo == data.tipo_activo,
+    ))
+    if r.scalar_one_or_none() is not None:
+        raise HTTPException(400, "La marca '%s' ya esta registrada%s."
+                                 % (nombre, " para ese tipo de activo" if data.tipo_activo else ""))
+    obj = EAMMarcaActivo(nombre=nombre, tipo_activo=data.tipo_activo,
+                         activo=data.activo if data.activo is not None else True)
+    db.add(obj); await db.commit(); await db.refresh(obj)
+    return MarcaActivoResponse.model_validate(obj)
+
+
+@router.put("/catalogo-vehiculos/marcas/{mid}", response_model=MarcaActivoResponse)
+async def actualizar_marca_activo(mid: int, data: MarcaActivoBase, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMMarcaActivo, mid)
+    if obj is None:
+        raise HTTPException(404, "Marca no encontrada")
+    for k, v in data.model_dump(exclude_unset=True).items():
+        setattr(obj, k, v.strip() if isinstance(v, str) else v)
+    await db.commit(); await db.refresh(obj)
+    return MarcaActivoResponse.model_validate(obj)
+
+
+@router.delete("/catalogo-vehiculos/marcas/{mid}", status_code=204)
+async def eliminar_marca_activo(mid: int, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMMarcaActivo, mid)
+    if obj is None:
+        raise HTTPException(404, "Marca no encontrada")
+    r = await db.execute(select(func.count()).select_from(EAMActivo).where(
+        func.lower(EAMActivo.marca) == obj.nombre.lower()))
+    usados = r.scalar() or 0
+    if usados > 0:
+        obj.activo = False
+        await db.commit()
+        return
+    await db.delete(obj); await db.commit()
+
+
+class LineaActivoBase(BaseModel):
+    marca_id: int
+    nombre: str
+    activo: Optional[bool] = True
+
+
+class LineaActivoResponse(LineaActivoBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    marca: Optional[str] = None
+    total_modelos: int = 0
+
+
+@router.get("/catalogo-vehiculos/lineas", response_model=List[LineaActivoResponse])
+async def listar_lineas_activo(
+    marca_id: Optional[int] = None,
+    solo_activas: bool = False,
+    db: AsyncSession = Depends(get_db),
+):
+    q = select(EAMLineaActivo)
+    if marca_id is not None:
+        q = q.where(EAMLineaActivo.marca_id == marca_id)
+    if solo_activas:
+        q = q.where(EAMLineaActivo.activo == True)
+    r = await db.execute(q.order_by(EAMLineaActivo.nombre))
+    lineas = r.scalars().all()
+
+    rm = await db.execute(select(EAMMarcaActivo))
+    marcas = {m.id: m.nombre for m in rm.scalars().all()}
+    rmo = await db.execute(select(EAMModeloActivo.linea_id, func.count())
+                           .group_by(EAMModeloActivo.linea_id))
+    conteo = {lid: n for lid, n in rmo.all()}
+
+    salida = []
+    for l in lineas:
+        item = LineaActivoResponse.model_validate(l)
+        item.marca = marcas.get(l.marca_id)
+        item.total_modelos = conteo.get(l.id, 0)
+        salida.append(item)
+    return salida
+
+
+@router.post("/catalogo-vehiculos/lineas", response_model=LineaActivoResponse, status_code=201)
+async def crear_linea_activo(data: LineaActivoBase, db: AsyncSession = Depends(get_db)):
+    nombre = (data.nombre or "").strip()
+    if not nombre:
+        raise HTTPException(400, "El nombre de la linea es obligatorio.")
+    marca = await db.get(EAMMarcaActivo, data.marca_id)
+    if marca is None:
+        raise HTTPException(404, "La marca indicada no existe.")
+    r = await db.execute(select(EAMLineaActivo).where(
+        EAMLineaActivo.marca_id == data.marca_id,
+        func.lower(EAMLineaActivo.nombre) == nombre.lower(),
+    ))
+    if r.scalar_one_or_none() is not None:
+        raise HTTPException(400, "La linea '%s' ya existe en %s." % (nombre, marca.nombre))
+    obj = EAMLineaActivo(marca_id=data.marca_id, nombre=nombre,
+                         activo=data.activo if data.activo is not None else True)
+    db.add(obj); await db.commit(); await db.refresh(obj)
+    item = LineaActivoResponse.model_validate(obj)
+    item.marca = marca.nombre
+    return item
+
+
+@router.put("/catalogo-vehiculos/lineas/{lid}", response_model=LineaActivoResponse)
+async def actualizar_linea_activo(lid: int, data: LineaActivoBase, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMLineaActivo, lid)
+    if obj is None:
+        raise HTTPException(404, "Linea no encontrada")
+    for k, v in data.model_dump(exclude_unset=True).items():
+        setattr(obj, k, v.strip() if isinstance(v, str) else v)
+    await db.commit(); await db.refresh(obj)
+    item = LineaActivoResponse.model_validate(obj)
+    marca = await db.get(EAMMarcaActivo, obj.marca_id)
+    item.marca = marca.nombre if marca else None
+    return item
+
+
+@router.delete("/catalogo-vehiculos/lineas/{lid}", status_code=204)
+async def eliminar_linea_activo(lid: int, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMLineaActivo, lid)
+    if obj is None:
+        raise HTTPException(404, "Linea no encontrada")
+    r = await db.execute(select(func.count()).select_from(EAMActivo).where(
+        func.lower(EAMActivo.linea) == obj.nombre.lower()))
+    if (r.scalar() or 0) > 0:
+        obj.activo = False
+        await db.commit()
+        return
+    await db.delete(obj); await db.commit()
+
+
+class ModeloActivoBase(BaseModel):
+    linea_id: int
+    nombre: str
+    anio_desde: Optional[int] = None
+    anio_hasta: Optional[int] = None
+    motor_id: Optional[int] = None
+    tipo_combustible: Optional[str] = None
+    capacidad_combustible: Optional[float] = None
+    numero_ejes: Optional[int] = None
+    esquema_codigo: Optional[str] = None
+    vida_util_anios: Optional[int] = None
+    vida_util_km: Optional[float] = None
+    capacidad_kg: Optional[float] = None
+    activo: Optional[bool] = True
+
+
+class ModeloActivoResponse(ModeloActivoBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    linea: Optional[str] = None
+    marca: Optional[str] = None
+    motor: Optional[str] = None
+
+
+@router.get("/catalogo-vehiculos/modelos", response_model=List[ModeloActivoResponse])
+async def listar_modelos_activo(
+    linea_id: Optional[int] = None,
+    solo_activos: bool = False,
+    db: AsyncSession = Depends(get_db),
+):
+    q = select(EAMModeloActivo)
+    if linea_id is not None:
+        q = q.where(EAMModeloActivo.linea_id == linea_id)
+    if solo_activos:
+        q = q.where(EAMModeloActivo.activo == True)
+    r = await db.execute(q.order_by(EAMModeloActivo.nombre))
+    modelos = r.scalars().all()
+
+    rl = await db.execute(select(EAMLineaActivo))
+    lineas = {l.id: l for l in rl.scalars().all()}
+    rm = await db.execute(select(EAMMarcaActivo))
+    marcas = {m.id: m.nombre for m in rm.scalars().all()}
+    rmo = await db.execute(select(EAMMotorActivo))
+    motores = {mo.id: mo.nombre for mo in rmo.scalars().all()}
+
+    salida = []
+    for mo in modelos:
+        item = ModeloActivoResponse.model_validate(mo)
+        linea = lineas.get(mo.linea_id)
+        item.linea = linea.nombre if linea else None
+        item.marca = marcas.get(linea.marca_id) if linea else None
+        item.motor = motores.get(mo.motor_id) if mo.motor_id else None
+        salida.append(item)
+    return salida
+
+
+async def _armar_modelo_response(db: AsyncSession, obj: EAMModeloActivo) -> "ModeloActivoResponse":
+    """Completa marca, linea y motor. El GET los resolvia en lote y el POST/PUT
+    no, asi que devolvian el modelo a medias."""
+    item = ModeloActivoResponse.model_validate(obj)
+    linea = await db.get(EAMLineaActivo, obj.linea_id)
+    if linea is not None:
+        item.linea = linea.nombre
+        marca = await db.get(EAMMarcaActivo, linea.marca_id)
+        item.marca = marca.nombre if marca else None
+    if obj.motor_id:
+        motor = await db.get(EAMMotorActivo, obj.motor_id)
+        item.motor = motor.nombre if motor else None
+    return item
+
+
+@router.post("/catalogo-vehiculos/modelos", response_model=ModeloActivoResponse, status_code=201)
+async def crear_modelo_activo(data: ModeloActivoBase, db: AsyncSession = Depends(get_db)):
+    nombre = (data.nombre or "").strip()
+    if not nombre:
+        raise HTTPException(400, "El nombre del modelo es obligatorio.")
+    linea = await db.get(EAMLineaActivo, data.linea_id)
+    if linea is None:
+        raise HTTPException(404, "La linea indicada no existe.")
+    r = await db.execute(select(EAMModeloActivo).where(
+        EAMModeloActivo.linea_id == data.linea_id,
+        func.lower(EAMModeloActivo.nombre) == nombre.lower(),
+    ))
+    if r.scalar_one_or_none() is not None:
+        raise HTTPException(400, "El modelo '%s' ya existe en la linea %s." % (nombre, linea.nombre))
+    valores = data.model_dump()
+    valores["nombre"] = nombre
+    obj = EAMModeloActivo(**valores)
+    db.add(obj); await db.commit(); await db.refresh(obj)
+    return await _armar_modelo_response(db, obj)
+
+
+@router.put("/catalogo-vehiculos/modelos/{moid}", response_model=ModeloActivoResponse)
+async def actualizar_modelo_activo(moid: int, data: ModeloActivoBase, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMModeloActivo, moid)
+    if obj is None:
+        raise HTTPException(404, "Modelo no encontrado")
+    for k, v in data.model_dump(exclude_unset=True).items():
+        setattr(obj, k, v.strip() if isinstance(v, str) else v)
+    await db.commit(); await db.refresh(obj)
+    return await _armar_modelo_response(db, obj)
+
+
+@router.delete("/catalogo-vehiculos/modelos/{moid}", status_code=204)
+async def eliminar_modelo_activo(moid: int, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMModeloActivo, moid)
+    if obj is None:
+        raise HTTPException(404, "Modelo no encontrado")
+    r = await db.execute(select(func.count()).select_from(EAMActivo).where(
+        func.lower(EAMActivo.modelo) == obj.nombre.lower()))
+    if (r.scalar() or 0) > 0:
+        obj.activo = False
+        await db.commit()
+        return
+    await db.delete(obj); await db.commit()
+
+
+class MotorActivoBase(BaseModel):
+    nombre: str
+    marca: Optional[str] = None
+    cilindraje_cc: Optional[float] = None
+    potencia_hp: Optional[float] = None
+    activo: Optional[bool] = True
+
+
+class MotorActivoResponse(MotorActivoBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+
+
+@router.get("/catalogo-vehiculos/motores", response_model=List[MotorActivoResponse])
+async def listar_motores(solo_activos: bool = False, db: AsyncSession = Depends(get_db)):
+    q = select(EAMMotorActivo)
+    if solo_activos:
+        q = q.where(EAMMotorActivo.activo == True)
+    r = await db.execute(q.order_by(EAMMotorActivo.nombre))
+    return r.scalars().all()
+
+
+@router.post("/catalogo-vehiculos/motores", response_model=MotorActivoResponse, status_code=201)
+async def crear_motor(data: MotorActivoBase, db: AsyncSession = Depends(get_db)):
+    nombre = (data.nombre or "").strip()
+    if not nombre:
+        raise HTTPException(400, "El nombre del motor es obligatorio.")
+    r = await db.execute(select(EAMMotorActivo).where(
+        func.lower(EAMMotorActivo.nombre) == nombre.lower()))
+    if r.scalar_one_or_none() is not None:
+        raise HTTPException(400, "El motor '%s' ya esta registrado." % nombre)
+    valores = data.model_dump(); valores["nombre"] = nombre
+    obj = EAMMotorActivo(**valores)
+    db.add(obj); await db.commit(); await db.refresh(obj)
+    return obj
+
+
+@router.put("/catalogo-vehiculos/motores/{moid}", response_model=MotorActivoResponse)
+async def actualizar_motor(moid: int, data: MotorActivoBase, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMMotorActivo, moid)
+    if obj is None:
+        raise HTTPException(404, "Motor no encontrado")
+    for k, v in data.model_dump(exclude_unset=True).items():
+        setattr(obj, k, v.strip() if isinstance(v, str) else v)
+    await db.commit(); await db.refresh(obj)
+    return obj
+
+
+@router.delete("/catalogo-vehiculos/motores/{moid}", status_code=204)
+async def eliminar_motor(moid: int, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMMotorActivo, moid)
+    if obj is None:
+        raise HTTPException(404, "Motor no encontrado")
+    r = await db.execute(select(func.count()).select_from(EAMModeloActivo).where(
+        EAMModeloActivo.motor_id == moid))
+    if (r.scalar() or 0) > 0:
+        obj.activo = False
+        await db.commit()
+        return
+    await db.delete(obj); await db.commit()
+
+
+class CombustibleBase(BaseModel):
+    nombre: str
+    activo: Optional[bool] = True
+
+
+class CombustibleResponse(CombustibleBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+
+
+@router.get("/catalogo-vehiculos/combustibles", response_model=List[CombustibleResponse])
+async def listar_combustibles(solo_activos: bool = False, db: AsyncSession = Depends(get_db)):
+    q = select(EAMTipoCombustible)
+    if solo_activos:
+        q = q.where(EAMTipoCombustible.activo == True)
+    r = await db.execute(q.order_by(EAMTipoCombustible.nombre))
+    return r.scalars().all()
+
+
+@router.post("/catalogo-vehiculos/combustibles", response_model=CombustibleResponse, status_code=201)
+async def crear_combustible(data: CombustibleBase, db: AsyncSession = Depends(get_db)):
+    nombre = (data.nombre or "").strip()
+    if not nombre:
+        raise HTTPException(400, "El nombre del combustible es obligatorio.")
+    r = await db.execute(select(EAMTipoCombustible).where(
+        func.lower(EAMTipoCombustible.nombre) == nombre.lower()))
+    if r.scalar_one_or_none() is not None:
+        raise HTTPException(400, "El combustible '%s' ya esta registrado." % nombre)
+    obj = EAMTipoCombustible(nombre=nombre,
+                             activo=data.activo if data.activo is not None else True)
+    db.add(obj); await db.commit(); await db.refresh(obj)
+    return obj
+
+
+@router.delete("/catalogo-vehiculos/combustibles/{cid}", status_code=204)
+async def eliminar_combustible(cid: int, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMTipoCombustible, cid)
+    if obj is None:
+        raise HTTPException(404, "Combustible no encontrado")
+    r = await db.execute(select(func.count()).select_from(EAMActivo).where(
+        func.lower(EAMActivo.tipo_combustible) == obj.nombre.lower()))
+    if (r.scalar() or 0) > 0:
+        obj.activo = False
+        await db.commit()
+        return
+    await db.delete(obj); await db.commit()
+
+
+# -- Resolucion del activo contra el catalogo ---------------------------------
+
+async def _resolver_catalogo_activo(db: AsyncSession, valores: dict) -> None:
+    """Valida marca/linea/modelo contra el catalogo y hereda la ficha tecnica.
+
+    Modifica `valores` en sitio. Se aplica igual que en las llantas: el nombre
+    se normaliza a como esta escrito en el catalogo, para que reportar por
+    marca no dependa de como lo escribio quien registro el activo. Los datos
+    tecnicos del modelo (motor, combustible, ejes, vida util) se copian solo si
+    el activo no traia el suyo, de modo que un caso particular pueda
+    sobreescribirlos.
+
+    Lanza ValueError con un mensaje entendible cuando el valor no esta en el
+    catalogo, para no dejar entrar texto libre por la puerta de atras.
+    """
+    marca_txt = (valores.get("marca") or "").strip()
+    linea_txt = (valores.get("linea") or "").strip()
+    modelo_txt = (valores.get("modelo") or "").strip()
+    tipo = valores.get("tipo_activo")
+
+    if not marca_txt:
+        # Sin marca no hay jerarquia que validar; linea y modelo quedan sueltos
+        # solo si tampoco vinieron.
+        if linea_txt or modelo_txt:
+            raise ValueError("Indique la marca antes de la linea o el modelo.")
+        return
+
+    r = await db.execute(select(EAMMarcaActivo).where(
+        func.lower(EAMMarcaActivo.nombre) == marca_txt.lower()))
+    candidatas = r.scalars().all()
+    if not candidatas:
+        raise ValueError("La marca '%s' no esta en el catalogo. Agreguela en la "
+                         "configuracion del CMMS antes de usarla." % marca_txt)
+    # Se prefiere la marca del tipo pedido; si no hay, la general
+    marca = next((m for m in candidatas if tipo and m.tipo_activo == tipo), None)
+    if marca is None:
+        marca = next((m for m in candidatas if m.tipo_activo is None), None)
+    if marca is None:
+        raise ValueError("La marca '%s' no esta habilitada para el tipo de activo "
+                         "'%s'." % (marca_txt, tipo or "sin tipo"))
+    valores["marca"] = marca.nombre
+
+    if not linea_txt:
+        if modelo_txt:
+            raise ValueError("Indique la linea antes del modelo.")
+        return
+
+    r = await db.execute(select(EAMLineaActivo).where(
+        EAMLineaActivo.marca_id == marca.id,
+        func.lower(EAMLineaActivo.nombre) == linea_txt.lower()))
+    linea = r.scalar_one_or_none()
+    if linea is None:
+        raise ValueError("La linea '%s' no pertenece a la marca '%s'."
+                         % (linea_txt, marca.nombre))
+    valores["linea"] = linea.nombre
+
+    if not modelo_txt:
+        return
+
+    r = await db.execute(select(EAMModeloActivo).where(
+        EAMModeloActivo.linea_id == linea.id,
+        func.lower(EAMModeloActivo.nombre) == modelo_txt.lower()))
+    modelo = r.scalar_one_or_none()
+    if modelo is None:
+        raise ValueError("El modelo '%s' no existe en la linea '%s' de %s."
+                         % (modelo_txt, linea.nombre, marca.nombre))
+    valores["modelo"] = modelo.nombre
+
+    # Herencia de la ficha tecnica: solo lo que el activo no trajo
+    if modelo.motor_id and not valores.get("motor_marca") and not valores.get("motor_linea"):
+        motor = await db.get(EAMMotorActivo, modelo.motor_id)
+        if motor is not None:
+            valores["motor_marca"] = motor.marca
+            valores["motor_linea"] = motor.nombre
+            if valores.get("motor_cc") in (None, 0):
+                valores["motor_cc"] = motor.cilindraje_cc
+    for campo in ("tipo_combustible", "capacidad_combustible", "numero_ejes",
+                  "vida_util_anios", "vida_util_km"):
+        if valores.get(campo) in (None, "", 0) and getattr(modelo, campo, None) is not None:
+            valores[campo] = getattr(modelo, campo)
 
 
 # -- Alertas (profundidad / presion / desalineacion) --

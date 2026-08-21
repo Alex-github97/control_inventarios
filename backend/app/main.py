@@ -249,6 +249,118 @@ async def lifespan(app: FastAPI):
             ON CONFLICT (codigo) DO NOTHING
         """))
 
+        # ── EAM · Catálogo de vehículos (tipo > marca > línea > modelo) ──
+        # La ficha técnica del activo se llenaba a mano y terminaba con
+        # "Kenworth", "KENWORTH" y "Ken worth" como tres marcas distintas.
+        await conn.execute(text(
+            "ALTER TABLE eam_activo ADD COLUMN IF NOT EXISTS linea VARCHAR(100)"
+        ))
+
+        # Combustibles y motores de arranque
+        await conn.execute(text("""
+            INSERT INTO eam_tipo_combustible (nombre, activo, created_at, updated_at)
+            VALUES ('Diésel', true, now(), now()), ('Gasolina', true, now(), now()),
+                   ('GNV', true, now(), now()), ('Eléctrico', true, now(), now()),
+                   ('Híbrido', true, now(), now()), ('GLP', true, now(), now())
+            ON CONFLICT (nombre) DO NOTHING
+        """))
+        await conn.execute(text("""
+            INSERT INTO eam_motor_activo (nombre, marca, cilindraje_cc, potencia_hp, activo, created_at, updated_at)
+            VALUES
+                ('Cummins ISX15',   'Cummins', 14900, 500, true, now(), now()),
+                ('Cummins ISL9',    'Cummins',  8900, 380, true, now(), now()),
+                ('Paccar MX-13',    'Paccar',  12900, 510, true, now(), now()),
+                ('Detroit DD15',    'Detroit', 14800, 505, true, now(), now()),
+                ('Mercedes OM 457', 'Mercedes',11970, 428, true, now(), now()),
+                ('Hino J08E',       'Hino',     7684, 260, true, now(), now()),
+                ('Isuzu 4HK1',      'Isuzu',    5193, 190, true, now(), now())
+            ON CONFLICT (nombre) DO NOTHING
+        """))
+
+        # Marcas por tipo de activo. La marca con tipo NULL sirve para cualquiera.
+        await conn.execute(text("""
+            INSERT INTO eam_marca_activo (nombre, tipo_activo, activo, created_at, updated_at)
+            VALUES
+                ('Kenworth',      'VEHICULO', true, now(), now()),
+                ('Freightliner',  'VEHICULO', true, now(), now()),
+                ('International', 'VEHICULO', true, now(), now()),
+                ('Volvo',         'VEHICULO', true, now(), now()),
+                ('Scania',        'VEHICULO', true, now(), now()),
+                ('Mercedes-Benz', 'VEHICULO', true, now(), now()),
+                ('Hino',          'VEHICULO', true, now(), now()),
+                ('Chevrolet',     'VEHICULO', true, now(), now()),
+                ('Isuzu',         'VEHICULO', true, now(), now()),
+                ('JAC',           'VEHICULO', true, now(), now()),
+                ('Foton',         'VEHICULO', true, now(), now()),
+                ('Toyota',        'VEHICULO', true, now(), now()),
+                ('Hyster',        'MONTACARGAS', true, now(), now()),
+                ('Yale',          'MONTACARGAS', true, now(), now()),
+                ('Toyota',        'MONTACARGAS', true, now(), now()),
+                ('Crown',         'MONTACARGAS', true, now(), now()),
+                ('Linde',         'MONTACARGAS', true, now(), now()),
+                ('Randon',        'REMOLQUE', true, now(), now()),
+                ('Fruehauf',      'REMOLQUE', true, now(), now()),
+                ('Bawer',         'REMOLQUE', true, now(), now())
+            ON CONFLICT (nombre, tipo_activo) DO NOTHING
+        """))
+
+        # Líneas de cada marca
+        await conn.execute(text("""
+            INSERT INTO eam_linea_activo (marca_id, nombre, activo, created_at, updated_at)
+            SELECT m.id, v.linea, true, now(), now()
+            FROM (VALUES
+                ('Kenworth','VEHICULO','T880'), ('Kenworth','VEHICULO','T680'),
+                ('Kenworth','VEHICULO','T800'), ('Kenworth','VEHICULO','W900'),
+                ('Freightliner','VEHICULO','Cascadia'), ('Freightliner','VEHICULO','M2 106'),
+                ('Freightliner','VEHICULO','Columbia'),
+                ('International','VEHICULO','LT'), ('International','VEHICULO','ProStar'),
+                ('International','VEHICULO','WorkStar'),
+                ('Volvo','VEHICULO','FH'), ('Volvo','VEHICULO','FM'), ('Volvo','VEHICULO','VNL'),
+                ('Scania','VEHICULO','R 450'), ('Scania','VEHICULO','G 410'),
+                ('Mercedes-Benz','VEHICULO','Actros'), ('Mercedes-Benz','VEHICULO','Atego'),
+                ('Mercedes-Benz','VEHICULO','Sprinter'),
+                ('Hino','VEHICULO','300'), ('Hino','VEHICULO','500'),
+                ('Chevrolet','VEHICULO','NPR'), ('Chevrolet','VEHICULO','NHR'),
+                ('Isuzu','VEHICULO','NQR'), ('Isuzu','VEHICULO','FTR'),
+                ('JAC','VEHICULO','1040'), ('Foton','VEHICULO','Aumark'),
+                ('Toyota','VEHICULO','Hilux'), ('Toyota','VEHICULO','Land Cruiser'),
+                ('Hyster','MONTACARGAS','H50FT'), ('Hyster','MONTACARGAS','H2.5FT'),
+                ('Yale','MONTACARGAS','GLP050'), ('Toyota','MONTACARGAS','8FGCU25'),
+                ('Crown','MONTACARGAS','FC 4500'), ('Linde','MONTACARGAS','H25'),
+                ('Randon','REMOLQUE','Planchón'), ('Randon','REMOLQUE','Furgón'),
+                ('Fruehauf','REMOLQUE','Tanque'), ('Bawer','REMOLQUE','Portacontenedor')
+            ) AS v(marca, tipo, linea)
+            JOIN eam_marca_activo m ON m.nombre = v.marca AND m.tipo_activo = v.tipo
+            ON CONFLICT (marca_id, nombre) DO NOTHING
+        """))
+
+        # Rescate de lo ya escrito a mano: las marcas y modelos que hoy tienen
+        # los activos entran al catálogo para que nada quede fuera de la lista.
+        await conn.execute(text("""
+            INSERT INTO eam_marca_activo (nombre, tipo_activo, activo, created_at, updated_at)
+            SELECT DISTINCT TRIM(a.marca), a.tipo_activo, true, now(), now()
+            FROM eam_activo a
+            WHERE a.marca IS NOT NULL AND TRIM(a.marca) <> ''
+            ON CONFLICT (nombre, tipo_activo) DO NOTHING
+        """))
+        await conn.execute(text("""
+            INSERT INTO eam_linea_activo (marca_id, nombre, activo, created_at, updated_at)
+            SELECT DISTINCT m.id, TRIM(a.modelo), true, now(), now()
+            FROM eam_activo a
+            JOIN eam_marca_activo m
+              ON m.nombre = TRIM(a.marca)
+             AND (m.tipo_activo = a.tipo_activo OR (m.tipo_activo IS NULL AND a.tipo_activo IS NULL))
+            WHERE a.modelo IS NOT NULL AND TRIM(a.modelo) <> ''
+            ON CONFLICT (marca_id, nombre) DO NOTHING
+        """))
+        await conn.execute(text("""
+            INSERT INTO eam_tipo_combustible (nombre, activo, created_at, updated_at)
+            SELECT DISTINCT TRIM(tipo_combustible), true, now(), now()
+            FROM eam_activo
+            WHERE tipo_combustible IS NOT NULL AND TRIM(tipo_combustible) <> ''
+            ON CONFLICT (nombre) DO NOTHING
+        """))
+
         # ── AGS · Agenda de Servicios ────────────────────────────────────
         # Configuración del negocio: una sola fila, con la jornada típica de
         # un local de servicios en Colombia (lunes a sábado, 8am–7pm).

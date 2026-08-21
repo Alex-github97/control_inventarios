@@ -797,6 +797,51 @@ DROP TYPE IF EXISTS rolusuario;
 
 ## Historial de Versiones
 
+### v2.6.0 (2026-08-21)
+
+**CMMS · Catálogo jerárquico de vehículos y equipos**
+
+La ficha técnica del activo se llenaba a mano y terminaba con "Kenworth", "KENWORTH" y
+"Ken worth" como tres marcas distintas, lo que arruina cualquier reporte por marca o línea.
+Ahora se preconfigura, con el mismo criterio del catálogo de llantas.
+
+- Jerarquía **tipo de activo → marca → línea → modelo**, más catálogos de motores y
+  combustibles. 5 tablas nuevas (`eam_marca_activo`, `eam_linea_activo`,
+  `eam_modelo_activo`, `eam_motor_activo`, `eam_tipo_combustible`) y columna
+  `eam_activo.linea`
+- Las marcas se acotan por tipo: al crear un montacargas no aparecen marcas de
+  tractocamión. Una marca sin tipo queda como general y sirve para cualquiera; el mismo
+  nombre puede existir en tipos distintos (Toyota hace carros y montacargas)
+- El **modelo es la hoja y lleva la ficha técnica** (motor, combustible, ejes, capacidad,
+  tanque, vida útil), que el activo hereda al crearse — igual que referencia+dimensión
+  aporta la profundidad inicial de una llanta. Solo se hereda lo que el activo no traiga
+- Cascada de listas desplegables en el alta del activo; cambiar un nivel invalida los de
+  abajo
+- **El backend valida contra el catálogo** en crear y editar, y normaliza el nombre a la
+  grafía del catálogo: no basta con que la interfaz muestre listas, porque por API se podía
+  seguir mandando texto libre
+- El tipo de combustible pasó de texto libre a catálogo
+- Administración por columnas en `/eam/config` → Catálogos. Borrar algo en uso lo desactiva
+  en lugar de eliminarlo, para no romper el histórico
+- Semilla de 20 marcas, 38 líneas, 7 motores y 6 combustibles del mercado colombiano, más
+  rescate de las marcas y modelos ya escritos a mano en los activos existentes
+
+**CMMS · Llantas por Vehículo y lotes de reencauche**
+
+- El selector de vehículo pasó de desplegable plano a búsqueda por texto (placa, código,
+  nombre, marca, modelo, tipo, propietario). Cada opción muestra ruedas montadas sobre las
+  esperadas, aviso de esquema sin configurar, origen y alerta de llantas
+- Filtros por tipología, marca y línea del vehículo. El estado de las llantas (esquema de
+  ejes, montaje) quedó como información de cada opción y no como filtro: es el estado de
+  las llantas, no una categoría del vehículo
+- Filtros del panel de almacén (código, marca, referencia, DOT, medida, vida, bodega) con
+  atajo a la medida ya montada en el vehículo elegido
+- El lote de reencauche se identifica por su **número de remisión** y no por un código
+  aparte: la remisión es el documento real con el que las llantas salen y se cruza contra la
+  factura. Repetirla avisa qué lote ya la usa y en qué fecha
+- El alta de un activo ya no pregunta estado ni criticidad: entra operativo. Ambos siguen
+  editables desde la ficha
+
 ### v2.5.0 (2026-08-20)
 
 **AGS · Reserva online** — la agenda se abre al público
