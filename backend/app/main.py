@@ -801,6 +801,43 @@ async def lifespan(app: FastAPI):
             ON CONFLICT DO NOTHING
         """))
 
+        # Áreas, cargos y procesos: son los que más aparecen como texto libre en
+        # los formularios de GRC, MES, QMS y SST. Sin valores sembrados, cambiarlos
+        # a desplegable dejaría una lista vacía, que es peor que el texto libre.
+        await conn.execute(text("""
+            INSERT INTO catalogo_maestro (modulo, tipo, nombre, padre_id, orden, activo, created_at, updated_at)
+            SELECT 'GLOBAL', v.tipo, v.nombre, NULL, v.orden, true, now(), now()
+            FROM (VALUES
+                ('AREA','Operaciones',1), ('AREA','Mantenimiento',2),
+                ('AREA','Logística',3), ('AREA','Transporte',4),
+                ('AREA','Almacén',5), ('AREA','Producción',6),
+                ('AREA','Calidad',7), ('AREA','Seguridad y Salud en el Trabajo',8),
+                ('AREA','Compras',9), ('AREA','Comercial',10),
+                ('AREA','Financiera',11), ('AREA','Gestión Humana',12),
+                ('AREA','Tecnología',13), ('AREA','Administración',14),
+                ('CARGO','Gerente General',1), ('CARGO','Director de Operaciones',2),
+                ('CARGO','Jefe de Operaciones',3), ('CARGO','Jefe de Mantenimiento',4),
+                ('CARGO','Jefe de Almacén',5), ('CARGO','Coordinador de Logística',6),
+                ('CARGO','Coordinador de Transporte',7), ('CARGO','Supervisor',8),
+                ('CARGO','Analista',9), ('CARGO','Auxiliar',10),
+                ('CARGO','Técnico de Mantenimiento',11), ('CARGO','Mecánico',12),
+                ('CARGO','Conductor',13), ('CARGO','Almacenista',14),
+                ('CARGO','Operario',15), ('CARGO','Auxiliar Administrativo',16),
+                ('CARGO','Contador',17), ('CARGO','Director Financiero',18),
+                ('CARGO','Jefe de Gestión Humana',19), ('CARGO','Coordinador SST',20),
+                ('CARGO','Coordinador de Calidad',21),
+                ('PROCESO','Gestión Estratégica',1), ('PROCESO','Gestión Comercial',2),
+                ('PROCESO','Operaciones Logísticas',3), ('PROCESO','Transporte',4),
+                ('PROCESO','Almacenamiento',5), ('PROCESO','Producción',6),
+                ('PROCESO','Mantenimiento',7), ('PROCESO','Compras y Abastecimiento',8),
+                ('PROCESO','Gestión Humana',9), ('PROCESO','Gestión Financiera',10),
+                ('PROCESO','Gestión de Calidad',11), ('PROCESO','Seguridad y Salud',12),
+                ('PROCESO','Tecnología de la Información',13),
+                ('PROCESO','Servicio al Cliente',14)
+            ) AS v(tipo, nombre, orden)
+            ON CONFLICT DO NOTHING
+        """))
+
         # Rescate de lo ya escrito a mano: las sedes y áreas del CMMS pasan al
         # catálogo compartido para que no queden dos listas paralelas.
         await conn.execute(text("""

@@ -79,14 +79,19 @@ CATALOGOS_REGISTRO = [
     _c(MODULO_GLOBAL, "DEPARTAMENTO", "Departamentos", "Departamento o estado", "PAIS"),
     _c(MODULO_GLOBAL, "CIUDAD", "Ciudades", "Municipio o ciudad", "DEPARTAMENTO"),
     _c(MODULO_GLOBAL, "SEDE", "Sedes", "Plantas, centros de distribución, oficinas"),
-    _c(MODULO_GLOBAL, "AREA", "Áreas", "Área funcional, dependiente de la sede", "SEDE"),
+    # Plana a propósito: en los formularios "Área" se usa suelta, y exigir una
+    # sede antes de poder registrar áreas sería friccion sin ganancia.
+    _c(MODULO_GLOBAL, "AREA", "Áreas", "Área funcional de la organización"),
+    # Cargo y Proceso los usan GRC, MES, QMS y SST por igual: van a GLOBAL para
+    # no dejar cuatro listas paralelas de lo mismo.
+    _c(MODULO_GLOBAL, "CARGO", "Cargos", "Cargo dentro de la organización"),
+    _c(MODULO_GLOBAL, "PROCESO", "Procesos", "Procesos del sistema de gestión"),
     _c(MODULO_GLOBAL, "CENTRO_COSTO", "Centros de costo", "A dónde se cargan los costos"),
     _c(MODULO_GLOBAL, "CUENTA_CONTABLE", "Cuentas contables", "Cuenta del PUC"),
     _c(MODULO_GLOBAL, "UNIDAD_MEDIDA", "Unidades de medida", "Unidad, caja, kilo, litro…"),
     _c(MODULO_GLOBAL, "MONEDA", "Monedas", "Monedas usadas en la operación"),
 
     # ── Gestión Humana ───────────────────────────────────────────────────
-    _c("HCM", "CARGO", "Cargos", "Cargo dentro de un área", None),
     _c("HCM", "TIPO_DOCUMENTO", "Tipos de documento", "Cédula, pasaporte, NIT…"),
     _c("HCM", "TIPO_CONTRATO", "Tipos de contrato", "Término fijo, indefinido, obra labor"),
     _c("HCM", "TIPO_SALARIO", "Tipos de salario", "Ordinario, integral, variable"),
@@ -119,7 +124,6 @@ CATALOGOS_REGISTRO = [
     _c("SST", "MOTIVO_INSPECCION", "Motivos de inspección", "Por qué se inspecciona"),
 
     # ── Calidad QMS ──────────────────────────────────────────────────────
-    _c("QMS", "PROCESO", "Procesos", "Procesos del sistema de gestión"),
     _c("QMS", "TIPO_NOCONFORMIDAD", "Tipos de no conformidad", "Clasificación del hallazgo"),
     _c("QMS", "CAUSA_RAIZ", "Causas raíz", "Categorías de causa"),
     _c("QMS", "TIPO_AUDITORIA", "Tipos de auditoría", "Interna, externa, de proveedor"),

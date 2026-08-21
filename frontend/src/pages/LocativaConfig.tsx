@@ -9,6 +9,7 @@ import { Add as AddIcon, Close as CloseIcon } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient as api } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
+import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
 import toast from 'react-hot-toast'
 
 const ML_COLOR = '#0D9488'
@@ -163,7 +164,7 @@ export default function LocativaConfig() {
     if (tab === 0) return (
       <Grid container spacing={2}>
         <Grid size={{ xs: 12 }}><TextField fullWidth size="small" label="Nombre *" value={form.nombre ?? ''} onChange={f('nombre')} /></Grid>
-        <Grid size={{ xs: 6 }}><TextField fullWidth size="small" label="Ciudad" value={form.ciudad ?? ''} onChange={f('ciudad')} /></Grid>
+        <Grid size={{ xs: 6 }}><SelectorCatalogo modulo="GLOBAL" tipo="CIUDAD" label="Ciudad" valor={form.ciudad ?? ''} onChangeEvento={f('ciudad')} /></Grid>
         <Grid size={{ xs: 6 }}><TextField fullWidth size="small" label="Dirección" value={form.direccion ?? ''} onChange={f('direccion')} /></Grid>
       </Grid>
     )

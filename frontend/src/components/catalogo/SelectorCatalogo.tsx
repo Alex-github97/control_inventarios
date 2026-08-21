@@ -57,19 +57,30 @@ export function useCatalogo(
  * marcada, en vez de vaciar el campo en silencio al editar.
  */
 export function SelectorCatalogo({
-  modulo, tipo, label, valor, onChange,
-  padreId, requerido = false, deshabilitado = false, ayuda,
+  modulo, tipo, label, valor, onChange, onChangeEvento,
+  padreId, requerido = false, deshabilitado = false, ayuda, sx,
 }: {
   modulo: string
   tipo: string
   label: string
   valor: string
-  onChange: (nombre: string, item?: ValorCatalogo) => void
+  onChange?: (nombre: string, item?: ValorCatalogo) => void
+  /**
+   * Adaptador para las páginas cuyo handler está escrito al estilo
+   * `onChange={f('ciudad')}`, donde `f` devuelve un manejador que espera un
+   * ChangeEvent. Permite reemplazar el TextField sin reescribir el manejo de
+   * estado de la página. El tipo va suelto a propósito: del otro lado hay
+   * handlers de React tipados con el evento completo.
+   */
+  onChangeEvento?: (e: any) => void
   /** Acota al nivel de arriba (las ciudades de un departamento). */
   padreId?: number | null
   requerido?: boolean
   deshabilitado?: boolean
   ayuda?: string
+  /** Se pasa tal cual al campo, para conservar el layout donde reemplaza a un
+   *  TextField que traía su propio sx (flex, minWidth…). */
+  sx?: object
 }) {
   const { data: items = [] } = useCatalogo(modulo, tipo, padreId, !deshabilitado)
 
@@ -77,12 +88,13 @@ export function SelectorCatalogo({
 
   return (
     <TextField
-      select size="small" fullWidth
+      select size="small" fullWidth sx={sx}
       label={requerido ? `${label} *` : label}
       value={valor} disabled={deshabilitado}
       onChange={e => {
         const nombre = e.target.value
-        onChange(nombre, items.find(i => i.nombre === nombre))
+        onChange?.(nombre, items.find(i => i.nombre === nombre))
+        onChangeEvento?.({ target: { value: nombre, name: tipo } })
       }}
       helperText={
         huerfano

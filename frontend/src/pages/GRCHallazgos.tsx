@@ -9,6 +9,7 @@ import {
 import Grid from '@mui/material/Grid2'
 import { BugReport, Add, Edit, Delete, Close, FileDownload, UploadFile, CheckCircle } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
 
 const GRC_COLOR = '#6D28D9'
 const PAGE_BG   = '#F0F2F5'
@@ -192,7 +193,7 @@ export default function GRCHallazgos() {
               <FormControl size="small" fullWidth><InputLabel>Categoría</InputLabel><Select label="Categoría" value={form.categoria} onChange={e=>ss('categoria',e.target.value)}>{CATEGORIAS.map(c=><MenuItem key={c} value={c}>{c}</MenuItem>)}</Select></FormControl>
             </Box>
             <Box sx={{ display:'flex', gap:2 }}>
-              <TextField label="Área" fullWidth size="small" value={form.area} onChange={sf('area')} />
+              <SelectorCatalogo modulo="GLOBAL" tipo="AREA" label="Área" valor={form.area} onChangeEvento={sf('area')} />
               <TextField label="Responsable" fullWidth size="small" value={form.responsable} onChange={sf('responsable')} />
             </Box>
             <Box sx={{ display:'flex', gap:2 }}>

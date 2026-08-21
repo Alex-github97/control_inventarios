@@ -9,6 +9,7 @@ import {
 import Grid from '@mui/material/Grid2'
 import { BugReport, Add, Edit, Delete, Close, InfoOutlined } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
 
 const GRC_COLOR = '#6D28D9'
 const PAGE_BG   = '#F0F2F5'
@@ -191,7 +192,7 @@ export default function GRCRiesgos() {
           <DialogContent sx={{ display:'flex', flexDirection:'column', gap:2, pt:'16px !important' }}>
             <TextField label="Nombre del Riesgo" fullWidth size="small" value={form.nombre} onChange={sf('nombre')} />
             <FormControl size="small"><InputLabel>Categoría</InputLabel><Select label="Categoría" value={form.categoria} onChange={e=>ss('categoria',e.target.value)}>{CATEGORIAS.map(c=><MenuItem key={c} value={c}>{c}</MenuItem>)}</Select></FormControl>
-            <TextField label="Proceso" fullWidth size="small" value={form.proceso} onChange={sf('proceso')} />
+            <SelectorCatalogo modulo="GLOBAL" tipo="PROCESO" label="Proceso" valor={form.proceso} onChangeEvento={sf('proceso')} />
             <Box sx={{ display:'flex', gap:2 }}>
               <FormControl size="small" fullWidth><InputLabel>Probabilidad (1-5)</InputLabel><Select label="Probabilidad (1-5)" value={form.probabilidad} onChange={e=>ss('probabilidad',Number(e.target.value))}>{[1,2,3,4,5].map(n=><MenuItem key={n} value={n}>{n} — {LABELS_P[n]}</MenuItem>)}</Select></FormControl>
               <FormControl size="small" fullWidth><InputLabel>Impacto (1-5)</InputLabel><Select label="Impacto (1-5)" value={form.impacto} onChange={e=>ss('impacto',Number(e.target.value))}>{[1,2,3,4,5].map(n=><MenuItem key={n} value={n}>{n} — {LABELS_I[n]}</MenuItem>)}</Select></FormControl>

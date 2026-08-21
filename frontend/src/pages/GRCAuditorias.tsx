@@ -9,6 +9,7 @@ import {
 import Grid from '@mui/material/Grid2'
 import { Gavel, Add, Edit, Delete, Close, FileDownload, UploadFile } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
 
 const GRC_COLOR = '#6D28D9'
 const BORDER  = '#E5E7EB'
@@ -196,7 +197,7 @@ export default function GRCAuditorias() {
               <FormControl size="small" fullWidth><InputLabel>Tipo</InputLabel><Select label="Tipo" value={form.tipo} onChange={e=>ss('tipo',e.target.value)}>{TIPOS.map(t=><MenuItem key={t} value={t}>{t}</MenuItem>)}</Select></FormControl>
               <FormControl size="small" fullWidth><InputLabel>Estado</InputLabel><Select label="Estado" value={form.estado} onChange={e=>ss('estado',e.target.value)}>{ESTADOS.map(s=><MenuItem key={s} value={s}>{s}</MenuItem>)}</Select></FormControl>
             </Box>
-            <TextField label="Área de Alcance" fullWidth size="small" value={form.area} onChange={sf('area')} InputLabelProps={ILB} sx={TF} />
+            <SelectorCatalogo modulo="GLOBAL" tipo="AREA" label="Área de alcance" valor={form.area} onChangeEvento={sf('area')} sx={TF} />
             <Box sx={{ display:'flex', gap:2 }}>
               <TextField label="Auditor" fullWidth size="small" value={form.auditor} onChange={sf('auditor')} InputLabelProps={ILB} sx={TF} />
               <TextField label="Responsable Interno" fullWidth size="small" value={form.responsable} onChange={sf('responsable')} InputLabelProps={ILB} sx={TF} />

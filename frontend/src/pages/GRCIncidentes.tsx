@@ -9,6 +9,7 @@ import {
 import Grid from '@mui/material/Grid2'
 import { Security, Add, Edit, Delete, Close, Add as AddIcon, CheckCircle } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
 
 const GRC_COLOR = '#6D28D9'
 const LBL       = alpha(GRC_COLOR, 0.85)
@@ -183,7 +184,7 @@ export default function GRCIncidentes() {
               <FormControl size="small" fullWidth><InputLabel>Severidad</InputLabel><Select label="Severidad" value={form.severidad} onChange={e=>ss('severidad',e.target.value)}>{SEVERIDADES.map(s=><MenuItem key={s} value={s}>{s}</MenuItem>)}</Select></FormControl>
             </Box>
             <Box sx={{ display:'flex', gap:2 }}>
-              <TextField label="Área" fullWidth size="small" value={form.area} onChange={sf('area')} />
+              <SelectorCatalogo modulo="GLOBAL" tipo="AREA" label="Área" valor={form.area} onChangeEvento={sf('area')} />
               <TextField label="Responsable" fullWidth size="small" value={form.responsable} onChange={sf('responsable')} />
             </Box>
             <FormControl size="small" fullWidth><InputLabel>Estado</InputLabel><Select label="Estado" value={form.estado} onChange={e=>ss('estado',e.target.value)}>{ESTADOS.map(s=><MenuItem key={s} value={s}>{s}</MenuItem>)}</Select></FormControl>
