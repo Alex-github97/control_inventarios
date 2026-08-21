@@ -512,6 +512,304 @@ async def lifespan(app: FastAPI):
             ON CONFLICT (codigo) DO NOTHING
         """))
 
+        # ── Catálogo maestro de la plataforma ────────────────────────────
+        # En PostgreSQL una restricción UNIQUE trata los NULL como distintos, así
+        # que uq(modulo,tipo,nombre,padre_id) NO protege los catálogos planos:
+        # sin esto cada reinicio volvía a insertar todos sus valores. El índice
+        # parcial cubre justamente el caso padre_id IS NULL.
+        await conn.execute(text("""
+            DELETE FROM catalogo_maestro c
+            USING catalogo_maestro d
+            WHERE c.padre_id IS NULL AND d.padre_id IS NULL
+              AND c.modulo = d.modulo AND c.tipo = d.tipo AND c.nombre = d.nombre
+              AND c.id > d.id
+        """))
+        await conn.execute(text("""
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_catalogo_maestro_raiz
+            ON catalogo_maestro (modulo, tipo, nombre)
+            WHERE padre_id IS NULL
+        """))
+
+        # Valores de arranque de los catálogos compartidos y de los módulos que
+        # más los necesitan. El resto de catálogos quedan declarados en el
+        # registro y vacíos, listos para que cada área los llene.
+        await conn.execute(text("""
+            INSERT INTO catalogo_maestro (modulo, tipo, nombre, codigo, padre_id, orden, activo, created_at, updated_at)
+            SELECT 'GLOBAL', v.tipo, v.nombre, v.codigo, NULL, v.orden, true, now(), now()
+            FROM (VALUES
+                ('PAIS', 'Colombia', 'CO', 1),
+                ('UNIDAD_MEDIDA', 'Unidad', 'UND', 1),
+                ('UNIDAD_MEDIDA', 'Caja', 'CJA', 2),
+                ('UNIDAD_MEDIDA', 'Estiba', 'EST', 3),
+                ('UNIDAD_MEDIDA', 'Kilogramo', 'KG', 4),
+                ('UNIDAD_MEDIDA', 'Tonelada', 'TON', 5),
+                ('UNIDAD_MEDIDA', 'Litro', 'LT', 6),
+                ('UNIDAD_MEDIDA', 'Galón', 'GAL', 7),
+                ('UNIDAD_MEDIDA', 'Metro', 'MT', 8),
+                ('UNIDAD_MEDIDA', 'Metro cúbico', 'M3', 9),
+                ('MONEDA', 'Peso colombiano', 'COP', 1),
+                ('MONEDA', 'Dólar estadounidense', 'USD', 2),
+                ('MONEDA', 'Euro', 'EUR', 3),
+                ('CENTRO_COSTO', 'CC-100 Operaciones', 'CC-100', 1),
+                ('CENTRO_COSTO', 'CC-200 Mantenimiento', 'CC-200', 2),
+                ('CENTRO_COSTO', 'CC-300 Transporte', 'CC-300', 3),
+                ('CENTRO_COSTO', 'CC-400 Administración', 'CC-400', 4),
+                ('CUENTA_CONTABLE', 'Flota y equipo de transporte', '1540', 1),
+                ('CUENTA_CONTABLE', 'Maquinaria y equipo', '1520', 2),
+                ('CUENTA_CONTABLE', 'Equipo de cómputo', '1528', 3),
+                ('CUENTA_CONTABLE', 'Depreciación acumulada', '1592', 4)
+            ) AS v(tipo, nombre, codigo, orden)
+            ON CONFLICT DO NOTHING
+        """))
+
+        # Departamentos de Colombia, colgados del país
+        await conn.execute(text("""
+            INSERT INTO catalogo_maestro (modulo, tipo, nombre, codigo, padre_id, orden, activo, created_at, updated_at)
+            SELECT 'GLOBAL', 'DEPARTAMENTO', v.nombre, v.codigo, p.id, 0, true, now(), now()
+            FROM (VALUES
+                ('Antioquia','05'), ('Atlántico','08'), ('Bogotá D.C.','11'),
+                ('Bolívar','13'), ('Boyacá','15'), ('Caldas','17'), ('Caquetá','18'),
+                ('Cauca','19'), ('Cesar','20'), ('Córdoba','23'), ('Cundinamarca','25'),
+                ('Chocó','27'), ('Huila','41'), ('La Guajira','44'), ('Magdalena','47'),
+                ('Meta','50'), ('Nariño','52'), ('Norte de Santander','54'),
+                ('Quindío','63'), ('Risaralda','66'), ('Santander','68'), ('Sucre','70'),
+                ('Tolima','73'), ('Valle del Cauca','76'), ('Arauca','81'),
+                ('Casanare','85'), ('Putumayo','86'), ('Amazonas','91'),
+                ('Guainía','94'), ('Guaviare','95'), ('Vaupés','97'), ('Vichada','99'),
+                ('Archipiélago de San Andrés','88')
+            ) AS v(nombre, codigo)
+            JOIN catalogo_maestro p
+              ON p.modulo = 'GLOBAL' AND p.tipo = 'PAIS' AND p.nombre = 'Colombia'
+            ON CONFLICT DO NOTHING
+        """))
+
+        # Principales ciudades, colgadas de su departamento
+        await conn.execute(text("""
+            INSERT INTO catalogo_maestro (modulo, tipo, nombre, codigo, padre_id, orden, activo, created_at, updated_at)
+            SELECT 'GLOBAL', 'CIUDAD', v.ciudad, v.codigo, d.id, 0, true, now(), now()
+            FROM (VALUES
+                ('Medellín','05001','Antioquia'), ('Bello','05088','Antioquia'),
+                ('Itagüí','05360','Antioquia'), ('Envigado','05266','Antioquia'),
+                ('Rionegro','05615','Antioquia'), ('Apartadó','05045','Antioquia'),
+                ('Barranquilla','08001','Atlántico'), ('Soledad','08758','Atlántico'),
+                ('Bogotá D.C.','11001','Bogotá D.C.'),
+                ('Cartagena','13001','Bolívar'), ('Magangué','13430','Bolívar'),
+                ('Tunja','15001','Boyacá'), ('Duitama','15238','Boyacá'), ('Sogamoso','15759','Boyacá'),
+                ('Manizales','17001','Caldas'),
+                ('Florencia','18001','Caquetá'),
+                ('Popayán','19001','Cauca'),
+                ('Valledupar','20001','Cesar'),
+                ('Montería','23001','Córdoba'),
+                ('Soacha','25754','Cundinamarca'), ('Facatativá','25269','Cundinamarca'),
+                ('Zipaquirá','25899','Cundinamarca'), ('Chía','25175','Cundinamarca'),
+                ('Funza','25286','Cundinamarca'), ('Mosquera','25473','Cundinamarca'),
+                ('Madrid','25430','Cundinamarca'), ('Girardot','25307','Cundinamarca'),
+                ('Quibdó','27001','Chocó'),
+                ('Neiva','41001','Huila'),
+                ('Riohacha','44001','La Guajira'),
+                ('Santa Marta','47001','Magdalena'),
+                ('Villavicencio','50001','Meta'),
+                ('Pasto','52001','Nariño'), ('Ipiales','52356','Nariño'),
+                ('Cúcuta','54001','Norte de Santander'),
+                ('Armenia','63001','Quindío'),
+                ('Pereira','66001','Risaralda'), ('Dosquebradas','66170','Risaralda'),
+                ('Bucaramanga','68001','Santander'), ('Floridablanca','68276','Santander'),
+                ('Girón','68307','Santander'), ('Barrancabermeja','68081','Santander'),
+                ('Sincelejo','70001','Sucre'),
+                ('Ibagué','73001','Tolima'), ('Espinal','73268','Tolima'),
+                ('Cali','76001','Valle del Cauca'), ('Palmira','76520','Valle del Cauca'),
+                ('Buenaventura','76109','Valle del Cauca'), ('Tuluá','76834','Valle del Cauca'),
+                ('Yumbo','76892','Valle del Cauca'), ('Buga','76111','Valle del Cauca'),
+                ('Arauca','81001','Arauca'),
+                ('Yopal','85001','Casanare'),
+                ('Mocoa','86001','Putumayo'),
+                ('Leticia','91001','Amazonas')
+            ) AS v(ciudad, codigo, depto)
+            JOIN catalogo_maestro d
+              ON d.modulo = 'GLOBAL' AND d.tipo = 'DEPARTAMENTO' AND d.nombre = v.depto
+            ON CONFLICT DO NOTHING
+        """))
+
+        # Catálogos por módulo con valores de uso corriente en Colombia
+        await conn.execute(text("""
+            INSERT INTO catalogo_maestro (modulo, tipo, nombre, codigo, padre_id, orden, activo, created_at, updated_at)
+            SELECT v.modulo, v.tipo, v.nombre, NULL, NULL, v.orden, true, now(), now()
+            FROM (VALUES
+                ('HCM','TIPO_DOCUMENTO','Cédula de ciudadanía',1),
+                ('HCM','TIPO_DOCUMENTO','Cédula de extranjería',2),
+                ('HCM','TIPO_DOCUMENTO','Pasaporte',3),
+                ('HCM','TIPO_DOCUMENTO','Permiso por Protección Temporal',4),
+                ('HCM','TIPO_DOCUMENTO','NIT',5),
+                ('HCM','TIPO_CONTRATO','Término indefinido',1),
+                ('HCM','TIPO_CONTRATO','Término fijo',2),
+                ('HCM','TIPO_CONTRATO','Obra o labor',3),
+                ('HCM','TIPO_CONTRATO','Aprendizaje SENA',4),
+                ('HCM','TIPO_CONTRATO','Prestación de servicios',5),
+                ('HCM','TIPO_SALARIO','Ordinario',1),
+                ('HCM','TIPO_SALARIO','Integral',2),
+                ('HCM','TIPO_SALARIO','Variable por comisión',3),
+                ('HCM','MOTIVO_RETIRO','Renuncia voluntaria',1),
+                ('HCM','MOTIVO_RETIRO','Terminación de contrato',2),
+                ('HCM','MOTIVO_RETIRO','Despido con justa causa',3),
+                ('HCM','MOTIVO_RETIRO','Despido sin justa causa',4),
+                ('HCM','MOTIVO_RETIRO','Mutuo acuerdo',5),
+                ('HCM','MOTIVO_RETIRO','Pensión',6),
+                ('HCM','NIVEL_EDUCATIVO','Primaria',1),
+                ('HCM','NIVEL_EDUCATIVO','Bachillerato',2),
+                ('HCM','NIVEL_EDUCATIVO','Técnico',3),
+                ('HCM','NIVEL_EDUCATIVO','Tecnólogo',4),
+                ('HCM','NIVEL_EDUCATIVO','Profesional',5),
+                ('HCM','NIVEL_EDUCATIVO','Especialización',6),
+                ('HCM','NIVEL_EDUCATIVO','Maestría',7),
+                ('WMS','TIPO_EMPAQUE','Caja',1),
+                ('WMS','TIPO_EMPAQUE','Estiba',2),
+                ('WMS','TIPO_EMPAQUE','Saco',3),
+                ('WMS','TIPO_EMPAQUE','Granel',4),
+                ('WMS','TIPO_EMPAQUE','Canastilla',5),
+                ('WMS','MOTIVO_AJUSTE','Conteo físico',1),
+                ('WMS','MOTIVO_AJUSTE','Avería',2),
+                ('WMS','MOTIVO_AJUSTE','Vencimiento',3),
+                ('WMS','MOTIVO_AJUSTE','Faltante',4),
+                ('WMS','MOTIVO_AJUSTE','Sobrante',5),
+                ('WMS','MOTIVO_DEVOLUCION','Producto averiado',1),
+                ('WMS','MOTIVO_DEVOLUCION','Producto vencido',2),
+                ('WMS','MOTIVO_DEVOLUCION','Error de despacho',3),
+                ('WMS','MOTIVO_DEVOLUCION','Rechazo del cliente',4),
+                ('TMS','TIPO_CARGA','Carga seca',1),
+                ('TMS','TIPO_CARGA','Refrigerada',2),
+                ('TMS','TIPO_CARGA','Congelada',3),
+                ('TMS','TIPO_CARGA','Mercancía peligrosa',4),
+                ('TMS','TIPO_CARGA','Granel sólido',5),
+                ('TMS','TIPO_CARGA','Granel líquido',6),
+                ('TMS','TIPO_CARGA','Carga extradimensionada',7),
+                ('TMS','TIPO_CARROCERIA','Furgón',1),
+                ('TMS','TIPO_CARROCERIA','Planchón',2),
+                ('TMS','TIPO_CARROCERIA','Estacas',3),
+                ('TMS','TIPO_CARROCERIA','Tanque',4),
+                ('TMS','TIPO_CARROCERIA','Portacontenedor',5),
+                ('TMS','TIPO_CARROCERIA','Termoking',6),
+                ('TMS','TIPO_SERVICIO','Urbano',1),
+                ('TMS','TIPO_SERVICIO','Nacional',2),
+                ('TMS','TIPO_SERVICIO','Última milla',3),
+                ('TMS','TIPO_SERVICIO','Paqueteo',4),
+                ('TMS','MOTIVO_DEMORA','Trancón',1),
+                ('TMS','MOTIVO_DEMORA','Cargue demorado',2),
+                ('TMS','MOTIVO_DEMORA','Descargue demorado',3),
+                ('TMS','MOTIVO_DEMORA','Falla mecánica',4),
+                ('TMS','MOTIVO_DEMORA','Orden público',5),
+                ('TMS','MOTIVO_DEMORA','Clima',6),
+                ('SST','TIPO_PELIGRO','Biológico',1),
+                ('SST','TIPO_PELIGRO','Físico',2),
+                ('SST','TIPO_PELIGRO','Químico',3),
+                ('SST','TIPO_PELIGRO','Psicosocial',4),
+                ('SST','TIPO_PELIGRO','Biomecánico',5),
+                ('SST','TIPO_PELIGRO','Condiciones de seguridad',6),
+                ('SST','TIPO_PELIGRO','Fenómenos naturales',7),
+                ('SST','PARTE_CUERPO','Cabeza',1),
+                ('SST','PARTE_CUERPO','Ojos',2),
+                ('SST','PARTE_CUERPO','Manos',3),
+                ('SST','PARTE_CUERPO','Brazos',4),
+                ('SST','PARTE_CUERPO','Tronco',5),
+                ('SST','PARTE_CUERPO','Espalda',6),
+                ('SST','PARTE_CUERPO','Piernas',7),
+                ('SST','PARTE_CUERPO','Pies',8),
+                ('SST','TIPO_EPP','Casco',1),
+                ('SST','TIPO_EPP','Gafas de seguridad',2),
+                ('SST','TIPO_EPP','Guantes',3),
+                ('SST','TIPO_EPP','Botas de seguridad',4),
+                ('SST','TIPO_EPP','Protección auditiva',5),
+                ('SST','TIPO_EPP','Protección respiratoria',6),
+                ('SST','TIPO_EPP','Arnés',7),
+                ('QMS','TIPO_NOCONFORMIDAD','Mayor',1),
+                ('QMS','TIPO_NOCONFORMIDAD','Menor',2),
+                ('QMS','TIPO_NOCONFORMIDAD','Observación',3),
+                ('QMS','TIPO_NOCONFORMIDAD','Oportunidad de mejora',4),
+                ('QMS','CAUSA_RAIZ','Método',1),
+                ('QMS','CAUSA_RAIZ','Mano de obra',2),
+                ('QMS','CAUSA_RAIZ','Maquinaria',3),
+                ('QMS','CAUSA_RAIZ','Material',4),
+                ('QMS','CAUSA_RAIZ','Medición',5),
+                ('QMS','CAUSA_RAIZ','Medio ambiente',6),
+                ('QMS','TIPO_AUDITORIA','Interna',1),
+                ('QMS','TIPO_AUDITORIA','Externa de certificación',2),
+                ('QMS','TIPO_AUDITORIA','A proveedor',3),
+                ('GRC','TIPO_CONTROL','Preventivo',1),
+                ('GRC','TIPO_CONTROL','Detectivo',2),
+                ('GRC','TIPO_CONTROL','Correctivo',3),
+                ('GRC','CATEGORIA_RIESGO','Estratégico',1),
+                ('GRC','CATEGORIA_RIESGO','Operativo',2),
+                ('GRC','CATEGORIA_RIESGO','Financiero',3),
+                ('GRC','CATEGORIA_RIESGO','Cumplimiento',4),
+                ('GRC','CATEGORIA_RIESGO','Tecnológico',5),
+                ('GRC','CATEGORIA_RIESGO','Reputacional',6),
+                ('LMS','MODALIDAD','Presencial',1),
+                ('LMS','MODALIDAD','Virtual',2),
+                ('LMS','MODALIDAD','Mixta',3),
+                ('DMS','TIPO_SOPORTE','Físico',1),
+                ('DMS','TIPO_SOPORTE','Digital',2),
+                ('DMS','TIPO_SOPORTE','Híbrido',3),
+                ('SCM','TIPO_PROVEEDOR','Bienes',1),
+                ('SCM','TIPO_PROVEEDOR','Servicios',2),
+                ('SCM','TIPO_PROVEEDOR','Transporte',3),
+                ('SCM','TIPO_PROVEEDOR','Contratista',4),
+                ('SCM','MOTIVO_RECHAZO','Fuera de presupuesto',1),
+                ('SCM','MOTIVO_RECHAZO','Sin justificación',2),
+                ('SCM','MOTIVO_RECHAZO','Proveedor no habilitado',3),
+                ('ERP','FORMA_PAGO','Contado',1),
+                ('ERP','FORMA_PAGO','Crédito 30 días',2),
+                ('ERP','FORMA_PAGO','Crédito 60 días',3),
+                ('ERP','FORMA_PAGO','Transferencia',4),
+                ('ERP','TIPO_IMPUESTO','IVA 19%',1),
+                ('ERP','TIPO_IMPUESTO','IVA 5%',2),
+                ('ERP','TIPO_IMPUESTO','Excluido',3),
+                ('ERP','TIPO_IMPUESTO','Retefuente',4),
+                ('ERP','TIPO_IMPUESTO','ReteICA',5),
+                ('ERP','TIPO_COMPROBANTE','Factura de venta',1),
+                ('ERP','TIPO_COMPROBANTE','Nota crédito',2),
+                ('ERP','TIPO_COMPROBANTE','Nota débito',3),
+                ('ERP','TIPO_COMPROBANTE','Comprobante de egreso',4),
+                ('MES','TURNO','Turno 1 (06:00-14:00)',1),
+                ('MES','TURNO','Turno 2 (14:00-22:00)',2),
+                ('MES','TURNO','Turno 3 (22:00-06:00)',3),
+                ('MES','TIPO_PARADA','Programada',1),
+                ('MES','TIPO_PARADA','Falla mecánica',2),
+                ('MES','TIPO_PARADA','Falla eléctrica',3),
+                ('MES','TIPO_PARADA','Cambio de referencia',4),
+                ('MES','TIPO_PARADA','Falta de material',5),
+                ('MES','MOTIVO_SCRAP','Defecto de calidad',1),
+                ('MES','MOTIVO_SCRAP','Error de operación',2),
+                ('MES','MOTIVO_SCRAP','Material fuera de especificación',3),
+                ('APS','POLITICA_INVENTARIO','Punto de reorden',1),
+                ('APS','POLITICA_INVENTARIO','Min-max',2),
+                ('APS','POLITICA_INVENTARIO','Bajo pedido',3),
+                ('CRM','ORIGEN_LEAD','Referido',1),
+                ('CRM','ORIGEN_LEAD','Página web',2),
+                ('CRM','ORIGEN_LEAD','Redes sociales',3),
+                ('CRM','ORIGEN_LEAD','Llamada en frío',4),
+                ('CRM','ORIGEN_LEAD','Feria o evento',5),
+                ('CRM','MOTIVO_PERDIDA','Precio',1),
+                ('CRM','MOTIVO_PERDIDA','Tiempo de entrega',2),
+                ('CRM','MOTIVO_PERDIDA','Se fue con la competencia',3),
+                ('CRM','MOTIVO_PERDIDA','No había presupuesto',4),
+                ('CRM','SECTOR_ECONOMICO','Manufactura',1),
+                ('CRM','SECTOR_ECONOMICO','Comercio',2),
+                ('CRM','SECTOR_ECONOMICO','Alimentos y bebidas',3),
+                ('CRM','SECTOR_ECONOMICO','Farmacéutico',4),
+                ('CRM','SECTOR_ECONOMICO','Construcción',5),
+                ('CRM','SECTOR_ECONOMICO','Agroindustria',6)
+            ) AS v(modulo, tipo, nombre, orden)
+            ON CONFLICT DO NOTHING
+        """))
+
+        # Rescate de lo ya escrito a mano: las sedes y áreas del CMMS pasan al
+        # catálogo compartido para que no queden dos listas paralelas.
+        await conn.execute(text("""
+            INSERT INTO catalogo_maestro (modulo, tipo, nombre, padre_id, orden, activo, created_at, updated_at)
+            SELECT 'GLOBAL', 'SEDE', nombre, NULL, 0, true, now(), now()
+            FROM eam_catalogo_activo WHERE tipo = 'SEDE'
+            ON CONFLICT DO NOTHING
+        """))
+
     # 3. Sembrar roles y migrar usuarios
     async with AsyncSession(engine) as db:
         async with db.begin():

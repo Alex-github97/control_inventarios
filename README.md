@@ -797,6 +797,52 @@ DROP TYPE IF EXISTS rolusuario;
 
 ## Historial de Versiones
 
+### v2.7.0 (2026-08-21)
+
+**Catálogo maestro de la plataforma** — la metodología de jerarquías, para todos los módulos
+
+El CMMS resolvió la estandarización con tablas dedicadas por catálogo. Eso funciona cuando el
+catálogo lleva atributos propios (la referencia de una llanta guarda su profundidad inicial,
+el modelo de un vehículo su motor y sus ejes), pero replicarlo para los ~190 campos de texto
+libre de los otros 15 módulos serían decenas de tablas casi idénticas, cada una con su CRUD y
+su pantalla.
+
+De ahí un modelo único, `catalogo_maestro`, con dos discriminadores (`modulo` + `tipo`) y
+jerarquía por auto-referencia (`padre_id`), que cubre listas planas y cadenas de varios
+niveles con un solo CRUD y un solo componente de interfaz.
+
+- **Registro declarativo** (`CATALOGOS_REGISTRO`): 60 catálogos declarados con su etiqueta,
+  descripción y de quién dependen. Agregar uno a un módulo es una línea, no una tabla ni una
+  pantalla. La interfaz se arma sola desde el registro
+- **Jerarquías reales validadas en el backend**: país → departamento → ciudad, sede → área,
+  categoría → subcategoría, serie → subserie documental, tipo de peligro → peligro. Se
+  rechaza colgar un valor de un padre del tipo equivocado, dejar sin padre un catálogo que lo
+  exige, ponerle padre a uno plano, o formar un ciclo
+- **`GLOBAL` para lo compartido**: geografía, sedes, áreas, centros de costo, cuentas del PUC,
+  unidades de medida y monedas. Que cada módulo tuviera su propia lista de ciudades sería el
+  mismo problema de duplicación un nivel más arriba
+- **Validación reutilizable**: `resolver_valor_catalogo()` la puede llamar cualquier endpoint
+  de cualquier módulo antes de guardar. Que la pantalla muestre una lista no impide que por
+  API llegue texto libre
+- **Componentes**: `SelectorCatalogo` (un nivel), `SelectorCatalogoJerarquico` (cascada),
+  `SelectorUbicacionGeografica` (atajo país/departamento/ciudad) y `AdminCatalogos` (la
+  administración de un módulo completo, que se arma desde el registro)
+- **Página `/catalogos`** con selector de módulo y navegación por niveles con rastro de migas
+- 271 valores sembrados en 14 módulos, con los 33 departamentos y 55 ciudades de Colombia
+  con su código DANE
+- **Adoptado en Gestión Humana** como primera prueba real: el tipo de documento salió de una
+  constante del código (`['CC','CE','PA','NIT','TI']`) al catálogo, las ciudades pasaron de
+  texto libre a la lista compartida, y `/gh/config` tiene su pestaña de catálogos
+
+Un detalle de PostgreSQL que costó encontrar: una restricción `UNIQUE` trata los `NULL` como
+distintos, así que `uq(modulo, tipo, nombre, padre_id)` **no protegía los catálogos planos** —
+cada reinicio del backend volvía a insertar todos sus valores. Se resolvió con un índice único
+parcial para el caso `padre_id IS NULL`, más una deduplicación en el arranque.
+
+**Pendiente**: adoptar los selectores en los formularios del resto de módulos. La base y los
+valores ya están; falta reemplazar cada campo de texto libre por su selector, módulo por
+módulo.
+
 ### v2.6.0 (2026-08-21)
 
 **CMMS · Catálogo jerárquico de vehículos y equipos**

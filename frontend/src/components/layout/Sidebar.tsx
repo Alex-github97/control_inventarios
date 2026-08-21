@@ -170,6 +170,7 @@ import {
   ContactPhone as AGSClientesIconAGS,
   PointOfSale as AGSIngresosIconAGS,
   SettingsSuggest as AGSConfigIconAGS,
+  LibraryBooks as CatalogosIcon,
   Factory as MESDashIconMES,
   DeviceHub as MESPlantaIconMES,
   ListAlt as MESOrdenesIconMES,
@@ -587,6 +588,7 @@ const CONFIG_NAV_ITEMS: NavItem[] = [
   { label: 'nav.usuarios',             icon: <UsuariosIcon   fontSize="small" />, path: '/usuarios',       section: 'section.administracion', exact: true },
   { label: 'nav.roles',                icon: <RolesIcon      fontSize="small" />, path: '/usuarios/roles', section: 'section.administracion' },
   { label: 'nav.configuracionGeneral', icon: <FlotaConfigIcon fontSize="small" />, path: '/configuracion',  section: 'section.administracion' },
+  { label: 'nav.catalogos',            icon: <CatalogosIcon  fontSize="small" />, path: '/catalogos',      section: 'section.administracion' },
 ]
 
 const CC_NAV_ITEMS: NavItem[] = COMMAND_CENTER_DASHBOARDS.map(d => ({

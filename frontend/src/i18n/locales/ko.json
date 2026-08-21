@@ -156,7 +156,8 @@
       "agsClientes": "고객",
       "agsIngresos": "매출",
       "agsServicios": "서비스",
-      "agsEquipo": "팀"
+      "agsEquipo": "팀",
+      "catalogos": "카탈로그"
     },
     "section": {
       "principal": "메인",

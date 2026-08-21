@@ -182,7 +182,8 @@
       "agsClientes": "Clientes",
       "agsIngresos": "Ingresos",
       "agsServicios": "Servicios",
-      "agsEquipo": "Equipo"
+      "agsEquipo": "Equipo",
+      "catalogos": "Catálogos"
     },
     "section": {
       "principal": "Principal",

@@ -156,7 +156,8 @@
       "agsClientes": "Клиенты",
       "agsIngresos": "Доходы",
       "agsServicios": "Услуги",
-      "agsEquipo": "Команда"
+      "agsEquipo": "Команда",
+      "catalogos": "Каталоги"
     },
     "section": {
       "principal": "Главная",

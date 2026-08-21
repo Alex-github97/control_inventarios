@@ -156,7 +156,8 @@
       "agsClientes": "Clients",
       "agsIngresos": "Revenue",
       "agsServicios": "Services",
-      "agsEquipo": "Team"
+      "agsEquipo": "Team",
+      "catalogos": "Catalogs"
     },
     "section": {
       "principal": "Main",

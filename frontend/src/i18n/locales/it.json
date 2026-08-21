@@ -156,7 +156,8 @@
       "agsClientes": "Clienti",
       "agsIngresos": "Ricavi",
       "agsServicios": "Servizi",
-      "agsEquipo": "Squadra"
+      "agsEquipo": "Squadra",
+      "catalogos": "Cataloghi"
     },
     "section": {
       "principal": "Principale",

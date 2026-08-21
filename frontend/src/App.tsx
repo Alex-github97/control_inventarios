@@ -236,6 +236,7 @@ const AGSClientes = React.lazy(() => import('@/pages/AGSClientes'))
 const AGSIngresos = React.lazy(() => import('@/pages/AGSIngresos'))
 const AGSConfig = React.lazy(() => import('@/pages/AGSConfig'))
 const AGSReservaPublica = React.lazy(() => import('@/pages/AGSReservaPublica'))
+const Catalogos = React.lazy(() => import('@/pages/Catalogos'))
 const EAMCombustible = React.lazy(() => import('@/pages/EAMCombustible'))
 const EAMInventario = React.lazy(() => import('@/pages/EAMInventario'))
 const EAMConfiabilidad = React.lazy(() => import('@/pages/EAMConfiabilidad'))
@@ -431,6 +432,7 @@ export default function App() {
             <Route path="/sin-acceso" element={<SinAcceso />} />
             <Route path="/scanner-movil" element={<ScannerMovil />} />
             <Route path="/configuracion" element={<ProtectedRoute><Configuracion /></ProtectedRoute>} />
+            <Route path="/catalogos" element={<ProtectedRoute><Catalogos /></ProtectedRoute>} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/estibas" element={<ProtectedRoute><Estibas /></ProtectedRoute>} />

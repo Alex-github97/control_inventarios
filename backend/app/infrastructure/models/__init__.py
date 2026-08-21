@@ -135,6 +135,10 @@ from app.infrastructure.models.sst import (
     TipoIncidenteSST, GravedadSST, EstadoIncidenteSST, ClasePeligroSST, NivelRiesgoSST,
     EstadoInspeccionSST, TipoEPP, EstadoCapacitacionSST, TipoDocumentoSST,
 )
+from app.infrastructure.models.catalogo import (
+    CatalogoMaestro, CATALOGOS_REGISTRO, MODULO_GLOBAL,
+    catalogos_de, buscar_registro, MODULOS_CON_CATALOGO,
+)
 from app.infrastructure.models.ags import (
     AGSConfig, AGSCategoriaServicio, AGSServicio,
     AGSProfesional, AGSProfesionalServicio, AGSHorarioProfesional, AGSAusencia,

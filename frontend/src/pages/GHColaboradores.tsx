@@ -18,6 +18,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient as api } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
+import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
 import toast from 'react-hot-toast'
 
 const GH_COLOR = '#BE185D'
@@ -84,7 +85,6 @@ interface PaginatedResponse {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ESTADOS_LABORALES = ['ACTIVO', 'INACTIVO', 'VACACIONES', 'INCAPACIDAD', 'RETIRADO', 'SUSPENSION']
-const TIPOS_DOCUMENTO = ['CC', 'CE', 'PA', 'NIT', 'TI']
 const GENEROS = ['MASCULINO', 'FEMENINO', 'NO_BINARIO', 'PREFIERO_NO_DECIR']
 const TIPOS_CONTRATO = ['INDEFINIDO', 'FIJO', 'OBRA_LABOR', 'PRESTACION_SERVICIOS', 'APRENDIZAJE', 'TEMPORAL']
 const TIPOS_SALARIO = ['FIJO', 'VARIABLE', 'INTEGRAL']
@@ -154,9 +154,12 @@ function StepPersonal({ form, onChange }: { form: FormPersonal; onChange: (k: ke
   return (
     <Stack gap={1.5}>
       <Stack direction="row" gap={1.5}>
-        <TextField select label="Tipo Documento *" size="small" value={form.tipo_documento} onChange={e => onChange('tipo_documento', e.target.value)} sx={{ flex: 1 }}>
-          {TIPOS_DOCUMENTO.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-        </TextField>
+        {/* Del catálogo maestro y no de una lista en el código: así se ajusta
+            sin recompilar cuando cambia la norma o se agrega un tipo. */}
+        <Box sx={{ flex: 1 }}>
+          <SelectorCatalogo modulo="HCM" tipo="TIPO_DOCUMENTO" label="Tipo de documento"
+            valor={form.tipo_documento} onChange={v => onChange('tipo_documento', v)} requerido />
+        </Box>
         <TextField label="Número Documento *" size="small" value={form.numero_documento} onChange={e => onChange('numero_documento', e.target.value)} sx={{ flex: 2 }} />
       </Stack>
       <Stack direction="row" gap={1.5}>

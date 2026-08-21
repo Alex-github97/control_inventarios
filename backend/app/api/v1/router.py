@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
     auth, usuarios, estibas, ubicaciones, proveedores,
-    vehiculos, manifiestos, movimientos, dashboard, alertas, danos, tarifax, mantenimiento, consultas, roles, fletes, flota, locative, wms, hcm, tms, dms, qms, grc, lms, crm, eam, mes, aps, erp, scan_sessions, scm, sst, lubricacion, ags
+    vehiculos, manifiestos, movimientos, dashboard, alertas, danos, tarifax, mantenimiento, consultas, roles, fletes, flota, locative, wms, hcm, tms, dms, qms, grc, lms, crm, eam, mes, aps, erp, scan_sessions, scm, sst, lubricacion, ags, catalogos
 )
 
 api_router = APIRouter()
@@ -41,3 +41,4 @@ api_router.include_router(scm.router)
 api_router.include_router(sst.router)
 api_router.include_router(lubricacion.router)
 api_router.include_router(ags.router)
+api_router.include_router(catalogos.router)

@@ -9,6 +9,8 @@ import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/ico
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient as api } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
+import { AdminCatalogos } from '@/components/catalogo/AdminCatalogos'
+import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
 import toast from 'react-hot-toast'
 
 const GH_COLOR = '#BE185D'
@@ -187,7 +189,10 @@ function EmpresasSection() {
             </Stack>
             <Stack direction="row" gap={1.5}>
               <TextField label="País" size="small" value={form.pais} onChange={e => set('pais', e.target.value)} sx={{ flex: 1 }} />
-              <TextField label="Ciudad" size="small" value={form.ciudad} onChange={e => set('ciudad', e.target.value)} sx={{ flex: 1 }} />
+              <Box sx={{ flex: 1 }}>
+                <SelectorCatalogo modulo="GLOBAL" tipo="CIUDAD" label="Ciudad"
+                  valor={form.ciudad} onChange={v => set('ciudad', v)} />
+              </Box>
             </Stack>
             <Stack direction="row" gap={1.5}>
               <TextField label="Teléfono" size="small" value={form.telefono} onChange={e => set('telefono', e.target.value)} sx={{ flex: 1 }} />
@@ -263,7 +268,10 @@ function SedesSection() {
             </TextField>
             <TextField label="Nombre *" fullWidth size="small" value={form.nombre} onChange={e => set('nombre', e.target.value)} />
             <Stack direction="row" gap={1.5}>
-              <TextField label="Ciudad" size="small" value={form.ciudad} onChange={e => set('ciudad', e.target.value)} sx={{ flex: 1 }} />
+              <Box sx={{ flex: 1 }}>
+                <SelectorCatalogo modulo="GLOBAL" tipo="CIUDAD" label="Ciudad"
+                  valor={form.ciudad} onChange={v => set('ciudad', v)} />
+              </Box>
               <TextField label="Departamento" size="small" value={form.departamento} onChange={e => set('departamento', e.target.value)} sx={{ flex: 1 }} />
             </Stack>
             <Stack direction="row" gap={1.5}>
@@ -521,7 +529,7 @@ function CentrosCostoSection() {
 // ─── Main page ─────────────────────────────────────────────────────────────────
 export default function GHConfig() {
   const [tab, setTab] = useState(0)
-  const tabs = ['Empresas', 'Sedes', 'Áreas', 'Cargos', 'Centros de Costo']
+  const tabs = ['Empresas', 'Sedes', 'Áreas', 'Cargos', 'Centros de Costo', 'Catálogos maestros']
 
   const GUIDE = [
     { step: '1', text: 'Registra las Empresas del grupo antes de configurar sedes y áreas.' },
@@ -559,6 +567,10 @@ export default function GHConfig() {
           {tab === 2 && <AreasSection />}
           {tab === 3 && <CargosSection />}
           {tab === 4 && <CentrosCostoSection />}
+          {/* Los catálogos de tipos de documento, contrato, salario, motivos de
+              retiro, EPS y fondos viven en el catálogo maestro de la plataforma:
+              antes estaban escritos en el código y no se podían ajustar. */}
+          {tab === 5 && <AdminCatalogos modulo="HCM" color={GH_COLOR} incluirGlobales={false} />}
         </Grid>
         <Grid size={{ xs: 12, md: 4 }}>
           <Paper elevation={0} sx={{ border: `1px solid ${alpha(GH_COLOR, 0.2)}`, borderRadius: '14px', p: 2.5, bgcolor: alpha(GH_COLOR, 0.03) }}>
