@@ -281,7 +281,9 @@
       "cc1": "Command",
       "cc2": "Center",
       "cfg1": "Configuração",
-      "cfg2": "do Sistema"
+      "cfg2": "do Sistema",
+      "ags1": "Agenda de",
+      "ags2": "Servicos"
     },
     "common": {
       "save": "Salvar",

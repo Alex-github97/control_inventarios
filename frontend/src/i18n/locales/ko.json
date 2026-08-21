@@ -281,7 +281,9 @@
       "cc1": "Command",
       "cc2": "Center",
       "cfg1": "시스템",
-      "cfg2": "설정"
+      "cfg2": "설정",
+      "ags1": "서비스",
+      "ags2": "예약"
     },
     "common": {
       "save": "저장",
