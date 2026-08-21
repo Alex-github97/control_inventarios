@@ -102,6 +102,13 @@ CATALOGOS_REGISTRO = [
     _c("HCM", "ARL", "ARL", "Administradoras de riesgos laborales"),
     _c("HCM", "CAJA_COMPENSACION", "Cajas de compensación", "Caja a la que está afiliado"),
 
+    # ── CMMS · contratistas ──────────────────────────────────────────────
+    # La especialidad depende del tipo: un taller hace mecánica o frenos, un
+    # laboratorio hace análisis de aceite. Mezclarlas ofrecería especialidades
+    # que ese tipo de contratista no presta.
+    _c("EAM", "TIPO_CONTRATISTA", "Tipos de contratista", "Taller, proveedor, técnico externo…"),
+    _c("EAM", "ESPECIALIDAD_CONTRATISTA", "Especialidades", "Qué hace, según su tipo", "TIPO_CONTRATISTA"),
+
     # ── Almacén WMS ──────────────────────────────────────────────────────
     _c("WMS", "CATEGORIA_PRODUCTO", "Categorías de producto", "Primer nivel del surtido"),
     _c("WMS", "SUBCATEGORIA_PRODUCTO", "Subcategorías", "Depende de la categoría", "CATEGORIA_PRODUCTO"),

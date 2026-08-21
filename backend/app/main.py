@@ -838,6 +838,49 @@ async def lifespan(app: FastAPI):
             ON CONFLICT DO NOTHING
         """))
 
+        # Contratistas del CMMS: tipo y, colgadas de cada tipo, sus especialidades.
+        await conn.execute(text("""
+            INSERT INTO catalogo_maestro (modulo, tipo, nombre, padre_id, orden, activo, created_at, updated_at)
+            SELECT 'EAM', 'TIPO_CONTRATISTA', v.nombre, NULL, v.orden, true, now(), now()
+            FROM (VALUES
+                ('Taller', 1), ('Proveedor', 2), ('Técnico externo', 3),
+                ('Laboratorio', 4), ('Contratista de obra', 5)
+            ) AS v(nombre, orden)
+            ON CONFLICT DO NOTHING
+        """))
+        await conn.execute(text("""
+            INSERT INTO catalogo_maestro (modulo, tipo, nombre, padre_id, orden, activo, created_at, updated_at)
+            SELECT 'EAM', 'ESPECIALIDAD_CONTRATISTA', v.nombre, t.id, v.orden, true, now(), now()
+            FROM (VALUES
+                ('Taller','Mecánica automotriz general',1),
+                ('Taller','Sistemas eléctricos y electrónicos',2),
+                ('Taller','Frenos, suspensión y dirección',3),
+                ('Taller','Caja y transmisión',4),
+                ('Taller','Latonería y pintura',5),
+                ('Taller','Aire acondicionado y refrigeración',6),
+                ('Taller','Llantas y alineación',7),
+                ('Taller','Reencauche',8),
+                ('Proveedor','Repuestos originales',1),
+                ('Proveedor','Lubricantes y filtros',2),
+                ('Proveedor','Llantas',3),
+                ('Proveedor','Motores y garantías',4),
+                ('Proveedor','Sistemas hidráulicos',5),
+                ('Proveedor','Combustible',6),
+                ('Técnico externo','Diagnóstico electrónico y ECU',1),
+                ('Técnico externo','Soldadura',2),
+                ('Técnico externo','Instrumentación y calibración',3),
+                ('Laboratorio','Análisis de aceite',1),
+                ('Laboratorio','Ensayos no destructivos',2),
+                ('Laboratorio','Metrología',3),
+                ('Contratista de obra','Obra civil',1),
+                ('Contratista de obra','Instalaciones eléctricas',2),
+                ('Contratista de obra','Instalaciones hidrosanitarias',3)
+            ) AS v(tipo, nombre, orden)
+            JOIN catalogo_maestro t
+              ON t.modulo = 'EAM' AND t.tipo = 'TIPO_CONTRATISTA' AND t.nombre = v.tipo
+            ON CONFLICT DO NOTHING
+        """))
+
         # Rescate de lo ya escrito a mano: las sedes y áreas del CMMS pasan al
         # catálogo compartido para que no queden dos listas paralelas.
         await conn.execute(text("""

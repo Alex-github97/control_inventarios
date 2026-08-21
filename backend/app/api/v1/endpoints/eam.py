@@ -117,8 +117,11 @@ class ContratistaResponse(ContratistaCreate):
     activo: bool
 
 class ActivoCreate(BaseModel):
-    codigo: str
-    nombre: str
+    # Opcionales porque el alta ya no los pide: el codigo se genera consecutivo
+    # por tipo de activo y el nombre se compone de la ficha tecnica. Siguen
+    # siendo obligatorios en la tabla, asi que se rellenan antes de guardar.
+    codigo: Optional[str] = None
+    nombre: Optional[str] = None
     tipo_activo: Optional[str] = None
     estado: Optional[str] = "OPERATIVO"
     criticidad: Optional[str] = "MEDIA"
@@ -943,15 +946,94 @@ async def create_solucion(data: SolucionCreate, db: AsyncSession = Depends(get_d
 # ─── Contratistas ─────────────────────────────────────────────────────────────
 
 @router.get("/contratistas", response_model=List[ContratistaResponse])
-async def list_contratistas(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(EAMContratista).where(EAMContratista.activo == True))
+async def list_contratistas(
+    incluir_inactivos: bool = False,
+    db: AsyncSession = Depends(get_db),
+):
+    """Contratistas. Por defecto solo los activos; la pantalla de configuracion
+    pide tambien los inactivos para poder reactivarlos."""
+    q = select(EAMContratista)
+    if not incluir_inactivos:
+        q = q.where(EAMContratista.activo == True)
+    result = await db.execute(q.order_by(EAMContratista.nombre))
     return result.scalars().all()
 
-@router.post("/contratistas", response_model=ContratistaResponse)
+@router.post("/contratistas", response_model=ContratistaResponse, status_code=201)
 async def create_contratista(data: ContratistaCreate, db: AsyncSession = Depends(get_db)):
-    obj = EAMContratista(**data.model_dump())
+    nombre = (data.nombre or "").strip()
+    if not nombre:
+        raise HTTPException(400, "El nombre del contratista es obligatorio.")
+    r = await db.execute(select(EAMContratista).where(
+        func.lower(EAMContratista.nombre) == nombre.lower()))
+    existente = r.scalar_one_or_none()
+    if existente is not None:
+        raise HTTPException(400, "Ya existe un contratista llamado '%s'%s."
+                                 % (existente.nombre,
+                                    " (esta inactivo, puede reactivarlo)"
+                                    if not existente.activo else ""))
+    valores = data.model_dump()
+    valores["nombre"] = nombre
+    obj = EAMContratista(**valores)
     db.add(obj); await db.commit(); await db.refresh(obj)
     return obj
+
+@router.put("/contratistas/{contratista_id}", response_model=ContratistaResponse)
+async def update_contratista(
+    contratista_id: int, data: ContratistaCreate, db: AsyncSession = Depends(get_db),
+):
+    obj = await db.get(EAMContratista, contratista_id)
+    if obj is None:
+        raise HTTPException(404, "Contratista no encontrado")
+    valores = data.model_dump(exclude_unset=True)
+    nombre = (valores.get("nombre") or "").strip()
+    if "nombre" in valores:
+        if not nombre:
+            raise HTTPException(400, "El nombre del contratista es obligatorio.")
+        r = await db.execute(select(EAMContratista).where(
+            func.lower(EAMContratista.nombre) == nombre.lower(),
+            EAMContratista.id != contratista_id))
+        if r.scalar_one_or_none() is not None:
+            raise HTTPException(400, "Ya existe otro contratista llamado '%s'." % nombre)
+        valores["nombre"] = nombre
+    for k, v in valores.items():
+        setattr(obj, k, v.strip() if isinstance(v, str) else v)
+    await db.commit(); await db.refresh(obj)
+    return obj
+
+
+class EstadoContratistaIn(BaseModel):
+    activo: bool
+
+
+@router.put("/contratistas/{contratista_id}/estado", response_model=ContratistaResponse)
+async def cambiar_estado_contratista(
+    contratista_id: int, data: EstadoContratistaIn, db: AsyncSession = Depends(get_db),
+):
+    """Activa o desactiva. Se separa del PUT para poder reactivar un contratista
+    sin tener que reenviar toda su ficha."""
+    obj = await db.get(EAMContratista, contratista_id)
+    if obj is None:
+        raise HTTPException(404, "Contratista no encontrado")
+    obj.activo = data.activo
+    await db.commit(); await db.refresh(obj)
+    return obj
+
+
+@router.delete("/contratistas/{contratista_id}", status_code=204)
+async def delete_contratista(contratista_id: int, db: AsyncSession = Depends(get_db)):
+    """Borra el contratista. Si tiene ordenes de trabajo se desactiva: borrarlo
+    dejaria esas ordenes sin a quien atribuirlas."""
+    obj = await db.get(EAMContratista, contratista_id)
+    if obj is None:
+        raise HTTPException(404, "Contratista no encontrado")
+    r = await db.execute(select(func.count()).select_from(EAMOrdenTrabajo).where(
+        EAMOrdenTrabajo.contratista_id == contratista_id))
+    ots = r.scalar() or 0
+    if ots > 0:
+        obj.activo = False
+        await db.commit()
+        return
+    await db.delete(obj); await db.commit()
 
 
 # ─── Activos ──────────────────────────────────────────────────────────────────
@@ -1120,6 +1202,48 @@ async def desactivar_tipo_activo(tid: int, db: AsyncSession = Depends(get_db)):
         obj.activo = False
         await db.commit()
 
+# Prefijo del codigo por tipo de activo. Lo que no este aca usa ACT.
+PREFIJO_CODIGO_ACTIVO = {
+    "VEHICULO": "VEH", "REMOLQUE": "REM", "MOTOCICLETA": "MOT",
+    "MONTACARGAS": "MON", "EQUIPO_PATIO": "EQP",
+    "INFRAESTRUCTURA": "INF", "BODEGA": "BOD", "EDIFICACION": "EDI",
+}
+
+
+async def _generar_codigo_activo(db: AsyncSession, tipo_activo: Optional[str]) -> str:
+    """Codigo consecutivo por tipo: VEH-0001, MON-0001…
+
+    Se busca el mayor consecutivo ya usado con ese prefijo en lugar de contar
+    filas, para que borrar un activo no haga que el siguiente repita un codigo.
+    """
+    prefijo = PREFIJO_CODIGO_ACTIVO.get((tipo_activo or "").upper(), "ACT")
+    r = await db.execute(select(EAMActivo.codigo).where(
+        EAMActivo.codigo.like("%s-%%" % prefijo)))
+    mayor = 0
+    for (codigo,) in r.all():
+        sufijo = (codigo or "").split("-")[-1]
+        if sufijo.isdigit():
+            mayor = max(mayor, int(sufijo))
+    return "%s-%04d" % (prefijo, mayor + 1)
+
+
+def _componer_nombre_activo(valores: dict, codigo: str) -> str:
+    """Nombre legible a partir de la ficha tecnica.
+
+    El alta ya no pide un nombre: con marca, linea, placa y ano se arma algo mas
+    util y mas uniforme que lo que se escribiria a mano.
+    """
+    partes = [p for p in [valores.get("marca"), valores.get("linea")] if p]
+    etiqueta = " ".join(partes)
+    placa = valores.get("placa")
+    anio = valores.get("anio")
+    if placa:
+        etiqueta = "%s %s" % (etiqueta, placa) if etiqueta else str(placa)
+    elif anio:
+        etiqueta = "%s %s" % (etiqueta, anio) if etiqueta else str(anio)
+    return etiqueta.strip() or codigo
+
+
 @router.post("/activos", response_model=ActivoResponse)
 async def create_activo(data: ActivoCreate, db: AsyncSession = Depends(get_db)):
     valores = data.model_dump()
@@ -1127,6 +1251,18 @@ async def create_activo(data: ActivoCreate, db: AsyncSession = Depends(get_db)):
         await _resolver_catalogo_activo(db, valores)
     except ValueError as e:
         raise HTTPException(400, str(e))
+
+    codigo = (valores.get("codigo") or "").strip()
+    if not codigo:
+        codigo = await _generar_codigo_activo(db, valores.get("tipo_activo"))
+    else:
+        rc = await db.execute(select(EAMActivo).where(EAMActivo.codigo == codigo))
+        if rc.scalar_one_or_none() is not None:
+            raise HTTPException(400, "El codigo '%s' ya esta registrado." % codigo)
+    valores["codigo"] = codigo
+    if not (valores.get("nombre") or "").strip():
+        valores["nombre"] = _componer_nombre_activo(valores, codigo)
+
     obj = EAMActivo(**valores)
     db.add(obj); await db.commit(); await db.refresh(obj)
     return obj
@@ -3519,11 +3655,28 @@ class MotorActivoResponse(MotorActivoBase):
     id: int
 
 
+@router.get("/catalogo-vehiculos/motores/marcas", response_model=List[str])
+async def listar_marcas_motor(solo_activos: bool = True, db: AsyncSession = Depends(get_db)):
+    """Marcas de motor distintas. Es el primer nivel de la cascada
+    marca de motor > linea de motor que se usa al crear el activo."""
+    q = select(EAMMotorActivo.marca).where(EAMMotorActivo.marca.isnot(None))
+    if solo_activos:
+        q = q.where(EAMMotorActivo.activo == True)
+    r = await db.execute(q.distinct().order_by(EAMMotorActivo.marca))
+    return [m for (m,) in r.all() if m and m.strip()]
+
+
 @router.get("/catalogo-vehiculos/motores", response_model=List[MotorActivoResponse])
-async def listar_motores(solo_activos: bool = False, db: AsyncSession = Depends(get_db)):
+async def listar_motores(
+    solo_activos: bool = False,
+    marca: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+):
     q = select(EAMMotorActivo)
     if solo_activos:
         q = q.where(EAMMotorActivo.activo == True)
+    if marca:
+        q = q.where(func.lower(EAMMotorActivo.marca) == marca.strip().lower())
     r = await db.execute(q.order_by(EAMMotorActivo.nombre))
     return r.scalars().all()
 

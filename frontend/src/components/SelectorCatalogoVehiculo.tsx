@@ -142,7 +142,7 @@ export function SelectorCatalogoVehiculo({
   return (
     <Stack gap={1.5}>
       <Grid container spacing={2}>
-        <Grid size={{ xs: 12, md: 4 }}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <TextField
             select fullWidth size="small" label={requerido ? 'Marca *' : 'Marca'}
             value={valor.marca_id} onChange={e => elegirMarca(e.target.value)}
@@ -164,7 +164,7 @@ export function SelectorCatalogoVehiculo({
           </TextField>
         </Grid>
 
-        <Grid size={{ xs: 12, md: 4 }}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <TextField
             select fullWidth size="small" label={requerido ? 'Línea *' : 'Línea'}
             value={valor.linea_id} onChange={e => elegirLinea(e.target.value)}
@@ -178,32 +178,10 @@ export function SelectorCatalogoVehiculo({
           </TextField>
         </Grid>
 
-        <Grid size={{ xs: 12, md: 4 }}>
-          <TextField
-            select fullWidth size="small" label="Modelo"
-            value={valor.modelo_id} onChange={e => elegirModelo(e.target.value)}
-            disabled={!valor.linea_id}
-            helperText={!valor.linea_id
-              ? 'Elija la línea primero'
-              : modelos.length === 0 ? 'Esta línea no tiene modelos configurados' : undefined}
-          >
-            <MenuItem value="">Seleccionar…</MenuItem>
-            {modelos.map(mo => (
-              <MenuItem key={mo.id} value={String(mo.id)}>
-                {mo.nombre}
-                {(mo.anio_desde || mo.anio_hasta) && (
-                  <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.75 }}>
-                    · {mo.anio_desde ?? ''}{mo.anio_hasta ? `–${mo.anio_hasta}` : ''}
-                  </Typography>
-                )}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Grid>
       </Grid>
 
-      {/* Ficha técnica heredada: se muestra para que quede claro que no hay que
-          digitarla y de dónde sale. */}
+      {/* Ficha técnica heredada del modelo. El alta ya no pide modelo, así que
+          esto solo aparece si alguien lo trae preseleccionado. */}
       {modeloSel && (
         <Alert
           severity="info" icon={false}

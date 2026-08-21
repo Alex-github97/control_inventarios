@@ -6,6 +6,7 @@ import {
   List, ListItem, ListItemText, ListItemSecondaryAction, Dialog,
   DialogTitle, DialogContent, DialogActions,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Tooltip,
+  Alert,
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
 import {
@@ -27,7 +28,10 @@ import {
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 import { CatalogoVehiculos } from '@/components/CatalogoVehiculos'
+import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
 import { EsquemaLlantasPreview } from '@/components/EsquemaLlantasPreview'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { apiClient } from '@/api/client'
 
 const EAM_COLOR = '#32AC5C'
@@ -89,14 +93,6 @@ interface Contratista {
   activo: boolean
 }
 
-const CONTRATISTAS: Contratista[] = [
-  { id: 1, nombre: 'AutoTaller Express S.A.', tipo: 'TALLER', especialidad: 'Mecánica automotriz general', ciudad: 'Bogotá', calificacion: 4.5, activo: true },
-  { id: 2, nombre: 'Cummins Service Center', tipo: 'PROVEEDOR', especialidad: 'Motores CUMMINS y garantías', ciudad: 'Bogotá', calificacion: 4.8, activo: true },
-  { id: 3, nombre: 'ElectrAuto Ltda.', tipo: 'TALLER', especialidad: 'Sistemas eléctricos y electrónicos', ciudad: 'Medellín', calificacion: 4.2, activo: true },
-  { id: 4, nombre: 'Ing. Carlos Pérez', tipo: 'TECNICO_EXTERNO', especialidad: 'Diagnóstico avanzado y ECU', ciudad: 'Cali', calificacion: 4.7, activo: true },
-  { id: 5, nombre: 'HydroTech SAS', tipo: 'PROVEEDOR', especialidad: 'Sistemas hidráulicos industriales', ciudad: 'Bogotá', calificacion: 4.0, activo: false },
-  { id: 6, nombre: 'Frenos y Suspensión del Valle', tipo: 'TALLER', especialidad: 'Frenos, suspensión y dirección', ciudad: 'Cali', calificacion: 3.8, activo: true },
-]
 
 interface Integracion {
   codigo: string
@@ -118,7 +114,6 @@ const INTEGRACIONES: Integracion[] = [
   { codigo: 'GPS', nombre: 'GPS / Telemetría CANBUS', descripcion: 'Posicionamiento, velocidad, temperatura motor y consumo', estado: 'CONFIGURAR', color: '#3B82F6' },
 ]
 
-const tipoContColor = (t: string) => ({ TALLER: '#3B82F6', PROVEEDOR: '#32AC5C', TECNICO_EXTERNO: '#8B5CF6' })[t] ?? '#9CA3AF'
 
 interface UmbralState {
   pmAntesDias: number
@@ -215,6 +210,304 @@ interface TipoActivoCfg { id: number; codigo: string; nombre: string; usa_llanta
 // real (uniforme, direccional+dual, combos cabezote+trailer, motos, etc.)
 const EMPTY_ESQUEMA = { codigo: '', nombre: '', tipo_activo: '', layout: ['2', '4'] as string[], tiene_repuesto: true, cantidad_repuestos: '1' }
 const totalLlantas = (layout?: number[] | null) => (layout ?? []).reduce((a, b) => a + b, 0)
+
+interface ContratistaAPI {
+  id: number
+  nombre: string
+  nit?: string | null
+  tipo?: string | null
+  especialidad?: string | null
+  contacto?: string | null
+  telefono?: string | null
+  email?: string | null
+  ciudad?: string | null
+  calificacion?: number | null
+  activo: boolean
+}
+
+const CONTRATISTA_VACIO = {
+  nombre: '', nit: '', tipo: '', especialidad: '', contacto: '',
+  telefono: '', email: '', ciudad: '', calificacion: 5,
+}
+
+const colorTipoContratista = (tipo?: string | null): string => {
+  const t = (tipo ?? '').toLowerCase()
+  if (t.includes('taller')) return '#2563EB'
+  if (t.includes('proveedor')) return '#16A34A'
+  if (t.includes('laboratorio')) return '#7C3AED'
+  if (t.includes('obra')) return '#B45309'
+  return '#0891B2'
+}
+
+/**
+ * Contratistas del CMMS.
+ *
+ * Antes era una maqueta: la lista venía de una constante y los botones no
+ * hacían nada. Ahora usa la API y la especialidad depende del tipo, porque un
+ * taller no ofrece las mismas especialidades que un laboratorio.
+ */
+function ContratistasSection() {
+  const qc = useQueryClient()
+  const [verInactivos, setVerInactivos] = useState(false)
+  const [dlg, setDlg] = useState<{ abierto: boolean; item: ContratistaAPI | null }>(
+    { abierto: false, item: null })
+  const [form, setForm] = useState({ ...CONTRATISTA_VACIO })
+  // Id del tipo elegido: hace falta para acotar las especialidades a ese tipo
+  const [tipoId, setTipoId] = useState<number | null>(null)
+  const [wasOpen, setWasOpen] = useState(false)
+
+  if (dlg.abierto && !wasOpen) {
+    setWasOpen(true)
+    const it = dlg.item
+    setForm(it ? {
+      nombre: it.nombre, nit: it.nit ?? '', tipo: it.tipo ?? '',
+      especialidad: it.especialidad ?? '', contacto: it.contacto ?? '',
+      telefono: it.telefono ?? '', email: it.email ?? '', ciudad: it.ciudad ?? '',
+      calificacion: it.calificacion ?? 5,
+    } : { ...CONTRATISTA_VACIO })
+    setTipoId(null)
+  }
+  if (!dlg.abierto && wasOpen) setWasOpen(false)
+
+  const { data: contratistas = [], isLoading } = useQuery<ContratistaAPI[]>({
+    queryKey: ['eam-contratistas', verInactivos],
+    queryFn: () => apiClient.get('/eam/contratistas', {
+      params: { incluir_inactivos: verInactivos },
+    }).then(r => r.data),
+  })
+
+  const invalidar = () => qc.invalidateQueries({ queryKey: ['eam-contratistas'] })
+  const err = (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo guardar')
+
+  const mutGuardar = useMutation({
+    mutationFn: () => {
+      const cuerpo = {
+        nombre: form.nombre.trim(),
+        nit: form.nit.trim() || null,
+        tipo: form.tipo || null,
+        especialidad: form.especialidad || null,
+        contacto: form.contacto.trim() || null,
+        telefono: form.telefono.trim() || null,
+        email: form.email.trim() || null,
+        ciudad: form.ciudad || null,
+        calificacion: Number(form.calificacion) || 5,
+      }
+      return dlg.item
+        ? apiClient.put(`/eam/contratistas/${dlg.item.id}`, cuerpo).then(r => r.data)
+        : apiClient.post('/eam/contratistas', cuerpo).then(r => r.data)
+    },
+    onSuccess: () => {
+      toast.success(dlg.item ? 'Contratista actualizado' : 'Contratista agregado')
+      invalidar()
+      setDlg({ abierto: false, item: null })
+    },
+    onError: err,
+  })
+
+  const mutEstado = useMutation({
+    mutationFn: ({ id, activo }: { id: number; activo: boolean }) =>
+      apiClient.put(`/eam/contratistas/${id}/estado`, { activo }).then(r => r.data),
+    onSuccess: (_d, v) => {
+      toast.success(v.activo ? 'Contratista reactivado' : 'Contratista desactivado')
+      invalidar()
+    },
+    onError: err,
+  })
+
+  const mutBorrar = useMutation({
+    mutationFn: (id: number) => apiClient.delete(`/eam/contratistas/${id}`),
+    onSuccess: () => {
+      toast.success('Contratista eliminado. Si tenía órdenes de trabajo, quedó desactivado.')
+      invalidar()
+    },
+    onError: err,
+  })
+
+  return (
+    <Box>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
+        <Stack direction="row" alignItems="center" gap={2}>
+          <Typography variant="caption" color="grey.500">
+            {contratistas.length} contratista(s)
+          </Typography>
+          <FormControlLabel
+            control={<Switch size="small" checked={verInactivos}
+              onChange={e => setVerInactivos(e.target.checked)} />}
+            label={<Typography variant="caption">Ver inactivos</Typography>}
+          />
+        </Stack>
+        <Button startIcon={<AddIcon />} variant="contained"
+          onClick={() => setDlg({ abierto: true, item: null })}
+          sx={{ textTransform: 'none', background: EAM_COLOR, '&:hover': { background: '#27884A' } }}>
+          Agregar Contratista
+        </Button>
+      </Stack>
+
+      {!isLoading && contratistas.length === 0 && (
+        <Alert severity="info">
+          No hay contratistas registrados. Agregue el primero con el botón de arriba.
+        </Alert>
+      )}
+
+      <Grid container spacing={2}>
+        {contratistas.map(c => (
+          <Grid key={c.id} size={{ xs: 12, md: 6, lg: 4 }}>
+            <Card sx={{
+              background: '#FFFFFF',
+              border: `1px solid ${alpha(c.activo ? colorTipoContratista(c.tipo) : '#4B5563', 0.3)}`,
+              opacity: c.activo ? 1 : 0.6,
+            }}>
+              <CardContent>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
+                  <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
+                    <Avatar sx={{ width: 40, height: 40, background: alpha(colorTipoContratista(c.tipo), 0.15) }}>
+                      <BuildIcon sx={{ color: colorTipoContratista(c.tipo) }} />
+                    </Avatar>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography variant="body2" fontWeight={700} color="#1E293B" noWrap>{c.nombre}</Typography>
+                      <Typography variant="caption" color="grey.500">
+                        {[c.ciudad, c.nit].filter(Boolean).join(' · ') || '—'}
+                      </Typography>
+                    </Box>
+                  </Stack>
+                  <Tooltip title={c.activo ? 'Activo — clic para desactivar' : 'Inactivo — clic para reactivar'}>
+                    <IconButton size="small"
+                      onClick={() => mutEstado.mutate({ id: c.id, activo: !c.activo })}>
+                      {c.activo
+                        ? <ActiveIcon sx={{ color: '#32AC5C', fontSize: 18 }} />
+                        : <InactiveIcon sx={{ color: '#9CA3AF', fontSize: 18 }} />}
+                    </IconButton>
+                  </Tooltip>
+                </Stack>
+
+                {c.tipo && (
+                  <Chip label={c.tipo} size="small" sx={{
+                    background: alpha(colorTipoContratista(c.tipo), 0.12),
+                    color: colorTipoContratista(c.tipo), fontWeight: 600, fontSize: 10, mb: 1,
+                  }} />
+                )}
+
+                <Typography variant="caption" color="grey.500" display="block" mb={1}>
+                  {c.especialidad ?? 'Sin especialidad'}
+                </Typography>
+                {(c.contacto || c.telefono) && (
+                  <Typography variant="caption" color="grey.500" display="block" mb={1}>
+                    {[c.contacto, c.telefono].filter(Boolean).join(' · ')}
+                  </Typography>
+                )}
+
+                <Stack direction="row" alignItems="center" justifyContent="space-between">
+                  <Stack direction="row" alignItems="center" spacing={0.5}>
+                    <Rating value={c.calificacion ?? 0} precision={0.5} readOnly size="small"
+                      sx={{ '& .MuiRating-iconFilled': { color: '#F59E0B' },
+                            '& .MuiRating-iconEmpty': { color: '#E5E7EB' } }} />
+                    <Typography variant="caption" color="grey.500">{c.calificacion ?? '—'}</Typography>
+                  </Stack>
+                  <Stack direction="row" spacing={0.5}>
+                    <IconButton size="small" sx={{ color: 'grey.500' }}
+                      onClick={() => setDlg({ abierto: true, item: c })}>
+                      <EditIcon sx={{ fontSize: 14 }} />
+                    </IconButton>
+                    <IconButton size="small" sx={{ color: '#EF4444' }}
+                      onClick={() => {
+                        if (window.confirm(`¿Eliminar el contratista "${c.nombre}"?`)) mutBorrar.mutate(c.id)
+                      }}>
+                      <DeleteIcon sx={{ fontSize: 14 }} />
+                    </IconButton>
+                  </Stack>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+
+      <Dialog open={dlg.abierto} onClose={() => setDlg({ abierto: false, item: null })}
+        maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>
+          {dlg.item ? `Editar ${dlg.item.nombre}` : 'Nuevo contratista'}
+        </DialogTitle>
+        <DialogContent dividers>
+          <Grid container spacing={2} sx={{ pt: 0.5 }}>
+            <Grid size={{ xs: 12, sm: 8 }}>
+              <TextField label="Nombre / razón social *" size="small" fullWidth autoFocus
+                value={form.nombre}
+                onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 4 }}>
+              <TextField label="NIT" size="small" fullWidth value={form.nit}
+                onChange={e => setForm(f => ({ ...f, nit: e.target.value }))} />
+            </Grid>
+
+            {/* Jerarquía: la especialidad depende del tipo */}
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <SelectorCatalogo
+                modulo="EAM" tipo="TIPO_CONTRATISTA" label="Tipo de contratista"
+                valor={form.tipo}
+                onChange={(v, item) => {
+                  // Cambiar el tipo invalida la especialidad elegida
+                  setForm(f => ({ ...f, tipo: v, especialidad: '' }))
+                  setTipoId(item?.id ?? null)
+                }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <SelectorCatalogo
+                modulo="EAM" tipo="ESPECIALIDAD_CONTRATISTA" label="Especialidad"
+                valor={form.especialidad}
+                onChange={v => setForm(f => ({ ...f, especialidad: v }))}
+                padreId={tipoId}
+                deshabilitado={!tipoId}
+                ayuda={!tipoId
+                  ? (dlg.item && form.especialidad
+                      ? 'Vuelva a elegir el tipo para cambiarla'
+                      : 'Elija el tipo de contratista primero')
+                  : undefined}
+              />
+            </Grid>
+
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <SelectorCatalogo
+                modulo="GLOBAL" tipo="CIUDAD" label="Ciudad"
+                valor={form.ciudad}
+                onChange={v => setForm(f => ({ ...f, ciudad: v }))}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField label="Persona de contacto" size="small" fullWidth value={form.contacto}
+                onChange={e => setForm(f => ({ ...f, contacto: e.target.value }))} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField label="Teléfono" size="small" fullWidth value={form.telefono}
+                onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField label="Correo" size="small" fullWidth value={form.email}
+                onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <Typography variant="caption" color="grey.500" display="block" mb={0.5}>
+                Calificación
+              </Typography>
+              <Rating value={Number(form.calificacion)} precision={0.5}
+                onChange={(_e, v) => setForm(f => ({ ...f, calificacion: v ?? 0 }))}
+                sx={{ '& .MuiRating-iconFilled': { color: '#F59E0B' } }} />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setDlg({ abierto: false, item: null })}>Cancelar</Button>
+          <Button variant="contained" disabled={!form.nombre.trim() || mutGuardar.isPending}
+            onClick={() => mutGuardar.mutate()}
+            sx={{ background: EAM_COLOR, '&:hover': { background: '#27884A' } }}>
+            {mutGuardar.isPending ? 'Guardando…' : 'Guardar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  )
+}
+
 
 export default function EAMConfig() {
   const [tab, setTab] = useState(0)
@@ -975,54 +1268,7 @@ export default function EAMConfig() {
         )}
 
         {/* Tab 1: Contratistas */}
-        {tab === 1 && (
-          <Box>
-            <Stack direction="row" justifyContent="flex-end" mb={2}>
-              <Button startIcon={<AddIcon />} variant="contained" sx={{ textTransform: 'none', background: EAM_COLOR, '&:hover': { background: '#27884A' } }}>
-                Agregar Contratista
-              </Button>
-            </Stack>
-            <Grid container spacing={2}>
-              {CONTRATISTAS.map(c => (
-                <Grid key={c.id} size={{ xs: 12, md: 6, lg: 4 }}>
-                  <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(c.activo ? tipoContColor(c.tipo) : '#4B5563', 0.3)}`, opacity: c.activo ? 1 : 0.6 }}>
-                    <CardContent>
-                      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
-                        <Stack direction="row" spacing={1.5} alignItems="center">
-                          <Avatar sx={{ width: 40, height: 40, background: alpha(tipoContColor(c.tipo), 0.15) }}>
-                            {c.tipo === 'TECNICO_EXTERNO' ? <PersonIcon sx={{ color: tipoContColor(c.tipo) }} /> : c.tipo === 'TALLER' ? <BuildIcon sx={{ color: tipoContColor(c.tipo) }} /> : <BusinessIcon sx={{ color: tipoContColor(c.tipo) }} />}
-                          </Avatar>
-                          <Box>
-                            <Typography variant="body2" fontWeight={700} color="#1E293B">{c.nombre}</Typography>
-                            <Typography variant="caption" color="grey.500">{c.ciudad}</Typography>
-                          </Box>
-                        </Stack>
-                        {c.activo
-                          ? <ActiveIcon sx={{ color: '#32AC5C', fontSize: 18 }} />
-                          : <InactiveIcon sx={{ color: '#9CA3AF', fontSize: 18 }} />}
-                      </Stack>
-
-                      <Chip label={c.tipo.replace('_', ' ')} size="small" sx={{ background: alpha(tipoContColor(c.tipo), 0.12), color: tipoContColor(c.tipo), fontWeight: 600, fontSize: 10, mb: 1 }} />
-
-                      <Typography variant="caption" color="grey.400" display="block" mb={1}>{c.especialidad}</Typography>
-
-                      <Stack direction="row" alignItems="center" justifyContent="space-between">
-                        <Stack direction="row" alignItems="center" spacing={0.5}>
-                          <Rating value={c.calificacion} precision={0.5} readOnly size="small" sx={{ '& .MuiRating-iconFilled': { color: '#F59E0B' }, '& .MuiRating-iconEmpty': { color: '#E5E7EB' } }} />
-                          <Typography variant="caption" color="grey.400">{c.calificacion}</Typography>
-                        </Stack>
-                        <Stack direction="row" spacing={0.5}>
-                          <IconButton size="small" sx={{ color: 'grey.500' }}><EditIcon sx={{ fontSize: 14 }} /></IconButton>
-                          <IconButton size="small" sx={{ color: '#EF4444' }}><DeleteIcon sx={{ fontSize: 14 }} /></IconButton>
-                        </Stack>
-                      </Stack>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-          </Box>
-        )}
+        {tab === 1 && <ContratistasSection />}
 
         {/* Tab 2: Umbrales & Alertas */}
         {tab === 2 && (

@@ -38,6 +38,7 @@ import type {
   SeleccionVehiculo, CombustibleActivo,
 } from '@/components/SelectorCatalogoVehiculo'
 import { SelectorCatalogoGeneral } from '@/components/SelectorCatalogoGeneral'
+import { SelectorMotor } from '@/components/SelectorMotor'
 import { VehiculosCombinados } from '@/components/VehiculosCombinados'
 
 const EAM_COLOR = '#32AC5C'
@@ -63,6 +64,8 @@ export interface ActivoAPI {
   numero_motor?: string | null
   numero_chasis?: string | null
   numero_carroceria?: string | null
+  motor_marca?: string | null
+  motor_linea?: string | null
   observaciones?: string | null
   observaciones_adicionales?: string | null
   cuenta_contable?: string | null
@@ -109,6 +112,7 @@ const EMPTY_ACTIVO = {
   codigo: '', nombre: '', tipo_activo: 'VEHICULO', estado: 'OPERATIVO', criticidad: 'MEDIA',
   anio: '', placa: '',
   numero_motor: '', numero_chasis: '', numero_carroceria: '',
+  motor_marca: '', motor_linea: '',
   ubicacion: '', sede: '', area: '', responsable: '',
   cuenta_contable: '', centro_costo: '',
   odometro_actual: '', horometro_actual: '', fecha_adquisicion: '', costo_adquisicion: '',
@@ -556,6 +560,8 @@ function ActivoDialog({
       numero_motor: editando.numero_motor ?? '',
       numero_chasis: editando.numero_chasis ?? '',
       numero_carroceria: editando.numero_carroceria ?? '',
+      motor_marca: editando.motor_marca ?? '',
+      motor_linea: editando.motor_linea ?? '',
       placa: editando.placa ?? '', ubicacion: editando.ubicacion ?? '', sede: editando.sede ?? '',
       area: editando.area ?? '', responsable: editando.responsable ?? '',
       cuenta_contable: editando.cuenta_contable ?? '',
@@ -601,8 +607,16 @@ function ActivoDialog({
       <DialogContent dividers>
         <Grid container spacing={2} sx={{ pt: 0.5 }}>
           <Grid size={{ xs: 12 }}><Typography fontSize={11} fontWeight={700} color="#94A3B8" letterSpacing="0.06em">IDENTIFICACIÓN</Typography></Grid>
-          <Grid size={{ xs: 12, sm: 4 }}><TextField label="Código *" size="small" fullWidth value={form.codigo} onChange={set('codigo')} disabled={!!editando} helperText={editando ? 'El código no se cambia' : undefined} /></Grid>
-          <Grid size={{ xs: 12, sm: 8 }}><TextField label="Nombre / descripción *" size="small" fullWidth value={form.nombre} onChange={set('nombre')} /></Grid>
+          {/* Código y nombre no se piden al crear: el código se genera
+              consecutivo por tipo de activo (VEH-0001, MON-0001…) y el nombre se
+              compone de la ficha técnica. Al editar sí se muestran, para poder
+              corregir el nombre generado. */}
+          {editando && (
+            <>
+              <Grid size={{ xs: 12, sm: 4 }}><TextField label="Código" size="small" fullWidth value={form.codigo} disabled helperText="El código no se cambia" /></Grid>
+              <Grid size={{ xs: 12, sm: 8 }}><TextField label="Nombre / descripción" size="small" fullWidth value={form.nombre} onChange={set('nombre')} /></Grid>
+            </>
+          )}
           <Grid size={{ xs: 12, sm: editando ? 4 : 6 }}>
             <TextField select label="Tipo de activo *" size="small" fullWidth value={form.tipo_activo} onChange={set('tipo_activo')}>
               {(tipos.length ? tipos : [{ codigo: 'VEHICULO', nombre: 'Vehículo' } as TipoActivoCat]).map(t => (
@@ -637,6 +651,16 @@ function ActivoDialog({
               tipoActivo={form.tipo_activo}
               valor={cat}
               onChange={setCat}
+              color={EAM_COLOR}
+            />
+          </Grid>
+          {/* El motor tiene su propia jerarquía: marca del motor → línea del
+              motor. Un mismo motor monta en varias líneas de varias marcas, así
+              que no cuelga del vehículo. */}
+          <Grid size={{ xs: 12 }}>
+            <SelectorMotor
+              marca={form.motor_marca} linea={form.motor_linea}
+              onChange={(ma, li) => setForm(f => ({ ...f, motor_marca: ma, motor_linea: li }))}
               color={EAM_COLOR}
             />
           </Grid>
@@ -731,13 +755,21 @@ function ActivoDialog({
         <Button onClick={onClose} sx={{ color: '#64748B' }}>Cancelar</Button>
         <Button
           variant="contained"
-          disabled={!form.codigo.trim() || !form.nombre.trim() || isPending}
+          // Al crear no se exigen: el backend genera el código y compone el
+          // nombre. Al editar sí debe quedar un nombre.
+          disabled={isPending || (!!editando && !form.nombre.trim())}
           onClick={() => onSubmit({
-            codigo: form.codigo.trim(), nombre: form.nombre.trim(),
+            // Al crear se omiten para que el backend los genere
+            ...(editando ? { codigo: form.codigo.trim(), nombre: form.nombre.trim() } : {}),
             tipo_activo: form.tipo_activo, estado: form.estado, criticidad: form.criticidad,
             // La jerarquía sale del selector de catálogo; el backend la valida
             // y devuelve error si la combinación no existe.
-            marca: txt(cat.marca), linea: txt(cat.linea), modelo: txt(cat.modelo),
+            marca: txt(cat.marca), linea: txt(cat.linea),
+            // El modelo va explícito como null y no omitido: el alta ya no lo
+            // pide, y si se omite al cambiar la marca de un activo que sí tenía
+            // modelo, el backend valida el modelo viejo contra la línea nueva y
+            // el activo queda imposible de guardar.
+            modelo: cat.modelo?.trim() || null,
             anio: num(form.anio),
             placa: txt(form.placa),
             numero_motor: txt(form.numero_motor),
@@ -752,8 +784,7 @@ function ActivoDialog({
             fecha_adquisicion: txt(form.fecha_adquisicion), costo_adquisicion: num(form.costo_adquisicion),
             vida_util_anios: num(vidaUtilEfectiva), tipo_combustible: txt(combustibleEfectivo),
             // Ficha técnica heredada del modelo del catálogo
-            motor_marca: cat.motor_marca ?? undefined,
-            motor_linea: cat.motor_linea ?? undefined,
+            motor_marca: txt(form.motor_marca), motor_linea: txt(form.motor_linea),
             numero_ejes: cat.numero_ejes ?? undefined,
             capacidad_combustible: cat.capacidad_combustible ?? undefined,
             vida_util_km: cat.vida_util_km ?? undefined,
