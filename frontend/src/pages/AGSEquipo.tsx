@@ -14,7 +14,7 @@ import {
 import Grid from '@mui/material/Grid2'
 import {
   Add, Edit, Delete, MoreVert, Schedule, EventBusy, Groups, Home,
-  ContentCut, PersonOff, ContentCopy,
+  LocalOffer, PersonOff, ContentCopy,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
@@ -321,7 +321,7 @@ export default function AGSEquipo() {
                         sx={{ fontSize: 11.5 }}>
                         Jornada
                       </Button>
-                      <Button size="small" startIcon={<ContentCut />} onClick={() => setDlgServicios(p)}
+                      <Button size="small" startIcon={<LocalOffer />} onClick={() => setDlgServicios(p)}
                         sx={{ fontSize: 11.5 }}>
                         Servicios ({(p.servicios_ids ?? []).length || 'todos'})
                       </Button>
@@ -385,7 +385,7 @@ export default function AGSEquipo() {
             <ListItemText>Definir jornada</ListItemText>
           </MenuItem>
           <MenuItem onClick={() => { setDlgServicios(menu!.item); setMenu(null) }}>
-            <ListItemIcon><ContentCut fontSize="small" /></ListItemIcon>
+            <ListItemIcon><LocalOffer fontSize="small" /></ListItemIcon>
             <ListItemText>Servicios que presta</ListItemText>
           </MenuItem>
           <Divider />

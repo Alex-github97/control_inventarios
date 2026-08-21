@@ -13,7 +13,7 @@ import {
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
 import {
-  Add, Edit, Delete, MoreVert, Search, ContentCut, Home,
+  Add, Edit, Delete, MoreVert, Search, ToggleOn, Home,
   Inventory2, Download,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -358,7 +358,7 @@ export default function AGSServicios() {
             <ListItemText>Editar servicio</ListItemText>
           </MenuItem>
           <MenuItem onClick={() => { alternarActivo.mutate(menu!.item); setMenu(null) }}>
-            <ListItemIcon><ContentCut fontSize="small" /></ListItemIcon>
+            <ListItemIcon><ToggleOn fontSize="small" /></ListItemIcon>
             <ListItemText>{menu?.item.activo === false ? 'Activar' : 'Desactivar'}</ListItemText>
           </MenuItem>
           <Divider />

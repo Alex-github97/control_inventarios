@@ -13,7 +13,7 @@ import {
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
 import {
-  Download, TrendingUp, TrendingDown, Payments, Groups, ContentCut, People,
+  Download, TrendingUp, TrendingDown, Payments, Groups, LocalOffer, People,
   PointOfSale, WarningAmber, AccountBalanceWallet,
 } from '@mui/icons-material'
 import { useQuery } from '@tanstack/react-query'
@@ -263,7 +263,7 @@ export default function AGSIngresos() {
           >
             <Tab icon={<TrendingUp fontSize="small" />} iconPosition="start" label="Evolución" />
             <Tab icon={<Groups fontSize="small" />} iconPosition="start" label="Equipo" />
-            <Tab icon={<ContentCut fontSize="small" />} iconPosition="start" label="Servicios" />
+            <Tab icon={<LocalOffer fontSize="small" />} iconPosition="start" label="Servicios" />
             <Tab icon={<People fontSize="small" />} iconPosition="start" label="Clientes" />
             <Tab icon={<PointOfSale fontSize="small" />} iconPosition="start" label="Cierre de caja" />
           </Tabs>

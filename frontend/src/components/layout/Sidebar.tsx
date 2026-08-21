@@ -165,7 +165,7 @@ import {
   Tune as EAMConfigIconEAM,
   Insights as AGSDashIconAGS,
   CalendarMonth as AGSAgendaIconAGS,
-  ContentCut as AGSServiciosIconAGS,
+  LocalOffer as AGSServiciosIconAGS,
   Groups as AGSEquipoIconAGS,
   ContactPhone as AGSClientesIconAGS,
   PointOfSale as AGSIngresosIconAGS,

@@ -13,7 +13,7 @@ import {
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
 import {
-  ArrowBack, CheckCircle, Schedule, Person, Event, ContentCut, Place, Store,
+  ArrowBack, CheckCircle, Schedule, Person, Event, Groups, Place, Store,
   Home, Phone, WhatsApp, Search, EventBusy, Storefront, ArrowForward,
 } from '@mui/icons-material'
 import { useQuery, useMutation } from '@tanstack/react-query'
@@ -543,7 +543,7 @@ export default function AGSReservaPublica() {
                 <CardContent sx={{ p: 1.8, '&:last-child': { pb: 1.8 } }}>
                   <Stack direction="row" spacing={1.5} alignItems="center">
                     <Avatar sx={{ bgcolor: alpha(AGS_COLOR, 0.15), color: AGS_COLOR }}>
-                      <ContentCut />
+                      <Groups />
                     </Avatar>
                     <Box>
                       <Typography variant="body2" fontWeight={700}>Cualquiera disponible</Typography>
