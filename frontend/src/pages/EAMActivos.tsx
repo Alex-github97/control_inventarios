@@ -37,6 +37,7 @@ import {
 import type {
   SeleccionVehiculo, CombustibleActivo,
 } from '@/components/SelectorCatalogoVehiculo'
+import { SelectorCatalogoGeneral } from '@/components/SelectorCatalogoGeneral'
 import { VehiculosCombinados } from '@/components/VehiculosCombinados'
 
 const EAM_COLOR = '#32AC5C'
@@ -59,6 +60,13 @@ export interface ActivoAPI {
   modelo?: string | null
   anio?: number | null
   numero_serie?: string | null
+  numero_motor?: string | null
+  numero_chasis?: string | null
+  numero_carroceria?: string | null
+  observaciones?: string | null
+  observaciones_adicionales?: string | null
+  cuenta_contable?: string | null
+  centro_costo?: string | null
   placa?: string | null
   ubicacion?: string | null
   sede?: string | null
@@ -99,10 +107,13 @@ const CRITICIDADES = ['CRITICA', 'ALTA', 'MEDIA', 'BAJA']
 
 const EMPTY_ACTIVO = {
   codigo: '', nombre: '', tipo_activo: 'VEHICULO', estado: 'OPERATIVO', criticidad: 'MEDIA',
-  anio: '', numero_serie: '', placa: '',
+  anio: '', placa: '',
+  numero_motor: '', numero_chasis: '', numero_carroceria: '',
   ubicacion: '', sede: '', area: '', responsable: '',
+  cuenta_contable: '', centro_costo: '',
   odometro_actual: '', horometro_actual: '', fecha_adquisicion: '', costo_adquisicion: '',
   vida_util_anios: '', tipo_combustible: '',
+  observaciones: '', observaciones_adicionales: '',
 }
 
 
@@ -302,11 +313,15 @@ function Vista360({ activo, onBack, onVerOTs, onEditar, nombreTipo }: {
     { label: 'Línea',            value: activo.linea ?? '—' },
     { label: 'Modelo',           value: activo.modelo ?? '—' },
     { label: 'Año',              value: activo.anio ? String(activo.anio) : '—' },
-    { label: 'Serie / VIN',      value: activo.numero_serie ?? '—' },
     { label: 'Placa',            value: activo.placa ?? '—' },
+    { label: 'N.º de motor',     value: activo.numero_motor ?? activo.numero_serie ?? '—' },
+    { label: 'N.º de chasis',    value: activo.numero_chasis ?? '—' },
+    { label: 'N.º de carrocería', value: activo.numero_carroceria ?? '—' },
     { label: 'Ubicación',        value: activo.ubicacion ?? '—' },
     { label: 'Sede / Área',      value: [activo.sede, activo.area].filter(Boolean).join(' · ') || '—' },
     { label: 'Responsable',      value: activo.responsable ?? '—' },
+    { label: 'Cuenta contable',  value: activo.cuenta_contable ?? '—' },
+    { label: 'Centro de costo',  value: activo.centro_costo ?? '—' },
     { label: 'Fecha adquisición', value: activo.fecha_adquisicion ?? '—' },
     { label: 'Combustible',      value: activo.tipo_combustible ?? '—' },
   ]
@@ -537,9 +552,16 @@ function ActivoDialog({
       codigo: editando.codigo ?? '', nombre: editando.nombre ?? '',
       tipo_activo: editando.tipo_activo ?? 'VEHICULO', estado: editando.estado ?? 'OPERATIVO',
       criticidad: editando.criticidad ?? 'MEDIA',
-      anio: editando.anio != null ? String(editando.anio) : '', numero_serie: editando.numero_serie ?? '',
+      anio: editando.anio != null ? String(editando.anio) : '',
+      numero_motor: editando.numero_motor ?? '',
+      numero_chasis: editando.numero_chasis ?? '',
+      numero_carroceria: editando.numero_carroceria ?? '',
       placa: editando.placa ?? '', ubicacion: editando.ubicacion ?? '', sede: editando.sede ?? '',
       area: editando.area ?? '', responsable: editando.responsable ?? '',
+      cuenta_contable: editando.cuenta_contable ?? '',
+      centro_costo: editando.centro_costo ?? '',
+      observaciones: editando.observaciones ?? '',
+      observaciones_adicionales: editando.observaciones_adicionales ?? '',
       odometro_actual: editando.odometro_actual != null ? String(editando.odometro_actual) : '',
       horometro_actual: editando.horometro_actual != null ? String(editando.horometro_actual) : '',
       fecha_adquisicion: editando.fecha_adquisicion ?? '',
@@ -620,7 +642,12 @@ function ActivoDialog({
           </Grid>
           <Grid size={{ xs: 6, sm: 3 }}><TextField label="Año" type="number" size="small" fullWidth value={form.anio} onChange={set('anio')} /></Grid>
           <Grid size={{ xs: 6, sm: 3 }}><TextField label="Placa" size="small" fullWidth value={form.placa} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm(f => ({ ...f, placa: e.target.value.toUpperCase() }))} /></Grid>
-          <Grid size={{ xs: 12, sm: 6 }}><TextField label="N.º de serie / VIN" size="small" fullWidth value={form.numero_serie} onChange={set('numero_serie')} /></Grid>
+          {/* Un vehiculo se identifica por tres numeros distintos, no por uno
+              solo: el motor, el chasis y la carroceria se cambian por separado
+              y cada uno aparece en documentos diferentes. */}
+          <Grid size={{ xs: 12, sm: 4 }}><TextField label="Número de motor" size="small" fullWidth value={form.numero_motor} onChange={set('numero_motor')} /></Grid>
+          <Grid size={{ xs: 12, sm: 4 }}><TextField label="Número de chasis" size="small" fullWidth value={form.numero_chasis} onChange={set('numero_chasis')} /></Grid>
+          <Grid size={{ xs: 12, sm: 4 }}><TextField label="Número de carrocería" size="small" fullWidth value={form.numero_carroceria} onChange={set('numero_carroceria')} /></Grid>
           <Grid size={{ xs: 6, sm: 3 }}>
             <TextField
               select label="Tipo de combustible" size="small" fullWidth
@@ -644,16 +671,51 @@ function ActivoDialog({
           </Grid>
 
           <Grid size={{ xs: 12 }}><Typography fontSize={11} fontWeight={700} color="#94A3B8" letterSpacing="0.06em" mt={1}>UBICACIÓN Y RESPONSABLE</Typography></Grid>
-          <Grid size={{ xs: 12, sm: 3 }}><TextField label="Ubicación" size="small" fullWidth value={form.ubicacion} onChange={set('ubicacion')} /></Grid>
-          <Grid size={{ xs: 12, sm: 3 }}><TextField label="Sede" size="small" fullWidth value={form.sede} onChange={set('sede')} /></Grid>
-          <Grid size={{ xs: 12, sm: 3 }}><TextField label="Área" size="small" fullWidth value={form.area} onChange={set('area')} /></Grid>
-          <Grid size={{ xs: 12, sm: 3 }}><TextField label="Responsable" size="small" fullWidth value={form.responsable} onChange={set('responsable')} /></Grid>
+          {/* De catálogo y no texto libre: escritos a mano, "Bodega Norte",
+              "bodega norte" y "Bod. Norte" cuentan como tres ubicaciones y
+              ningún reporte por sede o área cuadra. */}
+          <Grid size={{ xs: 12, sm: 3 }}>
+            <SelectorCatalogoGeneral tipo="SEDE" label="Sede"
+              valor={form.sede} onChange={v => setForm(f => ({ ...f, sede: v }))} />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 3 }}>
+            <SelectorCatalogoGeneral tipo="AREA" label="Área"
+              valor={form.area} onChange={v => setForm(f => ({ ...f, area: v }))} />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 3 }}>
+            <SelectorCatalogoGeneral tipo="UBICACION" label="Ubicación"
+              valor={form.ubicacion} onChange={v => setForm(f => ({ ...f, ubicacion: v }))} />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 3 }}>
+            <SelectorCatalogoGeneral tipo="RESPONSABLE" label="Responsable"
+              valor={form.responsable} onChange={v => setForm(f => ({ ...f, responsable: v }))} />
+          </Grid>
 
           <Grid size={{ xs: 12 }}><Typography fontSize={11} fontWeight={700} color="#94A3B8" letterSpacing="0.06em" mt={1}>MEDIDORES Y COMPRA</Typography></Grid>
           <Grid size={{ xs: 6, sm: 3 }}><TextField label="Odómetro (km)" type="number" size="small" fullWidth value={form.odometro_actual} onChange={set('odometro_actual')} /></Grid>
           <Grid size={{ xs: 6, sm: 3 }}><TextField label="Horómetro (hrs)" type="number" size="small" fullWidth value={form.horometro_actual} onChange={set('horometro_actual')} /></Grid>
           <Grid size={{ xs: 6, sm: 3 }}><TextField label="Fecha de adquisición" type="date" size="small" fullWidth value={form.fecha_adquisicion} onChange={set('fecha_adquisicion')} InputLabelProps={{ shrink: true }} /></Grid>
           <Grid size={{ xs: 6, sm: 3 }}><TextField label="Costo de adquisición" type="number" size="small" fullWidth value={form.costo_adquisicion} onChange={set('costo_adquisicion')} /></Grid>
+
+          <Grid size={{ xs: 12 }}><Typography fontSize={11} fontWeight={700} color="#94A3B8" letterSpacing="0.06em" mt={1}>CONTABILIDAD</Typography></Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <SelectorCatalogoGeneral tipo="CUENTA_CONTABLE" label="Cuenta contable"
+              valor={form.cuenta_contable} onChange={v => setForm(f => ({ ...f, cuenta_contable: v }))} />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <SelectorCatalogoGeneral tipo="CENTRO_COSTO" label="Centro de costo"
+              valor={form.centro_costo} onChange={v => setForm(f => ({ ...f, centro_costo: v }))} />
+          </Grid>
+
+          <Grid size={{ xs: 12 }}><Typography fontSize={11} fontWeight={700} color="#94A3B8" letterSpacing="0.06em" mt={1}>OBSERVACIONES</Typography></Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField label="Observaciones" size="small" fullWidth multiline rows={3}
+              value={form.observaciones} onChange={set('observaciones')} />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField label="Observaciones adicionales" size="small" fullWidth multiline rows={3}
+              value={form.observaciones_adicionales} onChange={set('observaciones_adicionales')} />
+          </Grid>
 
           {usaLlantas && (
             <Grid size={{ xs: 12 }}>
@@ -677,9 +739,15 @@ function ActivoDialog({
             // y devuelve error si la combinación no existe.
             marca: txt(cat.marca), linea: txt(cat.linea), modelo: txt(cat.modelo),
             anio: num(form.anio),
-            numero_serie: txt(form.numero_serie), placa: txt(form.placa),
+            placa: txt(form.placa),
+            numero_motor: txt(form.numero_motor),
+            numero_chasis: txt(form.numero_chasis),
+            numero_carroceria: txt(form.numero_carroceria),
             ubicacion: txt(form.ubicacion), sede: txt(form.sede), area: txt(form.area),
             responsable: txt(form.responsable),
+            cuenta_contable: txt(form.cuenta_contable), centro_costo: txt(form.centro_costo),
+            observaciones: txt(form.observaciones),
+            observaciones_adicionales: txt(form.observaciones_adicionales),
             odometro_actual: num(form.odometro_actual), horometro_actual: num(form.horometro_actual),
             fecha_adquisicion: txt(form.fecha_adquisicion), costo_adquisicion: num(form.costo_adquisicion),
             vida_util_anios: num(vidaUtilEfectiva), tipo_combustible: txt(combustibleEfectivo),

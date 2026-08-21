@@ -256,6 +256,49 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE eam_activo ADD COLUMN IF NOT EXISTS linea VARCHAR(100)"
         ))
 
+        # Identificación del vehículo y datos contables. El número de serie
+        # genérico se queda para los activos que no son vehículos.
+        for columna, tipo in [
+            ("numero_motor", "VARCHAR(100)"),
+            ("numero_chasis", "VARCHAR(100)"),
+            ("numero_carroceria", "VARCHAR(100)"),
+            ("observaciones", "TEXT"),
+            ("observaciones_adicionales", "TEXT"),
+            ("cuenta_contable", "VARCHAR(80)"),
+            ("centro_costo", "VARCHAR(120)"),
+        ]:
+            await conn.execute(text(
+                "ALTER TABLE eam_activo ADD COLUMN IF NOT EXISTS %s %s" % (columna, tipo)
+            ))
+
+        # Catálogos organizativos y contables. Se siembran las sedes y áreas
+        # típicas y se rescata lo que ya esté escrito a mano en los activos.
+        await conn.execute(text("""
+            INSERT INTO eam_catalogo_activo (tipo, nombre, activo, created_at, updated_at)
+            VALUES
+                ('AREA', 'Operaciones',   true, now(), now()),
+                ('AREA', 'Mantenimiento', true, now(), now()),
+                ('AREA', 'Logística',     true, now(), now()),
+                ('AREA', 'Administración',true, now(), now()),
+                ('AREA', 'Transporte',    true, now(), now()),
+                ('CENTRO_COSTO', 'CC-100 Operaciones',   true, now(), now()),
+                ('CENTRO_COSTO', 'CC-200 Mantenimiento', true, now(), now()),
+                ('CENTRO_COSTO', 'CC-300 Transporte',    true, now(), now()),
+                ('CUENTA_CONTABLE', '1540 Flota y equipo de transporte', true, now(), now()),
+                ('CUENTA_CONTABLE', '1520 Maquinaria y equipo',          true, now(), now()),
+                ('CUENTA_CONTABLE', '1592 Depreciación acumulada',       true, now(), now())
+            ON CONFLICT (tipo, nombre) DO NOTHING
+        """))
+        for campo, tipo_cat in [("sede", "SEDE"), ("area", "AREA"),
+                                ("ubicacion", "UBICACION"), ("responsable", "RESPONSABLE")]:
+            await conn.execute(text("""
+                INSERT INTO eam_catalogo_activo (tipo, nombre, activo, created_at, updated_at)
+                SELECT DISTINCT :tipo, TRIM(%s), true, now(), now()
+                FROM eam_activo
+                WHERE %s IS NOT NULL AND TRIM(%s) <> ''
+                ON CONFLICT (tipo, nombre) DO NOTHING
+            """ % (campo, campo, campo)), {"tipo": tipo_cat})
+
         # Combustibles y motores de arranque
         await conn.execute(text("""
             INSERT INTO eam_tipo_combustible (nombre, activo, created_at, updated_at)

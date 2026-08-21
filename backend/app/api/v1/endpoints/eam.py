@@ -28,6 +28,7 @@ from app.infrastructure.models.eam import (
     EAMTipoActivo,
     EAMMarcaNeumatico, EAMDimensionNeumatico, EAMReferenciaNeumatico, EAMReferenciaDimension,
     EAMMarcaActivo, EAMLineaActivo, EAMModeloActivo, EAMMotorActivo, EAMTipoCombustible,
+    EAMCatalogoActivo,
 )
 from app.infrastructure.models.tms import TMSVehiculo
 from app.infrastructure.models.flota import FlotaVehiculo
@@ -127,6 +128,13 @@ class ActivoCreate(BaseModel):
     modelo: Optional[str] = None
     anio: Optional[int] = None
     numero_serie: Optional[str] = None
+    numero_motor: Optional[str] = None
+    numero_chasis: Optional[str] = None
+    numero_carroceria: Optional[str] = None
+    observaciones: Optional[str] = None
+    observaciones_adicionales: Optional[str] = None
+    cuenta_contable: Optional[str] = None
+    centro_costo: Optional[str] = None
     placa: Optional[str] = None
     color: Optional[str] = None
     fecha_adquisicion: Optional[date] = None
@@ -3688,6 +3696,143 @@ async def _resolver_catalogo_activo(db: AsyncSession, valores: dict) -> None:
                   "vida_util_anios", "vida_util_km"):
         if valores.get(campo) in (None, "", 0) and getattr(modelo, campo, None) is not None:
             valores[campo] = getattr(modelo, campo)
+
+
+# -- Catalogos organizativos y contables del activo ---------------------------
+#
+# Una sola tabla con discriminador para sede, area, ubicacion, responsable,
+# cuenta contable y centro de costo: comparten forma y solo cambian de
+# significado. Existen por lo mismo que el resto del catalogo, si la ubicacion
+# se escribe a mano "Bodega Norte", "bodega norte" y "Bod. Norte" cuentan como
+# tres y ningun reporte por ubicacion cuadra.
+
+TIPOS_CATALOGO_ACTIVO = [
+    "SEDE", "AREA", "UBICACION", "RESPONSABLE", "CUENTA_CONTABLE", "CENTRO_COSTO",
+]
+
+
+class CatalogoActivoBase(BaseModel):
+    tipo: str
+    nombre: str
+    codigo: Optional[str] = None
+    activo: Optional[bool] = True
+
+
+class CatalogoActivoResponse(CatalogoActivoBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    en_uso: int = 0
+
+
+CAMPO_POR_TIPO = {
+    "SEDE": "sede", "AREA": "area", "UBICACION": "ubicacion",
+    "RESPONSABLE": "responsable", "CUENTA_CONTABLE": "cuenta_contable",
+    "CENTRO_COSTO": "centro_costo",
+}
+
+
+@router.get("/catalogo-vehiculos/generales", response_model=List[CatalogoActivoResponse])
+async def listar_catalogo_activo(
+    tipo: Optional[str] = None,
+    solo_activos: bool = False,
+    db: AsyncSession = Depends(get_db),
+):
+    """Valores de un catalogo organizativo. Sin `tipo` devuelve todos, para que
+    la pantalla de configuracion los muestre agrupados en una sola consulta."""
+    if tipo and tipo.upper() not in TIPOS_CATALOGO_ACTIVO:
+        raise HTTPException(400, "Tipo de catalogo no valido: %s. Use uno de: %s."
+                                 % (tipo, ", ".join(TIPOS_CATALOGO_ACTIVO)))
+    q = select(EAMCatalogoActivo)
+    if tipo:
+        q = q.where(EAMCatalogoActivo.tipo == tipo.upper())
+    if solo_activos:
+        q = q.where(EAMCatalogoActivo.activo == True)
+    r = await db.execute(q.order_by(EAMCatalogoActivo.tipo, EAMCatalogoActivo.nombre))
+    filas = r.scalars().all()
+    if not filas:
+        return []
+
+    # Cuantos activos usan cada valor: es lo que decide si se puede borrar
+    conteos: dict = {}
+    for t in {f.tipo for f in filas}:
+        campo = CAMPO_POR_TIPO.get(t)
+        if not campo:
+            continue
+        col = getattr(EAMActivo, campo)
+        rc = await db.execute(select(col, func.count()).where(col.isnot(None)).group_by(col))
+        for valor, n in rc.all():
+            conteos[(t, (valor or "").strip().lower())] = n
+
+    salida = []
+    for f in filas:
+        item = CatalogoActivoResponse.model_validate(f)
+        item.en_uso = conteos.get((f.tipo, f.nombre.strip().lower()), 0)
+        salida.append(item)
+    return salida
+
+
+@router.post("/catalogo-vehiculos/generales", response_model=CatalogoActivoResponse, status_code=201)
+async def crear_catalogo_activo(data: CatalogoActivoBase, db: AsyncSession = Depends(get_db)):
+    tipo = (data.tipo or "").upper()
+    if tipo not in TIPOS_CATALOGO_ACTIVO:
+        raise HTTPException(400, "Tipo de catalogo no valido: %s." % data.tipo)
+    nombre = (data.nombre or "").strip()
+    if not nombre:
+        raise HTTPException(400, "El nombre es obligatorio.")
+    r = await db.execute(select(EAMCatalogoActivo).where(
+        EAMCatalogoActivo.tipo == tipo,
+        func.lower(EAMCatalogoActivo.nombre) == nombre.lower(),
+    ))
+    if r.scalar_one_or_none() is not None:
+        raise HTTPException(400, "'%s' ya esta registrado en ese catalogo." % nombre)
+    obj = EAMCatalogoActivo(tipo=tipo, nombre=nombre, codigo=(data.codigo or None),
+                            activo=data.activo if data.activo is not None else True)
+    db.add(obj); await db.commit(); await db.refresh(obj)
+    return CatalogoActivoResponse.model_validate(obj)
+
+
+@router.put("/catalogo-vehiculos/generales/{cid}", response_model=CatalogoActivoResponse)
+async def actualizar_catalogo_activo(cid: int, data: CatalogoActivoBase, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMCatalogoActivo, cid)
+    if obj is None:
+        raise HTTPException(404, "Valor no encontrado")
+    valores = data.model_dump(exclude_unset=True)
+    valores.pop("tipo", None)   # el tipo no se cambia: seria mover de catalogo
+    nombre_previo = obj.nombre
+    for k, v in valores.items():
+        setattr(obj, k, v.strip() if isinstance(v, str) else v)
+
+    # Si se renombra un valor en uso, se arrastra a los activos que lo tienen:
+    # dejarlos con el nombre viejo los sacaria de la lista y del reporte.
+    if obj.nombre != nombre_previo:
+        campo = CAMPO_POR_TIPO.get(obj.tipo)
+        if campo:
+            col = getattr(EAMActivo, campo)
+            ra = await db.execute(select(EAMActivo).where(func.lower(col) == nombre_previo.lower()))
+            for a in ra.scalars().all():
+                setattr(a, campo, obj.nombre)
+
+    await db.commit(); await db.refresh(obj)
+    return CatalogoActivoResponse.model_validate(obj)
+
+
+@router.delete("/catalogo-vehiculos/generales/{cid}", status_code=204)
+async def eliminar_catalogo_activo(cid: int, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMCatalogoActivo, cid)
+    if obj is None:
+        raise HTTPException(404, "Valor no encontrado")
+    campo = CAMPO_POR_TIPO.get(obj.tipo)
+    if campo:
+        col = getattr(EAMActivo, campo)
+        r = await db.execute(select(func.count()).select_from(EAMActivo).where(
+            func.lower(col) == obj.nombre.lower()))
+        if (r.scalar() or 0) > 0:
+            # Se desactiva: borrarlo dejaria activos apuntando a un valor que ya
+            # no existe en la lista.
+            obj.activo = False
+            await db.commit()
+            return
+    await db.delete(obj); await db.commit()
 
 
 # -- Alertas (profundidad / presion / desalineacion) --

@@ -214,7 +214,14 @@ class EAMActivo(Base, TimestampMixin):
     linea                = Column(String(100))   # jerarquía marca > línea > modelo
     modelo               = Column(String(100))
     anio                 = Column(Integer)
-    numero_serie         = Column(String(100))
+    numero_serie         = Column(String(100))   # serie generica (activos que no son vehiculo)
+    numero_motor         = Column(String(100))
+    numero_chasis        = Column(String(100))
+    numero_carroceria    = Column(String(100))
+    observaciones        = Column(Text)
+    observaciones_adicionales = Column(Text)
+    cuenta_contable      = Column(String(80))
+    centro_costo         = Column(String(120))
     placa                = Column(String(20))
     color                = Column(String(50))
     fecha_adquisicion    = Column(Date)
@@ -1024,5 +1031,25 @@ class EAMModeloActivo(Base, TimestampMixin):
     vida_util_km          = Column(Float, nullable=True)
     capacidad_kg          = Column(Float, nullable=True)
 
+    activo = Column(Boolean, default=True)
+
+class EAMCatalogoActivo(Base, TimestampMixin):
+    """Catálogo plano y multi-tipo de los campos organizativos del activo.
+
+    Una sola tabla con discriminador en lugar de seis tablas casi idénticas:
+    sede, área, ubicación, responsable, cuenta contable y centro de costo
+    comparten forma (nombre + código opcional) y solo cambian de significado.
+
+    Existe por lo mismo que el resto del catálogo: si la ubicación se escribe a
+    mano, "Bodega Norte", "bodega norte" y "Bod. Norte" cuentan como tres y
+    ningún reporte por ubicación cuadra.
+    """
+    __tablename__ = "eam_catalogo_activo"
+    __table_args__ = (UniqueConstraint("tipo", "nombre", name="uq_eam_catalogo_activo_tipo_nombre"),)
+    id     = Column(Integer, primary_key=True, index=True)
+    # SEDE | AREA | UBICACION | RESPONSABLE | CUENTA_CONTABLE | CENTRO_COSTO
+    tipo   = Column(String(30), nullable=False, index=True)
+    nombre = Column(String(160), nullable=False)
+    codigo = Column(String(60), nullable=True)   # p. ej. el número de la cuenta contable
     activo = Column(Boolean, default=True)
 
