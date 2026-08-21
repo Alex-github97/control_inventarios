@@ -37,7 +37,8 @@ import {
 import type {
   SeleccionVehiculo, CombustibleActivo,
 } from '@/components/SelectorCatalogoVehiculo'
-import { SelectorCatalogoGeneral } from '@/components/SelectorCatalogoGeneral'
+import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
+import { SelectorResponsable } from '@/components/catalogo/SelectorResponsable'
 import { SelectorMotor } from '@/components/SelectorMotor'
 import { VehiculosCombinados } from '@/components/VehiculosCombinados'
 
@@ -699,19 +700,21 @@ function ActivoDialog({
               "bodega norte" y "Bod. Norte" cuentan como tres ubicaciones y
               ningún reporte por sede o área cuadra. */}
           <Grid size={{ xs: 12, sm: 3 }}>
-            <SelectorCatalogoGeneral tipo="SEDE" label="Sede"
+            <SelectorCatalogo modulo="GLOBAL" tipo="SEDE" label="Sede"
               valor={form.sede} onChange={v => setForm(f => ({ ...f, sede: v }))} />
           </Grid>
           <Grid size={{ xs: 12, sm: 3 }}>
-            <SelectorCatalogoGeneral tipo="AREA" label="Área"
+            <SelectorCatalogo modulo="GLOBAL" tipo="AREA" label="Área"
               valor={form.area} onChange={v => setForm(f => ({ ...f, area: v }))} />
           </Grid>
           <Grid size={{ xs: 12, sm: 3 }}>
-            <SelectorCatalogoGeneral tipo="UBICACION" label="Ubicación"
+            <SelectorCatalogo modulo="GLOBAL" tipo="UBICACION" label="Ubicación"
               valor={form.ubicacion} onChange={v => setForm(f => ({ ...f, ubicacion: v }))} />
           </Grid>
           <Grid size={{ xs: 12, sm: 3 }}>
-            <SelectorCatalogoGeneral tipo="RESPONSABLE" label="Responsable"
+            {/* El responsable sale de la nómina de Gestión Humana, no de una lista
+                aparte: mantener personas en dos lados las desincroniza. */}
+            <SelectorResponsable label="Responsable"
               valor={form.responsable} onChange={v => setForm(f => ({ ...f, responsable: v }))} />
           </Grid>
 
@@ -723,11 +726,11 @@ function ActivoDialog({
 
           <Grid size={{ xs: 12 }}><Typography fontSize={11} fontWeight={700} color="#94A3B8" letterSpacing="0.06em" mt={1}>CONTABILIDAD</Typography></Grid>
           <Grid size={{ xs: 12, sm: 6 }}>
-            <SelectorCatalogoGeneral tipo="CUENTA_CONTABLE" label="Cuenta contable"
+            <SelectorCatalogo modulo="GLOBAL" tipo="CUENTA_CONTABLE" label="Cuenta contable"
               valor={form.cuenta_contable} onChange={v => setForm(f => ({ ...f, cuenta_contable: v }))} />
           </Grid>
           <Grid size={{ xs: 12, sm: 6 }}>
-            <SelectorCatalogoGeneral tipo="CENTRO_COSTO" label="Centro de costo"
+            <SelectorCatalogo modulo="GLOBAL" tipo="CENTRO_COSTO" label="Centro de costo"
               valor={form.centro_costo} onChange={v => setForm(f => ({ ...f, centro_costo: v }))} />
           </Grid>
 

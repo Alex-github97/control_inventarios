@@ -21,11 +21,10 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { apiClient as api } from '@/api/client'
+import { AdminCatalogos } from './catalogo/AdminCatalogos'
 import type {
   MarcaActivo, LineaActivo, ModeloActivo, MotorActivo, CombustibleActivo,
 } from './SelectorCatalogoVehiculo'
-import { TIPOS_CATALOGO_ACTIVO } from './SelectorCatalogoGeneral'
-import type { ItemCatalogoActivo, TipoCatalogoActivo } from './SelectorCatalogoGeneral'
 
 interface TipoActivoCat { id: number; codigo: string; nombre: string; usa_llantas: boolean }
 
@@ -100,13 +99,6 @@ export function CatalogoVehiculos({ color = '#32AC5C' }: { color?: string }) {
   const { data: motores = [] } = useQuery<MotorActivo[]>({
     queryKey: ['eam-cat-veh-motores'],
     queryFn: () => api.get('/eam/catalogo-vehiculos/motores').then(r => r.data),
-  })
-  const [dlgGeneral, setDlgGeneral] = useState<{ tipo: TipoCatalogoActivo; label: string } | null>(null)
-  const [formGeneral, setFormGeneral] = useState({ nombre: '', codigo: '' })
-
-  const { data: generales = [] } = useQuery<ItemCatalogoActivo[]>({
-    queryKey: ['eam-cat-generales-admin'],
-    queryFn: () => api.get('/eam/catalogo-vehiculos/generales').then(r => r.data),
   })
 
   const { data: combustibles = [] } = useQuery<CombustibleActivo[]>({
@@ -213,29 +205,6 @@ export function CatalogoVehiculos({ color = '#32AC5C' }: { color?: string }) {
     onError: err,
   })
 
-  const mutGeneral = useMutation({
-    mutationFn: () => api.post('/eam/catalogo-vehiculos/generales', {
-      tipo: dlgGeneral!.tipo,
-      nombre: formGeneral.nombre.trim(),
-      codigo: formGeneral.codigo.trim() || null,
-    }).then(r => r.data),
-    onSuccess: () => {
-      toast.success('Valor agregado')
-      qc.invalidateQueries({ queryKey: ['eam-cat-generales-admin'] })
-      qc.invalidateQueries({ queryKey: ['eam-cat-general'] })
-      setDlgGeneral(null); setFormGeneral({ nombre: '', codigo: '' })
-    },
-    onError: err,
-  })
-  const mutBorrarGeneral = useMutation({
-    mutationFn: (id: number) => api.delete('/eam/catalogo-vehiculos/generales/' + id),
-    onSuccess: () => {
-      toast.success('Valor eliminado. Si estaba en uso, quedo desactivado.')
-      qc.invalidateQueries({ queryKey: ['eam-cat-generales-admin'] })
-      qc.invalidateQueries({ queryKey: ['eam-cat-general'] })
-    },
-    onError: err,
-  })
 
   const columna = (titulo: string, sub: string, accion: React.ReactNode, contenido: React.ReactNode) => (
     <Card sx={{ height: '100%', bgcolor: '#FFFFFF', border: `1px solid ${alpha(color, 0.2)}` }}>
@@ -458,65 +427,18 @@ export function CatalogoVehiculos({ color = '#32AC5C' }: { color?: string }) {
         </Grid>
       </Grid>
 
-      {/* Catalogos organizativos y contables */}
-      <Box mt={2}>
+      {/* Catálogos del módulo y compartidos, desde el catálogo maestro. Antes
+          esta sección tenía su propia tabla, en paralelo a la de la plataforma:
+          dos listas de áreas y de centros de costo para lo mismo. */}
+      <Box mt={3}>
         <Typography variant="subtitle2" fontWeight={800} mb={0.5}>
-          Ubicación, responsables y contabilidad
+          Otros catálogos del CMMS
         </Typography>
         <Typography variant="caption" color="text.secondary" display="block" mb={1.5}>
-          Los mismos valores que se ofrecen al crear un activo. Renombrar uno lo actualiza
-          en los activos que ya lo usaban.
+          Tipos y especialidades de contratista, más los catálogos compartidos con el resto
+          de la plataforma (ciudades, sedes, áreas, cargos, centros de costo, cuentas).
         </Typography>
-        <Grid container spacing={2}>
-          {TIPOS_CATALOGO_ACTIVO.map(t => {
-            const items = generales.filter(g => g.tipo === t.tipo)
-            return (
-              <Grid key={t.tipo} size={{ xs: 12, sm: 6, md: 4 }}>
-                <Card sx={{ height: '100%', bgcolor: '#FFFFFF', border: '1px solid ' + alpha(color, 0.2) }}>
-                  <CardContent>
-                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1}>
-                      <Box sx={{ minWidth: 0 }}>
-                        <Typography variant="subtitle2" fontWeight={800}>{t.label}</Typography>
-                        <Typography variant="caption" color="text.secondary">{t.ayuda}</Typography>
-                      </Box>
-                      <Button size="small" startIcon={<AddIcon />}
-                        onClick={() => { setFormGeneral({ nombre: '', codigo: '' }); setDlgGeneral(t) }}
-                        sx={{ color, textTransform: 'none', flexShrink: 0 }}>Agregar</Button>
-                    </Stack>
-                    {items.length === 0 ? (
-                      <Typography fontSize={12} color="text.disabled" py={1.5} textAlign="center">
-                        Sin valores configurados
-                      </Typography>
-                    ) : (
-                      <Stack spacing={0.4} sx={{ maxHeight: 210, overflowY: 'auto' }}>
-                        {items.map(i => (
-                          <Stack key={i.id} direction="row" alignItems="center" gap={0.5}
-                            sx={{ px: 1, py: 0.5, borderRadius: 1, border: '1px solid #E5E7EB',
-                                  opacity: i.activo === false ? 0.5 : 1 }}>
-                            <Box sx={{ flex: 1, minWidth: 0 }}>
-                              <Typography fontSize={12.5} fontWeight={600} noWrap>{i.nombre}</Typography>
-                              {(i.codigo || (i.en_uso ?? 0) > 0) && (
-                                <Typography fontSize={10} color="text.secondary" noWrap>
-                                  {[i.codigo, (i.en_uso ?? 0) > 0 ? i.en_uso + ' activo(s)' : null]
-                                    .filter(Boolean).join(' · ')}
-                                </Typography>
-                              )}
-                            </Box>
-                            <IconButton size="small" onClick={() => {
-                              if (window.confirm('¿Eliminar "' + i.nombre + '"?')) mutBorrarGeneral.mutate(i.id)
-                            }}>
-                              <DeleteIcon sx={{ fontSize: 14 }} />
-                            </IconButton>
-                          </Stack>
-                        ))}
-                      </Stack>
-                    )}
-                  </CardContent>
-                </Card>
-              </Grid>
-            )
-          })}
-        </Grid>
+        <AdminCatalogos modulo="EAM" color={color} />
       </Box>
 
       {/* ── Diálogos ── */}
@@ -663,28 +585,6 @@ export function CatalogoVehiculos({ color = '#32AC5C' }: { color?: string }) {
           <Button onClick={() => setDlgMotor(false)}>Cancelar</Button>
           <Button variant="contained" disabled={!formMotor.nombre.trim() || mutMotor.isPending}
             onClick={() => mutMotor.mutate()} sx={{ bgcolor: color }}>Agregar</Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={!!dlgGeneral} onClose={() => setDlgGeneral(null)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>
-          Agregar a {dlgGeneral?.label.toLowerCase()}
-        </DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={2} pt={0.5}>
-            <TextField label="Nombre *" size="small" fullWidth autoFocus
-              value={formGeneral.nombre}
-              onChange={e => setFormGeneral(f => ({ ...f, nombre: e.target.value }))} />
-            <TextField label="Código (opcional)" size="small" fullWidth
-              value={formGeneral.codigo}
-              onChange={e => setFormGeneral(f => ({ ...f, codigo: e.target.value }))}
-              helperText="Por ejemplo el número de la cuenta del PUC" />
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={() => setDlgGeneral(null)}>Cancelar</Button>
-          <Button variant="contained" disabled={!formGeneral.nombre.trim() || mutGeneral.isPending}
-            onClick={() => mutGeneral.mutate()} sx={{ bgcolor: color }}>Agregar</Button>
         </DialogActions>
       </Dialog>
 

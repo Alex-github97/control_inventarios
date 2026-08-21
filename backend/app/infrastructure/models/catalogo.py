@@ -86,6 +86,7 @@ CATALOGOS_REGISTRO = [
     # no dejar cuatro listas paralelas de lo mismo.
     _c(MODULO_GLOBAL, "CARGO", "Cargos", "Cargo dentro de la organización"),
     _c(MODULO_GLOBAL, "PROCESO", "Procesos", "Procesos del sistema de gestión"),
+    _c(MODULO_GLOBAL, "UBICACION", "Ubicaciones", "Dónde está físicamente el activo"),
     _c(MODULO_GLOBAL, "CENTRO_COSTO", "Centros de costo", "A dónde se cargan los costos"),
     _c(MODULO_GLOBAL, "CUENTA_CONTABLE", "Cuentas contables", "Cuenta del PUC"),
     _c(MODULO_GLOBAL, "UNIDAD_MEDIDA", "Unidades de medida", "Unidad, caja, kilo, litro…"),

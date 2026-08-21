@@ -881,13 +881,34 @@ async def lifespan(app: FastAPI):
             ON CONFLICT DO NOTHING
         """))
 
-        # Rescate de lo ya escrito a mano: las sedes y áreas del CMMS pasan al
-        # catálogo compartido para que no queden dos listas paralelas.
+        # Los catálogos del CMMS se unificaron en el catálogo maestro: antes
+        # `eam_catalogo_activo` tenía su propia lista de áreas, centros de costo
+        # y cuentas contables, en paralelo a las compartidas. Se migran los
+        # valores para no perder nada y el formulario de activos pasa a leer del
+        # maestro. La tabla vieja queda sin uso.
         await conn.execute(text("""
-            INSERT INTO catalogo_maestro (modulo, tipo, nombre, padre_id, orden, activo, created_at, updated_at)
-            SELECT 'GLOBAL', 'SEDE', nombre, NULL, 0, true, now(), now()
-            FROM eam_catalogo_activo WHERE tipo = 'SEDE'
+            INSERT INTO catalogo_maestro (modulo, tipo, nombre, codigo, padre_id, orden, activo, created_at, updated_at)
+            SELECT 'GLOBAL', e.tipo, TRIM(e.nombre), e.codigo, NULL, 0, e.activo, now(), now()
+            FROM eam_catalogo_activo e
+            WHERE e.tipo IN ('SEDE','AREA','UBICACION','CENTRO_COSTO','CUENTA_CONTABLE')
+              AND TRIM(e.nombre) <> ''
             ON CONFLICT DO NOTHING
+        """))
+
+        # La tabla del CMMS escribía la cuenta como "1540 Flota y equipo", con el
+        # número dentro del nombre; el maestro separa nombre y código. Al migrar
+        # quedaron las dos formas de la misma cuenta, así que se borra la
+        # redundante cuando ya existe una con ese código.
+        await conn.execute(text("""
+            DELETE FROM catalogo_maestro d
+            WHERE d.modulo = 'GLOBAL' AND d.tipo = 'CUENTA_CONTABLE'
+              AND d.codigo IS NULL
+              AND d.nombre ~ '^[0-9]+ '
+              AND EXISTS (
+                  SELECT 1 FROM catalogo_maestro m
+                  WHERE m.modulo = 'GLOBAL' AND m.tipo = 'CUENTA_CONTABLE'
+                    AND m.codigo = split_part(d.nombre, ' ', 1)
+              )
         """))
 
     # 3. Sembrar roles y migrar usuarios
