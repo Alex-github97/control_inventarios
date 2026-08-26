@@ -41,7 +41,9 @@ class GRCPoliticaCreate(BaseModel):
     fecha_aprobacion: Optional[date] = None
     fecha_vigencia: Optional[date] = None
     fecha_revision: Optional[date] = None
+    periodicidad_revision: Optional[str] = None
     alcance: Optional[str] = None
+    descripcion: Optional[str] = None
     dms_documento_id: Optional[int] = None
     aceptaciones_requeridas: bool = False
 

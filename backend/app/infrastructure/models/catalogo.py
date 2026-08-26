@@ -150,6 +150,8 @@ CATALOGOS_REGISTRO = [
     _c("GRC", "CATEGORIA_RIESGO", "Categorías de riesgo", "Primer nivel del mapa de riesgos"),
     _c("GRC", "TIPO_CONTROL", "Tipos de control", "Preventivo, detectivo, correctivo"),
     _c("GRC", "MARCO_NORMATIVO", "Marcos normativos", "Norma o ley que aplica"),
+    _c("GRC", "TIPO_POLITICA", "Tipos de política", "Materia que regula la política"),
+    _c("GRC", "PERIODICIDAD_REVISION", "Periodicidades de revisión", "Cada cuánto se revisa"),
 
     # ── Aprendizaje LMS ──────────────────────────────────────────────────
     _c("LMS", "CATEGORIA_CURSO", "Categorías de curso", "Agrupación de la oferta"),

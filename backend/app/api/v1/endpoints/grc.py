@@ -1,5 +1,5 @@
 """GRC — Governance, Risk & Compliance API endpoints"""
-from datetime import date
+from datetime import date, datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -55,14 +55,22 @@ def _calc_prioridad(nivel: Optional[int]) -> Optional[PrioridadRiesgoGRCEnum]:
     return PrioridadRiesgoGRCEnum.BAJA
 
 async def _next_code(db: AsyncSession, prefix: str, model) -> str:
+    """Siguiente consecutivo del año.
+
+    Se toma el sufijo más alto ya usado y no la cantidad de filas: contar
+    choca con el UNIQUE del código apenas se borra (o se archiva) una fila.
+    """
     year = date.today().year
+    patron = f"{prefix}-{year}-"
     result = await db.execute(
-        select(func.count()).select_from(model).where(
-            model.codigo.like(f"{prefix}-{year}-%")
-        )
+        select(model.codigo).where(model.codigo.like(f"{patron}%"))
     )
-    count = result.scalar() or 0
-    return f"{prefix}-{year}-{count + 1:03d}"
+    maximo = 0
+    for (codigo,) in result.all():
+        sufijo = (codigo or "")[len(patron):]
+        if sufijo.isdigit():
+            maximo = max(maximo, int(sufijo))
+    return f"{patron}{maximo + 1:03d}"
 
 def _clasif_tercero(puntaje: float) -> str:
     if puntaje >= 90:
@@ -216,10 +224,46 @@ async def update_politica(id: int, data: GRCPoliticaCreate, db: AsyncSession = D
     obj = r.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Política no encontrada")
-    for k, v in data.model_dump(exclude_none=True).items():
+    # exclude_unset y no exclude_none: el formulario manda el objeto completo,
+    # así que un campo en None quiere decir "bórralo", no "no lo toques".
+    for k, v in data.model_dump(exclude_unset=True).items():
         setattr(obj, k, v)
     await db.commit(); await db.refresh(obj)
     return obj
+
+
+@router.post("/politicas/{id}/aceptar", response_model=GRCPoliticaResponse)
+async def aceptar_politica(id: int, db: AsyncSession = Depends(get_db)):
+    """Suma una aceptación.
+
+    Va aparte del PATCH porque el contador no está en GRCPoliticaCreate: si se
+    manda ahí, el esquema lo descarta y la aceptación se pierde sin avisar.
+    """
+    r = await db.execute(
+        select(GRCPolitica).where(
+            GRCPolitica.id == id, GRCPolitica.deleted_at.is_(None)
+        )
+    )
+    obj = r.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Política no encontrada")
+    obj.aceptaciones_count = (obj.aceptaciones_count or 0) + 1
+    await db.commit(); await db.refresh(obj)
+    return obj
+
+
+@router.delete("/politicas/{id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_politica(id: int, db: AsyncSession = Depends(get_db)):
+    r = await db.execute(
+        select(GRCPolitica).where(
+            GRCPolitica.id == id, GRCPolitica.deleted_at.is_(None)
+        )
+    )
+    obj = r.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Política no encontrada")
+    obj.deleted_at = datetime.utcnow()
+    await db.commit()
 
 
 # ── Obligaciones ──────────────────────────────────────────────────────────────

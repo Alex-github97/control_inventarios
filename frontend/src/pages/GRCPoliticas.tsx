@@ -1,74 +1,183 @@
-import React, { useState } from 'react'
+/**
+ * GRC · Repositorio de políticas
+ *
+ * Era una maqueta: siete políticas fijas, un historial de versiones inventado y
+ * una lista de personas que habían aceptado. El backend ya tenía el CRUD.
+ *
+ * Lo que la base sí guarda de aceptaciones es si la política las exige y
+ * cuántas van; no hay tabla de quién aceptó ni de versiones anteriores, así que
+ * esas dos vistas dicen lo que hay en vez de mostrar nombres inventados.
+ */
+import React, { useMemo, useState } from 'react'
 import {
   Box, Typography, Card, CardContent, Chip, alpha, Tab, Tabs,
   Table, TableBody, TableCell, TableHead, TableRow, Paper, Button,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField,
-  Select, MenuItem, FormControl, InputLabel, LinearProgress, IconButton, Divider,
+  MenuItem, IconButton, Divider, Alert, LinearProgress, FormControlLabel, Switch,
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { Policy, Add, CheckCircle, Warning, Schedule, HistoryEdu, Edit, Delete, Close, History, FileDownload, HowToReg } from '@mui/icons-material'
+import {
+  Policy, Add, CheckCircle, Warning, Schedule, HistoryEdu,
+  Edit, Delete, Close, HowToReg,
+} from '@mui/icons-material'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
+import { apiClient as api } from '@/api/client'
+import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
+import { SelectorResponsable } from '@/components/catalogo/SelectorResponsable'
 
 const GRC_COLOR = '#6D28D9'
-const LBL       = alpha(GRC_COLOR, 0.85)
-const PAGE_BG   = '#F0F2F5'
+const LBL = alpha(GRC_COLOR, 0.85)
+const PAGE_BG = '#F0F2F5'
 
-const ESTADO_COLOR: Record<string, string> = {
-  PUBLICADA: '#059669', BORRADOR: '#D97706', REVISION: '#0891B2',
-  VENCIDA: '#DC2626', ARCHIVADA: '#6B7280',
-}
-
-const initPoliticas = [
-  { codigo: 'POL-2026-001', nombre: 'Política de Gestión de Riesgos Corporativos', tipo: 'Riesgos', version: '3.2', estado: 'PUBLICADA', propietario: 'CRMO', aprobador: 'CEO', vigencia: '2027-01-01', revision: '2026-12-01', aceptaciones: 128, requeridas: 145, descripcion: 'Esta política establece el marco corporativo para la identificación, evaluación, tratamiento y monitoreo de riesgos en todos los niveles de la organización, alineada con ISO 31000 y COSO ERM. Aplica a todos los empleados, contratistas y aliados estratégicos. Define roles, responsabilidades y procedimientos para garantizar una gestión de riesgos efectiva y consistente.', alcance: 'Toda la organización', periodicidad_revision: 'Anual' },
-  { codigo: 'POL-2026-002', nombre: 'Política de Seguridad de la Información (ISO 27001)', tipo: 'Ciberseguridad', version: '2.1', estado: 'PUBLICADA', propietario: 'CISO', aprobador: 'CEO', vigencia: '2027-06-01', revision: '2026-11-01', aceptaciones: 210, requeridas: 210, descripcion: 'Define los principios y controles de seguridad de la información conforme a ISO 27001:2022. Establece requisitos de confidencialidad, integridad y disponibilidad de todos los activos de información de la organización, incluyendo sistemas, datos y procesos críticos.', alcance: 'Toda la organización', periodicidad_revision: 'Anual' },
-  { codigo: 'POL-2026-003', nombre: 'Política de Cumplimiento Antisoborno (ISO 37001)', tipo: 'Compliance', version: '1.5', estado: 'PUBLICADA', propietario: 'CLO', aprobador: 'Junta', vigencia: '2026-12-31', revision: '2026-09-01', aceptaciones: 87, requeridas: 90, descripcion: 'Establece el marco de prevención, detección y respuesta a conductas de soborno, conforme a ISO 37001. Incluye debida diligencia de terceros, controles financieros, reportes confidenciales y sanciones aplicables.', alcance: 'Colaboradores, directivos y terceros', periodicidad_revision: 'Anual' },
-  { codigo: 'POL-2026-004', nombre: 'Política de Continuidad del Negocio (ISO 22301)', tipo: 'Continuidad', version: '2.0', estado: 'REVISION', propietario: 'COO', aprobador: 'CEO', vigencia: '2026-07-01', revision: '2026-06-15', aceptaciones: 0, requeridas: 60, descripcion: 'Define la estrategia de continuidad operativa ante eventos disruptivos. Establece RTO, RPO y planes de contingencia para procesos críticos. Alineada con ISO 22301 e incluye requisitos de simulacros anuales.', alcance: 'Procesos y sistemas críticos', periodicidad_revision: 'Anual' },
-  { codigo: 'POL-2026-005', nombre: 'Política de Gestión de Proveedores y Terceros', tipo: 'Terceros', version: '1.3', estado: 'PUBLICADA', propietario: 'Dir. Compras', aprobador: 'COO', vigencia: '2027-03-01', revision: '2026-12-01', aceptaciones: 42, requeridas: 45, descripcion: 'Establece los criterios de selección, evaluación y monitoreo de proveedores, contratistas y aliados estratégicos. Incluye due diligence de riesgos legales, financieros, reputacionales y de ciberseguridad.', alcance: 'Área de Compras y gestión contractual', periodicidad_revision: 'Anual' },
-  { codigo: 'POL-2026-006', nombre: 'Política de Protección de Datos Personales', tipo: 'Privacidad', version: '4.0', estado: 'BORRADOR', propietario: 'CLO', aprobador: 'CEO', vigencia: null, revision: null, aceptaciones: 0, requeridas: 210, descripcion: 'Regula el tratamiento de datos personales conforme a la Ley 1581 de 2012 y el Decreto 1377 de 2013. Define derechos de los titulares, responsabilidades del tratamiento y medidas de seguridad aplicables.', alcance: 'Toda la organización y sistemas con datos personales', periodicidad_revision: 'Bianual' },
-  { codigo: 'POL-2025-011', nombre: 'Política de Conflicto de Intereses', tipo: 'Ética', version: '1.0', estado: 'VENCIDA', propietario: 'CLO', aprobador: 'Junta', vigencia: '2026-01-01', revision: '2025-12-01', aceptaciones: 75, requeridas: 80, descripcion: 'Establece los lineamientos para identificar y gestionar situaciones de conflicto de intereses reales, potenciales o aparentes, aplicables a todos los colaboradores, directivos y miembros de junta.', alcance: 'Directivos, gerentes y colaboradores con poder de decisión', periodicidad_revision: 'Anual' },
+/** Los valores del enum de la base van en minúscula. */
+const ESTADOS = [
+  { valor: 'borrador', label: 'Borrador', color: '#D97706' },
+  { valor: 'en_revision', label: 'En revisión', color: '#0891B2' },
+  { valor: 'aprobada', label: 'Aprobada', color: '#2563EB' },
+  { valor: 'publicada', label: 'Publicada', color: '#059669' },
+  { valor: 'vencida', label: 'Vencida', color: '#DC2626' },
+  { valor: 'archivada', label: 'Archivada', color: '#6B7280' },
 ]
+const estadoLabel = (v?: string | null) =>
+  ESTADOS.find(e => e.valor === v)?.label ?? (v ?? '—')
+const estadoColor = (v?: string | null) =>
+  ESTADOS.find(e => e.valor === v)?.color ?? GRC_COLOR
 
-type Politica = typeof initPoliticas[0]
-
-const aceptHist: Record<string, { quien: string; fecha: string; version: string }[]> = {
-  'POL-2026-001': [
-    { quien: 'Carlos Rodríguez', fecha: '2026-01-15', version: '3.2' },
-    { quien: 'Laura Martínez',   fecha: '2026-01-18', version: '3.2' },
-    { quien: 'Andrés Gómez',     fecha: '2026-01-20', version: '3.2' },
-  ],
+interface Politica {
+  id: number
+  codigo?: string | null
+  nombre: string
+  tipo?: string | null
+  version?: string | null
+  estado?: string | null
+  propietario?: string | null
+  aprobador?: string | null
+  fecha_aprobacion?: string | null
+  fecha_vigencia?: string | null
+  fecha_revision?: string | null
+  periodicidad_revision?: string | null
+  alcance?: string | null
+  descripcion?: string | null
+  aceptaciones_requeridas?: boolean
+  aceptaciones_count?: number
 }
 
-const versiones: Record<string, { version: string; fecha: string; autor: string; cambios: string }[]> = {
-  'POL-2026-001': [
-    { version: '3.2', fecha: '2026-01-01', autor: 'CRMO', cambios: 'Actualización metodología de valoración de riesgos' },
-    { version: '3.1', fecha: '2025-06-01', autor: 'CRMO', cambios: 'Incorporación apetito de riesgo ESG' },
-    { version: '3.0', fecha: '2025-01-01', autor: 'CRMO', cambios: 'Alineación con COSO 2023' },
-  ],
+const VACIO = {
+  nombre: '', tipo: '', version: '1.0', estado: 'borrador',
+  propietario: '', aprobador: '', fecha_aprobacion: '', fecha_vigencia: '',
+  fecha_revision: '', periodicidad_revision: '', alcance: '', descripcion: '',
+  aceptaciones_requeridas: false,
 }
-
-const KPIs = [
-  { label: 'Políticas Vigentes',   value: initPoliticas.filter(p => p.estado === 'PUBLICADA').length, color: '#059669', icon: <CheckCircle /> },
-  { label: 'Políticas Vencidas',   value: initPoliticas.filter(p => p.estado === 'VENCIDA').length,  color: '#DC2626', icon: <Warning /> },
-  { label: 'En Revisión',          value: initPoliticas.filter(p => p.estado === 'REVISION').length, color: '#D97706', icon: <Schedule /> },
-  { label: 'Cobertura Total',      value: '94%', color: GRC_COLOR, icon: <HistoryEdu /> },
-]
-
-const LBL_SX = { sx: { color: 'text.secondary' } }
 
 export default function GRCPoliticas() {
-  const [tab, setTab]             = useState(0)
-  const [openDialog, setOpenDialog] = useState(false)
-  const [selPol, setSelPol]       = useState<Politica | null>(null)
-  const [politicas, setPoliticas] = useState(initPoliticas)
-  const [panelTab, setPanelTab]   = useState(0)
-  const [openAcept, setOpenAcept] = useState(false)
+  const qc = useQueryClient()
+  const [tab, setTab] = useState(0)
+  const [selId, setSelId] = useState<number | null>(null)
+  const [panelTab, setPanelTab] = useState(0)
+  const [dlg, setDlg] = useState<{ abierto: boolean; item: Politica | null }>(
+    { abierto: false, item: null })
+  const [form, setForm] = useState({ ...VACIO })
+  const [wasOpen, setWasOpen] = useState(false)
 
-  const deletePol = (codigo: string) => { setPoliticas(p => p.filter(x => x.codigo !== codigo)); setSelPol(null) }
+  if (dlg.abierto && !wasOpen) {
+    setWasOpen(true)
+    const it = dlg.item
+    setForm(it ? {
+      nombre: it.nombre, tipo: it.tipo ?? '', version: it.version ?? '1.0',
+      estado: it.estado ?? 'borrador', propietario: it.propietario ?? '',
+      aprobador: it.aprobador ?? '',
+      fecha_aprobacion: it.fecha_aprobacion ?? '',
+      fecha_vigencia: it.fecha_vigencia ?? '',
+      fecha_revision: it.fecha_revision ?? '',
+      periodicidad_revision: it.periodicidad_revision ?? '',
+      alcance: it.alcance ?? '', descripcion: it.descripcion ?? '',
+      aceptaciones_requeridas: Boolean(it.aceptaciones_requeridas),
+    } : { ...VACIO })
+  }
+  if (!dlg.abierto && wasOpen) setWasOpen(false)
 
-  const Row2 = ({ label, value, color }: { label: string; value: string; color?: string }) => (
+  const { data: politicas = [], isLoading } = useQuery<Politica[]>({
+    queryKey: ['grc-politicas'],
+    queryFn: () => api.get('/grc/politicas').then(r => r.data),
+  })
+
+  const selPol = politicas.find(p => p.id === selId) ?? null
+  const err = (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo guardar')
+  const invalidar = () => qc.invalidateQueries({ queryKey: ['grc-politicas'] })
+
+  const cuerpoDe = (f: typeof VACIO) => ({
+    nombre: f.nombre.trim(),
+    tipo: f.tipo || null,
+    version: f.version.trim() || '1.0',
+    estado: f.estado || 'borrador',
+    propietario: f.propietario.trim() || null,
+    aprobador: f.aprobador.trim() || null,
+    fecha_aprobacion: f.fecha_aprobacion || null,
+    fecha_vigencia: f.fecha_vigencia || null,
+    fecha_revision: f.fecha_revision || null,
+    periodicidad_revision: f.periodicidad_revision || null,
+    alcance: f.alcance.trim() || null,
+    descripcion: f.descripcion.trim() || null,
+    aceptaciones_requeridas: f.aceptaciones_requeridas,
+  })
+
+  const mutGuardar = useMutation({
+    mutationFn: () => (dlg.item
+      ? api.patch(`/grc/politicas/${dlg.item.id}`, cuerpoDe(form)).then(r => r.data)
+      : api.post('/grc/politicas', cuerpoDe(form)).then(r => r.data)),
+    onSuccess: () => {
+      toast.success(dlg.item ? 'Política actualizada' : 'Política creada')
+      invalidar(); setDlg({ abierto: false, item: null })
+    },
+    onError: err,
+  })
+
+  const mutBorrar = useMutation({
+    mutationFn: (id: number) => api.delete(`/grc/politicas/${id}`),
+    onSuccess: () => { toast.success('Política eliminada'); invalidar(); setSelId(null) },
+    onError: err,
+  })
+
+  /** Lo único que la base guarda de aceptaciones es el acumulado, y lo suma el
+   *  servidor: el contador no viaja en el cuerpo del PATCH. */
+  const mutAceptar = useMutation({
+    mutationFn: (p: Politica) =>
+      api.post(`/grc/politicas/${p.id}/aceptar`).then(r => r.data),
+    onSuccess: () => { toast.success('Aceptación registrada'); invalidar() },
+    onError: err,
+  })
+
+  const kpis = useMemo(() => {
+    const hoy = new Date().toISOString().slice(0, 10)
+    return [
+      {
+        label: 'Políticas vigentes', color: '#059669', icon: <CheckCircle />,
+        value: politicas.filter(p => p.estado === 'publicada').length,
+      },
+      {
+        label: 'Políticas vencidas', color: '#DC2626', icon: <Warning />,
+        value: politicas.filter(p => p.estado === 'vencida'
+          || (p.estado === 'publicada' && p.fecha_vigencia && p.fecha_vigencia < hoy)).length,
+      },
+      {
+        label: 'En revisión', color: '#D97706', icon: <Schedule />,
+        value: politicas.filter(p => p.estado === 'en_revision').length,
+      },
+      {
+        label: 'Exigen aceptación', color: GRC_COLOR, icon: <HistoryEdu />,
+        value: politicas.filter(p => p.aceptaciones_requeridas).length,
+      },
+    ]
+  }, [politicas])
+
+  const Row2 = ({ label, value }: { label: string; value: string }) => (
     <Box sx={{ mb: 1.25 }}>
-      <Typography sx={{ fontSize: 10, color: LBL, textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.25 }}>{label}</Typography>
-      <Typography sx={{ fontSize: 13, color: color || '#334155', fontWeight: 500 }}>{value}</Typography>
+      <Typography sx={{ fontSize: 10, color: LBL, textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.25 }}>
+        {label}
+      </Typography>
+      <Typography sx={{ fontSize: 13, color: '#334155', fontWeight: 500 }}>{value}</Typography>
     </Box>
   )
 
@@ -79,19 +188,23 @@ export default function GRCPoliticas() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Policy sx={{ color: GRC_COLOR, fontSize: 28 }} />
             <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Repositorio de Políticas</Typography>
-              <Typography sx={{ fontSize: 12, color: LBL }}>GRC · Control de Versiones · Vigencias · Aceptaciones</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 800, lineHeight: 1 }}>Repositorio de Políticas</Typography>
+              <Typography sx={{ fontSize: 12, color: LBL }}>GRC · Vigencias, revisiones y aceptaciones</Typography>
             </Box>
-            <Chip label="GRC" size="small" sx={{ bgcolor: alpha(GRC_COLOR, 0.15), color: GRC_COLOR, fontWeight: 700, border: `1px solid ${alpha(GRC_COLOR, 0.35)}` }} />
+            <Chip label="GRC" size="small" sx={{
+              bgcolor: alpha(GRC_COLOR, 0.15), color: GRC_COLOR, fontWeight: 700,
+              border: `1px solid ${alpha(GRC_COLOR, 0.35)}`,
+            }} />
           </Box>
-          <Button startIcon={<Add />} size="small" variant="contained" onClick={() => setOpenDialog(true)}
+          <Button startIcon={<Add />} size="small" variant="contained"
+            onClick={() => setDlg({ abierto: true, item: null })}
             sx={{ bgcolor: GRC_COLOR, '&:hover': { bgcolor: '#5B21B6' }, borderRadius: 2 }}>
-            Nueva Política
+            Nueva política
           </Button>
         </Box>
 
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          {KPIs.map(k => (
+          {kpis.map(k => (
             <Grid key={k.label} size={{ xs: 6, md: 3 }}>
               <Card sx={{ border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2 }}>
                 <CardContent sx={{ p: '14px !important', display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -106,10 +219,23 @@ export default function GRCPoliticas() {
           ))}
         </Grid>
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid #E5E7EB', '& .MuiTab-root': { color: 'text.secondary', fontSize: 13 }, '& .Mui-selected': { color: GRC_COLOR }, '& .MuiTabs-indicator': { bgcolor: GRC_COLOR } }}>
-          <Tab label="Catálogo de Políticas" />
-          <Tab label="Control de Aceptaciones" />
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{
+          mb: 2, borderBottom: '1px solid #E5E7EB',
+          '& .MuiTab-root': { color: 'text.secondary', fontSize: 13 },
+          '& .Mui-selected': { color: GRC_COLOR },
+          '& .MuiTabs-indicator': { bgcolor: GRC_COLOR },
+        }}>
+          <Tab label={`Catálogo de políticas (${politicas.length})`} />
+          <Tab label="Control de aceptaciones" />
         </Tabs>
+
+        {isLoading && <LinearProgress sx={{ mb: 1 }} />}
+        {!isLoading && politicas.length === 0 && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            No hay políticas registradas. Use <strong>Nueva política</strong> para la primera;
+            el código lo asigna el sistema.
+          </Alert>
+        )}
 
         {/* CATÁLOGO */}
         {tab === 0 && (
@@ -117,36 +243,56 @@ export default function GRCPoliticas() {
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Grid container spacing={2}>
                 {politicas.map(p => {
-                  const ec = ESTADO_COLOR[p.estado] || GRC_COLOR
-                  const pct = p.requeridas > 0 ? Math.round((p.aceptaciones / p.requeridas) * 100) : 0
+                  const ec = estadoColor(p.estado)
                   return (
-                    <Grid key={p.codigo} size={{ xs: 12, md: 6, lg: 4 }}>
-                      <Card onClick={() => { setSelPol(p); setPanelTab(0) }} sx={{ border: `1px solid ${selPol?.codigo === p.codigo ? alpha(GRC_COLOR, 0.5) : alpha(ec, 0.25)}`, borderRadius: 2, cursor: 'pointer', '&:hover': { borderColor: alpha(GRC_COLOR, 0.4) }, transition: 'border-color 0.15s' }}>
+                    <Grid key={p.id} size={{ xs: 12, md: 6, lg: 4 }}>
+                      <Card onClick={() => { setSelId(p.id); setPanelTab(0) }} sx={{
+                        border: `1px solid ${selId === p.id ? alpha(GRC_COLOR, 0.5) : alpha(ec, 0.25)}`,
+                        borderRadius: 2, cursor: 'pointer',
+                        '&:hover': { borderColor: alpha(GRC_COLOR, 0.4) },
+                        transition: 'border-color 0.15s',
+                      }}>
                         <CardContent sx={{ p: '16px !important' }}>
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography sx={{ fontSize: 10, color: LBL }}>{p.codigo} · v{p.version}</Typography>
-                            <Chip label={p.estado} size="small" sx={{ fontSize: 9, height: 18, bgcolor: alpha(ec, 0.18), color: ec }} />
+                            <Typography sx={{ fontSize: 10, color: LBL }}>
+                              {p.codigo ?? `POL-${p.id}`} · v{p.version ?? '1.0'}
+                            </Typography>
+                            <Chip label={estadoLabel(p.estado)} size="small"
+                              sx={{ fontSize: 9, height: 18, bgcolor: alpha(ec, 0.18), color: ec }} />
                           </Box>
-                          <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 13, lineHeight: 1.3, mb: 1.5 }}>{p.nombre}</Typography>
-                          <Box sx={{ display: 'flex', gap: 2, mb: 1.5 }}>
-                            <Box><Typography sx={{ fontSize: 9.5, color: LBL, textTransform: 'uppercase' }}>Propietario</Typography><Typography sx={{ fontSize: 11.5, color: 'text.primary', fontWeight: 600 }}>{p.propietario}</Typography></Box>
-                            <Box><Typography sx={{ fontSize: 9.5, color: LBL, textTransform: 'uppercase' }}>Aprobador</Typography><Typography sx={{ fontSize: 11.5, color: 'text.primary', fontWeight: 600 }}>{p.aprobador}</Typography></Box>
-                            <Box><Typography sx={{ fontSize: 9.5, color: LBL, textTransform: 'uppercase' }}>Vigencia</Typography><Typography sx={{ fontSize: 11.5, color: 'text.primary' }}>{p.vigencia || '—'}</Typography></Box>
+                          <Typography sx={{ fontWeight: 700, fontSize: 13, lineHeight: 1.3, mb: 1.5 }}>
+                            {p.nombre}
+                          </Typography>
+                          <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
+                            <Box>
+                              <Typography sx={{ fontSize: 9.5, color: LBL, textTransform: 'uppercase' }}>Propietario</Typography>
+                              <Typography sx={{ fontSize: 11.5, fontWeight: 600 }}>{p.propietario ?? '—'}</Typography>
+                            </Box>
+                            <Box>
+                              <Typography sx={{ fontSize: 9.5, color: LBL, textTransform: 'uppercase' }}>Aprobador</Typography>
+                              <Typography sx={{ fontSize: 11.5, fontWeight: 600 }}>{p.aprobador ?? '—'}</Typography>
+                            </Box>
+                            <Box>
+                              <Typography sx={{ fontSize: 9.5, color: LBL, textTransform: 'uppercase' }}>Vigencia</Typography>
+                              <Typography sx={{ fontSize: 11.5 }}>{p.fecha_vigencia ?? '—'}</Typography>
+                            </Box>
                           </Box>
-                          {p.requeridas > 0 && (
-                            <>
-                              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                                <Typography sx={{ fontSize: 10, color: LBL }}>Aceptaciones: {p.aceptaciones}/{p.requeridas}</Typography>
-                                <Typography sx={{ fontSize: 10, color: pct >= 90 ? '#059669' : pct >= 70 ? '#D97706' : '#DC2626', fontWeight: 700 }}>{pct}%</Typography>
-                              </Box>
-                              <LinearProgress variant="determinate" value={pct} sx={{ height: 4, borderRadius: 2, bgcolor: 'text.disabled', '& .MuiLinearProgress-bar': { bgcolor: pct >= 90 ? '#059669' : pct >= 70 ? '#D97706' : '#DC2626' } }} />
-                            </>
+                          {p.aceptaciones_requeridas && (
+                            <Typography sx={{ fontSize: 10, color: LBL }}>
+                              Exige aceptación · {p.aceptaciones_count ?? 0} registrada(s)
+                            </Typography>
                           )}
                           <Box sx={{ display: 'flex', gap: 0.5, mt: 1.5 }} onClick={e => e.stopPropagation()}>
-                            <IconButton size="small" sx={{ color: GRC_COLOR, p: 0.5 }}><Edit sx={{ fontSize: 14 }} /></IconButton>
-                            <IconButton size="small" sx={{ color: '#D97706', p: 0.5 }} title="Historial de versiones"><History sx={{ fontSize: 14 }} /></IconButton>
-                            <IconButton size="small" sx={{ color: '#059669', p: 0.5 }} title="Descargar PDF"><FileDownload sx={{ fontSize: 14 }} /></IconButton>
-                            <IconButton size="small" onClick={() => deletePol(p.codigo)} sx={{ color: '#DC2626', p: 0.5 }}><Delete sx={{ fontSize: 14 }} /></IconButton>
+                            <IconButton size="small" sx={{ color: GRC_COLOR, p: 0.5 }}
+                              onClick={() => setDlg({ abierto: true, item: p })}>
+                              <Edit sx={{ fontSize: 14 }} />
+                            </IconButton>
+                            <IconButton size="small" sx={{ color: '#DC2626', p: 0.5 }}
+                              onClick={() => {
+                                if (window.confirm(`¿Eliminar la política "${p.nombre}"?`)) mutBorrar.mutate(p.id)
+                              }}>
+                              <Delete sx={{ fontSize: 14 }} />
+                            </IconButton>
                           </Box>
                         </CardContent>
                       </Card>
@@ -158,80 +304,98 @@ export default function GRCPoliticas() {
 
             {/* PANEL DERECHO */}
             {selPol && (
-              <Box sx={{ width: 380, flexShrink: 0, bgcolor: '#FFFFFF', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5, height: 'fit-content' }}>
+              <Box sx={{
+                width: 380, flexShrink: 0, bgcolor: '#FFFFFF',
+                border: '1px solid #E5E7EB', borderRadius: 2, p: 2.5, height: 'fit-content',
+              }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
-                  <Typography sx={{ color: 'text.primary', fontWeight: 700, fontSize: 14, flex: 1, pr: 1 }}>{selPol.nombre}</Typography>
-                  <IconButton size="small" onClick={() => setSelPol(null)} sx={{ color: 'text.secondary' }}><Close fontSize="small" /></IconButton>
+                  <Typography sx={{ fontWeight: 700, fontSize: 14, flex: 1, pr: 1 }}>{selPol.nombre}</Typography>
+                  <IconButton size="small" onClick={() => setSelId(null)}><Close fontSize="small" /></IconButton>
                 </Box>
-                <Box sx={{ display: 'flex', gap: 0.75, mb: 2 }}>
-                  <Chip label={selPol.estado} size="small" sx={{ bgcolor: alpha(ESTADO_COLOR[selPol.estado], 0.18), color: ESTADO_COLOR[selPol.estado], fontWeight: 700, fontSize: 10 }} />
-                  <Chip label={`v${selPol.version}`} size="small" sx={{ bgcolor: alpha(GRC_COLOR, 0.15), color: GRC_COLOR, fontSize: 10 }} />
-                  <Chip label={selPol.tipo} size="small" sx={{ bgcolor: 'text.disabled', color: 'text.secondary', fontSize: 10 }} />
+                <Box sx={{ display: 'flex', gap: 0.75, mb: 2, flexWrap: 'wrap' }}>
+                  <Chip label={estadoLabel(selPol.estado)} size="small" sx={{
+                    bgcolor: alpha(estadoColor(selPol.estado), 0.18),
+                    color: estadoColor(selPol.estado), fontWeight: 700, fontSize: 10,
+                  }} />
+                  <Chip label={`v${selPol.version ?? '1.0'}`} size="small"
+                    sx={{ bgcolor: alpha(GRC_COLOR, 0.15), color: GRC_COLOR, fontSize: 10 }} />
+                  {selPol.tipo && (
+                    <Chip label={selPol.tipo} size="small"
+                      sx={{ bgcolor: '#F1F5F9', color: '#64748B', fontSize: 10 }} />
+                  )}
                 </Box>
-                <Tabs value={panelTab} onChange={(_, v) => setPanelTab(v)} sx={{ mb: 1.5, '& .MuiTab-root': { color: 'text.secondary', fontSize: 11, minHeight: 32, py: 0.5 }, '& .Mui-selected': { color: GRC_COLOR }, '& .MuiTabs-indicator': { bgcolor: GRC_COLOR } }}>
+                <Tabs value={panelTab} onChange={(_, v) => setPanelTab(v)} sx={{
+                  mb: 1.5,
+                  '& .MuiTab-root': { color: 'text.secondary', fontSize: 11, minHeight: 32, py: 0.5 },
+                  '& .Mui-selected': { color: GRC_COLOR },
+                  '& .MuiTabs-indicator': { bgcolor: GRC_COLOR },
+                }}>
                   <Tab label="Detalle" sx={{ minHeight: 32 }} />
-                  <Tab label="Versiones" sx={{ minHeight: 32 }} />
                   <Tab label="Aceptaciones" sx={{ minHeight: 32 }} />
                 </Tabs>
                 {panelTab === 0 && (
                   <>
-                    <Row2 label="Código" value={selPol.codigo} />
-                    <Row2 label="Propietario" value={selPol.propietario} />
-                    <Row2 label="Aprobador" value={selPol.aprobador} />
-                    <Row2 label="Vigencia" value={selPol.vigencia || 'No definida'} />
-                    <Row2 label="Próxima Revisión" value={selPol.revision || 'No definida'} />
-                    <Row2 label="Alcance" value={selPol.alcance} />
-                    <Row2 label="Revisión Periódica" value={selPol.periodicidad_revision} />
+                    <Row2 label="Código" value={selPol.codigo ?? `POL-${selPol.id}`} />
+                    <Row2 label="Propietario" value={selPol.propietario ?? 'Sin asignar'} />
+                    <Row2 label="Aprobador" value={selPol.aprobador ?? 'Sin asignar'} />
+                    <Row2 label="Aprobada el" value={selPol.fecha_aprobacion ?? 'No aprobada'} />
+                    <Row2 label="Vigencia" value={selPol.fecha_vigencia ?? 'No definida'} />
+                    <Row2 label="Próxima revisión" value={selPol.fecha_revision ?? 'No definida'} />
+                    <Row2 label="Revisión periódica" value={selPol.periodicidad_revision ?? 'No definida'} />
+                    <Row2 label="Alcance" value={selPol.alcance ?? 'No definido'} />
                     <Divider sx={{ borderColor: '#E5E7EB', my: 1.5 }} />
-                    <Typography sx={{ fontSize: 10, color: LBL, textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.75 }}>Descripción</Typography>
-                    <Typography sx={{ fontSize: 12, color: 'text.primary', lineHeight: 1.7 }}>{selPol.descripcion}</Typography>
+                    <Typography sx={{ fontSize: 10, color: LBL, textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.75 }}>
+                      Descripción
+                    </Typography>
+                    <Typography sx={{ fontSize: 12, lineHeight: 1.7 }}>
+                      {selPol.descripcion ?? 'Sin descripción registrada.'}
+                    </Typography>
                     <Divider sx={{ borderColor: '#E5E7EB', my: 1.5 }} />
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      <Button size="small" startIcon={<Edit />} variant="outlined" fullWidth sx={{ color: GRC_COLOR, borderColor: alpha(GRC_COLOR, 0.4) }}>Editar Política</Button>
-                      <Button size="small" startIcon={<FileDownload />} variant="outlined" fullWidth sx={{ color: '#059669', borderColor: alpha('#059669', 0.4) }}>Descargar PDF</Button>
-                      <Button size="small" startIcon={<Delete />} variant="outlined" fullWidth onClick={() => deletePol(selPol.codigo)} sx={{ color: '#DC2626', borderColor: alpha('#DC2626', 0.4) }}>Eliminar</Button>
+                      <Button size="small" startIcon={<Edit />} variant="outlined" fullWidth
+                        onClick={() => setDlg({ abierto: true, item: selPol })}
+                        sx={{ color: GRC_COLOR, borderColor: alpha(GRC_COLOR, 0.4) }}>
+                        Editar política
+                      </Button>
+                      <Button size="small" startIcon={<Delete />} variant="outlined" fullWidth
+                        onClick={() => {
+                          if (window.confirm(`¿Eliminar la política "${selPol.nombre}"?`)) mutBorrar.mutate(selPol.id)
+                        }}
+                        sx={{ color: '#DC2626', borderColor: alpha('#DC2626', 0.4) }}>
+                        Eliminar
+                      </Button>
                     </Box>
                   </>
                 )}
                 {panelTab === 1 && (
                   <>
-                    <Typography sx={{ fontSize: 12, color: LBL, mb: 1.5 }}>Historial de versiones — {selPol.codigo}</Typography>
-                    {(versiones[selPol.codigo] || [{ version: selPol.version, fecha: '2026-01-01', autor: selPol.propietario, cambios: 'Versión inicial' }]).map((v, i) => (
-                      <Box key={i} sx={{ p: 1.5, mb: 1, bgcolor: '#F8FAFC', borderRadius: 1, borderLeft: i === 0 ? `3px solid ${GRC_COLOR}` : '3px solid #E5E7EB' }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                          <Chip label={`v${v.version}`} size="small" sx={{ bgcolor: alpha(GRC_COLOR, i === 0 ? 0.2 : 0.08), color: i === 0 ? GRC_COLOR : '#64748B', fontSize: 10 }} />
-                          <Typography sx={{ fontSize: 10, color: 'text.secondary' }}>{v.fecha}</Typography>
+                    {selPol.aceptaciones_requeridas ? (
+                      <>
+                        <Box sx={{ p: 1.5, bgcolor: alpha(GRC_COLOR, 0.08), borderRadius: 1, mb: 1.5 }}>
+                          <Typography sx={{ fontSize: 11, color: LBL }}>Aceptaciones acumuladas</Typography>
+                          <Typography sx={{ fontSize: 26, fontWeight: 800, color: GRC_COLOR, lineHeight: 1.2 }}>
+                            {selPol.aceptaciones_count ?? 0}
+                          </Typography>
                         </Box>
-                        <Typography sx={{ fontSize: 11.5, color: 'text.primary' }}>{v.cambios}</Typography>
-                        <Typography sx={{ fontSize: 10, color: 'text.secondary', mt: 0.25 }}>Autor: {v.autor}</Typography>
-                      </Box>
-                    ))}
-                    <Button size="small" startIcon={<Add />} variant="outlined" fullWidth sx={{ color: GRC_COLOR, borderColor: alpha(GRC_COLOR, 0.4), mt: 1 }}>Nueva Versión</Button>
-                  </>
-                )}
-                {panelTab === 2 && (
-                  <>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
-                      <Typography sx={{ fontSize: 12, color: LBL }}>Aceptaciones registradas</Typography>
-                      <Button size="small" startIcon={<HowToReg />} variant="contained" sx={{ bgcolor: GRC_COLOR, fontSize: 10, py: 0.25, '&:hover': { bgcolor: '#5B21B6' } }} onClick={() => setOpenAcept(true)}>Registrar</Button>
-                    </Box>
-                    {(aceptHist[selPol.codigo] || []).length > 0 ? (aceptHist[selPol.codigo] || []).map((a, i) => (
-                      <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', p: 1.25, mb: 0.75, bgcolor: '#F8FAFC', borderRadius: 1 }}>
-                        <Box><Typography sx={{ fontSize: 12, color: '#1E293B', fontWeight: 600 }}>{a.quien}</Typography><Typography sx={{ fontSize: 10, color: 'text.secondary' }}>v{a.version}</Typography></Box>
-                        <Typography sx={{ fontSize: 11, color: '#059669' }}>{a.fecha}</Typography>
-                      </Box>
-                    )) : (
-                      <Box sx={{ p: 2, textAlign: 'center', color: 'text.disabled', fontSize: 12 }}>Sin aceptaciones registradas aún</Box>
+                        <Button size="small" startIcon={<HowToReg />} variant="contained" fullWidth
+                          disabled={mutAceptar.isPending}
+                          onClick={() => mutAceptar.mutate(selPol)}
+                          sx={{ bgcolor: GRC_COLOR, '&:hover': { bgcolor: '#5B21B6' } }}>
+                          Registrar una aceptación
+                        </Button>
+                        {/* Honesto sobre lo que hay: la base guarda el acumulado,
+                            no el detalle de quién aceptó ni cuándo. */}
+                        <Alert severity="info" sx={{ mt: 1.5, fontSize: 11 }}>
+                          Por ahora solo se lleva el acumulado. El registro nominal de quién
+                          aceptó y en qué versión todavía no existe en la base.
+                        </Alert>
+                      </>
+                    ) : (
+                      <Alert severity="info" sx={{ fontSize: 11 }}>
+                        Esta política no exige aceptación. Actívelo desde
+                        <strong> Editar política</strong> si debe ser aceptada por el personal.
+                      </Alert>
                     )}
-                    <Divider sx={{ borderColor: '#E5E7EB', my: 1.5 }} />
-                    <Box sx={{ p: 1.5, bgcolor: alpha(GRC_COLOR, 0.08), borderRadius: 1 }}>
-                      <Typography sx={{ fontSize: 11, color: LBL, mb: 0.5 }}>Cobertura de aceptación</Typography>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                        <Typography sx={{ fontSize: 12, color: 'text.primary' }}>{selPol.aceptaciones} / {selPol.requeridas}</Typography>
-                        <Typography sx={{ fontSize: 13, fontWeight: 700, color: selPol.aceptaciones / selPol.requeridas >= 0.9 ? '#059669' : '#D97706' }}>{selPol.requeridas > 0 ? Math.round((selPol.aceptaciones / selPol.requeridas) * 100) : 0}%</Typography>
-                      </Box>
-                      <LinearProgress variant="determinate" value={selPol.requeridas > 0 ? Math.round((selPol.aceptaciones / selPol.requeridas) * 100) : 0} sx={{ height: 5, borderRadius: 3, bgcolor: 'text.disabled', '& .MuiLinearProgress-bar': { bgcolor: GRC_COLOR } }} />
-                    </Box>
                   </>
                 )}
               </Box>
@@ -245,81 +409,137 @@ export default function GRCPoliticas() {
             <Table size="small">
               <TableHead>
                 <TableRow sx={{ '& th': { borderColor: '#E5E7EB', color: LBL, fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
-                  <TableCell>Política</TableCell>
-                  <TableCell>Estado</TableCell>
-                  <TableCell>Versión</TableCell>
-                  <TableCell>Aceptaciones</TableCell>
-                  <TableCell>Cobertura</TableCell>
-                  <TableCell>Próx. Revisión</TableCell>
+                  <TableCell>Política</TableCell><TableCell>Estado</TableCell>
+                  <TableCell>Versión</TableCell><TableCell>Aceptaciones</TableCell>
+                  <TableCell>Vigencia</TableCell><TableCell>Próx. revisión</TableCell>
                   <TableCell>Acciones</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {politicas.filter(p => p.estado === 'PUBLICADA').map(p => {
-                  const pct = Math.round((p.aceptaciones / p.requeridas) * 100)
-                  return (
-                    <TableRow key={p.codigo} sx={{ '& td': { borderColor: '#E5E7EB', color: 'text.primary', fontSize: 12.5 } }}>
-                      <TableCell sx={{ maxWidth: 280 }}>
-                        <Typography sx={{ fontSize: 12.5, color: 'text.primary', fontWeight: 600 }}>{p.nombre}</Typography>
-                        <Typography sx={{ fontSize: 10, color: LBL }}>{p.codigo}</Typography>
-                      </TableCell>
-                      <TableCell><Chip label={p.estado} size="small" sx={{ fontSize: 10, height: 18, bgcolor: alpha(ESTADO_COLOR[p.estado], 0.15), color: ESTADO_COLOR[p.estado] }} /></TableCell>
-                      <TableCell><Chip label={`v${p.version}`} size="small" sx={{ bgcolor: alpha(GRC_COLOR, 0.12), color: GRC_COLOR, fontSize: 10 }} /></TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>{p.aceptaciones}/{p.requeridas}</TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <LinearProgress variant="determinate" value={pct} sx={{ width: 70, height: 5, borderRadius: 2, bgcolor: 'text.disabled', '& .MuiLinearProgress-bar': { bgcolor: pct >= 90 ? '#059669' : '#D97706' } }} />
-                          <Typography sx={{ fontSize: 11, color: pct >= 90 ? '#059669' : '#D97706', fontWeight: 700 }}>{pct}%</Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell sx={{ color: 'text.secondary' }}>{p.revision || '—'}</TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', gap: 0.5 }}>
-                          <Button size="small" startIcon={<HowToReg />} variant="contained" sx={{ bgcolor: GRC_COLOR, fontSize: 10, py: 0.25, px: 1, '&:hover': { bgcolor: '#5B21B6' } }} onClick={() => setOpenAcept(true)}>Aceptar</Button>
-                          <IconButton size="small" sx={{ color: '#D97706', p: 0.5 }} title="Historial de versiones"><History sx={{ fontSize: 14 }} /></IconButton>
-                          <IconButton size="small" sx={{ color: '#059669', p: 0.5 }} title="Descargar PDF"><FileDownload sx={{ fontSize: 14 }} /></IconButton>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
+                {politicas.filter(p => p.aceptaciones_requeridas).map(p => (
+                  <TableRow key={p.id} hover sx={{ '& td': { borderColor: '#E5E7EB', fontSize: 12.5 } }}>
+                    <TableCell sx={{ maxWidth: 280 }}>
+                      <Typography sx={{ fontSize: 12.5, fontWeight: 600 }}>{p.nombre}</Typography>
+                      <Typography sx={{ fontSize: 10, color: LBL }}>{p.codigo ?? `POL-${p.id}`}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={estadoLabel(p.estado)} size="small" sx={{
+                        fontSize: 10, height: 18,
+                        bgcolor: alpha(estadoColor(p.estado), 0.15), color: estadoColor(p.estado),
+                      }} />
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={`v${p.version ?? '1.0'}`} size="small"
+                        sx={{ bgcolor: alpha(GRC_COLOR, 0.12), color: GRC_COLOR, fontSize: 10 }} />
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>{p.aceptaciones_count ?? 0}</TableCell>
+                    <TableCell sx={{ color: 'text.secondary' }}>{p.fecha_vigencia ?? '—'}</TableCell>
+                    <TableCell sx={{ color: 'text.secondary' }}>{p.fecha_revision ?? '—'}</TableCell>
+                    <TableCell>
+                      <Button size="small" startIcon={<HowToReg />} variant="contained"
+                        disabled={mutAceptar.isPending}
+                        onClick={() => mutAceptar.mutate(p)}
+                        sx={{ bgcolor: GRC_COLOR, fontSize: 10, py: 0.25, px: 1, '&:hover': { bgcolor: '#5B21B6' } }}>
+                        Aceptar
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
+            {politicas.filter(p => p.aceptaciones_requeridas).length === 0 && (
+              <Box sx={{ p: 3 }}>
+                <Alert severity="info">
+                  Ninguna política exige aceptación. Marque <strong>Exige aceptación del personal</strong>
+                  {' '}en la política que corresponda.
+                </Alert>
+              </Box>
+            )}
           </Paper>
         )}
 
-        {/* DIALOG NUEVA POLÍTICA */}
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { color: 'text.primary' } }}>
-          <DialogTitle sx={{ fontWeight: 700 }}>Nueva Política</DialogTitle>
-          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
-            <TextField label="Nombre de la Política" fullWidth size="small" InputLabelProps={LBL_SX} />
-            <FormControl size="small"><InputLabel sx={{ color: 'text.secondary' }}>Tipo</InputLabel>
-              <Select label="Tipo" defaultValue="">
-                {['Riesgos','Compliance','Ciberseguridad','Continuidad','Privacidad','Ética','Terceros'].map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-              </Select></FormControl>
-            <TextField label="Propietario" fullWidth size="small" InputLabelProps={LBL_SX} />
-            <TextField label="Aprobador" fullWidth size="small" InputLabelProps={LBL_SX} />
-            <TextField label="Descripción / Alcance" multiline rows={3} fullWidth size="small" InputLabelProps={LBL_SX} />
-            <TextField label="Fecha de Vigencia" type="date" fullWidth size="small" InputLabelProps={{ shrink: true, sx: { color: 'text.secondary' } }} />
+        {/* ALTA / EDICIÓN */}
+        <Dialog open={dlg.abierto} onClose={() => setDlg({ abierto: false, item: null })}
+          maxWidth="md" fullWidth>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>
+            {dlg.item ? `Editar ${dlg.item.codigo ?? `POL-${dlg.item.id}`}` : 'Nueva política'}
+          </DialogTitle>
+          <DialogContent dividers>
+            <Grid container spacing={2} sx={{ pt: 0.5 }}>
+              <Grid size={{ xs: 12 }}>
+                <TextField label="Nombre de la política *" size="small" fullWidth autoFocus
+                  value={form.nombre}
+                  onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <SelectorCatalogo modulo="GRC" tipo="TIPO_POLITICA" label="Tipo"
+                  valor={form.tipo} onChange={v => setForm(f => ({ ...f, tipo: v }))} />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <TextField select label="Estado" size="small" fullWidth value={form.estado}
+                  onChange={e => setForm(f => ({ ...f, estado: e.target.value }))}>
+                  {ESTADOS.map(e => <MenuItem key={e.valor} value={e.valor}>{e.label}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <TextField label="Versión" size="small" fullWidth value={form.version}
+                  onChange={e => setForm(f => ({ ...f, version: e.target.value }))} />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <SelectorResponsable label="Propietario" valor={form.propietario}
+                  onChange={v => setForm(f => ({ ...f, propietario: v }))} />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <SelectorResponsable label="Aprobador" valor={form.aprobador}
+                  onChange={v => setForm(f => ({ ...f, aprobador: v }))} />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 3 }}>
+                <TextField label="Aprobada el" type="date" size="small" fullWidth
+                  InputLabelProps={{ shrink: true }} value={form.fecha_aprobacion}
+                  onChange={e => setForm(f => ({ ...f, fecha_aprobacion: e.target.value }))} />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 3 }}>
+                <TextField label="Vigente hasta" type="date" size="small" fullWidth
+                  InputLabelProps={{ shrink: true }} value={form.fecha_vigencia}
+                  onChange={e => setForm(f => ({ ...f, fecha_vigencia: e.target.value }))} />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 3 }}>
+                <TextField label="Próxima revisión" type="date" size="small" fullWidth
+                  InputLabelProps={{ shrink: true }} value={form.fecha_revision}
+                  onChange={e => setForm(f => ({ ...f, fecha_revision: e.target.value }))} />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 3 }}>
+                <SelectorCatalogo modulo="GRC" tipo="PERIODICIDAD_REVISION" label="Periodicidad"
+                  valor={form.periodicidad_revision}
+                  onChange={v => setForm(f => ({ ...f, periodicidad_revision: v }))} />
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <TextField label="Alcance" size="small" fullWidth
+                  placeholder="A quién y a qué procesos aplica"
+                  value={form.alcance}
+                  onChange={e => setForm(f => ({ ...f, alcance: e.target.value }))} />
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <TextField label="Descripción" size="small" fullWidth multiline rows={4}
+                  value={form.descripcion}
+                  onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <FormControlLabel
+                  control={<Switch checked={form.aceptaciones_requeridas}
+                    onChange={e => setForm(f => ({ ...f, aceptaciones_requeridas: e.target.checked }))} />}
+                  label="Exige aceptación del personal" />
+              </Grid>
+            </Grid>
           </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setOpenDialog(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>
-            <Button variant="contained" onClick={() => setOpenDialog(false)} sx={{ bgcolor: GRC_COLOR, '&:hover': { bgcolor: '#5B21B6' } }}>Guardar</Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* DIALOG REGISTRAR ACEPTACIÓN */}
-        <Dialog open={openAcept} onClose={() => setOpenAcept(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { color: 'text.primary' } }}>
-          <DialogTitle sx={{ fontWeight: 700 }}>Registrar Aceptación de Política</DialogTitle>
-          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
-            <TextField label="Nombre del Aceptante" fullWidth size="small" InputLabelProps={LBL_SX} />
-            <TextField label="Cargo" fullWidth size="small" InputLabelProps={LBL_SX} />
-            <TextField label="Área" fullWidth size="small" InputLabelProps={LBL_SX} />
-            <TextField label="Fecha de Aceptación" type="date" fullWidth size="small" InputLabelProps={{ shrink: true, sx: { color: 'text.secondary' } }} />
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setOpenAcept(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>
-            <Button variant="contained" onClick={() => setOpenAcept(false)} sx={{ bgcolor: GRC_COLOR, '&:hover': { bgcolor: '#5B21B6' } }}>Registrar Aceptación</Button>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setDlg({ abierto: false, item: null })}>Cancelar</Button>
+            <Button variant="contained"
+              disabled={!form.nombre.trim() || mutGuardar.isPending}
+              onClick={() => mutGuardar.mutate()}
+              sx={{ bgcolor: GRC_COLOR, '&:hover': { bgcolor: '#5B21B6' } }}>
+              {mutGuardar.isPending ? 'Guardando…' : 'Guardar'}
+            </Button>
           </DialogActions>
         </Dialog>
       </Box>

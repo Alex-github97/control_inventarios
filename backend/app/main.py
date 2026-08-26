@@ -271,6 +271,16 @@ async def lifespan(app: FastAPI):
                 "ALTER TABLE eam_activo ADD COLUMN IF NOT EXISTS %s %s" % (columna, tipo)
             ))
 
+        # Políticas de GRC: la ficha muestra de qué trata la política y cada
+        # cuánto se revisa, pero la tabla solo tenía el alcance.
+        for columna, tipo in [
+            ("descripcion", "TEXT"),
+            ("periodicidad_revision", "VARCHAR(50)"),
+        ]:
+            await conn.execute(text(
+                "ALTER TABLE grc_politica ADD COLUMN IF NOT EXISTS %s %s" % (columna, tipo)
+            ))
+
         # Catálogos organizativos y contables. Se siembran las sedes y áreas
         # típicas y se rescata lo que ya esté escrito a mano en los activos.
         await conn.execute(text("""
@@ -742,6 +752,20 @@ async def lifespan(app: FastAPI):
                 ('GRC','CATEGORIA_RIESGO','Cumplimiento',4),
                 ('GRC','CATEGORIA_RIESGO','Tecnológico',5),
                 ('GRC','CATEGORIA_RIESGO','Reputacional',6),
+                ('GRC','TIPO_POLITICA','Riesgos',1),
+                ('GRC','TIPO_POLITICA','Ciberseguridad',2),
+                ('GRC','TIPO_POLITICA','Cumplimiento',3),
+                ('GRC','TIPO_POLITICA','Continuidad',4),
+                ('GRC','TIPO_POLITICA','Terceros y proveedores',5),
+                ('GRC','TIPO_POLITICA','Privacidad y datos personales',6),
+                ('GRC','TIPO_POLITICA','Ética y conducta',7),
+                ('GRC','TIPO_POLITICA','Financiera',8),
+                ('GRC','TIPO_POLITICA','Talento humano',9),
+                ('GRC','TIPO_POLITICA','Ambiental',10),
+                ('GRC','PERIODICIDAD_REVISION','Semestral',1),
+                ('GRC','PERIODICIDAD_REVISION','Anual',2),
+                ('GRC','PERIODICIDAD_REVISION','Bianual',3),
+                ('GRC','PERIODICIDAD_REVISION','Por cambio normativo',4),
                 ('LMS','MODALIDAD','Presencial',1),
                 ('LMS','MODALIDAD','Virtual',2),
                 ('LMS','MODALIDAD','Mixta',3),

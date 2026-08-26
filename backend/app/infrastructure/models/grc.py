@@ -149,7 +149,9 @@ class GRCPolitica(Base, TimestampMixin, SoftDeleteMixin):
     fecha_aprobacion       = Column(Date)
     fecha_vigencia         = Column(Date)
     fecha_revision         = Column(Date)
+    periodicidad_revision  = Column(String(50))   # Anual, Bianual, Semestral…
     alcance                = Column(Text)
+    descripcion            = Column(Text)
     dms_documento_id       = Column(Integer)
     aceptaciones_requeridas = Column(Boolean, default=False)
     aceptaciones_count     = Column(Integer, default=0)
