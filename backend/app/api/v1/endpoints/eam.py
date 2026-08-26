@@ -11,7 +11,7 @@ from app.infrastructure.models.eam import (
     EAMCausaCatalogo, EAMSolucionCatalogo, EAMContratista,
     EAMActivo, EAMComponente, EAMDocumentoActivo,
     EAMChecklistPlantilla, EAMChecklistPregunta,
-    EAMPlanMantenimiento, EAMPlanDetalle,
+    EAMPlanMantenimiento, EAMPlanDetalle, EAMPlanActivo,
     EAMOrdenTrabajo, EAMChecklistEjecucion, EAMChecklistRespuesta,
     EAMOTMaterial, EAMOTManoObra,
     EAMMuestraAceite, EAMNeumatico, EAMMovimientoNeumatico,
@@ -245,10 +245,23 @@ class ChecklistPreguntaResponse(ChecklistPreguntaCreate):
     id: int
     activo: bool
 
+class PlanTareaItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: Optional[int] = None
+    descripcion: str
+    actividad_id: Optional[int] = None
+    repuesto_id: Optional[int] = None
+    cantidad_repuesto: Optional[float] = None
+    tiempo_estimado: Optional[float] = None
+    orden: int = 0
+
 class PlanMantenimientoCreate(BaseModel):
     nombre: str
+    # Alcance: un activo puntual, o los niveles del catálogo que apliquen.
     activo_id: Optional[int] = None
     tipo_activo: Optional[str] = None
+    marca: Optional[str] = None
+    linea: Optional[str] = None
     tipo_mant: Optional[str] = "TIEMPO"
     frecuencia: Optional[int] = None
     unidad: Optional[str] = None
@@ -256,21 +269,37 @@ class PlanMantenimientoCreate(BaseModel):
     checklist_id: Optional[int] = None
     descripcion: Optional[str] = None
     costo_estimado: Optional[float] = None
+    tareas: List[PlanTareaItem] = []
 
 class PlanMantenimientoResponse(PlanMantenimientoCreate):
     model_config = ConfigDict(from_attributes=True)
     id: int
     activo: bool
+    # Cuántos activos cubre el alcance y cómo están repartidos.
+    activos_cubiertos: int = 0
+    vencidas: int = 0
+    proximas: int = 0
+    sin_ejecutar: int = 0
+
+class CumplimientoActivo(BaseModel):
+    """Estado de una rutina en un activo. Se calcula contra la lectura de hoy."""
+    model_config = ConfigDict(from_attributes=True)
+    plan_id: int
+    plan_nombre: str
+    frecuencia: Optional[int] = None
+    unidad: Optional[str] = None
+    tipo_ot: Optional[str] = None
+    activo_id: int
+    activo_codigo: Optional[str] = None
+    activo_nombre: Optional[str] = None
+    odometro_activo: Optional[float] = None
+    horometro_activo: Optional[float] = None
     ultima_ejecucion_fecha: Optional[datetime] = None
     ultima_ejecucion_odometro: Optional[float] = None
-    ultima_ejecucion_horometro: Optional[float] = None
     ultima_ot_id: Optional[int] = None
     proxima_fecha: Optional[datetime] = None
     proximo_odometro: Optional[float] = None
     proximo_horometro: Optional[float] = None
-    # Calculados contra la lectura actual del activo; no se guardan.
-    odometro_activo: Optional[float] = None
-    horometro_activo: Optional[float] = None
     faltante: Optional[float] = None
     unidad_faltante: Optional[str] = None
     estado_rutina: str = "SIN_EJECUTAR"
@@ -1481,64 +1510,124 @@ async def create_ejecucion(data: ChecklistEjecucionCreate, db: AsyncSession = De
 
 # ─── Planes de mantenimiento ──────────────────────────────────────────────────
 
-def _estado_rutina(plan: EAMPlanMantenimiento, activo: Optional[EAMActivo]) -> dict:
-    """Cuánto falta para la próxima rutina, contra la lectura de hoy del activo.
+def _cumplimiento(
+    plan: EAMPlanMantenimiento, activo: EAMActivo, prog: Optional[EAMPlanActivo]
+) -> CumplimientoActivo:
+    """Cuánto le falta a un activo para su próxima rutina, contra su lectura de
+    hoy.
 
     Se calcula al vuelo y no se guarda: el activo sigue rodando entre una OT y
     la siguiente, así que un valor almacenado nacería viejo.
     """
-    vacio = {"faltante": None, "unidad_faltante": None, "estado_rutina": "SIN_EJECUTAR",
-             "odometro_activo": activo.odometro_actual if activo else None,
-             "horometro_activo": activo.horometro_actual if activo else None}
-    if plan.ultima_ejecucion_fecha is None:
-        return vacio
+    base = CumplimientoActivo(
+        plan_id=plan.id, plan_nombre=plan.nombre,
+        frecuencia=plan.frecuencia, unidad=plan.unidad, tipo_ot=plan.tipo_ot,
+        activo_id=activo.id, activo_codigo=activo.codigo, activo_nombre=activo.nombre,
+        odometro_activo=activo.odometro_actual, horometro_activo=activo.horometro_actual,
+    )
+    if prog is None or prog.ultima_ejecucion_fecha is None:
+        return base
+
+    base.ultima_ejecucion_fecha = prog.ultima_ejecucion_fecha
+    base.ultima_ejecucion_odometro = prog.ultima_ejecucion_odometro
+    base.ultima_ot_id = prog.ultima_ot_id
+    base.proxima_fecha = prog.proxima_fecha
+    base.proximo_odometro = prog.proximo_odometro
+    base.proximo_horometro = prog.proximo_horometro
 
     frecuencia = plan.frecuencia or 0
-    if plan.proximo_odometro is not None and activo is not None:
-        faltante = plan.proximo_odometro - (activo.odometro_actual or 0)
+    if prog.proximo_odometro is not None:
+        faltante = prog.proximo_odometro - (activo.odometro_actual or 0)
         unidad = "KM"
-    elif plan.proximo_horometro is not None and activo is not None:
-        faltante = plan.proximo_horometro - (activo.horometro_actual or 0)
+    elif prog.proximo_horometro is not None:
+        faltante = prog.proximo_horometro - (activo.horometro_actual or 0)
         unidad = "HORAS"
-    elif plan.proxima_fecha is not None:
-        faltante = (plan.proxima_fecha - datetime.now()).days
+    elif prog.proxima_fecha is not None:
+        faltante = (prog.proxima_fecha - datetime.now()).days
         unidad = "DIAS"
         frecuencia = frecuencia * _DIAS_POR_UNIDAD.get((plan.unidad or "").upper(), 1)
     else:
-        return vacio
+        return base
 
     # Se avisa en el último 10% del intervalo, con un mínimo razonable para que
     # una frecuencia corta no deje la alerta en cero.
     umbral = max(frecuencia * 0.1, 1 if unidad == "DIAS" else 50)
-    if faltante < 0:
-        estado = "VENCIDA"
-    elif faltante <= umbral:
-        estado = "PROXIMA"
-    else:
-        estado = "AL_DIA"
-    return {**vacio, "faltante": round(faltante, 1), "unidad_faltante": unidad,
-            "estado_rutina": estado}
+    base.faltante = round(faltante, 1)
+    base.unidad_faltante = unidad
+    base.estado_rutina = "VENCIDA" if faltante < 0 else ("PROXIMA" if faltante <= umbral else "AL_DIA")
+    return base
+
+
+async def _cobertura(
+    db: AsyncSession, planes: List[EAMPlanMantenimiento]
+) -> dict[int, List[CumplimientoActivo]]:
+    """Qué activos cubre cada rutina y cómo va cada uno.
+
+    Se resuelve en memoria: el alcance compara texto por niveles y la flota de
+    un CMMS cabe de sobra, así que no vale la pena armarlo en SQL.
+    """
+    if not planes:
+        return {}
+    activos = (await db.execute(select(EAMActivo))).scalars().all()
+    progs = (await db.execute(
+        select(EAMPlanActivo).where(EAMPlanActivo.plan_id.in_([p.id for p in planes]))
+    )).scalars().all()
+    por_clave = {(p.plan_id, p.activo_id): p for p in progs}
+
+    salida: dict[int, List[CumplimientoActivo]] = {}
+    for plan in planes:
+        cubiertos = [a for a in activos if _plan_cubre(plan, a)]
+        salida[plan.id] = [
+            _cumplimiento(plan, a, por_clave.get((plan.id, a.id))) for a in cubiertos
+        ]
+    return salida
 
 
 @router.get("/planes", response_model=List[PlanMantenimientoResponse])
-async def list_planes(activo_id: Optional[int] = None, db: AsyncSession = Depends(get_db)):
-    q = select(EAMPlanMantenimiento).where(EAMPlanMantenimiento.activo == True)
-    if activo_id is not None:
-        q = q.where(EAMPlanMantenimiento.activo_id == activo_id)
-    planes = (await db.execute(q)).scalars().all()
-
-    # Los activos referenciados se traen de una para no consultar uno por plan.
-    ids = {p.activo_id for p in planes if p.activo_id}
-    activos: dict[int, EAMActivo] = {}
-    if ids:
-        filas = (await db.execute(select(EAMActivo).where(EAMActivo.id.in_(ids)))).scalars().all()
-        activos = {a.id: a for a in filas}
+async def list_planes(db: AsyncSession = Depends(get_db)):
+    planes = (await db.execute(
+        select(EAMPlanMantenimiento).where(EAMPlanMantenimiento.activo == True)
+        .order_by(EAMPlanMantenimiento.nombre)
+    )).scalars().all()
+    cobertura = await _cobertura(db, planes)
 
     salida = []
     for p in planes:
-        base = PlanMantenimientoResponse.model_validate(p)
-        salida.append(base.model_copy(update=_estado_rutina(p, activos.get(p.activo_id or 0))))
+        filas = cobertura.get(p.id, [])
+        salida.append(PlanMantenimientoResponse.model_validate(p).model_copy(update={
+            "activos_cubiertos": len(filas),
+            "vencidas": sum(1 for f in filas if f.estado_rutina == "VENCIDA"),
+            "proximas": sum(1 for f in filas if f.estado_rutina == "PROXIMA"),
+            "sin_ejecutar": sum(1 for f in filas if f.estado_rutina == "SIN_EJECUTAR"),
+        }))
     return salida
+
+
+@router.get("/planes/cumplimiento", response_model=List[CumplimientoActivo])
+async def cumplimiento_rutinas(
+    activo_id: Optional[int] = None,
+    plan_id: Optional[int] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Una fila por (rutina, activo cubierto).
+
+    Con `activo_id` devuelve las rutinas que le aplican a ese equipo — es lo que
+    consulta el formulario de la OT — y con `plan_id`, la flota que cubre una
+    rutina.
+    """
+    q = select(EAMPlanMantenimiento).where(EAMPlanMantenimiento.activo == True)
+    if plan_id is not None:
+        q = q.where(EAMPlanMantenimiento.id == plan_id)
+    planes = (await db.execute(q)).scalars().all()
+    cobertura = await _cobertura(db, planes)
+
+    filas = [f for lista in cobertura.values() for f in lista]
+    if activo_id is not None:
+        filas = [f for f in filas if f.activo_id == activo_id]
+    # Primero lo que ya se pasó, después lo que está por vencer.
+    orden = {"VENCIDA": 0, "PROXIMA": 1, "SIN_EJECUTAR": 2, "AL_DIA": 3}
+    filas.sort(key=lambda f: (orden.get(f.estado_rutina, 9), f.faltante if f.faltante is not None else 1e12))
+    return filas
 
 
 @router.delete("/planes/{plan_id}", status_code=204)
@@ -1550,21 +1639,58 @@ async def delete_plan(plan_id: int, db: AsyncSession = Depends(get_db)):
     obj.activo = False
     await db.commit()
 
+def _aplicar_tareas(obj: EAMPlanMantenimiento, data: PlanMantenimientoCreate) -> None:
+    """Se reemplazan completas, igual que las líneas de la OT: el formulario
+    manda la lista entera."""
+    obj.tareas.clear()
+    for i, t in enumerate(data.tareas):
+        obj.tareas.append(EAMPlanDetalle(
+            descripcion=t.descripcion, actividad_id=t.actividad_id,
+            repuesto_id=t.repuesto_id, cantidad_repuesto=t.cantidad_repuesto,
+            tiempo_estimado=t.tiempo_estimado, orden=t.orden or i,
+        ))
+
+
+def _validar_alcance(data: PlanMantenimientoCreate) -> None:
+    if not data.activo_id and not (data.tipo_activo or data.marca or data.linea):
+        raise HTTPException(
+            400,
+            "Defina el alcance de la rutina: un activo puntual, o al menos el "
+            "tipo de activo al que aplica",
+        )
+
+
+async def _con_cobertura(
+    db: AsyncSession, plan: EAMPlanMantenimiento
+) -> PlanMantenimientoResponse:
+    filas = (await _cobertura(db, [plan])).get(plan.id, [])
+    return PlanMantenimientoResponse.model_validate(plan).model_copy(update={
+        "activos_cubiertos": len(filas),
+        "vencidas": sum(1 for f in filas if f.estado_rutina == "VENCIDA"),
+        "proximas": sum(1 for f in filas if f.estado_rutina == "PROXIMA"),
+        "sin_ejecutar": sum(1 for f in filas if f.estado_rutina == "SIN_EJECUTAR"),
+    })
+
+
 @router.post("/planes", response_model=PlanMantenimientoResponse)
 async def create_plan(data: PlanMantenimientoCreate, db: AsyncSession = Depends(get_db)):
-    obj = EAMPlanMantenimiento(**data.model_dump())
+    _validar_alcance(data)
+    obj = EAMPlanMantenimiento(**data.model_dump(exclude={"tareas"}))
+    _aplicar_tareas(obj, data)
     db.add(obj); await db.commit(); await db.refresh(obj)
-    return obj
+    return await _con_cobertura(db, obj)
 
 @router.put("/planes/{plan_id}", response_model=PlanMantenimientoResponse)
 async def update_plan(plan_id: int, data: PlanMantenimientoCreate, db: AsyncSession = Depends(get_db)):
     obj = await db.get(EAMPlanMantenimiento, plan_id)
     if not obj:
         raise HTTPException(404, "Plan no encontrado")
-    for k, v in data.model_dump(exclude_unset=True).items():
+    _validar_alcance(data)
+    for k, v in data.model_dump(exclude={"tareas"}).items():
         setattr(obj, k, v)
+    _aplicar_tareas(obj, data)
     await db.commit(); await db.refresh(obj)
-    return obj
+    return await _con_cobertura(db, obj)
 
 
 # ─── Órdenes de trabajo ───────────────────────────────────────────────────────
@@ -1630,11 +1756,56 @@ def _avanzar_medidores(activo: EAMActivo, odometro, horometro) -> None:
 _DIAS_POR_UNIDAD = {"DIAS": 1, "SEMANAS": 7, "MESES": 30, "ANIOS": 365, "AÑOS": 365}
 
 
+def _plan_cubre(plan: EAMPlanMantenimiento, activo: EAMActivo) -> bool:
+    """¿La rutina aplica a este activo?
+
+    Si nombra un activo puntual, manda ese. Si no, se comparan los niveles
+    declarados — tipo, marca, línea — y el nivel que esté vacío no restringe:
+    una rutina con solo el tipo cubre a todos los vehículos, y agregarle la
+    marca la acota a esa marca.
+    """
+    if plan.activo_id:
+        return plan.activo_id == activo.id
+    niveles = (
+        (plan.tipo_activo, activo.tipo_activo),
+        (plan.marca, activo.marca),
+        (plan.linea, activo.linea),
+    )
+    declarado = False
+    for esperado, real in niveles:
+        if not esperado:
+            continue
+        declarado = True
+        if (real or "").strip().upper() != esperado.strip().upper():
+            return False
+    # Sin ningún nivel ni activo, la rutina no cubre a nadie: es más seguro que
+    # aplicarla a toda la planta por un campo que se olvidaron de llenar.
+    return declarado
+
+
+async def _programacion(
+    db: AsyncSession, plan_id: int, activo_id: int, crear: bool = False
+) -> Optional[EAMPlanActivo]:
+    r = await db.execute(
+        select(EAMPlanActivo).where(
+            EAMPlanActivo.plan_id == plan_id, EAMPlanActivo.activo_id == activo_id
+        )
+    )
+    prog = r.scalar_one_or_none()
+    if prog is None and crear:
+        prog = EAMPlanActivo(plan_id=plan_id, activo_id=activo_id)
+        db.add(prog)
+    return prog
+
+
 async def _sellar_rutina(db: AsyncSession, ot: EAMOrdenTrabajo, activo: EAMActivo) -> None:
-    """Cierra la rutina que la OT vino a cumplir y calcula la siguiente.
+    """Cierra la rutina que la OT vino a cumplir, para ese activo, y calcula la
+    siguiente.
 
     Se dispara solo cuando la OT queda COMPLETADA: una rutina cuenta como
-    cumplida cuando el trabajo se hizo, no cuando se programó.
+    cumplida cuando el trabajo se hizo, no cuando se programó. El cumplimiento
+    se guarda contra el activo de la OT y no contra el plan, porque la misma
+    rutina cubre a varios equipos y cada uno vence por su cuenta.
 
     La base del cálculo es la lectura de la OT; si no trae, se usa la del
     activo, que ya viene de la última OT registrada.
@@ -1644,31 +1815,32 @@ async def _sellar_rutina(db: AsyncSession, ot: EAMOrdenTrabajo, activo: EAMActiv
     plan = await db.get(EAMPlanMantenimiento, ot.plan_id)
     if not plan:
         return
+    prog = await _programacion(db, plan.id, activo.id, crear=True)
 
     fecha = ot.fecha_fin or datetime.now()
     odometro = ot.odometro if ot.odometro is not None else activo.odometro_actual
     horometro = ot.horometro if ot.horometro is not None else activo.horometro_actual
 
-    plan.ultima_ejecucion_fecha = fecha
-    plan.ultima_ejecucion_odometro = odometro
-    plan.ultima_ejecucion_horometro = horometro
-    plan.ultima_ot_id = ot.id
+    prog.ultima_ejecucion_fecha = fecha
+    prog.ultima_ejecucion_odometro = odometro
+    prog.ultima_ejecucion_horometro = horometro
+    prog.ultima_ot_id = ot.id
 
     unidad = (plan.unidad or "").upper()
     frecuencia = plan.frecuencia or 0
     # Se limpia lo que no aplique, para que no queden vencimientos viejos de
     # cuando el plan se medía de otra forma.
-    plan.proximo_odometro = None
-    plan.proximo_horometro = None
-    plan.proxima_fecha = None
+    prog.proximo_odometro = None
+    prog.proximo_horometro = None
+    prog.proxima_fecha = None
     if frecuencia <= 0:
         return
     if unidad == "KM":
-        plan.proximo_odometro = (odometro or 0) + frecuencia
+        prog.proximo_odometro = (odometro or 0) + frecuencia
     elif unidad == "HORAS":
-        plan.proximo_horometro = (horometro or 0) + frecuencia
+        prog.proximo_horometro = (horometro or 0) + frecuencia
     elif unidad in _DIAS_POR_UNIDAD:
-        plan.proxima_fecha = fecha + timedelta(days=frecuencia * _DIAS_POR_UNIDAD[unidad])
+        prog.proxima_fecha = fecha + timedelta(days=frecuencia * _DIAS_POR_UNIDAD[unidad])
 
 
 def _recalcular_costos(obj: EAMOrdenTrabajo) -> None:

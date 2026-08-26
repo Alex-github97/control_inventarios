@@ -117,15 +117,19 @@ interface CatalogoItem {
 }
 interface Contratista { id: number; nombre: string; ciudad?: string | null }
 
-/** Rutina programada, con su vencimiento ya calculado por el servidor. */
-interface PlanMantenimiento {
-  id: number
-  nombre: string
-  activo_id?: number | null
-  tipo_activo?: string | null
+/**
+ * Cumplimiento de una rutina en un activo, ya calculado por el servidor.
+ *
+ * Una rutina cubre a varios activos por jerarquía (tipo → marca → línea), así
+ * que lo que interesa acá es la fila del activo elegido, no el plan suelto.
+ */
+interface CumplimientoRutina {
+  plan_id: number
+  plan_nombre: string
   frecuencia?: number | null
   unidad?: string | null
   tipo_ot?: string | null
+  activo_id: number
   ultima_ejecucion_fecha?: string | null
   ultima_ejecucion_odometro?: number | null
   proximo_odometro?: number | null
@@ -145,7 +149,7 @@ const RUTINA_LABEL: Record<string, string> = {
 }
 
 /** "faltan 1.200 KM" / "vencida por 300 KM". */
-const textoFaltante = (p: PlanMantenimiento): string => {
+const textoFaltante = (p: CumplimientoRutina): string => {
   if (p.faltante == null || !p.unidad_faltante) return 'nunca se ha ejecutado'
   const u = p.unidad_faltante === 'DIAS' ? 'días' : p.unidad_faltante.toLowerCase()
   return p.faltante < 0
@@ -250,7 +254,8 @@ interface ContextoOT {
   soluciones: CatalogoItem[]
   etiquetaActivo: (id: number) => string
   elegirActivo: (id: string, set: SetFormulario) => void
-  planes: PlanMantenimiento[]
+  /** Cumplimiento de cada rutina en cada activo cubierto. */
+  cumplimientos: CumplimientoRutina[]
 }
 
 // ─── Tarjeta del Kanban ───────────────────────────────────────────────────────
@@ -547,12 +552,12 @@ function EditorLineas({
 
 function CamposOT({ f, set, ctx }: { f: Formulario; set: SetFormulario; ctx: ContextoOT }) {
   const { activos, contratistas, tiposTrabajo, fallas, causas, soluciones,
-    etiquetaActivo, elegirActivo, planes } = ctx
-  // Solo las rutinas del activo elegido: una rutina se programa por activo.
+    etiquetaActivo, elegirActivo, cumplimientos } = ctx
+  // Las rutinas que le aplican al activo elegido, según el alcance del plan.
   const rutinas = f.activo_id
-    ? planes.filter(p => String(p.activo_id ?? '') === f.activo_id)
+    ? cumplimientos.filter(c => String(c.activo_id) === f.activo_id)
     : []
-  const rutina = rutinas.find(p => String(p.id) === f.plan_id)
+  const rutina = rutinas.find(c => String(c.plan_id) === f.plan_id)
   return (
     <Grid container spacing={2}>
       <Grid size={{ xs: 12, md: 6 }}>
@@ -627,8 +632,8 @@ function CamposOT({ f, set, ctx }: { f: Formulario; set: SetFormulario; ctx: Con
               : 'Se marca como cumplida cuando la OT pase a COMPLETADA'}>
           <MenuItem value="">Ninguna · es un trabajo suelto</MenuItem>
           {rutinas.map(p => (
-            <MenuItem key={p.id} value={String(p.id)}>
-              {p.nombre}
+            <MenuItem key={p.plan_id} value={String(p.plan_id)}>
+              {p.plan_nombre}
               <Typography component="span" variant="caption"
                 sx={{ ml: 1, color: RUTINA_COLOR[p.estado_rutina] }}>
                 · {RUTINA_LABEL[p.estado_rutina]} · {textoFaltante(p)}
@@ -824,9 +829,9 @@ export default function EAMOrdenesTrabajo() {
     queryKey: ['eam-repuestos-catalogo'],
     queryFn: () => api.get('/eam/catalogos/repuestos').then(r => r.data),
   })
-  const { data: planes = [] } = useQuery<PlanMantenimiento[]>({
-    queryKey: ['eam-planes'],
-    queryFn: () => api.get('/eam/planes').then(r => r.data),
+  const { data: cumplimientos = [] } = useQuery<CumplimientoRutina[]>({
+    queryKey: ['eam-cumplimiento'],
+    queryFn: () => api.get('/eam/planes/cumplimiento').then(r => r.data),
   })
 
   const activoPorId = useMemo(() => {
@@ -859,7 +864,7 @@ export default function EAMOrdenesTrabajo() {
    *  las tres consultas se refrescan juntas. */
   const invalidar = () => {
     qc.invalidateQueries({ queryKey: ['eam-ots'] })
-    qc.invalidateQueries({ queryKey: ['eam-planes'] })
+    qc.invalidateQueries({ queryKey: ['eam-cumplimiento'] })
     qc.invalidateQueries({ queryKey: ['eam-activos-selector'] })
   }
 
@@ -982,7 +987,7 @@ export default function EAMOrdenesTrabajo() {
 
   const ctx: ContextoOT = {
     activos, contratistas, tiposTrabajo, fallas, causas, soluciones,
-    etiquetaActivo, elegirActivo, planes,
+    etiquetaActivo, elegirActivo, cumplimientos,
   }
 
   const abrirOT = (ot: OT) => {
@@ -1269,7 +1274,8 @@ export default function EAMOrdenesTrabajo() {
                       ['Origen', dlg.abierta.es_falla ? 'Falla' : 'Programado'],
                       ['Odómetro', dlg.abierta.odometro != null
                         ? `${dlg.abierta.odometro.toLocaleString('es-CO')} km` : '—'],
-                      ['Rutina', planes.find(p => p.id === dlg.abierta!.plan_id)?.nombre ?? '—'],
+                      ['Rutina', cumplimientos.find(c => c.plan_id === dlg.abierta!.plan_id)
+                        ?.plan_nombre ?? '—'],
                     ] as [string, string][]).map(([k, v]) => (
                       <Grid key={k} size={{ xs: 6, md: 3 }}>
                         <Typography sx={{ fontSize: 10, color: 'text.secondary', textTransform: 'uppercase' }}>{k}</Typography>

@@ -312,11 +312,25 @@ class EAMChecklistPregunta(Base, TimestampMixin):
 # ─── Planes de mantenimiento ──────────────────────────────────────────────────
 
 class EAMPlanMantenimiento(Base, TimestampMixin):
+    """Rutina programada, definida sobre la jerarquía del catálogo.
+
+    El alcance se declara por niveles — tipo → marca → línea — y la rutina cubre
+    a todo activo que encaje: así una rutina de 5.000 km se escribe una vez y no
+    una por cada tractocamión de la flota. `activo_id` sigue existiendo para la
+    rutina que aplica a un solo equipo.
+
+    Acá no se guarda cumplimiento: cada activo cubierto lleva su propio
+    kilometraje, así que su vencimiento vive en EAMPlanActivo.
+    """
+
     __tablename__ = "eam_plan_mantenimiento"
     id             = Column(Integer, primary_key=True, index=True)
     nombre         = Column(String(200), nullable=False)
     activo_id      = Column(Integer, ForeignKey("eam_activo.id"), nullable=True)
+    # Niveles del alcance. En NULL, el nivel no restringe.
     tipo_activo    = Column(String(50))
+    marca          = Column(String(100))
+    linea          = Column(String(100))
     tipo_mant      = Column(String(30))  # TIEMPO, USO, CONDICION
     frecuencia     = Column(Integer)
     unidad         = Column(String(20))  # DIAS, SEMANAS, MESES, KM, HORAS
@@ -325,27 +339,57 @@ class EAMPlanMantenimiento(Base, TimestampMixin):
     descripcion    = Column(Text)
     costo_estimado = Column(Float)
     activo         = Column(Boolean, default=True)
-    # Punto en el que se cumplió la rutina por última vez y cuándo vuelve a
-    # tocar. Lo sella la OT al completarse; según `unidad` manda el odómetro,
-    # el horómetro o la fecha.
+
+    tareas = relationship(
+        "EAMPlanDetalle", back_populates="plan",
+        cascade="all, delete-orphan", lazy="selectin",
+    )
+
+
+class EAMPlanActivo(Base, TimestampMixin):
+    """Cumplimiento de una rutina en un activo concreto.
+
+    Es lo que hace que la plantilla sirva para toda la flota: la rutina es una
+    sola, pero cada activo tiene su última ejecución y su próximo vencimiento,
+    calculados con su propio odómetro.
+    """
+
+    __tablename__ = "eam_plan_activo"
+    __table_args__ = (
+        UniqueConstraint("plan_id", "activo_id", name="uq_plan_activo"),
+    )
+    id        = Column(Integer, primary_key=True, index=True)
+    plan_id   = Column(Integer, ForeignKey("eam_plan_mantenimiento.id", ondelete="CASCADE"),
+                       nullable=False, index=True)
+    activo_id = Column(Integer, ForeignKey("eam_activo.id"), nullable=False, index=True)
     ultima_ejecucion_fecha     = Column(DateTime)
     ultima_ejecucion_odometro  = Column(Float)
     ultima_ejecucion_horometro = Column(Float)
-    ultima_ot_id               = Column(Integer, ForeignKey("eam_orden_trabajo.id"), nullable=True)
+    # Si se borra la OT, la rutina conserva su cumplimiento y solo pierde el
+    # vínculo: el mantenimiento se hizo aunque el papel ya no esté.
+    ultima_ot_id               = Column(
+        Integer, ForeignKey("eam_orden_trabajo.id", ondelete="SET NULL"), nullable=True)
     proxima_fecha              = Column(DateTime)
     proximo_odometro           = Column(Float)
     proximo_horometro          = Column(Float)
 
 
 class EAMPlanDetalle(Base, TimestampMixin):
+    """Tarea de la rutina. Si consume un repuesto, va en la misma fila: el
+    material se pide por la tarea que lo usa, no suelto."""
+
     __tablename__ = "eam_plan_detalle"
     id                = Column(Integer, primary_key=True, index=True)
-    plan_id           = Column(Integer, ForeignKey("eam_plan_mantenimiento.id"), nullable=False)
+    plan_id           = Column(Integer, ForeignKey("eam_plan_mantenimiento.id", ondelete="CASCADE"),
+                               nullable=False, index=True)
     actividad_id      = Column(Integer, ForeignKey("eam_actividad.id"), nullable=True)
     descripcion       = Column(String(200), nullable=False)
     repuesto_id       = Column(Integer, ForeignKey("eam_repuesto.id"), nullable=True)
     cantidad_repuesto = Column(Float)
     tiempo_estimado   = Column(Float)
+    orden             = Column(Integer, default=0)
+
+    plan = relationship("EAMPlanMantenimiento", back_populates="tareas")
 
 
 # ─── Órdenes de trabajo ───────────────────────────────────────────────────────

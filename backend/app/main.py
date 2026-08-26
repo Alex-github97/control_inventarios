@@ -301,19 +301,47 @@ async def lifespan(app: FastAPI):
         await conn.execute(text(
             "ALTER TABLE eam_ot_mano_obra ALTER COLUMN actividad TYPE VARCHAR(300)"
         ))
-        # Estado de la rutina: cuándo se cumplió por última vez y cuándo vuelve
-        # a tocar. Sin esto no había forma de calcular el próximo mantenimiento.
-        for columna, tipo in [
-            ("ultima_ejecucion_fecha", "TIMESTAMP"),
-            ("ultima_ejecucion_odometro", "DOUBLE PRECISION"),
-            ("ultima_ejecucion_horometro", "DOUBLE PRECISION"),
-            ("ultima_ot_id", "INTEGER"),
-            ("proxima_fecha", "TIMESTAMP"),
-            ("proximo_odometro", "DOUBLE PRECISION"),
-            ("proximo_horometro", "DOUBLE PRECISION"),
-        ]:
+        # Alcance de la rutina por jerarquía: tipo → marca → línea. Así una
+        # rutina se escribe una vez y cubre a todos los activos que encajan.
+        for columna, tipo in [("marca", "VARCHAR(100)"), ("linea", "VARCHAR(100)")]:
             await conn.execute(text(
                 "ALTER TABLE eam_plan_mantenimiento ADD COLUMN IF NOT EXISTS %s %s" % (columna, tipo)
+            ))
+        await conn.execute(text(
+            "ALTER TABLE eam_plan_detalle ADD COLUMN IF NOT EXISTS orden INTEGER DEFAULT 0"
+        ))
+
+        # Las llaves de estas tablas se crearon sin regla de borrado, y sin ella
+        # el motor rechaza dos operaciones que la aplicación sí ofrece: borrar
+        # una OT que cerró una rutina, y borrar un plan con tareas.
+        # create_all no toca constraints existentes, así que se rehacen acá.
+        await conn.execute(text("""
+            ALTER TABLE eam_plan_activo
+            DROP CONSTRAINT IF EXISTS fk_eam_plan_activo_ultima_ot_id_eam_orden_trabajo
+        """))
+        await conn.execute(text("""
+            ALTER TABLE eam_plan_activo
+            ADD CONSTRAINT fk_eam_plan_activo_ultima_ot_id_eam_orden_trabajo
+            FOREIGN KEY (ultima_ot_id) REFERENCES eam_orden_trabajo(id) ON DELETE SET NULL
+        """))
+        await conn.execute(text("""
+            ALTER TABLE eam_plan_detalle
+            DROP CONSTRAINT IF EXISTS fk_eam_plan_detalle_plan_id_eam_plan_mantenimiento
+        """))
+        await conn.execute(text("""
+            ALTER TABLE eam_plan_detalle
+            ADD CONSTRAINT fk_eam_plan_detalle_plan_id_eam_plan_mantenimiento
+            FOREIGN KEY (plan_id) REFERENCES eam_plan_mantenimiento(id) ON DELETE CASCADE
+        """))
+        # El cumplimiento pasó a eam_plan_activo: cada activo cubierto vence por
+        # su cuenta, así que guardarlo en el plan dejó de tener sentido.
+        for columna in (
+            "ultima_ejecucion_fecha", "ultima_ejecucion_odometro",
+            "ultima_ejecucion_horometro", "ultima_ot_id",
+            "proxima_fecha", "proximo_odometro", "proximo_horometro",
+        ):
+            await conn.execute(text(
+                "ALTER TABLE eam_plan_mantenimiento DROP COLUMN IF EXISTS %s" % columna
             ))
 
         # Proveedor por línea: cada trabajo o repuesto puede correr por cuenta

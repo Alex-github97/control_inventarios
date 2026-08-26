@@ -1,1122 +1,857 @@
-import React, { useState, useMemo } from 'react';
+/**
+ * CMMS · Planes de mantenimiento
+ *
+ * Era una maqueta con ocho rutinas fijas. El backend ya tenía la tabla y ahora
+ * también el alcance por jerarquía.
+ *
+ * Una rutina no se escribe por activo: se declara sobre el catálogo — tipo →
+ * marca → línea — y cubre a todo equipo que encaje. El cumplimiento, en cambio,
+ * es de cada activo: la misma rutina puede estar al día en un camión y vencida
+ * en otro, porque cada uno rueda distinto.
+ */
+import React, { useMemo, useState } from 'react'
 import {
-  Box, Typography, Tabs, Tab, Card, CardContent, Chip, 
-  Stack, LinearProgress, Divider, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, Button, TextField, MenuItem,
-  InputAdornment, Dialog, DialogTitle, DialogContent, DialogActions,
-  IconButton, Snackbar, Alert, alpha, Avatar,
+  Box, Typography, Card, CardContent, Chip, Button, Tab, Tabs, TextField,
+  MenuItem, Table, TableBody, TableCell, TableHead, TableRow, Paper, Dialog,
+  DialogTitle, DialogContent, DialogActions, IconButton, Tooltip, Alert,
+  LinearProgress, Divider, Stack, InputAdornment, Autocomplete,
 } from '@mui/material'
-import Grid from '@mui/material/Grid2';
+import Grid from '@mui/material/Grid2'
 import {
-  Add as AddIcon,
-  Close as CloseIcon,
-  Search as SearchIcon,
-  EventRepeat as FreqIcon,
-  Handyman as TaskIcon,
-  Inventory2 as PartsIcon,
-  Person as PersonIcon,
-  Schedule as ScheduleIcon,
-  PlayArrow as PlayIcon,
-  FileDownload as ExportIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  History as HistoryIcon,
-  CalendarMonth as CalendarIcon,
-  CheckCircle as CheckIcon,
-  Straighten as CalibrationIcon,
-  Bolt as BoltIcon,
-} from '@mui/icons-material';
-import { Layout } from '@/components/layout/Layout';
+  EventRepeat, Add, Edit, DeleteForever, Close, Search, AccountTree,
+  Checklist, WarningAmber,
+} from '@mui/icons-material'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
+import { Layout } from '@/components/layout/Layout'
+import { apiClient as api } from '@/api/client'
 
-const EAM_COLOR = '#32AC5C';
-const EAM_DARK = '#27884A';
+const EAM_COLOR = '#32AC5C'
+const EAM_DARK = '#27884A'
 
-interface TabPanelProps { children?: React.ReactNode; index: number; value: number; }
-function TabPanel({ children, value, index }: TabPanelProps) {
-  return (
-    <div hidden={value !== index} role="tabpanel">
-      {value === index && <Box sx={{ py: 3 }}>{children}</Box>}
-    </div>
-  );
+type TipoMant = 'TIEMPO' | 'USO' | 'CONDICION'
+const TIPOS_MANT: TipoMant[] = ['TIEMPO', 'USO', 'CONDICION']
+const TIPOS_OT = ['PREVENTIVA', 'INSPECCION', 'PREDICTIVA', 'CALIBRACION']
+
+/** Qué unidades tienen sentido según cómo se mide la rutina. */
+const UNIDADES: Record<TipoMant, string[]> = {
+  TIEMPO: ['DIAS', 'SEMANAS', 'MESES', 'ANIOS'],
+  USO: ['KM', 'HORAS'],
+  CONDICION: [],
 }
 
-type PlanType = 'TIEMPO' | 'USO' | 'CONDICIÓN';
-type OTType = 'PREVENTIVA' | 'INSPECCION' | 'PREDICTIVA' | 'CALIBRACION';
-
-interface PlanTask {
-  descripcion: string;
-  duracion: string;   // ej. "30 min"
-  especialidad: string;
+const TIPO_COLOR: Record<string, string> = {
+  TIEMPO: '#3B82F6', USO: '#F59E0B', CONDICION: '#8B5CF6',
+}
+const RUTINA_COLOR: Record<string, string> = {
+  VENCIDA: '#DC2626', PROXIMA: '#F59E0B', AL_DIA: '#16A34A', SIN_EJECUTAR: '#6B7280',
+}
+const RUTINA_LABEL: Record<string, string> = {
+  VENCIDA: 'Vencida', PROXIMA: 'Próxima', AL_DIA: 'Al día', SIN_EJECUTAR: 'Sin ejecutar',
 }
 
-interface PlanPart {
-  nombre: string;
-  cantidad: string;
-  costoUnit: string;  // "$45,000"
-}
-
-interface PlanHistory {
-  fecha: string;
-  ot: string;
-  tecnico: string;
-  resultado: 'CUMPLIDO' | 'CUMPLIDO CON HALLAZGOS' | 'REPROGRAMADO';
+interface Tarea {
+  id?: number
+  descripcion: string
+  actividad_id?: number | null
+  repuesto_id?: number | null
+  cantidad_repuesto?: number | null
+  tiempo_estimado?: number | null
+  orden: number
 }
 
 interface Plan {
-  id: string;
-  name: string;
-  asset: string;
-  assetType: string;
-  frequency: string;
-  otType: OTType;
-  planType: PlanType;
-  lastFulfillment: string;
-  nextDueDate: string;
-  daysRemaining: number;
-  compliance: number;
-  // Datos enriquecidos
-  responsable: string;
-  duracionEstimada: string;
-  costoEstimado: string;
-  activosCubiertos: string[];
-  tareas: PlanTask[];
-  repuestos: PlanPart[];
-  historial: PlanHistory[];
-  descripcion: string;
-  ordenesGeneradas: number;
+  id: number
+  nombre: string
+  activo_id?: number | null
+  tipo_activo?: string | null
+  marca?: string | null
+  linea?: string | null
+  tipo_mant?: string | null
+  frecuencia?: number | null
+  unidad?: string | null
+  tipo_ot?: string | null
+  descripcion?: string | null
+  costo_estimado?: number | null
+  activo: boolean
+  tareas: Tarea[]
+  activos_cubiertos: number
+  vencidas: number
+  proximas: number
+  sin_ejecutar: number
 }
 
-const PLANS_MOCK: Plan[] = [
-  {
-    id: 'PM-001', name: 'Cambio de aceite motor VH-001', asset: 'VH-001', assetType: 'Vehículo',
-    frequency: 'Cada 5.000 km', otType: 'PREVENTIVA', planType: 'USO',
-    lastFulfillment: '2026-04-15', nextDueDate: '2026-06-23', daysRemaining: 3, compliance: 95,
-    responsable: 'Jorge Méndez', duracionEstimada: '2h', costoEstimado: '$850,000', ordenesGeneradas: 18,
-    descripcion: 'Cambio de aceite sintético y filtro de aceite del motor. Verificación de niveles y fugas.',
-    activosCubiertos: ['VH-001 — Tractocamión Kenworth T800'],
-    tareas: [
-      { descripcion: 'Drenar aceite usado y recolectar en contenedor', duracion: '20 min', especialidad: 'Mecánica' },
-      { descripcion: 'Reemplazar filtro de aceite', duracion: '15 min', especialidad: 'Mecánica' },
-      { descripcion: 'Rellenar con aceite sintético 15W-40', duracion: '15 min', especialidad: 'Mecánica' },
-      { descripcion: 'Verificar niveles y ausencia de fugas', duracion: '20 min', especialidad: 'Inspección' },
-      { descripcion: 'Registrar odómetro y sellar OT', duracion: '10 min', especialidad: 'Administrativa' },
-    ],
-    repuestos: [
-      { nombre: 'Aceite sintético 15W-40', cantidad: '18 L', costoUnit: '$32,000' },
-      { nombre: 'Filtro de aceite CUMMINS', cantidad: '1', costoUnit: '$85,000' },
-    ],
-    historial: [
-      { fecha: '2026-04-15', ot: 'OT-2026-0074', tecnico: 'Luis Vargas', resultado: 'CUMPLIDO' },
-      { fecha: '2026-01-20', ot: 'OT-2026-0012', tecnico: 'Jorge Méndez', resultado: 'CUMPLIDO' },
-      { fecha: '2025-10-08', ot: 'OT-2025-0301', tecnico: 'Luis Vargas', resultado: 'CUMPLIDO CON HALLAZGOS' },
-    ],
-  },
-  {
-    id: 'PM-002', name: 'Cambio de filtros flota', asset: 'Flota General', assetType: 'Vehículo',
-    frequency: 'Cada 3 meses', otType: 'PREVENTIVA', planType: 'TIEMPO',
-    lastFulfillment: '2026-03-10', nextDueDate: '2026-07-02', daysRemaining: 12, compliance: 88,
-    responsable: 'Carlos Díaz', duracionEstimada: '4h', costoEstimado: '$1,240,000', ordenesGeneradas: 9,
-    descripcion: 'Reemplazo programado de filtros de aire y combustible para toda la flota de transporte.',
-    activosCubiertos: ['VH-001 — Kenworth T800', 'VH-002 — Freightliner M2-106', 'VH-003 — Ford Ranger'],
-    tareas: [
-      { descripcion: 'Inspección de estado de filtros actuales', duracion: '30 min', especialidad: 'Inspección' },
-      { descripcion: 'Reemplazo filtro de aire por unidad', duracion: '45 min', especialidad: 'Mecánica' },
-      { descripcion: 'Reemplazo filtro de combustible por unidad', duracion: '45 min', especialidad: 'Mecánica' },
-      { descripcion: 'Prueba de arranque y verificación', duracion: '30 min', especialidad: 'Inspección' },
-    ],
-    repuestos: [
-      { nombre: 'Filtro de aire CUMMINS', cantidad: '3', costoUnit: '$120,000' },
-      { nombre: 'Filtro de combustible', cantidad: '3', costoUnit: '$95,000' },
-    ],
-    historial: [
-      { fecha: '2026-03-10', ot: 'OT-2026-0044', tecnico: 'Carlos Díaz', resultado: 'CUMPLIDO' },
-      { fecha: '2025-12-11', ot: 'OT-2025-0320', tecnico: 'Carlos Díaz', resultado: 'REPROGRAMADO' },
-    ],
-  },
-  {
-    id: 'PM-003', name: 'Revisión hidráulica Montacargas', asset: 'MC-003', assetType: 'Montacargas',
-    frequency: 'Cada 250 hrs', otType: 'PREVENTIVA', planType: 'USO',
-    lastFulfillment: '2026-05-01', nextDueDate: '2026-07-12', daysRemaining: 22, compliance: 78,
-    responsable: 'Luis Vargas', duracionEstimada: '4h', costoEstimado: '$780,000', ordenesGeneradas: 14,
-    descripcion: 'Revisión del circuito hidráulico: presiones, mangueras, sellos y nivel de fluido.',
-    activosCubiertos: ['MC-003 — Montacargas Toyota 8FGCU25'],
-    tareas: [
-      { descripcion: 'Medición de presión del circuito hidráulico', duracion: '40 min', especialidad: 'Hidráulica' },
-      { descripcion: 'Inspección de mangueras y sellos', duracion: '60 min', especialidad: 'Hidráulica' },
-      { descripcion: 'Verificación y ajuste de nivel de fluido', duracion: '30 min', especialidad: 'Hidráulica' },
-      { descripcion: 'Prueba funcional de elevación', duracion: '30 min', especialidad: 'Inspección' },
-    ],
-    repuestos: [
-      { nombre: 'Fluido hidráulico ISO 46', cantidad: '10 L', costoUnit: '$28,000' },
-      { nombre: 'Kit de sellos hidráulicos', cantidad: '1', costoUnit: '$180,000' },
-    ],
-    historial: [
-      { fecha: '2026-05-01', ot: 'OT-2026-0061', tecnico: 'Luis Vargas', resultado: 'CUMPLIDO CON HALLAZGOS' },
-      { fecha: '2026-02-14', ot: 'OT-2026-0028', tecnico: 'Luis Vargas', resultado: 'CUMPLIDO' },
-    ],
-  },
-  {
-    id: 'PM-004', name: 'Inspección eléctrica general', asset: 'Instalaciones', assetType: 'Infraestructura',
-    frequency: 'Mensual', otType: 'INSPECCION', planType: 'TIEMPO',
-    lastFulfillment: '2026-05-20', nextDueDate: '2026-06-25', daysRemaining: 5, compliance: 91,
-    responsable: 'Ana Rojas', duracionEstimada: '3h', costoEstimado: '$250,000', ordenesGeneradas: 24,
-    descripcion: 'Inspección de tableros, tomas y luminarias de las instalaciones. Termografía puntual.',
-    activosCubiertos: ['BD-01 — Bodega Principal Bogotá', 'Instalaciones Administrativas'],
-    tareas: [
-      { descripcion: 'Inspección visual de tableros eléctricos', duracion: '60 min', especialidad: 'Eléctrica' },
-      { descripcion: 'Medición de tensión y balance de fases', duracion: '45 min', especialidad: 'Eléctrica' },
-      { descripcion: 'Verificación de luminarias y tomas', duracion: '45 min', especialidad: 'Eléctrica' },
-      { descripcion: 'Registro fotográfico de hallazgos', duracion: '30 min', especialidad: 'Administrativa' },
-    ],
-    repuestos: [
-      { nombre: 'Cinta aislante 3M', cantidad: '2', costoUnit: '$8,000' },
-    ],
-    historial: [
-      { fecha: '2026-05-20', ot: 'OT-2026-0069', tecnico: 'Ana Rojas', resultado: 'CUMPLIDO' },
-      { fecha: '2026-04-18', ot: 'OT-2026-0052', tecnico: 'Ana Rojas', resultado: 'CUMPLIDO' },
-      { fecha: '2026-03-19', ot: 'OT-2026-0039', tecnico: 'Ana Rojas', resultado: 'CUMPLIDO' },
-    ],
-  },
-  {
-    id: 'PM-005', name: 'Termografía tableros eléctricos', asset: 'Tableros Eléctricos', assetType: 'Infraestructura',
-    frequency: 'Semestral', otType: 'PREDICTIVA', planType: 'TIEMPO',
-    lastFulfillment: '2025-12-10', nextDueDate: '2026-08-04', daysRemaining: 45, compliance: 100,
-    responsable: 'Ana Rojas', duracionEstimada: '2h', costoEstimado: '$420,000', ordenesGeneradas: 4,
-    descripcion: 'Análisis termográfico de tableros para detectar puntos calientes y conexiones defectuosas.',
-    activosCubiertos: ['Tablero General TG-01', 'Tablero Distribución TD-02'],
-    tareas: [
-      { descripcion: 'Captura termográfica bajo carga', duracion: '60 min', especialidad: 'Predictivo' },
-      { descripcion: 'Análisis de imágenes y puntos calientes', duracion: '40 min', especialidad: 'Predictivo' },
-      { descripcion: 'Elaboración de informe termográfico', duracion: '20 min', especialidad: 'Administrativa' },
-    ],
-    repuestos: [],
-    historial: [
-      { fecha: '2025-12-10', ot: 'OT-2025-0318', tecnico: 'Ana Rojas', resultado: 'CUMPLIDO' },
-    ],
-  },
-  {
-    id: 'PM-006', name: 'Inspección cubierta Bodega Bogotá', asset: 'Bodega Bogotá', assetType: 'Infraestructura',
-    frequency: 'Trimestral', otType: 'INSPECCION', planType: 'TIEMPO',
-    lastFulfillment: '2026-03-15', nextDueDate: '2026-06-28', daysRemaining: 8, compliance: 84,
-    responsable: 'Pedro Torres', duracionEstimada: '3h', costoEstimado: '$180,000', ordenesGeneradas: 7,
-    descripcion: 'Inspección de cubierta, canaletas y estructura de techo para prevenir filtraciones.',
-    activosCubiertos: ['BD-01 — Bodega Principal Bogotá'],
-    tareas: [
-      { descripcion: 'Inspección de láminas y sellos de cubierta', duracion: '60 min', especialidad: 'Civil' },
-      { descripcion: 'Limpieza y revisión de canaletas', duracion: '60 min', especialidad: 'Civil' },
-      { descripcion: 'Revisión de estructura y anclajes', duracion: '60 min', especialidad: 'Civil' },
-    ],
-    repuestos: [
-      { nombre: 'Sellante poliuretano', cantidad: '4', costoUnit: '$22,000' },
-    ],
-    historial: [
-      { fecha: '2026-03-15', ot: 'OT-2026-0046', tecnico: 'Pedro Torres', resultado: 'CUMPLIDO CON HALLAZGOS' },
-      { fecha: '2025-12-14', ot: 'OT-2025-0322', tecnico: 'Pedro Torres', resultado: 'CUMPLIDO' },
-    ],
-  },
-  {
-    id: 'PM-007', name: 'Calibración básculas', asset: 'Básculas Piso', assetType: 'Equipo',
-    frequency: 'Anual', otType: 'CALIBRACION', planType: 'TIEMPO',
-    lastFulfillment: '2025-06-20', nextDueDate: '2026-08-26', daysRemaining: 67, compliance: 100,
-    responsable: 'Proveedor externo — MetroCal', duracionEstimada: '5h', costoEstimado: '$1,100,000', ordenesGeneradas: 3,
-    descripcion: 'Calibración certificada de básculas de piso con patrones trazables ONAC.',
-    activosCubiertos: ['Báscula Piso B-01', 'Báscula Piso B-02'],
-    tareas: [
-      { descripcion: 'Verificación con pesas patrón', duracion: '120 min', especialidad: 'Metrología' },
-      { descripcion: 'Ajuste de span y cero', duracion: '90 min', especialidad: 'Metrología' },
-      { descripcion: 'Emisión de certificado de calibración', duracion: '90 min', especialidad: 'Administrativa' },
-    ],
-    repuestos: [],
-    historial: [
-      { fecha: '2025-06-20', ot: 'OT-2025-0180', tecnico: 'MetroCal', resultado: 'CUMPLIDO' },
-    ],
-  },
-  {
-    id: 'PM-008', name: 'Limpieza técnica compresores', asset: 'CMP-07', assetType: 'Equipo',
-    frequency: 'Mensual', otType: 'PREVENTIVA', planType: 'CONDICIÓN',
-    lastFulfillment: '2026-05-20', nextDueDate: '2026-06-22', daysRemaining: 2, compliance: 72,
-    responsable: 'Jorge Méndez', duracionEstimada: '2h', costoEstimado: '$320,000', ordenesGeneradas: 11,
-    descripcion: 'Limpieza de radiadores, cambio de filtro de aire y verificación de presión del compresor.',
-    activosCubiertos: ['CMP-07 — Compresor Atlas Copco GA22'],
-    tareas: [
-      { descripcion: 'Limpieza de radiador y aletas', duracion: '40 min', especialidad: 'Mecánica' },
-      { descripcion: 'Cambio de filtro de aire', duracion: '20 min', especialidad: 'Mecánica' },
-      { descripcion: 'Verificación de presión de trabajo', duracion: '30 min', especialidad: 'Inspección' },
-      { descripcion: 'Purga de condensados', duracion: '30 min', especialidad: 'Mecánica' },
-    ],
-    repuestos: [
-      { nombre: 'Filtro de aire compresor', cantidad: '1', costoUnit: '$140,000' },
-    ],
-    historial: [
-      { fecha: '2026-05-20', ot: 'OT-2026-0067', tecnico: 'Jorge Méndez', resultado: 'CUMPLIDO' },
-      { fecha: '2026-04-19', ot: 'OT-2026-0053', tecnico: 'Jorge Méndez', resultado: 'CUMPLIDO CON HALLAZGOS' },
-    ],
-  },
-];
-
-const OT_COLORS: Record<OTType, string> = {
-  PREVENTIVA: '#3B82F6',
-  INSPECCION: '#8B5CF6',
-  PREDICTIVA: '#10B981',
-  CALIBRACION: '#F59E0B',
-};
-
-const PLAN_TYPE_COLORS: Record<PlanType, string> = {
-  TIEMPO: '#6366F1',
-  USO: '#0EA5E9',
-  CONDICIÓN: '#14B8A6',
-};
-
-const RESULTADO_COLOR: Record<PlanHistory['resultado'], string> = {
-  'CUMPLIDO': '#16A34A',
-  'CUMPLIDO CON HALLAZGOS': '#CA8A04',
-  'REPROGRAMADO': '#DC2626',
-};
-
-const RESPONSABLES = ['Jorge Méndez', 'Luis Vargas', 'Ana Rojas', 'Carlos Díaz', 'Pedro Torres', 'Proveedor externo — MetroCal'];
-
-function DaysChip({ days }: { days: number }) {
-  if (days <= 7) return <Chip label="URGENTE" size="small" sx={{ bgcolor: '#DC2626', color: '#fff', fontWeight: 700, fontSize: '0.65rem' }} />;
-  if (days <= 15) return <Chip label="PRONTO" size="small" sx={{ bgcolor: '#32AC5C', color: '#fff', fontWeight: 700, fontSize: '0.65rem' }} />;
-  if (days <= 30) return <Chip label="PRÓXIMO" size="small" sx={{ bgcolor: '#CA8A04', color: '#fff', fontWeight: 700, fontSize: '0.65rem' }} />;
-  return <Chip label="OK" size="small" sx={{ bgcolor: '#16A34A', color: '#fff', fontWeight: 700, fontSize: '0.65rem' }} />;
+interface Cumplimiento {
+  plan_id: number
+  plan_nombre: string
+  frecuencia?: number | null
+  unidad?: string | null
+  activo_id: number
+  activo_codigo?: string | null
+  activo_nombre?: string | null
+  odometro_activo?: number | null
+  horometro_activo?: number | null
+  ultima_ejecucion_fecha?: string | null
+  ultima_ejecucion_odometro?: number | null
+  proxima_fecha?: string | null
+  proximo_odometro?: number | null
+  proximo_horometro?: number | null
+  faltante?: number | null
+  unidad_faltante?: string | null
+  estado_rutina: string
 }
 
-const COMPLIANCE_MONTHLY = [
-  { month: 'Ene', value: 81 },
-  { month: 'Feb', value: 85 },
-  { month: 'Mar', value: 79 },
-  { month: 'Abr', value: 88 },
-  { month: 'May', value: 90 },
-  { month: 'Jun', value: 87 },
-];
+interface ActivoMin {
+  id: number
+  codigo?: string | null
+  nombre?: string | null
+  tipo_activo?: string | null
+  marca?: string | null
+  linea?: string | null
+}
+interface CatalogoItem { id: number; nombre?: string | null; descripcion?: string | null }
+interface RepuestoItem { id: number; nombre: string; unidad_medida?: string | null }
+/** Niveles del catálogo de vehículos, para armar el alcance. */
+interface TipoActivoItem { id: number; codigo?: string | null; nombre?: string | null }
+interface MarcaItem { id: number; nombre: string }
+interface LineaItem { id: number; nombre: string }
 
-const ASSET_TYPE_COMPLIANCE = [
-  { type: 'Vehículos', compliance: 92 },
-  { type: 'Montacargas', compliance: 78 },
-  { type: 'Infraestructura', compliance: 84 },
-  { type: 'Equipos', compliance: 89 },
-];
+const numero = (n?: number | null) => (n == null ? '—' : n.toLocaleString('es-CO'))
 
-interface NewPlanForm {
-  name: string;
-  asset: string;
-  assetType: string;
-  frequency: string;
-  otType: OTType;
-  planType: PlanType;
-  responsable: string;
-  duracionEstimada: string;
-  costoEstimado: string;
-  nextDueDate: string;
-  descripcion: string;
+const textoFaltante = (c: Cumplimiento): string => {
+  if (c.faltante == null || !c.unidad_faltante) return 'nunca se ha ejecutado'
+  const u = c.unidad_faltante === 'DIAS' ? 'días' : c.unidad_faltante.toLowerCase()
+  return c.faltante < 0
+    ? `vencida por ${Math.abs(c.faltante).toLocaleString('es-CO')} ${u}`
+    : `faltan ${c.faltante.toLocaleString('es-CO')} ${u}`
 }
 
-const EMPTY_FORM: NewPlanForm = {
-  name: '', asset: '', assetType: 'Vehículo', frequency: '', otType: 'PREVENTIVA',
-  planType: 'TIEMPO', responsable: '', duracionEstimada: '', costoEstimado: '',
-  nextDueDate: '', descripcion: '',
-};
+/** "Cada 5.000 KM". */
+const frecuenciaTexto = (p: Plan) =>
+  (p.frecuencia && p.unidad ? `Cada ${numero(p.frecuencia)} ${p.unidad.toLowerCase()}` : 'Por condición')
 
-// Estilos de inputs (tema claro, acento EAM)
-const inputSx = {
-  '& .MuiOutlinedInput-root': { color: '#1E293B' },
-  '& label': { color: '#64748B' },
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.25)' },
-  '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.5)' },
-  '& .MuiSvgIcon-root': { color: '#94A3B8' },
-};
+/** El alcance leído de corrido: "VEHICULO › Kenworth › T880". */
+const alcanceTexto = (p: Plan, activos: ActivoMin[]): string => {
+  if (p.activo_id) {
+    const a = activos.find(x => x.id === p.activo_id)
+    return a ? `Solo ${a.codigo ?? a.nombre ?? `#${p.activo_id}`}` : `Solo el activo #${p.activo_id}`
+  }
+  return [p.tipo_activo, p.marca, p.linea].filter(Boolean).join(' › ') || 'Sin alcance'
+}
 
-export default function EAMPlanesMant() {
-  const [tab, setTab] = useState(0);
-  const [plans, setPlans] = useState<Plan[]>(PLANS_MOCK);
+const VACIO = {
+  nombre: '', alcance: 'JERARQUIA' as 'JERARQUIA' | 'ACTIVO',
+  activo_id: '', tipo_activo: '', marca: '', linea: '',
+  tipo_mant: 'USO' as TipoMant, frecuencia: '', unidad: 'KM',
+  tipo_ot: 'PREVENTIVA', descripcion: '', costo_estimado: '',
+}
+type Formulario = typeof VACIO
 
-  // Filtros / búsqueda
-  const [search, setSearch] = useState('');
-  const [filterOtType, setFilterOtType] = useState('Todos');
-  const [filterAssetType, setFilterAssetType] = useState('Todos');
-  const [filterUrgencia, setFilterUrgencia] = useState('Todos');
+const planAFormulario = (p: Plan): Formulario => ({
+  nombre: p.nombre,
+  alcance: p.activo_id ? 'ACTIVO' : 'JERARQUIA',
+  activo_id: p.activo_id != null ? String(p.activo_id) : '',
+  tipo_activo: p.tipo_activo ?? '', marca: p.marca ?? '', linea: p.linea ?? '',
+  tipo_mant: (p.tipo_mant as TipoMant) ?? 'USO',
+  frecuencia: p.frecuencia != null ? String(p.frecuencia) : '',
+  unidad: p.unidad ?? 'KM',
+  tipo_ot: p.tipo_ot ?? 'PREVENTIVA',
+  descripcion: p.descripcion ?? '',
+  costo_estimado: p.costo_estimado != null ? String(p.costo_estimado) : '',
+})
 
-  // Detalle
-  const [selected, setSelected] = useState<Plan | null>(null);
+// ─── Editor de tareas ─────────────────────────────────────────────────────────
 
-  // Crear plan
-  const [createOpen, setCreateOpen] = useState(false);
-  const [form, setForm] = useState<NewPlanForm>(EMPTY_FORM);
-  const [triedSubmit, setTriedSubmit] = useState(false);
-
-  // Snackbar
-  const [snack, setSnack] = useState<{ open: boolean; msg: string; sev: 'success' | 'info' | 'warning' }>({ open: false, msg: '', sev: 'success' });
-  const notify = (msg: string, sev: 'success' | 'info' | 'warning' = 'success') => setSnack({ open: true, msg, sev });
-
-  const resetFiltros = () => {
-    setSearch(''); setFilterOtType('Todos'); setFilterAssetType('Todos'); setFilterUrgencia('Todos');
-  };
-  const hayFiltros = search || filterOtType !== 'Todos' || filterAssetType !== 'Todos' || filterUrgencia !== 'Todos';
-
-  const assetTypes = useMemo(() => Array.from(new Set(plans.map(p => p.assetType))), [plans]);
-  const assetOptions = useMemo(() => Array.from(new Set(plans.map(p => p.asset))).filter(Boolean).sort(), [plans]);
-  const assetTypeByCode = useMemo(() => {
-    const m: Record<string, string> = {};
-    plans.forEach(p => { if (p.asset) m[p.asset] = p.assetType; });
-    return m;
-  }, [plans]);
-
-  const filteredPlans = useMemo(() => plans.filter(p => {
-    if (filterOtType !== 'Todos' && p.otType !== filterOtType) return false;
-    if (filterAssetType !== 'Todos' && p.assetType !== filterAssetType) return false;
-    if (filterUrgencia === 'URGENTE' && p.daysRemaining > 7) return false;
-    if (filterUrgencia === 'PRONTO' && (p.daysRemaining <= 7 || p.daysRemaining > 15)) return false;
-    if (filterUrgencia === 'OK' && p.daysRemaining <= 15) return false;
-    if (search) {
-      const q = search.toLowerCase();
-      if (!p.name.toLowerCase().includes(q) && !p.asset.toLowerCase().includes(q) && !p.id.toLowerCase().includes(q)) return false;
-    }
-    return true;
-  }), [plans, filterOtType, filterAssetType, filterUrgencia, search]);
-
-  const grouped: Record<PlanType, Plan[]> = { TIEMPO: [], USO: [], CONDICIÓN: [] };
-  filteredPlans.forEach(p => grouped[p.planType].push(p));
-
-  const sorted = [...filteredPlans].sort((a, b) => a.daysRemaining - b.daysRemaining);
-
-  const setField = (field: keyof NewPlanForm, value: string) =>
-    setForm(prev => ({ ...prev, [field]: value }));
-
-  const openCreate = () => { setForm(EMPTY_FORM); setTriedSubmit(false); setCreateOpen(true); };
-
-  const handleCreate = () => {
-    if (!form.name.trim() || !form.asset) {
-      setTriedSubmit(true);
-      notify('Complete los campos obligatorios: nombre y activo', 'warning');
-      return;
-    }
-    const nextNum = plans.length + 1;
-    const newPlan: Plan = {
-      id: `PM-${String(nextNum).padStart(3, '0')}`,
-      name: form.name || 'Nuevo plan de mantenimiento',
-      asset: form.asset || 'Sin asignar',
-      assetType: form.assetType,
-      frequency: form.frequency || 'Por definir',
-      otType: form.otType,
-      planType: form.planType,
-      lastFulfillment: '—',
-      nextDueDate: form.nextDueDate || '—',
-      daysRemaining: form.nextDueDate ? Math.max(0, Math.ceil((new Date(form.nextDueDate).getTime() - Date.now()) / 86400000)) : 30,
-      compliance: 100,
-      responsable: form.responsable || 'Sin asignar',
-      duracionEstimada: form.duracionEstimada || '—',
-      costoEstimado: form.costoEstimado ? (form.costoEstimado.startsWith('$') ? form.costoEstimado : `$${form.costoEstimado}`) : '$0',
-      ordenesGeneradas: 0,
-      descripcion: form.descripcion || 'Sin descripción.',
-      activosCubiertos: form.asset ? [form.asset] : [],
-      tareas: [],
-      repuestos: [],
-      historial: [],
-    };
-    setPlans(prev => [newPlan, ...prev]);
-    setCreateOpen(false);
-    notify(`Plan ${newPlan.id} creado correctamente`, 'success');
-  };
-
-  const handleDelete = (plan: Plan) => {
-    setPlans(prev => prev.filter(p => p.id !== plan.id));
-    setSelected(null);
-    notify(`Plan ${plan.id} eliminado`, 'warning');
-  };
-
-  const handleGenerateOT = (plan: Plan) => {
-    setPlans(prev => prev.map(p => p.id === plan.id ? { ...p, ordenesGeneradas: p.ordenesGeneradas + 1 } : p));
-    notify(`OT generada desde el plan ${plan.id}`, 'success');
-  };
-
-  const totalCostoRepuestos = (plan: Plan) => plan.repuestos.reduce((s, r) => {
-    const qty = parseFloat(r.cantidad) || 1;
-    const prc = parseFloat(r.costoUnit.replace(/[^0-9.]/g, '')) || 0;
-    return s + qty * prc;
-  }, 0);
-
-  const PlanCard = ({ plan }: { plan: Plan }) => (
-    <Card
-      onClick={() => setSelected(plan)}
-      sx={{
-        border: `1px solid ${plan.daysRemaining <= 7 ? '#DC2626' : plan.daysRemaining <= 15 ? EAM_COLOR : '#E5E7EB'}`,
-        borderRadius: 2, cursor: 'pointer', transition: 'box-shadow 0.15s, transform 0.15s, border-color 0.15s',
-        '&:hover': { boxShadow: '0 6px 20px rgba(0,0,0,0.10)', transform: 'translateY(-2px)', borderColor: EAM_COLOR },
-      }}
-    >
-      <CardContent>
-        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1}>
-          <Box sx={{ flex: 1, pr: 1 }}>
-            <Typography variant="caption" sx={{ color: EAM_COLOR, fontWeight: 800, letterSpacing: 0.5 }}>{plan.id}</Typography>
-            <Typography variant="subtitle2" sx={{ color: '#1E293B', fontWeight: 700 }}>{plan.name}</Typography>
-          </Box>
-          <DaysChip days={plan.daysRemaining} />
-        </Stack>
-        <Stack direction="row" spacing={1} mb={1.5} flexWrap="wrap" useFlexGap>
-          <Chip label={plan.otType} size="small" sx={{ bgcolor: OT_COLORS[plan.otType] + '22', color: OT_COLORS[plan.otType], border: `1px solid ${OT_COLORS[plan.otType]}`, fontSize: '0.65rem', fontWeight: 600 }} />
-          <Chip label={plan.assetType} size="small" sx={{ bgcolor: '#F1F5F9', color: '#64748B', fontSize: '0.65rem' }} />
-        </Stack>
-        <Grid container spacing={1} mb={1.5}>
-          <Grid size={{ xs: 6 }}>
-            <Typography variant="caption" sx={{ color: '#6B7280' }}>Activo</Typography>
-            <Typography variant="body2" sx={{ color: '#334155', fontWeight: 600 }}>{plan.asset}</Typography>
+/** A nivel de módulo: dentro del componente, React lo recrearía en cada render
+ *  y el foco se perdería con cada tecla. */
+function EditorTareas({ tareas, setTareas, actividades, repuestos }: {
+  tareas: Tarea[]
+  setTareas: React.Dispatch<React.SetStateAction<Tarea[]>>
+  actividades: CatalogoItem[]
+  repuestos: RepuestoItem[]
+}) {
+  const nombresActividad = actividades.map(a => a.nombre ?? '').filter(Boolean)
+  const nombresRepuesto = repuestos.map(r => r.nombre)
+  return (
+    <Box>
+      <Stack direction="row" alignItems="center" spacing={1} mb={1}>
+        <Checklist sx={{ fontSize: 16, color: EAM_COLOR }} />
+        <Typography sx={{ fontSize: 13, fontWeight: 700 }}>Tareas de la rutina</Typography>
+        <Button size="small" startIcon={<Add />}
+          onClick={() => setTareas(p => [...p, { descripcion: '', orden: p.length }])}>
+          Agregar
+        </Button>
+      </Stack>
+      {tareas.length === 0 && (
+        <Typography sx={{ fontSize: 12, color: 'text.disabled', mb: 1 }}>
+          Sin tareas. Son las que se copiarán a la OT cuando toque ejecutarla.
+        </Typography>
+      )}
+      {tareas.map((t, i) => (
+        <Grid container spacing={1} key={t.id ?? `t-${i}`} sx={{ mb: 1 }}>
+          <Grid size={{ xs: 12, sm: 4 }}>
+            <Autocomplete
+              freeSolo options={nombresActividad} value={t.descripcion}
+              onInputChange={(_e, v) => setTareas(p => p.map((x, j) => j === i
+                ? { ...x, descripcion: v ?? '' } : x))}
+              renderInput={params => (
+                <TextField {...params} label="Tarea" size="small" fullWidth />
+              )} />
           </Grid>
-          <Grid size={{ xs: 6 }}>
-            <Typography variant="caption" sx={{ color: '#6B7280' }}>Frecuencia</Typography>
-            <Typography variant="body2" sx={{ color: '#334155', fontWeight: 600 }}>{plan.frequency}</Typography>
+          <Grid size={{ xs: 12, sm: 3 }}>
+            {/* El repuesto cuelga de la tarea que lo consume, no va suelto. */}
+            <Autocomplete
+              freeSolo options={nombresRepuesto}
+              value={repuestos.find(r => r.id === t.repuesto_id)?.nombre ?? ''}
+              onInputChange={(_e, v) => {
+                const cat = repuestos.find(x => x.nombre === (v ?? ''))
+                setTareas(p => p.map((x, j) => j === i
+                  ? { ...x, repuesto_id: cat?.id ?? null } : x))
+              }}
+              renderInput={params => (
+                <TextField {...params} label="Repuesto que usa" size="small" fullWidth />
+              )} />
           </Grid>
-          <Grid size={{ xs: 6 }}>
-            <Typography variant="caption" sx={{ color: '#6B7280' }}>Responsable</Typography>
-            <Typography variant="body2" sx={{ color: '#334155' }} noWrap>{plan.responsable}</Typography>
+          <Grid size={{ xs: 4, sm: 2 }}>
+            <TextField label="Cantidad" size="small" fullWidth type="number"
+              value={t.cantidad_repuesto ?? ''}
+              onChange={e => setTareas(p => p.map((x, j) => j === i
+                ? { ...x, cantidad_repuesto: e.target.value ? Number(e.target.value) : null } : x))} />
           </Grid>
-          <Grid size={{ xs: 6 }}>
-            <Typography variant="caption" sx={{ color: '#6B7280' }}>Próximo vencimiento</Typography>
-            <Typography variant="body2" sx={{ color: plan.daysRemaining <= 7 ? '#DC2626' : plan.daysRemaining <= 15 ? '#D97706' : '#334155', fontWeight: 700 }}>
-              {plan.nextDueDate} ({plan.daysRemaining}d)
-            </Typography>
+          <Grid size={{ xs: 5, sm: 2 }}>
+            <TextField label="Horas" size="small" fullWidth type="number"
+              value={t.tiempo_estimado ?? ''}
+              onChange={e => setTareas(p => p.map((x, j) => j === i
+                ? { ...x, tiempo_estimado: e.target.value ? Number(e.target.value) : null } : x))} />
+          </Grid>
+          <Grid size={{ xs: 3, sm: 1 }}>
+            <IconButton size="small" onClick={() => setTareas(p => p.filter((_, j) => j !== i))}>
+              <DeleteForever sx={{ fontSize: 16, color: '#DC2626' }} />
+            </IconButton>
           </Grid>
         </Grid>
-        <Box>
-          <Stack direction="row" justifyContent="space-between" mb={0.5}>
-            <Typography variant="caption" sx={{ color: '#6B7280' }}>Cumplimiento</Typography>
-            <Typography variant="caption" sx={{ color: plan.compliance >= 90 ? '#16A34A' : plan.compliance >= 75 ? '#CA8A04' : '#DC2626', fontWeight: 700 }}>
-              {plan.compliance}%
-            </Typography>
-          </Stack>
-          <LinearProgress
-            variant="determinate"
-            value={plan.compliance}
-            sx={{
-              height: 6, borderRadius: 3, bgcolor: '#E5E7EB',
-              '& .MuiLinearProgress-bar': {
-                bgcolor: plan.compliance >= 90 ? '#16A34A' : plan.compliance >= 75 ? '#CA8A04' : '#DC2626',
-                borderRadius: 3,
-              },
-            }}
-          />
-        </Box>
-      </CardContent>
-    </Card>
-  );
-
-  // ── Bloque reutilizable de campos con etiqueta para el detalle ──
-  const InfoTile = ({ label, value, color = '#1E293B' }: { label: string; value: React.ReactNode; color?: string }) => (
-    <Box sx={{ bgcolor: '#F8FAFC', borderRadius: '8px', p: 1.25 }}>
-      <Typography fontSize={10} color="#64748B" fontWeight={600} letterSpacing="0.04em" textTransform="uppercase" mb={0.25}>{label}</Typography>
-      <Typography fontSize={13} fontWeight={600} sx={{ color }}>{value}</Typography>
+      ))}
     </Box>
-  );
+  )
+}
+
+// ─── Página ───────────────────────────────────────────────────────────────────
+
+export default function EAMPlanesMant() {
+  const qc = useQueryClient()
+  const [tab, setTab] = useState(0)
+  const [busqueda, setBusqueda] = useState('')
+  const [filtroEstado, setFiltroEstado] = useState('Todos')
+  const [detalle, setDetalle] = useState<Plan | null>(null)
+
+  const [dlg, setDlg] = useState<{ abierto: boolean; item: Plan | null }>(
+    { abierto: false, item: null })
+  const [form, setForm] = useState<Formulario>({ ...VACIO })
+  const [tareas, setTareas] = useState<Tarea[]>([])
+  const [wasOpen, setWasOpen] = useState(false)
+
+  if (dlg.abierto && !wasOpen) {
+    setWasOpen(true)
+    setForm(dlg.item ? planAFormulario(dlg.item) : { ...VACIO })
+    setTareas(dlg.item ? [...(dlg.item.tareas ?? [])] : [])
+  }
+  if (!dlg.abierto && wasOpen) setWasOpen(false)
+
+  const { data: planes = [], isLoading } = useQuery<Plan[]>({
+    queryKey: ['eam-planes'],
+    queryFn: () => api.get('/eam/planes').then(r => r.data),
+  })
+  const { data: cumplimientos = [] } = useQuery<Cumplimiento[]>({
+    queryKey: ['eam-cumplimiento'],
+    queryFn: () => api.get('/eam/planes/cumplimiento').then(r => r.data),
+  })
+  const { data: activos = [] } = useQuery<ActivoMin[]>({
+    queryKey: ['eam-activos-selector'],
+    queryFn: () => api.get('/eam/activos').then(r => r.data),
+  })
+  const { data: actividades = [] } = useQuery<CatalogoItem[]>({
+    queryKey: ['eam-actividades'],
+    queryFn: () => api.get('/eam/catalogos/actividades').then(r => r.data),
+  })
+  const { data: repuestos = [] } = useQuery<RepuestoItem[]>({
+    queryKey: ['eam-repuestos-catalogo'],
+    queryFn: () => api.get('/eam/catalogos/repuestos').then(r => r.data),
+  })
+
+  // Los niveles del alcance salen del mismo catálogo que alimenta el alta de
+  // activos, encadenados: la marca depende del tipo y la línea de la marca.
+  const { data: tiposActivo = [] } = useQuery<TipoActivoItem[]>({
+    queryKey: ['eam-tipos-activo'],
+    queryFn: () => api.get('/eam/tipos-activo').then(r => r.data),
+  })
+  const { data: marcas = [] } = useQuery<MarcaItem[]>({
+    queryKey: ['eam-marcas', form.tipo_activo],
+    queryFn: () => api.get('/eam/catalogo-vehiculos/marcas', {
+      params: { solo_activas: true, tipo_activo: form.tipo_activo },
+    }).then(r => r.data),
+    enabled: Boolean(form.tipo_activo),
+  })
+  const marcaId = marcas.find(m => m.nombre === form.marca)?.id
+  const { data: lineas = [] } = useQuery<LineaItem[]>({
+    queryKey: ['eam-lineas', marcaId ?? 0],
+    queryFn: () => api.get('/eam/catalogo-vehiculos/lineas', {
+      params: { marca_id: marcaId, solo_activas: true },
+    }).then(r => r.data),
+    enabled: Boolean(marcaId),
+  })
+
+  const err = (e: any) => {
+    const d = e?.response?.data?.detail
+    toast.error(typeof d === 'string' ? d : 'No se pudo guardar la rutina')
+  }
+  const invalidar = () => {
+    qc.invalidateQueries({ queryKey: ['eam-planes'] })
+    qc.invalidateQueries({ queryKey: ['eam-cumplimiento'] })
+  }
+
+  const cuerpo = () => {
+    const n = (v: string) => (v.trim() === '' ? null : Number(v))
+    const porActivo = form.alcance === 'ACTIVO'
+    return {
+      nombre: form.nombre.trim(),
+      // Los dos alcances se excluyen: o un activo puntual, o la jerarquía.
+      activo_id: porActivo ? n(form.activo_id) : null,
+      tipo_activo: porActivo ? null : (form.tipo_activo || null),
+      marca: porActivo ? null : (form.marca || null),
+      linea: porActivo ? null : (form.linea || null),
+      tipo_mant: form.tipo_mant,
+      frecuencia: form.tipo_mant === 'CONDICION' ? null : n(form.frecuencia),
+      unidad: form.tipo_mant === 'CONDICION' ? null : form.unidad,
+      tipo_ot: form.tipo_ot,
+      descripcion: form.descripcion.trim() || null,
+      costo_estimado: n(form.costo_estimado),
+      tareas: tareas.filter(t => t.descripcion.trim()).map((t, i) => ({ ...t, orden: i })),
+    }
+  }
+
+  const mutGuardar = useMutation({
+    mutationFn: () => (dlg.item
+      ? api.put(`/eam/planes/${dlg.item.id}`, cuerpo()).then(r => r.data)
+      : api.post('/eam/planes', cuerpo()).then(r => r.data)),
+    onSuccess: (p: Plan) => {
+      toast.success(dlg.item
+        ? 'Rutina actualizada'
+        : `Rutina creada · cubre ${p.activos_cubiertos} activo(s)`)
+      invalidar(); setDlg({ abierto: false, item: null })
+    },
+    onError: err,
+  })
+
+  const mutBorrar = useMutation({
+    mutationFn: (id: number) => api.delete(`/eam/planes/${id}`),
+    onSuccess: () => { toast.success('Rutina eliminada'); invalidar(); setDetalle(null) },
+    onError: err,
+  })
+
+  const filtrados = useMemo(() => {
+    const q = busqueda.trim().toLowerCase()
+    return planes.filter(p => {
+      if (filtroEstado === 'VENCIDA' && p.vencidas === 0) return false
+      if (filtroEstado === 'PROXIMA' && p.proximas === 0) return false
+      if (filtroEstado === 'SIN_EJECUTAR' && p.sin_ejecutar === 0) return false
+      if (!q) return true
+      return [p.nombre, alcanceTexto(p, activos), p.descripcion ?? '']
+        .join(' ').toLowerCase().includes(q)
+    })
+  }, [planes, busqueda, filtroEstado, activos])
+
+  const kpis = useMemo(() => ([
+    { label: 'Rutinas', value: planes.length, color: EAM_COLOR },
+    {
+      label: 'Activos con rutina',
+      value: new Set(cumplimientos.map(c => c.activo_id)).size, color: '#3B82F6',
+    },
+    {
+      label: 'Vencidas',
+      value: cumplimientos.filter(c => c.estado_rutina === 'VENCIDA').length, color: '#DC2626',
+    },
+    {
+      label: 'Próximas',
+      value: cumplimientos.filter(c => c.estado_rutina === 'PROXIMA').length, color: '#F59E0B',
+    },
+  ]), [planes, cumplimientos])
+
+  /** Las filas del plan abierto, para el panel de cobertura. */
+  const coberturaDe = (planId: number) =>
+    cumplimientos.filter(c => c.plan_id === planId)
+
+  const unidadesValidas = UNIDADES[form.tipo_mant] ?? []
 
   return (
     <Layout>
-      <Box sx={{ p: 3, minHeight: '100vh', background: '#F8FAFC' }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1} flexWrap="wrap" gap={2}>
-          <Stack direction="row" alignItems="center" spacing={2}>
-            <Box sx={{ width: 6, height: 36, bgcolor: EAM_COLOR, borderRadius: 1 }} />
-            <Typography variant="h4" sx={{ color: EAM_COLOR, fontWeight: 700 }}>
-              Planes de Mantenimiento
-            </Typography>
-          </Stack>
-          <Stack direction="row" spacing={1.5}>
-            <Button
-              variant="outlined"
-              startIcon={<ExportIcon />}
-              onClick={() => notify('Exportando planes a Excel...', 'info')}
-              sx={{ borderColor: 'rgba(50,172,92,0.4)', color: EAM_DARK, borderRadius: '10px', fontWeight: 600, '&:hover': { borderColor: EAM_COLOR, bgcolor: alpha(EAM_COLOR, 0.06) } }}
-            >
-              Exportar
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={openCreate}
-              sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, borderRadius: '10px', fontWeight: 700 }}
-            >
-              Nuevo plan
-            </Button>
-          </Stack>
-        </Stack>
-        <Typography variant="body2" sx={{ color: '#6B7280', mb: 3 }}>
-          Gestión y seguimiento de planes preventivos, predictivos y de calibración
-        </Typography>
-
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-          <Tabs
-            value={tab}
-            onChange={(_, v) => setTab(v)}
-            sx={{
-              '& .MuiTab-root': { color: '#9CA3AF', fontWeight: 600 },
-              '& .Mui-selected': { color: EAM_COLOR },
-              '& .MuiTabs-indicator': { backgroundColor: EAM_COLOR },
-            }}
-          >
-            <Tab label="Planes Activos" />
-            <Tab label="Calendario de Vencimientos" />
-            <Tab label="Cumplimiento" />
-          </Tabs>
+      <Box sx={{ p: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <EventRepeat sx={{ color: EAM_COLOR, fontSize: 28 }} />
+            <Box>
+              <Typography variant="h5" sx={{ fontWeight: 800, lineHeight: 1 }}>
+                Planes de Mantenimiento
+              </Typography>
+              <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
+                CMMS · Rutinas por jerarquía de activo
+              </Typography>
+            </Box>
+          </Box>
+          <Button startIcon={<Add />} variant="contained"
+            onClick={() => setDlg({ abierto: true, item: null })}
+            sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, borderRadius: 2 }}>
+            Nueva rutina
+          </Button>
         </Box>
 
-        {/* Barra de filtros (Tabs 0 y 1) */}
-        {(tab === 0 || tab === 1) && (
-          <Card sx={{ border: '1px solid rgba(50,172,92,0.15)', borderRadius: 2, mb: 3 }}>
-            <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} flexWrap="wrap" useFlexGap alignItems="center">
-                <TextField
-                  size="small" placeholder="Buscar por nombre, activo o código..."
-                  value={search} onChange={(e) => setSearch(e.target.value)}
-                  sx={{ minWidth: 240, flex: '1 1 240px', ...inputSx }}
-                  InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 18, color: '#94A3B8' }} /></InputAdornment> }}
-                />
-                <TextField select size="small" label="Tipo de OT" value={filterOtType}
-                  onChange={(e) => setFilterOtType(e.target.value)} sx={{ minWidth: 160, ...inputSx }}>
-                  {['Todos', 'PREVENTIVA', 'INSPECCION', 'PREDICTIVA', 'CALIBRACION'].map(o => <MenuItem key={o} value={o}>{o}</MenuItem>)}
-                </TextField>
-                <TextField select size="small" label="Tipo de activo" value={filterAssetType}
-                  onChange={(e) => setFilterAssetType(e.target.value)} sx={{ minWidth: 170, ...inputSx }}>
-                  <MenuItem value="Todos">Todos</MenuItem>
-                  {assetTypes.map(o => <MenuItem key={o} value={o}>{o}</MenuItem>)}
-                </TextField>
-                <TextField select size="small" label="Urgencia" value={filterUrgencia}
-                  onChange={(e) => setFilterUrgencia(e.target.value)} sx={{ minWidth: 150, ...inputSx }}>
-                  {[['Todos', 'Todas'], ['URGENTE', 'Urgente (≤7d)'], ['PRONTO', 'Pronto (8-15d)'], ['OK', 'A tiempo (>15d)']].map(([v, l]) => <MenuItem key={v} value={v}>{l}</MenuItem>)}
-                </TextField>
-                <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 600 }}>
-                  {filteredPlans.length} de {plans.length} planes
-                </Typography>
-                {hayFiltros && (
-                  <Button size="small" variant="outlined" onClick={resetFiltros}
-                    sx={{ color: '#EF4444', borderColor: 'rgba(239,68,68,0.3)', '&:hover': { bgcolor: alpha('#EF4444', 0.08), borderColor: '#EF4444' }, fontWeight: 600, fontSize: 11 }}>
-                    Limpiar
-                  </Button>
-                )}
-              </Stack>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* TAB 0 — Planes Activos */}
-        <TabPanel value={tab} index={0}>
-          {filteredPlans.length === 0 && (
-            <Typography sx={{ color: '#94A3B8', textAlign: 'center', py: 6 }}>
-              No hay planes que coincidan con los filtros.
-            </Typography>
-          )}
-          {(['TIEMPO', 'USO', 'CONDICIÓN'] as PlanType[]).map(type => (
-            grouped[type].length > 0 && (
-              <Box key={type} mb={4}>
-                <Stack direction="row" alignItems="center" spacing={1} mb={2}>
-                  <Chip
-                    label={type}
-                    size="small"
-                    sx={{ bgcolor: PLAN_TYPE_COLORS[type], color: '#fff', fontWeight: 700, fontSize: '0.7rem', letterSpacing: 1 }}
-                  />
-                  <Typography variant="caption" sx={{ color: '#6B7280' }}>
-                    {grouped[type].length} plan(es)
-                  </Typography>
-                </Stack>
-                <Grid container spacing={2}>
-                  {grouped[type].map(plan => (
-                    <Grid key={plan.id} size={{ xs: 12, md: 6 }}>
-                      <PlanCard plan={plan} />
-                    </Grid>
-                  ))}
-                </Grid>
-              </Box>
-            )
-          ))}
-        </TabPanel>
-
-        {/* TAB 1 — Calendario de Vencimientos */}
-        <TabPanel value={tab} index={1}>
-          <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 2 }}>
-            Vencimientos ordenados por urgencia
-          </Typography>
-          <Stack spacing={2}>
-            {sorted.map(plan => (
-              <Card
-                key={plan.id}
-                onClick={() => setSelected(plan)}
-                sx={{
-                  border: `1px solid ${plan.daysRemaining <= 7 ? '#DC262640' : plan.daysRemaining <= 15 ? '#32AC5C40' : '#E5E7EB'}`,
-                  borderRadius: 2, cursor: 'pointer', transition: 'box-shadow 0.15s, border-color 0.15s',
-                  '&:hover': { boxShadow: '0 6px 20px rgba(0,0,0,0.10)', borderColor: EAM_COLOR },
-                }}
-              >
-                <CardContent>
-                  <Stack direction="row" alignItems="center" spacing={2}>
-                    <Box sx={{
-                      minWidth: 64, height: 64, borderRadius: 2, display: 'flex', flexDirection: 'column',
-                      alignItems: 'center', justifyContent: 'center',
-                      bgcolor: plan.daysRemaining <= 7 ? '#DC262620' : plan.daysRemaining <= 15 ? '#32AC5C20' : plan.daysRemaining <= 30 ? '#CA8A0420' : '#16A34A20',
-                      border: `2px solid ${plan.daysRemaining <= 7 ? '#DC2626' : plan.daysRemaining <= 15 ? '#32AC5C' : plan.daysRemaining <= 30 ? '#CA8A04' : '#16A34A'}`,
-                    }}>
-                      <Typography sx={{ color: plan.daysRemaining <= 7 ? '#DC2626' : plan.daysRemaining <= 15 ? '#D97706' : plan.daysRemaining <= 30 ? '#CA8A04' : '#16A34A', fontWeight: 900, fontSize: '1.5rem', lineHeight: 1 }}>
-                        {plan.daysRemaining}
-                      </Typography>
-                      <Typography sx={{ color: '#6B7280', fontSize: '0.6rem', fontWeight: 600, letterSpacing: 0.5 }}>DÍAS</Typography>
-                    </Box>
-                    <Box flex={1}>
-                      <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
-                        <Typography variant="subtitle2" sx={{ color: '#1E293B', fontWeight: 700 }}>{plan.name}</Typography>
-                        <DaysChip days={plan.daysRemaining} />
-                      </Stack>
-                      <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-                        <Typography variant="caption" sx={{ color: '#9CA3AF' }}>
-                          Activo: <Box component="span" sx={{ color: '#334155', fontWeight: 600 }}>{plan.asset}</Box>
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: '#9CA3AF' }}>
-                          Fecha exacta: <Box component="span" sx={{ color: '#334155', fontWeight: 600 }}>{plan.nextDueDate}</Box>
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: '#9CA3AF' }}>
-                          Tipo: <Box component="span" sx={{ color: OT_COLORS[plan.otType], fontWeight: 600 }}>{plan.otType}</Box>
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: '#9CA3AF' }}>
-                          Responsable: <Box component="span" sx={{ color: '#334155', fontWeight: 600 }}>{plan.responsable}</Box>
-                        </Typography>
-                      </Stack>
-                    </Box>
-                  </Stack>
-                </CardContent>
-              </Card>
-            ))}
-            {sorted.length === 0 && (
-              <Typography sx={{ color: '#94A3B8', textAlign: 'center', py: 6 }}>
-                No hay planes que coincidan con los filtros.
-              </Typography>
-            )}
-          </Stack>
-        </TabPanel>
-
-        {/* TAB 2 — Cumplimiento */}
-        <TabPanel value={tab} index={2}>
-          <Grid container spacing={2} mb={4}>
-            {[
-              { label: 'Cumplimiento Global', value: '87%', color: '#16A34A', sub: 'de planes activos' },
-              { label: 'OTs PM Generadas', value: '245', color: '#2563EB', sub: 'en el período' },
-              { label: 'PM Vencidos', value: '12', color: '#DC2626', sub: 'requieren atención' },
-              { label: 'Ahorro vs correctivo', value: '$145M', color: '#CA8A04', sub: 'COP acumulado' },
-            ].map(kpi => (
-              <Grid key={kpi.label} size={{ xs: 12, md: 3 }}>
-                <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2, textAlign: 'center' }}>
-                  <CardContent>
-                    <Typography variant="h4" sx={{ color: kpi.color, fontWeight: 900, mb: 0.5 }}>{kpi.value}</Typography>
-                    <Typography variant="body2" sx={{ color: '#1E293B', fontWeight: 600, mb: 0.25 }}>{kpi.label}</Typography>
-                    <Typography variant="caption" sx={{ color: '#6B7280' }}>{kpi.sub}</Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-
-          <Grid container spacing={3}>
-            <Grid size={{ xs: 12, md: 5 }}>
-              <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
-                <CardContent>
-                  <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 2 }}>Cumplimiento por tipo de activo</Typography>
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell sx={{ color: '#6B7280', borderColor: '#E5E7EB', fontWeight: 600 }}>Tipo</TableCell>
-                          <TableCell sx={{ color: '#6B7280', borderColor: '#E5E7EB', fontWeight: 600 }}>Cumplimiento</TableCell>
-                          <TableCell sx={{ color: '#6B7280', borderColor: '#E5E7EB', fontWeight: 600 }}>Barra</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {ASSET_TYPE_COMPLIANCE.map(row => (
-                          <TableRow key={row.type}>
-                            <TableCell sx={{ color: '#334155', borderColor: '#E5E7EB' }}>{row.type}</TableCell>
-                            <TableCell sx={{ borderColor: '#E5E7EB' }}>
-                              <Typography sx={{ color: row.compliance >= 90 ? '#16A34A' : row.compliance >= 80 ? '#CA8A04' : '#DC2626', fontWeight: 700 }}>
-                                {row.compliance}%
-                              </Typography>
-                            </TableCell>
-                            <TableCell sx={{ borderColor: '#E5E7EB', width: 120 }}>
-                              <LinearProgress
-                                variant="determinate"
-                                value={row.compliance}
-                                sx={{
-                                  height: 8, borderRadius: 4, bgcolor: '#E5E7EB',
-                                  '& .MuiLinearProgress-bar': {
-                                    bgcolor: row.compliance >= 90 ? '#16A34A' : row.compliance >= 80 ? '#CA8A04' : '#DC2626',
-                                    borderRadius: 4,
-                                  },
-                                }}
-                              />
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          {kpis.map(k => (
+            <Grid key={k.label} size={{ xs: 6, md: 3 }}>
+              <Card sx={{ border: `1px solid ${k.color}44`, borderRadius: 2 }}>
+                <CardContent sx={{ p: '14px !important', textAlign: 'center' }}>
+                  <Typography sx={{ fontSize: 24, fontWeight: 800, color: k.color }}>{k.value}</Typography>
+                  <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{k.label}</Typography>
                 </CardContent>
               </Card>
             </Grid>
+          ))}
+        </Grid>
 
-            <Grid size={{ xs: 12, md: 7 }}>
-              <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2, height: '100%' }}>
-                <CardContent>
-                  <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 3 }}>
-                    Cumplimiento mensual — últimos 6 meses
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 160, px: 1 }}>
-                    {COMPLIANCE_MONTHLY.map(m => (
-                      <Box key={m.month} sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-                        <Typography variant="caption" sx={{ color: m.value >= 90 ? '#16A34A' : m.value >= 80 ? '#CA8A04' : '#DC2626', fontWeight: 700 }}>
-                          {m.value}%
-                        </Typography>
-                        <Box sx={{
-                          width: '100%',
-                          height: `${m.value * 1.4}px`,
-                          bgcolor: m.value >= 90 ? '#16A34A30' : m.value >= 80 ? '#CA8A0430' : '#DC262630',
-                          border: `2px solid ${m.value >= 90 ? '#16A34A' : m.value >= 80 ? '#CA8A04' : '#DC2626'}`,
-                          borderRadius: '4px 4px 0 0',
-                          transition: 'height 0.3s ease',
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{
+          mb: 2, borderBottom: '1px solid #F1F5F9',
+          '& .MuiTab-root': { color: 'text.secondary', fontSize: 13 },
+          '& .Mui-selected': { color: EAM_COLOR },
+          '& .MuiTabs-indicator': { bgcolor: EAM_COLOR },
+        }}>
+          <Tab label={`Rutinas (${planes.length})`} />
+          <Tab label={`Vencimientos por activo (${cumplimientos.length})`} />
+        </Tabs>
+
+        {isLoading && <LinearProgress sx={{ mb: 1 }} />}
+        {!isLoading && planes.length === 0 && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            No hay rutinas. Con <strong>Nueva rutina</strong> se define una sola vez sobre
+            el tipo, la marca o la línea de activo, y cubre a todos los equipos que encajen.
+          </Alert>
+        )}
+
+        {tab !== 2 && planes.length > 0 && (
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
+            <TextField size="small" placeholder="Buscar por nombre o alcance…"
+              value={busqueda} onChange={e => setBusqueda(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start"><Search sx={{ fontSize: 16 }} /></InputAdornment>
+                ),
+              }}
+              sx={{ minWidth: 280, flex: 1 }} />
+            <TextField select size="small" label="Con activos en" value={filtroEstado}
+              onChange={e => setFiltroEstado(e.target.value)} sx={{ minWidth: 180 }}>
+              <MenuItem value="Todos">Cualquier estado</MenuItem>
+              <MenuItem value="VENCIDA">Vencida</MenuItem>
+              <MenuItem value="PROXIMA">Próxima</MenuItem>
+              <MenuItem value="SIN_EJECUTAR">Sin ejecutar</MenuItem>
+            </TextField>
+          </Box>
+        )}
+
+        {/* ── RUTINAS ── */}
+        {tab === 0 && (
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+            <Grid container spacing={2} sx={{ flex: 1, minWidth: 0 }}>
+              {filtrados.map(p => (
+                <Grid key={p.id} size={{ xs: 12, md: detalle ? 12 : 6, lg: detalle ? 12 : 4 }}>
+                  <Card onClick={() => setDetalle(p)} sx={{
+                    borderRadius: 2, cursor: 'pointer',
+                    border: `1px solid ${detalle?.id === p.id ? `${EAM_COLOR}88` : '#E5E7EB'}`,
+                    '&:hover': { borderColor: `${EAM_COLOR}66` },
+                  }}>
+                    <CardContent sx={{ p: '16px !important' }}>
+                      <Stack direction="row" justifyContent="space-between" mb={1}>
+                        <Chip label={p.tipo_mant} size="small" sx={{
+                          fontSize: 9, height: 18, fontWeight: 700,
+                          bgcolor: `${TIPO_COLOR[p.tipo_mant ?? ''] ?? '#6B7280'}22`,
+                          color: TIPO_COLOR[p.tipo_mant ?? ''] ?? '#6B7280',
                         }} />
-                        <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 600 }}>{m.month}</Typography>
+                        <Typography sx={{ fontSize: 10, color: 'text.secondary' }}>
+                          {frecuenciaTexto(p)}
+                        </Typography>
+                      </Stack>
+                      <Typography sx={{ fontWeight: 700, fontSize: 13, mb: 0.75 }}>{p.nombre}</Typography>
+                      <Stack direction="row" alignItems="center" spacing={0.5} mb={1}>
+                        <AccountTree sx={{ fontSize: 13, color: 'text.disabled' }} />
+                        <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>
+                          {alcanceTexto(p, activos)}
+                        </Typography>
+                      </Stack>
+
+                      {p.activos_cubiertos === 0 ? (
+                        <Alert severity="warning" icon={<WarningAmber sx={{ fontSize: 14 }} />}
+                          sx={{ py: 0, fontSize: 10.5 }}>
+                          No cubre ningún activo
+                        </Alert>
+                      ) : (
+                        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                          <Chip label={`${p.activos_cubiertos} activos`} size="small"
+                            sx={{ fontSize: 9, height: 18, bgcolor: '#F1F5F9' }} />
+                          {p.vencidas > 0 && (
+                            <Chip label={`${p.vencidas} vencidas`} size="small" sx={{
+                              fontSize: 9, height: 18, fontWeight: 700,
+                              bgcolor: '#DC262622', color: '#DC2626',
+                            }} />
+                          )}
+                          {p.proximas > 0 && (
+                            <Chip label={`${p.proximas} próximas`} size="small" sx={{
+                              fontSize: 9, height: 18, fontWeight: 700,
+                              bgcolor: '#F59E0B22', color: '#F59E0B',
+                            }} />
+                          )}
+                          {p.sin_ejecutar > 0 && (
+                            <Chip label={`${p.sin_ejecutar} sin ejecutar`} size="small"
+                              sx={{ fontSize: 9, height: 18, bgcolor: '#F1F5F9', color: '#6B7280' }} />
+                          )}
+                        </Stack>
+                      )}
+
+                      <Stack direction="row" spacing={0.5} mt={1.5} onClick={e => e.stopPropagation()}>
+                        <Typography sx={{ fontSize: 10, color: 'text.disabled', flex: 1, pt: 0.75 }}>
+                          {p.tareas?.length ?? 0} tarea(s)
+                        </Typography>
+                        <IconButton size="small" onClick={() => setDlg({ abierto: true, item: p })}>
+                          <Edit sx={{ fontSize: 14 }} />
+                        </IconButton>
+                        <IconButton size="small" onClick={() => {
+                          if (window.confirm(`¿Eliminar la rutina "${p.nombre}"?`)) mutBorrar.mutate(p.id)
+                        }}>
+                          <DeleteForever sx={{ fontSize: 14, color: '#DC2626' }} />
+                        </IconButton>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+
+            {/* Panel de cobertura: la misma rutina, activo por activo. */}
+            {detalle && (
+              <Box sx={{
+                width: 420, flexShrink: 0, bgcolor: '#fff', border: '1px solid #E5E7EB',
+                borderRadius: 2, p: 2.5,
+              }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1}>
+                  <Box>
+                    <Typography sx={{ fontWeight: 700, fontSize: 14 }}>{detalle.nombre}</Typography>
+                    <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>
+                      {alcanceTexto(detalle, activos)} · {frecuenciaTexto(detalle)}
+                    </Typography>
+                  </Box>
+                  <IconButton size="small" onClick={() => setDetalle(null)}>
+                    <Close fontSize="small" />
+                  </IconButton>
+                </Stack>
+
+                {detalle.descripcion && (
+                  <Typography sx={{ fontSize: 12, color: 'text.secondary', mb: 1.5 }}>
+                    {detalle.descripcion}
+                  </Typography>
+                )}
+
+                <Divider sx={{ my: 1.5 }} />
+                <Typography sx={{ fontSize: 12, fontWeight: 700, mb: 1 }}>
+                  Tareas ({detalle.tareas?.length ?? 0})
+                </Typography>
+                {(detalle.tareas ?? []).length === 0 ? (
+                  <Typography sx={{ fontSize: 11.5, color: 'text.disabled' }}>
+                    Sin tareas definidas.
+                  </Typography>
+                ) : (
+                  <Stack spacing={0.5} mb={1}>
+                    {[...(detalle.tareas ?? [])].sort((a, b) => a.orden - b.orden).map((t, i) => (
+                      <Stack key={t.id ?? i} direction="row" spacing={1}>
+                        <Typography sx={{ fontSize: 11.5, color: 'text.disabled' }}>{i + 1}.</Typography>
+                        <Typography sx={{ fontSize: 11.5, flex: 1 }}>{t.descripcion}</Typography>
+                        {t.tiempo_estimado != null && (
+                          <Typography sx={{ fontSize: 10.5, color: 'text.secondary' }}>
+                            {t.tiempo_estimado} h
+                          </Typography>
+                        )}
+                      </Stack>
+                    ))}
+                  </Stack>
+                )}
+
+                <Divider sx={{ my: 1.5 }} />
+                <Typography sx={{ fontSize: 12, fontWeight: 700, mb: 1 }}>
+                  Activos cubiertos ({detalle.activos_cubiertos})
+                </Typography>
+                {coberturaDe(detalle.id).length === 0 ? (
+                  <Alert severity="warning" sx={{ fontSize: 11.5 }}>
+                    Ningún activo encaja con este alcance. Revise el tipo, la marca o la línea.
+                  </Alert>
+                ) : (
+                  <Stack spacing={1}>
+                    {coberturaDe(detalle.id).map(c => (
+                      <Box key={c.activo_id} sx={{
+                        p: 1, borderRadius: 1, bgcolor: '#F8FAFC',
+                        borderLeft: `3px solid ${RUTINA_COLOR[c.estado_rutina]}`,
+                      }}>
+                        <Stack direction="row" justifyContent="space-between">
+                          <Typography sx={{ fontSize: 12, fontWeight: 600 }}>
+                            {c.activo_codigo ?? `#${c.activo_id}`}
+                          </Typography>
+                          <Chip label={RUTINA_LABEL[c.estado_rutina]} size="small" sx={{
+                            fontSize: 9, height: 17, fontWeight: 700,
+                            bgcolor: `${RUTINA_COLOR[c.estado_rutina]}22`,
+                            color: RUTINA_COLOR[c.estado_rutina],
+                          }} />
+                        </Stack>
+                        <Typography sx={{ fontSize: 10.5, color: 'text.secondary' }}>
+                          {textoFaltante(c)}
+                          {c.proximo_odometro != null && ` · vence a ${numero(c.proximo_odometro)} km`}
+                          {c.proxima_fecha != null && ` · vence el ${c.proxima_fecha.slice(0, 10)}`}
+                        </Typography>
                       </Box>
                     ))}
-                  </Box>
-                  <Divider sx={{ borderColor: '#E5E7EB', mt: 1, mb: 1.5 }} />
-                  <Stack direction="row" spacing={2} justifyContent="center">
-                    {[{ color: '#16A34A', label: '≥ 90% Excelente' }, { color: '#CA8A04', label: '80-89% Aceptable' }, { color: '#DC2626', label: '< 80% Requiere acción' }].map(l => (
-                      <Stack key={l.label} direction="row" alignItems="center" spacing={0.5}>
-                        <Box sx={{ width: 10, height: 10, borderRadius: 1, bgcolor: l.color }} />
-                        <Typography variant="caption" sx={{ color: '#6B7280' }}>{l.label}</Typography>
-                      </Stack>
-                    ))}
                   </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        </TabPanel>
-      </Box>
-
-      {/* ── Dialog: DETALLE DEL PLAN ── */}
-      <Dialog
-        open={!!selected}
-        onClose={() => setSelected(null)}
-        maxWidth="md"
-        fullWidth
-        scroll="paper"
-        PaperProps={{ sx: { bgcolor: '#FFFFFF', border: `1px solid ${alpha(EAM_COLOR, 0.3)}`, borderRadius: '16px' } }}
-      >
-        {selected && (
-          <>
-            <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1, color: '#1E293B' }}>
-              <Stack direction="row" alignItems="center" spacing={1.5}>
-                <Box sx={{ width: 40, height: 40, borderRadius: '10px', bgcolor: alpha(OT_COLORS[selected.otType], 0.15), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {selected.otType === 'CALIBRACION' ? <CalibrationIcon sx={{ color: OT_COLORS[selected.otType] }} />
-                    : selected.otType === 'PREDICTIVA' ? <BoltIcon sx={{ color: OT_COLORS[selected.otType] }} />
-                    : <TaskIcon sx={{ color: OT_COLORS[selected.otType] }} />}
-                </Box>
-                <Box>
-                  <Stack direction="row" alignItems="center" spacing={1}>
-                    <Typography fontSize={13} fontWeight={800} color={EAM_COLOR}>{selected.id}</Typography>
-                    <DaysChip days={selected.daysRemaining} />
-                  </Stack>
-                  <Typography fontSize={15} fontWeight={700} color="#1E293B" noWrap>{selected.name}</Typography>
-                </Box>
-              </Stack>
-              <IconButton size="small" onClick={() => setSelected(null)} sx={{ color: 'grey.500' }}>
-                <CloseIcon sx={{ fontSize: 18 }} />
-              </IconButton>
-            </DialogTitle>
-
-            <DialogContent dividers sx={{ borderColor: '#E5E7EB' }}>
-              <Stack spacing={2}>
-                {/* Chips resumen */}
-                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                  <Chip label={selected.otType} size="small" sx={{ bgcolor: OT_COLORS[selected.otType] + '22', color: OT_COLORS[selected.otType], border: `1px solid ${OT_COLORS[selected.otType]}`, fontWeight: 600 }} />
-                  <Chip label={`Tipo: ${selected.planType}`} size="small" sx={{ bgcolor: PLAN_TYPE_COLORS[selected.planType] + '22', color: PLAN_TYPE_COLORS[selected.planType], fontWeight: 600 }} />
-                  <Chip label={selected.assetType} size="small" sx={{ bgcolor: '#F1F5F9', color: '#64748B' }} />
-                </Stack>
-
-                {/* Descripción */}
-                <Box sx={{ bgcolor: alpha(EAM_COLOR, 0.05), border: `1px solid ${alpha(EAM_COLOR, 0.2)}`, borderRadius: '8px', p: 1.5 }}>
-                  <Typography fontSize={13} color="#334155">{selected.descripcion}</Typography>
-                </Box>
-
-                {/* Grilla de datos clave */}
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: '1fr 1fr 1fr' }, gap: 1.5 }}>
-                  <InfoTile label="Frecuencia" value={<Stack direction="row" alignItems="center" spacing={0.5}><FreqIcon sx={{ fontSize: 15, color: EAM_COLOR }} /><span>{selected.frequency}</span></Stack>} />
-                  <InfoTile label="Duración estimada" value={<Stack direction="row" alignItems="center" spacing={0.5}><ScheduleIcon sx={{ fontSize: 15, color: EAM_COLOR }} /><span>{selected.duracionEstimada}</span></Stack>} />
-                  <InfoTile label="Costo estimado" value={selected.costoEstimado} color="#16A34A" />
-                  <InfoTile label="Responsable" value={<Stack direction="row" alignItems="center" spacing={0.5}><PersonIcon sx={{ fontSize: 15, color: EAM_COLOR }} /><span>{selected.responsable}</span></Stack>} />
-                  <InfoTile label="Último cumplimiento" value={selected.lastFulfillment} />
-                  <InfoTile label="Próxima ejecución" value={`${selected.nextDueDate} (${selected.daysRemaining}d)`} color={selected.daysRemaining <= 7 ? '#DC2626' : selected.daysRemaining <= 15 ? '#D97706' : '#1E293B'} />
-                  <InfoTile label="Cumplimiento" value={`${selected.compliance}%`} color={selected.compliance >= 90 ? '#16A34A' : selected.compliance >= 75 ? '#CA8A04' : '#DC2626'} />
-                  <InfoTile label="OTs generadas" value={String(selected.ordenesGeneradas)} />
-                  <InfoTile label="Activos cubiertos" value={String(selected.activosCubiertos.length)} />
-                </Box>
-
-                {/* Activos cubiertos */}
-                <Box>
-                  <Typography fontSize={12} fontWeight={700} color="#1E293B" mb={1} textTransform="uppercase" letterSpacing="0.04em">
-                    Activos cubiertos
-                  </Typography>
-                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                    {selected.activosCubiertos.length === 0 && <Typography fontSize={12} color="#94A3B8">Sin activos asociados.</Typography>}
-                    {selected.activosCubiertos.map(a => (
-                      <Chip key={a} label={a} size="small" variant="outlined" sx={{ borderColor: '#CBD5E1', color: '#334155', fontSize: '0.7rem' }} />
-                    ))}
-                  </Stack>
-                </Box>
-
-                {/* Tareas / actividades */}
-                <Box>
-                  <Stack direction="row" alignItems="center" spacing={1} mb={1}>
-                    <TaskIcon sx={{ fontSize: 16, color: EAM_COLOR }} />
-                    <Typography fontSize={12} fontWeight={700} color="#1E293B" textTransform="uppercase" letterSpacing="0.04em">
-                      Lista de tareas ({selected.tareas.length})
-                    </Typography>
-                  </Stack>
-                  {selected.tareas.length === 0 ? (
-                    <Typography fontSize={12} color="#94A3B8">Aún no se han definido tareas para este plan.</Typography>
-                  ) : (
-                    <TableContainer sx={{ border: '1px solid #E5E7EB', borderRadius: '8px' }}>
-                      <Table size="small">
-                        <TableHead>
-                          <TableRow sx={{ bgcolor: alpha(EAM_COLOR, 0.06) }}>
-                            <TableCell sx={{ color: '#64748B', borderColor: '#E5E7EB', fontWeight: 700, fontSize: 11 }}>#</TableCell>
-                            <TableCell sx={{ color: '#64748B', borderColor: '#E5E7EB', fontWeight: 700, fontSize: 11 }}>Actividad</TableCell>
-                            <TableCell sx={{ color: '#64748B', borderColor: '#E5E7EB', fontWeight: 700, fontSize: 11 }}>Especialidad</TableCell>
-                            <TableCell sx={{ color: '#64748B', borderColor: '#E5E7EB', fontWeight: 700, fontSize: 11 }} align="right">Duración</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {selected.tareas.map((t, i) => (
-                            <TableRow key={i}>
-                              <TableCell sx={{ borderColor: '#E5E7EB' }}>
-                                <Avatar sx={{ width: 20, height: 20, bgcolor: alpha(EAM_COLOR, 0.15), color: EAM_COLOR, fontSize: 11, fontWeight: 800 }}>{i + 1}</Avatar>
-                              </TableCell>
-                              <TableCell sx={{ color: '#334155', borderColor: '#E5E7EB', fontSize: 12 }}>{t.descripcion}</TableCell>
-                              <TableCell sx={{ borderColor: '#E5E7EB' }}>
-                                <Chip label={t.especialidad} size="small" sx={{ bgcolor: '#F1F5F9', color: '#64748B', fontSize: '0.65rem' }} />
-                              </TableCell>
-                              <TableCell sx={{ color: '#64748B', borderColor: '#E5E7EB', fontSize: 12 }} align="right">{t.duracion}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  )}
-                </Box>
-
-                {/* Repuestos requeridos */}
-                <Box>
-                  <Stack direction="row" alignItems="center" spacing={1} mb={1}>
-                    <PartsIcon sx={{ fontSize: 16, color: '#2563EB' }} />
-                    <Typography fontSize={12} fontWeight={700} color="#1E293B" textTransform="uppercase" letterSpacing="0.04em">
-                      Repuestos requeridos ({selected.repuestos.length})
-                    </Typography>
-                  </Stack>
-                  {selected.repuestos.length === 0 ? (
-                    <Typography fontSize={12} color="#94A3B8">Este plan no requiere repuestos.</Typography>
-                  ) : (
-                    <TableContainer sx={{ border: '1px solid #E5E7EB', borderRadius: '8px' }}>
-                      <Table size="small">
-                        <TableHead>
-                          <TableRow sx={{ bgcolor: alpha('#2563EB', 0.06) }}>
-                            <TableCell sx={{ color: '#64748B', borderColor: '#E5E7EB', fontWeight: 700, fontSize: 11 }}>Repuesto</TableCell>
-                            <TableCell sx={{ color: '#64748B', borderColor: '#E5E7EB', fontWeight: 700, fontSize: 11 }} align="right">Cantidad</TableCell>
-                            <TableCell sx={{ color: '#64748B', borderColor: '#E5E7EB', fontWeight: 700, fontSize: 11 }} align="right">Costo unit.</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {selected.repuestos.map((r, i) => (
-                            <TableRow key={i}>
-                              <TableCell sx={{ color: '#334155', borderColor: '#E5E7EB', fontSize: 12 }}>{r.nombre}</TableCell>
-                              <TableCell sx={{ color: '#64748B', borderColor: '#E5E7EB', fontSize: 12 }} align="right">{r.cantidad}</TableCell>
-                              <TableCell sx={{ color: '#334155', borderColor: '#E5E7EB', fontSize: 12 }} align="right">{r.costoUnit}</TableCell>
-                            </TableRow>
-                          ))}
-                          <TableRow sx={{ bgcolor: '#F8FAFC' }}>
-                            <TableCell sx={{ color: '#1E293B', borderColor: '#E5E7EB', fontWeight: 700, fontSize: 12 }} colSpan={2}>Total repuestos estimado</TableCell>
-                            <TableCell sx={{ color: '#16A34A', borderColor: '#E5E7EB', fontWeight: 800, fontSize: 13 }} align="right">
-                              ${totalCostoRepuestos(selected).toLocaleString('es-CO')}
-                            </TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  )}
-                </Box>
-
-                {/* Historial de ejecuciones */}
-                <Box>
-                  <Stack direction="row" alignItems="center" spacing={1} mb={1}>
-                    <HistoryIcon sx={{ fontSize: 16, color: '#8B5CF6' }} />
-                    <Typography fontSize={12} fontWeight={700} color="#1E293B" textTransform="uppercase" letterSpacing="0.04em">
-                      Historial de ejecuciones ({selected.historial.length})
-                    </Typography>
-                  </Stack>
-                  {selected.historial.length === 0 ? (
-                    <Typography fontSize={12} color="#94A3B8">Sin ejecuciones registradas todavía.</Typography>
-                  ) : (
-                    <Stack spacing={1}>
-                      {selected.historial.map((h, i) => (
-                        <Stack key={i} direction="row" alignItems="center" spacing={1.5} sx={{ bgcolor: '#F8FAFC', borderRadius: '8px', p: 1.25 }}>
-                          <CalendarIcon sx={{ fontSize: 18, color: '#94A3B8' }} />
-                          <Box sx={{ minWidth: 90 }}>
-                            <Typography fontSize={12} fontWeight={700} color="#1E293B">{h.fecha}</Typography>
-                            <Typography fontSize={10} color="#64748B">{h.ot}</Typography>
-                          </Box>
-                          <Typography fontSize={12} color="#334155" sx={{ flex: 1 }}>{h.tecnico}</Typography>
-                          <Chip
-                            icon={h.resultado === 'CUMPLIDO' ? <CheckIcon sx={{ fontSize: 14 }} /> : undefined}
-                            label={h.resultado}
-                            size="small"
-                            sx={{ bgcolor: alpha(RESULTADO_COLOR[h.resultado], 0.12), color: RESULTADO_COLOR[h.resultado], border: `1px solid ${alpha(RESULTADO_COLOR[h.resultado], 0.35)}`, fontWeight: 700, fontSize: '0.65rem', '& .MuiChip-icon': { color: RESULTADO_COLOR[h.resultado] } }}
-                          />
-                        </Stack>
-                      ))}
-                    </Stack>
-                  )}
-                </Box>
-              </Stack>
-            </DialogContent>
-
-            <DialogActions sx={{ px: 3, py: 2, justifyContent: 'space-between' }}>
-              <Button
-                startIcon={<DeleteIcon />}
-                onClick={() => handleDelete(selected)}
-                sx={{ color: '#EF4444', fontWeight: 600, '&:hover': { bgcolor: alpha('#EF4444', 0.08) } }}
-              >
-                Eliminar plan
-              </Button>
-              <Stack direction="row" spacing={1.5}>
-                <Button
-                  variant="outlined"
-                  startIcon={<EditIcon />}
-                  onClick={() => notify(`Abriendo editor de OTs del activo ${selected.asset}`, 'info')}
-                  sx={{ borderColor: '#E5E7EB', color: '#64748B', borderRadius: '10px', fontWeight: 600, '&:hover': { borderColor: '#CBD5E1', bgcolor: alpha('#64748B', 0.06) } }}
-                >
-                  Ver órdenes
-                </Button>
-                <Button
-                  variant="contained"
-                  startIcon={<PlayIcon />}
-                  onClick={() => handleGenerateOT(selected)}
-                  sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, borderRadius: '10px', fontWeight: 700, boxShadow: `0 4px 16px ${alpha(EAM_COLOR, 0.35)}` }}
-                >
-                  Generar OT
-                </Button>
-              </Stack>
-            </DialogActions>
-          </>
+                )}
+              </Box>
+            )}
+          </Box>
         )}
-      </Dialog>
 
-      {/* ── Dialog: NUEVO PLAN ── */}
-      <Dialog
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{ sx: { bgcolor: '#FFFFFF', border: `1px solid ${alpha(EAM_COLOR, 0.3)}`, borderRadius: '16px' } }}
-      >
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#1E293B' }}>
-          <Stack direction="row" alignItems="center" spacing={1.5}>
-            <Box sx={{ width: 36, height: 36, borderRadius: '10px', bgcolor: alpha(EAM_COLOR, 0.15), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <AddIcon sx={{ color: EAM_COLOR }} />
-            </Box>
-            <Box>
-              <Typography fontWeight={800} fontSize={16} color="#1E293B">Nuevo plan de mantenimiento</Typography>
-              <Typography fontSize={12} color="#64748B">Complete los datos del plan preventivo</Typography>
-            </Box>
-          </Stack>
-          <IconButton size="small" onClick={() => setCreateOpen(false)} sx={{ color: 'grey.500' }}>
-            <CloseIcon sx={{ fontSize: 18 }} />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent dividers sx={{ borderColor: '#E5E7EB' }}>
-          <Stack spacing={2} mt={0.5}>
-            <TextField fullWidth size="small" label="Nombre del plan *" value={form.name}
-              onChange={(e) => setField('name', e.target.value)} sx={inputSx} placeholder="Ej. Cambio de aceite motor VH-004"
-              error={triedSubmit && !form.name.trim()}
-              helperText={triedSubmit && !form.name.trim() ? 'El nombre es obligatorio' : ' '} />
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField select fullWidth size="small" label="Activo *" value={form.asset}
-                onChange={(e) => { const code = e.target.value; setForm(prev => ({ ...prev, asset: code, assetType: assetTypeByCode[code] ?? prev.assetType })); }}
-                error={triedSubmit && !form.asset}
-                helperText={triedSubmit && !form.asset ? 'Seleccione el activo' : 'Se autocompleta el tipo'}
-                sx={inputSx}>
-                {assetOptions.map(o => <MenuItem key={o} value={o}>{o}</MenuItem>)}
-              </TextField>
-              <TextField select fullWidth size="small" label="Tipo de activo" value={form.assetType}
-                onChange={(e) => setField('assetType', e.target.value)} sx={inputSx} helperText=" ">
-                {['Vehículo', 'Montacargas', 'Infraestructura', 'Equipo'].map(o => <MenuItem key={o} value={o}>{o}</MenuItem>)}
-              </TextField>
-            </Stack>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField select fullWidth size="small" label="Tipo de OT" value={form.otType}
-                onChange={(e) => setField('otType', e.target.value)} sx={inputSx}>
-                {(['PREVENTIVA', 'INSPECCION', 'PREDICTIVA', 'CALIBRACION'] as OTType[]).map(o => <MenuItem key={o} value={o}>{o}</MenuItem>)}
-              </TextField>
-              <TextField select fullWidth size="small" label="Tipo de plan" value={form.planType}
-                onChange={(e) => setField('planType', e.target.value)} sx={inputSx}>
-                {(['TIEMPO', 'USO', 'CONDICIÓN'] as PlanType[]).map(o => <MenuItem key={o} value={o}>{o}</MenuItem>)}
-              </TextField>
-            </Stack>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField fullWidth size="small" label="Frecuencia" value={form.frequency}
-                onChange={(e) => setField('frequency', e.target.value)} sx={inputSx} placeholder="Ej. Cada 5.000 km / Mensual" />
-              <TextField select fullWidth size="small" label="Responsable" value={form.responsable}
-                onChange={(e) => setField('responsable', e.target.value)} sx={inputSx}>
-                <MenuItem value=""><em>Sin asignar</em></MenuItem>
-                {RESPONSABLES.map(o => <MenuItem key={o} value={o}>{o}</MenuItem>)}
-              </TextField>
-            </Stack>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField fullWidth size="small" label="Duración estimada" value={form.duracionEstimada}
-                onChange={(e) => setField('duracionEstimada', e.target.value)} sx={inputSx} placeholder="Ej. 2h" />
-              <TextField fullWidth size="small" label="Costo estimado" value={form.costoEstimado}
-                onChange={(e) => setField('costoEstimado', e.target.value)} sx={inputSx}
-                InputProps={{ startAdornment: <InputAdornment position="start"><Typography fontSize={13} color="#94A3B8">$</Typography></InputAdornment> }} />
-            </Stack>
-            <TextField fullWidth size="small" label="Próxima ejecución" type="date" value={form.nextDueDate}
-              onChange={(e) => setField('nextDueDate', e.target.value)} InputLabelProps={{ shrink: true }} sx={inputSx} />
-            <TextField fullWidth size="small" label="Descripción" multiline rows={3} value={form.descripcion}
-              onChange={(e) => setField('descripcion', e.target.value)} sx={inputSx}
-              placeholder="Alcance del plan, componentes a intervenir, criterios de aceptación..." />
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={() => setCreateOpen(false)}
-            sx={{ color: '#64748B', fontWeight: 600 }}>
-            Cancelar
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleCreate}
-            disabled={!form.name.trim() || !form.asset}
-            sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, borderRadius: '10px', fontWeight: 700, px: 3 }}
-          >
-            Crear plan
-          </Button>
-        </DialogActions>
-      </Dialog>
+        {/* ── VENCIMIENTOS ── */}
+        {tab === 1 && (
+          cumplimientos.length === 0 ? (
+            <Alert severity="info">
+              Todavía no hay rutinas cubriendo activos.
+            </Alert>
+          ) : (
+            <Paper sx={{ bgcolor: 'transparent', overflowX: 'auto' }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ '& th': { borderColor: '#E5E7EB', color: 'text.secondary', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
+                    <TableCell>Estado</TableCell><TableCell>Activo</TableCell>
+                    <TableCell>Rutina</TableCell><TableCell>Frecuencia</TableCell>
+                    <TableCell>Última</TableCell><TableCell>Vence</TableCell>
+                    <TableCell>Lectura actual</TableCell><TableCell>Falta</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {cumplimientos
+                    .filter(c => filtroEstado === 'Todos' || c.estado_rutina === filtroEstado)
+                    .map(c => (
+                      <TableRow key={`${c.plan_id}-${c.activo_id}`} hover
+                        sx={{ '& td': { borderColor: '#E5E7EB', fontSize: 12 } }}>
+                        <TableCell>
+                          <Chip label={RUTINA_LABEL[c.estado_rutina]} size="small" sx={{
+                            fontSize: 9, height: 18, fontWeight: 700,
+                            bgcolor: `${RUTINA_COLOR[c.estado_rutina]}22`,
+                            color: RUTINA_COLOR[c.estado_rutina],
+                          }} />
+                        </TableCell>
+                        <TableCell>
+                          <Tooltip title={c.activo_nombre ?? ''}>
+                            <Typography sx={{ fontSize: 12, fontWeight: 600 }}>
+                              {c.activo_codigo ?? `#${c.activo_id}`}
+                            </Typography>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell sx={{ fontSize: 11.5 }}>{c.plan_nombre}</TableCell>
+                        <TableCell sx={{ fontSize: 11 }}>
+                          {c.frecuencia ? `${numero(c.frecuencia)} ${(c.unidad ?? '').toLowerCase()}` : '—'}
+                        </TableCell>
+                        <TableCell sx={{ fontSize: 11 }}>
+                          {c.ultima_ejecucion_fecha ? c.ultima_ejecucion_fecha.slice(0, 10) : '—'}
+                        </TableCell>
+                        <TableCell sx={{ fontSize: 11 }}>
+                          {c.proximo_odometro != null ? `${numero(c.proximo_odometro)} km`
+                            : c.proxima_fecha != null ? c.proxima_fecha.slice(0, 10)
+                              : c.proximo_horometro != null ? `${numero(c.proximo_horometro)} h` : '—'}
+                        </TableCell>
+                        <TableCell sx={{ fontSize: 11 }}>
+                          {c.unidad_faltante === 'HORAS'
+                            ? `${numero(c.horometro_activo)} h`
+                            : `${numero(c.odometro_activo)} km`}
+                        </TableCell>
+                        <TableCell sx={{
+                          fontSize: 11.5, fontWeight: 600,
+                          color: RUTINA_COLOR[c.estado_rutina],
+                        }}>
+                          {textoFaltante(c)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            </Paper>
+          )
+        )}
 
-      {/* Snackbar de confirmaciones */}
-      <Snackbar
-        open={snack.open}
-        autoHideDuration={3000}
-        onClose={() => setSnack(s => ({ ...s, open: false }))}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        <Alert
-          onClose={() => setSnack(s => ({ ...s, open: false }))}
-          severity={snack.sev}
-          variant="filled"
-          sx={{ fontWeight: 600 }}
-        >
-          {snack.msg}
-        </Alert>
-      </Snackbar>
+        {/* ── ALTA / EDICIÓN ── */}
+        <Dialog open={dlg.abierto} onClose={() => setDlg({ abierto: false, item: null })}
+          maxWidth="md" fullWidth>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>
+            {dlg.item ? `Editar ${dlg.item.nombre}` : 'Nueva rutina de mantenimiento'}
+          </DialogTitle>
+          <DialogContent dividers>
+            <Grid container spacing={2} sx={{ pt: 0.5 }}>
+              <Grid size={{ xs: 12, md: 8 }}>
+                <TextField label="Nombre de la rutina *" size="small" fullWidth autoFocus
+                  value={form.nombre}
+                  onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
+              </Grid>
+              <Grid size={{ xs: 12, md: 4 }}>
+                <TextField select label="Tipo de OT que genera" size="small" fullWidth
+                  value={form.tipo_ot}
+                  onChange={e => setForm(f => ({ ...f, tipo_ot: e.target.value }))}>
+                  {TIPOS_OT.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                </TextField>
+              </Grid>
+
+              {/* ── Alcance ── */}
+              <Grid size={{ xs: 12 }}>
+                <Divider sx={{ mb: 1 }}>
+                  <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>ALCANCE</Typography>
+                </Divider>
+                <TextField select label="A qué aplica" size="small" fullWidth value={form.alcance}
+                  onChange={e => setForm(f => ({ ...f, alcance: e.target.value as Formulario['alcance'] }))}
+                  helperText="Por jerarquía cubre a todos los activos que encajen; se escribe una sola vez">
+                  <MenuItem value="JERARQUIA">Por jerarquía de activo (tipo › marca › línea)</MenuItem>
+                  <MenuItem value="ACTIVO">Solo a un activo puntual</MenuItem>
+                </TextField>
+              </Grid>
+
+              {form.alcance === 'ACTIVO' ? (
+                <Grid size={{ xs: 12 }}>
+                  <TextField select label="Activo *" size="small" fullWidth value={form.activo_id}
+                    onChange={e => setForm(f => ({ ...f, activo_id: e.target.value }))}>
+                    <MenuItem value="">Seleccionar…</MenuItem>
+                    {activos.map(a => (
+                      <MenuItem key={a.id} value={String(a.id)}>
+                        {a.codigo ? `${a.codigo} — ${a.nombre ?? ''}` : (a.nombre ?? `#${a.id}`)}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+              ) : (
+                <>
+                  {/* Los mismos catálogos con que se da de alta un activo, para
+                      que el alcance case exactamente con lo que trae el equipo. */}
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <TextField select label="Tipo de activo" size="small" fullWidth
+                      value={form.tipo_activo}
+                      onChange={e => setForm(f => ({
+                        // Al cambiar de nivel, los de abajo dejan de aplicar.
+                        ...f, tipo_activo: e.target.value, marca: '', linea: '',
+                      }))}>
+                      <MenuItem value="">Todos los tipos</MenuItem>
+                      {tiposActivo.map(t => (
+                        <MenuItem key={t.id} value={t.codigo ?? t.nombre ?? ''}>
+                          {t.nombre ?? t.codigo}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <TextField select label="Marca" size="small" fullWidth value={form.marca}
+                      disabled={!form.tipo_activo}
+                      onChange={e => setForm(f => ({ ...f, marca: e.target.value, linea: '' }))}
+                      helperText={!form.tipo_activo ? 'Elija primero el tipo' : undefined}>
+                      <MenuItem value="">Todas las marcas</MenuItem>
+                      {marcas.map(m => <MenuItem key={m.id} value={m.nombre}>{m.nombre}</MenuItem>)}
+                    </TextField>
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <TextField select label="Línea" size="small" fullWidth value={form.linea}
+                      disabled={!form.marca}
+                      onChange={e => setForm(f => ({ ...f, linea: e.target.value }))}
+                      helperText={!form.marca ? 'Elija primero la marca' : undefined}>
+                      <MenuItem value="">Todas las líneas</MenuItem>
+                      {lineas.map(l => <MenuItem key={l.id} value={l.nombre}>{l.nombre}</MenuItem>)}
+                    </TextField>
+                  </Grid>
+                  <Grid size={{ xs: 12 }}>
+                    <Alert severity="info" sx={{ fontSize: 11.5, py: 0.25 }}>
+                      Deje en blanco los niveles que no quiera acotar: con solo el tipo, la
+                      rutina cubre a todos los activos de ese tipo.
+                      {' '}
+                      {(() => {
+                        const n = activos.filter(a =>
+                          (!form.tipo_activo || (a.tipo_activo ?? '').toUpperCase() === form.tipo_activo.toUpperCase())
+                          && (!form.marca || (a.marca ?? '').toUpperCase() === form.marca.toUpperCase())
+                          && (!form.linea || (a.linea ?? '').toUpperCase() === form.linea.toUpperCase())
+                        ).length
+                        return form.tipo_activo || form.marca || form.linea
+                          ? `Hoy encajan ${n} activo(s).`
+                          : ''
+                      })()}
+                    </Alert>
+                  </Grid>
+                </>
+              )}
+
+              {/* ── Frecuencia ── */}
+              <Grid size={{ xs: 12 }}>
+                <Divider sx={{ mb: 1 }}>
+                  <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>FRECUENCIA</Typography>
+                </Divider>
+              </Grid>
+              <Grid size={{ xs: 12, md: 4 }}>
+                <TextField select label="Se mide por" size="small" fullWidth value={form.tipo_mant}
+                  onChange={e => {
+                    const tm = e.target.value as TipoMant
+                    // La unidad depende de cómo se mide: KM no aplica al tiempo.
+                    setForm(f => ({ ...f, tipo_mant: tm, unidad: UNIDADES[tm][0] ?? '' }))
+                  }}>
+                  {TIPOS_MANT.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid size={{ xs: 6, md: 4 }}>
+                <TextField label="Cada" size="small" fullWidth type="number"
+                  value={form.frecuencia} disabled={form.tipo_mant === 'CONDICION'}
+                  onChange={e => setForm(f => ({ ...f, frecuencia: e.target.value }))} />
+              </Grid>
+              <Grid size={{ xs: 6, md: 4 }}>
+                <TextField select label="Unidad" size="small" fullWidth value={form.unidad}
+                  disabled={unidadesValidas.length === 0}
+                  helperText={form.tipo_mant === 'CONDICION'
+                    ? 'Por condición no tiene vencimiento automático' : undefined}
+                  onChange={e => setForm(f => ({ ...f, unidad: e.target.value }))}>
+                  {unidadesValidas.map(u => <MenuItem key={u} value={u}>{u}</MenuItem>)}
+                </TextField>
+              </Grid>
+
+              <Grid size={{ xs: 12, md: 4 }}>
+                <TextField label="Costo estimado" size="small" fullWidth type="number"
+                  value={form.costo_estimado}
+                  InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                  onChange={e => setForm(f => ({ ...f, costo_estimado: e.target.value }))} />
+              </Grid>
+              <Grid size={{ xs: 12, md: 8 }}>
+                <TextField label="Descripción" size="small" fullWidth value={form.descripcion}
+                  onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
+              </Grid>
+
+              <Grid size={{ xs: 12 }}>
+                <Divider sx={{ mb: 1 }} />
+                <EditorTareas tareas={tareas} setTareas={setTareas}
+                  actividades={actividades} repuestos={repuestos} />
+              </Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setDlg({ abierto: false, item: null })}>Cancelar</Button>
+            <Button variant="contained"
+              disabled={!form.nombre.trim() || mutGuardar.isPending
+                || (form.alcance === 'ACTIVO' && !form.activo_id)
+                || (form.alcance === 'JERARQUIA' && !form.tipo_activo && !form.marca && !form.linea)}
+              onClick={() => mutGuardar.mutate()}
+              sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>
+              {mutGuardar.isPending ? 'Guardando…' : 'Guardar rutina'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
     </Layout>
-  );
+  )
 }
