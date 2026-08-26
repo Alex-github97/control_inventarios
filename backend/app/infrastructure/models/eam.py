@@ -1,5 +1,6 @@
 import enum
 from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text, ForeignKey, JSON, Date, UniqueConstraint
+from sqlalchemy.orm import relationship
 from app.infrastructure.models.base import Base, TimestampMixin
 
 
@@ -368,6 +369,25 @@ class EAMOrdenTrabajo(Base, TimestampMixin):
     tiempo_real_horas     = Column(Float)
     observaciones         = Column(Text)
     creado_por            = Column(String(100))
+    # Imputación contable y sede donde se atiende la OT.
+    centro_costo          = Column(String(120))
+    ciudad                = Column(String(100))
+    # Si el activo queda fuera de servicio mientras dure la OT, y si el
+    # origen fue una falla o un trabajo programado.
+    afecta_disponibilidad = Column(Boolean, default=True)
+    es_falla              = Column(Boolean, default=False)
+    fecha_posible_cierre  = Column(DateTime)
+
+    # Las líneas viven en eam_ot_mano_obra y eam_ot_material, que ya existían
+    # sin usarse. Se cargan siempre porque la ficha de la OT las necesita.
+    trabajos  = relationship(
+        "EAMOTManoObra", back_populates="ot",
+        cascade="all, delete-orphan", lazy="selectin",
+    )
+    repuestos = relationship(
+        "EAMOTMaterial", back_populates="ot",
+        cascade="all, delete-orphan", lazy="selectin",
+    )
 
 
 class EAMChecklistEjecucion(Base, TimestampMixin):
@@ -397,9 +417,11 @@ class EAMChecklistRespuesta(Base, TimestampMixin):
 
 
 class EAMOTMaterial(Base, TimestampMixin):
+    """Repuesto consumido en una OT. El precio se congela al registrarlo."""
+
     __tablename__ = "eam_ot_material"
     id          = Column(Integer, primary_key=True, index=True)
-    ot_id       = Column(Integer, ForeignKey("eam_orden_trabajo.id"), nullable=False)
+    ot_id       = Column(Integer, ForeignKey("eam_orden_trabajo.id"), nullable=False, index=True)
     repuesto_id = Column(Integer, ForeignKey("eam_repuesto.id"), nullable=True)
     descripcion = Column(String(200))
     cantidad    = Column(Float, nullable=False)
@@ -407,17 +429,32 @@ class EAMOTMaterial(Base, TimestampMixin):
     costo_unit  = Column(Float)
     costo_total = Column(Float)
 
+    ot = relationship("EAMOrdenTrabajo", back_populates="repuestos")
+
 
 class EAMOTManoObra(Base, TimestampMixin):
+    """Cada labor hecha dentro de una OT, con su mano de obra.
+
+    `tecnico` es opcional: una OT se cotiza por trabajo antes de saber quién
+    la va a ejecutar.
+    """
+
     __tablename__ = "eam_ot_mano_obra"
     id          = Column(Integer, primary_key=True, index=True)
-    ot_id       = Column(Integer, ForeignKey("eam_orden_trabajo.id"), nullable=False)
-    tecnico     = Column(String(100), nullable=False)
-    actividad   = Column(String(200))
+    ot_id       = Column(Integer, ForeignKey("eam_orden_trabajo.id"), nullable=False, index=True)
+    tecnico     = Column(String(100))
+    actividad   = Column(String(300))
     fecha       = Column(DateTime)
     horas       = Column(Float)
     tarifa_hora = Column(Float)
     costo_total = Column(Float)
+    # Encuadre del trabajo dentro del activo.
+    tipo_trabajo_id = Column(Integer, ForeignKey("eam_tipo_trabajo.id"), nullable=True)
+    sistema     = Column(String(100))
+    subsistema  = Column(String(100))
+    observaciones = Column(Text)
+
+    ot = relationship("EAMOrdenTrabajo", back_populates="trabajos")
 
 
 # ─── Lubricación ──────────────────────────────────────────────────────────────

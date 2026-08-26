@@ -262,8 +262,35 @@ class PlanMantenimientoResponse(PlanMantenimientoCreate):
     id: int
     activo: bool
 
+class OTTrabajoItem(BaseModel):
+    """Una línea de eam_ot_mano_obra."""
+    model_config = ConfigDict(from_attributes=True)
+    id: Optional[int] = None
+    actividad: str
+    tecnico: Optional[str] = None
+    tipo_trabajo_id: Optional[int] = None
+    sistema: Optional[str] = None
+    subsistema: Optional[str] = None
+    horas: Optional[float] = None
+    tarifa_hora: Optional[float] = None
+    costo_total: float = 0
+    observaciones: Optional[str] = None
+
+class OTRepuestoItem(BaseModel):
+    """Una línea de eam_ot_material."""
+    model_config = ConfigDict(from_attributes=True)
+    id: Optional[int] = None
+    repuesto_id: Optional[int] = None
+    descripcion: str
+    cantidad: float = 1
+    unidad: Optional[str] = None
+    costo_unit: float = 0
+    costo_total: float = 0
+
 class OTCreate(BaseModel):
-    numero: str
+    # El número lo asigna el servidor; se acepta si viene para no romper a
+    # quien ya lo mandaba.
+    numero: Optional[str] = None
     activo_id: int
     tipo_ot: Optional[str] = "CORRECTIVA"
     tipo_trabajo_id: Optional[int] = None
@@ -282,16 +309,25 @@ class OTCreate(BaseModel):
     tiempo_estimado_horas: Optional[float] = None
     observaciones: Optional[str] = None
     creado_por: Optional[str] = None
+    centro_costo: Optional[str] = None
+    ciudad: Optional[str] = None
+    afecta_disponibilidad: bool = True
+    es_falla: bool = False
+    fecha_inicio: Optional[datetime] = None
+    fecha_fin: Optional[datetime] = None
+    fecha_posible_cierre: Optional[datetime] = None
+    costo_servicios: float = 0
+    trabajos: List[OTTrabajoItem] = []
+    repuestos: List[OTRepuestoItem] = []
 
 class OTResponse(OTCreate):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    numero: str
     costo_mano_obra: float
     costo_repuestos: float
     costo_servicios: float
     costo_total: float
-    fecha_inicio: Optional[datetime] = None
-    fecha_fin: Optional[datetime] = None
     tiempo_real_horas: Optional[float] = None
 
 class OTEstadoUpdate(BaseModel):
@@ -1435,9 +1471,72 @@ async def list_ots(
     result = await db.execute(q.limit(200))
     return result.scalars().all()
 
+async def _generar_numero_ot(db: AsyncSession) -> str:
+    """Consecutivo del año. Se toma el sufijo más alto, no la cantidad de OTs:
+    contando, la primera OT borrada repite número y choca con el UNIQUE."""
+    anio = datetime.now().year
+    patron = f"OT-{anio}-"
+    r = await db.execute(
+        select(EAMOrdenTrabajo.numero).where(EAMOrdenTrabajo.numero.like(f"{patron}%"))
+    )
+    maximo = 0
+    for (numero,) in r.all():
+        sufijo = (numero or "")[len(patron):]
+        if sufijo.isdigit():
+            maximo = max(maximo, int(sufijo))
+    return f"{patron}{maximo + 1:04d}"
+
+
+async def _validar_activo(db: AsyncSession, activo_id: int) -> None:
+    activo = await db.get(EAMActivo, activo_id)
+    if not activo:
+        raise HTTPException(400, f"El activo {activo_id} no existe")
+
+
+def _recalcular_costos(obj: EAMOrdenTrabajo) -> None:
+    """La mano de obra y los repuestos salen de las líneas, no se escriben a
+    mano: así el total de la OT siempre cuadra con su detalle."""
+    obj.costo_mano_obra = sum(t.costo_total or 0 for t in obj.trabajos)
+    obj.costo_repuestos = sum(r.costo_total or 0 for r in obj.repuestos)
+    obj.costo_total = (
+        (obj.costo_mano_obra or 0) + (obj.costo_repuestos or 0) + (obj.costo_servicios or 0)
+    )
+
+
+def _aplicar_lineas(obj: EAMOrdenTrabajo, data: OTCreate) -> None:
+    """Las líneas se reemplazan completas: el formulario manda el detalle
+    entero, así que reconciliar fila por fila solo agregaría estados raros."""
+    obj.trabajos.clear()
+    obj.repuestos.clear()
+    for t in data.trabajos:
+        # Si vienen horas y tarifa, manda el producto; si no, el costo suelto.
+        costo = t.costo_total or 0
+        if t.horas and t.tarifa_hora:
+            costo = t.horas * t.tarifa_hora
+        obj.trabajos.append(EAMOTManoObra(
+            actividad=t.actividad, tecnico=t.tecnico,
+            tipo_trabajo_id=t.tipo_trabajo_id,
+            sistema=t.sistema, subsistema=t.subsistema,
+            horas=t.horas, tarifa_hora=t.tarifa_hora, costo_total=costo,
+            observaciones=t.observaciones,
+        ))
+    for r in data.repuestos:
+        cantidad = r.cantidad or 0
+        obj.repuestos.append(EAMOTMaterial(
+            repuesto_id=r.repuesto_id, descripcion=r.descripcion,
+            cantidad=cantidad, unidad=r.unidad, costo_unit=r.costo_unit or 0,
+            costo_total=cantidad * (r.costo_unit or 0),
+        ))
+
+
 @router.post("/ots", response_model=OTResponse)
 async def create_ot(data: OTCreate, db: AsyncSession = Depends(get_db)):
-    obj = EAMOrdenTrabajo(**data.model_dump())
+    await _validar_activo(db, data.activo_id)
+    payload = data.model_dump(exclude={"trabajos", "repuestos", "numero"})
+    obj = EAMOrdenTrabajo(**payload)
+    obj.numero = data.numero or await _generar_numero_ot(db)
+    _aplicar_lineas(obj, data)
+    _recalcular_costos(obj)
     db.add(obj); await db.commit(); await db.refresh(obj)
     return obj
 
@@ -1447,6 +1546,27 @@ async def get_ot(ot_id: int, db: AsyncSession = Depends(get_db)):
     if not obj:
         raise HTTPException(404, "OT no encontrada")
     return obj
+
+@router.put("/ots/{ot_id}", response_model=OTResponse)
+async def update_ot(ot_id: int, data: OTCreate, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMOrdenTrabajo, ot_id)
+    if not obj:
+        raise HTTPException(404, "OT no encontrada")
+    await _validar_activo(db, data.activo_id)
+    for k, v in data.model_dump(exclude={"trabajos", "repuestos", "numero"}).items():
+        setattr(obj, k, v)
+    _aplicar_lineas(obj, data)
+    _recalcular_costos(obj)
+    await db.commit(); await db.refresh(obj)
+    return obj
+
+@router.delete("/ots/{ot_id}", status_code=204)
+async def delete_ot(ot_id: int, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMOrdenTrabajo, ot_id)
+    if not obj:
+        raise HTTPException(404, "OT no encontrada")
+    await db.delete(obj)
+    await db.commit()
 
 @router.put("/ots/{ot_id}/estado")
 async def update_ot_estado(ot_id: int, data: OTEstadoUpdate, db: AsyncSession = Depends(get_db)):

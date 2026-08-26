@@ -271,6 +271,37 @@ async def lifespan(app: FastAPI):
                 "ALTER TABLE eam_activo ADD COLUMN IF NOT EXISTS %s %s" % (columna, tipo)
             ))
 
+        # Órdenes de trabajo: imputación contable, sede y origen de la OT.
+        for columna, tipo in [
+            ("centro_costo", "VARCHAR(120)"),
+            ("ciudad", "VARCHAR(100)"),
+            ("afecta_disponibilidad", "BOOLEAN DEFAULT true"),
+            ("es_falla", "BOOLEAN DEFAULT false"),
+            ("fecha_posible_cierre", "TIMESTAMP"),
+        ]:
+            await conn.execute(text(
+                "ALTER TABLE eam_orden_trabajo ADD COLUMN IF NOT EXISTS %s %s" % (columna, tipo)
+            ))
+
+        # Líneas de la OT. eam_ot_mano_obra pasa a ser el detalle de trabajos,
+        # así que el técnico deja de ser obligatorio: una OT se cotiza antes de
+        # saber quién la ejecuta.
+        for columna, tipo in [
+            ("tipo_trabajo_id", "INTEGER"),
+            ("sistema", "VARCHAR(100)"),
+            ("subsistema", "VARCHAR(100)"),
+            ("observaciones", "TEXT"),
+        ]:
+            await conn.execute(text(
+                "ALTER TABLE eam_ot_mano_obra ADD COLUMN IF NOT EXISTS %s %s" % (columna, tipo)
+            ))
+        await conn.execute(text(
+            "ALTER TABLE eam_ot_mano_obra ALTER COLUMN tecnico DROP NOT NULL"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE eam_ot_mano_obra ALTER COLUMN actividad TYPE VARCHAR(300)"
+        ))
+
         # Políticas de GRC: la ficha muestra de qué trata la política y cada
         # cuánto se revisa, pero la tabla solo tenía el alcance.
         for columna, tipo in [
@@ -904,6 +935,83 @@ async def lifespan(app: FastAPI):
                 ('TIPO_CAMBIO','Normativo',6)
             ) AS v(tipo, nombre, orden)
             ON CONFLICT DO NOTHING
+        """))
+
+        # Catálogos de la OT. Estaban vacíos, así que los desplegables del
+        # módulo salían sin opciones y no se podía crear una OT completa.
+        await conn.execute(text("""
+            INSERT INTO eam_tipo_trabajo (nombre, categoria, activo, created_at, updated_at)
+            SELECT v.nombre, v.categoria, true, now(), now()
+            FROM (VALUES
+                ('Mantenimiento preventivo','PREVENTIVO'),
+                ('Mantenimiento correctivo','CORRECTIVO'),
+                ('Mantenimiento predictivo','PREDICTIVO'),
+                ('Inspección visual','INSPECCION'),
+                ('Cambio de aceite y filtros','PREVENTIVO'),
+                ('Servicio eléctrico','CORRECTIVO'),
+                ('Servicio mecánico','CORRECTIVO'),
+                ('Servicio hidráulico','CORRECTIVO'),
+                ('Calibración','PREDICTIVO'),
+                ('Lubricación','PREVENTIVO'),
+                ('Soldadura','CORRECTIVO'),
+                ('Atención de emergencia','EMERGENCIA')
+            ) AS v(nombre, categoria)
+            WHERE NOT EXISTS (
+                SELECT 1 FROM eam_tipo_trabajo t WHERE t.nombre = v.nombre
+            )
+        """))
+        await conn.execute(text("""
+            INSERT INTO eam_falla_catalogo (codigo, descripcion, activo, created_at, updated_at)
+            SELECT v.codigo, v.descripcion, true, now(), now()
+            FROM (VALUES
+                ('FAL-01','Falla eléctrica'),
+                ('FAL-02','Falla mecánica'),
+                ('FAL-03','Fuga de fluidos'),
+                ('FAL-04','Desgaste prematuro'),
+                ('FAL-05','Sobrecalentamiento'),
+                ('FAL-06','Vibración excesiva'),
+                ('FAL-07','Ruido anormal'),
+                ('FAL-08','Pérdida de presión'),
+                ('FAL-09','Corrosión'),
+                ('FAL-10','Mantenimiento programado')
+            ) AS v(codigo, descripcion)
+            WHERE NOT EXISTS (
+                SELECT 1 FROM eam_falla_catalogo f WHERE f.codigo = v.codigo
+            )
+        """))
+        await conn.execute(text("""
+            INSERT INTO eam_causa_catalogo (descripcion, activo, created_at, updated_at)
+            SELECT v.descripcion, true, now(), now()
+            FROM (VALUES
+                ('Desgaste normal por uso'),
+                ('Falta de mantenimiento'),
+                ('Error de operación'),
+                ('Defecto de fábrica'),
+                ('Repuesto de mala calidad'),
+                ('Condiciones ambientales'),
+                ('Sobrecarga del equipo'),
+                ('Fin de vida útil')
+            ) AS v(descripcion)
+            WHERE NOT EXISTS (
+                SELECT 1 FROM eam_causa_catalogo c WHERE c.descripcion = v.descripcion
+            )
+        """))
+        await conn.execute(text("""
+            INSERT INTO eam_solucion_catalogo (descripcion, activo, created_at, updated_at)
+            SELECT v.descripcion, true, now(), now()
+            FROM (VALUES
+                ('Cambio de pieza'),
+                ('Reparación en sitio'),
+                ('Reparación en taller'),
+                ('Ajuste o calibración'),
+                ('Limpieza y lubricación'),
+                ('Reemplazo del equipo'),
+                ('Actualización de software'),
+                ('Sin intervención requerida')
+            ) AS v(descripcion)
+            WHERE NOT EXISTS (
+                SELECT 1 FROM eam_solucion_catalogo s WHERE s.descripcion = v.descripcion
+            )
         """))
 
         # Contratistas del CMMS: tipo y, colgadas de cada tipo, sus especialidades.
