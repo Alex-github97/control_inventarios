@@ -838,6 +838,50 @@ async def lifespan(app: FastAPI):
             ON CONFLICT DO NOTHING
         """))
 
+        # TIPO_NOCONFORMIDAD se sembró antes de notar que la clasificación de una
+        # NC es un enum de la base. Al salir del registro sus filas quedan
+        # huérfanas, así que se limpian.
+        await conn.execute(text("""
+            DELETE FROM catalogo_maestro
+            WHERE modulo = 'QMS' AND tipo = 'TIPO_NOCONFORMIDAD'
+        """))
+
+        # Catálogos de QMS que corresponden a columnas de texto libre.
+        await conn.execute(text("""
+            INSERT INTO catalogo_maestro (modulo, tipo, nombre, padre_id, orden, activo, created_at, updated_at)
+            SELECT 'QMS', v.tipo, v.nombre, NULL, v.orden, true, now(), now()
+            FROM (VALUES
+                ('TIPO_HALLAZGO','No conformidad',1),
+                ('TIPO_HALLAZGO','Observación',2),
+                ('TIPO_HALLAZGO','Oportunidad de mejora',3),
+                ('TIPO_HALLAZGO','Fortaleza',4),
+                ('IMPACTO','Alto',1), ('IMPACTO','Medio',2), ('IMPACTO','Bajo',3),
+                ('NORMA_ISO','ISO 9001:2015',1),
+                ('NORMA_ISO','ISO 14001:2015',2),
+                ('NORMA_ISO','ISO 45001:2018',3),
+                ('NORMA_ISO','ISO 28000',4),
+                ('NORMA_ISO','BASC',5),
+                ('NORMA_ISO','RUC',6),
+                ('TIPO_QUEJA','Queja',1), ('TIPO_QUEJA','Reclamo',2),
+                ('TIPO_QUEJA','Sugerencia',3), ('TIPO_QUEJA','Felicitación',4),
+                ('TIPO_QUEJA','Petición',5),
+                ('ESTADO_QUEJA','Abierta',1), ('ESTADO_QUEJA','En gestión',2),
+                ('ESTADO_QUEJA','Respondida',3), ('ESTADO_QUEJA','Cerrada',4),
+                ('ORIGEN_QUEJA','Correo electrónico',1), ('ORIGEN_QUEJA','Teléfono',2),
+                ('ORIGEN_QUEJA','Portal web',3), ('ORIGEN_QUEJA','Presencial',4),
+                ('ORIGEN_QUEJA','Redes sociales',5), ('ORIGEN_QUEJA','Encuesta',6),
+                ('ORIGEN_QUEJA','Comercial',7),
+                ('ESTADO_RIESGO','Activo',1), ('ESTADO_RIESGO','Mitigado',2),
+                ('ESTADO_RIESGO','Aceptado',3), ('ESTADO_RIESGO','Transferido',4),
+                ('ESTADO_RIESGO','Cerrado',5),
+                ('TIPO_CAMBIO','De proceso',1), ('TIPO_CAMBIO','Documental',2),
+                ('TIPO_CAMBIO','Tecnológico',3), ('TIPO_CAMBIO','Organizacional',4),
+                ('TIPO_CAMBIO','De infraestructura',5),
+                ('TIPO_CAMBIO','Normativo',6)
+            ) AS v(tipo, nombre, orden)
+            ON CONFLICT DO NOTHING
+        """))
+
         # Contratistas del CMMS: tipo y, colgadas de cada tipo, sus especialidades.
         await conn.execute(text("""
             INSERT INTO catalogo_maestro (modulo, tipo, nombre, padre_id, orden, activo, created_at, updated_at)

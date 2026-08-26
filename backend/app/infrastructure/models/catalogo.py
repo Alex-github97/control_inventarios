@@ -132,8 +132,18 @@ CATALOGOS_REGISTRO = [
     _c("SST", "MOTIVO_INSPECCION", "Motivos de inspección", "Por qué se inspecciona"),
 
     # ── Calidad QMS ──────────────────────────────────────────────────────
-    _c("QMS", "TIPO_NOCONFORMIDAD", "Tipos de no conformidad", "Clasificación del hallazgo"),
     _c("QMS", "CAUSA_RAIZ", "Causas raíz", "Categorías de causa"),
+    # Los siguientes corresponden a columnas de texto libre del modelo. Los que
+    # faltan aquí a propósito (estado de hallazgo, de mejora y de cambio, y la
+    # prioridad del riesgo) son enums que la base ya restringe.
+    _c("QMS", "TIPO_HALLAZGO", "Tipos de hallazgo", "Cómo se clasifica lo encontrado"),
+    _c("QMS", "IMPACTO", "Niveles de impacto", "Alto, medio, bajo"),
+    _c("QMS", "NORMA_ISO", "Normas", "Norma o requisito aplicable"),
+    _c("QMS", "TIPO_QUEJA", "Tipos de PQRS", "Queja, reclamo, sugerencia…"),
+    _c("QMS", "ESTADO_QUEJA", "Estados de PQRS", "En qué va la gestión"),
+    _c("QMS", "ORIGEN_QUEJA", "Canales de PQRS", "Por dónde llegó"),
+    _c("QMS", "ESTADO_RIESGO", "Estados del riesgo", "Activo, mitigado, aceptado…"),
+    _c("QMS", "TIPO_CAMBIO", "Tipos de cambio", "Qué se está cambiando"),
     _c("QMS", "TIPO_AUDITORIA", "Tipos de auditoría", "Interna, externa, de proveedor"),
 
     # ── Gobierno GRC ─────────────────────────────────────────────────────
