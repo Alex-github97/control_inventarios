@@ -301,6 +301,12 @@ async def lifespan(app: FastAPI):
         await conn.execute(text(
             "ALTER TABLE eam_ot_mano_obra ALTER COLUMN actividad TYPE VARCHAR(300)"
         ))
+        # Proveedor por línea: cada trabajo o repuesto puede correr por cuenta
+        # de un contratista distinto al principal de la OT. NULL = taller interno.
+        for tabla in ("eam_ot_mano_obra", "eam_ot_material"):
+            await conn.execute(text(
+                "ALTER TABLE %s ADD COLUMN IF NOT EXISTS contratista_id INTEGER" % tabla
+            ))
 
         # Políticas de GRC: la ficha muestra de qué trata la política y cada
         # cuánto se revisa, pero la tabla solo tenía el alcance.
@@ -1012,6 +1018,22 @@ async def lifespan(app: FastAPI):
             WHERE NOT EXISTS (
                 SELECT 1 FROM eam_solucion_catalogo s WHERE s.descripcion = v.descripcion
             )
+        """))
+
+        # Especialidades del taller interno. Los técnicos cuelgan de ellas y se
+        # dan de alta desde CMMS · Configuración · Catálogos; acá solo se
+        # siembran las especialidades para que el árbol no arranque vacío.
+        await conn.execute(text("""
+            INSERT INTO catalogo_maestro (modulo, tipo, nombre, padre_id, orden, activo, created_at, updated_at)
+            SELECT 'EAM', 'ESPECIALIDAD_TECNICO', v.nombre, NULL, v.orden, true, now(), now()
+            FROM (VALUES
+                ('Mecánica general', 1), ('Eléctrico y electrónico', 2),
+                ('Frenos y suspensión', 3), ('Transmisión y caja', 4),
+                ('Hidráulica', 5), ('Llantas y alineación', 6),
+                ('Latonería y pintura', 7), ('Refrigeración', 8),
+                ('Soldadura', 9), ('Lubricación', 10)
+            ) AS v(nombre, orden)
+            ON CONFLICT DO NOTHING
         """))
 
         # Contratistas del CMMS: tipo y, colgadas de cada tipo, sus especialidades.

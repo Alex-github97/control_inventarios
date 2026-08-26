@@ -428,6 +428,9 @@ class EAMOTMaterial(Base, TimestampMixin):
     unidad      = Column(String(30))
     costo_unit  = Column(Float)
     costo_total = Column(Float)
+    # Quién suministró el repuesto. NULL = taller interno; puede diferir del
+    # proveedor principal de la OT.
+    contratista_id = Column(Integer, ForeignKey("eam_contratista.id"), nullable=True)
 
     ot = relationship("EAMOrdenTrabajo", back_populates="repuestos")
 
@@ -453,6 +456,9 @@ class EAMOTManoObra(Base, TimestampMixin):
     sistema     = Column(String(100))
     subsistema  = Column(String(100))
     observaciones = Column(Text)
+    # Quién ejecutó el trabajo. NULL = taller interno, y en ese caso el
+    # responsable es `tecnico`. Puede diferir del proveedor principal de la OT.
+    contratista_id = Column(Integer, ForeignKey("eam_contratista.id"), nullable=True)
 
     ot = relationship("EAMOrdenTrabajo", back_populates="trabajos")
 

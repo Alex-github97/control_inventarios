@@ -263,11 +263,12 @@ class PlanMantenimientoResponse(PlanMantenimientoCreate):
     activo: bool
 
 class OTTrabajoItem(BaseModel):
-    """Una línea de eam_ot_mano_obra."""
+    """Una línea de eam_ot_mano_obra. `contratista_id` en None = taller interno."""
     model_config = ConfigDict(from_attributes=True)
     id: Optional[int] = None
     actividad: str
     tecnico: Optional[str] = None
+    contratista_id: Optional[int] = None
     tipo_trabajo_id: Optional[int] = None
     sistema: Optional[str] = None
     subsistema: Optional[str] = None
@@ -277,10 +278,11 @@ class OTTrabajoItem(BaseModel):
     observaciones: Optional[str] = None
 
 class OTRepuestoItem(BaseModel):
-    """Una línea de eam_ot_material."""
+    """Una línea de eam_ot_material. `contratista_id` en None = taller interno."""
     model_config = ConfigDict(from_attributes=True)
     id: Optional[int] = None
     repuesto_id: Optional[int] = None
+    contratista_id: Optional[int] = None
     descripcion: str
     cantidad: float = 1
     unidad: Optional[str] = None
@@ -1514,7 +1516,11 @@ def _aplicar_lineas(obj: EAMOrdenTrabajo, data: OTCreate) -> None:
         if t.horas and t.tarifa_hora:
             costo = t.horas * t.tarifa_hora
         obj.trabajos.append(EAMOTManoObra(
-            actividad=t.actividad, tecnico=t.tecnico,
+            actividad=t.actividad,
+            # El técnico solo aplica al taller interno: si la línea la hizo un
+            # contratista, guardar además un técnico propio confunde el reporte.
+            tecnico=None if t.contratista_id else t.tecnico,
+            contratista_id=t.contratista_id,
             tipo_trabajo_id=t.tipo_trabajo_id,
             sistema=t.sistema, subsistema=t.subsistema,
             horas=t.horas, tarifa_hora=t.tarifa_hora, costo_total=costo,
@@ -1524,16 +1530,25 @@ def _aplicar_lineas(obj: EAMOrdenTrabajo, data: OTCreate) -> None:
         cantidad = r.cantidad or 0
         obj.repuestos.append(EAMOTMaterial(
             repuesto_id=r.repuesto_id, descripcion=r.descripcion,
+            contratista_id=r.contratista_id,
             cantidad=cantidad, unidad=r.unidad, costo_unit=r.costo_unit or 0,
             costo_total=cantidad * (r.costo_unit or 0),
         ))
 
 
+def _payload_ot(data: OTCreate) -> dict:
+    """El técnico responsable es del taller interno. Si la OT se le entrega a un
+    contratista, se descarta para que no queden los dos responsables a la vez."""
+    payload = data.model_dump(exclude={"trabajos", "repuestos", "numero"})
+    if payload.get("contratista_id"):
+        payload["tecnico_asignado"] = None
+    return payload
+
+
 @router.post("/ots", response_model=OTResponse)
 async def create_ot(data: OTCreate, db: AsyncSession = Depends(get_db)):
     await _validar_activo(db, data.activo_id)
-    payload = data.model_dump(exclude={"trabajos", "repuestos", "numero"})
-    obj = EAMOrdenTrabajo(**payload)
+    obj = EAMOrdenTrabajo(**_payload_ot(data))
     obj.numero = data.numero or await _generar_numero_ot(db)
     _aplicar_lineas(obj, data)
     _recalcular_costos(obj)
@@ -1553,7 +1568,7 @@ async def update_ot(ot_id: int, data: OTCreate, db: AsyncSession = Depends(get_d
     if not obj:
         raise HTTPException(404, "OT no encontrada")
     await _validar_activo(db, data.activo_id)
-    for k, v in data.model_dump(exclude={"trabajos", "repuestos", "numero"}).items():
+    for k, v in _payload_ot(data).items():
         setattr(obj, k, v)
     _aplicar_lineas(obj, data)
     _recalcular_costos(obj)

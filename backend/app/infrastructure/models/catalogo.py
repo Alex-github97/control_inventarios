@@ -109,6 +109,9 @@ CATALOGOS_REGISTRO = [
     # que ese tipo de contratista no presta.
     _c("EAM", "TIPO_CONTRATISTA", "Tipos de contratista", "Taller, proveedor, técnico externo…"),
     _c("EAM", "ESPECIALIDAD_CONTRATISTA", "Especialidades", "Qué hace, según su tipo", "TIPO_CONTRATISTA"),
+    _c("EAM", "ESPECIALIDAD_TECNICO", "Especialidades del taller", "Mecánica, eléctrico, llantas…"),
+    _c("EAM", "TECNICO", "Técnicos del taller interno", "Quién puede atender una OT propia",
+       "ESPECIALIDAD_TECNICO"),
 
     # ── Almacén WMS ──────────────────────────────────────────────────────
     _c("WMS", "CATEGORIA_PRODUCTO", "Categorías de producto", "Primer nivel del surtido"),

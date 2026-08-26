@@ -26,7 +26,6 @@ import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
 import { apiClient as api } from '@/api/client'
 import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
-import { SelectorResponsable } from '@/components/catalogo/SelectorResponsable'
 
 const EAM_COLOR = '#32AC5C'
 const EAM_DARK = '#27884A'
@@ -35,11 +34,12 @@ type OTEstado = 'PENDIENTE' | 'ASIGNADA' | 'EN_EJECUCION' | 'EN_ESPERA_REPUESTOS
 type OTPrioridad = 'URGENTE' | 'ALTA' | 'MEDIA' | 'BAJA'
 type OTTipo = 'PREVENTIVA' | 'CORRECTIVA' | 'PREDICTIVA' | 'EMERGENCIA'
 
-/** Línea de eam_ot_mano_obra. */
+/** Línea de eam_ot_mano_obra. `contratista_id` en null = taller interno. */
 interface TrabajoLinea {
   id?: number
   actividad: string
   tecnico?: string | null
+  contratista_id?: number | null
   tipo_trabajo_id?: number | null
   sistema?: string | null
   subsistema?: string | null
@@ -49,10 +49,11 @@ interface TrabajoLinea {
   observaciones?: string | null
 }
 
-/** Línea de eam_ot_material. */
+/** Línea de eam_ot_material. `contratista_id` en null = taller interno. */
 interface RepuestoLinea {
   id?: number
   repuesto_id?: number | null
+  contratista_id?: number | null
   descripcion: string
   cantidad: number
   unidad?: string | null
@@ -147,6 +148,9 @@ const diasDesde = (v?: string | null) => {
   return Math.max(0, Math.floor((Date.now() - new Date(v).getTime()) / 86_400_000))
 }
 
+/** En los selectores el taller interno es la opción vacía. */
+const idProveedor = (v: string): number | null => (v ? Number(v) : null)
+
 const nuevoFormulario = () => ({
   activo_id: '', tipo_ot: 'PREVENTIVA', prioridad: 'MEDIA', estado: 'PENDIENTE',
   descripcion: '', tecnico_asignado: '', contratista_id: '', tipo_trabajo_id: '',
@@ -200,9 +204,11 @@ interface ContextoOT {
 
 // ─── Tarjeta del Kanban ───────────────────────────────────────────────────────
 
-function OTCard({ ot, etiquetaActivo, onOpen, onDragStart, onDragEnd, isDragging }: {
+function OTCard({ ot, etiquetaActivo, responsable, onOpen, onDragStart, onDragEnd, isDragging }: {
   ot: OT
   etiquetaActivo: string
+  /** Técnico del taller propio, o el contratista que atiende la OT. */
+  responsable: string
   onOpen: () => void
   onDragStart: () => void
   onDragEnd: () => void
@@ -245,7 +251,7 @@ function OTCard({ ot, etiquetaActivo, onOpen, onDragStart, onDragEnd, isDragging
           <Typography sx={{ fontSize: 10, color: 'text.secondary' }}>{pesos(ot.costo_total)}</Typography>
         </Box>
         <Typography sx={{ fontSize: 9.5, color: 'text.disabled', mt: 0.5 }}>
-          {ot.tecnico_asignado || 'Sin asignar'} · req. {soloFecha(ot.fecha_requerida)}
+          {responsable} · req. {soloFecha(ot.fecha_requerida)}
         </Typography>
       </CardContent>
     </Card>
@@ -259,13 +265,18 @@ function OTCard({ ot, etiquetaActivo, onOpen, onDragStart, onDragEnd, isDragging
  * React lo trataría como un tipo nuevo en cada render, desmontaría los campos y
  * el foco se perdería con cada tecla.
  */
-function EditorLineas({ ts, rs, setTs, setRs, servicios, tiposTrabajo }: {
+function EditorLineas({
+  ts, rs, setTs, setRs, servicios, tiposTrabajo, contratistas, proveedorPrincipal,
+}: {
   ts: TrabajoLinea[]
   rs: RepuestoLinea[]
   setTs: React.Dispatch<React.SetStateAction<TrabajoLinea[]>>
   setRs: React.Dispatch<React.SetStateAction<RepuestoLinea[]>>
   servicios: number
   tiposTrabajo: CatalogoItem[]
+  contratistas: Contratista[]
+  /** '' = taller interno. Las líneas nuevas lo heredan. */
+  proveedorPrincipal: string
 }) {
   const totalMO = ts.reduce(
     (s, t) => s + (t.horas && t.tarifa_hora ? t.horas * t.tarifa_hora : t.costo_total || 0), 0)
@@ -277,7 +288,9 @@ function EditorLineas({ ts, rs, setTs, setRs, servicios, tiposTrabajo }: {
         <Build sx={{ fontSize: 16, color: EAM_COLOR }} />
         <Typography sx={{ fontSize: 13, fontWeight: 700 }}>Trabajos</Typography>
         <Button size="small" startIcon={<Add />}
-          onClick={() => setTs(p => [...p, { actividad: '', costo_total: 0 }])}>
+          onClick={() => setTs(p => [...p, {
+            actividad: '', costo_total: 0, contratista_id: idProveedor(proveedorPrincipal),
+          }])}>
           Agregar
         </Button>
       </Box>
@@ -286,46 +299,78 @@ function EditorLineas({ ts, rs, setTs, setRs, servicios, tiposTrabajo }: {
           Sin trabajos registrados.
         </Typography>
       )}
-      {ts.map((t, i) => (
-        <Grid container spacing={1} key={t.id ?? `t-${i}`} sx={{ mb: 1 }}>
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <TextField label="Trabajo" size="small" fullWidth value={t.actividad}
-              onChange={e => setTs(p => p.map((x, j) => j === i ? { ...x, actividad: e.target.value } : x))} />
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <TextField select label="Tipo" size="small" fullWidth
-              value={t.tipo_trabajo_id != null ? String(t.tipo_trabajo_id) : ''}
-              onChange={e => setTs(p => p.map((x, j) => j === i
-                ? { ...x, tipo_trabajo_id: e.target.value ? Number(e.target.value) : null } : x))}>
-              <MenuItem value="">Sin especificar</MenuItem>
-              {tiposTrabajo.map(tt => <MenuItem key={tt.id} value={String(tt.id)}>{tt.nombre}</MenuItem>)}
-            </TextField>
-          </Grid>
-          <Grid size={{ xs: 6, sm: 2 }}>
-            <TextField label="Sistema" size="small" fullWidth value={t.sistema ?? ''}
-              onChange={e => setTs(p => p.map((x, j) => j === i ? { ...x, sistema: e.target.value } : x))} />
-          </Grid>
-          <Grid size={{ xs: 9, sm: 2 }}>
-            <TextField label="Mano de obra" size="small" fullWidth type="number"
-              value={t.costo_total || ''}
-              InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-              onChange={e => setTs(p => p.map((x, j) => j === i
-                ? { ...x, costo_total: Number(e.target.value || 0) } : x))} />
-          </Grid>
-          <Grid size={{ xs: 3, sm: 1 }}>
-            <IconButton size="small" onClick={() => setTs(p => p.filter((_, j) => j !== i))}>
-              <DeleteForever sx={{ fontSize: 16, color: '#DC2626' }} />
-            </IconButton>
-          </Grid>
-        </Grid>
-      ))}
+      {ts.map((t, i) => {
+        const interno = !t.contratista_id
+        return (
+          <Box key={t.id ?? `t-${i}`} sx={{
+            mb: 1.5, p: 1.5, border: '1px solid #E5E7EB', borderRadius: 1.5,
+            borderLeft: `3px solid ${interno ? EAM_COLOR : '#F59E0B'}`,
+          }}>
+            <Grid container spacing={1}>
+              <Grid size={{ xs: 12, sm: 5 }}>
+                <TextField label="Trabajo" size="small" fullWidth value={t.actividad}
+                  onChange={e => setTs(p => p.map((x, j) => j === i ? { ...x, actividad: e.target.value } : x))} />
+              </Grid>
+              <Grid size={{ xs: 6, sm: 4 }}>
+                <TextField select label="Tipo de trabajo" size="small" fullWidth
+                  value={t.tipo_trabajo_id != null ? String(t.tipo_trabajo_id) : ''}
+                  onChange={e => setTs(p => p.map((x, j) => j === i
+                    ? { ...x, tipo_trabajo_id: e.target.value ? Number(e.target.value) : null } : x))}>
+                  <MenuItem value="">Sin especificar</MenuItem>
+                  {tiposTrabajo.map(tt => <MenuItem key={tt.id} value={String(tt.id)}>{tt.nombre}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid size={{ xs: 6, sm: 3 }}>
+                <TextField label="Sistema" size="small" fullWidth value={t.sistema ?? ''}
+                  onChange={e => setTs(p => p.map((x, j) => j === i ? { ...x, sistema: e.target.value } : x))} />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <TextField select label="Ejecuta" size="small" fullWidth
+                  value={t.contratista_id != null ? String(t.contratista_id) : ''}
+                  onChange={e => {
+                    const id = e.target.value ? Number(e.target.value) : null
+                    // Si pasa a un contratista, el técnico propio deja de aplicar.
+                    setTs(p => p.map((x, j) => j === i
+                      ? { ...x, contratista_id: id, tecnico: id ? null : x.tecnico } : x))
+                  }}>
+                  <MenuItem value="">Taller interno</MenuItem>
+                  {contratistas.map(c => <MenuItem key={c.id} value={String(c.id)}>{c.nombre}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                {/* El técnico solo tiene sentido cuando lo hace el taller propio. */}
+                <SelectorCatalogo modulo="EAM" tipo="TECNICO" label="Técnico"
+                  valor={t.tecnico ?? ''} deshabilitado={!interno}
+                  ayuda={interno ? undefined : 'Lo ejecuta un contratista'}
+                  onChange={v => setTs(p => p.map((x, j) => j === i ? { ...x, tecnico: v } : x))} />
+              </Grid>
+              <Grid size={{ xs: 9, sm: 3 }}>
+                <TextField label="Mano de obra" size="small" fullWidth type="number"
+                  value={t.costo_total || ''}
+                  InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                  onChange={e => setTs(p => p.map((x, j) => j === i
+                    ? { ...x, costo_total: Number(e.target.value || 0) } : x))} />
+              </Grid>
+              <Grid size={{ xs: 3, sm: 1 }}>
+                <IconButton size="small" onClick={() => setTs(p => p.filter((_, j) => j !== i))}>
+                  <DeleteForever sx={{ fontSize: 16, color: '#DC2626' }} />
+                </IconButton>
+              </Grid>
+            </Grid>
+          </Box>
+        )
+      })}
 
       <Divider sx={{ my: 1.5 }} />
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
         <Inventory2 sx={{ fontSize: 16, color: EAM_COLOR }} />
         <Typography sx={{ fontSize: 13, fontWeight: 700 }}>Repuestos</Typography>
         <Button size="small" startIcon={<Add />}
-          onClick={() => setRs(p => [...p, { descripcion: '', cantidad: 1, costo_unit: 0, costo_total: 0 }])}>
+          onClick={() => setRs(p => [...p, {
+            descripcion: '', cantidad: 1, costo_unit: 0, costo_total: 0,
+            contratista_id: idProveedor(proveedorPrincipal),
+          }])}>
           Agregar
         </Button>
       </Box>
@@ -335,34 +380,48 @@ function EditorLineas({ ts, rs, setTs, setRs, servicios, tiposTrabajo }: {
         </Typography>
       )}
       {rs.map((r, i) => (
-        <Grid container spacing={1} key={r.id ?? `r-${i}`} sx={{ mb: 1 }}>
-          <Grid size={{ xs: 12, sm: 5 }}>
-            <TextField label="Repuesto" size="small" fullWidth value={r.descripcion}
-              onChange={e => setRs(p => p.map((x, j) => j === i ? { ...x, descripcion: e.target.value } : x))} />
+        <Box key={r.id ?? `r-${i}`} sx={{
+          mb: 1.5, p: 1.5, border: '1px solid #E5E7EB', borderRadius: 1.5,
+          borderLeft: `3px solid ${r.contratista_id ? '#F59E0B' : EAM_COLOR}`,
+        }}>
+          <Grid container spacing={1}>
+            <Grid size={{ xs: 12, sm: 4 }}>
+              <TextField label="Repuesto" size="small" fullWidth value={r.descripcion}
+                onChange={e => setRs(p => p.map((x, j) => j === i ? { ...x, descripcion: e.target.value } : x))} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 3 }}>
+              <TextField select label="Suministra" size="small" fullWidth
+                value={r.contratista_id != null ? String(r.contratista_id) : ''}
+                onChange={e => setRs(p => p.map((x, j) => j === i
+                  ? { ...x, contratista_id: e.target.value ? Number(e.target.value) : null } : x))}>
+                <MenuItem value="">Taller interno</MenuItem>
+                {contratistas.map(c => <MenuItem key={c.id} value={String(c.id)}>{c.nombre}</MenuItem>)}
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 4, sm: 2 }}>
+              <TextField label="Cantidad" size="small" fullWidth type="number" value={r.cantidad}
+                onChange={e => setRs(p => p.map((x, j) => j === i
+                  ? { ...x, cantidad: Number(e.target.value || 0) } : x))} />
+            </Grid>
+            <Grid size={{ xs: 5, sm: 2 }}>
+              <TextField label="Precio unitario" size="small" fullWidth type="number"
+                value={r.costo_unit || ''}
+                InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                onChange={e => setRs(p => p.map((x, j) => j === i
+                  ? { ...x, costo_unit: Number(e.target.value || 0) } : x))} />
+            </Grid>
+            <Grid size={{ xs: 2, sm: 0.5 }}>
+              <Typography sx={{ fontSize: 12, pt: 1.2, fontWeight: 600 }}>
+                {pesos((r.cantidad || 0) * (r.costo_unit || 0))}
+              </Typography>
+            </Grid>
+            <Grid size={{ xs: 1, sm: 0.5 }}>
+              <IconButton size="small" onClick={() => setRs(p => p.filter((_, j) => j !== i))}>
+                <DeleteForever sx={{ fontSize: 16, color: '#DC2626' }} />
+              </IconButton>
+            </Grid>
           </Grid>
-          <Grid size={{ xs: 4, sm: 2 }}>
-            <TextField label="Cantidad" size="small" fullWidth type="number" value={r.cantidad}
-              onChange={e => setRs(p => p.map((x, j) => j === i
-                ? { ...x, cantidad: Number(e.target.value || 0) } : x))} />
-          </Grid>
-          <Grid size={{ xs: 5, sm: 3 }}>
-            <TextField label="Precio unitario" size="small" fullWidth type="number"
-              value={r.costo_unit || ''}
-              InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-              onChange={e => setRs(p => p.map((x, j) => j === i
-                ? { ...x, costo_unit: Number(e.target.value || 0) } : x))} />
-          </Grid>
-          <Grid size={{ xs: 2, sm: 1.5 }}>
-            <Typography sx={{ fontSize: 12, pt: 1.2, fontWeight: 600 }}>
-              {pesos((r.cantidad || 0) * (r.costo_unit || 0))}
-            </Typography>
-          </Grid>
-          <Grid size={{ xs: 1, sm: 0.5 }}>
-            <IconButton size="small" onClick={() => setRs(p => p.filter((_, j) => j !== i))}>
-              <DeleteForever sx={{ fontSize: 16, color: '#DC2626' }} />
-            </IconButton>
-          </Grid>
-        </Grid>
+        </Box>
       ))}
 
       <Box sx={{ mt: 2, p: 1.5, bgcolor: `${EAM_COLOR}0F`, borderRadius: 1.5 }}>
@@ -425,17 +484,29 @@ function CamposOT({ f, set, ctx }: { f: Formulario; set: SetFormulario; ctx: Con
       </Grid>
 
       <Grid size={{ xs: 12, md: 6 }}>
-        <SelectorResponsable label="Técnico asignado" valor={f.tecnico_asignado}
-          onChange={v => set(p => ({ ...p, tecnico_asignado: v }))} />
-      </Grid>
-      <Grid size={{ xs: 12, md: 6 }}>
-        <TextField select label="Contratista" size="small" fullWidth value={f.contratista_id}
-          onChange={e => set(p => ({ ...p, contratista_id: e.target.value }))}
+        <TextField select label="Proveedor principal *" size="small" fullWidth
+          value={f.contratista_id}
+          onChange={e => {
+            const v = e.target.value
+            // Al entregarle la OT a un contratista, el técnico propio deja de
+            // aplicar: el responsable pasa a ser el proveedor.
+            set(p => ({ ...p, contratista_id: v, tecnico_asignado: v ? '' : p.tecnico_asignado }))
+          }}
           helperText={contratistas.length === 0
-            ? 'Sin contratistas. Agréguelos en CMMS · Configuración.' : undefined}>
-          <MenuItem value="">Interno</MenuItem>
+            ? 'Sin contratistas cargados. Agréguelos en CMMS · Configuración.'
+            : 'Quién responde por la OT'}>
+          <MenuItem value="">Taller interno</MenuItem>
           {contratistas.map(c => <MenuItem key={c.id} value={String(c.id)}>{c.nombre}</MenuItem>)}
         </TextField>
+      </Grid>
+      <Grid size={{ xs: 12, md: 6 }}>
+        {/* El técnico responsable solo existe cuando la atiende el taller propio. */}
+        <SelectorCatalogo modulo="EAM" tipo="TECNICO" label="Técnico responsable"
+          valor={f.tecnico_asignado} deshabilitado={Boolean(f.contratista_id)}
+          ayuda={f.contratista_id
+            ? 'La OT la atiende un contratista'
+            : 'Los técnicos se dan de alta en CMMS · Configuración · Catálogos'}
+          onChange={v => set(p => ({ ...p, tecnico_asignado: v }))} />
       </Grid>
 
       <Grid size={{ xs: 12, md: 4 }}>
@@ -558,12 +629,13 @@ export default function EAMOrdenesTrabajo() {
   const [filtroEstado, setFiltroEstado] = useState('Todos')
   const [filtroTipo, setFiltroTipo] = useState('Todos')
   const [filtroPrioridad, setFiltroPrioridad] = useState('Todos')
-  const [filtroTecnico, setFiltroTecnico] = useState('Todos')
+  /** 'Todos' | 'interno' | id de contratista. */
+  const [filtroProveedor, setFiltroProveedor] = useState('Todos')
   const [filtroActivo, setFiltroActivo] = useState('Todos')
 
   const resetFiltros = () => {
     setFiltroBusqueda(''); setFiltroEstado('Todos'); setFiltroTipo('Todos')
-    setFiltroPrioridad('Todos'); setFiltroTecnico('Todos'); setFiltroActivo('Todos')
+    setFiltroPrioridad('Todos'); setFiltroProveedor('Todos'); setFiltroActivo('Todos')
   }
 
   const [form, setForm] = useState<Formulario>(nuevoFormulario())
@@ -617,6 +689,15 @@ export default function EAMOrdenesTrabajo() {
     const nombre = a.nombre ?? a.placa ?? `Activo #${id}`
     return a.codigo ? `${a.codigo} — ${nombre}` : nombre
   }
+
+  /** Sin contratista, lo hace el taller propio. */
+  const nombreProveedor = (id?: number | null) =>
+    (id ? contratistas.find(c => c.id === id)?.nombre ?? `Contratista #${id}` : 'Taller interno')
+
+  /** Quién responde: el contratista, o el técnico propio si es taller interno. */
+  const responsableDe = (ot: OT) =>
+    (ot.contratista_id ? nombreProveedor(ot.contratista_id)
+      : ot.tecnico_asignado || 'Taller interno · sin técnico')
 
   const err = (e: any) => {
     const d = e?.response?.data?.detail
@@ -702,30 +783,28 @@ export default function EAMOrdenesTrabajo() {
     setDraggedOT(null); setDragOverCol(null)
   }
 
-  const tecnicosPresentes = useMemo(
-    () => Array.from(new Set(ots.map(o => o.tecnico_asignado).filter(Boolean))) as string[],
-    [ots],
-  )
-
   const filtradas = useMemo(() => {
     const q = filtroBusqueda.trim().toLowerCase()
     return ots.filter(o => {
       if (filtroEstado !== 'Todos' && o.estado !== filtroEstado) return false
       if (filtroTipo !== 'Todos' && o.tipo_ot !== filtroTipo) return false
       if (filtroPrioridad !== 'Todos' && o.prioridad !== filtroPrioridad) return false
-      if (filtroTecnico !== 'Todos' && (o.tecnico_asignado ?? '') !== filtroTecnico) return false
+      if (filtroProveedor === 'interno' && o.contratista_id) return false
+      if (filtroProveedor !== 'Todos' && filtroProveedor !== 'interno'
+        && String(o.contratista_id ?? '') !== filtroProveedor) return false
       if (filtroActivo !== 'Todos' && String(o.activo_id) !== filtroActivo) return false
       if (!q) return true
       return [o.numero, o.descripcion, etiquetaActivo(o.activo_id), o.tecnico_asignado ?? '']
         .join(' ').toLowerCase().includes(q)
     })
-  }, [ots, filtroBusqueda, filtroEstado, filtroTipo, filtroPrioridad, filtroTecnico,
+  }, [ots, filtroBusqueda, filtroEstado, filtroTipo, filtroPrioridad, filtroProveedor,
       filtroActivo, activoPorId])
 
   const kpis = useMemo(() => ([
     { label: 'Abiertas', value: String(ots.filter(o => o.estado !== 'COMPLETADA').length), color: EAM_COLOR },
     { label: 'Urgentes', value: String(ots.filter(o => o.prioridad === 'URGENTE' && o.estado !== 'COMPLETADA').length), color: '#DC2626' },
-    { label: 'Sin técnico', value: String(ots.filter(o => !o.tecnico_asignado && o.estado !== 'COMPLETADA').length), color: '#F59E0B' },
+    // Ni contratista ni técnico propio: no hay a quién reclamarle la OT.
+    { label: 'Sin responsable', value: String(ots.filter(o => !o.contratista_id && !o.tecnico_asignado && o.estado !== 'COMPLETADA').length), color: '#F59E0B' },
     { label: 'Costo acumulado', value: pesos(ots.reduce((s, o) => s + (o.costo_total || 0), 0)), color: '#3B82F6' },
   ]), [ots])
 
@@ -827,10 +906,12 @@ export default function EAMOrdenesTrabajo() {
               <MenuItem value="Todos">Todas</MenuItem>
               {PRIORIDADES.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
             </TextField>
-            <TextField select size="small" label="Técnico" value={filtroTecnico}
-              onChange={e => setFiltroTecnico(e.target.value)} sx={{ minWidth: 160 }}>
+            {/* El técnico se busca por texto; acá pesa más quién responde. */}
+            <TextField select size="small" label="Proveedor" value={filtroProveedor}
+              onChange={e => setFiltroProveedor(e.target.value)} sx={{ minWidth: 180 }}>
               <MenuItem value="Todos">Todos</MenuItem>
-              {tecnicosPresentes.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+              <MenuItem value="interno">Taller interno</MenuItem>
+              {contratistas.map(c => <MenuItem key={c.id} value={String(c.id)}>{c.nombre}</MenuItem>)}
             </TextField>
             <TextField select size="small" label="Activo" value={filtroActivo}
               onChange={e => setFiltroActivo(e.target.value)} sx={{ minWidth: 200 }}>
@@ -876,6 +957,7 @@ export default function EAMOrdenesTrabajo() {
                     </Box>
                     {items.map(ot => (
                       <OTCard key={ot.id} ot={ot} etiquetaActivo={etiquetaActivo(ot.activo_id)}
+                        responsable={responsableDe(ot)}
                         onOpen={() => abrirOT(ot)}
                         onDragStart={() => setDraggedOT(ot)}
                         onDragEnd={() => { setDraggedOT(null); setDragOverCol(null) }}
@@ -901,7 +983,7 @@ export default function EAMOrdenesTrabajo() {
                   <TableRow sx={{ '& th': { borderColor: '#E5E7EB', color: 'text.secondary', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
                     <TableCell>OT</TableCell><TableCell>Activo</TableCell>
                     <TableCell>Tipo</TableCell><TableCell>Prioridad</TableCell>
-                    <TableCell>Estado</TableCell><TableCell>Técnico</TableCell>
+                    <TableCell>Estado</TableCell><TableCell>Responsable</TableCell>
                     <TableCell>Requerida</TableCell><TableCell>Días</TableCell>
                     <TableCell align="right">Costo</TableCell>
                     <TableCell sx={{ width: 80 }}>Acc.</TableCell>
@@ -937,7 +1019,7 @@ export default function EAMOrdenesTrabajo() {
                           color: ESTADO_COLOR[ot.estado ?? ''] ?? '#6B7280',
                         }} />
                       </TableCell>
-                      <TableCell sx={{ fontSize: 11 }}>{ot.tecnico_asignado || 'Sin asignar'}</TableCell>
+                      <TableCell sx={{ fontSize: 11 }}>{responsableDe(ot)}</TableCell>
                       <TableCell sx={{ fontSize: 11 }}>{soloFecha(ot.fecha_requerida)}</TableCell>
                       <TableCell sx={{ fontSize: 11 }}>
                         {ot.estado === 'COMPLETADA' ? '—' : diasDesde(ot.fecha_inicio)}
@@ -974,7 +1056,8 @@ export default function EAMOrdenesTrabajo() {
               <CamposOT f={form} set={setForm} ctx={ctx} />
               <Divider sx={{ my: 2.5 }} />
               <EditorLineas ts={trabajos} rs={repuestos} setTs={setTrabajos} setRs={setRepuestos}
-                servicios={Number(form.costo_servicios || 0)} tiposTrabajo={tiposTrabajo} />
+                servicios={Number(form.costo_servicios || 0)} tiposTrabajo={tiposTrabajo}
+                contratistas={contratistas} proveedorPrincipal={form.contratista_id} />
               <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
                 <Button onClick={() => { setForm(nuevoFormulario()); setTrabajos([]); setRepuestos([]) }}>
                   Limpiar
@@ -1014,7 +1097,9 @@ export default function EAMOrdenesTrabajo() {
                       ['Activo', etiquetaActivo(dlg.abierta.activo_id)],
                       ['Tipo', dlg.abierta.tipo_ot ?? '—'],
                       ['Prioridad', dlg.abierta.prioridad ?? '—'],
-                      ['Técnico', dlg.abierta.tecnico_asignado || 'Sin asignar'],
+                      ['Proveedor principal', nombreProveedor(dlg.abierta.contratista_id)],
+                      ['Técnico', dlg.abierta.contratista_id
+                        ? '—' : (dlg.abierta.tecnico_asignado || 'Sin asignar')],
                       ['Centro de costo', dlg.abierta.centro_costo ?? '—'],
                       ['Ciudad', dlg.abierta.ciudad ?? '—'],
                       ['Requerida', soloFecha(dlg.abierta.fecha_requerida)],
@@ -1043,7 +1128,10 @@ export default function EAMOrdenesTrabajo() {
                             {dlg.abierta.trabajos.map((t, i) => (
                               <TableRow key={t.id ?? i}>
                                 <TableCell sx={{ fontSize: 12 }}>{t.actividad}</TableCell>
-                                <TableCell sx={{ fontSize: 11, color: 'text.secondary' }}>{t.sistema ?? ''}</TableCell>
+                                <TableCell sx={{ fontSize: 11, color: 'text.secondary' }}>
+                                  {nombreProveedor(t.contratista_id)}
+                                  {!t.contratista_id && t.tecnico ? ` · ${t.tecnico}` : ''}
+                                </TableCell>
                                 <TableCell align="right" sx={{ fontSize: 12 }}>{pesos(t.costo_total)}</TableCell>
                               </TableRow>
                             ))}
@@ -1059,6 +1147,9 @@ export default function EAMOrdenesTrabajo() {
                             {dlg.abierta.repuestos.map((r, i) => (
                               <TableRow key={r.id ?? i}>
                                 <TableCell sx={{ fontSize: 12 }}>{r.descripcion}</TableCell>
+                                <TableCell sx={{ fontSize: 11, color: 'text.secondary' }}>
+                                  {nombreProveedor(r.contratista_id)}
+                                </TableCell>
                                 <TableCell sx={{ fontSize: 11 }}>{r.cantidad} × {pesos(r.costo_unit)}</TableCell>
                                 <TableCell align="right" sx={{ fontSize: 12 }}>{pesos(r.costo_total)}</TableCell>
                               </TableRow>
@@ -1096,7 +1187,8 @@ export default function EAMOrdenesTrabajo() {
                     <Divider sx={{ my: 2.5 }} />
                     <EditorLineas ts={dlgTrabajos} rs={dlgRepuestos}
                       setTs={setDlgTrabajos} setRs={setDlgRepuestos}
-                      servicios={Number(dlgForm.costo_servicios || 0)} tiposTrabajo={tiposTrabajo} />
+                      servicios={Number(dlgForm.costo_servicios || 0)} tiposTrabajo={tiposTrabajo}
+                      contratistas={contratistas} proveedorPrincipal={dlgForm.contratista_id} />
                   </>
                 )}
                 {dlg.modo === 'borrar' && (
