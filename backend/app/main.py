@@ -985,6 +985,51 @@ async def lifespan(app: FastAPI):
                 SELECT 1 FROM eam_falla_catalogo f WHERE f.codigo = v.codigo
             )
         """))
+        # Actividades y repuestos: es lo que se ofrece al armar el detalle de
+        # una OT, así que sin semilla los desplegables salen vacíos.
+        await conn.execute(text("""
+            INSERT INTO eam_actividad (nombre, activo, created_at, updated_at)
+            SELECT v.nombre, true, now(), now()
+            FROM (VALUES
+                ('Revisión de frenos'), ('Cambio de filtros'),
+                ('Alineación y balanceo'), ('Diagnóstico electrónico'),
+                ('Revisión del sistema eléctrico'), ('Cambio de correas'),
+                ('Revisión de suspensión'), ('Lavado y engrase'),
+                ('Revisión de neumáticos'), ('Cambio de aceite de motor'),
+                ('Revisión de batería'), ('Ajuste de frenos'),
+                ('Revisión de luces'), ('Revisión de niveles'),
+                ('Revisión de embrague'), ('Revisión de dirección'),
+                ('Prueba de ruta'), ('Documentación técnica')
+            ) AS v(nombre)
+            WHERE NOT EXISTS (
+                SELECT 1 FROM eam_actividad a WHERE a.nombre = v.nombre
+            )
+        """))
+        await conn.execute(text("""
+            INSERT INTO eam_repuesto (codigo, nombre, categoria, unidad_medida,
+                                      costo_unitario, activo, created_at, updated_at)
+            SELECT v.codigo, v.nombre, v.categoria, v.unidad, 0, true, now(), now()
+            FROM (VALUES
+                ('REP-001','Filtro de aire','Filtros','Unidad'),
+                ('REP-002','Filtro de aceite','Filtros','Unidad'),
+                ('REP-003','Filtro de combustible','Filtros','Unidad'),
+                ('REP-004','Aceite de motor 15W-40','Lubricantes','Galón'),
+                ('REP-005','Refrigerante','Lubricantes','Galón'),
+                ('REP-006','Pastillas de freno','Frenos','Juego'),
+                ('REP-007','Disco de freno','Frenos','Unidad'),
+                ('REP-008','Correa de distribución','Motor','Unidad'),
+                ('REP-009','Correa del alternador','Motor','Unidad'),
+                ('REP-010','Bomba de agua','Motor','Unidad'),
+                ('REP-011','Termostato','Motor','Unidad'),
+                ('REP-012','Batería','Eléctrico','Unidad'),
+                ('REP-013','Bujías','Eléctrico','Juego'),
+                ('REP-014','Amortiguador','Suspensión','Unidad'),
+                ('REP-015','Kit de embrague','Transmisión','Juego')
+            ) AS v(codigo, nombre, categoria, unidad)
+            WHERE NOT EXISTS (
+                SELECT 1 FROM eam_repuesto r WHERE r.codigo = v.codigo
+            )
+        """))
         await conn.execute(text("""
             INSERT INTO eam_causa_catalogo (descripcion, activo, created_at, updated_at)
             SELECT v.descripcion, true, now(), now()

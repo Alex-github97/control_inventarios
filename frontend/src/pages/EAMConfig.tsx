@@ -29,6 +29,7 @@ import {
 import { Layout } from '@/components/layout/Layout'
 import { CatalogoVehiculos } from '@/components/CatalogoVehiculos'
 import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
+import { CatalogoCMMS, CATALOGOS_CMMS } from '@/components/catalogo/CatalogoCMMS'
 import { EsquemaLlantasPreview } from '@/components/EsquemaLlantasPreview'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
@@ -77,11 +78,6 @@ const TIPOS_TRABAJO_INIT: TipoTrabajoConfig[] = [
   { id: 11, nombre: 'Soldadura',                   categoria: 'CORRECTIVO', duracion: 'Variable',  requiereTaller: true,  requiereMateriales: true,  sistema: 'Estructura',  subsistema: 'Carrocería y chasis'  },
   { id: 12, nombre: 'Atención de Emergencia',      categoria: 'EMERGENCIA', duracion: '?',        requiereTaller: true,  requiereMateriales: true,  sistema: 'Variable',    subsistema: 'Variable'             },
 ]
-const ACTIVIDADES = ['Revisión de frenos', 'Cambio de filtros', 'Alineación y balanceo', 'Diagnóstico electrónico', 'Revisión sistema eléctrico', 'Cambio de correas', 'Revisión de suspensión', 'Lavado y engrase', 'Revisión de neumáticos', 'Cambio de aceite motor', 'Revisión de batería', 'Ajuste de frenos', 'Revisión de luces', 'Revisión de niveles', 'Revisión de embrague', 'Revisión de dirección', 'Prueba de ruta', 'Documentación técnica']
-const REPUESTOS_CAT = ['Filtro de aire CUMMINS', 'Filtro de aceite CUMMINS', 'Correa de distribución', 'Bujías NGK', 'Pastillas de freno', 'Aceite sintético 15W-40', 'Líquido de frenos DOT4', 'Batería 12V 100Ah', 'Amortiguador trasero', 'Correa alternador', 'Termostato motor', 'Bomba de agua']
-const FALLAS = ['Fuga de aceite', 'Sobrecalentamiento motor', 'Falla eléctrica', 'Desgaste prematuro frenos', 'Vibración en marcha', 'Ruido en caja de cambios', 'Pérdida de potencia', 'Humo excesivo', 'Falla de arranque', 'Consumo excesivo combustible', 'Fuga hidráulica', 'Falla de suspensión']
-const CAUSAS = ['Falta de mantenimiento', 'Uso inadecuado', 'Desgaste natural', 'Defecto de fabricación', 'Corrosión', 'Sobrecarga', 'Contaminación fluidos', 'Falla eléctrica', 'Temperatura extrema', 'Vibración', 'Fatiga de material', 'Accidente']
-const SOLUCIONES = ['Reemplazo de componente', 'Reparación in situ', 'Ajuste y calibración', 'Limpieza profunda', 'Lubricación', 'Soldadura', 'Reemplazo de fluidos', 'Reprogramación ECU', 'Rebobinado eléctrico', 'Rectificación', 'Templado de frenos', 'Cambio de eje']
 
 interface Contratista {
   id: number
@@ -733,49 +729,6 @@ export default function EAMConfig() {
     }
   }
 
-  const getSearch = (cat: string) => catSearch[cat] ?? ''
-  const setSearch = (cat: string, val: string) => setCatSearch(prev => ({ ...prev, [cat]: val }))
-  const filterCat = (items: string[], cat: string) =>
-    items.filter(i => i.toLowerCase().includes(getSearch(cat).toLowerCase())).slice(0, 5)
-
-  const CatalogCard = ({ title, items, catKey, total }: { title: string; items: string[]; catKey: string; total: number }) => (
-    <Card sx={{ background: '#FFFFFF', border: `1px solid #E5E7EB` }}>
-      <CardContent>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.5}>
-          <Box>
-            <Typography variant="subtitle2" fontWeight={700} color="#1E293B">{title}</Typography>
-            <Typography variant="caption" color="grey.500">{total} registros</Typography>
-          </Box>
-          <Button size="small" startIcon={<AddIcon />} variant="outlined" sx={{ textTransform: 'none', borderColor: alpha(EAM_COLOR, 0.4), color: EAM_COLOR, fontSize: 11, '&:hover': { borderColor: EAM_COLOR, background: alpha(EAM_COLOR, 0.1) } }}>
-            Agregar
-          </Button>
-        </Stack>
-        <TextField
-          fullWidth size="small" placeholder="Buscar..." value={getSearch(catKey)}
-          onChange={e => setSearch(catKey, e.target.value)}
-          InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: 'grey.600', fontSize: 16 }} /></InputAdornment> }}
-          sx={{ mb: 1.5, '& .MuiOutlinedInput-root': { '&:hover fieldset': { borderColor: alpha(EAM_COLOR, 0.4) }, fontSize: 13 } }}
-        />
-        <List dense disablePadding>
-          {filterCat(items, catKey).map((item, i) => (
-            <ListItem key={i} disablePadding sx={{ py: 0.25, '&:hover .actions': { opacity: 1 } }}>
-              <ListItemText primary={<Typography variant="body2" color="#334155">{item}</Typography>} />
-              <ListItemSecondaryAction className="actions" sx={{ opacity: 0, transition: 'opacity 0.2s' }}>
-                <IconButton size="small" sx={{ color: 'grey.500', mr: 0.5 }}><EditIcon sx={{ fontSize: 14 }} /></IconButton>
-                <IconButton size="small" sx={{ color: '#EF4444' }}><DeleteIcon sx={{ fontSize: 14 }} /></IconButton>
-              </ListItemSecondaryAction>
-            </ListItem>
-          ))}
-        </List>
-        {items.length > 5 && (
-          <Typography variant="caption" color={EAM_COLOR} sx={{ cursor: 'pointer', mt: 0.5, display: 'block' }}>
-            +{items.length - 5} más →
-          </Typography>
-        )}
-      </CardContent>
-    </Card>
-  )
-
   return (
     <Layout>
       <Box sx={{ p: 3, background: '#F8FAFC', minHeight: '100vh' }}>
@@ -1111,21 +1064,13 @@ export default function EAMConfig() {
               </DialogActions>
             </Dialog>
 
-            <Grid size={{ xs: 12, md: 6 }}>
-              <CatalogCard title="Actividades" items={ACTIVIDADES} catKey="actividades" total={18} />
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <CatalogCard title="Repuestos" items={REPUESTOS_CAT} catKey="repuestos" total={324} />
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <CatalogCard title="Fallas" items={FALLAS} catKey="fallas" total={45} />
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <CatalogCard title="Causas" items={CAUSAS} catKey="causas" total={32} />
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <CatalogCard title="Soluciones" items={SOLUCIONES} catKey="soluciones" total={28} />
-            </Grid>
+            {/* Actividades, repuestos, fallas, causas y soluciones: cada uno
+                tiene su tabla y las OTs los referencian por id. */}
+            {CATALOGOS_CMMS.map(def => (
+              <Grid key={def.ruta} size={{ xs: 12, md: 6 }}>
+                <CatalogoCMMS def={def} color={EAM_COLOR} />
+              </Grid>
+            ))}
 
             {/* ── Esquemas de vehículo — categorías de ejes/llantas, catálogo real ── */}
             <Grid size={{ xs: 12 }}>

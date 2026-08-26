@@ -981,6 +981,45 @@ async def create_solucion(data: SolucionCreate, db: AsyncSession = Depends(get_d
     return obj
 
 
+def _registrar_edicion_catalogo(ruta: str, modelo, esquema_create, esquema_response, etiqueta: str):
+    """Agrega el PUT y el DELETE de un catálogo del CMMS.
+
+    El alta y el listado ya estaban escritos uno por uno arriba; lo que faltaba
+    para poder administrarlos desde la configuración era editar y desactivar.
+    Se registran en bucle porque los cinco catálogos hacen exactamente lo mismo.
+    """
+
+    @router.put(f"/catalogos/{ruta}/{{item_id}}", response_model=esquema_response)
+    async def _actualizar(item_id: int, data: esquema_create, db: AsyncSession = Depends(get_db)):
+        obj = await db.get(modelo, item_id)
+        if not obj or not obj.activo:
+            raise HTTPException(404, f"{etiqueta} no encontrado")
+        for k, v in data.model_dump().items():
+            setattr(obj, k, v)
+        await db.commit(); await db.refresh(obj)
+        return obj
+
+    @router.delete(f"/catalogos/{ruta}/{{item_id}}", status_code=204)
+    async def _eliminar(item_id: int, db: AsyncSession = Depends(get_db)):
+        obj = await db.get(modelo, item_id)
+        if not obj or not obj.activo:
+            raise HTTPException(404, f"{etiqueta} no encontrado")
+        # Baja lógica: las OTs ya cerradas apuntan a estas filas por id.
+        obj.activo = False
+        await db.commit()
+
+
+for _ruta, _modelo, _create, _response, _etiqueta in [
+    ("actividades", EAMActividad, ActividadCreate, ActividadResponse, "Actividad"),
+    ("repuestos", EAMRepuesto, RepuestoCreate, RepuestoResponse, "Repuesto"),
+    ("fallas", EAMFallaCatalogo, FallaCreate, FallaResponse, "Falla"),
+    ("causas", EAMCausaCatalogo, CausaCreate, CausaResponse, "Causa"),
+    ("soluciones", EAMSolucionCatalogo, SolucionCreate, SolucionResponse, "Solución"),
+    ("tipos-trabajo", EAMTipoTrabajo, TipoTrabajoCreate, TipoTrabajoResponse, "Tipo de trabajo"),
+]:
+    _registrar_edicion_catalogo(_ruta, _modelo, _create, _response, _etiqueta)
+
+
 # ─── Contratistas ─────────────────────────────────────────────────────────────
 
 @router.get("/contratistas", response_model=List[ContratistaResponse])

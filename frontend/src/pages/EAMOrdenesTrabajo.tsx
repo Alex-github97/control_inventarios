@@ -15,6 +15,7 @@ import {
   MenuItem, Table, TableBody, TableCell, TableHead, TableRow, Paper, Dialog,
   DialogTitle, DialogContent, DialogActions, IconButton, Tooltip, Alert,
   LinearProgress, Divider, Switch, FormControlLabel, InputAdornment, Stack,
+  Autocomplete, createFilterOptions,
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
 import {
@@ -113,6 +114,16 @@ interface CatalogoItem {
   categoria?: string | null
 }
 interface Contratista { id: number; nombre: string; ciudad?: string | null }
+
+/** Fila de eam_repuesto: al elegirla se copian precio y unidad a la línea. */
+interface RepuestoCatalogo {
+  id: number
+  codigo: string
+  nombre: string
+  categoria?: string | null
+  unidad_medida?: string | null
+  costo_unitario?: number | null
+}
 
 const PRIORIDADES: OTPrioridad[] = ['URGENTE', 'ALTA', 'MEDIA', 'BAJA']
 const TIPOS_OT: OTTipo[] = ['PREVENTIVA', 'CORRECTIVA', 'PREDICTIVA', 'EMERGENCIA']
@@ -265,8 +276,13 @@ function OTCard({ ot, etiquetaActivo, responsable, onOpen, onDragStart, onDragEn
  * React lo trataría como un tipo nuevo en cada render, desmontaría los campos y
  * el foco se perdería con cada tecla.
  */
+/** Deja escribir para filtrar, y también texto libre para lo que no esté
+ *  todavía en el catálogo. */
+const filtrarOpciones = createFilterOptions<string>({ trim: true, limit: 50 })
+
 function EditorLineas({
   ts, rs, setTs, setRs, servicios, tiposTrabajo, contratistas, proveedorPrincipal,
+  actividades, repuestosCatalogo,
 }: {
   ts: TrabajoLinea[]
   rs: RepuestoLinea[]
@@ -277,7 +293,11 @@ function EditorLineas({
   contratistas: Contratista[]
   /** '' = taller interno. Las líneas nuevas lo heredan. */
   proveedorPrincipal: string
+  actividades: CatalogoItem[]
+  repuestosCatalogo: RepuestoCatalogo[]
 }) {
+  const nombresActividad = actividades.map(a => a.nombre ?? '').filter(Boolean)
+  const nombresRepuesto = repuestosCatalogo.map(r => r.nombre)
   const totalMO = ts.reduce(
     (s, t) => s + (t.horas && t.tarifa_hora ? t.horas * t.tarifa_hora : t.costo_total || 0), 0)
   const totalRep = rs.reduce((s, r) => s + (r.cantidad || 0) * (r.costo_unit || 0), 0)
@@ -308,8 +328,18 @@ function EditorLineas({
           }}>
             <Grid container spacing={1}>
               <Grid size={{ xs: 12, sm: 5 }}>
-                <TextField label="Trabajo" size="small" fullWidth value={t.actividad}
-                  onChange={e => setTs(p => p.map((x, j) => j === i ? { ...x, actividad: e.target.value } : x))} />
+                {/* Sale del catálogo de actividades de la configuración; se
+                    puede escribir para filtrar y también dejar texto libre. */}
+                <Autocomplete
+                  freeSolo options={nombresActividad} filterOptions={filtrarOpciones}
+                  value={t.actividad}
+                  onInputChange={(_e, v) => setTs(p => p.map((x, j) => j === i
+                    ? { ...x, actividad: v ?? '' } : x))}
+                  renderInput={params => (
+                    <TextField {...params} label="Trabajo" size="small" fullWidth
+                      helperText={nombresActividad.length === 0
+                        ? 'Sin actividades. Agréguelas en CMMS · Configuración.' : undefined} />
+                  )} />
               </Grid>
               <Grid size={{ xs: 6, sm: 4 }}>
                 <TextField select label="Tipo de trabajo" size="small" fullWidth
@@ -386,8 +416,29 @@ function EditorLineas({
         }}>
           <Grid container spacing={1}>
             <Grid size={{ xs: 12, sm: 4 }}>
-              <TextField label="Repuesto" size="small" fullWidth value={r.descripcion}
-                onChange={e => setRs(p => p.map((x, j) => j === i ? { ...x, descripcion: e.target.value } : x))} />
+              {/* Al elegir uno del catálogo se copian su id, su unidad y su
+                  precio; si se escribe libre, la línea queda sin repuesto_id. */}
+              <Autocomplete
+                freeSolo options={nombresRepuesto} filterOptions={filtrarOpciones}
+                value={r.descripcion}
+                onInputChange={(_e, v) => {
+                  const texto = v ?? ''
+                  const cat = repuestosCatalogo.find(x => x.nombre === texto)
+                  setRs(p => p.map((x, j) => j === i ? {
+                    ...x,
+                    descripcion: texto,
+                    repuesto_id: cat?.id ?? null,
+                    unidad: cat?.unidad_medida ?? x.unidad,
+                    // El precio del catálogo solo se propone; si ya se escribió
+                    // uno en la línea, se respeta.
+                    costo_unit: cat && !x.costo_unit ? (cat.costo_unitario ?? 0) : x.costo_unit,
+                  } : x))
+                }}
+                renderInput={params => (
+                  <TextField {...params} label="Repuesto" size="small" fullWidth
+                    helperText={nombresRepuesto.length === 0
+                      ? 'Sin repuestos. Agréguelos en CMMS · Configuración.' : undefined} />
+                )} />
             </Grid>
             <Grid size={{ xs: 12, sm: 3 }}>
               <TextField select label="Suministra" size="small" fullWidth
@@ -675,6 +726,15 @@ export default function EAMOrdenesTrabajo() {
   const { data: contratistas = [] } = useQuery<Contratista[]>({
     queryKey: ['eam-contratistas'],
     queryFn: () => api.get('/eam/contratistas').then(r => r.data),
+  })
+  // Lo que se ofrece al armar el detalle: sale de CMMS · Configuración.
+  const { data: actividades = [] } = useQuery<CatalogoItem[]>({
+    queryKey: ['eam-actividades'],
+    queryFn: () => api.get('/eam/catalogos/actividades').then(r => r.data),
+  })
+  const { data: repuestosCatalogo = [] } = useQuery<RepuestoCatalogo[]>({
+    queryKey: ['eam-repuestos-catalogo'],
+    queryFn: () => api.get('/eam/catalogos/repuestos').then(r => r.data),
   })
 
   const activoPorId = useMemo(() => {
@@ -1057,7 +1117,8 @@ export default function EAMOrdenesTrabajo() {
               <Divider sx={{ my: 2.5 }} />
               <EditorLineas ts={trabajos} rs={repuestos} setTs={setTrabajos} setRs={setRepuestos}
                 servicios={Number(form.costo_servicios || 0)} tiposTrabajo={tiposTrabajo}
-                contratistas={contratistas} proveedorPrincipal={form.contratista_id} />
+                contratistas={contratistas} proveedorPrincipal={form.contratista_id}
+                actividades={actividades} repuestosCatalogo={repuestosCatalogo} />
               <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
                 <Button onClick={() => { setForm(nuevoFormulario()); setTrabajos([]); setRepuestos([]) }}>
                   Limpiar
@@ -1188,7 +1249,8 @@ export default function EAMOrdenesTrabajo() {
                     <EditorLineas ts={dlgTrabajos} rs={dlgRepuestos}
                       setTs={setDlgTrabajos} setRs={setDlgRepuestos}
                       servicios={Number(dlgForm.costo_servicios || 0)} tiposTrabajo={tiposTrabajo}
-                      contratistas={contratistas} proveedorPrincipal={dlgForm.contratista_id} />
+                      contratistas={contratistas} proveedorPrincipal={dlgForm.contratista_id}
+                      actividades={actividades} repuestosCatalogo={repuestosCatalogo} />
                   </>
                 )}
                 {dlg.modo === 'borrar' && (
