@@ -301,6 +301,21 @@ async def lifespan(app: FastAPI):
         await conn.execute(text(
             "ALTER TABLE eam_ot_mano_obra ALTER COLUMN actividad TYPE VARCHAR(300)"
         ))
+        # Estado de la rutina: cuándo se cumplió por última vez y cuándo vuelve
+        # a tocar. Sin esto no había forma de calcular el próximo mantenimiento.
+        for columna, tipo in [
+            ("ultima_ejecucion_fecha", "TIMESTAMP"),
+            ("ultima_ejecucion_odometro", "DOUBLE PRECISION"),
+            ("ultima_ejecucion_horometro", "DOUBLE PRECISION"),
+            ("ultima_ot_id", "INTEGER"),
+            ("proxima_fecha", "TIMESTAMP"),
+            ("proximo_odometro", "DOUBLE PRECISION"),
+            ("proximo_horometro", "DOUBLE PRECISION"),
+        ]:
+            await conn.execute(text(
+                "ALTER TABLE eam_plan_mantenimiento ADD COLUMN IF NOT EXISTS %s %s" % (columna, tipo)
+            ))
+
         # Proveedor por línea: cada trabajo o repuesto puede correr por cuenta
         # de un contratista distinto al principal de la OT. NULL = taller interno.
         for tabla in ("eam_ot_mano_obra", "eam_ot_material"):

@@ -68,6 +68,8 @@ interface OT {
   activo_id: number
   tipo_ot?: string | null
   tipo_trabajo_id?: number | null
+  /** Rutina programada que esta OT viene a cumplir. */
+  plan_id?: number | null
   estado?: string | null
   prioridad?: string | null
   descripcion: string
@@ -114,6 +116,42 @@ interface CatalogoItem {
   categoria?: string | null
 }
 interface Contratista { id: number; nombre: string; ciudad?: string | null }
+
+/** Rutina programada, con su vencimiento ya calculado por el servidor. */
+interface PlanMantenimiento {
+  id: number
+  nombre: string
+  activo_id?: number | null
+  tipo_activo?: string | null
+  frecuencia?: number | null
+  unidad?: string | null
+  tipo_ot?: string | null
+  ultima_ejecucion_fecha?: string | null
+  ultima_ejecucion_odometro?: number | null
+  proximo_odometro?: number | null
+  proximo_horometro?: number | null
+  proxima_fecha?: string | null
+  odometro_activo?: number | null
+  faltante?: number | null
+  unidad_faltante?: string | null
+  estado_rutina: 'SIN_EJECUTAR' | 'AL_DIA' | 'PROXIMA' | 'VENCIDA'
+}
+
+const RUTINA_COLOR: Record<string, string> = {
+  VENCIDA: '#DC2626', PROXIMA: '#F59E0B', AL_DIA: '#16A34A', SIN_EJECUTAR: '#6B7280',
+}
+const RUTINA_LABEL: Record<string, string> = {
+  VENCIDA: 'Vencida', PROXIMA: 'Próxima', AL_DIA: 'Al día', SIN_EJECUTAR: 'Sin ejecutar',
+}
+
+/** "faltan 1.200 KM" / "vencida por 300 KM". */
+const textoFaltante = (p: PlanMantenimiento): string => {
+  if (p.faltante == null || !p.unidad_faltante) return 'nunca se ha ejecutado'
+  const u = p.unidad_faltante === 'DIAS' ? 'días' : p.unidad_faltante.toLowerCase()
+  return p.faltante < 0
+    ? `vencida por ${Math.abs(p.faltante).toLocaleString('es-CO')} ${u}`
+    : `faltan ${p.faltante.toLocaleString('es-CO')} ${u}`
+}
 
 /** Fila de eam_repuesto: al elegirla se copian precio y unidad a la línea. */
 interface RepuestoCatalogo {
@@ -164,7 +202,7 @@ const idProveedor = (v: string): number | null => (v ? Number(v) : null)
 
 const nuevoFormulario = () => ({
   activo_id: '', tipo_ot: 'PREVENTIVA', prioridad: 'MEDIA', estado: 'PENDIENTE',
-  descripcion: '', tecnico_asignado: '', contratista_id: '', tipo_trabajo_id: '',
+  descripcion: '', tecnico_asignado: '', contratista_id: '', tipo_trabajo_id: '', plan_id: '',
   falla_id: '', causa_id: '', solucion_id: '',
   fecha_requerida: '', fecha_inicio: '', fecha_fin: '', fecha_posible_cierre: '',
   centro_costo: '', ciudad: '', odometro: '', horometro: '',
@@ -183,6 +221,7 @@ const otAFormulario = (ot: OT): Formulario => ({
   tecnico_asignado: ot.tecnico_asignado ?? '',
   contratista_id: ot.contratista_id != null ? String(ot.contratista_id) : '',
   tipo_trabajo_id: ot.tipo_trabajo_id != null ? String(ot.tipo_trabajo_id) : '',
+  plan_id: ot.plan_id != null ? String(ot.plan_id) : '',
   falla_id: ot.falla_id != null ? String(ot.falla_id) : '',
   causa_id: ot.causa_id != null ? String(ot.causa_id) : '',
   solucion_id: ot.solucion_id != null ? String(ot.solucion_id) : '',
@@ -211,6 +250,7 @@ interface ContextoOT {
   soluciones: CatalogoItem[]
   etiquetaActivo: (id: number) => string
   elegirActivo: (id: string, set: SetFormulario) => void
+  planes: PlanMantenimiento[]
 }
 
 // ─── Tarjeta del Kanban ───────────────────────────────────────────────────────
@@ -507,7 +547,12 @@ function EditorLineas({
 
 function CamposOT({ f, set, ctx }: { f: Formulario; set: SetFormulario; ctx: ContextoOT }) {
   const { activos, contratistas, tiposTrabajo, fallas, causas, soluciones,
-    etiquetaActivo, elegirActivo } = ctx
+    etiquetaActivo, elegirActivo, planes } = ctx
+  // Solo las rutinas del activo elegido: una rutina se programa por activo.
+  const rutinas = f.activo_id
+    ? planes.filter(p => String(p.activo_id ?? '') === f.activo_id)
+    : []
+  const rutina = rutinas.find(p => String(p.id) === f.plan_id)
   return (
     <Grid container spacing={2}>
       <Grid size={{ xs: 12, md: 6 }}>
@@ -567,6 +612,45 @@ function CamposOT({ f, set, ctx }: { f: Formulario; set: SetFormulario; ctx: Con
           {tiposTrabajo.map(t => <MenuItem key={t.id} value={String(t.id)}>{t.nombre}</MenuItem>)}
         </TextField>
       </Grid>
+
+      {/* Al completar la OT, la rutina elegida sella su cumplimiento y el
+          servidor recalcula el próximo vencimiento con esta lectura. */}
+      <Grid size={{ xs: 12 }}>
+        <TextField select label="Rutina de mantenimiento que cumple" size="small" fullWidth
+          value={f.plan_id}
+          onChange={e => set(p => ({ ...p, plan_id: e.target.value }))}
+          disabled={!f.activo_id}
+          helperText={!f.activo_id
+            ? 'Elija primero el activo'
+            : rutinas.length === 0
+              ? 'Este activo no tiene rutinas programadas. Créelas en CMMS · Planes de Mant.'
+              : 'Se marca como cumplida cuando la OT pase a COMPLETADA'}>
+          <MenuItem value="">Ninguna · es un trabajo suelto</MenuItem>
+          {rutinas.map(p => (
+            <MenuItem key={p.id} value={String(p.id)}>
+              {p.nombre}
+              <Typography component="span" variant="caption"
+                sx={{ ml: 1, color: RUTINA_COLOR[p.estado_rutina] }}>
+                · {RUTINA_LABEL[p.estado_rutina]} · {textoFaltante(p)}
+              </Typography>
+            </MenuItem>
+          ))}
+        </TextField>
+      </Grid>
+      {rutina && (
+        <Grid size={{ xs: 12 }}>
+          <Alert severity={rutina.estado_rutina === 'VENCIDA' ? 'warning' : 'info'}
+            sx={{ fontSize: 12, py: 0.25 }}>
+            Cada {rutina.frecuencia} {(rutina.unidad ?? '').toLowerCase()}.
+            {rutina.ultima_ejecucion_fecha
+              ? ` Última vez el ${rutina.ultima_ejecucion_fecha.slice(0, 10)}`
+              : ' Nunca se ha ejecutado'}
+            {rutina.proximo_odometro != null && ` · vence a los ${rutina.proximo_odometro.toLocaleString('es-CO')} km`}
+            {rutina.proxima_fecha != null && ` · vence el ${rutina.proxima_fecha.slice(0, 10)}`}
+            {rutina.odometro_activo != null && ` · el activo va en ${rutina.odometro_activo.toLocaleString('es-CO')} km`}.
+          </Alert>
+        </Grid>
+      )}
       <Grid size={{ xs: 12, md: 4 }}>
         <SelectorCatalogo modulo="GLOBAL" tipo="CENTRO_COSTO" label="Centro de costo"
           valor={f.centro_costo} onChange={v => set(p => ({ ...p, centro_costo: v }))} />
@@ -620,12 +704,16 @@ function CamposOT({ f, set, ctx }: { f: Formulario; set: SetFormulario; ctx: Con
       </Grid>
 
       <Grid size={{ xs: 6, md: 3 }}>
+        {/* Esta lectura queda como odómetro del activo y es la base del
+            próximo vencimiento de sus rutinas. */}
         <TextField label="Odómetro" type="number" size="small" fullWidth value={f.odometro}
-          onChange={e => set(p => ({ ...p, odometro: e.target.value }))} />
+          onChange={e => set(p => ({ ...p, odometro: e.target.value }))}
+          helperText="Actualiza el kilometraje del activo" />
       </Grid>
       <Grid size={{ xs: 6, md: 3 }}>
         <TextField label="Horómetro" type="number" size="small" fullWidth value={f.horometro}
-          onChange={e => set(p => ({ ...p, horometro: e.target.value }))} />
+          onChange={e => set(p => ({ ...p, horometro: e.target.value }))}
+          helperText="Actualiza las horas del activo" />
       </Grid>
       <Grid size={{ xs: 12, md: 3 }}>
         <TextField label="Servicios externos" type="number" size="small" fullWidth
@@ -736,6 +824,10 @@ export default function EAMOrdenesTrabajo() {
     queryKey: ['eam-repuestos-catalogo'],
     queryFn: () => api.get('/eam/catalogos/repuestos').then(r => r.data),
   })
+  const { data: planes = [] } = useQuery<PlanMantenimiento[]>({
+    queryKey: ['eam-planes'],
+    queryFn: () => api.get('/eam/planes').then(r => r.data),
+  })
 
   const activoPorId = useMemo(() => {
     const m = new Map<number, Activo>()
@@ -763,7 +855,13 @@ export default function EAMOrdenesTrabajo() {
     const d = e?.response?.data?.detail
     toast.error(typeof d === 'string' ? d : 'No se pudo guardar la OT')
   }
-  const invalidar = () => qc.invalidateQueries({ queryKey: ['eam-ots'] })
+  /** Una OT mueve la lectura del activo y el vencimiento de su rutina, así que
+   *  las tres consultas se refrescan juntas. */
+  const invalidar = () => {
+    qc.invalidateQueries({ queryKey: ['eam-ots'] })
+    qc.invalidateQueries({ queryKey: ['eam-planes'] })
+    qc.invalidateQueries({ queryKey: ['eam-activos-selector'] })
+  }
 
   const cuerpoDe = (f: Formulario, ts: TrabajoLinea[], rs: RepuestoLinea[]) => {
     const num = (v: string) => (v.trim() === '' ? null : Number(v))
@@ -774,6 +872,7 @@ export default function EAMOrdenesTrabajo() {
       tecnico_asignado: f.tecnico_asignado.trim() || null,
       contratista_id: num(f.contratista_id),
       tipo_trabajo_id: num(f.tipo_trabajo_id),
+      plan_id: num(f.plan_id),
       falla_id: num(f.falla_id), causa_id: num(f.causa_id), solucion_id: num(f.solucion_id),
       fecha_requerida: deFecha(f.fecha_requerida),
       fecha_inicio: deLocal(f.fecha_inicio),
@@ -883,7 +982,7 @@ export default function EAMOrdenesTrabajo() {
 
   const ctx: ContextoOT = {
     activos, contratistas, tiposTrabajo, fallas, causas, soluciones,
-    etiquetaActivo, elegirActivo,
+    etiquetaActivo, elegirActivo, planes,
   }
 
   const abrirOT = (ot: OT) => {
@@ -1168,6 +1267,9 @@ export default function EAMOrdenesTrabajo() {
                       ['Cierre', soloFecha(dlg.abierta.fecha_fin)],
                       ['Afecta disponibilidad', dlg.abierta.afecta_disponibilidad ? 'Sí' : 'No'],
                       ['Origen', dlg.abierta.es_falla ? 'Falla' : 'Programado'],
+                      ['Odómetro', dlg.abierta.odometro != null
+                        ? `${dlg.abierta.odometro.toLocaleString('es-CO')} km` : '—'],
+                      ['Rutina', planes.find(p => p.id === dlg.abierta!.plan_id)?.nombre ?? '—'],
                     ] as [string, string][]).map(([k, v]) => (
                       <Grid key={k} size={{ xs: 6, md: 3 }}>
                         <Typography sx={{ fontSize: 10, color: 'text.secondary', textTransform: 'uppercase' }}>{k}</Typography>

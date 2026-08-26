@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
@@ -261,6 +261,19 @@ class PlanMantenimientoResponse(PlanMantenimientoCreate):
     model_config = ConfigDict(from_attributes=True)
     id: int
     activo: bool
+    ultima_ejecucion_fecha: Optional[datetime] = None
+    ultima_ejecucion_odometro: Optional[float] = None
+    ultima_ejecucion_horometro: Optional[float] = None
+    ultima_ot_id: Optional[int] = None
+    proxima_fecha: Optional[datetime] = None
+    proximo_odometro: Optional[float] = None
+    proximo_horometro: Optional[float] = None
+    # Calculados contra la lectura actual del activo; no se guardan.
+    odometro_activo: Optional[float] = None
+    horometro_activo: Optional[float] = None
+    faltante: Optional[float] = None
+    unidad_faltante: Optional[str] = None
+    estado_rutina: str = "SIN_EJECUTAR"
 
 class OTTrabajoItem(BaseModel):
     """Una línea de eam_ot_mano_obra. `contratista_id` en None = taller interno."""
@@ -1468,10 +1481,74 @@ async def create_ejecucion(data: ChecklistEjecucionCreate, db: AsyncSession = De
 
 # ─── Planes de mantenimiento ──────────────────────────────────────────────────
 
+def _estado_rutina(plan: EAMPlanMantenimiento, activo: Optional[EAMActivo]) -> dict:
+    """Cuánto falta para la próxima rutina, contra la lectura de hoy del activo.
+
+    Se calcula al vuelo y no se guarda: el activo sigue rodando entre una OT y
+    la siguiente, así que un valor almacenado nacería viejo.
+    """
+    vacio = {"faltante": None, "unidad_faltante": None, "estado_rutina": "SIN_EJECUTAR",
+             "odometro_activo": activo.odometro_actual if activo else None,
+             "horometro_activo": activo.horometro_actual if activo else None}
+    if plan.ultima_ejecucion_fecha is None:
+        return vacio
+
+    frecuencia = plan.frecuencia or 0
+    if plan.proximo_odometro is not None and activo is not None:
+        faltante = plan.proximo_odometro - (activo.odometro_actual or 0)
+        unidad = "KM"
+    elif plan.proximo_horometro is not None and activo is not None:
+        faltante = plan.proximo_horometro - (activo.horometro_actual or 0)
+        unidad = "HORAS"
+    elif plan.proxima_fecha is not None:
+        faltante = (plan.proxima_fecha - datetime.now()).days
+        unidad = "DIAS"
+        frecuencia = frecuencia * _DIAS_POR_UNIDAD.get((plan.unidad or "").upper(), 1)
+    else:
+        return vacio
+
+    # Se avisa en el último 10% del intervalo, con un mínimo razonable para que
+    # una frecuencia corta no deje la alerta en cero.
+    umbral = max(frecuencia * 0.1, 1 if unidad == "DIAS" else 50)
+    if faltante < 0:
+        estado = "VENCIDA"
+    elif faltante <= umbral:
+        estado = "PROXIMA"
+    else:
+        estado = "AL_DIA"
+    return {**vacio, "faltante": round(faltante, 1), "unidad_faltante": unidad,
+            "estado_rutina": estado}
+
+
 @router.get("/planes", response_model=List[PlanMantenimientoResponse])
-async def list_planes(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(EAMPlanMantenimiento).where(EAMPlanMantenimiento.activo == True))
-    return result.scalars().all()
+async def list_planes(activo_id: Optional[int] = None, db: AsyncSession = Depends(get_db)):
+    q = select(EAMPlanMantenimiento).where(EAMPlanMantenimiento.activo == True)
+    if activo_id is not None:
+        q = q.where(EAMPlanMantenimiento.activo_id == activo_id)
+    planes = (await db.execute(q)).scalars().all()
+
+    # Los activos referenciados se traen de una para no consultar uno por plan.
+    ids = {p.activo_id for p in planes if p.activo_id}
+    activos: dict[int, EAMActivo] = {}
+    if ids:
+        filas = (await db.execute(select(EAMActivo).where(EAMActivo.id.in_(ids)))).scalars().all()
+        activos = {a.id: a for a in filas}
+
+    salida = []
+    for p in planes:
+        base = PlanMantenimientoResponse.model_validate(p)
+        salida.append(base.model_copy(update=_estado_rutina(p, activos.get(p.activo_id or 0))))
+    return salida
+
+
+@router.delete("/planes/{plan_id}", status_code=204)
+async def delete_plan(plan_id: int, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMPlanMantenimiento, plan_id)
+    if not obj or not obj.activo:
+        raise HTTPException(404, "Plan no encontrado")
+    # Baja lógica: las OTs ya hechas apuntan al plan por id.
+    obj.activo = False
+    await db.commit()
 
 @router.post("/planes", response_model=PlanMantenimientoResponse)
 async def create_plan(data: PlanMantenimientoCreate, db: AsyncSession = Depends(get_db)):
@@ -1528,10 +1605,70 @@ async def _generar_numero_ot(db: AsyncSession) -> str:
     return f"{patron}{maximo + 1:04d}"
 
 
-async def _validar_activo(db: AsyncSession, activo_id: int) -> None:
+async def _validar_activo(db: AsyncSession, activo_id: int) -> EAMActivo:
     activo = await db.get(EAMActivo, activo_id)
     if not activo:
         raise HTTPException(400, f"El activo {activo_id} no existe")
+    return activo
+
+
+def _avanzar_medidores(activo: EAMActivo, odometro, horometro) -> None:
+    """Lleva al activo la lectura tomada en la OT.
+
+    Solo hacia adelante: un odómetro no retrocede, así que un dígito de más
+    escrito por error no puede dejar al activo con un kilometraje menor del que
+    ya tenía — y de paso evita que una OT vieja capturada tarde pise la lectura
+    buena.
+    """
+    if odometro is not None and odometro > (activo.odometro_actual or 0):
+        activo.odometro_actual = odometro
+    if horometro is not None and horometro > (activo.horometro_actual or 0):
+        activo.horometro_actual = horometro
+
+
+# Cada unidad del plan se proyecta sobre un medidor distinto.
+_DIAS_POR_UNIDAD = {"DIAS": 1, "SEMANAS": 7, "MESES": 30, "ANIOS": 365, "AÑOS": 365}
+
+
+async def _sellar_rutina(db: AsyncSession, ot: EAMOrdenTrabajo, activo: EAMActivo) -> None:
+    """Cierra la rutina que la OT vino a cumplir y calcula la siguiente.
+
+    Se dispara solo cuando la OT queda COMPLETADA: una rutina cuenta como
+    cumplida cuando el trabajo se hizo, no cuando se programó.
+
+    La base del cálculo es la lectura de la OT; si no trae, se usa la del
+    activo, que ya viene de la última OT registrada.
+    """
+    if not ot.plan_id or (ot.estado or "").upper() != "COMPLETADA":
+        return
+    plan = await db.get(EAMPlanMantenimiento, ot.plan_id)
+    if not plan:
+        return
+
+    fecha = ot.fecha_fin or datetime.now()
+    odometro = ot.odometro if ot.odometro is not None else activo.odometro_actual
+    horometro = ot.horometro if ot.horometro is not None else activo.horometro_actual
+
+    plan.ultima_ejecucion_fecha = fecha
+    plan.ultima_ejecucion_odometro = odometro
+    plan.ultima_ejecucion_horometro = horometro
+    plan.ultima_ot_id = ot.id
+
+    unidad = (plan.unidad or "").upper()
+    frecuencia = plan.frecuencia or 0
+    # Se limpia lo que no aplique, para que no queden vencimientos viejos de
+    # cuando el plan se medía de otra forma.
+    plan.proximo_odometro = None
+    plan.proximo_horometro = None
+    plan.proxima_fecha = None
+    if frecuencia <= 0:
+        return
+    if unidad == "KM":
+        plan.proximo_odometro = (odometro or 0) + frecuencia
+    elif unidad == "HORAS":
+        plan.proximo_horometro = (horometro or 0) + frecuencia
+    elif unidad in _DIAS_POR_UNIDAD:
+        plan.proxima_fecha = fecha + timedelta(days=frecuencia * _DIAS_POR_UNIDAD[unidad])
 
 
 def _recalcular_costos(obj: EAMOrdenTrabajo) -> None:
@@ -1586,12 +1723,17 @@ def _payload_ot(data: OTCreate) -> dict:
 
 @router.post("/ots", response_model=OTResponse)
 async def create_ot(data: OTCreate, db: AsyncSession = Depends(get_db)):
-    await _validar_activo(db, data.activo_id)
+    activo = await _validar_activo(db, data.activo_id)
     obj = EAMOrdenTrabajo(**_payload_ot(data))
     obj.numero = data.numero or await _generar_numero_ot(db)
     _aplicar_lineas(obj, data)
     _recalcular_costos(obj)
-    db.add(obj); await db.commit(); await db.refresh(obj)
+    db.add(obj)
+    # La lectura de la OT es la fuente del kilometraje del activo.
+    _avanzar_medidores(activo, obj.odometro, obj.horometro)
+    await db.flush()          # para que la rutina pueda guardar ultima_ot_id
+    await _sellar_rutina(db, obj, activo)
+    await db.commit(); await db.refresh(obj)
     return obj
 
 @router.get("/ots/{ot_id}", response_model=OTResponse)
@@ -1606,11 +1748,13 @@ async def update_ot(ot_id: int, data: OTCreate, db: AsyncSession = Depends(get_d
     obj = await db.get(EAMOrdenTrabajo, ot_id)
     if not obj:
         raise HTTPException(404, "OT no encontrada")
-    await _validar_activo(db, data.activo_id)
+    activo = await _validar_activo(db, data.activo_id)
     for k, v in _payload_ot(data).items():
         setattr(obj, k, v)
     _aplicar_lineas(obj, data)
     _recalcular_costos(obj)
+    _avanzar_medidores(activo, obj.odometro, obj.horometro)
+    await _sellar_rutina(db, obj, activo)
     await db.commit(); await db.refresh(obj)
     return obj
 
@@ -1636,6 +1780,11 @@ async def update_ot_estado(ot_id: int, data: OTEstadoUpdate, db: AsyncSession = 
         obj.fecha_fin = data.fecha_fin
     if data.tiempo_real_horas:
         obj.tiempo_real_horas = data.tiempo_real_horas
+    # Mover la OT a COMPLETADA en el Kanban es la forma normal de cerrarla, así
+    # que la rutina también se sella acá y no solo desde el formulario.
+    activo = await db.get(EAMActivo, obj.activo_id)
+    if activo:
+        await _sellar_rutina(db, obj, activo)
     await db.commit(); await db.refresh(obj)
     return obj
 

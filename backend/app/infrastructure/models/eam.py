@@ -325,6 +325,16 @@ class EAMPlanMantenimiento(Base, TimestampMixin):
     descripcion    = Column(Text)
     costo_estimado = Column(Float)
     activo         = Column(Boolean, default=True)
+    # Punto en el que se cumplió la rutina por última vez y cuándo vuelve a
+    # tocar. Lo sella la OT al completarse; según `unidad` manda el odómetro,
+    # el horómetro o la fecha.
+    ultima_ejecucion_fecha     = Column(DateTime)
+    ultima_ejecucion_odometro  = Column(Float)
+    ultima_ejecucion_horometro = Column(Float)
+    ultima_ot_id               = Column(Integer, ForeignKey("eam_orden_trabajo.id"), nullable=True)
+    proxima_fecha              = Column(DateTime)
+    proximo_odometro           = Column(Float)
+    proximo_horometro          = Column(Float)
 
 
 class EAMPlanDetalle(Base, TimestampMixin):
