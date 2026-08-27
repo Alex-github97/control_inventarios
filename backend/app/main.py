@@ -307,9 +307,19 @@ async def lifespan(app: FastAPI):
             await conn.execute(text(
                 "ALTER TABLE eam_plan_mantenimiento ADD COLUMN IF NOT EXISTS %s %s" % (columna, tipo)
             ))
+        # El trabajo de la rutina se queda con la mano de obra; los materiales
+        # se mudaron a eam_plan_repuesto, para que la rutina se arme igual que
+        # la OT que va a generar.
         await conn.execute(text(
             "ALTER TABLE eam_plan_detalle ADD COLUMN IF NOT EXISTS orden INTEGER DEFAULT 0"
         ))
+        await conn.execute(text(
+            "ALTER TABLE eam_plan_detalle ADD COLUMN IF NOT EXISTS costo_mano_obra DOUBLE PRECISION DEFAULT 0"
+        ))
+        for columna in ("repuesto_id", "cantidad_repuesto"):
+            await conn.execute(text(
+                "ALTER TABLE eam_plan_detalle DROP COLUMN IF EXISTS %s" % columna
+            ))
 
         # Las llaves de estas tablas se crearon sin regla de borrado, y sin ella
         # el motor rechaza dos operaciones que la aplicación sí ofrece: borrar

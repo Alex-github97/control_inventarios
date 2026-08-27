@@ -340,8 +340,14 @@ class EAMPlanMantenimiento(Base, TimestampMixin):
     costo_estimado = Column(Float)
     activo         = Column(Boolean, default=True)
 
+    # La rutina se arma como la OT que va a generar: trabajos por un lado y
+    # materiales por el otro.
     tareas = relationship(
         "EAMPlanDetalle", back_populates="plan",
+        cascade="all, delete-orphan", lazy="selectin",
+    )
+    repuestos = relationship(
+        "EAMPlanRepuesto", back_populates="plan",
         cascade="all, delete-orphan", lazy="selectin",
     )
 
@@ -375,8 +381,8 @@ class EAMPlanActivo(Base, TimestampMixin):
 
 
 class EAMPlanDetalle(Base, TimestampMixin):
-    """Tarea de la rutina. Si consume un repuesto, va en la misma fila: el
-    material se pide por la tarea que lo usa, no suelto."""
+    """Trabajo de la rutina. Solo mano de obra: los materiales van aparte, en
+    EAMPlanRepuesto, igual que en la OT."""
 
     __tablename__ = "eam_plan_detalle"
     id                = Column(Integer, primary_key=True, index=True)
@@ -384,12 +390,32 @@ class EAMPlanDetalle(Base, TimestampMixin):
                                nullable=False, index=True)
     actividad_id      = Column(Integer, ForeignKey("eam_actividad.id"), nullable=True)
     descripcion       = Column(String(200), nullable=False)
-    repuesto_id       = Column(Integer, ForeignKey("eam_repuesto.id"), nullable=True)
-    cantidad_repuesto = Column(Float)
     tiempo_estimado   = Column(Float)
+    costo_mano_obra   = Column(Float, default=0)
     orden             = Column(Integer, default=0)
 
     plan = relationship("EAMPlanMantenimiento", back_populates="tareas")
+
+
+class EAMPlanRepuesto(Base, TimestampMixin):
+    """Material que consume la rutina cada vez que se ejecuta.
+
+    Se guarda el precio de referencia aparte del catálogo: sirve para estimar
+    el costo de la rutina aunque el precio del repuesto cambie después.
+    """
+
+    __tablename__ = "eam_plan_repuesto"
+    id              = Column(Integer, primary_key=True, index=True)
+    plan_id         = Column(Integer, ForeignKey("eam_plan_mantenimiento.id", ondelete="CASCADE"),
+                             nullable=False, index=True)
+    repuesto_id     = Column(Integer, ForeignKey("eam_repuesto.id"), nullable=True)
+    descripcion     = Column(String(200), nullable=False)
+    cantidad        = Column(Float, default=1)
+    unidad          = Column(String(30))
+    costo_unitario  = Column(Float, default=0)
+    orden           = Column(Integer, default=0)
+
+    plan = relationship("EAMPlanMantenimiento", back_populates="repuestos")
 
 
 # ─── Órdenes de trabajo ───────────────────────────────────────────────────────

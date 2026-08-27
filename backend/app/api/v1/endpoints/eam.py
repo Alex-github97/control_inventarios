@@ -11,7 +11,7 @@ from app.infrastructure.models.eam import (
     EAMCausaCatalogo, EAMSolucionCatalogo, EAMContratista,
     EAMActivo, EAMComponente, EAMDocumentoActivo,
     EAMChecklistPlantilla, EAMChecklistPregunta,
-    EAMPlanMantenimiento, EAMPlanDetalle, EAMPlanActivo,
+    EAMPlanMantenimiento, EAMPlanDetalle, EAMPlanActivo, EAMPlanRepuesto,
     EAMOrdenTrabajo, EAMChecklistEjecucion, EAMChecklistRespuesta,
     EAMOTMaterial, EAMOTManoObra,
     EAMMuestraAceite, EAMNeumatico, EAMMovimientoNeumatico,
@@ -246,13 +246,24 @@ class ChecklistPreguntaResponse(ChecklistPreguntaCreate):
     activo: bool
 
 class PlanTareaItem(BaseModel):
+    """Trabajo de la rutina: solo mano de obra."""
     model_config = ConfigDict(from_attributes=True)
     id: Optional[int] = None
     descripcion: str
     actividad_id: Optional[int] = None
-    repuesto_id: Optional[int] = None
-    cantidad_repuesto: Optional[float] = None
     tiempo_estimado: Optional[float] = None
+    costo_mano_obra: float = 0
+    orden: int = 0
+
+class PlanRepuestoItem(BaseModel):
+    """Material que consume la rutina cada vez que se ejecuta."""
+    model_config = ConfigDict(from_attributes=True)
+    id: Optional[int] = None
+    repuesto_id: Optional[int] = None
+    descripcion: str
+    cantidad: float = 1
+    unidad: Optional[str] = None
+    costo_unitario: float = 0
     orden: int = 0
 
 class PlanMantenimientoCreate(BaseModel):
@@ -270,11 +281,17 @@ class PlanMantenimientoCreate(BaseModel):
     descripcion: Optional[str] = None
     costo_estimado: Optional[float] = None
     tareas: List[PlanTareaItem] = []
+    repuestos: List[PlanRepuestoItem] = []
 
 class PlanMantenimientoResponse(PlanMantenimientoCreate):
     model_config = ConfigDict(from_attributes=True)
     id: int
     activo: bool
+    # Costo de referencia, sumado del detalle. `costo_estimado` se deja como lo
+    # escribió el usuario, por si quiere anotar un valor negociado.
+    costo_mano_obra: float = 0
+    costo_repuestos: float = 0
+    costo_calculado: float = 0
     # Cuántos activos cubre el alcance y cómo están repartidos.
     activos_cubiertos: int = 0
     vencidas: int = 0
@@ -303,6 +320,10 @@ class CumplimientoActivo(BaseModel):
     faltante: Optional[float] = None
     unidad_faltante: Optional[str] = None
     estado_rutina: str = "SIN_EJECUTAR"
+    # El detalle viaja con el cumplimiento para que la OT pueda copiarlo sin
+    # tener que ir a buscar el plan aparte.
+    tareas: List[PlanTareaItem] = []
+    repuestos: List[PlanRepuestoItem] = []
 
 class OTTrabajoItem(BaseModel):
     """Una línea de eam_ot_mano_obra. `contratista_id` en None = taller interno."""
@@ -1524,6 +1545,8 @@ def _cumplimiento(
         frecuencia=plan.frecuencia, unidad=plan.unidad, tipo_ot=plan.tipo_ot,
         activo_id=activo.id, activo_codigo=activo.codigo, activo_nombre=activo.nombre,
         odometro_activo=activo.odometro_actual, horometro_activo=activo.horometro_actual,
+        tareas=[PlanTareaItem.model_validate(t) for t in sorted(plan.tareas, key=lambda x: x.orden or 0)],
+        repuestos=[PlanRepuestoItem.model_validate(r) for r in sorted(plan.repuestos, key=lambda x: x.orden or 0)],
     )
     if prog is None or prog.ultima_ejecucion_fecha is None:
         return base
@@ -1595,6 +1618,7 @@ async def list_planes(db: AsyncSession = Depends(get_db)):
     for p in planes:
         filas = cobertura.get(p.id, [])
         salida.append(PlanMantenimientoResponse.model_validate(p).model_copy(update={
+            **_costos_plan(p),
             "activos_cubiertos": len(filas),
             "vencidas": sum(1 for f in filas if f.estado_rutina == "VENCIDA"),
             "proximas": sum(1 for f in filas if f.estado_rutina == "PROXIMA"),
@@ -1639,16 +1663,29 @@ async def delete_plan(plan_id: int, db: AsyncSession = Depends(get_db)):
     obj.activo = False
     await db.commit()
 
-def _aplicar_tareas(obj: EAMPlanMantenimiento, data: PlanMantenimientoCreate) -> None:
-    """Se reemplazan completas, igual que las líneas de la OT: el formulario
-    manda la lista entera."""
+def _aplicar_detalle(obj: EAMPlanMantenimiento, data: PlanMantenimientoCreate) -> None:
+    """Se reemplaza completo, igual que las líneas de la OT: el formulario manda
+    trabajos y repuestos enteros."""
     obj.tareas.clear()
     for i, t in enumerate(data.tareas):
         obj.tareas.append(EAMPlanDetalle(
             descripcion=t.descripcion, actividad_id=t.actividad_id,
-            repuesto_id=t.repuesto_id, cantidad_repuesto=t.cantidad_repuesto,
-            tiempo_estimado=t.tiempo_estimado, orden=t.orden or i,
+            tiempo_estimado=t.tiempo_estimado, costo_mano_obra=t.costo_mano_obra or 0,
+            orden=t.orden or i,
         ))
+    obj.repuestos.clear()
+    for i, r in enumerate(data.repuestos):
+        obj.repuestos.append(EAMPlanRepuesto(
+            repuesto_id=r.repuesto_id, descripcion=r.descripcion,
+            cantidad=r.cantidad or 0, unidad=r.unidad,
+            costo_unitario=r.costo_unitario or 0, orden=r.orden or i,
+        ))
+
+
+def _costos_plan(plan: EAMPlanMantenimiento) -> dict:
+    mo = sum(t.costo_mano_obra or 0 for t in plan.tareas)
+    rep = sum((r.cantidad or 0) * (r.costo_unitario or 0) for r in plan.repuestos)
+    return {"costo_mano_obra": mo, "costo_repuestos": rep, "costo_calculado": mo + rep}
 
 
 def _validar_alcance(data: PlanMantenimientoCreate) -> None:
@@ -1665,6 +1702,7 @@ async def _con_cobertura(
 ) -> PlanMantenimientoResponse:
     filas = (await _cobertura(db, [plan])).get(plan.id, [])
     return PlanMantenimientoResponse.model_validate(plan).model_copy(update={
+        **_costos_plan(plan),
         "activos_cubiertos": len(filas),
         "vencidas": sum(1 for f in filas if f.estado_rutina == "VENCIDA"),
         "proximas": sum(1 for f in filas if f.estado_rutina == "PROXIMA"),
@@ -1675,8 +1713,8 @@ async def _con_cobertura(
 @router.post("/planes", response_model=PlanMantenimientoResponse)
 async def create_plan(data: PlanMantenimientoCreate, db: AsyncSession = Depends(get_db)):
     _validar_alcance(data)
-    obj = EAMPlanMantenimiento(**data.model_dump(exclude={"tareas"}))
-    _aplicar_tareas(obj, data)
+    obj = EAMPlanMantenimiento(**data.model_dump(exclude={"tareas", "repuestos"}))
+    _aplicar_detalle(obj, data)
     db.add(obj); await db.commit(); await db.refresh(obj)
     return await _con_cobertura(db, obj)
 
@@ -1686,9 +1724,9 @@ async def update_plan(plan_id: int, data: PlanMantenimientoCreate, db: AsyncSess
     if not obj:
         raise HTTPException(404, "Plan no encontrado")
     _validar_alcance(data)
-    for k, v in data.model_dump(exclude={"tareas"}).items():
+    for k, v in data.model_dump(exclude={"tareas", "repuestos"}).items():
         setattr(obj, k, v)
-    _aplicar_tareas(obj, data)
+    _aplicar_detalle(obj, data)
     await db.commit(); await db.refresh(obj)
     return await _con_cobertura(db, obj)
 

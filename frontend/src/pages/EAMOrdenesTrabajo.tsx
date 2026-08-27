@@ -20,7 +20,7 @@ import {
 import Grid from '@mui/material/Grid2'
 import {
   Handyman, Add, Edit, DeleteForever, Close, Search, FilterAltOff,
-  Build, Inventory2, WarningAmber,
+  Build, Inventory2, WarningAmber, PlaylistAdd,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
@@ -130,6 +130,12 @@ interface CumplimientoRutina {
   unidad?: string | null
   tipo_ot?: string | null
   activo_id: number
+  /** Detalle de la rutina, para copiarlo a la OT. */
+  tareas?: { descripcion: string; costo_mano_obra?: number | null; tiempo_estimado?: number | null }[]
+  repuestos?: {
+    descripcion: string; repuesto_id?: number | null
+    cantidad?: number | null; unidad?: string | null; costo_unitario?: number | null
+  }[]
   ultima_ejecucion_fecha?: string | null
   ultima_ejecucion_odometro?: number | null
   proximo_odometro?: number | null
@@ -550,7 +556,15 @@ function EditorLineas({
 
 // ─── Campos de la OT ──────────────────────────────────────────────────────────
 
-function CamposOT({ f, set, ctx }: { f: Formulario; set: SetFormulario; ctx: ContextoOT }) {
+function CamposOT({ f, set, ctx, copiarRutina }: {
+  f: Formulario
+  set: SetFormulario
+  ctx: ContextoOT
+  /** Vuelca los trabajos y repuestos de la rutina en las líneas de este
+   *  formulario. Va por prop y no por contexto porque el alta y la edición
+   *  escriben en listas distintas. */
+  copiarRutina: (c: CumplimientoRutina) => void
+}) {
   const { activos, contratistas, tiposTrabajo, fallas, causas, soluciones,
     etiquetaActivo, elegirActivo, cumplimientos } = ctx
   // Las rutinas que le aplican al activo elegido, según el alcance del plan.
@@ -645,7 +659,17 @@ function CamposOT({ f, set, ctx }: { f: Formulario; set: SetFormulario; ctx: Con
       {rutina && (
         <Grid size={{ xs: 12 }}>
           <Alert severity={rutina.estado_rutina === 'VENCIDA' ? 'warning' : 'info'}
-            sx={{ fontSize: 12, py: 0.25 }}>
+            sx={{ fontSize: 12, py: 0.25 }}
+            action={
+              // Lo que la rutina tiene definido se vuelca en el detalle de la
+              // OT, para no volver a escribirlo cada vez que toca ejecutarla.
+              ((rutina.tareas?.length ?? 0) + (rutina.repuestos?.length ?? 0)) > 0 ? (
+                <Button size="small" startIcon={<PlaylistAdd />}
+                  onClick={() => copiarRutina(rutina)}>
+                  Cargar su detalle
+                </Button>
+              ) : undefined
+            }>
             Cada {rutina.frecuencia} {(rutina.unidad ?? '').toLowerCase()}.
             {rutina.ultima_ejecucion_fecha
               ? ` Última vez el ${rutina.ultima_ejecucion_fecha.slice(0, 10)}`
@@ -653,6 +677,8 @@ function CamposOT({ f, set, ctx }: { f: Formulario; set: SetFormulario; ctx: Con
             {rutina.proximo_odometro != null && ` · vence a los ${rutina.proximo_odometro.toLocaleString('es-CO')} km`}
             {rutina.proxima_fecha != null && ` · vence el ${rutina.proxima_fecha.slice(0, 10)}`}
             {rutina.odometro_activo != null && ` · el activo va en ${rutina.odometro_activo.toLocaleString('es-CO')} km`}.
+            {((rutina.tareas?.length ?? 0) + (rutina.repuestos?.length ?? 0)) > 0
+              && ` Trae ${rutina.tareas?.length ?? 0} trabajo(s) y ${rutina.repuestos?.length ?? 0} repuesto(s).`}
           </Alert>
         </Grid>
       )}
@@ -990,6 +1016,38 @@ export default function EAMOrdenesTrabajo() {
     etiquetaActivo, elegirActivo, cumplimientos,
   }
 
+  /**
+   * Copia el detalle de la rutina a las líneas de la OT.
+   *
+   * Se agrega a lo que ya haya, sin borrarlo: puede que la OT lleve trabajos
+   * extra que no son parte de la rutina. Los costos se traen como referencia y
+   * quedan editables, porque lo que se pagó puede no ser lo presupuestado.
+   */
+  const copiarEn = (
+    c: CumplimientoRutina,
+    setTs: React.Dispatch<React.SetStateAction<TrabajoLinea[]>>,
+    setRs: React.Dispatch<React.SetStateAction<RepuestoLinea[]>>,
+  ) => {
+    const proveedor = idProveedor(form.contratista_id)
+    setTs(p => [...p, ...(c.tareas ?? []).map(t => ({
+      actividad: t.descripcion,
+      costo_total: t.costo_mano_obra ?? 0,
+      horas: t.tiempo_estimado ?? null,
+      contratista_id: proveedor,
+    }))])
+    setRs(p => [...p, ...(c.repuestos ?? []).map(r => ({
+      descripcion: r.descripcion,
+      repuesto_id: r.repuesto_id ?? null,
+      cantidad: r.cantidad ?? 1,
+      unidad: r.unidad ?? null,
+      costo_unit: r.costo_unitario ?? 0,
+      costo_total: 0,
+      contratista_id: proveedor,
+    }))])
+    const n = (c.tareas?.length ?? 0) + (c.repuestos?.length ?? 0)
+    toast.success(`Se cargaron ${n} línea(s) de "${c.plan_nombre}"`)
+  }
+
   const abrirOT = (ot: OT) => {
     setDlg({ abierta: ot, modo: 'ver' })
     setDlgForm(otAFormulario(ot))
@@ -1217,7 +1275,8 @@ export default function EAMOrdenesTrabajo() {
                   el número lo asigna el sistema al guardar
                 </Typography>
               </Typography>
-              <CamposOT f={form} set={setForm} ctx={ctx} />
+              <CamposOT f={form} set={setForm} ctx={ctx}
+                copiarRutina={c => copiarEn(c, setTrabajos, setRepuestos)} />
               <Divider sx={{ my: 2.5 }} />
               <EditorLineas ts={trabajos} rs={repuestos} setTs={setTrabajos} setRs={setRepuestos}
                 servicios={Number(form.costo_servicios || 0)} tiposTrabajo={tiposTrabajo}
@@ -1352,7 +1411,8 @@ export default function EAMOrdenesTrabajo() {
                 )}
                 {dlg.modo === 'editar' && (
                   <>
-                    <CamposOT f={dlgForm} set={setDlgForm} ctx={ctx} />
+                    <CamposOT f={dlgForm} set={setDlgForm} ctx={ctx}
+                      copiarRutina={c => copiarEn(c, setDlgTrabajos, setDlgRepuestos)} />
                     <Divider sx={{ my: 2.5 }} />
                     <EditorLineas ts={dlgTrabajos} rs={dlgRepuestos}
                       setTs={setDlgTrabajos} setRs={setDlgRepuestos}
