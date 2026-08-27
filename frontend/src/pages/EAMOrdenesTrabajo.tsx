@@ -210,6 +210,27 @@ const diasDesde = (v?: string | null) => {
 /** En los selectores el taller interno es la opción vacía. */
 const idProveedor = (v: string): number | null => (v ? Number(v) : null)
 
+/**
+ * Hace visible la opción "Taller interno" en un selector de proveedor.
+ *
+ * El valor vacío significa taller propio, no "sin elegir", pero MUI dibuja el
+ * vacío en blanco: al elegirlo el campo se veía igual que antes y parecía que
+ * el clic no hacía nada. Con esto el select siempre muestra a quién le tocó.
+ */
+const propsProveedor = (contratistas: Contratista[]) => ({
+  SelectProps: {
+    displayEmpty: true,
+    renderValue: (v: unknown) => {
+      const id = Number(v)
+      if (!v || Number.isNaN(id)) return 'Taller interno'
+      return contratistas.find(c => c.id === id)?.nombre ?? `Contratista #${id}`
+    },
+  },
+  // Con displayEmpty el campo nunca está vacío, así que la etiqueta tiene que
+  // quedarse arriba o se monta encima del texto.
+  InputLabelProps: { shrink: true },
+})
+
 const nuevoFormulario = () => ({
   activo_id: '', tipo_ot: 'PREVENTIVA', prioridad: 'MEDIA', estado: 'PENDIENTE',
   descripcion: '', tecnico_asignado: '', contratista_id: '', tipo_trabajo_id: '', plan_id: '',
@@ -409,6 +430,7 @@ function EditorLineas({
               <Grid size={{ xs: 12, sm: 4 }}>
                 <TextField select label="Ejecuta" size="small" fullWidth
                   value={t.contratista_id != null ? String(t.contratista_id) : ''}
+                  {...propsProveedor(contratistas)}
                   onChange={e => {
                     const id = e.target.value ? Number(e.target.value) : null
                     // Si pasa a un contratista, el técnico propio deja de aplicar.
@@ -494,6 +516,7 @@ function EditorLineas({
             <Grid size={{ xs: 12, sm: 3 }}>
               <TextField select label="Suministra" size="small" fullWidth
                 value={r.contratista_id != null ? String(r.contratista_id) : ''}
+                {...propsProveedor(contratistas)}
                 onChange={e => setRs(p => p.map((x, j) => j === i
                   ? { ...x, contratista_id: e.target.value ? Number(e.target.value) : null } : x))}>
                 <MenuItem value="">Taller interno</MenuItem>
@@ -599,8 +622,11 @@ function CamposOT({ f, set, ctx, copiarRutina }: {
       </Grid>
 
       <Grid size={{ xs: 12, md: 6 }}>
-        <TextField select label="Proveedor principal *" size="small" fullWidth
+        {/* Sin asterisco: siempre hay un valor válido — por defecto, el taller
+            propio. */}
+        <TextField select label="Proveedor principal" size="small" fullWidth
           value={f.contratista_id}
+          {...propsProveedor(contratistas)}
           onChange={e => {
             const v = e.target.value
             // Al entregarle la OT a un contratista, el técnico propio deja de
