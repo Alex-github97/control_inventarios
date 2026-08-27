@@ -40,6 +40,22 @@ export function CatalogoVehiculos({ color = '#32AC5C' }: { color?: string }) {
   const [marcaSel, setMarcaSel] = useState<MarcaActivo | null>(null)
   const [lineaSel, setLineaSel] = useState<LineaActivo | null>(null)
 
+  // El tipo es el primer nivel de la jerarquía, así que se administra acá y no
+  // solo se filtra por él.
+  const [dlgTipo, setDlgTipo] = useState<{ abierto: boolean; item: TipoActivoCat | null }>(
+    { abierto: false, item: null })
+  const [formTipo, setFormTipo] = useState({ codigo: '', nombre: '', usa_llantas: false })
+  const [tipoWasOpen, setTipoWasOpen] = useState(false)
+
+  if (dlgTipo.abierto && !tipoWasOpen) {
+    setTipoWasOpen(true)
+    const it = dlgTipo.item
+    setFormTipo(it
+      ? { codigo: it.codigo, nombre: it.nombre, usa_llantas: Boolean(it.usa_llantas) }
+      : { codigo: '', nombre: '', usa_llantas: false })
+  }
+  if (!dlgTipo.abierto && tipoWasOpen) setTipoWasOpen(false)
+
   const [dlgMarca, setDlgMarca] = useState(false)
   const [formMarca, setFormMarca] = useState({ nombre: '', tipo_activo: '' })
   const [dlgLinea, setDlgLinea] = useState(false)
@@ -114,6 +130,32 @@ export function CatalogoVehiculos({ color = '#32AC5C' }: { color?: string }) {
     qc.invalidateQueries({ queryKey: ['eam-cat-veh-modelos'] })
   }
   const err = (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo guardar')
+
+  const mutTipo = useMutation({
+    mutationFn: () => {
+      const cuerpo = {
+        // El código es la llave con la que los activos guardan su tipo, así que
+        // se normaliza: sin espacios ni minúsculas.
+        codigo: formTipo.codigo.trim().toUpperCase().replace(/\s+/g, '_'),
+        nombre: formTipo.nombre.trim(),
+        usa_llantas: formTipo.usa_llantas,
+      }
+      return dlgTipo.item
+        ? api.put(`/eam/tipos-activo/${dlgTipo.item.id}`, cuerpo).then(r => r.data)
+        : api.post('/eam/tipos-activo', cuerpo).then(r => r.data)
+    },
+    onSuccess: () => {
+      toast.success(dlgTipo.item ? 'Tipo actualizado' : 'Tipo agregado')
+      invalidar('eam-tipos-activo')
+      setDlgTipo({ abierto: false, item: null })
+    },
+    onError: err,
+  })
+  const mutBorrarTipo = useMutation({
+    mutationFn: (id: number) => api.delete(`/eam/tipos-activo/${id}`),
+    onSuccess: () => { toast.success('Tipo eliminado'); invalidar('eam-tipos-activo') },
+    onError: err,
+  })
 
   const mutMarca = useMutation({
     mutationFn: () => api.post('/eam/catalogo-vehiculos/marcas', {
@@ -257,43 +299,75 @@ export function CatalogoVehiculos({ color = '#32AC5C' }: { color?: string }) {
       </Alert>
 
       <Grid container spacing={2}>
-        {/* Marcas */}
-        <Grid size={{ xs: 12, md: 4 }}>
+        {/* Tipos de activo — primer nivel de la jerarquía */}
+        <Grid size={{ xs: 12, md: 3 }}>
           {columna(
-            'Marcas', `${marcas.length} en el catálogo`,
+            'Tipos de activo', `${tipos.length} en el catálogo`,
+            <Button size="small" startIcon={<AddIcon />}
+              onClick={() => setDlgTipo({ abierto: true, item: null })}
+              sx={{ color, textTransform: 'none' }}>Agregar</Button>,
+            <Stack spacing={0.4} sx={{ maxHeight: 380, overflowY: 'auto' }}>
+              {tipos.length === 0 && (
+                <Typography fontSize={12} color="text.disabled" textAlign="center" py={2}>
+                  Sin tipos. Agregue el primero para poder colgarle marcas.
+                </Typography>
+              )}
+              {/* Ver todas las marcas sin acotar por tipo. */}
+              {fila(
+                tipoSel === '', 'Todos los tipos',
+                `${marcas.length} marca(s) en total`,
+                () => { setTipoSel(''); setMarcaSel(null); setLineaSel(null) },
+              )}
+              {tipos.map(t => (
+                <Stack key={t.id} direction="row" alignItems="center" gap={0.25}>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    {fila(
+                      tipoSel === t.codigo, t.nombre,
+                      `${t.codigo}${t.usa_llantas ? ' · usa llantas' : ''}`,
+                      () => { setTipoSel(t.codigo); setMarcaSel(null); setLineaSel(null) },
+                      () => {
+                        if (window.confirm(`¿Eliminar el tipo "${t.nombre}"?`)) mutBorrarTipo.mutate(t.id)
+                      },
+                    )}
+                  </Box>
+                  <IconButton size="small" onClick={() => setDlgTipo({ abierto: true, item: t })}>
+                    <EditIcon sx={{ fontSize: 14 }} />
+                  </IconButton>
+                </Stack>
+              ))}
+            </Stack>,
+          )}
+        </Grid>
+
+        {/* Marcas */}
+        <Grid size={{ xs: 12, md: 3 }}>
+          {columna(
+            'Marcas',
+            tipoSel
+              ? `de ${tipos.find(t => t.codigo === tipoSel)?.nombre ?? tipoSel}`
+              : `${marcas.length} en el catálogo`,
             <Button size="small" startIcon={<AddIcon />} onClick={() => {
               setFormMarca({ nombre: '', tipo_activo: tipoSel }); setDlgMarca(true)
             }} sx={{ color, textTransform: 'none' }}>Agregar</Button>,
-            <>
-              <TextField
-                select size="small" fullWidth label="Filtrar por tipo de activo"
-                value={tipoSel}
-                onChange={e => { setTipoSel(e.target.value); setMarcaSel(null); setLineaSel(null) }}
-                sx={{ mb: 1 }}
-              >
-                <MenuItem value="">Todos los tipos</MenuItem>
-                {tipos.map(t => <MenuItem key={t.codigo} value={t.codigo}>{t.nombre}</MenuItem>)}
-              </TextField>
-              <Stack spacing={0.4} sx={{ maxHeight: 330, overflowY: 'auto' }}>
-                {marcas.length === 0 && (
-                  <Typography fontSize={12} color="text.disabled" textAlign="center" py={2}>
-                    Sin marcas para este tipo
-                  </Typography>
-                )}
-                {marcas.map(m => fila(
-                  marcaSel?.id === m.id, m.nombre,
-                  `${m.tipo_activo ?? 'general'} · ${m.total_lineas ?? 0} línea(s)`,
-                  () => { setMarcaSel(m); setLineaSel(null) },
-                  () => { if (window.confirm(`¿Eliminar la marca "${m.nombre}"?`)) mutBorrarMarca.mutate(m.id) },
-                  m.activo === false,
-                ))}
-              </Stack>
-            </>,
+            <Stack spacing={0.4} sx={{ maxHeight: 380, overflowY: 'auto' }}>
+              {marcas.length === 0 && (
+                <Typography fontSize={12} color="text.disabled" textAlign="center" py={2}>
+                  Sin marcas para este tipo
+                </Typography>
+              )}
+              {marcas.map(m => fila(
+                marcaSel?.id === m.id, m.nombre,
+                `${m.tipo_activo ?? 'general'} · ${m.total_lineas ?? 0} línea(s)`,
+                () => { setMarcaSel(m); setLineaSel(null) },
+                () => { if (window.confirm(`¿Eliminar la marca "${m.nombre}"?`)) mutBorrarMarca.mutate(m.id) },
+                m.activo === false,
+              ))}
+            </Stack>,
           )}
         </Grid>
 
         {/* Líneas */}
-        <Grid size={{ xs: 12, md: 4 }}>
+        <Grid size={{ xs: 12, md: 3 }}>
           {columna(
             'Líneas', marcaSel ? `de ${marcaSel.nombre}` : 'elija una marca',
             marcaSel ? (
@@ -324,7 +398,7 @@ export function CatalogoVehiculos({ color = '#32AC5C' }: { color?: string }) {
         </Grid>
 
         {/* Modelos */}
-        <Grid size={{ xs: 12, md: 4 }}>
+        <Grid size={{ xs: 12, md: 3 }}>
           {columna(
             'Modelos', lineaSel ? `de ${lineaSel.marca ?? ''} ${lineaSel.nombre}` : 'elija una línea',
             lineaSel ? (
@@ -442,6 +516,52 @@ export function CatalogoVehiculos({ color = '#32AC5C' }: { color?: string }) {
       </Box>
 
       {/* ── Diálogos ── */}
+      <Dialog open={dlgTipo.abierto} onClose={() => setDlgTipo({ abierto: false, item: null })}
+        maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>
+          {dlgTipo.item ? `Editar ${dlgTipo.item.nombre}` : 'Nuevo tipo de activo'}
+        </DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} sx={{ pt: 0.5 }}>
+            <TextField label="Nombre *" size="small" fullWidth autoFocus value={formTipo.nombre}
+              onChange={e => {
+                const nombre = e.target.value
+                // El código se propone del nombre mientras no se toque a mano y
+                // el tipo sea nuevo: editarlo en uno existente dejaría a sus
+                // activos apuntando a un código que ya no existe.
+                setFormTipo(f => ({
+                  ...f,
+                  nombre,
+                  codigo: dlgTipo.item ? f.codigo
+                    : nombre.trim().toUpperCase().replace(/\s+/g, '_'),
+                }))
+              }} />
+            <TextField label="Código *" size="small" fullWidth value={formTipo.codigo}
+              disabled={Boolean(dlgTipo.item)}
+              onChange={e => setFormTipo(f => ({ ...f, codigo: e.target.value }))}
+              helperText={dlgTipo.item
+                ? 'No se cambia: los activos ya creados guardan este código'
+                : 'Con el que los activos guardan su tipo'} />
+            <FormControlLabel
+              control={<Switch checked={formTipo.usa_llantas}
+                onChange={e => setFormTipo(f => ({ ...f, usa_llantas: e.target.checked }))} />}
+              label="Usa llantas" />
+            <Typography fontSize={11} color="text.secondary">
+              Los tipos que usan llantas son los que aparecen como vehículo en el módulo de
+              Neumáticos.
+            </Typography>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setDlgTipo({ abierto: false, item: null })}>Cancelar</Button>
+          <Button variant="contained" sx={{ bgcolor: color }}
+            disabled={!formTipo.nombre.trim() || !formTipo.codigo.trim() || mutTipo.isPending}
+            onClick={() => mutTipo.mutate()}>
+            {mutTipo.isPending ? 'Guardando…' : 'Guardar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog open={dlgMarca} onClose={() => setDlgMarca(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Nueva marca</DialogTitle>
         <DialogContent dividers>
