@@ -6,7 +6,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { BrowserMultiFormatReader } from '@zxing/browser'
 
 const API_BASE = '/api/v1'
-const PRIMARY = '#32AC5C'
+const PRIMARY = '#1A1A1A'
 const DARK    = '#0D1117'
 
 interface Item { code: string; ok: boolean }

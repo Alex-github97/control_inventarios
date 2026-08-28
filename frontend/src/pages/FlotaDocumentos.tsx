@@ -14,7 +14,8 @@ import { apiClient as api } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
-const GF_COLOR = '#7C3AED'
+import { COLOR_MODULO } from '@/config/marca'
+const GF_COLOR = COLOR_MODULO
 
 interface Vehiculo { id: number; placa: string }
 interface Documento {
@@ -30,7 +31,7 @@ const TIPOS_DOC = [
 
 const EMPTY = { vehiculo_id: '', tipo_documento: '', numero: '', fecha_expedicion: '', fecha_vencimiento: '', entidad_emisora: '' }
 
-const semColor = (s: string) => s === 'VENCIDO' ? '#EF4444' : s === 'POR_VENCER' ? '#F59E0B' : '#32AC5C'
+const semColor = (s: string) => s === 'VENCIDO' ? '#EF4444' : s === 'POR_VENCER' ? '#F59E0B' : '#1A1A1A'
 const SemIcon = ({ s }: { s: string }) => {
   const c = semColor(s)
   if (s === 'VENCIDO') return <ErrorIcon sx={{ fontSize: 16, color: c }} />
@@ -145,7 +146,7 @@ export default function FlotaDocumentos() {
         {[
           { label: 'Vencidos', count: vencidos, color: '#EF4444' },
           { label: 'Por vencer (≤30 días)', count: porVencer, color: '#F59E0B' },
-          { label: 'Vigentes', count: vigentes, color: '#32AC5C' },
+          { label: 'Vigentes', count: vigentes, color: '#1A1A1A' },
         ].map(k => (
           <Grid key={k.label} size={{ xs: 4 }}>
             <Paper elevation={0} sx={{ border: `2px solid ${alpha(k.color, 0.3)}`, borderRadius: '14px', p: 2.5, bgcolor: alpha(k.color, 0.04) }}>

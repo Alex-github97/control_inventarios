@@ -37,9 +37,10 @@ import { apiClient as api } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
+import { COLOR_MODULO } from '@/config/marca'
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const ERP_COLOR = '#1A3A6B'
+const ERP_COLOR = COLOR_MODULO
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 

@@ -17,7 +17,8 @@ import { apiClient as api } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
-const GH_COLOR = '#BE185D'
+import { COLOR_MODULO } from '@/config/marca'
+const GH_COLOR = COLOR_MODULO
 
 interface Colaborador { id: number; nombres: string; apellidos: string; cargo?: string }
 interface Incapacidad {

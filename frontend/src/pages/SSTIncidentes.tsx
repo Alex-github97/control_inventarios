@@ -5,7 +5,8 @@ import { ReportProblem, Add, CheckCircle, HourglassEmpty, Search, Close } from '
 import { Layout } from '@/components/layout/Layout'
 import { apiClient } from '@/api/client'
 
-const SST_COLOR = '#C53030'
+import { COLOR_MODULO } from '@/config/marca'
+const SST_COLOR = COLOR_MODULO
 const PAGE_BG = '#F0F2F5'
 const BORDER = '#E5E7EB'
 

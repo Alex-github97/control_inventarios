@@ -7,12 +7,13 @@ import {
 } from '@mui/material'
 import { NoteAdd, Add, Send, CheckCircle, Cancel, Refresh } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { COLOR_MODULO } from '@/config/marca'
 import {
   getSolicitudes, createSolicitud, enviarSolicitud, aprobarSolicitud, rechazarSolicitud,
   Solicitud, EstadoSolicitud, PrioridadSCM, CategoriaSCM, SolicitudItem,
 } from '@/api/scm'
 
-const SCM_COLOR = '#0C4D8C'
+const SCM_COLOR = COLOR_MODULO
 const PAGE_BG   = '#F0F2F5'
 const BORDER    = `rgba(12,77,140,0.25)`
 

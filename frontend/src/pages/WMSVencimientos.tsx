@@ -10,8 +10,9 @@ import { Layout } from '@/components/layout/Layout'
 import { apiClient as api } from '@/api/client'
 import { exportarPDF, exportarExcel } from '@/utils/exportar'
 
-const WMS_COLOR = '#1E40AF'
-const WMS_DARK = '#1E3A8A'
+import { COLOR_MODULO } from '@/config/marca'
+const WMS_COLOR = COLOR_MODULO
+const WMS_DARK = COLOR_MODULO
 
 interface ItemVenc {
   inventario_id: number

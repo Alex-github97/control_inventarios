@@ -10,7 +10,8 @@ import {
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const GRC_COLOR = '#6D28D9'
+import { COLOR_MODULO } from '@/config/marca'
+const GRC_COLOR = COLOR_MODULO
 const BORDER = '#E5E7EB'
 
 interface TabPanelProps { children?: React.ReactNode; index: number; value: number }

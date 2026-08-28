@@ -26,7 +26,8 @@ import { Layout } from '@/components/layout/Layout'
 import { useAuthStore } from '@/store/authStore'
 import toast from 'react-hot-toast'
 
-const WMS_COLOR = '#1E40AF'
+import { COLOR_MODULO } from '@/config/marca'
+const WMS_COLOR = COLOR_MODULO
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 interface Orden {

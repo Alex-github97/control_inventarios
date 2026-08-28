@@ -7,7 +7,8 @@ import {
 import Grid from '@mui/material/Grid2'
 import { Settings, Search } from '@mui/icons-material'
 
-const APS_COLOR = '#7C3AED'
+import { COLOR_MODULO } from '@/config/marca'
+const APS_COLOR = COLOR_MODULO
 
 const catalogos = [
   { nombre: 'Ubicaciones / Plantas', items: 12, activos: 10, ultima: '2026-06-15' },

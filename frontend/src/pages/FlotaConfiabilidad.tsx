@@ -18,7 +18,8 @@ import { apiClient as api } from '@/api/client'
 import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
 
-const GF_COLOR = '#32AC5C'
+import { COLOR_MODULO } from '@/config/marca'
+const GF_COLOR = COLOR_MODULO
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 interface TipoVehiculo { id: number; nombre: string }

@@ -5,9 +5,11 @@
  * el backend, el formato de pesos y los colores de cada estado.
  */
 
-export const AGS_COLOR = '#A21CAF'
-export const AGS_DARK = '#86198F'
-export const AGS_LIGHT = '#F5D0FE'
+import { COLOR_MODULO, COLOR_MODULO_CLARO, PALETA } from '@/config/marca'
+
+export const AGS_COLOR = COLOR_MODULO
+export const AGS_DARK = COLOR_MODULO
+export const AGS_LIGHT = PALETA.niebla
 
 // ── Formato de dinero ──────────────────────────────────────────────────
 // El peso colombiano no maneja centavos en la práctica: mostrarlos solo

@@ -24,7 +24,8 @@ import { Layout } from '@/components/layout/Layout'
 import { apiClient as api } from '@/api/client'
 import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
 
-const QMS_COLOR = '#059669'
+import { COLOR_MODULO } from '@/config/marca'
+const QMS_COLOR = COLOR_MODULO
 
 // Valores fijos del modelo: son enums de la base, no catálogos.
 const CLASIFICACIONES = ['MENOR', 'MAYOR', 'CRITICA']

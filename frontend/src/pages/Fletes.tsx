@@ -48,7 +48,7 @@ const ESTADO_COLORS: Record<string, string> = {
   PENDIENTE: '#F59E0B',
   ASIGNADO:  '#3B82F6',
   EN_CURSO:  '#8B5CF6',
-  COMPLETADO: '#32AC5C',
+  COMPLETADO: '#1A1A1A',
   CANCELADO:  '#EF4444',
 }
 
@@ -228,7 +228,7 @@ function FletaCard({
               variant="contained"
               startIcon={<PersonAddIcon />}
               onClick={() => onAsignar(flete)}
-              sx={{ borderRadius: '8px', fontSize: 12, textTransform: 'none', bgcolor: '#32AC5C', '&:hover': { bgcolor: '#27884A' } }}
+              sx={{ borderRadius: '8px', fontSize: 12, textTransform: 'none', bgcolor: '#1A1A1A', '&:hover': { bgcolor: '#1A1A1A' } }}
             >
               Asignar Conductor
             </Button>
@@ -365,7 +365,7 @@ function TabRegistrar({ generadores, conductores, onSuccess }: {
           variant="contained"
           startIcon={createMut.isPending ? <CircularProgress size={16} color="inherit" /> : <AddIcon />}
           disabled={createMut.isPending}
-          sx={{ borderRadius: '10px', textTransform: 'none', bgcolor: '#32AC5C', '&:hover': { bgcolor: '#27884A' } }}
+          sx={{ borderRadius: '10px', textTransform: 'none', bgcolor: '#1A1A1A', '&:hover': { bgcolor: '#1A1A1A' } }}
         >
           Registrar Flete
         </Button>
@@ -517,7 +517,7 @@ function TabRegistrar({ generadores, conductores, onSuccess }: {
             size="small" variant="contained"
             disabled={!newGen.nombre || createGenMut.isPending}
             onClick={() => createGenMut.mutate(newGen)}
-            sx={{ textTransform: 'none', bgcolor: '#32AC5C', '&:hover': { bgcolor: '#27884A' } }}
+            sx={{ textTransform: 'none', bgcolor: '#1A1A1A', '&:hover': { bgcolor: '#1A1A1A' } }}
           >
             Crear
           </Button>
@@ -563,9 +563,9 @@ function TabAsignacion({ fletes, conductores, onAsignar, onEstado, onDelete }: {
             sx={{
               cursor: 'pointer',
               fontWeight: filtroEstado === e ? 700 : 400,
-              bgcolor: filtroEstado === e ? alpha(ESTADO_COLORS[e] ?? '#32AC5C', 0.15) : 'transparent',
-              border: `1px solid ${filtroEstado === e ? (ESTADO_COLORS[e] ?? '#32AC5C') : '#E5E7EB'}`,
-              color: filtroEstado === e ? (ESTADO_COLORS[e] ?? '#32AC5C') : 'text.secondary',
+              bgcolor: filtroEstado === e ? alpha(ESTADO_COLORS[e] ?? '#1A1A1A', 0.15) : 'transparent',
+              border: `1px solid ${filtroEstado === e ? (ESTADO_COLORS[e] ?? '#1A1A1A') : '#E5E7EB'}`,
+              color: filtroEstado === e ? (ESTADO_COLORS[e] ?? '#1A1A1A') : 'text.secondary',
             }}
           />
         ))}
@@ -643,7 +643,7 @@ function TabAsignacion({ fletes, conductores, onAsignar, onEstado, onDelete }: {
                 setSelectedFlete(null)
               }
             }}
-            sx={{ textTransform: 'none', bgcolor: '#32AC5C', '&:hover': { bgcolor: '#27884A' } }}
+            sx={{ textTransform: 'none', bgcolor: '#1A1A1A', '&:hover': { bgcolor: '#1A1A1A' } }}
           >
             Asignar
           </Button>
@@ -776,7 +776,7 @@ function TabEnturnamiento({ conductores, fletesPendientes }: {
                 type="submit" variant="contained" fullWidth
                 disabled={crearMut.isPending}
                 startIcon={crearMut.isPending ? <CircularProgress size={16} color="inherit" /> : <EnturnarIcon />}
-                sx={{ borderRadius: '10px', textTransform: 'none', bgcolor: '#32AC5C', '&:hover': { bgcolor: '#27884A' } }}
+                sx={{ borderRadius: '10px', textTransform: 'none', bgcolor: '#1A1A1A', '&:hover': { bgcolor: '#1A1A1A' } }}
               >
                 Enturnar Conductor
               </Button>
@@ -808,11 +808,11 @@ function TabEnturnamiento({ conductores, fletesPendientes }: {
                 <Box
                   sx={{
                     width: 40, height: 40, borderRadius: '10px',
-                    bgcolor: alpha('#32AC5C', 0.12),
+                    bgcolor: alpha('#1A1A1A', 0.12),
                     display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                   }}
                 >
-                  <TruckIcon sx={{ fontSize: 20, color: '#32AC5C' }} />
+                  <TruckIcon sx={{ fontSize: 20, color: '#1A1A1A' }} />
                 </Box>
                 <Box flex={1} minWidth={0}>
                   <Typography fontWeight={700} fontSize={13}>
@@ -895,7 +895,7 @@ function TabEnturnamiento({ conductores, fletesPendientes }: {
                 asignarMut.mutate({ id: asignarDialog.id, fleteId: Number(fleteSeleccionado) })
               }
             }}
-            sx={{ textTransform: 'none', bgcolor: '#32AC5C', '&:hover': { bgcolor: '#27884A' } }}
+            sx={{ textTransform: 'none', bgcolor: '#1A1A1A', '&:hover': { bgcolor: '#1A1A1A' } }}
           >
             Asignar
           </Button>
@@ -960,7 +960,7 @@ export default function Fletes() {
     { label: 'Pendientes', count: fletes.filter(f => f.estado === 'PENDIENTE').length, color: '#F59E0B' },
     { label: 'Asignados',  count: fletes.filter(f => f.estado === 'ASIGNADO').length,  color: '#3B82F6' },
     { label: 'En Curso',   count: fletes.filter(f => f.estado === 'EN_CURSO').length,  color: '#8B5CF6' },
-    { label: 'Completados', count: fletes.filter(f => f.estado === 'COMPLETADO').length, color: '#32AC5C' },
+    { label: 'Completados', count: fletes.filter(f => f.estado === 'COMPLETADO').length, color: '#1A1A1A' },
   ]
 
   return (
@@ -990,8 +990,8 @@ export default function Fletes() {
           sx={{
             borderBottom: '1px solid #E5E7EB',
             '& .MuiTab-root': { textTransform: 'none', fontSize: 13.5, fontWeight: 500, minHeight: 52 },
-            '& .Mui-selected': { fontWeight: 700, color: '#32AC5C' },
-            '& .MuiTabs-indicator': { bgcolor: '#32AC5C' },
+            '& .Mui-selected': { fontWeight: 700, color: '#1A1A1A' },
+            '& .MuiTabs-indicator': { bgcolor: '#1A1A1A' },
           }}
         >
           <Tab icon={<AddIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Registrar Flete" />

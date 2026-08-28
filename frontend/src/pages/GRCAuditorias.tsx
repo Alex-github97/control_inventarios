@@ -12,7 +12,8 @@ import { Layout } from '@/components/layout/Layout'
 import { SelectorResponsable } from '@/components/catalogo/SelectorResponsable'
 import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
 
-const GRC_COLOR = '#6D28D9'
+import { COLOR_MODULO } from '@/config/marca'
+const GRC_COLOR = COLOR_MODULO
 const BORDER  = '#E5E7EB'
 const LBL       = alpha(GRC_COLOR, 0.85)
 const ESTADO_COLOR: Record<string,string> = { PLANIFICADA:'#0891B2', 'EN PROGRESO':'#D97706', COMPLETADA:'#059669', CANCELADA:'#6B7280' }

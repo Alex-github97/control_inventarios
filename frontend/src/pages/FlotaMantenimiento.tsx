@@ -15,7 +15,8 @@ import { apiClient as api } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
-const GF_COLOR = '#32AC5C'
+import { COLOR_MODULO } from '@/config/marca'
+const GF_COLOR = COLOR_MODULO
 
 interface Vehiculo { id: number; placa: string }
 interface Personal { id: number; nombres: string; apellidos: string; tipo: string }
@@ -35,7 +36,7 @@ interface Orden {
 
 const ESTADOS = ['ABIERTA', 'EN_PROCESO', 'CERRADA', 'CANCELADA']
 const estadoColor = (e: string) => ({
-  ABIERTA: '#3B82F6', EN_PROCESO: '#F59E0B', CERRADA: '#32AC5C', CANCELADA: '#9CA3AF',
+  ABIERTA: '#3B82F6', EN_PROCESO: '#F59E0B', CERRADA: '#1A1A1A', CANCELADA: '#9CA3AF',
 })[e] ?? '#9CA3AF'
 const EstadoIcon = ({ e }: { e: string }) => {
   const c = estadoColor(e)
@@ -163,7 +164,7 @@ export default function FlotaMantenimiento() {
           </Typography>
         </Box>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => { resetForm(); setDialogOpen(true) }}
-          sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 600, bgcolor: GF_COLOR, '&:hover': { bgcolor: '#27884A' }, boxShadow: `0 4px 12px ${alpha(GF_COLOR, 0.4)}` }}>
+          sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 600, bgcolor: GF_COLOR, '&:hover': { bgcolor: '#1A1A1A' }, boxShadow: `0 4px 12px ${alpha(GF_COLOR, 0.4)}` }}>
           Nueva Orden
         </Button>
       </Stack>
@@ -173,7 +174,7 @@ export default function FlotaMantenimiento() {
         {[
           { label: 'Abiertas', count: abiertas, color: '#3B82F6' },
           { label: 'En proceso', count: enProceso, color: '#F59E0B' },
-          { label: 'Cerradas', count: cerradas, color: '#32AC5C' },
+          { label: 'Cerradas', count: cerradas, color: '#1A1A1A' },
         ].map(k => (
           <Grid key={k.label} size={{ xs: 4 }}>
             <Paper elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '14px', p: 2.5 }}>
@@ -550,7 +551,7 @@ export default function FlotaMantenimiento() {
             <Button size="small" onClick={() => setDialogOpen(false)} sx={{ textTransform: 'none' }}>Cancelar</Button>
             <Button type="submit" size="small" variant="contained" disabled={createMut.isPending}
               startIcon={createMut.isPending ? <CircularProgress size={14} color="inherit" /> : undefined}
-              sx={{ textTransform: 'none', fontWeight: 600, bgcolor: GF_COLOR, '&:hover': { bgcolor: '#27884A' }, px: 3 }}>
+              sx={{ textTransform: 'none', fontWeight: 600, bgcolor: GF_COLOR, '&:hover': { bgcolor: '#1A1A1A' }, px: 3 }}>
               Crear orden de trabajo
             </Button>
           </DialogActions>
@@ -570,7 +571,7 @@ export default function FlotaMantenimiento() {
           <Button size="small" onClick={() => setEstadoDialog(null)} sx={{ textTransform: 'none' }}>Cancelar</Button>
           <Button size="small" variant="contained" disabled={estadoMut.isPending}
             onClick={() => estadoDialog && estadoMut.mutate({ id: estadoDialog.id, estado: nuevoEstado })}
-            sx={{ textTransform: 'none', bgcolor: GF_COLOR, '&:hover': { bgcolor: '#27884A' } }}>
+            sx={{ textTransform: 'none', bgcolor: GF_COLOR, '&:hover': { bgcolor: '#1A1A1A' } }}>
             Confirmar
           </Button>
         </DialogActions>

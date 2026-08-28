@@ -46,7 +46,7 @@ export default function AGSServicios() {
 
   const [dlgCat, setDlgCat] = useState<{ abierto: boolean; item: Categoria | null }>(
     { abierto: false, item: null })
-  const [formCat, setFormCat] = useState({ nombre: '', descripcion: '', color: AGS_COLOR, activo: true })
+  const [formCat, setFormCat] = useState({ nombre: '', descripcion: '', color: AGS_COLOR as string, activo: true })
   const [catWasOpen, setCatWasOpen] = useState(false)
 
   const [menu, setMenu] = useState<{ el: HTMLElement; item: Servicio } | null>(null)

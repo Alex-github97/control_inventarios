@@ -4,7 +4,8 @@ import Grid from '@mui/material/Grid2'
 import { PersonAdd, CheckCircle, Schedule, RadioButtonUnchecked } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const LMS_COLOR = '#D97706'
+import { COLOR_MODULO } from '@/config/marca'
+const LMS_COLOR = COLOR_MODULO
 
 const ESTADOS_COLOR: Record<string, string> = {
   EN_PROGRESO: '#0EA5E9', COMPLETADO: '#059669', PENDIENTE: '#F59E0B',

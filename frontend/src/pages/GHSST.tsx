@@ -34,6 +34,7 @@ import {
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
 
+import { COLOR_MODULO } from '@/config/marca'
 import {
   HealthAndSafety as HealthAndSafetyIcon,
   Add as AddIcon,
@@ -48,7 +49,7 @@ import {
   Close as CloseIcon,
 } from '@mui/icons-material'
 
-const GH_COLOR = '#BE185D'
+const GH_COLOR = COLOR_MODULO
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 

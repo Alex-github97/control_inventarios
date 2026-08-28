@@ -4,7 +4,8 @@ import Grid from '@mui/material/Grid2'
 import { TrendingUp, EmojiEvents } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const CRM_COLOR = '#DC2626'
+import { COLOR_MODULO } from '@/config/marca'
+const CRM_COLOR = COLOR_MODULO
 
 const ETAPA_CONFIG: Record<string, { color: string; prob: number }> = {
   IDENTIFICACION: { color: '#94A3B8', prob: 10 },

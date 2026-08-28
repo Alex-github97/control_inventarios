@@ -4,7 +4,8 @@ import Grid from '@mui/material/Grid2'
 import { EmojiEvents, Stars, Leaderboard } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const LMS_COLOR = '#D97706'
+import { COLOR_MODULO } from '@/config/marca'
+const LMS_COLOR = COLOR_MODULO
 
 const RANKING = [
   { pos: 1,  nombre: 'Carlos Vargas',    cargo: 'Conductor C3',            puntos: 1840, insignias: 12, completados: 18 },

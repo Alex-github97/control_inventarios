@@ -4,7 +4,8 @@ import Grid from '@mui/material/Grid2'
 import { LibraryBooks, Search, VideoLibrary, Article, Lightbulb, EmojiObjects } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const LMS_COLOR = '#D97706'
+import { COLOR_MODULO } from '@/config/marca'
+const LMS_COLOR = COLOR_MODULO
 
 const TIPO_COLORS: Record<string, string> = {
   VIDEO: '#EF4444', DOCUMENTO: '#0EA5E9', PRESENTACION: '#7C3AED',

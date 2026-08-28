@@ -20,7 +20,8 @@ import { useNavigate } from 'react-router-dom'
 import { apiClient as api } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 
-const GF_COLOR = '#7C3AED'
+import { COLOR_MODULO } from '@/config/marca'
+const GF_COLOR = COLOR_MODULO
 
 interface KPIs {
   total_vehiculos: number
@@ -137,7 +138,7 @@ export default function FlotaDashboard() {
         </Grid>
         <Grid size={{ xs: 6, md: 3 }}>
           <KPICard label="Conductores activos" value={kpis?.conductores_activos ?? 0}
-            color="#32AC5C" icon={<PersonalIcon />}
+            color="#1A1A1A" icon={<PersonalIcon />}
             sub={`${kpis?.mecanicos ?? 0} mecánicos`} />
         </Grid>
         <Grid size={{ xs: 6, md: 3 }}>
@@ -240,7 +241,7 @@ export default function FlotaDashboard() {
 
       {alertas.length === 0 && (
         <Paper elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '14px', p: 3, textAlign: 'center' }}>
-          <OkIcon sx={{ fontSize: 40, color: '#32AC5C', mb: 1 }} />
+          <OkIcon sx={{ fontSize: 40, color: '#1A1A1A', mb: 1 }} />
           <Typography fontSize={14} color="text.secondary">
             Sin alertas documentales activas
           </Typography>
@@ -252,7 +253,7 @@ export default function FlotaDashboard() {
         {[
           { label: 'Registrar combustible', path: '/flota/combustible', color: '#F59E0B' },
           { label: 'Nueva orden de trabajo', path: '/flota/mantenimiento', color: GF_COLOR },
-          { label: 'Ver vehículos', path: '/flota/vehiculos', color: '#32AC5C' },
+          { label: 'Ver vehículos', path: '/flota/vehiculos', color: '#1A1A1A' },
           { label: 'Gestionar personal', path: '/flota/personal', color: '#3B82F6' },
         ].map(a => (
           <Grid key={a.path} size={{ xs: 6, md: 3 }}>

@@ -24,7 +24,8 @@ import {
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
-import { MARCA } from '@/config/marca'
+import { MARCA, PALETA } from '@/config/marca'
+import { Logotipo } from '@/components/Logotipo'
 import { clienteGuardado } from '@/api/cliente'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -53,8 +54,8 @@ const MODULES = [
     headline: 'Trazabilidad total',
     headlineAccent: 'de cada estiba',
     description: 'Plataforma empresarial para la compañía.\nControl, visibilidad y eficiencia operacional.',
-    color: '#32AC5C',
-    colorDark: '#27884A',
+    color: PALETA.tinta,
+    colorDark: PALETA.tinta,
     features: [
       { icon: <Inventory2 sx={{ fontSize: 17 }} />, text: 'Gestión de estibas en tiempo real' },
       { icon: <LocalShipping sx={{ fontSize: 17 }} />, text: 'Trazabilidad completa de movimientos' },
@@ -70,8 +71,8 @@ const MODULES = [
     headline: 'Cruces de tarifas',
     headlineAccent: 'al instante',
     description: 'Motor de cruce de fletes SICETAC.\nCompara y toma decisiones en segundos.',
-    color: '#369E4D',
-    colorDark: '#1f6130',
+    color: PALETA.tinta,
+    colorDark: PALETA.tinta,
     features: [
       { icon: <CompareArrows sx={{ fontSize: 17 }} />, text: 'Cruza los fletes con el × TARIFARIO_SICETAC en un clic' },
       { icon: <TrendingUp sx={{ fontSize: 17 }} />, text: 'Métricas de coincidencia automáticas' },
@@ -87,8 +88,8 @@ const MODULES = [
      headline: 'Analiza tus datos y',
      headlineAccent: 'Toma decisiones en segundos',
      description: 'Modúlo dedicado a la visualización y analítica de datos.',
-     color: '#3B82F6',
-     colorDark: '#1D4ED8',
+     color: PALETA.tinta,
+     colorDark: PALETA.tinta,
      features: [
        { icon: <TableChart sx={{ fontSize: 17 }} />, text: 'Dashboard Operaciones, Almacenamiento y Logística' },
        { icon: <TableChart sx={{ fontSize: 17 }} />, text: 'Dashboard Mantenimiento' },
@@ -103,8 +104,8 @@ const MODULES = [
     headline: 'Despacho y asignación',
     headlineAccent: 'de conductores',
     description: 'Gestión integral de fletes para la compañía.\nRegistra viajes, asigna conductores y administra turnos.',
-    color: '#F59E0B',
-    colorDark: '#D97706',
+    color: PALETA.tinta,
+    colorDark: PALETA.tinta,
     features: [
       { icon: <Route sx={{ fontSize: 17 }} />, text: 'Registro de fletes con origen, destino y tipo de vehículo' },
       { icon: <AssignmentInd sx={{ fontSize: 17 }} />, text: 'Asignación directa de conductor y vehículo al viaje' },
@@ -120,8 +121,8 @@ const MODULES = [
     headline: 'Control total',
     headlineAccent: 'de tu flota vehicular',
     description: 'Módulo integral de gestión de flotas para la compañía.\nVehículos, mantenimiento, combustible y documentos.',
-    color: '#7C3AED',
-    colorDark: '#5B21B6',
+    color: PALETA.tinta,
+    colorDark: PALETA.tinta,
     features: [
       { icon: <DirectionsCar sx={{ fontSize: 17 }} />, text: 'Catálogo de vehículos con semáforo documental' },
       { icon: <Build sx={{ fontSize: 17 }} />, text: 'Órdenes de trabajo: preventivo y correctivo' },
@@ -137,8 +138,8 @@ const MODULES = [
     headline: 'Activos bajo control,',
     headlineAccent: 'instalaciones en orden',
     description: 'ISO 55000 · ISO 41001 · IAS 16 · ISO 31000.\nGestión integral de activos físicos e instalaciones.',
-    color: '#0D9488',
-    colorDark: '#0F766E',
+    color: PALETA.tinta,
+    colorDark: PALETA.tinta,
     features: [
       { icon: <ActivoIcon2 sx={{ fontSize: 17 }} />, text: 'Inventario de activos con valoración IAS 16' },
       { icon: <Engineering sx={{ fontSize: 17 }} />, text: 'Órdenes de trabajo preventivas y correctivas' },
@@ -154,8 +155,8 @@ const MODULES = [
     headline: 'Personas en el centro,',
     headlineAccent: 'operación sin límites',
     description: 'ISO 45001 · SGSST · Nómina · Talento.\nCiclo completo del colaborador, desde el ingreso hasta la desvinculación.',
-    color: '#BE185D',
-    colorDark: '#9D174D',
+    color: PALETA.tinta,
+    colorDark: PALETA.tinta,
     features: [
       { icon: <PeopleAlt sx={{ fontSize: 17 }} />, text: 'Colaboradores y conductores con perfil 360°' },
       { icon: <PaymentsIcon sx={{ fontSize: 17 }} />, text: 'Nómina automática: horas extras, recargos y cesantías' },
@@ -171,8 +172,8 @@ const MODULES = [
     headline: 'Bodega inteligente,',
     headlineAccent: 'despacho perfecto',
     description: 'OTIF · Fill Rate · Inventory Accuracy.\nGestión end-to-end de la cadena logística interna.',
-    color: '#1E40AF',
-    colorDark: '#1e3a8a',
+    color: PALETA.tinta,
+    colorDark: PALETA.tinta,
     features: [
       { icon: <MoveToInbox sx={{ fontSize: 17 }} />, text: 'Recepción con ASN y control de calidad por lote' },
       { icon: <Warehouse sx={{ fontSize: 17 }} />, text: 'Inventario por ubicación FIFO/FEFO con conteos cíclicos' },
@@ -188,8 +189,8 @@ const MODULES = [
     headline: 'Gobierno documental',
     headlineAccent: 'de clase mundial',
     description: 'ISO 15489 · ISO 27001 · ISO 30301.\nRepositorio corporativo único con trazabilidad, firma y cumplimiento normativo.',
-    color: '#0E7490',
-    colorDark: '#0C6A80',
+    color: PALETA.tinta,
+    colorDark: PALETA.tinta,
     features: [
       { icon: <FolderSpecial sx={{ fontSize: 17 }} />, text: 'Repositorio centralizado con versionamiento y control documental' },
       { icon: <DrawIcon sx={{ fontSize: 17 }} />, text: 'Firma electrónica y digital con validez legal y auditoría inmutable' },
@@ -205,8 +206,8 @@ const MODULES = [
     headline: 'Riesgos bajo control,',
     headlineAccent: 'cumplimiento garantizado',
     description: 'ISO 31000 · ISO 37301 · ISO 27001 · ISO 22301 · COSO ERM · COBIT.\nPlataforma GRC empresarial para gobiernos corporativos de clase mundial.',
-    color: '#6D28D9',
-    colorDark: '#5B21B6',
+    color: PALETA.tinta,
+    colorDark: PALETA.tinta,
     features: [
       { icon: <GRCShieldIcon sx={{ fontSize: 17 }} />, text: 'Gobierno corporativo: comités, RACI y estructura de control' },
       { icon: <GRCRiskIcon sx={{ fontSize: 17 }} />, text: 'Gestión de riesgos con mapa de calor 5×5 e inherente vs residual' },
@@ -222,8 +223,8 @@ const MODULES = [
     headline: 'Calidad certificada,',
     headlineAccent: 'cero no conformidades',
     description: 'ISO 9001 · ISO 28000 · ISO 45001 · ISO 14001.\nSistema integral de gestión de calidad para operaciones logísticas.',
-    color: '#059669',
-    colorDark: '#047857',
+    color: PALETA.tinta,
+    colorDark: PALETA.tinta,
     features: [
       { icon: <QMSQualityIcon sx={{ fontSize: 17 }} />, text: 'Gestión de procesos y mapa de procesos ISO 9001' },
       { icon: <QMSNCIcon sx={{ fontSize: 17 }} />, text: 'No conformidades, CAPA y análisis de causa raíz' },
@@ -239,8 +240,8 @@ const MODULES = [
     headline: 'Transporte de clase mundial,',
     headlineAccent: 'OTIF garantizado',
     description: 'ISO 39001 · OTIF · Torre de Control.\nOrquestación end-to-end de la cadena de transporte.',
-    color: '#0369A1',
-    colorDark: '#0284C7',
+    color: PALETA.tinta,
+    colorDark: PALETA.tinta,
     features: [
       { icon: <AirportShuttle sx={{ fontSize: 17 }} />, text: 'Planificación y despacho inteligente de viajes' },
       { icon: <GpsFixed sx={{ fontSize: 17 }} />, text: 'Tracking en tiempo real con eventos georreferenciados' },
@@ -256,8 +257,8 @@ const MODULES = [
     headline: 'Universidad Corporativa Digital,',
     headlineAccent: 'talento en constante evolución',
     description: 'Escuela de Conductores · ISO 9001 · SCORM · xAPI · 70:20:10.\nPlataforma LMS empresarial con IA, gamificación y certificaciones integradas.',
-    color: '#D97706',
-    colorDark: '#B45309',
+    color: PALETA.tinta,
+    colorDark: PALETA.tinta,
     features: [
       { icon: <LMSUniversityIcon sx={{ fontSize: 17 }} />, text: 'Universidad corporativa con facultades, escuelas y programas' },
       { icon: <LMSSkillsIcon sx={{ fontSize: 17 }} />, text: 'Rutas de aprendizaje automáticas por cargo, área y brecha de competencias' },
@@ -273,8 +274,8 @@ const MODULES = [
     headline: 'Clientes en el centro,',
     headlineAccent: 'ventas bajo control',
     description: 'Pipeline · Lead Scoring · NPS · IA Comercial.\nGestión integral del ciclo de vida del cliente con visibilidad 360°.',
-    color: '#DC2626',
-    colorDark: '#B91C1C',
+    color: PALETA.tinta,
+    colorDark: PALETA.tinta,
     features: [
       { icon: <CRMLeadIcon sx={{ fontSize: 17 }} />, text: 'Lead Scoring automático FRÍO/TIBIO/CALIENTE con IA predictiva' },
       { icon: <CRMHandshakeIcon sx={{ fontSize: 17 }} />, text: 'Pipeline Kanban: oportunidades, cotizaciones y contratos con SLA' },
@@ -290,8 +291,8 @@ const MODULES = [
     headline: 'Activos bajo control,',
     headlineAccent: 'cero paros no planificados',
     description: 'ISO 55000 · RCM · FMEA · Lubricación · IA Predictiva.\nSistema maestro del ciclo de vida de vehículos, equipos e infraestructura.',
-    color: '#EA580C',
-    colorDark: '#C2410C',
+    color: PALETA.tinta,
+    colorDark: PALETA.tinta,
     features: [
       { icon: <EAMEngineeringIcon sx={{ fontSize: 17 }} />, text: 'Maestro de activos jerárquico: vehículos, montacargas, infraestructura y maquinaria' },
       { icon: <EAMTireIcon sx={{ fontSize: 17 }} />, text: 'OTs preventivas/correctivas/predictivas con checklists dinámicos y confiabilidad MTBF/MTTR' },
@@ -307,8 +308,8 @@ const MODULES = [
     headline: 'El cerebro de tu',
     headlineAccent: 'cadena de suministro',
     description: 'S&OP · IBP · MPS · MRP · CRP · DRP · Inventario Multi-Echelon.\nOptimización matemática y IA para planificar toda la cadena de valor.',
-    color: '#7C3AED',
-    colorDark: '#6D28D9',
+    color: PALETA.tinta,
+    colorDark: PALETA.tinta,
     features: [
       { icon: <APSScatterIcon sx={{ fontSize: 17 }} />, text: 'Demand Planning estadístico + ML: ARIMA, LSTM, Ensemble con consenso colaborativo' },
       { icon: <APSLeaderIcon sx={{ fontSize: 17 }} />, text: 'MPS · MRP · CRP con programación finita de capacidad y gestión de restricciones duras/blandas' },
@@ -324,8 +325,8 @@ const MODULES = [
     headline: 'Producción inteligente,',
     headlineAccent: 'cero paros no planificados',
     description: 'ISO 22400 · OEE · SPC · APS · Industria 4.0.\nControl total desde la materia prima hasta el producto terminado.',
-    color: '#0891B2',
-    colorDark: '#0E7490',
+    color: PALETA.tinta,
+    colorDark: PALETA.tinta,
     features: [
       { icon: <MESFactoryIcon sx={{ fontSize: 17 }} />, text: 'Órdenes de producción con BOM multinivel, recetas y programación APS de capacidad finita' },
       { icon: <MESSpeedIcon sx={{ fontSize: 17 }} />, text: 'OEE en tiempo real: Disponibilidad × Rendimiento × Calidad por línea, equipo y turno' },
@@ -392,7 +393,7 @@ export default function Login() {
           flexDirection: 'column',
           justifyContent: 'space-between',
           width: '45%',
-          background: `linear-gradient(150deg, #0D1117 0%, #111827 60%, #0D2010 100%)`,
+          background: `linear-gradient(150deg, #0D0D0D 0%, #1A1A1A 60%, #262626 100%)`,
           p: 5,
           position: 'relative',
           overflow: 'hidden',
@@ -401,7 +402,7 @@ export default function Login() {
         {/* Puntos de fondo */}
         <Box sx={{
           position: 'absolute', inset: 0, opacity: 0.07,
-          backgroundImage: 'radial-gradient(circle, #32AC5C 1px, transparent 1px)',
+          backgroundImage: 'radial-gradient(circle, #1A1A1A 1px, transparent 1px)',
           backgroundSize: '28px 28px',
           pointerEvents: 'none',
         }} />
@@ -562,7 +563,9 @@ export default function Login() {
           transition={{ duration: 0.45, ease: 'easeOut' }}
           style={{ width: '100%', maxWidth: 400 }}
         >
-          {/* Logo del cliente que se eligió antes del login */}
+          {/* Logo del cliente que se eligió antes del login. La mayoría de los
+              clientes no carga logo, así que sin uno se muestra su nombre: una
+              imagen rota se vería como si la plataforma estuviera fallando. */}
           <Box sx={{ display: 'flex', justifyContent: 'center', mb: 4.5 }}>
             <Box
               sx={{
@@ -575,14 +578,24 @@ export default function Login() {
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                minWidth: 240,
               }}
             >
-              <Box
-                component="img"
-                src={cliente?.logo_url || "/logo-cliente.png"}
-                alt={cliente?.nombre ?? MARCA.nombre}
-                sx={{ width: 200, height: 'auto', display: 'block' }}
-              />
+              {cliente?.logo_url ? (
+                <Box
+                  component="img"
+                  src={cliente.logo_url}
+                  alt={cliente.nombre ?? MARCA.nombre}
+                  sx={{ width: 200, height: 'auto', display: 'block' }}
+                />
+              ) : (
+                <Typography sx={{
+                  fontFamily: '"Montserrat", sans-serif', fontWeight: 600, fontSize: 20,
+                  color: PALETA.tinta, letterSpacing: '0.02em', textAlign: 'center',
+                }}>
+                  {cliente?.nombre ?? MARCA.nombre}
+                </Typography>
+              )}
             </Box>
           </Box>
 
@@ -617,7 +630,7 @@ export default function Login() {
                 }}
                 sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#FFF', fontSize: 14, borderRadius: '10px',
                   '& fieldset': { borderColor: '#E5E7EB' }, '&:hover fieldset': { borderColor: '#D1D5DB' },
-                  '&.Mui-focused fieldset': { borderColor: '#32AC5C', borderWidth: 1.5 },
+                  '&.Mui-focused fieldset': { borderColor: '#1A1A1A', borderWidth: 1.5 },
                   '&.Mui-focused': { boxShadow: '0 0 0 3px rgba(50,172,92,0.12)' } } }}
               />
             </Box>
@@ -643,7 +656,7 @@ export default function Login() {
                 }}
                 sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#FFF', fontSize: 14, borderRadius: '10px',
                   '& fieldset': { borderColor: '#E5E7EB' }, '&:hover fieldset': { borderColor: '#D1D5DB' },
-                  '&.Mui-focused fieldset': { borderColor: '#32AC5C', borderWidth: 1.5 },
+                  '&.Mui-focused fieldset': { borderColor: '#1A1A1A', borderWidth: 1.5 },
                   '&.Mui-focused': { boxShadow: '0 0 0 3px rgba(50,172,92,0.12)' } } }}
               />
             </Box>
@@ -652,10 +665,10 @@ export default function Login() {
               type="submit" fullWidth variant="contained" disabled={loading}
               sx={{
                 py: 1.35, fontSize: 14.5, fontWeight: 700, borderRadius: '10px',
-                background: 'linear-gradient(135deg, #32AC5C 0%, #27884A 100%)',
+                background: 'linear-gradient(135deg, #1A1A1A 0%, #1A1A1A 100%)',
                 boxShadow: '0 4px 14px rgba(50,172,92,0.4)', letterSpacing: '-0.01em',
-                '&:hover': { background: 'linear-gradient(135deg, #3DC46A 0%, #32AC5C 100%)',
-                  boxShadow: '0 6px 20px rgba(50,172,92,0.5)', transform: 'translateY(-1px)' },
+                '&:hover': { background: 'linear-gradient(135deg, #4D4D4D 0%, #1A1A1A 100%)',
+                  boxShadow: '0 6px 20px rgba(0,0,0,0.35)', transform: 'translateY(-1px)' },
                 '&:active': { transform: 'translateY(0)' },
                 transition: 'all 0.18s ease',
               }}
@@ -664,9 +677,12 @@ export default function Login() {
             </Button>
           </form>
 
-          <Typography sx={{ mt: 4, textAlign: 'center', color: '#64748B', fontSize: 12 }}>
-            {MARCA.legal}
-          </Typography>
+          <Box sx={{ mt: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+            <Logotipo tamano={13} />
+            <Typography sx={{ textAlign: 'center', color: '#64748B', fontSize: 12 }}>
+              {MARCA.legal}
+            </Typography>
+          </Box>
         </motion.div>
       </Box>
     </Box>

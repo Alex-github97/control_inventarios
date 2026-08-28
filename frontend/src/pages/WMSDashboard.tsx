@@ -35,7 +35,8 @@ import { apiClient as api } from '@/api/client'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
-const WMS_COLOR = '#1E40AF'
+import { COLOR_MODULO } from '@/config/marca'
+const WMS_COLOR = COLOR_MODULO
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

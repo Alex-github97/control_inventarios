@@ -12,7 +12,7 @@ import type { MotorActivo } from './SelectorCatalogoVehiculo'
  * un motor nuevo en la configuración basta para que aparezca acá.
  */
 export function SelectorMotor({
-  marca, linea, onChange, color = '#32AC5C',
+  marca, linea, onChange, color = '#1A1A1A',
 }: {
   marca: string
   linea: string

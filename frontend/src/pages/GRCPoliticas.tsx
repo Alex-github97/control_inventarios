@@ -27,7 +27,8 @@ import { apiClient as api } from '@/api/client'
 import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
 import { SelectorResponsable } from '@/components/catalogo/SelectorResponsable'
 
-const GRC_COLOR = '#6D28D9'
+import { COLOR_MODULO } from '@/config/marca'
+const GRC_COLOR = COLOR_MODULO
 const LBL = alpha(GRC_COLOR, 0.85)
 const PAGE_BG = '#F0F2F5'
 

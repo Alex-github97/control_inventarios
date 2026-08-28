@@ -7,7 +7,8 @@ import {
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const CRM_COLOR = '#DC2626'
+import { COLOR_MODULO } from '@/config/marca'
+const CRM_COLOR = COLOR_MODULO
 
 const KPIS = [
   { label: 'Pipeline Total',       value: '$4.28B',  sub: '+12% vs mes ant.', color: CRM_COLOR,  icon: <TrendingUp /> },

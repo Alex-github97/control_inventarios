@@ -8,9 +8,10 @@ import { Layout } from '@/components/layout/Layout'
 import { LanguageSelector } from '@/components/LanguageSelector'
 import { SUPPORTED_LANGUAGES } from '@/i18n'
 
+import { COLOR_MODULO } from '@/config/marca'
 const CARD_BG = '#FFFFFF'
-const ACCENT    = '#32AC5C'
-const SECTION_COLOR = '#6366F1'
+const ACCENT    = '#1A1A1A'
+const SECTION_COLOR = COLOR_MODULO
 
 export default function Configuracion() {
   const { t, i18n } = useTranslation()

@@ -4,8 +4,9 @@ import Grid from '@mui/material/Grid2'
 import { AutoAwesome, TrendingUp, Psychology, SmartToy } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const LMS_COLOR = '#D97706'
-const AI_COLOR  = '#8B5CF6'
+import { COLOR_MODULO } from '@/config/marca'
+const LMS_COLOR = COLOR_MODULO
+const AI_COLOR  = COLOR_MODULO
 const AI_BOR    = 'rgba(139,92,246,0.25)'
 
 const RECOMENDACIONES = [

@@ -5,7 +5,8 @@ import { Analytics, TrendingUp, TrendingDown, AccountBalance, Speed } from '@mui
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { Layout } from '@/components/layout/Layout'
 
-const SCM_COLOR = '#0C4D8C'
+import { COLOR_MODULO } from '@/config/marca'
+const SCM_COLOR = COLOR_MODULO
 const BORDER = `rgba(12,77,140,0.25)`
 
 const KPIS = [

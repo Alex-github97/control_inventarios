@@ -4,7 +4,8 @@ import Grid from '@mui/material/Grid2'
 import { Assessment } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const CRM_COLOR = '#DC2626'
+import { COLOR_MODULO } from '@/config/marca'
+const CRM_COLOR = COLOR_MODULO
 
 const EJECUTIVOS_KPI = [
   { nombre: 'Laura Soto',   clientes: 98, pipeline: 1850, ganado: 1240, win_rate: 67, nps: 62, tickets: 8 },

@@ -62,7 +62,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { CircularProgress } from '@mui/material'
 
-const TMS_COLOR = '#0369A1'
+import { COLOR_MODULO } from '@/config/marca'
+const TMS_COLOR = COLOR_MODULO
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

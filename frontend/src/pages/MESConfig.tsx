@@ -15,9 +15,10 @@ import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
 import { apiClient as api } from '@/api/client'
 
+import { COLOR_MODULO } from '@/config/marca'
 // ─── Identidad MES / tema claro ──────────────────────────────────────────────
-const MES_COLOR = '#0891B2'
-const MES_DARK = '#0E7490'
+const MES_COLOR = COLOR_MODULO
+const MES_DARK = COLOR_MODULO
 
 // ─── Enums del backend ───────────────────────────────────────────────────────
 const TIPOS_FABRICACION = ['DISCRETA', 'PROCESOS', 'CONTINUA', 'LOTES', 'MAQUILA', 'REEMPAQUE', 'KITTING'] as const

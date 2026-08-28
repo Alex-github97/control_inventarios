@@ -4,7 +4,8 @@ import Grid from '@mui/material/Grid2'
 import { Whatshot, Search, TrendingUp, AcUnit, Thermostat } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const CRM_COLOR = '#DC2626'
+import { COLOR_MODULO } from '@/config/marca'
+const CRM_COLOR = COLOR_MODULO
 
 const ESTADO_COLOR: Record<string, { color: string; bg: string; icon: React.ReactNode }> = {
   CALIENTE:  { color: CRM_COLOR,  bg: alpha(CRM_COLOR, 0.15),  icon: <Whatshot  sx={{ fontSize: 16, color: CRM_COLOR }}  /> },

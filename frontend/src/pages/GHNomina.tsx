@@ -46,9 +46,10 @@ import { exportarPDF } from '@/utils/exportar'
 import { apiClient as api } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 
+import { COLOR_MODULO } from '@/config/marca'
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const GH_COLOR = '#BE185D'
+const GH_COLOR = COLOR_MODULO
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 

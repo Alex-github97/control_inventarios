@@ -8,7 +8,8 @@ import { Store, Search, Star, StarBorder, Assessment } from '@mui/icons-material
 import { Layout } from '@/components/layout/Layout'
 import { getProveedoresSCM, ProveedorSCM, ClasificacionProveedor } from '@/api/scm'
 
-const SCM_COLOR = '#0C4D8C'
+import { COLOR_MODULO } from '@/config/marca'
+const SCM_COLOR = COLOR_MODULO
 const PAGE_BG   = '#F0F2F5'
 const BORDER    = `rgba(12,77,140,0.25)`
 

@@ -29,7 +29,7 @@ const ESTADOS = [
 
 const PROPIETARIOS = ['PROPIA', 'ALQUILADA', 'CLIENTE', 'PROVEEDOR', 'TERCERO']
 const TIPOS = ['MADERA', 'PLASTICO', 'METAL', 'CARTON', 'MIXTA']
-const PRIMARY = '#32AC5C'
+const PRIMARY = '#1A1A1A'
 
 const MATERIALES: Record<string, string[]> = {
   MADERA:   ['MADERA_PINO', 'MADERA_EUCALIPTO'],

@@ -241,31 +241,32 @@ import {
 } from '@mui/icons-material'
 import { COMMAND_CENTER_DASHBOARDS } from '@/config/commandCenter'
 
+import { COLOR_MODULO_SOBRE_OSCURO } from '@/config/marca'
 const DRAWER_WIDTH      = 252
 const DRAWER_COLLAPSED  = 68
 const COMPACT_THRESHOLD = 140
-const CI_COLOR  = '#32AC5C'
-const TX_COLOR  = '#369E4D'
-const CF_COLOR  = '#6366F1'
-const CC_COLOR  = '#0EA5E9'
-const FT_COLOR  = '#F59E0B'
-const GF_COLOR  = '#32AC5C'
-const ML_COLOR  = '#0D9488'
-const WMS_COLOR = '#1E40AF'
-const GH_COLOR  = '#BE185D'
-const TMS_COLOR = '#0369A1'
-const DMS_COLOR = '#0E7490'
-const QMS_COLOR = '#059669'
-const GRC_COLOR = '#6D28D9'
-const LMS_COLOR = '#D97706'
-const CRM_COLOR = '#DC2626'
-const EAM_COLOR = '#32AC5C'
-const AGS_COLOR = '#A21CAF'
-const MES_COLOR = '#0891B2'
-const APS_COLOR = '#7C3AED'
-const ERP_COLOR = '#1A3A6B'
-const SCM_COLOR = '#0C4D8C'
-const SST_COLOR = '#C53030'
+const CI_COLOR  = COLOR_MODULO_SOBRE_OSCURO
+const TX_COLOR  = COLOR_MODULO_SOBRE_OSCURO
+const CF_COLOR  = COLOR_MODULO_SOBRE_OSCURO
+const CC_COLOR  = COLOR_MODULO_SOBRE_OSCURO
+const FT_COLOR  = COLOR_MODULO_SOBRE_OSCURO
+const GF_COLOR  = COLOR_MODULO_SOBRE_OSCURO
+const ML_COLOR  = COLOR_MODULO_SOBRE_OSCURO
+const WMS_COLOR = COLOR_MODULO_SOBRE_OSCURO
+const GH_COLOR  = COLOR_MODULO_SOBRE_OSCURO
+const TMS_COLOR = COLOR_MODULO_SOBRE_OSCURO
+const DMS_COLOR = COLOR_MODULO_SOBRE_OSCURO
+const QMS_COLOR = COLOR_MODULO_SOBRE_OSCURO
+const GRC_COLOR = COLOR_MODULO_SOBRE_OSCURO
+const LMS_COLOR = COLOR_MODULO_SOBRE_OSCURO
+const CRM_COLOR = COLOR_MODULO_SOBRE_OSCURO
+const EAM_COLOR = COLOR_MODULO_SOBRE_OSCURO
+const AGS_COLOR = COLOR_MODULO_SOBRE_OSCURO
+const MES_COLOR = COLOR_MODULO_SOBRE_OSCURO
+const APS_COLOR = COLOR_MODULO_SOBRE_OSCURO
+const ERP_COLOR = COLOR_MODULO_SOBRE_OSCURO
+const SCM_COLOR = COLOR_MODULO_SOBRE_OSCURO
+const SST_COLOR = COLOR_MODULO_SOBRE_OSCURO
 
 interface NavItem {
   label: string
@@ -692,7 +693,7 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
         flexDirection: 'column',
         overflowX: 'hidden',
         overflowY: 'auto',
-        background: 'linear-gradient(180deg, #0F172A 0%, #111827 45%, #0F1522 100%)',
+        background: 'linear-gradient(180deg, #1A1A1A 0%, #141414 45%, #0F0F0F 100%)',
         borderRight: '1px solid rgba(255,255,255,0.04)',
         boxSizing: 'border-box',
         transition: dragging ? 'none' : 'width 0.22s cubic-bezier(0.4,0,0.2,1)',
@@ -726,7 +727,7 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
               : isTMS
               ? `linear-gradient(135deg, ${TMS_COLOR} 0%, #0284C7 100%)`
               : isFlota
-              ? `linear-gradient(135deg, ${GF_COLOR} 0%, #27884A 100%)`
+              ? `linear-gradient(135deg, ${GF_COLOR} 0%, #1A1A1A 100%)`
               : isCommand
               ? `linear-gradient(135deg, ${CC_COLOR} 0%, #0284C7 100%)`
               : isLocativa
@@ -742,7 +743,7 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
               : isCRM
               ? `linear-gradient(135deg, ${CRM_COLOR} 0%, #B91C1C 100%)`
               : isEAM
-              ? `linear-gradient(135deg, ${EAM_COLOR} 0%, #27884A 100%)`
+              ? `linear-gradient(135deg, ${EAM_COLOR} 0%, #1A1A1A 100%)`
               : isMES
               ? `linear-gradient(135deg, ${MES_COLOR} 0%, #0E7490 100%)`
               : isAPS
@@ -755,7 +756,7 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
               ? `linear-gradient(135deg, ${SST_COLOR} 0%, #7F1D1D 100%)`
               : isAGS
               ? `linear-gradient(135deg, ${AGS_COLOR} 0%, #701A75 100%)`
-              : `linear-gradient(135deg, ${activeColor} 0%, ${isTarifax ? '#1f6130' : '#27884A'} 100%)`,
+              : `linear-gradient(135deg, ${activeColor} 0%, ${isTarifax ? '#1f6130' : '#1A1A1A'} 100%)`,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

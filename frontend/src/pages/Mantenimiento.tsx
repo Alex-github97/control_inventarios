@@ -15,7 +15,7 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 
-const PRIMARY = '#32AC5C'
+const PRIMARY = '#1A1A1A'
 
 const TIPOS_MANTENIMIENTO = [
   'PREVENTIVO', 'CORRECTIVO', 'REPARACION', 'INSPECCION', 'LIMPIEZA', 'PINTURA', 'REFUERZO',
@@ -23,7 +23,7 @@ const TIPOS_MANTENIMIENTO = [
 
 const TIPO_COLORS: Record<string, string> = {
   PREVENTIVO: '#3B82F6', CORRECTIVO: '#F59E0B', REPARACION: '#EF4444',
-  INSPECCION: '#8B5CF6', LIMPIEZA: '#06B6D4', PINTURA: '#EC4899', REFUERZO: '#32AC5C',
+  INSPECCION: '#8B5CF6', LIMPIEZA: '#06B6D4', PINTURA: '#EC4899', REFUERZO: '#1A1A1A',
 }
 
 const formatCOP = (v: number) =>
@@ -152,7 +152,7 @@ export default function Mantenimiento() {
           Registro de costos y mantenimientos por estiba
         </Typography>
         <Button variant="contained" startIcon={<Add />} onClick={() => setOpenDialog(true)}
-          sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#27884A' } }}>
+          sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#1A1A1A' } }}>
           Registrar Mantenimiento
         </Button>
       </Box>
@@ -361,7 +361,7 @@ export default function Mantenimiento() {
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setOpenDialog(false)}>Cancelar</Button>
           <Button variant="contained" onClick={handleSubmit} disabled={createMutation.isPending}
-            sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#27884A' } }}>
+            sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#1A1A1A' } }}>
             {createMutation.isPending ? 'Registrando...' : 'Registrar'}
           </Button>
         </DialogActions>
@@ -378,7 +378,7 @@ export default function Mantenimiento() {
               placeholder="Ej: Cambio de 4 tablas" />
             <Button variant="contained" onClick={() => crearActividadMutation.mutate(nuevaActividad.trim())}
               disabled={!nuevaActividad.trim() || crearActividadMutation.isPending}
-              sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#27884A' }, minWidth: 40, px: 1 }}>
+              sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#1A1A1A' }, minWidth: 40, px: 1 }}>
               <Add />
             </Button>
           </Box>

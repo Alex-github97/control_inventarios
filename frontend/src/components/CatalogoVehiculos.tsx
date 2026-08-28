@@ -34,7 +34,7 @@ const MODELO_VACIO = {
   vida_util_anios: '', vida_util_km: '', capacidad_kg: '', activo: true,
 }
 
-export function CatalogoVehiculos({ color = '#32AC5C' }: { color?: string }) {
+export function CatalogoVehiculos({ color = '#1A1A1A' }: { color?: string }) {
   const qc = useQueryClient()
   const [tipoSel, setTipoSel] = useState('')
   const [marcaSel, setMarcaSel] = useState<MarcaActivo | null>(null)

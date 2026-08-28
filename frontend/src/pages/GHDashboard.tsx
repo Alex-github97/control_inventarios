@@ -29,7 +29,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Layout } from '@/components/layout/Layout'
 import { apiClient as api } from '@/api/client'
 
-const GH_COLOR = '#BE185D'
+import { COLOR_MODULO } from '@/config/marca'
+const GH_COLOR = COLOR_MODULO
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

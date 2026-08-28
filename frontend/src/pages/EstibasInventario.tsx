@@ -14,7 +14,7 @@ import toast from 'react-hot-toast'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 
-const PRIMARY = '#32AC5C'
+const PRIMARY = '#1A1A1A'
 const TODAY = new Date().toISOString().split('T')[0]
 
 const TIPOS_MOVIMIENTO = [

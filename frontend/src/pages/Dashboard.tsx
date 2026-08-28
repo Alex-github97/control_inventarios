@@ -20,7 +20,7 @@ import { KPICard } from '@/components/dashboard/KPICard'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
-const PIE_COLORS = ['#32AC5C', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#EC4899']
+const PIE_COLORS = ['#1A1A1A', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#EC4899']
 
 const formatCOP = (v: number) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', notation: 'compact', maximumFractionDigits: 1 }).format(v)
@@ -65,7 +65,7 @@ export default function Dashboard() {
             title="Total Estibas"
             value={isLoading ? '—' : (kpis?.total_estibas ?? 0)}
             icon={<ViewModule />}
-            color="#32AC5C"
+            color="#1A1A1A"
             subtitle="En el sistema"
           />
         </Grid>
@@ -153,7 +153,7 @@ export default function Dashboard() {
             title="Movimientos Hoy"
             value={isLoading ? '—' : (kpis?.movimientos_hoy ?? 0)}
             icon={<TrendingUp />}
-            color="#32AC5C"
+            color="#1A1A1A"
           />
         </Grid>
         <Grid item xs={6} sm={3}>
@@ -162,7 +162,7 @@ export default function Dashboard() {
             value={isLoading ? '—' : (kpis?.propias ?? 0)}
             subtitle={`Alquiladas: ${kpis?.alquiladas ?? 0}`}
             icon={<ViewModule />}
-            color="#27884A"
+            color="#1A1A1A"
           />
         </Grid>
       </Grid>
@@ -214,8 +214,8 @@ export default function Dashboard() {
                   <AreaChart data={tendencia}>
                     <defs>
                       <linearGradient id="gCarga" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#32AC5C" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#32AC5C" stopOpacity={0} />
+                        <stop offset="5%" stopColor="#1A1A1A" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#1A1A1A" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id="gDescarga" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
@@ -227,7 +227,7 @@ export default function Dashboard() {
                     <YAxis tick={{ fontSize: 11 }} />
                     <Tooltip formatter={(v: any, name: string) => [v, name === 'cargas' ? 'Cargas' : 'Descargas']} />
                     <Legend />
-                    <Area type="monotone" dataKey="cargas" stroke="#32AC5C" fill="url(#gCarga)" strokeWidth={2} name="Cargas" />
+                    <Area type="monotone" dataKey="cargas" stroke="#1A1A1A" fill="url(#gCarga)" strokeWidth={2} name="Cargas" />
                     <Area type="monotone" dataKey="descargas" stroke="#3B82F6" fill="url(#gDescarga)" strokeWidth={2} name="Descargas" />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -441,7 +441,7 @@ export default function Dashboard() {
                     <XAxis dataKey="nombre" tick={{ fontSize: 10 }} />
                     <YAxis tick={{ fontSize: 10 }} />
                     <Tooltip />
-                    <Bar dataKey="total_estibas" fill="#32AC5C" radius={[4, 4, 0, 0]} name="Estibas" />
+                    <Bar dataKey="total_estibas" fill="#1A1A1A" radius={[4, 4, 0, 0]} name="Estibas" />
                   </BarChart>
                 </ResponsiveContainer>
               )}

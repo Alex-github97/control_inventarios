@@ -16,9 +16,10 @@ import { Layout } from '@/components/layout/Layout'
 import { apiClient as api } from '@/api/client'
 import { exportarPDF, exportarExcel } from '@/utils/exportar'
 
+import { COLOR_MODULO } from '@/config/marca'
 // ─── Constantes ───────────────────────────────────────────────────────────────
-const MES_COLOR = '#0891B2'
-const MES_DARK = '#0E7490'
+const MES_COLOR = COLOR_MODULO
+const MES_DARK = COLOR_MODULO
 
 const ESTADOS = ['PLANEADA', 'LIBERADA', 'EN_EJECUCION', 'SUSPENDIDA', 'CERRADA', 'CANCELADA'] as const
 const PRIORIDADES = ['BAJA', 'NORMAL', 'ALTA', 'URGENTE', 'CRITICA'] as const

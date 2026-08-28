@@ -18,7 +18,8 @@ import { apiClient as api } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
-const WMS_COLOR = '#1E40AF'
+import { COLOR_MODULO } from '@/config/marca'
+const WMS_COLOR = COLOR_MODULO
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 interface EventoTrazabilidad {

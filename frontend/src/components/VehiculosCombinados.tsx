@@ -35,7 +35,7 @@ const EMPTY = {
  * `color` adapta el acento al módulo host. Si `permitirCrear`, muestra el alta de flota propia (CMMS).
  */
 export function VehiculosCombinados({
-  color = '#32AC5C', colorDark = '#27884A', permitirCrear = false,
+  color = '#1A1A1A', colorDark = '#1A1A1A', permitirCrear = false,
 }: { color?: string; colorDark?: string; permitirCrear?: boolean }) {
   const qc = useQueryClient()
   const [flota, setFlota] = useState<'TODAS' | 'PROPIA' | 'EXTERNA'>('TODAS')

@@ -1282,18 +1282,35 @@ async def _migrar_esquema(esquema: str) -> None:
             await _seed_roles_and_migrate(db)
 
 
+# Número arbitrario pero fijo: identifica este candado y nada más.
+_CANDADO_MIGRACION = 918273645
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # En producción corren varios procesos y todos arrancan a la vez. Sin
+    # candado, los cuatro intentan crear las mismas tablas y chocan con
+    # "duplicate key ... pg_type_typname_nsp_index". Con él, el primero migra y
+    # los demás esperan y encuentran el trabajo hecho.
+    async with engine.begin() as candado:
+        await candado.execute(text(f"SELECT pg_advisory_lock({_CANDADO_MIGRACION})"))
+        try:
+            await _migrar_todo()
+        finally:
+            await candado.execute(text(f"SELECT pg_advisory_unlock({_CANDADO_MIGRACION})"))
+
+    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+    yield
+    await engine.dispose()
+
+
+async def _migrar_todo() -> None:
     # El esquema por defecto guarda los datos de quien ya estaba antes de que
     # esto fuera multicliente; ese cliente pasa a ser uno más.
     await _migrar_esquema(ESQUEMA_POR_DEFECTO)
     await _preparar_registro_clientes()
     for esquema in await _esquemas_de_clientes():
         await _migrar_esquema(esquema)
-
-    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-    yield
-    await engine.dispose()
 
 
 app = FastAPI(

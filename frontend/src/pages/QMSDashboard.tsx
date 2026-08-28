@@ -12,8 +12,9 @@ import {
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const QMS_COLOR = '#059669'
-const QMS_DARK  = '#047857'
+import { COLOR_MODULO } from '@/config/marca'
+const QMS_COLOR = COLOR_MODULO
+const QMS_DARK  = COLOR_MODULO
 
 const ISO_STANDARDS = [
   { name: 'ISO 9001:2015',  pct: 94, label: 'Gestión de Calidad' },

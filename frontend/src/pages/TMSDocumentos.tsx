@@ -16,7 +16,8 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 import { exportarPDF } from '@/utils/exportar'
 
-const TMS_COLOR = '#0369A1'
+import { COLOR_MODULO } from '@/config/marca'
+const TMS_COLOR = COLOR_MODULO
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type DocEstado = 'PENDIENTE' | 'GENERADO' | 'FIRMADO' | 'RECHAZADO'

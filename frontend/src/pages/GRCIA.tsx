@@ -8,8 +8,9 @@ import Grid from '@mui/material/Grid2'
 import { Psychology, TrendingUp, TrendingDown, Warning, CheckCircle } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const GRC_COLOR = '#6D28D9'
-const AI_COLOR  = '#7C3AED'
+import { COLOR_MODULO } from '@/config/marca'
+const GRC_COLOR = COLOR_MODULO
+const AI_COLOR  = COLOR_MODULO
 
 interface TabPanelProps { children?: React.ReactNode; index: number; value: number }
 function TabPanel({ children, value, index }: TabPanelProps) {

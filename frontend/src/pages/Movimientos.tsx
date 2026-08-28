@@ -24,7 +24,7 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 
-const PRIMARY = '#32AC5C'
+const PRIMARY = '#1A1A1A'
 const PURPLE  = '#8B5CF6'
 const CYAN    = '#06B6D4'
 
@@ -42,7 +42,7 @@ const TIPOS_MOVIMIENTO = [
   'REPARACION', 'BAJA', 'DISPOSICION_FINAL', 'INVENTARIO',
 ]
 const TIPO_COLORS: Record<string, string> = {
-  CARGA: '#3B82F6', DESCARGA: '#32AC5C', TRANSFERENCIA: '#8B5CF6',
+  CARGA: '#3B82F6', DESCARGA: '#1A1A1A', TRANSFERENCIA: '#8B5CF6',
   RETORNO: '#F59E0B', BAJA: '#EF4444', REPARACION: '#F97316', RECEPCION: '#06B6D4',
 }
 const ESTADO_MAN_COLOR: Record<string, string> = {
@@ -1710,7 +1710,7 @@ export default function Movimientos() {
           ) : (
             <Button variant="contained" endIcon={<SwapHoriz />}
               onClick={handleSubmitMasivo} disabled={masivoMutation.isPending}
-              sx={{ bgcolor:PRIMARY,fontWeight:700,px:3,'&:hover':{bgcolor:'#27884A'} }}>
+              sx={{ bgcolor:PRIMARY,fontWeight:700,px:3,'&:hover':{bgcolor:'#1A1A1A'} }}>
               {masivoMutation.isPending ? 'Registrando...' : `Registrar ${scannedItems.length} movimientos`}
             </Button>
           )}

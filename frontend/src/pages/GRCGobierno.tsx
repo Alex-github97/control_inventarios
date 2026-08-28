@@ -10,7 +10,8 @@ import Grid from '@mui/material/Grid2'
 import { AccountTree, Add, Groups, Person, Edit, Delete, PowerSettingsNew, Close } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const GRC_COLOR = '#6D28D9'
+import { COLOR_MODULO } from '@/config/marca'
+const GRC_COLOR = COLOR_MODULO
 const PAGE_BG   = '#F0F2F5'
 const LBL       = alpha(GRC_COLOR, 0.85)
 const TIPO_COLOR: Record<string, string> = {

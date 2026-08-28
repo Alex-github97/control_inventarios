@@ -37,7 +37,8 @@ import { Layout } from '@/components/layout/Layout'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
 
-const DMS_COLOR = '#0E7490'
+import { COLOR_MODULO } from '@/config/marca'
+const DMS_COLOR = COLOR_MODULO
 
 const fmtN = (n: number | undefined) => (n ?? 0).toLocaleString('es-CO')
 const fmtFecha = (s?: string | null) => (s ? new Date(s).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—')

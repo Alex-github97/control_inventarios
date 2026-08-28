@@ -18,8 +18,9 @@ import { apiClient as api } from '@/api/client'
 import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
 
-const GF_COLOR = '#32AC5C'
-const GF_LIGHT = '#DCFCE7'
+import { COLOR_MODULO, PALETA } from '@/config/marca'
+const GF_COLOR = COLOR_MODULO
+const GF_LIGHT = PALETA.niebla
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 interface TipoTrabajo { id: number; nombre: string; descripcion?: string; costo_estimado?: number }

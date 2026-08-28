@@ -4,7 +4,8 @@ import Grid from '@mui/material/Grid2'
 import { AssignmentReturn, CheckCircle, Pending, Cancel, Add, HourglassEmpty } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const SCM_COLOR = '#0C4D8C'
+import { COLOR_MODULO } from '@/config/marca'
+const SCM_COLOR = COLOR_MODULO
 const BORDER = `rgba(12,77,140,0.25)`
 
 type EstadoD = 'PENDIENTE' | 'EN_PROCESO' | 'APROBADA' | 'RECHAZADA' | 'CERRADA'

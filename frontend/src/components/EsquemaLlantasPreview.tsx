@@ -1,6 +1,6 @@
 import { Box, Stack, Typography } from '@mui/material'
 
-const VERDE = '#32AC5C'
+const VERDE = '#1A1A1A'
 
 /**
  * Vista previa del esquema de ejes/llantas de un vehículo.

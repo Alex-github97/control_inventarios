@@ -48,7 +48,8 @@ import LinkIcon from '@mui/icons-material/Link'
 import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import AddIcon from '@mui/icons-material/Add'
 
-const GH_COLOR = '#BE185D'
+import { COLOR_MODULO } from '@/config/marca'
+const GH_COLOR = COLOR_MODULO
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
 

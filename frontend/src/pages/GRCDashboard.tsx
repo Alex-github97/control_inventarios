@@ -11,7 +11,8 @@ import {
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const GRC_COLOR = '#6D28D9'
+import { COLOR_MODULO } from '@/config/marca'
+const GRC_COLOR = COLOR_MODULO
 const PAGE_BG   = '#F0F2F5'
 
 interface KPI { label: string; value: string | number; sub: string; color: string; icon: React.ReactNode; trend?: number }

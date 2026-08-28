@@ -46,6 +46,7 @@ import toast from 'react-hot-toast'
 import { apiClient as api } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 
+import { COLOR_MODULO } from '@/config/marca'
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
 interface OrdenSalidaDetalle {
@@ -125,7 +126,7 @@ interface Lote { id: number; producto_id: number; numero_lote: string }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const WMS_COLOR = '#1E40AF'
+const WMS_COLOR = COLOR_MODULO
 
 const PRIORIDAD_CONFIG: Record<string, { color: 'error' | 'warning' | 'info' | 'default'; label: string }> = {
   URGENTE: { color: 'error', label: 'Urgente' },

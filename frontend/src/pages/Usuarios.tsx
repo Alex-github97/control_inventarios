@@ -14,7 +14,7 @@ import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 
-const PRIMARY = '#32AC5C'
+const PRIMARY = '#1A1A1A'
 
 const getInitials = (nombre: string, apellido: string) =>
   `${nombre?.[0] ?? ''}${apellido?.[0] ?? ''}`.toUpperCase()
@@ -143,7 +143,7 @@ export default function Usuarios() {
             Roles
           </Button>
           <Button variant="contained" startIcon={<Add />} onClick={() => setOpenCreate(true)}
-            sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#27884A' } }}>
+            sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#1A1A1A' } }}>
             Nuevo Usuario
           </Button>
         </Box>
@@ -313,7 +313,7 @@ export default function Usuarios() {
           <Button onClick={() => setOpenCreate(false)}>Cancelar</Button>
           <Button
             variant="contained" onClick={handleCreate} disabled={createMutation.isPending}
-            sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#27884A' } }}
+            sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#1A1A1A' } }}
           >
             {createMutation.isPending ? 'Creando...' : 'Crear'}
           </Button>
@@ -366,7 +366,7 @@ export default function Usuarios() {
           <Button
             variant="contained" disabled={editMutation.isPending}
             onClick={() => editMutation.mutate({ id: selected.id, body: editForm })}
-            sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#27884A' } }}
+            sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#1A1A1A' } }}
           >
             {editMutation.isPending ? 'Guardando...' : 'Guardar'}
           </Button>
@@ -390,7 +390,7 @@ export default function Usuarios() {
           <Button
             variant="contained" disabled={resetPwdMutation.isPending}
             onClick={() => resetPwdMutation.mutate({ id: selected.id, pwd: newPwd })}
-            sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#27884A' } }}
+            sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#1A1A1A' } }}
           >
             {resetPwdMutation.isPending ? 'Restableciendo...' : 'Restablecer'}
           </Button>

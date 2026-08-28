@@ -27,7 +27,7 @@ import {
 
 const PRO_VACIO = {
   nombre: '', documento: '', telefono: '', email: '', especialidad: '',
-  color: AGS_COLOR, comision_pct: 0, salario_base: 0,
+  color: AGS_COLOR as string, comision_pct: 0, salario_base: 0,
   acepta_domicilio: false, notas: '', activo: true,
 }
 

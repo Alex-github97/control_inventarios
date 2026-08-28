@@ -11,7 +11,7 @@ import { apiClient } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
-const PRIMARY = '#32AC5C'
+const PRIMARY = '#1A1A1A'
 
 export default function Proveedores() {
   const queryClient = useQueryClient()
@@ -193,7 +193,7 @@ export default function Proveedores() {
               placeholder="Ej: SERVICIO" />
             <Button variant="contained" onClick={() => crearTipoMutation.mutate(nuevoTipo.trim())}
               disabled={!nuevoTipo.trim() || crearTipoMutation.isPending}
-              sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#27884A' }, minWidth: 40, px: 1 }}>
+              sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#1A1A1A' }, minWidth: 40, px: 1 }}>
               <Add />
             </Button>
           </Box>

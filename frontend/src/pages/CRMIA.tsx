@@ -3,8 +3,9 @@ import { Box, Grid, Typography, Tab, Tabs, Chip, InputBase, alpha } from '@mui/m
 import { AutoAwesome, Send, TrendingDown } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const CRM_COLOR = '#DC2626'
-const AI_COLOR  = '#8B5CF6'
+import { COLOR_MODULO } from '@/config/marca'
+const CRM_COLOR = COLOR_MODULO
+const AI_COLOR  = COLOR_MODULO
 const AI_BOR    = 'rgba(139,92,246,0.25)'
 
 const RECOMENDACIONES = [

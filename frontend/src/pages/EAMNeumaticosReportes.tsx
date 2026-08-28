@@ -17,8 +17,9 @@ import { exportarExcel } from '@/utils/exportar'
 import { generarPDFEstadoFlota } from '@/utils/reporteFlotaPDF'
 import type { VehiculoReporte } from '@/utils/reporteFlotaPDF'
 
-const EAM_COLOR = '#32AC5C'
-const EAM_DARK = '#27884A'
+import { COLOR_MODULO } from '@/config/marca'
+const EAM_COLOR = COLOR_MODULO
+const EAM_DARK = COLOR_MODULO
 
 interface Vehiculo { id: number; codigo: string; placa?: string | null; nombre: string }
 interface ComposicionItem { grupo: string; valor: string; cantidad: number; porcentaje: number }

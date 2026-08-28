@@ -53,9 +53,10 @@ import SaveIcon from '@mui/icons-material/Save';
 import BadgeIcon from '@mui/icons-material/Badge';
 import { Layout } from '@/components/layout/Layout';
 
+import { COLOR_MODULO } from '@/config/marca';
 // ─── Constants (tema claro, acento MES) ────────────────────────────────────────
-const MES_COLOR = '#0891B2';
-const MES_DARK = '#0E7490';
+const MES_COLOR = COLOR_MODULO;
+const MES_DARK = COLOR_MODULO;
 const MES_BORDER = 'rgba(8,145,178,0.25)';
 const BG_MAIN = '#F8FAFC';
 const BG_CARD = '#FFFFFF';

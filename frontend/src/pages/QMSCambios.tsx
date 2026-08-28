@@ -22,7 +22,8 @@ import { Layout } from '@/components/layout/Layout'
 import { apiClient as api } from '@/api/client'
 import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
 
-const QMS_COLOR = '#059669'
+import { COLOR_MODULO } from '@/config/marca'
+const QMS_COLOR = COLOR_MODULO
 
 // Enum de la base. El orden es el del flujo, y de ahí sale la etapa.
 const ESTADOS = ['SOLICITADO', 'EN_EVALUACION', 'APROBADO', 'EN_CURSO', 'IMPLEMENTADO', 'RECHAZADO']

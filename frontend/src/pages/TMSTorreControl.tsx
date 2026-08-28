@@ -24,6 +24,7 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import { Layout } from '@/components/layout/Layout';
 
+import { COLOR_MODULO } from '@/config/marca';
 // ─── Interfaces ────────────────────────────────────────────────────────────────
 
 interface VehiculoEnRuta {
@@ -240,7 +241,7 @@ const proximasEntregas: ProximaEntrega[] = [
 const sparklineData = [18, 28, 22, 35, 30, 40, 34];
 const sparklineCost = [32, 28, 35, 30, 38, 33, 36];
 
-const TMS_COLOR = '#0369A1';
+const TMS_COLOR = COLOR_MODULO;
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 

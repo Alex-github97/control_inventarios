@@ -4,7 +4,8 @@ import Grid from '@mui/material/Grid2'
 import { SupportAgent, Search, Warning } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const CRM_COLOR = '#DC2626'
+import { COLOR_MODULO } from '@/config/marca'
+const CRM_COLOR = COLOR_MODULO
 
 const ESTADO_COLOR: Record<string, string> = {
   ABIERTO: CRM_COLOR, EN_PROCESO: '#0EA5E9', ESCALADO: '#F59E0B', RESUELTO: '#059669', CERRADO: '#6B7280',

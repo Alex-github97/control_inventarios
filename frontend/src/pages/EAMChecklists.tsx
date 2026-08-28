@@ -29,8 +29,9 @@ import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { exportarPDF, exportarExcel, exportarCSV } from '@/utils/exportar';
 
-const EAM_COLOR = '#32AC5C';
-const EAM_DARK = '#27884A';
+import { COLOR_MODULO } from '@/config/marca';
+const EAM_COLOR = COLOR_MODULO;
+const EAM_DARK = COLOR_MODULO;
 
 // ─── Tipos de tema claro ──────────────────────────────────────────────────────
 const TXT_PRIMARY = '#1E293B';

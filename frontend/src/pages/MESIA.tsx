@@ -23,8 +23,9 @@ import {
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const MES_COLOR = '#0891B2'
-const AI_COLOR = '#8B5CF6'
+import { COLOR_MODULO } from '@/config/marca'
+const MES_COLOR = COLOR_MODULO
+const AI_COLOR = COLOR_MODULO
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
@@ -133,9 +134,9 @@ const getBotReplyMES = (input: string): string => {
   return `🤖 Procesando consulta: "${input}"\n\nEsta función de IA está en desarrollo. Usa los prompts rápidos para obtener análisis de OEE, paradas, scrap o mantenimiento de equipos específicos.`
 }
 
-const probColor = (p: number) => p >= 70 ? '#EF4444' : p >= 40 ? '#EAB308' : '#32AC5C'
+const probColor = (p: number) => p >= 70 ? '#EF4444' : p >= 40 ? '#EAB308' : '#1A1A1A'
 const sevColor = (s: string) => ({ CRITICA: '#EF4444', ALTA: '#F97316', MEDIA: '#EAB308' }[s] ?? '#9CA3AF')
-const estadoAnoColor = (e: string) => ({ ACTIVA: '#EF4444', INVESTIGANDO: '#F59E0B', RESUELTA: '#32AC5C' }[e] ?? '#9CA3AF')
+const estadoAnoColor = (e: string) => ({ ACTIVA: '#EF4444', INVESTIGANDO: '#F59E0B', RESUELTA: '#1A1A1A' }[e] ?? '#9CA3AF')
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function MESIA() {
@@ -196,7 +197,7 @@ export default function MESIA() {
             <Grid container spacing={2} mb={3}>
               {[
                 { label: 'Exactitud del modelo', value: '94.2%', color: AI_COLOR, icon: <AIIcon /> },
-                { label: 'Fallas evitadas este mes', value: '8', color: '#32AC5C', icon: <CheckIcon /> },
+                { label: 'Fallas evitadas este mes', value: '8', color: '#1A1A1A', icon: <CheckIcon /> },
                 { label: 'Ahorro estimado', value: '$142M COP', color: '#10B981', icon: <TrendIcon /> },
               ].map((k, i) => (
                 <Grid key={i} size={{ xs: 12, md: 4 }}>
@@ -293,7 +294,7 @@ export default function MESIA() {
             {/* KPIs IA */}
             <Grid container spacing={2} mb={3}>
               {[
-                { label: 'Throughput optimizado', value: '+12%', color: '#32AC5C', icon: <TrendIcon /> },
+                { label: 'Throughput optimizado', value: '+12%', color: '#1A1A1A', icon: <TrendIcon /> },
                 { label: 'OEE proyectado', value: '91.2%', color: AI_COLOR, icon: <SpeedIcon /> },
                 { label: 'Reducción setup time', value: '-18%', color: '#10B981', icon: <TuneIcon /> },
               ].map((k, i) => (
@@ -321,7 +322,7 @@ export default function MESIA() {
                     <Stack direction="row" spacing={1} alignItems="center" mb={2}>
                       <AIIcon sx={{ color: AI_COLOR, fontSize: 18 }} />
                       <Typography variant="subtitle1" fontWeight={700} color="white">Secuenciación Óptima IA</Typography>
-                      <Chip label="Ganancia: 18% tiempo" size="small" sx={{ background: alpha('#32AC5C', 0.15), color: '#32AC5C', fontWeight: 600, fontSize: 10 }} />
+                      <Chip label="Ganancia: 18% tiempo" size="small" sx={{ background: alpha('#1A1A1A', 0.15), color: '#1A1A1A', fontWeight: 600, fontSize: 10 }} />
                     </Stack>
                     <TableContainer>
                       <Table size="small">
@@ -341,8 +342,8 @@ export default function MESIA() {
                                 <Typography variant="caption" color="grey.500" display="block">{s.producto.substring(0, 12)}…</Typography>
                               </TableCell>
                               <TableCell><Typography variant="caption" color="grey.500" sx={{ textDecoration: 'line-through' }}>{s.antes}</Typography></TableCell>
-                              <TableCell><Typography variant="caption" color="#32AC5C" fontWeight={600}>{s.despues}</Typography></TableCell>
-                              <TableCell align="right"><Typography variant="caption" color="#32AC5C" fontWeight={700}>-{s.ganancia} min</Typography></TableCell>
+                              <TableCell><Typography variant="caption" color="#1A1A1A" fontWeight={600}>{s.despues}</Typography></TableCell>
+                              <TableCell align="right"><Typography variant="caption" color="#1A1A1A" fontWeight={700}>-{s.ganancia} min</Typography></TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -376,11 +377,11 @@ export default function MESIA() {
                             <TableRow key={i} sx={{ '& td': { color: 'grey.200', borderBottom: `1px solid ${alpha('#fff', 0.05)}` } }}>
                               <TableCell><Typography variant="caption">{s.producto.substring(0, 14)}…</Typography></TableCell>
                               <TableCell align="center"><Typography variant="body2" color={s.tempActual > s.tempOptima ? '#EF4444' : 'grey.300'}>{s.tempActual}°C</Typography></TableCell>
-                              <TableCell align="center"><Typography variant="body2" color="#32AC5C" fontWeight={700}>{s.tempOptima}°C</Typography></TableCell>
+                              <TableCell align="center"><Typography variant="body2" color="#1A1A1A" fontWeight={700}>{s.tempOptima}°C</Typography></TableCell>
                               <TableCell align="center"><Typography variant="body2" color={s.scrapActual > 4 ? '#EF4444' : '#EAB308'}>{s.scrapActual}%</Typography></TableCell>
                               <TableCell align="center">
                                 {s.scrapProyectado < s.scrapActual
-                                  ? <Chip label={`${s.scrapProyectado}%`} size="small" sx={{ background: alpha('#32AC5C', 0.15), color: '#32AC5C', fontWeight: 700, fontSize: 10 }} />
+                                  ? <Chip label={`${s.scrapProyectado}%`} size="small" sx={{ background: alpha('#1A1A1A', 0.15), color: '#1A1A1A', fontWeight: 700, fontSize: 10 }} />
                                   : <Typography variant="body2" color="grey.400">{s.scrapProyectado}%</Typography>}
                               </TableCell>
                             </TableRow>
@@ -410,7 +411,7 @@ export default function MESIA() {
                             <Typography variant="body2" fontWeight={700} color="#EAB308" mb={0.5}>{cb.linea}</Typography>
                             <Typography variant="caption" color="grey.300" display="block" mb={0.5}>{cb.problema}</Typography>
                             <Divider sx={{ borderColor: alpha('#fff', 0.07), my: 0.75 }} />
-                            <Typography variant="caption" color="#32AC5C" display="block">↗ Acción: {cb.accion}</Typography>
+                            <Typography variant="caption" color="#1A1A1A" display="block">↗ Acción: {cb.accion}</Typography>
                             <Chip label={cb.impacto} size="small" sx={{ mt: 0.75, background: alpha('#EF4444', 0.12), color: '#EF4444', fontSize: 9 }} />
                           </Box>
                         </Grid>
@@ -430,7 +431,7 @@ export default function MESIA() {
               <Stack direction="row" spacing={1} alignItems="center">
                 <BugIcon sx={{ color: AI_COLOR }} />
                 <Typography variant="h6" color="white" fontWeight={700}>Anomalías Detectadas — IA</Typography>
-                <Chip label="Tiempo Real" size="small" sx={{ background: alpha('#32AC5C', 0.15), color: '#32AC5C', fontWeight: 600 }} />
+                <Chip label="Tiempo Real" size="small" sx={{ background: alpha('#1A1A1A', 0.15), color: '#1A1A1A', fontWeight: 600 }} />
               </Stack>
               <Stack direction="row" spacing={1}>
                 {['CRITICA', 'ALTA', 'MEDIA'].map(s => (
@@ -523,7 +524,7 @@ export default function MESIA() {
                   <Stack direction="row" alignItems="center" spacing={1}>
                     <BotIcon sx={{ color: AI_COLOR }} />
                     <Typography variant="subtitle1" fontWeight={700} color="white">Asistente IA Manufactura</Typography>
-                    <Chip label="Online" size="small" sx={{ background: alpha('#32AC5C', 0.15), color: '#32AC5C', fontSize: 10 }} />
+                    <Chip label="Online" size="small" sx={{ background: alpha('#1A1A1A', 0.15), color: '#1A1A1A', fontSize: 10 }} />
                     <Box ml="auto">
                       <Typography variant="caption" color="grey.500">MES-AI v2.1 — GPT-4o Fine-tuned Manufactura</Typography>
                     </Box>

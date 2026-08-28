@@ -9,7 +9,8 @@ import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 
-const ERP_COLOR = '#1A3A6B'
+import { COLOR_MODULO } from '@/config/marca'
+const ERP_COLOR = COLOR_MODULO
 
 function formatCurrency(v: number | null | undefined) {
   if (v == null) return '$ 0'

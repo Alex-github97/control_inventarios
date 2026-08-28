@@ -40,9 +40,10 @@ import { apiClient } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
+import { COLOR_MODULO } from '@/config/marca'
 // ─── Palette ──────────────────────────────────────────────────────────────────
 
-const ERP_COLOR  = '#1A3A6B'
+const ERP_COLOR  = COLOR_MODULO
 const NAVY       = '#0C1E3D'
 const BLUE       = '#2563EB'
 const PAGE_BG    = '#F0F2F5'

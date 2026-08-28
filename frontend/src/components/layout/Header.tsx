@@ -11,7 +11,7 @@ import { apiClient } from '@/api/client'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
-const PRIMARY = '#32AC5C'
+const PRIMARY = '#1A1A1A'
 
 const ROL_LABEL: Record<string, string> = {
   ADMINISTRADOR:        'Admin',
@@ -59,7 +59,7 @@ export function Header({ title }: HeaderProps) {
       sx={{
         bgcolor: '#FFFFFF',
         borderBottom: '1px solid rgba(0,0,0,0.05)',
-        color: '#1E293B',
+        color: '#1A1A1A',
         zIndex: 1100,
         // hairline degradado en el borde inferior
         '&::after': {
@@ -136,7 +136,7 @@ export function Header({ title }: HeaderProps) {
           >
             {/* Encabezado */}
             <Box sx={{ px: 2, py: 1.5, bgcolor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-              <Typography sx={{ fontWeight: 700, fontSize: 13.5, color: '#1E293B' }}>
+              <Typography sx={{ fontWeight: 700, fontSize: 13.5, color: '#1A1A1A' }}>
                 Alertas pendientes
               </Typography>
               {alertCount ? (
@@ -171,7 +171,7 @@ export function Header({ title }: HeaderProps) {
                           </Typography>
                         </Box>
                         <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: '#1E293B', lineHeight: 1.35 }}>
+                          <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: '#1A1A1A', lineHeight: 1.35 }}>
                             {a.titulo}
                           </Typography>
                           <Typography sx={{ fontSize: 11, color: '#94A3B8', mt: 0.3 }}>
@@ -206,13 +206,13 @@ export function Header({ title }: HeaderProps) {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pl: 0.5, pr: 0.5, py: 0.5, borderRadius: '12px', cursor: 'default' }}>
             <Avatar sx={{
               width: 32, height: 32, fontSize: 12, fontWeight: 700,
-              background: `linear-gradient(135deg, ${PRIMARY} 0%, #27884A 100%)`,
+              background: `linear-gradient(135deg, ${PRIMARY} 0%, #1A1A1A 100%)`,
               boxShadow: `0 2px 8px ${alpha(PRIMARY, 0.35)}`,
             }}>
               {initials}
             </Avatar>
             <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-              <Typography sx={{ fontWeight: 600, fontSize: 13, color: '#1E293B', lineHeight: 1.2 }}>
+              <Typography sx={{ fontWeight: 600, fontSize: 13, color: '#1A1A1A', lineHeight: 1.2 }}>
                 {user?.nombre} {user?.apellido}
               </Typography>
               <Chip
@@ -220,7 +220,7 @@ export function Header({ title }: HeaderProps) {
                 size="small"
                 sx={{
                   height: 16, fontSize: 10, fontWeight: 700,
-                  bgcolor: alpha(PRIMARY, 0.1), color: '#27884A',
+                  bgcolor: alpha(PRIMARY, 0.1), color: '#1A1A1A',
                   border: `1px solid ${alpha(PRIMARY, 0.2)}`,
                   '& .MuiChip-label': { px: 1 },
                 }}

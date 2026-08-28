@@ -16,6 +16,7 @@ import {
   CircularProgress, InputAdornment,
 } from '@mui/material'
 import { Business, ArrowForward } from '@mui/icons-material'
+import { Logotipo } from '@/components/Logotipo'
 import { resolverCliente, guardarCliente, clienteGuardado } from '@/api/cliente'
 
 export default function SeleccionCliente() {
@@ -49,19 +50,13 @@ export default function SeleccionCliente() {
   return (
     <Box sx={{
       minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)', p: 2,
+      background: 'linear-gradient(135deg, #1A1A1A 0%, #333333 100%)', p: 2,
     }}>
       <Card sx={{ width: '100%', maxWidth: 420, borderRadius: 4, boxShadow: 8 }}>
         <CardContent sx={{ p: 4 }}>
-          <Stack spacing={1} alignItems="center" mb={3}>
-            <Box sx={{
-              width: 56, height: 56, borderRadius: 3, display: 'flex',
-              alignItems: 'center', justifyContent: 'center',
-              bgcolor: 'primary.main', color: '#fff',
-            }}>
-              <Business sx={{ fontSize: 30 }} />
-            </Box>
-            <Typography variant="h6" fontWeight={800}>Ingrese a su empresa</Typography>
+          <Stack spacing={1.5} alignItems="center" mb={3}>
+            <Logotipo tamano={22} conLema />
+            <Typography variant="h6" fontWeight={700} sx={{ mt: 1 }}>Ingrese a su empresa</Typography>
             <Typography variant="body2" color="text.secondary" textAlign="center">
               Escriba el código que le fue asignado para continuar al inicio de sesión.
             </Typography>

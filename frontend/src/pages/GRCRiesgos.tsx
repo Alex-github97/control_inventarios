@@ -12,7 +12,8 @@ import { Layout } from '@/components/layout/Layout'
 import { SelectorResponsable } from '@/components/catalogo/SelectorResponsable'
 import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
 
-const GRC_COLOR = '#6D28D9'
+import { COLOR_MODULO } from '@/config/marca'
+const GRC_COLOR = COLOR_MODULO
 const PAGE_BG   = '#F0F2F5'
 const LBL       = alpha(GRC_COLOR, 0.85)
 const NIVEL_COLOR: Record<string,string> = { CRITICO:'#DC2626', ALTO:'#EA580C', MEDIO:'#D97706', BAJO:'#059669', MUY_BAJO:'#6B7280' }

@@ -8,7 +8,8 @@ import {
 import Grid from '@mui/material/Grid2'
 import { Explore, TrendingUp, TrendingDown, Star } from '@mui/icons-material'
 
-const APS_COLOR = '#7C3AED'
+import { COLOR_MODULO } from '@/config/marca'
+const APS_COLOR = COLOR_MODULO
 
 const escenarios = [
   { id: 1, nombre: 'Plan Base S&OP Jun-26', tipo: 'BASE', estado: 'APROBADO', demanda: 0, capacidad: 0, costo: 0, creado: 'Sistema APS', fecha: '2026-06-01' },

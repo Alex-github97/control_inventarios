@@ -4,7 +4,8 @@ import Grid from '@mui/material/Grid2'
 import { BarChart, AttachMoney } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const CRM_COLOR = '#DC2626'
+import { COLOR_MODULO } from '@/config/marca'
+const CRM_COLOR = COLOR_MODULO
 
 const CLIENTES_RENTABILIDAD = [
   { cliente: 'Corona S.A.',          segmento: 'ESTRATEGICO', ingresos: 6400, costos: 3840, margen: 2560, margen_pct: 40, clv: 28000, churn_risk: 5 },

@@ -4,7 +4,8 @@ import Grid from '@mui/material/Grid2'
 import { Quiz, CheckCircle, Timer, TrendingUp } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const LMS_COLOR = '#D97706'
+import { COLOR_MODULO } from '@/config/marca'
+const LMS_COLOR = COLOR_MODULO
 
 const TIPO_COLORS: Record<string, string> = {
   DIAGNOSTICO: '#6D28D9', FORMATIVO: '#0EA5E9', CERTIFICACION: LMS_COLOR,

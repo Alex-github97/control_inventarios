@@ -5,7 +5,8 @@ import { Analytics, TrendingUp, TrendingDown } from '@mui/icons-material'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts'
 import { Layout } from '@/components/layout/Layout'
 
-const SST_COLOR = '#C53030'
+import { COLOR_MODULO } from '@/config/marca'
+const SST_COLOR = COLOR_MODULO
 const PAGE_BG = '#F0F2F5'
 const TOOLTIP_STYLE = { contentStyle: { backgroundColor: '#FFFFFF', border: '1px solid rgba(197,48,48,0.2)', borderRadius: 8, color: 'text.primary', fontSize: 12 } }
 

@@ -7,12 +7,13 @@ import {
 } from '@mui/material'
 import { AddShoppingCart, Visibility, Edit, Refresh } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { COLOR_MODULO } from '@/config/marca'
 import {
   getOrdenesCompra, getOrdenCompra, actualizarEstadoOrden,
   OrdenCompra, EstadoOrden,
 } from '@/api/scm'
 
-const SCM_COLOR = '#0C4D8C'
+const SCM_COLOR = COLOR_MODULO
 const BORDER = `rgba(12,77,140,0.25)`
 
 const ESTADO_META: Record<EstadoOrden, { label: string; color: string }> = {

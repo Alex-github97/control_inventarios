@@ -4,7 +4,8 @@ import Grid from '@mui/material/Grid2'
 import { Hub, Phone, Email, WhatsApp, Groups, Chat } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const CRM_COLOR = '#DC2626'
+import { COLOR_MODULO } from '@/config/marca'
+const CRM_COLOR = COLOR_MODULO
 
 const TIPO_CFG: Record<string, { color: string; icon: React.ReactNode; label: string }> = {
   LLAMADA:    { color: '#059669', icon: <Phone    sx={{ fontSize: 16 }} />, label: 'Llamada' },

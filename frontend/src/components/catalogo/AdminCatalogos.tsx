@@ -25,7 +25,7 @@ import { apiClient as api } from '@/api/client'
 import type { RegistroCatalogo, ValorCatalogo } from './SelectorCatalogo'
 
 export function AdminCatalogos({
-  modulo, color = '#32AC5C', titulo, incluirGlobales = true,
+  modulo, color = '#1A1A1A', titulo, incluirGlobales = true,
 }: {
   /** Código del módulo (HCM, WMS, TMS…). */
   modulo: string

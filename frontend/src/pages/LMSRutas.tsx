@@ -4,7 +4,8 @@ import Grid from '@mui/material/Grid2'
 import { Route, CheckCircle, RadioButtonUnchecked, ArrowForward } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const LMS_COLOR = '#D97706'
+import { COLOR_MODULO } from '@/config/marca'
+const LMS_COLOR = COLOR_MODULO
 
 const RUTAS = [
   {

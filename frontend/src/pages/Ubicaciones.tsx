@@ -11,7 +11,7 @@ import { apiClient } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
-const PRIMARY = '#32AC5C'
+const PRIMARY = '#1A1A1A'
 
 const TIPO_COLORS: Record<string, { bg: string; color: string; border: string; icon: string }> = {
   BODEGA:           { bg: '#EFF6FF', color: '#2563EB', border: '#BFDBFE', icon: '🏭' },

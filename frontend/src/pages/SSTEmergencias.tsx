@@ -4,7 +4,8 @@ import Grid from '@mui/material/Grid2'
 import { LocalFireDepartment, Add, Groups, EventRepeat, CheckCircle, Warning } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const SST_COLOR = '#C53030'
+import { COLOR_MODULO } from '@/config/marca'
+const SST_COLOR = COLOR_MODULO
 const PAGE_BG   = '#F0F2F5'
 
 const SX_INPUT = {

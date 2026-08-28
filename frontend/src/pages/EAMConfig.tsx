@@ -35,7 +35,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { apiClient } from '@/api/client'
 
-const EAM_COLOR = '#32AC5C'
+import { COLOR_MODULO } from '@/config/marca'
+const EAM_COLOR = COLOR_MODULO
 
 // ── Tipos de Trabajo — catálogo rico ─────────────────────────────────────────
 
@@ -100,13 +101,13 @@ interface Integracion {
 }
 
 const INTEGRACIONES: Integracion[] = [
-  { codigo: 'TMS', nombre: 'Sistema de Transporte', descripcion: 'Vehículos registrados, kilómetros y rutas en tiempo real', estado: 'ACTIVO', ultimaSync: 'Hace 5 min', color: '#32AC5C' },
-  { codigo: 'HCM', nombre: 'Recursos Humanos', descripcion: 'Técnicos, certificaciones y disponibilidad de personal', estado: 'ACTIVO', ultimaSync: 'Hace 1 hora', color: '#32AC5C' },
-  { codigo: 'WMS', nombre: 'Gestión de Almacén', descripcion: 'Equipos logísticos, inventario y ubicaciones físicas', estado: 'ACTIVO', ultimaSync: 'Hace 30 min', color: '#32AC5C' },
+  { codigo: 'TMS', nombre: 'Sistema de Transporte', descripcion: 'Vehículos registrados, kilómetros y rutas en tiempo real', estado: 'ACTIVO', ultimaSync: 'Hace 5 min', color: '#1A1A1A' },
+  { codigo: 'HCM', nombre: 'Recursos Humanos', descripcion: 'Técnicos, certificaciones y disponibilidad de personal', estado: 'ACTIVO', ultimaSync: 'Hace 1 hora', color: '#1A1A1A' },
+  { codigo: 'WMS', nombre: 'Gestión de Almacén', descripcion: 'Equipos logísticos, inventario y ubicaciones físicas', estado: 'ACTIVO', ultimaSync: 'Hace 30 min', color: '#1A1A1A' },
   { codigo: 'DMS', nombre: 'Gestión de Documentos', descripcion: 'Manuales técnicos, planos y garantías digitales', estado: 'PENDIENTE', color: '#F59E0B' },
-  { codigo: 'QMS', nombre: 'Gestión de Calidad', descripcion: 'Hallazgos de auditoría y no conformidades', estado: 'ACTIVO', ultimaSync: 'Ayer 18:00', color: '#32AC5C' },
+  { codigo: 'QMS', nombre: 'Gestión de Calidad', descripcion: 'Hallazgos de auditoría y no conformidades', estado: 'ACTIVO', ultimaSync: 'Ayer 18:00', color: '#1A1A1A' },
   { codigo: 'GRC', nombre: 'Gestión de Riesgos', descripcion: 'Activos críticos, valoración de riesgos y controles', estado: 'PENDIENTE', color: '#F59E0B' },
-  { codigo: 'ERP', nombre: 'Planificación Empresarial', descripcion: 'Órdenes de compra, facturas y centros de costo', estado: 'ACTIVO', ultimaSync: 'Hace 15 min', color: '#32AC5C' },
+  { codigo: 'ERP', nombre: 'Planificación Empresarial', descripcion: 'Órdenes de compra, facturas y centros de costo', estado: 'ACTIVO', ultimaSync: 'Hace 15 min', color: '#1A1A1A' },
   { codigo: 'GPS', nombre: 'GPS / Telemetría CANBUS', descripcion: 'Posicionamiento, velocidad, temperatura motor y consumo', estado: 'CONFIGURAR', color: '#3B82F6' },
 ]
 
@@ -334,7 +335,7 @@ function ContratistasSection() {
         </Stack>
         <Button startIcon={<AddIcon />} variant="contained"
           onClick={() => setDlg({ abierto: true, item: null })}
-          sx={{ textTransform: 'none', background: EAM_COLOR, '&:hover': { background: '#27884A' } }}>
+          sx={{ textTransform: 'none', background: EAM_COLOR, '&:hover': { background: '#1A1A1A' } }}>
           Agregar Contratista
         </Button>
       </Stack>
@@ -370,7 +371,7 @@ function ContratistasSection() {
                     <IconButton size="small"
                       onClick={() => mutEstado.mutate({ id: c.id, activo: !c.activo })}>
                       {c.activo
-                        ? <ActiveIcon sx={{ color: '#32AC5C', fontSize: 18 }} />
+                        ? <ActiveIcon sx={{ color: '#1A1A1A', fontSize: 18 }} />
                         : <InactiveIcon sx={{ color: '#9CA3AF', fontSize: 18 }} />}
                     </IconButton>
                   </Tooltip>
@@ -495,7 +496,7 @@ function ContratistasSection() {
           <Button onClick={() => setDlg({ abierto: false, item: null })}>Cancelar</Button>
           <Button variant="contained" disabled={!form.nombre.trim() || mutGuardar.isPending}
             onClick={() => mutGuardar.mutate()}
-            sx={{ background: EAM_COLOR, '&:hover': { background: '#27884A' } }}>
+            sx={{ background: EAM_COLOR, '&:hover': { background: '#1A1A1A' } }}>
             {mutGuardar.isPending ? 'Guardando…' : 'Guardar'}
           </Button>
         </DialogActions>
@@ -781,7 +782,7 @@ export default function EAMConfig() {
                       <Typography variant="caption" color="grey.500">{tiposTrabajo.length} tipos configurados — categorías, duración y requisitos</Typography>
                     </Box>
                     <Button size="small" startIcon={<AddIcon />} variant="contained"
-                      sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#27884A' }, textTransform: 'none', fontWeight: 600, fontSize: 12 }}
+                      sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#1A1A1A' }, textTransform: 'none', fontWeight: 600, fontSize: 12 }}
                       onClick={openNewTipo}
                     >
                       Agregar tipo
@@ -950,7 +951,7 @@ export default function EAMConfig() {
                 <Button
                   variant="contained" onClick={saveTipo}
                   disabled={!tipoEditing.nombre.trim()}
-                  sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#27884A' }, fontWeight: 700, borderRadius: '8px' }}
+                  sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#1A1A1A' }, fontWeight: 700, borderRadius: '8px' }}
                 >
                   Guardar
                 </Button>
@@ -967,7 +968,7 @@ export default function EAMConfig() {
                       <Typography variant="caption" color="grey.500">{centrosCosto.length} centros configurados — asociados a plataformas y ciudades</Typography>
                     </Box>
                     <Button size="small" startIcon={<AddIcon />} variant="contained"
-                      sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#27884A' }, textTransform: 'none', fontWeight: 600, fontSize: 12 }}
+                      sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#1A1A1A' }, textTransform: 'none', fontWeight: 600, fontSize: 12 }}
                       onClick={openNewCC}
                     >
                       Agregar centro
@@ -1057,7 +1058,7 @@ export default function EAMConfig() {
                 <Button
                   variant="contained" onClick={saveCC}
                   disabled={!ccEditing.codigo.trim() || !ccEditing.nombre.trim()}
-                  sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#27884A' }, fontWeight: 700, borderRadius: '8px' }}
+                  sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#1A1A1A' }, fontWeight: 700, borderRadius: '8px' }}
                 >
                   Guardar
                 </Button>
@@ -1084,7 +1085,7 @@ export default function EAMConfig() {
                       </Typography>
                     </Box>
                     <Button size="small" startIcon={<AddIcon />} variant="contained"
-                      sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#27884A' }, textTransform: 'none', fontWeight: 600, fontSize: 12 }}
+                      sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#1A1A1A' }, textTransform: 'none', fontWeight: 600, fontSize: 12 }}
                       onClick={abrirNuevoEsquema}
                     >
                       Agregar categoría
@@ -1203,7 +1204,7 @@ export default function EAMConfig() {
                 <Button
                   variant="contained" onClick={guardarEsquema}
                   disabled={!esquemaForm.nombre.trim() || esquemaForm.layout.length === 0 || esquemaForm.layout.some(x => !x || Number(x) <= 0)}
-                  sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#27884A' }, fontWeight: 700, borderRadius: '8px' }}
+                  sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#1A1A1A' }, fontWeight: 700, borderRadius: '8px' }}
                 >
                   Guardar
                 </Button>
@@ -1271,7 +1272,7 @@ export default function EAMConfig() {
                         </Stack>
                         <Typography variant="caption" color="grey.500" ml={5}>Notificar cuando repuesto crítico esté por debajo del mínimo</Typography>
                       </Box>
-                      <Chip label={umbrales.stockMin ? 'ACTIVO' : 'INACTIVO'} size="small" sx={{ background: alpha(umbrales.stockMin ? '#32AC5C' : '#9CA3AF', 0.15), color: umbrales.stockMin ? '#32AC5C' : '#9CA3AF', fontWeight: 700 }} />
+                      <Chip label={umbrales.stockMin ? 'ACTIVO' : 'INACTIVO'} size="small" sx={{ background: alpha(umbrales.stockMin ? '#1A1A1A' : '#9CA3AF', 0.15), color: umbrales.stockMin ? '#1A1A1A' : '#9CA3AF', fontWeight: 700 }} />
                     </Stack>
                   </Stack>
                 </CardContent>
@@ -1373,7 +1374,7 @@ export default function EAMConfig() {
             <Grid container spacing={2}>
               {INTEGRACIONES.map(intg => {
                 const isOn = intToggles[intg.codigo] ?? false
-                const statusColor = intg.estado === 'ACTIVO' ? '#32AC5C' : intg.estado === 'CONFIGURAR' ? '#3B82F6' : '#F59E0B'
+                const statusColor = intg.estado === 'ACTIVO' ? '#1A1A1A' : intg.estado === 'CONFIGURAR' ? '#3B82F6' : '#F59E0B'
                 return (
                   <Grid key={intg.codigo} size={{ xs: 12, md: 6, lg: 4 }}>
                     <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(isOn ? intg.color : '#4B5563', 0.3)}`, transition: 'border-color 0.3s' }}>
@@ -1533,7 +1534,7 @@ export default function EAMConfig() {
                     sx={{ minWidth: 150 }}
                   />
                   <Button variant="contained" onClick={applyDispBulk}
-                    sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#27884A' }, fontWeight: 700, borderRadius: '8px', height: 36 }}>
+                    sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#1A1A1A' }, fontWeight: 700, borderRadius: '8px', height: 36 }}>
                     Aplicar a {dispSel.length > 0 ? `${dispSel.length} seleccionados` : (dispCat === 'Todos' ? 'todos' : dispCat)}
                   </Button>
                   {dispSel.length > 0 && (
@@ -1723,7 +1724,7 @@ export default function EAMConfig() {
                 <Button onClick={() => setPeriodDlg(false)} sx={{ color: 'grey.500' }}>Cancelar</Button>
                 <Button variant="contained" onClick={savePeriodo}
                   disabled={!newPeriodo.nombre || newPeriodo.horas <= 0 || newPeriodo.desde > newPeriodo.hasta || (newPeriodo.aplica === 'activos' && periodActSel.length === 0)}
-                  sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#27884A' }, fontWeight: 700, borderRadius: '8px' }}>
+                  sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#1A1A1A' }, fontWeight: 700, borderRadius: '8px' }}>
                   Agregar período
                 </Button>
               </DialogActions>
@@ -1764,7 +1765,7 @@ export default function EAMConfig() {
 
                 <Stack direction="row" alignItems="center" spacing={2} mt={1}>
                   <Button variant="contained" onClick={guardarConfig} disabled={iaSaving}
-                    sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#27884A' }, fontWeight: 700, borderRadius: '8px', textTransform: 'none' }}>
+                    sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#1A1A1A' }, fontWeight: 700, borderRadius: '8px', textTransform: 'none' }}>
                     {iaSaving ? 'Guardando…' : 'Guardar diccionario'}
                   </Button>
                   {iaMsg && <Typography fontSize={12.5} color={iaMsg.includes('✓') ? '#16A34A' : '#DC2626'}>{iaMsg}</Typography>}

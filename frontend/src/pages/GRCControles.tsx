@@ -11,7 +11,8 @@ import { Shield, Add, Edit, Delete, Close, CheckCircle, Warning, Add as AddIcon 
 import { Layout } from '@/components/layout/Layout'
 import { SelectorResponsable } from '@/components/catalogo/SelectorResponsable'
 
-const GRC_COLOR = '#6D28D9'
+import { COLOR_MODULO } from '@/config/marca'
+const GRC_COLOR = COLOR_MODULO
 const BORDER  = '#E5E7EB'
 const LBL       = alpha(GRC_COLOR, 0.85)
 const TIPO_COLOR: Record<string,string> = { PREVENTIVO:'#059669', DETECTIVO:'#0891B2', CORRECTIVO:'#D97706', DIRECTIVO:GRC_COLOR }

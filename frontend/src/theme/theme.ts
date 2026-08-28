@@ -1,11 +1,12 @@
 import { createTheme, alpha } from '@mui/material/styles'
 
-const PRIMARY      = '#32AC5C'
-const PRIMARY_DARK = '#27884A'
-const PRIMARY_LIGHT = '#5FD184'
+import { COLOR_MODULO, PALETA } from '@/config/marca'
+const PRIMARY      = '#1A1A1A'  // tinta
+const PRIMARY_DARK = COLOR_MODULO
+const PRIMARY_LIGHT = PALETA.niebla  // grafito
 const BACKGROUND   = '#F0F2F5'
 const DARK         = '#0D1117'
-const SIDEBAR      = '#111827'
+const SIDEBAR      = '#1A1A1A'
 const SURFACE      = '#FFFFFF'
 const TEXT         = '#1E293B'
 
@@ -70,7 +71,7 @@ export const theme = createTheme({
     info:    { main: '#3B82F6' },
   },
   typography: {
-    fontFamily: '"Inter", "Roboto", "Helvetica Neue", Arial, sans-serif',
+    fontFamily: '"Montserrat", "Helvetica Neue", Arial, sans-serif',
     h1: { fontWeight: 800, fontSize: '2.25rem',  color: DARK, letterSpacing: '-0.025em' },
     h2: { fontWeight: 800, fontSize: '1.875rem', color: DARK, letterSpacing: '-0.02em' },
     h3: { fontWeight: 700, fontSize: '1.5rem',   color: DARK, letterSpacing: '-0.015em' },

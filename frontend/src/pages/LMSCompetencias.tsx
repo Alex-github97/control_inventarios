@@ -4,7 +4,8 @@ import Grid from '@mui/material/Grid2'
 import { Psychology, TrendingUp, Warning } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const LMS_COLOR = '#D97706'
+import { COLOR_MODULO } from '@/config/marca'
+const LMS_COLOR = COLOR_MODULO
 const BORDER = '#E5E7EB'
 
 const NIVEL_MAP: Record<string, number> = { INICIAL: 1, BASICO: 2, INTERMEDIO: 3, AVANZADO: 4, EXPERTO: 5 }

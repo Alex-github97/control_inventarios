@@ -29,8 +29,9 @@ import { apiClient as api } from '@/api/client'
 import { mensajeDeError } from '@/utils/errorApi'
 import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
 
-const EAM_COLOR = '#32AC5C'
-const EAM_DARK = '#27884A'
+import { COLOR_MODULO } from '@/config/marca'
+const EAM_COLOR = COLOR_MODULO
+const EAM_DARK = COLOR_MODULO
 
 type OTEstado = 'PENDIENTE' | 'ASIGNADA' | 'EN_EJECUCION' | 'EN_ESPERA_REPUESTOS' | 'COMPLETADA'
 type OTPrioridad = 'URGENTE' | 'ALTA' | 'MEDIA' | 'BAJA'

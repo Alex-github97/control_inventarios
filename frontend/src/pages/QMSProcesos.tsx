@@ -9,7 +9,8 @@ import {
 import { DeviceHub, Add, Edit, Visibility, ToggleOff } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const QMS_COLOR = '#059669'
+import { COLOR_MODULO } from '@/config/marca'
+const QMS_COLOR = COLOR_MODULO
 
 interface TabPanelProps { children?: React.ReactNode; index: number; value: number }
 function TabPanel({ children, value, index }: TabPanelProps) {

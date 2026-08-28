@@ -19,7 +19,8 @@ import { apiClient as api } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
-const FT_COLOR = '#F59E0B'
+import { COLOR_MODULO } from '@/config/marca'
+const FT_COLOR = COLOR_MODULO
 
 interface GeneradorCarga {
   id: number
@@ -135,7 +136,7 @@ export default function FletesGeneradores() {
             <Typography fontSize={12} color="text.secondary" mt={0.25}>Generadores registrados</Typography>
           </Box>
           <Box>
-            <Typography fontSize={28} fontWeight={800} color="#32AC5C" lineHeight={1}>
+            <Typography fontSize={28} fontWeight={800} color="#1A1A1A" lineHeight={1}>
               {generadores.filter(g => g.ciudad).length}
             </Typography>
             <Typography fontSize={12} color="text.secondary" mt={0.25}>Con ciudad registrada</Typography>

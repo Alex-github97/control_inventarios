@@ -11,7 +11,8 @@ import { VerifiedUser, Add, Edit, Delete, Close, CheckCircle, Warning, ErrorOutl
 import { Layout } from '@/components/layout/Layout'
 import { SelectorResponsable } from '@/components/catalogo/SelectorResponsable'
 
-const GRC_COLOR = '#6D28D9'
+import { COLOR_MODULO } from '@/config/marca'
+const GRC_COLOR = COLOR_MODULO
 const PAGE_BG   = '#F0F2F5'
 const LBL       = alpha(GRC_COLOR, 0.85)
 const ESTADO_COLOR: Record<string,string> = { CUMPLE:'#059669', PARCIAL:'#D97706', INCUMPLE:'#DC2626', 'NO APLICA':'#6B7280', 'EN REVISION':'#0891B2' }

@@ -4,6 +4,7 @@ import { Box, Typography, Tooltip, alpha } from '@mui/material'
 import { useAuthStore } from '@/store/authStore'
 import { useTranslation } from 'react-i18next'
 
+import { COLOR_MODULO_SOBRE_OSCURO } from '@/config/marca'
 // Claves de permiso requeridas por workspace (vacío = siempre visible)
 const WORKSPACE_PERM_KEYS: Record<string, string[]> = {
   control:  ['dashboard','estibas','movimientos','manifiestos','vehiculos','ubicaciones','proveedores','alertas','danos','trazabilidad','mantenimiento','costos','consultas'],
@@ -27,28 +28,28 @@ const WORKSPACE_PERM_KEYS: Record<string, string[]> = {
   config:   ['usuarios'],
 }
 
-const PANEL_BG         = '#060C1A'
-const CI_COLOR         = '#32AC5C'
-const TX_COLOR         = '#48BB78'
-const CF_COLOR         = '#6366F1'
-const CC_COLOR         = '#0EA5E9'
-const GF_COLOR         = '#7C3AED'
-const ML_COLOR         = '#0D9488'
-const WMS_COLOR        = '#1E40AF'
-const GH_COLOR         = '#BE185D'
-const TMS_COLOR        = '#0369A1'
-const DMS_COLOR        = '#0E7490'
-const QMS_COLOR        = '#059669'
-const GRC_COLOR        = '#6D28D9'
-const LMS_COLOR        = '#D97706'
-const CRM_COLOR        = '#DC2626'
-const EAM_COLOR        = '#32AC5C'
-const MES_COLOR        = '#0891B2'
-const APS_COLOR        = '#7C3AED'
-const ERP_COLOR        = '#1A3A6B'
-const SCM_COLOR        = '#0C4D8C'
-const SST_COLOR        = '#C53030'
-const AGS_COLOR        = '#A21CAF'
+const PANEL_BG         = '#0D0D0D'
+const CI_COLOR         = COLOR_MODULO_SOBRE_OSCURO
+const TX_COLOR         = COLOR_MODULO_SOBRE_OSCURO
+const CF_COLOR         = COLOR_MODULO_SOBRE_OSCURO
+const CC_COLOR         = COLOR_MODULO_SOBRE_OSCURO
+const GF_COLOR         = COLOR_MODULO_SOBRE_OSCURO
+const ML_COLOR         = COLOR_MODULO_SOBRE_OSCURO
+const WMS_COLOR        = COLOR_MODULO_SOBRE_OSCURO
+const GH_COLOR         = COLOR_MODULO_SOBRE_OSCURO
+const TMS_COLOR        = COLOR_MODULO_SOBRE_OSCURO
+const DMS_COLOR        = COLOR_MODULO_SOBRE_OSCURO
+const QMS_COLOR        = COLOR_MODULO_SOBRE_OSCURO
+const GRC_COLOR        = COLOR_MODULO_SOBRE_OSCURO
+const LMS_COLOR        = COLOR_MODULO_SOBRE_OSCURO
+const CRM_COLOR        = COLOR_MODULO_SOBRE_OSCURO
+const EAM_COLOR        = COLOR_MODULO_SOBRE_OSCURO
+const MES_COLOR        = COLOR_MODULO_SOBRE_OSCURO
+const APS_COLOR        = COLOR_MODULO_SOBRE_OSCURO
+const ERP_COLOR        = COLOR_MODULO_SOBRE_OSCURO
+const SCM_COLOR        = COLOR_MODULO_SOBRE_OSCURO
+const SST_COLOR        = COLOR_MODULO_SOBRE_OSCURO
+const AGS_COLOR        = COLOR_MODULO_SOBRE_OSCURO
 const COMPACT_THRESHOLD = 80
 
 const WORKSPACES = [

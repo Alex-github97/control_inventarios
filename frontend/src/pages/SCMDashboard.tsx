@@ -7,7 +7,8 @@ import { Grain, ShoppingCart, Pending, LocalShipping, Business, TrendingUp, Warn
 import { Layout } from '@/components/layout/Layout'
 import { getSCMDashboard, SCMDashboardData } from '@/api/scm'
 
-const SCM_COLOR = '#0C4D8C'
+import { COLOR_MODULO } from '@/config/marca'
+const SCM_COLOR = COLOR_MODULO
 const BORDER  = `rgba(12,77,140,0.25)`
 
 const ESTADO_COLORS: Record<string, string> = {

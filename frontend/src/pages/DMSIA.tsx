@@ -42,7 +42,8 @@ import {
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const DMS_COLOR = '#0E7490'
+import { COLOR_MODULO } from '@/config/marca'
+const DMS_COLOR = COLOR_MODULO
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

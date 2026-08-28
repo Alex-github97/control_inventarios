@@ -52,8 +52,9 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import { exportarPDF, exportarExcel } from '@/utils/exportar';
 
-const EAM_COLOR = '#32AC5C';
-const EAM_DARK = '#27884A';
+import { COLOR_MODULO } from '@/config/marca';
+const EAM_COLOR = COLOR_MODULO;
+const EAM_DARK = COLOR_MODULO;
 
 // --- Types ---
 

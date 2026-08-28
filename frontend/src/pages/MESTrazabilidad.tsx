@@ -15,9 +15,10 @@ import { Layout } from '@/components/layout/Layout'
 import { apiClient as api } from '@/api/client'
 import { exportarPDF } from '@/utils/exportar'
 
+import { COLOR_MODULO } from '@/config/marca'
 // ─── Constantes ───────────────────────────────────────────────────────────────
-const MES_COLOR = '#0891B2'
-const MES_DARK = '#0E7490'
+const MES_COLOR = COLOR_MODULO
+const MES_DARK = COLOR_MODULO
 
 const ESTADO_LOTE_STYLE: Record<string, { color: string; bg: string }> = {
   ACTIVO:    { color: '#2563EB', bg: '#EFF6FF' },

@@ -3,10 +3,11 @@ import { Box, Typography, Paper, Chip } from '@mui/material'
 import { BarChart as BarChartIcon, OpenInNew } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
+import { COLOR_MODULO } from '@/config/marca'
 const POWERBI_URL =
   'https://app.powerbi.com/view?r=eyJrIjoiNTA3OGUwYjMtYzFiNC00MGI1LWFiODctMmJhNWJhNGJmYTVlIiwidCI6ImE0ZTY3MjkxLWI5ZTAtNDFmNS05YmUxLTM1NmFiMmMwOTE4YyIsImMiOjR9'
 
-const TX_COLOR = '#369E4D'
+const TX_COLOR = COLOR_MODULO
 
 export default function TarifaxDashboard() {
   return (

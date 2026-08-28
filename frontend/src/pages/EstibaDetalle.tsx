@@ -32,7 +32,7 @@ const TIPO_ICONS: Record<string, React.ReactNode> = {
 
 const TIPO_COLORS: Record<string, string> = {
   CARGA: '#3B82F6',
-  DESCARGA: '#32AC5C',
+  DESCARGA: '#1A1A1A',
   TRANSFERENCIA: '#8B5CF6',
   RETORNO: '#F59E0B',
   BAJA: '#EF4444',
@@ -277,7 +277,7 @@ export default function EstibaDetalle() {
                         fontSize: 16,
                         color: estiba?.estado === 'FALTANTE' ? '#F97316'
                              : estiba?.estado === 'PERDIDA'  ? '#DC2626'
-                             : '#32AC5C',
+                             : '#1A1A1A',
                       }} />
                       <Typography variant="body2" sx={{
                         fontWeight: 700,
@@ -502,7 +502,7 @@ export default function EstibaDetalle() {
           {estiba?.codigo_qr && (
             <Button variant="contained" component="a" href={estiba.codigo_qr}
               download={`${estiba.codigo_interno}_QR.png`}
-              sx={{ bgcolor: '#32AC5C', '&:hover': { bgcolor: '#27884A' } }}>
+              sx={{ bgcolor: '#1A1A1A', '&:hover': { bgcolor: '#1A1A1A' } }}>
               Descargar
             </Button>
           )}

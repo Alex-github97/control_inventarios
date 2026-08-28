@@ -54,10 +54,11 @@ import {
 import { Layout } from '@/components/layout/Layout'
 import { exportarPDF, exportarExcel } from '@/utils/exportar'
 
+import { COLOR_MODULO } from '@/config/marca'
 // ─── Constantes de tema ───────────────────────────────────────────────────────
 
-const EAM_COLOR = '#32AC5C'
-const EAM_DARK  = '#27884A'
+const EAM_COLOR = COLOR_MODULO
+const EAM_DARK  = COLOR_MODULO
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -522,7 +523,7 @@ const RESPONSABLES_SELECT = [
 
 function colorPorDias(dias: number): string {
   if (dias <= 7) return '#EF4444'
-  if (dias <= 15) return '#32AC5C'
+  if (dias <= 15) return '#1A1A1A'
   return '#EAB308'
 }
 

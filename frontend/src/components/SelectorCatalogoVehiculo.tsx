@@ -64,7 +64,7 @@ export const SELECCION_VEHICULO_VACIA: SeleccionVehiculo = {
  * mano y termina con "Kenworth", "KENWORTH" y "Ken worth" como tres marcas.
  */
 export function SelectorCatalogoVehiculo({
-  tipoActivo, valor, onChange, color = '#32AC5C', requerido = false,
+  tipoActivo, valor, onChange, color = '#1A1A1A', requerido = false,
 }: {
   /** Código del tipo de activo (VEHICULO, MONTACARGAS…). Acota las marcas. */
   tipoActivo?: string | null

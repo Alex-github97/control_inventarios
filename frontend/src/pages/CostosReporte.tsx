@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 
-const PRIMARY = '#32AC5C'
+const PRIMARY = '#1A1A1A'
 
 const formatCOP = (v: number) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v)

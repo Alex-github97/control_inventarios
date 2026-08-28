@@ -16,7 +16,7 @@ interface KPICardProps {
 
 export function KPICard({
   title, value, subtitle, icon,
-  color = '#32AC5C', progress, trend, onClick,
+  color = '#1A1A1A', progress, trend, onClick,
 }: KPICardProps) {
   const isPositiveTrend = (trend?.value ?? 0) >= 0
 

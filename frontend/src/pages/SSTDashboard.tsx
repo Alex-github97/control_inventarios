@@ -6,7 +6,8 @@ import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, R
 import { Layout } from '@/components/layout/Layout'
 import { apiClient } from '@/api/client'
 
-const SST_COLOR = '#C53030'
+import { COLOR_MODULO } from '@/config/marca'
+const SST_COLOR = COLOR_MODULO
 const BORDER  = 'rgba(197,48,48,0.2)'
 
 const TT = {

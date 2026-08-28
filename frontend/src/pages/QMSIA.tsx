@@ -8,8 +8,9 @@ import Grid from '@mui/material/Grid2'
 import { AutoFixHigh, Psychology, TrendingDown, Warning, Lightbulb } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const QMS_COLOR = '#059669'
-const AI_COLOR = '#7C3AED'
+import { COLOR_MODULO } from '@/config/marca'
+const QMS_COLOR = COLOR_MODULO
+const AI_COLOR = COLOR_MODULO
 
 interface TabPanelProps { children?: React.ReactNode; index: number; value: number }
 function TabPanel({ children, value, index }: TabPanelProps) {

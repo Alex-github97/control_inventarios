@@ -31,7 +31,7 @@ export const SELECCION_VACIA: SeleccionCatalogo = {
  * no se digita: la define el catálogo para esa combinación.
  */
 export function SelectorCatalogoLlanta({
-  ambito = 'LLANTA', valor, onChange, color = '#32AC5C',
+  ambito = 'LLANTA', valor, onChange, color = '#1A1A1A',
 }: {
   ambito?: 'LLANTA' | 'BANDA'
   valor: SeleccionCatalogo

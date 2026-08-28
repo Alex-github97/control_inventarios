@@ -12,7 +12,8 @@ import { Layout } from '@/components/layout/Layout'
 import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
 import toast from 'react-hot-toast'
 
-const ML_COLOR = '#0D9488'
+import { COLOR_MODULO } from '@/config/marca'
+const ML_COLOR = COLOR_MODULO
 
 interface Sede { id: number; nombre: string; ciudad: string | null; direccion: string | null }
 interface Espacio { id: number; nombre: string; tipo: string | null; sede_id: number; sede_nombre: string | null }

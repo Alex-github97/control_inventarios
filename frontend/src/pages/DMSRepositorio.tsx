@@ -53,7 +53,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
 import toast from 'react-hot-toast'
 
-const DMS_COLOR = '#0E7490'
+import { COLOR_MODULO } from '@/config/marca'
+const DMS_COLOR = COLOR_MODULO
 
 const extDe = (nombre: string): string => {
   const m = /\.([a-z0-9]+)$/i.exec(nombre || '')

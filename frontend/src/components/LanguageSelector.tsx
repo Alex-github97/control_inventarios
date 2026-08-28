@@ -12,7 +12,7 @@ interface LanguageSelectorProps {
   accentColor?: string
 }
 
-export function LanguageSelector({ variant = 'button', accentColor = '#32AC5C' }: LanguageSelectorProps) {
+export function LanguageSelector({ variant = 'button', accentColor = '#1A1A1A' }: LanguageSelectorProps) {
   const { i18n, t } = useTranslation()
   const [anchor, setAnchor] = useState<null | HTMLElement>(null)
 

@@ -10,7 +10,7 @@ import { apiClient } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
-const PRIMARY = '#32AC5C'
+const PRIMARY = '#1A1A1A'
 
 export default function Clientes() {
   const queryClient = useQueryClient()
@@ -59,7 +59,7 @@ export default function Clientes() {
           Clientes registrados para asignar en manifiestos
         </Typography>
         <Button variant="contained" startIcon={<Add />} onClick={() => setOpenDialog(true)}
-          sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#27884A' } }}>
+          sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#1A1A1A' } }}>
           Nuevo Cliente
         </Button>
       </Box>
@@ -150,7 +150,7 @@ export default function Clientes() {
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setOpenDialog(false)}>Cancelar</Button>
           <Button variant="contained" onClick={handleSubmit} disabled={crearMutation.isPending}
-            sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#27884A' } }}>
+            sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#1A1A1A' } }}>
             {crearMutation.isPending ? 'Creando...' : 'Crear Cliente'}
           </Button>
         </DialogActions>

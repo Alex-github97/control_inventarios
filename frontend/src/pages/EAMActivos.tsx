@@ -42,8 +42,9 @@ import { SelectorResponsable } from '@/components/catalogo/SelectorResponsable'
 import { SelectorMotor } from '@/components/SelectorMotor'
 import { VehiculosCombinados } from '@/components/VehiculosCombinados'
 
-const EAM_COLOR = '#32AC5C'
-const EAM_DARK  = '#27884A'
+import { COLOR_MODULO } from '@/config/marca'
+const EAM_COLOR = COLOR_MODULO
+const EAM_DARK  = COLOR_MODULO
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

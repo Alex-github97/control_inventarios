@@ -7,8 +7,9 @@ import {
 import Grid from '@mui/material/Grid2'
 import { Insights, Send, SmartToy, TrendingUp, Warning } from '@mui/icons-material'
 
-const APS_COLOR = '#7C3AED'
-const AI_COLOR  = '#8B5CF6'
+import { COLOR_MODULO } from '@/config/marca'
+const APS_COLOR = COLOR_MODULO
+const AI_COLOR  = COLOR_MODULO
 
 const predicciones = [
   { titulo: 'Quiebre de stock Empaque A400 en Bogotá', prob: 87, nivel: 'ALTO', dias: 12, fuente: 'ML-LSTM', accion: 'Generar orden urgente 5,000 un' },

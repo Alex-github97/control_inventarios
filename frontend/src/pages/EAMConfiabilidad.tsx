@@ -17,9 +17,10 @@ import { useNavigate } from 'react-router-dom'
 import { Layout } from '@/components/layout/Layout'
 import { exportarPDF, exportarExcel } from '@/utils/exportar'
 
+import { COLOR_MODULO } from '@/config/marca'
 // ─── Constants ────────────────────────────────────────────────────────────────
-const EAM_COLOR = '#32AC5C'
-const EAM_DARK = '#27884A'
+const EAM_COLOR = COLOR_MODULO
+const EAM_DARK = COLOR_MODULO
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface KpiCard {

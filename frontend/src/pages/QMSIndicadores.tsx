@@ -15,8 +15,9 @@ import { Layout } from '@/components/layout/Layout'
 import { apiClient as api } from '@/api/client'
 import { exportarPDF, exportarExcel } from '@/utils/exportar'
 
-const QMS_COLOR = '#059669'
-const QMS_DARK = '#047857'
+import { COLOR_MODULO } from '@/config/marca'
+const QMS_COLOR = COLOR_MODULO
+const QMS_DARK = COLOR_MODULO
 
 interface IndTablero {
   id: number; codigo?: string | null; nombre: string; unidad?: string | null; modulo_origen?: string | null

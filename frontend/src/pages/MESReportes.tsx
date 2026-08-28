@@ -14,8 +14,9 @@ import { Layout } from '@/components/layout/Layout'
 import { apiClient as api } from '@/api/client'
 import { exportarPDF, exportarExcel } from '@/utils/exportar'
 
-const MES_COLOR = '#0891B2'
-const MES_DARK = '#0E7490'
+import { COLOR_MODULO } from '@/config/marca'
+const MES_COLOR = COLOR_MODULO
+const MES_DARK = COLOR_MODULO
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 interface Orden { id: number; numero: string; producto_id: number; estado: string; cantidad_planificada: number; cantidad_producida: number; cantidad_scrap: number; linea_id?: number | null }

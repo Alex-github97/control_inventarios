@@ -55,7 +55,8 @@ import toast from 'react-hot-toast'
 import { format, differenceInDays, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 
-const GH_COLOR = '#BE185D'
+import { COLOR_MODULO } from '@/config/marca'
+const GH_COLOR = COLOR_MODULO
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

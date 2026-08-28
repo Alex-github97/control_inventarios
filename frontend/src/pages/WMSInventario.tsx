@@ -40,6 +40,7 @@ import toast from 'react-hot-toast'
 import { apiClient as api } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 
+import { COLOR_MODULO } from '@/config/marca'
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
 interface ProductoRef {
@@ -138,7 +139,7 @@ interface MotivoMovimiento {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const WMS_COLOR = '#1E40AF'
+const WMS_COLOR = COLOR_MODULO
 
 const EMPTY_AJUSTE = {
   producto_id: '',

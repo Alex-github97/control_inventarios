@@ -27,9 +27,10 @@ import {
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
+import { COLOR_MODULO } from '@/config/marca'
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APS_COLOR      = '#7C3AED'
-const APS_COLOR_DARK = '#6D28D9'
+const APS_COLOR      = COLOR_MODULO
+const APS_COLOR_DARK = COLOR_MODULO
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 interface ForecastAccuracyRow {

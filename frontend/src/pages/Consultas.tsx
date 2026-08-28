@@ -131,11 +131,11 @@ export default function Consultas() {
         'editor.background':                '#EAF6EA',
         'editor.lineHighlightBackground':   '#d4edda',
         'editorLineNumber.foreground':      '#86b994',
-        'editorLineNumber.activeForeground':'#27884A',
+        'editorLineNumber.activeForeground':'#1A1A1A',
         'editor.selectionBackground':       '#b7dfb8',
-        'editorCursor.foreground':          '#27884A',
+        'editorCursor.foreground':          '#1A1A1A',
         'editorSuggestWidget.background':   '#f0faf0',
-        'editorSuggestWidget.border':       '#369E4D',
+        'editorSuggestWidget.border':       '#1A1A1A',
         'editorSuggestWidget.selectedBackground': '#d4edda',
         'editor.inactiveSelectionBackground': '#c8e6c9',
       },
@@ -213,7 +213,7 @@ export default function Consultas() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Box sx={{
               width: 40, height: 40, borderRadius: '10px',
-              background: 'linear-gradient(135deg, #32AC5C 0%, #27884A 100%)',
+              background: 'linear-gradient(135deg, #1A1A1A 0%, #1A1A1A 100%)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <DbIcon sx={{ color: '#fff', fontSize: 20 }} />
@@ -234,8 +234,8 @@ export default function Consultas() {
             disabled={!resultado || resultado.filas.length === 0}
             sx={{
               borderRadius: 2, fontWeight: 600, px: 3, py: 1,
-              background: 'linear-gradient(135deg, #32AC5C 0%, #27884A 100%)',
-              '&:hover': { background: 'linear-gradient(135deg, #27884A 0%, #1f6b3a 100%)' },
+              background: 'linear-gradient(135deg, #1A1A1A 0%, #1A1A1A 100%)',
+              '&:hover': { background: 'linear-gradient(135deg, #1A1A1A 0%, #1f6b3a 100%)' },
               '&.Mui-disabled': { opacity: 0.45 },
             }}
           >
@@ -259,7 +259,7 @@ export default function Consultas() {
                 cursor: 'pointer', fontSize: 11.5,
                 borderColor: 'rgba(54,158,77,0.35)',
                 color: 'text.secondary',
-                '&:hover': { bgcolor: 'rgba(54,158,77,0.08)', borderColor: '#369E4D', color: '#369E4D' },
+                '&:hover': { bgcolor: 'rgba(54,158,77,0.08)', borderColor: '#1A1A1A', color: '#1A1A1A' },
                 transition: 'all 0.15s',
               }}
             />
@@ -267,7 +267,7 @@ export default function Consultas() {
         </Box>
 
         {/* Editor */}
-        <Paper elevation={0} sx={{ mb: 2, borderRadius: 3, overflow: 'hidden', border: '2px solid #369E4D' }}>
+        <Paper elevation={0} sx={{ mb: 2, borderRadius: 3, overflow: 'hidden', border: '2px solid #1A1A1A' }}>
 
           {/* Barra superior */}
           <Box sx={{
@@ -278,14 +278,14 @@ export default function Consultas() {
             <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#ff5f57' }} />
             <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#febc2e' }} />
             <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#28c840' }} />
-            <Typography variant="caption" sx={{ ml: 1, color: '#369E4D', fontWeight: 600 }}>
+            <Typography variant="caption" sx={{ ml: 1, color: '#1A1A1A', fontWeight: 600 }}>
               SQL Editor — Control de Estibas
             </Typography>
             {schemaCount > 0 && (
               <Chip
                 label={`${schemaCount} tablas`}
                 size="small"
-                sx={{ ml: 'auto', bgcolor: 'rgba(54,158,77,0.12)', color: '#27884A', fontSize: 10.5, height: 20 }}
+                sx={{ ml: 'auto', bgcolor: 'rgba(54,158,77,0.12)', color: '#1A1A1A', fontSize: 10.5, height: 20 }}
               />
             )}
           </Box>
@@ -332,7 +332,7 @@ export default function Consultas() {
               justifyContent: 'center',
               borderTop: '1px solid rgba(54,158,77,0.15)',
               '&:hover': { bgcolor: 'rgba(54,158,77,0.14)' },
-              '&:hover .drag-pill': { bgcolor: '#369E4D', width: '56px' },
+              '&:hover .drag-pill': { bgcolor: '#1A1A1A', width: '56px' },
               transition: 'background 0.15s',
             }}
           >
@@ -364,8 +364,8 @@ export default function Consultas() {
               size="small"
               sx={{
                 borderRadius: 2, fontWeight: 600, minWidth: 130, px: 2.5,
-                background: 'linear-gradient(135deg, #369E4D 0%, #27884A 100%)',
-                '&:hover': { background: 'linear-gradient(135deg, #27884A 0%, #1f6b3a 100%)' },
+                background: 'linear-gradient(135deg, #1A1A1A 0%, #1A1A1A 100%)',
+                '&:hover': { background: 'linear-gradient(135deg, #1A1A1A 0%, #1f6b3a 100%)' },
                 '&.Mui-disabled': { opacity: 0.4 },
               }}
             >
@@ -393,7 +393,7 @@ export default function Consultas() {
               <Chip
                 label={`${resultado.total_filas.toLocaleString()} filas`}
                 size="small"
-                sx={{ bgcolor: 'rgba(54,158,77,0.1)', color: '#27884A', fontWeight: 700, fontSize: 12 }}
+                sx={{ bgcolor: 'rgba(54,158,77,0.1)', color: '#1A1A1A', fontWeight: 700, fontSize: 12 }}
               />
               <Chip
                 label={`${resultado.columnas.length} columnas`}
@@ -418,7 +418,7 @@ export default function Consultas() {
                           whiteSpace: 'nowrap',
                           borderBottom: '2px solid',
                           borderBottomColor: 'divider',
-                          color: '#369E4D',
+                          color: '#1A1A1A',
                           letterSpacing: '0.03em',
                         }}
                       >

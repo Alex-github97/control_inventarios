@@ -14,8 +14,9 @@ import { apiClient as api } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
-const ML_COLOR = '#0D9488'
-const ENERGIA_COLOR = '#7C3AED'
+import { COLOR_MODULO } from '@/config/marca'
+const ML_COLOR = COLOR_MODULO
+const ENERGIA_COLOR = COLOR_MODULO
 
 interface Sede { id: number; nombre: string }
 

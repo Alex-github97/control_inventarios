@@ -36,8 +36,9 @@ import {
 import { Layout } from '@/components/layout/Layout'
 import { exportarPDF, exportarExcel } from '@/utils/exportar'
 
-const EAM_COLOR = '#32AC5C'
-const EAM_DARK  = '#27884A'
+import { COLOR_MODULO } from '@/config/marca'
+const EAM_COLOR = COLOR_MODULO
+const EAM_DARK  = COLOR_MODULO
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
@@ -145,8 +146,8 @@ const TOP_COSTOSOS_AÑO = [
   { nombre: 'Tracto TXC-123', tipo: 'Flota', costoAnio: 44100000 },
 ]
 
-const estadoVehColor = (e: string) => ({ OPERATIVO: '#32AC5C', EN_TALLER: '#F59E0B', INACTIVO: '#9CA3AF' })[e] ?? '#9CA3AF'
-const sedeColor = (e: string) => ({ BUENO: '#32AC5C', REGULAR: '#F59E0B', CRITICO: '#EF4444' })[e] ?? '#9CA3AF'
+const estadoVehColor = (e: string) => ({ OPERATIVO: '#1A1A1A', EN_TALLER: '#F59E0B', INACTIVO: '#9CA3AF' })[e] ?? '#9CA3AF'
+const sedeColor = (e: string) => ({ BUENO: '#1A1A1A', REGULAR: '#F59E0B', CRITICO: '#EF4444' })[e] ?? '#9CA3AF'
 
 const maxCosto = Math.max(...TENDENCIA_MENSUAL.map(t => t.costo))
 const maxMtbf = Math.max(...MTBF_TREND.map(t => t.horas))
@@ -262,7 +263,7 @@ interface KpiGerencial {
 
 const KPIS_GERENCIALES: Record<string, KpiGerencial> = {
   disponibilidad: {
-    clave: 'disponibilidad', titulo: 'Disponibilidad General', valor: '94.2%', objetivo: '≥ 95%', color: '#32AC5C', estado: 'EN_RIESGO',
+    clave: 'disponibilidad', titulo: 'Disponibilidad General', valor: '94.2%', objetivo: '≥ 95%', color: '#1A1A1A', estado: 'EN_RIESGO',
     descripcion: 'Porcentaje de tiempo en que los activos estuvieron operativos frente al total de horas planificadas.',
     detalle: [
       { label: 'Horas planificadas', value: '7,344 h' },
@@ -273,7 +274,7 @@ const KPIS_GERENCIALES: Record<string, KpiGerencial> = {
     serie: [{ mes: 'Ene', valor: 92.1 }, { mes: 'Feb', valor: 93.4 }, { mes: 'Mar', valor: 91.8 }, { mes: 'Abr', valor: 93.9 }, { mes: 'May', valor: 94.8 }, { mes: 'Jun', valor: 94.2 }],
   },
   confiabilidad: {
-    clave: 'confiabilidad', titulo: 'Índice de Confiabilidad', valor: '91.5 / 100', objetivo: '≥ 90', color: '#32AC5C', estado: 'CUMPLE',
+    clave: 'confiabilidad', titulo: 'Índice de Confiabilidad', valor: '91.5 / 100', objetivo: '≥ 90', color: '#1A1A1A', estado: 'CUMPLE',
     descripcion: 'Índice compuesto de MTBF, MTTR y cumplimiento de PM que mide la salud global de la operación de mantenimiento.',
     detalle: [
       { label: 'MTBF', value: '337 h' },
@@ -648,7 +649,7 @@ export default function EAMReportes() {
           <Box>
             <Grid container spacing={2} mb={3}>
               {[
-                { label: 'Disponibilidad Flota', value: '94.2%', icon: <SpeedIcon />, color: '#32AC5C' },
+                { label: 'Disponibilidad Flota', value: '94.2%', icon: <SpeedIcon />, color: '#1A1A1A' },
                 { label: 'Km Recorridos (mes)', value: fmtN(186450), icon: <FlotaIcon />, color: EAM_COLOR },
                 { label: 'Consumo Combustible', value: '18,450 L', icon: <FuelIcon />, color: '#3B82F6' },
                 { label: 'Rendimiento Promedio', value: '7.2 km/L', icon: <TrendIcon />, color: '#8B5CF6' },
@@ -691,11 +692,11 @@ export default function EAMReportes() {
                       <TableCell align="right">{fmtN(v.kmMes)}</TableCell>
                       <TableCell align="right">{fmtN(v.litrosMes)}</TableCell>
                       <TableCell align="center">
-                        <Typography variant="body2" fontWeight={600} color={v.rendimiento >= 8 ? '#32AC5C' : v.rendimiento >= 7 ? '#F59E0B' : '#EF4444'}>{v.rendimiento} km/L</Typography>
+                        <Typography variant="body2" fontWeight={600} color={v.rendimiento >= 8 ? '#1A1A1A' : v.rendimiento >= 7 ? '#F59E0B' : '#EF4444'}>{v.rendimiento} km/L</Typography>
                       </TableCell>
                       <TableCell align="right">{fmt(v.costoMes)}</TableCell>
                       <TableCell align="center">
-                        <Chip label={v.otsAbiertas} size="small" sx={{ background: v.otsAbiertas > 0 ? alpha('#F59E0B', 0.15) : alpha('#32AC5C', 0.15), color: v.otsAbiertas > 0 ? '#F59E0B' : '#32AC5C', fontWeight: 700, minWidth: 30 }} />
+                        <Chip label={v.otsAbiertas} size="small" sx={{ background: v.otsAbiertas > 0 ? alpha('#F59E0B', 0.15) : alpha('#1A1A1A', 0.15), color: v.otsAbiertas > 0 ? '#F59E0B' : '#1A1A1A', fontWeight: 700, minWidth: 30 }} />
                       </TableCell>
                       <TableCell><Typography variant="caption" color="#64748B">{v.pmProximo}</Typography></TableCell>
                       <TableCell align="center">
@@ -748,7 +749,7 @@ export default function EAMReportes() {
                       <TableCell><Typography variant="body2" fontWeight={600}>{s.nombre}</Typography></TableCell>
                       <TableCell align="center">{s.activos}</TableCell>
                       <TableCell align="center">
-                        <Chip label={s.otsAbiertas} size="small" sx={{ background: s.otsAbiertas > 0 ? alpha('#F59E0B', 0.15) : alpha('#32AC5C', 0.15), color: s.otsAbiertas > 0 ? '#F59E0B' : '#32AC5C', fontWeight: 700, minWidth: 30 }} />
+                        <Chip label={s.otsAbiertas} size="small" sx={{ background: s.otsAbiertas > 0 ? alpha('#F59E0B', 0.15) : alpha('#1A1A1A', 0.15), color: s.otsAbiertas > 0 ? '#F59E0B' : '#1A1A1A', fontWeight: 700, minWidth: 30 }} />
                       </TableCell>
                       <TableCell>{s.ultimoCheck}</TableCell>
                       <TableCell align="center">
@@ -790,10 +791,10 @@ export default function EAMReportes() {
 
               {/* Índice confiabilidad */}
               <Grid size={{ xs: 12, md: 4 }}>
-                <Card onClick={() => setKpiSel(KPIS_GERENCIALES.confiabilidad)} sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#32AC5C', 0.3)}`, textAlign: 'center', cursor: 'pointer', transition: 'all 0.15s', '&:hover': { boxShadow: `0 6px 20px ${alpha(EAM_COLOR, 0.18)}`, transform: 'translateY(-2px)' } }}>
+                <Card onClick={() => setKpiSel(KPIS_GERENCIALES.confiabilidad)} sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#1A1A1A', 0.3)}`, textAlign: 'center', cursor: 'pointer', transition: 'all 0.15s', '&:hover': { boxShadow: `0 6px 20px ${alpha(EAM_COLOR, 0.18)}`, transform: 'translateY(-2px)' } }}>
                   <CardContent>
                     <Typography variant="subtitle2" color="#64748B" mb={2} fontWeight={600}>Índice de Confiabilidad Global</Typography>
-                    <Typography variant="h2" fontWeight={900} color="#32AC5C" sx={{ lineHeight: 1.1 }}>91.5</Typography>
+                    <Typography variant="h2" fontWeight={900} color="#1A1A1A" sx={{ lineHeight: 1.1 }}>91.5</Typography>
                     <Typography variant="h6" color="#64748B">/ 100</Typography>
                     <Divider sx={{ borderColor: '#E5E7EB', my: 2 }} />
                     <Stack direction="row" justifyContent="space-around">
@@ -828,9 +829,9 @@ export default function EAMReportes() {
                           <Typography variant="caption" color="#64748B">Presupuestado</Typography>
                           <Typography variant="caption" fontWeight={700} color="#1E293B">$300M</Typography>
                         </Stack>
-                        <LinearProgress variant="determinate" value={100} sx={{ height: 10, borderRadius: 5, backgroundColor: alpha('#32AC5C', 0.15), '& .MuiLinearProgress-bar': { backgroundColor: alpha('#32AC5C', 0.4), borderRadius: 5 } }} />
+                        <LinearProgress variant="determinate" value={100} sx={{ height: 10, borderRadius: 5, backgroundColor: alpha('#1A1A1A', 0.15), '& .MuiLinearProgress-bar': { backgroundColor: alpha('#1A1A1A', 0.4), borderRadius: 5 } }} />
                       </Box>
-                      <Typography variant="caption" color="#32AC5C" fontWeight={700}>✓ 88% ejecutado — $36M disponibles</Typography>
+                      <Typography variant="caption" color="#1A1A1A" fontWeight={700}>✓ 88% ejecutado — $36M disponibles</Typography>
                     </Stack>
                   </CardContent>
                 </Card>
@@ -869,7 +870,7 @@ export default function EAMReportes() {
                           <Typography variant="caption" color="#64748B" sx={{ width: 28 }}>{m.mes}</Typography>
                           <Box flex={1}>
                             <Box sx={{ height: 8, borderRadius: 4, background: '#E5E7EB', overflow: 'hidden' }}>
-                              <Box sx={{ height: '100%', width: `${(m.horas / maxMtbf) * 100}%`, background: m.horas >= 330 ? '#32AC5C' : m.horas >= 300 ? EAM_COLOR : '#EF4444', borderRadius: 4, transition: 'width 0.5s ease' }} />
+                              <Box sx={{ height: '100%', width: `${(m.horas / maxMtbf) * 100}%`, background: m.horas >= 330 ? '#1A1A1A' : m.horas >= 300 ? EAM_COLOR : '#EF4444', borderRadius: 4, transition: 'width 0.5s ease' }} />
                             </Box>
                           </Box>
                           <Typography variant="caption" color="#1E293B" fontWeight={700} sx={{ width: 40, textAlign: 'right' }}>{m.horas}h</Typography>
@@ -935,7 +936,7 @@ export default function EAMReportes() {
                     <Stack spacing={2}>
                       {[
                         { tipo: 'CORRECTIVA', pct: 52, color: '#EF4444' },
-                        { tipo: 'PREVENTIVA', pct: 35, color: '#32AC5C' },
+                        { tipo: 'PREVENTIVA', pct: 35, color: '#1A1A1A' },
                         { tipo: 'PREDICTIVA', pct: 8, color: '#8B5CF6' },
                         { tipo: 'EMERGENCIA', pct: 5, color: '#F97316' },
                       ].map((t, i) => (

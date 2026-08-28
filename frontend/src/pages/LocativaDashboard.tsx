@@ -21,7 +21,8 @@ import { useNavigate } from 'react-router-dom'
 import { apiClient as api } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 
-const ML_COLOR = '#0D9488'
+import { COLOR_MODULO } from '@/config/marca'
+const ML_COLOR = COLOR_MODULO
 
 interface KPIs {
   total_activos: number

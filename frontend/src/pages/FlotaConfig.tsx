@@ -11,7 +11,8 @@ import { apiClient as api } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
-const GF_COLOR = '#32AC5C'
+import { COLOR_MODULO } from '@/config/marca'
+const GF_COLOR = COLOR_MODULO
 
 // ─── Generic catalog hook ──────────────────────────────────────────────────────
 function useCatalog<T extends { id: number }>(endpoint: string, queryKey: string[]) {
@@ -154,7 +155,7 @@ function SimpleSection({
             <Button size="small" onClick={handleClose} sx={{ textTransform: 'none' }}>Cancelar</Button>
             <Button type="submit" size="small" variant="contained" disabled={isMut}
               startIcon={isMut ? <CircularProgress size={12} color="inherit" /> : undefined}
-              sx={{ textTransform: 'none', bgcolor: GF_COLOR, '&:hover': { bgcolor: '#27884A' } }}>
+              sx={{ textTransform: 'none', bgcolor: GF_COLOR, '&:hover': { bgcolor: '#1A1A1A' } }}>
               {editing ? 'Guardar' : 'Crear'}
             </Button>
           </DialogActions>
@@ -272,7 +273,7 @@ function ProveedoresSection() {
           <DialogActions sx={{ px: 2.5, pb: 2, gap: 1 }}>
             <Button size="small" onClick={handleClose} sx={{ textTransform: 'none' }}>Cancelar</Button>
             <Button type="submit" size="small" variant="contained" disabled={createMut.isPending || updateMut.isPending}
-              sx={{ textTransform: 'none', bgcolor: GF_COLOR, '&:hover': { bgcolor: '#27884A' } }}>
+              sx={{ textTransform: 'none', bgcolor: GF_COLOR, '&:hover': { bgcolor: '#1A1A1A' } }}>
               {editing ? 'Guardar' : 'Crear'}
             </Button>
           </DialogActions>

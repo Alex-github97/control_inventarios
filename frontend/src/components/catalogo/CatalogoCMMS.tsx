@@ -66,7 +66,7 @@ const VACIO = {
   texto: '', codigo: '', categoria: '', unidad_medida: '', costo_unitario: '',
 }
 
-export function CatalogoCMMS({ def, color = '#32AC5C' }: {
+export function CatalogoCMMS({ def, color = '#1A1A1A' }: {
   def: DefinicionCatalogo
   color?: string
 }) {

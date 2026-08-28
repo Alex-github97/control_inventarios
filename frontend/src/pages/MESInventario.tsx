@@ -13,8 +13,9 @@ import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
 import { apiClient as api } from '@/api/client'
 
-const MES_COLOR = '#0891B2'
-const MES_DARK = '#0E7490'
+import { COLOR_MODULO } from '@/config/marca'
+const MES_COLOR = COLOR_MODULO
+const MES_DARK = COLOR_MODULO
 
 const TIPOS_MOV = ['ENTRADA', 'SALIDA', 'TRANSFERENCIA', 'AJUSTE'] as const
 const MOV_STYLE: Record<string, { color: string; bg: string }> = {

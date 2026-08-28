@@ -12,8 +12,9 @@ import { Layout } from '@/components/layout/Layout'
 import { apiClient } from '@/api/client'
 import toast from 'react-hot-toast'
 
-const TX_COLOR = '#369E4D'
-const TX_DARK = '#1f6130'
+import { COLOR_MODULO } from '@/config/marca'
+const TX_COLOR = COLOR_MODULO
+const TX_DARK = COLOR_MODULO
 
 interface PreviewTabla { columns: string[]; rows: Record<string, unknown>[]; total: number }
 interface MergeResult {

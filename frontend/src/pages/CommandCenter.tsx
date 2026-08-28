@@ -5,7 +5,8 @@ import { Schedule, OpenInNew } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 import { COMMAND_CENTER_DASHBOARDS } from '@/config/commandCenter'
 
-const CC_COLOR = '#0EA5E9'
+import { COLOR_MODULO } from '@/config/marca'
+const CC_COLOR = COLOR_MODULO
 
 export default function CommandCenter() {
   const { dashboardId } = useParams<{ dashboardId: string }>()

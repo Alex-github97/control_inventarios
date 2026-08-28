@@ -33,8 +33,9 @@ import { SelectorCatalogoLlanta, SELECCION_VACIA } from '@/components/SelectorCa
 import type { SeleccionCatalogo } from '@/components/SelectorCatalogoLlanta'
 import type { VehiculoCombinado } from '@/components/VehiculosCombinados'
 
-const EAM_COLOR = '#32AC5C'
-const EAM_DARK = '#27884A'
+import { COLOR_MODULO } from '@/config/marca'
+const EAM_COLOR = COLOR_MODULO
+const EAM_DARK = COLOR_MODULO
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 interface Vehiculo { id: number; codigo: string; nombre: string; placa?: string; numero_ejes?: number | null; tiene_repuesto?: boolean; marca?: string; modelo?: string; tipo_activo?: string; odometro_actual?: number; horometro_actual?: number; motor_marca?: string; motor_linea?: string; motor_cc?: number }

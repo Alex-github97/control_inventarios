@@ -4,7 +4,8 @@ import Grid from '@mui/material/Grid2'
 import { StarRate, ThumbUp, Speed } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const CRM_COLOR = '#DC2626'
+import { COLOR_MODULO } from '@/config/marca'
+const CRM_COLOR = COLOR_MODULO
 
 const NPS_PROMOTORES = 62
 const NPS_NEUTROS    = 24

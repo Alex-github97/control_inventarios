@@ -16,7 +16,7 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 const TIPO_COLORS: Record<string, string> = {
-  CARGA: '#3B82F6', DESCARGA: '#32AC5C', TRANSFERENCIA: '#8B5CF6',
+  CARGA: '#3B82F6', DESCARGA: '#1A1A1A', TRANSFERENCIA: '#8B5CF6',
   RETORNO: '#F59E0B', BAJA: '#EF4444', REPARACION: '#F97316',
   RECEPCION: '#06B6D4', INVENTARIO: '#64748B', INSPECCION: '#EC4899',
   DISPOSICION_FINAL: '#DC2626',
@@ -122,7 +122,7 @@ export default function Trazabilidad() {
           <Card sx={{ flex: 1, minWidth: 0 }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-                <TimelineIcon sx={{ color: '#32AC5C' }} />
+                <TimelineIcon sx={{ color: '#1A1A1A' }} />
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>
                   Historial Completo ({trazabilidad.length} eventos)
                 </Typography>

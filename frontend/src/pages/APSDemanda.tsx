@@ -16,8 +16,9 @@ import {
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const APS_COLOR = '#7C3AED'
-const APS_COLOR_DARK = '#6D28D9'
+import { COLOR_MODULO } from '@/config/marca'
+const APS_COLOR = COLOR_MODULO
+const APS_COLOR_DARK = COLOR_MODULO
 
 // ── Mock Data ──────────────────────────────────────────────────────────────
 

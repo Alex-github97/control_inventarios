@@ -11,7 +11,8 @@ import { Business, Add, Edit, Delete, Close, FileDownload, UploadFile } from '@m
 import { Layout } from '@/components/layout/Layout'
 import { SelectorResponsable } from '@/components/catalogo/SelectorResponsable'
 
-const GRC_COLOR = '#6D28D9'
+import { COLOR_MODULO } from '@/config/marca'
+const GRC_COLOR = COLOR_MODULO
 const LBL       = alpha(GRC_COLOR, 0.85)
 const ESTADO_COLOR: Record<string,string> = { ACTIVO:'#059669', INACTIVO:'#6B7280', REVISION:'#D97706', SUSPENDIDO:'#DC2626' }
 const RIESGO_COLOR: Record<string,string> = { BAJO:'#059669', MEDIO:'#D97706', ALTO:'#EA580C', CRITICO:'#DC2626' }

@@ -5,7 +5,8 @@ import { Assessment, Download, TrendingUp } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 import { exportarExcel } from '@/utils/exportar'
 
-const LMS_COLOR = '#D97706'
+import { COLOR_MODULO } from '@/config/marca'
+const LMS_COLOR = COLOR_MODULO
 
 const KPI_AREA = [
   { area: 'Transporte',   horas: 842, completados: 134, cumplimiento: 91, brecha: 8,  color: '#EF4444' },

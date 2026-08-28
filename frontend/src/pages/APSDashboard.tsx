@@ -18,8 +18,8 @@ import {
 import { Layout } from '@/components/layout/Layout'
 import { exportarPDF } from '@/utils/exportar'
 
-const APS_COLOR = '#7C3AED'
-const APS_COLOR_DARK = '#6D28D9'
+const APS_COLOR = COLOR_MODULO
+const APS_COLOR_DARK = COLOR_MODULO
 
 // ── Mock Data ──────────────────────────────────────────────────────────────
 
@@ -409,3 +409,5 @@ export default function APSDashboard() {
 
 // React import needed for React.cloneElement
 import React from 'react'
+
+import { COLOR_MODULO } from '@/config/marca'

@@ -4,7 +4,8 @@ import Grid from '@mui/material/Grid2'
 import { Folder, Add, Download, CheckCircle, Warning } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const SST_COLOR = '#C53030'
+import { COLOR_MODULO } from '@/config/marca'
+const SST_COLOR = COLOR_MODULO
 const BORDER  = 'rgba(197,48,48,0.2)'
 
 const SX_INPUT = {

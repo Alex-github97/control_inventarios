@@ -29,9 +29,10 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { Layout } from '@/components/layout/Layout'
 
-const EAM_COLOR = '#32AC5C'
-const EAM_DARK = '#27884A'
-const AI_COLOR = '#8B5CF6'
+import { COLOR_MODULO } from '@/config/marca'
+const EAM_COLOR = COLOR_MODULO
+const EAM_DARK = COLOR_MODULO
+const AI_COLOR = COLOR_MODULO
 const TEXT_PRIMARY = '#1E293B'
 const TEXT_SECONDARY = '#64748B'
 const CARD_BG = '#FFFFFF'

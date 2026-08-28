@@ -13,8 +13,9 @@ import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
 import { apiClient as api } from '@/api/client'
 
-const QMS_COLOR = '#059669'
-const QMS_DARK = '#047857'
+import { COLOR_MODULO } from '@/config/marca'
+const QMS_COLOR = COLOR_MODULO
+const QMS_DARK = COLOR_MODULO
 const MODULOS = ['TMS', 'WMS', 'EAM', 'CRM', 'SST', 'HCM', 'DMS', 'MES', 'APS', 'SCM', 'ERP', 'Compras', 'Financiero', 'QMS']
 const TIPOS = ['estrategico', 'tactico', 'operativo']
 const FRECUENCIAS = ['diario', 'semanal', 'mensual', 'trimestral', 'anual']

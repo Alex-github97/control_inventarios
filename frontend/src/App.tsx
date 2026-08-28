@@ -7,7 +7,7 @@ import { Toaster } from 'react-hot-toast'
 import { theme } from '@/theme/theme'
 import { useAuthStore } from '@/store/authStore'
 import { clienteGuardado } from '@/api/cliente'
-import { MARCA } from '@/config/marca'
+import { Logotipo } from '@/components/Logotipo'
 
 // Prefijo de ruta → clave de permiso. Las rutas no listadas aquí son de libre acceso.
 const ROUTE_PERM_MAP: Record<string, string> = {
@@ -64,7 +64,7 @@ function SinAcceso() {
           Volver
         </Button>
         <Button variant="contained" onClick={() => navigate('/command-center')}
-          sx={{ bgcolor: '#32AC5C', '&:hover': { bgcolor: '#27884A' } }}>
+          sx={{ bgcolor: '#1A1A1A', '&:hover': { bgcolor: '#1A1A1A' } }}>
           Ir al inicio
         </Button>
       </Box>
@@ -372,7 +372,7 @@ function PageLoader() {
         <Box sx={{
           position: 'absolute', inset: 0, borderRadius: '50%',
           border: '2px solid transparent',
-          borderTopColor: '#32AC5C', borderRightColor: 'rgba(50,172,92,0.25)',
+          borderTopColor: '#1A1A1A', borderRightColor: 'rgba(50,172,92,0.25)',
           animation: 'orbit 1s cubic-bezier(0.6,0.15,0.4,0.85) infinite',
         }} />
         <Box sx={{
@@ -383,14 +383,14 @@ function PageLoader() {
         }} />
         <Box sx={{
           position: 'absolute', inset: 26, borderRadius: '50%',
-          background: 'radial-gradient(circle at 35% 30%, #5FD184, #27884A)',
+          background: 'radial-gradient(circle at 35% 30%, #5FD184, #1A1A1A)',
           boxShadow: '0 0 22px rgba(50,172,92,0.55)',
           animation: 'pulseSoft 1.4s ease-in-out infinite',
         }} />
       </Box>
       <Box sx={{ textAlign: 'center' }}>
         <Typography sx={{ color: '#E2E8F0', fontWeight: 700, fontSize: 13.5, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
-          {MARCA.corto}
+          <Logotipo tamano={20} claro />
         </Typography>
         <Typography sx={{ color: 'rgba(148,163,184,0.7)', fontSize: 11.5, mt: 0.3, animation: 'pulseSoft 1.6s ease-in-out infinite' }}>
           Cargando módulo…
@@ -423,7 +423,7 @@ export default function App() {
             },
             success: {
               iconTheme: { primary: '#5FD184', secondary: '#0F172A' },
-              style: { borderLeft: '3px solid #32AC5C' } as React.CSSProperties,
+              style: { borderLeft: '3px solid #1A1A1A' } as React.CSSProperties,
             },
             error: {
               iconTheme: { primary: '#F87171', secondary: '#0F172A' },

@@ -16,7 +16,7 @@ import { apiClient } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
-const PRIMARY = '#32AC5C'
+const PRIMARY = '#1A1A1A'
 
 const CAMPOS = [
   { campo: 'codigo_interno',     descripcion: 'Código único de identificación de la estiba',          ejemplo: 'EST-001',        requerido: true,  tipo: 'Texto (máx. 80 caracteres)' },
@@ -228,7 +228,7 @@ export default function EstibasCargaMasiva() {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
                 <Box sx={{
                   width: 44, height: 44, borderRadius: '12px', flexShrink: 0,
-                  background: `linear-gradient(135deg, ${PRIMARY} 0%, #27884A 100%)`,
+                  background: `linear-gradient(135deg, ${PRIMARY} 0%, #1A1A1A 100%)`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   boxShadow: `0 4px 12px ${alpha(PRIMARY, 0.3)}`,
                 }}>
@@ -251,7 +251,7 @@ export default function EstibasCargaMasiva() {
                 variant="contained" startIcon={<FileDownload />} onClick={downloadTemplate} fullWidth
                 sx={{
                   py: 1.25, fontWeight: 700, letterSpacing: '-0.01em',
-                  background: `linear-gradient(135deg, ${PRIMARY} 0%, #27884A 100%)`,
+                  background: `linear-gradient(135deg, ${PRIMARY} 0%, #1A1A1A 100%)`,
                   boxShadow: `0 4px 14px ${alpha(PRIMARY, 0.3)}`,
                   '&:hover': { boxShadow: `0 6px 20px ${alpha(PRIMARY, 0.4)}`, transform: 'translateY(-1px)' },
                   transition: 'all 0.18s ease',
@@ -355,7 +355,7 @@ export default function EstibasCargaMasiva() {
                 bulkMutation.mutate({ rows: previewData, bodegaId: Number(selectedBodega) })
               }}
               disabled={bulkMutation.isPending}
-              sx={{ bgcolor: PRIMARY, fontWeight: 700, px: 3, '&:hover': { bgcolor: '#27884A' } }}
+              sx={{ bgcolor: PRIMARY, fontWeight: 700, px: 3, '&:hover': { bgcolor: '#1A1A1A' } }}
             >
               {bulkMutation.isPending
                 ? 'Procesando...'

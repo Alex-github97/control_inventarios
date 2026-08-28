@@ -26,8 +26,9 @@ import {
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const EAM_COLOR = '#32AC5C'
-const EAM_DARK  = '#27884A'
+import { COLOR_MODULO } from '@/config/marca'
+const EAM_COLOR = COLOR_MODULO
+const EAM_DARK  = COLOR_MODULO
 const PANEL_BG  = '#F8FAFC'
 
 const TIPOS_ACTIVO = ['Todos', 'Vehículos', 'Montacargas', 'Infraestructura', 'Equipos TI']
@@ -518,7 +519,7 @@ function PanelContent({
           : 0
         const fmtKm = (n: number) => n.toLocaleString('es-CO') + ' km'
         const kmColor = (km: number, obj: number) =>
-          km >= obj * 1.2 ? '#10B981' : km >= obj ? '#32AC5C' : km >= obj * 0.75 ? '#F59E0B' : '#EF4444'
+          km >= obj * 1.2 ? '#10B981' : km >= obj ? '#1A1A1A' : km >= obj * 0.75 ? '#F59E0B' : '#EF4444'
         return {
           title: 'Distancia Media Entre Fallas',
           subtitle: applicable

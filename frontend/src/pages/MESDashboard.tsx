@@ -34,6 +34,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Layout } from '@/components/layout/Layout';
 import { apiClient as api } from '@/api/client';
 
+import { COLOR_MODULO } from '@/config/marca';
 // ─── Resumen operativo con datos REALES del backend ──────────────────────────
 interface KpisReales {
   plantas: number; lineas: number; productos: number; ordenes_activas: number
@@ -84,8 +85,8 @@ function ResumenOperativoReal() {
 }
 
 // ─── Theme Constants ──────────────────────────────────────────────────────────
-const MES_COLOR = '#0891B2';
-const MES_DARK = '#0E7490';
+const MES_COLOR = COLOR_MODULO;
+const MES_DARK = COLOR_MODULO;
 const MES_BORDER = 'rgba(8,145,178,0.25)';
 const BG_CARD = '#FFFFFF';
 const BG_PAGE = '#F0F2F5';

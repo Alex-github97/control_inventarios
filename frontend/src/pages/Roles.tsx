@@ -18,7 +18,7 @@ import { apiClient } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
-const PRIMARY = '#32AC5C'
+const PRIMARY = '#1A1A1A'
 
 /* ─── Definición de grupos de módulos ────────────────────────────────────── */
 
@@ -144,7 +144,7 @@ const countEnabled = (perms: Record<string, boolean>, group: ModuleGroup) =>
 
 const PRESET_COLORS = [
   '#DC2626', '#D97706', '#2563EB', '#7C3AED', '#6B7280',
-  '#32AC5C', '#0891B2', '#DB2777', '#EA580C', '#4F46E5',
+  '#1A1A1A', '#0891B2', '#DB2777', '#EA580C', '#4F46E5',
 ]
 
 const emptyForm = {
@@ -338,7 +338,7 @@ function RolDialog({ open, title, form, setForm, onClose, onSave, loading, esNue
       <DialogActions sx={{ px: 3, pb: 2, pt: 1 }}>
         <Button onClick={onClose} sx={{ color: '#64748B' }}>Cancelar</Button>
         <Button variant="contained" disabled={loading} onClick={onSave}
-          sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#27884A' } }}>
+          sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#1A1A1A' } }}>
           {loading ? 'Guardando...' : 'Guardar'}
         </Button>
       </DialogActions>
@@ -434,7 +434,7 @@ export default function Roles() {
         </Typography>
         <Button variant="contained" startIcon={<Add />}
           onClick={() => { setForm({ ...emptyForm, permisos: { ...DEFAULT_PERMISOS } }); setOpenCreate(true) }}
-          sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#27884A' } }}>
+          sx={{ bgcolor: PRIMARY, '&:hover': { bgcolor: '#1A1A1A' } }}>
           Nuevo Rol
         </Button>
       </Box>

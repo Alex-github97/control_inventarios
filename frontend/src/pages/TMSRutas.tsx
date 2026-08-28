@@ -57,7 +57,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
 import toast from 'react-hot-toast'
 
-const TMS_COLOR = '#0369A1'
+import { COLOR_MODULO } from '@/config/marca'
+const TMS_COLOR = COLOR_MODULO
 
 // ─── Interfaces (alineadas con backend /tms/rutas) ────────────────────────────
 

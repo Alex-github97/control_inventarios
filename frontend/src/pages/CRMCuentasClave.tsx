@@ -4,7 +4,8 @@ import Grid from '@mui/material/Grid2'
 import { VpnKey } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
-const CRM_COLOR = '#DC2626'
+import { COLOR_MODULO } from '@/config/marca'
+const CRM_COLOR = COLOR_MODULO
 
 const RIESGO_COLOR: Record<string, string> = { BAJO: '#059669', MEDIO: '#F59E0B', ALTO: CRM_COLOR, CRITICO: '#EF4444' }
 

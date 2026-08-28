@@ -26,8 +26,9 @@ import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { apiClient } from '@/api/client';
 
-const EAM_COLOR = '#32AC5C';
-const EAM_DARK = '#27884A';
+import { COLOR_MODULO } from '@/config/marca';
+const EAM_COLOR = COLOR_MODULO;
+const EAM_DARK = COLOR_MODULO;
 
 interface TabPanelProps { children?: React.ReactNode; index: number; value: number; }
 function TabPanel({ children, value, index }: TabPanelProps) {
@@ -121,7 +122,7 @@ const CONTAMINATION_COLORS: Record<Contamination, string> = {
 
 const ALERT_COLORS: Record<AlertLevel, string> = {
   URGENTE: '#DC2626',
-  ALTA: '#32AC5C',
+  ALTA: '#1A1A1A',
   MEDIA: '#CA8A04',
   BAJA: '#6B7280',
 };
@@ -1152,7 +1153,7 @@ export default function EAMLubricacion() {
                         <Box sx={{
                           width: '100%',
                           height: `${(m.liters / MAX_LITERS) * 110}px`,
-                          bgcolor: '#32AC5C20',
+                          bgcolor: '#1A1A1A20',
                           border: `2px solid ${EAM_COLOR}`,
                           borderRadius: '4px 4px 0 0',
                         }} />

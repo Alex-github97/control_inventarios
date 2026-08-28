@@ -15,7 +15,8 @@ import { apiClient as api } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
-const GF_COLOR = '#7C3AED'
+import { COLOR_MODULO } from '@/config/marca'
+const GF_COLOR = COLOR_MODULO
 
 interface Marca { id: number; nombre: string }
 interface TipoV { id: number; nombre: string }
@@ -151,7 +152,7 @@ export default function FlotaVehiculos() {
       <Grid container spacing={2} mb={3}>
         {[
           { label: 'Total', count: vehiculos.length, color: GF_COLOR },
-          { label: 'Activos', count: activos.length, color: '#32AC5C' },
+          { label: 'Activos', count: activos.length, color: '#1A1A1A' },
           { label: 'Inactivos / Baja', count: inactivos.length, color: '#EF4444' },
         ].map(k => (
           <Grid key={k.label} size={{ xs: 4 }}>

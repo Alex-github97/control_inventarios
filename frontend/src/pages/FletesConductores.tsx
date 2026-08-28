@@ -23,7 +23,8 @@ import { apiClient as api } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
-const FT_COLOR = '#F59E0B'
+import { COLOR_MODULO } from '@/config/marca'
+const FT_COLOR = COLOR_MODULO
 
 const TIPOS_VEHICULO = [
   { value: 'TRACTOCAMION',    label: 'Tractocamión' },
@@ -156,7 +157,7 @@ export default function FletesConductores() {
       <Grid container spacing={2} mb={3}>
         {[
           { label: 'Conductores', count: conductores.length, color: FT_COLOR },
-          { label: 'Con cuenta de usuario', count: conductores.filter(c => c.usuario_id).length, color: '#32AC5C' },
+          { label: 'Con cuenta de usuario', count: conductores.filter(c => c.usuario_id).length, color: '#1A1A1A' },
           { label: 'Vehículos registrados', count: todosVehiculos.length, color: '#3B82F6' },
         ].map(k => (
           <Grid key={k.label} size={{ xs: 6, md: 4 }}>
@@ -217,7 +218,7 @@ export default function FletesConductores() {
                           icon={<LinkedIcon sx={{ fontSize: 13 }} />}
                           label="Con acceso al sistema"
                           size="small"
-                          sx={{ bgcolor: alpha('#32AC5C', 0.1), color: '#32AC5C', fontSize: 10, height: 20 }}
+                          sx={{ bgcolor: alpha('#1A1A1A', 0.1), color: '#1A1A1A', fontSize: 10, height: 20 }}
                         />
                       ) : (
                         <Chip
