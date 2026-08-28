@@ -1368,7 +1368,7 @@ export default function EAMConfig() {
         {tab === 3 && (
           <Box>
             <Typography variant="subtitle1" color="grey.300" mb={2} fontWeight={600}>
-              Integraciones con sistemas corporativos ICOLTRANS
+              Integraciones con sistemas corporativos la compañía
             </Typography>
             <Grid container spacing={2}>
               {INTEGRACIONES.map(intg => {

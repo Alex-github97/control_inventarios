@@ -93,7 +93,7 @@ interface DocObligatorio {
 const DOCS_DESTACADOS: DocDestacado[] = [
   {
     id: 'DD-001',
-    nombre: 'Manual de Calidad ICOLTRANS',
+    nombre: 'Manual de Calidad la compañía',
     descripcion: 'Manual del sistema de gestión de calidad, procesos, procedimientos y estándares de la organización.',
     fechaActualizacion: '01/06/2026',
     descargas: 142,
@@ -105,7 +105,7 @@ const DOCS_DESTACADOS: DocDestacado[] = [
   {
     id: 'DD-002',
     nombre: 'Reglamento Interno de Trabajo',
-    descripcion: 'Normas, derechos y deberes de los colaboradores de ICOLTRANS. Lectura obligatoria para todos los empleados.',
+    descripcion: 'Normas, derechos y deberes de los colaboradores de la compañía. Lectura obligatoria para todos los empleados.',
     fechaActualizacion: '15/03/2026',
     descargas: 387,
     icon: <Gavel />,
@@ -293,7 +293,7 @@ export default function DMSPortal() {
             </Box>
             <Box>
               <Typography variant="h5" fontWeight={800} color="#fff">
-                Portal Documental ICOLTRANS
+                Portal Documental la compañía
               </Typography>
               <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)' }}>
                 Sistema de Gestión Documental Empresarial · DMS v2.1

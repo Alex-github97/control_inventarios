@@ -24,6 +24,8 @@ import {
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
+import { MARCA } from '@/config/marca'
+import { clienteGuardado } from '@/api/cliente'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -50,7 +52,7 @@ const MODULES = [
     appAccent: 'Estibas',
     headline: 'Trazabilidad total',
     headlineAccent: 'de cada estiba',
-    description: 'Plataforma empresarial para ICOLTRANS.\nControl, visibilidad y eficiencia operacional.',
+    description: 'Plataforma empresarial para la compañía.\nControl, visibilidad y eficiencia operacional.',
     color: '#32AC5C',
     colorDark: '#27884A',
     features: [
@@ -100,7 +102,7 @@ const MODULES = [
     appAccent: 'Fletes',
     headline: 'Despacho y asignación',
     headlineAccent: 'de conductores',
-    description: 'Gestión integral de fletes para ICOLTRANS.\nRegistra viajes, asigna conductores y administra turnos.',
+    description: 'Gestión integral de fletes para la compañía.\nRegistra viajes, asigna conductores y administra turnos.',
     color: '#F59E0B',
     colorDark: '#D97706',
     features: [
@@ -117,7 +119,7 @@ const MODULES = [
     appAccent: 'Flotas',
     headline: 'Control total',
     headlineAccent: 'de tu flota vehicular',
-    description: 'Módulo integral de gestión de flotas para ICOLTRANS.\nVehículos, mantenimiento, combustible y documentos.',
+    description: 'Módulo integral de gestión de flotas para la compañía.\nVehículos, mantenimiento, combustible y documentos.',
     color: '#7C3AED',
     colorDark: '#5B21B6',
     features: [
@@ -343,6 +345,9 @@ const slideVariants = {
 }
 
 export default function Login() {
+  // La empresa ya quedó elegida en el paso previo; acá solo se muestra, para
+  // que quien entra vea a cuál está entrando.
+  const cliente = clienteGuardado()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPwd, setShowPwd]   = useState(false)
@@ -537,7 +542,7 @@ export default function Login() {
             ))}
           </Box>
           <Typography sx={{ color: 'rgba(255,255,255,0.18)', fontSize: 11.5 }}>
-            © 2026 Industria Colombiana de Logística y Transporte
+            {MARCA.legal}
           </Typography>
         </Box>
       </Box>
@@ -557,7 +562,7 @@ export default function Login() {
           transition={{ duration: 0.45, ease: 'easeOut' }}
           style={{ width: '100%', maxWidth: 400 }}
         >
-          {/* Logo ICOLTRANS */}
+          {/* Logo del cliente que se eligió antes del login */}
           <Box sx={{ display: 'flex', justifyContent: 'center', mb: 4.5 }}>
             <Box
               sx={{
@@ -574,8 +579,8 @@ export default function Login() {
             >
               <Box
                 component="img"
-                src="/logo-icoltrans.png"
-                alt="ICOLTRANS · Aligeramos sus cargas"
+                src={cliente?.logo_url || "/logo-cliente.png"}
+                alt={cliente?.nombre ?? MARCA.nombre}
                 sx={{ width: 200, height: 'auto', display: 'block' }}
               />
             </Box>
@@ -660,7 +665,7 @@ export default function Login() {
           </form>
 
           <Typography sx={{ mt: 4, textAlign: 'center', color: '#64748B', fontSize: 12 }}>
-            © 2025 ICOLTRANS · Uso interno exclusivo
+            {MARCA.legal}
           </Typography>
         </motion.div>
       </Box>

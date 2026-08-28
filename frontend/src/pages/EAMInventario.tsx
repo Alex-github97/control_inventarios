@@ -1635,7 +1635,7 @@ export default function EAMInventario() {
               EAM — Inventario de Repuestos
             </Typography>
             <Typography variant="body2" sx={{ color: '#64748B' }}>
-              ICOLTRANS · Control de Materiales y Repuestos
+              la compañía · Control de Materiales y Repuestos
             </Typography>
           </Box>
         </Box>

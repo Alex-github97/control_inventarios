@@ -31,12 +31,12 @@ export default function SSTConfig() {
   const [tab, setTab]   = useState(0)
 
   // Tab 0 — Empresa / SG-SST
-  const [empresa, setEmpresa]         = useState('Icoltrans S.A.S.')
+  const [empresa, setEmpresa]         = useState('la compañía S.A.S.')
   const [nit, setNit]                 = useState('900.123.456-7')
   const [arl, setArl]                 = useState('Sura')
   const [claseRiesgo, setClaseRiesgo] = useState('III')
   const [coord, setCoord]             = useState('Andrés Torres')
-  const [correoCoord, setCorreoCoord] = useState('sst@icoltrans.com.co')
+  const [correoCoord, setCorreoCoord] = useState('sst@empresa.com')
   const [vig, setVig]                 = useState('2026-12-31')
   const [trabaj, setTrabaj]           = useState('94')
 
@@ -49,7 +49,7 @@ export default function SSTConfig() {
   const [diasPreviosCap, setDiasPreviosCap]       = useState(7)
   const [alertDocumentos, setAlertDocumentos]     = useState(true)
   const [diasPreviosDoc, setDiasPreviosDoc]       = useState(30)
-  const [emailAlertas, setEmailAlertas]           = useState('operaciones@icoltrans.com.co')
+  const [emailAlertas, setEmailAlertas]           = useState('operaciones@empresa.com')
 
   // Tab 2 — Umbrales
   const [metaDiasAcc, setMetaDiasAcc]     = useState(60)

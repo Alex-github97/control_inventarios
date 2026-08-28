@@ -1,6 +1,6 @@
-# Plataforma Empresarial ICOLTRANS — Sistema ERP Modular
+# Plataforma Empresarial — Sistema ERP Modular Multicliente
 
-**Versión 2.3.0** | Industria Colombiana de Logística y Transporte (ICOLTRANS)
+**Versión 2.3.0**
 
 Plataforma empresarial unificada con 20 módulos de gestión operativa, diseñada para escala corporativa. Combina logística, transporte, mantenimiento, manufactura, calidad, talento humano, finanzas, GRC y administración en una sola aplicación React con backend FastAPI.
 
@@ -617,12 +617,12 @@ Los roles adicionales se crean libremente desde la interfaz.
 
 | Campo | Valor por defecto |
 |-------|------------------|
-| Email | `admin@icoltrans.com.co` |
+| Email | `admin@empresa.com` |
 | Password | `admin123` |
 
 ### Primera conexión al servidor PostgreSQL
 1. Clic en **Add New Server**
-2. Pestaña **General** → Nombre: `ICOLTRANS`
+2. Pestaña **General** → Nombre: `la compañía`
 3. Pestaña **Connection**:
    - Host: `postgres` (nombre del servicio Docker, no `localhost`)
    - Port: `5432`
@@ -1069,5 +1069,5 @@ profesional y servicio.
 
 ## Licencia
 
-Propiedad de ICOLTRANS — Industria Colombiana de Logística y Transporte.  
+Propiedad de la compañía — la compañía.  
 Uso interno exclusivo.

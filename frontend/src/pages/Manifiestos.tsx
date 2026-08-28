@@ -277,7 +277,7 @@ export default function Manifiestos() {
     doc.text('INFORME DE MOVIMIENTO DE ESTIBAS', 14, 10)
     doc.setFontSize(9)
     doc.setFont('helvetica', 'normal')
-    doc.text('Control de Estibas — Icoltrans', 14, 16.5)
+    doc.text('Control de Estibas — la compañía', 14, 16.5)
 
     // ── Número + badge estado ────────────────────────────────────────────
     doc.setTextColor(26, 58, 107)
@@ -409,7 +409,7 @@ export default function Manifiestos() {
       doc.setTextColor(148, 163, 184)
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(7)
-      doc.text(`Manifiesto ${m.numero}  ·  Control de Estibas — Icoltrans`, 14, pageH - 7)
+      doc.text(`Manifiesto ${m.numero}  ·  Control de Estibas — la compañía`, 14, pageH - 7)
       doc.text(`Página ${i} / ${pageCount}`, W - 14, pageH - 7, { align: 'right' })
     }
 

@@ -13,7 +13,7 @@ const NPS_SCORE = NPS_PROMOTORES - NPS_DETRACTORES
 
 const ENCUESTAS = [
   { id: 1, codigo: 'ENC-2026-041', cliente: 'Almacenes Éxito S.A.',   tipo: 'NPS',  puntaje: 9,  comentario: 'Excelente servicio, equipo muy comprometido con nuestros KPIs',       respondida: true,  fecha: '2026-06-18' },
-  { id: 2, codigo: 'ENC-2026-040', cliente: 'Corona S.A.',            tipo: 'NPS',  puntaje: 10, comentario: 'Icoltrans superó nuestras expectativas en la expansión del CD',       respondida: true,  fecha: '2026-06-15' },
+  { id: 2, codigo: 'ENC-2026-040', cliente: 'Corona S.A.',            tipo: 'NPS',  puntaje: 10, comentario: 'la compañía superó nuestras expectativas en la expansión del CD',       respondida: true,  fecha: '2026-06-15' },
   { id: 3, codigo: 'ENC-2026-039', cliente: 'Sodimac Colombia',       tipo: 'CSAT', puntaje: 4,  comentario: 'Buen servicio en general, algunos retrasos en despachos nocturnos',   respondida: true,  fecha: '2026-06-12' },
   { id: 4, codigo: 'ENC-2026-038', cliente: 'Grupo Nutresa',          tipo: 'CSAT', puntaje: 3,  comentario: 'El OTIF ha bajado este mes, necesitamos mejora urgente',              respondida: true,  fecha: '2026-06-10' },
   { id: 5, codigo: 'ENC-2026-037', cliente: 'Bancolombia',            tipo: 'CES',  puntaje: 4,  comentario: 'Fácil gestión de solicitudes a través del portal',                    respondida: true,  fecha: '2026-06-08' },

@@ -19,19 +19,19 @@ async def seed():
         # Usuarios
         admin = Usuario(
             nombre="Administrador", apellido="Sistema",
-            email="admin@icoltrans.com.co", username="admin",
+            email="admin@empresa.com", username="admin",
             hashed_password=hash_password("Admin@2025"),
             rol=RolUsuario.ADMINISTRADOR, cargo="Administrador del Sistema",
         )
         supervisor = Usuario(
             nombre="Supervisor", apellido="Logístico",
-            email="supervisor@icoltrans.com.co", username="supervisor",
+            email="supervisor@empresa.com", username="supervisor",
             hashed_password=hash_password("Super@2025"),
             rol=RolUsuario.SUPERVISOR_LOGISTICO, cargo="Supervisor Logístico",
         )
         operador = Usuario(
             nombre="Operador", apellido="Bodega",
-            email="operador@icoltrans.com.co", username="operador",
+            email="operador@empresa.com", username="operador",
             hashed_password=hash_password("Oper@2025"),
             rol=RolUsuario.OPERADOR_BODEGA, cargo="Operador de Bodega",
         )

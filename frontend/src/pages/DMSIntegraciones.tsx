@@ -314,7 +314,7 @@ export default function DMSIntegraciones() {
               </Typography>
             </Stack>
             <Typography variant="body2" color="text.secondary">
-              Conecta el DMS con los módulos operativos de la suite empresarial ICOLTRANS para sincronización documental automática
+              Conecta el DMS con los módulos operativos de la suite empresarial la compañía para sincronización documental automática
             </Typography>
           </Box>
           <Stack direction="row" gap={1.5}>

@@ -28,7 +28,7 @@ const COMPLIANCE_MATRIX = [
 
 const CURSOS_TOP = [
   { nombre: 'Seguridad Vial Avanzada',         inscritos: 148, completados: 132, prom: 86.4 },
-  { nombre: 'Inducción ICOLTRANS 2026',        inscritos: 143, completados: 143, prom: 92.1 },
+  { nombre: 'Inducción la compañía 2026',        inscritos: 143, completados: 143, prom: 92.1 },
   { nombre: 'Ética y Compliance',              inscritos: 121, completados: 109, prom: 88.7 },
   { nombre: 'Conducción Defensiva',            inscritos: 98,  completados: 87,  prom: 81.2 },
   { nombre: 'ISO 9001 Auditor Interno',        inscritos: 42,  completados: 34,  prom: 79.8 },

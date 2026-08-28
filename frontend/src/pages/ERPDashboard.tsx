@@ -879,7 +879,7 @@ export default function ERPDashboard() {
             pb: 1,
           }}
         >
-          Datos en tiempo real · ERP ICOLTRANS · Actualización cada 2 minutos
+          Datos en tiempo real · ERP la compañía · Actualización cada 2 minutos
         </Typography>
 
       </Box>

@@ -46,11 +46,11 @@ const integraciones = [
 ]
 
 const usuarios = [
-  { nombre: 'Carlos Martínez', email: 'c.martinez@icoltrans.com', rol: 'Planificador Jefe', acceso: 'Total', ultimo: 'hace 2h' },
-  { nombre: 'Ana Rodríguez', email: 'a.rodriguez@icoltrans.com', rol: 'Analista Demanda', acceso: 'Demanda + Reportes', ultimo: 'hace 30min' },
-  { nombre: 'Luis Gómez', email: 'l.gomez@icoltrans.com', rol: 'Planeación Supply', acceso: 'MPS + MRP + Cap', ultimo: 'hace 1h' },
-  { nombre: 'Sandra Pérez', email: 's.perez@icoltrans.com', rol: 'Colaborador S&OP', acceso: 'S&OP + Colaboración', ultimo: 'hace 4h' },
-  { nombre: 'Admin Sistema', email: 'admin@icoltrans.com', rol: 'Administrador APS', acceso: 'Total', ultimo: 'hace 15min' },
+  { nombre: 'Carlos Martínez', email: 'c.martinez@empresa.com', rol: 'Planificador Jefe', acceso: 'Total', ultimo: 'hace 2h' },
+  { nombre: 'Ana Rodríguez', email: 'a.rodriguez@empresa.com', rol: 'Analista Demanda', acceso: 'Demanda + Reportes', ultimo: 'hace 30min' },
+  { nombre: 'Luis Gómez', email: 'l.gomez@empresa.com', rol: 'Planeación Supply', acceso: 'MPS + MRP + Cap', ultimo: 'hace 1h' },
+  { nombre: 'Sandra Pérez', email: 's.perez@empresa.com', rol: 'Colaborador S&OP', acceso: 'S&OP + Colaboración', ultimo: 'hace 4h' },
+  { nombre: 'Admin Sistema', email: 'admin@empresa.com', rol: 'Administrador APS', acceso: 'Total', ultimo: 'hace 15min' },
 ]
 
 export default function APSConfig() {

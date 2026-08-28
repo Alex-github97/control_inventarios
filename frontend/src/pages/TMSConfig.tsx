@@ -67,10 +67,10 @@ const MOCK_PARAMS_INIT: Parametros = {
   dias_alerta_docs: 30,
   otif_tolerancia_min: 60,
   costo_km_ref: 2500,
-  empresa_defecto: 'ICOLTRANS',
+  empresa_defecto: 'la compañía',
 }
 
-const EMPRESAS = ['ICOLTRANS', 'Filial Norte', 'Filial Sur', 'Operadora Logística']
+const EMPRESAS = ['la compañía', 'Filial Norte', 'Filial Sur', 'Operadora Logística']
 
 export default function TMSConfig() {
   const [tab, setTab] = useState(0)

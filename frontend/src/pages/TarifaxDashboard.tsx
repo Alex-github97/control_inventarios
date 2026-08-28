@@ -106,7 +106,7 @@ export default function TarifaxDashboard() {
         variant="caption"
         sx={{ display: 'block', textAlign: 'center', color: '#94A3B8', mt: 1.5 }}
       >
-        Reporte embebido desde Power BI Service · ICOLTRANS
+        Reporte embebido desde Power BI Service · la compañía
       </Typography>
     </Layout>
   )

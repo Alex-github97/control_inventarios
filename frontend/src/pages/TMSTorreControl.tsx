@@ -325,7 +325,7 @@ export default function TMSTorreControl() {
               Torre de Control TMS
             </Typography>
             <Typography variant="caption" sx={{ color: '#94A3B8' }}>
-              Monitoreo ejecutivo en tiempo real — ICOLTRANS
+              Monitoreo ejecutivo en tiempo real — la compañía
             </Typography>
           </Box>
         </Box>
@@ -1065,7 +1065,7 @@ export default function TMSTorreControl() {
         {/* Footer */}
         <Box sx={{ mt: 3, textAlign: 'center' }}>
           <Typography sx={{ color: '#1E3A5F', fontSize: 11 }}>
-            ICOLTRANS — Sistema TMS Torre de Control · Datos en tiempo real
+            la compañía — Sistema TMS Torre de Control · Datos en tiempo real
           </Typography>
         </Box>
       </Box>

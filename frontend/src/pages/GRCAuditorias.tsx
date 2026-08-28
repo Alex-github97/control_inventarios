@@ -70,7 +70,7 @@ export default function GRCAuditorias() {
     const url=blobUrls[name]
     const a=document.createElement('a')
     if(url){ a.href=url; a.download=name }
-    else { const txt=`Informe de Auditoría: ${name}\nAuditoría: ${sel?.titulo||''}\nSistema GRC – Icoltrans\n\n[Documento de demostración]`; a.href=URL.createObjectURL(new Blob([txt],{type:'application/pdf'})); a.download=name }
+    else { const txt=`Informe de Auditoría: ${name}\nAuditoría: ${sel?.titulo||''}\nSistema GRC – la compañía\n\n[Documento de demostración]`; a.href=URL.createObjectURL(new Blob([txt],{type:'application/pdf'})); a.download=name }
     document.body.appendChild(a); a.click(); document.body.removeChild(a)
     ok(`Descargando "${name}"`)
   }

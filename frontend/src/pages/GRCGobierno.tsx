@@ -35,10 +35,10 @@ const initRaci = [
   { proceso: 'Gestión de Terceros', responsable: 'Dir. Compras', aprobador: 'COO', consultado: 'CLO, CRMO', informado: 'CFO', descripcion: 'Due diligence, selección y monitoreo de proveedores y aliados estratégicos' },
 ]
 const initResp = [
-  { nombre: 'Carlos Rodríguez', cargo: 'CRMO — Chief Risk Management Officer', area: 'GRC', procesos: 4, email: 'c.rodriguez@icoltrans.com', telefono: '+57 310 000 0001', activo: true },
-  { nombre: 'Laura Martínez', cargo: 'CLO — Chief Legal & Compliance Officer', area: 'Legal', procesos: 3, email: 'l.martinez@icoltrans.com', telefono: '+57 310 000 0002', activo: true },
-  { nombre: 'Andrés Gómez', cargo: 'CISO — Chief Information Security Officer', area: 'TI', procesos: 2, email: 'a.gomez@icoltrans.com', telefono: '+57 310 000 0003', activo: true },
-  { nombre: 'Diana Torres', cargo: 'Dir. Auditoría Interna', area: 'Auditoría', procesos: 5, email: 'd.torres@icoltrans.com', telefono: '+57 310 000 0004', activo: true },
+  { nombre: 'Carlos Rodríguez', cargo: 'CRMO — Chief Risk Management Officer', area: 'GRC', procesos: 4, email: 'c.rodriguez@empresa.com', telefono: '+57 310 000 0001', activo: true },
+  { nombre: 'Laura Martínez', cargo: 'CLO — Chief Legal & Compliance Officer', area: 'Legal', procesos: 3, email: 'l.martinez@empresa.com', telefono: '+57 310 000 0002', activo: true },
+  { nombre: 'Andrés Gómez', cargo: 'CISO — Chief Information Security Officer', area: 'TI', procesos: 2, email: 'a.gomez@empresa.com', telefono: '+57 310 000 0003', activo: true },
+  { nombre: 'Diana Torres', cargo: 'Dir. Auditoría Interna', area: 'Auditoría', procesos: 5, email: 'd.torres@empresa.com', telefono: '+57 310 000 0004', activo: true },
 ]
 
 type Comite  = typeof initComites[0]

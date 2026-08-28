@@ -1465,7 +1465,7 @@ export default function EAMCombustible() {
               Gestión de Combustible
             </Typography>
             <Typography variant="caption" sx={{ color: '#64748B', letterSpacing: 1, textTransform: 'uppercase' }}>
-              EAM — ICOLTRANS · Módulo de Consumo
+              EAM — la compañía · Módulo de Consumo
             </Typography>
           </Box>
           <Stack direction="row" spacing={1}>

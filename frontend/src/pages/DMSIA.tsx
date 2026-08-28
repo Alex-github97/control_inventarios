@@ -90,7 +90,7 @@ const ALERTAS_IA: AlertaIA[] = [
   {
     tipo: 'info',
     mensaje: 'Certificado BASC requiere auditoría de seguimiento programada',
-    documento: 'Certificado BASC 2026 — ICOLTRANS',
+    documento: 'Certificado BASC 2026 — la compañía',
     diasRestantes: 45,
   },
 ]

@@ -1369,7 +1369,7 @@ export default function EAMConfiabilidad() {
           </Box>
           <Box>
             <Typography variant="h5" sx={{ color: '#1E293B', fontWeight: 800, lineHeight: 1 }}>EAM — Confiabilidad</Typography>
-            <Typography variant="body2" sx={{ color: '#64748b', mt: 0.3 }}>ICOLTRANS · Gestión de Confiabilidad, FMEA y Análisis de Fallas</Typography>
+            <Typography variant="body2" sx={{ color: '#64748b', mt: 0.3 }}>la compañía · Gestión de Confiabilidad, FMEA y Análisis de Fallas</Typography>
           </Box>
         </Box>
 

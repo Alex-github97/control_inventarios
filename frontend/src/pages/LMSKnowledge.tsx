@@ -15,7 +15,7 @@ const RECURSOS = [
   { tipo: 'MANUAL', titulo: 'Manual de Operaciones Logísticas v4.2', categoria: 'Operaciones', fuente: 'Área de Operaciones', fecha: '2026-05-15', descargas: 87 },
   { tipo: 'VIDEO', titulo: 'Tutorial: Uso del WMS para Picking y Packing', categoria: 'Logística', fuente: 'TI', fecha: '2026-04-28', descargas: 62 },
   { tipo: 'DOCUMENTO', titulo: 'Procedimiento de Conducción Defensiva PR-TMS-008', categoria: 'Transporte', fuente: 'Calidad', fecha: '2026-03-20', descargas: 104 },
-  { tipo: 'PRESENTACION', titulo: 'Inducción a la Cultura ICOLTRANS 2026', categoria: 'RR.HH.', fuente: 'Gestión Humana', fecha: '2026-01-10', descargas: 143 },
+  { tipo: 'PRESENTACION', titulo: 'Inducción a la Cultura la compañía 2026', categoria: 'RR.HH.', fuente: 'Gestión Humana', fecha: '2026-01-10', descargas: 143 },
   { tipo: 'MANUAL', titulo: 'Manual de Compliance y Código de Ética', categoria: 'Compliance', fuente: 'Jurídica', fecha: '2026-02-08', descargas: 91 },
   { tipo: 'VIDEO', titulo: 'Cómo usar el módulo GRC para reportar riesgos', categoria: 'GRC', fuente: 'GRC', fecha: '2026-06-01', descargas: 34 },
   { tipo: 'SIMULACION', titulo: 'Simulador: Conducción en condiciones adversas', categoria: 'Transporte', fuente: 'Escuela de Conductores', fecha: '2026-03-14', descargas: 47 },

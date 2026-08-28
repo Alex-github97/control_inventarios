@@ -15,7 +15,7 @@ const ONBOARDINGS = [
     id: 1, colaborador: 'Juan Ramírez', cargo: 'Conductor C3', area: 'Transporte',
     fecha_ingreso: '2026-06-01', estado: 'EN_PROGRESO', progreso: 62,
     cursos: [
-      { nombre: 'Cultura y Valores ICOLTRANS', completado: true, obligatorio: true },
+      { nombre: 'Cultura y Valores la compañía', completado: true, obligatorio: true },
       { nombre: 'Ética y Compliance Empresarial', completado: true, obligatorio: true },
       { nombre: 'SST Inducción', completado: false, obligatorio: true },
       { nombre: 'Normatividad de Tránsito', completado: false, obligatorio: true },
@@ -27,7 +27,7 @@ const ONBOARDINGS = [
     id: 2, colaborador: 'Laura Gómez', cargo: 'Coordinador de Calidad', area: 'Calidad',
     fecha_ingreso: '2026-05-15', estado: 'COMPLETADO', progreso: 100,
     cursos: [
-      { nombre: 'Cultura y Valores ICOLTRANS', completado: true, obligatorio: true },
+      { nombre: 'Cultura y Valores la compañía', completado: true, obligatorio: true },
       { nombre: 'Ética y Compliance Empresarial', completado: true, obligatorio: true },
       { nombre: 'SST Inducción', completado: true, obligatorio: true },
       { nombre: 'ISO 9001 Fundamentos', completado: true, obligatorio: true },
@@ -38,7 +38,7 @@ const ONBOARDINGS = [
     id: 3, colaborador: 'Pedro Silva', cargo: 'Analista de Almacén', area: 'Logística',
     fecha_ingreso: '2026-06-15', estado: 'PENDIENTE', progreso: 0,
     cursos: [
-      { nombre: 'Cultura y Valores ICOLTRANS', completado: false, obligatorio: true },
+      { nombre: 'Cultura y Valores la compañía', completado: false, obligatorio: true },
       { nombre: 'Ética y Compliance Empresarial', completado: false, obligatorio: true },
       { nombre: 'SST Inducción', completado: false, obligatorio: true },
       { nombre: 'Gestión de Inventarios WMS', completado: false, obligatorio: true },
@@ -47,7 +47,7 @@ const ONBOARDINGS = [
 ]
 
 const CURSOS_OBLIGATORIOS = [
-  { nombre: 'Cultura y Valores ICOLTRANS', horas: 2, asignados: 3 },
+  { nombre: 'Cultura y Valores la compañía', horas: 2, asignados: 3 },
   { nombre: 'Ética y Compliance Empresarial', horas: 6, asignados: 3 },
   { nombre: 'SST Inducción', horas: 4, asignados: 3 },
   { nombre: 'Primeros Auxilios y RCP', horas: 8, asignados: 1 },

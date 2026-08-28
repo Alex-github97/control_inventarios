@@ -80,7 +80,7 @@ export default function EstibasCargaMasiva() {
 
     const instrucciones: any[][] = [
       ['GUÍA DE CAMPOS — Plantilla Cargue Masivo de Estibas'],
-      ['Control de Estibas — ICOLTRANS'],
+      ['Control de Estibas — la compañía'],
       [],
       ['INSTRUCCIONES:'],
       ['1. Diligencia los datos en la hoja "Estibas" a partir de la fila 2 (la fila 1 son los encabezados).'],

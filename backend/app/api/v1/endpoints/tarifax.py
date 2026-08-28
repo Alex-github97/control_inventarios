@@ -1452,7 +1452,7 @@ async def svc_pdf(servicio: str, req: CosteoReq, current_user: Usuario = Depends
 # minima por la red vial real. Nominatim resuelve nombres de lugar -> lat/lon.
 _NOMINATIM = "https://nominatim.openstreetmap.org/search"
 _OSRM = "https://router.project-osrm.org/route/v1/driving"
-_UA = {"User-Agent": "ICOLTRANS-TarifaX/1.0 (logistica@icoltrans.com.co)"}
+_UA = {"User-Agent": "TarifaX/1.0 (contacto@empresa.com)"}
 _geo_cache: dict[str, dict | None] = {}
 _geo_lock = asyncio.Lock()
 

@@ -6,6 +6,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
 import { theme } from '@/theme/theme'
 import { useAuthStore } from '@/store/authStore'
+import { clienteGuardado } from '@/api/cliente'
+import { MARCA } from '@/config/marca'
 
 // Prefijo de ruta → clave de permiso. Las rutas no listadas aquí son de libre acceso.
 const ROUTE_PERM_MAP: Record<string, string> = {
@@ -71,6 +73,7 @@ function SinAcceso() {
 }
 
 const Login = React.lazy(() => import('@/pages/Login'))
+const SeleccionCliente = React.lazy(() => import('@/pages/SeleccionCliente'))
 const Dashboard = React.lazy(() => import('@/pages/Dashboard'))
 const Estibas = React.lazy(() => import('@/pages/Estibas'))
 const EstibaDetalle = React.lazy(() => import('@/pages/EstibaDetalle'))
@@ -323,6 +326,12 @@ const queryClient = new QueryClient({
   },
 })
 
+/** El login exige haber elegido la empresa primero. */
+function RutaLogin() {
+  if (!clienteGuardado()) return <Navigate to="/empresa" replace />
+  return <Login />
+}
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, user } = useAuthStore()
   const location = useLocation()
@@ -381,7 +390,7 @@ function PageLoader() {
       </Box>
       <Box sx={{ textAlign: 'center' }}>
         <Typography sx={{ color: '#E2E8F0', fontWeight: 700, fontSize: 13.5, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
-          Icoltrans
+          {MARCA.corto}
         </Typography>
         <Typography sx={{ color: 'rgba(148,163,184,0.7)', fontSize: 11.5, mt: 0.3, animation: 'pulseSoft 1.6s ease-in-out infinite' }}>
           Cargando módulo…
@@ -426,7 +435,10 @@ export default function App() {
         <BrowserRouter>
           <Suspense fallback={<PageLoader />}>
           <Routes>
-            <Route path="/login" element={<Login />} />
+            {/* Paso previo: a qué empresa se entra. Sin cliente elegido el
+                login no sabe en qué esquema buscar al usuario. */}
+            <Route path="/empresa" element={<SeleccionCliente />} />
+            <Route path="/login" element={<RutaLogin />} />
             {/* Reserva online: pagina publica del negocio, sin login */}
             <Route path="/reservar/:slug" element={<AGSReservaPublica />} />
             <Route path="/sin-acceso" element={<SinAcceso />} />

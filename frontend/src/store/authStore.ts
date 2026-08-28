@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { User, authApi } from '@/api/auth'
+import { olvidarCliente } from '@/api/cliente'
 
 interface AuthState {
   user: User | null
@@ -25,6 +26,9 @@ export const useAuthStore = create<AuthState>()(
 
       logout: () => {
         localStorage.removeItem('access_token')
+        // Salir a propósito sí olvida el cliente: la siguiente persona que use
+        // este equipo puede ser de otra empresa.
+        olvidarCliente()
         set({ user: null, token: null, isAuthenticated: false })
       },
     }),

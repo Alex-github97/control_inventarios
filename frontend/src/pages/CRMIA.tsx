@@ -9,7 +9,7 @@ const AI_BOR    = 'rgba(139,92,246,0.25)'
 
 const RECOMENDACIONES = [
   { cliente: 'Almacenes Éxito S.A.', tipo: 'UPSELLING',     score: 94, servicio: 'Servicio de etiquetado inteligente en CD', razon: 'Alto volumen de SKUs y crecimiento YoY 18%', potencial: 320 },
-  { cliente: 'Corona S.A.',          tipo: 'EXPANSION',     score: 91, servicio: 'Apertura CD Barranquilla — ICOLTRANS operador', razon: 'Expansión regional confirmada en board meeting', potencial: 800 },
+  { cliente: 'Corona S.A.',          tipo: 'EXPANSION',     score: 91, servicio: 'Apertura CD Barranquilla — la compañía operador', razon: 'Expansión regional confirmada en board meeting', potencial: 800 },
   { cliente: 'Sodimac Colombia',     tipo: 'CROSS_SELLING',  score: 88, servicio: 'Incorporar TMS para rutas urbanas',          razon: 'Actualmente tercerizan TMS con competidor', potencial: 480 },
   { cliente: 'Bancolombia',          tipo: 'RETENTION',     score: 75, servicio: 'Contrato multi-año con beneficios exclusivos', razon: 'Contrato vence en 73 días — sin renovación iniciada', potencial: 1800 },
   { cliente: 'Grupo Nutresa',        tipo: 'RECOVERY',      score: 62, servicio: 'Plan de mejora OTIF con SLA reforzado',       razon: 'OTIF en 82% — por debajo de meta contractual', potencial: 2150 },

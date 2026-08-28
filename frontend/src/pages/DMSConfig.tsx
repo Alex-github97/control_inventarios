@@ -78,7 +78,7 @@ interface TabPanelProps {
 const EXTENSIONES_INICIALES = ['PDF', 'DOCX', 'XLSX', 'PPTX', 'JPG', 'PNG', 'ZIP']
 
 const PROVEEDORES_STORAGE = [
-  { id: 'local', nombre: 'Almacenamiento Local', descripcion: 'Servidor on-premise ICOLTRANS', color: DMS_COLOR, activo: true, icon: <Storage /> },
+  { id: 'local', nombre: 'Almacenamiento Local', descripcion: 'Servidor on-premise la compañía', color: DMS_COLOR, activo: true, icon: <Storage /> },
   { id: 'aws', nombre: 'AWS S3', descripcion: 'Amazon Simple Storage Service', color: '#FF9900', activo: false, icon: <CloudQueue /> },
   { id: 'azure', nombre: 'Azure Blob Storage', descripcion: 'Microsoft Azure Cloud Storage', color: '#0078D4', activo: false, icon: <CloudQueue /> },
   { id: 'gcs', nombre: 'Google Cloud Storage', descripcion: 'Google Cloud Platform', color: '#4285F4', activo: false, icon: <CloudQueue /> },
@@ -133,7 +133,7 @@ function TabGeneral() {
           <Typography variant="subtitle1" fontWeight={700} mb={2}>Información de la Organización</Typography>
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, md: 6 }}>
-              <TextField fullWidth size="small" label="Nombre en el DMS" defaultValue="ICOLTRANS — Sistema Documental" />
+              <TextField fullWidth size="small" label="Nombre en el DMS" defaultValue="la compañía — Sistema Documental" />
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
               <FormControl fullWidth size="small">

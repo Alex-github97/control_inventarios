@@ -67,7 +67,7 @@ export default function GRCTerceros() {
     const url=blobUrls[name]
     const a=document.createElement('a')
     if(url){ a.href=url; a.download=name }
-    else { const txt=`Documento: ${name}\nTercero: ${sel?.nombre||''}\nSistema GRC – Icoltrans\n\n[Archivo de demostración]`; a.href=URL.createObjectURL(new Blob([txt],{type:'application/octet-stream'})); a.download=name }
+    else { const txt=`Documento: ${name}\nTercero: ${sel?.nombre||''}\nSistema GRC – la compañía\n\n[Archivo de demostración]`; a.href=URL.createObjectURL(new Blob([txt],{type:'application/octet-stream'})); a.download=name }
     document.body.appendChild(a); a.click(); document.body.removeChild(a)
     ok(`Descargando "${name}"`)
   }

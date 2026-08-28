@@ -12,4 +12,4 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 -- Configuración de timezone
 SET timezone = 'America/Bogota';
 
-COMMENT ON DATABASE control_inventarios IS 'Plataforma de Control y Trazabilidad de Estibas - ICOLTRANS';
+COMMENT ON DATABASE control_inventarios IS 'Plataforma empresarial multicliente';

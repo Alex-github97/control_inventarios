@@ -65,7 +65,7 @@ const PROGRAMAS = [
   { codigo: 'PRG-2026-002', nombre: 'Certificación Conducción Segura', tipo: 'CERTIFICACION', escuela: 'Escuela de Conductores', cursos: 8, horas: 80 },
   { codigo: 'PRG-2026-003', nombre: 'Ruta del Supervisor de Calidad', tipo: 'RUTA_APRENDIZAJE', escuela: 'Escuela de Calidad', cursos: 5, horas: 60 },
   { codigo: 'PRG-2026-004', nombre: 'Carrera: Líder de Operaciones', tipo: 'CARRERA_INTERNA', escuela: 'Escuela de Liderazgo', cursos: 10, horas: 180 },
-  { codigo: 'PRG-2026-005', nombre: 'Inducción Corporativa ICOLTRANS', tipo: 'INDUCCION', escuela: 'Escuela de Operaciones', cursos: 4, horas: 16 },
+  { codigo: 'PRG-2026-005', nombre: 'Inducción Corporativa la compañía', tipo: 'INDUCCION', escuela: 'Escuela de Operaciones', cursos: 4, horas: 16 },
   { codigo: 'PRG-2026-006', nombre: 'Diplomado SST ISO 45001', tipo: 'DIPLOMADO', escuela: 'Escuela de SST', cursos: 7, horas: 100 },
 ]
 

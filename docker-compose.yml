@@ -74,7 +74,7 @@ services:
     image: dpage/pgadmin4:latest
     container_name: ci_pgadmin
     environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@icoltrans.com.co}
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@empresa.com}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin123}
     ports:
       - "5050:80"

@@ -437,7 +437,7 @@ export default function EAMIA() {
   // Chat
   const [chatInput, setChatInput] = useState('')
   const [chatMsgs, setChatMsgs] = useState<ChatMsg[]>([
-    { role: 'bot', text: '¡Hola! Soy el Asistente Técnico de ICOLTRANS EAM. Puedo ayudarte con análisis predictivo, estado de activos, anomalías y más. ¿En qué puedo ayudarte?', ts: new Date() },
+    { role: 'bot', text: '¡Hola! Soy el Asistente Técnico de la compañía EAM. Puedo ayudarte con análisis predictivo, estado de activos, anomalías y más. ¿En qué puedo ayudarte?', ts: new Date() },
   ])
   const chatEndRef = useRef<HTMLDivElement>(null)
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [chatMsgs])

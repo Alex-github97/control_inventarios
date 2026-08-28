@@ -35,7 +35,7 @@ i18n
     defaultNS: 'translation',
     detection: {
       order: ['localStorage', 'navigator'],
-      lookupLocalStorage: 'icoltrans_lang',
+      lookupLocalStorage: 'empresa_lang',
       caches: ['localStorage'],
     },
     interpolation: { escapeValue: false },

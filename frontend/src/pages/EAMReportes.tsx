@@ -320,8 +320,8 @@ interface ReporteProgramado {
 }
 
 const PROGRAMADOS_INICIAL: ReporteProgramado[] = [
-  { id: 'prog-1', reporte: 'Reporte Gerencial Ejecutivo', frecuencia: 'Mensual', formato: 'PDF', destinatario: 'presidencia@icoltrans.com.co', proximaEjecucion: '2025-07-31' },
-  { id: 'prog-2', reporte: 'Top de Costos por Activo', frecuencia: 'Semanal', formato: 'Excel', destinatario: 'mantenimiento@icoltrans.com.co', proximaEjecucion: '2025-07-07' },
+  { id: 'prog-1', reporte: 'Reporte Gerencial Ejecutivo', frecuencia: 'Mensual', formato: 'PDF', destinatario: 'presidencia@empresa.com', proximaEjecucion: '2025-07-31' },
+  { id: 'prog-2', reporte: 'Top de Costos por Activo', frecuencia: 'Semanal', formato: 'Excel', destinatario: 'mantenimiento@empresa.com', proximaEjecucion: '2025-07-07' },
 ]
 
 const FRECUENCIAS_PROG = ['Diario', 'Semanal', 'Quincenal', 'Mensual', 'Trimestral'] as const
@@ -1670,7 +1670,7 @@ export default function EAMReportes() {
               </TextField>
             </Stack>
             <TextField
-              fullWidth size="small" type="email" label="Destinatario (email) *" placeholder="correo@icoltrans.com.co"
+              fullWidth size="small" type="email" label="Destinatario (email) *" placeholder="correo@empresa.com"
               value={progForm.destinatario}
               onChange={(e) => setProgForm((p) => ({ ...p, destinatario: e.target.value }))}
               error={progTried && !emailValido}

@@ -16,7 +16,7 @@ const TIPO_CFG: Record<string, { color: string; label: string }> = {
 
 const CAMPANAS = [
   { id: 1, codigo: 'CAM-2026-008', nombre: 'Reactivación Clientes Inactivos Q2',   tipo: 'EMAIL_MARKETING', inicio: '2026-05-01', fin: '2026-05-31', presupuesto: 15, leads: 42,  conversiones: 8,  ingresos: 380, activa: false },
-  { id: 2, codigo: 'CAM-2026-007', nombre: 'EXPO Logística 2026 — Stand Icoltrans', tipo: 'EVENTO',          inicio: '2026-04-15', fin: '2026-04-17', presupuesto: 80, leads: 128, conversiones: 22, ingresos: 1200, activa: false },
+  { id: 2, codigo: 'CAM-2026-007', nombre: 'EXPO Logística 2026 — Stand la compañía', tipo: 'EVENTO',          inicio: '2026-04-15', fin: '2026-04-17', presupuesto: 80, leads: 128, conversiones: 22, ingresos: 1200, activa: false },
   { id: 3, codigo: 'CAM-2026-006', nombre: 'Black Friday Almacenamiento 2025',      tipo: 'PROMOCION',       inicio: '2025-11-20', fin: '2025-11-30', presupuesto: 10, leads: 35,  conversiones: 12, ingresos: 540, activa: false },
   { id: 4, codigo: 'CAM-2026-009', nombre: 'Lanzamiento TMS 2.0 para Corporativos', tipo: 'COMERCIAL',       inicio: '2026-06-01', fin: '2026-06-30', presupuesto: 25, leads: 18,  conversiones: 4,  ingresos: 240, activa: true  },
   { id: 5, codigo: 'CAM-2026-010', nombre: 'Newsletter Sector Retail Q3',           tipo: 'EMAIL_MARKETING', inicio: '2026-07-01', fin: '2026-07-31', presupuesto: 8,  leads: 0,   conversiones: 0,  ingresos: 0,   activa: true  },

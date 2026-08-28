@@ -858,7 +858,7 @@ export default function EAMGarantias() {
               Gestión de Garantías
             </Typography>
             <Typography variant="caption" sx={{ color: '#6B7280' }}>
-              EAM · ICOLTRANS — Control de cobertura, alertas y reclamaciones
+              EAM · la compañía — Control de cobertura, alertas y reclamaciones
             </Typography>
           </Box>
           <Box flex={1} />

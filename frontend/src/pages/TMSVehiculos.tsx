@@ -155,7 +155,7 @@ const MOCK_VEHICULOS: Vehiculo[] = [
     id: 1, placa: 'SDT-492', tipoVehiculo: 'TRACTOCAMION', tipoCarroceria: 'FURGON',
     marca: 'Kenworth', modelo: 'T800', anio: 2021, configuracion: '6x4',
     capacidadKg: 34000, volumenM3: 92, numEjes: 3, pesoBrutoKg: 48000,
-    empresa: 'ICOLTRANS S.A.S', estadoOperativo: 'EN_VIAJE',
+    empresa: 'la compañía S.A.S', estadoOperativo: 'EN_VIAJE',
     viajesHistorico: [
       { codigo: 'VJ-2025-0841', origen: 'Bogotá', destino: 'Barranquilla', fecha: '2025-06-19', estado: 'EN_CURSO', conductor: 'Carlos Herrera' },
       { codigo: 'VJ-2025-0812', origen: 'Medellín', destino: 'Bogotá', fecha: '2025-06-15', estado: 'COMPLETADO', conductor: 'Carlos Herrera' },
@@ -186,7 +186,7 @@ const MOCK_VEHICULOS: Vehiculo[] = [
     id: 3, placa: 'VGH-853', tipoVehiculo: 'DOBLE_TROQUE', tipoCarroceria: 'ESTACAS',
     marca: 'Volkswagen', modelo: 'Constellation 19.360', anio: 2020, configuracion: '6x2',
     capacidadKg: 26000, volumenM3: 68, numEjes: 3, pesoBrutoKg: 40000,
-    empresa: 'ICOLTRANS S.A.S', estadoOperativo: 'EN_VIAJE',
+    empresa: 'la compañía S.A.S', estadoOperativo: 'EN_VIAJE',
     viajesHistorico: [
       { codigo: 'VJ-2025-0843', origen: 'Cali', destino: 'Bogotá', fecha: '2025-06-19', estado: 'EN_CURSO', conductor: 'Jhon Ríos' },
       { codigo: 'VJ-2025-0799', origen: 'Barranquilla', destino: 'Bogotá', fecha: '2025-06-12', estado: 'COMPLETADO', conductor: 'Jhon Ríos' },
@@ -229,7 +229,7 @@ const MOCK_VEHICULOS: Vehiculo[] = [
     id: 6, placa: 'GKP-385', tipoVehiculo: 'CAMION_SENCILLO', tipoCarroceria: 'FURGON',
     marca: 'Chevrolet', modelo: 'NHR 2.8', anio: 2021, configuracion: '4x2',
     capacidadKg: 5500, volumenM3: 22, numEjes: 2, pesoBrutoKg: 8500,
-    empresa: 'ICOLTRANS S.A.S', estadoOperativo: 'EN_VIAJE',
+    empresa: 'la compañía S.A.S', estadoOperativo: 'EN_VIAJE',
     viajesHistorico: [
       { codigo: 'VJ-2025-0846', origen: 'Bucaramanga', destino: 'Cali', fecha: '2025-06-19', estado: 'EN_CURSO', conductor: 'Ricardo Suárez' },
     ],
@@ -257,7 +257,7 @@ const MOCK_VEHICULOS: Vehiculo[] = [
     id: 8, placa: 'HMQ-555', tipoVehiculo: 'CAMIONETA', tipoCarroceria: 'ESTACAS',
     marca: 'Ford', modelo: 'F-350 Super Duty', anio: 2023, configuracion: '4x4',
     capacidadKg: 1800, volumenM3: 8, numEjes: 2, pesoBrutoKg: 4500,
-    empresa: 'ICOLTRANS S.A.S', estadoOperativo: 'DISPONIBLE',
+    empresa: 'la compañía S.A.S', estadoOperativo: 'DISPONIBLE',
     viajesHistorico: [
       { codigo: 'VJ-2025-0825', origen: 'Bogotá', destino: 'Villavicencio', fecha: '2025-06-17', estado: 'COMPLETADO', conductor: 'Ana Rodríguez' },
     ],
@@ -299,7 +299,7 @@ const MOCK_VEHICULOS: Vehiculo[] = [
     id: 11, placa: 'ZMW-302', tipoVehiculo: 'VAN', tipoCarroceria: 'FURGON',
     marca: 'Renault', modelo: 'Master L3H2', anio: 2023, configuracion: '4x2',
     capacidadKg: 1200, volumenM3: 13, numEjes: 2, pesoBrutoKg: 3500,
-    empresa: 'ICOLTRANS S.A.S', estadoOperativo: 'EN_MANTENIMIENTO',
+    empresa: 'la compañía S.A.S', estadoOperativo: 'EN_MANTENIMIENTO',
     viajesHistorico: [
       { codigo: 'VJ-2025-0815', origen: 'Bogotá', destino: 'Tunja', fecha: '2025-06-15', estado: 'COMPLETADO', conductor: 'Sandra Gómez' },
     ],

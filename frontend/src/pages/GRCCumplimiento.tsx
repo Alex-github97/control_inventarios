@@ -74,7 +74,7 @@ export default function GRCCumplimiento() {
   }
   const handleDownload = (name: string) => {
     if (!name) return
-    const txt = `Evidencia: ${name}\nSistema GRC – Icoltrans\nFecha: ${new Date().toLocaleDateString('es-CO')}\n\n[Archivo de demostración]`
+    const txt = `Evidencia: ${name}\nSistema GRC – la compañía\nFecha: ${new Date().toLocaleDateString('es-CO')}\n\n[Archivo de demostración]`
     const a = document.createElement('a')
     a.href = URL.createObjectURL(new Blob([txt],{type:'application/octet-stream'}))
     a.download = name; document.body.appendChild(a); a.click(); document.body.removeChild(a)

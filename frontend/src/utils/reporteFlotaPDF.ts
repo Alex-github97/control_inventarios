@@ -289,7 +289,7 @@ export function generarPDFEstadoFlota(opts: {
     doc.setFontSize(7)
     doc.setTextColor(...GRIS)
     doc.text(
-      `Página ${idx + 1} de ${vehiculos.length}   ·   ICOLTRANS · CMMS/EAM`,
+      `Página ${idx + 1} de ${vehiculos.length}   ·   la compañía · CMMS/EAM`,
       anchoPagina / 2, doc.internal.pageSize.getHeight() - 18, { align: 'center' },
     )
   })

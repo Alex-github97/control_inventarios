@@ -54,11 +54,11 @@ const RUTAS = [
   {
     id: 4, codigo: 'RUT-2026-004',
     nombre: 'Ruta de Inducción Corporativa',
-    descripcion: 'Bienvenida a ICOLTRANS: cultura, procesos, seguridad y compliance',
+    descripcion: 'Bienvenida a la compañía: cultura, procesos, seguridad y compliance',
     cargo_objetivo: 'Todos los cargos nuevos', area_objetivo: 'General',
     horas: 16, inscritos: 31, completados: 25, color: LMS_COLOR,
     cursos: [
-      { nombre: 'Cultura y Valores ICOLTRANS', horas: 2, completado: true },
+      { nombre: 'Cultura y Valores la compañía', horas: 2, completado: true },
       { nombre: 'Ética y Compliance Empresarial', horas: 6, completado: true },
       { nombre: 'SST Inducción', horas: 4, completado: false },
       { nombre: 'Procesos Operativos', horas: 4, completado: false },

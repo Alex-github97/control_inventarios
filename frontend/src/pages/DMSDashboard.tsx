@@ -233,7 +233,7 @@ export default function DMSDashboard() {
                 <LiveBadge />
               </Stack>
               <Typography fontSize={12} color="text.secondary">
-                Gestión documental empresarial — Icoltrans S.A.S.
+                Gestión documental empresarial — la compañía S.A.S.
               </Typography>
             </Box>
           </Stack>

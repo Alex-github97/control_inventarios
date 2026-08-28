@@ -18,12 +18,12 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 }
 
 const AUDITORIAS = [
-  { codigo: 'AUD-001', nombre: 'Auditoría Interna ISO 9001 — Operaciones', tipo: 'INTERNA', norma: 'ISO 9001:2015', auditor: 'Roberto Méndez', empresa: 'ICOLTRANS', fInicio: '2026-07-15', fFin: '2026-07-17', estado: 'PLANIFICADA', resultado: null, hallazgos: 0 },
+  { codigo: 'AUD-001', nombre: 'Auditoría Interna ISO 9001 — Operaciones', tipo: 'INTERNA', norma: 'ISO 9001:2015', auditor: 'Roberto Méndez', empresa: 'la compañía', fInicio: '2026-07-15', fFin: '2026-07-17', estado: 'PLANIFICADA', resultado: null, hallazgos: 0 },
   { codigo: 'AUD-002', nombre: 'Auditoría Seguimiento ISO 28000', tipo: 'EXTERNA', norma: 'ISO 28000:2022', auditor: 'Carlos Torres', empresa: 'Bureau Veritas', fInicio: '2026-08-01', fFin: '2026-08-03', estado: 'PLANIFICADA', resultado: null, hallazgos: 0 },
   { codigo: 'AUD-003', nombre: 'Auditoría Cliente XYZ — Revisión Operacional', tipo: 'CLIENTE', norma: 'Contractual', auditor: 'Carlos Vega', empresa: 'Cliente XYZ', fInicio: '2026-06-10', fFin: '2026-06-12', estado: 'COMPLETADA', resultado: 'aprobado', hallazgos: 3 },
-  { codigo: 'AUD-004', nombre: 'Auditoría Proveedor Transportes Sur', tipo: 'PROVEEDOR', norma: 'ISO 9001:2015', auditor: 'María García', empresa: 'ICOLTRANS', fInicio: '2026-06-20', fFin: '2026-06-20', estado: 'COMPLETADA', resultado: 'condicionado', hallazgos: 7 },
+  { codigo: 'AUD-004', nombre: 'Auditoría Proveedor Transportes Sur', tipo: 'PROVEEDOR', norma: 'ISO 9001:2015', auditor: 'María García', empresa: 'la compañía', fInicio: '2026-06-20', fFin: '2026-06-20', estado: 'COMPLETADA', resultado: 'condicionado', hallazgos: 7 },
   { codigo: 'AUD-005', nombre: 'Auditoría ISO 45001 Seguridad Laboral', tipo: 'CERTIFICACION', norma: 'ISO 45001:2018', auditor: 'Equipo SGS', empresa: 'SGS', fInicio: '2026-09-15', fFin: '2026-09-18', estado: 'PLANIFICADA', resultado: null, hallazgos: 0 },
-  { codigo: 'AUD-006', nombre: 'Revisión Sistema Gestión Ambiental', tipo: 'INTERNA', norma: 'ISO 14001:2015', auditor: 'Ana Ruiz', empresa: 'ICOLTRANS', fInicio: '2026-05-10', fFin: '2026-05-12', estado: 'COMPLETADA', resultado: 'aprobado', hallazgos: 4 },
+  { codigo: 'AUD-006', nombre: 'Revisión Sistema Gestión Ambiental', tipo: 'INTERNA', norma: 'ISO 14001:2015', auditor: 'Ana Ruiz', empresa: 'la compañía', fInicio: '2026-05-10', fFin: '2026-05-12', estado: 'COMPLETADA', resultado: 'aprobado', hallazgos: 4 },
 ]
 
 const HALLAZGOS_AUD = [

@@ -12,11 +12,11 @@ const ESTADO_COLORS: Record<string, string> = {
 }
 
 const CERTIFICACIONES = [
-  { id: 1, codigo: 'CERT-2026-001', nombre: 'Certificación Conducción Segura C3', vigencia: 12, emisora: 'Escuela de Conductores ICOLTRANS', vigentes: 72, vencidas: 8, por_vencer: 5 },
+  { id: 1, codigo: 'CERT-2026-001', nombre: 'Certificación Conducción Segura C3', vigencia: 12, emisora: 'Escuela de Conductores la compañía', vigentes: 72, vencidas: 8, por_vencer: 5 },
   { id: 2, codigo: 'CERT-2026-002', nombre: 'ISO 9001:2015 Auditor Interno', vigencia: 24, emisora: 'Bureau Veritas Colombia', vigentes: 18, vencidas: 2, por_vencer: 3 },
   { id: 3, codigo: 'CERT-2026-003', nombre: 'Primeros Auxilios y RCP', vigencia: 12, emisora: 'Cruz Roja Colombiana', vigentes: 38, vencidas: 6, por_vencer: 7 },
   { id: 4, codigo: 'CERT-2026-004', nombre: 'Manejo de Mercancías Peligrosas', vigencia: 24, emisora: 'Ministerio de Transporte', vigentes: 24, vencidas: 1, por_vencer: 4 },
-  { id: 5, codigo: 'CERT-2026-005', nombre: 'Ética Empresarial y Compliance', vigencia: 12, emisora: 'ICOLTRANS Compliance', vigentes: 91, vencidas: 12, por_vencer: 8 },
+  { id: 5, codigo: 'CERT-2026-005', nombre: 'Ética Empresarial y Compliance', vigencia: 12, emisora: 'la compañía Compliance', vigentes: 91, vencidas: 12, por_vencer: 8 },
   { id: 6, codigo: 'CERT-2026-006', nombre: 'Trabajo en Alturas Nivel 1', vigencia: 12, emisora: 'SENA', vigentes: 14, vencidas: 3, por_vencer: 2 },
 ]
 
