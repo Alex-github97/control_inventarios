@@ -2734,6 +2734,127 @@ async def rotacion_intercambio(data: RotacionIntercambio, db: AsyncSession = Dep
     return {"ok": True, "a": {"codigo": a.codigo, "posicion": a.posicion}, "b": {"codigo": b.codigo, "posicion": b.posicion}}
 
 
+class RotacionDestino(BaseModel):
+    neumatico_id: int
+    """Posición final. En None, la llanta sale del vehículo a bodega."""
+    posicion: Optional[str] = None
+
+class RotacionPlan(BaseModel):
+    activo_id: int
+    fecha: datetime
+    destinos: List[RotacionDestino]
+    km_odometro: Optional[float] = None
+    horometro: Optional[float] = None
+    bodega_id: Optional[int] = None       # destino de las que salen
+    tecnico: Optional[str] = None
+    observaciones: Optional[str] = None
+
+
+@router.post("/neumaticos/rotacion-plan")
+async def rotacion_plan(data: RotacionPlan, db: AsyncSession = Depends(get_db)):
+    """Aplica una rotación completa de una sola vez.
+
+    Se recibe la foto final — qué llanta queda en qué posición — en vez de un
+    movimiento por paso. Es lo que permite el almacén de rotación de la
+    pantalla: mientras se acomodan las llantas no se toca la base, y al
+    confirmar todo entra junto.
+
+    Hacerlo por pasos obligaría a desmontar y volver a montar cada llanta, y
+    cada desmontaje cierra un tramo de vida de la llanta: el historial quedaría
+    lleno de bajas y altas que nunca ocurrieron, y el CPK saldría mal.
+    """
+    activo = await db.get(EAMActivo, data.activo_id)
+    if not activo:
+        raise HTTPException(404, "Vehículo no encontrado")
+    if data.km_odometro is None and data.horometro is None:
+        raise HTTPException(
+            400,
+            "Registre el odómetro o el horómetro del equipo: es la lectura con la "
+            "que queda el tramo de cada llanta.",
+        )
+    if not data.destinos:
+        raise HTTPException(400, "No hay llantas que mover")
+
+    # Dos llantas no pueden terminar en la misma posición.
+    ocupadas: dict[str, int] = {}
+    for d in data.destinos:
+        if not d.posicion:
+            continue
+        if d.posicion in ocupadas:
+            raise HTTPException(409, f"Dos llantas quedarían en la posición {d.posicion}")
+        ocupadas[d.posicion] = d.neumatico_id
+
+    posiciones_validas = {
+        p["codigo"]
+        for p in _generar_posiciones(
+            activo.numero_ejes,
+            activo.tiene_repuesto if activo.tiene_repuesto is not None else True,
+            layout=activo.layout_llantas, cantidad_repuestos=activo.cantidad_repuestos or 1,
+        )
+    }
+    for pos in ocupadas:
+        if pos not in posiciones_validas:
+            raise HTTPException(400, f"La posición {pos} no existe en este vehículo")
+
+    if data.bodega_id is not None:
+        bodega = await db.get(EAMBodegaNeumatico, data.bodega_id)
+        if not bodega:
+            raise HTTPException(400, f"La bodega {data.bodega_id} no existe")
+
+    ids = [d.neumatico_id for d in data.destinos]
+    filas = (await db.execute(select(EAMNeumatico).where(EAMNeumatico.id.in_(ids)))).scalars().all()
+    por_id = {n.id: n for n in filas}
+    faltan = [i for i in ids if i not in por_id]
+    if faltan:
+        raise HTTPException(404, f"Neumático(s) no encontrado(s): {faltan}")
+
+    cfg = await _get_config_neu(db)
+    for d in data.destinos:
+        neu = por_id[d.neumatico_id]
+        if neu.estado == "BAJA":
+            raise HTTPException(409, f"La llanta {neu.codigo} fue descartada y no se puede mover.")
+        if d.posicion and cfg.montaje_estricto:
+            err = _validar_montaje(neu.tipo_uso, d.posicion)
+            if err:
+                raise HTTPException(409, f"{neu.codigo}: {err}")
+
+    # Una llanta que hoy está en el vehículo y no aparece en el plan se queda
+    # donde está: el plan solo describe lo que se movió.
+    origen = {n.id: (n.posicion, n.activo_id, n.estado) for n in filas}
+    obs = data.observaciones or "Rotación de llantas"
+    movimientos = 0
+    for d in data.destinos:
+        neu = por_id[d.neumatico_id]
+        pos_origen, veh_origen, estado_origen = origen[neu.id]
+        if d.posicion:
+            # Entra o cambia de posición dentro del vehículo.
+            tipo = "ROTACION" if estado_origen == "INSTALADO" else "INSTALACION"
+            neu.estado = "INSTALADO"
+            neu.activo_id = data.activo_id
+            neu.posicion = d.posicion
+            neu.bodega_id = None
+        else:
+            tipo = "DESMONTAJE"
+            neu.estado = "ALMACENADO"
+            neu.activo_id = None
+            neu.posicion = None
+            neu.bodega_id = data.bodega_id
+        if data.km_odometro is not None:
+            neu.km_actual = data.km_odometro
+        db.add(EAMMovimientoNeumatico(
+            neumatico_id=neu.id, tipo_movimiento=tipo,
+            activo_id=data.activo_id if d.posicion else veh_origen,
+            posicion_origen=pos_origen, posicion=d.posicion, bodega_id=data.bodega_id if not d.posicion else None,
+            km_odometro=data.km_odometro, horometro=data.horometro,
+            fecha=data.fecha, observaciones=obs, tecnico=data.tecnico,
+        ))
+        movimientos += 1
+
+    _avanzar_medidores(activo, data.km_odometro, data.horometro)
+    await db.commit()
+    return {"ok": True, "movimientos": movimientos}
+
+
 @router.get("/neumaticos/{nid}/movimientos", response_model=List[MovNeumaticoResponse])
 async def list_movimientos_neumatico(nid: int, db: AsyncSession = Depends(get_db)):
     r = await db.execute(

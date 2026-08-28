@@ -320,6 +320,25 @@ export default function EAMNeumaticos() {
   const [modoMontaje, setModoMontaje] = useState(false)
   const [busqMontaje, setBusqMontaje] = useState('')
   const [bodegaMontaje, setBodegaMontaje] = useState('')
+
+  /**
+   * Rotación con almacén temporal.
+   *
+   * Mientras se acomodan las llantas no se toca la base: `planRotacion` guarda
+   * la posición que va tomando cada una y `enRotacion` las que están sacadas
+   * esperando destino. Todo entra junto al confirmar, con un solo movimiento
+   * por llanta — desmontar y volver a montar de a una llenaría el historial de
+   * bajas y altas que nunca ocurrieron y arruinaría el CPK.
+   */
+  const [modoRotacion, setModoRotacion] = useState(false)
+  /** neumatico_id → posición destino dentro del vehículo. */
+  const [planRotacion, setPlanRotacion] = useState<Record<number, string>>({})
+  /** Llantas sacadas al almacén de rotación, sin destino todavía. */
+  const [enRotacion, setEnRotacion] = useState<number[]>([])
+  const [rotPlanDialog, setRotPlanDialog] = useState(false)
+  const [rotPlanForm, setRotPlanForm] = useState({
+    fecha: nowLocal(), km_odometro: '', horometro: '', tecnico: '', observaciones: '',
+  })
   // Rotación en el rin (misma posición, sin desmontar)
   const [rotRinDialog, setRotRinDialog] = useState<Neumatico | null>(null)
   const [rotRinForm, setRotRinForm] = useState({ fecha: nowLocal(), km_odometro: '', tecnico: '', observaciones: '' })
@@ -557,7 +576,25 @@ export default function EAMNeumaticos() {
   const veh = vehiculos.find(v => String(v.id) === vehId)
   const almacen = useMemo(() => neumaticos.filter(n => n.estado === 'ALMACENADO' || n.estado === 'REENCAUCHE'), [neumaticos])
   const descarte = useMemo(() => neumaticos.filter(n => n.estado === 'BAJA'), [neumaticos])
-  const tireEn = (pos: string) => neumaticos.find(n => n.activo_id === veh?.id && n.posicion === pos)
+  /**
+   * Qué llanta se ve en una posición.
+   *
+   * En rotación manda el plan en curso y no lo que dice la base: la llanta que
+   * se sacó al almacén deja su rueda libre en pantalla aunque siga instalada
+   * hasta que se confirme.
+   */
+  const tireEn = (pos: string) => {
+    if (modoRotacion) {
+      const movida = neumaticos.find(n => planRotacion[n.id] === pos)
+      if (movida) return movida
+      const original = neumaticos.find(n => n.activo_id === veh?.id && n.posicion === pos)
+      if (!original) return undefined
+      // Sacada al almacén, o reubicada en otra posición por el plan.
+      if (enRotacion.includes(original.id) || planRotacion[original.id]) return undefined
+      return original
+    }
+    return neumaticos.find(n => n.activo_id === veh?.id && n.posicion === pos)
+  }
   const bodegaNombre = (id?: number | null) => bodegas.find(b => b.id === id)?.nombre ?? '—'
 
   // ─── Derivados de los filtros de "Llantas por Vehículo" ───────────────────
@@ -1229,6 +1266,24 @@ export default function EAMNeumaticos() {
   const soltarEnPosicion = (pos: string) => {
     setOverSlot('')
     if (!draggedTire || !veh) return
+    // En rotación solo se anota el destino: nada se manda hasta confirmar.
+    if (modoRotacion) {
+      const id = draggedTire.id
+      setPlanRotacion(p => {
+        const siguiente = { ...p }
+        // Si otra llanta tenía apalabrada esa rueda, sale al almacén.
+        const previa = Object.entries(siguiente).find(([, v]) => v === pos)?.[0]
+        if (previa && Number(previa) !== id) {
+          delete siguiente[Number(previa)]
+          setEnRotacion(l => (l.includes(Number(previa)) ? l : [...l, Number(previa)]))
+        }
+        siguiente[id] = pos
+        return siguiente
+      })
+      setEnRotacion(l => l.filter(x => x !== id))
+      setDraggedTire(null)
+      return
+    }
     const tipo = draggedTire.activo_id === veh.id ? 'ROTACION' : 'INSTALACION'
     setMovForm({ fecha: nowLocal(), km_odometro: '', horometro: '', bodega_id: '', tecnico: '', observaciones: '' })
     setMovDialog({ tire: draggedTire, tipo, posicion: pos })
@@ -1273,6 +1328,53 @@ export default function EAMNeumaticos() {
     })
     setMontarDialog(null)
   }
+  /** Saca una llanta del vehículo al almacén de rotación (solo en el plan). */
+  const soltarEnAlmacenRotacion = () => {
+    setOverSlot('')
+    if (!draggedTire) return
+    const id = draggedTire.id
+    setPlanRotacion(p => {
+      const siguiente = { ...p }
+      delete siguiente[id]
+      return siguiente
+    })
+    setEnRotacion(l => (l.includes(id) ? l : [...l, id]))
+    setDraggedTire(null)
+  }
+
+  const salirDeRotacion = () => {
+    setModoRotacion(false); setPlanRotacion({}); setEnRotacion([]); setRotPlanDialog(false)
+  }
+
+  const mutRotacionPlan = useMutation({
+    mutationFn: () => {
+      const destinos = [
+        ...Object.entries(planRotacion).map(([id, pos]) => ({
+          neumatico_id: Number(id), posicion: pos,
+        })),
+        // Las que quedaron en el almacén salen del vehículo a bodega.
+        ...enRotacion.map(id => ({ neumatico_id: id, posicion: null })),
+      ]
+      return api.post('/eam/neumaticos/rotacion-plan', {
+        activo_id: veh?.id,
+        fecha: new Date(rotPlanForm.fecha).toISOString(),
+        destinos,
+        km_odometro: rotPlanForm.km_odometro ? Number(rotPlanForm.km_odometro) : undefined,
+        horometro: rotPlanForm.horometro ? Number(rotPlanForm.horometro) : undefined,
+        bodega_id: bodegas[0]?.id,
+        tecnico: rotPlanForm.tecnico || undefined,
+        observaciones: rotPlanForm.observaciones || undefined,
+      }).then(r => r.data)
+    },
+    onSuccess: (r: any) => {
+      toast.success(`Rotación aplicada · ${r?.movimientos ?? 0} movimiento(s)`)
+      qc.invalidateQueries({ queryKey: ['eam-neumaticos'] })
+      qc.invalidateQueries({ queryKey: ['eam-vehiculos'] })
+      salirDeRotacion()
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo aplicar la rotación'),
+  })
+
   const confirmarRotacionRin = () => {
     if (!rotRinDialog) return
     mutMov.mutate({
@@ -1490,7 +1592,7 @@ export default function EAMNeumaticos() {
           const algunDialogoAbierto = agregarLlantaOpen || inspImportOpen || !!movDialog ||
             !!bajaDialog || !!histTire || !!ejesVeh || !!inspDialog || !!chartTire || !!rotDialog ||
             !!voltearDialog || !!montarDialog || !!rotRinDialog || inspSesionOpen ||
-            !!ajusteDialog || !!trabajoDialog || !!zonaDialog || !!vidasDialog
+            !!ajusteDialog || !!trabajoDialog || !!zonaDialog || !!vidasDialog || rotPlanDialog
           return (
           <Stack spacing={2}>
           {!algunDialogoAbierto && <>
@@ -1580,6 +1682,25 @@ export default function EAMNeumaticos() {
                           >
                             {modoMontaje ? 'Ocultar llantas' : 'Montar llantas'}
                           </Button>
+                          {/* La rotación arma un plan en pantalla y lo aplica de
+                              una sola vez al confirmar. */}
+                          <Button
+                            size="small" variant={modoRotacion ? 'contained' : 'outlined'}
+                            startIcon={<SwapIcon />}
+                            onClick={() => {
+                              if (modoRotacion) { salirDeRotacion(); return }
+                              setModoRotacion(true); setModoMontaje(false)
+                              setPlanRotacion({}); setEnRotacion([])
+                            }}
+                            sx={{
+                              textTransform: 'none',
+                              ...(modoRotacion
+                                ? { bgcolor: '#7C3AED', '&:hover': { bgcolor: '#6D28D9' } }
+                                : { color: '#7C3AED', borderColor: alpha('#7C3AED', 0.5) }),
+                            }}
+                          >
+                            {modoRotacion ? 'Cancelar rotación' : 'Rotar llantas'}
+                          </Button>
                           <Button
                             size="small" variant="outlined" startIcon={<AddIcon />}
                             onClick={() => setAgregarLlantaOpen(true)}
@@ -1632,6 +1753,95 @@ export default function EAMNeumaticos() {
                         {veh.numero_ejes} eje(s) · arrastra una llanta a una rueda, o entre ruedas para rotar.
                         Clic en una rueda vacía para montar ahí; clic en una instalada para ver su historial.
                       </Typography>
+
+                      {/* Almacén de rotación: banco de trabajo temporal. Las
+                          llantas que se sacan quedan acá hasta que se les da una
+                          rueda nueva; nada se guarda hasta confirmar. */}
+                      {modoRotacion && (
+                        <Box
+                          onDragOver={e => { e.preventDefault(); setOverSlot('ROTACION') }}
+                          onDragLeave={() => setOverSlot('')}
+                          onDrop={e => { e.preventDefault(); soltarEnAlmacenRotacion() }}
+                          sx={{
+                            mb: 1.5, p: 1.5, borderRadius: 3,
+                            border: '2px dashed #7C3AED',
+                            bgcolor: overSlot === 'ROTACION' ? alpha('#7C3AED', 0.12) : alpha('#7C3AED', 0.04),
+                            transition: 'background-color .12s',
+                          }}
+                        >
+                          <Stack direction="row" alignItems="center" gap={1} mb={1} flexWrap="wrap">
+                            <SwapIcon sx={{ fontSize: 18, color: '#7C3AED' }} />
+                            <Typography fontSize={13} fontWeight={700}>Almacén de rotación</Typography>
+                            <Typography fontSize={11} color="text.secondary" sx={{ flex: 1 }}>
+                              Arrastre acá las llantas que va a rotar y luego llévelas una por una a
+                              su rueda nueva.
+                            </Typography>
+                            <Button size="small" variant="contained"
+                              disabled={Object.keys(planRotacion).length === 0 && enRotacion.length === 0}
+                              onClick={() => {
+                                setRotPlanForm({
+                                  fecha: nowLocal(),
+                                  km_odometro: veh?.odometro_actual != null ? String(veh.odometro_actual) : '',
+                                  horometro: veh?.horometro_actual != null ? String(veh.horometro_actual) : '',
+                                  tecnico: '', observaciones: '',
+                                })
+                                setRotPlanDialog(true)
+                              }}
+                              sx={{ bgcolor: '#7C3AED', '&:hover': { bgcolor: '#6D28D9' }, textTransform: 'none' }}>
+                              Confirmar rotación
+                            </Button>
+                          </Stack>
+
+                          {enRotacion.length === 0 ? (
+                            <Typography fontSize={11.5} color="text.disabled" textAlign="center" py={1.5}>
+                              Vacío · suelte aquí una llanta instalada
+                            </Typography>
+                          ) : (
+                            <Stack direction="row" gap={1} sx={{ overflowX: 'auto', pb: 0.5 }}>
+                              {enRotacion.map(id => {
+                                const n = neumaticos.find(x => x.id === id)
+                                if (!n) return null
+                                return (
+                                  <Box
+                                    key={id}
+                                    draggable
+                                    onDragStart={e => {
+                                      e.dataTransfer.effectAllowed = 'move'
+                                      e.dataTransfer.setData('text/plain', String(n.id))
+                                      setDraggedTire(n)
+                                    }}
+                                    onDragEnd={() => setDraggedTire(null)}
+                                    sx={{
+                                      minWidth: 132, p: 1, borderRadius: 2, flexShrink: 0,
+                                      border: '1px solid #7C3AED', bgcolor: '#FFFFFF',
+                                      cursor: 'grab', '&:active': { cursor: 'grabbing' },
+                                      opacity: draggedTire?.id === n.id ? 0.5 : 1,
+                                    }}
+                                  >
+                                    <Stack direction="row" alignItems="center" gap={0.75}>
+                                      <TireRepair sx={{ fontSize: 17, color: '#7C3AED' }} />
+                                      <Box sx={{ minWidth: 0 }}>
+                                        <Typography fontSize={12} fontWeight={700} noWrap>{n.codigo}</Typography>
+                                        <Typography fontSize={9.5} color="text.secondary" noWrap>
+                                          venía de {n.posicion ?? '—'}
+                                        </Typography>
+                                      </Box>
+                                    </Stack>
+                                  </Box>
+                                )
+                              })}
+                            </Stack>
+                          )}
+
+                          {Object.keys(planRotacion).length > 0 && (
+                            <Typography fontSize={10.5} color="#6D28D9" mt={1}>
+                              {Object.keys(planRotacion).length} llanta(s) ya con rueda nueva
+                              {enRotacion.length > 0 && ` · ${enRotacion.length} sin ubicar`}.
+                              Las que queden sin ubicar saldrán a bodega.
+                            </Typography>
+                          )}
+                        </Box>
+                      )}
 
                       {/* Bandeja de montaje: las llantas disponibles justo encima
                           del diagrama, para que el arrastre sea corto. */}
@@ -3056,6 +3266,80 @@ export default function EAMNeumaticos() {
             setAgregarLlantaOpen(false); setPosicionAMontar('')
           }}
         />
+
+        {/* ── Diálogo: confirmar la rotación armada en el almacén ── */}
+        <Dialog open={rotPlanDialog} onClose={() => setRotPlanDialog(false)} maxWidth="sm" fullWidth
+          PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Confirmar rotación
+            <Typography variant="caption" color="text.secondary" display="block">
+              {veh?.codigo}{veh?.placa ? ` · ${veh.placa}` : ''}
+            </Typography>
+          </DialogTitle>
+          <DialogContent dividers>
+            <Stack spacing={2} pt={0.5}>
+              <Box>
+                <Typography fontSize={12} fontWeight={700} mb={0.75}>Lo que se va a aplicar</Typography>
+                <Stack spacing={0.4}>
+                  {Object.entries(planRotacion).map(([id, pos]) => {
+                    const n = neumaticos.find(x => x.id === Number(id))
+                    return (
+                      <Stack key={id} direction="row" gap={1} alignItems="center">
+                        <TireRepair sx={{ fontSize: 14, color: '#7C3AED' }} />
+                        <Typography fontSize={12}>
+                          <b>{n?.codigo}</b> · {n?.posicion ?? 'bodega'} → <b>{pos}</b>
+                        </Typography>
+                      </Stack>
+                    )
+                  })}
+                  {enRotacion.map(id => {
+                    const n = neumaticos.find(x => x.id === id)
+                    return (
+                      <Stack key={id} direction="row" gap={1} alignItems="center">
+                        <WarehouseIcon sx={{ fontSize: 14, color: '#64748B' }} />
+                        <Typography fontSize={12}>
+                          <b>{n?.codigo}</b> · {n?.posicion ?? '—'} → sale a bodega
+                        </Typography>
+                      </Stack>
+                    )
+                  })}
+                </Stack>
+              </Box>
+              <TextField label="Fecha y hora *" type="datetime-local" size="small" fullWidth
+                value={rotPlanForm.fecha}
+                onChange={e => setRotPlanForm(f => ({ ...f, fecha: e.target.value }))}
+                InputLabelProps={{ shrink: true }} />
+              <Stack direction="row" spacing={1}>
+                <TextField label="Odómetro (km)" type="number" size="small" fullWidth
+                  value={rotPlanForm.km_odometro}
+                  onChange={e => setRotPlanForm(f => ({ ...f, km_odometro: e.target.value }))} />
+                <TextField label="Horómetro (h)" type="number" size="small" fullWidth
+                  value={rotPlanForm.horometro}
+                  onChange={e => setRotPlanForm(f => ({ ...f, horometro: e.target.value }))} />
+              </Stack>
+              {!rotPlanForm.km_odometro && !rotPlanForm.horometro && (
+                <Alert severity="warning" sx={{ py: 0.5 }}>
+                  Registre el odómetro o el horómetro: es la lectura con la que queda el tramo
+                  de cada llanta.
+                </Alert>
+              )}
+              <TextField label="Técnico" size="small" fullWidth value={rotPlanForm.tecnico}
+                onChange={e => setRotPlanForm(f => ({ ...f, tecnico: e.target.value }))} />
+              <TextField label="Observaciones" size="small" fullWidth multiline rows={2}
+                value={rotPlanForm.observaciones}
+                onChange={e => setRotPlanForm(f => ({ ...f, observaciones: e.target.value }))} />
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setRotPlanDialog(false)}>Volver</Button>
+            <Button variant="contained"
+              disabled={!rotPlanForm.fecha || (!rotPlanForm.km_odometro && !rotPlanForm.horometro)
+                || mutRotacionPlan.isPending}
+              onClick={() => mutRotacionPlan.mutate()}
+              sx={{ bgcolor: '#7C3AED', '&:hover': { bgcolor: '#6D28D9' } }}>
+              {mutRotacionPlan.isPending ? 'Aplicando…' : 'Aplicar rotación'}
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         {/* ── Diálogo: rotación en el rin (misma posición, sin desmontar) ── */}
         <Dialog open={!!rotRinDialog} onClose={() => setRotRinDialog(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
