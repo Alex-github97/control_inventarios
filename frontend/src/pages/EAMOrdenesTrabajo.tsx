@@ -26,6 +26,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
 import { apiClient as api } from '@/api/client'
+import { mensajeDeError } from '@/utils/errorApi'
 import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
 
 const EAM_COLOR = '#32AC5C'
@@ -909,8 +910,7 @@ export default function EAMOrdenesTrabajo() {
       : ot.tecnico_asignado || 'Taller interno · sin técnico')
 
   const err = (e: any) => {
-    const d = e?.response?.data?.detail
-    toast.error(typeof d === 'string' ? d : 'No se pudo guardar la OT')
+    toast.error(mensajeDeError(e, 'No se pudo guardar la OT'))
   }
   /** Una OT mueve la lectura del activo y el vencimiento de su rutina, así que
    *  las tres consultas se refrescan juntas. */

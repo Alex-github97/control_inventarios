@@ -25,6 +25,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { apiClient as api } from '@/api/client'
+import { mensajeDeError } from '@/utils/errorApi'
 import { exportarPDF, exportarExcel } from '@/utils/exportar'
 import { EsquemaLlantasPreview } from '@/components/EsquemaLlantasPreview'
 import { CatalogoLlantas } from '@/components/CatalogoLlantas'
@@ -473,7 +474,7 @@ export default function EAMNeumaticos() {
       qc.invalidateQueries({ queryKey: ['eam-vehiculos-disponibles'] })
       setVehId(String(activo.id))
     },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo vincular el vehículo al CMMS'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo vincular el vehículo al CMMS')),
   })
   const seleccionarVehiculo = (key: string) => {
     setVehSelKey(key)
@@ -767,12 +768,12 @@ export default function EAMNeumaticos() {
   const mutMov = useMutation({
     mutationFn: (body: Record<string, unknown>) => api.post('/eam/neumaticos/movimiento', body),
     onSuccess: () => { toast.success('Movimiento registrado'); invalidar() },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error en el movimiento'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error en el movimiento')),
   })
   const mutNuevo = useMutation({
     mutationFn: (body: Record<string, unknown>) => api.post('/eam/neumaticos', body),
     onSuccess: () => { toast.success('Neumático registrado'); qc.invalidateQueries({ queryKey: ['eam-neumaticos'] }); setNuevoOpen(false); setNuevoForm({ ...EMPTY_NEUMATICO }) },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al registrar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al registrar')),
   })
   // Asigna una categoría de ejes/llantas ya pre-configurada (esquema) al vehículo
   // seleccionado — no se digitan números eje por eje aquí, esa configuración vive
@@ -788,7 +789,7 @@ export default function EAMNeumaticos() {
       qc.invalidateQueries({ queryKey: ['eam-vehiculos-disponibles'] })
       setEjesVeh(null)
     },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al asignar la categoría'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al asignar la categoría')),
   })
   // Abre la configuración de ejes de un vehículo cualquiera (desde Configuración).
   // Si es externo (TMS/Flota) y aún no está vinculado al CMMS, se vincula primero.
@@ -798,7 +799,7 @@ export default function EAMNeumaticos() {
       qc.invalidateQueries({ queryKey: ['eam-vehiculos-disponibles'] })
       setEjesVeh(prev => prev ? { ...prev, activo_id: activo.id } : prev)
     },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo vincular el vehículo al CMMS'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo vincular el vehículo al CMMS')),
   })
   // Total de llantas del vehículo: si ya tiene layout asignado se suma tal cual;
   // si no, se estima con el patrón clásico (eje 1 = 2, resto = 4), igual que el backend.
@@ -819,28 +820,28 @@ export default function EAMNeumaticos() {
   const mutBodega = useMutation({
     mutationFn: (b: Record<string, unknown>) => api.post('/eam/neumaticos/bodegas', b),
     onSuccess: () => { toast.success('Bodega creada'); qc.invalidateQueries({ queryKey: ['eam-bodegas-neu'] }); setBodForm({ codigo: '', nombre: '', ubicacion: '' }) },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al crear bodega'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al crear bodega')),
   })
   const mutBodegaDel = useMutation({
     mutationFn: (id: number) => api.delete(`/eam/neumaticos/bodegas/${id}`),
     onSuccess: () => { toast.success('Bodega eliminada'); qc.invalidateQueries({ queryKey: ['eam-bodegas-neu'] }) },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo eliminar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo eliminar')),
   })
   const mutDano = useMutation({
     mutationFn: (d: Record<string, unknown>) => api.post('/eam/neumaticos/danos-catalogo', d),
     onSuccess: () => { toast.success('Daño creado'); qc.invalidateQueries({ queryKey: ['eam-danos-neu'] }); setDanoForm({ codigo: '', nombre: '', severidad: 'MODERADO', accion: 'INSPECCION' }) },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al crear daño'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al crear daño')),
   })
   const mutDanoDel = useMutation({
     mutationFn: (id: number) => api.delete(`/eam/neumaticos/danos-catalogo/${id}`),
     onSuccess: () => { toast.success('Daño eliminado'); qc.invalidateQueries({ queryKey: ['eam-danos-neu'] }) },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo eliminar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo eliminar')),
   })
   const [catForm, setCatForm] = useState({ tipo: 'MARCA', nombre: '', valor: '' })
   const mutCat = useMutation({
     mutationFn: (c: Record<string, unknown>) => api.post('/eam/neumaticos/catalogo', c),
     onSuccess: () => { toast.success('Opción agregada'); qc.invalidateQueries({ queryKey: ['eam-cat-neu'] }); setCatForm(f => ({ ...f, nombre: '', valor: '' })) },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al agregar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al agregar')),
   })
   const mutCatDel = useMutation({
     mutationFn: (id: number) => api.delete(`/eam/neumaticos/catalogo/${id}`),
@@ -851,7 +852,7 @@ export default function EAMNeumaticos() {
   const mutZona = useMutation({
     mutationFn: (b: Record<string, unknown>) => api.post('/eam/neumaticos/zonas', b),
     onSuccess: () => { toast.success('Zona creada'); qc.invalidateQueries({ queryKey: ['eam-zonas-neu'] }); setZonaForm({ codigo: '', nombre: '' }) },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al crear zona'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al crear zona')),
   })
   const mutZonaDel = useMutation({
     mutationFn: (id: number) => api.delete(`/eam/neumaticos/zonas/${id}`),
@@ -862,7 +863,7 @@ export default function EAMNeumaticos() {
   const mutBanda = useMutation({
     mutationFn: (b: Record<string, unknown>) => api.post('/eam/neumaticos/bandas-reencauche', b),
     onSuccess: () => { toast.success('Banda creada'); qc.invalidateQueries({ queryKey: ['eam-bandas-reenc'] }); setBandaForm({ marca: '', referencia: '', dimension: '', profundidad_original: '', profundidad_minima: '', costo_defecto: '', reesculturable: false }) },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al crear banda'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al crear banda')),
   })
   const mutBandaDel = useMutation({
     mutationFn: (id: number) => api.delete(`/eam/neumaticos/bandas-reencauche/${id}`),
@@ -873,7 +874,7 @@ export default function EAMNeumaticos() {
   const mutMotivo = useMutation({
     mutationFn: (b: Record<string, unknown>) => api.post('/eam/neumaticos/motivos-fin-vida', b),
     onSuccess: () => { toast.success('Motivo creado'); qc.invalidateQueries({ queryKey: ['eam-motivos-fv'] }); setMotivoForm({ nombre: '', aplica_descarte: true, aplica_fin_vida: true }) },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al crear motivo'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al crear motivo')),
   })
   const mutMotivoDel = useMutation({
     mutationFn: (id: number) => api.delete(`/eam/neumaticos/motivos-fin-vida/${id}`),
@@ -884,7 +885,7 @@ export default function EAMNeumaticos() {
   const mutAjusteCat = useMutation({
     mutationFn: (b: Record<string, unknown>) => api.post('/eam/neumaticos/ajustes-catalogo', b),
     onSuccess: () => { toast.success('Categoría de ajuste creada'); qc.invalidateQueries({ queryKey: ['eam-ajustes-cat'] }); setAjusteCatForm({ nombre: '' }) },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al crear'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al crear')),
   })
   const mutAjusteCatDel = useMutation({
     mutationFn: (id: number) => api.delete(`/eam/neumaticos/ajustes-catalogo/${id}`),
@@ -899,13 +900,13 @@ export default function EAMNeumaticos() {
       qc.invalidateQueries({ queryKey: ['eam-indic'] })
       setAjusteForm({ motivo_id: '', fecha: new Date().toISOString().slice(0, 10), valor: '', comentarios: '' })
     },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al aplicar el ajuste'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al aplicar el ajuste')),
   })
   // Trabajos y periodicidad
   const mutTrabajo = useMutation({
     mutationFn: (b: Record<string, unknown>) => api.post('/eam/neumaticos/trabajos', b),
     onSuccess: () => { toast.success('Trabajo creado'); qc.invalidateQueries({ queryKey: ['eam-trabajos-cat'] }); setTrabajoForm({ nombre: '', observaciones: '' }) },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al crear trabajo'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al crear trabajo')),
   })
   const mutTrabajoDel = useMutation({
     mutationFn: (id: number) => api.delete(`/eam/neumaticos/trabajos/${id}`),
@@ -915,7 +916,7 @@ export default function EAMNeumaticos() {
   const mutPeriodicidad = useMutation({
     mutationFn: (b: Record<string, unknown>) => api.post('/eam/neumaticos/trabajos/periodicidad', b),
     onSuccess: () => { toast.success('Periodicidad creada'); qc.invalidateQueries({ queryKey: ['eam-periodicidad'] }); setPeriodForm({ trabajo_id: '', tipo_activo: '', valor: '', unidad: 'KILOMETROS' }) },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al crear periodicidad'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al crear periodicidad')),
   })
   const mutPeriodicidadDel = useMutation({
     mutationFn: (id: number) => api.delete(`/eam/neumaticos/trabajos/periodicidad/${id}`),
@@ -929,7 +930,7 @@ export default function EAMNeumaticos() {
       qc.invalidateQueries({ queryKey: ['eam-trabajos-neu'] })
       setTrabajoRealForm({ trabajo_id: '', fecha: nowLocal(), km_odometro: '', cantidad: '1', costo_unitario: '', proveedor: '', observaciones: '' })
     },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al registrar el trabajo'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al registrar el trabajo')),
   })
   // Reesculturado
   const mutResc = useMutation({
@@ -940,12 +941,12 @@ export default function EAMNeumaticos() {
       invalidarNeu()
       setRescForm({ fecha: nowLocal(), km_odometro: '', proveedor: '', costo: '', profundidad_nueva: '' })
     },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al reesculturar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al reesculturar')),
   })
   const mutDeshacerResc = useMutation({
     mutationFn: (id: number) => api.put(`/eam/neumaticos/reesculturado/${id}/deshacer`),
     onSuccess: () => { toast.success('Reesculturado deshecho'); qc.invalidateQueries({ queryKey: ['eam-resc-neu'] }); invalidarNeu() },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo deshacer'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo deshacer')),
   })
   // Recuperar banda
   const mutRecBanda = useMutation({
@@ -957,7 +958,7 @@ export default function EAMNeumaticos() {
       setRecBandaDialog(null)
       setRecBandaForm({ neumatico_destino_id: '', fecha: nowLocal(), mm_transferidos: '', costo_transferido: '', observaciones: '' })
     },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al recuperar la banda'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al recuperar la banda')),
   })
   // Cambiar zona
   const mutCambiarZona = useMutation({
@@ -969,7 +970,7 @@ export default function EAMNeumaticos() {
       setZonaDialog(null)
       setZonaCambioForm({ zona_id: '', fecha: nowLocal(), observaciones: '' })
     },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al cambiar la zona'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al cambiar la zona')),
   })
   // Congelar datos
   const mutCongelar = useMutation({
@@ -979,7 +980,7 @@ export default function EAMNeumaticos() {
       qc.invalidateQueries({ queryKey: ['eam-congelados'] })
       setCongelarOpen(false); setCongelarDesc('')
     },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al congelar datos'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al congelar datos')),
   })
   const mutDeleteCongelado = useMutation({
     mutationFn: (id: number) => api.delete(`/eam/neumaticos/congelados/${id}`),
@@ -995,7 +996,7 @@ export default function EAMNeumaticos() {
       if (data.exitosos > 0) toast.success(`${data.exitosos} de ${data.total} llantas creadas`)
       if (data.errores?.length) toast.error(`${data.errores.length} filas con errores`)
     },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error en la importación'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error en la importación')),
   })
   // Eliminación masiva
   const mutBulkDelete = useMutation({
@@ -1005,7 +1006,7 @@ export default function EAMNeumaticos() {
       qc.invalidateQueries({ queryKey: ['eam-neumaticos'] })
       setSelectedIds(new Set()); setBulkDeleteOpen(false); setBulkDeleteConfirm('')
     },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al eliminar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al eliminar')),
   })
   // Inspecciones masivas
   const mutImportarInsp = useMutation({
@@ -1019,7 +1020,7 @@ export default function EAMNeumaticos() {
       if (data.exitosos > 0) toast.success(`${data.exitosos} de ${data.total} inspecciones registradas`)
       if (data.errores?.length) toast.error(`${data.errores.length} filas con errores`)
     },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error en la importación'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error en la importación')),
   })
   // Descartes (baja) masivos
   const mutImportarBaja = useMutation({
@@ -1032,7 +1033,7 @@ export default function EAMNeumaticos() {
       if (data.exitosos > 0) toast.success(`${data.exitosos} de ${data.total} llantas dadas de baja`)
       if (data.errores?.length) toast.error(`${data.errores.length} filas con errores`)
     },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error en la importación'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error en la importación')),
   })
 
   const descargarPlantillaImportacion = () => {
@@ -1234,19 +1235,19 @@ export default function EAMNeumaticos() {
   const mutInsp = useMutation({
     mutationFn: (body: Record<string, unknown>) => api.post(`/eam/neumaticos/${inspDialog!.id}/inspecciones`, body),
     onSuccess: () => { toast.success('Inspección registrada'); qc.invalidateQueries({ queryKey: ['eam-insp'] }); qc.invalidateQueries({ queryKey: ['eam-historial-inspecciones'] }); invalidarNeu(); setInspDialog(null); setInspForm({ ...EMPTY_INSP }) },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al registrar inspección'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al registrar inspección')),
   })
   // Voltear (invertir interna↔externa en la misma posición)
   const mutVoltear = useMutation({
     mutationFn: (nid: number) => api.post('/eam/neumaticos/movimiento', { neumatico_id: nid, tipo_movimiento: 'VOLTEO', fecha: new Date().toISOString() }),
     onSuccess: () => { toast.success('Llanta volteada · hombros interno/externo invertidos'); invalidarNeu(); qc.invalidateQueries({ queryKey: ['eam-mov'] }); setVoltearDialog(null) },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo voltear'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo voltear')),
   })
   // Rotación por intercambio de posiciones entre dos llantas
   const mutIntercambio = useMutation({
     mutationFn: (body: Record<string, unknown>) => api.post('/eam/neumaticos/rotacion-intercambio', body),
     onSuccess: () => { toast.success('Rotación realizada · posiciones intercambiadas'); invalidarNeu(); qc.invalidateQueries({ queryKey: ['eam-mov'] }); setRotDialog(null); setRotTarget('') },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo rotar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo rotar')),
   })
   // Configuración global
   const mutCfg = useMutation({
@@ -1258,17 +1259,17 @@ export default function EAMNeumaticos() {
   const mutLote = useMutation({
     mutationFn: (body: Record<string, unknown>) => api.post('/eam/neumaticos/reencauche', body),
     onSuccess: (r: any) => { toast.success('Lote creado'); qc.invalidateQueries({ queryKey: ['eam-reencauche'] }); setLoteOpen(false); setSelLote(r.data.id); setLoteForm({ fecha_envio: new Date().toISOString().slice(0, 10), proveedor: '', remision: '', observaciones: '' }) },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al crear lote'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al crear lote')),
   })
   const mutAddDet = useMutation({
     mutationFn: (body: Record<string, unknown>) => api.post(`/eam/neumaticos/reencauche/${selLote}/detalle`, body),
     onSuccess: () => { toast.success('Llanta agregada al lote'); qc.invalidateQueries({ queryKey: ['eam-reencauche-det'] }); invalidarNeu(); setAddTireLote('') },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo agregar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo agregar')),
   })
   const mutProc = useMutation({
     mutationFn: (body: Record<string, unknown>) => api.put(`/eam/neumaticos/reencauche/detalle/${procDialog!.id}`, body),
     onSuccess: () => { toast.success('Resultado registrado'); qc.invalidateQueries({ queryKey: ['eam-reencauche-det'] }); invalidarNeu(); setProcDialog(null) },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al procesar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al procesar')),
   })
   const mutCerrarLote = useMutation({
     mutationFn: (id: number) => api.put(`/eam/neumaticos/reencauche/${id}/cerrar`),
@@ -1399,7 +1400,7 @@ export default function EAMNeumaticos() {
       qc.invalidateQueries({ queryKey: ['eam-vehiculos'] })
       salirDeRotacion()
     },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo aplicar la rotación'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo aplicar la rotación')),
   })
 
   const confirmarRotacionRin = () => {
@@ -1460,7 +1461,7 @@ export default function EAMNeumaticos() {
       qc.invalidateQueries({ queryKey: ['eam-insp'] }); qc.invalidateQueries({ queryKey: ['eam-historial-inspecciones'] })
       setInspSesionOpen(false)
     } catch (e: any) {
-      toast.error(e?.response?.data?.detail ?? 'Error al registrar alguna inspección')
+      toast.error(mensajeDeError(e, 'Error al registrar alguna inspección'))
     } finally {
       setInspSesionEnviando(false)
     }

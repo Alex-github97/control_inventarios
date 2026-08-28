@@ -25,6 +25,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
 import { apiClient as api } from '@/api/client'
+import { mensajeDeError } from '@/utils/errorApi'
 
 const EAM_COLOR = '#32AC5C'
 const EAM_DARK = '#27884A'
@@ -407,8 +408,7 @@ export default function EAMPlanesMant() {
   })
 
   const err = (e: any) => {
-    const d = e?.response?.data?.detail
-    toast.error(typeof d === 'string' ? d : 'No se pudo guardar la rutina')
+    toast.error(mensajeDeError(e, 'No se pudo guardar la rutina'))
   }
   const invalidar = () => {
     qc.invalidateQueries({ queryKey: ['eam-planes'] })

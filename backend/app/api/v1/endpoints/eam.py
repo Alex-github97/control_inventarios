@@ -1,4 +1,5 @@
 from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
@@ -2110,7 +2111,25 @@ def _validar_montaje(tipo_uso: Optional[str], posicion: str) -> Optional[str]:
     return None
 
 
+ZONA_LOCAL = ZoneInfo("America/Bogota")
+
+
+def _fecha_naive(fecha):
+    """Deja la fecha sin zona horaria, en hora local de Colombia.
+
+    El navegador manda la fecha en UTC (`...Z`) pero estas tablas la guardan sin
+    zona, así que compararlas directamente revienta con "can't compare
+    offset-naive and offset-aware datetimes". Se convierte a hora local antes de
+    soltar la zona para que lo guardado coincida con la hora que el usuario
+    escribió en pantalla.
+    """
+    if fecha is None or fecha.tzinfo is None:
+        return fecha
+    return fecha.astimezone(ZONA_LOCAL).replace(tzinfo=None)
+
+
 async def _validar_fecha_movimiento(db: AsyncSession, neu: "EAMNeumatico", fecha) -> Optional[str]:
+    fecha = _fecha_naive(fecha)
     """No permite registrar un movimiento con fecha anterior a una inspección o a
     otro movimiento ya registrados para la misma llanta (evita romper el orden
     cronológico del historial)."""
@@ -2521,6 +2540,8 @@ async def crear_movimiento_neumatico(data: MovNeumaticoCreate, db: AsyncSession 
     tipo = (data.tipo_movimiento or "").upper()
     posicion_origen = neu.posicion
 
+    # Se normaliza una sola vez: lo que se compara es lo que se guarda.
+    data.fecha = _fecha_naive(data.fecha)
     err_fecha = await _validar_fecha_movimiento(db, neu, data.fecha)
     if err_fecha:
         raise HTTPException(409, err_fecha)
@@ -2710,6 +2731,7 @@ async def rotacion_intercambio(data: RotacionIntercambio, db: AsyncSession = Dep
         raise HTTPException(404, "Neumático no encontrado")
     if a.estado != "INSTALADO" or b.estado != "INSTALADO":
         raise HTTPException(409, "Ambas llantas deben estar instaladas para intercambiarse")
+    data.fecha = _fecha_naive(data.fecha)
     for neu in (a, b):
         err_fecha = await _validar_fecha_movimiento(db, neu, data.fecha)
         if err_fecha:
@@ -2786,6 +2808,7 @@ async def rotacion_plan(data: RotacionPlan, db: AsyncSession = Depends(get_db)):
         )
     if not data.destinos:
         raise HTTPException(400, "No hay llantas que mover")
+    data.fecha = _fecha_naive(data.fecha)
 
     # Dos llantas no pueden terminar en la misma posición.
     ocupadas: dict[str, int] = {}
@@ -3573,6 +3596,7 @@ async def crear_inspeccion(nid: int, data: InspeccionNeuCreate, db: AsyncSession
     # Una inspección con fecha anterior al último movimiento mediría la llanta
     # en una posición donde ya no estaba, y además pisaría la profundidad actual
     # con un dato viejo.
+    data.fecha = _fecha_naive(data.fecha)
     mov_r = await db.execute(
         select(EAMMovimientoNeumatico.fecha).where(EAMMovimientoNeumatico.neumatico_id == nid)
         .order_by(EAMMovimientoNeumatico.fecha.desc()).limit(1)
