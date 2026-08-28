@@ -2710,6 +2710,10 @@ async def rotacion_intercambio(data: RotacionIntercambio, db: AsyncSession = Dep
         raise HTTPException(404, "Neumático no encontrado")
     if a.estado != "INSTALADO" or b.estado != "INSTALADO":
         raise HTTPException(409, "Ambas llantas deben estar instaladas para intercambiarse")
+    for neu in (a, b):
+        err_fecha = await _validar_fecha_movimiento(db, neu, data.fecha)
+        if err_fecha:
+            raise HTTPException(409, f"{neu.codigo}: {err_fecha}")
     pos_a, pos_b = a.posicion, b.posicion
     veh_a, veh_b = a.activo_id, b.activo_id
     cfg = await _get_config_neu(db)
@@ -2821,6 +2825,13 @@ async def rotacion_plan(data: RotacionPlan, db: AsyncSession = Depends(get_db)):
         neu = por_id[d.neumatico_id]
         if neu.estado == "BAJA":
             raise HTTPException(409, f"La llanta {neu.codigo} fue descartada y no se puede mover.")
+        # La rotación es un solo evento con una sola fecha, pero cada llanta
+        # trae su propio historial: basta que una tenga algo posterior para que
+        # la fecha esté mal. Se valida antes de tocar nada, para no dejar media
+        # rotación aplicada.
+        err_fecha = await _validar_fecha_movimiento(db, neu, data.fecha)
+        if err_fecha:
+            raise HTTPException(409, f"{neu.codigo}: {err_fecha}")
         if d.posicion and cfg.montaje_estricto:
             err = _validar_montaje(neu.tipo_uso, d.posicion)
             if err:
@@ -3559,6 +3570,20 @@ async def crear_inspeccion(nid: int, data: InspeccionNeuCreate, db: AsyncSession
     neu = await db.get(EAMNeumatico, nid)
     if not neu:
         raise HTTPException(404, "Neumático no encontrado")
+    # Una inspección con fecha anterior al último movimiento mediría la llanta
+    # en una posición donde ya no estaba, y además pisaría la profundidad actual
+    # con un dato viejo.
+    mov_r = await db.execute(
+        select(EAMMovimientoNeumatico.fecha).where(EAMMovimientoNeumatico.neumatico_id == nid)
+        .order_by(EAMMovimientoNeumatico.fecha.desc()).limit(1)
+    )
+    ultimo_mov = mov_r.scalar_one_or_none()
+    if ultimo_mov and data.fecha < ultimo_mov:
+        raise HTTPException(
+            409,
+            f"La llanta tuvo un movimiento posterior ({ultimo_mov:%Y-%m-%d %H:%M}) a la fecha de "
+            "esta inspección. Corrige la fecha.",
+        )
     obj = EAMInspeccionNeumatico(neumatico_id=nid, **data.model_dump())
     if obj.posicion is None:
         obj.posicion = neu.posicion
