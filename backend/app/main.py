@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import os
 from app.core.config import settings
 from app.core.database import engine, Base
+from app.core.tenant import ESQUEMA_POR_DEFECTO
+from app.core.middleware_tenant import TenantMiddleware
 from app.api.v1.router import api_router
 import app.infrastructure.models  # noqa: F401 — registra todos los modelos
 from app.infrastructure.models.rol import Rol, ROLES_DEFECTO
@@ -88,19 +90,57 @@ async def _seed_roles_and_migrate(db: AsyncSession) -> None:
         select(Usuario).where(Usuario.rol_id == None, Usuario.activo == True)  # noqa: E711
     )
     for user in users_result.scalars().all():
-        enum_name = user.rol.value if user.rol else "CONSULTA"
+        # `rol` es una columna de texto: puede venir como str o, si en algún
+        # punto se mapeó a enum, con .value. Suponer siempre lo segundo rompía
+        # el arranque en cuanto un cliente nuevo tenía un usuario sin rol_id.
+        rol = user.rol
+        enum_name = getattr(rol, "value", rol) or "CONSULTA"
         if enum_name in roles_map:
             user.rol_id = roles_map[enum_name]
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    # 1. Crear tablas nuevas (incluye la tabla 'roles')
+async def _conexion(esquema: str):
+    """Conexión ya apuntando al esquema del cliente, creándolo si hace falta."""
     async with engine.begin() as conn:
+        await conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{esquema}"'))
+        # Solo el esquema del cliente: si "public" quedara detrás, create_all
+        # encontraría allí las tablas y no crearía las de este cliente, y un
+        # ALTER sin calificar caería sobre las de otro.
+        await conn.execute(text(f'SET search_path TO "{esquema}"'))
+        yield conn
+
+
+async def _esquemas_de_clientes() -> list[str]:
+    """Los esquemas de los clientes dados de alta.
+
+    Se lee con SQL directo porque corre antes de que el registro exista, la
+    primera vez que arranca.
+    """
+    async with engine.begin() as conn:
+        existe = await conn.execute(text(
+            "SELECT to_regclass('public.plataforma_cliente')"
+        ))
+        if existe.scalar() is None:
+            return []
+        r = await conn.execute(text(
+            "SELECT esquema FROM public.plataforma_cliente WHERE activo = true"
+        ))
+        return [e for (e,) in r.all() if e and e != ESQUEMA_POR_DEFECTO]
+
+
+async def _migrar_esquema(esquema: str) -> None:
+    """Deja un esquema al día con el juego completo de tablas.
+
+    Es la misma migración de siempre, ahora aplicada por cliente: cada uno tiene
+    sus propias tablas y hay que ponerlas al día una por una.
+    """
+    # 1. Crear tablas nuevas (incluye la tabla 'roles')
+    async with _conexion(esquema) as conn:
         await conn.run_sync(Base.metadata.create_all)
 
     # 2. Añadir columna rol_id a usuarios si no existe (safe para BD existentes)
-    async with engine.begin() as conn:
+    async with _conexion(esquema) as conn:
         await conn.execute(text(
             "ALTER TABLE usuarios "
             "ADD COLUMN IF NOT EXISTS rol_id INTEGER "
@@ -1215,7 +1255,17 @@ async def lifespan(app: FastAPI):
     # 3. Sembrar roles y migrar usuarios
     async with AsyncSession(engine) as db:
         async with db.begin():
+            await db.execute(text(f'SET search_path TO "{esquema}"'))
             await _seed_roles_and_migrate(db)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # El esquema por defecto guarda los datos de quien ya estaba antes de que
+    # esto fuera multicliente; ese cliente pasa a ser uno más.
+    await _migrar_esquema(ESQUEMA_POR_DEFECTO)
+    for esquema in await _esquemas_de_clientes():
+        await _migrar_esquema(esquema)
 
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     yield
@@ -1240,6 +1290,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# Resuelve el cliente antes de que la petición toque la base. Se registra
+# después de CORS para que las respuestas de error también lleven sus cabeceras.
+app.add_middleware(TenantMiddleware)
 
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 

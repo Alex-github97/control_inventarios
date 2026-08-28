@@ -16,17 +16,36 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
-def create_access_token(subject: Any, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(
+    subject: Any, expires_delta: Optional[timedelta] = None,
+    cliente: Optional[str] = None, esquema: Optional[str] = None,
+) -> str:
+    """El cliente viaja dentro del token, firmado.
+
+    Si el inquilino se tomara de una cabecera suelta, cualquiera podría pedir
+    datos de otro cliente con su propio token: el usuario es válido, solo cambia
+    a qué esquema apunta. Yendo firmado, cambiarlo invalida la firma.
+    """
     expire = datetime.now(timezone.utc) + (
         expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     payload = {"sub": str(subject), "exp": expire, "type": "access"}
+    if cliente:
+        payload["cli"] = cliente
+    if esquema:
+        payload["esq"] = esquema
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
-def create_refresh_token(subject: Any) -> str:
+def create_refresh_token(
+    subject: Any, cliente: Optional[str] = None, esquema: Optional[str] = None,
+) -> str:
     expire = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     payload = {"sub": str(subject), "exp": expire, "type": "refresh"}
+    if cliente:
+        payload["cli"] = cliente
+    if esquema:
+        payload["esq"] = esquema
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
