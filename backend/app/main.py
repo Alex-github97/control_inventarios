@@ -112,6 +112,28 @@ async def _conexion(esquema: str):
         yield conn
 
 
+async def _preparar_registro_clientes() -> None:
+    """Pone al día el registro de clientes, que vive fuera de los esquemas."""
+    async with engine.begin() as conn:
+        await conn.execute(text('SET search_path TO "public"'))
+        if (await conn.execute(text("SELECT to_regclass('public.plataforma_cliente')"))).scalar() is None:
+            return
+        await conn.execute(text(
+            "ALTER TABLE public.plataforma_cliente "
+            "ADD COLUMN IF NOT EXISTS es_operador BOOLEAN DEFAULT false"
+        ))
+        # Sin operador nadie podría dar de alta empresas: se designa a la que
+        # ya estaba, que es la de quien monta la plataforma.
+        hay = (await conn.execute(text(
+            "SELECT count(*) FROM public.plataforma_cliente WHERE es_operador = true"
+        ))).scalar() or 0
+        if hay == 0:
+            await conn.execute(text(
+                "UPDATE public.plataforma_cliente SET es_operador = true "
+                "WHERE id = (SELECT MIN(id) FROM public.plataforma_cliente)"
+            ))
+
+
 async def _esquemas_de_clientes() -> list[str]:
     """Los esquemas de los clientes dados de alta.
 
@@ -1265,6 +1287,7 @@ async def lifespan(app: FastAPI):
     # El esquema por defecto guarda los datos de quien ya estaba antes de que
     # esto fuera multicliente; ese cliente pasa a ser uno más.
     await _migrar_esquema(ESQUEMA_POR_DEFECTO)
+    await _preparar_registro_clientes()
     for esquema in await _esquemas_de_clientes():
         await _migrar_esquema(esquema)
 

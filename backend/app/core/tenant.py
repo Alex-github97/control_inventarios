@@ -53,3 +53,16 @@ def codigo_valido(codigo: str) -> bool:
 def nombre_esquema(codigo: str) -> str:
     """El esquema de un cliente, a partir de su código."""
     return codigo if codigo == ESQUEMA_POR_DEFECTO else f"cli_{codigo}"
+
+
+# ─── Los dos niveles de administración ────────────────────────────────────────
+#
+# Administrar la propia empresa —usuarios, catálogos, configuración— y
+# administrar la plataforma —dar de alta o suspender empresas— son cosas
+# distintas. El rol ADMINISTRADOR lo tiene el administrador de cada cliente
+# dentro de su esquema, así que usarlo para lo segundo dejaba que el
+# administrador de una empresa listara y suspendiera a las demás.
+#
+# Quién opera la plataforma se marca en el registro de clientes, que vive fuera
+# de los esquemas: si la marca estuviera dentro del esquema de un cliente, ese
+# cliente podría dársela a sí mismo.

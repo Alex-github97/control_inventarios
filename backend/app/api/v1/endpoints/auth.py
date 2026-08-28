@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Header
+from fastapi import APIRouter, Depends, HTTPException, status, Header, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, text
 from pydantic import BaseModel, ConfigDict
@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from app.core.database import get_db, get_db_plataforma
 from app.core.tenant import codigo_valido, nombre_esquema
 from app.infrastructure.models.plataforma import PlataformaCliente
-from app.core.security import verify_password, create_access_token, create_refresh_token, hash_password
+from app.core.security import verify_password, create_access_token, create_refresh_token, hash_password, decode_token
 from app.core.dependencies import get_current_user, require_admin
 from app.infrastructure.repositories.usuario_repository import UsuarioRepository
 from app.infrastructure.models.usuario import Usuario, RolUsuario
@@ -107,12 +107,43 @@ async def login(
     )
 
 
+async def require_operador(
+    request: Request,
+    db: AsyncSession = Depends(get_db_plataforma),
+    usuario: Usuario = Depends(require_admin),
+) -> Usuario:
+    """Exige ser administrador DE LA EMPRESA QUE OPERA la plataforma.
+
+    No basta el rol ADMINISTRADOR: ese lo tiene el administrador de cada
+    cliente dentro de su esquema, así que con él solo, el administrador de una
+    empresa podía listar y suspender a las demás.
+
+    La empresa se toma del token, que la lleva firmada, y la marca de operador
+    del registro, que vive fuera de los esquemas.
+    """
+    auth = request.headers.get("authorization") or ""
+    codigo = decode_token(auth[7:]).get("cli") if auth.lower().startswith("bearer ") else None
+    if not codigo:
+        raise HTTPException(403, "La sesión no indica a qué empresa pertenece")
+    r = await db.execute(
+        select(PlataformaCliente).where(PlataformaCliente.codigo == codigo)
+    )
+    cliente = r.scalar_one_or_none()
+    if not cliente or not cliente.es_operador:
+        raise HTTPException(
+            403,
+            "Solo quien opera la plataforma puede administrar empresas.",
+        )
+    return usuario
+
+
 class ClienteAdmin(ClientePublico):
     """La ficha completa, solo para quien administra la plataforma."""
     id: int
     esquema: str
     nit: Optional[str] = None
     activo: bool
+    es_operador: bool = False
 
 
 class ClienteCrear(BaseModel):
@@ -126,7 +157,7 @@ class ClienteCrear(BaseModel):
 @router.get("/plataforma/clientes", response_model=List[ClienteAdmin])
 async def listar_clientes(
     db: AsyncSession = Depends(get_db_plataforma),
-    _: Usuario = Depends(require_admin),
+    _: Usuario = Depends(require_operador),
 ):
     r = await db.execute(select(PlataformaCliente).order_by(PlataformaCliente.nombre))
     return list(r.scalars().all())
@@ -136,7 +167,7 @@ async def listar_clientes(
 async def crear_cliente(
     data: ClienteCrear,
     db: AsyncSession = Depends(get_db_plataforma),
-    _: Usuario = Depends(require_admin),
+    _: Usuario = Depends(require_operador),
 ):
     """Da de alta una empresa y le crea su esquema con todas las tablas.
 
@@ -177,7 +208,7 @@ async def actualizar_cliente(
     cliente_id: int,
     data: ClienteCrear,
     db: AsyncSession = Depends(get_db_plataforma),
-    _: Usuario = Depends(require_admin),
+    _: Usuario = Depends(require_operador),
 ):
     cliente = await db.get(PlataformaCliente, cliente_id)
     if not cliente:
@@ -197,7 +228,7 @@ async def cambiar_estado_cliente(
     cliente_id: int,
     activo: bool,
     db: AsyncSession = Depends(get_db_plataforma),
-    _: Usuario = Depends(require_admin),
+    _: Usuario = Depends(require_operador),
 ):
     """Suspende o reactiva el acceso, sin tocar los datos.
 

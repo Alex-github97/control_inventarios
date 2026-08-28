@@ -30,5 +30,8 @@ class PlataformaCliente(Base, TimestampMixin):
     color    = Column(String(20))
     nit      = Column(String(30))
     activo   = Column(Boolean, default=True)
+    # Quien opera la plataforma: da de alta y suspende a las demás empresas.
+    # Va acá, fuera de los esquemas, para que ningún cliente pueda otorgárselo.
+    es_operador = Column(Boolean, default=False)
     # Se apaga el acceso sin borrar los datos.
     suspendido_desde = Column(DateTime)
