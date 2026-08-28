@@ -880,7 +880,6 @@ export default function GHCapacitacion() {
             {colaboradores.map(c => (
               <ListItem
                 key={c.id}
-                button
                 onClick={() => toggleColab(c.id)}
                 sx={{ cursor: 'pointer' }}
               >

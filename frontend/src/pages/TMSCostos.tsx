@@ -226,7 +226,7 @@ export default function TMSCostos() {
                               <Typography fontSize={12}>{v.destino}</Typography>
                             </Stack>
                           </TableCell>
-                          <TableCell fontSize={12}>{v.conductor}</TableCell>
+                          <TableCell sx={{ fontSize: 12 }}>{v.conductor}</TableCell>
                           <TableCell align="right" sx={{ fontSize: 12 }}>{fmt(v.valor_flete)}</TableCell>
                           <TableCell align="right" sx={{ fontSize: 12 }}>{fmt(tot)}</TableCell>
                           <TableCell align="right" sx={{ fontSize: 12, color: mg >= 0 ? 'success.main' : 'error.main' }}>{fmt(mg)}</TableCell>

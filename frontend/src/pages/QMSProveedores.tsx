@@ -162,10 +162,17 @@ export default function QMSProveedores() {
             <TextField label="Proveedor" fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
             <TextField label="NIT" fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
             <TextField label="Período" type="month" defaultValue="2026-06" fullWidth size="small" InputLabelProps={{ shrink: true, sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
-            {[['Calidad', calidad, setCalidad], ['Cumplimiento', cumplimiento, setCumplimiento], ['Servicio', servicio, setServicio], ['Tiempos de Entrega', tiempos, setTiempos]].map(([label, val, setter]) => (
-              <Box key={label as string}>
+            {([
+              ['Calidad', calidad, setCalidad],
+              ['Cumplimiento', cumplimiento, setCumplimiento],
+              ['Servicio', servicio, setServicio],
+              ['Tiempos de Entrega', tiempos, setTiempos],
+              // La tupla va tipada: sin esto TS infiere una unión de los tres
+              // tipos y cree que {val} podría ser el setter.
+            ] as [string, number, (v: number) => void][]).map(([label, val, setter]) => (
+              <Box key={label}>
                 <Typography sx={{ fontSize: 12, color: 'text.secondary', mb: 0.5 }}>{label}: {val}</Typography>
-                <Slider value={val as number} min={0} max={100} step={1} onChange={(_, v) => (setter as (v: number) => void)(v as number)} sx={{ color: QMS_COLOR }} />
+                <Slider value={val} min={0} max={100} step={1} onChange={(_, v) => setter(v as number)} sx={{ color: QMS_COLOR }} />
               </Box>
             ))}
             <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: alpha(CLASIF_COLOR[previewClasif], 0.1), border: `1px solid ${alpha(CLASIF_COLOR[previewClasif], 0.3)}` }}>

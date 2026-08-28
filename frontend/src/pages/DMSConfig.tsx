@@ -658,7 +658,7 @@ function TabCategorias() {
                   { cat: 'Técnico / Ingeniería', tipos: 3, docs: 41 },
                 ].map((row, i) => (
                   <TableRow key={i} hover sx={{ '& td': { py: 0.75, fontSize: '0.8rem' } }}>
-                    <TableCell fontWeight={600}>{row.cat}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{row.cat}</TableCell>
                     <TableCell align="center">{row.tipos}</TableCell>
                     <TableCell align="center">{row.docs}</TableCell>
                     <TableCell align="center">

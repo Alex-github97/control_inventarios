@@ -72,7 +72,19 @@ const fmt = (n: number | null | undefined) =>
     ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
     : '—'
 
-const EMPTY: Partial<Activo> & { [k: string]: any } = {
+/**
+ * El formulario sostiene los identificadores como texto mientras se editan
+ * —es lo que devuelve un desplegable— y el activo los tiene como número.
+ * Declararlo así evita afirmar que son números cuando todavía no lo son.
+ */
+type FormActivo = Omit<Partial<Activo>, 'categoria_id' | 'sede_id' | 'espacio_id'> & {
+  categoria_id?: number | string | null
+  sede_id?: number | string | null
+  espacio_id?: number | string | null
+  [k: string]: any
+}
+
+const EMPTY: FormActivo = {
   tag: '', nombre: '', descripcion: '', estado: 'OPERATIVO', criticidad: 'ESTANDAR',
   metodo_depreciacion: 'LINEA_RECTA', costo_adquisicion: undefined, valor_residual: 0,
   vida_util_anos: undefined, depreciacion_acumulada: 0, deterioro_acumulado: 0,

@@ -49,3 +49,8 @@ Thumbs.db
 # Documentos temporales
 *.docx~
 ~$*.docx
+
+# Despliegue
+.env.prod
+backups/
+deploy/certbot/

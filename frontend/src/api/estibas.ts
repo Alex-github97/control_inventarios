@@ -9,6 +9,11 @@ export interface Estiba {
   material: string
   estado: string
   tipo_propietario: string
+  // El backend las devuelve; faltaban acá y la ficha de detalle no compilaba.
+  largo_cm?: number
+  ancho_cm?: number
+  alto_cm?: number
+  peso_kg?: number
   ubicacion_actual?: { id: number; nombre: string; tipo: string }
   proveedor?: { id: number; razon_social: string }
   fecha_ingreso: string

@@ -343,7 +343,7 @@ function DemandaForecastTab() {
               <TableBody>
                 {forecastAccuracy.map((row) => (
                   <TableRow key={row.familia} hover>
-                    <TableCell fontWeight={600}>{row.familia}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{row.familia}</TableCell>
                     {[row.jan, row.feb, row.mar, row.apr, row.may, row.jun].map((v, i) => (
                       <TableCell key={i} align="center">
                         <Typography
@@ -467,7 +467,7 @@ function SupplyProduccionTab() {
               <TableBody>
                 {mpsAdherence.map((row) => (
                   <TableRow key={row.familia} hover>
-                    <TableCell fontWeight={600}>{row.familia}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{row.familia}</TableCell>
                     <AdherenceCell value={row.w1} />
                     <AdherenceCell value={row.w2} />
                     <AdherenceCell value={row.w3} />
@@ -502,7 +502,7 @@ function SupplyProduccionTab() {
               <TableBody>
                 {oeeData.map((row) => (
                   <TableRow key={row.planta} hover>
-                    <TableCell fontWeight={600}>{row.planta}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{row.planta}</TableCell>
                     <TableCell align="center">
                       <Typography variant="body2" color="text.secondary">{row.planificado}%</Typography>
                     </TableCell>
@@ -551,7 +551,7 @@ function SupplyProduccionTab() {
               <TableBody>
                 {variaciones.map((row) => (
                   <TableRow key={row.familia} hover>
-                    <TableCell fontWeight={600}>{row.familia}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{row.familia}</TableCell>
                     <TableCell align="right">{row.plan.toLocaleString()}</TableCell>
                     <TableCell align="right">{row.real.toLocaleString()}</TableCell>
                     <TableCell align="center">
@@ -778,7 +778,7 @@ function PresidenciaTab() {
               <TableBody>
                 {commitments.map((row) => (
                   <TableRow key={row.indicador} hover>
-                    <TableCell fontWeight={600}>{row.indicador}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{row.indicador}</TableCell>
                     <TableCell align="center">
                       <Typography variant="body2" color="text.secondary">{row.target}</Typography>
                     </TableCell>

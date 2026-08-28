@@ -107,7 +107,7 @@ function SimpleSection({
               <Stack direction="row" alignItems="center" gap={1}>
                 <Box flex={1}>
                   <Typography fontSize={13} fontWeight={600}>{item.nombre}</Typography>
-                  {extraFields?.map(ef => item[ef.key] && (
+                  {extraFields?.map(ef => Boolean(item[ef.key]) && (
                     <Typography key={ef.key} fontSize={11} color="text.secondary">
                       {ef.label}: {String(item[ef.key])}
                     </Typography>

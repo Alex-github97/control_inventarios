@@ -227,7 +227,7 @@ function TabTendencias() {
   ]
 
   const averages = cols.reduce((acc, col) => {
-    const sum = HISTORICO_SEMANAS.reduce((s, r) => s + (r as Record<string, number>)[col.key], 0)
+    const sum = HISTORICO_SEMANAS.reduce((s, r) => s + ((r as unknown) as Record<string, number>)[col.key], 0)
     acc[col.key] = Math.round((sum / HISTORICO_SEMANAS.length) * 10) / 10
     return acc
   }, {} as Record<string, number>)
@@ -248,7 +248,7 @@ function TabTendencias() {
             <TableRow key={row.semana} hover sx={{ background: idx % 2 === 0 ? 'transparent' : alpha(APS_COLOR, 0.015) }}>
               <TableCell sx={{ fontWeight: 700, fontSize: '0.78rem', color: APS_COLOR }}>{row.semana}</TableCell>
               {cols.map(col => {
-                const val = (row as Record<string, number>)[col.key]
+                const val = ((row as unknown) as Record<string, number>)[col.key]
                 return (
                   <TableCell key={col.key}>
                     <MiniBar value={val} max={col.max} color={APS_COLOR} />

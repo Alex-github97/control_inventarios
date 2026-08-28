@@ -33,7 +33,14 @@ interface Rutina {
   trabajos: { id: number; tipo_trabajo_id: number; tipo_trabajo_nombre?: string; orden: number; obligatorio: boolean; instrucciones?: string }[]
   repuestos: { id: number; repuesto_id: number; repuesto_codigo?: string; repuesto_nombre?: string; repuesto_unidad?: string; costo_referencia?: number; cantidad: number; obligatorio: boolean }[]
 }
-interface SecuenciaRutinaItem { rutina_id: number; orden: number; intervalo_km_override?: number; intervalo_dias_override?: number; notas?: string }
+// Los intervalos se sostienen como texto mientras se editan —es lo que da un
+// campo de formulario— y se convierten a número al guardar.
+interface SecuenciaRutinaItem {
+  rutina_id: number; orden: number
+  intervalo_km_override?: number | string
+  intervalo_dias_override?: number | string
+  notas?: string
+}
 interface Secuencia {
   id: number; codigo: string; nombre: string; descripcion?: string; aplica_tipo_trabajo?: string; activo: boolean
   total_asignaciones: number

@@ -373,7 +373,7 @@ export default function Movimientos() {
     const reader = new BrowserMultiFormatReader()
     try {
       const controls = await reader.decodeFromVideoDevice(
-        deviceId || null,
+        deviceId || undefined,
         videoRef.current!,
         (result: any) => {
           if (!result) return

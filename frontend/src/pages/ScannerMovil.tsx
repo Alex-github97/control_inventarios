@@ -53,7 +53,7 @@ export default function ScannerMovil() {
     try {
       const reader   = new BrowserMultiFormatReader()
       const controls = await reader.decodeFromVideoDevice(
-        null,
+        undefined,
         videoRef.current!,
         (result: any) => {
           if (!result) return

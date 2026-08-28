@@ -1,0 +1,117 @@
+# Despliegue en servidor.
+#
+# Diferencias con el compose de desarrollo, y por qué:
+#   - El frontend va compilado y servido por nginx, no con el servidor de Vite.
+#   - El backend corre sin --reload y con varios procesos.
+#   - No se publica pgAdmin: administrar la base desde internet es una puerta
+#     que no hace falta abrir. Para entrar, túnel SSH.
+#   - Postgres y Redis no exponen puertos al exterior: solo se llega a ellos
+#     desde la red interna de Docker.
+#   - Un nginx al frente termina el TLS y reparte entre el portal y la API.
+#
+# Arranque:  docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: prod_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Ordenación e índices en español.
+      POSTGRES_INITDB_ARGS: "--locale=es_CO.UTF-8 --encoding=UTF8"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backups:/backups
+    # Sin `ports`: nadie llega a la base desde fuera del servidor.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Cada cliente son 416 tablas: con varios, el catálogo pesa y conviene
+    # darle memoria a Postgres. Ajustar según la RAM de la máquina.
+    command: >
+      postgres
+      -c shared_buffers=1GB
+      -c effective_cache_size=3GB
+      -c max_connections=120
+      -c work_mem=16MB
+
+  redis:
+    image: redis:7-alpine
+    container_name: prod_redis
+    restart: always
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redisdata:/data
+
+  backend:
+    build:
+      context: ./backend
+    container_name: prod_backend
+    restart: always
+    env_file: .env.prod
+    environment:
+      ENVIRONMENT: production
+      # Con DEBUG en true el motor escribe CADA consulta SQL en el log: llena
+      # el disco y frena todo. En producción va apagado.
+      DEBUG: "false"
+    # Varios procesos para aprovechar los núcleos. Regla práctica: 2 por vCPU.
+    command: >
+      uvicorn app.main:app --host 0.0.0.0 --port 8000
+      --workers ${UVICORN_WORKERS:-4} --proxy-headers --forwarded-allow-ips='*'
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      target: production
+      args:
+        # La API va por el mismo dominio, detrás del proxy: así no hay CORS
+        # entre el portal y su backend.
+        VITE_API_URL: /api/v1
+    container_name: prod_frontend
+    restart: always
+
+  proxy:
+    image: nginx:alpine
+    container_name: prod_proxy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # La imagen de nginx sustituye ${...} en los archivos de /templates al
+      # arrancar; en un .conf normal quedarían literales.
+      DOMINIO: ${DOMINIO}
+    volumes:
+      - ./deploy/nginx-proxy.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./deploy/certbot/conf:/etc/letsencrypt:ro
+      - ./deploy/certbot/www:/var/www/certbot:ro
+    depends_on:
+      - backend
+      - frontend
+
+  # Renueva el certificado. Despierta cada 12 h porque Let's Encrypt renueva
+  # dentro de los 30 días previos al vencimiento, no en una fecha fija.
+  certbot:
+    image: certbot/certbot
+    container_name: prod_certbot
+    restart: always
+    volumes:
+      - ./deploy/certbot/conf:/etc/letsencrypt
+      - ./deploy/certbot/www:/var/www/certbot
+    entrypoint: >
+      sh -c "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot
+      --quiet; sleep 12h & wait $${!}; done"
+
+volumes:
+  pgdata:
+  redisdata:
+  uploads:
