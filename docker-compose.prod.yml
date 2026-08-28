@@ -90,6 +90,8 @@ services:
       # La imagen de nginx sustituye ${...} en los archivos de /templates al
       # arrancar; en un .conf normal quedarían literales.
       DOMINIO: ${DOMINIO}
+      # Los nombres por los que se atiende. Si no se define, solo el principal.
+      DOMINIOS: ${DOMINIOS:-${DOMINIO}}
     volumes:
       - ./deploy/nginx-proxy.conf.template:/etc/nginx/templates/default.conf.template:ro
       - ./deploy/certbot/conf:/etc/letsencrypt:ro

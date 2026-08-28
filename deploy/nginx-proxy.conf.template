@@ -7,7 +7,9 @@
 # Let's Encrypt, que necesita responder en claro para emitir el certificado.
 server {
     listen 80;
-    server_name ${DOMINIO};
+    # Todos los nombres por los que se llega, separados por espacio. ${DOMINIO}
+    # sigue siendo uno solo porque da el nombre de la carpeta del certificado.
+    server_name ${DOMINIOS};
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -20,7 +22,9 @@ server {
 server {
     listen 443 ssl;
     http2 on;
-    server_name ${DOMINIO};
+    # Todos los nombres por los que se llega, separados por espacio. ${DOMINIO}
+    # sigue siendo uno solo porque da el nombre de la carpeta del certificado.
+    server_name ${DOMINIOS};
 
     ssl_certificate     /etc/letsencrypt/live/${DOMINIO}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${DOMINIO}/privkey.pem;
