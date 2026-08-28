@@ -316,6 +316,10 @@ export default function EAMNeumaticos() {
   const [agregarLlantaOpen, setAgregarLlantaOpen] = useState(false)
   /** Posición desde la que se abrió el montaje, al hacer clic en una rueda vacía. */
   const [posicionAMontar, setPosicionAMontar] = useState('')
+  /** Bandeja de llantas pegada al diagrama, para arrastrar sin cruzar la pantalla. */
+  const [modoMontaje, setModoMontaje] = useState(false)
+  const [busqMontaje, setBusqMontaje] = useState('')
+  const [bodegaMontaje, setBodegaMontaje] = useState('')
   // Rotación en el rin (misma posición, sin desmontar)
   const [rotRinDialog, setRotRinDialog] = useState<Neumatico | null>(null)
   const [rotRinForm, setRotRinForm] = useState({ fecha: nowLocal(), km_odometro: '', tecnico: '', observaciones: '' })
@@ -652,6 +656,22 @@ export default function EAMNeumaticos() {
       bodegas: Array.from(new Set(almacen.map(n => n.bodega_id).filter((x): x is number => !!x))),
     }
   }, [almacen])
+
+  /** Bodegas que hoy tienen algo disponible: filtrar por una vacía no sirve. */
+  const bodegasConDisponibles = useMemo(
+    () => bodegas.filter(b => almacen.some(n => n.estado === 'ALMACENADO' && n.bodega_id === b.id)),
+    [bodegas, almacen],
+  )
+
+  /** Lo que se ofrece en la bandeja de montaje pegada al diagrama. */
+  const llantasParaMontar = useMemo(() => {
+    const q = busqMontaje.trim().toLowerCase()
+    return almacen
+      .filter(n => n.estado === 'ALMACENADO')
+      .filter(n => !bodegaMontaje || String(n.bodega_id ?? '') === bodegaMontaje)
+      .filter(n => !q || [n.codigo, n.marca, n.medida, n.referencia, n.dot]
+        .some(x => (x ?? '').toString().toLowerCase().includes(q)))
+  }, [almacen, busqMontaje, bodegaMontaje])
 
   const almacenFiltrado = useMemo(() => {
     const q = almBusq.trim().toLowerCase()
@@ -1329,7 +1349,11 @@ export default function EAMNeumaticos() {
   }
 
   // ─── Tarjeta de llanta (draggable) ──────────────────────────────────────────
-  const TireCard = ({ n, compact }: { n: Neumatico; compact?: boolean }) => (
+  // Se invocan como funciones — {tireCard(n)} — y no como <TireCard/>: al estar
+  // declaradas dentro del componente, React las trata como un tipo distinto en
+  // cada render y remonta el nodo. Con un arrastre en curso eso lo cancela,
+  // porque el elemento que el navegador está moviendo deja de existir.
+  const tireCard = (n: Neumatico, compact?: boolean) => (
     <Box
       draggable
       onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(n.id)); setDraggedTire(n) }}
@@ -1362,7 +1386,7 @@ export default function EAMNeumaticos() {
   // ─── Slot de posición (drop zone) ─────────────────────────────────────────
   // Rueda del diagrama: neumático visto de lado (arrastrable, tooltip con detalle,
   // clic abre historial, y es zona de drop para instalar/rotar).
-  const Slot = ({ pos }: { pos: Posicion }) => {
+  const slot = (pos: Posicion) => {
     const t = tireEn(pos.codigo)
     const activo = overSlot === pos.codigo
     const bajo = t?.profundidad_actual != null && t.profundidad_actual <= cfgForm.profundidad_minima
@@ -1539,13 +1563,31 @@ export default function EAMNeumaticos() {
                         }
                       />
                       {veh && veh.numero_ejes && (
-                        <Button
-                          size="small" variant="contained" startIcon={<AddIcon />}
-                          onClick={() => setAgregarLlantaOpen(true)}
-                          sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none', mt: 0.25 }}
-                        >
-                          Agregar llanta desde bodega
-                        </Button>
+                        <Stack direction="row" gap={1} sx={{ mt: 0.25 }}>
+                          {/* Abre la bandeja pegada al diagrama: arrastrar desde
+                              la columna de la derecha obliga a cruzar media
+                              pantalla con el botón sostenido. */}
+                          <Button
+                            size="small" variant={modoMontaje ? 'outlined' : 'contained'}
+                            startIcon={<TireRepair />}
+                            onClick={() => setModoMontaje(v => !v)}
+                            sx={{
+                              textTransform: 'none',
+                              ...(modoMontaje
+                                ? { color: EAM_DARK, borderColor: EAM_COLOR }
+                                : { bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }),
+                            }}
+                          >
+                            {modoMontaje ? 'Ocultar llantas' : 'Montar llantas'}
+                          </Button>
+                          <Button
+                            size="small" variant="outlined" startIcon={<AddIcon />}
+                            onClick={() => setAgregarLlantaOpen(true)}
+                            sx={{ textTransform: 'none', color: EAM_DARK, borderColor: alpha(EAM_COLOR, 0.5) }}
+                          >
+                            Agregar desde bodega
+                          </Button>
+                        </Stack>
                       )}
                     </Stack>
 
@@ -1587,8 +1629,90 @@ export default function EAMNeumaticos() {
                   ) : (
                     <Box>
                       <Typography fontSize={12} color="text.secondary" mb={1.5}>
-                        {veh.numero_ejes} eje(s) · arrastra una llanta desde la bodega (derecha) a una rueda, o entre ruedas para rotar. La rueda oscura = instalada; clic para ver su historial.
+                        {veh.numero_ejes} eje(s) · arrastra una llanta a una rueda, o entre ruedas para rotar.
+                        Clic en una rueda vacía para montar ahí; clic en una instalada para ver su historial.
                       </Typography>
+
+                      {/* Bandeja de montaje: las llantas disponibles justo encima
+                          del diagrama, para que el arrastre sea corto. */}
+                      {modoMontaje && (
+                        <Box sx={{
+                          mb: 1.5, p: 1.5, borderRadius: 3,
+                          border: `1px dashed ${EAM_COLOR}`, bgcolor: alpha(EAM_COLOR, 0.04),
+                        }}>
+                          <Stack direction="row" alignItems="center" gap={1} mb={1} flexWrap="wrap">
+                            <TireRepair sx={{ fontSize: 18, color: EAM_DARK }} />
+                            <Typography fontSize={13} fontWeight={700}>Llantas para montar</Typography>
+                            <TextField
+                              size="small" placeholder="Código, marca, medida…"
+                              value={busqMontaje} onChange={e => setBusqMontaje(e.target.value)}
+                              InputProps={{
+                                startAdornment: (
+                                  <InputAdornment position="start"><SearchIcon sx={{ fontSize: 15 }} /></InputAdornment>
+                                ),
+                              }}
+                              sx={{ minWidth: 210 }}
+                            />
+                            {bodegasConDisponibles.length > 1 && (
+                              <TextField select size="small" label="Ubicación" value={bodegaMontaje}
+                                onChange={e => setBodegaMontaje(e.target.value)} sx={{ minWidth: 175 }}>
+                                <MenuItem value="">Todas las bodegas</MenuItem>
+                                {bodegasConDisponibles.map(b => (
+                                  <MenuItem key={b.id} value={String(b.id)}>{b.nombre}</MenuItem>
+                                ))}
+                              </TextField>
+                            )}
+                            <Typography fontSize={11} color="text.secondary">
+                              {llantasParaMontar.length} disponible(s)
+                            </Typography>
+                          </Stack>
+                          {llantasParaMontar.length === 0 ? (
+                            <Alert severity="info" sx={{ py: 0.5 }}>
+                              {almacen.length === 0
+                                ? 'No hay llantas en bodega.'
+                                : 'Ninguna llanta coincide con la búsqueda.'}
+                            </Alert>
+                          ) : (
+                            <Stack direction="row" gap={1} sx={{ overflowX: 'auto', pb: 0.5 }}>
+                              {llantasParaMontar.map(n => (
+                                <Box
+                                  key={n.id}
+                                  draggable
+                                  onDragStart={e => {
+                                    e.dataTransfer.effectAllowed = 'move'
+                                    e.dataTransfer.setData('text/plain', String(n.id))
+                                    setDraggedTire(n)
+                                  }}
+                                  onDragEnd={() => setDraggedTire(null)}
+                                  sx={{
+                                    minWidth: 148, p: 1, borderRadius: 2, flexShrink: 0,
+                                    border: '1px solid', borderColor: draggedTire?.id === n.id ? EAM_COLOR : alpha(EAM_COLOR, 0.35),
+                                    bgcolor: '#FFFFFF', cursor: 'grab', '&:active': { cursor: 'grabbing' },
+                                    opacity: draggedTire?.id === n.id ? 0.5 : 1,
+                                  }}
+                                >
+                                  <Stack direction="row" alignItems="center" gap={0.75}>
+                                    <TireRepair sx={{ fontSize: 17, color: EAM_DARK }} />
+                                    <Box sx={{ minWidth: 0 }}>
+                                      <Typography fontSize={12} fontWeight={700} noWrap>{n.codigo}</Typography>
+                                      <Typography fontSize={9.5} color="text.secondary" noWrap>
+                                        {n.marca ?? '—'} · {n.medida ?? '—'}
+                                      </Typography>
+                                      <Typography fontSize={9} color="text.disabled" noWrap>
+                                        {bodegas.find(b => b.id === n.bodega_id)?.nombre ?? 'Sin bodega'}
+                                      </Typography>
+                                    </Box>
+                                  </Stack>
+                                </Box>
+                              ))}
+                            </Stack>
+                          )}
+                          <Typography fontSize={10.5} color="text.secondary" mt={0.75}>
+                            Arrastre una llanta a la rueda donde va. Al soltarla se pide la fecha y la
+                            lectura del equipo.
+                          </Typography>
+                        </Box>
+                      )}
                       {/* Diagrama tipo camión (vista superior) */}
                       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 2, bgcolor: '#FFFFFF', borderRadius: 3, border: '1px solid #E5E7EB' }}>
                         {/* Cabina / frente */}
@@ -1605,9 +1729,9 @@ export default function EAMNeumaticos() {
                               return (
                                 <Box key={eje} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.75 }}>
                                   <Typography fontSize={9} fontWeight={700} color="text.secondary" sx={{ width: 74, textAlign: 'right' }}>Eje {eje}{eje === 1 ? ' · dir.' : ''}</Typography>
-                                  <Stack direction="row" gap={0.5}>{izq.map(p => <Slot key={p.codigo} pos={p} />)}</Stack>
+                                  <Stack direction="row" gap={0.5}>{izq.map(p => <Box key={p.codigo}>{slot(p)}</Box>)}</Stack>
                                   <Box sx={{ width: 96, height: 8, bgcolor: '#64748B', borderRadius: 2 }} />
-                                  <Stack direction="row" gap={0.5}>{der.map(p => <Slot key={p.codigo} pos={p} />)}</Stack>
+                                  <Stack direction="row" gap={0.5}>{der.map(p => <Box key={p.codigo}>{slot(p)}</Box>)}</Stack>
                                   <Box sx={{ width: 74 }} />
                                 </Box>
                               )
@@ -1618,7 +1742,7 @@ export default function EAMNeumaticos() {
                         {repuesto && (
                           <Box sx={{ mt: 2, pt: 1.5, borderTop: '1px dashed #CBD5E1', display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Typography fontSize={9} fontWeight={700} color="text.secondary">REPUESTO</Typography>
-                            <Slot pos={repuesto} />
+                            {slot(repuesto)}
                           </Box>
                         )}
                       </Box>
@@ -1722,7 +1846,7 @@ export default function EAMNeumaticos() {
                     )}
                     {almacenFiltrado.map(n => (
                       <Box key={n.id}>
-                        <TireCard n={n} />
+                        {tireCard(n)}
                         <Typography fontSize={9} color="text.secondary" mt={0.25}>{n.estado === 'REENCAUCHE' ? 'En reencauche' : bodegaNombre(n.bodega_id)}</Typography>
                       </Box>
                     ))}
