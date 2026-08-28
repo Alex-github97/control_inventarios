@@ -105,6 +105,13 @@ function generarCodigos(inicio: string, fin: string): string[] | null {
   return codigos
 }
 
+/** Una lectura solo cuenta si es un número mayor que cero: "0" es cadena
+ *  verdadera, así que `!valor` daba por válido un odómetro en cero. */
+const sinLecturaValida = (km: string, horas: string) => {
+  const n = (v: string) => (v.trim() === '' ? 0 : Number(v))
+  return !(n(km) > 0) && !(n(horas) > 0)
+}
+
 const nowLocal = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)
 const fmtFecha = (s?: string | null) => { if (!s) return '—'; const d = new Date(s); return isNaN(d.getTime()) ? '—' : d.toLocaleString('es-CO') }
 
@@ -146,8 +153,11 @@ function AgregarLlantaDialog({
       posicion: posicionInicial ?? '',
       // La lectura actual del equipo se propone, pero hay que confirmarla: al
       // montar suele haber rodado desde la última vez que se registró.
-      km_odometro: veh?.odometro_actual != null ? String(veh.odometro_actual) : '',
-      horometro: veh?.horometro_actual != null ? String(veh.horometro_actual) : '',
+      // Solo se propone si el equipo ya trae lectura: precargar 0 invitaba a
+      // aceptarlo tal cual y dejaba el recorrido de la llanta sin punto de
+      // partida.
+      km_odometro: veh?.odometro_actual ? String(veh.odometro_actual) : '',
+      horometro: veh?.horometro_actual ? String(veh.horometro_actual) : '',
     })
     setBodegaFiltro('')
   } else if (!open && wasOpen) {
@@ -166,7 +176,7 @@ function AgregarLlantaDialog({
 
   // El backend exige una de las dos lecturas: es el punto de partida del
   // recorrido de la llanta y sin ella no hay CPK.
-  const sinLectura = !form.km_odometro && !form.horometro
+  const sinLectura = sinLecturaValida(form.km_odometro, form.horometro)
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
@@ -1809,8 +1819,8 @@ export default function EAMNeumaticos() {
                               onClick={() => {
                                 setRotPlanForm({
                                   fecha: nowLocal(),
-                                  km_odometro: veh?.odometro_actual != null ? String(veh.odometro_actual) : '',
-                                  horometro: veh?.horometro_actual != null ? String(veh.horometro_actual) : '',
+                                  km_odometro: veh?.odometro_actual ? String(veh.odometro_actual) : '',
+                                  horometro: veh?.horometro_actual ? String(veh.horometro_actual) : '',
                                   tecnico: '', observaciones: '',
                                 })
                                 setRotPlanDialog(true)
@@ -3199,7 +3209,7 @@ export default function EAMNeumaticos() {
                     <TextField label="Odómetro (km)" type="number" size="small" fullWidth value={movForm.km_odometro} onChange={e => setMovForm(f => ({ ...f, km_odometro: e.target.value }))} />
                     <TextField label="Horómetro (h)" type="number" size="small" fullWidth value={movForm.horometro} onChange={e => setMovForm(f => ({ ...f, horometro: e.target.value }))} />
                   </Stack>
-                  {!movForm.km_odometro && !movForm.horometro && (
+                  {sinLecturaValida(movForm.km_odometro, movForm.horometro) && (
                     <Alert severity="warning" sx={{ py: 0.5 }}>
                       Registre el odómetro o el horómetro: es el punto de partida para calcular
                       el recorrido de la llanta.
@@ -3222,7 +3232,7 @@ export default function EAMNeumaticos() {
             <Button variant="contained" onClick={confirmarMov} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}
               disabled={!movForm.fecha || mutMov.isPending || (
                 (movDialog?.tipo === 'INSTALACION' || movDialog?.tipo === 'ROTACION')
-                && !movForm.km_odometro && !movForm.horometro
+                && sinLecturaValida(movForm.km_odometro, movForm.horometro)
               )}>Confirmar</Button>
           </DialogActions>
         </Dialog>
@@ -3258,7 +3268,7 @@ export default function EAMNeumaticos() {
                 <TextField label="Odómetro (km)" type="number" size="small" fullWidth value={montarForm.km_odometro} onChange={e => setMontarForm(f => ({ ...f, km_odometro: e.target.value }))} />
                 <TextField label="Horómetro (h)" type="number" size="small" fullWidth value={montarForm.horometro} onChange={e => setMontarForm(f => ({ ...f, horometro: e.target.value }))} />
               </Stack>
-              {!montarForm.km_odometro && !montarForm.horometro && (
+              {sinLecturaValida(montarForm.km_odometro, montarForm.horometro) && (
                 <Alert severity="warning" sx={{ py: 0.5 }}>
                   Registre el odómetro o el horómetro: es el punto de partida para calcular
                   el recorrido de la llanta.
@@ -3272,7 +3282,7 @@ export default function EAMNeumaticos() {
             <Button onClick={() => setMontarDialog(null)}>Cancelar</Button>
             <Button variant="contained"
               disabled={!montarForm.activo_id || !montarForm.posicion || !montarForm.fecha
-                || (!montarForm.km_odometro && !montarForm.horometro) || mutMov.isPending}
+                || sinLecturaValida(montarForm.km_odometro, montarForm.horometro) || mutMov.isPending}
               onClick={confirmarMontar} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Montar</Button>
           </DialogActions>
         </Dialog>
@@ -3381,7 +3391,7 @@ export default function EAMNeumaticos() {
                   value={rotPlanForm.horometro}
                   onChange={e => setRotPlanForm(f => ({ ...f, horometro: e.target.value }))} />
               </Stack>
-              {!rotPlanForm.km_odometro && !rotPlanForm.horometro && (
+              {sinLecturaValida(rotPlanForm.km_odometro, rotPlanForm.horometro) && (
                 <Alert severity="warning" sx={{ py: 0.5 }}>
                   Registre el odómetro o el horómetro: es la lectura con la que queda el tramo
                   de cada llanta.
@@ -3397,7 +3407,7 @@ export default function EAMNeumaticos() {
           <DialogActions sx={{ px: 3, py: 2 }}>
             <Button onClick={() => setRotPlanDialog(false)}>Volver</Button>
             <Button variant="contained"
-              disabled={!rotPlanForm.fecha || (!rotPlanForm.km_odometro && !rotPlanForm.horometro)
+              disabled={!rotPlanForm.fecha || sinLecturaValida(rotPlanForm.km_odometro, rotPlanForm.horometro)
                 || mutRotacionPlan.isPending}
               onClick={() => mutRotacionPlan.mutate()}
               sx={{ bgcolor: '#7C3AED', '&:hover': { bgcolor: '#6D28D9' } }}>

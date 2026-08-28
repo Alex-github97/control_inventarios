@@ -2128,6 +2128,37 @@ def _fecha_naive(fecha):
     return fecha.astimezone(ZONA_LOCAL).replace(tzinfo=None)
 
 
+def _validar_lectura(
+    activo: "EAMActivo", neu: "EAMNeumatico", km: Optional[float], horas: Optional[float],
+) -> Optional[str]:
+    """La lectura no puede retroceder.
+
+    Un odómetro no baja, así que un valor menor al que ya tiene el equipo —o al
+    último registrado para la llanta— es un error de digitación. Se rechaza en
+    vez de ignorarlo: aceptarlo deja el recorrido de la llanta en cero y el CPK
+    sale mal, que es justo lo que estos registros existen para calcular.
+    """
+    for etiqueta, valor, actual_equipo, actual_llanta in (
+        ("odómetro", km, activo.odometro_actual, neu.km_actual),
+        ("horómetro", horas, activo.horometro_actual, None),
+    ):
+        if valor is None:
+            continue
+        if valor < 0:
+            return f"El {etiqueta} no puede ser negativo."
+        if actual_equipo is not None and valor < actual_equipo:
+            return (
+                f"El {etiqueta} registrado ({valor:,.0f}) es menor que el del equipo "
+                f"({actual_equipo:,.0f}). Verifique la lectura."
+            ).replace(",", ".")
+        if actual_llanta is not None and valor < actual_llanta:
+            return (
+                f"El {etiqueta} registrado ({valor:,.0f}) es menor que el último de la "
+                f"llanta {neu.codigo} ({actual_llanta:,.0f}). Verifique la lectura."
+            ).replace(",", ".")
+    return None
+
+
 async def _validar_fecha_movimiento(db: AsyncSession, neu: "EAMNeumatico", fecha) -> Optional[str]:
     fecha = _fecha_naive(fecha)
     """No permite registrar un movimiento con fecha anterior a una inspección o a
@@ -2563,6 +2594,11 @@ async def crear_movimiento_neumatico(data: MovNeumaticoCreate, db: AsyncSession 
                 "Registre el odómetro o el horómetro del equipo al montar la llanta: "
                 "es el punto de partida para calcular su recorrido.",
             )
+        activo_lectura = await db.get(EAMActivo, data.activo_id or neu.activo_id)
+        if activo_lectura:
+            err_lectura = _validar_lectura(activo_lectura, neu, data.km_odometro, data.horometro)
+            if err_lectura:
+                raise HTTPException(409, err_lectura)
 
     if tipo == "INSTALACION":
         if neu.estado == "BAJA":
@@ -2855,6 +2891,9 @@ async def rotacion_plan(data: RotacionPlan, db: AsyncSession = Depends(get_db)):
         err_fecha = await _validar_fecha_movimiento(db, neu, data.fecha)
         if err_fecha:
             raise HTTPException(409, f"{neu.codigo}: {err_fecha}")
+        err_lectura = _validar_lectura(activo, neu, data.km_odometro, data.horometro)
+        if err_lectura:
+            raise HTTPException(409, err_lectura)
         if d.posicion and cfg.montaje_estricto:
             err = _validar_montaje(neu.tipo_uso, d.posicion)
             if err:
@@ -3608,6 +3647,14 @@ async def crear_inspeccion(nid: int, data: InspeccionNeuCreate, db: AsyncSession
             f"La llanta tuvo un movimiento posterior ({ultimo_mov:%Y-%m-%d %H:%M}) a la fecha de "
             "esta inspección. Corrige la fecha.",
         )
+    # La lectura tampoco puede retroceder: es la que fija el recorrido acumulado
+    # de la llanta.
+    if data.km_odometro is not None and neu.activo_id:
+        activo_insp = await db.get(EAMActivo, neu.activo_id)
+        if activo_insp:
+            err_lectura = _validar_lectura(activo_insp, neu, data.km_odometro, None)
+            if err_lectura:
+                raise HTTPException(409, err_lectura)
     obj = EAMInspeccionNeumatico(neumatico_id=nid, **data.model_dump())
     if obj.posicion is None:
         obj.posicion = neu.posicion
