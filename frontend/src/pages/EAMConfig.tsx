@@ -1687,8 +1687,8 @@ export default function EAMConfig() {
 
                       {/* Tabla de horas individuales por equipo seleccionado */}
                       {periodActSel.length > 0 && (
-                        <Box sx={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid rgba(50,172,92,0.2)', bgcolor: alpha(EAM_COLOR, 0.03) }}>
-                          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 130px', px: 2, py: 1, bgcolor: alpha(EAM_COLOR, 0.08), borderBottom: '1px solid rgba(50,172,92,0.15)' }}>
+                        <Box sx={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid rgba(47, 111, 235, 0.2)', bgcolor: alpha(EAM_COLOR, 0.03) }}>
+                          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 130px', px: 2, py: 1, bgcolor: alpha(EAM_COLOR, 0.08), borderBottom: '1px solid rgba(47, 111, 235, 0.15)' }}>
                             <Typography fontSize={10} fontWeight={700} color="#64748B" letterSpacing="0.05em" textTransform="uppercase">Equipo</Typography>
                             <Typography fontSize={10} fontWeight={700} color="#64748B" letterSpacing="0.05em" textTransform="uppercase">Horas/mes</Typography>
                           </Box>

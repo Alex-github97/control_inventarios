@@ -115,8 +115,8 @@ export function Layout({ children, title, noPadding = false }: LayoutProps) {
         bgcolor: '#F5F7F8',
         // Tintes radiales muy sutiles: dan profundidad sin romper el tema claro
         backgroundImage: `
-          radial-gradient(1100px 500px at 85% -10%, rgba(50,172,92,0.05), transparent 60%),
-          radial-gradient(900px 420px at -10% 110%, rgba(59,130,246,0.045), transparent 60%)
+          radial-gradient(1100px 500px at 85% -10%, rgba(47,111,235,0.045), transparent 60%),
+          radial-gradient(900px 420px at -10% 110%, rgba(26,26,26,0.035), transparent 60%)
         `,
         backgroundAttachment: 'fixed',
       }}
@@ -137,7 +137,7 @@ export function Layout({ children, title, noPadding = false }: LayoutProps) {
       <Sidebar open={true} onClose={() => {}} width={sidebarWidth} dragging={draggingSidebar} />
 
       {/* Handle sidebar */}
-      <Box onMouseDown={handleSidebarDrag} sx={handleSx(draggingSidebar, 'rgba(50,172,92,0.45)')} />
+      <Box onMouseDown={handleSidebarDrag} sx={handleSx(draggingSidebar, 'rgba(47, 111, 235, 0.45)')} />
 
       {/* Contenido principal */}
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>

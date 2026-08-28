@@ -1,6 +1,7 @@
 import { Box, Stack, Typography } from '@mui/material'
 
-const VERDE = '#1A1A1A'
+import { COLOR_MODULO } from '@/config/marca'
+const COLOR_FRENTE = COLOR_MODULO
 
 /**
  * Vista previa del esquema de ejes/llantas de un vehículo.
@@ -43,10 +44,10 @@ export function EsquemaLlantasPreview({
         {/* Frente / cabina */}
         <Box sx={{
           mx: 'auto', mb: 0.5, width: 62, height: 14, borderRadius: '7px 7px 3px 3px',
-          bgcolor: 'rgba(50,172,92,0.14)', border: `1px solid ${VERDE}`,
+          bgcolor: 'rgba(47, 111, 235, 0.14)', border: `1px solid ${COLOR_FRENTE}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <Typography fontSize={6.5} fontWeight={800} color={VERDE} letterSpacing="0.05em">FRENTE</Typography>
+          <Typography fontSize={6.5} fontWeight={800} color={COLOR_FRENTE} letterSpacing="0.05em">FRENTE</Typography>
         </Box>
 
         {/* Ejes */}

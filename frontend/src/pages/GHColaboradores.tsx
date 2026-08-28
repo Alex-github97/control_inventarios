@@ -21,7 +21,7 @@ import { Layout } from '@/components/layout/Layout'
 import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
 import toast from 'react-hot-toast'
 
-import { COLOR_MODULO } from '@/config/marca'
+import { COLOR_MODULO, SERIES } from '@/config/marca'
 const GH_COLOR = COLOR_MODULO
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -99,7 +99,7 @@ const ESTADO_COLORES: Record<string, { bg: string; color: string }> = {
   SUSPENSION:  { bg: '#FEF9C3', color: '#713F12' },
 }
 
-const HISTORIAL_COLORES = [GH_COLOR, '#7C3AED', '#2563EB', '#059669', '#D97706', '#DC2626']
+const HISTORIAL_COLORES = SERIES
 
 function estadoAvatar(estado?: string) {
   const map: Record<string, string> = {

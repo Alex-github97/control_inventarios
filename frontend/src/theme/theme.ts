@@ -1,14 +1,17 @@
 import { createTheme, alpha } from '@mui/material/styles'
 
-import { COLOR_MODULO, PALETA } from '@/config/marca'
-const PRIMARY      = '#1A1A1A'  // tinta
-const PRIMARY_DARK = COLOR_MODULO
-const PRIMARY_LIGHT = PALETA.niebla  // grafito
-const BACKGROUND   = '#F0F2F5'
-const DARK         = '#0D1117'
-const SIDEBAR      = '#1A1A1A'
-const SURFACE      = '#FFFFFF'
-const TEXT         = '#1E293B'
+import { ACENTO, ESTADO, PALETA, SUPERFICIE } from '@/config/marca'
+// `primary` de MUI tiñe botones, foco, enlaces y selección: es el color de lo
+// pulsable, no el de la marca. Por eso lleva el acento y no el tinta — con el
+// tinta, un botón primario y un texto normal se veían iguales.
+const PRIMARY      = ACENTO.base
+const PRIMARY_DARK = ACENTO.profundo
+const PRIMARY_LIGHT = ACENTO.vapor
+const BACKGROUND   = SUPERFICIE.contenido
+const DARK         = PALETA.abismo
+const SIDEBAR      = SUPERFICIE.barra
+const SURFACE      = SUPERFICIE.tarjeta
+const TEXT         = PALETA.tinta
 
 /** Rampa de elevación completa (25 niveles) — sombras suaves en capas,
  *  estilo "soft-ui" moderno (ambiente + contacto). */
@@ -62,13 +65,16 @@ export const theme = createTheme({
     },
     text: {
       primary: TEXT,
-      secondary: '#64748B',
+      secondary: PALETA.grafito,
     },
-    divider: '#EEF2F6',
-    success: { main: PRIMARY },
-    error:   { main: '#EF4444' },
-    warning: { main: '#F59E0B' },
-    info:    { main: '#3B82F6' },
+    divider: SUPERFICIE.divisor,
+    // Los estados van a los colores que significan algo. `success` estaba
+    // atado al color primario, así que un mensaje de éxito salía del color de
+    // la marca en vez de verde.
+    success: { main: ESTADO.exito },
+    error:   { main: ESTADO.peligro },
+    warning: { main: ESTADO.alerta },
+    info:    { main: ESTADO.informacion },
   },
   typography: {
     fontFamily: '"Montserrat", "Helvetica Neue", Arial, sans-serif',

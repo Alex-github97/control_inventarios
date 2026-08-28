@@ -248,7 +248,7 @@ function TreeNodeItem({
       </Stack>
 
       {hasChildren && isExpanded && (
-        <Box sx={{ borderLeft: `1px dashed rgba(50,172,92,0.25)`, ml: depth * 2.5 + 1.5 }}>
+        <Box sx={{ borderLeft: `1px dashed rgba(47, 111, 235, 0.25)`, ml: depth * 2.5 + 1.5 }}>
           {node.children!.map((child) => (
             <TreeNodeItem
               key={child.id}
@@ -288,7 +288,7 @@ function Vista360({ activo, onBack, onVerOTs, onEditar, nombreTipo }: {
 
   if (!activo) {
     return (
-      <Paper elevation={0} sx={{ bgcolor: '#FFFFFF', border: `1px solid rgba(50,172,92,0.25)`, borderRadius: '14px', p: 4, textAlign: 'center' }}>
+      <Paper elevation={0} sx={{ bgcolor: '#FFFFFF', border: `1px solid rgba(47, 111, 235, 0.25)`, borderRadius: '14px', p: 4, textAlign: 'center' }}>
         <Typography fontSize={13} color="#94A3B8" mb={2}>Selecciona un activo en el Portafolio para ver su hoja de vida.</Typography>
         <Button onClick={onBack} startIcon={<BackIcon />} sx={{ textTransform: 'none', color: EAM_COLOR }}>Ir al Portafolio</Button>
       </Paper>
@@ -337,7 +337,7 @@ function Vista360({ activo, onBack, onVerOTs, onEditar, nombreTipo }: {
       {/* Asset header */}
       <Paper
         elevation={0}
-        sx={{ bgcolor: '#FFFFFF', border: `1px solid rgba(50,172,92,0.25)`, borderRadius: '14px', p: 2.5, mb: 2 }}
+        sx={{ bgcolor: '#FFFFFF', border: `1px solid rgba(47, 111, 235, 0.25)`, borderRadius: '14px', p: 2.5, mb: 2 }}
       >
         <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} spacing={2}>
           <Stack direction="row" alignItems="center" spacing={1.5}>
@@ -399,7 +399,7 @@ function Vista360({ activo, onBack, onVerOTs, onEditar, nombreTipo }: {
           <Grid key={k.label} size={{ xs: 6, sm: 4, md: 3 }}>
             <Paper
               elevation={0}
-              sx={{ bgcolor: '#FFFFFF', border: `1px solid rgba(50,172,92,0.25)`, borderRadius: '12px', p: 2, textAlign: 'center' }}
+              sx={{ bgcolor: '#FFFFFF', border: `1px solid rgba(47, 111, 235, 0.25)`, borderRadius: '12px', p: 2, textAlign: 'center' }}
             >
               <Typography fontSize={20} fontWeight={900} color={k.color} lineHeight={1.1} noWrap>
                 {k.value}
@@ -415,7 +415,7 @@ function Vista360({ activo, onBack, onVerOTs, onEditar, nombreTipo }: {
       {/* Ficha técnica */}
       <Paper
         elevation={0}
-        sx={{ bgcolor: '#FFFFFF', border: `1px solid rgba(50,172,92,0.25)`, borderRadius: '14px', p: 2.5, mb: 2 }}
+        sx={{ bgcolor: '#FFFFFF', border: `1px solid rgba(47, 111, 235, 0.25)`, borderRadius: '14px', p: 2.5, mb: 2 }}
       >
         <Stack direction="row" alignItems="center" spacing={1} mb={2}>
           <MetricIcon sx={{ fontSize: 16, color: EAM_COLOR }} />
@@ -440,7 +440,7 @@ function Vista360({ activo, onBack, onVerOTs, onEditar, nombreTipo }: {
         <Grid size={{ xs: 12, md: 7 }}>
           <Paper
             elevation={0}
-            sx={{ bgcolor: '#FFFFFF', border: `1px solid rgba(50,172,92,0.25)`, borderRadius: '14px', p: 2.5 }}
+            sx={{ bgcolor: '#FFFFFF', border: `1px solid rgba(47, 111, 235, 0.25)`, borderRadius: '14px', p: 2.5 }}
           >
             <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2}>
               <Typography fontWeight={700} fontSize={14} color="text.primary">
@@ -492,7 +492,7 @@ function Vista360({ activo, onBack, onVerOTs, onEditar, nombreTipo }: {
           <Stack spacing={2}>
             <Paper
               elevation={0}
-              sx={{ bgcolor: '#FFFFFF', border: `1px solid rgba(50,172,92,0.25)`, borderRadius: '14px', p: 2.5 }}
+              sx={{ bgcolor: '#FFFFFF', border: `1px solid rgba(47, 111, 235, 0.25)`, borderRadius: '14px', p: 2.5 }}
             >
               <Stack direction="row" alignItems="center" spacing={1} mb={2}>
                 <ComponenteIcon sx={{ fontSize: 16, color: EAM_COLOR }} />
@@ -988,7 +988,7 @@ export default function EAMActivos() {
             {/* Table */}
             <Paper
               elevation={0}
-              sx={{ bgcolor: '#FFFFFF', border: `1px solid rgba(50,172,92,0.25)`, borderRadius: '14px', overflow: 'hidden' }}
+              sx={{ bgcolor: '#FFFFFF', border: `1px solid rgba(47, 111, 235, 0.25)`, borderRadius: '14px', overflow: 'hidden' }}
             >
               {/* Header */}
               <Box
@@ -1081,7 +1081,7 @@ export default function EAMActivos() {
         {tab === 2 && (
           <Paper
             elevation={0}
-            sx={{ bgcolor: '#FFFFFF', border: `1px solid rgba(50,172,92,0.25)`, borderRadius: '14px', p: 2.5 }}
+            sx={{ bgcolor: '#FFFFFF', border: `1px solid rgba(47, 111, 235, 0.25)`, borderRadius: '14px', p: 2.5 }}
           >
             <Stack direction="row" alignItems="center" spacing={1} mb={2}>
               <PlaceIcon sx={{ fontSize: 18, color: EAM_COLOR }} />

@@ -241,7 +241,7 @@ import {
 } from '@mui/icons-material'
 import { COMMAND_CENTER_DASHBOARDS } from '@/config/commandCenter'
 
-import { COLOR_MODULO_SOBRE_OSCURO } from '@/config/marca'
+import { COLOR_MODULO_SOBRE_OSCURO, SUPERFICIE } from '@/config/marca'
 const DRAWER_WIDTH      = 252
 const DRAWER_COLLAPSED  = 68
 const COMPACT_THRESHOLD = 140
@@ -693,8 +693,8 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
         flexDirection: 'column',
         overflowX: 'hidden',
         overflowY: 'auto',
-        background: 'linear-gradient(180deg, #1A1A1A 0%, #141414 45%, #0F0F0F 100%)',
-        borderRight: '1px solid rgba(255,255,255,0.04)',
+        background: 'linear-gradient(180deg, #212121 0%, #1A1A1A 55%, #171717 100%)',
+        borderRight: `1px solid ${SUPERFICIE.divisorOscuro}`,
         boxSizing: 'border-box',
         transition: dragging ? 'none' : 'width 0.22s cubic-bezier(0.4,0,0.2,1)',
         '&::-webkit-scrollbar': { width: 0 },

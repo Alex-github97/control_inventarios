@@ -307,8 +307,8 @@ const formFieldSx = {
   '& .MuiOutlinedInput-root': { color: '#1E293B', bgcolor: '#FFFFFF' },
   '& label': { color: '#64748B' },
   '& label.Mui-focused': { color: EAM_DARK },
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.25)' },
-  '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.5)' },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(47, 111, 235, 0.25)' },
+  '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(47, 111, 235, 0.5)' },
   '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: EAM_COLOR },
   '& .MuiFormHelperText-root': { color: '#94A3B8' },
   '& .MuiSvgIcon-root': { color: '#94A3B8' },
@@ -954,7 +954,7 @@ function KpisTab({
             </TableHead>
             <TableBody>
               {filteredAssetRows.map((row) => (
-                <TableRow key={row.tipo} onClick={() => onAssetTypeClick(row)} sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'rgba(50,172,92,0.06)' } }}>
+                <TableRow key={row.tipo} onClick={() => onAssetTypeClick(row)} sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'rgba(47, 111, 235, 0.06)' } }}>
                   <TableCell sx={{ color: '#334155', fontWeight: 600, borderColor: '#E5E7EB' }}>{row.tipo}</TableCell>
                   <TableCell sx={{ color: '#22c55e', fontWeight: 700, borderColor: '#E5E7EB' }}>{row.mtbf}</TableCell>
                   <TableCell sx={{ color: '#f59e0b', fontWeight: 700, borderColor: '#E5E7EB' }}>{row.mttr}</TableCell>
@@ -1041,7 +1041,7 @@ function KpisTab({
             </TableHead>
             <TableBody>
               {topFailures.map((row) => (
-                <TableRow key={row.rank} onClick={() => onTopFailureClick(row)} sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'rgba(50,172,92,0.06)' } }}>
+                <TableRow key={row.rank} onClick={() => onTopFailureClick(row)} sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'rgba(47, 111, 235, 0.06)' } }}>
                   <TableCell sx={{ borderColor: '#E5E7EB' }}>
                     <Box sx={{ width: 24, height: 24, borderRadius: '50%', bgcolor: row.rank === 1 ? '#ef4444' : row.rank === 2 ? '#f97316' : row.rank === 3 ? '#f59e0b' : '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 900, fontSize: 12 }}>{row.rank}</Box>
                   </TableCell>
@@ -1142,7 +1142,7 @@ function FmeaTab({
             {filtered.map((row) => {
               const rpn = row.s * row.o * row.d
               return (
-                <TableRow key={row.id} onClick={() => onRowClick(row)} sx={{ cursor: 'pointer', bgcolor: fmeaRowBg(rpn), '&:hover': { bgcolor: rpn >= 200 ? 'rgba(239,68,68,0.18)' : 'rgba(50,172,92,0.06)' } }}>
+                <TableRow key={row.id} onClick={() => onRowClick(row)} sx={{ cursor: 'pointer', bgcolor: fmeaRowBg(rpn), '&:hover': { bgcolor: rpn >= 200 ? 'rgba(239,68,68,0.18)' : 'rgba(47, 111, 235, 0.06)' } }}>
                   <TableCell sx={{ color: '#334155', fontWeight: 600, borderColor: '#E5E7EB', whiteSpace: 'nowrap', fontSize: 12 }}>{row.activo}</TableCell>
                   <TableCell sx={{ color: '#64748B', borderColor: '#E5E7EB', whiteSpace: 'nowrap', fontSize: 12 }}>{row.componente}</TableCell>
                   <TableCell sx={{ color: '#64748B', borderColor: '#E5E7EB', fontSize: 12, maxWidth: 160 }}>{row.funcion}</TableCell>
@@ -1240,7 +1240,7 @@ function AnalisisFallasTab({
               const pct = Math.round((c.casos / maxCasos) * 100)
               const colors = ['#ef4444', '#f97316', '#f59e0b', '#3b82f6', '#8b5cf6']
               return (
-                <Box key={c.causa} onClick={() => onCausaClick(c)} sx={{ cursor: 'pointer', p: 1, mx: -1, borderRadius: 1.5, transition: 'background-color 0.12s', '&:hover': { bgcolor: 'rgba(50,172,92,0.06)' } }}>
+                <Box key={c.causa} onClick={() => onCausaClick(c)} sx={{ cursor: 'pointer', p: 1, mx: -1, borderRadius: 1.5, transition: 'background-color 0.12s', '&:hover': { bgcolor: 'rgba(47, 111, 235, 0.06)' } }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                     <Typography sx={{ color: '#334155', fontSize: 13, fontWeight: 600 }}>{c.causa}</Typography>
                     <Typography sx={{ color: colors[i], fontWeight: 700, fontSize: 13 }}>{c.casos} casos</Typography>
@@ -1285,11 +1285,11 @@ function AnalisisFallasTab({
             </TableHead>
             <TableBody>
               {filteredFailures.map((row) => (
-                <TableRow key={row.id} onClick={() => onFailureClick(row)} sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'rgba(50,172,92,0.06)' } }}>
+                <TableRow key={row.id} onClick={() => onFailureClick(row)} sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'rgba(47, 111, 235, 0.06)' } }}>
                   <TableCell sx={{ color: '#334155', fontWeight: 600, borderColor: '#E5E7EB', fontSize: 12, whiteSpace: 'nowrap' }}>{row.activo}</TableCell>
                   <TableCell sx={{ color: '#b45309', borderColor: '#E5E7EB', fontSize: 12 }}>{row.descripcion}</TableCell>
                   <TableCell sx={{ borderColor: '#E5E7EB', fontSize: 12 }}>
-                    <Chip label={row.causaRaiz} size="small" sx={{ bgcolor: 'rgba(50,172,92,0.15)', color: EAM_DARK, fontWeight: 600, fontSize: 10 }} />
+                    <Chip label={row.causaRaiz} size="small" sx={{ bgcolor: 'rgba(47, 111, 235, 0.15)', color: EAM_DARK, fontWeight: 600, fontSize: 10 }} />
                   </TableCell>
                   <TableCell sx={{ color: '#64748B', borderColor: '#E5E7EB', fontSize: 12 }}>{row.solucion}</TableCell>
                   <TableCell sx={{ color: '#f59e0b', fontWeight: 700, borderColor: '#E5E7EB', textAlign: 'center', fontSize: 12 }}>{row.tiempoParado}</TableCell>

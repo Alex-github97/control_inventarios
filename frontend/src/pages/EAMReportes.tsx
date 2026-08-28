@@ -1066,7 +1066,7 @@ export default function EAMReportes() {
                   { label: 'Activos críticos (<90%)',  value: String(criticos),               color: criticos === 0 ? '#10B981' : '#EF4444' },
                   { label: 'Total horas no disponibles', value: `${totalHorasND}h`,           color: '#F59E0B' },
                 ].map(({ label, value, color }) => (
-                  <Paper key={label} elevation={0} sx={{ border: `1px solid rgba(50,172,92,0.12)`, borderRadius: '12px', p: 2 }}>
+                  <Paper key={label} elevation={0} sx={{ border: `1px solid rgba(47, 111, 235, 0.12)`, borderRadius: '12px', p: 2 }}>
                     <Typography fontSize={11} color="#64748B" fontWeight={600} textTransform="uppercase" letterSpacing="0.04em">{label}</Typography>
                     <Typography fontSize={28} fontWeight={900} color={color} mt={0.5}>{value}</Typography>
                   </Paper>
@@ -1074,7 +1074,7 @@ export default function EAMReportes() {
               </Box>
 
               {/* Asset availability table */}
-              <Paper elevation={0} sx={{ border: '1px solid rgba(50,172,92,0.12)', borderRadius: '12px', overflow: 'hidden' }}>
+              <Paper elevation={0} sx={{ border: '1px solid rgba(47, 111, 235, 0.12)', borderRadius: '12px', overflow: 'hidden' }}>
                 {/* Table header */}
                 <Box sx={{ display: 'grid', gridTemplateColumns: '36px 2fr 130px 100px 100px 100px 130px', gap: 1, px: 2, py: 1.25, bgcolor: alpha(EAM_COLOR, 0.06), borderBottom: '1px solid #E5E7EB' }}>
                   {['', 'Activo', 'Categoría', 'Horas mes', 'No disp.', 'Disponibles', 'Disponibilidad'].map((h, i) => (

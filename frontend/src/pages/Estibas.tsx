@@ -695,7 +695,7 @@ export default function Estibas() {
                     </TableRow>
                   ) : (
                     (data?.items ?? []).map((estiba) => (
-                      <TableRow key={estiba.id} sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'rgba(50,172,92,0.04)' } }}
+                      <TableRow key={estiba.id} sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'rgba(47, 111, 235, 0.04)' } }}
                         onClick={() => navigate(`/estibas/${estiba.id}`)}>
                         <TableCell>
                           <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: 'monospace', fontSize: 13 }}>

@@ -68,7 +68,7 @@ export default function Vehiculos() {
               ) : (vehiculos || []).map((v: any) => {
                 const ec = ESTADO_COLORS[v.estado] || { bg: '#F1F5F9', color: '#64748B' }
                 return (
-                  <TableRow key={v.id} sx={{ '&:hover': { bgcolor: 'rgba(50,172,92,0.04)' } }}>
+                  <TableRow key={v.id} sx={{ '&:hover': { bgcolor: 'rgba(47, 111, 235, 0.04)' } }}>
                     <TableCell><Typography variant="body2" sx={{ fontWeight: 800, fontFamily: 'monospace', fontSize: 14 }}>{v.placa}</Typography></TableCell>
                     <TableCell><Chip label={v.tipo} size="small" variant="outlined" sx={{ fontSize: 11 }} /></TableCell>
                     <TableCell><Typography variant="body2">{[v.marca, v.modelo].filter(Boolean).join(' ') || '—'}</Typography></TableCell>

@@ -20,7 +20,8 @@ import { KPICard } from '@/components/dashboard/KPICard'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
-const PIE_COLORS = ['#1A1A1A', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#EC4899']
+import { COLOR_MODULO, ESTADO, PALETA, SERIES } from '@/config/marca'
+const PIE_COLORS = SERIES
 
 const formatCOP = (v: number) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', notation: 'compact', maximumFractionDigits: 1 }).format(v)
@@ -65,7 +66,7 @@ export default function Dashboard() {
             title="Total Estibas"
             value={isLoading ? '—' : (kpis?.total_estibas ?? 0)}
             icon={<ViewModule />}
-            color="#1A1A1A"
+            color={PALETA.tinta}
             subtitle="En el sistema"
           />
         </Grid>
@@ -74,7 +75,7 @@ export default function Dashboard() {
             title="Disponibles"
             value={isLoading ? '—' : (kpis?.disponibles ?? 0)}
             icon={<Inventory2 />}
-            color="#3B82F6"
+            color={ESTADO.exito}
             progress={kpis ? (kpis.disponibles / kpis.total_estibas) * 100 : 0}
           />
         </Grid>
@@ -83,7 +84,7 @@ export default function Dashboard() {
             title="En Tránsito"
             value={isLoading ? '—' : (kpis?.en_transito ?? 0)}
             icon={<LocalShipping />}
-            color="#F59E0B"
+            color={COLOR_MODULO}
           />
         </Grid>
         <Grid item xs={6} sm={4} md={2}>
@@ -91,7 +92,7 @@ export default function Dashboard() {
             title="En Cliente"
             value={isLoading ? '—' : (kpis?.en_cliente ?? 0)}
             icon={<LocationOn />}
-            color="#8B5CF6"
+            color={COLOR_MODULO}
           />
         </Grid>
         <Grid item xs={6} sm={4} md={2}>
@@ -99,7 +100,7 @@ export default function Dashboard() {
             title="Pend. Retorno"
             value={isLoading ? '—' : (kpis?.pendiente_retorno ?? 0)}
             icon={<Warning />}
-            color="#EA580C"
+            color={ESTADO.alerta}
           />
         </Grid>
         <Grid item xs={6} sm={4} md={2}>
@@ -107,7 +108,7 @@ export default function Dashboard() {
             title="Dañadas"
             value={isLoading ? '—' : (kpis?.danadas ?? 0)}
             icon={<Build />}
-            color="#EF4444"
+            color={ESTADO.peligro}
           />
         </Grid>
         <Grid item xs={6} sm={4} md={2}>
@@ -115,7 +116,7 @@ export default function Dashboard() {
             title="Faltantes"
             value={isLoading ? '—' : (kpis?.faltantes ?? 0)}
             icon={<Warning />}
-            color="#C2410C"
+            color={ESTADO.alerta}
             subtitle="Pendientes de resolución"
           />
         </Grid>
@@ -124,7 +125,7 @@ export default function Dashboard() {
             title="Pérdidas"
             value={isLoading ? '—' : (kpis?.perdidas ?? 0)}
             icon={<Warning />}
-            color="#7F1D1D"
+            color={ESTADO.peligro}
             subtitle={isLoading ? '' : `${formatCOP(kpis?.valor_perdidas ?? 0)} en valor`}
           />
         </Grid>
@@ -137,7 +138,7 @@ export default function Dashboard() {
             title="Manifiestos Activos"
             value={isLoading ? '—' : (kpis?.manifiestos_activos ?? 0)}
             icon={<Assignment />}
-            color="#06B6D4"
+            color={COLOR_MODULO}
           />
         </Grid>
         <Grid item xs={6} sm={3}>
@@ -145,7 +146,7 @@ export default function Dashboard() {
             title="Alertas Activas"
             value={isLoading ? '—' : (kpis?.alertas_activas ?? 0)}
             icon={<NotificationsActive />}
-            color="#EC4899"
+            color={ESTADO.alerta}
           />
         </Grid>
         <Grid item xs={6} sm={3}>
@@ -153,7 +154,7 @@ export default function Dashboard() {
             title="Movimientos Hoy"
             value={isLoading ? '—' : (kpis?.movimientos_hoy ?? 0)}
             icon={<TrendingUp />}
-            color="#1A1A1A"
+            color={PALETA.tinta}
           />
         </Grid>
         <Grid item xs={6} sm={3}>
@@ -162,7 +163,7 @@ export default function Dashboard() {
             value={isLoading ? '—' : (kpis?.propias ?? 0)}
             subtitle={`Alquiladas: ${kpis?.alquiladas ?? 0}`}
             icon={<ViewModule />}
-            color="#1A1A1A"
+            color={PALETA.tinta}
           />
         </Grid>
       </Grid>
@@ -174,7 +175,7 @@ export default function Dashboard() {
             title="Edad Promedio (meses)"
             value={isLoading ? '—' : `${kpis?.edad_promedio_meses ?? 0} m`}
             icon={<AccessTime />}
-            color="#8B5CF6"
+            color={PALETA.tinta}
             subtitle="Tiempo promedio en el sistema"
           />
         </Grid>
@@ -183,7 +184,7 @@ export default function Dashboard() {
             title="Costos Acumulados"
             value={isLoading ? '—' : formatCOP(kpis?.total_costos_acumulados ?? 0)}
             icon={<AttachMoney />}
-            color="#F59E0B"
+            color={PALETA.tinta}
             subtitle="Total mantenimientos registrados"
           />
         </Grid>
@@ -192,7 +193,7 @@ export default function Dashboard() {
             title="Tiempo Prom. Retorno"
             value={isLoading ? '—' : `${kpis?.tiempo_promedio_retorno_dias ?? 0} días`}
             icon={<Timer />}
-            color="#06B6D4"
+            color={PALETA.tinta}
             subtitle="Promedio CARGA → RETORNO (12 meses)"
           />
         </Grid>

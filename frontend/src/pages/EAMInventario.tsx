@@ -528,8 +528,8 @@ const inputSx = {
   '& .MuiOutlinedInput-root': { color: '#1E293B', bgcolor: '#FFFFFF' },
   '& label': { color: '#64748B' },
   '& label.Mui-focused': { color: EAM_DARK },
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.25)' },
-  '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.5)' },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(47, 111, 235, 0.25)' },
+  '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(47, 111, 235, 0.5)' },
   '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: EAM_COLOR },
   '& .MuiSvgIcon-root': { color: '#94A3B8' },
 };

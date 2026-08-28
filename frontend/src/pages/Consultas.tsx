@@ -257,9 +257,9 @@ export default function Consultas() {
               onClick={() => { setSql(ej.sql); editorRef.current?.setValue(ej.sql) }}
               sx={{
                 cursor: 'pointer', fontSize: 11.5,
-                borderColor: 'rgba(54,158,77,0.35)',
+                borderColor: 'rgba(47, 111, 235, 0.35)',
                 color: 'text.secondary',
-                '&:hover': { bgcolor: 'rgba(54,158,77,0.08)', borderColor: '#1A1A1A', color: '#1A1A1A' },
+                '&:hover': { bgcolor: 'rgba(47, 111, 235, 0.08)', borderColor: '#1A1A1A', color: '#1A1A1A' },
                 transition: 'all 0.15s',
               }}
             />
@@ -272,7 +272,7 @@ export default function Consultas() {
           {/* Barra superior */}
           <Box sx={{
             px: 2, py: 1, bgcolor: '#EAF6EA',
-            borderBottom: '1px solid rgba(54,158,77,0.25)',
+            borderBottom: '1px solid rgba(47, 111, 235, 0.25)',
             display: 'flex', alignItems: 'center', gap: 1,
           }}>
             <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#ff5f57' }} />
@@ -285,7 +285,7 @@ export default function Consultas() {
               <Chip
                 label={`${schemaCount} tablas`}
                 size="small"
-                sx={{ ml: 'auto', bgcolor: 'rgba(54,158,77,0.12)', color: '#1A1A1A', fontSize: 10.5, height: 20 }}
+                sx={{ ml: 'auto', bgcolor: 'rgba(47, 111, 235, 0.12)', color: '#1A1A1A', fontSize: 10.5, height: 20 }}
               />
             )}
           </Box>
@@ -330,8 +330,8 @@ export default function Consultas() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              borderTop: '1px solid rgba(54,158,77,0.15)',
-              '&:hover': { bgcolor: 'rgba(54,158,77,0.14)' },
+              borderTop: '1px solid rgba(47, 111, 235, 0.15)',
+              '&:hover': { bgcolor: 'rgba(47, 111, 235, 0.14)' },
               '&:hover .drag-pill': { bgcolor: '#1A1A1A', width: '56px' },
               transition: 'background 0.15s',
             }}
@@ -340,7 +340,7 @@ export default function Consultas() {
               className="drag-pill"
               sx={{
                 width: 40, height: 4, borderRadius: 2,
-                bgcolor: 'rgba(54,158,77,0.35)',
+                bgcolor: 'rgba(47, 111, 235, 0.35)',
                 transition: 'all 0.15s',
               }}
             />
@@ -351,7 +351,7 @@ export default function Consultas() {
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             px: 2.5, py: 1.25,
             bgcolor: '#EAF6EA',
-            borderTop: '1px solid rgba(54,158,77,0.2)',
+            borderTop: '1px solid rgba(47, 111, 235, 0.2)',
           }}>
             <Typography variant="caption" sx={{ color: '#6b9e74' }}>
               Ctrl + Enter para ejecutar · Máx 5.000 filas · Solo SELECT
@@ -393,7 +393,7 @@ export default function Consultas() {
               <Chip
                 label={`${resultado.total_filas.toLocaleString()} filas`}
                 size="small"
-                sx={{ bgcolor: 'rgba(54,158,77,0.1)', color: '#1A1A1A', fontWeight: 700, fontSize: 12 }}
+                sx={{ bgcolor: 'rgba(47, 111, 235, 0.1)', color: '#1A1A1A', fontWeight: 700, fontSize: 12 }}
               />
               <Chip
                 label={`${resultado.columnas.length} columnas`}
@@ -429,7 +429,7 @@ export default function Consultas() {
                 </TableHead>
                 <TableBody>
                   {resultado.filas.map((fila, i) => (
-                    <TableRow key={i} hover sx={{ '&:hover': { bgcolor: 'rgba(54,158,77,0.04)' } }}>
+                    <TableRow key={i} hover sx={{ '&:hover': { bgcolor: 'rgba(47, 111, 235, 0.04)' } }}>
                       {fila.map((celda, j) => (
                         <TableCell
                           key={j}

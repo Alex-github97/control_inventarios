@@ -93,7 +93,7 @@ export default function Configuracion() {
               display: 'flex', alignItems: 'center', gap: 1.5,
               p: 2, borderRadius: '10px',
               bgcolor: alpha(ACCENT, 0.06),
-              border: '1px solid rgba(50,172,92,0.15)',
+              border: '1px solid rgba(47, 111, 235, 0.15)',
             }}>
               <Typography sx={{ fontSize: 24, lineHeight: 1 }}>{current.flag}</Typography>
               <Box>

@@ -24,7 +24,7 @@ import {
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
-import { MARCA, PALETA } from '@/config/marca'
+import { MARCA, PALETA, COLOR_MODULO_SOBRE_OSCURO } from '@/config/marca'
 import { Logotipo } from '@/components/Logotipo'
 import { clienteGuardado } from '@/api/cliente'
 import toast from 'react-hot-toast'
@@ -54,8 +54,8 @@ const MODULES = [
     headline: 'Trazabilidad total',
     headlineAccent: 'de cada estiba',
     description: 'Plataforma empresarial para la compañía.\nControl, visibilidad y eficiencia operacional.',
-    color: PALETA.tinta,
-    colorDark: PALETA.tinta,
+    color: COLOR_MODULO_SOBRE_OSCURO,
+    colorDark: PALETA.grafito,
     features: [
       { icon: <Inventory2 sx={{ fontSize: 17 }} />, text: 'Gestión de estibas en tiempo real' },
       { icon: <LocalShipping sx={{ fontSize: 17 }} />, text: 'Trazabilidad completa de movimientos' },
@@ -71,8 +71,8 @@ const MODULES = [
     headline: 'Cruces de tarifas',
     headlineAccent: 'al instante',
     description: 'Motor de cruce de fletes SICETAC.\nCompara y toma decisiones en segundos.',
-    color: PALETA.tinta,
-    colorDark: PALETA.tinta,
+    color: COLOR_MODULO_SOBRE_OSCURO,
+    colorDark: PALETA.grafito,
     features: [
       { icon: <CompareArrows sx={{ fontSize: 17 }} />, text: 'Cruza los fletes con el × TARIFARIO_SICETAC en un clic' },
       { icon: <TrendingUp sx={{ fontSize: 17 }} />, text: 'Métricas de coincidencia automáticas' },
@@ -88,8 +88,8 @@ const MODULES = [
      headline: 'Analiza tus datos y',
      headlineAccent: 'Toma decisiones en segundos',
      description: 'Modúlo dedicado a la visualización y analítica de datos.',
-     color: PALETA.tinta,
-     colorDark: PALETA.tinta,
+     color: COLOR_MODULO_SOBRE_OSCURO,
+     colorDark: PALETA.grafito,
      features: [
        { icon: <TableChart sx={{ fontSize: 17 }} />, text: 'Dashboard Operaciones, Almacenamiento y Logística' },
        { icon: <TableChart sx={{ fontSize: 17 }} />, text: 'Dashboard Mantenimiento' },
@@ -104,8 +104,8 @@ const MODULES = [
     headline: 'Despacho y asignación',
     headlineAccent: 'de conductores',
     description: 'Gestión integral de fletes para la compañía.\nRegistra viajes, asigna conductores y administra turnos.',
-    color: PALETA.tinta,
-    colorDark: PALETA.tinta,
+    color: COLOR_MODULO_SOBRE_OSCURO,
+    colorDark: PALETA.grafito,
     features: [
       { icon: <Route sx={{ fontSize: 17 }} />, text: 'Registro de fletes con origen, destino y tipo de vehículo' },
       { icon: <AssignmentInd sx={{ fontSize: 17 }} />, text: 'Asignación directa de conductor y vehículo al viaje' },
@@ -121,8 +121,8 @@ const MODULES = [
     headline: 'Control total',
     headlineAccent: 'de tu flota vehicular',
     description: 'Módulo integral de gestión de flotas para la compañía.\nVehículos, mantenimiento, combustible y documentos.',
-    color: PALETA.tinta,
-    colorDark: PALETA.tinta,
+    color: COLOR_MODULO_SOBRE_OSCURO,
+    colorDark: PALETA.grafito,
     features: [
       { icon: <DirectionsCar sx={{ fontSize: 17 }} />, text: 'Catálogo de vehículos con semáforo documental' },
       { icon: <Build sx={{ fontSize: 17 }} />, text: 'Órdenes de trabajo: preventivo y correctivo' },
@@ -138,8 +138,8 @@ const MODULES = [
     headline: 'Activos bajo control,',
     headlineAccent: 'instalaciones en orden',
     description: 'ISO 55000 · ISO 41001 · IAS 16 · ISO 31000.\nGestión integral de activos físicos e instalaciones.',
-    color: PALETA.tinta,
-    colorDark: PALETA.tinta,
+    color: COLOR_MODULO_SOBRE_OSCURO,
+    colorDark: PALETA.grafito,
     features: [
       { icon: <ActivoIcon2 sx={{ fontSize: 17 }} />, text: 'Inventario de activos con valoración IAS 16' },
       { icon: <Engineering sx={{ fontSize: 17 }} />, text: 'Órdenes de trabajo preventivas y correctivas' },
@@ -155,8 +155,8 @@ const MODULES = [
     headline: 'Personas en el centro,',
     headlineAccent: 'operación sin límites',
     description: 'ISO 45001 · SGSST · Nómina · Talento.\nCiclo completo del colaborador, desde el ingreso hasta la desvinculación.',
-    color: PALETA.tinta,
-    colorDark: PALETA.tinta,
+    color: COLOR_MODULO_SOBRE_OSCURO,
+    colorDark: PALETA.grafito,
     features: [
       { icon: <PeopleAlt sx={{ fontSize: 17 }} />, text: 'Colaboradores y conductores con perfil 360°' },
       { icon: <PaymentsIcon sx={{ fontSize: 17 }} />, text: 'Nómina automática: horas extras, recargos y cesantías' },
@@ -172,8 +172,8 @@ const MODULES = [
     headline: 'Bodega inteligente,',
     headlineAccent: 'despacho perfecto',
     description: 'OTIF · Fill Rate · Inventory Accuracy.\nGestión end-to-end de la cadena logística interna.',
-    color: PALETA.tinta,
-    colorDark: PALETA.tinta,
+    color: COLOR_MODULO_SOBRE_OSCURO,
+    colorDark: PALETA.grafito,
     features: [
       { icon: <MoveToInbox sx={{ fontSize: 17 }} />, text: 'Recepción con ASN y control de calidad por lote' },
       { icon: <Warehouse sx={{ fontSize: 17 }} />, text: 'Inventario por ubicación FIFO/FEFO con conteos cíclicos' },
@@ -189,8 +189,8 @@ const MODULES = [
     headline: 'Gobierno documental',
     headlineAccent: 'de clase mundial',
     description: 'ISO 15489 · ISO 27001 · ISO 30301.\nRepositorio corporativo único con trazabilidad, firma y cumplimiento normativo.',
-    color: PALETA.tinta,
-    colorDark: PALETA.tinta,
+    color: COLOR_MODULO_SOBRE_OSCURO,
+    colorDark: PALETA.grafito,
     features: [
       { icon: <FolderSpecial sx={{ fontSize: 17 }} />, text: 'Repositorio centralizado con versionamiento y control documental' },
       { icon: <DrawIcon sx={{ fontSize: 17 }} />, text: 'Firma electrónica y digital con validez legal y auditoría inmutable' },
@@ -206,8 +206,8 @@ const MODULES = [
     headline: 'Riesgos bajo control,',
     headlineAccent: 'cumplimiento garantizado',
     description: 'ISO 31000 · ISO 37301 · ISO 27001 · ISO 22301 · COSO ERM · COBIT.\nPlataforma GRC empresarial para gobiernos corporativos de clase mundial.',
-    color: PALETA.tinta,
-    colorDark: PALETA.tinta,
+    color: COLOR_MODULO_SOBRE_OSCURO,
+    colorDark: PALETA.grafito,
     features: [
       { icon: <GRCShieldIcon sx={{ fontSize: 17 }} />, text: 'Gobierno corporativo: comités, RACI y estructura de control' },
       { icon: <GRCRiskIcon sx={{ fontSize: 17 }} />, text: 'Gestión de riesgos con mapa de calor 5×5 e inherente vs residual' },
@@ -223,8 +223,8 @@ const MODULES = [
     headline: 'Calidad certificada,',
     headlineAccent: 'cero no conformidades',
     description: 'ISO 9001 · ISO 28000 · ISO 45001 · ISO 14001.\nSistema integral de gestión de calidad para operaciones logísticas.',
-    color: PALETA.tinta,
-    colorDark: PALETA.tinta,
+    color: COLOR_MODULO_SOBRE_OSCURO,
+    colorDark: PALETA.grafito,
     features: [
       { icon: <QMSQualityIcon sx={{ fontSize: 17 }} />, text: 'Gestión de procesos y mapa de procesos ISO 9001' },
       { icon: <QMSNCIcon sx={{ fontSize: 17 }} />, text: 'No conformidades, CAPA y análisis de causa raíz' },
@@ -240,8 +240,8 @@ const MODULES = [
     headline: 'Transporte de clase mundial,',
     headlineAccent: 'OTIF garantizado',
     description: 'ISO 39001 · OTIF · Torre de Control.\nOrquestación end-to-end de la cadena de transporte.',
-    color: PALETA.tinta,
-    colorDark: PALETA.tinta,
+    color: COLOR_MODULO_SOBRE_OSCURO,
+    colorDark: PALETA.grafito,
     features: [
       { icon: <AirportShuttle sx={{ fontSize: 17 }} />, text: 'Planificación y despacho inteligente de viajes' },
       { icon: <GpsFixed sx={{ fontSize: 17 }} />, text: 'Tracking en tiempo real con eventos georreferenciados' },
@@ -257,8 +257,8 @@ const MODULES = [
     headline: 'Universidad Corporativa Digital,',
     headlineAccent: 'talento en constante evolución',
     description: 'Escuela de Conductores · ISO 9001 · SCORM · xAPI · 70:20:10.\nPlataforma LMS empresarial con IA, gamificación y certificaciones integradas.',
-    color: PALETA.tinta,
-    colorDark: PALETA.tinta,
+    color: COLOR_MODULO_SOBRE_OSCURO,
+    colorDark: PALETA.grafito,
     features: [
       { icon: <LMSUniversityIcon sx={{ fontSize: 17 }} />, text: 'Universidad corporativa con facultades, escuelas y programas' },
       { icon: <LMSSkillsIcon sx={{ fontSize: 17 }} />, text: 'Rutas de aprendizaje automáticas por cargo, área y brecha de competencias' },
@@ -274,8 +274,8 @@ const MODULES = [
     headline: 'Clientes en el centro,',
     headlineAccent: 'ventas bajo control',
     description: 'Pipeline · Lead Scoring · NPS · IA Comercial.\nGestión integral del ciclo de vida del cliente con visibilidad 360°.',
-    color: PALETA.tinta,
-    colorDark: PALETA.tinta,
+    color: COLOR_MODULO_SOBRE_OSCURO,
+    colorDark: PALETA.grafito,
     features: [
       { icon: <CRMLeadIcon sx={{ fontSize: 17 }} />, text: 'Lead Scoring automático FRÍO/TIBIO/CALIENTE con IA predictiva' },
       { icon: <CRMHandshakeIcon sx={{ fontSize: 17 }} />, text: 'Pipeline Kanban: oportunidades, cotizaciones y contratos con SLA' },
@@ -291,8 +291,8 @@ const MODULES = [
     headline: 'Activos bajo control,',
     headlineAccent: 'cero paros no planificados',
     description: 'ISO 55000 · RCM · FMEA · Lubricación · IA Predictiva.\nSistema maestro del ciclo de vida de vehículos, equipos e infraestructura.',
-    color: PALETA.tinta,
-    colorDark: PALETA.tinta,
+    color: COLOR_MODULO_SOBRE_OSCURO,
+    colorDark: PALETA.grafito,
     features: [
       { icon: <EAMEngineeringIcon sx={{ fontSize: 17 }} />, text: 'Maestro de activos jerárquico: vehículos, montacargas, infraestructura y maquinaria' },
       { icon: <EAMTireIcon sx={{ fontSize: 17 }} />, text: 'OTs preventivas/correctivas/predictivas con checklists dinámicos y confiabilidad MTBF/MTTR' },
@@ -308,8 +308,8 @@ const MODULES = [
     headline: 'El cerebro de tu',
     headlineAccent: 'cadena de suministro',
     description: 'S&OP · IBP · MPS · MRP · CRP · DRP · Inventario Multi-Echelon.\nOptimización matemática y IA para planificar toda la cadena de valor.',
-    color: PALETA.tinta,
-    colorDark: PALETA.tinta,
+    color: COLOR_MODULO_SOBRE_OSCURO,
+    colorDark: PALETA.grafito,
     features: [
       { icon: <APSScatterIcon sx={{ fontSize: 17 }} />, text: 'Demand Planning estadístico + ML: ARIMA, LSTM, Ensemble con consenso colaborativo' },
       { icon: <APSLeaderIcon sx={{ fontSize: 17 }} />, text: 'MPS · MRP · CRP con programación finita de capacidad y gestión de restricciones duras/blandas' },
@@ -325,8 +325,8 @@ const MODULES = [
     headline: 'Producción inteligente,',
     headlineAccent: 'cero paros no planificados',
     description: 'ISO 22400 · OEE · SPC · APS · Industria 4.0.\nControl total desde la materia prima hasta el producto terminado.',
-    color: PALETA.tinta,
-    colorDark: PALETA.tinta,
+    color: COLOR_MODULO_SOBRE_OSCURO,
+    colorDark: PALETA.grafito,
     features: [
       { icon: <MESFactoryIcon sx={{ fontSize: 17 }} />, text: 'Órdenes de producción con BOM multinivel, recetas y programación APS de capacidad finita' },
       { icon: <MESSpeedIcon sx={{ fontSize: 17 }} />, text: 'OEE en tiempo real: Disponibilidad × Rendimiento × Calidad por línea, equipo y turno' },
@@ -444,9 +444,10 @@ export default function Login() {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <Box sx={{
                 width: 44, height: 44, borderRadius: '12px',
-                background: `linear-gradient(135deg, ${current.color} 0%, ${current.colorDark} 100%)`,
+                bgcolor: alpha('#FFFFFF', 0.12),
+                border: `1px solid ${alpha('#FFFFFF', 0.22)}`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: `0 8px 24px ${alpha(current.color, 0.45)}`,
+                boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
                 transition: 'all 0.4s ease',
               }}>
                 <Typography sx={{ color: '#FFF', fontWeight: 800, fontSize: 16, letterSpacing: '-0.5px' }}>
@@ -487,7 +488,7 @@ export default function Login() {
               </Typography>
 
               {/* Descripción */}
-              <Typography sx={{ color: 'rgba(255,255,255,0.45)', fontSize: 13.5, lineHeight: 1.75, mb: 4, whiteSpace: 'pre-line' }}>
+              <Typography sx={{ color: 'rgba(255,255,255,0.72)', fontSize: 13.5, lineHeight: 1.75, mb: 4, whiteSpace: 'pre-line' }}>
                 {current.description}
               </Typography>
 
@@ -511,7 +512,7 @@ export default function Login() {
                       }}>
                         {f.icon}
                       </Box>
-                      <Typography sx={{ color: 'rgba(255,255,255,0.6)', fontSize: 13.5 }}>
+                      <Typography sx={{ color: 'rgba(255,255,255,0.8)', fontSize: 13.5 }}>
                         {f.text}
                       </Typography>
                     </Box>
@@ -534,7 +535,7 @@ export default function Login() {
                   height: 6,
                   width: i === slide ? 22 : 6,
                   borderRadius: 99,
-                  bgcolor: i === slide ? current.color : 'rgba(255,255,255,0.2)',
+                  bgcolor: i === slide ? current.color : 'rgba(255,255,255,0.35)',
                   cursor: 'pointer',
                   transition: 'all 0.35s ease',
                   '&:hover': { bgcolor: i === slide ? current.color : 'rgba(255,255,255,0.4)' },
@@ -542,7 +543,7 @@ export default function Login() {
               />
             ))}
           </Box>
-          <Typography sx={{ color: 'rgba(255,255,255,0.18)', fontSize: 11.5 }}>
+          <Typography sx={{ color: 'rgba(255,255,255,0.45)', fontSize: 11.5 }}>
             {MARCA.legal}
           </Typography>
         </Box>
@@ -631,7 +632,7 @@ export default function Login() {
                 sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#FFF', fontSize: 14, borderRadius: '10px',
                   '& fieldset': { borderColor: '#E5E7EB' }, '&:hover fieldset': { borderColor: '#D1D5DB' },
                   '&.Mui-focused fieldset': { borderColor: '#1A1A1A', borderWidth: 1.5 },
-                  '&.Mui-focused': { boxShadow: '0 0 0 3px rgba(50,172,92,0.12)' } } }}
+                  '&.Mui-focused': { boxShadow: '0 0 0 3px rgba(47, 111, 235, 0.12)' } } }}
               />
             </Box>
 
@@ -657,7 +658,7 @@ export default function Login() {
                 sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#FFF', fontSize: 14, borderRadius: '10px',
                   '& fieldset': { borderColor: '#E5E7EB' }, '&:hover fieldset': { borderColor: '#D1D5DB' },
                   '&.Mui-focused fieldset': { borderColor: '#1A1A1A', borderWidth: 1.5 },
-                  '&.Mui-focused': { boxShadow: '0 0 0 3px rgba(50,172,92,0.12)' } } }}
+                  '&.Mui-focused': { boxShadow: '0 0 0 3px rgba(47, 111, 235, 0.12)' } } }}
               />
             </Box>
 
@@ -666,7 +667,7 @@ export default function Login() {
               sx={{
                 py: 1.35, fontSize: 14.5, fontWeight: 700, borderRadius: '10px',
                 background: 'linear-gradient(135deg, #1A1A1A 0%, #1A1A1A 100%)',
-                boxShadow: '0 4px 14px rgba(50,172,92,0.4)', letterSpacing: '-0.01em',
+                boxShadow: '0 4px 14px rgba(47, 111, 235, 0.4)', letterSpacing: '-0.01em',
                 '&:hover': { background: 'linear-gradient(135deg, #4D4D4D 0%, #1A1A1A 100%)',
                   boxShadow: '0 6px 20px rgba(0,0,0,0.35)', transform: 'translateY(-1px)' },
                 '&:active': { transform: 'translateY(0)' },

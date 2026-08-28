@@ -823,8 +823,8 @@ export default function EAMGarantias() {
   const inputSx = {
     '& .MuiOutlinedInput-root': { color: '#1E293B' },
     '& label': { color: '#64748B' },
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.25)' },
-    '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(50,172,92,0.5)' },
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(47, 111, 235, 0.25)' },
+    '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(47, 111, 235, 0.5)' },
     '& .MuiSvgIcon-root': { color: '#94A3B8' },
   }
 

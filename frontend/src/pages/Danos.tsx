@@ -12,7 +12,8 @@ import {
   ResponsiveContainer, Cell
 } from 'recharts'
 
-const COLORS = ['#EF4444', '#F97316', '#F59E0B', '#84CC16', '#06B6D4', '#8B5CF6', '#EC4899', '#14B8A6']
+import { SERIES } from '@/config/marca'
+const COLORS = SERIES
 
 export default function Danos() {
   const { data: estadisticas, isLoading } = useQuery({

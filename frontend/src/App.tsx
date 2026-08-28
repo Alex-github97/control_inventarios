@@ -363,7 +363,7 @@ function PageLoader() {
       height: '100vh', gap: 3,
       bgcolor: '#060C1A',
       backgroundImage: `
-        radial-gradient(700px 380px at 50% 35%, rgba(50,172,92,0.10), transparent 65%),
+        radial-gradient(700px 380px at 50% 35%, rgba(47, 111, 235, 0.10), transparent 65%),
         radial-gradient(900px 460px at 80% 90%, rgba(59,130,246,0.06), transparent 60%)
       `,
     }}>
@@ -372,7 +372,7 @@ function PageLoader() {
         <Box sx={{
           position: 'absolute', inset: 0, borderRadius: '50%',
           border: '2px solid transparent',
-          borderTopColor: '#1A1A1A', borderRightColor: 'rgba(50,172,92,0.25)',
+          borderTopColor: '#1A1A1A', borderRightColor: 'rgba(47, 111, 235, 0.25)',
           animation: 'orbit 1s cubic-bezier(0.6,0.15,0.4,0.85) infinite',
         }} />
         <Box sx={{
@@ -384,7 +384,7 @@ function PageLoader() {
         <Box sx={{
           position: 'absolute', inset: 26, borderRadius: '50%',
           background: 'radial-gradient(circle at 35% 30%, #5FD184, #1A1A1A)',
-          boxShadow: '0 0 22px rgba(50,172,92,0.55)',
+          boxShadow: '0 0 22px rgba(47, 111, 235, 0.55)',
           animation: 'pulseSoft 1.4s ease-in-out infinite',
         }} />
       </Box>

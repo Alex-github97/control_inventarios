@@ -115,7 +115,7 @@ export default function ScannerMovil() {
             color: '#FFF', border: 'none', borderRadius: 16,
             padding: '18px 48px', fontSize: 18, fontWeight: 800, cursor: sessionId ? 'pointer' : 'not-allowed',
             width: '100%', maxWidth: 320, letterSpacing: '-0.01em',
-            boxShadow: sessionId ? `0 0 32px rgba(50,172,92,0.35)` : 'none',
+            boxShadow: sessionId ? `0 0 32px rgba(47, 111, 235, 0.35)` : 'none',
           }}>
           Iniciar cámara
         </button>
@@ -159,7 +159,7 @@ export default function ScannerMovil() {
       {/* Flash de detección */}
       <div style={{
         position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 999,
-        background: flashGreen ? 'rgba(50,172,92,0.22)' : flashRed ? 'rgba(239,68,68,0.22)' : 'transparent',
+        background: flashGreen ? 'rgba(47, 111, 235, 0.22)' : flashRed ? 'rgba(239,68,68,0.22)' : 'transparent',
         transition: 'background 0.08s ease',
       }} />
 
@@ -198,7 +198,7 @@ export default function ScannerMovil() {
             width: '65%', maxWidth: 260, aspectRatio: '4/3',
             border: `2px solid ${flashGreen ? PRIMARY : 'rgba(255,255,255,0.45)'}`,
             borderRadius: 8, position: 'relative',
-            boxShadow: flashGreen ? `0 0 32px rgba(50,172,92,0.6)` : 'none',
+            boxShadow: flashGreen ? `0 0 32px rgba(47, 111, 235, 0.6)` : 'none',
             transition: 'border-color 0.1s, box-shadow 0.1s',
           }}>
             {/* Animación línea de escaneo */}
@@ -243,7 +243,7 @@ export default function ScannerMovil() {
             }}>
               <div style={{
                 width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-                background: item.ok ? 'rgba(50,172,92,0.15)' : 'rgba(239,68,68,0.15)',
+                background: item.ok ? 'rgba(47, 111, 235, 0.15)' : 'rgba(239,68,68,0.15)',
                 border: `1.5px solid ${item.ok ? PRIMARY : '#EF4444'}`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 13,

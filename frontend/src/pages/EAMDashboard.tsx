@@ -708,7 +708,7 @@ export default function EAMDashboard() {
 
   const cardSx = {
     bgcolor: '#FFFFFF',
-    border: '1px solid rgba(50,172,92,0.18)',
+    border: '1px solid rgba(47, 111, 235, 0.18)',
     borderRadius: '14px',
     p: 2.5,
     height: '100%',
@@ -735,7 +735,7 @@ export default function EAMDashboard() {
 
         {/* ── Header ── */}
         <Stack direction="row" alignItems="center" spacing={2} mb={3}>
-          <Box sx={{ width: 44, height: 44, borderRadius: '12px', bgcolor: alpha(EAM_COLOR, 0.15), border: '1px solid rgba(50,172,92,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Box sx={{ width: 44, height: 44, borderRadius: '12px', bgcolor: alpha(EAM_COLOR, 0.15), border: '1px solid rgba(47, 111, 235, 0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <UrgIcon sx={{ fontSize: 22, color: EAM_COLOR }} />
           </Box>
           <Box>
@@ -744,7 +744,7 @@ export default function EAMDashboard() {
                 Torre de Control EAM
               </Typography>
               <Chip label="CMMS / EAM" size="small"
-                sx={{ bgcolor: alpha(EAM_COLOR, 0.18), color: EAM_COLOR, fontWeight: 700, fontSize: 10, border: '1px solid rgba(50,172,92,0.35)' }}
+                sx={{ bgcolor: alpha(EAM_COLOR, 0.18), color: EAM_COLOR, fontWeight: 700, fontSize: 10, border: '1px solid rgba(47, 111, 235, 0.35)' }}
               />
             </Stack>
             <Typography fontSize={13} color="#64748B" mt={0.25}>
@@ -754,7 +754,7 @@ export default function EAMDashboard() {
         </Stack>
 
         {/* ── Filter bar ── */}
-        <Paper elevation={0} sx={{ border: '1px solid rgba(50,172,92,0.15)', borderRadius: '14px', px: 2.5, py: 2, mb: 3 }}>
+        <Paper elevation={0} sx={{ border: '1px solid rgba(47, 111, 235, 0.15)', borderRadius: '14px', px: 2.5, py: 2, mb: 3 }}>
           <Stack direction={{ xs: 'column', md: 'row' }} alignItems={{ md: 'center' }} spacing={2} flexWrap="wrap" useFlexGap>
 
             {/* Label */}

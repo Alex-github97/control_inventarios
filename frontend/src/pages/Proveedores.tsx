@@ -102,7 +102,7 @@ export default function Proveedores() {
                   </TableCell>
                 </TableRow>
               ) : (proveedores || []).map((p: any) => (
-                <TableRow key={p.id} sx={{ '&:hover': { bgcolor: 'rgba(50,172,92,0.04)' } }}>
+                <TableRow key={p.id} sx={{ '&:hover': { bgcolor: 'rgba(47, 111, 235, 0.04)' } }}>
                   <TableCell><Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 700 }}>{p.nit}</Typography></TableCell>
                   <TableCell><Typography variant="body2" sx={{ fontWeight: 600 }}>{p.razon_social}</Typography></TableCell>
                   <TableCell>

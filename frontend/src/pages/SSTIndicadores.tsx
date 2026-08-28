@@ -5,7 +5,7 @@ import { Analytics, TrendingUp, TrendingDown } from '@mui/icons-material'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts'
 import { Layout } from '@/components/layout/Layout'
 
-import { COLOR_MODULO } from '@/config/marca'
+import { COLOR_MODULO, SERIES } from '@/config/marca'
 const SST_COLOR = COLOR_MODULO
 const PAGE_BG = '#F0F2F5'
 const TOOLTIP_STYLE = { contentStyle: { backgroundColor: '#FFFFFF', border: '1px solid rgba(197,48,48,0.2)', borderRadius: 8, color: 'text.primary', fontSize: 12 } }
@@ -35,7 +35,7 @@ const DATA_EPP_PIE = [
   { name: 'Manos', value: 58 }, { name: 'Pies', value: 41 },
   { name: 'Cuerpo', value: 29 }, { name: 'Respiratorio', value: 18 },
 ]
-const PIE_COLORS = ['#C53030','#ef4444','#f97316','#f59e0b','#22c55e','#3b82f6']
+const PIE_COLORS = SERIES
 
 const DATA_CAPACITACION = [
   { mes: 'Ene', programadas: 2, completadas: 2, participantes: 45 },

@@ -45,7 +45,7 @@ import { apiClient } from '@/api/client'
 import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
 
-import { COLOR_MODULO } from '@/config/marca'
+import { COLOR_MODULO, SERIES } from '@/config/marca'
 const DMS_COLOR = COLOR_MODULO
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -91,7 +91,7 @@ const ICON_OPTS: { key: string; label: string; el: React.ReactElement }[] = [
 const iconoDe = (key?: string | null): React.ReactElement => ICON_OPTS.find((o) => o.key === key)?.el ?? <FolderSpecial />
 const colorDe = (c?: string | null) => c || DMS_COLOR
 
-const COLORES = ['#0E7490', '#7C3AED', '#16A34A', '#D97706', '#DC2626', '#2563EB', '#BE185D', '#374151']
+const COLORES = SERIES
 const EXTS = ['pdf', 'docx', 'xlsx', 'jpg', 'png', 'xml']
 const TIPO_DATO_LABEL: Record<string, string> = { texto: 'Texto', numero: 'Número', fecha: 'Fecha', lista: 'Lista' }
 

@@ -471,7 +471,7 @@ export default function Manifiestos() {
                       <TableRow
                         key={m.id}
                         onClick={() => setDetailManifiesto(m)}
-                        sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'rgba(50,172,92,0.04)' } }}
+                        sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'rgba(47, 111, 235, 0.04)' } }}
                       >
                         <TableCell>
                           <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: 'monospace' }}>

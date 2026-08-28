@@ -2,6 +2,7 @@ import React from 'react'
 import { Card, CardContent, Box, Typography, alpha } from '@mui/material'
 import { TrendingUp, TrendingDown } from '@mui/icons-material'
 import { motion } from 'framer-motion'
+import { COLOR_MODULO, PALETA } from '@/config/marca'
 
 interface KPICardProps {
   title: string
@@ -16,7 +17,7 @@ interface KPICardProps {
 
 export function KPICard({
   title, value, subtitle, icon,
-  color = '#1A1A1A', progress, trend, onClick,
+  color = COLOR_MODULO, progress, trend, onClick,
 }: KPICardProps) {
   const isPositiveTrend = (trend?.value ?? 0) >= 0
 
@@ -59,13 +60,19 @@ export function KPICard({
 
         <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 }, position: 'relative' }}>
           {/* Top row: label + icon */}
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2.5 }}>
+          <Box sx={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+            gap: 1.25, mb: 2.5,
+          }}>
             <Typography sx={{
               fontSize: 11.5,
               fontWeight: 700,
               textTransform: 'uppercase',
               letterSpacing: '0.07em',
-              color: '#94A3B8',
+              color: PALETA.acero,
+              minWidth: 0,
+              lineHeight: 1.35,
+              hyphens: 'auto',
             }}>
               {title}
             </Typography>
@@ -100,13 +107,13 @@ export function KPICard({
           </Typography>
 
           {subtitle && (
-            <Typography sx={{ fontSize: 12, color: '#94A3B8', fontWeight: 500 }}>
+            <Typography sx={{ fontSize: 12, color: PALETA.acero, fontWeight: 500 }}>
               {subtitle}
             </Typography>
           )}
 
           {/* Progress bar */}
-          {progress !== undefined && (
+          {progress !== undefined && Number.isFinite(progress) && (
             <Box sx={{ mt: 2 }}>
               <Box sx={{
                 height: 4,
@@ -116,13 +123,13 @@ export function KPICard({
               }}>
                 <Box sx={{
                   height: '100%',
-                  width: `${Math.min(progress, 100)}%`,
+                  width: `${Math.min(Math.max(progress, 0), 100)}%`,
                   borderRadius: 99,
                   background: `linear-gradient(90deg, ${color}, ${alpha(color, 0.7)})`,
                   transition: 'width 0.6s ease',
                 }} />
               </Box>
-              <Typography sx={{ fontSize: 11, color: '#94A3B8', mt: 0.75, fontWeight: 500 }}>
+              <Typography sx={{ fontSize: 11, color: PALETA.acero, mt: 0.75, fontWeight: 500 }}>
                 {progress.toFixed(1)}% del total
               </Typography>
             </Box>

@@ -4,7 +4,7 @@ import { Box, Typography, Tooltip, alpha } from '@mui/material'
 import { useAuthStore } from '@/store/authStore'
 import { useTranslation } from 'react-i18next'
 
-import { COLOR_MODULO_SOBRE_OSCURO } from '@/config/marca'
+import { COLOR_MODULO_SOBRE_OSCURO, SUPERFICIE } from '@/config/marca'
 // Claves de permiso requeridas por workspace (vacío = siempre visible)
 const WORKSPACE_PERM_KEYS: Record<string, string[]> = {
   control:  ['dashboard','estibas','movimientos','manifiestos','vehiculos','ubicaciones','proveedores','alertas','danos','trazabilidad','mantenimiento','costos','consultas'],
@@ -238,8 +238,10 @@ export function WorkspacePanel({ width, dragging }: WorkspacePanelProps) {
       sx={{
         width,
         flexShrink: 0,
-        background: `linear-gradient(180deg, #0A1628 0%, ${PANEL_BG} 100%)`,
-        borderRight: '1px solid rgba(255,255,255,0.07)',
+        background: `linear-gradient(180deg, ${PANEL_BG} 0%, #080808 100%)`,
+        // El divisor tiene que verse: este panel y la barra lateral son ambos
+        // casi negros y sin la linea se leen como una sola superficie.
+        borderRight: `1px solid ${SUPERFICIE.divisorOscuro}`,
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
