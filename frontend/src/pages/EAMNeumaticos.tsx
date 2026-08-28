@@ -339,6 +339,20 @@ export default function EAMNeumaticos() {
   const [rotPlanForm, setRotPlanForm] = useState({
     fecha: nowLocal(), km_odometro: '', horometro: '', tecnico: '', observaciones: '',
   })
+  /**
+   * Medición de cada llanta al rotar, por neumatico_id.
+   *
+   * Rotar es el momento en que la llanta está en la mano, así que se aprovecha
+   * para dejar la inspección del día: lo que se anote acá actualiza la
+   * profundidad y la presión de la llanta.
+   */
+  const [rotInspec, setRotInspec] = useState<Record<number, {
+    izq: string; centro: string; der: string; psi: string; estado: string
+  }>>({})
+  const medicionDe = (id: number) =>
+    rotInspec[id] ?? { izq: '', centro: '', der: '', psi: '', estado: '' }
+  const setMedicion = (id: number, campo: string, valor: string) =>
+    setRotInspec(p => ({ ...p, [id]: { ...medicionDe(id), [campo]: valor } }))
   // Rotación en el rin (misma posición, sin desmontar)
   const [rotRinDialog, setRotRinDialog] = useState<Neumatico | null>(null)
   const [rotRinForm, setRotRinForm] = useState({ fecha: nowLocal(), km_odometro: '', tecnico: '', observaciones: '' })
@@ -1343,17 +1357,26 @@ export default function EAMNeumaticos() {
   }
 
   const salirDeRotacion = () => {
-    setModoRotacion(false); setPlanRotacion({}); setEnRotacion([]); setRotPlanDialog(false)
+    setModoRotacion(false); setPlanRotacion({}); setEnRotacion([])
+    setRotPlanDialog(false); setRotInspec({})
   }
 
   const mutRotacionPlan = useMutation({
     mutationFn: () => {
+      const num = (v: string) => (v.trim() === '' ? undefined : Number(v))
+      const conMedicion = (id: number, posicion: string | null) => {
+        const m = medicionDe(id)
+        return {
+          neumatico_id: id, posicion,
+          profundidad_izq: num(m.izq), profundidad_centro: num(m.centro),
+          profundidad_der: num(m.der), presion_psi: num(m.psi),
+          estado_visual: m.estado || undefined,
+        }
+      }
       const destinos = [
-        ...Object.entries(planRotacion).map(([id, pos]) => ({
-          neumatico_id: Number(id), posicion: pos,
-        })),
+        ...Object.entries(planRotacion).map(([id, pos]) => conMedicion(Number(id), pos)),
         // Las que quedaron en el almacén salen del vehículo a bodega.
-        ...enRotacion.map(id => ({ neumatico_id: id, posicion: null })),
+        ...enRotacion.map(id => conMedicion(id, null)),
       ]
       return api.post('/eam/neumaticos/rotacion-plan', {
         activo_id: veh?.id,
@@ -1367,8 +1390,12 @@ export default function EAMNeumaticos() {
       }).then(r => r.data)
     },
     onSuccess: (r: any) => {
-      toast.success(`Rotación aplicada · ${r?.movimientos ?? 0} movimiento(s)`)
+      toast.success(
+        `Rotación aplicada · ${r?.movimientos ?? 0} movimiento(s)`
+        + (r?.inspecciones ? ` y ${r.inspecciones} inspección(es)` : ''),
+      )
       qc.invalidateQueries({ queryKey: ['eam-neumaticos'] })
+      qc.invalidateQueries({ queryKey: ['eam-inspecciones'] })
       qc.invalidateQueries({ queryKey: ['eam-vehiculos'] })
       salirDeRotacion()
     },
@@ -3278,28 +3305,65 @@ export default function EAMNeumaticos() {
           <DialogContent dividers>
             <Stack spacing={2} pt={0.5}>
               <Box>
-                <Typography fontSize={12} fontWeight={700} mb={0.75}>Lo que se va a aplicar</Typography>
-                <Stack spacing={0.4}>
-                  {Object.entries(planRotacion).map(([id, pos]) => {
-                    const n = neumaticos.find(x => x.id === Number(id))
-                    return (
-                      <Stack key={id} direction="row" gap={1} alignItems="center">
-                        <TireRepair sx={{ fontSize: 14, color: '#7C3AED' }} />
-                        <Typography fontSize={12}>
-                          <b>{n?.codigo}</b> · {n?.posicion ?? 'bodega'} → <b>{pos}</b>
-                        </Typography>
-                      </Stack>
-                    )
-                  })}
-                  {enRotacion.map(id => {
+                <Typography fontSize={12} fontWeight={700} mb={0.25}>
+                  Lo que se va a aplicar
+                </Typography>
+                {/* La llanta está en la mano justo ahora: es el momento de
+                    medirla. Lo que se anote queda como inspección del día y
+                    actualiza su profundidad y presión. */}
+                <Typography fontSize={11} color="text.secondary" mb={1}>
+                  Anote la medición de cada llanta — queda como su inspección de hoy. Si la
+                  deja en blanco, solo se registra el movimiento.
+                </Typography>
+                <Stack spacing={1.25}>
+                  {[
+                    ...Object.entries(planRotacion).map(([id, pos]) => ({ id: Number(id), destino: pos })),
+                    ...enRotacion.map(id => ({ id, destino: null as string | null })),
+                  ].map(({ id, destino }) => {
                     const n = neumaticos.find(x => x.id === id)
+                    const m = medicionDe(id)
                     return (
-                      <Stack key={id} direction="row" gap={1} alignItems="center">
-                        <WarehouseIcon sx={{ fontSize: 14, color: '#64748B' }} />
-                        <Typography fontSize={12}>
-                          <b>{n?.codigo}</b> · {n?.posicion ?? '—'} → sale a bodega
-                        </Typography>
-                      </Stack>
+                      <Box key={id} sx={{
+                        p: 1, borderRadius: 2, border: '1px solid #E5E7EB',
+                        borderLeft: `3px solid ${destino ? '#7C3AED' : '#64748B'}`,
+                      }}>
+                        <Stack direction="row" gap={1} alignItems="center" mb={0.75}>
+                          {destino
+                            ? <TireRepair sx={{ fontSize: 14, color: '#7C3AED' }} />
+                            : <WarehouseIcon sx={{ fontSize: 14, color: '#64748B' }} />}
+                          <Typography fontSize={12}>
+                            <b>{n?.codigo}</b> · {n?.posicion ?? 'bodega'} →{' '}
+                            <b>{destino ?? 'sale a bodega'}</b>
+                          </Typography>
+                          {n?.profundidad_actual != null && (
+                            <Typography fontSize={10.5} color="text.disabled">
+                              hoy {n.profundidad_actual} mm
+                            </Typography>
+                          )}
+                        </Stack>
+                        <Stack direction="row" gap={0.75} flexWrap="wrap">
+                          <TextField label="Ext. (mm)" type="number" size="small"
+                            value={m.izq} onChange={e => setMedicion(id, 'izq', e.target.value)}
+                            sx={{ width: 96 }} />
+                          <TextField label="Centro" type="number" size="small"
+                            value={m.centro} onChange={e => setMedicion(id, 'centro', e.target.value)}
+                            sx={{ width: 92 }} />
+                          <TextField label="Int. (mm)" type="number" size="small"
+                            value={m.der} onChange={e => setMedicion(id, 'der', e.target.value)}
+                            sx={{ width: 96 }} />
+                          <TextField label="Presión" type="number" size="small"
+                            value={m.psi} onChange={e => setMedicion(id, 'psi', e.target.value)}
+                            sx={{ width: 92 }} />
+                          <TextField select label="Estado" size="small" value={m.estado}
+                            onChange={e => setMedicion(id, 'estado', e.target.value)}
+                            sx={{ width: 118 }}>
+                            <MenuItem value="">—</MenuItem>
+                            <MenuItem value="BUENO">Bueno</MenuItem>
+                            <MenuItem value="REGULAR">Regular</MenuItem>
+                            <MenuItem value="CRITICO">Crítico</MenuItem>
+                          </TextField>
+                        </Stack>
+                      </Box>
                     )
                   })}
                 </Stack>

@@ -2738,6 +2738,14 @@ class RotacionDestino(BaseModel):
     neumatico_id: int
     """Posición final. En None, la llanta sale del vehículo a bodega."""
     posicion: Optional[str] = None
+    # Medición tomada al desmontar. Rotar es el momento en que la llanta está
+    # en la mano, así que se aprovecha para dejar la inspección del día.
+    profundidad_izq: Optional[float] = None
+    profundidad_centro: Optional[float] = None
+    profundidad_der: Optional[float] = None
+    presion_psi: Optional[float] = None
+    estado_visual: Optional[str] = None
+    observaciones: Optional[str] = None
 
 class RotacionPlan(BaseModel):
     activo_id: int
@@ -2823,6 +2831,7 @@ async def rotacion_plan(data: RotacionPlan, db: AsyncSession = Depends(get_db)):
     origen = {n.id: (n.posicion, n.activo_id, n.estado) for n in filas}
     obs = data.observaciones or "Rotación de llantas"
     movimientos = 0
+    inspecciones = 0
     for d in data.destinos:
         neu = por_id[d.neumatico_id]
         pos_origen, veh_origen, estado_origen = origen[neu.id]
@@ -2841,6 +2850,7 @@ async def rotacion_plan(data: RotacionPlan, db: AsyncSession = Depends(get_db)):
             neu.bodega_id = data.bodega_id
         if data.km_odometro is not None:
             neu.km_actual = data.km_odometro
+            neu.km_total = max(0.0, (neu.km_actual or 0) - (neu.km_inicio or 0))
         db.add(EAMMovimientoNeumatico(
             neumatico_id=neu.id, tipo_movimiento=tipo,
             activo_id=data.activo_id if d.posicion else veh_origen,
@@ -2850,9 +2860,39 @@ async def rotacion_plan(data: RotacionPlan, db: AsyncSession = Depends(get_db)):
         ))
         movimientos += 1
 
+        # La medición del día queda como inspección de la llanta, con la misma
+        # convención del resto del módulo: izq = hombro externo, der = interno.
+        medido = any(v is not None for v in (
+            d.profundidad_izq, d.profundidad_centro, d.profundidad_der, d.presion_psi,
+        ))
+        if medido or d.estado_visual:
+            db.add(EAMInspeccionNeumatico(
+                neumatico_id=neu.id, fecha=data.fecha,
+                # La posición de la que venía: es donde se desgastó lo que se mide.
+                posicion=pos_origen,
+                profundidad_izq=d.profundidad_izq,
+                profundidad_centro=d.profundidad_centro,
+                profundidad_der=d.profundidad_der,
+                presion_psi=d.presion_psi,
+                km_odometro=data.km_odometro,
+                estado_visual=d.estado_visual,
+                observaciones=d.observaciones or "Medición tomada en la rotación",
+                tecnico=data.tecnico,
+            ))
+            pmin = _min_prof(d.profundidad_izq, d.profundidad_centro, d.profundidad_der)
+            if pmin is not None:
+                neu.profundidad_actual = pmin
+            if d.profundidad_izq is not None:
+                neu.profundidad_externa = d.profundidad_izq
+            if d.profundidad_der is not None:
+                neu.profundidad_interna = d.profundidad_der
+            if d.presion_psi is not None:
+                neu.presion_actual = d.presion_psi
+            inspecciones += 1
+
     _avanzar_medidores(activo, data.km_odometro, data.horometro)
     await db.commit()
-    return {"ok": True, "movimientos": movimientos}
+    return {"ok": True, "movimientos": movimientos, "inspecciones": inspecciones}
 
 
 @router.get("/neumaticos/{nid}/movimientos", response_model=List[MovNeumaticoResponse])
