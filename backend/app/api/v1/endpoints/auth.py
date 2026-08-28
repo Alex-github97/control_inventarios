@@ -2,13 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, text
 from pydantic import BaseModel, ConfigDict
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime, timezone
 from app.core.database import get_db, get_db_plataforma
-from app.core.tenant import codigo_valido
+from app.core.tenant import codigo_valido, nombre_esquema
 from app.infrastructure.models.plataforma import PlataformaCliente
 from app.core.security import verify_password, create_access_token, create_refresh_token, hash_password
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, require_admin
 from app.infrastructure.repositories.usuario_repository import UsuarioRepository
 from app.infrastructure.models.usuario import Usuario, RolUsuario
 from app.application.schemas.usuario import (
@@ -105,6 +105,112 @@ async def login(
             user.id, cliente=cliente.codigo, esquema=cliente.esquema),
         user=UsuarioResponse.model_validate(user),
     )
+
+
+class ClienteAdmin(ClientePublico):
+    """La ficha completa, solo para quien administra la plataforma."""
+    id: int
+    esquema: str
+    nit: Optional[str] = None
+    activo: bool
+
+
+class ClienteCrear(BaseModel):
+    codigo: str
+    nombre: str
+    nit: Optional[str] = None
+    logo_url: Optional[str] = None
+    color: Optional[str] = None
+
+
+@router.get("/plataforma/clientes", response_model=List[ClienteAdmin])
+async def listar_clientes(
+    db: AsyncSession = Depends(get_db_plataforma),
+    _: Usuario = Depends(require_admin),
+):
+    r = await db.execute(select(PlataformaCliente).order_by(PlataformaCliente.nombre))
+    return list(r.scalars().all())
+
+
+@router.post("/plataforma/clientes", response_model=ClienteAdmin, status_code=201)
+async def crear_cliente(
+    data: ClienteCrear,
+    db: AsyncSession = Depends(get_db_plataforma),
+    _: Usuario = Depends(require_admin),
+):
+    """Da de alta una empresa y le crea su esquema con todas las tablas.
+
+    El alta no es solo una fila: hay que levantarle el juego completo de tablas,
+    porque cada cliente tiene las suyas.
+    """
+    codigo = (data.codigo or "").strip().lower()
+    if not codigo_valido(codigo):
+        raise HTTPException(
+            400,
+            "El código debe empezar por letra y llevar solo minúsculas, dígitos o guion bajo: "
+            "termina siendo el nombre del esquema donde viven sus datos.",
+        )
+    existe = await db.execute(
+        select(PlataformaCliente).where(PlataformaCliente.codigo == codigo)
+    )
+    if existe.scalar_one_or_none():
+        raise HTTPException(409, f"Ya existe una empresa con el código «{codigo}»")
+
+    cliente = PlataformaCliente(
+        codigo=codigo, nombre=data.nombre.strip(), esquema=nombre_esquema(codigo),
+        nit=data.nit, logo_url=data.logo_url, color=data.color, activo=True,
+    )
+    db.add(cliente)
+    await db.flush()
+
+    # Se crea acá y no en el próximo arranque: el cliente debe poder entrar
+    # apenas se le da de alta.
+    from app.main import _migrar_esquema
+    await _migrar_esquema(cliente.esquema)
+
+    await db.commit(); await db.refresh(cliente)
+    return cliente
+
+
+@router.put("/plataforma/clientes/{cliente_id}", response_model=ClienteAdmin)
+async def actualizar_cliente(
+    cliente_id: int,
+    data: ClienteCrear,
+    db: AsyncSession = Depends(get_db_plataforma),
+    _: Usuario = Depends(require_admin),
+):
+    cliente = await db.get(PlataformaCliente, cliente_id)
+    if not cliente:
+        raise HTTPException(404, "Empresa no encontrada")
+    # El código no se toca: es el nombre del esquema, y cambiarlo dejaría sus
+    # tablas huérfanas.
+    cliente.nombre = data.nombre.strip()
+    cliente.nit = data.nit
+    cliente.logo_url = data.logo_url
+    cliente.color = data.color
+    await db.commit(); await db.refresh(cliente)
+    return cliente
+
+
+@router.put("/plataforma/clientes/{cliente_id}/estado", response_model=ClienteAdmin)
+async def cambiar_estado_cliente(
+    cliente_id: int,
+    activo: bool,
+    db: AsyncSession = Depends(get_db_plataforma),
+    _: Usuario = Depends(require_admin),
+):
+    """Suspende o reactiva el acceso, sin tocar los datos.
+
+    No hay borrado: eliminar una empresa sería eliminar su esquema entero con
+    todo su historial, y eso no puede depender de un clic.
+    """
+    cliente = await db.get(PlataformaCliente, cliente_id)
+    if not cliente:
+        raise HTTPException(404, "Empresa no encontrada")
+    cliente.activo = activo
+    cliente.suspendido_desde = None if activo else datetime.now(timezone.utc).replace(tzinfo=None)
+    await db.commit(); await db.refresh(cliente)
+    return cliente
 
 
 @router.get("/me", response_model=UsuarioResponse)

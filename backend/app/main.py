@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.core.database import engine, Base
 from app.core.tenant import ESQUEMA_POR_DEFECTO
 from app.core.middleware_tenant import TenantMiddleware
+from app.core.auth_global import exigir_sesion
 from app.api.v1.router import api_router
 import app.infrastructure.models  # noqa: F401 — registra todos los modelos
 from app.infrastructure.models.rol import Rol, ROLES_DEFECTO
@@ -1295,7 +1296,12 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 # después de CORS para que las respuestas de error también lleven sus cabeceras.
 app.add_middleware(TenantMiddleware)
 
-app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+# La autenticación se exige a nivel del router: eran 470 rutas sin token, y
+# ponerlo en cada firma habría dejado la puerta abierta a que la siguiente
+# naciera igual de expuesta. Las excepciones están enumeradas en auth_global.
+app.include_router(
+    api_router, prefix=settings.API_V1_PREFIX, dependencies=[Depends(exigir_sesion)],
+)
 
 
 @app.get("/health")
