@@ -354,6 +354,11 @@ async def lifespan(app: FastAPI):
                 "ALTER TABLE eam_plan_mantenimiento DROP COLUMN IF EXISTS %s" % columna
             ))
 
+        # Montaje de llantas en equipos sin odómetro: se mide por horas.
+        await conn.execute(text(
+            "ALTER TABLE eam_movimiento_neumatico ADD COLUMN IF NOT EXISTS horometro DOUBLE PRECISION"
+        ))
+
         # Proveedor por línea: cada trabajo o repuesto puede correr por cuenta
         # de un contratista distinto al principal de la OT. NULL = taller interno.
         for tabla in ("eam_ot_mano_obra", "eam_ot_material"):

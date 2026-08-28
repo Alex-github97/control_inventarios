@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, Profiler } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import * as XLSX from 'xlsx'
 import { Layout } from '@/components/layout/Layout'
 import {
@@ -36,7 +36,7 @@ const EAM_COLOR = '#32AC5C'
 const EAM_DARK = '#27884A'
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
-interface Vehiculo { id: number; codigo: string; nombre: string; placa?: string; numero_ejes?: number | null; tiene_repuesto?: boolean; marca?: string; modelo?: string; tipo_activo?: string; odometro_actual?: number; motor_marca?: string; motor_linea?: string; motor_cc?: number }
+interface Vehiculo { id: number; codigo: string; nombre: string; placa?: string; numero_ejes?: number | null; tiene_repuesto?: boolean; marca?: string; modelo?: string; tipo_activo?: string; odometro_actual?: number; horometro_actual?: number; motor_marca?: string; motor_linea?: string; motor_cc?: number }
 interface Neumatico {
   id: number; codigo: string; marca?: string; referencia?: string; medida?: string; tipo?: string
   estado: string; activo_id?: number | null; posicion?: string | null; bodega_id?: number | null
@@ -113,10 +113,11 @@ const fmtFecha = (s?: string | null) => { if (!s) return '—'; const d = new Da
 // en el componente principal y cada tecla re-renderizaba todo).
 interface AgregarLlantaPayload {
   neumatico_id: number; posicion: string; fecha: string
-  km_odometro?: number; tecnico?: string; observaciones?: string
+  km_odometro?: number; horometro?: number; tecnico?: string; observaciones?: string
 }
 function AgregarLlantaDialog({
   open, onClose, veh, layout, almacen, tireEnVeh, onSubmit, isPending,
+  posicionInicial, bodegas,
 }: {
   open: boolean
   onClose: () => void
@@ -126,91 +127,143 @@ function AgregarLlantaDialog({
   tireEnVeh: (posicion: string) => Neumatico | undefined
   onSubmit: (payload: AgregarLlantaPayload) => void
   isPending: boolean
+  /** Posición ya elegida, cuando se entra haciendo clic en una rueda vacía. */
+  posicionInicial?: string
+  bodegas: { id: number; nombre: string }[]
 }) {
-  const EMPTY = { neumatico_id: '', posicion: '', fecha: nowLocal(), km_odometro: '', tecnico: '', observaciones: '' }
+  const EMPTY = {
+    neumatico_id: '', posicion: '', fecha: nowLocal(),
+    km_odometro: '', horometro: '', tecnico: '', observaciones: '',
+  }
   const [form, setForm] = useState(EMPTY)
+  const [bodegaFiltro, setBodegaFiltro] = useState('')
   const [wasOpen, setWasOpen] = useState(false)
   if (open && !wasOpen) {
     setWasOpen(true)
-    setForm({ ...EMPTY, km_odometro: veh?.odometro_actual != null ? String(veh.odometro_actual) : '' })
+    setForm({
+      ...EMPTY,
+      posicion: posicionInicial ?? '',
+      // La lectura actual del equipo se propone, pero hay que confirmarla: al
+      // montar suele haber rodado desde la última vez que se registró.
+      km_odometro: veh?.odometro_actual != null ? String(veh.odometro_actual) : '',
+      horometro: veh?.horometro_actual != null ? String(veh.horometro_actual) : '',
+    })
+    setBodegaFiltro('')
   } else if (!open && wasOpen) {
     setWasOpen(false)
   }
 
-  const disponibles = almacen.filter(n => n.estado === 'ALMACENADO')
-  const libres = layout.filter(p => !tireEnVeh(p.codigo))
+  const nombreBodega = (id?: number | null) =>
+    bodegas.find(b => b.id === id)?.nombre ?? 'Sin bodega'
 
-  const perfOpen = (label: string) => {
-    const t0 = performance.now()
-    console.log(`[PERF] ${label}: click -> onOpen ${(t0 - (window as any).__perfClickT0 || 0).toFixed?.(1) ?? ''}`)
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      console.log(`[PERF] ${label}: onOpen -> painted = ${(performance.now() - t0).toFixed(1)}ms`)
-    }))
-  }
-  const markClick = () => { (window as any).__perfClickT0 = performance.now() }
+  const disponibles = almacen
+    .filter(n => n.estado === 'ALMACENADO')
+    .filter(n => !bodegaFiltro || String(n.bodega_id ?? '') === bodegaFiltro)
+  const libres = layout.filter(p => !tireEnVeh(p.codigo))
+  const bodegasConLlantas = bodegas.filter(b =>
+    almacen.some(n => n.estado === 'ALMACENADO' && n.bodega_id === b.id))
+
+  // El backend exige una de las dos lecturas: es el punto de partida del
+  // recorrido de la llanta y sin ella no hay CPK.
+  const sinLectura = !form.km_odometro && !form.horometro
 
   return (
-    <Profiler id="AgregarLlantaDialog" onRender={(id, phase, actualDuration) => {
-      if (actualDuration > 2) console.log(`[PERF][Profiler] ${id} ${phase} actualDuration=${actualDuration.toFixed(1)}ms`)
-    }}>
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
-      <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Agregar llanta desde bodega
-        <Typography variant="caption" color="text.secondary" display="block">{veh?.codigo}{veh?.placa ? ` · ${veh.placa}` : ''} — {veh?.nombre}</Typography>
+      <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>
+        {posicionInicial ? 'Montar llanta en la posición' : 'Agregar llanta desde bodega'}
+        <Typography variant="caption" color="text.secondary" display="block">
+          {veh?.codigo}{veh?.placa ? ` · ${veh.placa}` : ''} — {veh?.nombre}
+          {posicionInicial && ` · ${layout.find(p => p.codigo === posicionInicial)?.label ?? posicionInicial}`}
+        </Typography>
       </DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2} pt={0.5}>
+          {bodegasConLlantas.length > 1 && (
+            <TextField select label="Ubicación" size="small" fullWidth value={bodegaFiltro}
+              onChange={e => { setBodegaFiltro(e.target.value); setForm(f => ({ ...f, neumatico_id: '' })) }}>
+              <MenuItem value="">Todas las bodegas</MenuItem>
+              {bodegasConLlantas.map(b => (
+                <MenuItem key={b.id} value={String(b.id)}>{b.nombre}</MenuItem>
+              ))}
+            </TextField>
+          )}
           <Autocomplete
             size="small"
             options={disponibles}
             value={disponibles.find(n => String(n.id) === form.neumatico_id) ?? null}
             onChange={(_e, v) => setForm(f => ({ ...f, neumatico_id: v ? String(v.id) : '' }))}
-            onOpen={() => perfOpen('Llanta Autocomplete')}
-            getOptionLabel={n => `${n.codigo} · ${n.marca ?? ''} ${n.medida ?? ''}`}
+            // La bodega entra en la etiqueta para que el buscador también la
+            // encuentre escribiendo el nombre de la ubicación.
+            getOptionLabel={n => `${n.codigo} · ${n.marca ?? ''} ${n.medida ?? ''} · ${nombreBodega(n.bodega_id)}`}
             isOptionEqualToValue={(a, b) => a.id === b.id}
             noOptionsText="Sin resultados"
-            renderInput={params => <TextField {...params} onMouseDown={markClick} label="Llanta en bodega *" placeholder="Buscar por código, marca o medida…" />}
+            renderInput={params => (
+              <TextField {...params} label="Llanta en bodega *"
+                placeholder="Buscar por código, marca, medida o ubicación…" />
+            )}
             renderOption={(props, n) => (
               <li {...props} key={n.id}>
                 <Stack>
                   <Typography fontSize={13.5} fontWeight={600}>{n.codigo}</Typography>
-                  <Typography fontSize={11.5} color="text.secondary">{n.marca ?? '—'} · {n.medida ?? '—'}</Typography>
+                  <Typography fontSize={11.5} color="text.secondary">
+                    {n.marca ?? '—'} · {n.medida ?? '—'} · {nombreBodega(n.bodega_id)}
+                  </Typography>
                 </Stack>
               </li>
             )}
           />
-          {disponibles.length === 0 && <Alert severity="info" sx={{ py: 0.5 }}>No hay llantas disponibles en bodega.</Alert>}
+          {disponibles.length === 0 && (
+            <Alert severity="info" sx={{ py: 0.5 }}>
+              {bodegaFiltro ? 'No hay llantas en esa bodega.' : 'No hay llantas disponibles en bodega.'}
+            </Alert>
+          )}
           {libres.length === 0 ? (
             <Alert severity="warning" sx={{ py: 0.5 }}>Este vehículo no tiene posiciones libres. Desmonta una llanta primero.</Alert>
           ) : (
             <TextField
               select label="Posición *" size="small" fullWidth value={form.posicion}
               onChange={e => setForm(f => ({ ...f, posicion: e.target.value }))}
-              onMouseDown={markClick}
-              SelectProps={{ onOpen: () => perfOpen('Posición Select'), MenuProps: { transitionDuration: 0 } }}
+              SelectProps={{ MenuProps: { transitionDuration: 0 } }}
             >
               <MenuItem value="">Seleccionar…</MenuItem>
               {libres.map(p => <MenuItem key={p.codigo} value={p.codigo}>{p.label}</MenuItem>)}
             </TextField>
           )}
-          <TextField label="Fecha y hora *" type="datetime-local" size="small" fullWidth value={form.fecha} onChange={e => setForm(f => ({ ...f, fecha: e.target.value }))} InputLabelProps={{ shrink: true }} />
-          <TextField label="Odómetro (km)" type="number" size="small" fullWidth value={form.km_odometro} onChange={e => setForm(f => ({ ...f, km_odometro: e.target.value }))} />
+          <TextField label="Fecha y hora del montaje *" type="datetime-local" size="small" fullWidth
+            value={form.fecha} onChange={e => setForm(f => ({ ...f, fecha: e.target.value }))}
+            InputLabelProps={{ shrink: true }} />
+          <Stack direction="row" spacing={1}>
+            <TextField label="Odómetro (km)" type="number" size="small" fullWidth
+              value={form.km_odometro}
+              onChange={e => setForm(f => ({ ...f, km_odometro: e.target.value }))} />
+            <TextField label="Horómetro (h)" type="number" size="small" fullWidth
+              value={form.horometro}
+              onChange={e => setForm(f => ({ ...f, horometro: e.target.value }))} />
+          </Stack>
+          {sinLectura && (
+            <Alert severity="warning" sx={{ py: 0.5 }}>
+              Registre el odómetro o el horómetro: es el punto de partida para calcular el
+              recorrido de la llanta y su costo por kilómetro.
+            </Alert>
+          )}
           <TextField label="Técnico" size="small" fullWidth value={form.tecnico} onChange={e => setForm(f => ({ ...f, tecnico: e.target.value }))} />
           <TextField label="Observaciones" size="small" fullWidth multiline rows={2} value={form.observaciones} onChange={e => setForm(f => ({ ...f, observaciones: e.target.value }))} />
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, py: 2 }}>
         <Button onClick={onClose}>Cancelar</Button>
-        <Button variant="contained" disabled={!form.neumatico_id || !form.posicion || !form.fecha || isPending}
+        <Button variant="contained"
+          disabled={!form.neumatico_id || !form.posicion || !form.fecha || sinLectura || isPending}
           onClick={() => onSubmit({
             neumatico_id: Number(form.neumatico_id), posicion: form.posicion,
             fecha: new Date(form.fecha).toISOString(),
             km_odometro: form.km_odometro ? Number(form.km_odometro) : undefined,
+            horometro: form.horometro ? Number(form.horometro) : undefined,
             tecnico: form.tecnico || undefined, observaciones: form.observaciones || undefined,
           })}
-          sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Agregar</Button>
+          sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Montar</Button>
       </DialogActions>
     </Dialog>
-    </Profiler>
   )
 }
 
@@ -226,7 +279,7 @@ export default function EAMNeumaticos() {
   // Diálogos
   const [slotMenu, setSlotMenu] = useState<null | { anchor: HTMLElement; tire: Neumatico; pos: string }>(null)
   const [movDialog, setMovDialog] = useState<null | { tire: Neumatico; tipo: string; posicion?: string }>(null)
-  const [movForm, setMovForm] = useState({ fecha: nowLocal(), km_odometro: '', bodega_id: '', tecnico: '', observaciones: '' })
+  const [movForm, setMovForm] = useState({ fecha: nowLocal(), km_odometro: '', horometro: '', bodega_id: '', tecnico: '', observaciones: '' })
   const [bajaDialog, setBajaDialog] = useState<Neumatico | null>(null)
   const [bajaForm, setBajaForm] = useState({ fecha: nowLocal(), dano_id: '', motivo: '', motivo_fin_vida_id: '' })
   const [nuevoOpen, setNuevoOpen] = useState(false)
@@ -258,9 +311,11 @@ export default function EAMNeumaticos() {
   const [voltearDialog, setVoltearDialog] = useState<Neumatico | null>(null)
   // Montaje por botón (alternativa al arrastrar y soltar)
   const [montarDialog, setMontarDialog] = useState<Neumatico | null>(null)
-  const [montarForm, setMontarForm] = useState({ activo_id: '', posicion: '', fecha: nowLocal(), km_odometro: '', tecnico: '', observaciones: '' })
+  const [montarForm, setMontarForm] = useState({ activo_id: '', posicion: '', fecha: nowLocal(), km_odometro: '', horometro: '', tecnico: '', observaciones: '' })
   // Agregar llanta desde bodega al vehículo seleccionado (desde "Llantas por Vehículo")
   const [agregarLlantaOpen, setAgregarLlantaOpen] = useState(false)
+  /** Posición desde la que se abrió el montaje, al hacer clic en una rueda vacía. */
+  const [posicionAMontar, setPosicionAMontar] = useState('')
   // Rotación en el rin (misma posición, sin desmontar)
   const [rotRinDialog, setRotRinDialog] = useState<Neumatico | null>(null)
   const [rotRinForm, setRotRinForm] = useState({ fecha: nowLocal(), km_odometro: '', tecnico: '', observaciones: '' })
@@ -1155,14 +1210,14 @@ export default function EAMNeumaticos() {
     setOverSlot('')
     if (!draggedTire || !veh) return
     const tipo = draggedTire.activo_id === veh.id ? 'ROTACION' : 'INSTALACION'
-    setMovForm({ fecha: nowLocal(), km_odometro: '', bodega_id: '', tecnico: '', observaciones: '' })
+    setMovForm({ fecha: nowLocal(), km_odometro: '', horometro: '', bodega_id: '', tecnico: '', observaciones: '' })
     setMovDialog({ tire: draggedTire, tipo, posicion: pos })
     setDraggedTire(null)
   }
   const soltarEnBodega = () => {
     setOverSlot('')
     if (!draggedTire) return
-    setMovForm({ fecha: nowLocal(), km_odometro: '', bodega_id: bodegas[0] ? String(bodegas[0].id) : '', tecnico: '', observaciones: '' })
+    setMovForm({ fecha: nowLocal(), km_odometro: '', horometro: '', bodega_id: bodegas[0] ? String(bodegas[0].id) : '', tecnico: '', observaciones: '' })
     setMovDialog({ tire: draggedTire, tipo: 'DESMONTAJE' })
     setDraggedTire(null)
   }
@@ -1177,6 +1232,7 @@ export default function EAMNeumaticos() {
       posicion: movDialog.posicion,
       bodega_id: movForm.bodega_id ? Number(movForm.bodega_id) : undefined,
       km_odometro: movForm.km_odometro ? Number(movForm.km_odometro) : undefined,
+      horometro: movForm.horometro ? Number(movForm.horometro) : undefined,
       tecnico: movForm.tecnico || undefined,
       observaciones: movForm.observaciones || undefined,
     })
@@ -1191,6 +1247,7 @@ export default function EAMNeumaticos() {
       activo_id: Number(montarForm.activo_id),
       posicion: montarForm.posicion,
       km_odometro: montarForm.km_odometro ? Number(montarForm.km_odometro) : undefined,
+      horometro: montarForm.horometro ? Number(montarForm.horometro) : undefined,
       tecnico: montarForm.tecnico || undefined,
       observaciones: montarForm.observaciones || undefined,
     })
@@ -1294,7 +1351,7 @@ export default function EAMNeumaticos() {
         <Stack direction="row" gap={0.5} mt={0.5} flexWrap="wrap">
           {n.profundidad_actual != null && <Chip size="small" label={`${n.profundidad_actual} mm`} sx={{ height: 18, fontSize: 9 }} />}
           {n.reencauches > 0 && <Chip size="small" label={`R${n.reencauches}`} color="warning" sx={{ height: 18, fontSize: 9 }} />}
-          <Tooltip title="Montar en vehículo"><IconButton size="small" sx={{ p: 0.25, color: EAM_COLOR }} onClick={() => { setMontarForm({ activo_id: veh ? String(veh.id) : '', posicion: '', fecha: nowLocal(), km_odometro: '', tecnico: '', observaciones: '' }); setMontarDialog(n) }}><DirectionsCar sx={{ fontSize: 14 }} /></IconButton></Tooltip>
+          <Tooltip title="Montar en vehículo"><IconButton size="small" sx={{ p: 0.25, color: EAM_COLOR }} onClick={() => { setMontarForm({ activo_id: veh ? String(veh.id) : '', posicion: '', fecha: nowLocal(), km_odometro: '', horometro: '', tecnico: '', observaciones: '' }); setMontarDialog(n) }}><DirectionsCar sx={{ fontSize: 14 }} /></IconButton></Tooltip>
           <Tooltip title="Historial"><IconButton size="small" onClick={() => setHistTire(n)} sx={{ p: 0.25 }}><HistoryIcon sx={{ fontSize: 14 }} /></IconButton></Tooltip>
           <Tooltip title="Dar de baja"><IconButton size="small" color="error" onClick={() => { setBajaForm({ fecha: nowLocal(), dano_id: '', motivo: '', motivo_fin_vida_id: '' }); setBajaDialog(n) }} sx={{ p: 0.25 }}><DeleteForever sx={{ fontSize: 14 }} /></IconButton></Tooltip>
         </Stack>
@@ -1318,7 +1375,13 @@ export default function EAMNeumaticos() {
           draggable={!!t}
           onDragStart={e => { if (t) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(t.id)); setDraggedTire(t) } }}
           onDragEnd={() => setDraggedTire(null)}
-          onClick={(e) => { if (t) setSlotMenu({ anchor: e.currentTarget, tire: t, pos: pos.codigo }) }}
+          onClick={(e) => {
+            if (t) { setSlotMenu({ anchor: e.currentTarget, tire: t, pos: pos.codigo }); return }
+            // Rueda vacía: el clic abre el montaje con la posición ya elegida.
+            // Antes no hacía nada y montar solo se podía arrastrando.
+            setPosicionAMontar(pos.codigo)
+            setAgregarLlantaOpen(true)
+          }}
           onDragOver={(e) => { e.preventDefault(); setOverSlot(pos.codigo) }}
           onDragLeave={() => setOverSlot('')}
           onDrop={e => { e.preventDefault(); soltarEnPosicion(pos.codigo) }}
@@ -1744,7 +1807,7 @@ export default function EAMNeumaticos() {
                                   <Tooltip title="Rotación en el rin (misma posición)"><IconButton size="small" onClick={() => { setRotRinForm({ fecha: nowLocal(), km_odometro: veh.odometro_actual != null ? String(veh.odometro_actual) : '', tecnico: '', observaciones: '' }); setRotRinDialog(t) }} sx={{ color: '#D97706' }}><Autorenew sx={{ fontSize: 17 }} /></IconButton></Tooltip>
                                   <Tooltip title={dualPos ? 'Voltear (invertir interno↔externo)' : 'El volteo aplica a llantas duales'}><span><IconButton size="small" disabled={!dualPos} onClick={() => setVoltearDialog(t)} sx={{ color: '#7C3AED' }}><Autorenew sx={{ fontSize: 17 }} /></IconButton></span></Tooltip>
                                   <Tooltip title="Gráfica / historial"><IconButton size="small" onClick={() => setChartTire(t)} sx={{ color: '#2563EB' }}><ShowChart sx={{ fontSize: 17 }} /></IconButton></Tooltip>
-                                  <Tooltip title="Desmontar a bodega"><IconButton size="small" onClick={() => { setMovForm({ fecha: nowLocal(), km_odometro: '', bodega_id: '', tecnico: '', observaciones: '' }); setMovDialog({ tire: t, tipo: 'DESMONTAJE' }) }} sx={{ color: '#64748B' }}><WarehouseIcon sx={{ fontSize: 17 }} /></IconButton></Tooltip>
+                                  <Tooltip title="Desmontar a bodega"><IconButton size="small" onClick={() => { setMovForm({ fecha: nowLocal(), km_odometro: '', horometro: '', bodega_id: '', tecnico: '', observaciones: '' }); setMovDialog({ tire: t, tipo: 'DESMONTAJE' }) }} sx={{ color: '#64748B' }}><WarehouseIcon sx={{ fontSize: 17 }} /></IconButton></Tooltip>
                                 </Stack>
                               )}
                             </TableCell>
@@ -1954,7 +2017,7 @@ export default function EAMNeumaticos() {
                       <TableCell>
                         {n.estado === 'ALMACENADO' && (
                           <Tooltip title="Montar en vehículo">
-                            <IconButton size="small" sx={{ color: EAM_COLOR }} onClick={() => { setMontarForm({ activo_id: '', posicion: '', fecha: nowLocal(), km_odometro: '', tecnico: '', observaciones: '' }); setMontarDialog(n) }}>
+                            <IconButton size="small" sx={{ color: EAM_COLOR }} onClick={() => { setMontarForm({ activo_id: '', posicion: '', fecha: nowLocal(), km_odometro: '', horometro: '', tecnico: '', observaciones: '' }); setMontarDialog(n) }}>
                               <DirectionsCar sx={{ fontSize: 16 }} />
                             </IconButton>
                           </Tooltip>
@@ -2730,7 +2793,7 @@ export default function EAMNeumaticos() {
             <MenuItem key="hist" onClick={() => { setHistTire(slotMenu.tire); setSlotMenu(null) }}>
               <ListItemIcon><HistoryIcon sx={{ fontSize: 18, color: '#2563EB' }} /></ListItemIcon><ListItemText>Historial de movimientos</ListItemText>
             </MenuItem>,
-            <MenuItem key="desm" onClick={() => { setMovForm({ fecha: nowLocal(), km_odometro: '', bodega_id: '', tecnico: '', observaciones: '' }); setMovDialog({ tire: slotMenu.tire, tipo: 'DESMONTAJE' }); setSlotMenu(null) }}>
+            <MenuItem key="desm" onClick={() => { setMovForm({ fecha: nowLocal(), km_odometro: '', horometro: '', bodega_id: '', tecnico: '', observaciones: '' }); setMovDialog({ tire: slotMenu.tire, tipo: 'DESMONTAJE' }); setSlotMenu(null) }}>
               <ListItemIcon><WarehouseIcon sx={{ fontSize: 18, color: '#64748B' }} /></ListItemIcon><ListItemText>Desmontar a bodega</ListItemText>
             </MenuItem>,
             <Divider key="d2" />,
@@ -2769,7 +2832,18 @@ export default function EAMNeumaticos() {
               <TextField label="Fecha y hora del movimiento *" type="datetime-local" size="small" fullWidth
                 value={movForm.fecha} onChange={e => setMovForm(f => ({ ...f, fecha: e.target.value }))} InputLabelProps={{ shrink: true }} />
               {(movDialog?.tipo === 'INSTALACION' || movDialog?.tipo === 'ROTACION') && (
-                <TextField label="Odómetro (km)" type="number" size="small" fullWidth value={movForm.km_odometro} onChange={e => setMovForm(f => ({ ...f, km_odometro: e.target.value }))} />
+                <>
+                  <Stack direction="row" spacing={1}>
+                    <TextField label="Odómetro (km)" type="number" size="small" fullWidth value={movForm.km_odometro} onChange={e => setMovForm(f => ({ ...f, km_odometro: e.target.value }))} />
+                    <TextField label="Horómetro (h)" type="number" size="small" fullWidth value={movForm.horometro} onChange={e => setMovForm(f => ({ ...f, horometro: e.target.value }))} />
+                  </Stack>
+                  {!movForm.km_odometro && !movForm.horometro && (
+                    <Alert severity="warning" sx={{ py: 0.5 }}>
+                      Registre el odómetro o el horómetro: es el punto de partida para calcular
+                      el recorrido de la llanta.
+                    </Alert>
+                  )}
+                </>
               )}
               {movDialog?.tipo === 'DESMONTAJE' && (
                 <TextField select label="Bodega destino" size="small" fullWidth value={movForm.bodega_id} onChange={e => setMovForm(f => ({ ...f, bodega_id: e.target.value }))}>
@@ -2783,7 +2857,11 @@ export default function EAMNeumaticos() {
           </DialogContent>
           <DialogActions sx={{ px: 3, py: 2 }}>
             <Button onClick={() => setMovDialog(null)}>Cancelar</Button>
-            <Button variant="contained" onClick={confirmarMov} disabled={!movForm.fecha || mutMov.isPending} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Confirmar</Button>
+            <Button variant="contained" onClick={confirmarMov} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}
+              disabled={!movForm.fecha || mutMov.isPending || (
+                (movDialog?.tipo === 'INSTALACION' || movDialog?.tipo === 'ROTACION')
+                && !movForm.km_odometro && !movForm.horometro
+              )}>Confirmar</Button>
           </DialogActions>
         </Dialog>
 
@@ -2813,15 +2891,26 @@ export default function EAMNeumaticos() {
                   )
                 })()
               )}
-              <TextField label="Fecha y hora *" type="datetime-local" size="small" fullWidth value={montarForm.fecha} onChange={e => setMontarForm(f => ({ ...f, fecha: e.target.value }))} InputLabelProps={{ shrink: true }} />
-              <TextField label="Odómetro (km)" type="number" size="small" fullWidth value={montarForm.km_odometro} onChange={e => setMontarForm(f => ({ ...f, km_odometro: e.target.value }))} />
+              <TextField label="Fecha y hora del montaje *" type="datetime-local" size="small" fullWidth value={montarForm.fecha} onChange={e => setMontarForm(f => ({ ...f, fecha: e.target.value }))} InputLabelProps={{ shrink: true }} />
+              <Stack direction="row" spacing={1}>
+                <TextField label="Odómetro (km)" type="number" size="small" fullWidth value={montarForm.km_odometro} onChange={e => setMontarForm(f => ({ ...f, km_odometro: e.target.value }))} />
+                <TextField label="Horómetro (h)" type="number" size="small" fullWidth value={montarForm.horometro} onChange={e => setMontarForm(f => ({ ...f, horometro: e.target.value }))} />
+              </Stack>
+              {!montarForm.km_odometro && !montarForm.horometro && (
+                <Alert severity="warning" sx={{ py: 0.5 }}>
+                  Registre el odómetro o el horómetro: es el punto de partida para calcular
+                  el recorrido de la llanta.
+                </Alert>
+              )}
               <TextField label="Técnico" size="small" fullWidth value={montarForm.tecnico} onChange={e => setMontarForm(f => ({ ...f, tecnico: e.target.value }))} />
               <TextField label="Observaciones" size="small" fullWidth multiline rows={2} value={montarForm.observaciones} onChange={e => setMontarForm(f => ({ ...f, observaciones: e.target.value }))} />
             </Stack>
           </DialogContent>
           <DialogActions sx={{ px: 3, py: 2 }}>
             <Button onClick={() => setMontarDialog(null)}>Cancelar</Button>
-            <Button variant="contained" disabled={!montarForm.activo_id || !montarForm.posicion || !montarForm.fecha || mutMov.isPending}
+            <Button variant="contained"
+              disabled={!montarForm.activo_id || !montarForm.posicion || !montarForm.fecha
+                || (!montarForm.km_odometro && !montarForm.horometro) || mutMov.isPending}
               onClick={confirmarMontar} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Montar</Button>
           </DialogActions>
         </Dialog>
@@ -2829,16 +2918,18 @@ export default function EAMNeumaticos() {
         {/* ── Diálogo: agregar llanta desde bodega al vehículo seleccionado ── */}
         <AgregarLlantaDialog
           open={agregarLlantaOpen}
-          onClose={() => setAgregarLlantaOpen(false)}
+          onClose={() => { setAgregarLlantaOpen(false); setPosicionAMontar('') }}
           veh={veh}
           layout={layout}
           almacen={almacen}
           tireEnVeh={tireEn}
           isPending={mutMov.isPending}
+          posicionInicial={posicionAMontar || undefined}
+          bodegas={bodegas}
           onSubmit={payload => {
             if (!veh) return
             mutMov.mutate({ ...payload, tipo_movimiento: 'INSTALACION', activo_id: veh.id })
-            setAgregarLlantaOpen(false)
+            setAgregarLlantaOpen(false); setPosicionAMontar('')
           }}
         />
 

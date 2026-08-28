@@ -627,6 +627,8 @@ class EAMMovimientoNeumatico(Base, TimestampMixin):
     posicion        = Column(String(30))   # posición destino
     bodega_id       = Column(Integer, ForeignKey("eam_bodega_neumatico.id"), nullable=True)
     km_odometro     = Column(Float)
+    # Los equipos que no llevan odómetro se miden por horas.
+    horometro       = Column(Float)
     fecha           = Column(DateTime)      # fecha y hora del movimiento
     observaciones   = Column(Text)
     tecnico         = Column(String(100))

@@ -527,6 +527,7 @@ class MovNeumaticoCreate(BaseModel):
     posicion: Optional[str] = None        # posición destino
     bodega_id: Optional[int] = None       # bodega destino (desmontaje/almacenamiento)
     km_odometro: Optional[float] = None
+    horometro: Optional[float] = None     # para equipos que no llevan odómetro
     dano_id: Optional[int] = None         # para BAJA/REENCAUCHE
     motivo_fin_vida_id: Optional[int] = None   # para BAJA (catálogo estructurado)
     motivo: Optional[str] = None
@@ -543,6 +544,7 @@ class MovNeumaticoResponse(BaseModel):
     posicion: Optional[str] = None
     bodega_id: Optional[int] = None
     km_odometro: Optional[float] = None
+    horometro: Optional[float] = None
     fecha: Optional[datetime] = None
     observaciones: Optional[str] = None
     tecnico: Optional[str] = None
@@ -2523,6 +2525,24 @@ async def crear_movimiento_neumatico(data: MovNeumaticoCreate, db: AsyncSession 
     if err_fecha:
         raise HTTPException(409, err_fecha)
 
+    if data.bodega_id is not None:
+        # eam_neumatico.bodega_id no tiene llave foránea, así que un id
+        # inexistente entraba sin más y dejaba la llanta en una bodega fantasma.
+        bodega = await db.get(EAMBodegaNeumatico, data.bodega_id)
+        if not bodega:
+            raise HTTPException(400, f"La bodega {data.bodega_id} no existe")
+
+    if tipo in ("INSTALACION", "ROTACION"):
+        # La lectura del equipo al montar es lo que después permite calcular el
+        # recorrido de la llanta y su costo por kilómetro. Sin ella, la vida de
+        # la llanta arranca sin punto de partida y el CPK no se puede sacar.
+        if data.km_odometro is None and data.horometro is None:
+            raise HTTPException(
+                400,
+                "Registre el odómetro o el horómetro del equipo al montar la llanta: "
+                "es el punto de partida para calcular su recorrido.",
+            )
+
     if tipo == "INSTALACION":
         if neu.estado == "BAJA":
             raise HTTPException(409, f"La llanta {neu.codigo} fue descartada y no se puede montar.")
@@ -2602,11 +2622,21 @@ async def crear_movimiento_neumatico(data: MovNeumaticoCreate, db: AsyncSession 
     mov = EAMMovimientoNeumatico(
         neumatico_id=neu.id, tipo_movimiento=tipo, activo_id=data.activo_id or neu.activo_id,
         posicion_origen=posicion_origen, posicion=data.posicion, bodega_id=data.bodega_id,
-        km_odometro=data.km_odometro, fecha=data.fecha,
+        km_odometro=data.km_odometro, horometro=data.horometro, fecha=data.fecha,
         observaciones=(data.observaciones or data.motivo or (f"Volteo: orientación → {neu.orientacion}" if tipo == "VOLTEO" else None)),
         tecnico=data.tecnico,
     )
-    db.add(mov); await db.commit(); await db.refresh(mov)
+    db.add(mov)
+
+    # La lectura tomada acá vale igual que la de una OT, así que también avanza
+    # el medidor del equipo. Solo hacia adelante, por lo mismo.
+    activo_mov_id = data.activo_id or neu.activo_id
+    if activo_mov_id and (data.km_odometro is not None or data.horometro is not None):
+        activo_mov = await db.get(EAMActivo, activo_mov_id)
+        if activo_mov:
+            _avanzar_medidores(activo_mov, data.km_odometro, data.horometro)
+
+    await db.commit(); await db.refresh(mov)
     return mov
 
 
