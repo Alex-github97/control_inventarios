@@ -15,7 +15,7 @@ import {
   DeleteForever, DirectionsCar, ShowChart, TrendingUp, NotificationsActive,
   Autorenew, Download, Straighten, Compress, AttachMoney, Build, Map as MapIcon, Timeline, Undo,
   UploadFile, CameraAlt, Checklist, ArrowDropDown, AddBox, Search as SearchIcon,
-  FilterAltOff, TireRepair as TireIcon,
+  FilterAltOff, TireRepair as TireIcon, Edit as EditIcon,
 } from '@mui/icons-material'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer,
@@ -48,6 +48,36 @@ interface Neumatico {
   orientacion?: string | null; profundidad_externa?: number | null; profundidad_interna?: number | null
   zona_id?: number | null; motivo_fin_vida_id?: number | null; dot?: string | null; tipo_rin?: string | null
 }
+/** Una línea de la bitácora. `id` en null es el alta, que se deriva de la llanta. */
+interface MovimientoBitacora {
+  id: number | null
+  neumatico_id: number
+  neumatico_codigo: string
+  tipo_movimiento: string
+  fecha?: string | null
+  posicion_origen?: string | null
+  posicion?: string | null
+  activo_id?: number | null
+  activo_codigo?: string | null
+  bodega_id?: number | null
+  bodega_nombre?: string | null
+  km_odometro?: number | null
+  horometro?: number | null
+  tecnico?: string | null
+  observaciones?: string | null
+  editable: boolean
+}
+
+const TIPOS_BITACORA = [
+  'ALTA', 'INSTALACION', 'ROTACION', 'DESMONTAJE', 'ALMACENAMIENTO',
+  'VOLTEO', 'REENCAUCHE', 'BAJA',
+]
+const COLOR_MOVIMIENTO: Record<string, string> = {
+  ALTA: '#0891B2', INSTALACION: '#16A34A', ROTACION: '#7C3AED',
+  DESMONTAJE: '#F59E0B', ALMACENAMIENTO: '#64748B', VOLTEO: '#8B5CF6',
+  REENCAUCHE: '#0369A1', BAJA: '#DC2626',
+}
+
 interface Bodega { id: number; codigo: string; nombre: string; ubicacion?: string }
 interface Dano { id: number; codigo: string; nombre: string; severidad: string; accion: string }
 interface Posicion { codigo: string; label: string; eje: number; lado: string; numero?: number | null }
@@ -327,6 +357,15 @@ export default function EAMNeumaticos() {
   const [agregarLlantaOpen, setAgregarLlantaOpen] = useState(false)
   /** Posición desde la que se abrió el montaje, al hacer clic en una rueda vacía. */
   const [posicionAMontar, setPosicionAMontar] = useState('')
+  // ─── Bitácora de movimientos ──────────────────────────────────────────────
+  const [bitBusq, setBitBusq] = useState('')
+  const [bitTipo, setBitTipo] = useState('')
+  const [bitLlanta, setBitLlanta] = useState('')
+  const [bitDialog, setBitDialog] = useState<MovimientoBitacora | null>(null)
+  const [bitForm, setBitForm] = useState({
+    fecha: nowLocal(), km_odometro: '', horometro: '', tecnico: '', observaciones: '',
+  })
+
   /** Bandeja de llantas pegada al diagrama, para arrastrar sin cruzar la pantalla. */
   const [modoMontaje, setModoMontaje] = useState(false)
   const [busqMontaje, setBusqMontaje] = useState('')
@@ -514,6 +553,10 @@ export default function EAMNeumaticos() {
   })
   const { data: neumaticos = [] } = useQuery<Neumatico[]>({ queryKey: ['eam-neumaticos'], queryFn: () => api.get('/eam/neumaticos').then(r => r.data) })
   const { data: bodegas = [] } = useQuery<Bodega[]>({ queryKey: ['eam-bodegas-neu'], queryFn: () => api.get('/eam/neumaticos/bodegas').then(r => r.data) })
+  const { data: bitacora = [] } = useQuery<MovimientoBitacora[]>({
+    queryKey: ['eam-bitacora-neu'],
+    queryFn: () => api.get('/eam/neumaticos/movimientos').then(r => r.data),
+  })
   const { data: danos = [] } = useQuery<Dano[]>({ queryKey: ['eam-danos-neu'], queryFn: () => api.get('/eam/neumaticos/danos-catalogo').then(r => r.data) })
   const { data: catalogo = [] } = useQuery<CatItem[]>({ queryKey: ['eam-cat-neu'], queryFn: () => api.get('/eam/neumaticos/catalogo').then(r => r.data) })
   const cat = (t: string) => catalogo.filter(c => c.tipo === t)
@@ -718,6 +761,43 @@ export default function EAMNeumaticos() {
       bodegas: Array.from(new Set(almacen.map(n => n.bodega_id).filter((x): x is number => !!x))),
     }
   }, [almacen])
+
+  const bitacoraFiltrada = useMemo(() => {
+    const q = bitBusq.trim().toLowerCase()
+    return bitacora.filter(m => {
+      if (bitTipo && m.tipo_movimiento !== bitTipo) return false
+      if (bitLlanta && String(m.neumatico_id) !== bitLlanta) return false
+      if (!q) return true
+      return [m.neumatico_codigo, m.activo_codigo, m.tecnico, m.observaciones,
+        m.posicion, m.posicion_origen, m.bodega_nombre]
+        .some(x => (x ?? '').toString().toLowerCase().includes(q))
+    })
+  }, [bitacora, bitBusq, bitTipo, bitLlanta])
+
+  /** Corregir o borrar cambia el estado de la llanta, así que se refresca todo. */
+  const refrescarBitacora = () => {
+    qc.invalidateQueries({ queryKey: ['eam-bitacora-neu'] })
+    qc.invalidateQueries({ queryKey: ['eam-neumaticos'] })
+    qc.invalidateQueries({ queryKey: ['eam-inspecciones'] })
+  }
+
+  const mutCorregirMov = useMutation({
+    mutationFn: () => api.put(`/eam/neumaticos/movimientos/${bitDialog!.id}`, {
+      fecha: new Date(bitForm.fecha).toISOString(),
+      km_odometro: bitForm.km_odometro.trim() === '' ? null : Number(bitForm.km_odometro),
+      horometro: bitForm.horometro.trim() === '' ? null : Number(bitForm.horometro),
+      tecnico: bitForm.tecnico || null,
+      observaciones: bitForm.observaciones || null,
+    }).then(r => r.data),
+    onSuccess: () => { toast.success('Movimiento corregido'); refrescarBitacora(); setBitDialog(null) },
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo corregir el movimiento')),
+  })
+
+  const mutBorrarMov = useMutation({
+    mutationFn: (id: number) => api.delete(`/eam/neumaticos/movimientos/${id}`),
+    onSuccess: () => { toast.success('Movimiento eliminado'); refrescarBitacora() },
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo eliminar el movimiento')),
+  })
 
   /** Bodegas que hoy tienen algo disponible: filtrar por una vacía no sirve. */
   const bodegasConDisponibles = useMemo(
@@ -1614,6 +1694,7 @@ export default function EAMNeumaticos() {
           <Tab icon={<Autorenew sx={{ fontSize: 18 }} />} iconPosition="start" label="Reencauche" sx={{ textTransform: 'none', fontWeight: 600 }} />
           <Tab icon={<Inventory2 sx={{ fontSize: 18 }} />} iconPosition="start" label="Consultas" sx={{ textTransform: 'none', fontWeight: 600 }} />
           <Tab icon={<Recycling sx={{ fontSize: 18 }} />} iconPosition="start" label={`Descarte (${descarte.length})`} sx={{ textTransform: 'none', fontWeight: 600 }} />
+          <Tab icon={<Timeline sx={{ fontSize: 18 }} />} iconPosition="start" label="Movimientos" sx={{ textTransform: 'none', fontWeight: 600 }} />
           <Tab icon={<WarehouseIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Configuración" sx={{ textTransform: 'none', fontWeight: 600 }} />
         </Tabs>
 
@@ -1631,6 +1712,7 @@ export default function EAMNeumaticos() {
             !!bajaDialog || !!histTire || !!ejesVeh || !!inspDialog || !!chartTire || !!rotDialog ||
             !!voltearDialog || !!montarDialog || !!rotRinDialog || inspSesionOpen ||
             !!ajusteDialog || !!trabajoDialog || !!zonaDialog || !!vidasDialog || rotPlanDialog
+            || !!bitDialog
           return (
           <Stack spacing={2}>
           {!algunDialogoAbierto && <>
@@ -2711,7 +2793,138 @@ export default function EAMNeumaticos() {
         )}
 
         {/* ── TAB 8: Configuración (bodegas + catálogo de daños) ── */}
+        {/* ── Movimientos: la historia completa de cada llanta ── */}
         {tab === 8 && (
+          <Card sx={{ bgcolor: '#FFFFFF' }}>
+            <CardContent>
+              <Stack direction="row" alignItems="center" gap={1} mb={0.5} flexWrap="wrap">
+                <Timeline sx={{ color: EAM_DARK, fontSize: 20 }} />
+                <Typography fontWeight={700} fontSize={15}>Movimientos</Typography>
+                <Typography fontSize={11.5} color="text.secondary" sx={{ flex: 1 }}>
+                  Todo lo que le ha pasado a cada llanta, del alta al descarte.
+                </Typography>
+              </Stack>
+              <Alert severity="info" sx={{ py: 0.25, mb: 1.5, fontSize: 12 }}>
+                Se corrigen la fecha, las lecturas, el técnico y las observaciones. El tipo y
+                las posiciones no: son los que definen dónde quedó la llanta, y cambiarlos acá
+                dejaría su estado sin relación con su historia. Para moverla, use la pestaña
+                del vehículo.
+              </Alert>
+
+              <Stack direction="row" gap={1} mb={1.5} flexWrap="wrap">
+                <TextField size="small" placeholder="Buscar llanta, vehículo, técnico…"
+                  value={bitBusq} onChange={e => setBitBusq(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start"><SearchIcon sx={{ fontSize: 16 }} /></InputAdornment>
+                    ),
+                  }}
+                  sx={{ minWidth: 260, flex: 1 }} />
+                <TextField select size="small" label="Tipo" value={bitTipo}
+                  onChange={e => setBitTipo(e.target.value)} sx={{ minWidth: 165 }}>
+                  <MenuItem value="">Todos</MenuItem>
+                  {TIPOS_BITACORA.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                </TextField>
+                <TextField select size="small" label="Llanta" value={bitLlanta}
+                  onChange={e => setBitLlanta(e.target.value)} sx={{ minWidth: 155 }}>
+                  <MenuItem value="">Todas</MenuItem>
+                  {neumaticos.map(n => (
+                    <MenuItem key={n.id} value={String(n.id)}>{n.codigo}</MenuItem>
+                  ))}
+                </TextField>
+                <Typography fontSize={11} color="text.secondary" sx={{ alignSelf: 'center' }}>
+                  {bitacoraFiltrada.length} de {bitacora.length}
+                </Typography>
+              </Stack>
+
+              {bitacora.length === 0 ? (
+                <Alert severity="info">Todavía no hay movimientos registrados.</Alert>
+              ) : (
+                <Box sx={{ overflowX: 'auto' }}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow sx={{ '& th': { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary' } }}>
+                        <TableCell>Fecha</TableCell><TableCell>Llanta</TableCell>
+                        <TableCell>Movimiento</TableCell><TableCell>De → a</TableCell>
+                        <TableCell>Vehículo</TableCell><TableCell align="right">Odómetro</TableCell>
+                        <TableCell>Técnico</TableCell><TableCell>Observaciones</TableCell>
+                        <TableCell sx={{ width: 84 }}>Acc.</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {bitacoraFiltrada.map(m => (
+                        <TableRow key={`${m.tipo_movimiento}-${m.id ?? `alta-${m.neumatico_id}`}`} hover
+                          sx={{ '& td': { fontSize: 12 }, opacity: m.editable ? 1 : 0.7 }}>
+                          <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                            {m.fecha ? m.fecha.slice(0, 16).replace('T', ' ') : '—'}
+                          </TableCell>
+                          <TableCell><b>{m.neumatico_codigo}</b></TableCell>
+                          <TableCell>
+                            <Chip label={m.tipo_movimiento} size="small" sx={{
+                              fontSize: 9, height: 18, fontWeight: 700,
+                              bgcolor: `${COLOR_MOVIMIENTO[m.tipo_movimiento] ?? '#64748B'}22`,
+                              color: COLOR_MOVIMIENTO[m.tipo_movimiento] ?? '#64748B',
+                            }} />
+                          </TableCell>
+                          <TableCell sx={{ fontSize: 11 }}>
+                            {(m.posicion_origen ?? '—')} → {(m.posicion ?? m.bodega_nombre ?? '—')}
+                          </TableCell>
+                          <TableCell sx={{ fontSize: 11 }}>{m.activo_codigo ?? '—'}</TableCell>
+                          <TableCell align="right" sx={{ fontSize: 11 }}>
+                            {m.km_odometro != null ? m.km_odometro.toLocaleString('es-CO') : '—'}
+                            {m.horometro != null && ` · ${m.horometro.toLocaleString('es-CO')} h`}
+                          </TableCell>
+                          <TableCell sx={{ fontSize: 11 }}>{m.tecnico ?? '—'}</TableCell>
+                          <TableCell sx={{ fontSize: 11, maxWidth: 220 }}>
+                            <Tooltip title={m.observaciones ?? ''}>
+                              <Typography sx={{ fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {m.observaciones ?? '—'}
+                              </Typography>
+                            </Tooltip>
+                          </TableCell>
+                          <TableCell>
+                            {m.editable ? (
+                              <>
+                                <Tooltip title="Corregir">
+                                  <IconButton size="small" onClick={() => {
+                                    setBitForm({
+                                      fecha: m.fecha ? m.fecha.slice(0, 16) : nowLocal(),
+                                      km_odometro: m.km_odometro != null ? String(m.km_odometro) : '',
+                                      horometro: m.horometro != null ? String(m.horometro) : '',
+                                      tecnico: m.tecnico ?? '',
+                                      observaciones: m.observaciones ?? '',
+                                    })
+                                    setBitDialog(m)
+                                  }}>
+                                    <EditIcon sx={{ fontSize: 15 }} />
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title="Eliminar">
+                                  <IconButton size="small" onClick={() => {
+                                    if (window.confirm(
+                                      `¿Eliminar este ${m.tipo_movimiento} de ${m.neumatico_codigo}?\n\n`
+                                      + 'Si es el último de la llanta, volverá a donde estaba antes.',
+                                    )) mutBorrarMov.mutate(m.id!)
+                                  }}>
+                                    <DeleteForever sx={{ fontSize: 15, color: '#DC2626' }} />
+                                  </IconButton>
+                                </Tooltip>
+                              </>
+                            ) : (
+                              <Typography fontSize={10} color="text.disabled">del alta</Typography>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Box>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {tab === 9 && (
           <Grid container spacing={2}>
             {/* Catálogo de llantas: marca -> referencia -> dimensión -> profundidad */}
             <Grid size={{ xs: 12 }}>
@@ -3304,6 +3517,51 @@ export default function EAMNeumaticos() {
             setAgregarLlantaOpen(false); setPosicionAMontar('')
           }}
         />
+
+        {/* ── Diálogo: corregir un movimiento de la bitácora ── */}
+        <Dialog open={!!bitDialog} onClose={() => setBitDialog(null)} maxWidth="xs" fullWidth
+          PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Corregir movimiento
+            <Typography variant="caption" color="text.secondary" display="block">
+              {bitDialog?.neumatico_codigo} · {bitDialog?.tipo_movimiento}
+              {bitDialog?.posicion_origen || bitDialog?.posicion
+                ? ` · ${bitDialog?.posicion_origen ?? '—'} → ${bitDialog?.posicion ?? '—'}`
+                : ''}
+            </Typography>
+          </DialogTitle>
+          <DialogContent dividers>
+            <Stack spacing={2} pt={0.5}>
+              <Alert severity="info" sx={{ py: 0.25, fontSize: 11.5 }}>
+                Al guardar se recalcula el recorrido de la llanta con las lecturas que queden.
+              </Alert>
+              <TextField label="Fecha y hora *" type="datetime-local" size="small" fullWidth
+                value={bitForm.fecha}
+                onChange={e => setBitForm(f => ({ ...f, fecha: e.target.value }))}
+                InputLabelProps={{ shrink: true }} />
+              <Stack direction="row" spacing={1}>
+                <TextField label="Odómetro (km)" type="number" size="small" fullWidth
+                  value={bitForm.km_odometro}
+                  onChange={e => setBitForm(f => ({ ...f, km_odometro: e.target.value }))} />
+                <TextField label="Horómetro (h)" type="number" size="small" fullWidth
+                  value={bitForm.horometro}
+                  onChange={e => setBitForm(f => ({ ...f, horometro: e.target.value }))} />
+              </Stack>
+              <TextField label="Técnico" size="small" fullWidth value={bitForm.tecnico}
+                onChange={e => setBitForm(f => ({ ...f, tecnico: e.target.value }))} />
+              <TextField label="Observaciones" size="small" fullWidth multiline rows={2}
+                value={bitForm.observaciones}
+                onChange={e => setBitForm(f => ({ ...f, observaciones: e.target.value }))} />
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setBitDialog(null)}>Cancelar</Button>
+            <Button variant="contained" disabled={!bitForm.fecha || mutCorregirMov.isPending}
+              onClick={() => mutCorregirMov.mutate()}
+              sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>
+              {mutCorregirMov.isPending ? 'Guardando…' : 'Guardar corrección'}
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         {/* ── Diálogo: confirmar la rotación armada en el almacén ── */}
         <Dialog open={rotPlanDialog} onClose={() => setRotPlanDialog(false)} maxWidth="sm" fullWidth

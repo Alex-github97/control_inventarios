@@ -1,7 +1,7 @@
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -2966,6 +2966,202 @@ async def rotacion_plan(data: RotacionPlan, db: AsyncSession = Depends(get_db)):
     _avanzar_medidores(activo, data.km_odometro, data.horometro)
     await db.commit()
     return {"ok": True, "movimientos": movimientos, "inspecciones": inspecciones}
+
+
+class MovimientoBitacora(BaseModel):
+    """Una línea de la bitácora: movimientos reales más el alta de cada llanta."""
+    id: Optional[int] = None          # None en el alta, que no es una fila de movimiento
+    neumatico_id: int
+    neumatico_codigo: str
+    tipo_movimiento: str
+    fecha: Optional[datetime] = None
+    posicion_origen: Optional[str] = None
+    posicion: Optional[str] = None
+    activo_id: Optional[int] = None
+    activo_codigo: Optional[str] = None
+    bodega_id: Optional[int] = None
+    bodega_nombre: Optional[str] = None
+    km_odometro: Optional[float] = None
+    horometro: Optional[float] = None
+    tecnico: Optional[str] = None
+    observaciones: Optional[str] = None
+    """El alta se deriva de la llanta, así que no se corrige desde acá."""
+    editable: bool = True
+
+
+class MovimientoUpdate(BaseModel):
+    """Solo se corrigen los datos del registro.
+
+    El tipo y las posiciones no: son los que definen dónde quedó la llanta, y
+    cambiarlos por aquí dejaría el estado actual sin relación con su historia.
+    Para mover una llanta está la pantalla del vehículo.
+    """
+    fecha: Optional[datetime] = None
+    km_odometro: Optional[float] = None
+    horometro: Optional[float] = None
+    tecnico: Optional[str] = None
+    observaciones: Optional[str] = None
+
+
+async def _recalcular_recorrido(db: AsyncSession, neu: EAMNeumatico) -> None:
+    """Reconstruye el kilometraje de la llanta desde lo que quedó registrado.
+
+    Se llama tras corregir o borrar: si el dato que fijaba el recorrido cambió,
+    dejarlo como estaba haría que el CPK siguiera saliendo del valor viejo.
+    """
+    lecturas = []
+    r = await db.execute(
+        select(EAMMovimientoNeumatico.km_odometro)
+        .where(EAMMovimientoNeumatico.neumatico_id == neu.id,
+               EAMMovimientoNeumatico.km_odometro.isnot(None))
+    )
+    lecturas += [x for (x,) in r.all() if x is not None]
+    r = await db.execute(
+        select(EAMInspeccionNeumatico.km_odometro)
+        .where(EAMInspeccionNeumatico.neumatico_id == neu.id,
+               EAMInspeccionNeumatico.km_odometro.isnot(None))
+    )
+    lecturas += [x for (x,) in r.all() if x is not None]
+    neu.km_actual = max(lecturas) if lecturas else (neu.km_inicio or 0)
+    neu.km_total = max(0.0, (neu.km_actual or 0) - (neu.km_inicio or 0))
+
+
+@router.get("/neumaticos/movimientos", response_model=List[MovimientoBitacora])
+async def bitacora_movimientos(
+    neumatico_id: Optional[int] = None,
+    activo_id: Optional[int] = None,
+    tipo_movimiento: Optional[str] = None,
+    limit: int = Query(500, ge=1, le=2000),
+    db: AsyncSession = Depends(get_db),
+):
+    """Bitácora completa: todo lo que le pasó a cada llanta, en un solo lugar.
+
+    Incluye el alta de la llanta como primera línea de su historia, aunque no
+    sea una fila de movimiento: sin ella la bitácora arrancaría en el aire.
+    """
+    neus = (await db.execute(select(EAMNeumatico))).scalars().all()
+    por_neu = {n.id: n for n in neus}
+    activos = {a.id: a for a in (await db.execute(select(EAMActivo))).scalars().all()}
+    bodegas = {b.id: b for b in (await db.execute(select(EAMBodegaNeumatico))).scalars().all()}
+
+    q = select(EAMMovimientoNeumatico)
+    if neumatico_id is not None:
+        q = q.where(EAMMovimientoNeumatico.neumatico_id == neumatico_id)
+    if activo_id is not None:
+        q = q.where(EAMMovimientoNeumatico.activo_id == activo_id)
+    if tipo_movimiento:
+        q = q.where(EAMMovimientoNeumatico.tipo_movimiento == tipo_movimiento.upper())
+    movs = (await db.execute(q)).scalars().all()
+
+    filas: List[MovimientoBitacora] = []
+    for m in movs:
+        neu = por_neu.get(m.neumatico_id)
+        if not neu:
+            continue
+        activo = activos.get(m.activo_id) if m.activo_id else None
+        bodega = bodegas.get(m.bodega_id) if m.bodega_id else None
+        filas.append(MovimientoBitacora(
+            id=m.id, neumatico_id=m.neumatico_id, neumatico_codigo=neu.codigo,
+            tipo_movimiento=m.tipo_movimiento or "—", fecha=m.fecha,
+            posicion_origen=m.posicion_origen, posicion=m.posicion,
+            activo_id=m.activo_id, activo_codigo=activo.codigo if activo else None,
+            bodega_id=m.bodega_id, bodega_nombre=bodega.nombre if bodega else None,
+            km_odometro=m.km_odometro, horometro=m.horometro,
+            tecnico=m.tecnico, observaciones=m.observaciones,
+        ))
+
+    # El alta de cada llanta, para que la historia empiece por el principio.
+    if tipo_movimiento in (None, "", "ALTA"):
+        for n in neus:
+            if neumatico_id is not None and n.id != neumatico_id:
+                continue
+            if activo_id is not None:
+                continue
+            filas.append(MovimientoBitacora(
+                id=None, neumatico_id=n.id, neumatico_codigo=n.codigo,
+                # created_at viene con zona y los movimientos sin ella; se
+                # igualan para poder ordenarlos juntos.
+                tipo_movimiento="ALTA", fecha=_fecha_naive(n.created_at),
+                km_odometro=n.km_inicio, editable=False,
+                observaciones="Alta de la llanta en el sistema",
+            ))
+
+    filas.sort(key=lambda f: (_fecha_naive(f.fecha) or datetime.min), reverse=True)
+    return filas[:limit]
+
+
+@router.put("/neumaticos/movimientos/{mov_id}", response_model=MovNeumaticoResponse)
+async def corregir_movimiento(mov_id: int, data: MovimientoUpdate, db: AsyncSession = Depends(get_db)):
+    mov = await db.get(EAMMovimientoNeumatico, mov_id)
+    if not mov:
+        raise HTTPException(404, "Movimiento no encontrado")
+    neu = await db.get(EAMNeumatico, mov.neumatico_id)
+    if not neu:
+        raise HTTPException(404, "Neumático no encontrado")
+
+    cambios = data.model_dump(exclude_unset=True)
+    if "fecha" in cambios and cambios["fecha"] is not None:
+        cambios["fecha"] = _fecha_naive(cambios["fecha"])
+    for k, v in cambios.items():
+        setattr(mov, k, v)
+
+    await db.flush()
+    await _recalcular_recorrido(db, neu)
+    await db.commit(); await db.refresh(mov)
+    return mov
+
+
+@router.delete("/neumaticos/movimientos/{mov_id}", status_code=204)
+async def eliminar_movimiento(mov_id: int, db: AsyncSession = Depends(get_db)):
+    """Borra un movimiento y deja la llanta como la dejó el anterior.
+
+    Si el que se borra era el último, la llanta vuelve a donde estaba antes:
+    quitar el registro sin devolverla dejaría el estado actual contando una
+    historia que ya no existe.
+    """
+    mov = await db.get(EAMMovimientoNeumatico, mov_id)
+    if not mov:
+        raise HTTPException(404, "Movimiento no encontrado")
+    neu = await db.get(EAMNeumatico, mov.neumatico_id)
+    if not neu:
+        raise HTTPException(404, "Neumático no encontrado")
+
+    ultimo = (await db.execute(
+        select(EAMMovimientoNeumatico)
+        .where(EAMMovimientoNeumatico.neumatico_id == neu.id)
+        .order_by(EAMMovimientoNeumatico.fecha.desc(), EAMMovimientoNeumatico.id.desc())
+        .limit(1)
+    )).scalar_one_or_none()
+    era_el_ultimo = ultimo is not None and ultimo.id == mov.id
+
+    await db.delete(mov)
+    await db.flush()
+
+    if era_el_ultimo:
+        previo = (await db.execute(
+            select(EAMMovimientoNeumatico)
+            .where(EAMMovimientoNeumatico.neumatico_id == neu.id)
+            .order_by(EAMMovimientoNeumatico.fecha.desc(), EAMMovimientoNeumatico.id.desc())
+            .limit(1)
+        )).scalar_one_or_none()
+        if previo is None:
+            # Sin historia: la llanta vuelve a estar solo dada de alta.
+            neu.estado = "ALMACENADO"
+            neu.activo_id = None
+            neu.posicion = None
+        elif (previo.tipo_movimiento or "").upper() in ("INSTALACION", "ROTACION"):
+            neu.estado = "INSTALADO"
+            neu.activo_id = previo.activo_id
+            neu.posicion = previo.posicion
+            neu.bodega_id = None
+        elif (previo.tipo_movimiento or "").upper() in ("DESMONTAJE", "ALMACENAMIENTO"):
+            neu.estado = "ALMACENADO"
+            neu.activo_id = None
+            neu.posicion = None
+            neu.bodega_id = previo.bodega_id
+
+    await _recalcular_recorrido(db, neu)
+    await db.commit()
 
 
 @router.get("/neumaticos/{nid}/movimientos", response_model=List[MovNeumaticoResponse])
