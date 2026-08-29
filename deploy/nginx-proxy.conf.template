@@ -39,8 +39,16 @@ server {
     # nginx es 1 MB y cortaría las cargas.
     client_max_body_size 25M;
 
+    # nginx resuelve el nombre del backend una sola vez, al cargar la
+    # configuración. Al recrear ese contenedor cambia de IP y el proxy sigue
+    # apuntando a la vieja: 502 en cada despliegue hasta reiniciarlo a mano.
+    # Con el resolver de Docker y la dirección en una variable, la vuelve a
+    # resolver.
+    resolver 127.0.0.11 valid=30s ipv6=off;
+
     location /api/ {
-        proxy_pass http://backend:8000;
+        set $destino_api backend:8000;
+        proxy_pass http://$destino_api;
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
@@ -50,12 +58,16 @@ server {
     }
 
     location /health {
-        proxy_pass http://backend:8000/health;
+        set $destino_salud backend:8000;
+        proxy_pass http://$destino_salud/health;
     }
 
     # Todo lo demás es el portal.
     location / {
-        proxy_pass http://frontend:80;
+        set $destino_portal frontend:80;
+        proxy_pass http://$destino_portal;
+        # El contenedor del frontend reparte entre el portal y la consola del
+        # operador según este encabezado, así que tiene que llegar intacto.
         proxy_set_header Host $host;
     }
 }
