@@ -104,6 +104,7 @@ async def login(
         refresh_token=create_refresh_token(
             user.id, cliente=cliente.codigo, esquema=cliente.esquema),
         user=UsuarioResponse.model_validate(user),
+        es_operador=bool(cliente.es_operador),
     )
 
 

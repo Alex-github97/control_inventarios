@@ -35,3 +35,31 @@ class PlataformaCliente(Base, TimestampMixin):
     es_operador = Column(Boolean, default=False)
     # Se apaga el acceso sin borrar los datos.
     suspendido_desde = Column(DateTime)
+
+
+class PlataformaBitacora(Base):
+    """Lo que el operador hace sobre las empresas y sus usuarios.
+
+    El operador puede crear usuarios dentro de cualquier empresa y restablecer
+    sus claves, que es poder suficiente para entrar a la cuenta de un cliente.
+    Ese poder hace falta para dar soporte, pero tiene que dejar rastro: sin esta
+    tabla no habría forma de saber, después, quién entró a qué.
+
+    Vive en `public` junto al registro y no dentro del esquema del cliente: si
+    estuviera allí, el propio operador podría borrar su rastro con las mismas
+    credenciales con las que actuó.
+    """
+
+    __tablename__ = "plataforma_bitacora"
+    __table_args__ = {"schema": ESQUEMA_PLATAFORMA}
+
+    id      = Column(Integer, primary_key=True, index=True)
+    fecha   = Column(DateTime, nullable=False, index=True)
+    # Quién actuó: el usuario y la empresa desde la que lo hizo.
+    actor           = Column(String(80), nullable=False)
+    actor_empresa   = Column(String(40), nullable=False)
+    # Qué hizo y sobre qué empresa.
+    accion          = Column(String(60), nullable=False, index=True)
+    empresa_codigo  = Column(String(40), index=True)
+    # Texto libre con lo que distingue a esta acción de otra igual.
+    detalle         = Column(String(500))
