@@ -27,6 +27,7 @@ import {
 import { Layout } from '@/components/layout/Layout'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { CausasDashboard } from '@/components/eam/CausasDashboard'
 const EAM_COLOR = COLOR_MODULO
 const EAM_DARK  = COLOR_MODULO
 const PANEL_BG  = '#F8FAFC'
@@ -1047,6 +1048,11 @@ export default function EAMDashboard() {
           </Box>
         </Box>
       </Drawer>
+    
+      {/* Causas de falla: sale de los analisis de causa raiz de las OT. */}
+      <Box sx={{ mt: 3 }}>
+        <CausasDashboard />
+      </Box>
     </Layout>
   )
 }

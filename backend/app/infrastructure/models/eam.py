@@ -1240,3 +1240,107 @@ class EAMAdjuntoOT(Base, TimestampMixin):
     notas            = Column(String(400))
 
     subido_por = Column(String(80))
+
+
+# ─── Análisis de causa raíz ───────────────────────────────────────────────────
+#
+# Un informe estructurado, no un archivo adjunto. La diferencia importa: de un
+# PDF adjunto no se puede sacar "cuál es la falla que más nos cuesta en los
+# Freightliner"; de campos con estructura, sí. El PDF exportable se genera a
+# partir de estos datos, no al revés.
+
+METODOLOGIAS_RCA = ("CINCO_PORQUES", "ISHIKAWA", "ARBOL_FALLOS", "OTRA")
+ESTADOS_RCA = ("BORRADOR", "EN_ANALISIS", "CERRADO")
+
+
+class EAMCausaRaiz(Base, TimestampMixin):
+    """El análisis de por qué falló, asociado a una orden de trabajo."""
+
+    __tablename__ = "eam_causa_raiz"
+
+    id        = Column(Integer, primary_key=True, index=True)
+    # Uno por orden: dos análisis de la misma falla se contradicen entre sí.
+    ot_id     = Column(Integer, ForeignKey("eam_orden_trabajo.id", ondelete="CASCADE"),
+                       nullable=False, unique=True, index=True)
+    ot_numero = Column(String(30), index=True)
+    # Se copia del activo de la OT al guardar, para no depender de que la OT
+    # siga existiendo cuando se consulte el histórico.
+    activo_id = Column(Integer, index=True)
+
+    fecha_analisis = Column(Date)
+    analista       = Column(String(120))
+    participantes  = Column(String(400))
+    metodologia    = Column(String(30), default="CINCO_PORQUES")
+    estado         = Column(String(20), default="BORRADOR", index=True)
+
+    # Qué pasó y cómo nos enteramos.
+    descripcion_evento = Column(Text)
+    deteccion          = Column(String(300))
+
+    # La clasificación: es lo que después se puede contar y comparar.
+    modo_falla     = Column(String(120), index=True)
+    categoria_causa = Column(String(120), index=True)
+
+    # El análisis en sí. Los porqués van en JSON porque son una lista de pasos
+    # de longitud variable, no cinco campos fijos: a veces bastan tres.
+    porques                = Column(JSON)
+    causa_inmediata        = Column(Text)
+    causa_raiz             = Column(Text)
+    factores_contribuyentes = Column(Text)
+
+    # Consecuencias, para poder ordenar por lo que más duele.
+    horas_parada     = Column(Float)
+    costo_estimado   = Column(Float)
+    hubo_lesion      = Column(Boolean, default=False)
+    hubo_ambiental   = Column(Boolean, default=False)
+
+    conclusiones          = Column(Text)
+    # Si lo que se hizo sirvió. Sin esto, el análisis termina en una lista de
+    # buenas intenciones que nadie vuelve a mirar.
+    verificacion_eficacia = Column(Text)
+    fecha_verificacion    = Column(Date)
+    eficaz                = Column(Boolean)
+
+    elaborado_por = Column(String(80))
+
+
+class EAMCausaRaizAccion(Base):
+    """Lo que se decidió hacer para que no vuelva a pasar."""
+
+    __tablename__ = "eam_causa_raiz_accion"
+
+    id            = Column(Integer, primary_key=True, index=True)
+    causa_raiz_id = Column(Integer, ForeignKey("eam_causa_raiz.id", ondelete="CASCADE"),
+                           nullable=False, index=True)
+    # CORRECTIVA arregla lo que pasó; PREVENTIVA evita que vuelva. Mezclarlas
+    # hace que un análisis parezca completo cuando solo se apagó el incendio.
+    tipo          = Column(String(20), default="CORRECTIVA")
+    descripcion   = Column(Text, nullable=False)
+    responsable   = Column(String(120))
+    fecha_compromiso = Column(Date)
+    estado        = Column(String(20), default="PENDIENTE")
+    fecha_cierre  = Column(Date)
+    orden         = Column(Integer, default=0)
+
+
+class EAMCausaRaizEvidencia(Base, TimestampMixin):
+    """Fotos y archivos que sustentan el análisis.
+
+    Van aparte de los adjuntos de la OT: aquellos son los soportes comerciales
+    —cotización, factura, orden de compra— y estos son la evidencia técnica que
+    se embebe en el informe exportado.
+    """
+
+    __tablename__ = "eam_causa_raiz_evidencia"
+
+    id            = Column(Integer, primary_key=True, index=True)
+    causa_raiz_id = Column(Integer, ForeignKey("eam_causa_raiz.id", ondelete="CASCADE"),
+                           nullable=False, index=True)
+    nombre      = Column(String(255), nullable=False)
+    ruta        = Column(String(400), nullable=False)
+    tipo_mime   = Column(String(120))
+    tamano      = Column(Integer)
+    # El pie de foto del informe. Una evidencia sin explicación no prueba nada.
+    descripcion = Column(String(400))
+    orden       = Column(Integer, default=0)
+    subido_por  = Column(String(80))
