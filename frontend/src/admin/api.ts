@@ -323,6 +323,41 @@ export interface MetricasAgiles {
   por_tipo: Record<string, number>
 }
 
+
+// ─── Equipo de la consola ─────────────────────────────────────────────────────
+
+export interface MiembroEquipo {
+  id: number
+  usuario: string
+  nombre?: string | null
+  email?: string | null
+  rol: string
+  activo: boolean
+  notas?: string | null
+}
+
+export interface RolConsola {
+  clave: string
+  nombre: string
+  descripcion: string
+  permisos: string[]
+}
+
+export interface Candidato {
+  username: string
+  nombre: string
+  email?: string | null
+  ya_es_miembro: boolean
+}
+
+export interface QuienSoy {
+  usuario: string
+  rol: string
+  permisos: string[]
+  /** True mientras el equipo no se haya formalizado. */
+  implicito: boolean
+}
+
 const api = axios.create({ baseURL: '/api/v1' })
 
 const CLAVE_SESION = 'tw_admin_sesion'
@@ -537,4 +572,16 @@ export const agilApi = {
     api.put(`/soporte/agil/columnas/${estado}`, cambios).then(r => r.data),
 
   metricas: () => api.get<MetricasAgiles>('/soporte/agil/metricas').then(r => r.data),
+}
+
+export const equipoApi = {
+  quienSoy: () => api.get<QuienSoy>('/plataforma/equipo/quien-soy').then(r => r.data),
+  roles: () => api.get<RolConsola[]>('/plataforma/equipo/roles').then(r => r.data),
+  listar: () => api.get<MiembroEquipo[]>('/plataforma/equipo').then(r => r.data),
+  candidatos: () => api.get<Candidato[]>('/plataforma/equipo/candidatos').then(r => r.data),
+  agregar: (cuerpo: Record<string, unknown>) =>
+    api.post<MiembroEquipo>('/plataforma/equipo', cuerpo).then(r => r.data),
+  editar: (id: number, cambios: Record<string, unknown>) =>
+    api.put<MiembroEquipo>(`/plataforma/equipo/${id}`, cambios).then(r => r.data),
+  quitar: (id: number) => api.delete(`/plataforma/equipo/${id}`),
 }

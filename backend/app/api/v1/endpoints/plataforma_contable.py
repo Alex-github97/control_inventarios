@@ -26,7 +26,7 @@ from app.infrastructure.models.plataforma import (
     PlataformaCliente, PlataformaContrato, PlataformaFactura,
     PlataformaNotaCredito, PlataformaPago,
 )
-from app.api.v1.endpoints.auth import require_operador
+from app.core.permisos_consola import exigir
 from app.api.v1.endpoints.plataforma import _anotar, _empresa
 
 router = APIRouter(prefix="/plataforma", tags=["Consola del operador"])
@@ -130,7 +130,7 @@ def _con_saldo(f: PlataformaFactura, s: Dict[str, Decimal]) -> Factura:
 async def ver_facturas(
     cliente_id: int,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("contabilidad.ver")),
 ):
     r = await db.execute(
         select(PlataformaFactura)
@@ -145,7 +145,7 @@ async def ver_facturas(
 async def emitir_factura(
     cliente_id: int, data: FacturaNueva, request: Request,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("contabilidad.editar")),
 ):
     """Emite la factura de un periodo.
 
@@ -215,7 +215,7 @@ async def emitir_factura(
 async def anular_factura(
     cliente_id: int, factura_id: int, request: Request,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("contabilidad.editar")),
 ):
     """Deja la factura sin efecto contable, conservando el número.
 
@@ -268,7 +268,7 @@ class NotaCredito(BaseModel):
 async def ver_notas(
     cliente_id: int,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("contabilidad.ver")),
 ):
     r = await db.execute(
         select(PlataformaNotaCredito)
@@ -281,7 +281,7 @@ async def ver_notas(
 async def emitir_nota(
     cliente_id: int, data: NotaCredito, request: Request,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("contabilidad.editar")),
 ):
     """Emite una nota crédito contra una factura.
 
@@ -375,7 +375,7 @@ class Contabilidad(BaseModel):
 async def contabilidad(
     desde: Optional[date] = None, hasta: Optional[date] = None,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("contabilidad.ver")),
 ):
     """La cuenta de toda la plataforma, por cliente y por mes.
 

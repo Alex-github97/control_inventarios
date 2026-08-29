@@ -25,7 +25,7 @@ from app.infrastructure.models.plataforma import (
     PlataformaContrato, PlataformaModuloCliente, PlataformaContacto,
     PlataformaDocumento, PlataformaPago,
 )
-from app.api.v1.endpoints.auth import require_operador
+from app.core.permisos_consola import exigir
 from app.api.v1.endpoints.plataforma import _anotar, _empresa, _sesion_de
 
 router = APIRouter(prefix="/plataforma", tags=["Consola del operador"])
@@ -64,7 +64,7 @@ async def _contrato_de(db: AsyncSession, cliente_id: int) -> PlataformaContrato:
 async def ver_contrato(
     cliente_id: int,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("comercial.ver")),
 ):
     await _empresa(db, cliente_id)
     c = await _contrato_de(db, cliente_id)
@@ -76,7 +76,7 @@ async def ver_contrato(
 async def guardar_contrato(
     cliente_id: int, data: Contrato, request: Request,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("comercial.editar")),
 ):
     empresa = await _empresa(db, cliente_id)
     c = await _contrato_de(db, cliente_id)
@@ -124,7 +124,7 @@ async def _modulos(db: AsyncSession, cliente_id: int) -> List[ModuloContratado]:
 async def ver_modulos(
     cliente_id: int,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("empresas.ver")),
 ):
     await _empresa(db, cliente_id)
     return await _modulos(db, cliente_id)
@@ -138,7 +138,7 @@ class ModulosElegidos(BaseModel):
 async def guardar_modulos(
     cliente_id: int, data: ModulosElegidos, request: Request,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("empresas.modulos")),
 ):
     empresa = await _empresa(db, cliente_id)
     elegidos = set(data.claves) | set(ESENCIALES)
@@ -186,7 +186,7 @@ class Contacto(BaseModel):
 async def ver_contactos(
     cliente_id: int,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("comercial.ver")),
 ):
     r = await db.execute(
         select(PlataformaContacto)
@@ -199,7 +199,7 @@ async def ver_contactos(
 async def crear_contacto(
     cliente_id: int, data: Contacto, request: Request,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("comercial.editar")),
 ):
     empresa = await _empresa(db, cliente_id)
     if data.principal:
@@ -219,7 +219,7 @@ async def crear_contacto(
 async def editar_contacto(
     cliente_id: int, contacto_id: int, data: Contacto, request: Request,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("comercial.editar")),
 ):
     empresa = await _empresa(db, cliente_id)
     r = await db.execute(select(PlataformaContacto).where(
@@ -243,7 +243,7 @@ async def editar_contacto(
 async def borrar_contacto(
     cliente_id: int, contacto_id: int, request: Request,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("comercial.editar")),
 ):
     empresa = await _empresa(db, cliente_id)
     r = await db.execute(select(PlataformaContacto).where(
@@ -274,7 +274,7 @@ class Documento(BaseModel):
 async def ver_documentos(
     cliente_id: int,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("comercial.ver")),
 ):
     r = await db.execute(
         select(PlataformaDocumento)
@@ -287,7 +287,7 @@ async def ver_documentos(
 async def crear_documento(
     cliente_id: int, data: Documento, request: Request,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("comercial.editar")),
 ):
     empresa = await _empresa(db, cliente_id)
     d = PlataformaDocumento(cliente_id=cliente_id, **data.model_dump(exclude={"id"}))
@@ -301,7 +301,7 @@ async def crear_documento(
 async def borrar_documento(
     cliente_id: int, documento_id: int, request: Request,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("comercial.editar")),
 ):
     empresa = await _empresa(db, cliente_id)
     r = await db.execute(select(PlataformaDocumento).where(
@@ -359,7 +359,7 @@ class Cartera(BaseModel):
 async def ver_pagos(
     cliente_id: int,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("contabilidad.ver")),
 ):
     r = await db.execute(
         select(PlataformaPago)
@@ -372,7 +372,7 @@ async def ver_pagos(
 async def registrar_pago(
     cliente_id: int, data: Pago, request: Request,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("contabilidad.editar")),
 ):
     empresa = await _empresa(db, cliente_id)
     if data.monto is None or data.monto <= 0:
@@ -394,7 +394,7 @@ async def registrar_pago(
 async def borrar_pago(
     cliente_id: int, pago_id: int, request: Request,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("contabilidad.editar")),
 ):
     empresa = await _empresa(db, cliente_id)
     r = await db.execute(select(PlataformaPago).where(
@@ -412,7 +412,7 @@ async def borrar_pago(
 async def ver_cartera(
     cliente_id: int,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("contabilidad.ver")),
 ):
     await _empresa(db, cliente_id)
     c = await _contrato_de(db, cliente_id)
@@ -476,7 +476,7 @@ _TABLAS_DE_USO = {
 async def ver_uso(
     cliente_id: int,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("empresas.ver")),
 ):
     empresa = await _empresa(db, cliente_id)
     uso = Uso()

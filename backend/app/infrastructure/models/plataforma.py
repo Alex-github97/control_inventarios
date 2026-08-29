@@ -243,3 +243,28 @@ class PlataformaNotaCredito(Base, TimestampMixin):
     # Por qué se emitió: es lo primero que se pregunta al revisar la cuenta.
     motivo = Column(String(300), nullable=False)
     notas  = Column(String(400))
+
+
+class PlataformaMiembro(Base, TimestampMixin):
+    """Quién del equipo entra a la consola y con qué rol.
+
+    Va aparte de `usuarios` porque son dos cosas distintas: `usuarios` dice
+    quién puede entrar a la plataforma de la empresa operadora; esto dice quién
+    además administra la plataforma entera y hasta dónde llega.
+
+    Sin esta separación, cualquier administrador de la empresa operadora tenía
+    acceso total a la consola por el solo hecho de ser administrador de su
+    propia empresa.
+    """
+
+    __tablename__ = "plataforma_miembro"
+    __table_args__ = {"schema": ESQUEMA_PLATAFORMA}
+
+    id      = Column(Integer, primary_key=True, index=True)
+    # El `username` dentro del esquema de la empresa operadora.
+    usuario = Column(String(80), unique=True, nullable=False, index=True)
+    nombre  = Column(String(160))
+    email   = Column(String(200))
+    rol     = Column(String(30), nullable=False, default="CONSULTA")
+    activo  = Column(Boolean, default=True)
+    notas   = Column(String(300))

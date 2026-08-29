@@ -4,7 +4,7 @@ Consola del operador: administración de las empresas y de su gente.
 Esto NO es la administración que usa cada empresa sobre sí misma —esa vive en
 `usuarios.py` y trabaja siempre dentro del esquema de quien está conectado—.
 Acá el operador actúa *sobre otros esquemas*, que es un poder distinto y mucho
-mayor, y por eso está en un módulo aparte, detrás de `require_operador` y con
+mayor, y por eso está en un módulo aparte, detrás de un permiso concreto y con
 todo lo que hace registrado en la bitácora.
 
 Regla que sostiene el diseño: la consola administra el **acceso**, no los datos.
@@ -28,7 +28,7 @@ from app.core.security import decode_token, hash_password
 from app.core.tenant import ESQUEMA_PLATAFORMA, codigo_valido
 from app.infrastructure.models.plataforma import PlataformaCliente, PlataformaBitacora
 from app.infrastructure.models.usuario import Usuario
-from app.api.v1.endpoints.auth import require_operador
+from app.core.permisos_consola import exigir
 
 router = APIRouter(prefix="/plataforma", tags=["Consola del operador"])
 
@@ -77,7 +77,7 @@ async def _anotar(
     datos = decode_token(auth[7:]) if auth.lower().startswith("bearer ") else {}
     db.add(PlataformaBitacora(
         fecha=datetime.utcnow(),
-        actor=str(datos.get("sub") or "?"),
+        actor=str(datos.get("usr") or datos.get("sub") or "?"),
         actor_empresa=str(datos.get("cli") or "?"),
         accion=accion,
         empresa_codigo=empresa,
@@ -171,7 +171,7 @@ class AsientoBitacora(BaseModel):
 @router.get("/empresas", response_model=List[EmpresaEnLista])
 async def listar_empresas(
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("empresas.ver")),
 ):
     """Las empresas, con cuánta gente tiene cada una.
 
@@ -224,7 +224,7 @@ async def crear_empresa(
     data: EmpresaNueva,
     request: Request,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("empresas.crear")),
 ):
     """Da de alta una empresa: su esquema, sus tablas y su administrador.
 
@@ -293,7 +293,7 @@ class EmpresaCambios(BaseModel):
 async def editar_empresa(
     cliente_id: int, data: EmpresaCambios, request: Request,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("empresas.editar")),
 ):
     """El código no se toca: es el nombre del esquema, y cambiarlo dejaría
     todas sus tablas huérfanas."""
@@ -309,7 +309,7 @@ async def editar_empresa(
 async def cambiar_estado(
     cliente_id: int, activo: bool, request: Request,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("empresas.editar")),
 ):
     """Suspende o reactiva el acceso. No borra nada.
 
@@ -337,7 +337,7 @@ async def cambiar_estado(
 async def listar_usuarios(
     cliente_id: int,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("empresas.ver")),
 ):
     cliente = await _empresa(db, cliente_id)
     async with _sesion_de(cliente.esquema) as s:
@@ -349,7 +349,7 @@ async def listar_usuarios(
 async def crear_usuario(
     cliente_id: int, data: UsuarioNuevo, request: Request,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("usuarios.crear")),
 ):
     """Crea un usuario dentro de la empresa y devuelve su clave temporal."""
     cliente = await _empresa(db, cliente_id)
@@ -378,7 +378,7 @@ async def crear_usuario(
 async def editar_usuario(
     cliente_id: int, usuario_id: int, data: UsuarioCambios, request: Request,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("usuarios.editar")),
 ):
     cliente = await _empresa(db, cliente_id)
     cambios = data.model_dump(exclude_unset=True)
@@ -413,7 +413,7 @@ async def editar_usuario(
 async def restablecer_clave(
     cliente_id: int, usuario_id: int, request: Request,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("usuarios.clave")),
 ):
     """Devuelve el acceso a un usuario bloqueado, con una clave de un solo uso.
 
@@ -443,7 +443,7 @@ async def restablecer_clave(
 async def ver_bitacora(
     empresa: Optional[str] = None, limite: int = 200,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("bitacora.ver")),
 ):
     q = select(PlataformaBitacora).order_by(PlataformaBitacora.fecha.desc())
     if empresa:

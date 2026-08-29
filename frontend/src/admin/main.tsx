@@ -21,6 +21,7 @@ import Ingreso from './Ingreso'
 import Empresas from './Empresas'
 import Contabilidad from './Contabilidad'
 import Soporte from './Soporte'
+import Equipo from './Equipo'
 import Bitacora from './Bitacora'
 import '@/index.css'
 
@@ -67,6 +68,7 @@ function Consola() {
           <Tab label="Empresas" />
           <Tab label="Contabilidad" />
           <Tab label="Soporte" />
+          <Tab label="Equipo" />
           <Tab label="Bitácora" />
         </Tabs>
       </AppBar>
@@ -75,7 +77,8 @@ function Consola() {
         {pestana === 0 && <Empresas />}
         {pestana === 1 && <Contabilidad />}
         {pestana === 2 && <Soporte />}
-        {pestana === 3 && <Bitacora />}
+        {pestana === 3 && <Equipo />}
+        {pestana === 4 && <Bitacora />}
       </Box>
 
       <Typography variant="caption" sx={{

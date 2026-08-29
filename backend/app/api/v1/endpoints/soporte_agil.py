@@ -1,7 +1,8 @@
 """
 Gestión ágil de las solicitudes: tablero, backlog, sprints y métricas.
 
-Todo esto es solo para el equipo, así que va entero detrás de `require_operador`.
+Todo esto es solo para el equipo, así que va entero detrás de los permisos
+de soporte.
 El cliente sigue viendo su conversación y su estado; no ve puntos, ni sprints,
 ni en qué columna está su solicitud.
 
@@ -30,7 +31,7 @@ from app.infrastructure.models.soporte import (
     SoporteTicket, SoporteSprint, SoporteEpica, SoporteEvento, SoporteColumna,
     ESTADOS, TIPOS_TRABAJO, PUNTOS, ESTADOS_SPRINT,
 )
-from app.api.v1.endpoints.auth import require_operador
+from app.core.permisos_consola import exigir
 
 router = APIRouter(prefix="/soporte", tags=["Soporte"])
 
@@ -68,7 +69,8 @@ def _autor(request: Request) -> str:
     if not auth.lower().startswith("bearer "):
         return "?"
     try:
-        return str(decode_token(auth[7:]).get("sub") or "?")
+        datos = decode_token(auth[7:])
+        return str(datos.get("usr") or datos.get("sub") or "?")
     except Exception:
         return "?"
 
@@ -169,7 +171,7 @@ class Epica(BaseModel):
 async def tablero(
     sprint_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("soporte.ver")),
 ):
     """El tablero del sprint activo, o del que se pida.
 
@@ -229,7 +231,7 @@ class Movimiento(BaseModel):
 async def mover(
     ticket_id: int, data: Movimiento, request: Request,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("soporte.atender")),
 ):
     """Mueve una solicitud de columna, respetando el límite de trabajo en curso."""
     ticket = await db.get(SoporteTicket, ticket_id)
@@ -299,7 +301,7 @@ class CambioAgil(BaseModel):
 async def actualizar(
     ticket_id: int, data: CambioAgil, request: Request,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("soporte.atender")),
 ):
     """Tipo, estimación, sprint, épica y etiquetas."""
     ticket = await db.get(SoporteTicket, ticket_id)
@@ -347,7 +349,7 @@ async def actualizar(
 @router.get("/agil/backlog", response_model=List[TarjetaTicket])
 async def backlog(
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("soporte.ver")),
 ):
     """Lo que no está en ningún sprint y sigue abierto, en orden de prioridad."""
     r = await db.execute(
@@ -368,7 +370,7 @@ class Reordenar(BaseModel):
 async def reordenar(
     data: Reordenar,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("soporte.atender")),
 ):
     r = await db.execute(select(SoporteTicket).where(SoporteTicket.id.in_(data.ids)))
     por_id = {t.id: t for t in r.scalars().all()}
@@ -395,7 +397,7 @@ async def _con_calculos(db: AsyncSession, sprint: SoporteSprint) -> Sprint:
 @router.get("/agil/sprints", response_model=List[Sprint])
 async def listar_sprints(
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("soporte.ver")),
 ):
     r = await db.execute(select(SoporteSprint).order_by(SoporteSprint.id.desc()))
     return [await _con_calculos(db, s) for s in r.scalars().all()]
@@ -405,7 +407,7 @@ async def listar_sprints(
 async def crear_sprint(
     data: Sprint,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("soporte.atender")),
 ):
     if not (data.nombre or "").strip():
         raise HTTPException(400, "El sprint necesita un nombre")
@@ -422,7 +424,7 @@ async def crear_sprint(
 async def activar(
     sprint_id: int,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("soporte.atender")),
 ):
     """Arranca la iteración y congela lo comprometido."""
     sprint = await db.get(SoporteSprint, sprint_id)
@@ -467,7 +469,7 @@ async def activar(
 async def cerrar(
     sprint_id: int, request: Request,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("soporte.atender")),
 ):
     """Cierra la iteración: lo terminado queda, lo demás vuelve al backlog.
 
@@ -501,7 +503,7 @@ async def cerrar(
 @router.get("/agil/epicas", response_model=List[Epica])
 async def listar_epicas(
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("soporte.ver")),
 ):
     epicas = list((await db.execute(
         select(SoporteEpica).order_by(SoporteEpica.nombre))).scalars().all())
@@ -528,7 +530,7 @@ async def listar_epicas(
 async def crear_epica(
     data: Epica,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("soporte.atender")),
 ):
     if not (data.nombre or "").strip():
         raise HTTPException(400, "La épica necesita un nombre")
@@ -549,7 +551,7 @@ class CambioColumna(BaseModel):
 async def configurar_columna(
     estado: str, data: CambioColumna,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("soporte.atender")),
 ):
     await _columnas(db)
     columna = (await db.execute(select(SoporteColumna).where(
@@ -595,7 +597,7 @@ class Metricas(BaseModel):
 @router.get("/agil/metricas", response_model=Metricas)
 async def metricas(
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("soporte.ver")),
 ):
     m = Metricas()
 

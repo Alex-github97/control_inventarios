@@ -19,6 +19,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def create_access_token(
     subject: Any, expires_delta: Optional[timedelta] = None,
     cliente: Optional[str] = None, esquema: Optional[str] = None,
+    usuario: Optional[str] = None,
 ) -> str:
     """El cliente viaja dentro del token, firmado.
 
@@ -34,6 +35,13 @@ def create_access_token(
         payload["cli"] = cliente
     if esquema:
         payload["esq"] = esquema
+    # El nombre de usuario, además del id. `sub` lleva el id, que es lo correcto
+    # para identificar, pero todo lo que se muestra o se compara con una tabla
+    # —el autor de un mensaje de soporte, el miembro del equipo— usa el nombre.
+    # Sin esto había que consultar la base en cada petición solo para saberlo, y
+    # los mensajes salían firmados con un número.
+    if usuario:
+        payload["usr"] = usuario
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 

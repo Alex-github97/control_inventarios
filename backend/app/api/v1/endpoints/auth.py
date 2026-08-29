@@ -101,7 +101,8 @@ async def login(
 
     return TokenResponse(
         access_token=create_access_token(
-            user.id, cliente=cliente.codigo, esquema=cliente.esquema),
+            user.id, cliente=cliente.codigo, esquema=cliente.esquema,
+            usuario=user.username),
         refresh_token=create_refresh_token(
             user.id, cliente=cliente.codigo, esquema=cliente.esquema),
         user=UsuarioResponse.model_validate(user),

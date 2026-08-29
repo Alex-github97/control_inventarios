@@ -35,7 +35,7 @@ from app.infrastructure.models.soporte import (
     SoporteTicket, SoporteMensaje, SoporteAdjunto,
     ESTADOS, CRITICIDADES, IMPACTOS,
 )
-from app.api.v1.endpoints.auth import require_operador
+from app.core.permisos_consola import exigir
 
 router = APIRouter(prefix="/soporte", tags=["Soporte"])
 
@@ -72,7 +72,9 @@ def _quien(request: Request) -> Solicitante:
         datos = decode_token(auth[7:])
     except Exception:
         raise HTTPException(401, "Sesión no válida")
-    usuario, empresa = datos.get("sub"), datos.get("cli")
+    # `usr` es el nombre de usuario; `sub` el id. Los mensajes se firman con el
+    # nombre: con el id salían atribuidos a un número.
+    usuario, empresa = datos.get("usr") or datos.get("sub"), datos.get("cli")
     if not usuario or not empresa:
         raise HTTPException(403, "La sesión no indica usuario o empresa")
     return Solicitante(usuario=str(usuario), empresa=str(empresa))
@@ -333,7 +335,7 @@ async def cola(
     empresa: Optional[str] = None, buscar: Optional[str] = None,
     incluir_cerrados: bool = False,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("soporte.ver")),
 ):
     """La cola de todas las empresas."""
     q = select(SoporteTicket)
@@ -373,7 +375,7 @@ async def cola(
 async def ver_como_soporte(
     ticket_id: int,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("soporte.ver")),
 ):
     ticket = await db.get(SoporteTicket, ticket_id)
     if not ticket:
@@ -385,7 +387,7 @@ async def ver_como_soporte(
 async def clasificar(
     ticket_id: int, data: CambioTicket, request: Request,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("soporte.atender")),
 ):
     """Estado, criticidad y responsable. Solo soporte."""
     ticket = await db.get(SoporteTicket, ticket_id)
@@ -426,7 +428,7 @@ async def clasificar(
 async def responder_soporte(
     ticket_id: int, data: MensajeNuevo, request: Request,
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("soporte.atender")),
 ):
     quien = _quien(request)
     ticket = await db.get(SoporteTicket, ticket_id)
@@ -594,7 +596,7 @@ class ResumenSoporte(BaseModel):
 @router.get("/resumen", response_model=ResumenSoporte)
 async def resumen(
     db: AsyncSession = Depends(get_db_plataforma),
-    _=Depends(require_operador),
+    _=Depends(exigir("soporte.ver")),
 ):
     tickets = list((await db.execute(select(SoporteTicket))).scalars().all())
     abiertos = [t for t in tickets if t.estado != "CERRADO"]
