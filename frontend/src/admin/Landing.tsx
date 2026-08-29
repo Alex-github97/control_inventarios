@@ -53,6 +53,10 @@ const SECCIONES: { titulo: string; ayuda: string; campos: [string, string, boole
     campos: [['problema_titulo', 'Título'], ['problema_texto', 'Texto', true]],
   },
   {
+    titulo: 'Para la dirección', ayuda: 'La sección dirigida a gerencia e inversionistas',
+    campos: [['negocio_titulo', 'Título'], ['negocio_texto', 'Texto', true]],
+  },
+  {
     titulo: 'Módulos', ayuda: 'Encabezado de la lista de módulos',
     campos: [['modulos_titulo', 'Título'], ['modulos_texto', 'Texto', true]],
   },
@@ -74,6 +78,8 @@ const SECCIONES: { titulo: string; ayuda: string; campos: [string, string, boole
 const LISTAS: { clave: string; titulo: string; ayuda: string }[] = [
   { clave: 'pilares', titulo: 'Tarjetas de «El problema»',
     ayuda: 'La clave es el número o sigla del recuadro' },
+  { clave: 'negocio', titulo: 'Tarjetas de «Para la dirección»',
+    ayuda: 'El argumento de negocio, no el técnico' },
   { clave: 'detalles', titulo: 'Tarjetas de mantenimiento',
     ayuda: 'Cuatro columnas en la franja oscura' },
   { clave: 'garantias', titulo: 'Tarjetas de seguridad',

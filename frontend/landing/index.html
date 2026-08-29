@@ -276,8 +276,8 @@
     <h1 data-html="hero_titulo">Toda la operación en <em>una sola plataforma</em></h1>
     <p class="bajada" data-txt="hero_bajada">
       Mantenimiento, almacenes, transporte, calidad, talento y finanzas dejan de vivir en
-      veinte archivos de Excel y empiezan a hablar entre sí. Cada empresa con sus datos
-      separados, cada módulo con lo que realmente necesita.
+      archivos sueltos y empiezan a hablar entre sí. La dirección deja de pedir informes
+      y empieza a mirarlos: el costo, el avance y el riesgo, mientras están pasando.
     </p>
     <div class="acciones">
       <a class="btn btn-acento" href="#contacto" data-txt="hero_boton1">Solicitar una demostración</a>
@@ -289,10 +289,10 @@
          cierto pero se leía como una herramienta pequeña; el mismo argumento
          se sostiene mejor diciendo cuántas tablas comparte esa única base. -->
     <div class="cifras" id="cifras">
-      <div class="cifra"><b data-cuenta="18">0</b><span>módulos integrados</span></div>
+      <div class="cifra"><b data-cuenta="18">0</b><span>módulos, y se activan por separado</span></div>
       <div class="cifra"><b data-cuenta="354">0</b><span>tablas en un solo modelo de datos</span></div>
-      <div class="cifra"><b data-cuenta="1337">0</b><span>servicios de la API</span></div>
-      <div class="cifra"><b data-cuenta="246">0</b><span>pantallas de trabajo</span></div>
+      <div class="cifra"><b data-cuenta="1337">0</b><span>operaciones que ya resuelve</span></div>
+      <div class="cifra"><b data-cuenta="246">0</b><span>pantallas listas para trabajar</span></div>
     </div>
   </div>
 </div>
@@ -310,7 +310,24 @@
   </div>
 </section>
 
-<section class="gris" id="modulos">
+<!-- Esta sección le habla a quien firma, no a quien opera. El resto de la
+     página explica cómo funciona la plataforma; acá se dice qué cambia en el
+     negocio, que es la pregunta que se hace un gerente o un inversionista.
+     Va en gris para partir el bloque blanco anterior. -->
+<section class="gris" id="negocio">
+  <div class="env">
+    <span class="rotulo rev">Para la dirección</span>
+    <h2 class="rev" data-txt="negocio_titulo">Lo que cambia para quien responde por los números</h2>
+    <p class="intro rev" data-txt="negocio_texto">
+      La operación gana orden, y eso ya se nota. Pero la razón para hacerlo está en el
+      piso de arriba: costos que se pueden explicar, decisiones que no esperan al cierre
+      del mes y crecimiento que no se paga contratando más gente para digitar.
+    </p>
+    <div class="rejilla col-4" id="tarjetasNegocio"></div>
+  </div>
+</section>
+
+<section id="modulos">
   <div class="env">
     <span class="rotulo rev">Los módulos</span>
     <h2 class="rev" data-txt="modulos_titulo">Se activa lo que se usa</h2>
@@ -415,6 +432,12 @@ const PORDEFECTO = {
     {clave:'PM',titulo:'Planes por jerarquía',texto:'Rutinas por kilometraje, horómetro o calendario, definidas sobre tipo, marca y línea. El último odómetro registrado programa la siguiente.'},
     {clave:'LL',titulo:'Gestión de llantas',texto:'Montaje y rotación arrastrando a la posición, con inspección, kilometraje y fecha obligatorios, y el historial completo de cada llanta.'}
   ],
+  negocio:[
+    {clave:'01',titulo:'Costos con nombre y apellido',texto:'Cada peso de mantenimiento, inventario o transporte queda amarrado a la orden, el activo y el centro de costo que lo originó. El cierre del mes deja de ser una reconstrucción y pasa a ser una consulta.'},
+    {clave:'02',titulo:'Decisiones con los datos de hoy',texto:'Los tableros se alimentan de lo que la operación registra mientras trabaja. Nadie tiene que consolidar un archivo para que la dirección pueda mirar el avance, el costo y el riesgo.'},
+    {clave:'03',titulo:'Crecer sin engordar la administración',texto:'Sumar una sede, una flota o una empresa entera no obliga a sumar personas digitando lo mismo en otro formato. La estructura ya está hecha y se replica.'},
+    {clave:'04',titulo:'Auditorías que se responden, no que se preparan',texto:'Certificaciones, revisorías y clientes piden evidencia. Queda registrada sola, con autor y fecha, mientras se opera; no hay que fabricarla la semana anterior.'}
+  ],
   garantias:[
     {clave:'01',titulo:'No se arrastra con la operación encima',texto:'Varios procesos atienden en paralelo y las consultas no se bloquean entre sí. Que haya mucha gente trabajando al mismo tiempo no es lo que hace lenta a la plataforma.'},
     {clave:'02',titulo:'Se respalda sola, todas las madrugadas',texto:'La base completa se respalda cada noche sin que nadie tenga que acordarse, y además una copia por empresa: se puede restaurar a una sola sin tocar a las demás.'},
@@ -458,6 +481,7 @@ function pintar(c){
   $('#pilares').innerHTML   = (c.pilares   ?? []).map(tarjeta).join('');
   $('#detalles').innerHTML  = (c.detalles  ?? []).map(tarjeta).join('');
   $('#garantias').innerHTML = (c.garantias ?? []).map(tarjeta).join('');
+  $('#tarjetasNegocio').innerHTML = (c.negocio ?? []).map(tarjeta).join('');
   // El índice va en el marcado y no en un contador de CSS porque así el
   // número queda seleccionable y se lee igual si el orden cambia desde el editor.
   $('#listaModulos').innerHTML = (c.modulos ?? [])

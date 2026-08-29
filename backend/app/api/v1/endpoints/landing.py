@@ -38,8 +38,9 @@ CONTENIDO_INICIAL: Dict[str, Any] = {
     "hero_titulo": "Toda la operación en <em>una sola plataforma</em>",
     "hero_bajada": (
         "Mantenimiento, almacenes, transporte, calidad, talento y finanzas dejan de "
-        "vivir en veinte archivos de Excel y empiezan a hablar entre sí. Cada empresa "
-        "con sus datos separados, cada módulo con lo que realmente necesita."
+        "vivir en archivos sueltos y empiezan a hablar entre sí. La dirección deja de "
+        "pedir informes y empieza a mirarlos: el costo, el avance y el riesgo, mientras "
+        "están pasando."
     ),
     "hero_boton1": "Solicitar una demostración",
     "hero_boton2": "Ver los módulos",
@@ -48,6 +49,12 @@ CONTENIDO_INICIAL: Dict[str, Any] = {
         "La orden de trabajo está en un cuaderno, el inventario en una hoja de cálculo "
         "y el costo real aparece dos meses después en contabilidad. No falta "
         "información: falta que esté junta y que signifique lo mismo en todas partes."
+    ),
+    "negocio_titulo": "Lo que cambia para quien responde por los números",
+    "negocio_texto": (
+        "La operación gana orden, y eso ya se nota. Pero la razón para hacerlo está en "
+        "el piso de arriba: costos que se pueden explicar, decisiones que no esperan al "
+        "cierre del mes y crecimiento que no se paga contratando más gente para digitar."
     ),
     "modulos_titulo": "Se activa lo que se usa",
     "modulos_texto": (
@@ -70,12 +77,30 @@ CONTENIDO_INICIAL: Dict[str, Any] = {
         "La primera conversación es para entender su operación, no para mostrar "
         "pantallas. A partir de ahí definimos qué módulos tienen sentido y en qué orden."
     ),
+    "negocio": [
+        {"clave": "01", "titulo": "Costos con nombre y apellido",
+         "texto": "Cada peso de mantenimiento, inventario o transporte queda amarrado a "
+                  "la orden, el activo y el centro de costo que lo originó. El cierre "
+                  "del mes deja de ser una reconstrucción y pasa a ser una consulta."},
+        {"clave": "02", "titulo": "Decisiones con los datos de hoy",
+         "texto": "Los tableros se alimentan de lo que la operación registra mientras "
+                  "trabaja. Nadie tiene que consolidar un archivo para que la dirección "
+                  "pueda mirar el avance, el costo y el riesgo."},
+        {"clave": "03", "titulo": "Crecer sin engordar la administración",
+         "texto": "Sumar una sede, una flota o una empresa entera no obliga a sumar "
+                  "personas digitando lo mismo en otro formato. La estructura ya está "
+                  "hecha y se replica."},
+        {"clave": "04", "titulo": "Auditorías que se responden, no que se preparan",
+         "texto": "Certificaciones, revisorías y clientes piden evidencia. Queda "
+                  "registrada sola, con autor y fecha, mientras se opera; no hay que "
+                  "fabricarla la semana anterior."},
+    ],
     "pilares": [
         {"clave": "01", "titulo": "Un catálogo, no veinte listas",
          "texto": "Ciudades, cargos, centros de costo y categorías se definen una vez y "
                   "se usan en todos los módulos. «Bodega Norte» deja de ser tres valores "
                   "distintos y los informes por fin cuadran."},
-        {"clave": "02", "titulo": "Jerarquías de verdad",
+        {"clave": "02", "titulo": "Se define una vez y cubre toda la flota",
          "texto": "Tipo de activo → marca → línea → modelo. Un plan de mantenimiento se "
                   "define una vez sobre la jerarquía y cubre todos los equipos que le "
                   "corresponden."},
@@ -121,8 +146,8 @@ CONTENIDO_INICIAL: Dict[str, Any] = {
                   "sola sin tocar a las demás."},
         {"clave": "03", "titulo": "Cifrada de punta a punta",
          "texto": "Todo el tráfico va por HTTPS con certificado que se renueva solo. Las "
-                  "contraseñas se guardan con hash bcrypt, no cifradas: ni siquiera "
-                  "nosotros podemos leerlas."},
+                  "contraseñas se guardan de forma irreversible: ni siquiera nosotros "
+                  "podemos leerlas."},
         {"clave": "04", "titulo": "Todo deja rastro",
          "texto": "Movimientos, cambios de estado y accesos quedan registrados con autor "
                   "y fecha. Cuando toca explicar qué pasó, la respuesta está en el "
