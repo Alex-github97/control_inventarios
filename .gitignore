@@ -26,6 +26,8 @@ alembic/versions/__pycache__/
 # Node / Frontend
 frontend/node_modules/
 frontend/dist/
+# Salida de la consola del operador, que se compila aparte.
+frontend/dist-admin/
 frontend/.vite/
 frontend/coverage/
 
