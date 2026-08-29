@@ -196,6 +196,58 @@ export interface Contabilidad {
   meses: FilaMes[]
 }
 
+
+// ─── Mesa de ayuda ────────────────────────────────────────────────────────────
+
+export interface Adjunto {
+  id: number
+  nombre: string
+  tipo_mime?: string | null
+  tamano?: number | null
+  creado_en: string
+  mensaje_id?: number | null
+}
+
+export interface MensajeSoporte {
+  id: number
+  autor: string
+  autor_nombre?: string | null
+  es_soporte: boolean
+  cuerpo: string
+  /** Nota del equipo: el cliente no la ve. */
+  interno: boolean
+  creado_en: string
+  adjuntos: Adjunto[]
+}
+
+export interface Ticket {
+  id: number
+  numero: string
+  asunto: string
+  estado: string
+  criticidad: string
+  categoria?: string | null
+  modulo?: string | null
+  impacto?: string | null
+  autor: string
+  autor_nombre?: string | null
+  cliente_codigo: string
+  asignado_a?: string | null
+  created_at?: string | null
+  ultima_actividad?: string | null
+  primera_respuesta_en?: string | null
+  mensajes: number
+  conversacion?: MensajeSoporte[]
+}
+
+export interface ResumenSoporte {
+  abiertos: number
+  sin_responder: number
+  criticos: number
+  por_estado: Record<string, number>
+  por_criticidad: Record<string, number>
+}
+
 const api = axios.create({ baseURL: '/api/v1' })
 
 const CLAVE_SESION = 'tw_admin_sesion'
@@ -351,4 +403,28 @@ export const consolaApi = {
   bitacora: (empresa?: string) =>
     api.get<AsientoBitacora[]>('/plataforma/bitacora', { params: { empresa, limite: 300 } })
       .then(r => r.data),
+}
+
+export const soporteApi = {
+  cola: (filtros: Record<string, unknown>) =>
+    api.get<Ticket[]>('/soporte/cola', { params: filtros }).then(r => r.data),
+
+  ticket: (id: number) =>
+    api.get<Ticket>(`/soporte/cola/${id}`).then(r => r.data),
+
+  clasificar: (id: number, cambios: Record<string, unknown>) =>
+    api.put<Ticket>(`/soporte/cola/${id}`, cambios).then(r => r.data),
+
+  responder: (id: number, cuerpo: string, interno: boolean) =>
+    api.post<Ticket>(`/soporte/cola/${id}/mensajes`, { cuerpo, interno }).then(r => r.data),
+
+  adjuntar: (id: number, cuerpo: FormData) =>
+    api.post<Ticket>(`/soporte/tickets/${id}/adjuntos`, cuerpo).then(r => r.data),
+
+  // Los adjuntos no se sirven por carpeta pública: la descarga pasa por la API,
+  // que comprueba de quién es el ticket.
+  descargarAdjunto: (id: number) =>
+    api.get(`/soporte/adjuntos/${id}`, { responseType: 'blob' }).then(r => r.data as Blob),
+
+  resumen: () => api.get<ResumenSoporte>('/soporte/resumen').then(r => r.data),
 }

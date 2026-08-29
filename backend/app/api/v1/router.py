@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
     auth, usuarios, estibas, ubicaciones, proveedores,
-    vehiculos, manifiestos, movimientos, dashboard, alertas, danos, tarifax, mantenimiento, consultas, roles, fletes, flota, locative, wms, hcm, tms, dms, qms, grc, lms, crm, eam, mes, aps, erp, scan_sessions, scm, sst, lubricacion, ags, catalogos, plataforma, plataforma_comercial, plataforma_contable, eam_importar, eam_config
+    vehiculos, manifiestos, movimientos, dashboard, alertas, danos, tarifax, mantenimiento, consultas, roles, fletes, flota, locative, wms, hcm, tms, dms, qms, grc, lms, crm, eam, mes, aps, erp, scan_sessions, scm, sst, lubricacion, ags, catalogos, plataforma, plataforma_comercial, plataforma_contable, eam_importar, eam_config, soporte
 )
 
 api_router = APIRouter()
@@ -16,6 +16,8 @@ api_router.include_router(plataforma_contable.router)
 api_router.include_router(eam_importar.router)
 # Centros de costo y tipos de trabajo: eran maqueta, ahora persisten.
 api_router.include_router(eam_config.router)
+# Mesa de ayuda: el cliente escribe, soporte responde desde la consola.
+api_router.include_router(soporte.router)
 api_router.include_router(roles.router)
 api_router.include_router(usuarios.router)
 api_router.include_router(estibas.router)

@@ -139,6 +139,13 @@ from app.infrastructure.models.catalogo import (
     CatalogoMaestro, CATALOGOS_REGISTRO, MODULO_GLOBAL,
     catalogos_de, buscar_registro, MODULOS_CON_CATALOGO,
 )
+# Registro de clientes y mesa de ayuda: viven en el esquema de la plataforma.
+from app.infrastructure.models.plataforma import (  # noqa: F401
+    PlataformaCliente, PlataformaBitacora,
+)
+from app.infrastructure.models.soporte import (  # noqa: F401
+    SoporteTicket, SoporteMensaje, SoporteAdjunto,
+)
 from app.infrastructure.models.ags import (
     AGSConfig, AGSCategoriaServicio, AGSServicio,
     AGSProfesional, AGSProfesionalServicio, AGSHorarioProfesional, AGSAusencia,

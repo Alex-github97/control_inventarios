@@ -3,7 +3,10 @@ import {
   AppBar, Toolbar, Typography, Box, IconButton, Avatar, Badge,
   Chip, Tooltip, alpha, Popover, List, ListItem, Divider, Button,
 } from '@mui/material'
-import { Notifications, QrCode2, LogoutOutlined, NotificationsNone } from '@mui/icons-material'
+import {
+  Notifications, QrCode2, LogoutOutlined, NotificationsNone,
+  SupportAgent,
+} from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { useQuery, useIsFetching, useIsMutating } from '@tanstack/react-query'
@@ -87,6 +90,20 @@ export function Header({ title }: HeaderProps) {
         )}
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Tooltip title="Soporte técnico">
+            <IconButton
+              size="small"
+              onClick={() => navigate('/soporte')}
+              sx={{
+                color: '#94A3B8', width: 36, height: 36, borderRadius: '10px',
+                '&:hover': { bgcolor: alpha(PRIMARY, 0.08), color: PRIMARY },
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <SupportAgent fontSize="small" />
+            </IconButton>
+          </Tooltip>
+
           <Tooltip title="Escanear QR">
             <IconButton
               size="small"

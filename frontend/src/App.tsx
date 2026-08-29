@@ -73,6 +73,7 @@ function SinAcceso() {
 }
 
 const Login = React.lazy(() => import('@/pages/Login'))
+const Soporte = React.lazy(() => import('@/pages/Soporte'))
 const SeleccionCliente = React.lazy(() => import('@/pages/SeleccionCliente'))
 const Dashboard = React.lazy(() => import('@/pages/Dashboard'))
 const Estibas = React.lazy(() => import('@/pages/Estibas'))
@@ -461,6 +462,8 @@ export default function App() {
             <Route path="/danos" element={<ProtectedRoute><Danos /></ProtectedRoute>} />
             <Route path="/trazabilidad" element={<ProtectedRoute><Trazabilidad /></ProtectedRoute>} />
             <Route path="/usuarios" element={<ProtectedRoute><Usuarios /></ProtectedRoute>} />
+            {/* Mesa de ayuda: pagina propia, no un panel flotante. */}
+            <Route path="/soporte" element={<ProtectedRoute><Soporte /></ProtectedRoute>} />
             <Route path="/usuarios/roles" element={<ProtectedRoute><Roles /></ProtectedRoute>} />
             <Route path="/command-center" element={<ProtectedRoute><CommandCenter /></ProtectedRoute>} />
             <Route path="/command-center/:dashboardId" element={<ProtectedRoute><CommandCenter /></ProtectedRoute>} />
