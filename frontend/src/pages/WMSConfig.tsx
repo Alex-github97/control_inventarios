@@ -12,6 +12,7 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { AdminCatalogos } from '@/components/catalogo/AdminCatalogos'
 const WMS_COLOR = COLOR_MODULO
 
 // ─── Generic catalog hook ──────────────────────────────────────────────────────
@@ -1143,8 +1144,7 @@ export default function WMSConfig() {
   const tabs = [
     'Países', 'Ciudades', 'Tipos Zona', 'Tipos Ubic.', 'Unidades', 'Categorías', 'Familias',
     'Almacenes', 'Zonas', 'Ubicaciones', 'Productos', 'Lotes',
-    'Proveedores', 'Clientes', 'Transportadoras', 'Devoluciones', 'Motivos Res./Bloq.',
-  ]
+    'Proveedores', 'Clientes', 'Transportadoras', 'Devoluciones', 'Motivos Res./Bloq.', 'Catálogos']
 
   const GUIDE = [
     { step: '1', text: 'Configura Países y Ciudades — se usan en almacenes, proveedores y clientes.' },
@@ -1178,6 +1178,8 @@ export default function WMSConfig() {
             sx={{ textTransform: 'none', fontWeight: 600, fontSize: 13, '&.Mui-selected': { color: WMS_COLOR } }} />
         ))}
       </Tabs>
+
+        {tab === 17 && <AdminCatalogos modulo="WMS" color={COLOR_MODULO} />}
 
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 8 }}>

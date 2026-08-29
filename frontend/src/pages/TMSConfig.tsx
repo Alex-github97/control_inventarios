@@ -14,6 +14,7 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { AdminCatalogos } from '@/components/catalogo/AdminCatalogos'
 const TMS_COLOR = COLOR_MODULO
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -178,7 +179,10 @@ export default function TMSConfig() {
             <Tab label="Tipos de Servicio" />
             <Tab label="Rutas Base" />
             <Tab label="Parámetros" />
-          </Tabs>
+            <Tab label="Catálogos" />
+        </Tabs>
+
+        {tab === 4 && <AdminCatalogos modulo="TMS" color={COLOR_MODULO} />}
 
           {/* ── Tab 0: Zonas ── */}
           {tab === 0 && (

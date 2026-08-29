@@ -14,6 +14,7 @@ import { Layout } from '@/components/layout/Layout'
 import { apiClient as api } from '@/api/client'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { AdminCatalogos } from '@/components/catalogo/AdminCatalogos'
 const QMS_COLOR = COLOR_MODULO
 const QMS_DARK = COLOR_MODULO
 const MODULOS = ['TMS', 'WMS', 'EAM', 'CRM', 'SST', 'HCM', 'DMS', 'MES', 'APS', 'SCM', 'ERP', 'Compras', 'Financiero', 'QMS']
@@ -151,7 +152,12 @@ export default function QMSConfig() {
           <Tab label="Umbrales" />
           <Tab label="Notificaciones" />
           <Tab label="Integraciones" />
+          <Tab label="Catálogos" />
         </Tabs>
+
+        <TabPanel value={tab} index={5}>
+          <AdminCatalogos modulo="QMS" color={COLOR_MODULO} />
+        </TabPanel>
 
         <TabPanel value={tab} index={0}>
           <IndicadoresConfig />

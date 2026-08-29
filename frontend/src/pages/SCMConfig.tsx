@@ -5,6 +5,7 @@ import { Settings, Notifications, IntegrationInstructions, Security, Save } from
 import { Layout } from '@/components/layout/Layout'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { AdminCatalogos } from '@/components/catalogo/AdminCatalogos'
 const SCM_COLOR = COLOR_MODULO
 const BORDER  = `rgba(12,77,140,0.25)`
 
@@ -94,7 +95,10 @@ export default function SCMConfig() {
           <Tab label="Flujo de trabajo" icon={<Security sx={{ fontSize: 16 }} />} iconPosition="start" />
           <Tab label="Integraciones" icon={<IntegrationInstructions sx={{ fontSize: 16 }} />} iconPosition="start" />
           <Tab label="Umbrales" icon={<Settings sx={{ fontSize: 16 }} />} iconPosition="start" />
+          <Tab label="Catálogos" />
         </Tabs>
+
+        {tab === 4 && <AdminCatalogos modulo="SCM" color={COLOR_MODULO} />}
 
         {/* Tab 0 — Notificaciones */}
         {tab === 0 && (

@@ -5,6 +5,7 @@ import { Settings, Notifications, Tune, Save } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { AdminCatalogos } from '@/components/catalogo/AdminCatalogos'
 const SST_COLOR = COLOR_MODULO
 const BORDER  = 'rgba(197,48,48,0.2)'
 
@@ -93,7 +94,10 @@ export default function SSTConfig() {
           <Tab icon={<Settings sx={{ fontSize: 16 }} />} iconPosition="start" label="Empresa / SG-SST" />
           <Tab icon={<Notifications sx={{ fontSize: 16 }} />} iconPosition="start" label="Alertas y notificaciones" />
           <Tab icon={<Tune sx={{ fontSize: 16 }} />} iconPosition="start" label="Umbrales e indicadores" />
+          <Tab label="Catálogos" />
         </Tabs>
+
+        {tab === 3 && <AdminCatalogos modulo="SST" color={COLOR_MODULO} />}
 
         {/* Tab 0: Empresa */}
         {tab === 0 && (

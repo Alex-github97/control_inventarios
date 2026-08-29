@@ -16,6 +16,8 @@ import { Layout } from '@/components/layout/Layout'
 import { apiClient as api } from '@/api/client'
 
 import { COLOR_MODULO } from '@/config/marca'
+import AccountTreeIcon from '@mui/icons-material/AccountTree'
+import { AdminCatalogos } from '@/components/catalogo/AdminCatalogos'
 // ─── Identidad MES / tema claro ──────────────────────────────────────────────
 const MES_COLOR = COLOR_MODULO
 const MES_DARK = COLOR_MODULO
@@ -738,6 +740,7 @@ const TABS = [
   { label: 'Equipos', icon: <MachineIcon sx={{ fontSize: 18 }} /> },
   { label: 'Operarios', icon: <OperatorIcon sx={{ fontSize: 18 }} /> },
   { label: 'Productos', icon: <ProductIcon sx={{ fontSize: 18 }} /> },
+  { label: 'Catálogos', icon: <AccountTreeIcon sx={{ fontSize: 18 }} /> },
 ]
 
 export default function MESConfig() {
@@ -768,6 +771,8 @@ export default function MESConfig() {
             }}>
             {TABS.map(t => <Tab key={t.label} icon={t.icon} iconPosition="start" label={t.label} />)}
           </Tabs>
+
+        {tab === 6 && <AdminCatalogos modulo="MES" color={COLOR_MODULO} />}
         </Paper>
 
         {/* Contenido del tab activo */}

@@ -19,6 +19,8 @@ import {
   AGS_COLOR, AGS_DARK, DIAS_SEMANA, TIPOS_NEGOCIO, type AGSConfigData,
 } from '@/utils/ags'
 
+import { AdminCatalogos } from '@/components/catalogo/AdminCatalogos'
+import { COLOR_MODULO } from '@/config/marca'
 const PLANTILLA_DEFECTO =
   'Hola {cliente}, le recordamos su cita en {negocio} el {fecha} a las {hora} '
   + 'para {servicio}. Cualquier cambio nos avisa.'
@@ -526,6 +528,12 @@ export default function AGSConfig() {
             </Card>
           </Grid>
         </Grid>
+      </Box>
+    
+      {/* Listas controladas del módulo. Se arman solas desde el registro del
+          backend: agregar un catálogo es una línea allá, no una pantalla acá. */}
+      <Box sx={{ mt: 4 }}>
+        <AdminCatalogos modulo="AGS" color={COLOR_MODULO} titulo="Catálogos del módulo" />
       </Box>
     </Layout>
   )

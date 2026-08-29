@@ -9,6 +9,7 @@ import { LanguageSelector } from '@/components/LanguageSelector'
 import { SUPPORTED_LANGUAGES } from '@/i18n'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { AdminCatalogos } from '@/components/catalogo/AdminCatalogos'
 const CARD_BG = '#FFFFFF'
 const ACCENT    = '#1A1A1A'
 const SECTION_COLOR = COLOR_MODULO
@@ -137,6 +138,12 @@ export default function Configuracion() {
           </Box>
         </Card>
 
+      </Box>
+    
+      {/* Listas controladas del módulo. Se arman solas desde el registro del
+          backend: agregar un catálogo es una línea allá, no una pantalla acá. */}
+      <Box sx={{ mt: 4 }}>
+        <AdminCatalogos modulo="CI" color={COLOR_MODULO} titulo="Catálogos del módulo" />
       </Box>
     </Layout>
   )

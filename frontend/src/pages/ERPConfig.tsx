@@ -12,6 +12,7 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { AdminCatalogos } from '@/components/catalogo/AdminCatalogos'
 const ERP_COLOR = COLOR_MODULO
 
 interface ConfigGeneral {
@@ -127,7 +128,10 @@ export default function ERPConfig() {
             <Tab label="Tasas de Cambio" />
             <Tab label="Integraciones" />
             <Tab label="Numeración" />
-          </Tabs>
+            <Tab label="Catálogos" />
+        </Tabs>
+
+        {tab === 4 && <AdminCatalogos modulo="ERP" color={COLOR_MODULO} />}
         </Box>
 
         {/* Tab 0: General config */}

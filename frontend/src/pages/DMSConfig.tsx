@@ -64,6 +64,7 @@ import {
 import { Layout } from '@/components/layout/Layout'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { AdminCatalogos } from '@/components/catalogo/AdminCatalogos'
 const DMS_COLOR = COLOR_MODULO
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -745,6 +746,12 @@ export default function DMSConfig() {
         <TabPanel value={tabValue} index={2}><TabSeguridad /></TabPanel>
         <TabPanel value={tabValue} index={3}><TabNotificaciones /></TabPanel>
         <TabPanel value={tabValue} index={4}><TabCategorias /></TabPanel>
+      </Box>
+    
+      {/* Listas controladas del módulo. Se arman solas desde el registro del
+          backend: agregar un catálogo es una línea allá, no una pantalla acá. */}
+      <Box sx={{ mt: 4 }}>
+        <AdminCatalogos modulo="DMS" color={COLOR_MODULO} titulo="Catálogos del módulo" />
       </Box>
     </Layout>
   )

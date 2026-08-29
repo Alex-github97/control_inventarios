@@ -34,6 +34,11 @@ const NOMBRE_MODULO: Record<string, string> = {
   MES: 'Manufactura MES',
   APS: 'Planeación APS',
   CRM: 'CRM Clientes',
+  EAM: 'CMMS / EAM Mantenimiento',
+  CI: 'Control de Estibas',
+  AGS: 'Agenda de Servicios',
+  FLOTA: 'Gestión de Flotas',
+  LOCATIVA: 'Mantenimiento Locativo',
 }
 
 export default function Catalogos() {

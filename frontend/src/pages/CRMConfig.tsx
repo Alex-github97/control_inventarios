@@ -5,6 +5,7 @@ import { Settings } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { AdminCatalogos } from '@/components/catalogo/AdminCatalogos'
 const CRM_COLOR = COLOR_MODULO
 const BORDER  = '#E5E7EB'
 
@@ -80,7 +81,10 @@ export default function CRMConfig() {
           <Tab label="Notificaciones" />
           <Tab label="Lead Scoring" />
           <Tab label="Integraciones" />
+          <Tab label="Catálogos" />
         </Tabs>
+
+        {tab === 4 && <AdminCatalogos modulo="CRM" color={COLOR_MODULO} />}
 
         {tab === 0 && (
           <Box sx={{ bgcolor: 'background.paper', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>

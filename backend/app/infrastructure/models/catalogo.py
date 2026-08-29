@@ -190,6 +190,43 @@ CATALOGOS_REGISTRO = [
     _c("CRM", "SECTOR_ECONOMICO", "Sectores económicos", "Sector del cliente"),
     _c("CRM", "ORIGEN_LEAD", "Orígenes de lead", "De dónde llegó el prospecto"),
     _c("CRM", "MOTIVO_PERDIDA", "Motivos de pérdida", "Por qué se perdió la oportunidad"),
+
+    # ── Control de Estibas ───────────────────────────────────────────────
+    # `dano.categoria` y los motivos de movimiento eran texto libre: con tres
+    # formas de escribir "rotura" ningún informe de daños agrupa bien.
+    _c("CI", "TIPO_ESTIBA", "Tipos de estiba", "Madera, plástica, metálica…"),
+    _c("CI", "CATEGORIA_DANO", "Categorías de daño", "Primer nivel de la clasificación"),
+    _c("CI", "SUBCATEGORIA_DANO", "Subcategorías de daño", "Depende de la categoría",
+       "CATEGORIA_DANO"),
+    _c("CI", "MOTIVO_MOVIMIENTO", "Motivos de movimiento", "Por qué se mueve la estiba"),
+    _c("CI", "MOTIVO_BAJA", "Motivos de baja", "Por qué sale del inventario"),
+
+    # ── Agenda de Servicios AGS ──────────────────────────────────────────
+    # La categoría de servicio NO va acá: lleva color y precio propios, así que
+    # tiene su tabla. Acá solo lo que es lista controlada y nada más.
+    _c("AGS", "TIPO_NEGOCIO", "Tipos de negocio", "Salón, barbería, taller, consultorio…"),
+    _c("AGS", "ESPECIALIDAD", "Especialidades", "Qué hace cada profesional"),
+    _c("AGS", "ORIGEN_CITA", "Orígenes de la cita", "Por dónde llegó: mostrador, web, teléfono"),
+    _c("AGS", "MOTIVO_CANCELACION", "Motivos de cancelación", "Por qué no se prestó el servicio"),
+
+    # ── Gestión de Flotas ────────────────────────────────────────────────
+    _c("FLOTA", "TIPO_DOCUMENTO_VEHICULO", "Documentos del vehículo",
+       "SOAT, revisión técnica, tarjeta de operación…"),
+    _c("FLOTA", "TIPO_DOCUMENTO_CONDUCTOR", "Documentos del conductor",
+       "Licencia, examen médico, certificados"),
+    _c("FLOTA", "CATEGORIA_LICENCIA", "Categorías de licencia", "B1, C1, C2, C3…"),
+    _c("FLOTA", "MOTIVO_BAJA_VEHICULO", "Motivos de baja", "Por qué sale de la flota"),
+
+    # ── Mantenimiento Locativo ───────────────────────────────────────────
+    # La jerarquía sigue la del propio módulo: un equipo pertenece a una clase,
+    # y la clase a una categoría.
+    _c("LOCATIVA", "TIPO_ESPACIO", "Tipos de espacio", "Oficina, bodega, zona técnica…"),
+    _c("LOCATIVA", "CATEGORIA_ACTIVO", "Categorías de activo", "Primer nivel del inventario"),
+    _c("LOCATIVA", "CLASE_EQUIPO", "Clases de equipo", "Depende de la categoría",
+       "CATEGORIA_ACTIVO"),
+    _c("LOCATIVA", "CATEGORIA_FALLA", "Categorías de falla", "Mecánica, eléctrica, estructural…"),
+    _c("LOCATIVA", "TIPO_DOCUMENTO_ACTIVO", "Documentos del activo",
+       "Manual, certificado, plano, garantía"),
 ]
 
 

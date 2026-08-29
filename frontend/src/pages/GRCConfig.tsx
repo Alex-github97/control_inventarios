@@ -11,6 +11,7 @@ import {
 import { Layout } from '@/components/layout/Layout'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { AdminCatalogos } from '@/components/catalogo/AdminCatalogos'
 const GRC_COLOR = COLOR_MODULO
 const BORDER = '#E5E7EB'
 
@@ -83,7 +84,12 @@ export default function GRCConfig() {
           <Tab label="Umbrales" />
           <Tab label="Notificaciones" />
           <Tab label="Integraciones" />
+          <Tab label="Catálogos" />
         </Tabs>
+
+        <TabPanel value={tab} index={4}>
+          <AdminCatalogos modulo="GRC" color={COLOR_MODULO} />
+        </TabPanel>
 
         <TabPanel value={tab} index={0}>
           <Grid container spacing={2}>

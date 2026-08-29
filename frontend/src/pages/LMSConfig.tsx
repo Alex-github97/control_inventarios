@@ -5,6 +5,7 @@ import { Settings, Extension, Notifications, Hub } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { AdminCatalogos } from '@/components/catalogo/AdminCatalogos'
 const LMS_COLOR = COLOR_MODULO
 const BORDER = '#E5E7EB'
 
@@ -82,7 +83,10 @@ export default function LMSConfig() {
           <Tab label="Umbrales" icon={<Settings sx={{ fontSize: 16 }} />} iconPosition="start" />
           <Tab label="Notificaciones" icon={<Notifications sx={{ fontSize: 16 }} />} iconPosition="start" />
           <Tab label="Integraciones" icon={<Hub sx={{ fontSize: 16 }} />} iconPosition="start" />
+          <Tab label="Catálogos" />
         </Tabs>
+
+        {tab === 4 && <AdminCatalogos modulo="LMS" color={COLOR_MODULO} />}
 
         {tab === 0 && (
           <Grid container spacing={2}>

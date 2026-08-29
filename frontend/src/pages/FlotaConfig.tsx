@@ -12,6 +12,7 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { AdminCatalogos } from '@/components/catalogo/AdminCatalogos'
 const GF_COLOR = COLOR_MODULO
 
 // ─── Generic catalog hook ──────────────────────────────────────────────────────
@@ -532,6 +533,7 @@ export default function FlotaConfig() {
     { label: 'Proveedores' },
     { label: 'Repuestos' },
     { label: 'Grupos de Vehículos' },
+    { label: 'Catálogos' },
   ]
 
   return (
@@ -554,6 +556,8 @@ export default function FlotaConfig() {
             sx={{ textTransform: 'none', fontWeight: 600, fontSize: 13, '&.Mui-selected': { color: GF_COLOR } }} />
         ))}
       </Tabs>
+
+      {tab === 8 && <AdminCatalogos modulo="FLOTA" color={COLOR_MODULO} />}
 
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 8 }}>
