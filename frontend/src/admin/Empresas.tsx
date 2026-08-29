@@ -17,7 +17,10 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
-import { consolaApi, mensajeDeError, type Empresa, type ClaveEntregada } from './api'
+import {
+  consolaApi, mensajeDeError, sesion,
+  type Empresa, type ClaveEntregada, type UsuarioDeEmpresa,
+} from './api'
 import { ClaveDialog } from './ClaveDialog'
 import Modulos from './Modulos'
 import Comercial from './Comercial'
@@ -172,6 +175,51 @@ function DialogoNuevoUsuario({
   )
 }
 
+
+function DialogoConfirmarClave({
+  usuario, esMiCuenta, onCerrar, onConfirmar, ocupado,
+}: {
+  usuario: UsuarioDeEmpresa | null
+  esMiCuenta: boolean
+  onCerrar: () => void
+  onConfirmar: () => void
+  ocupado: boolean
+}) {
+  return (
+    <Dialog open={!!usuario} onClose={onCerrar} maxWidth="xs" fullWidth>
+      <DialogTitle sx={{ fontWeight: 700 }}>Restablecer contraseña</DialogTitle>
+      <DialogContent>
+        {esMiCuenta ? (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            <strong>Es la cuenta con la que usted está conectado.</strong> Su contraseña
+            actual dejará de servir de inmediato y la nueva se muestra una sola vez:
+            si cierra ese aviso sin copiarla, quedará fuera del sistema.
+          </Alert>
+        ) : (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            La contraseña actual de <strong>{usuario?.username}</strong> dejará de servir
+            de inmediato. La nueva se muestra una sola vez.
+          </Alert>
+        )}
+        <Typography variant="body2" color="text.secondary">
+          Úselo cuando esa persona perdió el acceso, no para cambiar una contraseña
+          que todavía funciona.
+        </Typography>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onCerrar} sx={{ textTransform: 'none' }}>Cancelar</Button>
+        <Button
+          variant="contained" color={esMiCuenta ? 'error' : 'warning'}
+          onClick={onConfirmar} disabled={ocupado}
+          sx={{ textTransform: 'none', fontWeight: 700 }}
+        >
+          {esMiCuenta ? 'Entiendo, restablecer la mía' : 'Restablecer'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
 // ─── Ficha de una empresa: su gente ───────────────────────────────────────────
 
 function PestanaUsuarios({
@@ -182,6 +230,8 @@ function PestanaUsuarios({
 }) {
   const qc = useQueryClient()
   const [nuevo, setNuevo] = useState(false)
+  const [porRestablecer, setPorRestablecer] = useState<UsuarioDeEmpresa | null>(null)
+  const yo = sesion.leer()
 
   const { data: usuarios = [], isLoading } = useQuery({
     queryKey: ['usuarios', empresa.id],
@@ -190,7 +240,7 @@ function PestanaUsuarios({
 
   const clave = useMutation({
     mutationFn: (uid: number) => consolaApi.restablecerClave(empresa.id, uid),
-    onSuccess: onClave,
+    onSuccess: a => { setPorRestablecer(null); onClave(a) },
     onError: (e: any) => toast.error(mensajeDeError(e)),
   })
 
@@ -264,7 +314,10 @@ function PestanaUsuarios({
                 </TableCell>
                 <TableCell align="right">
                   <Tooltip title="Restablecer contraseña">
-                    <IconButton size="small" onClick={() => clave.mutate(u.id)} disabled={clave.isPending}>
+                    <IconButton
+                      size="small" onClick={() => setPorRestablecer(u)}
+                      disabled={clave.isPending}
+                    >
                       <Key fontSize="small" />
                     </IconButton>
                   </Tooltip>
@@ -287,6 +340,13 @@ function PestanaUsuarios({
       <DialogoNuevoUsuario
         empresa={empresa} abierto={nuevo}
         onCerrar={() => setNuevo(false)} onCreado={onClave}
+      />
+      <DialogoConfirmarClave
+        usuario={porRestablecer}
+        esMiCuenta={!!yo && yo.empresa === empresa.codigo && yo.usuario === porRestablecer?.username}
+        ocupado={clave.isPending}
+        onCerrar={() => setPorRestablecer(null)}
+        onConfirmar={() => porRestablecer && clave.mutate(porRestablecer.id)}
       />
     </Box>
   )
