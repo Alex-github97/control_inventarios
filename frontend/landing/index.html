@@ -359,10 +359,12 @@ const PORDEFECTO = {
   ]
 };
 
-// Se declara acá arriba porque `pintar()` la usa y las funciones están
-// izadas pero las variables `let` no: al revés, la primera llamada
-// lanzaba ReferenceError y tumbaba todo el script.
+// Estas dos se declaran acá arriba porque `pintar()` las usa y se llama antes
+// de llegar a su sección. Las funciones se izan; las variables `let` no, y
+// tocarlas antes lanza un ReferenceError que corta el script entero: sin red
+// de nodos, sin animaciones y sin barra adaptativa.
 let bandas = [];
+let observador = null;
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -418,7 +420,6 @@ fetch('/api/v1/landing/contenido')
 $('#anio').textContent = new Date().getFullYear();
 
 /* ═══ Aparición al entrar en pantalla ═══ */
-let observador = null;
 if (!menos && 'IntersectionObserver' in window) {
   observador = new IntersectionObserver((entradas) => {
     for (const e of entradas) {
