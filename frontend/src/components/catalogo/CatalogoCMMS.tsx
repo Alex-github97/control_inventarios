@@ -18,6 +18,7 @@ import { Add, Search, Edit, DeleteForever } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { apiClient as api } from '@/api/client'
+import { CargueMasivo, type ColumnaPlantilla } from './CargueMasivo'
 
 /** Lo que distingue a cada catálogo del resto. */
 export interface DefinicionCatalogo {
@@ -98,6 +99,14 @@ export function CatalogoCMMS({ def, color = '#1A1A1A' }: {
     queryFn: () => api.get(`/eam/catalogos/${def.ruta}`).then(r => r.data),
   })
 
+  // Las columnas de la plantilla las declara el servidor, para que la plantilla
+  // y la validación no puedan terminar diciendo cosas distintas.
+  const { data: plantilla } = useQuery<{ columnas: ColumnaPlantilla[] }>({
+    queryKey: ['plantilla-catalogo', def.ruta],
+    queryFn: () => api.get(`/eam/catalogos/${def.ruta}/plantilla`).then(r => r.data),
+    staleTime: Infinity,
+  })
+
   const etiqueta = (i: ItemCatalogo) =>
     ((def.campo === 'nombre' ? i.nombre : i.descripcion) ?? '').trim()
 
@@ -172,6 +181,21 @@ export function CatalogoCMMS({ def, color = '#1A1A1A' }: {
             Agregar
           </Button>
         </Stack>
+
+        {plantilla?.columnas && (
+          <Box sx={{ mb: 1.5 }}>
+            <CargueMasivo
+              compacto
+              titulo={def.titulo}
+              nombreArchivo={`plantilla-${def.ruta}`}
+              columnas={plantilla.columnas}
+              color={color}
+              onImportar={filas =>
+                api.post(`/eam/catalogos/${def.ruta}/importar`, { filas }).then(r => r.data)}
+              onListo={invalidar}
+            />
+          </Box>
+        )}
 
         {def.ayuda && (
           <Typography variant="caption" color="grey.600" sx={{ display: 'block', mb: 1.5 }}>

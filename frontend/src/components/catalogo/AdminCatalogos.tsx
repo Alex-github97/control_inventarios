@@ -23,6 +23,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { apiClient as api } from '@/api/client'
 import type { RegistroCatalogo, ValorCatalogo } from './SelectorCatalogo'
+import { CargueMasivo, type ColumnaPlantilla } from './CargueMasivo'
 
 export function AdminCatalogos({
   modulo, color = '#1A1A1A', titulo, incluirGlobales = true,
@@ -203,6 +204,22 @@ export function AdminCatalogos({
   // ── Valores de un catálogo ──
   const hijo = nivelActual ? hijoDe(nivelActual.tipo) : null
 
+  // Cuando el catálogo tiene padre, la plantilla lo pide por nombre: quien
+  // llena un Excel escribe "Antioquia", no el número interno del registro.
+  const padreDe = nivelActual?.padre
+    ? registro.find(r => r.tipo === nivelActual.padre)
+    : null
+  const columnasPlantilla: ColumnaPlantilla[] = [
+    { clave: 'nombre', titulo: 'Nombre', requerida: true,
+      ayuda: 'El valor tal como aparecerá en los formularios', ejemplo: 'Ejemplo' },
+    ...(padreDe ? [{
+      clave: 'padre', titulo: padreDe.label.replace(/s$/, ''), requerida: true,
+      ayuda: `Debe existir ya en ${padreDe.label}. Cárguelos primero.`,
+      ejemplo: '',
+    } as ColumnaPlantilla] : []),
+    { clave: 'codigo', titulo: 'Código', ayuda: 'Opcional: código interno, DANE, PUC…' },
+  ]
+
   return (
     <Box>
       <Stack direction="row" alignItems="center" gap={1} mb={1.5} flexWrap="wrap">
@@ -246,6 +263,22 @@ export function AdminCatalogos({
           Agregar
         </Button>
       </Stack>
+
+      {nivelActual && (
+        <Box sx={{ mb: 1.5 }}>
+          <CargueMasivo
+            compacto
+            titulo={nivelActual.label}
+            nombreArchivo={`plantilla-${nivelActual.modulo.toLowerCase()}-${nivelActual.tipo.toLowerCase()}`}
+            color={color}
+            columnas={columnasPlantilla}
+            onImportar={filas => api.post('/catalogos/importar', {
+              modulo: nivelActual.modulo, tipo: nivelActual.tipo, filas,
+            }).then(r => r.data)}
+            onListo={() => qc.invalidateQueries({ queryKey: ['catalogo-admin'] })}
+          />
+        </Box>
+      )}
 
       {hijo && (
         <Alert severity="info" sx={{ mb: 1.5, py: 0.3 }}>

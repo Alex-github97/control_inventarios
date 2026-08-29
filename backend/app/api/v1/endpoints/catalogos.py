@@ -326,3 +326,117 @@ async def resolver_valor_catalogo(
     if not valor.activo:
         raise ValueError("'%s' está desactivado en el catálogo de %s." % (texto, campo))
     return valor.nombre
+
+
+# ── Cargue masivo desde Excel ─────────────────────────────────────────────────
+#
+# El archivo se lee en el navegador y acá llegan filas ya estructuradas: así no
+# hay que subir archivos ni manejar temporales, y este lado se dedica a validar.
+#
+# No se detiene en el primer error: un archivo de trescientas filas con dos
+# malas carga las 298 buenas y dice qué pasó con las otras dos. Y es idempotente
+# —lo repetido se omite— para que volver a subir el archivo corregido no deje el
+# catálogo duplicado.
+
+MAX_FILAS_IMPORTACION = 5000
+
+
+class FilaConError(BaseModel):
+    # Número de fila tal como lo ve el usuario en Excel: la 1 es el encabezado.
+    fila: int
+    motivo: str
+
+
+class ResultadoImportacion(BaseModel):
+    creados: int = 0
+    omitidos: int = 0
+    errores: List[FilaConError] = []
+    total: int = 0
+
+
+class CargueCatalogo(BaseModel):
+    modulo: str
+    tipo: str
+    filas: List[dict]
+
+
+@router.post("/importar", response_model=ResultadoImportacion)
+async def importar_valores(cargue: CargueCatalogo, db: AsyncSession = Depends(get_db)):
+    """Carga valores de un catálogo desde una lista de filas.
+
+    En los catálogos con jerarquía el padre viene por **nombre** y no por id:
+    quien llena un Excel escribe "Antioquia", no el número 4173.
+    """
+    modulo, tipo = cargue.modulo.upper(), cargue.tipo.upper()
+    registro = buscar_registro(modulo, tipo)
+    if registro is None:
+        raise HTTPException(404, "El catálogo %s/%s no está declarado en el registro."
+                                 % (modulo, tipo))
+    if len(cargue.filas) > MAX_FILAS_IMPORTACION:
+        raise HTTPException(
+            400,
+            "El archivo trae %d filas y el máximo son %d. Divídalo en varios archivos."
+            % (len(cargue.filas), MAX_FILAS_IMPORTACION),
+        )
+
+    tipo_padre = registro["padre"]
+
+    # Los posibles padres, indexados por nombre en minúsculas. Se resuelven de
+    # una vez y no fila por fila, que serían cientos de consultas.
+    padres: dict = {}
+    if tipo_padre:
+        r = await db.execute(select(CatalogoMaestro).where(
+            CatalogoMaestro.modulo.in_([modulo, MODULO_GLOBAL]),
+            CatalogoMaestro.tipo == tipo_padre,
+        ))
+        for p in r.scalars().all():
+            padres[p.nombre.strip().lower()] = p.id
+
+    # Lo que ya existe, por (padre, nombre): el mismo nombre puede repetirse
+    # bajo padres distintos —"Norte" en dos sedes— y eso es válido.
+    r = await db.execute(select(CatalogoMaestro).where(
+        CatalogoMaestro.modulo == modulo, CatalogoMaestro.tipo == tipo))
+    existentes = {(v.padre_id, v.nombre.strip().lower()) for v in r.scalars().all()}
+
+    resultado = ResultadoImportacion(total=len(cargue.filas))
+    nuevos = []
+
+    for i, fila in enumerate(cargue.filas):
+        numero = i + 2
+        nombre = str(fila.get("nombre") or "").strip()
+        if not nombre:
+            resultado.errores.append(FilaConError(fila=numero, motivo="Falta el nombre"))
+            continue
+
+        padre_id = None
+        if tipo_padre:
+            nombre_padre = str(fila.get("padre") or "").strip()
+            if not nombre_padre:
+                resultado.errores.append(FilaConError(
+                    fila=numero,
+                    motivo="Falta el padre: este catálogo depende de %s" % tipo_padre))
+                continue
+            padre_id = padres.get(nombre_padre.lower())
+            if padre_id is None:
+                resultado.errores.append(FilaConError(
+                    fila=numero,
+                    motivo="No existe «%s» en %s. Cárguelo primero." % (nombre_padre, tipo_padre)))
+                continue
+
+        if (padre_id, nombre.lower()) in existentes:
+            resultado.omitidos += 1
+            continue
+
+        codigo = str(fila.get("codigo") or "").strip() or None
+        # Dos filas iguales en el mismo archivo: la segunda se omite.
+        existentes.add((padre_id, nombre.lower()))
+        nuevos.append(CatalogoMaestro(
+            modulo=modulo, tipo=tipo, nombre=nombre, codigo=codigo,
+            padre_id=padre_id, orden=0, activo=True))
+
+    if nuevos:
+        db.add_all(nuevos)
+        await db.commit()
+        resultado.creados = len(nuevos)
+
+    return resultado
