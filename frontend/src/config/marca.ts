@@ -11,6 +11,8 @@ export const MARCA = {
   logotipo: 'TITTANWARE',
   /** Versión breve, para el encabezado y espacios estrechos. */
   corto: 'TITTANWARE',
+  /** Dos letras, para el distintivo cuadrado cuando el panel está plegado. */
+  sigla: 'TW',
   lema: 'Tecnología que fortalece · Soluciones que trascienden',
   descripcion: 'Control, visibilidad y eficiencia operacional.',
   get legal() {

@@ -4,7 +4,7 @@ import { Box, Typography, Tooltip, alpha } from '@mui/material'
 import { useAuthStore } from '@/store/authStore'
 import { useTranslation } from 'react-i18next'
 
-import { COLOR_MODULO_SOBRE_OSCURO, SUPERFICIE } from '@/config/marca'
+import { COLOR_MODULO_SOBRE_OSCURO, SUPERFICIE, MARCA, ACENTO } from '@/config/marca'
 // Claves de permiso requeridas por workspace (vacío = siempre visible)
 const WORKSPACE_PERM_KEYS: Record<string, string[]> = {
   control:  ['dashboard','estibas','movimientos','manifiestos','vehiculos','ubicaciones','proveedores','alertas','danos','trazabilidad','mantenimiento','costos','consultas'],
@@ -277,36 +277,41 @@ export function WorkspacePanel({ width, dragging }: WorkspacePanelProps) {
           flexShrink: 0,
         }}
       >
+        {/* El distintivo decía «IC» escrito a mano, de Icoltrans: la empresa que
+            encargó el software, no el producto. Ahora sale de MARCA, así que si
+            la marca cambia no hay que acordarse de este archivo. */}
         <Box
           sx={{
             width: 30,
             height: 30,
             borderRadius: '9px',
-            background: 'linear-gradient(135deg, #1A3A72 0%, #0C1E44 100%)',
-            border: '1px solid rgba(255,255,255,0.12)',
+            background: `linear-gradient(135deg, ${ACENTO.base} 0%, ${ACENTO.profundo} 100%)`,
+            border: '1px solid rgba(255,255,255,0.16)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0,
           }}
         >
-          <Typography sx={{ fontSize: 8.5, fontWeight: 900, color: 'rgba(255,255,255,0.65)', letterSpacing: '-0.3px' }}>
-            IC
+          <Typography sx={{ fontSize: 11, fontWeight: 900, color: '#fff', letterSpacing: '0.02em' }}>
+            {MARCA.sigla}
           </Typography>
         </Box>
 
+        {/* Plegado queda solo el distintivo; desplegado, el nombre completo. El
+            rótulo «Espacios» sobraba: la columna de iconos ya se explica sola, y
+            este es el sitio donde se espera ver la marca. */}
         {showText && (
           <Typography
             sx={{
-              fontSize: 9.5,
+              fontSize: 11,
               fontWeight: 700,
-              color: 'rgba(255,255,255,0.28)',
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase',
+              color: 'rgba(255,255,255,0.82)',
+              letterSpacing: '0.22em',
               whiteSpace: 'nowrap',
             }}
           >
-            {t('ws.espacios')}
+            {MARCA.logotipo}
           </Typography>
         )}
       </Box>
