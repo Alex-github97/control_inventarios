@@ -321,6 +321,10 @@ async def borrar_documento(
 class Pago(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: Optional[int] = None
+    # A qué factura se aplica. Sin este campo el valor llegaba y Pydantic lo
+    # descartaba en silencio: el pago quedaba suelto y la factura seguía
+    # apareciendo sin abonar.
+    factura_id: Optional[int] = None
     fecha: date
     monto: Decimal
     moneda: str = "COP"

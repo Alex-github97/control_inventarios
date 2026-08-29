@@ -92,6 +92,8 @@ export interface Documento {
 
 export interface Pago {
   id?: number
+  /** A qué factura se aplica; vacío = anticipo sin factura todavía. */
+  factura_id?: number | null
   fecha: string
   monto: string
   moneda: string
@@ -121,6 +123,77 @@ export interface Uso {
   ultimo_ingreso?: string | null
   activos_30d: number
   conteos: Record<string, number>
+}
+
+
+// ─── Facturación y contabilidad ───────────────────────────────────────────────
+//
+// Control contable interno: NO es facturación electrónica ante la DIAN. El
+// número legal se guarda en `numero_externo` para poder cruzar las dos cosas.
+
+export interface Factura {
+  id: number
+  numero: string
+  numero_externo?: string | null
+  fecha: string
+  periodo_desde?: string | null
+  periodo_hasta?: string | null
+  subtotal: string
+  iva_pct: string
+  iva_valor: string
+  total: string
+  moneda: string
+  anulada: boolean
+  concepto?: string | null
+  notas?: string | null
+  acreditado: string
+  pagado: string
+  saldo: string
+}
+
+export interface NotaCredito {
+  id?: number
+  factura_id: number
+  numero?: string
+  numero_externo?: string | null
+  fecha?: string | null
+  valor: string
+  moneda?: string
+  motivo: string
+  notas?: string | null
+}
+
+export interface FilaCliente {
+  cliente_id: number
+  codigo: string
+  nombre: string
+  activo: boolean
+  tarifa_mensual: string
+  facturado: string
+  acreditado: string
+  recaudado: string
+  saldo: string
+  facturas: number
+  dias_mora: number
+}
+
+export interface FilaMes {
+  mes: string
+  facturado: string
+  acreditado: string
+  recaudado: string
+}
+
+export interface Contabilidad {
+  facturado: string
+  acreditado: string
+  recaudado: string
+  por_cobrar: string
+  ingreso_recurrente: string
+  empresas_activas: number
+  empresas_en_mora: number
+  clientes: FilaCliente[]
+  meses: FilaMes[]
 }
 
 const api = axios.create({ baseURL: '/api/v1' })
@@ -256,6 +329,24 @@ export const consolaApi = {
 
   uso: (id: number) =>
     api.get<Uso>(`/plataforma/empresas/${id}/uso`).then(r => r.data),
+
+  // ─── Facturación ────────────────────────────────────────────────────────────
+
+  facturas: (id: number) =>
+    api.get<Factura[]>(`/plataforma/empresas/${id}/facturas`).then(r => r.data),
+  emitirFactura: (id: number, cuerpo: Record<string, unknown>) =>
+    api.post<Factura>(`/plataforma/empresas/${id}/facturas`, cuerpo).then(r => r.data),
+  anularFactura: (id: number, facturaId: number) =>
+    api.post<Factura>(`/plataforma/empresas/${id}/facturas/${facturaId}/anular`).then(r => r.data),
+
+  notasCredito: (id: number) =>
+    api.get<NotaCredito[]>(`/plataforma/empresas/${id}/notas-credito`).then(r => r.data),
+  emitirNota: (id: number, n: NotaCredito) =>
+    api.post<NotaCredito>(`/plataforma/empresas/${id}/notas-credito`, n).then(r => r.data),
+
+  contabilidad: (desde?: string, hasta?: string) =>
+    api.get<Contabilidad>('/plataforma/contabilidad', { params: { desde, hasta } })
+      .then(r => r.data),
 
   bitacora: (empresa?: string) =>
     api.get<AsientoBitacora[]>('/plataforma/bitacora', { params: { empresa, limite: 300 } })

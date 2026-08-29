@@ -123,6 +123,15 @@ async def _preparar_registro_clientes() -> None:
             "ALTER TABLE public.plataforma_cliente "
             "ADD COLUMN IF NOT EXISTS es_operador BOOLEAN DEFAULT false"
         ))
+        # Los pagos existen desde antes que las facturas: la columna se agrega
+        # vacía y esos pagos quedan como anticipos sin factura, que es lo que
+        # de hecho son.
+        if (await conn.execute(
+                text("SELECT to_regclass('public.plataforma_pago')"))).scalar() is not None:
+            await conn.execute(text(
+                "ALTER TABLE public.plataforma_pago "
+                "ADD COLUMN IF NOT EXISTS factura_id INTEGER"
+            ))
         # Sin operador nadie podría dar de alta empresas: se designa a la que
         # ya estaba, que es la de quien monta la plataforma.
         hay = (await conn.execute(text(

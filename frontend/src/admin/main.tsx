@@ -19,6 +19,7 @@ import { PALETA, SUPERFICIE } from '@/config/marca'
 import { sesion } from './api'
 import Ingreso from './Ingreso'
 import Empresas from './Empresas'
+import Contabilidad from './Contabilidad'
 import Bitacora from './Bitacora'
 import '@/index.css'
 
@@ -63,12 +64,15 @@ function Consola() {
           }}
         >
           <Tab label="Empresas" />
+          <Tab label="Contabilidad" />
           <Tab label="Bitácora" />
         </Tabs>
       </AppBar>
 
       <Box sx={{ p: 3, maxWidth: 1280, mx: 'auto' }}>
-        {pestana === 0 ? <Empresas /> : <Bitacora />}
+        {pestana === 0 && <Empresas />}
+        {pestana === 1 && <Contabilidad />}
+        {pestana === 2 && <Bitacora />}
       </Box>
 
       <Typography variant="caption" sx={{

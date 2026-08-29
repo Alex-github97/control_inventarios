@@ -165,6 +165,9 @@ class PlataformaPago(Base, TimestampMixin):
 
     id         = Column(Integer, primary_key=True, index=True)
     cliente_id = Column(Integer, nullable=False, index=True)
+    # A qué factura se aplica. Puede ir vacío: hay pagos anteriores a que
+    # existieran facturas, y también anticipos que todavía no tienen una.
+    factura_id = Column(Integer, index=True)
     fecha      = Column(Date, nullable=False, index=True)
     monto      = Column(Numeric(14, 2), nullable=False)
     moneda     = Column(String(3), default="COP")
@@ -173,3 +176,70 @@ class PlataformaPago(Base, TimestampMixin):
     metodo     = Column(String(40))           # transferencia, efectivo, PSE…
     referencia = Column(String(120))          # número de factura o comprobante
     notas      = Column(String(400))
+
+
+# ─── La cadena contable: factura → nota crédito → pago ────────────────────────
+#
+# AVISO IMPORTANTE: esto es control contable interno, NO facturación electrónica
+# ante la DIAN. No genera CUFE ni valida rangos de numeración autorizados. La
+# factura legal se emite en el proveedor de facturación electrónica y su número
+# se guarda acá, en `numero_externo`, para poder cruzar las dos cosas.
+
+
+class PlataformaFactura(Base, TimestampMixin):
+    """Lo que se le cobró a una empresa por un periodo."""
+
+    __tablename__ = "plataforma_factura"
+    __table_args__ = {"schema": ESQUEMA_PLATAFORMA}
+
+    id         = Column(Integer, primary_key=True, index=True)
+    cliente_id = Column(Integer, nullable=False, index=True)
+
+    # Consecutivo interno de la plataforma.
+    numero         = Column(String(30), nullable=False, unique=True, index=True)
+    # El número de la factura electrónica real, para cruzar con la contabilidad.
+    numero_externo = Column(String(40))
+
+    fecha         = Column(Date, nullable=False, index=True)
+    periodo_desde = Column(Date)
+    periodo_hasta = Column(Date, index=True)
+
+    # Se congelan los valores en vez de recalcularlos desde el contrato: si la
+    # tarifa sube el mes que viene, lo ya facturado no puede cambiar solo.
+    subtotal  = Column(Numeric(14, 2), nullable=False, default=0)
+    iva_pct   = Column(Numeric(5, 2), default=19)
+    iva_valor = Column(Numeric(14, 2), default=0)
+    total     = Column(Numeric(14, 2), nullable=False, default=0)
+    moneda    = Column(String(3), default="COP")
+
+    # Anulada = sin efecto contable. No se borra: una factura emitida que
+    # desaparece deja un hueco en el consecutivo y nadie puede explicarlo.
+    anulada   = Column(Boolean, default=False)
+    concepto  = Column(String(300))
+    notas     = Column(String(400))
+
+
+class PlataformaNotaCredito(Base, TimestampMixin):
+    """Rebaja o anula parte de una factura ya emitida.
+
+    Existe porque una factura emitida no se corrige editándola: se emite una
+    nota crédito que la disminuye, y las dos quedan en el historial. Así el
+    consecutivo y lo ya reportado siguen cuadrando.
+    """
+
+    __tablename__ = "plataforma_nota_credito"
+    __table_args__ = {"schema": ESQUEMA_PLATAFORMA}
+
+    id         = Column(Integer, primary_key=True, index=True)
+    cliente_id = Column(Integer, nullable=False, index=True)
+    factura_id = Column(Integer, nullable=False, index=True)
+
+    numero         = Column(String(30), nullable=False, unique=True, index=True)
+    numero_externo = Column(String(40))
+
+    fecha  = Column(Date, nullable=False, index=True)
+    valor  = Column(Numeric(14, 2), nullable=False)
+    moneda = Column(String(3), default="COP")
+    # Por qué se emitió: es lo primero que se pregunta al revisar la cuenta.
+    motivo = Column(String(300), nullable=False)
+    notas  = Column(String(400))

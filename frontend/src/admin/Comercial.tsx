@@ -16,6 +16,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
 import { consolaApi, mensajeDeError, type Empresa, type Pago } from './api'
+import Facturacion from './Facturacion'
 
 const METODOS = ['Transferencia', 'PSE', 'Efectivo', 'Cheque', 'Tarjeta', 'Otro']
 
@@ -53,15 +54,26 @@ function DialogoPago({
   const qc = useQueryClient()
   const [f, setF] = useState<Pago>(PAGO_VACIO())
 
+  // Solo se ofrecen las facturas que todavía deben algo: aplicar un pago a una
+  // ya saldada es casi siempre un error de dedo.
+  const { data: facturas = [] } = useQuery({
+    queryKey: ['facturas', empresa.id], queryFn: () => consolaApi.facturas(empresa.id),
+  })
+  const pendientes = facturas.filter(x => !x.anulada && Number(x.saldo) > 0)
+
   const registrar = useMutation({
     mutationFn: () => consolaApi.registrarPago(empresa.id, {
       ...f,
       periodo_desde: f.periodo_desde || null,
       periodo_hasta: f.periodo_hasta || null,
+      factura_id: f.factura_id || null,
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['pagos', empresa.id] })
       qc.invalidateQueries({ queryKey: ['cartera', empresa.id] })
+      // El saldo de la factura cambia con el pago.
+      qc.invalidateQueries({ queryKey: ['facturas', empresa.id] })
+      qc.invalidateQueries({ queryKey: ['contabilidad'] })
       setF(PAGO_VACIO()); onCerrar()
       toast.success('Pago registrado')
     },
@@ -85,6 +97,34 @@ function DialogoPago({
               placeholder="2201500"
             />
           </Stack>
+          <TextField
+            select label="Aplicar a la factura" fullWidth
+            value={f.factura_id ?? ''}
+            onChange={e => {
+              const id = e.target.value ? Number(e.target.value) : null
+              const fa = facturas.find(x => x.id === id)
+              // Al elegir factura se traen su periodo y su saldo: es lo que se
+              // iba a escribir a mano, y así el pago queda cuadrado.
+              setF(p => ({
+                ...p,
+                factura_id: id,
+                monto: fa && !String(p.monto).trim() ? fa.saldo : p.monto,
+                periodo_desde: fa?.periodo_desde ?? p.periodo_desde,
+                periodo_hasta: fa?.periodo_hasta ?? p.periodo_hasta,
+              }))
+            }}
+            helperText={pendientes.length === 0
+              ? 'No hay facturas con saldo; el pago quedará como anticipo'
+              : 'Déjelo vacío si es un anticipo sin factura'}
+          >
+            <MenuItem value="">— Anticipo, sin factura —</MenuItem>
+            {pendientes.map(x => (
+              <MenuItem key={x.id} value={x.id}>
+                {x.numero} · saldo {pesos(x.saldo, x.moneda)}
+              </MenuItem>
+            ))}
+          </TextField>
+
           <Alert severity="info" sx={{ py: 0.5 }}>
             El periodo es lo que decide si la empresa está al día, no la fecha del pago.
           </Alert>
@@ -164,6 +204,9 @@ export default function Comercial({ empresa }: { empresa: Empresa }) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['pagos', empresa.id] })
       qc.invalidateQueries({ queryKey: ['cartera', empresa.id] })
+      // El saldo de la factura cambia con el pago.
+      qc.invalidateQueries({ queryKey: ['facturas', empresa.id] })
+      qc.invalidateQueries({ queryKey: ['contabilidad'] })
       toast.success('Pago anulado')
     },
     onError: (e: any) => toast.error(mensajeDeError(e)),
@@ -266,6 +309,9 @@ export default function Comercial({ empresa }: { empresa: Empresa }) {
           </Box>
         </Stack>
       </Card>
+
+      {/* Facturas y notas crédito */}
+      <Box sx={{ mb: 2.5 }}><Facturacion empresa={empresa} /></Box>
 
       {/* Pagos */}
       <Card sx={{ borderRadius: 3 }}>
