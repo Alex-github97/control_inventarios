@@ -26,7 +26,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { MARCA, PALETA, COLOR_MODULO_SOBRE_OSCURO } from '@/config/marca'
 import { Logotipo } from '@/components/Logotipo'
-import { clienteGuardado } from '@/api/cliente'
+import { clienteGuardado, olvidarCliente } from '@/api/cliente'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -611,6 +611,25 @@ export default function Login() {
             <Typography sx={{ color: '#64748B', fontSize: 14 }}>
               Ingresa tus credenciales para continuar
             </Typography>
+            {cliente && (
+              <Typography sx={{ color: '#64748B', fontSize: 13, mt: 1 }}>
+                Entrando a <strong>{cliente.nombre}</strong>
+                {' · '}
+                <Box
+                  component="span" role="button" tabIndex={0}
+                  onClick={() => { olvidarCliente(); navigate('/empresa') }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ' ') { olvidarCliente(); navigate('/empresa') }
+                  }}
+                  sx={{
+                    color: PALETA.tinta, fontWeight: 700, cursor: 'pointer',
+                    textDecoration: 'underline', '&:hover': { opacity: 0.7 },
+                  }}
+                >
+                  cambiar empresa
+                </Box>
+              </Typography>
+            )}
           </Box>
 
           {error && (
