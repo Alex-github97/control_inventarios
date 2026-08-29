@@ -42,11 +42,23 @@
     transition:opacity .7s cubic-bezier(.22,.61,.36,1),transform .7s cubic-bezier(.22,.61,.36,1)}
 
   /* ── Barra ── */
-  header{position:fixed;inset:0 0 auto 0;z-index:60;transition:all .25s ease}
-  header.posado{background:rgba(255,255,255,.88);backdrop-filter:blur(16px);
-    border-bottom:1px solid var(--niebla)}
-  header.posado .logo,header.posado nav a{color:var(--tinta)}
-  header.posado .btn-nav{border-color:var(--niebla);color:var(--tinta)}
+  /* La barra es fija y la pagina alterna secciones oscuras y claras, asi que
+     su color no puede depender de cuanto se ha bajado sino de QUE hay debajo:
+     con un umbral fijo, el logotipo blanco se perdia sobre las secciones
+     blancas. `sobre-claro` lo pone el script segun la seccion que quede bajo
+     la barra. */
+  header{position:fixed;inset:0 0 auto 0;z-index:60;
+    transition:background .3s ease,border-color .3s ease,box-shadow .3s ease}
+  header .logo,header nav a,header .btn-nav{transition:color .3s ease,border-color .3s ease}
+  header.posado{backdrop-filter:blur(16px)}
+  header.posado.sobre-oscuro{background:rgba(8,8,10,.72);
+    border-bottom:1px solid rgba(255,255,255,.1)}
+  header.sobre-claro{background:rgba(255,255,255,.9);
+    border-bottom:1px solid var(--niebla);box-shadow:0 1px 18px rgba(0,0,0,.05)}
+  header.sobre-claro .logo,header.sobre-claro nav a{color:var(--tinta)}
+  header.sobre-claro .btn-nav{border-color:var(--niebla);color:var(--tinta)}
+  header.sobre-claro .btn-nav:hover{border-color:var(--tinta);
+    background:rgba(0,0,0,.04)}
   .barra{display:flex;align-items:center;gap:30px;height:72px}
   .logo{font-weight:600;font-size:19px;letter-spacing:.22em;color:#fff;
     white-space:nowrap;transition:color .25s ease}
@@ -55,8 +67,8 @@
   nav a::after{content:'';position:absolute;left:0;bottom:-5px;width:0;height:2px;
     background:var(--acento);transition:width .25s ease}
   nav a:hover::after{width:100%}
-  header.posado nav a{color:var(--grafito)}
-  header.posado nav a:hover{color:var(--tinta)}
+  header.sobre-claro nav a{color:var(--grafito)}
+  header.sobre-claro nav a:hover{color:var(--tinta)}
 
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;
     padding:12px 24px;border-radius:999px;font-weight:700;font-size:14px;
@@ -205,7 +217,7 @@
   </div>
 </header>
 
-<div class="portada" id="inicio">
+<div class="portada" id="inicio" data-tono="oscuro">
   <canvas id="red"></canvas>
   <div class="env">
     <span class="lema"><b></b><span data-txt="hero_lema">Tecnología que fortalece · Soluciones que trascienden</span></span>
@@ -253,7 +265,7 @@
   </div>
 </section>
 
-<section class="franja" id="mantenimiento">
+<section class="franja" id="mantenimiento" data-tono="oscuro">
   <div class="env">
     <span class="rotulo rev" style="color:var(--acento-claro)">En detalle</span>
     <h2 class="rev" data-txt="detalle_titulo">Mantenimiento, de la orden a la causa</h2>
@@ -294,7 +306,7 @@
   </div>
 </section>
 
-<footer>
+<footer data-tono="oscuro">
   <div class="env">
     <div class="pie">
       <span class="logo" data-txt="marca_logo">TITTANWARE</span>
@@ -347,6 +359,11 @@ const PORDEFECTO = {
   ]
 };
 
+// Se declara acá arriba porque `pintar()` la usa y las funciones están
+// izadas pero las variables `let` no: al revés, la primera llamada
+// lanzaba ReferenceError y tumbaba todo el script.
+let bandas = [];
+
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const menos = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -386,6 +403,10 @@ function pintar(c){
     document.documentElement.style.setProperty('--acento', c.color_acento);
   }
   observarNuevos();
+  // El contenido publicado puede ser más largo o más corto que el de fábrica y
+  // mover las bandas; si no se vuelven a medir, la barra cambia de color en el
+  // punto equivocado.
+  if (typeof medirBandas === 'function') medirBandas();
 }
 
 pintar(PORDEFECTO);
@@ -420,6 +441,38 @@ observarNuevos();
 
 /* ═══ Barra de avance y barra superior ═══ */
 const cabecera = $('#cabecera'), avance = $('#avance');
+// Las bandas de la página, con su tono. Se leen una vez y se recalculan al
+// cambiar el tamaño: consultarlas en cada scroll obligaría al navegador a
+// recalcular la maquetación sesenta veces por segundo.
+function medirBandas(){
+  bandas = [...document.querySelectorAll('[data-tono], section, footer, .portada')]
+    .map(el => ({
+      desde: el.offsetTop,
+      hasta: el.offsetTop + el.offsetHeight,
+      oscuro: el.dataset.tono === 'oscuro',
+    }))
+    .sort((a, b) => a.desde - b.desde);
+}
+medirBandas();
+addEventListener('resize', medirBandas, { passive:true });
+// Las imágenes y las fuentes cambian las alturas al terminar de cargar.
+addEventListener('load', medirBandas);
+
+function pintarBarra(y){
+  // Se mira el punto medio de la barra, no su borde superior: es donde de
+  // verdad está el texto que tiene que leerse.
+  const linea = y + 36;
+  let oscuro = true;
+  for (const b of bandas) {
+    if (linea >= b.desde && linea < b.hasta) { oscuro = b.oscuro; break; }
+  }
+  cabecera.classList.toggle('sobre-claro', !oscuro);
+  cabecera.classList.toggle('sobre-oscuro', oscuro);
+  // El fondo difuminado solo cuando ya se bajó: arriba la barra va limpia.
+  cabecera.classList.toggle('posado', y > 40);
+}
+pintarBarra(scrollY);
+
 let pendiente = false;
 addEventListener('scroll', () => {
   if (pendiente) return;
@@ -428,7 +481,7 @@ addEventListener('scroll', () => {
   // la página en equipos modestos.
   requestAnimationFrame(() => {
     const y = scrollY;
-    cabecera.classList.toggle('posado', y > 80);
+    pintarBarra(y);
     const total = document.body.scrollHeight - innerHeight;
     avance.style.width = total > 0 ? `${(y / total) * 100}%` : '0';
     pendiente = false;
