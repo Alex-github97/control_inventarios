@@ -145,6 +145,7 @@ from app.infrastructure.models.plataforma import (  # noqa: F401
 )
 from app.infrastructure.models.soporte import (  # noqa: F401
     SoporteTicket, SoporteMensaje, SoporteAdjunto,
+    SoporteEpica, SoporteSprint, SoporteEvento, SoporteColumna,
 )
 from app.infrastructure.models.ags import (
     AGSConfig, AGSCategoriaServicio, AGSServicio,

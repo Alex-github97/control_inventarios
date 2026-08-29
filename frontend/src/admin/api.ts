@@ -248,6 +248,81 @@ export interface ResumenSoporte {
   por_criticidad: Record<string, number>
 }
 
+
+// ─── Gestión ágil ─────────────────────────────────────────────────────────────
+
+export interface Tarjeta {
+  id: number
+  numero: string
+  asunto: string
+  estado: string
+  criticidad: string
+  tipo_trabajo?: string | null
+  puntos?: number | null
+  sprint_id?: number | null
+  epica_id?: number | null
+  orden?: number | null
+  etiquetas?: string[] | null
+  asignado_a?: string | null
+  cliente_codigo: string
+  autor: string
+  modulo?: string | null
+  created_at?: string | null
+  ultima_actividad?: string | null
+}
+
+export interface ColumnaTablero {
+  estado: string
+  titulo: string
+  orden: number
+  /** Vacío = sin límite. Cuando se alcanza, el servidor rechaza el movimiento. */
+  limite_wip?: number | null
+  cantidad: number
+  puntos: number
+  tarjetas: Tarjeta[]
+}
+
+export interface Tablero {
+  sprint?: {
+    id: number; nombre: string; objetivo?: string | null
+    inicio?: string | null; fin?: string | null; estado: string
+  } | null
+  columnas: ColumnaTablero[]
+}
+
+export interface SprintAgil {
+  id?: number
+  nombre: string
+  objetivo?: string | null
+  inicio?: string | null
+  fin?: string | null
+  estado: string
+  puntos_comprometidos?: number | null
+  puntos_completados?: number | null
+  cerrado_en?: string | null
+  total_solicitudes: number
+  puntos_en_curso: number
+  puntos_hechos: number
+}
+
+export interface EpicaAgil {
+  id?: number
+  nombre: string
+  descripcion?: string | null
+  color?: string | null
+  archivada: boolean
+  solicitudes: number
+  puntos: number
+}
+
+export interface MetricasAgiles {
+  burndown: { fecha: string; ideal: number; real?: number | null }[]
+  velocidad: { sprint: string; comprometidos: number; completados: number }[]
+  tiempo_ciclo_promedio?: number | null
+  tiempo_entrega_promedio?: number | null
+  por_tipo: Record<string, number>
+}
+
 const api = axios.create({ baseURL: '/api/v1' })
 
 const CLAVE_SESION = 'tw_admin_sesion'
@@ -427,4 +502,39 @@ export const soporteApi = {
     api.get(`/soporte/adjuntos/${id}`, { responseType: 'blob' }).then(r => r.data as Blob),
 
   resumen: () => api.get<ResumenSoporte>('/soporte/resumen').then(r => r.data),
+}
+
+export const agilApi = {
+  tablero: (sprintId?: number) =>
+    api.get<Tablero>('/soporte/agil/tablero', { params: { sprint_id: sprintId } })
+      .then(r => r.data),
+
+  mover: (id: number, estado: string, ordenAnterior?: number, ordenSiguiente?: number) =>
+    api.put<Tarjeta>(`/soporte/agil/tickets/${id}/mover`, {
+      estado, orden_anterior: ordenAnterior ?? null, orden_siguiente: ordenSiguiente ?? null,
+    }).then(r => r.data),
+
+  actualizar: (id: number, cambios: Record<string, unknown>) =>
+    api.put<Tarjeta>(`/soporte/agil/tickets/${id}`, cambios).then(r => r.data),
+
+  backlog: () => api.get<Tarjeta[]>('/soporte/agil/backlog').then(r => r.data),
+  reordenar: (ids: number[]) =>
+    api.put<Tarjeta[]>('/soporte/agil/backlog/orden', { ids }).then(r => r.data),
+
+  sprints: () => api.get<SprintAgil[]>('/soporte/agil/sprints').then(r => r.data),
+  crearSprint: (s: Partial<SprintAgil>) =>
+    api.post<SprintAgil>('/soporte/agil/sprints', s).then(r => r.data),
+  activarSprint: (id: number) =>
+    api.post<SprintAgil>(`/soporte/agil/sprints/${id}/activar`).then(r => r.data),
+  cerrarSprint: (id: number) =>
+    api.post<SprintAgil>(`/soporte/agil/sprints/${id}/cerrar`).then(r => r.data),
+
+  epicas: () => api.get<EpicaAgil[]>('/soporte/agil/epicas').then(r => r.data),
+  crearEpica: (e: Partial<EpicaAgil>) =>
+    api.post<EpicaAgil>('/soporte/agil/epicas', e).then(r => r.data),
+
+  configurarColumna: (estado: string, cambios: Record<string, unknown>) =>
+    api.put(`/soporte/agil/columnas/${estado}`, cambios).then(r => r.data),
+
+  metricas: () => api.get<MetricasAgiles>('/soporte/agil/metricas').then(r => r.data),
 }

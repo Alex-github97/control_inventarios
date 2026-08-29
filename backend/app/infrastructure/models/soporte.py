@@ -62,6 +62,25 @@ class SoporteTicket(Base, TimestampMixin):
     # Se toca con cada mensaje: es por lo que se ordena la cola.
     ultima_actividad     = sa.Column(sa.DateTime, index=True)
 
+    # ── Gestión ágil ──
+    # Qué clase de trabajo es. Se propone desde la categoría que eligió el
+    # cliente, pero el equipo lo corrige: quien reporta llama "error" a casi
+    # todo.
+    tipo_trabajo = sa.Column(sa.String(20), default="ERROR", index=True)
+    # Estimación en puntos. Vacío = sin estimar, que es distinto de cero: una
+    # solicitud sin estimar no puede entrar a un sprint con compromiso.
+    puntos       = sa.Column(sa.Integer)
+    sprint_id    = sa.Column(sa.Integer, index=True)
+    epica_id     = sa.Column(sa.Integer, index=True)
+    # Posición en el backlog. Se deja como float para poder insertar entre dos
+    # sin reordenar toda la lista en cada arrastre.
+    orden        = sa.Column(sa.Float, default=0, index=True)
+    etiquetas    = sa.Column(sa.JSON)
+    # Cuándo empezó a trabajarse de verdad. Con esto y `resuelto_en` sale el
+    # tiempo de ciclo, que es lo que el equipo puede mejorar; el tiempo desde
+    # que se creó incluye la espera en el backlog, que depende de otra cosa.
+    iniciado_en  = sa.Column(sa.DateTime)
+
 
 class SoporteMensaje(Base):
     """Cada intervención en la conversación de un ticket."""
@@ -109,3 +128,101 @@ class SoporteAdjunto(Base):
 
     subido_por = sa.Column(sa.String(80))
     creado_en  = sa.Column(sa.DateTime, nullable=False)
+
+
+# ─── Gestión ágil ─────────────────────────────────────────────────────────────
+#
+# Lo de arriba resuelve "un cliente escribe y alguien responde". Esto resuelve
+# la otra mitad: cómo el equipo decide qué hace primero, cuánto cabe en una
+# iteración y si está mejorando o no.
+
+# Qué clase de trabajo es. Un error y una mejora no se priorizan igual ni se
+# estiman igual, y mezclarlos en una sola bolsa oculta cuánto se va en apagar
+# incendios.
+TIPOS_TRABAJO = ("ERROR", "MEJORA", "TAREA", "CONSULTA")
+
+# Escala de Fibonacci. Es a propósito imprecisa: obliga a discutir el tamaño
+# relativo en vez de fingir que se puede estimar en horas.
+PUNTOS = (1, 2, 3, 5, 8, 13, 21)
+
+ESTADOS_SPRINT = ("PLANEADO", "ACTIVO", "CERRADO")
+
+
+class SoporteEpica(Base, TimestampMixin):
+    """Un objetivo grande que agrupa varias solicitudes."""
+
+    __tablename__ = "soporte_epica"
+    __table_args__ = {"schema": ESQUEMA_PLATAFORMA}
+
+    id          = sa.Column(sa.Integer, primary_key=True, index=True)
+    nombre      = sa.Column(sa.String(160), nullable=False)
+    descripcion = sa.Column(sa.Text)
+    color       = sa.Column(sa.String(9))
+    # Se archiva en vez de borrarse: sus solicitudes la referencian.
+    archivada   = sa.Column(sa.Boolean, default=False)
+
+
+class SoporteSprint(Base, TimestampMixin):
+    """Una iteración con fecha de inicio y de fin.
+
+    Solo puede haber una activa: dos iteraciones simultáneas hacen que
+    "en qué estamos trabajando" deje de tener una respuesta.
+    """
+
+    __tablename__ = "soporte_sprint"
+    __table_args__ = {"schema": ESQUEMA_PLATAFORMA}
+
+    id       = sa.Column(sa.Integer, primary_key=True, index=True)
+    nombre   = sa.Column(sa.String(120), nullable=False)
+    # Para qué es esta iteración. Un sprint sin objetivo es una lista de tareas.
+    objetivo = sa.Column(sa.Text)
+    inicio   = sa.Column(sa.Date)
+    fin      = sa.Column(sa.Date)
+    estado   = sa.Column(sa.String(20), default="PLANEADO", index=True)
+
+    # Se congela al cerrar: la velocidad histórica no puede cambiar porque
+    # después alguien reestime una solicitud vieja.
+    puntos_comprometidos = sa.Column(sa.Integer)
+    puntos_completados   = sa.Column(sa.Integer)
+    cerrado_en           = sa.Column(sa.DateTime)
+
+
+class SoporteEvento(Base):
+    """Cada cambio relevante de una solicitud.
+
+    Existe por dos razones que van juntas: da el historial que explica por qué
+    algo terminó donde terminó, y es de donde salen las métricas. Un burndown
+    calculado sobre el estado actual mentiría —mostraría el pasado como si
+    siempre hubiera sido así—; sobre los eventos, no.
+    """
+
+    __tablename__ = "soporte_evento"
+    __table_args__ = {"schema": ESQUEMA_PLATAFORMA}
+
+    id        = sa.Column(sa.Integer, primary_key=True, index=True)
+    ticket_id = sa.Column(sa.Integer, nullable=False, index=True)
+    campo     = sa.Column(sa.String(40), nullable=False)   # estado, puntos, sprint…
+    anterior  = sa.Column(sa.String(120))
+    nuevo     = sa.Column(sa.String(120))
+    autor     = sa.Column(sa.String(80))
+    fecha     = sa.Column(sa.DateTime, nullable=False, index=True)
+
+
+class SoporteColumna(Base):
+    """Las columnas del tablero y su límite de trabajo en curso.
+
+    El límite no es un adorno: cuando se supera, el servidor rechaza el
+    movimiento. Un límite que se puede exceder en silencio no limita nada, y el
+    problema que resuelve —empezar diez cosas y no terminar ninguna— es
+    exactamente el que aparece cuando nadie lo hace cumplir.
+    """
+
+    __tablename__ = "soporte_columna"
+    __table_args__ = {"schema": ESQUEMA_PLATAFORMA}
+
+    id         = sa.Column(sa.Integer, primary_key=True, index=True)
+    estado     = sa.Column(sa.String(30), unique=True, nullable=False)
+    titulo     = sa.Column(sa.String(60), nullable=False)
+    orden      = sa.Column(sa.Integer, default=0)
+    # Vacío = sin límite. Solo tiene sentido en las columnas de trabajo activo.
+    limite_wip = sa.Column(sa.Integer)

@@ -12,7 +12,7 @@ import { useRef, useState } from 'react'
 import {
   Box, Card, Typography, Stack, Button, TextField, MenuItem, Chip, Skeleton,
   Table, TableBody, TableCell, TableHead, TableRow, IconButton, Tooltip,
-  Divider, FormControlLabel, Switch, Alert,
+  Divider, FormControlLabel, Switch, Alert, Tabs, Tab,
 } from '@mui/material'
 import {
   ArrowBack, AttachFile, Send, InsertDriveFile, Download, SupportAgent, Refresh,
@@ -21,6 +21,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
 import { soporteApi, mensajeDeError, type Ticket, type Adjunto } from './api'
+import Tablero from './Tablero'
+import Backlog from './Backlog'
+import MetricasAgiles from './MetricasAgiles'
 
 const ESTADOS = ['NUEVO', 'EN_PROGRESO', 'ESPERANDO_CLIENTE', 'RESUELTO', 'CERRADO']
 const CRITICIDADES = ['BAJA', 'MEDIA', 'ALTA', 'CRITICA']
@@ -273,7 +276,10 @@ function Ficha({ id, onVolver }: { id: number; onVolver: () => void }) {
 
 // ─── Cola ─────────────────────────────────────────────────────────────────────
 
+const VISTAS = ['Cola', 'Tablero', 'Backlog y sprints', 'Métricas'] as const
+
 export default function Soporte() {
+  const [vista, setVista] = useState(0)
   const [abierto, setAbierto] = useState<number | null>(null)
   const [estado, setEstado] = useState('')
   const [criticidad, setCriticidad] = useState('')
@@ -296,12 +302,29 @@ export default function Soporte() {
 
   return (
     <Box>
-      <Stack mb={2.5}>
-        <Typography variant="h6" fontWeight={800}>Soporte</Typography>
+      <Stack mb={1}>
+        <Typography variant="h6" fontWeight={800}>Gestión de solicitudes</Typography>
         <Typography variant="caption" color="text.secondary">
-          Cola de todas las empresas · ordenada por última actividad
+          Mesa de ayuda y trabajo del equipo, en un solo lugar
         </Typography>
       </Stack>
+
+      <Tabs
+        value={vista} onChange={(_, v) => setVista(v)} variant="scrollable" scrollButtons="auto"
+        sx={{
+          mb: 2.5, borderBottom: `1px solid ${PALETA.niebla}`,
+          '& .MuiTab-root': { textTransform: 'none', fontWeight: 700, minHeight: 42 },
+        }}
+      >
+        {VISTAS.map(v => <Tab key={v} label={v} />)}
+      </Tabs>
+
+      {vista === 1 && <Tablero />}
+      {vista === 2 && <Backlog />}
+      {vista === 3 && <MetricasAgiles />}
+
+      {vista === 0 && (
+      <>
 
       {resumen && (
         <Card sx={{ borderRadius: 3, p: 2.5, mb: 2.5 }}>
@@ -427,6 +450,8 @@ export default function Soporte() {
           </TableBody>
         </Table>
       </Card>
+      </>
+      )}
     </Box>
   )
 }

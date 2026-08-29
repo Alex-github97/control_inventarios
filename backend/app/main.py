@@ -123,6 +123,23 @@ async def _preparar_registro_clientes() -> None:
             "ALTER TABLE public.plataforma_cliente "
             "ADD COLUMN IF NOT EXISTS es_operador BOOLEAN DEFAULT false"
         ))
+        # La mesa de ayuda nació sin gestión ágil: estas columnas se agregan
+        # sobre los tickets que ya existan.
+        if (await conn.execute(
+                text("SELECT to_regclass('public.soporte_ticket')"))).scalar() is not None:
+            for columna, tipo in (
+                ("tipo_trabajo", "VARCHAR(20) DEFAULT 'ERROR'"),
+                ("puntos", "INTEGER"),
+                ("sprint_id", "INTEGER"),
+                ("epica_id", "INTEGER"),
+                ("orden", "DOUBLE PRECISION DEFAULT 0"),
+                ("etiquetas", "JSON"),
+                ("iniciado_en", "TIMESTAMP"),
+            ):
+                await conn.execute(text(
+                    f"ALTER TABLE public.soporte_ticket "
+                    f"ADD COLUMN IF NOT EXISTS {columna} {tipo}"))
+
         # Los pagos existen desde antes que las facturas: la columna se agrega
         # vacía y esos pagos quedan como anticipos sin factura, que es lo que
         # de hecho son.
