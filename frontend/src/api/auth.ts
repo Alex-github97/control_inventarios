@@ -17,6 +17,9 @@ export interface LoginResponse {
   refresh_token: string
   token_type: string
   user: User
+  es_operador?: boolean
+  /** Módulos contratados por la empresa; `['*']` son todos. */
+  modulos?: string[]
 }
 
 export const authApi = {

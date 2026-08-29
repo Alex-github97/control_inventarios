@@ -50,6 +50,79 @@ export interface AsientoBitacora {
   detalle?: string | null
 }
 
+
+// ─── La relación comercial ────────────────────────────────────────────────────
+
+export interface Contrato {
+  tarifa_mensual: string
+  moneda: string
+  iva_pct: string
+  dia_corte: number
+  inicio?: string | null
+  fin?: string | null
+  notas?: string | null
+}
+
+export interface ModuloContratado {
+  clave: string
+  nombre: string
+  activo: boolean
+  /** Los esenciales no se pueden quitar: sin ellos nadie entra. */
+  esencial: boolean
+}
+
+export interface Contacto {
+  id?: number
+  nombre: string
+  cargo?: string | null
+  email?: string | null
+  telefono?: string | null
+  principal: boolean
+  notas?: string | null
+}
+
+export interface Documento {
+  id?: number
+  tipo?: string | null
+  nombre: string
+  archivo?: string | null
+  vence?: string | null
+  notas?: string | null
+}
+
+export interface Pago {
+  id?: number
+  fecha: string
+  monto: string
+  moneda: string
+  periodo_desde?: string | null
+  periodo_hasta?: string | null
+  metodo?: string | null
+  referencia?: string | null
+  notas?: string | null
+}
+
+export interface Cartera {
+  tarifa_mensual: string
+  moneda: string
+  iva_pct: string
+  total_con_iva: string
+  pagado_total: string
+  cubierto_hasta?: string | null
+  dias_en_mora: number
+  al_dia: boolean
+  /** Sin ningún pago con periodo no se puede afirmar nada sobre la mora. */
+  hay_datos: boolean
+}
+
+export interface Uso {
+  usuarios: number
+  usuarios_activos: number
+  ultimo_ingreso?: string | null
+  activos_30d: number
+  conteos: Record<string, number>
+}
+
 const api = axios.create({ baseURL: '/api/v1' })
 
 const CLAVE_SESION = 'tw_admin_sesion'
@@ -144,6 +217,45 @@ export const consolaApi = {
   restablecerClave: (id: number, usuarioId: number) =>
     api.post<ClaveEntregada>(`/plataforma/empresas/${id}/usuarios/${usuarioId}/clave`)
       .then(r => r.data),
+
+  // ─── Comercial ──────────────────────────────────────────────────────────────
+
+  contrato: (id: number) =>
+    api.get<Contrato>(`/plataforma/empresas/${id}/contrato`).then(r => r.data),
+  guardarContrato: (id: number, c: Partial<Contrato>) =>
+    api.put<Contrato>(`/plataforma/empresas/${id}/contrato`, c).then(r => r.data),
+
+  modulos: (id: number) =>
+    api.get<ModuloContratado[]>(`/plataforma/empresas/${id}/modulos`).then(r => r.data),
+  guardarModulos: (id: number, claves: string[]) =>
+    api.put<ModuloContratado[]>(`/plataforma/empresas/${id}/modulos`, { claves }).then(r => r.data),
+
+  contactos: (id: number) =>
+    api.get<Contacto[]>(`/plataforma/empresas/${id}/contactos`).then(r => r.data),
+  crearContacto: (id: number, c: Contacto) =>
+    api.post<Contacto>(`/plataforma/empresas/${id}/contactos`, c).then(r => r.data),
+  borrarContacto: (id: number, contactoId: number) =>
+    api.delete(`/plataforma/empresas/${id}/contactos/${contactoId}`),
+
+  documentos: (id: number) =>
+    api.get<Documento[]>(`/plataforma/empresas/${id}/documentos`).then(r => r.data),
+  crearDocumento: (id: number, d: Documento) =>
+    api.post<Documento>(`/plataforma/empresas/${id}/documentos`, d).then(r => r.data),
+  borrarDocumento: (id: number, docId: number) =>
+    api.delete(`/plataforma/empresas/${id}/documentos/${docId}`),
+
+  pagos: (id: number) =>
+    api.get<Pago[]>(`/plataforma/empresas/${id}/pagos`).then(r => r.data),
+  registrarPago: (id: number, p: Pago) =>
+    api.post<Pago>(`/plataforma/empresas/${id}/pagos`, p).then(r => r.data),
+  borrarPago: (id: number, pagoId: number) =>
+    api.delete(`/plataforma/empresas/${id}/pagos/${pagoId}`),
+
+  cartera: (id: number) =>
+    api.get<Cartera>(`/plataforma/empresas/${id}/cartera`).then(r => r.data),
+
+  uso: (id: number) =>
+    api.get<Uso>(`/plataforma/empresas/${id}/uso`).then(r => r.data),
 
   bitacora: (empresa?: string) =>
     api.get<AsientoBitacora[]>('/plataforma/bitacora', { params: { empresa, limite: 300 } })

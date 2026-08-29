@@ -28,6 +28,14 @@ const WORKSPACE_PERM_KEYS: Record<string, string[]> = {
   config:   ['usuarios'],
 }
 
+// El id del espacio y la clave del módulo del servidor coinciden salvo acá.
+// `config` no se lista: administrar la propia empresa es esencial y nunca se
+// oculta.
+const MODULO_DE_WORKSPACE: Record<string, string> = {
+  control: 'control',
+  config: 'base',
+}
+
 const PANEL_BG         = '#0D0D0D'
 const CI_COLOR         = COLOR_MODULO_SOBRE_OSCURO
 const TX_COLOR         = COLOR_MODULO_SOBRE_OSCURO
@@ -222,11 +230,19 @@ export function WorkspacePanel({ width, dragging }: WorkspacePanelProps) {
   const navigate        = useNavigate()
   const { pathname }    = useLocation()
   const showText        = width >= COMPACT_THRESHOLD
-  const { user }        = useAuthStore()
+  const { user, modulos } = useAuthStore()
   const { t }           = useTranslation()
   const isAdmin         = user?.rol === 'ADMINISTRADOR'
 
+  // Un módulo que la empresa no contrató no se muestra: el servidor lo
+  // rechazaría igual, y dejarlo visible solo lleva al usuario a un error. Sin
+  // lista (sesión anterior a esto) se muestra todo, que es lo mismo que asume
+  // el servidor.
+  const contratados = new Set(modulos ?? [])
+  const todo = contratados.size === 0 || contratados.has('*')
+
   const visibleWorkspaces = WORKSPACES.filter(ws => {
+    if (!todo && !contratados.has(MODULO_DE_WORKSPACE[ws.id] ?? ws.id)) return false
     if (isAdmin) return true
     const keys = WORKSPACE_PERM_KEYS[ws.id]
     if (!keys || keys.length === 0) return true

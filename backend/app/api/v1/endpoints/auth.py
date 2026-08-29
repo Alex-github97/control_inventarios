@@ -6,6 +6,7 @@ from typing import Optional, List
 from datetime import datetime, timezone
 from app.core.database import get_db, get_db_plataforma
 from app.core.tenant import codigo_valido, nombre_esquema
+from app.core.acceso_modulos import modulos_de
 from app.infrastructure.models.plataforma import PlataformaCliente
 from app.core.security import verify_password, create_access_token, create_refresh_token, hash_password, decode_token
 from app.core.dependencies import get_current_user, require_admin
@@ -105,6 +106,7 @@ async def login(
             user.id, cliente=cliente.codigo, esquema=cliente.esquema),
         user=UsuarioResponse.model_validate(user),
         es_operador=bool(cliente.es_operador),
+        modulos=sorted(await modulos_de(cliente.codigo)),
     )
 
 

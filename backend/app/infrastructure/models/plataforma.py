@@ -5,7 +5,7 @@ Vive en el esquema `public` y no dentro del de cada cliente: hay que poder
 consultarlo en el paso previo al login, cuando todavía no se sabe a qué cliente
 se está entrando.
 """
-from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Numeric, Date, Text
 from app.infrastructure.models.base import Base, TimestampMixin
 from app.core.tenant import ESQUEMA_PLATAFORMA
 
@@ -63,3 +63,113 @@ class PlataformaBitacora(Base):
     empresa_codigo  = Column(String(40), index=True)
     # Texto libre con lo que distingue a esta acción de otra igual.
     detalle         = Column(String(500))
+
+
+# ─── La relación comercial con cada empresa ───────────────────────────────────
+#
+# Todo esto vive en `public`, junto al registro, porque es información *del
+# operador sobre* el cliente —lo que paga, qué firmó, a quién llamar— y no
+# información del cliente. Guardarla dentro del esquema de cada empresa la
+# dejaría a la vista de esa misma empresa.
+
+
+class PlataformaContrato(Base, TimestampMixin):
+    """Lo que una empresa paga y bajo qué condiciones. Uno por empresa."""
+
+    __tablename__ = "plataforma_contrato"
+    __table_args__ = {"schema": ESQUEMA_PLATAFORMA}
+
+    id         = Column(Integer, primary_key=True, index=True)
+    cliente_id = Column(Integer, nullable=False, unique=True, index=True)
+
+    # Tarifa plana por empresa, no por usuario: el número de usuarios cambia
+    # todos los meses y facturar sobre él obliga a conciliar cada corte.
+    tarifa_mensual = Column(Numeric(14, 2), default=0)
+    moneda         = Column(String(3), default="COP")
+    # Configurable porque no todos los clientes son responsables de IVA.
+    iva_pct        = Column(Numeric(5, 2), default=19)
+    # Día del mes en que se factura.
+    dia_corte      = Column(Integer, default=1)
+
+    inicio = Column(Date)
+    fin    = Column(Date)   # vacío = sin fecha de terminación pactada
+
+    notas = Column(Text)
+
+
+class PlataformaModuloCliente(Base):
+    """Qué módulos tiene contratados una empresa.
+
+    No es una lista decorativa: el servidor la hace cumplir en cada petición,
+    así que un módulo que no está acá no se puede usar aunque se escriba la URL
+    a mano.
+    """
+
+    __tablename__ = "plataforma_modulo_cliente"
+    __table_args__ = {"schema": ESQUEMA_PLATAFORMA}
+
+    id         = Column(Integer, primary_key=True, index=True)
+    cliente_id = Column(Integer, nullable=False, index=True)
+    modulo     = Column(String(40), nullable=False, index=True)
+    activo     = Column(Boolean, default=True)
+    desde      = Column(Date)
+
+
+class PlataformaContacto(Base, TimestampMixin):
+    """A quién llamar en esa empresa."""
+
+    __tablename__ = "plataforma_contacto"
+    __table_args__ = {"schema": ESQUEMA_PLATAFORMA}
+
+    id         = Column(Integer, primary_key=True, index=True)
+    cliente_id = Column(Integer, nullable=False, index=True)
+    nombre     = Column(String(150), nullable=False)
+    cargo      = Column(String(120))
+    email      = Column(String(200))
+    telefono   = Column(String(40))
+    # El contacto al que se le escribe si no se dice otra cosa.
+    principal  = Column(Boolean, default=False)
+    notas      = Column(String(400))
+
+
+class PlataformaDocumento(Base, TimestampMixin):
+    """Los papeles del cliente: contrato, RUT, cámara de comercio.
+
+    Se guarda la referencia y no el archivo: los adjuntos van al disco por el
+    mismo camino que el resto de la plataforma.
+    """
+
+    __tablename__ = "plataforma_documento"
+    __table_args__ = {"schema": ESQUEMA_PLATAFORMA}
+
+    id         = Column(Integer, primary_key=True, index=True)
+    cliente_id = Column(Integer, nullable=False, index=True)
+    tipo       = Column(String(60))           # contrato, RUT, cámara de comercio…
+    nombre     = Column(String(200), nullable=False)
+    archivo    = Column(String(400))          # ruta relativa dentro de UPLOAD_DIR
+    # Para avisar antes de que se venza, no después.
+    vence      = Column(Date)
+    notas      = Column(String(400))
+
+
+class PlataformaPago(Base, TimestampMixin):
+    """Un pago recibido, con el periodo que cubre.
+
+    El periodo se guarda explícito y no se deduce de la fecha del pago: los
+    clientes pagan tarde, adelantado y a veces varios meses juntos, y sin él no
+    hay forma de saber hasta cuándo está cubierta una empresa.
+    """
+
+    __tablename__ = "plataforma_pago"
+    __table_args__ = {"schema": ESQUEMA_PLATAFORMA}
+
+    id         = Column(Integer, primary_key=True, index=True)
+    cliente_id = Column(Integer, nullable=False, index=True)
+    fecha      = Column(Date, nullable=False, index=True)
+    monto      = Column(Numeric(14, 2), nullable=False)
+    moneda     = Column(String(3), default="COP")
+    periodo_desde = Column(Date)
+    periodo_hasta = Column(Date, index=True)
+    metodo     = Column(String(40))           # transferencia, efectivo, PSE…
+    referencia = Column(String(120))          # número de factura o comprobante
+    notas      = Column(String(400))

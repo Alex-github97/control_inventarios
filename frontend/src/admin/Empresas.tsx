@@ -9,7 +9,7 @@ import { useState } from 'react'
 import {
   Box, Card, Typography, Button, Table, TableBody, TableCell, TableHead, TableRow,
   Chip, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, Stack, Alert, Skeleton, Switch, FormControlLabel, MenuItem,
+  TextField, Stack, Alert, Skeleton, MenuItem, Tabs, Tab,
 } from '@mui/material'
 import {
   Add, Business, Block, PlayArrow, Key, PersonAdd, ArrowBack, Edit,
@@ -19,6 +19,10 @@ import toast from 'react-hot-toast'
 import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
 import { consolaApi, mensajeDeError, type Empresa, type ClaveEntregada } from './api'
 import { ClaveDialog } from './ClaveDialog'
+import Modulos from './Modulos'
+import Comercial from './Comercial'
+import Directorio from './Directorio'
+import Uso from './Uso'
 
 const ROLES = ['ADMINISTRADOR', 'SUPERVISOR_LOGISTICO', 'OPERADOR_BODEGA', 'AUDITOR', 'CONSULTA', 'CONDUCTOR']
 
@@ -170,11 +174,10 @@ function DialogoNuevoUsuario({
 
 // ─── Ficha de una empresa: su gente ───────────────────────────────────────────
 
-function FichaEmpresa({
-  empresa, onVolver, onClave,
+function PestanaUsuarios({
+  empresa, onClave,
 }: {
   empresa: Empresa
-  onVolver: () => void
   onClave: (a: ClaveEntregada) => void
 }) {
   const qc = useQueryClient()
@@ -206,14 +209,7 @@ function FichaEmpresa({
 
   return (
     <Box>
-      <Stack direction="row" alignItems="center" spacing={1.5} mb={2.5}>
-        <IconButton onClick={onVolver}><ArrowBack /></IconButton>
-        <Box sx={{ flex: 1 }}>
-          <Typography variant="h6" fontWeight={800}>{empresa.nombre}</Typography>
-          <Typography variant="caption" color="text.secondary">
-            código «{empresa.codigo}» · esquema {empresa.esquema}
-          </Typography>
-        </Box>
+      <Stack direction="row" justifyContent="flex-end" mb={2}>
         <Button
           startIcon={<PersonAdd />} variant="contained" onClick={() => setNuevo(true)}
           sx={{ textTransform: 'none', fontWeight: 700 }}
@@ -292,6 +288,59 @@ function FichaEmpresa({
         empresa={empresa} abierto={nuevo}
         onCerrar={() => setNuevo(false)} onCreado={onClave}
       />
+    </Box>
+  )
+}
+
+
+// ─── Ficha completa de una empresa ────────────────────────────────────────────
+
+const PESTANAS = ['Usuarios', 'Módulos', 'Comercial', 'Contactos y documentos', 'Uso'] as const
+
+function FichaEmpresa({
+  empresa, onVolver, onClave,
+}: {
+  empresa: Empresa
+  onVolver: () => void
+  onClave: (a: ClaveEntregada) => void
+}) {
+  const [pestana, setPestana] = useState(0)
+
+  return (
+    <Box>
+      <Stack direction="row" alignItems="center" spacing={1.5} mb={1}>
+        <IconButton onClick={onVolver}><ArrowBack /></IconButton>
+        <Box sx={{ flex: 1 }}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Typography variant="h6" fontWeight={800}>{empresa.nombre}</Typography>
+            {!empresa.activo && (
+              <Chip label="Suspendida" size="small" sx={{
+                fontWeight: 700, fontSize: 11,
+                bgcolor: `${ESTADO.peligro}1A`, color: ESTADO.peligro,
+              }} />
+            )}
+          </Stack>
+          <Typography variant="caption" color="text.secondary">
+            código «{empresa.codigo}» · esquema {empresa.esquema}
+            {empresa.nit ? ` · NIT ${empresa.nit}` : ''}
+          </Typography>
+        </Box>
+      </Stack>
+
+      <Tabs
+        value={pestana} onChange={(_, v) => setPestana(v)}
+        variant="scrollable" scrollButtons="auto"
+        sx={{ mb: 2.5, borderBottom: `1px solid ${PALETA.niebla}`,
+              '& .MuiTab-root': { textTransform: 'none', fontWeight: 700, minHeight: 44 } }}
+      >
+        {PESTANAS.map(p => <Tab key={p} label={p} />)}
+      </Tabs>
+
+      {pestana === 0 && <PestanaUsuarios empresa={empresa} onClave={onClave} />}
+      {pestana === 1 && <Modulos empresa={empresa} />}
+      {pestana === 2 && <Comercial empresa={empresa} />}
+      {pestana === 3 && <Directorio empresa={empresa} />}
+      {pestana === 4 && <Uso empresa={empresa} />}
     </Box>
   )
 }

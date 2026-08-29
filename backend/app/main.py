@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.core.database import engine, Base
 from app.core.tenant import ESQUEMA_POR_DEFECTO
 from app.core.middleware_tenant import TenantMiddleware
+from app.core.acceso_modulos import ModulosMiddleware
 from app.core.auth_global import exigir_sesion
 from app.api.v1.router import api_router
 import app.infrastructure.models  # noqa: F401 — registra todos los modelos
@@ -1335,6 +1336,10 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 # Resuelve el cliente antes de que la petición toque la base. Se registra
 # después de CORS para que las respuestas de error también lleven sus cabeceras.
 app.add_middleware(TenantMiddleware)
+
+# Corta el acceso a los módulos que la empresa no tiene contratados. Ocultar el
+# módulo en el menú no basta: quien escriba la URL a mano entraría igual.
+app.add_middleware(ModulosMiddleware)
 
 # La autenticación se exige a nivel del router: eran 470 rutas sin token, y
 # ponerlo en cada firma habría dejado la puerta abierta a que la siguiente

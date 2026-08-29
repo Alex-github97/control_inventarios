@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, field_validator
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from datetime import datetime
 
 
@@ -59,6 +59,12 @@ class TokenResponse(BaseModel):
     # de verdad es `require_operador` en el servidor, que lo vuelve a comprobar
     # contra el registro en cada petición.
     es_operador: bool = False
+    # Los módulos que la empresa tiene contratados. El portal los usa para no
+    # mostrar lo que no se puede usar; el servidor los vuelve a comprobar en
+    # cada petición, así que esto es comodidad, no seguridad.
+    # `["*"]` significa «todos», para las empresas dadas de alta antes de que
+    # esto existiera.
+    modulos: List[str] = []
 
 
 class ChangePasswordRequest(BaseModel):
