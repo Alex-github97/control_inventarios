@@ -9,6 +9,11 @@
  * Al adjuntar una cotización o una factura se pide además su número, su valor y
  * el proveedor. Son tres campos que evitan tener que abrir el PDF para saber de
  * qué se trata, y hacen que la búsqueda sirva de algo.
+ *
+ * Los documentos son SOPORTE y nada más: el valor que se captura acá no toca el
+ * costo de la orden, que se lleva en sus trabajos, repuestos y servicios. Si
+ * alguna vez se quisiera que lo alimentara, tendría que ser una decisión
+ * explícita y visible, no un efecto de adjuntar un archivo.
  */
 import { useRef, useState } from 'react'
 import {
@@ -165,8 +170,10 @@ function DialogoSubir({
           {definicion?.conDatos && (
             <>
               <Alert severity="info" sx={{ py: 0.5 }}>
-                Con estos datos se puede encontrar el documento y cuadrar costos sin
-                tener que abrirlo.
+                Con estos datos se puede encontrar el documento y cotejar cifras sin
+                tener que abrirlo. El valor queda como dato del soporte:{' '}
+                <strong>no se suma al costo de la orden</strong>, que se lleva en
+                trabajos, repuestos y servicios.
               </Alert>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                 <TextField
@@ -184,7 +191,7 @@ function DialogoSubir({
                 <TextField
                   label="Valor" value={f.valor} onChange={set('valor')} fullWidth
                   placeholder="1250000"
-                  helperText="Admite el formato de la factura: $ 1.250.000"
+                  helperText="Solo informativo. Admite el formato de la factura: $ 1.250.000"
                 />
                 <TextField
                   label="Proveedor" value={f.proveedor} onChange={set('proveedor')} fullWidth
@@ -239,7 +246,8 @@ export function DocumentosOT({ otId, otNumero }: { otId: number; otNumero?: stri
         <Box sx={{ flex: 1 }}>
           <Typography variant="subtitle2" fontWeight={800}>Documentos</Typography>
           <Typography variant="caption" color="text.secondary">
-            Quedan asociados a {otNumero ?? 'esta orden'} y se pueden consultar por su número
+            Quedan asociados a {otNumero ?? 'esta orden'} y se pueden consultar por su número.
+            Son soporte: <strong>no modifican los costos de la orden</strong>.
           </Typography>
         </Box>
         <Chip label={`${adjuntos.length}`} size="small" sx={{ fontWeight: 700 }} />
@@ -281,7 +289,11 @@ export function DocumentosOT({ otId, otNumero }: { otId: number; otNumero?: stri
                 <TableCell sx={{ fontWeight: 700 }}>ARCHIVO</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>N.º DOC.</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>FECHA</TableCell>
-                <TableCell sx={{ fontWeight: 700 }} align="right">VALOR</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="right">
+                  <Tooltip title="Valor del documento. No afecta el costo de la orden.">
+                    <span>VALOR DOC.</span>
+                  </Tooltip>
+                </TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>PROVEEDOR</TableCell>
                 <TableCell align="right" />
               </TableRow>
