@@ -37,6 +37,7 @@ PERMISOS: List[Permiso] = [
     Permiso("soporte.atender",     "Responder, clasificar y mover solicitudes"),
     Permiso("equipo.gestionar",    "Administrar el equipo de la consola y sus roles"),
     Permiso("bitacora.ver",        "Ver la bitácora de acciones"),
+    Permiso("landing.editar",      "Editar el contenido de la página pública"),
 ]
 
 TODOS = tuple(p.clave for p in PERMISOS)
@@ -61,7 +62,9 @@ ROLES: List[Rol] = [
         "ni restablece contraseñas.",
         ("empresas.ver", "empresas.crear", "empresas.editar", "empresas.modulos",
          "comercial.ver", "comercial.editar",
-         "contabilidad.ver", "contabilidad.editar", "bitacora.ver")),
+         "contabilidad.ver", "contabilidad.editar", "bitacora.ver",
+         # Comercial edita la pagina publica: es quien conoce el discurso de venta.
+         "landing.editar")),
     Rol("SOPORTE", "Soporte técnico",
         "Atiende la mesa de ayuda y el tablero. Ve las empresas para dar contexto, "
         "pero no su información comercial.",

@@ -358,6 +358,15 @@ export interface QuienSoy {
   implicito: boolean
 }
 
+
+// ─── Página pública ───────────────────────────────────────────────────────────
+
+export interface EstadoLanding {
+  contenido: Record<string, any>
+  actualizado_en?: string | null
+  actualizado_por?: string | null
+}
+
 const api = axios.create({ baseURL: '/api/v1' })
 
 const CLAVE_SESION = 'tw_admin_sesion'
@@ -584,4 +593,11 @@ export const equipoApi = {
   editar: (id: number, cambios: Record<string, unknown>) =>
     api.put<MiembroEquipo>(`/plataforma/equipo/${id}`, cambios).then(r => r.data),
   quitar: (id: number) => api.delete(`/plataforma/equipo/${id}`),
+}
+
+export const landingApi = {
+  estado: () => api.get<EstadoLanding>('/landing/estado').then(r => r.data),
+  inicial: () => api.get<Record<string, any>>('/landing/inicial').then(r => r.data),
+  publicar: (contenido: Record<string, any>) =>
+    api.put<EstadoLanding>('/landing/contenido', { contenido }).then(r => r.data),
 }

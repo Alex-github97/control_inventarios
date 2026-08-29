@@ -5,7 +5,7 @@ Vive en el esquema `public` y no dentro del de cada cliente: hay que poder
 consultarlo en el paso previo al login, cuando todavía no se sabe a qué cliente
 se está entrando.
 """
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Numeric, Date, Text
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Numeric, Date, Text, JSON
 from app.infrastructure.models.base import Base, TimestampMixin
 from app.core.tenant import ESQUEMA_PLATAFORMA
 
@@ -268,3 +268,19 @@ class PlataformaMiembro(Base, TimestampMixin):
     rol     = Column(String(30), nullable=False, default="CONSULTA")
     activo  = Column(Boolean, default=True)
     notas   = Column(String(300))
+
+
+class PlataformaLanding(Base, TimestampMixin):
+    """El contenido de la landing pública.
+
+    Un solo documento JSON y no una columna por párrafo: los textos de una
+    página cambian de forma cada vez que se rediseña, y con columnas habría que
+    migrar la base cada vez que alguien mueve una sección.
+    """
+
+    __tablename__ = "plataforma_landing"
+    __table_args__ = {"schema": ESQUEMA_PLATAFORMA}
+
+    id              = Column(Integer, primary_key=True, index=True)
+    contenido       = Column(JSON)
+    actualizado_por = Column(String(80))

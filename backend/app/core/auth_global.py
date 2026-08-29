@@ -18,6 +18,7 @@ RUTAS_PUBLICAS = (
     "/api/v1/auth/login",              # todavía no hay sesión
     "/api/v1/auth/clientes",           # paso previo: a qué empresa se entra
     "/api/v1/ags/publico",             # reserva de citas por parte del cliente final
+    "/api/v1/landing/contenido",       # la pagina publica la ve cualquiera
     "/health",
     "/api/docs",
     "/api/redoc",

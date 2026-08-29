@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
     auth, usuarios, estibas, ubicaciones, proveedores,
-    vehiculos, manifiestos, movimientos, dashboard, alertas, danos, tarifax, mantenimiento, consultas, roles, fletes, flota, locative, wms, hcm, tms, dms, qms, grc, lms, crm, eam, mes, aps, erp, scan_sessions, scm, sst, lubricacion, ags, catalogos, plataforma, plataforma_comercial, plataforma_contable, eam_importar, eam_config, eam_adjuntos, eam_causa_raiz, soporte, soporte_agil, plataforma_equipo
+    vehiculos, manifiestos, movimientos, dashboard, alertas, danos, tarifax, mantenimiento, consultas, roles, fletes, flota, locative, wms, hcm, tms, dms, qms, grc, lms, crm, eam, mes, aps, erp, scan_sessions, scm, sst, lubricacion, ags, catalogos, plataforma, plataforma_comercial, plataforma_contable, eam_importar, eam_config, eam_adjuntos, eam_causa_raiz, soporte, soporte_agil, plataforma_equipo, landing
 )
 
 api_router = APIRouter()
@@ -14,6 +14,8 @@ api_router.include_router(plataforma_comercial.router)
 api_router.include_router(plataforma_contable.router)
 # El equipo de la consola y sus roles.
 api_router.include_router(plataforma_equipo.router)
+# Contenido de la pagina publica. Su lectura no exige sesion.
+api_router.include_router(landing.router)
 # Cargue masivo de los catalogos del CMMS.
 api_router.include_router(eam_importar.router)
 # Centros de costo y tipos de trabajo: eran maqueta, ahora persisten.
