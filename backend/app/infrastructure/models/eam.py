@@ -1201,3 +1201,42 @@ class EAMCatalogoActivo(Base, TimestampMixin):
     codigo = Column(String(60), nullable=True)   # p. ej. el número de la cuenta contable
     activo = Column(Boolean, default=True)
 
+
+
+class EAMAdjuntoOT(Base, TimestampMixin):
+    """Los documentos de una orden de trabajo.
+
+    Vive en el esquema del cliente, a diferencia de los adjuntos de soporte:
+    una cotización o una factura de mantenimiento son datos operativos suyos, no
+    una conversación con quien opera la plataforma.
+
+    Se guarda la ruta y no el contenido: la base no es lugar para binarios. Y la
+    ruta lleva el esquema adentro porque dos empresas pueden tener la OT número
+    5 — sin eso, una sobrescribiría el archivo de la otra.
+    """
+
+    __tablename__ = "eam_adjunto_ot"
+
+    id     = Column(Integer, primary_key=True, index=True)
+    ot_id  = Column(Integer, ForeignKey("eam_orden_trabajo.id", ondelete="CASCADE"),
+                    nullable=False, index=True)
+    # Se copia el número de la OT para poder buscar por él sin cruzar tablas:
+    # es como la gente pide los documentos ("los de la OT-2026-0042").
+    ot_numero = Column(String(30), index=True)
+
+    # COTIZACION, FACTURA, ORDEN_COMPRA, INFORME_TECNICO, OTRO
+    tipo   = Column(String(30), nullable=False, index=True)
+    nombre = Column(String(255), nullable=False)
+    ruta   = Column(String(400), nullable=False)
+    tipo_mime = Column(String(120))
+    tamano    = Column(Integer)
+
+    # Datos del documento en sí. Sirven para encontrarlo y para cuadrar costos
+    # sin tener que abrir el archivo.
+    numero_documento = Column(String(80), index=True)
+    fecha_documento  = Column(Date)
+    valor            = Column(Float)
+    proveedor        = Column(String(160))
+    notas            = Column(String(400))
+
+    subido_por = Column(String(80))

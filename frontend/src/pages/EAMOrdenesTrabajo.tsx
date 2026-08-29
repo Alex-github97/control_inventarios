@@ -25,6 +25,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
+import { DocumentosOT } from '@/components/eam/DocumentosOT'
 import { apiClient as api } from '@/api/client'
 import { mensajeDeError } from '@/utils/errorApi'
 import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
@@ -1433,6 +1434,11 @@ export default function EAMOrdenesTrabajo() {
                           </Typography>
                         </Stack>
                       </Box>
+                    </Grid>
+
+                    <Grid size={12}>
+                      <Divider sx={{ my: 1.5 }} />
+                      <DocumentosOT otId={dlg.abierta.id} otNumero={dlg.abierta.numero} />
                     </Grid>
                   </Grid>
                 )}
