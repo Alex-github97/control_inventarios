@@ -185,6 +185,19 @@ async def _migrar_esquema(esquema: str) -> None:
             "ADD COLUMN IF NOT EXISTS usuario_id INTEGER "
             "REFERENCES usuarios(id) ON DELETE SET NULL"
         ))
+        # El tipo de trabajo se mostraba en pantalla con cinco campos que la
+        # tabla no tenía: la página los guardaba en memoria y se perdían al
+        # recargar. Ahora existen de verdad.
+        for columna, tipo in (
+            ("duracion", "VARCHAR(40)"),
+            ("requiere_taller", "BOOLEAN DEFAULT false"),
+            ("requiere_materiales", "BOOLEAN DEFAULT false"),
+            ("sistema", "VARCHAR(100)"),
+            ("subsistema", "VARCHAR(100)"),
+        ):
+            await conn.execute(text(
+                f"ALTER TABLE eam_tipo_trabajo ADD COLUMN IF NOT EXISTS {columna} {tipo}"))
+
         # Catálogos nuevos de llantas: zona, motivo de fin de vida y banda de reencauche
         await conn.execute(text(
             "ALTER TABLE eam_neumatico "

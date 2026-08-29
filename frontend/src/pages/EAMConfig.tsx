@@ -30,6 +30,7 @@ import { Layout } from '@/components/layout/Layout'
 import { CatalogoVehiculos } from '@/components/CatalogoVehiculos'
 import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
 import { CatalogoCMMS, CATALOGOS_CMMS } from '@/components/catalogo/CatalogoCMMS'
+import { CargueCatalogoEAM } from '@/components/catalogo/CargueCatalogoEAM'
 import { EsquemaLlantasPreview } from '@/components/EsquemaLlantasPreview'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
@@ -558,41 +559,87 @@ export default function EAMConfig() {
     await cargarEsquemas()
   }
 
-  // Tipos de Trabajo — CRUD
-  const [tiposTrabajo, setTiposTrabajo] = useState<TipoTrabajoConfig[]>(TIPOS_TRABAJO_INIT)
+  // Tipos de Trabajo — contra la API. Antes esto era estado local sembrado con
+  // una constante: lo que se creaba se perdía al recargar la página.
+  const qcConfig = useQueryClient()
+  const { data: tiposTrabajo = [] } = useQuery<TipoTrabajoConfig[]>({
+    queryKey: ['eam-tipos-trabajo-completo'],
+    queryFn: () => apiClient.get('/eam/catalogos/tipos-trabajo-completo').then(r =>
+      r.data.map((x: any) => ({
+        id: x.id, nombre: x.nombre, categoria: x.categoria ?? 'PREVENTIVO',
+        duracion: x.duracion ?? '', sistema: x.sistema ?? '', subsistema: x.subsistema ?? '',
+        requiereTaller: !!x.requiere_taller, requiereMateriales: !!x.requiere_materiales,
+      }))),
+  })
   const [tipoDialog, setTipoDialog] = useState(false)
   const [tipoEditing, setTipoEditing] = useState<TipoTrabajoConfig>(EMPTY_TIPO)
   const [tipoSearch, setTipoSearch] = useState('')
 
-  const openNewTipo = () => { setTipoEditing({ ...EMPTY_TIPO, id: Date.now() }); setTipoDialog(true) }
+  const openNewTipo = () => { setTipoEditing({ ...EMPTY_TIPO, id: 0 }); setTipoDialog(true) }
   const openEditTipo = (t: TipoTrabajoConfig) => { setTipoEditing({ ...t }); setTipoDialog(true) }
-  const saveTipo = () => {
-    setTiposTrabajo((prev) =>
-      prev.find((t) => t.id === tipoEditing.id)
-        ? prev.map((t) => (t.id === tipoEditing.id ? tipoEditing : t))
-        : [...prev, tipoEditing]
-    )
-    setTipoDialog(false)
-  }
-  const deleteTipo = (id: number) => setTiposTrabajo((p) => p.filter((t) => t.id !== id))
 
-  // Centros de Costo — CRUD
-  const [centrosCosto, setCentrosCosto] = useState<CentroCosto[]>(CENTROS_COSTO_INIT)
+  const cuerpoTipo = (t: TipoTrabajoConfig) => ({
+    nombre: t.nombre, categoria: t.categoria, duracion: t.duracion || null,
+    sistema: t.sistema || null, subsistema: t.subsistema || null,
+    requiere_taller: t.requiereTaller, requiere_materiales: t.requiereMateriales,
+  })
+  const errorApi = (e: any) => {
+    const d = e?.response?.data?.detail
+    toast.error(typeof d === 'string' ? d : 'No se pudo guardar')
+  }
+
+  const saveTipo = async () => {
+    try {
+      const existe = tiposTrabajo.some(t => t.id === tipoEditing.id)
+      if (existe) {
+        await apiClient.put(`/eam/catalogos/tipos-trabajo-completo/${tipoEditing.id}`,
+          cuerpoTipo(tipoEditing))
+      } else {
+        await apiClient.post('/eam/catalogos/tipos-trabajo-completo', cuerpoTipo(tipoEditing))
+      }
+      qcConfig.invalidateQueries({ queryKey: ['eam-tipos-trabajo-completo'] })
+      setTipoDialog(false)
+    } catch (e) { errorApi(e) }
+  }
+  const deleteTipo = async (id: number) => {
+    try {
+      await apiClient.delete(`/eam/catalogos/tipos-trabajo-completo/${id}`)
+      qcConfig.invalidateQueries({ queryKey: ['eam-tipos-trabajo-completo'] })
+    } catch (e) { errorApi(e) }
+  }
+
+  // Centros de Costo — contra la API, por lo mismo.
+  const { data: centrosCosto = [] } = useQuery<CentroCosto[]>({
+    queryKey: ['eam-centros-costo'],
+    queryFn: () => apiClient.get('/eam/catalogos/centros-costo').then(r => r.data),
+  })
   const [ccDialog, setCcDialog] = useState(false)
   const [ccEditing, setCcEditing] = useState<CentroCosto>(EMPTY_CC)
   const [ccSearch, setCcSearch] = useState('')
 
-  const openNewCC = () => { setCcEditing({ ...EMPTY_CC, id: Date.now() }); setCcDialog(true) }
+  const openNewCC = () => { setCcEditing({ ...EMPTY_CC, id: 0 }); setCcDialog(true) }
   const openEditCC = (c: CentroCosto) => { setCcEditing({ ...c }); setCcDialog(true) }
-  const saveCC = () => {
-    setCentrosCosto((prev) =>
-      prev.find((c) => c.id === ccEditing.id)
-        ? prev.map((c) => (c.id === ccEditing.id ? ccEditing : c))
-        : [...prev, ccEditing]
-    )
-    setCcDialog(false)
+  const saveCC = async () => {
+    try {
+      const cuerpo = {
+        codigo: ccEditing.codigo, nombre: ccEditing.nombre,
+        ciudad: ccEditing.ciudad || null, plataforma: ccEditing.plataforma || null,
+      }
+      if (centrosCosto.some(c => c.id === ccEditing.id)) {
+        await apiClient.put(`/eam/catalogos/centros-costo/${ccEditing.id}`, cuerpo)
+      } else {
+        await apiClient.post('/eam/catalogos/centros-costo', cuerpo)
+      }
+      qcConfig.invalidateQueries({ queryKey: ['eam-centros-costo'] })
+      setCcDialog(false)
+    } catch (e) { errorApi(e) }
   }
-  const deleteCC = (id: number) => setCentrosCosto((p) => p.filter((c) => c.id !== id))
+  const deleteCC = async (id: number) => {
+    try {
+      await apiClient.delete(`/eam/catalogos/centros-costo/${id}`)
+      qcConfig.invalidateQueries({ queryKey: ['eam-centros-costo'] })
+    } catch (e) { errorApi(e) }
+  }
 
   const filteredCC = centrosCosto.filter((c) =>
     c.nombre.toLowerCase().includes(ccSearch.toLowerCase()) ||
@@ -780,6 +827,9 @@ export default function EAMConfig() {
                     <Box>
                       <Typography variant="subtitle1" fontWeight={700} color="#1E293B">Tipos de Trabajo</Typography>
                       <Typography variant="caption" color="grey.500">{tiposTrabajo.length} tipos configurados — categorías, duración y requisitos</Typography>
+                      <Box sx={{ mt: 1 }}>
+                        <CargueCatalogoEAM ruta="tipos-trabajo" color={EAM_COLOR} />
+                      </Box>
                     </Box>
                     <Button size="small" startIcon={<AddIcon />} variant="contained"
                       sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#1A1A1A' }, textTransform: 'none', fontWeight: 600, fontSize: 12 }}
@@ -966,6 +1016,9 @@ export default function EAMConfig() {
                     <Box>
                       <Typography variant="subtitle1" fontWeight={700} color="#1E293B">Centros de Costo</Typography>
                       <Typography variant="caption" color="grey.500">{centrosCosto.length} centros configurados — asociados a plataformas y ciudades</Typography>
+                      <Box sx={{ mt: 1 }}>
+                        <CargueCatalogoEAM ruta="centros-costo" color={EAM_COLOR} />
+                      </Box>
                     </Box>
                     <Button size="small" startIcon={<AddIcon />} variant="contained"
                       sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#1A1A1A' }, textTransform: 'none', fontWeight: 600, fontSize: 12 }}

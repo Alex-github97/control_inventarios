@@ -22,7 +22,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.infrastructure.models.eam import (
     EAMActividad, EAMRepuesto, EAMFallaCatalogo, EAMCausaCatalogo,
-    EAMSolucionCatalogo,
+    EAMSolucionCatalogo, EAMTipoActivo, EAMMarcaActivo, EAMLineaActivo,
+    EAMModeloActivo, EAMMotorActivo, EAMTipoCombustible, EAMTipoTrabajo,
+    EAMCentroCosto,
 )
 
 router = APIRouter(prefix="/eam", tags=["CMMS/EAM"])
@@ -100,9 +102,94 @@ CATALOGOS: Dict[str, Dict[str, Any]] = {
             _col("descripcion", "Descripción", True, "Qué se hizo", "Cambio de retén y sellos"),
         ],
     },
+    "tipos-trabajo": {
+        "modelo": EAMTipoTrabajo, "titulo": "Tipos de trabajo", "clave_unica": "nombre",
+        "columnas": [
+            _col("nombre", "Nombre", True, ejemplo="Mantenimiento Preventivo"),
+            _col("categoria", "Categoría", False,
+                 "PREVENTIVO, CORRECTIVO, PREDICTIVO, INSPECCION o EMERGENCIA",
+                 "PREVENTIVO"),
+            _col("duracion", "Duración", False,
+                 "Texto libre: admite «Variable» además de horas", "4h"),
+            _col("requiere_taller", "Requiere taller", False, "Sí o No", "No"),
+            _col("requiere_materiales", "Requiere repuestos", False, "Sí o No", "Sí"),
+            _col("sistema", "Sistema", ejemplo="Motor"),
+            _col("subsistema", "Subsistema", ejemplo="Lubricación"),
+        ],
+    },
+    "centros-costo": {
+        "modelo": EAMCentroCosto, "titulo": "Centros de costo", "clave_unica": "codigo",
+        "columnas": [
+            _col("codigo", "Código", True, ejemplo="CC-001"),
+            _col("nombre", "Nombre", True, ejemplo="Flota Bogotá"),
+            _col("ciudad", "Ciudad", ejemplo="Bogotá"),
+            _col("plataforma", "Plataforma", ejemplo="Plataforma Central"),
+        ],
+    },
+    "tipos-activo": {
+        "modelo": EAMTipoActivo, "titulo": "Tipos de activo", "clave_unica": "codigo",
+        "columnas": [
+            _col("codigo", "Código", True, "Se usa internamente; sin espacios", "VEHICULO"),
+            _col("nombre", "Nombre", True, ejemplo="Vehículo"),
+            _col("usa_llantas", "Usa llantas", False,
+                 "Sí solo si a ese tipo se le montan llantas", "Sí"),
+        ],
+    },
+    "motores": {
+        "modelo": EAMMotorActivo, "titulo": "Motores", "clave_unica": "nombre",
+        "columnas": [
+            _col("nombre", "Motor", True, ejemplo="Cummins ISL9"),
+            _col("marca", "Marca", ejemplo="Cummins"),
+            _col("cilindraje_cc", "Cilindraje (cc)",
+                 ayuda="Sin separadores de miles: 8900, no 8.900", ejemplo="8900"),
+            _col("potencia_hp", "Potencia (HP)", ejemplo="380"),
+        ],
+    },
+    "combustibles": {
+        "modelo": EAMTipoCombustible, "titulo": "Combustibles", "clave_unica": "nombre",
+        "columnas": [_col("nombre", "Nombre", True, ejemplo="Diésel")],
+    },
+    "marcas": {
+        "modelo": EAMMarcaActivo, "titulo": "Marcas", "clave_unica": "nombre",
+        "columnas": [
+            _col("nombre", "Marca", True, ejemplo="Freightliner"),
+            _col("tipo_activo", "Tipo de activo", True,
+                 "Debe existir ya en Tipos de activo. Escriba su código o su nombre.",
+                 "VEHICULO"),
+        ],
+        "resolver": "marca",
+    },
+    "lineas": {
+        "modelo": EAMLineaActivo, "titulo": "Líneas", "clave_unica": "nombre",
+        "columnas": [
+            _col("nombre", "Línea", True, ejemplo="Cascadia"),
+            _col("marca", "Marca", True,
+                 "Debe existir ya en Marcas. Cárguelas primero.", "Freightliner"),
+        ],
+        "resolver": "linea",
+    },
+    "modelos": {
+        "modelo": EAMModeloActivo, "titulo": "Modelos", "clave_unica": "nombre",
+        "columnas": [
+            _col("nombre", "Modelo", True, ejemplo="Cascadia 126"),
+            _col("marca", "Marca", True, "Sirve para saber a qué línea pertenece",
+                 "Freightliner"),
+            _col("linea", "Línea", True, "Debe existir ya en Líneas de esa marca",
+                 "Cascadia"),
+            _col("anio_desde", "Año desde", ejemplo="2018"),
+        ],
+        "resolver": "modelo",
+    },
 }
 
-NUMERICAS = {"costo_unitario": float, "stock_minimo": int, "stock_actual": int}
+NUMERICAS = {
+    "costo_unitario": float, "stock_minimo": int, "stock_actual": int,
+    "cilindraje_cc": float, "potencia_hp": float, "anio_desde": int,
+}
+
+# Los campos de sí/no: quien llena un Excel escribe de todo.
+BOOLEANAS = {"usa_llantas", "requiere_taller", "requiere_materiales"}
+AFIRMATIVOS = {"si", "sí", "s", "true", "verdadero", "x", "1", "yes"}
 
 
 def _numero(valor: Any) -> float:
@@ -149,6 +236,79 @@ def _numero(valor: Any) -> float:
     return float(texto)
 
 
+async def _mapa_padres(db: AsyncSession, resolver: str) -> Dict[str, Any]:
+    """Índices para resolver por nombre lo que en la tabla es un id.
+
+    Se arma antes del bucle y no dentro: consultando por fila, un archivo de
+    trescientas líneas dispararía trescientas consultas.
+    """
+    if resolver == "marca":
+        # La marca guarda el CÓDIGO del tipo, no su id. Se admite escribir
+        # cualquiera de los dos, porque en pantalla se ve el nombre.
+        r = await db.execute(select(EAMTipoActivo))
+        indice: Dict[str, Any] = {}
+        for tipo in r.scalars().all():
+            indice[str(tipo.codigo).strip().lower()] = tipo.codigo
+            indice[str(tipo.nombre).strip().lower()] = tipo.codigo
+        return indice
+
+    if resolver == "linea":
+        r = await db.execute(select(EAMMarcaActivo))
+        return {m.nombre.strip().lower(): m.id for m in r.scalars().all()}
+
+    if resolver == "modelo":
+        # La línea se busca por (marca, línea): el mismo nombre de línea puede
+        # existir en dos marcas distintas.
+        r = await db.execute(
+            select(EAMLineaActivo, EAMMarcaActivo)
+            .join(EAMMarcaActivo, EAMMarcaActivo.id == EAMLineaActivo.marca_id))
+        return {
+            (marca.nombre.strip().lower(), linea.nombre.strip().lower()): linea.id
+            for linea, marca in r.all()
+        }
+    return {}
+
+
+def _resolver_fila(resolver: str, fila: Dict[str, Any], padres: Dict[str, Any]):
+    """Devuelve (campos_extra, error). El error ya viene redactado para el usuario."""
+    if resolver == "marca":
+        escrito = str(fila.get("tipo_activo") or "").strip()
+        if not escrito:
+            return None, "Falta el tipo de activo"
+        codigo = padres.get(escrito.lower())
+        if codigo is None:
+            return None, f"No existe «{escrito}» en Tipos de activo. Cárguelo primero."
+        return {"tipo_activo": codigo}, None
+
+    if resolver == "linea":
+        escrito = str(fila.get("marca") or "").strip()
+        if not escrito:
+            return None, "Falta la marca"
+        marca_id = padres.get(escrito.lower())
+        if marca_id is None:
+            return None, f"No existe la marca «{escrito}». Cárguela primero."
+        return {"marca_id": marca_id}, None
+
+    if resolver == "modelo":
+        marca = str(fila.get("marca") or "").strip()
+        linea = str(fila.get("linea") or "").strip()
+        if not marca or not linea:
+            return None, "Faltan la marca o la línea"
+        linea_id = padres.get((marca.lower(), linea.lower()))
+        if linea_id is None:
+            return None, f"No existe la línea «{linea}» en la marca «{marca}». Cárguela primero."
+        return {"linea_id": linea_id}, None
+
+    return {}, None
+
+
+def _booleano(valor: Any) -> bool:
+    """Sí/No escrito de las mil formas en que la gente lo escribe."""
+    if isinstance(valor, bool):
+        return valor
+    return str(valor).strip().lower() in AFIRMATIVOS
+
+
 class FilaConError(BaseModel):
     # Número de fila del Excel tal como lo ve el usuario: la 1 es el encabezado.
     fila: int
@@ -188,17 +348,34 @@ async def importar(ruta: str, cargue: Cargue, db: AsyncSession = Depends(get_db)
 
     d = CATALOGOS[ruta]
     modelo, clave = d["modelo"], d["clave_unica"]
+    resolver = d.get("resolver")
+    padres = await _mapa_padres(db, resolver) if resolver else {}
+    # Las columnas que solo sirven para encontrar el padre no son campos del
+    # modelo: se usan y se descartan.
+    auxiliares = {"marca", "linea"} if resolver in ("linea", "modelo") else set()
     requeridas = [c.clave for c in d["columnas"] if c.requerida]
     admitidas = {c.clave for c in d["columnas"]}
 
     # Lo que ya está, para no duplicarlo. Se compara sin distinguir mayúsculas
     # ni espacios sobrantes: "Filtro de aceite" y "filtro de aceite " son lo
     # mismo para quien llena un Excel.
-    existentes = {
-        str(v).strip().lower()
-        for (v,) in (await db.execute(select(getattr(modelo, clave)))).all()
-        if v is not None
-    }
+    #
+    # En los jerárquicos la unicidad es POR PADRE y no global: "Cascadia" puede
+    # ser una línea de Freightliner y también de otra marca, y compararlo contra
+    # todo el catálogo rechazaría filas legítimas.
+    campo_padre = {"marca": "tipo_activo", "linea": "marca_id",
+                   "modelo": "linea_id"}.get(resolver)
+    existentes = set()
+    if campo_padre:
+        r = await db.execute(select(getattr(modelo, clave), getattr(modelo, campo_padre)))
+        for valor, padre in r.all():
+            if valor is not None:
+                existentes.add((padre, str(valor).strip().lower()))
+    else:
+        r = await db.execute(select(getattr(modelo, clave)))
+        for (valor,) in r.all():
+            if valor is not None:
+                existentes.add(str(valor).strip().lower())
 
     resultado = ResultadoImportacion(total=len(cargue.filas))
     nuevos = []
@@ -218,7 +395,15 @@ async def importar(ruta: str, cargue: Cargue, db: AsyncSession = Depends(get_db)
             resultado.errores.append(FilaConError(fila=numero, motivo=f"Falta {titulos}"))
             continue
 
-        valor_clave = str(fila.get(clave, "")).strip().lower()
+        extra: Dict[str, Any] = {}
+        if resolver:
+            extra, error = _resolver_fila(resolver, fila, padres)
+            if error:
+                resultado.errores.append(FilaConError(fila=numero, motivo=error))
+                continue
+
+        nombre_fila = str(fila.get(clave, "")).strip().lower()
+        valor_clave = (extra.get(campo_padre), nombre_fila) if campo_padre else nombre_fila
         if valor_clave in existentes:
             resultado.omitidos += 1
             continue
@@ -228,7 +413,11 @@ async def importar(ruta: str, cargue: Cargue, db: AsyncSession = Depends(get_db)
         for k, v in fila.items():
             if v is None or str(v).strip() == "":
                 continue
-            if k in NUMERICAS:
+            if k in auxiliares:
+                continue
+            if k in BOOLEANAS:
+                limpio[k] = _booleano(v)
+            elif k in NUMERICAS:
                 try:
                     limpio[k] = NUMERICAS[k](_numero(v))
                 except (TypeError, ValueError):
@@ -240,6 +429,8 @@ async def importar(ruta: str, cargue: Cargue, db: AsyncSession = Depends(get_db)
         if problema:
             resultado.errores.append(FilaConError(fila=numero, motivo=problema))
             continue
+
+        limpio.update(extra)
 
         # Dos filas iguales dentro del mismo archivo: la segunda se omite.
         existentes.add(valor_clave)

@@ -21,6 +21,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { apiClient as api } from '@/api/client'
+import { CargueCatalogoEAM } from '@/components/catalogo/CargueCatalogoEAM'
 import { AdminCatalogos } from './catalogo/AdminCatalogos'
 import type {
   MarcaActivo, LineaActivo, ModeloActivo, MotorActivo, CombustibleActivo,
@@ -248,7 +249,11 @@ export function CatalogoVehiculos({ color = '#1A1A1A' }: { color?: string }) {
   })
 
 
-  const columna = (titulo: string, sub: string, accion: React.ReactNode, contenido: React.ReactNode) => (
+  const columna = (
+    titulo: string, sub: string, accion: React.ReactNode, contenido: React.ReactNode,
+    /** Ruta del catálogo para la plantilla y el cargue masivo de este nivel. */
+    rutaCargue?: string,
+  ) => (
     <Card sx={{ height: '100%', bgcolor: '#FFFFFF', border: `1px solid ${alpha(color, 0.2)}` }}>
       <CardContent>
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
@@ -258,6 +263,11 @@ export function CatalogoVehiculos({ color = '#1A1A1A' }: { color?: string }) {
           </Box>
           {accion}
         </Stack>
+        {rutaCargue && (
+          <Box sx={{ mb: 1.5 }}>
+            <CargueCatalogoEAM ruta={rutaCargue} color={color} />
+          </Box>
+        )}
         {contenido}
       </CardContent>
     </Card>
@@ -336,6 +346,7 @@ export function CatalogoVehiculos({ color = '#1A1A1A' }: { color?: string }) {
                 </Stack>
               ))}
             </Stack>,
+            'tipos-activo',
           )}
         </Grid>
 
@@ -363,6 +374,7 @@ export function CatalogoVehiculos({ color = '#1A1A1A' }: { color?: string }) {
                 m.activo === false,
               ))}
             </Stack>,
+            'marcas',
           )}
         </Grid>
 
@@ -394,6 +406,7 @@ export function CatalogoVehiculos({ color = '#1A1A1A' }: { color?: string }) {
                 ))}
               </Stack>
             ),
+            'lineas',
           )}
         </Grid>
 
@@ -449,6 +462,7 @@ export function CatalogoVehiculos({ color = '#1A1A1A' }: { color?: string }) {
                 ))}
               </Stack>
             ),
+            'modelos',
           )}
         </Grid>
 
@@ -480,6 +494,7 @@ export function CatalogoVehiculos({ color = '#1A1A1A' }: { color?: string }) {
                 ))}
               </TableBody>
             </Table>,
+            'motores',
           )}
         </Grid>
 
@@ -497,6 +512,7 @@ export function CatalogoVehiculos({ color = '#1A1A1A' }: { color?: string }) {
                 />
               ))}
             </Box>,
+            'combustibles',
           )}
         </Grid>
       </Grid>

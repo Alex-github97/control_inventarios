@@ -120,8 +120,31 @@ class EAMTipoTrabajo(Base, TimestampMixin):
     id          = Column(Integer, primary_key=True, index=True)
     nombre      = Column(String(100), nullable=False)
     descripcion = Column(Text)
-    categoria   = Column(String(50))  # MECANICO, ELECTRICO, HIDRAULICO, CIVIL, etc.
+    categoria   = Column(String(50))  # PREVENTIVO, CORRECTIVO, PREDICTIVO…
+    # Texto y no número: hay trabajos cuya duración es "Variable" y forzar horas
+    # obligaría a inventar un valor.
+    duracion            = Column(String(40))
+    requiere_taller     = Column(Boolean, default=False)
+    requiere_materiales = Column(Boolean, default=False)
+    sistema             = Column(String(100))
+    subsistema          = Column(String(100))
     activo      = Column(Boolean, default=True)
+
+
+class EAMCentroCosto(Base, TimestampMixin):
+    """A dónde se cargan los costos de mantenimiento.
+
+    Tiene tabla propia y no va al catálogo maestro porque carga atributos del
+    negocio —ciudad y plataforma—, que es la regla del módulo para decidir.
+    """
+
+    __tablename__ = "eam_centro_costo"
+    id         = Column(Integer, primary_key=True, index=True)
+    codigo     = Column(String(40), unique=True, nullable=False, index=True)
+    nombre     = Column(String(150), nullable=False)
+    ciudad     = Column(String(100))
+    plataforma = Column(String(120))
+    activo     = Column(Boolean, default=True)
 
 
 class EAMActividad(Base, TimestampMixin):
