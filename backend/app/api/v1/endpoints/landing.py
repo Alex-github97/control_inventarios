@@ -91,7 +91,6 @@ CONTENIDO_INICIAL: Dict[str, Any] = {
         "DMS · Gestión Documental", "Gestión Humana", "LMS · Formación",
         "CRM · Comercial", "ERP · Financiero", "SCM · Cadena de Suministro",
         "MES · Producción", "APS · Planeación", "AGS · Agenda de Servicios",
-        "TarifaX · Motor de Tarifas", "Command Center",
     ],
     "detalles": [
         {"clave": "OT", "titulo": "Órdenes de trabajo",

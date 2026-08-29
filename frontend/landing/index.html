@@ -118,10 +118,38 @@
   .cifra span{font-size:12.5px;color:rgba(255,255,255,.55)}
 
   /* ── Secciones ── */
-  section{padding:104px 0;position:relative}
+  section{padding:104px 0;position:relative;overflow:hidden}
   .gris{background:var(--bruma)}
-  .rotulo{display:inline-block;font-size:11px;letter-spacing:.18em;
-    text-transform:uppercase;color:var(--acento);font-weight:700}
+  /* El contenido va por encima de las dos capas de retícula. */
+  section>.env{position:relative;z-index:2}
+
+  /* ── Retícula viva ──
+     La portada tiene la red de nodos y el resto se quedaba en blanco. Estas
+     dos capas repiten ese lenguaje sin costar un canvas por sección: la de
+     abajo es una malla de puntos fija y tenue; la de arriba es la MISMA malla
+     en color de acento, recortada por una máscara circular que sigue al
+     cursor. El efecto es que los puntos se encienden alrededor del mouse.
+     Se hace con máscara y no dibujando, así que no hay bucle de animación. */
+  section::before,section::after{content:'';position:absolute;inset:0;
+    pointer-events:none;
+    background-image:radial-gradient(circle at 1px 1px,currentColor 1px,transparent 0);
+    background-size:28px 28px}
+  section::before{color:rgba(0,0,0,.09)}
+  section::after{color:var(--acento);opacity:0;transition:opacity .35s ease;
+    -webkit-mask-image:radial-gradient(230px circle at var(--sx,-999px) var(--sy,-999px),
+      #000 0%,rgba(0,0,0,.45) 45%,transparent 72%);
+    mask-image:radial-gradient(230px circle at var(--sx,-999px) var(--sy,-999px),
+      #000 0%,rgba(0,0,0,.45) 45%,transparent 72%)}
+  section:hover::after{opacity:.9}
+  /* Una costura tenue arriba de cada sección, para que el cambio de tono no
+     sea un corte seco sino una línea. */
+  section+section{border-top:1px solid rgba(0,0,0,.055)}
+
+  .rotulo{display:inline-flex;align-items:center;gap:11px;font-size:11px;
+    letter-spacing:.18em;text-transform:uppercase;color:var(--acento);
+    font-weight:700;font-family:'JetBrains Mono',ui-monospace,monospace}
+  .rotulo::before{content:'';width:26px;height:1px;background:currentColor;
+    opacity:.6}
   h2{font-size:clamp(1.7rem,3.6vw,2.6rem);font-weight:800;letter-spacing:-.025em;
     margin:14px 0 16px;max-width:22ch}
   .intro{color:var(--grafito);max-width:64ch;font-size:1.04rem}
@@ -136,6 +164,13 @@
     background:radial-gradient(420px circle at var(--mx,50%) var(--my,50%),
       rgba(47,111,235,.09),transparent 42%);transition:opacity .3s ease;pointer-events:none}
   .tarjeta:hover::before{opacity:1}
+  /* Una línea que recorre el borde superior al pasar por encima: da la
+     sensación de que la tarjeta se "energiza" en vez de solo levantarse. */
+  .tarjeta::after{content:'';position:absolute;top:0;left:0;height:2px;width:0;
+    background:linear-gradient(90deg,transparent,var(--acento));
+    transition:width .55s cubic-bezier(.22,.61,.36,1)}
+  .tarjeta:hover::after{width:100%}
+  .franja .tarjeta::after{background:linear-gradient(90deg,transparent,var(--acento-claro))}
   .tarjeta:hover{transform:translateY(-5px);box-shadow:0 20px 44px rgba(0,0,0,.09);
     border-color:#d3d3d3}
   .tarjeta h3{font-size:1.06rem;font-weight:700;margin-bottom:10px}
@@ -149,15 +184,32 @@
   .mod{display:flex;align-items:center;gap:11px;background:#fff;padding:15px 17px;
     border:1px solid var(--niebla);border-radius:12px;font-size:.9rem;font-weight:600;
     transition:border-color .18s ease,transform .18s ease,box-shadow .22s ease}
+  .mod{position:relative;overflow:hidden}
   .mod:hover{border-color:var(--acento);transform:translateY(-3px);
     box-shadow:0 10px 24px rgba(47,111,235,.13)}
-  .mod i{width:8px;height:8px;border-radius:50%;background:var(--acento);
-    flex-shrink:0;font-style:normal;box-shadow:0 0 0 3px rgba(47,111,235,.14)}
+  /* El punto suelto no decía nada; el índice numerado convierte la lista en un
+     inventario y deja ver de un vistazo cuántos módulos son. */
+  .mod i{font-style:normal;flex-shrink:0;font-size:11px;font-weight:700;
+    font-family:'JetBrains Mono',ui-monospace,monospace;color:var(--acento);
+    background:var(--acento-vapor);border-radius:7px;padding:4px 6px;
+    line-height:1;letter-spacing:.02em;transition:background .18s ease,color .18s ease}
+  .mod:hover i{background:var(--acento);color:#fff}
+  .mod::after{content:'';position:absolute;left:0;bottom:0;height:2px;width:0;
+    background:var(--acento);transition:width .4s cubic-bezier(.22,.61,.36,1)}
+  .mod:hover::after{width:100%}
 
   .franja{background:var(--tinta);color:#fff;overflow:hidden}
-  .franja::before{content:'';position:absolute;inset:0;pointer-events:none;
-    background:radial-gradient(760px 380px at 88% 0%,rgba(47,111,235,.16),transparent 62%)}
-  .franja .env{position:relative;z-index:1}
+  /* Misma retícula que las secciones claras, en negativo: los puntos oscuros
+     no se ven sobre tinta, así que acá van en blanco y conservan además el
+     resplandor de acento que ya tenía la franja. */
+  .franja::before{color:rgba(255,255,255,.11);
+    background-image:radial-gradient(circle at 1px 1px,currentColor 1px,transparent 0),
+      radial-gradient(760px 380px at 88% 0%,rgba(47,111,235,.2),transparent 62%);
+    background-size:28px 28px,100% 100%}
+  .franja::after{color:var(--acento-claro)}
+  .franja:hover::after{opacity:.75}
+  .franja .env{position:relative;z-index:2}
+  .franja .rotulo::before{opacity:.8}
   .franja h2{color:#fff}
   .franja .intro{color:rgba(255,255,255,.72)}
   .franja .tarjeta{background:rgba(255,255,255,.045);border-color:rgba(255,255,255,.12)}
@@ -231,11 +283,16 @@
       <a class="btn btn-acento" href="#contacto" data-txt="hero_boton1">Solicitar una demostración</a>
       <a class="btn btn-fantasma" href="#modulos" data-txt="hero_boton2">Ver los módulos</a>
     </div>
+    <!-- Las cifras salen de contar el propio código, no de redondear hacia
+         arriba: 18 módulos son los que la lista de abajo enumera, y las tablas
+         y servicios se pueden verificar. Decir «1 sola fuente de datos» era
+         cierto pero se leía como una herramienta pequeña; el mismo argumento
+         se sostiene mejor diciendo cuántas tablas comparte esa única base. -->
     <div class="cifras" id="cifras">
-      <div class="cifra"><b data-cuenta="20">0</b><span>módulos integrados</span></div>
-      <div class="cifra"><b data-cuenta="1">0</b><span>sola fuente de datos</span></div>
-      <div class="cifra"><b>Multiempresa</b><span>datos separados por cliente</span></div>
-      <div class="cifra"><b>Web</b><span>sin instalar nada</span></div>
+      <div class="cifra"><b data-cuenta="18">0</b><span>módulos integrados</span></div>
+      <div class="cifra"><b data-cuenta="354">0</b><span>tablas en un solo modelo de datos</span></div>
+      <div class="cifra"><b data-cuenta="1337">0</b><span>servicios de la API</span></div>
+      <div class="cifra"><b data-cuenta="246">0</b><span>pantallas de trabajo</span></div>
     </div>
   </div>
 </div>
@@ -345,7 +402,7 @@ const PORDEFECTO = {
     'GRC · Riesgo y Cumplimiento','SST · Seguridad y Salud','DMS · Gestión Documental',
     'Gestión Humana','LMS · Formación','CRM · Comercial','ERP · Financiero',
     'SCM · Cadena de Suministro','MES · Producción','APS · Planeación',
-    'AGS · Agenda de Servicios','TarifaX · Motor de Tarifas','Command Center'],
+    'AGS · Agenda de Servicios'],
   detalles:[
     {clave:'OT',titulo:'Órdenes de trabajo',texto:'Trabajos y repuestos desde el catálogo, proveedor por línea, y los soportes —cotización, orden de compra, factura— adjuntos y consultables por número.'},
     {clave:'RC',titulo:'Análisis de causa raíz',texto:'Cinco porqués, acciones con responsable y fecha, evidencias fotográficas e informe exportable en PDF. Y las causas alimentan el tablero.'},
@@ -392,8 +449,11 @@ function pintar(c){
   $('#pilares').innerHTML   = (c.pilares   ?? []).map(tarjeta).join('');
   $('#detalles').innerHTML  = (c.detalles  ?? []).map(tarjeta).join('');
   $('#garantias').innerHTML = (c.garantias ?? []).map(tarjeta).join('');
+  // El índice va en el marcado y no en un contador de CSS porque así el
+  // número queda seleccionable y se lee igual si el orden cambia desde el editor.
   $('#listaModulos').innerHTML = (c.modulos ?? [])
-    .map(m => `<div class="mod rev"><i></i>${m}</div>`).join('');
+    .map((m, i) => `<div class="mod rev"><i>${String(i + 1).padStart(2, '0')}</i>${m}</div>`)
+    .join('');
 
   const correo = c.correo || PORDEFECTO.correo;
   const asunto = encodeURIComponent('Quiero conocer TittanWare');
@@ -489,14 +549,35 @@ addEventListener('scroll', () => {
   });
 }, { passive:true });
 
-/* ═══ Luz que sigue al cursor dentro de cada tarjeta ═══ */
-addEventListener('pointermove', e => {
-  const t = e.target.closest?.('.tarjeta');
-  if (!t) return;
-  const r = t.getBoundingClientRect();
-  t.style.setProperty('--mx', `${e.clientX - r.left}px`);
-  t.style.setProperty('--my', `${e.clientY - r.top}px`);
-}, { passive:true });
+/* ═══ Luz que sigue al cursor ═══
+   Dos efectos con el mismo evento: el resplandor dentro de la tarjeta y la
+   retícula que se enciende alrededor del mouse en toda la sección. Se escribe
+   una sola vez por cuadro con requestAnimationFrame; `pointermove` dispara
+   muchas más veces que las que la pantalla puede pintar, y sin esto se
+   recalcularían máscaras que nadie llega a ver. */
+if (!menos) {
+  let ultimo = null, pedido = false;
+  const aplicar = () => {
+    pedido = false;
+    const e = ultimo; if (!e) return;
+    const seccion = e.target.closest?.('section');
+    if (seccion) {
+      const r = seccion.getBoundingClientRect();
+      seccion.style.setProperty('--sx', `${e.clientX - r.left}px`);
+      seccion.style.setProperty('--sy', `${e.clientY - r.top}px`);
+    }
+    const t = e.target.closest?.('.tarjeta');
+    if (t) {
+      const r = t.getBoundingClientRect();
+      t.style.setProperty('--mx', `${e.clientX - r.left}px`);
+      t.style.setProperty('--my', `${e.clientY - r.top}px`);
+    }
+  };
+  addEventListener('pointermove', e => {
+    ultimo = e;
+    if (!pedido) { pedido = true; requestAnimationFrame(aplicar); }
+  }, { passive:true });
+}
 
 /* ═══ Cifras que cuentan al aparecer ═══ */
 if (!menos && 'IntersectionObserver' in window) {
@@ -506,9 +587,14 @@ if (!menos && 'IntersectionObserver' in window) {
       for (const n of e.target.querySelectorAll('[data-cuenta]')) {
         const fin = Number(n.dataset.cuenta) || 0;
         const desde = performance.now();
+        // Las cifras grandes tardan un poco más: 1.337 pasando en el mismo
+        // tiempo que 18 se lee como un borrón en vez de como una cuenta.
+        const duracion = fin > 500 ? 1600 : 1100;
         const paso = ahora => {
-          const t = Math.min(1, (ahora - desde) / 900);
-          n.textContent = Math.round(fin * (1 - Math.pow(1 - t, 3)));
+          const t = Math.min(1, (ahora - desde) / duracion);
+          const valor = Math.round(fin * (1 - Math.pow(1 - t, 3)));
+          // Formato colombiano: el punto separa los miles.
+          n.textContent = valor.toLocaleString('es-CO');
           if (t < 1) requestAnimationFrame(paso);
         };
         requestAnimationFrame(paso);
