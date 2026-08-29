@@ -59,11 +59,11 @@ CONTENIDO_INICIAL: Dict[str, Any] = {
         "El módulo más profundo de la plataforma, construido con la lógica de quien "
         "vive la operación y no con la de un formulario genérico."
     ),
-    "seguridad_titulo": "Los datos de cada empresa, separados de verdad",
+    "seguridad_titulo": "Construida para aguantar la operación real",
     "seguridad_texto": (
-        "No es un filtro por columna que alguien puede olvidar en una consulta: cada "
-        "empresa tiene su propio esquema de base de datos, y la sesión determina a "
-        "cuál se entra."
+        "No es una hoja de cálculo con botones. Es la ingeniería que se le exige a "
+        "un sistema del que la operación depende todos los días, y del que nadie se "
+        "quiere acordar porque simplemente funciona."
     ),
     "cierre_titulo": "Cuéntenos cómo opera hoy",
     "cierre_texto": (
@@ -111,17 +111,29 @@ CONTENIDO_INICIAL: Dict[str, Any] = {
                   "llanta."},
     ],
     "garantias": [
-        {"clave": "✓", "titulo": "Aislamiento por diseño",
-         "texto": "Dos empresas pueden tener el mismo código de activo sin verse jamás. "
-                  "El acceso va firmado en la sesión, no en un campo que se pueda "
-                  "cambiar."},
-        {"clave": "✓", "titulo": "Roles que se hacen cumplir",
-         "texto": "Los permisos se validan en el servidor, no ocultando botones. Quien "
-                  "no tiene acceso a algo no lo obtiene escribiendo la dirección a mano."},
-        {"clave": "✓", "titulo": "Todo deja rastro",
+        {"clave": "01", "titulo": "No se arrastra con la operación encima",
+         "texto": "Varios procesos atienden en paralelo y las consultas no se bloquean "
+                  "entre sí. Que haya mucha gente trabajando al mismo tiempo no es lo "
+                  "que hace lenta a la plataforma."},
+        {"clave": "02", "titulo": "Se respalda sola, todas las madrugadas",
+         "texto": "La base completa se respalda cada noche sin que nadie tenga que "
+                  "acordarse, y además una copia por empresa: se puede restaurar a una "
+                  "sola sin tocar a las demás."},
+        {"clave": "03", "titulo": "Cifrada de punta a punta",
+         "texto": "Todo el tráfico va por HTTPS con certificado que se renueva solo. Las "
+                  "contraseñas se guardan con hash bcrypt, no cifradas: ni siquiera "
+                  "nosotros podemos leerlas."},
+        {"clave": "04", "titulo": "Todo deja rastro",
          "texto": "Movimientos, cambios de estado y accesos quedan registrados con autor "
-                  "y fecha. Cuando hay que explicar qué pasó, la respuesta está en el "
-                  "sistema."},
+                  "y fecha. Cuando toca explicar qué pasó, la respuesta está en el "
+                  "sistema y no en la memoria de alguien."},
+        {"clave": "05", "titulo": "Los permisos se verifican en el servidor",
+         "texto": "No se aplican ocultando botones: se comprueban en cada petición. Quien "
+                  "no tiene acceso a algo no lo consigue escribiendo la dirección a mano."},
+        {"clave": "06", "titulo": "Siempre la última versión",
+         "texto": "Es web: no hay nada que instalar ni actualizaciones que coordinar con "
+                  "cada equipo. Todos entran a la misma versión, desde cualquier "
+                  "computador y desde cualquier parte."},
     ],
 }
 

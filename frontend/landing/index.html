@@ -262,7 +262,7 @@
       <a href="#plataforma">Plataforma</a>
       <a href="#modulos">Módulos</a>
       <a href="#mantenimiento">Mantenimiento</a>
-      <a href="#seguridad">Seguridad</a>
+      <a href="#seguridad">Tecnología</a>
       <a href="#contacto">Contacto</a>
     </nav>
     <a class="btn btn-nav" data-attr-href="url_portal" href="https://tittanware.tech">Ingresar</a>
@@ -336,11 +336,17 @@
 
 <section id="seguridad">
   <div class="env">
-    <span class="rotulo rev">Cómo está construida</span>
-    <h2 class="rev" data-txt="seguridad_titulo">Los datos de cada empresa, separados de verdad</h2>
+    <!-- Antes esta sección hablaba de que los datos de cada cliente están
+         separados de los de los demás. Es cierto y es buena ingeniería, pero a
+         quien está evaluando la plataforma no le resuelve nada: da por hecho
+         que sus datos son suyos. Lo que sí pesa en esa decisión es si el
+         sistema aguanta, si se respalda y si se puede auditar. -->
+    <span class="rotulo rev">Ingeniería</span>
+    <h2 class="rev" data-txt="seguridad_titulo">Construida para aguantar la operación real</h2>
     <p class="intro rev" data-txt="seguridad_texto">
-      No es un filtro por columna que alguien puede olvidar en una consulta: cada empresa
-      tiene su propio esquema de base de datos, y la sesión determina a cuál se entra.
+      No es una hoja de cálculo con botones. Es la ingeniería que se le exige a un sistema
+      del que la operación depende todos los días, y del que nadie se quiere acordar
+      porque simplemente funciona.
     </p>
     <div class="rejilla col-3" id="garantias"></div>
   </div>
@@ -369,7 +375,7 @@
       <span class="logo" data-txt="marca_logo">TITTANWARE</span>
       <a href="#plataforma">Plataforma</a>
       <a href="#modulos">Módulos</a>
-      <a href="#seguridad">Seguridad</a>
+      <a href="#seguridad">Tecnología</a>
       <a id="correoPie" href="#">Contacto</a>
       <a data-attr-href="url_portal" href="https://tittanware.tech" style="margin-left:auto">
         Ingresar a la plataforma
@@ -410,9 +416,12 @@ const PORDEFECTO = {
     {clave:'LL',titulo:'Gestión de llantas',texto:'Montaje y rotación arrastrando a la posición, con inspección, kilometraje y fecha obligatorios, y el historial completo de cada llanta.'}
   ],
   garantias:[
-    {clave:'✓',titulo:'Aislamiento por diseño',texto:'Dos empresas pueden tener el mismo código de activo sin verse jamás. El acceso va firmado en la sesión, no en un campo que se pueda cambiar.'},
-    {clave:'✓',titulo:'Roles que se hacen cumplir',texto:'Los permisos se validan en el servidor, no ocultando botones. Quien no tiene acceso a algo no lo obtiene escribiendo la dirección a mano.'},
-    {clave:'✓',titulo:'Todo deja rastro',texto:'Movimientos, cambios de estado y accesos quedan registrados con autor y fecha. Cuando hay que explicar qué pasó, la respuesta está en el sistema.'}
+    {clave:'01',titulo:'No se arrastra con la operación encima',texto:'Varios procesos atienden en paralelo y las consultas no se bloquean entre sí. Que haya mucha gente trabajando al mismo tiempo no es lo que hace lenta a la plataforma.'},
+    {clave:'02',titulo:'Se respalda sola, todas las madrugadas',texto:'La base completa se respalda cada noche sin que nadie tenga que acordarse, y además una copia por empresa: se puede restaurar a una sola sin tocar a las demás.'},
+    {clave:'03',titulo:'Cifrada de punta a punta',texto:'Todo el tráfico va por HTTPS con certificado que se renueva solo. Las contraseñas se guardan con hash bcrypt, no cifradas: ni siquiera nosotros podemos leerlas.'},
+    {clave:'04',titulo:'Todo deja rastro',texto:'Movimientos, cambios de estado y accesos quedan registrados con autor y fecha. Cuando toca explicar qué pasó, la respuesta está en el sistema y no en la memoria de alguien.'},
+    {clave:'05',titulo:'Los permisos se verifican en el servidor',texto:'No se aplican ocultando botones: se comprueban en cada petición. Quien no tiene acceso a algo no lo consigue escribiendo la dirección a mano.'},
+    {clave:'06',titulo:'Siempre la última versión',texto:'Es web: no hay nada que instalar ni actualizaciones que coordinar con cada equipo. Todos entran a la misma versión, desde cualquier computador y desde cualquier parte.'}
   ]
 };
 
