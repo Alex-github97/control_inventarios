@@ -7,6 +7,7 @@ from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.inventario_kardex import sincronizar_orden, revertir_orden
 from app.infrastructure.models.eam import (
     EAMTipoTrabajo, EAMActividad, EAMRepuesto, EAMFallaCatalogo,
     EAMCausaCatalogo, EAMSolucionCatalogo, EAMContratista,
@@ -352,6 +353,9 @@ class OTRepuestoItem(BaseModel):
     unidad: Optional[str] = None
     costo_unit: float = 0
     costo_total: float = 0
+    # De qué bodega sale el repuesto. Vacío = la bodega por defecto. Una línea
+    # sin `repuesto_id` es material suelto y no descuenta inventario.
+    bodega_id: Optional[int] = None
 
 class OTCreate(BaseModel):
     # El número lo asigna el servidor; se acepta si viene para no romper a
@@ -1906,6 +1910,7 @@ def _aplicar_lineas(obj: EAMOrdenTrabajo, data: OTCreate) -> None:
         obj.repuestos.append(EAMOTMaterial(
             repuesto_id=r.repuesto_id, descripcion=r.descripcion,
             contratista_id=r.contratista_id,
+            bodega_id=getattr(r, "bodega_id", None),
             cantidad=cantidad, unidad=r.unidad, costo_unit=r.costo_unit or 0,
             costo_total=cantidad * (r.costo_unit or 0),
         ))
@@ -1932,6 +1937,10 @@ async def create_ot(data: OTCreate, db: AsyncSession = Depends(get_db)):
     _avanzar_medidores(activo, obj.odometro, obj.horometro)
     await db.flush()          # para que la rutina pueda guardar ultima_ot_id
     await _sellar_rutina(db, obj, activo)
+    # El material sale de la bodega al quedar en la orden. Se reconcilia en vez
+    # de descontar a secas: las lineas se reconstruyen en cada guardado, asi que
+    # descontar sin comparar duplicaria la salida en la segunda edicion.
+    await sincronizar_orden(db, obj)
     await db.commit(); await db.refresh(obj)
     return obj
 
@@ -1954,6 +1963,8 @@ async def update_ot(ot_id: int, data: OTCreate, db: AsyncSession = Depends(get_d
     _recalcular_costos(obj)
     _avanzar_medidores(activo, obj.odometro, obj.horometro)
     await _sellar_rutina(db, obj, activo)
+    await db.flush()
+    await sincronizar_orden(db, obj)
     await db.commit(); await db.refresh(obj)
     return obj
 
@@ -1962,6 +1973,9 @@ async def delete_ot(ot_id: int, db: AsyncSession = Depends(get_db)):
     obj = await db.get(EAMOrdenTrabajo, ot_id)
     if not obj:
         raise HTTPException(404, "OT no encontrada")
+    # El material vuelve a la bodega. Dejarlo descontado convertiria el
+    # inventario en un faltante permanente que nadie puede explicar.
+    await revertir_orden(db, ot_id)
     await db.delete(obj)
     await db.commit()
 

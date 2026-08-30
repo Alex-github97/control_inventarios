@@ -534,6 +534,9 @@ class EAMOTMaterial(Base, TimestampMixin):
     # Quién suministró el repuesto. NULL = taller interno; puede diferir del
     # proveedor principal de la OT.
     contratista_id = Column(Integer, ForeignKey("eam_contratista.id"), nullable=True)
+    # De qué bodega sale. Vacío = la bodega por defecto del inventario. Sin
+    # `repuesto_id` la línea es material suelto y no toca existencias.
+    bodega_id      = Column(Integer, ForeignKey("eam_inv_bodega.id"), nullable=True)
 
     ot = relationship("EAMOrdenTrabajo", back_populates="repuestos")
 

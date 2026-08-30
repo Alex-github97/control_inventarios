@@ -313,6 +313,16 @@ async def _migrar_esquema(esquema: str) -> None:
                         "asumiendo LITRO, que es lo que decia la columna. Verifique si en "
                         "realidad eran galones.", esquema)
 
+    # 0.c Inventario: la linea de repuesto de una orden ahora dice de que bodega
+    #     sale. `create_all` no altera tablas existentes, asi que la columna se
+    #     agrega a mano. Vacia significa «la bodega por defecto».
+    async with _conexion(esquema) as conn:
+        existe = await conn.execute(text("SELECT to_regclass(:t)"),
+                                    {"t": f'"{esquema}".eam_ot_material'})
+        if existe.scalar():
+            await conn.execute(text(
+                "ALTER TABLE eam_ot_material ADD COLUMN IF NOT EXISTS bodega_id INTEGER"))
+
     # 1. Crear tablas nuevas (incluye la tabla 'roles')
     async with _conexion(esquema) as conn:
         await conn.run_sync(Base.metadata.create_all)

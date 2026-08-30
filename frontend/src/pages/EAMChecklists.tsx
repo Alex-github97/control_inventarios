@@ -17,7 +17,7 @@ import {
   Avatar,
 } from '@mui/material'
 import {
-  Add, Search, Settings, PhotoCamera, RemoveCircleOutline,
+  Add, Search, Settings, PhotoCamera, RemoveCircleOutline, Download,
   FactCheck, WarningAmber, Assignment, Send, Visibility,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -26,6 +26,7 @@ import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
 import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
 import { apiClient as api } from '@/api/client'
+import { descargarExcel, descargarLibro, hoja } from '@/utils/excel'
 import {
   chkApi, ETIQUETA_RESULTADO,
   type Ejecucion, type DetalleEjecucion, type PreguntaEnEjecucion, type Hallazgo,
@@ -87,6 +88,64 @@ export default function EAMChecklists() {
   const rechazadas = ejecuciones.filter(e => e.resultado === 'RECHAZADO')
   const vencidas = pendientes.filter(p => p.estado === 'VENCIDA')
 
+  const bajarInspecciones = () => descargarExcel('checklists_inspecciones', filtradas, [
+    { titulo: 'Numero', valor: 'numero' },
+    { titulo: 'Fecha', valor: 'fecha_inicio' },
+    { titulo: 'Cierre', valor: 'fecha_fin' },
+    { titulo: 'Activo', valor: 'activo_codigo' },
+    { titulo: 'Nombre del activo', valor: 'activo_nombre' },
+    { titulo: 'Plantilla', valor: 'plantilla' },
+    { titulo: 'Version', valor: 'plantilla_version' },
+    { titulo: 'Conformidad %', valor: 'pct_conforme' },
+    { titulo: 'Preguntas', valor: 'total_items' },
+    { titulo: 'Hallazgos', valor: 'no_conformes' },
+    { titulo: 'Hallazgos criticos', valor: 'criticos_no_conformes' },
+    { titulo: 'Resultado', valor: e => ETIQUETA_RESULTADO[e.resultado] ?? e.resultado },
+    { titulo: 'Estado', valor: e => e.estado === 'BORRADOR' ? 'En curso'
+        : e.estado === 'COMPLETADA' ? 'Cerrada' : 'Anulada' },
+    { titulo: 'Inspector', valor: 'ejecutado_por' },
+    { titulo: 'Firma', valor: 'firma_nombre' },
+    { titulo: 'Orden generada', valor: e => e.ot_id ? 'Si' : '' },
+    { titulo: 'Evidencias', valor: 'fotos' },
+    { titulo: 'Odometro', valor: 'odometro' },
+  ], 'Inspecciones')
+
+  const bajarProgramadas = () => descargarExcel('checklists_programadas', pendientes, [
+    { titulo: 'Activo', valor: 'activo' },
+    { titulo: 'Plantilla', valor: 'plantilla' },
+    { titulo: 'Codigo', valor: 'codigo' },
+    { titulo: 'Ultima', valor: 'ultima_fecha' },
+    { titulo: 'Proxima', valor: 'proxima_fecha' },
+    { titulo: 'Dias', valor: 'dias' },
+    { titulo: 'Estado', valor: 'estado' },
+  ], 'Programadas')
+
+  const bajarTablero = () => {
+    if (!analitica) return
+    descargarLibro('checklists_tablero', [
+      { titulo: 'Por sistema', ws: hoja(analitica.por_sistema, [
+        { titulo: 'Sistema', valor: 'etiqueta' },
+        { titulo: 'Hallazgos', valor: 'cantidad' },
+      ]) },
+      { titulo: 'Preguntas reprobadas', ws: hoja(analitica.preguntas_mas_reprobadas, [
+        { titulo: 'Pregunta', valor: 'etiqueta' },
+        { titulo: 'Sistema', valor: 'sistema' },
+        { titulo: 'Critica', valor: (f: any) => f.critico ? 'Si' : 'No' },
+        { titulo: 'Veces reprobada', valor: 'cantidad' },
+      ]) },
+      { titulo: 'Hallazgos', ws: hoja(analitica.hallazgos, [
+        { titulo: 'Hallazgo', valor: 'etiqueta' },
+        { titulo: 'Severidad', valor: 'severidad' },
+        { titulo: 'Cantidad', valor: 'cantidad' },
+      ]) },
+      { titulo: 'Por marca', ws: hoja(analitica.por_marca, [
+        { titulo: 'Marca', valor: 'etiqueta' },
+        { titulo: 'Inspecciones', valor: 'cantidad' },
+        { titulo: 'Rechazadas', valor: 'rechazadas' },
+      ]) },
+    ])
+  }
+
   return (
     <Layout title="Inspecciones y checklists">
       <Box className="anim-page-in">
@@ -142,10 +201,15 @@ export default function EAMChecklists() {
 
         {tab === 0 && (
           <Box>
-            <TextField size="small" placeholder="Buscar por número, activo o plantilla…"
-              value={busqueda} onChange={e => setBusqueda(e.target.value)}
-              InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }}
-              sx={{ mb: 2, width: 340 }} />
+            <Stack direction="row" spacing={1.5} mb={2} alignItems="center" flexWrap="wrap" useFlexGap>
+              <TextField size="small" placeholder="Buscar por número, activo o plantilla…"
+                value={busqueda} onChange={e => setBusqueda(e.target.value)}
+                InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }}
+                sx={{ width: 340 }} />
+              <Box sx={{ flex: 1 }} />
+              <Button startIcon={<Download />} variant="outlined" onClick={bajarInspecciones}
+                disabled={filtradas.length === 0} sx={{ textTransform: 'none' }}>Excel</Button>
+            </Stack>
             {isLoading ? <Skeleton variant="rectangular" height={300} sx={{ borderRadius: 3 }} /> : (
               <Card sx={{ borderRadius: 3, overflow: 'auto' }}>
                 <Table size="small">
@@ -245,7 +309,13 @@ export default function EAMChecklists() {
         )}
 
         {tab === 1 && (
-          <Card sx={{ borderRadius: 3, overflow: 'auto' }}>
+          <Box>
+            <Stack direction="row" mb={2}>
+              <Box sx={{ flex: 1 }} />
+              <Button startIcon={<Download />} variant="outlined" onClick={bajarProgramadas}
+                disabled={pendientes.length === 0} sx={{ textTransform: 'none' }}>Excel</Button>
+            </Stack>
+            <Card sx={{ borderRadius: 3, overflow: 'auto' }}>
             <Table size="small">
               <TableHead>
                 <TableRow>
@@ -284,11 +354,17 @@ export default function EAMChecklists() {
                 )}
               </TableBody>
             </Table>
-          </Card>
+            </Card>
+          </Box>
         )}
 
         {tab === 2 && analitica && (
           <Box>
+            <Stack direction="row" mb={2}>
+              <Box sx={{ flex: 1 }} />
+              <Button startIcon={<Download />} variant="outlined" onClick={bajarTablero}
+                sx={{ textTransform: 'none' }}>Excel</Button>
+            </Stack>
             <Card sx={{ borderRadius: 3, p: 2.5, mb: 2 }}>
               <Stack direction="row" spacing={3} flexWrap="wrap" useFlexGap
                 divider={<Divider orientation="vertical" flexItem />}>

@@ -109,6 +109,11 @@ from app.infrastructure.models.eam import (
     EAMRegistroCombustible, EAMMetaRendimiento, EAMGarantia, EAMFMEA,
     EAMCalibracion, EAMKPIDiario,
 )
+# Inventario del CMMS: bodegas con jerarquia geografica, existencias por bodega
+# y kardex. `eam_repuesto.stock_actual` pasa a ser un espejo de la suma.
+from app.infrastructure.models.inventario import (
+    InvBodega, InvExistencia, InvMotivo, InvMovimiento,
+)
 # Checklists: reemplaza a las tablas `eam_checklist_*` de arriba, que eran un
 # esqueleto sin forma de responder nada y quedaron vacías en todos los esquemas.
 from app.infrastructure.models.checklist import (

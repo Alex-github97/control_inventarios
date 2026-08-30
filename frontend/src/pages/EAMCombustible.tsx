@@ -18,13 +18,14 @@ import {
 } from '@mui/material'
 import {
   Add, Search, LocalGasStation, WarningAmber, DeleteOutline, Speed,
-  TrendingDown, Flag, Refresh,
+  TrendingDown, Flag, Refresh, Download,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
 import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
 import { apiClient as api } from '@/api/client'
+import { descargarExcel, descargarLibro, hoja } from '@/utils/excel'
 
 const mensaje = (e: any) =>
   e?.response?.data?.detail ?? e?.message ?? 'No se pudo completar la operación'
@@ -121,6 +122,72 @@ export default function EAMCombustible() {
     !busqueda || `${r.placa} ${r.activo_codigo} ${r.estacion} ${r.factura}`
       .toLowerCase().includes(busqueda.toLowerCase()))
 
+  const bajarTanqueos = () => descargarExcel('combustible_tanqueos', filtrados, [
+    { titulo: 'Fecha', valor: 'fecha' },
+    { titulo: 'Placa', valor: r => r.placa ?? r.activo_codigo },
+    { titulo: 'Activo', valor: 'activo_nombre' },
+    { titulo: 'Marca', valor: 'marca' },
+    { titulo: 'Línea', valor: 'linea' },
+    { titulo: 'Combustible', valor: 'tipo_combustible' },
+    { titulo: 'Cantidad', valor: 'cantidad' },
+    { titulo: 'Unidad', valor: 'unidad' },
+    { titulo: 'Precio unitario', valor: 'precio_unitario' },
+    { titulo: 'Subtotal', valor: 'subtotal' },
+    { titulo: 'IVA %', valor: 'iva_pct' },
+    { titulo: 'IVA', valor: 'iva_valor' },
+    { titulo: 'Total', valor: 'costo_total' },
+    { titulo: 'Odómetro', valor: 'odometro' },
+    { titulo: 'Km recorridos', valor: 'km_recorridos' },
+    { titulo: 'Km/galón', valor: 'rendimiento' },
+    { titulo: 'Meta km/gal', valor: 'meta_km_gal' },
+    { titulo: 'Desviación %', valor: 'desviacion_pct' },
+    { titulo: 'Cumple meta', valor: r => r.cumple_meta == null ? 'Sin medir'
+        : r.cumple_meta ? 'Sí' : 'No' },
+    { titulo: 'Tanque lleno', valor: r => r.tanque_lleno ? 'Sí' : 'Parcial' },
+    { titulo: 'Estación', valor: 'estacion' },
+    { titulo: 'Factura', valor: 'factura' },
+    { titulo: 'Conductor', valor: 'conductor' },
+  ], 'Tanqueos')
+
+  const columnasRendimiento = [
+    { titulo: 'Etiqueta', valor: 'etiqueta' as const },
+    { titulo: 'Kilómetros', valor: 'km' as const },
+    { titulo: 'Galones', valor: 'galones' as const },
+    { titulo: 'Km/galón', valor: 'rendimiento' as const },
+    { titulo: 'Meta', valor: 'meta' as const },
+    { titulo: 'Desviación %', valor: 'desviacion_pct' as const },
+    { titulo: 'Costo', valor: 'costo' as const },
+    { titulo: 'Costo por km', valor: 'costo_por_km' as const },
+    { titulo: 'Tanqueos', valor: 'tanqueos' as const },
+    { titulo: 'Tanqueos bajo meta', valor: 'alertas' as const },
+  ]
+
+  const bajarRendimiento = () => {
+    if (!reporte) return
+    descargarLibro('combustible_rendimiento', [
+      { titulo: 'Por vehículo', ws: hoja<FilaRendimiento>(reporte.por_vehiculo, columnasRendimiento) },
+      { titulo: 'Por marca', ws: hoja<FilaRendimiento>(reporte.por_marca, columnasRendimiento) },
+      { titulo: 'Por línea', ws: hoja<FilaRendimiento>(reporte.por_linea, columnasRendimiento) },
+      { titulo: 'Por motor', ws: hoja<FilaRendimiento>(reporte.por_motor, columnasRendimiento) },
+    ])
+  }
+
+  const bajarAlertas = () => descargarExcel('combustible_alertas', alertas, [
+    { titulo: 'Placa', valor: 'placa' },
+    { titulo: 'Activo', valor: 'activo' },
+    { titulo: 'Marca', valor: 'marca' },
+    { titulo: 'Línea', valor: 'linea' },
+    { titulo: 'Motor', valor: 'motor' },
+    { titulo: 'Km/galón', valor: 'rendimiento' },
+    { titulo: 'Meta', valor: 'meta' },
+    { titulo: 'Desviación %', valor: 'desviacion_pct' },
+    { titulo: 'Kilómetros', valor: 'km' },
+    { titulo: 'Galones', valor: 'galones' },
+    { titulo: 'Tanqueos', valor: 'tanqueos' },
+    { titulo: 'Tanqueos bajo meta', valor: 'incumplidos' },
+    { titulo: 'Severidad', valor: 'severidad' },
+  ], 'Alertas')
+
   return (
     <Layout title="Combustible">
       <Box className="anim-page-in">
@@ -165,10 +232,15 @@ export default function EAMCombustible() {
         {/* ── Tanqueos ──────────────────────────────────────────────────── */}
         {tab === 0 && (
           <Box>
+            <Stack direction="row" spacing={1.5} mb={2} alignItems="center" flexWrap="wrap" useFlexGap>
             <TextField size="small" placeholder="Buscar placa, estación o factura…"
               value={busqueda} onChange={e => setBusqueda(e.target.value)}
               InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }}
-              sx={{ mb: 2, width: 320 }} />
+              sx={{ width: 320 }} />
+            <Box sx={{ flex: 1 }} />
+            <Button startIcon={<Download />} variant="outlined" onClick={bajarTanqueos}
+              disabled={filtrados.length === 0} sx={{ textTransform: 'none' }}>Excel</Button>
+            </Stack>
             {isLoading ? <Skeleton variant="rectangular" height={300} sx={{ borderRadius: 3 }} /> : (
               <Card sx={{ borderRadius: 3, overflow: 'auto' }}>
                 <Table size="small">
@@ -280,6 +352,8 @@ export default function EAMCombustible() {
                 <MenuItem value={365}>1 año</MenuItem>
               </TextField>
               <Box sx={{ flex: 1 }} />
+              <Button startIcon={<Download />} variant="outlined" onClick={bajarRendimiento}
+                sx={{ textTransform: 'none' }}>Excel</Button>
               <Button startIcon={<Refresh />} sx={{ textTransform: 'none' }}
                 onClick={() => api.post(`${R}/recalcular`).then((x: any) => {
                   refrescar(); toast.success(`${x.data.recalculados} tanqueos recalculados`)
@@ -336,6 +410,11 @@ export default function EAMCombustible() {
         {/* ── Alertas ───────────────────────────────────────────────────── */}
         {tab === 2 && (
           <Box>
+            <Stack direction="row" mb={2}>
+              <Box sx={{ flex: 1 }} />
+              <Button startIcon={<Download />} variant="outlined" onClick={bajarAlertas}
+                disabled={alertas.length === 0} sx={{ textTransform: 'none' }}>Excel</Button>
+            </Stack>
             <Alert severity="info" sx={{ mb: 2 }}>
               La alerta señala el <b>vehículo</b>, no el tanqueo suelto: un mal tanqueo puede ser
               una carretera en subida, pero un promedio por debajo de la meta es el equipo.
