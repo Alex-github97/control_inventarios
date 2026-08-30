@@ -1,9 +1,78 @@
 /**
  * Cliente de la capa de checklists del CMMS.
  *
- * Todo cuelga de `/eam/chk`: es una capa del CMMS, no un módulo aparte.
+ * La jerarquía de configuración: clasificación → sistema → pregunta. Las
+ * preguntas son un banco global; una plantilla escoge de ahí y declara a qué
+ * tipos de activo aplica.
  */
 import { apiClient as api } from '@/api/client'
+
+// ─── 1 · Clasificación: cómo se responde ─────────────────────────────────────
+
+export interface Opcion {
+  id: number
+  clasificacion_id: number
+  nombre: string
+  orden: number
+  /** true cuenta como conforme, false como hallazgo, null es informativa. */
+  conforme: boolean | null
+  /** De 0 a 1. Cuánto suma del peso de la pregunta: «Regular» puede valer 0,5. */
+  puntaje: number
+  color?: string | null
+}
+
+export interface OpcionEntrada {
+  nombre: string
+  orden?: number
+  conforme?: boolean | null
+  puntaje?: number
+  color?: string | null
+}
+
+export interface Clasificacion {
+  id: number
+  nombre: string
+  descripcion?: string | null
+  /** OPCIONES | NUMERO | TEXTO | FECHA */
+  tipo: string
+  unidad?: string | null
+  valor_min?: number | null
+  valor_max?: number | null
+  activo: boolean
+  opciones: Opcion[]
+  usos?: number
+}
+
+// ─── 2 · Sistema: qué parte del activo ───────────────────────────────────────
+
+export interface Sistema {
+  id: number; codigo?: string | null; nombre: string
+  descripcion?: string | null; orden: number; activo: boolean
+  preguntas?: number
+}
+
+// ─── 3 · Pregunta: el banco global ───────────────────────────────────────────
+
+export interface Pregunta {
+  id: number
+  sistema_id: number
+  clasificacion_id: number
+  texto: string
+  ayuda?: string | null
+  orden: number
+  critico: boolean
+  requiere_foto: boolean
+  exige_observacion_no_conforme: boolean
+  peso: number
+  activo: boolean
+  sistema?: string | null
+  clasificacion?: string | null
+  clasificacion_tipo?: string | null
+  /** En cuántas plantillas se está usando. */
+  usos?: number
+}
+
+// ─── Catálogos de apoyo ──────────────────────────────────────────────────────
 
 export interface Categoria {
   id: number; codigo?: string | null; nombre: string
@@ -12,49 +81,35 @@ export interface Categoria {
 
 export interface Hallazgo {
   id: number; codigo: string; nombre: string; categoria?: string | null
-  /** LEVE | MODERADO | GRAVE */
-  severidad: string
-  descripcion?: string | null; accion_sugerida?: string | null
-  /** Si al marcarlo debe abrirse una orden de trabajo automáticamente. */
-  genera_ot: boolean
-  activo: boolean
+  severidad: string; descripcion?: string | null
+  accion_sugerida?: string | null; genera_ot: boolean; activo: boolean
+}
+
+// ─── 4 · Plantilla ───────────────────────────────────────────────────────────
+
+export interface TipoAplica {
+  id: number; tipo_activo: string
+  marca?: string | null; linea?: string | null
 }
 
 export interface Plantilla {
   id: number; codigo: string; nombre: string
   categoria_id?: number | null; categoria?: string | null
   descripcion?: string | null
-  tipo_activo?: string | null; marca?: string | null; linea?: string | null
-  activo_id?: number | null
   version: number
   periodicidad_dias?: number | null
   requiere_firma: boolean
   umbral_aprobacion: number
-  /** Un ítem crítico no conforme reprueba, sin importar el porcentaje. */
   critico_reprueba: boolean
   genera_ot: boolean
   pide_medidor: boolean
   activo: boolean
-  total_items?: number
+  total_preguntas?: number
   ejecuciones?: number
+  tipos: TipoAplica[]
 }
 
-export interface Seccion {
-  id: number; plantilla_id: number; nombre: string; orden: number
-  descripcion?: string | null; activo?: boolean
-}
-
-export interface Item {
-  id: number; plantilla_id: number; seccion_id?: number | null
-  orden: number; pregunta: string; ayuda?: string | null
-  /** CONFORME_NO | SI_NO | TEXTO | NUMERO | OPCIONES | FECHA | RANGO */
-  tipo: string
-  opciones?: string[] | null; unidad?: string | null
-  valor_min?: number | null; valor_max?: number | null
-  obligatorio: boolean; critico: boolean; requiere_foto: boolean
-  exige_observacion_no_conforme: boolean
-  peso: number; activo?: boolean
-}
+// ─── Ejecución ───────────────────────────────────────────────────────────────
 
 export interface FotoRespuesta {
   id: number; nombre?: string | null; nota?: string | null; url: string
@@ -62,21 +117,40 @@ export interface FotoRespuesta {
 
 export interface RespuestaGuardada {
   id: number
-  valor_texto?: string | null; valor_numero?: number | null
-  valor_bool?: boolean | null
-  conforme?: boolean | null; observacion?: string | null
-  hallazgo_id?: number | null; no_aplica: boolean
+  opcion_id?: number | null
+  valor_texto?: string | null
+  valor_numero?: number | null
+  conforme?: boolean | null
+  puntaje?: number | null
+  observacion?: string | null
+  hallazgo_id?: number | null
+  no_aplica: boolean
   fotos: FotoRespuesta[]
 }
 
-export interface ItemEnEjecucion extends Omit<Item, 'id' | 'plantilla_id' | 'seccion_id' | 'orden' | 'activo'> {
-  item_id: number
+export interface ClasificacionEnPregunta {
+  id: number; nombre: string; tipo: string
+  unidad?: string | null
+  valor_min?: number | null; valor_max?: number | null
+  opciones: { id: number; nombre: string; conforme: boolean | null
+              puntaje: number; color?: string | null }[]
+}
+
+export interface PreguntaEnEjecucion {
+  pregunta_id: number
+  texto: string
+  ayuda?: string | null
+  obligatorio: boolean
+  critico: boolean
+  requiere_foto: boolean
+  peso: number
+  exige_observacion_no_conforme: boolean
+  clasificacion: ClasificacionEnPregunta
   respuesta: RespuestaGuardada | null
 }
 
-export interface BloqueSeccion {
-  id: number | null; nombre: string; descripcion?: string | null
-  items: ItemEnEjecucion[]
+export interface BloqueSistema {
+  id: number; nombre: string; preguntas: PreguntaEnEjecucion[]
 }
 
 export interface Ejecucion {
@@ -85,9 +159,7 @@ export interface Ejecucion {
   activo_id: number; ot_id?: number | null
   ejecutado_por?: string | null
   fecha_inicio: string; fecha_fin?: string | null
-  /** BORRADOR | COMPLETADA | ANULADA */
   estado: string
-  /** APROBADO | APROBADO_CON_OBSERVACIONES | RECHAZADO | PENDIENTE */
   resultado: string
   pct_conforme?: number | null
   total_items: number; no_conformes: number; criticos_no_conformes: number
@@ -107,10 +179,10 @@ export interface DetalleEjecucion {
     requiere_firma: boolean; pide_medidor: boolean; genera_ot: boolean
   } | null
   activo: { id: number; codigo: string; nombre: string
+            tipo_activo?: string | null
             marca?: string | null; linea?: string | null } | null
-  secciones: BloqueSeccion[]
+  sistemas: BloqueSistema[]
   fotos_generales: FotoRespuesta[]
-  /** La plantilla cambió después de abrir esta inspección. */
   version_desactualizada: boolean
 }
 
@@ -118,9 +190,7 @@ export interface Pendiente {
   plantilla_id: number; plantilla: string; codigo: string
   activo_id: number; activo: string
   proxima_fecha: string; ultima_fecha?: string | null
-  dias: number
-  /** VENCIDA | PROXIMA */
-  estado: string
+  dias: number; estado: string
 }
 
 export interface AnaliticaChk {
@@ -128,7 +198,9 @@ export interface AnaliticaChk {
   por_resultado: Record<string, number>
   promedio_conformidad: number | null
   rechazadas: number
-  items_mas_reprobados: { etiqueta: string; critico: boolean; cantidad: number }[]
+  por_sistema: { etiqueta: string; cantidad: number }[]
+  preguntas_mas_reprobadas: {
+    etiqueta: string; critico: boolean; sistema: string; cantidad: number }[]
   hallazgos: { etiqueta: string; severidad: string; cantidad: number }[]
   por_marca: { etiqueta: string; cantidad: number; rechazadas: number }[]
   por_linea: { etiqueta: string; cantidad: number; rechazadas: number }[]
@@ -140,30 +212,48 @@ function catalogo<T>(ruta: string) {
   return {
     listar: (params?: Record<string, any>) =>
       api.get<T[]>(`${R}/${ruta}`, { params }).then(r => r.data),
-    crear: (datos: Partial<T>) => api.post<T>(`${R}/${ruta}`, datos).then(r => r.data),
-    editar: (id: number, datos: Partial<T>) =>
+    crear: (datos: any) => api.post<T>(`${R}/${ruta}`, datos).then(r => r.data),
+    editar: (id: number, datos: any) =>
       api.put<T>(`${R}/${ruta}/${id}`, datos).then(r => r.data),
     borrar: (id: number) => api.delete(`${R}/${ruta}/${id}`).then(r => r.data),
   }
 }
 
 export const chkApi = {
+  clasificaciones: catalogo<Clasificacion>('clasificaciones'),
+  sistemas: catalogo<Sistema>('sistemas'),
+  preguntas: catalogo<Pregunta>('preguntas'),
   categorias: catalogo<Categoria>('categorias'),
   hallazgos: catalogo<Hallazgo>('hallazgos'),
   plantillas: catalogo<Plantilla>('plantillas'),
-  secciones: catalogo<Seccion>('secciones'),
-  items: catalogo<Item>('items'),
 
-  tiposItem: () => api.get<{ clave: string; label: string }[]>(`${R}/tipos-item`).then(r => r.data),
+  tiposClasificacion: () =>
+    api.get<{ clave: string; label: string }[]>(`${R}/tipos-clasificacion`).then(r => r.data),
+
+  /** Las plantillas que aplican a un activo concreto. */
+  plantillasDeActivo: (activo_id: number) =>
+    api.get<Plantilla[]>(`${R}/plantillas`, { params: { activo_id } }).then(r => r.data),
 
   estructura: (pid: number) =>
     api.get<any>(`${R}/plantillas/${pid}/estructura`).then(r => r.data),
 
+  /** Define qué preguntas del banco componen la plantilla. El orden es el de la lista. */
+  fijarPreguntas: (pid: number, pregunta_ids: number[]) =>
+    api.put<any>(`${R}/plantillas/${pid}/preguntas`, { pregunta_ids }).then(r => r.data),
+
+  ajustarPregunta: (ppid: number, datos: any) =>
+    api.put<any>(`${R}/plantilla-preguntas/${ppid}`, datos).then(r => r.data),
+
   duplicar: (pid: number, codigo: string, nombre: string) =>
     api.post<Plantilla>(`${R}/plantillas/${pid}/duplicar`, { codigo, nombre }).then(r => r.data),
 
-  reordenar: (ids: number[]) =>
-    api.put(`${R}/items/reordenar`, { ids }).then(r => r.data),
+  tipos: {
+    listar: (pid: number) =>
+      api.get<TipoAplica[]>(`${R}/plantillas/${pid}/tipos`).then(r => r.data),
+    agregar: (pid: number, datos: any) =>
+      api.post<TipoAplica>(`${R}/plantillas/${pid}/tipos`, datos).then(r => r.data),
+    quitar: (tid: number) => api.delete(`${R}/plantilla-tipos/${tid}`).then(r => r.data),
+  },
 
   ejecuciones: {
     listar: (params?: Record<string, any>) =>
@@ -201,12 +291,9 @@ export const ETIQUETA_RESULTADO: Record<string, string> = {
   PENDIENTE: 'Sin calificar',
 }
 
-export const ETIQUETA_TIPO: Record<string, string> = {
-  CONFORME_NO: 'Conforme / No conforme',
-  SI_NO: 'Sí / No',
+export const ETIQUETA_TIPO_CLASIFICACION: Record<string, string> = {
+  OPCIONES: 'Escoger una opción',
+  NUMERO: 'Un número, con rango aceptable',
   TEXTO: 'Texto libre',
-  NUMERO: 'Número',
-  OPCIONES: 'Lista de opciones',
-  FECHA: 'Fecha',
-  RANGO: 'Rango (1 a 5)',
+  FECHA: 'Una fecha',
 }

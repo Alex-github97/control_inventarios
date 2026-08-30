@@ -17,8 +17,8 @@ import {
   Avatar,
 } from '@mui/material'
 import {
-  Add, Search, Settings, PhotoCamera, CheckCircle, Cancel, RemoveCircleOutline,
-  FactCheck, WarningAmber, Assignment, DeleteOutline, Send, Visibility,
+  Add, Search, Settings, PhotoCamera, RemoveCircleOutline,
+  FactCheck, WarningAmber, Assignment, Send, Visibility,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
@@ -28,7 +28,7 @@ import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
 import { apiClient as api } from '@/api/client'
 import {
   chkApi, ETIQUETA_RESULTADO,
-  type Ejecucion, type DetalleEjecucion, type ItemEnEjecucion, type Hallazgo,
+  type Ejecucion, type DetalleEjecucion, type PreguntaEnEjecucion, type Hallazgo,
 } from '@/api/checklists'
 
 const mensaje = (e: any) =>
@@ -318,19 +318,44 @@ export default function EAMChecklists() {
               <Card sx={{ borderRadius: 3, p: 2.5 }}>
                 <Typography variant="subtitle2" fontWeight={800}>Lo que más se reprueba</Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Donde hay que actuar primero
+                  Suma todas las plantillas: la misma pregunta cuenta una sola vez
                 </Typography>
                 <Stack spacing={1} mt={2}>
-                  {analitica.items_mas_reprobados.map(i => (
+                  {analitica.preguntas_mas_reprobadas.map(i => (
                     <Stack key={i.etiqueta} direction="row" spacing={1} alignItems="center">
-                      <Typography variant="caption" sx={{ flex: 1 }}>{i.etiqueta}</Typography>
-                      {i.critico && <Chip label="Crítico" size="small" sx={{
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="caption" display="block">{i.etiqueta}</Typography>
+                        <Typography variant="caption" color="text.secondary">{i.sistema}</Typography>
+                      </Box>
+                      {i.critico && <Chip label="Crítica" size="small" sx={{
                         height: 17, fontSize: 9, fontWeight: 800,
                         bgcolor: `${ESTADO.peligro}1A`, color: ESTADO.peligro }} />}
                       <Typography variant="caption" sx={{ fontWeight: 800 }}>{i.cantidad}</Typography>
                     </Stack>
                   ))}
-                  {analitica.items_mas_reprobados.length === 0 && (
+                  {analitica.preguntas_mas_reprobadas.length === 0 && (
+                    <Typography variant="body2" sx={{ py: 2, textAlign: 'center', color: PALETA.acero }}>
+                      Sin hallazgos en el periodo
+                    </Typography>
+                  )}
+                </Stack>
+              </Card>
+
+              <Card sx={{ borderRadius: 3, p: 2.5 }}>
+                <Typography variant="subtitle2" fontWeight={800}>Por sistema</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Qué parte del activo concentra los hallazgos
+                </Typography>
+                <Stack spacing={1} mt={2}>
+                  {analitica.por_sistema.map(s => (
+                    <Stack key={s.etiqueta} direction="row" spacing={1} alignItems="center">
+                      <Typography variant="caption" sx={{ flex: 1, fontWeight: 600 }}>
+                        {s.etiqueta}
+                      </Typography>
+                      <Typography variant="caption" sx={{ fontWeight: 800 }}>{s.cantidad}</Typography>
+                    </Stack>
+                  ))}
+                  {analitica.por_sistema.length === 0 && (
                     <Typography variant="body2" sx={{ py: 2, textAlign: 'center', color: PALETA.acero }}>
                       Sin hallazgos en el periodo
                     </Typography>
@@ -378,33 +403,35 @@ export default function EAMChecklists() {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Abrir una inspección: plantilla + activo.
+   Abrir una inspección: PRIMERO el activo, después la plantilla.
+
+   Es el orden natural —se tiene el equipo enfrente— y es el que hace útil la
+   configuración: al elegir el activo solo aparecen las plantillas declaradas
+   para su tipo, en vez de la lista completa.
    ═══════════════════════════════════════════════════════════════════════════ */
 function DialogoAbrir({ onCerrar, onAbierta }: {
   onCerrar: () => void; onAbierta: (id: number) => void
 }) {
-  const [plantilla, setPlantilla] = useState<number | ''>('')
   const [activo, setActivo] = useState<number | ''>('')
+  const [plantilla, setPlantilla] = useState<number | ''>('')
   const [medidor, setMedidor] = useState('')
 
-  const { data: plantillas = [] } = useQuery({
-    queryKey: ['chk-plantillas'], queryFn: () => chkApi.plantillas.listar(),
-  })
   const { data: activos = [] } = useQuery<any[]>({
     queryKey: ['eam-activos-chk'],
     queryFn: () => api.get('/eam/activos').then(r =>
       Array.isArray(r.data) ? r.data : (r.data?.items ?? [])),
   })
 
-  const elegida = plantillas.find(p => p.id === plantilla)
+  // Solo las plantillas declaradas para el tipo de ese activo. La consulta se
+  // hace en el servidor: la regla vive en la configuración, no en la pantalla.
+  const { data: disponibles = [], isFetching } = useQuery({
+    queryKey: ['chk-plantillas-activo', activo],
+    queryFn: () => chkApi.plantillasDeActivo(activo as number),
+    enabled: !!activo,
+  })
 
-  // El alcance de la plantilla filtra los activos: ofrecer un montacargas para
-  // una preoperacional de tractocamión solo invita a equivocarse.
-  const candidatos = useMemo(() => activos.filter(a =>
-    !elegida
-    || ((!elegida.tipo_activo || a.tipo_activo === elegida.tipo_activo)
-        && (!elegida.marca || a.marca === elegida.marca)
-        && (!elegida.linea || a.linea === elegida.linea))), [activos, elegida])
+  const elegida = disponibles.find(p => p.id === plantilla)
+  const equipo = activos.find(a => a.id === activo)
 
   const abrir = useMutation({
     mutationFn: () => chkApi.ejecuciones.abrir({
@@ -412,7 +439,7 @@ function DialogoAbrir({ onCerrar, onAbierta }: {
       odometro: medidor === '' ? null : Number(medidor),
     }),
     onSuccess: (e) => { toast.success(`Inspección ${e.numero} abierta`); onAbierta(e.id) },
-    onError: (e: any) => toast.error(mensaje(e)),
+    onError: (e: any) => toast.error(mensaje(e), { duration: 7000 }),
   })
 
   return (
@@ -420,32 +447,47 @@ function DialogoAbrir({ onCerrar, onAbierta }: {
       <DialogTitle sx={{ fontWeight: 800 }}>Nueva inspección</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2} sx={{ pt: 1 }}>
-          <TextField select size="small" label="Plantilla" value={plantilla}
-            onChange={e => { setPlantilla(Number(e.target.value) || ''); setActivo('') }}>
-            {plantillas.map(p => (
-              <MenuItem key={p.id} value={p.id}>
-                {p.codigo} · {p.nombre} (v{p.version}, {p.total_items ?? 0} preguntas)
+          <TextField select size="small" label="1 · Activo a inspeccionar" value={activo}
+            onChange={e => { setActivo(Number(e.target.value) || ''); setPlantilla('') }}>
+            {activos.map(a => (
+              <MenuItem key={a.id} value={a.id}>
+                {a.codigo} · {a.nombre}
+                {a.tipo_activo ? ` (${a.tipo_activo})` : ''}
               </MenuItem>
             ))}
           </TextField>
+
+          <TextField select size="small" label="2 · Checklist a aplicar" value={plantilla}
+            disabled={!activo || isFetching}
+            helperText={!activo ? 'Escoja primero el activo'
+              : isFetching ? 'Buscando los checklists de ese equipo…'
+              : disponibles.length === 0
+                ? `No hay checklists configurados para activos de tipo ${equipo?.tipo_activo ?? 'sin tipo'}`
+                : `${disponibles.length} configurados para ${equipo?.tipo_activo}`}
+            onChange={e => setPlantilla(Number(e.target.value) || '')}>
+            {disponibles.map(p => (
+              <MenuItem key={p.id} value={p.id}>
+                {p.codigo} · {p.nombre} (v{p.version}, {p.total_preguntas ?? 0} preguntas)
+              </MenuItem>
+            ))}
+          </TextField>
+
+          {activo && !isFetching && disponibles.length === 0 && (
+            <Alert severity="warning" sx={{ py: 0.5 }}>
+              Ninguna plantilla declara el tipo <b>{equipo?.tipo_activo ?? 'sin tipo'}</b>.
+              Agréguelo en Plantillas → armar → «Aplica a estos activos».
+            </Alert>
+          )}
+
           {elegida && (
             <Alert severity="info" sx={{ py: 0.5 }}>
               Aprueba desde {elegida.umbral_aprobacion}% de conformidad
-              {elegida.critico_reprueba && ' · un ítem crítico no conforme la rechaza'}
+              {elegida.critico_reprueba && ' · una pregunta crítica no conforme la rechaza'}
               {elegida.requiere_firma && ' · exige firma'}
               {elegida.genera_ot && ' · abre orden de trabajo si hay hallazgos'}
             </Alert>
           )}
-          <TextField select size="small" label="Activo" value={activo}
-            disabled={!plantilla}
-            helperText={elegida && candidatos.length < activos.length
-              ? `Filtrado por el alcance de la plantilla: ${candidatos.length} de ${activos.length} activos`
-              : undefined}
-            onChange={e => setActivo(Number(e.target.value) || '')}>
-            {candidatos.map(a => (
-              <MenuItem key={a.id} value={a.id}>{a.codigo} · {a.nombre}</MenuItem>
-            ))}
-          </TextField>
+
           {elegida?.pide_medidor && (
             <TextField size="small" label="Lectura del equipo" type="number" value={medidor}
               onChange={e => setMedidor(e.target.value)}
@@ -465,7 +507,9 @@ function DialogoAbrir({ onCerrar, onAbierta }: {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Llenar la inspección. Guarda a medida, no al final.
+   Llenar la inspección. Guarda a medida que se responde, no al final: una
+   inspección de cuarenta preguntas en un patio con mala señal no se puede
+   perder porque falte una.
    ═══════════════════════════════════════════════════════════════════════════ */
 function DialogoLlenar({ eid, onCerrar }: { eid: number; onCerrar: () => void }) {
   const qc = useQueryClient()
@@ -482,18 +526,21 @@ function DialogoLlenar({ eid, onCerrar }: { eid: number; onCerrar: () => void })
 
   const cerrada = data?.ejecucion.estado !== 'BORRADOR'
 
-  // Se parte de lo ya guardado para que reabrir una inspección a medias no la
-  // muestre en blanco.
+  // Se parte de lo ya guardado: reabrir una inspección a medias no debe
+  // mostrarla en blanco.
   useEffect(() => {
     if (!data) return
     const inicial: Record<number, any> = {}
-    for (const s of data.secciones) {
-      for (const i of s.items) {
-        if (i.respuesta) {
-          inicial[i.item_id] = {
-            valor_texto: i.respuesta.valor_texto, valor_numero: i.respuesta.valor_numero,
-            valor_bool: i.respuesta.valor_bool, observacion: i.respuesta.observacion,
-            hallazgo_id: i.respuesta.hallazgo_id, no_aplica: i.respuesta.no_aplica,
+    for (const s of data.sistemas) {
+      for (const q of s.preguntas) {
+        if (q.respuesta) {
+          inicial[q.pregunta_id] = {
+            opcion_id: q.respuesta.opcion_id,
+            valor_texto: q.respuesta.valor_texto,
+            valor_numero: q.respuesta.valor_numero,
+            observacion: q.respuesta.observacion,
+            hallazgo_id: q.respuesta.hallazgo_id,
+            no_aplica: q.respuesta.no_aplica,
           }
         }
       }
@@ -515,17 +562,16 @@ function DialogoLlenar({ eid, onCerrar }: { eid: number; onCerrar: () => void })
     onSuccess: (r: any) => {
       toast.success(
         `${ETIQUETA_RESULTADO[r.resultado] ?? r.resultado} · ${r.pct_conforme ?? 0}% conforme`
-        + (r.ot_creada ? ` · se abrió ${r.ot_creada.numero}` : ''),
-        { duration: 6000 })
+        + (r.ot_creada ? ` · se abrió ${r.ot_creada.numero}` : ''), { duration: 6000 })
       onCerrar()
     },
     onError: (e: any) => toast.error(mensaje(e), { duration: 7000 }),
   })
 
   const subir = useMutation({
-    mutationFn: ({ archivo, item_id }: { archivo: File; item_id: number }) => {
-      const respuesta = data?.secciones.flatMap(s => s.items)
-        .find(i => i.item_id === item_id)?.respuesta
+    mutationFn: ({ archivo, pregunta_id }: { archivo: File; pregunta_id: number }) => {
+      const respuesta = data?.sistemas.flatMap(s => s.preguntas)
+        .find(q => q.pregunta_id === pregunta_id)?.respuesta
       return chkApi.ejecuciones.subirFoto(eid, archivo, respuesta?.id)
     },
     onSuccess: () => {
@@ -535,20 +581,20 @@ function DialogoLlenar({ eid, onCerrar }: { eid: number; onCerrar: () => void })
     onError: (e: any) => toast.error(mensaje(e)),
   })
 
-  /** Guarda un ítem apenas se responde. Una inspección larga no se puede perder. */
-  const responder = (item_id: number, cambio: Record<string, any>) => {
-    const actual = { ...(borrador[item_id] ?? {}), ...cambio }
-    setBorrador(prev => ({ ...prev, [item_id]: actual }))
-    guardar.mutate([{ item_id, ...actual }])
+  /** Guarda la pregunta apenas se responde. */
+  const responder = (pregunta_id: number, cambio: Record<string, any>) => {
+    const actual = { ...(borrador[pregunta_id] ?? {}), ...cambio }
+    setBorrador(prev => ({ ...prev, [pregunta_id]: actual }))
+    guardar.mutate([{ pregunta_id, ...actual }])
   }
 
-  const items = data?.secciones.flatMap(s => s.items) ?? []
-  const respondidos = items.filter(i => {
-    const b = borrador[i.item_id]
-    return b && (b.valor_bool != null || b.valor_numero != null
+  const preguntas = data?.sistemas.flatMap(s => s.preguntas) ?? []
+  const respondidas = preguntas.filter(q => {
+    const b = borrador[q.pregunta_id]
+    return b && (b.opcion_id != null || b.valor_numero != null
                  || (b.valor_texto ?? '') !== '' || b.no_aplica)
   }).length
-  const avance = items.length ? Math.round(respondidos / items.length * 100) : 0
+  const avance = preguntas.length ? Math.round(respondidas / preguntas.length * 100) : 0
 
   return (
     <Dialog open onClose={onCerrar} maxWidth="md" fullWidth>
@@ -569,7 +615,7 @@ function DialogoLlenar({ eid, onCerrar }: { eid: number; onCerrar: () => void })
           <Box sx={{ mt: 1 }}>
             <Stack direction="row" justifyContent="space-between">
               <Typography variant="caption" color="text.secondary">
-                {respondidos} de {items.length} respondidas
+                {respondidas} de {preguntas.length} respondidas
               </Typography>
               <Typography variant="caption" sx={{ fontWeight: 700 }}>{avance}%</Typography>
             </Stack>
@@ -584,24 +630,24 @@ function DialogoLlenar({ eid, onCerrar }: { eid: number; onCerrar: () => void })
           <Box>
             {data.version_desactualizada && (
               <Alert severity="info" sx={{ mb: 2 }}>
-                Esta inspección se llenó con la versión {data.ejecucion.plantilla_version} de la
-                plantilla y la actual es la {data.plantilla?.version_actual}. Se conserva como
-                se firmó: las preguntas pueden no coincidir con las de una inspección reciente.
+                Se llenó con la versión {data.ejecucion.plantilla_version} de la plantilla y la
+                actual es la {data.plantilla?.version_actual}. Se conserva como se firmó.
               </Alert>
             )}
 
-            {data.secciones.map(seccion => (
-              <Box key={String(seccion.id)} mb={2.5}>
+            {data.sistemas.map(sistema => (
+              <Box key={sistema.id} mb={2.5}>
                 <Typography variant="caption" sx={{
                   fontWeight: 800, letterSpacing: '0.08em', color: PALETA.grafito }}>
-                  {seccion.nombre.toUpperCase()}
+                  {sistema.nombre.toUpperCase()}
                 </Typography>
                 <Stack spacing={1.25} mt={1}>
-                  {seccion.items.map(item => (
-                    <FilaItem key={item.item_id} item={item} valor={borrador[item.item_id] ?? {}}
+                  {sistema.preguntas.map(q => (
+                    <FilaPregunta key={q.pregunta_id} q={q}
+                      valor={borrador[q.pregunta_id] ?? {}}
                       hallazgos={hallazgos} soloLectura={cerrada}
-                      onCambio={c => responder(item.item_id, c)}
-                      onFoto={f => subir.mutate({ archivo: f, item_id: item.item_id })} />
+                      onCambio={c => responder(q.pregunta_id, c)}
+                      onFoto={f => subir.mutate({ archivo: f, pregunta_id: q.pregunta_id })} />
                   ))}
                 </Stack>
               </Box>
@@ -614,8 +660,7 @@ function DialogoLlenar({ eid, onCerrar }: { eid: number; onCerrar: () => void })
                 onChange={e => setObservaciones(e.target.value)} />
               {data.plantilla?.requiere_firma && (
                 <TextField size="small" label="Firma de quien inspecciona" value={firma}
-                  disabled={cerrada} required
-                  onChange={e => setFirma(e.target.value)}
+                  disabled={cerrada} required onChange={e => setFirma(e.target.value)}
                   helperText="Esta plantilla exige firma para poder cerrarse" />
               )}
             </Stack>
@@ -637,115 +682,125 @@ function DialogoLlenar({ eid, onCerrar }: { eid: number; onCerrar: () => void })
   )
 }
 
-/** Una pregunta con su control según el tipo. */
-function FilaItem({ item, valor, hallazgos, soloLectura, onCambio, onFoto }: {
-  item: ItemEnEjecucion; valor: Record<string, any>; hallazgos: Hallazgo[]
+/**
+ * Una pregunta con el control que dicte su clasificación.
+ *
+ * Va a nivel de módulo y no dentro del padre: definida adentro, React la
+ * trataría como un tipo nuevo en cada render y la remontaría a cada tecla,
+ * perdiendo el foco del campo de observación.
+ */
+function FilaPregunta({ q, valor, hallazgos, soloLectura, onCambio, onFoto }: {
+  q: PreguntaEnEjecucion; valor: Record<string, any>; hallazgos: Hallazgo[]
   soloLectura: boolean
   onCambio: (c: Record<string, any>) => void
   onFoto: (f: File) => void
 }) {
-  const noConforme = valor.valor_bool === false
-    || (item.tipo === 'NUMERO' && valor.valor_numero != null
-        && ((item.valor_min != null && valor.valor_numero < item.valor_min)
-            || (item.valor_max != null && valor.valor_numero > item.valor_max)))
+  const cla = q.clasificacion
+  const opcion = cla.opciones.find(o => o.id === valor.opcion_id)
 
-  const fotos = item.respuesta?.fotos ?? []
+  // Fuera del rango declarado se marca no conforme solo, igual que en el
+  // servidor: el inspector ve el rojo antes de guardar.
+  const fueraDeRango = cla.tipo === 'NUMERO' && valor.valor_numero != null
+    && ((cla.valor_min != null && valor.valor_numero < cla.valor_min)
+        || (cla.valor_max != null && valor.valor_numero > cla.valor_max))
+  const noConforme = !valor.no_aplica && (opcion?.conforme === false || fueraDeRango)
+  const conforme = !valor.no_aplica && (opcion?.conforme === true
+    || (cla.tipo === 'NUMERO' && valor.valor_numero != null && !fueraDeRango))
+
+  const fotos = q.respuesta?.fotos ?? []
 
   return (
     <Card variant="outlined" sx={{
       p: 1.5, borderRadius: 2,
       borderLeft: `3px solid ${valor.no_aplica ? PALETA.acero
         : noConforme ? ESTADO.peligro
-        : valor.valor_bool === true ? ESTADO.exito : PALETA.niebla}`,
+        : conforme ? ESTADO.exito : PALETA.niebla}`,
     }}>
       <Stack direction="row" spacing={1.5} alignItems="flex-start" flexWrap="wrap" useFlexGap>
         <Box sx={{ flex: 1, minWidth: 220 }}>
           <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>{item.pregunta}</Typography>
-            {item.critico && <Chip label="Crítico" size="small" sx={{
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>{q.texto}</Typography>
+            {q.critico && <Chip label="Crítica" size="small" sx={{
               height: 16, fontSize: 9, fontWeight: 800,
               bgcolor: `${ESTADO.peligro}1A`, color: ESTADO.peligro }} />}
-            {item.peso !== 1 && (
+            {q.peso !== 1 && (
               <Tooltip title="Peso al calcular la conformidad">
-                <Chip label={`×${item.peso}`} size="small" sx={{
+                <Chip label={`×${q.peso}`} size="small" sx={{
                   height: 16, fontSize: 9, fontWeight: 700,
                   bgcolor: `${PALETA.acero}1A`, color: PALETA.grafito }} />
               </Tooltip>
             )}
           </Stack>
-          {item.ayuda && (
-            <Typography variant="caption" color="text.secondary">{item.ayuda}</Typography>
+          {q.ayuda && (
+            <Typography variant="caption" color="text.secondary">{q.ayuda}</Typography>
           )}
-          {item.tipo === 'NUMERO' && (item.valor_min != null || item.valor_max != null) && (
+          {cla.tipo === 'NUMERO' && (cla.valor_min != null || cla.valor_max != null) && (
             <Typography variant="caption" display="block" color="text.secondary">
-              Rango aceptable: {item.valor_min ?? '—'} a {item.valor_max ?? '—'} {item.unidad}
+              Aceptable de {cla.valor_min ?? '—'} a {cla.valor_max ?? '—'} {cla.unidad}
             </Typography>
           )}
         </Box>
 
         <Box>
-          {(item.tipo === 'CONFORME_NO' || item.tipo === 'SI_NO') && (
+          {cla.tipo === 'OPCIONES' && (
             <ToggleButtonGroup exclusive size="small" disabled={soloLectura}
-              value={valor.no_aplica ? 'na' : valor.valor_bool === true ? 'si'
-                : valor.valor_bool === false ? 'no' : null}
-              onChange={(_, v) => {
+              value={valor.no_aplica ? 'na' : (valor.opcion_id ?? null)}
+              onChange={(_: any, v: any) => {
                 if (v === null) return
                 onCambio(v === 'na'
-                  ? { no_aplica: true, valor_bool: null }
-                  : { no_aplica: false, valor_bool: v === 'si' })
+                  ? { no_aplica: true, opcion_id: null }
+                  : { no_aplica: false, opcion_id: v })
               }}>
-              <ToggleButton value="si" sx={{ textTransform: 'none', px: 1.5 }}>
-                <CheckCircle sx={{ fontSize: 16, mr: 0.5,
-                  color: valor.valor_bool === true ? ESTADO.exito : 'inherit' }} />
-                {item.tipo === 'SI_NO' ? 'Sí' : 'Conforme'}
-              </ToggleButton>
-              <ToggleButton value="no" sx={{ textTransform: 'none', px: 1.5 }}>
-                <Cancel sx={{ fontSize: 16, mr: 0.5,
-                  color: valor.valor_bool === false ? ESTADO.peligro : 'inherit' }} />
-                No
-              </ToggleButton>
+              {cla.opciones.map(o => (
+                <ToggleButton key={o.id} value={o.id} sx={{
+                  textTransform: 'none', px: 1.5,
+                  '&.Mui-selected': {
+                    bgcolor: `${o.conforme === true ? ESTADO.exito
+                      : o.conforme === false ? ESTADO.peligro : PALETA.acero}22`,
+                    color: o.conforme === true ? ESTADO.exito
+                      : o.conforme === false ? ESTADO.peligro : PALETA.grafito,
+                    fontWeight: 800,
+                  },
+                }}>
+                  {o.nombre}
+                </ToggleButton>
+              ))}
               <Tooltip title="El equipo no tiene este componente. Sale del cálculo en vez de contar como fallo.">
-                <ToggleButton value="na" sx={{ textTransform: 'none', px: 1.5 }}>
-                  <RemoveCircleOutline sx={{ fontSize: 16, mr: 0.5 }} />N/A
+                <ToggleButton value="na" sx={{ textTransform: 'none', px: 1.25 }}>
+                  <RemoveCircleOutline sx={{ fontSize: 15, mr: 0.4 }} />N/A
                 </ToggleButton>
               </Tooltip>
             </ToggleButtonGroup>
           )}
-          {item.tipo === 'NUMERO' && (
-            <TextField size="small" type="number" sx={{ width: 150 }} disabled={soloLectura}
-              label={item.unidad ?? 'Valor'} value={valor.valor_numero ?? ''}
-              onChange={e => onCambio({
-                valor_numero: e.target.value === '' ? null : Number(e.target.value) })} />
+          {cla.tipo === 'NUMERO' && (
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              <TextField size="small" type="number" sx={{ width: 140 }} disabled={soloLectura}
+                label={cla.unidad ?? 'Valor'} error={fueraDeRango}
+                value={valor.valor_numero ?? ''}
+                onChange={e => onCambio({ no_aplica: false,
+                  valor_numero: e.target.value === '' ? null : Number(e.target.value) })} />
+              <Tooltip title="No aplica">
+                <IconButton size="small" disabled={soloLectura}
+                  color={valor.no_aplica ? 'primary' : 'default'}
+                  onClick={() => onCambio({ no_aplica: !valor.no_aplica, valor_numero: null })}>
+                  <RemoveCircleOutline fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Stack>
           )}
-          {(item.tipo === 'TEXTO' || item.tipo === 'FECHA') && (
-            <TextField size="small" sx={{ width: 200 }} disabled={soloLectura}
-              type={item.tipo === 'FECHA' ? 'date' : 'text'}
-              InputLabelProps={item.tipo === 'FECHA' ? { shrink: true } : undefined}
+          {(cla.tipo === 'TEXTO' || cla.tipo === 'FECHA') && (
+            <TextField size="small" sx={{ width: 210 }} disabled={soloLectura}
+              type={cla.tipo === 'FECHA' ? 'date' : 'text'}
+              InputLabelProps={cla.tipo === 'FECHA' ? { shrink: true } : undefined}
               value={valor.valor_texto ?? ''}
               onChange={e => onCambio({ valor_texto: e.target.value })} />
           )}
-          {item.tipo === 'OPCIONES' && (
-            <TextField select size="small" sx={{ width: 190 }} disabled={soloLectura}
-              value={valor.valor_texto ?? ''}
-              onChange={e => onCambio({ valor_texto: e.target.value })}>
-              {(item.opciones ?? []).map(o => <MenuItem key={o} value={o}>{o}</MenuItem>)}
-            </TextField>
-          )}
-          {item.tipo === 'RANGO' && (
-            <ToggleButtonGroup exclusive size="small" disabled={soloLectura}
-              value={valor.valor_numero ?? null}
-              onChange={(_, v) => v != null && onCambio({ valor_numero: v })}>
-              {[1, 2, 3, 4, 5].map(n => (
-                <ToggleButton key={n} value={n} sx={{ px: 1.25 }}>{n}</ToggleButton>
-              ))}
-            </ToggleButtonGroup>
-          )}
         </Box>
 
-        {(item.requiere_foto || fotos.length > 0) && !soloLectura && (
-          <Tooltip title={item.requiere_foto ? 'Esta pregunta pide evidencia' : 'Agregar evidencia'}>
+        {(q.requiere_foto || fotos.length > 0) && !soloLectura && (
+          <Tooltip title={q.requiere_foto ? 'Esta pregunta pide evidencia' : 'Agregar evidencia'}>
             <IconButton component="label" size="small" sx={{
-              color: item.requiere_foto && fotos.length === 0 ? ESTADO.alerta : undefined }}>
+              color: q.requiere_foto && fotos.length === 0 ? ESTADO.alerta : undefined }}>
               <PhotoCamera fontSize="small" />
               <input hidden type="file" accept="image/*,.pdf" capture="environment"
                 onChange={e => { const f = e.target.files?.[0]; if (f) onFoto(f) }} />
@@ -754,28 +809,26 @@ function FilaItem({ item, valor, hallazgos, soloLectura, onCambio, onFoto }: {
         )}
       </Stack>
 
-      {noConforme && !valor.no_aplica && (
-        <Stack spacing={1} mt={1.25}>
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            <TextField select size="small" label="Hallazgo" sx={{ minWidth: 200 }}
-              disabled={soloLectura} value={valor.hallazgo_id ?? ''}
-              helperText="Tipificarlo permite agruparlo en el tablero"
-              onChange={e => onCambio({ hallazgo_id: Number(e.target.value) || null })}>
-              <MenuItem value="">Sin tipificar</MenuItem>
-              {hallazgos.map(h => (
-                <MenuItem key={h.id} value={h.id}>
-                  {h.nombre}{h.genera_ot ? ' · abre OT' : ''}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField size="small" label="Qué se encontró" sx={{ flex: 1, minWidth: 240 }}
-              disabled={soloLectura} value={valor.observacion ?? ''}
-              required={item.exige_observacion_no_conforme}
-              error={item.exige_observacion_no_conforme && !(valor.observacion ?? '').trim()}
-              helperText={item.exige_observacion_no_conforme
-                ? 'Obligatorio para poder cerrar la inspección' : undefined}
-              onChange={e => onCambio({ observacion: e.target.value })} />
-          </Stack>
+      {noConforme && (
+        <Stack direction="row" spacing={1} mt={1.25} flexWrap="wrap" useFlexGap>
+          <TextField select size="small" label="Hallazgo" sx={{ minWidth: 200 }}
+            disabled={soloLectura} value={valor.hallazgo_id ?? ''}
+            helperText="Tipificarlo permite agruparlo en el tablero"
+            onChange={e => onCambio({ hallazgo_id: Number(e.target.value) || null })}>
+            <MenuItem value="">Sin tipificar</MenuItem>
+            {hallazgos.map(h => (
+              <MenuItem key={h.id} value={h.id}>
+                {h.nombre}{h.genera_ot ? ' · abre OT' : ''}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField size="small" label="Qué se encontró" sx={{ flex: 1, minWidth: 240 }}
+            disabled={soloLectura} value={valor.observacion ?? ''}
+            required={q.exige_observacion_no_conforme}
+            error={q.exige_observacion_no_conforme && !(valor.observacion ?? '').trim()}
+            helperText={q.exige_observacion_no_conforme
+              ? 'Obligatorio para poder cerrar la inspección' : undefined}
+            onChange={e => onCambio({ observacion: e.target.value })} />
         </Stack>
       )}
 
@@ -784,7 +837,8 @@ function FilaItem({ item, valor, hallazgos, soloLectura, onCambio, onFoto }: {
           {fotos.map(f => (
             <Tooltip key={f.id} title={f.nombre ?? 'Evidencia'}>
               <Avatar variant="rounded" src={f.url} sx={{
-                width: 48, height: 48, cursor: 'pointer', border: `1px solid ${PALETA.niebla}` }}
+                width: 48, height: 48, cursor: 'pointer',
+                border: `1px solid ${PALETA.niebla}` }}
                 onClick={() => window.open(f.url, '_blank')} />
             </Tooltip>
           ))}
