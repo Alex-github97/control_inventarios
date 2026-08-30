@@ -23,6 +23,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { apiClient as api } from '@/api/client'
 import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
+import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
+import { SelectorResponsable } from '@/components/catalogo/SelectorResponsable'
 
 interface Porque { pregunta: string; respuesta: string }
 interface Accion {
@@ -207,8 +209,10 @@ export function CausaRaizOT({ otId, otNumero }: { otId: number; otNumero?: strin
           <TextField label="Fecha del análisis" type="date" size="small" fullWidth
             InputLabelProps={{ shrink: true }} value={rca.fecha_analisis ?? ''}
             onChange={e => set('fecha_analisis', e.target.value)} />
-          <TextField label="Analista" size="small" fullWidth value={rca.analista ?? ''}
-            onChange={e => set('analista', e.target.value)} />
+          {/* El analista es una persona, no un catálogo: sale de la nómina,
+              por la misma razón que los responsables de los demás módulos. */}
+          <SelectorResponsable label="Analista" valor={rca.analista ?? ''}
+            onChange={v => set('analista', v)} sx={{ flex: 1 }} />
           <TextField select label="Metodología" size="small" fullWidth value={rca.metodologia}
             onChange={e => set('metodologia', e.target.value)}>
             {METODOLOGIAS.map(m => <MenuItem key={m.v} value={m.v}>{m.l}</MenuItem>)}
@@ -223,15 +227,21 @@ export function CausaRaizOT({ otId, otNumero }: { otId: number; otNumero?: strin
           value={rca.descripcion_evento ?? ''}
           onChange={e => set('descripcion_evento', e.target.value)} />
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-          <TextField label="Cómo se detectó" size="small" fullWidth value={rca.deteccion ?? ''}
-            onChange={e => set('deteccion', e.target.value)} />
-          <TextField label="Modo de falla" size="small" fullWidth value={rca.modo_falla ?? ''}
-            onChange={e => set('modo_falla', e.target.value)}
-            helperText="Cómo se manifestó" />
-          <TextField label="Categoría de causa" size="small" fullWidth
-            value={rca.categoria_causa ?? ''}
-            onChange={e => set('categoria_causa', e.target.value)}
-            helperText="Es lo que después se agrupa en el tablero" />
+          {/* Las tres son listas del catálogo y no texto libre: son justo lo
+              que el tablero de causas agrupa. Escritas a mano, «fuga de
+              aceite» y «Fuga aceite» cuentan como dos causas y el Pareto
+              queda partido. Se configuran en CMMS · Configuración · Catálogos. */}
+          <SelectorCatalogo modulo="EAM" tipo="METODO_DETECCION"
+            label="Cómo se detectó" valor={rca.deteccion ?? ''}
+            onChange={v => set('deteccion', v)} sx={{ flex: 1 }} />
+          <SelectorCatalogo modulo="EAM" tipo="MODO_FALLA"
+            label="Modo de falla" valor={rca.modo_falla ?? ''}
+            onChange={v => set('modo_falla', v)}
+            ayuda="Cómo se manifestó" sx={{ flex: 1 }} />
+          <SelectorCatalogo modulo="EAM" tipo="CATEGORIA_CAUSA"
+            label="Categoría de causa" valor={rca.categoria_causa ?? ''}
+            onChange={v => set('categoria_causa', v)}
+            ayuda="Es lo que después se agrupa en el tablero" sx={{ flex: 1 }} />
         </Stack>
 
         <Divider textAlign="left"><Typography variant="caption">Consecuencias</Typography></Divider>
@@ -321,10 +331,13 @@ export function CausaRaizOT({ otId, otNumero }: { otId: number; otNumero?: strin
                 <TextField size="small" label="Qué se hará" value={a.descripcion} sx={{ flex: 1 }}
                   onChange={e => set('acciones', rca.acciones.map((x, j) =>
                     j === i ? { ...x, descripcion: e.target.value } : x))} />
-                <TextField size="small" label="Responsable" value={a.responsable ?? ''}
-                  sx={{ minWidth: 150 }}
-                  onChange={e => set('acciones', rca.acciones.map((x, j) =>
-                    j === i ? { ...x, responsable: e.target.value } : x))} />
+                {/* Quien responde por la acción también sale de la nómina: una
+                    acción a cargo de un nombre que ya no trabaja acá es una
+                    acción que nadie va a cerrar. */}
+                <SelectorResponsable valor={a.responsable ?? ''}
+                  sx={{ minWidth: 180 }}
+                  onChange={v => set('acciones', rca.acciones.map((x, j) =>
+                    j === i ? { ...x, responsable: v } : x))} />
                 <TextField size="small" label="Compromiso" type="date"
                   InputLabelProps={{ shrink: true }} sx={{ minWidth: 150 }}
                   value={a.fecha_compromiso ?? ''}

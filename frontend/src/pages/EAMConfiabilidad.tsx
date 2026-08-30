@@ -26,6 +26,7 @@ import { Layout } from '@/components/layout/Layout'
 import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
 import { apiClient as api } from '@/api/client'
 import { descargarExcel, descargarLibro, hoja } from '@/utils/excel'
+import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
 
 const R = '/eam/confiabilidad'
 
@@ -598,9 +599,14 @@ function FMEA() {
             <TextField size="small" label="Función" value={f.funcion ?? ''}
               onChange={e => setF({ ...f, funcion: e.target.value })}
               helperText="Qué debe hacer el componente cuando está sano" />
-            <TextField size="small" label="Modo de falla" value={f.modo_falla ?? ''}
-              onChange={e => setF({ ...f, modo_falla: e.target.value })}
-              helperText="Cómo deja de cumplir esa función" />
+            {/* La misma lista que usa el análisis de causa raíz. Si el FMEA
+                tuviera la suya, no se podría contrastar lo que se preveía que
+                fallara contra lo que efectivamente falló, que es justamente
+                para lo que sirve tener los dos. */}
+            <SelectorCatalogo modulo="EAM" tipo="MODO_FALLA" label="Modo de falla"
+              valor={f.modo_falla ?? ''}
+              onChange={v => setF({ ...f, modo_falla: v })}
+              ayuda="Cómo deja de cumplir esa función" />
             <TextField size="small" label="Efecto de la falla" multiline rows={2}
               value={f.efecto_falla ?? ''}
               onChange={e => setF({ ...f, efecto_falla: e.target.value })} />

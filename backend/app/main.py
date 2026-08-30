@@ -1423,6 +1423,73 @@ async def _migrar_esquema(esquema: str) -> None:
             ON CONFLICT DO NOTHING
         """))
 
+        # Clasificación del análisis de causa raíz. Es lo que el tablero de
+        # causas agrupa, así que arranca sembrado: pedirle a quien hace el
+        # primer análisis que además invente la taxonomía es la forma segura de
+        # terminar con una categoría por analista.
+        await conn.execute(text("""
+            INSERT INTO catalogo_maestro (modulo, tipo, nombre, padre_id, orden, activo, created_at, updated_at)
+            SELECT 'EAM', 'METODO_DETECCION', v.nombre, NULL, v.orden, true, now(), now()
+            FROM (VALUES
+                ('Reporte del operador', 1),
+                ('Inspección preoperacional', 2),
+                ('Rutina de mantenimiento preventivo', 3),
+                ('Análisis de aceite', 4),
+                ('Inspección de llantas', 5),
+                ('Alarma o telemetría del equipo', 6),
+                ('Falla en operación', 7),
+                ('Auditoría o inspección de seguridad', 8),
+                ('Reporte del taller o contratista', 9)
+            ) AS v(nombre, orden)
+            ON CONFLICT DO NOTHING
+        """))
+        # El modo de falla es CÓMO se manifestó, no por qué. Se mantiene
+        # genérico a propósito: sirve para un tractocamión y para una planta
+        # eléctrica, que es lo que permite compararlos en el mismo tablero.
+        await conn.execute(text("""
+            INSERT INTO catalogo_maestro (modulo, tipo, nombre, padre_id, orden, activo, created_at, updated_at)
+            SELECT 'EAM', 'MODO_FALLA', v.nombre, NULL, v.orden, true, now(), now()
+            FROM (VALUES
+                ('Fuga', 1),
+                ('Rotura o fractura', 2),
+                ('Desgaste excesivo', 3),
+                ('Sobrecalentamiento', 4),
+                ('Vibración anormal', 5),
+                ('Ruido anormal', 6),
+                ('No arranca', 7),
+                ('Pérdida de potencia', 8),
+                ('Falla eléctrica o de señal', 9),
+                ('Obstrucción u obturación', 10),
+                ('Corrosión', 11),
+                ('Aflojamiento o desajuste', 12),
+                ('Contaminación del fluido', 13),
+                ('Falla del control o del software', 14)
+            ) AS v(nombre, orden)
+            ON CONFLICT DO NOTHING
+        """))
+        # La categoría de causa sigue las 6M, que es la clasificación que casi
+        # cualquier analista de mantenimiento reconoce sin que haya que
+        # explicarle la lista.
+        await conn.execute(text("""
+            INSERT INTO catalogo_maestro (modulo, tipo, nombre, padre_id, orden, activo, created_at, updated_at)
+            SELECT 'EAM', 'CATEGORIA_CAUSA', v.nombre, NULL, v.orden, true, now(), now()
+            FROM (VALUES
+                ('Falta de mantenimiento', 1),
+                ('Mantenimiento mal ejecutado', 2),
+                ('Desgaste normal por vida útil', 3),
+                ('Error de operación', 4),
+                ('Repuesto de mala calidad', 5),
+                ('Falla de diseño o especificación', 6),
+                ('Sobrecarga del equipo', 7),
+                ('Condiciones de la vía o del entorno', 8),
+                ('Contaminación o suciedad', 9),
+                ('Lubricación inadecuada', 10),
+                ('Falta de repuesto o demora logística', 11),
+                ('Causa no determinada', 12)
+            ) AS v(nombre, orden)
+            ON CONFLICT DO NOTHING
+        """))
+
         # Los catálogos del CMMS se unificaron en el catálogo maestro: antes
         # `eam_catalogo_activo` tenía su propia lista de áreas, centros de costo
         # y cuentas contables, en paralelo a las compartidas. Se migran los

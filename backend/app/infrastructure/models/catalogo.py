@@ -113,6 +113,16 @@ CATALOGOS_REGISTRO = [
     _c("EAM", "TECNICO", "Técnicos del taller interno", "Quién puede atender una OT propia",
        "ESPECIALIDAD_TECNICO"),
 
+    # ── CMMS · análisis de causa raíz ────────────────────────────────────
+    # Estos tres son la clasificación del análisis, y son justo lo que el
+    # tablero agrupa para responder «cuál es la falla que más nos cuesta».
+    # En texto libre, «fuga de aceite», «Fuga aceite» y «FUGA DE ACEITE»
+    # cuentan como tres causas distintas y el Pareto queda partido: no es que
+    # el informe se vea feo, es que deja de poder sumarse.
+    _c("EAM", "METODO_DETECCION", "Métodos de detección", "Cómo nos enteramos de la falla"),
+    _c("EAM", "MODO_FALLA", "Modos de falla", "Cómo se manifestó la falla"),
+    _c("EAM", "CATEGORIA_CAUSA", "Categorías de causa", "Por qué ocurrió: es lo que agrupa el tablero"),
+
     # ── Almacén WMS ──────────────────────────────────────────────────────
     _c("WMS", "CATEGORIA_PRODUCTO", "Categorías de producto", "Primer nivel del surtido"),
     _c("WMS", "SUBCATEGORIA_PRODUCTO", "Subcategorías", "Depende de la categoría", "CATEGORIA_PRODUCTO"),

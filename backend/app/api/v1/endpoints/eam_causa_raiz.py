@@ -34,6 +34,7 @@ from app.infrastructure.models.eam import (
     EAMCausaRaiz, EAMCausaRaizAccion, EAMCausaRaizEvidencia,
     EAMOrdenTrabajo, EAMActivo, METODOLOGIAS_RCA, ESTADOS_RCA,
 )
+from app.infrastructure.models.catalogo import CatalogoMaestro
 
 router = APIRouter(prefix="/eam", tags=["CMMS/EAM"])
 
@@ -157,6 +158,41 @@ async def ver(ot_id: int, db: AsyncSession = Depends(get_db)):
     return await _armar(db, rca) if rca else None
 
 
+# La clasificación del análisis sale de estos catálogos del maestro. La pantalla
+# ya los ofrece como listas, pero un valor puede llegar por importación o venir
+# de un análisis escrito antes de que las listas existieran.
+CATALOGOS_CLASIFICACION = {
+    "deteccion": "METODO_DETECCION",
+    "modo_falla": "MODO_FALLA",
+    "categoria_causa": "CATEGORIA_CAUSA",
+}
+
+
+async def _normalizar_clasificacion(db: AsyncSession, campos: Dict[str, Any]) -> None:
+    """Deja la clasificación escrita como está en el catálogo. Modifica en sitio.
+
+    No rechaza lo que no reconoce, y es a propósito: un análisis se guarda en
+    borrador varias veces y bloquear el guardado por una palabra que todavía no
+    está en la lista sería peor que el problema. Lo que sí hace es que «fuga de
+    aceite» y «FUGA DE ACEITE» dejen de contar como dos causas distintas, que es
+    lo único que impide que el tablero las sume.
+    """
+    pendientes = {c: (campos.get(c) or "").strip()
+                  for c in CATALOGOS_CLASIFICACION if campos.get(c)}
+    if not pendientes:
+        return
+    r = await db.execute(select(CatalogoMaestro).where(
+        CatalogoMaestro.modulo == "EAM",
+        CatalogoMaestro.tipo.in_(set(CATALOGOS_CLASIFICACION.values())),
+        CatalogoMaestro.activo.is_(True)))
+    por_tipo: Dict[str, Dict[str, str]] = {}
+    for valor in r.scalars().all():
+        por_tipo.setdefault(valor.tipo, {})[valor.nombre.strip().lower()] = valor.nombre
+    for campo, texto in pendientes.items():
+        oficial = por_tipo.get(CATALOGOS_CLASIFICACION[campo], {}).get(texto.lower())
+        campos[campo] = oficial or texto
+
+
 @router.put("/ots/{ot_id}/causa-raiz", response_model=CausaRaiz)
 async def guardar(
     ot_id: int, data: CausaRaiz, request: Request,
@@ -198,6 +234,7 @@ async def guardar(
     campos = data.model_dump(exclude={"id", "ot_id", "acciones", "evidencias",
                                       "ot_numero", "activo_id", "porques"},
                              exclude_unset=True)
+    await _normalizar_clasificacion(db, campos)
     for campo, valor in campos.items():
         setattr(rca, campo, valor)
     if data.porques is not None:

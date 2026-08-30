@@ -7,6 +7,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
@@ -67,8 +68,26 @@ def _nombre_completo(c: HCMColaborador) -> str:
     return f"{c.nombres} {c.apellidos}"
 
 
+# La ficha del colaborador muestra el nombre de su empresa, sede, área, cargo y
+# jefe. Esas relaciones se cargan perezosamente, y en un endpoint asíncrono una
+# carga perezosa no puede hacer su consulta: revienta con `MissingGreenlet`.
+#
+# El efecto era que el módulo de nómina funcionaba mientras estuviera vacío y
+# empezaba a responder 500 —al listar y al crear— apenas hubiera un colaborador,
+# que es justo cuando alguien lo iba a usar. Se piden por adelantado.
+_RELACIONES_COLABORADOR = (
+    selectinload(HCMColaborador.empresa),
+    selectinload(HCMColaborador.sede),
+    selectinload(HCMColaborador.area),
+    selectinload(HCMColaborador.cargo),
+    selectinload(HCMColaborador.jefe),
+)
+
+
 async def _get_colaborador_or_404(db: AsyncSession, colaborador_id: int) -> HCMColaborador:
-    r = await db.execute(select(HCMColaborador).where(
+    r = await db.execute(select(HCMColaborador)
+                         .options(*_RELACIONES_COLABORADOR)
+                         .where(
         HCMColaborador.id == colaborador_id,
         HCMColaborador.deleted_at.is_(None),
     ))
@@ -534,11 +553,17 @@ async def listar_colaboradores(
     cargo_id: Optional[int] = None,
     q: Optional[str] = None,
     page: int = Query(1, ge=1),
-    per_page: int = Query(20, ge=1, le=100),
+    # El tope era 100 y esta lista no solo se pagina: también alimenta los
+    # selectores de responsable de los demás módulos, que necesitan la nómina
+    # entera de una vez. Pedían 200 y 500, recibían un 422, y el desplegable
+    # quedaba vacío sin que nada lo dijera: el campo se veía normal, solo que
+    # no ofrecía a nadie.
+    per_page: int = Query(20, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
-    stmt = select(HCMColaborador).where(HCMColaborador.deleted_at.is_(None))
+    stmt = (select(HCMColaborador).options(*_RELACIONES_COLABORADOR)
+            .where(HCMColaborador.deleted_at.is_(None)))
     if empresa_id:
         stmt = stmt.where(HCMColaborador.empresa_id == empresa_id)
     if estado_laboral:
@@ -593,7 +618,10 @@ async def crear_colaborador(
     c = HCMColaborador(**payload)
     db.add(c)
     await db.commit()
-    await db.refresh(c)
+    # Se relee con sus relaciones: un `refresh` deja los nombres de empresa,
+    # sede, área, cargo y jefe sin cargar, y armar la respuesta los pediría en
+    # pleno contexto asíncrono.
+    c = await _get_colaborador_or_404(db, c.id)
     return HCMColaboradorResponse(**_build_colaborador_response(c))
 
 

@@ -525,8 +525,10 @@ export function CatalogoVehiculos({ color = '#1A1A1A' }: { color?: string }) {
           Otros catálogos del CMMS
         </Typography>
         <Typography variant="caption" color="text.secondary" display="block" mb={1.5}>
-          Tipos y especialidades de contratista, más los catálogos compartidos con el resto
-          de la plataforma (ciudades, sedes, áreas, cargos, centros de costo, cuentas).
+          Tipos y especialidades de contratista, la clasificación del análisis de causa raíz
+          (métodos de detección, modos de falla y categorías de causa), más los catálogos
+          compartidos con el resto de la plataforma (ciudades, sedes, áreas, cargos, centros
+          de costo, cuentas).
         </Typography>
         <AdminCatalogos modulo="EAM" color={color} />
       </Box>
