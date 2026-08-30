@@ -134,6 +134,23 @@ CONTENIDO_INICIAL: Dict[str, Any] = {
          "texto": "Montaje y rotación arrastrando a la posición, con inspección, "
                   "kilometraje y fecha obligatorios, y el historial completo de cada "
                   "llanta."},
+        {"clave": "CB", "titulo": "Control de combustible",
+         "texto": "Tanqueos con su costo e IVA, y rendimiento en kilómetros por "
+                  "galón medido tanque a tanque. Metas por marca, línea y motor, "
+                  "con alerta cuando un vehículo se queda por debajo."},
+        {"clave": "LB", "titulo": "Análisis de lubricación",
+         "texto": "Muestras de aceite por compartimento, con límites propios por "
+                  "familia de equipo: el valor absoluto, la velocidad a la que sube "
+                  "y la referencia de la flota. Detecta el desgaste antes de que el "
+                  "límite se cruce."},
+        {"clave": "CH", "titulo": "Inspecciones preoperativas",
+         "texto": "Checklists configurables por sistema del equipo, con evidencia "
+                  "fotográfica y firma. Un hallazgo crítico reprueba la inspección y "
+                  "abre la orden de trabajo sola."},
+        {"clave": "IN", "titulo": "Inventario de repuestos",
+         "texto": "Existencias por bodega con kárdex y costo promedio. Las órdenes "
+                  "de trabajo descuentan solas, y el informe de rotación muestra qué "
+                  "está dormido en el estante."},
     ],
     "garantias": [
         {"clave": "01", "titulo": "No se arrastra con la operación encima",
