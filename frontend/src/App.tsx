@@ -230,6 +230,7 @@ const EAMOrdenesTrabajo = React.lazy(() => import('@/pages/EAMOrdenesTrabajo'))
 const EAMPlanesMant = React.lazy(() => import('@/pages/EAMPlanesMant'))
 const EAMChecklists = React.lazy(() => import('@/pages/EAMChecklists'))
 const EAMLubricacion = React.lazy(() => import('@/pages/EAMLubricacion'))
+const EAMLubricacionConfig = React.lazy(() => import('@/pages/EAMLubricacionConfig'))
 const EAMNeumaticos = React.lazy(() => import('@/pages/EAMNeumaticos'))
 const EAMNeumaticosReportes = React.lazy(() => import('@/pages/EAMNeumaticosReportes'))
 const AGSDashboard = React.lazy(() => import('@/pages/AGSDashboard'))
@@ -613,6 +614,7 @@ export default function App() {
             <Route path="/eam/planes" element={<ProtectedRoute><EAMPlanesMant /></ProtectedRoute>} />
             <Route path="/eam/checklists" element={<ProtectedRoute><EAMChecklists /></ProtectedRoute>} />
             <Route path="/eam/lubricacion" element={<ProtectedRoute><EAMLubricacion /></ProtectedRoute>} />
+            <Route path="/eam/lubricacion/config" element={<ProtectedRoute><EAMLubricacionConfig /></ProtectedRoute>} />
             <Route path="/eam/neumaticos" element={<ProtectedRoute><EAMNeumaticos /></ProtectedRoute>} />
             <Route path="/eam/neumaticos/reportes" element={<ProtectedRoute><EAMNeumaticosReportes /></ProtectedRoute>} />
             <Route path="/eam/combustible" element={<ProtectedRoute><EAMCombustible /></ProtectedRoute>} />
