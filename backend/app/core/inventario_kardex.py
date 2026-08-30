@@ -154,9 +154,20 @@ async def sincronizar_orden(db: AsyncSession, ot, usuario: Optional[str] = None
 
     defecto = await bodega_por_defecto(db)
 
+    # Las líneas se leen de la tabla y no de `ot.repuestos`. Leerlas por la
+    # relación funcionaba mientras la orden traía material, pero una orden sin
+    # repuestos —una revisión, un diagnóstico, una orden recién abierta— dejaba
+    # la colección sin cargar y el acceso intentaba una consulta perezosa en
+    # pleno contexto asíncrono: `MissingGreenlet`, y la orden no se creaba.
+    # Después del flush la tabla ya tiene lo mismo que la relación, así que
+    # preguntarle a ella es igual de correcto y no depende de si SQLAlchemy
+    # alcanzó a cargarla.
+    r = await db.execute(select(EAMOTMaterial).where(EAMOTMaterial.ot_id == ot.id))
+    lineas = list(r.scalars().all())
+
     # Lo que la orden pide hoy, por repuesto y bodega.
     requerido: Dict[Tuple[int, int], float] = {}
-    for linea in (ot.repuestos or []):
+    for linea in lineas:
         if not linea.repuesto_id:
             continue   # material suelto, sin catálogo: no toca inventario
         bodega_id = getattr(linea, "bodega_id", None) or (defecto.id if defecto else None)
@@ -173,6 +184,11 @@ async def sincronizar_orden(db: AsyncSession, ot, usuario: Optional[str] = None
         clave = (m.repuesto_id, m.bodega_id)
         signo = 1 if m.tipo in TIPOS_SALIDA else -1
         despachado[clave] = despachado.get(clave, 0) + signo * m.cantidad
+
+    # El material sale el día del trabajo, no el día en que se digitó la orden.
+    # Con la fecha de hoy, una orden registrada con atraso mandaba su consumo al
+    # mes equivocado y el kárdex dejaba de cuadrar con el costo del periodo.
+    fecha_salida = getattr(ot, "fecha_fin", None) or getattr(ot, "fecha_inicio", None)
 
     movimientos = 0
     sin_existencia: List[Dict[str, Any]] = []
@@ -195,11 +211,13 @@ async def sincronizar_orden(db: AsyncSession, ot, usuario: Optional[str] = None
                 })
             await mover(db, repuesto_id=repuesto_id, bodega_id=bodega_id,
                         tipo="SALIDA", cantidad=delta, ot_id=ot.id,
+                        fecha=fecha_salida,
                         observaciones=f"Orden de trabajo {ot.numero}",
                         usuario=usuario)
         else:
             await mover(db, repuesto_id=repuesto_id, bodega_id=bodega_id,
                         tipo="DEVOLUCION", cantidad=-delta, ot_id=ot.id,
+                        fecha=fecha_salida,
                         observaciones=f"Devolución por ajuste de la orden {ot.numero}",
                         usuario=usuario)
         movimientos += 1

@@ -12,7 +12,7 @@ decidir dónde vive cada cosa.
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -102,6 +102,16 @@ class TipoTrabajoBase(BaseModel):
 class TipoTrabajoResponse(TipoTrabajoBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
+
+    # Un tipo de trabajo creado por la ruta corta —o importado— deja estas dos
+    # banderas en NULL, y entonces la respuesta no validaba y la pantalla de
+    # configuración entera respondía 500. Un NULL acá significa «no se declaró»,
+    # que para una bandera es lo mismo que «no»: se traduce y se sigue, en vez
+    # de tumbar el listado completo por dos columnas sin llenar.
+    @field_validator("requiere_taller", "requiere_materiales", mode="before")
+    @classmethod
+    def _sin_declarar_es_no(cls, v):
+        return False if v is None else v
 
 
 @router.get("/catalogos/tipos-trabajo-completo", response_model=List[TipoTrabajoResponse])

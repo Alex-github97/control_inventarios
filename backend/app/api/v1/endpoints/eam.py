@@ -3,7 +3,7 @@ from zoneinfo import ZoneInfo
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import select, func, and_, or_
+from sqlalchemy import select, func, and_, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -34,6 +34,7 @@ from app.infrastructure.models.eam import (
 )
 from app.infrastructure.models.tms import TMSVehiculo
 from app.infrastructure.models.flota import FlotaVehiculo
+from app.infrastructure.models.checklist import ChkEjecucion
 from sqlalchemy.orm import selectinload
 
 router = APIRouter(prefix="/eam", tags=["eam"])
@@ -1976,6 +1977,13 @@ async def delete_ot(ot_id: int, db: AsyncSession = Depends(get_db)):
     # El material vuelve a la bodega. Dejarlo descontado convertiria el
     # inventario en un faltante permanente que nadie puede explicar.
     await revertir_orden(db, ot_id)
+    # Una inspeccion que reprueba genera su orden y guarda a cual apunta. Si
+    # despues se borra la orden, esa referencia queda colgando y el borrado
+    # reventaba con un 500 sin decir por que. Se suelta el vinculo: la
+    # inspeccion conserva su propio registro y la orden se puede borrar.
+    await db.execute(
+        update(ChkEjecucion).where(ChkEjecucion.ot_id == ot_id).values(ot_id=None)
+    )
     await db.delete(obj)
     await db.commit()
 

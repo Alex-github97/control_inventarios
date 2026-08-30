@@ -16,12 +16,39 @@ NAMING_CONVENTION = {
 
 metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
+def _url_sin_cache_de_planes(url: str) -> str:
+    """Agrega `prepared_statement_cache_size=0` a la URL de conexión.
+
+    El dialecto de asyncpg lee ese ajuste de la URL y no de `create_engine`:
+    pasarlo como argumento tumba el arranque con `Invalid argument(s)`.
+    """
+    if "prepared_statement_cache_size" in url:
+        return url
+    return url + ("&" if "?" in url else "?") + "prepared_statement_cache_size=0"
+
+
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    _url_sin_cache_de_planes(settings.DATABASE_URL),
     pool_size=settings.DATABASE_POOL_SIZE,
     max_overflow=settings.DATABASE_MAX_OVERFLOW,
     pool_pre_ping=True,
     echo=settings.DEBUG,
+    # ── Sin caché de planes: es la otra cara del `search_path` ──
+    #
+    # asyncpg prepara cada consulta y guarda su plan en la conexión, con el SQL
+    # como llave. Pero acá el mismo SQL no siempre habla de la misma tabla: al
+    # cambiar de cliente cambia el `search_path`, y `SELECT ... FROM eam_activo`
+    # deja de referirse a la tabla que el plan tenía resuelta.
+    #
+    # Lo que se veía en producción era un 500 esporádico —
+    # `InvalidCachedStatementError`— en pantallas que consultan catálogos, y
+    # nunca en local, donde hay un solo cliente y el esquema no rota. Se caía
+    # justo después de que la conexión hubiera atendido a otra empresa.
+    #
+    # Apagar la caché cuesta un poco de tiempo por consulta y es el precio de
+    # tener un esquema por cliente. La alternativa —adivinar cuándo invalidar—
+    # es la misma clase de suposición que ya había fallado. El ajuste va en la
+    # URL, arriba: como argumento de `create_async_engine` no lo acepta.
 )
 
 AsyncSessionLocal = async_sessionmaker(
