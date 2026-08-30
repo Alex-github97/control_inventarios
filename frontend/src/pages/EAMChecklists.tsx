@@ -23,6 +23,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
+import { Layout } from '@/components/layout/Layout'
 import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
 import { apiClient as api } from '@/api/client'
 import {
@@ -87,290 +88,292 @@ export default function EAMChecklists() {
   const vencidas = pendientes.filter(p => p.estado === 'VENCIDA')
 
   return (
-    <Box className="anim-page-in">
-      <Stack direction="row" alignItems="flex-start" spacing={2} mb={2.5} flexWrap="wrap" useFlexGap>
-        <Box sx={{ flex: 1, minWidth: 240 }}>
-          <Typography variant="h6" fontWeight={800}>Inspecciones y checklists</Typography>
-          <Typography variant="caption" color="text.secondary">
-            Con evidencia fotográfica, hallazgos tipificados y orden de trabajo automática
-          </Typography>
-        </Box>
-        <Button startIcon={<Settings />} variant="outlined"
-          onClick={() => navigate('/eam/checklists/config')} sx={{ textTransform: 'none' }}>
-          Plantillas
-        </Button>
-        <Button startIcon={<Add />} variant="contained" onClick={() => setAbriendo(true)}
-          disabled={plantillas.length === 0}
-          sx={{ textTransform: 'none', fontWeight: 700 }}>
-          Nueva inspección
-        </Button>
-      </Stack>
-
-      {plantillas.length === 0 && (
-        <Alert severity="info" sx={{ mb: 2 }} action={
-          <Button size="small" onClick={() => navigate('/eam/checklists/config')}>
-            Crear plantilla
+    <Layout title="Inspecciones y checklists">
+      <Box className="anim-page-in">
+        <Stack direction="row" alignItems="flex-start" spacing={2} mb={2.5} flexWrap="wrap" useFlexGap>
+          <Box sx={{ flex: 1, minWidth: 240 }}>
+            <Typography variant="h6" fontWeight={800}>Inspecciones y checklists</Typography>
+            <Typography variant="caption" color="text.secondary">
+              Con evidencia fotográfica, hallazgos tipificados y orden de trabajo automática
+            </Typography>
+          </Box>
+          <Button startIcon={<Settings />} variant="outlined"
+            onClick={() => navigate('/eam/checklists/config')} sx={{ textTransform: 'none' }}>
+            Plantillas
           </Button>
-        }>
-          No hay plantillas todavía. Una plantilla define qué se revisa, con qué peso y qué
-          se considera crítico.
-        </Alert>
-      )}
+          <Button startIcon={<Add />} variant="contained" onClick={() => setAbriendo(true)}
+            disabled={plantillas.length === 0}
+            sx={{ textTransform: 'none', fontWeight: 700 }}>
+            Nueva inspección
+          </Button>
+        </Stack>
 
-      {vencidas.length > 0 && (
-        <Alert severity="warning" icon={<WarningAmber />} sx={{ mb: 2 }}>
-          Hay {vencidas.length} {vencidas.length === 1 ? 'inspección vencida' : 'inspecciones vencidas'}:{' '}
-          {vencidas.slice(0, 3).map(p => `${p.activo} · ${p.codigo}`).join(' · ')}
-        </Alert>
-      )}
+        {plantillas.length === 0 && (
+          <Alert severity="info" sx={{ mb: 2 }} action={
+            <Button size="small" onClick={() => navigate('/eam/checklists/config')}>
+              Crear plantilla
+            </Button>
+          }>
+            No hay plantillas todavía. Una plantilla define qué se revisa, con qué peso y qué
+            se considera crítico.
+          </Alert>
+        )}
 
-      {rechazadas.length > 0 && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {rechazadas.length} {rechazadas.length === 1 ? 'inspección rechazada' : 'inspecciones rechazadas'}.
-          Esos equipos no deberían estar operando sin revisión.
-        </Alert>
-      )}
+        {vencidas.length > 0 && (
+          <Alert severity="warning" icon={<WarningAmber />} sx={{ mb: 2 }}>
+            Hay {vencidas.length} {vencidas.length === 1 ? 'inspección vencida' : 'inspecciones vencidas'}:{' '}
+            {vencidas.slice(0, 3).map(p => `${p.activo} · ${p.codigo}`).join(' · ')}
+          </Alert>
+        )}
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)}
-        sx={{ mb: 2.5, borderBottom: `1px solid ${PALETA.niebla}` }}>
-        <Tab label={`Inspecciones (${ejecuciones.length})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
-        <Tab label={`Programadas (${pendientes.length})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
-        <Tab label="Tablero" sx={{ textTransform: 'none', fontWeight: 700 }} />
-      </Tabs>
+        {rechazadas.length > 0 && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {rechazadas.length} {rechazadas.length === 1 ? 'inspección rechazada' : 'inspecciones rechazadas'}.
+            Esos equipos no deberían estar operando sin revisión.
+          </Alert>
+        )}
 
-      {tab === 0 && (
-        <Box>
-          <TextField size="small" placeholder="Buscar por número, activo o plantilla…"
-            value={busqueda} onChange={e => setBusqueda(e.target.value)}
-            InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }}
-            sx={{ mb: 2, width: 340 }} />
-          {isLoading ? <Skeleton variant="rectangular" height={300} sx={{ borderRadius: 3 }} /> : (
-            <Card sx={{ borderRadius: 3, overflow: 'auto' }}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    {['NÚMERO', 'ACTIVO', 'PLANTILLA', 'FECHA', 'CONFORMIDAD',
-                      'RESULTADO', 'ESTADO', ''].map(h => (
-                      <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11 }}>{h}</TableCell>
-                    ))}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filtradas.map(e => (
-                    <TableRow key={e.id} hover>
-                      <TableCell sx={{ fontFamily: 'monospace', fontWeight: 700 }}>
-                        {e.numero}
-                        {(e.fotos ?? 0) > 0 && (
-                          <Tooltip title={`${e.fotos} evidencias`}>
-                            <PhotoCamera sx={{ fontSize: 13, ml: 0.5, color: PALETA.acero }} />
-                          </Tooltip>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 700 }}>
-                          {e.activo_codigo}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {e.activo_nombre}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">{e.plantilla}</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          v{e.plantilla_version}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>{fecha(e.fecha_inicio)}</TableCell>
-                      <TableCell>
-                        {e.pct_conforme != null ? (
-                          <Box sx={{ minWidth: 90 }}>
-                            <Typography variant="caption" sx={{ fontWeight: 800 }}>
-                              {e.pct_conforme}%
-                            </Typography>
-                            <LinearProgress variant="determinate" value={e.pct_conforme} sx={{
-                              mt: 0.3, height: 5, borderRadius: 99, bgcolor: PALETA.niebla,
-                              '& .MuiLinearProgress-bar': {
-                                borderRadius: 99, bgcolor: colorResultado(e.resultado) },
-                            }} />
-                            {e.no_conformes > 0 && (
-                              <Typography variant="caption" color="text.secondary">
-                                {e.no_conformes} hallazgos
-                                {e.criticos_no_conformes > 0 && ` · ${e.criticos_no_conformes} críticos`}
+        <Tabs value={tab} onChange={(_, v) => setTab(v)}
+          sx={{ mb: 2.5, borderBottom: `1px solid ${PALETA.niebla}` }}>
+          <Tab label={`Inspecciones (${ejecuciones.length})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
+          <Tab label={`Programadas (${pendientes.length})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
+          <Tab label="Tablero" sx={{ textTransform: 'none', fontWeight: 700 }} />
+        </Tabs>
+
+        {tab === 0 && (
+          <Box>
+            <TextField size="small" placeholder="Buscar por número, activo o plantilla…"
+              value={busqueda} onChange={e => setBusqueda(e.target.value)}
+              InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }}
+              sx={{ mb: 2, width: 340 }} />
+            {isLoading ? <Skeleton variant="rectangular" height={300} sx={{ borderRadius: 3 }} /> : (
+              <Card sx={{ borderRadius: 3, overflow: 'auto' }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      {['NÚMERO', 'ACTIVO', 'PLANTILLA', 'FECHA', 'CONFORMIDAD',
+                        'RESULTADO', 'ESTADO', ''].map(h => (
+                        <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11 }}>{h}</TableCell>
+                      ))}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {filtradas.map(e => (
+                      <TableRow key={e.id} hover>
+                        <TableCell sx={{ fontFamily: 'monospace', fontWeight: 700 }}>
+                          {e.numero}
+                          {(e.fotos ?? 0) > 0 && (
+                            <Tooltip title={`${e.fotos} evidencias`}>
+                              <PhotoCamera sx={{ fontSize: 13, ml: 0.5, color: PALETA.acero }} />
+                            </Tooltip>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 700 }}>
+                            {e.activo_codigo}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {e.activo_nombre}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">{e.plantilla}</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            v{e.plantilla_version}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>{fecha(e.fecha_inicio)}</TableCell>
+                        <TableCell>
+                          {e.pct_conforme != null ? (
+                            <Box sx={{ minWidth: 90 }}>
+                              <Typography variant="caption" sx={{ fontWeight: 800 }}>
+                                {e.pct_conforme}%
                               </Typography>
-                            )}
-                          </Box>
-                        ) : '—'}
-                      </TableCell>
-                      <TableCell><Resultado valor={e.resultado} /></TableCell>
-                      <TableCell>
-                        <Chip label={e.estado === 'BORRADOR' ? 'En curso'
-                          : e.estado === 'COMPLETADA' ? 'Cerrada' : 'Anulada'} size="small" sx={{
-                            height: 19, fontSize: 10, fontWeight: 700,
-                            bgcolor: e.estado === 'BORRADOR' ? `${COLOR_MODULO}1A` : `${PALETA.acero}1A`,
-                            color: e.estado === 'BORRADOR' ? COLOR_MODULO : PALETA.grafito }} />
-                      </TableCell>
-                      <TableCell align="right">
-                        <Tooltip title={e.estado === 'BORRADOR' ? 'Continuar' : 'Ver'}>
-                          <IconButton size="small" onClick={() => setLlenando(e.id)}>
-                            {e.estado === 'BORRADOR'
-                              ? <Assignment fontSize="small" />
-                              : <Visibility fontSize="small" />}
-                          </IconButton>
-                        </Tooltip>
-                        {e.ot_id && (
-                          <Tooltip title="Ver la orden de trabajo generada">
-                            <IconButton size="small"
-                              onClick={() => navigate('/eam/ordenes-trabajo')}>
-                              <Send fontSize="small" />
+                              <LinearProgress variant="determinate" value={e.pct_conforme} sx={{
+                                mt: 0.3, height: 5, borderRadius: 99, bgcolor: PALETA.niebla,
+                                '& .MuiLinearProgress-bar': {
+                                  borderRadius: 99, bgcolor: colorResultado(e.resultado) },
+                              }} />
+                              {e.no_conformes > 0 && (
+                                <Typography variant="caption" color="text.secondary">
+                                  {e.no_conformes} hallazgos
+                                  {e.criticos_no_conformes > 0 && ` · ${e.criticos_no_conformes} críticos`}
+                                </Typography>
+                              )}
+                            </Box>
+                          ) : '—'}
+                        </TableCell>
+                        <TableCell><Resultado valor={e.resultado} /></TableCell>
+                        <TableCell>
+                          <Chip label={e.estado === 'BORRADOR' ? 'En curso'
+                            : e.estado === 'COMPLETADA' ? 'Cerrada' : 'Anulada'} size="small" sx={{
+                              height: 19, fontSize: 10, fontWeight: 700,
+                              bgcolor: e.estado === 'BORRADOR' ? `${COLOR_MODULO}1A` : `${PALETA.acero}1A`,
+                              color: e.estado === 'BORRADOR' ? COLOR_MODULO : PALETA.grafito }} />
+                        </TableCell>
+                        <TableCell align="right">
+                          <Tooltip title={e.estado === 'BORRADOR' ? 'Continuar' : 'Ver'}>
+                            <IconButton size="small" onClick={() => setLlenando(e.id)}>
+                              {e.estado === 'BORRADOR'
+                                ? <Assignment fontSize="small" />
+                                : <Visibility fontSize="small" />}
                             </IconButton>
                           </Tooltip>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {filtradas.length === 0 && (
-                    <TableRow><TableCell colSpan={8} sx={{ py: 5, textAlign: 'center' }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Todavía no hay inspecciones registradas.
-                      </Typography>
-                    </TableCell></TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </Card>
-          )}
-        </Box>
-      )}
-
-      {tab === 1 && (
-        <Card sx={{ borderRadius: 3, overflow: 'auto' }}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                {['ACTIVO', 'PLANTILLA', 'ÚLTIMA', 'PRÓXIMA', 'ESTADO', ''].map(h => (
-                  <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11 }}>{h}</TableCell>
-                ))}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {pendientes.map(p => (
-                <TableRow key={`${p.plantilla_id}-${p.activo_id}`} hover>
-                  <TableCell sx={{ fontFamily: 'monospace', fontWeight: 700 }}>{p.activo}</TableCell>
-                  <TableCell>{p.plantilla}</TableCell>
-                  <TableCell>{fecha(p.ultima_fecha)}</TableCell>
-                  <TableCell>{fecha(p.proxima_fecha)}</TableCell>
-                  <TableCell>
-                    <Chip label={p.estado === 'VENCIDA'
-                      ? `Vencida hace ${Math.abs(p.dias)} d` : `En ${p.dias} d`}
-                      size="small" sx={{
-                        height: 20, fontSize: 10, fontWeight: 700,
-                        bgcolor: p.estado === 'VENCIDA' ? `${ESTADO.peligro}1A` : `${ESTADO.alerta}1A`,
-                        color: p.estado === 'VENCIDA' ? ESTADO.peligro : ESTADO.alerta }} />
-                  </TableCell>
-                  <TableCell align="right">
-                    <Button size="small" sx={{ textTransform: 'none' }}
-                      onClick={() => setAbriendo(true)}>Inspeccionar</Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {pendientes.length === 0 && (
-                <TableRow><TableCell colSpan={6} sx={{ py: 5, textAlign: 'center' }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Nada programado en los próximos días.
-                  </Typography>
-                </TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </Card>
-      )}
-
-      {tab === 2 && analitica && (
-        <Box>
-          <Card sx={{ borderRadius: 3, p: 2.5, mb: 2 }}>
-            <Stack direction="row" spacing={3} flexWrap="wrap" useFlexGap
-              divider={<Divider orientation="vertical" flexItem />}>
-              <Box sx={{ flex: 1, minWidth: 130 }}>
-                <Typography variant="caption" color="text.secondary">Inspecciones</Typography>
-                <Typography variant="h6" fontWeight={800}>{analitica.total}</Typography>
-              </Box>
-              <Box sx={{ flex: 1, minWidth: 150 }}>
-                <Typography variant="caption" color="text.secondary">Conformidad promedio</Typography>
-                <Typography variant="h6" fontWeight={800}>
-                  {analitica.promedio_conformidad != null
-                    ? `${analitica.promedio_conformidad}%` : '—'}
-                </Typography>
-              </Box>
-              <Box sx={{ flex: 1, minWidth: 130 }}>
-                <Typography variant="caption" color="text.secondary">Rechazadas</Typography>
-                <Typography variant="h6" fontWeight={800} sx={{
-                  color: analitica.rechazadas ? ESTADO.peligro : ESTADO.exito }}>
-                  {analitica.rechazadas}
-                </Typography>
-              </Box>
-            </Stack>
-          </Card>
-
-          <Box sx={{ display: 'grid', gap: 2,
-            gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
-            <Card sx={{ borderRadius: 3, p: 2.5 }}>
-              <Typography variant="subtitle2" fontWeight={800}>Lo que más se reprueba</Typography>
-              <Typography variant="caption" color="text.secondary">
-                Donde hay que actuar primero
-              </Typography>
-              <Stack spacing={1} mt={2}>
-                {analitica.items_mas_reprobados.map(i => (
-                  <Stack key={i.etiqueta} direction="row" spacing={1} alignItems="center">
-                    <Typography variant="caption" sx={{ flex: 1 }}>{i.etiqueta}</Typography>
-                    {i.critico && <Chip label="Crítico" size="small" sx={{
-                      height: 17, fontSize: 9, fontWeight: 800,
-                      bgcolor: `${ESTADO.peligro}1A`, color: ESTADO.peligro }} />}
-                    <Typography variant="caption" sx={{ fontWeight: 800 }}>{i.cantidad}</Typography>
-                  </Stack>
-                ))}
-                {analitica.items_mas_reprobados.length === 0 && (
-                  <Typography variant="body2" sx={{ py: 2, textAlign: 'center', color: PALETA.acero }}>
-                    Sin hallazgos en el periodo
-                  </Typography>
-                )}
-              </Stack>
-            </Card>
-
-            <Card sx={{ borderRadius: 3, p: 2.5 }}>
-              <Typography variant="subtitle2" fontWeight={800}>Hallazgos tipificados</Typography>
-              <Typography variant="caption" color="text.secondary">
-                Agrupados por el catálogo, no por texto libre
-              </Typography>
-              <Stack spacing={1} mt={2}>
-                {analitica.hallazgos.map(h => (
-                  <Stack key={h.etiqueta} direction="row" spacing={1} alignItems="center">
-                    <Typography variant="caption" sx={{ flex: 1 }}>{h.etiqueta}</Typography>
-                    <Chip label={h.severidad} size="small" sx={{
-                      height: 17, fontSize: 9, fontWeight: 700,
-                      bgcolor: h.severidad === 'GRAVE' ? `${ESTADO.peligro}1A` : `${ESTADO.alerta}1A`,
-                      color: h.severidad === 'GRAVE' ? ESTADO.peligro : ESTADO.alerta }} />
-                    <Typography variant="caption" sx={{ fontWeight: 800 }}>{h.cantidad}</Typography>
-                  </Stack>
-                ))}
-                {analitica.hallazgos.length === 0 && (
-                  <Typography variant="body2" sx={{ py: 2, textAlign: 'center', color: PALETA.acero }}>
-                    Sin hallazgos catalogados
-                  </Typography>
-                )}
-              </Stack>
-            </Card>
+                          {e.ot_id && (
+                            <Tooltip title="Ver la orden de trabajo generada">
+                              <IconButton size="small"
+                                onClick={() => navigate('/eam/ordenes-trabajo')}>
+                                <Send fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {filtradas.length === 0 && (
+                      <TableRow><TableCell colSpan={8} sx={{ py: 5, textAlign: 'center' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Todavía no hay inspecciones registradas.
+                        </Typography>
+                      </TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </Card>
+            )}
           </Box>
-        </Box>
-      )}
+        )}
 
-      {abriendo && (
-        <DialogoAbrir onCerrar={() => setAbriendo(false)}
-          onAbierta={id => { setAbriendo(false); refrescar(); setLlenando(id) }} />
-      )}
-      {llenando && (
-        <DialogoLlenar eid={llenando} onCerrar={() => { setLlenando(null); refrescar() }} />
-      )}
-    </Box>
+        {tab === 1 && (
+          <Card sx={{ borderRadius: 3, overflow: 'auto' }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  {['ACTIVO', 'PLANTILLA', 'ÚLTIMA', 'PRÓXIMA', 'ESTADO', ''].map(h => (
+                    <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11 }}>{h}</TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {pendientes.map(p => (
+                  <TableRow key={`${p.plantilla_id}-${p.activo_id}`} hover>
+                    <TableCell sx={{ fontFamily: 'monospace', fontWeight: 700 }}>{p.activo}</TableCell>
+                    <TableCell>{p.plantilla}</TableCell>
+                    <TableCell>{fecha(p.ultima_fecha)}</TableCell>
+                    <TableCell>{fecha(p.proxima_fecha)}</TableCell>
+                    <TableCell>
+                      <Chip label={p.estado === 'VENCIDA'
+                        ? `Vencida hace ${Math.abs(p.dias)} d` : `En ${p.dias} d`}
+                        size="small" sx={{
+                          height: 20, fontSize: 10, fontWeight: 700,
+                          bgcolor: p.estado === 'VENCIDA' ? `${ESTADO.peligro}1A` : `${ESTADO.alerta}1A`,
+                          color: p.estado === 'VENCIDA' ? ESTADO.peligro : ESTADO.alerta }} />
+                    </TableCell>
+                    <TableCell align="right">
+                      <Button size="small" sx={{ textTransform: 'none' }}
+                        onClick={() => setAbriendo(true)}>Inspeccionar</Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {pendientes.length === 0 && (
+                  <TableRow><TableCell colSpan={6} sx={{ py: 5, textAlign: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Nada programado en los próximos días.
+                    </Typography>
+                  </TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </Card>
+        )}
+
+        {tab === 2 && analitica && (
+          <Box>
+            <Card sx={{ borderRadius: 3, p: 2.5, mb: 2 }}>
+              <Stack direction="row" spacing={3} flexWrap="wrap" useFlexGap
+                divider={<Divider orientation="vertical" flexItem />}>
+                <Box sx={{ flex: 1, minWidth: 130 }}>
+                  <Typography variant="caption" color="text.secondary">Inspecciones</Typography>
+                  <Typography variant="h6" fontWeight={800}>{analitica.total}</Typography>
+                </Box>
+                <Box sx={{ flex: 1, minWidth: 150 }}>
+                  <Typography variant="caption" color="text.secondary">Conformidad promedio</Typography>
+                  <Typography variant="h6" fontWeight={800}>
+                    {analitica.promedio_conformidad != null
+                      ? `${analitica.promedio_conformidad}%` : '—'}
+                  </Typography>
+                </Box>
+                <Box sx={{ flex: 1, minWidth: 130 }}>
+                  <Typography variant="caption" color="text.secondary">Rechazadas</Typography>
+                  <Typography variant="h6" fontWeight={800} sx={{
+                    color: analitica.rechazadas ? ESTADO.peligro : ESTADO.exito }}>
+                    {analitica.rechazadas}
+                  </Typography>
+                </Box>
+              </Stack>
+            </Card>
+
+            <Box sx={{ display: 'grid', gap: 2,
+              gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
+              <Card sx={{ borderRadius: 3, p: 2.5 }}>
+                <Typography variant="subtitle2" fontWeight={800}>Lo que más se reprueba</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Donde hay que actuar primero
+                </Typography>
+                <Stack spacing={1} mt={2}>
+                  {analitica.items_mas_reprobados.map(i => (
+                    <Stack key={i.etiqueta} direction="row" spacing={1} alignItems="center">
+                      <Typography variant="caption" sx={{ flex: 1 }}>{i.etiqueta}</Typography>
+                      {i.critico && <Chip label="Crítico" size="small" sx={{
+                        height: 17, fontSize: 9, fontWeight: 800,
+                        bgcolor: `${ESTADO.peligro}1A`, color: ESTADO.peligro }} />}
+                      <Typography variant="caption" sx={{ fontWeight: 800 }}>{i.cantidad}</Typography>
+                    </Stack>
+                  ))}
+                  {analitica.items_mas_reprobados.length === 0 && (
+                    <Typography variant="body2" sx={{ py: 2, textAlign: 'center', color: PALETA.acero }}>
+                      Sin hallazgos en el periodo
+                    </Typography>
+                  )}
+                </Stack>
+              </Card>
+
+              <Card sx={{ borderRadius: 3, p: 2.5 }}>
+                <Typography variant="subtitle2" fontWeight={800}>Hallazgos tipificados</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Agrupados por el catálogo, no por texto libre
+                </Typography>
+                <Stack spacing={1} mt={2}>
+                  {analitica.hallazgos.map(h => (
+                    <Stack key={h.etiqueta} direction="row" spacing={1} alignItems="center">
+                      <Typography variant="caption" sx={{ flex: 1 }}>{h.etiqueta}</Typography>
+                      <Chip label={h.severidad} size="small" sx={{
+                        height: 17, fontSize: 9, fontWeight: 700,
+                        bgcolor: h.severidad === 'GRAVE' ? `${ESTADO.peligro}1A` : `${ESTADO.alerta}1A`,
+                        color: h.severidad === 'GRAVE' ? ESTADO.peligro : ESTADO.alerta }} />
+                      <Typography variant="caption" sx={{ fontWeight: 800 }}>{h.cantidad}</Typography>
+                    </Stack>
+                  ))}
+                  {analitica.hallazgos.length === 0 && (
+                    <Typography variant="body2" sx={{ py: 2, textAlign: 'center', color: PALETA.acero }}>
+                      Sin hallazgos catalogados
+                    </Typography>
+                  )}
+                </Stack>
+              </Card>
+            </Box>
+          </Box>
+        )}
+
+        {abriendo && (
+          <DialogoAbrir onCerrar={() => setAbriendo(false)}
+            onAbierta={id => { setAbriendo(false); refrescar(); setLlenando(id) }} />
+        )}
+        {llenando && (
+          <DialogoLlenar eid={llenando} onCerrar={() => { setLlenando(null); refrescar() }} />
+        )}
+      </Box>
+    </Layout>
   )
 }
 

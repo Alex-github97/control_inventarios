@@ -26,6 +26,7 @@ import {
 } from '@mui/icons-material'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
+import { Layout } from '@/components/layout/Layout'
 import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
 import { apiClient as api } from '@/api/client'
 
@@ -157,7 +158,7 @@ export default function EAMDashboard() {
   })
 
   if (isLoading || !data) {
-    return <Skeleton variant="rectangular" height={420} sx={{ borderRadius: 3 }} />
+    return <Layout title="Tablero de mantenimiento"><Skeleton variant="rectangular" height={420} sx={{ borderRadius: 3 }} /></Layout>
   }
 
   const { activos, ordenes, confiabilidad, alertas, tendencia } = data
@@ -166,254 +167,256 @@ export default function EAMDashboard() {
   const topeTendencia = Math.max(1, ...tendencia.map(t => t.ordenes))
 
   return (
-    <Box className="anim-page-in">
-      <Stack direction="row" alignItems="flex-end" spacing={2} mb={2.5} flexWrap="wrap" useFlexGap>
-        <Box sx={{ flex: 1, minWidth: 240 }}>
-          <Typography variant="h6" fontWeight={800}>Tablero de mantenimiento</Typography>
-          <Typography variant="caption" color="text.secondary">
-            Activos, órdenes y confiabilidad de los últimos {dias} días
-          </Typography>
-        </Box>
-        <TextField select size="small" label="Periodo" value={dias} sx={{ minWidth: 140 }}
-          onChange={e => setDias(Number(e.target.value))}>
-          <MenuItem value={30}>30 días</MenuItem>
-          <MenuItem value={90}>90 días</MenuItem>
-          <MenuItem value={180}>6 meses</MenuItem>
-          <MenuItem value={365}>1 año</MenuItem>
-        </TextField>
-        <TextField select size="small" label="Tipo de activo" value={tipo} sx={{ minWidth: 170 }}
-          onChange={e => setTipo(e.target.value)}>
-          <MenuItem value="">Todos</MenuItem>
-          {(filtros?.tipos ?? []).map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-        </TextField>
-        <TextField select size="small" label="Marca" value={marca} sx={{ minWidth: 160 }}
-          onChange={e => setMarca(e.target.value)}>
-          <MenuItem value="">Todas</MenuItem>
-          {(filtros?.marcas ?? []).map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
-        </TextField>
-      </Stack>
-
-      {sinDatos && (
-        <Alert severity="info" sx={{ mb: 2 }}
-          action={<Button size="small" onClick={() => navigate('/eam/activos')}>Ir a activos</Button>}>
-          No hay activos registrados todavía. El tablero se llena solo a medida que se
-          cargan activos y se cierran órdenes de trabajo.
-        </Alert>
-      )}
-
-      {/* ── Indicadores ─────────────────────────────────────────────────────── */}
-      <Card sx={{ borderRadius: 3, p: 2.5, mb: 2 }}>
-        <Stack direction="row" spacing={2.5} flexWrap="wrap" useFlexGap
-          divider={<Divider orientation="vertical" flexItem />}>
-          <Indicador titulo="Activos" valor={numero(activos.total)}
-            pie={`${activos.operativos} operativos · ${activos.en_mantenimiento} en mantenimiento`} />
-          <Indicador titulo="Disponibilidad"
-            valor={activos.disponibilidad_pct != null ? `${activos.disponibilidad_pct}%` : '—'}
-            color={activos.disponibilidad_pct == null ? undefined
-              : activos.disponibilidad_pct >= 90 ? ESTADO.exito
-              : activos.disponibilidad_pct >= 75 ? ESTADO.alerta : ESTADO.peligro} />
-          <Indicador titulo="Órdenes abiertas" valor={numero(ordenes.abiertas)}
-            pie={ordenes.vencidas ? `${ordenes.vencidas} vencidas` : 'ninguna vencida'}
-            alerta={ordenes.vencidas > 0}
-            color={ordenes.vencidas ? ESTADO.alerta : undefined} />
-          <Indicador titulo="Costo del periodo" valor={pesos(ordenes.costo_periodo)}
-            pie={ordenes.costo_fallas ? `${pesos(ordenes.costo_fallas)} en fallas` : undefined} />
-        </Stack>
-      </Card>
-
-      {/* ── Confiabilidad ───────────────────────────────────────────────────── */}
-      <Card sx={{ borderRadius: 3, p: 2.5, mb: 2 }}>
-        <Stack direction="row" alignItems="center" spacing={1} mb={1.5}>
-          <Insights sx={{ fontSize: 18, color: COLOR_MODULO }} />
-          <Typography variant="subtitle2" fontWeight={800}>Confiabilidad</Typography>
-          <Typography variant="caption" color="text.secondary">
-            calculada de las órdenes marcadas como falla, no estimada
-          </Typography>
-        </Stack>
-        <Stack direction="row" spacing={2.5} flexWrap="wrap" useFlexGap
-          divider={<Divider orientation="vertical" flexItem />}>
-          <Tooltip title="Tiempo medio de reparación: promedio entre el inicio y el cierre de las órdenes de falla">
-            <Box sx={{ flex: 1, minWidth: 150 }}>
-              <Typography variant="caption" color="text.secondary">MTTR</Typography>
-              <Typography variant="h6" fontWeight={800}>
-                {duracion(confiabilidad.mttr_horas)}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {confiabilidad.mttr_casos
-                  ? `sobre ${confiabilidad.mttr_casos} ${confiabilidad.mttr_casos === 1 ? 'orden' : 'órdenes'}`
-                  : 'sin órdenes de falla cerradas'}
-              </Typography>
-            </Box>
-          </Tooltip>
-          <Tooltip title="Tiempo medio entre fallas: por activo, el intervalo entre fallas consecutivas">
-            <Box sx={{ flex: 1, minWidth: 150 }}>
-              <Typography variant="caption" color="text.secondary">MTBF</Typography>
-              <Typography variant="h6" fontWeight={800}>
-                {duracion(confiabilidad.mtbf_horas)}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {confiabilidad.mtbf_activos
-                  ? `sobre ${confiabilidad.mtbf_activos} ${confiabilidad.mtbf_activos === 1 ? 'activo' : 'activos'} con fallas repetidas`
-                  : 'hace falta más de una falla por activo'}
-              </Typography>
-            </Box>
-          </Tooltip>
-          <Box sx={{ flex: 1, minWidth: 180 }}>
-            <Typography variant="caption" color="text.secondary">Cumplimiento del plan</Typography>
-            <Typography variant="h6" fontWeight={800} sx={{
-              color: confiabilidad.cumplimiento_pm_pct == null ? undefined
-                : confiabilidad.cumplimiento_pm_pct >= 90 ? ESTADO.exito
-                : confiabilidad.cumplimiento_pm_pct >= 70 ? ESTADO.alerta : ESTADO.peligro }}>
-              {confiabilidad.cumplimiento_pm_pct != null
-                ? `${confiabilidad.cumplimiento_pm_pct}%` : '—'}
-            </Typography>
+    <Layout title="Tablero de mantenimiento">
+      <Box className="anim-page-in">
+        <Stack direction="row" alignItems="flex-end" spacing={2} mb={2.5} flexWrap="wrap" useFlexGap>
+          <Box sx={{ flex: 1, minWidth: 240 }}>
+            <Typography variant="h6" fontWeight={800}>Tablero de mantenimiento</Typography>
             <Typography variant="caption" color="text.secondary">
-              {confiabilidad.rutinas_totales
-                ? `${confiabilidad.rutinas_vencidas} de ${confiabilidad.rutinas_totales} rutinas vencidas`
-                : 'sin rutinas asignadas a activos'}
+              Activos, órdenes y confiabilidad de los últimos {dias} días
             </Typography>
           </Box>
+          <TextField select size="small" label="Periodo" value={dias} sx={{ minWidth: 140 }}
+            onChange={e => setDias(Number(e.target.value))}>
+            <MenuItem value={30}>30 días</MenuItem>
+            <MenuItem value={90}>90 días</MenuItem>
+            <MenuItem value={180}>6 meses</MenuItem>
+            <MenuItem value={365}>1 año</MenuItem>
+          </TextField>
+          <TextField select size="small" label="Tipo de activo" value={tipo} sx={{ minWidth: 170 }}
+            onChange={e => setTipo(e.target.value)}>
+            <MenuItem value="">Todos</MenuItem>
+            {(filtros?.tipos ?? []).map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+          </TextField>
+          <TextField select size="small" label="Marca" value={marca} sx={{ minWidth: 160 }}
+            onChange={e => setMarca(e.target.value)}>
+            <MenuItem value="">Todas</MenuItem>
+            {(filtros?.marcas ?? []).map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
+          </TextField>
         </Stack>
-      </Card>
 
-      {/* ── Alertas ─────────────────────────────────────────────────────────── */}
-      <Card sx={{ borderRadius: 3, p: 2.5, mb: 2 }}>
-        <Stack direction="row" alignItems="center" spacing={1} mb={1.5}>
-          <WarningAmber sx={{ fontSize: 18, color: alertas.length ? ESTADO.alerta : ESTADO.exito }} />
-          <Typography variant="subtitle2" fontWeight={800}>Requiere atención</Typography>
-        </Stack>
-        {alertas.length === 0 ? (
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ py: 2 }}>
-            <CheckCircleOutline sx={{ color: ESTADO.exito }} />
-            <Typography variant="body2" color="text.secondary">
-              Nada vencido ni en estado crítico.
-            </Typography>
-          </Stack>
-        ) : (
-          <Stack spacing={1}>
-            {alertas.map((a, i) => (
-              <Box key={i}
-                onClick={() => a.enlace && navigate(a.enlace)}
-                sx={{
-                  display: 'flex', alignItems: 'center', gap: 1.5, p: 1.25,
-                  borderRadius: 2, border: `1px solid ${PALETA.niebla}`,
-                  borderLeft: `3px solid ${colorAlerta(a.severidad)}`,
-                  cursor: a.enlace ? 'pointer' : 'default',
-                  transition: 'background .18s ease',
-                  '&:hover': a.enlace ? { bgcolor: PALETA.bruma } : {},
-                }}>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 700 }}>{a.titulo}</Typography>
-                  {a.detalle && (
-                    <Typography variant="caption" color="text.secondary">{a.detalle}</Typography>
-                  )}
-                </Box>
-                <Chip label={a.severidad === 'CRITICA' ? 'Crítica'
-                  : a.severidad === 'ALTA' ? 'Alta' : 'Media'} size="small" sx={{
-                    height: 20, fontSize: 10, fontWeight: 800,
-                    bgcolor: `${colorAlerta(a.severidad)}1A`, color: colorAlerta(a.severidad) }} />
-                {a.enlace && <ChevronRight sx={{ fontSize: 18, color: PALETA.acero }} />}
-              </Box>
-            ))}
-          </Stack>
+        {sinDatos && (
+          <Alert severity="info" sx={{ mb: 2 }}
+            action={<Button size="small" onClick={() => navigate('/eam/activos')}>Ir a activos</Button>}>
+            No hay activos registrados todavía. El tablero se llena solo a medida que se
+            cargan activos y se cierran órdenes de trabajo.
+          </Alert>
         )}
-      </Card>
 
-      {/* ── Rankings ────────────────────────────────────────────────────────── */}
-      <Box sx={{ display: 'grid', gap: 2, mb: 2,
-        gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
-        <Card sx={{ borderRadius: 3, p: 2.5 }}>
-          <Typography variant="subtitle2" fontWeight={800}>Disponibilidad por tipo</Typography>
-          <Typography variant="caption" color="text.secondary">
-            Qué familia de activos está más detenida
-          </Typography>
-          {activos.por_tipo.length === 0 ? (
-            <Typography variant="body2" sx={{ py: 3, textAlign: 'center', color: PALETA.acero }}>
-              Sin activos
+        {/* ── Indicadores ─────────────────────────────────────────────────────── */}
+        <Card sx={{ borderRadius: 3, p: 2.5, mb: 2 }}>
+          <Stack direction="row" spacing={2.5} flexWrap="wrap" useFlexGap
+            divider={<Divider orientation="vertical" flexItem />}>
+            <Indicador titulo="Activos" valor={numero(activos.total)}
+              pie={`${activos.operativos} operativos · ${activos.en_mantenimiento} en mantenimiento`} />
+            <Indicador titulo="Disponibilidad"
+              valor={activos.disponibilidad_pct != null ? `${activos.disponibilidad_pct}%` : '—'}
+              color={activos.disponibilidad_pct == null ? undefined
+                : activos.disponibilidad_pct >= 90 ? ESTADO.exito
+                : activos.disponibilidad_pct >= 75 ? ESTADO.alerta : ESTADO.peligro} />
+            <Indicador titulo="Órdenes abiertas" valor={numero(ordenes.abiertas)}
+              pie={ordenes.vencidas ? `${ordenes.vencidas} vencidas` : 'ninguna vencida'}
+              alerta={ordenes.vencidas > 0}
+              color={ordenes.vencidas ? ESTADO.alerta : undefined} />
+            <Indicador titulo="Costo del periodo" valor={pesos(ordenes.costo_periodo)}
+              pie={ordenes.costo_fallas ? `${pesos(ordenes.costo_fallas)} en fallas` : undefined} />
+          </Stack>
+        </Card>
+
+        {/* ── Confiabilidad ───────────────────────────────────────────────────── */}
+        <Card sx={{ borderRadius: 3, p: 2.5, mb: 2 }}>
+          <Stack direction="row" alignItems="center" spacing={1} mb={1.5}>
+            <Insights sx={{ fontSize: 18, color: COLOR_MODULO }} />
+            <Typography variant="subtitle2" fontWeight={800}>Confiabilidad</Typography>
+            <Typography variant="caption" color="text.secondary">
+              calculada de las órdenes marcadas como falla, no estimada
             </Typography>
+          </Stack>
+          <Stack direction="row" spacing={2.5} flexWrap="wrap" useFlexGap
+            divider={<Divider orientation="vertical" flexItem />}>
+            <Tooltip title="Tiempo medio de reparación: promedio entre el inicio y el cierre de las órdenes de falla">
+              <Box sx={{ flex: 1, minWidth: 150 }}>
+                <Typography variant="caption" color="text.secondary">MTTR</Typography>
+                <Typography variant="h6" fontWeight={800}>
+                  {duracion(confiabilidad.mttr_horas)}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {confiabilidad.mttr_casos
+                    ? `sobre ${confiabilidad.mttr_casos} ${confiabilidad.mttr_casos === 1 ? 'orden' : 'órdenes'}`
+                    : 'sin órdenes de falla cerradas'}
+                </Typography>
+              </Box>
+            </Tooltip>
+            <Tooltip title="Tiempo medio entre fallas: por activo, el intervalo entre fallas consecutivas">
+              <Box sx={{ flex: 1, minWidth: 150 }}>
+                <Typography variant="caption" color="text.secondary">MTBF</Typography>
+                <Typography variant="h6" fontWeight={800}>
+                  {duracion(confiabilidad.mtbf_horas)}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {confiabilidad.mtbf_activos
+                    ? `sobre ${confiabilidad.mtbf_activos} ${confiabilidad.mtbf_activos === 1 ? 'activo' : 'activos'} con fallas repetidas`
+                    : 'hace falta más de una falla por activo'}
+                </Typography>
+              </Box>
+            </Tooltip>
+            <Box sx={{ flex: 1, minWidth: 180 }}>
+              <Typography variant="caption" color="text.secondary">Cumplimiento del plan</Typography>
+              <Typography variant="h6" fontWeight={800} sx={{
+                color: confiabilidad.cumplimiento_pm_pct == null ? undefined
+                  : confiabilidad.cumplimiento_pm_pct >= 90 ? ESTADO.exito
+                  : confiabilidad.cumplimiento_pm_pct >= 70 ? ESTADO.alerta : ESTADO.peligro }}>
+                {confiabilidad.cumplimiento_pm_pct != null
+                  ? `${confiabilidad.cumplimiento_pm_pct}%` : '—'}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {confiabilidad.rutinas_totales
+                  ? `${confiabilidad.rutinas_vencidas} de ${confiabilidad.rutinas_totales} rutinas vencidas`
+                  : 'sin rutinas asignadas a activos'}
+              </Typography>
+            </Box>
+          </Stack>
+        </Card>
+
+        {/* ── Alertas ─────────────────────────────────────────────────────────── */}
+        <Card sx={{ borderRadius: 3, p: 2.5, mb: 2 }}>
+          <Stack direction="row" alignItems="center" spacing={1} mb={1.5}>
+            <WarningAmber sx={{ fontSize: 18, color: alertas.length ? ESTADO.alerta : ESTADO.exito }} />
+            <Typography variant="subtitle2" fontWeight={800}>Requiere atención</Typography>
+          </Stack>
+          {alertas.length === 0 ? (
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ py: 2 }}>
+              <CheckCircleOutline sx={{ color: ESTADO.exito }} />
+              <Typography variant="body2" color="text.secondary">
+                Nada vencido ni en estado crítico.
+              </Typography>
+            </Stack>
           ) : (
-            <Stack spacing={1.5} mt={2}>
-              {activos.por_tipo.map(t => (
-                <Box key={t.etiqueta}>
-                  <Stack direction="row" alignItems="baseline" spacing={1}>
-                    <Typography variant="caption" sx={{ flex: 1, fontWeight: 600 }}>
-                      {t.etiqueta}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {t.operativos} de {t.total}
-                    </Typography>
-                    <Typography variant="caption" sx={{ fontWeight: 800 }}>
-                      {t.disponibilidad != null ? `${t.disponibilidad}%` : '—'}
-                    </Typography>
-                  </Stack>
-                  <LinearProgress variant="determinate" value={t.disponibilidad ?? 0} sx={{
-                    mt: 0.4, height: 6, borderRadius: 99, bgcolor: PALETA.niebla,
-                    '& .MuiLinearProgress-bar': {
-                      borderRadius: 99,
-                      bgcolor: (t.disponibilidad ?? 0) >= 90 ? ESTADO.exito
-                        : (t.disponibilidad ?? 0) >= 75 ? ESTADO.alerta : ESTADO.peligro,
-                    },
-                  }} />
+            <Stack spacing={1}>
+              {alertas.map((a, i) => (
+                <Box key={i}
+                  onClick={() => a.enlace && navigate(a.enlace)}
+                  sx={{
+                    display: 'flex', alignItems: 'center', gap: 1.5, p: 1.25,
+                    borderRadius: 2, border: `1px solid ${PALETA.niebla}`,
+                    borderLeft: `3px solid ${colorAlerta(a.severidad)}`,
+                    cursor: a.enlace ? 'pointer' : 'default',
+                    transition: 'background .18s ease',
+                    '&:hover': a.enlace ? { bgcolor: PALETA.bruma } : {},
+                  }}>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>{a.titulo}</Typography>
+                    {a.detalle && (
+                      <Typography variant="caption" color="text.secondary">{a.detalle}</Typography>
+                    )}
+                  </Box>
+                  <Chip label={a.severidad === 'CRITICA' ? 'Crítica'
+                    : a.severidad === 'ALTA' ? 'Alta' : 'Media'} size="small" sx={{
+                      height: 20, fontSize: 10, fontWeight: 800,
+                      bgcolor: `${colorAlerta(a.severidad)}1A`, color: colorAlerta(a.severidad) }} />
+                  {a.enlace && <ChevronRight sx={{ fontSize: 18, color: PALETA.acero }} />}
                 </Box>
               ))}
             </Stack>
           )}
         </Card>
 
-        <Ranking titulo="Órdenes por marca"
-          ayuda="Dónde se concentra la carga de mantenimiento"
-          filas={data.por_marca} campo="ordenes" color={PALETA.grafito}
-          formato={f => `${f.ordenes}${f.fallas ? ` · ${f.fallas} fallas` : ''}`} />
-
-        <Ranking titulo="Costo por marca"
-          ayuda="Dónde se va la plata del periodo"
-          filas={data.por_marca} campo="costo" color={COLOR_MODULO}
-          formato={f => pesos(f.costo)} />
-
-        <Ranking titulo="Órdenes por línea"
-          ayuda="El detalle dentro de cada marca"
-          filas={data.por_linea} campo="ordenes" color={PALETA.acero}
-          formato={f => `${f.ordenes}${f.fallas ? ` · ${f.fallas} fallas` : ''}`} />
-      </Box>
-
-      {/* ── Tendencia ───────────────────────────────────────────────────────── */}
-      {tendencia.length > 0 && (
-        <Card sx={{ borderRadius: 3, mb: 2 }}>
-          <Box sx={{ p: 2.5, pb: 1 }}>
-            <Typography variant="subtitle2" fontWeight={800}>Mes a mes</Typography>
+        {/* ── Rankings ────────────────────────────────────────────────────────── */}
+        <Box sx={{ display: 'grid', gap: 2, mb: 2,
+          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
+          <Card sx={{ borderRadius: 3, p: 2.5 }}>
+            <Typography variant="subtitle2" fontWeight={800}>Disponibilidad por tipo</Typography>
             <Typography variant="caption" color="text.secondary">
-              Órdenes cerradas, cuántas fueron por falla y cuánto costaron
+              Qué familia de activos está más detenida
             </Typography>
-          </Box>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                {['MES', 'ÓRDENES', 'FALLAS', 'COSTO', ''].map(h => (
-                  <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11 }}>{h}</TableCell>
-                ))}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {tendencia.map(t => (
-                <TableRow key={t.mes} hover>
-                  <TableCell sx={{ fontFamily: 'monospace' }}>{t.mes}</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>{t.ordenes}</TableCell>
-                  <TableCell sx={{ color: t.fallas ? ESTADO.peligro : 'text.secondary' }}>
-                    {t.fallas}
-                  </TableCell>
-                  <TableCell sx={{ fontVariantNumeric: 'tabular-nums' }}>{pesos(t.costo)}</TableCell>
-                  <TableCell sx={{ width: '40%' }}>
-                    <Box sx={{
-                      height: 6, borderRadius: 99, bgcolor: COLOR_MODULO,
-                      width: `${(t.ordenes / topeTendencia) * 100}%`, minWidth: 4,
+            {activos.por_tipo.length === 0 ? (
+              <Typography variant="body2" sx={{ py: 3, textAlign: 'center', color: PALETA.acero }}>
+                Sin activos
+              </Typography>
+            ) : (
+              <Stack spacing={1.5} mt={2}>
+                {activos.por_tipo.map(t => (
+                  <Box key={t.etiqueta}>
+                    <Stack direction="row" alignItems="baseline" spacing={1}>
+                      <Typography variant="caption" sx={{ flex: 1, fontWeight: 600 }}>
+                        {t.etiqueta}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {t.operativos} de {t.total}
+                      </Typography>
+                      <Typography variant="caption" sx={{ fontWeight: 800 }}>
+                        {t.disponibilidad != null ? `${t.disponibilidad}%` : '—'}
+                      </Typography>
+                    </Stack>
+                    <LinearProgress variant="determinate" value={t.disponibilidad ?? 0} sx={{
+                      mt: 0.4, height: 6, borderRadius: 99, bgcolor: PALETA.niebla,
+                      '& .MuiLinearProgress-bar': {
+                        borderRadius: 99,
+                        bgcolor: (t.disponibilidad ?? 0) >= 90 ? ESTADO.exito
+                          : (t.disponibilidad ?? 0) >= 75 ? ESTADO.alerta : ESTADO.peligro,
+                      },
                     }} />
-                  </TableCell>
+                  </Box>
+                ))}
+              </Stack>
+            )}
+          </Card>
+
+          <Ranking titulo="Órdenes por marca"
+            ayuda="Dónde se concentra la carga de mantenimiento"
+            filas={data.por_marca} campo="ordenes" color={PALETA.grafito}
+            formato={f => `${f.ordenes}${f.fallas ? ` · ${f.fallas} fallas` : ''}`} />
+
+          <Ranking titulo="Costo por marca"
+            ayuda="Dónde se va la plata del periodo"
+            filas={data.por_marca} campo="costo" color={COLOR_MODULO}
+            formato={f => pesos(f.costo)} />
+
+          <Ranking titulo="Órdenes por línea"
+            ayuda="El detalle dentro de cada marca"
+            filas={data.por_linea} campo="ordenes" color={PALETA.acero}
+            formato={f => `${f.ordenes}${f.fallas ? ` · ${f.fallas} fallas` : ''}`} />
+        </Box>
+
+        {/* ── Tendencia ───────────────────────────────────────────────────────── */}
+        {tendencia.length > 0 && (
+          <Card sx={{ borderRadius: 3, mb: 2 }}>
+            <Box sx={{ p: 2.5, pb: 1 }}>
+              <Typography variant="subtitle2" fontWeight={800}>Mes a mes</Typography>
+              <Typography variant="caption" color="text.secondary">
+                Órdenes cerradas, cuántas fueron por falla y cuánto costaron
+              </Typography>
+            </Box>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  {['MES', 'ÓRDENES', 'FALLAS', 'COSTO', ''].map(h => (
+                    <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11 }}>{h}</TableCell>
+                  ))}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
-      )}
-    </Box>
+              </TableHead>
+              <TableBody>
+                {tendencia.map(t => (
+                  <TableRow key={t.mes} hover>
+                    <TableCell sx={{ fontFamily: 'monospace' }}>{t.mes}</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>{t.ordenes}</TableCell>
+                    <TableCell sx={{ color: t.fallas ? ESTADO.peligro : 'text.secondary' }}>
+                      {t.fallas}
+                    </TableCell>
+                    <TableCell sx={{ fontVariantNumeric: 'tabular-nums' }}>{pesos(t.costo)}</TableCell>
+                    <TableCell sx={{ width: '40%' }}>
+                      <Box sx={{
+                        height: 6, borderRadius: 99, bgcolor: COLOR_MODULO,
+                        width: `${(t.ordenes / topeTendencia) * 100}%`, minWidth: 4,
+                      }} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+        )}
+      </Box>
+    </Layout>
   )
 }

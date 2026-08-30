@@ -21,6 +21,7 @@ import {
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import { Layout } from '@/components/layout/Layout'
 import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
 import { lubeApi } from '@/api/lube'
 
@@ -260,299 +261,301 @@ export default function EAMLubricacionConfig() {
   ]
 
   return (
-    <Box className="anim-page-in">
-      <Box mb={2.5}>
-        <Typography variant="h6" fontWeight={800}>Lubricación · Configuración</Typography>
-        <Typography variant="caption" color="text.secondary">
-          El orden de las pestañas es el orden en que hay que llenarlas: sin marcas no
-          hay productos, y sin productos no hay aplicaciones
-        </Typography>
-      </Box>
+    <Layout title="Lubricación · Configuración">
+      <Box className="anim-page-in">
+        <Box mb={2.5}>
+          <Typography variant="h6" fontWeight={800}>Lubricación · Configuración</Typography>
+          <Typography variant="caption" color="text.secondary">
+            El orden de las pestañas es el orden en que hay que llenarlas: sin marcas no
+            hay productos, y sin productos no hay aplicaciones
+          </Typography>
+        </Box>
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable"
-        scrollButtons="auto" sx={{ mb: 2.5, borderBottom: `1px solid ${PALETA.niebla}` }}>
-        {pestanas.map(p => <Tab key={p} label={p} sx={{ textTransform: 'none', fontWeight: 700 }} />)}
-      </Tabs>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable"
+          scrollButtons="auto" sx={{ mb: 2.5, borderBottom: `1px solid ${PALETA.niebla}` }}>
+          {pestanas.map(p => <Tab key={p} label={p} sx={{ textTransform: 'none', fontWeight: 700 }} />)}
+        </Tabs>
 
-      {tab === 0 && (
-        <CatalogoTabla
-          titulo="Marcas de lubricante" clave="lube-marcas" api={lubeApi.marcas}
-          ayuda="El primer nivel de la jerarquía: Shell, Mobil, Chevron…"
-          campos={[{ clave: 'nombre', etiqueta: 'Nombre', requerido: true }]}
-          columnas={[{ clave: 'nombre', etiqueta: 'Marca' }]}
-        />
-      )}
-
-      {tab === 1 && (
-        <CatalogoTabla
-          titulo="Productos" clave="lube-productos" api={lubeApi.productos}
-          ayuda="El producto concreto de cada marca. Dos marcas pueden tener un «15W-40»: la unicidad es por marca"
-          deshabilitarNuevo={marcas.length ? undefined : 'Primero cree al menos una marca'}
-          campos={[
-            { clave: 'marca_id', etiqueta: 'Marca', tipo: 'select', opciones: opcMarcas, requerido: true },
-            { clave: 'nombre', etiqueta: 'Nombre del producto', requerido: true },
-            { clave: 'familia', etiqueta: 'Familia', tipo: 'select', opciones: [
-              { valor: 'MOTOR', texto: 'Motor' }, { valor: 'HIDRAULICO', texto: 'Hidráulico' },
-              { valor: 'ENGRANAJES', texto: 'Engranajes' }, { valor: 'TRANSMISION', texto: 'Transmisión' },
-              { valor: 'GRASA', texto: 'Grasa' }, { valor: 'REFRIGERANTE', texto: 'Refrigerante' },
-              { valor: 'OTRO', texto: 'Otro' }] },
-            { clave: 'grado_sae', etiqueta: 'Grado SAE', ayuda: 'Por ejemplo 15W-40' },
-            { clave: 'grado_iso', etiqueta: 'Grado ISO', ayuda: 'Por ejemplo ISO VG 46' },
-            { clave: 'base', etiqueta: 'Base', tipo: 'select', opciones: [
-              { valor: 'Mineral', texto: 'Mineral' }, { valor: 'Semisintético', texto: 'Semisintético' },
-              { valor: 'Sintético', texto: 'Sintético' }] },
-          ]}
-          columnas={[
-            { clave: 'marca', etiqueta: 'Marca' },
-            { clave: 'nombre', etiqueta: 'Producto' },
-            { clave: 'familia', etiqueta: 'Familia' },
-            { clave: 'grado_sae', etiqueta: 'SAE' },
-            { clave: 'base', etiqueta: 'Base' },
-          ]}
-        />
-      )}
-
-      {tab === 2 && (
-        <Box>
-          <Alert severity="info" sx={{ mb: 2 }}>
-            Acá va la vida recomendada y la meta de limpieza, y no en el producto, porque el
-            mismo aceite dura unas 500 horas en un motor y varios miles en un sistema
-            hidráulico. Es el mismo cruce que en llantas hace la referencia con la medida.
-          </Alert>
+        {tab === 0 && (
           <CatalogoTabla
-            titulo="Aplicaciones" clave="lube-aplicaciones" api={lubeApi.aplicaciones}
-            ayuda="Producto × tipo de compartimento, con sus parámetros técnicos"
-            deshabilitarNuevo={productos.length ? undefined : 'Primero cree al menos un producto'}
+            titulo="Marcas de lubricante" clave="lube-marcas" api={lubeApi.marcas}
+            ayuda="El primer nivel de la jerarquía: Shell, Mobil, Chevron…"
+            campos={[{ clave: 'nombre', etiqueta: 'Nombre', requerido: true }]}
+            columnas={[{ clave: 'nombre', etiqueta: 'Marca' }]}
+          />
+        )}
+
+        {tab === 1 && (
+          <CatalogoTabla
+            titulo="Productos" clave="lube-productos" api={lubeApi.productos}
+            ayuda="El producto concreto de cada marca. Dos marcas pueden tener un «15W-40»: la unicidad es por marca"
+            deshabilitarNuevo={marcas.length ? undefined : 'Primero cree al menos una marca'}
             campos={[
-              { clave: 'producto_id', etiqueta: 'Producto', tipo: 'select', opciones: opcProductos, requerido: true },
-              { clave: 'tipo_compartimento_id', etiqueta: 'Tipo de compartimento', tipo: 'select', opciones: opcTipos, requerido: true },
-              { clave: 'vida_recomendada', etiqueta: 'Vida recomendada', tipo: 'numero', ayuda: 'En la unidad del tipo de compartimento' },
-              { clave: 'vida_maxima', etiqueta: 'Vida máxima', tipo: 'numero' },
-              { clave: 'meta_iso4406', etiqueta: 'Meta ISO 4406', ayuda: 'Por ejemplo 18/16/13' },
-              { clave: 'volumen_tipico', etiqueta: 'Volumen típico (L)', tipo: 'numero' },
-              { clave: 'costo_litro', etiqueta: 'Costo por litro', tipo: 'numero' },
-              { clave: 'observaciones', etiqueta: 'Observaciones', tipo: 'area' },
+              { clave: 'marca_id', etiqueta: 'Marca', tipo: 'select', opciones: opcMarcas, requerido: true },
+              { clave: 'nombre', etiqueta: 'Nombre del producto', requerido: true },
+              { clave: 'familia', etiqueta: 'Familia', tipo: 'select', opciones: [
+                { valor: 'MOTOR', texto: 'Motor' }, { valor: 'HIDRAULICO', texto: 'Hidráulico' },
+                { valor: 'ENGRANAJES', texto: 'Engranajes' }, { valor: 'TRANSMISION', texto: 'Transmisión' },
+                { valor: 'GRASA', texto: 'Grasa' }, { valor: 'REFRIGERANTE', texto: 'Refrigerante' },
+                { valor: 'OTRO', texto: 'Otro' }] },
+              { clave: 'grado_sae', etiqueta: 'Grado SAE', ayuda: 'Por ejemplo 15W-40' },
+              { clave: 'grado_iso', etiqueta: 'Grado ISO', ayuda: 'Por ejemplo ISO VG 46' },
+              { clave: 'base', etiqueta: 'Base', tipo: 'select', opciones: [
+                { valor: 'Mineral', texto: 'Mineral' }, { valor: 'Semisintético', texto: 'Semisintético' },
+                { valor: 'Sintético', texto: 'Sintético' }] },
             ]}
             columnas={[
-              { clave: 'producto', etiqueta: 'Producto' },
-              { clave: 'tipo_compartimento', etiqueta: 'Compartimento' },
-              { clave: 'vida_recomendada', etiqueta: 'Vida recom.' },
-              { clave: 'meta_iso4406', etiqueta: 'Meta ISO' },
-              { clave: 'volumen_tipico', etiqueta: 'Vol. (L)' },
+              { clave: 'marca', etiqueta: 'Marca' },
+              { clave: 'nombre', etiqueta: 'Producto' },
+              { clave: 'familia', etiqueta: 'Familia' },
+              { clave: 'grado_sae', etiqueta: 'SAE' },
+              { clave: 'base', etiqueta: 'Base' },
             ]}
           />
-        </Box>
-      )}
+        )}
 
-      {tab === 3 && (
-        <CatalogoTabla
-          titulo="Tipos de compartimento" clave="lube-tipos" api={lubeApi.tipos}
-          ayuda="La familia que gobierna los límites. 50 ppm de hierro no dicen nada en un motor y son alarma en una caja"
-          campos={[
-            { clave: 'codigo', etiqueta: 'Código' },
-            { clave: 'nombre', etiqueta: 'Nombre', requerido: true },
-            { clave: 'unidad_vida', etiqueta: 'La vida se mide en', tipo: 'select', opciones: [
-              { valor: 'HORAS', texto: 'Horas' }, { valor: 'KM', texto: 'Kilómetros' },
-              { valor: 'DIAS', texto: 'Días' }] },
-            { clave: 'descripcion', etiqueta: 'Descripción', tipo: 'area' },
-          ]}
-          columnas={[
-            { clave: 'codigo', etiqueta: 'Cód.' },
-            { clave: 'nombre', etiqueta: 'Tipo' },
-            { clave: 'unidad_vida', etiqueta: 'Vida en' },
-            { clave: 'descripcion', etiqueta: 'Descripción' },
-          ]}
-        />
-      )}
+        {tab === 2 && (
+          <Box>
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Acá va la vida recomendada y la meta de limpieza, y no en el producto, porque el
+              mismo aceite dura unas 500 horas en un motor y varios miles en un sistema
+              hidráulico. Es el mismo cruce que en llantas hace la referencia con la medida.
+            </Alert>
+            <CatalogoTabla
+              titulo="Aplicaciones" clave="lube-aplicaciones" api={lubeApi.aplicaciones}
+              ayuda="Producto × tipo de compartimento, con sus parámetros técnicos"
+              deshabilitarNuevo={productos.length ? undefined : 'Primero cree al menos un producto'}
+              campos={[
+                { clave: 'producto_id', etiqueta: 'Producto', tipo: 'select', opciones: opcProductos, requerido: true },
+                { clave: 'tipo_compartimento_id', etiqueta: 'Tipo de compartimento', tipo: 'select', opciones: opcTipos, requerido: true },
+                { clave: 'vida_recomendada', etiqueta: 'Vida recomendada', tipo: 'numero', ayuda: 'En la unidad del tipo de compartimento' },
+                { clave: 'vida_maxima', etiqueta: 'Vida máxima', tipo: 'numero' },
+                { clave: 'meta_iso4406', etiqueta: 'Meta ISO 4406', ayuda: 'Por ejemplo 18/16/13' },
+                { clave: 'volumen_tipico', etiqueta: 'Volumen típico (L)', tipo: 'numero' },
+                { clave: 'costo_litro', etiqueta: 'Costo por litro', tipo: 'numero' },
+                { clave: 'observaciones', etiqueta: 'Observaciones', tipo: 'area' },
+              ]}
+              columnas={[
+                { clave: 'producto', etiqueta: 'Producto' },
+                { clave: 'tipo_compartimento', etiqueta: 'Compartimento' },
+                { clave: 'vida_recomendada', etiqueta: 'Vida recom.' },
+                { clave: 'meta_iso4406', etiqueta: 'Meta ISO' },
+                { clave: 'volumen_tipico', etiqueta: 'Vol. (L)' },
+              ]}
+            />
+          </Box>
+        )}
 
-      {tab === 4 && (
-        <Box>
-          <Alert severity="info" sx={{ mb: 2 }}>
-            Los códigos coinciden con los que reconoce el lector de boletines, así que lo
-            que se extrae de un PDF entra directo como resultado. El «origen probable» es lo
-            que traduce un número a un diagnóstico.
-          </Alert>
+        {tab === 3 && (
           <CatalogoTabla
-            titulo="Parámetros de análisis" clave="lube-parametros" api={lubeApi.parametros}
-            ayuda="Cada resultado de una muestra es una fila, no una columna: agregar un parámetro no exige migrar nada"
+            titulo="Tipos de compartimento" clave="lube-tipos" api={lubeApi.tipos}
+            ayuda="La familia que gobierna los límites. 50 ppm de hierro no dicen nada en un motor y son alarma en una caja"
             campos={[
-              { clave: 'codigo', etiqueta: 'Código', requerido: true, ayuda: 'En minúsculas, como lo lee el OCR: fe, cu, tbn…' },
+              { clave: 'codigo', etiqueta: 'Código' },
               { clave: 'nombre', etiqueta: 'Nombre', requerido: true },
-              { clave: 'unidad', etiqueta: 'Unidad', ayuda: 'ppm, cSt, mgKOH/g…' },
-              { clave: 'grupo', etiqueta: 'Grupo', tipo: 'select', opciones: [
-                { valor: 'DESGASTE', texto: 'Desgaste' }, { valor: 'CONTAMINACION', texto: 'Contaminación' },
-                { valor: 'ADITIVO', texto: 'Aditivo' }, { valor: 'PROPIEDAD', texto: 'Propiedad del fluido' }] },
-              { clave: 'origen_probable', etiqueta: 'Origen probable', tipo: 'area',
-                ayuda: 'Qué pieza o entrada delata. Es lo que convierte el número en una causa' },
-              { clave: 'es_texto', etiqueta: 'Es un código, no un número', tipo: 'switch',
-                ayuda: 'Como el ISO 4406, que son tres números que solo valen juntos' },
-              { clave: 'bidireccional', etiqueta: 'Preocupa en las dos direcciones', tipo: 'switch',
-                ayuda: 'Como la viscosidad: alejarse por arriba o por abajo es igual de malo' },
-              { clave: 'orden', etiqueta: 'Orden', tipo: 'numero' },
-            ]}
-            columnas={[
-              { clave: 'codigo', etiqueta: 'Cód.' },
-              { clave: 'nombre', etiqueta: 'Parámetro' },
-              { clave: 'unidad', etiqueta: 'Unidad' },
-              { clave: 'grupo', etiqueta: 'Grupo', render: (f: any) => chip(f.grupo, {
-                DESGASTE: ESTADO.peligro, CONTAMINACION: ESTADO.alerta,
-                ADITIVO: COLOR_MODULO, PROPIEDAD: PALETA.grafito,
-              }[f.grupo as string] ?? PALETA.acero) },
-              { clave: 'origen_probable', etiqueta: 'Origen probable' },
-            ]}
-          />
-        </Box>
-      )}
-
-      {tab === 5 && (
-        <Box>
-          <Alert severity="warning" sx={{ mb: 2 }} icon={<TrendingUp />}>
-            <b>La tasa de cambio es la que detecta la falla antes.</b> Un hierro que pasa de
-            12 a 34 ppm en 80 horas es una alarma aunque 34 esté cómodamente bajo el límite
-            absoluto. Los límites sembrados vienen marcados con fuente «NORMA»: son valores
-            de arranque de uso común y hay que reemplazarlos por los del fabricante o el
-            laboratorio de la empresa.
-          </Alert>
-          <CatalogoTabla
-            titulo="Límites de alarma" clave="lube-limites" api={lubeApi.limites}
-            ayuda="Se revisan los mínimos y los máximos: en el hierro el peligro es que suba, en el TBN es que baje"
-            campos={[
-              { clave: 'parametro_id', etiqueta: 'Parámetro', tipo: 'select', opciones: opcParametros, requerido: true },
-              { clave: 'tipo_compartimento_id', etiqueta: 'Tipo de compartimento', tipo: 'select', opciones: opcTipos,
-                ayuda: 'Vacío = aplica a todos' },
-              { clave: 'tipo', etiqueta: 'Clase de límite', tipo: 'select', opciones: [
-                { valor: 'ABSOLUTO', texto: 'Absoluto — el tope del fabricante' },
-                { valor: 'TASA_CAMBIO', texto: 'Tasa de cambio — por cada 100 de vida' },
-                { valor: 'ESTADISTICO', texto: 'Estadístico — fija el de la flota' }] },
-              { clave: 'marginal_min', etiqueta: 'Marginal mínimo', tipo: 'numero' },
-              { clave: 'marginal_max', etiqueta: 'Marginal máximo', tipo: 'numero' },
-              { clave: 'critico_min', etiqueta: 'Crítico mínimo', tipo: 'numero' },
-              { clave: 'critico_max', etiqueta: 'Crítico máximo', tipo: 'numero' },
-              { clave: 'fuente', etiqueta: 'Fuente', tipo: 'select', opciones: [
-                { valor: 'OEM', texto: 'Fabricante del equipo' },
-                { valor: 'LABORATORIO', texto: 'Laboratorio' },
-                { valor: 'FLOTA', texto: 'Histórico de la flota' },
-                { valor: 'NORMA', texto: 'Valor de arranque (por ajustar)' }] },
-              { clave: 'nota', etiqueta: 'Nota', tipo: 'area' },
-            ]}
-            columnas={[
-              { clave: 'parametro', etiqueta: 'Parámetro' },
-              { clave: 'tipo_compartimento', etiqueta: 'Compartimento', render: (f: any) => f.tipo_compartimento ?? 'Todos' },
-              { clave: 'tipo', etiqueta: 'Clase', render: (f: any) => chip(
-                { ABSOLUTO: 'Absoluto', TASA_CAMBIO: 'Tasa', ESTADISTICO: 'Estadístico' }[f.tipo as string] ?? f.tipo,
-                f.tipo === 'TASA_CAMBIO' ? ESTADO.alerta : COLOR_MODULO) },
-              { clave: 'marginal', etiqueta: 'Marginal', render: (f: any) =>
-                [f.marginal_min != null ? `≥${f.marginal_min}` : null,
-                 f.marginal_max != null ? `≤${f.marginal_max}` : null].filter(Boolean).join(' · ') || '—' },
-              { clave: 'critico', etiqueta: 'Crítico', render: (f: any) =>
-                [f.critico_min != null ? `<${f.critico_min}` : null,
-                 f.critico_max != null ? `>${f.critico_max}` : null].filter(Boolean).join(' · ') || '—' },
-              { clave: 'fuente', etiqueta: 'Fuente', render: (f: any) => f.fuente === 'NORMA'
-                ? chip('Por ajustar', ESTADO.alerta) : (f.fuente ?? '—') },
-            ]}
-          />
-        </Box>
-      )}
-
-      {tab === 6 && (
-        <CatalogoTabla
-          titulo="Modos de falla del lubricante" clave="lube-modos" api={lubeApi.modosFalla}
-          ayuda="Es lo que permite agrupar «por qué falla» en el tablero, igual que el catálogo de daños en llantas"
-          campos={[
-            { clave: 'codigo', etiqueta: 'Código', requerido: true },
-            { clave: 'nombre', etiqueta: 'Nombre', requerido: true },
-            { clave: 'categoria', etiqueta: 'Categoría', tipo: 'select', opciones: [
-              { valor: 'DESGASTE', texto: 'Desgaste' }, { valor: 'CONTAMINACION', texto: 'Contaminación' },
-              { valor: 'DEGRADACION', texto: 'Degradación' }, { valor: 'DILUCION', texto: 'Dilución' },
-              { valor: 'REFRIGERANTE', texto: 'Refrigerante' }, { valor: 'ADITIVOS', texto: 'Aditivos' }] },
-            { clave: 'severidad', etiqueta: 'Severidad', tipo: 'select', opciones: [
-              { valor: 'LEVE', texto: 'Leve' }, { valor: 'MODERADO', texto: 'Moderado' },
-              { valor: 'GRAVE', texto: 'Grave' }] },
-            { clave: 'accion_sugerida', etiqueta: 'Acción sugerida', tipo: 'area' },
-          ]}
-          columnas={[
-            { clave: 'codigo', etiqueta: 'Cód.' },
-            { clave: 'nombre', etiqueta: 'Modo de falla' },
-            { clave: 'categoria', etiqueta: 'Categoría' },
-            { clave: 'severidad', etiqueta: 'Severidad', render: (f: any) => chip(f.severidad,
-              f.severidad === 'GRAVE' ? ESTADO.peligro : f.severidad === 'MODERADO' ? ESTADO.alerta : ESTADO.exito) },
-            { clave: 'accion_sugerida', etiqueta: 'Acción sugerida' },
-          ]}
-        />
-      )}
-
-      {tab === 7 && (
-        <CatalogoTabla
-          titulo="Motivos de drenaje" clave="lube-motivos" api={lubeApi.motivos}
-          ayuda="Permite la pregunta que paga el programa: ¿cuántas cargas se botaron por calendario estando el aceite bueno?"
-          campos={[
-            { clave: 'codigo', etiqueta: 'Código' },
-            { clave: 'nombre', etiqueta: 'Nombre', requerido: true },
-            { clave: 'categoria', etiqueta: 'Categoría', tipo: 'select', opciones: [
-              { valor: 'CALENDARIO', texto: 'Por calendario' }, { valor: 'CONDICION', texto: 'Por condición' },
-              { valor: 'FALLA', texto: 'Por falla' }, { valor: 'CONTAMINACION', texto: 'Por contaminación' },
-              { valor: 'INTERVENCION', texto: 'Por intervención' }] },
-            { clave: 'evitable', etiqueta: 'Era evitable', tipo: 'switch',
-              ayuda: 'Los evitables cuentan como oportunidad perdida en el tablero' },
-            { clave: 'descripcion', etiqueta: 'Descripción', tipo: 'area' },
-          ]}
-          columnas={[
-            { clave: 'codigo', etiqueta: 'Cód.' },
-            { clave: 'nombre', etiqueta: 'Motivo' },
-            { clave: 'categoria', etiqueta: 'Categoría' },
-            { clave: 'evitable', etiqueta: 'Evitable', render: (f: any) =>
-              f.evitable ? chip('Sí', ESTADO.alerta) : chip('No', PALETA.acero) },
-          ]}
-        />
-      )}
-
-      {tab === 8 && (
-        <Box>
-          <Alert severity="warning" sx={{ mb: 2 }} icon={<Straighten />}>
-            El método no es un adorno. Una muestra tomada por el tapón de drenaje arrastra el
-            sedimento del fondo y da lecturas altas que no representan el aceite en
-            circulación: mezclarla con el histórico hace que las tendencias no signifiquen nada.
-          </Alert>
-          <CatalogoTabla
-            titulo="Métodos de muestreo" clave="lube-metodos" api={lubeApi.metodos}
-            ayuda="Cómo se toma la muestra, con la calidad del dato que produce"
-            campos={[
-              { clave: 'nombre', etiqueta: 'Nombre', requerido: true },
-              { clave: 'calidad', etiqueta: 'Calidad del dato', tipo: 'select', opciones: [
-                { valor: 'RECOMENDADO', texto: 'Recomendado' }, { valor: 'ACEPTABLE', texto: 'Aceptable' },
-                { valor: 'NO_RECOMENDADO', texto: 'No recomendado' }] },
+              { clave: 'unidad_vida', etiqueta: 'La vida se mide en', tipo: 'select', opciones: [
+                { valor: 'HORAS', texto: 'Horas' }, { valor: 'KM', texto: 'Kilómetros' },
+                { valor: 'DIAS', texto: 'Días' }] },
               { clave: 'descripcion', etiqueta: 'Descripción', tipo: 'area' },
             ]}
             columnas={[
-              { clave: 'nombre', etiqueta: 'Método' },
-              { clave: 'calidad', etiqueta: 'Calidad', render: (f: any) => chip(
-                { RECOMENDADO: 'Recomendado', ACEPTABLE: 'Aceptable', NO_RECOMENDADO: 'No recomendado' }[f.calidad as string] ?? f.calidad,
-                f.calidad === 'RECOMENDADO' ? ESTADO.exito : f.calidad === 'ACEPTABLE' ? ESTADO.alerta : ESTADO.peligro) },
+              { clave: 'codigo', etiqueta: 'Cód.' },
+              { clave: 'nombre', etiqueta: 'Tipo' },
+              { clave: 'unidad_vida', etiqueta: 'Vida en' },
               { clave: 'descripcion', etiqueta: 'Descripción' },
             ]}
           />
-        </Box>
-      )}
+        )}
 
-      {tab === 9 && (
-        <CatalogoTabla
-          titulo="Laboratorios" clave="lube-labs" api={lubeApi.laboratorios}
-          ayuda="Los días de respuesta sirven para saber si una muestra está demorada o se perdió"
-          campos={[
-            { clave: 'nombre', etiqueta: 'Nombre', requerido: true },
-            { clave: 'contacto', etiqueta: 'Contacto' },
-            { clave: 'telefono', etiqueta: 'Teléfono' },
-            { clave: 'correo', etiqueta: 'Correo' },
-            { clave: 'dias_respuesta', etiqueta: 'Días de respuesta', tipo: 'numero' },
-          ]}
-          columnas={[
-            { clave: 'nombre', etiqueta: 'Laboratorio' },
-            { clave: 'contacto', etiqueta: 'Contacto' },
-            { clave: 'telefono', etiqueta: 'Teléfono' },
-            { clave: 'dias_respuesta', etiqueta: 'Días' },
-          ]}
-        />
-      )}
-    </Box>
+        {tab === 4 && (
+          <Box>
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Los códigos coinciden con los que reconoce el lector de boletines, así que lo
+              que se extrae de un PDF entra directo como resultado. El «origen probable» es lo
+              que traduce un número a un diagnóstico.
+            </Alert>
+            <CatalogoTabla
+              titulo="Parámetros de análisis" clave="lube-parametros" api={lubeApi.parametros}
+              ayuda="Cada resultado de una muestra es una fila, no una columna: agregar un parámetro no exige migrar nada"
+              campos={[
+                { clave: 'codigo', etiqueta: 'Código', requerido: true, ayuda: 'En minúsculas, como lo lee el OCR: fe, cu, tbn…' },
+                { clave: 'nombre', etiqueta: 'Nombre', requerido: true },
+                { clave: 'unidad', etiqueta: 'Unidad', ayuda: 'ppm, cSt, mgKOH/g…' },
+                { clave: 'grupo', etiqueta: 'Grupo', tipo: 'select', opciones: [
+                  { valor: 'DESGASTE', texto: 'Desgaste' }, { valor: 'CONTAMINACION', texto: 'Contaminación' },
+                  { valor: 'ADITIVO', texto: 'Aditivo' }, { valor: 'PROPIEDAD', texto: 'Propiedad del fluido' }] },
+                { clave: 'origen_probable', etiqueta: 'Origen probable', tipo: 'area',
+                  ayuda: 'Qué pieza o entrada delata. Es lo que convierte el número en una causa' },
+                { clave: 'es_texto', etiqueta: 'Es un código, no un número', tipo: 'switch',
+                  ayuda: 'Como el ISO 4406, que son tres números que solo valen juntos' },
+                { clave: 'bidireccional', etiqueta: 'Preocupa en las dos direcciones', tipo: 'switch',
+                  ayuda: 'Como la viscosidad: alejarse por arriba o por abajo es igual de malo' },
+                { clave: 'orden', etiqueta: 'Orden', tipo: 'numero' },
+              ]}
+              columnas={[
+                { clave: 'codigo', etiqueta: 'Cód.' },
+                { clave: 'nombre', etiqueta: 'Parámetro' },
+                { clave: 'unidad', etiqueta: 'Unidad' },
+                { clave: 'grupo', etiqueta: 'Grupo', render: (f: any) => chip(f.grupo, {
+                  DESGASTE: ESTADO.peligro, CONTAMINACION: ESTADO.alerta,
+                  ADITIVO: COLOR_MODULO, PROPIEDAD: PALETA.grafito,
+                }[f.grupo as string] ?? PALETA.acero) },
+                { clave: 'origen_probable', etiqueta: 'Origen probable' },
+              ]}
+            />
+          </Box>
+        )}
+
+        {tab === 5 && (
+          <Box>
+            <Alert severity="warning" sx={{ mb: 2 }} icon={<TrendingUp />}>
+              <b>La tasa de cambio es la que detecta la falla antes.</b> Un hierro que pasa de
+              12 a 34 ppm en 80 horas es una alarma aunque 34 esté cómodamente bajo el límite
+              absoluto. Los límites sembrados vienen marcados con fuente «NORMA»: son valores
+              de arranque de uso común y hay que reemplazarlos por los del fabricante o el
+              laboratorio de la empresa.
+            </Alert>
+            <CatalogoTabla
+              titulo="Límites de alarma" clave="lube-limites" api={lubeApi.limites}
+              ayuda="Se revisan los mínimos y los máximos: en el hierro el peligro es que suba, en el TBN es que baje"
+              campos={[
+                { clave: 'parametro_id', etiqueta: 'Parámetro', tipo: 'select', opciones: opcParametros, requerido: true },
+                { clave: 'tipo_compartimento_id', etiqueta: 'Tipo de compartimento', tipo: 'select', opciones: opcTipos,
+                  ayuda: 'Vacío = aplica a todos' },
+                { clave: 'tipo', etiqueta: 'Clase de límite', tipo: 'select', opciones: [
+                  { valor: 'ABSOLUTO', texto: 'Absoluto — el tope del fabricante' },
+                  { valor: 'TASA_CAMBIO', texto: 'Tasa de cambio — por cada 100 de vida' },
+                  { valor: 'ESTADISTICO', texto: 'Estadístico — fija el de la flota' }] },
+                { clave: 'marginal_min', etiqueta: 'Marginal mínimo', tipo: 'numero' },
+                { clave: 'marginal_max', etiqueta: 'Marginal máximo', tipo: 'numero' },
+                { clave: 'critico_min', etiqueta: 'Crítico mínimo', tipo: 'numero' },
+                { clave: 'critico_max', etiqueta: 'Crítico máximo', tipo: 'numero' },
+                { clave: 'fuente', etiqueta: 'Fuente', tipo: 'select', opciones: [
+                  { valor: 'OEM', texto: 'Fabricante del equipo' },
+                  { valor: 'LABORATORIO', texto: 'Laboratorio' },
+                  { valor: 'FLOTA', texto: 'Histórico de la flota' },
+                  { valor: 'NORMA', texto: 'Valor de arranque (por ajustar)' }] },
+                { clave: 'nota', etiqueta: 'Nota', tipo: 'area' },
+              ]}
+              columnas={[
+                { clave: 'parametro', etiqueta: 'Parámetro' },
+                { clave: 'tipo_compartimento', etiqueta: 'Compartimento', render: (f: any) => f.tipo_compartimento ?? 'Todos' },
+                { clave: 'tipo', etiqueta: 'Clase', render: (f: any) => chip(
+                  { ABSOLUTO: 'Absoluto', TASA_CAMBIO: 'Tasa', ESTADISTICO: 'Estadístico' }[f.tipo as string] ?? f.tipo,
+                  f.tipo === 'TASA_CAMBIO' ? ESTADO.alerta : COLOR_MODULO) },
+                { clave: 'marginal', etiqueta: 'Marginal', render: (f: any) =>
+                  [f.marginal_min != null ? `≥${f.marginal_min}` : null,
+                   f.marginal_max != null ? `≤${f.marginal_max}` : null].filter(Boolean).join(' · ') || '—' },
+                { clave: 'critico', etiqueta: 'Crítico', render: (f: any) =>
+                  [f.critico_min != null ? `<${f.critico_min}` : null,
+                   f.critico_max != null ? `>${f.critico_max}` : null].filter(Boolean).join(' · ') || '—' },
+                { clave: 'fuente', etiqueta: 'Fuente', render: (f: any) => f.fuente === 'NORMA'
+                  ? chip('Por ajustar', ESTADO.alerta) : (f.fuente ?? '—') },
+              ]}
+            />
+          </Box>
+        )}
+
+        {tab === 6 && (
+          <CatalogoTabla
+            titulo="Modos de falla del lubricante" clave="lube-modos" api={lubeApi.modosFalla}
+            ayuda="Es lo que permite agrupar «por qué falla» en el tablero, igual que el catálogo de daños en llantas"
+            campos={[
+              { clave: 'codigo', etiqueta: 'Código', requerido: true },
+              { clave: 'nombre', etiqueta: 'Nombre', requerido: true },
+              { clave: 'categoria', etiqueta: 'Categoría', tipo: 'select', opciones: [
+                { valor: 'DESGASTE', texto: 'Desgaste' }, { valor: 'CONTAMINACION', texto: 'Contaminación' },
+                { valor: 'DEGRADACION', texto: 'Degradación' }, { valor: 'DILUCION', texto: 'Dilución' },
+                { valor: 'REFRIGERANTE', texto: 'Refrigerante' }, { valor: 'ADITIVOS', texto: 'Aditivos' }] },
+              { clave: 'severidad', etiqueta: 'Severidad', tipo: 'select', opciones: [
+                { valor: 'LEVE', texto: 'Leve' }, { valor: 'MODERADO', texto: 'Moderado' },
+                { valor: 'GRAVE', texto: 'Grave' }] },
+              { clave: 'accion_sugerida', etiqueta: 'Acción sugerida', tipo: 'area' },
+            ]}
+            columnas={[
+              { clave: 'codigo', etiqueta: 'Cód.' },
+              { clave: 'nombre', etiqueta: 'Modo de falla' },
+              { clave: 'categoria', etiqueta: 'Categoría' },
+              { clave: 'severidad', etiqueta: 'Severidad', render: (f: any) => chip(f.severidad,
+                f.severidad === 'GRAVE' ? ESTADO.peligro : f.severidad === 'MODERADO' ? ESTADO.alerta : ESTADO.exito) },
+              { clave: 'accion_sugerida', etiqueta: 'Acción sugerida' },
+            ]}
+          />
+        )}
+
+        {tab === 7 && (
+          <CatalogoTabla
+            titulo="Motivos de drenaje" clave="lube-motivos" api={lubeApi.motivos}
+            ayuda="Permite la pregunta que paga el programa: ¿cuántas cargas se botaron por calendario estando el aceite bueno?"
+            campos={[
+              { clave: 'codigo', etiqueta: 'Código' },
+              { clave: 'nombre', etiqueta: 'Nombre', requerido: true },
+              { clave: 'categoria', etiqueta: 'Categoría', tipo: 'select', opciones: [
+                { valor: 'CALENDARIO', texto: 'Por calendario' }, { valor: 'CONDICION', texto: 'Por condición' },
+                { valor: 'FALLA', texto: 'Por falla' }, { valor: 'CONTAMINACION', texto: 'Por contaminación' },
+                { valor: 'INTERVENCION', texto: 'Por intervención' }] },
+              { clave: 'evitable', etiqueta: 'Era evitable', tipo: 'switch',
+                ayuda: 'Los evitables cuentan como oportunidad perdida en el tablero' },
+              { clave: 'descripcion', etiqueta: 'Descripción', tipo: 'area' },
+            ]}
+            columnas={[
+              { clave: 'codigo', etiqueta: 'Cód.' },
+              { clave: 'nombre', etiqueta: 'Motivo' },
+              { clave: 'categoria', etiqueta: 'Categoría' },
+              { clave: 'evitable', etiqueta: 'Evitable', render: (f: any) =>
+                f.evitable ? chip('Sí', ESTADO.alerta) : chip('No', PALETA.acero) },
+            ]}
+          />
+        )}
+
+        {tab === 8 && (
+          <Box>
+            <Alert severity="warning" sx={{ mb: 2 }} icon={<Straighten />}>
+              El método no es un adorno. Una muestra tomada por el tapón de drenaje arrastra el
+              sedimento del fondo y da lecturas altas que no representan el aceite en
+              circulación: mezclarla con el histórico hace que las tendencias no signifiquen nada.
+            </Alert>
+            <CatalogoTabla
+              titulo="Métodos de muestreo" clave="lube-metodos" api={lubeApi.metodos}
+              ayuda="Cómo se toma la muestra, con la calidad del dato que produce"
+              campos={[
+                { clave: 'nombre', etiqueta: 'Nombre', requerido: true },
+                { clave: 'calidad', etiqueta: 'Calidad del dato', tipo: 'select', opciones: [
+                  { valor: 'RECOMENDADO', texto: 'Recomendado' }, { valor: 'ACEPTABLE', texto: 'Aceptable' },
+                  { valor: 'NO_RECOMENDADO', texto: 'No recomendado' }] },
+                { clave: 'descripcion', etiqueta: 'Descripción', tipo: 'area' },
+              ]}
+              columnas={[
+                { clave: 'nombre', etiqueta: 'Método' },
+                { clave: 'calidad', etiqueta: 'Calidad', render: (f: any) => chip(
+                  { RECOMENDADO: 'Recomendado', ACEPTABLE: 'Aceptable', NO_RECOMENDADO: 'No recomendado' }[f.calidad as string] ?? f.calidad,
+                  f.calidad === 'RECOMENDADO' ? ESTADO.exito : f.calidad === 'ACEPTABLE' ? ESTADO.alerta : ESTADO.peligro) },
+                { clave: 'descripcion', etiqueta: 'Descripción' },
+              ]}
+            />
+          </Box>
+        )}
+
+        {tab === 9 && (
+          <CatalogoTabla
+            titulo="Laboratorios" clave="lube-labs" api={lubeApi.laboratorios}
+            ayuda="Los días de respuesta sirven para saber si una muestra está demorada o se perdió"
+            campos={[
+              { clave: 'nombre', etiqueta: 'Nombre', requerido: true },
+              { clave: 'contacto', etiqueta: 'Contacto' },
+              { clave: 'telefono', etiqueta: 'Teléfono' },
+              { clave: 'correo', etiqueta: 'Correo' },
+              { clave: 'dias_respuesta', etiqueta: 'Días de respuesta', tipo: 'numero' },
+            ]}
+            columnas={[
+              { clave: 'nombre', etiqueta: 'Laboratorio' },
+              { clave: 'contacto', etiqueta: 'Contacto' },
+              { clave: 'telefono', etiqueta: 'Teléfono' },
+              { clave: 'dias_respuesta', etiqueta: 'Días' },
+            ]}
+          />
+        )}
+      </Box>
+    </Layout>
   )
 }

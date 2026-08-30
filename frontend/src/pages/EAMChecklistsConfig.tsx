@@ -22,6 +22,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
+import { Layout } from '@/components/layout/Layout'
 import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
 import { apiClient as api } from '@/api/client'
 import {
@@ -43,35 +44,37 @@ export default function EAMChecklistsConfig() {
   const [editando, setEditando] = useState<number | null>(null)
 
   if (editando) {
-    return <Constructor pid={editando} onVolver={() => setEditando(null)} />
+    return <Layout title="Checklists · Configuración"><Constructor pid={editando} onVolver={() => setEditando(null)} /></Layout>
   }
 
   return (
-    <Box className="anim-page-in">
-      <Stack direction="row" alignItems="flex-start" spacing={2} mb={2.5}>
-        <Box sx={{ flex: 1 }}>
-          <Typography variant="h6" fontWeight={800}>Checklists · Configuración</Typography>
-          <Typography variant="caption" color="text.secondary">
-            Qué se revisa, con qué peso y qué se considera crítico
-          </Typography>
-        </Box>
-        <Button startIcon={<ArrowBack />} onClick={() => navigate('/eam/checklists')}
-          sx={{ textTransform: 'none' }}>
-          Volver a inspecciones
-        </Button>
-      </Stack>
+    <Layout title="Checklists · Configuración">
+      <Box className="anim-page-in">
+        <Stack direction="row" alignItems="flex-start" spacing={2} mb={2.5}>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="h6" fontWeight={800}>Checklists · Configuración</Typography>
+            <Typography variant="caption" color="text.secondary">
+              Qué se revisa, con qué peso y qué se considera crítico
+            </Typography>
+          </Box>
+          <Button startIcon={<ArrowBack />} onClick={() => navigate('/eam/checklists')}
+            sx={{ textTransform: 'none' }}>
+            Volver a inspecciones
+          </Button>
+        </Stack>
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)}
-        sx={{ mb: 2.5, borderBottom: `1px solid ${PALETA.niebla}` }}>
-        <Tab label="Plantillas" sx={{ textTransform: 'none', fontWeight: 700 }} />
-        <Tab label="Catálogo de hallazgos" sx={{ textTransform: 'none', fontWeight: 700 }} />
-        <Tab label="Categorías" sx={{ textTransform: 'none', fontWeight: 700 }} />
-      </Tabs>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)}
+          sx={{ mb: 2.5, borderBottom: `1px solid ${PALETA.niebla}` }}>
+          <Tab label="Plantillas" sx={{ textTransform: 'none', fontWeight: 700 }} />
+          <Tab label="Catálogo de hallazgos" sx={{ textTransform: 'none', fontWeight: 700 }} />
+          <Tab label="Categorías" sx={{ textTransform: 'none', fontWeight: 700 }} />
+        </Tabs>
 
-      {tab === 0 && <Plantillas onEditar={setEditando} />}
-      {tab === 1 && <Hallazgos />}
-      {tab === 2 && <Categorias />}
-    </Box>
+        {tab === 0 && <Plantillas onEditar={setEditando} />}
+        {tab === 1 && <Hallazgos />}
+        {tab === 2 && <Categorias />}
+      </Box>
+    </Layout>
   )
 }
 

@@ -24,6 +24,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
+import { Layout } from '@/components/layout/Layout'
 import { PALETA, ESTADO, COLOR_MODULO, SERIES } from '@/config/marca'
 import { apiClient as api } from '@/api/client'
 import {
@@ -158,316 +159,318 @@ export default function EAMLubricacion() {
   const sinConfigurar = compartimentos.length === 0
 
   return (
-    <Box className="anim-page-in">
-      <Stack direction="row" alignItems="flex-start" spacing={2} mb={2.5} flexWrap="wrap" useFlexGap>
-        <Box sx={{ flex: 1, minWidth: 260 }}>
-          <Typography variant="h6" fontWeight={800}>Lubricación</Typography>
-          <Typography variant="caption" color="text.secondary">
-            Análisis de aceite por compartimento, con la vida y el costo de cada carga
-          </Typography>
-        </Box>
-        <Button startIcon={<Settings />} variant="outlined"
-          onClick={() => navigate('/eam/lubricacion/config')}
-          sx={{ textTransform: 'none' }}>
-          Configuración
-        </Button>
-      </Stack>
-
-      {sinConfigurar && !isLoading && (
-        <Alert severity="info" sx={{ mb: 2 }} action={
-          <Button size="small" onClick={() => navigate('/eam/lubricacion/config')}>
-            Ir a configuración
+    <Layout title="Lubricación">
+      <Box className="anim-page-in">
+        <Stack direction="row" alignItems="flex-start" spacing={2} mb={2.5} flexWrap="wrap" useFlexGap>
+          <Box sx={{ flex: 1, minWidth: 260 }}>
+            <Typography variant="h6" fontWeight={800}>Lubricación</Typography>
+            <Typography variant="caption" color="text.secondary">
+              Análisis de aceite por compartimento, con la vida y el costo de cada carga
+            </Typography>
+          </Box>
+          <Button startIcon={<Settings />} variant="outlined"
+            onClick={() => navigate('/eam/lubricacion/config')}
+            sx={{ textTransform: 'none' }}>
+            Configuración
           </Button>
-        }>
-          Todavía no hay compartimentos. Los catálogos ya vienen sembrados —parámetros,
-          tipos, límites de arranque—; falta crear las marcas y productos de lubricante que
-          usa la empresa y darle compartimentos a los activos.
-        </Alert>
-      )}
+        </Stack>
 
-      {criticas.length > 0 && (
-        <Alert severity="error" icon={<WarningAmber />} sx={{ mb: 2 }}>
-          Hay {criticas.length} {criticas.length === 1 ? 'muestra crítica' : 'muestras críticas'} sin
-          resolver. {criticas.slice(0, 3).map(m => `${m.activo_codigo} · ${m.numero}`).join(' · ')}
-        </Alert>
-      )}
-
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2.5, borderBottom: `1px solid ${PALETA.niebla}` }}>
-        <Tab label={`Compartimentos (${compartimentos.length})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
-        <Tab label={`Muestras (${muestras.length})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
-        <Tab label={`Por muestrear (${pendientes.length})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
-        <Tab label="Tablero" sx={{ textTransform: 'none', fontWeight: 700 }} />
-      </Tabs>
-
-      {/* ── Compartimentos ─────────────────────────────────────────────────── */}
-      {tab === 0 && (
-        <Box>
-          <TextField size="small" placeholder="Buscar activo, compartimento o producto…"
-            value={busqueda} onChange={e => setBusqueda(e.target.value)}
-            InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }}
-            sx={{ mb: 2, width: 340 }} />
-
-          {isLoading ? <Skeleton variant="rectangular" height={300} sx={{ borderRadius: 3 }} /> : (
-            <Card sx={{ borderRadius: 3, overflow: 'auto' }}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    {['ACTIVO', 'COMPARTIMENTO', 'PRODUCTO EN USO', 'VIDA DE LA CARGA',
-                      'ÚLTIMA MUESTRA', 'ESTADO', ''].map(h => (
-                      <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11 }}>{h}</TableCell>
-                    ))}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filtrados.map(c => (
-                    <TableRow key={c.id} hover>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: 'monospace' }}>
-                          {c.activo_codigo}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">{c.activo_nombre}</Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Stack direction="row" spacing={0.75} alignItems="center">
-                          <Typography variant="body2">{c.nombre}</Typography>
-                          {c.critico && <Chip label="Crítico" size="small" sx={{
-                            height: 17, fontSize: 9, fontWeight: 800,
-                            bgcolor: `${ESTADO.peligro}1A`, color: ESTADO.peligro }} />}
-                        </Stack>
-                        <Typography variant="caption" color="text.secondary">
-                          {c.tipo_compartimento}
-                          {!c.tiene_puerto_muestreo && ' · sin puerto de muestreo'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        {c.producto_actual ?? (
-                          <Typography variant="caption" color="text.secondary">Sin carga abierta</Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <VidaCarga actual={c.vida_actual} recomendada={c.vida_recomendada}
-                          unidad={c.unidad_vida} />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="caption">{fecha(c.fecha_ultima_muestra)}</Typography>
-                      </TableCell>
-                      <TableCell><Severidad valor={c.severidad_ultima} /></TableCell>
-                      <TableCell align="right">
-                        <Tooltip title="Registrar muestra">
-                          <span>
-                            <IconButton size="small" onClick={() => setNuevaMuestra(c)}>
-                              <Science fontSize="small" />
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                        <Tooltip title={c.carga_id ? 'Cambiar el aceite (cierra la carga actual)' : 'Abrir la primera carga'}>
-                          <IconButton size="small" onClick={() => setNuevaCarga(c)}>
-                            <WaterDrop fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Card>
-          )}
-        </Box>
-      )}
-
-      {/* ── Muestras ───────────────────────────────────────────────────────── */}
-      {tab === 1 && (
-        <Card sx={{ borderRadius: 3, overflow: 'auto' }}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                {['MUESTRA', 'ACTIVO', 'COMPARTIMENTO', 'TOMADA', 'VIDA DEL ACEITE',
-                  'SEVERIDAD'].map(h => (
-                  <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11 }}>{h}</TableCell>
-                ))}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {muestras.map(m => (
-                <TableRow key={m.id} hover sx={{ cursor: 'pointer' }}
-                  onClick={() => setVerMuestra(m.id)}>
-                  <TableCell sx={{ fontFamily: 'monospace', fontWeight: 700 }}>{m.numero}</TableCell>
-                  <TableCell sx={{ fontFamily: 'monospace' }}>{m.activo_codigo}</TableCell>
-                  <TableCell>{m.compartimento}</TableCell>
-                  <TableCell>{fecha(m.fecha_toma)}</TableCell>
-                  <TableCell sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                    {m.horas_aceite != null ? m.horas_aceite.toLocaleString('es-CO') : '—'}
-                  </TableCell>
-                  <TableCell>
-                    <Stack direction="row" spacing={0.5} alignItems="center">
-                      <Severidad valor={m.severidad} />
-                      {m.severidad_manual && (
-                        <Tooltip title="Severidad fijada por un analista">
-                          <FactCheck sx={{ fontSize: 14, color: PALETA.acero }} />
-                        </Tooltip>
-                      )}
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {muestras.length === 0 && (
-                <TableRow><TableCell colSpan={6} sx={{ py: 5, textAlign: 'center' }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Todavía no hay muestras registradas.
-                  </Typography>
-                </TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </Card>
-      )}
-
-      {/* ── Por muestrear ──────────────────────────────────────────────────── */}
-      {tab === 2 && (
-        <Box>
-          <Alert severity="info" sx={{ mb: 2 }}>
-            Sale de comparar la vida acumulada de cada carga contra la frecuencia de muestreo
-            del compartimento. Si no se muestrea cuando toca, el resto de los números del
-            tablero son adorno.
+        {sinConfigurar && !isLoading && (
+          <Alert severity="info" sx={{ mb: 2 }} action={
+            <Button size="small" onClick={() => navigate('/eam/lubricacion/config')}>
+              Ir a configuración
+            </Button>
+          }>
+            Todavía no hay compartimentos. Los catálogos ya vienen sembrados —parámetros,
+            tipos, límites de arranque—; falta crear las marcas y productos de lubricante que
+            usa la empresa y darle compartimentos a los activos.
           </Alert>
+        )}
+
+        {criticas.length > 0 && (
+          <Alert severity="error" icon={<WarningAmber />} sx={{ mb: 2 }}>
+            Hay {criticas.length} {criticas.length === 1 ? 'muestra crítica' : 'muestras críticas'} sin
+            resolver. {criticas.slice(0, 3).map(m => `${m.activo_codigo} · ${m.numero}`).join(' · ')}
+          </Alert>
+        )}
+
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2.5, borderBottom: `1px solid ${PALETA.niebla}` }}>
+          <Tab label={`Compartimentos (${compartimentos.length})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
+          <Tab label={`Muestras (${muestras.length})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
+          <Tab label={`Por muestrear (${pendientes.length})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
+          <Tab label="Tablero" sx={{ textTransform: 'none', fontWeight: 700 }} />
+        </Tabs>
+
+        {/* ── Compartimentos ─────────────────────────────────────────────────── */}
+        {tab === 0 && (
+          <Box>
+            <TextField size="small" placeholder="Buscar activo, compartimento o producto…"
+              value={busqueda} onChange={e => setBusqueda(e.target.value)}
+              InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }}
+              sx={{ mb: 2, width: 340 }} />
+
+            {isLoading ? <Skeleton variant="rectangular" height={300} sx={{ borderRadius: 3 }} /> : (
+              <Card sx={{ borderRadius: 3, overflow: 'auto' }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      {['ACTIVO', 'COMPARTIMENTO', 'PRODUCTO EN USO', 'VIDA DE LA CARGA',
+                        'ÚLTIMA MUESTRA', 'ESTADO', ''].map(h => (
+                        <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11 }}>{h}</TableCell>
+                      ))}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {filtrados.map(c => (
+                      <TableRow key={c.id} hover>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: 'monospace' }}>
+                            {c.activo_codigo}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">{c.activo_nombre}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Stack direction="row" spacing={0.75} alignItems="center">
+                            <Typography variant="body2">{c.nombre}</Typography>
+                            {c.critico && <Chip label="Crítico" size="small" sx={{
+                              height: 17, fontSize: 9, fontWeight: 800,
+                              bgcolor: `${ESTADO.peligro}1A`, color: ESTADO.peligro }} />}
+                          </Stack>
+                          <Typography variant="caption" color="text.secondary">
+                            {c.tipo_compartimento}
+                            {!c.tiene_puerto_muestreo && ' · sin puerto de muestreo'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          {c.producto_actual ?? (
+                            <Typography variant="caption" color="text.secondary">Sin carga abierta</Typography>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <VidaCarga actual={c.vida_actual} recomendada={c.vida_recomendada}
+                            unidad={c.unidad_vida} />
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="caption">{fecha(c.fecha_ultima_muestra)}</Typography>
+                        </TableCell>
+                        <TableCell><Severidad valor={c.severidad_ultima} /></TableCell>
+                        <TableCell align="right">
+                          <Tooltip title="Registrar muestra">
+                            <span>
+                              <IconButton size="small" onClick={() => setNuevaMuestra(c)}>
+                                <Science fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                          <Tooltip title={c.carga_id ? 'Cambiar el aceite (cierra la carga actual)' : 'Abrir la primera carga'}>
+                            <IconButton size="small" onClick={() => setNuevaCarga(c)}>
+                              <WaterDrop fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
+            )}
+          </Box>
+        )}
+
+        {/* ── Muestras ───────────────────────────────────────────────────────── */}
+        {tab === 1 && (
           <Card sx={{ borderRadius: 3, overflow: 'auto' }}>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  {['ACTIVO', 'COMPARTIMENTO', 'VIDA ACTUAL', 'FRECUENCIA',
-                    'ÚLTIMA MUESTRA', 'MOTIVO', ''].map(h => (
+                  {['MUESTRA', 'ACTIVO', 'COMPARTIMENTO', 'TOMADA', 'VIDA DEL ACEITE',
+                    'SEVERIDAD'].map(h => (
                     <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11 }}>{h}</TableCell>
                   ))}
                 </TableRow>
               </TableHead>
               <TableBody>
-                {pendientes.map(p => (
-                  <TableRow key={p.compartimento_id} hover>
-                    <TableCell sx={{ fontFamily: 'monospace', fontWeight: 700 }}>
-                      {p.activo}
-                      {p.critico && <Chip label="Crítico" size="small" sx={{
-                        ml: 0.75, height: 16, fontSize: 9, fontWeight: 800,
-                        bgcolor: `${ESTADO.peligro}1A`, color: ESTADO.peligro }} />}
+                {muestras.map(m => (
+                  <TableRow key={m.id} hover sx={{ cursor: 'pointer' }}
+                    onClick={() => setVerMuestra(m.id)}>
+                    <TableCell sx={{ fontFamily: 'monospace', fontWeight: 700 }}>{m.numero}</TableCell>
+                    <TableCell sx={{ fontFamily: 'monospace' }}>{m.activo_codigo}</TableCell>
+                    <TableCell>{m.compartimento}</TableCell>
+                    <TableCell>{fecha(m.fecha_toma)}</TableCell>
+                    <TableCell sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                      {m.horas_aceite != null ? m.horas_aceite.toLocaleString('es-CO') : '—'}
                     </TableCell>
-                    <TableCell>{p.compartimento}<br />
-                      <Typography variant="caption" color="text.secondary">{p.tipo}</Typography>
-                    </TableCell>
-                    <TableCell>{p.vida_actual ?? '—'} {p.unidad.toLowerCase()}</TableCell>
-                    <TableCell>{p.frecuencia_muestreo ?? '—'}</TableCell>
-                    <TableCell>{fecha(p.ultima_muestra)}</TableCell>
                     <TableCell>
-                      <Typography variant="caption" sx={{ color: ESTADO.alerta, fontWeight: 700 }}>
-                        {p.motivo}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Button size="small" startIcon={<Science />} sx={{ textTransform: 'none' }}
-                        onClick={() => {
-                          const c = compartimentos.find(x => x.id === p.compartimento_id)
-                          if (c) setNuevaMuestra(c)
-                        }}>
-                        Registrar
-                      </Button>
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Severidad valor={m.severidad} />
+                        {m.severidad_manual && (
+                          <Tooltip title="Severidad fijada por un analista">
+                            <FactCheck sx={{ fontSize: 14, color: PALETA.acero }} />
+                          </Tooltip>
+                        )}
+                      </Stack>
                     </TableCell>
                   </TableRow>
                 ))}
-                {pendientes.length === 0 && (
-                  <TableRow><TableCell colSpan={7} sx={{ py: 5, textAlign: 'center' }}>
+                {muestras.length === 0 && (
+                  <TableRow><TableCell colSpan={6} sx={{ py: 5, textAlign: 'center' }}>
                     <Typography variant="body2" color="text.secondary">
-                      Nada pendiente. Todos los compartimentos con carga viva están al día.
+                      Todavía no hay muestras registradas.
                     </Typography>
                   </TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
           </Card>
-        </Box>
-      )}
+        )}
 
-      {/* ── Tablero ────────────────────────────────────────────────────────── */}
-      {tab === 3 && analitica && (
-        <Box>
-          <Card sx={{ borderRadius: 3, p: 2.5, mb: 2 }}>
-            <Stack direction="row" spacing={3} flexWrap="wrap" useFlexGap>
-              <Box sx={{ flex: 1, minWidth: 130 }}>
-                <Typography variant="caption" color="text.secondary">Muestras</Typography>
-                <Typography variant="h6" fontWeight={800}>{analitica.total_muestras}</Typography>
-              </Box>
-              <Divider orientation="vertical" flexItem />
-              <Box sx={{ flex: 1, minWidth: 130 }}>
-                <Typography variant="caption" color="text.secondary">Críticas</Typography>
-                <Typography variant="h6" fontWeight={800} sx={{
-                  color: analitica.criticas ? ESTADO.peligro : ESTADO.exito }}>
-                  {analitica.criticas}
-                </Typography>
-              </Box>
-              <Divider orientation="vertical" flexItem />
-              <Box sx={{ flex: 1, minWidth: 170 }}>
-                <Typography variant="caption" color="text.secondary">Acierto del diagnóstico</Typography>
-                <Typography variant="h6" fontWeight={800}>
-                  {analitica.diagnostico.acierto_pct != null
-                    ? `${analitica.diagnostico.acierto_pct}%` : '—'}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {analitica.diagnostico.confirmados} confirmados · {analitica.diagnostico.desmentidos} desmentidos
-                </Typography>
-              </Box>
-              <Divider orientation="vertical" flexItem />
-              <Box sx={{ flex: 1, minWidth: 170 }}>
-                <Typography variant="caption" color="text.secondary">Sin puerto de muestreo</Typography>
-                <Typography variant="h6" fontWeight={800} sx={{
-                  color: analitica.sin_puerto_muestreo ? ESTADO.alerta : ESTADO.exito }}>
-                  {analitica.sin_puerto_muestreo} <Typography component="span" variant="caption"
-                    color="text.secondary">de {analitica.compartimentos}</Typography>
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  condiciona la calidad del dato
-                </Typography>
-              </Box>
-            </Stack>
-          </Card>
-
-          {analitica.drenajes.some(d => d.evitable) && (
-            <Alert severity="warning" sx={{ mb: 2 }}>
-              Hay cargas drenadas por motivos marcados como evitables. Esos cambios son
-              oportunidad perdida: el aceite salió antes de tiempo por algo que se podía
-              prevenir.
+        {/* ── Por muestrear ──────────────────────────────────────────────────── */}
+        {tab === 2 && (
+          <Box>
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Sale de comparar la vida acumulada de cada carga contra la frecuencia de muestreo
+              del compartimento. Si no se muestrea cuando toca, el resto de los números del
+              tablero son adorno.
             </Alert>
-          )}
-
-          <Box sx={{ display: 'grid', gap: 2, mb: 2,
-            gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
-            <Ranking titulo="Parámetros que más disparan"
-              ayuda="Qué está fallando, agrupado" filas={analitica.parametros}
-              color={ESTADO.peligro} />
-            <Ranking titulo="Motivos de drenaje"
-              ayuda="Por qué se saca el aceite, y cuánto rindió"
-              filas={analitica.drenajes} color={ESTADO.alerta}
-              formato={f => `${f.cantidad} · ${f.vida_promedio ?? '—'} prom.`} />
-            <Ranking titulo="Por marca"
-              ayuda="Qué flota concentra los análisis críticos" filas={analitica.por_marca}
-              color={PALETA.grafito}
-              formato={f => `${f.cantidad}${f.criticas ? ` · ${f.criticas} críticas` : ''}`} />
-            <Ranking titulo="Costo por unidad de vida"
-              ayuda="Aceite, filtro, mano de obra y rellenos, por hora o kilómetro lubricado"
-              filas={analitica.costos} campo="costo_por_unidad" color={COLOR_MODULO}
-              formato={f => `${pesos(f.costo_por_unidad)} / ${(f.unidad ?? '').toLowerCase()}`} />
+            <Card sx={{ borderRadius: 3, overflow: 'auto' }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    {['ACTIVO', 'COMPARTIMENTO', 'VIDA ACTUAL', 'FRECUENCIA',
+                      'ÚLTIMA MUESTRA', 'MOTIVO', ''].map(h => (
+                      <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11 }}>{h}</TableCell>
+                    ))}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {pendientes.map(p => (
+                    <TableRow key={p.compartimento_id} hover>
+                      <TableCell sx={{ fontFamily: 'monospace', fontWeight: 700 }}>
+                        {p.activo}
+                        {p.critico && <Chip label="Crítico" size="small" sx={{
+                          ml: 0.75, height: 16, fontSize: 9, fontWeight: 800,
+                          bgcolor: `${ESTADO.peligro}1A`, color: ESTADO.peligro }} />}
+                      </TableCell>
+                      <TableCell>{p.compartimento}<br />
+                        <Typography variant="caption" color="text.secondary">{p.tipo}</Typography>
+                      </TableCell>
+                      <TableCell>{p.vida_actual ?? '—'} {p.unidad.toLowerCase()}</TableCell>
+                      <TableCell>{p.frecuencia_muestreo ?? '—'}</TableCell>
+                      <TableCell>{fecha(p.ultima_muestra)}</TableCell>
+                      <TableCell>
+                        <Typography variant="caption" sx={{ color: ESTADO.alerta, fontWeight: 700 }}>
+                          {p.motivo}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Button size="small" startIcon={<Science />} sx={{ textTransform: 'none' }}
+                          onClick={() => {
+                            const c = compartimentos.find(x => x.id === p.compartimento_id)
+                            if (c) setNuevaMuestra(c)
+                          }}>
+                          Registrar
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {pendientes.length === 0 && (
+                    <TableRow><TableCell colSpan={7} sx={{ py: 5, textAlign: 'center' }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Nada pendiente. Todos los compartimentos con carga viva están al día.
+                      </Typography>
+                    </TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </Card>
           </Box>
-        </Box>
-      )}
+        )}
 
-      {verMuestra && (
-        <DetalleMuestra id={verMuestra} onCerrar={() => setVerMuestra(null)} onCambio={refrescar} />
-      )}
-      {nuevaMuestra && (
-        <DialogoMuestra compartimento={nuevaMuestra}
-          onCerrar={() => setNuevaMuestra(null)} onListo={refrescar} />
-      )}
-      {nuevaCarga && (
-        <DialogoCarga compartimento={nuevaCarga}
-          onCerrar={() => setNuevaCarga(null)} onListo={refrescar} />
-      )}
-    </Box>
+        {/* ── Tablero ────────────────────────────────────────────────────────── */}
+        {tab === 3 && analitica && (
+          <Box>
+            <Card sx={{ borderRadius: 3, p: 2.5, mb: 2 }}>
+              <Stack direction="row" spacing={3} flexWrap="wrap" useFlexGap>
+                <Box sx={{ flex: 1, minWidth: 130 }}>
+                  <Typography variant="caption" color="text.secondary">Muestras</Typography>
+                  <Typography variant="h6" fontWeight={800}>{analitica.total_muestras}</Typography>
+                </Box>
+                <Divider orientation="vertical" flexItem />
+                <Box sx={{ flex: 1, minWidth: 130 }}>
+                  <Typography variant="caption" color="text.secondary">Críticas</Typography>
+                  <Typography variant="h6" fontWeight={800} sx={{
+                    color: analitica.criticas ? ESTADO.peligro : ESTADO.exito }}>
+                    {analitica.criticas}
+                  </Typography>
+                </Box>
+                <Divider orientation="vertical" flexItem />
+                <Box sx={{ flex: 1, minWidth: 170 }}>
+                  <Typography variant="caption" color="text.secondary">Acierto del diagnóstico</Typography>
+                  <Typography variant="h6" fontWeight={800}>
+                    {analitica.diagnostico.acierto_pct != null
+                      ? `${analitica.diagnostico.acierto_pct}%` : '—'}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {analitica.diagnostico.confirmados} confirmados · {analitica.diagnostico.desmentidos} desmentidos
+                  </Typography>
+                </Box>
+                <Divider orientation="vertical" flexItem />
+                <Box sx={{ flex: 1, minWidth: 170 }}>
+                  <Typography variant="caption" color="text.secondary">Sin puerto de muestreo</Typography>
+                  <Typography variant="h6" fontWeight={800} sx={{
+                    color: analitica.sin_puerto_muestreo ? ESTADO.alerta : ESTADO.exito }}>
+                    {analitica.sin_puerto_muestreo} <Typography component="span" variant="caption"
+                      color="text.secondary">de {analitica.compartimentos}</Typography>
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    condiciona la calidad del dato
+                  </Typography>
+                </Box>
+              </Stack>
+            </Card>
+
+            {analitica.drenajes.some(d => d.evitable) && (
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                Hay cargas drenadas por motivos marcados como evitables. Esos cambios son
+                oportunidad perdida: el aceite salió antes de tiempo por algo que se podía
+                prevenir.
+              </Alert>
+            )}
+
+            <Box sx={{ display: 'grid', gap: 2, mb: 2,
+              gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
+              <Ranking titulo="Parámetros que más disparan"
+                ayuda="Qué está fallando, agrupado" filas={analitica.parametros}
+                color={ESTADO.peligro} />
+              <Ranking titulo="Motivos de drenaje"
+                ayuda="Por qué se saca el aceite, y cuánto rindió"
+                filas={analitica.drenajes} color={ESTADO.alerta}
+                formato={f => `${f.cantidad} · ${f.vida_promedio ?? '—'} prom.`} />
+              <Ranking titulo="Por marca"
+                ayuda="Qué flota concentra los análisis críticos" filas={analitica.por_marca}
+                color={PALETA.grafito}
+                formato={f => `${f.cantidad}${f.criticas ? ` · ${f.criticas} críticas` : ''}`} />
+              <Ranking titulo="Costo por unidad de vida"
+                ayuda="Aceite, filtro, mano de obra y rellenos, por hora o kilómetro lubricado"
+                filas={analitica.costos} campo="costo_por_unidad" color={COLOR_MODULO}
+                formato={f => `${pesos(f.costo_por_unidad)} / ${(f.unidad ?? '').toLowerCase()}`} />
+            </Box>
+          </Box>
+        )}
+
+        {verMuestra && (
+          <DetalleMuestra id={verMuestra} onCerrar={() => setVerMuestra(null)} onCambio={refrescar} />
+        )}
+        {nuevaMuestra && (
+          <DialogoMuestra compartimento={nuevaMuestra}
+            onCerrar={() => setNuevaMuestra(null)} onListo={refrescar} />
+        )}
+        {nuevaCarga && (
+          <DialogoCarga compartimento={nuevaCarga}
+            onCerrar={() => setNuevaCarga(null)} onListo={refrescar} />
+        )}
+      </Box>
+    </Layout>
   )
 }
 
