@@ -18,6 +18,9 @@ import { apiClient as api } from '@/api/client'
 import { COLOR_MODULO } from '@/config/marca'
 import AccountTreeIcon from '@mui/icons-material/AccountTree'
 import { AdminCatalogos } from '@/components/catalogo/AdminCatalogos'
+import { AccionesMaestro, type CampoMaestro } from '@/components/mes/AccionesMaestro'
+import ViewModuleIcon from '@mui/icons-material/ViewModule'
+import BuildIcon from '@mui/icons-material/Build'
 // ─── Identidad MES / tema claro ──────────────────────────────────────────────
 const MES_COLOR = COLOR_MODULO
 const MES_DARK = COLOR_MODULO
@@ -191,7 +194,7 @@ function TabPlantas() {
       <TituloSeccion texto={`Plantas registradas (${plantas.length})`} />
       <Box sx={{ overflowX: 'auto' }}>
         <Table size="small">
-          <TablaEncabezado columnas={['Código', 'Nombre', 'Tipo de fabricación', 'Ciudad', 'Estado']} />
+          <TablaEncabezado columnas={['Código', 'Nombre', 'Tipo de fabricación', 'Ciudad', 'Estado', '']} />
           <TableBody>
             {plantas.map(p => (
               <TableRow key={p.id} hover>
@@ -200,9 +203,21 @@ function TabPlantas() {
                 <TableCell>{enumChip(p.tipo_fabricacion, FAB_COLOR[p.tipo_fabricacion] ?? '#64748B')}</TableCell>
                 <TableCell>{p.ciudad || '—'}</TableCell>
                 <TableCell>{activoChip(p.activo)}</TableCell>
+                <TableCell align="right">
+                  <AccionesMaestro recurso="plantas" item={p} etiqueta="la planta"
+                    claves={[['mes-plantas'], ['mes-tablero']]} campos={[
+                      { clave: 'codigo', etiqueta: 'Código', requerido: true },
+                      { clave: 'nombre', etiqueta: 'Nombre', requerido: true },
+                      { clave: 'tipo_fabricacion', etiqueta: 'Tipo de fabricación', tipo: 'lista',
+                        opciones: TIPOS_FABRICACION.map(t => ({ valor: t, texto: t })) },
+                      { clave: 'ciudad', etiqueta: 'Ciudad' },
+                      { clave: 'pais', etiqueta: 'País' },
+                      { clave: 'descripcion', etiqueta: 'Descripción' },
+                    ]} />
+                </TableCell>
               </TableRow>
             ))}
-            {plantas.length === 0 && <FilaVacia colSpan={5} cargando={isLoading} mensaje="Sin plantas registradas. Cree la primera con el formulario superior." />}
+            {plantas.length === 0 && <FilaVacia colSpan={6} cargando={isLoading} mensaje="Sin plantas registradas. Cree la primera con el formulario superior." />}
           </TableBody>
         </Table>
       </Box>
@@ -292,7 +307,7 @@ function TabLineas() {
       <TituloSeccion texto={`Líneas registradas (${lineas.length})`} />
       <Box sx={{ overflowX: 'auto' }}>
         <Table size="small">
-          <TablaEncabezado columnas={['Código', 'Nombre', 'Planta', 'Capacidad/hora', 'Estado']} />
+          <TablaEncabezado columnas={['Código', 'Nombre', 'Planta', 'Capacidad/hora', 'Estado', '']} />
           <TableBody>
             {lineas.map(l => (
               <TableRow key={l.id} hover>
@@ -301,9 +316,20 @@ function TabLineas() {
                 <TableCell>{planta(l.planta_id)?.nombre ?? `#${l.planta_id}`}</TableCell>
                 <TableCell sx={{ fontVariantNumeric: 'tabular-nums' }}>{num(l.capacidad_hora)}</TableCell>
                 <TableCell>{activoChip(l.activo)}</TableCell>
+                <TableCell align="right">
+                  <AccionesMaestro recurso="lineas" item={l} etiqueta="la línea"
+                    claves={[['mes-lineas'], ['mes-tablero']]} campos={[
+                      { clave: 'codigo', etiqueta: 'Código', requerido: true },
+                      { clave: 'nombre', etiqueta: 'Nombre', requerido: true },
+                      { clave: 'capacidad_hora', etiqueta: 'Capacidad por hora', tipo: 'numero' },
+                      { clave: 'unidad_medida', etiqueta: 'Unidad de medida' },
+                      { clave: 'planta_id', etiqueta: 'Planta', tipo: 'lista', requerido: true,
+                        opciones: plantas.map(x => ({ valor: x.id, texto: x.codigo + ' — ' + x.nombre })) },
+                    ]} />
+                </TableCell>
               </TableRow>
             ))}
-            {lineas.length === 0 && <FilaVacia colSpan={5} cargando={isLoading} mensaje="Sin líneas registradas. Debe existir al menos una planta." />}
+            {lineas.length === 0 && <FilaVacia colSpan={6} cargando={isLoading} mensaje="Sin líneas registradas. Debe existir al menos una planta." />}
           </TableBody>
         </Table>
       </Box>
@@ -410,7 +436,7 @@ function TabTurnos() {
       <TituloSeccion texto={`Turnos registrados (${turnos.length})`} />
       <Box sx={{ overflowX: 'auto' }}>
         <Table size="small">
-          <TablaEncabezado columnas={['Nombre', 'Planta', 'Tipo', 'Horario', 'Duración']} />
+          <TablaEncabezado columnas={['Nombre', 'Planta', 'Tipo', 'Horario', 'Duración', '']} />
           <TableBody>
             {turnos.map(t => (
               <TableRow key={t.id} hover>
@@ -419,9 +445,22 @@ function TabTurnos() {
                 <TableCell>{enumChip(t.tipo, TURNO_COLOR[t.tipo] ?? '#64748B', TURNO_LABEL[t.tipo])}</TableCell>
                 <TableCell sx={{ fontVariantNumeric: 'tabular-nums' }}>{t.hora_inicio} – {t.hora_fin}</TableCell>
                 <TableCell sx={{ fontVariantNumeric: 'tabular-nums' }}>{t.duracion_horas.toLocaleString('es-CO')} h</TableCell>
+                <TableCell align="right">
+                  <AccionesMaestro recurso="turnos" item={t} etiqueta="el turno"
+                    claves={[['mes-turnos']]} campos={[
+                      { clave: 'nombre', etiqueta: 'Nombre', requerido: true },
+                      { clave: 'tipo', etiqueta: 'Tipo', tipo: 'lista',
+                        opciones: TIPOS_TURNO.map(x => ({ valor: x, texto: TURNO_LABEL[x] ?? x })) },
+                      { clave: 'hora_inicio', etiqueta: 'Hora de inicio', requerido: true, ayuda: 'HH:MM' },
+                      { clave: 'hora_fin', etiqueta: 'Hora de fin', requerido: true, ayuda: 'HH:MM' },
+                      { clave: 'duracion_horas', etiqueta: 'Duración en horas', tipo: 'numero' },
+                      { clave: 'planta_id', etiqueta: 'Planta', tipo: 'lista', requerido: true,
+                        opciones: plantas.map(x => ({ valor: x.id, texto: x.codigo + ' — ' + x.nombre })) },
+                    ]} />
+                </TableCell>
               </TableRow>
             ))}
-            {turnos.length === 0 && <FilaVacia colSpan={5} cargando={isLoading} mensaje="Sin turnos registrados. Debe existir al menos una planta." />}
+            {turnos.length === 0 && <FilaVacia colSpan={6} cargando={isLoading} mensaje="Sin turnos registrados. Debe existir al menos una planta." />}
           </TableBody>
         </Table>
       </Box>
@@ -506,7 +545,7 @@ function TabEquipos() {
       <TituloSeccion texto={`Equipos registrados (${equipos.length})`} />
       <Box sx={{ overflowX: 'auto' }}>
         <Table size="small">
-          <TablaEncabezado columnas={['Código', 'Nombre', 'Marca', 'Modelo', 'Capacidad/hora', 'Estado']} />
+          <TablaEncabezado columnas={['Código', 'Nombre', 'Marca', 'Modelo', 'Capacidad/hora', 'Estado', '']} />
           <TableBody>
             {equipos.map(eq => (
               <TableRow key={eq.id} hover>
@@ -516,9 +555,19 @@ function TabEquipos() {
                 <TableCell>{eq.modelo || '—'}</TableCell>
                 <TableCell sx={{ fontVariantNumeric: 'tabular-nums' }}>{num(eq.capacidad_hora)}</TableCell>
                 <TableCell>{activoChip(eq.activo)}</TableCell>
+                <TableCell align="right">
+                  <AccionesMaestro recurso="equipos" item={eq} etiqueta="la máquina"
+                    claves={[['mes-equipos'], ['mes-tablero']]} campos={[
+                      { clave: 'codigo', etiqueta: 'Código', requerido: true },
+                      { clave: 'nombre', etiqueta: 'Nombre', requerido: true },
+                      { clave: 'marca', etiqueta: 'Marca' },
+                      { clave: 'modelo', etiqueta: 'Modelo' },
+                      { clave: 'capacidad_hora', etiqueta: 'Capacidad por hora', tipo: 'numero' },
+                    ]} />
+                </TableCell>
               </TableRow>
             ))}
-            {equipos.length === 0 && <FilaVacia colSpan={6} cargando={isLoading} mensaje="Sin equipos registrados." />}
+            {equipos.length === 0 && <FilaVacia colSpan={7} cargando={isLoading} mensaje="Sin equipos registrados." />}
           </TableBody>
         </Table>
       </Box>
@@ -604,7 +653,7 @@ function TabOperarios() {
       <TituloSeccion texto={`Operarios registrados (${operarios.length})`} />
       <Box sx={{ overflowX: 'auto' }}>
         <Table size="small">
-          <TablaEncabezado columnas={['Código', 'Nombre', 'Cédula', 'Cargo', 'Planta', 'Estado']} />
+          <TablaEncabezado columnas={['Código', 'Nombre', 'Cédula', 'Cargo', 'Planta', 'Estado', '']} />
           <TableBody>
             {operarios.map(o => (
               <TableRow key={o.id} hover>
@@ -614,9 +663,20 @@ function TabOperarios() {
                 <TableCell>{o.cargo || '—'}</TableCell>
                 <TableCell>{planta(o.planta_id)?.nombre ?? '—'}</TableCell>
                 <TableCell>{activoChip(o.activo)}</TableCell>
+                <TableCell align="right">
+                  <AccionesMaestro recurso="operarios" item={o} etiqueta="el operario"
+                    claves={[['mes-operarios']]} campos={[
+                      { clave: 'codigo', etiqueta: 'Código', requerido: true },
+                      { clave: 'nombre', etiqueta: 'Nombre', requerido: true },
+                      { clave: 'cedula', etiqueta: 'Cédula' },
+                      { clave: 'cargo', etiqueta: 'Cargo' },
+                      { clave: 'planta_id', etiqueta: 'Planta', tipo: 'lista',
+                        opciones: plantas.map(x => ({ valor: x.id, texto: x.codigo + ' — ' + x.nombre })) },
+                    ]} />
+                </TableCell>
               </TableRow>
             ))}
-            {operarios.length === 0 && <FilaVacia colSpan={6} cargando={isLoading} mensaje="Sin operarios registrados." />}
+            {operarios.length === 0 && <FilaVacia colSpan={7} cargando={isLoading} mensaje="Sin operarios registrados." />}
           </TableBody>
         </Table>
       </Box>
@@ -705,7 +765,7 @@ function TabProductos() {
       <TituloSeccion texto={`Productos registrados (${productos.length})`} />
       <Box sx={{ overflowX: 'auto' }}>
         <Table size="small">
-          <TablaEncabezado columnas={['Código', 'Nombre', 'Tipo', 'UM', 'Lote', 'Estado']} />
+          <TablaEncabezado columnas={['Código', 'Nombre', 'Tipo', 'UM', 'Lote', 'Estado', '']} />
           <TableBody>
             {productos.map(p => (
               <TableRow key={p.id} hover>
@@ -722,9 +782,20 @@ function TabProductos() {
                     : <Chip size="small" label="Sin lote" sx={{ fontWeight: 700, fontSize: 10, color: '#64748B', bgcolor: '#F1F5F9' }} />}
                 </TableCell>
                 <TableCell>{activoChip(p.activo)}</TableCell>
+                <TableCell align="right">
+                  <AccionesMaestro recurso="productos" item={p} etiqueta="el material"
+                    claves={[['mes-productos']]} campos={[
+                      { clave: 'codigo', etiqueta: 'Código', requerido: true },
+                      { clave: 'nombre', etiqueta: 'Nombre', requerido: true },
+                      { clave: 'descripcion', etiqueta: 'Descripción' },
+                      { clave: 'tipo', etiqueta: 'Tipo', tipo: 'lista', requerido: true,
+                        opciones: TIPOS_PRODUCTO.map(x => ({ valor: x, texto: x })) },
+                      { clave: 'unidad_medida', etiqueta: 'Unidad de medida', requerido: true },
+                    ]} />
+                </TableCell>
               </TableRow>
             ))}
-            {productos.length === 0 && <FilaVacia colSpan={6} cargando={isLoading} mensaje="Sin productos registrados." />}
+            {productos.length === 0 && <FilaVacia colSpan={7} cargando={isLoading} mensaje="Sin productos registrados." />}
           </TableBody>
         </Table>
       </Box>
@@ -732,14 +803,288 @@ function TabProductos() {
   )
 }
 
+// ═══ Celdas de trabajo ═══════════════════════════════════════════════════════
+//
+// La celda es el escalón que faltaba entre la línea y la máquina. Sin ella,
+// veinte máquinas cuelgan sueltas de la línea y no hay forma de decir cuáles
+// forman la etapa de preparación y cuáles la de empaque. La tabla existía
+// desde el principio; lo que no había era por dónde crearlas.
+
+interface Celda {
+  id: number; linea_id: number; codigo: string; nombre: string
+  descripcion?: string | null; activo: boolean
+}
+
+const CELDA_VACIA = { linea_id: '', codigo: '', nombre: '', descripcion: '' }
+
+function TabCeldas() {
+  const qc = useQueryClient()
+  const [form, setForm] = useState({ ...CELDA_VACIA })
+  const [tried, setTried] = useState(false)
+
+  const { data: lineas = [] } = useQuery<Linea[]>({
+    queryKey: ['mes-lineas'], queryFn: () => api.get('/mes/lineas').then(r => r.data),
+  })
+  const { data: celdas = [], isLoading } = useQuery<Celda[]>({
+    queryKey: ['mes-celdas'], queryFn: () => api.get('/mes/celdas').then(r => r.data),
+  })
+  const { data: equipos = [] } = useQuery<Equipo[]>({
+    queryKey: ['mes-equipos'], queryFn: () => api.get('/mes/equipos').then(r => r.data),
+  })
+
+  const linea = (id: number) => lineas.find(l => l.id === id)
+  const maquinasDe = (id: number) => equipos.filter(e => e.celda_id === id).length
+
+  const mutCrear = useMutation({
+    mutationFn: (body: Record<string, unknown>) => api.post('/mes/celdas', body),
+    onSuccess: (r: any) => {
+      toast.success(`Celda ${r.data?.codigo ?? ''} creada`)
+      qc.invalidateQueries({ queryKey: ['mes-celdas'] })
+      setForm({ ...CELDA_VACIA }); setTried(false)
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al crear la celda'),
+  })
+
+  const errLinea = tried && !form.linea_id
+  const errCodigo = tried && !form.codigo.trim()
+  const errNombre = tried && !form.nombre.trim()
+
+  const crear = () => {
+    setTried(true)
+    if (!form.linea_id || !form.codigo.trim() || !form.nombre.trim()) return
+    mutCrear.mutate({
+      linea_id: Number(form.linea_id),
+      codigo: form.codigo.trim(), nombre: form.nombre.trim(),
+      descripcion: form.descripcion.trim() || undefined,
+    })
+  }
+
+  const camposCelda: CampoMaestro[] = [
+    { clave: 'codigo', etiqueta: 'Código', requerido: true },
+    { clave: 'nombre', etiqueta: 'Nombre', requerido: true },
+    { clave: 'descripcion', etiqueta: 'Descripción' },
+    { clave: 'linea_id', etiqueta: 'Línea', tipo: 'lista', requerido: true,
+      opciones: lineas.map(l => ({ valor: l.id, texto: `${l.codigo} — ${l.nombre}` })) },
+  ]
+
+  return (
+    <Paper elevation={0} sx={cardSx}>
+      <TituloSeccion texto="Nueva celda de trabajo" />
+      <Typography fontSize={12} color="text.secondary" mb={1.5}>
+        Una celda agrupa las máquinas que hacen una misma etapa: preparación,
+        transformación, empaque. Las máquinas se asignan a la celda, no a la línea.
+      </Typography>
+      <Grid container spacing={1.5} mb={2.5}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <TextField select label="Línea *" size="small" fullWidth value={form.linea_id}
+            onChange={e => setForm(f => ({ ...f, linea_id: e.target.value }))}
+            error={errLinea} helperText={errLinea ? 'Seleccione la línea' : ''}>
+            <MenuItem value="">Seleccionar…</MenuItem>
+            {lineas.map(l => <MenuItem key={l.id} value={String(l.id)}>{l.codigo} — {l.nombre}</MenuItem>)}
+          </TextField>
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+          <TextField label="Código *" size="small" fullWidth value={form.codigo}
+            onChange={e => setForm(f => ({ ...f, codigo: e.target.value }))}
+            error={errCodigo} helperText={errCodigo ? 'Requerido' : ''} />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <TextField label="Nombre *" size="small" fullWidth value={form.nombre}
+            onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
+            error={errNombre} helperText={errNombre ? 'Requerido' : ''} />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+          <TextField label="Descripción" size="small" fullWidth value={form.descripcion}
+            onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
+        </Grid>
+        <Grid size={{ xs: 12, md: 2 }}>
+          <Button fullWidth variant="contained" startIcon={<AddIcon />} disabled={mutCrear.isPending}
+            onClick={crear} sx={btnCrearSx}>Crear celda</Button>
+        </Grid>
+      </Grid>
+
+      <Divider sx={{ mb: 2 }} />
+      <TituloSeccion texto={`Celdas registradas (${celdas.length})`} />
+      <Box sx={{ overflowX: 'auto' }}>
+        <Table size="small">
+          <TablaEncabezado columnas={['Código', 'Nombre', 'Línea', 'Máquinas', 'Estado', '']} />
+          <TableBody>
+            {celdas.map(c => (
+              <TableRow key={c.id} hover>
+                <TableCell sx={{ fontWeight: 700, color: MES_DARK }}>{c.codigo}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{c.nombre}</TableCell>
+                <TableCell>{linea(c.linea_id)?.nombre ?? '—'}</TableCell>
+                <TableCell>{maquinasDe(c.id)}</TableCell>
+                <TableCell>{activoChip(c.activo)}</TableCell>
+                <TableCell align="right">
+                  <AccionesMaestro recurso="celdas" item={c} campos={camposCelda}
+                    etiqueta="la celda"
+                    claves={[['mes-celdas'], ['mes-equipos'], ['mes-tablero']]} />
+                </TableCell>
+              </TableRow>
+            ))}
+            {celdas.length === 0 && (
+              <FilaVacia colSpan={6} cargando={isLoading}
+                mensaje="Todavía no hay celdas. Cree primero una línea y luego sus celdas." />
+            )}
+          </TableBody>
+        </Table>
+      </Box>
+    </Paper>
+  )
+}
+
+
+// ═══ Operaciones ═════════════════════════════════════════════════════════════
+//
+// La operación es QUÉ se hace en una etapa —troquelar, sellar, envasar— y la
+// máquina es CON QUÉ. Van separadas porque la misma operación se hace en
+// máquinas distintas según la línea, y la misma máquina hace operaciones
+// distintas según el producto.
+
+interface Operacion {
+  id: number; celda_id?: number | null; codigo: string; nombre: string
+  descripcion?: string | null; tiempo_std_min?: number | null
+  requiere_inspeccion: boolean; activo: boolean
+}
+
+const OPERACION_VACIA = {
+  celda_id: '', codigo: '', nombre: '', descripcion: '',
+  tiempo_std_min: '', requiere_inspeccion: false,
+}
+
+function TabOperaciones() {
+  const qc = useQueryClient()
+  const [form, setForm] = useState({ ...OPERACION_VACIA })
+  const [tried, setTried] = useState(false)
+
+  const { data: operaciones = [], isLoading } = useQuery<Operacion[]>({
+    queryKey: ['mes-operaciones'], queryFn: () => api.get('/mes/operaciones').then(r => r.data),
+  })
+  const { data: celdas = [] } = useQuery<Celda[]>({
+    queryKey: ['mes-celdas'], queryFn: () => api.get('/mes/celdas').then(r => r.data),
+  })
+  const celda = (id?: number | null) => celdas.find(c => c.id === id)
+
+  const mutCrear = useMutation({
+    mutationFn: (body: Record<string, unknown>) => api.post('/mes/operaciones', body),
+    onSuccess: (r: any) => {
+      toast.success(`Operación ${r.data?.codigo ?? ''} creada`)
+      qc.invalidateQueries({ queryKey: ['mes-operaciones'] })
+      setForm({ ...OPERACION_VACIA }); setTried(false)
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'Error al crear la operación'),
+  })
+
+  const errCodigo = tried && !form.codigo.trim()
+  const errNombre = tried && !form.nombre.trim()
+
+  const crear = () => {
+    setTried(true)
+    if (!form.codigo.trim() || !form.nombre.trim()) return
+    mutCrear.mutate({
+      celda_id: form.celda_id ? Number(form.celda_id) : undefined,
+      codigo: form.codigo.trim(), nombre: form.nombre.trim(),
+      descripcion: form.descripcion.trim() || undefined,
+      tiempo_std_min: form.tiempo_std_min ? Number(form.tiempo_std_min) : undefined,
+      requiere_inspeccion: form.requiere_inspeccion,
+    })
+  }
+
+  const camposOperacion: CampoMaestro[] = [
+    { clave: 'codigo', etiqueta: 'Código', requerido: true },
+    { clave: 'nombre', etiqueta: 'Nombre', requerido: true },
+    { clave: 'descripcion', etiqueta: 'Descripción' },
+    { clave: 'tiempo_std_min', etiqueta: 'Tiempo estándar (min)', tipo: 'numero' },
+    { clave: 'celda_id', etiqueta: 'Celda', tipo: 'lista',
+      opciones: celdas.map(c => ({ valor: c.id, texto: `${c.codigo} — ${c.nombre}` })) },
+    { clave: 'requiere_inspeccion', etiqueta: 'Exige inspección de calidad',
+      tipo: 'interruptor' },
+  ]
+
+  return (
+    <Paper elevation={0} sx={cardSx}>
+      <TituloSeccion texto="Nueva operación" />
+      <Typography fontSize={12} color="text.secondary" mb={1.5}>
+        Lo que se hace en una etapa. Después se asigna a los nodos del esquema para
+        que el diagrama diga «acá se troquela» y no solo «acá está la troqueladora».
+      </Typography>
+      <Grid container spacing={1.5} mb={2.5}>
+        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+          <TextField label="Código *" size="small" fullWidth value={form.codigo}
+            onChange={e => setForm(f => ({ ...f, codigo: e.target.value }))}
+            error={errCodigo} helperText={errCodigo ? 'Requerido' : ''} />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <TextField label="Nombre *" size="small" fullWidth value={form.nombre}
+            onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
+            error={errNombre} helperText={errNombre ? 'Requerido' : ''} />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <TextField select label="Celda" size="small" fullWidth value={form.celda_id}
+            onChange={e => setForm(f => ({ ...f, celda_id: e.target.value }))}>
+            <MenuItem value="">Sin asignar</MenuItem>
+            {celdas.map(c => <MenuItem key={c.id} value={String(c.id)}>{c.codigo} — {c.nombre}</MenuItem>)}
+          </TextField>
+        </Grid>
+        <Grid size={{ xs: 6, sm: 3, md: 2 }}>
+          <TextField label="Tiempo estándar" type="number" size="small" fullWidth
+            value={form.tiempo_std_min}
+            onChange={e => setForm(f => ({ ...f, tiempo_std_min: e.target.value }))}
+            InputProps={{ endAdornment: <InputAdornment position="end">min</InputAdornment> }} />
+        </Grid>
+        <Grid size={{ xs: 12, md: 2 }}>
+          <Button fullWidth variant="contained" startIcon={<AddIcon />} disabled={mutCrear.isPending}
+            onClick={crear} sx={btnCrearSx}>Crear operación</Button>
+        </Grid>
+      </Grid>
+
+      <Divider sx={{ mb: 2 }} />
+      <TituloSeccion texto={`Operaciones registradas (${operaciones.length})`} />
+      <Box sx={{ overflowX: 'auto' }}>
+        <Table size="small">
+          <TablaEncabezado columnas={['Código', 'Nombre', 'Celda', 'Tiempo estándar', 'Inspección', 'Estado', '']} />
+          <TableBody>
+            {operaciones.map(o => (
+              <TableRow key={o.id} hover>
+                <TableCell sx={{ fontWeight: 700, color: MES_DARK }}>{o.codigo}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{o.nombre}</TableCell>
+                <TableCell>{celda(o.celda_id)?.nombre ?? '—'}</TableCell>
+                <TableCell>{o.tiempo_std_min != null ? `${num(o.tiempo_std_min)} min` : '—'}</TableCell>
+                <TableCell>
+                  {o.requiere_inspeccion
+                    ? <Chip size="small" label="Exige" sx={{ height: 18, fontSize: 10, fontWeight: 700, color: '#D97706', bgcolor: '#FFFBEB' }} />
+                    : '—'}
+                </TableCell>
+                <TableCell>{activoChip(o.activo)}</TableCell>
+                <TableCell align="right">
+                  <AccionesMaestro recurso="operaciones" item={o} campos={camposOperacion}
+                    etiqueta="la operación" claves={[['mes-operaciones']]} />
+                </TableCell>
+              </TableRow>
+            ))}
+            {operaciones.length === 0 && (
+              <FilaVacia colSpan={7} cargando={isLoading}
+                mensaje="Todavía no hay operaciones." />
+            )}
+          </TableBody>
+        </Table>
+      </Box>
+    </Paper>
+  )
+}
+
+
 // ═══ Página principal ════════════════════════════════════════════════════════
 const TABS = [
   { label: 'Plantas', icon: <FactoryIcon sx={{ fontSize: 18 }} /> },
   { label: 'Líneas', icon: <LineIcon sx={{ fontSize: 18 }} /> },
+  { label: 'Celdas', icon: <ViewModuleIcon sx={{ fontSize: 18 }} /> },
   { label: 'Turnos', icon: <ShiftIcon sx={{ fontSize: 18 }} /> },
   { label: 'Equipos', icon: <MachineIcon sx={{ fontSize: 18 }} /> },
+  { label: 'Operaciones', icon: <BuildIcon sx={{ fontSize: 18 }} /> },
   { label: 'Operarios', icon: <OperatorIcon sx={{ fontSize: 18 }} /> },
-  { label: 'Productos', icon: <ProductIcon sx={{ fontSize: 18 }} /> },
+  { label: 'Materiales', icon: <ProductIcon sx={{ fontSize: 18 }} /> },
   { label: 'Catálogos', icon: <AccountTreeIcon sx={{ fontSize: 18 }} /> },
 ]
 
@@ -755,7 +1100,7 @@ export default function MESConfig() {
           <Box>
             <Typography variant="h5" fontWeight={800} color={MES_DARK}>Configuración · Datos Maestros</Typography>
             <Typography fontSize={12} color="text.secondary">
-              Datos maestros controlados · plantas, líneas, turnos, equipos, operarios y productos
+              Plantas, líneas, celdas, máquinas, operaciones, materiales y los catálogos del módulo
             </Typography>
           </Box>
         </Stack>
@@ -772,16 +1117,18 @@ export default function MESConfig() {
             {TABS.map(t => <Tab key={t.label} icon={t.icon} iconPosition="start" label={t.label} />)}
           </Tabs>
 
-        {tab === 6 && <AdminCatalogos modulo="MES" color={COLOR_MODULO} />}
         </Paper>
 
         {/* Contenido del tab activo */}
         {tab === 0 && <TabPlantas />}
         {tab === 1 && <TabLineas />}
-        {tab === 2 && <TabTurnos />}
-        {tab === 3 && <TabEquipos />}
-        {tab === 4 && <TabOperarios />}
-        {tab === 5 && <TabProductos />}
+        {tab === 2 && <TabCeldas />}
+        {tab === 3 && <TabTurnos />}
+        {tab === 4 && <TabEquipos />}
+        {tab === 5 && <TabOperaciones />}
+        {tab === 6 && <TabOperarios />}
+        {tab === 7 && <TabProductos />}
+        {tab === 8 && <AdminCatalogos modulo="MES" color={COLOR_MODULO} />}
       </Box>
     </Layout>
   )

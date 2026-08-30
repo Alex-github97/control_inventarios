@@ -139,6 +139,7 @@ from app.infrastructure.models.mes import (
     MESConsumoMaterial, MESWIP, MESInspeccion, MESDefecto,
     MESScrap, MESOEERegistro, MESChecklistPlantilla, MESChecklistPregunta,
     MESChecklistEjecucion, MESKPIDiario,
+    MESFlujoNodo, MESFlujoConexion,
 )
 from app.infrastructure.models.aps import (
     APSUbicacion, APSProducto, APSRecurso, APSRestriccion, APSParametro,

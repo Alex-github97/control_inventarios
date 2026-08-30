@@ -1490,6 +1490,128 @@ async def _migrar_esquema(esquema: str) -> None:
             ON CONFLICT DO NOTHING
         """))
 
+        # ── Catálogos de manufactura ──────────────────────────────────────
+        # Arrancan sembrados para que la planta se pueda configurar el primer
+        # día. Son listas cortas y genéricas a propósito: sirven igual en una
+        # planta de plásticos y en una de alimentos, y quien necesite las suyas
+        # las agrega desde la configuración del módulo.
+        await conn.execute(text("""
+            INSERT INTO catalogo_maestro (modulo, tipo, nombre, padre_id, orden, activo, created_at, updated_at)
+            SELECT 'MES', 'TIPO_PARADA', v.nombre, NULL, v.orden, true, now(), now()
+            FROM (VALUES
+                ('Falla mecánica', 1), ('Falla eléctrica', 2),
+                ('Cambio de referencia (setup)', 3), ('Falta de material', 4),
+                ('Falta de operario', 5), ('Ajuste de calidad', 6),
+                ('Limpieza programada', 7), ('Mantenimiento preventivo', 8),
+                ('Corte de energía', 9), ('Sin programa de producción', 10)
+            ) AS v(nombre, orden)
+            ON CONFLICT DO NOTHING
+        """))
+        await conn.execute(text("""
+            INSERT INTO catalogo_maestro (modulo, tipo, nombre, padre_id, orden, activo, created_at, updated_at)
+            SELECT 'MES', 'MOTIVO_SCRAP', v.nombre, NULL, v.orden, true, now(), now()
+            FROM (VALUES
+                ('Arranque de máquina', 1), ('Fuera de especificación', 2),
+                ('Contaminación', 3), ('Daño en el manejo', 4),
+                ('Material vencido', 5), ('Error de operación', 6),
+                ('Falla de equipo', 7), ('Cambio de referencia', 8)
+            ) AS v(nombre, orden)
+            ON CONFLICT DO NOTHING
+        """))
+        await conn.execute(text("""
+            INSERT INTO catalogo_maestro (modulo, tipo, nombre, padre_id, orden, activo, created_at, updated_at)
+            SELECT 'MES', 'FAMILIA_MATERIAL', v.nombre, NULL, v.orden, true, now(), now()
+            FROM (VALUES
+                ('Materia prima', 1), ('Insumo de proceso', 2),
+                ('Material de empaque', 3), ('Semielaborado', 4),
+                ('Producto terminado', 5), ('Repuesto de producción', 6)
+            ) AS v(nombre, orden)
+            ON CONFLICT DO NOTHING
+        """))
+        await conn.execute(text("""
+            INSERT INTO catalogo_maestro (modulo, tipo, nombre, padre_id, orden, activo, created_at, updated_at)
+            SELECT 'MES', 'TIPO_EQUIPO', v.nombre, NULL, v.orden, true, now(), now()
+            FROM (VALUES
+                ('Mezclador', 1), ('Extrusora', 2), ('Inyectora', 3),
+                ('Prensa', 4), ('Troqueladora', 5), ('Horno', 6),
+                ('Envasadora', 7), ('Selladora', 8), ('Etiquetadora', 9),
+                ('Encajadora', 10), ('Banda transportadora', 11),
+                ('Molino', 12), ('Tanque de proceso', 13),
+                ('Máquina de corte', 14), ('Robot de manipulación', 15)
+            ) AS v(nombre, orden)
+            ON CONFLICT DO NOTHING
+        """))
+        await conn.execute(text("""
+            INSERT INTO catalogo_maestro (modulo, tipo, nombre, padre_id, orden, activo, created_at, updated_at)
+            SELECT 'MES', 'TIPO_OPERACION', v.nombre, NULL, v.orden, true, now(), now()
+            FROM (VALUES
+                ('Preparación', 1), ('Dosificación', 2), ('Mezclado', 3),
+                ('Transformación', 4), ('Conformado', 5), ('Tratamiento térmico', 6),
+                ('Corte', 7), ('Ensamble', 8), ('Llenado', 9),
+                ('Sellado', 10), ('Etiquetado', 11), ('Empaque', 12),
+                ('Inspección', 13), ('Paletizado', 14)
+            ) AS v(nombre, orden)
+            ON CONFLICT DO NOTHING
+        """))
+        await conn.execute(text("""
+            INSERT INTO catalogo_maestro (modulo, tipo, nombre, padre_id, orden, activo, created_at, updated_at)
+            SELECT 'MES', 'TIPO_DEFECTO', v.nombre, NULL, v.orden, true, now(), now()
+            FROM (VALUES
+                ('Dimensional', 1), ('Visual o de acabado', 2),
+                ('Funcional', 3), ('De empaque o rotulado', 4),
+                ('Contaminación', 5), ('Documental', 6)
+            ) AS v(nombre, orden)
+            ON CONFLICT DO NOTHING
+        """))
+        await conn.execute(text("""
+            INSERT INTO catalogo_maestro (modulo, tipo, nombre, padre_id, orden, activo, created_at, updated_at)
+            SELECT 'MES', 'DEFECTO', v.nombre, t.id, v.orden, true, now(), now()
+            FROM (VALUES
+                ('Dimensional','Fuera de tolerancia',1),
+                ('Dimensional','Espesor irregular',2),
+                ('Visual o de acabado','Rayón superficial',1),
+                ('Visual o de acabado','Burbuja o rechupe',2),
+                ('Visual o de acabado','Color fuera de patrón',3),
+                ('Funcional','No cierra o no ajusta',1),
+                ('Funcional','Fuga',2),
+                ('De empaque o rotulado','Etiqueta mal ubicada',1),
+                ('De empaque o rotulado','Sellado deficiente',2),
+                ('Contaminación','Cuerpo extraño',1),
+                ('Documental','Lote sin trazabilidad',1)
+            ) AS v(tipo, nombre, orden)
+            JOIN catalogo_maestro t
+              ON t.modulo = 'MES' AND t.tipo = 'TIPO_DEFECTO' AND t.nombre = v.tipo
+            ON CONFLICT DO NOTHING
+        """))
+        await conn.execute(text("""
+            INSERT INTO catalogo_maestro (modulo, tipo, nombre, padre_id, orden, activo, created_at, updated_at)
+            SELECT 'MES', 'MOTIVO_RETRABAJO', v.nombre, NULL, v.orden, true, now(), now()
+            FROM (VALUES
+                ('Defecto recuperable', 1), ('Ajuste de medida', 2),
+                ('Reempaque', 3), ('Reetiquetado', 4), ('Reproceso de mezcla', 5)
+            ) AS v(nombre, orden)
+            ON CONFLICT DO NOTHING
+        """))
+        await conn.execute(text("""
+            INSERT INTO catalogo_maestro (modulo, tipo, nombre, padre_id, orden, activo, created_at, updated_at)
+            SELECT 'MES', 'CONDICION_ALMACENAMIENTO', v.nombre, NULL, v.orden, true, now(), now()
+            FROM (VALUES
+                ('Ambiente seco', 1), ('Refrigerado', 2), ('Congelado', 3),
+                ('Temperatura controlada', 4), ('Protegido de la luz', 5),
+                ('Área de sustancias peligrosas', 6)
+            ) AS v(nombre, orden)
+            ON CONFLICT DO NOTHING
+        """))
+        # La lista de líneas de producción del catálogo maestro se retira: las
+        # líneas viven en `mes_linea`, con su planta y su capacidad. Solo se
+        # borra lo que nadie escribió, para no llevarse por delante algo que
+        # alguien hubiera capturado ahí antes de que existiera la tabla.
+        await conn.execute(text("""
+            DELETE FROM catalogo_maestro
+            WHERE modulo = 'MES' AND tipo IN ('LINEA_PRODUCCION', 'TURNO')
+              AND NOT EXISTS (SELECT 1 FROM mes_linea)
+        """))
+
         # Los catálogos del CMMS se unificaron en el catálogo maestro: antes
         # `eam_catalogo_activo` tenía su propia lista de áreas, centros de costo
         # y cuentas contables, en paralelo a las compartidas. Se migran los

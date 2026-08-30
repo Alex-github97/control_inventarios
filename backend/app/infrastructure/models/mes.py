@@ -507,3 +507,98 @@ class MESKPIDiario(Base, TimestampMixin):
     inspecciones     = Column(Integer, nullable=False, default=0)
     rechazos         = Column(Integer, nullable=False, default=0)
     first_pass_yield = Column(Float, nullable=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# EL ESQUEMA DE LA LÍNEA
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# Una línea de producción no es una lista de máquinas: es un recorrido. Saber
+# que la extrusora y la cortadora están en la línea 2 no dice nada; lo que
+# importa es que el material entra por el mezclador, pasa a la extrusora y sale
+# por la cortadora, y que si la extrusora se detiene, todo lo que va detrás se
+# queda quieto.
+#
+# Por eso el esquema se guarda como un grafo —nodos y conexiones— y no como un
+# campo `orden` en la máquina. Un número de orden solo sabe describir una fila
+# india: no puede representar una línea que se abre en dos, un reproceso que
+# devuelve material a una etapa anterior, ni dos entradas de materia prima que
+# confluyen en la misma máquina. Todas esas formas existen en una planta real.
+#
+# Las coordenadas viven acá y no en el navegador porque el dibujo es del
+# proceso, no de quien lo dibujó: quien abra la línea mañana tiene que ver el
+# mismo esquema.
+
+
+class TipoNodoFlujoEnum(enum.Enum):
+    """Qué representa un nodo del esquema.
+
+    Las máquinas son lo esperable, pero un esquema que solo tuviera máquinas no
+    diría de dónde sale el material ni a dónde va. La entrada de materia prima y
+    la salida de producto son parte del recorrido y por eso son nodos, no notas
+    al margen.
+    """
+    EQUIPO     = 'EQUIPO'        # una máquina del catálogo
+    ENTRADA    = 'ENTRADA'       # por acá entra una materia prima
+    SALIDA     = 'SALIDA'        # por acá sale producto terminado o semielaborado
+    INSPECCION = 'INSPECCION'    # punto de control de calidad
+    BUFFER     = 'BUFFER'        # acumulación entre etapas
+
+
+class TipoConexionFlujoEnum(enum.Enum):
+    NORMAL    = 'NORMAL'      # el material sigue su curso
+    RETRABAJO = 'RETRABAJO'   # vuelve atrás a corregirse
+    SCRAP     = 'SCRAP'       # sale del proceso como desecho
+    ALTERNA   = 'ALTERNA'     # ruta opcional, según el producto
+
+
+class MESFlujoNodo(Base, TimestampMixin):
+    """Un punto del esquema de una línea, con su posición en el lienzo."""
+
+    __tablename__ = 'mes_flujo_nodo'
+    id         = Column(Integer, primary_key=True, index=True)
+    linea_id   = Column(Integer, ForeignKey('mes_linea.id', ondelete='CASCADE'),
+                        nullable=False, index=True)
+    tipo       = Column(SAEnum(TipoNodoFlujoEnum), nullable=False,
+                        default=TipoNodoFlujoEnum.EQUIPO)
+    # La máquina que ocupa el nodo. Va vacía en entradas, salidas y buffers.
+    equipo_id  = Column(Integer, ForeignKey('mes_equipo.id'), nullable=True)
+    # El material que entra o el producto que sale, según el tipo de nodo. Es lo
+    # que conecta el esquema con el catálogo de materias primas.
+    producto_id = Column(Integer, ForeignKey('mes_producto.id'), nullable=True)
+    # Qué se hace en este punto. Permite que el esquema diga «acá se troquela» y
+    # no solo «acá está la troqueladora».
+    operacion_id = Column(Integer, ForeignKey('mes_operacion.id'), nullable=True)
+
+    # El nombre propio del nodo. Si viene vacío se muestra el de la máquina o el
+    # del producto; sirve para distinguir dos prensas iguales en el mismo
+    # esquema («Prensa 1 · desbaste» y «Prensa 2 · acabado»).
+    nombre     = Column(String(200), nullable=True)
+    pos_x      = Column(Float, nullable=False, default=0.0)
+    pos_y      = Column(Float, nullable=False, default=0.0)
+    # Cuántas unidades del material entran por cada unidad producida. Solo tiene
+    # sentido en los nodos de entrada.
+    cantidad_por_unidad = Column(Float, nullable=True)
+    unidad_medida = Column(String(30), nullable=True)
+    tiempo_ciclo_seg = Column(Float, nullable=True)
+    # Un cuello de botella declarado se pinta distinto: es la máquina que marca
+    # el ritmo de toda la línea y conviene que salte a la vista.
+    es_cuello_botella = Column(Boolean, default=False, nullable=False)
+    notas      = Column(Text, nullable=True)
+    activo     = Column(Boolean, default=True, nullable=False)
+
+
+class MESFlujoConexion(Base, TimestampMixin):
+    """Por dónde pasa el material de un nodo al siguiente."""
+
+    __tablename__ = 'mes_flujo_conexion'
+    id        = Column(Integer, primary_key=True, index=True)
+    linea_id  = Column(Integer, ForeignKey('mes_linea.id', ondelete='CASCADE'),
+                       nullable=False, index=True)
+    origen_id  = Column(Integer, ForeignKey('mes_flujo_nodo.id', ondelete='CASCADE'),
+                        nullable=False, index=True)
+    destino_id = Column(Integer, ForeignKey('mes_flujo_nodo.id', ondelete='CASCADE'),
+                        nullable=False, index=True)
+    tipo      = Column(SAEnum(TipoConexionFlujoEnum), nullable=False,
+                       default=TipoConexionFlujoEnum.NORMAL)
+    etiqueta  = Column(String(120), nullable=True)

@@ -187,10 +187,24 @@ CATALOGOS_REGISTRO = [
     _c("ERP", "TIPO_IMPUESTO", "Tipos de impuesto", "IVA, retefuente, ICA"),
 
     # ── Manufactura MES ──────────────────────────────────────────────────
-    _c("MES", "LINEA_PRODUCCION", "Líneas de producción", "Líneas de la planta"),
-    _c("MES", "TURNO", "Turnos", "Turnos de trabajo"),
+    # Las líneas y los turnos NO están acá: tienen tabla propia (`mes_linea`,
+    # `mes_turno`) porque cargan datos del negocio —planta, capacidad por hora,
+    # celdas, horario— que una lista genérica no puede guardar. Tenerlos
+    # también acá era una segunda lista de lo mismo, y el día que alguien
+    # editara una de las dos las cifras dejarían de coincidir.
     _c("MES", "TIPO_PARADA", "Tipos de parada", "Clasificación de la parada de máquina"),
     _c("MES", "MOTIVO_SCRAP", "Motivos de scrap", "Por qué se descarta producto"),
+    # Con qué se fabrica y qué se fabrica: es la clasificación del catálogo de
+    # materiales, y lo que después permite costear y comparar por familia.
+    _c("MES", "FAMILIA_MATERIAL", "Familias de material", "Agrupación del catálogo de materiales"),
+    _c("MES", "SUBFAMILIA_MATERIAL", "Subfamilias", "Depende de la familia", "FAMILIA_MATERIAL"),
+    _c("MES", "TIPO_EQUIPO", "Tipos de equipo", "Extrusora, prensa, envasadora…"),
+    _c("MES", "TIPO_OPERACION", "Tipos de operación", "Qué clase de trabajo hace una etapa"),
+    _c("MES", "TIPO_DEFECTO", "Tipos de defecto", "Clasificación de lo que sale mal"),
+    _c("MES", "DEFECTO", "Defectos", "Defecto concreto de su tipo", "TIPO_DEFECTO"),
+    _c("MES", "MOTIVO_RETRABAJO", "Motivos de retrabajo", "Por qué el material vuelve atrás"),
+    _c("MES", "CONDICION_ALMACENAMIENTO", "Condiciones de almacenamiento",
+       "Refrigerado, seco, controlado…"),
 
     # ── Planeación APS ───────────────────────────────────────────────────
     _c("APS", "FAMILIA_PRODUCTO", "Familias de producto", "Agrupación para pronóstico"),

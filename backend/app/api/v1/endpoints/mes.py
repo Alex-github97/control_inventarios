@@ -1124,3 +1124,181 @@ async def create_checklist_ejecucion(
 async def get_kpis_diarios(limit: int = 30, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(MESKPIDiario).order_by(MESKPIDiario.fecha.desc()).limit(limit))
     return result.scalars().all()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# EDITAR Y DAR DE BAJA LA CONFIGURACIÓN
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# Hasta acá el módulo solo sabía listar y crear. Una planta se configura una vez
+# y se corrige muchas: cambia el nombre de una línea, se reubica una máquina, se
+# retira un equipo. Sin editar, el único camino era crear otro registro y dejar
+# el anterior estorbando, que es como se llena un catálogo de duplicados.
+#
+# La baja desactiva en vez de borrar. Una máquina retirada sigue apareciendo en
+# las órdenes, las paradas y el OEE del año pasado: borrarla dejaría ese
+# histórico sin a qué referirse.
+
+async def _actualizar(db: AsyncSession, modelo, oid: int, data: BaseModel, que: str):
+    obj = await db.get(modelo, oid)
+    if not obj:
+        raise HTTPException(404, f'{que} no encontrado')
+    for campo, valor in data.model_dump(exclude_unset=True).items():
+        setattr(obj, campo, valor.strip() if isinstance(valor, str) else valor)
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+
+async def _desactivar(db: AsyncSession, modelo, oid: int, que: str):
+    obj = await db.get(modelo, oid)
+    if not obj:
+        raise HTTPException(404, f'{que} no encontrado')
+    obj.activo = False
+    await db.commit()
+
+
+@router.put('/plantas/{pid}', response_model=PlantaResponse)
+async def update_planta(pid: int, data: PlantaCreate, db: AsyncSession = Depends(get_db)):
+    return await _actualizar(db, MESPlanta, pid, data, 'Planta')
+
+
+@router.delete('/plantas/{pid}', status_code=204)
+async def delete_planta(pid: int, db: AsyncSession = Depends(get_db)):
+    # Una planta con líneas activas no se retira sola: primero hay que decidir
+    # qué pasa con ellas, y hacerlo en silencio dejaría líneas huérfanas
+    # apuntando a una planta que ya no aparece en ninguna lista.
+    r = await db.execute(select(func.count()).select_from(MESLinea).where(and_(
+        MESLinea.planta_id == pid, MESLinea.activo == True)))
+    if (r.scalar() or 0) > 0:
+        raise HTTPException(409, 'Esa planta todavía tiene líneas activas. '
+                                 'Retire o mueva sus líneas antes de darla de baja.')
+    await _desactivar(db, MESPlanta, pid, 'Planta')
+
+
+@router.put('/lineas/{lid}', response_model=LineaResponse)
+async def update_linea(lid: int, data: LineaCreate, db: AsyncSession = Depends(get_db)):
+    return await _actualizar(db, MESLinea, lid, data, 'Línea')
+
+
+@router.delete('/lineas/{lid}', status_code=204)
+async def delete_linea(lid: int, db: AsyncSession = Depends(get_db)):
+    await _desactivar(db, MESLinea, lid, 'Línea')
+
+
+@router.put('/celdas/{cid}', response_model=CeldaResponse)
+async def update_celda(cid: int, data: CeldaCreate, db: AsyncSession = Depends(get_db)):
+    return await _actualizar(db, MESCeldaTrabajo, cid, data, 'Celda')
+
+
+@router.delete('/celdas/{cid}', status_code=204)
+async def delete_celda(cid: int, db: AsyncSession = Depends(get_db)):
+    # Las máquinas de la celda quedan sin celda, no de baja: la máquina sigue
+    # existiendo y se puede reasignar. Retirarla junto con la celda sería
+    # perder un equipo por reorganizar el taller.
+    r = await db.execute(select(MESEquipo).where(MESEquipo.celda_id == cid))
+    for equipo in r.scalars().all():
+        equipo.celda_id = None
+    await _desactivar(db, MESCeldaTrabajo, cid, 'Celda')
+
+
+@router.put('/equipos/{eid}', response_model=EquipoResponse)
+async def update_equipo(eid: int, data: EquipoCreate, db: AsyncSession = Depends(get_db)):
+    return await _actualizar(db, MESEquipo, eid, data, 'Equipo')
+
+
+@router.delete('/equipos/{eid}', status_code=204)
+async def delete_equipo(eid: int, db: AsyncSession = Depends(get_db)):
+    await _desactivar(db, MESEquipo, eid, 'Equipo')
+
+
+@router.put('/operarios/{oid}', response_model=OperarioResponse)
+async def update_operario(oid: int, data: OperarioCreate, db: AsyncSession = Depends(get_db)):
+    return await _actualizar(db, MESOperario, oid, data, 'Operario')
+
+
+@router.delete('/operarios/{oid}', status_code=204)
+async def delete_operario(oid: int, db: AsyncSession = Depends(get_db)):
+    await _desactivar(db, MESOperario, oid, 'Operario')
+
+
+@router.put('/turnos/{tid}', response_model=TurnoResponse)
+async def update_turno(tid: int, data: TurnoCreate, db: AsyncSession = Depends(get_db)):
+    return await _actualizar(db, MESTurno, tid, data, 'Turno')
+
+
+@router.delete('/turnos/{tid}', status_code=204)
+async def delete_turno(tid: int, db: AsyncSession = Depends(get_db)):
+    await _desactivar(db, MESTurno, tid, 'Turno')
+
+
+@router.put('/productos/{pid}', response_model=ProductoResponse)
+async def update_producto(pid: int, data: ProductoCreate, db: AsyncSession = Depends(get_db)):
+    return await _actualizar(db, MESProducto, pid, data, 'Material')
+
+
+@router.delete('/productos/{pid}', status_code=204)
+async def delete_producto(pid: int, db: AsyncSession = Depends(get_db)):
+    await _desactivar(db, MESProducto, pid, 'Material')
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# OPERACIONES
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# La operación es QUÉ se hace en una etapa —troquelar, sellar, envasar— y la
+# máquina es CON QUÉ. Van separadas porque la misma operación se hace en
+# máquinas distintas según la línea, y la misma máquina hace operaciones
+# distintas según el producto. La tabla existía desde el principio pero no
+# tenía por dónde entrar; sin ella el esquema solo puede decir qué máquina hay
+# en cada punto, no qué ocurre ahí.
+
+class OperacionCreate(BaseModel):
+    celda_id: Optional[int] = None
+    codigo: str
+    nombre: str
+    descripcion: Optional[str] = None
+    tiempo_std_min: Optional[float] = None
+    requiere_inspeccion: bool = False
+
+
+class OperacionResponse(OperacionCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    activo: bool
+
+
+@router.get('/operaciones', response_model=List[OperacionResponse])
+async def list_operaciones(celda_id: Optional[int] = None,
+                           db: AsyncSession = Depends(get_db)):
+    q = select(MESOperacion).where(MESOperacion.activo == True)
+    if celda_id:
+        q = q.where(MESOperacion.celda_id == celda_id)
+    result = await db.execute(q.order_by(MESOperacion.codigo))
+    return result.scalars().all()
+
+
+@router.post('/operaciones', response_model=OperacionResponse, status_code=201)
+async def create_operacion(data: OperacionCreate, db: AsyncSession = Depends(get_db)):
+    codigo = (data.codigo or '').strip()
+    if not codigo:
+        raise HTTPException(400, 'El código de la operación es obligatorio')
+    r = await db.execute(select(MESOperacion).where(
+        func.lower(MESOperacion.codigo) == codigo.lower()))
+    if r.scalar_one_or_none():
+        raise HTTPException(409, f'Ya existe una operación con el código {codigo}')
+    obj = MESOperacion(**{**data.model_dump(), 'codigo': codigo})
+    db.add(obj)
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+
+@router.put('/operaciones/{oid}', response_model=OperacionResponse)
+async def update_operacion(oid: int, data: OperacionCreate, db: AsyncSession = Depends(get_db)):
+    return await _actualizar(db, MESOperacion, oid, data, 'Operación')
+
+
+@router.delete('/operaciones/{oid}', status_code=204)
+async def delete_operacion(oid: int, db: AsyncSession = Depends(get_db)):
+    await _desactivar(db, MESOperacion, oid, 'Operación')
