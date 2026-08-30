@@ -106,7 +106,7 @@ from app.infrastructure.models.eam import (
     EAMOrdenTrabajo, EAMChecklistEjecucion, EAMChecklistRespuesta,
     EAMOTMaterial, EAMOTManoObra,
     EAMMuestraAceite, EAMNeumatico, EAMMovimientoNeumatico,
-    EAMRegistroCombustible, EAMGarantia, EAMFMEA,
+    EAMRegistroCombustible, EAMMetaRendimiento, EAMGarantia, EAMFMEA,
     EAMCalibracion, EAMKPIDiario,
 )
 # Checklists: reemplaza a las tablas `eam_checklist_*` de arriba, que eran un

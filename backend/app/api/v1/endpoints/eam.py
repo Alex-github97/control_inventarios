@@ -862,24 +862,10 @@ class AlertaNeuResponse(BaseModel):
     posicion: Optional[str] = None
     activo_id: Optional[int] = None
 
-class CombustibleCreate(BaseModel):
-    activo_id: int
-    fecha: datetime
-    tipo_combustible: Optional[str] = None
-    litros: float
-    precio_litro: Optional[float] = None
-    costo_total: Optional[float] = None
-    odometro: Optional[float] = None
-    horometro: Optional[float] = None
-    rendimiento: Optional[float] = None
-    proveedor: Optional[str] = None
-    conductor: Optional[str] = None
-    tanque_lleno: Optional[bool] = False
-    observaciones: Optional[str] = None
-
-class CombustibleResponse(CombustibleCreate):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
+# Los esquemas del registro de combustible se retiraron: viven en
+# `combustible.py`. Ademas se llamaban igual que los del catalogo de tipos de
+# combustible mas abajo, asi que el segundo tapaba al primero y el endpoint de
+# registros respondia con el esquema equivocado. Un solo nombre, un solo sitio.
 
 class GarantiaCreate(BaseModel):
     activo_id: Optional[int] = None
@@ -5255,21 +5241,8 @@ async def update_neumatico(nid: int, data: NeumaticUpdate, db: AsyncSession = De
 
 # ─── Combustible ──────────────────────────────────────────────────────────────
 
-@router.get("/combustible", response_model=List[CombustibleResponse])
-async def list_combustible(activo_id: Optional[int] = None, db: AsyncSession = Depends(get_db)):
-    q = select(EAMRegistroCombustible).order_by(EAMRegistroCombustible.fecha.desc())
-    if activo_id:
-        q = q.where(EAMRegistroCombustible.activo_id == activo_id)
-    result = await db.execute(q.limit(200))
-    return result.scalars().all()
-
-@router.post("/combustible", response_model=CombustibleResponse)
-async def create_combustible(data: CombustibleCreate, db: AsyncSession = Depends(get_db)):
-    if data.litros > 0 and data.precio_litro and data.precio_litro > 0:
-        data = data.model_copy(update={"costo_total": data.litros * data.precio_litro})
-    obj = EAMRegistroCombustible(**data.model_dump())
-    db.add(obj); await db.commit(); await db.refresh(obj)
-    return obj
+# Combustible vive en `combustible.py`: transacciones, rendimiento
+# tanque a tanque y metas de km/galon por marca, linea y motor.
 
 
 # ─── Garantías ────────────────────────────────────────────────────────────────

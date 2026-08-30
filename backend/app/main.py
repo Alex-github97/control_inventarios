@@ -259,6 +259,60 @@ async def _migrar_esquema(esquema: str) -> None:
             END $$;
         """))
 
+    # 0.b Combustible: la tabla guardaba `litros`/`precio_litro` y ahora lleva
+    #     `cantidad` + `unidad`, mas precio unitario, IVA, kilometros recorridos
+    #     y la meta de km/galon. En Colombia el combustible se compra por
+    #     galones: guardar galones en una columna llamada `litros` es una
+    #     mentira que alguien paga caro despues.
+    #
+    #     `create_all` NO altera tablas existentes, asi que las columnas nuevas
+    #     hay que agregarlas a mano. Con la tabla vacia se elimina y se deja que
+    #     se reconstruya completa; con datos adentro se agregan una por una y se
+    #     avisa, porque convertir litros a galones a ciegas puede estar mal si
+    #     alguien ya venia guardando galones ahi.
+    async with _conexion(esquema) as conn:
+        existe = await conn.execute(text("SELECT to_regclass(:t)"),
+                                    {"t": f'"{esquema}".eam_registro_combustible'})
+        if existe.scalar():
+            columnas = await conn.execute(text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema = :e AND table_name = 'eam_registro_combustible'"),
+                {"e": esquema})
+            nombres = {c for (c,) in columnas.all()}
+            if "cantidad" not in nombres:
+                filas = await conn.execute(text(
+                    "SELECT count(*) FROM eam_registro_combustible"))
+                if (filas.scalar() or 0) == 0:
+                    await conn.execute(text(
+                        "DROP TABLE IF EXISTS eam_registro_combustible CASCADE"))
+                else:
+                    for columna, tipo in (
+                        ("cantidad", "DOUBLE PRECISION"),
+                        ("unidad", "VARCHAR(10) DEFAULT 'GALON'"),
+                        ("precio_unitario", "DOUBLE PRECISION"),
+                        ("subtotal", "DOUBLE PRECISION"),
+                        ("iva_pct", "DOUBLE PRECISION DEFAULT 0"),
+                        ("iva_valor", "DOUBLE PRECISION"),
+                        ("km_recorridos", "DOUBLE PRECISION"),
+                        ("meta_km_gal", "DOUBLE PRECISION"),
+                        ("cumple_meta", "BOOLEAN"),
+                        ("desviacion_pct", "DOUBLE PRECISION"),
+                        ("factura", "VARCHAR(60)"),
+                        ("estacion", "VARCHAR(150)"),
+                        ("registrado_por", "VARCHAR(100)"),
+                    ):
+                        await conn.execute(text(
+                            f"ALTER TABLE eam_registro_combustible "
+                            f"ADD COLUMN IF NOT EXISTS {columna} {tipo}"))
+                    await conn.execute(text(
+                        "UPDATE eam_registro_combustible SET cantidad = litros, "
+                        "unidad = 'LITRO', precio_unitario = precio_litro "
+                        "WHERE cantidad IS NULL"))
+                    logging.getLogger("uvicorn.error").warning(
+                        "Combustible en «%s»: habia registros. Se pasaron a cantidad/unidad "
+                        "asumiendo LITRO, que es lo que decia la columna. Verifique si en "
+                        "realidad eran galones.", esquema)
+
     # 1. Crear tablas nuevas (incluye la tabla 'roles')
     async with _conexion(esquema) as conn:
         await conn.run_sync(Base.metadata.create_all)

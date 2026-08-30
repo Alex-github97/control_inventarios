@@ -1,5 +1,5 @@
 import enum
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text, ForeignKey, JSON, Date, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text, ForeignKey, JSON, Date, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 from app.infrastructure.models.base import Base, TimestampMixin
 
@@ -983,20 +983,87 @@ class EAMCongeladoDetalleNeumatico(Base, TimestampMixin):
 
 class EAMRegistroCombustible(Base, TimestampMixin):
     __tablename__ = "eam_registro_combustible"
+    __table_args__ = (
+        Index("ix_eam_combustible_activo_fecha", "activo_id", "fecha"),
+    )
     id               = Column(Integer, primary_key=True, index=True)
     activo_id        = Column(Integer, ForeignKey("eam_activo.id"), nullable=False)
     fecha            = Column(DateTime, nullable=False)
     tipo_combustible = Column(String(50))
-    litros           = Column(Float, nullable=False)
-    precio_litro     = Column(Float)
-    costo_total      = Column(Float)
-    odometro         = Column(Float)
-    horometro        = Column(Float)
-    rendimiento      = Column(Float)
-    proveedor        = Column(String(100))
-    conductor        = Column(String(100))
-    tanque_lleno     = Column(Boolean, default=False)
-    observaciones    = Column(Text)
+
+    # La cantidad lleva su unidad al lado. En Colombia el combustible se compra
+    # por galones y el rendimiento se mide en km/gal, pero hay equipos que se
+    # cargan por litros: guardar el número sin decir de qué es la receta para
+    # que alguien divida peras entre manzanas.
+    cantidad = Column(Float, nullable=False)
+    unidad   = Column(String(10), default="GALON", nullable=False)   # GALON | LITRO
+
+    precio_unitario = Column(Float)
+    subtotal        = Column(Float)
+    iva_pct         = Column(Float, default=0)
+    iva_valor       = Column(Float)
+    costo_total     = Column(Float)
+
+    odometro   = Column(Float)
+    horometro  = Column(Float)
+
+    # Kilómetros recorridos desde el tanqueo lleno anterior, y el rendimiento
+    # que resulta. Se calculan al registrar y se guardan: recomputarlos en cada
+    # informe obligaría a recorrer todo el histórico del vehículo.
+    km_recorridos = Column(Float, nullable=True)
+    rendimiento   = Column(Float, nullable=True)   # km por galón
+
+    # Sin esto el rendimiento no se puede calcular de forma confiable: solo
+    # entre dos tanqueos llenos se sabe cuánto combustible consumió realmente
+    # la distancia recorrida.
+    tanque_lleno = Column(Boolean, default=True, nullable=False)
+
+    # Meta vigente al momento del tanqueo y si la cumplió. Se congelan porque
+    # las metas cambian, y un registro de hace un año tiene que seguir
+    # explicando por qué generó o no una alerta.
+    meta_km_gal = Column(Float, nullable=True)
+    cumple_meta = Column(Boolean, nullable=True)
+    desviacion_pct = Column(Float, nullable=True)
+
+    proveedor     = Column(String(100))
+    factura       = Column(String(60))
+    conductor     = Column(String(100))
+    estacion      = Column(String(150))
+    observaciones = Column(Text)
+    registrado_por = Column(String(100))
+
+
+class EAMMetaRendimiento(Base, TimestampMixin):
+    """Meta de kilómetros por galón, declarada por jerarquía.
+
+    El ámbito va de lo general a lo particular y el más específico manda:
+
+        tipo de activo → marca → línea → marca de motor → línea de motor
+
+    Cualquier nivel vacío significa «cualquiera». Así se puede fijar una meta
+    para toda la flota de tractocamiones y afinarla para los que llevan un motor
+    concreto, sin escribir una meta por placa.
+
+    La tolerancia existe porque un rendimiento nunca da exacto: un tanqueo en
+    montaña rinde menos que uno en carretera plana, y alertar por una décima
+    convertiría el módulo en ruido que nadie mira.
+    """
+    __tablename__ = "eam_meta_rendimiento"
+    id = Column(Integer, primary_key=True, index=True)
+
+    tipo_activo = Column(String(50), nullable=True, index=True)
+    marca       = Column(String(100), nullable=True)
+    linea       = Column(String(100), nullable=True)
+    motor_marca = Column(String(100), nullable=True)
+    motor_linea = Column(String(100), nullable=True)
+
+    meta_km_gal    = Column(Float, nullable=False)
+    # Porcentaje por debajo de la meta que se tolera antes de alertar.
+    tolerancia_pct = Column(Float, default=5, nullable=False)
+    tipo_combustible = Column(String(50), nullable=True)
+
+    nota   = Column(String(300), nullable=True)
+    activo = Column(Boolean, default=True, nullable=False)
 
 
 # ─── Garantías ────────────────────────────────────────────────────────────────
