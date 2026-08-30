@@ -26,7 +26,9 @@ import {
   Warning as WarnIcon,
   Close as CloseIcon,
 } from '@mui/icons-material'
+import { useSearchParams } from 'react-router-dom'
 import { Layout } from '@/components/layout/Layout'
+import { ConfiguracionLubricacion } from '@/pages/EAMLubricacionConfig'
 import { CatalogoVehiculos } from '@/components/CatalogoVehiculos'
 import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
 import { CatalogoCMMS, CATALOGOS_CMMS } from '@/components/catalogo/CatalogoCMMS'
@@ -508,7 +510,16 @@ function ContratistasSection() {
 
 
 export default function EAMConfig() {
-  const [tab, setTab] = useState(0)
+  // `?seccion=lubricacion` abre esa pestaña directamente. Sin esto, quien
+  // llegue desde la pantalla de lubricación aterrizaría en «Catálogos» y
+  // tendría que adivinar dónde quedó su configuración.
+  const [parametrosUrl] = useSearchParams()
+  const SECCIONES: Record<string, number> = {
+    catalogos: 0, contratistas: 1, umbrales: 2, integraciones: 3,
+    disponibilidad: 4, lubricacion: 5,
+  }
+  const [tab, setTab] = useState(
+    SECCIONES[parametrosUrl.get('seccion') ?? ''] ?? 0)
   const [catSearch, setCatSearch] = useState<Record<string, string>>({})
 
   // Esquemas de vehículo (categorías de ejes/llantas) — catálogo real, consumido
@@ -793,7 +804,7 @@ export default function EAMConfig() {
 
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
           <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ '& .MuiTab-root': { color: 'grey.400', textTransform: 'none', fontWeight: 600 }, '& .Mui-selected': { color: EAM_COLOR }, '& .MuiTabs-indicator': { backgroundColor: EAM_COLOR } }}>
-            {['Catálogos', 'Contratistas', 'Umbrales & Alertas', 'Integraciones', 'Disponibilidad', 'IA de Lubricación'].map((l, i) => <Tab key={i} label={l} />)}
+            {['Catálogos', 'Contratistas', 'Umbrales & Alertas', 'Integraciones', 'Disponibilidad', 'Lubricación'].map((l, i) => <Tab key={i} label={l} />)}
           </Tabs>
         </Box>
 
@@ -1787,7 +1798,7 @@ export default function EAMConfig() {
 
         {/* ── Tab 5: OCR de Lubricación (diccionario del motor propio de lectura) ── */}
         {tab === 5 && (
-          <Box>
+          <ConfiguracionLubricacion panelOcr={
             <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2, mb: 2 }}>
               <CardContent>
                 <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 700, mb: 0.5 }}>
@@ -1825,8 +1836,9 @@ export default function EAMConfig() {
                 </Stack>
               </CardContent>
             </Card>
-          </Box>
+          } />
         )}
+
       </Box>
     </Layout>
   )

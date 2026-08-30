@@ -169,7 +169,7 @@ export default function EAMLubricacion() {
             </Typography>
           </Box>
           <Button startIcon={<Settings />} variant="outlined"
-            onClick={() => navigate('/eam/lubricacion/config')}
+            onClick={() => navigate('/eam/config?seccion=lubricacion')}
             sx={{ textTransform: 'none' }}>
             Configuración
           </Button>
@@ -177,7 +177,7 @@ export default function EAMLubricacion() {
 
         {sinConfigurar && !isLoading && (
           <Alert severity="info" sx={{ mb: 2 }} action={
-            <Button size="small" onClick={() => navigate('/eam/lubricacion/config')}>
+            <Button size="small" onClick={() => navigate('/eam/config?seccion=lubricacion')}>
               Ir a configuración
             </Button>
           }>

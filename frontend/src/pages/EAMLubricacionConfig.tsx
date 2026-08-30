@@ -9,7 +9,7 @@
  * de números en un semáforo, y es donde cada empresa mete el criterio de su
  * fabricante o de su laboratorio.
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Box, Card, Typography, Stack, Button, TextField, Chip, Alert, Skeleton,
   Table, TableBody, TableCell, TableHead, TableRow, IconButton, Tooltip,
@@ -20,8 +20,8 @@ import {
   Add, Edit, DeleteOutline, Science, Search, TrendingUp, Straighten,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { Layout } from '@/components/layout/Layout'
 import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
 import { lubeApi } from '@/api/lube'
 
@@ -241,7 +241,21 @@ const chip = (texto: string, color: any) => (
   }} />
 )
 
-export default function EAMLubricacionConfig() {
+/**
+ * La configuración de lubricación, para embeber dentro de la configuración
+ * general del CMMS.
+ *
+ * No trae `<Layout>` ni encabezado de página: los pone quien la contiene. Toda
+ * la configuración del módulo se hace desde un solo sitio —`/eam/config`— y
+ * tener dos puertas al mismo lugar solo logra que la gente aprenda una y crea
+ * que la otra no existe.
+ *
+ * `panelOcr` es el diccionario del lector de boletines, que ya vivía en la
+ * pantalla de configuración general. Se recibe como propiedad en vez de
+ * moverlo: su estado está allá, y traerlo acá sería mover código que funciona
+ * sin ganar nada.
+ */
+export function ConfiguracionLubricacion({ panelOcr }: { panelOcr?: React.ReactNode }) {
   const [tab, setTab] = useState(0)
 
   const { data: marcas = [] } = useQuery({ queryKey: ['lube-marcas'], queryFn: () => lubeApi.marcas.listar() })
@@ -258,13 +272,12 @@ export default function EAMLubricacionConfig() {
     'Marcas', 'Productos', 'Aplicaciones', 'Tipos de compartimento',
     'Parámetros', 'Límites', 'Modos de falla', 'Motivos de drenaje',
     'Métodos de muestreo', 'Laboratorios',
+    ...(panelOcr ? ['Lector de boletines'] : []),
   ]
 
   return (
-    <Layout title="Lubricación · Configuración">
-      <Box className="anim-page-in">
+      <Box>
         <Box mb={2.5}>
-          <Typography variant="h6" fontWeight={800}>Lubricación · Configuración</Typography>
           <Typography variant="caption" color="text.secondary">
             El orden de las pestañas es el orden en que hay que llenarlas: sin marcas no
             hay productos, y sin productos no hay aplicaciones
@@ -555,7 +568,24 @@ export default function EAMLubricacionConfig() {
             ]}
           />
         )}
+
+        {tab === 10 && panelOcr}
       </Box>
-    </Layout>
   )
+}
+
+/**
+ * La ruta antigua `/eam/lubricacion/config` sigue existiendo y lleva a la
+ * configuración general.
+ *
+ * Se redirige en vez de borrarla: quien la tenga guardada o llegue por un
+ * enlace viejo aterriza donde ahora vive la configuración, en lugar de
+ * encontrarse una pantalla en blanco y concluir que se dañó algo.
+ */
+export default function EAMLubricacionConfigRedirect() {
+  const navigate = useNavigate()
+  useEffect(() => {
+    navigate('/eam/config?seccion=lubricacion', { replace: true })
+  }, [navigate])
+  return null
 }
