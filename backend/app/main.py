@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
+import logging
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 import os
@@ -14,6 +15,7 @@ from app.core.acceso_modulos import ModulosMiddleware
 from app.core.auth_global import exigir_sesion
 from app.api.v1.router import api_router
 import app.infrastructure.models  # noqa: F401 — registra todos los modelos
+from app.core.semillas_lubricacion import sembrar_lubricacion
 from app.infrastructure.models.rol import Rol, ROLES_DEFECTO
 from app.infrastructure.models.usuario import Usuario
 
@@ -1320,6 +1322,27 @@ async def _migrar_esquema(esquema: str) -> None:
         async with db.begin():
             await db.execute(text(f'SET search_path TO "{esquema}"'))
             await _seed_roles_and_migrate(db)
+
+    # 4. Configuración de arranque de lubricación.
+    #
+    # Va en su propia sesión y NO dentro de `db.begin()` porque la siembra hace
+    # sus propios commit —necesita los identificadores de los parámetros para
+    # poder colgarles los límites—, y una transacción externa abierta se los
+    # tragaría. Es idempotente: solo crea lo que falte y nunca pisa lo que la
+    # empresa haya ajustado.
+    #
+    # Un módulo de análisis con los catálogos vacíos no se puede usar: no habría
+    # contra qué evaluar la primera muestra.
+    async with AsyncSession(engine) as db:
+        await db.execute(text(f'SET search_path TO "{esquema}"'))
+        try:
+            await sembrar_lubricacion(db)
+        except Exception as e:   # noqa: BLE001
+            # Que falle la siembra no puede impedir que el servidor arranque:
+            # es configuración conveniente, no una tabla que alguien necesite
+            # para entrar.
+            logging.getLogger("uvicorn.error").warning(
+                "No se pudo sembrar la configuración de lubricación en «%s»: %s", esquema, e)
 
 
 # Número arbitrario pero fijo: identifica este candado y nada más.

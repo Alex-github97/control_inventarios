@@ -109,6 +109,15 @@ from app.infrastructure.models.eam import (
     EAMRegistroCombustible, EAMGarantia, EAMFMEA,
     EAMCalibracion, EAMKPIDiario,
 )
+# Lubricación: vive en su propio archivo porque `eam.py` ya pasa de 1.300
+# líneas, pero cuelga del mismo CMMS (activos, componentes y órdenes).
+from app.infrastructure.models.lubricacion import (
+    LubeMarca, LubeTipoCompartimento, LubeProducto, LubeAplicacion,
+    LubeParametro, LubeLimite, LubeLaboratorio, LubeMetodoMuestreo,
+    LubeMotivoDrenaje, LubeModoFalla,
+    LubeCompartimento, LubeCarga, LubeRelleno,
+    LubeMuestra, LubeResultado, LubeDiagnostico,
+)
 from app.infrastructure.models.mes import (
     MESPlanta, MESLinea, MESTurno, MESCeldaTrabajo, MESEquipo,
     MESOperario, MESCertificacion, MESProducto, MESBOM, MESBOMDetalle,

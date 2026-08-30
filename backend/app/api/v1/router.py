@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
     auth, usuarios, estibas, ubicaciones, proveedores,
-    vehiculos, manifiestos, movimientos, dashboard, alertas, danos, tarifax, mantenimiento, consultas, roles, fletes, flota, locative, wms, hcm, tms, dms, qms, grc, lms, crm, eam, mes, aps, erp, scan_sessions, scm, sst, lubricacion, ags, catalogos, plataforma, plataforma_comercial, plataforma_contable, eam_importar, eam_config, eam_adjuntos, eam_causa_raiz, soporte, soporte_agil, plataforma_equipo, landing
+    vehiculos, manifiestos, movimientos, dashboard, alertas, danos, tarifax, mantenimiento, consultas, roles, fletes, flota, locative, wms, hcm, tms, dms, qms, grc, lms, crm, eam, mes, aps, erp, scan_sessions, scm, sst, lubricacion, lubricacion_gestion, lubricacion_operacion, lubricacion_analitica, ags, catalogos, plataforma, plataforma_comercial, plataforma_contable, eam_importar, eam_config, eam_adjuntos, eam_causa_raiz, soporte, soporte_agil, plataforma_equipo, landing
 )
 
 api_router = APIRouter()
@@ -60,5 +60,10 @@ api_router.include_router(scan_sessions.router)
 api_router.include_router(scm.router)
 api_router.include_router(sst.router)
 api_router.include_router(lubricacion.router)
+# Lubricación cuelga de /eam/lube: es una capa del CMMS, no un módulo aparte,
+# así que el control de acceso por módulo la trata como parte de EAM.
+api_router.include_router(lubricacion_gestion.router)
+api_router.include_router(lubricacion_operacion.router)
+api_router.include_router(lubricacion_analitica.router)
 api_router.include_router(ags.router)
 api_router.include_router(catalogos.router)
