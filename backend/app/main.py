@@ -187,6 +187,78 @@ async def _migrar_esquema(esquema: str) -> None:
     Es la misma migración de siempre, ahora aplicada por cliente: cada uno tiene
     sus propias tablas y hay que ponerlas al día una por una.
     """
+    # 0. Checklists: la configuración pasó a la jerarquía clasificación →
+    #    sistema → pregunta, con banco global de preguntas. Las tablas de la
+    #    versión anterior (secciones e ítems propios de cada plantilla) tienen
+    #    otra forma y `create_all` no altera tablas existentes.
+    #
+    #    Las vacías se eliminan. Las que tengan datos se RENOMBRAN a `_v1` en vez
+    #    de borrarse: así no se pierde nada y `create_all` puede construir la
+    #    estructura nueva al lado.
+    #
+    #    Dejarlas en su sitio sería lo peor de los dos mundos: la API esperaría
+    #    `pregunta_id` y la tabla tendría `item_id`, así que el módulo quedaría
+    #    roto en silencio. Entre perder datos y romper el módulo, la salida es
+    #    conservar los datos aparte y dejar el módulo funcionando.
+    async with _conexion(esquema) as conn:
+        existe = await conn.execute(text(
+            "SELECT to_regclass(:t)"), {"t": f'"{esquema}".eam_chk_item'})
+        if existe.scalar():
+            usadas = await conn.execute(text("SELECT count(*) FROM eam_chk_ejecucion"))
+            tablas = ("eam_chk_foto", "eam_chk_respuesta", "eam_chk_programacion",
+                      "eam_chk_ejecucion", "eam_chk_item", "eam_chk_seccion")
+            if (usadas.scalar() or 0) == 0:
+                for tabla in tablas:
+                    await conn.execute(text(f"DROP TABLE IF EXISTS {tabla} CASCADE"))
+            else:
+                for tabla in tablas:
+                    await conn.execute(text(
+                        f"ALTER TABLE IF EXISTS {tabla} RENAME TO {tabla}_v1"))
+                logging.getLogger("uvicorn.error").warning(
+                    "Checklists en «%s»: la estructura anterior tenía inspecciones. "
+                    "Sus tablas quedaron como eam_chk_*_v1 para poder consultarlas; "
+                    "el módulo arranca con la estructura nueva.", esquema)
+
+    #    `ALTER TABLE ... RENAME TO` NO renombra los índices ni las
+    #    restricciones, y esos nombres son únicos por esquema. Si se dejan como
+    #    están, crear la tabla nueva falla con «ya existe» y se cae la migración
+    #    entera — incluidas las tablas de otros módulos que vengan detrás.
+    #
+    #    Va fuera del bloque anterior y es idempotente: solo toca índices de
+    #    tablas ya renombradas cuyo nombre no lleve todavía el sufijo.
+    async with _conexion(esquema) as conn:
+        await conn.execute(text(r"""
+            DO $$
+            DECLARE r record;
+            BEGIN
+              FOR r IN
+                SELECT indexname FROM pg_indexes
+                 WHERE schemaname = current_schema()
+                   AND tablename LIKE 'eam\_chk\_%\_v1'
+                   AND indexname NOT LIKE '%\_v1'
+              LOOP
+                EXECUTE format('ALTER INDEX %I RENAME TO %I',
+                               r.indexname, r.indexname || '_v1');
+              END LOOP;
+
+              -- Las llaves foráneas del archivo apuntan a tablas vivas, así que
+              -- impedirían borrar una plantilla solo porque una inspección
+              -- vieja la menciona. Son tablas de consulta: se les quitan.
+              FOR r IN
+                SELECT c.conname, t.relname
+                  FROM pg_constraint c
+                  JOIN pg_class t ON t.oid = c.conrelid
+                  JOIN pg_namespace n ON n.oid = t.relnamespace
+                 WHERE n.nspname = current_schema()
+                   AND c.contype = 'f'
+                   AND t.relname LIKE 'eam\_chk\_%\_v1'
+              LOOP
+                EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I',
+                               r.relname, r.conname);
+              END LOOP;
+            END $$;
+        """))
+
     # 1. Crear tablas nuevas (incluye la tabla 'roles')
     async with _conexion(esquema) as conn:
         await conn.run_sync(Base.metadata.create_all)

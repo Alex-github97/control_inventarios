@@ -112,7 +112,9 @@ from app.infrastructure.models.eam import (
 # Checklists: reemplaza a las tablas `eam_checklist_*` de arriba, que eran un
 # esqueleto sin forma de responder nada y quedaron vacías en todos los esquemas.
 from app.infrastructure.models.checklist import (
-    ChkCategoria, ChkHallazgo, ChkPlantilla, ChkSeccion, ChkItem,
+    ChkClasificacion, ChkOpcion, ChkSistema, ChkPregunta,
+    ChkCategoria, ChkHallazgo,
+    ChkPlantilla, ChkPlantillaTipo, ChkPlantillaPregunta,
     ChkEjecucion, ChkRespuesta, ChkFoto, ChkProgramacion,
 )
 # Lubricación: vive en su propio archivo porque `eam.py` ya pasa de 1.300
