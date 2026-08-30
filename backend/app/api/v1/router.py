@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
     auth, usuarios, estibas, ubicaciones, proveedores,
-    vehiculos, manifiestos, movimientos, dashboard, alertas, danos, tarifax, mantenimiento, consultas, roles, fletes, flota, locative, wms, hcm, tms, dms, qms, grc, lms, crm, eam, mes, aps, erp, scan_sessions, scm, sst, lubricacion, lubricacion_gestion, lubricacion_operacion, lubricacion_analitica, ags, catalogos, plataforma, plataforma_comercial, plataforma_contable, eam_importar, eam_config, eam_dashboard, eam_adjuntos, eam_causa_raiz, soporte, soporte_agil, plataforma_equipo, landing
+    vehiculos, manifiestos, movimientos, dashboard, alertas, danos, tarifax, mantenimiento, consultas, roles, fletes, flota, locative, wms, hcm, tms, dms, qms, grc, lms, crm, eam, mes, aps, erp, scan_sessions, scm, sst, lubricacion, lubricacion_gestion, lubricacion_operacion, lubricacion_analitica, ags, catalogos, plataforma, plataforma_comercial, plataforma_contable, eam_importar, eam_config, eam_dashboard, checklists, checklists_ejecucion, eam_adjuntos, eam_causa_raiz, soporte, soporte_agil, plataforma_equipo, landing
 )
 
 api_router = APIRouter()
@@ -21,6 +21,9 @@ api_router.include_router(eam_importar.router)
 # Centros de costo y tipos de trabajo: eran maqueta, ahora persisten.
 api_router.include_router(eam_config.router)
 api_router.include_router(eam_dashboard.router)
+# Checklists: /eam/chk, otra capa del CMMS.
+api_router.include_router(checklists.router)
+api_router.include_router(checklists_ejecucion.router)
 # Documentos de las ordenes de trabajo.
 api_router.include_router(eam_adjuntos.router)
 # Analisis de causa raiz: informe, PDF y analitica del dashboard.
