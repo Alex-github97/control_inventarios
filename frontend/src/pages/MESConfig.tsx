@@ -19,6 +19,7 @@ import { COLOR_MODULO } from '@/config/marca'
 import AccountTreeIcon from '@mui/icons-material/AccountTree'
 import { AdminCatalogos } from '@/components/catalogo/AdminCatalogos'
 import { AccionesMaestro, type CampoMaestro } from '@/components/mes/AccionesMaestro'
+import { SelectorCatalogo, useCatalogo } from '@/components/catalogo/SelectorCatalogo'
 import ViewModuleIcon from '@mui/icons-material/ViewModule'
 import BuildIcon from '@mui/icons-material/Build'
 // ─── Identidad MES / tema claro ──────────────────────────────────────────────
@@ -944,12 +945,13 @@ function TabCeldas() {
 
 interface Operacion {
   id: number; celda_id?: number | null; codigo: string; nombre: string
+  tipo?: string | null
   descripcion?: string | null; tiempo_std_min?: number | null
   requiere_inspeccion: boolean; activo: boolean
 }
 
 const OPERACION_VACIA = {
-  celda_id: '', codigo: '', nombre: '', descripcion: '',
+  celda_id: '', codigo: '', nombre: '', tipo: '', descripcion: '',
   tiempo_std_min: '', requiere_inspeccion: false,
 }
 
@@ -964,6 +966,7 @@ function TabOperaciones() {
   const { data: celdas = [] } = useQuery<Celda[]>({
     queryKey: ['mes-celdas'], queryFn: () => api.get('/mes/celdas').then(r => r.data),
   })
+  const { data: tiposOperacion = [] } = useCatalogo('MES', 'TIPO_OPERACION')
   const celda = (id?: number | null) => celdas.find(c => c.id === id)
 
   const mutCrear = useMutation({
@@ -985,6 +988,7 @@ function TabOperaciones() {
     mutCrear.mutate({
       celda_id: form.celda_id ? Number(form.celda_id) : undefined,
       codigo: form.codigo.trim(), nombre: form.nombre.trim(),
+      tipo: form.tipo || undefined,
       descripcion: form.descripcion.trim() || undefined,
       tiempo_std_min: form.tiempo_std_min ? Number(form.tiempo_std_min) : undefined,
       requiere_inspeccion: form.requiere_inspeccion,
@@ -994,6 +998,9 @@ function TabOperaciones() {
   const camposOperacion: CampoMaestro[] = [
     { clave: 'codigo', etiqueta: 'Código', requerido: true },
     { clave: 'nombre', etiqueta: 'Nombre', requerido: true },
+    { clave: 'tipo', etiqueta: 'Tipo de operación', tipo: 'lista',
+      opciones: tiposOperacion.map(t => ({ valor: t.nombre, texto: t.nombre })),
+      ayuda: 'Se configura en la pestaña Catálogos' },
     { clave: 'descripcion', etiqueta: 'Descripción' },
     { clave: 'tiempo_std_min', etiqueta: 'Tiempo estándar (min)', tipo: 'numero' },
     { clave: 'celda_id', etiqueta: 'Celda', tipo: 'lista',
@@ -1006,8 +1013,10 @@ function TabOperaciones() {
     <Paper elevation={0} sx={cardSx}>
       <TituloSeccion texto="Nueva operación" />
       <Typography fontSize={12} color="text.secondary" mb={1.5}>
-        Lo que se hace en una etapa. Después se asigna a los nodos del esquema para
-        que el diagrama diga «acá se troquela» y no solo «acá está la troqueladora».
+        Lo que se hace en una etapa. Es lo que ofrece el desplegable «Qué se hace acá»
+        al dibujar el esquema de una línea, para que el diagrama diga «acá se troquela»
+        y no solo «acá está la troqueladora». El <b>tipo</b> sale de la pestaña Catálogos;
+        la operación de acá es la de esta planta.
       </Typography>
       <Grid container spacing={1.5} mb={2.5}>
         <Grid size={{ xs: 12, sm: 6, md: 2 }}>
@@ -1020,7 +1029,12 @@ function TabOperaciones() {
             onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
             error={errNombre} helperText={errNombre ? 'Requerido' : ''} />
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+          <SelectorCatalogo modulo="MES" tipo="TIPO_OPERACION" label="Tipo"
+            valor={form.tipo}
+            onChange={v => setForm(f => ({ ...f, tipo: v }))} />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
           <TextField select label="Celda" size="small" fullWidth value={form.celda_id}
             onChange={e => setForm(f => ({ ...f, celda_id: e.target.value }))}>
             <MenuItem value="">Sin asignar</MenuItem>
@@ -1043,12 +1057,17 @@ function TabOperaciones() {
       <TituloSeccion texto={`Operaciones registradas (${operaciones.length})`} />
       <Box sx={{ overflowX: 'auto' }}>
         <Table size="small">
-          <TablaEncabezado columnas={['Código', 'Nombre', 'Celda', 'Tiempo estándar', 'Inspección', 'Estado', '']} />
+          <TablaEncabezado columnas={['Código', 'Nombre', 'Tipo', 'Celda', 'Tiempo estándar', 'Inspección', 'Estado', '']} />
           <TableBody>
             {operaciones.map(o => (
               <TableRow key={o.id} hover>
                 <TableCell sx={{ fontWeight: 700, color: MES_DARK }}>{o.codigo}</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>{o.nombre}</TableCell>
+                <TableCell>
+                  {o.tipo
+                    ? <Chip size="small" label={o.tipo} sx={{ height: 18, fontSize: 10, fontWeight: 700, color: MES_DARK, bgcolor: alpha(MES_COLOR, 0.12) }} />
+                    : '—'}
+                </TableCell>
                 <TableCell>{celda(o.celda_id)?.nombre ?? '—'}</TableCell>
                 <TableCell>{o.tiempo_std_min != null ? `${num(o.tiempo_std_min)} min` : '—'}</TableCell>
                 <TableCell>
@@ -1064,8 +1083,8 @@ function TabOperaciones() {
               </TableRow>
             ))}
             {operaciones.length === 0 && (
-              <FilaVacia colSpan={7} cargando={isLoading}
-                mensaje="Todavía no hay operaciones." />
+              <FilaVacia colSpan={8} cargando={isLoading}
+                mensaje="Todavía no hay operaciones. Son las que ofrece el desplegable «Qué se hace acá» del esquema de la línea." />
             )}
           </TableBody>
         </Table>

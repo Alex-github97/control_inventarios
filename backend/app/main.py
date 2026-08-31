@@ -1490,6 +1490,11 @@ async def _migrar_esquema(esquema: str) -> None:
             ON CONFLICT DO NOTHING
         """))
 
+        # La operación gana su tipo. `create_all` no altera tablas existentes,
+        # así que la columna se agrega a mano en las plantas ya configuradas.
+        await conn.execute(text(
+            "ALTER TABLE mes_operacion ADD COLUMN IF NOT EXISTS tipo VARCHAR(80)"))
+
         # ── Catálogos de manufactura ──────────────────────────────────────
         # Arrancan sembrados para que la planta se pueda configurar el primer
         # día. Son listas cortas y genéricas a propósito: sirven igual en una

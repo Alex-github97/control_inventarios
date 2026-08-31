@@ -27,11 +27,12 @@ import {
   FormControlLabel, Skeleton,
 } from '@mui/material'
 import {
-  Save, DeleteOutline, Search, PrecisionManufacturing, Inventory2,
+  Save, DeleteOutline, Search, PrecisionManufacturing, Inventory2, Settings,
   FactCheck, Inbox, Outbox, Timeline, CenterFocusStrong, Warning,
   Bolt, Close,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { apiClient as api } from '@/api/client'
 import { PALETA, COLOR_MODULO } from '@/config/marca'
@@ -85,7 +86,7 @@ interface Flujo {
 
 interface Equipo { id: number; codigo: string; nombre: string; celda_id?: number | null }
 interface Material { id: number; codigo: string; nombre: string; tipo: string; unidad_medida: string }
-interface Operacion { id: number; codigo: string; nombre: string }
+interface Operacion { id: number; codigo: string; nombre: string; tipo?: string | null }
 interface Celda { id: number; codigo: string; nombre: string }
 
 /* ── Medidas y estilo del lienzo ───────────────────────────────────────────── */
@@ -271,6 +272,7 @@ type Arrastre =
 
 export function DisenadorFlujo({ lineaId }: { lineaId: number }) {
   const qc = useQueryClient()
+  const navigate = useNavigate()
   const lienzo = useRef<HTMLDivElement | null>(null)
 
   const [nodos, setNodos] = useState<Nodo[]>([])
@@ -696,15 +698,32 @@ export function DisenadorFlujo({ lineaId }: { lineaId: number }) {
                         <MenuItem key={x.id} value={x.id}>{x.codigo} · {x.nombre}</MenuItem>
                       ))}
                     </TextField>
+                    {/* Las operaciones no se inventan acá: son las de la planta,
+                        y se dan de alta en la configuración del módulo. Si la
+                        lista está vacía, el desplegable no puede quedarse mudo:
+                        hay que decir dónde se llenan. */}
                     <TextField select size="small" label="Qué se hace acá" fullWidth
                       value={nodo.operacion_id ?? ''}
+                      disabled={operaciones.length === 0}
+                      helperText={operaciones.length === 0
+                        ? 'No hay operaciones. Se crean en Configuración · Operaciones.'
+                        : undefined}
                       onChange={e => cambiar('operacion_id',
                         e.target.value === '' ? null : Number(e.target.value))}>
                       <MenuItem value="">Sin especificar</MenuItem>
                       {operaciones.map(x => (
-                        <MenuItem key={x.id} value={x.id}>{x.nombre}</MenuItem>
+                        <MenuItem key={x.id} value={x.id}>
+                          {x.nombre}{x.tipo ? ` · ${x.tipo}` : ''}
+                        </MenuItem>
                       ))}
                     </TextField>
+                    {operaciones.length === 0 && (
+                      <Button size="small" startIcon={<Settings sx={{ fontSize: 15 }} />}
+                        onClick={() => navigate('/mes/config?tab=operaciones')}
+                        sx={{ textTransform: 'none', alignSelf: 'flex-start', mt: -1 }}>
+                        Ir a crear operaciones
+                      </Button>
+                    )}
                     <TextField size="small" type="number" label="Tiempo de ciclo (s)" fullWidth
                       value={nodo.tiempo_ciclo_seg ?? ''}
                       onChange={e => cambiar('tiempo_ciclo_seg',

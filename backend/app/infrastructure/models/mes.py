@@ -273,6 +273,11 @@ class MESOperacion(Base, TimestampMixin):
     celda_id      = Column(Integer, ForeignKey('mes_celda_trabajo.id'), nullable=True)
     codigo        = Column(String(30), nullable=False)
     nombre        = Column(String(200), nullable=False)
+    # De qué clase es: preparación, transformación, corte, empaque… Sale del
+    # catálogo `MES/TIPO_OPERACION`. La operación es la de esta planta —«raspado
+    # de casco», «embandado»— y el tipo es lo que permite compararla con la de
+    # otra planta que llama distinto a lo mismo.
+    tipo          = Column(String(80), nullable=True, index=True)
     descripcion   = Column(Text, nullable=True)
     tiempo_std_min = Column(Float, nullable=True)
     requiere_inspeccion = Column(Boolean, default=False, nullable=False)

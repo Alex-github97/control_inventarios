@@ -1257,6 +1257,9 @@ class OperacionCreate(BaseModel):
     celda_id: Optional[int] = None
     codigo: str
     nombre: str
+    # Del catálogo MES/TIPO_OPERACION. Clasifica la operación para poder
+    # compararla entre plantas que le dan nombres distintos a lo mismo.
+    tipo: Optional[str] = None
     descripcion: Optional[str] = None
     tiempo_std_min: Optional[float] = None
     requiere_inspeccion: bool = False
