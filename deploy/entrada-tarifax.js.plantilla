@@ -1,0 +1,73 @@
+/**
+ * Entrada automática del dominio de pruebas de TarifaX.
+ *
+ * En ese dominio no hay pantalla de inicio de sesión: quien abre la dirección
+ * tiene que caer directo en TarifaX. Pero la aplicación exige sesión, y con
+ * razón —el servidor rechaza cualquier petición sin token—, así que la sesión
+ * se abre sola con una cuenta de pruebas antes de que el portal arranque.
+ *
+ * Esto NO vive en el código de la aplicación: se inyecta al servir la página, y
+ * solo en este dominio. El portal de Icoltrans no se entera de que existe.
+ *
+ * La cuenta pertenece a una empresa cuyo único módulo contratado es TarifaX, y
+ * eso lo hace cumplir el servidor: aunque alguien saque el token de acá, no
+ * puede llegar a la operación real. Su esquema está vacío.
+ */
+(function () {
+  var CLIENTE = { codigo: '__CLIENTE__', nombre: 'TarifaX', logo_url: null, color: null };
+  var USUARIO = '__USUARIO__';
+  var CLAVE = '__CLAVE__';
+  var DESTINO = '/tarifax/tablero';
+
+  // El portal escoge el idioma del navegador de cada quien. En un dominio que
+  // va a usar un equipo entero conviene que todos vean lo mismo, así que se
+  // fija en español la primera vez; después cada uno puede cambiarlo.
+  if (!localStorage.getItem('empresa_lang')) {
+    localStorage.setItem('empresa_lang', 'es');
+  }
+
+  // Ya hay sesión: no hay nada que hacer, el portal arranca normal.
+  if (localStorage.getItem('access_token')) return;
+
+  // Se oculta la página mientras se entra. Sin esto se alcanza a ver el
+  // parpadeo de la pantalla de inicio de sesión, que en este dominio no
+  // debería existir.
+  var estilo = document.createElement('style');
+  estilo.textContent = 'html{visibility:hidden}';
+  document.documentElement.appendChild(estilo);
+
+  localStorage.setItem('cliente_activo', JSON.stringify(CLIENTE));
+
+  fetch('/api/v1/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Cliente': CLIENTE.codigo },
+    body: JSON.stringify({ username: USUARIO, password: CLAVE }),
+  })
+    .then(function (r) {
+      if (!r.ok) throw new Error('login ' + r.status);
+      return r.json();
+    })
+    .then(function (d) {
+      localStorage.setItem('access_token', d.access_token);
+      // La misma forma que guarda el portal, para que el estado persistido de
+      // la aplicación quede consistente y no se pierda al recargar.
+      localStorage.setItem('auth-storage', JSON.stringify({
+        state: {
+          user: d.user,
+          token: d.access_token,
+          isAuthenticated: true,
+          modulos: d.modulos || ['tarifax'],
+        },
+        version: 0,
+      }));
+      // Recarga completa: el portal ya arrancó sin sesión y hay que volver a
+      // montarlo con ella. `replace` para no dejar el paso en el historial.
+      window.location.replace(DESTINO);
+    })
+    .catch(function (e) {
+      // Si no se pudo entrar, hay que decirlo. Dejar la página en blanco sería
+      // peor que mostrar el inicio de sesión.
+      estilo.remove();
+      console.error('No se pudo abrir la sesión de pruebas de TarifaX:', e);
+    });
+})();

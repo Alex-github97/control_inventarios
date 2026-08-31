@@ -56,3 +56,7 @@ Thumbs.db
 .env.prod
 backups/
 deploy/certbot/
+
+# La entrada automática del dominio de pruebas de TarifaX lleva la clave de su
+# cuenta: se genera en el servidor a partir de la plantilla y no se versiona.
+deploy/entrada-tarifax.js

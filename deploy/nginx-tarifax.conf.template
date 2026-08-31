@@ -1,0 +1,63 @@
+# El dominio de pruebas de TarifaX.
+#
+# Va a su propio par de contenedores —misma imagen, otra copia— y no al portal
+# de Icoltrans. Lo que se busca aislar es la configuración de TarifaX, que vive
+# en archivos dentro del contenedor y no en la base: si los dos dominios
+# compartieran backend, un cambio de plataformas o de mapeo de vehículos hecho
+# en las pruebas quedaría aplicado en la cotización real.
+#
+# Este archivo es aparte del template principal a propósito: el dominio de
+# producción no se toca al agregar o quitar este.
+
+server {
+    listen 80;
+    server_name ${DOMINIO_TARIFAX} www.${DOMINIO_TARIFAX};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name ${DOMINIO_TARIFAX} www.${DOMINIO_TARIFAX};
+
+    ssl_certificate     /etc/letsencrypt/live/${DOMINIO_TARIFAX}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMINIO_TARIFAX}/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+
+    add_header Strict-Transport-Security "max-age=31536000" always;
+
+    # Es un entorno de pruebas: que no lo indexe nadie.
+    add_header X-Robots-Tag "noindex, nofollow" always;
+
+    client_max_body_size 25M;
+
+    resolver 127.0.0.11 valid=30s ipv6=off;
+
+    location /api/ {
+        set $destino_api tarifax_backend:8000;
+        proxy_pass http://$destino_api;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+    }
+
+    location /health {
+        set $destino_salud tarifax_backend:8000;
+        proxy_pass http://$destino_salud/health;
+    }
+
+    location / {
+        set $destino_portal tarifax_frontend:80;
+        proxy_pass http://$destino_portal;
+        proxy_set_header Host $host;
+    }
+}
