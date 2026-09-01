@@ -5,7 +5,7 @@
  * nadie, y esa era la situación en la que quedaba toda empresa recién creada
  * antes de que el alta incluyera a su primer administrador.
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Box, Card, Typography, Button, Table, TableBody, TableCell, TableHead, TableRow,
   Chip, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions,
@@ -26,7 +26,12 @@ import Modulos from './Modulos'
 import Comercial from './Comercial'
 import Directorio from './Directorio'
 import Uso from './Uso'
+import Perfiles from './Perfiles'
 
+/** Los que trae toda empresa de fábrica. Solo se usan mientras la lista
+ *  real de la empresa está cargando: la de verdad se pide al servidor,
+ *  porque un perfil creado a medida no aparecía acá y uno eliminado se
+ *  seguía ofreciendo. */
 const ROLES = ['ADMINISTRADOR', 'SUPERVISOR_LOGISTICO', 'OPERADOR_BODEGA', 'AUDITOR', 'CONSULTA', 'CONDUCTOR']
 
 const VACIA = {
@@ -116,10 +121,12 @@ function DialogoNuevaEmpresa({
 const USUARIO_VACIO = { nombre: '', apellido: '', email: '', username: '', rol: 'CONSULTA', cargo: '' }
 
 function DialogoNuevoUsuario({
-  empresa, abierto, onCerrar, onCreado,
+  empresa, abierto, perfiles, onCerrar, onCreado,
 }: {
   empresa: Empresa | null
   abierto: boolean
+  /** Los perfiles que existen en ESTA empresa, no una lista fija. */
+  perfiles: string[]
   onCerrar: () => void
   onCreado: (acceso: ClaveEntregada) => void
 }) {
@@ -156,7 +163,7 @@ function DialogoNuevoUsuario({
           />
           <TextField label="Correo" type="email" value={f.email} onChange={cambiar('email')} fullWidth required />
           <TextField select label="Rol" value={f.rol} onChange={cambiar('rol')} fullWidth>
-            {ROLES.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+            {perfiles.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
           </TextField>
           <TextField label="Cargo (opcional)" value={f.cargo} onChange={cambiar('cargo')} fullWidth />
         </Stack>
@@ -222,6 +229,110 @@ function DialogoConfirmarClave({
 
 // ─── Ficha de una empresa: su gente ───────────────────────────────────────────
 
+/**
+ * Editar un usuario de una empresa.
+ *
+ * La consola sabía crear usuarios y restablecerles la clave, pero no
+ * corregirlos: un correo mal escrito o un cambio de perfil obligaba a crear
+ * otro usuario y desactivar el anterior. El servidor ya aceptaba la edición
+ * desde el primer día; lo que faltaba era por dónde pedirla.
+ */
+function DialogoEditarUsuario({
+  empresa, usuario, perfiles, onCerrar,
+}: {
+  empresa: Empresa
+  usuario: UsuarioDeEmpresa | null
+  perfiles: string[]
+  onCerrar: () => void
+}) {
+  const qc = useQueryClient()
+  const [form, setForm] = useState({ nombre: '', apellido: '', email: '', rol: '', cargo: '' })
+
+  useEffect(() => {
+    if (!usuario) return
+    setForm({
+      nombre: usuario.nombre ?? '', apellido: usuario.apellido ?? '',
+      email: usuario.email ?? '', rol: usuario.rol ?? '',
+      cargo: usuario.cargo ?? '',
+    })
+  }, [usuario])
+
+  const guardar = useMutation({
+    mutationFn: () => consolaApi.editarUsuario(empresa.id, usuario!.id, {
+      nombre: form.nombre.trim(), apellido: form.apellido.trim(),
+      email: form.email.trim(), rol: form.rol,
+      cargo: form.cargo.trim() || null,
+    }),
+    onSuccess: () => {
+      toast.success('Usuario actualizado')
+      qc.invalidateQueries({ queryKey: ['usuarios', empresa.id] })
+      qc.invalidateQueries({ queryKey: ['perfiles', empresa.id] })
+      onCerrar()
+    },
+    onError: (e: any) => toast.error(mensajeDeError(e)),
+  })
+
+  // El nombre de usuario no se edita: es con lo que la persona entra y lo que
+  // queda escrito en la bitácora. Cambiarlo rompería el rastro de lo que hizo.
+  return (
+    <Dialog open={Boolean(usuario)} onClose={onCerrar} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ fontWeight: 800, fontSize: 17 }}>
+        Editar usuario
+        <Typography variant="caption" display="block" color="text.secondary">
+          {usuario?.username} · {empresa.nombre}
+        </Typography>
+      </DialogTitle>
+      <DialogContent dividers>
+        <Stack spacing={2} sx={{ pt: 0.5 }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <TextField
+              size="small" label="Nombre *" fullWidth value={form.nombre}
+              onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
+            />
+            <TextField
+              size="small" label="Apellido" fullWidth value={form.apellido}
+              onChange={e => setForm(f => ({ ...f, apellido: e.target.value }))}
+            />
+          </Stack>
+          <TextField
+            size="small" label="Correo *" type="email" fullWidth value={form.email}
+            onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+          />
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <TextField
+              select size="small" label="Perfil" fullWidth value={form.rol}
+              onChange={e => setForm(f => ({ ...f, rol: e.target.value }))}
+              helperText="Los perfiles se administran en la pestaña Perfiles"
+            >
+              {perfiles.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+              {/* Si tiene un perfil que ya no existe, se muestra igual: vaciar
+                  el campo en silencio le cambiaría los permisos sin avisar. */}
+              {form.rol && !perfiles.includes(form.rol) && (
+                <MenuItem value={form.rol}>{form.rol} (ya no existe)</MenuItem>
+              )}
+            </TextField>
+            <TextField
+              size="small" label="Cargo" fullWidth value={form.cargo}
+              onChange={e => setForm(f => ({ ...f, cargo: e.target.value }))}
+            />
+          </Stack>
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onCerrar} sx={{ textTransform: 'none' }}>Cancelar</Button>
+        <Button
+          variant="contained" sx={{ textTransform: 'none', fontWeight: 700 }}
+          disabled={!form.nombre.trim() || !form.email.trim() || guardar.isPending}
+          onClick={() => guardar.mutate()}
+        >
+          Guardar
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
+
 function PestanaUsuarios({
   empresa, onClave,
 }: {
@@ -230,6 +341,7 @@ function PestanaUsuarios({
 }) {
   const qc = useQueryClient()
   const [nuevo, setNuevo] = useState(false)
+  const [porEditar, setPorEditar] = useState<UsuarioDeEmpresa | null>(null)
   const [porRestablecer, setPorRestablecer] = useState<UsuarioDeEmpresa | null>(null)
   const yo = sesion.leer()
 
@@ -237,6 +349,14 @@ function PestanaUsuarios({
     queryKey: ['usuarios', empresa.id],
     queryFn: () => consolaApi.usuarios(empresa.id),
   })
+
+  // Los perfiles que existen de verdad en ESTA empresa, para no ofrecer al
+  // asignar uno que no está y para no esconder uno que sí.
+  const { data: perfiles = [] } = useQuery({
+    queryKey: ['perfiles', empresa.id],
+    queryFn: () => consolaApi.perfiles(empresa.id),
+  })
+  const nombresDePerfil = perfiles.length ? perfiles.map(p => p.nombre) : ROLES
 
   const clave = useMutation({
     mutationFn: (uid: number) => consolaApi.restablecerClave(empresa.id, uid),
@@ -313,6 +433,11 @@ function PestanaUsuarios({
                   />
                 </TableCell>
                 <TableCell align="right">
+                  <Tooltip title="Editar nombre, correo, perfil y cargo">
+                    <IconButton size="small" onClick={() => setPorEditar(u)}>
+                      <Edit fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
                   <Tooltip title="Restablecer contraseña">
                     <IconButton
                       size="small" onClick={() => setPorRestablecer(u)}
@@ -338,8 +463,12 @@ function PestanaUsuarios({
       </Card>
 
       <DialogoNuevoUsuario
-        empresa={empresa} abierto={nuevo}
+        empresa={empresa} abierto={nuevo} perfiles={nombresDePerfil}
         onCerrar={() => setNuevo(false)} onCreado={onClave}
+      />
+      <DialogoEditarUsuario
+        empresa={empresa} usuario={porEditar} perfiles={nombresDePerfil}
+        onCerrar={() => setPorEditar(null)}
       />
       <DialogoConfirmarClave
         usuario={porRestablecer}
@@ -355,7 +484,7 @@ function PestanaUsuarios({
 
 // ─── Ficha completa de una empresa ────────────────────────────────────────────
 
-const PESTANAS = ['Usuarios', 'Módulos', 'Comercial', 'Contactos y documentos', 'Uso'] as const
+const PESTANAS = ['Usuarios', 'Perfiles', 'Módulos', 'Comercial', 'Contactos y documentos', 'Uso'] as const
 
 function FichaEmpresa({
   empresa, onVolver, onClave,
@@ -397,10 +526,11 @@ function FichaEmpresa({
       </Tabs>
 
       {pestana === 0 && <PestanaUsuarios empresa={empresa} onClave={onClave} />}
-      {pestana === 1 && <Modulos empresa={empresa} />}
-      {pestana === 2 && <Comercial empresa={empresa} />}
-      {pestana === 3 && <Directorio empresa={empresa} />}
-      {pestana === 4 && <Uso empresa={empresa} />}
+      {pestana === 1 && <Perfiles empresa={empresa} />}
+      {pestana === 2 && <Modulos empresa={empresa} />}
+      {pestana === 3 && <Comercial empresa={empresa} />}
+      {pestana === 4 && <Directorio empresa={empresa} />}
+      {pestana === 5 && <Uso empresa={empresa} />}
     </Box>
   )
 }

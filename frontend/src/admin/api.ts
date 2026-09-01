@@ -35,6 +35,26 @@ export interface UsuarioDeEmpresa {
   ultimo_login?: string | null
 }
 
+/** Una casilla que puede marcarse en un perfil. La lista la sirve el servidor:
+ *  tenerla escrita acá fue lo que la dejó desincronizada con la del portal. */
+export interface PermisoDePerfil {
+  clave: string
+  nombre: string
+  grupo: string
+}
+
+export interface PerfilDeEmpresa {
+  id: number
+  nombre: string
+  label?: string | null
+  descripcion?: string | null
+  color?: string | null
+  permisos: Record<string, boolean>
+  /** Los que trae toda empresa de fábrica: se pueden ajustar pero no eliminar. */
+  es_sistema: boolean
+  total_usuarios: number
+}
+
 export interface ClaveEntregada {
   username: string
   clave_temporal: string
@@ -461,6 +481,28 @@ export const consolaApi = {
   restablecerClave: (id: number, usuarioId: number) =>
     api.post<ClaveEntregada>(`/plataforma/empresas/${id}/usuarios/${usuarioId}/clave`)
       .then(r => r.data),
+
+  // ─── Perfiles de una empresa ───────────────────────────────────────────────
+  //
+  // Qué pantallas ve cada persona dentro de su empresa. Es distinto de los
+  // módulos: aquellos dicen qué contrató la empresa y estos qué puede hacer
+  // cada quien dentro de lo contratado. Los dos tienen que permitirlo.
+
+  permisosDePerfil: () =>
+    api.get<PermisoDePerfil[]>('/plataforma/permisos-perfil').then(r => r.data),
+
+  perfiles: (id: number) =>
+    api.get<PerfilDeEmpresa[]>(`/plataforma/empresas/${id}/perfiles`).then(r => r.data),
+
+  crearPerfil: (id: number, cuerpo: Record<string, unknown>) =>
+    api.post<PerfilDeEmpresa>(`/plataforma/empresas/${id}/perfiles`, cuerpo).then(r => r.data),
+
+  editarPerfil: (id: number, perfilId: number, cuerpo: Record<string, unknown>) =>
+    api.put<PerfilDeEmpresa>(`/plataforma/empresas/${id}/perfiles/${perfilId}`, cuerpo)
+      .then(r => r.data),
+
+  borrarPerfil: (id: number, perfilId: number) =>
+    api.delete(`/plataforma/empresas/${id}/perfiles/${perfilId}`).then(r => r.data),
 
   // ─── Comercial ──────────────────────────────────────────────────────────────
 

@@ -1490,6 +1490,16 @@ async def _migrar_esquema(esquema: str) -> None:
             ON CONFLICT DO NOTHING
         """))
 
+        # Los usuarios creados desde la consola quedaron con el nombre del
+        # perfil pero sin el vínculo al perfil, y los permisos salen del
+        # vínculo: entraban y no veían nada. Se repara emparejando por nombre,
+        # que es el dato que sí quedó guardado.
+        await conn.execute(text("""
+            UPDATE usuarios u SET rol_id = r.id
+            FROM roles r
+            WHERE u.rol_id IS NULL AND upper(u.rol) = upper(r.nombre)
+        """))
+
         # La operación gana su tipo. `create_all` no altera tablas existentes,
         # así que la columna se agrega a mano en las plantas ya configuradas.
         await conn.execute(text(

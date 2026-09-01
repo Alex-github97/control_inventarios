@@ -15,6 +15,7 @@ sus llantas.
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import List, Optional
+import json
 import secrets
 import string
 
@@ -29,6 +30,7 @@ from app.core.tenant import ESQUEMA_PLATAFORMA, codigo_valido
 from app.infrastructure.models.plataforma import PlataformaCliente, PlataformaBitacora
 from app.infrastructure.models.usuario import Usuario
 from app.core.permisos_consola import exigir
+from app.core.permisos_perfil import PERMISOS_PERFIL, normalizar as normalizar_permisos
 
 router = APIRouter(prefix="/plataforma", tags=["Consola del operador"])
 
@@ -333,6 +335,22 @@ async def cambiar_estado(
 
 # ─── Usuarios de una empresa ──────────────────────────────────────────────────
 
+async def _rol_id_de(s: AsyncSession, nombre: str) -> int:
+    """El id del perfil que se llama así, dentro del esquema ya seleccionado.
+
+    Se exige que exista: dejar el vínculo vacío no falla en ninguna parte, pero
+    deja a la persona sin un solo permiso y sin nada que lo explique.
+    """
+    fila = (await s.execute(text("SELECT id FROM roles WHERE upper(nombre) = :n"),
+                            {"n": (nombre or "").strip().upper()})).first()
+    if not fila:
+        raise HTTPException(
+            400,
+            f"Esa empresa no tiene un perfil «{nombre}». Créelo primero en la "
+            f"pestaña Perfiles, o escoja uno de los que ya tiene.")
+    return fila[0]
+
+
 @router.get("/empresas/{cliente_id}/usuarios", response_model=List[UsuarioDeEmpresa])
 async def listar_usuarios(
     cliente_id: int,
@@ -363,11 +381,15 @@ async def crear_usuario(
         )
         if choque.scalar():
             raise HTTPException(409, "Ya hay un usuario con ese nombre o ese correo en esta empresa")
+        # El nombre y el id del perfil van juntos: el nombre es lo que se
+        # muestra y el id es de donde salen los permisos.
+        rol = (data.rol or "").strip().upper()
         s.add(Usuario(
             nombre=data.nombre.strip(), apellido=data.apellido.strip(),
             email=str(data.email), username=usuario,
             hashed_password=hash_password(clave),
-            rol=data.rol, cargo=data.cargo, activo=True,
+            rol=rol, rol_id=await _rol_id_de(s, rol),
+            cargo=data.cargo, activo=True,
         ))
     await _anotar(db, request, "usuario.alta", cliente.codigo, f"«{usuario}»")
     await db.commit()
@@ -399,6 +421,9 @@ async def editar_usuario(
                     "Es el único administrador activo de la empresa: si se desactiva, "
                     "nadie de esa empresa podría volver a entrar. Cree otro primero.",
                 )
+        if "rol" in cambios:
+            cambios["rol"] = (cambios["rol"] or "").strip().upper()
+            u.rol_id = await _rol_id_de(s, cambios["rol"])
         for campo, valor in cambios.items():
             setattr(u, campo, str(valor) if campo == "email" else valor)
         await s.flush()
@@ -450,3 +475,208 @@ async def ver_bitacora(
         q = q.where(PlataformaBitacora.empresa_codigo == empresa)
     r = await db.execute(q.limit(min(limite, 1000)))
     return [AsientoBitacora.model_validate(a) for a in r.scalars().all()]
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# LOS PERFILES DE UNA EMPRESA
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# Un perfil es el conjunto de pantallas que puede ver una persona dentro de su
+# empresa. Existían desde el principio en `/roles`, pero ese camino solo sirve
+# desde dentro de la propia empresa: la consola administra a todas, y no tiene
+# —ni debe tener— una sesión abierta en cada una.
+#
+# Por eso estos endpoints entran por el esquema del cliente, igual que ya lo
+# hacía la edición de usuarios. El operador administra desde afuera, y cada
+# empresa sigue pudiendo administrarse a sí misma por su propio camino.
+
+class PermisoDisponible(BaseModel):
+    clave: str
+    nombre: str
+    grupo: str
+
+
+@router.get("/permisos-perfil", response_model=List[PermisoDisponible])
+async def permisos_de_perfil(_=Depends(exigir("empresas.ver"))):
+    """Qué se puede marcar en un perfil.
+
+    Lo sirve el servidor en vez de que la pantalla lo tenga escrito: era
+    justamente lo que estaba desincronizado, y así agregar un módulo nuevo lo
+    hace aparecer solo en la consola.
+    """
+    return [PermisoDisponible(clave=p.clave, nombre=p.nombre, grupo=p.grupo)
+            for p in PERMISOS_PERFIL]
+
+
+class PerfilDeEmpresa(BaseModel):
+    id: int
+    nombre: str
+    label: Optional[str] = None
+    descripcion: Optional[str] = None
+    color: Optional[str] = None
+    permisos: dict
+    es_sistema: bool = False
+    total_usuarios: int = 0
+
+
+class PerfilNuevo(BaseModel):
+    nombre: str
+    label: Optional[str] = None
+    descripcion: Optional[str] = None
+    color: Optional[str] = "#6366f1"
+    permisos: dict = {}
+
+
+class PerfilCambios(BaseModel):
+    """Todo opcional: se manda solo lo que cambia."""
+    nombre: Optional[str] = None
+    label: Optional[str] = None
+    descripcion: Optional[str] = None
+    color: Optional[str] = None
+    permisos: Optional[dict] = None
+
+
+async def _perfiles_de(esquema: str) -> List[PerfilDeEmpresa]:
+    async with _sesion_de(esquema) as s:
+        filas = (await s.execute(text(
+            "SELECT id, nombre, label, descripcion, color, permisos, es_sistema "
+            "FROM roles ORDER BY es_sistema DESC, nombre"))).all()
+        # Cuántos los usan: un perfil con gente adentro no se puede borrar sin
+        # dejar a esa gente sin permisos.
+        conteo = {n: c for n, c in (await s.execute(text(
+            "SELECT rol, count(*) FROM usuarios WHERE activo GROUP BY rol"))).all()}
+    return [
+        PerfilDeEmpresa(
+            id=f[0], nombre=f[1], label=f[2], descripcion=f[3], color=f[4],
+            permisos=normalizar_permisos(f[5]), es_sistema=bool(f[6]),
+            total_usuarios=conteo.get(f[1], 0),
+        )
+        for f in filas
+    ]
+
+
+@router.get("/empresas/{cliente_id}/perfiles", response_model=List[PerfilDeEmpresa])
+async def listar_perfiles(
+    cliente_id: int,
+    db: AsyncSession = Depends(get_db_plataforma),
+    _=Depends(exigir("empresas.ver")),
+):
+    cliente = await _empresa(db, cliente_id)
+    return await _perfiles_de(cliente.esquema)
+
+
+@router.post("/empresas/{cliente_id}/perfiles", response_model=PerfilDeEmpresa,
+             status_code=201)
+async def crear_perfil(
+    cliente_id: int, data: PerfilNuevo, request: Request,
+    db: AsyncSession = Depends(get_db_plataforma),
+    _=Depends(exigir("usuarios.editar")),
+):
+    cliente = await _empresa(db, cliente_id)
+    nombre = (data.nombre or "").strip().upper()
+    if not nombre:
+        raise HTTPException(400, "El perfil necesita un nombre")
+
+    async with _sesion_de(cliente.esquema) as s:
+        ya = await s.execute(text("SELECT 1 FROM roles WHERE upper(nombre) = :n"),
+                             {"n": nombre})
+        if ya.scalar():
+            raise HTTPException(409, f"Esa empresa ya tiene un perfil «{nombre}»")
+        r = await s.execute(text(
+            "INSERT INTO roles (nombre, label, descripcion, color, permisos, "
+            "es_sistema, created_at, updated_at) "
+            "VALUES (:n, :l, :d, :c, CAST(:p AS jsonb), false, now(), now()) "
+            "RETURNING id"), {
+                "n": nombre, "l": data.label or data.nombre,
+                "d": data.descripcion, "c": data.color or "#6366f1",
+                "p": json.dumps(normalizar_permisos(data.permisos))})
+        nuevo = r.scalar()
+
+    await _anotar(db, request, "perfil.creacion", cliente.codigo, f"«{nombre}»")
+    await db.commit()
+    perfiles = await _perfiles_de(cliente.esquema)
+    return next(p for p in perfiles if p.id == nuevo)
+
+
+@router.put("/empresas/{cliente_id}/perfiles/{perfil_id}", response_model=PerfilDeEmpresa)
+async def editar_perfil(
+    cliente_id: int, perfil_id: int, data: PerfilCambios, request: Request,
+    db: AsyncSession = Depends(get_db_plataforma),
+    _=Depends(exigir("usuarios.editar")),
+):
+    cliente = await _empresa(db, cliente_id)
+    cambios = data.model_dump(exclude_unset=True)
+
+    async with _sesion_de(cliente.esquema) as s:
+        actual = (await s.execute(text(
+            "SELECT nombre, es_sistema FROM roles WHERE id = :i"),
+            {"i": perfil_id})).first()
+        if not actual:
+            raise HTTPException(404, "Ese perfil no existe en esta empresa")
+
+        # El perfil de administrador se puede renombrar y describir, pero no
+        # recortar: quitarle permisos deja a la empresa sin quien administre
+        # su propia gente, y solo la consola podría devolvérselos.
+        if actual[0] == "ADMINISTRADOR" and "permisos" in cambios:
+            raise HTTPException(
+                409,
+                "El perfil ADMINISTRADOR no puede quedarse sin permisos: es el "
+                "único que puede volver a repartirlos dentro de la empresa.")
+
+        sets, valores = [], {"i": perfil_id}
+        for campo in ("nombre", "label", "descripcion", "color"):
+            if campo in cambios:
+                sets.append(f"{campo} = :{campo}")
+                valores[campo] = (cambios[campo] or "").strip().upper() \
+                    if campo == "nombre" else cambios[campo]
+        if "permisos" in cambios:
+            sets.append("permisos = CAST(:permisos AS jsonb)")
+            valores["permisos"] = json.dumps(normalizar_permisos(cambios["permisos"]))
+        if not sets:
+            raise HTTPException(400, "No hay nada que cambiar")
+        sets.append("updated_at = now()")
+
+        # Renombrar el perfil tiene que arrastrar a quienes lo tienen: el
+        # usuario guarda el nombre del rol, no solo su id, y si se cambia uno
+        # sin el otro esa gente se queda con un perfil que ya no existe.
+        if "nombre" in cambios:
+            await s.execute(text("UPDATE usuarios SET rol = :nuevo WHERE rol = :viejo"),
+                            {"nuevo": valores["nombre"], "viejo": actual[0]})
+        await s.execute(text(f"UPDATE roles SET {', '.join(sets)} WHERE id = :i"),
+                        valores)
+
+    await _anotar(db, request, "perfil.edicion", cliente.codigo,
+                  f"«{actual[0]}»: {', '.join(cambios)}")
+    await db.commit()
+    perfiles = await _perfiles_de(cliente.esquema)
+    return next(p for p in perfiles if p.id == perfil_id)
+
+
+@router.delete("/empresas/{cliente_id}/perfiles/{perfil_id}", status_code=204)
+async def borrar_perfil(
+    cliente_id: int, perfil_id: int, request: Request,
+    db: AsyncSession = Depends(get_db_plataforma),
+    _=Depends(exigir("usuarios.editar")),
+):
+    cliente = await _empresa(db, cliente_id)
+    async with _sesion_de(cliente.esquema) as s:
+        fila = (await s.execute(text(
+            "SELECT nombre, es_sistema FROM roles WHERE id = :i"),
+            {"i": perfil_id})).first()
+        if not fila:
+            raise HTTPException(404, "Ese perfil no existe en esta empresa")
+        if fila[1]:
+            raise HTTPException(
+                409, "Ese perfil es del sistema y no se puede eliminar.")
+        usando = (await s.execute(text(
+            "SELECT count(*) FROM usuarios WHERE rol = :n AND activo"),
+            {"n": fila[0]})).scalar() or 0
+        if usando:
+            raise HTTPException(
+                409,
+                f"Hay {usando} usuario(s) con ese perfil. Cámbieles el perfil "
+                f"antes de eliminarlo, o se quedarían sin permisos.")
+        await s.execute(text("DELETE FROM roles WHERE id = :i"), {"i": perfil_id})
+
+    await _anotar(db, request, "perfil.borrado", cliente.codigo, f"«{fila[0]}»")
+    await db.commit()
