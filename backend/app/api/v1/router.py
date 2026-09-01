@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
     auth, usuarios, estibas, ubicaciones, proveedores,
-    vehiculos, manifiestos, movimientos, dashboard, alertas, danos, tarifax, mantenimiento, consultas, roles, fletes, flota, locative, wms, hcm, tms, dms, qms, grc, lms, crm, eam, mes, aps, erp, scan_sessions, scm, sst, lubricacion, lubricacion_gestion, lubricacion_operacion, lubricacion_analitica, ags, catalogos, plataforma, plataforma_comercial, plataforma_contable, eam_importar, eam_config, eam_dashboard, checklists, checklists_ejecucion, combustible, inventario, eam_confiabilidad, eam_reportes, eam_adjuntos, eam_causa_raiz, mes_flujo, soporte, soporte_agil, plataforma_equipo, landing
+    vehiculos, manifiestos, movimientos, dashboard, alertas, danos, tarifax, mantenimiento, consultas, roles, fletes, flota, locative, wms, hcm, tms, dms, qms, grc, lms, crm, eam, mes, aps, erp, scan_sessions, scm, sst, lubricacion, lubricacion_gestion, lubricacion_operacion, lubricacion_analitica, ags, catalogos, plataforma, plataforma_comercial, plataforma_contable, eam_importar, eam_config, eam_dashboard, checklists, checklists_ejecucion, combustible, inventario, eam_confiabilidad, eam_reportes, eam_adjuntos, eam_causa_raiz, mes_flujo, soporte, soporte_agil, plataforma_equipo, landing, gestion, gestion_incidencias
 )
 
 api_router = APIRouter()
@@ -36,6 +36,10 @@ api_router.include_router(eam_causa_raiz.router)
 api_router.include_router(soporte.router)
 # Tablero, backlog, sprints y metricas: solo para el equipo.
 api_router.include_router(soporte_agil.router)
+# Gestion de proyectos e incidencias. Va antes que el de incidencias porque
+# ambos cuelgan de /gestion y el primero en registrarse gana en caso de choque.
+api_router.include_router(gestion.router)
+api_router.include_router(gestion_incidencias.router)
 api_router.include_router(roles.router)
 api_router.include_router(usuarios.router)
 api_router.include_router(estibas.router)

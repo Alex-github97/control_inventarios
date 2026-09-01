@@ -1,0 +1,441 @@
+"""
+Proyectos y configuración del módulo de gestión.
+
+Todo va detrás de los permisos de la consola, y encima de eso el proyecto se
+comprueba objeto por objeto: tener `gestion.ver` no alcanza para entrar a un
+proyecto restringido del que no se es miembro.
+
+`gestion.configurar` está separado de `gestion.trabajar` a propósito. Cambiar un
+workflow afecta a las incidencias que ya existen —una transición que desaparece
+deja tarjetas sin salida— y eso no es lo mismo que mover una tarjeta.
+"""
+from typing import Dict, List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core import gestion_campos, gestion_workflow
+from app.core.database import get_db_plataforma
+from app.core.gestion_permisos import (
+    exigir_proyecto, limitar, proyectos_visibles, roles_en,
+)
+from app.core.permisos_consola import Miembro, exigir
+from app.infrastructure.models.gestion import (
+    GPCampo, GPCampoOpcion, GPEstado, GPIncidencia, GPPrioridad, GPProyecto,
+    GPProyectoMiembro, GPTipoIncidencia, GPTransicion, GPWorkflow,
+    NIVELES, ROLES_PROYECTO, TIPOS_CAMPO, CATEGORIAS_ESTADO,
+)
+
+router = APIRouter(prefix="/gestion", tags=["Gestión"])
+
+
+# ─── Lo que se devuelve ───────────────────────────────────────────────────────
+
+class ProyectoResumen(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    clave: str
+    nombre: str
+    descripcion: Optional[str] = None
+    icono: Optional[str] = None
+    color: Optional[str] = None
+    lider: Optional[str] = None
+    workflow_id: Optional[int] = None
+    restringido: bool = False
+    incidencia_automatica: bool = True
+    archivado: bool = False
+    # Se calculan; no salen de la tabla.
+    abiertas: int = 0
+    total: int = 0
+    mi_rol: Optional[str] = None
+
+
+class MiembroResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    usuario: str
+    rol: str
+
+
+class ProyectoEntrada(BaseModel):
+    clave: str = Field(min_length=2, max_length=12)
+    nombre: str = Field(min_length=2, max_length=160)
+    descripcion: Optional[str] = None
+    icono: Optional[str] = None
+    color: Optional[str] = None
+    lider: Optional[str] = None
+    workflow_id: Optional[int] = None
+    restringido: bool = False
+    incidencia_automatica: bool = True
+
+
+class ProyectoCambio(BaseModel):
+    nombre: Optional[str] = None
+    descripcion: Optional[str] = None
+    icono: Optional[str] = None
+    color: Optional[str] = None
+    lider: Optional[str] = None
+    workflow_id: Optional[int] = None
+    restringido: Optional[bool] = None
+    incidencia_automatica: Optional[bool] = None
+    archivado: Optional[bool] = None
+
+
+class MiembroEntrada(BaseModel):
+    usuario: str = Field(min_length=1, max_length=80)
+    rol: str = "MIEMBRO"
+
+
+# ─── Proyectos ────────────────────────────────────────────────────────────────
+
+@router.get("/proyectos", response_model=List[ProyectoResumen])
+async def listar_proyectos(
+    incluir_archivados: bool = False,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.ver")),
+):
+    """Los proyectos que esta persona puede ver, con cuánto tienen abierto.
+
+    Las cuentas salen de una sola consulta agrupada y no de una por proyecto: con
+    muchos proyectos, la segunda forma es la que convierte una pantalla de inicio
+    en una espera.
+    """
+    visibles = await proyectos_visibles(db, quien)
+
+    consulta = select(GPProyecto)
+    if not incluir_archivados:
+        consulta = consulta.where(GPProyecto.archivado.is_(False))
+    consulta = limitar(consulta, visibles, GPProyecto.id)
+    proyectos = list((await db.execute(
+        consulta.order_by(GPProyecto.archivado, GPProyecto.nombre))).scalars().all())
+    if not proyectos:
+        return []
+
+    ids = [p.id for p in proyectos]
+    r = await db.execute(
+        select(GPIncidencia.proyecto_id, GPEstado.categoria, func.count())
+        .join(GPEstado, GPEstado.id == GPIncidencia.estado_id)
+        .where(GPIncidencia.proyecto_id.in_(ids))
+        .group_by(GPIncidencia.proyecto_id, GPEstado.categoria))
+    abiertas: Dict[int, int] = {}
+    totales: Dict[int, int] = {}
+    for pid, categoria, cuantas in r.all():
+        totales[pid] = totales.get(pid, 0) + cuantas
+        if categoria != "TERMINADO":
+            abiertas[pid] = abiertas.get(pid, 0) + cuantas
+
+    mis_roles = await roles_en(db, quien.usuario, ids)
+
+    salida = []
+    for p in proyectos:
+        ficha = ProyectoResumen.model_validate(p)
+        ficha.abiertas = abiertas.get(p.id, 0)
+        ficha.total = totales.get(p.id, 0)
+        ficha.mi_rol = mis_roles.get(p.id)
+        salida.append(ficha)
+    return salida
+
+
+@router.post("/proyectos", response_model=ProyectoResumen, status_code=201)
+async def crear_proyecto(
+    data: ProyectoEntrada,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.configurar")),
+):
+    clave = data.clave.strip().upper()
+    if not clave.isalnum():
+        raise HTTPException(
+            422,
+            "La clave del proyecto solo admite letras y números: es el prefijo "
+            "de las claves visibles (ERP-123).")
+
+    existe = (await db.execute(select(GPProyecto.id).where(
+        GPProyecto.clave == clave))).first()
+    if existe:
+        raise HTTPException(409, f"Ya hay un proyecto con la clave «{clave}».")
+
+    if data.workflow_id is not None:
+        hay = (await db.execute(select(GPWorkflow.id).where(
+            GPWorkflow.id == data.workflow_id))).first()
+        if not hay:
+            raise HTTPException(404, "Ese flujo no existe.")
+
+    proyecto = GPProyecto(
+        clave=clave, nombre=data.nombre.strip(), descripcion=data.descripcion,
+        icono=data.icono, color=data.color, lider=data.lider or quien.usuario,
+        workflow_id=data.workflow_id, contador=0,
+        restringido=data.restringido,
+        incidencia_automatica=data.incidencia_automatica,
+        archivado=False,
+    )
+    db.add(proyecto)
+    await db.flush()
+
+    # Quien lo crea queda de líder dentro del proyecto. Sin esto, un proyecto
+    # restringido nacería sin nadie que pueda entrar, ni siquiera su autor.
+    db.add(GPProyectoMiembro(
+        proyecto_id=proyecto.id, usuario=proyecto.lider or quien.usuario,
+        rol="LIDER"))
+    await db.commit()
+    await db.refresh(proyecto)
+    return ProyectoResumen.model_validate(proyecto)
+
+
+@router.get("/proyectos/{proyecto_id}", response_model=ProyectoResumen)
+async def ver_proyecto(
+    proyecto_id: int,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.ver")),
+):
+    proyecto = await exigir_proyecto(db, quien, proyecto_id)
+    ficha = ProyectoResumen.model_validate(proyecto)
+    ficha.total = (await db.execute(select(func.count()).select_from(GPIncidencia)
+                                    .where(GPIncidencia.proyecto_id == proyecto_id))).scalar() or 0
+    ficha.abiertas = (await db.execute(
+        select(func.count()).select_from(GPIncidencia)
+        .join(GPEstado, GPEstado.id == GPIncidencia.estado_id)
+        .where(GPIncidencia.proyecto_id == proyecto_id,
+               GPEstado.categoria != "TERMINADO"))).scalar() or 0
+    ficha.mi_rol = (await roles_en(db, quien.usuario, [proyecto_id])).get(proyecto_id)
+    return ficha
+
+
+@router.put("/proyectos/{proyecto_id}", response_model=ProyectoResumen)
+async def editar_proyecto(
+    proyecto_id: int, data: ProyectoCambio,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.configurar")),
+):
+    proyecto = await exigir_proyecto(db, quien, proyecto_id)
+    cambios = data.model_dump(exclude_unset=True)
+
+    if cambios.get("restringido") and not cambios.get("archivado"):
+        # Al restringir, quien queda fuera pierde el acceso de inmediato. Se
+        # comprueba que haya al menos un miembro o el proyecto queda inalcanzable
+        # para todos, incluido quien lo restringió.
+        hay = (await db.execute(select(func.count()).select_from(GPProyectoMiembro)
+                                .where(GPProyectoMiembro.proyecto_id == proyecto_id))).scalar() or 0
+        if hay == 0:
+            raise HTTPException(
+                409,
+                "Antes de restringirlo, agregue al menos un miembro: si no, "
+                "nadie podría volver a entrar.")
+
+    for campo, valor in cambios.items():
+        setattr(proyecto, campo, valor)
+    await db.commit()
+    await db.refresh(proyecto)
+    return ProyectoResumen.model_validate(proyecto)
+
+
+@router.get("/proyectos/{proyecto_id}/miembros", response_model=List[MiembroResponse])
+async def listar_miembros(
+    proyecto_id: int,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.ver")),
+):
+    await exigir_proyecto(db, quien, proyecto_id)
+    r = await db.execute(select(GPProyectoMiembro).where(
+        GPProyectoMiembro.proyecto_id == proyecto_id
+    ).order_by(GPProyectoMiembro.rol, GPProyectoMiembro.usuario))
+    return list(r.scalars().all())
+
+
+@router.post("/proyectos/{proyecto_id}/miembros", response_model=MiembroResponse,
+             status_code=201)
+async def agregar_miembro(
+    proyecto_id: int, data: MiembroEntrada,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.configurar")),
+):
+    await exigir_proyecto(db, quien, proyecto_id)
+    rol = (data.rol or "MIEMBRO").upper()
+    if rol not in ROLES_PROYECTO:
+        raise HTTPException(422, f"Rol no válido. Son: {', '.join(ROLES_PROYECTO)}.")
+
+    usuario = data.usuario.strip()
+    ya = (await db.execute(select(GPProyectoMiembro).where(
+        GPProyectoMiembro.proyecto_id == proyecto_id,
+        GPProyectoMiembro.usuario == usuario))).scalar_one_or_none()
+    if ya is not None:
+        ya.rol = rol
+        await db.commit()
+        await db.refresh(ya)
+        return ya
+
+    miembro = GPProyectoMiembro(proyecto_id=proyecto_id, usuario=usuario, rol=rol)
+    db.add(miembro)
+    await db.commit()
+    await db.refresh(miembro)
+    return miembro
+
+
+@router.delete("/proyectos/{proyecto_id}/miembros/{miembro_id}", status_code=204)
+async def quitar_miembro(
+    proyecto_id: int, miembro_id: int,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.configurar")),
+):
+    proyecto = await exigir_proyecto(db, quien, proyecto_id)
+    miembro = (await db.execute(select(GPProyectoMiembro).where(
+        GPProyectoMiembro.id == miembro_id,
+        GPProyectoMiembro.proyecto_id == proyecto_id))).scalar_one_or_none()
+    if miembro is None:
+        raise HTTPException(404, "Esa persona no figura en el proyecto.")
+
+    if proyecto.restringido:
+        quedan = (await db.execute(select(func.count()).select_from(GPProyectoMiembro)
+                                   .where(GPProyectoMiembro.proyecto_id == proyecto_id))).scalar() or 0
+        if quedan <= 1:
+            raise HTTPException(
+                409,
+                "Es la única persona del proyecto y el proyecto está "
+                "restringido: quitarla lo dejaría inalcanzable.")
+
+    await db.delete(miembro)
+    await db.commit()
+
+
+# ─── Configuración ────────────────────────────────────────────────────────────
+
+@router.get("/configuracion")
+async def configuracion(
+    proyecto_id: Optional[int] = None,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.ver")),
+):
+    """Todo lo que una pantalla necesita para dibujarse, en una sola petición.
+
+    Tipos, prioridades, estados y campos se piden juntos porque se necesitan
+    juntos: pedirlos por separado obliga a la pantalla a encadenar cuatro
+    llamadas antes de mostrar la primera fila.
+    """
+    if proyecto_id is not None:
+        await exigir_proyecto(db, quien, proyecto_id)
+
+    # OR explícito: `IN (:proyecto, NULL)` deja fuera las filas cuyo proyecto es
+    # NULL —los tipos globales— porque en SQL nada casa con NULL.
+    ambito = (
+        GPTipoIncidencia.proyecto_id.is_(None) if proyecto_id is None
+        else or_(GPTipoIncidencia.proyecto_id == proyecto_id,
+                 GPTipoIncidencia.proyecto_id.is_(None))
+    )
+    tipos = list((await db.execute(select(GPTipoIncidencia).where(
+        GPTipoIncidencia.archivado.is_(False), ambito,
+    ).order_by(GPTipoIncidencia.orden))).scalars().all())
+
+    prioridades = list((await db.execute(
+        select(GPPrioridad).order_by(GPPrioridad.orden))).scalars().all())
+
+    workflows = list((await db.execute(select(GPWorkflow).where(
+        GPWorkflow.archivado.is_(False)).order_by(GPWorkflow.nombre))).scalars().all())
+
+    estados = list((await db.execute(select(GPEstado).order_by(
+        GPEstado.workflow_id, GPEstado.orden))).scalars().all())
+
+    campos = gestion_campos.descripcion_de(
+        await gestion_campos.campos_aplicables(db, proyecto_id, None))
+
+    return {
+        "tipos": [
+            {"id": t.id, "clave": t.clave, "nombre": t.nombre, "icono": t.icono,
+             "color": t.color, "nivel": t.nivel, "workflow_id": t.workflow_id,
+             "proyecto_id": t.proyecto_id}
+            for t in tipos
+        ],
+        "prioridades": [
+            {"id": p.id, "clave": p.clave, "nombre": p.nombre, "color": p.color,
+             "orden": p.orden, "por_defecto": p.por_defecto}
+            for p in prioridades
+        ],
+        "workflows": [
+            {"id": w.id, "nombre": w.nombre, "descripcion": w.descripcion,
+             "por_defecto": w.por_defecto,
+             "estados": [
+                 {"id": e.id, "clave": e.clave, "nombre": e.nombre,
+                  "categoria": e.categoria, "color": e.color, "orden": e.orden,
+                  "inicial": e.inicial, "limite_wip": e.limite_wip}
+                 for e in estados if e.workflow_id == w.id
+             ]}
+            for w in workflows
+        ],
+        "campos": campos,
+        "vocabulario": {
+            "categorias_estado": list(CATEGORIAS_ESTADO),
+            "niveles": list(NIVELES),
+            "tipos_campo": list(TIPOS_CAMPO),
+            "roles_proyecto": list(ROLES_PROYECTO),
+        },
+        # Lo que se puede colgar de una transición sale del registro del
+        # servidor, no de una lista escrita en la pantalla: una regla que el
+        # servidor no conozca bloquea la transición.
+        "reglas": gestion_workflow.catalogo(),
+    }
+
+
+@router.get("/workflows/{workflow_id}")
+async def ver_workflow(
+    workflow_id: int,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.ver")),
+):
+    """El flujo con sus estados y transiciones, tal como lo ejecuta el motor."""
+    wf = (await db.execute(select(GPWorkflow).where(
+        GPWorkflow.id == workflow_id))).scalar_one_or_none()
+    if wf is None:
+        raise HTTPException(404, "Ese flujo no existe.")
+
+    estados = list((await db.execute(select(GPEstado).where(
+        GPEstado.workflow_id == workflow_id).order_by(GPEstado.orden))).scalars().all())
+    transiciones = list((await db.execute(select(GPTransicion).where(
+        GPTransicion.workflow_id == workflow_id
+    ).order_by(GPTransicion.orden))).scalars().all())
+
+    return {
+        "id": wf.id, "nombre": wf.nombre, "descripcion": wf.descripcion,
+        "por_defecto": wf.por_defecto, "archivado": wf.archivado,
+        "estados": [
+            {"id": e.id, "clave": e.clave, "nombre": e.nombre,
+             "categoria": e.categoria, "color": e.color, "orden": e.orden,
+             "inicial": e.inicial, "limite_wip": e.limite_wip}
+            for e in estados
+        ],
+        "transiciones": [
+            {"id": t.id, "nombre": t.nombre, "origen_id": t.origen_id,
+             "destino_id": t.destino_id, "condiciones": t.condiciones,
+             "validaciones": t.validaciones, "acciones": t.acciones,
+             "orden": t.orden}
+            for t in transiciones
+        ],
+    }
+
+
+@router.get("/campos")
+async def listar_campos(
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.ver")),
+):
+    """El catálogo completo de campos, para la pantalla de configuración."""
+    campos = list((await db.execute(select(GPCampo).where(
+        GPCampo.archivado.is_(False)).order_by(GPCampo.nombre))).scalars().all())
+    if not campos:
+        return []
+
+    r = await db.execute(select(GPCampoOpcion).where(
+        GPCampoOpcion.campo_id.in_([c.id for c in campos]),
+        GPCampoOpcion.archivada.is_(False)).order_by(GPCampoOpcion.orden))
+    opciones: Dict[int, list] = {}
+    for o in r.scalars().all():
+        opciones.setdefault(o.campo_id, []).append(
+            {"id": o.id, "valor": o.valor, "etiqueta": o.etiqueta, "color": o.color})
+
+    return [
+        {"id": c.id, "clave": c.clave, "nombre": c.nombre,
+         "descripcion": c.descripcion, "ayuda": c.ayuda, "tipo": c.tipo,
+         "validacion": c.validacion, "valor_defecto": c.valor_defecto,
+         "filtrable": c.filtrable, "ordenable": c.ordenable,
+         "del_sistema": c.del_sistema, "opciones": opciones.get(c.id, [])}
+        for c in campos
+    ]

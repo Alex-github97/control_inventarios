@@ -378,6 +378,20 @@ async def _sembrar_gestion() -> None:
                 "'DECIMAL', '{\"min\": 0, \"max\": 400, \"decimales\": 1}'::jsonb, "
                 "false, true, false, false, now(), now())"))
 
+            # Y se declaran aplicables. Un campo sin fila en `gp_esquema_campo`
+            # existe pero no aplica a nada: sale en la pantalla de configuración
+            # y no en ningún formulario, que es de los fallos que no se notan
+            # hasta que alguien pregunta por qué no puede llenarlo.
+            # Sin proyecto ni tipo = global, y cada proyecto puede afinarlo.
+            await conn.execute(text(
+                "INSERT INTO public.gp_esquema_campo (proyecto_id, tipo_id, "
+                "campo_id, obligatorio, solo_lectura, orden) "
+                "SELECT NULL, NULL, id, false, false, "
+                "CASE clave WHEN 'modulo' THEN 0 "
+                "           WHEN 'empresa_afectada' THEN 1 ELSE 2 END "
+                "FROM public.gp_campo "
+                "WHERE clave IN ('modulo', 'empresa_afectada', 'esfuerzo_horas')"))
+
         # ── Un proyecto para empezar ──
         hay = (await conn.execute(
             text("SELECT count(*) FROM public.gp_proyecto"))).scalar() or 0

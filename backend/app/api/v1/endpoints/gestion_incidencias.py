@@ -1,0 +1,788 @@
+"""
+Incidencias: listar, ver, crear, editar, mover, comentar y adjuntar.
+
+Dos cosas que gobiernan este archivo:
+
+**Se pagina por cursor, no por página.** `OFFSET 500000` recorre medio millón de
+filas para descartarlas, y con una lista que cambia mientras se recorre, la
+página 3 se salta o repite filas. El cursor apunta a `(actualizado, id)` —el
+orden total estricto del índice— y sigue siendo correcto aunque entren
+incidencias nuevas mientras alguien baja.
+
+**Todo cambio queda en el historial.** No como cortesía: de ahí salen las
+métricas, y un tiempo de ciclo calculado sobre el estado de hoy mostraría el
+pasado como si siempre hubiera sido así.
+"""
+import base64
+import hashlib
+import mimetypes
+import os
+import re
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from fastapi import (
+    APIRouter, Depends, File, Form, HTTPException, Query, UploadFile,
+)
+from fastapi.responses import FileResponse
+from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select, func, or_
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core import gestion_campos, gestion_incidencias, gestion_workflow
+from app.core.config import settings
+from app.core.database import get_db_plataforma
+from app.core.gestion_permisos import exigir_proyecto, limitar, proyectos_visibles
+from app.core.permisos_consola import Miembro, exigir
+from app.infrastructure.models.gestion import (
+    GPAdjunto, GPComentario, GPEstado, GPHistorial, GPIncidencia, GPPrioridad,
+    GPProyecto, GPTipoIncidencia, GPVinculo, TIPOS_VINCULO,
+)
+from app.infrastructure.models.soporte import SoporteTicket
+
+router = APIRouter(prefix="/gestion", tags=["Gestión"])
+
+ALMACEN = Path(settings.UPLOAD_DIR) / "gestion"
+MAX_BYTES = 15 * 1024 * 1024
+EXTENSIONES = {
+    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".pdf", ".txt", ".log", ".csv",
+    ".xlsx", ".xls", ".docx", ".doc", ".zip", ".json", ".sql", ".md",
+}
+
+# Tope duro del tamaño de página. No es una preferencia: sin él, `limite=100000`
+# desde el navegador arma una respuesta que tumba el proceso.
+MAX_POR_PAGINA = 100
+
+
+# ─── Cursor ───────────────────────────────────────────────────────────────────
+
+def _cursor_de(inc: GPIncidencia) -> str:
+    """Codifica dónde quedó el recorrido: la marca de tiempo y el id."""
+    marca = inc.actualizado.isoformat() if inc.actualizado else ""
+    return base64.urlsafe_b64encode(f"{marca}|{inc.id}".encode()).decode()
+
+
+def _leer_cursor(cursor: str):
+    try:
+        marca, ident = base64.urlsafe_b64decode(cursor.encode()).decode().split("|")
+        return datetime.fromisoformat(marca), int(ident)
+    except Exception:
+        # Un cursor ilegible es casi siempre un enlace viejo. Se rechaza en vez
+        # de empezar desde el principio en silencio, que se lee como que la
+        # paginación se rompió.
+        raise HTTPException(400, "El cursor de paginación no es válido.")
+
+
+# ─── Formas ───────────────────────────────────────────────────────────────────
+
+class Tarjeta(BaseModel):
+    id: int
+    clave: str
+    proyecto_id: int
+    resumen: str
+    tipo: Optional[str] = None
+    tipo_id: Optional[int] = None
+    icono: Optional[str] = None
+    estado: Optional[str] = None
+    estado_id: Optional[int] = None
+    categoria: Optional[str] = None
+    color_estado: Optional[str] = None
+    prioridad: Optional[str] = None
+    prioridad_id: Optional[int] = None
+    color_prioridad: Optional[str] = None
+    asignado: Optional[str] = None
+    reporta: Optional[str] = None
+    puntos: Optional[int] = None
+    padre_id: Optional[int] = None
+    sprint_id: Optional[int] = None
+    etiquetas: List[str] = []
+    campos: Dict[str, Any] = {}
+    vence: Optional[datetime] = None
+    actualizado: Optional[datetime] = None
+    ticket_id: Optional[int] = None
+
+
+class Pagina(BaseModel):
+    resultados: List[Tarjeta]
+    siguiente: Optional[str] = None
+    total: Optional[int] = None
+
+
+class ComentarioResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    autor: str
+    cuerpo: str
+    interno: bool
+    editado: bool
+    created_at: Optional[datetime] = None
+
+
+class AdjuntoResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    nombre: str
+    tipo_mime: Optional[str] = None
+    tamano: Optional[int] = None
+    subido_por: Optional[str] = None
+    creado: Optional[datetime] = None
+
+
+class HistorialResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    campo: str
+    anterior: Optional[str] = None
+    nuevo: Optional[str] = None
+    autor: Optional[str] = None
+    creado: Optional[datetime] = None
+
+
+class IncidenciaEntrada(BaseModel):
+    proyecto_id: int
+    tipo_id: int
+    resumen: str = Field(min_length=1, max_length=300)
+    descripcion: Optional[str] = None
+    asignado: Optional[str] = None
+    prioridad_id: Optional[int] = None
+    padre_id: Optional[int] = None
+    puntos: Optional[int] = None
+    etiquetas: List[str] = []
+    campos: Dict[str, Any] = {}
+    vence: Optional[datetime] = None
+
+
+class IncidenciaCambio(BaseModel):
+    resumen: Optional[str] = None
+    descripcion: Optional[str] = None
+    asignado: Optional[str] = None
+    prioridad_id: Optional[int] = None
+    tipo_id: Optional[int] = None
+    padre_id: Optional[int] = None
+    puntos: Optional[int] = None
+    etiquetas: Optional[List[str]] = None
+    campos: Optional[Dict[str, Any]] = None
+    vence: Optional[datetime] = None
+
+
+class ComentarioEntrada(BaseModel):
+    cuerpo: str = Field(min_length=1)
+    interno: bool = False
+    menciones: List[str] = []
+
+
+class VinculoEntrada(BaseModel):
+    destino_id: int
+    tipo: str
+
+
+class TransicionEntrada(BaseModel):
+    transicion_id: int
+    comentario: Optional[str] = None
+
+
+# ─── Ayudas ───────────────────────────────────────────────────────────────────
+
+async def _tarjetas(db: AsyncSession, incidencias: List[GPIncidencia]) -> List[Tarjeta]:
+    """Arma las tarjetas resolviendo los nombres en tres consultas, no en 3×N.
+
+    Traer proyecto, tipo, estado y prioridad por cada fila es el patrón que hace
+    que una lista de cincuenta tarjetas dispare doscientas consultas.
+    """
+    if not incidencias:
+        return []
+
+    proyectos = {
+        p.id: p for p in (await db.execute(select(GPProyecto).where(
+            GPProyecto.id.in_({i.proyecto_id for i in incidencias})))).scalars().all()
+    }
+    tipos = {
+        t.id: t for t in (await db.execute(select(GPTipoIncidencia).where(
+            GPTipoIncidencia.id.in_({i.tipo_id for i in incidencias})))).scalars().all()
+    }
+    estados = {
+        e.id: e for e in (await db.execute(select(GPEstado).where(
+            GPEstado.id.in_({i.estado_id for i in incidencias})))).scalars().all()
+    }
+    ids_prioridad = {i.prioridad_id for i in incidencias if i.prioridad_id}
+    prioridades = {
+        p.id: p for p in (await db.execute(select(GPPrioridad).where(
+            GPPrioridad.id.in_(ids_prioridad)))).scalars().all()
+    } if ids_prioridad else {}
+
+    salida = []
+    for i in incidencias:
+        proyecto = proyectos.get(i.proyecto_id)
+        tipo = tipos.get(i.tipo_id)
+        estado = estados.get(i.estado_id)
+        prioridad = prioridades.get(i.prioridad_id) if i.prioridad_id else None
+        salida.append(Tarjeta(
+            id=i.id,
+            clave=gestion_incidencias.clave_de(proyecto, i) if proyecto else str(i.id),
+            proyecto_id=i.proyecto_id,
+            resumen=i.resumen,
+            tipo=tipo.nombre if tipo else None,
+            tipo_id=i.tipo_id,
+            icono=tipo.icono if tipo else None,
+            estado=estado.nombre if estado else None,
+            estado_id=i.estado_id,
+            categoria=estado.categoria if estado else None,
+            color_estado=estado.color if estado else None,
+            prioridad=prioridad.nombre if prioridad else None,
+            prioridad_id=i.prioridad_id,
+            color_prioridad=prioridad.color if prioridad else None,
+            asignado=i.asignado, reporta=i.reporta, puntos=i.puntos,
+            padre_id=i.padre_id, sprint_id=i.sprint_id,
+            etiquetas=list(i.etiquetas or []), campos=dict(i.campos or {}),
+            vence=i.vence, actualizado=i.actualizado, ticket_id=i.ticket_id,
+        ))
+    return salida
+
+
+async def _incidencia_visible(db: AsyncSession, quien: Miembro,
+                              incidencia_id: int,
+                              escritura: bool = False):
+    """La incidencia y su proyecto, comprobando el acceso al objeto concreto."""
+    inc = (await db.execute(select(GPIncidencia).where(
+        GPIncidencia.id == incidencia_id))).scalar_one_or_none()
+    if inc is None:
+        raise HTTPException(404, "Esa incidencia no existe.")
+    proyecto = await exigir_proyecto(db, quien, inc.proyecto_id, escritura=escritura)
+    return inc, proyecto
+
+
+def _tocar(inc: GPIncidencia) -> None:
+    inc.actualizado = datetime.now(timezone.utc)
+
+
+# ─── Listado ──────────────────────────────────────────────────────────────────
+
+@router.get("/incidencias", response_model=Pagina)
+async def listar(
+    proyecto_id: Optional[int] = None,
+    estado_id: Optional[int] = None,
+    categoria: Optional[str] = None,
+    tipo_id: Optional[int] = None,
+    prioridad_id: Optional[int] = None,
+    asignado: Optional[str] = None,
+    padre_id: Optional[int] = None,
+    sprint_id: Optional[int] = None,
+    texto: Optional[str] = None,
+    sin_clasificar: Optional[bool] = None,
+    limite: int = Query(50, ge=1, le=MAX_POR_PAGINA),
+    cursor: Optional[str] = None,
+    con_total: bool = False,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.ver")),
+):
+    """Las incidencias que esta persona puede ver, paginadas por cursor.
+
+    `con_total` es opcional porque contar es caro: obliga a recorrer todo lo que
+    cumple el filtro, mientras que la página solo toca lo que devuelve. La
+    pantalla lo pide cuando de verdad va a mostrar el número.
+    """
+    visibles = await proyectos_visibles(db, quien)
+    if proyecto_id is not None:
+        await exigir_proyecto(db, quien, proyecto_id)
+
+    consulta = select(GPIncidencia)
+    consulta = limitar(consulta, visibles, GPIncidencia.proyecto_id)
+
+    if proyecto_id is not None:
+        consulta = consulta.where(GPIncidencia.proyecto_id == proyecto_id)
+    if estado_id is not None:
+        consulta = consulta.where(GPIncidencia.estado_id == estado_id)
+    if tipo_id is not None:
+        consulta = consulta.where(GPIncidencia.tipo_id == tipo_id)
+    if prioridad_id is not None:
+        consulta = consulta.where(GPIncidencia.prioridad_id == prioridad_id)
+    if asignado:
+        consulta = consulta.where(GPIncidencia.asignado == asignado)
+    if padre_id is not None:
+        consulta = consulta.where(GPIncidencia.padre_id == padre_id)
+    if sprint_id is not None:
+        consulta = consulta.where(GPIncidencia.sprint_id == sprint_id)
+
+    if categoria or sin_clasificar is not None:
+        sub = select(GPEstado.id)
+        if categoria:
+            sub = sub.where(GPEstado.categoria == categoria.upper())
+        elif sin_clasificar:
+            sub = sub.where(GPEstado.categoria == "SIN_CLASIFICAR")
+        else:
+            sub = sub.where(GPEstado.categoria != "SIN_CLASIFICAR")
+        consulta = consulta.where(GPIncidencia.estado_id.in_(sub))
+
+    if texto:
+        # Búsqueda por el índice de texto completo, con respaldo por prefijo para
+        # que buscar la clave visible («SOP-12») o un fragmento corto también
+        # encuentre algo: `to_tsquery` no sirve para eso.
+        aguja = texto.strip()
+        consulta = consulta.where(or_(
+            GPIncidencia.busqueda.op("@@")(
+                func.plainto_tsquery("spanish", aguja)),
+            GPIncidencia.resumen.ilike(f"%{aguja}%"),
+        ))
+
+    total = None
+    if con_total:
+        total = (await db.execute(
+            select(func.count()).select_from(consulta.subquery()))).scalar() or 0
+
+    if cursor:
+        marca, ident = _leer_cursor(cursor)
+        # La misma pareja que ordena. Sin el desempate por id, dos incidencias
+        # con la misma marca de tiempo hacen que el cursor repita una y se salte
+        # la otra.
+        consulta = consulta.where(or_(
+            GPIncidencia.actualizado < marca,
+            (GPIncidencia.actualizado == marca) & (GPIncidencia.id < ident),
+        ))
+
+    consulta = consulta.order_by(
+        GPIncidencia.actualizado.desc(), GPIncidencia.id.desc()
+    ).limit(limite + 1)   # una de más: así se sabe si hay página siguiente
+
+    filas = list((await db.execute(consulta)).scalars().all())
+    hay_mas = len(filas) > limite
+    filas = filas[:limite]
+
+    return Pagina(
+        resultados=await _tarjetas(db, filas),
+        siguiente=_cursor_de(filas[-1]) if hay_mas and filas else None,
+        total=total,
+    )
+
+
+@router.get("/incidencias/{incidencia_id}")
+async def ver(
+    incidencia_id: int,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.ver")),
+):
+    """La incidencia con todo lo que su pantalla necesita.
+
+    Incluye las transiciones disponibles ya evaluadas: quien mira la pantalla
+    tiene que ver los botones que de verdad puede usar, no todos los del flujo.
+    """
+    inc, proyecto = await _incidencia_visible(db, quien, incidencia_id)
+    tarjeta = (await _tarjetas(db, [inc]))[0]
+
+    tipo = (await db.execute(select(GPTipoIncidencia).where(
+        GPTipoIncidencia.id == inc.tipo_id))).scalar_one()
+    workflow_id = await gestion_incidencias.workflow_de(db, proyecto, tipo)
+
+    comentarios = list((await db.execute(select(GPComentario).where(
+        GPComentario.incidencia_id == incidencia_id
+    ).order_by(GPComentario.id))).scalars().all())
+
+    adjuntos = list((await db.execute(select(GPAdjunto).where(
+        GPAdjunto.incidencia_id == incidencia_id
+    ).order_by(GPAdjunto.id))).scalars().all())
+
+    historial = list((await db.execute(select(GPHistorial).where(
+        GPHistorial.incidencia_id == incidencia_id
+    ).order_by(GPHistorial.creado.desc()).limit(200))).scalars().all())
+
+    hijas = list((await db.execute(select(GPIncidencia).where(
+        GPIncidencia.padre_id == incidencia_id
+    ).order_by(GPIncidencia.orden))).scalars().all())
+
+    r = await db.execute(select(GPVinculo).where(or_(
+        GPVinculo.origen_id == incidencia_id,
+        GPVinculo.destino_id == incidencia_id)))
+    vinculos_crudos = list(r.scalars().all())
+    otros = {
+        v.destino_id if v.origen_id == incidencia_id else v.origen_id
+        for v in vinculos_crudos
+    }
+    relacionadas = await _tarjetas(db, list((await db.execute(
+        select(GPIncidencia).where(GPIncidencia.id.in_(otros))
+    )).scalars().all())) if otros else []
+    por_id = {t.id: t for t in relacionadas}
+
+    campos = gestion_campos.descripcion_de(
+        await gestion_campos.campos_aplicables(db, proyecto.id, inc.tipo_id))
+
+    return {
+        "incidencia": tarjeta,
+        "descripcion": inc.descripcion,
+        "iniciado": inc.iniciado,
+        "resuelto": inc.resuelto,
+        "creado": inc.created_at,
+        "proyecto": {"id": proyecto.id, "clave": proyecto.clave,
+                     "nombre": proyecto.nombre},
+        "definicion_campos": campos,
+        "transiciones": await gestion_workflow.disponibles(db, inc, workflow_id, quien),
+        "comentarios": [ComentarioResponse.model_validate(c) for c in comentarios],
+        "adjuntos": [AdjuntoResponse.model_validate(a) for a in adjuntos],
+        "historial": [HistorialResponse.model_validate(h) for h in historial],
+        "subtareas": await _tarjetas(db, hijas),
+        "vinculos": [
+            {"id": v.id, "tipo": v.tipo,
+             "sentido": "sale" if v.origen_id == incidencia_id else "entra",
+             "otra": por_id.get(
+                 v.destino_id if v.origen_id == incidencia_id else v.origen_id)}
+            for v in vinculos_crudos
+        ],
+    }
+
+
+# ─── Alta y edición ───────────────────────────────────────────────────────────
+
+@router.post("/incidencias", status_code=201)
+async def crear(
+    data: IncidenciaEntrada,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.trabajar")),
+):
+    proyecto = await exigir_proyecto(db, quien, data.proyecto_id, escritura=True)
+    inc = await gestion_incidencias.crear(
+        db, proyecto,
+        tipo_id=data.tipo_id, resumen=data.resumen, descripcion=data.descripcion,
+        autor=quien.usuario, asignado=data.asignado,
+        prioridad_id=data.prioridad_id, padre_id=data.padre_id,
+        puntos=data.puntos, etiquetas=data.etiquetas, campos=data.campos,
+        vence=data.vence,
+    )
+    await db.commit()
+    await db.refresh(inc)
+    return (await _tarjetas(db, [inc]))[0]
+
+
+@router.put("/incidencias/{incidencia_id}")
+async def editar(
+    incidencia_id: int, data: IncidenciaCambio,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.trabajar")),
+):
+    """Edita la incidencia y deja constancia de cada campo que cambió.
+
+    El estado no se toca por acá: se mueve por una transición, que es la que
+    aplica las reglas. Un `PUT` que pudiera cambiar el estado directamente
+    dejaría el motor de workflow como una sugerencia.
+    """
+    inc, proyecto = await _incidencia_visible(db, quien, incidencia_id, escritura=True)
+    cambios = data.model_dump(exclude_unset=True)
+    if not cambios:
+        return (await _tarjetas(db, [inc]))[0]
+
+    registrados = []
+
+    if "tipo_id" in cambios and cambios["tipo_id"] != inc.tipo_id:
+        nuevo_tipo = await gestion_incidencias.tipo_valido(
+            db, cambios["tipo_id"], proyecto.id)
+        anterior = (await db.execute(select(GPTipoIncidencia).where(
+            GPTipoIncidencia.id == inc.tipo_id))).scalar_one_or_none()
+        registrados.append(
+            ("tipo", anterior.nombre if anterior else None, nuevo_tipo.nombre))
+        inc.tipo_id = nuevo_tipo.id
+
+    if "padre_id" in cambios:
+        if cambios["padre_id"] is None:
+            if inc.padre_id is not None:
+                registrados.append(("padre", inc.padre_id, None))
+            inc.padre_id = None
+        else:
+            tipo = (await db.execute(select(GPTipoIncidencia).where(
+                GPTipoIncidencia.id == inc.tipo_id))).scalar_one()
+            await gestion_incidencias.validar_padre(
+                db, cambios["padre_id"], proyecto.id, tipo, hijo_id=inc.id)
+            if inc.padre_id != cambios["padre_id"]:
+                registrados.append(("padre", inc.padre_id, cambios["padre_id"]))
+            inc.padre_id = cambios["padre_id"]
+
+    if "campos" in cambios:
+        aplicables = await gestion_campos.campos_aplicables(db, proyecto.id, inc.tipo_id)
+        antes = dict(inc.campos or {})
+        # Los obligatorios no se exigen al editar: obligar a llenar un campo que
+        # se volvió obligatorio después impediría corregir un título.
+        inc.campos = gestion_campos.validar(
+            aplicables, cambios["campos"], previos=antes,
+            exigir_obligatorios=False)
+        for clave in sorted(set(antes) | set(inc.campos)):
+            if antes.get(clave) != inc.campos.get(clave):
+                registrados.append((clave, antes.get(clave), inc.campos.get(clave)))
+
+    for campo in ("resumen", "descripcion", "asignado", "puntos", "vence",
+                  "prioridad_id", "etiquetas"):
+        if campo not in cambios:
+            continue
+        valor = cambios[campo]
+        if campo == "resumen":
+            valor = (valor or "").strip()[:300]
+            if not valor:
+                raise HTTPException(422, "El título no puede quedar vacío.")
+        if campo == "etiquetas":
+            valor = sorted({str(e).strip() for e in (valor or []) if str(e).strip()})
+        antes = getattr(inc, campo)
+        if antes == valor:
+            continue
+        setattr(inc, campo, valor)
+        registrados.append((campo, antes, valor))
+
+    if registrados:
+        gestion_incidencias.anotar_varios(db, inc.id, registrados, quien.usuario)
+        _tocar(inc)
+
+    await db.commit()
+    await db.refresh(inc)
+    return (await _tarjetas(db, [inc]))[0]
+
+
+@router.post("/incidencias/{incidencia_id}/transicion")
+async def transicionar(
+    incidencia_id: int, data: TransicionEntrada,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.trabajar")),
+):
+    """Mueve la incidencia por una transición del flujo, con sus reglas."""
+    inc, proyecto = await _incidencia_visible(db, quien, incidencia_id, escritura=True)
+    tipo = (await db.execute(select(GPTipoIncidencia).where(
+        GPTipoIncidencia.id == inc.tipo_id))).scalar_one()
+    workflow_id = await gestion_incidencias.workflow_de(db, proyecto, tipo)
+
+    cambios = await gestion_workflow.aplicar(
+        db, inc, data.transicion_id, workflow_id, quien)
+    gestion_incidencias.anotar_varios(db, inc.id, cambios, quien.usuario)
+
+    if data.comentario and data.comentario.strip():
+        db.add(GPComentario(
+            incidencia_id=inc.id, autor=quien.usuario,
+            cuerpo=data.comentario.strip(), menciones=[], interno=False))
+
+    _tocar(inc)
+    await db.commit()
+    await db.refresh(inc)
+
+    return {
+        "incidencia": (await _tarjetas(db, [inc]))[0],
+        "transiciones": await gestion_workflow.disponibles(db, inc, workflow_id, quien),
+    }
+
+
+# ─── Conversación ─────────────────────────────────────────────────────────────
+
+@router.post("/incidencias/{incidencia_id}/comentarios",
+             response_model=ComentarioResponse, status_code=201)
+async def comentar(
+    incidencia_id: int, data: ComentarioEntrada,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.trabajar")),
+):
+    inc, _ = await _incidencia_visible(db, quien, incidencia_id, escritura=True)
+    cuerpo = data.cuerpo.strip()
+    if not cuerpo:
+        raise HTTPException(422, "El comentario está vacío.")
+
+    comentario = GPComentario(
+        incidencia_id=inc.id, autor=quien.usuario, cuerpo=cuerpo,
+        # Se guardan resueltas y no se vuelve a analizar el texto: si se
+        # recalcularan al editar, una corrección de ortografía volvería a
+        # notificar a todo el mundo.
+        menciones=sorted({m.strip() for m in data.menciones if m.strip()}),
+        interno=bool(data.interno),
+    )
+    db.add(comentario)
+    _tocar(inc)
+    await db.commit()
+    await db.refresh(comentario)
+    return comentario
+
+
+@router.put("/comentarios/{comentario_id}", response_model=ComentarioResponse)
+async def editar_comentario(
+    comentario_id: int, data: ComentarioEntrada,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.trabajar")),
+):
+    comentario = (await db.execute(select(GPComentario).where(
+        GPComentario.id == comentario_id))).scalar_one_or_none()
+    if comentario is None:
+        raise HTTPException(404, "Ese comentario no existe.")
+    await _incidencia_visible(db, quien, comentario.incidencia_id, escritura=True)
+
+    if comentario.autor != quien.usuario:
+        raise HTTPException(403, "Solo quien escribió un comentario puede editarlo.")
+
+    comentario.cuerpo = data.cuerpo.strip()
+    comentario.editado = True
+    await db.commit()
+    await db.refresh(comentario)
+    return comentario
+
+
+# ─── Vínculos ─────────────────────────────────────────────────────────────────
+
+@router.post("/incidencias/{incidencia_id}/vinculos", status_code=201)
+async def vincular(
+    incidencia_id: int, data: VinculoEntrada,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.trabajar")),
+):
+    """Relaciona dos incidencias. Se guarda una vez y se lee en los dos sentidos."""
+    inc, _ = await _incidencia_visible(db, quien, incidencia_id, escritura=True)
+    tipo = (data.tipo or "").upper()
+    if tipo not in TIPOS_VINCULO:
+        raise HTTPException(422, f"Tipo de vínculo no válido. Son: {', '.join(TIPOS_VINCULO)}.")
+    if data.destino_id == incidencia_id:
+        raise HTTPException(400, "Una incidencia no se puede vincular consigo misma.")
+
+    # El destino también tiene que ser visible: si no, vincular sería una forma
+    # de confirmar que existe una incidencia de un proyecto reservado.
+    await _incidencia_visible(db, quien, data.destino_id)
+
+    ya = (await db.execute(select(GPVinculo).where(
+        GPVinculo.origen_id == incidencia_id,
+        GPVinculo.destino_id == data.destino_id,
+        GPVinculo.tipo == tipo))).scalar_one_or_none()
+    if ya is not None:
+        return {"id": ya.id, "tipo": ya.tipo}
+
+    vinculo = GPVinculo(origen_id=incidencia_id, destino_id=data.destino_id,
+                        tipo=tipo, autor=quien.usuario)
+    db.add(vinculo)
+    gestion_incidencias.anotar(
+        db, inc.id, "vinculo", None, f"{tipo} → {data.destino_id}", quien.usuario)
+    _tocar(inc)
+    await db.commit()
+    await db.refresh(vinculo)
+    return {"id": vinculo.id, "tipo": vinculo.tipo}
+
+
+@router.delete("/vinculos/{vinculo_id}", status_code=204)
+async def desvincular(
+    vinculo_id: int,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.trabajar")),
+):
+    vinculo = (await db.execute(select(GPVinculo).where(
+        GPVinculo.id == vinculo_id))).scalar_one_or_none()
+    if vinculo is None:
+        raise HTTPException(404, "Ese vínculo no existe.")
+    await _incidencia_visible(db, quien, vinculo.origen_id, escritura=True)
+    await db.delete(vinculo)
+    await db.commit()
+
+
+# ─── Adjuntos ─────────────────────────────────────────────────────────────────
+
+def _nombre_seguro(nombre: str) -> str:
+    """El nombre lo escribe quien sube el archivo: fuera rutas y caracteres raros."""
+    limpio = re.sub(r"[^A-Za-z0-9._ -]", "_", os.path.basename(nombre or "archivo"))
+    return limpio[:120] or "archivo"
+
+
+@router.post("/incidencias/{incidencia_id}/adjuntos",
+             response_model=List[AdjuntoResponse], status_code=201)
+async def adjuntar(
+    incidencia_id: int,
+    archivos: List[UploadFile] = File(...),
+    comentario_id: Optional[int] = Form(None),
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.trabajar")),
+):
+    inc, _ = await _incidencia_visible(db, quien, incidencia_id, escritura=True)
+    ALMACEN.mkdir(parents=True, exist_ok=True)
+
+    guardados = []
+    for archivo in archivos:
+        contenido = await archivo.read()
+        nombre = _nombre_seguro(archivo.filename or "archivo")
+        if not contenido:
+            raise HTTPException(400, f"«{nombre}» está vacío.")
+        if len(contenido) > MAX_BYTES:
+            raise HTTPException(
+                400,
+                f"«{nombre}» pesa {len(contenido) // (1024 * 1024)} MB y el "
+                f"máximo son {MAX_BYTES // (1024 * 1024)} MB.")
+        extension = os.path.splitext(nombre)[1].lower()
+        if extension not in EXTENSIONES:
+            raise HTTPException(
+                400,
+                f"No se admiten archivos «{extension or 'sin extensión'}». "
+                f"Se aceptan: {', '.join(sorted(e.lstrip('.') for e in EXTENSIONES))}.")
+
+        firma = hashlib.md5(contenido).hexdigest()[:10]
+        relativa = f"gestion/i{inc.id}_{firma}_{nombre}"
+        (Path(settings.UPLOAD_DIR) / relativa).write_bytes(contenido)
+
+        adjunto = GPAdjunto(
+            incidencia_id=inc.id, comentario_id=comentario_id, nombre=nombre,
+            tipo_mime=archivo.content_type or mimetypes.guess_type(nombre)[0],
+            tamano=len(contenido), ruta=relativa, subido_por=quien.usuario,
+        )
+        db.add(adjunto)
+        guardados.append(adjunto)
+
+    gestion_incidencias.anotar(
+        db, inc.id, "adjunto", None,
+        ", ".join(a.nombre for a in guardados), quien.usuario)
+    _tocar(inc)
+    await db.commit()
+    for a in guardados:
+        await db.refresh(a)
+    return guardados
+
+
+@router.get("/adjuntos/{adjunto_id}")
+async def descargar(
+    adjunto_id: int,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.ver")),
+):
+    """Descarga con permiso comprobado.
+
+    No se sirve por carpeta pública a propósito: un pantallazo adjunto puede
+    traer datos de otra empresa, y una URL adivinable los deja a la vista.
+    """
+    adjunto = (await db.execute(select(GPAdjunto).where(
+        GPAdjunto.id == adjunto_id))).scalar_one_or_none()
+    if adjunto is None:
+        raise HTTPException(404, "Ese archivo no existe.")
+    await _incidencia_visible(db, quien, adjunto.incidencia_id)
+
+    ruta = Path(settings.UPLOAD_DIR) / adjunto.ruta
+    try:
+        # Que la ruta guardada no se haya salido de la carpeta de subidas.
+        ruta.resolve().relative_to(Path(settings.UPLOAD_DIR).resolve())
+    except ValueError:
+        raise HTTPException(400, "La ruta del archivo no es válida.")
+    if not ruta.exists():
+        raise HTTPException(404, "El archivo ya no está en el servidor.")
+
+    return FileResponse(ruta, filename=adjunto.nombre,
+                        media_type=adjunto.tipo_mime or "application/octet-stream")
+
+
+# ─── El puente con la mesa de ayuda ───────────────────────────────────────────
+
+@router.post("/tickets/{ticket_id}/incidencia", status_code=201)
+async def desde_ticket(
+    ticket_id: int,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.trabajar")),
+):
+    """Convierte una solicitud de soporte en trabajo interno.
+
+    El asunto del cliente se copia y su ticket no se toca: sigue viendo en su
+    conversación exactamente lo que escribió. Desde acá el equipo reescribe el
+    título tantas veces como haga falta.
+
+    Llamarla dos veces devuelve la misma incidencia, no crea otra.
+    """
+    ticket = (await db.execute(select(SoporteTicket).where(
+        SoporteTicket.id == ticket_id))).scalar_one_or_none()
+    if ticket is None:
+        raise HTTPException(404, "Esa solicitud no existe.")
+
+    inc = await gestion_incidencias.promover_ticket(db, ticket, quien.usuario)
+    if inc is None:
+        raise HTTPException(
+            409,
+            "No hay ningún proyecto que reciba las solicitudes de soporte. "
+            "Marque «crear incidencia automáticamente» en el proyecto que deba "
+            "recibirlas.")
+    await db.commit()
+    await db.refresh(inc)
+    return (await _tarjetas(db, [inc]))[0]

@@ -35,6 +35,12 @@ PERMISOS: List[Permiso] = [
     Permiso("contabilidad.editar", "Emitir facturas, notas crédito y registrar pagos"),
     Permiso("soporte.ver",         "Ver la cola de soporte y el tablero"),
     Permiso("soporte.atender",     "Responder, clasificar y mover solicitudes"),
+    Permiso("gestion.ver",         "Ver los proyectos y sus incidencias"),
+    Permiso("gestion.trabajar",    "Crear, editar, comentar y mover incidencias"),
+    # Separado de «trabajar» a propósito: cambiar un workflow o un campo afecta a
+    # todo el mundo y a las incidencias que ya existen, mientras que mover una
+    # tarjeta solo afecta a esa. Quien trabaja a diario no necesita lo primero.
+    Permiso("gestion.configurar",  "Definir proyectos, workflows, tipos y campos"),
     Permiso("equipo.gestionar",    "Administrar el equipo de la consola y sus roles"),
     Permiso("bitacora.ver",        "Ver la bitácora de acciones"),
     Permiso("landing.editar",      "Editar el contenido de la página pública"),
@@ -68,12 +74,16 @@ ROLES: List[Rol] = [
     Rol("SOPORTE", "Soporte técnico",
         "Atiende la mesa de ayuda y el tablero. Ve las empresas para dar contexto, "
         "pero no su información comercial.",
+        # Trabaja las incidencias porque es quien recibe lo que llega por el
+        # chat, pero no configura: un workflow mal cambiado en medio de una
+        # atención deja tickets atascados sin transición de salida.
         ("empresas.ver", "usuarios.clave",
-         "soporte.ver", "soporte.atender", "bitacora.ver")),
+         "soporte.ver", "soporte.atender",
+         "gestion.ver", "gestion.trabajar", "bitacora.ver")),
     Rol("CONSULTA", "Solo consulta",
         "Ve todo pero no cambia nada. Útil para dirección y auditoría.",
         ("empresas.ver", "comercial.ver", "contabilidad.ver",
-         "soporte.ver", "bitacora.ver")),
+         "soporte.ver", "gestion.ver", "bitacora.ver")),
 ]
 
 POR_CLAVE: Dict[str, Rol] = {r.clave: r for r in ROLES}
