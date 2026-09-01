@@ -574,6 +574,38 @@ export const gestionApi = {
     api.get<{ etiqueta: string; usos: number }[]>('/gestion/etiquetas',
       { params: { proyecto_id: proyectoId } }).then(r => r.data),
 
+  /** El esquema del formulario para un proyecto y un tipo. Se vuelve a pedir
+   *  cuando cambie cualquiera de los dos. */
+  formulario: (params: Record<string, unknown>) =>
+    api.get<EsquemaFormulario>('/gestion/formulario', { params }).then(r => r.data),
+
+  vocabularioCampos: () =>
+    api.get<{
+      tipos: { clave: string; entidad?: string | null; multiple: boolean }[]
+      secciones: { clave: string; titulo: string }[]
+      entidades: string[]
+      defectos: { clave: string; nombre: string }[]
+    }>('/gestion/formulario/vocabulario').then(r => r.data),
+
+  versiones: (proyectoId: number) =>
+    api.get<VersionProyecto[]>(`/gestion/proyectos/${proyectoId}/versiones`)
+      .then(r => r.data),
+  crearVersion: (proyectoId: number, cuerpo: Record<string, unknown>) =>
+    api.post<VersionProyecto>(`/gestion/proyectos/${proyectoId}/versiones`, cuerpo)
+      .then(r => r.data),
+  archivarVersion: (id: number) => api.delete(`/gestion/versiones/${id}`),
+
+  componentes: (proyectoId: number) =>
+    api.get<ComponenteProyecto[]>(`/gestion/proyectos/${proyectoId}/componentes`)
+      .then(r => r.data),
+  crearComponente: (proyectoId: number, cuerpo: Record<string, unknown>) =>
+    api.post<ComponenteProyecto>(`/gestion/proyectos/${proyectoId}/componentes`, cuerpo)
+      .then(r => r.data),
+  archivarComponente: (id: number) => api.delete(`/gestion/componentes/${id}`),
+
+  tiposVinculo: () =>
+    api.get<TipoDeVinculo[]>('/gestion/tipos-vinculo').then(r => r.data),
+
   configuracion: (proyectoId?: number) =>
     api.get<ConfiguracionGestion>('/gestion/configuracion', {
       params: { proyecto_id: proyectoId },
@@ -707,6 +739,85 @@ export const gestionApi = {
   editarCampo: (id: number, cuerpo: Record<string, unknown>) =>
     api.put(`/gestion/config/campos/${id}`, cuerpo).then(r => r.data),
   archivarCampo: (id: number) => api.delete(`/gestion/config/campos/${id}`),
+}
+
+/** Una opción de un campo de selección. Viene resuelta del servidor, venga de un
+ *  catálogo propio o de una entidad. */
+export interface OpcionDeCampo {
+  valor: string
+  etiqueta: string
+  pista?: string | null
+  color?: string | null
+}
+
+/** Un campo tal como aplica a un proyecto y un tipo concretos.
+ *
+ *  La pantalla no sabe qué campos existen: recorre esto y dibuja. Es lo que hace
+ *  que agregar un campo, moverlo de sección o marcarlo obligatorio no toque el
+ *  frontend. */
+export interface CampoDeFormulario {
+  clave: string
+  nombre: string
+  descripcion?: string | null
+  ayuda?: string | null
+  tipo: string
+  multiple: boolean
+  obligatorio: boolean
+  solo_lectura: boolean
+  del_sistema: boolean
+  validacion: Record<string, any>
+  opciones: OpcionDeCampo[]
+  /** De qué otra cosa dependen sus opciones. Cuando cambia eso, se vuelve a
+   *  pedir el esquema y se limpia lo que haya quedado apuntando a otro sitio. */
+  depende_de?: string | null
+  /** Lo guardado, al editar. */
+  valor?: any
+  /** Lo que se propone al crear. Las señales —@yo, @sprint_activo— las resuelve
+   *  el servidor: el navegador no sabe cuál es el sprint activo. */
+  defecto?: any
+}
+
+export interface SeccionDeFormulario {
+  clave: string
+  titulo: string
+  campos: CampoDeFormulario[]
+}
+
+export interface EsquemaFormulario {
+  proyecto_id?: number | null
+  tipo_id?: number | null
+  secciones: SeccionDeFormulario[]
+}
+
+export interface VersionProyecto {
+  id: number
+  proyecto_id: number
+  nombre: string
+  descripcion?: string | null
+  fecha?: string | null
+  liberada: boolean
+  archivada: boolean
+  orden: number
+  incidencias: number
+}
+
+export interface ComponenteProyecto {
+  id: number
+  proyecto_id: number
+  nombre: string
+  descripcion?: string | null
+  responsable?: string | null
+  color?: string | null
+  archivado: boolean
+  orden: number
+}
+
+/** Cómo se pueden relacionar dos incidencias. El nombre inverso es lo que
+ *  permite leer el vínculo desde el otro lado sin guardarlo dos veces. */
+export interface TipoDeVinculo {
+  clave: string
+  nombre: string
+  inverso: string
 }
 
 export interface Persona {

@@ -19,7 +19,7 @@ import {
 } from '@mui/material'
 import {
   Close, Send, AttachFile, Edit, Check, History, ChatBubbleOutline,
-  SupportAgent, Download,
+  SupportAgent, Download, Tune,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
@@ -29,6 +29,7 @@ import {
   type DetalleIncidencia, type Persona,
 } from './api'
 import { CamposDinamicos } from './GestionCampos'
+import GestionFormulario from './GestionFormulario'
 
 const COLOR_CATEGORIA: Record<string, string> = {
   SIN_CLASIFICAR: PALETA.acero,
@@ -67,6 +68,9 @@ export default function GestionDetalle({
   const [titulo, setTitulo] = useState('')
   const [campos, setCampos] = useState<Record<string, any>>({})
   const [problemas, setProblemas] = useState<string[]>([])
+  // El formulario completo, con TODOS los campos configurados. El panel lateral
+  // deja cambiar lo de todos los días sin abrirlo; esto es para lo demás.
+  const [editandoTodo, setEditandoTodo] = useState(false)
 
   const { data, isLoading } = useQuery({
     queryKey: ['gestion', 'incidencia', incidenciaId],
@@ -190,9 +194,19 @@ export default function GestionDetalle({
             personas={personas ?? []}
             prioridades={config?.prioridades ?? []}
             sugeridas={(sugeridas ?? []).map(e => e.etiqueta)}
+            onEditarTodo={() => setEditandoTodo(true)}
           />
         )}
       </DialogContent>
+
+      {data && (
+        <GestionFormulario
+          abierto={editandoTodo} incidenciaId={data.incidencia.id}
+          proyecto={null} proyectos={[]}
+          onCerrar={() => setEditandoTodo(false)}
+          onGuardada={() => refrescar()}
+        />
+      )}
     </Dialog>
   )
 }
@@ -218,6 +232,7 @@ function Cuerpo(p: {
   personas: Persona[]
   prioridades: { id: number; nombre: string; color?: string | null }[]
   sugeridas: string[]
+  onEditarTodo: () => void
 }) {
   const { data } = p
   const inc = data.incidencia
@@ -246,6 +261,12 @@ function Cuerpo(p: {
             </Tooltip>
           )}
           <Box sx={{ flex: 1 }} />
+          <Tooltip title="Abrir el formulario completo, con todos los campos configurados">
+            <Button size="small" startIcon={<Tune sx={{ fontSize: 15 }} />}
+              onClick={p.onEditarTodo} sx={{ textTransform: 'none' }}>
+              Editar todo
+            </Button>
+          </Tooltip>
           <IconButton size="small" onClick={p.onCerrar}><Close fontSize="small" /></IconButton>
         </Stack>
 

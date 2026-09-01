@@ -33,7 +33,7 @@ import GestionGantt from './GestionGantt'
 import GestionSprints from './GestionSprints'
 import GestionPizarras from './GestionPizarras'
 import GestionConfig from './GestionConfig'
-import GestionAlta from './GestionAlta'
+import GestionFormulario from './GestionFormulario'
 
 const COLOR_CATEGORIA: Record<string, string> = {
   SIN_CLASIFICAR: PALETA.acero,
@@ -337,9 +337,9 @@ export default function Gestion() {
       {vista === 5 && <GestionConfig />}
 
       {proyecto && (
-        <GestionAlta
-          proyecto={proyecto} config={config} abierto={creando}
-          onCerrar={() => setCreando(false)} onCreada={setAbierta}
+        <GestionFormulario
+          abierto={creando} proyecto={proyecto} proyectos={proyectos}
+          onCerrar={() => setCreando(false)} onGuardada={setAbierta}
         />
       )}
 
