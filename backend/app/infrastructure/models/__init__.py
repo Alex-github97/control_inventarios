@@ -170,6 +170,13 @@ from app.infrastructure.models.soporte import (  # noqa: F401
     SoporteTicket, SoporteMensaje, SoporteAdjunto,
     SoporteEpica, SoporteSprint, SoporteEvento, SoporteColumna,
 )
+from app.infrastructure.models.gestion import (  # noqa: F401
+    GPWorkflow, GPEstado, GPTransicion,
+    GPProyecto, GPProyectoMiembro, GPTipoIncidencia, GPPrioridad,
+    GPCampo, GPCampoOpcion, GPEsquemaCampo,
+    GPIncidencia, GPSprint, GPComentario, GPAdjunto, GPVinculo, GPHistorial,
+    GPFiltro,
+)
 from app.infrastructure.models.ags import (
     AGSConfig, AGSCategoriaServicio, AGSServicio,
     AGSProfesional, AGSProfesionalServicio, AGSHorarioProfesional, AGSAusencia,
