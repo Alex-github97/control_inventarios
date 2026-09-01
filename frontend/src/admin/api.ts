@@ -612,6 +612,183 @@ export const gestionApi = {
   guardarFiltro: (cuerpo: Record<string, unknown>) =>
     api.post<FiltroGuardado>('/gestion/filtros', cuerpo).then(r => r.data),
   borrarFiltro: (id: number) => api.delete(`/gestion/filtros/${id}`),
+
+  // ─── Sprints y backlog ──────────────────────────────────────────────────────
+
+  sprints: (proyectoId: number) =>
+    api.get<Sprint[]>(`/gestion/proyectos/${proyectoId}/sprints`).then(r => r.data),
+  crearSprint: (proyectoId: number, cuerpo: Record<string, unknown>) =>
+    api.post<Sprint>(`/gestion/proyectos/${proyectoId}/sprints`, cuerpo).then(r => r.data),
+  activarSprint: (id: number) =>
+    api.post<Sprint>(`/gestion/sprints/${id}/activar`).then(r => r.data),
+  cerrarSprint: (id: number) =>
+    api.post<Sprint>(`/gestion/sprints/${id}/cerrar`).then(r => r.data),
+
+  backlog: (proyectoId: number) =>
+    api.get<BacklogResponse>(`/gestion/proyectos/${proyectoId}/backlog`).then(r => r.data),
+  moverAlSprint: (ids: number[], sprintId: number | null) =>
+    api.put('/gestion/backlog/sprint', { ids, sprint_id: sprintId }).then(r => r.data),
+  reordenarBacklog: (ids: number[]) =>
+    api.put('/gestion/backlog/orden', { ids }).then(r => r.data),
+
+  // ─── Gantt y métricas ───────────────────────────────────────────────────────
+
+  gantt: (proyectoId: number, params: Record<string, unknown> = {}) =>
+    api.get<GanttDatos>(`/gestion/proyectos/${proyectoId}/gantt`, { params })
+      .then(r => r.data),
+  fijarPlan: (id: number, inicio: string | null, vence: string | null) =>
+    api.put(`/gestion/incidencias/${id}/plan`,
+      { inicio_plan: inicio, vence }).then(r => r.data),
+
+  metricas: (proyectoId: number) =>
+    api.get<Metricas>(`/gestion/proyectos/${proyectoId}/metricas`).then(r => r.data),
+
+  // ─── Pizarras ───────────────────────────────────────────────────────────────
+
+  pizarras: () => api.get<Pizarra[]>('/gestion/pizarras').then(r => r.data),
+  crearPizarra: (cuerpo: Record<string, unknown>) =>
+    api.post<Pizarra>('/gestion/pizarras', cuerpo).then(r => r.data),
+  borrarPizarra: (id: number) => api.delete(`/gestion/pizarras/${id}`),
+  catalogoWidgets: () =>
+    api.get<{ tipos: { clave: string; nombre: string; descripcion: string }[]
+              agrupaciones: string[] }>('/gestion/pizarras/catalogo').then(r => r.data),
+  agregarWidget: (pizarraId: number, cuerpo: Record<string, unknown>) =>
+    api.post<Widget>(`/gestion/pizarras/${pizarraId}/widgets`, cuerpo).then(r => r.data),
+  quitarWidget: (id: number) => api.delete(`/gestion/widgets/${id}`),
+  datosWidget: (id: number) =>
+    api.get<DatosWidget>(`/gestion/widgets/${id}/datos`).then(r => r.data),
+
+  // ─── Configuración ──────────────────────────────────────────────────────────
+
+  crearWorkflow: (cuerpo: Record<string, unknown>) =>
+    api.post<{ id: number; nombre: string }>('/gestion/config/workflows', cuerpo)
+      .then(r => r.data),
+  crearEstado: (workflowId: number, cuerpo: Record<string, unknown>) =>
+    api.post(`/gestion/config/workflows/${workflowId}/estados`, cuerpo).then(r => r.data),
+  editarEstado: (id: number, cuerpo: Record<string, unknown>) =>
+    api.put(`/gestion/config/estados/${id}`, cuerpo).then(r => r.data),
+  borrarEstado: (id: number) => api.delete(`/gestion/config/estados/${id}`),
+  crearTransicion: (workflowId: number, cuerpo: Record<string, unknown>) =>
+    api.post(`/gestion/config/workflows/${workflowId}/transiciones`, cuerpo).then(r => r.data),
+  borrarTransicion: (id: number) => api.delete(`/gestion/config/transiciones/${id}`),
+
+  crearTipo: (cuerpo: Record<string, unknown>) =>
+    api.post('/gestion/config/tipos', cuerpo).then(r => r.data),
+  editarTipo: (id: number, cuerpo: Record<string, unknown>) =>
+    api.put(`/gestion/config/tipos/${id}`, cuerpo).then(r => r.data),
+  archivarTipo: (id: number) => api.delete(`/gestion/config/tipos/${id}`),
+  crearPrioridad: (cuerpo: Record<string, unknown>) =>
+    api.post('/gestion/config/prioridades', cuerpo).then(r => r.data),
+
+  crearCampo: (cuerpo: Record<string, unknown>) =>
+    api.post<{ id: number; clave: string; nombre: string }>('/gestion/config/campos', cuerpo)
+      .then(r => r.data),
+  editarCampo: (id: number, cuerpo: Record<string, unknown>) =>
+    api.put(`/gestion/config/campos/${id}`, cuerpo).then(r => r.data),
+  archivarCampo: (id: number) => api.delete(`/gestion/config/campos/${id}`),
+}
+
+export interface Sprint {
+  id: number
+  proyecto_id: number
+  nombre: string
+  objetivo?: string | null
+  inicio?: string | null
+  fin?: string | null
+  estado: string
+  /** Se sella al ARRANCAR: calculado al cerrar incluiría lo que se metió a
+   *  mitad de camino y el sprint siempre parecería bien planeado. */
+  puntos_comprometidos?: number | null
+  /** Se congela al cerrar: si se recalculara, reestimar algo viejo cambiaría
+   *  la historia. */
+  puntos_completados?: number | null
+  cerrado_en?: string | null
+  total: number
+  puntos_totales: number
+  puntos_hechos: number
+  sin_estimar: number
+}
+
+export interface BacklogResponse {
+  sprint?: Sprint | null
+  en_sprint: Incidencia[]
+  backlog: Incidencia[]
+}
+
+export interface BarraGantt {
+  id: number
+  clave: string
+  resumen: string
+  tipo?: string | null
+  icono?: string | null
+  estado?: string | null
+  categoria?: string | null
+  color?: string | null
+  asignado?: string | null
+  puntos?: number | null
+  nivel: string
+  padre_id?: number | null
+  /** El plan */
+  inicio_plan?: string | null
+  vence?: string | null
+  /** Lo que de verdad pasó */
+  iniciado?: string | null
+  resuelto?: string | null
+  bloquea_a: number[]
+}
+
+export interface GanttDatos {
+  desde?: string | null
+  hasta?: string | null
+  barras: BarraGantt[]
+  /** Las que no tienen ninguna fecha. Se listan aparte en vez de esconderlas:
+   *  desaparecer de la pantalla se lee como que se perdieron. */
+  sin_fechas: Incidencia[]
+}
+
+export interface Metricas {
+  velocidad: { sprint: string; comprometidos: number; completados: number }[]
+  burndown: { fecha: string; ideal: number; real?: number | null }[]
+  burndown_nota?: string | null
+  sprint_activo?: Sprint | null
+  tiempo_ciclo_dias?: number | null
+  por_tipo: Record<string, number>
+  por_categoria: Record<string, number>
+  carga: { usuario: string; abiertas: number; puntos: number }[]
+}
+
+export interface Widget {
+  id: number
+  pizarra_id: number
+  tipo: string
+  titulo: string
+  expresion: string
+  agrupar_por?: string | null
+  config: Record<string, any>
+  x: number
+  y: number
+  ancho: number
+  alto: number
+}
+
+export interface Pizarra {
+  id: number
+  nombre: string
+  descripcion?: string | null
+  proyecto_id?: number | null
+  autor: string
+  compartida: boolean
+  widgets: Widget[]
+}
+
+export interface DatosWidget {
+  tipo: string
+  valor?: number
+  puntos?: number
+  filas?: Incidencia[]
+  agrupar_por?: string | null
+  grupos?: { etiqueta: string; cuantas: number; puntos: number }[]
+  personas?: { usuario: string; cuantas: number; puntos: number }[]
 }
 
 

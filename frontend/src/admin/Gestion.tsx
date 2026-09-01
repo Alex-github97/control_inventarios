@@ -17,6 +17,7 @@ import {
 } from '@mui/material'
 import {
   Add, ViewList, ViewKanban, FolderOpen, Refresh, ArrowDownward,
+  Timeline, Speed, Dashboard, Settings,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
@@ -28,6 +29,10 @@ import {
 import { BarraDeFiltro } from './GestionFiltro'
 import GestionDetalle from './GestionDetalle'
 import GestionTablero from './GestionTablero'
+import GestionGantt from './GestionGantt'
+import GestionSprints from './GestionSprints'
+import GestionPizarras from './GestionPizarras'
+import GestionConfig from './GestionConfig'
 import { CamposDinamicos } from './GestionCampos'
 
 const COLOR_CATEGORIA: Record<string, string> = {
@@ -369,6 +374,10 @@ export default function Gestion() {
           sx={{ minHeight: 34, '& .MuiTab-root': { minHeight: 34, textTransform: 'none' } }}>
           <Tab icon={<ViewList sx={{ fontSize: 16 }} />} iconPosition="start" label="Lista" />
           <Tab icon={<ViewKanban sx={{ fontSize: 16 }} />} iconPosition="start" label="Tablero" />
+          <Tab icon={<Speed sx={{ fontSize: 16 }} />} iconPosition="start" label="Sprints" />
+          <Tab icon={<Timeline sx={{ fontSize: 16 }} />} iconPosition="start" label="Gantt" />
+          <Tab icon={<Dashboard sx={{ fontSize: 16 }} />} iconPosition="start" label="Pizarras" />
+          <Tab icon={<Settings sx={{ fontSize: 16 }} />} iconPosition="start" label="Configuración" />
         </Tabs>
 
         <Box sx={{ flex: 1 }} />
@@ -378,11 +387,13 @@ export default function Gestion() {
             <Refresh fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Button size="small" variant="contained" startIcon={<Add />}
-          disabled={!proyecto} onClick={() => setCreando(true)}
-          sx={{ textTransform: 'none' }}>
-          Nueva incidencia
-        </Button>
+        {vista < 4 && (
+          <Button size="small" variant="contained" startIcon={<Add />}
+            disabled={!proyecto} onClick={() => setCreando(true)}
+            sx={{ textTransform: 'none' }}>
+            Nueva incidencia
+          </Button>
+        )}
       </Stack>
 
       {proyecto?.descripcion && (
@@ -408,6 +419,28 @@ export default function Gestion() {
       {vista === 1 && proyecto && (
         <GestionTablero proyecto={proyecto} onAbrir={setAbierta} />
       )}
+
+      {vista === 2 && proyecto && (
+        <GestionSprints proyecto={proyecto} onAbrir={setAbierta} />
+      )}
+
+      {vista === 3 && proyecto && (
+        <GestionGantt proyecto={proyecto} onAbrir={setAbierta} />
+      )}
+
+      {vista === 4 && (
+        <GestionPizarras
+          proyecto={proyecto} onAbrir={setAbierta}
+          onAbrirLista={expresion => {
+            // Cualquier cifra de una pizarra se puede abrir como lista: un
+            // numero que no se puede desglosar es un numero en el que nadie
+            // confia, y termina ignorandose.
+            setExpresion(expresion); setAplicada(expresion); setVista(0)
+          }}
+        />
+      )}
+
+      {vista === 5 && <GestionConfig />}
 
       {proyecto && (
         <DialogoAlta
