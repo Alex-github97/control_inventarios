@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
     auth, usuarios, estibas, ubicaciones, proveedores,
-    vehiculos, manifiestos, movimientos, dashboard, alertas, danos, tarifax, mantenimiento, consultas, roles, fletes, flota, locative, wms, hcm, tms, dms, qms, grc, lms, crm, eam, mes, aps, erp, scan_sessions, scm, sst, lubricacion, lubricacion_gestion, lubricacion_operacion, lubricacion_analitica, ags, catalogos, plataforma, plataforma_comercial, plataforma_contable, eam_importar, eam_config, eam_dashboard, checklists, checklists_ejecucion, combustible, inventario, eam_confiabilidad, eam_reportes, eam_adjuntos, eam_causa_raiz, mes_flujo, soporte, soporte_agil, plataforma_equipo, landing, gestion, gestion_incidencias, gestion_consultas
+    vehiculos, manifiestos, movimientos, dashboard, alertas, danos, tarifax, mantenimiento, consultas, roles, fletes, flota, locative, wms, hcm, tms, dms, qms, grc, lms, crm, eam, mes, aps, erp, scan_sessions, scm, sst, lubricacion, lubricacion_gestion, lubricacion_operacion, lubricacion_analitica, ags, catalogos, plataforma, plataforma_comercial, plataforma_contable, eam_importar, eam_config, eam_dashboard, checklists, checklists_ejecucion, combustible, inventario, eam_confiabilidad, eam_reportes, eam_adjuntos, eam_causa_raiz, mes_flujo, soporte, soporte_agil, plataforma_equipo, landing, gestion, gestion_incidencias, gestion_consultas, gestion_agil, gestion_pizarras, gestion_config
 )
 
 api_router = APIRouter()
@@ -42,6 +42,12 @@ api_router.include_router(gestion.router)
 api_router.include_router(gestion_incidencias.router)
 # El lenguaje de filtros y los filtros guardados.
 api_router.include_router(gestion_consultas.router)
+# Sprints, backlog, Gantt y metricas.
+api_router.include_router(gestion_agil.router)
+# Pizarras de indicadores.
+api_router.include_router(gestion_pizarras.router)
+# Configuracion: flujos, estados, tipos y campos.
+api_router.include_router(gestion_config.router)
 api_router.include_router(roles.router)
 api_router.include_router(usuarios.router)
 api_router.include_router(estibas.router)

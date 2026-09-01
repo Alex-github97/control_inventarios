@@ -473,6 +473,11 @@ class GPIncidencia(Base, TimestampMixin):
     # Todo lo configurable. La forma es {clave_del_campo: valor}.
     campos = sa.Column(JSONB, default=dict, nullable=False)
 
+    # Cuándo se PLANEA empezarla. Junto con `vence` forma la barra del Gantt.
+    # Es distinto de `iniciado`, que es cuándo empezó de verdad: comparar los dos
+    # es justamente lo que dice si el plan se está cumpliendo, y con una sola
+    # columna esa comparación no existe.
+    inicio_plan = sa.Column(sa.DateTime(timezone=True))
     vence    = sa.Column(sa.DateTime(timezone=True))
     # Cuándo empezó a trabajarse de verdad. Con esto y `resuelto` sale el tiempo
     # de ciclo, que es lo que el equipo puede mejorar; medir desde que se creó
@@ -688,3 +693,70 @@ class GPFiltro(Base, TimestampMixin):
 
     autor      = sa.Column(sa.String(80), nullable=False)
     compartido = sa.Column(sa.Boolean, default=False, nullable=False)
+
+
+# ─── Pizarras ─────────────────────────────────────────────────────────────────
+#
+# Un tablero de indicadores armado por quien lo usa. Cada recuadro se apoya en el
+# MISMO lenguaje de filtros que la lista: así lo que se ve en una pizarra siempre
+# se puede abrir como lista y revisar fila por fila. Un panel cuyo número no se
+# puede desglosar es un número en el que nadie confía.
+
+class GPPizarra(Base, TimestampMixin):
+    """Un tablero de indicadores."""
+
+    __tablename__ = "gp_pizarra"
+    __table_args__ = (
+        sa.Index("ix_gp_pizarra_autor", "autor"),
+        {"schema": ESQ},
+    )
+
+    id          = sa.Column(sa.BigInteger, primary_key=True)
+    nombre      = sa.Column(sa.String(160), nullable=False)
+    descripcion = sa.Column(sa.Text)
+    # Vacío = de toda la organización. Con proyecto, sus recuadros lo dan por
+    # supuesto y no hay que repetirlo en cada filtro.
+    proyecto_id = sa.Column(sa.BigInteger, sa.ForeignKey(_fk("gp_proyecto.id")))
+
+    autor      = sa.Column(sa.String(80), nullable=False)
+    compartida = sa.Column(sa.Boolean, default=True, nullable=False)
+
+
+class GPWidget(Base):
+    """Un recuadro de una pizarra.
+
+    La posición se guarda en la fila y no en un JSON de la pizarra: así mover un
+    recuadro escribe una fila y no reescribe el tablero entero, y dos personas
+    reacomodando a la vez no se pisan.
+    """
+
+    __tablename__ = "gp_widget"
+    __table_args__ = (
+        sa.Index("ix_gp_widget_pizarra", "pizarra_id", "orden"),
+        {"schema": ESQ},
+    )
+
+    id         = sa.Column(sa.BigInteger, primary_key=True)
+    pizarra_id = sa.Column(sa.BigInteger, sa.ForeignKey(_fk("gp_pizarra.id")),
+                           nullable=False)
+
+    # CONTADOR · LISTA · AGRUPADO · VELOCIDAD · BURNDOWN · CARGA
+    tipo   = sa.Column(sa.String(30), nullable=False)
+    titulo = sa.Column(sa.String(160), nullable=False)
+
+    # El filtro que alimenta el recuadro, en el lenguaje de consultas. Se guarda
+    # el texto y nunca SQL: el SQL se regenera desde el árbol validado en cada
+    # consulta, así que una pizarra vieja no se salta una comprobación nueva.
+    expresion = sa.Column(sa.Text, default="", nullable=False)
+    # Por qué campo agrupar, para los recuadros de tipo AGRUPADO.
+    agrupar_por = sa.Column(sa.String(60))
+
+    # Cómo se dibuja: colores, si va como barras o como anillo, cuántas filas.
+    config = sa.Column(JSONB, default=dict, nullable=False)
+
+    # Rejilla de 12 columnas, como la del resto de la consola.
+    x     = sa.Column(sa.Integer, default=0, nullable=False)
+    y     = sa.Column(sa.Integer, default=0, nullable=False)
+    ancho = sa.Column(sa.Integer, default=4, nullable=False)
+    alto  = sa.Column(sa.Integer, default=1, nullable=False)
+    orden = sa.Column(sa.Integer, default=0, nullable=False)

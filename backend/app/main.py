@@ -302,6 +302,13 @@ async def _sembrar_gestion() -> None:
                     {"w": wf, "n": nombre, "o": origen, "d": destino,
                      "a": acciones, "ord": orden})
 
+        # La fecha planeada de inicio nacio despues que la tabla, y
+        # `create_all` no altera tablas existentes. Junto con `vence` es la
+        # barra del Gantt.
+        await conn.execute(text(
+            "ALTER TABLE public.gp_incidencia "
+            "ADD COLUMN IF NOT EXISTS inicio_plan TIMESTAMPTZ"))
+
         # ── Prioridades ──
         hay = (await conn.execute(
             text("SELECT count(*) FROM public.gp_prioridad"))).scalar() or 0
