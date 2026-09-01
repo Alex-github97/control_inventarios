@@ -97,11 +97,13 @@ services:
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
-    # Menos procesos que producción: es un entorno de pruebas y no tiene por
-    # qué quitarle núcleos a la operación.
+    # Un solo proceso, y no por ahorrar núcleos: TarifaX guarda el tarifario
+    # de 21 MB en memoria de CADA worker, y el primer llamado de cada uno
+    # tarda unos cuarenta segundos en cargarlo. Con uno solo se carga una vez,
+    # ocupa la mitad y no le quita aire a la operación real.
     command: >
       uvicorn app.main:app --host 0.0.0.0 --port 8000
-      --workers 2 --proxy-headers --forwarded-allow-ips='*'
+      --workers 1 --proxy-headers --forwarded-allow-ips='*'
     volumes:
       - tarifax_data:/app/data
       - tarifax_uploads:/app/uploads
@@ -118,6 +120,7 @@ services:
       # vuelo el guion que abre la sesión de pruebas.
       - ./deploy/tarifax-frontend.conf:/etc/nginx/conf.d/default.conf:ro
       - ./deploy/entrada-tarifax.js:/etc/nginx/entrada-tarifax.js:ro
+      - ./deploy/favicon-tarifax.svg:/etc/nginx/favicon-tarifax.svg:ro
 
   proxy:
     image: nginx:alpine
