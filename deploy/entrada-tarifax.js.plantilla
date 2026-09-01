@@ -1,7 +1,7 @@
 /**
- * Entrada automática del dominio de pruebas de TarifaX.
+ * Entrada automática del dominio de TarifaX.
  *
- * En ese dominio no hay pantalla de inicio de sesión: quien abre la dirección
+ * En este dominio no hay pantalla de inicio de sesión: quien abre la dirección
  * tiene que caer directo en TarifaX. Pero la aplicación exige sesión, y con
  * razón —el servidor rechaza cualquier petición sin token—, así que la sesión
  * se abre sola con una cuenta de pruebas antes de que el portal arranque.
@@ -9,9 +9,9 @@
  * Esto NO vive en el código de la aplicación: se inyecta al servir la página, y
  * solo en este dominio. El portal de Icoltrans no se entera de que existe.
  *
- * La cuenta pertenece a una empresa cuyo único módulo contratado es TarifaX, y
- * eso lo hace cumplir el servidor: aunque alguien saque el token de acá, no
- * puede llegar a la operación real. Su esquema está vacío.
+ * La cuenta usa un rol con un único permiso, y eso lo hace cumplir el servidor:
+ * aunque alguien saque el token de acá, no llega a la operación real ni a la
+ * administración de usuarios.
  */
 (function () {
   var CLIENTE = { codigo: '__CLIENTE__', nombre: 'TarifaX', logo_url: null, color: null };
@@ -19,23 +19,131 @@
   var CLAVE = '__CLAVE__';
   var DESTINO = '/tarifax/tablero';
 
-  // El portal escoge el idioma del navegador de cada quien. En un dominio que
-  // va a usar un equipo entero conviene que todos vean lo mismo, así que se
-  // fija en español la primera vez; después cada uno puede cambiarlo.
+  /* La sesión guardada tiene versión. Al cambiar los permisos de la cuenta, la
+   * sesión que ya estaba en el navegador seguía trayendo el rol viejo: la
+   * pantalla mostraba accesos que el servidor ya rechazaba. Subir este número
+   * descarta lo guardado y vuelve a entrar. */
+  var VERSION_SESION = '3';
+
+  /* ── El idioma ───────────────────────────────────────────────────────── */
+  // El portal escoge el del navegador de cada quien. En un dominio que va a
+  // usar un equipo entero conviene que todos vean lo mismo la primera vez.
   if (!localStorage.getItem('empresa_lang')) {
     localStorage.setItem('empresa_lang', 'es');
   }
 
-  // Ya hay sesión: no hay nada que hacer, el portal arranca normal.
-  if (localStorage.getItem('access_token')) return;
+  /* ── Adelantarse a los fragmentos ────────────────────────────────────── */
+  //
+  // Cada pantalla del portal se carga en su propio fragmento, y mientras llega
+  // la aplicación muestra una pantalla de carga a página completa. Entre dos
+  // pantallas de TarifaX ese salto sobra: se piden todos por adelantado, con
+  // el mismo prefijo de revisión que usa la aplicación, para que cuando el
+  // usuario cambie de pantalla ya estén en el navegador.
+  function adelantarFragmentos() {
+    var prefijo = null;
+    var etiquetas = document.querySelectorAll('script[src], link[href]');
+    for (var i = 0; i < etiquetas.length; i++) {
+      var url = etiquetas[i].src || etiquetas[i].href || '';
+      var m = url.match(/\/(r\d+)\/assets\//);
+      if (m) { prefijo = m[1]; break; }
+    }
+    if (!prefijo) return;
+
+    fetch('/__fragmentos/')
+      .then(function (r) { return r.json(); })
+      .then(function (lista) {
+        lista
+          .filter(function (f) { return /^Tarifax.*\.js$/.test(f.name); })
+          .forEach(function (f) {
+            var l = document.createElement('link');
+            l.rel = 'modulepreload';
+            l.href = '/' + prefijo + '/assets/' + f.name;
+            document.head.appendChild(l);
+          });
+      })
+      .catch(function () { /* si no se puede, se carga como siempre */ });
+  }
+
+  /* ── La pantalla de carga entre pantallas ────────────────────────────── */
+  //
+  // Cada pantalla vive en su propio fragmento, y la aplicación muestra un
+  // logo a página completa mientras llega. Adelantarse a descargarlos no basta
+  // para quitarlo: React pinta ese relevo al menos un cuadro la primera vez
+  // que monta cada pantalla, aunque el fragmento ya esté en el navegador.
+  //
+  // Acá sobra. Son siete pantallas del mismo módulo y los fragmentos ya están
+  // descargados: el relevo dura milisegundos y lo único que hace es parpadear.
+  // Se oculta en cuanto aparece, sin tocar la aplicación.
+  function ocultarPantallaDeCarga() {
+    var css = document.createElement('style');
+    css.textContent = '[data-sin-relevo]{visibility:hidden !important}';
+    document.head.appendChild(css);
+
+    var revisar = function () {
+      // Primero se sueltan las marcas viejas. Sin esto, una marca puesta por
+      // error deja la pantalla en blanco para siempre: fue exactamente lo que
+      // pasó al recorrer el documento de afuera hacia adentro y marcar el
+      // contenedor de toda la aplicación en vez del relevo.
+      var marcados = document.querySelectorAll('[data-sin-relevo]');
+      for (var j = 0; j < marcados.length; j++) {
+        if (!/Cargando módulo/.test(marcados[j].textContent || '')) {
+          marcados[j].removeAttribute('data-sin-relevo');
+        }
+      }
+
+      // Y se busca de adentro hacia afuera: desde el texto, subiendo hasta el
+      // primer contenedor que ocupe la pantalla. Ese es el relevo.
+      var w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      var n;
+      while ((n = w.nextNode())) {
+        if (!/Cargando módulo/.test(n.textContent || '')) continue;
+        var e = n.parentElement;
+        while (e && e !== document.body
+               && e.getBoundingClientRect().height < window.innerHeight * 0.7) {
+          e = e.parentElement;
+        }
+        // El relevo sustituye a la pantalla entera, así que no contiene el
+        // menú. Si lo que se encontró lo contiene, es la aplicación y no el
+        // relevo: se deja en paz. Es la red que impide volver a apagar todo.
+        if (e && e !== document.body && !e.querySelector('nav')) {
+          e.setAttribute('data-sin-relevo', '1');
+        }
+        return;
+      }
+    };
+
+    new MutationObserver(revisar).observe(document.body, {
+      childList: true, subtree: true,
+    });
+    revisar();
+  }
+
+  /* ── La sesión ───────────────────────────────────────────────────────── */
+  var alDia = localStorage.getItem('sesion_version') === VERSION_SESION;
+
+  var alArrancar = function () {
+    adelantarFragmentos();
+    ocultarPantallaDeCarga();
+  };
+
+  if (localStorage.getItem('access_token') && alDia) {
+    // Ya hay sesión vigente: el portal arranca normal.
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', alArrancar);
+    } else {
+      alArrancar();
+    }
+    return;
+  }
 
   // Se oculta la página mientras se entra. Sin esto se alcanza a ver el
-  // parpadeo de la pantalla de inicio de sesión, que en este dominio no
-  // debería existir.
+  // parpadeo de la pantalla de inicio de sesión, que acá no debería existir.
   var estilo = document.createElement('style');
   estilo.textContent = 'html{visibility:hidden}';
   document.documentElement.appendChild(estilo);
 
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('auth-storage');
   localStorage.setItem('cliente_activo', JSON.stringify(CLIENTE));
 
   fetch('/api/v1/auth/login', {
@@ -60,6 +168,7 @@
         },
         version: 0,
       }));
+      localStorage.setItem('sesion_version', VERSION_SESION);
       // Recarga completa: el portal ya arrancó sin sesión y hay que volver a
       // montarlo con ella. `replace` para no dejar el paso en el historial.
       window.location.replace(DESTINO);
@@ -68,6 +177,6 @@
       // Si no se pudo entrar, hay que decirlo. Dejar la página en blanco sería
       // peor que mostrar el inicio de sesión.
       estilo.remove();
-      console.error('No se pudo abrir la sesión de pruebas de TarifaX:', e);
+      console.error('No se pudo abrir la sesión de TarifaX:', e);
     });
 })();
