@@ -228,9 +228,41 @@ def _etiquetas(valor: Any, _reglas, _opciones) -> List[str]:
     return sorted({str(t).strip() for t in valor if str(t).strip()})
 
 
+def _correo(valor: Any, _reglas, _opciones) -> str:
+    """Una comprobación deliberadamente laxa.
+
+    Validar correos «bien» es un pozo sin fondo —hay direcciones legales que
+    ninguna expresión regular razonable acepta—, y una regla estricta rechaza
+    direcciones que sí existen. Se comprueba lo que de verdad delata una errata:
+    que haya algo, una arroba y un punto después.
+    """
+    s = str(valor).strip()
+    if s.count("@") != 1:
+        raise ValueError("tiene que ser una dirección de correo")
+    antes, despues = s.split("@")
+    if not antes or "." not in despues or despues.startswith(".") or despues.endswith("."):
+        raise ValueError("tiene que ser una dirección de correo")
+    return s
+
+
+def _adjunto(valor: Any, _reglas, _opciones) -> str:
+    """La referencia a un archivo ya subido.
+
+    El archivo no viaja por acá: se sube por su propio endpoint, que comprueba
+    tamaño, extensión y permisos. Acá solo queda constancia de a cuál apunta.
+    """
+    s = str(valor).strip()
+    if not s:
+        raise ValueError("no apunta a ningún archivo")
+    return s[:200]
+
+
 VALIDADORES = {
     "TEXTO": _texto,
     "TEXTO_LARGO": _texto,
+    "TEXTO_RICO": _texto,
+    "CORREO": _correo,
+    "ADJUNTO": _adjunto,
     "NUMERO": _numero,
     "DECIMAL": _decimal,
     "FECHA": _fecha,

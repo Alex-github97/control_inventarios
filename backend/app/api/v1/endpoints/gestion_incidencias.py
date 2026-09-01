@@ -30,7 +30,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import gestion_campos, gestion_incidencias, gestion_workflow
+from app.core import (
+    gestion_campos, gestion_formulario, gestion_incidencias, gestion_workflow,
+)
 from app.core.config import settings
 from app.core.database import get_db_plataforma
 from app.core.gestion_permisos import exigir_proyecto, limitar, proyectos_visibles
@@ -139,30 +141,34 @@ class HistorialResponse(BaseModel):
 
 
 class IncidenciaEntrada(BaseModel):
+    """Lo que llega al crear.
+
+    `proyecto_id` y `tipo_id` van aparte de `campos` porque no son campos del
+    formulario: son la coordenada que decide QUE formulario aplica. Todo lo demas
+    —titulo, responsable, prioridad, sprint, y lo que el administrador haya
+    definido— llega en `campos`, y el motor decide que es valido, si va a una
+    columna o al jsonb, y que es obligatorio.
+
+    Enumerar los campos aca era lo que obligaba a tocar tres archivos cada vez
+    que se agregaba uno.
+    """
+
     proyecto_id: int
     tipo_id: int
-    resumen: str = Field(min_length=1, max_length=300)
-    descripcion: Optional[str] = None
-    asignado: Optional[str] = None
-    prioridad_id: Optional[int] = None
-    padre_id: Optional[int] = None
-    puntos: Optional[int] = None
-    etiquetas: List[str] = []
     campos: Dict[str, Any] = {}
-    vence: Optional[datetime] = None
 
 
 class IncidenciaCambio(BaseModel):
-    resumen: Optional[str] = None
-    descripcion: Optional[str] = None
-    asignado: Optional[str] = None
-    prioridad_id: Optional[int] = None
+    """Lo que llega al editar.
+
+    El estado NO esta: se mueve por una transicion, que es la que aplica las
+    reglas del flujo. Si el PUT pudiera cambiarlo, el motor de workflow seria una
+    sugerencia.
+    """
+
+    # Cambiar el tipo puede cambiar que campos aplican, asi que va aparte.
     tipo_id: Optional[int] = None
-    padre_id: Optional[int] = None
-    puntos: Optional[int] = None
-    etiquetas: Optional[List[str]] = None
-    campos: Optional[Dict[str, Any]] = None
-    vence: Optional[datetime] = None
+    campos: Dict[str, Any] = {}
 
 
 class ComentarioEntrada(BaseModel):
@@ -407,6 +413,7 @@ async def ver(
     return {
         "incidencia": tarjeta,
         "descripcion": inc.descripcion,
+        "inicio_plan": inc.inicio_plan,
         "iniciado": inc.iniciado,
         "resuelto": inc.resuelto,
         "creado": inc.created_at,
@@ -436,14 +443,38 @@ async def crear(
     db: AsyncSession = Depends(get_db_plataforma),
     quien: Miembro = Depends(exigir("gestion.trabajar")),
 ):
+    """Da de alta una incidencia con lo que diga la configuración.
+
+    El servidor no confía en que la pantalla mandó lo correcto: vuelve a resolver
+    qué campos aplican, valida cada valor contra su tipo, comprueba que las
+    referencias existan y sean de este proyecto, y exige los obligatorios. Una
+    petición armada a mano se topa con lo mismo.
+    """
     proyecto = await exigir_proyecto(db, quien, data.proyecto_id, escritura=True)
+    tipo = await gestion_incidencias.tipo_valido(db, data.tipo_id, proyecto.id)
+
+    aplicables = await gestion_formulario.campos_del(db, proyecto.id, tipo.id)
+    await gestion_formulario.cargar_opciones(db, aplicables, proyecto.id)
+
+    # Los valores por defecto se aplican ANTES de validar y solo donde no llegó
+    # nada: si se aplicaran después, un obligatorio con defecto se rechazaría por
+    # vacío aunque el servidor supiera con qué llenarlo.
+    defectos = await gestion_formulario._defectos(
+        db, aplicables, proyecto.id, quien.usuario)
+    entrantes = {**{k: v for k, v in defectos.items()
+                    if data.campos.get(k) in (None, "", [])},
+                 **{k: v for k, v in data.campos.items() if v not in (None, "", [])}}
+
+    columnas, jsonb = await gestion_formulario.validar(
+        db, aplicables, entrantes, proyecto.id)
+
     inc = await gestion_incidencias.crear(
-        db, proyecto,
-        tipo_id=data.tipo_id, resumen=data.resumen, descripcion=data.descripcion,
-        autor=quien.usuario, asignado=data.asignado,
-        prioridad_id=data.prioridad_id, padre_id=data.padre_id,
-        puntos=data.puntos, etiquetas=data.etiquetas, campos=data.campos,
-        vence=data.vence,
+        db, proyecto, tipo_id=tipo.id,
+        resumen=columnas.pop("resumen", "") or "",
+        descripcion=columnas.pop("descripcion", None),
+        autor=quien.usuario,
+        campos=jsonb,
+        columnas=columnas,
     )
     await db.commit()
     await db.refresh(inc)
@@ -458,68 +489,63 @@ async def editar(
 ):
     """Edita la incidencia y deja constancia de cada campo que cambió.
 
-    El estado no se toca por acá: se mueve por una transición, que es la que
-    aplica las reglas. Un `PUT` que pudiera cambiar el estado directamente
-    dejaría el motor de workflow como una sugerencia.
+    Los obligatorios no se exigen al editar: obligar a llenar un campo que se
+    volvió obligatorio después impediría corregir un título.
     """
     inc, proyecto = await _incidencia_visible(db, quien, incidencia_id, escritura=True)
-    cambios = data.model_dump(exclude_unset=True)
-    if not cambios:
-        return (await _tarjetas(db, [inc]))[0]
+    registrados: List[tuple] = []
 
-    registrados = []
-
-    if "tipo_id" in cambios and cambios["tipo_id"] != inc.tipo_id:
-        nuevo_tipo = await gestion_incidencias.tipo_valido(
-            db, cambios["tipo_id"], proyecto.id)
+    if data.tipo_id is not None and data.tipo_id != inc.tipo_id:
+        nuevo_tipo = await gestion_incidencias.tipo_valido(db, data.tipo_id, proyecto.id)
         anterior = (await db.execute(select(GPTipoIncidencia).where(
             GPTipoIncidencia.id == inc.tipo_id))).scalar_one_or_none()
         registrados.append(
             ("tipo", anterior.nombre if anterior else None, nuevo_tipo.nombre))
         inc.tipo_id = nuevo_tipo.id
 
-    if "padre_id" in cambios:
-        if cambios["padre_id"] is None:
-            if inc.padre_id is not None:
-                registrados.append(("padre", inc.padre_id, None))
-            inc.padre_id = None
-        else:
+    if not data.campos:
+        if registrados:
+            gestion_incidencias.anotar_varios(db, inc.id, registrados, quien.usuario)
+            _tocar(inc)
+            await db.commit()
+            await db.refresh(inc)
+        return (await _tarjetas(db, [inc]))[0]
+
+    aplicables = await gestion_formulario.campos_del(db, proyecto.id, inc.tipo_id)
+    await gestion_formulario.cargar_opciones(db, aplicables, proyecto.id)
+
+    antes_jsonb = dict(inc.campos or {})
+    columnas, jsonb = await gestion_formulario.validar(
+        db, aplicables, data.campos, proyecto.id,
+        previos=antes_jsonb, exigir_obligatorios=False)
+
+    # El padre necesita su comprobación propia: la jerarquía depende del nivel
+    # del tipo y de que no se forme un ciclo, y eso no lo sabe un validador de
+    # campo.
+    if "padre_id" in columnas:
+        destino = columnas["padre_id"]
+        if destino is not None:
             tipo = (await db.execute(select(GPTipoIncidencia).where(
                 GPTipoIncidencia.id == inc.tipo_id))).scalar_one()
             await gestion_incidencias.validar_padre(
-                db, cambios["padre_id"], proyecto.id, tipo, hijo_id=inc.id)
-            if inc.padre_id != cambios["padre_id"]:
-                registrados.append(("padre", inc.padre_id, cambios["padre_id"]))
-            inc.padre_id = cambios["padre_id"]
+                db, destino, proyecto.id, tipo, hijo_id=inc.id)
 
-    if "campos" in cambios:
-        aplicables = await gestion_campos.campos_aplicables(db, proyecto.id, inc.tipo_id)
-        antes = dict(inc.campos or {})
-        # Los obligatorios no se exigen al editar: obligar a llenar un campo que
-        # se volvió obligatorio después impediría corregir un título.
-        inc.campos = gestion_campos.validar(
-            aplicables, cambios["campos"], previos=antes,
-            exigir_obligatorios=False)
-        for clave in sorted(set(antes) | set(inc.campos)):
-            if antes.get(clave) != inc.campos.get(clave):
-                registrados.append((clave, antes.get(clave), inc.campos.get(clave)))
-
-    for campo in ("resumen", "descripcion", "asignado", "puntos", "vence",
-                  "prioridad_id", "etiquetas"):
-        if campo not in cambios:
+    for columna, valor in columnas.items():
+        anterior = getattr(inc, columna, None)
+        if anterior == valor:
             continue
-        valor = cambios[campo]
-        if campo == "resumen":
+        if columna == "resumen":
             valor = (valor or "").strip()[:300]
             if not valor:
                 raise HTTPException(422, "El título no puede quedar vacío.")
-        if campo == "etiquetas":
-            valor = sorted({str(e).strip() for e in (valor or []) if str(e).strip()})
-        antes = getattr(inc, campo)
-        if antes == valor:
-            continue
-        setattr(inc, campo, valor)
-        registrados.append((campo, antes, valor))
+        setattr(inc, columna, valor)
+        registrados.append((columna, anterior, valor))
+
+    if jsonb != antes_jsonb:
+        inc.campos = jsonb
+        for clave in sorted(set(antes_jsonb) | set(jsonb)):
+            if antes_jsonb.get(clave) != jsonb.get(clave):
+                registrados.append((clave, antes_jsonb.get(clave), jsonb.get(clave)))
 
     if registrados:
         gestion_incidencias.anotar_varios(db, inc.id, registrados, quien.usuario)

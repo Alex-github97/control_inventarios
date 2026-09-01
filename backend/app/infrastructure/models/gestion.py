@@ -73,9 +73,49 @@ TIPOS_VINCULO = ("BLOQUEA", "DUPLICA", "RELACIONA", "CAUSA")
 # Los tipos de campo que el motor sabe validar, mostrar y filtrar. Agregar uno
 # es registrar su validador y su control de formulario, no tocar tablas.
 TIPOS_CAMPO = (
-    "TEXTO", "TEXTO_LARGO", "NUMERO", "DECIMAL", "FECHA", "FECHA_HORA",
-    "BOOLEANO", "LISTA", "LISTA_MULTIPLE", "USUARIO", "URL", "ETIQUETAS",
+    # De dato
+    "TEXTO", "TEXTO_LARGO", "TEXTO_RICO", "NUMERO", "DECIMAL",
+    "FECHA", "FECHA_HORA", "BOOLEANO", "URL", "CORREO",
+    # De selección, con opciones propias
+    "LISTA", "LISTA_MULTIPLE", "ETIQUETAS",
+    # De selección, con opciones que salen de una entidad del sistema. Son los
+    # que hacen falta para que el formulario no tenga controles cableados: un
+    # campo de tipo SPRINT sabe pedirle los sprints al proyecto en curso.
+    "USUARIO", "USUARIOS", "PROYECTO", "INCIDENCIA", "TIPO_INCIDENCIA",
+    "SPRINT", "EPICA", "VERSION", "COMPONENTE", "PRIORIDAD", "ESTADO",
+    # Archivos
+    "ADJUNTO",
 )
+
+# Los que se resuelven consultando una tabla en vez de una lista escrita a mano.
+TIPOS_DE_ENTIDAD = {
+    "USUARIO": "usuario", "USUARIOS": "usuario",
+    "PROYECTO": "proyecto", "INCIDENCIA": "incidencia",
+    "TIPO_INCIDENCIA": "tipo_incidencia", "SPRINT": "sprint", "EPICA": "epica",
+    "VERSION": "version", "COMPONENTE": "componente",
+    "PRIORIDAD": "prioridad", "ESTADO": "estado",
+}
+
+# Los que admiten varios valores a la vez.
+TIPOS_MULTIPLES = ("LISTA_MULTIPLE", "ETIQUETAS", "USUARIOS", "COMPONENTE")
+
+# Las secciones del formulario, en el orden en que se muestran. No es adorno:
+# con veinte campos en una sola lista, llenar el formulario es un recorrido a
+# ciegas.
+SECCIONES = (
+    ("PRINCIPAL", "Información principal"),
+    ("AGIL", "Planificación"),
+    ("CLASIFICACION", "Clasificación"),
+    ("DETALLE", "Detalle de la incidencia"),
+    ("FECHAS", "Fechas"),
+    ("AVANZADO", "Avanzado"),
+)
+
+# De dónde salen las opciones de un campo de selección.
+ORIGENES = ("PROPIO", "ENTIDAD")
+
+# Dónde se guarda su valor.
+ALMACENAMIENTOS = ("JSONB", "COLUMNA")
 
 # Qué puede hacer alguien dentro de un proyecto. El permiso se comprueba en el
 # servidor, en cada endpoint y contra el objeto concreto: la pregunta no es
@@ -239,6 +279,85 @@ class GPProyectoMiembro(Base):
     rol     = sa.Column(sa.String(20), default="MIEMBRO", nullable=False)
 
 
+class GPVersion(Base, TimestampMixin):
+    """Una versión del producto: en cuál se vio un fallo y en cuál se corrige.
+
+    Va en tabla y no en un campo de texto porque son dos preguntas distintas
+    —«versión afectada» y «versión en la que se corrige»— sobre la MISMA lista, y
+    porque hace falta poder preguntar «qué entra en la 2.4» sin que la respuesta
+    dependa de que todo el mundo la haya escrito igual.
+    """
+
+    __tablename__ = "gp_version"
+    __table_args__ = (
+        sa.UniqueConstraint("proyecto_id", "nombre", name="uq_gp_version"),
+        sa.Index("ix_gp_version_proyecto", "proyecto_id", "orden"),
+        {"schema": ESQ},
+    )
+
+    id          = sa.Column(sa.BigInteger, primary_key=True)
+    proyecto_id = sa.Column(sa.BigInteger, sa.ForeignKey(_fk("gp_proyecto.id")),
+                            nullable=False)
+
+    nombre      = sa.Column(sa.String(60), nullable=False)
+    descripcion = sa.Column(sa.Text)
+    fecha       = sa.Column(sa.Date)
+    # Liberada = ya salió. No se borra: hay incidencias que la mencionan y el
+    # historial de qué se entregó cuándo es justo lo que se quiere conservar.
+    liberada    = sa.Column(sa.Boolean, default=False, nullable=False)
+    archivada   = sa.Column(sa.Boolean, default=False, nullable=False)
+    orden       = sa.Column(sa.Integer, default=0, nullable=False)
+
+
+class GPComponente(Base, TimestampMixin):
+    """Una pieza del producto: API, interfaz, base de datos, integraciones…
+
+    Lleva responsable propio porque el sentido de dividir en componentes es que
+    cada uno tenga a alguien que responda por él; sin eso es una etiqueta más.
+    """
+
+    __tablename__ = "gp_componente"
+    __table_args__ = (
+        sa.UniqueConstraint("proyecto_id", "nombre", name="uq_gp_componente"),
+        sa.Index("ix_gp_componente_proyecto", "proyecto_id", "orden"),
+        {"schema": ESQ},
+    )
+
+    id          = sa.Column(sa.BigInteger, primary_key=True)
+    proyecto_id = sa.Column(sa.BigInteger, sa.ForeignKey(_fk("gp_proyecto.id")),
+                            nullable=False)
+
+    nombre      = sa.Column(sa.String(80), nullable=False)
+    descripcion = sa.Column(sa.Text)
+    # A quién se le asigna por omisión lo que caiga en este componente.
+    responsable = sa.Column(sa.String(80))
+    color       = sa.Column(sa.String(9))
+    archivado   = sa.Column(sa.Boolean, default=False, nullable=False)
+    orden       = sa.Column(sa.Integer, default=0, nullable=False)
+
+
+class GPTipoVinculo(Base):
+    """Cómo se pueden relacionar dos incidencias, con su nombre en cada sentido.
+
+    El nombre inverso es lo que hace falta: el vínculo se guarda una sola vez
+    —A bloquea a B— y se lee en los dos sentidos, así que hay que saber cómo se
+    llama visto desde B («bloqueada por»). Guardar las dos mitades obligaría a
+    mantenerlas sincronizadas y tarde o temprano quedarían contradiciéndose.
+    """
+
+    __tablename__ = "gp_tipo_vinculo"
+    __table_args__ = {"schema": ESQ}
+
+    id      = sa.Column(sa.BigInteger, primary_key=True)
+    clave   = sa.Column(sa.String(30), unique=True, nullable=False)
+    # Cómo se lee desde el origen: «bloquea a».
+    nombre  = sa.Column(sa.String(60), nullable=False)
+    # Y desde el destino: «bloqueada por».
+    inverso = sa.Column(sa.String(60), nullable=False)
+    orden   = sa.Column(sa.Integer, default=0, nullable=False)
+    activo  = sa.Column(sa.Boolean, default=True, nullable=False)
+
+
 class GPTipoIncidencia(Base):
     """Error, Mejora, Tarea, Épica… con el flujo que le corresponde a cada uno.
 
@@ -318,10 +437,48 @@ class GPCampo(Base, TimestampMixin):
 
     tipo = sa.Column(sa.String(30), nullable=False)
 
+    # ── De dónde salen las opciones ──
+    #
+    # PROPIO   → de `gp_campo_opcion`, la lista que el administrador escribe.
+    # ENTIDAD  → de una tabla del sistema: usuarios, sprints, épicas, versiones…
+    #
+    # Esta distinción es lo que evita el error de tener un catálogo «Proyecto»
+    # paralelo a la tabla de proyectos. Cuando el origen es una entidad, las
+    # opciones se consultan en el momento y se filtran por el proyecto en curso,
+    # así que un sprint nuevo aparece en el formulario sin que nadie configure
+    # nada.
+    origen  = sa.Column(sa.String(20), default="PROPIO", nullable=False)
+    # Qué entidad, cuando el origen es ENTIDAD. Ver `ENTIDADES` en
+    # `core/gestion_formulario.py`, que es la lista cerrada de lo consultable.
+    entidad = sa.Column(sa.String(40))
+
+    # ── Dónde se guarda el valor ──
+    #
+    # JSONB   → en `gp_incidencia.campos`. Es lo normal: un campo que el
+    #           administrador crea no puede agregar una columna a la tabla.
+    # COLUMNA → en una columna de `gp_incidencia`. Solo para los del sistema
+    #           —título, responsable, prioridad, sprint…—, que existían antes que
+    #           este registro.
+    #
+    # Tenerlos a los dos en el MISMO registro es lo que permite que el formulario
+    # se dibuje entero desde la configuración. Con los nativos por fuera, la
+    # pantalla tendría una mitad cableada y otra dinámica, y ordenar un campo
+    # propio por encima del título sería imposible.
+    almacenamiento = sa.Column(sa.String(12), default="JSONB", nullable=False)
+    # La columna, cuando el almacenamiento es COLUMNA.
+    columna = sa.Column(sa.String(40))
+
+    # En qué parte del formulario aparece. Con veinte campos en una sola lista,
+    # llenar el formulario se vuelve un recorrido a ciegas.
+    seccion = sa.Column(sa.String(30), default="DETALLE", nullable=False)
+    # Orden dentro de su sección, cuando el esquema no diga otra cosa.
+    orden   = sa.Column(sa.Integer, default=0, nullable=False)
+
     # Reglas propias del tipo: mínimo, máximo, expresión regular, decimales.
     # Las aplica el servidor, no el navegador.
     validacion = sa.Column(JSONB, default=dict, nullable=False)
     # Lo que se propone al crear. Puede ser vacío, que es distinto de cero.
+    # Admite señales que el servidor resuelve: "@yo", "@hoy", "@sprint_activo".
     valor_defecto = sa.Column(JSONB)
 
     # Se puede nombrar en un filtro. Al marcarlo, el servidor crea el índice por
@@ -381,6 +538,9 @@ class GPEsquemaCampo(Base):
     obligatorio = sa.Column(sa.Boolean, default=False, nullable=False)
     # Se ve pero no se edita: útil para lo que llena una automatización.
     solo_lectura = sa.Column(sa.Boolean, default=False, nullable=False)
+    # Sale del formulario sin borrar la regla ni los valores ya escritos. Es lo
+    # que permite apagar un campo para un tipo concreto sin tocar a los demás.
+    visible = sa.Column(sa.Boolean, default=True, nullable=False)
     orden = sa.Column(sa.Integer, default=0, nullable=False)
 
 

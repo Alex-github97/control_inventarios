@@ -468,6 +468,9 @@ export interface AsientoHistorial {
 export interface DetalleIncidencia {
   incidencia: Incidencia
   descripcion?: string | null
+  /** Cuándo se PLANEA empezarla. Con `vence` forma la barra del Gantt; es
+   *  distinto de `iniciado`, que es cuándo empezó de verdad. */
+  inicio_plan?: string | null
   iniciado?: string | null
   resuelto?: string | null
   creado?: string | null
@@ -552,6 +555,24 @@ export const gestionApi = {
 
   editarProyecto: (id: number, cambios: Record<string, unknown>) =>
     api.put<Proyecto>(`/gestion/proyectos/${id}`, cambios).then(r => r.data),
+
+  /** A quién se le puede asignar trabajo. Sale del equipo de la consola y no de
+   *  un campo de texto: con texto libre, «juan» y «Juan» son dos responsables
+   *  distintos y la carga por persona se reparte en dos. */
+  personas: () =>
+    api.get<Persona[]>('/gestion/personas').then(r => r.data),
+
+  /** De qué puede colgar una incidencia de ese nivel. La regla de jerarquía es
+   *  del servidor: una lista armada acá ofrecería padres que rechaza al guardar. */
+  padresPosibles: (proyectoId: number, nivel: string) =>
+    api.get<PadrePosible[]>(`/gestion/proyectos/${proyectoId}/padres`,
+      { params: { nivel } }).then(r => r.data),
+
+  /** Las etiquetas que ya se usan, para proponerlas. Sin esto cada quien inventa
+   *  la suya —«regresion», «regresión», «regr»— y dejan de agrupar nada. */
+  etiquetas: (proyectoId?: number) =>
+    api.get<{ etiqueta: string; usos: number }[]>('/gestion/etiquetas',
+      { params: { proyecto_id: proyectoId } }).then(r => r.data),
 
   configuracion: (proyectoId?: number) =>
     api.get<ConfiguracionGestion>('/gestion/configuracion', {
@@ -686,6 +707,19 @@ export const gestionApi = {
   editarCampo: (id: number, cuerpo: Record<string, unknown>) =>
     api.put(`/gestion/config/campos/${id}`, cuerpo).then(r => r.data),
   archivarCampo: (id: number) => api.delete(`/gestion/config/campos/${id}`),
+}
+
+export interface Persona {
+  usuario: string
+  nombre: string
+  rol: string
+  soy_yo: boolean
+}
+
+export interface PadrePosible {
+  id: number
+  clave: string
+  resumen: string
 }
 
 export interface Sprint {

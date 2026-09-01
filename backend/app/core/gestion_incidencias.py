@@ -181,12 +181,19 @@ async def crear(db: AsyncSession, proyecto: GPProyecto, *, tipo_id: int,
                 etiquetas: Optional[List[str]] = None,
                 campos: Optional[Dict[str, Any]] = None,
                 vence: Optional[datetime] = None,
+                inicio_plan: Optional[datetime] = None,
+                sprint_id: Optional[int] = None,
+                reporta: Optional[str] = None,
                 ticket_id: Optional[int] = None,
-                estado_id: Optional[int] = None) -> GPIncidencia:
+                estado_id: Optional[int] = None,
+                columnas: Optional[Dict[str, Any]] = None) -> GPIncidencia:
     """Da de alta una incidencia con todo lo que eso implica.
 
     `estado_id` solo lo usa el ascenso desde soporte, que necesita dejarla en el
     estado sin clasificar aunque el flujo empiece en otro sitio.
+
+    `reporta` se puede indicar distinto de quien la crea: alguien de soporte
+    registra a nombre de quien reportó. Si no se indica, es quien la crea.
     """
     tipo = await tipo_valido(db, tipo_id, proyecto.id)
     workflow_id = await workflow_de(db, proyecto, tipo)
@@ -194,15 +201,43 @@ async def crear(db: AsyncSession, proyecto: GPProyecto, *, tipo_id: int,
     if estado_id is None:
         estado_id = (await estado_inicial(db, workflow_id)).id
 
-    if padre_id is not None:
-        await validar_padre(db, padre_id, proyecto.id, tipo)
-
-    aplicables = await gestion_campos.campos_aplicables(db, proyecto.id, tipo.id)
-    valores = gestion_campos.validar(aplicables, campos or {})
+    # Los campos ya vienen validados cuando el alta pasa por el motor del
+    # formulario. Se revalidan solo si llegaron por otra vía —el ascenso desde
+    # soporte—, que no pasa por él.
+    if columnas is None:
+        aplicables = await gestion_campos.campos_aplicables(db, proyecto.id, tipo.id)
+        valores = gestion_campos.validar(aplicables, campos or {})
+    else:
+        valores = dict(campos or {})
 
     resumen = (resumen or "").strip()
     if not resumen:
         raise HTTPException(422, "La incidencia necesita un título.")
+
+    # Lo que el motor del formulario ya validó y repartió. Se aplica encima de
+    # los argumentos sueltos, que son los que usa el ascenso desde soporte.
+    for columna, valor in (columnas or {}).items():
+        if columna == "asignado":
+            asignado = valor
+        elif columna == "reporta":
+            reporta = valor
+        elif columna == "prioridad_id":
+            prioridad_id = valor
+        elif columna == "padre_id":
+            padre_id = valor
+        elif columna == "sprint_id":
+            sprint_id = valor
+        elif columna == "puntos":
+            puntos = valor
+        elif columna == "vence":
+            vence = valor
+        elif columna == "inicio_plan":
+            inicio_plan = valor
+        elif columna == "etiquetas":
+            etiquetas = valor
+
+    if padre_id is not None:
+        await validar_padre(db, padre_id, proyecto.id, tipo)
 
     numero = await siguiente_numero(db, proyecto.id)
 
@@ -219,7 +254,7 @@ async def crear(db: AsyncSession, proyecto: GPProyecto, *, tipo_id: int,
         prioridad_id=prioridad_id or await prioridad_por_defecto(db),
         resumen=resumen[:300],
         descripcion=descripcion,
-        reporta=autor,
+        reporta=(reporta or autor),
         asignado=asignado,
         padre_id=padre_id,
         puntos=puntos,
@@ -227,6 +262,8 @@ async def crear(db: AsyncSession, proyecto: GPProyecto, *, tipo_id: int,
         etiquetas=sorted({str(e).strip() for e in (etiquetas or []) if str(e).strip()}),
         campos=valores,
         vence=vence,
+        inicio_plan=inicio_plan,
+        sprint_id=sprint_id,
         ticket_id=ticket_id,
         actualizado=datetime.now(timezone.utc),
     )

@@ -176,6 +176,7 @@ from app.infrastructure.models.gestion import (  # noqa: F401
     GPCampo, GPCampoOpcion, GPEsquemaCampo,
     GPIncidencia, GPSprint, GPComentario, GPAdjunto, GPVinculo, GPHistorial,
     GPFiltro, GPPizarra, GPWidget,
+    GPVersion, GPComponente, GPTipoVinculo,
 )
 from app.infrastructure.models.ags import (
     AGSConfig, AGSCategoriaServicio, AGSServicio,

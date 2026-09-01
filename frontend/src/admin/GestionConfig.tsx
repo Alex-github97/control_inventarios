@@ -20,6 +20,7 @@ import { Add, Delete, Archive, Bolt, ArrowForward } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
+import { DialogoTexto, DialogoConfirmar } from './GestionDialogos'
 import {
   gestionApi, mensajeDeError,
   type ConfiguracionGestion, type Proyecto,
@@ -211,6 +212,8 @@ function Flujos({ config }: { config?: ConfiguracionGestion }) {
   const qc = useQueryClient()
   const [wfId, setWfId] = useState<number | null>(null)
   const [nuevoEstado, setNuevoEstado] = useState(false)
+  const [nuevoFlujo, setNuevoFlujo] = useState(false)
+  const [porBorrar, setPorBorrar] = useState<{ id: number; nombre: string } | null>(null)
   const [clave, setClave] = useState('')
   const [nombre, setNombre] = useState('')
   const [categoria, setCategoria] = useState('POR_HACER')
@@ -264,10 +267,7 @@ function Flujos({ config }: { config?: ConfiguracionGestion }) {
           ))}
         </TextField>
         <Button size="small" startIcon={<Add />} sx={{ textTransform: 'none' }}
-          onClick={() => {
-            const n = prompt('¿Cómo se llama el flujo nuevo?')
-            if (n?.trim()) crearWf.mutate(n.trim())
-          }}>
+          onClick={() => setNuevoFlujo(true)}>
           Nuevo flujo
         </Button>
         <Box sx={{ flex: 1 }} />
@@ -305,9 +305,8 @@ function Flujos({ config }: { config?: ConfiguracionGestion }) {
                         <Bolt sx={{ fontSize: 14, color: ESTADO.alerta }} />
                       </Tooltip>
                     )}
-                    <IconButton size="small" onClick={() => {
-                      if (confirm(`¿Borrar el estado «${e.nombre}»?`)) borrarEstado.mutate(e.id)
-                    }}>
+                    <IconButton size="small"
+                      onClick={() => setPorBorrar({ id: e.id, nombre: e.nombre })}>
                       <Delete sx={{ fontSize: 14 }} />
                     </IconButton>
                   </Stack>
@@ -355,6 +354,22 @@ function Flujos({ config }: { config?: ConfiguracionGestion }) {
           </Stack>
         </>
       )}
+
+      <DialogoTexto
+        abierto={nuevoFlujo} onCerrar={() => setNuevoFlujo(false)}
+        titulo="Nuevo flujo" etiqueta="Nombre del flujo"
+        ayuda="Nace con Por hacer, En curso y Hecho, y sus transiciones. Se ajusta después."
+        onAceptar={n => crearWf.mutate(n)}
+      />
+
+      <DialogoConfirmar
+        abierto={!!porBorrar} onCerrar={() => setPorBorrar(null)}
+        titulo={`¿Borrar «${porBorrar?.nombre ?? ''}»?`}
+        mensaje="El estado desaparece del flujo, junto con las transiciones que entran o salen de él."
+        advertencia="Si hay incidencias en ese estado, el servidor lo impide: muévalas primero."
+        textoBoton="Borrar" peligroso
+        onAceptar={() => porBorrar && borrarEstado.mutate(porBorrar.id)}
+      />
 
       <Dialog open={nuevoEstado} onClose={() => setNuevoEstado(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>Agregar estado</DialogTitle>

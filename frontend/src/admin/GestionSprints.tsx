@@ -20,6 +20,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
+import { DialogoConfirmar } from './GestionDialogos'
 import {
   gestionApi, mensajeDeError,
   type Incidencia, type Metricas, type Proyecto, type Sprint,
@@ -223,6 +224,7 @@ export default function GestionSprints({
 }) {
   const qc = useQueryClient()
   const [creando, setCreando] = useState(false)
+  const [cerrando, setCerrando] = useState(false)
   const [nombre, setNombre] = useState('')
   const [objetivo, setObjetivo] = useState('')
   const [inicio, setInicio] = useState('')
@@ -317,14 +319,7 @@ export default function GestionSprints({
               <Button
                 size="small" variant="outlined" startIcon={<Flag />}
                 disabled={cerrar.isPending}
-                onClick={() => {
-                  if (confirm(
-                    `¿Cerrar «${activo.nombre}»?\n\n` +
-                    `Lo que no esté terminado vuelve al backlog y la velocidad ` +
-                    `queda congelada. No se puede reabrir.`)) {
-                    cerrar.mutate(activo.id)
-                  }
-                }}
+                onClick={() => setCerrando(true)}
                 sx={{ textTransform: 'none' }}
               >
                 Cerrar sprint
@@ -500,6 +495,15 @@ export default function GestionSprints({
           </Stack>
         </Card>
       )}
+
+      <DialogoConfirmar
+        abierto={cerrando} onCerrar={() => setCerrando(false)}
+        titulo={`¿Cerrar «${activo?.nombre ?? ''}»?`}
+        mensaje="Lo que no esté terminado vuelve al backlog, y la velocidad queda congelada con lo que se completó."
+        advertencia="No se puede reabrir. Es a propósito: si se pudiera, la velocidad histórica cambiaría cada vez que alguien tocara un sprint viejo."
+        textoBoton="Cerrar sprint"
+        onAceptar={() => activo && cerrar.mutate(activo.id)}
+      />
 
       {/* ── Alta de sprint ── */}
       <Dialog open={creando} onClose={() => setCreando(false)} maxWidth="xs" fullWidth>

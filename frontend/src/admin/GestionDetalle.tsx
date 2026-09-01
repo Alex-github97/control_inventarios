@@ -14,7 +14,8 @@
 import { useEffect, useState } from 'react'
 import {
   Box, Dialog, DialogContent, Stack, Typography, Chip, Button, TextField,
-  IconButton, Divider, Tooltip, Skeleton, Alert, Tabs, Tab, Link,
+  IconButton, Divider, Tooltip, Skeleton, Alert, Tabs, Tab, Autocomplete,
+  MenuItem,
 } from '@mui/material'
 import {
   Close, Send, AttachFile, Edit, Check, History, ChatBubbleOutline,
@@ -23,7 +24,10 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
-import { gestionApi, mensajeDeError, type DetalleIncidencia } from './api'
+import {
+  gestionApi, mensajeDeError,
+  type DetalleIncidencia, type Persona,
+} from './api'
 import { CamposDinamicos } from './GestionCampos'
 
 const COLOR_CATEGORIA: Record<string, string> = {
@@ -68,6 +72,27 @@ export default function GestionDetalle({
     queryKey: ['gestion', 'incidencia', incidenciaId],
     queryFn: () => gestionApi.detalle(incidenciaId!),
     enabled: incidenciaId != null,
+  })
+
+  // Las listas de apoyo del panel lateral. Se piden aparte y con caché larga:
+  // cambian mucho menos que la incidencia y no tiene sentido volver a traerlas
+  // cada vez que alguien mueve una tarjeta.
+  const { data: personas } = useQuery({
+    queryKey: ['gestion', 'personas'],
+    queryFn: gestionApi.personas,
+    staleTime: 5 * 60_000,
+  })
+  const { data: config } = useQuery({
+    queryKey: ['gestion', 'config', data?.proyecto.id ?? null],
+    queryFn: () => gestionApi.configuracion(data?.proyecto.id),
+    enabled: !!data,
+    staleTime: 5 * 60_000,
+  })
+  const { data: sugeridas } = useQuery({
+    queryKey: ['gestion', 'etiquetas', data?.proyecto.id],
+    queryFn: () => gestionApi.etiquetas(data?.proyecto.id),
+    enabled: !!data,
+    staleTime: 60_000,
   })
 
   useEffect(() => {
@@ -162,6 +187,9 @@ export default function GestionDetalle({
             onDescargar={descargar}
             guardando={editar.isPending}
             moviendo={mover.isPending}
+            personas={personas ?? []}
+            prioridades={config?.prioridades ?? []}
+            sugeridas={(sugeridas ?? []).map(e => e.etiqueta)}
           />
         )}
       </DialogContent>
@@ -187,6 +215,9 @@ function Cuerpo(p: {
   onDescargar: (id: number, nombre: string) => void
   guardando: boolean
   moviendo: boolean
+  personas: Persona[]
+  prioridades: { id: number; nombre: string; color?: string | null }[]
+  sugeridas: string[]
 }) {
   const { data } = p
   const inc = data.incidencia
@@ -393,25 +424,86 @@ function Cuerpo(p: {
         }}>
           <Stack spacing={1.5}>
             <Dato etiqueta="Proyecto" valor={data.proyecto.nombre} />
-            <Dato etiqueta="Responsable" valor={inc.asignado || '— sin asignar'} />
-            <Dato etiqueta="Reportó" valor={inc.reporta || '—'} />
-            <Dato etiqueta="Prioridad" valor={inc.prioridad || '—'} />
-            <Dato etiqueta="Estimación"
-              valor={inc.puntos != null ? `${inc.puntos} pt` : '— sin estimar'} />
-            <Dato etiqueta="Creada" valor={cuando(data.creado) || '—'} />
-            {data.iniciado && <Dato etiqueta="Empezó" valor={cuando(data.iniciado)} />}
-            {data.resuelto && <Dato etiqueta="Resuelta" valor={cuando(data.resuelto)} />}
 
-            {!!inc.etiquetas.length && (
-              <Box>
-                <Etiqueta>Etiquetas</Etiqueta>
-                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap mt={0.5}>
-                  {inc.etiquetas.map(e => (
-                    <Chip key={e} label={e} size="small" sx={{ height: 20, fontSize: 10.5 }} />
-                  ))}
-                </Stack>
-              </Box>
-            )}
+            {/* Editables en el sitio. En una herramienta de trabajo, reasignar o
+                reestimar es lo que más se hace: detrás de un diálogo de edición
+                se hace la mitad de las veces. */}
+            <Autocomplete
+              size="small" options={p.personas} value={
+                p.personas.find(x => x.usuario === inc.asignado) ?? null}
+              getOptionLabel={x => x.nombre}
+              onChange={(_, v) => p.onGuardarCampo('asignado', v?.usuario ?? null)}
+              renderInput={q => <TextField {...q} label="Responsable" variant="standard" />}
+            />
+
+            <Autocomplete
+              size="small" options={p.personas} value={
+                p.personas.find(x => x.usuario === inc.reporta) ?? null}
+              getOptionLabel={x => x.nombre}
+              onChange={(_, v) => p.onGuardarCampo('reporta', v?.usuario ?? null)}
+              renderInput={q => <TextField {...q} label="Reportó" variant="standard" />}
+            />
+
+            <TextField
+              select size="small" variant="standard" label="Prioridad"
+              value={inc.prioridad_id ?? ''}
+              onChange={e => p.onGuardarCampo('prioridad_id', Number(e.target.value))}
+            >
+              {p.prioridades.map(x => (
+                <MenuItem key={x.id} value={x.id}>{x.nombre}</MenuItem>
+              ))}
+            </TextField>
+
+            <TextField
+              select size="small" variant="standard" label="Estimación"
+              value={inc.puntos ?? ''}
+              onChange={e => p.onGuardarCampo(
+                'puntos', e.target.value === '' ? null : Number(e.target.value))}
+            >
+              <MenuItem value=""><em>Sin estimar</em></MenuItem>
+              {[1, 2, 3, 5, 8, 13, 21].map(n => (
+                <MenuItem key={n} value={n}>{n}</MenuItem>
+              ))}
+            </TextField>
+
+            <Autocomplete
+              multiple freeSolo size="small" options={p.sugeridas}
+              value={inc.etiquetas}
+              onChange={(_, v) => p.onGuardarCampo(
+                'etiquetas', v.map(x => String(x).trim()).filter(Boolean))}
+              renderTags={(valores, getProps) =>
+                valores.map((v, i) => (
+                  <Chip {...getProps({ index: i })} key={v} label={v} size="small"
+                    sx={{ height: 20, fontSize: 10.5 }} />
+                ))}
+              renderInput={q => <TextField {...q} label="Etiquetas" variant="standard" />}
+            />
+
+            <Divider sx={{ my: 0.5 }} />
+
+            {/* El plan: es lo que dibuja la barra del Gantt. */}
+            <Stack direction="row" spacing={1}>
+              <TextField
+                size="small" type="date" variant="standard" label="Inicio previsto"
+                InputLabelProps={{ shrink: true }} fullWidth
+                defaultValue={(inc as any).inicio_plan?.slice(0, 10) ?? data.inicio_plan?.slice(0, 10) ?? ''}
+                onBlur={e => p.onGuardarCampo(
+                  'inicio_plan', e.target.value ? new Date(e.target.value).toISOString() : null)}
+              />
+              <TextField
+                size="small" type="date" variant="standard" label="Vence"
+                InputLabelProps={{ shrink: true }} fullWidth
+                defaultValue={inc.vence ? String(inc.vence).slice(0, 10) : ''}
+                onBlur={e => p.onGuardarCampo(
+                  'vence', e.target.value ? new Date(e.target.value).toISOString() : null)}
+              />
+            </Stack>
+
+            <Divider sx={{ my: 0.5 }} />
+
+            <Dato etiqueta="Creada" valor={cuando(data.creado) || '—'} />
+            {data.iniciado && <Dato etiqueta="Empezó de verdad" valor={cuando(data.iniciado)} />}
+            {data.resuelto && <Dato etiqueta="Resuelta" valor={cuando(data.resuelto)} />}
 
             {!!data.definicion_campos.length && (
               <>

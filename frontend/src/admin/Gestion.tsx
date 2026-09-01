@@ -33,7 +33,7 @@ import GestionGantt from './GestionGantt'
 import GestionSprints from './GestionSprints'
 import GestionPizarras from './GestionPizarras'
 import GestionConfig from './GestionConfig'
-import { CamposDinamicos } from './GestionCampos'
+import GestionAlta from './GestionAlta'
 
 const COLOR_CATEGORIA: Record<string, string> = {
   SIN_CLASIFICAR: PALETA.acero,
@@ -47,112 +47,6 @@ function cuando(iso?: string | null): string {
   return new Date(iso).toLocaleString('es-CO', {
     day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
   })
-}
-
-// ─── Alta ─────────────────────────────────────────────────────────────────────
-
-function DialogoAlta({
-  proyecto, config, abierto, onCerrar, onCreada,
-}: {
-  proyecto: Proyecto
-  config?: ConfiguracionGestion
-  abierto: boolean
-  onCerrar: () => void
-  onCreada: (id: number) => void
-}) {
-  const qc = useQueryClient()
-  const [tipoId, setTipoId] = useState<number | ''>('')
-  const [resumen, setResumen] = useState('')
-  const [descripcion, setDescripcion] = useState('')
-  const [prioridadId, setPrioridadId] = useState<number | ''>('')
-  const [campos, setCampos] = useState<Record<string, any>>({})
-  const [problemas, setProblemas] = useState<string[]>([])
-
-  useEffect(() => {
-    if (!abierto || !config) return
-    // Se propone un tipo normal: crear una épica o una subtarea es la excepción,
-    // y dejar el selector vacío obliga a un clic más en el caso corriente.
-    const normal = config.tipos.find(t => t.nivel === 'NORMAL')
-    setTipoId(normal?.id ?? config.tipos[0]?.id ?? '')
-    setPrioridadId(config.prioridades.find(p => p.por_defecto)?.id ?? '')
-    setResumen(''); setDescripcion(''); setCampos({}); setProblemas([])
-  }, [abierto, config])
-
-  const crear = useMutation({
-    mutationFn: () => gestionApi.crear({
-      proyecto_id: proyecto.id, tipo_id: tipoId, resumen, descripcion,
-      prioridad_id: prioridadId || null, campos,
-    }),
-    onSuccess: inc => {
-      toast.success(`Creada ${inc.clave}`)
-      qc.invalidateQueries({ queryKey: ['gestion'] })
-      onCerrar()
-      onCreada(inc.id)
-    },
-    onError: (e: any) => {
-      const d = e?.response?.data?.detail
-      if (d?.campos) { setProblemas(d.campos); return }
-      toast.error(mensajeDeError(e, 'No se pudo crear'))
-    },
-  })
-
-  return (
-    <Dialog open={abierto} onClose={onCerrar} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ fontWeight: 700 }}>
-        Nueva incidencia en {proyecto.nombre}
-      </DialogTitle>
-      <DialogContent>
-        <Stack spacing={2} sx={{ mt: 0.5 }}>
-          <Stack direction="row" spacing={2}>
-            <TextField
-              select size="small" label="Tipo" fullWidth value={tipoId}
-              onChange={e => setTipoId(Number(e.target.value))}
-            >
-              {config?.tipos.map(t => (
-                <MenuItem key={t.id} value={t.id}>
-                  {t.icono} {t.nombre}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              select size="small" label="Prioridad" fullWidth value={prioridadId}
-              onChange={e => setPrioridadId(Number(e.target.value))}
-            >
-              {config?.prioridades.map(p => (
-                <MenuItem key={p.id} value={p.id}>{p.nombre}</MenuItem>
-              ))}
-            </TextField>
-          </Stack>
-
-          <TextField
-            size="small" label="Título" fullWidth autoFocus required
-            value={resumen} onChange={e => setResumen(e.target.value)}
-            helperText="Se puede reescribir después, cuantas veces haga falta."
-          />
-          <TextField
-            size="small" label="Descripción" fullWidth multiline minRows={3}
-            value={descripcion} onChange={e => setDescripcion(e.target.value)}
-          />
-
-          {!!config?.campos.length && (
-            <CamposDinamicos
-              definicion={config.campos} valores={campos} problemas={problemas}
-              onCambio={(clave, valor) => setCampos({ ...campos, [clave]: valor })}
-            />
-          )}
-        </Stack>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onCerrar} sx={{ textTransform: 'none' }}>Cancelar</Button>
-        <Button
-          variant="contained" disabled={!resumen.trim() || !tipoId || crear.isPending}
-          onClick={() => crear.mutate()} sx={{ textTransform: 'none' }}
-        >
-          Crear
-        </Button>
-      </DialogActions>
-    </Dialog>
-  )
 }
 
 // ─── Lista ────────────────────────────────────────────────────────────────────
@@ -443,7 +337,7 @@ export default function Gestion() {
       {vista === 5 && <GestionConfig />}
 
       {proyecto && (
-        <DialogoAlta
+        <GestionAlta
           proyecto={proyecto} config={config} abierto={creando}
           onCerrar={() => setCreando(false)} onCreada={setAbierta}
         />

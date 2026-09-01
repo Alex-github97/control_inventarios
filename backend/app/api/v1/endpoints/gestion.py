@@ -22,6 +22,7 @@ from app.core.gestion_permisos import (
     exigir_proyecto, limitar, proyectos_visibles, roles_en,
 )
 from app.core.permisos_consola import Miembro, exigir
+from app.infrastructure.models.plataforma import PlataformaMiembro
 from app.infrastructure.models.gestion import (
     GPCampo, GPCampoOpcion, GPEstado, GPIncidencia, GPPrioridad, GPProyecto,
     GPProyectoMiembro, GPTipoIncidencia, GPTransicion, GPWorkflow,
@@ -410,6 +411,97 @@ async def ver_workflow(
             for t in transiciones
         ],
     }
+
+
+@router.get("/personas")
+async def personas(
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.ver")),
+):
+    """A quién se le puede asignar trabajo: el equipo de la consola.
+
+    Sale de `plataforma_miembro` y no de un campo de texto libre. Con texto
+    libre, «juan», «Juan» y «juan.perez» son tres responsables distintos, la
+    carga por persona se reparte en tres, y filtrar por asignado no encuentra la
+    mitad de lo que debería.
+    """
+    r = await db.execute(select(PlataformaMiembro).where(
+        PlataformaMiembro.activo.is_(True)
+    ).order_by(PlataformaMiembro.nombre, PlataformaMiembro.usuario))
+    equipo = list(r.scalars().all())
+
+    # Quien consulta va primero aunque el equipo no esté formalizado todavía:
+    # si no, la persona que está creando la incidencia no se encuentra a sí
+    # misma en el selector.
+    if not any(m.usuario == quien.usuario for m in equipo):
+        return [{"usuario": quien.usuario, "nombre": quien.usuario,
+                 "rol": quien.rol, "soy_yo": True}] + [
+            {"usuario": m.usuario, "nombre": m.nombre or m.usuario,
+             "rol": m.rol, "soy_yo": False} for m in equipo]
+
+    return [
+        {"usuario": m.usuario, "nombre": m.nombre or m.usuario, "rol": m.rol,
+         "soy_yo": m.usuario == quien.usuario}
+        for m in equipo
+    ]
+
+
+@router.get("/proyectos/{proyecto_id}/padres")
+async def padres_posibles(
+    proyecto_id: int,
+    nivel: str = "NORMAL",
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.ver")),
+):
+    """De qué puede colgar una incidencia de ese nivel, dentro del proyecto.
+
+    Se calcula acá y no en la pantalla porque la regla de jerarquía es del
+    servidor: una lista armada en el navegador acabaría ofreciendo padres que el
+    servidor rechaza al guardar.
+    """
+    await exigir_proyecto(db, quien, proyecto_id)
+
+    esperado = {"SUBTAREA": "NORMAL", "NORMAL": "EPICA"}.get((nivel or "").upper())
+    if esperado is None:
+        return []
+
+    tipos = select(GPTipoIncidencia.id).where(GPTipoIncidencia.nivel == esperado)
+    r = await db.execute(
+        select(GPIncidencia.id, GPIncidencia.numero, GPIncidencia.resumen)
+        .where(GPIncidencia.proyecto_id == proyecto_id,
+               GPIncidencia.tipo_id.in_(tipos))
+        .order_by(GPIncidencia.numero.desc()).limit(200))
+
+    proyecto = (await db.execute(select(GPProyecto).where(
+        GPProyecto.id == proyecto_id))).scalar_one()
+    return [
+        {"id": i, "clave": f"{proyecto.clave}-{n}", "resumen": s}
+        for i, n, s in r.all()
+    ]
+
+
+@router.get("/etiquetas")
+async def etiquetas_usadas(
+    proyecto_id: Optional[int] = None,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.ver")),
+):
+    """Las etiquetas que ya se están usando, para proponerlas al escribir.
+
+    Sin esto, cada quien inventa la suya —«regresion», «regresión», «regr»— y
+    las etiquetas dejan de agrupar nada.
+    """
+    consulta = select(func.jsonb_array_elements_text(GPIncidencia.etiquetas))
+    consulta = limitar(consulta, await proyectos_visibles(db, quien),
+                       GPIncidencia.proyecto_id)
+    if proyecto_id is not None:
+        consulta = consulta.where(GPIncidencia.proyecto_id == proyecto_id)
+
+    sub = consulta.subquery()
+    r = await db.execute(
+        select(sub.c[0], func.count()).select_from(sub)
+        .group_by(sub.c[0]).order_by(func.count().desc()).limit(60))
+    return [{"etiqueta": e, "usos": c} for e, c in r.all()]
 
 
 @router.get("/campos")

@@ -19,6 +19,7 @@ import { Add, Close, Dashboard, OpenInNew } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
+import { DialogoConfirmar } from './GestionDialogos'
 import {
   gestionApi, mensajeDeError,
   type Pizarra, type Proyecto, type Widget,
@@ -198,6 +199,7 @@ export default function GestionPizarras({
   const [creando, setCreando] = useState(false)
   const [nombrePizarra, setNombrePizarra] = useState('')
   const [agregando, setAgregando] = useState(false)
+  const [borrando, setBorrando] = useState(false)
 
   const [tipo, setTipo] = useState('CONTADOR')
   const [titulo, setTitulo] = useState('')
@@ -299,11 +301,7 @@ export default function GestionPizarras({
               Agregar recuadro
             </Button>
             <Button size="small" color="inherit"
-              onClick={() => {
-                if (confirm(`¿Borrar la pizarra «${actual.nombre}» y sus recuadros?`)) {
-                  borrarPizarra.mutate(actual.id)
-                }
-              }}
+              onClick={() => setBorrando(true)}
               sx={{ textTransform: 'none', color: PALETA.acero }}>
               Borrar
             </Button>
@@ -345,6 +343,15 @@ export default function GestionPizarras({
           ))}
         </Box>
       )}
+
+      <DialogoConfirmar
+        abierto={borrando} onCerrar={() => setBorrando(false)}
+        titulo={`¿Borrar «${actual?.nombre ?? ''}»?`}
+        mensaje="Se borra la pizarra con todos sus recuadros."
+        advertencia="Las incidencias no se tocan: una pizarra solo mira, no guarda nada propio."
+        textoBoton="Borrar" peligroso
+        onAceptar={() => actual && borrarPizarra.mutate(actual.id)}
+      />
 
       {/* ── Nueva pizarra ── */}
       <Dialog open={creando} onClose={() => setCreando(false)} maxWidth="xs" fullWidth>

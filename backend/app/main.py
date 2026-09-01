@@ -6,10 +6,12 @@ from contextlib import asynccontextmanager
 import logging
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+import json
 import os
 from app.core.config import settings
 from app.core.database import engine, Base
 from app.core.tenant import ESQUEMA_POR_DEFECTO
+from app.infrastructure.models.gestion import TIPOS_DE_ENTIDAD
 from app.core.middleware_tenant import TenantMiddleware
 from app.core.acceso_modulos import ModulosMiddleware
 from app.core.auth_global import exigir_sesion
@@ -240,6 +242,29 @@ async def _sembrar_gestion() -> None:
                 text("SELECT to_regclass('public.gp_workflow')"))).scalar() is None:
             return
 
+        # `create_all` no altera tablas existentes: las columnas que nacieron
+        # después de la tabla se agregan a mano.
+        for tabla, columnas in (
+            ("gp_campo", (
+                ("origen", "VARCHAR(20) DEFAULT 'PROPIO' NOT NULL"),
+                ("entidad", "VARCHAR(40)"),
+                ("almacenamiento", "VARCHAR(12) DEFAULT 'JSONB' NOT NULL"),
+                ("columna", "VARCHAR(40)"),
+                ("seccion", "VARCHAR(30) DEFAULT 'DETALLE' NOT NULL"),
+                ("orden", "INTEGER DEFAULT 0 NOT NULL"),
+            )),
+            ("gp_esquema_campo", (
+                ("visible", "BOOLEAN DEFAULT true NOT NULL"),
+            )),
+        ):
+            if (await conn.execute(text(
+                    f"SELECT to_regclass('public.{tabla}')"))).scalar() is None:
+                continue
+            for columna, tipo in columnas:
+                await conn.execute(text(
+                    f"ALTER TABLE public.{tabla} "
+                    f"ADD COLUMN IF NOT EXISTS {columna} {tipo}"))
+
         # ── El flujo por defecto ──
         hay = (await conn.execute(
             text("SELECT count(*) FROM public.gp_workflow"))).scalar() or 0
@@ -347,57 +372,200 @@ async def _sembrar_gestion() -> None:
                     {"c": clave, "n": nombre, "i": icono, "col": color,
                      "niv": nivel, "o": orden})
 
-        # ── Campos configurables de arranque ──
+        # ── El registro de campos ──
         #
-        # Son ejemplos funcionales, no columnas del sistema: demuestran los tres
-        # tipos que más se usan y se pueden borrar sin romper nada. Están acá
-        # para que la pantalla de configuración no abra vacía, que es donde la
-        # gente concluye que la función no existe.
-        hay = (await conn.execute(
-            text("SELECT count(*) FROM public.gp_campo"))).scalar() or 0
-        if hay == 0:
-            modulo = (await conn.execute(text(
-                "INSERT INTO public.gp_campo (clave, nombre, descripcion, tipo, "
-                "validacion, filtrable, ordenable, del_sistema, archivado, "
-                "created_at, updated_at) "
-                "VALUES ('modulo', 'Módulo', 'En qué parte de la plataforma ocurre.', "
-                "'LISTA', '{}'::jsonb, true, false, false, false, now(), now()) "
-                "RETURNING id"))).scalar()
-            for orden, (valor, etiqueta) in enumerate((
-                ("EAM", "Mantenimiento"), ("MES", "Producción"),
-                ("WMS", "Almacén"), ("TMS", "Transporte"),
-                ("ERP", "Administrativo"), ("OTRO", "Otro"),
-            )):
+        # Acá entran los DOS tipos: los nativos —que guardan su valor en una
+        # columna de `gp_incidencia`— y los configurables —que lo guardan en el
+        # jsonb—. Tenerlos en el mismo registro es lo que permite que el
+        # formulario se dibuje entero desde la configuración, en vez de tener
+        # media pantalla cableada y media dinámica.
+        #
+        # Se siembran uno por uno y solo si faltan, no «si la tabla está vacía»:
+        # de la otra forma, una instalación que ya tenga campos no recibiría
+        # nunca los que se agreguen después.
+        NATIVOS = [
+            # (clave, nombre, tipo, seccion, ayuda, validacion, filtrable,
+            #  almacenamiento, columna, del_sistema, defecto, obligatorio)
+            ("resumen", "Título", "TEXTO", "PRINCIPAL",
+             "Se puede reescribir después, cuantas veces haga falta.",
+             {"max": 300}, True, "COLUMNA", "resumen", True, None, True),
+            ("descripcion", "Descripción", "TEXTO_RICO", "PRINCIPAL",
+             None, {}, False, "COLUMNA", "descripcion", True, None, False),
+            ("prioridad", "Prioridad", "PRIORIDAD", "PRINCIPAL",
+             None, {}, True, "COLUMNA", "prioridad_id", True, None, False),
+            ("asignado", "Responsable", "USUARIO", "PRINCIPAL",
+             "Se puede dejar sin asignar.", {}, True, "COLUMNA", "asignado",
+             True, None, False),
+            ("reporta", "Reportó", "USUARIO", "PRINCIPAL",
+             "Cámbielo si la registra a nombre de otro.", {}, True,
+             "COLUMNA", "reporta", True, "@yo", False),
+
+            ("padre", "Cuelga de", "EPICA", "AGIL",
+             "Una normal cuelga de una épica; una subtarea, de una normal.",
+             {}, False, "COLUMNA", "padre_id", True, None, False),
+            ("sprint", "Sprint", "SPRINT", "AGIL",
+             None, {}, True, "COLUMNA", "sprint_id", True, "@sprint_activo", False),
+            ("puntos", "Estimación (puntos)", "NUMERO", "AGIL",
+             "Vacío no es cero: cero es «ya estaba hecho».",
+             {"min": 0, "max": 100}, True, "COLUMNA", "puntos", True, None, False),
+
+            ("etiquetas", "Etiquetas", "ETIQUETAS", "CLASIFICACION",
+             None, {}, False, "COLUMNA", "etiquetas", True, None, False),
+
+            ("inicio_plan", "Inicio previsto", "FECHA", "FECHAS",
+             "Con «vence» forma la barra del Gantt.", {}, True,
+             "COLUMNA", "inicio_plan", True, None, False),
+            ("vence", "Vence", "FECHA", "FECHAS",
+             None, {}, True, "COLUMNA", "vence", True, None, False),
+        ]
+
+        # Los configurables de arranque. Ninguno es del sistema: se pueden
+        # borrar, renombrar o cambiar de sitio. Están para que la pantalla no
+        # abra vacía, que es donde la gente concluye que la función no existe.
+        CONFIGURABLES = [
+            # (clave, nombre, tipo, seccion, ayuda, validacion, filtrable, opciones)
+            ("severidad", "Severidad", "LISTA", "CLASIFICACION",
+             "Qué tan grave es, con independencia de la prioridad: la prioridad "
+             "dice en qué orden se atiende y la severidad cuánto daño hace.",
+             {}, True, [("S1", "S1 · Bloqueante"), ("S2", "S2 · Grave"),
+                        ("S3", "S3 · Moderada"), ("S4", "S4 · Menor")]),
+            ("componente", "Componente", "COMPONENTE", "CLASIFICACION",
+             "Qué pieza del producto está implicada.", {}, False, []),
+            ("version_afectada", "Versión afectada", "VERSION", "CLASIFICACION",
+             "En cuál se vio.", {}, False, []),
+            ("version_corrige", "Se corrige en", "VERSION", "CLASIFICACION",
+             "En cuál entra la corrección.", {}, False, []),
+            ("modulo", "Módulo", "LISTA", "CLASIFICACION",
+             "En qué parte de la plataforma ocurre.", {}, True,
+             [("EAM", "Mantenimiento"), ("MES", "Producción"), ("WMS", "Almacén"),
+              ("TMS", "Transporte"), ("ERP", "Administrativo"), ("HCM", "Personal"),
+              ("CRM", "Comercial"), ("OTRO", "Otro")]),
+            ("ambiente", "Ambiente", "LISTA", "CLASIFICACION",
+             "Dónde se vio. Un fallo en producción no se prioriza como uno en "
+             "pruebas.", {}, True,
+             [("PRODUCCION", "Producción"), ("PRUEBAS", "Pruebas"),
+              ("LOCAL", "Local")]),
+            ("equipo", "Equipo", "LISTA", "CLASIFICACION",
+             "Qué equipo responde.", {}, True,
+             [("PLATAFORMA", "Plataforma"), ("PRODUCTO", "Producto"),
+              ("SOPORTE", "Soporte"), ("DATOS", "Datos")]),
+            ("empresa_afectada", "Empresa afectada", "TEXTO", "CLASIFICACION",
+             "A qué cliente le ocurre.", {"max": 120}, True, []),
+
+            ("pasos_reproducir", "Pasos para reproducir", "TEXTO_LARGO", "DETALLE",
+             "Qué hay que hacer, en orden, para que vuelva a pasar. Es lo que "
+             "separa un reporte que se puede atender de uno que hay que devolver.",
+             {}, False, []),
+            ("resultado_esperado", "Qué debería pasar", "TEXTO_LARGO", "DETALLE",
+             "Sin esto, «no funciona» no dice qué es funcionar.", {}, False, []),
+            ("resultado_actual", "Qué pasa en su lugar", "TEXTO_LARGO", "DETALLE",
+             None, {}, False, []),
+            ("historia_usuario", "Historia de usuario", "TEXTO_LARGO", "DETALLE",
+             "Como <quién> quiero <qué> para <para qué>.", {}, False, []),
+            ("criterios_aceptacion", "Criterios de aceptación", "TEXTO_LARGO",
+             "DETALLE",
+             "Cuándo se considera terminada. Sin esto, «hecho» lo decide quien "
+             "lo hizo.", {}, False, []),
+            ("url_afectada", "Dónde ocurre", "URL", "DETALLE",
+             "La dirección de la pantalla donde pasa.", {}, False, []),
+
+            ("esfuerzo_horas", "Esfuerzo estimado (h)", "DECIMAL", "AVANZADO",
+             "Solo para planear capacidad; la estimación relativa son los puntos.",
+             {"min": 0, "max": 400, "decimales": 1}, False, []),
+            ("contacto", "Contacto del cliente", "CORREO", "AVANZADO",
+             "A quién avisar cuando se resuelva.", {}, False, []),
+        ]
+
+        async def _sembrar_campo(clave, nombre, tipo, seccion, ayuda, validacion,
+                                 filtrable, origen, entidad, almacenamiento,
+                                 columna, del_sistema, defecto, obligatorio,
+                                 opciones, orden):
+            """Da de alta un campo si falta, con su regla de uso y su índice."""
+            ya = (await conn.execute(text(
+                "SELECT id FROM public.gp_campo WHERE clave = :c"),
+                {"c": clave})).scalar()
+            if ya is not None:
+                return
+
+            campo_id = (await conn.execute(text(
+                "INSERT INTO public.gp_campo (clave, nombre, descripcion, ayuda, "
+                "tipo, origen, entidad, almacenamiento, columna, seccion, orden, "
+                "validacion, valor_defecto, filtrable, ordenable, del_sistema, "
+                "archivado, created_at, updated_at) "
+                "VALUES (:c, :n, NULL, :a, :t, :ori, :ent, :alm, :col, :sec, :o, "
+                "CAST(:v AS jsonb), CAST(:d AS jsonb), :f, :f, :sis, false, "
+                "now(), now()) RETURNING id"),
+                {"c": clave, "n": nombre, "a": ayuda, "t": tipo, "ori": origen,
+                 "ent": entidad, "alm": almacenamiento, "col": columna,
+                 "sec": seccion, "o": orden, "v": json.dumps(validacion),
+                 "d": json.dumps(defecto) if defecto is not None else None,
+                 "f": filtrable, "sis": del_sistema})).scalar()
+
+            for i, (valor, etiqueta) in enumerate(opciones):
                 await conn.execute(text(
                     "INSERT INTO public.gp_campo_opcion (campo_id, valor, etiqueta, "
                     "orden, archivada) VALUES (:c, :v, :e, :o, false)"),
-                    {"c": modulo, "v": valor, "e": etiqueta, "o": orden})
+                    {"c": campo_id, "v": valor, "e": etiqueta, "o": i})
 
-            await conn.execute(text(
-                "INSERT INTO public.gp_campo (clave, nombre, descripcion, tipo, "
-                "validacion, filtrable, ordenable, del_sistema, archivado, "
-                "created_at, updated_at) VALUES "
-                "('empresa_afectada', 'Empresa afectada', "
-                "'A qué cliente le ocurre.', 'TEXTO', '{\"max\": 120}'::jsonb, "
-                "true, false, false, false, now(), now()), "
-                "('esfuerzo_horas', 'Esfuerzo estimado (h)', "
-                "'Solo para planear capacidad; la estimación relativa son los puntos.', "
-                "'DECIMAL', '{\"min\": 0, \"max\": 400, \"decimales\": 1}'::jsonb, "
-                "false, true, false, false, now(), now())"))
-
-            # Y se declaran aplicables. Un campo sin fila en `gp_esquema_campo`
-            # existe pero no aplica a nada: sale en la pantalla de configuración
-            # y no en ningún formulario, que es de los fallos que no se notan
-            # hasta que alguien pregunta por qué no puede llenarlo.
-            # Sin proyecto ni tipo = global, y cada proyecto puede afinarlo.
+            # La regla de uso, en el mismo paso. Un campo sin fila en
+            # `gp_esquema_campo` existe pero no aplica a nada: sale en la
+            # configuracion y en ningun formulario, y nadie lo descubre hasta que
+            # pregunta por que no puede llenarlo.
             await conn.execute(text(
                 "INSERT INTO public.gp_esquema_campo (proyecto_id, tipo_id, "
-                "campo_id, obligatorio, solo_lectura, orden) "
-                "SELECT NULL, NULL, id, false, false, "
-                "CASE clave WHEN 'modulo' THEN 0 "
-                "           WHEN 'empresa_afectada' THEN 1 ELSE 2 END "
-                "FROM public.gp_campo "
-                "WHERE clave IN ('modulo', 'empresa_afectada', 'esfuerzo_horas')"))
+                "campo_id, obligatorio, solo_lectura, visible, orden) "
+                "VALUES (NULL, NULL, :c, :ob, false, true, :o)"),
+                {"c": campo_id, "ob": obligatorio, "o": orden})
+
+            # Su indice por expresion, si se filtra por el y vive en el jsonb.
+            # Los de columna ya tienen los suyos. La clave viene de estas listas
+            # y no de fuera, asi que interpolarla es seguro.
+            if filtrable and almacenamiento == "JSONB":
+                if tipo in ("NUMERO", "DECIMAL"):
+                    expresion = f"((campos ->> '{clave}')::numeric)"
+                elif tipo in ("FECHA", "FECHA_HORA"):
+                    expresion = f"((campos ->> '{clave}')::timestamptz)"
+                else:
+                    expresion = f"((campos ->> '{clave}'))"
+                await conn.execute(text(
+                    f'CREATE INDEX IF NOT EXISTS "ix_gp_inc_campo_{clave}" '
+                    f'ON public.gp_incidencia {expresion}'))
+
+        for orden, fila in enumerate(NATIVOS):
+            (clave, nombre, tipo, seccion, ayuda, validacion, filtrable,
+             almacenamiento, columna, del_sistema, defecto, obligatorio) = fila
+            entidad = TIPOS_DE_ENTIDAD.get(tipo)
+            await _sembrar_campo(
+                clave, nombre, tipo, seccion, ayuda, validacion, filtrable,
+                "ENTIDAD" if entidad else "PROPIO", entidad, almacenamiento,
+                columna, del_sistema, defecto, obligatorio, [], orden)
+
+        for orden, fila in enumerate(CONFIGURABLES):
+            (clave, nombre, tipo, seccion, ayuda, validacion, filtrable,
+             opciones) = fila
+            entidad = TIPOS_DE_ENTIDAD.get(tipo)
+            await _sembrar_campo(
+                clave, nombre, tipo, seccion, ayuda, validacion, filtrable,
+                "ENTIDAD" if entidad else "PROPIO", entidad, "JSONB", None,
+                False, None, False, opciones, 100 + orden)
+
+        # ── Cómo se relacionan dos incidencias ──
+        #
+        # Con su nombre en los dos sentidos: el vínculo se guarda una vez —A
+        # bloquea a B— y se lee desde los dos lados, así que hay que saber cómo
+        # se llama visto desde B.
+        for orden, (clave, nombre, inverso) in enumerate((
+            ("BLOQUEA", "bloquea a", "bloqueada por"),
+            ("DUPLICA", "duplica a", "duplicada por"),
+            ("RELACIONA", "se relaciona con", "se relaciona con"),
+            ("CAUSA", "causa", "causada por"),
+            ("DEPENDE", "depende de", "requerida por"),
+        )):
+            await conn.execute(text(
+                "INSERT INTO public.gp_tipo_vinculo (clave, nombre, inverso, "
+                "orden, activo) VALUES (:c, :n, :i, :o, true) "
+                "ON CONFLICT (clave) DO NOTHING"),
+                {"c": clave, "n": nombre, "i": inverso, "o": orden})
 
         # ── Un proyecto para empezar ──
         hay = (await conn.execute(

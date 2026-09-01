@@ -21,6 +21,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
+import { DialogoTexto } from './GestionDialogos'
 import {
   gestionApi, mensajeDeError,
   type CampoConsultable, type FiltroGuardado,
@@ -172,6 +173,7 @@ export function BarraDeFiltro({
   const [guardados, setGuardados] = useState<null | HTMLElement>(null)
   const [revision, setRevision] = useState<{ valido: boolean; mensaje?: string | null } | null>(null)
   const [revisando, setRevisando] = useState(false)
+  const [guardandoNombre, setGuardandoNombre] = useState(false)
 
   const { data: catalogo } = useQuery({
     queryKey: ['gestion', 'campos-consulta'],
@@ -293,10 +295,7 @@ export function BarraDeFiltro({
           <Button
             size="small" fullWidth startIcon={<BookmarkBorder />}
             disabled={!expresion.trim() || !!roto || guardar.isPending}
-            onClick={() => {
-              const nombre = prompt('¿Con qué nombre se guarda este filtro?')
-              if (nombre?.trim()) guardar.mutate(nombre.trim())
-            }}
+            onClick={() => { setGuardados(null); setGuardandoNombre(true) }}
           >
             Guardar el filtro actual
           </Button>
@@ -315,6 +314,14 @@ export function BarraDeFiltro({
           ))}
         </Box>
       </Popover>
+
+      <DialogoTexto
+        abierto={guardandoNombre} onCerrar={() => setGuardandoNombre(false)}
+        titulo="Guardar filtro" etiqueta="Nombre"
+        ayuda="Se guarda compartido: cualquiera del equipo puede usarlo."
+        textoBoton="Guardar"
+        onAceptar={n => guardar.mutate(n)}
+      />
     </Box>
   )
 }
