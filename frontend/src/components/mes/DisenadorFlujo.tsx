@@ -29,7 +29,7 @@ import {
 import {
   Save, DeleteOutline, Search, PrecisionManufacturing, Inventory2, Settings,
   FactCheck, Inbox, Outbox, Timeline, CenterFocusStrong, Warning,
-  Bolt, Close,
+  Bolt, Close, Add, Remove, FitScreen,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
@@ -268,7 +268,26 @@ type Arrastre =
   | { que: 'nodo'; id: number; dx: number; dy: number }
   | { que: 'pieza'; plantilla: Omit<Nodo, 'id' | 'pos_x' | 'pos_y'> }
   | { que: 'conexion'; desde: number }
+  // Mover el lienzo entero. Se guarda dónde empezó el gesto y en qué punto
+  // estaba el desplazamiento, y se mueve por diferencia: seguir al puntero por
+  // posición absoluta haría saltar el lienzo al primer píxel.
+  | { que: 'pan'; x: number; y: number; izq: number; arr: number }
   | null
+
+/* ── El acercamiento ───────────────────────────────────────────────────────── */
+//
+// Una línea con quince etapas no cabe en la pantalla, y verla entera obligaba a
+// desplazarse a ciegas. El acercamiento se mueve entre un tercio y el doble:
+// más lejos las cajas dejan de leerse y más cerca no cabe casi nada.
+const ESCALA_MIN = 0.35
+const ESCALA_MAX = 2
+// Por unidad de rueda. Una muesca del ratón manda unos 120, así que con esto
+// hacen falta ocho para duplicar el tamaño. Con el triple —lo primero que
+// probé— cinco muescas iban del 100 % al tope y no había forma de pararse en
+// un punto intermedio.
+const ESCALA_PASO = 0.0008
+
+const acotar = (v: number) => Math.min(ESCALA_MAX, Math.max(ESCALA_MIN, v))
 
 export function DisenadorFlujo({ lineaId }: { lineaId: number }) {
   const qc = useQueryClient()
@@ -283,9 +302,14 @@ export function DisenadorFlujo({ lineaId }: { lineaId: number }) {
   const [busqueda, setBusqueda] = useState('')
   const [tipoConexion, setTipoConexion] = useState<TipoConexion>('NORMAL')
   const [raton, setRaton] = useState<{ x: number; y: number } | null>(null)
+  const [escala, setEscala] = useState(1)
   // El arrastre vive en una ref: cambia en cada píxel del movimiento y volver a
   // pintar todo el lienzo en cada uno lo haría ir a tirones.
   const arrastre = useRef<Arrastre>(null)
+  // La escala también, para que los manejadores nativos —que se registran una
+  // vez— siempre lean la vigente y no la del render en que se colgaron.
+  const escalaRef = useRef(1)
+  escalaRef.current = escala
 
   const { data: flujo, isLoading } = useQuery<Flujo>({
     queryKey: ['mes-flujo', lineaId],
@@ -339,14 +363,95 @@ export function DisenadorFlujo({ lineaId }: { lineaId: number }) {
 
   /* ── El gesto ───────────────────────────────────────────────────────────── */
 
+  /** De la pantalla a las coordenadas del esquema.
+   *
+   *  Se divide por la escala porque las posiciones de los nodos se guardan en
+   *  las medidas del esquema, no en las de la pantalla: sin esa división, con
+   *  el lienzo alejado una caja se iría al doble de distancia que el puntero. */
   const puntoEnLienzo = useCallback((e: { clientX: number; clientY: number }) => {
     const caja = lienzo.current?.getBoundingClientRect()
     if (!caja || !lienzo.current) return { x: 0, y: 0 }
+    const z = escalaRef.current
     return {
-      x: e.clientX - caja.left + lienzo.current.scrollLeft,
-      y: e.clientY - caja.top + lienzo.current.scrollTop,
+      x: (e.clientX - caja.left + lienzo.current.scrollLeft) / z,
+      y: (e.clientY - caja.top + lienzo.current.scrollTop) / z,
     }
   }, [])
+
+  /** Acerca o aleja dejando quieto el punto que está bajo el puntero.
+   *
+   *  Es lo que hace que el gesto se sienta natural: se acerca a lo que se está
+   *  mirando. Escalando sin más, el contenido se escapa hacia una esquina y hay
+   *  que ir a buscarlo. */
+  const acercarEn = useCallback((nueva: number, clientX: number, clientY: number) => {
+    const el = lienzo.current
+    if (!el) return
+    const caja = el.getBoundingClientRect()
+    const anterior = escalaRef.current
+    const destino = acotar(nueva)
+    if (destino === anterior) return
+
+    // El punto del esquema que hay bajo el puntero, antes de mover nada.
+    const ex = (clientX - caja.left + el.scrollLeft) / anterior
+    const ey = (clientY - caja.top + el.scrollTop) / anterior
+
+    escalaRef.current = destino
+    setEscala(destino)
+    // Y se recoloca el desplazamiento para que ese mismo punto siga ahí. Va en
+    // el siguiente cuadro porque el contenedor todavía no cambió de tamaño.
+    requestAnimationFrame(() => {
+      el.scrollLeft = ex * destino - (clientX - caja.left)
+      el.scrollTop = ey * destino - (clientY - caja.top)
+    })
+  }, [])
+
+  /** Encaja el esquema completo en la ventana. */
+  const encajar = useCallback(() => {
+    const el = lienzo.current
+    if (!el || nodos.length === 0) return
+    const x1 = Math.min(...nodos.map(n => n.pos_x))
+    const y1 = Math.min(...nodos.map(n => n.pos_y))
+    const x2 = Math.max(...nodos.map(n => n.pos_x + ANCHO_NODO))
+    const y2 = Math.max(...nodos.map(n => n.pos_y + ALTO_NODO))
+    const margen = 60
+    const z = acotar(Math.min(
+      (el.clientWidth - margen) / Math.max(1, x2 - x1),
+      (el.clientHeight - margen) / Math.max(1, y2 - y1),
+    ))
+    escalaRef.current = z
+    setEscala(z)
+    requestAnimationFrame(() => {
+      el.scrollLeft = x1 * z - (el.clientWidth - (x2 - x1) * z) / 2
+      el.scrollTop = y1 * z - (el.clientHeight - (y2 - y1) * z) / 2
+    })
+  }, [nodos])
+
+  /* La rueda del ratón, en un manejador nativo y no pasivo.
+   *
+   * React registra `onWheel` como pasivo, y un manejador pasivo no puede
+   * impedir el desplazamiento de la página: la rueda acercaría el esquema y de
+   * paso movería todo lo demás. */
+  useEffect(() => {
+    const el = lienzo.current
+    if (!el) return
+    const rueda = (e: WheelEvent) => {
+      // Con Mayús, la rueda desplaza de lado. Es la convención de casi
+      // cualquier lienzo y evita tener que arrastrar para un ajuste corto.
+      if (e.shiftKey) {
+        e.preventDefault()
+        el.scrollLeft += e.deltaY + e.deltaX
+        return
+      }
+      e.preventDefault()
+      acercarEn(escalaRef.current * (1 - e.deltaY * ESCALA_PASO), e.clientX, e.clientY)
+    }
+    el.addEventListener('wheel', rueda, { passive: false })
+    return () => el.removeEventListener('wheel', rueda)
+    // `flujo` está en las dependencias porque mientras carga se dibuja un
+    // esqueleto y el lienzo todavía no existe: el efecto corría con la
+    // referencia vacía, se rendía, y como sus dependencias no cambiaban nunca
+    // más, la rueda quedaba muerta para siempre.
+  }, [acercarEn, flujo])
 
   /** Fija el puntero al elemento donde empezó el gesto.
    *
@@ -382,6 +487,22 @@ export function DisenadorFlujo({ lineaId }: { lineaId: number }) {
     setRaton(puntoEnLienzo(e))
   }
 
+  /** Empezar a mover el lienzo.
+   *
+   *  Solo llega acá cuando el gesto empezó en el fondo: las cajas detienen la
+   *  propagación en su propio `pointerdown`, así que arrastrar una caja la
+   *  mueve a ella y arrastrar el fondo mueve la vista. */
+  const tomarLienzo = (e: React.PointerEvent) => {
+    setSeleccion(null)
+    const el = lienzo.current
+    if (!el) return
+    capturar(e)
+    arrastre.current = {
+      que: 'pan', x: e.clientX, y: e.clientY,
+      izq: el.scrollLeft, arr: el.scrollTop,
+    }
+  }
+
   const terminarConexion = (destino: number) => {
     const a = arrastre.current
     if (!a || a.que !== 'conexion' || a.desde === destino) return
@@ -414,6 +535,16 @@ export function DisenadorFlujo({ lineaId }: { lineaId: number }) {
     const mover = (e: PointerEvent) => {
       const a = arrastre.current
       if (!a) return
+      if (a.que === 'pan') {
+        // Mover la vista no toca el esquema, así que no pasa por el estado:
+        // se ajusta el desplazamiento directamente y el lienzo no se repinta.
+        const el = lienzo.current
+        if (el) {
+          el.scrollLeft = a.izq - (e.clientX - a.x)
+          el.scrollTop = a.arr - (e.clientY - a.y)
+        }
+        return
+      }
       const p = puntoEnLienzo(e)
       if (a.que === 'nodo') {
         setNodos(ns => ns.map(n => n.id === a.id
@@ -586,21 +717,40 @@ export function DisenadorFlujo({ lineaId }: { lineaId: number }) {
         flexDirection: { xs: 'column-reverse', md: 'row' } }}>
 
         {/* ── El lienzo ─────────────────────────────────────────────────── */}
+        <Box sx={{ flex: 1, minWidth: 0, position: 'relative' }}>
         <Card
           ref={lienzo}
           data-lienzo="1"
-          onPointerDown={() => setSeleccion(null)}
+          onPointerDown={tomarLienzo}
           sx={{
-            flex: 1, position: 'relative', overflow: 'auto', borderRadius: 3,
-            height: 640, minWidth: 0,
+            position: 'relative', overflow: 'auto', borderRadius: 3,
+            height: 640, width: '100%',
             border: `1px solid ${PALETA.niebla}`,
             backgroundColor: '#FBFCFE',
             backgroundImage:
               'radial-gradient(circle, rgba(15,23,42,.10) 1px, transparent 1px)',
-            backgroundSize: '22px 22px',
+            // La cuadrícula acompaña al acercamiento: si se quedara fija, al
+            // alejar el esquema parecería que el fondo se acerca.
+            backgroundSize: `${22 * escala}px ${22 * escala}px`,
+            cursor: 'grab',
+            '&:active': { cursor: 'grabbing' },
           }}
         >
-          <Box sx={{ position: 'relative', width: LIENZO_ANCHO, height: LIENZO_ALTO }}>
+          {/* Dos cajas: la de afuera ocupa el tamaño ya escalado —es la que le
+              dice al navegador cuánto hay para desplazarse— y la de adentro
+              conserva las medidas del esquema y se escala entera. Con una sola,
+              la transformación no cambia el tamaño de la maquetación y las
+              barras de desplazamiento se quedarían cortas. */}
+          <Box sx={{
+            width: LIENZO_ANCHO * escala, height: LIENZO_ALTO * escala,
+            position: 'relative',
+          }}>
+          <Box sx={{
+            position: 'absolute', top: 0, left: 0,
+            width: LIENZO_ANCHO, height: LIENZO_ALTO,
+            transform: `scale(${escala})`, transformOrigin: '0 0',
+          }}
+          data-escala={escala}>
             <svg width={LIENZO_ANCHO} height={LIENZO_ALTO}
               style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
               <defs>
@@ -662,7 +812,69 @@ export function DisenadorFlujo({ lineaId }: { lineaId: number }) {
               </Box>
             )}
           </Box>
+          </Box>
         </Card>
+
+        {/* Los controles del acercamiento. Van encima del lienzo y no en la
+            barra de arriba porque es donde se mira mientras se dibuja. */}
+        <Card sx={{
+          position: 'absolute', right: 12, bottom: 12, zIndex: 6,
+          display: 'flex', alignItems: 'center', borderRadius: 2,
+          border: `1px solid ${PALETA.niebla}`, bgcolor: 'rgba(255,255,255,.94)',
+          backdropFilter: 'blur(4px)',
+        }}>
+          <Tooltip title="Alejar">
+            <span>
+              <IconButton size="small" disabled={escala <= ESCALA_MIN}
+                onClick={() => {
+                  const c = lienzo.current?.getBoundingClientRect()
+                  if (c) acercarEn(escala - 0.15, c.left + c.width / 2, c.top + c.height / 2)
+                }}>
+                <Remove sx={{ fontSize: 17 }} />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title="Volver al tamaño original">
+            <Box component="button" onClick={() => {
+              const c = lienzo.current?.getBoundingClientRect()
+              if (c) acercarEn(1, c.left + c.width / 2, c.top + c.height / 2)
+            }} sx={{
+              border: 0, bgcolor: 'transparent', cursor: 'pointer', px: 0.5,
+              fontSize: 11.5, fontWeight: 800, color: PALETA.grafito,
+              minWidth: 44, fontVariantNumeric: 'tabular-nums',
+            }}>
+              {Math.round(escala * 100)}%
+            </Box>
+          </Tooltip>
+          <Tooltip title="Acercar">
+            <span>
+              <IconButton size="small" disabled={escala >= ESCALA_MAX}
+                onClick={() => {
+                  const c = lienzo.current?.getBoundingClientRect()
+                  if (c) acercarEn(escala + 0.15, c.left + c.width / 2, c.top + c.height / 2)
+                }}>
+                <Add sx={{ fontSize: 17 }} />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Divider orientation="vertical" flexItem sx={{ my: 0.75 }} />
+          <Tooltip title="Encajar el esquema completo">
+            <span>
+              <IconButton size="small" onClick={encajar} disabled={nodos.length === 0}>
+                <FitScreen sx={{ fontSize: 17 }} />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Card>
+
+        <Typography sx={{
+          position: 'absolute', left: 12, bottom: 14, zIndex: 6,
+          fontSize: 10.5, color: PALETA.acero, pointerEvents: 'none',
+          bgcolor: 'rgba(255,255,255,.75)', px: 0.75, borderRadius: 1,
+        }}>
+          Rueda para acercar · arrastre el fondo para mover · Mayús + rueda de lado
+        </Typography>
+        </Box>
 
         {/* ── El panel de la derecha ────────────────────────────────────── */}
         <Card sx={{
