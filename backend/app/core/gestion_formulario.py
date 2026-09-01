@@ -546,11 +546,43 @@ async def validar(db: AsyncSession, campos: List[CampoDelFormulario],
 def _guardar(campo: GPCampo, columnas: Dict[str, Any], jsonb: Dict[str, Any],
              valor: Any) -> None:
     if campo.almacenamiento == "COLUMNA" and campo.columna:
-        columnas[campo.columna] = valor
+        columnas[campo.columna] = _para_columna(campo, valor)
     elif valor is None:
         jsonb.pop(campo.clave, None)
     else:
         jsonb[campo.clave] = valor
+
+
+def _para_columna(campo: GPCampo, valor: Any) -> Any:
+    """Lleva el valor al tipo que espera la columna.
+
+    Los validadores devuelven la fecha como texto ISO, que es lo correcto para el
+    jsonb —ahí todo es JSON—. Una columna `timestamptz` no lo acepta: asyncpg es
+    estricto y falla con «expected a datetime.date or datetime.datetime
+    instance», que llega al navegador como un 500 sin explicación.
+
+    Es la costura entre los dos almacenamientos, y hay que cruzarla acá: dejarlo
+    para el modelo significaría que cada sitio que escriba una fecha tenga que
+    acordarse.
+    """
+    if valor is None:
+        return None
+    if campo.tipo in ("FECHA", "FECHA_HORA") and isinstance(valor, str):
+        texto = valor.strip().replace("Z", "+00:00")
+        try:
+            momento = datetime.fromisoformat(texto)
+        except ValueError:
+            try:
+                momento = datetime.combine(date.fromisoformat(texto[:10]),
+                                           datetime.min.time())
+            except ValueError:
+                raise HTTPException(
+                    422, {"campos": [f"«{campo.nombre}» no es una fecha válida."]})
+        # Sin zona se asume UTC: la columna la lleva, y dejarla ingenua hace que
+        # PostgreSQL la interprete con la zona de la sesión, que no es la misma
+        # en todas las conexiones.
+        return momento if momento.tzinfo else momento.replace(tzinfo=timezone.utc)
+    return valor
 
 
 def _equivalente(tipo: str) -> str:

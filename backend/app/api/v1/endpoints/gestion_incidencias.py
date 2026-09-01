@@ -468,13 +468,12 @@ async def crear(
     columnas, jsonb = await gestion_formulario.validar(
         db, aplicables, entrantes, proyecto.id)
 
+    # Todo lo validado va por `columnas`, incluido el título: sacarlo a mano era
+    # duplicar el reparto que el motor ya hizo, y lo que se saca en un sitio y no
+    # en el otro es lo que después se guarda en ninguna parte.
     inc = await gestion_incidencias.crear(
-        db, proyecto, tipo_id=tipo.id,
-        resumen=columnas.pop("resumen", "") or "",
-        descripcion=columnas.pop("descripcion", None),
-        autor=quien.usuario,
-        campos=jsonb,
-        columnas=columnas,
+        db, proyecto, tipo_id=tipo.id, resumen="", descripcion=None,
+        autor=quien.usuario, campos=jsonb, columnas=columnas,
     )
     await db.commit()
     await db.refresh(inc)

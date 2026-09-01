@@ -202,40 +202,60 @@ async def crear(db: AsyncSession, proyecto: GPProyecto, *, tipo_id: int,
         estado_id = (await estado_inicial(db, workflow_id)).id
 
     # Los campos ya vienen validados cuando el alta pasa por el motor del
-    # formulario. Se revalidan solo si llegaron por otra vía —el ascenso desde
-    # soporte—, que no pasa por él.
+    # formulario. Cuando llegan por otra vía —el ascenso desde soporte— se
+    # validan acá, por el MISMO motor.
+    #
+    # Antes se usaba el validador viejo, que no sabe de almacenamiento: desde que
+    # los campos nativos entraron al registro, veía «Título» entre los aplicables,
+    # no lo encontraba en el jsonb —vive en una columna— y lo daba por vacío. El
+    # ascenso desde soporte fallaba con «Título es obligatorio» aunque el título
+    # venía puesto, en su argumento.
+    #
+    # Los obligatorios no se exigen por esta vía: quien llama trae el título y la
+    # descripción en sus argumentos, y los demás campos los llena el equipo al
+    # clasificar. Exigirlos impediría clasificar una solicitud que llegó a medias,
+    # que es justo lo que hay que poder hacer.
     if columnas is None:
-        aplicables = await gestion_campos.campos_aplicables(db, proyecto.id, tipo.id)
-        valores = gestion_campos.validar(aplicables, campos or {})
+        from app.core import gestion_formulario   # acá para no cerrar un ciclo
+
+        aplicables = await gestion_formulario.campos_del(db, proyecto.id, tipo.id)
+        await gestion_formulario.cargar_opciones(db, aplicables, proyecto.id)
+        de_columna, valores = await gestion_formulario.validar(
+            db, aplicables, campos or {}, proyecto.id, exigir_obligatorios=False)
+        columnas = de_columna
     else:
         valores = dict(campos or {})
 
-    resumen = (resumen or "").strip()
+    # Lo que va a cada columna: primero los argumentos sueltos —los que usa el
+    # ascenso desde soporte— y encima lo que el motor del formulario validó.
+    #
+    # Va por nombre y no con una cadena de `elif` a propósito: con la cadena, un
+    # campo nativo nuevo se guardaba en silencio en ninguna parte, porque nadie
+    # se acordaba de agregarle su rama. Acá, lo que el motor produzca llega solo.
+    datos: Dict[str, Any] = {
+        "resumen": resumen, "descripcion": descripcion,
+        "asignado": asignado, "reporta": reporta or autor,
+        "prioridad_id": prioridad_id, "padre_id": padre_id,
+        "sprint_id": sprint_id, "puntos": puntos,
+        "vence": vence, "inicio_plan": inicio_plan,
+        "etiquetas": etiquetas,
+    }
+    for columna, valor in (columnas or {}).items():
+        if columna in datos:
+            datos[columna] = valor
+        else:
+            # Una columna que el motor conoce y esta función no: si se ignorara,
+            # el campo se guardaría en ninguna parte sin que nadie se entere.
+            raise HTTPException(
+                500,
+                f"El campo «{columna}» apunta a una columna que el alta no sabe "
+                f"llenar. Revise su configuración.")
+
+    resumen = (datos["resumen"] or "").strip()
     if not resumen:
         raise HTTPException(422, "La incidencia necesita un título.")
 
-    # Lo que el motor del formulario ya validó y repartió. Se aplica encima de
-    # los argumentos sueltos, que son los que usa el ascenso desde soporte.
-    for columna, valor in (columnas or {}).items():
-        if columna == "asignado":
-            asignado = valor
-        elif columna == "reporta":
-            reporta = valor
-        elif columna == "prioridad_id":
-            prioridad_id = valor
-        elif columna == "padre_id":
-            padre_id = valor
-        elif columna == "sprint_id":
-            sprint_id = valor
-        elif columna == "puntos":
-            puntos = valor
-        elif columna == "vence":
-            vence = valor
-        elif columna == "inicio_plan":
-            inicio_plan = valor
-        elif columna == "etiquetas":
-            etiquetas = valor
-
+    padre_id = datos["padre_id"]
     if padre_id is not None:
         await validar_padre(db, padre_id, proyecto.id, tipo)
 
@@ -251,19 +271,20 @@ async def crear(db: AsyncSession, proyecto: GPProyecto, *, tipo_id: int,
         numero=numero,
         tipo_id=tipo.id,
         estado_id=estado_id,
-        prioridad_id=prioridad_id or await prioridad_por_defecto(db),
+        prioridad_id=datos["prioridad_id"] or await prioridad_por_defecto(db),
         resumen=resumen[:300],
-        descripcion=descripcion,
-        reporta=(reporta or autor),
-        asignado=asignado,
+        descripcion=datos["descripcion"],
+        reporta=datos["reporta"] or autor,
+        asignado=datos["asignado"],
         padre_id=padre_id,
-        puntos=puntos,
+        puntos=datos["puntos"],
         orden=float(ultimo) + 1000.0,
-        etiquetas=sorted({str(e).strip() for e in (etiquetas or []) if str(e).strip()}),
+        etiquetas=sorted({str(e).strip()
+                          for e in (datos["etiquetas"] or []) if str(e).strip()}),
         campos=valores,
-        vence=vence,
-        inicio_plan=inicio_plan,
-        sprint_id=sprint_id,
+        vence=datos["vence"],
+        inicio_plan=datos["inicio_plan"],
+        sprint_id=datos["sprint_id"],
         ticket_id=ticket_id,
         actualizado=datetime.now(timezone.utc),
     )
