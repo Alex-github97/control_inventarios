@@ -344,6 +344,277 @@ export interface MetricasAgiles {
 }
 
 
+// ─── Gestión de proyectos e incidencias ───────────────────────────────────────
+//
+// Es distinto de la mesa de ayuda, y a propósito: el ticket guarda lo que
+// escribió el cliente y su asunto no se toca nunca; la incidencia es el trabajo
+// que decidimos hacer y su título se reescribe a medida que se entiende mejor el
+// pedido. Por eso son dos cosas unidas por un vínculo y no una sola.
+
+export interface Proyecto {
+  id: number
+  clave: string
+  nombre: string
+  descripcion?: string | null
+  icono?: string | null
+  color?: string | null
+  lider?: string | null
+  workflow_id?: number | null
+  restringido: boolean
+  incidencia_automatica: boolean
+  archivado: boolean
+  abiertas: number
+  total: number
+  mi_rol?: string | null
+}
+
+export interface Incidencia {
+  id: number
+  clave: string
+  proyecto_id: number
+  resumen: string
+  tipo?: string | null
+  tipo_id?: number | null
+  icono?: string | null
+  estado?: string | null
+  estado_id?: number | null
+  categoria?: string | null
+  color_estado?: string | null
+  prioridad?: string | null
+  prioridad_id?: number | null
+  color_prioridad?: string | null
+  asignado?: string | null
+  reporta?: string | null
+  puntos?: number | null
+  padre_id?: number | null
+  sprint_id?: number | null
+  etiquetas: string[]
+  campos: Record<string, any>
+  vence?: string | null
+  actualizado?: string | null
+  ticket_id?: number | null
+}
+
+export interface PaginaIncidencias {
+  resultados: Incidencia[]
+  /** Vacío = no hay más. Se pagina por cursor, no por número de página. */
+  siguiente?: string | null
+  total?: number | null
+  orden?: { campo: string; ascendente: boolean } | null
+}
+
+/** Una transición del flujo, ya evaluada para quien mira.
+ *  Las que no pasan las condiciones ni se devuelven; las que fallan una
+ *  validación llegan con `lista: false` y el motivo, porque esconder un botón
+ *  sin decir por qué se lee como que la herramienta está rota. */
+export interface TransicionDisponible {
+  id: number
+  nombre: string
+  destino_id: number
+  destino: string
+  categoria: string
+  color?: string | null
+  lista: boolean
+  impedimentos: string[]
+}
+
+export interface OpcionCampo {
+  valor: string
+  etiqueta: string
+  color?: string | null
+}
+
+export interface DefinicionCampo {
+  clave: string
+  nombre: string
+  descripcion?: string | null
+  ayuda?: string | null
+  tipo: string
+  obligatorio: boolean
+  solo_lectura: boolean
+  validacion: Record<string, any>
+  valor_defecto?: any
+  filtrable: boolean
+  orden: number
+  opciones: OpcionCampo[]
+}
+
+export interface ComentarioGestion {
+  id: number
+  autor: string
+  cuerpo: string
+  interno: boolean
+  editado: boolean
+  created_at?: string | null
+}
+
+export interface AdjuntoGestion {
+  id: number
+  nombre: string
+  tipo_mime?: string | null
+  tamano?: number | null
+  subido_por?: string | null
+  creado?: string | null
+}
+
+export interface AsientoHistorial {
+  campo: string
+  anterior?: string | null
+  nuevo?: string | null
+  autor?: string | null
+  creado?: string | null
+}
+
+export interface DetalleIncidencia {
+  incidencia: Incidencia
+  descripcion?: string | null
+  iniciado?: string | null
+  resuelto?: string | null
+  creado?: string | null
+  proyecto: { id: number; clave: string; nombre: string }
+  definicion_campos: DefinicionCampo[]
+  transiciones: TransicionDisponible[]
+  comentarios: ComentarioGestion[]
+  adjuntos: AdjuntoGestion[]
+  historial: AsientoHistorial[]
+  subtareas: Incidencia[]
+  vinculos: { id: number; tipo: string; sentido: string; otra?: Incidencia | null }[]
+}
+
+export interface EstadoFlujo {
+  id: number
+  clave: string
+  nombre: string
+  categoria: string
+  color?: string | null
+  orden: number
+  inicial: boolean
+  limite_wip?: number | null
+}
+
+export interface ConfiguracionGestion {
+  tipos: {
+    id: number; clave: string; nombre: string; icono?: string | null
+    color?: string | null; nivel: string; workflow_id?: number | null
+    proyecto_id?: number | null
+  }[]
+  prioridades: {
+    id: number; clave: string; nombre: string; color?: string | null
+    orden: number; por_defecto: boolean
+  }[]
+  workflows: {
+    id: number; nombre: string; descripcion?: string | null
+    por_defecto: boolean; estados: EstadoFlujo[]
+  }[]
+  campos: DefinicionCampo[]
+  vocabulario: Record<string, string[]>
+  reglas: Record<string, { clave: string; nombre: string; config: any }[]>
+}
+
+/** Un campo tal como puede nombrarse en un filtro. La lista la sirve el
+ *  servidor: si la pantalla tuviera la suya, ofrecería campos que el servidor
+ *  rechaza y quien los use concluiría que el filtro está roto. */
+export interface CampoConsultable {
+  clave: string
+  etiqueta: string
+  tipo: string
+  ordenable: boolean
+  personalizado: boolean
+  operadores: string[]
+}
+
+export interface CatalogoConsultas {
+  campos: CampoConsultable[]
+  funciones: { nombre: string; descripcion: string }[]
+  topes: Record<string, number>
+}
+
+export interface FiltroGuardado {
+  id: number
+  nombre: string
+  descripcion?: string | null
+  expresion: string
+  columnas: string[]
+  orden_por?: string | null
+  orden_asc: boolean
+  autor: string
+  compartido: boolean
+}
+
+export const gestionApi = {
+  proyectos: (incluirArchivados = false) =>
+    api.get<Proyecto[]>('/gestion/proyectos', {
+      params: { incluir_archivados: incluirArchivados },
+    }).then(r => r.data),
+
+  crearProyecto: (cuerpo: Record<string, unknown>) =>
+    api.post<Proyecto>('/gestion/proyectos', cuerpo).then(r => r.data),
+
+  editarProyecto: (id: number, cambios: Record<string, unknown>) =>
+    api.put<Proyecto>(`/gestion/proyectos/${id}`, cambios).then(r => r.data),
+
+  configuracion: (proyectoId?: number) =>
+    api.get<ConfiguracionGestion>('/gestion/configuracion', {
+      params: { proyecto_id: proyectoId },
+    }).then(r => r.data),
+
+  // ─── Incidencias ────────────────────────────────────────────────────────────
+
+  listar: (filtros: Record<string, unknown>) =>
+    api.get<PaginaIncidencias>('/gestion/incidencias', { params: filtros })
+      .then(r => r.data),
+
+  detalle: (id: number) =>
+    api.get<DetalleIncidencia>(`/gestion/incidencias/${id}`).then(r => r.data),
+
+  crear: (cuerpo: Record<string, unknown>) =>
+    api.post<Incidencia>('/gestion/incidencias', cuerpo).then(r => r.data),
+
+  editar: (id: number, cambios: Record<string, unknown>) =>
+    api.put<Incidencia>(`/gestion/incidencias/${id}`, cambios).then(r => r.data),
+
+  transicionar: (id: number, transicionId: number, comentario?: string) =>
+    api.post<{ incidencia: Incidencia; transiciones: TransicionDisponible[] }>(
+      `/gestion/incidencias/${id}/transicion`,
+      { transicion_id: transicionId, comentario: comentario || null },
+    ).then(r => r.data),
+
+  comentar: (id: number, cuerpo: string, interno: boolean) =>
+    api.post<ComentarioGestion>(`/gestion/incidencias/${id}/comentarios`,
+      { cuerpo, interno, menciones: [] }).then(r => r.data),
+
+  adjuntar: (id: number, cuerpo: FormData) =>
+    api.post<AdjuntoGestion[]>(`/gestion/incidencias/${id}/adjuntos`, cuerpo)
+      .then(r => r.data),
+
+  descargarAdjunto: (id: number) =>
+    api.get(`/gestion/adjuntos/${id}`, { responseType: 'blob' })
+      .then(r => r.data as Blob),
+
+  desdeTicket: (ticketId: number) =>
+    api.post<Incidencia>(`/gestion/tickets/${ticketId}/incidencia`).then(r => r.data),
+
+  // ─── El lenguaje de filtros ─────────────────────────────────────────────────
+
+  buscar: (cuerpo: Record<string, unknown>) =>
+    api.post<PaginaIncidencias>('/gestion/incidencias/buscar', cuerpo).then(r => r.data),
+
+  /** Comprueba una expresión sin ejecutarla, para marcar el error mientras se
+   *  escribe en vez de devolver una lista vacía sin explicación. */
+  validar: (expresion: string) =>
+    api.post<{ valido: boolean; mensaje?: string | null; posicion?: number | null }>(
+      '/gestion/incidencias/validar', { expresion }).then(r => r.data),
+
+  camposConsultables: () =>
+    api.get<CatalogoConsultas>('/gestion/consultas/campos').then(r => r.data),
+
+  filtros: () => api.get<FiltroGuardado[]>('/gestion/filtros').then(r => r.data),
+  guardarFiltro: (cuerpo: Record<string, unknown>) =>
+    api.post<FiltroGuardado>('/gestion/filtros', cuerpo).then(r => r.data),
+  borrarFiltro: (id: number) => api.delete(`/gestion/filtros/${id}`),
+}
+
+
 // ─── Equipo de la consola ─────────────────────────────────────────────────────
 
 export interface MiembroEquipo {

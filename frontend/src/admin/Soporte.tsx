@@ -20,7 +20,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
-import { soporteApi, mensajeDeError, type Ticket, type Adjunto } from './api'
+import { soporteApi, gestionApi, mensajeDeError, type Ticket, type Adjunto } from './api'
 import Tablero from './Tablero'
 import Backlog from './Backlog'
 import MetricasAgiles from './MetricasAgiles'
@@ -77,6 +77,38 @@ async function descargar(a: Adjunto) {
 
 // ─── Ficha del ticket ─────────────────────────────────────────────────────────
 
+/** Convierte la solicitud en trabajo interno del equipo.
+ *
+ *  Copia el asunto del cliente como titulo de la incidencia y deja el ticket
+ *  intacto: el cliente sigue viendo en su conversacion exactamente lo que
+ *  escribio. Llamarla dos veces devuelve la misma incidencia, no crea otra, asi
+ *  que el boton no necesita saber si ya se pulso antes.
+ */
+function ConvertirEnIncidencia({ ticketId }: { ticketId: number }) {
+  const convertir = useMutation({
+    mutationFn: () => gestionApi.desdeTicket(ticketId),
+    onSuccess: inc => toast.success(
+      `Es ${inc.clave}. Esta en Proyectos, sin clasificar.`, { duration: 5000 }),
+    onError: (e: any) => toast.error(
+      mensajeDeError(e, 'No se pudo convertir en incidencia')),
+  })
+
+  return (
+    <Tooltip title="Pasarla al tablero del equipo como trabajo interno. El asunto del cliente no se toca.">
+      <span>
+        <Button
+          size="small" variant="outlined" disabled={convertir.isPending}
+          onClick={() => convertir.mutate()}
+          sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+        >
+          Convertir en incidencia
+        </Button>
+      </span>
+    </Tooltip>
+  )
+}
+
+
 function Ficha({ id, onVolver }: { id: number; onVolver: () => void }) {
   const qc = useQueryClient()
   const [texto, setTexto] = useState('')
@@ -119,6 +151,11 @@ function Ficha({ id, onVolver }: { id: number; onVolver: () => void }) {
 
   if (isLoading || !t) return <Skeleton variant="rectangular" height={420} sx={{ borderRadius: 3 }} />
 
+  // Nota: el asunto que se ve arriba es el del cliente y no cambia nunca. Al
+  // convertir la solicitud en trabajo interno, ese asunto se COPIA al título de
+  // la incidencia y desde ahí el equipo lo reescribe; acá sigue tal cual, que es
+  // lo que el cliente ve en su conversación y la evidencia de qué pidió.
+
   return (
     <Box>
       <Stack direction="row" alignItems="flex-start" spacing={1.5} mb={2}>
@@ -146,6 +183,7 @@ function Ficha({ id, onVolver }: { id: number; onVolver: () => void }) {
             {t.impacto ?? '—'}
           </Typography>
         </Box>
+        <ConvertirEnIncidencia ticketId={t.id} />
         <Tooltip title="Actualizar">
           <IconButton onClick={refrescar}><Refresh /></IconButton>
         </Tooltip>

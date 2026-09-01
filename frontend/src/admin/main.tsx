@@ -21,6 +21,7 @@ import Ingreso from './Ingreso'
 import Empresas from './Empresas'
 import Contabilidad from './Contabilidad'
 import Soporte from './Soporte'
+import Gestion from './Gestion'
 import Equipo from './Equipo'
 import Landing from './Landing'
 import Bitacora from './Bitacora'
@@ -69,6 +70,7 @@ function Consola() {
           <Tab label="Empresas" />
           <Tab label="Contabilidad" />
           <Tab label="Soporte" />
+          <Tab label="Proyectos" />
           <Tab label="Equipo" />
           <Tab label="Página pública" />
           <Tab label="Bitácora" />
@@ -79,9 +81,10 @@ function Consola() {
         {pestana === 0 && <Empresas />}
         {pestana === 1 && <Contabilidad />}
         {pestana === 2 && <Soporte />}
-        {pestana === 3 && <Equipo />}
-        {pestana === 4 && <Landing />}
-        {pestana === 5 && <Bitacora />}
+        {pestana === 3 && <Gestion />}
+        {pestana === 4 && <Equipo />}
+        {pestana === 5 && <Landing />}
+        {pestana === 6 && <Bitacora />}
       </Box>
 
       <Typography variant="caption" sx={{
