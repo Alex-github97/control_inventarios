@@ -55,7 +55,6 @@ const ERP_COLOR = COLOR_MODULO
 
 type TipoCuenta = 'ACTIVO' | 'PASIVO' | 'PATRIMONIO' | 'INGRESO' | 'EGRESO'
 type NaturalezaCuenta = 'DEBITO' | 'CREDITO'
-type EstadoCuenta = 'ACTIVA' | 'INACTIVA'
 
 interface Cuenta {
   id: number
@@ -66,7 +65,10 @@ interface Cuenta {
   nivel: number
   cuenta_padre_id?: number | null
   es_auxiliar: boolean
-  estado: EstadoCuenta
+  acepta_movimientos?: boolean
+  // La API manda `activo`, no `estado`. La pantalla leía `estado` —que no
+  // existe— y pintaba una pastilla vacía en cada fila.
+  activo: boolean
 }
 
 type TipoComprobante = 'DIARIO' | 'INGRESO' | 'EGRESO' | 'AJUSTE'
@@ -642,10 +644,36 @@ export default function ERPContabilidad() {
     queryFn: () => apiClient.get('/erp/contabilidad/cuentas').then((r) => r.data),
   })
 
-  const { data: comprobantes, isLoading: loadingComprobantes } = useQuery<Comprobante[]>({
-    queryKey: ['erp-comprobantes'],
-    queryFn: () => apiClient.get('/erp/contabilidad/comprobantes').then((r) => r.data),
+  /**
+   * Los comprobantes vienen POR PÁGINAS.
+   *
+   * Sin límite, tres años de operación devolvían 31.314 comprobantes —siete
+   * megas y medio— y la pestaña intentaba pintarlos todos: el navegador se
+   * congelaba y se cerraba. El servidor manda el total en `X-Total-Count` para
+   * poder decir cuántos hay de verdad, en vez de dar a entender que son estos.
+   */
+  const [pagComp, setPagComp] = useState(0)
+  const POR_PAGINA = 100
+
+  const { data: paginaComp, isLoading: loadingComprobantes } = useQuery<{
+    filas: Comprobante[]; total: number
+  }>({
+    queryKey: ['erp-comprobantes', pagComp, filtroPeriodo, filtroTipo],
+    queryFn: () => apiClient
+      .get('/erp/contabilidad/comprobantes', {
+        params: {
+          limite: POR_PAGINA, desplazamiento: pagComp * POR_PAGINA,
+          periodo: filtroPeriodo || undefined,
+          tipo: filtroTipo || undefined,
+        },
+      })
+      .then((r) => ({
+        filas: r.data,
+        total: Number(r.headers['x-total-count'] ?? r.data.length),
+      })),
   })
+  const comprobantes = paginaComp?.filas
+  const totalComprobantes = paginaComp?.total ?? 0
 
   const { data: centrosCosto, isLoading: loadingCC } = useQuery<CentroCosto[]>({
     queryKey: ['erp-centros-costo'],
@@ -661,11 +689,9 @@ export default function ERPContabilidad() {
     return matchSearch && matchTipo
   })
 
-  const filteredComprobantes = (comprobantes ?? []).filter((c) => {
-    const matchPeriodo = !filtroPeriodo || c.fecha?.startsWith(filtroPeriodo)
-    const matchTipo = !filtroTipo || c.tipo === filtroTipo
-    return matchPeriodo && matchTipo
-  })
+  // El filtro lo aplica el servidor sobre TODOS los comprobantes. Filtrar acá
+  // solo la página cargada haría creer que se buscó en todo el histórico.
+  const filteredComprobantes = comprobantes ?? []
 
   return (
     <Layout title="ERP — Contabilidad General">
@@ -787,7 +813,7 @@ export default function ERPContabilidad() {
                     {loadingCuentas
                       ? Array.from({ length: 6 }).map((_, i) => (
                           <TableRow key={i}>
-                            {Array.from({ length: 6 }).map((__, j) => (
+                            {Array.from({ length: 7 }).map((__, j) => (
                               <TableCell key={j}><Skeleton variant="text" /></TableCell>
                             ))}
                           </TableRow>
@@ -795,7 +821,7 @@ export default function ERPContabilidad() {
                       : filteredCuentas.length === 0
                       ? (
                           <TableRow>
-                            <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                            <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                               No se encontraron cuentas
                             </TableCell>
                           </TableRow>
@@ -822,12 +848,30 @@ export default function ERPContabilidad() {
                             </TableCell>
                             <TableCell align="center">
                               <Chip
-                                label={cuenta.estado}
+                                label={cuenta.activo ? 'Activa' : 'Inactiva'}
                                 size="small"
-                                color={cuenta.estado === 'ACTIVA' ? 'success' : 'default'}
+                                color={cuenta.activo ? 'success' : 'default'}
                                 variant="outlined"
                                 sx={{ fontSize: 11 }}
                               />
+                            </TableCell>
+                            <TableCell align="right">
+                              {/* La columna «Acción» estaba declarada en la
+                                  cabecera y el cuerpo no pintaba nada: siete
+                                  encabezados y seis celdas. */}
+                              {cuenta.acepta_movimientos === false ? (
+                                <Tooltip title="Es una cuenta agrupadora: su saldo es la suma de las de abajo">
+                                  <Typography variant="caption" color="text.secondary">
+                                    agrupadora
+                                  </Typography>
+                                </Tooltip>
+                              ) : (
+                                <Tooltip title="Recibe movimiento">
+                                  <Typography variant="caption" color="text.secondary">
+                                    auxiliar
+                                  </Typography>
+                                </Tooltip>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -845,7 +889,7 @@ export default function ERPContabilidad() {
                     label="Período (YYYY-MM)"
                     placeholder="2026-06"
                     value={filtroPeriodo}
-                    onChange={(e) => setFiltroPeriodo(e.target.value)}
+                    onChange={(e) => { setFiltroPeriodo(e.target.value); setPagComp(0) }}
                     sx={{ width: 180 }}
                   />
                   <FormControl size="small" sx={{ minWidth: 160 }}>
@@ -946,6 +990,28 @@ export default function ERPContabilidad() {
                         ))}
                   </TableBody>
                 </Table>
+
+                {totalComprobantes > POR_PAGINA && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5,
+                             justifyContent: 'flex-end', mt: 2 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      {pagComp * POR_PAGINA + 1}–
+                      {Math.min((pagComp + 1) * POR_PAGINA, totalComprobantes)}
+                      {' de '}{totalComprobantes.toLocaleString('es-CO')} comprobantes
+                    </Typography>
+                    <Button size="small" disabled={pagComp === 0}
+                            onClick={() => setPagComp((p) => Math.max(0, p - 1))}
+                            sx={{ textTransform: 'none' }}>
+                      Anterior
+                    </Button>
+                    <Button size="small"
+                            disabled={(pagComp + 1) * POR_PAGINA >= totalComprobantes}
+                            onClick={() => setPagComp((p) => p + 1)}
+                            sx={{ textTransform: 'none' }}>
+                      Siguiente
+                    </Button>
+                  </Box>
+                )}
               </>
             )}
 

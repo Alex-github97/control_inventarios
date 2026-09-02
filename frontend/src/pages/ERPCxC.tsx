@@ -241,11 +241,23 @@ export default function ERPCxC() {
     onError: (e: any) => toast.error(mensajeDeError(e, 'Error al registrar la factura')),
   })
 
-  // ── Derived KPIs ─────────────────────────────────────────────────────────
-  const carteraTotal = facturas.reduce(
-    (acc, f) => acc + (f.saldo > 0 ? f.saldo : 0),
-    0,
-  )
+  /**
+   * Los indicadores salen del servidor, no de la lista.
+   *
+   * Antes se sumaban recorriendo TODAS las facturas, así que la pantalla tenía
+   * que traérselas todas —cuatro megas y medio con tres años de operación, y la
+   * pestaña se congelaba—. Y en cuanto la lista pasó a venir por páginas, esa
+   * suma habría quedado mal sin que nada avisara.
+   */
+  const { data: resumen } = useQuery<{
+    facturas: number; facturado: number; cartera: number
+    con_saldo: number; vencido: number; facturas_vencidas: number
+  }>({
+    queryKey: ['erp-cxc-resumen'],
+    queryFn: () => apiClient.get('/erp/cxc/resumen').then((r) => r.data),
+  })
+
+  const carteraTotal = resumen?.cartera ?? 0
 
   const vencida =
     aging != null
@@ -362,7 +374,7 @@ export default function ERPCxC() {
             icon={<Receipt sx={{ fontSize: 18 }} />}
             accent={ERP_COLOR}
             loading={loadingFacturas}
-            sub={`${facturas.filter((f) => f.saldo > 0).length} facturas con saldo`}
+            sub={`${resumen?.con_saldo ?? 0} facturas con saldo`}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
@@ -388,11 +400,11 @@ export default function ERPCxC() {
         <Grid item xs={12} sm={6} md={3}>
           <KpiCard
             label="Total Facturas"
-            value={String(facturas.length)}
+            value={String(resumen?.facturas ?? 0)}
             icon={<Schedule sx={{ fontSize: 18 }} />}
             accent="#64748B"
             loading={loadingFacturas}
-            sub={`${facturas.filter((f) => f.estado === 'VENCIDA').length} vencidas`}
+            sub={`${resumen?.facturas_vencidas ?? 0} vencidas`}
           />
         </Grid>
       </Grid>

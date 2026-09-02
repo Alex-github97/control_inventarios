@@ -293,9 +293,19 @@ export default function ERPCxP() {
   const today = new Date()
   const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
 
-  const totalPorPagar = facturas.reduce((s, f) => s + (f.saldo ?? 0), 0)
-  const countVencidas = facturas.filter((f) => isVencida(f.fecha_vencimiento, f.saldo)).length
-  const countPorVencer = facturas.filter((f) => isPorVencer(f.fecha_vencimiento, f.saldo)).length
+  // Igual que en cartera: los totales los suma la base. Calcularlos sobre la
+  // lista obligaba a traerla entera y, con la lista ya paginada, darían mal.
+  const { data: resumen } = useQuery<{
+    facturas: number; por_pagar: number; con_saldo: number
+    vencido: number; facturas_vencidas: number; vencen_en_ocho_dias: number
+  }>({
+    queryKey: ['erp-cxp-resumen'],
+    queryFn: () => api.get('/erp/cxp/resumen').then((r) => r.data),
+  })
+
+  const totalPorPagar = resumen?.por_pagar ?? 0
+  const countVencidas = resumen?.facturas_vencidas ?? 0
+  const countPorVencer = resumen?.vencen_en_ocho_dias ?? 0
   const pagadasEsteMes = pagos.filter((p) => {
     try { return new Date(p.fecha) >= thisMonthStart } catch { return false }
   }).length
@@ -344,7 +354,7 @@ export default function ERPCxP() {
               icon={<BusinessIcon />}
               label="Total por Pagar"
               value={formatCurrency(totalPorPagar)}
-              sub={`${facturas.filter((f) => f.saldo > 0).length} facturas activas`}
+              sub={`${resumen?.con_saldo ?? 0} facturas activas`}
               accentColor="#EA580C"
             />
           </Grid>

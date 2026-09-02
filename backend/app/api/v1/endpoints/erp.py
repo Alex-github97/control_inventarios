@@ -2,13 +2,13 @@
 ERP — Enterprise Resource Planning
 Núcleo financiero, administrativo, tributario y contable corporativo.
 """
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, text
 from sqlalchemy.orm import selectinload
 from typing import Optional, List
 from pydantic import BaseModel
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 import hashlib
 import logging
@@ -382,6 +382,42 @@ class ProyectoResponse(ProyectoCreate):
 
 # ── DASHBOARD KPIs ────────────────────────────────────────────────────────────
 
+# ─── Listas acotadas ──────────────────────────────────────────────────────────
+
+TOPE_LISTA = 200        # por omisión
+TOPE_MAXIMO = 2000      # lo más que se puede pedir de una vez
+
+
+async def _pagina(db, consulta, respuesta: Response,
+                  limite: int, desplazamiento: int, columna_id):
+    """Devuelve un TROZO de la consulta y dice cuántos hay en total.
+
+    POR QUÉ EXISTE
+    Estas listas se devolvían enteras. Con la operación de tres años de una
+    empresa mediana, `/contabilidad/comprobantes` respondía 7,5 MB y la pantalla
+    intentaba pintar treinta mil filas: la pestaña del navegador se congelaba y
+    se cerraba sola. No era un error de programación visible en ninguna parte —
+    el endpoint funcionaba— y por eso nadie lo vio hasta que hubo datos.
+
+    El total va en la cabecera `X-Total-Count` y no dentro del cuerpo a
+    propósito: así las pantallas que ya consumen estas rutas como un arreglo
+    siguen funcionando —y dejan de morirse— sin cambiar nada, y las que quieran
+    paginar leen la cabecera.
+    """
+    total = (await db.execute(
+        select(func.count()).select_from(consulta.subquery()))).scalar() or 0
+    respuesta.headers["X-Total-Count"] = str(total)
+    respuesta.headers["X-Limite"] = str(limite)
+    respuesta.headers["X-Desplazamiento"] = str(desplazamiento)
+    # Sin esto el navegador no deja leer las cabeceras desde otro origen y la
+    # pantalla no puede decir «200 de 31.314».
+    respuesta.headers["Access-Control-Expose-Headers"] = (
+        "X-Total-Count, X-Limite, X-Desplazamiento")
+
+    r = await db.execute(consulta.offset(desplazamiento).limit(limite))
+    return list(r.scalars().all())
+
+
 @router.get("/dashboard/kpis")
 async def get_erp_kpis(
     db: AsyncSession = Depends(get_db),
@@ -600,9 +636,14 @@ async def eliminar_centro_costo(cc_id: int, db: AsyncSession = Depends(get_db), 
 
 @router.get("/contabilidad/comprobantes", response_model=List[ComprobanteResponse])
 async def listar_comprobantes(
+    respuesta: Response,
     tipo: Optional[TipoComprobante] = Query(None),
     estado: Optional[EstadoComprobante] = Query(None),
     periodo: Optional[str] = Query(None),
+    desde: Optional[date] = Query(None),
+    hasta: Optional[date] = Query(None),
+    limite: int = Query(TOPE_LISTA, ge=1, le=TOPE_MAXIMO),
+    desplazamiento: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
@@ -613,8 +654,15 @@ async def listar_comprobantes(
         q = q.where(ERPComprobante.estado == estado)
     if periodo:
         q = q.where(ERPComprobante.periodo == periodo)
-    r = await db.execute(q.order_by(ERPComprobante.fecha.desc()))
-    return list(r.scalars().all())
+    # Un rango de fechas evita tener que paginar hasta el año pasado para llegar
+    # a un comprobante viejo.
+    if desde:
+        q = q.where(ERPComprobante.fecha >= desde)
+    if hasta:
+        q = q.where(ERPComprobante.fecha <= hasta)
+    # Del más nuevo al más viejo: la primera página es la que se mira.
+    q = q.order_by(ERPComprobante.fecha.desc(), ERPComprobante.id.desc())
+    return await _pagina(db, q, respuesta, limite, desplazamiento, ERPComprobante.id)
 
 @router.post("/contabilidad/comprobantes", response_model=ComprobanteResponse, status_code=201)
 async def crear_comprobante(data: ComprobanteCreate, db: AsyncSession = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
@@ -750,18 +798,64 @@ async def eliminar_impuesto(imp_id: int, db: AsyncSession = Depends(get_db), cur
 
 @router.get("/cxc/facturas", response_model=List[FacturaClienteResponse])
 async def listar_facturas_cliente(
+    respuesta: Response,
     estado: Optional[EstadoFactura] = Query(None),
     search: Optional[str] = Query(None),
+    solo_con_saldo: bool = Query(False),
+    desde: Optional[date] = Query(None),
+    hasta: Optional[date] = Query(None),
+    limite: int = Query(TOPE_LISTA, ge=1, le=TOPE_MAXIMO),
+    desplazamiento: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
     q = select(ERPFacturaCliente).where(ERPFacturaCliente.activo == True)
     if estado:
         q = q.where(ERPFacturaCliente.estado == estado)
+    if solo_con_saldo:
+        q = q.where(ERPFacturaCliente.saldo > 0)
+    if desde:
+        q = q.where(ERPFacturaCliente.fecha >= desde)
+    if hasta:
+        q = q.where(ERPFacturaCliente.fecha <= hasta)
     if search:
-        q = q.where(ERPFacturaCliente.cliente_nombre.ilike(f"%{search}%") | ERPFacturaCliente.numero.ilike(f"%{search}%"))
-    r = await db.execute(q.order_by(ERPFacturaCliente.fecha.desc()))
-    return list(r.scalars().all())
+        q = q.where(ERPFacturaCliente.cliente_nombre.ilike(f"%{search}%")
+                    | ERPFacturaCliente.numero.ilike(f"%{search}%"))
+    q = q.order_by(ERPFacturaCliente.fecha.desc(), ERPFacturaCliente.id.desc())
+    return await _pagina(db, q, respuesta, limite, desplazamiento,
+                         ERPFacturaCliente.id)
+
+
+@router.get("/cxc/resumen")
+async def resumen_cartera(
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    """Los totales de la cartera, sumados en la BASE.
+
+    La pantalla los calculaba recorriendo la lista completa de facturas, así que
+    dependía de traérselas todas —lo que la congelaba— y, en cuanto la lista se
+    acotó, los totales habrían quedado mal sin que nada avisara. Sumar en SQL es
+    correcto con cualquier volumen y no trae una sola fila de más.
+    """
+    hoy = date.today()
+    fila = (await db.execute(select(
+        func.count(),
+        func.coalesce(func.sum(ERPFacturaCliente.total), 0),
+        func.coalesce(func.sum(ERPFacturaCliente.saldo), 0),
+        func.count().filter(ERPFacturaCliente.saldo > 0),
+        func.coalesce(func.sum(ERPFacturaCliente.saldo).filter(
+            ERPFacturaCliente.saldo > 0,
+            ERPFacturaCliente.fecha_vencimiento < hoy), 0),
+        func.count().filter(ERPFacturaCliente.saldo > 0,
+                            ERPFacturaCliente.fecha_vencimiento < hoy),
+    ).where(ERPFacturaCliente.activo == True))).first()
+
+    return {
+        "facturas": fila[0], "facturado": float(fila[1]),
+        "cartera": float(fila[2]), "con_saldo": fila[3],
+        "vencido": float(fila[4]), "facturas_vencidas": fila[5],
+    }
 
 # ─── INTEGRACIÓN CONTABLE (subledger -> libro mayor) ──────────────────────────
 # Cada operación —factura, pago, depreciación— genera su asiento contabilizado,
@@ -887,18 +981,56 @@ async def aging_cuentas_cobrar(db: AsyncSession = Depends(get_db), current_user:
 
 @router.get("/cxp/facturas", response_model=List[FacturaProveedorResponse])
 async def listar_facturas_proveedor(
+    respuesta: Response,
     estado: Optional[EstadoFactura] = Query(None),
     search: Optional[str] = Query(None),
+    solo_con_saldo: bool = Query(False),
+    limite: int = Query(TOPE_LISTA, ge=1, le=TOPE_MAXIMO),
+    desplazamiento: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
     q = select(ERPFacturaProveedor).where(ERPFacturaProveedor.activo == True)
     if estado:
         q = q.where(ERPFacturaProveedor.estado == estado)
+    if solo_con_saldo:
+        q = q.where(ERPFacturaProveedor.saldo > 0)
     if search:
         q = q.where(ERPFacturaProveedor.proveedor_nombre.ilike(f"%{search}%"))
-    r = await db.execute(q.order_by(ERPFacturaProveedor.fecha_vencimiento.asc()))
-    return list(r.scalars().all())
+    # Por vencimiento: lo primero que hay que pagar va arriba.
+    q = q.order_by(ERPFacturaProveedor.fecha_vencimiento.asc(),
+                   ERPFacturaProveedor.id.asc())
+    return await _pagina(db, q, respuesta, limite, desplazamiento,
+                         ERPFacturaProveedor.id)
+
+
+@router.get("/cxp/resumen")
+async def resumen_por_pagar(
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    """Los totales por pagar, sumados en la base. Mismo motivo que en cartera."""
+    hoy = date.today()
+    en_ocho = hoy + timedelta(days=8)
+    fila = (await db.execute(select(
+        func.count(),
+        func.coalesce(func.sum(ERPFacturaProveedor.saldo), 0),
+        func.count().filter(ERPFacturaProveedor.saldo > 0),
+        func.coalesce(func.sum(ERPFacturaProveedor.saldo).filter(
+            ERPFacturaProveedor.saldo > 0,
+            ERPFacturaProveedor.fecha_vencimiento < hoy), 0),
+        func.count().filter(ERPFacturaProveedor.saldo > 0,
+                            ERPFacturaProveedor.fecha_vencimiento < hoy),
+        func.count().filter(ERPFacturaProveedor.saldo > 0,
+                            ERPFacturaProveedor.fecha_vencimiento >= hoy,
+                            ERPFacturaProveedor.fecha_vencimiento <= en_ocho),
+    ).where(ERPFacturaProveedor.activo == True))).first()
+
+    return {
+        "facturas": fila[0], "por_pagar": float(fila[1]),
+        "con_saldo": fila[2], "vencido": float(fila[3]),
+        "facturas_vencidas": fila[4], "vencen_en_ocho_dias": fila[5],
+    }
 
 @router.post("/cxp/facturas", response_model=FacturaProveedorResponse, status_code=201)
 async def crear_factura_proveedor(data: FacturaProveedorCreate, db: AsyncSession = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
@@ -932,8 +1064,13 @@ async def crear_factura_proveedor(data: FacturaProveedorCreate, db: AsyncSession
 
 @router.get("/pagos", response_model=List[PagoResponse])
 async def listar_pagos(
+    respuesta: Response,
     tipo: Optional[TipoPago] = Query(None),
     estado: Optional[EstadoPago] = Query(None),
+    desde: Optional[date] = Query(None),
+    hasta: Optional[date] = Query(None),
+    limite: int = Query(TOPE_LISTA, ge=1, le=TOPE_MAXIMO),
+    desplazamiento: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
@@ -942,8 +1079,12 @@ async def listar_pagos(
         q = q.where(ERPPago.tipo == tipo)
     if estado:
         q = q.where(ERPPago.estado == estado)
-    r = await db.execute(q.order_by(ERPPago.fecha.desc()))
-    return list(r.scalars().all())
+    if desde:
+        q = q.where(ERPPago.fecha >= desde)
+    if hasta:
+        q = q.where(ERPPago.fecha <= hasta)
+    q = q.order_by(ERPPago.fecha.desc(), ERPPago.id.desc())
+    return await _pagina(db, q, respuesta, limite, desplazamiento, ERPPago.id)
 
 @router.post("/pagos", response_model=PagoResponse, status_code=201)
 async def registrar_pago(data: PagoCreate, db: AsyncSession = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
