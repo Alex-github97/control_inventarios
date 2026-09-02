@@ -26,6 +26,7 @@ import {
   Tab,
   LinearProgress,
   Divider,
+  Alert,
 } from '@mui/material'
 import {
   Analytics,
@@ -34,7 +35,7 @@ import {
   TrendingDown,
   Calculate,
 } from '@mui/icons-material'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
@@ -149,19 +150,54 @@ function KPICard({ label, value, sub, accent }: KPICardProps) {
   )
 }
 
-// ─── Static ABC cost driver data ─────────────────────────────────────────────
+// ─── Inductores ──────────────────────────────────────────────────────────────
+//
+// Antes eran cuatro filas fijas con un costo unitario inventado. El costo
+// unitario de verdad es el saldo de la cuenta dividido por las unidades
+// consumidas, así que se calcula en el servidor a partir del mayor: repartir el
+// arriendo por metros cuadrados en vez de por horas hombre cambia qué línea de
+// negocio parece rentable, y eso no puede ser una constante que nadie ve.
 
-const INDUCTORES = [
-  { actividad: 'Almacenamiento',  inductor: 'm² ocupado',          unidad: 'm²', costoUnitario: 4_800 },
-  { actividad: 'Transporte',      inductor: 'km recorrido',         unidad: 'km', costoUnitario: 1_250 },
-  { actividad: 'Administración',  inductor: 'horas hombre',         unidad: 'h',  costoUnitario: 28_500 },
-  { actividad: 'Mantenimiento',   inductor: 'órdenes de trabajo',   unidad: 'OT', costoUnitario: 185_000 },
-]
+interface Inductor {
+  id: number
+  codigo: string
+  actividad: string
+  inductor: string
+  unidad: string
+  cuenta_origen?: string | null
+  unidades_totales: number
+  monto_del_mes: number
+  costo_unitario: number | null
+}
+
+interface CentroEjecutado {
+  id: number
+  codigo: string
+  nombre: string
+  tipo: TipoCentroCosto
+  responsable?: string | null
+  presupuesto_anual: number
+  ejecutado: number
+  disponible: number
+  pct_ejecucion: number | null
+}
 
 // ─── Tab 0: Centros de Costo ──────────────────────────────────────────────────
 
-function TabCentrosCosto({ centrosCosto, isLoading }: { centrosCosto?: CentroCosto[]; isLoading: boolean }) {
-  const cc = centrosCosto ?? []
+function TabCentrosCosto({ isLoading }: { centrosCosto?: CentroCosto[]; isLoading: boolean }) {
+  // La ejecución sale del mayor, no de un cero fijo: antes la columna
+  // «Ejecutado» era siempre 0 y el porcentaje siempre 0%, así que la pantalla
+  // aparentaba informar y no informaba de nada.
+  const { data, isLoading: cargando } = useQuery<{
+    centros: CentroEjecutado[]; total_ejecutado: number
+    sin_centro_de_costo: number; desde: string; hasta: string
+  }>({
+    queryKey: ['erp-costeo-centros'],
+    queryFn: () => apiClient.get('/erp/costeo/centros').then((r) => r.data),
+  })
+
+  const cc = data?.centros ?? []
+  const cargandoTodo = isLoading || cargando
   const countByTipo = (tipo: TipoCentroCosto) => cc.filter((c) => c.tipo === tipo).length
   const totalPresupuesto = cc.reduce((s, c) => s + (c.presupuesto_anual ?? 0), 0)
 
@@ -169,30 +205,44 @@ function TabCentrosCosto({ centrosCosto, isLoading }: { centrosCosto?: CentroCos
     <>
       {/* Summary cards */}
       <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-        <KPICard label="Total CC" value={isLoading ? '—' : cc.length} sub="registrados" />
+        <KPICard label="Total CC" value={cargandoTodo ? '—' : cc.length} sub="registrados" />
         <KPICard
           label="Operativos"
-          value={isLoading ? '—' : countByTipo('OPERATIVO')}
+          value={cargandoTodo ? '—' : countByTipo('OPERATIVO')}
           accent="#1D4ED8"
         />
         <KPICard
           label="Administrativos"
-          value={isLoading ? '—' : countByTipo('ADMINISTRATIVO')}
+          value={cargandoTodo ? '—' : countByTipo('ADMINISTRATIVO')}
           accent="#475569"
         />
         <KPICard
           label="Proyectos"
-          value={isLoading ? '—' : countByTipo('PROYECTO')}
+          value={cargandoTodo ? '—' : countByTipo('PROYECTO')}
           accent="#6D28D9"
         />
         <KPICard
           label="Presupuesto total"
-          value={isLoading ? '—' : formatCurrency(totalPresupuesto)}
+          value={cargandoTodo ? '—' : formatCurrency(totalPresupuesto)}
           sub="presupuesto anual consolidado"
+        />
+        <KPICard
+          label="Ejecutado"
+          value={cargandoTodo ? '—' : formatCurrency(data?.total_ejecutado ?? 0)}
+          sub={data ? `del ${data.desde} al ${data.hasta}` : undefined}
+          accent="#B45309"
         />
       </Box>
 
       {/* Table */}
+      {!!data?.sin_centro_de_costo && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Hay {formatCurrency(data.sin_centro_de_costo)} de costo y gasto sin
+          centro asignado. No se reparte entre los demás porque eso falsearía
+          todos los porcentajes; impútelo en el documento de origen.
+        </Alert>
+      )}
+
       <Table size="small">
         <TableHead>
           <TableRow sx={{ bgcolor: alpha(ERP_COLOR, 0.05) }}>
@@ -210,7 +260,7 @@ function TabCentrosCosto({ centrosCosto, isLoading }: { centrosCosto?: CentroCos
           </TableRow>
         </TableHead>
         <TableBody>
-          {isLoading
+          {cargandoTodo
             ? Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
                   {Array.from({ length: 7 }).map((__, j) => (
@@ -229,8 +279,8 @@ function TabCentrosCosto({ centrosCosto, isLoading }: { centrosCosto?: CentroCos
                 </TableRow>
               )
             : cc.map((c) => {
-                const ejecutado = 0
-                const pct = c.presupuesto_anual && c.presupuesto_anual > 0 ? (ejecutado / c.presupuesto_anual) * 100 : 0
+                const ejecutado = c.ejecutado
+                const pct = c.pct_ejecucion ?? 0
                 return (
                   <TableRow key={c.id} hover>
                     <TableCell sx={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 12 }}>
@@ -275,6 +325,32 @@ function TabCentrosCosto({ centrosCosto, isLoading }: { centrosCosto?: CentroCos
 // ─── Tab 1: Metodología ABC ───────────────────────────────────────────────────
 
 function TabCosteoABC() {
+  const qc = useQueryClient()
+
+  const { data: inductores = [], isLoading: cargandoInductores } = useQuery<Inductor[]>({
+    queryKey: ['erp-costeo-inductores'],
+    queryFn: () => apiClient.get('/erp/costeo/inductores').then((r) => r.data),
+  })
+
+  // El período es el mes en curso: es el que se cierra, y dejarlo elegir
+  // invitaría a repartir un mes ya cerrado, que es justo lo que no se debe.
+  const periodo = new Date().toISOString().slice(0, 7)
+
+  const distribuir = useMutation({
+    mutationFn: (inductor_id: number) =>
+      apiClient.post('/erp/costeo/distribuir', { inductor_id, periodo })
+        .then((r) => r.data),
+    onSuccess: (r: any) => {
+      toast.success(`Repartido ${formatCurrency(r.monto_distribuido)} · ${r.comprobante}`)
+      qc.invalidateQueries({ queryKey: ['erp-costeo-inductores'] })
+      qc.invalidateQueries({ queryKey: ['erp-costeo-centros'] })
+    },
+    onError: (e: any) => {
+      const d = e?.response?.data?.detail
+      toast.error(typeof d === 'string' ? d : (d?.contabilidad ?? 'No se pudo distribuir'))
+    },
+  })
+
   return (
     <Box>
       {/* Concept banner */}
@@ -326,11 +402,11 @@ function TabCosteoABC() {
         <Table size="small">
           <TableHead>
             <TableRow sx={{ bgcolor: alpha(ERP_COLOR, 0.05) }}>
-              {['Actividad', 'Inductor', 'Unidad', 'Costo Unitario'].map((h) => (
+              {['Actividad', 'Inductor', 'Unidad', 'Cuenta que reparte', 'Saldo del mes', 'Costo Unitario'].map((h) => (
                 <TableCell
                   key={h}
                   sx={{ fontWeight: 700, color: ERP_COLOR, fontSize: 12 }}
-                  align={h === 'Costo Unitario' ? 'right' : 'left'}
+                  align={['Costo Unitario', 'Saldo del mes'].includes(h) ? 'right' : 'left'}
                 >
                   {h}
                 </TableCell>
@@ -338,29 +414,45 @@ function TabCosteoABC() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {INDUCTORES.map((row) => (
-              <TableRow key={row.actividad} hover>
+            {cargandoInductores && (
+              <TableRow><TableCell colSpan={6}><Skeleton /></TableCell></TableRow>
+            )}
+            {!cargandoInductores && inductores.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                  Todavía no hay inductores definidos. Cada uno dice qué cuenta se
+                  reparte y con qué criterio.
+                </TableCell>
+              </TableRow>
+            )}
+            {inductores.map((row) => (
+              <TableRow key={row.id} hover>
                 <TableCell sx={{ fontWeight: 600 }}>{row.actividad}</TableCell>
                 <TableCell sx={{ color: 'text.secondary' }}>{row.inductor}</TableCell>
                 <TableCell>
                   <Box
                     component="span"
                     sx={{
-                      px: 1,
-                      py: 0.25,
-                      borderRadius: 1,
-                      bgcolor: alpha(ERP_COLOR, 0.08),
-                      color: ERP_COLOR,
-                      fontSize: 11,
-                      fontWeight: 700,
-                      fontFamily: 'monospace',
+                      px: 1, py: 0.25, borderRadius: 1,
+                      bgcolor: alpha(ERP_COLOR, 0.08), color: ERP_COLOR,
+                      fontSize: 11, fontWeight: 700, fontFamily: 'monospace',
                     }}
                   >
                     {row.unidad}
                   </Box>
                 </TableCell>
+                <TableCell sx={{ color: 'text.secondary', fontSize: 12 }}>
+                  {row.cuenta_origen ?? '— sin cuenta —'}
+                </TableCell>
+                <TableCell align="right" sx={{ fontFamily: 'monospace', fontSize: 13 }}>
+                  {formatCurrency(row.monto_del_mes)}
+                </TableCell>
                 <TableCell align="right" sx={{ fontFamily: 'monospace', fontWeight: 700 }}>
-                  {formatCurrency(row.costoUnitario)}
+                  {/* Sin unidades consumidas no hay costo unitario, y un cero ahí
+                      se leería como «cuesta cero». */}
+                  {row.costo_unitario == null
+                    ? <Typography variant="caption" color="text.secondary">sin consumo</Typography>
+                    : formatCurrency(row.costo_unitario)}
                 </TableCell>
               </TableRow>
             ))}
@@ -385,14 +477,24 @@ function TabCosteoABC() {
         <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
           <Analytics sx={{ color: '#7C3AED', mt: 0.25, flexShrink: 0 }} />
           <Typography variant="body2" color="text.secondary">
-            Configure sus inductores de costo y asigne actividades a centros de costo para un
-            análisis ABC completo con trazabilidad por servicio, cliente y proyecto.
+            Distribuir reparte el saldo de cada cuenta entre los centros que
+            consumieron la actividad <strong>y genera el asiento</strong>, así que
+            el costeo y los libros dicen lo mismo. Un mes ya repartido no se
+            vuelve a repartir: duplicaría el costo en quien lo recibe.
           </Typography>
         </Box>
         <Button
           variant="outlined"
           startIcon={<Calculate />}
-          onClick={() => toast('Módulo de configuración ABC disponible próximamente', { icon: '🔧' })}
+          disabled={distribuir.isPending || inductores.length === 0}
+          onClick={() => {
+            const conCuenta = inductores.filter((i) => i.monto_del_mes > 0)
+            if (conCuenta.length === 0) {
+              toast('Ninguna cuenta de los inductores tiene saldo sin asignar este mes.')
+              return
+            }
+            conCuenta.forEach((i) => distribuir.mutate(i.id))
+          }}
           sx={{
             borderColor: '#7C3AED',
             color: '#7C3AED',
@@ -409,19 +511,28 @@ function TabCosteoABC() {
 
 // ─── Tab 2: Rentabilidad por Proyecto ─────────────────────────────────────────
 
-function TabRentabilidad({ proyectos, isLoading }: { proyectos?: Proyecto[]; isLoading: boolean }) {
-  const list = proyectos ?? []
+interface ProyectoMedido {
+  id: number; codigo: string; nombre: string; cliente?: string | null
+  estado: string; presupuesto: number; ingresos: number
+  costos: number; gastos: number; ejecutado: number
+  margen: number; margen_pct: number | null; medible: boolean
+}
 
-  const totalUtilidadNum = list.reduce((s, p) => {
-    const util = (p.ingresos ?? 0) - (p.ejecutado ?? 0)
-    return s + util
-  }, 0)
+function TabRentabilidad({ isLoading }: { proyectos?: Proyecto[]; isLoading: boolean }) {
+  const { data: list = [], isLoading: cargando } = useQuery<ProyectoMedido[]>({
+    queryKey: ['erp-proyectos-rentabilidad'],
+    queryFn: () => apiClient.get('/erp/proyectos/rentabilidad-real').then((r) => r.data),
+  })
+  const cargandoTodo = isLoading || cargando
+
+  // Un proyecto sin centro de costo no se puede medir. Decirlo es más útil que
+  // mostrar ceros, que se leen como «no dejó margen».
+  const sinMedir = list.filter((p) => !p.medible).length
+
+  const totalUtilidadNum = list.reduce((s, p) => s + p.margen, 0)
 
   const margenesValidos = list
-    .map((p) => {
-      const util = (p.ingresos ?? 0) - (p.ejecutado ?? 0)
-      return p.ingresos && p.ingresos > 0 ? (util / p.ingresos) * 100 : null
-    })
+    .map((p) => p.margen_pct)
     .filter((m): m is number => m !== null)
 
   const margenProm =
@@ -484,7 +595,7 @@ function TabRentabilidad({ proyectos, isLoading }: { proyectos?: Proyecto[]; isL
           </TableRow>
         </TableHead>
         <TableBody>
-          {isLoading
+          {cargandoTodo
             ? Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
                   {Array.from({ length: 8 }).map((__, j) => (
@@ -503,7 +614,7 @@ function TabRentabilidad({ proyectos, isLoading }: { proyectos?: Proyecto[]; isL
                 </TableRow>
               )
             : list.map((p) => {
-                const utilidad = (p.ingresos ?? 0) - (p.ejecutado ?? 0)
+                const utilidad = p.margen
                 const margen =
                   p.ingresos && p.ingresos > 0 ? (utilidad / p.ingresos) * 100 : null
 

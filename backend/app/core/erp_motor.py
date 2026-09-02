@@ -166,36 +166,38 @@ PREFIJOS = {
 
 async def siguiente_numero(db: AsyncSession, empresa_id: int,
                            tipo: TipoComprobante, anio: int) -> str:
-    """El consecutivo del comprobante, sin carreras.
-
-    `count(*) + 1` es una carrera: dos peticiones simultáneas leen el mismo total
-    y producen el mismo número. Acá se toma el máximo existente con `FOR UPDATE`
-    sobre las filas de ese tipo, que serializa a quienes numeran el mismo talonario
-    y no estorba a los demás.
+    """El consecutivo del comprobante, sin carreras y en tiempo constante.
 
     El número lleva el año porque los consecutivos contables se reinician cada
     ejercicio.
+
+    POR QUÉ UNA TABLA DE CONSECUTIVOS
+    Antes se calculaba con `max(substring(numero from '[0-9]+$')::int)` sobre las
+    filas del talonario. Ningún índice sirve para eso, así que cada comprobante
+    nuevo releía TODOS los del año: con mil comprobantes se nota, con cien mil el
+    sistema se arrastra, y el costo crece con el uso. Es el peor tipo de lentitud
+    porque aparece cuando el cliente ya depende del sistema.
+
+    `UPDATE ... RETURNING` sobre una fila resuelve las dos cosas a la vez: es
+    O(1) y el propio bloqueo de fila serializa a quienes numeran el mismo
+    talonario, sin cerrojo aparte y sin estorbar a los demás.
     """
     prefijo = PREFIJOS.get(tipo, "CD")
-    patron = f"{prefijo}-{anio}-%"
 
-    # Un cerrojo de transacción por talonario —empresa, tipo y año—, no un
-    # `SELECT ... FOR UPDATE`: aquello no bloquea nada cuando todavía no hay
-    # filas, que es justo el primer comprobante de cada año. Ahí dos peticiones
-    # simultáneas sacaban el mismo número y una moría contra `uq_comprobante`,
-    # así que la factura de alguien fallaba sin motivo visible.
-    #
-    # El cerrojo se suelta solo al terminar la transacción y solo estorba a quien
-    # numere el MISMO talonario; los demás siguen de largo.
-    await db.execute(text("SELECT pg_advisory_xact_lock(:ns, hashtext(:clave))"),
-                     {"ns": 918273646, "clave": f"{empresa_id}:{prefijo}:{anio}"})
+    # `ON CONFLICT DO NOTHING` para el primer comprobante del talonario; dos
+    # peticiones simultáneas ahí no chocan, y la de después toma el bloqueo.
+    await db.execute(text(
+        "INSERT INTO erp_consecutivos (empresa_id, prefijo, anio, ultimo) "
+        "VALUES (:e, :p, :a, 0) ON CONFLICT (empresa_id, prefijo, anio) DO NOTHING"),
+        {"e": empresa_id, "p": prefijo, "a": anio})
 
-    ultimo = (await db.execute(text(
-        "SELECT max(substring(numero from '[0-9]+$')::int) "
-        "FROM erp_comprobantes WHERE empresa_id = :e AND numero LIKE :p"),
-        {"e": empresa_id, "p": patron})).scalar() or 0
+    siguiente = (await db.execute(text(
+        "UPDATE erp_consecutivos SET ultimo = ultimo + 1 "
+        "WHERE empresa_id = :e AND prefijo = :p AND anio = :a "
+        "RETURNING ultimo"),
+        {"e": empresa_id, "p": prefijo, "a": anio})).scalar()
 
-    return f"{prefijo}-{anio}-{ultimo + 1:06d}"
+    return f"{prefijo}-{anio}-{siguiente:06d}"
 
 
 # ─── Reglas contables ─────────────────────────────────────────────────────────
@@ -209,6 +211,15 @@ async def cuenta_para(db: AsyncSession, empresa_id: int, evento: str,
     creaba la cuenta al vuelo con `_get_or_create_cuenta`, y así un error de
     tipeo en un código producía una cuenta nueva que nadie había definido.
     """
+    # Una memoria por sesión. Un asiento corriente pide tres o cuatro papeles y
+    # un proceso de cierre contabiliza cientos de documentos seguidos: sin esto,
+    # cada línea de cada uno vuelve a preguntar por la misma regla. Dentro de una
+    # transacción la configuración no cambia, así que releerla no aporta nada.
+    memoria = db.info.setdefault("erp_reglas", {})
+    clave = (empresa_id, evento, papel, condicion)
+    if clave in memoria:
+        return memoria[clave]
+
     reglas = (await db.execute(select(ERPReglaContable).where(
         ERPReglaContable.empresa_id == empresa_id,
         ERPReglaContable.evento == evento,
@@ -227,6 +238,10 @@ async def cuenta_para(db: AsyncSession, empresa_id: int, evento: str,
             f"Defínala en Configuración → Reglas contables, indicando qué cuenta "
             f"del plan cumple ese papel.",
             {"evento": evento, "papel": papel})
+
+    # Solo se memoriza el acierto: si falta la regla y alguien la crea, el
+    # siguiente intento debe encontrarla en vez de repetir el error.
+    memoria[clave] = regla
     return regla
 
 

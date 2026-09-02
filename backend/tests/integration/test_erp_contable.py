@@ -17,6 +17,7 @@ from decimal import Decimal
 
 import pytest
 import pytest_asyncio
+from fastapi import HTTPException
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -71,7 +72,9 @@ async def db(motor) -> AsyncSession:
             "TRUNCATE erp_comprobante_lineas, erp_comprobantes, erp_auditoria, "
             "erp_periodos, erp_reglas_contables, erp_reglas_impuesto, "
             "erp_parametros_fiscales, erp_eventos_contables, erp_terceros, "
-            "erp_plan_cuentas, erp_empresas RESTART IDENTITY CASCADE"))
+            "erp_plan_cuentas, erp_consecutivos, erp_inductores, "
+            "erp_distribuciones_abc, erp_escenarios, erp_empresas "
+            "RESTART IDENTITY CASCADE"))
 
     fabrica = async_sessionmaker(motor, class_=AsyncSession, expire_on_commit=False)
     async with fabrica() as sesion:
@@ -94,6 +97,12 @@ async def _cuenta(db, empresa_id: int, codigo: str) -> ERPPlanCuenta:
     return (await db.execute(select(ERPPlanCuenta).where(
         ERPPlanCuenta.empresa_id == empresa_id,
         ERPPlanCuenta.codigo == codigo))).scalar_one()
+
+
+class _Peticion:
+    """Una petición mínima. Las funciones auditan la IP de quien llama y acá no
+    hay petición HTTP, pero el código no tiene por qué saberlo."""
+    client = None
 
 
 async def _venta(db, empresa, fecha=FECHA, neto="1000000", iva="190000"):
@@ -740,3 +749,242 @@ async def test_una_empresa_nueva_puede_facturar_de_inmediato(db):
     comp = await _venta(db, nueva)
     assert comp.numero.endswith("000001")
     assert comp.total_debito == comp.total_credito
+
+
+# ─── Paginación del libro mayor ───────────────────────────────────────────────
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_el_saldo_corriente_no_se_rompe_al_paginar(db, empresa):
+    """Cada página continúa el saldo donde la acabó la anterior.
+
+    Es el error clásico de paginar un acumulado: si cada página empieza en cero,
+    la columna de saldo es correcta solo en la primera y nadie lo nota hasta que
+    alguien compara el mayor con el balance.
+    """
+    from app.api.v1.endpoints import erp_contable as rep
+
+    for _ in range(7):
+        await _venta(db, empresa, neto="100000", iva="19000")
+    await db.commit()
+
+    cartera = await _cuenta(db, empresa.id, "130505")
+    entera = await rep.libro_mayor(
+        empresa_id=empresa.id, cuenta_id=cartera.id, desde=FECHA, hasta=FECHA,
+        limite=100, desplazamiento=0, db=db, usuario=None)
+    assert entera["total_lineas"] == 7
+
+    saldos_de_pagina = []
+    for inicio in (0, 3, 6):
+        pagina = await rep.libro_mayor(
+            empresa_id=empresa.id, cuenta_id=cartera.id, desde=FECHA, hasta=FECHA,
+            limite=3, desplazamiento=inicio, db=db, usuario=None)
+        saldos_de_pagina += [l["saldo"] for l in pagina["lineas"]]
+
+    assert saldos_de_pagina == [l["saldo"] for l in entera["lineas"]]
+    # Y el saldo final es el del rango completo, no el de la última página.
+    assert entera["saldo_final"] == saldos_de_pagina[-1]
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_el_diario_dice_cuantos_hay_aunque_corte(db, empresa):
+    """Cortar en silencio hace creer que el mes tuvo tantos como se ven."""
+    from app.api.v1.endpoints import erp_contable as rep
+
+    for _ in range(5):
+        await _venta(db, empresa)
+    await db.commit()
+
+    r = await rep.libro_diario(empresa_id=empresa.id, desde=FECHA, hasta=FECHA,
+                               limite=2, db=db, usuario=None)
+    assert len(r["comprobantes"]) == 2
+    assert r["total_comprobantes"] == 5
+
+
+# ─── Consecutivos ─────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_el_consecutivo_no_relee_los_comprobantes(db, empresa):
+    """El número sale de su propia tabla, no del máximo ya emitido.
+
+    Deducirlo del máximo obligaba a recorrer todos los comprobantes del año en
+    cada emisión: imperceptible el primer mes, insoportable el tercer año.
+    """
+    from app.infrastructure.models.erp_nucleo import ERPConsecutivo
+
+    for _ in range(4):
+        await _venta(db, empresa)
+
+    fila = (await db.execute(select(ERPConsecutivo).where(
+        ERPConsecutivo.empresa_id == empresa.id,
+        ERPConsecutivo.prefijo == "CD",
+        ERPConsecutivo.anio == ANIO))).scalar_one()
+    assert fila.ultimo == 4
+
+
+# ─── Cronograma de depreciación ───────────────────────────────────────────────
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_el_cronograma_termina_exactamente_en_el_valor_residual(db, empresa):
+    """La última cuota absorbe el redondeo.
+
+    Repartir en partes iguales y redondear deja centavos colgando, y el activo
+    nunca llega a su valor residual: al cabo de la vida útil sigue teniendo un
+    saldo que nadie sabe cómo quitar.
+    """
+    from app.api.v1.endpoints import erp_gestion as g
+    from app.infrastructure.models.erp import ERPActivoFijo
+
+    # 1.000.000 entre 7 meses no da exacto: es el caso que revela el problema.
+    af = ERPActivoFijo(
+        empresa_id=empresa.id, codigo="AF-TEST", nombre="Equipo de prueba",
+        categoria="Pruebas", fecha_adquisicion=date(ANIO, 1, 1),
+        valor_adquisicion=1_000_000, valor_residual=100_000,
+        vida_util_meses=7, metodo_depreciacion="LINEA_RECTA",
+        depreciacion_acumulada=0, valor_libro=1_000_000, estado="EN_USO")
+    db.add(af)
+    await db.flush()
+
+    filas = await g.cronograma_depreciacion(activo_id=af.id, db=db, usuario=None)
+
+    assert len(filas) == 7
+    assert filas[-1]["depreciacion_acumulada"] == 900_000.0
+    assert filas[-1]["valor_libro"] == 100_000.0
+    assert round(sum(f["cuota"] for f in filas), 2) == 900_000.0
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_un_activo_sin_vida_util_lo_dice_en_vez_de_dividir_por_cero(db, empresa):
+    from app.api.v1.endpoints import erp_gestion as g
+    from app.infrastructure.models.erp import ERPActivoFijo
+
+    af = ERPActivoFijo(
+        empresa_id=empresa.id, codigo="AF-MAL", nombre="Sin vida útil",
+        categoria="Pruebas", fecha_adquisicion=date(ANIO, 1, 1),
+        valor_adquisicion=500_000, valor_residual=0, vida_util_meses=0,
+        metodo_depreciacion="LINEA_RECTA", depreciacion_acumulada=0,
+        valor_libro=500_000, estado="EN_USO")
+    db.add(af)
+    await db.flush()
+
+    with pytest.raises(HTTPException) as exc:
+        await g.cronograma_depreciacion(activo_id=af.id, db=db, usuario=None)
+    assert "vida útil" in str(exc.value.detail)
+
+
+# ─── Costeo ABC ───────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_la_distribucion_abc_reparte_el_total_exacto_y_deja_asiento(db, empresa):
+    """El reparto es un asiento, no un cálculo en un informe.
+
+    Repartir solo en pantalla produce dos verdades: la del informe y la de los
+    libros. Y el reparto tiene que sumar EXACTAMENTE lo repartido: repartir por
+    porcentaje y redondear cada parte deja centavos sueltos y el asiento no cuadra.
+    """
+    from app.api.v1.endpoints import erp_gestion as g
+    from app.infrastructure.models.erp import ERPCentroCosto
+    from app.infrastructure.models.erp_gestion import ERPInductor
+
+    centros = []
+    for i, nombre in enumerate(["Bodega", "Ruta", "Oficina"], start=1):
+        cc = ERPCentroCosto(codigo=f"CC-{i}", nombre=nombre, tipo="OPERATIVO",
+                            empresa_id=empresa.id, presupuesto_anual=0)
+        db.add(cc)
+        centros.append(cc)
+    await db.flush()
+
+    servicios = await _cuenta(db, empresa.id, "513530")
+    # Un importe que no se divide bien entre tres partes desiguales.
+    await erp_motor.asentar(
+        db, empresa_id=empresa.id, evento="COMPRA_FACTURA",
+        tipo=TipoComprobante.DIARIO, fecha=FECHA, concepto="Energía del mes",
+        lineas=[Linea("energia", debito="1000000.00", cuenta_id=servicios.id),
+                Linea("proveedor", credito="1000000.00")],
+        usuario="prueba")
+    await db.flush()
+
+    inductor = ERPInductor(
+        empresa_id=empresa.id, codigo="ABC-E", actividad="Energía",
+        inductor="kWh", unidad="kWh", cuenta_origen_id=servicios.id,
+        consumo_por_centro={str(centros[0].id): 700, str(centros[1].id): 200,
+                            str(centros[2].id): 101},
+        activo=True)
+    db.add(inductor)
+    await db.flush()
+
+    class _U:
+        nombre = "prueba"
+
+    r = await g.distribuir_costos(
+        data=g.DistribucionEntrada(empresa_id=empresa.id,
+                                   inductor_id=inductor.id,
+                                   periodo=f"{ANIO}-06"),
+        request=_Peticion(), db=db, usuario=_U())
+
+    assert r["monto_distribuido"] == 1_000_000.0
+    # Lo repartido suma exactamente el pozo, sin centavos perdidos.
+    assert round(sum(d["monto"] for d in r["detalle"]), 2) == 1_000_000.0
+    # Y el mayor sigue cuadrando después del asiento de reparto.
+    total = (await db.execute(text(
+        "SELECT coalesce(sum(l.debito),0), coalesce(sum(l.credito),0) "
+        "FROM erp_comprobante_lineas l JOIN erp_comprobantes c "
+        "ON c.id = l.comprobante_id WHERE c.empresa_id = :e"),
+        {"e": empresa.id})).first()
+    assert total[0] == total[1]
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_no_se_distribuye_dos_veces_el_mismo_mes(db, empresa):
+    """Repetir el reparto duplicaría el costo en quien lo recibe."""
+    from app.api.v1.endpoints import erp_gestion as g
+    from app.infrastructure.models.erp import ERPCentroCosto
+    from app.infrastructure.models.erp_gestion import ERPInductor
+
+    cc = ERPCentroCosto(codigo="CC-U", nombre="Único", tipo="OPERATIVO",
+                        empresa_id=empresa.id, presupuesto_anual=0)
+    db.add(cc)
+    await db.flush()
+
+    servicios = await _cuenta(db, empresa.id, "513530")
+    await erp_motor.asentar(
+        db, empresa_id=empresa.id, evento="COMPRA_FACTURA",
+        tipo=TipoComprobante.DIARIO, fecha=FECHA, concepto="Energía",
+        lineas=[Linea("energia", debito="500000", cuenta_id=servicios.id),
+                Linea("proveedor", credito="500000")],
+        usuario="prueba")
+    inductor = ERPInductor(
+        empresa_id=empresa.id, codigo="ABC-U", actividad="Energía",
+        inductor="kWh", unidad="kWh", cuenta_origen_id=servicios.id,
+        consumo_por_centro={str(cc.id): 10}, activo=True)
+    db.add(inductor)
+    await db.flush()
+
+    class _U:
+        nombre = "prueba"
+
+    datos = g.DistribucionEntrada(empresa_id=empresa.id, inductor_id=inductor.id,
+                                  periodo=f"{ANIO}-06")
+    await g.distribuir_costos(data=datos, request=_Peticion(), db=db, usuario=_U())
+
+    with pytest.raises(HTTPException) as exc:
+        await g.distribuir_costos(data=datos, request=_Peticion(), db=db, usuario=_U())
+    assert exc.value.status_code == 409
+
+
+# ─── Escenarios ───────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_no_se_simula_sobre_una_base_vacia(db, empresa):
+    """Proyectar sobre cero da un escenario que no se puede defender."""
+    from app.api.v1.endpoints import erp_gestion as g
+
+    class _U:
+        nombre = "prueba"
+
+    with pytest.raises(HTTPException) as exc:
+        await g.epm_simular(
+            data=g.SimulacionEntrada(
+                empresa_id=empresa.id,
+                crecimientos=[g.Crecimiento(nombre="Base", pct=5)]),
+            db=db, usuario=_U())
+    assert "no hay sobre qué proyectar" in str(exc.value.detail)

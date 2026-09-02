@@ -770,27 +770,70 @@ async def balance_comprobacion(
 @router.get("/contabilidad/libro-mayor")
 async def libro_mayor(
     empresa_id: int, cuenta_id: int, desde: date, hasta: date,
+    limite: int = Query(500, ge=1, le=5000),
+    desplazamiento: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     usuario: Usuario = Depends(erp_permisos.ver_reportes),
 ):
-    """El movimiento de una cuenta, con su saldo corriente.
+    """El movimiento de una cuenta, con su saldo corriente, por páginas.
 
     Cada línea trae el comprobante que la produjo, que es el eslabón que permite
     ir de una cifra del balance al documento que la originó.
+
+    POR QUÉ VA PAGINADO
+    Sin límite, el mayor de la cuenta de clientes de un año devolvía veinticinco
+    mil líneas en una sola respuesta: segundo y medio de servidor, varios megas
+    por el cable y una tabla que nadie puede leer. Se devuelve el total además de
+    la página, para que la pantalla pueda decir «500 de 25.812» en vez de dar a
+    entender que eso es todo lo que hay.
+
+    EL SALDO CORRIENTE SIGUE SIENDO CORRECTO
+    Paginar un saldo acumulado es donde esto suele salir mal: si cada página
+    empieza a acumular desde cero, la columna de saldo miente en todas menos en
+    la primera. Acá el arrastre de la página se calcula con una suma agregada de
+    lo anterior —una consulta, no traer las filas—, así que la última línea de la
+    página 6 muestra el mismo saldo que mostraría sin paginar.
     """
     import datetime as _dt
     previos = await _saldos(db, empresa_id, desde - _dt.timedelta(days=1))
     p = previos.get(cuenta_id, {"debito": Decimal(0), "credito": Decimal(0)})
-    saldo = p["debito"] - p["credito"]
+    saldo_inicial = p["debito"] - p["credito"]
+
+    filtro = [ERPComprobanteLinea.cuenta_id == cuenta_id,
+              ERPComprobante.empresa_id == empresa_id,
+              ERPComprobante.estado == EstadoComprobante.CONTABILIZADO,
+              ERPComprobante.fecha >= desde, ERPComprobante.fecha <= hasta]
+
+    total = (await db.execute(
+        select(func.count())
+        .select_from(ERPComprobanteLinea)
+        .join(ERPComprobante, ERPComprobante.id == ERPComprobanteLinea.comprobante_id)
+        .where(*filtro))).scalar() or 0
+
+    # El arrastre: lo que suman las líneas que quedaron antes de esta página.
+    arrastre = Decimal(0)
+    if desplazamiento:
+        anteriores = (
+            select(ERPComprobanteLinea.debito, ERPComprobanteLinea.credito)
+            .join(ERPComprobante,
+                  ERPComprobante.id == ERPComprobanteLinea.comprobante_id)
+            .where(*filtro)
+            .order_by(ERPComprobante.fecha, ERPComprobante.id)
+            .limit(desplazamiento).subquery()
+        )
+        fila = (await db.execute(select(
+            func.coalesce(func.sum(anteriores.c.debito), 0),
+            func.coalesce(func.sum(anteriores.c.credito), 0)))).first()
+        arrastre = Decimal(str(fila[0])) - Decimal(str(fila[1]))
+
+    saldo = saldo_inicial + arrastre
 
     r = await db.execute(
         select(ERPComprobanteLinea, ERPComprobante)
         .join(ERPComprobante, ERPComprobante.id == ERPComprobanteLinea.comprobante_id)
-        .where(ERPComprobanteLinea.cuenta_id == cuenta_id,
-               ERPComprobante.empresa_id == empresa_id,
-               ERPComprobante.estado == EstadoComprobante.CONTABILIZADO,
-               ERPComprobante.fecha >= desde, ERPComprobante.fecha <= hasta)
-        .order_by(ERPComprobante.fecha, ERPComprobante.id))
+        .where(*filtro)
+        .order_by(ERPComprobante.fecha, ERPComprobante.id)
+        .offset(desplazamiento).limit(limite))
 
     cuenta = await db.get(ERPPlanCuenta, cuenta_id)
     lineas = []
@@ -806,13 +849,21 @@ async def libro_mayor(
             "saldo": float(saldo),
         })
 
+    # El saldo final es el de TODO el rango, no el de la página: es la cifra que
+    # tiene que coincidir con el balance, y darla por página sería un error.
+    cierre = await _saldos(db, empresa_id, hasta)
+    c = cierre.get(cuenta_id, {"debito": Decimal(0), "credito": Decimal(0)})
+
     return {
         "cuenta": {"id": cuenta_id,
                    "codigo": cuenta.codigo if cuenta else None,
                    "nombre": cuenta.nombre if cuenta else None},
         "desde": desde, "hasta": hasta,
-        "saldo_inicial": float(p["debito"] - p["credito"]),
-        "saldo_final": float(saldo),
+        "saldo_inicial": float(saldo_inicial),
+        "saldo_final": float(c["debito"] - c["credito"]),
+        "total_lineas": total,
+        "desplazamiento": desplazamiento,
+        "limite": limite,
         "lineas": lineas,
     }
 
@@ -830,8 +881,17 @@ async def libro_diario(
         ERPComprobante.fecha >= desde, ERPComprobante.fecha <= hasta,
         ERPComprobante.estado == EstadoComprobante.CONTABILIZADO
     ).order_by(ERPComprobante.fecha, ERPComprobante.id).limit(limite))).scalars().all())
+
+    # Cuántos hay en realidad. Cortar en 500 sin decirlo hace creer que el mes
+    # tuvo 500 comprobantes, y ese es un error que no se nota nunca.
+    total = (await db.execute(select(func.count()).select_from(ERPComprobante).where(
+        ERPComprobante.empresa_id == empresa_id,
+        ERPComprobante.fecha >= desde, ERPComprobante.fecha <= hasta,
+        ERPComprobante.estado == EstadoComprobante.CONTABILIZADO))).scalar() or 0
+
     if not comps:
-        return {"desde": desde, "hasta": hasta, "comprobantes": []}
+        return {"desde": desde, "hasta": hasta, "comprobantes": [],
+                "total_comprobantes": total, "limite": limite}
 
     r = await db.execute(select(ERPComprobanteLinea).where(
         ERPComprobanteLinea.comprobante_id.in_([c.id for c in comps])))
@@ -847,6 +907,7 @@ async def libro_diario(
 
     return {
         "desde": desde, "hasta": hasta,
+        "total_comprobantes": total, "limite": limite,
         "comprobantes": [
             {
                 "id": c.id, "numero": c.numero, "fecha": c.fecha,

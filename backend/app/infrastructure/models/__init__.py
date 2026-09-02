@@ -182,7 +182,10 @@ from app.infrastructure.models.gestion import (  # noqa: F401
 # de `erp` porque ese archivo ya cubre los documentos, pero es el mismo modulo.
 from app.infrastructure.models.erp_nucleo import (  # noqa: F401
     ERPTercero, ERPPeriodo, ERPReglaContable, ERPReglaImpuesto,
-    ERPParametroFiscal, ERPEventoContable,
+    ERPParametroFiscal, ERPEventoContable, ERPConsecutivo,
+)
+from app.infrastructure.models.erp_gestion import (  # noqa: F401
+    ERPEscenario, ERPInductor, ERPDistribucionABC,
 )
 from app.infrastructure.models.ags import (
     AGSConfig, AGSCategoriaServicio, AGSServicio,

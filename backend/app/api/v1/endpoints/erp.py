@@ -4,7 +4,7 @@ Núcleo financiero, administrativo, tributario y contable corporativo.
 """
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, text
 from sqlalchemy.orm import selectinload
 from typing import Optional, List
 from pydantic import BaseModel
@@ -1003,7 +1003,34 @@ async def listar_presupuestos(
     if tipo:
         q = q.where(ERPPresupuesto.tipo == tipo)
     r = await db.execute(q.order_by(ERPPresupuesto.anio.desc(), ERPPresupuesto.nombre))
-    return list(r.scalars().all())
+    presupuestos = list(r.scalars().all())
+
+    # `total_ejecutado` es una columna que nadie actualizaba: se quedaba en cero
+    # para siempre y la pantalla mostraba 0% de ejecución en todos. Se calcula
+    # desde el mayor —gasto y costo del año, clases 5 y 6— en vez de mantener la
+    # columna al día, porque un total guardado que no coincide con el movimiento
+    # que lo produjo es una discusión sin ganador.
+    if presupuestos:
+        anios = {p.anio for p in presupuestos}
+        empresas = {p.empresa_id for p in presupuestos if p.empresa_id}
+        ejecutado = {
+            (eid, int(anio)): float(monto)
+            for eid, anio, monto in (await db.execute(text("""
+                SELECT c.empresa_id, extract(year from c.fecha) AS anio,
+                       coalesce(sum(l.debito - l.credito), 0)
+                FROM erp_comprobante_lineas l
+                JOIN erp_comprobantes c ON c.id = l.comprobante_id
+                JOIN erp_plan_cuentas pc ON pc.id = l.cuenta_id
+                WHERE c.estado = 'CONTABILIZADO'
+                  AND left(pc.codigo, 1) IN ('5', '6')
+                  AND extract(year from c.fecha) = ANY(:anios)
+                GROUP BY 1, 2
+            """), {"anios": list(anios)})).all()
+        }
+        for pres in presupuestos:
+            pres.total_ejecutado = ejecutado.get((pres.empresa_id, pres.anio), 0.0)
+
+    return presupuestos
 
 @router.post("/presupuestos", response_model=PresupuestoResponse, status_code=201)
 async def crear_presupuesto(data: PresupuestoCreate, db: AsyncSession = Depends(get_db), current_user: Usuario = Depends(require_admin)):

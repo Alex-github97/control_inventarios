@@ -38,6 +38,7 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import PanelConciliacion from './erp/conciliacion'
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const ERP_COLOR = COLOR_MODULO
@@ -328,7 +329,7 @@ export default function ERPTesoreria() {
             '& .MuiTabs-indicator': { bgcolor: ERP_COLOR },
           }}
         >
-          {['Cuentas Bancarias', 'Movimientos', 'Bancos'].map((label) => (
+          {['Cuentas Bancarias', 'Movimientos', 'Bancos', 'Conciliación'].map((label) => (
             <Tab
               key={label}
               label={label}
@@ -633,6 +634,15 @@ export default function ERPTesoreria() {
             </Card>
           </Box>
         )}
+
+        {/* ═══════════════════════════════════════════════════════════════════ */}
+        {/* TAB 3 — Conciliación                                                */}
+        {/*                                                                     */}
+        {/* Estaba nombrada en la cabecera de la pantalla —«control de cuentas, */}
+        {/* movimientos y conciliación bancaria»— pero no existía en ninguna    */}
+        {/* parte: la cuenta se decía conciliable y no había cómo conciliarla.  */}
+        {/* ═══════════════════════════════════════════════════════════════════ */}
+        {tabValue === 3 && <PanelConciliacion />}
 
         {/* ═══════════════════════════════════════════════════════════════════ */}
         {/* Dialog — Nueva Cuenta Bancaria                                      */}

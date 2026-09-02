@@ -397,3 +397,31 @@ class ERPEventoContable(Base):
     creado = sa.Column(sa.DateTime(timezone=True), server_default=sa.func.now(),
                        nullable=False)
     procesado = sa.Column(sa.DateTime(timezone=True))
+
+
+class ERPConsecutivo(Base, TimestampMixin):
+    """El último número usado de cada talonario.
+
+    Existe por desempeño y no por prolijidad. Deducir el consecutivo del máximo
+    de los comprobantes ya emitidos obliga a releerlos todos cada vez que se
+    emite uno nuevo, y ningún índice ayuda porque el número está dentro de una
+    cadena. El costo crece con el uso: es imperceptible el primer mes e
+    insoportable el tercer año.
+
+    Con una fila por talonario, `UPDATE ... RETURNING` da el siguiente número en
+    tiempo constante, y el bloqueo de esa fila serializa —por sí solo— a quienes
+    numeran el MISMO talonario sin estorbar a los demás.
+    """
+
+    __tablename__ = "erp_consecutivos"
+    __table_args__ = (
+        sa.UniqueConstraint("empresa_id", "prefijo", "anio", name="uq_erp_consecutivo"),
+    )
+
+    id = sa.Column(sa.Integer, primary_key=True, index=True)
+    empresa_id = sa.Column(sa.Integer, sa.ForeignKey("erp_empresas.id"), nullable=False)
+    # CD, RC, CE… El prefijo y no el tipo, porque varios tipos pueden compartir
+    # talonario si la empresa así lo lleva.
+    prefijo = sa.Column(sa.String(8), nullable=False)
+    anio = sa.Column(sa.Integer, nullable=False)
+    ultimo = sa.Column(sa.Integer, nullable=False, default=0)

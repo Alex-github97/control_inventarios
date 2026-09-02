@@ -58,8 +58,10 @@ interface Presupuesto {
   moneda?: string
   responsable?: string
   descripcion?: string
-  monto_presupuestado: number
-  monto_ejecutado: number
+  // Los nombres que devuelve la API. Antes acá decía `monto_*` y la API manda
+  // `total_*`, así que todas las cifras de esta pantalla salían en guiones.
+  total_presupuestado: number
+  total_ejecutado: number
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -112,8 +114,8 @@ interface SummaryCardsProps {
 
 function SummaryCards({ presupuestos, loading }: SummaryCardsProps) {
   const aprobados = presupuestos.filter((p) => p.estado === 'APROBADO')
-  const totalAprobado = aprobados.reduce((s, p) => s + (p.monto_presupuestado ?? 0), 0)
-  const totalEjecutado = aprobados.reduce((s, p) => s + (p.monto_ejecutado ?? 0), 0)
+  const totalAprobado = aprobados.reduce((s, p) => s + (p.total_presupuestado ?? 0), 0)
+  const totalEjecutado = aprobados.reduce((s, p) => s + (p.total_ejecutado ?? 0), 0)
   const pct = pctEjecucion(totalAprobado, totalEjecutado)
   const color = ejecucionColor(pct)
 
@@ -550,7 +552,7 @@ export default function ERPPresupuestos() {
                       </TableRow>
                     )
                   : filtered.map((p) => {
-                      const pct = pctEjecucion(p.monto_presupuestado, p.monto_ejecutado)
+                      const pct = pctEjecucion(p.total_presupuestado, p.total_ejecutado)
                       const barColor = ejecucionColor(pct)
                       const estado = estadoChip(p.estado)
                       const canAprobar = p.estado === 'BORRADOR' || p.estado === 'EN_REVISION'
@@ -597,12 +599,12 @@ export default function ERPPresupuestos() {
                           </TableCell>
                           <TableCell align="right">
                             <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 600 }}>
-                              {formatCurrency(p.monto_presupuestado)}
+                              {formatCurrency(p.total_presupuestado)}
                             </Typography>
                           </TableCell>
                           <TableCell align="right">
                             <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                              {formatCurrency(p.monto_ejecutado)}
+                              {formatCurrency(p.total_ejecutado)}
                             </Typography>
                           </TableCell>
                           <TableCell sx={{ minWidth: 160 }}>
@@ -664,7 +666,7 @@ export default function ERPPresupuestos() {
         >
           {selectedPresupuesto && (() => {
             const p = selectedPresupuesto
-            const pct = pctEjecucion(p.monto_presupuestado, p.monto_ejecutado)
+            const pct = pctEjecucion(p.total_presupuestado, p.total_ejecutado)
             const barColor = ejecucionColor(pct)
             const estado = estadoChip(p.estado)
             return (
@@ -712,13 +714,13 @@ export default function ERPPresupuestos() {
                     <Grid item xs={6}>
                       <Typography variant="caption" sx={{ color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>Presupuestado</Typography>
                       <Typography variant="body1" fontWeight={700} sx={{ mt: 0.5, fontFamily: 'monospace', color: ERP_COLOR }}>
-                        {formatCurrency(p.monto_presupuestado)}
+                        {formatCurrency(p.total_presupuestado)}
                       </Typography>
                     </Grid>
                     <Grid item xs={6}>
                       <Typography variant="caption" sx={{ color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>Ejecutado</Typography>
                       <Typography variant="body1" fontWeight={700} sx={{ mt: 0.5, fontFamily: 'monospace', color: barColor }}>
-                        {formatCurrency(p.monto_ejecutado)}
+                        {formatCurrency(p.total_ejecutado)}
                       </Typography>
                     </Grid>
                     <Grid item xs={12}>

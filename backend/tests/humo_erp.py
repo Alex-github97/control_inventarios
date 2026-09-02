@@ -16,6 +16,8 @@ import sys
 
 os.environ.setdefault("SQLALCHEMY_ECHO", "0")
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import httpx
 from sqlalchemy import text
 

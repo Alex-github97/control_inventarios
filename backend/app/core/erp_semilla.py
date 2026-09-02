@@ -232,6 +232,10 @@ REGLAS: List[Tuple[str, str, str, str]] = [
     ("SERVICIO_EJECUTADO", "ingreso", "417505", "CREDITO"),
     ("SERVICIO_EJECUTADO", "iva_generado", "240805", "CREDITO"),
     ("SERVICIO_EJECUTADO", "costo", "617505", "DEBITO"),
+    # El costo del servicio se acumula contra cuentas por pagar: la factura del
+    # combustible o del conductor llega después de prestarlo, y el gasto es del
+    # mes en que se prestó, no del mes en que llega el papel.
+    ("SERVICIO_EJECUTADO", "costo_por_pagar", "233595", "CREDITO"),
 ]
 
 

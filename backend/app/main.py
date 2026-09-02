@@ -2135,6 +2135,73 @@ async def _migrar_esquema(esquema: str) -> None:
                 "ALTER COLUMN contabilizado_en TYPE TIMESTAMPTZ "
                 "USING contabilizado_en AT TIME ZONE 'UTC'"))
 
+    # ── Los índices que sostienen la contabilidad ──
+    #
+    # `create_all` crea los índices declarados en los modelos nuevos, pero
+    # `erp_comprobante_lineas` es una tabla vieja y nació sin ninguno: ni por
+    # `comprobante_id` ni por `cuenta_id`. TODOS los reportes contables la
+    # recorren entera —balance, mayor, diario, estados financieros—, así que con
+    # unos pocos miles de asientos cada consulta pasa a leer la tabla completa.
+    #
+    # Van con `CONCURRENTLY` no: eso exige estar fuera de transacción y acá se
+    # está dentro del lock de arranque. Sobre tablas de este tamaño el bloqueo
+    # dura milisegundos, y solo la primera vez.
+    async with _conexion(esquema) as conn:
+        indices = [
+            # El JOIN de todos los reportes. Las columnas van INCLUDE para que
+            # la suma se resuelva sin volver a la tabla.
+            ("ix_ecl_comprobante", "erp_comprobante_lineas",
+             "(comprobante_id) INCLUDE (cuenta_id, debito, credito, centro_costo_id)"),
+            # El libro mayor filtra por cuenta antes de unir.
+            ("ix_ecl_cuenta", "erp_comprobante_lineas", "(cuenta_id)"),
+            ("ix_ecl_centro", "erp_comprobante_lineas", "(centro_costo_id)"),
+            # El filtro de `_saldos`: empresa, estado y rango de fechas.
+            ("ix_ec_empresa_estado_fecha", "erp_comprobantes",
+             "(empresa_id, estado, fecha)"),
+            ("ix_ec_empresa_periodo", "erp_comprobantes", "(empresa_id, periodo)"),
+            # Cartera y su antigüedad.
+            ("ix_efc_empresa_estado", "erp_facturas_cliente",
+             "(empresa_id, estado, fecha_vencimiento)"),
+            ("ix_efp_empresa_estado", "erp_facturas_proveedor",
+             "(empresa_id, estado, fecha_vencimiento)"),
+            ("ix_epagos_empresa_fecha", "erp_pagos", "(empresa_id, fecha)"),
+            # La auditoría se consulta por documento.
+            ("ix_eaud_entidad", "erp_auditoria", "(empresa_id, entidad, entidad_id)"),
+        ]
+        for nombre, tabla, definicion in indices:
+            if (await conn.execute(text(
+                    "SELECT to_regclass(:t)"), {"t": tabla})).scalar() is None:
+                continue
+            try:
+                await conn.execute(text(
+                    f"CREATE INDEX IF NOT EXISTS {nombre} ON {tabla} {definicion}"))
+            except Exception as e:   # noqa: BLE001
+                # Una columna que no exista en un esquema viejo no puede impedir
+                # que el servidor arranque; se pierde el índice, no el servicio.
+                logging.getLogger("uvicorn.error").warning(
+                    "No se pudo crear el índice %s en «%s»: %s", nombre, esquema, e)
+
+        # Los consecutivos dejan de deducirse del máximo de los comprobantes.
+        # Para que la numeración siga donde iba, se siembra la tabla con lo que
+        # ya está emitido. Sin esto el primer comprobante después de actualizar
+        # volvería al 000001 y chocaría contra `uq_comprobante`.
+        if (await conn.execute(text(
+                "SELECT to_regclass('erp_consecutivos')"))).scalar() is not None:
+            await conn.execute(text("""
+                INSERT INTO erp_consecutivos (empresa_id, prefijo, anio, ultimo,
+                                              created_at, updated_at)
+                SELECT empresa_id,
+                       split_part(numero, '-', 1)               AS prefijo,
+                       split_part(numero, '-', 2)::int          AS anio,
+                       max(split_part(numero, '-', 3)::int)     AS ultimo,
+                       now(), now()
+                FROM erp_comprobantes
+                WHERE numero ~ '^[A-Z]+-[0-9]{4}-[0-9]+$'
+                GROUP BY 1, 2, 3
+                ON CONFLICT (empresa_id, prefijo, anio) DO UPDATE
+                    SET ultimo = greatest(erp_consecutivos.ultimo, excluded.ultimo)
+            """))
+
     # ── El núcleo contable ──
     #
     # Sin plan de cuentas ni reglas, la primera factura de una empresa falla con

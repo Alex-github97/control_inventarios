@@ -96,6 +96,42 @@ interface ConsolidadoResult {
   margen_neto: number
 }
 
+/**
+ * El consolidado de verdad: por empresa, con las operaciones entre ellas
+ * separadas.
+ *
+ * Sumar las filiales sin más infla los ingresos del grupo con la facturación
+ * que se hacen entre sí, donde no entró un peso de afuera. Y restarla en
+ * silencio es igual de malo: nadie puede comprobar que el ajuste esté bien.
+ */
+interface EmpresaConsolidada {
+  empresa_id: number
+  nit: string
+  razon_social: string
+  ingresos: number
+  costos: number
+  gastos: number
+  utilidad: number
+}
+
+interface OperacionInterna {
+  empresa_emisora_id: number
+  cliente_nit: string
+  cliente?: string | null
+  facturas: number
+  monto: number
+}
+
+interface Consolidacion {
+  desde: string
+  hasta: string
+  empresas: EmpresaConsolidada[]
+  suma_simple: { ingresos: number; costos: number; gastos: number }
+  operaciones_internas: OperacionInterna[]
+  eliminacion_ingresos: number
+  consolidado: { ingresos: number; costos: number; gastos: number; utilidad: number }
+}
+
 // ─── KPI Summary Card ─────────────────────────────────────────────────────────
 
 interface SummaryCardProps {
@@ -591,6 +627,26 @@ export default function ERPConsolidacion() {
       enabled: consolidadoEnabled,
     })
 
+  // El desglose por empresa con sus eliminaciones. Va aparte del estado de
+  // resultados de arriba porque responde otra pregunta: aquel dice cuánto dio el
+  // grupo, y este de dónde salió y qué hubo que quitar.
+  const nAnio = Number(anio)
+  const nMes = Number(mes) || 0
+  const desde = nMes ? `${anio}-${String(nMes).padStart(2, '0')}-01` : `${anio}-01-01`
+  // El día 0 del mes siguiente es el último del mes: evita la tabla de los 28,
+  // 30 y 31 días, y los bisiestos.
+  const hasta = nMes
+    ? new Date(nAnio, nMes, 0).toISOString().slice(0, 10)
+    : `${anio}-12-31`
+
+  const { data: detalle } = useQuery<Consolidacion>({
+    queryKey: ['erp-consolidacion', desde, hasta],
+    queryFn: () => apiClient
+      .get('/erp/consolidacion', { params: { desde, hasta } })
+      .then((r) => r.data),
+    enabled: consolidadoEnabled,
+  })
+
   // ── Derived ─────────────────────────────────────────────────────────────────
 
   const holdings = (empresas ?? []).filter((e) => e.es_holding)
@@ -966,6 +1022,60 @@ export default function ERPConsolidacion() {
                         </Box>
                       ) : consolidado ? (
                         <>
+                          {/* ── Desglose por empresa y eliminaciones ──────── */}
+                          {detalle && detalle.empresas.length > 0 && (
+                            <Box sx={{ mb: 3 }}>
+                              <Typography sx={{ fontSize: 12, fontWeight: 700,
+                                                color: '#64748B', mb: 1,
+                                                letterSpacing: '0.04em' }}>
+                                DE DÓNDE SALE
+                              </Typography>
+                              {detalle.empresas.map((e) => (
+                                <Box key={e.empresa_id}
+                                     sx={{ display: 'flex', justifyContent: 'space-between',
+                                           py: 0.75, borderBottom: '1px solid #F1F5F9' }}>
+                                  <Typography sx={{ fontSize: 13, color: '#475569' }}>
+                                    {e.razon_social}
+                                  </Typography>
+                                  <Typography sx={{ fontSize: 13, fontFamily: 'monospace',
+                                                    fontWeight: 600 }}>
+                                    {formatCurrency(e.ingresos)}
+                                  </Typography>
+                                </Box>
+                              ))}
+
+                              {detalle.eliminacion_ingresos > 0 ? (
+                                <Box sx={{ mt: 1.5, p: 1.5, borderRadius: 1,
+                                           bgcolor: '#FEF3C7' }}>
+                                  <Box sx={{ display: 'flex',
+                                             justifyContent: 'space-between' }}>
+                                    <Typography sx={{ fontSize: 13, fontWeight: 700,
+                                                      color: '#92400E' }}>
+                                      Menos: facturación entre empresas del grupo
+                                    </Typography>
+                                    <Typography sx={{ fontSize: 13, fontWeight: 700,
+                                                      fontFamily: 'monospace',
+                                                      color: '#92400E' }}>
+                                      − {formatCurrency(detalle.eliminacion_ingresos)}
+                                    </Typography>
+                                  </Box>
+                                  {detalle.operaciones_internas.map((o, i) => (
+                                    <Typography key={i} sx={{ fontSize: 11,
+                                                              color: '#92400E', mt: 0.5 }}>
+                                      {o.facturas} factura(s) a {o.cliente ?? o.cliente_nit} ·{' '}
+                                      {formatCurrency(o.monto)}
+                                    </Typography>
+                                  ))}
+                                </Box>
+                              ) : (
+                                <Typography sx={{ fontSize: 11, color: '#94A3B8', mt: 1 }}>
+                                  No hubo facturación entre empresas del grupo en el
+                                  período, así que no hay nada que eliminar.
+                                </Typography>
+                              )}
+                            </Box>
+                          )}
+
                           {/* Ingresos */}
                           <Box
                             sx={{
