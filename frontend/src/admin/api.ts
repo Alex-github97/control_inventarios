@@ -880,6 +880,14 @@ export interface BarraGantt {
   iniciado?: string | null
   resuelto?: string | null
   bloquea_a: number[]
+  /** Quién la está frenando. Se calcula en el servidor y no invirtiendo el mapa
+   *  acá: invertirlo obliga a tener cargadas TODAS las barras, cosa que deja de
+   *  ser cierta en cuanto se filtra por sprint. */
+  depende_de: number[]
+  /** De 0 a 1. En una tarea con hijas es la fracción terminada; en una hoja,
+   *  todo o nada. No se inventa un punto medio para lo que está en curso. */
+  avance: number
+  hijas: number
 }
 
 export interface GanttDatos {

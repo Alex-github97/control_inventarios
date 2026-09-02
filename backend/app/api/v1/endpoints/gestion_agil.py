@@ -81,8 +81,22 @@ class BarraGantt(BaseModel):
     # Lo que de verdad pasó
     iniciado: Optional[datetime] = None
     resuelto: Optional[datetime] = None
-    # A quién bloquea. Son las flechas del diagrama.
+    # A quién bloquea, y de quién depende. Son las flechas del diagrama.
+    #
+    # Se devuelven los dos sentidos aunque el vínculo se guarde una sola vez: la
+    # pantalla necesita responder «¿qué me está frenando?», y calcular eso
+    # invirtiendo el mapa en el navegador obliga a tener cargadas TODAS las
+    # barras, cosa que deja de ser cierta en cuanto se filtra por sprint.
     bloquea_a: List[int] = []
+    depende_de: List[int] = []
+    # Cuánto de esto está hecho, de 0 a 1. En una tarea con hijas es la fracción
+    # de hijas terminadas; en una hoja, 1 si está terminada y 0 si no. No se
+    # inventa un punto medio para lo que está en curso: un porcentaje que nadie
+    # midió es peor que no tener porcentaje.
+    avance: float = 0.0
+    # Cuántas hijas tiene. La pantalla lo usa para saber si dibujar el desplegable
+    # sin tener que recorrer la lista entera por cada fila.
+    hijas: int = 0
 
 
 class Gantt(BaseModel):
@@ -403,13 +417,37 @@ async def gantt(
             GPTipoIncidencia.id.in_({i.tipo_id for i in incidencias})))).scalars().all()
     }
 
-    # Las flechas del diagrama: quién bloquea a quién. Se traen de una vez para
-    # no consultar por cada barra.
+    # Las flechas del diagrama, en los dos sentidos y de una sola consulta: una
+    # por barra es el patrón que convierte cien tareas en doscientas consultas.
+    #
+    # Solo los vínculos que expresan precedencia. «Se relaciona con» o «duplica
+    # a» no dicen que una vaya antes que otra, y dibujarlos como flecha haría
+    # leer un orden que nadie declaró.
+    PRECEDENCIA = ("BLOQUEA", "DEPENDE", "CAUSA")
     r = await db.execute(select(GPVinculo).where(
-        GPVinculo.tipo == "BLOQUEA", GPVinculo.origen_id.in_(ids)))
+        GPVinculo.tipo.in_(PRECEDENCIA),
+        or_(GPVinculo.origen_id.in_(ids), GPVinculo.destino_id.in_(ids))))
     bloqueos: Dict[int, List[int]] = {}
+    dependencias: Dict[int, List[int]] = {}
     for v in r.scalars().all():
-        bloqueos.setdefault(v.origen_id, []).append(v.destino_id)
+        # «A depende de B» se guarda como origen=A, destino=B; los otros dos van
+        # al revés —A bloquea a B, A causa B—, así que la flecha apunta distinto.
+        if v.tipo == "DEPENDE":
+            antes, despues = v.destino_id, v.origen_id
+        else:
+            antes, despues = v.origen_id, v.destino_id
+        bloqueos.setdefault(antes, []).append(despues)
+        dependencias.setdefault(despues, []).append(antes)
+
+    # Cuántas hijas tiene cada una y cuántas están terminadas, para el avance y
+    # para saber si dibujar el desplegable.
+    terminados = select(GPEstado.id).where(GPEstado.categoria == "TERMINADO")
+    r = await db.execute(
+        select(GPIncidencia.padre_id, func.count(),
+               func.count().filter(GPIncidencia.estado_id.in_(terminados)))
+        .where(GPIncidencia.padre_id.in_(ids))
+        .group_by(GPIncidencia.padre_id))
+    conteo_hijas: Dict[int, tuple] = {p: (t, h) for p, t, h in r.all()}
 
     barras: List[BarraGantt] = []
     huerfanas: List[GPIncidencia] = []
@@ -423,6 +461,16 @@ async def gantt(
         momentos.extend(fechas)
         estado = estados.get(i.estado_id)
         tipo = tipos.get(i.tipo_id)
+
+        # El avance: en una tarea con hijas, la fracción terminada; en una hoja,
+        # todo o nada. No se inventa un punto medio para lo que está en curso —un
+        # porcentaje que nadie midió es peor que no tener porcentaje—.
+        total_hijas, hechas = conteo_hijas.get(i.id, (0, 0))
+        if total_hijas:
+            avance = hechas / total_hijas
+        else:
+            avance = 1.0 if (estado and estado.categoria == "TERMINADO") else 0.0
+
         barras.append(BarraGantt(
             id=i.id,
             clave=f"{proyecto_id}-{i.numero}",   # se reemplaza abajo
@@ -437,6 +485,9 @@ async def gantt(
             inicio_plan=i.inicio_plan, vence=i.vence,
             iniciado=i.iniciado, resuelto=i.resuelto,
             bloquea_a=bloqueos.get(i.id, []),
+            depende_de=dependencias.get(i.id, []),
+            avance=round(avance, 3),
+            hijas=total_hijas,
         ))
 
     # La clave visible lleva el prefijo del proyecto.
