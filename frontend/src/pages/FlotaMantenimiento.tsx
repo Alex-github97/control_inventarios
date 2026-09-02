@@ -16,6 +16,7 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const GF_COLOR = COLOR_MODULO
 
 interface Vehiculo { id: number; placa: string }
@@ -83,17 +84,17 @@ export default function FlotaMantenimiento() {
   const createMut = useMutation({
     mutationFn: (d: object) => api.post('/flota/ordenes/', d).then(r => r.data),
     onSuccess: () => { toast.success('Orden de trabajo creada'); qc.invalidateQueries({ queryKey: ['flota-ordenes'] }); setDialogOpen(false); resetForm() },
-    onError: () => toast.error('Error al crear la orden'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al crear la orden')),
   })
   const estadoMut = useMutation({
     mutationFn: ({ id, estado }: { id: number; estado: string }) => api.patch(`/flota/ordenes/${id}/estado`, { estado }).then(r => r.data),
     onSuccess: () => { toast.success('Estado actualizado'); qc.invalidateQueries({ queryKey: ['flota-ordenes'] }); setEstadoDialog(null) },
-    onError: () => toast.error('Error al actualizar estado'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al actualizar estado')),
   })
   const deleteMut = useMutation({
     mutationFn: (id: number) => api.delete(`/flota/ordenes/${id}`),
     onSuccess: () => { toast.success('Orden eliminada'); qc.invalidateQueries({ queryKey: ['flota-ordenes'] }); setDeleteConfirm(null) },
-    onError: () => toast.error('Error al eliminar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al eliminar')),
   })
 
   const resetForm = () => {

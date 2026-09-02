@@ -47,6 +47,7 @@ import { apiClient as api } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const GH_COLOR = COLOR_MODULO
@@ -397,8 +398,8 @@ export default function GHNomina() {
       setProcesandoId(null)
       queryClient.invalidateQueries({ queryKey: ['gh-periodos'] })
     },
-    onError: () => {
-      toast.error('Error al procesar la nómina')
+    onError: (e: any) => {
+      toast.error(mensajeDeError(e, 'Error al procesar la nómina'))
       setProcesandoId(null)
     },
   })
@@ -410,8 +411,8 @@ export default function GHNomina() {
       setCerrandoId(null)
       queryClient.invalidateQueries({ queryKey: ['gh-periodos'] })
     },
-    onError: () => {
-      toast.error('Error al cerrar el período')
+    onError: (e: any) => {
+      toast.error(mensajeDeError(e, 'Error al cerrar el período'))
       setCerrandoId(null)
     },
   })
@@ -436,9 +437,7 @@ export default function GHNomina() {
       toast.success('Novedad eliminada')
       queryClient.invalidateQueries({ queryKey: ['gh-novedades'] })
     },
-    onError: () => {
-      toast.error('Error al eliminar la novedad')
-    },
+    onError: (e: any) => { toast.error(mensajeDeError(e, 'Error al eliminar la novedad')) },
   })
 
   const mutCrearLiquidacion = useMutation({

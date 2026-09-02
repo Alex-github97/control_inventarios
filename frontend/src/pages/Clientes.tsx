@@ -10,6 +10,7 @@ import { apiClient } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
+import { mensajeDeError } from '@/utils/errorApi'
 const PRIMARY = '#1A1A1A'
 
 export default function Clientes() {
@@ -39,7 +40,7 @@ export default function Clientes() {
       toast.success('Cliente eliminado')
       queryClient.invalidateQueries({ queryKey: ['clientes-manifiestos'] })
     },
-    onError: () => toast.error('Error eliminando cliente'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error eliminando cliente')),
   })
 
   const handleSubmit = () => {

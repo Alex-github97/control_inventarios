@@ -12,6 +12,7 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const ERP_COLOR = COLOR_MODULO
 
 function formatCurrency(v: number | null | undefined) {
@@ -84,7 +85,7 @@ export default function ERPEPM() {
       toast.success('Simulación ejecutada')
       qc.invalidateQueries({ queryKey: ['erp-epm-escenarios'] })
     },
-    onError: () => toast.error('Error al simular escenarios'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al simular escenarios')),
   })
 
   const totalPlaneado = planes.reduce((a, p) => a + p.presupuesto_ingresos, 0)

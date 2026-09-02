@@ -19,6 +19,7 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const GH_COLOR = COLOR_MODULO
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
@@ -128,7 +129,7 @@ export default function GHEvaluacion() {
       setCreatedEvalId(data.id)
       qc.invalidateQueries({ queryKey: ['gh-evaluaciones'] })
     },
-    onError: () => toast.error('Error al crear evaluación'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al crear evaluación')),
   })
 
   const updateEval = useMutation({
@@ -138,7 +139,7 @@ export default function GHEvaluacion() {
       toast.success('Evaluación actualizada')
       qc.invalidateQueries({ queryKey: ['gh-evaluaciones'] })
     },
-    onError: () => toast.error('Error al actualizar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al actualizar')),
   })
 
   const saveDetalles = useMutation({
@@ -148,7 +149,7 @@ export default function GHEvaluacion() {
       toast.success('Criterios guardados')
       qc.invalidateQueries({ queryKey: ['gh-evaluaciones'] })
     },
-    onError: () => toast.error('Error al guardar criterios'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al guardar criterios')),
   })
 
   // ─── Handlers ───────────────────────────────────────────────────────────────

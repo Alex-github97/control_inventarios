@@ -49,6 +49,7 @@ import {
   Close as CloseIcon,
 } from '@mui/icons-material'
 
+import { mensajeDeError } from '@/utils/errorApi'
 const GH_COLOR = COLOR_MODULO
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
@@ -284,7 +285,7 @@ export default function GHSST() {
       qc.invalidateQueries({ queryKey: ['gh-sst-incidentes'] })
       setIncOpenDialog(false)
     },
-    onError: () => toast.error('Error al registrar incidente'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al registrar incidente')),
   })
 
   const incUpdateMut = useMutation({
@@ -294,7 +295,7 @@ export default function GHSST() {
       qc.invalidateQueries({ queryKey: ['gh-sst-incidentes'] })
       setIncOpenDialog(false)
     },
-    onError: () => toast.error('Error al actualizar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al actualizar')),
   })
 
   const incMarkInvMut = useMutation({
@@ -303,7 +304,7 @@ export default function GHSST() {
       toast.success('Marcado como investigado')
       qc.invalidateQueries({ queryKey: ['gh-sst-incidentes'] })
     },
-    onError: () => toast.error('Error al actualizar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al actualizar')),
   })
 
   const handleIncOpen = (inc?: Incidente) => {
@@ -359,7 +360,7 @@ export default function GHSST() {
       qc.invalidateQueries({ queryKey: ['gh-riesgos'] })
       setRiesgoOpenDialog(false)
     },
-    onError: () => toast.error('Error al registrar riesgo'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al registrar riesgo')),
   })
 
   const riesgoUpdateMut = useMutation({
@@ -369,7 +370,7 @@ export default function GHSST() {
       qc.invalidateQueries({ queryKey: ['gh-riesgos'] })
       setRiesgoOpenDialog(false)
     },
-    onError: () => toast.error('Error al actualizar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al actualizar')),
   })
 
   const handleRiesgoOpen = (r?: Riesgo) => {
@@ -425,7 +426,7 @@ export default function GHSST() {
       qc.invalidateQueries({ queryKey: ['gh-inspecciones'] })
       setInspOpenDialog(false)
     },
-    onError: () => toast.error('Error al registrar inspección'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al registrar inspección')),
   })
 
   const inspUpdateMut = useMutation({
@@ -435,7 +436,7 @@ export default function GHSST() {
       qc.invalidateQueries({ queryKey: ['gh-inspecciones'] })
       setInspOpenDialog(false)
     },
-    onError: () => toast.error('Error al actualizar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al actualizar')),
   })
 
   const handleInspOpen = (ins?: Inspeccion) => {

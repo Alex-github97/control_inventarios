@@ -15,6 +15,7 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const ML_COLOR = COLOR_MODULO
 
 interface Activo { id: number; tag: string; nombre: string }
@@ -87,19 +88,19 @@ export default function LocativaRiesgos() {
   const crear = useMutation({
     mutationFn: (data: any) => api.post('/locativa/riesgos/', data).then(r => r.data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['locativa-riesgos'] }); handleClose(); toast.success('Riesgo registrado') },
-    onError: () => toast.error('Error al registrar riesgo'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al registrar riesgo')),
   })
 
   const actualizar = useMutation({
     mutationFn: ({ id, data }: { id: number; data: any }) => api.patch(`/locativa/riesgos/${id}`, data).then(r => r.data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['locativa-riesgos'] }); handleClose(); toast.success('Riesgo actualizado') },
-    onError: () => toast.error('Error al actualizar riesgo'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al actualizar riesgo')),
   })
 
   const eliminar = useMutation({
     mutationFn: (id: number) => api.delete(`/locativa/riesgos/${id}`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['locativa-riesgos'] }); toast.success('Riesgo eliminado') },
-    onError: () => toast.error('Error al eliminar riesgo'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al eliminar riesgo')),
   })
 
   const handleOpen = (r?: Riesgo) => {

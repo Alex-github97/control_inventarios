@@ -31,13 +31,20 @@ export const pesos = (v?: number | null) =>
         style: 'currency', currency: 'COP', maximumFractionDigits: 0,
       }).format(v)
 
-/** El mensaje que trae el servidor, que siempre dice qué configurar. */
-export function mensajeDeError(e: any): string {
+import { mensajeDeError as traducir } from '@/utils/errorApi'
+
+/**
+ * El mensaje del servidor, con el caso propio de contabilidad.
+ *
+ * Se apoya en el traductor común —que sabe de errores de validación, de los 500
+ * y de la falta de respuesta— y solo agrega lo que es de acá: el motor contable
+ * responde `{"contabilidad": "..."}`, y ese texto dice exactamente qué regla
+ * falta configurar. Tener una copia propia dejaba fuera todos los demás casos.
+ */
+export function mensajeDeError(e: any, respaldo?: string): string {
   const d = e?.response?.data?.detail
-  if (typeof d === 'string') return d
   if (d?.contabilidad) return d.contabilidad
-  if (Array.isArray(d) && d[0]?.msg) return d[0].msg
-  return e?.message || 'No se pudo completar la operación'
+  return traducir(e, respaldo)
 }
 
 const hoy = () => new Date().toISOString().slice(0, 10)

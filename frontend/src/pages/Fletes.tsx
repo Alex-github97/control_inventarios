@@ -24,6 +24,7 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '@/store/authStore'
 
+import { mensajeDeError } from '@/utils/errorApi'
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
 const TIPOS_VEHICULO = [
@@ -313,7 +314,7 @@ function TabRegistrar({ generadores, conductores, onSuccess }: {
       qc.invalidateQueries({ queryKey: ['fletes'] })
       onSuccess()
     },
-    onError: () => toast.error('Error al registrar el flete'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al registrar el flete')),
   })
 
   const createGenMut = useMutation({
@@ -325,7 +326,7 @@ function TabRegistrar({ generadores, conductores, onSuccess }: {
       setShowGenDialog(false)
       setNewGen({ nombre: '', nit: '', ciudad: '', telefono: '', contacto: '' })
     },
-    onError: () => toast.error('Error al crear el generador'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al crear el generador')),
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -688,7 +689,7 @@ function TabEnturnamiento({ conductores, fletesPendientes }: {
   const inactivarMut = useMutation({
     mutationFn: (id: number) => api.patch(`/fletes/enturnamiento/${id}/inactivar`).then(r => r.data),
     onSuccess: () => { toast.success('Enturnamiento inactivado'); qc.invalidateQueries({ queryKey: ['enturnamiento'] }) },
-    onError: () => toast.error('Error al inactivar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al inactivar')),
   })
 
   const asignarMut = useMutation({
@@ -943,13 +944,13 @@ export default function Fletes() {
       toast.success(`Flete marcado como ${ESTADO_LABELS[vars.estado] ?? vars.estado}`)
       qc.invalidateQueries({ queryKey: ['fletes'] })
     },
-    onError: () => toast.error('Error al cambiar estado'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al cambiar estado')),
   })
 
   const deleteMut = useMutation({
     mutationFn: (id: number) => api.delete(`/fletes/${id}`),
     onSuccess: () => { toast.success('Flete eliminado'); qc.invalidateQueries({ queryKey: ['fletes'] }) },
-    onError: () => toast.error('Error al eliminar flete'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al eliminar flete')),
   })
 
   const fletesPendientes = fletes.filter(f => f.estado === 'PENDIENTE')

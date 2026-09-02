@@ -43,6 +43,7 @@ import { SelectorEmpresa, useEmpresaERP } from './erp/nucleo'
 import {
   PanelParametros, PanelReglasImpuesto, PanelSimulador,
 } from './erp/tributario'
+import { mensajeDeError } from '@/utils/errorApi'
 // ── Module brand ─────────────────────────────────────────────────────────────
 const ERP_COLOR = COLOR_MODULO
 
@@ -383,7 +384,7 @@ export default function ERPTributacion() {
       setOpenNew(false)
       setNuevoImpuesto({ ...EMPTY_IMPUESTO })
     },
-    onError: () => toast.error('Error al registrar el impuesto'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al registrar el impuesto')),
   })
 
   const deleteImpuesto = useMutation({
@@ -393,7 +394,7 @@ export default function ERPTributacion() {
       toast.success('Impuesto eliminado')
       qc.invalidateQueries({ queryKey: ['erp-tributacion-impuestos'] })
     },
-    onError: () => toast.error('Error al eliminar el impuesto'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al eliminar el impuesto')),
   })
 
   // ── Derived IVA values ────────────────────────────────────────────────────

@@ -15,6 +15,7 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const ML_COLOR = COLOR_MODULO
 const ENERGIA_COLOR = COLOR_MODULO
 
@@ -83,19 +84,19 @@ export default function LocativaEnergia() {
   const crearMedidor = useMutation({
     mutationFn: (data: any) => api.post('/locativa/medidores/', data).then(r => r.data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['locativa-medidores'] }); setOpenMedidor(false); toast.success('Medidor creado') },
-    onError: () => toast.error('Error al crear medidor'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al crear medidor')),
   })
 
   const actualizarMedidor = useMutation({
     mutationFn: ({ id, data }: { id: number; data: any }) => api.patch(`/locativa/medidores/${id}`, data).then(r => r.data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['locativa-medidores'] }); setOpenMedidor(false); toast.success('Medidor actualizado') },
-    onError: () => toast.error('Error al actualizar medidor'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al actualizar medidor')),
   })
 
   const crearLectura = useMutation({
     mutationFn: (data: any) => api.post('/locativa/lecturas/', data).then(r => r.data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['locativa-lecturas'] }); setOpenLectura(false); toast.success('Lectura registrada') },
-    onError: () => toast.error('Error al registrar lectura'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al registrar lectura')),
   })
 
   const handleOpenMedidor = (m?: Medidor) => {

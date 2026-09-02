@@ -147,9 +147,7 @@ function NewCuentaDialog({ open, onClose }: NewCuentaDialogProps) {
       toast.success('Cuenta creada correctamente')
       handleClose()
     },
-    onError: () => {
-      toast.error('Error al crear la cuenta')
-    },
+    onError: (e: any) => { toast.error(mensajeDeError(e, 'Error al crear la cuenta')) },
   })
 
   const handleClose = () => {
@@ -303,9 +301,7 @@ function NewComprobanteDialog({ open, onClose }: NewComprobanteDialogProps) {
       toast.success('Comprobante creado correctamente')
       handleClose()
     },
-    onError: () => {
-      toast.error('Error al crear el comprobante')
-    },
+    onError: (e: any) => { toast.error(mensajeDeError(e, 'Error al crear el comprobante')) },
   })
 
   const handleClose = () => {
@@ -514,9 +510,7 @@ function NewCentroCostoDialog({ open, onClose }: NewCCDialogProps) {
       toast.success('Centro de costo creado correctamente')
       handleClose()
     },
-    onError: () => {
-      toast.error('Error al crear el centro de costo')
-    },
+    onError: (e: any) => { toast.error(mensajeDeError(e, 'Error al crear el centro de costo')) },
   })
 
   const handleClose = () => {

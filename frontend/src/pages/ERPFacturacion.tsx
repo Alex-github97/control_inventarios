@@ -44,6 +44,7 @@ import { exportarPDF } from '@/utils/exportar'
 import { format } from 'date-fns'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 // ── Module brand ──────────────────────────────────────────────────────────────
 const ERP_COLOR = COLOR_MODULO
 
@@ -259,7 +260,7 @@ export default function ERPFacturacion() {
       qc.invalidateQueries({ queryKey: ['erp-fe-facturas'] })
       handleCloseNew()
     },
-    onError: () => toast.error('Error al crear la factura'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al crear la factura')),
   })
 
   const emitirFactura = useMutation({
@@ -269,7 +270,7 @@ export default function ERPFacturacion() {
       toast.success('Factura enviada a la DIAN')
       qc.invalidateQueries({ queryKey: ['erp-fe-facturas'] })
     },
-    onError: () => toast.error('Error al emitir la factura'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al emitir la factura')),
   })
 
   // ── Dialog helpers ─────────────────────────────────────────────────────────

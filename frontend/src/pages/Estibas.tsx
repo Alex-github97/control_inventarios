@@ -22,6 +22,7 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 
+import { mensajeDeError } from '@/utils/errorApi'
 const ESTADOS = [
   'DISPONIBLE', 'EN_INVENTARIO', 'EN_TRANSITO', 'CARGADA',
   'EN_CLIENTE', 'PENDIENTE_RETORNO', 'EN_REPARACION', 'DANADA', 'FALTANTE', 'BAJA',
@@ -139,7 +140,7 @@ function StockMinimoTab() {
       toast.success('Configuración eliminada')
       queryClient.invalidateQueries({ queryKey: ['stock-minimo'] })
     },
-    onError: () => toast.error('Error al eliminar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al eliminar')),
   })
 
   const handleOpenNew = () => {

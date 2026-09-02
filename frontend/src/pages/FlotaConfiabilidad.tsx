@@ -19,6 +19,7 @@ import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const GF_COLOR = COLOR_MODULO
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -96,7 +97,7 @@ function TabFMEA() {
   const mutation = useMutation({
     mutationFn: (d: any) => editing ? api.put(`/flota/modos-falla/${editing.id}`, d) : api.post('/flota/modos-falla/', d),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['flota-modos-falla'] }); toast.success('AMEF guardado'); setOpen(false) },
-    onError: () => toast.error('Error al guardar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al guardar')),
   })
   const delMutation = useMutation({
     mutationFn: (id: number) => api.delete(`/flota/modos-falla/${id}`),

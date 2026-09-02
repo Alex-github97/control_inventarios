@@ -37,9 +37,8 @@ import {
   type Plantilla, type Hallazgo, type Categoria,
 } from '@/api/checklists'
 
-const mensaje = (e: any) =>
-  e?.response?.data?.detail ?? e?.message ?? 'No se pudo completar la operación'
 
+import { mensajeDeError } from '@/utils/errorApi'
 const chip = (texto: string, color: string) => (
   <Chip label={texto} size="small" sx={{
     height: 19, fontSize: 10, fontWeight: 700, bgcolor: `${color}1A`, color }} />
@@ -120,12 +119,12 @@ function Clasificaciones() {
                      : chkApi.clasificaciones.crear(cuerpo)
     },
     onSuccess: () => { invalidar(); setAbierto(false); toast.success('Guardada') },
-    onError: (e: any) => toast.error(mensaje(e)),
+    onError: (e: any) => toast.error(mensajeDeError(e)),
   })
   const borrar = useMutation({
     mutationFn: (id: number) => chkApi.clasificaciones.borrar(id),
     onSuccess: () => { invalidar(); toast.success('Desactivada') },
-    onError: (e: any) => toast.error(mensaje(e), { duration: 6000 }),
+    onError: (e: any) => toast.error(mensajeDeError(e), { duration: 6000 }),
   })
 
   const abrir = (c?: Clasificacion) => {
@@ -302,12 +301,12 @@ function Sistemas() {
   const guardar = useMutation({
     mutationFn: () => edicion ? chkApi.sistemas.editar(edicion.id, f) : chkApi.sistemas.crear(f),
     onSuccess: () => { invalidar(); setF({ nombre: '', orden: 0 }); setEdicion(null) },
-    onError: (e: any) => toast.error(mensaje(e)),
+    onError: (e: any) => toast.error(mensajeDeError(e)),
   })
   const borrar = useMutation({
     mutationFn: (id: number) => chkApi.sistemas.borrar(id),
     onSuccess: () => { invalidar(); toast.success('Desactivado') },
-    onError: (e: any) => toast.error(mensaje(e), { duration: 6000 }),
+    onError: (e: any) => toast.error(mensajeDeError(e), { duration: 6000 }),
   })
 
   return (
@@ -391,7 +390,7 @@ function Preguntas() {
   const guardar = useMutation({
     mutationFn: () => edicion ? chkApi.preguntas.editar(edicion.id, f) : chkApi.preguntas.crear(f),
     onSuccess: () => { invalidar(); setAbierto(false); toast.success('Guardada') },
-    onError: (e: any) => toast.error(mensaje(e)),
+    onError: (e: any) => toast.error(mensajeDeError(e)),
   })
   const borrar = useMutation({
     mutationFn: (id: number) => chkApi.preguntas.borrar(id),
@@ -570,12 +569,12 @@ function Plantillas({ onArmar }: { onArmar: (id: number) => void }) {
   const guardar = useMutation({
     mutationFn: () => edicion ? chkApi.plantillas.editar(edicion.id, f) : chkApi.plantillas.crear(f),
     onSuccess: () => { invalidar(); setAbierto(false); toast.success('Guardada') },
-    onError: (e: any) => toast.error(mensaje(e)),
+    onError: (e: any) => toast.error(mensajeDeError(e)),
   })
   const duplicar = useMutation({
     mutationFn: ({ id, codigo, nombre }: any) => chkApi.duplicar(id, codigo, nombre),
     onSuccess: () => { invalidar(); toast.success('Duplicada con sus preguntas y tipos') },
-    onError: (e: any) => toast.error(mensaje(e)),
+    onError: (e: any) => toast.error(mensajeDeError(e)),
   })
   const borrar = useMutation({
     mutationFn: (id: number) => chkApi.plantillas.borrar(id),
@@ -785,7 +784,7 @@ function Armador({ pid, onVolver }: { pid: number; onVolver: () => void }) {
       invalidar(); setSeleccion(null)
       toast.success(`${r.total} preguntas en la plantilla`)
     },
-    onError: (e: any) => toast.error(mensaje(e)),
+    onError: (e: any) => toast.error(mensajeDeError(e)),
   })
 
   const agregarTipo = useMutation({
@@ -797,7 +796,7 @@ function Armador({ pid, onVolver }: { pid: number; onVolver: () => void }) {
       qc.invalidateQueries({ queryKey: ['chk-plantillas'] })
       setNuevoTipo({ tipo_activo: '', marca: '', linea: '' })
     },
-    onError: (e: any) => toast.error(mensaje(e)),
+    onError: (e: any) => toast.error(mensajeDeError(e)),
   })
   const quitarTipo = useMutation({
     mutationFn: (tid: number) => chkApi.tipos.quitar(tid),
@@ -960,14 +959,14 @@ function Catalogos() {
       qc.invalidateQueries({ queryKey: ['chk-hallazgos'] }); setAbierto(false)
       toast.success('Guardado')
     },
-    onError: (e: any) => toast.error(mensaje(e)),
+    onError: (e: any) => toast.error(mensajeDeError(e)),
   })
   const crearCategoria = useMutation({
     mutationFn: () => chkApi.categorias.crear({ nombre: categoria }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['chk-categorias'] }); setCategoria('')
     },
-    onError: (e: any) => toast.error(mensaje(e)),
+    onError: (e: any) => toast.error(mensajeDeError(e)),
   })
 
   return (

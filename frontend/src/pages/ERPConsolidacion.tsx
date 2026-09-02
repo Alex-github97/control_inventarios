@@ -41,6 +41,7 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 // ─── Palette ──────────────────────────────────────────────────────────────────
 
 const ERP_COLOR  = COLOR_MODULO
@@ -369,9 +370,7 @@ function NewEmpresaDialog({ open, onClose, holdings }: NewEmpresaDialogProps) {
       toast.success('Empresa registrada correctamente')
       handleClose()
     },
-    onError: () => {
-      toast.error('Error al registrar la empresa')
-    },
+    onError: (e: any) => { toast.error(mensajeDeError(e, 'Error al registrar la empresa')) },
   })
 
   const handleClose = () => {

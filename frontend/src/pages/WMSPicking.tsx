@@ -47,6 +47,7 @@ import { apiClient as api } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
 interface OrdenSalidaDetalle {
@@ -157,16 +158,6 @@ function formatMoneda(value: number): string {
 }
 
 // Extrae un mensaje legible del error de axios (soporta detail string o array 422 de FastAPI).
-function extractError(error: unknown, fallback: string): string {
-  const detail = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
-  if (typeof detail === 'string') return detail
-  if (Array.isArray(detail)) {
-    return detail
-      .map((d: { msg?: string } | string) => (typeof d === 'string' ? d : d?.msg ?? JSON.stringify(d)))
-      .join(', ')
-  }
-  return fallback
-}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -261,7 +252,7 @@ export default function WMSPicking() {
       setLineas([{ producto_id: '', cantidad_solicitada: '', precio_unitario: '', lote_id: '' }])
       setOpenOrdenDialog(false)
     },
-    onError: (error: unknown) => toast.error(extractError(error, 'No se pudo crear la orden')),
+    onError: (error: unknown) => toast.error(mensajeDeError(error, 'No se pudo crear la orden')),
   })
 
   const mutGenerarPicking = useMutation({
@@ -274,7 +265,7 @@ export default function WMSPicking() {
       queryClient.invalidateQueries({ queryKey: ['wms-tareas'] })
       toast.success('Picking generado')
     },
-    onError: (error: unknown) => toast.error(extractError(error, 'No se pudo generar el picking')),
+    onError: (error: unknown) => toast.error(mensajeDeError(error, 'No se pudo generar el picking')),
   })
 
   const mutConfirmarItem = useMutation({
@@ -286,7 +277,7 @@ export default function WMSPicking() {
       queryClient.invalidateQueries({ queryKey: ['wms-tareas'] })
       toast.success('Item confirmado')
     },
-    onError: (error: unknown) => toast.error(extractError(error, 'No se pudo confirmar el item')),
+    onError: (error: unknown) => toast.error(mensajeDeError(error, 'No se pudo confirmar el item')),
   })
 
   // ─── Helpers ──────────────────────────────────────────────────────────────

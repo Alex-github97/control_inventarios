@@ -13,6 +13,7 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const ERP_COLOR = COLOR_MODULO
 
 function formatCurrency(v: number | null | undefined) {
@@ -100,7 +101,7 @@ export default function ERPActivos() {
       setOpenNew(false)
       setForm({ ...EMPTY_ACTIVO })
     },
-    onError: () => toast.error('Error al registrar activo'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al registrar activo')),
   })
 
   const depreciarActivo = useMutation({
@@ -109,7 +110,7 @@ export default function ERPActivos() {
       toast.success('Depreciación aplicada')
       qc.invalidateQueries({ queryKey: ['erp-activos'] })
     },
-    onError: () => toast.error('Error al aplicar depreciación'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al aplicar depreciación')),
   })
 
   const totalCosto = activos.reduce((a, x) => a + x.costo_adquisicion, 0)

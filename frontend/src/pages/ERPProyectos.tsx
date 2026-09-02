@@ -13,6 +13,7 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const ERP_COLOR = COLOR_MODULO
 
 function formatCurrency(v: number | null | undefined) {
@@ -90,7 +91,7 @@ export default function ERPProyectos() {
       qc.invalidateQueries({ queryKey: ['erp-proyectos'] })
       setOpenNew(false); setForm({ ...EMPTY_PROYECTO })
     },
-    onError: () => toast.error('Error al crear proyecto'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al crear proyecto')),
   })
 
   const totalPresupuesto = proyectos.reduce((a, p) => a + p.presupuesto, 0)

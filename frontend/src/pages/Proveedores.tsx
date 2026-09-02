@@ -11,6 +11,7 @@ import { apiClient } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
+import { mensajeDeError } from '@/utils/errorApi'
 const PRIMARY = '#1A1A1A'
 
 export default function Proveedores() {
@@ -50,7 +51,7 @@ export default function Proveedores() {
       toast.success('Tipo eliminado')
       queryClient.invalidateQueries({ queryKey: ['tipos-proveedor'] })
     },
-    onError: () => toast.error('Error eliminando tipo'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error eliminando tipo')),
   })
 
   const createMutation = useMutation({

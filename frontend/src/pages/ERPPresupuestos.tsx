@@ -39,6 +39,7 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const ERP_COLOR = COLOR_MODULO
@@ -275,9 +276,7 @@ function NewPresupuestoDialog({ open, onClose, anioDefault }: NewPresupuestoDial
       toast.success('Presupuesto creado')
       handleClose()
     },
-    onError: () => {
-      toast.error('Error al crear el presupuesto')
-    },
+    onError: (e: any) => { toast.error(mensajeDeError(e, 'Error al crear el presupuesto')) },
   })
 
   const handleClose = () => {
@@ -411,9 +410,7 @@ export default function ERPPresupuestos() {
       queryClient.invalidateQueries({ queryKey: ['erp-presupuestos'] })
       toast.success('Presupuesto aprobado')
     },
-    onError: () => {
-      toast.error('Error al aprobar el presupuesto')
-    },
+    onError: (e: any) => { toast.error(mensajeDeError(e, 'Error al aprobar el presupuesto')) },
   })
 
   const filtered = filtroTipo

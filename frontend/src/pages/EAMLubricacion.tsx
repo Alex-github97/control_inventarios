@@ -32,9 +32,8 @@ import {
   type Compartimento, type Muestra, type ResultadoMuestra,
 } from '@/api/lube'
 
-const mensaje = (e: any) =>
-  e?.response?.data?.detail ?? e?.message ?? 'No se pudo completar la operación'
 
+import { mensajeDeError } from '@/utils/errorApi'
 const pesos = (v?: number | null) =>
   v == null ? '—' : new Intl.NumberFormat('es-CO', {
     style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v)
@@ -507,7 +506,7 @@ function DetalleMuestra({ id, onCerrar, onCambio }: {
       setConclusion(''); setRecomendacion(''); setModoFalla('')
       toast.success('Diagnóstico registrado')
     },
-    onError: (e: any) => toast.error(mensaje(e)),
+    onError: (e: any) => toast.error(mensajeDeError(e)),
   })
 
   const verificar = useMutation({
@@ -517,7 +516,7 @@ function DetalleMuestra({ id, onCerrar, onCambio }: {
       qc.invalidateQueries({ queryKey: ['lube-diagnosticos', id] })
       onCambio(); toast.success('Verificación registrada')
     },
-    onError: (e: any) => toast.error(mensaje(e)),
+    onError: (e: any) => toast.error(mensajeDeError(e)),
   })
 
   const reevaluar = useMutation({
@@ -526,7 +525,7 @@ function DetalleMuestra({ id, onCerrar, onCambio }: {
       qc.invalidateQueries({ queryKey: ['lube-muestra', id] })
       onCambio(); toast.success(`Reevaluada: ${ETIQUETA_SEVERIDAD[r.severidad] ?? r.severidad}`)
     },
-    onError: (e: any) => toast.error(mensaje(e)),
+    onError: (e: any) => toast.error(mensajeDeError(e)),
   })
 
   const porGrupo = useMemo(() => {
@@ -746,7 +745,7 @@ function DialogoMuestra({ compartimento, onCerrar, onListo }: {
       toast.success(sev ? `Muestra evaluada: ${ETIQUETA_SEVERIDAD[sev] ?? sev}` : 'Muestra registrada')
       onListo(); onCerrar()
     },
-    onError: (e: any) => toast.error(mensaje(e)),
+    onError: (e: any) => toast.error(mensajeDeError(e)),
   })
 
   /** Precarga desde el boletín del laboratorio con el lector que ya existía. */
@@ -766,7 +765,7 @@ function DialogoMuestra({ compartimento, onCerrar, onListo }: {
       const n = Object.keys(nuevos).length
       toast.success(n ? `Se leyeron ${n} parámetros del boletín` : 'No se reconoció ningún parámetro')
     } catch (e: any) {
-      toast.error(mensaje(e))
+      toast.error(mensajeDeError(e))
     } finally {
       setLeyendo(false)
     }
@@ -904,7 +903,7 @@ function DialogoCarga({ compartimento, onCerrar, onListo }: {
       })
     },
     onSuccess: () => { toast.success('Carga registrada'); onListo(); onCerrar() },
-    onError: (e: any) => toast.error(mensaje(e)),
+    onError: (e: any) => toast.error(mensajeDeError(e)),
   })
 
   return (

@@ -13,6 +13,7 @@ import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
 import { AdminCatalogos } from '@/components/catalogo/AdminCatalogos'
+import { mensajeDeError } from '@/utils/errorApi'
 const ERP_COLOR = COLOR_MODULO
 
 interface ConfigGeneral {
@@ -88,7 +89,7 @@ export default function ERPConfig() {
   const saveConfig = useMutation({
     mutationFn: (data: Partial<ConfigGeneral>) => apiClient.put('/erp/config/general', data).then(r => r.data),
     onSuccess: () => { toast.success('Configuración guardada'); qc.invalidateQueries({ queryKey: ['erp-config-general'] }) },
-    onError: () => toast.error('Error al guardar configuración'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al guardar configuración')),
   })
 
   const createTasa = useMutation({
@@ -96,14 +97,14 @@ export default function ERPConfig() {
       ...data, tasa: parseFloat(String(data.tasa)),
     }).then(r => r.data),
     onSuccess: () => { toast.success('Tasa registrada'); qc.invalidateQueries({ queryKey: ['erp-tasas-cambio'] }); setOpenTasa(false); setTasaForm({ ...EMPTY_TASA }) },
-    onError: () => toast.error('Error al registrar tasa'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al registrar tasa')),
   })
 
   const toggleIntegracion = useMutation({
     mutationFn: ({ id, habilitada }: { id: number; habilitada: boolean }) =>
       apiClient.patch(`/erp/config/integraciones/${id}`, { habilitada }).then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['erp-integraciones'] }),
-    onError: () => toast.error('Error al actualizar integración'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al actualizar integración')),
   })
 
   return (

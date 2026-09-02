@@ -12,6 +12,7 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const ERP_COLOR = COLOR_MODULO
 
 function formatCurrency(v: number | null | undefined) {
@@ -90,19 +91,19 @@ export default function ERPCompras() {
       qc.invalidateQueries({ queryKey: ['erp-requisiciones'] })
       setOpenNew(false); setForm({ ...EMPTY_REQ })
     },
-    onError: () => toast.error('Error al crear requisición'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al crear requisición')),
   })
 
   const aprobarRequisicion = useMutation({
     mutationFn: (id: number) => apiClient.post(`/erp/compras/requisiciones/${id}/aprobar`).then(r => r.data),
     onSuccess: () => { toast.success('Requisición aprobada'); qc.invalidateQueries({ queryKey: ['erp-requisiciones'] }) },
-    onError: () => toast.error('Error al aprobar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al aprobar')),
   })
 
   const aprobarOC = useMutation({
     mutationFn: (id: number) => apiClient.post(`/erp/compras/ordenes/${id}/aprobar`).then(r => r.data),
     onSuccess: () => { toast.success('OC aprobada'); qc.invalidateQueries({ queryKey: ['erp-ordenes-compra'] }) },
-    onError: () => toast.error('Error al aprobar OC'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al aprobar OC')),
   })
 
   const totalReq = requisiciones.reduce((a, r) => a + r.monto_estimado, 0)

@@ -58,6 +58,7 @@ import { apiClient } from '@/api/client'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const TMS_COLOR = COLOR_MODULO
 
 // ─── Interfaces (alineadas con backend /tms/rutas) ────────────────────────────
@@ -1261,7 +1262,7 @@ export default function TMSRutas() {
       toast.success('Estado de la ruta actualizado')
       qc.invalidateQueries({ queryKey: ['tms-rutas'] })
     },
-    onError: () => toast.error('Error al actualizar el estado de la ruta'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al actualizar el estado de la ruta')),
   })
 
   const handleNew = () => {

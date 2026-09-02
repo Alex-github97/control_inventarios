@@ -18,6 +18,7 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const GH_COLOR = COLOR_MODULO
 
 interface Colaborador { id: number; nombres: string; apellidos: string; cargo?: string }
@@ -153,19 +154,19 @@ export default function GHIncapacidades() {
   const createMut = useMutation({
     mutationFn: (d: object) => api.post('/hcm/incapacidades', d).then(r => r.data),
     onSuccess: () => { toast.success('Incapacidad registrada'); qc.invalidateQueries({ queryKey: ['gh-incapacidades'] }); handleClose() },
-    onError: () => toast.error('Error al registrar incapacidad'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al registrar incapacidad')),
   })
 
   const updateMut = useMutation({
     mutationFn: ({ id, d }: { id: number; d: object }) => api.put(`/hcm/incapacidades/${id}`, d).then(r => r.data),
     onSuccess: () => { toast.success('Incapacidad actualizada'); qc.invalidateQueries({ queryKey: ['gh-incapacidades'] }); handleClose() },
-    onError: () => toast.error('Error al actualizar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al actualizar')),
   })
 
   const deleteMut = useMutation({
     mutationFn: (id: number) => api.delete(`/hcm/incapacidades/${id}`),
     onSuccess: () => { toast.success('Incapacidad eliminada'); qc.invalidateQueries({ queryKey: ['gh-incapacidades'] }); setDeleteTarget(null) },
-    onError: () => toast.error('Error al eliminar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al eliminar')),
   })
 
   const handleOpen = (inc?: Incapacidad) => {

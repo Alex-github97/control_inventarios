@@ -20,6 +20,7 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const ML_COLOR = COLOR_MODULO
 
 interface Sede { id: number; nombre: string }
@@ -125,19 +126,19 @@ export default function LocativaActivos() {
   const crear = useMutation({
     mutationFn: (data: any) => api.post('/locativa/activos/', data).then(r => r.data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['locativa-activos'] }); handleClose(); toast.success('Activo creado') },
-    onError: () => toast.error('Error al crear activo'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al crear activo')),
   })
 
   const actualizar = useMutation({
     mutationFn: ({ id, data }: { id: number; data: any }) => api.patch(`/locativa/activos/${id}`, data).then(r => r.data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['locativa-activos'] }); handleClose(); toast.success('Activo actualizado') },
-    onError: () => toast.error('Error al actualizar activo'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al actualizar activo')),
   })
 
   const eliminar = useMutation({
     mutationFn: (id: number) => api.delete(`/locativa/activos/${id}`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['locativa-activos'] }); toast.success('Activo eliminado') },
-    onError: () => toast.error('Error al eliminar activo'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al eliminar activo')),
   })
 
   const handleOpen = (a?: Activo) => {

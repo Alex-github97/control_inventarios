@@ -27,10 +27,9 @@ import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
 import { apiClient as api } from '@/api/client'
 import { descargarExcel, descargarLibro, hoja } from '@/utils/excel'
 
+import { mensajeDeError } from '@/utils/errorApi'
 const R = '/eam/inventario'
 
-const mensaje = (e: any) =>
-  e?.response?.data?.detail ?? e?.message ?? 'No se pudo completar la operación'
 
 const pesos = (v?: number | null) =>
   v == null ? '—' : new Intl.NumberFormat('es-CO', {
@@ -545,7 +544,7 @@ function DialogoMovimiento({ tipo: tipoInicial, bodegas, onCerrar, onListo }: {
         { duration: r.negativo ? 7000 : 4000 })
       onListo()
     },
-    onError: (e: any) => toast.error(mensaje(e), { duration: 7000 }),
+    onError: (e: any) => toast.error(mensajeDeError(e), { duration: 7000 }),
   })
 
   return (
@@ -637,7 +636,7 @@ function DialogoTraslado({ bodegas, onCerrar, onListo }: {
       toast.success(`Trasladado a ${pesos(r.costo_unitario)} c/u · origen ${r.saldo_origen}, destino ${r.saldo_destino}`)
       onListo()
     },
-    onError: (e: any) => toast.error(mensaje(e), { duration: 7000 }),
+    onError: (e: any) => toast.error(mensajeDeError(e), { duration: 7000 }),
   })
 
   return (
@@ -712,7 +711,7 @@ function Bodegas() {
       ? api.put(`${R}/bodegas/${edicion.id}`, f).then(r => r.data)
       : api.post(`${R}/bodegas`, f).then(r => r.data),
     onSuccess: () => { invalidar(); setAbierto(false); toast.success('Bodega guardada') },
-    onError: (e: any) => toast.error(mensaje(e), { duration: 7000 }),
+    onError: (e: any) => toast.error(mensajeDeError(e), { duration: 7000 }),
   })
 
   return (
@@ -770,7 +769,7 @@ function Bodegas() {
                   </IconButton>
                   <IconButton size="small" onClick={() =>
                     api.delete(`${R}/bodegas/${b.id}`).then(() => { invalidar(); toast.success('Desactivada') })
-                      .catch((e: any) => toast.error(mensaje(e), { duration: 7000 }))}>
+                      .catch((e: any) => toast.error(mensajeDeError(e), { duration: 7000 }))}>
                     <DeleteOutline fontSize="small" />
                   </IconButton>
                 </TableCell>
@@ -797,13 +796,13 @@ function Bodegas() {
             if (e.key === 'Enter' && motivo.trim()) {
               api.post(`${R}/motivos`, { nombre: motivo }).then(() => {
                 qc.invalidateQueries({ queryKey: ['inv-motivos'] }); setMotivo('')
-              }).catch((x: any) => toast.error(mensaje(x)))
+              }).catch((x: any) => toast.error(mensajeDeError(x)))
             }
           }} />
         <Button startIcon={<Add />} disabled={!motivo.trim()} sx={{ textTransform: 'none' }}
           onClick={() => api.post(`${R}/motivos`, { nombre: motivo }).then(() => {
             qc.invalidateQueries({ queryKey: ['inv-motivos'] }); setMotivo('')
-          }).catch((x: any) => toast.error(mensaje(x)))}>
+          }).catch((x: any) => toast.error(mensajeDeError(x)))}>
           Agregar
         </Button>
       </Stack>

@@ -41,6 +41,7 @@ import { apiClient as api } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
 interface ProductoRef {
@@ -292,9 +293,7 @@ export default function WMSInventario() {
       queryClient.invalidateQueries({ queryKey: ['wms-stock'] })
       queryClient.invalidateQueries({ queryKey: ['wms-ajustes'] })
     },
-    onError: () => {
-      toast.error('Error al registrar el ajuste')
-    },
+    onError: (e: any) => { toast.error(mensajeDeError(e, 'Error al registrar el ajuste')) },
   })
 
   const mutTransferencia = useMutation({
@@ -317,9 +316,7 @@ export default function WMSInventario() {
       queryClient.invalidateQueries({ queryKey: ['wms-stock'] })
       queryClient.invalidateQueries({ queryKey: ['wms-transferencias'] })
     },
-    onError: () => {
-      toast.error('Error al registrar la transferencia')
-    },
+    onError: (e: any) => { toast.error(mensajeDeError(e, 'Error al registrar la transferencia')) },
   })
 
   const mutConteo = useMutation({
@@ -358,9 +355,7 @@ export default function WMSInventario() {
       toast.success('Conteo completado — inventario reconciliado')
       queryClient.invalidateQueries({ queryKey: ['wms-conteos'] })
     },
-    onError: () => {
-      toast.error('Error al completar el conteo')
-    },
+    onError: (e: any) => { toast.error(mensajeDeError(e, 'Error al completar el conteo')) },
   })
 
   const mutCapturarConteo = useMutation({
@@ -369,9 +364,7 @@ export default function WMSInventario() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wms-conteos'] })
     },
-    onError: () => {
-      toast.error('Error al guardar la cantidad física')
-    },
+    onError: (e: any) => { toast.error(mensajeDeError(e, 'Error al guardar la cantidad física')) },
   })
 
   const mutReservaBloqueo = useMutation({

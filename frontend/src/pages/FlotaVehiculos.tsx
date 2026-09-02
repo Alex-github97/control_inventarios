@@ -16,6 +16,7 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const GF_COLOR = COLOR_MODULO
 
 interface Marca { id: number; nombre: string }
@@ -72,22 +73,22 @@ export default function FlotaVehiculos() {
   const createMut = useMutation({
     mutationFn: (d: object) => api.post('/flota/vehiculos/', d).then(r => r.data),
     onSuccess: () => { toast.success('Vehículo registrado'); qc.invalidateQueries({ queryKey: ['flota-vehiculos'] }); handleClose() },
-    onError: () => toast.error('Error al registrar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al registrar')),
   })
   const updateMut = useMutation({
     mutationFn: ({ id, d }: { id: number; d: object }) => api.put(`/flota/vehiculos/${id}`, d).then(r => r.data),
     onSuccess: () => { toast.success('Vehículo actualizado'); qc.invalidateQueries({ queryKey: ['flota-vehiculos'] }); handleClose() },
-    onError: () => toast.error('Error al actualizar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al actualizar')),
   })
   const deleteMut = useMutation({
     mutationFn: (id: number) => api.delete(`/flota/vehiculos/${id}`),
     onSuccess: () => { toast.success('Vehículo eliminado'); qc.invalidateQueries({ queryKey: ['flota-vehiculos'] }); setDeleteConfirm(null) },
-    onError: () => toast.error('Error al eliminar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al eliminar')),
   })
   const bajaMut = useMutation({
     mutationFn: ({ id, d }: { id: number; d: object }) => api.patch(`/flota/vehiculos/${id}/baja`, d).then(r => r.data),
     onSuccess: () => { toast.success('Vehículo dado de baja'); qc.invalidateQueries({ queryKey: ['flota-vehiculos'] }); setBajaDialog(null) },
-    onError: () => toast.error('Error al dar de baja'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al dar de baja')),
   })
 
   const openDialog = (v?: Vehiculo) => {

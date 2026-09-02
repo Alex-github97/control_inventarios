@@ -14,6 +14,7 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const GF_COLOR = COLOR_MODULO
 const COMB_COLOR = COLOR_MODULO
 
@@ -69,17 +70,17 @@ export default function FlotaCombustible() {
   const createMut = useMutation({
     mutationFn: (d: object) => api.post('/flota/combustible/', d).then(r => r.data),
     onSuccess: () => { toast.success('Registro guardado'); qc.invalidateQueries({ queryKey: ['flota-combustible'] }); handleClose() },
-    onError: () => toast.error('Error al guardar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al guardar')),
   })
   const updateMut = useMutation({
     mutationFn: ({ id, d }: { id: number; d: object }) => api.put(`/flota/combustible/${id}`, d).then(r => r.data),
     onSuccess: () => { toast.success('Registro actualizado'); qc.invalidateQueries({ queryKey: ['flota-combustible'] }); handleClose() },
-    onError: () => toast.error('Error al actualizar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al actualizar')),
   })
   const deleteMut = useMutation({
     mutationFn: (id: number) => api.delete(`/flota/combustible/${id}`),
     onSuccess: () => { toast.success('Registro eliminado'); qc.invalidateQueries({ queryKey: ['flota-combustible'] }); setDeleteConfirm(null) },
-    onError: () => toast.error('Error al eliminar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al eliminar')),
   })
 
   const openDialog = (r?: Combustible) => {

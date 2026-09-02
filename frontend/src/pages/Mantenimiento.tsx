@@ -15,6 +15,7 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 
+import { mensajeDeError } from '@/utils/errorApi'
 const PRIMARY = '#1A1A1A'
 
 const TIPOS_MANTENIMIENTO = [
@@ -86,7 +87,7 @@ export default function Mantenimiento() {
       toast.success('Actividad eliminada')
       queryClient.invalidateQueries({ queryKey: ['actividades-mantenimiento'] })
     },
-    onError: () => toast.error('Error eliminando actividad'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error eliminando actividad')),
   })
 
   const params: Record<string, string> = {}
@@ -123,7 +124,7 @@ export default function Mantenimiento() {
       queryClient.invalidateQueries({ queryKey: ['mantenimientos'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
-    onError: () => toast.error('Error eliminando registro'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error eliminando registro')),
   })
 
   const handleSubmit = () => {

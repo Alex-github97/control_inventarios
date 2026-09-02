@@ -48,6 +48,7 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const WMS_COLOR = COLOR_MODULO
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -200,15 +201,6 @@ const EMPTY_LINEA_REC: LineaRecepcion = {
 
 /** Convierte el `detail` de un error de axios/FastAPI en un texto legible.
  *  Un 422 de FastAPI trae `detail` como arreglo de objetos `{ msg, loc, ... }`. */
-function parseApiError(err: any, fallback: string): string {
-  const detail = err?.response?.data?.detail
-  if (Array.isArray(detail)) {
-    return detail.map((d: any) => d?.msg ?? JSON.stringify(d)).join('; ')
-  }
-  if (typeof detail === 'string') return detail
-  if (detail) return JSON.stringify(detail)
-  return fallback
-}
 
 /** Formatea una fecha de forma segura; null/undefined/invalid → '—'. */
 function fmtFecha(x?: string | null): string {
@@ -1037,7 +1029,7 @@ function RecepcionesTab() {
       handleClose()
     },
     onError: (err: any) => {
-      setFormError(parseApiError(err, 'Error al registrar la recepción'))
+      setFormError(mensajeDeError(err, 'Error al registrar la recepción'))
     },
   })
 
@@ -1050,7 +1042,7 @@ function RecepcionesTab() {
       queryClient.invalidateQueries({ queryKey: ['wms-kpis'] })
     },
     onError: (err: any) => {
-      toast.error(parseApiError(err, 'Error al completar la recepción'))
+      toast.error(mensajeDeError(err, 'Error al completar la recepción'))
     },
   })
 

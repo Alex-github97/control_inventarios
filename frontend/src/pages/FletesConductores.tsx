@@ -24,6 +24,7 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const FT_COLOR = COLOR_MODULO
 
 const TIPOS_VEHICULO = [
@@ -94,7 +95,7 @@ export default function FletesConductores() {
       qc.invalidateQueries({ queryKey: ['vehiculos-flete-todos'] })
       setVehDialog(null)
     },
-    onError: () => toast.error('Error al registrar vehículo'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al registrar vehículo')),
   })
 
   const updateVehMut = useMutation({
@@ -105,7 +106,7 @@ export default function FletesConductores() {
       qc.invalidateQueries({ queryKey: ['vehiculos-flete-todos'] })
       setVehDialog(null)
     },
-    onError: () => toast.error('Error al actualizar vehículo'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al actualizar vehículo')),
   })
 
   const deleteVehMut = useMutation({
@@ -115,7 +116,7 @@ export default function FletesConductores() {
       qc.invalidateQueries({ queryKey: ['vehiculos-flete-todos'] })
       setDeleteVeh(null)
     },
-    onError: () => toast.error('Error al eliminar vehículo'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al eliminar vehículo')),
   })
 
   const handleVehSubmit = (e: React.FormEvent) => {

@@ -16,6 +16,7 @@ import { apiClient as api } from '@/api/client'
 import { exportarPDF, exportarExcel } from '@/utils/exportar'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const QMS_COLOR = COLOR_MODULO
 const QMS_DARK = COLOR_MODULO
 
@@ -77,7 +78,7 @@ export default function QMSIndicadores() {
   const mutMeta = useMutation({
     mutationFn: ({ id, meta }: { id: number; meta: number }) => api.put(`/qms/indicadores/${id}`, { meta }),
     onSuccess: () => { toast.success('Meta actualizada'); qc.invalidateQueries({ queryKey: ['qms-tablero'] }); qc.invalidateQueries({ queryKey: ['qms-matriz'] }); setMetaEdit(null) },
-    onError: () => toast.error('No se pudo actualizar la meta'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo actualizar la meta')),
   })
 
   const registrarMed = () => {

@@ -25,7 +25,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { apiClient as api } from '@/api/client'
-import { mensajeDeError } from '@/utils/errorApi'
 import { exportarPDF, exportarExcel } from '@/utils/exportar'
 import { EsquemaLlantasPreview } from '@/components/EsquemaLlantasPreview'
 import { CatalogoLlantas } from '@/components/CatalogoLlantas'
@@ -34,6 +33,7 @@ import type { SeleccionCatalogo } from '@/components/SelectorCatalogoLlanta'
 import type { VehiculoCombinado } from '@/components/VehiculosCombinados'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const EAM_COLOR = COLOR_MODULO
 const EAM_DARK = COLOR_MODULO
 
@@ -1038,7 +1038,7 @@ export default function EAMNeumaticos() {
   const mutCatDel = useMutation({
     mutationFn: (id: number) => api.delete(`/eam/neumaticos/catalogo/${id}`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['eam-cat-neu'] }) },
-    onError: () => toast.error('No se pudo eliminar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo eliminar')),
   })
   // Zonas
   const mutZona = useMutation({
@@ -1049,7 +1049,7 @@ export default function EAMNeumaticos() {
   const mutZonaDel = useMutation({
     mutationFn: (id: number) => api.delete(`/eam/neumaticos/zonas/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['eam-zonas-neu'] }),
-    onError: () => toast.error('No se pudo eliminar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo eliminar')),
   })
   // Bandas de reencauche
   const mutBanda = useMutation({
@@ -1060,7 +1060,7 @@ export default function EAMNeumaticos() {
   const mutBandaDel = useMutation({
     mutationFn: (id: number) => api.delete(`/eam/neumaticos/bandas-reencauche/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['eam-bandas-reenc'] }),
-    onError: () => toast.error('No se pudo eliminar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo eliminar')),
   })
   // Motivos de fin de vida
   const mutMotivo = useMutation({
@@ -1071,7 +1071,7 @@ export default function EAMNeumaticos() {
   const mutMotivoDel = useMutation({
     mutationFn: (id: number) => api.delete(`/eam/neumaticos/motivos-fin-vida/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['eam-motivos-fv'] }),
-    onError: () => toast.error('No se pudo eliminar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo eliminar')),
   })
   // Ajustes: catálogo de motivos + aplicación por llanta
   const mutAjusteCat = useMutation({
@@ -1082,7 +1082,7 @@ export default function EAMNeumaticos() {
   const mutAjusteCatDel = useMutation({
     mutationFn: (id: number) => api.delete(`/eam/neumaticos/ajustes-catalogo/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['eam-ajustes-cat'] }),
-    onError: () => toast.error('No se pudo eliminar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo eliminar')),
   })
   const mutAjusteAplicar = useMutation({
     mutationFn: (b: Record<string, unknown>) => api.post(`/eam/neumaticos/${ajusteDialog!.id}/ajustes`, b),
@@ -1103,7 +1103,7 @@ export default function EAMNeumaticos() {
   const mutTrabajoDel = useMutation({
     mutationFn: (id: number) => api.delete(`/eam/neumaticos/trabajos/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['eam-trabajos-cat'] }),
-    onError: () => toast.error('No se pudo eliminar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo eliminar')),
   })
   const mutPeriodicidad = useMutation({
     mutationFn: (b: Record<string, unknown>) => api.post('/eam/neumaticos/trabajos/periodicidad', b),
@@ -1113,7 +1113,7 @@ export default function EAMNeumaticos() {
   const mutPeriodicidadDel = useMutation({
     mutationFn: (id: number) => api.delete(`/eam/neumaticos/trabajos/periodicidad/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['eam-periodicidad'] }),
-    onError: () => toast.error('No se pudo eliminar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo eliminar')),
   })
   const mutTrabajoRealizado = useMutation({
     mutationFn: (b: Record<string, unknown>) => api.post(`/eam/neumaticos/${trabajoDialog!.id}/trabajos`, b),
@@ -1177,7 +1177,7 @@ export default function EAMNeumaticos() {
   const mutDeleteCongelado = useMutation({
     mutationFn: (id: number) => api.delete(`/eam/neumaticos/congelados/${id}`),
     onSuccess: () => { toast.success('Congelado eliminado'); qc.invalidateQueries({ queryKey: ['eam-congelados'] }) },
-    onError: () => toast.error('No se pudo eliminar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo eliminar')),
   })
   // Importación masiva
   const mutImportar = useMutation({
@@ -1445,7 +1445,7 @@ export default function EAMNeumaticos() {
   const mutCfg = useMutation({
     mutationFn: (body: ConfigNeu) => api.put('/eam/neumaticos/config', body),
     onSuccess: () => { toast.success('Configuración guardada'); qc.invalidateQueries({ queryKey: ['eam-cfg-neu'] }); qc.invalidateQueries({ queryKey: ['eam-alertas'] }) },
-    onError: () => toast.error('No se pudo guardar la configuración'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo guardar la configuración')),
   })
   // Reencauche
   const mutLote = useMutation({
@@ -1466,7 +1466,7 @@ export default function EAMNeumaticos() {
   const mutCerrarLote = useMutation({
     mutationFn: (id: number) => api.put(`/eam/neumaticos/reencauche/${id}/cerrar`),
     onSuccess: () => { toast.success('Lote cerrado'); qc.invalidateQueries({ queryKey: ['eam-reencauche'] }) },
-    onError: () => toast.error('No se pudo cerrar el lote'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo cerrar el lote')),
   })
 
   // ─── Drag & drop ──────────────────────────────────────────────────────────

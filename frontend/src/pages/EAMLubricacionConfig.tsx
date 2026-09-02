@@ -25,9 +25,8 @@ import toast from 'react-hot-toast'
 import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
 import { lubeApi } from '@/api/lube'
 
-const mensaje = (e: any) =>
-  e?.response?.data?.detail ?? e?.message ?? 'No se pudo completar la operación'
 
+import { mensajeDeError } from '@/utils/errorApi'
 /** Campo de un formulario genérico de catálogo. */
 type Campo = {
   clave: string
@@ -80,13 +79,13 @@ function CatalogoTabla({
       invalidar(); setAbierto(false)
       toast.success(editando ? 'Cambios guardados' : 'Creado')
     },
-    onError: (e: any) => toast.error(mensaje(e)),
+    onError: (e: any) => toast.error(mensajeDeError(e)),
   })
 
   const borrar = useMutation({
     mutationFn: (id: number) => recurso.borrar(id),
     onSuccess: () => { invalidar(); toast.success('Desactivado') },
-    onError: (e: any) => toast.error(mensaje(e)),
+    onError: (e: any) => toast.error(mensajeDeError(e)),
   })
 
   const abrir = (fila?: any) => {

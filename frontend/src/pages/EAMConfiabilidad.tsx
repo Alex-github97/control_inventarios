@@ -28,10 +28,9 @@ import { apiClient as api } from '@/api/client'
 import { descargarExcel, descargarLibro, hoja } from '@/utils/excel'
 import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
 
+import { mensajeDeError } from '@/utils/errorApi'
 const R = '/eam/confiabilidad'
 
-const mensaje = (e: any) =>
-  e?.response?.data?.detail ?? e?.message ?? 'No se pudo completar la operación'
 
 const pesos = (v?: number | null) =>
   v == null ? '—' : new Intl.NumberFormat('es-CO', {
@@ -474,7 +473,7 @@ function FMEA() {
       invalidar(); setAbierto(false)
       toast.success(`NPR ${r.npn} · riesgo ${r.nivel.toLowerCase()}`)
     },
-    onError: (e: any) => toast.error(mensaje(e), { duration: 6000 }),
+    onError: (e: any) => toast.error(mensajeDeError(e), { duration: 6000 }),
   })
 
   const npr = (Number(f.severidad) || 0) * (Number(f.ocurrencia) || 0)
@@ -667,7 +666,7 @@ function Calibraciones() {
       ? api.put(`${R}/calibraciones/${edicion.id}`, f).then(r => r.data)
       : api.post(`${R}/calibraciones`, f).then(r => r.data),
     onSuccess: () => { invalidar(); setAbierto(false); toast.success('Calibración guardada') },
-    onError: (e: any) => toast.error(mensaje(e), { duration: 6000 }),
+    onError: (e: any) => toast.error(mensajeDeError(e), { duration: 6000 }),
   })
 
   const color = (e: string) =>

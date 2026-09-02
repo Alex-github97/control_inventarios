@@ -28,10 +28,10 @@ import { Layout } from '@/components/layout/Layout'
 import { DocumentosOT } from '@/components/eam/DocumentosOT'
 import { CausaRaizOT } from '@/components/eam/CausaRaizOT'
 import { apiClient as api } from '@/api/client'
-import { mensajeDeError } from '@/utils/errorApi'
 import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const EAM_COLOR = COLOR_MODULO
 const EAM_DARK = COLOR_MODULO
 

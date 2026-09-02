@@ -27,9 +27,8 @@ import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
 import { apiClient as api } from '@/api/client'
 import { descargarExcel, descargarLibro, hoja } from '@/utils/excel'
 
-const mensaje = (e: any) =>
-  e?.response?.data?.detail ?? e?.message ?? 'No se pudo completar la operación'
 
+import { mensajeDeError } from '@/utils/errorApi'
 const pesos = (v?: number | null) =>
   v == null ? '—' : new Intl.NumberFormat('es-CO', {
     style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v)
@@ -576,7 +575,7 @@ function DialogoTanqueo({ onCerrar, onListo }: { onCerrar: () => void; onListo: 
         : 'Tanqueo registrado', { duration: 5000 })
       onListo()
     },
-    onError: (e: any) => toast.error(mensaje(e), { duration: 7000 }),
+    onError: (e: any) => toast.error(mensajeDeError(e), { duration: 7000 }),
   })
 
   return (
@@ -697,7 +696,7 @@ function Metas() {
                      : api.post(`${R}/metas`, cuerpo).then(r => r.data)
     },
     onSuccess: () => { invalidar(); setAbierto(false); toast.success('Meta guardada') },
-    onError: (e: any) => toast.error(mensaje(e), { duration: 7000 }),
+    onError: (e: any) => toast.error(mensajeDeError(e), { duration: 7000 }),
   })
 
   const ambito = (m: Meta) =>

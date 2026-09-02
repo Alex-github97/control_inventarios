@@ -19,6 +19,7 @@ import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
 
 import { COLOR_MODULO, PALETA } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const GF_COLOR = COLOR_MODULO
 const GF_LIGHT = PALETA.niebla
 
@@ -81,7 +82,7 @@ function TabRutinas() {
   const mutation = useMutation({
     mutationFn: (d: any) => editing ? api.put(`/flota/rutinas/${editing.id}`, d) : api.post('/flota/rutinas/', d),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['flota-rutinas'] }); toast.success(editing ? 'Rutina actualizada' : 'Rutina creada'); setOpen(false) },
-    onError: () => toast.error('Error al guardar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al guardar')),
   })
   const delMutation = useMutation({
     mutationFn: (id: number) => api.delete(`/flota/rutinas/${id}`),
@@ -330,7 +331,7 @@ function TabSecuencias() {
   const mutation = useMutation({
     mutationFn: (d: any) => editing ? api.put(`/flota/secuencias/${editing.id}`, d) : api.post('/flota/secuencias/', d),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['flota-secuencias'] }); toast.success('Secuencia guardada'); setOpen(false) },
-    onError: () => toast.error('Error al guardar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al guardar')),
   })
   const delMutation = useMutation({
     mutationFn: (id: number) => api.delete(`/flota/secuencias/${id}`),
@@ -511,7 +512,7 @@ function TabAsignaciones() {
   const mutation = useMutation({
     mutationFn: (d: any) => api.post('/flota/asignaciones/', d),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['flota-asignaciones'] }); toast.success('Asignación creada'); setOpen(false) },
-    onError: () => toast.error('Error al guardar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al guardar')),
   })
   const delMutation = useMutation({
     mutationFn: (id: number) => api.delete(`/flota/asignaciones/${id}`),

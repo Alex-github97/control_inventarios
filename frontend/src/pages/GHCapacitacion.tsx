@@ -49,6 +49,7 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import AddIcon from '@mui/icons-material/Add'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const GH_COLOR = COLOR_MODULO
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
@@ -255,7 +256,7 @@ export default function GHCapacitacion() {
       toast.success('Capacitación creada')
       setDlgOpen(false)
     },
-    onError: () => toast.error('Error al crear capacitación'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al crear capacitación')),
   })
 
   const updateMut = useMutation({
@@ -266,14 +267,14 @@ export default function GHCapacitacion() {
       toast.success('Capacitación actualizada')
       setDlgOpen(false)
     },
-    onError: () => toast.error('Error al actualizar capacitación'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al actualizar capacitación')),
   })
 
   const toggleActivoMut = useMutation({
     mutationFn: ({ id, activo }: { id: number; activo: boolean }) =>
       api.put(`/hcm/capacitaciones/${id}`, { activo }).then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['gh-capacitaciones'] }),
-    onError: () => toast.error('Error al cambiar estado'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al cambiar estado')),
   })
 
   const asignarMut = useMutation({
@@ -285,7 +286,7 @@ export default function GHCapacitacion() {
       setAsignarDlgOpen(false)
       setSelectedColabs([])
     },
-    onError: () => toast.error('Error al asignar colaboradores'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al asignar colaboradores')),
   })
 
   const completarMut = useMutation({
@@ -296,7 +297,7 @@ export default function GHCapacitacion() {
       toast.success('Asignación completada')
       setCompletarDlg(null)
     },
-    onError: () => toast.error('Error al completar asignación'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al completar asignación')),
   })
 
   // ── Handlers ─────────────────────────────────────────────────────────────────

@@ -32,9 +32,8 @@ import {
   type Ejecucion, type DetalleEjecucion, type PreguntaEnEjecucion, type Hallazgo,
 } from '@/api/checklists'
 
-const mensaje = (e: any) =>
-  e?.response?.data?.detail ?? e?.message ?? 'No se pudo completar la operación'
 
+import { mensajeDeError } from '@/utils/errorApi'
 const fecha = (v?: string | null) =>
   v ? new Date(v).toLocaleDateString('es-CO', {
     day: '2-digit', month: 'short', year: 'numeric' }) : '—'
@@ -515,7 +514,7 @@ function DialogoAbrir({ onCerrar, onAbierta }: {
       odometro: medidor === '' ? null : Number(medidor),
     }),
     onSuccess: (e) => { toast.success(`Inspección ${e.numero} abierta`); onAbierta(e.id) },
-    onError: (e: any) => toast.error(mensaje(e), { duration: 7000 }),
+    onError: (e: any) => toast.error(mensajeDeError(e), { duration: 7000 }),
   })
 
   return (
@@ -629,7 +628,7 @@ function DialogoLlenar({ eid, onCerrar }: { eid: number; onCerrar: () => void })
   const guardar = useMutation({
     mutationFn: (respuestas: any[]) => chkApi.ejecuciones.guardar(eid, respuestas),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['chk-ejecucion', eid] }),
-    onError: (e: any) => toast.error(mensaje(e)),
+    onError: (e: any) => toast.error(mensajeDeError(e)),
   })
 
   const cerrar = useMutation({
@@ -641,7 +640,7 @@ function DialogoLlenar({ eid, onCerrar }: { eid: number; onCerrar: () => void })
         + (r.ot_creada ? ` · se abrió ${r.ot_creada.numero}` : ''), { duration: 6000 })
       onCerrar()
     },
-    onError: (e: any) => toast.error(mensaje(e), { duration: 7000 }),
+    onError: (e: any) => toast.error(mensajeDeError(e), { duration: 7000 }),
   })
 
   const subir = useMutation({
@@ -654,7 +653,7 @@ function DialogoLlenar({ eid, onCerrar }: { eid: number; onCerrar: () => void })
       qc.invalidateQueries({ queryKey: ['chk-ejecucion', eid] })
       toast.success('Evidencia cargada')
     },
-    onError: (e: any) => toast.error(mensaje(e)),
+    onError: (e: any) => toast.error(mensajeDeError(e)),
   })
 
   /** Guarda la pregunta apenas se responde. */

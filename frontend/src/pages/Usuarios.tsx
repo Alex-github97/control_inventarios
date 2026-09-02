@@ -14,6 +14,7 @@ import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 
+import { mensajeDeError } from '@/utils/errorApi'
 const PRIMARY = '#1A1A1A'
 
 const getInitials = (nombre: string, apellido: string) =>
@@ -58,13 +59,6 @@ export default function Usuarios() {
     return r?.color || '#64748B'
   }
 
-  const extractError = (e: any, fallback: string): string => {
-    const detail = e?.response?.data?.detail
-    if (!detail) return fallback
-    if (typeof detail === 'string') return detail
-    if (Array.isArray(detail)) return detail.map((d: any) => d.msg || String(d)).join(' · ')
-    return fallback
-  }
 
   const createMutation = useMutation({
     mutationFn: (body: any) => apiClient.post('/usuarios/', body).then(r => r.data),
@@ -74,7 +68,7 @@ export default function Usuarios() {
       setOpenCreate(false)
       setForm(emptyForm)
     },
-    onError: (e: any) => toast.error(extractError(e, 'Error creando usuario')),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error creando usuario')),
   })
 
   const editMutation = useMutation({
@@ -85,7 +79,7 @@ export default function Usuarios() {
       queryClient.invalidateQueries({ queryKey: ['usuarios'] })
       setOpenEdit(false)
     },
-    onError: (e: any) => toast.error(extractError(e, 'Error actualizando usuario')),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error actualizando usuario')),
   })
 
   const resetPwdMutation = useMutation({
@@ -96,7 +90,7 @@ export default function Usuarios() {
       setOpenPwd(false)
       setNewPwd('')
     },
-    onError: (e: any) => toast.error(extractError(e, 'Error restableciendo contraseña')),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error restableciendo contraseña')),
   })
 
   const deleteMutation = useMutation({

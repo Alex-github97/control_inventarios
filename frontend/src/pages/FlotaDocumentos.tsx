@@ -15,6 +15,7 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const GF_COLOR = COLOR_MODULO
 
 interface Vehiculo { id: number; placa: string }
@@ -69,7 +70,7 @@ export default function FlotaDocumentos() {
       qc.invalidateQueries({ queryKey: ['flota-documentos'] })
       handleClose()
     },
-    onError: () => toast.error('Error al registrar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al registrar')),
   })
   const updateMut = useMutation({
     mutationFn: ({ id, d }: { id: number; d: object }) => api.put(`/flota/documentos-vehiculo/${id}`, d).then(r => r.data),
@@ -78,7 +79,7 @@ export default function FlotaDocumentos() {
       qc.invalidateQueries({ queryKey: ['flota-documentos'] })
       handleClose()
     },
-    onError: () => toast.error('Error al actualizar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al actualizar')),
   })
   const deleteMut = useMutation({
     mutationFn: (id: number) => api.delete(`/flota/documentos-vehiculo/${id}`),
@@ -87,7 +88,7 @@ export default function FlotaDocumentos() {
       qc.invalidateQueries({ queryKey: ['flota-documentos'] })
       setDeleteConfirm(null)
     },
-    onError: () => toast.error('Error al eliminar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al eliminar')),
   })
 
   const openDialog = (doc?: Documento) => {

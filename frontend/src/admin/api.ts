@@ -1038,13 +1038,12 @@ api.interceptors.response.use(
   },
 )
 
-/** El mensaje del servidor, que explica la causa; si no, uno genérico. */
-export function mensajeDeError(e: any, respaldo = 'No se pudo completar la operación'): string {
-  const d = e?.response?.data?.detail
-  if (typeof d === 'string') return d
-  if (Array.isArray(d) && d[0]?.msg) return d[0].msg
-  return e?.message || respaldo
-}
+// El traductor es el mismo de la aplicación: se reexporta para no volver a
+// escribirlo. La copia que había acá solo tomaba el PRIMER mensaje de una
+// validación y no sabía qué decir ante un 500 ni ante la falta de respuesta,
+// que en una consola de administración es justo cuando hace falta distinguir si
+// el problema es del servidor o de lo que uno escribió.
+export { mensajeDeError } from '@/utils/errorApi'
 
 export const consolaApi = {
   async ingresar(empresa: string, usuario: string, clave: string): Promise<Sesion> {

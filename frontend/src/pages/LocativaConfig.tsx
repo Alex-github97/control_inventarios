@@ -13,6 +13,7 @@ import { SelectorCatalogo } from '@/components/catalogo/SelectorCatalogo'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const ML_COLOR = COLOR_MODULO
 
 interface Sede { id: number; nombre: string; ciudad: string | null; direccion: string | null }
@@ -41,12 +42,12 @@ export default function LocativaConfig() {
   const { data: proveedores = [] } = useQuery<Proveedor[]>({ queryKey: ['locativa-proveedores'], queryFn: () => api.get('/locativa/proveedores/').then(r => r.data) })
 
   const MUTATIONS = [
-    useMutation({ mutationFn: (d: any) => api.post('/locativa/sedes/', d), onSuccess: () => { qc.invalidateQueries({ queryKey: ['locativa-sedes'] }); setOpen(false); toast.success('Sede creada') }, onError: () => toast.error('Error') }),
-    useMutation({ mutationFn: (d: any) => api.post('/locativa/espacios/', d), onSuccess: () => { qc.invalidateQueries({ queryKey: ['locativa-espacios'] }); setOpen(false); toast.success('Espacio creado') }, onError: () => toast.error('Error') }),
-    useMutation({ mutationFn: (d: any) => api.post('/locativa/categorias/', d), onSuccess: () => { qc.invalidateQueries({ queryKey: ['locativa-categorias'] }); setOpen(false); toast.success('Categoría creada') }, onError: () => toast.error('Error') }),
-    useMutation({ mutationFn: (d: any) => api.post('/locativa/modos-falla/', d), onSuccess: () => { qc.invalidateQueries({ queryKey: ['locativa-modos-falla'] }); setOpen(false); toast.success('Modo de falla creado') }, onError: () => toast.error('Error') }),
-    useMutation({ mutationFn: (d: any) => api.post('/locativa/catalogo-tareas/', d), onSuccess: () => { qc.invalidateQueries({ queryKey: ['locativa-catalogo-tareas'] }); setOpen(false); toast.success('Tarea creada') }, onError: () => toast.error('Error') }),
-    useMutation({ mutationFn: (d: any) => api.post('/locativa/proveedores/', d), onSuccess: () => { qc.invalidateQueries({ queryKey: ['locativa-proveedores'] }); setOpen(false); toast.success('Proveedor creado') }, onError: () => toast.error('Error') }),
+    useMutation({ mutationFn: (d: any) => api.post('/locativa/sedes/', d), onSuccess: () => { qc.invalidateQueries({ queryKey: ['locativa-sedes'] }); setOpen(false); toast.success('Sede creada') }, onError: (e: any) => toast.error(mensajeDeError(e, 'Error')) }),
+    useMutation({ mutationFn: (d: any) => api.post('/locativa/espacios/', d), onSuccess: () => { qc.invalidateQueries({ queryKey: ['locativa-espacios'] }); setOpen(false); toast.success('Espacio creado') }, onError: (e: any) => toast.error(mensajeDeError(e, 'Error')) }),
+    useMutation({ mutationFn: (d: any) => api.post('/locativa/categorias/', d), onSuccess: () => { qc.invalidateQueries({ queryKey: ['locativa-categorias'] }); setOpen(false); toast.success('Categoría creada') }, onError: (e: any) => toast.error(mensajeDeError(e, 'Error')) }),
+    useMutation({ mutationFn: (d: any) => api.post('/locativa/modos-falla/', d), onSuccess: () => { qc.invalidateQueries({ queryKey: ['locativa-modos-falla'] }); setOpen(false); toast.success('Modo de falla creado') }, onError: (e: any) => toast.error(mensajeDeError(e, 'Error')) }),
+    useMutation({ mutationFn: (d: any) => api.post('/locativa/catalogo-tareas/', d), onSuccess: () => { qc.invalidateQueries({ queryKey: ['locativa-catalogo-tareas'] }); setOpen(false); toast.success('Tarea creada') }, onError: (e: any) => toast.error(mensajeDeError(e, 'Error')) }),
+    useMutation({ mutationFn: (d: any) => api.post('/locativa/proveedores/', d), onSuccess: () => { qc.invalidateQueries({ queryKey: ['locativa-proveedores'] }); setOpen(false); toast.success('Proveedor creado') }, onError: (e: any) => toast.error(mensajeDeError(e, 'Error')) }),
   ]
 
   const EMPTY_FORMS: any[] = [

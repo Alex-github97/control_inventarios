@@ -25,9 +25,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
 import { apiClient as api } from '@/api/client'
-import { mensajeDeError } from '@/utils/errorApi'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const EAM_COLOR = COLOR_MODULO
 const EAM_DARK = COLOR_MODULO
 

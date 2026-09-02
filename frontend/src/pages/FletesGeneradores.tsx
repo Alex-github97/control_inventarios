@@ -20,6 +20,7 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const FT_COLOR = COLOR_MODULO
 
 interface GeneradorCarga {
@@ -55,7 +56,7 @@ export default function FletesGeneradores() {
       qc.invalidateQueries({ queryKey: ['fletes-generadores'] })
       handleClose()
     },
-    onError: () => toast.error('Error al crear el generador'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al crear el generador')),
   })
 
   const updateMut = useMutation({
@@ -66,7 +67,7 @@ export default function FletesGeneradores() {
       qc.invalidateQueries({ queryKey: ['fletes-generadores'] })
       handleClose()
     },
-    onError: () => toast.error('Error al actualizar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al actualizar')),
   })
 
   const deleteMut = useMutation({
@@ -76,7 +77,7 @@ export default function FletesGeneradores() {
       qc.invalidateQueries({ queryKey: ['fletes-generadores'] })
       setDeleteConfirm(null)
     },
-    onError: () => toast.error('Error al eliminar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al eliminar')),
   })
 
   const handleOpen = (gen?: GeneradorCarga) => {

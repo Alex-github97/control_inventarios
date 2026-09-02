@@ -16,6 +16,7 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const ML_COLOR = COLOR_MODULO
 
 interface Activo { id: number; tag: string; nombre: string }
@@ -95,20 +96,20 @@ export default function LocativaOrdenes() {
   const crear = useMutation({
     mutationFn: (data: any) => api.post('/locativa/ordenes/', data).then(r => r.data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['locativa-ots'] }); handleClose(); toast.success('OT creada') },
-    onError: () => toast.error('Error al crear OT'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al crear OT')),
   })
 
   const actualizar = useMutation({
     mutationFn: ({ id, data }: { id: number; data: any }) => api.patch(`/locativa/ordenes/${id}`, data).then(r => r.data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['locativa-ots'] }); handleClose(); toast.success('OT actualizada') },
-    onError: () => toast.error('Error al actualizar OT'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al actualizar OT')),
   })
 
   const cambiarEstado = useMutation({
     mutationFn: ({ id, estado }: { id: number; estado: string }) =>
       api.patch(`/locativa/ordenes/${id}/estado`, { estado }).then(r => r.data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['locativa-ots'] }); toast.success('Estado actualizado') },
-    onError: () => toast.error('Error al cambiar estado'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al cambiar estado')),
   })
 
   const handleOpen = (ot?: OT) => {

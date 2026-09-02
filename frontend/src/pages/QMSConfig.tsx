@@ -15,6 +15,7 @@ import { apiClient as api } from '@/api/client'
 
 import { COLOR_MODULO } from '@/config/marca'
 import { AdminCatalogos } from '@/components/catalogo/AdminCatalogos'
+import { mensajeDeError } from '@/utils/errorApi'
 const QMS_COLOR = COLOR_MODULO
 const QMS_DARK = COLOR_MODULO
 const MODULOS = ['TMS', 'WMS', 'EAM', 'CRM', 'SST', 'HCM', 'DMS', 'MES', 'APS', 'SCM', 'ERP', 'Compras', 'Financiero', 'QMS']
@@ -44,7 +45,7 @@ function IndicadoresConfig() {
   const mutToggle = useMutation({
     mutationFn: ({ id, activo }: { id: number; activo: boolean }) => api.put(`/qms/indicadores/${id}`, { activo }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['qms-indicadores-cfg'] }); qc.invalidateQueries({ queryKey: ['qms-tablero'] }) },
-    onError: () => toast.error('No se pudo actualizar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo actualizar')),
   })
   const crear = () => {
     setTried(true)

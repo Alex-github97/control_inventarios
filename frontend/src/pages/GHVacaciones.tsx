@@ -19,6 +19,7 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const GH_COLOR = COLOR_MODULO
 
 interface Colaborador { id: number; nombres: string; apellidos: string; cargo?: string }
@@ -114,25 +115,25 @@ export default function GHVacaciones() {
   const createMut = useMutation({
     mutationFn: (d: object) => api.post('/hcm/vacaciones', d).then(r => r.data),
     onSuccess: () => { toast.success('Solicitud creada'); qc.invalidateQueries({ queryKey: ['gh-vacaciones'] }); handleClose() },
-    onError: () => toast.error('Error al crear solicitud'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al crear solicitud')),
   })
 
   const updateMut = useMutation({
     mutationFn: ({ id, d }: { id: number; d: object }) => api.put(`/hcm/vacaciones/${id}`, d).then(r => r.data),
     onSuccess: () => { toast.success('Solicitud actualizada'); qc.invalidateQueries({ queryKey: ['gh-vacaciones'] }); handleClose() },
-    onError: () => toast.error('Error al actualizar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al actualizar')),
   })
 
   const aprobarMut = useMutation({
     mutationFn: (id: number) => api.put(`/hcm/vacaciones/${id}/aprobar`, {}).then(r => r.data),
     onSuccess: () => { toast.success('Vacaciones aprobadas'); qc.invalidateQueries({ queryKey: ['gh-vacaciones'] }) },
-    onError: () => toast.error('Error al aprobar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al aprobar')),
   })
 
   const rechazarMut = useMutation({
     mutationFn: (id: number) => api.put(`/hcm/vacaciones/${id}/rechazar`, {}).then(r => r.data),
     onSuccess: () => { toast.success('Solicitud rechazada'); qc.invalidateQueries({ queryKey: ['gh-vacaciones'] }) },
-    onError: () => toast.error('Error al rechazar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al rechazar')),
   })
 
   const handleOpen = (vac?: Vacacion) => {

@@ -13,6 +13,7 @@ import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
 import { AdminCatalogos } from '@/components/catalogo/AdminCatalogos'
+import { mensajeDeError } from '@/utils/errorApi'
 const WMS_COLOR = COLOR_MODULO
 
 // ─── Generic catalog hook ──────────────────────────────────────────────────────
@@ -25,17 +26,17 @@ function useCatalog<T extends { id: number }>(endpoint: string, queryKey: string
   const create = useMutation({
     mutationFn: (d: object) => api.post(endpoint, d).then(r => r.data),
     onSuccess: () => { toast.success('Registro creado'); qc.invalidateQueries({ queryKey }) },
-    onError: () => toast.error('Error al crear'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al crear')),
   })
   const update = useMutation({
     mutationFn: ({ id, d }: { id: number; d: object }) => api.put(`${endpoint}${id}`, d).then(r => r.data),
     onSuccess: () => { toast.success('Registro actualizado'); qc.invalidateQueries({ queryKey }) },
-    onError: () => toast.error('Error al actualizar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al actualizar')),
   })
   const remove = useMutation({
     mutationFn: (id: number) => api.delete(`${endpoint}${id}`),
     onSuccess: () => { toast.success('Registro eliminado'); qc.invalidateQueries({ queryKey }) },
-    onError: () => toast.error('Error al eliminar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al eliminar')),
   })
   return { data, isLoading, create, update, remove }
 }

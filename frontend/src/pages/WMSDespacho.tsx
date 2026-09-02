@@ -27,6 +27,7 @@ import { useAuthStore } from '@/store/authStore'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const WMS_COLOR = COLOR_MODULO
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -126,16 +127,6 @@ const ROLES_SUPERVISION = new Set(['ADMINISTRADOR', 'SUPERVISOR_LOGISTICO'])
 const ORDEN_ESTADOS_DESPACHABLES = ['EMPACANDO', 'EN_PICKING']
 
 // Extrae un mensaje legible del error de axios (incluye arrays de detalle 422)
-function parseApiError(err: any, fallback: string): string {
-  const detail = err?.response?.data?.detail
-  if (Array.isArray(detail)) {
-    return detail
-      .map((d: any) => (typeof d === 'string' ? d : d?.msg ?? JSON.stringify(d)))
-      .join(' · ')
-  }
-  if (typeof detail === 'string') return detail
-  return fallback
-}
 
 // ─── Estado chip ───────────────────────────────────────────────────────────────
 const ESTADO_CFG = {
@@ -217,7 +208,7 @@ function NuevoDespachoDialog({ open, onClose }: { open: boolean; onClose: () => 
       qc.invalidateQueries({ queryKey: ['wms-despachos'] })
       onClose()
     },
-    onError: (err: any) => toast.error(parseApiError(err, 'Error al crear despacho')),
+    onError: (err: any) => toast.error(mensajeDeError(err, 'Error al crear despacho')),
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -330,7 +321,7 @@ function NuevoDevolucionDialog({ open, onClose }: { open: boolean; onClose: () =
   const createMut = useMutation({
     mutationFn: (d: object) => api.post('/wms/devoluciones/', d).then(r => r.data),
     onSuccess: () => { toast.success('Devolución registrada'); qc.invalidateQueries({ queryKey: ['wms-devoluciones'] }); onClose() },
-    onError: (err: any) => toast.error(parseApiError(err, 'Error al registrar devolución')),
+    onError: (err: any) => toast.error(mensajeDeError(err, 'Error al registrar devolución')),
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -812,7 +803,7 @@ function DevolucionesSection() {
     mutationFn: ({ id, estado }: { id: number; estado: string }) =>
       api.put(`/wms/devoluciones/${id}/procesar`, { estado }).then(r => r.data),
     onSuccess: () => { toast.success('Devolución procesada'); qc.invalidateQueries({ queryKey: ['wms-devoluciones'] }) },
-    onError: (err: any) => toast.error(parseApiError(err, 'Error al procesar devolución')),
+    onError: (err: any) => toast.error(mensajeDeError(err, 'Error al procesar devolución')),
   })
 
   const TIPO_CFG = DEV_TIPO_CFG
@@ -917,7 +908,7 @@ export default function WMSDespacho() {
         setDetailDespacho(prev => prev ? { ...prev, estado: updated.estado, fecha_entrega_real: updated.fecha_entrega_real ?? prev.fecha_entrega_real } : null)
       }
     },
-    onError: (err: any) => toast.error(parseApiError(err, 'Error al actualizar estado')),
+    onError: (err: any) => toast.error(mensajeDeError(err, 'Error al actualizar estado')),
   })
 
   const handleTransicion = (id: number, estado: string) => {

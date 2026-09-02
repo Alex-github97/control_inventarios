@@ -18,6 +18,7 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 const GH_COLOR = COLOR_MODULO
 
 // ─── Interfaces ─────────────────────────────────────────────────────────────
@@ -211,13 +212,13 @@ export default function GHReclutamiento() {
   const createVac = useMutation({
     mutationFn: (d: object) => api.post('/hcm/reclutamiento/vacantes', d).then(r => r.data),
     onSuccess: () => { toast.success('Vacante creada'); qc.invalidateQueries({ queryKey: ['gh-vacantes'] }); setOpenVac(false); setEditingVac(null) },
-    onError: () => toast.error('Error al crear vacante'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al crear vacante')),
   })
 
   const updateVac = useMutation({
     mutationFn: ({ id, d }: { id: number; d: object }) => api.put(`/hcm/reclutamiento/vacantes/${id}`, d).then(r => r.data),
     onSuccess: () => { toast.success('Vacante actualizada'); qc.invalidateQueries({ queryKey: ['gh-vacantes'] }); setOpenVac(false); setEditingVac(null) },
-    onError: () => toast.error('Error al actualizar vacante'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al actualizar vacante')),
   })
 
   // ── Mutations: Postulaciones ──────────────────────────────────────────
@@ -225,25 +226,25 @@ export default function GHReclutamiento() {
   const createPost = useMutation({
     mutationFn: (d: object) => api.post('/hcm/reclutamiento/postulaciones', d).then(r => r.data),
     onSuccess: () => { toast.success('Postulación registrada'); qc.invalidateQueries({ queryKey: ['gh-postulaciones'] }); setOpenPost(false); setEditingPost(null) },
-    onError: () => toast.error('Error al registrar postulación'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al registrar postulación')),
   })
 
   const updatePost = useMutation({
     mutationFn: ({ id, d }: { id: number; d: object }) => api.put(`/hcm/reclutamiento/postulaciones/${id}`, d).then(r => r.data),
     onSuccess: () => { toast.success('Postulación actualizada'); qc.invalidateQueries({ queryKey: ['gh-postulaciones'] }); setOpenPost(false); setEditingPost(null) },
-    onError: () => toast.error('Error al actualizar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al actualizar')),
   })
 
   const deletePostMut = useMutation({
     mutationFn: (id: number) => api.delete(`/hcm/reclutamiento/postulaciones/${id}`),
     onSuccess: () => { toast.success('Postulación eliminada'); qc.invalidateQueries({ queryKey: ['gh-postulaciones'] }); setDeletePost(null) },
-    onError: () => toast.error('Error al eliminar'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al eliminar')),
   })
 
   const changeEstadoPost = useMutation({
     mutationFn: ({ id, estado }: { id: number; estado: string }) => api.patch(`/hcm/reclutamiento/postulaciones/${id}`, { estado }).then(r => r.data),
     onSuccess: () => { toast.success('Estado actualizado'); qc.invalidateQueries({ queryKey: ['gh-postulaciones'] }) },
-    onError: () => toast.error('Error al cambiar estado'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al cambiar estado')),
   })
 
   // ── Mutations: Entrevistas ────────────────────────────────────────────
@@ -251,13 +252,13 @@ export default function GHReclutamiento() {
   const createEnt = useMutation({
     mutationFn: (d: object) => api.post('/hcm/reclutamiento/entrevistas', d).then(r => r.data),
     onSuccess: () => { toast.success('Entrevista programada'); qc.invalidateQueries({ queryKey: ['gh-entrevistas'] }); setOpenEnt(false); setEditingEnt(null) },
-    onError: () => toast.error('Error al programar entrevista'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al programar entrevista')),
   })
 
   const updateEnt = useMutation({
     mutationFn: ({ id, d }: { id: number; d: object }) => api.put(`/hcm/reclutamiento/entrevistas/${id}`, d).then(r => r.data),
     onSuccess: () => { toast.success('Entrevista actualizada'); qc.invalidateQueries({ queryKey: ['gh-entrevistas'] }); setOpenEnt(false); setEditingEnt(null) },
-    onError: () => toast.error('Error al actualizar entrevista'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al actualizar entrevista')),
   })
 
   // ── Handlers: Vacantes ────────────────────────────────────────────────

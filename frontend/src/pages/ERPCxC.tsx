@@ -21,6 +21,7 @@ import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { mensajeDeError } from '@/utils/errorApi'
 // ── Module brand ────────────────────────────────────────────────────────────
 const ERP_COLOR = COLOR_MODULO
 
@@ -237,7 +238,7 @@ export default function ERPCxC() {
       setOpenNew(false)
       setForm({ ...EMPTY_FORM })
     },
-    onError: () => toast.error('Error al registrar la factura'),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al registrar la factura')),
   })
 
   // ── Derived KPIs ─────────────────────────────────────────────────────────
