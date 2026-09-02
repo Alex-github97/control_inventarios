@@ -219,7 +219,7 @@ async def crear(db: AsyncSession, proyecto: GPProyecto, *, tipo_id: int,
         from app.core import gestion_formulario   # acá para no cerrar un ciclo
 
         aplicables = await gestion_formulario.campos_del(db, proyecto.id, tipo.id)
-        await gestion_formulario.cargar_opciones(db, aplicables, proyecto.id)
+        await gestion_formulario.cargar_opciones(db, aplicables, proyecto.id, autor)
         de_columna, valores = await gestion_formulario.validar(
             db, aplicables, campos or {}, proyecto.id, exigir_obligatorios=False)
         columnas = de_columna

@@ -467,7 +467,7 @@ async def crear(
     tipo = await gestion_incidencias.tipo_valido(db, data.tipo_id, proyecto.id)
 
     aplicables = await gestion_formulario.campos_del(db, proyecto.id, tipo.id)
-    await gestion_formulario.cargar_opciones(db, aplicables, proyecto.id)
+    await gestion_formulario.cargar_opciones(db, aplicables, proyecto.id, quien.usuario)
 
     # Los valores por defecto se aplican ANTES de validar y solo donde no llegó
     # nada: si se aplicaran después, un obligatorio con defecto se rechazaría por
@@ -524,7 +524,7 @@ async def editar(
         return (await _tarjetas(db, [inc]))[0]
 
     aplicables = await gestion_formulario.campos_del(db, proyecto.id, inc.tipo_id)
-    await gestion_formulario.cargar_opciones(db, aplicables, proyecto.id)
+    await gestion_formulario.cargar_opciones(db, aplicables, proyecto.id, quien.usuario)
 
     antes_jsonb = dict(inc.campos or {})
     columnas, jsonb = await gestion_formulario.validar(

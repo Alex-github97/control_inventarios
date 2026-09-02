@@ -127,24 +127,34 @@ async def campos_del(db: AsyncSession, proyecto_id: Optional[int],
 # Es una lista CERRADA: un campo no puede nombrar una tabla cualquiera, igual que
 # el motor de filtros no puede nombrar una columna cualquiera.
 
-async def _usuarios(db: AsyncSession, _p: Optional[int]) -> List[dict]:
+async def _usuarios(db: AsyncSession, _p: Optional[int], usuario: str) -> List[dict]:
+    """A quién se le puede asignar trabajo: el equipo de la consola.
+
+    Quien consulta entra siempre, aunque no esté en la tabla. Mientras el equipo
+    no se haya formalizado esa tabla está vacía, y devolver una lista vacía deja
+    el selector de responsable sin una sola opción —ni siquiera uno mismo—, que
+    es exactamente como se ve un campo roto.
+    """
     r = await db.execute(select(PlataformaMiembro).where(
         PlataformaMiembro.activo.is_(True)
     ).order_by(PlataformaMiembro.nombre, PlataformaMiembro.usuario))
-    return [
+    equipo = [
         {"valor": m.usuario, "etiqueta": m.nombre or m.usuario, "pista": m.rol}
         for m in r.scalars().all()
     ]
+    if usuario and not any(m["valor"] == usuario for m in equipo):
+        equipo.insert(0, {"valor": usuario, "etiqueta": usuario, "pista": "usted"})
+    return equipo
 
 
-async def _proyectos(db: AsyncSession, _p: Optional[int]) -> List[dict]:
+async def _proyectos(db: AsyncSession, _p: Optional[int], _usuario: str) -> List[dict]:
     r = await db.execute(select(GPProyecto).where(
         GPProyecto.archivado.is_(False)).order_by(GPProyecto.nombre))
     return [{"valor": str(x.id), "etiqueta": x.nombre, "pista": x.clave}
             for x in r.scalars().all()]
 
 
-async def _tipos(db: AsyncSession, proyecto_id: Optional[int]) -> List[dict]:
+async def _tipos(db: AsyncSession, proyecto_id: Optional[int], _usuario: str) -> List[dict]:
     ambito = (
         GPTipoIncidencia.proyecto_id.is_(None) if proyecto_id is None
         else or_(GPTipoIncidencia.proyecto_id == proyecto_id,
@@ -157,13 +167,13 @@ async def _tipos(db: AsyncSession, proyecto_id: Optional[int]) -> List[dict]:
             for x in r.scalars().all()]
 
 
-async def _prioridades(db: AsyncSession, _p: Optional[int]) -> List[dict]:
+async def _prioridades(db: AsyncSession, _p: Optional[int], _usuario: str) -> List[dict]:
     r = await db.execute(select(GPPrioridad).order_by(GPPrioridad.orden))
     return [{"valor": str(x.id), "etiqueta": x.nombre, "color": x.color}
             for x in r.scalars().all()]
 
 
-async def _estados(db: AsyncSession, proyecto_id: Optional[int]) -> List[dict]:
+async def _estados(db: AsyncSession, proyecto_id: Optional[int], _usuario: str) -> List[dict]:
     consulta = select(GPEstado).order_by(GPEstado.orden)
     if proyecto_id is not None:
         wf = (await db.execute(select(GPProyecto.workflow_id).where(
@@ -175,7 +185,7 @@ async def _estados(db: AsyncSession, proyecto_id: Optional[int]) -> List[dict]:
              "color": x.color} for x in r.scalars().all()]
 
 
-async def _sprints(db: AsyncSession, proyecto_id: Optional[int]) -> List[dict]:
+async def _sprints(db: AsyncSession, proyecto_id: Optional[int], _usuario: str) -> List[dict]:
     if proyecto_id is None:
         return []
     r = await db.execute(select(GPSprint).where(
@@ -186,7 +196,7 @@ async def _sprints(db: AsyncSession, proyecto_id: Optional[int]) -> List[dict]:
             for x in r.scalars().all()]
 
 
-async def _epicas(db: AsyncSession, proyecto_id: Optional[int]) -> List[dict]:
+async def _epicas(db: AsyncSession, proyecto_id: Optional[int], _usuario: str) -> List[dict]:
     """Las épicas son incidencias, no un catálogo aparte.
 
     Es la diferencia con tener una tabla «épica»: una épica se comenta, se
@@ -210,7 +220,7 @@ async def _epicas(db: AsyncSession, proyecto_id: Optional[int]) -> List[dict]:
     ]
 
 
-async def _incidencias(db: AsyncSession, proyecto_id: Optional[int]) -> List[dict]:
+async def _incidencias(db: AsyncSession, proyecto_id: Optional[int], _usuario: str) -> List[dict]:
     if proyecto_id is None:
         return []
     proyecto = (await db.execute(select(GPProyecto).where(
@@ -225,7 +235,7 @@ async def _incidencias(db: AsyncSession, proyecto_id: Optional[int]) -> List[dic
     ]
 
 
-async def _versiones(db: AsyncSession, proyecto_id: Optional[int]) -> List[dict]:
+async def _versiones(db: AsyncSession, proyecto_id: Optional[int], _usuario: str) -> List[dict]:
     if proyecto_id is None:
         return []
     r = await db.execute(select(GPVersion).where(
@@ -236,7 +246,7 @@ async def _versiones(db: AsyncSession, proyecto_id: Optional[int]) -> List[dict]
             for x in r.scalars().all()]
 
 
-async def _componentes(db: AsyncSession, proyecto_id: Optional[int]) -> List[dict]:
+async def _componentes(db: AsyncSession, proyecto_id: Optional[int], _usuario: str) -> List[dict]:
     if proyecto_id is None:
         return []
     r = await db.execute(select(GPComponente).where(
@@ -261,7 +271,7 @@ ENTIDADES: Dict[str, Callable] = {
 
 
 async def cargar_opciones(db: AsyncSession, campos: List[CampoDelFormulario],
-                          proyecto_id: Optional[int]) -> None:
+                          proyecto_id: Optional[int], usuario: str = "") -> None:
     """Llena las opciones de cada campo de selección.
 
     Las de catálogo propio se traen todas de una vez; las de entidad se consultan
@@ -288,7 +298,7 @@ async def cargar_opciones(db: AsyncSession, campos: List[CampoDelFormulario],
             continue
         if entidad not in cache:
             resolver = ENTIDADES.get(entidad)
-            cache[entidad] = await resolver(db, proyecto_id) if resolver else []
+            cache[entidad] = await resolver(db, proyecto_id, usuario) if resolver else []
         c.opciones = cache[entidad]
 
 
@@ -305,7 +315,7 @@ async def esquema(db: AsyncSession, proyecto_id: Optional[int],
     """
     campos = await campos_del(db, proyecto_id, tipo_id)
     visibles = [c for c in campos if c.visible]
-    await cargar_opciones(db, visibles, proyecto_id)
+    await cargar_opciones(db, visibles, proyecto_id, usuario)
 
     valores = await valores_de(incidencia, visibles) if incidencia else {}
     defectos = await _defectos(db, visibles, proyecto_id, usuario)
