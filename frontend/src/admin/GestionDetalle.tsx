@@ -19,17 +19,16 @@ import {
 } from '@mui/material'
 import {
   Close, Send, AttachFile, Edit, Check, History, ChatBubbleOutline,
-  SupportAgent, Download, Tune,
+  SupportAgent, Download, Tune, AccountTree,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
 import {
   gestionApi, mensajeDeError,
-  type AdjuntoGestion, type DetalleIncidencia, type Persona,
+  type AdjuntoGestion, type DetalleIncidencia,
 } from './api'
-import { CamposDinamicos } from './GestionCampos'
-import GestionFormulario from './GestionFormulario'
+import GestionFormulario, { Campo } from './GestionFormulario'
 
 const COLOR_CATEGORIA: Record<string, string> = {
   SIN_CLASIFICAR: PALETA.acero,
@@ -170,6 +169,124 @@ const peso = (b?: number | null) =>
     : `${(b / 1048576).toFixed(1)} MB`
 
 
+
+/** Los campos configurados de una incidencia, editables y con guardado propio.
+ *
+ *  Usa el mismo esquema y el mismo renderizador que el formulario de alta, asi
+ *  que un campo nuevo aparece aca solo y con su lista de opciones puesta —los de
+ *  entidad, como Responsable o Sprint, sacan sus opciones de las tablas—.
+ *
+ *  Guarda campo por campo y no con un boton: en una herramienta de trabajo,
+ *  reasignar o reestimar es lo que mas se hace, y un boton «Guardar» hace que la
+ *  mitad de los cambios se pierdan al cerrar la ficha. Los de texto guardan al
+ *  salir del campo; los demas, al cambiarlos.
+ */
+function PanelDeCampos({
+  incidenciaId, onGuardado,
+}: {
+  incidenciaId: number
+  onGuardado: () => void
+}) {
+  const [borrador, setBorrador] = useState<Record<string, any>>({})
+  const [problemas, setProblemas] = useState<Record<string, string>>({})
+
+  const { data: esquema, isLoading } = useQuery({
+    queryKey: ['gestion', 'formulario', 'panel', incidenciaId],
+    queryFn: () => gestionApi.formulario({ incidencia_id: incidenciaId }),
+  })
+
+  // El borrador se rehace cuando llega el esquema: es lo guardado, y lo que se
+  // muestra mientras una escritura viaja.
+  useEffect(() => {
+    if (!esquema) return
+    const valores: Record<string, any> = {}
+    esquema.secciones.forEach(s => s.campos.forEach(c => {
+      valores[c.clave] = c.valor ?? null
+    }))
+    setBorrador(valores)
+    setProblemas({})
+  }, [esquema])
+
+  const guardar = useMutation({
+    mutationFn: ({ clave, valor }: { clave: string; valor: any }) =>
+      gestionApi.editar(incidenciaId, { campos: { [clave]: valor } }),
+    onSuccess: (_r, { clave }) => {
+      setProblemas(previos => {
+        const { [clave]: _, ...resto } = previos
+        return resto
+      })
+      onGuardado()
+    },
+    onError: (e: any, { clave }) => {
+      const d = e?.response?.data?.detail
+      const detalle = Array.isArray(d?.campos) ? d.campos[0] : null
+      // El motivo va bajo el campo y no en un aviso que se desvanece: un error
+      // de validacion hay que poder leerlo mientras se corrige.
+      setProblemas(previos => ({
+        ...previos,
+        [clave]: detalle ?? mensajeDeError(e, 'No se pudo guardar'),
+      }))
+    },
+  })
+
+  if (isLoading) return <Skeleton height={220} />
+  if (!esquema?.secciones.length) return null
+
+  /** Los de texto guardan al salir del campo; los demas, al cambiarlos. Guardar
+   *  cada tecla de un texto largo serian veinte peticiones por frase. */
+  const alSalir = new Set([
+    'TEXTO', 'TEXTO_LARGO', 'TEXTO_RICO', 'NUMERO', 'DECIMAL', 'URL', 'CORREO',
+  ])
+
+  return (
+    <Stack spacing={1.75}>
+      {esquema.secciones.map(seccion => (
+        <Box key={seccion.clave}>
+          <Etiqueta>{seccion.titulo}</Etiqueta>
+          <Stack spacing={1.5} mt={0.75}>
+            {seccion.campos.map(campo => (
+              <Box
+                key={campo.clave}
+                onBlur={() => {
+                  if (!alSalir.has(campo.tipo)) return
+                  const nuevo = borrador[campo.clave] ?? null
+                  if (nuevo === (campo.valor ?? null)) return
+                  guardar.mutate({ clave: campo.clave, valor: nuevo })
+                }}
+              >
+                <Campo
+                  campo={campo}
+                  valor={borrador[campo.clave]}
+                  error={problemas[campo.clave]}
+                  onCambio={valor => {
+                    setBorrador(previos => ({ ...previos, [campo.clave]: valor }))
+                    if (!alSalir.has(campo.tipo)) {
+                      guardar.mutate({ clave: campo.clave, valor })
+                    }
+                  }}
+                />
+              </Box>
+            ))}
+          </Stack>
+        </Box>
+      ))}
+    </Stack>
+  )
+}
+
+
+
+/** Qué nivel puede colgar de este. Es la misma regla que hace cumplir el
+ *  servidor; acá solo sirve para no ofrecer lo que va a rechazar.
+ *
+ *  De una épica cuelga algo normal; de algo normal, una subtarea; de una
+ *  subtarea no cuelga nada —tres niveles bastan, y el cuarto convierte el árbol
+ *  en algo que nadie recorre—. */
+function nivelHijo(nivel?: string | null): string[] {
+  return { EPICA: ['NORMAL'], NORMAL: ['SUBTAREA'] }[String(nivel ?? 'NORMAL')] ?? []
+}
+
+
 export default function GestionDetalle({
   incidenciaId, onCerrar,
 }: {
@@ -181,11 +298,10 @@ export default function GestionDetalle({
   const [comentario, setComentario] = useState('')
   const [editandoTitulo, setEditandoTitulo] = useState(false)
   const [titulo, setTitulo] = useState('')
-  const [campos, setCampos] = useState<Record<string, any>>({})
-  const [problemas, setProblemas] = useState<string[]>([])
   // El formulario completo, con TODOS los campos configurados. El panel lateral
   // deja cambiar lo de todos los días sin abrirlo; esto es para lo demás.
   const [editandoTodo, setEditandoTodo] = useState(false)
+  const [creandoHija, setCreandoHija] = useState(false)
 
   const { data, isLoading } = useQuery({
     queryKey: ['gestion', 'incidencia', incidenciaId],
@@ -193,33 +309,11 @@ export default function GestionDetalle({
     enabled: incidenciaId != null,
   })
 
-  // Las listas de apoyo del panel lateral. Se piden aparte y con caché larga:
-  // cambian mucho menos que la incidencia y no tiene sentido volver a traerlas
-  // cada vez que alguien mueve una tarjeta.
-  const { data: personas } = useQuery({
-    queryKey: ['gestion', 'personas'],
-    queryFn: gestionApi.personas,
-    staleTime: 5 * 60_000,
-  })
-  const { data: config } = useQuery({
-    queryKey: ['gestion', 'config', data?.proyecto.id ?? null],
-    queryFn: () => gestionApi.configuracion(data?.proyecto.id),
-    enabled: !!data,
-    staleTime: 5 * 60_000,
-  })
-  const { data: sugeridas } = useQuery({
-    queryKey: ['gestion', 'etiquetas', data?.proyecto.id],
-    queryFn: () => gestionApi.etiquetas(data?.proyecto.id),
-    enabled: !!data,
-    staleTime: 60_000,
-  })
 
   useEffect(() => {
     if (data) {
       setTitulo(data.incidencia.resumen)
-      setCampos(data.incidencia.campos || {})
       setEditandoTitulo(false)
-      setProblemas([])
     }
   }, [data?.incidencia.id, data?.incidencia.resumen])
 
@@ -235,12 +329,8 @@ export default function GestionDetalle({
   const editar = useMutation({
     mutationFn: (cambios: Record<string, unknown>) =>
       gestionApi.editar(incidenciaId!, { campos: cambios }),
-    onSuccess: () => { setProblemas([]); refrescar() },
-    onError: (e: any) => {
-      const d = e?.response?.data?.detail
-      if (d?.campos) { setProblemas(d.campos); return }
-      toast.error(mensajeDeError(e, 'No se pudo guardar'))
-    },
+    onSuccess: refrescar,
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo guardar')),
   })
 
   const mover = useMutation({
@@ -291,7 +381,6 @@ export default function GestionDetalle({
           <Cuerpo
             data={data} titulo={titulo} setTitulo={setTitulo}
             editandoTitulo={editandoTitulo} setEditandoTitulo={setEditandoTitulo}
-            campos={campos} setCampos={setCampos} problemas={problemas}
             pestana={pestana} setPestana={setPestana}
             comentario={comentario} setComentario={setComentario}
             onCerrar={onCerrar}
@@ -301,18 +390,16 @@ export default function GestionDetalle({
               }
               setEditandoTitulo(false)
             }}
-            onGuardarCampos={() => editar.mutate(campos)}
-            onGuardarCampo={(c, v) => editar.mutate({ [c]: v })}
             onMover={id => mover.mutate(id)}
             onComentar={() => comentar.mutate()}
             onAdjuntar={f => adjuntar.mutate(f)}
             onDescargar={descargar}
             guardando={editar.isPending}
             moviendo={mover.isPending}
-            personas={personas ?? []}
-            prioridades={config?.prioridades ?? []}
-            sugeridas={(sugeridas ?? []).map(e => e.etiqueta)}
             onEditarTodo={() => setEditandoTodo(true)}
+            onCrearHija={() => setCreandoHija(true)}
+            puedeTenerHijas={nivelHijo(data.nivel).length > 0}
+            onRefrescar={refrescar}
           />
         )}
       </DialogContent>
@@ -325,6 +412,23 @@ export default function GestionDetalle({
           onGuardada={() => refrescar()}
         />
       )}
+
+      {data && (
+        <GestionFormulario
+          abierto={creandoHija} proyecto={null} proyectos={[]}
+          preseleccion={{
+            proyecto_id: data.proyecto.id,
+            // Solo los tipos del nivel que puede colgar de este. La regla la
+            // hace cumplir el servidor; acá se evita ofrecer lo que va a
+            // rechazar.
+            niveles: nivelHijo(data.nivel),
+            campos: { padre: String(data.incidencia.id) },
+            titulo: `Nueva subtarea de ${data.incidencia.clave}`,
+          }}
+          onCerrar={() => setCreandoHija(false)}
+          onGuardada={() => refrescar()}
+        />
+      )}
     </Dialog>
   )
 }
@@ -333,24 +437,20 @@ function Cuerpo(p: {
   data: DetalleIncidencia
   titulo: string; setTitulo: (s: string) => void
   editandoTitulo: boolean; setEditandoTitulo: (b: boolean) => void
-  campos: Record<string, any>; setCampos: (c: Record<string, any>) => void
-  problemas: string[]
   pestana: number; setPestana: (n: number) => void
   comentario: string; setComentario: (s: string) => void
   onCerrar: () => void
   onGuardarTitulo: () => void
-  onGuardarCampos: () => void
-  onGuardarCampo: (campo: string, valor: any) => void
   onMover: (id: number) => void
   onComentar: () => void
   onAdjuntar: (f: FileList | File[]) => void
   onDescargar: (id: number, nombre: string) => void
   guardando: boolean
   moviendo: boolean
-  personas: Persona[]
-  prioridades: { id: number; nombre: string; color?: string | null }[]
-  sugeridas: string[]
   onEditarTodo: () => void
+  onCrearHija: () => void
+  puedeTenerHijas: boolean
+  onRefrescar: () => void
 }) {
   const { data } = p
   const inc = data.incidencia
@@ -379,6 +479,14 @@ function Cuerpo(p: {
             </Tooltip>
           )}
           <Box sx={{ flex: 1 }} />
+          {p.puedeTenerHijas && (
+            <Tooltip title="Crear una incidencia que cuelgue de esta. Sigue el mismo flujo que cualquier otra.">
+              <Button size="small" startIcon={<AccountTree sx={{ fontSize: 15 }} />}
+                onClick={p.onCrearHija} sx={{ textTransform: 'none' }}>
+                Subtarea
+              </Button>
+            </Tooltip>
+          )}
           <Tooltip title="Abrir el formulario completo, con todos los campos configurados">
             <Button size="small" startIcon={<Tune sx={{ fontSize: 15 }} />}
               onClick={p.onEditarTodo} sx={{ textTransform: 'none' }}>
@@ -548,110 +656,32 @@ function Cuerpo(p: {
 
         {/* ── Panel lateral ── */}
         <Box sx={{
-          width: { xs: '100%', md: 320 }, flexShrink: 0, p: 3,
+          width: { xs: '100%', md: 340 }, flexShrink: 0, p: 3,
           borderLeft: { md: `1px solid ${PALETA.niebla}` }, bgcolor: PALETA.bruma,
         }}>
           <Stack spacing={1.5}>
             <Dato etiqueta="Proyecto" valor={data.proyecto.nombre} />
 
-            {/* Editables en el sitio. En una herramienta de trabajo, reasignar o
-                reestimar es lo que más se hace: detrás de un diálogo de edición
-                se hace la mitad de las veces. */}
-            <Autocomplete
-              size="small" options={p.personas} value={
-                p.personas.find(x => x.usuario === inc.asignado) ?? null}
-              getOptionLabel={x => x.nombre}
-              onChange={(_, v) => p.onGuardarCampo('asignado', v?.usuario ?? null)}
-              renderInput={q => <TextField {...q} label="Responsable" variant="standard" />}
-            />
+            {/* Todos los campos configurados, con el MISMO renderizador del
+                formulario y guardando al cambiar.
 
-            <Autocomplete
-              size="small" options={p.personas} value={
-                p.personas.find(x => x.usuario === inc.reporta) ?? null}
-              getOptionLabel={x => x.nombre}
-              onChange={(_, v) => p.onGuardarCampo('reporta', v?.usuario ?? null)}
-              renderInput={q => <TextField {...q} label="Reportó" variant="standard" />}
-            />
-
-            <TextField
-              select size="small" variant="standard" label="Prioridad"
-              value={inc.prioridad_id ? String(inc.prioridad_id) : ''}
-              onChange={e => p.onGuardarCampo('prioridad', e.target.value || null)}
-            >
-              {p.prioridades.map(x => (
-                <MenuItem key={x.id} value={String(x.id)}>{x.nombre}</MenuItem>
-              ))}
-            </TextField>
-
-            <TextField
-              select size="small" variant="standard" label="Estimación"
-              value={inc.puntos ?? ''}
-              onChange={e => p.onGuardarCampo(
-                'puntos', e.target.value === '' ? null : Number(e.target.value))}
-            >
-              <MenuItem value=""><em>Sin estimar</em></MenuItem>
-              {[1, 2, 3, 5, 8, 13, 21].map(n => (
-                <MenuItem key={n} value={n}>{n}</MenuItem>
-              ))}
-            </TextField>
-
-            <Autocomplete
-              multiple freeSolo size="small" options={p.sugeridas}
-              value={inc.etiquetas}
-              onChange={(_, v) => p.onGuardarCampo(
-                'etiquetas', v.map(x => String(x).trim()).filter(Boolean))}
-              renderTags={(valores, getProps) =>
-                valores.map((v, i) => (
-                  <Chip {...getProps({ index: i })} key={v} label={v} size="small"
-                    sx={{ height: 20, fontSize: 10.5 }} />
-                ))}
-              renderInput={q => <TextField {...q} label="Etiquetas" variant="standard" />}
+                Antes había dos juegos de controles: unos escritos a mano y otros
+                generados, que pintaban los mismos campos por segunda vez y sin
+                sus opciones. Lo que alguien escribía en el duplicado no iba a
+                ninguna parte. */}
+            <PanelDeCampos
+              incidenciaId={inc.id}
+              onGuardado={p.onRefrescar}
             />
 
             <Divider sx={{ my: 0.5 }} />
 
-            {/* El plan: es lo que dibuja la barra del Gantt. */}
-            <Stack direction="row" spacing={1}>
-              <TextField
-                size="small" type="date" variant="standard" label="Inicio previsto"
-                InputLabelProps={{ shrink: true }} fullWidth
-                defaultValue={data.inicio_plan?.slice(0, 10) ?? ''}
-                onBlur={e => p.onGuardarCampo('inicio_plan', e.target.value || null)}
-              />
-              <TextField
-                size="small" type="date" variant="standard" label="Vence"
-                InputLabelProps={{ shrink: true }} fullWidth
-                defaultValue={inc.vence ? String(inc.vence).slice(0, 10) : ''}
-                onBlur={e => p.onGuardarCampo('vence', e.target.value || null)}
-              />
-            </Stack>
-
-            <Divider sx={{ my: 0.5 }} />
-
+            {/* Lo que lleva el sistema. No se edita: `creada` es un hecho, y las
+                otras dos las sella el flujo al mover la incidencia. Ponerlas
+                editables invitaría a "corregir" la historia. */}
             <Dato etiqueta="Creada" valor={cuando(data.creado) || '—'} />
             {data.iniciado && <Dato etiqueta="Empezó de verdad" valor={cuando(data.iniciado)} />}
             {data.resuelto && <Dato etiqueta="Resuelta" valor={cuando(data.resuelto)} />}
-
-            {!!data.definicion_campos.length && (
-              <>
-                <Divider sx={{ my: 0.5 }} />
-                {!!p.problemas.length && (
-                  <Alert severity="warning" sx={{ py: 0.5, fontSize: 12 }}>
-                    {p.problemas[0]}
-                  </Alert>
-                )}
-                <CamposDinamicos
-                  definicion={data.definicion_campos}
-                  valores={p.campos}
-                  problemas={p.problemas}
-                  onCambio={(clave, valor) => p.setCampos({ ...p.campos, [clave]: valor })}
-                />
-                <Button size="small" variant="outlined" disabled={p.guardando}
-                  onClick={p.onGuardarCampos} sx={{ textTransform: 'none' }}>
-                  Guardar campos
-                </Button>
-              </>
-            )}
 
             {!!data.subtareas.length && (
               <>

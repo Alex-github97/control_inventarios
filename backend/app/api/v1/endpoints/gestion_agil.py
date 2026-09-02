@@ -110,6 +110,18 @@ class Gantt(BaseModel):
 
 # ─── Sprints ──────────────────────────────────────────────────────────────────
 
+def _con_zona(momento: Optional[datetime]) -> Optional[datetime]:
+    """Una fecha siempre con zona, asumiendo UTC si no la trae.
+
+    Las columnas son `timestamptz`. Una fecha ingenua la interpreta PostgreSQL
+    con la zona de la sesion —que no es la misma en todas las conexiones— y
+    ademas rompe cualquier comparacion posterior con las que si la traen.
+    """
+    if momento is None:
+        return None
+    return momento if momento.tzinfo else momento.replace(tzinfo=timezone.utc)
+
+
 async def _resumir(db: AsyncSession, sprints: List[GPSprint]) -> List[SprintResponse]:
     """Agrega las cifras de todos los sprints en una consulta, no en una por uno."""
     if not sprints:
@@ -454,7 +466,10 @@ async def gantt(
     momentos: List[datetime] = []
 
     for i in incidencias:
-        fechas = [f for f in (i.inicio_plan, i.vence, i.iniciado, i.resuelto) if f]
+        # Se normalizan al leer, no solo al escribir: puede haber filas de antes
+        # de que la escritura pusiera la zona, y una sola tumba la comparacion.
+        fechas = [_con_zona(f) for f in
+                  (i.inicio_plan, i.vence, i.iniciado, i.resuelto) if f]
         if not fechas:
             huerfanas.append(i)
             continue
@@ -522,11 +537,17 @@ async def fijar_plan(
         raise HTTPException(404, "Esa incidencia no existe.")
     await exigir_proyecto(db, quien, inc.proyecto_id, escritura=True)
 
-    if data.inicio_plan and data.vence and data.vence < data.inicio_plan:
+    # Con zona horaria siempre. Una fecha ingenua en una columna `timestamptz` la
+    # interpreta PostgreSQL con la zona de la sesión —que no es la misma en todas
+    # las conexiones— y además rompe cualquier comparación posterior con las que
+    # sí la traen: «can't compare offset-naive and offset-aware datetimes».
+    inicio = _con_zona(data.inicio_plan)
+    vence = _con_zona(data.vence)
+
+    if inicio and vence and vence < inicio:
         raise HTTPException(422, "La fecha de fin no puede ser anterior a la de inicio.")
 
-    for campo in ("inicio_plan", "vence"):
-        nuevo = getattr(data, campo)
+    for campo, nuevo in (("inicio_plan", inicio), ("vence", vence)):
         anterior = getattr(inc, campo)
         if anterior != nuevo:
             setattr(inc, campo, nuevo)

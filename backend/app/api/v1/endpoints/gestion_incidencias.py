@@ -423,6 +423,9 @@ async def ver(
     return {
         "incidencia": tarjeta,
         "descripcion": inc.descripcion,
+        # De qué nivel es, para saber qué puede colgar de ella. La regla vive en
+        # el servidor; la pantalla la usa para no ofrecer lo que va a rechazar.
+        "nivel": tipo.nivel,
         "inicio_plan": inc.inicio_plan,
         "iniciado": inc.iniciado,
         "resuelto": inc.resuelto,

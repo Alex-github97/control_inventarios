@@ -48,7 +48,7 @@ const RAPIDA = new Set(['PRINCIPAL'])
 
 // ─── Un campo ─────────────────────────────────────────────────────────────────
 
-function Campo({
+export function Campo({
   campo, valor, onCambio, error,
 }: {
   campo: CampoDeFormulario
@@ -240,13 +240,27 @@ function Campo({
 // ─── El formulario ────────────────────────────────────────────────────────────
 
 export default function GestionFormulario({
-  abierto, proyecto, proyectos, incidenciaId, onCerrar, onGuardada,
+  abierto, proyecto, proyectos, incidenciaId, preseleccion, onCerrar, onGuardada,
 }: {
   abierto: boolean
   proyecto: Proyecto | null
   proyectos: Proyecto[]
   /** Vacío = crear. Con id = editar. La misma pantalla sirve para las dos. */
   incidenciaId?: number | null
+  /** Lo que llega ya decidido: el proyecto, el tipo y los campos que quien
+   *  abre el formulario conoce. Lo usa la creación de subtareas, que sabe de
+   *  qué cuelga y de qué nivel tiene que ser.
+   *
+   *  `niveles` acota qué tipos se ofrecen. No es una comodidad: la jerarquía
+   *  la hace cumplir el servidor, y ofrecer un tipo que va a rechazar es
+   *  hacer que la persona descubra la regla estrellándose contra ella. */
+  preseleccion?: {
+    proyecto_id: number
+    tipo_id?: number | null
+    niveles?: string[]
+    campos?: Record<string, any>
+    titulo?: string
+  } | null
   onCerrar: () => void
   onGuardada: (id: number) => void
 }) {
@@ -283,11 +297,11 @@ export default function GestionFormulario({
     setProblemas([])
     setCompleto(editando)
     if (!editando) {
-      setProyectoId(proyecto?.id ?? null)
-      setTipoId(null)
+      setProyectoId(preseleccion?.proyecto_id ?? proyecto?.id ?? null)
+      setTipoId(preseleccion?.tipo_id ?? null)
       setValores({})
     }
-  }, [abierto, editando, proyecto?.id])
+  }, [abierto, editando, proyecto?.id, preseleccion])
 
   useEffect(() => {
     if (!esquema) return
@@ -301,7 +315,8 @@ export default function GestionFormulario({
     // aparece al cambiar de tipo llegue con su defecto puesto.
     const inicial: Record<string, any> = {}
     esquema.secciones.forEach(s => s.campos.forEach(c => {
-      inicial[c.clave] = c.valor ?? c.defecto ?? null
+      inicial[c.clave] = preseleccion?.campos?.[c.clave]
+        ?? c.valor ?? c.defecto ?? null
     }))
     setValores(inicial)
   }, [esquema])
@@ -334,7 +349,20 @@ export default function GestionFormulario({
     })
   }, [esquema])
 
-  const tipos = config?.tipos ?? []
+  // Los tipos que se pueden escoger. Cuando quien abre el formulario acota los
+  // niveles —crear una subtarea de una épica— se ofrecen solo esos: la jerarquía
+  // la hace cumplir el servidor, y ofrecer un tipo que va a rechazar es hacer
+  // que la persona descubra la regla estrellándose contra ella.
+  const tipos = useMemo(() => {
+    const todos = config?.tipos ?? []
+    const niveles = preseleccion?.niveles
+    return niveles?.length ? todos.filter(t => niveles.includes(t.nivel)) : todos
+  }, [config, preseleccion])
+
+  // Con un solo tipo posible no hay nada que escoger.
+  useEffect(() => {
+    if (abierto && !editando && !tipoId && tipos.length === 1) setTipoId(tipos[0].id)
+  }, [abierto, editando, tipoId, tipos])
 
   const guardar = useMutation({
     mutationFn: () => {
@@ -385,7 +413,7 @@ export default function GestionFormulario({
     <Dialog open={abierto} onClose={onCerrar} maxWidth="md" fullWidth
       PaperProps={{ sx: { borderRadius: 2 } }}>
       <DialogTitle sx={{ fontWeight: 700, pb: 1 }}>
-        {editando ? 'Editar incidencia' : 'Nueva incidencia'}
+        {preseleccion?.titulo ?? (editando ? 'Editar incidencia' : 'Nueva incidencia')}
         <Typography variant="caption" sx={{ display: 'block', color: PALETA.acero }}>
           Los campos de esta pantalla se definen en Configuración → Campos.
         </Typography>
@@ -396,11 +424,13 @@ export default function GestionFormulario({
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mb={2.5}>
           <TextField
             select size="small" label="Proyecto" fullWidth required
-            value={proyectoId ?? ''} disabled={editando}
+            value={proyectoId ?? ''} disabled={editando || !!preseleccion}
             onChange={e => { setProyectoId(Number(e.target.value)); setTipoId(null) }}
             helperText={editando
               ? 'Una incidencia no cambia de proyecto: su clave ya está citada.'
-              : undefined}
+              : preseleccion
+                ? 'Una subtarea vive en el proyecto de su padre.'
+                : undefined}
           >
             {proyectos.map(p => (
               <MenuItem key={p.id} value={p.id}>{p.icono} {p.nombre}</MenuItem>

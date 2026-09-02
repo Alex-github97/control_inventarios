@@ -468,6 +468,8 @@ export interface AsientoHistorial {
 export interface DetalleIncidencia {
   incidencia: Incidencia
   descripcion?: string | null
+  /** De qué nivel es: EPICA, NORMAL o SUBTAREA. Decide qué puede colgar de ella. */
+  nivel?: string | null
   /** Cuándo se PLANEA empezarla. Con `vence` forma la barra del Gantt; es
    *  distinto de `iniciado`, que es cuándo empezó de verdad. */
   inicio_plan?: string | null
