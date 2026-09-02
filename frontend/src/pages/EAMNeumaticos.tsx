@@ -84,6 +84,30 @@ interface Dano { id: number; codigo: string; nombre: string; severidad: string; 
 interface Posicion { codigo: string; label: string; eje: number; lado: string; numero?: number | null }
 interface CatItem { id: number; tipo: string; nombre: string; valor?: number | null }
 interface Movimiento { id: number; tipo_movimiento: string; posicion_origen?: string | null; posicion?: string | null; bodega_id?: number | null; km_odometro?: number | null; fecha?: string | null; tecnico?: string | null; observaciones?: string | null }
+/**
+ * Contra qué se compara una profundidad nueva.
+ *
+ * El formulario pedía tres números sin decir contra qué. Quien mide no puede
+ * saber si 8,5 mm está bien o le faltó un dígito sin ver que la vez pasada iban
+ * 9,2; y ese error se guarda y solo aparece meses después como un desgaste
+ * imposible. `origen` importa: no es lo mismo comparar contra la medición del
+ * mes pasado que contra un reencauche reciente.
+ */
+interface ReferenciaProfundidad {
+  neumatico_id: number
+  codigo: string
+  origen: string
+  fecha?: string | null
+  profundidad_izq?: number | null
+  profundidad_centro?: number | null
+  profundidad_der?: number | null
+  km_odometro?: number | null
+  profundidad_diseno?: number | null
+  profundidad_minima?: number | null
+  tolerancia: number
+  reencauches: number
+}
+
 interface Inspeccion { id: number; neumatico_id: number; fecha: string; profundidad_izq?: number | null; profundidad_centro?: number | null; profundidad_der?: number | null; profundidad_min?: number | null; presion_psi?: number | null; km_odometro?: number | null; estado_visual?: string | null; observaciones?: string | null; tecnico?: string | null }
 interface Indicador { neumatico_id: number; codigo: string; marca?: string; medida?: string; estado?: string; posicion?: string | null; km_total: number; costo?: number | null; cpk?: number | null; costo_mm?: number | null; mm_gastados?: number | null; vida_util_km?: number | null; km_proyectado?: number | null; pct_desgaste?: number | null }
 interface AlertaNeu { neumatico_id: number; codigo: string; tipo: string; severidad: string; mensaje: string; posicion?: string | null; activo_id?: number | null }
@@ -309,6 +333,56 @@ function AgregarLlantaDialog({
   )
 }
 
+/**
+ * La línea de ayuda bajo cada campo de profundidad.
+ *
+ * Dice el valor anterior siempre, y en cuanto se escribe algo, la diferencia
+ * con signo. Que la comparación esté a la vista MIENTRAS se teclea es el punto:
+ * el servidor rechaza lo imposible, pero un dato que baja de 12,8 a 2,8 por un
+ * dedazo pasa la validación y solo se ve acá.
+ */
+function PistaProfundidad({ anterior, valor, minima, tolerancia }: {
+  anterior?: number | null
+  valor: string
+  minima?: number | null
+  tolerancia: number
+}) {
+  if (anterior == null) {
+    return (
+      <Typography variant="caption" color="text.secondary">
+        sin medición previa
+      </Typography>
+    )
+  }
+  const n = valor === '' ? null : Number(valor)
+  if (n == null || Number.isNaN(n)) {
+    return (
+      <Typography variant="caption" color="text.secondary">
+        anterior: <b>{anterior.toFixed(1)} mm</b>
+      </Typography>
+    )
+  }
+
+  const dif = Number((n - anterior).toFixed(2))
+  // Sube más allá de la tolerancia del instrumento: el servidor lo va a
+  // rechazar, y decirlo antes de guardar ahorra el viaje.
+  const sube = dif > tolerancia
+  const bajoMinimo = minima != null && n < minima
+  const color = sube ? 'error.main' : bajoMinimo ? 'warning.main' : 'text.secondary'
+  const texto =
+    dif === 0 ? 'igual que la anterior'
+      : dif > 0 ? `+${dif.toFixed(1)} mm — MAYOR que la anterior`
+        : `${dif.toFixed(1)} mm de desgaste`
+
+  return (
+    <Typography variant="caption" sx={{ color }}>
+      anterior: <b>{anterior.toFixed(1)}</b> · {texto}
+      {sube && ' · el labrado no crece'}
+      {bajoMinimo && ` · por debajo del mínimo (${minima} mm)`}
+    </Typography>
+  )
+}
+
 export default function EAMNeumaticos() {
   const qc = useQueryClient()
   const [searchParams] = useSearchParams()
@@ -409,10 +483,37 @@ export default function EAMNeumaticos() {
   const [rotRinForm, setRotRinForm] = useState({ fecha: nowLocal(), km_odometro: '', tecnico: '', observaciones: '' })
   // Inspección de sesión: todas las llantas montadas de un vehículo a la vez
   const [inspSesionOpen, setInspSesionOpen] = useState(false)
+  // De qué vehículo son las llantas de la sesión: con él se piden de una sola
+  // vez las referencias de todas, en vez de una llamada por fila.
+  const [inspSesionActivo, setInspSesionActivo] = useState<number | null>(null)
   const [inspSesionCabecera, setInspSesionCabecera] = useState({ fecha: nowLocal(), km_odometro: '', tecnico: '' })
   const [inspSesionRapido, setInspSesionRapido] = useState({ profundidad: '', presion: '' })
   const [inspSesionRows, setInspSesionRows] = useState<Record<number, { profundidad_izq: string; profundidad_centro: string; profundidad_der: string; presion_psi: string; estado_visual: string }>>({})
   const [inspSesionEnviando, setInspSesionEnviando] = useState(false)
+  // La referencia de la llanta que se está midiendo. Se pide al abrir el
+  // diálogo y no con la lista entera: son datos que solo importan mientras
+  // alguien tiene el profundímetro en la mano.
+  const { data: refProf } = useQuery<ReferenciaProfundidad>({
+    queryKey: ['eam-referencia-prof', inspDialog?.id],
+    queryFn: () => api.get(`/eam/neumaticos/${inspDialog!.id}/referencia-profundidad`)
+      .then(r => r.data),
+    enabled: !!inspDialog,
+  })
+
+  // Las de todas las llantas del vehículo, para la inspección de sesión.
+  const { data: refsSesion = [] } = useQuery<ReferenciaProfundidad[]>({
+    queryKey: ['eam-referencias-prof', inspSesionActivo],
+    queryFn: () => api.get('/eam/neumaticos/referencias-profundidad',
+                           { params: { activo_id: inspSesionActivo } })
+      .then(r => r.data),
+    enabled: inspSesionOpen && !!inspSesionActivo,
+  })
+  const refPorLlanta = useMemo(() => {
+    const m: Record<number, ReferenciaProfundidad> = {}
+    for (const r of refsSesion) m[r.neumatico_id] = r
+    return m
+  }, [refsSesion])
+
   const EMPTY_INSP = { fecha: nowLocal(), profundidad_izq: '', profundidad_centro: '', profundidad_der: '', presion_psi: '', km_odometro: '', estado_visual: 'BUENO', tecnico: '', observaciones: '' }
   const [inspForm, setInspForm] = useState({ ...EMPTY_INSP })
   // Consultas
@@ -1514,6 +1615,7 @@ export default function EAMNeumaticos() {
     const rows: typeof inspSesionRows = {}
     montadas.forEach(t => { rows[t.id] = { profundidad_izq: '', profundidad_centro: '', profundidad_der: '', presion_psi: '', estado_visual: 'BUENO' } })
     setInspSesionRows(rows)
+    setInspSesionActivo(montadas[0]?.activo_id ?? null)
     setInspSesionOpen(true)
   }
   const aplicarRapidoATodos = () => {
@@ -1535,24 +1637,45 @@ export default function EAMNeumaticos() {
   const enviarInspSesion = async () => {
     setInspSesionEnviando(true)
     const entradas = Object.entries(inspSesionRows).filter(([, r]) => r.profundidad_izq || r.profundidad_centro || r.profundidad_der || r.presion_psi)
+    // Cada llanta se registra por su cuenta y un rechazo NO detiene las demás.
+    // Antes el primer error cortaba el bucle: las llantas anteriores quedaban
+    // guardadas, las siguientes no, y el mensaje no decía cuáles eran cuáles.
+    const rechazadas: Array<{ codigo: string; motivo: string }> = []
+    let hechas = 0
     try {
       for (const [nid, r] of entradas) {
-        await api.post(`/eam/neumaticos/${nid}/inspecciones`, {
-          fecha: inspSesionCabecera.fecha,
-          profundidad_izq: r.profundidad_izq ? Number(r.profundidad_izq) : undefined,
-          profundidad_centro: r.profundidad_centro ? Number(r.profundidad_centro) : undefined,
-          profundidad_der: r.profundidad_der ? Number(r.profundidad_der) : undefined,
-          presion_psi: r.presion_psi ? Number(r.presion_psi) : undefined,
-          km_odometro: inspSesionCabecera.km_odometro ? Number(inspSesionCabecera.km_odometro) : undefined,
-          estado_visual: r.estado_visual, tecnico: inspSesionCabecera.tecnico || undefined,
-        })
+        try {
+          await api.post(`/eam/neumaticos/${nid}/inspecciones`, {
+            fecha: inspSesionCabecera.fecha,
+            profundidad_izq: r.profundidad_izq ? Number(r.profundidad_izq) : undefined,
+            profundidad_centro: r.profundidad_centro ? Number(r.profundidad_centro) : undefined,
+            profundidad_der: r.profundidad_der ? Number(r.profundidad_der) : undefined,
+            presion_psi: r.presion_psi ? Number(r.presion_psi) : undefined,
+            km_odometro: inspSesionCabecera.km_odometro ? Number(inspSesionCabecera.km_odometro) : undefined,
+            estado_visual: r.estado_visual, tecnico: inspSesionCabecera.tecnico || undefined,
+          })
+          hechas++
+        } catch (e: any) {
+          const t = neumaticos.find(n => n.id === Number(nid))
+          rechazadas.push({
+            codigo: t?.codigo ?? String(nid),
+            motivo: mensajeDeError(e, 'no se pudo registrar'),
+          })
+        }
       }
-      toast.success(`${entradas.length} inspecciones registradas`)
-      invalidarNeu()
-      qc.invalidateQueries({ queryKey: ['eam-insp'] }); qc.invalidateQueries({ queryKey: ['eam-historial-inspecciones'] })
-      setInspSesionOpen(false)
-    } catch (e: any) {
-      toast.error(mensajeDeError(e, 'Error al registrar alguna inspección'))
+      if (hechas) {
+        toast.success(`${hechas} inspecciones registradas`)
+        invalidarNeu()
+        qc.invalidateQueries({ queryKey: ['eam-insp'] })
+        qc.invalidateQueries({ queryKey: ['eam-historial-inspecciones'] })
+        qc.invalidateQueries({ queryKey: ['eam-referencias-prof'] })
+      }
+      if (rechazadas.length) {
+        // Se queda abierto: las filas rechazadas siguen ahí para corregirlas.
+        rechazadas.forEach(x => toast.error(`${x.codigo}: ${x.motivo}`, { duration: 8000 }))
+      } else {
+        setInspSesionOpen(false)
+      }
     } finally {
       setInspSesionEnviando(false)
     }
@@ -3419,10 +3542,29 @@ export default function EAMNeumaticos() {
                 value={movForm.fecha} onChange={e => setMovForm(f => ({ ...f, fecha: e.target.value }))} InputLabelProps={{ shrink: true }} />
               {(movDialog?.tipo === 'INSTALACION' || movDialog?.tipo === 'ROTACION') && (
                 <>
+                  {/* La última lectura va a la vista: el servidor rechaza una
+                      menor, y verla antes evita el rebote y el segundo viaje al
+                      patio a mirar el tablero otra vez. */}
                   <Stack direction="row" spacing={1}>
-                    <TextField label="Odómetro (km)" type="number" size="small" fullWidth value={movForm.km_odometro} onChange={e => setMovForm(f => ({ ...f, km_odometro: e.target.value }))} />
+                    <TextField label="Odómetro (km)" type="number" size="small" fullWidth
+                      value={movForm.km_odometro}
+                      onChange={e => setMovForm(f => ({ ...f, km_odometro: e.target.value }))}
+                      helperText={movDialog?.tire.km_actual != null
+                        ? `última de la llanta: ${movDialog.tire.km_actual.toLocaleString('es-CO')} km`
+                        : ' '} />
                     <TextField label="Horómetro (h)" type="number" size="small" fullWidth value={movForm.horometro} onChange={e => setMovForm(f => ({ ...f, horometro: e.target.value }))} />
                   </Stack>
+                  {/* Un valor menor no se puede guardar; decirlo mientras se
+                      escribe es más útil que un error al enviar. */}
+                  {movForm.km_odometro !== '' && movDialog?.tire.km_actual != null &&
+                    Number(movForm.km_odometro) < movDialog.tire.km_actual && (
+                    <Alert severity="error" sx={{ py: 0.5 }}>
+                      El odómetro que anotó ({Number(movForm.km_odometro).toLocaleString('es-CO')} km)
+                      es menor que la última lectura de esta llanta
+                      ({movDialog.tire.km_actual.toLocaleString('es-CO')} km). Un odómetro
+                      no baja: verifique el dato antes de guardar.
+                    </Alert>
+                  )}
                   {sinLecturaValida(movForm.km_odometro, movForm.horometro) && (
                     <Alert severity="warning" sx={{ py: 0.5 }}>
                       Registre el odómetro o el horómetro: es el punto de partida para calcular
@@ -4266,9 +4408,55 @@ export default function EAMNeumaticos() {
           <DialogContent dividers>
             <Grid container spacing={1.5} sx={{ pt: 0.5 }}>
               <Grid size={{ xs: 12 }}><TextField label="Fecha y hora *" type="datetime-local" size="small" fullWidth value={inspForm.fecha} onChange={e => setInspForm(f => ({ ...f, fecha: e.target.value }))} InputLabelProps={{ shrink: true }} /></Grid>
-              <Grid size={{ xs: 4 }}><TextField label="Prof. Externa (mm)" type="number" size="small" fullWidth value={inspForm.profundidad_izq} onChange={e => setInspForm(f => ({ ...f, profundidad_izq: e.target.value }))} helperText="Hombro externo" /></Grid>
-              <Grid size={{ xs: 4 }}><TextField label="Centro" type="number" size="small" fullWidth value={inspForm.profundidad_centro} onChange={e => setInspForm(f => ({ ...f, profundidad_centro: e.target.value }))} /></Grid>
-              <Grid size={{ xs: 4 }}><TextField label="Interna" type="number" size="small" fullWidth value={inspForm.profundidad_der} onChange={e => setInspForm(f => ({ ...f, profundidad_der: e.target.value }))} helperText="Hombro interno" /></Grid>
+              {refProf && (
+                <Grid size={{ xs: 12 }}>
+                  <Box sx={{ px: 1.5, py: 1, borderRadius: 1.5, bgcolor: alpha(EAM_COLOR, 0.06) }}>
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: EAM_COLOR }}>
+                      ÚLTIMA MEDICIÓN
+                      {refProf.fecha ? ` · ${new Date(refProf.fecha).toLocaleDateString('es-CO')}` : ''}
+                      {` · según ${refProf.origen}`}
+                    </Typography>
+                    <Typography variant="body2" sx={{ mt: 0.25 }}>
+                      externo <b>{refProf.profundidad_izq?.toFixed(1) ?? '—'}</b> ·
+                      {' '}centro <b>{refProf.profundidad_centro?.toFixed(1) ?? '—'}</b> ·
+                      {' '}interno <b>{refProf.profundidad_der?.toFixed(1) ?? '—'}</b> mm
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Diseño {refProf.profundidad_diseno ?? '—'} mm · retiro a los{' '}
+                      {refProf.profundidad_minima ?? '—'} mm
+                      {refProf.km_odometro != null &&
+                        ` · odómetro anterior ${refProf.km_odometro.toLocaleString('es-CO')} km`}
+                    </Typography>
+                  </Box>
+                </Grid>
+              )}
+              <Grid size={{ xs: 4 }}>
+                <TextField label="Prof. Externa (mm)" type="number" size="small" fullWidth
+                  value={inspForm.profundidad_izq}
+                  onChange={e => setInspForm(f => ({ ...f, profundidad_izq: e.target.value }))} />
+                <Box sx={{ mt: 0.5 }}>
+                  <PistaProfundidad anterior={refProf?.profundidad_izq} valor={inspForm.profundidad_izq}
+                    minima={refProf?.profundidad_minima} tolerancia={refProf?.tolerancia ?? 0.5} />
+                </Box>
+              </Grid>
+              <Grid size={{ xs: 4 }}>
+                <TextField label="Centro" type="number" size="small" fullWidth
+                  value={inspForm.profundidad_centro}
+                  onChange={e => setInspForm(f => ({ ...f, profundidad_centro: e.target.value }))} />
+                <Box sx={{ mt: 0.5 }}>
+                  <PistaProfundidad anterior={refProf?.profundidad_centro} valor={inspForm.profundidad_centro}
+                    minima={refProf?.profundidad_minima} tolerancia={refProf?.tolerancia ?? 0.5} />
+                </Box>
+              </Grid>
+              <Grid size={{ xs: 4 }}>
+                <TextField label="Interna" type="number" size="small" fullWidth
+                  value={inspForm.profundidad_der}
+                  onChange={e => setInspForm(f => ({ ...f, profundidad_der: e.target.value }))} />
+                <Box sx={{ mt: 0.5 }}>
+                  <PistaProfundidad anterior={refProf?.profundidad_der} valor={inspForm.profundidad_der}
+                    minima={refProf?.profundidad_minima} tolerancia={refProf?.tolerancia ?? 0.5} />
+                </Box>
+              </Grid>
               <Grid size={{ xs: 6 }}><TextField label="Presión (psi)" type="number" size="small" fullWidth value={inspForm.presion_psi} onChange={e => setInspForm(f => ({ ...f, presion_psi: e.target.value }))} /></Grid>
               <Grid size={{ xs: 6 }}><TextField label="Odómetro (km)" type="number" size="small" fullWidth value={inspForm.km_odometro} onChange={e => setInspForm(f => ({ ...f, km_odometro: e.target.value }))} /></Grid>
               <Grid size={{ xs: 6 }}><TextField select label="Estado visual" size="small" fullWidth value={inspForm.estado_visual} onChange={e => setInspForm(f => ({ ...f, estado_visual: e.target.value }))}>{['BUENO', 'REGULAR', 'CRITICO'].map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}</TextField></Grid>
@@ -4324,9 +4512,30 @@ export default function EAMNeumaticos() {
                       <TableRow key={nid}>
                         <TableCell><Chip size="small" label={t?.posicion ?? '—'} sx={{ fontSize: 10 }} /></TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>{t?.codigo ?? '—'}</TableCell>
-                        <TableCell><TextField type="number" size="small" value={row.profundidad_izq} onChange={e => setRow({ profundidad_izq: e.target.value })} sx={{ width: 70 }} /></TableCell>
-                        <TableCell><TextField type="number" size="small" value={row.profundidad_centro} onChange={e => setRow({ profundidad_centro: e.target.value })} sx={{ width: 70 }} /></TableCell>
-                        <TableCell><TextField type="number" size="small" value={row.profundidad_der} onChange={e => setRow({ profundidad_der: e.target.value })} sx={{ width: 70 }} /></TableCell>
+                        {/* Bajo cada campo, la medición anterior de ESE surco.
+                            Sin ella hay que salirse a buscarla llanta por llanta,
+                            que es lo que nadie hace con diez llantas por medir. */}
+                        <TableCell>
+                          <TextField type="number" size="small" value={row.profundidad_izq} onChange={e => setRow({ profundidad_izq: e.target.value })} sx={{ width: 70 }} />
+                          <Box sx={{ mt: 0.25 }}>
+                            <PistaProfundidad anterior={refPorLlanta[Number(nid)]?.profundidad_izq} valor={row.profundidad_izq}
+                              minima={refPorLlanta[Number(nid)]?.profundidad_minima} tolerancia={refPorLlanta[Number(nid)]?.tolerancia ?? 0.5} />
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <TextField type="number" size="small" value={row.profundidad_centro} onChange={e => setRow({ profundidad_centro: e.target.value })} sx={{ width: 70 }} />
+                          <Box sx={{ mt: 0.25 }}>
+                            <PistaProfundidad anterior={refPorLlanta[Number(nid)]?.profundidad_centro} valor={row.profundidad_centro}
+                              minima={refPorLlanta[Number(nid)]?.profundidad_minima} tolerancia={refPorLlanta[Number(nid)]?.tolerancia ?? 0.5} />
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <TextField type="number" size="small" value={row.profundidad_der} onChange={e => setRow({ profundidad_der: e.target.value })} sx={{ width: 70 }} />
+                          <Box sx={{ mt: 0.25 }}>
+                            <PistaProfundidad anterior={refPorLlanta[Number(nid)]?.profundidad_der} valor={row.profundidad_der}
+                              minima={refPorLlanta[Number(nid)]?.profundidad_minima} tolerancia={refPorLlanta[Number(nid)]?.tolerancia ?? 0.5} />
+                          </Box>
+                        </TableCell>
                         <TableCell><TextField type="number" size="small" value={row.presion_psi} onChange={e => setRow({ presion_psi: e.target.value })} sx={{ width: 80 }} /></TableCell>
                         <TableCell>
                           <TextField select size="small" value={row.estado_visual} onChange={e => setRow({ estado_visual: e.target.value })} sx={{ width: 110 }}>

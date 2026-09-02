@@ -797,6 +797,13 @@ class EAMNeumaticoConfig(Base, TimestampMixin):
     presion_min          = Column(Float, default=90.0)   # psi
     presion_max          = Column(Float, default=120.0)  # psi
     umbral_desalineacion = Column(Float, default=2.0)    # mm de diferencia por eje
+    # Cuánto puede SUBIR una profundidad respecto de la anterior sin que se
+    # considere un error. Un profundímetro no da el mismo número dos veces
+    # seguidas —cambia el punto exacto del surco, la presión de la mano—, así que
+    # rechazar cualquier aumento haría rebotar mediciones legítimas y la gente
+    # aprendería a rodear la validación. Medio milímetro cubre esa variación;
+    # más que eso es un dato equivocado, porque una llanta no recupera labrado.
+    tolerancia_profundidad = Column(Float, default=0.5)   # mm
 
 
 # ─── Catálogos de configuración de llantas (zonas, bandas, motivos, ajustes,

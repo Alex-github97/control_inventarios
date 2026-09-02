@@ -830,6 +830,13 @@ async def _migrar_esquema(esquema: str) -> None:
         await conn.execute(text(
             "ALTER TABLE eam_neumatico ADD COLUMN IF NOT EXISTS es_usada BOOLEAN DEFAULT false"
         ))
+        # Cuánto puede subir una profundidad respecto de la anterior sin que se
+        # tome por error. Es la variación normal de un profundímetro; por encima
+        # de eso, el labrado no crece y el dato está mal.
+        await conn.execute(text(
+            "ALTER TABLE eam_neumatico_config "
+            "ADD COLUMN IF NOT EXISTS tolerancia_profundidad DOUBLE PRECISION DEFAULT 0.5"
+        ))
         # Catálogo jerárquico de llantas/bandas: las marcas, dimensiones y
         # referencias que ya estaban escritas a mano en los registros existentes
         # se suben al catálogo para no perder nada al pasar a listas cerradas.

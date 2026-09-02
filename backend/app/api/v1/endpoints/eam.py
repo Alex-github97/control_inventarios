@@ -2167,6 +2167,136 @@ def _validar_lectura(
     return None
 
 
+# Los tres surcos que se miden, con el nombre que se ve en pantalla. Va en un
+# solo sitio para que el mensaje de error y el formulario digan lo mismo.
+SURCOS = (
+    ("profundidad_izq", "externo"),
+    ("profundidad_centro", "centro"),
+    ("profundidad_der", "interno"),
+)
+
+
+async def _referencia_profundidad(db: AsyncSession, neu: "EAMNeumatico") -> dict:
+    """Contra qué se compara una profundidad nueva.
+
+    No basta con «la última inspección»: hay dos operaciones donde la
+    profundidad SUBE con toda razón y comparar contra lo anterior las
+    rechazaría. Un reencauche pone banda nueva —y abre otra vida— y un
+    reesculturado talla surco sobre la goma que quedaba. Así que la referencia
+    es la última medición posterior a la más reciente de esas dos operaciones.
+
+    Devuelve también la profundidad de diseño y la mínima de retiro, porque quien
+    va a medir necesita las tres cosas a la vez: contra qué venía, de dónde
+    partió y en qué punto hay que bajar la llanta.
+    """
+    # Desde cuándo vale comparar.
+    vida = await _vida_abierta(db, neu.id)
+    corte = vida.fecha_inicio if vida else None
+    origen_corte = "reencauche" if vida and (vida.tipo or "").upper() == "REENCAUCHADA" else "inicio de vida"
+
+    resc = (await db.execute(
+        select(EAMReesculturado)
+        .where(EAMReesculturado.neumatico_id == neu.id,
+               EAMReesculturado.deshecho.is_(False))
+        .order_by(EAMReesculturado.fecha.desc()).limit(1)
+    )).scalar_one_or_none()
+    if resc and (corte is None or resc.fecha > corte):
+        corte, origen_corte = resc.fecha, "reesculturado"
+
+    consulta = select(EAMInspeccionNeumatico).where(
+        EAMInspeccionNeumatico.neumatico_id == neu.id)
+    if corte is not None:
+        consulta = consulta.where(EAMInspeccionNeumatico.fecha >= corte)
+    insp = (await db.execute(
+        consulta.order_by(EAMInspeccionNeumatico.fecha.desc()).limit(1)
+    )).scalar_one_or_none()
+
+    cfg = await _get_config_neu(db)
+    base = {
+        "profundidad_diseno": neu.profundidad_diseño,
+        "profundidad_minima": cfg.profundidad_minima,
+        "tolerancia": getattr(cfg, "tolerancia_profundidad", None) or 0.5,
+        "reencauches": neu.reencauches or 0,
+    }
+
+    if insp is not None:
+        return {
+            **base, "origen": "inspección", "fecha": insp.fecha,
+            "profundidad_izq": insp.profundidad_izq,
+            "profundidad_centro": insp.profundidad_centro,
+            "profundidad_der": insp.profundidad_der,
+            "km_odometro": insp.km_odometro,
+        }
+
+    # Sin inspección posterior al corte, la referencia es la propia operación que
+    # dejó la llanta con labrado nuevo.
+    if corte is not None and resc is not None and origen_corte == "reesculturado":
+        valor = resc.profundidad_nueva
+        # Los TRES surcos quedan en el valor nuevo. Tomar acá los hombros de la
+        # ficha usaría los milímetros de ANTES de reesculturar —que es lo que la
+        # ficha sigue guardando— y rechazaría la primera medición posterior, que
+        # es justo la que hay que poder registrar.
+        return {**base, "origen": origen_corte, "fecha": corte,
+                "profundidad_izq": valor, "profundidad_centro": valor,
+                "profundidad_der": valor, "km_odometro": neu.km_actual}
+
+    return {
+        **base, "origen": origen_corte if corte is not None else "ficha",
+        "fecha": corte,
+        "profundidad_izq": neu.profundidad_externa,
+        "profundidad_centro": neu.profundidad_actual,
+        "profundidad_der": neu.profundidad_interna,
+        "km_odometro": neu.km_actual,
+    }
+
+
+def _validar_profundidad(referencia: dict, izq, centro, der,
+                         codigo: str) -> Optional[str]:
+    """Una profundidad no puede subir. El labrado no vuelve a crecer.
+
+    Antes se aceptaba cualquier valor, y una llanta que «ganaba» milímetros
+    arruinaba dos cosas a la vez: el mm/km con el que se decide cuándo bajarla, y
+    la alerta de profundidad mínima, que dejaba de dispararse. Y no se notaba,
+    porque el dato entraba bien formado.
+
+    El aumento se compara surco por surco y no contra el mínimo de los tres: una
+    llanta que se desgasta por un hombro puede tener el centro igual y el hombro
+    en caída, y mirar solo el mínimo escondería el dato equivocado del otro.
+    """
+    tolerancia = referencia.get("tolerancia") or 0.5
+    minima = referencia.get("profundidad_minima")
+    diseno = referencia.get("profundidad_diseno")
+    nuevos = {"profundidad_izq": izq, "profundidad_centro": centro,
+              "profundidad_der": der}
+
+    for campo, nombre in SURCOS:
+        valor = nuevos.get(campo)
+        if valor is None:
+            continue
+        if valor < 0:
+            return f"La profundidad del surco {nombre} no puede ser negativa."
+        # Por encima del diseño es imposible salvo que la ficha esté mal, y
+        # decirlo así ahorra buscar el error en el sitio equivocado.
+        if diseno and valor > diseno + tolerancia:
+            return (
+                f"La profundidad del surco {nombre} ({valor:g} mm) supera la de "
+                f"diseño de la llanta {codigo} ({diseno:g} mm). Verifique la "
+                f"medición, o corrija la profundidad de diseño en la ficha."
+            )
+        anterior = referencia.get(campo)
+        if anterior is None:
+            continue
+        if valor > anterior + tolerancia:
+            return (
+                f"La profundidad del surco {nombre} ({valor:g} mm) es MAYOR que la "
+                f"última registrada ({anterior:g} mm) de la llanta {codigo}. El "
+                f"labrado no crece: revise la medición. Si la llanta se reencauchó "
+                f"o se reesculturó, registre esa operación primero y la referencia "
+                f"queda actualizada."
+            )
+    return None
+
+
 async def _validar_fecha_movimiento(db: AsyncSession, neu: "EAMNeumatico", fecha) -> Optional[str]:
     fecha = _fecha_naive(fecha)
     """No permite registrar un movimiento con fecha anterior a una inspección o a
@@ -2602,6 +2732,13 @@ async def crear_movimiento_neumatico(data: MovNeumaticoCreate, db: AsyncSession 
                 "Registre el odómetro o el horómetro del equipo al montar la llanta: "
                 "es el punto de partida para calcular su recorrido.",
             )
+
+    # La lectura se comprueba en CUALQUIER movimiento que la traiga, no solo al
+    # montar. Antes solo se revisaba en montaje y rotación, así que un desmontaje
+    # o una baja con el odómetro hacia atrás entraban sin más —y la baja es la que
+    # CIERRA la vida de la llanta con ese kilómetro, o sea que el recorrido total
+    # y el costo por kilómetro salían mal justo en el momento de calcularlos.
+    if data.km_odometro is not None or data.horometro is not None:
         activo_lectura = await db.get(EAMActivo, data.activo_id or neu.activo_id)
         if activo_lectura:
             err_lectura = _validar_lectura(activo_lectura, neu, data.km_odometro, data.horometro)
@@ -2733,6 +2870,16 @@ async def dar_baja_masivo(data: BajaBulkCreate, db: AsyncSession = Depends(get_d
                 err_fecha = await _validar_fecha_movimiento(db, neu, item.fecha)
                 if err_fecha:
                     raise ValueError(err_fecha)
+                # La baja cierra la vida de la llanta con este kilometraje: si
+                # va hacia atrás, el recorrido total de esa vida queda mal y con
+                # él el costo por kilómetro. Se revisa acá y no solo en la
+                # pantalla, porque esta ruta se alimenta de un archivo.
+                if item.km_odometro is not None and neu.activo_id:
+                    activo_baja = await db.get(EAMActivo, neu.activo_id)
+                    if activo_baja:
+                        err_lectura = _validar_lectura(activo_baja, neu, item.km_odometro, None)
+                        if err_lectura:
+                            raise ValueError(err_lectura)
                 posicion_origen = neu.posicion
                 activo_id_origen = neu.activo_id
                 neu.estado = "BAJA"; neu.activo_id = None; neu.posicion = None; neu.bodega_id = None
@@ -3477,6 +3624,11 @@ async def reesculturar_neumatico(nid: int, data: ReesculturadoCreate, db: AsyncS
         profundidad_anterior=neu.profundidad_actual, profundidad_nueva=data.profundidad_nueva,
     )
     neu.profundidad_actual = data.profundidad_nueva
+    # Se tallan los tres surcos, no solo el central: dejar los hombros con los
+    # milímetros de antes hacía que el reporte de desgaste irregular mostrara una
+    # diferencia entre hombros que ya no existía.
+    neu.profundidad_externa = data.profundidad_nueva
+    neu.profundidad_interna = data.profundidad_nueva
     if data.costo:
         neu.costo = (neu.costo or 0) + data.costo
     db.add(obj); await db.commit(); await db.refresh(obj)
@@ -3859,6 +4011,13 @@ async def crear_inspeccion(nid: int, data: InspeccionNeuCreate, db: AsyncSession
             err_lectura = _validar_lectura(activo_insp, neu, data.km_odometro, None)
             if err_lectura:
                 raise HTTPException(409, err_lectura)
+    referencia = await _referencia_profundidad(db, neu)
+    err_prof = _validar_profundidad(
+        referencia, data.profundidad_izq, data.profundidad_centro,
+        data.profundidad_der, neu.codigo)
+    if err_prof:
+        raise HTTPException(409, err_prof)
+
     obj = EAMInspeccionNeumatico(neumatico_id=nid, **data.model_dump())
     if obj.posicion is None:
         obj.posicion = neu.posicion
@@ -3910,6 +4069,21 @@ async def crear_inspecciones_masivo(data: InspeccionBulkCreate, db: AsyncSession
                 neu = r.scalar_one_or_none()
                 if not neu:
                     raise ValueError(f"Llanta con código '{item.codigo}' no encontrada")
+                # Un archivo con mil filas es justo donde un dato equivocado pasa
+                # sin que nadie lo mire, así que la carga masiva valida lo mismo
+                # que la pantalla: la lectura no retrocede y el labrado no crece.
+                if item.km_odometro is not None and neu.activo_id:
+                    activo_bulk = await db.get(EAMActivo, neu.activo_id)
+                    if activo_bulk:
+                        err_lectura = _validar_lectura(activo_bulk, neu, item.km_odometro, None)
+                        if err_lectura:
+                            raise ValueError(err_lectura)
+                referencia = await _referencia_profundidad(db, neu)
+                err_prof = _validar_profundidad(
+                    referencia, item.profundidad_izq, item.profundidad_centro,
+                    item.profundidad_der, neu.codigo)
+                if err_prof:
+                    raise ValueError(err_prof)
                 obj = EAMInspeccionNeumatico(
                     neumatico_id=neu.id, posicion=neu.posicion, fecha=item.fecha,
                     profundidad_izq=item.profundidad_izq, profundidad_centro=item.profundidad_centro,
@@ -3935,6 +4109,67 @@ async def crear_inspecciones_masivo(data: InspeccionBulkCreate, db: AsyncSession
             errores.append({"fila": i + 2, "codigo": item.codigo, "mensaje": str(e)})
     await db.commit()
     return {"total": len(data.items), "exitosos": exitosos, "errores": errores}
+
+class ReferenciaProfundidadResponse(BaseModel):
+    """Lo que hay que tener a la vista antes de anotar una profundidad."""
+    neumatico_id: int
+    codigo: str
+    origen: str                       # inspección / reesculturado / reencauche / ficha
+    fecha: Optional[datetime] = None
+    profundidad_izq: Optional[float] = None
+    profundidad_centro: Optional[float] = None
+    profundidad_der: Optional[float] = None
+    km_odometro: Optional[float] = None
+    profundidad_diseno: Optional[float] = None
+    profundidad_minima: Optional[float] = None
+    tolerancia: float = 0.5
+    reencauches: int = 0
+
+
+@router.get("/neumaticos/{nid}/referencia-profundidad",
+            response_model=ReferenciaProfundidadResponse)
+async def referencia_profundidad(nid: int, db: AsyncSession = Depends(get_db)):
+    """La última profundidad de cada surco, para mostrarla al medir.
+
+    Existe porque el formulario pedía tres números sin decir contra qué. Quien
+    mide no puede saber si 8,5 mm está bien o es un error de un dígito sin ver
+    que la vez pasada iban 9,2; y sin esa referencia el error se anota, se
+    guarda y solo aparece meses después como un desgaste imposible.
+
+    Devuelve también de dónde sale la referencia: no es lo mismo comparar contra
+    la medición del mes pasado que contra un reencauche reciente.
+    """
+    neu = await db.get(EAMNeumatico, nid)
+    if not neu:
+        raise HTTPException(404, "Neumático no encontrado")
+    ref = await _referencia_profundidad(db, neu)
+    return ReferenciaProfundidadResponse(
+        neumatico_id=nid, codigo=neu.codigo, **ref)
+
+
+@router.get("/neumaticos/referencias-profundidad",
+            response_model=List[ReferenciaProfundidadResponse])
+async def referencias_profundidad(
+    activo_id: Optional[int] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Lo mismo, para todas las llantas de un vehículo de una vez.
+
+    La inspección de sesión mide las seis o diez llantas del vehículo en una
+    sola pantalla; pedir la referencia de cada una por separado sería una
+    llamada por fila y la tabla se llenaría a pedazos.
+    """
+    consulta = select(EAMNeumatico).where(EAMNeumatico.estado != "BAJA")
+    if activo_id:
+        consulta = consulta.where(EAMNeumatico.activo_id == activo_id)
+    neumaticos = list((await db.execute(consulta)).scalars().all())
+    salida = []
+    for neu in neumaticos:
+        ref = await _referencia_profundidad(db, neu)
+        salida.append(ReferenciaProfundidadResponse(
+            neumatico_id=neu.id, codigo=neu.codigo, **ref))
+    return salida
+
 
 @router.get("/neumaticos/{nid}/inspecciones", response_model=List[InspeccionNeuResponse])
 async def list_inspecciones(nid: int, db: AsyncSession = Depends(get_db)):
