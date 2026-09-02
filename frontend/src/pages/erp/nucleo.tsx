@@ -500,7 +500,10 @@ interface LineaMayor {
 interface Mayor {
   cuenta: { codigo?: string | null; nombre?: string | null }
   saldo_inicial: number; saldo_final: number; lineas: LineaMayor[]
+  total_lineas: number; desplazamiento: number; limite: number
 }
+
+const POR_PAGINA = 500
 
 /**
  * Balance de comprobación, y desde una cuenta el detalle de su movimiento.
@@ -513,6 +516,7 @@ export function PanelLibros({ empresaId }: { empresaId: number | null }) {
   const [desde, setDesde] = useState(primeroDelAnio())
   const [hasta, setHasta] = useState(hoy())
   const [cuenta, setCuenta] = useState<FilaBalance | null>(null)
+  const [pagina, setPagina] = useState(0)
 
   const { data: balance, isLoading } = useQuery<Balance>({
     queryKey: ['erp-balance', empresaId, desde, hasta],
@@ -524,10 +528,12 @@ export function PanelLibros({ empresaId }: { empresaId: number | null }) {
   })
 
   const { data: mayor, isLoading: cargandoMayor } = useQuery<Mayor>({
-    queryKey: ['erp-mayor', empresaId, cuenta?.cuenta_id, desde, hasta],
+    queryKey: ['erp-mayor', empresaId, cuenta?.cuenta_id, desde, hasta, pagina],
     queryFn: () => apiClient
       .get('/erp/contabilidad/libro-mayor',
-           { params: { empresa_id: empresaId, cuenta_id: cuenta!.cuenta_id, desde, hasta } })
+           { params: { empresa_id: empresaId, cuenta_id: cuenta!.cuenta_id,
+                       desde, hasta, limite: POR_PAGINA,
+                       desplazamiento: pagina * POR_PAGINA } })
       .then(r => r.data),
     enabled: empresaId != null && cuenta != null,
   })
@@ -579,7 +585,10 @@ export function PanelLibros({ empresaId }: { empresaId: number | null }) {
               {balance.filas.map(f => (
                 <TableRow
                   key={f.cuenta_id} hover
-                  onClick={() => f.acepta_movimientos && setCuenta(f)}
+                  onClick={() => {
+                    if (!f.acepta_movimientos) return
+                    setCuenta(f); setPagina(0)
+                  }}
                   sx={{
                     cursor: f.acepta_movimientos ? 'pointer' : 'default',
                     // Las agrupadoras se ven distintas porque su saldo es la suma
@@ -692,7 +701,29 @@ export function PanelLibros({ empresaId }: { empresaId: number | null }) {
             </>
           )}
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ justifyContent: 'space-between', px: 3 }}>
+          {mayor && mayor.total_lineas > POR_PAGINA ? (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Button size="small" disabled={pagina === 0}
+                      onClick={() => setPagina(p => Math.max(0, p - 1))}
+                      sx={{ textTransform: 'none' }}>
+                Anterior
+              </Button>
+              <Typography variant="caption" color="text.secondary">
+                {mayor.desplazamiento + 1}–
+                {Math.min(mayor.desplazamiento + mayor.lineas.length, mayor.total_lineas)}
+                {' de '}{mayor.total_lineas.toLocaleString('es-CO')} líneas
+              </Typography>
+              <Button
+                size="small"
+                disabled={mayor.desplazamiento + mayor.lineas.length >= mayor.total_lineas}
+                onClick={() => setPagina(p => p + 1)}
+                sx={{ textTransform: 'none' }}
+              >
+                Siguiente
+              </Button>
+            </Stack>
+          ) : <Box />}
           <Button onClick={() => setCuenta(null)} sx={{ textTransform: 'none' }}>Cerrar</Button>
         </DialogActions>
       </Dialog>
