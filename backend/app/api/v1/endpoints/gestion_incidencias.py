@@ -153,6 +153,8 @@ class IncidenciaEntrada(BaseModel):
     que se agregaba uno.
     """
 
+    model_config = ConfigDict(extra="forbid")
+
     proyecto_id: int
     tipo_id: int
     campos: Dict[str, Any] = {}
@@ -161,12 +163,20 @@ class IncidenciaEntrada(BaseModel):
 class IncidenciaCambio(BaseModel):
     """Lo que llega al editar.
 
-    El estado NO esta: se mueve por una transicion, que es la que aplica las
-    reglas del flujo. Si el PUT pudiera cambiarlo, el motor de workflow seria una
+    `extra="forbid"` no es celo: sin él, Pydantic DESCARTA en silencio lo que no
+    reconoce. Una pantalla que mandara `{"asignado": "ana"}` en la raíz en vez de
+    dentro de `campos` recibía un 200 y no guardaba nada —y eso fue exactamente
+    lo que pasó—. Es la peor forma de fallar: la interfaz dice que guardó.
+
+    El estado NO está: se mueve por una transición, que es la que aplica las
+    reglas del flujo. Si el PUT pudiera cambiarlo, el motor de workflow sería una
     sugerencia.
     """
 
-    # Cambiar el tipo puede cambiar que campos aplican, asi que va aparte.
+    model_config = ConfigDict(extra="forbid")
+
+    # Cambiar el tipo puede cambiar qué campos aplican, así que va aparte: no es
+    # un campo del formulario, es la coordenada que decide cuál aplica.
     tipo_id: Optional[int] = None
     campos: Dict[str, Any] = {}
 

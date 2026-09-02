@@ -26,7 +26,7 @@ import toast from 'react-hot-toast'
 import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
 import {
   gestionApi, mensajeDeError,
-  type DetalleIncidencia, type Persona,
+  type AdjuntoGestion, type DetalleIncidencia, type Persona,
 } from './api'
 import { CamposDinamicos } from './GestionCampos'
 import GestionFormulario from './GestionFormulario'
@@ -54,6 +54,121 @@ const NOMBRE_CAMPO: Record<string, string> = {
   resuelto: 'Resolución', tipo: 'Tipo', padre: 'Padre', origen: 'Origen',
   etiquetas: 'Etiquetas', adjunto: 'Adjunto', vinculo: 'Vínculo',
 }
+
+
+/** Adjuntar arrastrando, pegando del portapapeles, o escogiendo un archivo.
+ *
+ *  Lo de pegar es lo que de verdad hace falta: la evidencia de un fallo casi
+ *  siempre es un pantallazo, y un pantallazo recien tomado esta en el
+ *  portapapeles, no en un archivo. Obligar a guardarlo primero convierte tres
+ *  segundos en media docena de pasos, y el resultado es que la gente describe el
+ *  error con palabras en vez de mostrarlo.
+ *
+ *  El pegado se escucha en toda la ficha y no solo en esta zona: nadie hace clic
+ *  en el area de adjuntos antes de pulsar Ctrl+V. Se ignora cuando el foco esta
+ *  en un campo de texto, para no robarle el pegado a quien esta escribiendo un
+ *  comentario.
+ */
+function ZonaAdjuntos({
+  adjuntos, onSubir, onDescargar,
+}: {
+  adjuntos: AdjuntoGestion[]
+  onSubir: (archivos: FileList | File[]) => void
+  onDescargar: (id: number, nombre: string) => void
+}) {
+  const [encima, setEncima] = useState(false)
+
+  useEffect(() => {
+    function alPegar(e: ClipboardEvent) {
+      const destino = e.target as HTMLElement | null
+      const escribiendo = destino?.closest?.('input, textarea, [contenteditable="true"]')
+      const archivos = Array.from(e.clipboardData?.files ?? [])
+      if (!archivos.length) return
+      // Si esta escribiendo y lo que pega es texto, no es asunto nuestro; pero
+      // un archivo en el portapapeles siempre es un adjunto.
+      if (escribiendo && !archivos.length) return
+      e.preventDefault()
+      onSubir(bautizar(archivos))
+    }
+    document.addEventListener('paste', alPegar)
+    return () => document.removeEventListener('paste', alPegar)
+  }, [onSubir])
+
+  return (
+    <Box>
+      <Box
+        onDragOver={e => { e.preventDefault(); setEncima(true) }}
+        onDragLeave={() => setEncima(false)}
+        onDrop={e => {
+          e.preventDefault()
+          setEncima(false)
+          const archivos = Array.from(e.dataTransfer?.files ?? [])
+          if (archivos.length) onSubir(bautizar(archivos))
+        }}
+        sx={{
+          p: 1.75, borderRadius: 2, textAlign: 'center', cursor: 'pointer',
+          border: `1.5px dashed ${encima ? COLOR_MODULO : PALETA.niebla}`,
+          bgcolor: encima ? `${COLOR_MODULO}0F` : 'transparent',
+          transition: 'background-color .15s, border-color .15s',
+        }}
+        component="label"
+      >
+        <input hidden type="file" multiple onChange={e => {
+          if (e.target.files?.length) onSubir(e.target.files)
+          e.target.value = ''
+        }} />
+        <Stack direction="row" alignItems="center" justifyContent="center" spacing={1}>
+          <AttachFile sx={{ fontSize: 16, color: PALETA.acero }} />
+          <Typography variant="caption" sx={{ color: PALETA.grafito }}>
+            Arrastre archivos aqui, peguelos con <b>Ctrl+V</b>, o
+            <Box component="span" sx={{ color: COLOR_MODULO, fontWeight: 700 }}>
+              {' '}escojalos
+            </Box>
+          </Typography>
+        </Stack>
+      </Box>
+
+      {!!adjuntos.length && (
+        <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap mt={1.25}>
+          {adjuntos.map(a => (
+            <Chip
+              key={a.id} size="small" icon={<Download sx={{ fontSize: 13 }} />}
+              label={`${a.nombre}${a.tamano ? ` · ${peso(a.tamano)}` : ''}`}
+              onClick={() => onDescargar(a.id, a.nombre)}
+              sx={{ height: 24, fontSize: 11, maxWidth: 300 }}
+            />
+          ))}
+        </Stack>
+      )}
+    </Box>
+  )
+}
+
+/** Un pantallazo del portapapeles llega sin nombre —o como «image.png» para
+ *  todos—, asi que se le pone uno con la fecha. Sin esto, tres pantallazos de la
+ *  misma incidencia se llaman igual y no hay forma de saber cual es cual. */
+function bautizar(archivos: File[]): File[] {
+  return archivos.map(a => {
+    if (a.name && a.name !== 'image.png' && a.name !== 'blob') return a
+    const extension = (a.type.split('/')[1] || 'png').replace('jpeg', 'jpg')
+    const ahora = new Date()
+    const sello = [
+      ahora.getFullYear(), String(ahora.getMonth() + 1).padStart(2, '0'),
+      String(ahora.getDate()).padStart(2, '0'),
+    ].join('-') + '_' + [
+      String(ahora.getHours()).padStart(2, '0'),
+      String(ahora.getMinutes()).padStart(2, '0'),
+      String(ahora.getSeconds()).padStart(2, '0'),
+    ].join('')
+    return new File([a], `pantallazo_${sello}.${extension}`, { type: a.type })
+  })
+}
+
+const peso = (b?: number | null) =>
+  !b ? '' : b < 1024 ? `${b} B`
+    : b < 1048576 ? `${Math.round(b / 1024)} KB`
+    : `${(b / 1048576).toFixed(1)} MB`
+
 
 export default function GestionDetalle({
   incidenciaId, onCerrar,
@@ -114,9 +229,12 @@ export default function GestionDetalle({
     qc.invalidateQueries({ queryKey: ['gestion', 'tablero'] })
   }
 
+  // Todo cambio va dentro de `campos`, con la clave del registro. Envolverlo
+  // acá y no en cada control es lo que evita que un sitio arme el cuerpo de
+  // otra forma: eso era lo que devolvia 200 sin guardar nada.
   const editar = useMutation({
     mutationFn: (cambios: Record<string, unknown>) =>
-      gestionApi.editar(incidenciaId!, cambios),
+      gestionApi.editar(incidenciaId!, { campos: cambios }),
     onSuccess: () => { setProblemas([]); refrescar() },
     onError: (e: any) => {
       const d = e?.response?.data?.detail
@@ -139,7 +257,7 @@ export default function GestionDetalle({
   })
 
   const adjuntar = useMutation({
-    mutationFn: (archivos: FileList) => {
+    mutationFn: (archivos: FileList | File[]) => {
       const fd = new FormData()
       Array.from(archivos).forEach(a => fd.append('archivos', a))
       return gestionApi.adjuntar(incidenciaId!, fd)
@@ -183,7 +301,7 @@ export default function GestionDetalle({
               }
               setEditandoTitulo(false)
             }}
-            onGuardarCampos={() => editar.mutate({ campos })}
+            onGuardarCampos={() => editar.mutate(campos)}
             onGuardarCampo={(c, v) => editar.mutate({ [c]: v })}
             onMover={id => mover.mutate(id)}
             onComentar={() => comentar.mutate()}
@@ -225,7 +343,7 @@ function Cuerpo(p: {
   onGuardarCampo: (campo: string, valor: any) => void
   onMover: (id: number) => void
   onComentar: () => void
-  onAdjuntar: (f: FileList) => void
+  onAdjuntar: (f: FileList | File[]) => void
   onDescargar: (id: number, nombre: string) => void
   guardando: boolean
   moviendo: boolean
@@ -381,21 +499,11 @@ function Cuerpo(p: {
 
               {/* ── Adjuntos ── */}
               <Divider sx={{ my: 2 }} />
-              <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
-                <Button size="small" component="label" startIcon={<AttachFile sx={{ fontSize: 15 }} />}
-                  sx={{ textTransform: 'none' }}>
-                  Adjuntar
-                  <input hidden type="file" multiple onChange={e => {
-                    if (e.target.files?.length) p.onAdjuntar(e.target.files)
-                    e.target.value = ''
-                  }} />
-                </Button>
-                {data.adjuntos.map(a => (
-                  <Chip key={a.id} size="small" icon={<Download sx={{ fontSize: 13 }} />}
-                    label={a.nombre} onClick={() => p.onDescargar(a.id, a.nombre)}
-                    sx={{ height: 22, fontSize: 11 }} />
-                ))}
-              </Stack>
+              <ZonaAdjuntos
+                adjuntos={data.adjuntos}
+                onSubir={p.onAdjuntar}
+                onDescargar={p.onDescargar}
+              />
             </Box>
           )}
 
@@ -467,11 +575,11 @@ function Cuerpo(p: {
 
             <TextField
               select size="small" variant="standard" label="Prioridad"
-              value={inc.prioridad_id ?? ''}
-              onChange={e => p.onGuardarCampo('prioridad_id', Number(e.target.value))}
+              value={inc.prioridad_id ? String(inc.prioridad_id) : ''}
+              onChange={e => p.onGuardarCampo('prioridad', e.target.value || null)}
             >
               {p.prioridades.map(x => (
-                <MenuItem key={x.id} value={x.id}>{x.nombre}</MenuItem>
+                <MenuItem key={x.id} value={String(x.id)}>{x.nombre}</MenuItem>
               ))}
             </TextField>
 
@@ -507,16 +615,14 @@ function Cuerpo(p: {
               <TextField
                 size="small" type="date" variant="standard" label="Inicio previsto"
                 InputLabelProps={{ shrink: true }} fullWidth
-                defaultValue={(inc as any).inicio_plan?.slice(0, 10) ?? data.inicio_plan?.slice(0, 10) ?? ''}
-                onBlur={e => p.onGuardarCampo(
-                  'inicio_plan', e.target.value ? new Date(e.target.value).toISOString() : null)}
+                defaultValue={data.inicio_plan?.slice(0, 10) ?? ''}
+                onBlur={e => p.onGuardarCampo('inicio_plan', e.target.value || null)}
               />
               <TextField
                 size="small" type="date" variant="standard" label="Vence"
                 InputLabelProps={{ shrink: true }} fullWidth
                 defaultValue={inc.vence ? String(inc.vence).slice(0, 10) : ''}
-                onBlur={e => p.onGuardarCampo(
-                  'vence', e.target.value ? new Date(e.target.value).toISOString() : null)}
+                onBlur={e => p.onGuardarCampo('vence', e.target.value || null)}
               />
             </Stack>
 
