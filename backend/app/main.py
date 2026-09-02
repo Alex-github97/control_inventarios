@@ -2102,6 +2102,68 @@ async def _migrar_esquema(esquema: str) -> None:
             logging.getLogger("uvicorn.error").warning(
                 "No se pudo sembrar la configuración de lubricación en «%s»: %s", esquema, e)
 
+    # `create_all` no altera tablas existentes: las columnas que la auditoría
+    # financiera necesita se agregan a la tabla que ya estaba.
+    async with _conexion(esquema) as conn:
+        if (await conn.execute(text(
+                "SELECT to_regclass('erp_auditoria')"))).scalar() is not None:
+            for columna, tipo in (("empresa_id", "INTEGER"),
+                                  ("documento_origen", "VARCHAR(120)")):
+                await conn.execute(text(
+                    f"ALTER TABLE erp_auditoria "
+                    f"ADD COLUMN IF NOT EXISTS {columna} {tipo}"))
+
+        # `contabilizado_en` nació sin zona horaria y en la misma columna
+        # convivían dos significados: un endpoint escribía `datetime.now()` y
+        # otro `datetime.utcnow()`. Los contenedores corren en UTC, así que los
+        # valores guardados YA son UTC y la conversión es exacta —por eso el
+        # `AT TIME ZONE 'UTC'`, que declara lo que el dato siempre fue en vez de
+        # desplazarlo—. Sin esto, insertar una fecha con zona revienta.
+        #
+        # Se pregunta por el tipo actual y no se hace a ciegas: sobre una columna
+        # YA convertida, `AT TIME ZONE 'UTC'` la devolvería a naive y la
+        # reinterpretaría con la zona de la sesión, desplazando las horas en cada
+        # arranque. Además reescribe la tabla entera, y esto corre en cada boot
+        # de cada worker.
+        tipo_actual = (await conn.execute(text(
+            "SELECT data_type FROM information_schema.columns "
+            "WHERE table_schema = :e AND table_name = 'erp_comprobantes' "
+            "  AND column_name = 'contabilizado_en'"), {"e": esquema})).scalar()
+        if tipo_actual == "timestamp without time zone":
+            await conn.execute(text(
+                "ALTER TABLE erp_comprobantes "
+                "ALTER COLUMN contabilizado_en TYPE TIMESTAMPTZ "
+                "USING contabilizado_en AT TIME ZONE 'UTC'"))
+
+    # ── El núcleo contable ──
+    #
+    # Sin plan de cuentas ni reglas, la primera factura de una empresa falla con
+    # «no hay regla contable para cartera». Sembrarlo es lo que evita que la
+    # primera experiencia del módulo financiero sea un error.
+    #
+    # Es idempotente: sobre una empresa que ya tiene cuentas completa lo que
+    # falte y no pisa lo que alguien haya cambiado.
+    # Sesión propia sobre el motor, igual que la siembra de lubricación de
+    # arriba: `AsyncSessionLocal` no está a la mano en este módulo, y la siembra
+    # hace sus propios commit.
+    async with AsyncSession(engine) as db:
+        await db.execute(text(f'SET search_path TO "{esquema}"'))
+        try:
+            from app.core import erp_semilla
+
+            await erp_semilla.sembrar_parametros(db)
+            empresas = (await db.execute(text(
+                "SELECT id FROM erp_empresas WHERE activo = true"))).all()
+            for (empresa_id,) in empresas:
+                await erp_semilla.sembrar_empresa(db, empresa_id)
+            await db.commit()
+        except Exception as e:   # noqa: BLE001
+            # Igual que arriba: es parametrización conveniente, no algo sin lo
+            # cual nadie pueda entrar. Se avisa y se sigue.
+            await db.rollback()
+            logging.getLogger("uvicorn.error").warning(
+                "No se pudo sembrar el núcleo contable en «%s»: %s", esquema, e)
+
 
 # Número arbitrario pero fijo: identifica este candado y nada más.
 _CANDADO_MIGRACION = 918273645

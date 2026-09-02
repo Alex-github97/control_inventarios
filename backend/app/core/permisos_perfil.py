@@ -66,6 +66,35 @@ PERMISOS_PERFIL: List[Permiso] = [
     Permiso("sst",  "SST · Seguridad y salud",         "Módulos"),
     Permiso("ags",  "AGS · Agenda de servicios",       "Módulos"),
 
+    # ── Finanzas ──────────────────────────────────────────────────────────
+    #
+    # El ERP financiero necesita permisos más finos que «ve el módulo o no».
+    # Quien registra una factura no debería poder cerrar un período, y quien
+    # consulta la cartera no tiene por qué poder anular un asiento.
+    #
+    # `erp` sigue siendo la llave del módulo: sin él no se entra. Estos afinan
+    # qué se puede hacer una vez dentro.
+    Permiso("fin_contabilidad",  "Ver contabilidad y libros",   "Finanzas"),
+    Permiso("fin_comprobantes",  "Crear y editar comprobantes", "Finanzas"),
+    # Contabilizar es lo que vuelve un borrador irreversible, y anular es lo que
+    # toca un asiento ya en firme. Van aparte de crear por eso.
+    Permiso("fin_contabilizar",  "Contabilizar comprobantes",   "Finanzas"),
+    Permiso("fin_anular",        "Anular comprobantes",         "Finanzas"),
+    Permiso("fin_cartera",       "Ver cartera y CxC",           "Finanzas"),
+    Permiso("fin_pagos",         "Registrar pagos y recaudos",  "Finanzas"),
+    Permiso("fin_tesoreria",     "Bancos y tesorería",          "Finanzas"),
+    Permiso("fin_conciliar",     "Conciliación bancaria",       "Finanzas"),
+    Permiso("fin_impuestos",     "Impuestos y retenciones",     "Finanzas"),
+    # Cerrar y reabrir son la frontera entre lo declarado y lo modificable. Es
+    # el permiso más delicado del módulo y por eso va solo.
+    Permiso("fin_periodos",      "Cerrar y reabrir períodos",   "Finanzas"),
+    Permiso("fin_reportes",      "Estados financieros",         "Finanzas"),
+    Permiso("fin_exportar",      "Exportar información",        "Finanzas"),
+    # Cambiar una regla contable cambia cómo se contabiliza TODO lo que venga
+    # después. Es configuración, no operación.
+    Permiso("fin_parametrizar",  "Plan de cuentas y reglas",    "Finanzas"),
+    Permiso("fin_terceros",      "Maestro de terceros",         "Finanzas"),
+
     # ── Administración ────────────────────────────────────────────────────
     # Quien lo tenga puede crear usuarios y perfiles de su propia empresa, así
     # que se separa del resto: es el único que reparte poder.

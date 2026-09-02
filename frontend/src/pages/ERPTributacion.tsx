@@ -39,6 +39,10 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { SelectorEmpresa, useEmpresaERP } from './erp/nucleo'
+import {
+  PanelParametros, PanelReglasImpuesto, PanelSimulador,
+} from './erp/tributario'
 // ── Module brand ─────────────────────────────────────────────────────────────
 const ERP_COLOR = COLOR_MODULO
 
@@ -352,6 +356,7 @@ export default function ERPTributacion() {
   const qc = useQueryClient()
   const [tabValue, setTabValue] = useState(0)
   const [openNew, setOpenNew] = useState(false)
+  const { empresas, empresaId, elegir } = useEmpresaERP()
   const [nuevoImpuesto, setNuevoImpuesto] = useState({ ...EMPTY_IMPUESTO })
 
   // ── Queries ───────────────────────────────────────────────────────────────
@@ -452,19 +457,21 @@ export default function ERPTributacion() {
               ERP · Impuestos, IVA y retenciones — Colombia
             </Typography>
           </Box>
-          <Chip
-            label="TRIBUTACIÓN"
-            size="small"
-            sx={{
-              ml: 'auto',
-              bgcolor: alpha(ERP_COLOR, 0.1),
-              color: ERP_COLOR,
-              fontWeight: 700,
-              fontSize: 11,
-              height: 24,
-              letterSpacing: '0.05em',
-            }}
-          />
+          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <SelectorEmpresa empresas={empresas} empresaId={empresaId} elegir={elegir} />
+            <Chip
+              label="TRIBUTACIÓN"
+              size="small"
+              sx={{
+                bgcolor: alpha(ERP_COLOR, 0.1),
+                color: ERP_COLOR,
+                fontWeight: 700,
+                fontSize: 11,
+                height: 24,
+                letterSpacing: '0.05em',
+              }}
+            />
+          </Box>
         </Box>
       </Box>
 
@@ -507,6 +514,9 @@ export default function ERPTributacion() {
             <Tab label="Tipos de Impuesto" />
             <Tab label="Resumen IVA" />
             <Tab label="Retenciones" />
+            <Tab label="Reglas y vigencias" />
+            <Tab label="Parámetros del año" />
+            <Tab label="Simulador" />
           </Tabs>
 
           {tabValue === 0 && (
@@ -1005,6 +1015,28 @@ export default function ERPTributacion() {
             )}
           </Box>
         )}
+
+        {/* ── Reglas con vigencia ─────────────────────────────────────────── */}
+        {tabValue === 3 && (
+          <Box sx={{ p: 3 }}>
+            <PanelReglasImpuesto empresaId={empresaId} />
+          </Box>
+        )}
+
+        {/* ── Parámetros del año ──────────────────────────────────────────── */}
+        {tabValue === 4 && (
+          <Box sx={{ p: 3 }}>
+            <PanelParametros />
+          </Box>
+        )}
+
+        {/* ── Simulador ───────────────────────────────────────────────────── */}
+        {tabValue === 5 && (
+          <Box sx={{ p: 3 }}>
+            <PanelSimulador empresaId={empresaId} />
+          </Box>
+        )}
+
       </Card>
 
       {/* ── Nuevo Impuesto Dialog ─────────────────────────────────────────── */}

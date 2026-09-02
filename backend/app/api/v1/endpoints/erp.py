@@ -8,10 +8,11 @@ from sqlalchemy import select, func, and_
 from sqlalchemy.orm import selectinload
 from typing import Optional, List
 from pydantic import BaseModel
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
 import hashlib
 
+from app.core import erp_motor
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_admin
 from app.infrastructure.models.usuario import Usuario
@@ -626,7 +627,7 @@ async def contabilizar_comprobante(comp_id: int, db: AsyncSession = Depends(get_
         raise HTTPException(400, "Solo se pueden contabilizar comprobantes en estado BORRADOR")
     comp.estado = EstadoComprobante.CONTABILIZADO
     comp.contabilizado_por = current_user.nombre
-    comp.contabilizado_en = datetime.now()
+    comp.contabilizado_en = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(comp)
     return comp
@@ -744,59 +745,48 @@ async def listar_facturas_cliente(
     return list(r.scalars().all())
 
 # ─── INTEGRACIÓN CONTABLE (subledger -> libro mayor) ──────────────────────────
-# Cada operación (factura, pago, depreciación) genera automáticamente su asiento
-# contable CONTABILIZADO, de modo que el mayor y los estados financieros reflejan
-# la operación sin captura manual. PUC básico usado para las cuentas de los asientos:
-_PUC = {
-    "110505": ("Caja", TipoCuenta.ACTIVO, NaturalezaCuenta.DEBITO),
-    "111005": ("Bancos", TipoCuenta.ACTIVO, NaturalezaCuenta.DEBITO),
-    "130505": ("Clientes nacionales", TipoCuenta.ACTIVO, NaturalezaCuenta.DEBITO),
-    "150000": ("Propiedad, planta y equipo", TipoCuenta.ACTIVO, NaturalezaCuenta.DEBITO),
-    "159200": ("Depreciacion acumulada", TipoCuenta.ACTIVO, NaturalezaCuenta.CREDITO),
-    "220505": ("Proveedores nacionales", TipoCuenta.PASIVO, NaturalezaCuenta.CREDITO),
-    "240805": ("IVA generado (por pagar)", TipoCuenta.PASIVO, NaturalezaCuenta.CREDITO),
-    "236540": ("Retencion en la fuente", TipoCuenta.PASIVO, NaturalezaCuenta.CREDITO),
-    "413500": ("Ingresos operacionales", TipoCuenta.INGRESO, NaturalezaCuenta.CREDITO),
-    "516005": ("Gasto depreciacion", TipoCuenta.EGRESO, NaturalezaCuenta.DEBITO),
-    "519900": ("Gastos / costos varios", TipoCuenta.EGRESO, NaturalezaCuenta.DEBITO),
-}
+# Cada operación —factura, pago, depreciación— genera su asiento contabilizado,
+# de modo que el mayor y los estados financieros reflejan la operación sin
+# captura manual.
+#
+# El PUC de once cuentas que vivía acá se eliminó: el plan completo lo siembra
+# `erp_semilla` por empresa y las cuentas concretas las eligen las reglas
+# contables, que se editan desde la pantalla. Tener una lista paralela en el
+# código era la razón por la que cambiar una cuenta exigía un despliegue.
 
 
-async def _get_or_create_cuenta(db, empresa_id, codigo):
-    r = await db.execute(select(ERPPlanCuenta).where(ERPPlanCuenta.codigo == codigo).limit(1))
-    c = r.scalar_one_or_none()
-    if c:
-        return c
-    nombre, tipo, nat = _PUC.get(codigo, (f"Cuenta {codigo}", TipoCuenta.ACTIVO, NaturalezaCuenta.DEBITO))
-    c = ERPPlanCuenta(empresa_id=empresa_id, codigo=codigo, nombre=nombre, tipo=tipo,
-                      naturaleza=nat, nivel=max(1, len(codigo) // 2), acepta_movimientos=True)
-    db.add(c)
-    await db.flush()
-    return c
+# La contabilización de los documentos la hace `erp_motor.asentar`, no este
+# módulo. Lo que había acá tenía cuatro problemas que ya costaban plata:
+#
+#   · `_get_or_create_cuenta` buscaba la cuenta por código SIN filtrar por
+#     empresa, así que en multiempresa devolvía la cuenta de otra compañía y el
+#     asiento quedaba en los libros del vecino;
+#   · si no encontraba el código, lo INVENTABA: un tipeo creaba una cuenta nueva
+#     que nadie había definido y que no aparecía en ningún reporte;
+#   · toleraba un descuadre de hasta un peso por documento;
+#   · cuando algo salía mal devolvía `None` en silencio y el documento quedaba
+#     guardado SIN asiento, que no se nota hasta el cierre.
+#
+# Los códigos de cuenta salen ahora de las reglas contables, que se editan desde
+# la pantalla. Acá solo se dice qué PAPEL cumple cada línea.
 
 
-async def _generar_asiento(db, empresa_id, tipo, fecha, concepto, referencia, movimientos, creado_por="sistema"):
-    """movimientos: lista de (codigo_cuenta, debito, credito, tercero). Cuadra o no genera."""
-    movs = [(cod, round(float(d), 2), round(float(cr), 2), ter) for (cod, d, cr, ter) in movimientos if (d or cr)]
-    total_d = sum(m[1] for m in movs)
-    total_c = sum(m[2] for m in movs)
-    if not movs or total_d <= 0 or abs(total_d - total_c) > 1.0:
-        return None
-    n = (await db.execute(select(func.count()).select_from(ERPComprobante).where(ERPComprobante.tipo == tipo))).scalar() or 0
-    prefix = {TipoComprobante.INGRESO: "RC", TipoComprobante.EGRESO: "CE", TipoComprobante.DIARIO: "CD"}.get(tipo, "CD")
-    comp = ERPComprobante(
-        empresa_id=empresa_id, numero=f"{prefix}-{n + 1:06d}", tipo=tipo, fecha=fecha,
-        concepto=concepto, referencia=referencia, estado=EstadoComprobante.CONTABILIZADO,
-        total_debito=total_d, total_credito=total_c, periodo=fecha.strftime("%Y-%m"),
-        creado_por=creado_por, contabilizado_por=creado_por, contabilizado_en=datetime.utcnow(),
-    )
-    db.add(comp)
-    await db.flush()
-    for cod, deb, cred, ter in movs:
-        cta = await _get_or_create_cuenta(db, empresa_id, cod)
-        db.add(ERPComprobanteLinea(comprobante_id=comp.id, cuenta_id=cta.id,
-                                   debito=deb, credito=cred, concepto=concepto, tercero=ter))
-    return comp
+async def _asiento(db, *, empresa_id, evento, tipo, fecha, concepto, referencia,
+                   lineas, usuario, documento_tipo=None, documento_id=None):
+    """Puente hacia el motor contable, conservando la firma cómoda de acá.
+
+    `lineas` es una lista de (papel, débito, crédito, tercero). Si algo impide
+    contabilizar —período cerrado, regla sin configurar, descuadre— levanta
+    `ErrorContable`, que es un 422 y tumba la transacción: el documento tampoco
+    se guarda. Es deliberado, y es lo contrario de lo que hacía antes.
+    """
+    return await erp_motor.asentar(
+        db, empresa_id=empresa_id, evento=evento, tipo=tipo, fecha=fecha,
+        concepto=concepto,
+        lineas=[erp_motor.Linea(papel, debito=deb, credito=cred, concepto=tercero)
+                for papel, deb, cred, tercero in lineas if (deb or cred)],
+        usuario=usuario, documento_tipo=documento_tipo, documento_id=documento_id,
+        documento_numero=referencia)
 
 
 @router.post("/cxc/facturas", response_model=FacturaClienteResponse, status_code=201)
@@ -834,14 +824,15 @@ async def crear_factura_cliente(data: FacturaClienteCreate, db: AsyncSession = D
             subtotal=base, total_impuesto=imp, total=base + imp,
         )
         db.add(linea)
-    # Asiento automático: Db Clientes / Cr Ingresos + IVA
-    await _generar_asiento(
-        db, fc.empresa_id, TipoComprobante.DIARIO, fc.fecha,
-        f"Factura de venta {fc.numero} - {fc.cliente_nombre}", fc.numero,
-        [("130505", total, 0, fc.cliente_nombre),
-         ("413500", 0, subtotal, fc.cliente_nombre),
-         ("240805", 0, total_imp, fc.cliente_nombre)],
-        creado_por=current_user.nombre,
+    await _asiento(
+        db, empresa_id=fc.empresa_id, evento="VENTA_FACTURA",
+        tipo=TipoComprobante.DIARIO, fecha=fc.fecha,
+        concepto=f"Factura de venta {fc.numero} - {fc.cliente_nombre}",
+        referencia=fc.numero, documento_tipo="factura_cliente", documento_id=fc.id,
+        lineas=[("cartera", total, 0, fc.cliente_nombre),
+                ("ingreso", 0, subtotal, fc.cliente_nombre),
+                ("iva_generado", 0, total_imp, fc.cliente_nombre)],
+        usuario=current_user.nombre,
     )
     await db.commit()
     await db.refresh(fc)
@@ -899,14 +890,19 @@ async def crear_factura_proveedor(data: FacturaProveedorCreate, db: AsyncSession
     # Asiento automático: Db Gasto+IVA / Cr Proveedores (neto) + Retenciones
     subt = float(fp.subtotal or (float(fp.total) - float(fp.total_impuestos or 0)))
     iva = float(fp.total_impuestos or 0)
-    await _generar_asiento(
-        db, fp.empresa_id, TipoComprobante.DIARIO, fp.fecha,
-        f"Factura de compra {fp.numero_proveedor} - {fp.proveedor_nombre}", fp.numero_proveedor,
-        [("519900", subt, 0, fp.proveedor_nombre),
-         ("240805", iva, 0, fp.proveedor_nombre),
-         ("236540", 0, float(fp.retenciones or 0), fp.proveedor_nombre),
-         ("220505", 0, neto, fp.proveedor_nombre)],
-        creado_por=current_user.nombre,
+    await _asiento(
+        db, empresa_id=fp.empresa_id, evento="COMPRA_FACTURA",
+        tipo=TipoComprobante.DIARIO, fecha=fp.fecha,
+        concepto=f"Factura de compra {fp.numero_proveedor} - {fp.proveedor_nombre}",
+        referencia=fp.numero_proveedor, documento_tipo="factura_proveedor",
+        documento_id=fp.id,
+        # El IVA de una compra va al DÉBITO como descontable: es un derecho
+        # contra la DIAN, no un ingreso. La cuenta la pone la regla.
+        lineas=[("gasto", subt, 0, fp.proveedor_nombre),
+                ("iva_descontable", iva, 0, fp.proveedor_nombre),
+                ("retefuente", 0, float(fp.retenciones or 0), fp.proveedor_nombre),
+                ("proveedor", 0, neto, fp.proveedor_nombre)],
+        usuario=current_user.nombre,
     )
     await db.commit()
     await db.refresh(fp)
@@ -934,6 +930,8 @@ async def listar_pagos(
 async def registrar_pago(data: PagoCreate, db: AsyncSession = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
     pago = ERPPago(**data.model_dump(), estado=EstadoPago.PROCESADO)
     db.add(pago)
+    # Se vacía ya: el asiento referencia `pago.id`, y sin esto es None.
+    await db.flush()
     # Actualizar saldo factura
     if data.factura_cliente_id:
         fc = await db.get(ERPFacturaCliente, data.factura_cliente_id)
@@ -950,16 +948,22 @@ async def registrar_pago(data: PagoCreate, db: AsyncSession = Depends(get_db), c
     # Asiento automático del pago
     if data.factura_cliente_id:
         # Recaudo: Db Bancos / Cr Clientes
-        await _generar_asiento(db, pago.empresa_id, TipoComprobante.INGRESO, pago.fecha,
-            f"Recaudo pago cliente", getattr(pago, "referencia", None) or "",
-            [("111005", data.monto, 0, None), ("130505", 0, data.monto, None)],
-            creado_por=current_user.nombre)
+        await _asiento(db, empresa_id=pago.empresa_id, evento="RECAUDO_CLIENTE",
+            tipo=TipoComprobante.INGRESO, fecha=pago.fecha,
+            concepto="Recaudo pago cliente",
+            referencia=getattr(pago, "referencia", None) or "",
+            documento_tipo="pago", documento_id=pago.id,
+            lineas=[("banco", data.monto, 0, None), ("cartera", 0, data.monto, None)],
+            usuario=current_user.nombre)
     elif data.factura_proveedor_id:
         # Egreso: Db Proveedores / Cr Bancos
-        await _generar_asiento(db, pago.empresa_id, TipoComprobante.EGRESO, pago.fecha,
-            f"Pago a proveedor", getattr(pago, "referencia", None) or "",
-            [("220505", data.monto, 0, None), ("111005", 0, data.monto, None)],
-            creado_por=current_user.nombre)
+        await _asiento(db, empresa_id=pago.empresa_id, evento="PAGO_PROVEEDOR",
+            tipo=TipoComprobante.EGRESO, fecha=pago.fecha,
+            concepto="Pago a proveedor",
+            referencia=getattr(pago, "referencia", None) or "",
+            documento_tipo="pago", documento_id=pago.id,
+            lineas=[("proveedor", data.monto, 0, None), ("banco", 0, data.monto, None)],
+            usuario=current_user.nombre)
     await db.commit()
     await db.refresh(pago)
     return pago
@@ -1048,10 +1052,13 @@ async def calcular_depreciacion(activo_id: int, fecha: date = Query(...), db: As
     af.valor_libro = nuevo_libro
     db.add(dep)
     # Asiento automático: Db Gasto depreciación / Cr Depreciación acumulada
-    await _generar_asiento(db, af.empresa_id, TipoComprobante.DIARIO, fecha,
-        f"Depreciacion {af.codigo} - {af.nombre}", af.codigo,
-        [("516005", dep_mensual, 0, None), ("159200", 0, dep_mensual, None)],
-        creado_por=current_user.nombre)
+    await _asiento(db, empresa_id=af.empresa_id, evento="ACTIVO_DEPRECIACION",
+        tipo=TipoComprobante.DIARIO, fecha=fecha,
+        concepto=f"Depreciación {af.codigo} - {af.nombre}", referencia=af.codigo,
+        documento_tipo="activo_fijo", documento_id=af.id,
+        lineas=[("gasto_depreciacion", dep_mensual, 0, None),
+                ("depreciacion_acumulada", 0, dep_mensual, None)],
+        usuario=current_user.nombre)
     await db.commit()
     return {"depreciacion": dep_mensual, "acumulada": nueva_acum, "valor_libro": nuevo_libro}
 

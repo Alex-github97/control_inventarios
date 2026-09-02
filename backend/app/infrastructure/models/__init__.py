@@ -178,6 +178,12 @@ from app.infrastructure.models.gestion import (  # noqa: F401
     GPFiltro, GPPizarra, GPWidget,
     GPVersion, GPComponente, GPTipoVinculo,
 )
+# El nucleo contable: terceros, periodos, reglas y trazabilidad. Va aparte
+# de `erp` porque ese archivo ya cubre los documentos, pero es el mismo modulo.
+from app.infrastructure.models.erp_nucleo import (  # noqa: F401
+    ERPTercero, ERPPeriodo, ERPReglaContable, ERPReglaImpuesto,
+    ERPParametroFiscal, ERPEventoContable,
+)
 from app.infrastructure.models.ags import (
     AGSConfig, AGSCategoriaServicio, AGSServicio,
     AGSProfesional, AGSProfesionalServicio, AGSHorarioProfesional, AGSAusencia,

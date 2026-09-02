@@ -34,6 +34,10 @@ import {
   FilterList,
   Search,
   Settings,
+  Block,
+  CalendarMonth,
+  MenuBook,
+  Rule,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
@@ -41,6 +45,10 @@ import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
+import {
+  PanelLibros, PanelPeriodos, PanelReglas, SelectorEmpresa, mensajeDeError,
+  useEmpresaERP,
+} from './erp/nucleo'
 const ERP_COLOR = COLOR_MODULO
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -614,6 +622,26 @@ export default function ERPContabilidad() {
   const [searchCuenta, setSearchCuenta] = useState('')
   const [filtroTipo, setFiltroTipo] = useState('')
   const [filtroPeriodo, setFiltroPeriodo] = useState('')
+  const [anulando, setAnulando] = useState<Comprobante | null>(null)
+  const [motivoAnulacion, setMotivoAnulacion] = useState('')
+  const { empresas, empresaId, elegir } = useEmpresaERP()
+  const qcAnular = useQueryClient()
+
+  // Anular no borra: crea el comprobante contrario y deja los dos. Borrar
+  // abriria un hueco en el consecutivo y haria imposible explicar por que
+  // cambio el libro de un mes que ya se cerro.
+  const anular = useMutation({
+    mutationFn: () => apiClient.post(
+      '/erp/contabilidad/comprobantes/' + anulando!.id + '/anular',
+      { motivo: motivoAnulacion },
+    ),
+    onSuccess: (r: any) => {
+      toast.success('Anulado con el comprobante ' + (r?.data?.reverso ?? 'contrario'))
+      setAnulando(null); setMotivoAnulacion('')
+      qcAnular.invalidateQueries({ queryKey: ['erp-comprobantes'] })
+    },
+    onError: (e: any) => toast.error(mensajeDeError(e)),
+  })
 
   const { data: cuentas, isLoading: loadingCuentas } = useQuery<Cuenta[]>({
     queryKey: ['erp-cuentas'],
@@ -674,11 +702,14 @@ export default function ERPContabilidad() {
               </Typography>
             </Box>
           </Box>
-          <Tooltip title="Configuración contable">
-            <IconButton sx={{ color: ERP_COLOR }}>
-              <Settings />
-            </IconButton>
-          </Tooltip>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <SelectorEmpresa empresas={empresas} empresaId={empresaId} elegir={elegir} />
+            <Tooltip title="Configuración contable">
+              <IconButton sx={{ color: ERP_COLOR }}>
+                <Settings />
+              </IconButton>
+            </Tooltip>
+          </Box>
         </Box>
 
         {/* Tabs */}
@@ -697,6 +728,9 @@ export default function ERPContabilidad() {
               <Tab label="Plan de Cuentas" icon={<AccountTree fontSize="small" />} iconPosition="start" />
               <Tab label="Comprobantes" icon={<Receipt fontSize="small" />} iconPosition="start" />
               <Tab label="Centros de Costo" icon={<Settings fontSize="small" />} iconPosition="start" />
+              <Tab label="Períodos" icon={<CalendarMonth fontSize="small" />} iconPosition="start" />
+              <Tab label="Reglas contables" icon={<Rule fontSize="small" />} iconPosition="start" />
+              <Tab label="Libros" icon={<MenuBook fontSize="small" />} iconPosition="start" />
             </Tabs>
           </Box>
 
@@ -752,6 +786,7 @@ export default function ERPContabilidad() {
                       <TableCell sx={{ fontWeight: 700, color: ERP_COLOR }}>Naturaleza</TableCell>
                       <TableCell sx={{ fontWeight: 700, color: ERP_COLOR }} align="center">Nivel</TableCell>
                       <TableCell sx={{ fontWeight: 700, color: ERP_COLOR }} align="center">Estado</TableCell>
+                      <TableCell sx={{ fontWeight: 700, color: ERP_COLOR }} align="right">Acción</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -860,7 +895,7 @@ export default function ERPContabilidad() {
                     {loadingComprobantes
                       ? Array.from({ length: 5 }).map((_, i) => (
                           <TableRow key={i}>
-                            {Array.from({ length: 7 }).map((__, j) => (
+                            {Array.from({ length: 8 }).map((__, j) => (
                               <TableCell key={j}><Skeleton variant="text" /></TableCell>
                             ))}
                           </TableRow>
@@ -868,7 +903,7 @@ export default function ERPContabilidad() {
                       : filteredComprobantes.length === 0
                       ? (
                           <TableRow>
-                            <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                            <TableCell colSpan={8} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                               No se encontraron comprobantes
                             </TableCell>
                           </TableRow>
@@ -900,6 +935,18 @@ export default function ERPContabilidad() {
                                 color={estadoComprobanteColor[comp.estado]}
                                 sx={{ fontSize: 11, fontWeight: 600 }}
                               />
+                            </TableCell>
+                            <TableCell align="right">
+                              {comp.estado === 'CONTABILIZADO' && (
+                                <Tooltip title="Anular con el comprobante contrario">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => { setAnulando(comp); setMotivoAnulacion('') }}
+                                  >
+                                    <Block fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -968,9 +1015,44 @@ export default function ERPContabilidad() {
                 </Table>
               </>
             )}
+
+            {/* ── TAB 3: Períodos ────────────────────────────────────────────── */}
+            {tabValue === 3 && <PanelPeriodos empresaId={empresaId} />}
+
+            {/* ── TAB 4: Reglas contables ────────────────────────────────────── */}
+            {tabValue === 4 && <PanelReglas empresaId={empresaId} />}
+
+            {/* ── TAB 5: Libros ──────────────────────────────────────────────── */}
+            {tabValue === 5 && <PanelLibros empresaId={empresaId} />}
           </Box>
         </Card>
       </Box>
+
+      {/* Anulación */}
+      <Dialog open={!!anulando} onClose={() => setAnulando(null)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Anular {anulando?.numero}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            No se borra: se crea el comprobante contrario con fecha de hoy y los dos
+            quedan en el libro. El motivo queda en la auditoría, así que hace falta.
+          </Typography>
+          <TextField
+            fullWidth multiline rows={2} autoFocus label="Motivo de la anulación *"
+            value={motivoAnulacion} onChange={(e) => setMotivoAnulacion(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAnulando(null)} sx={{ textTransform: 'none' }}>Cancelar</Button>
+          <Button
+            variant="contained" color="error"
+            disabled={!motivoAnulacion.trim() || anular.isPending}
+            onClick={() => anular.mutate()}
+            sx={{ textTransform: 'none' }}
+          >
+            Anular
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Dialogs */}
       <NewCuentaDialog open={openNewCuenta} onClose={() => setOpenNewCuenta(false)} />

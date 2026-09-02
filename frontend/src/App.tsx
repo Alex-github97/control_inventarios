@@ -280,6 +280,7 @@ const APSReportes = React.lazy(() => import('@/pages/APSReportes'))
 const APSConfig = React.lazy(() => import('@/pages/APSConfig'))
 const ERPDashboard = React.lazy(() => import('@/pages/ERPDashboard'))
 const ERPContabilidad = React.lazy(() => import('@/pages/ERPContabilidad'))
+const ERPTerceros = React.lazy(() => import('@/pages/ERPTerceros'))
 const ERPTesoreria = React.lazy(() => import('@/pages/ERPTesoreria'))
 const ERPCxC = React.lazy(() => import('@/pages/ERPCxC'))
 const ERPCxP = React.lazy(() => import('@/pages/ERPCxP'))
@@ -656,6 +657,7 @@ export default function App() {
             <Route path="/aps/config" element={<ProtectedRoute><APSConfig /></ProtectedRoute>} />
             <Route path="/erp" element={<ProtectedRoute><ERPDashboard /></ProtectedRoute>} />
             <Route path="/erp/contabilidad" element={<ProtectedRoute><ERPContabilidad /></ProtectedRoute>} />
+            <Route path="/erp/terceros" element={<ProtectedRoute><ERPTerceros /></ProtectedRoute>} />
             <Route path="/erp/tesoreria" element={<ProtectedRoute><ERPTesoreria /></ProtectedRoute>} />
             <Route path="/erp/cxc" element={<ProtectedRoute><ERPCxC /></ProtectedRoute>} />
             <Route path="/erp/cxp" element={<ProtectedRoute><ERPCxP /></ProtectedRoute>} />

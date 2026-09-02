@@ -218,7 +218,10 @@ class ERPComprobante(Base, TimestampMixin):
     periodo         = Column(String(7), nullable=True)  # YYYY-MM
     creado_por      = Column(String(200), nullable=True)
     contabilizado_por = Column(String(200), nullable=True)
-    contabilizado_en  = Column(DateTime, nullable=True)
+    # Con zona, como `created_at` de esta misma tabla. Sin zona convivían dos
+    # significados en la misma columna —un sitio escribía hora local y otro
+    # UTC— y no había forma de saber cuál era cuál mirando el dato.
+    contabilizado_en  = Column(DateTime(timezone=True), nullable=True)
     observaciones   = Column(Text, nullable=True)
 
     lineas          = relationship("ERPComprobanteLinea", back_populates="comprobante", cascade="all, delete-orphan")
@@ -655,6 +658,11 @@ class ERPAuditoria(Base, TimestampMixin):
     datos_antes     = Column(Text, nullable=True)
     datos_despues   = Column(Text, nullable=True)
     observaciones   = Column(Text, nullable=True)
+    # Tres columnas que le faltaban para servir de auditoria financiera: sin
+    # empresa no se puede separar el rastro de cada una, y sin saber de que
+    # documento salio un asiento la trazabilidad se corta justo donde importa.
+    empresa_id      = Column(Integer, nullable=True, index=True)
+    documento_origen = Column(String(120), nullable=True)
 
     __table_args__ = (Index("ix_erp_auditoria_modulo_fecha", "modulo", "created_at"),)
 
