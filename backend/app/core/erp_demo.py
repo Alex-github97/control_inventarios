@@ -106,17 +106,20 @@ _SERVICIOS = [
     ("Última milla — paquete", 22_000),
 ]
 
+# (concepto, papel, condición contable, valor típico). La condición es lo que
+# hace que cada compra caiga en su cuenta: sin ella todo termina en «gastos
+# diversos» y el plan de cuentas parece de tres renglones.
 _COMPRAS = [
-    ("Combustible ACPM", "gasto", 6_800_000),
-    ("Peajes", "gasto", 2_300_000),
-    ("Llantas", "inventario", 4_900_000),
-    ("Repuestos y mantenimiento", "inventario", 1_750_000),
-    ("Arrendamiento de bodega", "gasto", 12_000_000),
-    ("Servicios públicos", "gasto", 1_900_000),
-    ("Honorarios contables", "gasto", 2_800_000),
-    ("Vigilancia y aseo", "gasto", 3_400_000),
-    ("Pólizas de seguro", "gasto", 7_200_000),
-    ("Papelería y aseo", "gasto", 380_000),
+    ("Combustible ACPM", "gasto", "COMBUSTIBLE", 6_800_000),
+    ("Peajes", "gasto", "PEAJES", 2_300_000),
+    ("Llantas", "inventario", "", 4_900_000),
+    ("Repuestos y mantenimiento", "inventario", "", 1_750_000),
+    ("Arrendamiento de bodega", "gasto", "ARRENDAMIENTO", 12_000_000),
+    ("Servicios públicos", "gasto", "SERVICIOS_PUBLICOS", 1_900_000),
+    ("Honorarios contables", "gasto", "HONORARIOS", 2_800_000),
+    ("Vigilancia y aseo", "gasto", "VIGILANCIA", 3_400_000),
+    ("Pólizas de seguro", "gasto", "SEGUROS", 7_200_000),
+    ("Papelería y aseo", "gasto", "", 380_000),
 ]
 
 _ACTIVOS = [
@@ -491,7 +494,7 @@ async def sembrar_volumen(
         for _ in range(az.randint(2, 6)):
             if True:
                 prov = az.choice(proveedores)
-                desc, papel, precio = az.choice(_COMPRAS)
+                desc, papel, condicion, precio = az.choice(_COMPRAS)
                 consecutivo_fp += 1
                 subtotal = Decimal(int(precio * az.uniform(0.8, 1.35)))
                 iva = (subtotal * Decimal("0.19")).quantize(Decimal("0.01"))
@@ -517,7 +520,8 @@ async def sembrar_volumen(
                 db.add(fp)
                 await db.flush()
 
-                lineas = [Linea(papel, debito=subtotal, tercero_id=prov.id),
+                lineas = [Linea(papel, debito=subtotal, tercero_id=prov.id,
+                                condicion=condicion),
                           Linea("iva_descontable", debito=iva, tercero_id=prov.id),
                           Linea("proveedor", credito=neto, tercero_id=prov.id)]
                 if retencion:
@@ -834,10 +838,10 @@ async def _inductores(db, empresa_id, az, cuentas, centros, conteo) -> None:
         return
 
     definiciones = [
-        ("ABC-01", "Almacenamiento", "m² ocupado", "m²", "513525"),
-        ("ABC-02", "Transporte", "km recorrido", "km", "530505"),
+        ("ABC-01", "Almacenamiento", "m² ocupado", "m²", "512010"),
+        ("ABC-02", "Transporte", "km recorrido", "km", "617510"),
         ("ABC-03", "Administración", "horas hombre", "h", "511095"),
-        ("ABC-04", "Servicios de planta", "consumo de energía", "kWh", "513530"),
+        ("ABC-04", "Aseguramiento", "valor asegurado", "$", "513025"),
     ]
     for codigo, actividad, inductor, unidad, cuenta in definiciones:
         c = cuentas.get(cuenta)

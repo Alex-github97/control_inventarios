@@ -148,6 +148,10 @@ PUC: List[Tuple[str, str, TipoCuenta, NaturalezaCuenta, bool]] = [
     ("5110", "HONORARIOS", TipoCuenta.EGRESO, NaturalezaCuenta.DEBITO, False),
     ("511010", "Revisoría fiscal", TipoCuenta.EGRESO, NaturalezaCuenta.DEBITO, True),
     ("511095", "Otros honorarios", TipoCuenta.EGRESO, NaturalezaCuenta.DEBITO, True),
+    ("5120", "ARRENDAMIENTOS", TipoCuenta.EGRESO, NaturalezaCuenta.DEBITO, False),
+    ("512010", "Construcciones y edificaciones", TipoCuenta.EGRESO, NaturalezaCuenta.DEBITO, True),
+    ("5130", "SEGUROS", TipoCuenta.EGRESO, NaturalezaCuenta.DEBITO, False),
+    ("513025", "Cumplimiento", TipoCuenta.EGRESO, NaturalezaCuenta.DEBITO, True),
     ("5135", "SERVICIOS", TipoCuenta.EGRESO, NaturalezaCuenta.DEBITO, False),
     ("513525", "Acueducto y alcantarillado", TipoCuenta.EGRESO, NaturalezaCuenta.DEBITO, True),
     ("513530", "Energía eléctrica", TipoCuenta.EGRESO, NaturalezaCuenta.DEBITO, True),
@@ -168,17 +172,19 @@ PUC: List[Tuple[str, str, TipoCuenta, NaturalezaCuenta, bool]] = [
     ("613500", "Costo de mercancía vendida", TipoCuenta.EGRESO, NaturalezaCuenta.DEBITO, True),
     ("6175", "TRANSPORTE, ALMACENAMIENTO Y COMUNICACIONES", TipoCuenta.EGRESO, NaturalezaCuenta.DEBITO, False),
     ("617505", "Costo del servicio de transporte", TipoCuenta.EGRESO, NaturalezaCuenta.DEBITO, True),
+    ("617510", "Combustibles y lubricantes", TipoCuenta.EGRESO, NaturalezaCuenta.DEBITO, True),
+    ("617515", "Peajes", TipoCuenta.EGRESO, NaturalezaCuenta.DEBITO, True),
 ]
 
 
 # ─── Qué cuenta cumple cada papel ─────────────────────────────────────────────
 #
-# (evento, papel, código de cuenta, naturaleza)
+# (evento, papel, código de cuenta, naturaleza[, condición])
 #
 # Esto es lo que saca los códigos de dentro del código. Cada línea dice: «cuando
 # pase ESTO, el papel de cartera lo cumple la cuenta 130505, al débito».
 
-REGLAS: List[Tuple[str, str, str, str]] = [
+REGLAS: List[tuple] = [
     ("VENTA_FACTURA", "cartera", "130505", "DEBITO"),
     ("VENTA_FACTURA", "ingreso", "413500", "CREDITO"),
     ("VENTA_FACTURA", "iva_generado", "240805", "CREDITO"),
@@ -193,6 +199,17 @@ REGLAS: List[Tuple[str, str, str, str]] = [
     ("COMPRA_FACTURA", "proveedor", "220505", "CREDITO"),
     ("COMPRA_FACTURA", "gasto", "539995", "DEBITO"),
     ("COMPRA_FACTURA", "inventario", "143505", "DEBITO"),
+    # Cada concepto de compra a su cuenta. La regla específica de la condición
+    # manda sobre la general de arriba, así que agregar un concepto nuevo es
+    # agregar una línea acá y no tocar el código que factura.
+    ("COMPRA_FACTURA", "gasto", "617510", "DEBITO", "COMBUSTIBLE"),
+    ("COMPRA_FACTURA", "gasto", "617515", "DEBITO", "PEAJES"),
+    ("COMPRA_FACTURA", "gasto", "512010", "DEBITO", "ARRENDAMIENTO"),
+    ("COMPRA_FACTURA", "gasto", "513025", "DEBITO", "SEGUROS"),
+    ("COMPRA_FACTURA", "gasto", "513530", "DEBITO", "SERVICIOS_PUBLICOS"),
+    ("COMPRA_FACTURA", "gasto", "511095", "DEBITO", "HONORARIOS"),
+    ("COMPRA_FACTURA", "gasto", "513595", "DEBITO", "VIGILANCIA"),
+
     ("COMPRA_FACTURA", "iva_descontable", "240810", "DEBITO"),
     ("COMPRA_FACTURA", "retefuente", "236540", "CREDITO"),
     ("COMPRA_FACTURA", "reteica", "236801", "CREDITO"),
@@ -310,16 +327,22 @@ async def sembrar_empresa(db: AsyncSession, empresa_id: int) -> Dict[str, int]:
             ERPReglaContable.empresa_id == empresa_id))).scalars().all()
     }
     reglas = 0
-    for evento, papel, codigo, naturaleza in REGLAS:
-        if (evento, papel, "") in existentes:
+    for fila in REGLAS:
+        evento, papel, codigo, naturaleza = fila[:4]
+        # La quinta posición, si viene, es la condición: la regla específica
+        # manda sobre la general del mismo papel.
+        condicion = fila[4] if len(fila) > 4 else ""
+        if (evento, papel, condicion) in existentes:
             continue
         cuenta = cuentas.get(codigo)
         if cuenta is None:
             continue
         db.add(ERPReglaContable(
-            empresa_id=empresa_id, evento=evento, papel=papel, condicion="",
-            cuenta_id=cuenta.id, naturaleza=naturaleza,
-            descripcion=f"{papel} de {evento}", activa=True))
+            empresa_id=empresa_id, evento=evento, papel=papel,
+            condicion=condicion, cuenta_id=cuenta.id, naturaleza=naturaleza,
+            descripcion=f"{papel} de {evento}"
+                        + (f" · {condicion}" if condicion else ""),
+            activa=True))
         reglas += 1
 
     # ── Reglas tributarias ──
