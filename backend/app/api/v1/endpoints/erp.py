@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from datetime import date, datetime, timezone
 from decimal import Decimal
 import hashlib
+import logging
 
 from app.core import erp_motor
 from app.core.database import get_db
@@ -500,6 +501,24 @@ async def listar_empresas(
 async def crear_empresa(data: EmpresaCreate, db: AsyncSession = Depends(get_db), current_user: Usuario = Depends(require_admin)):
     emp = ERPEmpresa(**data.model_dump())
     db.add(emp)
+    await db.flush()
+
+    # El plan de cuentas y las reglas se siembran ACÁ y no solo al arrancar:
+    # una empresa recién creada sin cuentas no puede facturar, y su primera
+    # factura falla con «no hay regla contable para cartera». Esperar al
+    # siguiente reinicio del servidor para que sirva no es una respuesta.
+    #
+    # Si la siembra falla, la empresa igual se crea: se puede completar después
+    # desde Configuración, y no poder crear la empresa sería peor.
+    try:
+        from app.core import erp_semilla
+        await erp_semilla.sembrar_parametros(db)
+        await erp_semilla.sembrar_empresa(db, emp.id)
+    except Exception as e:   # noqa: BLE001
+        logging.getLogger("uvicorn.error").warning(
+            "La empresa %s se creó pero no se pudo sembrar su contabilidad: %s",
+            emp.id, e)
+
     await db.commit()
     await db.refresh(emp)
     return emp

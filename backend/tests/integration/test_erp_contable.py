@@ -719,3 +719,24 @@ async def test_simular_explica_en_vez_de_negarse(db, empresa):
     assert Decimal(explicado["total_retenciones"]) == 0
     assert len(explicado["bloqueados"]) == 1
     assert "UVT" in explicado["bloqueados"][0]["motivo"]
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_una_empresa_nueva_puede_facturar_de_inmediato(db):
+    """Crear la empresa y sembrarla es un solo acto.
+
+    Sin esto, la primera factura de una empresa recién creada falla con «no hay
+    regla contable para cartera», y la única forma de arreglarlo era reiniciar el
+    servidor. Nadie relaciona lo uno con lo otro.
+    """
+    nueva = ERPEmpresa(nit="900555444", razon_social="Recién creada SAS",
+                       pais="Colombia")
+    db.add(nueva)
+    await db.flush()
+    await erp_semilla.sembrar_parametros(db)
+    await erp_semilla.sembrar_empresa(db, nueva.id)
+    await db.flush()
+
+    comp = await _venta(db, nueva)
+    assert comp.numero.endswith("000001")
+    assert comp.total_debito == comp.total_credito
