@@ -61,7 +61,28 @@ export default function TMSLiquidaciones() {
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ viaje_id: '', conductor_hcm_id: '', conductor_nombre: '', periodo: '', valor_flete: 0, bonificaciones: 0, descuentos: 0, anticipos: 0, notas: '' })
 
-  const { data: rawLiqs = [], isLoading } = useQuery<any[]>({ queryKey: ['tms-liquidaciones'], queryFn: () => apiClient.get('/tms/liquidaciones').then((r) => r.data) })
+  // El filtro va al servidor: filtrar en el navegador obliga a bajar el año
+  // entero de liquidaciones para mostrar una pantalla.
+  const { data: rawLiqs = [], isLoading } = useQuery<any[]>({
+    queryKey: ['tms-liquidaciones', filtroEstado],
+    queryFn: () => apiClient.get('/tms/liquidaciones', {
+      params: { limite: 200, ...(filtroEstado ? { estado: filtroEstado } : {}) },
+    }).then((r) => r.data),
+  })
+
+  // Los totales se cuentan en la base, no sumando la lista.
+  //
+  // Sumándola, los cuatro indicadores de arriba solo eran ciertos si la lista
+  // venía completa —2.800 liquidaciones, casi un megabyte— y cualquier tope que
+  // se le pusiera después los habría dejado mal sin que nadie lo notara: no
+  // habrían desaparecido, habrían mentido.
+  const { data: resumen } = useQuery<{
+    cantidad_total: number; total_pendiente: number; total_pagado: number
+    en_proceso: number; por_liquidar: number
+  }>({
+    queryKey: ['tms-liquidaciones-resumen'],
+    queryFn: () => apiClient.get('/tms/liquidaciones/resumen').then((r) => r.data),
+  })
   const { data: viajesData } = useQuery<{ items: any[] }>({ queryKey: ['tms-viajes'], queryFn: () => apiClient.get('/tms/viajes', { params: { per_page: 100 } }).then((r) => r.data) })
   const viajes = viajesData?.items ?? []
 
@@ -88,12 +109,17 @@ export default function TMSLiquidaciones() {
     return true
   })
 
-  const totalPendiente = liquidaciones.filter((l) => ['BORRADOR', 'PENDIENTE', 'APROBADA'].includes(l.estado)).reduce((s, l) => s + l.total, 0)
-  const totalPagado = liquidaciones.filter((l) => l.estado === 'PAGADA').reduce((s, l) => s + l.total, 0)
-  const enProceso = liquidaciones.filter((l) => l.estado === 'PENDIENTE').length
-  const pendientesN = liquidaciones.filter((l) => ['BORRADOR', 'PENDIENTE'].includes(l.estado)).length
+  const totalPendiente = resumen?.total_pendiente ?? 0
+  const totalPagado = resumen?.total_pagado ?? 0
+  const enProceso = resumen?.en_proceso ?? 0
+  const pendientesN = resumen?.por_liquidar ?? 0
 
-  const refetch = () => qc.invalidateQueries({ queryKey: ['tms-liquidaciones'] })
+  const refetch = () => {
+    qc.invalidateQueries({ queryKey: ['tms-liquidaciones'] })
+    // Aprobar o pagar mueve los totales, no solo la fila: sin esto los
+    // indicadores de arriba se quedan con la cifra anterior.
+    qc.invalidateQueries({ queryKey: ['tms-liquidaciones-resumen'] })
+  }
 
   async function accion(l: Liquidacion, tipo: 'revisar' | 'aprobar' | 'rechazar' | 'pagar') {
     try {

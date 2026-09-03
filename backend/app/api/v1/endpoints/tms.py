@@ -4,7 +4,7 @@ Prefijo: /tms
 """
 from datetime import date, datetime
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import select, func, and_, or_, delete as sa_delete, Integer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -1178,11 +1178,60 @@ async def actualizar_costos(
 
 # ─── LIQUIDACIONES ────────────────────────────────────────────────────────────
 
+@router.get("/liquidaciones/resumen")
+async def resumen_liquidaciones(
+    conductor_hcm_id: Optional[int] = None,
+    periodo: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """Los totales por estado, contados en la base.
+
+    Existe porque la pantalla sumaba los totales recorriendo la lista completa
+    en el navegador. Eso obliga a bajarla entera —un año son 2.800 liquidaciones
+    y casi un megabyte— y, peor, hace que cualquier tope que se le ponga a la
+    lista rompa los totales sin que nadie lo note: seguirían apareciendo, solo
+    que mal. Con el resumen aparte, la lista se puede paginar tranquila.
+    """
+    filtros = []
+    if conductor_hcm_id:
+        filtros.append(TMSLiquidacion.conductor_hcm_id == conductor_hcm_id)
+    if periodo:
+        filtros.append(TMSLiquidacion.periodo == periodo)
+
+    filas = (await db.execute(
+        select(TMSLiquidacion.estado,
+               func.count(TMSLiquidacion.id),
+               func.coalesce(func.sum(TMSLiquidacion.total_a_pagar), 0))
+        .where(*filtros)
+        .group_by(TMSLiquidacion.estado)
+    )).all()
+
+    por_estado = {
+        (e.value if hasattr(e, "value") else str(e)): {"cantidad": n, "total": float(t)}
+        for e, n, t in filas
+    }
+    pendientes = ("BORRADOR", "PENDIENTE", "APROBADA")
+    return {
+        "por_estado": por_estado,
+        "cantidad_total": sum(v["cantidad"] for v in por_estado.values()),
+        "total_pendiente": sum(v["total"] for k, v in por_estado.items()
+                               if k in pendientes),
+        "total_pagado": por_estado.get("PAGADA", {}).get("total", 0.0),
+        "en_proceso": por_estado.get("PENDIENTE", {}).get("cantidad", 0),
+        "por_liquidar": sum(v["cantidad"] for k, v in por_estado.items()
+                            if k in ("BORRADOR", "PENDIENTE")),
+    }
+
+
 @router.get("/liquidaciones", response_model=List[TMSLiquidacionResponse])
 async def listar_liquidaciones(
+    respuesta: Response,
     estado: Optional[str] = None,
     conductor_hcm_id: Optional[int] = None,
     periodo: Optional[str] = None,
+    limite: int = Query(200, ge=1, le=2000),
+    desplazamiento: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
@@ -1193,7 +1242,17 @@ async def listar_liquidaciones(
         q = q.where(TMSLiquidacion.conductor_hcm_id == conductor_hcm_id)
     if periodo:
         q = q.where(TMSLiquidacion.periodo == periodo)
-    r = await db.execute(q.order_by(TMSLiquidacion.id.desc()))
+
+    # El total va en la cabecera y no en el cuerpo para no cambiarle la forma a
+    # la respuesta, que ya está publicada como una lista.
+    total = (await db.execute(
+        select(func.count()).select_from(q.subquery()))).scalar() or 0
+    respuesta.headers["X-Total-Count"] = str(total)
+    respuesta.headers["Access-Control-Expose-Headers"] = "X-Total-Count"
+
+    r = await db.execute(
+        q.order_by(TMSLiquidacion.id.desc())
+        .offset(desplazamiento).limit(limite))
     return r.scalars().all()
 
 
