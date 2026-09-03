@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Card,
@@ -67,8 +68,11 @@ interface Viaje {
 interface Alerta {
   id: number
   nivel: 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAJA' | 'INFO'
+  tipo?: string
   mensaje: string
   viaje_codigo: string | null
+  conductor_id?: number | null
+  vehiculo_placa?: string | null
 }
 
 interface KPIs {
@@ -168,7 +172,30 @@ const otifChip = (viaje: Viaje) => {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function TMSDashboard() {
-  const [, setSelectedAlerta] = useState<number | null>(null)
+  const navegar = useNavigate()
+  const qc = useQueryClient()
+
+  // Atender una alerta es dos cosas a la vez: ir a ver de qué se trata y dejar
+  // de verla en la lista. Antes el botón guardaba el id en un estado que nadie
+  // leía —`const [, setSelectedAlerta]`—, así que no hacía absolutamente nada.
+  const marcarLeida = useMutation({
+    mutationFn: (id: number) => api.put(`/tms/alertas/${id}/leer`),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['tms-alertas'] })
+      qc.invalidateQueries({ queryKey: ['tms-kpis'] })
+    },
+  })
+
+  const atender = (alerta: Alerta) => {
+    marcarLeida.mutate(alerta.id)
+    if (alerta.viaje_codigo) {
+      navegar(`/tms/viajes?q=${encodeURIComponent(alerta.viaje_codigo)}`)
+    } else if (alerta.conductor_id) {
+      navegar('/tms/conductores')
+    } else if (alerta.vehiculo_placa) {
+      navegar(`/tms/vehiculos?q=${encodeURIComponent(alerta.vehiculo_placa)}`)
+    }
+  }
 
   // Se refresca solo: esto es una torre de control y el rótulo dice «en vivo».
   const { data: kpi } = useQuery<KPIs>({
@@ -345,7 +372,7 @@ export default function TMSDashboard() {
                           </Stack>
                           <Typography fontSize={12}>{alerta.mensaje}</Typography>
                         </Box>
-                        <Button size="small" variant="outlined" sx={{ fontSize: 11, py: 0.25, px: 1, minWidth: 'auto', borderColor: c.icon, color: c.icon, '&:hover': { borderColor: c.icon, bgcolor: alpha(c.icon, 0.08) } }} onClick={() => setSelectedAlerta(alerta.id)}>
+                        <Button size="small" variant="outlined" sx={{ fontSize: 11, py: 0.25, px: 1, minWidth: 'auto', borderColor: c.icon, color: c.icon, '&:hover': { borderColor: c.icon, bgcolor: alpha(c.icon, 0.08) } }} onClick={() => atender(alerta)}>
                           Ver
                         </Button>
                       </Stack>

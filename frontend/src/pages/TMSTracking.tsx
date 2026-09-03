@@ -384,7 +384,7 @@ function MapaDelViaje({ viaje, eventos, paradas }: {
             px: 1.75, py: 1.25,
           }}>
             <Stack direction="row" alignItems="center" spacing={0.75} mb={0.5}
-                   sx={{ color: '#93C5FD' }}>
+                   sx={{ color: '#BFDBFE' }}>
               {c.icono}
               <Typography sx={{ fontSize: 11.5 }}>{c.titulo}</Typography>
             </Stack>
@@ -406,14 +406,16 @@ function MapaDelViaje({ viaje, eventos, paradas }: {
           ? { ...ultimo, etiqueta: `${viaje.codigo} · ${viaje.placa}` } : null}
         altura={330}
         color="#60A5FA"
+        marcaActual="camion"
+        avancePct={viaje.porcentaje}
       />
 
       <Stack direction="row" alignItems="center" justifyContent="space-between"
              sx={{ mt: 1.5 }}>
-        <Typography sx={{ color: '#7C8DB5', fontSize: 11 }}>
+        <Typography sx={{ color: '#94A3B8', fontSize: 11 }}>
           Línea continua: posiciones reportadas. Punteada: lo que falta.
         </Typography>
-        <Typography sx={{ color: '#7C8DB5', fontSize: 11 }}>
+        <Typography sx={{ color: '#94A3B8', fontSize: 11 }}>
           {viaje.ultimaActualizacion}
         </Typography>
       </Stack>

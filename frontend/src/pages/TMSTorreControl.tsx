@@ -22,7 +22,11 @@ import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
+import { apiClient as api } from '@/api/client';
+import { listaDe } from '@/utils/listaApi';
 
 import { COLOR_MODULO } from '@/config/marca';
 // ─── Interfaces ────────────────────────────────────────────────────────────────
@@ -63,183 +67,74 @@ interface ProximaEntrega {
   estado: 'ON_TIME' | 'EN_RIESGO' | 'DEMORADO';
 }
 
-// ─── Mock Data ─────────────────────────────────────────────────────────────────
+// ─── Lo que devuelve el API ──────────────────────────────────────────────────
 
-const vehiculosEnRuta: VehiculoEnRuta[] = [
-  {
-    placa: 'TRK-8821',
-    conductor: 'Carlos Medina',
-    origen: 'Bogotá',
-    destino: 'Medellín',
-    velocidad: 78,
-    porcentaje: 62,
-    estado: 'NORMAL',
-  },
-  {
-    placa: 'TRK-4453',
-    conductor: 'Jesús Vargas',
-    origen: 'Cali',
-    destino: 'Bogotá',
-    velocidad: 0,
-    porcentaje: 38,
-    estado: 'DEMORADO',
-  },
-  {
-    placa: 'TRK-9910',
-    conductor: 'Pedro Romero',
-    origen: 'Barranquilla',
-    destino: 'Cartagena',
-    velocidad: 65,
-    porcentaje: 81,
-    estado: 'NORMAL',
-  },
-  {
-    placa: 'TRK-3312',
-    conductor: 'Luis Herrera',
-    origen: 'Bucaramanga',
-    destino: 'Bogotá',
-    velocidad: 0,
-    porcentaje: 20,
-    estado: 'CRITICO',
-  },
-  {
-    placa: 'TRK-7742',
-    conductor: 'Andrés Torres',
-    origen: 'Medellín',
-    destino: 'Cali',
-    velocidad: 82,
-    porcentaje: 55,
-    estado: 'NORMAL',
-  },
-  {
-    placa: 'TRK-6601',
-    conductor: 'Fabio Suárez',
-    origen: 'Cartagena',
-    destino: 'Barranquilla',
-    velocidad: 70,
-    porcentaje: 90,
-    estado: 'NORMAL',
-  },
-];
+interface ViajeAPI {
+  id: number; codigo: string; estado: string
+  origen_ciudad: string | null; destino_ciudad: string | null
+  conductor_nombre: string | null; vehiculo_placa: string | null
+  fecha_real_cargue: string | null; fecha_programada_entrega: string | null
+}
 
-const alertasActivas: AlertaActiva[] = [
-  {
-    id: 1,
-    tipo: 'DEMORA',
-    mensaje: 'TRK-4453 detenido >45 min en vía Cali-Bogotá',
-    viaje: 'VJ-20240619-047',
-    hora: '08:12',
-    prioridad: 'ALTA',
-  },
-  {
-    id: 2,
-    tipo: 'SIN_GPS',
-    mensaje: 'Sin señal GPS — TRK-3312 hace 32 minutos',
-    viaje: 'VJ-20240619-031',
-    hora: '08:29',
-    prioridad: 'ALTA',
-  },
-  {
-    id: 3,
-    tipo: 'INCIDENTE',
-    mensaje: 'Accidente reportado en Autopista Bogotá-Medellín km 89',
-    viaje: 'VJ-20240619-058',
-    hora: '08:44',
-    prioridad: 'ALTA',
-  },
-  {
-    id: 4,
-    tipo: 'DOCUMENTO',
-    mensaje: 'Manifiesto de carga vencido — TRK-7742',
-    viaje: 'VJ-20240619-042',
-    hora: '09:01',
-    prioridad: 'MEDIA',
-  },
-  {
-    id: 5,
-    tipo: 'DEMORA',
-    mensaje: 'TRK-9910 llegará 25 min tarde a Cartagena',
-    viaje: 'VJ-20240619-039',
-    hora: '09:15',
-    prioridad: 'BAJA',
-  },
-];
+interface AlertaAPI {
+  id: number; tipo: string; nivel: string; mensaje: string
+  viaje_codigo: string | null; vehiculo_placa: string | null
+  fecha_alerta: string
+}
 
-const viajesCriticos: ViajesCriticos[] = [
-  {
-    codigo: 'VJ-20240619-031',
-    conductor: 'Luis Herrera',
-    ruta: 'Bucaramanga → Bogotá',
-    tipoAlerta: 'SIN_GPS',
-    minutosRetraso: 90,
-    estado: 'Sin señal',
-  },
-  {
-    codigo: 'VJ-20240619-047',
-    conductor: 'Jesús Vargas',
-    ruta: 'Cali → Bogotá',
-    tipoAlerta: 'DEMORADO',
-    minutosRetraso: 65,
-    estado: 'Detenido',
-  },
-  {
-    codigo: 'VJ-20240619-058',
-    conductor: 'Carlos Medina',
-    ruta: 'Bogotá → Medellín',
-    tipoAlerta: 'INCIDENTE',
-    minutosRetraso: 45,
-    estado: 'En incidente',
-  },
-  {
-    codigo: 'VJ-20240619-042',
-    conductor: 'Andrés Torres',
-    ruta: 'Medellín → Cali',
-    tipoAlerta: 'DEMORADO',
-    minutosRetraso: 30,
-    estado: 'En tránsito',
-  },
-];
+interface KPIsAPI {
+  viajes_en_transito: number; viajes_hoy: number
+  otif_rate: number; on_time_rate: number
+  costo_promedio_km: number; km_recorridos_mes: number
+  alertas_criticas: number; vehiculos_activos: number
+}
 
-const proximasEntregas: ProximaEntrega[] = [
-  {
-    hora: '10:30',
-    cliente: 'Almacenes Éxito S.A.',
-    ciudad: 'Cartagena',
-    viaje: 'VJ-20240619-039',
-    estado: 'ON_TIME',
-  },
-  {
-    hora: '11:00',
-    cliente: 'Grupo Nutresa',
-    ciudad: 'Medellín',
-    viaje: 'VJ-20240619-044',
-    estado: 'EN_RIESGO',
-  },
-  {
-    hora: '11:45',
-    cliente: 'Colombina S.A.',
-    ciudad: 'Cali',
-    viaje: 'VJ-20240619-047',
-    estado: 'DEMORADO',
-  },
-  {
-    hora: '12:15',
-    cliente: 'Bavaria S.A.',
-    ciudad: 'Bogotá',
-    viaje: 'VJ-20240619-051',
-    estado: 'ON_TIME',
-  },
-  {
-    hora: '13:00',
-    cliente: 'Postobón S.A.',
-    ciudad: 'Barranquilla',
-    viaje: 'VJ-20240619-055',
-    estado: 'ON_TIME',
-  },
-];
+interface DiaAPI {
+  fecha: string; viajes_completados: number
+  otif_rate: number; on_time_rate: number; costo_promedio_km: number
+}
 
-const sparklineData = [18, 28, 22, 35, 30, 40, 34];
-const sparklineCost = [32, 28, 35, 30, 38, 33, 36];
+const hhmm = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleTimeString('es-CO',
+    { hour: '2-digit', minute: '2-digit' }) : '--:--';
+
+/** Minutos de retraso sobre la hora prevista. Negativo significa que va a tiempo. */
+function retrasoMin(v: ViajeAPI): number {
+  if (!v.fecha_programada_entrega) return 0;
+  return Math.round((Date.now() - Date.parse(v.fecha_programada_entrega)) / 60000);
+}
+
+/** Cuánto lleva recorrido, medido del reloj. */
+function avance(v: ViajeAPI): number {
+  const a = v.fecha_real_cargue ? Date.parse(v.fecha_real_cargue) : NaN;
+  const b = v.fecha_programada_entrega ? Date.parse(v.fecha_programada_entrega) : NaN;
+  if (!Number.isFinite(a) || !Number.isFinite(b) || b <= a) return 0;
+  return Math.max(0, Math.min(100, Math.round((Date.now() - a) / (b - a) * 100)));
+}
+
+function situacion(v: ViajeAPI): VehiculoEnRuta['estado'] {
+  const m = retrasoMin(v);
+  if (m > 360) return 'CRITICO';
+  if (m > 0) return 'DEMORADO';
+  return 'NORMAL';
+}
+
+// El tipo de alerta del servidor, traducido a las cuatro clases que esta
+// pantalla sabe pintar. Lo que no encaja se muestra como incidente en vez de
+// desaparecer: una alerta que no se ve es peor que una mal clasificada.
+const TIPO_ALERTA: Record<string, AlertaActiva['tipo']> = {
+  RETRASO_VIAJE: 'DEMORA',
+  SIN_GPS: 'SIN_GPS',
+  VENCIMIENTO_DOCUMENTO: 'DOCUMENTO',
+  VEHICULO_FUERA_SERVICIO: 'INCIDENTE',
+  VELOCIDAD_EXCESIVA: 'INCIDENTE',
+  DESVIO_RUTA: 'INCIDENTE',
+  CONDUCTOR_SIN_DESCANSO: 'INCIDENTE',
+};
+
+const PRIORIDAD: Record<string, AlertaActiva['prioridad']> = {
+  CRITICA: 'ALTA', ALTA: 'ALTA', MEDIA: 'MEDIA', BAJA: 'BAJA', INFO: 'BAJA',
+};
 
 const TMS_COLOR = COLOR_MODULO;
 
@@ -301,6 +196,115 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
 
 export default function TMSTorreControl() {
   const [timestamp, setTimestamp] = useState<string>('');
+  const navegar = useNavigate();
+  const qc = useQueryClient();
+
+  // Una torre de control mira lo que pasa ahora. Se refresca sola cada minuto
+  // porque el rótulo dice «en vivo» y quedarse con la foto de cuando se abrió
+  // la pantalla es exactamente lo contrario.
+  const refresco = { refetchInterval: 60_000 } as const;
+
+  const { data: enTransito = [] } = useQuery<ViajeAPI[]>({
+    queryKey: ['torre-transito'],
+    queryFn: () => api.get('/tms/viajes',
+      { params: { estado: 'EN_TRANSITO', per_page: 100 } })
+      .then((r: { data: unknown }) => listaDe<ViajeAPI>(r.data)),
+    ...refresco,
+  });
+
+  const { data: alertasAPI = [] } = useQuery<AlertaAPI[]>({
+    queryKey: ['torre-alertas'],
+    queryFn: () => api.get('/tms/alertas', { params: { leida: false } })
+      .then((r: { data: unknown }) => listaDe<AlertaAPI>(r.data)),
+    ...refresco,
+  });
+
+  const { data: kpi } = useQuery<KPIsAPI>({
+    queryKey: ['torre-kpis'],
+    queryFn: () => api.get('/tms/dashboard/kpis').then((r: { data: KPIsAPI }) => r.data),
+    ...refresco,
+  });
+
+  const { data: serie = [] } = useQuery<DiaAPI[]>({
+    queryKey: ['torre-serie'],
+    queryFn: () => api.get('/tms/kpis/serie', { params: { dias: 14 } })
+      .then((r: { data: unknown }) => listaDe<DiaAPI>(r.data)),
+  });
+
+  const marcarLeida = useMutation({
+    mutationFn: (id: number) => api.put(`/tms/alertas/${id}/leer`),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['torre-alertas'] });
+      qc.invalidateQueries({ queryKey: ['torre-kpis'] });
+    },
+  });
+
+  const refrescarTodo = () => {
+    for (const k of ['torre-transito', 'torre-alertas', 'torre-kpis', 'torre-serie']) {
+      qc.invalidateQueries({ queryKey: [k] });
+    }
+  };
+
+  // ── Lo que pinta la pantalla, derivado de lo anterior ──
+  const vehiculosEnRuta: VehiculoEnRuta[] = enTransito.slice(0, 12).map((v) => ({
+    placa: v.vehiculo_placa ?? '—',
+    conductor: v.conductor_nombre ?? 'Sin asignar',
+    origen: v.origen_ciudad ?? '—',
+    destino: v.destino_ciudad ?? '—',
+    // La velocidad instantánea viene por evento de GPS, no por viaje: pedirla
+    // para doce viajes serían doce consultas más en una pantalla que ya se
+    // refresca sola. Se deja en cero y la columna lo muestra como «—».
+    velocidad: 0,
+    porcentaje: avance(v),
+    estado: situacion(v),
+  }));
+
+  const alertasActivas: AlertaActiva[] = alertasAPI.slice(0, 10).map((a) => ({
+    id: a.id,
+    tipo: TIPO_ALERTA[a.tipo] ?? 'INCIDENTE',
+    mensaje: a.mensaje,
+    viaje: a.viaje_codigo ?? a.vehiculo_placa ?? '',
+    hora: hhmm(a.fecha_alerta),
+    prioridad: PRIORIDAD[a.nivel] ?? 'MEDIA',
+  }));
+
+  // Crítico es lo que ya pasó de su hora de entrega y sigue rodando. No es una
+  // etiqueta que alguien puso: es una consecuencia de las fechas.
+  const viajesCriticos: ViajesCriticos[] = enTransito
+    .map((v) => ({ v, min: retrasoMin(v) }))
+    .filter((x) => x.min > 0)
+    .sort((a, b) => b.min - a.min)
+    .slice(0, 8)
+    .map(({ v, min }) => ({
+      codigo: v.codigo,
+      conductor: v.conductor_nombre ?? 'Sin asignar',
+      ruta: `${v.origen_ciudad ?? '—'} → ${v.destino_ciudad ?? '—'}`,
+      tipoAlerta: min > 360 ? 'INCIDENTE' : 'DEMORADO',
+      minutosRetraso: min,
+      estado: min > 360 ? 'Retraso crítico' : 'Demorado',
+    }));
+
+  const proximasEntregas: ProximaEntrega[] = enTransito
+    .filter((v) => v.fecha_programada_entrega)
+    .sort((a, b) => Date.parse(a.fecha_programada_entrega!)
+                  - Date.parse(b.fecha_programada_entrega!))
+    .slice(0, 8)
+    .map((v) => {
+      const min = retrasoMin(v);
+      return {
+        hora: hhmm(v.fecha_programada_entrega),
+        cliente: v.conductor_nombre ?? '—',
+        ciudad: v.destino_ciudad ?? '—',
+        viaje: v.codigo,
+        estado: min > 0 ? 'DEMORADO' : min > -60 ? 'EN_RIESGO' : 'ON_TIME',
+      };
+    });
+
+  // Las minigráficas salen de la serie diaria real. Antes eran dos listas de
+  // números escritas en el código: la misma curva para todos los clientes y
+  // todos los días, que invita a decidir sobre una tendencia que no existe.
+  const sparklineData = serie.map((d) => d.otif_rate);
+  const sparklineCost = serie.map((d) => d.costo_promedio_km);
 
   useEffect(() => {
     function tick() {
@@ -395,6 +399,7 @@ export default function TMSTorreControl() {
                 py: 0.3,
                 '&:hover': { borderColor: TMS_COLOR, color: '#F1F5F9' },
               }}
+              onClick={refrescarTodo}
             >
               Actualizar
             </Button>
@@ -653,11 +658,18 @@ export default function TMSTorreControl() {
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1 }}>
                   <Typography sx={{ color: '#4ADE80', fontSize: 38, fontWeight: 800, lineHeight: 1 }}>
-                    87.3%
+                    {(kpi?.otif_rate ?? 0).toFixed(1)}%
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
                     <TrendingUpIcon sx={{ color: '#4ADE80', fontSize: 18 }} />
-                    <Typography sx={{ color: '#4ADE80', fontSize: 12 }}>+1.2%</Typography>
+                    <Typography sx={{ color: '#4ADE80', fontSize: 12 }}>
+                      {serie.length >= 2
+                        ? `${(serie[serie.length - 1].otif_rate
+                             - serie[serie.length - 2].otif_rate >= 0 ? '+' : '')}${
+                            (serie[serie.length - 1].otif_rate
+                             - serie[serie.length - 2].otif_rate).toFixed(1)}%`
+                        : ''}
+                    </Typography>
                   </Box>
                 </Box>
                 <Typography sx={{ color: '#475569', fontSize: 11, mt: 0.5 }}>
@@ -684,11 +696,13 @@ export default function TMSTorreControl() {
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1 }}>
                   <Typography sx={{ color: '#38BDF8', fontSize: 38, fontWeight: 800, lineHeight: 1 }}>
-                    8
+                    {kpi?.viajes_en_transito ?? 0}
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
                     <TrendingUpIcon sx={{ color: '#38BDF8', fontSize: 18 }} />
-                    <Typography sx={{ color: '#38BDF8', fontSize: 12 }}>+2</Typography>
+                    <Typography sx={{ color: '#38BDF8', fontSize: 12 }}>
+                      {kpi?.viajes_hoy ?? 0} hoy
+                    </Typography>
                   </Box>
                 </Box>
                 <Typography sx={{ color: '#475569', fontSize: 11, mt: 0.5 }}>
@@ -711,18 +725,18 @@ export default function TMSTorreControl() {
             >
               <CardContent sx={{ p: 2.5 }}>
                 <Typography sx={{ color: '#64748B', fontSize: 11, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', mb: 0.5 }}>
-                  Entregas On Time Hoy
+                  Cumplimiento On Time
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1 }}>
                   <Typography sx={{ color: '#4ADE80', fontSize: 38, fontWeight: 800, lineHeight: 1 }}>
-                    24/28
+                    {(kpi?.on_time_rate ?? 0).toFixed(1)}%
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
                     <TrendingUpIcon sx={{ color: '#4ADE80', fontSize: 18 }} />
                   </Box>
                 </Box>
                 <Typography sx={{ color: '#475569', fontSize: 11, mt: 0.5 }}>
-                  completadas hoy
+                  este mes
                 </Typography>
                 <Sparkline data={[20, 24, 22, 30, 28, 32, 30]} color='#4ADE80' />
               </CardContent>
@@ -744,16 +758,18 @@ export default function TMSTorreControl() {
                   Costo del Día
                 </Typography>
                 <Typography sx={{ color: '#F1F5F9', fontSize: 30, fontWeight: 800, lineHeight: 1.1 }}>
-                  $4,820,000
+                  {new Intl.NumberFormat('es-CO', { style: 'currency',
+                    currency: 'COP', maximumFractionDigits: 0 })
+                    .format(kpi?.costo_promedio_km ?? 0)}
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
                   <TrendingUpIcon sx={{ color: '#F97316', fontSize: 16 }} />
                   <Typography sx={{ color: '#F97316', fontSize: 12, fontWeight: 600 }}>
-                    +3.2% vs ayer
+                    {(kpi?.km_recorridos_mes ?? 0).toLocaleString('es-CO')} km este mes
                   </Typography>
                 </Box>
                 <Typography sx={{ color: '#475569', fontSize: 11 }}>
-                  acumulado hoy
+                  costo por kilómetro
                 </Typography>
                 <Sparkline data={sparklineCost} color='#F97316' />
               </CardContent>
@@ -1027,15 +1043,31 @@ export default function TMSTorreControl() {
                 </Typography>
               </Box>
               <Box sx={{ p: 2 }}>
+                {/* Todo sale del último día con registro. Antes eran ocho
+                    cifras escritas a mano que no cambiaban nunca. El desglose
+                    de combustible y peajes no está acá porque se costea por
+                    viaje, no por día: inventarle un total diario habría sido
+                    una cifra sin nada detrás. */}
                 {[
-                  { label: 'Viajes completados', value: '24', color: '#4ADE80' },
-                  { label: 'Viajes en tránsito', value: '8', color: '#38BDF8' },
-                  { label: 'Viajes programados', value: '6', color: '#A78BFA' },
-                  { label: 'Km recorridos', value: '12,840 km', color: TMS_COLOR },
-                  { label: 'Costo combustible', value: '$3,200,000', color: '#F1F5F9' },
-                  { label: 'Peajes', value: '$820,000', color: '#F1F5F9' },
-                  { label: 'Incidentes', value: '2', color: '#EF4444' },
-                  { label: 'OTIF Rate', value: '87.3%', color: '#4ADE80' },
+                  { label: 'Viajes completados hoy',
+                    value: String(kpi?.viajes_hoy ?? 0), color: '#4ADE80' },
+                  { label: 'Viajes en tránsito',
+                    value: String(kpi?.viajes_en_transito ?? 0), color: '#38BDF8' },
+                  { label: 'Vehículos activos',
+                    value: String(kpi?.vehiculos_activos ?? 0), color: '#A78BFA' },
+                  { label: 'Km recorridos (mes)',
+                    value: `${(kpi?.km_recorridos_mes ?? 0).toLocaleString('es-CO')} km`,
+                    color: TMS_COLOR },
+                  { label: 'Costo por kilómetro',
+                    value: new Intl.NumberFormat('es-CO', { style: 'currency',
+                      currency: 'COP', maximumFractionDigits: 0 })
+                      .format(kpi?.costo_promedio_km ?? 0), color: '#F1F5F9' },
+                  { label: 'Alertas sin leer',
+                    value: String(alertasAPI.length), color: '#F1F5F9' },
+                  { label: 'Alertas críticas',
+                    value: String(kpi?.alertas_criticas ?? 0), color: '#EF4444' },
+                  { label: 'OTIF del mes',
+                    value: `${(kpi?.otif_rate ?? 0).toFixed(1)}%`, color: '#4ADE80' },
                 ].map((row, i, arr) => (
                   <Box
                     key={row.label}

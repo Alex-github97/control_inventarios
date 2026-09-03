@@ -425,7 +425,11 @@ function NuevoViajeDialog({ open, onClose, onCreado, vehiculos, conductores }: {
 export default function TMSViajes() {
   const qc = useQueryClient()
   const [estadoFiltro, setEstadoFiltro] = useState<EstadoViaje | 'TODOS'>('TODOS')
-  const [busqueda, setBusqueda] = useState('')
+  // La búsqueda puede llegar en la dirección: es lo que permite que una alerta
+  // del tablero abra esta pantalla ya filtrada por su viaje, en vez de dejar al
+  // usuario buscándolo a mano entre miles.
+  const [busqueda, setBusqueda] = useState(
+    () => new URLSearchParams(window.location.search).get('q') ?? '')
   const [dialogNuevo, setDialogNuevo] = useState(false)
   const [viajeVer, setViajeVer] = useState<ViajeApi | null>(null)
 

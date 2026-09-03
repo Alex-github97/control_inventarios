@@ -2,7 +2,7 @@
 API endpoints — TMS (Transportation Management System)
 Prefijo: /tms
 """
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import select, func, and_, or_, delete as sa_delete, Integer
@@ -1397,6 +1397,42 @@ async def resumen_otif(
 
 
 # ─── KPIs DIARIOS ─────────────────────────────────────────────────────────────
+
+@router.get("/kpis/serie")
+async def serie_kpis(
+    dias: int = Query(14, ge=2, le=180),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """La serie de los últimos días, para las minigráficas de la torre.
+
+    Existe porque la torre de control dibujaba sus tendencias con una lista de
+    números escrita en el código: la misma curva para todos los clientes y para
+    todos los días. Una tendencia inventada es peor que no tener tendencia,
+    porque invita a decidir sobre ella.
+
+    Se devuelven los días que existen, sin rellenar los faltantes: un día sin
+    operación no es un día con cero OTIF, y dibujarlo como cero hundiría la curva
+    cada fin de semana.
+    """
+    desde = date.today() - timedelta(days=dias)
+    filas = (await db.execute(
+        select(TMSKPIDiario)
+        .where(TMSKPIDiario.fecha >= desde)
+        .order_by(TMSKPIDiario.fecha.asc())
+    )).scalars().all()
+    return [{
+        "fecha": f.fecha.isoformat(),
+        "viajes_programados": f.viajes_programados,
+        "viajes_completados": f.viajes_completados,
+        "otif_rate": round(float(f.otif_rate or 0), 2),
+        "on_time_rate": round(float(f.on_time_rate or 0), 2),
+        "costo_promedio_km": round(float(f.costo_promedio_km or 0), 2),
+        "km_recorridos": round(float(f.km_recorridos or 0), 1),
+        "km_vacios": round(float(f.km_vacios or 0), 1),
+        "utilizacion_flota": round(float(f.utilizacion_flota or 0), 2),
+    } for f in filas]
+
 
 @router.post("/kpis/calcular")
 async def calcular_kpis_diarios(
