@@ -183,7 +183,8 @@
       "agsIngresos": "Ingresos",
       "agsServicios": "Servicios",
       "agsEquipo": "Equipo",
-      "catalogos": "Catálogos"
+      "catalogos": "Catálogos",
+      "terminalPlanta": "Terminal de Planta"
     },
     "section": {
       "principal": "Principal",

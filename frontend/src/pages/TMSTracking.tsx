@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
   Box,
   Card,
@@ -40,6 +41,8 @@ import {
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 import { apiClient as api } from '@/api/client'
+import { listaDe } from '@/utils/listaApi'
+import { MapaSeguimiento } from '@/components/mapa/MapaSeguimiento'
 
 import { COLOR_MODULO } from '@/config/marca'
 const TMS_COLOR = COLOR_MODULO
@@ -85,181 +88,103 @@ interface ViajeTracking {
   eventos: EventoTracking[]
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
+// ─── Lo que devuelve el API, y cómo se traduce a lo que pinta la pantalla ────
 
-const MOCK_VIAJES: ViajeTracking[] = [
-  {
-    codigo: 'VJ-2025-0841',
-    conductor: 'Carlos Andrés Herrera',
-    placa: 'SDT-492',
-    origen: 'Bogotá',
-    destino: 'Barranquilla',
-    estado: 'NORMAL',
-    porcentaje: 62,
-    etaEstimada: '18:30',
-    ultimaActualizacion: 'hace 3 min',
-    velocidadActual: 78,
-    ciudadActual: 'Bucaramanga',
-    latActual: 7.1198,
-    lngActual: -73.1227,
-    paradas: [
-      { secuencia: 1, ciudad: 'Bogotá', estado: 'COMPLETADA', horaEstimada: '06:00', horaReal: '06:05' },
-      { secuencia: 2, ciudad: 'Tunja', estado: 'COMPLETADA', horaEstimada: '08:00', horaReal: '07:58' },
-      { secuencia: 3, ciudad: 'Bucaramanga', estado: 'EN_CURSO', horaEstimada: '12:00', horaReal: null },
-      { secuencia: 4, ciudad: 'Barranquilla', estado: 'PENDIENTE', horaEstimada: '18:30', horaReal: null },
-    ],
-    eventos: [
-      { id: 1, timestamp: '06:05', tipo: 'SALIDA', descripcion: 'Vehículo salió del centro de distribución Bogotá', lat: 4.7110, lng: -74.0721 },
-      { id: 2, timestamp: '07:15', tipo: 'GPS', descripcion: 'Actualización de posición automática — ruta normal', lat: 5.0710, lng: -73.9500 },
-      { id: 3, timestamp: '07:58', tipo: 'LLEGADA', descripcion: 'Llegada a punto de control Tunja', lat: 5.5353, lng: -73.3578 },
-      { id: 4, timestamp: '08:12', tipo: 'SALIDA', descripcion: 'Salida de Tunja con dirección a Bucaramanga', lat: 5.5353, lng: -73.3578 },
-      { id: 5, timestamp: '10:45', tipo: 'GPS', descripcion: 'Parada en estación de combustible — 18 min', lat: 6.2442, lng: -75.5812 },
-      { id: 6, timestamp: '12:10', tipo: 'LLEGADA', descripcion: 'Ingreso a Bucaramanga, cargando mercancía adicional', lat: 7.1198, lng: -73.1227 },
-    ],
-  },
-  {
-    codigo: 'VJ-2025-0842',
-    conductor: 'María Fernanda López',
-    placa: 'TXB-117',
-    origen: 'Medellín',
-    destino: 'Cali',
-    estado: 'DEMORADO',
-    porcentaje: 45,
-    etaEstimada: '20:15',
-    ultimaActualizacion: 'hace 8 min',
-    velocidadActual: 52,
-    ciudadActual: 'Manizales',
-    latActual: 5.0703,
-    lngActual: -75.5138,
-    paradas: [
-      { secuencia: 1, ciudad: 'Medellín', estado: 'COMPLETADA', horaEstimada: '07:00', horaReal: '07:22' },
-      { secuencia: 2, ciudad: 'Manizales', estado: 'EN_CURSO', horaEstimada: '10:30', horaReal: '11:05' },
-      { secuencia: 3, ciudad: 'Armenia', estado: 'PENDIENTE', horaEstimada: '13:00', horaReal: null },
-      { secuencia: 4, ciudad: 'Cali', estado: 'PENDIENTE', horaEstimada: '16:00', horaReal: null },
-    ],
-    eventos: [
-      { id: 1, timestamp: '07:22', tipo: 'SALIDA', descripcion: 'Salida tardía de Medellín por congestión vehicular', lat: 6.2442, lng: -75.5812 },
-      { id: 2, timestamp: '08:30', tipo: 'INCIDENTE', descripcion: 'Cierre vial temporal en autopista Medellín–Bogotá, desvío activado', lat: 5.8500, lng: -75.0000 },
-      { id: 3, timestamp: '09:15', tipo: 'GPS', descripcion: 'Actualización de posición — velocidad reducida por pendiente', lat: 5.4000, lng: -75.3000 },
-      { id: 4, timestamp: '11:05', tipo: 'LLEGADA', descripcion: 'Llegada a Manizales con 35 min de retraso acumulado', lat: 5.0703, lng: -75.5138 },
-      { id: 5, timestamp: '11:40', tipo: 'GPS', descripcion: 'Conductor reporta condiciones de neblina — velocidad reducida', lat: 5.0703, lng: -75.5138 },
-    ],
-  },
-  {
-    codigo: 'VJ-2025-0843',
-    conductor: 'Jhon Stiven Ríos',
-    placa: 'VGH-853',
-    origen: 'Cali',
-    destino: 'Bogotá',
-    estado: 'CRITICO',
-    porcentaje: 28,
-    etaEstimada: '22:00',
-    ultimaActualizacion: 'hace 22 min',
-    velocidadActual: 0,
-    ciudadActual: 'Ibagué',
-    latActual: 4.4389,
-    lngActual: -75.2322,
-    paradas: [
-      { secuencia: 1, ciudad: 'Cali', estado: 'COMPLETADA', horaEstimada: '05:00', horaReal: '05:10' },
-      { secuencia: 2, ciudad: 'Ibagué', estado: 'EN_CURSO', horaEstimada: '09:30', horaReal: '11:15' },
-      { secuencia: 3, ciudad: 'Bogotá', estado: 'PENDIENTE', horaEstimada: '14:00', horaReal: null },
-    ],
-    eventos: [
-      { id: 1, timestamp: '05:10', tipo: 'SALIDA', descripcion: 'Salida de Cali con carga completa', lat: 3.4516, lng: -76.5320 },
-      { id: 2, timestamp: '07:20', tipo: 'GPS', descripcion: 'Actualización de posición — ruta normal', lat: 4.0000, lng: -75.8000 },
-      { id: 3, timestamp: '09:05', tipo: 'INCIDENTE', descripcion: 'ALERTA: Pinchazo de llanta trasera derecha — vehículo detenido', lat: 4.2500, lng: -75.4000 },
-      { id: 4, timestamp: '09:40', tipo: 'INCIDENTE', descripcion: 'Conductor solicita apoyo mecánico — ETA grúa 60 min', lat: 4.2500, lng: -75.4000 },
-      { id: 5, timestamp: '11:15', tipo: 'LLEGADA', descripcion: 'Ingreso a Ibagué para reparación en taller autorizado', lat: 4.4389, lng: -75.2322 },
-      { id: 6, timestamp: '11:38', tipo: 'GPS', descripcion: 'Sin movimiento detectado — vehículo en taller', lat: 4.4389, lng: -75.2322 },
-    ],
-  },
-  {
-    codigo: 'VJ-2025-0844',
-    conductor: 'Luz Adriana Moreno',
-    placa: 'PLM-201',
-    origen: 'Bogotá',
-    destino: 'Cartagena',
-    estado: 'NORMAL',
-    porcentaje: 15,
-    etaEstimada: '07:00 (mañana)',
-    ultimaActualizacion: 'hace 1 min',
-    velocidadActual: 90,
-    ciudadActual: 'Tunja',
-    latActual: 5.5353,
-    lngActual: -73.3578,
-    paradas: [
-      { secuencia: 1, ciudad: 'Bogotá', estado: 'COMPLETADA', horaEstimada: '04:00', horaReal: '04:00' },
-      { secuencia: 2, ciudad: 'Tunja', estado: 'EN_CURSO', horaEstimada: '06:00', horaReal: '05:58' },
-      { secuencia: 3, ciudad: 'Bucaramanga', estado: 'PENDIENTE', horaEstimada: '12:00', horaReal: null },
-      { secuencia: 4, ciudad: 'Valledupar', estado: 'PENDIENTE', horaEstimada: '18:00', horaReal: null },
-      { secuencia: 5, ciudad: 'Cartagena', estado: 'PENDIENTE', horaEstimada: '07:00', horaReal: null },
-    ],
-    eventos: [
-      { id: 1, timestamp: '04:00', tipo: 'SALIDA', descripcion: 'Salida puntual de Bogotá — carga consolidada', lat: 4.7110, lng: -74.0721 },
-      { id: 2, timestamp: '05:00', tipo: 'GPS', descripcion: 'Actualización de posición automática — velocidad óptima', lat: 5.2000, lng: -73.7000 },
-      { id: 3, timestamp: '05:58', tipo: 'LLEGADA', descripcion: 'Llegada anticipada a Tunja — adelantado 2 min', lat: 5.5353, lng: -73.3578 },
-    ],
-  },
-  {
-    codigo: 'VJ-2025-0845',
-    conductor: 'Andrés Felipe Castro',
-    placa: 'RTQ-664',
-    origen: 'Barranquilla',
-    destino: 'Medellín',
-    estado: 'NORMAL',
-    porcentaje: 78,
-    etaEstimada: '16:45',
-    ultimaActualizacion: 'hace 5 min',
-    velocidadActual: 85,
-    ciudadActual: 'Caucasia',
-    latActual: 7.9874,
-    lngActual: -75.1948,
-    paradas: [
-      { secuencia: 1, ciudad: 'Barranquilla', estado: 'COMPLETADA', horaEstimada: '06:00', horaReal: '06:00' },
-      { secuencia: 2, ciudad: 'Montería', estado: 'COMPLETADA', horaEstimada: '09:00', horaReal: '09:10' },
-      { secuencia: 3, ciudad: 'Caucasia', estado: 'EN_CURSO', horaEstimada: '12:00', horaReal: '11:55' },
-      { secuencia: 4, ciudad: 'Medellín', estado: 'PENDIENTE', horaEstimada: '16:45', horaReal: null },
-    ],
-    eventos: [
-      { id: 1, timestamp: '06:00', tipo: 'SALIDA', descripcion: 'Salida de terminal Barranquilla — carga refrigerada', lat: 10.9685, lng: -74.7813 },
-      { id: 2, timestamp: '08:00', tipo: 'GPS', descripcion: 'Actualización automática — sin novedades', lat: 9.5000, lng: -75.0000 },
-      { id: 3, timestamp: '09:10', tipo: 'LLEGADA', descripcion: 'Llegada a Montería para verificación de temperatura', lat: 8.7479, lng: -75.8814 },
-      { id: 4, timestamp: '09:35', tipo: 'SALIDA', descripcion: 'Salida de Montería — temperatura de carga correcta 4°C', lat: 8.7479, lng: -75.8814 },
-      { id: 5, timestamp: '11:55', tipo: 'LLEGADA', descripcion: 'Llegada a Caucasia — parada de combustible programada', lat: 7.9874, lng: -75.1948 },
-    ],
-  },
-  {
-    codigo: 'VJ-2025-0846',
-    conductor: 'Ricardo León Suárez',
-    placa: 'GKP-385',
-    origen: 'Bucaramanga',
-    destino: 'Cali',
-    estado: 'DEMORADO',
-    porcentaje: 55,
-    etaEstimada: '19:30',
-    ultimaActualizacion: 'hace 11 min',
-    velocidadActual: 61,
-    ciudadActual: 'Honda',
-    latActual: 5.2047,
-    lngActual: -74.7418,
-    paradas: [
-      { secuencia: 1, ciudad: 'Bucaramanga', estado: 'COMPLETADA', horaEstimada: '05:00', horaReal: '05:15' },
-      { secuencia: 2, ciudad: 'Bogotá', estado: 'COMPLETADA', horaEstimada: '09:30', horaReal: '10:20' },
-      { secuencia: 3, ciudad: 'Honda', estado: 'EN_CURSO', horaEstimada: '12:00', horaReal: '13:10' },
-      { secuencia: 4, ciudad: 'Ibagué', estado: 'PENDIENTE', horaEstimada: '14:30', horaReal: null },
-      { secuencia: 5, ciudad: 'Cali', estado: 'PENDIENTE', horaEstimada: '18:00', horaReal: null },
-    ],
-    eventos: [
-      { id: 1, timestamp: '05:15', tipo: 'SALIDA', descripcion: 'Salida de Bucaramanga con 15 min de retraso', lat: 7.1198, lng: -73.1227 },
-      { id: 2, timestamp: '08:30', tipo: 'INCIDENTE', descripcion: 'Congestión en entrada a Bogotá — desvío por variante', lat: 6.0000, lng: -74.0000 },
-      { id: 3, timestamp: '10:20', tipo: 'LLEGADA', descripcion: 'Llegada a Bogotá con 50 min de retraso acumulado', lat: 4.7110, lng: -74.0721 },
-      { id: 4, timestamp: '10:55', tipo: 'SALIDA', descripcion: 'Salida de Bogotá con nueva ruta estimada', lat: 4.7110, lng: -74.0721 },
-      { id: 5, timestamp: '13:10', tipo: 'LLEGADA', descripcion: 'Llegada a Honda — pausa obligatoria del conductor', lat: 5.2047, lng: -74.7418 },
-    ],
-  },
-]
+interface ViajeAPI {
+  id: number
+  codigo: string
+  estado: string
+  origen_ciudad: string | null
+  destino_ciudad: string | null
+  conductor_nombre: string | null
+  vehiculo_placa: string | null
+  fecha_real_cargue: string | null
+  fecha_programada_entrega: string | null
+}
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+interface EventoAPI {
+  id: number
+  tipo_evento: string
+  descripcion: string | null
+  lat: number | null
+  lng: number | null
+  velocidad_kmh: number | null
+  timestamp: string
+}
+
+interface ParadaAPI {
+  id: number
+  secuencia: number
+  ciudad: string
+  estado: string
+  lat: number | null
+  lng: number | null
+  tiempo_estimado_llegada: string | null
+  tiempo_real_llegada: string | null
+}
+
+const hora = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleTimeString('es-CO',
+    { hour: '2-digit', minute: '2-digit' }) : '—'
+
+/** Hace cuánto llegó el último reporte. */
+function desdeHace(iso: string | null): string {
+  if (!iso) return 'sin reportes'
+  const minutos = Math.round((Date.now() - Date.parse(iso)) / 60000)
+  if (!Number.isFinite(minutos)) return 'sin reportes'
+  if (minutos < 1) return 'hace un momento'
+  if (minutos < 60) return `hace ${minutos} min`
+  const horas = Math.round(minutos / 60)
+  if (horas < 24) return `hace ${horas} h`
+  return `hace ${Math.round(horas / 24)} d`
+}
+
+/**
+ * Cuánto lleva recorrido, en porcentaje del tiempo previsto.
+ *
+ * Se calcula del reloj y no de la distancia: las posiciones que reporta el GPS
+ * son puntos sueltos y medir avance sobre la recta que los une daría una cifra
+ * que no corresponde al camino real. El tiempo transcurrido sobre el previsto es
+ * una aproximación honesta, y es la que usa un despachador cuando mira.
+ */
+function avance(viaje: ViajeAPI): number {
+  const salida = viaje.fecha_real_cargue ? Date.parse(viaje.fecha_real_cargue) : NaN
+  const llegada = viaje.fecha_programada_entrega
+    ? Date.parse(viaje.fecha_programada_entrega) : NaN
+  if (!Number.isFinite(salida) || !Number.isFinite(llegada) || llegada <= salida) return 0
+  return Math.max(0, Math.min(100,
+    Math.round((Date.now() - salida) / (llegada - salida) * 100)))
+}
+
+/** Un viaje va mal si ya pasó su hora de entrega y sigue rodando. */
+function situacion(viaje: ViajeAPI): EstadoViaje {
+  const llegada = viaje.fecha_programada_entrega
+    ? Date.parse(viaje.fecha_programada_entrega) : NaN
+  if (!Number.isFinite(llegada)) return 'NORMAL'
+  const horasDeMas = (Date.now() - llegada) / 3_600_000
+  if (horasDeMas > 6) return 'CRITICO'
+  if (horasDeMas > 0) return 'DEMORADO'
+  return 'NORMAL'
+}
+
+const TIPO_EVENTO: Record<string, TipoEvento> = {
+  SALIDA_ORIGEN: 'SALIDA',
+  LLEGADA_DESTINO: 'LLEGADA',
+  LLEGADA_PARADA: 'LLEGADA',
+  SALIDA_PARADA: 'SALIDA',
+  INCIDENTE: 'INCIDENTE',
+  RETRASO: 'INCIDENTE',
+  PARADA_NO_PROGRAMADA: 'INCIDENTE',
+  DETENCION: 'INCIDENTE',
+  ACTUALIZACION_GPS: 'GPS',
+}
+
+const ESTADO_PARADA: Record<string, EstadoParada> = {
+  PENDIENTE: 'PENDIENTE',
+  EN_CURSO: 'EN_CURSO',
+  COMPLETADA: 'COMPLETADA',
+  SALTADA: 'PENDIENTE',
+}
 
 function estadoConfig(estado: EstadoViaje) {
   switch (estado) {
@@ -422,131 +347,77 @@ function EmptyDetail() {
   )
 }
 
-function MapSimulation({ viaje }: { viaje: ViajeTracking }) {
-  const pct = viaje.porcentaje
-  return (
-    <Box
-      sx={{
-        bgcolor: '#1a2744',
-        borderRadius: 2,
-        p: 2.5,
-        height: 300,
-        position: 'relative',
-        overflow: 'hidden',
-        border: '1px solid',
-        borderColor: alpha('#60a5fa', 0.2),
-      }}
-    >
-      {/* Grid lines background */}
-      <Box
-        sx={{
-          position: 'absolute', inset: 0, opacity: 0.07,
-          backgroundImage: 'linear-gradient(#60a5fa 1px, transparent 1px), linear-gradient(90deg, #60a5fa 1px, transparent 1px)',
-          backgroundSize: '40px 40px',
-        }}
-      />
+function MapaDelViaje({ viaje, eventos, paradas }: {
+  viaje: ViajeTracking
+  eventos: EventoAPI[]
+  paradas: ParadaAPI[]
+}) {
+  // El rastro son los puntos que reportó el vehículo, en orden.
+  const recorrido = eventos
+    .filter(e => e.lat != null && e.lng != null)
+    .slice()
+    .sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp))
+    .map(e => ({ lat: e.lat as number, lng: e.lng as number }))
 
-      {/* Info cards */}
-      <Stack direction="row" spacing={1.5} mb={2} sx={{ position: 'relative', zIndex: 1 }}>
-        {[
-          { icon: <MyLocation sx={{ fontSize: 14 }} />, label: 'Posición', value: `${viaje.latActual.toFixed(4)}, ${viaje.lngActual.toFixed(4)}` },
-          { icon: <Speed sx={{ fontSize: 14 }} />, label: 'Velocidad', value: viaje.velocidadActual === 0 ? 'Detenido' : `${viaje.velocidadActual} km/h` },
-          { icon: <LocationOn sx={{ fontSize: 14 }} />, label: 'Ciudad actual', value: viaje.ciudadActual },
-        ].map((item, i) => (
-          <Box
-            key={i}
-            sx={{
-              flex: 1, bgcolor: alpha('#0f1e3c', 0.85), borderRadius: 1.5, px: 1.5, py: 1,
-              border: '1px solid', borderColor: alpha('#60a5fa', 0.18),
-            }}
-          >
-            <Stack direction="row" alignItems="center" spacing={0.5} mb={0.3} sx={{ color: '#60a5fa' }}>
-              {item.icon}
-              <Typography variant="caption" sx={{ fontSize: 10, color: '#60a5fa' }}>{item.label}</Typography>
+  const origen = paradas.find(p => p.secuencia === 1)
+  const destino = paradas.length
+    ? paradas.reduce((a, b) => (b.secuencia > a.secuencia ? b : a))
+    : undefined
+  const ultimo = recorrido.length ? recorrido[recorrido.length - 1] : null
+
+  const cajas = [
+    { icono: <MyLocation sx={{ fontSize: 15 }} />, titulo: 'Posición',
+      valor: ultimo ? `${ultimo.lat.toFixed(4)}, ${ultimo.lng.toFixed(4)}` : '—' },
+    { icono: <Speed sx={{ fontSize: 15 }} />, titulo: 'Velocidad',
+      valor: viaje.velocidadActual ? `${viaje.velocidadActual} km/h` : '—' },
+    { icono: <LocationOn sx={{ fontSize: 15 }} />, titulo: 'Destino',
+      valor: viaje.destino },
+  ]
+
+  return (
+    <Paper elevation={0} sx={{ bgcolor: '#111C36', borderRadius: 2, p: 2.5 }}>
+      <Stack direction="row" spacing={1.5} mb={2} flexWrap="wrap" useFlexGap>
+        {cajas.map((c, i) => (
+          <Box key={i} sx={{
+            flex: '1 1 150px', bgcolor: 'rgba(255,255,255,.06)',
+            border: '1px solid rgba(148,163,184,.22)', borderRadius: 1.5,
+            px: 1.75, py: 1.25,
+          }}>
+            <Stack direction="row" alignItems="center" spacing={0.75} mb={0.5}
+                   sx={{ color: '#93C5FD' }}>
+              {c.icono}
+              <Typography sx={{ fontSize: 11.5 }}>{c.titulo}</Typography>
             </Stack>
-            <Typography variant="caption" sx={{ color: '#e2e8f0', fontWeight: 700, fontSize: 11 }}>
-              {item.value}
+            <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: 15,
+                              fontVariantNumeric: 'tabular-nums' }}>
+              {c.valor}
             </Typography>
           </Box>
         ))}
       </Stack>
 
-      {/* Route line */}
-      <Box sx={{ position: 'relative', zIndex: 1, px: 1, mt: 2 }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
-          <Typography variant="caption" sx={{ color: '#93c5fd', fontSize: 11, fontWeight: 600 }}>
-            {viaje.origen}
-          </Typography>
-          <Typography variant="caption" sx={{ color: '#93c5fd', fontSize: 11, fontWeight: 600 }}>
-            {viaje.destino}
-          </Typography>
-        </Stack>
+      <MapaSeguimiento
+        origen={origen && origen.lat != null && origen.lng != null
+          ? { lat: origen.lat, lng: origen.lng, etiqueta: origen.ciudad } : null}
+        destino={destino && destino.lat != null && destino.lng != null
+          ? { lat: destino.lat, lng: destino.lng, etiqueta: destino.ciudad } : null}
+        recorrido={recorrido}
+        actual={ultimo
+          ? { ...ultimo, etiqueta: `${viaje.codigo} · ${viaje.placa}` } : null}
+        altura={330}
+        color="#60A5FA"
+      />
 
-        <Box sx={{ position: 'relative', height: 28, display: 'flex', alignItems: 'center' }}>
-          {/* Background track */}
-          <Box sx={{ position: 'absolute', left: 0, right: 0, height: 3, bgcolor: alpha('#fff', 0.12), borderRadius: 2 }} />
-          {/* Completed segment */}
-          <Box
-            sx={{
-              position: 'absolute', left: 0, height: 3, borderRadius: 2,
-              width: `${pct}%`, bgcolor: alpha(TMS_COLOR, 0.8),
-              transition: 'width 0.5s ease',
-            }}
-          />
-          {/* Origin dot */}
-          <Box
-            sx={{
-              position: 'absolute', left: 0, width: 12, height: 12, borderRadius: '50%',
-              bgcolor: '#16a34a', border: '2px solid #fff', transform: 'translateX(-50%)',
-            }}
-          />
-          {/* Vehicle icon */}
-          <Box
-            sx={{
-              position: 'absolute', left: `${pct}%`, transform: 'translate(-50%, -50%)',
-              top: '50%', zIndex: 2,
-            }}
-          >
-            <Box
-              sx={{
-                bgcolor: TMS_COLOR, borderRadius: 1, p: 0.4, display: 'flex',
-                alignItems: 'center', justifyContent: 'center',
-                border: '2px solid #fff', boxShadow: `0 0 8px ${alpha(TMS_COLOR, 0.8)}`,
-              }}
-            >
-              <LocalShipping sx={{ fontSize: 12, color: '#fff' }} />
-            </Box>
-          </Box>
-          {/* Destination dot */}
-          <Box
-            sx={{
-              position: 'absolute', right: 0, width: 12, height: 12, borderRadius: '50%',
-              bgcolor: '#6b7280', border: '2px solid #fff', transform: 'translateX(50%)',
-            }}
-          />
-        </Box>
-
-        <Stack direction="row" justifyContent="space-between" mt={0.5}>
-          <Typography variant="caption" sx={{ color: '#4b5563', fontSize: 10 }}>Inicio</Typography>
-          <Typography variant="caption" sx={{ color: '#60a5fa', fontSize: 10, fontWeight: 600 }}>
-            {pct}% completado
-          </Typography>
-          <Typography variant="caption" sx={{ color: '#4b5563', fontSize: 10 }}>Destino</Typography>
-        </Stack>
-      </Box>
-
-      {/* Disclaimer */}
-      <Box
-        sx={{
-          position: 'absolute', bottom: 10, left: 0, right: 0, textAlign: 'center',
-          px: 2, zIndex: 1,
-        }}
-      >
-        <Typography variant="caption" sx={{ color: alpha('#9ca3af', 0.6), fontSize: 9, fontStyle: 'italic' }}>
-          Mapa en tiempo real disponible con integración GPS · Última actualización: {viaje.ultimaActualizacion}
+      <Stack direction="row" alignItems="center" justifyContent="space-between"
+             sx={{ mt: 1.5 }}>
+        <Typography sx={{ color: '#7C8DB5', fontSize: 11 }}>
+          Línea continua: posiciones reportadas. Punteada: lo que falta.
         </Typography>
-      </Box>
-    </Box>
+        <Typography sx={{ color: '#7C8DB5', fontSize: 11 }}>
+          {viaje.ultimaActualizacion}
+        </Typography>
+      </Stack>
+    </Paper>
   )
 }
 
@@ -658,8 +529,54 @@ function TripStops({ paradas }: { paradas: Parada[] }) {
   )
 }
 
-function TripDetail({ viaje }: { viaje: ViajeTracking }) {
+function TripDetail({ viaje, viajeId }: { viaje: ViajeTracking; viajeId: number }) {
   const est = estadoConfig(viaje.estado)
+
+  // Los eventos y las paradas se piden solo del viaje abierto. Traerlos de
+  // todos por adelantado serían miles de puntos de GPS para mostrar uno.
+  const { data: eventos = [] } = useQuery<EventoAPI[]>({
+    queryKey: ['tms-eventos', viajeId],
+    queryFn: () => api.get(`/tms/viajes/${viajeId}/eventos`)
+      .then((r: { data: unknown }) => listaDe<EventoAPI>(r.data)),
+    refetchInterval: 60_000,
+  })
+  const { data: paradas = [] } = useQuery<ParadaAPI[]>({
+    queryKey: ['tms-paradas', viajeId],
+    queryFn: () => api.get(`/tms/viajes/${viajeId}/paradas`)
+      .then((r: { data: unknown }) => listaDe<ParadaAPI>(r.data)),
+  })
+
+  const conGps = eventos.filter(e => e.lat != null && e.lng != null)
+  const ultimo = conGps.length
+    ? conGps.reduce((a, b) => (Date.parse(b.timestamp) > Date.parse(a.timestamp) ? b : a))
+    : null
+
+  const conDatos: ViajeTracking = {
+    ...viaje,
+    velocidadActual: Math.round(ultimo?.velocidad_kmh ?? 0),
+    ultimaActualizacion: desdeHace(ultimo?.timestamp ?? null),
+  }
+
+  const linea: EventoTracking[] = eventos
+    .filter(e => TIPO_EVENTO[e.tipo_evento] !== 'GPS')
+    .sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp))
+    .map(e => ({
+      id: e.id,
+      timestamp: hora(e.timestamp),
+      tipo: TIPO_EVENTO[e.tipo_evento] ?? 'GPS',
+      descripcion: e.descripcion ?? e.tipo_evento.replace(/_/g, ' ').toLowerCase(),
+      lat: e.lat ?? 0, lng: e.lng ?? 0,
+    }))
+
+  const listaParadas: Parada[] = paradas
+    .slice()
+    .sort((a, b) => a.secuencia - b.secuencia)
+    .map(p => ({
+      secuencia: p.secuencia, ciudad: p.ciudad,
+      estado: ESTADO_PARADA[p.estado] ?? 'PENDIENTE',
+      horaEstimada: hora(p.tiempo_estimado_llegada),
+      horaReal: p.tiempo_real_llegada ? hora(p.tiempo_real_llegada) : null,
+    }))
   return (
     <Stack spacing={2.5} sx={{ height: '100%', overflowY: 'auto', pr: 0.5 }}>
       {/* Header */}
@@ -690,7 +607,7 @@ function TripDetail({ viaje }: { viaje: ViajeTracking }) {
           </Box>
           <Box sx={{ textAlign: 'right' }}>
             <Typography variant="caption" sx={{ color: '#64748B', fontSize: 10 }}>Última actualización</Typography>
-            <Typography variant="body2" sx={{ color: '#334155', fontSize: 12 }}>{viaje.ultimaActualizacion}</Typography>
+            <Typography variant="body2" sx={{ color: '#334155', fontSize: 12 }}>{conDatos.ultimaActualizacion}</Typography>
           </Box>
         </Stack>
 
@@ -710,10 +627,10 @@ function TripDetail({ viaje }: { viaje: ViajeTracking }) {
         </Stack>
       </Box>
 
-      <MapSimulation viaje={viaje} />
-      <EventTimeline eventos={viaje.eventos} />
+      <MapaDelViaje viaje={conDatos} eventos={eventos} paradas={paradas} />
+      <EventTimeline eventos={linea} />
       <Divider sx={{ borderColor: '#E5E7EB' }} />
-      <TripStops paradas={viaje.paradas} />
+      <TripStops paradas={listaParadas} />
     </Stack>
   )
 }
@@ -724,22 +641,49 @@ export default function TMSTracking() {
   const [search, setSearch] = useState('')
   const [selectedCodigo, setSelectedCodigo] = useState<string | null>(null)
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase()
-    if (!q) return MOCK_VIAJES
-    return MOCK_VIAJES.filter(
-      (v) =>
-        v.codigo.toLowerCase().includes(q) ||
-        v.conductor.toLowerCase().includes(q) ||
-        v.origen.toLowerCase().includes(q) ||
-        v.destino.toLowerCase().includes(q)
-    )
-  }, [search])
+  // Los viajes que van rodando. Se refresca solo: la pantalla dice «en tiempo
+  // real» y quedarse con la foto del momento en que se abrió sería mentir.
+  const { data: crudos = [], isLoading } = useQuery<ViajeAPI[]>({
+    queryKey: ['tms-tracking'],
+    queryFn: () => api.get('/tms/viajes',
+      { params: { estado: 'EN_TRANSITO', per_page: 100 } })
+      .then((r: { data: unknown }) => listaDe<ViajeAPI>(r.data)),
+    refetchInterval: 60_000,
+  })
 
-  const selectedViaje = useMemo(
-    () => MOCK_VIAJES.find((v) => v.codigo === selectedCodigo) ?? null,
-    [selectedCodigo]
-  )
+  const viajes = useMemo(() => crudos.map((v) => ({
+    api: v,
+    vista: {
+      codigo: v.codigo,
+      conductor: v.conductor_nombre ?? 'Sin asignar',
+      placa: v.vehiculo_placa ?? '—',
+      origen: v.origen_ciudad ?? '—',
+      destino: v.destino_ciudad ?? '—',
+      estado: situacion(v),
+      porcentaje: avance(v),
+      etaEstimada: hora(v.fecha_programada_entrega),
+      ultimaActualizacion: 'sin reportes',
+      velocidadActual: 0,
+      ciudadActual: v.destino_ciudad ?? '—',
+      latActual: 0, lngActual: 0,
+      paradas: [], eventos: [],
+    } as ViajeTracking,
+  })), [crudos])
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return viajes
+    return viajes.filter(({ vista }) =>
+      vista.codigo.toLowerCase().includes(q) ||
+      vista.conductor.toLowerCase().includes(q) ||
+      vista.placa.toLowerCase().includes(q) ||
+      vista.origen.toLowerCase().includes(q) ||
+      vista.destino.toLowerCase().includes(q))
+  }, [search, viajes])
+
+  const seleccionado = useMemo(
+    () => viajes.find((v) => v.vista.codigo === selectedCodigo) ?? null,
+    [selectedCodigo, viajes])
 
   return (
     <Layout>
@@ -760,7 +704,7 @@ export default function TMSTracking() {
                 Tracking en Tiempo Real
               </Typography>
               <Typography variant="caption" sx={{ color: '#64748B', fontSize: 11 }}>
-                {MOCK_VIAJES.length} viajes en tránsito · TMS — Módulo de Seguimiento
+                {viajes.length} viajes en tránsito · TMS — Módulo de Seguimiento
               </Typography>
             </Box>
           </Stack>
@@ -805,17 +749,23 @@ export default function TMSTracking() {
 
             <Box sx={{ flex: 1, overflowY: 'auto', p: 1.5 }}>
               <Stack spacing={1}>
-                {filtered.length === 0 ? (
+                {isLoading ? (
                   <Typography variant="body2" sx={{ color: '#64748B', textAlign: 'center', mt: 4 }}>
-                    No se encontraron viajes
+                    Cargando viajes…
+                  </Typography>
+                ) : filtered.length === 0 ? (
+                  <Typography variant="body2" sx={{ color: '#64748B', textAlign: 'center', mt: 4 }}>
+                    {search
+                      ? 'No se encontraron viajes con ese criterio'
+                      : 'Ningún viaje en tránsito en este momento'}
                   </Typography>
                 ) : (
-                  filtered.map((v) => (
+                  filtered.map(({ api: v, vista }) => (
                     <TripCard
-                      key={v.codigo}
-                      viaje={v}
-                      selected={selectedCodigo === v.codigo}
-                      onClick={() => setSelectedCodigo(v.codigo)}
+                      key={v.id}
+                      viaje={vista}
+                      selected={selectedCodigo === vista.codigo}
+                      onClick={() => setSelectedCodigo(vista.codigo)}
                     />
                   ))
                 )}
@@ -832,7 +782,9 @@ export default function TMSTracking() {
               bgcolor: '#F0F2F5',
             }}
           >
-            {selectedViaje ? <TripDetail viaje={selectedViaje} /> : <EmptyDetail />}
+            {seleccionado
+              ? <TripDetail viaje={seleccionado.vista} viajeId={seleccionado.api.id} />
+              : <EmptyDetail />}
           </Box>
         </Box>
       </Box>

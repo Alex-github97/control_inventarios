@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text, ForeignKey, Enum as SAEnum
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text, ForeignKey, Enum as SAEnum, UniqueConstraint
 from sqlalchemy.orm import relationship
 import enum
 from app.infrastructure.models.base import Base, TimestampMixin
@@ -591,6 +591,54 @@ class MESFlujoNodo(Base, TimestampMixin):
     es_cuello_botella = Column(Boolean, default=False, nullable=False)
     notas      = Column(Text, nullable=True)
     activo     = Column(Boolean, default=True, nullable=False)
+
+
+class MESAvanceEstacion(Base, TimestampMixin):
+    """Lo que una estación de la línea hizo con una orden.
+
+    POR QUÉ EXISTE
+    Una orden de producción no pasa de «planeada» a «cerrada» de un salto: la
+    recorre la línea, estación por estación. Sin este registro, el sistema solo
+    sabe cuánto se produjo en total y no dónde está la orden ahora mismo, que es
+    justo lo que pregunta quien la está esperando. También es lo que hace posible
+    la trazabilidad de verdad: qué máquina, qué operario y a qué hora tocó cada
+    unidad.
+
+    LA REGLA QUE LO SOSTIENE
+    Una estación no puede producir más de lo que le entregó la anterior. Sin esa
+    restricción, la suma de avances puede superar lo que entró a la línea y el
+    tablero mostraría un cumplimiento imposible. Se valida al registrar, no al
+    consultar: un dato imposible no debe llegar a guardarse.
+
+    Hay un registro por orden y estación —de ahí la restricción única—: el
+    operario suma sobre el mismo registro cada vez que reporta, y así queda
+    cuánto lleva esa estación en total, no una lista de eventos que haya que
+    sumar en cada consulta.
+    """
+
+    __tablename__ = 'mes_avance_estacion'
+    __table_args__ = (
+        UniqueConstraint('orden_id', 'nodo_id', name='uq_avance_orden_nodo'),
+    )
+
+    id          = Column(Integer, primary_key=True, index=True)
+    orden_id    = Column(Integer, ForeignKey('mes_orden_produccion.id', ondelete='CASCADE'),
+                         nullable=False, index=True)
+    nodo_id     = Column(Integer, ForeignKey('mes_flujo_nodo.id', ondelete='CASCADE'),
+                         nullable=False, index=True)
+    operario_id = Column(Integer, ForeignKey('mes_operario.id'), nullable=True)
+    turno       = Column(SAEnum(TurnoMESEnum), nullable=False,
+                         default=TurnoMESEnum.MANANA)
+    estado      = Column(SAEnum(EstadoEjecucionMESEnum), nullable=False,
+                         default=EstadoEjecucionMESEnum.PENDIENTE)
+    # Lo bueno que salió de esta estación y lo que se perdió en ella. El scrap se
+    # anota donde ocurre y no al final, porque saber en qué máquina se pierde el
+    # material es la mitad del valor de medirlo.
+    cantidad_producida = Column(Float, nullable=False, default=0.0)
+    cantidad_scrap     = Column(Float, nullable=False, default=0.0)
+    fecha_inicio  = Column(DateTime(timezone=True), nullable=True)
+    fecha_fin     = Column(DateTime(timezone=True), nullable=True)
+    observaciones = Column(Text, nullable=True)
 
 
 class MESFlujoConexion(Base, TimestampMixin):

@@ -157,7 +157,8 @@
       "agsIngresos": "Revenue",
       "agsServicios": "Services",
       "agsEquipo": "Team",
-      "catalogos": "Catalogs"
+      "catalogos": "Catalogs",
+      "terminalPlanta": "Shop-Floor Terminal"
     },
     "section": {
       "principal": "Main",

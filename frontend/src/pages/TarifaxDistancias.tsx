@@ -6,6 +6,7 @@ import {
   Route as RouteIcon, TravelExplore, SwapHoriz, Upload, Download, InsertDriveFile,
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { cargarLeaflet, TESELAS, ATRIBUCION } from '@/components/mapa/leaflet'
 import { apiClient } from '@/api/client'
 import toast from 'react-hot-toast'
 
@@ -29,26 +30,6 @@ const fmtDur = (min: number) => {
   return h > 0 ? `${h}h ${m}m` : `${m}m`
 }
 
-// ─── Leaflet vía CDN (sin dependencia npm) ────────────────────────────────────
-let leafletPromise: Promise<any> | null = null
-function loadLeaflet(): Promise<any> {
-  const w = window as any
-  if (w.L) return Promise.resolve(w.L)
-  if (leafletPromise) return leafletPromise
-  leafletPromise = new Promise((resolve, reject) => {
-    const css = document.createElement('link')
-    css.rel = 'stylesheet'; css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
-    document.head.appendChild(css)
-    const s = document.createElement('script')
-    s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
-    s.async = true
-    s.onload = () => resolve((window as any).L)
-    s.onerror = () => reject(new Error('No se pudo cargar el mapa'))
-    document.head.appendChild(s)
-  })
-  return leafletPromise
-}
-
 function MapaRuta({ ruta }: { ruta: RutaResp | null }) {
   const ref = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
@@ -56,13 +37,12 @@ function MapaRuta({ ruta }: { ruta: RutaResp | null }) {
 
   useEffect(() => {
     let cancel = false
-    loadLeaflet().then((L) => {
+    cargarLeaflet().then((L) => {
       if (cancel || !ref.current) return
       if (!mapRef.current) {
         mapRef.current = L.map(ref.current, { scrollWheelZoom: true }).setView([4.6, -74.08], 5)
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; OpenStreetMap', maxZoom: 19,
-        }).addTo(mapRef.current)
+        L.tileLayer(TESELAS, { attribution: ATRIBUCION, maxZoom: 19 })
+          .addTo(mapRef.current)
       }
       const map = mapRef.current
       if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null }

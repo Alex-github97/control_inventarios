@@ -171,6 +171,11 @@ class LoteResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int; numero_lote: str; producto_id: int; estado: str
     cantidad: float; unidad_medida: str
+    # De qué orden salió. No se devolvía, y por eso la pantalla de trazabilidad
+    # no podía buscar por número de orden: quien acababa de crear una orden la
+    # escribía en el buscador y le respondía que no había coincidencias, como si
+    # la orden no existiera.
+    orden_id: Optional[int] = None
 
 class EjecucionCreate(BaseModel):
     orden_id: int
@@ -769,7 +774,13 @@ async def trazabilidad_lote(lote_id: int, db: AsyncSession = Depends(get_db)):
             'fecha_liberacion': lote.fecha_liberacion,
             'responsable_liberacion': lote.responsable_liberacion,
         },
-        'orden': None, 'ejecuciones': [], 'paradas': [], 'inspecciones': [], 'scrap': [], 'consumos': [],
+        'orden': None, 'ejecuciones': [], 'paradas': [], 'inspecciones': [],
+        'scrap': [], 'consumos': [],
+        # Por dónde pasó la orden, estación por estación. Es lo que convierte el
+        # expediente en trazabilidad de verdad: sin esto dice cuánto se produjo,
+        # pero no en qué máquina ni quién la operó, que es justo lo que pregunta
+        # un auditor y lo que hace falta cuando hay que recoger un lote.
+        'recorrido': [],
     }
     producto = await db.get(MESProducto, lote.producto_id)
     if producto:
@@ -785,6 +796,39 @@ async def trazabilidad_lote(lote_id: int, db: AsyncSession = Depends(get_db)):
                 'fecha_inicio_real': orden.fecha_inicio_real, 'fecha_fin_real': orden.fecha_fin_real,
                 'linea_id': orden.linea_id,
             }
+            # El recorrido por las estaciones de la línea.
+            from app.api.v1.endpoints.mes_planta import (
+                ordenar_estaciones as _ordenar)
+            from app.infrastructure.models.mes import (
+                MESAvanceEstacion as _Avance, MESFlujoConexion as _Conexion,
+                MESFlujoNodo as _Nodo)
+            if orden.linea_id:
+                nodos = list((await db.execute(select(_Nodo).where(
+                    _Nodo.linea_id == orden.linea_id))).scalars().all())
+                conexiones = list((await db.execute(select(_Conexion).where(
+                    _Conexion.linea_id == orden.linea_id))).scalars().all())
+                avances = {a.nodo_id: a for a in (await db.execute(select(_Avance)
+                    .where(_Avance.orden_id == orden.id))).scalars().all()}
+                equipos_nombre = {e.id: e.nombre for e in (await db.execute(
+                    select(MESEquipo))).scalars().all()}
+                for posicion, nodo in enumerate(_ordenar(nodos, conexiones), start=1):
+                    a = avances.get(nodo.id)
+                    if a is None:
+                        continue
+                    out['recorrido'].append({
+                        'posicion': posicion,
+                        'estacion': (nodo.nombre or equipos_nombre.get(nodo.equipo_id)
+                                     or f'Estación {posicion}'),
+                        'tipo': nodo.tipo.value if hasattr(nodo.tipo, 'value') else nodo.tipo,
+                        'operario_id': a.operario_id,
+                        'turno': a.turno.value if hasattr(a.turno, 'value') else a.turno,
+                        'estado': a.estado.value if hasattr(a.estado, 'value') else a.estado,
+                        'cantidad_producida': a.cantidad_producida,
+                        'cantidad_scrap': a.cantidad_scrap,
+                        'fecha_inicio': a.fecha_inicio, 'fecha_fin': a.fecha_fin,
+                        'observaciones': a.observaciones,
+                    })
+
             r = await db.execute(select(MESEjecucion).where(MESEjecucion.orden_id == orden.id))
             ejecuciones = r.scalars().all()
             out['ejecuciones'] = [{

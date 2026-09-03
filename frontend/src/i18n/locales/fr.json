@@ -157,7 +157,8 @@
       "agsIngresos": "Revenus",
       "agsServicios": "Services",
       "agsEquipo": "Équipe",
-      "catalogos": "Catalogues"
+      "catalogos": "Catalogues",
+      "terminalPlanta": "Terminal d'atelier"
     },
     "section": {
       "principal": "Principal",

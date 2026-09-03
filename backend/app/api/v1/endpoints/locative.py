@@ -3,7 +3,7 @@ API endpoints — Mantenimiento Locativo
 Prefijo: /locativa
 Normas: ISO 55001 · ISO 41001 · ISO 31000 · ISO 14224 · ISO 50001 · IAS 16/36
 """
-from datetime import date
+from datetime import date, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, func, and_, extract
@@ -373,6 +373,46 @@ async def crear_documento_activo(activo_id: int, data: LocativaActivoDocumentoCr
     rd = {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
     rd["estado_semaforo"] = _semaforo_doc(obj.fecha_vencimiento)
     return rd
+
+@router.get("/activos/documentos/alertas", response_model=List[LocativaActivoDocumentoResponse])
+async def alertas_documentos(
+    estado: str = Query("POR_VENCER", description="VENCIDO, POR_VENCER o VIGENTE"),
+    dias: int = Query(30, ge=1, le=365,
+                      description="Cuántos días adelante cuentan como «por vencer»"),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """Los documentos de activos vencidos o por vencer.
+
+    El tablero de Locativa lo pedía desde el primer día y no existía: la llamada
+    caía en el DELETE de documentos y respondía 405. La pantalla lo envolvía en
+    un `.catch(() => [])`, así que mostraba cero vencidos para siempre y nadie
+    veía ningún error —que es peor que la pantalla rota, porque un cero se lee
+    como «no hay nada pendiente».
+    """
+    hoy = date.today()
+    q = select(LocativaActivoDocumento).where(
+        LocativaActivoDocumento.fecha_vencimiento.isnot(None))
+    if estado == "VENCIDO":
+        q = q.where(LocativaActivoDocumento.fecha_vencimiento < hoy)
+    elif estado == "POR_VENCER":
+        q = q.where(LocativaActivoDocumento.fecha_vencimiento >= hoy,
+                    LocativaActivoDocumento.fecha_vencimiento
+                    <= hoy + timedelta(days=dias))
+    elif estado == "VIGENTE":
+        q = q.where(LocativaActivoDocumento.fecha_vencimiento
+                    > hoy + timedelta(days=dias))
+
+    docs = (await db.execute(
+        q.order_by(LocativaActivoDocumento.fecha_vencimiento.asc()).limit(200)
+    )).scalars().all()
+    salida = []
+    for d in docs:
+        fila = {c.name: getattr(d, c.name) for c in d.__table__.columns}
+        fila["estado_semaforo"] = _semaforo_doc(d.fecha_vencimiento)
+        salida.append(fila)
+    return salida
+
 
 @router.delete("/activos/documentos/{doc_id}", status_code=204)
 async def eliminar_documento(doc_id: int, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):

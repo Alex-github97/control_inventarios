@@ -37,7 +37,9 @@ const RESULTADO_INSP_COLOR: Record<string, 'success' | 'error' | 'warning' | 'de
 interface Lote {
   id: number; numero_lote: string; producto_id: number; estado: string
   cantidad: number; unidad_medida: string
+  orden_id?: number | null
 }
+interface OrdenMES { id: number; numero: string; estado: string }
 interface Producto { id: number; codigo: string; nombre: string }
 interface Operario { id: number; codigo?: string; nombre: string }
 interface Equipo { id: number; codigo?: string; nombre: string }
@@ -77,9 +79,18 @@ interface ExpConsumo {
   id: number; producto_id: number; lote_id?: number | null
   cantidad_plan: number; cantidad_real: number; fecha_consumo?: string | null
 }
+interface PasoRecorrido {
+  posicion: number; estacion: string; tipo: string
+  operario_id?: number | null; turno?: string; estado: string
+  cantidad_producida: number; cantidad_scrap: number
+  fecha_inicio?: string | null; fecha_fin?: string | null
+  observaciones?: string | null
+}
+
 interface Expediente {
   lote: ExpLote
   orden: ExpOrden | null
+  recorrido?: PasoRecorrido[]
   ejecuciones: ExpEjecucion[]
   paradas: ExpParada[]
   inspecciones: ExpInspeccion[]
@@ -135,6 +146,11 @@ export default function MESTrazabilidad() {
   const { data: lineas = [] } = useQuery<Linea[]>({
     queryKey: ['mes-lineas'], queryFn: () => api.get('/mes/lineas').then(r => r.data),
   })
+  // Las órdenes hacen falta para buscar por su número: es lo primero que
+  // escribe quien acaba de crear una y quiere ver su trazabilidad.
+  const { data: ordenes = [] } = useQuery<OrdenMES[]>({
+    queryKey: ['mes-ordenes'], queryFn: () => api.get('/mes/ordenes').then(r => r.data),
+  })
   const { data: exp, isLoading: cargandoExp } = useQuery<Expediente>({
     queryKey: ['mes-trazabilidad-lote', loteSel?.id],
     queryFn: () => api.get(`/mes/trazabilidad/lote/${loteSel!.id}`).then(r => r.data),
@@ -161,16 +177,33 @@ export default function MESTrazabilidad() {
   }
 
   // ─── Búsqueda ───────────────────────────────────────────────────────────────
+  //
+  // Se busca por lote, por producto y TAMBIÉN por número de orden. Quien acaba
+  // de crear una orden escribe ese número, no el del lote —que en ese momento
+  // todavía no conoce—, y antes le respondía «no hay coincidencias», que se lee
+  // como que la orden no existe.
   const lotesFiltrados = useMemo(() => {
     const q = busca.trim().toLowerCase()
     if (!q) return lotes
+    const ordenesQueCoinciden = new Set(
+      ordenes.filter(o => o.numero.toLowerCase().includes(q)).map(o => o.id))
     return lotes.filter(l => {
       const p = producto(l.producto_id)
       return l.numero_lote.toLowerCase().includes(q)
         || (p?.nombre ?? '').toLowerCase().includes(q)
         || (p?.codigo ?? '').toLowerCase().includes(q)
+        || (l.orden_id != null && ordenesQueCoinciden.has(l.orden_id))
     })
-  }, [lotes, busca, productos])
+  }, [lotes, busca, productos, ordenes])
+
+  // Cuando no hay resultados hay que decir POR QUÉ. Una orden recién creada, sin
+  // producción todavía, no tiene lotes: eso no es «no encontrado», es «todavía
+  // no hay nada que rastrear», y son dos cosas muy distintas para quien busca.
+  const ordenBuscada = useMemo(() => {
+    const q = busca.trim().toLowerCase()
+    if (!q) return null
+    return ordenes.find(o => o.numero.toLowerCase().includes(q)) ?? null
+  }, [busca, ordenes])
 
   // ─── Exportación del expediente ─────────────────────────────────────────────
   const exportarExpediente = () => {
@@ -275,7 +308,7 @@ export default function MESTrazabilidad() {
         <Grid container spacing={2.5}>
           {/* ── Panel izquierdo: lotes ── */}
           <Grid size={{ xs: 12, md: 4 }}>
-            <TextField size="small" fullWidth placeholder="Buscar por número de lote o producto…"
+            <TextField size="small" fullWidth placeholder="Buscar por lote, orden de producción o producto…"
               value={busca} onChange={e => setBusca(e.target.value)} sx={{ mb: 1.5, bgcolor: '#FFFFFF', borderRadius: 1 }}
               InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 18, color: '#94A3B8' }} /></InputAdornment> }} />
 
@@ -312,7 +345,17 @@ export default function MESTrazabilidad() {
               {lotesFiltrados.length === 0 && (
                 <Paper elevation={0} sx={{ p: 2.5, textAlign: 'center', borderRadius: '12px', border: '1px solid #E5E7EB', bgcolor: '#FFFFFF' }}>
                   <Typography fontSize={13} color="text.secondary">
-                    {cargandoLotes ? 'Cargando lotes…' : 'No hay lotes que coincidan con la búsqueda.'}
+                    {cargandoLotes
+                      ? 'Cargando lotes…'
+                      : ordenBuscada
+                      // Si lo buscado ES una orden que existe, el problema no es
+                      // que no se encuentre: es que todavía no produjo nada. Se
+                      // dice eso, y no «no hay coincidencias», que hace pensar
+                      // que la orden se perdió.
+                      ? `La orden ${ordenBuscada.numero} existe (${ordenBuscada.estado.toLowerCase()}) pero todavía no tiene lotes producidos. La trazabilidad aparece cuando la orden registra su primer lote.`
+                      : lotes.length === 0
+                      ? 'Todavía no hay lotes registrados en producción.'
+                      : 'No hay lotes que coincidan con la búsqueda.'}
                   </Typography>
                 </Paper>
               )}
@@ -418,7 +461,53 @@ export default function MESTrazabilidad() {
                   ) : <SinRegistros texto="Sin orden asociada al lote" />}
                 </SeccionCard>
 
-                {/* 3. Línea de tiempo de ejecuciones */}
+                {/* 3. El recorrido por la línea — qué máquina tocó el lote y quién */}
+                <SeccionCard icon={<PlaylistAddCheck sx={{ color: MES_COLOR, fontSize: 20 }} />}
+                             titulo={`Recorrido por la línea (${exp.recorrido?.length ?? 0} estaciones)`}>
+                  {(exp.recorrido?.length ?? 0) > 0 ? (
+                    <Stack spacing={1.25}>
+                      {exp.recorrido!.map((paso) => (
+                        <Stack key={paso.posicion} direction="row" spacing={1.5}
+                               alignItems="flex-start"
+                               sx={{ p: 1.5, borderRadius: '10px', border: '1px solid #E5E7EB',
+                                     bgcolor: paso.estado === 'COMPLETADA' ? '#F0FDF4' : '#fff' }}>
+                          <Box sx={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+                                     bgcolor: '#EEF2FF', color: MES_COLOR, display: 'grid',
+                                     placeItems: 'center', fontSize: 12, fontWeight: 800 }}>
+                            {paso.posicion}
+                          </Box>
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography fontSize={14} fontWeight={700}>{paso.estacion}</Typography>
+                            <Typography fontSize={12} color="text.secondary">
+                              {operario(paso.operario_id)} · turno {(paso.turno ?? '').toLowerCase()}
+                              {paso.fecha_inicio ? ` · ${fmtFecha(paso.fecha_inicio)}` : ''}
+                            </Typography>
+                            {paso.observaciones && (
+                              <Typography fontSize={12} color="text.secondary" sx={{ mt: .25 }}>
+                                {paso.observaciones}
+                              </Typography>
+                            )}
+                          </Box>
+                          <Box sx={{ textAlign: 'right' }}>
+                            <Typography fontSize={14} fontWeight={800}
+                                        sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                              {fmtNum(paso.cantidad_producida)}
+                            </Typography>
+                            {paso.cantidad_scrap > 0 && (
+                              <Typography fontSize={11} color="#DC2626">
+                                {fmtNum(paso.cantidad_scrap)} scrap
+                              </Typography>
+                            )}
+                          </Box>
+                        </Stack>
+                      ))}
+                    </Stack>
+                  ) : (
+                    <SinRegistros texto="Todavía no se ha reportado avance por estación. Se registra desde la Terminal de Planta." />
+                  )}
+                </SeccionCard>
+
+                {/* 4. Línea de tiempo de ejecuciones */}
                 <SeccionCard icon={<PlaylistAddCheck sx={{ color: MES_COLOR, fontSize: 20 }} />} titulo={`Línea de tiempo de ejecuciones (${exp.ejecuciones.length})`}>
                   {exp.ejecuciones.length > 0 ? (
                     <Box sx={{ overflowX: 'auto' }}>

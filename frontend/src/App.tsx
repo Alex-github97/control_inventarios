@@ -255,6 +255,7 @@ const MESPlanta = React.lazy(() => import('@/pages/MESPlanta'))
 const MESOrdenes = React.lazy(() => import('@/pages/MESOrdenes'))
 const MESProgramacion = React.lazy(() => import('@/pages/MESProgramacion'))
 const MESEjecucion = React.lazy(() => import('@/pages/MESEjecucion'))
+const MESTerminal = React.lazy(() => import('@/pages/MESTerminal'))
 const MESTrazabilidad = React.lazy(() => import('@/pages/MESTrazabilidad'))
 const MESCalidad = React.lazy(() => import('@/pages/MESCalidad'))
 const MESScrap = React.lazy(() => import('@/pages/MESScrap'))
@@ -632,6 +633,7 @@ export default function App() {
             <Route path="/mes/ordenes" element={<ProtectedRoute><MESOrdenes /></ProtectedRoute>} />
             <Route path="/mes/programacion" element={<ProtectedRoute><MESProgramacion /></ProtectedRoute>} />
             <Route path="/mes/ejecucion" element={<ProtectedRoute><MESEjecucion /></ProtectedRoute>} />
+            <Route path="/mes/terminal" element={<ProtectedRoute><MESTerminal /></ProtectedRoute>} />
             <Route path="/mes/trazabilidad" element={<ProtectedRoute><MESTrazabilidad /></ProtectedRoute>} />
             <Route path="/mes/calidad" element={<ProtectedRoute><MESCalidad /></ProtectedRoute>} />
             <Route path="/mes/scrap" element={<ProtectedRoute><MESScrap /></ProtectedRoute>} />

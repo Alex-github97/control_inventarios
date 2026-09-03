@@ -157,7 +157,8 @@
       "agsIngresos": "Einnahmen",
       "agsServicios": "Leistungen",
       "agsEquipo": "Team",
-      "catalogos": "Kataloge"
+      "catalogos": "Kataloge",
+      "terminalPlanta": "Werkstatt-Terminal"
     },
     "section": {
       "principal": "Hauptbereich",

@@ -73,7 +73,7 @@ export default function LocativaEnergia() {
 
   const { data: lecturas = [], isLoading: loadingLecturas } = useQuery<LecturaEnergia[]>({
     queryKey: ['locativa-lecturas'],
-    queryFn: () => api.get('/locativa/lecturas/').then(r => r.data),
+    queryFn: () => api.get('/locativa/lecturas-energia/').then(r => r.data),
   })
 
   const { data: sedes = [] } = useQuery<Sede[]>({
@@ -94,7 +94,7 @@ export default function LocativaEnergia() {
   })
 
   const crearLectura = useMutation({
-    mutationFn: (data: any) => api.post('/locativa/lecturas/', data).then(r => r.data),
+    mutationFn: (data: any) => api.post('/locativa/lecturas-energia/', data).then(r => r.data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['locativa-lecturas'] }); setOpenLectura(false); toast.success('Lectura registrada') },
     onError: (e: any) => toast.error(mensajeDeError(e, 'Error al registrar lectura')),
   })
