@@ -48,6 +48,7 @@ import { Layout } from '@/components/layout/Layout'
 
 import { COLOR_MODULO } from '@/config/marca'
 import { mensajeDeError } from '@/utils/errorApi'
+import { listaDe } from '@/utils/listaApi'
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const GH_COLOR = COLOR_MODULO
@@ -359,10 +360,14 @@ export default function GHNomina() {
   const colaboradoresQuery = useQuery<ColaboradorOption[]>({
     queryKey: ['gh-colaboradores-search', colaboradorSearch],
     queryFn: async () => {
+      // El endpoint filtra con `q`, no con `search`: mandando `search` el
+      // parámetro se ignoraba y el buscador devolvía siempre los primeros 20.
       const res = await api.get('/hcm/colaboradores', {
-        params: { search: colaboradorSearch, per_page: 20 },
+        params: { q: colaboradorSearch, per_page: 20 },
       })
-      return res.data
+      // Viene paginado: `{items, total, ...}`. Tratarlo como arreglo es lo que
+      // reventaba esta pantalla entera.
+      return listaDe<ColaboradorOption>(res.data)
     },
     enabled: colaboradorSearch.length >= 2,
   })
@@ -371,7 +376,7 @@ export default function GHNomina() {
     queryKey: ['gh-colaboradores-all'],
     queryFn: async () => {
       const res = await api.get('/hcm/colaboradores', { params: { per_page: 200 } })
-      return res.data
+      return listaDe<ColaboradorOption>(res.data)
     },
   })
 

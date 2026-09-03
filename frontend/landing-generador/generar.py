@@ -16,6 +16,7 @@ esconde sola y queda el marco con su leyenda. Poner una captura es dejarla caer
 en esa carpeta con ese nombre: no hay que tocar código ni volver a generar.
 """
 import html
+import json
 import os
 import re
 import sys
@@ -349,11 +350,33 @@ def marco(clave, i, leyenda):
     return (f'      <figure class="captura">\n'
             f'        <div class="marco">\n'
             f'          <img src="img/{clave}-{i}.png" alt="{e(leyenda)}" loading="lazy">\n'
-            f'          <div class="vacio">captura pendiente<br>'
-            f'<span style="opacity:.7">img/{clave}-{i}.png</span></div>\n'
+            f'          <div class="vacio">captura pendiente</div>\n'
             f'        </div>\n'
             f'        <figcaption class="pie">{e(leyenda)}</figcaption>\n'
             f'      </figure>')
+
+
+def capturas_de(clave):
+    """Las capturas que de verdad están en disco, con su leyenda.
+
+    Las leyendas las escribe el guion que fotografía, no el catálogo: si una
+    pantalla salió vacía y se descartó, su archivo no está y su leyenda tampoco,
+    de modo que el folleto no promete una pantalla que nadie va a ver. Y cuando
+    no hay ninguna captura del módulo, la sección entera desaparece: tres marcos
+    grises seguidos dicen «esto no está terminado» mucho más alto que su
+    ausencia.
+    """
+    ruta = os.path.join(SALIDA, "img", "leyendas.json")
+    if not os.path.exists(ruta):
+        return []
+    with open(ruta, encoding="utf-8") as f:
+        leyendas = json.load(f)
+    return [
+        (i, leyendas[f"{clave}-{i}"])
+        for i in range(1, 10)
+        if f"{clave}-{i}" in leyendas
+        and os.path.exists(os.path.join(SALIDA, "img", f"{clave}-{i}.png"))
+    ]
 
 
 def generar():
@@ -367,15 +390,16 @@ def generar():
             for o in MODULOS if o["clave"] != m["clave"]
         )
         cobro = COBROS[m["cobro"]]
+        tomas = capturas_de(m["clave"])
         pagina = (
             CABEZA.format(nombre=e(m["nombre"]), titulo=e(m["titulo"]),
                           promesa=e(m["promesa"]), orden=m["orden"])
             + PROBLEMA.format(problema=e(m["problema"]))
             + CAPACIDADES.format(
                 tarjetas="\n".join(tarjeta(t, x) for t, x in m["capacidades"]))
-            + CAPTURAS.format(
-                marcos="\n".join(marco(m["clave"], i, c)
-                                 for i, c in enumerate(m["pantallas"], 1)))
+            + (CAPTURAS.format(
+                marcos="\n".join(marco(m["clave"], i, c) for i, c in tomas))
+               if tomas else "")
             + CONECTA.format(conecta=e(m["conecta"]))
             + PRECIO.format(cobro_titulo=e(cobro["titulo"]),
                             cobro_valor=e(cobro["valor"]),
@@ -388,7 +412,10 @@ def generar():
         escritos.append(m["clave"])
 
     print(f"{len(escritos)} folletos generados:")
-    print("  " + ", ".join(escritos))
+    for clave in escritos:
+        n = len(capturas_de(clave))
+        print(f"  {clave:9} {n} captura{'' if n == 1 else 's'}"
+              + ("   ← sale sin la sección de pantallas" if n == 0 else ""))
     return escritos
 
 

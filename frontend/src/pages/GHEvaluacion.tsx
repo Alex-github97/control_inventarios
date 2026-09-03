@@ -20,6 +20,7 @@ import toast from 'react-hot-toast'
 
 import { COLOR_MODULO } from '@/config/marca'
 import { mensajeDeError } from '@/utils/errorApi'
+import { listaDe } from '@/utils/listaApi'
 const GH_COLOR = COLOR_MODULO
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
@@ -119,7 +120,8 @@ export default function GHEvaluacion() {
 
   const { data: colaboradores = [] } = useQuery<Colaborador[]>({
     queryKey: ['gh-colaboradores'],
-    queryFn: () => api.get('/hcm/colaboradores').then(r => r.data),
+    queryFn: () => api.get('/hcm/colaboradores', { params: { per_page: 500 } })
+      .then(r => listaDe(r.data)),
   })
 
   const createEval = useMutation({

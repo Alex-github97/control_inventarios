@@ -50,6 +50,7 @@ import AddIcon from '@mui/icons-material/Add'
 
 import { COLOR_MODULO } from '@/config/marca'
 import { mensajeDeError } from '@/utils/errorApi'
+import { listaDe } from '@/utils/listaApi'
 const GH_COLOR = COLOR_MODULO
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
@@ -229,7 +230,8 @@ export default function GHCapacitacion() {
 
   const { data: colaboradores = [] } = useQuery<Colaborador[]>({
     queryKey: ['gh-colaboradores'],
-    queryFn: () => api.get('/hcm/colaboradores').then(r => r.data),
+    queryFn: () => api.get('/hcm/colaboradores', { params: { per_page: 500 } })
+      .then(r => listaDe(r.data)),
     enabled: asignarDlgOpen,
   })
 

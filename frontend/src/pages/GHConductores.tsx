@@ -56,6 +56,7 @@ import { format, differenceInDays, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 import { COLOR_MODULO } from '@/config/marca'
+import { listaDe } from '@/utils/listaApi'
 const GH_COLOR = COLOR_MODULO
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -212,7 +213,9 @@ function ConductoresTab() {
   const { data: colaboradores = [] } = useQuery<Colaborador[]>({
     queryKey: ['gh-colaboradores-activos', colabSearch],
     queryFn: () =>
-      api.get('/hcm/colaboradores', { params: { estado_laboral: 'ACTIVO', search: colabSearch } }).then((r) => r.data),
+      api.get('/hcm/colaboradores',
+        { params: { estado_laboral: 'ACTIVO', q: colabSearch, per_page: 500 } })
+        .then((r) => listaDe(r.data)),
     enabled: colabSearch.length >= 2,
   })
 
