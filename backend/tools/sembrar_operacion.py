@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession                # noqa: E402
 
 import app.main                                                # noqa: F401,E402
 from app.core.database import engine                           # noqa: E402
-from app.core import demo_hcm, demo_wms                        # noqa: E402
+from app.core import demo_hcm, demo_tms, demo_wms              # noqa: E402
 
 # En orden de dependencia: `TRUNCATE` sin `CASCADE` es justamente lo que impide
 # borrar de más por accidente, y para eso el orden tiene que ser correcto.
@@ -49,6 +49,13 @@ TABLAS = {
         "hcm_conductor", "hcm_contrato", "hcm_colaborador_historial",
         "hcm_colaborador", "hcm_centro_costo", "hcm_cargo", "hcm_area",
         "hcm_sede", "hcm_empresa",
+    ],
+    # Transporte. Cuelga de `hcm_conductor`, así que se siembra después de «hcm».
+    "tms": [
+        "tms_kpi_diario", "tms_alerta", "tms_otif_registro", "tms_liquidacion",
+        "tms_costo_viaje", "tms_pod", "tms_documento", "tms_evento",
+        "tms_parada", "tms_viaje", "tms_punto_ruta", "tms_ruta",
+        "tms_vehiculo", "tms_tipo_servicio", "tms_zona",
     ],
     "wms": [
         "wms_kpi_diario", "wms_eventos_trazabilidad",
@@ -95,7 +102,8 @@ async def principal() -> None:
     ap.add_argument("--desde", type=_fecha, default=date(2025, 9, 1))
     ap.add_argument("--hasta", type=_fecha, default=date.today())
     ap.add_argument("--por-dia", type=int, default=12,
-                    help="órdenes de salida por día hábil, antes de estacionalidad")
+                    help="documentos por día hábil (salidas en WMS, "
+                         "viajes en TMS), antes de estacionalidad")
     ap.add_argument("--limpiar", action="store_true")
     args = ap.parse_args()
 
@@ -119,6 +127,14 @@ async def principal() -> None:
             comprobar = demo_wms.verificar
             regla = "el inventario CUADRA con los movimientos"
             falla = "¡el inventario NO CUADRA con los movimientos!"
+        elif args.modulo == "tms":
+            resumen = await demo_tms.sembrar_tms(
+                db, desde=args.desde, hasta=args.hasta,
+                viajes_por_dia_habil=args.por_dia, esquema=args.esquema,
+                avisar=print)
+            comprobar = demo_tms.verificar
+            regla = "los costos CUADRAN y el OTIF coincide con las fechas"
+            falla = "¡los costos o el OTIF NO CUADRAN!"
         else:
             resumen = await demo_hcm.sembrar_hcm(
                 db, desde=args.desde, hasta=args.hasta, esquema=args.esquema,
@@ -145,7 +161,9 @@ async def principal() -> None:
             abs(valor) < 0.5
             for clave, valor in v.items()
             if clave in ("diferencia", "posiciones_negativas",
-                         "detalles_descuadrados", "periodos_descuadrados")
+                         "detalles_descuadrados", "periodos_descuadrados",
+                         "costos_descuadrados", "otif_descuadrados",
+                         "kpis_descuadrados")
         )
         print(f"\n  {regla if cuadra else falla}")
         if not cuadra:

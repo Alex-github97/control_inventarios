@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
   Box,
   Card,
@@ -31,6 +32,8 @@ import {
   Circle,
 } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import { apiClient as api } from '@/api/client'
+import { listaDe } from '@/utils/listaApi'
 
 import { COLOR_MODULO } from '@/config/marca'
 const TMS_COLOR = COLOR_MODULO
@@ -45,61 +48,78 @@ interface KPI {
   sub?: string
 }
 
-interface ViajeActivo {
+interface Viaje {
+  id: number
   codigo: string
-  origen: string
-  destino: string
-  conductor: string
-  placa: string
-  estado: 'EN_TRANSITO' | 'DEMORADO' | 'EN_RIESGO'
-  eta: string
-  pct: number
+  estado: string
+  origen_ciudad: string | null
+  destino_ciudad: string | null
+  conductor_nombre: string | null
+  vehiculo_placa: string | null
+  descripcion_carga: string | null
+  fecha_real_cargue: string | null
+  fecha_programada_entrega: string | null
+  fecha_real_entrega: string | null
+  otif_on_time: boolean | null
+  otif_in_full: boolean | null
 }
 
 interface Alerta {
   id: number
-  nivel: 'CRITICA' | 'ALTA' | 'MEDIA'
+  nivel: 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAJA' | 'INFO'
   mensaje: string
-  viaje?: string
+  viaje_codigo: string | null
 }
 
-interface Entrega {
-  viaje: string
-  cliente: string
-  destino: string
-  horaEntrega: string
-  otif: 'ON_TIME' | 'TARDE' | 'INCOMPLETA'
+interface KPIs {
+  viajes_hoy: number
+  viajes_en_transito: number
+  viajes_completados_hoy: number
+  vehiculos_activos: number
+  conductores_activos: number
+  otif_rate: number
+  on_time_rate: number
+  costo_promedio_km: number
+  alertas_criticas: number
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
+// ─── Cálculos sobre lo que devuelve el API ───────────────────────────────────
 
-const VIAJES_ACTIVOS: ViajeActivo[] = [
-  { codigo: 'V-2024-001', origen: 'Bogotá', destino: 'Medellín', conductor: 'Carlos Herrera', placa: 'XYZ-123', estado: 'EN_TRANSITO', eta: '15:30', pct: 65 },
-  { codigo: 'V-2024-002', origen: 'Bogotá', destino: 'Cali', conductor: 'Luis Pérez', placa: 'ABC-456', estado: 'DEMORADO', eta: '18:45', pct: 40 },
-  { codigo: 'V-2024-003', origen: 'Medellín', destino: 'Barranquilla', conductor: 'Andrés Torres', placa: 'DEF-789', estado: 'EN_TRANSITO', eta: '20:00', pct: 30 },
-  { codigo: 'V-2024-004', origen: 'Cali', destino: 'Bogotá', conductor: 'Jhon Morales', placa: 'GHI-012', estado: 'EN_TRANSITO', eta: '16:15', pct: 80 },
-  { codigo: 'V-2024-005', origen: 'Barranquilla', destino: 'Cartagena', conductor: 'Pedro Gómez', placa: 'JKL-345', estado: 'EN_RIESGO', eta: '14:00', pct: 55 },
-  { codigo: 'V-2024-006', origen: 'Bogotá', destino: 'Bucaramanga', conductor: 'Mauricio Silva', placa: 'MNO-678', estado: 'EN_TRANSITO', eta: '22:30', pct: 20 },
-  { codigo: 'V-2024-007', origen: 'Pereira', destino: 'Bogotá', conductor: 'Felipe Castro', placa: 'PQR-901', estado: 'EN_TRANSITO', eta: '17:00', pct: 72 },
-  { codigo: 'V-2024-008', origen: 'Cúcuta', destino: 'Bucaramanga', conductor: 'Diego Vargas', placa: 'STU-234', estado: 'DEMORADO', eta: '19:30', pct: 48 },
-]
+const pesos = (v: number) =>
+  new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP',
+    maximumFractionDigits: 0 }).format(v || 0)
 
-const ALERTAS: Alerta[] = [
-  { id: 1, nivel: 'CRITICA', mensaje: 'Vehículo ABC-456 detenido 2h sin reportar novedad en vía Bogotá-Cali', viaje: 'V-2024-002' },
-  { id: 2, nivel: 'CRITICA', mensaje: 'Conductor Pedro Gómez excedió límite de horas de conducción (10h)', viaje: 'V-2024-005' },
-  { id: 3, nivel: 'ALTA', mensaje: 'V-2024-008 lleva 45 min de retraso sobre tiempo estimado', viaje: 'V-2024-008' },
-  { id: 4, nivel: 'ALTA', mensaje: 'Temperatura de carga fuera de rango en V-2024-003', viaje: 'V-2024-003' },
-  { id: 5, nivel: 'MEDIA', mensaje: 'Documentación incompleta para viaje V-2024-006', viaje: 'V-2024-006' },
-]
+const hora = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleTimeString('es-CO',
+    { hour: '2-digit', minute: '2-digit' }) : '—'
 
-const ENTREGAS: Entrega[] = [
-  { viaje: 'V-2024-101', cliente: 'Almacenes Éxito S.A.', destino: 'Bogotá', horaEntrega: '08:15', otif: 'ON_TIME' },
-  { viaje: 'V-2024-102', cliente: 'Bavaria S.A.S.', destino: 'Medellín', horaEntrega: '09:40', otif: 'TARDE' },
-  { viaje: 'V-2024-103', cliente: 'Grupo Nutresa', destino: 'Cali', horaEntrega: '10:05', otif: 'ON_TIME' },
-  { viaje: 'V-2024-104', cliente: 'Cencosud Colombia', destino: 'Barranquilla', horaEntrega: '11:20', otif: 'INCOMPLETA' },
-  { viaje: 'V-2024-105', cliente: 'Postobón S.A.', destino: 'Bucaramanga', horaEntrega: '12:00', otif: 'ON_TIME' },
-  { viaje: 'V-2024-106', cliente: 'Colgate-Palmolive', destino: 'Pereira', horaEntrega: '13:30', otif: 'TARDE' },
-]
+/**
+ * Cuánto lleva recorrido un viaje, en porcentaje del tiempo previsto.
+ *
+ * Se calcula del reloj y no de un dato guardado porque no hay ninguno: la
+ * posición real llega por eventos de GPS sueltos, y estimarla desde ahí sería
+ * prometer una precisión que el dato no tiene. El tiempo transcurrido sobre el
+ * tiempo previsto es una aproximación honesta y es lo que un despachador usa
+ * cuando mira la pantalla.
+ */
+function avance(viaje: Viaje): number {
+  const salida = viaje.fecha_real_cargue ? Date.parse(viaje.fecha_real_cargue) : NaN
+  const llegada = viaje.fecha_programada_entrega
+    ? Date.parse(viaje.fecha_programada_entrega) : NaN
+  if (!Number.isFinite(salida) || !Number.isFinite(llegada) || llegada <= salida) return 0
+  return Math.max(0, Math.min(100, Math.round((Date.now() - salida) / (llegada - salida) * 100)))
+}
+
+/** Un viaje va tarde si ya pasó su hora de entrega y sigue en tránsito. */
+function situacion(viaje: Viaje): 'EN_TRANSITO' | 'DEMORADO' | 'EN_RIESGO' {
+  const llegada = viaje.fecha_programada_entrega
+    ? Date.parse(viaje.fecha_programada_entrega) : NaN
+  if (!Number.isFinite(llegada)) return 'EN_TRANSITO'
+  const horasDeMas = (Date.now() - llegada) / 3_600_000
+  if (horasDeMas > 6) return 'EN_RIESGO'
+  if (horasDeMas > 0) return 'DEMORADO'
+  return 'EN_TRANSITO'
+}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -118,7 +138,7 @@ const KPICard = ({ label, value, icon, color, sub }: KPI) => (
   </Paper>
 )
 
-const estadoChip = (estado: ViajeActivo['estado']) => {
+const estadoChip = (estado: 'EN_TRANSITO' | 'DEMORADO' | 'EN_RIESGO') => {
   const map = {
     EN_TRANSITO: { label: 'En Tránsito', color: '#0369A1', bg: '#E0F2FE' },
     DEMORADO: { label: 'Demorado', color: '#B45309', bg: '#FEF3C7' },
@@ -134,13 +154,14 @@ const nivelColor = (nivel: Alerta['nivel']) => {
   return { icon: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE' }
 }
 
-const otifChip = (otif: Entrega['otif']) => {
-  const map = {
-    ON_TIME: { label: 'ON TIME', color: '#15803D', bg: '#DCFCE7' },
-    TARDE: { label: 'TARDE', color: '#B91C1C', bg: '#FEE2E2' },
-    INCOMPLETA: { label: 'INCOMPLETA', color: '#C2410C', bg: '#FFEDD5' },
-  }
-  const s = map[otif]
+const otifChip = (viaje: Viaje) => {
+  // Tarde manda sobre incompleta: si llegó tarde Y sin todo, lo primero que hay
+  // que resolver es el atraso.
+  const s = viaje.otif_on_time === false
+    ? { label: 'TARDE', color: '#B91C1C', bg: '#FEE2E2' }
+    : viaje.otif_in_full === false
+    ? { label: 'INCOMPLETA', color: '#C2410C', bg: '#FFEDD5' }
+    : { label: 'ON TIME', color: '#15803D', bg: '#DCFCE7' }
   return <Chip label={s.label} size="small" sx={{ bgcolor: s.bg, color: s.color, fontWeight: 700, fontSize: 10 }} />
 }
 
@@ -149,16 +170,59 @@ const otifChip = (otif: Entrega['otif']) => {
 export default function TMSDashboard() {
   const [, setSelectedAlerta] = useState<number | null>(null)
 
-  const criticalCount = ALERTAS.filter(a => a.nivel === 'CRITICA').length
+  // Se refresca solo: esto es una torre de control y el rótulo dice «en vivo».
+  const { data: kpi } = useQuery<KPIs>({
+    queryKey: ['tms-kpis'],
+    queryFn: () => api.get('/tms/dashboard/kpis').then((r: { data: KPIs }) => r.data),
+    refetchInterval: 60_000,
+  })
+
+  const { data: enTransito } = useQuery<Viaje[]>({
+    queryKey: ['tms-viajes-transito'],
+    queryFn: () => api.get('/tms/viajes',
+      { params: { estado: 'EN_TRANSITO', per_page: 20 } })
+      .then((r: { data: unknown }) => listaDe<Viaje>(r.data)),
+    refetchInterval: 60_000,
+  })
+
+  const { data: alertas } = useQuery<Alerta[]>({
+    queryKey: ['tms-alertas'],
+    queryFn: () => api.get('/tms/alertas', { params: { leida: false } })
+      .then((r: { data: unknown }) => listaDe<Alerta>(r.data)),
+    refetchInterval: 60_000,
+  })
+
+  const { data: entregados } = useQuery<Viaje[]>({
+    queryKey: ['tms-entregados'],
+    queryFn: () => api.get('/tms/viajes',
+      { params: { estado: 'ENTREGADO', per_page: 20 } })
+      .then((r: { data: unknown }) => listaDe<Viaje>(r.data)),
+  })
+
+  const viajes = enTransito ?? []
+  // Las alertas que importan primero. El API ya devuelve solo las no leídas.
+  const avisos = (alertas ?? [])
+    .filter(a => a.nivel === 'CRITICA' || a.nivel === 'ALTA' || a.nivel === 'MEDIA')
+    .slice(0, 8)
+  const criticalCount = kpi?.alertas_criticas ?? 0
+
+  // Las entregas de hoy. Si hoy todavía no hay ninguna, se muestran las últimas
+  // que hubo: una torre de control a las siete de la mañana no puede quedarse en
+  // blanco hasta que llegue el primer camión.
+  const hoy = new Date().toDateString()
+  const deHoy = (entregados ?? []).filter(
+    v => v.fecha_real_entrega && new Date(v.fecha_real_entrega).toDateString() === hoy)
+  const entregas = (deHoy.length ? deHoy : (entregados ?? [])).slice(0, 8)
+  const tituloEntregas = deHoy.length ? 'Entregas Completadas Hoy' : 'Últimas Entregas'
 
   const kpis: KPI[] = [
-    { label: 'Viajes en Tránsito', value: 8, icon: <LocalShipping />, color: TMS_COLOR },
-    { label: 'Viajes Programados Hoy', value: 14, icon: <EventNote />, color: '#7C3AED' },
-    { label: 'Vehículos Activos', value: 23, icon: <DirectionsBus />, color: '#0891B2' },
-    { label: 'Conductores en Ruta', value: 8, icon: <PersonPin />, color: '#059669' },
-    { label: 'OTIF Rate', value: '96.4%', icon: <CheckCircle />, color: '#16A34A', sub: 'Meta: ≥95%' },
-    { label: 'On Time Rate', value: '94.1%', icon: <Schedule />, color: '#0369A1', sub: 'Último mes' },
-    { label: 'Costo/Km Promedio', value: '$1.850', icon: <AttachMoney />, color: '#92400E', sub: 'COP/km' },
+    { label: 'Viajes en Tránsito', value: kpi?.viajes_en_transito ?? 0, icon: <LocalShipping />, color: TMS_COLOR },
+    { label: 'Viajes Programados Hoy', value: kpi?.viajes_hoy ?? 0, icon: <EventNote />, color: '#7C3AED' },
+    { label: 'Vehículos Activos', value: kpi?.vehiculos_activos ?? 0, icon: <DirectionsBus />, color: '#0891B2' },
+    { label: 'Conductores en Ruta', value: kpi?.conductores_activos ?? 0, icon: <PersonPin />, color: '#059669' },
+    { label: 'OTIF Rate', value: `${(kpi?.otif_rate ?? 0).toFixed(1)}%`, icon: <CheckCircle />, color: (kpi?.otif_rate ?? 0) >= 95 ? '#16A34A' : '#D97706', sub: 'Meta: ≥95%' },
+    { label: 'On Time Rate', value: `${(kpi?.on_time_rate ?? 0).toFixed(1)}%`, icon: <Schedule />, color: '#0369A1', sub: 'Este mes' },
+    { label: 'Costo/Km Promedio', value: pesos(kpi?.costo_promedio_km ?? 0), icon: <AttachMoney />, color: '#92400E', sub: 'COP/km' },
     { label: 'Alertas Críticas', value: criticalCount, icon: <Warning />, color: criticalCount > 0 ? '#DC2626' : '#16A34A', sub: criticalCount > 0 ? 'Requieren atención' : 'Sin alertas' },
   ]
 
@@ -198,7 +262,7 @@ export default function TMSDashboard() {
               <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid #F3F4F6' }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
                   <Typography fontWeight={700} fontSize={15}>Viajes Activos</Typography>
-                  <Chip label={`${VIAJES_ACTIVOS.length} viajes`} size="small" sx={{ bgcolor: alpha(TMS_COLOR, 0.1), color: TMS_COLOR, fontWeight: 600 }} />
+                  <Chip label={`${viajes.length} viajes`} size="small" sx={{ bgcolor: alpha(TMS_COLOR, 0.1), color: TMS_COLOR, fontWeight: 600 }} />
                 </Stack>
               </Box>
               <TableContainer>
@@ -215,27 +279,38 @@ export default function TMSDashboard() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {VIAJES_ACTIVOS.map((v) => (
-                      <TableRow key={v.codigo} hover>
+                    {viajes.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary', fontSize: 13 }}>
+                          Ningún viaje en tránsito en este momento
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {viajes.map((v) => {
+                      const estado = situacion(v)
+                      const pct = avance(v)
+                      return (
+                      <TableRow key={v.id} hover>
                         <TableCell><Typography fontSize={12} fontWeight={600} color={TMS_COLOR}>{v.codigo}</Typography></TableCell>
                         <TableCell>
-                          <Typography fontSize={12}>{v.origen}</Typography>
-                          <Typography fontSize={11} color="text.secondary">→ {v.destino}</Typography>
+                          <Typography fontSize={12}>{v.origen_ciudad ?? '—'}</Typography>
+                          <Typography fontSize={11} color="text.secondary">→ {v.destino_ciudad ?? '—'}</Typography>
                         </TableCell>
-                        <TableCell><Typography fontSize={12}>{v.conductor}</Typography></TableCell>
-                        <TableCell><Chip label={v.placa} size="small" sx={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 11 }} /></TableCell>
-                        <TableCell>{estadoChip(v.estado)}</TableCell>
-                        <TableCell><Typography fontSize={12} fontWeight={600}>{v.eta}</Typography></TableCell>
+                        <TableCell><Typography fontSize={12}>{v.conductor_nombre ?? '—'}</Typography></TableCell>
+                        <TableCell><Chip label={v.vehiculo_placa ?? '—'} size="small" sx={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 11 }} /></TableCell>
+                        <TableCell>{estadoChip(estado)}</TableCell>
+                        <TableCell><Typography fontSize={12} fontWeight={600}>{hora(v.fecha_programada_entrega)}</Typography></TableCell>
                         <TableCell>
                           <Stack direction="row" alignItems="center" spacing={1}>
                             <Box sx={{ flex: 1, height: 6, bgcolor: '#E5E7EB', borderRadius: 3, overflow: 'hidden' }}>
-                              <Box sx={{ height: '100%', width: `${v.pct}%`, bgcolor: v.estado === 'EN_RIESGO' ? '#DC2626' : v.estado === 'DEMORADO' ? '#D97706' : TMS_COLOR, borderRadius: 3 }} />
+                              <Box sx={{ height: '100%', width: `${pct}%`, bgcolor: estado === 'EN_RIESGO' ? '#DC2626' : estado === 'DEMORADO' ? '#D97706' : TMS_COLOR, borderRadius: 3 }} />
                             </Box>
-                            <Typography fontSize={11} fontWeight={600}>{v.pct}%</Typography>
+                            <Typography fontSize={11} fontWeight={600}>{pct}%</Typography>
                           </Stack>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      )
+                    })}
                   </TableBody>
                 </Table>
               </TableContainer>
@@ -252,8 +327,13 @@ export default function TMSDashboard() {
                 </Stack>
               </Box>
               <Stack spacing={0} divider={<Divider />}>
-                {ALERTAS.map((alerta) => {
-                  const c = nivelColor(alerta.nivel)
+                {avisos.length === 0 && (
+                  <Box sx={{ px: 2, py: 4, textAlign: 'center', color: 'text.secondary', fontSize: 13 }}>
+                    Sin alertas sin leer
+                  </Box>
+                )}
+                {avisos.map((alerta) => {
+                  const c = nivelColor(alerta.nivel as 'CRITICA' | 'ALTA' | 'MEDIA')
                   return (
                     <Box key={alerta.id} sx={{ px: 2, py: 1.5, bgcolor: c.bg, borderLeft: `3px solid ${c.icon}` }}>
                       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
@@ -261,7 +341,7 @@ export default function TMSDashboard() {
                           <Stack direction="row" alignItems="center" spacing={0.5} mb={0.25}>
                             <Warning sx={{ fontSize: 14, color: c.icon }} />
                             <Chip label={alerta.nivel} size="small" sx={{ bgcolor: 'transparent', color: c.icon, fontWeight: 800, fontSize: 10, border: `1px solid ${c.icon}`, height: 18 }} />
-                            {alerta.viaje && <Typography fontSize={11} color="text.secondary">{alerta.viaje}</Typography>}
+                            {alerta.viaje_codigo && <Typography fontSize={11} color="text.secondary">{alerta.viaje_codigo}</Typography>}
                           </Stack>
                           <Typography fontSize={12}>{alerta.mensaje}</Typography>
                         </Box>
@@ -281,10 +361,10 @@ export default function TMSDashboard() {
         <Paper elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '14px', overflow: 'hidden' }}>
           <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid #F3F4F6' }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center">
-              <Typography fontWeight={700} fontSize={15}>Entregas Completadas Hoy</Typography>
+              <Typography fontWeight={700} fontSize={15}>{tituloEntregas}</Typography>
               <Stack direction="row" spacing={1}>
-                <Chip label={`${ENTREGAS.filter(e => e.otif === 'ON_TIME').length} On Time`} size="small" sx={{ bgcolor: '#DCFCE7', color: '#15803D', fontWeight: 700, fontSize: 11 }} />
-                <Chip label={`${ENTREGAS.filter(e => e.otif === 'TARDE').length} Tarde`} size="small" sx={{ bgcolor: '#FEE2E2', color: '#B91C1C', fontWeight: 700, fontSize: 11 }} />
+                <Chip label={`${entregas.filter(e => e.otif_on_time !== false).length} On Time`} size="small" sx={{ bgcolor: '#DCFCE7', color: '#15803D', fontWeight: 700, fontSize: 11 }} />
+                <Chip label={`${entregas.filter(e => e.otif_on_time === false).length} Tarde`} size="small" sx={{ bgcolor: '#FEE2E2', color: '#B91C1C', fontWeight: 700, fontSize: 11 }} />
               </Stack>
             </Stack>
           </Box>
@@ -293,20 +373,27 @@ export default function TMSDashboard() {
               <TableHead>
                 <TableRow sx={{ bgcolor: '#F9FAFB' }}>
                   <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Viaje</TableCell>
-                  <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Cliente</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Carga</TableCell>
                   <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Destino</TableCell>
                   <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Hora Entrega</TableCell>
                   <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>OTIF</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {ENTREGAS.map((e) => (
-                  <TableRow key={e.viaje} hover>
-                    <TableCell><Typography fontSize={12} fontWeight={600} color={TMS_COLOR}>{e.viaje}</Typography></TableCell>
-                    <TableCell><Typography fontSize={12}>{e.cliente}</Typography></TableCell>
-                    <TableCell><Typography fontSize={12}>{e.destino}</Typography></TableCell>
-                    <TableCell><Typography fontSize={12} fontWeight={600}>{e.horaEntrega}</Typography></TableCell>
-                    <TableCell>{otifChip(e.otif)}</TableCell>
+                {entregas.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center" sx={{ py: 4, color: 'text.secondary', fontSize: 13 }}>
+                      Todavía no hay entregas registradas
+                    </TableCell>
+                  </TableRow>
+                )}
+                {entregas.map((e) => (
+                  <TableRow key={e.id} hover>
+                    <TableCell><Typography fontSize={12} fontWeight={600} color={TMS_COLOR}>{e.codigo}</Typography></TableCell>
+                    <TableCell><Typography fontSize={12}>{e.descripcion_carga ?? '—'}</Typography></TableCell>
+                    <TableCell><Typography fontSize={12}>{e.destino_ciudad ?? '—'}</Typography></TableCell>
+                    <TableCell><Typography fontSize={12} fontWeight={600}>{hora(e.fecha_real_entrega)}</Typography></TableCell>
+                    <TableCell>{otifChip(e)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

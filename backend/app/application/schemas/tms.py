@@ -231,6 +231,9 @@ class TMSViajeResponse(BaseModel):
     valor_flete: Optional[float] = None
     otif_on_time: Optional[bool] = None
     otif_in_full: Optional[bool] = None
+    # Qué se transportó. Es lo único que identifica la carga en un listado, y
+    # sin ello la torre de control muestra viajes sin decir de qué son.
+    descripcion_carga: Optional[str] = None
     notas: Optional[str] = None
     created_at: Optional[datetime] = None
 
@@ -591,7 +594,12 @@ class TMSAlertaResponse(BaseModel):
     nivel: NivelAlertaTMSEnum
     mensaje: str
     viaje_id: Optional[int] = None
+    # El código del viaje, no solo su identificador. Una alerta que dice «viaje
+    # 4127» no le sirve a nadie en una torre de control: hay que poder buscarla
+    # por el código con el que el viaje se conoce.
+    viaje_codigo: Optional[str] = None
     vehiculo_id: Optional[int] = None
+    vehiculo_placa: Optional[str] = None
     conductor_id: Optional[int] = None
     leida: bool
     fecha_alerta: datetime

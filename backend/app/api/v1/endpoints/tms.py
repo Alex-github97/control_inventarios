@@ -5,7 +5,7 @@ Prefijo: /tms
 from datetime import date, datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, func, and_, or_, delete as sa_delete
+from sqlalchemy import select, func, and_, or_, delete as sa_delete, Integer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -74,13 +74,17 @@ async def _viaje_to_response(db: AsyncSession, viaje: TMSViaje) -> TMSViajeRespo
 
     conductor_nombre = None
     if viaje.conductor_hcm_id:
-        try:
-            from app.infrastructure.models.hcm import HCMConductor
-            cond = await db.get(HCMConductor, viaje.conductor_hcm_id)
-            if cond:
-                conductor_nombre = getattr(cond, "nombre_completo", None) or getattr(cond, "nombre", None)
-        except Exception:
-            pass
+        # El nombre está en el colaborador, no en el conductor: `HCMConductor`
+        # solo guarda la licencia y la experiencia. Antes se buscaba
+        # `cond.nombre_completo` con un getattr y un `except` que se lo tragaba
+        # todo, así que la columna «Conductor» salía vacía en cada viaje y nadie
+        # veía ningún error.
+        from app.infrastructure.models.hcm import HCMColaborador, HCMConductor
+        conductor_nombre = (await db.execute(
+            select(HCMColaborador.nombres + " " + HCMColaborador.apellidos)
+            .join(HCMConductor, HCMConductor.colaborador_id == HCMColaborador.id)
+            .where(HCMConductor.id == viaje.conductor_hcm_id)
+        )).scalar()
     if not conductor_nombre and viaje.conductor_legacy_id:
         try:
             from app.infrastructure.models.conductor import Conductor
@@ -119,6 +123,7 @@ async def _viaje_to_response(db: AsyncSession, viaje: TMSViaje) -> TMSViajeRespo
         valor_flete=viaje.valor_flete,
         otif_on_time=viaje.otif_on_time,
         otif_in_full=viaje.otif_in_full,
+        descripcion_carga=viaje.descripcion_carga,
         notas=viaje.notas,
         created_at=viaje.created_at,
     )
@@ -156,7 +161,8 @@ async def dashboard_kpis(
     r = await db.execute(
         select(func.count(TMSViaje.id)).where(
             TMSViaje.deleted_at.is_(None),
-            TMSViaje.estado == EstadoViajeTMSEnum.ENTREGADO,
+            TMSViaje.estado.in_([EstadoViajeTMSEnum.ENTREGADO,
+                                 EstadoViajeTMSEnum.CERRADO]),
             func.date(TMSViaje.fecha_real_entrega) == hoy,
         )
     )
@@ -214,20 +220,28 @@ async def dashboard_kpis(
     r = await db.execute(
         select(
             func.count(TMSViaje.id),
+            # `cast(..., type_=None)` produce un NullType y PostgreSQL no puede
+            # compilarlo: el endpoint entero respondía 500 y el tablero mostraba
+            # ceros, porque la pantalla cae a `?? 0` cuando la consulta falla.
+            # Un cero se lee como «la operación va mal», no como «esto está roto».
             func.sum(
                 func.cast(
                     and_(
-                        TMSViaje.otif_on_time == True,
-                        TMSViaje.otif_in_full == True,
+                        TMSViaje.otif_on_time.is_(True),
+                        TMSViaje.otif_in_full.is_(True),
                     ),
-                    type_=None,
+                    Integer,
                 )
             ),
-            func.sum(func.cast(TMSViaje.otif_on_time == True, type_=None)),
-            func.sum(func.cast(TMSViaje.otif_in_full == True, type_=None)),
+            func.sum(func.cast(TMSViaje.otif_on_time.is_(True), Integer)),
+            func.sum(func.cast(TMSViaje.otif_in_full.is_(True), Integer)),
         ).where(
             TMSViaje.deleted_at.is_(None),
-            TMSViaje.estado == EstadoViajeTMSEnum.ENTREGADO,
+            # ENTREGADO y CERRADO: cerrar un viaje es un trámite administrativo
+            # posterior a la entrega, no la deshace. Contando solo ENTREGADO, el
+            # OTIF del mes se derrumbaba a medida que se cerraban los viajes.
+            TMSViaje.estado.in_([EstadoViajeTMSEnum.ENTREGADO,
+                                 EstadoViajeTMSEnum.CERRADO]),
             TMSViaje.fecha_real_entrega >= inicio_mes,
         )
     )
@@ -249,7 +263,8 @@ async def dashboard_kpis(
     r = await db.execute(
         select(func.sum(TMSViaje.distancia_km)).where(
             TMSViaje.deleted_at.is_(None),
-            TMSViaje.estado == EstadoViajeTMSEnum.ENTREGADO,
+            TMSViaje.estado.in_([EstadoViajeTMSEnum.ENTREGADO,
+                                 EstadoViajeTMSEnum.CERRADO]),
             TMSViaje.fecha_real_entrega >= inicio_mes,
         )
     )
@@ -306,8 +321,28 @@ async def listar_alertas(
     if viaje_id:
         q = q.where(TMSAlerta.viaje_id == viaje_id)
     q = q.order_by(TMSAlerta.fecha_alerta.desc()).limit(50)
-    r = await db.execute(q)
-    return r.scalars().all()
+    alertas = (await db.execute(q)).scalars().all()
+
+    # El código del viaje y la placa, en dos consultas y no una por alerta.
+    ids_viaje = {a.viaje_id for a in alertas if a.viaje_id}
+    ids_vehiculo = {a.vehiculo_id for a in alertas if a.vehiculo_id}
+    codigos = dict((await db.execute(
+        select(TMSViaje.id, TMSViaje.codigo)
+        .where(TMSViaje.id.in_(ids_viaje or {0})))).all())
+    placas = dict((await db.execute(
+        select(TMSVehiculo.id, TMSVehiculo.placa)
+        .where(TMSVehiculo.id.in_(ids_vehiculo or {0})))).all())
+
+    return [
+        TMSAlertaResponse(
+            id=a.id, tipo=a.tipo, nivel=a.nivel, mensaje=a.mensaje,
+            viaje_id=a.viaje_id, viaje_codigo=codigos.get(a.viaje_id),
+            vehiculo_id=a.vehiculo_id, vehiculo_placa=placas.get(a.vehiculo_id),
+            conductor_id=a.conductor_id, leida=a.leida,
+            fecha_alerta=a.fecha_alerta,
+        )
+        for a in alertas
+    ]
 
 
 @router.post("/alertas", response_model=TMSAlertaResponse, status_code=201)
@@ -586,9 +621,44 @@ async def listar_viajes(
     r = await db.execute(stmt)
     viajes = r.scalars().all()
 
-    items = []
-    for viaje in viajes:
-        items.append(await _viaje_to_response(db, viaje))
+    # Placas y conductores en dos consultas, no dos por viaje. Con la página de
+    # cien viajes que permite el endpoint, lo anterior eran doscientos viajes a
+    # la base para pintar una tabla.
+    from app.infrastructure.models.hcm import HCMColaborador, HCMConductor
+    ids_veh = {v.vehiculo_id for v in viajes if v.vehiculo_id}
+    ids_cond = {v.conductor_hcm_id for v in viajes if v.conductor_hcm_id}
+    placas = dict((await db.execute(
+        select(TMSVehiculo.id, TMSVehiculo.placa)
+        .where(TMSVehiculo.id.in_(ids_veh or {0})))).all())
+    nombres = dict((await db.execute(
+        select(HCMConductor.id,
+               HCMColaborador.nombres + " " + HCMColaborador.apellidos)
+        .join(HCMColaborador, HCMConductor.colaborador_id == HCMColaborador.id)
+        .where(HCMConductor.id.in_(ids_cond or {0})))).all())
+
+    items = [
+        TMSViajeResponse(
+            id=v.id, codigo=v.codigo, tipo_servicio=v.tipo_servicio,
+            estado=v.estado, vehiculo_id=v.vehiculo_id,
+            vehiculo_placa=placas.get(v.vehiculo_id),
+            conductor_hcm_id=v.conductor_hcm_id,
+            conductor_nombre=nombres.get(v.conductor_hcm_id),
+            conductor_legacy_id=v.conductor_legacy_id, empresa_id=v.empresa_id,
+            generador_id=v.generador_id, generador_nombre=None,
+            flete_id=v.flete_id, wms_despacho_id=v.wms_despacho_id,
+            origen_ciudad=v.origen_ciudad, destino_ciudad=v.destino_ciudad,
+            fecha_programada_cargue=v.fecha_programada_cargue,
+            fecha_real_cargue=v.fecha_real_cargue,
+            fecha_programada_entrega=v.fecha_programada_entrega,
+            fecha_real_entrega=v.fecha_real_entrega,
+            distancia_km=v.distancia_km, peso_kg=v.peso_kg,
+            num_entregas=v.num_entregas, valor_flete=v.valor_flete,
+            otif_on_time=v.otif_on_time, otif_in_full=v.otif_in_full,
+            descripcion_carga=v.descripcion_carga, notas=v.notas,
+            created_at=v.created_at,
+        )
+        for v in viajes
+    ]
 
     return TMSViajeListResponse(items=items, total=total, page=page, per_page=per_page)
 
