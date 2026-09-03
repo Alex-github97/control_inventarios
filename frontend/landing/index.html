@@ -258,48 +258,60 @@
   .plan li b{color:var(--tinta);font-weight:700}
   .gris .plan{background:#fff}
 
-  /* Las tres unidades medidas: la cifra manda, el desglose se abre si lo piden. */
+  /* Las tres unidades: la cifra manda y debajo va lo que INCLUYE, no lo que
+     cuesta cada pieza. Desglosar el precio por submódulo invita a recortar;
+     desglosar lo que se lleva invita a usarlo. */
   .unidades{display:grid;gap:18px;margin-top:26px;
     grid-template-columns:repeat(auto-fit,minmax(266px,1fr))}
   .unidad .valor{font-family:'JetBrains Mono',ui-monospace,monospace;
     font-size:1.85rem;font-weight:600;letter-spacing:-.03em;color:var(--acento)}
   .unidad .valor small{display:block;font-family:'Montserrat',sans-serif;
     font-size:.76rem;font-weight:500;color:var(--acero);letter-spacing:0;margin-top:2px}
-  .unidad .cubre{margin-top:14px;font-size:.86rem;color:var(--grafito);line-height:1.65}
-  .unidad details{margin-top:14px;border-top:1px solid var(--niebla);padding-top:12px}
-  .unidad summary{cursor:pointer;font-size:.8rem;font-weight:600;color:var(--acento);
-    font-family:'JetBrains Mono',ui-monospace,monospace;letter-spacing:.04em;
-    list-style:none}
-  .unidad summary::-webkit-details-marker{display:none}
-  .unidad summary::after{content:' ↓'}
-  .unidad details[open] summary::after{content:' ↑'}
-  .unidad .fila{display:flex;justify-content:space-between;gap:12px;
-    font-size:.83rem;padding:6px 0;color:var(--grafito)}
-  .unidad .fila span:last-child{font-family:'JetBrains Mono',ui-monospace,monospace;
-    color:var(--tinta);white-space:nowrap}
+  .unidad ul{list-style:none;margin-top:16px;padding-top:14px;
+    border-top:1px solid var(--niebla);font-size:.86rem;color:var(--grafito)}
+  .unidad li{padding:5px 0 5px 18px;position:relative}
+  .unidad li::before{content:'';position:absolute;left:2px;top:.62em;
+    width:7px;height:7px;border-left:1.6px solid var(--acento);
+    border-bottom:1.6px solid var(--acento);transform:rotate(-45deg)}
 
-  /* El contraste con lo que ya paga: es el argumento, no un adorno. */
-  .contraste{margin-top:44px;border:1px solid var(--niebla);border-radius:var(--radio);
-    background:#fff;padding:30px;display:grid;gap:22px;
-    grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
-  .contraste .lado h4{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10px;
-    letter-spacing:.14em;text-transform:uppercase;color:var(--acero);
-    font-weight:700;margin-bottom:12px}
-  .contraste .renglon{display:flex;justify-content:space-between;gap:14px;
-    font-size:.88rem;padding:5px 0;color:var(--grafito)}
-  .contraste .renglon span:last-child{font-family:'JetBrains Mono',ui-monospace,monospace;
+  /* ── Desglose: qué trae cada plan ── */
+  .desglose{margin-top:30px;overflow-x:auto;border:1px solid var(--niebla);
+    border-radius:var(--radio);background:#fff}
+  .desglose table{width:100%;border-collapse:collapse;min-width:640px;font-size:.9rem}
+  .desglose th{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10px;
+    letter-spacing:.12em;text-transform:uppercase;color:var(--acero);font-weight:700;
+    padding:18px 16px;text-align:center;border-bottom:1px solid var(--niebla);
+    white-space:nowrap}
+  .desglose th:first-child{text-align:left}
+  .desglose th.destacada{color:var(--acento)}
+  .desglose td{padding:13px 16px;text-align:center;color:var(--grafito);
+    border-bottom:1px solid var(--bruma)}
+  .desglose td:first-child{text-align:left;color:var(--tinta);font-weight:500}
+  .desglose tr:last-child td{border-bottom:none}
+  .desglose tbody tr:hover td{background:var(--bruma)}
+  .desglose .grupo td{background:var(--bruma);font-family:'JetBrains Mono',ui-monospace,monospace;
+    font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--acero);
+    font-weight:700;padding:11px 16px}
+  .desglose tbody tr.grupo:hover td{background:var(--bruma)}
+  .si{color:var(--acento);font-weight:700}
+  .no{color:#c9c9c9}
+  .dato{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:.83rem;
     color:var(--tinta)}
-  .contraste .suma{display:flex;justify-content:space-between;gap:14px;
-    margin-top:10px;padding-top:12px;border-top:1px solid var(--niebla);
-    font-weight:700}
-  .contraste .suma span:last-child{font-family:'JetBrains Mono',ui-monospace,monospace;
-    font-size:1.12rem}
-  .contraste .lado.nuestro .suma span:last-child{color:var(--acento)}
-  .contraste .veredicto{grid-column:1/-1;border-top:1px solid var(--niebla);
-    padding-top:18px;font-size:.95rem;color:var(--grafito)}
-  .contraste .veredicto b{color:var(--tinta)}
 
-  .letra-chica{margin-top:26px;font-size:.82rem;color:var(--acero);max-width:70ch}
+  /* Cuánto cuesta en la práctica: perfiles reales, sin comparar con nadie. */
+  .perfiles{display:grid;gap:18px;margin-top:30px;
+    grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
+  .perfil .quien{font-size:.86rem;color:var(--acero);min-height:3.2em;margin-bottom:14px}
+  .perfil .renglon{display:flex;justify-content:space-between;gap:12px;
+    font-size:.85rem;padding:5px 0;color:var(--grafito)}
+  .perfil .renglon span:last-child{font-family:'JetBrains Mono',ui-monospace,monospace;
+    color:var(--tinta);white-space:nowrap}
+  .perfil .suma{display:flex;justify-content:space-between;gap:12px;margin-top:12px;
+    padding-top:13px;border-top:1px solid var(--niebla);font-weight:700;align-items:baseline}
+  .perfil .suma span:last-child{font-family:'JetBrains Mono',ui-monospace,monospace;
+    font-size:1.2rem;color:var(--acento)}
+
+  .letra-chica{margin-top:30px;font-size:.82rem;color:var(--acero);max-width:74ch}
 
   /* Barra de avance de lectura */
   #avance{position:fixed;top:0;left:0;height:2px;width:0;z-index:70;
@@ -482,91 +494,168 @@
       </article>
     </div>
 
+    <div class="desglose rev">
+      <table>
+        <thead>
+          <tr>
+            <th>Qué trae cada plan</th>
+            <th>Gratis</th>
+            <th>Contable</th>
+            <th class="destacada">Operación</th>
+            <th>Plataforma</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="grupo"><td colspan="5">Base</td></tr>
+          <tr><td>Usuarios</td>
+            <td class="dato">sin límite</td><td class="dato">sin límite</td>
+            <td class="dato">sin límite</td><td class="dato">sin límite</td></tr>
+          <tr><td>Razones sociales (NIT)</td>
+            <td class="dato">1</td><td class="dato">1</td>
+            <td class="dato">1</td><td class="dato">3</td></tr>
+          <tr><td>Exportar toda su información</td>
+            <td class="si">Sí</td><td class="si">Sí</td><td class="si">Sí</td><td class="si">Sí</td></tr>
+
+          <tr class="grupo"><td colspan="5">Finanzas</td></tr>
+          <tr><td>Contabilidad de doble partida y libros</td>
+            <td class="no">—</td><td class="si">Sí</td><td class="si">Sí</td><td class="si">Sí</td></tr>
+          <tr><td>Facturación, cartera y tesorería</td>
+            <td class="no">—</td><td class="si">Sí</td><td class="si">Sí</td><td class="si">Sí</td></tr>
+          <tr><td>Impuestos y retenciones con vigencia</td>
+            <td class="no">—</td><td class="si">Sí</td><td class="si">Sí</td><td class="si">Sí</td></tr>
+          <tr><td>Compras: requisiciones y órdenes</td>
+            <td class="no">—</td><td class="si">Sí</td><td class="si">Sí</td><td class="si">Sí</td></tr>
+          <tr><td>La operación se contabiliza sola</td>
+            <td class="no">—</td><td class="no">—</td><td class="si">Sí</td><td class="si">Sí</td></tr>
+
+          <tr class="grupo"><td colspan="5">Módulos de gestión</td></tr>
+          <tr><td>Calidad, riesgo, documental, comercial…</td>
+            <td class="no">—</td><td class="no">—</td>
+            <td class="dato">4 a elegir</td><td class="dato">los 11</td></tr>
+          <tr><td>Producción y planeación</td>
+            <td class="no">—</td><td class="no">—</td>
+            <td class="dato">si los elige</td><td class="si">Sí</td></tr>
+          <tr><td>Consolidación entre empresas</td>
+            <td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="si">Sí</td></tr>
+          <tr><td>Acceso a la API</td>
+            <td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="si">Sí</td></tr>
+
+          <tr class="grupo"><td colspan="5">Operación medida</td></tr>
+          <tr><td>Vehículos</td>
+            <td class="dato">hasta 3</td><td class="dato">se suma</td>
+            <td class="dato">se suma</td><td class="dato">se suma</td></tr>
+          <tr><td>Empleados</td>
+            <td class="dato">hasta 3</td><td class="dato">se suma</td>
+            <td class="dato">se suma</td><td class="dato">se suma</td></tr>
+          <tr><td>Bodegas</td>
+            <td class="no">—</td><td class="dato">se suma</td>
+            <td class="dato">se suma</td><td class="dato">se suma</td></tr>
+
+          <tr class="grupo"><td colspan="5">Acompañamiento</td></tr>
+          <tr><td>Tiempo de respuesta</td>
+            <td class="dato">sin pactar</td><td class="dato">correo</td>
+            <td class="dato">8 h hábiles</td><td class="dato">4 h hábiles</td></tr>
+          <tr><td>Migración desde su sistema actual</td>
+            <td class="no">—</td><td class="si">Sí</td><td class="si">Sí</td><td class="si">Sí</td></tr>
+        </tbody>
+      </table>
+    </div>
+
     <span class="rotulo rev" style="margin-top:64px;display:inline-flex">Lo que se mide</span>
     <h2 class="rev" data-txt="unidades_titulo">Tres unidades que usted ya cuenta</h2>
     <p class="intro rev" data-txt="unidades_texto">
       Un camión más son órdenes de trabajo más. Un empleado más es una nómina más. Eso sí crece,
-      y por eso se cobra por unidad — nunca con un tope que lo frene.
+      y por eso se cobra por unidad — nunca con un tope que lo frene. Un precio, todo adentro.
     </p>
 
     <div class="unidades">
       <article class="tarjeta unidad rev">
         <div class="marca">VEH</div>
         <h3>Por vehículo</h3>
-        <p class="valor">$14.900<small>al mes, todo incluido</small></p>
-        <p class="cubre">Mantenimiento, llantas, transporte, lubricación, combustible,
-          inspecciones, repuestos, confiabilidad y documentos de flota.</p>
-        <details>
-          <summary>Ver el desglose</summary>
-          <div class="fila"><span>Base de mantenimiento</span><span>$3.900</span></div>
-          <div class="fila"><span>Llantas</span><span>+ $2.900</span></div>
-          <div class="fila"><span>Transporte</span><span>+ $2.900</span></div>
-          <div class="fila"><span>Confiabilidad</span><span>+ $2.400</span></div>
-          <div class="fila"><span>Lubricación</span><span>+ $1.900</span></div>
-          <div class="fila"><span>Inspecciones</span><span>+ $1.900</span></div>
-          <div class="fila"><span>Repuestos</span><span>+ $1.900</span></div>
-          <div class="fila"><span>Combustible</span><span>+ $1.400</span></div>
-          <div class="fila"><span>Documentos de flota</span><span>+ $1.400</span></div>
-          <div class="fila"><span><b>Todo junto</b></span><span><b>$14.900</b></span></div>
-        </details>
+        <p class="valor">$14.900<small>al mes · todo incluido</small></p>
+        <ul>
+          <li>Órdenes de trabajo y planes preventivos</li>
+          <li>Llantas: montaje, rotación, profundidades, reencauche y costo por kilómetro</li>
+          <li>Manifiestos, despachos y cumplimiento de entrega</li>
+          <li>Lubricación por rutas y puntos</li>
+          <li>Tanqueos, rendimiento y desviaciones</li>
+          <li>Inspecciones en campo con hallazgos</li>
+          <li>Repuestos del taller y consumo por orden</li>
+          <li>Confiabilidad y análisis de causa raíz</li>
+          <li>SOAT, técnico-mecánica y vencimientos</li>
+        </ul>
       </article>
 
       <article class="tarjeta unidad rev">
         <div class="marca">EMP</div>
         <h3>Por empleado</h3>
-        <p class="valor">$3.900<small>al mes, todo incluido</small></p>
-        <p class="cubre">Nómina y contratación, seguridad y salud en el trabajo, y formación
-          con sus certificados y vencimientos.</p>
-        <details>
-          <summary>Ver el desglose</summary>
-          <div class="fila"><span>Nómina y contratación</span><span>$2.900</span></div>
-          <div class="fila"><span>Seguridad y salud</span><span>+ $1.400</span></div>
-          <div class="fila"><span>Formación</span><span>+ $900</span></div>
-          <div class="fila"><span><b>Todo junto</b></span><span><b>$3.900</b></span></div>
-        </details>
+        <p class="valor">$3.900<small>al mes · todo incluido</small></p>
+        <ul>
+          <li>Nómina liquidada, que se contabiliza sola</li>
+          <li>Contratos, vacaciones e incapacidades</li>
+          <li>Reclutamiento y evaluación de desempeño</li>
+          <li>Matriz de riesgos e incidentes</li>
+          <li>Exámenes médicos y SG-SST</li>
+          <li>Cursos, certificados y sus vencimientos</li>
+        </ul>
       </article>
 
       <article class="tarjeta unidad rev">
-        <div class="marca">POS</div>
-        <h3>Por posición</h3>
-        <p class="valor">$690<small>al mes, todo incluido</small></p>
-        <p class="cubre">Almacenes de punta a punta —recepción, ubicación, picking y
-          despacho— y control de estibas con su trazabilidad.</p>
-        <details>
-          <summary>Ver el desglose</summary>
-          <div class="fila"><span>Almacenes</span><span>$490</span></div>
-          <div class="fila"><span>Control de estibas</span><span>+ $290</span></div>
-          <div class="fila"><span><b>Todo junto</b></span><span><b>$690</b></span></div>
-        </details>
+        <div class="marca">BOD</div>
+        <h3>Por bodega</h3>
+        <p class="valor">$199.000<small>al mes · todo incluido</small></p>
+        <ul>
+          <li>Recepción, ubicación, picking y despacho</li>
+          <li>Inventarios cíclicos y ajustes</li>
+          <li>Trazabilidad de estibas por cliente</li>
+          <li>Manifiestos y control de daños</li>
+          <li>Costos de almacenamiento por cliente</li>
+          <li>Sin límite de posiciones ni de movimientos</li>
+        </ul>
       </article>
     </div>
 
-    <div class="contraste rev">
-      <div class="lado">
-        <h4>Lo que se paga hoy · 60 camiones, 90 personas</h4>
-        <div class="renglon"><span>GPS de la flota</span><span>$1.800.000</span></div>
-        <div class="renglon"><span>Software de nómina</span><span>$540.000</span></div>
-        <div class="renglon"><span>Contabilidad en la nube</span><span>$250.000</span></div>
-        <div class="suma"><span>Tres sistemas que no se hablan</span><span>$2.590.000</span></div>
-      </div>
-      <div class="lado nuestro">
-        <h4>Lo mismo, en TittanWare</h4>
+    <span class="rotulo rev" style="margin-top:64px;display:inline-flex">En la práctica</span>
+    <h2 class="rev" data-txt="ejemplos_titulo">Cuánto le costaría a su operación</h2>
+    <p class="intro rev" data-txt="ejemplos_texto">
+      Tres perfiles con la cuenta hecha. Sume su plan y sus unidades: no hay costos de
+      activación, ni cargos por usuario, ni sorpresas en la primera factura.
+    </p>
+
+    <div class="perfiles">
+      <article class="tarjeta perfil rev">
+        <h3>Taller pequeño</h3>
+        <p class="quien">3 vehículos propios, un mecánico y el dueño.</p>
+        <div class="renglon"><span>Plan Gratis</span><span>$0</span></div>
+        <div class="renglon"><span>3 vehículos</span><span>incluidos</span></div>
+        <div class="suma"><span>Al mes</span><span>$0</span></div>
+      </article>
+
+      <article class="tarjeta perfil rev">
+        <h3>Transportadora mediana</h3>
+        <p class="quien">18 camiones, 25 personas en nómina y una bodega.</p>
         <div class="renglon"><span>Plan Operación</span><span>$490.000</span></div>
-        <div class="renglon"><span>60 vehículos, todo incluido</span><span>$894.000</span></div>
-        <div class="renglon"><span>90 empleados, todo incluido</span><span>$351.000</span></div>
-        <div class="suma"><span>Un solo sistema</span><span>$1.735.000</span></div>
-      </div>
-      <p class="veredicto">
-        <b>$855.000 menos al mes</b>, y la contabilidad se escribe sola desde la operación:
-        el flete facturado, la compra de combustible, la nómina y la depreciación generan su
-        asiento sin que nadie los vuelva a digitar.
-      </p>
+        <div class="renglon"><span>18 vehículos</span><span>$268.200</span></div>
+        <div class="renglon"><span>25 empleados</span><span>$97.500</span></div>
+        <div class="renglon"><span>1 bodega</span><span>$199.000</span></div>
+        <div class="suma"><span>Al mes</span><span>$1.054.700</span></div>
+      </article>
+
+      <article class="tarjeta perfil rev">
+        <h3>Operador logístico</h3>
+        <p class="quien">60 camiones, 90 personas y tres centros de distribución.</p>
+        <div class="renglon"><span>Plan Plataforma</span><span>$1.190.000</span></div>
+        <div class="renglon"><span>60 vehículos</span><span>$894.000</span></div>
+        <div class="renglon"><span>90 empleados</span><span>$351.000</span></div>
+        <div class="renglon"><span>3 bodegas</span><span>$597.000</span></div>
+        <div class="suma"><span>Al mes</span><span>$3.032.000</span></div>
+      </article>
     </div>
 
     <p class="letra-chica rev">
       Valores en pesos colombianos, antes de IVA. Se factura solo la unidad con movimiento en el
-      mes: un camión parado no se cobra. Mínimos de 5 vehículos, 10 empleados o 200 posiciones.
-      Pago anual: dos meses sin costo. Si viene de otro sistema, la migración va por nuestra cuenta.
+      mes: un camión parado no se cobra. Mínimos de 5 vehículos y 10 empleados. Pago anual: dos
+      meses sin costo. Si viene de otro sistema, la migración va por nuestra cuenta.
     </p>
 
     <div class="acciones rev" style="margin-top:34px">
