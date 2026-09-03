@@ -197,6 +197,12 @@
   .mod::after{content:'';position:absolute;left:0;bottom:0;height:2px;width:0;
     background:var(--acento);transition:width .4s cubic-bezier(.22,.61,.36,1)}
   .mod:hover::after{width:100%}
+  /* La flecha aparece al pasar por encima: sin ella la ficha no se lee como
+     algo en lo que se puede entrar, y con ella siempre visible el listado se
+     vuelve ruidoso. */
+  .mod em{font-style:normal;margin-left:auto;color:var(--acento);font-weight:700;
+    opacity:0;transform:translateX(-5px);transition:opacity .18s ease,transform .18s ease}
+  .mod:hover em{opacity:1;transform:none}
 
   .franja{background:var(--tinta);color:#fff;overflow:hidden}
   /* Misma retícula que las secciones claras, en negativo: los puntos oscuros
@@ -415,6 +421,7 @@
     <p class="intro rev" data-txt="modulos_texto">
       No hay que comprarlo todo. Cada empresa contrata los módulos que necesita y el resto
       sencillamente no aparece: ni en el menú, ni en el precio.
+      Entre a cualquiera para ver qué resuelve y cuánto cuesta.
     </p>
     <div class="modulos" id="listaModulos"></div>
   </div>
@@ -735,12 +742,27 @@ const PORDEFECTO = {
     {clave:'02',titulo:'Jerarquías de verdad',texto:'Tipo de activo → marca → línea → modelo. Un plan de mantenimiento se define una vez sobre la jerarquía y cubre todos los equipos que le corresponden.'},
     {clave:'03',titulo:'Trazabilidad hasta el origen',texto:'De un costo del mes se puede llegar a la orden que lo generó, al activo, a la falla y al análisis de por qué ocurrió, con sus evidencias y su responsable.'}
   ],
-  modulos:['CMMS / EAM · Mantenimiento','WMS · Almacenes','TMS · Transporte',
-    'Gestión de Flotas','Control de Estibas','Mantenimiento Locativo','QMS · Calidad',
-    'GRC · Riesgo y Cumplimiento','SST · Seguridad y Salud','DMS · Gestión Documental',
-    'Gestión Humana','LMS · Formación','CRM · Comercial','ERP · Financiero',
-    'SCM · Cadena de Suministro','MES · Producción','APS · Planeación',
-    'AGS · Agenda de Servicios'],
+  // Cada módulo lleva a su folleto. El nombre y la ficha van juntos para que
+  // cambiar el orden desde el editor no desconecte el enlace.
+  modulos:[
+    {n:'CMMS / EAM · Mantenimiento', a:'/modulos/cmms.html'},
+    {n:'WMS · Almacenes',            a:'/modulos/wms.html'},
+    {n:'TMS · Transporte',           a:'/modulos/tms.html'},
+    {n:'Control de Estibas',         a:'/modulos/estibas.html'},
+    {n:'ERP · Financiero',           a:'/modulos/erp.html'},
+    {n:'Gestión Humana',             a:'/modulos/gh.html'},
+    {n:'SST · Seguridad y Salud',    a:'/modulos/sst.html'},
+    {n:'LMS · Formación',            a:'/modulos/lms.html'},
+    {n:'QMS · Calidad',              a:'/modulos/qms.html'},
+    {n:'GRC · Riesgo y Cumplimiento',a:'/modulos/grc.html'},
+    {n:'DMS · Gestión Documental',   a:'/modulos/dms.html'},
+    {n:'CRM · Comercial',            a:'/modulos/crm.html'},
+    {n:'TarifaX · Motor de Tarifas', a:'/modulos/tarifax.html'},
+    {n:'SCM · Proveedores',          a:'/modulos/scm.html'},
+    {n:'MES · Producción',           a:'/modulos/mes.html'},
+    {n:'APS · Planeación',           a:'/modulos/aps.html'},
+    {n:'AGS · Agenda de Servicios',  a:'/modulos/ags.html'}
+  ],
   detalles:[
     {clave:'OT',titulo:'Órdenes de trabajo',texto:'Trabajos y repuestos desde el catálogo, proveedor por línea, y los soportes —cotización, orden de compra, factura— adjuntos y consultables por número.'},
     {clave:'RC',titulo:'Análisis de causa raíz',texto:'Cinco porqués, acciones con responsable y fecha, evidencias fotográficas e informe exportable en PDF. Y las causas alimentan el tablero.'},
@@ -803,8 +825,18 @@ function pintar(c){
   $('#tarjetasNegocio').innerHTML = (c.negocio ?? []).map(tarjeta).join('');
   // El índice va en el marcado y no en un contador de CSS porque así el
   // número queda seleccionable y se lee igual si el orden cambia desde el editor.
+  // Acepta las dos formas: el objeto con su enlace y el texto suelto de una
+  // versión anterior del contenido publicado. Sin esto, un editor que todavía
+  // tenga guardada la lista vieja dejaría la sección en blanco.
   $('#listaModulos').innerHTML = (c.modulos ?? [])
-    .map((m, i) => `<div class="mod rev"><i>${String(i + 1).padStart(2, '0')}</i>${m}</div>`)
+    .map((m, i) => {
+      const nombre = typeof m === 'string' ? m : m.n;
+      const enlace = typeof m === 'string' ? null : m.a;
+      const indice = `<i>${String(i + 1).padStart(2, '0')}</i>`;
+      return enlace
+        ? `<a class="mod rev" href="${enlace}">${indice}${nombre}<em>→</em></a>`
+        : `<div class="mod rev">${indice}${nombre}</div>`;
+    })
     .join('');
 
   const correo = c.correo || PORDEFECTO.correo;

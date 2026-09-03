@@ -28,7 +28,13 @@ MODULOS: List[Modulo] = [
     Modulo("qms",     "QMS · Calidad", ("/qms",)),
     Modulo("dms",     "DMS · Gestión Documental", ("/dms",)),
     Modulo("tms",     "TMS · Transporte", ("/tms", "/fletes")),
-    Modulo("eam",     "CMMS / EAM · Mantenimiento", ("/eam", "/mantenimiento", "/lubricacion")),
+    # La gestión de flotas se unificó acá: era un módulo aparte que vendía lo
+    # mismo —vehículos, combustible, documentos, rutinas— desde otra puerta.
+    # Sus rutas siguen existiendo y ahora pertenecen al CMMS, así que quien
+    # contrata mantenimiento tiene la flota y no hay que venderlas por separado.
+    # Se pudo hacer sin romper nada porque ningún cliente tenía `flota` activo.
+    Modulo("eam",     "CMMS / EAM · Mantenimiento",
+           ("/eam", "/mantenimiento", "/lubricacion", "/flota", "/vehiculos")),
     Modulo("ags",     "AGS · Agenda de Servicios", ("/ags",)),
     Modulo("wms",     "WMS · Almacenes", ("/wms",)),
     Modulo("gh",      "Gestión Humana", ("/hcm", "/gh")),
@@ -40,7 +46,9 @@ MODULOS: List[Modulo] = [
     Modulo("erp",     "ERP · Financiero", ("/erp",)),
     Modulo("scm",     "SCM · Cadena de Suministro", ("/scm",)),
     Modulo("sst",     "SST · Seguridad y Salud", ("/sst",)),
-    Modulo("flota",   "Gestión de Flotas", ("/flota", "/vehiculos")),
+    # OJO: hoy no tiene NINGUNA ruta en el servidor. Se deja declarado para no
+    # romper contratos existentes, pero no se debe vender hasta que exista algo
+    # detrás; por eso tampoco aparece en la página pública.
     Modulo("locativa", "Mantenimiento Locativo", ("/locative",)),
     # Sin esto nadie entra ni administra su empresa: no se vende aparte.
     Modulo("base", "Acceso y administración",
