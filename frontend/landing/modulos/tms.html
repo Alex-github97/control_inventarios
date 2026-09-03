@@ -103,19 +103,31 @@
   .tarjeta p{color:var(--grafito);font-size:.93rem}
 
   /* ── Capturas ──
-     El marco existe aunque la imagen no. Cuando alguien deja el PNG en
-     `img/`, aparece sin tocar nada más. */
-  .capturas{display:grid;gap:22px;margin-top:44px;
-    grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+     Una por fila y a todo el ancho. En rejilla de tres columnas la pantalla de
+     un ERP se reduce a un borrón gris: se ve que hay «algo de software», que es
+     justo lo que no queríamos mostrar. A este tamaño se leen los rótulos y las
+     cifras, que es la única razón de poner una captura en un folleto.
+
+     El marco existe aunque la imagen no, así que se puede publicar antes de
+     tener la foto y agregarla después sin regenerar nada. */
+  .capturas{display:grid;gap:34px;margin-top:44px}
   .captura{border:1px solid var(--niebla);border-radius:var(--radio);overflow:hidden;
-    background:#fff}
-  .captura .marco{aspect-ratio:16/10;background:var(--bruma);display:grid;
-    place-items:center;position:relative;overflow:hidden}
-  .captura .marco img{width:100%;height:100%;object-fit:cover;object-position:top left}
-  .captura .vacio{padding:26px;text-align:center;color:var(--acero);font-size:.86rem;
-    font-family:'JetBrains Mono',ui-monospace,monospace;line-height:1.7}
+    background:#fff;box-shadow:0 18px 44px -30px rgba(15,23,42,.5)}
+  .captura .marco{background:var(--bruma);display:grid;place-items:center;
+    position:relative;overflow:hidden}
+  /* Sin recorte: la captura entra completa. Recortar por alto le come justo la
+     parte de abajo, que es donde suelen estar las tablas con los datos. */
+  .captura .marco img{width:100%;height:auto;display:block}
+  .captura .vacio{padding:56px 26px;text-align:center;color:var(--acero);
+    font-size:.86rem;font-family:'JetBrains Mono',ui-monospace,monospace;
+    line-height:1.7}
+  /* El marco vacío solo se ve si no hay imagen encima. */
+  .captura .marco img + .vacio{display:none}
   .captura .pie{padding:15px 20px;font-size:.9rem;color:var(--grafito);
     border-top:1px solid var(--niebla)}
+  @media(min-width:900px){
+    .captura .pie{font-size:.95rem}
+  }
 
   .franja{background:var(--tinta);color:#fff}
   .franja::before{background-image:radial-gradient(circle at 1px 1px,rgba(255,255,255,.1) 1px,transparent 0);
