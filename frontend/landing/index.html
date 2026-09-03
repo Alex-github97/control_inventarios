@@ -233,6 +233,74 @@
   .legal{margin-top:28px;padding-top:22px;border-top:1px solid rgba(255,255,255,.1);
     font-size:.8rem;color:rgba(255,255,255,.4)}
 
+  /* ── Tarifas ──
+     Reusa `.tarjeta` para no inventar otra caja: cambian el contenido y el
+     precio, no el material. El plan destacado no se agranda —eso descuadra la
+     rejilla— sino que se marca con el borde de acento. */
+  .planes{display:grid;gap:18px;margin-top:44px;
+    grid-template-columns:repeat(auto-fit,minmax(232px,1fr))}
+  .plan{display:flex;flex-direction:column}
+  .plan.elegido{border-color:var(--acento);box-shadow:0 14px 34px rgba(47,111,235,.13)}
+  .plan .sello{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10px;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--acento);
+    font-weight:700;min-height:14px;margin-bottom:10px}
+  .plan h3{font-size:1.12rem;margin-bottom:4px}
+  .plan .para{color:var(--acero);font-size:.85rem;min-height:3.6em;margin-bottom:16px}
+  .plan .valor{font-family:'JetBrains Mono',ui-monospace,monospace;
+    font-size:1.5rem;font-weight:600;letter-spacing:-.03em;line-height:1.1}
+  .plan .valor small{font-family:'Montserrat',sans-serif;font-size:.75rem;
+    font-weight:500;color:var(--acero);letter-spacing:0}
+  .plan ul{list-style:none;margin-top:18px;padding-top:16px;
+    border-top:1px solid var(--niebla);font-size:.87rem;color:var(--grafito)}
+  .plan li{padding:5px 0 5px 18px;position:relative}
+  .plan li::before{content:'';position:absolute;left:0;top:.82em;width:6px;height:6px;
+    border-radius:50%;background:var(--acento);opacity:.45}
+  .plan li b{color:var(--tinta);font-weight:700}
+  .gris .plan{background:#fff}
+
+  /* Las tres unidades medidas: la cifra manda, el desglose se abre si lo piden. */
+  .unidades{display:grid;gap:18px;margin-top:26px;
+    grid-template-columns:repeat(auto-fit,minmax(266px,1fr))}
+  .unidad .valor{font-family:'JetBrains Mono',ui-monospace,monospace;
+    font-size:1.85rem;font-weight:600;letter-spacing:-.03em;color:var(--acento)}
+  .unidad .valor small{display:block;font-family:'Montserrat',sans-serif;
+    font-size:.76rem;font-weight:500;color:var(--acero);letter-spacing:0;margin-top:2px}
+  .unidad .cubre{margin-top:14px;font-size:.86rem;color:var(--grafito);line-height:1.65}
+  .unidad details{margin-top:14px;border-top:1px solid var(--niebla);padding-top:12px}
+  .unidad summary{cursor:pointer;font-size:.8rem;font-weight:600;color:var(--acento);
+    font-family:'JetBrains Mono',ui-monospace,monospace;letter-spacing:.04em;
+    list-style:none}
+  .unidad summary::-webkit-details-marker{display:none}
+  .unidad summary::after{content:' ↓'}
+  .unidad details[open] summary::after{content:' ↑'}
+  .unidad .fila{display:flex;justify-content:space-between;gap:12px;
+    font-size:.83rem;padding:6px 0;color:var(--grafito)}
+  .unidad .fila span:last-child{font-family:'JetBrains Mono',ui-monospace,monospace;
+    color:var(--tinta);white-space:nowrap}
+
+  /* El contraste con lo que ya paga: es el argumento, no un adorno. */
+  .contraste{margin-top:44px;border:1px solid var(--niebla);border-radius:var(--radio);
+    background:#fff;padding:30px;display:grid;gap:22px;
+    grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+  .contraste .lado h4{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10px;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--acero);
+    font-weight:700;margin-bottom:12px}
+  .contraste .renglon{display:flex;justify-content:space-between;gap:14px;
+    font-size:.88rem;padding:5px 0;color:var(--grafito)}
+  .contraste .renglon span:last-child{font-family:'JetBrains Mono',ui-monospace,monospace;
+    color:var(--tinta)}
+  .contraste .suma{display:flex;justify-content:space-between;gap:14px;
+    margin-top:10px;padding-top:12px;border-top:1px solid var(--niebla);
+    font-weight:700}
+  .contraste .suma span:last-child{font-family:'JetBrains Mono',ui-monospace,monospace;
+    font-size:1.12rem}
+  .contraste .lado.nuestro .suma span:last-child{color:var(--acento)}
+  .contraste .veredicto{grid-column:1/-1;border-top:1px solid var(--niebla);
+    padding-top:18px;font-size:.95rem;color:var(--grafito)}
+  .contraste .veredicto b{color:var(--tinta)}
+
+  .letra-chica{margin-top:26px;font-size:.82rem;color:var(--acero);max-width:70ch}
+
   /* Barra de avance de lectura */
   #avance{position:fixed;top:0;left:0;height:2px;width:0;z-index:70;
     background:linear-gradient(90deg,var(--acento),var(--acento-claro));
@@ -262,6 +330,7 @@
       <a href="#plataforma">Plataforma</a>
       <a href="#modulos">Módulos</a>
       <a href="#mantenimiento">Mantenimiento</a>
+      <a href="#tarifas">Tarifas</a>
       <a href="#seguridad">Tecnología</a>
       <a href="#contacto">Contacto</a>
     </nav>
@@ -351,6 +420,162 @@
   </div>
 </section>
 
+<section class="gris" id="tarifas">
+  <div class="env">
+    <span class="rotulo rev">Tarifas</span>
+    <h2 class="rev" data-txt="tarifas_titulo">Se paga lo que se usa. Empezar no cuesta nada.</h2>
+    <p class="intro rev" data-txt="tarifas_texto">
+      Sin cobro por usuario: los conductores, los de bodega y los técnicos entran todos, porque
+      si registrar cuesta, nadie registra. Y sin topes: nada se bloquea cuando la operación crece.
+    </p>
+
+    <div class="planes">
+      <article class="tarjeta plan rev">
+        <div class="sello">Para empezar</div>
+        <h3>Gratis</h3>
+        <p class="para">Hasta 3 vehículos o 3 empleados. Sin tarjeta y sin vencimiento.</p>
+        <p class="valor">$0<small> /mes</small></p>
+        <ul>
+          <li>Una familia medida a elegir</li>
+          <li>Usuarios <b>sin límite</b></li>
+          <li>Los datos son suyos y se exportan</li>
+        </ul>
+      </article>
+
+      <article class="tarjeta plan rev">
+        <div class="sello">Contabilidad</div>
+        <h3>Contable</h3>
+        <p class="para">La empresa que ya paga por contabilidad y quiere dejar de teclear dos veces.</p>
+        <p class="valor">$189.000<small> /mes</small></p>
+        <ul>
+          <li>ERP financiero completo</li>
+          <li>Facturación, cartera, tesorería, compras</li>
+          <li>Documentos <b>sin límite</b></li>
+          <li>Sin costo de puesta en marcha</li>
+        </ul>
+      </article>
+
+      <article class="tarjeta plan elegido rev">
+        <div class="sello">El más pedido</div>
+        <h3>Operación</h3>
+        <p class="para">Para que la operación alimente la contabilidad sola, sin volver a digitar.</p>
+        <p class="valor">$490.000<small> /mes</small></p>
+        <ul>
+          <li>Todo lo de Contable</li>
+          <li><b>4</b> módulos a elegir</li>
+          <li>Las <b>tres</b> familias medidas</li>
+          <li>Respuesta en 8 horas hábiles</li>
+        </ul>
+      </article>
+
+      <article class="tarjeta plan rev">
+        <div class="sello">Todo</div>
+        <h3>Plataforma</h3>
+        <p class="para">Los módulos completos, para quien ya vive sobre el sistema.</p>
+        <p class="valor">$1.190.000<small> /mes</small></p>
+        <ul>
+          <li>Los <b>once</b> módulos de gestión</li>
+          <li>Hasta <b>3</b> NIT y consolidación</li>
+          <li>Acceso a la API</li>
+          <li>Respuesta en 4 horas hábiles</li>
+        </ul>
+      </article>
+    </div>
+
+    <span class="rotulo rev" style="margin-top:64px;display:inline-flex">Lo que se mide</span>
+    <h2 class="rev" data-txt="unidades_titulo">Tres unidades que usted ya cuenta</h2>
+    <p class="intro rev" data-txt="unidades_texto">
+      Un camión más son órdenes de trabajo más. Un empleado más es una nómina más. Eso sí crece,
+      y por eso se cobra por unidad — nunca con un tope que lo frene.
+    </p>
+
+    <div class="unidades">
+      <article class="tarjeta unidad rev">
+        <div class="marca">VEH</div>
+        <h3>Por vehículo</h3>
+        <p class="valor">$14.900<small>al mes, todo incluido</small></p>
+        <p class="cubre">Mantenimiento, llantas, transporte, lubricación, combustible,
+          inspecciones, repuestos, confiabilidad y documentos de flota.</p>
+        <details>
+          <summary>Ver el desglose</summary>
+          <div class="fila"><span>Base de mantenimiento</span><span>$3.900</span></div>
+          <div class="fila"><span>Llantas</span><span>+ $2.900</span></div>
+          <div class="fila"><span>Transporte</span><span>+ $2.900</span></div>
+          <div class="fila"><span>Confiabilidad</span><span>+ $2.400</span></div>
+          <div class="fila"><span>Lubricación</span><span>+ $1.900</span></div>
+          <div class="fila"><span>Inspecciones</span><span>+ $1.900</span></div>
+          <div class="fila"><span>Repuestos</span><span>+ $1.900</span></div>
+          <div class="fila"><span>Combustible</span><span>+ $1.400</span></div>
+          <div class="fila"><span>Documentos de flota</span><span>+ $1.400</span></div>
+          <div class="fila"><span><b>Todo junto</b></span><span><b>$14.900</b></span></div>
+        </details>
+      </article>
+
+      <article class="tarjeta unidad rev">
+        <div class="marca">EMP</div>
+        <h3>Por empleado</h3>
+        <p class="valor">$3.900<small>al mes, todo incluido</small></p>
+        <p class="cubre">Nómina y contratación, seguridad y salud en el trabajo, y formación
+          con sus certificados y vencimientos.</p>
+        <details>
+          <summary>Ver el desglose</summary>
+          <div class="fila"><span>Nómina y contratación</span><span>$2.900</span></div>
+          <div class="fila"><span>Seguridad y salud</span><span>+ $1.400</span></div>
+          <div class="fila"><span>Formación</span><span>+ $900</span></div>
+          <div class="fila"><span><b>Todo junto</b></span><span><b>$3.900</b></span></div>
+        </details>
+      </article>
+
+      <article class="tarjeta unidad rev">
+        <div class="marca">POS</div>
+        <h3>Por posición</h3>
+        <p class="valor">$690<small>al mes, todo incluido</small></p>
+        <p class="cubre">Almacenes de punta a punta —recepción, ubicación, picking y
+          despacho— y control de estibas con su trazabilidad.</p>
+        <details>
+          <summary>Ver el desglose</summary>
+          <div class="fila"><span>Almacenes</span><span>$490</span></div>
+          <div class="fila"><span>Control de estibas</span><span>+ $290</span></div>
+          <div class="fila"><span><b>Todo junto</b></span><span><b>$690</b></span></div>
+        </details>
+      </article>
+    </div>
+
+    <div class="contraste rev">
+      <div class="lado">
+        <h4>Lo que se paga hoy · 60 camiones, 90 personas</h4>
+        <div class="renglon"><span>GPS de la flota</span><span>$1.800.000</span></div>
+        <div class="renglon"><span>Software de nómina</span><span>$540.000</span></div>
+        <div class="renglon"><span>Contabilidad en la nube</span><span>$250.000</span></div>
+        <div class="suma"><span>Tres sistemas que no se hablan</span><span>$2.590.000</span></div>
+      </div>
+      <div class="lado nuestro">
+        <h4>Lo mismo, en TittanWare</h4>
+        <div class="renglon"><span>Plan Operación</span><span>$490.000</span></div>
+        <div class="renglon"><span>60 vehículos, todo incluido</span><span>$894.000</span></div>
+        <div class="renglon"><span>90 empleados, todo incluido</span><span>$351.000</span></div>
+        <div class="suma"><span>Un solo sistema</span><span>$1.735.000</span></div>
+      </div>
+      <p class="veredicto">
+        <b>$855.000 menos al mes</b>, y la contabilidad se escribe sola desde la operación:
+        el flete facturado, la compra de combustible, la nómina y la depreciación generan su
+        asiento sin que nadie los vuelva a digitar.
+      </p>
+    </div>
+
+    <p class="letra-chica rev">
+      Valores en pesos colombianos, antes de IVA. Se factura solo la unidad con movimiento en el
+      mes: un camión parado no se cobra. Mínimos de 5 vehículos, 10 empleados o 200 posiciones.
+      Pago anual: dos meses sin costo. Si viene de otro sistema, la migración va por nuestra cuenta.
+    </p>
+
+    <div class="acciones rev" style="margin-top:34px">
+      <a class="btn btn-acento" href="#contacto">Empezar gratis</a>
+      <a class="btn btn-linea" href="#contacto">Hablar con alguien</a>
+    </div>
+  </div>
+</section>
+
 <section id="seguridad">
   <div class="env">
     <!-- Antes esta sección hablaba de que los datos de cada cliente están
@@ -392,6 +617,7 @@
       <span class="logo" data-txt="marca_logo">TITTANWARE</span>
       <a href="#plataforma">Plataforma</a>
       <a href="#modulos">Módulos</a>
+      <a href="#tarifas">Tarifas</a>
       <a href="#seguridad">Tecnología</a>
       <a id="correoPie" href="#">Contacto</a>
       <a data-attr-href="url_portal" href="https://tittanware.tech" style="margin-left:auto">
