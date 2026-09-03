@@ -680,3 +680,65 @@ async def borrar_perfil(
 
     await _anotar(db, request, "perfil.borrado", cliente.codigo, f"«{fila[0]}»")
     await db.commit()
+
+
+# ─── Fallos de la interfaz ────────────────────────────────────────────────────
+
+class FalloInterfaz(BaseModel):
+    referencia: str
+    mensaje: str
+    pila: Optional[str] = None
+    ruta: Optional[str] = None
+    navegador: Optional[str] = None
+    cliente: Optional[str] = None
+
+
+@router.post("/fallo-interfaz", status_code=204)
+async def registrar_fallo_interfaz(
+    datos: FalloInterfaz,
+    request: Request,
+    db: AsyncSession = Depends(get_db_plataforma),
+):
+    """Deja constancia de una pantalla que se rompió en el navegador de alguien.
+
+    POR QUÉ NO PIDE SESIÓN
+    Porque los fallos que más importan ocurren justamente cuando algo está mal:
+    una sesión a medias, un token que no se pudo leer, la pantalla de ingreso
+    que revienta. Exigir credenciales aquí dejaría fuera del registro los casos
+    peores, que son los que hay que ver.
+
+    No se confía en nada de lo que llega: se recorta, y lo único que se guarda es
+    texto. Va a la bitácora de la plataforma, que ya existe para dejar rastro y
+    vive en `public`, fuera del alcance de cualquier cliente.
+
+    Responde 204 siempre. Si el registro falla, el usuario ya tiene bastante con
+    su pantalla rota: no se le devuelve un segundo error por haberla reportado.
+    """
+    try:
+        # Quién estaba: se lee del token si viene, y si no viene no pasa nada.
+        actor, empresa = "anónimo", (datos.cliente or "desconocida")[:40]
+        cabecera = request.headers.get("authorization") or ""
+        if cabecera.lower().startswith("bearer "):
+            try:
+                claves = decode_token(cabecera[7:])
+                actor = str(claves.get("usr") or claves.get("sub") or actor)[:80]
+                empresa = str(claves.get("cli") or empresa)[:40]
+            except Exception:
+                pass   # un token vencido no impide registrar el fallo
+
+        # El detalle cabe en 500 caracteres: se prioriza lo que sirve para
+        # reproducir —la ruta y el mensaje— sobre la pila, que se recorta.
+        detalle = (
+            f"[{datos.referencia[:12]}] {(datos.ruta or '?')[:80]} · "
+            f"{datos.mensaje[:220]} · {(datos.navegador or '')[:80]} · "
+            f"{(datos.pila or '')[:100]}"
+        )[:500]
+
+        db.add(PlataformaBitacora(
+            fecha=datetime.utcnow(), actor=actor, actor_empresa=empresa,
+            accion="fallo_interfaz", empresa_codigo=(datos.cliente or None),
+            detalle=detalle))
+        await db.commit()
+    except Exception:
+        # Nunca hacia arriba: esto es telemetría, no una operación del negocio.
+        pass

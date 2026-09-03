@@ -14,8 +14,17 @@ from app.core.tenant import (
     ESQUEMA_POR_DEFECTO, codigo_valido, fijar_esquema, nombre_esquema,
 )
 
-# Rutas que se atienden sin inquilino: son las que sirven para elegirlo.
-RUTAS_SIN_CLIENTE = ("/api/v1/auth/clientes", "/health", "/docs", "/openapi.json", "/redoc")
+# Rutas que se atienden sin inquilino: son las que sirven para elegirlo, más el
+# reporte de fallos de la interfaz.
+#
+# Ese último está aquí a propósito. Los fallos que más importa registrar ocurren
+# justamente cuando algo va mal —una sesión a medias, un token ilegible, la
+# propia pantalla de ingreso rompiéndose— y exigir inquilino dejaría fuera del
+# registro los casos peores. Solo escribe en la bitácora y no devuelve nada.
+RUTAS_SIN_CLIENTE = (
+    "/api/v1/auth/clientes", "/api/v1/plataforma/fallo-interfaz",
+    "/health", "/docs", "/openapi.json", "/redoc",
+)
 
 
 class TenantMiddleware(BaseHTTPMiddleware):

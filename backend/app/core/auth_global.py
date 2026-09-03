@@ -19,6 +19,13 @@ RUTAS_PUBLICAS = (
     "/api/v1/auth/clientes",           # paso previo: a qué empresa se entra
     "/api/v1/ags/publico",             # reserva de citas por parte del cliente final
     "/api/v1/landing/contenido",       # la pagina publica la ve cualquiera
+    # El reporte de una pantalla que se rompio. Va sin sesion a proposito: los
+    # fallos que mas importa registrar son justamente los que ocurren cuando
+    # algo va mal —una sesion a medias, un token ilegible, la propia pantalla de
+    # ingreso rompiendose— y exigir token dejaria fuera del registro los casos
+    # peores. Solo escribe en la bitacora, recorta todo lo que llega y no
+    # devuelve nada: no sirve para leer ni para deducir si un dato existe.
+    "/api/v1/plataforma/fallo-interfaz",
     "/health",
     "/api/docs",
     "/api/redoc",
