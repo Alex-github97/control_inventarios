@@ -446,6 +446,10 @@ class HCMNominaPeriodoResponse(BaseModel):
     total_deducido: float
     total_neto: float
     empleados_count: int
+    # La tabla de períodos lee `num_empleados`, no `empleados_count`: la columna
+    # «Empleados» salía en blanco en todos los períodos. Se agrega en vez de
+    # renombrar porque el nombre largo ya está publicado en el endpoint.
+    num_empleados: int = 0
     notas: Optional[str] = None
     created_at: Optional[datetime] = None
 

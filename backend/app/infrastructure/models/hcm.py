@@ -443,6 +443,16 @@ class HCMNominaPeriodo(Base, TimestampMixin):
     total_deducido   = Column(Float, nullable=False, default=0)
     total_neto       = Column(Float, nullable=False, default=0)
     empleados_count  = Column(Integer, nullable=False, default=0)
+
+    @property
+    def num_empleados(self) -> int:
+        """El nombre con el que la pantalla lee este mismo dato.
+
+        Va como propiedad del modelo y no como cálculo suelto en cada endpoint
+        para que cualquier respuesta que serialice un período lo traiga, sin que
+        nadie tenga que acordarse de agregarlo.
+        """
+        return self.empleados_count or 0
     notas            = Column(Text, nullable=True)
 
     empresa  = relationship("HCMEmpresa", back_populates="nomina_periodos")

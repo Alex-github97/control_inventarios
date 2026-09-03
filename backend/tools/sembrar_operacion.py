@@ -29,11 +29,27 @@ from sqlalchemy.ext.asyncio import AsyncSession                # noqa: E402
 
 import app.main                                                # noqa: F401,E402
 from app.core.database import engine                           # noqa: E402
-from app.core import demo_wms                                  # noqa: E402
+from app.core import demo_hcm, demo_wms                        # noqa: E402
 
 # En orden de dependencia: `TRUNCATE` sin `CASCADE` es justamente lo que impide
 # borrar de más por accidente, y para eso el orden tiene que ser correcto.
 TABLAS = {
+    # Gestión Humana. Va primero porque otros módulos cuelgan de ella: el TMS
+    # asigna sus viajes a `hcm_conductor`, y ese a su vez a `hcm_colaborador`.
+    # Se limpia de las hojas hacia la raíz.
+    "hcm": [
+        "hcm_kpi_diario", "hcm_sst_inspeccion", "hcm_sst_riesgo",
+        "hcm_sst_incidente", "hcm_colaborador_capacitacion", "hcm_capacitacion",
+        "hcm_entrevista", "hcm_postulacion", "hcm_vacante",
+        "hcm_evaluacion_detalle", "hcm_evaluacion", "hcm_vacacion",
+        "hcm_incapacidad", "hcm_liquidacion", "hcm_novedad",
+        "hcm_nomina_detalle", "hcm_nomina_periodo",
+        "hcm_conductor_accidente", "hcm_conductor_documento",
+        "hcm_conductor_cobertura", "hcm_conductor_vehiculo_tipo",
+        "hcm_conductor", "hcm_contrato", "hcm_colaborador_historial",
+        "hcm_colaborador", "hcm_centro_costo", "hcm_cargo", "hcm_area",
+        "hcm_sede", "hcm_empresa",
+    ],
     "wms": [
         "wms_kpi_diario", "wms_eventos_trazabilidad",
         "wms_devoluciones_detalle", "wms_devoluciones",
@@ -95,10 +111,21 @@ async def principal() -> None:
         print(f"Sembrando «{args.modulo}» en «{args.esquema}» "
               f"del {args.desde} al {args.hasta}…")
         t0 = time.monotonic()
-        resumen = await demo_wms.sembrar_wms(
-            db, desde=args.desde, hasta=args.hasta,
-            salidas_por_dia_habil=args.por_dia, esquema=args.esquema,
-            avisar=print)
+        if args.modulo == "wms":
+            resumen = await demo_wms.sembrar_wms(
+                db, desde=args.desde, hasta=args.hasta,
+                salidas_por_dia_habil=args.por_dia, esquema=args.esquema,
+                avisar=print)
+            comprobar = demo_wms.verificar
+            regla = "el inventario CUADRA con los movimientos"
+            falla = "¡el inventario NO CUADRA con los movimientos!"
+        else:
+            resumen = await demo_hcm.sembrar_hcm(
+                db, desde=args.desde, hasta=args.hasta, esquema=args.esquema,
+                avisar=print)
+            comprobar = demo_hcm.verificar
+            regla = "la nómina CUADRA: cada neto es su devengado menos su deducido"
+            falla = "¡la nómina NO CUADRA!"
         segundos = round(time.monotonic() - t0, 1)
 
         print("\nLo sembrado")
@@ -109,12 +136,18 @@ async def principal() -> None:
 
         print("\nComprobación")
         print("─" * 52)
-        v = await demo_wms.verificar(db)
+        v = await comprobar(db)
         for clave, valor in v.items():
-            print(f"  {clave:24s} {valor:>16,.2f}")
-        cuadra = abs(v["diferencia"]) < 0.5 and v["posiciones_negativas"] == 0
-        print(f"\n  el inventario {'CUADRA' if cuadra else '¡NO CUADRA!'} "
-              f"con los movimientos")
+            print(f"  {clave:26s} {valor:>16,.2f}")
+        # Cuadra si toda medida de descuadre está en cero. Los demás valores del
+        # informe son totales, no comprobaciones.
+        cuadra = all(
+            abs(valor) < 0.5
+            for clave, valor in v.items()
+            if clave in ("diferencia", "posiciones_negativas",
+                         "detalles_descuadrados", "periodos_descuadrados")
+        )
+        print(f"\n  {regla if cuadra else falla}")
         if not cuadra:
             sys.exit(1)
 

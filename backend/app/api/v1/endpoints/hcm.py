@@ -1031,17 +1031,27 @@ async def listar_periodos(
     r = await db.execute(q.order_by(HCMNominaPeriodo.fecha_inicio.desc()))
     periodos = r.scalars().all()
 
+    # Los empleados de todos los períodos en una consulta. Antes se contaba uno
+    # por uno dentro del bucle: con dos años de nómina son dos docenas de viajes
+    # a la base para pintar una tabla que cabe en una pantalla.
+    conteos = dict((await db.execute(
+        select(HCMNominaDetalle.periodo_id, func.count())
+        .where(HCMNominaDetalle.periodo_id.in_([p.id for p in periodos] or [0]))
+        .group_by(HCMNominaDetalle.periodo_id)
+    )).all())
+
     result = []
     for p in periodos:
-        count_r = await db.execute(
-            select(func.count()).select_from(HCMNominaDetalle).where(HCMNominaDetalle.periodo_id == p.id)
-        )
+        cuantos = conteos.get(p.id, 0)
         result.append(HCMNominaPeriodoResponse(
             id=p.id, empresa_id=p.empresa_id, nombre=p.nombre,
             fecha_inicio=p.fecha_inicio, fecha_fin=p.fecha_fin,
             estado=p.estado, total_devengado=p.total_devengado,
             total_deducido=p.total_deducido, total_neto=p.total_neto,
-            empleados_count=count_r.scalar() or 0,
+            empleados_count=cuantos,
+            # El mismo dato con el nombre que lee la tabla de la pantalla, que
+            # de lo contrario deja la columna «Empleados» en blanco.
+            num_empleados=cuantos,
             notas=p.notas, created_at=p.created_at,
         ))
     return result
