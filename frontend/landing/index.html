@@ -742,26 +742,29 @@ const PORDEFECTO = {
     {clave:'02',titulo:'Jerarquías de verdad',texto:'Tipo de activo → marca → línea → modelo. Un plan de mantenimiento se define una vez sobre la jerarquía y cubre todos los equipos que le corresponden.'},
     {clave:'03',titulo:'Trazabilidad hasta el origen',texto:'De un costo del mes se puede llegar a la orden que lo generó, al activo, a la falla y al análisis de por qué ocurrió, con sus evidencias y su responsable.'}
   ],
-  // Cada módulo lleva a su folleto. El nombre y la ficha van juntos para que
-  // cambiar el orden desde el editor no desconecte el enlace.
+  // Cada módulo lleva a su folleto. Va como «Nombre | ruta» —y no como un
+  // objeto— porque el editor de la consola guarda esta lista como texto,
+  // una línea por módulo: así se puede seguir editando desde ahí sin perder
+  // el enlace. Sin la ruta, la ficha se pinta igual pero no lleva a ninguna
+  // parte, que es lo que debe pasar con un módulo que aún no tiene folleto.
   modulos:[
-    {n:'CMMS / EAM · Mantenimiento', a:'/modulos/cmms.html'},
-    {n:'WMS · Almacenes',            a:'/modulos/wms.html'},
-    {n:'TMS · Transporte',           a:'/modulos/tms.html'},
-    {n:'Control de Estibas',         a:'/modulos/estibas.html'},
-    {n:'ERP · Financiero',           a:'/modulos/erp.html'},
-    {n:'Gestión Humana',             a:'/modulos/gh.html'},
-    {n:'SST · Seguridad y Salud',    a:'/modulos/sst.html'},
-    {n:'LMS · Formación',            a:'/modulos/lms.html'},
-    {n:'QMS · Calidad',              a:'/modulos/qms.html'},
-    {n:'GRC · Riesgo y Cumplimiento',a:'/modulos/grc.html'},
-    {n:'DMS · Gestión Documental',   a:'/modulos/dms.html'},
-    {n:'CRM · Comercial',            a:'/modulos/crm.html'},
-    {n:'TarifaX · Motor de Tarifas', a:'/modulos/tarifax.html'},
-    {n:'SCM · Proveedores',          a:'/modulos/scm.html'},
-    {n:'MES · Producción',           a:'/modulos/mes.html'},
-    {n:'APS · Planeación',           a:'/modulos/aps.html'},
-    {n:'AGS · Agenda de Servicios',  a:'/modulos/ags.html'}
+    'CMMS / EAM · Mantenimiento | /modulos/cmms.html',
+    'WMS · Almacenes | /modulos/wms.html',
+    'TMS · Transporte | /modulos/tms.html',
+    'Control de Estibas | /modulos/estibas.html',
+    'ERP · Financiero | /modulos/erp.html',
+    'Gestión Humana | /modulos/gh.html',
+    'SST · Seguridad y Salud | /modulos/sst.html',
+    'LMS · Formación | /modulos/lms.html',
+    'QMS · Calidad | /modulos/qms.html',
+    'GRC · Riesgo y Cumplimiento | /modulos/grc.html',
+    'DMS · Gestión Documental | /modulos/dms.html',
+    'CRM · Comercial | /modulos/crm.html',
+    'TarifaX · Motor de Tarifas | /modulos/tarifax.html',
+    'SCM · Proveedores | /modulos/scm.html',
+    'MES · Producción | /modulos/mes.html',
+    'APS · Planeación | /modulos/aps.html',
+    'AGS · Agenda de Servicios | /modulos/ags.html'
   ],
   detalles:[
     {clave:'OT',titulo:'Órdenes de trabajo',texto:'Trabajos y repuestos desde el catálogo, proveedor por línea, y los soportes —cotización, orden de compra, factura— adjuntos y consultables por número.'},
@@ -830,8 +833,9 @@ function pintar(c){
   // tenga guardada la lista vieja dejaría la sección en blanco.
   $('#listaModulos').innerHTML = (c.modulos ?? [])
     .map((m, i) => {
-      const nombre = typeof m === 'string' ? m : m.n;
-      const enlace = typeof m === 'string' ? null : m.a;
+      // «Nombre | /ruta». Sin la barra es solo un nombre, y entonces la ficha
+      // no lleva a ninguna parte en vez de llevar a un 404.
+      const [nombre, enlace] = String(m).split('|').map(x => x.trim());
       const indice = `<i>${String(i + 1).padStart(2, '0')}</i>`;
       return enlace
         ? `<a class="mod rev" href="${enlace}">${indice}${nombre}<em>→</em></a>`

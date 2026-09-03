@@ -239,7 +239,7 @@ export default function Landing() {
           <Box sx={{ flex: 1 }}>
             <Typography variant="body2" fontWeight={800}>Lista de módulos</Typography>
             <Typography variant="caption" color="text.secondary">
-              Uno por línea, en el orden en que aparecen
+              Uno por línea: «Nombre | ruta del folleto»
             </Typography>
           </Box>
           <Chip label={modulos.length} size="small" sx={{ mr: 1 }} />
@@ -250,7 +250,8 @@ export default function Landing() {
             value={modulos.join('\n')}
             onChange={e => set('modulos',
               e.target.value.split('\n').map(x => x.trim()).filter(Boolean))}
-            helperText="Cada línea es un módulo. Las líneas vacías se descartan."
+            helperText={'Formato: Nombre | /modulos/clave.html — la ruta es opcional; '
+              + 'sin ella la ficha se muestra pero no lleva a ninguna parte.'}
           />
         </AccordionDetails>
       </Accordion>

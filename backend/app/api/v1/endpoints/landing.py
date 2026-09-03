@@ -109,13 +109,30 @@ CONTENIDO_INICIAL: Dict[str, Any] = {
                   "activo, a la falla y al análisis de por qué ocurrió, con sus "
                   "evidencias y su responsable."},
     ],
+    # Cada línea es «Nombre | ruta del folleto». Sin la ruta la ficha se pinta
+    # pero no lleva a ninguna parte, que es lo correcto para un módulo que
+    # todavía no tiene folleto escrito.
+    #
+    # No están «Gestión de Flotas» —se unificó dentro del CMMS— ni
+    # «Mantenimiento Locativo», que no tiene ninguna ruta en el servidor.
     "modulos": [
-        "CMMS / EAM · Mantenimiento", "WMS · Almacenes", "TMS · Transporte",
-        "Gestión de Flotas", "Control de Estibas", "Mantenimiento Locativo",
-        "QMS · Calidad", "GRC · Riesgo y Cumplimiento", "SST · Seguridad y Salud",
-        "DMS · Gestión Documental", "Gestión Humana", "LMS · Formación",
-        "CRM · Comercial", "ERP · Financiero", "SCM · Cadena de Suministro",
-        "MES · Producción", "APS · Planeación", "AGS · Agenda de Servicios",
+        "CMMS / EAM · Mantenimiento | /modulos/cmms.html",
+        "WMS · Almacenes | /modulos/wms.html",
+        "TMS · Transporte | /modulos/tms.html",
+        "Control de Estibas | /modulos/estibas.html",
+        "ERP · Financiero | /modulos/erp.html",
+        "Gestión Humana | /modulos/gh.html",
+        "SST · Seguridad y Salud | /modulos/sst.html",
+        "LMS · Formación | /modulos/lms.html",
+        "QMS · Calidad | /modulos/qms.html",
+        "GRC · Riesgo y Cumplimiento | /modulos/grc.html",
+        "DMS · Gestión Documental | /modulos/dms.html",
+        "CRM · Comercial | /modulos/crm.html",
+        "TarifaX · Motor de Tarifas | /modulos/tarifax.html",
+        "SCM · Proveedores | /modulos/scm.html",
+        "MES · Producción | /modulos/mes.html",
+        "APS · Planeación | /modulos/aps.html",
+        "AGS · Agenda de Servicios | /modulos/ags.html",
     ],
     "detalles": [
         {"clave": "OT", "titulo": "Órdenes de trabajo",
