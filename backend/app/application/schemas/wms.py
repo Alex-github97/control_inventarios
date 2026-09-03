@@ -831,6 +831,27 @@ class WMSKPIs(BaseModel):
     # Por estado (outbound)
     ordenes_por_estado: Dict[str, int] = {}
 
+    # Los nombres que pide el tablero.
+    #
+    # La pantalla lee `ot_pct`, `if_pct`, `fill_rate`… y acá se devolvía
+    # `on_time_pct`, `in_full_pct`, `fill_rate_pct`. De los seis indicadores solo
+    # coincidía `otif_pct`, así que el tablero mostraba un número y cinco ceros
+    # —y el cero se lee como «la bodega va mal», no como «falta un campo».
+    #
+    # Se agregan en vez de renombrar porque los nombres largos ya están
+    # publicados: cambiarlos rompería a cualquiera que consuma el endpoint.
+    ot_pct: float = 0.0
+    if_pct: float = 0.0
+    perfect_order_rate: float = 0.0
+    fill_rate: float = 0.0
+    inventory_accuracy: float = 0.0
+    pending_recepciones: int = 0
+    pending_ordenes_salida: int = 0
+    urgent_recepciones: int = 0
+    active_picking_tasks: int = 0
+    recent_ordenes_compra: List[Dict[str, Any]] = []
+    recent_ordenes_salida: List[Dict[str, Any]] = []
+
 class WMSAlertasResponse(BaseModel):
     recepciones_pendientes: int = 0
     ordenes_urgentes: int = 0

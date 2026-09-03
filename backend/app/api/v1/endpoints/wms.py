@@ -2715,13 +2715,19 @@ async def dashboard_kpis(
     _=Depends(get_current_user),
 ):
     hoy = date.today()
-    f_desde = fecha_desde or date(hoy.year, hoy.month, 1)
+    # Por omisión, los últimos 90 días. Antes se calculaba `f_desde`/`f_hasta` y
+    # NO se usaban en ninguna consulta: los indicadores salían sobre toda la
+    # historia y el selector de período de la pantalla no hacía nada. Un OTIF de
+    # tres años no le sirve a nadie para decidir hoy.
+    f_desde = fecha_desde or (hoy - timedelta(days=90))
     f_hasta = fecha_hasta or hoy
 
     # Base filter para órdenes de salida entregadas
     filtro_base = [
         WMSOrdenSalida.deleted_at.is_(None),
         WMSOrdenSalida.estado == "ENTREGADO",
+        WMSOrdenSalida.fecha_emision >= f_desde,
+        WMSOrdenSalida.fecha_emision <= f_hasta,
     ]
     if almacen_id:
         filtro_base.append(WMSOrdenSalida.almacen_id == almacen_id)
@@ -2741,9 +2747,10 @@ async def dashboard_kpis(
             WMSDespacho.estado == "ENTREGADO",
             WMSOrdenSalida.fecha_requerida.isnot(None),
             WMSDespacho.fecha_entrega_real <= WMSOrdenSalida.fecha_requerida,
-            *(([WMSOrdenSalida.almacen_id == almacen_id] if almacen_id else [])
-        ),
-    ))
+            WMSOrdenSalida.fecha_emision >= f_desde,
+            WMSOrdenSalida.fecha_emision <= f_hasta,
+            *([WMSOrdenSalida.almacen_id == almacen_id] if almacen_id else []),
+        ))
     ordenes_on_time = ot_r.scalar() or 0
 
     # In-Full: todas las líneas de la orden completas (cantidad_despachada >= cantidad_solicitada)
@@ -2780,6 +2787,8 @@ async def dashboard_kpis(
         )
         .join(WMSOrdenSalida, WMSOrdenSalidaDetalle.orden_id == WMSOrdenSalida.id)
         .where(WMSOrdenSalida.deleted_at.is_(None),
+               WMSOrdenSalida.fecha_emision >= f_desde,
+               WMSOrdenSalida.fecha_emision <= f_hasta,
                *([WMSOrdenSalida.almacen_id == almacen_id] if almacen_id else []))
     )
     fr_row = fr_r.one()
@@ -2798,7 +2807,20 @@ async def dashboard_kpis(
                 )
             ),
         )
-        .where(WMSConteoDetalle.ajustado == True)
+        # Se filtraba por `ajustado == True`, y `ajustado` solo es cierto cuando
+        # HUBO diferencia. Es decir: se tomaban únicamente las posiciones
+        # descuadradas y luego se contaba cuántas de ellas tenían diferencia
+        # cero. Ninguna, por definición. La exactitud de inventario salía en 0%
+        # pasara lo que pasara — y es el primer número que mira un jefe de
+        # bodega. Lo correcto es el universo contado: toda posición con conteo
+        # físico registrado.
+        .where(WMSConteoDetalle.cantidad_fisica.isnot(None))
+        .join(WMSConteoInventario,
+              WMSConteoDetalle.conteo_id == WMSConteoInventario.id)
+        .where(WMSConteoInventario.fecha_programada >= f_desde,
+               WMSConteoInventario.fecha_programada <= f_hasta,
+               *([WMSConteoInventario.almacen_id == almacen_id]
+                 if almacen_id else []))
     )
     ia_row = ia_r.one()
     ubic_contadas = ia_row[0] or 0
@@ -2833,6 +2855,69 @@ async def dashboard_kpis(
     )
     ordenes_por_estado = {row[0]: row[1] for row in estados_r.all()}
 
+    # Recepciones urgentes: mercancía que se esperaba y NO ha llegado.
+    #
+    # Contar toda orden en estado PARCIAL da un número inflado y sin sentido: una
+    # orden que llegó incompleta hace ocho meses quedó PARCIAL para siempre y
+    # seguiría apareciendo como urgente. Lo urgente es lo que no tiene ninguna
+    # recepción y ya pasó de fecha — eso sí es algo que alguien tiene que llamar
+    # a reclamar hoy.
+    urg_r = await db.execute(
+        select(func.count(WMSOrdenCompra.id)).where(
+            WMSOrdenCompra.deleted_at.is_(None),
+            WMSOrdenCompra.estado.in_(["PENDIENTE", "PARCIAL"]),
+            WMSOrdenCompra.fecha_esperada < hoy,
+            ~select(WMSRecepcion.id).where(
+                WMSRecepcion.orden_compra_id == WMSOrdenCompra.id,
+                WMSRecepcion.estado == "COMPLETA",
+                WMSRecepcion.deleted_at.is_(None),
+            ).exists(),
+            *([WMSOrdenCompra.almacen_id == almacen_id] if almacen_id else []),
+        )
+    )
+    urgent_recepciones = urg_r.scalar() or 0
+
+    # Las dos listas que el tablero pinta debajo de los indicadores. No existían
+    # en la respuesta, así que las dos tablas decían «Sin órdenes recientes»
+    # aunque hubiera miles: el tablero se leía como una bodega detenida.
+    oc_r = await db.execute(
+        select(WMSOrdenCompra, WMSProveedor.nombre)
+        .join(WMSProveedor, WMSOrdenCompra.proveedor_id == WMSProveedor.id)
+        .where(WMSOrdenCompra.deleted_at.is_(None),
+               *([WMSOrdenCompra.almacen_id == almacen_id] if almacen_id else []))
+        .order_by(WMSOrdenCompra.fecha_emision.desc(), WMSOrdenCompra.id.desc())
+        .limit(8)
+    )
+    recent_ordenes_compra = [
+        {"id": oc.id, "numero_oc": oc.numero_oc, "proveedor_nombre": proveedor,
+         "estado": oc.estado,
+         "fecha_esperada": oc.fecha_esperada.isoformat() if oc.fecha_esperada else None}
+        for oc, proveedor in oc_r.all()
+    ]
+
+    os_r = await db.execute(
+        select(WMSOrdenSalida, WMSCliente.nombre)
+        .join(WMSCliente, WMSOrdenSalida.cliente_id == WMSCliente.id)
+        .where(WMSOrdenSalida.deleted_at.is_(None),
+               *([WMSOrdenSalida.almacen_id == almacen_id] if almacen_id else []))
+        .order_by(WMSOrdenSalida.fecha_emision.desc(), WMSOrdenSalida.id.desc())
+        .limit(8)
+    )
+    recent_ordenes_salida = [
+        {"id": o.id, "numero_orden": o.numero_orden, "cliente_nombre": cliente,
+         "estado": o.estado, "prioridad": o.prioridad,
+         "fecha_requerida": o.fecha_requerida.isoformat() if o.fecha_requerida else None}
+        for o, cliente in os_r.all()
+    ]
+
+    pick_r = await db.execute(
+        select(func.count(WMSPickingTarea.id))
+        .join(WMSOrdenSalida, WMSPickingTarea.orden_id == WMSOrdenSalida.id)
+        .where(WMSPickingTarea.estado.in_(["PENDIENTE", "EN_PROGRESO"]),
+               *([WMSOrdenSalida.almacen_id == almacen_id] if almacen_id else []))
+    )
+    active_picking_tasks = pick_r.scalar() or 0
+
     return WMSKPIs(
         ordenes_entregadas_total=ordenes_entregadas_total,
         ordenes_on_time=ordenes_on_time,
@@ -2852,6 +2937,18 @@ async def dashboard_kpis(
         recepciones_pendientes=recepciones_pendientes,
         ordenes_salida_pendientes=ordenes_salida_pendientes,
         ordenes_por_estado=ordenes_por_estado,
+        # Los mismos valores con el nombre que usa el tablero.
+        ot_pct=on_time_pct,
+        if_pct=in_full_pct,
+        perfect_order_rate=perfect_pct,
+        fill_rate=fill_rate_pct,
+        inventory_accuracy=ia_pct,
+        pending_recepciones=recepciones_pendientes,
+        pending_ordenes_salida=ordenes_salida_pendientes,
+        urgent_recepciones=urgent_recepciones,
+        active_picking_tasks=active_picking_tasks,
+        recent_ordenes_compra=recent_ordenes_compra,
+        recent_ordenes_salida=recent_ordenes_salida,
     )
 
 
