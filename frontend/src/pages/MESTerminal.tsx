@@ -30,14 +30,16 @@ import Grid from '@mui/material/Grid2'
 import {
   ArrowBack, Badge as BadgeIcon, CheckCircle, Factory, Inventory2,
   PlayArrow, Straighten, ReportProblem, Timeline as TimelineIcon,
+  PauseCircle, PlayCircleOutline,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
-import { apiClient as api } from '@/api/client'
+import { apiClient as api, sinCerrarSesion } from '@/api/client'
 import { listaDe } from '@/utils/listaApi'
 import { mensajeDeError } from '@/utils/errorApi'
 import { COLOR_MODULO } from '@/config/marca'
+import { EsquemaLinea, NodoEsquema, ConexionEsquema } from '@/components/mes/EsquemaLinea'
 
 const MES = COLOR_MODULO
 
@@ -47,18 +49,42 @@ interface OrdenPiso {
   producto: string | null
   cantidad_planificada: number; cantidad_producida: number; unidad_medida: string
 }
-interface Operario { id: number; codigo: string; nombre: string; cargo: string | null }
+interface Operario {
+  id: number; codigo: string; nombre: string; cargo: string | null
+  usuario?: string | null; requiere_pin?: boolean
+}
+
+// Las causas de parada que de verdad ocurren en una planta. Se ofrecen como
+// botones y no como texto libre porque el operario reporta de pie y con prisa:
+// escrito a mano, la misma causa entra de ocho formas distintas y después no se
+// puede agrupar para saber qué está deteniendo la línea.
+const CAUSAS: { tipo: string; causa: string }[] = [
+  { tipo: 'MANTENIMIENTO', causa: 'Falla de la máquina' },
+  { tipo: 'MATERIAL', causa: 'Falta de material' },
+  { tipo: 'CALIDAD', causa: 'Problema de calidad' },
+  { tipo: 'SETUP', causa: 'Cambio de referencia o alistamiento' },
+  { tipo: 'NO_PLANEADA', causa: 'Falta de personal' },
+  { tipo: 'NO_PLANEADA', causa: 'Falla eléctrica o de servicios' },
+  { tipo: 'PLANEADA', causa: 'Parada programada' },
+]
 interface Estacion {
   posicion: number; nodo_id: number; tipo: string; nombre: string
   operacion: string | null; equipo: string | null
   es_cuello_botella: boolean
+  pos_x: number; pos_y: number
   cantidad_entrante: number; cantidad_producida: number
   cantidad_scrap: number; cantidad_disponible: number
   estado: string; puede_reportar: boolean
   observaciones: string | null
+  parada_abierta: {
+    id: number; tipo: string; causa: string; fecha_inicio: string
+  } | null
 }
+
+interface Operario2 { requiere_pin?: boolean; usuario?: string | null }
 interface Tablero {
   linea: Linea
+  conexiones: ConexionEsquema[]
   orden: {
     id: number; numero: string; estado: string
     cantidad_planificada: number; cantidad_producida: number
@@ -129,15 +155,40 @@ function Selector<T>({ titulo, items, etiqueta, sub, onPick, vacio }: {
 
 function Identificarse({ onListo }: { onListo: (o: Operario) => void }) {
   const [codigo, setCodigo] = useState('')
+  const [pin, setPin] = useState('')
+  const [pidePin, setPidePin] = useState(false)
+
   const identificar = useMutation({
-    mutationFn: (c: string) =>
-      api.post('/mes/planta/identificar', { codigo: c }).then(r => r.data),
-    onSuccess: (o: Operario) => {
+    // `sinCerrarSesion`: un PIN equivocado no puede sacar de la aplicación a
+    // quien está en la terminal. Esa era la conducta antes y dejaba al operario
+    // en el login sin entender qué pasó.
+    mutationFn: (datos: { codigo: string; pin?: string }) =>
+      api.post('/mes/planta/identificar', datos, sinCerrarSesion).then(r => r.data),
+    onSuccess: (o: Operario & { requiere_pin?: boolean }) => {
+      // El servidor responde «necesito el PIN» sin identificar a nadie todavía.
+      // Es el segundo paso de la conversación, no un error.
+      if (o.requiere_pin && !o.id) {
+        setPidePin(true)
+        setPin('')
+        toast(`${o.nombre}: escriba su PIN`)
+        return
+      }
       toast.success(`Bienvenido, ${o.nombre}`)
       onListo(o)
     },
-    onError: (e) => toast.error(mensajeDeError(e, 'No se pudo identificar el operario')),
+    onError: (e: any) => {
+      if (e?.response?.status === 403) {
+        setPidePin(true)
+        setPin('')
+      }
+      toast.error(mensajeDeError(e, 'No se pudo identificar el operario'))
+    },
   })
+
+  const entrar = () => {
+    if (!codigo.trim()) return
+    identificar.mutate({ codigo: codigo.trim(), pin: pin.trim() || undefined })
+  }
 
   return (
     <Box sx={{ maxWidth: 520, mx: 'auto', textAlign: 'center', py: 4 }}>
@@ -146,20 +197,32 @@ function Identificarse({ onListo }: { onListo: (o: Operario) => void }) {
         ¿Quién va a reportar?
       </Typography>
       <Typography sx={{ fontSize: 15, color: 'text.secondary', mb: 3 }}>
-        Escriba su código de operario, el que aparece en su carné.
+        Su usuario de la plataforma, su código de operario o su cédula.
+        Cada avance queda firmado con su cuenta.
       </Typography>
       <TextField
         autoFocus fullWidth value={codigo}
         onChange={(e) => setCodigo(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter' && codigo.trim()) identificar.mutate(codigo.trim()) }}
-        placeholder="OP-001"
-        inputProps={{ style: { fontSize: 30, textAlign: 'center', fontWeight: 800,
-                               letterSpacing: 2, padding: '18px 0' } }}
+        onKeyDown={(e) => { if (e.key === 'Enter') entrar() }}
+        placeholder="jperez  ·  OP-001  ·  1020304050"
+        inputProps={{ style: { fontSize: 26, textAlign: 'center', fontWeight: 800,
+                               letterSpacing: 1, padding: '18px 0' } }}
       />
+      {pidePin && (
+        <TextField
+          fullWidth value={pin} type="password" sx={{ mt: 2 }}
+          onChange={(e) => setPin(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') entrar() }}
+          label="PIN de terminal"
+          inputProps={{ inputMode: 'numeric', maxLength: 8,
+                        style: { fontSize: 28, textAlign: 'center',
+                                 fontWeight: 800, letterSpacing: 8 } }}
+        />
+      )}
       <Button
         fullWidth variant="contained" size="large" sx={{ mt: 2.5, py: 1.8, fontSize: 17 }}
         disabled={!codigo.trim() || identificar.isPending}
-        onClick={() => identificar.mutate(codigo.trim())}
+        onClick={entrar}
       >
         {identificar.isPending ? 'Verificando…' : 'Entrar'}
       </Button>
@@ -167,91 +230,128 @@ function Identificarse({ onListo }: { onListo: (o: Operario) => void }) {
   )
 }
 
-// ─── Paso 4: la línea y sus estaciones ───────────────────────────────────────
+// ─── Reportar una avería ─────────────────────────────────────────────────────
 
-function TarjetaEstacion({ e, onReportar }: { e: Estacion; onReportar: () => void }) {
-  const color = COLOR_ESTADO[e.estado] ?? '#94A3B8'
-  const meta = e.cantidad_entrante || 0
-  const pct = meta > 0 ? Math.min(100, (e.cantidad_producida / meta) * 100) : 0
+function DialogoParada({ estacion, orden, operario, onCerrar, onHecho }: {
+  estacion: Estacion
+  orden: { id: number; numero: string }
+  operario: Operario
+  onCerrar: () => void
+  onHecho: () => void
+}) {
+  const [elegida, setElegida] = useState<{ tipo: string; causa: string } | null>(null)
+  const [detalle, setDetalle] = useState('')
+
+  const abrir = useMutation({
+    mutationFn: () => api.post('/mes/planta/parada', {
+      orden_id: orden.id, nodo_id: estacion.nodo_id, operario_id: operario.id,
+      tipo: elegida!.tipo, causa: elegida!.causa,
+      descripcion: detalle || null,
+    }).then(r => r.data),
+    onSuccess: (r: any) => { toast.success(r.mensaje ?? 'Parada registrada'); onHecho() },
+    onError: (e) => toast.error(mensajeDeError(e, 'No se pudo registrar la parada')),
+  })
 
   return (
-    <Card sx={{
-      borderRadius: 3, height: '100%',
-      border: `2px solid ${e.puede_reportar ? alpha(MES, .5) : '#E2E8F0'}`,
-      bgcolor: e.estado === 'COMPLETADA' ? '#F0FDF4' : '#fff',
-    }}>
+    <Dialog open onClose={onCerrar} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ fontSize: 19, fontWeight: 800 }}>
+        ¿Por qué se detuvo {estacion.nombre}?
+        <Typography sx={{ fontSize: 13.5, color: 'text.secondary', fontWeight: 400 }}>
+          Orden {orden.numero} · el tiempo empieza a contar ahora
+        </Typography>
+      </DialogTitle>
+      <DialogContent>
+        <Stack spacing={1.25} sx={{ pt: 1 }}>
+          {CAUSAS.map((c) => (
+            <Button
+              key={c.causa}
+              variant={elegida?.causa === c.causa ? 'contained' : 'outlined'}
+              color={elegida?.causa === c.causa ? 'warning' : 'inherit'}
+              onClick={() => setElegida(c)}
+              sx={{ py: 1.6, fontSize: 15.5, justifyContent: 'flex-start' }}
+            >
+              {c.causa}
+            </Button>
+          ))}
+          <TextField label="Detalle (opcional)" value={detalle} multiline rows={2}
+                     onChange={(e) => setDetalle(e.target.value)} fullWidth />
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2.5 }}>
+        <Button onClick={onCerrar} size="large">Cancelar</Button>
+        <Button variant="contained" color="warning" size="large"
+                sx={{ px: 4, py: 1.2, fontSize: 16 }}
+                disabled={!elegida || abrir.isPending}
+                onClick={() => abrir.mutate()}>
+          {abrir.isPending ? 'Registrando…' : 'Registrar parada'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
+// ─── Qué se puede hacer en la estación elegida ───────────────────────────────
+
+function AccionesEstacion({ estacion, unidad, onReportar, onParar, onReanudar }: {
+  estacion: Estacion
+  unidad: string
+  onReportar: () => void
+  onParar: () => void
+  onReanudar: () => void
+}) {
+  const parada = estacion.parada_abierta
+  return (
+    <Card sx={{ borderRadius: 3, mb: 2.5,
+                border: `2px solid ${parada ? '#D97706' : alpha(MES, .4)}`,
+                bgcolor: parada ? '#FFFBEB' : '#fff' }}>
       <CardContent sx={{ p: 2.5 }}>
-        <Stack direction="row" alignItems="center" spacing={1} mb={1}>
-          <Box sx={{
-            width: 30, height: 30, borderRadius: '50%', bgcolor: alpha(color, .15),
-            color, display: 'grid', placeItems: 'center', fontWeight: 800,
-            fontSize: 14, flexShrink: 0,
-          }}>{e.posicion}</Box>
-          <Box sx={{ minWidth: 0, flex: 1 }}>
-            <Typography sx={{ fontSize: 16, fontWeight: 800, lineHeight: 1.2 }} noWrap>
-              {e.nombre}
+        <Stack direction="row" alignItems="center" spacing={2} flexWrap="wrap"
+               useFlexGap>
+          <Box sx={{ flex: '1 1 260px', minWidth: 0 }}>
+            <Typography sx={{ fontSize: 18, fontWeight: 800 }}>
+              {estacion.posicion}. {estacion.nombre}
             </Typography>
-            <Typography sx={{ fontSize: 12, color: 'text.secondary' }} noWrap>
-              {e.operacion ?? e.tipo.toLowerCase()}
+            <Typography sx={{ fontSize: 13.5, color: 'text.secondary' }}>
+              {parada
+                ? `Detenida por «${parada.causa}» desde las ${
+                    new Date(parada.fecha_inicio).toLocaleTimeString('es-CO',
+                      { hour: '2-digit', minute: '2-digit' })}`
+                : estacion.estado === 'COMPLETADA'
+                ? 'Estación cerrada para esta orden'
+                : `Puede procesar hasta ${num(estacion.cantidad_disponible)} ${unidad}`}
             </Typography>
           </Box>
-          {e.es_cuello_botella && (
-            <Chip label="Cuello" size="small"
-                  sx={{ bgcolor: '#FEF3C7', color: '#B45309', fontWeight: 700, fontSize: 10 }} />
-          )}
-        </Stack>
 
-        <Box sx={{ height: 8, bgcolor: '#E2E8F0', borderRadius: 4, overflow: 'hidden', mb: 1 }}>
-          <Box sx={{ height: '100%', width: `${pct}%`, bgcolor: color }} />
-        </Box>
-
-        <Stack direction="row" justifyContent="space-between" sx={{ mb: 1.5 }}>
-          <Box>
-            <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>Producido</Typography>
-            <Typography sx={{ fontSize: 17, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
-              {num(e.cantidad_producida)}
-            </Typography>
-          </Box>
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>Scrap</Typography>
-            <Typography sx={{ fontSize: 17, fontWeight: 800, color: e.cantidad_scrap ? '#DC2626' : 'inherit',
-                              fontVariantNumeric: 'tabular-nums' }}>
-              {num(e.cantidad_scrap)}
-            </Typography>
-          </Box>
-          <Box sx={{ textAlign: 'right' }}>
-            <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>Disponible</Typography>
-            <Typography sx={{ fontSize: 17, fontWeight: 800, color: MES,
-                              fontVariantNumeric: 'tabular-nums' }}>
-              {num(e.cantidad_disponible)}
-            </Typography>
-          </Box>
-        </Stack>
-
-        {e.estado === 'COMPLETADA' ? (
-          <Stack direction="row" alignItems="center" spacing={0.75} sx={{ color: '#16A34A' }}>
-            <CheckCircle sx={{ fontSize: 18 }} />
-            <Typography sx={{ fontSize: 13, fontWeight: 700 }}>Estación cerrada</Typography>
+          <Stack direction="row" spacing={1.25}>
+            {parada ? (
+              <Button variant="contained" color="success" size="large"
+                      startIcon={<PlayCircleOutline />} onClick={onReanudar}
+                      sx={{ py: 1.3, px: 3, fontSize: 15.5 }}>
+                Reanudar
+              </Button>
+            ) : (
+              <>
+                <Button variant="contained" size="large" startIcon={<PlayArrow />}
+                        disabled={!estacion.puede_reportar} onClick={onReportar}
+                        sx={{ py: 1.3, px: 3, fontSize: 15.5 }}>
+                  Reportar avance
+                </Button>
+                <Button variant="outlined" color="warning" size="large"
+                        startIcon={<PauseCircle />} onClick={onParar}
+                        disabled={estacion.estado === 'COMPLETADA'}
+                        sx={{ py: 1.3, px: 2.5, fontSize: 15.5 }}>
+                  Reportar avería
+                </Button>
+              </>
+            )}
           </Stack>
-        ) : e.puede_reportar ? (
-          <Button fullWidth variant="contained" size="large"
-                  startIcon={<PlayArrow />} onClick={onReportar}
-                  sx={{ py: 1.2, fontSize: 15 }}>
-            Reportar avance
-          </Button>
-        ) : (
-          <Typography sx={{ fontSize: 12.5, color: 'text.secondary' }}>
-            {/* Decir POR QUÉ no se puede. Un botón gris sin explicación hace que
-                el operario piense que la terminal está dañada. */}
-            {e.cantidad_disponible <= 0
-              ? 'Esperando material de la estación anterior'
-              : 'La orden no está en ejecución'}
-          </Typography>
-        )}
+        </Stack>
       </CardContent>
     </Card>
   )
 }
+
+// ─── Paso 4: la línea y sus estaciones ───────────────────────────────────────
 
 function DialogoAvance({ estacion, orden, operario, unidad, onCerrar, onGuardado }: {
   estacion: Estacion
@@ -367,6 +467,11 @@ export default function MESTerminal() {
   const [orden, setOrden] = useState<OrdenPiso | null>(null)
   const [operario, setOperario] = useState<Operario | null>(null)
   const [reportando, setReportando] = useState<Estacion | null>(null)
+  const [parando, setParando] = useState<Estacion | null>(null)
+  // Cuál estación tiene el foco. El operario pulsa una en el esquema y las
+  // acciones aparecen arriba, siempre en el mismo sitio: buscar el botón dentro
+  // del dibujo obliga a cazarlo con la vista cada vez.
+  const [elegida, setElegida] = useState<number | null>(null)
 
   const { data: lineas = [] } = useQuery<Linea[]>({
     queryKey: ['mes-lineas'],
@@ -388,6 +493,16 @@ export default function MESTerminal() {
     // La línea la trabajan varios operarios a la vez: si esta terminal se queda
     // con la foto de hace media hora, el disponible que muestra es mentira.
     refetchInterval: 20_000,
+  })
+
+  const reanudar = useMutation({
+    mutationFn: (paradaId: number) =>
+      api.put(`/mes/planta/parada/${paradaId}/cerrar`, {}).then(r => r.data),
+    onSuccess: (r: any) => {
+      toast.success(r.mensaje ?? 'Parada cerrada')
+      qc.invalidateQueries({ queryKey: ['mes-planta-tablero'] })
+    },
+    onError: (e) => toast.error(mensajeDeError(e, 'No se pudo cerrar la parada')),
   })
 
   const atras = () => {
@@ -473,20 +588,50 @@ export default function MESTerminal() {
                 </CardContent>
               </Card>
 
-              <Typography sx={{ fontSize: 15, color: 'text.secondary', mb: 1.5 }}>
-                Las estaciones van en el orden en que el material las recorre. Cada
-                una solo puede procesar lo que le entregó la anterior.
-              </Typography>
+              {(() => {
+                const estaciones = tablero?.estaciones ?? []
+                const foco = estaciones.find(e => e.nodo_id === elegida) ?? null
+                return (
+                  <>
+                    {foco && (
+                      <AccionesEstacion
+                        estacion={foco} unidad={unidad}
+                        onReportar={() => setReportando(foco)}
+                        onParar={() => setParando(foco)}
+                        onReanudar={() => foco.parada_abierta
+                          && reanudar.mutate(foco.parada_abierta.id)}
+                      />
+                    )}
 
-              <Grid container spacing={2}>
-                {tablero?.estaciones.map((e) => (
-                  <Grid key={e.nodo_id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
-                    <TarjetaEstacion e={e} onReportar={() => setReportando(e)} />
-                  </Grid>
-                ))}
-              </Grid>
+                    <Typography sx={{ fontSize: 15, color: 'text.secondary', mb: 1.5 }}>
+                      Este es el esquema de la línea tal como está configurado.
+                      Pulse la estación donde está trabajando para reportar su
+                      avance o una avería.
+                    </Typography>
+
+                    <EsquemaLinea
+                      nodos={estaciones as unknown as NodoEsquema[]}
+                      conexiones={tablero?.conexiones ?? []}
+                      unidad={unidad}
+                      seleccionado={elegida}
+                      onEstacion={(n) => setElegida(n.nodo_id)}
+                    />
+                  </>
+                )
+              })()}
             </>
           )
+        )}
+
+        {parando && orden && operario && (
+          <DialogoParada
+            estacion={parando} orden={orden} operario={operario}
+            onCerrar={() => setParando(null)}
+            onHecho={() => {
+              setParando(null)
+              qc.invalidateQueries({ queryKey: ['mes-planta-tablero'] })
+            }}
+          />
         )}
 
         {reportando && orden && operario && (

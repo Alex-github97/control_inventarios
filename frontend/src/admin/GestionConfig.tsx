@@ -9,14 +9,14 @@
  * workflow afecta a las incidencias que ya existen —una transición que
  * desaparece deja tarjetas sin salida— y eso no es mover una tarjeta.
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Box, Card, Stack, Typography, Button, IconButton, TextField, MenuItem,
   Chip, Skeleton, Alert, Tabs, Tab, Dialog, DialogTitle, DialogContent,
   DialogActions, Tooltip, Divider, Switch, FormControlLabel, Table, TableBody,
   TableCell, TableHead, TableRow,
 } from '@mui/material'
-import { Add, Delete, Archive, Bolt, ArrowForward } from '@mui/icons-material'
+import { Add, Delete, DeleteOutline, Archive, Bolt, ArrowForward } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
@@ -46,6 +46,10 @@ function Proyectos({ config }: { config?: ConfiguracionGestion }) {
   const qc = useQueryClient()
   const [creando, setCreando] = useState(false)
   const [clave, setClave] = useState('')
+  // Si la persona escribió la clave a mano, deja de proponerse: sobrescribir lo
+  // que alguien acaba de teclear es de las cosas más molestas de un formulario.
+  const [claveTocada, setClaveTocada] = useState(false)
+  const [aEliminar, setAEliminar] = useState<Proyecto | null>(null)
   const [nombre, setNombre] = useState('')
   const [descripcion, setDescripcion] = useState('')
   const [workflowId, setWorkflowId] = useState<number | ''>('')
@@ -57,18 +61,48 @@ function Proyectos({ config }: { config?: ConfiguracionGestion }) {
     queryFn: () => gestionApi.proyectos(true),
   })
 
+  // La clave se pide al servidor con lo que se lleva escrito del nombre. Va con
+  // un respiro de medio segundo: pedirla en cada tecla son diez consultas para
+  // escribir «Desarrollos» y ninguna aporta más que la última.
+  useEffect(() => {
+    if (claveTocada || !creando) return
+    const nombreLimpio = nombre.trim()
+    if (nombreLimpio.length < 2) { setClave(''); return }
+    const id = setTimeout(() => {
+      gestionApi.claveSugerida(nombreLimpio)
+        .then(c => { if (!claveTocada) setClave(c) })
+        .catch(() => { /* si falla, el servidor la deduce igual al crear */ })
+    }, 500)
+    return () => clearTimeout(id)
+  }, [nombre, claveTocada, creando])
+
   const crear = useMutation({
     mutationFn: () => gestionApi.crearProyecto({
-      clave, nombre, descripcion: descripcion || null,
+      // Vacía significa «dedúcela»: el servidor tiene la última palabra sobre
+      // que sea única, y así no hay dos sitios decidiendo lo mismo.
+      clave: clave.trim() || null,
+      nombre, descripcion: descripcion || null,
       workflow_id: workflowId || null,
       restringido, incidencia_automatica: automatica,
     }),
     onSuccess: () => {
       toast.success('Proyecto creado')
       setCreando(false); setClave(''); setNombre(''); setDescripcion('')
+      setClaveTocada(false)
       qc.invalidateQueries({ queryKey: ['gestion'] })
     },
     onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo crear')),
+  })
+
+  const eliminar = useMutation({
+    mutationFn: ({ id, forzar }: { id: number; forzar: boolean }) =>
+      gestionApi.eliminarProyecto(id, forzar),
+    onSuccess: () => {
+      toast.success('Proyecto eliminado')
+      setAEliminar(null)
+      qc.invalidateQueries({ queryKey: ['gestion'] })
+    },
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo eliminar')),
   })
 
   const editar = useMutation({
@@ -107,6 +141,7 @@ function Proyectos({ config }: { config?: ConfiguracionGestion }) {
               <TableCell sx={{ fontWeight: 800, fontSize: 11, width: 90 }} align="right">
                 ABIERTAS
               </TableCell>
+              <TableCell sx={{ width: 56 }} />
             </TableRow>
           </TableHead>
           <TableBody>
@@ -157,24 +192,72 @@ function Proyectos({ config }: { config?: ConfiguracionGestion }) {
                     {p.abiertas} / {p.total}
                   </Typography>
                 </TableCell>
+                <TableCell align="right">
+                  <Tooltip title="Eliminar el proyecto">
+                    <IconButton size="small" onClick={() => setAEliminar(p)}
+                                sx={{ color: PALETA.acero,
+                                      '&:hover': { color: '#DC2626' } }}>
+                      <DeleteOutline sx={{ fontSize: 17 }} />
+                    </IconButton>
+                  </Tooltip>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </Card>
 
+      <Dialog open={!!aEliminar} onClose={() => setAEliminar(null)}
+              maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>
+          ¿Eliminar «{aEliminar?.nombre}»?
+        </DialogTitle>
+        <DialogContent>
+          {/* Se dice exactamente qué se pierde. «¿Está seguro?» no es una
+              pregunta que nadie pueda responder: la respuesta depende de si hay
+              trabajo dentro, y eso lo sabe el sistema, no la persona. */}
+          <Typography variant="body2" sx={{ color: PALETA.grafito }}>
+            {(aEliminar?.total ?? 0) > 0
+              ? `Tiene ${aEliminar?.total} incidencia(s) con su historial, sus
+                 comentarios y sus adjuntos. Todo eso se pierde y no se puede
+                 recuperar. Si solo quiere quitarlo de la vista, archívelo.`
+              : 'No tiene incidencias, así que no se pierde nada.'}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setAEliminar(null)} sx={{ textTransform: 'none' }}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained" color="error" disabled={eliminar.isPending}
+            sx={{ textTransform: 'none' }}
+            onClick={() => aEliminar && eliminar.mutate({
+              id: aEliminar.id, forzar: (aEliminar.total ?? 0) > 0,
+            })}
+          >
+            {(aEliminar?.total ?? 0) > 0
+              ? `Eliminar y perder ${aEliminar?.total}` : 'Eliminar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog open={creando} onClose={() => setCreando(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>Nuevo proyecto</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 0.5 }}>
-            <TextField
-              size="small" label="Clave" fullWidth autoFocus required
-              value={clave} onChange={e => setClave(e.target.value.toUpperCase())}
-              inputProps={{ maxLength: 12 }}
-              helperText="Letras y números. Es el prefijo: ERP-1, ERP-2…"
-            />
-            <TextField size="small" label="Nombre" fullWidth required
+            {/* El nombre va primero: es lo que la persona tiene en la
+                cabeza. La clave se propone a partir de él y solo se toca si de
+                verdad se quiere otra. */}
+            <TextField size="small" label="Nombre" fullWidth required autoFocus
               value={nombre} onChange={e => setNombre(e.target.value)} />
+            <TextField
+              size="small" label="Clave" fullWidth
+              value={clave} onChange={e => { setClaveTocada(true); setClave(e.target.value.toUpperCase()) }}
+              inputProps={{ maxLength: 12 }}
+              helperText={claveTocada
+                ? 'Letras y números. Es el prefijo: ERP-1, ERP-2…'
+                : `Se propone sola. Sus incidencias serán ${clave || 'XXX'}-1, ${clave || 'XXX'}-2…`}
+            />
             <TextField size="small" label="Descripción" fullWidth multiline minRows={2}
               value={descripcion} onChange={e => setDescripcion(e.target.value)} />
             <TextField select size="small" label="Flujo" fullWidth value={workflowId}

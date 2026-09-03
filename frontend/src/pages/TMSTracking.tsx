@@ -43,6 +43,7 @@ import { Layout } from '@/components/layout/Layout'
 import { apiClient as api } from '@/api/client'
 import { listaDe } from '@/utils/listaApi'
 import { MapaSeguimiento } from '@/components/mapa/MapaSeguimiento'
+import { avanceSobreRuta, retrasoMinutos, duracionLegible } from '@/utils/geo'
 
 import { COLOR_MODULO } from '@/config/marca'
 const TMS_COLOR = COLOR_MODULO
@@ -140,14 +141,16 @@ function desdeHace(iso: string | null): string {
 }
 
 /**
- * Cuánto lleva recorrido, en porcentaje del tiempo previsto.
+ * Avance estimado por reloj. Es el RESPALDO, no la medida principal.
  *
- * Se calcula del reloj y no de la distancia: las posiciones que reporta el GPS
- * son puntos sueltos y medir avance sobre la recta que los une daría una cifra
- * que no corresponde al camino real. El tiempo transcurrido sobre el previsto es
- * una aproximación honesta, y es la que usa un despachador cuando mira.
+ * El tiempo transcurrido y la distancia recorrida son cosas distintas: un viaje
+ * demorado da 100% por reloj mientras el camión sigue a mitad de camino en el
+ * mapa. Eso fue exactamente lo que se vio en pantalla —barra al 100% y camión
+ * por la mitad— y es lo que se corrige midiendo por distancia donde hay
+ * coordenadas. Acá solo se responde «cuánto debería llevar» cuando no hay
+ * ninguna posición reportada, y la pantalla lo rotula como estimado.
  */
-function avance(viaje: ViajeAPI): number {
+function avancePorReloj(viaje: ViajeAPI): number {
   const salida = viaje.fecha_real_cargue ? Date.parse(viaje.fecha_real_cargue) : NaN
   const llegada = viaje.fecha_programada_entrega
     ? Date.parse(viaje.fecha_programada_entrega) : NaN
@@ -294,8 +297,13 @@ function TripCard({ viaje, selected, onClick }: { viaje: ViajeTracking; selected
 
       <Box mb={0.6}>
         <Stack direction="row" justifyContent="space-between" mb={0.3}>
+          {/* «Previsto por horario», no «progreso»: la tarjeta no tiene las
+              coordenadas de cada viaje —pedirlas serían tantas consultas como
+              viajes en la lista— así que esto es lo que DEBERÍA llevar según el
+              reloj, no lo que lleva. El avance real, medido sobre el mapa, está
+              en el detalle. */}
           <Typography variant="caption" sx={{ color: '#64748B', fontSize: 10 }}>
-            Progreso estimado
+            Previsto por horario
           </Typography>
           <Typography variant="caption" sx={{ color: '#334155', fontWeight: 700, fontSize: 10 }}>
             {viaje.porcentaje}%
@@ -347,10 +355,11 @@ function EmptyDetail() {
   )
 }
 
-function MapaDelViaje({ viaje, eventos, paradas }: {
+function MapaDelViaje({ viaje, eventos, paradas, entregaPrevista }: {
   viaje: ViajeTracking
   eventos: EventoAPI[]
   paradas: ParadaAPI[]
+  entregaPrevista: string | null
 }) {
   // El rastro son los puntos que reportó el vehículo, en orden.
   const recorrido = eventos
@@ -364,6 +373,20 @@ function MapaDelViaje({ viaje, eventos, paradas }: {
     ? paradas.reduce((a, b) => (b.secuencia > a.secuencia ? b : a))
     : undefined
   const ultimo = recorrido.length ? recorrido[recorrido.length - 1] : null
+
+  // El avance se mide por DISTANCIA desde la última posición reportada, no por
+  // reloj. Medido por reloj, un viaje demorado marcaba 100% mientras el camión
+  // aparecía a mitad de camino en el mismo panel: la barra y el mapa decían
+  // cosas distintas del mismo viaje.
+  const puntoOrigen = origen && origen.lat != null && origen.lng != null
+    ? { lat: origen.lat, lng: origen.lng } : null
+  const puntoDestino = destino && destino.lat != null && destino.lng != null
+    ? { lat: destino.lat, lng: destino.lng } : null
+  const avanceReal = avanceSobreRuta(puntoOrigen, ultimo, puntoDestino)
+
+  // El retraso es un dato aparte, y se dice aparte: un viaje puede ir al 40% del
+  // camino y con tres horas de retraso, y hay que poder leer las dos cosas.
+  const retraso = retrasoMinutos(entregaPrevista)
 
   const cajas = [
     { icono: <MyLocation sx={{ fontSize: 15 }} />, titulo: 'Posición',
@@ -407,13 +430,35 @@ function MapaDelViaje({ viaje, eventos, paradas }: {
         altura={330}
         color="#60A5FA"
         marcaActual="camion"
-        avancePct={viaje.porcentaje}
+        avancePct={avanceReal ?? undefined}
       />
+
+      {retraso > 0 && (
+        // Se dice el retraso con todas sus letras. Antes quedaba escondido
+        // dentro del porcentaje, que subía a 100% y se leía como «ya llegó».
+        <Box sx={{ mt: 1.5, px: 1.75, py: 1.1, borderRadius: 1.5,
+                   bgcolor: 'rgba(239,68,68,.14)',
+                   border: '1px solid rgba(239,68,68,.35)' }}>
+          <Typography sx={{ color: '#FCA5A5', fontSize: 13, fontWeight: 700 }}>
+            {duracionLegible(retraso)} de retraso sobre la hora prevista de entrega
+          </Typography>
+        </Box>
+      )}
+
+      {avanceReal == null && (
+        <Box sx={{ mt: 1.5, px: 1.75, py: 1.1, borderRadius: 1.5,
+                   bgcolor: 'rgba(148,163,184,.12)' }}>
+          <Typography sx={{ color: '#CBD5E1', fontSize: 12.5 }}>
+            Sin posición reportada: no se puede calcular cuánto lleva recorrido.
+          </Typography>
+        </Box>
+      )}
 
       <Stack direction="row" alignItems="center" justifyContent="space-between"
              sx={{ mt: 1.5 }}>
         <Typography sx={{ color: '#94A3B8', fontSize: 11 }}>
-          Línea continua: posiciones reportadas. Punteada: lo que falta.
+          Avance medido sobre la distancia entre origen y destino, desde la
+          última posición reportada.
         </Typography>
         <Typography sx={{ color: '#94A3B8', fontSize: 11 }}>
           {viaje.ultimaActualizacion}
@@ -531,7 +576,9 @@ function TripStops({ paradas }: { paradas: Parada[] }) {
   )
 }
 
-function TripDetail({ viaje, viajeId }: { viaje: ViajeTracking; viajeId: number }) {
+function TripDetail({ viaje, viajeId, entregaPrevista }: {
+  viaje: ViajeTracking; viajeId: number; entregaPrevista: string | null
+}) {
   const est = estadoConfig(viaje.estado)
 
   // Los eventos y las paradas se piden solo del viaje abierto. Traerlos de
@@ -629,7 +676,8 @@ function TripDetail({ viaje, viajeId }: { viaje: ViajeTracking; viajeId: number 
         </Stack>
       </Box>
 
-      <MapaDelViaje viaje={conDatos} eventos={eventos} paradas={paradas} />
+      <MapaDelViaje viaje={conDatos} eventos={eventos} paradas={paradas}
+                    entregaPrevista={entregaPrevista} />
       <EventTimeline eventos={linea} />
       <Divider sx={{ borderColor: '#E5E7EB' }} />
       <TripStops paradas={listaParadas} />
@@ -662,7 +710,7 @@ export default function TMSTracking() {
       origen: v.origen_ciudad ?? '—',
       destino: v.destino_ciudad ?? '—',
       estado: situacion(v),
-      porcentaje: avance(v),
+      porcentaje: avancePorReloj(v),
       etaEstimada: hora(v.fecha_programada_entrega),
       ultimaActualizacion: 'sin reportes',
       velocidadActual: 0,
@@ -785,7 +833,8 @@ export default function TMSTracking() {
             }}
           >
             {seleccionado
-              ? <TripDetail viaje={seleccionado.vista} viajeId={seleccionado.api.id} />
+              ? <TripDetail viaje={seleccionado.vista} viajeId={seleccionado.api.id}
+                            entregaPrevista={seleccionado.api.fecha_programada_entrega} />
               : <EmptyDetail />}
           </Box>
         </Box>

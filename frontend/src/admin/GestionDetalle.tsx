@@ -113,8 +113,20 @@ function ZonaAdjuntos({
         component="label"
       >
         <input hidden type="file" multiple onChange={e => {
-          if (e.target.files?.length) onSubir(e.target.files)
+          // Copiar ANTES de limpiar el campo.
+          //
+          // `e.target.files` es una lista viva atada al `<input>`: al ponerle
+          // `value = ''` se vacía. Como la subida es asincrona, cuando llegaba
+          // el momento de armar el FormData la lista ya estaba vacía y se
+          // enviaba un cuerpo de 44 bytes —solo el separador—, que el servidor
+          // rechazaba con «error al leer el cuerpo». El archivo nunca salía del
+          // navegador.
+          //
+          // El campo se limpia igual, y hace falta: sin eso, escoger dos veces
+          // el mismo archivo no dispara `change` la segunda vez.
+          const archivos = Array.from(e.target.files ?? [])
           e.target.value = ''
+          if (archivos.length) onSubir(archivos)
         }} />
         <Stack direction="row" alignItems="center" justifyContent="center" spacing={1}>
           <AttachFile sx={{ fontSize: 16, color: PALETA.acero }} />

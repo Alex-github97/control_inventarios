@@ -9,11 +9,13 @@ proyecto restringido del que no se es miembro.
 workflow afecta a las incidencias que ya existen —una transición que desaparece
 deja tarjetas sin salida— y eso no es lo mismo que mover una tarjeta.
 """
+import re
+import unicodedata
 from typing import Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete as sa_delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import gestion_campos, gestion_workflow
@@ -61,7 +63,10 @@ class MiembroResponse(BaseModel):
 
 
 class ProyectoEntrada(BaseModel):
-    clave: str = Field(min_length=2, max_length=12)
+    # La clave se puede omitir: se deduce del nombre. Escribirla a mano es un
+    # trámite que solo existía porque alguien tenía que garantizar que fuera
+    # única, y eso lo hace mejor el servidor.
+    clave: Optional[str] = Field(default=None, max_length=12)
     nombre: str = Field(min_length=2, max_length=160)
     descripcion: Optional[str] = None
     icono: Optional[str] = None
@@ -139,13 +144,72 @@ async def listar_proyectos(
     return salida
 
 
+async def _clave_sugerida(db: AsyncSession, nombre: str) -> str:
+    """Propone una clave a partir del nombre, y se asegura de que sea única.
+
+    «Desarrollos» → DES. «Soporte y mantenimiento» → SYM, tomando la inicial de
+    cada palabra cuando hay varias: es lo que una persona escribiría.
+
+    Si ya existe, agrega un número: DES, DES2, DES3… No se usa un aleatorio
+    porque la clave se lee todo el día en los códigos de las incidencias, y
+    «DES-14» se recuerda y se dicta por teléfono; «X7K-14» no.
+    """
+    # Primero se quitan las tildes, DESPUÉS lo que no es letra. Al revés, la
+    # normalización separa «ó» en «o» + tilde, la tilde se cambia por un espacio
+    # y «Migración» queda partida en «Migracio» y «n»: la clave salía MNC en vez
+    # de MC.
+    sin_tildes = "".join(
+        c for c in unicodedata.normalize("NFKD", nombre)
+        if not unicodedata.combining(c))
+    limpio = re.sub(r"[^A-Za-z0-9 ]", " ", sin_tildes)
+    palabras = [p for p in limpio.split() if p]
+
+    if not palabras:
+        base = "PRY"
+    elif len(palabras) == 1:
+        base = palabras[0][:3].upper()
+    else:
+        # La inicial de cada palabra, hasta cuatro. Las palabras de enlace se
+        # descartan: «Soporte y mantenimiento» da SM, no SYM.
+        enlaces = {"y", "de", "del", "la", "el", "los", "las", "para", "en", "a"}
+        utiles = [p for p in palabras if p.lower() not in enlaces] or palabras
+        base = "".join(p[0] for p in utiles[:4]).upper()
+
+    base = (base or "PRY")[:8]
+    usadas = {c for (c,) in (await db.execute(select(GPProyecto.clave))).all()}
+    if base not in usadas:
+        return base
+    for n in range(2, 100):
+        candidata = f"{base}{n}"
+        if candidata not in usadas:
+            return candidata
+    return f"PRY{len(usadas) + 1}"
+
+
+@router.get("/proyectos/clave-sugerida")
+async def clave_sugerida(
+    nombre: str,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.configurar")),
+):
+    """La clave que se usaría para ese nombre.
+
+    La pantalla la muestra mientras se escribe el nombre, para que quien crea el
+    proyecto vea cómo van a quedar los códigos de sus incidencias antes de
+    confirmar. Sigue pudiendo cambiarla.
+    """
+    return {"clave": await _clave_sugerida(db, nombre)}
+
+
 @router.post("/proyectos", response_model=ProyectoResumen, status_code=201)
 async def crear_proyecto(
     data: ProyectoEntrada,
     db: AsyncSession = Depends(get_db_plataforma),
     quien: Miembro = Depends(exigir("gestion.configurar")),
 ):
-    clave = data.clave.strip().upper()
+    clave = (data.clave or "").strip().upper()
+    if not clave:
+        clave = await _clave_sugerida(db, data.nombre)
     if not clave.isalnum():
         raise HTTPException(
             422,
@@ -242,6 +306,50 @@ async def listar_miembros(
         GPProyectoMiembro.proyecto_id == proyecto_id
     ).order_by(GPProyectoMiembro.rol, GPProyectoMiembro.usuario))
     return list(r.scalars().all())
+
+
+@router.delete("/proyectos/{proyecto_id}", status_code=204)
+async def eliminar_proyecto(
+    proyecto_id: int,
+    forzar: bool = Query(
+        False, description="Elimina aunque tenga incidencias. Se pierden."),
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.configurar")),
+):
+    """Elimina un proyecto.
+
+    Un proyecto vacío se borra sin más: normalmente es uno recién creado con un
+    nombre equivocado, y obligar a archivarlo deja basura en el selector para
+    siempre.
+
+    Uno CON incidencias no se borra por accidente: hay que pedirlo
+    explícitamente con `forzar`. La razón es que las incidencias son el registro
+    del trabajo —comentarios, adjuntos, historial— y eso no se recupera. La
+    alternativa para conservar el historial es archivarlo, y el mensaje lo dice.
+    """
+    proyecto = (await db.execute(select(GPProyecto).where(
+        GPProyecto.id == proyecto_id))).scalar_one_or_none()
+    if proyecto is None:
+        raise HTTPException(404, "Ese proyecto no existe.")
+
+    cuantas = (await db.execute(
+        select(func.count()).select_from(GPIncidencia)
+        .where(GPIncidencia.proyecto_id == proyecto_id))).scalar() or 0
+
+    if cuantas and not forzar:
+        raise HTTPException(
+            409,
+            f"«{proyecto.nombre}» tiene {cuantas} incidencia(s) con su "
+            f"historial y sus adjuntos. Si de verdad quiere perderlas, "
+            f"confirme la eliminación; si solo quiere quitarlo de la vista, "
+            f"archívelo y se conserva todo.")
+
+    # Las incidencias se borran en cascada por la relación; los miembros se
+    # quitan a mano porque cuelgan del proyecto y no de la incidencia.
+    await db.execute(sa_delete(GPProyectoMiembro).where(
+        GPProyectoMiembro.proyecto_id == proyecto_id))
+    await db.delete(proyecto)
+    await db.commit()
 
 
 @router.post("/proyectos/{proyecto_id}/miembros", response_model=MiembroResponse,

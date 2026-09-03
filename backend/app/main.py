@@ -967,6 +967,33 @@ async def _migrar_esquema(esquema: str) -> None:
         await conn.execute(text(
             "ALTER TABLE eam_ot_mano_obra ALTER COLUMN actividad TYPE VARCHAR(300)"
         ))
+
+        # ── MES · terminal de planta ──
+        # Un usuario de la plataforma por operario, y su PIN de terminal. Sin
+        # esto la terminal se identifica con un código que cualquiera puede
+        # escribir: el registro diría quién DIJO que era, no quién era, y la
+        # productividad por operario dejaría de ser medible.
+        for columna, tipo in [("usuario_id", "INTEGER"), ("pin", "VARCHAR(8)")]:
+            await conn.execute(text(
+                "ALTER TABLE mes_operario ADD COLUMN IF NOT EXISTS %s %s"
+                % (columna, tipo)))
+        # Un usuario no puede ser dos operarios. Va como índice único parcial
+        # porque `usuario_id` es opcional: los operarios que todavía no tienen
+        # cuenta conviven con los que sí.
+        await conn.execute(text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_mes_operario_usuario "
+            "ON mes_operario (usuario_id) WHERE usuario_id IS NOT NULL"))
+
+        # La parada puede colgar de una estación y no solo de una ejecución: una
+        # avería se reporta desde la máquina donde ocurre. Sin esto quedaba
+        # fuera del registro, y una estación que produjo 200 unidades pero
+        # estuvo parada tres horas se veía igual que una que no paró nunca.
+        await conn.execute(text(
+            "ALTER TABLE mes_parada ALTER COLUMN ejecucion_id DROP NOT NULL"))
+        for columna, tipo in [("avance_id", "INTEGER"), ("operario_id", "INTEGER")]:
+            await conn.execute(text(
+                "ALTER TABLE mes_parada ADD COLUMN IF NOT EXISTS %s %s"
+                % (columna, tipo)))
         # Alcance de la rutina por jerarquía: tipo → marca → línea. Así una
         # rutina se escribe una vez y cubre a todos los activos que encajan.
         for columna, tipo in [("marca", "VARCHAR(100)"), ("linea", "VARCHAR(100)")]:

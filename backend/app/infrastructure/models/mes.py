@@ -180,6 +180,21 @@ class MESOperario(Base, TimestampMixin):
     cargo         = Column(String(100), nullable=True)
     planta_id     = Column(Integer, ForeignKey('mes_planta.id'), nullable=True)
     hcm_empleado_id = Column(Integer, nullable=True)
+    # Un usuario de la plataforma por operario.
+    #
+    # Sin esto, la terminal de planta se identifica con un código que cualquiera
+    # puede escribir, y el registro dice quién DIJO que era, no quién era. Con
+    # el usuario detrás, cada avance queda firmado por una cuenta real — y es lo
+    # único que permite medir la productividad de cada operario, que es la mitad
+    # de la razón por la que existe un MES.
+    usuario_id    = Column(Integer, ForeignKey('usuarios.id', ondelete='SET NULL'),
+                           nullable=True, unique=True)
+    # El PIN con el que se identifica en la terminal. No reemplaza la contraseña
+    # de su cuenta: la terminal queda abierta con la sesión de la planta y el PIN
+    # dice cuál de los operarios está reportando. Pedir una contraseña larga en
+    # un teclado con guantes termina en que todos comparten una sesión, y ahí se
+    # pierde exactamente lo que se quería medir.
+    pin           = Column(String(8), nullable=True)
     activo        = Column(Boolean, default=True, nullable=False)
     certificaciones = relationship('MESCertificacion', back_populates='operario', lazy='dynamic')
 
@@ -356,9 +371,22 @@ class MESEjecucion(Base, TimestampMixin):
 
 
 class MESParada(Base, TimestampMixin):
+    """Una detención de la producción: cuánto duró y por qué.
+
+    Cuelga de una ejecución o de una estación, y por eso las dos son opcionales.
+    Antes solo existía la ejecución, así que una avería no se podía reportar
+    desde donde ocurre —la máquina— y quedaba fuera del registro. Saber que una
+    estación produjo 200 unidades sin saber que estuvo parada tres horas no
+    sirve para calcular el OEE, que es el indicador por el que existe un MES.
+    """
+
     __tablename__ = 'mes_parada'
     id            = Column(Integer, primary_key=True, index=True)
-    ejecucion_id  = Column(Integer, ForeignKey('mes_ejecucion.id'), nullable=False)
+    ejecucion_id  = Column(Integer, ForeignKey('mes_ejecucion.id'), nullable=True)
+    avance_id     = Column(Integer,
+                           ForeignKey('mes_avance_estacion.id', ondelete='CASCADE'),
+                           nullable=True, index=True)
+    operario_id   = Column(Integer, ForeignKey('mes_operario.id'), nullable=True)
     equipo_id     = Column(Integer, ForeignKey('mes_equipo.id'), nullable=True)
     tipo          = Column(SAEnum(TipoParadaMESEnum), nullable=False)
     causa         = Column(String(200), nullable=False)

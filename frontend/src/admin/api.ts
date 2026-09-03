@@ -555,6 +555,16 @@ export const gestionApi = {
   crearProyecto: (cuerpo: Record<string, unknown>) =>
     api.post<Proyecto>('/gestion/proyectos', cuerpo).then(r => r.data),
 
+  /** La clave que el servidor usaría para ese nombre. Se consulta mientras se
+   *  escribe, para que quien crea el proyecto vea el prefijo de sus incidencias
+   *  antes de confirmar. */
+  claveSugerida: (nombre: string) =>
+    api.get<{ clave: string }>('/gestion/proyectos/clave-sugerida',
+      { params: { nombre } }).then(r => r.data.clave),
+
+  eliminarProyecto: (id: number, forzar = false) =>
+    api.delete(`/gestion/proyectos/${id}`, { params: { forzar } }),
+
   editarProyecto: (id: number, cambios: Record<string, unknown>) =>
     api.put<Proyecto>(`/gestion/proyectos/${id}`, cambios).then(r => r.data),
 

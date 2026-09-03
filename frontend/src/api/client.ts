@@ -6,7 +6,12 @@ const API_URL = import.meta.env.VITE_API_URL || '/api/v1'
 export const apiClient: AxiosInstance = axios.create({
   baseURL: API_URL,
   timeout: 30000,
-  headers: { 'Content-Type': 'application/json' },
+  // Sin `Content-Type` fijo. Poniendolo aqui, TODA peticion sale como JSON,
+  // incluidas las que llevan un archivo: el navegador ya no puede escribir
+  // `multipart/form-data` con su separador y el servidor no sabe leer el
+  // cuerpo. Axios pone `application/json` solo cuando el cuerpo es un objeto,
+  // que es lo que se quiere.
+  headers: {},
 })
 
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
@@ -23,10 +28,23 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config
 })
 
+/**
+ * Marca una petición como «un 401 acá no significa que la sesión murió».
+ *
+ * El interceptor de abajo saca al usuario al login ante cualquier 401, que es lo
+ * correcto cuando el token caducó y lo desastroso cuando el 401 viene de una
+ * comprobación de negocio: al escribir mal un PIN en la terminal de planta, el
+ * operario no recibía un aviso, se le cerraba la sesión entera.
+ *
+ * Úsese así:  api.post(ruta, datos, { ...sinCerrarSesion })
+ */
+export const sinCerrarSesion = { headers: { 'X-Sesion-Propia': '1' } }
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response?.status === 401) {
+    const propia = error.config?.headers?.['X-Sesion-Propia'] === '1'
+    if (error.response?.status === 401 && !propia) {
       // Limpiar todo el estado de auth (token suelto + estado Zustand persistido)
       localStorage.removeItem('access_token')
       localStorage.removeItem('auth-storage')
