@@ -13,15 +13,16 @@ y para rescatar a un cliente bloqueado; no deja leer sus estibas, sus activos ni
 sus llantas.
 """
 from contextlib import asynccontextmanager
-from datetime import datetime
-from typing import List, Optional
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional
 import json
+import re
 import secrets
 import string
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, EmailStr
-from sqlalchemy import select, text, func
+from sqlalchemy import or_, select, text, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import AsyncSessionLocal, get_db_plataforma
@@ -29,7 +30,7 @@ from app.core.security import decode_token, hash_password
 from app.core.tenant import ESQUEMA_PLATAFORMA, codigo_valido
 from app.infrastructure.models.plataforma import PlataformaCliente, PlataformaBitacora
 from app.infrastructure.models.usuario import Usuario
-from app.core.permisos_consola import exigir
+from app.core.permisos_consola import Miembro, exigir
 from app.core.permisos_perfil import PERMISOS_PERFIL, normalizar as normalizar_permisos
 
 router = APIRouter(prefix="/plataforma", tags=["Consola del operador"])
@@ -742,3 +743,239 @@ async def registrar_fallo_interfaz(
     except Exception:
         # Nunca hacia arriba: esto es telemetría, no una operación del negocio.
         pass
+
+
+# ─── Los fallos de la interfaz, para la consola ───────────────────────────────
+#
+# POR QUÉ AGRUPADOS Y NO UNO POR UNO
+# Quinientas apariciones del mismo error son UN problema, no quinientos. Una
+# lista cronológica de fallos se vuelve ilegible en el primer error que afecte a
+# varios clientes, y esconde justamente lo que hay que ver: cuál se repite más y
+# a cuánta gente le está pasando.
+#
+# La agrupación es por mensaje normalizado. Se quitan los identificadores —el
+# hash del archivo compilado, los números de línea, los ids— porque
+# «MESPlanta-DbefsU82.js» y «MESPlanta-Kx91mZ4.js» son el mismo fallo con dos
+# despliegues distintos, y contarlos aparte multiplica el ruido.
+
+
+def _firma(mensaje: str) -> str:
+    """Reduce un mensaje a lo que lo hace único, sin lo que cambia entre casos."""
+    t = mensaje or ""
+    t = re.sub(r"-[A-Za-z0-9_]{6,}\.js", ".js", t)   # hash del archivo compilado
+    t = re.sub(r"https?://[^\s]+/", "", t)           # dominio y ruta
+    t = re.sub(r"\b\d+\b", "N", t)                   # ids, líneas, columnas
+    t = re.sub(r"\s+", " ", t).strip().lower()
+    return t[:180]
+
+
+class FalloAgrupado(BaseModel):
+    firma: str
+    mensaje: str
+    veces: int
+    empresas: List[str]
+    rutas: List[str]
+    primera: Optional[datetime] = None
+    ultima: Optional[datetime] = None
+    referencia: Optional[str] = None
+    incidencia_id: Optional[int] = None
+    incidencia_clave: Optional[str] = None
+
+
+async def _agrupar_fallos(db: AsyncSession, dias: int,
+                          incluir_atendidos: bool) -> List["FalloAgrupado"]:
+    """Agrupa los fallos registrados. La usan el listado y la conversión.
+
+    Va como función y no se llama al endpoint desde el otro: invocar una ruta
+    como si fuera una función obliga a inventarle valores a sus dependencias, y
+    deja de compilar en cuanto alguien le agrega una.
+    """
+    desde = datetime.utcnow() - timedelta(days=max(1, min(dias, 365)))
+    filas = (await db.execute(
+        select(PlataformaBitacora)
+        .where(PlataformaBitacora.accion == "fallo_interfaz",
+               PlataformaBitacora.fecha >= desde)
+        .order_by(PlataformaBitacora.fecha.desc())
+        .limit(5000)
+    )).scalars().all()
+
+    # Qué grupos ya se convirtieron en incidencia.
+    atendidos = {
+        b.detalle.split("|")[0]: b
+        for b in (await db.execute(
+            select(PlataformaBitacora).where(
+                PlataformaBitacora.accion == "fallo_convertido"))).scalars().all()
+        if b.detalle and "|" in b.detalle
+    }
+
+    grupos: Dict[str, dict] = {}
+    for fila in filas:
+        detalle = fila.detalle or ""
+        # El detalle se guardó como «[REF] ruta · mensaje · navegador · pila».
+        partes = [p.strip() for p in detalle.split("·")]
+        referencia = ""
+        ruta = ""
+        if partes and partes[0].startswith("["):
+            cabeza = partes[0]
+            cierre = cabeza.find("]")
+            referencia = cabeza[1:cierre] if cierre > 0 else ""
+            ruta = cabeza[cierre + 1:].strip()
+        mensaje = partes[1] if len(partes) > 1 else detalle
+
+        firma = _firma(mensaje)
+        g = grupos.setdefault(firma, {
+            "firma": firma, "mensaje": mensaje[:220], "veces": 0,
+            "empresas": set(), "rutas": set(),
+            "primera": fila.fecha, "ultima": fila.fecha,
+            "referencia": referencia or None,
+        })
+        g["veces"] += 1
+        if fila.empresa_codigo:
+            g["empresas"].add(fila.empresa_codigo)
+        elif fila.actor_empresa and fila.actor_empresa != "desconocida":
+            g["empresas"].add(fila.actor_empresa)
+        if ruta:
+            g["rutas"].add(ruta[:60])
+        g["primera"] = min(g["primera"], fila.fecha)
+        g["ultima"] = max(g["ultima"], fila.fecha)
+
+    salida = []
+    for firma, g in grupos.items():
+        marca = atendidos.get(firma)
+        if marca is not None and not incluir_atendidos:
+            continue
+        clave = incidencia = None
+        if marca is not None and marca.detalle:
+            trozos = marca.detalle.split("|")
+            if len(trozos) >= 3:
+                try:
+                    incidencia = int(trozos[1])
+                except ValueError:
+                    incidencia = None
+                clave = trozos[2] or None
+        salida.append(FalloAgrupado(
+            firma=firma, mensaje=g["mensaje"], veces=g["veces"],
+            empresas=sorted(g["empresas"])[:8],
+            rutas=sorted(g["rutas"])[:8],
+            primera=g["primera"], ultima=g["ultima"],
+            referencia=g["referencia"],
+            incidencia_id=incidencia, incidencia_clave=clave,
+        ))
+    salida.sort(key=lambda f: (-f.veces, f.mensaje))
+    return salida
+
+
+@router.get("/fallos", response_model=List[FalloAgrupado])
+async def listar_fallos(
+    dias: int = 30,
+    incluir_atendidos: bool = False,
+    db: AsyncSession = Depends(get_db_plataforma),
+    _=Depends(exigir("bitacora.ver")),
+):
+    """Lo que se está rompiendo en los navegadores, agrupado y ordenado.
+
+    Ordena por cuántas veces ocurrió, no por cuándo: lo que más se repite es lo
+    que hay que arreglar primero, aunque el último caso sea de anteayer.
+    """
+    return await _agrupar_fallos(db, dias, incluir_atendidos)
+
+
+class ConvertirFallo(BaseModel):
+    firma: str
+    resumen: Optional[str] = None
+    proyecto_id: Optional[int] = None
+
+
+@router.post("/fallos/incidencia", status_code=201)
+async def fallo_a_incidencia(
+    datos: ConvertirFallo,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("bitacora.ver")),
+):
+    """Convierte un grupo de fallos en una incidencia del equipo.
+
+    Se hace DESPUÉS de revisar, y a mano, a propósito: convertir cada fallo
+    automáticamente llenaría el tablero de duplicados y de errores de un solo
+    navegador raro. Quien revisa decide cuál merece trabajo.
+
+    La incidencia nace con el recuento, las empresas afectadas y las rutas: es lo
+    que hace falta para reproducir, y buscarlo después obliga a volver a esta
+    pantalla.
+    """
+    from app.core import gestion_incidencias as _gi
+    from app.infrastructure.models.gestion import (
+        GPEstado, GPProyecto, GPTipoIncidencia,
+    )
+
+    # Se recalcula el grupo para que la incidencia lleve cifras de ahora y no las
+    # que la pantalla tenía cargadas hace media hora.
+    grupos = await _agrupar_fallos(db, dias=90, incluir_atendidos=True)
+    grupo = next((g for g in grupos if g.firma == datos.firma), None)
+    if grupo is None:
+        raise HTTPException(404, "Ese fallo ya no aparece en los últimos 90 días.")
+    if grupo.incidencia_id:
+        raise HTTPException(
+            409, f"Ese fallo ya está en la incidencia {grupo.incidencia_clave}.")
+
+    proyecto = None
+    if datos.proyecto_id:
+        proyecto = (await db.execute(select(GPProyecto).where(
+            GPProyecto.id == datos.proyecto_id))).scalar_one_or_none()
+    if proyecto is None:
+        proyecto = (await db.execute(select(GPProyecto).where(
+            GPProyecto.incidencia_automatica.is_(True),
+            GPProyecto.archivado.is_(False),
+        ).order_by(GPProyecto.id).limit(1))).scalar_one_or_none()
+    if proyecto is None:
+        raise HTTPException(
+            409, "No hay ningún proyecto donde registrarla. Escoja uno, o marque "
+                 "«recibe las solicitudes de soporte» en el que corresponda.")
+
+    tipo = (await db.execute(select(GPTipoIncidencia).where(
+        GPTipoIncidencia.clave == "ERROR",
+        GPTipoIncidencia.archivado.is_(False),
+        or_(GPTipoIncidencia.proyecto_id == proyecto.id,
+            GPTipoIncidencia.proyecto_id.is_(None)),
+    ).order_by(GPTipoIncidencia.proyecto_id.desc().nullslast())
+      .limit(1))).scalar_one_or_none()
+    if tipo is None:
+        raise HTTPException(409, "No hay un tipo «Error» configurado.")
+
+    workflow_id = await _gi.workflow_de(db, proyecto, tipo)
+    inicial = (await db.execute(select(GPEstado).where(
+        GPEstado.workflow_id == workflow_id,
+    ).order_by(GPEstado.orden).limit(1))).scalar_one_or_none()
+
+    empresas = ", ".join(grupo.empresas) or "sin identificar"
+    rutas = "\n".join(f"  · {r}" for r in grupo.rutas) or "  · sin registrar"
+    descripcion = (
+        f"Fallo de la interfaz reportado automáticamente por los navegadores.\n\n"
+        f"Mensaje:\n  {grupo.mensaje}\n\n"
+        f"Ocurrió {grupo.veces} vez/veces entre {grupo.primera:%Y-%m-%d %H:%M} "
+        f"y {grupo.ultima:%Y-%m-%d %H:%M}.\n"
+        f"Empresas afectadas: {empresas}.\n"
+        f"Pantallas:\n{rutas}\n\n"
+        f"Referencia de un caso: {grupo.referencia or '—'}."
+    )
+
+    incidencia = await _gi.crear(
+        db, proyecto, tipo_id=tipo.id,
+        resumen=(datos.resumen or f"Fallo de interfaz: {grupo.mensaje}")[:300],
+        descripcion=descripcion, autor=quien.usuario,
+        campos={}, estado_id=inicial.id if inicial else None,
+    )
+    await db.flush()
+
+    # Se marca el grupo como atendido para que no vuelva a aparecer como nuevo.
+    # Va en la misma bitácora y no en una tabla aparte: es un hecho más de lo que
+    # el operador hizo, que es exactamente para lo que existe.
+    db.add(PlataformaBitacora(
+        fecha=datetime.utcnow(),
+        actor=quien.usuario, actor_empresa="tittanware",
+        accion="fallo_convertido", empresa_codigo=None,
+        detalle=f"{grupo.firma}|{incidencia.id}|{incidencia.clave}"[:500]))
+    await db.commit()
+    await db.refresh(incidencia)
+    return {"id": incidencia.id, "clave": incidencia.clave,
+            "proyecto": proyecto.nombre,
+            "mensaje": f"{incidencia.clave} creada con {grupo.veces} caso(s)."}

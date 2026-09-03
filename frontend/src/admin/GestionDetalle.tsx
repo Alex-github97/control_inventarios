@@ -19,7 +19,7 @@ import {
 } from '@mui/material'
 import {
   Close, Send, AttachFile, Edit, Check, History, ChatBubbleOutline,
-  SupportAgent, Download, Tune, AccountTree,
+  SupportAgent, Download, Tune, AccountTree, Visibility, DeleteOutline,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
@@ -29,6 +29,7 @@ import {
   type AdjuntoGestion, type DetalleIncidencia,
 } from './api'
 import GestionFormulario, { Campo } from './GestionFormulario'
+import { BarraDeTrabajo } from './GestionTiempo'
 
 const COLOR_CATEGORIA: Record<string, string> = {
   SIN_CLASIFICAR: PALETA.acero,
@@ -52,6 +53,7 @@ const NOMBRE_CAMPO: Record<string, string> = {
   prioridad_id: 'Prioridad', vence: 'Vencimiento', iniciado: 'Inicio',
   resuelto: 'Resolución', tipo: 'Tipo', padre: 'Padre', origen: 'Origen',
   etiquetas: 'Etiquetas', adjunto: 'Adjunto', vinculo: 'Vínculo',
+  tiempo: 'Reloj', movimiento: 'Movimiento manual',
 }
 
 
@@ -69,13 +71,15 @@ const NOMBRE_CAMPO: Record<string, string> = {
  *  comentario.
  */
 function ZonaAdjuntos({
-  adjuntos, onSubir, onDescargar,
+  adjuntos, onSubir, onDescargar, onBorrar,
 }: {
   adjuntos: AdjuntoGestion[]
   onSubir: (archivos: FileList | File[]) => void
   onDescargar: (id: number, nombre: string) => void
+  onBorrar: (a: AdjuntoGestion) => void
 }) {
   const [encima, setEncima] = useState(false)
+  const [viendo, setViendo] = useState<AdjuntoGestion | null>(null)
 
   useEffect(() => {
     function alPegar(e: ClipboardEvent) {
@@ -143,15 +147,126 @@ function ZonaAdjuntos({
         <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap mt={1.25}>
           {adjuntos.map(a => (
             <Chip
-              key={a.id} size="small" icon={<Download sx={{ fontSize: 13 }} />}
+              key={a.id} size="small"
+              icon={sePuedeVer(a)
+                ? <Visibility sx={{ fontSize: 13 }} />
+                : <Download sx={{ fontSize: 13 }} />}
               label={`${a.nombre}${a.tamano ? ` · ${peso(a.tamano)}` : ''}`}
-              onClick={() => onDescargar(a.id, a.nombre)}
+              // Clic = ver, si se puede ver. Bajar un pantallazo al disco para
+              // mirarlo y luego borrarlo es el paso que sobra: casi todos los
+              // adjuntos de una incidencia son imágenes de la pantalla rota.
+              onClick={() => sePuedeVer(a) ? setViendo(a) : onDescargar(a.id, a.nombre)}
+              onDelete={() => onBorrar(a)}
+              deleteIcon={
+                <Tooltip title="Quitar este archivo">
+                  <DeleteOutline sx={{ fontSize: 14 }} />
+                </Tooltip>
+              }
               sx={{ height: 24, fontSize: 11, maxWidth: 300 }}
             />
           ))}
         </Stack>
       )}
+
+      <VistaPrevia
+        adjunto={viendo} onCerrar={() => setViendo(null)}
+        onDescargar={onDescargar}
+      />
     </Box>
+  )
+}
+
+/** Qué se puede mirar sin bajarlo. El resto se descarga y ya. */
+function sePuedeVer(a: AdjuntoGestion): boolean {
+  const mime = (a.tipo_mime || '').toLowerCase()
+  const ext = (a.nombre.split('.').pop() || '').toLowerCase()
+  if (mime.startsWith('image/') || mime === 'application/pdf') return true
+  if (mime.startsWith('text/')) return true
+  // El tipo declarado no siempre llega —según el navegador que lo subió—, así
+  // que la extensión es el segundo intento y no el primero.
+  return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'pdf',
+          'txt', 'log', 'csv'].includes(ext)
+}
+
+/** Mira un adjunto sin bajarlo al disco.
+ *
+ *  El archivo se pide con la sesión —igual que la descarga— y se muestra desde
+ *  un blob local. No se puede apuntar un `<img src>` a la ruta del servidor:
+ *  esa petición sale sin el token y vuelve 401, con lo que se vería una imagen
+ *  rota. El blob se libera al cerrar; si no, cada vista deja la imagen entera
+ *  en memoria hasta que se recargue la página.
+ *
+ *  Excel y Word no se previsualizan: haría falta un visor completo, y de un
+ *  adjunto de incidencia lo que se necesita casi siempre es el pantallazo.
+ */
+function VistaPrevia({ adjunto, onCerrar, onDescargar }: {
+  adjunto: AdjuntoGestion | null
+  onCerrar: () => void
+  onDescargar: (id: number, nombre: string) => void
+}) {
+  const [url, setUrl] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!adjunto) { setUrl(null); setError(null); return }
+    let vivo = true
+    let creada: string | null = null
+    setUrl(null); setError(null)
+    gestionApi.descargarAdjunto(adjunto.id)
+      .then(blob => {
+        if (!vivo) return
+        creada = URL.createObjectURL(blob)
+        setUrl(creada)
+      })
+      .catch((e: any) => vivo && setError(mensajeDeError(e, 'No se pudo abrir')))
+    return () => {
+      vivo = false
+      if (creada) URL.revokeObjectURL(creada)
+    }
+  }, [adjunto?.id])
+
+  if (!adjunto) return null
+  const mime = (adjunto.tipo_mime || '').toLowerCase()
+  const ext = (adjunto.nombre.split('.').pop() || '').toLowerCase()
+  // El PDF y el texto plano los pinta el propio navegador dentro de un marco;
+  // solo las imagenes van en un <img>. Mandar un .log a un <img> muestra el
+  // icono de imagen rota, que es peor que no ofrecer la vista.
+  const enMarco = mime === 'application/pdf' || mime.startsWith('text/') ||
+    ['pdf', 'txt', 'log', 'csv'].includes(ext)
+
+  return (
+    <Dialog open onClose={onCerrar} maxWidth="lg" fullWidth
+      PaperProps={{ sx: { borderRadius: 2 } }}>
+      <Stack direction="row" alignItems="center" spacing={1}
+        sx={{ px: 2, py: 1.25, borderBottom: `1px solid ${PALETA.niebla}` }}>
+        <Typography sx={{ fontWeight: 700, fontSize: 14, flex: 1 }} noWrap>
+          {adjunto.nombre}
+        </Typography>
+        <Typography variant="caption" sx={{ color: PALETA.acero }}>
+          {peso(adjunto.tamano)}
+        </Typography>
+        <Button size="small" startIcon={<Download sx={{ fontSize: 15 }} />}
+          onClick={() => onDescargar(adjunto.id, adjunto.nombre)}
+          sx={{ textTransform: 'none' }}>
+          Descargar
+        </Button>
+        <IconButton size="small" onClick={onCerrar}><Close fontSize="small" /></IconButton>
+      </Stack>
+      <DialogContent sx={{ p: enMarco ? 0 : 2, bgcolor: PALETA.bruma, minHeight: 320 }}>
+        {error ? (
+          <Alert severity="error">{error}</Alert>
+        ) : !url ? (
+          <Skeleton variant="rectangular" height={400} />
+        ) : enMarco ? (
+          <Box component="iframe" src={url} title={adjunto.nombre}
+            sx={{ width: '100%', height: '72vh', border: 0, display: 'block' }} />
+        ) : (
+          <Box component="img" src={url} alt={adjunto.nombre}
+            sx={{ display: 'block', maxWidth: '100%', maxHeight: '72vh',
+                  m: '0 auto', borderRadius: 1 }} />
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -314,6 +429,7 @@ export default function GestionDetalle({
   // deja cambiar lo de todos los días sin abrirlo; esto es para lo demás.
   const [editandoTodo, setEditandoTodo] = useState(false)
   const [creandoHija, setCreandoHija] = useState(false)
+  const [porBorrar, setPorBorrar] = useState<AdjuntoGestion | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['gestion', 'incidencia', incidenciaId],
@@ -368,6 +484,15 @@ export default function GestionDetalle({
     onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo adjuntar')),
   })
 
+  // Se pregunta antes de borrar. Un adjunto no se recupera del servidor —el
+  // archivo se va del disco— y el aspa de un chip está a un clic de distancia
+  // del propio chip.
+  const borrar = useMutation({
+    mutationFn: (a: AdjuntoGestion) => gestionApi.borrarAdjunto(a.id),
+    onSuccess: () => { toast.success('Archivo eliminado'); refrescar() },
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo eliminar')),
+  })
+
   async function descargar(id: number, nombre: string) {
     try {
       const blob = await gestionApi.descargarAdjunto(id)
@@ -406,6 +531,7 @@ export default function GestionDetalle({
             onComentar={() => comentar.mutate()}
             onAdjuntar={f => adjuntar.mutate(f)}
             onDescargar={descargar}
+            onBorrarAdjunto={a => setPorBorrar(a)}
             guardando={editar.isPending}
             moviendo={mover.isPending}
             onEditarTodo={() => setEditandoTodo(true)}
@@ -441,6 +567,34 @@ export default function GestionDetalle({
           onGuardada={() => refrescar()}
         />
       )}
+
+      <Dialog open={!!porBorrar} onClose={() => setPorBorrar(null)} maxWidth="xs" fullWidth>
+        <DialogContent sx={{ pt: 3 }}>
+          <Typography sx={{ fontWeight: 700, mb: 1 }}>
+            ¿Eliminar este archivo?
+          </Typography>
+          <Typography variant="body2" sx={{ color: PALETA.grafito }}>
+            <b>{porBorrar?.nombre}</b> se borra también del servidor y no se
+            puede recuperar. Queda anotado en el historial quién lo quitó.
+          </Typography>
+          <Stack direction="row" spacing={1} justifyContent="flex-end" mt={2.5}>
+            <Button size="small" onClick={() => setPorBorrar(null)}
+              sx={{ textTransform: 'none' }}>
+              Conservar
+            </Button>
+            <Button size="small" variant="contained" color="error"
+              disabled={borrar.isPending}
+              onClick={() => {
+                const a = porBorrar
+                setPorBorrar(null)
+                if (a) borrar.mutate(a)
+              }}
+              sx={{ textTransform: 'none' }}>
+              Eliminar
+            </Button>
+          </Stack>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   )
 }
@@ -457,6 +611,7 @@ function Cuerpo(p: {
   onComentar: () => void
   onAdjuntar: (f: FileList | File[]) => void
   onDescargar: (id: number, nombre: string) => void
+  onBorrarAdjunto: (a: AdjuntoGestion) => void
   guardando: boolean
   moviendo: boolean
   onEditarTodo: () => void
@@ -559,6 +714,13 @@ function Cuerpo(p: {
             </Typography>
           )}
         </Stack>
+
+        {/* El reloj y el salto libre de estado. Van juntos y debajo de las
+            transiciones: lo de arriba es el camino previsto, esto es la salida
+            para cuando el trabajo real no lo sigue. */}
+        <Box sx={{ mt: 1.5 }}>
+          <BarraDeTrabajo incidenciaId={inc.id} onCambio={p.onRefrescar} />
+        </Box>
       </Box>
 
       {/* ── Cuerpo en dos columnas ── */}
@@ -623,6 +785,7 @@ function Cuerpo(p: {
                 adjuntos={data.adjuntos}
                 onSubir={p.onAdjuntar}
                 onDescargar={p.onDescargar}
+                onBorrar={p.onBorrarAdjunto}
               />
             </Box>
           )}

@@ -24,6 +24,7 @@ import Soporte from './Soporte'
 import Gestion from './Gestion'
 import Equipo from './Equipo'
 import Landing from './Landing'
+import Fallos from './Fallos'
 import Bitacora from './Bitacora'
 import '@/index.css'
 
@@ -73,6 +74,7 @@ function Consola() {
           <Tab label="Proyectos" />
           <Tab label="Equipo" />
           <Tab label="Página pública" />
+          <Tab label="Fallos" />
           <Tab label="Bitácora" />
         </Tabs>
       </AppBar>
@@ -84,7 +86,8 @@ function Consola() {
         {pestana === 3 && <Gestion />}
         {pestana === 4 && <Equipo />}
         {pestana === 5 && <Landing />}
-        {pestana === 6 && <Bitacora />}
+        {pestana === 6 && <Fallos />}
+        {pestana === 7 && <Bitacora />}
       </Box>
 
       <Typography variant="caption" sx={{

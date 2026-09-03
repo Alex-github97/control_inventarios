@@ -753,6 +753,42 @@ class GPAdjunto(Base):
                            nullable=False)
 
 
+class GPTiempoTrabajo(Base):
+    """Un tramo de tiempo trabajado sobre una incidencia.
+
+    POR QUÉ TRAMOS Y NO UN CONTADOR
+    Un solo número «minutos trabajados» no sabe responder quién los trabajó ni
+    cuándo, y no se puede corregir sin borrar lo demás. Con tramos, el total es
+    una suma y cada tramo conserva su autor y sus horas: eso es lo que permite
+    facturar, medir y, sobre todo, revisar.
+
+    POR QUÉ EL RELOJ VIVE EN EL SERVIDOR
+    `fin` en blanco significa «corriendo». El tiempo se calcula al cerrar, contra
+    el reloj del servidor. Si lo llevara el navegador, cerrar la pestaña perdería
+    el tramo y dos personas en husos distintos reportarían horas incompatibles.
+
+    `motivo` distingue una pausa de un cierre. Las dos detienen el reloj; lo que
+    cambia es la intención, y esa intención es la que después explica un tramo de
+    diez minutos entre dos jornadas.
+    """
+
+    __tablename__ = "gp_tiempo"
+    __table_args__ = {"schema": ESQ}
+
+    id            = sa.Column(sa.BigInteger, primary_key=True)
+    incidencia_id = sa.Column(sa.BigInteger, sa.ForeignKey(_fk("gp_incidencia.id"),
+                                                           ondelete="CASCADE"),
+                              nullable=False, index=True)
+    usuario   = sa.Column(sa.String(80), nullable=False, index=True)
+    inicio    = sa.Column(sa.DateTime(timezone=True), nullable=False,
+                          server_default=sa.func.now())
+    fin       = sa.Column(sa.DateTime(timezone=True))
+    segundos  = sa.Column(sa.Integer, nullable=False, server_default="0")
+    # PAUSA o FIN. En blanco mientras el tramo sigue corriendo.
+    motivo    = sa.Column(sa.String(10))
+    nota      = sa.Column(sa.String(300))
+
+
 class GPVinculo(Base):
     """Una relación entre dos incidencias.
 

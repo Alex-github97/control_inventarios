@@ -656,6 +656,26 @@ export const gestionApi = {
     api.get(`/gestion/adjuntos/${id}`, { responseType: 'blob' })
       .then(r => r.data as Blob),
 
+  borrarAdjunto: (id: number) => api.delete(`/gestion/adjuntos/${id}`),
+
+  /** Todos los estados del flujo, para poder saltar a cualquiera. */
+  estadosDelFlujo: (id: number) =>
+    api.get(`/gestion/incidencias/${id}/estados`).then(r => r.data),
+
+  moverAEstado: (id: number, estado_id: number, comentario?: string) =>
+    api.post(`/gestion/incidencias/${id}/estado`, { estado_id, comentario })
+      .then(r => r.data),
+
+  // ── El reloj de trabajo ──
+  tiempo: (id: number) =>
+    api.get(`/gestion/incidencias/${id}/tiempo`).then(r => r.data),
+  iniciarTiempo: (id: number) =>
+    api.post(`/gestion/incidencias/${id}/tiempo/iniciar`).then(r => r.data),
+  pausarTiempo: (id: number, nota?: string) =>
+    api.post(`/gestion/incidencias/${id}/tiempo/pausar`, { nota }).then(r => r.data),
+  finalizarTiempo: (id: number, nota?: string) =>
+    api.post(`/gestion/incidencias/${id}/tiempo/finalizar`, { nota }).then(r => r.data),
+
   desdeTicket: (ticketId: number) =>
     api.post<Incidencia>(`/gestion/tickets/${ticketId}/incidencia`).then(r => r.data),
 
@@ -1056,6 +1076,16 @@ api.interceptors.response.use(
 export { mensajeDeError } from '@/utils/errorApi'
 
 export const consolaApi = {
+  /** Lo que se rompió en los navegadores, agrupado por mensaje. */
+  fallos: (dias = 30, incluirAtendidos = false) =>
+    api.get('/plataforma/fallos', {
+      params: { dias, incluir_atendidos: incluirAtendidos },
+    }).then(r => r.data),
+
+  falloAIncidencia: (cuerpo: {
+    firma: string; resumen?: string; proyecto_id?: number
+  }) => api.post('/plataforma/fallos/incidencia', cuerpo).then(r => r.data),
+
   async ingresar(empresa: string, usuario: string, clave: string): Promise<Sesion> {
     const { data } = await axios.post('/api/v1/auth/login',
       { username: usuario, password: clave },

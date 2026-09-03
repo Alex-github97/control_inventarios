@@ -39,6 +39,7 @@ from app.core.gestion_permisos import exigir_proyecto, limitar, proyectos_visibl
 from app.core.permisos_consola import Miembro, exigir
 from app.infrastructure.models.gestion import (
     GPAdjunto, GPComentario, GPEstado, GPHistorial, GPIncidencia, GPPrioridad,
+    GPTiempoTrabajo,
     GPProyecto, GPTipoIncidencia, GPVinculo, TIPOS_VINCULO,
 )
 from app.infrastructure.models.soporte import SoporteTicket
@@ -824,3 +825,284 @@ async def desde_ticket(
     await db.commit()
     await db.refresh(inc)
     return (await _tarjetas(db, [inc]))[0]
+
+
+# ─── Mover a cualquier estado ─────────────────────────────────────────────────
+
+class MoverEntrada(BaseModel):
+    estado_id: int
+    comentario: Optional[str] = None
+
+
+@router.post("/incidencias/{incidencia_id}/estado")
+async def mover_a_estado(
+    incidencia_id: int, data: MoverEntrada,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.trabajar")),
+):
+    """Lleva la incidencia a cualquier estado del flujo, incluso hacia atrás.
+
+    POR QUÉ EXISTE, HABIENDO TRANSICIONES
+    El flujo declarado describe el camino normal, y sirve para eso. Pero el
+    trabajo real se devuelve: algo que se dio por hecho no estaba, una revisión
+    encuentra un problema, alguien movió la tarjeta por error. Sin una salida, la
+    gente resuelve eso creando una incidencia nueva —y entonces el historial de
+    la original miente, porque nunca vuelve atrás.
+
+    No se salta el control: se registra que fue un movimiento manual, con quién
+    lo hizo y desde dónde. El límite de trabajo en curso del estado de destino SÍ
+    se respeta, porque ese límite existe para proteger al equipo y no para
+    describir el camino.
+    """
+    inc, proyecto = await _incidencia_visible(db, quien, incidencia_id, escritura=True)
+    tipo = (await db.execute(select(GPTipoIncidencia).where(
+        GPTipoIncidencia.id == inc.tipo_id))).scalar_one()
+    workflow_id = await gestion_incidencias.workflow_de(db, proyecto, tipo)
+
+    destino = (await db.execute(select(GPEstado).where(
+        GPEstado.id == data.estado_id,
+        GPEstado.workflow_id == workflow_id))).scalar_one_or_none()
+    if destino is None:
+        raise HTTPException(404, "Ese estado no pertenece al flujo de esta incidencia.")
+    if destino.id == inc.estado_id:
+        raise HTTPException(409, "La incidencia ya está en ese estado.")
+
+    lleno = await gestion_workflow.hay_cupo(db, destino, proyecto.id, inc.id)
+    if lleno:
+        raise HTTPException(409, lleno)
+
+    anterior = (await db.execute(select(GPEstado).where(
+        GPEstado.id == inc.estado_id))).scalar_one_or_none()
+    inc.estado_id = destino.id
+
+    # Las mismas marcas que pone el camino declarado. Si el salto manual no las
+    # pusiera, una incidencia cerrada por aquí quedaría sin fecha de cierre y no
+    # contaría en ningún informe de cumplimiento —el atajo mentiría, y sería
+    # invisible hasta el cierre de mes.
+    ahora = datetime.now(timezone.utc)
+    if destino.categoria == "EN_CURSO" and not inc.iniciado:
+        # No se vuelve a sellar al reempezar: el tiempo de ciclo mediría solo la
+        # última vuelta y escondería las anteriores.
+        inc.iniciado = ahora
+        gestion_incidencias.anotar(db, inc.id, "iniciado", None, ahora, quien.usuario)
+
+    if destino.categoria == "TERMINADO":
+        antes = inc.resuelto
+        inc.resuelto = ahora
+        gestion_incidencias.anotar(db, inc.id, "resuelto", antes, ahora, quien.usuario)
+    elif anterior is not None and anterior.categoria == "TERMINADO" and inc.resuelto:
+        # Reabrir borra la fecha de cierre: una incidencia que volvió a abrirse y
+        # conserva la suya miente en cualquier informe de cumplimiento.
+        antes = inc.resuelto
+        inc.resuelto = None
+        gestion_incidencias.anotar(db, inc.id, "resuelto", antes, None, quien.usuario)
+
+    gestion_incidencias.anotar(
+        db, inc.id, "estado",
+        anterior.nombre if anterior else None, destino.nombre, quien.usuario)
+    gestion_incidencias.anotar(
+        db, inc.id, "movimiento", None,
+        f"movida a mano a «{destino.nombre}»", quien.usuario)
+
+    if data.comentario and data.comentario.strip():
+        db.add(GPComentario(
+            incidencia_id=inc.id, autor=quien.usuario,
+            cuerpo=data.comentario.strip(), menciones=[], interno=False))
+
+    _tocar(inc)
+    await db.commit()
+    await db.refresh(inc)
+    return {
+        "incidencia": (await _tarjetas(db, [inc]))[0],
+        "transiciones": await gestion_workflow.disponibles(db, inc, workflow_id, quien),
+    }
+
+
+@router.get("/incidencias/{incidencia_id}/estados")
+async def estados_del_flujo(
+    incidencia_id: int,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.ver")),
+):
+    """Todos los estados a los que se puede llevar esta incidencia."""
+    inc, proyecto = await _incidencia_visible(db, quien, incidencia_id)
+    tipo = (await db.execute(select(GPTipoIncidencia).where(
+        GPTipoIncidencia.id == inc.tipo_id))).scalar_one()
+    workflow_id = await gestion_incidencias.workflow_de(db, proyecto, tipo)
+    estados = (await db.execute(select(GPEstado).where(
+        GPEstado.workflow_id == workflow_id).order_by(GPEstado.orden))).scalars().all()
+    return [{
+        "id": e.id, "nombre": e.nombre, "categoria": e.categoria,
+        "color": e.color, "actual": e.id == inc.estado_id,
+    } for e in estados]
+
+
+# ─── El reloj de trabajo ──────────────────────────────────────────────────────
+
+class CierreTiempo(BaseModel):
+    nota: Optional[str] = None
+
+
+async def _tramo_abierto(db: AsyncSession, incidencia_id: int,
+                         usuario: str) -> Optional[GPTiempoTrabajo]:
+    return (await db.execute(select(GPTiempoTrabajo).where(
+        GPTiempoTrabajo.incidencia_id == incidencia_id,
+        GPTiempoTrabajo.usuario == usuario,
+        GPTiempoTrabajo.fin.is_(None),
+    ).order_by(GPTiempoTrabajo.id.desc()).limit(1))).scalar_one_or_none()
+
+
+@router.post("/incidencias/{incidencia_id}/tiempo/iniciar", status_code=201)
+async def iniciar_tiempo(
+    incidencia_id: int,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.trabajar")),
+):
+    """Arranca el reloj sobre esta incidencia, para esta persona.
+
+    Cada quien tiene su propio reloj: dos personas pueden trabajar a la vez sobre
+    la misma incidencia y cada una cuenta sus horas. Un reloj compartido sumaría
+    el doble del tiempo real.
+
+    Volver a arrancar con un tramo abierto no crea otro: devuelve el que ya
+    estaba corriendo. Sin eso, un doble clic duplica el tiempo del día.
+    """
+    await _incidencia_visible(db, quien, incidencia_id, escritura=True)
+
+    abierto = await _tramo_abierto(db, incidencia_id, quien.usuario)
+    if abierto is not None:
+        return {"id": abierto.id, "inicio": abierto.inicio, "ya_corria": True}
+
+    tramo = GPTiempoTrabajo(
+        incidencia_id=incidencia_id, usuario=quien.usuario,
+        inicio=datetime.now(timezone.utc), segundos=0)
+    db.add(tramo)
+    gestion_incidencias.anotar(db, incidencia_id, "tiempo", None,
+                               "inició el trabajo", quien.usuario)
+    await db.commit()
+    await db.refresh(tramo)
+    return {"id": tramo.id, "inicio": tramo.inicio, "ya_corria": False}
+
+
+async def _cerrar_tramo(db: AsyncSession, incidencia_id: int, quien: Miembro,
+                        motivo: str, nota: Optional[str]) -> dict:
+    tramo = await _tramo_abierto(db, incidencia_id, quien.usuario)
+    if tramo is None:
+        raise HTTPException(409, "No hay ningún tramo corriendo para usted.")
+
+    tramo.fin = datetime.now(timezone.utc)
+    # El inicio llega con zona si viene de la base y sin ella si lo puso esta
+    # misma petición. Restar uno de cada clase revienta, así que se igualan antes
+    # de restar en vez de confiar en de dónde salió el valor.
+    inicio = tramo.inicio
+    if inicio.tzinfo is None:
+        inicio = inicio.replace(tzinfo=timezone.utc)
+    tramo.segundos = max(0, int((tramo.fin - inicio).total_seconds()))
+    tramo.motivo = motivo
+    if nota:
+        tramo.nota = nota[:300]
+
+    minutos = round(tramo.segundos / 60)
+    gestion_incidencias.anotar(
+        db, incidencia_id, "tiempo", None,
+        f"{'pausó' if motivo == 'PAUSA' else 'finalizó'} tras {minutos} min",
+        quien.usuario)
+    await db.commit()
+    return {"id": tramo.id, "segundos": tramo.segundos, "minutos": minutos,
+            "motivo": motivo}
+
+
+@router.post("/incidencias/{incidencia_id}/tiempo/pausar")
+async def pausar_tiempo(
+    incidencia_id: int, datos: CierreTiempo,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.trabajar")),
+):
+    """Detiene el reloj. El trabajo sigue abierto y se puede reanudar."""
+    await _incidencia_visible(db, quien, incidencia_id, escritura=True)
+    return await _cerrar_tramo(db, incidencia_id, quien, "PAUSA", datos.nota)
+
+
+@router.post("/incidencias/{incidencia_id}/tiempo/finalizar")
+async def finalizar_tiempo(
+    incidencia_id: int, datos: CierreTiempo,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.trabajar")),
+):
+    """Detiene el reloj dando el trabajo por terminado.
+
+    NO cierra la incidencia ni lo exige al revés: se puede cerrar una incidencia
+    sin haber usado nunca el reloj. El registro de tiempo es para medir, no para
+    poner una tranca en el camino de quien trabaja; en cuanto lo obstruye, la
+    gente deja de usarlo y la medición se pierde igual.
+    """
+    await _incidencia_visible(db, quien, incidencia_id, escritura=True)
+    return await _cerrar_tramo(db, incidencia_id, quien, "FIN", datos.nota)
+
+
+@router.get("/incidencias/{incidencia_id}/tiempo")
+async def tiempo_de_incidencia(
+    incidencia_id: int,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.ver")),
+):
+    """Lo trabajado en esta incidencia: el total, por persona, y si hay reloj vivo."""
+    await _incidencia_visible(db, quien, incidencia_id)
+    tramos = (await db.execute(select(GPTiempoTrabajo).where(
+        GPTiempoTrabajo.incidencia_id == incidencia_id,
+    ).order_by(GPTiempoTrabajo.id.desc()))).scalars().all()
+
+    por_persona: dict = {}
+    total = 0
+    for t in tramos:
+        total += t.segundos or 0
+        por_persona[t.usuario] = por_persona.get(t.usuario, 0) + (t.segundos or 0)
+
+    mio = next((t for t in tramos
+                if t.usuario == quien.usuario and t.fin is None), None)
+    return {
+        "total_segundos": total,
+        "por_persona": [{"usuario": u, "segundos": s}
+                        for u, s in sorted(por_persona.items(),
+                                           key=lambda x: -x[1])],
+        # El tramo propio corriendo, para que la pantalla siga el reloj en vivo
+        # sin tener que adivinar desde cuándo.
+        "corriendo": None if mio is None else {"id": mio.id, "inicio": mio.inicio},
+        "tramos": [{
+            "id": t.id, "usuario": t.usuario, "inicio": t.inicio, "fin": t.fin,
+            "segundos": t.segundos, "motivo": t.motivo, "nota": t.nota,
+        } for t in tramos[:40]],
+    }
+
+
+# ─── Borrar un adjunto ────────────────────────────────────────────────────────
+
+@router.delete("/adjuntos/{adjunto_id}", status_code=204)
+async def borrar_adjunto(
+    adjunto_id: int,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("gestion.trabajar")),
+):
+    """Quita un archivo subido por error.
+
+    Se borra también del disco: dejar el archivo huérfano en la carpeta significa
+    que sigue ahí, descargable por quien sepa la ruta, después de que alguien
+    creyó haberlo eliminado. Si el archivo ya no está, se sigue adelante: lo que
+    importa es que deje de figurar.
+    """
+    adjunto = (await db.execute(select(GPAdjunto).where(
+        GPAdjunto.id == adjunto_id))).scalar_one_or_none()
+    if adjunto is None:
+        raise HTTPException(404, "Ese archivo no existe.")
+    await _incidencia_visible(db, quien, adjunto.incidencia_id, escritura=True)
+
+    nombre = adjunto.nombre
+    try:
+        (Path(settings.UPLOAD_DIR) / adjunto.ruta).unlink(missing_ok=True)
+    except OSError:
+        pass   # el registro se borra igual: lo que se ve es lo que importa
+
+    await db.delete(adjunto)
+    gestion_incidencias.anotar(db, adjunto.incidencia_id, "adjunto",
+                               nombre, None, quien.usuario)
+    await db.commit()
