@@ -1,0 +1,20 @@
+# Imagen para revisar la aplicación en un navegador de verdad.
+#
+# Chromium queda dentro de la imagen en vez de instalarse en cada corrida: el
+# `apk add` fallaba una de cada tres veces —y como el guion redirige su salida,
+# fallaba en silencio y la revisión entera se perdía después de veinte minutos.
+#
+#   docker build -t ci-auditor -f frontend/tools/Dockerfile.auditor frontend/tools
+#   docker run --rm -e TOKEN=... -v ...:/salida ci-auditor node /tools/auditar.cjs
+FROM node:20-alpine
+
+RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont
+
+# playwright-core solo maneja el navegador; no descarga ninguno, que es
+# justamente lo que se quiere aquí.
+RUN npm install -g playwright-core@1.49.0
+
+ENV NODE_PATH=/usr/local/lib/node_modules
+ENV CHROME=/usr/bin/chromium-browser
+
+WORKDIR /tools

@@ -187,11 +187,15 @@ function NuevoDespachoDialog({ open, onClose }: { open: boolean; onClose: () => 
   })
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
 
+  // El filtro va al servidor. Filtrando aquí se bajaba el año entero de órdenes
+  // —3.258, con sus casi diez mil líneas— para quedarse con las que están en
+  // alistamiento, que son unas decenas.
   const { data: ordenes = [], isError: ordenesError } = useQuery<Orden[]>({
     queryKey: ['wms-ordenes-despacho'],
-    queryFn: () => api.get('/wms/ordenes-salida/').then(r => r.data),
+    queryFn: () => api.get('/wms/ordenes-salida/', {
+      params: { estado: ORDEN_ESTADOS_DESPACHABLES.join(','), limite: 200 },
+    }).then(r => r.data),
     enabled: open,
-    select: (data) => data.filter(o => ORDEN_ESTADOS_DESPACHABLES.includes(o.estado)),
   })
   const { data: transportadoras = [] } = useQuery<Transportadora[]>({
     queryKey: ['wms-transportadoras'],
@@ -316,7 +320,7 @@ function NuevoDevolucionDialog({ open, onClose }: { open: boolean; onClose: () =
   const { data: almacenes = [] } = useQuery<Almacen[]>({ queryKey: ['wms-almacenes'], queryFn: () => api.get('/wms/almacenes/').then(r => r.data), enabled: open })
   const { data: clientes = [] } = useQuery<Cliente[]>({ queryKey: ['wms-clientes'], queryFn: () => api.get('/wms/clientes/').then(r => r.data), enabled: open })
   const { data: proveedores = [] } = useQuery<Proveedor[]>({ queryKey: ['wms-proveedores'], queryFn: () => api.get('/wms/proveedores/').then(r => r.data), enabled: open })
-  const { data: ordenes = [], isError: ordenesError } = useQuery<Orden[]>({ queryKey: ['wms-ordenes-dev'], queryFn: () => api.get('/wms/ordenes-salida/').then(r => r.data), enabled: open })
+  const { data: ordenes = [], isError: ordenesError } = useQuery<Orden[]>({ queryKey: ['wms-ordenes-dev'], queryFn: () => api.get('/wms/ordenes-salida/', { params: { limite: 200 } }).then(r => r.data), enabled: open })
 
   const createMut = useMutation({
     mutationFn: (d: object) => api.post('/wms/devoluciones/', d).then(r => r.data),

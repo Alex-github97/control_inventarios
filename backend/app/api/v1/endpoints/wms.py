@@ -5,7 +5,7 @@ Prefijo: /wms
 from datetime import date, datetime, timezone, timedelta
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import select, func, and_, or_, Integer
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -1700,13 +1700,28 @@ async def completar_conteo(
 
 @router.get("/ordenes-salida/", response_model=List[WMSOrdenSalidaResponse])
 async def listar_ordenes_salida(
-    estado: Optional[str] = None,
+    respuesta: Response,
+    estado: Optional[str] = Query(
+        None, description="Uno o varios separados por coma: EN_PICKING,EMPACANDO"),
     prioridad: Optional[str] = None,
     cliente_id: Optional[int] = None,
     almacen_id: Optional[int] = None,
+    limite: int = Query(200, ge=1, le=1000),
+    desplazamiento: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
+    """Las órdenes de salida, paginadas.
+
+    Sin tope, este endpoint devolvía TODAS las órdenes con todas sus líneas y el
+    producto de cada línea. Con un año de operación son 3.258 órdenes, casi diez
+    mil líneas, 1,2 MB por respuesta y más de dos minutos de espera. Las
+    pantallas de alistamiento y de despacho lo llamaban al abrirse.
+
+    `estado` acepta varios separados por coma porque la pantalla de despacho
+    filtraba en el navegador —se traía el año entero para quedarse con las
+    órdenes en alistamiento— y ese filtro pertenece al servidor.
+    """
     q = (
         select(WMSOrdenSalida)
         .options(
@@ -1717,14 +1732,25 @@ async def listar_ordenes_salida(
         .where(WMSOrdenSalida.deleted_at.is_(None))
     )
     if estado:
-        q = q.where(WMSOrdenSalida.estado == estado)
+        estados = [e.strip() for e in estado.split(",") if e.strip()]
+        q = q.where(WMSOrdenSalida.estado.in_(estados))
     if prioridad:
         q = q.where(WMSOrdenSalida.prioridad == prioridad)
     if cliente_id:
         q = q.where(WMSOrdenSalida.cliente_id == cliente_id)
     if almacen_id:
         q = q.where(WMSOrdenSalida.almacen_id == almacen_id)
-    r = await db.execute(q.order_by(WMSOrdenSalida.fecha_emision.desc()))
+
+    total = (await db.execute(
+        select(func.count()).select_from(
+            q.with_only_columns(WMSOrdenSalida.id).order_by(None).subquery()
+        ))).scalar() or 0
+    respuesta.headers["X-Total-Count"] = str(total)
+    respuesta.headers["Access-Control-Expose-Headers"] = "X-Total-Count"
+
+    r = await db.execute(
+        q.order_by(WMSOrdenSalida.fecha_emision.desc(), WMSOrdenSalida.id.desc())
+        .offset(desplazamiento).limit(limite))
     return r.scalars().all()
 
 
@@ -1934,11 +1960,21 @@ async def generar_picking(
 
 @router.get("/picking-tareas/", response_model=List[WMSPickingTareaResponse])
 async def listar_picking_tareas(
+    respuesta: Response,
     estado: Optional[str] = None,
     orden_id: Optional[int] = None,
+    limite: int = Query(200, ge=1, le=1000),
+    desplazamiento: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
+    """Las tareas de alistamiento.
+
+    Va paginado: sin tope devolvía la operación completa. Un año de bodega son
+    miles de filas, y la pantalla que lo llama solo muestra las primeras. El
+    total va en la cabecera `X-Total-Count` para no cambiarle la forma a la
+    respuesta, que ya está publicada como una lista.
+    """
     q = (
         select(WMSPickingTarea)
         .options(
@@ -1951,7 +1987,15 @@ async def listar_picking_tareas(
         q = q.where(WMSPickingTarea.estado == estado)
     if orden_id:
         q = q.where(WMSPickingTarea.orden_id == orden_id)
-    r = await db.execute(q.order_by(WMSPickingTarea.id.desc()))
+    total = (await db.execute(
+        select(func.count()).select_from(
+            q.with_only_columns(WMSPickingTarea.id).order_by(None).subquery()
+        ))).scalar() or 0
+    respuesta.headers["X-Total-Count"] = str(total)
+    respuesta.headers["Access-Control-Expose-Headers"] = "X-Total-Count"
+
+    r = await db.execute(
+        q.order_by(WMSPickingTarea.id.desc()).offset(desplazamiento).limit(limite))
     return r.scalars().all()
 
 
@@ -2082,11 +2126,21 @@ async def confirmar_item_picking(
 
 @router.get("/despachos/", response_model=List[WMSDespachoResponse])
 async def listar_despachos(
+    respuesta: Response,
     estado: Optional[str] = None,
     orden_id: Optional[int] = None,
+    limite: int = Query(200, ge=1, le=1000),
+    desplazamiento: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
+    """Los despachos.
+
+    Va paginado: sin tope devolvía la operación completa. Un año de bodega son
+    miles de filas, y la pantalla que lo llama solo muestra las primeras. El
+    total va en la cabecera `X-Total-Count` para no cambiarle la forma a la
+    respuesta, que ya está publicada como una lista.
+    """
     q = (
         select(WMSDespacho)
         .options(
@@ -2100,7 +2154,15 @@ async def listar_despachos(
         q = q.where(WMSDespacho.estado == estado)
     if orden_id:
         q = q.where(WMSDespacho.orden_id == orden_id)
-    r = await db.execute(q.order_by(WMSDespacho.fecha_despacho.desc()))
+    total = (await db.execute(
+        select(func.count()).select_from(
+            q.with_only_columns(WMSDespacho.id).order_by(None).subquery()
+        ))).scalar() or 0
+    respuesta.headers["X-Total-Count"] = str(total)
+    respuesta.headers["Access-Control-Expose-Headers"] = "X-Total-Count"
+
+    r = await db.execute(
+        q.order_by(WMSDespacho.fecha_despacho.desc()).offset(desplazamiento).limit(limite))
     return r.scalars().all()
 
 
@@ -2388,12 +2450,22 @@ async def revertir_estado_despacho(
 
 @router.get("/devoluciones/", response_model=List[WMSDevolucionResponse])
 async def listar_devoluciones(
+    respuesta: Response,
     estado: Optional[str] = None,
     tipo: Optional[str] = None,
     almacen_id: Optional[int] = None,
+    limite: int = Query(200, ge=1, le=1000),
+    desplazamiento: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
+    """Las devoluciones.
+
+    Va paginado: sin tope devolvía la operación completa. Un año de bodega son
+    miles de filas, y la pantalla que lo llama solo muestra las primeras. El
+    total va en la cabecera `X-Total-Count` para no cambiarle la forma a la
+    respuesta, que ya está publicada como una lista.
+    """
     q = (
         select(WMSDevolucion)
         .options(
@@ -2408,7 +2480,15 @@ async def listar_devoluciones(
         q = q.where(WMSDevolucion.tipo == tipo)
     if almacen_id:
         q = q.where(WMSDevolucion.almacen_id == almacen_id)
-    r = await db.execute(q.order_by(WMSDevolucion.fecha_recepcion.desc()))
+    total = (await db.execute(
+        select(func.count()).select_from(
+            q.with_only_columns(WMSDevolucion.id).order_by(None).subquery()
+        ))).scalar() or 0
+    respuesta.headers["X-Total-Count"] = str(total)
+    respuesta.headers["Access-Control-Expose-Headers"] = "X-Total-Count"
+
+    r = await db.execute(
+        q.order_by(WMSDevolucion.fecha_recepcion.desc()).offset(desplazamiento).limit(limite))
     return r.scalars().all()
 
 

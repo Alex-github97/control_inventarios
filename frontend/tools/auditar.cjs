@@ -181,8 +181,7 @@ const VACIA = new RegExp(
               `· crash ${por('CRASH')} · timeout ${por('TIMEOUT')}`);
   const maq = informe.filter(f => f.estado === 'MAQUETA').map(f => f.ruta);
   if (maq.length) {
-    console.log('
-Sin una sola llamada al servidor:');
+    console.log('\nSin una sola llamada al servidor:');
     console.log('  ' + maq.join(' '));
   }
   fs.writeFileSync(process.env.SALIDA || '/salida/auditoria.json',

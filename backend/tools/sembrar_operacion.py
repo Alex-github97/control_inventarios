@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession                # noqa: E402
 
 import app.main                                                # noqa: F401,E402
 from app.core.database import engine                           # noqa: E402
-from app.core import demo_hcm, demo_tms, demo_wms              # noqa: E402
+from app.core import demo_hcm, demo_scm, demo_tms, demo_wms    # noqa: E402
 
 # En orden de dependencia: `TRUNCATE` sin `CASCADE` es justamente lo que impide
 # borrar de más por accidente, y para eso el orden tiene que ser correcto.
@@ -56,6 +56,11 @@ TABLAS = {
         "tms_costo_viaje", "tms_pod", "tms_documento", "tms_evento",
         "tms_parada", "tms_viaje", "tms_punto_ruta", "tms_ruta",
         "tms_vehiculo", "tms_tipo_servicio", "tms_zona",
+    ],
+    # Abastecimiento. Cuelga de `proveedores` y de `usuarios`.
+    "scm": [
+        "scm_evaluaciones_proveedor", "scm_orden_items", "scm_ordenes_compra",
+        "scm_solicitud_items", "scm_solicitudes_compra", "proveedores",
     ],
     "wms": [
         "wms_kpi_diario", "wms_eventos_trazabilidad",
@@ -135,6 +140,14 @@ async def principal() -> None:
             comprobar = demo_tms.verificar
             regla = "los costos CUADRAN y el OTIF coincide con las fechas"
             falla = "¡los costos o el OTIF NO CUADRAN!"
+        elif args.modulo == "scm":
+            resumen = await demo_scm.sembrar_scm(
+                db, desde=args.desde, hasta=args.hasta,
+                solicitudes_por_semana=args.por_dia, esquema=args.esquema,
+                avisar=print)
+            comprobar = demo_scm.verificar
+            regla = "el total de cada orden es la suma de sus renglones"
+            falla = "¡las órdenes de compra NO CUADRAN!"
         else:
             resumen = await demo_hcm.sembrar_hcm(
                 db, desde=args.desde, hasta=args.hasta, esquema=args.esquema,
@@ -163,7 +176,8 @@ async def principal() -> None:
             if clave in ("diferencia", "posiciones_negativas",
                          "detalles_descuadrados", "periodos_descuadrados",
                          "costos_descuadrados", "otif_descuadrados",
-                         "kpis_descuadrados")
+                         "kpis_descuadrados", "ordenes_descuadradas",
+                         "ordenes_sin_solicitud_aprobada")
         )
         print(f"\n  {regla if cuadra else falla}")
         if not cuadra:

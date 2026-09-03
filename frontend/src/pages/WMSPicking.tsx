@@ -187,7 +187,9 @@ export default function WMSPicking() {
   const { data: ordenes, isLoading: loadingOrdenes, isError: errorOrdenes } = useQuery<OrdenSalida[]>({
     queryKey: ['wms-ordenes', filtrosOrdenes],
     queryFn: async () => {
-      const params: Record<string, string> = {}
+      // Con tope: sin él la pantalla pedía las 3.258 órdenes del año con todas
+      // sus líneas, más de un megabyte, para pintar una tabla.
+      const params: Record<string, string> = { limite: '200' }
       if (filtrosOrdenes.estado)    params.estado    = filtrosOrdenes.estado
       if (filtrosOrdenes.prioridad) params.prioridad = filtrosOrdenes.prioridad
       if (filtrosOrdenes.cliente)   params.cliente   = filtrosOrdenes.cliente
@@ -199,7 +201,7 @@ export default function WMSPicking() {
   const { data: tareas, isLoading: loadingTareas, isError: errorTareas } = useQuery<TareaPicking[]>({
     queryKey: ['wms-tareas', filtrosTareas],
     queryFn: async () => {
-      const params: Record<string, string> = {}
+      const params: Record<string, string> = { limite: '200' }
       if (filtrosTareas.estado) params.estado = filtrosTareas.estado
       const res = await api.get('/wms/picking-tareas/', { params })
       return res.data
