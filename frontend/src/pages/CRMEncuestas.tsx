@@ -1,59 +1,127 @@
-import React, { useState } from 'react'
+/**
+ * Las encuestas de satisfacción y el NPS que sale de ellas.
+ *
+ * EL NPS SE CALCULA, NO SE GUARDA
+ * Se cuentan promotores (9-10) menos detractores (0-6) sobre las respuestas
+ * recibidas. Guardar un «NPS: +48» en algún lado y mostrarlo es lo que hace que
+ * la cifra del tablero y la de las encuestas dejen de coincidir en cuanto
+ * alguien responde una más.
+ *
+ * SOLO CUENTAN LAS RESPONDIDAS
+ * Una encuesta enviada y no respondida no es un cero: es silencio. Contarla
+ * como cero hunde el indicador y hace creer que el cliente está molesto cuando
+ * lo único que pasa es que no abrió el correo. Lo que sí se muestra aparte es
+ * la tasa de respuesta, que es su propio problema.
+ *
+ * Y CADA ESCALA CON LA SUYA
+ * El NPS va de 0 a 10; el CSAT y el CES, de 1 a 5. Promediarlos juntos da un
+ * número que no significa nada, así que se muestran separados.
+ */
+import { useMemo, useState } from 'react'
 import { Box, Typography, Tab, Tabs, Chip, alpha } from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { StarRate, ThumbUp, Speed } from '@mui/icons-material'
+import { StarRate, ThumbUp, Speed, SentimentVeryDissatisfied } from '@mui/icons-material'
+import { useQuery } from '@tanstack/react-query'
 import { Layout } from '@/components/layout/Layout'
+import { crmApi, type Encuesta } from '@/api/crm'
+import { useCrud } from '@/components/datos/useCrud'
+import type { CampoEntidad } from '@/components/datos/FormularioEntidad'
+import {
+  BORDE, CRM_COLOR, Encabezados, Estado, Indicador, Panel,
+  fecha, legible,
+} from '@/components/crm/comunes'
 
-import { COLOR_MODULO } from '@/config/marca'
-const CRM_COLOR = COLOR_MODULO
-
-const NPS_PROMOTORES = 62
-const NPS_NEUTROS    = 24
-const NPS_DETRACTORES = 14
-const NPS_SCORE = NPS_PROMOTORES - NPS_DETRACTORES
-
-const ENCUESTAS = [
-  { id: 1, codigo: 'ENC-2026-041', cliente: 'Almacenes Éxito S.A.',   tipo: 'NPS',  puntaje: 9,  comentario: 'Excelente servicio, equipo muy comprometido con nuestros KPIs',       respondida: true,  fecha: '2026-06-18' },
-  { id: 2, codigo: 'ENC-2026-040', cliente: 'Corona S.A.',            tipo: 'NPS',  puntaje: 10, comentario: 'la compañía superó nuestras expectativas en la expansión del CD',       respondida: true,  fecha: '2026-06-15' },
-  { id: 3, codigo: 'ENC-2026-039', cliente: 'Sodimac Colombia',       tipo: 'CSAT', puntaje: 4,  comentario: 'Buen servicio en general, algunos retrasos en despachos nocturnos',   respondida: true,  fecha: '2026-06-12' },
-  { id: 4, codigo: 'ENC-2026-038', cliente: 'Grupo Nutresa',          tipo: 'CSAT', puntaje: 3,  comentario: 'El OTIF ha bajado este mes, necesitamos mejora urgente',              respondida: true,  fecha: '2026-06-10' },
-  { id: 5, codigo: 'ENC-2026-037', cliente: 'Bancolombia',            tipo: 'CES',  puntaje: 4,  comentario: 'Fácil gestión de solicitudes a través del portal',                    respondida: true,  fecha: '2026-06-08' },
-  { id: 6, codigo: 'ENC-2026-036', cliente: 'TechCorp Colombia',      tipo: 'NPS',  puntaje: 6,  comentario: 'Servicio aceptable, pero esperamos mejoras en tiempos de respuesta', respondida: true,  fecha: '2026-06-05' },
-  { id: 7, codigo: 'ENC-2026-035', cliente: 'Pharmavida S.A.',        tipo: 'NPS',  puntaje: 8,  comentario: 'Cumple con lo pactado — equipo profesional',                          respondida: true,  fecha: '2026-06-02' },
-  { id: 8, codigo: 'ENC-2026-042', cliente: 'Distribuidora Norte',    tipo: 'CSAT', puntaje: null, comentario: null, respondida: false, fecha: '2026-06-20' },
-]
-
-const TIPO_CFG: Record<string, { color: string; icon: React.ReactNode; desc: string }> = {
-  NPS:  { color: '#059669', icon: <StarRate sx={{ fontSize: 16 }} />, desc: 'Net Promoter Score' },
-  CSAT: { color: '#0EA5E9', icon: <ThumbUp  sx={{ fontSize: 16 }} />, desc: 'Customer Satisfaction' },
-  CES:  { color: '#7C3AED', icon: <Speed    sx={{ fontSize: 16 }} />, desc: 'Customer Effort Score' },
+const CFG_TIPO: Record<string, { color: string; icono: JSX.Element; nombre: string; max: number }> = {
+  NPS:  { color: '#059669', icono: <StarRate sx={{ fontSize: 16 }} />, nombre: 'Recomendación (NPS)', max: 10 },
+  CSAT: { color: '#0EA5E9', icono: <ThumbUp sx={{ fontSize: 16 }} />, nombre: 'Satisfacción (CSAT)', max: 5 },
+  CES:  { color: '#7C3AED', icono: <Speed sx={{ fontSize: 16 }} />, nombre: 'Esfuerzo (CES)', max: 5 },
 }
 
-function NPSBadge({ score }: { score: number }) {
-  const col = score >= 9 ? '#059669' : score >= 7 ? '#F59E0B' : '#EF4444'
-  const label = score >= 9 ? 'Promotor' : score >= 7 ? 'Neutro' : 'Detractor'
-  return (
-    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-      <Box sx={{ width: 32, height: 32, borderRadius: '50%', bgcolor: alpha(col, 0.15), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Typography sx={{ fontSize: 13, fontWeight: 900, color: col }}>{score}</Typography>
-      </Box>
-      <Chip label={label} size="small" sx={{ bgcolor: alpha(col, 0.12), color: col, fontSize: 9.5, fontWeight: 700 }} />
-    </Box>
-  )
-}
-
-const MEJORAS = [
-  { area: 'Tiempos de Despacho', puntaje: 3.8, meta: 4.5, prioridad: 'ALTA' },
-  { area: 'Comunicación Proactiva', puntaje: 3.5, meta: 4.5, prioridad: 'ALTA' },
-  { area: 'Exactitud de Entregas', puntaje: 4.2, meta: 4.7, prioridad: 'MEDIA' },
-  { area: 'Portal de Clientes', puntaje: 4.0, meta: 4.5, prioridad: 'MEDIA' },
-]
+const clasificarNps = (p: number) =>
+  p >= 9 ? 'Promotor' : p >= 7 ? 'Neutro' : 'Detractor'
+const colorNps = (p: number) =>
+  p >= 9 ? '#059669' : p >= 7 ? '#F59E0B' : '#EF4444'
 
 export default function CRMEncuestas() {
   const [tab, setTab] = useState(0)
 
-  const respondidas   = ENCUESTAS.filter(e => e.respondida).length
-  const promCsat      = Number((ENCUESTAS.filter(e => e.respondida && e.tipo === 'CSAT').reduce((s, e) => s + (e.puntaje || 0), 0) / ENCUESTAS.filter(e => e.respondida && e.tipo === 'CSAT').length).toFixed(1))
+  const encuestas = useQuery({
+    queryKey: ['crm', 'encuestas'],
+    queryFn: () => crmApi.encuestas(),
+  })
+  const clientes = useQuery({
+    queryKey: ['crm', 'clientes', 'Todos', ''],
+    queryFn: () => crmApi.clientes(),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const nombreCliente = (id: number) =>
+    clientes.data?.find(c => c.id === id)?.razon_social ?? `Cliente #${id}`
+
+  // El tope del puntaje depende de la escala: el NPS llega a diez y el CSAT a
+  // cinco. Un ocho en un CSAT metería en el promedio un valor imposible.
+  const campos = (registro: Encuesta | null): CampoEntidad[] => [
+    { clave: 'codigo', etiqueta: 'Código', tipo: 'texto', obligatorio: true,
+      ancho: 4, soloLectura: !!registro },
+    { clave: 'cliente_id', etiqueta: 'Cliente', tipo: 'referencia',
+      obligatorio: true, ancho: 8, soloLectura: !!registro,
+      referencias: (clientes.data ?? []).map(c => ({ valor: c.id, etiqueta: c.razon_social })) },
+    { clave: 'tipo', etiqueta: 'Escala', tipo: 'seleccion', obligatorio: true,
+      ancho: 4, porDefecto: 'NPS', soloLectura: !!registro,
+      opciones: Object.entries(CFG_TIPO).map(([v, c]) => ({
+        valor: v, etiqueta: c.nombre })) },
+    { clave: 'puntaje', etiqueta: 'Puntaje', tipo: 'numero', ancho: 4, minimo: 0,
+      maximo: registro ? (CFG_TIPO[registro.tipo]?.max ?? 10) : 10,
+      visibleSi: () => !!registro,
+      ayuda: registro
+        ? `De 0 a ${CFG_TIPO[registro.tipo]?.max ?? 10}. Registrarlo la marca como respondida.`
+        : undefined },
+    { clave: 'fecha_respuesta', etiqueta: 'Respondió el', tipo: 'fecha', ancho: 4,
+      visibleSi: () => !!registro },
+    { clave: 'comentario', etiqueta: 'Comentario del cliente', tipo: 'parrafo',
+      visibleSi: () => !!registro },
+  ]
+
+  const crud = useCrud<Encuesta>({
+    nombre: 'encuesta', genero: 'f', campos,
+    titulo: e => `${e.codigo} · ${e.tipo}`,
+    crear: d => crmApi.crearEncuesta(d),
+    editar: (id, d) => crmApi.editarEncuesta(id, d),
+    eliminar: id => crmApi.borrarEncuesta(id),
+    consecuencia: e => e.respondida
+      ? 'Su respuesta deja de contar en el NPS y en la satisfacción media.'
+      : undefined,
+  })
+
+  const todas = encuestas.data ?? []
+
+  const nps = useMemo(() => {
+    const r = todas.filter(e => e.tipo === 'NPS' && e.respondida && e.puntaje != null)
+    if (!r.length) return null
+    const promotores = r.filter(e => e.puntaje! >= 9).length
+    const detractores = r.filter(e => e.puntaje! <= 6).length
+    return {
+      total: r.length,
+      promotores, detractores,
+      neutros: r.length - promotores - detractores,
+      score: Math.round(((promotores - detractores) / r.length) * 100),
+    }
+  }, [todas])
+
+  const promedio = (tipo: string) => {
+    const r = todas.filter(e => e.tipo === tipo && e.respondida && e.puntaje != null)
+    if (!r.length) return null
+    return r.reduce((s, e) => s + e.puntaje!, 0) / r.length
+  }
+
+  const enviadas = todas.length
+  const respondidas = todas.filter(e => e.respondida).length
+  const tasaRespuesta = enviadas ? Math.round((respondidas / enviadas) * 100) : null
+
+  // Los detractores son la lista accionable: cada uno es un cliente que dijo que
+  // no recomendaría, con su nombre y su motivo escrito.
+  const detractores = todas.filter(
+    e => e.tipo === 'NPS' && e.respondida && (e.puntaje ?? 10) <= 6)
 
   return (
     <Layout>
@@ -64,160 +132,199 @@ export default function CRMEncuestas() {
             background: `linear-gradient(135deg, ${CRM_COLOR} 0%, #B91C1C 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <StarRate sx={{ color: '#FFFFFF', fontSize: 22 }} />
+            <StarRate sx={{ color: '#fff', fontSize: 22 }} />
           </Box>
-          <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Customer Experience</Typography>
+          <Box sx={{ flex: 1 }}>
+            <Typography sx={{ fontSize: 20, fontWeight: 800 }}>
+              Satisfacción del cliente
+            </Typography>
             <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
-              NPS · CSAT · CES · Encuestas · Planes de Mejora
+              Encuestas enviadas tras cerrar un ticket, y lo que respondieron
             </Typography>
           </Box>
+          <crud.BotonNuevo etiqueta="Enviar encuesta" />
         </Box>
 
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          {[
-            { label: 'NPS Score',     value: `+${NPS_SCORE}`, color: '#059669', sub: 'Promotores: 62%' },
-            { label: 'CSAT Promedio', value: `${promCsat}/5`, color: '#0EA5E9', sub: 'Satisfacción cliente' },
-            { label: 'Encuestas',     value: ENCUESTAS.length, color: CRM_COLOR, sub: `${respondidas} respondidas` },
-            { label: 'Tasa Respuesta',value: `${Math.round((respondidas / ENCUESTAS.length) * 100)}%`, color: '#7C3AED', sub: 'Objetivo: 80%' },
-          ].map((k, i) => (
-            <Grid key={i} size={{ xs: 6, md: 3 }}>
-              <Box sx={{ border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2, p: 2 }}>
-                <Typography sx={{ fontSize: 26, fontWeight: 900, color: 'text.primary', lineHeight: 1 }}>{k.value}</Typography>
-                <Typography sx={{ fontSize: 11, color: k.color, fontWeight: 600, mt: 0.25 }}>{k.label}</Typography>
-                <Typography sx={{ fontSize: 10.5, color: 'text.disabled', mt: 0.25 }}>{k.sub}</Typography>
-              </Box>
-            </Grid>
-          ))}
+          <Grid size={{ xs: 6, md: 3 }}>
+            <Indicador etiqueta="NPS" color={
+                nps == null ? '#94A3B8' : nps.score >= 50 ? '#059669'
+                  : nps.score >= 0 ? '#F59E0B' : '#EF4444'}
+              valor={nps == null ? '—' : (nps.score > 0 ? `+${nps.score}` : String(nps.score))}
+              nota={nps == null ? 'sin respuestas' : `sobre ${nps.total} respuesta(s)`} />
+          </Grid>
+          <Grid size={{ xs: 6, md: 3 }}>
+            <Indicador etiqueta="Satisfacción (CSAT)" color="#0EA5E9"
+              valor={promedio('CSAT') == null ? '—' : `${promedio('CSAT')!.toFixed(1)} / 5`} />
+          </Grid>
+          <Grid size={{ xs: 6, md: 3 }}>
+            <Indicador etiqueta="Esfuerzo (CES)" color="#7C3AED"
+              valor={promedio('CES') == null ? '—' : `${promedio('CES')!.toFixed(1)} / 5`} />
+          </Grid>
+          <Grid size={{ xs: 6, md: 3 }}>
+            <Indicador etiqueta="Tasa de respuesta"
+              color={tasaRespuesta != null && tasaRespuesta >= 40 ? '#059669' : '#F59E0B'}
+              valor={tasaRespuesta == null ? '—' : `${tasaRespuesta}%`}
+              nota={`${respondidas} de ${enviadas} enviadas`} />
+          </Grid>
         </Grid>
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)}
-          sx={{ mb: 3, '& .MuiTab-root': { color: 'text.secondary', textTransform: 'none', fontWeight: 600 }, '& .Mui-selected': { color: `${CRM_COLOR} !important` }, '& .MuiTabs-indicator': { bgcolor: CRM_COLOR } }}>
-          <Tab label="NPS Analysis" />
-          <Tab label="Encuestas" />
-          <Tab label="Planes de Mejora" />
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{
+          mb: 3,
+          '& .MuiTab-root': { color: 'text.secondary', textTransform: 'none', fontWeight: 600 },
+          '& .Mui-selected': { color: `${CRM_COLOR} !important` },
+          '& .MuiTabs-indicator': { bgcolor: CRM_COLOR },
+        }}>
+          <Tab label="Reparto del NPS" />
+          <Tab label={`Encuestas${todas.length ? ` (${todas.length})` : ''}`} />
+          <Tab label={`Detractores${detractores.length ? ` (${detractores.length})` : ''}`} />
         </Tabs>
 
-        {tab === 0 && (
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12, md: 5 }}>
-              <Box sx={{ border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
-                <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 2 }}>NPS — Distribución</Typography>
-                <Box sx={{ textAlign: 'center', mb: 3 }}>
-                  <Typography sx={{ fontSize: 56, fontWeight: 900, color: '#059669', lineHeight: 1 }}>+{NPS_SCORE}</Typography>
-                  <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 0.5 }}>Net Promoter Score</Typography>
-                </Box>
-                {[
-                  { label: 'Promotores (9-10)', pct: NPS_PROMOTORES, color: '#059669' },
-                  { label: 'Neutros (7-8)',      pct: NPS_NEUTROS,    color: '#F59E0B' },
-                  { label: 'Detractores (0-6)',  pct: NPS_DETRACTORES, color: '#EF4444' },
-                ].map((s, i) => (
-                  <Box key={i} sx={{ mb: 2 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                      <Typography sx={{ fontSize: 12.5, color: 'text.primary' }}>{s.label}</Typography>
-                      <Typography sx={{ fontSize: 13, fontWeight: 700, color: s.color }}>{s.pct}%</Typography>
-                    </Box>
-                    <Box sx={{ height: 8, borderRadius: 4, bgcolor: 'text.disabled', overflow: 'hidden' }}>
-                      <Box sx={{ height: '100%', width: `${s.pct}%`, bgcolor: s.color, borderRadius: 4 }} />
-                    </Box>
-                  </Box>
-                ))}
-              </Box>
-            </Grid>
-            <Grid size={{ xs: 12, md: 7 }}>
-              <Box sx={{ border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
-                <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 2 }}>Comentarios Recientes</Typography>
-                {ENCUESTAS.filter(e => e.respondida && e.comentario).slice(0, 5).map((e, i) => {
-                  const cfg = TIPO_CFG[e.tipo]
-                  return (
-                    <Box key={i} sx={{ mb: 1.5, p: 1.5, bgcolor: '#F8FAFC', borderRadius: 1.5 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75, flexWrap: 'wrap', gap: 1 }}>
-                        <Typography sx={{ fontSize: 12, fontWeight: 600, color: 'text.primary' }}>{e.cliente}</Typography>
-                        <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center' }}>
-                          <Chip label={e.tipo} size="small" sx={{ bgcolor: alpha(cfg.color, 0.15), color: cfg.color, fontSize: 9.5 }} />
-                          {e.puntaje !== null && <NPSBadge score={e.puntaje} />}
+        <Estado cargando={encuestas.isLoading} error={encuestas.error}
+          vacio={!todas.length}
+          mensajeVacio="Todavía no se ha enviado ninguna encuesta"
+          hint="Se envían al cerrar un ticket de servicio.">
+
+          {tab === 0 && (
+            <Panel sx={{ p: 2.5 }}>
+              {nps == null ? (
+                <Estado vacio mensajeVacio="Ninguna encuesta de recomendación respondida"
+                  hint="El NPS aparece cuando haya al menos una respuesta.">
+                  <span />
+                </Estado>
+              ) : (
+                <>
+                  <Typography sx={{ fontSize: 14, fontWeight: 700, mb: 0.5 }}>
+                    Cómo se reparten las {nps.total} respuestas
+                  </Typography>
+                  <Typography sx={{ fontSize: 11.5, color: 'text.secondary', mb: 2.5 }}>
+                    Promotores (9-10) menos detractores (0-6). Los neutros no suman
+                    ni restan, y por eso el NPS puede ir de −100 a +100.
+                  </Typography>
+                  {[
+                    { nombre: 'Promotores', rango: '9 a 10', n: nps.promotores, color: '#059669' },
+                    { nombre: 'Neutros', rango: '7 a 8', n: nps.neutros, color: '#F59E0B' },
+                    { nombre: 'Detractores', rango: '0 a 6', n: nps.detractores, color: '#EF4444' },
+                  ].map(g => {
+                    const pct = Math.round((g.n / nps.total) * 100)
+                    return (
+                      <Box key={g.nombre} sx={{ mb: 2 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75 }}>
+                          <Typography sx={{ fontSize: 12.5, fontWeight: 600 }}>
+                            {g.nombre}
+                            <Box component="span" sx={{ color: 'text.disabled', fontWeight: 400 }}>
+                              {' '}· puntaje {g.rango}
+                            </Box>
+                          </Typography>
+                          <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: g.color }}>
+                            {g.n} · {pct}%
+                          </Typography>
+                        </Box>
+                        <Box sx={{ height: 8, borderRadius: 4, bgcolor: '#EEF2F7', overflow: 'hidden' }}>
+                          <Box sx={{ height: '100%', width: `${pct}%`, bgcolor: g.color, borderRadius: 4 }} />
                         </Box>
                       </Box>
-                      <Typography sx={{ fontSize: 12, color: 'text.secondary', fontStyle: 'italic' }}>"{e.comentario}"</Typography>
-                      <Typography sx={{ fontSize: 10, color: 'text.disabled', mt: 0.5 }}>{e.fecha}</Typography>
-                    </Box>
-                  )
-                })}
-              </Box>
-            </Grid>
-          </Grid>
-        )}
-
-        {tab === 1 && (
-          <Box sx={{ border: `1px solid #E5E7EB`, borderRadius: 2, overflow: 'hidden' }}>
-            <Box sx={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    {['Código', 'Cliente', 'Tipo', 'Puntaje', 'Estado', 'Fecha', 'Comentario'].map(h => (
-                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'text.disabled', borderBottom: '1px solid #E5E7EB', whiteSpace: 'nowrap' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {ENCUESTAS.map((e, i) => {
-                    const cfg = TIPO_CFG[e.tipo]
-                    return (
-                      <tr key={i} style={{ borderBottom: '1px solid #E5E7EB' }}>
-                        <td style={{ padding: '10px 14px', fontSize: 11.5, color: CRM_COLOR, fontFamily: 'monospace' }}>{e.codigo}</td>
-                        <td style={{ padding: '10px 14px', fontSize: 12.5, color: 'text.primary', fontWeight: 600, whiteSpace: 'nowrap' }}>{e.cliente}</td>
-                        <td style={{ padding: '10px 14px' }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, '& svg': { color: cfg.color } }}>
-                            {cfg.icon}
-                            <Typography sx={{ fontSize: 11, color: cfg.color, fontWeight: 600 }}>{e.tipo}</Typography>
-                          </Box>
-                        </td>
-                        <td style={{ padding: '10px 14px' }}>
-                          {e.puntaje !== null ? <NPSBadge score={e.puntaje} /> : <Typography sx={{ fontSize: 12, color: 'text.disabled' }}>Pendiente</Typography>}
-                        </td>
-                        <td style={{ padding: '10px 14px' }}>
-                          <Chip label={e.respondida ? 'RESPONDIDA' : 'PENDIENTE'} size="small"
-                            sx={{ bgcolor: e.respondida ? alpha('#059669', 0.15) : alpha('#F59E0B', 0.15), color: e.respondida ? '#059669' : '#F59E0B', fontSize: 9.5 }} />
-                        </td>
-                        <td style={{ padding: '10px 14px', fontSize: 11, color: 'text.disabled' }}>{e.fecha}</td>
-                        <td style={{ padding: '10px 14px', fontSize: 11.5, color: 'text.secondary', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.comentario || '—'}</td>
-                      </tr>
                     )
                   })}
-                </tbody>
-              </table>
-            </Box>
-          </Box>
-        )}
+                </>
+              )}
+            </Panel>
+          )}
 
-        {tab === 2 && (
-          <Box sx={{ border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
-            <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 2.5 }}>Áreas de Mejora — Plan de Acción 2026</Typography>
-            {MEJORAS.map((m, i) => {
-              const pct  = (m.puntaje / 5) * 100
-              const gap  = ((m.meta - m.puntaje) / 5) * 100
-              const pcol = m.prioridad === 'ALTA' ? CRM_COLOR : '#F59E0B'
-              return (
-                <Box key={i} sx={{ mb: 2.5 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75 }}>
-                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                      <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'text.primary' }}>{m.area}</Typography>
-                      <Chip label={m.prioridad} size="small" sx={{ bgcolor: alpha(pcol, 0.15), color: pcol, fontSize: 9.5, fontWeight: 700 }} />
+          {tab === 1 && (
+            <Panel>
+              <Box sx={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <Encabezados columnas={['Código', 'Cliente', 'Tipo', 'Puntaje',
+                    'Clasificación', 'Enviada', 'Respondida', 'Comentario', '']} />
+                  <tbody>
+                    {todas.map(e => {
+                      const cfg = CFG_TIPO[e.tipo] ?? { color: '#94A3B8', icono: null, nombre: e.tipo, max: 5 }
+                      return (
+                        <tr key={e.id} style={{ borderBottom: `1px solid ${BORDE}` }}>
+                          <td style={{ padding: '10px 14px', fontSize: 11.5, color: CRM_COLOR, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{e.codigo}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap' }}>{nombreCliente(e.cliente_id)}</td>
+                          <td style={{ padding: '10px 14px' }}>
+                            <Chip label={e.tipo} size="small" sx={{
+                              bgcolor: alpha(cfg.color, 0.12), color: cfg.color,
+                              fontSize: 9.5, fontWeight: 700,
+                            }} />
+                          </td>
+                          <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap',
+                                       color: e.puntaje == null ? '#9CA3AF' : cfg.color }}>
+                            {e.puntaje == null ? '—' : `${e.puntaje} / ${cfg.max}`}
+                          </td>
+                          <td style={{ padding: '10px 14px' }}>
+                            {e.tipo === 'NPS' && e.puntaje != null ? (
+                              <Chip label={clasificarNps(e.puntaje)} size="small" sx={{
+                                bgcolor: alpha(colorNps(e.puntaje), 0.15),
+                                color: colorNps(e.puntaje), fontSize: 9.5, fontWeight: 700,
+                              }} />
+                            ) : (
+                              <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>
+                                {e.respondida ? '—' : 'sin responder'}
+                              </Typography>
+                            )}
+                          </td>
+                          <td style={{ padding: '10px 14px', fontSize: 11.5, color: '#6B7280', whiteSpace: 'nowrap' }}>{fecha(e.fecha_envio)}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 11.5, color: '#6B7280', whiteSpace: 'nowrap' }}>{fecha(e.fecha_respuesta)}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 12, color: '#6B7280', maxWidth: 320 }}>{e.comentario || '—'}</td>
+                          <td style={{ padding: '4px 8px' }}>
+                            <crud.Acciones registro={e} />
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </Box>
+            </Panel>
+          )}
+
+          {tab === 2 && (
+            <Panel sx={{ p: 2.5 }}>
+              <Typography sx={{ fontSize: 14, fontWeight: 700, mb: 0.5 }}>
+                Clientes que no recomendarían el servicio
+              </Typography>
+              <Typography sx={{ fontSize: 11.5, color: 'text.secondary', mb: 2 }}>
+                Cada uno con lo que escribió. Es la lista corta a la que hay que
+                llamar antes de la próxima renovación.
+              </Typography>
+              <Estado vacio={!detractores.length}
+                mensajeVacio="Ningún detractor"
+                hint="Nadie ha calificado el servicio por debajo de 7.">
+                {detractores.map((e: Encuesta) => (
+                  <Box key={e.id} sx={{
+                    p: 1.75, mb: 1.25, borderRadius: 1.5,
+                    bgcolor: alpha('#EF4444', 0.05),
+                    border: `1px solid ${alpha('#EF4444', 0.25)}`,
+                  }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between',
+                               gap: 1, flexWrap: 'wrap' }}>
+                      <Typography sx={{ fontSize: 13, fontWeight: 700 }}>
+                        {nombreCliente(e.cliente_id)}
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                        <SentimentVeryDissatisfied sx={{ fontSize: 16, color: '#EF4444' }} />
+                        <Typography sx={{ fontSize: 14, fontWeight: 900, color: '#EF4444' }}>
+                          {e.puntaje} / 10
+                        </Typography>
+                        <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>
+                          {fecha(e.fecha_respuesta)}
+                        </Typography>
+                      </Box>
                     </Box>
-                    <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-                      <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>Actual: {m.puntaje}</Typography>
-                      <Typography sx={{ fontSize: 12, color: '#059669', fontWeight: 700 }}>Meta: {m.meta}</Typography>
-                    </Box>
+                    <Typography sx={{ fontSize: 12.5, mt: 0.5, lineHeight: 1.5 }}>
+                      {e.comentario || 'No dejó comentario.'}
+                    </Typography>
                   </Box>
-                  <Box sx={{ height: 10, borderRadius: 5, bgcolor: 'text.disabled', overflow: 'hidden', position: 'relative' }}>
-                    <Box sx={{ height: '100%', width: `${pct}%`, bgcolor: pcol, borderRadius: 5 }} />
-                    <Box sx={{ position: 'absolute', top: 0, left: `${pct}%`, height: '100%', width: `${gap}%`, bgcolor: alpha('#059669', 0.3), borderRadius: '0 5px 5px 0' }} />
-                  </Box>
-                </Box>
-              )
-            })}
-          </Box>
-        )}
+                ))}
+              </Estado>
+            </Panel>
+          )}
+        </Estado>
+
+        <crud.Dialogos />
       </Box>
     </Layout>
   )

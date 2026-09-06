@@ -1,60 +1,90 @@
-import React, { useState } from 'react'
-import { Box, Typography, Tab, Tabs, Chip, Switch, alpha } from '@mui/material'
+/**
+ * Los umbrales del módulo y el estado real de sus enlaces con los demás.
+ *
+ * CADA UMBRAL DICE QUÉ CAMBIA AL MOVERLO
+ * Un número suelto en una pantalla de configuración no se toca nunca: nadie
+ * arriesga a mover algo que no sabe qué hace. Por eso al lado de cada uno va la
+ * frase que explica la consecuencia, y el valor por defecto para poder volver.
+ *
+ * LOS ENLACES NO SE PROMETEN, SE CONSULTAN
+ * La maqueta traía ocho integraciones con un interruptor de encendido. Aquí se
+ * lee qué módulos tiene contratados la empresa —lo mismo que decide qué se ve en
+ * el menú— y se dice, para cada uno, qué le aporta al comercial si está y qué se
+ * pierde si no. Un interruptor que no enciende nada es peor que no tenerlo.
+ */
+import { useState } from 'react'
+import {
+  Box, Typography, Tab, Tabs, Chip, alpha, Slider, Button, Tooltip,
+} from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { Settings } from '@mui/icons-material'
+import { Settings, Restore, CheckCircle, RemoveCircleOutline } from '@mui/icons-material'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
+import { crmApi, type ParametroCRM } from '@/api/crm'
+import { useAuthStore } from '@/store/authStore'
+import { BORDE, CRM_COLOR, Estado, Panel } from '@/components/crm/comunes'
 
-import { COLOR_MODULO } from '@/config/marca'
-import { AdminCatalogos } from '@/components/catalogo/AdminCatalogos'
-const CRM_COLOR = COLOR_MODULO
-const BORDER  = '#E5E7EB'
-
-const INTEGRACIONES = [
-  { nombre: 'ERP',  desc: 'Sincroniza facturación, pagos e ingresos reales en tiempo real',                color: '#0EA5E9', activa: true  },
-  { nombre: 'WMS',  desc: 'Inventario, despachos y exactitud de bodega conectados a OTIF',                 color: '#059669', activa: true  },
-  { nombre: 'TMS',  desc: 'Entregas, rutas y KPIs de transporte para cálculo de OTIF',                    color: '#7C3AED', activa: true  },
-  { nombre: 'DMS',  desc: 'Contratos y documentos firmados digitalmente almacenados en DMS',               color: '#F59E0B', activa: true  },
-  { nombre: 'QMS',  desc: 'Tickets PQRS generan No Conformidades automáticas en QMS',                     color: '#EF4444', activa: false },
-  { nombre: 'GRC',  desc: 'Riesgos de cliente clasificados y gestionados en el módulo GRC',               color: CRM_COLOR, activa: false },
-  { nombre: 'HCM',  desc: 'Ejecutivos comerciales, equipos y estructura organizacional desde HCM',         color: '#8B5CF6', activa: true  },
-  { nombre: 'LMS',  desc: 'Capacitación de equipos comerciales y onboarding de ejecutivos',               color: '#D97706', activa: false },
-]
-
-const UMBRALES = [
-  { param: 'Health Score — Alerta Amarilla', valor: 60, tipo: 'puntaje', min: 30, max: 80 },
-  { param: 'Health Score — Alerta Roja',     valor: 40, tipo: 'puntaje', min: 10, max: 60 },
-  { param: 'Churn Risk — Escalación',        valor: 30, tipo: '%',       min: 10, max: 60 },
-  { param: 'Lead Score — Caliente',          valor: 75, tipo: 'puntaje', min: 50, max: 100 },
-  { param: 'Lead Score — Tibio',             valor: 50, tipo: 'puntaje', min: 25, max: 75 },
-  { param: 'SLA — Alerta Vencimiento',       valor: 30, tipo: 'días',    min: 7,  max: 90 },
-  { param: 'Contrato — Alerta Renovación',   valor: 60, tipo: 'días',    min: 30, max: 120 },
-  { param: 'OTIF — Umbral de Alerta',        valor: 90, tipo: '%',       min: 80, max: 98 },
-]
-
-const NOTIFICACIONES = [
-  { tipo: 'Contrato próximo a vencer (SLA configurado)',  canal: 'Email + Push', activa: true },
-  { tipo: 'Health Score bajo el umbral de alerta',        canal: 'Email + Push', activa: true },
-  { tipo: 'Ticket escalado sin respuesta',                canal: 'Push',         activa: true },
-  { tipo: 'Lead nuevo calificado como CALIENTE',          canal: 'Push',         activa: true },
-  { tipo: 'Oportunidad sin movimiento en 14 días',        canal: 'Email',        activa: false },
-  { tipo: 'OTIF por debajo del umbral contractual',       canal: 'Email + Push', activa: true },
-  { tipo: 'Encuesta NPS con detractor (<6)',              canal: 'Email + Push', activa: true },
-  { tipo: 'Riesgo de churn superó umbral IA',            canal: 'Push',         activa: false },
-]
-
-const LEAD_SCORING = [
-  { factor: 'Industria objetivo (Retail, Alimentos, Farmacéutico)', peso: 25 },
-  { factor: 'Tamaño de empresa (empleados, ingresos)',              peso: 20 },
-  { factor: 'Interacción activa con la empresa (web, email)',       peso: 20 },
-  { factor: 'Cargo del contacto (C-Level, Dirección)',             peso: 15 },
-  { factor: 'Fuente del lead (referido, evento)',                  peso: 10 },
-  { factor: 'Coincidencia con perfil de cliente ganador',          peso: 10 },
+/** Qué le aporta cada módulo al comercial. Sin esto, la lista es un inventario. */
+const ENLACES: { modulo: string; nombre: string; color: string; aporta: string; sin: string }[] = [
+  { modulo: 'erp', nombre: 'Contabilidad', color: '#0EA5E9',
+    aporta: 'Facturación y cartera reales por cliente, para calcular el margen y el puntaje de pago.',
+    sin: 'La rentabilidad por cliente no se puede calcular: solo se ve lo facturado.' },
+  { modulo: 'wms', nombre: 'Bodega', color: '#059669',
+    aporta: 'Exactitud de inventario y despachos, que alimentan el indicador pactado de cada contrato.',
+    sin: 'La exactitud de inventario del contrato hay que cargarla a mano.' },
+  { modulo: 'tms', nombre: 'Transporte', color: '#7C3AED',
+    aporta: 'Entregas a tiempo, de donde sale el OTIF que se le promete al cliente.',
+    sin: 'El OTIF del contrato hay que cargarlo a mano.' },
+  { modulo: 'dms', nombre: 'Documentos', color: '#F59E0B',
+    aporta: 'El contrato firmado queda enlazado a la ficha del cliente.',
+    sin: 'El contrato figura por su código, pero el documento vive fuera del sistema.' },
+  { modulo: 'qms', nombre: 'Calidad', color: '#EF4444',
+    aporta: 'Un reclamo se puede convertir en no conformidad con su análisis de causa.',
+    sin: 'El reclamo se cierra en el ticket y no queda análisis de por qué pasó.' },
+  { modulo: 'grc', nombre: 'Riesgos', color: CRM_COLOR,
+    aporta: 'Los riesgos de cuenta entran al mapa de riesgos de la empresa.',
+    sin: 'El riesgo de la cuenta se queda dentro del comercial.' },
+  { modulo: 'gh', nombre: 'Gestión humana', color: '#8B5CF6',
+    aporta: 'Los ejecutivos comerciales salen de la nómina y no de un catálogo aparte.',
+    sin: 'Hay que mantener el catálogo de ejecutivos a mano.' },
+  { modulo: 'lms', nombre: 'Formación', color: '#D97706',
+    aporta: 'Se puede asignar formación al equipo comercial desde su ficha.',
+    sin: 'La formación del equipo se lleva por fuera.' },
 ]
 
 export default function CRMConfig() {
+  const qc = useQueryClient()
   const [tab, setTab] = useState(0)
-  const [notifs, setNotifs]   = useState(NOTIFICACIONES.map(n => n.activa))
-  const [integs, setIntegs]   = useState(INTEGRACIONES.map(i => i.activa))
+  const modulos = useAuthStore(s => s.modulos)
+
+  const parametros = useQuery({
+    queryKey: ['crm', 'parametros'],
+    queryFn: () => crmApi.parametros(),
+  })
+
+  const guardar = useMutation({
+    mutationFn: ({ clave, valor }: { clave: string; valor: number }) =>
+      crmApi.guardarParametro(clave, valor),
+    onSuccess: (p) => {
+      toast.success(`«${p.nombre}» quedó en ${p.valor} ${p.unidad}`)
+      qc.invalidateQueries({ queryKey: ['crm'] })
+    },
+    onError: (e: any) => toast.error(
+      e?.response?.data?.detail ?? 'No se pudo guardar'),
+  })
+  const restaurar = useMutation({
+    mutationFn: (clave: string) => crmApi.restaurarParametro(clave),
+    onSuccess: (p) => {
+      toast.success(`«${p.nombre}» volvió a su valor por defecto`)
+      qc.invalidateQueries({ queryKey: ['crm'] })
+    },
+    onError: () => toast.error('No se pudo restaurar'),
+  })
+
+  // `['*']` significa que la empresa tiene todo contratado.
+  const tiene = (m: string) => modulos.includes('*') || modulos.includes(m)
+  const conectados = ENLACES.filter(e => tiene(e.modulo))
 
   return (
     <Layout>
@@ -68,102 +98,144 @@ export default function CRMConfig() {
             <Settings sx={{ color: '#fff', fontSize: 22 }} />
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Configuración CRM</Typography>
+            <Typography sx={{ fontSize: 20, fontWeight: 800 }}>
+              Configuración del comercial
+            </Typography>
             <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
-              Umbrales · Notificaciones · Lead Scoring · Integraciones
+              Con qué umbrales avisa el módulo, y con qué otros módulos habla
             </Typography>
           </Box>
         </Box>
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)}
-          sx={{ mb: 3, '& .MuiTab-root': { color: 'text.secondary', textTransform: 'none', fontWeight: 600 }, '& .Mui-selected': { color: `${CRM_COLOR} !important` }, '& .MuiTabs-indicator': { bgcolor: CRM_COLOR } }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{
+          mb: 3,
+          '& .MuiTab-root': { color: 'text.secondary', textTransform: 'none', fontWeight: 600 },
+          '& .Mui-selected': { color: `${CRM_COLOR} !important` },
+          '& .MuiTabs-indicator': { bgcolor: CRM_COLOR },
+        }}>
           <Tab label="Umbrales" />
-          <Tab label="Notificaciones" />
-          <Tab label="Lead Scoring" />
-          <Tab label="Integraciones" />
-          <Tab label="Catálogos" />
+          <Tab label={`Enlaces (${conectados.length} de ${ENLACES.length})`} />
         </Tabs>
 
-        {tab === 4 && <AdminCatalogos modulo="CRM" color={COLOR_MODULO} />}
-
         {tab === 0 && (
-          <Box sx={{ bgcolor: 'background.paper', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
-            <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 2 }}>Parámetros y Umbrales del Sistema</Typography>
-            {UMBRALES.map((u, i) => (
-              <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1.75, borderBottom: '1px solid #F1F5F9' }}>
-                <Box>
-                  <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'text.primary' }}>{u.param}</Typography>
-                  <Typography sx={{ fontSize: 11, color: 'text.disabled', mt: 0.25 }}>Rango: {u.min} – {u.max} {u.tipo}</Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box sx={{ px: 2, py: 0.75, bgcolor: alpha(CRM_COLOR, 0.12), border: `1px solid ${alpha(CRM_COLOR, 0.25)}`, borderRadius: 1, minWidth: 70, textAlign: 'center' }}>
-                    <Typography sx={{ fontSize: 16, fontWeight: 900, color: CRM_COLOR }}>{u.valor}</Typography>
-                    <Typography sx={{ fontSize: 9.5, color: 'text.disabled' }}>{u.tipo}</Typography>
-                  </Box>
-                </Box>
-              </Box>
-            ))}
-          </Box>
+          <Estado cargando={parametros.isLoading} error={parametros.error}
+            vacio={!parametros.data?.length}
+            mensajeVacio="No hay umbrales configurables">
+            <Grid container spacing={2}>
+              {parametros.data?.map(p => (
+                <Grid key={p.clave} size={{ xs: 12, md: 6 }}>
+                  <Umbral parametro={p}
+                    guardando={guardar.isPending}
+                    onGuardar={valor => guardar.mutate({ clave: p.clave, valor })}
+                    onRestaurar={() => restaurar.mutate(p.clave)} />
+                </Grid>
+              ))}
+            </Grid>
+          </Estado>
         )}
 
         {tab === 1 && (
-          <Box sx={{ bgcolor: 'background.paper', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
-            <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 2 }}>Configuración de Alertas y Notificaciones</Typography>
-            {NOTIFICACIONES.map((n, i) => (
-              <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1.75, borderBottom: '1px solid #F1F5F9' }}>
-                <Box>
-                  <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'text.primary' }}>{n.tipo}</Typography>
-                  <Chip label={n.canal} size="small" sx={{ bgcolor: '#F1F5F9', color: 'text.secondary', fontSize: 10, mt: 0.75 }} />
-                </Box>
-                <Switch checked={notifs[i]} onChange={e => setNotifs(prev => { const c = [...prev]; c[i] = e.target.checked; return c })}
-                  sx={{ '& .MuiSwitch-thumb': { bgcolor: notifs[i] ? CRM_COLOR : '#4B5563' }, '& .MuiSwitch-track': { bgcolor: notifs[i] ? alpha(CRM_COLOR, 0.35) : '#D1D5DB' } }} />
-              </Box>
-            ))}
-          </Box>
-        )}
-
-        {tab === 2 && (
-          <Box sx={{ bgcolor: 'background.paper', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
-            <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 0.5 }}>Modelo de Lead Scoring IA</Typography>
-            <Typography sx={{ fontSize: 12, color: 'text.disabled', mb: 2.5 }}>Suma de pesos = 100 · Umbral CALIENTE: ≥75 · TIBIO: 50-74 · FRÍO: &lt;50</Typography>
-            {LEAD_SCORING.map((f, i) => (
-              <Box key={i} sx={{ mb: 2.5 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75 }}>
-                  <Typography sx={{ fontSize: 12.5, color: 'text.primary', fontWeight: 500 }}>{f.factor}</Typography>
-                  <Typography sx={{ fontSize: 14, fontWeight: 900, color: CRM_COLOR }}>{f.peso}%</Typography>
-                </Box>
-                <Box sx={{ height: 8, borderRadius: 4, bgcolor: '#E2E8F0', overflow: 'hidden' }}>
-                  <Box sx={{ height: '100%', width: `${f.peso * 4}%`, bgcolor: CRM_COLOR, borderRadius: 4 }} />
-                </Box>
-              </Box>
-            ))}
-          </Box>
-        )}
-
-        {tab === 3 && (
           <Grid container spacing={2}>
-            {INTEGRACIONES.map((int, i) => (
-              <Grid key={i} size={{ xs: 12, sm: 6, md: 4 }}>
-                <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${alpha(integs[i] ? int.color : '#4B5563', 0.3)}`, borderRadius: 2, p: 2 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
-                    <Box>
-                      <Box sx={{ display: 'inline-flex', px: 1.5, py: 0.5, bgcolor: alpha(int.color, 0.15), borderRadius: 1, mb: 0.75 }}>
-                        <Typography sx={{ fontSize: 14, fontWeight: 900, color: int.color }}>{int.nombre}</Typography>
-                      </Box>
+            {ENLACES.map(e => {
+              const activo = tiene(e.modulo)
+              return (
+                <Grid key={e.modulo} size={{ xs: 12, md: 6 }}>
+                  <Panel sx={{
+                    p: 2, height: '100%',
+                    borderColor: activo ? alpha(e.color, 0.35) : BORDE,
+                    bgcolor: activo ? alpha(e.color, 0.03) : 'background.paper',
+                  }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mb: 1 }}>
+                      {activo
+                        ? <CheckCircle sx={{ fontSize: 18, color: e.color }} />
+                        : <RemoveCircleOutline sx={{ fontSize: 18, color: 'text.disabled' }} />}
+                      <Typography sx={{ fontSize: 14, fontWeight: 700, flex: 1 }}>
+                        {e.nombre}
+                      </Typography>
+                      <Chip label={activo ? 'contratado' : 'no contratado'} size="small"
+                        sx={{
+                          height: 20, fontSize: 10, fontWeight: 700,
+                          bgcolor: activo ? alpha(e.color, 0.15) : '#F1F5F9',
+                          color: activo ? e.color : 'text.secondary',
+                        }} />
                     </Box>
-                    <Switch checked={integs[i]} onChange={e => setIntegs(prev => { const c = [...prev]; c[i] = e.target.checked; return c })}
-                      size="small"
-                      sx={{ '& .MuiSwitch-thumb': { bgcolor: integs[i] ? int.color : '#4B5563' }, '& .MuiSwitch-track': { bgcolor: integs[i] ? alpha(int.color, 0.35) : '#D1D5DB' } }} />
-                  </Box>
-                  <Typography sx={{ fontSize: 12, color: 'text.secondary', lineHeight: 1.5 }}>{int.desc}</Typography>
-                  <Chip label={integs[i] ? 'Conectado' : 'Desconectado'} size="small"
-                    sx={{ mt: 1.5, bgcolor: integs[i] ? alpha('#059669', 0.12) : alpha('#4B5563', 0.1), color: integs[i] ? '#059669' : '#6B7280', fontSize: 10 }} />
-                </Box>
-              </Grid>
-            ))}
+                    <Typography sx={{ fontSize: 12.5, lineHeight: 1.55,
+                                      color: activo ? 'text.primary' : 'text.secondary' }}>
+                      {activo ? e.aporta : e.sin}
+                    </Typography>
+                  </Panel>
+                </Grid>
+              )
+            })}
+            <Grid size={{ xs: 12 }}>
+              <Typography sx={{ fontSize: 12, color: 'text.disabled', mt: 0.5 }}>
+                Qué módulos tiene contratados su empresa no se cambia desde aquí:
+                se acuerda con quien le administra la plataforma.
+              </Typography>
+            </Grid>
           </Grid>
         )}
       </Box>
     </Layout>
+  )
+}
+
+function Umbral({ parametro, guardando, onGuardar, onRestaurar }: {
+  parametro: ParametroCRM
+  guardando: boolean
+  onGuardar: (valor: number) => void
+  onRestaurar: () => void
+}) {
+  // El deslizador se mueve libre y solo se guarda al soltarlo. Guardar en cada
+  // pixel manda una petición por cada movimiento del dedo.
+  const [valor, setValor] = useState(parametro.valor)
+  const cambiado = valor !== parametro.valor
+
+  return (
+    <Panel sx={{ p: 2, height: '100%' }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between',
+                 alignItems: 'flex-start', gap: 1, mb: 0.5 }}>
+        <Typography sx={{ fontSize: 13, fontWeight: 700 }}>
+          {parametro.nombre}
+        </Typography>
+        <Typography sx={{ fontSize: 17, fontWeight: 900, color: CRM_COLOR,
+                          whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+          {valor} <Box component="span" sx={{ fontSize: 11, fontWeight: 600, color: 'text.secondary' }}>
+            {parametro.unidad}
+          </Box>
+        </Typography>
+      </Box>
+
+      <Typography sx={{ fontSize: 11.5, color: 'text.secondary', lineHeight: 1.5, mb: 1 }}>
+        {parametro.explica}
+      </Typography>
+
+      <Slider
+        value={valor} min={parametro.minimo} max={parametro.maximo}
+        step={parametro.maximo - parametro.minimo > 60 ? 5 : 1}
+        onChange={(_, v) => setValor(v as number)}
+        onChangeCommitted={(_, v) => {
+          if ((v as number) !== parametro.valor) onGuardar(v as number)
+        }}
+        disabled={guardando}
+        sx={{ color: CRM_COLOR, mt: 0.5 }}
+      />
+
+      <Box sx={{ display: 'flex', justifyContent: 'space-between',
+                 alignItems: 'center', gap: 1 }}>
+        <Typography sx={{ fontSize: 10.5, color: 'text.disabled' }}>
+          entre {parametro.minimo} y {parametro.maximo} · por defecto {parametro.defecto}
+        </Typography>
+        {parametro.personalizado && !cambiado && (
+          <Tooltip title={`Volver a ${parametro.defecto} ${parametro.unidad}`}>
+            <Button size="small" startIcon={<Restore sx={{ fontSize: 14 }} />}
+              onClick={() => { setValor(parametro.defecto); onRestaurar() }}
+              sx={{ textTransform: 'none', fontSize: 11 }}>
+              Restaurar
+            </Button>
+          </Tooltip>
+        )}
+      </Box>
+    </Panel>
   )
 }

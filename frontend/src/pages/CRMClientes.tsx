@@ -1,85 +1,115 @@
-import React, { useState } from 'react'
-import { Box, Typography, Tab, Tabs, Chip, InputBase, alpha } from '@mui/material'
+/**
+ * El portafolio de clientes y la vista 360 de uno.
+ *
+ * DOS DECISIONES
+ *
+ * · **El filtro lo hace el servidor, no el navegador.** La API ya recibe
+ *   `q`, `estado` y `segmento`. Traerse la lista entera para filtrarla acá
+ *   funciona con treinta clientes y deja de funcionar con tres mil, que es
+ *   justo cuando el filtro empieza a hacer falta.
+ *
+ * · **La vista 360 se arma de cinco consultas, no de un endpoint que lo
+ *   devuelva todo.** Cada panel pide lo suyo y se dibuja en cuanto llega, así
+ *   que el contrato aparece sin esperar a las encuestas. Un solo endpoint
+ *   gordo obligaría a esperar al más lento para ver el primero.
+ */
+import { useState } from 'react'
+import {
+  Box, Typography, Tab, Tabs, Chip, InputBase, alpha, Button,
+} from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { People, Search, TrendingUp, Handshake, SupportAgent, StarRate } from '@mui/icons-material'
+import { People, Search, ArrowBack } from '@mui/icons-material'
+import { useQuery } from '@tanstack/react-query'
 import { Layout } from '@/components/layout/Layout'
+import { crmApi, type ClienteCRM } from '@/api/crm'
+import { useCrud } from '@/components/datos/useCrud'
+import type { CampoEntidad } from '@/components/datos/FormularioEntidad'
+import {
+  BORDE, CRM_COLOR, COLOR_ESTADO_CLIENTE, COLOR_SEGMENTO, COLOR_TICKET,
+  BarraSalud, Encabezados, Estado, Indicador, Panel,
+  fecha, fechaHora, legible, num, pesos, porcentaje,
+} from '@/components/crm/comunes'
 
-import { COLOR_MODULO } from '@/config/marca'
-const CRM_COLOR = COLOR_MODULO
-const BORDER = '#E5E7EB'
+const ESTADOS = ['Todos', 'CLIENTE_ACTIVO', 'LEAD', 'PROSPECTO', 'CLIENTE_INACTIVO']
 
-const ESTADO_COLOR: Record<string, string> = {
-  CLIENTE_ACTIVO: '#059669', PROSPECTO: '#94A3B8', LEAD: '#0EA5E9',
-  CLIENTE_INACTIVO: '#F59E0B', EXCLIENTE: '#EF4444',
-}
-const SEGMENTO_COLOR: Record<string, string> = {
-  CORPORATIVO: CRM_COLOR, ESTRATEGICO: '#7C3AED', MEDIANA: '#0EA5E9', PEQUENA: '#059669',
-}
-
-const CLIENTES = [
-  { id: 1, codigo: 'CLI-2026-001', razon_social: 'Almacenes Éxito S.A.',    nit: '860007380-5', estado: 'CLIENTE_ACTIVO', segmento: 'CORPORATIVO', industria: 'Retail',      health: 88, ingresos: 4800, ejecutivo: 'Laura Soto',   ciudad: 'Bogotá' },
-  { id: 2, codigo: 'CLI-2026-002', razon_social: 'Sodimac Colombia S.A.S.', nit: '830040471-1', estado: 'CLIENTE_ACTIVO', segmento: 'CORPORATIVO', industria: 'Retail',      health: 74, ingresos: 3200, ejecutivo: 'Carlos Vega',  ciudad: 'Bogotá' },
-  { id: 3, codigo: 'CLI-2026-003', razon_social: 'Grupo Nutresa S.A.',      nit: '890903247-3', estado: 'CLIENTE_ACTIVO', segmento: 'ESTRATEGICO', industria: 'Alimentos',   health: 62, ingresos: 2150, ejecutivo: 'Ana Ruiz',     ciudad: 'Medellín' },
-  { id: 4, codigo: 'CLI-2026-004', razon_social: 'Corona S.A.',             nit: '860053174-1', estado: 'CLIENTE_ACTIVO', segmento: 'ESTRATEGICO', industria: 'Industrial',  health: 91, ingresos: 6400, ejecutivo: 'Pedro Díaz',   ciudad: 'Bogotá' },
-  { id: 5, codigo: 'CLI-2026-005', razon_social: 'Bancolombia S.A.',        nit: '890903938-8', estado: 'CLIENTE_ACTIVO', segmento: 'CORPORATIVO', industria: 'Financiero',  health: 79, ingresos: 1800, ejecutivo: 'Laura Soto',   ciudad: 'Medellín' },
-  { id: 6, codigo: 'CLI-2026-006', razon_social: 'TechCorp Colombia',       nit: '901234567-8', estado: 'LEAD',           segmento: 'MEDIANA',     industria: 'Tecnología',  health: 45, ingresos: 0,    ejecutivo: 'Carlos Vega',  ciudad: 'Bogotá' },
-  { id: 7, codigo: 'CLI-2026-007', razon_social: 'Distribuidora Norte',     nit: '812345678-1', estado: 'PROSPECTO',      segmento: 'PEQUENA',     industria: 'Distribución',health: 30, ingresos: 0,    ejecutivo: 'Ana Ruiz',     ciudad: 'Barranquilla' },
-  { id: 8, codigo: 'CLI-2026-008', razon_social: 'Logística Sur S.A.S.',    nit: '900654321-2', estado: 'CLIENTE_INACTIVO', segmento: 'MEDIANA',   industria: 'Logística',  health: 38, ingresos: 420,  ejecutivo: 'Pedro Díaz',   ciudad: 'Cali' },
-]
-
-const CLIENTE_360 = {
-  razon_social: 'Almacenes Éxito S.A.',
-  nit: '860007380-5',
-  health: 88,
-  estado: 'CLIENTE_ACTIVO',
-  segmento: 'CORPORATIVO',
-  ejecutivo: 'Laura Soto',
-  kpis: [
-    { label: 'Ingresos YTD', value: '$4.8B', color: CRM_COLOR },
-    { label: 'OTIF', value: '93.4%', color: '#059669' },
-    { label: 'NPS', value: '+62', color: '#0EA5E9' },
-    { label: 'Tickets Abiertos', value: '2', color: '#F59E0B' },
-    { label: 'Contratos Activos', value: '3', color: '#7C3AED' },
-    { label: 'Churn Risk', value: '8%', color: '#059669' },
-  ],
-  contratos: [
-    { codigo: 'CON-2026-003', nombre: 'Operación Logística Nacional', estado: 'ACTIVO', vencimiento: '2027-01-15' },
-    { codigo: 'CON-2025-021', nombre: 'Servicio WMS Bogotá', estado: 'ACTIVO', vencimiento: '2026-12-31' },
-  ],
-  tickets: [
-    { codigo: 'TKT-2026-045', asunto: 'Retraso en despacho zona norte', estado: 'EN_PROCESO', prioridad: 'ALTA' },
-    { codigo: 'TKT-2026-038', asunto: 'Descuadre de inventario CD Bogotá', estado: 'RESUELTO', prioridad: 'MEDIA' },
-  ],
-  historial: [
-    { fecha: '2026-06-18', tipo: 'REUNION', desc: 'Revisión trimestral de KPIs — satisfacción alta' },
-    { fecha: '2026-05-22', tipo: 'EMAIL', desc: 'Propuesta renovación contrato CON-2026-003' },
-    { fecha: '2026-04-10', tipo: 'LLAMADA', desc: 'Seguimiento incidente de picking — resuelto' },
-  ],
-}
-
-function HealthBar({ score }: { score: number }) {
-  const col = score >= 75 ? '#059669' : score >= 50 ? CRM_COLOR : '#EF4444'
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <Box sx={{ width: 50, height: 5, borderRadius: 3, bgcolor: '#EEF2F7', overflow: 'hidden' }}>
-        <Box sx={{ height: '100%', width: `${score}%`, bgcolor: col, borderRadius: 3 }} />
-      </Box>
-      <Typography sx={{ fontSize: 11, fontWeight: 700, color: col }}>{score}</Typography>
-    </Box>
-  )
-}
+const OPCIONES_ESTADO = ['PROSPECTO', 'LEAD', 'CLIENTE_ACTIVO',
+                         'CLIENTE_INACTIVO', 'EXCLIENTE']
+  .map(v => ({ valor: v, etiqueta: legible(v) }))
+const OPCIONES_SEGMENTO = ['CORPORATIVO', 'ESTRATEGICO', 'MEDIANA', 'PEQUENA']
+  .map(v => ({ valor: v, etiqueta: legible(v) }))
+const OPCIONES_TIPO = ['EMPRESA', 'PERSONA_NATURAL', 'GOBIERNO']
+  .map(v => ({ valor: v, etiqueta: legible(v) }))
 
 export default function CRMClientes() {
-  const [tab, setTab]       = useState(0)
-  const [busqueda, setBus]  = useState('')
+  const [tab, setTab] = useState(0)
+  const [busqueda, setBusqueda] = useState('')
   const [estado, setEstado] = useState('Todos')
+  const [elegido, setElegido] = useState<number | null>(null)
 
-  const ESTADOS = ['Todos', 'CLIENTE_ACTIVO', 'LEAD', 'PROSPECTO', 'CLIENTE_INACTIVO']
-  const filtrados = CLIENTES.filter(c => {
-    const matchB = c.razon_social.toLowerCase().includes(busqueda.toLowerCase()) || c.codigo.toLowerCase().includes(busqueda.toLowerCase())
-    const matchE = estado === 'Todos' || c.estado === estado
-    return matchB && matchE
+  const clientes = useQuery({
+    queryKey: ['crm', 'clientes', estado, busqueda],
+    queryFn: () => crmApi.clientes({
+      estado: estado === 'Todos' ? undefined : estado,
+      q: busqueda.trim() || undefined,
+    }),
   })
+  const ejecutivos = useQuery({
+    queryKey: ['crm', 'ejecutivos'],
+    queryFn: () => crmApi.ejecutivos(),
+    staleTime: 10 * 60 * 1000,
+  })
+
+  const nombreEjecutivo = (id?: number | null) =>
+    ejecutivos.data?.find(e => e.id === id)?.nombre ?? '—'
+
+  // El código es la llave del cliente y no se cambia después de crearlo: hay
+  // contratos, tickets y cotizaciones que lo citan en papel.
+  const campos = (registro: ClienteCRM | null): CampoEntidad[] => [
+    { clave: 'codigo', etiqueta: 'Código', tipo: 'texto', obligatorio: true,
+      ancho: 4, soloLectura: !!registro,
+      ayuda: registro ? 'No se cambia: hay documentos que lo citan.'
+                      : 'Por ejemplo CLI-2026-001.' },
+    { clave: 'razon_social', etiqueta: 'Razón social', tipo: 'texto',
+      obligatorio: true, ancho: 8 },
+    { clave: 'nit', etiqueta: 'NIT', tipo: 'texto', ancho: 4 },
+    { clave: 'tipo', etiqueta: 'Tipo', tipo: 'seleccion', ancho: 4,
+      opciones: OPCIONES_TIPO, porDefecto: 'EMPRESA' },
+    { clave: 'estado', etiqueta: 'Estado', tipo: 'seleccion', ancho: 4,
+      opciones: OPCIONES_ESTADO, porDefecto: 'PROSPECTO',
+      ayuda: registro ? undefined
+        : 'Nace como prospecto; pasa a cliente al ganar una oportunidad.' },
+    { clave: 'segmento', etiqueta: 'Segmento', tipo: 'seleccion', ancho: 4,
+      opciones: OPCIONES_SEGMENTO },
+    { clave: 'industria', etiqueta: 'Industria', tipo: 'texto', ancho: 4 },
+    { clave: 'ciudad', etiqueta: 'Ciudad', tipo: 'texto', ancho: 4 },
+    { clave: 'ejecutivo_id', etiqueta: 'Ejecutivo a cargo', tipo: 'referencia',
+      ancho: 6,
+      referencias: (ejecutivos.data ?? []).map(e => ({ valor: e.id, etiqueta: e.nombre })) },
+    { clave: 'potencial_anual', etiqueta: 'Potencial anual', tipo: 'dinero',
+      ancho: 6, minimo: 0,
+      ayuda: 'Cuánto podría facturar al año. De aquí sale la señal de ampliar.' },
+    { clave: 'direccion', etiqueta: 'Dirección', tipo: 'texto', ancho: 6 },
+    { clave: 'telefono', etiqueta: 'Teléfono', tipo: 'texto', ancho: 3 },
+    { clave: 'email', etiqueta: 'Correo', tipo: 'texto', ancho: 3 },
+    { clave: 'sitio_web', etiqueta: 'Sitio web', tipo: 'texto', ancho: 6 },
+    { clave: 'notas', etiqueta: 'Notas', tipo: 'parrafo' },
+  ]
+
+  const crud = useCrud<ClienteCRM>({
+    nombre: 'cliente',
+    campos,
+    titulo: c => c.razon_social,
+    crear: d => crmApi.crearCliente(d),
+    editar: (id, d) => crmApi.editarCliente(id, d),
+    eliminar: id => crmApi.borrarCliente(id),
+    consecuencia: () =>
+      'Se eliminan también sus contactos, sus interacciones y sus encuestas. '
+      + 'Si tiene contratos, tickets, oportunidades o cotizaciones, el borrado '
+      + 'se niega para no perder esa historia.',
+    exigeEscribir: c => c.razon_social,
+  })
+
+  const abrir360 = (id: number) => { setElegido(id); setTab(1) }
 
   return (
     <Layout>
@@ -92,136 +122,357 @@ export default function CRMClientes() {
           }}>
             <People sx={{ color: '#fff', fontSize: 22 }} />
           </Box>
-          <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Clientes</Typography>
+          <Box sx={{ flex: 1 }}>
+            <Typography sx={{ fontSize: 20, fontWeight: 800 }}>Clientes</Typography>
             <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
-              Customer 360 · Portafolio · Salud · Visión integrada
+              Portafolio, salud de la cuenta y vista integrada
             </Typography>
           </Box>
+          <crud.BotonNuevo />
         </Box>
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)}
-          sx={{ mb: 3, '& .MuiTab-root': { color: 'text.secondary', textTransform: 'none', fontWeight: 600 }, '& .Mui-selected': { color: `${CRM_COLOR} !important` }, '& .MuiTabs-indicator': { bgcolor: CRM_COLOR } }}>
-          <Tab label={`Portafolio (${CLIENTES.length})`} />
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{
+          mb: 3,
+          '& .MuiTab-root': { color: 'text.secondary', textTransform: 'none', fontWeight: 600 },
+          '& .Mui-selected': { color: `${CRM_COLOR} !important` },
+          '& .MuiTabs-indicator': { bgcolor: CRM_COLOR },
+        }}>
+          <Tab label={`Portafolio${clientes.data ? ` (${clientes.data.length})` : ''}`} />
           <Tab label="Vista 360°" />
         </Tabs>
 
         {tab === 0 && (
           <>
             <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-              <Box sx={{ display: 'flex', gap: 1, flex: 1, minWidth: 200, bgcolor: 'background.paper', border: `1px solid ${BORDER}`, borderRadius: 2, px: 2, py: 1, alignItems: 'center' }}>
+              <Box sx={{
+                display: 'flex', gap: 1, flex: 1, minWidth: 200,
+                bgcolor: 'background.paper', border: `1px solid ${BORDE}`,
+                borderRadius: 2, px: 2, py: 1, alignItems: 'center',
+              }}>
                 <Search sx={{ color: 'text.disabled', fontSize: 20 }} />
-                <InputBase placeholder="Buscar cliente..." value={busqueda} onChange={e => setBus(e.target.value)} sx={{ flex: 1, color: 'text.primary', fontSize: 13.5 }} />
+                <InputBase placeholder="Buscar por razón social o código…"
+                  value={busqueda} onChange={e => setBusqueda(e.target.value)}
+                  sx={{ flex: 1, fontSize: 13.5 }} />
               </Box>
               {ESTADOS.map(e => (
-                <Chip key={e} label={e === 'Todos' ? 'Todos' : e.replace('_', ' ')} size="small" onClick={() => setEstado(e)}
-                  sx={{ cursor: 'pointer', bgcolor: estado === e ? CRM_COLOR : '#F1F5F9', color: estado === e ? '#FFF' : 'text.secondary', fontWeight: estado === e ? 700 : 400 }} />
+                <Chip key={e} label={e === 'Todos' ? 'Todos' : legible(e)} size="small"
+                  onClick={() => setEstado(e)}
+                  sx={{
+                    cursor: 'pointer',
+                    bgcolor: estado === e ? CRM_COLOR : '#F1F5F9',
+                    color: estado === e ? '#FFF' : 'text.secondary',
+                    fontWeight: estado === e ? 700 : 400,
+                  }} />
               ))}
             </Box>
-            <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${BORDER}`, borderRadius: 2, overflow: 'hidden' }}>
-              <Box sx={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr>
-                      {['Código', 'Cliente', 'NIT', 'Estado', 'Segmento', 'Industria', 'Health', 'Ingresos YTD', 'Ejecutivo'].map(h => (
-                        <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#6B7280', borderBottom: '1px solid #F1F5F9', whiteSpace: 'nowrap' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtrados.map((c, i) => {
-                      const ecol = ESTADO_COLOR[c.estado] || '#94A3B8'
-                      const scol = SEGMENTO_COLOR[c.segmento] || '#94A3B8'
-                      return (
-                        <tr key={i} style={{ borderBottom: '1px solid #F9FAFB' }}>
-                          <td style={{ padding: '10px 14px', fontSize: 11.5, color: CRM_COLOR, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{c.codigo}</td>
-                          <td style={{ padding: '10px 14px', fontSize: 13, color: '#111827', fontWeight: 600, whiteSpace: 'nowrap' }}>{c.razon_social}</td>
-                          <td style={{ padding: '10px 14px', fontSize: 11.5, color: '#6B7280', fontFamily: 'monospace' }}>{c.nit}</td>
-                          <td style={{ padding: '10px 14px' }}>
-                            <Chip label={c.estado.replace(/_/g, ' ')} size="small" sx={{ bgcolor: alpha(ecol, 0.15), color: ecol, border: `1px solid ${alpha(ecol, 0.3)}`, fontSize: 10, fontWeight: 600 }} />
-                          </td>
-                          <td style={{ padding: '10px 14px' }}>
-                            <Chip label={c.segmento} size="small" sx={{ bgcolor: alpha(scol, 0.12), color: scol, fontSize: 10 }} />
-                          </td>
-                          <td style={{ padding: '10px 14px', fontSize: 12, color: '#6B7280', whiteSpace: 'nowrap' }}>{c.industria}</td>
-                          <td style={{ padding: '10px 14px' }}><HealthBar score={c.health} /></td>
-                          <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: c.ingresos > 0 ? CRM_COLOR : '#9CA3AF' }}>
-                            {c.ingresos > 0 ? `$${(c.ingresos / 1000).toFixed(1)}B` : '—'}
-                          </td>
-                          <td style={{ padding: '10px 14px', fontSize: 12, color: '#6B7280', whiteSpace: 'nowrap' }}>{c.ejecutivo}</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </Box>
-            </Box>
+
+            <Panel>
+              <Estado
+                cargando={clientes.isLoading} error={clientes.error}
+                vacio={!clientes.data?.length}
+                mensajeVacio={busqueda || estado !== 'Todos'
+                  ? 'Ningún cliente coincide con ese filtro'
+                  : 'Todavía no hay clientes registrados'}
+                hint={busqueda || estado !== 'Todos'
+                  ? 'Pruebe con otro texto o quite el filtro de estado.'
+                  : 'Los prospectos se vuelven clientes al ganar una oportunidad.'}
+              >
+                <Box sx={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <Encabezados columnas={['Código', 'Cliente', 'NIT', 'Estado',
+                      'Segmento', 'Industria', 'Salud', 'Ingresos del año',
+                      'Ejecutivo', 'Ciudad', '']} />
+                    <tbody>
+                      {clientes.data?.map(c => {
+                        const ec = COLOR_ESTADO_CLIENTE[c.estado] || '#94A3B8'
+                        const sc = COLOR_SEGMENTO[c.segmento || ''] || '#94A3B8'
+                        return (
+                          <tr key={c.id} onClick={() => abrir360(c.id)}
+                            style={{ borderBottom: '1px solid #F9FAFB', cursor: 'pointer' }}>
+                            <td style={{ padding: '10px 14px', fontSize: 11.5, color: CRM_COLOR, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{c.codigo}</td>
+                            <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>{c.razon_social}</td>
+                            <td style={{ padding: '10px 14px', fontSize: 11.5, color: '#6B7280', fontFamily: 'monospace' }}>{c.nit || '—'}</td>
+                            <td style={{ padding: '10px 14px' }}>
+                              <Chip label={legible(c.estado)} size="small" sx={{
+                                bgcolor: alpha(ec, 0.15), color: ec,
+                                border: `1px solid ${alpha(ec, 0.3)}`,
+                                fontSize: 10, fontWeight: 600,
+                              }} />
+                            </td>
+                            <td style={{ padding: '10px 14px' }}>
+                              {c.segmento
+                                ? <Chip label={legible(c.segmento)} size="small"
+                                    sx={{ bgcolor: alpha(sc, 0.12), color: sc, fontSize: 10 }} />
+                                : <span style={{ color: '#9CA3AF' }}>—</span>}
+                            </td>
+                            <td style={{ padding: '10px 14px', fontSize: 12, color: '#6B7280', whiteSpace: 'nowrap' }}>{c.industria || '—'}</td>
+                            <td style={{ padding: '10px 14px' }}><BarraSalud score={c.health_score} /></td>
+                            <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', color: num(c.ingresos_ytd) > 0 ? CRM_COLOR : '#9CA3AF' }}>
+                              {pesos(c.ingresos_ytd)}
+                            </td>
+                            <td style={{ padding: '10px 14px', fontSize: 12, color: '#6B7280', whiteSpace: 'nowrap' }}>{nombreEjecutivo(c.ejecutivo_id)}</td>
+                            <td style={{ padding: '10px 14px', fontSize: 12, color: '#6B7280', whiteSpace: 'nowrap' }}>{c.ciudad || '—'}</td>
+                            <td style={{ padding: '4px 8px' }}>
+                              <crud.Acciones registro={c} />
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </Box>
+              </Estado>
+            </Panel>
           </>
         )}
 
         {tab === 1 && (
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12 }}>
-              <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${BORDER}`, borderRadius: 2, p: 2.5 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2, mb: 2 }}>
-                  <Box>
-                    <Typography sx={{ fontSize: 18, fontWeight: 800, color: 'text.primary' }}>{CLIENTE_360.razon_social}</Typography>
-                    <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>NIT: {CLIENTE_360.nit} · Ejecutivo: {CLIENTE_360.ejecutivo}</Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    <Chip label={CLIENTE_360.estado.replace('_', ' ')} size="small" sx={{ bgcolor: alpha('#059669', 0.15), color: '#059669', fontWeight: 700 }} />
-                    <Chip label={CLIENTE_360.segmento} size="small" sx={{ bgcolor: alpha(CRM_COLOR, 0.15), color: CRM_COLOR, fontWeight: 700 }} />
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.5, py: 0.5, bgcolor: '#F1F5F9', borderRadius: 1 }}>
-                      <Typography sx={{ fontSize: 11.5, color: 'text.secondary' }}>Health</Typography>
-                      <HealthBar score={CLIENTE_360.health} />
-                    </Box>
-                  </Box>
-                </Box>
-                <Grid container spacing={1.5}>
-                  {CLIENTE_360.kpis.map((k, i) => (
-                    <Grid key={i} size={{ xs: 6, sm: 4, md: 2 }}>
-                      <Box sx={{ bgcolor: alpha(k.color, 0.08), border: `1px solid ${alpha(k.color, 0.2)}`, borderRadius: 1.5, p: 1.5, textAlign: 'center' }}>
-                        <Typography sx={{ fontSize: 20, fontWeight: 900, color: k.color }}>{k.value}</Typography>
-                        <Typography sx={{ fontSize: 10.5, color: 'text.secondary' }}>{k.label}</Typography>
-                      </Box>
-                    </Grid>
-                  ))}
-                </Grid>
+          elegido == null ? (
+            <Panel>
+              <Estado vacio mensajeVacio="Escoja un cliente para ver su ficha"
+                hint="Vuelva al portafolio y haga clic sobre una fila.">
+                <span />
+              </Estado>
+              <Box sx={{ p: 2, pt: 0, textAlign: 'center' }}>
+                <Button size="small" startIcon={<ArrowBack />} onClick={() => setTab(0)}
+                  sx={{ textTransform: 'none', color: CRM_COLOR }}>
+                  Ir al portafolio
+                </Button>
               </Box>
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${BORDER}`, borderRadius: 2, p: 2.5 }}>
-                <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary', mb: 1.5 }}>Contratos Activos</Typography>
-                {CLIENTE_360.contratos.map((c, i) => (
-                  <Box key={i} sx={{ p: 1.5, mb: 1, bgcolor: '#F9FAFB', borderRadius: 1.5, border: `1px solid ${BORDER}` }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: 'text.primary' }}>{c.nombre}</Typography>
-                      <Chip label={c.estado} size="small" sx={{ bgcolor: alpha('#059669', 0.15), color: '#059669', fontSize: 9.5 }} />
-                    </Box>
-                    <Typography sx={{ fontSize: 11, color: 'text.disabled', mt: 0.5 }}>Vence: {c.vencimiento} · {c.codigo}</Typography>
-                  </Box>
-                ))}
-              </Box>
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${BORDER}`, borderRadius: 2, p: 2.5 }}>
-                <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary', mb: 1.5 }}>Historial de Interacciones</Typography>
-                {CLIENTE_360.historial.map((h, i) => (
-                  <Box key={i} sx={{ display: 'flex', gap: 1.5, mb: 1.5, p: 1.5, bgcolor: '#F9FAFB', borderRadius: 1.5 }}>
-                    <Box sx={{ textAlign: 'center', flexShrink: 0 }}>
-                      <Chip label={h.tipo} size="small" sx={{ bgcolor: alpha(CRM_COLOR, 0.15), color: CRM_COLOR, fontSize: 9.5 }} />
-                      <Typography sx={{ fontSize: 10, color: 'text.disabled', mt: 0.5, display: 'block' }}>{h.fecha}</Typography>
-                    </Box>
-                    <Typography sx={{ fontSize: 12.5, color: 'text.secondary', lineHeight: 1.5, pt: 0.5 }}>{h.desc}</Typography>
-                  </Box>
-                ))}
-              </Box>
-            </Grid>
-          </Grid>
+            </Panel>
+          ) : (
+            <Vista360 clienteId={elegido} volver={() => setTab(0)}
+              ejecutivo={nombreEjecutivo} />
+          )
         )}
+
+        <crud.Dialogos />
       </Box>
     </Layout>
+  )
+}
+
+function Vista360({ clienteId, volver, ejecutivo }: {
+  clienteId: number
+  volver: () => void
+  ejecutivo: (id?: number | null) => string
+}) {
+  const cliente = useQuery({
+    queryKey: ['crm', 'cliente', clienteId],
+    queryFn: () => crmApi.cliente(clienteId),
+  })
+  const contratos = useQuery({
+    queryKey: ['crm', 'contratos', clienteId],
+    queryFn: () => crmApi.contratos({ cliente_id: clienteId }),
+  })
+  const tickets = useQuery({
+    queryKey: ['crm', 'tickets', clienteId],
+    queryFn: () => crmApi.tickets({ cliente_id: clienteId }),
+  })
+  const interacciones = useQuery({
+    queryKey: ['crm', 'interacciones', clienteId],
+    queryFn: () => crmApi.interacciones({ cliente_id: clienteId }),
+  })
+  const encuestas = useQuery({
+    queryKey: ['crm', 'encuestas', clienteId],
+    queryFn: () => crmApi.encuestas({ cliente_id: clienteId }),
+  })
+
+  const c = cliente.data
+  const abiertos = (tickets.data ?? []).filter(
+    t => ['ABIERTO', 'EN_PROCESO', 'ESCALADO'].includes(t.estado))
+  const vigentes = (contratos.data ?? []).filter(k => k.estado === 'ACTIVO')
+
+  // El NPS se calcula solo con las encuestas de tipo NPS y respondidas. Mezclar
+  // CSAT (1 a 5) con NPS (0 a 10) daría un promedio que no significa nada, y
+  // contar las no respondidas como cero hundiría la cifra sin motivo.
+  const respuestasNps = (encuestas.data ?? [])
+    .filter(e => e.tipo === 'NPS' && e.respondida && e.puntaje != null)
+    .map(e => e.puntaje as number)
+  const nps = respuestasNps.length
+    ? Math.round(
+        ((respuestasNps.filter(p => p >= 9).length -
+          respuestasNps.filter(p => p <= 6).length) / respuestasNps.length) * 100)
+    : null
+
+  const mensual = vigentes.reduce((s, k) => s + num(k.valor_mensual), 0)
+
+  return (
+    <Estado cargando={cliente.isLoading} error={cliente.error} vacio={!c}
+      mensajeVacio="Ese cliente ya no existe">
+      <Grid container spacing={2}>
+        <Grid size={{ xs: 12 }}>
+          <Panel sx={{ p: 2.5 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between',
+                       alignItems: 'flex-start', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+              <Box>
+                <Button size="small" startIcon={<ArrowBack sx={{ fontSize: 15 }} />}
+                  onClick={volver}
+                  sx={{ textTransform: 'none', color: CRM_COLOR, mb: 0.5, ml: -1 }}>
+                  Portafolio
+                </Button>
+                <Typography sx={{ fontSize: 18, fontWeight: 800 }}>
+                  {c!.razon_social}
+                </Typography>
+                <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
+                  {c!.codigo} · NIT {c!.nit || '—'} · Ejecutivo: {ejecutivo(c!.ejecutivo_id)}
+                  {c!.ciudad ? ` · ${c!.ciudad}` : ''}
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                <Chip label={legible(c!.estado)} size="small" sx={{
+                  bgcolor: alpha(COLOR_ESTADO_CLIENTE[c!.estado] || '#94A3B8', 0.15),
+                  color: COLOR_ESTADO_CLIENTE[c!.estado] || '#94A3B8', fontWeight: 700,
+                }} />
+                {c!.segmento && (
+                  <Chip label={legible(c!.segmento)} size="small" sx={{
+                    bgcolor: alpha(CRM_COLOR, 0.15), color: CRM_COLOR, fontWeight: 700,
+                  }} />
+                )}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75,
+                           px: 1.5, py: 0.5, bgcolor: '#F1F5F9', borderRadius: 1 }}>
+                  <Typography sx={{ fontSize: 11.5, color: 'text.secondary' }}>Salud</Typography>
+                  <BarraSalud score={c!.health_score} />
+                </Box>
+              </Box>
+            </Box>
+
+            <Grid container spacing={1.5}>
+              <Grid size={{ xs: 6, sm: 4, md: 2 }}>
+                <Indicador etiqueta="Ingresos del año" valor={pesos(c!.ingresos_ytd)} />
+              </Grid>
+              <Grid size={{ xs: 6, sm: 4, md: 2 }}>
+                <Indicador etiqueta="Facturación mensual" color="#059669"
+                  valor={pesos(mensual)} nota={`${vigentes.length} contrato(s)`} />
+              </Grid>
+              <Grid size={{ xs: 6, sm: 4, md: 2 }}>
+                <Indicador etiqueta="NPS" color="#0EA5E9"
+                  valor={nps == null ? '—' : (nps > 0 ? `+${nps}` : String(nps))}
+                  nota={respuestasNps.length
+                    ? `${respuestasNps.length} respuesta(s)`
+                    : 'sin encuestas respondidas'} />
+              </Grid>
+              <Grid size={{ xs: 6, sm: 4, md: 2 }}>
+                <Indicador etiqueta="Tickets abiertos" color="#F59E0B"
+                  valor={abiertos.length} />
+              </Grid>
+              <Grid size={{ xs: 6, sm: 4, md: 2 }}>
+                <Indicador etiqueta="Potencial anual" color="#7C3AED"
+                  valor={pesos(c!.potencial_anual)} />
+              </Grid>
+              <Grid size={{ xs: 6, sm: 4, md: 2 }}>
+                <Indicador etiqueta="Riesgo de pérdida"
+                  color={c!.health_score >= 70 ? '#059669' : '#EF4444'}
+                  valor={porcentaje(Math.max(0, 100 - c!.health_score) / 2, 0)}
+                  nota="derivado de la salud" />
+              </Grid>
+            </Grid>
+          </Panel>
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Panel sx={{ p: 2.5 }}>
+            <Typography sx={{ fontSize: 13, fontWeight: 700, mb: 1.5 }}>
+              Contratos
+            </Typography>
+            <Estado cargando={contratos.isLoading} error={contratos.error}
+              vacio={!contratos.data?.length}
+              mensajeVacio="Sin contratos"
+              hint="Se crean al ganar una oportunidad.">
+              {contratos.data?.map(k => (
+                <Box key={k.id} sx={{
+                  p: 1.5, mb: 1, bgcolor: '#F9FAFB', borderRadius: 1.5,
+                  border: `1px solid ${BORDE}`,
+                }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
+                    <Typography sx={{ fontSize: 12.5, fontWeight: 600 }}>{k.nombre}</Typography>
+                    <Chip label={legible(k.estado)} size="small" sx={{
+                      bgcolor: alpha(k.estado === 'ACTIVO' ? '#059669' : '#94A3B8', 0.15),
+                      color: k.estado === 'ACTIVO' ? '#059669' : '#6B7280',
+                      fontSize: 9.5, flexShrink: 0,
+                    }} />
+                  </Box>
+                  <Typography sx={{ fontSize: 11, color: 'text.disabled', mt: 0.5 }}>
+                    {k.codigo} · {pesos(k.valor_mensual)}/mes · vence {fecha(k.fecha_fin)}
+                  </Typography>
+                </Box>
+              ))}
+            </Estado>
+          </Panel>
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Panel sx={{ p: 2.5 }}>
+            <Typography sx={{ fontSize: 13, fontWeight: 700, mb: 1.5 }}>
+              Tickets recientes
+            </Typography>
+            <Estado cargando={tickets.isLoading} error={tickets.error}
+              vacio={!tickets.data?.length} mensajeVacio="Sin tickets"
+              hint="Buena señal: este cliente no ha tenido que reclamar.">
+              {tickets.data?.slice(0, 6).map(t => (
+                <Box key={t.id} sx={{
+                  p: 1.5, mb: 1, bgcolor: '#F9FAFB', borderRadius: 1.5,
+                  border: `1px solid ${BORDE}`,
+                }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
+                    <Typography sx={{ fontSize: 12.5, fontWeight: 600 }}>{t.asunto}</Typography>
+                    <Chip label={legible(t.estado)} size="small" sx={{
+                      bgcolor: alpha(COLOR_TICKET[t.estado] || '#94A3B8', 0.15),
+                      color: COLOR_TICKET[t.estado] || '#6B7280',
+                      fontSize: 9.5, flexShrink: 0,
+                    }} />
+                  </Box>
+                  <Typography sx={{ fontSize: 11, color: 'text.disabled', mt: 0.5 }}>
+                    {t.codigo} · {legible(t.tipo)} · prioridad {t.prioridad.toLowerCase()}
+                  </Typography>
+                </Box>
+              ))}
+            </Estado>
+          </Panel>
+        </Grid>
+
+        <Grid size={{ xs: 12 }}>
+          <Panel sx={{ p: 2.5 }}>
+            <Typography sx={{ fontSize: 13, fontWeight: 700, mb: 1.5 }}>
+              Historial de interacciones
+            </Typography>
+            <Estado cargando={interacciones.isLoading} error={interacciones.error}
+              vacio={!interacciones.data?.length}
+              mensajeVacio="Todavía nadie ha registrado un contacto"
+              hint="Las llamadas y reuniones se anotan desde Interacciones.">
+              {interacciones.data
+                ?.slice()
+                .sort((a, b) => String(b.fecha_interaccion ?? '')
+                                  .localeCompare(String(a.fecha_interaccion ?? '')))
+                .slice(0, 12)
+                .map(h => (
+                  <Box key={h.id} sx={{
+                    display: 'flex', gap: 1.5, mb: 1.5, p: 1.5,
+                    bgcolor: '#F9FAFB', borderRadius: 1.5,
+                  }}>
+                    <Box sx={{ textAlign: 'center', flexShrink: 0, minWidth: 92 }}>
+                      <Chip label={legible(h.tipo)} size="small" sx={{
+                        bgcolor: alpha(CRM_COLOR, 0.15), color: CRM_COLOR, fontSize: 9.5,
+                      }} />
+                      <Typography sx={{ fontSize: 10, color: 'text.disabled', mt: 0.5, display: 'block' }}>
+                        {fechaHora(h.fecha_interaccion)}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography sx={{ fontSize: 12.5, fontWeight: 600 }}>
+                        {h.asunto || legible(h.tipo)}
+                      </Typography>
+                      <Typography sx={{ fontSize: 12, color: 'text.secondary', lineHeight: 1.5 }}>
+                        {h.descripcion || '—'}
+                        {h.resultado ? ` · ${h.resultado}` : ''}
+                      </Typography>
+                    </Box>
+                  </Box>
+                ))}
+            </Estado>
+          </Panel>
+        </Grid>
+      </Grid>
+    </Estado>
   )
 }

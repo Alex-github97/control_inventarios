@@ -29,7 +29,9 @@ from sqlalchemy.ext.asyncio import AsyncSession                # noqa: E402
 
 import app.main                                                # noqa: F401,E402
 from app.core.database import engine                           # noqa: E402
-from app.core import demo_hcm, demo_scm, demo_tms, demo_wms    # noqa: E402
+from app.core import (                                         # noqa: E402
+    demo_crm, demo_hcm, demo_scm, demo_tms, demo_wms,
+)
 
 # En orden de dependencia: `TRUNCATE` sin `CASCADE` es justamente lo que impide
 # borrar de más por accidente, y para eso el orden tiene que ser correcto.
@@ -56,6 +58,19 @@ TABLAS = {
         "tms_costo_viaje", "tms_pod", "tms_documento", "tms_evento",
         "tms_parada", "tms_viaje", "tms_punto_ruta", "tms_ruta",
         "tms_vehiculo", "tms_tipo_servicio", "tms_zona",
+    ],
+    # Comercial. Todo cuelga de `crm_cliente` y de `crm_ejecutivo_comercial`,
+    # asi que esos dos van de ultimos. `crm_encuesta` apunta a `crm_ticket`, y
+    # `crm_ticket` a `crm_contrato`: por eso el orden es hoja por hoja y no
+    # alfabetico.
+    "crm": [
+        "crm_kpi_diario", "crm_salud_cliente", "crm_riesgo_cliente",
+        "crm_actividad", "crm_objetivo_comercial", "crm_cuenta_clave",
+        "crm_encuesta", "crm_campana_cliente", "crm_campana",
+        "crm_interaccion", "crm_ticket", "crm_contrato_sla", "crm_contrato",
+        "crm_cotizacion_item", "crm_cotizacion", "crm_oportunidad",
+        "crm_lead", "crm_contacto", "crm_cliente",
+        "crm_ejecutivo_comercial",
     ],
     # Abastecimiento. Cuelga de `proveedores` y de `usuarios`.
     "scm": [
@@ -140,6 +155,14 @@ async def principal() -> None:
             comprobar = demo_tms.verificar
             regla = "los costos CUADRAN y el OTIF coincide con las fechas"
             falla = "¡los costos o el OTIF NO CUADRAN!"
+        elif args.modulo == "crm":
+            resumen = await demo_crm.sembrar_crm(
+                db, desde=args.desde, hasta=args.hasta,
+                leads_por_semana=args.por_dia, esquema=args.esquema,
+                avisar=print)
+            comprobar = demo_crm.verificar
+            regla = "el embudo es trazable: contrato -> oportunidad ganada -> prospecto"
+            falla = "¡el embudo comercial NO es trazable!"
         elif args.modulo == "scm":
             resumen = await demo_scm.sembrar_scm(
                 db, desde=args.desde, hasta=args.hasta,

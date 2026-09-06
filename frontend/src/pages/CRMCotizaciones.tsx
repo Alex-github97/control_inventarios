@@ -1,44 +1,117 @@
-import React, { useState } from 'react'
-import { Box, Typography, Tab, Tabs, Chip, alpha } from '@mui/material'
+/**
+ * Las cotizaciones y sus renglones.
+ *
+ * EL TOTAL SE REHACE
+ * Al abrir una cotización se traen sus renglones y se suman en pantalla. Si esa
+ * suma no coincide con el total guardado, la pantalla lo dice en vez de mostrar
+ * el total y callarse. Una cotización cuyo total no se puede rehacer renglón
+ * por renglón no sirve para negociar, y el descuadre casi siempre es un renglón
+ * que alguien editó sin recalcular.
+ */
+import { useState } from 'react'
+import {
+  Box, Typography, Tab, Tabs, Chip, alpha, Button,
+} from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { Receipt, CheckCircle, Schedule, Cancel } from '@mui/icons-material'
+import {
+  Description, CheckCircle, Cancel, Schedule, ArrowBack,
+} from '@mui/icons-material'
+import { useQuery } from '@tanstack/react-query'
 import { Layout } from '@/components/layout/Layout'
+import { crmApi, type Cotizacion } from '@/api/crm'
+import { useCrud } from '@/components/datos/useCrud'
+import type { CampoEntidad } from '@/components/datos/FormularioEntidad'
+import {
+  BORDE, CRM_COLOR, Encabezados, Estado, Indicador, Panel,
+  fecha, legible, num, pesos,
+} from '@/components/crm/comunes'
 
-import { COLOR_MODULO } from '@/config/marca'
-const CRM_COLOR = COLOR_MODULO
-const BORDER = '#E5E7EB'
-
-const ESTADO_CFG: Record<string, { color: string; icon: React.ReactNode }> = {
-  BORRADOR:  { color: '#94A3B8', icon: <Schedule sx={{ fontSize: 14 }} /> },
-  ENVIADA:   { color: '#0EA5E9', icon: <Schedule sx={{ fontSize: 14 }} /> },
-  APROBADA:  { color: '#059669', icon: <CheckCircle sx={{ fontSize: 14 }} /> },
-  RECHAZADA: { color: '#EF4444', icon: <Cancel sx={{ fontSize: 14 }} /> },
-  VENCIDA:   { color: '#F59E0B', icon: <Cancel sx={{ fontSize: 14 }} /> },
+const CFG_ESTADO: Record<string, { color: string; icono: JSX.Element }> = {
+  BORRADOR:  { color: '#94A3B8', icono: <Schedule sx={{ fontSize: 14 }} /> },
+  ENVIADA:   { color: '#0EA5E9', icono: <Schedule sx={{ fontSize: 14 }} /> },
+  APROBADA:  { color: '#059669', icono: <CheckCircle sx={{ fontSize: 14 }} /> },
+  RECHAZADA: { color: '#EF4444', icono: <Cancel sx={{ fontSize: 14 }} /> },
+  VENCIDA:   { color: '#F59E0B', icono: <Cancel sx={{ fontSize: 14 }} /> },
 }
-
-const COTIZACIONES = [
-  { id: 1, codigo: 'COT-2026-042', version: 1, oportunidad: 'OPO-2026-001', cliente: 'Almacenes Éxito S.A.',  ejecutivo: 'Laura Soto',  estado: 'APROBADA',  total: 4800, validez: 30, envio: '2026-06-01', vencimiento: '2026-07-01', servicios: ['Logística Integral', 'WMS', 'TMS'] },
-  { id: 2, codigo: 'COT-2026-041', version: 2, oportunidad: 'OPO-2026-002', cliente: 'Sodimac Colombia',     ejecutivo: 'Carlos Vega', estado: 'ENVIADA',   total: 3200, validez: 30, envio: '2026-06-10', vencimiento: '2026-07-10', servicios: ['WMS', 'TMS'] },
-  { id: 3, codigo: 'COT-2026-040', version: 1, oportunidad: 'OPO-2026-003', cliente: 'Grupo Nutresa',        ejecutivo: 'Ana Ruiz',    estado: 'BORRADOR',  total: 2150, validez: 45, envio: null,         vencimiento: null,         servicios: ['Transporte Dedicado'] },
-  { id: 4, codigo: 'COT-2026-039', version: 3, oportunidad: 'OPO-2026-004', cliente: 'Corona S.A.',          ejecutivo: 'Pedro Díaz',  estado: 'ENVIADA',   total: 6400, validez: 30, envio: '2026-06-12', vencimiento: '2026-07-12', servicios: ['Operación CD', 'Mano de Obra', 'Equipo'] },
-  { id: 5, codigo: 'COT-2026-038', version: 1, oportunidad: 'OPO-2026-005', cliente: 'Bancolombia',          ejecutivo: 'Laura Soto',  estado: 'RECHAZADA', total: 1800, validez: 30, envio: '2026-05-20', vencimiento: '2026-06-20', servicios: ['Logística'] },
-  { id: 6, codigo: 'COT-2026-037', version: 2, oportunidad: 'OPO-2026-007', cliente: 'Distribuidora Norte',  ejecutivo: 'Ana Ruiz',    estado: 'VENCIDA',   total: 1280, validez: 30, envio: '2026-05-01', vencimiento: '2026-05-31', servicios: ['Cross-Docking'] },
-]
-
-const ITEMS_EJEMPLO = [
-  { descripcion: 'Servicio de operación logística mensual', unidad: 'Mes', cantidad: 12, precio: 200, descuento: 5, total: 2280 },
-  { descripcion: 'Gestión de inventarios WMS',              unidad: 'Mes', cantidad: 12, precio: 80,  descuento: 0, total: 960 },
-  { descripcion: 'Transporte dedicado (10 vehículos)',       unidad: 'Mes', cantidad: 12, precio: 160, descuento: 0, total: 1920 },
-  { descripcion: 'Administración y coordinación',            unidad: 'Mes', cantidad: 12, precio: 35,  descuento: 0, total: 420 },
-]
 
 export default function CRMCotizaciones() {
   const [tab, setTab] = useState(0)
+  const [abierta, setAbierta] = useState<number | null>(null)
 
-  const aprobadas = COTIZACIONES.filter(c => c.estado === 'APROBADA').length
-  const enviadas  = COTIZACIONES.filter(c => c.estado === 'ENVIADA').length
-  const totalVal  = COTIZACIONES.filter(c => c.estado !== 'RECHAZADA' && c.estado !== 'VENCIDA').reduce((s, c) => s + c.total, 0)
-  const conversion = Math.round((aprobadas / COTIZACIONES.length) * 100)
+  const cotizaciones = useQuery({
+    queryKey: ['crm', 'cotizaciones'],
+    queryFn: () => crmApi.cotizaciones(),
+  })
+  const clientes = useQuery({
+    queryKey: ['crm', 'clientes', 'Todos', ''],
+    queryFn: () => crmApi.clientes(),
+    staleTime: 5 * 60 * 1000,
+  })
+  const oportunidades = useQuery({
+    queryKey: ['crm', 'oportunidades'],
+    queryFn: () => crmApi.oportunidades(),
+    staleTime: 60 * 1000,
+  })
+  const ejecutivos = useQuery({
+    queryKey: ['crm', 'ejecutivos'],
+    queryFn: () => crmApi.ejecutivos(),
+    staleTime: 10 * 60 * 1000,
+  })
+
+  const nombreCliente = (id: number) =>
+    clientes.data?.find(c => c.id === id)?.razon_social ?? `Cliente #${id}`
+  const nombreEjecutivo = (id?: number | null) =>
+    ejecutivos.data?.find(e => e.id === id)?.nombre ?? '—'
+
+  // Los totales NO se teclean: salen de los renglones. Un campo de total
+  // editable permite guardar una cotizacion cuyo total no coincide con lo que
+  // suma, y eso es justo lo que hace imposible sustentarla ante el cliente.
+  const campos = (registro: Cotizacion | null): CampoEntidad[] => [
+    { clave: 'codigo', etiqueta: 'Código', tipo: 'texto', obligatorio: true,
+      ancho: 4, soloLectura: !!registro },
+    { clave: 'cliente_id', etiqueta: 'Cliente', tipo: 'referencia',
+      obligatorio: true, ancho: 8, soloLectura: !!registro,
+      referencias: (clientes.data ?? []).map(c => ({ valor: c.id, etiqueta: c.razon_social })) },
+    { clave: 'oportunidad_id', etiqueta: 'Oportunidad', tipo: 'referencia', ancho: 6,
+      referencias: (oportunidades.data ?? []).map(o => ({
+        valor: o.id, etiqueta: `${o.codigo} · ${o.nombre}` })),
+      ayuda: 'De qué negocio sale esta propuesta.' },
+    { clave: 'ejecutivo_id', etiqueta: 'Ejecutivo', tipo: 'referencia', ancho: 6,
+      referencias: (ejecutivos.data ?? []).map(e => ({ valor: e.id, etiqueta: e.nombre })) },
+    { clave: 'estado', etiqueta: 'Estado', tipo: 'seleccion', ancho: 4,
+      porDefecto: 'BORRADOR',
+      opciones: ['BORRADOR', 'ENVIADA', 'APROBADA', 'RECHAZADA', 'VENCIDA']
+        .map(v => ({ valor: v, etiqueta: legible(v) })) },
+    { clave: 'validez_dias', etiqueta: 'Vigencia (días)', tipo: 'numero',
+      ancho: 4, minimo: 1, porDefecto: 30 },
+    { clave: 'fecha_envio', etiqueta: 'Enviada el', tipo: 'fecha', ancho: 4 },
+    { clave: 'fecha_vencimiento', etiqueta: 'Vence el', tipo: 'fecha', ancho: 6 },
+    { clave: 'notas', etiqueta: 'Notas', tipo: 'parrafo' },
+  ]
+
+  const crud = useCrud<Cotizacion>({
+    nombre: 'cotización', genero: 'f', campos,
+    titulo: c => c.codigo,
+    crear: d => crmApi.crearCotizacion(d),
+    editar: (id, d) => crmApi.editarCotizacion(id, d),
+    eliminar: id => crmApi.borrarCotizacion(id),
+    consecuencia: () =>
+      'Se eliminan también sus renglones. Si de ella salió un contrato, el '
+      + 'borrado se niega.',
+  })
+
+  const todas = cotizaciones.data ?? []
+  const cuenta = (e: string) => todas.filter(c => c.estado === e).length
+  const decididas = todas.filter(c => ['APROBADA', 'RECHAZADA'].includes(c.estado))
+  // La tasa de aprobación mira solo las decididas. Contar las que siguen en la
+  // mesa del cliente como si estuvieran rechazadas hunde la cifra sin motivo.
+  const tasa = decididas.length
+    ? Math.round((cuenta('APROBADA') / decididas.length) * 100) : null
+  const enMesa = todas
+    .filter(c => ['BORRADOR', 'ENVIADA'].includes(c.estado))
+    .reduce((s, c) => s + num(c.total), 0)
+
+  const abrir = (id: number) => { setAbierta(id); setTab(1) }
 
   return (
     <Layout>
@@ -49,142 +122,247 @@ export default function CRMCotizaciones() {
             background: `linear-gradient(135deg, ${CRM_COLOR} 0%, #B91C1C 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Receipt sx={{ color: '#fff', fontSize: 22 }} />
+            <Description sx={{ color: '#fff', fontSize: 22 }} />
           </Box>
-          <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Cotizaciones</Typography>
+          <Box sx={{ flex: 1 }}>
+            <Typography sx={{ fontSize: 20, fontWeight: 800 }}>Cotizaciones</Typography>
             <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
-              Generación · Versionamiento · Aprobaciones · Tarifarios
+              Propuestas enviadas, con su vigencia y su desglose
             </Typography>
           </Box>
+          <crud.BotonNuevo etiqueta="Nueva cotización" />
         </Box>
 
         <Grid container spacing={2} sx={{ mb: 3 }}>
           {[
-            { label: 'Total Cotizaciones', value: COTIZACIONES.length, color: CRM_COLOR },
-            { label: 'Enviadas',           value: enviadas,            color: '#0EA5E9' },
-            { label: 'Aprobadas',          value: aprobadas,           color: '#059669' },
-            { label: 'Tasa Conversión',    value: `${conversion}%`,    color: '#7C3AED' },
+            { label: 'En la mesa del cliente', value: pesos(enMesa), color: CRM_COLOR },
+            { label: 'Enviadas', value: cuenta('ENVIADA'), color: '#0EA5E9' },
+            { label: 'Aprobadas', value: cuenta('APROBADA'), color: '#059669' },
+            { label: 'Tasa de aprobación',
+              value: tasa == null ? '—' : `${tasa}%`, color: '#7C3AED' },
           ].map((k, i) => (
             <Grid key={i} size={{ xs: 6, md: 3 }}>
-              <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2, p: 2 }}>
-                <Typography sx={{ fontSize: 26, fontWeight: 900, color: 'text.primary', lineHeight: 1 }}>{k.value}</Typography>
-                <Typography sx={{ fontSize: 11, color: k.color, fontWeight: 600, mt: 0.25 }}>{k.label}</Typography>
+              <Box sx={{ border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2, p: 2 }}>
+                <Typography sx={{ fontSize: 24, fontWeight: 900, lineHeight: 1,
+                                  fontVariantNumeric: 'tabular-nums' }}>
+                  {cotizaciones.isLoading ? '·' : k.value}
+                </Typography>
+                <Typography sx={{ fontSize: 11, color: k.color, fontWeight: 600, mt: 0.25 }}>
+                  {k.label}
+                </Typography>
               </Box>
             </Grid>
           ))}
         </Grid>
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)}
-          sx={{ mb: 3, '& .MuiTab-root': { color: 'text.secondary', textTransform: 'none', fontWeight: 600 }, '& .Mui-selected': { color: `${CRM_COLOR} !important` }, '& .MuiTabs-indicator': { bgcolor: CRM_COLOR } }}>
-          <Tab label="Lista de Cotizaciones" />
-          <Tab label="Detalle de Cotización" />
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{
+          mb: 3,
+          '& .MuiTab-root': { color: 'text.secondary', textTransform: 'none', fontWeight: 600 },
+          '& .Mui-selected': { color: `${CRM_COLOR} !important` },
+          '& .MuiTabs-indicator': { bgcolor: CRM_COLOR },
+        }}>
+          <Tab label={`Lista${todas.length ? ` (${todas.length})` : ''}`} />
+          <Tab label="Detalle" />
         </Tabs>
 
         {tab === 0 && (
-          <Box sx={{ bgcolor: 'background.paper', border: `1px solid #E5E7EB`, borderRadius: 2, overflow: 'hidden' }}>
-            <Box sx={{ p: 2, borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between' }}>
-              <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary' }}>Cotizaciones ({COTIZACIONES.length})</Typography>
-              <Typography sx={{ fontSize: 12, color: CRM_COLOR, fontWeight: 700 }}>Pipeline cotizado: ${(totalVal / 1000).toFixed(1)}B</Typography>
-            </Box>
-            <Box sx={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    {['Código', 'Ver.', 'Cliente', 'Servicios', 'Total', 'Estado', 'Válido hasta', 'Ejecutivo', 'Oportunidad'].map(h => (
-                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#6B7280', borderBottom: '1px solid #F1F5F9', whiteSpace: 'nowrap' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {COTIZACIONES.map((c, i) => {
-                    const cfg = ESTADO_CFG[c.estado]
-                    return (
-                      <tr key={i} style={{ borderBottom: '1px solid #F9FAFB', cursor: 'pointer' }}
-                        onClick={() => setTab(1)}>
-                        <td style={{ padding: '10px 14px', fontSize: 11.5, color: CRM_COLOR, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{c.codigo}</td>
-                        <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                          <Box sx={{ width: 22, height: 22, borderRadius: '50%', bgcolor: alpha(CRM_COLOR, 0.15), display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Typography sx={{ fontSize: 10, fontWeight: 800, color: CRM_COLOR }}>v{c.version}</Typography>
-                          </Box>
-                        </td>
-                        <td style={{ padding: '10px 14px', fontSize: 13, color: '#111827', fontWeight: 600, whiteSpace: 'nowrap' }}>{c.cliente}</td>
-                        <td style={{ padding: '10px 14px' }}>
-                          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                            {c.servicios.map((s, j) => (
-                              <Chip key={j} label={s} size="small" sx={{ bgcolor: '#F1F5F9', color: 'text.secondary', fontSize: 9.5 }} />
-                            ))}
-                          </Box>
-                        </td>
-                        <td style={{ padding: '10px 14px', fontSize: 14, fontWeight: 800, color: CRM_COLOR, whiteSpace: 'nowrap' }}>${(c.total / 1000).toFixed(1)}B</td>
-                        <td style={{ padding: '10px 14px' }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                            <Box sx={{ color: cfg.color }}>{cfg.icon}</Box>
-                            <Chip label={c.estado} size="small" sx={{ bgcolor: alpha(cfg.color, 0.15), color: cfg.color, fontSize: 9.5, fontWeight: 600 }} />
-                          </Box>
-                        </td>
-                        <td style={{ padding: '10px 14px', fontSize: 11.5, color: '#6B7280', whiteSpace: 'nowrap' }}>{c.vencimiento || '—'}</td>
-                        <td style={{ padding: '10px 14px', fontSize: 12, color: '#6B7280', whiteSpace: 'nowrap' }}>{c.ejecutivo}</td>
-                        <td style={{ padding: '10px 14px', fontSize: 11, color: '#9CA3AF', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{c.oportunidad}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </Box>
-          </Box>
+          <Panel>
+            <Estado cargando={cotizaciones.isLoading} error={cotizaciones.error}
+              vacio={!todas.length}
+              mensajeVacio="Todavía no hay cotizaciones"
+              hint="Se crean desde una oportunidad que llegó a propuesta.">
+              <Box sx={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <Encabezados columnas={['Código', 'Ver.', 'Cliente', 'Subtotal',
+                    'IVA', 'Total', 'Estado', 'Enviada', 'Válida hasta', 'Ejecutivo', '']} />
+                  <tbody>
+                    {todas.map(c => {
+                      const cfg = CFG_ESTADO[c.estado] ?? { color: '#94A3B8', icono: null }
+                      return (
+                        <tr key={c.id} onClick={() => abrir(c.id)}
+                          style={{ borderBottom: `1px solid ${BORDE}`, cursor: 'pointer' }}>
+                          <td style={{ padding: '10px 14px', fontSize: 11.5, color: CRM_COLOR, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{c.codigo}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 12, color: '#6B7280' }}>v{c.version}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap' }}>{nombreCliente(c.cliente_id)}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 12, color: '#6B7280', whiteSpace: 'nowrap' }}>{pesos(c.subtotal)}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 12, color: '#6B7280', whiteSpace: 'nowrap' }}>{pesos(c.iva)}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 13.5, fontWeight: 800, color: CRM_COLOR, whiteSpace: 'nowrap' }}>{pesos(c.total)}</td>
+                          <td style={{ padding: '10px 14px' }}>
+                            <Chip icon={cfg.icono ?? undefined} label={legible(c.estado)}
+                              size="small" sx={{
+                                bgcolor: alpha(cfg.color, 0.15), color: cfg.color,
+                                fontSize: 9.5, fontWeight: 700,
+                                '& .MuiChip-icon': { color: cfg.color },
+                              }} />
+                          </td>
+                          <td style={{ padding: '10px 14px', fontSize: 11.5, color: '#6B7280', whiteSpace: 'nowrap' }}>{fecha(c.fecha_envio)}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 11.5, color: '#6B7280', whiteSpace: 'nowrap' }}>{fecha(c.fecha_vencimiento)}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 12, color: '#6B7280', whiteSpace: 'nowrap' }}>{nombreEjecutivo(c.ejecutivo_id)}</td>
+                          <td style={{ padding: '4px 8px' }}>
+                            <crud.Acciones registro={c} />
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </Box>
+            </Estado>
+          </Panel>
         )}
 
         {tab === 1 && (
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12 }}>
-              <Box sx={{ bgcolor: 'background.paper', border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2, mb: 2 }}>
-                  <Box>
-                    <Typography sx={{ fontSize: 18, fontWeight: 800, color: 'text.primary' }}>COT-2026-042 — Almacenes Éxito S.A.</Typography>
-                    <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 0.5 }}>
-                      Versión 1 · Oportunidad OPO-2026-001 · Ejecutivo: Laura Soto
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Chip label="APROBADA" size="small" sx={{ bgcolor: alpha('#059669', 0.15), color: '#059669', fontWeight: 700 }} />
-                    <Chip label="Vence: 2026-07-01" size="small" sx={{ bgcolor: '#F1F5F9', color: 'text.secondary' }} />
-                  </Box>
-                </Box>
-                <Box sx={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr>
-                        {['Descripción', 'Unidad', 'Cantidad', 'Precio Unit.', 'Dto.%', 'Total'].map(h => (
-                          <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#6B7280', borderBottom: '1px solid #E5E7EB' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {ITEMS_EJEMPLO.map((item, i) => (
-                        <tr key={i} style={{ borderBottom: '1px solid #F9FAFB' }}>
-                          <td style={{ padding: '8px 12px', fontSize: 12.5, color: '#111827' }}>{item.descripcion}</td>
-                          <td style={{ padding: '8px 12px', fontSize: 12, color: '#6B7280' }}>{item.unidad}</td>
-                          <td style={{ padding: '8px 12px', fontSize: 12, color: '#374151', textAlign: 'right' }}>{item.cantidad}</td>
-                          <td style={{ padding: '8px 12px', fontSize: 12, color: '#374151', textAlign: 'right' }}>${item.precio}M</td>
-                          <td style={{ padding: '8px 12px', fontSize: 12, color: item.descuento > 0 ? CRM_COLOR : '#9CA3AF', textAlign: 'right' }}>{item.descuento}%</td>
-                          <td style={{ padding: '8px 12px', fontSize: 13, fontWeight: 700, color: CRM_COLOR, textAlign: 'right' }}>${item.total}M</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr style={{ borderTop: '2px solid #E5E7EB' }}>
-                        <td colSpan={5} style={{ padding: '10px 12px', fontSize: 14, fontWeight: 800, color: '#111827', textAlign: 'right' }}>TOTAL</td>
-                        <td style={{ padding: '10px 12px', fontSize: 16, fontWeight: 900, color: CRM_COLOR, textAlign: 'right' }}>$5,580M</td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </Box>
+          abierta == null ? (
+            <Panel>
+              <Estado vacio mensajeVacio="Escoja una cotización para ver su desglose"
+                hint="Vuelva a la lista y haga clic sobre una fila.">
+                <span />
+              </Estado>
+              <Box sx={{ p: 2, pt: 0, textAlign: 'center' }}>
+                <Button size="small" startIcon={<ArrowBack />} onClick={() => setTab(0)}
+                  sx={{ textTransform: 'none', color: CRM_COLOR }}>
+                  Ir a la lista
+                </Button>
               </Box>
-            </Grid>
-          </Grid>
+            </Panel>
+          ) : (
+            <Detalle id={abierta} volver={() => setTab(0)}
+              cliente={nombreCliente} ejecutivo={nombreEjecutivo} />
+          )
         )}
+
+        <crud.Dialogos />
       </Box>
     </Layout>
+  )
+}
+
+function Detalle({ id, volver, cliente, ejecutivo }: {
+  id: number
+  volver: () => void
+  cliente: (id: number) => string
+  ejecutivo: (id?: number | null) => string
+}) {
+  const detalle = useQuery({
+    queryKey: ['crm', 'cotizacion', id],
+    queryFn: () => crmApi.cotizacion(id),
+  })
+
+  const c = detalle.data?.cotizacion
+  const items = detalle.data?.items ?? []
+  const suma = items.reduce((s, i) => s + num(i.total), 0)
+  // Un peso de diferencia es redondeo; más que eso es un renglón que alguien
+  // cambió sin recalcular, y hay que decirlo en vez de enseñar el total y callar.
+  const descuadre = c ? Math.abs(suma - num(c.subtotal)) > 1 : false
+  const cfg = c ? CFG_ESTADO[c.estado] ?? { color: '#94A3B8', icono: null } : null
+
+  return (
+    <Estado cargando={detalle.isLoading} error={detalle.error} vacio={!c}
+      mensajeVacio="Esa cotización ya no existe">
+      <Grid container spacing={2}>
+        <Grid size={{ xs: 12 }}>
+          <Panel sx={{ p: 2.5 }}>
+            <Button size="small" startIcon={<ArrowBack sx={{ fontSize: 15 }} />}
+              onClick={volver}
+              sx={{ textTransform: 'none', color: CRM_COLOR, mb: 0.5, ml: -1 }}>
+              Lista
+            </Button>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between',
+                       flexWrap: 'wrap', gap: 2, mb: 2 }}>
+              <Box>
+                <Typography sx={{ fontSize: 18, fontWeight: 800 }}>
+                  {c!.codigo} <Box component="span" sx={{ fontSize: 13, color: 'text.secondary', fontWeight: 500 }}>
+                    versión {c!.version}
+                  </Box>
+                </Typography>
+                <Typography sx={{ fontSize: 12.5, color: 'text.secondary' }}>
+                  {cliente(c!.cliente_id)} · {ejecutivo(c!.ejecutivo_id)}
+                </Typography>
+              </Box>
+              <Chip icon={cfg?.icono ?? undefined} label={legible(c!.estado)} sx={{
+                bgcolor: alpha(cfg!.color, 0.15), color: cfg!.color, fontWeight: 700,
+                '& .MuiChip-icon': { color: cfg!.color },
+              }} />
+            </Box>
+
+            <Grid container spacing={1.5}>
+              <Grid size={{ xs: 6, md: 3 }}>
+                <Indicador etiqueta="Subtotal" valor={pesos(c!.subtotal)} />
+              </Grid>
+              <Grid size={{ xs: 6, md: 3 }}>
+                <Indicador etiqueta="IVA" color="#0EA5E9" valor={pesos(c!.iva)} />
+              </Grid>
+              <Grid size={{ xs: 6, md: 3 }}>
+                <Indicador etiqueta="Total" color="#059669" valor={pesos(c!.total)} />
+              </Grid>
+              <Grid size={{ xs: 6, md: 3 }}>
+                <Indicador etiqueta="Válida hasta" color="#7C3AED"
+                  valor={<Box component="span" sx={{ fontSize: 15 }}>
+                    {fecha(c!.fecha_vencimiento)}
+                  </Box>}
+                  nota={`${c!.validez_dias} días desde el envío`} />
+              </Grid>
+            </Grid>
+
+            {descuadre && (
+              <Box sx={{
+                mt: 2, p: 1.5, borderRadius: 1.5,
+                bgcolor: alpha('#EF4444', 0.07),
+                border: `1px solid ${alpha('#EF4444', 0.3)}`,
+              }}>
+                <Typography sx={{ fontSize: 12.5, color: '#B91C1C', fontWeight: 600 }}>
+                  Los renglones suman {pesos(suma, { exacto: true })} y el subtotal
+                  guardado dice {pesos(c!.subtotal, { exacto: true })}. Revise los
+                  renglones antes de enviarla.
+                </Typography>
+              </Box>
+            )}
+          </Panel>
+        </Grid>
+
+        <Grid size={{ xs: 12 }}>
+          <Panel>
+            <Box sx={{ p: 2, borderBottom: `1px solid ${BORDE}` }}>
+              <Typography sx={{ fontSize: 14, fontWeight: 700 }}>
+                Renglones ({items.length})
+              </Typography>
+            </Box>
+            <Estado vacio={!items.length}
+              mensajeVacio="Esta cotización no tiene renglones"
+              hint="Un total sin renglones no se puede sustentar ante el cliente.">
+              <Box sx={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <Encabezados columnas={['Descripción', 'Unidad', 'Cantidad',
+                    'Precio unitario', 'Dcto.', 'Total']} />
+                  <tbody>
+                    {items.map(i => (
+                      <tr key={i.id} style={{ borderBottom: `1px solid ${BORDE}` }}>
+                        <td style={{ padding: '10px 14px', fontSize: 12.5, fontWeight: 500 }}>{i.descripcion}</td>
+                        <td style={{ padding: '10px 14px', fontSize: 12, color: '#6B7280' }}>{i.unidad || '—'}</td>
+                        <td style={{ padding: '10px 14px', fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>{num(i.cantidad).toLocaleString('es-CO')}</td>
+                        <td style={{ padding: '10px 14px', fontSize: 12, whiteSpace: 'nowrap' }}>{pesos(i.precio_unitario)}</td>
+                        <td style={{ padding: '10px 14px', fontSize: 12, color: num(i.descuento_pct) ? '#059669' : '#9CA3AF' }}>
+                          {num(i.descuento_pct) ? `${num(i.descuento_pct).toFixed(0)}%` : '—'}
+                        </td>
+                        <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: CRM_COLOR, whiteSpace: 'nowrap' }}>{pesos(i.total)}</td>
+                      </tr>
+                    ))}
+                    <tr style={{ background: '#F8FAFC' }}>
+                      <td colSpan={5} style={{ padding: '10px 14px', fontSize: 12.5, fontWeight: 700, textAlign: 'right' }}>
+                        Suma de los renglones
+                      </td>
+                      <td style={{ padding: '10px 14px', fontSize: 13.5, fontWeight: 900,
+                                   color: descuadre ? '#EF4444' : '#059669', whiteSpace: 'nowrap' }}>
+                        {pesos(suma)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </Box>
+            </Estado>
+          </Panel>
+        </Grid>
+      </Grid>
+    </Estado>
   )
 }

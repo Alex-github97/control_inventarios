@@ -1,61 +1,86 @@
-import React, { useState } from 'react'
-import { Box, Grid, Typography, Tab, Tabs, Chip, InputBase, alpha } from '@mui/material'
-import { AutoAwesome, Send, TrendingDown } from '@mui/icons-material'
+/**
+ * Señales comerciales: qué conviene hacer con cada cuenta, y por qué.
+ *
+ * POR QUÉ NO SE LLAMA «PREDICCIÓN»
+ * Porque no lo es. Son reglas explícitas sobre datos que ya están: quién
+ * factura por debajo de su potencial, a quién se le vence el contrato sin
+ * renovación automática, quién viene con la salud caída. Cada línea dice de qué
+ * dato sale, y por eso se puede discutir. Una recomendación que no se puede
+ * rebatir no se aplica: se ignora.
+ *
+ * QUÉ SE QUITÓ
+ * La maqueta tenía un asistente de chat con respuestas escritas a mano. No hay
+ * modelo detrás, y un chat que responde lo mismo pase lo que pase es peor que
+ * no tener chat: el cliente lo prueba dos veces y deja de creerle al resto del
+ * módulo. En su lugar va la lista de tareas pendientes, que sí es real.
+ */
+import { useState } from 'react'
+import { Box, Typography, Tab, Tabs, Chip, alpha, Button } from '@mui/material'
+import Grid from '@mui/material/Grid2'
+import {
+  AutoAwesome, TrendingUp, Autorenew, HealthAndSafety, Replay,
+  ArrowForward, TaskAlt,
+} from '@mui/icons-material'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
+import { crmApi } from '@/api/crm'
+import {
+  BORDE, CRM_COLOR, Estado, Panel, fecha, legible, num, pesos,
+} from '@/components/crm/comunes'
 
-import { COLOR_MODULO } from '@/config/marca'
-const CRM_COLOR = COLOR_MODULO
-const AI_COLOR  = COLOR_MODULO
-const AI_BOR    = 'rgba(139,92,246,0.25)'
-
-const RECOMENDACIONES = [
-  { cliente: 'Almacenes Éxito S.A.', tipo: 'UPSELLING',     score: 94, servicio: 'Servicio de etiquetado inteligente en CD', razon: 'Alto volumen de SKUs y crecimiento YoY 18%', potencial: 320 },
-  { cliente: 'Corona S.A.',          tipo: 'EXPANSION',     score: 91, servicio: 'Apertura CD Barranquilla — la compañía operador', razon: 'Expansión regional confirmada en board meeting', potencial: 800 },
-  { cliente: 'Sodimac Colombia',     tipo: 'CROSS_SELLING',  score: 88, servicio: 'Incorporar TMS para rutas urbanas',          razon: 'Actualmente tercerizan TMS con competidor', potencial: 480 },
-  { cliente: 'Bancolombia',          tipo: 'RETENTION',     score: 75, servicio: 'Contrato multi-año con beneficios exclusivos', razon: 'Contrato vence en 73 días — sin renovación iniciada', potencial: 1800 },
-  { cliente: 'Grupo Nutresa',        tipo: 'RECOVERY',      score: 62, servicio: 'Plan de mejora OTIF con SLA reforzado',       razon: 'OTIF en 82% — por debajo de meta contractual', potencial: 2150 },
-  { cliente: 'Pharmavida S.A.',      tipo: 'REACTIVATION',  score: 45, servicio: 'Propuesta de reactivo con nuevas tarifas',    razon: 'Contrato vencido hace 170 días sin renovación', potencial: 950 },
-]
-
-const TIPO_COLOR: Record<string, string> = {
-  UPSELLING: '#059669', EXPANSION: CRM_COLOR, CROSS_SELLING: '#0EA5E9',
-  RETENTION: '#F59E0B', RECOVERY: '#EF4444', REACTIVATION: '#7C3AED',
+const CFG_TIPO: Record<string, { color: string; icono: JSX.Element; nombre: string }> = {
+  AMPLIAR:   { color: '#059669', icono: <TrendingUp sx={{ fontSize: 16 }} />, nombre: 'Ampliar' },
+  RENOVAR:   { color: '#0EA5E9', icono: <Autorenew sx={{ fontSize: 16 }} />, nombre: 'Renovar' },
+  RECUPERAR: { color: '#EF4444', icono: <HealthAndSafety sx={{ fontSize: 16 }} />, nombre: 'Recuperar' },
+  REACTIVAR: { color: '#7C3AED', icono: <Replay sx={{ fontSize: 16 }} />, nombre: 'Reactivar' },
+  CONVERTIR: { color: CRM_COLOR, icono: <ArrowForward sx={{ fontSize: 16 }} />, nombre: 'Convertir' },
 }
 
-const CHURN_CLIENTES = [
-  { cliente: 'Pharmavida S.A.',  riesgo: 42, factores: ['Contrato vencido 170 días', 'OTIF históricamente bajo', 'Sin interacciones últimas 3 semanas'], color: '#EF4444' },
-  { cliente: 'Grupo Nutresa',    riesgo: 35, factores: ['OTIF 82% — bajo SLA 90%', '3 reclamos pendientes', 'NPS cayó de +48 a +28'], color: CRM_COLOR },
-  { cliente: 'Logística Sur',    riesgo: 28, factores: ['Contrato en estado INACTIVO', 'Sin pedidos últimos 60 días'], color: '#F59E0B' },
-]
-
-interface Msg { rol: 'user' | 'ia'; texto: string }
-
-const RESPUESTAS_IA: Record<string, string> = {
-  default: 'Analizo los datos CRM en tiempo real. ¿Qué cliente o proceso comercial te interesa revisar?',
-  exito: 'Almacenes Éxito S.A. tiene health score de 88/100. El contrato vence en 30 días — recomiendo iniciar renovación esta semana. Potencial de upselling en etiquetado: $320M.',
-  nutresa: 'Grupo Nutresa está en zona de riesgo. OTIF cayó al 82% vs meta 90%. Sugiero reunión urgente de plan de choque. Riesgo de churn: 35%. Si no se actúa, pérdida estimada: $2.15B.',
-  pipeline: 'Pipeline activo: $2.24B en 8 oportunidades. Top 3: Corona ($640M, 75%), Almacenes Éxito ($480M, 80%), TMS Pharmavida ($380M, 70%). Win rate actual: 64%.',
-  nps: 'NPS global: +48. Promotores 62%, Neutros 24%, Detractores 14%. Área crítica: Grupo Nutresa (NPS +28). Acción sugerida: encuesta post-mejora OTIF en 30 días.',
+const COLOR_RIESGO: Record<string, string> = {
+  BAJO: '#059669', MEDIO: '#F59E0B', ALTO: CRM_COLOR, CRITICO: '#EF4444',
 }
 
 export default function CRMIA() {
-  const [tab, setTab]     = useState(0)
-  const [msgs, setMsgs]   = useState<Msg[]>([
-    { rol: 'ia', texto: RESPUESTAS_IA.default },
-  ])
-  const [input, setInput] = useState('')
+  const qc = useQueryClient()
+  const [tab, setTab] = useState(0)
+  const [tipo, setTipo] = useState('Todas')
 
-  function enviar() {
-    if (!input.trim()) return
-    const txt = input.toLowerCase()
-    const res = txt.includes('éxito') || txt.includes('exito') ? RESPUESTAS_IA.exito
-      : txt.includes('nutresa') ? RESPUESTAS_IA.nutresa
-      : txt.includes('pipeline') ? RESPUESTAS_IA.pipeline
-      : txt.includes('nps') ? RESPUESTAS_IA.nps
-      : `Analizando "${input}"... En base a los datos CRM, te recomiendo revisar los KPIs de rentabilidad y salud del cliente seleccionado. ¿Quieres que profundice en pipeline, churn o contratos?`
-    setMsgs(prev => [...prev, { rol: 'user', texto: input }, { rol: 'ia', texto: res }])
-    setInput('')
-  }
+  const recomendaciones = useQuery({
+    queryKey: ['crm', 'recomendaciones'],
+    queryFn: () => crmApi.recomendaciones(),
+  })
+  const salud = useQuery({
+    queryKey: ['crm', 'salud'],
+    queryFn: () => crmApi.salud(),
+  })
+  const riesgos = useQuery({
+    queryKey: ['crm', 'riesgos'],
+    queryFn: () => crmApi.riesgos(),
+  })
+  const actividades = useQuery({
+    queryKey: ['crm', 'actividades'],
+    queryFn: () => crmApi.actividades({ pendientes: true }),
+  })
+
+  const completar = useMutation({
+    mutationFn: (id: number) => crmApi.completarActividad(id),
+    onSuccess: () => {
+      toast.success('Tarea marcada como hecha')
+      qc.invalidateQueries({ queryKey: ['crm', 'actividades'] })
+    },
+    onError: () => toast.error('No se pudo marcar la tarea'),
+  })
+
+  const todas = recomendaciones.data ?? []
+  const lista = tipo === 'Todas' ? todas : todas.filter(r => r.tipo === tipo)
+  const potencialTotal = todas.reduce((s, r) => s + num(r.potencial), 0)
+
+  // Ordenadas por riesgo de pérdida, que es lo contrario de la salud. Las
+  // cuentas sin contrato no tienen salud que medir y no salen aquí.
+  const enRiesgo = (salud.data ?? [])
+    .filter(s => s.health_score > 0 && s.health_score < 75)
+    .sort((a, b) => a.health_score - b.health_score)
 
   return (
     <Layout>
@@ -63,139 +88,273 @@ export default function CRMIA() {
         <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box sx={{
             width: 44, height: 44, borderRadius: '12px',
-            background: `linear-gradient(135deg, ${AI_COLOR} 0%, #7C3AED 100%)`,
+            background: `linear-gradient(135deg, ${CRM_COLOR} 0%, #B91C1C 100%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: `0 4px 14px rgba(139,92,246,0.4)`,
           }}>
             <AutoAwesome sx={{ color: '#fff', fontSize: 22 }} />
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>IA Comercial</Typography>
+            <Typography sx={{ fontSize: 20, fontWeight: 800 }}>
+              Señales comerciales
+            </Typography>
             <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
-              Lead Scoring · Predicción Churn · Recomendaciones · Asistente Comercial
+              Qué hacer con cada cuenta, con el dato del que sale
             </Typography>
           </Box>
         </Box>
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)}
-          sx={{ mb: 3, '& .MuiTab-root': { color: 'text.secondary', textTransform: 'none', fontWeight: 600 }, '& .Mui-selected': { color: `${AI_COLOR} !important` }, '& .MuiTabs-indicator': { bgcolor: AI_COLOR } }}>
-          <Tab label="Recomendaciones" />
-          <Tab label="Predicción de Churn" />
-          <Tab label="Asistente IA" />
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{
+          mb: 3,
+          '& .MuiTab-root': { color: 'text.secondary', textTransform: 'none', fontWeight: 600 },
+          '& .Mui-selected': { color: `${CRM_COLOR} !important` },
+          '& .MuiTabs-indicator': { bgcolor: CRM_COLOR },
+        }}>
+          <Tab label={`Recomendaciones${todas.length ? ` (${todas.length})` : ''}`} />
+          <Tab label={`Cuentas en riesgo${enRiesgo.length ? ` (${enRiesgo.length})` : ''}`} />
+          <Tab label={`Tareas pendientes${actividades.data?.length ? ` (${actividades.data.length})` : ''}`} />
         </Tabs>
 
         {tab === 0 && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-            {RECOMENDACIONES.map((r, i) => {
-              const col = TIPO_COLOR[r.tipo] || AI_COLOR
-              return (
-                <Box key={i} sx={{ border: `1px solid ${alpha(col, 0.25)}`, borderRadius: 2, p: 2 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1.5, mb: 1 }}>
-                    <Box>
-                      <Box sx={{ display: 'flex', gap: 1, mb: 0.5 }}>
-                        <Chip label={r.tipo.replace('_', ' ')} size="small" sx={{ bgcolor: alpha(col, 0.15), color: col, fontSize: 10, fontWeight: 700 }} />
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1, bgcolor: alpha(AI_COLOR, 0.1), borderRadius: 1 }}>
-                          <AutoAwesome sx={{ fontSize: 11, color: AI_COLOR }} />
-                          <Typography sx={{ fontSize: 10, color: AI_COLOR, fontWeight: 700 }}>Score IA: {r.score}</Typography>
+          <>
+            <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+              <Chip label="Todas" size="small" onClick={() => setTipo('Todas')}
+                sx={{
+                  cursor: 'pointer',
+                  bgcolor: tipo === 'Todas' ? CRM_COLOR : '#F1F5F9',
+                  color: tipo === 'Todas' ? '#FFF' : 'text.secondary',
+                  fontWeight: tipo === 'Todas' ? 700 : 400,
+                }} />
+              {Object.entries(CFG_TIPO).map(([t, cfg]) => {
+                const n = todas.filter(r => r.tipo === t).length
+                return (
+                  <Chip key={t} label={`${cfg.nombre}${n ? ` · ${n}` : ''}`} size="small"
+                    onClick={() => setTipo(t)}
+                    sx={{
+                      cursor: 'pointer',
+                      bgcolor: tipo === t ? cfg.color : '#F1F5F9',
+                      color: tipo === t ? '#FFF' : 'text.secondary',
+                      fontWeight: tipo === t ? 700 : 400,
+                    }} />
+                )
+              })}
+              <Box sx={{ flex: 1 }} />
+              {!!potencialTotal && (
+                <Typography sx={{ fontSize: 12, color: CRM_COLOR, fontWeight: 700 }}>
+                  Potencial identificado: {pesos(potencialTotal)}
+                </Typography>
+              )}
+            </Box>
+
+            <Estado cargando={recomendaciones.isLoading} error={recomendaciones.error}
+              vacio={!lista.length}
+              mensajeVacio={tipo === 'Todas'
+                ? 'No hay nada que recomendar hoy'
+                : `Nada de tipo «${CFG_TIPO[tipo]?.nombre ?? tipo}»`}
+              hint={tipo === 'Todas'
+                ? 'Todas las cuentas facturan cerca de su potencial, los contratos se renuevan solos y nadie está en deterioro.'
+                : 'Pruebe con otro tipo de señal.'}>
+              <Grid container spacing={2}>
+                {lista.map((r, i) => {
+                  const cfg = CFG_TIPO[r.tipo] ?? { color: '#94A3B8', icono: null, nombre: r.tipo }
+                  return (
+                    <Grid key={i} size={{ xs: 12, md: 6 }}>
+                      <Panel sx={{ p: 2, height: '100%',
+                                   borderColor: alpha(cfg.color, 0.3) }}>
+                        <Box sx={{ display: 'flex', gap: 1.5, mb: 1 }}>
+                          <Box sx={{
+                            width: 34, height: 34, borderRadius: '9px', flexShrink: 0,
+                            bgcolor: alpha(cfg.color, 0.15), display: 'flex',
+                            alignItems: 'center', justifyContent: 'center',
+                            '& svg': { color: cfg.color },
+                          }}>{cfg.icono}</Box>
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography sx={{ fontSize: 13.5, fontWeight: 700 }}>
+                              {r.titulo}
+                            </Typography>
+                            <Typography sx={{ fontSize: 11.5, color: 'text.secondary' }}>
+                              {r.cliente}
+                            </Typography>
+                          </Box>
+                          <Chip label={cfg.nombre} size="small" sx={{
+                            bgcolor: alpha(cfg.color, 0.12), color: cfg.color,
+                            fontSize: 9.5, fontWeight: 700, flexShrink: 0, height: 20,
+                          }} />
                         </Box>
-                      </Box>
-                      <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: 'text.primary' }}>{r.servicio}</Typography>
-                      <Typography sx={{ fontSize: 11.5, color: 'text.secondary', mt: 0.25 }}>
-                        {r.cliente} · {r.razon}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
-                      <Typography sx={{ fontSize: 20, fontWeight: 900, color: col }}>${r.potencial}M</Typography>
-                      <Typography sx={{ fontSize: 10, color: 'text.disabled' }}>potencial</Typography>
-                    </Box>
-                  </Box>
-                  <Box sx={{ height: 4, borderRadius: 2, bgcolor: '#E5E7EB', overflow: 'hidden' }}>
-                    <Box sx={{ height: '100%', width: `${r.score}%`, bgcolor: col, borderRadius: 2 }} />
-                  </Box>
-                </Box>
-              )
-            })}
-          </Box>
+                        <Typography sx={{ fontSize: 12.5, lineHeight: 1.55, mb: 1.25 }}>
+                          {r.razon}
+                        </Typography>
+                        <Box sx={{
+                          display: 'flex', justifyContent: 'space-between',
+                          alignItems: 'center', pt: 1.25,
+                          borderTop: `1px solid ${BORDE}`,
+                        }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box sx={{ width: 44, height: 4, borderRadius: 2,
+                                       bgcolor: '#EEF2F7', overflow: 'hidden' }}>
+                              <Box sx={{ height: '100%', width: `${r.urgencia}%`,
+                                         bgcolor: cfg.color, borderRadius: 2 }} />
+                            </Box>
+                            <Typography sx={{ fontSize: 10.5, color: 'text.disabled' }}>
+                              prioridad {r.urgencia}
+                            </Typography>
+                          </Box>
+                          {!!num(r.potencial) && (
+                            <Typography sx={{ fontSize: 13, fontWeight: 800, color: cfg.color }}>
+                              {pesos(r.potencial)}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Panel>
+                    </Grid>
+                  )
+                })}
+              </Grid>
+            </Estado>
+          </>
         )}
 
         {tab === 1 && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-            <Box sx={{ border: `1px solid ${AI_BOR}`, borderRadius: 2, p: 2, mb: 1 }}>
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                <TrendingDown sx={{ color: AI_COLOR, fontSize: 20 }} />
-                <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary' }}>Modelo Predictivo de Churn — Umbral: 25%</Typography>
-              </Box>
-              <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 0.5 }}>Entrenado con 24 meses de datos históricos · Precisión: 87.4%</Typography>
-            </Box>
-            {CHURN_CLIENTES.map((c, i) => (
-              <Box key={i} sx={{ border: `1px solid ${alpha(c.color, 0.3)}`, borderRadius: 2, p: 2 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
-                  <Box>
-                    <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary' }}>{c.cliente}</Typography>
-                    <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>Riesgo de churn en próximos 90 días</Typography>
+          <Panel sx={{ p: 2.5 }}>
+            <Typography sx={{ fontSize: 14, fontWeight: 700, mb: 0.5 }}>
+              Cuentas cuya salud viene por debajo de 75
+            </Typography>
+            <Typography sx={{ fontSize: 11.5, color: 'text.secondary', mb: 2 }}>
+              El puntaje se compone de cinco cosas y aquí se muestran las cinco:
+              un número solo dice que la cuenta está mal, el desglose dice por
+              dónde.
+            </Typography>
+            <Estado cargando={salud.isLoading} error={salud.error}
+              vacio={!enRiesgo.length}
+              mensajeVacio="Ninguna cuenta por debajo de 75"
+              hint="Todas las cuentas con contrato están en buen estado.">
+              {enRiesgo.map(s => {
+                const suRiesgo = (riesgos.data ?? []).find(r => r.cliente_id === s.cliente_id)
+                const col = s.health_score < 55 ? '#EF4444'
+                  : s.health_score < 65 ? CRM_COLOR : '#F59E0B'
+                const componentes = [
+                  { n: 'Servicio', v: s.score_tickets },
+                  { n: 'Satisfacción', v: s.score_nps },
+                  { n: 'Entregas', v: s.score_otif },
+                  { n: 'Pago', v: s.score_pagos },
+                  { n: 'Contrato', v: s.score_contratos },
+                ].filter(c => c.v != null)
+                return (
+                  <Box key={s.id} sx={{
+                    p: 2, mb: 1.5, borderRadius: 1.5,
+                    bgcolor: alpha(col, 0.05), border: `1px solid ${alpha(col, 0.25)}`,
+                  }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between',
+                               alignItems: 'flex-start', gap: 1.5, mb: 1.25 }}>
+                      <Box>
+                        <Typography sx={{ fontSize: 13.5, fontWeight: 700 }}>
+                          {s.cliente}
+                        </Typography>
+                        <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>
+                          calculado el {fecha(s.fecha_calculo)}
+                          {num(s.ingresos_ytd) ? ` · factura ${pesos(s.ingresos_ytd)} al año` : ''}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                        <Typography sx={{ fontSize: 22, fontWeight: 900, color: col,
+                                          lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                          {s.health_score}
+                        </Typography>
+                        <Typography sx={{ fontSize: 10, color: 'text.disabled' }}>
+                          de salud
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Grid container spacing={0.75} sx={{ mb: 1 }}>
+                      {componentes.map(c => (
+                        <Grid key={c.n} size={{ xs: 6, sm: 4, md: 2.4 }}>
+                          <Box sx={{ textAlign: 'center', p: 0.75, borderRadius: 1,
+                                     bgcolor: 'background.paper',
+                                     border: `1px solid ${BORDE}` }}>
+                            <Typography sx={{
+                              fontSize: 14, fontWeight: 800,
+                              fontVariantNumeric: 'tabular-nums',
+                              color: (c.v as number) < 60 ? '#EF4444' : '#059669',
+                            }}>{c.v}</Typography>
+                            <Typography sx={{ fontSize: 9.5, color: 'text.secondary' }}>
+                              {c.n}
+                            </Typography>
+                          </Box>
+                        </Grid>
+                      ))}
+                    </Grid>
+                    {s.prediccion_ia && (
+                      <Typography sx={{ fontSize: 12, lineHeight: 1.5 }}>
+                        {s.prediccion_ia}
+                      </Typography>
+                    )}
+                    {suRiesgo?.plan_mitigacion && (
+                      <Typography sx={{ fontSize: 11.5, color: 'text.secondary', mt: 0.75 }}>
+                        <b>Plan acordado:</b> {suRiesgo.plan_mitigacion}
+                      </Typography>
+                    )}
+                    {suRiesgo && (
+                      <Chip label={`riesgo ${suRiesgo.nivel.toLowerCase()}`} size="small"
+                        sx={{
+                          mt: 1, height: 19, fontSize: 9.5, fontWeight: 700,
+                          bgcolor: alpha(COLOR_RIESGO[suRiesgo.nivel] || col, 0.15),
+                          color: COLOR_RIESGO[suRiesgo.nivel] || col,
+                        }} />
+                    )}
                   </Box>
-                  <Box sx={{ textAlign: 'right' }}>
-                    <Typography sx={{ fontSize: 28, fontWeight: 900, color: c.color, lineHeight: 1 }}>{c.riesgo}%</Typography>
-                    <Chip label={c.riesgo >= 35 ? 'CRÍTICO' : c.riesgo >= 25 ? 'ALTO' : 'MEDIO'} size="small"
-                      sx={{ bgcolor: alpha(c.color, 0.15), color: c.color, fontSize: 9.5, fontWeight: 700 }} />
-                  </Box>
-                </Box>
-                <Box sx={{ height: 8, borderRadius: 4, bgcolor: '#E5E7EB', overflow: 'hidden', mb: 1.5 }}>
-                  <Box sx={{ height: '100%', width: `${c.riesgo * 2}%`, bgcolor: c.color, borderRadius: 4 }} />
-                </Box>
-                <Typography sx={{ fontSize: 11, fontWeight: 600, color: 'text.secondary', mb: 0.75 }}>FACTORES DE RIESGO</Typography>
-                {c.factores.map((f, j) => (
-                  <Box key={j} sx={{ display: 'flex', gap: 1, mb: 0.5 }}>
-                    <Box sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: c.color, mt: 0.7, flexShrink: 0 }} />
-                    <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{f}</Typography>
-                  </Box>
-                ))}
-              </Box>
-            ))}
-          </Box>
+                )
+              })}
+            </Estado>
+          </Panel>
         )}
 
         {tab === 2 && (
-          <Box sx={{ border: `1px solid ${AI_BOR}`, borderRadius: 2, display: 'flex', flexDirection: 'column', height: 560 }}>
-            <Box sx={{ p: 2, borderBottom: '1px solid #E5E7EB', display: 'flex', gap: 1, alignItems: 'center' }}>
-              <Box sx={{ width: 32, height: 32, borderRadius: '50%', background: `linear-gradient(135deg, ${AI_COLOR} 0%, #7C3AED 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <AutoAwesome sx={{ fontSize: 16, color: '#fff' }} />
-              </Box>
-              <Box>
-                <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary' }}>Asistente Comercial IA</Typography>
-                <Typography sx={{ fontSize: 10.5, color: AI_COLOR }}>● En línea — datos CRM en tiempo real</Typography>
-              </Box>
-            </Box>
-            <Box sx={{ flex: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              {msgs.map((m, i) => (
-                <Box key={i} sx={{ display: 'flex', justifyContent: m.rol === 'user' ? 'flex-end' : 'flex-start' }}>
-                  <Box sx={{
-                    maxWidth: '80%', p: 1.5, borderRadius: m.rol === 'user' ? '16px 16px 4px 16px' : '4px 16px 16px 16px',
-                    bgcolor: m.rol === 'user' ? alpha(CRM_COLOR, 0.2) : alpha(AI_COLOR, 0.12),
-                    border: `1px solid ${m.rol === 'user' ? alpha(CRM_COLOR, 0.3) : alpha(AI_COLOR, 0.25)}`,
+          <Panel sx={{ p: 2.5 }}>
+            <Typography sx={{ fontSize: 14, fontWeight: 700, mb: 0.5 }}>
+              Lo que cada ejecutivo tiene por hacer
+            </Typography>
+            <Typography sx={{ fontSize: 11.5, color: 'text.secondary', mb: 2 }}>
+              Ordenado por vencimiento. Lo vencido va primero y en rojo.
+            </Typography>
+            <Estado cargando={actividades.isLoading} error={actividades.error}
+              vacio={!actividades.data?.length}
+              mensajeVacio="No hay tareas pendientes"
+              hint="Todo lo que estaba agendado se completó.">
+              {actividades.data?.map(a => {
+                const vencida = a.fecha_vencimiento
+                  ? new Date(a.fecha_vencimiento).getTime() < Date.now() : false
+                const col = vencida ? '#EF4444'
+                  : a.prioridad === 'ALTA' ? '#F59E0B' : '#94A3B8'
+                return (
+                  <Box key={a.id} sx={{
+                    display: 'flex', gap: 1.5, alignItems: 'center',
+                    p: 1.5, mb: 1, borderRadius: 1.5,
+                    bgcolor: vencida ? alpha('#EF4444', 0.05) : '#F9FAFB',
+                    border: `1px solid ${vencida ? alpha('#EF4444', 0.25) : BORDE}`,
                   }}>
-                    <Typography sx={{ fontSize: 13, color: 'text.primary', lineHeight: 1.55 }}>{m.texto}</Typography>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography sx={{ fontSize: 12.5, fontWeight: 600 }}>
+                        {a.asunto}
+                      </Typography>
+                      <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>
+                        {a.cliente || 'Sin cliente'} · {legible(a.tipo)}
+                        {a.descripcion ? ` · ${a.descripcion}` : ''}
+                      </Typography>
+                    </Box>
+                    <Typography sx={{ fontSize: 11.5, color: col, fontWeight: vencida ? 700 : 400,
+                                      flexShrink: 0, whiteSpace: 'nowrap' }}>
+                      {vencida ? 'vencida · ' : ''}{fecha(a.fecha_vencimiento)}
+                    </Typography>
+                    <Button size="small" startIcon={<TaskAlt sx={{ fontSize: 15 }} />}
+                      disabled={completar.isPending}
+                      onClick={() => completar.mutate(a.id)}
+                      sx={{ textTransform: 'none', flexShrink: 0, fontSize: 12 }}>
+                      Hecha
+                    </Button>
                   </Box>
-                </Box>
-              ))}
-            </Box>
-            <Box sx={{ p: 2, borderTop: '1px solid #E5E7EB' }}>
-              <Box sx={{ display: 'flex', gap: 1, mb: 1.5, flexWrap: 'wrap' }}>
-                {['Pipeline actual', 'Riesgo Nutresa', 'NPS global', 'Renovar Éxito'].map((q, i) => (
-                  <Chip key={i} label={q} size="small" onClick={() => { setInput(q); }} sx={{ cursor: 'pointer', bgcolor: alpha(AI_COLOR, 0.1), color: AI_COLOR, border: `1px solid ${alpha(AI_COLOR, 0.25)}`, fontSize: 10 }} />
-                ))}
-              </Box>
-              <Box sx={{ display: 'flex', gap: 1, bgcolor: alpha(AI_COLOR, 0.07), border: `1px solid ${AI_BOR}`, borderRadius: 2, px: 2, py: 1 }}>
-                <InputBase value={input} onChange={e => setInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') enviar() }}
-                  placeholder="Pregunta sobre clientes, pipeline, NPS, contratos..."
-                  sx={{ flex: 1, color: 'text.primary', fontSize: 13 }} />
-                <Box onClick={enviar} sx={{ width: 32, height: 32, borderRadius: '50%', bgcolor: AI_COLOR, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                  <Send sx={{ fontSize: 15, color: '#fff' }} />
-                </Box>
-              </Box>
-            </Box>
-          </Box>
+                )
+              })}
+            </Estado>
+          </Panel>
         )}
       </Box>
     </Layout>

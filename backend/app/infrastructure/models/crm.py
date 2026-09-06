@@ -416,3 +416,23 @@ class CRMKPIDiario(Base, TimestampMixin):
     contratos_por_vencer  = sa.Column(sa.Integer, default=0)
     ingresos_mes          = sa.Column(sa.Numeric(18, 2), default=0)
     churn_rate            = sa.Column(sa.Numeric(6, 2), default=0)
+
+
+class CRMParametro(Base, TimestampMixin):
+    """Los umbrales con los que el módulo decide qué alertar y qué recomendar.
+
+    POR QUÉ EN UNA TABLA Y NO EN EL CÓDIGO
+    Porque no son verdades: son decisiones de cada empresa. Avisar de una
+    renovación a cuarenta y cinco días le sirve a quien negocia con comités
+    trimestrales y le sobra a quien renueva por correo. Con el umbral escrito en
+    el código, cambiarlo exige un despliegue, y lo que pasa en la práctica es que
+    nadie lo cambia y la gente aprende a ignorar las alertas.
+
+    Un valor por clave, y el valor va como número. No hace falta más: todo lo que
+    se configura aquí es un umbral.
+    """
+    __tablename__ = "crm_parametro"
+    id          = sa.Column(sa.Integer, primary_key=True, index=True)
+    clave       = sa.Column(sa.String(60), unique=True, nullable=False, index=True)
+    valor       = sa.Column(sa.Numeric(12, 2), nullable=False)
+    modificado_por = sa.Column(sa.String(80), nullable=True)

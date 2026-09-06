@@ -1,41 +1,136 @@
-import React, { useState } from 'react'
+/**
+ * El desempeño comercial: por ejecutivo, por segmento y en el tiempo.
+ *
+ * LA META Y LO LOGRADO VIENEN DEL SERVIDOR
+ * `crm_objetivo_comercial` guarda la cuota de cada ejecutivo y lo que lleva
+ * cerrado, contado por el valor del primer año de cada contrato ganado. Contar
+ * un contrato a veinticuatro meses completo contra una cuota anual produce
+ * cumplimientos del 250%, y una pantalla donde todo el mundo pasa del 200% no
+ * sirve para decidir nada.
+ *
+ * LA TENDENCIA SALE DE LOS INDICADORES DIARIOS
+ * Un punto por mes, tomado del último día de cada uno. Es la misma serie que
+ * alimenta el tablero, así que las dos pantallas no pueden contradecirse.
+ */
+import { useMemo, useState } from 'react'
 import { Box, Typography, Tab, Tabs, Chip, alpha } from '@mui/material'
 import Grid from '@mui/material/Grid2'
 import { Assessment } from '@mui/icons-material'
+import { useQuery } from '@tanstack/react-query'
 import { Layout } from '@/components/layout/Layout'
+import { crmApi } from '@/api/crm'
+import {
+  BORDE, CRM_COLOR, COLOR_SEGMENTO, Encabezados, Estado, Panel,
+  legible, num, pesos,
+} from '@/components/crm/comunes'
 
-import { COLOR_MODULO } from '@/config/marca'
-const CRM_COLOR = COLOR_MODULO
+const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
+                      'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 
-const EJECUTIVOS_KPI = [
-  { nombre: 'Laura Soto',   clientes: 98, pipeline: 1850, ganado: 1240, win_rate: 67, nps: 62, tickets: 8 },
-  { nombre: 'Carlos Vega',  clientes: 76, pipeline: 1420, ganado: 890,  win_rate: 63, nps: 58, tickets: 6 },
-  { nombre: 'Ana Ruiz',     clientes: 84, pipeline: 1130, ganado: 720,  win_rate: 64, nps: 55, tickets: 5 },
-  { nombre: 'Pedro Díaz',   clientes: 54, pipeline: 980,  ganado: 640,  win_rate: 65, nps: 67, tickets: 5 },
-]
-
-const SEGMENTOS = [
-  { seg: 'CORPORATIVO', clientes: 128, ingresos: 14400, margen_pct: 30, churn_avg: 12, nps: 54 },
-  { seg: 'ESTRATEGICO', clientes: 42,  ingresos: 8550,  margen_pct: 35, churn_avg: 8,  nps: 68 },
-  { seg: 'MEDIANA',     clientes: 98,  ingresos: 4200,  margen_pct: 22, churn_avg: 22, nps: 42 },
-  { seg: 'PEQUENA',     clientes: 44,  ingresos: 1050,  margen_pct: 18, churn_avg: 38, nps: 34 },
-]
-
-const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun']
-const PIPELINE_M  = [3800, 4100, 3650, 4400, 4800, 5200]
-const GANADO_M    = [2200, 2600, 2100, 2900, 3100, 3400]
-const WINRATE_M   = [58, 63, 58, 66, 65, 65]
-const maxPipeline = Math.max(...PIPELINE_M)
-
-function getCellColor(val: number) {
-  if (val >= 70) return '#059669'
-  if (val >= 60) return CRM_COLOR
-  if (val >= 50) return '#F59E0B'
-  return '#EF4444'
-}
+/** Verde si llegó, ámbar si anda cerca, rojo si se quedó. */
+const colorCumplimiento = (pct: number) =>
+  pct >= 100 ? '#059669' : pct >= 80 ? '#F59E0B' : '#EF4444'
 
 export default function CRMReportes() {
   const [tab, setTab] = useState(0)
+
+  const objetivos = useQuery({
+    queryKey: ['crm', 'objetivos'],
+    queryFn: () => crmApi.objetivos(),
+  })
+  const clientes = useQuery({
+    queryKey: ['crm', 'clientes', 'Todos', ''],
+    queryFn: () => crmApi.clientes(),
+  })
+  const oportunidades = useQuery({
+    queryKey: ['crm', 'oportunidades'],
+    queryFn: () => crmApi.oportunidades(),
+  })
+  const contratos = useQuery({
+    queryKey: ['crm', 'contratos'],
+    queryFn: () => crmApi.contratos(),
+  })
+  const tickets = useQuery({
+    queryKey: ['crm', 'tickets', 'Todos'],
+    queryFn: () => crmApi.tickets(),
+  })
+  const kpis = useQuery({
+    queryKey: ['crm', 'kpis-diarios', 400],
+    queryFn: () => crmApi.kpisDiarios(365),
+  })
+
+  // Cada ejecutivo, con su cuota y con lo que se puede contar de su cartera.
+  const porEjecutivo = useMemo(() => {
+    return (objetivos.data ?? []).map(o => {
+      const suyos = (clientes.data ?? []).filter(c => c.ejecutivo_id === o.ejecutivo_id)
+      const susOpo = (oportunidades.data ?? []).filter(x => x.ejecutivo_id === o.ejecutivo_id)
+      const abiertas = susOpo.filter(
+        x => !['CIERRE_GANADO', 'CIERRE_PERDIDO'].includes(x.estado))
+      const cerradas = susOpo.filter(
+        x => ['CIERRE_GANADO', 'CIERRE_PERDIDO'].includes(x.estado))
+      const ganadas = cerradas.filter(x => x.estado === 'CIERRE_GANADO')
+      const susTickets = (tickets.data ?? []).filter(
+        t => t.ejecutivo_id === o.ejecutivo_id &&
+             ['ABIERTO', 'EN_PROCESO', 'ESCALADO'].includes(t.estado))
+      return {
+        o,
+        clientes: suyos.length,
+        activos: suyos.filter(c => c.estado === 'CLIENTE_ACTIVO').length,
+        embudo: abiertas.reduce((s, x) => s + num(x.valor_estimado), 0),
+        // La tasa de cierre solo sobre lo decidido: meter lo abierto en el
+        // denominador la hunde y hace parecer que se vende peor de lo que se vende.
+        tasa: cerradas.length
+          ? Math.round((ganadas.length / cerradas.length) * 100) : null,
+        pendientes: susTickets.length,
+      }
+    })
+  }, [objetivos.data, clientes.data, oportunidades.data, tickets.data])
+
+  const porSegmento = useMemo(() => {
+    const activos = (contratos.data ?? []).filter(k => k.estado === 'ACTIVO')
+    const g: Record<string, {
+      n: number; activos: number; anual: number; mensual: number; salud: number[]
+    }> = {}
+    for (const c of clientes.data ?? []) {
+      const k = c.segmento || 'SIN_SEGMENTO'
+      const s = (g[k] ||= { n: 0, activos: 0, anual: 0, mensual: 0, salud: [] })
+      s.n++
+      if (c.estado === 'CLIENTE_ACTIVO') s.activos++
+      s.anual += num(c.ingresos_ytd)
+      s.mensual += activos
+        .filter(x => x.cliente_id === c.id)
+        .reduce((t, x) => t + num(x.valor_mensual), 0)
+      if (c.health_score > 0) s.salud.push(c.health_score)
+    }
+    return Object.entries(g).sort((a, b) => b[1].anual - a[1].anual)
+  }, [clientes.data, contratos.data])
+
+  const serie = useMemo(() => {
+    const porMes: Record<string, { fecha: string; embudo: number; tasa: number }> = {}
+    for (const k of kpis.data ?? []) {
+      const mes = k.fecha.slice(0, 7)
+      const actual = porMes[mes]
+      if (!actual || k.fecha > actual.fecha) {
+        porMes[mes] = {
+          fecha: k.fecha,
+          embudo: num(k.pipeline_valor),
+          tasa: num(k.win_rate),
+        }
+      }
+    }
+    return Object.entries(porMes)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .slice(-12)
+      .map(([mes, v]) => ({
+        etiqueta: `${MESES_CORTOS[Number(mes.slice(5, 7)) - 1]} ${mes.slice(2, 4)}`,
+        embudo: v.embudo, tasa: v.tasa,
+      }))
+  }, [kpis.data])
+  const maxEmbudo = Math.max(1, ...serie.map(s => s.embudo))
+
+  const metaTotal = (objetivos.data ?? []).reduce((s, o) => s + num(o.meta), 0)
+  const logradoTotal = (objetivos.data ?? []).reduce((s, o) => s + num(o.logrado), 0)
+  const cumplimiento = metaTotal ? (logradoTotal / metaTotal) * 100 : null
 
   return (
     <Layout>
@@ -49,148 +144,205 @@ export default function CRMReportes() {
             <Assessment sx={{ color: '#fff', fontSize: 22 }} />
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Analytics Comercial</Typography>
+            <Typography sx={{ fontSize: 20, fontWeight: 800 }}>
+              Desempeño comercial
+            </Typography>
             <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
-              KPIs por Ejecutivo · Segmentos · Pipeline · Win Rate
+              Cuota y cumplimiento por ejecutivo, por segmento y en el tiempo
             </Typography>
           </Box>
         </Box>
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)}
-          sx={{ mb: 3, '& .MuiTab-root': { color: 'text.secondary', textTransform: 'none', fontWeight: 600 }, '& .Mui-selected': { color: `${CRM_COLOR} !important` }, '& .MuiTabs-indicator': { bgcolor: CRM_COLOR } }}>
-          <Tab label="Por Ejecutivo" />
-          <Tab label="Por Segmento" />
-          <Tab label="Tendencia Pipeline" />
-          <Tab label="KPIs Globales" />
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          {[
+            { label: 'Cuota del equipo', value: pesos(metaTotal), color: '#7C3AED' },
+            { label: 'Cerrado', value: pesos(logradoTotal), color: '#059669' },
+            { label: 'Cumplimiento',
+              value: cumplimiento == null ? '—' : `${cumplimiento.toFixed(0)}%`,
+              color: cumplimiento == null ? '#94A3B8' : colorCumplimiento(cumplimiento) },
+            { label: 'Ejecutivos con cuota',
+              value: objetivos.data?.length ?? 0, color: CRM_COLOR },
+          ].map((k, i) => (
+            <Grid key={i} size={{ xs: 6, md: 3 }}>
+              <Box sx={{ border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2, p: 2 }}>
+                <Typography sx={{ fontSize: 22, fontWeight: 900, lineHeight: 1.1,
+                                  fontVariantNumeric: 'tabular-nums' }}>
+                  {objetivos.isLoading ? '·' : k.value}
+                </Typography>
+                <Typography sx={{ fontSize: 11, color: k.color, fontWeight: 600, mt: 0.25 }}>
+                  {k.label}
+                </Typography>
+              </Box>
+            </Grid>
+          ))}
+        </Grid>
+
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{
+          mb: 3,
+          '& .MuiTab-root': { color: 'text.secondary', textTransform: 'none', fontWeight: 600 },
+          '& .Mui-selected': { color: `${CRM_COLOR} !important` },
+          '& .MuiTabs-indicator': { bgcolor: CRM_COLOR },
+        }}>
+          <Tab label="Por ejecutivo" />
+          <Tab label="Por segmento" />
+          <Tab label="Tendencia" />
         </Tabs>
 
         {tab === 0 && (
-          <Box sx={{ border: `1px solid #E5E7EB`, borderRadius: 2, overflow: 'hidden' }}>
-            <Box sx={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    {['Ejecutivo', 'Clientes', 'Pipeline', 'Ganado', 'Win Rate', 'NPS Promedio', 'Tickets'].map(h => (
-                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'text.disabled', borderBottom: '1px solid #E5E7EB', whiteSpace: 'nowrap' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {EJECUTIVOS_KPI.map((e, i) => {
-                    const wrcol  = getCellColor(e.win_rate)
-                    const npscol = e.nps >= 50 ? '#059669' : e.nps >= 30 ? '#F59E0B' : CRM_COLOR
-                    return (
-                      <tr key={i} style={{ borderBottom: '1px solid #E5E7EB' }}>
-                        <td style={{ padding: '10px 14px', fontSize: 13, color: 'text.primary', fontWeight: 700, whiteSpace: 'nowrap' }}>{e.nombre}</td>
-                        <td style={{ padding: '10px 14px', fontSize: 13, color: 'text.primary' }}>{e.clientes}</td>
-                        <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: CRM_COLOR }}>${(e.pipeline / 1000).toFixed(1)}B</td>
-                        <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: '#059669' }}>${(e.ganado / 1000).toFixed(1)}B</td>
-                        <td style={{ padding: '10px 14px' }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Box sx={{ width: 50, height: 6, borderRadius: 3, bgcolor: 'text.disabled', overflow: 'hidden' }}>
-                              <Box sx={{ height: '100%', width: `${e.win_rate}%`, bgcolor: wrcol, borderRadius: 3 }} />
+          <Panel>
+            <Estado cargando={objetivos.isLoading} error={objetivos.error}
+              vacio={!porEjecutivo.length}
+              mensajeVacio="Ningún ejecutivo tiene cuota asignada"
+              hint="Sin cuota no hay contra qué medir el cierre.">
+              <Box sx={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <Encabezados columnas={['Ejecutivo', 'Región', 'Cuota', 'Cerrado',
+                    'Cumplimiento', 'Cartera', 'Embudo abierto', 'Tasa de cierre',
+                    'Tickets sin cerrar']} />
+                  <tbody>
+                    {porEjecutivo.map(f => {
+                      const pct = num(f.o.porcentaje)
+                      const col = colorCumplimiento(pct)
+                      return (
+                        <tr key={f.o.id} style={{ borderBottom: `1px solid ${BORDE}` }}>
+                          <td style={{ padding: '10px 14px', fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap' }}>{f.o.ejecutivo}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 12, color: '#6B7280', whiteSpace: 'nowrap' }}>{f.o.region || '—'}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 12, color: '#6B7280', whiteSpace: 'nowrap' }}>{pesos(f.o.meta)}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 800, color: CRM_COLOR, whiteSpace: 'nowrap' }}>{pesos(f.o.logrado)}</td>
+                          <td style={{ padding: '10px 14px', minWidth: 140 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Box sx={{ width: 62, height: 6, borderRadius: 3, bgcolor: '#EEF2F7', overflow: 'hidden' }}>
+                                <Box sx={{ height: '100%', width: `${Math.min(100, pct)}%`,
+                                           bgcolor: col, borderRadius: 3 }} />
+                              </Box>
+                              <Typography sx={{ fontSize: 12.5, fontWeight: 800, color: col,
+                                                fontVariantNumeric: 'tabular-nums' }}>
+                                {pct.toFixed(0)}%
+                              </Typography>
                             </Box>
-                            <Typography sx={{ fontSize: 13, fontWeight: 800, color: wrcol }}>{e.win_rate}%</Typography>
-                          </Box>
-                        </td>
-                        <td style={{ padding: '10px 14px', fontSize: 14, fontWeight: 800, color: npscol }}>+{e.nps}</td>
-                        <td style={{ padding: '10px 14px', fontSize: 13, color: 'text.secondary' }}>{e.tickets}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </Box>
-          </Box>
+                          </td>
+                          <td style={{ padding: '10px 14px', fontSize: 12.5, whiteSpace: 'nowrap' }}>
+                            {f.activos} de {f.clientes}
+                          </td>
+                          <td style={{ padding: '10px 14px', fontSize: 12, color: '#6B7280', whiteSpace: 'nowrap' }}>{pesos(f.embudo)}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700,
+                                       fontVariantNumeric: 'tabular-nums',
+                                       color: f.tasa == null ? '#9CA3AF'
+                                         : f.tasa >= 30 ? '#059669' : '#F59E0B' }}>
+                            {f.tasa == null ? '—' : `${f.tasa}%`}
+                          </td>
+                          <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700,
+                                       fontVariantNumeric: 'tabular-nums',
+                                       color: f.pendientes > 3 ? '#EF4444' : '#6B7280' }}>
+                            {f.pendientes}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </Box>
+            </Estado>
+          </Panel>
         )}
 
         {tab === 1 && (
-          <Box sx={{ border: `1px solid #E5E7EB`, borderRadius: 2, overflow: 'hidden' }}>
-            <Box sx={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    {['Segmento', 'Clientes', 'Ingresos', 'Margen %', 'Churn Avg', 'NPS'].map(h => (
-                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'text.disabled', borderBottom: '1px solid #E5E7EB', whiteSpace: 'nowrap' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {SEGMENTOS.map((s, i) => {
-                    const mcol = s.margen_pct >= 30 ? '#059669' : s.margen_pct >= 22 ? '#F59E0B' : CRM_COLOR
-                    const chcol = s.churn_avg >= 30 ? '#EF4444' : s.churn_avg >= 20 ? CRM_COLOR : '#059669'
-                    const npscol = s.nps >= 50 ? '#059669' : s.nps >= 40 ? '#F59E0B' : CRM_COLOR
-                    return (
-                      <tr key={i} style={{ borderBottom: '1px solid #E5E7EB' }}>
-                        <td style={{ padding: '10px 14px' }}>
-                          <Chip label={s.seg} size="small" sx={{ bgcolor: alpha(CRM_COLOR, 0.12), color: CRM_COLOR, fontSize: 11, fontWeight: 700 }} />
-                        </td>
-                        <td style={{ padding: '10px 14px', fontSize: 13, color: 'text.primary' }}>{s.clientes}</td>
-                        <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 800, color: CRM_COLOR }}>${(s.ingresos / 1000).toFixed(1)}B</td>
-                        <td style={{ padding: '10px 14px', fontSize: 14, fontWeight: 800, color: mcol }}>{s.margen_pct}%</td>
-                        <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: chcol }}>{s.churn_avg}%</td>
-                        <td style={{ padding: '10px 14px', fontSize: 14, fontWeight: 800, color: npscol }}>+{s.nps}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </Box>
-          </Box>
+          <Panel>
+            <Estado cargando={clientes.isLoading} error={clientes.error}
+              vacio={!porSegmento.length} mensajeVacio="No hay clientes segmentados">
+              <Box sx={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <Encabezados columnas={['Segmento', 'Cuentas', 'Ya son clientes',
+                    'Facturado al año', 'Mensual', 'Promedio por cuenta', 'Salud media']} />
+                  <tbody>
+                    {porSegmento.map(([seg, s]) => {
+                      const sc = COLOR_SEGMENTO[seg] || '#94A3B8'
+                      const saludMedia = s.salud.length
+                        ? Math.round(s.salud.reduce((a, b) => a + b, 0) / s.salud.length)
+                        : null
+                      return (
+                        <tr key={seg} style={{ borderBottom: `1px solid ${BORDE}` }}>
+                          <td style={{ padding: '10px 14px' }}>
+                            <Chip label={legible(seg)} size="small" sx={{
+                              bgcolor: alpha(sc, 0.15), color: sc,
+                              fontSize: 10.5, fontWeight: 700,
+                            }} />
+                          </td>
+                          <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{s.n}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 12.5, whiteSpace: 'nowrap' }}>
+                            {s.activos}
+                            <Box component="span" sx={{ color: 'text.disabled', fontSize: 11 }}>
+                              {' '}· {s.n ? Math.round((s.activos / s.n) * 100) : 0}%
+                            </Box>
+                          </td>
+                          <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 800, color: CRM_COLOR, whiteSpace: 'nowrap' }}>{pesos(s.anual)}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 12, color: '#6B7280', whiteSpace: 'nowrap' }}>{pesos(s.mensual)}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 12, color: '#6B7280', whiteSpace: 'nowrap' }}>{pesos(s.anual / Math.max(1, s.n))}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 800,
+                                       fontVariantNumeric: 'tabular-nums',
+                                       color: saludMedia == null ? '#9CA3AF'
+                                         : saludMedia >= 75 ? '#059669' : '#F59E0B' }}>
+                            {saludMedia ?? '—'}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </Box>
+            </Estado>
+          </Panel>
         )}
 
         {tab === 2 && (
-          <Box sx={{ border: `1px solid #E5E7EB`, borderRadius: 2, p: 2.5 }}>
-            <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 2.5 }}>Pipeline · Ganado · Win Rate — S1 2026</Typography>
-            {MESES.map((mes, i) => (
-              <Box key={i} sx={{ mb: 2.5 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary' }}>{mes}</Typography>
-                  <Box sx={{ display: 'flex', gap: 2 }}>
-                    <Typography sx={{ fontSize: 11, color: CRM_COLOR, fontWeight: 700 }}>Pipeline: ${(PIPELINE_M[i] / 1000).toFixed(1)}B</Typography>
-                    <Typography sx={{ fontSize: 11, color: '#059669', fontWeight: 700 }}>Ganado: ${(GANADO_M[i] / 1000).toFixed(1)}B</Typography>
-                    <Typography sx={{ fontSize: 11, color: '#7C3AED', fontWeight: 700 }}>Win: {WINRATE_M[i]}%</Typography>
+          <Panel sx={{ p: 2.5 }}>
+            <Typography sx={{ fontSize: 14, fontWeight: 700, mb: 0.5 }}>
+              Embudo abierto y tasa de cierre, mes a mes
+            </Typography>
+            <Typography sx={{ fontSize: 11.5, color: 'text.secondary', mb: 2.5 }}>
+              La barra es el embudo al cerrar el mes; el punto, la tasa de cierre
+              acumulada. Sirven juntos: un embudo que crece con la tasa cayendo
+              significa que se está llenando de negocios que no se van a ganar.
+            </Typography>
+            <Estado cargando={kpis.isLoading} error={kpis.error} vacio={!serie.length}
+              mensajeVacio="Todavía no hay historia mensual"
+              hint="Se acumula con los indicadores que el sistema calcula a diario.">
+              <Box sx={{ position: 'relative', height: 250, display: 'flex',
+                         alignItems: 'flex-end', gap: 1.25, overflowX: 'auto', pb: 1 }}>
+                {serie.map(s => (
+                  <Box key={s.etiqueta} sx={{
+                    flex: '1 0 52px', display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', height: '100%', justifyContent: 'flex-end',
+                    position: 'relative',
+                  }}>
+                    <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#059669',
+                                      mb: 0.25 }}>
+                      {s.tasa.toFixed(0)}%
+                    </Typography>
+                    {/* El punto de la tasa se coloca sobre la altura de la barra
+                        para que se lea la relación entre las dos series sin
+                        necesidad de un segundo eje. */}
+                    <Box sx={{
+                      width: 7, height: 7, borderRadius: '50%', bgcolor: '#059669',
+                      mb: 0.5, flexShrink: 0,
+                    }} />
+                    <Typography sx={{ fontSize: 9.5, color: CRM_COLOR, fontWeight: 700,
+                                      whiteSpace: 'nowrap' }}>
+                      {pesos(s.embudo)}
+                    </Typography>
+                    <Box sx={{
+                      width: '100%',
+                      height: `${Math.max(3, (s.embudo / maxEmbudo) * 68)}%`,
+                      bgcolor: CRM_COLOR, borderRadius: '4px 4px 0 0', opacity: 0.85,
+                    }} />
+                    <Typography sx={{ fontSize: 10, color: 'text.secondary', mt: 0.5 }}>
+                      {s.etiqueta}
+                    </Typography>
                   </Box>
-                </Box>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-                  {[
-                    { label: 'Pipeline', val: PIPELINE_M[i], color: CRM_COLOR },
-                    { label: 'Ganado',   val: GANADO_M[i],   color: '#059669' },
-                  ].map((b, j) => (
-                    <Box key={j} sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-                      <Typography sx={{ fontSize: 10.5, color: b.color, width: 55 }}>{b.label}</Typography>
-                      <Box sx={{ flex: 1, height: 8, borderRadius: 4, bgcolor: 'text.disabled', overflow: 'hidden' }}>
-                        <Box sx={{ height: '100%', width: `${(b.val / maxPipeline) * 100}%`, bgcolor: b.color, borderRadius: 4 }} />
-                      </Box>
-                    </Box>
-                  ))}
-                </Box>
+                ))}
               </Box>
-            ))}
-          </Box>
-        )}
-
-        {tab === 3 && (
-          <Grid container spacing={2}>
-            {[
-              { label: 'CLV Promedio',         value: '$11.8B', sub: 'Lifetime value por cliente', color: CRM_COLOR },
-              { label: 'Churn Rate Global',     value: '18.5%',  sub: 'Meta: ≤15%',               color: '#EF4444' },
-              { label: 'Conversion Rate',       value: '32.4%',  sub: 'Leads → Clientes',          color: '#059669' },
-              { label: 'Ciclo de Venta',        value: '48 días', sub: 'Promedio cierre',           color: '#0EA5E9' },
-              { label: 'OTIF Portafolio',       value: '91.2%',  sub: 'SLA objetivo: 95%',         color: '#F59E0B' },
-              { label: 'NPS Global',            value: '+48',    sub: 'Promotores: 62%',            color: '#059669' },
-              { label: 'Contratos en Riesgo',   value: '3',      sub: 'Vencen en <90 días',        color: CRM_COLOR },
-              { label: 'Tickets Escalados',     value: '4',      sub: 'SLA incumplido: 2',         color: '#F59E0B' },
-            ].map((k, i) => (
-              <Grid key={i} size={{ xs: 6, sm: 4, md: 3 }}>
-                <Box sx={{ border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2, p: 2 }}>
-                  <Typography sx={{ fontSize: 26, fontWeight: 900, color: 'text.primary', lineHeight: 1 }}>{k.value}</Typography>
-                  <Typography sx={{ fontSize: 11, color: k.color, fontWeight: 600, mt: 0.25 }}>{k.label}</Typography>
-                  <Typography sx={{ fontSize: 10, color: 'text.disabled', mt: 0.25 }}>{k.sub}</Typography>
-                </Box>
-              </Grid>
-            ))}
-          </Grid>
+            </Estado>
+          </Panel>
         )}
       </Box>
     </Layout>
