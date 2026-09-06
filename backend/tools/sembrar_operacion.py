@@ -30,7 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession                # noqa: E402
 import app.main                                                # noqa: F401,E402
 from app.core.database import engine                           # noqa: E402
 from app.core import (                                         # noqa: E402
-    demo_crm, demo_hcm, demo_scm, demo_tms, demo_wms,
+    demo_crm, demo_dms, demo_hcm, demo_qms, demo_scm, demo_tms, demo_wms,
 )
 
 # En orden de dependencia: `TRUNCATE` sin `CASCADE` es justamente lo que impide
@@ -58,6 +58,29 @@ TABLAS = {
         "tms_costo_viaje", "tms_pod", "tms_documento", "tms_evento",
         "tms_parada", "tms_viaje", "tms_punto_ruta", "tms_ruta",
         "tms_vehiculo", "tms_tipo_servicio", "tms_zona",
+    ],
+    # Gestion documental. `dms_version` y `dms_firma` cuelgan de
+    # `dms_documento`, y este de `dms_carpeta` y `dms_tipo_documento`. Las
+    # carpetas se apuntan a si mismas por `padre_id`, asi que van en una sola
+    # sentencia y el orden dentro de la tabla no importa.
+    "dms": [
+        "dms_kpi_diario", "dms_notificacion", "dms_auditoria",
+        "dms_expediente_documento", "dms_expediente", "dms_retencion",
+        "dms_instancia_paso", "dms_instancia", "dms_workflow_paso",
+        "dms_workflow", "dms_firma", "dms_metadato_valor", "dms_version",
+        "dms_documento", "dms_campo_metadato", "dms_tipo_documento",
+        "dms_carpeta", "dms_categoria",
+    ],
+    # Calidad. `qms_hallazgo` cuelga de `qms_auditoria` y de `qms_no_conformidad`,
+    # y `qms_capa_tarea` de `qms_capa`: por eso el orden va de hoja a raiz y no
+    # alfabetico. `qms_proceso` va de ultimo porque casi todo lo referencia.
+    "qms": [
+        "qms_kpi_diario", "qms_encuesta_respuesta", "qms_encuesta",
+        "qms_mejora", "qms_cambio", "qms_evaluacion_proveedor", "qms_queja",
+        "qms_riesgo", "qms_capa_tarea", "qms_capa", "qms_auditoria_hallazgo",
+        "qms_hallazgo", "qms_no_conformidad", "qms_auditoria",
+        "qms_medicion_indicador", "qms_meta_indicador", "qms_indicador",
+        "qms_competencia_proceso", "qms_procedimiento", "qms_proceso",
     ],
     # Comercial. Todo cuelga de `crm_cliente` y de `crm_ejecutivo_comercial`,
     # asi que esos dos van de ultimos. `crm_encuesta` apunta a `crm_ticket`, y
@@ -155,6 +178,21 @@ async def principal() -> None:
             comprobar = demo_tms.verificar
             regla = "los costos CUADRAN y el OTIF coincide con las fechas"
             falla = "¡los costos o el OTIF NO CUADRAN!"
+        elif args.modulo == "dms":
+            resumen = await demo_dms.sembrar_dms(
+                db, desde=args.desde, hasta=args.hasta,
+                documentos_por_semana=args.por_dia, esquema=args.esquema,
+                avisar=print)
+            comprobar = demo_dms.verificar
+            regla = "nada publicado sin firmar, nada vencido en vigencia"
+            falla = "¡el archivo documental se contradice!"
+        elif args.modulo == "qms":
+            resumen = await demo_qms.sembrar_qms(
+                db, desde=args.desde, hasta=args.hasta, esquema=args.esquema,
+                avisar=print)
+            comprobar = demo_qms.verificar
+            regla = "cada no conformidad tiene su accion, y cada indicador su medicion"
+            falla = "¡el sistema de calidad NO es trazable!"
         elif args.modulo == "crm":
             resumen = await demo_crm.sembrar_crm(
                 db, desde=args.desde, hasta=args.hasta,

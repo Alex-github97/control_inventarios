@@ -1,462 +1,268 @@
-import React, { useState, useEffect } from 'react'
-import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  Chip,
-  Stack,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  alpha,
-  Avatar,
-  Button,
-  Divider,
-  List,
-  ListItem,
-  ListItemAvatar,
-  ListItemText,
-} from '@mui/material'
+/**
+ * El tablero del archivo documental.
+ *
+ * LA PREGUNTA QUE RESPONDE
+ * No es «cuántos documentos tengo» —eso no le sirve a nadie— sino «qué se me
+ * está venciendo, qué está esperando una firma y qué expediente está
+ * incompleto». Por eso lo vencido y lo por vencer van primero, y el total va
+ * como dato de contexto y no como titular.
+ *
+ * LAS ALERTAS LLEVAN SU DOCUMENTO
+ * Cada línea dice cuál es. Una alerta que dice «hay documentos por vencer» sin
+ * decir cuáles obliga a buscarlos a mano, y entonces nadie la usa.
+ */
+import { Box, Typography, alpha, Chip } from '@mui/material'
 import Grid from '@mui/material/Grid2'
 import {
-  Description,
-  CheckCircle,
-  Warning,
-  Schedule,
-  Draw,
-  Shield,
-  FolderOpen,
-  AccountCircle,
-  Visibility,
+  FolderSpecial, WarningAmber, Draw, AccountTree, Inventory2,
+  Storage, EventBusy, Verified,
 } from '@mui/icons-material'
-import { Layout } from '@/components/layout/Layout'
 import { useQuery } from '@tanstack/react-query'
-import { apiClient } from '@/api/client'
-
-import { COLOR_MODULO } from '@/config/marca'
-const DMS_COLOR = COLOR_MODULO
-
-const fmtN = (n: number | undefined) => (n ?? 0).toLocaleString('es-CO')
-const fmtFecha = (s?: string | null) => (s ? new Date(s).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—')
-
-interface DMSKpis {
-  total_documentos: number; documentos_activos: number; documentos_vencidos: number
-  documentos_proximos_vencer: number; firmas_pendientes: number; cumplimiento_pct: number
-}
-interface DocReciente {
-  id: number; codigo?: string | null; nombre: string; tipo_nombre?: string | null
-  estado: string; version_actual: string; propietario_nombre?: string | null; updated_at?: string
-}
-
-// ─── Mock data ────────────────────────────────────────────────────────────────
-
-const ALERTAS = [
-  { id: 1, tipo: 'vencido', doc: 'SOAT-TK-4521', msg: 'SOAT Tracto Kenworth placa TUL-431 — vencido hace 3 días', nivel: 'error' },
-  { id: 2, tipo: 'proximo', doc: 'RTM-2024-087', msg: 'Revisión Técnico-Mecánica vence en 8 días — placa SJC-902', nivel: 'warning' },
-  { id: 3, tipo: 'proximo', doc: 'LIC-CON-2234', msg: 'Licencia conductor Pedro Ramírez vence en 15 días', nivel: 'warning' },
-  { id: 4, tipo: 'vencido', doc: 'SEG-LOC-001', msg: 'Póliza seguro bodega principal vencida — renovar urgente', nivel: 'error' },
-  { id: 5, tipo: 'proximo', doc: 'CERT-ISO-2026', msg: 'Certificación ISO 9001 vence en 28 días — agendar auditoría', nivel: 'warning' },
-]
-
-const ACTIVIDAD_RECIENTE = [
-  { id: 1, usuario: 'María González', inicial: 'MG', color: '#7C3AED', accion: 'Aprobó', doc: 'Manual de Operaciones v2.1', tiempo: 'Hace 12 min' },
-  { id: 2, usuario: 'Carlos Moreno', inicial: 'CM', color: '#0E7490', accion: 'Firmó', doc: 'Contrato Distribución Medellín', tiempo: 'Hace 35 min' },
-  { id: 3, usuario: 'Ana Rodríguez', inicial: 'AR', color: '#16A34A', accion: 'Subió', doc: 'SOAT Tracto-Camión placa SBC-112', tiempo: 'Hace 1h' },
-  { id: 4, usuario: 'Luis Peña', inicial: 'LP', color: '#D97706', accion: 'Creó', doc: 'Acuerdo Servicio Cliente Éxito S.A.', tiempo: 'Hace 2h' },
-  { id: 5, usuario: 'Sandra Torres', inicial: 'ST', color: '#DC2626', accion: 'Rechazó', doc: 'Procedimiento Despacho Urgente v1.0', tiempo: 'Hace 3h' },
-  { id: 6, usuario: 'Jhon Vargas', inicial: 'JV', color: '#0891B2', accion: 'Publicó', doc: 'Política de Gestión Ambiental 2026', tiempo: 'Hace 4h' },
-]
-
-const WORKFLOWS = [
-  { id: 1, nombre: 'Aprobación Contrato Distribución', etapa: 'Revisión Jurídica', progreso: 60, pendiente: 'Dra. Andrea Castro' },
-  { id: 2, nombre: 'Actualización Manual Operaciones', etapa: 'Firma Gerencia', progreso: 80, pendiente: 'Ing. Roberto Sánchez' },
-  { id: 3, nombre: 'Renovación Póliza Vehículos', etapa: 'Aprobación Finanzas', progreso: 40, pendiente: 'Contador Principal' },
-  { id: 4, nombre: 'Certificación Operador BASC', etapa: 'Documentación', progreso: 20, pendiente: 'Área de Calidad' },
-]
-
-// ─── Estado chip colors ───────────────────────────────────────────────────────
-
-const ESTADO_CONFIG: Record<string, { label: string; bg: string; color: string }> = {
-  BORRADOR:    { label: 'Borrador',    bg: '#F3F4F6', color: '#6B7280' },
-  EN_REVISION: { label: 'En Revisión', bg: alpha('#D97706', 0.12), color: '#D97706' },
-  APROBADO:    { label: 'Aprobado',    bg: alpha('#2563EB', 0.12), color: '#2563EB' },
-  PUBLICADO:   { label: 'Publicado',   bg: alpha('#16A34A', 0.12), color: '#16A34A' },
-  OBSOLETO:    { label: 'Obsoleto',    bg: alpha('#DC2626', 0.12), color: '#DC2626' },
-  ARCHIVADO:   { label: 'Archivado',   bg: alpha('#92400E', 0.12), color: '#92400E' },
-}
-
-function EstadoChip({ estado }: { estado: string }) {
-  const cfg = ESTADO_CONFIG[estado] ?? { label: estado, bg: '#F3F4F6', color: '#6B7280' }
-  return (
-    <Chip
-      label={cfg.label}
-      size="small"
-      sx={{ fontSize: 10, fontWeight: 700, bgcolor: cfg.bg, color: cfg.color, border: 'none' }}
-    />
-  )
-}
-
-// ─── KPI Card ─────────────────────────────────────────────────────────────────
-
-interface KPIProps {
-  label: string
-  value: string
-  icon: React.ReactElement
-  color: string
-  sublabel?: string
-}
-
-function KPICard({ label, value, icon, color, sublabel }: KPIProps) {
-  return (
-    <Paper
-      elevation={0}
-      className="hover-lift"
-      sx={{
-        border: '1px solid #E5E7EB',
-        borderRadius: '14px',
-        p: 2.5,
-        height: '100%',
-        position: 'relative',
-        overflow: 'hidden',
-      }}
-    >
-      <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-        <Box>
-          <Typography className="text-gradient" fontSize={36} fontWeight={800} color={color} lineHeight={1.1} sx={{ fontVariantNumeric: 'tabular-nums' }}>
-            {value}
-          </Typography>
-          <Typography fontSize={12} color="text.secondary" mt={0.5} fontWeight={600}>
-            {label}
-          </Typography>
-          {sublabel && (
-            <Typography fontSize={11} color="text.disabled" mt={0.25}>
-              {sublabel}
-            </Typography>
-          )}
-        </Box>
-        <Box
-          sx={{
-            width: 44,
-            height: 44,
-            borderRadius: '11px',
-            bgcolor: alpha(color, 0.1),
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}
-        >
-          {React.cloneElement(icon, { sx: { fontSize: 22, color } })}
-        </Box>
-      </Stack>
-    </Paper>
-  )
-}
-
-// ─── Blinking badge ───────────────────────────────────────────────────────────
-
-function LiveBadge() {
-  const [visible, setVisible] = useState(true)
-  useEffect(() => {
-    const t = setInterval(() => setVisible((v) => !v), 900)
-    return () => clearInterval(t)
-  }, [])
-  return (
-    <Chip
-      label="EN VIVO"
-      size="small"
-      sx={{
-        fontSize: 10,
-        fontWeight: 800,
-        height: 22,
-        bgcolor: visible ? alpha(DMS_COLOR, 0.15) : 'transparent',
-        color: DMS_COLOR,
-        border: `1.5px solid ${DMS_COLOR}`,
-        transition: 'background-color 0.4s',
-        letterSpacing: '0.05em',
-      }}
-    />
-  )
-}
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
+import { Link } from 'react-router-dom'
+import { Layout } from '@/components/layout/Layout'
+import { dmsApi } from '@/api/dms'
+import {
+  BORDE, DMS_COLOR, Estado, Panel, BarraVigencia, ChipEstado, IconoArchivo,
+  fecha, legible,
+} from '@/components/dms/comunes'
 
 export default function DMSDashboard() {
-  const { data: kpis } = useQuery<DMSKpis>({
-    queryKey: ['dms-kpis'],
-    queryFn: () => apiClient.get('/dms/dashboard/kpis').then((r) => r.data),
-    refetchInterval: 60_000,
+  const tablero = useQuery({
+    queryKey: ['dms', 'tablero'],
+    queryFn: () => dmsApi.tablero(),
   })
-  const { data: recientes = [] } = useQuery<DocReciente[]>({
-    queryKey: ['dms-recientes'],
-    queryFn: () => apiClient.get('/dms/documentos', { params: { per_page: 8 } }).then((r) => r.data),
+  const documentos = useQuery({
+    queryKey: ['dms', 'documentos', 'todos'],
+    queryFn: () => dmsApi.documentos(),
   })
-  const { data: categorias = [] } = useQuery<any[]>({
-    queryKey: ['dms-categorias'],
-    queryFn: () => apiClient.get('/dms/categorias').then((r) => r.data),
+  const firmas = useQuery({
+    queryKey: ['dms', 'firmas', 'PENDIENTE'],
+    queryFn: () => dmsApi.firmas({ estado: 'PENDIENTE' }),
   })
-  const maxCat = Math.max(1, ...categorias.map((c: any) => c.total_documentos ?? c.documentos_count ?? 0))
+  const expedientes = useQuery({
+    queryKey: ['dms', 'expedientes'],
+    queryFn: () => dmsApi.expedientes(),
+  })
+
+  const k = tablero.data
+  const todos = documentos.data ?? []
+
+  // Lo que se vence dentro de noventa días, lo más urgente primero. Se calcula
+  // al mirar y no se guarda: un «faltan 30 días» guardado envejece y miente.
+  const porVencer = todos
+    .filter(d => d.fecha_vigencia_fin)
+    .map(d => ({
+      d, dias: Math.round(
+        (new Date(d.fecha_vigencia_fin!).getTime() - Date.now()) / 86_400_000),
+    }))
+    .filter(x => x.dias <= 90)
+    .sort((a, b) => a.dias - b.dias)
+
+  const vencidos = porVencer.filter(x => x.dias < 0)
+  const incompletos = (expedientes.data ?? [])
+    .filter(e => e.completitud_pct < 100)
+    .sort((a, b) => a.completitud_pct - b.completitud_pct)
+
+  const tarjetas = k ? [
+    { label: 'Vencidos', value: vencidos.length, color: '#EF4444',
+      icon: <EventBusy />, sub: vencidos.length ? 'requieren renovación ya' : 'ninguno' },
+    { label: 'Vencen en 90 días', value: porVencer.length - vencidos.length,
+      color: '#F59E0B', icon: <WarningAmber />, sub: 'hay tiempo de renovarlos' },
+    { label: 'Firmas pendientes', value: k.firmas_pendientes, color: '#7C3AED',
+      icon: <Draw />, sub: 'esperando a alguien' },
+    { label: 'Expedientes incompletos', value: incompletos.length, color: '#0EA5E9',
+      icon: <Inventory2 />, sub: `de ${expedientes.data?.length ?? 0} abiertos` },
+    { label: 'Documentos vigentes', value: k.documentos_activos, color: '#059669',
+      icon: <Verified />, sub: `${k.total_documentos} en total` },
+    { label: 'Flujos en curso', value: k.workflows_activos, color: DMS_COLOR,
+      icon: <AccountTree />, sub: 'en revisión o aprobación' },
+    { label: 'Espacio ocupado',
+      value: k.tamanio_total_mb >= 1024
+        ? `${(k.tamanio_total_mb / 1024).toFixed(1)} GB`
+        : `${Math.round(k.tamanio_total_mb)} MB`,
+      color: '#6B7280', icon: <Storage />, sub: 'sumando todas las versiones' },
+    { label: 'Categorías', value: k.categorias_total, color: '#94A3B8',
+      icon: <FolderSpecial />, sub: 'clasificación del archivo' },
+  ] : []
 
   return (
-    <Layout title="DMS — Dashboard">
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+    <Layout>
+      <Box sx={{ p: 3, minHeight: '100vh' }}>
+        <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{
+            width: 44, height: 44, borderRadius: '12px',
+            background: `linear-gradient(135deg, ${DMS_COLOR} 0%, #1E40AF 100%)`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: `0 4px 14px ${alpha(DMS_COLOR, 0.4)}`,
+          }}>
+            <FolderSpecial sx={{ color: '#fff', fontSize: 22 }} />
+          </Box>
+          <Box>
+            <Typography sx={{ fontSize: 20, fontWeight: 800 }}>
+              Archivo documental
+            </Typography>
+            <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
+              Qué se vence, qué espera firma y qué expediente está incompleto
+            </Typography>
+          </Box>
+        </Box>
 
-        {/* ── Header ────────────────────────────────────────────────────── */}
-        <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
-          <Stack direction="row" alignItems="center" spacing={1.5}>
-            <Box
-              sx={{
-                width: 44,
-                height: 44,
-                borderRadius: '11px',
-                bgcolor: alpha(DMS_COLOR, 0.12),
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Description sx={{ color: DMS_COLOR, fontSize: 24 }} />
-            </Box>
-            <Box>
-              <Stack direction="row" alignItems="center" spacing={1}>
-                <Typography fontSize={22} fontWeight={800} color="text.primary">
-                  Document Management System
-                </Typography>
-                <Chip
-                  label="DMS"
-                  size="small"
-                  sx={{ fontSize: 11, fontWeight: 800, height: 22, bgcolor: DMS_COLOR, color: '#fff' }}
-                />
-                <LiveBadge />
-              </Stack>
-              <Typography fontSize={12} color="text.secondary">
-                Gestión documental empresarial — la compañía S.A.S.
-              </Typography>
-            </Box>
-          </Stack>
-        </Stack>
+        <Estado cargando={tablero.isLoading} error={tablero.error} vacio={!k}
+          mensajeVacio="Todavía no hay nada archivado"
+          hint="Al cargar el primer documento aparecen aquí sus indicadores.">
+          <Grid container spacing={2} sx={{ mb: 3 }} className="anim-stagger">
+            {tarjetas.map((t, i) => (
+              <Grid key={i} size={{ xs: 6, sm: 4, lg: 3 }}>
+                <Box className="hover-lift" sx={{
+                  border: `1px solid ${alpha(t.color, 0.3)}`, borderRadius: 2,
+                  p: 2, display: 'flex', gap: 1.5, alignItems: 'center', height: '100%',
+                }}>
+                  <Box sx={{
+                    width: 40, height: 40, borderRadius: '10px', flexShrink: 0,
+                    background: `linear-gradient(135deg, ${t.color} 0%, ${alpha(t.color, 0.6)} 100%)`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    '& svg': { color: '#fff', fontSize: 20 },
+                  }}>{t.icon}</Box>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{
+                      fontSize: 22, fontWeight: 900, color: t.color, lineHeight: 1,
+                      fontVariantNumeric: 'tabular-nums',
+                    }}>{t.value}</Typography>
+                    <Typography sx={{ fontSize: 10.5, color: 'text.secondary', mt: 0.25 }}>
+                      {t.label}
+                    </Typography>
+                    <Typography sx={{ fontSize: 10, color: t.color, fontWeight: 600 }}>
+                      {t.sub}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Grid>
+            ))}
+          </Grid>
+        </Estado>
 
-        {/* ── KPI Cards ─────────────────────────────────────────────────── */}
-        <Grid container spacing={2} className="anim-stagger">
-          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <KPICard label="Total Documentos" value={fmtN(kpis?.total_documentos)} icon={<Description />} color={DMS_COLOR} sublabel="En el repositorio" />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <KPICard label="Documentos Activos" value={fmtN(kpis?.documentos_activos)} icon={<CheckCircle />} color="#16A34A" sublabel="Vigentes y publicados" />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <KPICard label="Documentos Vencidos" value={fmtN(kpis?.documentos_vencidos)} icon={<Warning />} color="#DC2626" sublabel="Requieren renovación" />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <KPICard label="Próximos a Vencer" value={fmtN(kpis?.documentos_proximos_vencer)} icon={<Schedule />} color="#D97706" sublabel="Menos de 30 días" />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <KPICard label="Firmas Pendientes" value={fmtN(kpis?.firmas_pendientes)} icon={<Draw />} color="#2563EB" sublabel="Esperando firma digital" />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <KPICard label="Cumplimiento" value={`${(kpis?.cumplimiento_pct ?? 0).toFixed(1)}%`} icon={<Shield />} color={DMS_COLOR} sublabel="Índice documental" />
-          </Grid>
-        </Grid>
-
-        {/* ── Tabla Documentos Recientes ────────────────────────────────── */}
-        <Card elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '14px' }}>
-          <CardContent sx={{ p: 0 }}>
-            <Box sx={{ px: 2.5, pt: 2.5, pb: 1.5 }}>
-              <Typography fontWeight={700} fontSize={15}>
-                Documentos Recientes
-              </Typography>
-              <Typography fontSize={12} color="text.secondary">
-                Últimas modificaciones en el repositorio documental
-              </Typography>
-            </Box>
-            <Box sx={{ overflowX: 'auto' }}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ '& th': { fontSize: 11, fontWeight: 700, color: 'text.secondary', py: 1.25, bgcolor: '#FAFAFA' } }}>
-                    <TableCell>Código</TableCell>
-                    <TableCell>Nombre</TableCell>
-                    <TableCell>Tipo</TableCell>
-                    <TableCell>Estado</TableCell>
-                    <TableCell>Versión</TableCell>
-                    <TableCell>Área</TableCell>
-                    <TableCell>Fecha</TableCell>
-                    <TableCell></TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {recientes.length === 0 ? (
-                    <TableRow><TableCell colSpan={8} align="center" sx={{ py: 5, color: 'text.secondary', fontSize: 13 }}>Aún no hay documentos en el repositorio</TableCell></TableRow>
-                  ) : recientes.map((doc) => (
-                    <TableRow key={doc.id} hover sx={{ '& td': { fontSize: 12, py: 1 } }}>
-                      <TableCell sx={{ fontWeight: 700, color: DMS_COLOR, fontFamily: 'monospace' }}>{doc.codigo ?? `DOC-${doc.id}`}</TableCell>
-                      <TableCell sx={{ maxWidth: 240 }}>
-                        <Typography fontSize={12} noWrap>{doc.nombre}</Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography fontSize={11} color="text.secondary">{doc.tipo_nombre ?? '—'}</Typography>
-                      </TableCell>
-                      <TableCell><EstadoChip estado={doc.estado} /></TableCell>
-                      <TableCell>
-                        <Chip label={`v${doc.version_actual}`} size="small" sx={{ fontSize: 10, height: 20, bgcolor: alpha(DMS_COLOR, 0.08), color: DMS_COLOR, fontWeight: 700 }} />
-                      </TableCell>
-                      <TableCell>{doc.propietario_nombre ?? '—'}</TableCell>
-                      <TableCell sx={{ color: 'text.secondary' }}>{fmtFecha(doc.updated_at)}</TableCell>
-                      <TableCell>
-                        <Visibility sx={{ fontSize: 16, color: 'text.disabled', cursor: 'pointer', '&:hover': { color: DMS_COLOR } }} />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Box>
-          </CardContent>
-        </Card>
-
-        {/* ── Fila inferior: Alertas + Actividad ────────────────────────── */}
         <Grid container spacing={2}>
-          {/* Alertas Documentales */}
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Card elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '14px', height: '100%' }}>
-              <CardContent sx={{ p: 2.5 }}>
-                <Typography fontWeight={700} fontSize={15} mb={2}>
-                  Alertas Documentales
-                </Typography>
-                <Stack spacing={1.5}>
-                  {ALERTAS.map((a) => (
-                    <Box
-                      key={a.id}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1.5,
-                        p: 1.5,
-                        borderRadius: '10px',
-                        borderLeft: `4px solid ${a.nivel === 'error' ? '#DC2626' : '#D97706'}`,
-                        bgcolor: a.nivel === 'error' ? alpha('#DC2626', 0.04) : alpha('#D97706', 0.04),
-                        border: `1px solid ${a.nivel === 'error' ? alpha('#DC2626', 0.2) : alpha('#D97706', 0.2)}`,
-                        borderLeftWidth: 4,
-                      }}
-                    >
-                      <Warning sx={{ fontSize: 18, color: a.nivel === 'error' ? '#DC2626' : '#D97706', flexShrink: 0 }} />
-                      <Typography fontSize={12} flex={1} color="text.primary">{a.msg}</Typography>
-                      <Button size="small" variant="outlined" sx={{ fontSize: 11, py: 0.25, px: 1, minWidth: 'unset', color: a.nivel === 'error' ? '#DC2626' : '#D97706', borderColor: a.nivel === 'error' ? '#DC2626' : '#D97706' }}>
-                        Ver
-                      </Button>
-                    </Box>
-                  ))}
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Actividad Reciente */}
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Card elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '14px', height: '100%' }}>
-              <CardContent sx={{ p: 2.5 }}>
-                <Typography fontWeight={700} fontSize={15} mb={1}>
-                  Actividad Reciente
-                </Typography>
-                <List dense disablePadding>
-                  {ACTIVIDAD_RECIENTE.map((ev, idx) => (
-                    <React.Fragment key={ev.id}>
-                      <ListItem disableGutters alignItems="flex-start" sx={{ py: 1 }}>
-                        <ListItemAvatar sx={{ minWidth: 44 }}>
-                          <Avatar sx={{ width: 34, height: 34, bgcolor: ev.color, fontSize: 13, fontWeight: 700 }}>
-                            {ev.inicial}
-                          </Avatar>
-                        </ListItemAvatar>
-                        <ListItemText
-                          primary={
-                            <Typography fontSize={12} color="text.primary">
-                              <strong>{ev.usuario}</strong> {ev.accion}{' '}
-                              <span style={{ color: DMS_COLOR }}>{ev.doc}</span>
-                            </Typography>
-                          }
-                          secondary={
-                            <Typography fontSize={11} color="text.disabled">{ev.tiempo}</Typography>
-                          }
-                        />
-                      </ListItem>
-                      {idx < ACTIVIDAD_RECIENTE.length - 1 && <Divider />}
-                    </React.Fragment>
-                  ))}
-                </List>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-
-        {/* ── Sección inferior: Categorías + Workflows ──────────────────── */}
-        <Grid container spacing={2}>
-          {/* Documentos por Categoría */}
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Card elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '14px' }}>
-              <CardContent sx={{ p: 2.5 }}>
-                <Typography fontWeight={700} fontSize={15} mb={2}>
-                  Documentos por Categoría
-                </Typography>
-                <Stack spacing={1.5}>
-                  {categorias.length === 0 ? (
-                    <Typography fontSize={12.5} color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>Sin categorías configuradas</Typography>
-                  ) : categorias.map((cat: any) => {
-                    const cant = cat.total_documentos ?? cat.documentos_count ?? 0
-                    return (
-                    <Box key={cat.id ?? cat.nombre}>
-                      <Stack direction="row" justifyContent="space-between" mb={0.5}>
-                        <Typography fontSize={12} fontWeight={600}>{cat.nombre}</Typography>
-                        <Typography fontSize={12} color="text.secondary">{cant}</Typography>
-                      </Stack>
-                      <Box sx={{ height: 8, borderRadius: 4, bgcolor: '#F3F4F6', overflow: 'hidden' }}>
-                        <Box
-                          sx={{
-                            height: '100%',
-                            width: `${Math.round((cant / maxCat) * 100)}%`,
-                            borderRadius: 4,
-                            bgcolor: DMS_COLOR,
-                            transition: 'width 0.6s ease',
-                          }}
-                        />
-                      </Box>
-                    </Box>
-                    )
-                  })}
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Workflows Activos */}
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Card elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '14px' }}>
-              <CardContent sx={{ p: 2.5 }}>
-                <Typography fontWeight={700} fontSize={15} mb={2}>
-                  Workflows Activos
-                </Typography>
-                <Stack spacing={2}>
-                  {WORKFLOWS.map((wf) => (
-                    <Box key={wf.id} sx={{ p: 1.5, border: '1px solid #E5E7EB', borderRadius: '10px' }}>
-                      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={0.75}>
-                        <Typography fontSize={12} fontWeight={600} flex={1}>{wf.nombre}</Typography>
-                        <Chip label={`${wf.progreso}%`} size="small" sx={{ fontSize: 10, height: 20, bgcolor: alpha(DMS_COLOR, 0.1), color: DMS_COLOR, fontWeight: 700 }} />
-                      </Stack>
-                      <Typography fontSize={11} color="text.secondary" mb={0.75}>
-                        Etapa: <strong>{wf.etapa}</strong> — Pendiente: {wf.pendiente}
+          <Grid size={{ xs: 12, lg: 7 }}>
+            <Panel sx={{ p: 2.5, height: '100%' }}>
+              <Typography sx={{ fontSize: 14, fontWeight: 700, mb: 0.5 }}>
+                Lo que se vence
+              </Typography>
+              <Typography sx={{ fontSize: 11.5, color: 'text.secondary', mb: 2 }}>
+                Lo vencido primero. Un SOAT caído no es un aviso: es un camión
+                que no puede salir.
+              </Typography>
+              <Estado cargando={documentos.isLoading} error={documentos.error}
+                vacio={!porVencer.length}
+                mensajeVacio="Nada se vence en los próximos 90 días"
+                hint="Todos los documentos con vigencia están al día.">
+                {porVencer.slice(0, 12).map(({ d }) => (
+                  <Box key={d.id} component={Link} to={`/dms/documentos?doc=${d.id}`}
+                    sx={{
+                      display: 'flex', alignItems: 'center', gap: 1.5, p: 1.5, mb: 1,
+                      borderRadius: 1.5, border: `1px solid ${BORDE}`,
+                      bgcolor: '#F9FAFB', textDecoration: 'none', color: 'inherit',
+                      '&:hover': { borderColor: DMS_COLOR },
+                    }}>
+                    <IconoArchivo nombre={d.nombre} />
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography sx={{ fontSize: 12.5, fontWeight: 600 }} noWrap>
+                        {d.nombre}
                       </Typography>
-                      <Box sx={{ height: 6, borderRadius: 3, bgcolor: '#F3F4F6', overflow: 'hidden' }}>
-                        <Box sx={{ height: '100%', width: `${wf.progreso}%`, borderRadius: 3, bgcolor: DMS_COLOR }} />
-                      </Box>
+                      <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>
+                        {d.codigo} · {d.tipo_nombre || 'sin tipo'}
+                      </Typography>
                     </Box>
-                  ))}
-                </Stack>
-              </CardContent>
-            </Card>
+                    <BarraVigencia fin={d.fecha_vigencia_fin} />
+                    <ChipEstado estado={d.estado} />
+                  </Box>
+                ))}
+                {porVencer.length > 12 && (
+                  <Typography sx={{ fontSize: 11.5, color: 'text.disabled',
+                                    textAlign: 'center', mt: 1 }}>
+                    y {porVencer.length - 12} más
+                  </Typography>
+                )}
+              </Estado>
+            </Panel>
+          </Grid>
+
+          <Grid size={{ xs: 12, lg: 5 }}>
+            <Panel sx={{ p: 2.5, mb: 2 }}>
+              <Typography sx={{ fontSize: 14, fontWeight: 700, mb: 0.5 }}>
+                Expedientes incompletos
+              </Typography>
+              <Typography sx={{ fontSize: 11.5, color: 'text.secondary', mb: 2 }}>
+                Los más vacíos primero.
+              </Typography>
+              <Estado cargando={expedientes.isLoading} error={expedientes.error}
+                vacio={!incompletos.length}
+                mensajeVacio="Todos los expedientes están completos">
+                {incompletos.slice(0, 8).map(e => (
+                  <Box key={e.id} sx={{ mb: 1.5 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between',
+                               alignItems: 'center', mb: 0.5, gap: 1 }}>
+                      <Typography sx={{ fontSize: 12.5, fontWeight: 600 }} noWrap>
+                        {e.nombre}
+                      </Typography>
+                      <Typography sx={{
+                        fontSize: 12, fontWeight: 800, flexShrink: 0,
+                        color: e.completitud_pct < 50 ? '#EF4444' : '#F59E0B',
+                      }}>
+                        {e.completitud_pct}%
+                      </Typography>
+                    </Box>
+                    <Box sx={{ height: 6, borderRadius: 3, bgcolor: '#EEF2F7', overflow: 'hidden' }}>
+                      <Box sx={{
+                        height: '100%', width: `${e.completitud_pct}%`,
+                        bgcolor: e.completitud_pct < 50 ? '#EF4444' : '#F59E0B',
+                        borderRadius: 3,
+                      }} />
+                    </Box>
+                    <Typography sx={{ fontSize: 10.5, color: 'text.disabled', mt: 0.25 }}>
+                      {legible(e.tipo)} · {e.codigo}
+                    </Typography>
+                  </Box>
+                ))}
+              </Estado>
+            </Panel>
+
+            <Panel sx={{ p: 2.5 }}>
+              <Typography sx={{ fontSize: 14, fontWeight: 700, mb: 0.5 }}>
+                Esperando firma
+              </Typography>
+              <Typography sx={{ fontSize: 11.5, color: 'text.secondary', mb: 2 }}>
+                Cada una detiene un documento.
+              </Typography>
+              <Estado cargando={firmas.isLoading} error={firmas.error}
+                vacio={!firmas.data?.length}
+                mensajeVacio="No hay firmas pendientes"
+                hint="Todo lo que se envió a firmar ya se firmó.">
+                {firmas.data?.slice(0, 8).map(f => {
+                  const doc = todos.find(d => d.id === f.documento_id)
+                  return (
+                    <Box key={f.id} sx={{
+                      display: 'flex', alignItems: 'center', gap: 1, p: 1.25, mb: 0.75,
+                      borderRadius: 1.25, bgcolor: alpha('#F59E0B', 0.06),
+                      border: `1px solid ${alpha('#F59E0B', 0.25)}`,
+                    }}>
+                      <Draw sx={{ fontSize: 15, color: '#F59E0B' }} />
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography sx={{ fontSize: 12, fontWeight: 600 }} noWrap>
+                          {doc?.nombre ?? `Documento #${f.documento_id}`}
+                        </Typography>
+                        <Typography sx={{ fontSize: 10.5, color: 'text.secondary' }}>
+                          {legible(f.tipo_firma)} · pedida el {fecha(f.created_at)}
+                        </Typography>
+                      </Box>
+                      <Chip label={`turno ${f.orden ?? 1}`} size="small"
+                        sx={{ height: 18, fontSize: 9.5, flexShrink: 0 }} />
+                    </Box>
+                  )
+                })}
+              </Estado>
+            </Panel>
           </Grid>
         </Grid>
-
       </Box>
     </Layout>
   )

@@ -1,554 +1,269 @@
-import React, { useState } from 'react'
-import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  Chip,
-  Stack,
-  Paper,
-  alpha,
-  Avatar,
-  Button,
-  TextField,
-  Divider,
-  List,
-  ListItem,
-  ListItemAvatar,
-  ListItemText,
-  IconButton,
-  ToggleButton,
-  ToggleButtonGroup,
-  Badge,
-} from '@mui/material'
+/**
+ * Lo mío: lo que espera mi firma, lo que me avisaron y lo que subí.
+ *
+ * POR QUÉ UNA PANTALLA APARTE
+ * Porque el archivo completo son seiscientos documentos y a cada persona le
+ * tocan cinco. Obligar a filtrar el archivo entero para encontrar los propios
+ * es lo que hace que la gente deje de entrar y las firmas se atasquen.
+ *
+ * LOS AVISOS SE MARCAN COMO LEÍDOS
+ * Y se marcan de verdad, contra el servidor. Un contador de avisos que nunca
+ * baja se ignora en una semana.
+ */
+import { Box, Typography, Chip, alpha, Button, Tooltip } from '@mui/material'
 import Grid from '@mui/material/Grid2'
 import {
-  Search,
-  CloudDownload,
-  Visibility,
-  Description,
-  Policy,
-  Security,
-  Emergency,
-  Folder,
-  FolderSpecial,
-  Article,
-  Assignment,
-  Gavel,
-  Engineering,
-  People,
-  NewReleases,
-  Update,
-  Draw,
-  CheckCircle,
-  AccessTime,
-  Star,
-  PersonOutline,
-  Public,
-  Shield,
+  Person, Draw, NotificationsActive, DoneAll, Upload, CheckCircle, Cancel,
 } from '@mui/icons-material'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
-import { exportarPDF } from '@/utils/exportar'
-
-import { COLOR_MODULO } from '@/config/marca'
-const DMS_COLOR = COLOR_MODULO
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface DocDestacado {
-  id: string
-  nombre: string
-  descripcion: string
-  fechaActualizacion: string
-  descargas: number
-  icon: React.ReactNode
-  color: string
-  area: string
-  version: string
-}
-
-interface Categoria {
-  nombre: string
-  icon: React.ReactNode
-  color: string
-  cantidad: number
-}
-
-interface DocNovedad {
-  nombre: string
-  fecha: string
-  estado: 'NUEVO' | 'ACTUALIZADO'
-  area: string
-}
-
-interface DocObligatorio {
-  nombre: string
-  tipo: string
-  accion: string
-  vencimiento: string
-  urgente: boolean
-}
-
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-
-const DOCS_DESTACADOS: DocDestacado[] = [
-  {
-    id: 'DD-001',
-    nombre: 'Manual de Calidad la compañía',
-    descripcion: 'Manual del sistema de gestión de calidad, procesos, procedimientos y estándares de la organización.',
-    fechaActualizacion: '01/06/2026',
-    descargas: 142,
-    icon: <Star />,
-    color: DMS_COLOR,
-    area: 'Calidad',
-    version: 'v5.0',
-  },
-  {
-    id: 'DD-002',
-    nombre: 'Reglamento Interno de Trabajo',
-    descripcion: 'Normas, derechos y deberes de los colaboradores de la compañía. Lectura obligatoria para todos los empleados.',
-    fechaActualizacion: '15/03/2026',
-    descargas: 387,
-    icon: <Gavel />,
-    color: '#7c3aed',
-    area: 'RRHH',
-    version: 'v2.0',
-  },
-  {
-    id: 'DD-003',
-    nombre: 'Política de Seguridad Vial',
-    descripcion: 'Lineamientos y compromisos de seguridad vial para conductores y personal que opera vehículos.',
-    fechaActualizacion: '14/06/2026',
-    descargas: 98,
-    icon: <Shield />,
-    color: '#059669',
-    area: 'SST',
-    version: 'v2.1',
-  },
-  {
-    id: 'DD-004',
-    nombre: 'Procedimiento de Emergencias',
-    descripcion: 'Protocolo de actuación ante emergencias, evacuación, primeros auxilios e incidentes críticos.',
-    fechaActualizacion: '01/04/2026',
-    descargas: 215,
-    icon: <Emergency />,
-    color: '#dc2626',
-    area: 'SST',
-    version: 'v3.0',
-  },
-]
-
-const CATEGORIAS: Categoria[] = [
-  { nombre: 'Contratos', icon: <Description />, color: DMS_COLOR, cantidad: 127 },
-  { nombre: 'Políticas', icon: <Policy />, color: '#7c3aed', cantidad: 34 },
-  { nombre: 'Procedimientos', icon: <Assignment />, color: '#059669', cantidad: 89 },
-  { nombre: 'Manuales', icon: <Article />, color: '#d97706', cantidad: 23 },
-  { nombre: 'Normativa Legal', icon: <Gavel />, color: '#dc2626', cantidad: 56 },
-  { nombre: 'Técnico / Ingeniería', icon: <Engineering />, color: '#0369a1', cantidad: 41 },
-]
-
-const NOVEDADES: DocNovedad[] = [
-  { nombre: 'Procedimiento SST-045 Trabajo en Alturas', fecha: '20/06/2026', estado: 'NUEVO', area: 'SST' },
-  { nombre: 'Política de Seguridad Vial v2.1', fecha: '14/06/2026', estado: 'ACTUALIZADO', area: 'SST' },
-  { nombre: 'Manual de Mantenimiento Preventivo Flota v3.0', fecha: '13/06/2026', estado: 'NUEVO', area: 'Flota' },
-  { nombre: 'Reglamento Interno de Trabajo v2.0', fecha: '15/03/2026', estado: 'ACTUALIZADO', area: 'RRHH' },
-  { nombre: 'Contrato Marco Logístico — Almacenes Éxito 2026', fecha: '01/06/2026', estado: 'NUEVO', area: 'Comercial' },
-]
-
-const DOCS_OBLIGATORIOS: DocObligatorio[] = [
-  {
-    nombre: 'Política de Seguridad Vial v2.1',
-    tipo: 'Política',
-    accion: 'Firma requerida',
-    vencimiento: '30/06/2026',
-    urgente: true,
-  },
-  {
-    nombre: 'Reglamento Interno de Trabajo v2.0',
-    tipo: 'Reglamento',
-    accion: 'Revisión requerida',
-    vencimiento: '15/07/2026',
-    urgente: false,
-  },
-  {
-    nombre: 'Procedimiento SST-045 Trabajo en Alturas',
-    tipo: 'Procedimiento',
-    accion: 'Confirmación de lectura',
-    vencimiento: '25/06/2026',
-    urgente: true,
-  },
-]
-
-// ─── Subcomponents ────────────────────────────────────────────────────────────
-
-function DocDestacadoCard({ doc }: { doc: DocDestacado }) {
-  return (
-    <Card
-      sx={{
-        borderRadius: 2,
-        height: '100%',
-        transition: 'box-shadow 0.2s, transform 0.2s',
-        '&:hover': { boxShadow: 6, transform: 'translateY(-2px)' },
-        borderTop: `4px solid ${doc.color}`,
-      }}
-    >
-      <CardContent>
-        <Stack direction="row" alignItems="center" gap={1.5} mb={1.5}>
-          <Avatar sx={{ bgcolor: alpha(doc.color, 0.12), color: doc.color, width: 44, height: 44 }}>
-            {doc.icon}
-          </Avatar>
-          <Box flex={1}>
-            <Typography variant="subtitle2" fontWeight={700} sx={{ lineHeight: 1.2 }}>
-              {doc.nombre}
-            </Typography>
-            <Stack direction="row" gap={0.5} mt={0.5} flexWrap="wrap">
-              <Chip label={doc.area} size="small" sx={{ fontSize: '0.6rem', height: 18 }} />
-              <Chip label={doc.version} size="small" sx={{ bgcolor: alpha(doc.color, 0.1), color: doc.color, fontSize: '0.6rem', height: 18, fontWeight: 700 }} />
-            </Stack>
-          </Box>
-        </Stack>
-
-        <Typography variant="caption" color="text.secondary" display="block" mb={2} sx={{ lineHeight: 1.5 }}>
-          {doc.descripcion}
-        </Typography>
-
-        <Stack direction="row" alignItems="center" gap={2} mb={2}>
-          <Stack direction="row" alignItems="center" gap={0.5}>
-            <AccessTime sx={{ fontSize: 13, color: 'text.disabled' }} />
-            <Typography variant="caption" color="text.secondary">{doc.fechaActualizacion}</Typography>
-          </Stack>
-          <Stack direction="row" alignItems="center" gap={0.5}>
-            <CloudDownload sx={{ fontSize: 13, color: 'text.disabled' }} />
-            <Typography variant="caption" color="text.secondary">{doc.descargas} descargas</Typography>
-          </Stack>
-        </Stack>
-
-        <Stack direction="row" gap={1}>
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<Visibility />}
-            sx={{ flex: 1, borderColor: doc.color, color: doc.color, fontSize: '0.72rem' }}
-          >
-            Ver
-          </Button>
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<CloudDownload />}
-            onClick={() => exportarPDF({
-              archivo: `documento-${doc.nombre}`,
-              titulo: doc.nombre,
-              subtitulo: `${doc.area} · v${doc.version} · ${doc.fechaActualizacion}`,
-              color: DMS_COLOR,
-              columnas: [{ key: 'campo', header: 'Campo' }, { key: 'valor', header: 'Valor' }],
-              filas: [
-                { campo: 'Documento', valor: doc.nombre },
-                { campo: 'Área', valor: doc.area },
-                { campo: 'Versión', valor: doc.version },
-                { campo: 'Actualización', valor: doc.fechaActualizacion },
-                { campo: 'Descripción', valor: doc.descripcion },
-              ],
-            })}
-            sx={{ flex: 1, bgcolor: doc.color, '&:hover': { bgcolor: alpha(doc.color, 0.85) }, fontSize: '0.72rem' }}
-          >
-            Descargar
-          </Button>
-        </Stack>
-      </CardContent>
-    </Card>
-  )
-}
-
-// ─── Main Component ───────────────────────────────────────────────────────────
+import { dmsApi } from '@/api/dms'
+import { useAuthStore } from '@/store/authStore'
+import {
+  BORDE, DMS_COLOR, Estado, Panel,
+  BarraVigencia, ChipEstado, IconoArchivo, fechaHora, legible,
+} from '@/components/dms/comunes'
 
 export default function DMSPortal() {
-  const [vista, setVista] = useState<'personal' | 'todos'>('todos')
-  const [searchVal, setSearchVal] = useState('')
+  const qc = useQueryClient()
+  const usuario = useAuthStore(s => s.user)
+
+  const firmas = useQuery({
+    queryKey: ['dms', 'firmas', 'PENDIENTE'],
+    queryFn: () => dmsApi.firmas({ estado: 'PENDIENTE' }),
+  })
+  const avisos = useQuery({
+    queryKey: ['dms', 'notificaciones'],
+    queryFn: () => dmsApi.notificaciones(),
+  })
+  const documentos = useQuery({
+    queryKey: ['dms', 'documentos', 'todos'],
+    queryFn: () => dmsApi.documentos(),
+  })
+
+  const refrescar = () => qc.invalidateQueries({ queryKey: ['dms'] })
+
+  const firmar = useMutation({
+    mutationFn: (id: number) => dmsApi.firmar(id),
+    onSuccess: () => { toast.success('Documento firmado'); refrescar() },
+    onError: (e: any) => toast.error(
+      e?.response?.data?.detail ?? 'No se pudo firmar'),
+  })
+  const leer = useMutation({
+    mutationFn: (id: number) => dmsApi.marcarLeida(id),
+    onSuccess: refrescar,
+    onError: () => toast.error('No se pudo marcar como leído'),
+  })
+  const leerTodo = useMutation({
+    mutationFn: async () => {
+      const pendientes = (avisos.data ?? []).filter(a => !a.leida)
+      for (const a of pendientes) await dmsApi.marcarLeida(a.id)
+    },
+    onSuccess: () => { toast.success('Avisos marcados como leídos'); refrescar() },
+    onError: () => toast.error('No se pudieron marcar todos'),
+  })
+
+  const doc = (id?: number | null) =>
+    documentos.data?.find(d => d.id === id)
+
+  const sinLeer = (avisos.data ?? []).filter(a => !a.leida)
+  const pendientes = firmas.data ?? []
+
+  // «Lo que subí» se saca del listado por el nombre del propietario, que es lo
+  // que el servidor devuelve resuelto. No hay filtro por propietario en la API.
+  const mios = (documentos.data ?? []).filter(
+    d => usuario?.nombre && d.propietario_nombre
+      && d.propietario_nombre.toLowerCase().includes(usuario.nombre.toLowerCase()))
 
   return (
     <Layout>
-      <Box>
-        {/* Portal Header */}
-        <Box
-          sx={{
-            background: `linear-gradient(135deg, #060C1A 0%, ${DMS_COLOR} 100%)`,
-            p: 3,
-            mb: 0,
-          }}
-        >
-          <Stack direction="row" alignItems="center" gap={2} mb={2.5} flexWrap="wrap">
-            {/* Logo placeholder */}
-            <Box
-              sx={{
-                width: 48,
-                height: 48,
-                borderRadius: 1.5,
-                bgcolor: 'rgba(255,255,255,0.15)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <FolderSpecial sx={{ color: '#fff', fontSize: 28 }} />
-            </Box>
-            <Box>
-              <Typography variant="h5" fontWeight={800} color="#fff">
-                Portal Documental la compañía
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                Sistema de Gestión Documental Empresarial · DMS v2.1
-              </Typography>
-            </Box>
-            <Box flex={1} />
-            <ToggleButtonGroup
-              value={vista}
-              exclusive
-              onChange={(_, v) => v && setVista(v)}
-              size="small"
-              sx={{
-                '& .MuiToggleButton-root': { color: 'rgba(255,255,255,0.7)', borderColor: 'rgba(255,255,255,0.3)', fontSize: '0.75rem' },
-                '& .Mui-selected': { bgcolor: 'rgba(255,255,255,0.2) !important', color: '#fff !important' },
-              }}
-            >
-              <ToggleButton value="personal">
-                <PersonOutline sx={{ fontSize: 16, mr: 0.5 }} />
-                Para mí
-              </ToggleButton>
-              <ToggleButton value="todos">
-                <Public sx={{ fontSize: 16, mr: 0.5 }} />
-                Todos
-              </ToggleButton>
-            </ToggleButtonGroup>
-          </Stack>
-
-          {/* Search bar */}
-          <TextField
-            fullWidth
-            size="small"
-            placeholder="Buscar documentos en el portal..."
-            value={searchVal}
-            onChange={e => setSearchVal(e.target.value)}
-            InputProps={{
-              startAdornment: <Search sx={{ mr: 1, color: 'rgba(255,255,255,0.6)', fontSize: 20 }} />,
-              sx: {
-                bgcolor: 'rgba(255,255,255,0.12)',
-                color: '#fff',
-                borderRadius: 2,
-                '& fieldset': { borderColor: 'rgba(255,255,255,0.25)' },
-                '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.5)' },
-                '& input': { color: '#fff' },
-                '& input::placeholder': { color: 'rgba(255,255,255,0.5)', opacity: 1 },
-              },
-            }}
-          />
+      <Box sx={{ p: 3, minHeight: '100vh' }}>
+        <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{
+            width: 44, height: 44, borderRadius: '12px',
+            background: `linear-gradient(135deg, ${DMS_COLOR} 0%, #1E40AF 100%)`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Person sx={{ color: '#fff', fontSize: 22 }} />
+          </Box>
+          <Box>
+            <Typography sx={{ fontSize: 20, fontWeight: 800 }}>Mi escritorio</Typography>
+            <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
+              Lo que le toca a usted del archivo documental
+            </Typography>
+          </Box>
         </Box>
 
-        <Box sx={{ p: 3 }}>
-          {/* Documentos Obligatorios — show for personal view */}
-          {(vista === 'personal') && (
-            <Box mb={4}>
-              <Stack direction="row" alignItems="center" gap={1} mb={2}>
-                <Badge badgeContent={3} color="error">
-                  <Draw sx={{ color: '#dc2626' }} />
-                </Badge>
-                <Typography variant="h6" fontWeight={700} color="#dc2626">
-                  Documentos que requieren tu atención
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12, lg: 7 }}>
+            <Panel sx={{ p: 2.5, mb: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                <Draw sx={{ fontSize: 18, color: '#F59E0B' }} />
+                <Typography sx={{ fontSize: 14, fontWeight: 700 }}>
+                  Esperando su firma
                 </Typography>
-              </Stack>
-              <Stack gap={1.5}>
-                {DOCS_OBLIGATORIOS.map((doc, i) => (
-                  <Paper
-                    key={i}
-                    sx={{
-                      p: 2,
-                      borderRadius: 2,
-                      borderLeft: `4px solid ${doc.urgente ? '#dc2626' : '#d97706'}`,
-                      bgcolor: doc.urgente ? alpha('#dc2626', 0.04) : alpha('#d97706', 0.04),
-                    }}
-                  >
-                    <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
-                      <Box flex={1}>
-                        <Stack direction="row" alignItems="center" gap={1} mb={0.5} flexWrap="wrap">
-                          <Typography variant="body2" fontWeight={700}>{doc.nombre}</Typography>
-                          <Chip
-                            label={doc.urgente ? 'URGENTE' : 'PENDIENTE'}
-                            size="small"
-                            sx={{
-                              bgcolor: doc.urgente ? alpha('#dc2626', 0.1) : alpha('#d97706', 0.1),
-                              color: doc.urgente ? '#dc2626' : '#d97706',
-                              fontWeight: 700,
-                              fontSize: '0.62rem',
-                            }}
-                          />
-                        </Stack>
-                        <Stack direction="row" gap={2}>
-                          <Typography variant="caption" color="text.secondary">{doc.accion}</Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            Vence: {doc.vencimiento}
-                          </Typography>
-                        </Stack>
+                {!!pendientes.length && (
+                  <Chip label={pendientes.length} size="small" sx={{
+                    height: 19, fontSize: 10, fontWeight: 800,
+                    bgcolor: alpha('#F59E0B', 0.15), color: '#B45309',
+                  }} />
+                )}
+              </Box>
+              <Typography sx={{ fontSize: 11.5, color: 'text.secondary', mb: 2 }}>
+                Cada uno detiene un documento hasta que alguien lo resuelva.
+              </Typography>
+              <Estado cargando={firmas.isLoading} error={firmas.error}
+                vacio={!pendientes.length}
+                mensajeVacio="No tiene nada por firmar"
+                hint="Cuando le envíen un documento a firmar aparecerá aquí.">
+                {pendientes.map(f => {
+                  const d = doc(f.documento_id)
+                  const espera = f.created_at
+                    ? Math.round((Date.now() - new Date(f.created_at).getTime()) / 86_400_000)
+                    : null
+                  return (
+                    <Box key={f.id} sx={{
+                      display: 'flex', alignItems: 'center', gap: 1.5, p: 1.75, mb: 1,
+                      borderRadius: 1.5,
+                      border: `1px solid ${espera != null && espera > 7
+                        ? alpha('#EF4444', 0.35) : BORDE}`,
+                      bgcolor: espera != null && espera > 7
+                        ? alpha('#EF4444', 0.04) : '#F9FAFB',
+                    }}>
+                      <IconoArchivo nombre={d?.nombre} size={22} />
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography sx={{ fontSize: 13, fontWeight: 600 }} noWrap>
+                          {d?.nombre ?? `Documento #${f.documento_id}`}
+                        </Typography>
+                        <Typography sx={{
+                          fontSize: 11,
+                          color: espera != null && espera > 7 ? '#B91C1C' : 'text.secondary',
+                          fontWeight: espera != null && espera > 7 ? 600 : 400,
+                        }}>
+                          {d?.codigo} · {legible(f.tipo_firma)}
+                          {espera != null ? ` · esperando ${espera} día(s)` : ''}
+                        </Typography>
                       </Box>
-                      <Stack direction="row" gap={1}>
-                        <Button size="small" variant="outlined" sx={{ borderColor: doc.urgente ? '#dc2626' : '#d97706', color: doc.urgente ? '#dc2626' : '#d97706', fontSize: '0.72rem' }}>
-                          Ver documento
-                        </Button>
-                        <Button size="small" variant="contained" sx={{ bgcolor: doc.urgente ? '#dc2626' : '#d97706', '&:hover': { bgcolor: doc.urgente ? '#b91c1c' : '#b45309' }, fontSize: '0.72rem' }}>
-                          {doc.accion.split(' ')[0]}
-                        </Button>
-                      </Stack>
-                    </Stack>
-                  </Paper>
+                      <Button size="small" variant="contained"
+                        startIcon={<CheckCircle sx={{ fontSize: 15 }} />}
+                        disabled={firmar.isPending}
+                        onClick={() => firmar.mutate(f.id)}
+                        sx={{ textTransform: 'none', flexShrink: 0 }}>
+                        Firmar
+                      </Button>
+                    </Box>
+                  )
+                })}
+              </Estado>
+            </Panel>
+
+            <Panel sx={{ p: 2.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                <Upload sx={{ fontSize: 18, color: DMS_COLOR }} />
+                <Typography sx={{ fontSize: 14, fontWeight: 700 }}>
+                  Documentos a su nombre
+                </Typography>
+              </Box>
+              <Typography sx={{ fontSize: 11.5, color: 'text.secondary', mb: 2 }}>
+                De los que usted figura como responsable.
+              </Typography>
+              <Estado cargando={documentos.isLoading} error={documentos.error}
+                vacio={!mios.length}
+                mensajeVacio="No figura como responsable de ningún documento"
+                hint="El responsable se asigna al cargar el documento.">
+                {mios.slice(0, 15).map(d => (
+                  <Box key={d.id} sx={{
+                    display: 'flex', alignItems: 'center', gap: 1.5, p: 1.5, mb: 0.75,
+                    borderRadius: 1.5, border: `1px solid ${BORDE}`, bgcolor: '#F9FAFB',
+                  }}>
+                    <IconoArchivo nombre={d.nombre} />
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography sx={{ fontSize: 12.5, fontWeight: 600 }} noWrap>
+                        {d.nombre}
+                      </Typography>
+                      <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>
+                        {d.codigo} · v{d.version_actual}
+                      </Typography>
+                    </Box>
+                    <BarraVigencia fin={d.fecha_vigencia_fin} />
+                    <ChipEstado estado={d.estado} />
+                  </Box>
                 ))}
-              </Stack>
-            </Box>
-          )}
-
-          {/* Documentos Destacados */}
-          <Box mb={4}>
-            <Stack direction="row" alignItems="center" gap={1} mb={2}>
-              <Star sx={{ color: DMS_COLOR }} />
-              <Typography variant="h6" fontWeight={700}>Documentos Destacados</Typography>
-            </Stack>
-            <Grid container spacing={2}>
-              {DOCS_DESTACADOS.map(doc => (
-                <Grid key={doc.id} size={{ xs: 12, sm: 6, md: 3 }}>
-                  <DocDestacadoCard doc={doc} />
-                </Grid>
-              ))}
-            </Grid>
-          </Box>
-
-          <Grid container spacing={3}>
-            {/* Categorías */}
-            <Grid size={{ xs: 12, md: 7 }}>
-              <Stack direction="row" alignItems="center" gap={1} mb={2}>
-                <Folder sx={{ color: DMS_COLOR }} />
-                <Typography variant="h6" fontWeight={700}>Categorías</Typography>
-              </Stack>
-              <Grid container spacing={2}>
-                {CATEGORIAS.map(cat => (
-                  <Grid key={cat.nombre} size={{ xs: 6, sm: 4 }}>
-                    <Card
-                      sx={{
-                        borderRadius: 2,
-                        cursor: 'pointer',
-                        transition: 'box-shadow 0.2s, transform 0.2s',
-                        '&:hover': { boxShadow: 4, transform: 'translateY(-2px)' },
-                      }}
-                    >
-                      <CardContent sx={{ textAlign: 'center', py: 3 }}>
-                        <Avatar sx={{ bgcolor: alpha(cat.color, 0.12), color: cat.color, width: 52, height: 52, mx: 'auto', mb: 1.5 }}>
-                          {cat.icon}
-                        </Avatar>
-                        <Typography variant="subtitle2" fontWeight={700} sx={{ lineHeight: 1.2 }}>
-                          {cat.nombre}
-                        </Typography>
-                        <Typography variant="caption" color={cat.color} fontWeight={700}>
-                          {cat.cantidad} documentos
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                ))}
-              </Grid>
-            </Grid>
-
-            {/* Novedades */}
-            <Grid size={{ xs: 12, md: 5 }}>
-              <Stack direction="row" alignItems="center" gap={1} mb={2}>
-                <NewReleases sx={{ color: '#7c3aed' }} />
-                <Typography variant="h6" fontWeight={700}>Novedades</Typography>
-              </Stack>
-              <Card sx={{ borderRadius: 2 }}>
-                <List disablePadding>
-                  {NOVEDADES.map((doc, i) => (
-                    <React.Fragment key={i}>
-                      <ListItem alignItems="flex-start" sx={{ py: 1.5 }}>
-                        <ListItemAvatar>
-                          <Avatar
-                            sx={{
-                              bgcolor: doc.estado === 'NUEVO' ? alpha('#16a34a', 0.12) : alpha('#d97706', 0.12),
-                              color: doc.estado === 'NUEVO' ? '#16a34a' : '#d97706',
-                              width: 36,
-                              height: 36,
-                            }}
-                          >
-                            {doc.estado === 'NUEVO' ? <NewReleases sx={{ fontSize: 18 }} /> : <Update sx={{ fontSize: 18 }} />}
-                          </Avatar>
-                        </ListItemAvatar>
-                        <ListItemText
-                          primary={
-                            <Stack direction="row" alignItems="center" gap={0.5} flexWrap="wrap">
-                              <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.82rem' }}>
-                                {doc.nombre}
-                              </Typography>
-                              <Chip
-                                label={doc.estado === 'NUEVO' ? 'NUEVO' : 'ACTUALIZADO'}
-                                size="small"
-                                sx={{
-                                  bgcolor: doc.estado === 'NUEVO' ? alpha('#16a34a', 0.1) : alpha('#d97706', 0.1),
-                                  color: doc.estado === 'NUEVO' ? '#16a34a' : '#d97706',
-                                  fontWeight: 700,
-                                  fontSize: '0.6rem',
-                                  height: 18,
-                                }}
-                              />
-                            </Stack>
-                          }
-                          secondary={
-                            <Stack direction="row" gap={1.5} mt={0.5}>
-                              <Typography variant="caption" color="text.secondary">{doc.area}</Typography>
-                              <Typography variant="caption" color="text.secondary">{doc.fecha}</Typography>
-                            </Stack>
-                          }
-                        />
-                      </ListItem>
-                      {i < NOVEDADES.length - 1 && <Divider variant="inset" component="li" />}
-                    </React.Fragment>
-                  ))}
-                </List>
-              </Card>
-            </Grid>
+                {mios.length > 15 && (
+                  <Typography sx={{ fontSize: 11.5, color: 'text.disabled',
+                                    textAlign: 'center', mt: 1 }}>
+                    y {mios.length - 15} más
+                  </Typography>
+                )}
+              </Estado>
+            </Panel>
           </Grid>
 
-          {/* Obligatorios (public view) */}
-          {vista === 'todos' && (
-            <Box mt={4}>
-              <Stack direction="row" alignItems="center" gap={1} mb={2}>
-                <CheckCircle sx={{ color: DMS_COLOR }} />
-                <Typography variant="h6" fontWeight={700}>Documentos Obligatorios</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  — Los siguientes documentos requieren tu firma o revisión
+          <Grid size={{ xs: 12, lg: 5 }}>
+            <Panel sx={{ p: 2.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                <NotificationsActive sx={{ fontSize: 18, color: '#7C3AED' }} />
+                <Typography sx={{ fontSize: 14, fontWeight: 700, flex: 1 }}>
+                  Avisos
                 </Typography>
-              </Stack>
-              <Stack gap={1.5}>
-                {DOCS_OBLIGATORIOS.map((doc, i) => (
-                  <Paper key={i} sx={{ p: 2, borderRadius: 2, borderLeft: `4px solid ${doc.urgente ? '#dc2626' : '#d97706'}` }}>
-                    <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
-                      <Box flex={1}>
-                        <Typography variant="body2" fontWeight={700}>{doc.nombre}</Typography>
-                        <Stack direction="row" gap={2} mt={0.5}>
-                          <Chip label={doc.tipo} size="small" variant="outlined" sx={{ fontSize: '0.62rem', height: 18 }} />
-                          <Typography variant="caption" color="text.secondary">{doc.accion}</Typography>
-                          <Typography variant="caption" color="text.secondary">Vence: {doc.vencimiento}</Typography>
-                        </Stack>
-                      </Box>
-                      <Button
-                        size="small"
-                        variant="contained"
-                        startIcon={<Draw />}
-                        sx={{ bgcolor: doc.urgente ? '#dc2626' : DMS_COLOR, '&:hover': { opacity: 0.9 }, fontSize: '0.72rem' }}
-                      >
-                        Firmar / Revisar
-                      </Button>
-                    </Stack>
-                  </Paper>
+                {!!sinLeer.length && (
+                  <Tooltip title="Marcar todos como leídos">
+                    <Button size="small" startIcon={<DoneAll sx={{ fontSize: 15 }} />}
+                      disabled={leerTodo.isPending}
+                      onClick={() => leerTodo.mutate()}
+                      sx={{ textTransform: 'none', fontSize: 11.5 }}>
+                      Leer todos ({sinLeer.length})
+                    </Button>
+                  </Tooltip>
+                )}
+              </Box>
+              <Typography sx={{ fontSize: 11.5, color: 'text.secondary', mb: 2 }}>
+                Vencimientos y firmas que le corresponden.
+              </Typography>
+              <Estado cargando={avisos.isLoading} error={avisos.error}
+                vacio={!avisos.data?.length}
+                mensajeVacio="No tiene avisos"
+                hint="Aquí llegan los vencimientos y las solicitudes de firma.">
+                {avisos.data?.slice(0, 25).map(a => (
+                  <Box key={a.id} sx={{
+                    display: 'flex', gap: 1.25, p: 1.5, mb: 0.75, borderRadius: 1.5,
+                    border: `1px solid ${a.leida ? BORDE : alpha('#7C3AED', 0.3)}`,
+                    bgcolor: a.leida ? 'transparent' : alpha('#7C3AED', 0.04),
+                    opacity: a.leida ? 0.65 : 1,
+                  }}>
+                    <Box sx={{
+                      width: 7, height: 7, borderRadius: '50%', mt: 0.75, flexShrink: 0,
+                      bgcolor: a.leida ? 'transparent' : '#7C3AED',
+                    }} />
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography sx={{ fontSize: 12.5, fontWeight: a.leida ? 500 : 700 }}>
+                        {a.titulo}
+                      </Typography>
+                      {a.mensaje && (
+                        <Typography sx={{ fontSize: 11.5, color: 'text.secondary' }}>
+                          {a.mensaje}
+                        </Typography>
+                      )}
+                      <Typography sx={{ fontSize: 10.5, color: 'text.disabled', mt: 0.25 }}>
+                        {fechaHora(a.created_at)}
+                      </Typography>
+                    </Box>
+                    {!a.leida && (
+                      <Tooltip title="Marcar como leído">
+                        <Button size="small" disabled={leer.isPending}
+                          onClick={() => leer.mutate(a.id)}
+                          sx={{ textTransform: 'none', fontSize: 11, minWidth: 0, flexShrink: 0 }}>
+                          Leído
+                        </Button>
+                      </Tooltip>
+                    )}
+                  </Box>
                 ))}
-              </Stack>
-            </Box>
-          )}
-        </Box>
+              </Estado>
+            </Panel>
+          </Grid>
+        </Grid>
       </Box>
     </Layout>
   )

@@ -98,14 +98,21 @@ export function useCrud<T extends { id: number }>(o: Opciones<T>) {
       </Button>
     ) : null
 
-  /** Los iconos de editar y eliminar para el final de cada fila. */
+  /**
+   * Los iconos de editar y eliminar para el final de cada fila o tarjeta.
+   *
+   * Cada botón lleva su `aria-label` con el NOMBRE del registro, no solo el de
+   * la entidad. Un lector de pantalla que anuncia veinte veces «editar cliente»
+   * no dice cuál, y quien no ve la pantalla se queda sin saber sobre qué fila
+   * está. De paso, es lo que permite apuntarle a uno concreto desde una prueba.
+   */
   const Acciones = ({ registro, extra }: { registro: T; extra?: ReactNode }) => (
     <Box sx={{ display: 'flex', gap: 0.25, justifyContent: 'flex-end' }}
       onClick={e => e.stopPropagation()}>
       {extra}
       {o.editar && (
         <Tooltip title={`Editar ${o.nombre}`}>
-          <IconButton size="small"
+          <IconButton size="small" aria-label={`Editar ${nombrar(registro)}`}
             onClick={() => { guardar.reset(); setEditando(registro) }}>
             <EditOutlined sx={{ fontSize: 17 }} />
           </IconButton>
@@ -113,7 +120,8 @@ export function useCrud<T extends { id: number }>(o: Opciones<T>) {
       )}
       {o.eliminar && (
         <Tooltip title={`Eliminar ${o.nombre}`}>
-          <IconButton size="small" onClick={() => setBorrando(registro)}>
+          <IconButton size="small" aria-label={`Eliminar ${nombrar(registro)}`}
+            onClick={() => setBorrando(registro)}>
             <DeleteOutline sx={{ fontSize: 17 }} />
           </IconButton>
         </Tooltip>

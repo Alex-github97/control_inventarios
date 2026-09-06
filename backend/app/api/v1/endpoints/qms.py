@@ -19,6 +19,8 @@ from app.infrastructure.models.qms import (
     QMSAuditoriaHallazgo, QMSCAPA, QMSCAPATarea, QMSRiesgo,
     QMSQueja, QMSEvaluacionProveedor, QMSCambio, QMSMejora,
     QMSEncuesta, QMSEncuestaRespuesta, QMSCompetenciaProceso, QMSKPIDiario,
+    EstadoAuditoriaQMSEnum, EstadoCAPAQMSEnum, EstadoHallazgoQMSEnum,
+    EstadoMejoraQMSEnum, EstadoNCQMSEnum, PrioridadRiesgoQMSEnum,
 )
 from app.application.schemas.qms import (
     QMSProcesoCreate, QMSProcesoUpdate, QMSProcesoResponse,
@@ -83,150 +85,192 @@ async def get_qms_dashboard(
     db: AsyncSession = Depends(get_db),
     _: Usuario = Depends(get_current_user),
 ):
-    today = date.today()
+    """Las cifras del sistema de calidad, tal como las pide el tablero.
 
-    # NC abiertas (sin deleted_at y con estado distinto de "cerrada")
-    r = await db.execute(
-        select(func.count(QMSNoConformidad.id)).where(
-            and_(
-                QMSNoConformidad.deleted_at.is_(None),
-                QMSNoConformidad.estado != "cerrada",
-            )
-        )
+    DOS COSAS QUE ESTABAN MAL Y POR QUÉ IMPORTAN
+
+    · **Se calculaban ocho cifras que nadie veía.** La función construía el
+      resultado con nombres —`capa_abiertas`, `auditorias_en_curso`,
+      `mejoras_implementadas`— que el esquema de respuesta no declara. Pydantic
+      descarta en silencio lo que no conoce, así que el trabajo se hacía y el
+      tablero mostraba el cero por defecto de cada campo. No fallaba nada: solo
+      decía que no había nada.
+
+    · **Los estados se comparaban con cadenas escritas a mano.** Media docena en
+      minúscula contra enums en mayúscula. La base rechazaba el texto y toda la
+      consulta caía con un 500, con lo que el tablero entero del módulo no
+      abría.
+
+    Ahora las comparaciones van contra el enum cuando la columna es un enum, y
+    contra la cadena cuando la columna es texto —`qms_riesgo.estado` y
+    `qms_queja.estado` lo son—. Mezclarlos es justamente lo que produjo el fallo.
+    """
+    hoy = date.today()
+    inicio_mes = datetime(hoy.year, hoy.month, 1)
+
+    # Lo cerrado «este mes» se cuenta por la FECHA DE CIERRE, no por la de
+    # última modificación: `updated_at` cambia al reasignar el responsable o al
+    # corregir una tilde, y contarlo así infla el mes con ediciones que no
+    # cerraron nada.
+    async def contar(modelo, *condiciones) -> int:
+        r = await db.execute(select(func.count(modelo.id)).where(and_(*condiciones)))
+        return r.scalar() or 0
+
+    # ── No conformidades ──────────────────────────────────────────────────────
+    nc_abiertas = await contar(
+        QMSNoConformidad,
+        QMSNoConformidad.deleted_at.is_(None),
+        QMSNoConformidad.estado != EstadoNCQMSEnum.CERRADA,
     )
-    nc_abiertas = r.scalar() or 0
-
-    # Total NC
-    r = await db.execute(
-        select(func.count(QMSNoConformidad.id)).where(
-            QMSNoConformidad.deleted_at.is_(None)
-        )
+    nc_cerradas_mes = await contar(
+        QMSNoConformidad,
+        QMSNoConformidad.deleted_at.is_(None),
+        QMSNoConformidad.estado == EstadoNCQMSEnum.CERRADA,
+        QMSNoConformidad.fecha_cierre >= inicio_mes,
     )
-    total_nc = r.scalar() or 0
 
-    # Hallazgos abiertos
-    r = await db.execute(
-        select(func.count(QMSHallazgo.id)).where(
-            and_(
-                QMSHallazgo.deleted_at.is_(None),
-                QMSHallazgo.estado != "cerrado",
-            )
-        )
+    # ── Hallazgos ─────────────────────────────────────────────────────────────
+    hallazgos_abiertos = await contar(
+        QMSHallazgo,
+        QMSHallazgo.deleted_at.is_(None),
+        QMSHallazgo.estado != EstadoHallazgoQMSEnum.CERRADO,
     )
-    hallazgos_abiertos = r.scalar() or 0
-
-    # CAPA abiertas
-    r = await db.execute(
-        select(func.count(QMSCAPA.id)).where(
-            and_(
-                QMSCAPA.deleted_at.is_(None),
-                QMSCAPA.estado != "cerrada",
-            )
-        )
+    hallazgos_cerrados_mes = await contar(
+        QMSHallazgo,
+        QMSHallazgo.deleted_at.is_(None),
+        QMSHallazgo.estado == EstadoHallazgoQMSEnum.CERRADO,
+        QMSHallazgo.fecha_cierre >= inicio_mes,
     )
-    capa_abiertas = r.scalar() or 0
 
-    # CAPA vencidas (fecha_limite_implementacion < hoy y no cerradas)
-    r = await db.execute(
-        select(func.count(QMSCAPA.id)).where(
-            and_(
-                QMSCAPA.deleted_at.is_(None),
-                QMSCAPA.estado != "cerrada",
-                QMSCAPA.fecha_limite_implementacion < datetime.utcnow(),
-            )
-        )
+    # ── Acciones correctivas ──────────────────────────────────────────────────
+    #
+    # «Activa» es todo lo que no está cerrado, incluidas las vencidas: una acción
+    # vencida sigue pendiente de hacerse. Sacarlas del recuento de activas haría
+    # que el tablero mejore justo cuando el trabajo se atrasa.
+    capas_activas = await contar(
+        QMSCAPA,
+        QMSCAPA.deleted_at.is_(None),
+        QMSCAPA.estado != EstadoCAPAQMSEnum.CERRADA,
     )
-    capa_vencidas = r.scalar() or 0
-
-    # Riesgos críticos
-    r = await db.execute(
-        select(func.count(QMSRiesgo.id)).where(
-            and_(
-                QMSRiesgo.deleted_at.is_(None),
-                QMSRiesgo.prioridad == "CRITICA",
-            )
-        )
+    # Vencida es lo que ya pasó su fecha límite, se haya marcado o no. La marca
+    # depende de que alguien la ponga; la fecha, no.
+    capas_vencidas = await contar(
+        QMSCAPA,
+        QMSCAPA.deleted_at.is_(None),
+        QMSCAPA.estado != EstadoCAPAQMSEnum.CERRADA,
+        or_(
+            QMSCAPA.estado == EstadoCAPAQMSEnum.VENCIDA,
+            and_(QMSCAPA.fecha_limite.isnot(None),
+                 QMSCAPA.fecha_limite < datetime.utcnow()),
+        ),
     )
-    riesgos_criticos = r.scalar() or 0
 
-    # Total riesgos activos
-    r = await db.execute(
-        select(func.count(QMSRiesgo.id)).where(
-            and_(
-                QMSRiesgo.deleted_at.is_(None),
-                QMSRiesgo.estado == "activo",
-            )
-        )
+    # ── Auditorías ────────────────────────────────────────────────────────────
+    #
+    # Pendiente es lo que aún hay que hacer: lo planificado y lo que está en
+    # ejecución. Contar solo lo que ya empezó esconde justamente lo que no ha
+    # empezado y debería.
+    auditorias_pendientes = await contar(
+        QMSAuditoria,
+        QMSAuditoria.deleted_at.is_(None),
+        QMSAuditoria.estado.in_([EstadoAuditoriaQMSEnum.PLANIFICADA,
+                                 EstadoAuditoriaQMSEnum.EN_EJECUCION]),
     )
-    riesgos_activos = r.scalar() or 0
-
-    # Quejas abiertas
-    r = await db.execute(
-        select(func.count(QMSQueja.id)).where(
-            and_(
-                QMSQueja.deleted_at.is_(None),
-                QMSQueja.estado != "cerrada",
-            )
-        )
+    auditorias_completadas_mes = await contar(
+        QMSAuditoria,
+        QMSAuditoria.deleted_at.is_(None),
+        QMSAuditoria.estado == EstadoAuditoriaQMSEnum.COMPLETADA,
+        QMSAuditoria.fecha_fin_real >= inicio_mes,
     )
-    quejas_abiertas = r.scalar() or 0
 
-    # Auditorías en curso
-    r = await db.execute(
-        select(func.count(QMSAuditoria.id)).where(
-            and_(
-                QMSAuditoria.deleted_at.is_(None),
-                QMSAuditoria.estado == "en_curso",
-            )
-        )
+    # ── Riesgos y quejas ──────────────────────────────────────────────────────
+    #
+    # `prioridad` es un enum; `estado` en riesgos y quejas es texto libre. Por
+    # eso una comparación va contra el enum y la otra contra la cadena.
+    riesgos_criticos = await contar(
+        QMSRiesgo,
+        QMSRiesgo.deleted_at.is_(None),
+        QMSRiesgo.prioridad == PrioridadRiesgoQMSEnum.CRITICA,
     )
-    auditorias_en_curso = r.scalar() or 0
-
-    # Mejoras implementadas este año
-    r = await db.execute(
-        select(func.count(QMSMejora.id)).where(
-            and_(
-                QMSMejora.deleted_at.is_(None),
-                QMSMejora.estado == "implementada",
-                func.extract("year", QMSMejora.created_at) == today.year,
-            )
-        )
+    quejas_abiertas = await contar(
+        QMSQueja,
+        QMSQueja.deleted_at.is_(None),
+        QMSQueja.estado != "cerrada",
     )
-    mejoras_implementadas = r.scalar() or 0
-
-    # Procesos activos
-    r = await db.execute(
-        select(func.count(QMSProceso.id)).where(
-            QMSProceso.activo == True
-        )
+    quejas_cerradas_mes = await contar(
+        QMSQueja,
+        QMSQueja.deleted_at.is_(None),
+        QMSQueja.estado == "cerrada",
+        QMSQueja.fecha_cierre >= inicio_mes,
     )
-    procesos_activos = r.scalar() or 0
 
-    # Índice de calidad (fórmula simple: base 100 descontando NC abiertas)
-    indice_calidad = round(max(0.0, 100.0 - (nc_abiertas * 2) - (riesgos_criticos * 3)), 2)
-
-    # Evaluaciones de proveedores este periodo
-    r = await db.execute(
-        select(func.count(QMSEvaluacionProveedor.id)).where(
-            func.extract("year", QMSEvaluacionProveedor.created_at) == today.year
-        )
+    # ── Mejoras ───────────────────────────────────────────────────────────────
+    #
+    # Activa es la que está en marcha o aprobada esperando arrancar. Las ideas y
+    # las que están en evaluación todavía no son trabajo comprometido.
+    mejoras_activas = await contar(
+        QMSMejora,
+        QMSMejora.deleted_at.is_(None),
+        QMSMejora.estado.in_([EstadoMejoraQMSEnum.APROBADA,
+                              EstadoMejoraQMSEnum.EN_CURSO]),
     )
-    evaluaciones_proveedores = r.scalar() or 0
+
+    # ── Satisfacción ──────────────────────────────────────────────────────────
+    #
+    # El NPS se promedia solo sobre las encuestas que TIENEN uno calculado. Meter
+    # las encuestas sin respuestas como cero hunde la cifra y hace creer que los
+    # clientes están molestos cuando lo que pasa es que nadie contestó.
+    r = await db.execute(
+        select(func.avg(QMSEncuesta.nps_score)).where(
+            QMSEncuesta.nps_score.isnot(None))
+    )
+    nps_promedio = round(float(r.scalar() or 0.0), 2)
+
+    # ── Cumplimiento de entregas ──────────────────────────────────────────────
+    #
+    # El OTIF no lo mide calidad: lo miden transporte y bodega. Aquí solo se
+    # refleja si alguien lo configuró como indicador del sistema. Si no está, se
+    # devuelve cero y la pantalla dice que no hay medición, en vez de inventar
+    # un porcentaje que después alguien lleva a un comité.
+    r = await db.execute(
+        select(QMSMedicionIndicador.valor)
+        .join(QMSIndicador, QMSIndicador.id == QMSMedicionIndicador.indicador_id)
+        .where(QMSIndicador.nombre.ilike("%OTIF%"))
+        # Se ordena por `periodo`, que es texto «AAAA-MM»: ordenado como texto
+        # da el mismo resultado que ordenado como fecha. No hay columna de
+        # fecha en la tabla de mediciones.
+        .order_by(QMSMedicionIndicador.periodo.desc())
+        .limit(1)
+    )
+    otif_rate = round(float(r.scalar() or 0.0), 2)
+
+    # ── Índice de calidad ─────────────────────────────────────────────────────
+    #
+    # Base cien, descontando lo que está sin resolver. Es una convención de la
+    # casa, no una norma: por eso se calcula a la vista y no se guarda, para que
+    # nadie compare el índice de hoy con uno de hace un año calculado de otra
+    # forma sin darse cuenta.
+    indice_calidad = round(max(0.0, 100.0
+                               - nc_abiertas * 2
+                               - riesgos_criticos * 3
+                               - capas_vencidas * 2), 2)
 
     return QMSDashboardKPIs(
         nc_abiertas=nc_abiertas,
-        total_nc=total_nc,
+        nc_cerradas_mes=nc_cerradas_mes,
         hallazgos_abiertos=hallazgos_abiertos,
-        capa_abiertas=capa_abiertas,
-        capa_vencidas=capa_vencidas,
-        riesgos_criticos=riesgos_criticos,
-        riesgos_activos=riesgos_activos,
-        quejas_abiertas=quejas_abiertas,
-        auditorias_en_curso=auditorias_en_curso,
-        mejoras_implementadas=mejoras_implementadas,
-        procesos_activos=procesos_activos,
+        hallazgos_cerrados_mes=hallazgos_cerrados_mes,
+        capas_vencidas=capas_vencidas,
+        capas_activas=capas_activas,
+        auditorias_pendientes=auditorias_pendientes,
+        auditorias_completadas_mes=auditorias_completadas_mes,
         indice_calidad=indice_calidad,
-        evaluaciones_proveedores=evaluaciones_proveedores,
+        otif_rate=otif_rate,
+        nps_promedio=nps_promedio,
+        mejoras_activas=mejoras_activas,
+        riesgos_criticos=riesgos_criticos,
+        quejas_abiertas=quejas_abiertas,
+        quejas_cerradas_mes=quejas_cerradas_mes,
     )
 
 
@@ -349,7 +393,7 @@ async def listar_procedimientos(
     db: AsyncSession = Depends(get_db),
     _: Usuario = Depends(get_current_user),
 ):
-    q = select(QMSProcedimiento).where(QMSProcedimiento.deleted_at.is_(None))
+    q = select(QMSProcedimiento).where(QMSProcedimiento.activo.is_(True))
     if proceso_id is not None:
         q = q.where(QMSProcedimiento.proceso_id == proceso_id)
     if tipo:
@@ -382,8 +426,8 @@ async def actualizar_procedimiento(
     _: Usuario = Depends(get_current_user),
 ):
     item = await db.get(QMSProcedimiento, proc_id)
-    if not item or item.deleted_at is not None:
-        raise HTTPException(status_code=404, detail="Procedimiento no encontrado")
+    if not item or not item.activo:
+        raise HTTPException(status_code=404, detail="Ese procedimiento no existe.")
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(item, k, v)
     await db.commit()
@@ -398,9 +442,12 @@ async def eliminar_procedimiento(
     _: Usuario = Depends(get_current_user),
 ):
     item = await db.get(QMSProcedimiento, proc_id)
-    if not item or item.deleted_at is not None:
-        raise HTTPException(status_code=404, detail="Procedimiento no encontrado")
-    item.deleted_at = datetime.utcnow()
+    if not item or not item.activo:
+        raise HTTPException(status_code=404, detail="Ese procedimiento no existe.")
+    # Se desactiva en vez de borrarse: un procedimiento retirado sigue siendo la
+    # versión bajo la que se hicieron las auditorías del año pasado, y borrarlo
+    # dejaría esos hallazgos citando algo que ya no existe.
+    item.activo = False
     await db.commit()
 
 
@@ -1684,7 +1731,10 @@ async def listar_encuestas(
     db: AsyncSession = Depends(get_db),
     _: Usuario = Depends(get_current_user),
 ):
-    q = select(QMSEncuesta).where(QMSEncuesta.deleted_at.is_(None))
+    # `qms_encuesta` no lleva borrado suave: lo que tiene es la bandera
+    # `activa`, que además significa otra cosa —si está recibiendo respuestas—.
+    # Por eso aquí se listan todas y el filtro de `activa` lo pide quien llama.
+    q = select(QMSEncuesta)
     if tipo:
         q = q.where(QMSEncuesta.tipo == tipo)
     if activa is not None:
@@ -1714,7 +1764,7 @@ async def obtener_encuesta(
     _: Usuario = Depends(get_current_user),
 ):
     item = await db.get(QMSEncuesta, enc_id)
-    if not item or item.deleted_at is not None:
+    if not item:
         raise HTTPException(status_code=404, detail="Encuesta no encontrada")
     return item
 
@@ -1727,7 +1777,7 @@ async def actualizar_encuesta(
     _: Usuario = Depends(get_current_user),
 ):
     item = await db.get(QMSEncuesta, enc_id)
-    if not item or item.deleted_at is not None:
+    if not item:
         raise HTTPException(status_code=404, detail="Encuesta no encontrada")
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(item, k, v)
@@ -1744,7 +1794,7 @@ async def registrar_respuesta_encuesta(
     _: Usuario = Depends(get_current_user),
 ):
     enc = await db.get(QMSEncuesta, enc_id)
-    if not enc or enc.deleted_at is not None:
+    if not enc:
         raise HTTPException(status_code=404, detail="Encuesta no encontrada")
     if not enc.activa:
         raise HTTPException(status_code=400, detail="La encuesta no está activa")

@@ -1,404 +1,222 @@
-import React, { useState } from 'react'
-import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  Chip,
-  Stack,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  alpha,
-  Avatar,
-  Button,
-  Divider,
-  LinearProgress,
-  Tooltip,
-} from '@mui/material'
+/**
+ * De dónde vienen los documentos del archivo.
+ *
+ * QUÉ MUESTRA, Y POR QUÉ ASÍ
+ * La maqueta traía ocho integraciones con interruptores de encendido que no
+ * encendían nada. Aquí se muestra lo que sí se puede saber: cuántos documentos
+ * entraron por cada módulo, contados del campo `modulo_origen` que cada
+ * documento trae. Un interruptor que no hace nada es peor que no tenerlo,
+ * porque alguien lo apaga creyendo que apagó algo.
+ *
+ * Lo que está contratado se lee de la plataforma; activarlo o no es una
+ * decisión comercial que no se toma desde esta pantalla.
+ */
+import { useMemo } from 'react'
+import { Box, Typography, Chip, alpha, Tooltip } from '@mui/material'
 import Grid from '@mui/material/Grid2'
 import {
-  Hub,
-  People,
-  LocalShipping,
-  DirectionsCar,
-  Warehouse,
-  Groups,
-  ShoppingCart,
-  AccountBalance,
-  VerifiedUser,
-  CheckCircle,
-  Settings,
-  Cancel,
-  Sync,
-  OpenInNew,
-  Article,
+  Hub, CheckCircle, RemoveCircleOutline, ArrowForward, Inbox,
 } from '@mui/icons-material'
+import { useQuery } from '@tanstack/react-query'
 import { Layout } from '@/components/layout/Layout'
+import { dmsApi } from '@/api/dms'
+import { useAuthStore } from '@/store/authStore'
+import {
+  BORDE, DMS_COLOR, Estado, Panel, legible,
+} from '@/components/dms/comunes'
 
-import { COLOR_MODULO } from '@/config/marca'
-const DMS_COLOR = COLOR_MODULO
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type EstadoIntegracion = 'CONECTADO' | 'EN_CONFIGURACION' | 'NO_CONECTADO'
-
-interface Modulo {
-  id: string
-  nombre: string
-  sigla: string
-  color: string
-  estado: EstadoIntegracion
-  descripcion: string
-  documentos: string[]
-  ultimaSync?: string
-  cantidadDocs?: number
-  icon: React.ReactNode
-  pendiente?: string
-}
-
-interface DocSincronizado {
-  modulo: string
-  moduloColor: string
-  tipo: string
-  nombre: string
-  fecha: string
-}
-
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-
-const MODULOS: Modulo[] = [
-  {
-    id: 'hcm',
-    nombre: 'Gestión Humana',
-    sigla: 'HCM',
-    color: '#BE185D',
-    estado: 'CONECTADO',
-    descripcion: 'Expedientes laborales y gestión del talento humano',
-    documentos: ['Expedientes laborales', 'Contratos', 'Evaluaciones', 'Incapacidades'],
-    ultimaSync: 'hace 5 min',
-    cantidadDocs: 234,
-    icon: <People />,
-  },
-  {
-    id: 'tms',
-    nombre: 'Transportation',
-    sigla: 'TMS',
-    color: '#0369A1',
-    estado: 'CONECTADO',
-    descripcion: 'Documentación de transporte y operaciones logísticas',
-    documentos: ['Conductores', 'Viajes', 'Remesas', 'POD', 'Manifiestos'],
-    ultimaSync: 'hace 12 min',
-    cantidadDocs: 567,
-    icon: <LocalShipping />,
-  },
-  {
-    id: 'fms',
-    nombre: 'Gestión de Flotas',
-    sigla: 'FMS',
-    color: '#7C3AED',
-    estado: 'CONECTADO',
-    descripcion: 'Documentación legal y técnica de vehículos',
-    documentos: ['SOAT', 'RTM', 'Seguros', 'Mantenimientos'],
-    ultimaSync: 'hace 3 min',
-    cantidadDocs: 89,
-    icon: <DirectionsCar />,
-  },
-  {
-    id: 'wms',
-    nombre: 'Warehouse',
-    sigla: 'WMS',
-    color: '#1E40AF',
-    estado: 'CONECTADO',
-    descripcion: 'Documentación de bodega y operaciones de almacenamiento',
-    documentos: ['Recepciones', 'Despachos', 'Inventarios'],
-    ultimaSync: 'hace 8 min',
-    cantidadDocs: 145,
-    icon: <Warehouse />,
-  },
-  {
-    id: 'crm',
-    nombre: 'Clientes',
-    sigla: 'CRM',
-    color: '#059669',
-    estado: 'EN_CONFIGURACION',
-    descripcion: 'Contratos y acuerdos con clientes comerciales',
-    documentos: ['Contratos clientes', 'Acuerdos comerciales'],
-    pendiente: 'Pendiente de configuración — credenciales del módulo CRM requeridas',
-    icon: <Groups />,
-  },
-  {
-    id: 'srm',
-    nombre: 'Proveedores',
-    sigla: 'SRM',
-    color: '#D97706',
-    estado: 'EN_CONFIGURACION',
-    descripcion: 'Certificados y habilitaciones de proveedores',
-    documentos: ['Certificados', 'Habilitaciones', 'Contratos'],
-    pendiente: 'Pendiente de configuración — mapeo de categorías pendiente',
-    icon: <ShoppingCart />,
-  },
-  {
-    id: 'erp',
-    nombre: 'Financiero',
-    sigla: 'ERP',
-    color: '#DC2626',
-    estado: 'NO_CONECTADO',
-    descripcion: 'Facturas, órdenes de compra y contratos financieros',
-    documentos: ['Facturas', 'Órdenes de compra', 'Contratos'],
-    pendiente: 'Requiere instalación del módulo ERP',
-    icon: <AccountBalance />,
-  },
-  {
-    id: 'qms',
-    nombre: 'Calidad',
-    sigla: 'QMS',
-    color: '#0D9488',
-    estado: 'NO_CONECTADO',
-    descripcion: 'Procedimientos, instructivos y auditorías de calidad',
-    documentos: ['Procedimientos', 'Instructivos', 'Auditorías'],
-    pendiente: 'Requiere instalación del módulo QMS',
-    icon: <VerifiedUser />,
-  },
+/** Qué documentos aporta cada módulo, y qué se pierde si no está. */
+const ORIGENES = [
+  { clave: 'GH', modulo: 'gh', nombre: 'Gestión humana', color: '#7C3AED',
+    aporta: 'Contratos laborales, hojas de vida y exámenes ocupacionales; abre '
+          + 'el expediente de cada persona al contratarla.',
+    sin: 'Cada expediente de personal hay que abrirlo y llenarlo a mano.' },
+  { clave: 'TMS', modulo: 'tms', nombre: 'Transporte', color: '#059669',
+    aporta: 'SOAT, técnico-mecánica y tarjeta de propiedad de cada vehículo, '
+          + 'con su vencimiento enlazado a la ficha del camión.',
+    sin: 'Los papeles del vehículo se archivan sueltos y nadie avisa cuando '
+       + 'vence un SOAT.' },
+  { clave: 'QMS', modulo: 'qms', nombre: 'Calidad', color: '#0EA5E9',
+    aporta: 'Procedimientos e instructivos; la versión publicada aquí es la que '
+          + 'cita el sistema de gestión.',
+    sin: 'La versión vigente de un procedimiento se lleva por fuera y se '
+       + 'desincroniza.' },
+  { clave: 'CRM', modulo: 'crm', nombre: 'Comercial', color: '#B91C1C',
+    aporta: 'Contratos con clientes y pólizas, enlazados a la ficha de la cuenta.',
+    sin: 'El contrato figura por su código y el documento vive en otra parte.' },
+  { clave: 'ERP', modulo: 'erp', nombre: 'Contabilidad', color: '#F59E0B',
+    aporta: 'Estados financieros y soportes contables con su plazo legal de '
+          + 'conservación.',
+    sin: 'Los soportes contables se conservan sin política y sin aviso de plazo.' },
+  { clave: 'SST', modulo: 'sst', nombre: 'Seguridad y salud', color: '#EF4444',
+    aporta: 'Matrices de riesgo y exámenes periódicos, con la vigencia que exige '
+          + 'la norma.',
+    sin: 'Los exámenes vencidos no se detectan hasta la visita de la ARL.' },
 ]
-
-const DOCS_SINCRONIZADOS: DocSincronizado[] = [
-  { modulo: 'TMS', moduloColor: '#0369A1', tipo: 'POD', nombre: 'Prueba de Entrega — Viaje VJ-8841 — Carulla Soacha', fecha: '20/06/2026 13:45' },
-  { modulo: 'FMS', moduloColor: '#7C3AED', tipo: 'SOAT', nombre: 'SOAT 2026 — Camión Kenworth TT-984 — Placa ZXC-441', fecha: '20/06/2026 13:30' },
-  { modulo: 'HCM', moduloColor: '#BE185D', tipo: 'Contrato', nombre: 'Contrato Laboral — Juan David Morales — Conductor C1', fecha: '20/06/2026 13:15' },
-  { modulo: 'WMS', moduloColor: '#1E40AF', tipo: 'Recepción', nombre: 'Acta de Recepción — RA-2026-0441 — CEDI Bogotá', fecha: '20/06/2026 12:55' },
-  { modulo: 'TMS', moduloColor: '#0369A1', tipo: 'Manifiesto', nombre: 'Manifiesto de Carga — MF-2026-3301 — Ruta Bogotá–Medellín', fecha: '20/06/2026 12:40' },
-  { modulo: 'HCM', moduloColor: '#BE185D', tipo: 'Incapacidad', nombre: 'Incapacidad Médica — Pedro Álvarez — 5 días — EPS Sura', fecha: '20/06/2026 12:20' },
-  { modulo: 'FMS', moduloColor: '#7C3AED', tipo: 'RTM', nombre: 'Revisión Técnico-Mecánica — Placa TYU-882 — Vigente 2027', fecha: '20/06/2026 12:00' },
-  { modulo: 'WMS', moduloColor: '#1E40AF', tipo: 'Despacho', nombre: 'Guía de Despacho — GD-2026-0189 — Almacenes Éxito La 14', fecha: '20/06/2026 11:45' },
-  { modulo: 'TMS', moduloColor: '#0369A1', tipo: 'Remesa', nombre: 'Remesa Terrestre — REM-2026-7722 — Cali–Buenaventura', fecha: '20/06/2026 11:30' },
-  { modulo: 'HCM', moduloColor: '#BE185D', tipo: 'Evaluación', nombre: 'Evaluación de Desempeño — Gloria Morales — Semestre I/2026', fecha: '20/06/2026 11:10' },
-]
-
-// ─── Estado Config ─────────────────────────────────────────────────────────────
-
-function EstadoChip({ estado }: { estado: EstadoIntegracion }) {
-  const map = {
-    CONECTADO: { label: 'Conectado', color: '#16a34a', icon: <CheckCircle sx={{ fontSize: 14 }} /> },
-    EN_CONFIGURACION: { label: 'En configuración', color: '#d97706', icon: <Settings sx={{ fontSize: 14 }} /> },
-    NO_CONECTADO: { label: 'No conectado', color: '#6b7280', icon: <Cancel sx={{ fontSize: 14 }} /> },
-  }
-  const cfg = map[estado]
-  return (
-    <Chip
-      label={cfg.label}
-      size="small"
-      icon={cfg.icon as any}
-      sx={{
-        bgcolor: alpha(cfg.color, 0.1),
-        color: cfg.color,
-        fontWeight: 700,
-        fontSize: '0.68rem',
-        '& .MuiChip-icon': { color: cfg.color },
-      }}
-    />
-  )
-}
-
-// ─── Module Card ──────────────────────────────────────────────────────────────
-
-function ModuloCard({ mod }: { mod: Modulo }) {
-  return (
-    <Card
-      sx={{
-        borderRadius: 2,
-        borderTop: `4px solid ${mod.color}`,
-        height: '100%',
-        transition: 'box-shadow 0.2s',
-        '&:hover': { boxShadow: 4 },
-      }}
-    >
-      <CardContent>
-        <Stack direction="row" alignItems="flex-start" gap={1.5} mb={1.5}>
-          <Avatar sx={{ bgcolor: alpha(mod.color, 0.12), color: mod.color, width: 44, height: 44 }}>
-            {mod.icon}
-          </Avatar>
-          <Box flex={1}>
-            <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
-              <Typography variant="subtitle2" fontWeight={700}>{mod.nombre}</Typography>
-              <Chip
-                label={mod.sigla}
-                size="small"
-                sx={{ bgcolor: mod.color, color: '#fff', fontWeight: 800, fontSize: '0.65rem', height: 20 }}
-              />
-            </Stack>
-            <EstadoChip estado={mod.estado} />
-          </Box>
-        </Stack>
-
-        <Typography variant="caption" color="text.secondary" display="block" mb={1}>
-          {mod.descripcion}
-        </Typography>
-
-        <Stack direction="row" flexWrap="wrap" gap={0.5} mb={1.5}>
-          {mod.documentos.map(d => (
-            <Chip
-              key={d}
-              label={d}
-              size="small"
-              sx={{ fontSize: '0.62rem', height: 18, bgcolor: alpha(mod.color, 0.08), color: mod.color }}
-            />
-          ))}
-        </Stack>
-
-        {mod.estado === 'CONECTADO' ? (
-          <Box>
-            <Stack direction="row" justifyContent="space-between" mb={0.5}>
-              <Typography variant="caption" color="text.secondary">
-                <Sync sx={{ fontSize: 11, mr: 0.3, verticalAlign: 'middle' }} />
-                Última sync: {mod.ultimaSync}
-              </Typography>
-              <Typography variant="caption" fontWeight={700} color={mod.color}>
-                {mod.cantidadDocs} docs
-              </Typography>
-            </Stack>
-            <LinearProgress
-              variant="determinate"
-              value={100}
-              sx={{ height: 3, borderRadius: 2, bgcolor: alpha(mod.color, 0.15), '& .MuiLinearProgress-bar': { bgcolor: mod.color } }}
-            />
-          </Box>
-        ) : (
-          <Typography variant="caption" color="text.secondary" fontStyle="italic">
-            {mod.pendiente}
-          </Typography>
-        )}
-
-        <Button
-          fullWidth
-          size="small"
-          variant={mod.estado === 'CONECTADO' ? 'outlined' : 'contained'}
-          endIcon={mod.estado === 'CONECTADO' ? <OpenInNew /> : <Settings />}
-          sx={{
-            mt: 1.5,
-            borderColor: mod.color,
-            color: mod.estado === 'CONECTADO' ? mod.color : '#fff',
-            bgcolor: mod.estado === 'CONECTADO' ? 'transparent' : mod.color,
-            fontSize: '0.72rem',
-            '&:hover': {
-              bgcolor: mod.estado === 'CONECTADO' ? alpha(mod.color, 0.08) : alpha(mod.color, 0.85),
-              borderColor: mod.color,
-            },
-          }}
-        >
-          {mod.estado === 'CONECTADO' ? 'Ver documentos' : 'Configurar'}
-        </Button>
-      </CardContent>
-    </Card>
-  )
-}
-
-// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function DMSIntegraciones() {
-  const conectados = MODULOS.filter(m => m.estado === 'CONECTADO').length
-  const totalDocs = MODULOS.filter(m => m.cantidadDocs).reduce((acc, m) => acc + (m.cantidadDocs ?? 0), 0)
+  const modulos = useAuthStore(s => s.modulos)
+
+  const documentos = useQuery({
+    queryKey: ['dms', 'documentos', 'todos'], queryFn: () => dmsApi.documentos(),
+  })
+  const tipos = useQuery({
+    queryKey: ['dms', 'tipos'], queryFn: () => dmsApi.tipos(),
+    staleTime: 10 * 60 * 1000,
+  })
+  const categorias = useQuery({
+    queryKey: ['dms', 'categorias'], queryFn: () => dmsApi.categorias(),
+    staleTime: 10 * 60 * 1000,
+  })
+
+  const tiene = (m: string) => modulos.includes('*') || modulos.includes(m)
+
+  // Cuántos documentos hay de los tipos que aporta cada módulo. Se cuenta por
+  // la categoría del tipo, que es la relación que de verdad existe hoy: el
+  // campo `modulo_origen` solo lo llena lo que entra automáticamente.
+  const conteo = useMemo(() => {
+    const porCategoria: Record<string, number> = {}
+    const catDeTipo = new Map<string, number | null | undefined>()
+    for (const t of tipos.data ?? []) catDeTipo.set(t.nombre, t.categoria_id)
+    const nombreCat = new Map((categorias.data ?? []).map(c => [c.id, c.nombre]))
+    for (const d of documentos.data ?? []) {
+      const cid = catDeTipo.get(d.tipo_nombre || '')
+      const cat = cid ? nombreCat.get(cid) : undefined
+      if (cat) porCategoria[cat] = (porCategoria[cat] || 0) + 1
+    }
+    return porCategoria
+  }, [documentos.data, tipos.data, categorias.data])
+
+  // La categoría que corresponde a cada módulo, por su nombre.
+  const CATEGORIA_DE = {
+    GH: 'Talento humano', TMS: 'Operaciones', QMS: 'Calidad',
+    CRM: 'Legal y contratos', ERP: 'Financiero', SST: 'Seguridad y salud',
+  } as Record<string, string>
+
+  const total = (documentos.data ?? []).length
+  const conectados = ORIGENES.filter(o => tiene(o.modulo))
 
   return (
     <Layout>
-      <Box sx={{ p: 3 }}>
-        {/* Header */}
-        <Stack direction="row" alignItems="flex-start" justifyContent="space-between" mb={3} flexWrap="wrap" gap={2}>
+      <Box sx={{ p: 3, minHeight: '100vh' }}>
+        <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{
+            width: 44, height: 44, borderRadius: '12px',
+            background: `linear-gradient(135deg, ${DMS_COLOR} 0%, #1E40AF 100%)`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Hub sx={{ color: '#fff', fontSize: 22 }} />
+          </Box>
           <Box>
-            <Stack direction="row" alignItems="center" gap={1.5} mb={0.5}>
-              <Hub sx={{ color: DMS_COLOR, fontSize: 28 }} />
-              <Typography variant="h5" fontWeight={700}>
-                Hub de Integraciones DMS
-              </Typography>
-            </Stack>
-            <Typography variant="body2" color="text.secondary">
-              Conecta el DMS con los módulos operativos de la suite empresarial la compañía para sincronización documental automática
+            <Typography sx={{ fontSize: 20, fontWeight: 800 }}>
+              De dónde vienen los documentos
+            </Typography>
+            <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
+              Qué módulo aporta cada clase de papel, y cuántos hay
             </Typography>
           </Box>
-          <Stack direction="row" gap={1.5}>
-            <Paper sx={{ px: 2, py: 1, borderRadius: 2, textAlign: 'center' }}>
-              <Typography variant="h6" fontWeight={700} color={DMS_COLOR}>{conectados}/8</Typography>
-              <Typography variant="caption" color="text.secondary">Módulos activos</Typography>
-            </Paper>
-            <Paper sx={{ px: 2, py: 1, borderRadius: 2, textAlign: 'center' }}>
-              <Typography variant="h6" fontWeight={700} color="#7c3aed">{totalDocs.toLocaleString()}</Typography>
-              <Typography variant="caption" color="text.secondary">Docs sincronizados</Typography>
-            </Paper>
-          </Stack>
-        </Stack>
+        </Box>
 
-        {/* Module Grid */}
-        <Grid container spacing={2} mb={4}>
-          {MODULOS.map(mod => (
-            <Grid key={mod.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
-              <ModuloCard mod={mod} />
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          {[
+            { label: 'Módulos conectados',
+              value: `${conectados.length} de ${ORIGENES.length}`, color: DMS_COLOR },
+            { label: 'Documentos en el archivo', value: total, color: '#059669' },
+            { label: 'Categorías con contenido',
+              value: Object.keys(conteo).length, color: '#0EA5E9' },
+            { label: 'Sin clasificar',
+              value: total - Object.values(conteo).reduce((a, b) => a + b, 0),
+              color: '#F59E0B' },
+          ].map((s, i) => (
+            <Grid key={i} size={{ xs: 6, md: 3 }}>
+              <Box sx={{ border: `1px solid ${alpha(s.color, 0.3)}`, borderRadius: 2, p: 2 }}>
+                <Typography sx={{ fontSize: 24, fontWeight: 900, lineHeight: 1,
+                                  fontVariantNumeric: 'tabular-nums' }}>
+                  {documentos.isLoading ? '·' : s.value}
+                </Typography>
+                <Typography sx={{ fontSize: 11, color: s.color, fontWeight: 600, mt: 0.25 }}>
+                  {s.label}
+                </Typography>
+              </Box>
             </Grid>
           ))}
         </Grid>
 
-        {/* Recent synced docs table */}
-        <Card sx={{ borderRadius: 2 }}>
-          <CardContent>
-            <Stack direction="row" alignItems="center" gap={1.5} mb={2}>
-              <Article sx={{ color: DMS_COLOR }} />
-              <Typography variant="subtitle1" fontWeight={700}>
-                Documentos Sincronizados Recientes
-              </Typography>
-              <Chip label="Tiempo real" size="small" sx={{ ml: 'auto', bgcolor: alpha('#16a34a', 0.1), color: '#16a34a', fontSize: '0.65rem', fontWeight: 700 }} />
-            </Stack>
-            <Box sx={{ overflowX: 'auto' }}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ '& th': { fontWeight: 700, bgcolor: alpha(DMS_COLOR, 0.06) } }}>
-                    <TableCell>Módulo origen</TableCell>
-                    <TableCell>Tipo</TableCell>
-                    <TableCell>Nombre del documento</TableCell>
-                    <TableCell>Fecha sincronización</TableCell>
-                    <TableCell align="center">Acción</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {DOCS_SINCRONIZADOS.map((doc, idx) => (
-                    <TableRow key={idx} hover sx={{ '& td': { py: 1, fontSize: '0.8rem' } }}>
-                      <TableCell>
-                        <Chip
-                          label={doc.modulo}
-                          size="small"
-                          sx={{
-                            bgcolor: doc.moduloColor,
-                            color: '#fff',
-                            fontWeight: 800,
-                            fontSize: '0.65rem',
-                            height: 22,
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Chip label={doc.tipo} size="small" variant="outlined" sx={{ fontSize: '0.65rem' }} />
-                      </TableCell>
-                      <TableCell sx={{ maxWidth: 380 }}>
-                        <Typography variant="caption" sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {doc.nombre}
+        <Estado cargando={documentos.isLoading} error={documentos.error} vacio={false}>
+          <Grid container spacing={2}>
+            {ORIGENES.map(o => {
+              const activo = tiene(o.modulo)
+              const n = conteo[CATEGORIA_DE[o.clave]] ?? 0
+              return (
+                <Grid key={o.clave} size={{ xs: 12, md: 6 }}>
+                  <Panel sx={{
+                    p: 2.25, height: '100%',
+                    borderColor: activo ? alpha(o.color, 0.35) : BORDE,
+                    bgcolor: activo ? alpha(o.color, 0.03) : 'background.paper',
+                  }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mb: 1 }}>
+                      <Box sx={{
+                        width: 34, height: 34, borderRadius: '9px', flexShrink: 0,
+                        bgcolor: alpha(o.color, activo ? 0.15 : 0.07),
+                        color: activo ? o.color : '#94A3B8',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 11, fontWeight: 900,
+                      }}>{o.clave}</Box>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography sx={{ fontSize: 14, fontWeight: 700 }}>
+                          {o.nombre}
                         </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="caption" color="text.secondary">{doc.fecha}</Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Button size="small" variant="text" endIcon={<OpenInNew sx={{ fontSize: 12 }} />} sx={{ color: DMS_COLOR, fontSize: '0.7rem' }}>
-                          Ver
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Box>
-          </CardContent>
-        </Card>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <ArrowForward sx={{ fontSize: 12, color: 'text.disabled' }} />
+                          <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>
+                            archivo documental
+                          </Typography>
+                        </Box>
+                      </Box>
+                      {activo
+                        ? <CheckCircle sx={{ fontSize: 18, color: o.color }} />
+                        : <RemoveCircleOutline sx={{ fontSize: 18, color: 'text.disabled' }} />}
+                    </Box>
+
+                    <Typography sx={{
+                      fontSize: 12.5, lineHeight: 1.55, mb: 1.25,
+                      color: activo ? 'text.primary' : 'text.secondary',
+                    }}>
+                      {activo ? o.aporta : o.sin}
+                    </Typography>
+
+                    <Box sx={{
+                      display: 'flex', alignItems: 'center', gap: 1,
+                      pt: 1.25, borderTop: `1px solid ${BORDE}`,
+                    }}>
+                      <Inbox sx={{ fontSize: 15, color: activo ? o.color : '#94A3B8' }} />
+                      <Tooltip title={`Documentos de la categoría «${CATEGORIA_DE[o.clave]}»`}>
+                        <Typography sx={{ fontSize: 12, flex: 1 }}>
+                          <Box component="span" sx={{ fontWeight: 800, color: o.color }}>
+                            {n}
+                          </Box>
+                          {' '}documento(s) en el archivo
+                        </Typography>
+                      </Tooltip>
+                      <Chip label={activo ? 'contratado' : 'no contratado'} size="small"
+                        sx={{
+                          height: 19, fontSize: 9.5, fontWeight: 700,
+                          bgcolor: activo ? alpha(o.color, 0.15) : '#F1F5F9',
+                          color: activo ? o.color : 'text.secondary',
+                        }} />
+                    </Box>
+                  </Panel>
+                </Grid>
+              )
+            })}
+          </Grid>
+        </Estado>
+
+        <Typography sx={{ fontSize: 11.5, color: 'text.disabled', mt: 2 }}>
+          El conteo se hace por la categoría del tipo de documento, que es la
+          relación que existe hoy. Qué módulos tiene contratados su empresa se
+          acuerda con quien le administra la plataforma.
+        </Typography>
       </Box>
     </Layout>
   )

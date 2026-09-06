@@ -1,358 +1,256 @@
-import React, { useMemo, useState } from 'react'
+/**
+ * El rastro: quién vio, descargó o modificó cada documento, y desde dónde.
+ *
+ * PARA QUÉ SIRVE DE VERDAD
+ * Para responder una pregunta concreta: «¿quién descargó ese contrato antes de
+ * que se filtrara?». Por eso el filtro por documento y por acción está arriba y
+ * no escondido, y por eso cada línea lleva la dirección de red. Un rastro que
+ * no permite esa consulta es un registro que ocupa disco y no defiende a nadie.
+ *
+ * NO SE PUEDE EDITAR NI BORRAR
+ * A propósito, y el servidor tampoco lo permite. Un rastro de auditoría que se
+ * puede modificar no vale como prueba de nada.
+ */
+import { useMemo, useState } from 'react'
 import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  Chip,
-  Stack,
-  alpha,
-  Avatar,
-  Button,
-  TextField,
-  MenuItem,
-  Select,
-  FormControl,
-  InputLabel,
-  IconButton,
-  Collapse,
-  Divider,
-  Tooltip,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  CircularProgress,
+  Box, Typography, Chip, InputBase, alpha, MenuItem, TextField, Tooltip,
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
 import {
-  Security,
-  Search,
-  Download,
-  ExpandMore,
-  ExpandLess,
-  Visibility,
-  Edit,
-  DeleteForever,
-  CloudDownload,
-  Draw,
-  CheckCircle,
-  Cancel,
-  AddCircle,
-  NewReleases,
-  AccessTime,
-  Computer,
-  Person,
-  Article,
-  Print,
+  Policy, Search, Visibility, Download, Edit, DeleteForever,
+  Draw, CheckCircle, Cancel, Print, NoteAdd, LayersOutlined,
 } from '@mui/icons-material'
 import { useQuery } from '@tanstack/react-query'
-import { apiClient } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
-import { exportarExcel } from '@/utils/exportar'
-import toast from 'react-hot-toast'
+import { dmsApi } from '@/api/dms'
+import {
+  BORDE, DMS_COLOR, Encabezados, Estado, Panel,
+  IconoArchivo, fechaHora, legible,
+} from '@/components/dms/comunes'
 
-import { COLOR_MODULO } from '@/config/marca'
-const DMS_COLOR = COLOR_MODULO
-
-// ─── Config de acciones ─────────────────────────────────────────────────────────
-
-const ACCIONES_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  CREACION:      { label: 'Creación',      color: '#16a34a', icon: <AddCircle fontSize="small" /> },
-  VISUALIZACION: { label: 'Visualización', color: '#6b7280', icon: <Visibility fontSize="small" /> },
-  DESCARGA:      { label: 'Descarga',      color: '#2563eb', icon: <CloudDownload fontSize="small" /> },
-  MODIFICACION:  { label: 'Modificación',  color: '#ea580c', icon: <Edit fontSize="small" /> },
-  ELIMINACION:   { label: 'Eliminación',   color: '#dc2626', icon: <DeleteForever fontSize="small" /> },
-  FIRMA:         { label: 'Firma',         color: '#0d9488', icon: <Draw fontSize="small" /> },
-  APROBACION:    { label: 'Aprobación',    color: '#15803d', icon: <CheckCircle fontSize="small" /> },
-  RECHAZO:       { label: 'Rechazo',       color: '#b91c1c', icon: <Cancel fontSize="small" /> },
-  VERSION_NUEVA: { label: 'Nueva Versión', color: '#7c3aed', icon: <NewReleases fontSize="small" /> },
-  IMPRESION:     { label: 'Impresión',     color: '#9333ea', icon: <Print fontSize="small" /> },
+/** Cada acción con su icono y su color: el rojo es lo que hay que mirar. */
+const ACCIONES: Record<string, { color: string; icono: JSX.Element }> = {
+  CREACION:      { color: '#059669', icono: <NoteAdd sx={{ fontSize: 15 }} /> },
+  VISUALIZACION: { color: '#94A3B8', icono: <Visibility sx={{ fontSize: 15 }} /> },
+  DESCARGA:      { color: '#0EA5E9', icono: <Download sx={{ fontSize: 15 }} /> },
+  MODIFICACION:  { color: '#F59E0B', icono: <Edit sx={{ fontSize: 15 }} /> },
+  ELIMINACION:   { color: '#EF4444', icono: <DeleteForever sx={{ fontSize: 15 }} /> },
+  FIRMA:         { color: '#7C3AED', icono: <Draw sx={{ fontSize: 15 }} /> },
+  APROBACION:    { color: '#059669', icono: <CheckCircle sx={{ fontSize: 15 }} /> },
+  RECHAZO:       { color: '#EF4444', icono: <Cancel sx={{ fontSize: 15 }} /> },
+  IMPRESION:     { color: '#6B7280', icono: <Print sx={{ fontSize: 15 }} /> },
+  VERSION_NUEVA: { color: '#2563EB', icono: <LayersOutlined sx={{ fontSize: 15 }} /> },
 }
-const cfgAccion = (a: string) => ACCIONES_CONFIG[a] ?? { label: a, color: '#6b7280', icon: <Article fontSize="small" /> }
-
-interface AuditApi {
-  id: number
-  documento_id?: number | null
-  version_id?: number | null
-  usuario_id?: number | null
-  accion: string
-  detalle?: string | null
-  ip_origen?: string | null
-  user_agent?: string | null
-  created_at?: string | null
-}
-
-const fmtFechaHora = (s?: string | null): string => {
-  if (!s) return '—'
-  const d = new Date(s)
-  if (isNaN(d.getTime())) return '—'
-  return d.toLocaleString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })
-}
-const esHoy = (s?: string | null): boolean => {
-  if (!s) return false
-  const d = new Date(s); const n = new Date()
-  return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate()
-}
-const esEsteMes = (s?: string | null): boolean => {
-  if (!s) return false
-  const d = new Date(s); const n = new Date()
-  return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth()
-}
-
-// ─── KPI Card ─────────────────────────────────────────────────────────────────
-
-function KpiCard({ label, value, icon, color }: { label: string; value: string | number; icon: React.ReactNode; color: string }) {
-  return (
-    <Card sx={{ borderRadius: 2, borderTop: `3px solid ${color}` }}>
-      <CardContent sx={{ p: 2.5 }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between">
-          <Box>
-            <Typography variant="h4" fontWeight={700} color={color}>{value}</Typography>
-            <Typography variant="caption" color="text.secondary">{label}</Typography>
-          </Box>
-          <Avatar sx={{ bgcolor: alpha(color, 0.12), color }}>{icon}</Avatar>
-        </Stack>
-      </CardContent>
-    </Card>
-  )
-}
-
-// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function DMSAuditoria() {
-  const [search, setSearch] = useState('')
-  const [accionFilter, setAccionFilter] = useState<string>('TODAS')
-  const [expandedRow, setExpandedRow] = useState<number | null>(null)
+  const [accion, setAccion] = useState('Todas')
+  const [documento, setDocumento] = useState<number | ''>('')
+  const [busqueda, setBusqueda] = useState('')
 
-  const { data: audit = [], isLoading } = useQuery<AuditApi[]>({
-    queryKey: ['dms-auditoria'],
-    queryFn: () => apiClient.get('/dms/auditoria', { params: { limit: 300 } }).then((r) => r.data),
-    refetchInterval: 15000,
+  const registros = useQuery({
+    queryKey: ['dms', 'auditoria', accion, documento],
+    queryFn: () => dmsApi.auditoria({
+      accion: accion === 'Todas' ? undefined : accion,
+      documento_id: documento || undefined,
+      limit: 400,
+    }),
   })
-  const { data: usuarios = [] } = useQuery<any[]>({
-    queryKey: ['usuarios-map'],
-    queryFn: () => apiClient.get('/usuarios/').then((r) => r.data),
-  })
-  const { data: documentos = [] } = useQuery<any[]>({
-    queryKey: ['dms-docs-map'],
-    queryFn: () => apiClient.get('/dms/documentos', { params: { per_page: 200 } }).then((r) => r.data),
+  const documentos = useQuery({
+    queryKey: ['dms', 'documentos', 'todos'], queryFn: () => dmsApi.documentos(),
   })
 
-  const userMap = useMemo(() => {
-    const m = new Map<number, string>()
-    usuarios.forEach((u) => m.set(u.id, `${u.nombre ?? ''} ${u.apellido ?? ''}`.trim() || u.username || `Usuario #${u.id}`))
-    return m
-  }, [usuarios])
-  const docMap = useMemo(() => {
-    const m = new Map<number, string>()
-    documentos.forEach((d) => m.set(d.id, d.nombre))
-    return m
-  }, [documentos])
+  const doc = (id?: number | null) =>
+    documentos.data?.find(d => d.id === id)
 
-  const rows = useMemo(() => audit.map((a) => ({
-    id: a.id,
-    codigo: `AUD-${String(a.id).padStart(6, '0')}`,
-    accion: a.accion,
-    documento: a.documento_id ? (docMap.get(a.documento_id) || `Documento #${a.documento_id}`) : '—',
-    usuario: a.usuario_id ? (userMap.get(a.usuario_id) || `Usuario #${a.usuario_id}`) : 'Sistema',
-    ip: a.ip_origen || '—',
-    fechaHora: fmtFechaHora(a.created_at),
-    dispositivo: a.user_agent || '—',
-    detalles: a.detalle || 'Sin detalle registrado.',
-    createdAt: a.created_at,
-  })), [audit, docMap, userMap])
+  const texto = busqueda.trim().toLowerCase()
+  const lista = (registros.data ?? []).filter(r => !texto ||
+    (r.detalle || '').toLowerCase().includes(texto) ||
+    (r.ip_origen || '').includes(texto) ||
+    (doc(r.documento_id)?.nombre || '').toLowerCase().includes(texto))
 
-  const kpis = useMemo(() => {
-    const hoy = audit.filter((a) => esHoy(a.created_at))
-    const mes = audit.filter((a) => esEsteMes(a.created_at))
-    const usuariosHoy = new Set(hoy.map((a) => a.usuario_id).filter(Boolean))
-    const descargasHoy = hoy.filter((a) => a.accion === 'DESCARGA').length
-    return { hoy: hoy.length, mes: mes.length, usuariosHoy: usuariosHoy.size, descargasHoy }
-  }, [audit])
+  // Lo sensible: descargas e impresiones de documentos confidenciales, y
+  // eliminaciones. Es lo que se revisa cuando algo se filtró.
+  const sensibles = useMemo(
+    () => (registros.data ?? []).filter(
+      r => ['DESCARGA', 'IMPRESION', 'ELIMINACION'].includes(r.accion)),
+    [registros.data])
 
-  const filtered = rows.filter((r) => {
-    const s = search.toLowerCase()
-    const matchSearch = r.documento.toLowerCase().includes(s) || r.usuario.toLowerCase().includes(s)
-    const matchAccion = accionFilter === 'TODAS' || r.accion === accionFilter
-    return matchSearch && matchAccion
-  })
-
-  const stream = rows.slice(0, 6)
-
-  const exportar = () => {
-    if (!filtered.length) { toast.error('No hay registros para exportar'); return }
-    exportarExcel({
-      archivo: 'auditoria_dms',
-      titulo: 'Auditoría DMS',
-      filas: filtered.map((r) => ({ registro: r.codigo, accion: cfgAccion(r.accion).label, documento: r.documento, usuario: r.usuario, ip: r.ip, fecha_hora: r.fechaHora, dispositivo: r.dispositivo, detalle: r.detalles })),
-      color: DMS_COLOR,
-    })
-    toast.success('Log exportado')
-  }
+  const porAccion = useMemo(() => {
+    const c: Record<string, number> = {}
+    for (const r of registros.data ?? []) c[r.accion] = (c[r.accion] || 0) + 1
+    return Object.entries(c).sort((a, b) => b[1] - a[1])
+  }, [registros.data])
 
   return (
     <Layout>
-      <Box sx={{ p: 3 }}>
-        {/* Header */}
-        <Stack direction="row" alignItems="flex-start" justifyContent="space-between" mb={3} flexWrap="wrap" gap={2}>
-          <Box>
-            <Stack direction="row" alignItems="center" gap={1.5} mb={0.5}>
-              <Security sx={{ color: DMS_COLOR, fontSize: 28 }} />
-              <Typography variant="h5" fontWeight={700}>Auditoría DMS</Typography>
-              <Chip label="INMUTABLE — Registro permanente e inalterable" size="small" sx={{ bgcolor: alpha('#dc2626', 0.1), color: '#dc2626', fontWeight: 700, fontSize: '0.65rem' }} />
-            </Stack>
-            <Typography variant="body2" color="text.secondary">Trazabilidad completa de todas las acciones sobre documentos del sistema</Typography>
+      <Box sx={{ p: 3, minHeight: '100vh' }}>
+        <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{
+            width: 44, height: 44, borderRadius: '12px',
+            background: `linear-gradient(135deg, ${DMS_COLOR} 0%, #1E40AF 100%)`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Policy sx={{ color: '#fff', fontSize: 22 }} />
           </Box>
-          <Button variant="outlined" startIcon={<Download />} sx={{ borderColor: DMS_COLOR, color: DMS_COLOR }} onClick={exportar}>Exportar Log</Button>
-        </Stack>
+          <Box>
+            <Typography sx={{ fontSize: 20, fontWeight: 800 }}>
+              Rastro de auditoría
+            </Typography>
+            <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
+              Quién vio, descargó o cambió cada documento, y desde dónde
+            </Typography>
+          </Box>
+        </Box>
 
-        {/* KPIs */}
-        <Grid container spacing={2} mb={3}>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}><KpiCard label="Acciones hoy" value={kpis.hoy} icon={<Article />} color={DMS_COLOR} /></Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}><KpiCard label="Acciones este mes" value={kpis.mes.toLocaleString('es-CO')} icon={<AccessTime />} color="#7c3aed" /></Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}><KpiCard label="Usuarios activos hoy" value={kpis.usuariosHoy} icon={<Person />} color="#059669" /></Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}><KpiCard label="Descargas hoy" value={kpis.descargasHoy} icon={<CloudDownload />} color="#2563eb" /></Grid>
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid size={{ xs: 6, md: 3 }}>
+            <Box sx={{ border: `1px solid ${alpha(DMS_COLOR, 0.3)}`, borderRadius: 2, p: 2 }}>
+              <Typography sx={{ fontSize: 24, fontWeight: 900, lineHeight: 1,
+                                fontVariantNumeric: 'tabular-nums' }}>
+                {registros.isLoading ? '·' : (registros.data?.length ?? 0)}
+              </Typography>
+              <Typography sx={{ fontSize: 11, color: DMS_COLOR, fontWeight: 600, mt: 0.25 }}>
+                Registros en el período
+              </Typography>
+            </Box>
+          </Grid>
+          <Grid size={{ xs: 6, md: 3 }}>
+            <Box sx={{ border: `1px solid ${alpha('#EF4444', 0.3)}`, borderRadius: 2, p: 2 }}>
+              <Typography sx={{ fontSize: 24, fontWeight: 900, lineHeight: 1,
+                                fontVariantNumeric: 'tabular-nums' }}>
+                {sensibles.length}
+              </Typography>
+              <Typography sx={{ fontSize: 11, color: '#EF4444', fontWeight: 600, mt: 0.25 }}>
+                Descargas, impresiones y borrados
+              </Typography>
+            </Box>
+          </Grid>
+          {porAccion.slice(0, 2).map(([a, n]) => {
+            const cfg = ACCIONES[a] ?? { color: '#94A3B8', icono: null }
+            return (
+              <Grid key={a} size={{ xs: 6, md: 3 }}>
+                <Box sx={{
+                  border: `1px solid ${alpha(cfg.color, 0.3)}`, borderRadius: 2, p: 2,
+                  display: 'flex', gap: 1.5, alignItems: 'center',
+                }}>
+                  <Box sx={{
+                    width: 38, height: 38, borderRadius: '10px',
+                    bgcolor: alpha(cfg.color, 0.15), display: 'flex',
+                    alignItems: 'center', justifyContent: 'center',
+                    '& svg': { color: cfg.color, fontSize: 20 },
+                  }}>{cfg.icono}</Box>
+                  <Box>
+                    <Typography sx={{ fontSize: 24, fontWeight: 900, lineHeight: 1,
+                                      fontVariantNumeric: 'tabular-nums' }}>{n}</Typography>
+                    <Typography sx={{ fontSize: 11, color: cfg.color, fontWeight: 600 }}>
+                      {legible(a)}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Grid>
+            )
+          })}
         </Grid>
 
-        <Grid container spacing={3}>
-          {/* Main audit table */}
-          <Grid size={{ xs: 12, md: 9 }}>
-            <Card sx={{ borderRadius: 2 }}>
-              <CardContent sx={{ pb: 0 }}>
-                {/* Filters */}
-                <Stack direction="row" gap={2} mb={2} flexWrap="wrap">
-                  <TextField size="small" placeholder="Buscar por documento o usuario..." value={search} onChange={(e) => setSearch(e.target.value)}
-                    InputProps={{ startAdornment: <Search sx={{ mr: 1, color: 'text.disabled', fontSize: 18 }} /> }} sx={{ minWidth: 280, flex: 1 }} />
-                  <FormControl size="small" sx={{ minWidth: 180 }}>
-                    <InputLabel>Acción</InputLabel>
-                    <Select value={accionFilter} label="Acción" onChange={(e) => setAccionFilter(e.target.value)}>
-                      <MenuItem value="TODAS">Todas</MenuItem>
-                      {Object.entries(ACCIONES_CONFIG).map(([key, cfg]) => <MenuItem key={key} value={key}>{cfg.label}</MenuItem>)}
-                    </Select>
-                  </FormControl>
-                </Stack>
+        <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          <Box sx={{
+            display: 'flex', gap: 1, border: `1px solid ${BORDE}`, borderRadius: 2,
+            px: 2, py: 1, alignItems: 'center', flex: 1, minWidth: 220,
+            bgcolor: 'background.paper',
+          }}>
+            <Search sx={{ color: 'text.disabled', fontSize: 20 }} />
+            <InputBase placeholder="Buscar por documento, detalle o dirección de red…"
+              value={busqueda} onChange={e => setBusqueda(e.target.value)}
+              sx={{ flex: 1, fontSize: 13.5 }} />
+          </Box>
+          <TextField select size="small" label="Documento" sx={{ minWidth: 260 }}
+            value={documento}
+            onChange={e => setDocumento(Number(e.target.value) || '')}>
+            <MenuItem value=""><em>Todos los documentos</em></MenuItem>
+            {documentos.data?.slice(0, 300).map(d => (
+              <MenuItem key={d.id} value={d.id}>{d.codigo} · {d.nombre}</MenuItem>
+            ))}
+          </TextField>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1, mb: 1.5, flexWrap: 'wrap' }}>
+          {['Todas', ...Object.keys(ACCIONES)].map(a => (
+            <Chip key={a} label={a === 'Todas' ? 'Todas' : legible(a)} size="small"
+              onClick={() => setAccion(a)}
+              sx={{
+                cursor: 'pointer',
+                bgcolor: accion === a ? (ACCIONES[a]?.color || DMS_COLOR) : '#F1F5F9',
+                color: accion === a ? '#FFF' : 'text.secondary',
+                fontWeight: accion === a ? 700 : 400,
+              }} />
+          ))}
+        </Box>
 
-                <Box sx={{ overflowX: 'auto' }}>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow sx={{ '& th': { fontWeight: 700, bgcolor: alpha(DMS_COLOR, 0.06), whiteSpace: 'nowrap' } }}>
-                        <TableCell>Registro</TableCell>
-                        <TableCell>Acción</TableCell>
-                        <TableCell>Documento</TableCell>
-                        <TableCell>Usuario</TableCell>
-                        <TableCell>IP</TableCell>
-                        <TableCell>Fecha/Hora</TableCell>
-                        <TableCell align="center">Detalles</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {isLoading ? (
-                        <TableRow><TableCell colSpan={7} align="center" sx={{ py: 5 }}><CircularProgress size={26} /></TableCell></TableRow>
-                      ) : filtered.length === 0 ? (
-                        <TableRow><TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                          {rows.length === 0 ? 'Aún no hay eventos de auditoría registrados.' : 'No hay registros con los filtros aplicados.'}
-                        </TableCell></TableRow>
-                      ) : filtered.map((row) => {
-                        const cfg = cfgAccion(row.accion)
-                        const isExpanded = expandedRow === row.id
-                        return (
-                          <React.Fragment key={row.id}>
-                            <TableRow hover sx={{ '& td': { py: 1, fontSize: '0.78rem' }, bgcolor: isExpanded ? alpha(DMS_COLOR, 0.04) : 'inherit' }}>
-                              <TableCell><Typography variant="caption" fontFamily="monospace" fontWeight={600} color={DMS_COLOR}>{row.codigo}</Typography></TableCell>
-                              <TableCell>
-                                <Chip label={cfg.label} size="small" icon={cfg.icon as any}
-                                  sx={{ bgcolor: alpha(cfg.color, 0.12), color: cfg.color, fontWeight: 600, fontSize: '0.65rem', '& .MuiChip-icon': { color: cfg.color } }} />
-                              </TableCell>
-                              <TableCell sx={{ maxWidth: 240 }}>
-                                <Typography variant="caption" sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.documento}</Typography>
-                              </TableCell>
-                              <TableCell>
-                                <Stack direction="row" alignItems="center" gap={0.5}>
-                                  <Person sx={{ fontSize: 14, color: 'text.disabled' }} />
-                                  <span>{row.usuario}</span>
-                                </Stack>
-                              </TableCell>
-                              <TableCell><Typography variant="caption" fontFamily="monospace">{row.ip}</Typography></TableCell>
-                              <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.fechaHora}</TableCell>
-                              <TableCell align="center">
-                                <Tooltip title={isExpanded ? 'Cerrar detalle' : 'Ver detalle completo'}>
-                                  <IconButton size="small" onClick={() => setExpandedRow(isExpanded ? null : row.id)} sx={{ color: DMS_COLOR }}>
-                                    {isExpanded ? <ExpandLess /> : <ExpandMore />}
-                                  </IconButton>
-                                </Tooltip>
-                              </TableCell>
-                            </TableRow>
-                            <TableRow>
-                              <TableCell colSpan={7} sx={{ p: 0, border: 0 }}>
-                                <Collapse in={isExpanded} unmountOnExit>
-                                  <Box sx={{ p: 2, bgcolor: alpha(DMS_COLOR, 0.04), borderLeft: `4px solid ${cfg.color}` }}>
-                                    <Typography variant="caption" fontWeight={700} color={cfg.color} display="block" mb={1}>DETALLE COMPLETO DEL EVENTO</Typography>
-                                    <Grid container spacing={2}>
-                                      <Grid size={{ xs: 12, md: 8 }}><Typography variant="body2">{row.detalles}</Typography></Grid>
-                                      <Grid size={{ xs: 12, md: 4 }}>
-                                        <Stack gap={0.5}>
-                                          <Typography variant="caption" color="text.secondary"><strong>Dispositivo:</strong> {row.dispositivo}</Typography>
-                                          <Typography variant="caption" color="text.secondary"><strong>Registro:</strong> {row.codigo}</Typography>
-                                          <Typography variant="caption" color="text.secondary"><strong>Hash:</strong>{' '}<span style={{ fontFamily: 'monospace' }}>{btoa(row.codigo).substring(0, 16)}...</span></Typography>
-                                        </Stack>
-                                      </Grid>
-                                    </Grid>
-                                  </Box>
-                                </Collapse>
-                              </TableCell>
-                            </TableRow>
-                          </React.Fragment>
-                        )
-                      })}
-                    </TableBody>
-                  </Table>
-                </Box>
-                <Box sx={{ py: 1.5, borderTop: '1px solid', borderColor: 'divider', mt: 1 }}>
-                  <Typography variant="caption" color="text.secondary">Mostrando {filtered.length} de {rows.length} registros · Orden: más reciente primero</Typography>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Live event stream panel */}
-          <Grid size={{ xs: 12, md: 3 }}>
-            <Card sx={{ borderRadius: 2, position: 'sticky', top: 16 }}>
-              <CardContent>
-                <Stack direction="row" alignItems="center" gap={1} mb={2}>
-                  <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#16a34a', animation: 'pulse 1.5s ease-in-out infinite', '@keyframes pulse': { '0%, 100%': { opacity: 1, transform: 'scale(1)' }, '50%': { opacity: 0.5, transform: 'scale(1.4)' } } }} />
-                  <Typography variant="subtitle2" fontWeight={700}>Últimos Eventos</Typography>
-                  <Chip label="EN VIVO" size="small" sx={{ ml: 'auto', bgcolor: alpha('#16a34a', 0.1), color: '#16a34a', fontSize: '0.6rem', fontWeight: 700 }} />
-                </Stack>
-                <Stack gap={1.5}>
-                  {stream.length === 0 ? (
-                    <Typography variant="caption" color="text.secondary">Sin eventos recientes.</Typography>
-                  ) : stream.map((ev, idx) => {
-                    const cfg = cfgAccion(ev.accion)
+        <Panel>
+          <Estado cargando={registros.isLoading} error={registros.error}
+            vacio={!lista.length}
+            mensajeVacio={accion !== 'Todas' || documento || texto
+              ? 'Ningún registro coincide con ese filtro'
+              : 'Todavía no hay actividad registrada'}
+            hint={accion !== 'Todas' || documento || texto
+              ? 'Pruebe quitando alguno de los filtros.'
+              : 'Cada vez que alguien abra o descargue un documento quedará aquí.'}>
+            <Box sx={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <Encabezados columnas={['Cuándo', 'Acción', '', 'Documento',
+                  'Detalle', 'Desde', 'Navegador']} />
+                <tbody>
+                  {lista.slice(0, 300).map(r => {
+                    const cfg = ACCIONES[r.accion] ?? { color: '#94A3B8', icono: null }
+                    const d = doc(r.documento_id)
                     return (
-                      <Box key={ev.id} sx={{ p: 1.5, borderRadius: 1.5, bgcolor: alpha(cfg.color, 0.06), borderLeft: `3px solid ${cfg.color}`, opacity: 1 - idx * 0.1, transition: 'all 0.5s ease' }}>
-                        <Stack direction="row" alignItems="center" gap={0.5} mb={0.5}>
-                          <Box sx={{ color: cfg.color, display: 'flex' }}>{cfg.icon}</Box>
-                          <Chip label={cfg.label} size="small" sx={{ bgcolor: 'transparent', color: cfg.color, fontWeight: 700, fontSize: '0.6rem', height: 18, px: 0 }} />
-                        </Stack>
-                        <Typography variant="caption" display="block" color="text.primary" sx={{ fontSize: '0.72rem', lineHeight: 1.3 }}>
-                          {ev.usuario} · {ev.documento}
-                        </Typography>
-                        <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.65rem' }}>{ev.fechaHora}</Typography>
-                      </Box>
+                      <tr key={r.id} style={{ borderBottom: `1px solid ${BORDE}` }}>
+                        <td style={{ padding: '10px 14px', fontSize: 11.5, color: '#6B7280', whiteSpace: 'nowrap' }}>
+                          {fechaHora(r.created_at)}
+                        </td>
+                        <td style={{ padding: '10px 14px' }}>
+                          <Chip icon={cfg.icono ?? undefined} label={legible(r.accion)}
+                            size="small" sx={{
+                              bgcolor: alpha(cfg.color, 0.12), color: cfg.color,
+                              fontSize: 9.5, fontWeight: 700,
+                              '& .MuiChip-icon': { color: cfg.color },
+                            }} />
+                        </td>
+                        <td style={{ padding: '8px 6px', width: 28 }}>
+                          <IconoArchivo nombre={d?.nombre} size={16} />
+                        </td>
+                        <td style={{ padding: '10px 14px', fontSize: 12.5, fontWeight: 600, maxWidth: 260 }}>
+                          {d?.nombre ?? (r.documento_id ? `Documento #${r.documento_id}` : '—')}
+                        </td>
+                        <td style={{ padding: '10px 14px', fontSize: 12, color: '#6B7280', maxWidth: 320 }}>
+                          {r.detalle || '—'}
+                        </td>
+                        <td style={{ padding: '10px 14px', fontSize: 11,
+                                     fontFamily: 'ui-monospace, monospace', color: '#6B7280',
+                                     whiteSpace: 'nowrap' }}>
+                          {r.ip_origen || '—'}
+                        </td>
+                        <td style={{ padding: '10px 14px', fontSize: 11, color: '#9CA3AF', maxWidth: 200 }}>
+                          {r.user_agent ? (
+                            <Tooltip title={r.user_agent}>
+                              <span>{r.user_agent.split(')')[0].split('(').pop() || r.user_agent}</span>
+                            </Tooltip>
+                          ) : '—'}
+                        </td>
+                      </tr>
                     )
                   })}
-                </Stack>
-                <Divider sx={{ my: 2 }} />
-                <Typography variant="caption" color="text.secondary" display="block" textAlign="center">
-                  <Computer sx={{ fontSize: 12, mr: 0.5, verticalAlign: 'middle' }} />
-                  Actualización automática cada 15 seg
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
+                </tbody>
+              </table>
+            </Box>
+            {lista.length > 300 && (
+              <Typography sx={{ fontSize: 11.5, color: 'text.disabled',
+                                textAlign: 'center', py: 1.5 }}>
+                Se muestran los 300 más recientes de {lista.length}. Filtre por
+                documento o por acción para ver los anteriores.
+              </Typography>
+            )}
+          </Estado>
+        </Panel>
       </Box>
     </Layout>
   )

@@ -60,3 +60,14 @@ deploy/certbot/
 # La entrada automática del dominio de pruebas de TarifaX lleva la clave de su
 # cuenta: se genera en el servidor a partir de la plantilla y no se versiona.
 deploy/entrada-tarifax.js
+
+# Windows crea este archivo cuando algo redirige a `nul` desde un shell POSIX.
+# No es un archivo del proyecto y git ni siquiera lo puede indexar.
+nul
+backend/nul
+
+# Documentos de trabajo del usuario que viven en la carpeta del proyecto pero
+# no son parte de el. Sin esta linea, `git add -A` los arrastra al repositorio.
+INTERPRETACI*/
+*.pptx
+*.xlsx
