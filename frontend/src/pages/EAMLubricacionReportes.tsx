@@ -33,31 +33,38 @@
  */
 import { useMemo, useState } from 'react'
 import {
-  Alert, Box, Chip, Collapse, IconButton, MenuItem, Popover, Stack, Tab, Tabs,
-  TextField, Tooltip, Typography, alpha,
+  Alert, Box, Button, Chip, Collapse, Dialog, DialogActions, DialogContent,
+  DialogTitle, IconButton, InputAdornment, MenuItem, Popover, Stack, Switch,
+  Tab, Tabs, TextField, Tooltip, Typography, alpha,
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
 import {
-  CancelOutlined, CheckCircle, Dashboard as DashboardIcon, EventBusy,
-  ExpandLess, ExpandMore, GridOn, HelpOutline, InsertChartOutlined,
-  MenuBook, Schedule, Science, ScatterPlot, Speed, TrendingUp, WarningAmber,
+  ArrowDownward, ArrowUpward, CancelOutlined, CheckCircle,
+  Dashboard as DashboardIcon, EditOutlined, EventBusy, ExpandLess, ExpandMore,
+  GridOn, HelpOutline, InsertChartOutlined, MenuBook, RestartAlt, Schedule,
+  Science, ScatterPlot, Speed, TableChart, TrendingUp, TuneRounded,
+  WarningAmber,
 } from '@mui/icons-material'
 import {
   CartesianGrid, Legend, ReferenceLine, ResponsiveContainer, Scatter,
   ScatterChart, Tooltip as RTooltip, XAxis, YAxis, ZAxis,
 } from 'recharts'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
 import { FiltrosFlota } from '@/components/lube/FiltrosFlota'
 import {
   COLOR_ESTADO, COLOR_GRUPO, COLOR_NATURALEZA, ETIQUETA_GRUPO,
   ETIQUETA_NATURALEZA, colorCorrelacion, interpretacionApi, km,
-  type DetalleParametro, type FiltroFlota, type FilaTablero,
-  type Fuente, type LimiteAplicado, type ParametroDispersion,
+  type ConstanteCriterio, type Correlacion, type Criterios,
+  type DetalleParametro,
+  type FiltroFlota, type FilaTablero, type Fuente, type LimiteAplicado,
+  type LimiteCriterio, type ParametroDispersion, type ReglaCriterio,
 } from '@/api/lubeInterpretacion'
 import {
   ACENTO, BORDE, Encabezados, Estado, Panel, fecha, pesos,
 } from '@/components/datos/vista'
+import { mensajeDeError } from '@/utils/errorApi'
 
 const LUBE = ACENTO
 const MONO = 'ui-monospace, SFMono-Regular, monospace'
@@ -525,6 +532,10 @@ function ParametrosQueDisparan({ parametros, f }: {
 }) {
   const [ancla, setAncla] = useState<HTMLElement | null>(null)
   const [codigo, setCodigo] = useState<string | null>(null)
+  // La matriz completa vive fuera del panel: el panel se cierra al abrirla —si
+  // no, quedaría flotando detrás del diálogo— y su estado no puede depender de
+  // un componente que acaba de desmontarse.
+  const [matrizDe, setMatrizDe] = useState<string | null>(null)
 
   return (
     <>
@@ -551,14 +562,346 @@ function ParametrosQueDisparan({ parametros, f }: {
         transformOrigin={{ vertical: 'center', horizontal: 'left' }}
         slotProps={{ paper: { sx: { borderRadius: 2, maxWidth: 480 } } }}
       >
-        {codigo && <MapaCorrelacion codigo={codigo} f={f} />}
+        {codigo && (
+          <MapaCorrelacion codigo={codigo} f={f}
+            onVerMatriz={() => {
+              setMatrizDe(codigo)
+              setAncla(null); setCodigo(null)
+            }} />
+        )}
       </Popover>
+
+      {matrizDe && (
+        <MatrizCompleta codigo={matrizDe} f={f}
+          onCerrar={() => setMatrizDe(null)} />
+      )}
     </>
   )
 }
 
-/** El mapa de calor de un parámetro contra todos los demás. Pearson. */
-function MapaCorrelacion({ codigo, f }: { codigo: string; f: FiltroFlota }) {
+/**
+ * La matriz de correlación entera, en mapa de calor y en tabla.
+ *
+ * POR QUÉ DOS VISTAS Y NO UNA
+ * Sirven para cosas distintas. El mapa de calor se mira: se buscan las manchas
+ * y se ve de un golpe qué bloques de parámetros se mueven juntos. La tabla se
+ * lee: se busca un coeficiente concreto para citarlo o para copiarlo a un
+ * informe. Obligar a leer números en el mapa lo vuelve ilegible, y obligar a
+ * buscar patrones en la tabla no funciona con veinte columnas.
+ *
+ * La tabla imita la salida de `.corr()` de pandas —matriz cuadrada, diagonal en
+ * uno, mismo orden en filas y columnas— porque es la forma en que quien analiza
+ * estos datos ya está acostumbrado a leerla.
+ */
+function MatrizCompleta({ codigo, f, onCerrar }: {
+  codigo: string; f: FiltroFlota; onCerrar: () => void
+}) {
+  const [vista, setVista] = useState<'mapa' | 'tabla'>('mapa')
+  // Resaltar la fila y la columna del parámetro que se venía mirando: en una
+  // matriz de veinte por veinte, encontrarlo a ojo cuesta más que abrirla.
+  const [foco, setFoco] = useState<string>(codigo)
+
+  const d = useQuery({
+    queryKey: clave('correlacion', f),
+    queryFn: () => interpretacionApi.correlacion(f),
+  })
+  const c = d.data
+  const iFoco = c?.parametros.findIndex(p => p.codigo === foco) ?? -1
+
+  return (
+    <Dialog open onClose={onCerrar} maxWidth={false}
+      slotProps={{ paper: { sx: { borderRadius: 2, width: 'min(1500px, 96vw)' } } }}>
+      <DialogTitle sx={{ pb: 1 }}>
+        <Stack direction="row" alignItems="center" spacing={2} flexWrap="wrap"
+          useFlexGap>
+          <Box sx={{ flex: 1, minWidth: 260 }}>
+            <Typography sx={{ fontSize: 16, fontWeight: 800 }}>
+              Matriz de correlación
+            </Typography>
+            <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
+              Coeficiente de Pearson entre todos los parámetros medidos
+              {c?.muestras ? `, sobre ${c.muestras} muestras del segmento` : ''}.
+            </Typography>
+          </Box>
+          <TextField select size="small" label="Resaltar" sx={{ minWidth: 200 }}
+            value={foco} onChange={e => setFoco(e.target.value)}>
+            <MenuItem value=""><em>Ninguno</em></MenuItem>
+            {c?.parametros.map(p => (
+              <MenuItem key={p.codigo} value={p.codigo}>{p.nombre}</MenuItem>
+            ))}
+          </TextField>
+          <Tabs value={vista} onChange={(_, v) => setVista(v)} sx={{
+            minHeight: 34,
+            '& .MuiTab-root': { minHeight: 34, textTransform: 'none',
+                                fontWeight: 700, fontSize: 12.5 },
+            '& .Mui-selected': { color: `${LUBE} !important` },
+            '& .MuiTabs-indicator': { bgcolor: LUBE },
+          }}>
+            <Tab value="mapa" label="Mapa de calor"
+              icon={<GridOn sx={{ fontSize: 15 }} />} iconPosition="start" />
+            <Tab value="tabla" label="Tabla"
+              icon={<TableChart sx={{ fontSize: 15 }} />} iconPosition="start" />
+          </Tabs>
+        </Stack>
+      </DialogTitle>
+
+      <DialogContent dividers>
+        <Estado cargando={d.isLoading} error={d.error} vacio={!c}>
+          {c && !c.suficiente ? (
+            <Alert severity="warning" sx={{ fontSize: 13 }}>{c.motivo}</Alert>
+          ) : c ? (
+            <>
+              <EscalaCorrelacion />
+              {vista === 'mapa'
+                ? <MapaDeCalor c={c} iFoco={iFoco} />
+                : <TablaCorrelacion c={c} iFoco={iFoco} />}
+              <Alert severity="info" sx={{ mt: 2, fontSize: 12 }}>
+                Que dos parámetros suban juntos no prueba que uno cause el otro:
+                pueden tener los dos una tercera causa, o coincidir. Las celdas
+                vacías no son ceros: son pares sin muestras suficientes con
+                ambos parámetros medidos, y un cero afirmaría que no hay
+                relación.
+              </Alert>
+            </>
+          ) : null}
+        </Estado>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, py: 1.5 }}>
+        <Button onClick={onCerrar} sx={{ textTransform: 'none' }}>Cerrar</Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
+/** La leyenda del color. Sin ella el mapa es bonito y no dice nada. */
+function EscalaCorrelacion() {
+  const pasos = [-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1]
+  return (
+    <Stack direction="row" alignItems="center" spacing={1.5} mb={2}
+      flexWrap="wrap" useFlexGap>
+      <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>
+        −1 · uno sube cuando el otro baja
+      </Typography>
+      <Stack direction="row">
+        {pasos.map(r => (
+          <Box key={r} sx={{
+            width: 34, height: 14, background: colorCorrelacion(r),
+            borderRight: '1px solid #fff',
+          }} />
+        ))}
+      </Stack>
+      <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>
+        +1 · suben juntos
+      </Typography>
+      <Box sx={{ flex: 1 }} />
+      <Stack direction="row" alignItems="center" spacing={0.75}>
+        <Box sx={{ width: 14, height: 14, bgcolor: '#F1F5F9',
+                   border: `1px solid ${BORDE}` }} />
+        <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>
+          sin muestras suficientes
+        </Typography>
+      </Stack>
+    </Stack>
+  )
+}
+
+function MapaDeCalor({ c, iFoco }: { c: Correlacion; iFoco: number }) {
+  const CELDA = 30
+  return (
+    <Box sx={{ overflow: 'auto', maxHeight: '62vh' }}>
+      <table style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+        <thead>
+          <tr>
+            <th style={{ position: 'sticky', left: 0, top: 0, zIndex: 3,
+                         background: '#fff' }} />
+            {c.parametros.map((p, j) => (
+              <th key={p.codigo} title={p.nombre} style={{
+                position: 'sticky', top: 0, zIndex: 2, background: '#fff',
+                padding: '4px 2px', fontSize: 10, fontWeight: 800,
+                writingMode: 'vertical-rl', transform: 'rotate(180deg)',
+                height: 78, color: j === iFoco ? LUBE : '#6B7280',
+              }}>{p.sigla}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {c.matriz.map((fila, i) => (
+            <tr key={i}>
+              <th title={c.parametros[i].nombre} style={{
+                position: 'sticky', left: 0, zIndex: 1, background: '#fff',
+                padding: '2px 10px 2px 0', fontSize: 11,
+                fontWeight: i === iFoco ? 900 : 700,
+                textAlign: 'right', whiteSpace: 'nowrap',
+                color: i === iFoco ? LUBE : '#475569',
+              }}>{c.parametros[i].nombre}</th>
+              {fila.map((r, j) => {
+                const enFoco = i === iFoco || j === iFoco
+                return (
+                  <Tooltip key={j} title={
+                    <Box sx={{ fontSize: 11.5, lineHeight: 1.5 }}>
+                      <b>{c.parametros[i].nombre} · {c.parametros[j].nombre}</b><br />
+                      {r === null
+                        ? 'Sin muestras suficientes con los dos medidos.'
+                        : `r = ${r} sobre ${c.conteos[i][j]} muestras`}
+                    </Box>
+                  }>
+                    <td style={{
+                      width: CELDA, height: CELDA, textAlign: 'center',
+                      background: colorCorrelacion(r),
+                      color: r !== null && Math.abs(r) > 0.55 ? '#fff' : '#334155',
+                      fontSize: 9.5, fontWeight: 700,
+                      fontVariantNumeric: 'tabular-nums',
+                      // El resaltado se marca con el borde, no atenuando el
+                      // resto. Bajar el resto a un tercio hacía resaltar la
+                      // fila y volvía ilegible el mapa entero, que es
+                      // justamente para lo que se abre: ver de un golpe qué
+                      // bloques de parámetros se mueven juntos.
+                      border: enFoco ? `1.5px solid ${LUBE}` : '1px solid #fff',
+                    }}>
+                      {r === null ? '' : Math.abs(r) >= 0.4
+                        ? r.toFixed(2).replace('0.', '.') : ''}
+                    </td>
+                  </Tooltip>
+                )
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Box>
+  )
+}
+
+/**
+ * La misma matriz en números, al estilo de `.corr()`.
+ *
+ * El color se conserva pero muy suave: aquí el número es el protagonista y un
+ * fondo saturado lo vuelve ilegible. La cabecera y la primera columna quedan
+ * fijas porque con veinte parámetros se pierde de vista qué fila se está
+ * leyendo antes de llegar a la mitad.
+ */
+function TablaCorrelacion({ c, iFoco }: { c: Correlacion; iFoco: number }) {
+  const [decimales, setDecimales] = useState(2)
+  const [soloFuertes, setSoloFuertes] = useState(false)
+
+  return (
+    <>
+      <Stack direction="row" alignItems="center" spacing={2} mb={1.5}
+        flexWrap="wrap" useFlexGap>
+        <TextField select size="small" label="Decimales" sx={{ width: 120 }}
+          value={decimales} onChange={e => setDecimales(Number(e.target.value))}>
+          {[2, 3, 4].map(x => <MenuItem key={x} value={x}>{x}</MenuItem>)}
+        </TextField>
+        <Tooltip title="Deja en blanco lo que está por debajo de 0,4 en valor absoluto, para que resalten las relaciones que importan">
+          <Stack direction="row" alignItems="center" spacing={0.5}>
+            <Switch size="small" checked={soloFuertes}
+              inputProps={{ 'aria-label': 'Ocultar correlaciones débiles' }}
+              onChange={e => setSoloFuertes(e.target.checked)} />
+            <Typography sx={{ fontSize: 12 }}>
+              Ocultar las débiles (|r| &lt; 0,4)
+            </Typography>
+          </Stack>
+        </Tooltip>
+        <Box sx={{ flex: 1 }} />
+        <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>
+          Al pasar el ratón por una celda se ve sobre cuántas muestras se
+          calculó.
+        </Typography>
+      </Stack>
+
+      <Box sx={{ overflow: 'auto', maxHeight: '58vh',
+                 border: `1px solid ${BORDE}`, borderRadius: 1.5 }}>
+        <table style={{ borderCollapse: 'separate', borderSpacing: 0,
+                        fontVariantNumeric: 'tabular-nums' }}>
+          <thead>
+            <tr>
+              <th style={{ position: 'sticky', left: 0, top: 0, zIndex: 3,
+                           background: '#F8FAFC', borderRight: `1px solid ${BORDE}`,
+                           borderBottom: `1px solid ${BORDE}`,
+                           padding: '8px 12px', fontSize: 10.5,
+                           fontWeight: 800, textAlign: 'left',
+                           color: '#94A3B8', whiteSpace: 'nowrap' }}>
+                r de Pearson
+              </th>
+              {c.parametros.map((p, j) => (
+                <th key={p.codigo} title={p.nombre} style={{
+                  position: 'sticky', top: 0, zIndex: 2,
+                  background: j === iFoco ? alpha(LUBE, 0.1) : '#F8FAFC',
+                  borderBottom: `1px solid ${BORDE}`,
+                  padding: '8px 6px', fontSize: 10.5, fontWeight: 800,
+                  color: j === iFoco ? LUBE : '#475569', whiteSpace: 'nowrap',
+                  minWidth: 54,
+                }}>{p.sigla}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {c.matriz.map((fila, i) => (
+              <tr key={i}>
+                <th title={c.parametros[i].nombre} style={{
+                  position: 'sticky', left: 0, zIndex: 1,
+                  background: i === iFoco ? alpha(LUBE, 0.1) : '#F8FAFC',
+                  borderRight: `1px solid ${BORDE}`,
+                  borderBottom: `1px solid ${BORDE}`,
+                  padding: '6px 12px', fontSize: 11.5,
+                  fontWeight: i === iFoco ? 900 : 600,
+                  textAlign: 'left', whiteSpace: 'nowrap',
+                  color: i === iFoco ? LUBE : '#334155',
+                }}>
+                  <Box component="span" sx={{ fontFamily: MONO, fontSize: 10,
+                    color: COLOR_GRUPO[c.parametros[i].grupo ?? ''] ?? '#94A3B8',
+                    mr: 0.75 }}>
+                    {c.parametros[i].sigla}
+                  </Box>
+                  {c.parametros[i].nombre}
+                </th>
+                {fila.map((r, j) => {
+                  const diagonal = i === j
+                  const debil = r !== null && Math.abs(r) < 0.4
+                  const oculto = soloFuertes && debil
+                  return (
+                    <Tooltip key={j} title={
+                      <Box sx={{ fontSize: 11.5, lineHeight: 1.5 }}>
+                        <b>{c.parametros[i].nombre} · {c.parametros[j].nombre}</b><br />
+                        {r === null
+                          ? 'Sin muestras suficientes con los dos medidos.'
+                          : `r = ${r} sobre ${c.conteos[i][j]} muestras`}
+                      </Box>
+                    }>
+                      <td style={{
+                        textAlign: 'right', padding: '6px 10px',
+                        fontSize: 11.5,
+                        fontWeight: diagonal ? 400 : (debil ? 500 : 800),
+                        borderBottom: `1px solid ${BORDE}`,
+                        // El color se mantiene pero al 30 %: acá manda el
+                        // número, y un fondo fuerte lo tapa.
+                        background: diagonal ? '#F8FAFC'
+                          : oculto ? '#fff'
+                          : `color-mix(in srgb, ${colorCorrelacion(r)} 30%, white)`,
+                        color: diagonal ? '#94A3B8' : debil ? '#94A3B8' : '#0F172A',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        {r === null ? '—' : oculto ? '' : r.toFixed(decimales)}
+                      </td>
+                    </Tooltip>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Box>
+    </>
+  )
+}
+
+/** La correlación de un parámetro contra todos los demás. Pearson. */
+function MapaCorrelacion({ codigo, f, onVerMatriz }: {
+  codigo: string; f: FiltroFlota
+  /** Sin esto no se pinta el botón: en la pestaña de correlación la matriz ya
+   *  está en pantalla y ofrecer abrirla sería llevar a donde ya se está. */
+  onVerMatriz?: () => void
+}) {
   const d = useQuery({
     queryKey: clave('correlacion-de', f, codigo),
     queryFn: () => interpretacionApi.correlacionDe(codigo, f),
@@ -624,6 +967,17 @@ function MapaCorrelacion({ codigo, f }: { codigo: string; f: FiltroFlota }) {
                           lineHeight: 1.5 }}>
           {c?.nota}
         </Typography>
+
+        {/* Esta lista responde «con qué viene acompañado este parámetro». La
+            matriz completa responde otra cosa —qué bloques de parámetros se
+            mueven juntos en toda la flota— y no cabe en un panel flotante. */}
+        {onVerMatriz && (
+          <Button fullWidth size="small" variant="outlined" sx={{
+            mt: 1.5, textTransform: 'none', borderColor: BORDE, color: LUBE,
+          }} startIcon={<GridOn sx={{ fontSize: 16 }} />} onClick={onVerMatriz}>
+            Ver la matriz completa: mapa de calor y tabla
+          </Button>
+        )}
       </Estado>
     </Box>
   )
@@ -1766,21 +2120,223 @@ function Extension({ f }: { f: FiltroFlota }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   8. Criterios y normas
+   8. Criterios y normas — se consultan y se ajustan
+
+   POR QUÉ SE EDITA ACÁ Y NO EN LA PANTALLA DE CONFIGURACIÓN
+   Porque el criterio se discute mirando sus efectos. Quien decide subir el
+   límite del agua acaba de ver las conclusiones que produjo el actual; mandarlo
+   a otra pantalla a buscar el número, sin las muestras delante, es la forma
+   más segura de que nadie lo ajuste nunca.
+
+   QUÉ NO SE PUEDE HACER, Y POR QUÉ
+   Crear reglas nuevas. Una regla no es un texto: es una condición sobre
+   combinaciones de parámetros —«cobre fuera pero plomo y estaño dentro»— que
+   tiene que estar escrita en código para que el evaluador la entienda. Sí se
+   puede apagar la que no aplique, cambiar su prioridad, y reescribir con las
+   palabras de la casa qué significa y qué hacer.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function Criterios({ f }: { f: FiltroFlota }) {
+  const qc = useQueryClient()
+  const [seccion, setSeccion] = useState(0)
+
   const d = useQuery({
-    queryKey: clave('normas', f),
-    queryFn: () => interpretacionApi.normas(f),
+    queryKey: clave('criterios', f),
+    queryFn: () => interpretacionApi.criterios(f),
   })
   const n = d.data
+
+  // Todo lo que se ajusta invalida lo mismo: el criterio y las pantallas que
+  // lo aplican. Se centraliza para que no se olvide ninguna y quede un informe
+  // mostrando conclusiones calculadas con el criterio anterior.
+  const refrescar = () => {
+    for (const q of ['criterios', 'tablero', 'correlacion', 'programa',
+                     'extension', 'cadena'])
+      qc.invalidateQueries({ queryKey: ['lube', q], exact: false })
+  }
+
+  const ajustados = Object.values(n?.resumen_ajustes ?? {})
+    .reduce((s, x) => s + x, 0)
 
   return (
     <Estado cargando={d.isLoading} error={d.error} vacio={!n}>
       <Alert severity="warning" sx={{ mb: 2, fontSize: 12.5 }}>
         {n?.advertencia}
       </Alert>
+
+      {ajustados > 0 && (
+        <Alert severity="info" sx={{ mb: 2, fontSize: 12.5 }}
+          icon={<TuneRounded sx={{ fontSize: 18 }} />}>
+          Esta empresa se aparta del criterio publicado en{' '}
+          <b>{ajustados} punto(s)</b>: {n?.resumen_ajustes.LIMITE ?? 0} límite(s),{' '}
+          {n?.resumen_ajustes.MOTOR ?? 0} constante(s) y{' '}
+          {n?.resumen_ajustes.REGLA ?? 0} regla(s). Cada uno aparece marcado
+          como «de la empresa», con el valor de referencia y el motivo al lado.
+        </Alert>
+      )}
+
+      <Tabs value={seccion} onChange={(_, v) => setSeccion(v)} sx={{
+        mb: 2, minHeight: 38,
+        '& .MuiTab-root': { minHeight: 38, textTransform: 'none',
+                            fontWeight: 600, fontSize: 13 },
+        '& .Mui-selected': { color: `${LUBE} !important` },
+        '& .MuiTabs-indicator': { bgcolor: LUBE },
+      }}>
+        <Tab label="Límites por parámetro" />
+        <Tab label="Motor de cálculo" />
+        <Tab label="Reglas de diagnóstico" />
+        <Tab label="Fuentes" />
+      </Tabs>
+
+      {seccion === 0 && n && <LimitesEditables n={n} onCambio={refrescar} />}
+      {seccion === 1 && n && <ConstantesEditables n={n} onCambio={refrescar} />}
+      {seccion === 2 && n && <ReglasEditables n={n} onCambio={refrescar} />}
+      {seccion === 3 && n && <TablaFuentes fuentes={n.fuentes} />}
+    </Estado>
+  )
+}
+
+/**
+ * El diálogo con el que se ajusta cualquier cosa.
+ *
+ * El motivo es obligatorio y por eso está en el mismo formulario que el valor,
+ * no escondido detrás de un «avanzado». Un límite cambiado sin razón escrita es
+ * indistinguible de un error de digitación, y seis meses después nadie recuerda
+ * si el 0,5 lo puso el fabricante o alguien que se equivocó de tecla.
+ */
+function DialogoAjuste({ titulo, contexto, referencia, campos, guardando,
+                         error, onGuardar, onCerrar }: {
+  titulo: string
+  contexto: string
+  referencia?: string
+  campos: React.ReactNode
+  guardando: boolean
+  error?: string | null
+  onGuardar: (motivo: string) => void
+  onCerrar: () => void
+}) {
+  const [motivo, setMotivo] = useState('')
+  const corto = motivo.trim().length < 8
+
+  return (
+    <Dialog open onClose={onCerrar} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ fontSize: 16, fontWeight: 800 }}>{titulo}</DialogTitle>
+      <DialogContent>
+        <Typography sx={{ fontSize: 12.5, color: 'text.secondary', mb: 2,
+                          lineHeight: 1.55 }}>
+          {contexto}
+        </Typography>
+        {referencia && (
+          <Box sx={{ p: 1.25, mb: 2, borderRadius: 1.5, bgcolor: '#F1F5F9' }}>
+            <Typography sx={{ fontSize: 11, fontWeight: 800,
+                              color: 'text.secondary', letterSpacing: '.04em' }}>
+              VALOR DE REFERENCIA
+            </Typography>
+            <Typography sx={{ fontSize: 12.5, fontFamily: MONO }}>
+              {referencia}
+            </Typography>
+          </Box>
+        )}
+        <Stack spacing={2}>
+          {campos}
+          <TextField
+            label="Por qué se cambia" multiline minRows={2} fullWidth
+            value={motivo} onChange={e => setMotivo(e.target.value)}
+            error={!!motivo && corto}
+            helperText={
+              corto
+                ? 'Obligatorio. Quien lea este informe dentro de un año tiene '
+                  + 'que poder saber de dónde salió el número: «lo pide el '
+                  + 'fabricante», «el laboratorio cambió de método».'
+                : ' '
+            }
+          />
+        </Stack>
+        {error && <Alert severity="error" sx={{ mt: 2, fontSize: 12.5 }}>{error}</Alert>}
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onCerrar} sx={{ textTransform: 'none' }}>Cancelar</Button>
+        <Button variant="contained" disabled={corto || guardando}
+          onClick={() => onGuardar(motivo.trim())}
+          sx={{ textTransform: 'none', bgcolor: LUBE }}>
+          {guardando ? 'Guardando…' : 'Guardar ajuste'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
+/** La marca de que algo lo cambió la empresa, con el valor que reemplazó. */
+function Ajustado({ motivo, quien, referencia }: {
+  motivo?: string | null; quien?: string | null; referencia?: string
+}) {
+  return (
+    <Tooltip title={
+      <Box sx={{ fontSize: 11.5, lineHeight: 1.5 }}>
+        {referencia && <><b>Referencia: {referencia}</b><br /></>}
+        {motivo}
+        {quien && <><br />— {quien}</>}
+      </Box>
+    }>
+      <Chip label="de la empresa" size="small" sx={{
+        height: 17, fontSize: 9, fontWeight: 800,
+        bgcolor: alpha('#7C3AED', 0.13), color: '#6D28D9',
+      }} />
+    </Tooltip>
+  )
+}
+
+function BotonRestaurar({ ambito, clave, onListo }: {
+  ambito: string; clave: string; onListo: () => void
+}) {
+  const m = useMutation({
+    mutationFn: () => interpretacionApi.restaurar(ambito, clave),
+    onSuccess: () => { toast.success('Se restauró el valor de referencia'); onListo() },
+    onError: (e: unknown) => toast.error(mensajeDeError(e)),
+  })
+  return (
+    <Tooltip title="Volver al valor de referencia y borrar el ajuste">
+      <IconButton size="small" disabled={m.isPending}
+        aria-label={`Restaurar ${clave}`} onClick={() => m.mutate()}>
+        <RestartAlt sx={{ fontSize: 16 }} />
+      </IconButton>
+    </Tooltip>
+  )
+}
+
+/* ── 8.1 Los límites por parámetro ──────────────────────────────────────── */
+
+function LimitesEditables({ n, onCambio }: {
+  n: Criterios; onCambio: () => void
+}) {
+  const [familia, setFamilia] = useState(n.familias[0]?.codigo ?? 'MOT')
+  const [editando, setEditando] = useState<LimiteCriterio | null>(null)
+
+  const limites = n.limites[familia] ?? []
+
+  return (
+    <>
+      <Stack direction="row" spacing={1.5} alignItems="center" mb={2}>
+        <TextField select size="small" label="Familia de compartimento"
+          sx={{ minWidth: 240 }} value={familia}
+          onChange={e => setFamilia(e.target.value)}>
+          {n.familias.map(x => (
+            <MenuItem key={x.codigo} value={x.codigo}>
+              {x.nombre}
+              {x.compartimentos != null && (
+                <Typography component="span" sx={{ fontSize: 11,
+                  color: 'text.disabled', ml: 1 }}>
+                  {x.compartimentos} equipo(s)
+                </Typography>
+              )}
+            </MenuItem>
+          ))}
+        </TextField>
+        <Typography sx={{ fontSize: 11.5, color: 'text.secondary', flex: 1 }}>
+          Los límites se guardan por familia: el agua que un cárter tolera
+          arruina un sistema hidráulico, así que ajustar uno no toca al otro.
+        </Typography>
+      </Stack>
 
       <Panel sx={{ mb: 2 }}>
         <Box sx={{ p: 2, borderBottom: `1px solid ${BORDE}` }}>
@@ -1790,18 +2346,19 @@ function Criterios({ f }: { f: FiltroFlota }) {
           <Typography sx={{ fontSize: 11.5, color: 'text.secondary' }}>
             Estos tienen valores de referencia publicados porque no dependen del
             tamaño ni de la metalurgia del motor: 0,2 % de agua es 0,2 % de agua
-            en cualquier cárter.
+            en cualquier cárter. Se pueden ajustar cuando el fabricante o el
+            laboratorio digan otra cosa.
           </Typography>
         </Box>
         <Box sx={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <Encabezados columnas={['Parámetro', 'Precaución', 'Condena',
-              'Ensayo', 'Origen del umbral', 'Por qué ahí']} />
+              'Ensayo', 'Origen del umbral', 'Por qué ahí', '']} />
             <tbody>
-              {Object.entries(n?.limites_motor ?? {}).map(([codigo, l]) => (
-                <tr key={codigo} style={{ borderBottom: `1px solid ${BORDE}` }}>
+              {limites.map(l => (
+                <tr key={l.codigo} style={{ borderBottom: `1px solid ${BORDE}` }}>
                   <td style={{ padding: '9px 14px', fontSize: 12.5, fontWeight: 600 }}>
-                    {l.nombre ?? codigo}
+                    {l.nombre}
                     {l.unidad && (
                       <Typography component="span" sx={{ fontSize: 10.5,
                         color: 'text.disabled', ml: 0.75 }}>{l.unidad}</Typography>
@@ -1816,179 +2373,42 @@ function Criterios({ f }: { f: FiltroFlota }) {
                     {l.condena ?? '—'}
                   </td>
                   <td style={{ padding: '9px 14px' }}>
-                    <Fuentes codigos={l.metodo ? [l.metodo] : []} fuentes={n?.fuentes} />
+                    <Fuentes codigos={l.metodo ? [l.metodo] : []} fuentes={n.fuentes} />
                   </td>
                   <td style={{ padding: '9px 14px' }}>
-                    <Stack direction="row" spacing={0.5} alignItems="center">
-                      <Naturaleza limite={l} />
-                      <Typography sx={{ fontSize: 11, color: '#6B7280' }}>
-                        {l.criterio}
-                      </Typography>
+                    <Stack direction="row" spacing={0.5} alignItems="center"
+                      flexWrap="wrap" useFlexGap>
+                      {/* Una sola insignia: con el límite ajustado, la
+                          naturaleza ya dice EMPRESA y repetirlo al lado ocupa
+                          la columna sin añadir nada. */}
+                      {l.referencia ? (
+                        <Ajustado motivo={l.motivo_ajuste} quien={l.ajustado_por}
+                          referencia={`${l.referencia.precaucion ?? '—'} / ${l.referencia.condena ?? '—'} · ${l.referencia.criterio ?? ''}`} />
+                      ) : (
+                        <>
+                          <Naturaleza limite={l} />
+                          <Typography sx={{ fontSize: 11, color: '#6B7280' }}>
+                            {l.criterio}
+                          </Typography>
+                        </>
+                      )}
                     </Stack>
                   </td>
                   <td style={{ padding: '9px 14px', fontSize: 11.5, color: '#374151',
-                               maxWidth: 420, lineHeight: 1.5 }}>
+                               maxWidth: 380, lineHeight: 1.5 }}>
                     {l.porque}
                   </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Box>
-      </Panel>
-
-      <Panel sx={{ mb: 2 }}>
-        <Box sx={{ p: 2, borderBottom: `1px solid ${BORDE}` }}>
-          <Typography sx={{ fontSize: 14, fontWeight: 700 }}>
-            Metales de desgaste: límites de esta flota (ASTM D7720)
-          </Typography>
-          <Typography sx={{ fontSize: 11.5, color: 'text.secondary' }}>
-            Para los metales de desgaste no existe un tope universal, y por eso
-            la norma que sí trata de límites los deriva de la propia población:
-            percentil {n?.percentiles.precaucion} para precaución y{' '}
-            {n?.percentiles.condena} para condena. Hacen falta al menos{' '}
-            {n?.minimo_poblacion} mediciones. Van separados por familia de
-            compartimento porque el percentil solo dice algo sobre equipos
-            comparables: un motor diésel y un sistema hidráulico no lo son.
-          </Typography>
-        </Box>
-        <Estado vacio={!n?.por_familia.length}
-          mensajeVacio="Ninguna familia alcanza población suficiente"
-          hint="Con este segmento el diagnóstico se apoya solo en la tendencia.">
-          {n?.por_familia.map(fam => (
-            <Box key={fam.tipo} sx={{ borderTop: `1px solid ${BORDE}` }}>
-              <Box sx={{ px: 2, pt: 1.5, pb: 0.5 }}>
-                <Typography sx={{ fontSize: 12.5, fontWeight: 800 }}>
-                  {fam.nombre}
-                  <Typography component="span" sx={{ fontSize: 11,
-                    color: 'text.secondary', fontWeight: 500, ml: 1 }}>
-                    {fam.muestras} muestra(s)
-                  </Typography>
-                </Typography>
-              </Box>
-              {Object.keys(fam.estadisticos).length > 0 ? (
-                <Box sx={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <Encabezados columnas={['Elemento', 'Mediana', 'Precaución',
-                      'Condena', 'Mediciones']} />
-                    <tbody>
-                      {Object.entries(fam.estadisticos).map(([codigo, l]) => (
-                        <tr key={codigo} style={{ borderBottom: `1px solid ${BORDE}` }}>
-                          <td style={{ padding: '9px 14px', fontSize: 12.5, fontWeight: 700,
-                                       fontFamily: MONO }}>{codigo}</td>
-                          <td style={{ padding: '9px 14px', fontSize: 12, color: '#6B7280',
-                                       fontVariantNumeric: 'tabular-nums' }}>{l.mediana ?? '—'}</td>
-                          <td style={{ padding: '9px 14px', fontSize: 12, fontWeight: 700,
-                                       color: '#B45309',
-                                       fontVariantNumeric: 'tabular-nums' }}>{l.precaucion}</td>
-                          <td style={{ padding: '9px 14px', fontSize: 12, fontWeight: 700,
-                                       color: '#B91C1C',
-                                       fontVariantNumeric: 'tabular-nums' }}>{l.condena}</td>
-                          <td style={{ padding: '9px 14px', fontSize: 12, color: '#6B7280',
-                                       fontVariantNumeric: 'tabular-nums' }}>{l.n}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </Box>
-              ) : (
-                <Typography sx={{ px: 2, pb: 1.5, fontSize: 11.5,
-                                  color: 'text.secondary' }}>
-                  Ningún elemento alcanza las {n?.minimo_poblacion} mediciones
-                  que hacen falta. En esta familia el diagnóstico de desgaste se
-                  apoya solo en la tendencia.
-                </Typography>
-              )}
-              {fam.insuficientes.length > 0 && (
-                <Typography sx={{ px: 2, pb: 1.5, fontSize: 11,
-                                  color: 'text.secondary' }}>
-                  Sin límite por falta de población —un parámetro sin límite no
-                  es un parámetro sano, es uno sin criterio—:{' '}
-                  {fam.insuficientes.map(x =>
-                    `${x.codigo} (${x.n}, faltan ${x.faltan})`).join(' · ')}
-                </Typography>
-              )}
-            </Box>
-          ))}
-        </Estado>
-      </Panel>
-
-      <Panel sx={{ mb: 2 }}>
-        <Box sx={{ p: 2, borderBottom: `1px solid ${BORDE}` }}>
-          <Typography sx={{ fontSize: 14, fontWeight: 700 }}>
-            Las reglas de diagnóstico, en el orden en que se evalúan
-          </Typography>
-          <Typography sx={{ fontSize: 11.5, color: 'text.secondary' }}>
-            Gana la primera que encaje con el patrón completo de la muestra.
-            Están de específica a genérica a propósito: combinar todas las que
-            aplican produce una recomendación que dice seis cosas y no manda
-            hacer ninguna.
-          </Typography>
-        </Box>
-        <Box sx={{ p: 2 }}>
-          <Stack spacing={1.25}>
-            {n?.reglas.map((r, i) => (
-              <Box key={r.codigo} sx={{
-                p: 1.6, borderRadius: 1.5, bgcolor: '#F9FAFB',
-                border: `1px solid ${BORDE}`,
-              }}>
-                <Stack direction="row" alignItems="center" spacing={1} mb={0.5}
-                  flexWrap="wrap" useFlexGap>
-                  <Typography sx={{ fontSize: 10.5, fontWeight: 800,
-                                    color: 'text.disabled', fontFamily: MONO }}>
-                    {String(i + 1).padStart(2, '0')}
-                  </Typography>
-                  <Typography sx={{ fontSize: 13, fontWeight: 700, flex: 1 }}>
-                    {r.nombre}
-                  </Typography>
-                  <Chip label={r.severidad.replace('_', ' ').toLowerCase()}
-                    size="small" sx={{
-                      height: 19, fontSize: 9.5, fontWeight: 800,
-                      bgcolor: alpha(COLOR_ESTADO[r.severidad] ?? '#94A3B8', 0.14),
-                      color: COLOR_ESTADO[r.severidad] ?? '#475569',
-                    }} />
-                </Stack>
-                <Typography sx={{ fontSize: 11.5, color: '#374151', mb: 0.4,
-                                  lineHeight: 1.5 }}>
-                  <b>Cuándo:</b> {r.criterio}
-                </Typography>
-                <Typography sx={{ fontSize: 12, lineHeight: 1.55, mb: 0.4 }}>
-                  {r.lectura}
-                </Typography>
-                <Typography sx={{ fontSize: 11.5, color: 'text.secondary',
-                                  mb: 0.75, lineHeight: 1.5 }}>
-                  <b>Qué hacer:</b> {r.accion}
-                </Typography>
-                <Fuentes codigos={r.fuentes} fuentes={n?.fuentes} />
-              </Box>
-            ))}
-          </Stack>
-        </Box>
-      </Panel>
-
-      <Panel>
-        <Box sx={{ p: 2, borderBottom: `1px solid ${BORDE}` }}>
-          <Typography sx={{ fontSize: 14, fontWeight: 700 }}>
-            Las fuentes
-          </Typography>
-          <Typography sx={{ fontSize: 11.5, color: 'text.secondary' }}>
-            Qué define cada una, y qué NO define.
-          </Typography>
-        </Box>
-        <Box sx={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <Encabezados columnas={['Referencia', 'Título', 'Qué define']} />
-            <tbody>
-              {Object.entries(n?.fuentes ?? {}).map(([codigo, fu]) => (
-                <tr key={codigo} style={{ borderBottom: `1px solid ${BORDE}` }}>
-                  <td style={{ padding: '10px 14px', fontSize: 12, fontWeight: 800,
-                               fontFamily: MONO, whiteSpace: 'nowrap',
-                               color: '#3730A3' }}>{codigo}</td>
-                  <td style={{ padding: '10px 14px', fontSize: 12, maxWidth: 340,
-                               lineHeight: 1.5 }}>{fu.titulo}</td>
-                  <td style={{ padding: '10px 14px', fontSize: 11.5,
-                               color: '#374151', maxWidth: 460, lineHeight: 1.5 }}>
-                    {fu.define}
+                  <td style={{ padding: '4px 10px', whiteSpace: 'nowrap' }}>
+                    <Tooltip title={`Ajustar el límite de ${l.nombre}`}>
+                      <IconButton size="small" aria-label={`Ajustar ${l.nombre}`}
+                        onClick={() => setEditando(l)}>
+                        <EditOutlined sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </Tooltip>
+                    {l.referencia && (
+                      <BotonRestaurar ambito="LIMITE"
+                        clave={`${familia}:${l.codigo}`} onListo={onCambio} />
+                    )}
                   </td>
                 </tr>
               ))}
@@ -1996,6 +2416,500 @@ function Criterios({ f }: { f: FiltroFlota }) {
           </table>
         </Box>
       </Panel>
-    </Estado>
+
+      <PanelEstadisticos n={n} />
+
+      {editando && (
+        <DialogoLimite familia={familia} limite={editando}
+          onCerrar={() => setEditando(null)}
+          onListo={() => { setEditando(null); onCambio() }} />
+      )}
+    </>
+  )
+}
+
+function DialogoLimite({ familia, limite, onCerrar, onListo }: {
+  familia: string; limite: LimiteCriterio
+  onCerrar: () => void; onListo: () => void
+}) {
+  const ref = limite.referencia
+  const [prec, setPrec] = useState(String(limite.precaucion ?? ''))
+  const [cond, setCond] = useState(String(limite.condena ?? ''))
+  const [error, setError] = useState<string | null>(null)
+
+  const m = useMutation({
+    mutationFn: (motivo: string) => interpretacionApi.ajustarLimite(
+      familia, limite.codigo, {
+        precaucion: prec === '' ? null : Number(prec),
+        condena: cond === '' ? null : Number(cond),
+        motivo,
+      }),
+    onSuccess: () => { toast.success(`Se ajustó el límite de ${limite.nombre}`); onListo() },
+    onError: (e: unknown) => setError(mensajeDeError(e)),
+  })
+
+  const baja = limite.direccion === 'BAJO'
+
+  return (
+    <DialogoAjuste
+      titulo={`Ajustar el límite de ${limite.nombre}`}
+      contexto={limite.porque ?? ''}
+      referencia={ref
+        ? `Precaución ${ref.precaucion ?? '—'} · Condena ${ref.condena ?? '—'} — ${ref.criterio ?? ''}`
+        : `Precaución ${limite.precaucion ?? '—'} · Condena ${limite.condena ?? '—'} — ${limite.criterio ?? ''}`}
+      guardando={m.isPending} error={error}
+      onCerrar={onCerrar} onGuardar={motivo => { setError(null); m.mutate(motivo) }}
+      campos={
+        <>
+          {baja && (
+            <Alert severity="info" sx={{ fontSize: 12 }}>
+              En este parámetro el peligro es que el valor <b>baje</b>, así que
+              la condena tiene que quedar por debajo de la precaución.
+            </Alert>
+          )}
+          <Stack direction="row" spacing={2}>
+            <TextField label="Precaución" type="number" fullWidth
+              value={prec} onChange={e => setPrec(e.target.value)}
+              InputProps={{ endAdornment: (
+                <InputAdornment position="end">{limite.unidad}</InputAdornment>) }} />
+            <TextField label="Condena" type="number" fullWidth
+              value={cond} onChange={e => setCond(e.target.value)}
+              InputProps={{ endAdornment: (
+                <InputAdornment position="end">{limite.unidad}</InputAdornment>) }} />
+          </Stack>
+        </>
+      }
+    />
+  )
+}
+
+/** Los límites que salen de la propia flota. Se explican, no se editan. */
+function PanelEstadisticos({ n }: { n: Criterios }) {
+  return (
+    <Panel>
+      <Box sx={{ p: 2, borderBottom: `1px solid ${BORDE}` }}>
+        <Typography sx={{ fontSize: 14, fontWeight: 700 }}>
+          Metales de desgaste: límites de esta flota (ASTM D7720)
+        </Typography>
+        <Typography sx={{ fontSize: 11.5, color: 'text.secondary' }}>
+          Estos no se escriben: se calculan. Para los metales de desgaste no
+          existe un tope universal, así que la norma que sí trata de límites los
+          deriva de la propia población: percentil {n.percentiles.precaucion} para
+          precaución y {n.percentiles.condena} para condena, con al menos{' '}
+          {n.minimo_poblacion} mediciones. Esos tres números se ajustan en
+          «Motor de cálculo».
+        </Typography>
+      </Box>
+      <Estado vacio={!n.por_familia.length}
+        mensajeVacio="Ninguna familia alcanza población suficiente"
+        hint="Con este segmento el diagnóstico se apoya solo en la tendencia.">
+        {n.por_familia.map(fam => (
+          <Box key={fam.tipo} sx={{ borderTop: `1px solid ${BORDE}` }}>
+            <Box sx={{ px: 2, pt: 1.5, pb: 0.5 }}>
+              <Typography sx={{ fontSize: 12.5, fontWeight: 800 }}>
+                {fam.nombre}
+                <Typography component="span" sx={{ fontSize: 11,
+                  color: 'text.secondary', fontWeight: 500, ml: 1 }}>
+                  {fam.muestras} muestra(s)
+                </Typography>
+              </Typography>
+            </Box>
+            {Object.keys(fam.estadisticos).length > 0 ? (
+              <Box sx={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <Encabezados columnas={['Elemento', 'Mediana', 'Precaución',
+                    'Condena', 'Mediciones']} />
+                  <tbody>
+                    {Object.entries(fam.estadisticos).map(([codigo, l]) => (
+                      <tr key={codigo} style={{ borderBottom: `1px solid ${BORDE}` }}>
+                        <td style={{ padding: '9px 14px', fontSize: 12.5,
+                                     fontWeight: 700, fontFamily: MONO }}>{codigo}</td>
+                        <td style={{ padding: '9px 14px', fontSize: 12, color: '#6B7280',
+                                     fontVariantNumeric: 'tabular-nums' }}>{l.mediana ?? '—'}</td>
+                        <td style={{ padding: '9px 14px', fontSize: 12, fontWeight: 700,
+                                     color: '#B45309',
+                                     fontVariantNumeric: 'tabular-nums' }}>{l.precaucion}</td>
+                        <td style={{ padding: '9px 14px', fontSize: 12, fontWeight: 700,
+                                     color: '#B91C1C',
+                                     fontVariantNumeric: 'tabular-nums' }}>{l.condena}</td>
+                        <td style={{ padding: '9px 14px', fontSize: 12, color: '#6B7280',
+                                     fontVariantNumeric: 'tabular-nums' }}>{l.n}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Box>
+            ) : (
+              <Typography sx={{ px: 2, pb: 1.5, fontSize: 11.5,
+                                color: 'text.secondary' }}>
+                Ningún elemento alcanza las {n.minimo_poblacion} mediciones que
+                hacen falta. En esta familia el diagnóstico de desgaste se apoya
+                solo en la tendencia.
+              </Typography>
+            )}
+            {fam.insuficientes.length > 0 && (
+              <Typography sx={{ px: 2, pb: 1.5, fontSize: 11,
+                                color: 'text.secondary' }}>
+                Sin límite por falta de población —un parámetro sin límite no es
+                un parámetro sano, es uno sin criterio—:{' '}
+                {fam.insuficientes.map(x =>
+                  `${x.codigo} (${x.n}, faltan ${x.faltan})`).join(' · ')}
+              </Typography>
+            )}
+          </Box>
+        ))}
+      </Estado>
+    </Panel>
+  )
+}
+
+/* ── 8.2 El motor de cálculo ────────────────────────────────────────────── */
+
+function ConstantesEditables({ n, onCambio }: {
+  n: Criterios; onCambio: () => void
+}) {
+  const [editando, setEditando] = useState<ConstanteCriterio | null>(null)
+
+  // Agrupadas como se piensan —los percentiles juntos, la tendencia junta—
+  // y no en una lista de quince campos donde nada se relaciona con nada.
+  const grupos = useMemo(() => {
+    const m = new Map<string, ConstanteCriterio[]>()
+    for (const c of n.constantes) {
+      if (!m.has(c.grupo)) m.set(c.grupo, [])
+      m.get(c.grupo)!.push(c)
+    }
+    return [...m.entries()]
+  }, [n.constantes])
+
+  return (
+    <>
+      <Alert severity="info" sx={{ mb: 2, fontSize: 12.5 }}>
+        Estos números gobiernan cómo se calcula todo lo demás. Cada uno dice qué
+        hace y qué se gana o se pierde al moverlo: no son preferencias, son
+        decisiones con consecuencias sobre cuántas alarmas produce el programa.
+      </Alert>
+
+      <Grid container spacing={2}>
+        {grupos.map(([grupo, constantes]) => (
+          <Grid key={grupo} size={{ xs: 12, lg: 6 }}>
+            <Panel sx={{ p: 2.5, height: '100%' }}>
+              <Typography sx={{ fontSize: 13.5, fontWeight: 800, mb: 1.5 }}>
+                {grupo}
+              </Typography>
+              <Stack spacing={1.25}>
+                {constantes.map(c => (
+                  <Box key={c.clave} sx={{
+                    p: 1.4, borderRadius: 1.5,
+                    border: `1px solid ${c.ajustado ? alpha('#7C3AED', 0.3) : BORDE}`,
+                    bgcolor: c.ajustado ? alpha('#7C3AED', 0.03) : '#F9FAFB',
+                  }}>
+                    <Stack direction="row" alignItems="center" spacing={1}
+                      flexWrap="wrap" useFlexGap>
+                      <Typography sx={{ fontSize: 12.5, fontWeight: 700, flex: 1 }}>
+                        {c.nombre}
+                      </Typography>
+                      <Typography sx={{ fontSize: 13.5, fontWeight: 900,
+                                        fontFamily: MONO, whiteSpace: 'nowrap' }}>
+                        {c.valor}
+                        <Typography component="span" sx={{ fontSize: 10.5,
+                          color: 'text.disabled', ml: 0.5 }}>{c.unidad}</Typography>
+                      </Typography>
+                      {c.ajustado && (
+                        <Ajustado motivo={c.motivo} quien={c.ajustado_por}
+                          referencia={`${c.valor_referencia} ${c.unidad}`} />
+                      )}
+                      <Tooltip title={`Ajustar ${c.nombre}`}>
+                        <IconButton size="small" aria-label={`Ajustar ${c.nombre}`}
+                          onClick={() => setEditando(c)}>
+                          <EditOutlined sx={{ fontSize: 15 }} />
+                        </IconButton>
+                      </Tooltip>
+                      {c.ajustado && (
+                        <BotonRestaurar ambito="MOTOR" clave={c.clave}
+                          onListo={onCambio} />
+                      )}
+                    </Stack>
+                    <Typography sx={{ fontSize: 11.5, color: '#374151',
+                                      mt: 0.4, lineHeight: 1.5 }}>
+                      {c.que_hace}
+                    </Typography>
+                    <Typography sx={{ fontSize: 11, color: 'text.secondary',
+                                      mt: 0.3, lineHeight: 1.5 }}>
+                      {c.efecto}
+                    </Typography>
+                    {c.fuentes.length > 0 && (
+                      <Box sx={{ mt: 0.6 }}>
+                        <Fuentes codigos={c.fuentes} fuentes={n.fuentes} />
+                      </Box>
+                    )}
+                  </Box>
+                ))}
+              </Stack>
+            </Panel>
+          </Grid>
+        ))}
+      </Grid>
+
+      {editando && (
+        <DialogoConstante c={editando} onCerrar={() => setEditando(null)}
+          onListo={() => { setEditando(null); onCambio() }} />
+      )}
+    </>
+  )
+}
+
+function DialogoConstante({ c, onCerrar, onListo }: {
+  c: ConstanteCriterio; onCerrar: () => void; onListo: () => void
+}) {
+  const [valor, setValor] = useState(String(c.valor))
+  const [error, setError] = useState<string | null>(null)
+  const m = useMutation({
+    mutationFn: (motivo: string) => interpretacionApi.ajustarConstante(
+      c.clave, { valor: Number(valor), motivo }),
+    onSuccess: () => { toast.success(`Se ajustó ${c.nombre}`); onListo() },
+    onError: (e: unknown) => setError(mensajeDeError(e)),
+  })
+  return (
+    <DialogoAjuste
+      titulo={`Ajustar ${c.nombre.toLowerCase()}`}
+      contexto={`${c.que_hace} ${c.efecto}`}
+      referencia={`${c.valor_referencia} ${c.unidad}`}
+      guardando={m.isPending} error={error}
+      onCerrar={onCerrar} onGuardar={motivo => { setError(null); m.mutate(motivo) }}
+      campos={
+        <TextField label="Valor" type="number" fullWidth autoFocus
+          value={valor} onChange={e => setValor(e.target.value)}
+          helperText={`Entre ${c.minimo} y ${c.maximo} ${c.unidad}`}
+          InputProps={{ endAdornment: (
+            <InputAdornment position="end">{c.unidad}</InputAdornment>) }} />
+      }
+    />
+  )
+}
+
+/* ── 8.3 Las reglas de diagnóstico ──────────────────────────────────────── */
+
+function ReglasEditables({ n, onCambio }: {
+  n: Criterios; onCambio: () => void
+}) {
+  const [editando, setEditando] = useState<ReglaCriterio | null>(null)
+
+  const apagar = useMutation({
+    mutationFn: (r: ReglaCriterio) => interpretacionApi.ajustarRegla(r.codigo, {
+      activa: !r.activa,
+      motivo: r.activa
+        ? 'Se apaga: esta empresa no la aplica.'
+        : 'Se vuelve a encender.',
+    }),
+    onSuccess: () => { toast.success('Regla actualizada'); onCambio() },
+    onError: (e: unknown) => toast.error(mensajeDeError(e)),
+  })
+
+  const mover = useMutation({
+    mutationFn: ({ r, hacia }: { r: ReglaCriterio; hacia: number }) =>
+      interpretacionApi.ajustarRegla(r.codigo, {
+        orden: hacia,
+        motivo: `Se mueve a la posición ${hacia + 1}: en esta empresa tiene que `
+          + 'evaluarse antes que las que quedan debajo.',
+      }),
+    onSuccess: () => onCambio(),
+    onError: (e: unknown) => toast.error(mensajeDeError(e)),
+  })
+
+  return (
+    <>
+      <Alert severity="info" sx={{ mb: 2, fontSize: 12.5 }}>
+        Gana la <b>primera</b> que encaje con el patrón completo de la muestra,
+        así que el orden es el ajuste que más cambia el diagnóstico. Están de
+        específica a genérica a propósito: combinar todas las que aplican
+        produce una recomendación que dice seis cosas y no manda hacer ninguna.
+        No se pueden crear reglas nuevas —una regla es una condición sobre
+        combinaciones de parámetros, no un texto—, pero sí apagarlas,
+        reordenarlas y reescribirlas.
+      </Alert>
+
+      <Stack spacing={1.25}>
+        {n.reglas.map((r, i) => (
+          <Panel key={r.codigo} sx={{
+            p: 1.75,
+            opacity: r.activa ? 1 : 0.55,
+            border: `1px solid ${r.ajustado ? alpha('#7C3AED', 0.3) : BORDE}`,
+          }}>
+            <Stack direction="row" alignItems="center" spacing={1} mb={0.5}
+              flexWrap="wrap" useFlexGap>
+              <Typography sx={{ fontSize: 10.5, fontWeight: 800,
+                                color: 'text.disabled', fontFamily: MONO,
+                                width: 22 }}>
+                {String(i + 1).padStart(2, '0')}
+              </Typography>
+              <Typography sx={{ fontSize: 13, fontWeight: 700, flex: 1 }}>
+                {r.nombre}
+                {!r.activa && (
+                  <Typography component="span" sx={{ fontSize: 11,
+                    color: 'text.secondary', ml: 1 }}>
+                    (apagada)
+                  </Typography>
+                )}
+              </Typography>
+              {r.ajustado && (
+                <Ajustado motivo={r.motivo_ajuste} quien={r.ajustado_por}
+                  referencia={`${r.referencia.severidad.toLowerCase()} · urgencia ${r.referencia.urgencia} · posición ${r.referencia.orden + 1}`} />
+              )}
+              <Chip label={r.severidad.replace('_', ' ').toLowerCase()}
+                size="small" sx={{
+                  height: 19, fontSize: 9.5, fontWeight: 800,
+                  bgcolor: alpha(COLOR_ESTADO[r.severidad] ?? '#94A3B8', 0.14),
+                  color: COLOR_ESTADO[r.severidad] ?? '#475569',
+                }} />
+              <Chip label={`urgencia ${r.urgencia}`} size="small" sx={{
+                height: 19, fontSize: 9.5, bgcolor: '#F1F5F9', color: '#334155' }} />
+
+              <Tooltip title="Subir: se evaluará antes">
+                <span>
+                  <IconButton size="small" disabled={i === 0 || mover.isPending}
+                    aria-label={`Subir ${r.nombre}`}
+                    onClick={() => mover.mutate({ r, hacia: Math.max(0, i - 1) })}>
+                    <ArrowUpward sx={{ fontSize: 15 }} />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title="Bajar: se evaluará después">
+                <span>
+                  <IconButton size="small"
+                    disabled={i === n.reglas.length - 1 || mover.isPending}
+                    aria-label={`Bajar ${r.nombre}`}
+                    onClick={() => mover.mutate({ r, hacia: i + 1 })}>
+                    <ArrowDownward sx={{ fontSize: 15 }} />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title={r.activa ? 'Apagar esta regla' : 'Volver a encenderla'}>
+                <Switch size="small" checked={r.activa}
+                  inputProps={{ 'aria-label': `Activar ${r.nombre}` }}
+                  disabled={apagar.isPending}
+                  onChange={() => apagar.mutate(r)} />
+              </Tooltip>
+              <Tooltip title={`Reescribir ${r.nombre}`}>
+                <IconButton size="small" aria-label={`Editar ${r.nombre}`}
+                  onClick={() => setEditando(r)}>
+                  <EditOutlined sx={{ fontSize: 15 }} />
+                </IconButton>
+              </Tooltip>
+              {r.ajustado && (
+                <BotonRestaurar ambito="REGLA" clave={r.codigo} onListo={onCambio} />
+              )}
+            </Stack>
+
+            <Typography sx={{ fontSize: 11.5, color: '#374151', mb: 0.4,
+                              lineHeight: 1.5, pl: 4 }}>
+              <b>Cuándo:</b> {r.criterio}
+            </Typography>
+            <Typography sx={{ fontSize: 12, lineHeight: 1.55, mb: 0.4, pl: 4 }}>
+              {r.lectura}
+            </Typography>
+            <Typography sx={{ fontSize: 11.5, color: 'text.secondary',
+                              mb: 0.75, lineHeight: 1.5, pl: 4 }}>
+              <b>Qué hacer:</b> {r.accion}
+            </Typography>
+            <Box sx={{ pl: 4 }}>
+              <Fuentes codigos={r.fuentes} fuentes={n.fuentes} />
+            </Box>
+          </Panel>
+        ))}
+      </Stack>
+
+      {editando && (
+        <DialogoRegla r={editando} severidades={n.severidades}
+          onCerrar={() => setEditando(null)}
+          onListo={() => { setEditando(null); onCambio() }} />
+      )}
+    </>
+  )
+}
+
+function DialogoRegla({ r, severidades, onCerrar, onListo }: {
+  r: ReglaCriterio; severidades: string[]
+  onCerrar: () => void; onListo: () => void
+}) {
+  const [severidad, setSeveridad] = useState(r.severidad)
+  const [urgencia, setUrgencia] = useState(String(r.urgencia))
+  const [lectura, setLectura] = useState(r.lectura)
+  const [accion, setAccion] = useState(r.accion)
+  const [error, setError] = useState<string | null>(null)
+
+  const m = useMutation({
+    mutationFn: (motivo: string) => interpretacionApi.ajustarRegla(r.codigo, {
+      severidad, urgencia: Number(urgencia), lectura, accion, motivo,
+    }),
+    onSuccess: () => { toast.success(`Se ajustó «${r.nombre}»`); onListo() },
+    onError: (e: unknown) => setError(mensajeDeError(e)),
+  })
+
+  return (
+    <DialogoAjuste
+      titulo={`Reescribir «${r.nombre}»`}
+      contexto={`Se dispara cuando: ${r.criterio} — La condición no se puede `
+        + 'cambiar desde acá; sí la severidad, la urgencia y el texto con el que '
+        + 'la regla se explica y manda actuar.'}
+      referencia={`${r.referencia.severidad.toLowerCase()} · urgencia ${r.referencia.urgencia}`}
+      guardando={m.isPending} error={error}
+      onCerrar={onCerrar} onGuardar={motivo => { setError(null); m.mutate(motivo) }}
+      campos={
+        <>
+          <Stack direction="row" spacing={2}>
+            <TextField select label="Severidad" fullWidth value={severidad}
+              onChange={e => setSeveridad(e.target.value)}>
+              {severidades.map(s => (
+                <MenuItem key={s} value={s}>
+                  {s.replace('_', ' ').toLowerCase()}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField label="Urgencia" type="number" fullWidth value={urgencia}
+              onChange={e => setUrgencia(e.target.value)}
+              helperText="0 a 100. Ordena las filas del informe." />
+          </Stack>
+          <TextField label="Qué significa" multiline minRows={3} fullWidth
+            value={lectura} onChange={e => setLectura(e.target.value)} />
+          <TextField label="Qué hacer" multiline minRows={2} fullWidth
+            value={accion} onChange={e => setAccion(e.target.value)} />
+        </>
+      }
+    />
+  )
+}
+
+/* ── 8.4 Las fuentes ────────────────────────────────────────────────────── */
+
+function TablaFuentes({ fuentes }: { fuentes: Record<string, Fuente> }) {
+  return (
+    <Panel>
+      <Box sx={{ p: 2, borderBottom: `1px solid ${BORDE}` }}>
+        <Typography sx={{ fontSize: 14, fontWeight: 700 }}>Las fuentes</Typography>
+        <Typography sx={{ fontSize: 11.5, color: 'text.secondary' }}>
+          Qué define cada una, y qué NO define.
+        </Typography>
+      </Box>
+      <Box sx={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <Encabezados columnas={['Referencia', 'Título', 'Qué define']} />
+          <tbody>
+            {Object.entries(fuentes).map(([codigo, fu]) => (
+              <tr key={codigo} style={{ borderBottom: `1px solid ${BORDE}` }}>
+                <td style={{ padding: '10px 14px', fontSize: 12, fontWeight: 800,
+                             fontFamily: MONO, whiteSpace: 'nowrap',
+                             color: '#3730A3' }}>{codigo}</td>
+                <td style={{ padding: '10px 14px', fontSize: 12, maxWidth: 340,
+                             lineHeight: 1.5 }}>{fu.titulo}</td>
+                <td style={{ padding: '10px 14px', fontSize: 11.5,
+                             color: '#374151', maxWidth: 460, lineHeight: 1.5 }}>
+                  {fu.define}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Box>
+    </Panel>
   )
 }

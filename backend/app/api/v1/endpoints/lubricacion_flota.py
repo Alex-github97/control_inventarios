@@ -27,20 +27,22 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from sqlalchemy import Select, and_, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.dependencies import get_current_user
 from app.core.normas_lubricacion import (
-    FUENTES, GRUPO_DESGASTE, LIMITES_HIDRAULICO, LIMITES_MOTOR, NATURALEZA,
-    BANDA_SAE_100C, DESVIO_VISCOSIDAD, MINIMO_POBLACION_D7720,
-    PERCENTIL_CONDENA, PERCENTIL_PRECAUCION, REGLAS,
+    BANDA_SAE_100C, CONSTANTES, Criterio, DESVIO_VISCOSIDAD, FUENTES,
+    GRUPO_DESGASTE, LIMITES_HIDRAULICO, LIMITES_MOTOR, MINIMO_POBLACION_D7720,
+    NATURALEZA, PERCENTIL_CONDENA, PERCENTIL_PRECAUCION, REGLAS,
     limites_estadisticos, pearson, regresion,
 )
 from app.infrastructure.models.eam import EAMActivo
 from app.infrastructure.models.lubricacion import (
-    LubeCarga, LubeCompartimento, LubeDiagnostico, LubeMotivoDrenaje,
-    LubeMuestra, LubeParametro, LubeRelleno, LubeResultado,
+    LubeAjusteNorma, LubeCarga, LubeCompartimento, LubeDiagnostico,
+    LubeMotivoDrenaje, LubeMuestra, LubeParametro, LubeRelleno, LubeResultado,
     LubeTipoCompartimento,
 )
 
@@ -723,37 +725,143 @@ async def dispersion(
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 6. Los límites vigentes, con su fuente
+# `/normas` se fusionó con `/criterios`
 #
-# La pantalla tiene que poder mostrar de dónde sale cada umbral. Sin esto, un
-# informe que dice «basado en normas internacionales» es una afirmación que
-# nadie puede verificar, que es exactamente lo que se quería dejar atrás.
+# Servía los límites de referencia; `/criterios` sirve los VIGENTES, que son los
+# de referencia con los ajustes de la empresa encima. Mantener los dos habría
+# dejado un endpoint que dice lo que manda la norma y otro que dice lo que
+# aplica el evaluador, y la pantalla acabaría leyendo el que no era.
 # ══════════════════════════════════════════════════════════════════════════════
 
-@router.get("/normas")
-async def normas(
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 7. El criterio: consultarlo y ajustarlo
+#
+# Lo que la empresa cambia se guarda como DIFERENCIA contra lo publicado, no
+# como una copia entera de la tabla de límites. Así un parámetro sin fila usa el
+# valor de referencia, borrar la fila lo devuelve exactamente a como estaba, y
+# cuando la referencia se actualice —porque salga una revisión de la norma— el
+# cambio llega solo a lo que nadie tocó.
+# ══════════════════════════════════════════════════════════════════════════════
+
+AMBITOS = {"LIMITE", "MOTOR", "REGLA"}
+SEVERIDADES = {"NORMAL", "MARGINAL", "CRITICO", "ACCION_INMEDIATA"}
+
+
+async def _criterio(db: AsyncSession) -> Criterio:
+    """El criterio vigente de esta empresa: referencia más sus ajustes."""
+    # No hay filtro por «activo»: un ajuste que se retira se borra, no se
+    # apaga. Una fila apagada con un motivo de hace dos años no informa nada y
+    # obliga a filtrarla en todas las consultas.
+    filas = (await db.execute(select(LubeAjusteNorma))).scalars().all()
+    return Criterio([{
+        "ambito": a.ambito, "clave": a.clave,
+        "precaucion": a.precaucion, "condena": a.condena, "valor": a.valor,
+        "activa": a.activa, "severidad": a.severidad, "urgencia": a.urgencia,
+        "orden": a.orden, "lectura": a.lectura, "accion": a.accion,
+        "motivo": a.motivo, "ajustado_por": a.ajustado_por,
+    } for a in filas])
+
+
+class AjusteLimite(BaseModel):
+    """Un umbral de un parámetro en una familia de compartimento."""
+    precaucion: Optional[float] = None
+    condena: Optional[float] = None
+    motivo: str = Field(min_length=8, max_length=2000)
+
+
+class AjusteConstante(BaseModel):
+    valor: float
+    motivo: str = Field(min_length=8, max_length=2000)
+
+
+class AjusteRegla(BaseModel):
+    activa: Optional[bool] = None
+    severidad: Optional[str] = None
+    urgencia: Optional[int] = Field(default=None, ge=0, le=100)
+    orden: Optional[int] = Field(default=None, ge=0, le=99)
+    lectura: Optional[str] = Field(default=None, max_length=2000)
+    accion: Optional[str] = Field(default=None, max_length=2000)
+    motivo: str = Field(min_length=8, max_length=2000)
+
+
+async def _guardar(db: AsyncSession, ambito: str, clave: str,
+                   campos: Dict[str, Any], motivo: str,
+                   quien: Optional[str]) -> LubeAjusteNorma:
+    """Crea o actualiza el ajuste. Uno por (ámbito, clave)."""
+    fila = (await db.execute(
+        select(LubeAjusteNorma).where(and_(LubeAjusteNorma.ambito == ambito,
+                                           LubeAjusteNorma.clave == clave))
+    )).scalar_one_or_none()
+    if fila is None:
+        fila = LubeAjusteNorma(ambito=ambito, clave=clave, motivo=motivo)
+        db.add(fila)
+    for campo, valor in campos.items():
+        setattr(fila, campo, valor)
+    fila.motivo = motivo
+    fila.ajustado_por = quien
+    await db.commit()
+    await db.refresh(fila)
+    return fila
+
+
+@router.get("/criterios")
+async def criterios(
     dias: int = Query(1460, ge=90, le=3650),
     f: FiltroFlota = Depends(),
     db: AsyncSession = Depends(get_db),
 ):
-    """Los criterios con que se juzga cada parámetro, y de dónde salen.
+    """El criterio vigente completo, marcando qué está ajustado y qué no.
 
-    Incluye los límites estadísticos calculados sobre la flota filtrada
-    (ASTM D7720), separados POR FAMILIA DE COMPARTIMENTO y con su `n`, para que
-    se vea sobre cuántas mediciones se apoya cada uno y cuáles no alcanzaron
-    población suficiente.
+    Es la misma información que aplica el evaluador. Se sirve de un solo sitio a
+    propósito: una pantalla de configuración que leyera de otro lado podría
+    mostrar un criterio y el informe aplicar otro, y eso no se nota hasta que
+    alguien discute una conclusión.
     """
-    desde = datetime.utcnow() - timedelta(days=dias)
-    filas = (await db.execute(_base_muestras(f, desde))).all()
-
-    catalogo = {p.id: p for p in (await db.execute(
+    criterio = await _criterio(db)
+    catalogo = {p.codigo: p for p in (await db.execute(
         select(LubeParametro))).scalars().all()}
 
-    # La población se separa por familia de compartimento. Es la mitad de lo
-    # que pide D7720: el percentil solo dice algo sobre equipos comparables, y
-    # un motor diésel y un sistema hidráulico no lo son.
+    # Las familias de compartimento que esta empresa tiene de verdad. Ofrecer
+    # las nueve del catálogo cuando solo se usan dos llena la pantalla de
+    # criterios para equipos que no existen.
+    # Ordenadas por cuántos compartimentos tiene cada una: la pantalla abre en
+    # la primera, y abrir en la familia con cuatro equipos cuando la flota son
+    # ciento treinta motores manda a corregir el criterio equivocado.
+    familias = [{"codigo": c, "nombre": n, "compartimentos": k}
+                for c, n, k in (await db.execute(
+        select(LubeTipoCompartimento.codigo, LubeTipoCompartimento.nombre,
+               func.count(LubeCompartimento.id))
+        .join(LubeCompartimento,
+              LubeCompartimento.tipo_compartimento_id == LubeTipoCompartimento.id)
+        .where(LubeTipoCompartimento.codigo != "GRA")
+        .group_by(LubeTipoCompartimento.codigo, LubeTipoCompartimento.nombre)
+        .order_by(func.count(LubeCompartimento.id).desc())
+    )).all() if c]
+    if not familias:
+        familias = [{"codigo": "MOT", "nombre": "Motor diésel",
+                     "compartimentos": 0}]
+
+    def _limites_de(familia: str):
+        salida = []
+        for codigo, l in criterio.limites(familia).items():
+            p = catalogo.get(codigo)
+            salida.append({
+                **l, "codigo": codigo,
+                "nombre": p.nombre if p else codigo,
+                "unidad": p.unidad if p else None,
+                "grupo": p.grupo if p else None,
+            })
+        return salida
+
+    # ── Los límites estadísticos, que no se editan pero sí se explican ───────
+    desde = datetime.utcnow() - timedelta(days=dias)
+    filas = (await db.execute(_base_muestras(f, desde))).all()
     tipo_de_muestra = {m.id: (t.codigo or "SIN_TIPO") for m, _c, _a, t in filas}
     nombre_tipo = {(t.codigo or "SIN_TIPO"): t.nombre for _m, _c, _a, t in filas}
+    catalogo_id = {p.id: p for p in (await db.execute(
+        select(LubeParametro))).scalars().all()}
+
     poblaciones: Dict[str, Dict[str, List[float]]] = defaultdict(
         lambda: defaultdict(list))
     if tipo_de_muestra:
@@ -763,64 +871,211 @@ async def normas(
             .where(and_(LubeResultado.muestra_id.in_(list(tipo_de_muestra)),
                         LubeResultado.valor.isnot(None)))
         )).all():
-            p = catalogo.get(pid)
+            p = catalogo_id.get(pid)
             if p and p.codigo in GRUPO_DESGASTE:
                 poblaciones[tipo_de_muestra[mid]][p.codigo].append(float(valor))
 
+    minimo = int(criterio.constante("minimo_poblacion"))
     por_familia = []
     for tipo, pob in poblaciones.items():
-        estadisticos = limites_estadisticos(pob)
+        estadisticos = limites_estadisticos(pob, criterio)
         por_familia.append({
-            "tipo": tipo,
-            "nombre": nombre_tipo.get(tipo, tipo),
+            "tipo": tipo, "nombre": nombre_tipo.get(tipo, tipo),
             "muestras": sum(1 for t in tipo_de_muestra.values() if t == tipo),
             "estadisticos": estadisticos,
-            # Los que se quedaron sin límite y por qué. Es información: un
-            # parámetro sin límite no es un parámetro sano, es uno sin
-            # criterio, y la pantalla tiene que decirlo en vez de dejar la
-            # celda vacía.
-            "insuficientes": [
-                {"codigo": c, "n": len(v),
-                 "faltan": MINIMO_POBLACION_D7720 - len(v)}
-                for c, v in pob.items() if c not in estadisticos
-            ],
+            "insuficientes": [{"codigo": c, "n": len(v),
+                               "faltan": minimo - len(v)}
+                              for c, v in pob.items() if c not in estadisticos],
         })
     por_familia.sort(key=lambda x: -x["muestras"])
-
-    # Los límites se declaran por código —«hollin», «tbn»— porque es la llave
-    # con la que se buscan. Para mostrarlos hay que ponerles el nombre y la
-    # unidad del catálogo: una tabla de criterios que dice «oxidacion 20 / 30»
-    # sin decir de qué unidad habla no se puede contrastar con un boletín.
-    por_codigo = {p.codigo: p for p in catalogo.values()}
-
-    def _con_nombre(limites: Dict[str, Any]) -> Dict[str, Any]:
-        salida = {}
-        for codigo, l in limites.items():
-            p = por_codigo.get(codigo)
-            salida[codigo] = {**l,
-                              "nombre": p.nombre if p else codigo,
-                              "unidad": p.unidad if p else None,
-                              "grupo": p.grupo if p else None}
-        return salida
 
     return {
         "filtro": f.como_dict(),
         "fuentes": FUENTES,
         "naturaleza": NATURALEZA,
-        "limites_motor": _con_nombre(LIMITES_MOTOR),
-        "limites_hidraulico": _con_nombre(LIMITES_HIDRAULICO),
+        "severidades": sorted(SEVERIDADES),
+        "familias": familias,
+        "limites": {fa["codigo"]: _limites_de(fa["codigo"]) for fa in familias},
+        "constantes": criterio.constantes_vigentes(),
+        "reglas": criterio.reglas_vigentes(),
         "por_familia": por_familia,
-        "minimo_poblacion": MINIMO_POBLACION_D7720,
-        "percentiles": {"precaucion": PERCENTIL_PRECAUCION,
-                        "condena": PERCENTIL_CONDENA},
+        "minimo_poblacion": minimo,
+        "percentiles": {"precaucion": criterio.constante("percentil_precaucion"),
+                        "condena": criterio.constante("percentil_condena")},
         "banda_sae": BANDA_SAE_100C,
-        "desvio_viscosidad": DESVIO_VISCOSIDAD,
-        "reglas": [{k: v for k, v in r.items()
-                    if k not in ("exige", "tambien", "prohibe")}
-                   for r in REGLAS],
+        "hay_ajustes": criterio.hay_ajustes,
+        "resumen_ajustes": criterio.resumen_ajustes(),
         "advertencia": "Las normas ASTM e ISO definen CÓMO SE MIDE, no cuándo "
-                       "es malo. Cada límite de acá lleva por separado el "
-                       "método del ensayo y el origen del umbral, porque citar "
-                       "una norma de ensayo como si fuera la fuente de un "
-                       "límite es una cita falsa.",
+                       "es malo. Cada límite lleva por separado el método del "
+                       "ensayo y el origen del umbral, porque citar una norma "
+                       "de ensayo como si fuera la fuente de un límite es una "
+                       "cita falsa. Un umbral que esta empresa ajuste deja de "
+                       "presentarse como referencia y pasa a decir que es de "
+                       "la casa, con su motivo al lado.",
     }
+
+
+@router.put("/criterios/limite/{familia}/{codigo}")
+async def ajustar_limite(
+    familia: str, codigo: str, datos: AjusteLimite,
+    db: AsyncSession = Depends(get_db),
+    usuario=Depends(get_current_user),
+):
+    """Cambia el umbral de un parámetro para una familia de compartimento."""
+    base = Criterio().limites(familia)
+    if codigo not in base:
+        raise HTTPException(
+            404, f"«{codigo}» no tiene criterio de referencia en la familia "
+                 f"«{familia}», así que no hay nada que ajustar.")
+    if datos.precaucion is None and datos.condena is None:
+        raise HTTPException(
+            400, "No se indicó ningún umbral. Para volver al valor de "
+                 "referencia hay que borrar el ajuste, no guardarlo vacío.")
+
+    # La dirección del parámetro decide qué orden tiene sentido: en el TBN el
+    # peligro es que BAJE, así que la condena va por debajo de la precaución.
+    direccion = base[codigo].get("direccion", "ALTO")
+    p, c = datos.precaucion, datos.condena
+    if p is not None and c is not None:
+        if direccion == "BAJO" and c > p:
+            raise HTTPException(
+                400, f"En «{codigo}» el peligro es que el valor BAJE: la "
+                     f"condena ({c}) tiene que ser menor o igual que la "
+                     f"precaución ({p}).")
+        if direccion != "BAJO" and c < p:
+            raise HTTPException(
+                400, f"La condena ({c}) no puede ser menor que la precaución "
+                     f"({p}): quedaría un umbral de alarma más exigente que el "
+                     f"de condena y ninguna muestra caería en precaución.")
+
+    fila = await _guardar(db, "LIMITE", f"{familia.upper()}:{codigo}",
+                          {"precaucion": p, "condena": c},
+                          datos.motivo, getattr(usuario, "username", None))
+    return {"guardado": True, "ambito": "LIMITE", "clave": fila.clave,
+            "referencia": {"precaucion": base[codigo].get("precaucion"),
+                           "condena": base[codigo].get("condena")}}
+
+
+@router.put("/criterios/constante/{clave}")
+async def ajustar_constante(
+    clave: str, datos: AjusteConstante,
+    db: AsyncSession = Depends(get_db),
+    usuario=Depends(get_current_user),
+):
+    """Cambia una constante del motor de cálculo."""
+    meta = CONSTANTES.get(clave)
+    if not meta:
+        raise HTTPException(404, f"No existe la constante «{clave}».")
+    if not (meta["minimo"] <= datos.valor <= meta["maximo"]):
+        raise HTTPException(
+            400, f"«{meta['nombre']}» tiene que estar entre {meta['minimo']:g} "
+                 f"y {meta['maximo']:g} {meta['unidad']}. Se recibió "
+                 f"{datos.valor:g}.")
+
+    # Los pares precaución/condena tienen que conservar su orden, o el escalón
+    # entre «vigilar» y «actuar» desaparece sin que nadie lo note.
+    criterio = await _criterio(db)
+    PARES = [("percentil_precaucion", "percentil_condena"),
+             ("salto_precaucion", "salto_condena"),
+             ("desvio_viscosidad_precaucion", "desvio_viscosidad_condena")]
+    for menor, mayor in PARES:
+        if clave == menor and datos.valor >= criterio.constante(mayor):
+            raise HTTPException(
+                400, f"«{meta['nombre']}» ({datos.valor:g}) tiene que quedar "
+                     f"por debajo de «{CONSTANTES[mayor]['nombre']}» "
+                     f"({criterio.constante(mayor):g}).")
+        if clave == mayor and datos.valor <= criterio.constante(menor):
+            raise HTTPException(
+                400, f"«{meta['nombre']}» ({datos.valor:g}) tiene que quedar "
+                     f"por encima de «{CONSTANTES[menor]['nombre']}» "
+                     f"({criterio.constante(menor):g}).")
+
+    await _guardar(db, "MOTOR", clave, {"valor": datos.valor},
+                   datos.motivo, getattr(usuario, "username", None))
+    return {"guardado": True, "ambito": "MOTOR", "clave": clave,
+            "referencia": meta["valor"]}
+
+
+@router.put("/criterios/regla/{codigo}")
+async def ajustar_regla(
+    codigo: str, datos: AjusteRegla,
+    db: AsyncSession = Depends(get_db),
+    usuario=Depends(get_current_user),
+):
+    """Apaga, reordena o reescribe una regla de diagnóstico.
+
+    No se pueden crear reglas nuevas desde acá, y es a propósito: una regla no
+    es solo un texto, es una condición sobre combinaciones de parámetros
+    —«cobre fuera pero plomo y estaño dentro»— que hay que escribir en código
+    para que el evaluador la entienda. Lo que sí se puede es apagar la que no
+    aplique, cambiar su prioridad, y reescribir con las palabras de la casa qué
+    significa y qué hacer.
+    """
+    base = {r["codigo"]: r for r in Criterio().reglas_vigentes()}
+    if codigo not in base:
+        raise HTTPException(404, f"No existe la regla «{codigo}».")
+    if datos.severidad is not None and datos.severidad not in SEVERIDADES:
+        raise HTTPException(
+            400, f"Severidad «{datos.severidad}» desconocida. Las válidas son: "
+                 f"{', '.join(sorted(SEVERIDADES))}.")
+
+    campos = {c: getattr(datos, c) for c in
+              ("activa", "severidad", "urgencia", "orden", "lectura", "accion")}
+    if all(v is None for v in campos.values()):
+        raise HTTPException(
+            400, "No se indicó ningún cambio. Para volver a la regla de "
+                 "referencia hay que borrar el ajuste.")
+
+    await _guardar(db, "REGLA", codigo, campos, datos.motivo,
+                   getattr(usuario, "username", None))
+    return {"guardado": True, "ambito": "REGLA", "clave": codigo,
+            "referencia": base[codigo]["referencia"]}
+
+
+@router.delete("/criterios/{ambito}/{clave:path}")
+async def restaurar_criterio(
+    ambito: str, clave: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Borra el ajuste y devuelve el criterio de referencia.
+
+    Se borra la fila y no se marca inactiva: el registro de qué se cambió y por
+    qué solo tiene valor mientras el cambio esté vigente. Una fila apagada con
+    un motivo de hace dos años no informa, estorba.
+    """
+    ambito = ambito.upper()
+    if ambito not in AMBITOS:
+        raise HTTPException(404, f"Ámbito «{ambito}» desconocido.")
+    fila = (await db.execute(
+        select(LubeAjusteNorma).where(and_(LubeAjusteNorma.ambito == ambito,
+                                           LubeAjusteNorma.clave == clave))
+    )).scalar_one_or_none()
+    if fila is None:
+        raise HTTPException(
+            404, "Ese criterio no está ajustado: ya está en su valor de "
+                 "referencia.")
+    await db.delete(fila)
+    await db.commit()
+    return {"restaurado": True, "ambito": ambito, "clave": clave}
+
+
+@router.get("/criterios/ajustes")
+async def ajustes_vigentes(db: AsyncSession = Depends(get_db)):
+    """Todo lo que esta empresa cambió, junto y con su motivo.
+
+    Es la vista de auditoría: la lista corta de en qué se aparta esta empresa
+    del criterio publicado, sin tener que recorrer las tres pestañas buscando
+    insignias.
+    """
+    filas = (await db.execute(
+        select(LubeAjusteNorma).order_by(LubeAjusteNorma.ambito,
+                                         LubeAjusteNorma.clave)
+    )).scalars().all()
+    return [{
+        "ambito": a.ambito, "clave": a.clave,
+        "precaucion": a.precaucion, "condena": a.condena, "valor": a.valor,
+        "activa": a.activa, "severidad": a.severidad, "urgencia": a.urgencia,
+        "orden": a.orden, "lectura": a.lectura, "accion": a.accion,
+        "motivo": a.motivo, "ajustado_por": a.ajustado_por,
+        "cuando": a.updated_at or a.created_at,
+    } for a in filas]

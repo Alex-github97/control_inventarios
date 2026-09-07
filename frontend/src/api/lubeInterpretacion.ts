@@ -374,39 +374,106 @@ export interface FamiliaExtension {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Los límites vigentes y su fuente
+   El criterio vigente, y cómo ajustarlo
+
+   Es lo publicado con los ajustes de la empresa encima. Un límite ajustado
+   viaja con su valor de referencia al lado para que la pantalla pueda mostrar
+   los dos: un umbral de la casa presentado como norma internacional es peor
+   que no citar nada.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-export interface LimiteNorma extends LimiteAplicado {
-  accion?: string | null
-  /** Nombre y unidad del catálogo: la tabla de criterios los necesita para
-   *  poder contrastarse con un boletín de laboratorio. */
-  nombre?: string
-  unidad?: string | null
-  grupo?: string | null
+/** El valor publicado que un ajuste reemplazó. */
+export interface Referencia {
+  precaucion?: number | null
+  condena?: number | null
+  criterio?: string | null
+  naturaleza?: string | null
 }
 
-export interface Normas {
+export interface LimiteCriterio extends LimiteAplicado {
+  codigo: string
+  nombre: string
+  unidad?: string | null
+  grupo?: string | null
+  accion?: string | null
+  /** Presente solo si la empresa lo ajustó. */
+  referencia?: Referencia
+  motivo_ajuste?: string | null
+  ajustado_por?: string | null
+}
+
+export interface ConstanteCriterio {
+  clave: string
+  nombre: string
+  grupo: string
+  unidad: string
+  valor: number
+  valor_referencia: number
+  minimo: number
+  maximo: number
+  fuentes: string[]
+  que_hace: string
+  /** Qué se gana y qué se pierde al moverla. */
+  efecto: string
+  ajustado: boolean
+  motivo?: string | null
+  ajustado_por?: string | null
+}
+
+export interface ReglaCriterio {
+  codigo: string
+  nombre: string
+  severidad: string
+  urgencia: number
+  fuentes: string[]
+  criterio: string
+  lectura: string
+  accion: string
+  orden: number
+  orden_referencia: number
+  activa: boolean
+  ajustado: boolean
+  referencia: {
+    severidad: string; urgencia: number
+    lectura: string; accion: string; orden: number
+  }
+  motivo_ajuste?: string | null
+  ajustado_por?: string | null
+}
+
+export interface Criterios {
   filtro: FiltroFlota
   fuentes: Record<string, Fuente>
   naturaleza: Record<string, string>
-  limites_motor: Record<string, LimiteNorma>
-  limites_hidraulico: Record<string, LimiteNorma>
-  /** Los límites estadísticos separados por familia de compartimento. */
+  severidades: string[]
+  familias: { codigo: string; nombre: string
+              compartimentos?: number }[]
+  /** Por código de familia de compartimento. */
+  limites: Record<string, LimiteCriterio[]>
+  constantes: ConstanteCriterio[]
+  reglas: ReglaCriterio[]
   por_familia: {
     tipo: string; nombre: string; muestras: number
-    estadisticos: Record<string, LimiteNorma & { mediana?: number }>
+    estadisticos: Record<string, LimiteAplicado & { mediana?: number }>
     insuficientes: { codigo: string; n: number; faltan: number }[]
   }[]
   minimo_poblacion: number
   percentiles: { precaucion: number; condena: number }
   banda_sae: Record<string, [number, number]>
-  desvio_viscosidad: { precaucion: number; condena: number }
-  reglas: {
-    codigo: string; nombre: string; severidad: string; urgencia: number
-    fuentes: string[]; criterio: string; lectura: string; accion: string
-  }[]
+  hay_ajustes: boolean
+  resumen_ajustes: Record<string, number>
   advertencia: string
+}
+
+export interface AjusteVigente {
+  ambito: string; clave: string
+  precaucion?: number | null; condena?: number | null; valor?: number | null
+  activa?: boolean | null; severidad?: string | null
+  urgencia?: number | null; orden?: number | null
+  lectura?: string | null; accion?: string | null
+  motivo: string
+  ajustado_por?: string | null
+  cuando?: string | null
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -437,10 +504,31 @@ export const interpretacionApi = {
   extension: (f?: FiltroFlota, dias = 1460) =>
     get<{ familias: FamiliaExtension[]; muestras: number }>(
       '/extension', conFiltro(f, { dias })),
-  normas: (f?: FiltroFlota) => get<Normas>('/normas', conFiltro(f)),
-  cadena: () => get<{ eslabones: EslabonMedido[]; reglas: Normas['reglas']
+  cadena: () => get<{ eslabones: EslabonMedido[]; reglas: ReglaCriterio[]
                       fuentes: Record<string, Fuente>; nota: string }>(
     '/cadena-causal'),
+
+  // ── El criterio: consultarlo y ajustarlo ──────────────────────────────────
+  criterios: (f?: FiltroFlota) => get<Criterios>('/criterios', conFiltro(f)),
+  ajustes: () => get<AjusteVigente[]>('/criterios/ajustes'),
+
+  ajustarLimite: (familia: string, codigo: string, datos: {
+    precaucion?: number | null; condena?: number | null; motivo: string
+  }) => apiClient.put(`${B}/criterios/limite/${familia}/${codigo}`, datos)
+    .then(r => r.data),
+
+  ajustarConstante: (clave: string, datos: { valor: number; motivo: string }) =>
+    apiClient.put(`${B}/criterios/constante/${clave}`, datos).then(r => r.data),
+
+  ajustarRegla: (codigo: string, datos: {
+    activa?: boolean | null; severidad?: string | null
+    urgencia?: number | null; orden?: number | null
+    lectura?: string | null; accion?: string | null; motivo: string
+  }) => apiClient.put(`${B}/criterios/regla/${codigo}`, datos).then(r => r.data),
+
+  /** Borra el ajuste y devuelve el criterio a su valor de referencia. */
+  restaurar: (ambito: string, clave: string) =>
+    apiClient.delete(`${B}/criterios/${ambito}/${clave}`).then(r => r.data),
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

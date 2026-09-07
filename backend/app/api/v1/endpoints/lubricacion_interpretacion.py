@@ -47,10 +47,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.v1.endpoints.lubricacion_flota import FiltroFlota, _base_muestras
+from app.api.v1.endpoints.lubricacion_flota import (
+    FiltroFlota, _base_muestras, _criterio,
+)
 from app.core.database import get_db
 from app.core.normas_lubricacion import (
-    CATEGORIAS_REPARACION, DIAS_ASENTAMIENTO, FUENTES, GRUPO_DESGASTE, REGLAS,
+    CATEGORIAS_REPARACION, FUENTES, GRUPO_DESGASTE, Criterio,
     diagnosticar, evaluar_muestra, limites_estadisticos, pearson,
 )
 from app.infrastructure.models.eam import EAMActivo
@@ -120,13 +122,6 @@ ORDEN_SIGLAS = ["fe", "cr", "pb", "cu", "sn", "al", "ni", "mo",
 # análisis la corrija —y lo hará— hay que poder cambiarla en un sitio y que se
 # note en toda la pantalla.
 # ══════════════════════════════════════════════════════════════════════════════
-
-# A partir de qué correlación se da un eslabón por confirmado. No es un valor
-# de significancia estadística: es el punto donde la relación es lo bastante
-# fuerte como para que valga la pena actuar sobre ella. Se declara acá y viaja
-# en la respuesta para que la pantalla no lo repita por su cuenta y los dos se
-# desincronicen.
-UMBRAL_CONFIRMACION = 0.4
 
 CADENA_CAUSAL: List[Dict[str, Any]] = [
     {
@@ -239,7 +234,7 @@ CADENA_CAUSAL: List[Dict[str, Any]] = [
 
 
 async def _viene_de_reparacion(db: AsyncSession, muestra: LubeMuestra,
-                               comp_id: int) -> bool:
+                               comp_id: int, criterio: Criterio) -> bool:
     """¿La carga actual entró después de una reparación, y hace poco?
 
     QUÉ CUENTA COMO «RECIÉN REPARADO»
@@ -254,7 +249,7 @@ async def _viene_de_reparacion(db: AsyncSession, muestra: LubeMuestra,
     if not carga or not carga.fecha_llenado:
         return False
     dias = (muestra.fecha_toma - carga.fecha_llenado).days
-    if not 0 <= dias <= DIAS_ASENTAMIENTO:
+    if not 0 <= dias <= criterio.constante("dias_asentamiento"):
         return False
 
     # La carga que se drenó justo antes de esta, en el mismo compartimento.
@@ -462,6 +457,7 @@ async def compartimentos(f: FiltroFlota = Depends(),
 
 async def _poblacion_desgaste(db: AsyncSession, tipo_de_muestra: Dict[int, str],
                               catalogo: Dict[int, LubeParametro],
+                              criterio: Criterio,
                               ) -> Dict[str, Dict[str, Dict[str, Any]]]:
     """Los límites estadísticos de ASTM D7720, POR FAMILIA DE COMPARTIMENTO.
 
@@ -487,7 +483,7 @@ async def _poblacion_desgaste(db: AsyncSession, tipo_de_muestra: Dict[int, str],
         p = catalogo.get(pid)
         if p and p.codigo in GRUPO_DESGASTE:
             poblaciones[tipo_de_muestra[mid]][p.codigo].append(float(valor))
-    return {tipo: limites_estadisticos(pob)
+    return {tipo: limites_estadisticos(pob, criterio)
             for tipo, pob in poblaciones.items()}
 
 
@@ -564,6 +560,7 @@ async def tablero(
     muro de texto.
     """
     desde = datetime.utcnow() - timedelta(days=dias)
+    criterio = await _criterio(db)
     catalogo = await _catalogo(db)
     por_codigo = {p.codigo: p for p in catalogo.values()}
 
@@ -585,7 +582,8 @@ async def tablero(
 
     tipo_de_muestra = {m.id: (t.codigo or "SIN_TIPO")
                        for m, _c, _a, t in muestras}
-    estadisticos = await _poblacion_desgaste(db, tipo_de_muestra, catalogo)
+    estadisticos = await _poblacion_desgaste(db, tipo_de_muestra, catalogo,
+                                             criterio)
     valores_previos = await _anteriores(db, lista_muestras, catalogo)
 
     # El grado SAE del aceite realmente cargado. Es la referencia contra la que
@@ -638,6 +636,7 @@ async def tablero(
             grado_sae=grados.get(muestra.carga_id or -1),
             meta_iso=comp.meta_iso4406,
             iso_medido=iso_medido,
+            criterio=criterio,
         )
         hallazgos = evaluacion["hallazgos"]
         fuera = [c for c, h in hallazgos.items() if h.get("estado")]
@@ -645,8 +644,9 @@ async def tablero(
         if solo_con_hallazgo and not hallazgos:
             continue
 
-        post_reparacion = await _viene_de_reparacion(db, muestra, comp.id)
-        regla = diagnosticar(evaluacion, post_reparacion)
+        post_reparacion = await _viene_de_reparacion(db, muestra, comp.id,
+                                                     criterio)
+        regla = diagnosticar(evaluacion, post_reparacion, criterio)
 
         # El estado de la fila sale de la severidad de la regla, que ya
         # incorpora si algún parámetro llegó a condena.
@@ -904,6 +904,8 @@ async def correlacion(
     que debería encender una alarma sobre el laboratorio o sobre los datos.
     """
     desde = datetime.utcnow() - timedelta(days=dias)
+    criterio = await _criterio(db)
+    umbral = criterio.constante("umbral_confirmacion")
     catalogo = await _catalogo(db)
 
     q = (select(LubeResultado.muestra_id, LubeResultado.parametro_id,
@@ -992,7 +994,7 @@ async def correlacion(
                     "r": r, "n": conteos[i][j],
                     "esperado": "POSITIVO" if esperado > 0 else "NEGATIVO",
                     "concuerda": (None if r is None
-                                  else (r * esperado) >= UMBRAL_CONFIRMACION),
+                                  else (r * esperado) >= umbral),
                 })
         # Se promedia la correlación ORIENTADA —multiplicada por el signo
         # esperado— y no la cruda. Así un eslabón mixto no se autocancela: un
@@ -1012,8 +1014,8 @@ async def correlacion(
                                             if m["r"] is not None)
                                         / len(orientadas), 3)
                                   if orientadas else None),
-            "se_confirma": media is not None and media >= UMBRAL_CONFIRMACION,
-            "contradice": media is not None and media <= -UMBRAL_CONFIRMACION,
+            "se_confirma": media is not None and media >= umbral,
+            "contradice": media is not None and media <= -umbral,
         })
 
     return {
@@ -1023,7 +1025,7 @@ async def correlacion(
         "suficiente": True,
         "metodo": "Coeficiente de correlación de Pearson. Solo se emparejan "
                   "muestras donde ambos parámetros están medidos.",
-        "umbral_confirmacion": UMBRAL_CONFIRMACION,
+        "umbral_confirmacion": umbral,
         "parametros": [{"codigo": catalogo[pid].codigo,
                         "nombre": catalogo[pid].nombre,
                         "sigla": SIGLA.get(catalogo[pid].codigo, catalogo[pid].codigo),
@@ -1180,17 +1182,21 @@ async def extension(
 # ══════════════════════════════════════════════════════════════════════════════
 
 @router.get("/cadena-causal")
-async def cadena_causal():
+async def cadena_causal(db: AsyncSession = Depends(get_db)):
     """La cadena causa-efecto y las reglas, tal cual, sin cruzarlas con datos.
 
     Está aparte para poder consultarlas al leer una muestra concreta —«¿por qué
     subiría el boro?»— sin tener que cargar la matriz de correlación entera.
     """
+    criterio = await _criterio(db)
     return {
         "eslabones": CADENA_CAUSAL,
+        # Las reglas VIGENTES, con los ajustes de la empresa: si acá se
+        # listaran las de referencia, la consulta diría una cosa y el
+        # evaluador aplicaría otra.
         "reglas": [{k: v for k, v in r.items()
                     if k not in ("exige", "tambien", "prohibe")}
-                   for r in REGLAS],
+                   for r in criterio.reglas()],
         "fuentes": FUENTES,
         "nota": "Los mecanismos vienen de la literatura de análisis de aceite "
                 "en motor diésel, no de la observación de una flota concreta. "

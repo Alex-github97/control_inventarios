@@ -451,3 +451,77 @@ class LubeDiagnostico(Base, TimestampMixin):
 
     analista   = Column(String(120), nullable=True)
     automatico = Column(Boolean, default=False, nullable=False)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# El criterio de la empresa por encima del de referencia
+# ══════════════════════════════════════════════════════════════════════════════
+
+class LubeAjusteNorma(Base, TimestampMixin):
+    """Lo que esta empresa cambió del criterio de interpretación.
+
+    POR QUÉ NO SE SIEMBRAN LOS VALORES Y YA
+    Porque entonces no se sabría cuáles son de referencia y cuáles se tocaron.
+    El criterio de referencia vive en `core/normas_lubricacion`, en el código,
+    versionado y con su fuente; acá viven ÚNICAMENTE las diferencias. Un
+    parámetro sin fila usa el valor publicado, y borrar la fila lo devuelve
+    exactamente a como estaba.
+
+    Eso permite lo que hace útil a la pantalla: mostrar «0,5 % — ajustado por la
+    empresa; la referencia de Tormos es 0,2 %», en vez de un 0,5 % suelto que
+    parece norma internacional y no lo es. Un criterio ajustado sigue siendo
+    legítimo —el fabricante del motor manda sobre la literatura—, pero tiene que
+    verse que es de la casa.
+
+    POR QUÉ `motivo` NO ES OPCIONAL
+    Un límite cambiado sin razón escrita es indistinguible de un error de
+    digitación, y seis meses después nadie recuerda si el 0,5 lo puso el
+    fabricante o alguien que se equivocó de tecla. La razón es lo que convierte
+    el ajuste en una decisión defendible.
+
+    POR QUÉ UNA TABLA Y NO TRES
+    Los tres ámbitos —un límite, una constante del motor de cálculo, una regla—
+    se editan en la misma pantalla, se listan juntos y se restauran igual. Tres
+    tablas darían tres endpoints y tres formularios para lo mismo. El precio es
+    que cada fila usa solo las columnas de su ámbito, y por eso todas son
+    opcionales.
+    """
+    __tablename__ = "eam_lube_ajuste_norma"
+    __table_args__ = (
+        UniqueConstraint("ambito", "clave", name="uq_eam_lube_ajuste_norma"),
+    )
+    id = Column(Integer, primary_key=True, index=True)
+
+    # LIMITE  un umbral de un parámetro en una familia de compartimento.
+    # MOTOR   una constante del motor de cálculo: percentiles, saltos, desvíos.
+    # REGLA   una regla de diagnóstico: apagarla, reordenarla o reescribirla.
+    ambito = Column(String(20), nullable=False)
+
+    # Qué identifica lo ajustado dentro de su ámbito:
+    #   LIMITE → "MOT:agua"            familia de compartimento y parámetro
+    #   MOTOR  → "percentil_condena"   nombre de la constante
+    #   REGLA  → "AGUA"                código de la regla
+    clave = Column(String(80), nullable=False)
+
+    # ── Ámbito LIMITE ────────────────────────────────────────────────────────
+    precaucion = Column(Float, nullable=True)
+    condena    = Column(Float, nullable=True)
+
+    # ── Ámbito MOTOR ─────────────────────────────────────────────────────────
+    valor = Column(Float, nullable=True)
+
+    # ── Ámbito REGLA ─────────────────────────────────────────────────────────
+    # Apagar una regla no la borra: la saca de la evaluación y deja constancia
+    # de que se apagó y por qué.
+    activa    = Column(Boolean, nullable=True)
+    severidad = Column(String(20), nullable=True)
+    urgencia  = Column(Integer, nullable=True)
+    # El orden manda sobre el de referencia: es lo que decide qué regla gana
+    # cuando encajan varias.
+    orden     = Column(Integer, nullable=True)
+    lectura   = Column(Text, nullable=True)
+    accion    = Column(Text, nullable=True)
+
+    # ── Trazabilidad del ajuste ──────────────────────────────────────────────
+    motivo       = Column(Text, nullable=False)
+    ajustado_por = Column(String(120), nullable=True)

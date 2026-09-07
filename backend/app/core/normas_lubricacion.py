@@ -473,6 +473,11 @@ def referencia_viscosidad_100c(grado_sae: Optional[str]) -> Optional[float]:
 # calculan POR FAMILIA DE COMPARTIMENTO y cada muestra se juzga contra la suya.
 # ══════════════════════════════════════════════════════════════════════════════
 
+# A partir de qué correlación se da por cumplido en esta flota un eslabón de la
+# cadena causal. No es un valor de significancia estadística: es el punto donde
+# la relación es lo bastante fuerte como para actuar sobre ella.
+UMBRAL_CONFIRMACION = 0.4
+
 MINIMO_POBLACION_D7720 = 30
 PERCENTIL_PRECAUCION = 90.0
 PERCENTIL_CONDENA = 97.5
@@ -494,20 +499,30 @@ def percentil(valores: List[float], p: float) -> Optional[float]:
     return xs[bajo] * (1 - peso) + xs[alto] * peso
 
 
-def limites_estadisticos(poblacion: Dict[str, List[float]]) -> Dict[str, Dict[str, Any]]:
+def limites_estadisticos(poblacion: Dict[str, List[float]],
+                         criterio: Optional["Criterio"] = None,
+                         ) -> Dict[str, Dict[str, Any]]:
     """Los límites de alarma derivados de la propia flota, según ASTM D7720.
 
     Recibe, por código de parámetro, todos los valores medidos en equipos
     comparables. Devuelve solo los parámetros con población suficiente: es
     preferible no tener límite estadístico que tener uno inventado.
+
+    Los percentiles y la población mínima salen del criterio vigente, que puede
+    traer los ajustes de la empresa.
     """
+    criterio = criterio or CRITERIO_BASE
+    minimo = int(criterio.constante("minimo_poblacion"))
+    p_prec = criterio.constante("percentil_precaucion")
+    p_cond = criterio.constante("percentil_condena")
+
     salida: Dict[str, Dict[str, Any]] = {}
     for codigo, valores in poblacion.items():
         limpios = [v for v in valores if v is not None]
-        if len(limpios) < MINIMO_POBLACION_D7720:
+        if len(limpios) < minimo:
             continue
-        p90 = percentil(limpios, PERCENTIL_PRECAUCION)
-        p975 = percentil(limpios, PERCENTIL_CONDENA)
+        p90 = percentil(limpios, p_prec)
+        p975 = percentil(limpios, p_cond)
         if p90 is None or p975 is None or p975 <= 0:
             continue
         salida[codigo] = {
@@ -516,8 +531,8 @@ def limites_estadisticos(poblacion: Dict[str, List[float]]) -> Dict[str, Dict[st
             "criterio": "ASTM D7720", "naturaleza": "FLOTA",
             "n": len(limpios),
             "mediana": round(percentil(limpios, 50) or 0, 2),
-            "porque": f"Percentil {PERCENTIL_PRECAUCION:g} y "
-                      f"{PERCENTIL_CONDENA:g} de las {len(limpios)} "
+            "porque": f"Percentil {p_prec:g} y "
+                      f"{p_cond:g} de las {len(limpios)} "
                       f"mediciones de esta familia de compartimento. Para los "
                       f"metales de desgaste no hay tope universal: 50 ppm de "
                       f"hierro es rutina en un motor grande y alarma en una "
@@ -556,31 +571,38 @@ SUELO_SIGNIFICANCIA = {
 }
 
 
-def significativo(valor: float, unidad: Optional[str]) -> bool:
+def significativo(valor: float, unidad: Optional[str],
+                  criterio: Optional["Criterio"] = None) -> bool:
     """¿El valor está por encima del ruido del ensayo para su unidad?"""
-    return abs(valor) >= SUELO_SIGNIFICANCIA.get(unidad or "", 0.0)
+    return abs(valor) >= (criterio or CRITERIO_BASE).suelo(unidad)
 
 
 def evaluar_tendencia(anterior: Optional[float], actual: Optional[float],
-                      unidad: Optional[str]) -> Optional[Dict[str, Any]]:
+                      unidad: Optional[str],
+                      criterio: Optional["Criterio"] = None,
+                      ) -> Optional[Dict[str, Any]]:
     """Clasifica el salto entre dos muestras consecutivas.
 
     Devuelve `None` cuando no hay con qué: sin muestra anterior no hay
     tendencia, y decir «estable» sería una afirmación sin respaldo.
     """
+    criterio = criterio or CRITERIO_BASE
     if anterior is None or actual is None:
         return None
-    if not significativo(actual, unidad):
+    if not significativo(actual, unidad, criterio):
         return None
+    suelo = criterio.suelo(unidad)
     base = abs(anterior)
-    if base < (SUELO_SIGNIFICANCIA.get(unidad or "", 0.0) or 1e-9):
+    if base < (suelo or 1e-9):
         # De casi cero a un valor significativo: apareció algo que no estaba.
         return {"variacion": None, "estado": "PRECAUCION",
                 "lectura": "Apareció donde antes no se medía nada apreciable."}
     variacion = (actual - anterior) / base
-    if variacion >= SALTO_CONDENA:
+    # Las constantes se guardan en porcentaje porque así se escriben en el
+    # formulario; acá se vuelven fracción para comparar.
+    if variacion >= criterio.constante("salto_condena") / 100:
         estado = "CONDENA"
-    elif variacion >= SALTO_PRECAUCION:
+    elif variacion >= criterio.constante("salto_precaucion") / 100:
         estado = "PRECAUCION"
     else:
         return None
@@ -1065,6 +1087,7 @@ def evaluar_muestra(
     grado_sae: Optional[str] = None,
     meta_iso: Optional[str] = None,
     iso_medido: Optional[str] = None,
+    criterio: Optional["Criterio"] = None,
 ) -> Dict[str, Any]:
     """Evalúa una muestra contra los límites de norma y su propia tendencia.
 
@@ -1074,7 +1097,8 @@ def evaluar_muestra(
     poder mostrar en pantalla el hallazgo por parámetro y la conclusión como
     dos cosas distintas.
     """
-    base = limites_de(tipo_compartimento)
+    criterio = criterio or CRITERIO_BASE
+    base = criterio.limites(tipo_compartimento)
     estadisticos = estadisticos or {}
     anteriores = anteriores or {}
     hallazgos: Dict[str, Dict[str, Any]] = {}
@@ -1091,7 +1115,8 @@ def evaluar_muestra(
             limite = estadisticos.get(codigo)
 
         estado = _estado_contra(valor, limite) if limite else None
-        tendencia = evaluar_tendencia(anteriores.get(codigo), valor, unidad)
+        tendencia = evaluar_tendencia(anteriores.get(codigo), valor,
+                                      unidad, criterio)
 
         if estado is None and tendencia is None:
             continue
@@ -1123,8 +1148,10 @@ def evaluar_muestra(
     medido = valores.get("visc100")
     if referencia and medido is not None:
         rel = (medido - referencia) / referencia
-        estado = ("CONDENA" if abs(rel) >= DESVIO_VISCOSIDAD["condena"]
-                  else "PRECAUCION" if abs(rel) >= DESVIO_VISCOSIDAD["precaucion"]
+        d_prec = criterio.constante("desvio_viscosidad_precaucion") / 100
+        d_cond = criterio.constante("desvio_viscosidad_condena") / 100
+        estado = ("CONDENA" if abs(rel) >= d_cond
+                  else "PRECAUCION" if abs(rel) >= d_prec
                   else None)
         desvio_visc = {
             "medido": medido, "referencia": referencia,
@@ -1139,8 +1166,8 @@ def evaluar_muestra(
                 "valor": medido, "unidad": unidades.get("visc100"),
                 "estado": estado, "tendencia": None,
                 "limite": {
-                    "precaucion": round(referencia * 1.2, 2),
-                    "condena": round(referencia * 1.3, 2),
+                    "precaucion": round(referencia * (1 + d_prec), 2),
+                    "condena": round(referencia * (1 + d_cond), 2),
                     "direccion": "DESVIO", "metodo": "ASTM D445",
                     "criterio": "SAE J300 + ASTM D4378", "naturaleza": "NORMA",
                     "porque": f"El grado {grado_sae} tiene su banda de "
@@ -1206,7 +1233,8 @@ def _exceso_iso(medido: str, meta: str) -> Optional[int]:
 
 
 def diagnosticar(evaluacion: Dict[str, Any],
-                 post_reparacion: bool = False) -> Dict[str, Any]:
+                 post_reparacion: bool = False,
+                 criterio: Optional["Criterio"] = None) -> Dict[str, Any]:
     """Escoge la regla que explica la muestra.
 
     Gana la PRIMERA que encaje, no la que más parámetros toque. Las reglas
@@ -1214,6 +1242,8 @@ def diagnosticar(evaluacion: Dict[str, Any],
     todas las que encajan produce una recomendación que dice seis cosas y no
     manda hacer ninguna.
     """
+    criterio = criterio or CRITERIO_BASE
+    relacion_minima = criterio.constante("relacion_si_al_minima")
     hallazgos = evaluacion["hallazgos"]
     # «Fuera» es haber cruzado un límite. Una tendencia sola no cuenta como
     # fuera: es lo que dispara la regla de tendencia, que va aparte.
@@ -1223,7 +1253,7 @@ def diagnosticar(evaluacion: Dict[str, Any],
     n_desgaste = len(fuera & GRUPO_DESGASTE)
     relacion = evaluacion.get("relacion_si_al")
 
-    for regla in REGLAS:
+    for regla in criterio.reglas():
         exige = set(regla.get("exige", []))
         if exige and not exige <= fuera:
             continue
@@ -1247,10 +1277,10 @@ def diagnosticar(evaluacion: Dict[str, Any],
         # ninguna de las dos: se cae a una regla más genérica antes que
         # afirmar algo que el dato no sostiene.
         if regla.get("requiere_relacion_si_al"):
-            if relacion is None or relacion < RELACION_SI_AL_MINIMA:
+            if relacion is None or relacion < relacion_minima:
                 continue
         if regla["codigo"] == "SILICIO_SIN_ALUMINIO":
-            if relacion is None or relacion >= RELACION_SI_AL_MINIMA:
+            if relacion is None or relacion >= relacion_minima:
                 continue
         if regla.get("solo_tendencia"):
             if fuera or not con_tendencia:
@@ -1352,3 +1382,363 @@ def regresion(xs: List[float], ys: List[float]) -> Optional[Dict[str, Any]]:
         "r2": round(r * r, 4) if r is not None else None,
         "x_min": round(min(xs), 2), "x_max": round(max(xs), 2),
     }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# EL CRITERIO VIGENTE: la referencia con los ajustes de la empresa encima
+#
+# Todo lo de arriba es lo publicado. Nada de eso se toca desde la aplicación:
+# vive en el código, versionado y con su fuente. Lo que la empresa cambia se
+# guarda aparte, en `eam_lube_ajuste_norma`, y se resuelve acá.
+#
+# POR QUÉ LA CONFIGURACIÓN NO PUEDE BORRAR LA PROCEDENCIA
+# Todo el módulo se rehízo para poder decir de dónde sale cada número. Si al
+# cambiar un límite la pantalla siguiera diciendo «Tormos», la configurabilidad
+# habría deshecho justamente eso: un valor de la casa presentado como norma
+# internacional es peor que no citar nada, porque es una cita falsa.
+#
+# Por eso un límite ajustado cambia de naturaleza a EMPRESA y viaja con el
+# valor de referencia y el motivo del cambio al lado. Ajustar es legítimo —el
+# fabricante del motor manda sobre la literatura, y un laboratorio con otro
+# método tiene otros umbrales—; disimularlo no.
+# ══════════════════════════════════════════════════════════════════════════════
+
+NATURALEZA["EMPRESA"] = ("Umbral ajustado por esta empresa. Reemplaza al de "
+                         "referencia, que se conserva a la vista para poder "
+                         "compararlos.")
+
+# Las constantes del motor de cálculo, con lo que hacen y qué se gana o se
+# pierde al moverlas. Los valores van en la unidad en que se leen —un
+# porcentaje es 60 y no 0,60— porque el formulario los muestra tal cual, y
+# pedirle a alguien que escriba 0,60 para decir «60 %» produce ceros de más.
+CONSTANTES: Dict[str, Dict[str, Any]] = {
+    "percentil_precaucion": {
+        "valor": PERCENTIL_PRECAUCION, "minimo": 50.0, "maximo": 99.0,
+        "unidad": "percentil",
+        "grupo": "Límites de la propia flota (ASTM D7720)",
+        "nombre": "Percentil de precaución",
+        "fuentes": ["ASTM D7720"],
+        "que_hace": "Por encima de este percentil de la población, un metal de "
+                    "desgaste entra en precaución.",
+        "efecto": "Bajarlo alarma antes y produce más avisos; subirlo deja "
+                  "pasar desgastes incipientes. El 90 es el punto donde una de "
+                  "cada diez muestras de equipos comparables queda marcada.",
+    },
+    "percentil_condena": {
+        "valor": PERCENTIL_CONDENA, "minimo": 80.0, "maximo": 99.9,
+        "unidad": "percentil",
+        "grupo": "Límites de la propia flota (ASTM D7720)",
+        "nombre": "Percentil de condena",
+        "fuentes": ["ASTM D7720"],
+        "que_hace": "Por encima de este percentil, el metal de desgaste se "
+                    "considera condenatorio.",
+        "efecto": "Tiene que quedar por encima del de precaución. Acercarlos "
+                  "borra el escalón entre «vigilar» y «actuar».",
+    },
+    "minimo_poblacion": {
+        "valor": float(MINIMO_POBLACION_D7720), "minimo": 10.0, "maximo": 500.0,
+        "unidad": "mediciones",
+        "grupo": "Límites de la propia flota (ASTM D7720)",
+        "nombre": "Población mínima para calcular un límite",
+        "fuentes": ["ASTM D7720"],
+        "que_hace": "Con menos mediciones de las que diga acá, el parámetro se "
+                    "queda sin límite estadístico y solo se juzga por tendencia.",
+        "efecto": "Bajarlo da límites en flotas pequeñas, pero un percentil "
+                  "97,5 sobre doce puntos es el punto más alto de doce, y "
+                  "llamarlo «límite» le da una autoridad que no tiene.",
+    },
+    "salto_precaucion": {
+        "valor": SALTO_PRECAUCION * 100, "minimo": 10.0, "maximo": 500.0,
+        "unidad": "%",
+        "grupo": "Tendencia (ASTM D7669)",
+        "nombre": "Salto que enciende precaución",
+        "fuentes": ["ASTM D7669"],
+        "que_hace": "Subida respecto de la muestra anterior a partir de la "
+                    "cual se marca la tendencia, aunque el valor siga dentro "
+                    "de los límites.",
+        "efecto": "Es la señal temprana. Subirlo mucho equivale a esperar a "
+                  "que el parámetro cruce el tope, que es esperar a que el "
+                  "daño ya esté hecho.",
+    },
+    "salto_condena": {
+        "valor": SALTO_CONDENA * 100, "minimo": 50.0, "maximo": 2000.0,
+        "unidad": "%",
+        "grupo": "Tendencia (ASTM D7669)",
+        "nombre": "Salto que enciende condena",
+        "fuentes": ["ASTM D7669"],
+        "que_hace": "Subida respecto de la muestra anterior que se considera "
+                    "grave por sí sola.",
+        "efecto": "150 % es «se multiplicó por dos y medio». Con intervalos de "
+                  "muestreo largos conviene subirlo; con intervalos cortos, "
+                  "bajarlo.",
+    },
+    "desvio_viscosidad_precaucion": {
+        "valor": DESVIO_VISCOSIDAD["precaucion"] * 100, "minimo": 5.0,
+        "maximo": 60.0, "unidad": "%",
+        "grupo": "Viscosidad (SAE J300 + ASTM D4378)",
+        "nombre": "Desviación de precaución",
+        "fuentes": ["SAE J300", "ASTM D4378"],
+        "que_hace": "Cuánto puede alejarse la viscosidad a 100 °C del centro "
+                    "de la banda del grado cargado antes de marcarse.",
+        "efecto": "Los fabricantes de motor suelen usar ±20 %. Con aceites "
+                  "multigrado de alto índice de viscosidad puede apretarse.",
+    },
+    "desvio_viscosidad_condena": {
+        "valor": DESVIO_VISCOSIDAD["condena"] * 100, "minimo": 10.0,
+        "maximo": 80.0, "unidad": "%",
+        "grupo": "Viscosidad (SAE J300 + ASTM D4378)",
+        "nombre": "Desviación de condena",
+        "fuentes": ["SAE J300", "ASTM D4378"],
+        "que_hace": "Desviación a partir de la cual el aceite se considera "
+                    "fuera del grado que le corresponde.",
+        "efecto": "Una desviación del 30 % ya suele significar que la película "
+                  "no es la que el motor espera.",
+    },
+    "relacion_si_al_minima": {
+        "valor": RELACION_SI_AL_MINIMA, "minimo": 0.01, "maximo": 1.0,
+        "unidad": "Al/Si",
+        "grupo": "Lectura combinada de elementos",
+        "nombre": "Relación aluminio/silicio que confirma polvo",
+        "fuentes": ["ICML"],
+        "que_hace": "Con el silicio alto, si el aluminio acompaña por encima "
+                    "de esta proporción se diagnostica polvo; por debajo, se "
+                    "sospecha de otra fuente de silicio.",
+        "efecto": "Depende del polvo de la zona. Subirlo exige más aluminio "
+                  "para dar el polvo por confirmado y manda más muestras a "
+                  "«silicio que probablemente no es polvo».",
+    },
+    "dias_asentamiento": {
+        "valor": float(DIAS_ASENTAMIENTO), "minimo": 0.0, "maximo": 365.0,
+        "unidad": "días",
+        "grupo": "Lectura combinada de elementos",
+        "nombre": "Ventana de asentamiento tras una intervención",
+        "fuentes": ["ICML", "ASTM D7669"],
+        "que_hace": "Durante estos días después de una reparación mayor, el "
+                    "desgaste alto se lee como rodaje y no como avería.",
+        "efecto": "Ponerlo en cero apaga la excepción y manda a desarmar "
+                  "motores que se están asentando con normalidad. Estirarlo "
+                  "de más esconde una falla real detrás del rodaje.",
+    },
+    "umbral_confirmacion": {
+        "valor": UMBRAL_CONFIRMACION, "minimo": 0.1, "maximo": 0.95,
+        "unidad": "r",
+        "grupo": "Correlación",
+        "nombre": "Correlación que confirma un mecanismo",
+        "fuentes": [],
+        "que_hace": "A partir de este coeficiente de Pearson se da por "
+                    "cumplido en esta flota un eslabón de la cadena causal.",
+        "efecto": "No es un valor de significancia estadística: es el punto "
+                  "donde la relación es lo bastante fuerte como para que valga "
+                  "la pena actuar sobre ella.",
+    },
+    "suelo_ppm": {
+        "valor": SUELO_SIGNIFICANCIA["ppm"], "minimo": 0.0, "maximo": 100.0,
+        "unidad": "ppm",
+        "grupo": "Ruido del laboratorio",
+        "nombre": "Suelo de significancia en ppm",
+        "fuentes": [],
+        "que_hace": "Por debajo de este valor no se evalúa la tendencia: pasar "
+                    "de 0,4 a 1,2 ppm es «se triplicó» y es ruido del ensayo.",
+        "efecto": "Depende de la repetibilidad del laboratorio. Bajarlo llena "
+                  "el informe de tendencias que no significan nada.",
+    },
+    "suelo_pct": {
+        "valor": SUELO_SIGNIFICANCIA["%"], "minimo": 0.0, "maximo": 5.0,
+        "unidad": "%",
+        "grupo": "Ruido del laboratorio",
+        "nombre": "Suelo de significancia en porcentaje",
+        "fuentes": [],
+        "que_hace": "El mismo suelo, para agua, combustible y hollín.",
+        "efecto": "Ver el suelo en ppm.",
+    },
+    "suelo_mgkoh": {
+        "valor": SUELO_SIGNIFICANCIA["mgKOH/g"], "minimo": 0.0, "maximo": 5.0,
+        "unidad": "mgKOH/g",
+        "grupo": "Ruido del laboratorio",
+        "nombre": "Suelo de significancia en mgKOH/g",
+        "fuentes": [],
+        "que_hace": "El mismo suelo, para TBN y TAN.",
+        "efecto": "Ver el suelo en ppm.",
+    },
+    "suelo_abs": {
+        "valor": SUELO_SIGNIFICANCIA["Abs/cm"], "minimo": 0.0, "maximo": 30.0,
+        "unidad": "Abs/cm",
+        "grupo": "Ruido del laboratorio",
+        "nombre": "Suelo de significancia en Abs/cm",
+        "fuentes": ["ASTM E2412"],
+        "que_hace": "El mismo suelo, para oxidación, nitración y sulfatación.",
+        "efecto": "Ver el suelo en ppm.",
+    },
+    "suelo_cst": {
+        "valor": SUELO_SIGNIFICANCIA["cSt"], "minimo": 0.0, "maximo": 20.0,
+        "unidad": "cSt",
+        "grupo": "Ruido del laboratorio",
+        "nombre": "Suelo de significancia en cSt",
+        "fuentes": ["ASTM D445"],
+        "que_hace": "El mismo suelo, para la viscosidad.",
+        "efecto": "Ver el suelo en ppm.",
+    },
+}
+
+# Qué familia de compartimento usa qué tablas de referencia. Se declara acá para
+# que la pantalla de configuración ofrezca las mismas opciones que aplica el
+# evaluador, y no una lista escrita a mano que se desincronice.
+TABLAS_POR_FAMILIA: Dict[str, Tuple[Dict[str, Any], ...]] = {
+    "HID": (LIMITES_MOTOR, LIMITES_HIDRAULICO),
+}
+FAMILIA_POR_DEFECTO: Tuple[Dict[str, Any], ...] = (LIMITES_MOTOR,)
+
+# Con qué constante se compara el suelo de significancia de cada unidad.
+_SUELO_DE_UNIDAD = {"ppm": "suelo_ppm", "%": "suelo_pct",
+                    "mgKOH/g": "suelo_mgkoh", "Abs/cm": "suelo_abs",
+                    "cSt": "suelo_cst"}
+
+
+class Criterio:
+    """El criterio con el que se juzga: referencia + ajustes de la empresa.
+
+    Se construye una vez por consulta y se pasa a los evaluadores. Antes esos
+    leían las constantes del módulo directamente, que estaba bien mientras el
+    criterio fuera uno solo para todos; con ajustes por empresa habría hecho
+    falta estado global por petición, y en un servidor con varios trabajadores
+    eso es una carrera esperando a pasar.
+    """
+
+    def __init__(self, ajustes: Optional[List[Dict[str, Any]]] = None):
+        self._por_ambito: Dict[str, Dict[str, Dict[str, Any]]] = {
+            "LIMITE": {}, "MOTOR": {}, "REGLA": {}}
+        for a in (ajustes or []):
+            ambito = a.get("ambito")
+            if ambito in self._por_ambito:
+                self._por_ambito[ambito][a.get("clave", "")] = a
+
+    # ── Constantes ───────────────────────────────────────────────────────────
+
+    def constante(self, nombre: str) -> float:
+        """El valor vigente de una constante, en su unidad de presentación."""
+        meta = CONSTANTES[nombre]
+        ajuste = self._por_ambito["MOTOR"].get(nombre)
+        if ajuste and ajuste.get("valor") is not None:
+            return float(ajuste["valor"])
+        return float(meta["valor"])
+
+    def constantes_vigentes(self) -> List[Dict[str, Any]]:
+        """Todas, con su valor de referencia al lado y si están ajustadas."""
+        salida = []
+        for nombre, meta in CONSTANTES.items():
+            ajuste = self._por_ambito["MOTOR"].get(nombre)
+            salida.append({
+                **meta,
+                "clave": nombre,
+                "valor": self.constante(nombre),
+                "valor_referencia": meta["valor"],
+                "ajustado": bool(ajuste and ajuste.get("valor") is not None),
+                "motivo": ajuste.get("motivo") if ajuste else None,
+                "ajustado_por": ajuste.get("ajustado_por") if ajuste else None,
+            })
+        return salida
+
+    def suelo(self, unidad: Optional[str]) -> float:
+        clave = _SUELO_DE_UNIDAD.get(unidad or "")
+        return self.constante(clave) if clave else 0.0
+
+    # ── Límites ──────────────────────────────────────────────────────────────
+
+    def limites(self, tipo_codigo: Optional[str]) -> Dict[str, Dict[str, Any]]:
+        """Los límites vigentes para una familia de compartimento.
+
+        Un límite ajustado cambia de naturaleza a EMPRESA y conserva el valor
+        publicado en `referencia`, para que la pantalla pueda mostrar los dos.
+        """
+        tablas = TABLAS_POR_FAMILIA.get((tipo_codigo or "").upper(),
+                                        FAMILIA_POR_DEFECTO)
+        base: Dict[str, Dict[str, Any]] = {}
+        for tabla in tablas:
+            base.update(tabla)
+
+        salida: Dict[str, Dict[str, Any]] = {}
+        for codigo, limite in base.items():
+            ajuste = self.ajuste_de_limite(tipo_codigo, codigo)
+            if not ajuste:
+                salida[codigo] = limite
+                continue
+            # Un ajuste puede tocar solo uno de los dos umbrales; el otro sigue
+            # siendo el de referencia.
+            nuevo = dict(limite)
+            for campo in ("precaucion", "condena"):
+                if ajuste.get(campo) is not None:
+                    nuevo[campo] = float(ajuste[campo])
+            nuevo["naturaleza"] = "EMPRESA"
+            nuevo["criterio"] = "Ajuste de la empresa"
+            nuevo["referencia"] = {"precaucion": limite.get("precaucion"),
+                                   "condena": limite.get("condena"),
+                                   "criterio": limite.get("criterio"),
+                                   "naturaleza": limite.get("naturaleza")}
+            nuevo["motivo_ajuste"] = ajuste.get("motivo")
+            nuevo["ajustado_por"] = ajuste.get("ajustado_por")
+            salida[codigo] = nuevo
+        return salida
+
+    def ajuste_de_limite(self, tipo_codigo: Optional[str], codigo: str
+                         ) -> Optional[Dict[str, Any]]:
+        return self._por_ambito["LIMITE"].get(
+            f"{(tipo_codigo or '*').upper()}:{codigo}")
+
+    # ── Reglas ───────────────────────────────────────────────────────────────
+
+    def reglas(self) -> List[Dict[str, Any]]:
+        """Las reglas ACTIVAS, en el orden vigente. Es lo que evalúa el motor.
+
+        El orden importa más que cualquier otro ajuste: es lo que decide qué
+        regla gana cuando encajan varias. A igual orden manda el de referencia,
+        así reordenar una sola no baraja las demás.
+        """
+        return [r for r in self.reglas_vigentes() if r["activa"]]
+
+    def reglas_vigentes(self) -> List[Dict[str, Any]]:
+        """Todas, incluidas las apagadas, para poder listarlas y reactivarlas."""
+        salida = []
+        for i, regla in enumerate(REGLAS):
+            ajuste = self._por_ambito["REGLA"].get(regla["codigo"])
+            r = dict(regla)
+            r["orden_referencia"] = i
+            r["orden_explicito"] = bool(ajuste and ajuste.get("orden") is not None)
+            r["orden"] = (int(ajuste["orden"])
+                          if r["orden_explicito"] else i)
+            r["activa"] = not (ajuste and ajuste.get("activa") is False)
+            r["ajustado"] = bool(ajuste)
+            r["referencia"] = {"severidad": regla["severidad"],
+                               "urgencia": regla["urgencia"],
+                               "lectura": regla["lectura"],
+                               "accion": regla["accion"],
+                               "orden": i}
+            if ajuste:
+                for campo in ("severidad", "urgencia", "lectura", "accion"):
+                    if ajuste.get(campo) not in (None, ""):
+                        r[campo] = ajuste[campo]
+                r["motivo_ajuste"] = ajuste.get("motivo")
+                r["ajustado_por"] = ajuste.get("ajustado_por")
+            salida.append(r)
+        # A igual número de orden gana la que se ordenó a propósito. Sin ese
+        # desempate, poner una regla en la posición 0 no la subiría: perdería
+        # contra la que ya estaba ahí por referencia, y reordenar —que es el
+        # ajuste que más cambia el diagnóstico— no haría nada.
+        salida.sort(key=lambda r: (r["orden"],
+                                   0 if r["orden_explicito"] else 1,
+                                   r["orden_referencia"]))
+        return salida
+
+    # ── Estado general ───────────────────────────────────────────────────────
+
+    @property
+    def hay_ajustes(self) -> bool:
+        return any(self._por_ambito.values())
+
+    def resumen_ajustes(self) -> Dict[str, int]:
+        return {a: len(v) for a, v in self._por_ambito.items()}
+
+
+# El criterio sin ajustes. Sirve de valor por defecto para poder seguir llamando
+# a los evaluadores sin pasar nada —en una prueba, por ejemplo— y para no
+# construir un objeto en cada llamada cuando la empresa no ha tocado nada.
+CRITERIO_BASE = Criterio()
