@@ -491,6 +491,7 @@ const EAM_NAV_ITEMS: NavItem[] = [
   { label: 'nav.planesMant',     icon: <EAMPlanesIconEAM        fontSize="small" />, path: '/eam/planes',          section: 'section.mantenimiento' },
   { label: 'nav.checklists',     icon: <EAMChecklistIconEAM     fontSize="small" />, path: '/eam/checklists',      section: 'section.mantenimiento' },
   { label: 'nav.lubricacion',    icon: <EAMLubricacionIconEAM   fontSize="small" />, path: '/eam/lubricacion',     section: 'section.lubricacion' },
+  { label: 'nav.lubeInterpretacion', icon: <EAMLubricacionIconEAM fontSize="small" />, path: '/eam/lubricacion/reportes', section: 'section.lubricacion' },
   { label: 'nav.neumaticos',     icon: <EAMNeumaticosIconEAM    fontSize="small" />, path: '/eam/neumaticos',      section: 'section.lubricacion' },
   { label: 'nav.combustible',    icon: <EAMCombustibleIconEAM   fontSize="small" />, path: '/eam/combustible',     section: 'section.lubricacion' },
   { label: 'nav.inventario',     icon: <EAMInventarioIconEAM    fontSize="small" />, path: '/eam/inventario',      section: 'section.inventario' },

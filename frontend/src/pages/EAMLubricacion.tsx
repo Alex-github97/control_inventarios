@@ -34,10 +34,6 @@ import {
 
 
 import { mensajeDeError } from '@/utils/errorApi'
-const pesos = (v?: number | null) =>
-  v == null ? '—' : new Intl.NumberFormat('es-CO', {
-    style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v)
-
 const fecha = (v?: string | null) =>
   v ? new Date(v).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
 
@@ -84,42 +80,6 @@ function VidaCarga({ actual, recomendada, unidad }: {
   )
 }
 
-/** Ranking horizontal: con pocas categorías se lee mejor que una torta. */
-function Ranking({ titulo, ayuda, filas, campo = 'cantidad', color, formato }: {
-  titulo: string; ayuda: string; filas: any[]; campo?: string; color: string
-  formato?: (f: any) => string
-}) {
-  const tope = Math.max(1, ...filas.map(f => f[campo] ?? 0))
-  return (
-    <Card sx={{ borderRadius: 3, p: 2.5, height: '100%' }}>
-      <Typography variant="subtitle2" fontWeight={800}>{titulo}</Typography>
-      <Typography variant="caption" color="text.secondary">{ayuda}</Typography>
-      {filas.length === 0 ? (
-        <Typography variant="body2" sx={{ py: 3, textAlign: 'center', color: PALETA.acero }}>
-          Sin datos todavía
-        </Typography>
-      ) : (
-        <Stack spacing={1.25} mt={2}>
-          {filas.map(f => (
-            <Box key={f.etiqueta}>
-              <Stack direction="row" alignItems="baseline" spacing={1}>
-                <Typography variant="caption" sx={{ flex: 1, fontWeight: 600 }}>{f.etiqueta}</Typography>
-                <Typography variant="caption" sx={{ fontWeight: 800 }}>
-                  {formato ? formato(f) : f[campo]}
-                </Typography>
-              </Stack>
-              <Box sx={{
-                mt: 0.4, height: 7, borderRadius: 99, bgcolor: color,
-                width: `${((f[campo] ?? 0) / tope) * 100}%`, minWidth: 4,
-              }} />
-            </Box>
-          ))}
-        </Stack>
-      )}
-    </Card>
-  )
-}
-
 export default function EAMLubricacion() {
   const qc = useQueryClient()
   const navigate = useNavigate()
@@ -138,9 +98,6 @@ export default function EAMLubricacion() {
   const { data: pendientes = [] } = useQuery({
     queryKey: ['lube-pendientes'], queryFn: () => lubeApi.pendientes(),
   })
-  const { data: analitica } = useQuery({
-    queryKey: ['lube-analitica'], queryFn: () => lubeApi.analitica(),
-  })
 
   const filtrados = useMemo(() => compartimentos.filter(c =>
     !busqueda || `${c.activo_codigo} ${c.nombre} ${c.tipo_compartimento} ${c.producto_actual}`
@@ -152,7 +109,6 @@ export default function EAMLubricacion() {
     qc.invalidateQueries({ queryKey: ['lube-compartimentos'] })
     qc.invalidateQueries({ queryKey: ['lube-muestras'] })
     qc.invalidateQueries({ queryKey: ['lube-pendientes'] })
-    qc.invalidateQueries({ queryKey: ['lube-analitica'] })
   }
 
   const sinConfigurar = compartimentos.length === 0
@@ -167,6 +123,11 @@ export default function EAMLubricacion() {
               Análisis de aceite por compartimento, con la vida y el costo de cada carga
             </Typography>
           </Box>
+          <Button startIcon={<Insights />} variant="contained"
+            onClick={() => navigate('/eam/lubricacion/reportes')}
+            sx={{ textTransform: 'none' }}>
+            Interpretación y tablero
+          </Button>
           <Button startIcon={<Settings />} variant="outlined"
             onClick={() => navigate('/eam/config?seccion=lubricacion')}
             sx={{ textTransform: 'none' }}>
@@ -197,7 +158,6 @@ export default function EAMLubricacion() {
           <Tab label={`Compartimentos (${compartimentos.length})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
           <Tab label={`Muestras (${muestras.length})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
           <Tab label={`Por muestrear (${pendientes.length})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
-          <Tab label="Tablero" sx={{ textTransform: 'none', fontWeight: 700 }} />
         </Tabs>
 
         {/* ── Compartimentos ─────────────────────────────────────────────────── */}
@@ -385,77 +345,10 @@ export default function EAMLubricacion() {
           </Box>
         )}
 
-        {/* ── Tablero ────────────────────────────────────────────────────────── */}
-        {tab === 3 && analitica && (
-          <Box>
-            <Card sx={{ borderRadius: 3, p: 2.5, mb: 2 }}>
-              <Stack direction="row" spacing={3} flexWrap="wrap" useFlexGap>
-                <Box sx={{ flex: 1, minWidth: 130 }}>
-                  <Typography variant="caption" color="text.secondary">Muestras</Typography>
-                  <Typography variant="h6" fontWeight={800}>{analitica.total_muestras}</Typography>
-                </Box>
-                <Divider orientation="vertical" flexItem />
-                <Box sx={{ flex: 1, minWidth: 130 }}>
-                  <Typography variant="caption" color="text.secondary">Críticas</Typography>
-                  <Typography variant="h6" fontWeight={800} sx={{
-                    color: analitica.criticas ? ESTADO.peligro : ESTADO.exito }}>
-                    {analitica.criticas}
-                  </Typography>
-                </Box>
-                <Divider orientation="vertical" flexItem />
-                <Box sx={{ flex: 1, minWidth: 170 }}>
-                  <Typography variant="caption" color="text.secondary">Acierto del diagnóstico</Typography>
-                  <Typography variant="h6" fontWeight={800}>
-                    {analitica.diagnostico.acierto_pct != null
-                      ? `${analitica.diagnostico.acierto_pct}%` : '—'}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {analitica.diagnostico.confirmados} confirmados · {analitica.diagnostico.desmentidos} desmentidos
-                  </Typography>
-                </Box>
-                <Divider orientation="vertical" flexItem />
-                <Box sx={{ flex: 1, minWidth: 170 }}>
-                  <Typography variant="caption" color="text.secondary">Sin puerto de muestreo</Typography>
-                  <Typography variant="h6" fontWeight={800} sx={{
-                    color: analitica.sin_puerto_muestreo ? ESTADO.alerta : ESTADO.exito }}>
-                    {analitica.sin_puerto_muestreo} <Typography component="span" variant="caption"
-                      color="text.secondary">de {analitica.compartimentos}</Typography>
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    condiciona la calidad del dato
-                  </Typography>
-                </Box>
-              </Stack>
-            </Card>
-
-            {analitica.drenajes.some(d => d.evitable) && (
-              <Alert severity="warning" sx={{ mb: 2 }}>
-                Hay cargas drenadas por motivos marcados como evitables. Esos cambios son
-                oportunidad perdida: el aceite salió antes de tiempo por algo que se podía
-                prevenir.
-              </Alert>
-            )}
-
-            <Box sx={{ display: 'grid', gap: 2, mb: 2,
-              gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
-              <Ranking titulo="Parámetros que más disparan"
-                ayuda="Qué está fallando, agrupado" filas={analitica.parametros}
-                color={ESTADO.peligro} />
-              <Ranking titulo="Motivos de drenaje"
-                ayuda="Por qué se saca el aceite, y cuánto rindió"
-                filas={analitica.drenajes} color={ESTADO.alerta}
-                formato={f => `${f.cantidad} · ${f.vida_promedio ?? '—'} prom.`} />
-              <Ranking titulo="Por marca"
-                ayuda="Qué flota concentra los análisis críticos" filas={analitica.por_marca}
-                color={PALETA.grafito}
-                formato={f => `${f.cantidad}${f.criticas ? ` · ${f.criticas} críticas` : ''}`} />
-              <Ranking titulo="Costo por unidad de vida"
-                ayuda="Aceite, filtro, mano de obra y rellenos, por hora o kilómetro lubricado"
-                filas={analitica.costos} campo="costo_por_unidad" color={COLOR_MODULO}
-                formato={f => `${pesos(f.costo_por_unidad)} / ${(f.unidad ?? '').toLowerCase()}`} />
-            </Box>
-          </Box>
-        )}
+        {/* El tablero se mudó a «Interpretación de muestras de aceite», con el
+            resto del análisis y con filtro de flota. Acá estaba fuera de lugar:
+            esta pantalla es para registrar cargas y muestras, y un tablero
+            entre las pestañas de registro obliga a irse del trabajo y volver. */}
 
         {verMuestra && (
           <DetalleMuestra id={verMuestra} onCerrar={() => setVerMuestra(null)} onCambio={refrescar} />

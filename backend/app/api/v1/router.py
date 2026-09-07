@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
     auth, usuarios, estibas, ubicaciones, proveedores,
-    vehiculos, manifiestos, movimientos, dashboard, alertas, danos, tarifax, mantenimiento, consultas, roles, fletes, flota, locative, wms, hcm, tms, dms, qms, grc, lms, crm, eam, mes, aps, erp, scan_sessions, scm, sst, lubricacion, lubricacion_gestion, lubricacion_operacion, lubricacion_analitica, ags, catalogos, plataforma, plataforma_comercial, plataforma_contable, eam_importar, eam_config, eam_dashboard, checklists, checklists_ejecucion, combustible, inventario, eam_confiabilidad, eam_reportes, eam_adjuntos, eam_causa_raiz, mes_flujo, mes_planta, soporte, soporte_agil, plataforma_equipo, landing, gestion, gestion_incidencias, gestion_consultas, gestion_agil, gestion_pizarras, gestion_config, gestion_formulario, erp_contable, erp_gestion
+    vehiculos, manifiestos, movimientos, dashboard, alertas, danos, tarifax, mantenimiento, consultas, roles, fletes, flota, locative, wms, hcm, tms, dms, qms, grc, lms, crm, eam, mes, aps, erp, scan_sessions, scm, sst, lubricacion, lubricacion_gestion, lubricacion_operacion, lubricacion_analitica, lubricacion_interpretacion, lubricacion_flota, ags, catalogos, plataforma, plataforma_comercial, plataforma_contable, eam_importar, eam_config, eam_dashboard, checklists, checklists_ejecucion, combustible, inventario, eam_confiabilidad, eam_reportes, eam_adjuntos, eam_causa_raiz, mes_flujo, mes_planta, soporte, soporte_agil, plataforma_equipo, landing, gestion, gestion_incidencias, gestion_consultas, gestion_agil, gestion_pizarras, gestion_config, gestion_formulario, erp_contable, erp_gestion
 )
 
 api_router = APIRouter()
@@ -93,5 +93,7 @@ api_router.include_router(lubricacion.router)
 api_router.include_router(lubricacion_gestion.router)
 api_router.include_router(lubricacion_operacion.router)
 api_router.include_router(lubricacion_analitica.router)
+api_router.include_router(lubricacion_interpretacion.router)
+api_router.include_router(lubricacion_flota.router)
 api_router.include_router(ags.router)
 api_router.include_router(catalogos.router)
