@@ -19,6 +19,7 @@ from app.infrastructure.models.qms import (
     QMSAuditoriaHallazgo, QMSCAPA, QMSCAPATarea, QMSRiesgo,
     QMSQueja, QMSEvaluacionProveedor, QMSCambio, QMSMejora,
     QMSEncuesta, QMSEncuestaRespuesta, QMSCompetenciaProceso, QMSKPIDiario,
+    QMSCertificacion, QMSParametro,
     EstadoAuditoriaQMSEnum, EstadoCAPAQMSEnum, EstadoHallazgoQMSEnum,
     EstadoMejoraQMSEnum, EstadoNCQMSEnum, PrioridadRiesgoQMSEnum,
 )
@@ -1800,18 +1801,51 @@ async def registrar_respuesta_encuesta(
         raise HTTPException(status_code=400, detail="La encuesta no está activa")
     payload = data.model_dump()
     payload["encuesta_id"] = enc_id
+    if payload.get("nps_valor") is not None and not 0 <= payload["nps_valor"] <= 10:
+        raise HTTPException(status_code=422, detail="El NPS va de 0 a 10")
+    if payload.get("csat_valor") is not None and not 1 <= payload["csat_valor"] <= 5:
+        raise HTTPException(status_code=422, detail="El CSAT va de 1 a 5")
     item = QMSEncuestaRespuesta(**payload)
     db.add(item)
+    await db.flush()
+    await _recalcular_encuesta(db, enc)
     await db.commit()
     await db.refresh(item)
     return item
+
+
+async def _recalcular_encuesta(db: AsyncSession, enc: QMSEncuesta) -> None:
+    """Total, NPS y CSAT de la encuesta, sacados de sus respuestas.
+
+    Las tres columnas existían y nadie las escribía: la encuesta decía cero
+    respuestas aunque las tuviera, y el NPS del tablero de calidad —que promedia
+    `nps_score`— salía siempre en cero. Se recalculan desde las respuestas en
+    vez de acumularse, así que no pueden desviarse de ellas.
+
+    NPS es el estándar: % de promotores (9-10) menos % de detractores (0-6),
+    sobre quienes contestaron esa pregunta. CSAT es el % de satisfechos (4-5).
+    """
+    r = await db.execute(
+        select(
+            func.count(QMSEncuestaRespuesta.id),
+            func.count(QMSEncuestaRespuesta.nps_valor),
+            func.count().filter(QMSEncuestaRespuesta.nps_valor >= 9),
+            func.count().filter(QMSEncuestaRespuesta.nps_valor <= 6),
+            func.count(QMSEncuestaRespuesta.csat_valor),
+            func.count().filter(QMSEncuestaRespuesta.csat_valor >= 4),
+        ).where(QMSEncuestaRespuesta.encuesta_id == enc.id))
+    total, con_nps, promotores, detractores, con_csat, satisfechos = r.one()
+    enc.total_respuestas = total
+    enc.nps_score = (round((promotores - detractores) * 100.0 / con_nps, 2)
+                     if con_nps else None)
+    enc.csat_score = round(satisfechos * 100.0 / con_csat, 2) if con_csat else None
 
 
 @router.get("/encuestas/{enc_id}/respuestas", response_model=List[QMSEncuestaRespuestaResponse])
 async def listar_respuestas_encuesta(
     enc_id: int,
     skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(500, ge=1, le=1000),
     db: AsyncSession = Depends(get_db),
     _: Usuario = Depends(get_current_user),
 ):
@@ -1994,3 +2028,176 @@ async def calcular_kpi_diario(
         await db.commit()
         await db.refresh(item)
         return item
+
+
+# ===========================================================================
+# CERTIFICACIONES Y UMBRALES (configuración del módulo)
+# ===========================================================================
+
+# Días antes del vencimiento en que una certificación pasa a «por vencer». Una
+# recertificación se agenda con meses de anticipación; noventa días es el
+# margen que dan los organismos para programar la auditoría.
+DIAS_POR_VENCER_CERTIFICACION = 90
+
+
+class CertificacionIn(BaseModel):
+    norma: str
+    titulo: Optional[str] = None
+    certificadora: Optional[str] = None
+    numero_certificado: Optional[str] = None
+    fecha_otorgamiento: Optional[date] = None
+    fecha_vencimiento: Optional[date] = None
+    alcance: Optional[str] = None
+    en_implementacion: bool = False
+
+
+def _estado_certificacion(c: QMSCertificacion, hoy: date) -> str:
+    if c.en_implementacion:
+        return "EN_IMPLEMENTACION"
+    if c.fecha_vencimiento is None:
+        return "VIGENTE"
+    dias = (c.fecha_vencimiento.date() - hoy).days
+    if dias < 0:
+        return "VENCIDA"
+    return "POR_VENCER" if dias <= DIAS_POR_VENCER_CERTIFICACION else "VIGENTE"
+
+
+def _certificacion_dict(c: QMSCertificacion) -> dict:
+    hoy = date.today()
+    return {
+        "id": c.id, "norma": c.norma, "titulo": c.titulo,
+        "certificadora": c.certificadora, "numero_certificado": c.numero_certificado,
+        "fecha_otorgamiento": c.fecha_otorgamiento.date().isoformat() if c.fecha_otorgamiento else None,
+        "fecha_vencimiento": c.fecha_vencimiento.date().isoformat() if c.fecha_vencimiento else None,
+        "alcance": c.alcance, "en_implementacion": bool(c.en_implementacion),
+        "estado": _estado_certificacion(c, hoy),
+        "dias_para_vencer": ((c.fecha_vencimiento.date() - hoy).days
+                             if c.fecha_vencimiento and not c.en_implementacion else None),
+    }
+
+
+def _validar_certificacion(data: CertificacionIn) -> dict:
+    if not data.norma.strip():
+        raise HTTPException(status_code=422, detail="Falta la norma")
+    if (data.fecha_otorgamiento and data.fecha_vencimiento
+            and data.fecha_vencimiento < data.fecha_otorgamiento):
+        raise HTTPException(status_code=422,
+                            detail="La certificación no puede vencer antes de otorgarse")
+    payload = data.model_dump()
+    payload["norma"] = data.norma.strip()
+    for campo in ("fecha_otorgamiento", "fecha_vencimiento"):
+        v = payload[campo]
+        payload[campo] = datetime(v.year, v.month, v.day) if v else None
+    return payload
+
+
+@router.get("/certificaciones")
+async def listar_certificaciones(
+    db: AsyncSession = Depends(get_db),
+    _: Usuario = Depends(get_current_user),
+):
+    r = await db.execute(select(QMSCertificacion)
+                         .where(QMSCertificacion.activo.is_(True))
+                         .order_by(QMSCertificacion.norma))
+    return [_certificacion_dict(c) for c in r.scalars().all()]
+
+
+@router.post("/certificaciones", status_code=201)
+async def crear_certificacion(
+    data: CertificacionIn,
+    db: AsyncSession = Depends(get_db),
+    _: Usuario = Depends(get_current_user),
+):
+    item = QMSCertificacion(**_validar_certificacion(data))
+    db.add(item)
+    await db.commit()
+    await db.refresh(item)
+    return _certificacion_dict(item)
+
+
+@router.put("/certificaciones/{cert_id}")
+async def actualizar_certificacion(
+    cert_id: int,
+    data: CertificacionIn,
+    db: AsyncSession = Depends(get_db),
+    _: Usuario = Depends(get_current_user),
+):
+    item = await db.get(QMSCertificacion, cert_id)
+    if not item or not item.activo:
+        raise HTTPException(status_code=404, detail="Certificación no encontrada")
+    for k, v in _validar_certificacion(data).items():
+        setattr(item, k, v)
+    await db.commit()
+    await db.refresh(item)
+    return _certificacion_dict(item)
+
+
+@router.delete("/certificaciones/{cert_id}", status_code=204)
+async def eliminar_certificacion(
+    cert_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: Usuario = Depends(get_current_user),
+):
+    item = await db.get(QMSCertificacion, cert_id)
+    if not item or not item.activo:
+        raise HTTPException(status_code=404, detail="Certificación no encontrada")
+    item.activo = False
+    await db.commit()
+
+
+# Los umbrales que existen, con su valor por defecto y su rango. Solo entran
+# los que algo lee: el tablero de calidad arma sus alertas con los cuatro
+# primeros y la evaluación de proveedores marca con el último.
+PARAMETROS_QMS: Dict[str, dict] = {
+    "capa_dias_aviso":          {"defecto": 7,  "min": 1, "max": 90,
+                                 "descripcion": "Días antes del vencimiento para alertar una CAPA"},
+    "auditoria_dias_aviso":     {"defecto": 15, "min": 1, "max": 120,
+                                 "descripcion": "Días antes de una auditoría para recordarla"},
+    "nc_mayor_dias_cierre":     {"defecto": 30, "min": 1, "max": 365,
+                                 "descripcion": "Días máximos para cerrar una NC mayor o crítica"},
+    "nc_menor_dias_cierre":     {"defecto": 60, "min": 1, "max": 365,
+                                 "descripcion": "Días máximos para cerrar una NC menor"},
+    "proveedor_puntaje_minimo": {"defecto": 60, "min": 0, "max": 100,
+                                 "descripcion": "Puntaje por debajo del cual un proveedor queda en alerta"},
+}
+
+
+async def _leer_parametros(db: AsyncSession) -> Dict[str, float]:
+    r = await db.execute(select(QMSParametro))
+    guardados = {p.clave: float(p.valor) for p in r.scalars().all()}
+    return {k: guardados.get(k, float(d["defecto"])) for k, d in PARAMETROS_QMS.items()}
+
+
+@router.get("/parametros")
+async def listar_parametros_qms(
+    db: AsyncSession = Depends(get_db),
+    _: Usuario = Depends(get_current_user),
+):
+    valores = await _leer_parametros(db)
+    return [{"clave": k, "valor": valores[k], **d} for k, d in PARAMETROS_QMS.items()]
+
+
+@router.put("/parametros")
+async def guardar_parametros_qms(
+    data: Dict[str, float],
+    db: AsyncSession = Depends(get_db),
+    usuario: Usuario = Depends(get_current_user),
+):
+    desconocidos = set(data) - set(PARAMETROS_QMS)
+    if desconocidos:
+        raise HTTPException(status_code=422,
+                            detail=f"Parámetro desconocido: {', '.join(sorted(desconocidos))}")
+    for clave, valor in data.items():
+        d = PARAMETROS_QMS[clave]
+        if not d["min"] <= valor <= d["max"]:
+            raise HTTPException(status_code=422,
+                                detail=f"{d['descripcion']}: entre {d['min']} y {d['max']}")
+    r = await db.execute(select(QMSParametro).where(QMSParametro.clave.in_(list(data))))
+    existentes = {p.clave: p for p in r.scalars().all()}
+    for clave, valor in data.items():
+        if clave in existentes:
+            existentes[clave].valor = valor
+        else:
+            db.add(QMSParametro(clave=clave, valor=valor))
+    await db.commit()
+    return await listar_parametros_qms(db, usuario)

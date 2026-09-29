@@ -46,13 +46,25 @@ export interface Auditoria {
   conclusion?: string | null; resultado?: string | null
 }
 
+/** Los nombres son los del servidor: `impacto` y `nc_id`. Aquí decía
+ *  `severidad` y `no_conformidad_id`, que la API nunca devuelve. */
 export interface Hallazgo {
   id: number; codigo?: string | null; descripcion: string
-  tipo: string; severidad?: string | null; estado: string
+  tipo?: string | null; impacto?: string | null; estado: string
   auditoria_id?: number | null; proceso_id?: number | null
-  no_conformidad_id?: number | null
-  requisito?: string | null; evidencia?: string | null
-  responsable_id?: number | null; fecha_limite?: string | null
+  nc_id?: number | null; evidencia?: string | null
+  responsable_id?: number | null
+  fecha_limite?: string | null; fecha_cierre?: string | null
+}
+
+export interface UsuarioMin {
+  id: number; nombre?: string | null; apellido?: string | null
+  username?: string | null
+}
+
+export const nombreDeUsuario = (u?: UsuarioMin | null): string => {
+  if (!u) return '—'
+  return [u.nombre, u.apellido].filter(Boolean).join(' ').trim() || u.username || `#${u.id}`
 }
 
 export interface EvaluacionProveedor {
@@ -82,6 +94,31 @@ export interface RespuestaEncuesta {
   nps_valor?: number | null; csat_valor?: number | null
   comentario?: string | null; created_at?: string | null
 }
+
+/** El estado lo calcula el servidor contra la fecha de hoy; no se guarda. */
+export interface Certificacion {
+  id: number; norma: string; titulo?: string | null
+  certificadora?: string | null; numero_certificado?: string | null
+  fecha_otorgamiento?: string | null; fecha_vencimiento?: string | null
+  alcance?: string | null; en_implementacion: boolean
+  estado: 'VIGENTE' | 'POR_VENCER' | 'VENCIDA' | 'EN_IMPLEMENTACION'
+  dias_para_vencer?: number | null
+}
+
+export interface ParametroQMS {
+  clave: string; valor: number; defecto: number
+  min: number; max: number; descripcion: string
+}
+
+/** Los umbrales como objeto, con el valor por defecto mientras cargan. */
+export type Umbrales = Record<string, number>
+export const UMBRALES_DEFECTO: Umbrales = {
+  capa_dias_aviso: 7, auditoria_dias_aviso: 15,
+  nc_mayor_dias_cierre: 30, nc_menor_dias_cierre: 60,
+  proveedor_puntaje_minimo: 60,
+}
+export const aUmbrales = (ps?: ParametroQMS[]): Umbrales =>
+  ({ ...UMBRALES_DEFECTO, ...Object.fromEntries((ps ?? []).map(p => [p.clave, p.valor])) })
 
 /** El tablero devuelve un objeto suelto; apretarle el tipo obligaría a tocar
  *  dos archivos cada vez que se le añade una cifra. */
@@ -118,6 +155,10 @@ export const qmsApi = {
     apiClient.put<Auditoria>(`/qms/auditorias/${id}`, d).then(r => r.data),
   borrarAuditoria: (id: number) => apiClient.delete(`/qms/auditorias/${id}`),
 
+  /** Para los selectores de responsable. Un perfil sin permiso para ver
+   *  usuarios recibe 403, y la pantalla sigue funcionando sin los nombres. */
+  usuarios: () => get<UsuarioMin[]>('/usuarios/'),
+
   hallazgos: (f?: { auditoria_id?: number; tipo?: string; estado?: string }) =>
     get<Hallazgo[]>('/qms/hallazgos', { limit: 200, ...f }),
 
@@ -153,4 +194,15 @@ export const qmsApi = {
     get<any[]>('/qms/mejoras', { limit: 200, ...f }),
   capas: (f?: Record<string, unknown>) =>
     get<any[]>('/qms/capas', { limit: 200, ...f }),
+
+  certificaciones: () => get<Certificacion[]>('/qms/certificaciones'),
+  crearCertificacion: (d: Partial<Certificacion>) =>
+    apiClient.post<Certificacion>('/qms/certificaciones', d).then(r => r.data),
+  editarCertificacion: (id: number, d: Partial<Certificacion>) =>
+    apiClient.put<Certificacion>(`/qms/certificaciones/${id}`, d).then(r => r.data),
+  borrarCertificacion: (id: number) => apiClient.delete(`/qms/certificaciones/${id}`),
+
+  parametros: () => get<ParametroQMS[]>('/qms/parametros'),
+  guardarParametros: (d: Umbrales) =>
+    apiClient.put<ParametroQMS[]>('/qms/parametros', d).then(r => r.data),
 }

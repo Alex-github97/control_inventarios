@@ -1,17 +1,24 @@
-// QMS Module - Configuración del Sistema
+/**
+ * QMS · Configuración
+ *
+ * Indicadores y catálogos ya hablaban con el servidor. Normas ISO y umbrales
+ * eran maqueta —el botón «Guardar» solo cambiaba de color— y ahora se guardan.
+ */
 import React, { useState } from 'react'
 import {
   Box, Typography, Card, CardContent, Chip, Button, Tab, Tabs,
   TextField, Switch, FormControlLabel, Select, MenuItem, FormControl,
   InputLabel, alpha, Divider, Slider, Table, TableHead, TableBody, TableRow,
-  TableCell, Paper, IconButton, Stack,
+  TableCell, Paper, IconButton, Stack, Dialog, DialogTitle, DialogContent,
+  DialogActions, LinearProgress, Alert,
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { SettingsSuggest, Save, CheckCircle, Add as AddIcon, Analytics } from '@mui/icons-material'
+import { SettingsSuggest, Save, CheckCircle, Add as AddIcon, Analytics, Edit, DeleteForever } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
 import { apiClient as api } from '@/api/client'
+import { qmsApi, type Certificacion, type ParametroQMS } from '@/api/qms'
 
 import { COLOR_MODULO } from '@/config/marca'
 import { AdminCatalogos } from '@/components/catalogo/AdminCatalogos'
@@ -111,189 +118,251 @@ function TabPanel({ children, value, index }: TabPanelProps) {
   return value === index ? <Box sx={{ pt: 2 }}>{children}</Box> : null
 }
 
-const ISO_NORMAS = [
-  { codigo: 'ISO 9001:2015', titulo: 'Gestión de Calidad', activa: true, desde: '2023-01-15', vence: '2026-01-15', certificadora: 'Bureau Veritas', scope: 'Servicios logísticos integrales, transporte y almacenamiento' },
-  { codigo: 'ISO 28000:2022', titulo: 'Seguridad Cadena Suministro', activa: true, desde: '2024-03-01', vence: '2027-03-01', certificadora: 'SGS Colombia', scope: 'Transporte terrestre de carga en Colombia' },
-  { codigo: 'ISO 45001:2018', titulo: 'Seguridad y Salud en el Trabajo', activa: true, desde: '2023-06-01', vence: '2026-06-01', certificadora: 'ICONTEC', scope: 'Todos los procesos con personal operativo y administrativo' },
-  { codigo: 'ISO 14001:2015', titulo: 'Gestión Ambiental', activa: false, desde: '—', vence: '—', certificadora: '—', scope: 'En proceso de implementación' },
-  { codigo: 'ISO 27001:2022', titulo: 'Seguridad de la Información', activa: false, desde: '—', vence: '—', certificadora: '—', scope: 'En proceso de implementación' },
-  { codigo: 'ISO 31000:2018', titulo: 'Gestión de Riesgos', activa: true, desde: '2024-01-01', vence: '—', certificadora: 'Marco referencia', scope: 'Todos los procesos organizacionales' },
-]
+// ─── Certificaciones ISO (API real) ──────────────────────────────────────────
+// Antes eran seis tarjetas escritas a mano que le decían a cualquier empresa
+// que estaba certificada, con certificadora y fechas. El estado lo calcula el
+// servidor con la fecha de vencimiento.
+const EST_CERT: Record<Certificacion['estado'], { label: string; color: string }> = {
+  VIGENTE: { label: 'Vigente', color: QMS_COLOR },
+  POR_VENCER: { label: 'Por vencer', color: '#D97706' },
+  VENCIDA: { label: 'Vencida', color: '#DC2626' },
+  EN_IMPLEMENTACION: { label: 'En implementación', color: '#6B7280' },
+}
+const CERT_VACIA = {
+  norma: '', titulo: '', certificadora: '', numero_certificado: '',
+  fecha_otorgamiento: '', fecha_vencimiento: '', alcance: '', en_implementacion: false,
+}
+
+function CertificacionesConfig() {
+  const qc = useQueryClient()
+  const [dlg, setDlg] = useState<{ abierto: boolean; item: Certificacion | null }>({ abierto: false, item: null })
+  const [f, setF] = useState({ ...CERT_VACIA })
+  const { data: certs = [], isLoading } = useQuery({ queryKey: ['qms-certificaciones'], queryFn: qmsApi.certificaciones })
+
+  const abrir = (item: Certificacion | null) => {
+    setF(item ? {
+      norma: item.norma, titulo: item.titulo ?? '', certificadora: item.certificadora ?? '',
+      numero_certificado: item.numero_certificado ?? '',
+      fecha_otorgamiento: item.fecha_otorgamiento ?? '', fecha_vencimiento: item.fecha_vencimiento ?? '',
+      alcance: item.alcance ?? '', en_implementacion: item.en_implementacion,
+    } : { ...CERT_VACIA })
+    setDlg({ abierto: true, item })
+  }
+  const invertidas = !!(f.fecha_otorgamiento && f.fecha_vencimiento && f.fecha_vencimiento < f.fecha_otorgamiento)
+
+  const guardar = useMutation({
+    mutationFn: () => {
+      const t = (v: string) => v.trim() || null
+      const cuerpo: Partial<Certificacion> = {
+        norma: f.norma.trim(), titulo: t(f.titulo), certificadora: t(f.certificadora),
+        numero_certificado: t(f.numero_certificado),
+        fecha_otorgamiento: f.fecha_otorgamiento || null, fecha_vencimiento: f.fecha_vencimiento || null,
+        alcance: t(f.alcance), en_implementacion: f.en_implementacion,
+      }
+      return dlg.item ? qmsApi.editarCertificacion(dlg.item.id, cuerpo) : qmsApi.crearCertificacion(cuerpo)
+    },
+    onSuccess: () => {
+      toast.success(dlg.item ? 'Certificación actualizada' : 'Certificación registrada')
+      qc.invalidateQueries({ queryKey: ['qms-certificaciones'] })
+      setDlg({ abierto: false, item: null })
+    },
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo guardar')),
+  })
+  const borrar = useMutation({
+    mutationFn: (id: number) => qmsApi.borrarCertificacion(id),
+    onSuccess: () => { toast.success('Certificación retirada'); qc.invalidateQueries({ queryKey: ['qms-certificaciones'] }) },
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo retirar')),
+  })
+
+  const c = (k: Exclude<keyof typeof f, 'en_implementacion'>) => ({
+    value: f[k], onChange: (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [k]: e.target.value }),
+  })
+
+  return (
+    <>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
+          Las normas en que la empresa está certificada o trabajando para certificarse.
+        </Typography>
+        <Button startIcon={<AddIcon />} size="small" variant="contained" onClick={() => abrir(null)}
+          sx={{ bgcolor: QMS_COLOR, '&:hover': { bgcolor: '#047857' }, borderRadius: 2 }}>
+          Registrar norma
+        </Button>
+      </Box>
+      {isLoading && <LinearProgress sx={{ mb: 2 }} />}
+      {!isLoading && certs.length === 0 && (
+        <Alert severity="info">No hay certificaciones registradas.</Alert>
+      )}
+      <Grid container spacing={2}>
+        {certs.map(n => {
+          const e = EST_CERT[n.estado]
+          const vence = n.fecha_vencimiento
+            ? `${n.fecha_vencimiento}${n.dias_para_vencer != null && n.dias_para_vencer >= 0 && n.estado === 'POR_VENCER' ? ` (${n.dias_para_vencer} d)` : ''}`
+            : '—'
+          return (
+            <Grid key={n.id} size={{ xs: 12, md: 6 }}>
+              <Card sx={{ border: `1px solid ${alpha(e.color, 0.25)}`, borderRadius: 2 }}>
+                <CardContent sx={{ p: '16px !important' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5, gap: 1 }}>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography sx={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 700, color: e.color }}>{n.norma}</Typography>
+                      <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary' }}>{n.titulo || '—'}</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flexShrink: 0 }}>
+                      <Chip label={e.label} size="small" sx={{ height: 22, fontSize: 10, bgcolor: alpha(e.color, 0.15), color: e.color, fontWeight: 700 }} />
+                      <IconButton size="small" aria-label={`Editar ${n.norma}`} onClick={() => abrir(n)}><Edit sx={{ fontSize: 15 }} /></IconButton>
+                      <IconButton size="small" aria-label={`Retirar ${n.norma}`}
+                        onClick={() => { if (window.confirm(`¿Retirar la certificación ${n.norma}?`)) borrar.mutate(n.id) }}>
+                        <DeleteForever sx={{ fontSize: 15, color: '#DC2626' }} />
+                      </IconButton>
+                    </Box>
+                  </Box>
+                  <Divider sx={{ borderColor: '#F1F5F9', mb: 1.5 }} />
+                  <Grid container spacing={1}>
+                    {[['Certificadora', n.certificadora || '—'], ['Otorgada', n.fecha_otorgamiento || '—'], ['Vence', vence]].map(([l, v]) => (
+                      <Grid key={l} size={{ xs: 4 }}>
+                        <Typography sx={{ fontSize: 9, color: 'text.disabled', textTransform: 'uppercase' }}>{l}</Typography>
+                        <Typography sx={{ fontSize: 11, color: 'text.secondary', fontWeight: 600 }}>{v}</Typography>
+                      </Grid>
+                    ))}
+                  </Grid>
+                  {n.alcance && (
+                    <Box sx={{ mt: 1.5, p: 1, borderRadius: 1, bgcolor: '#F9FAFB' }}>
+                      <Typography sx={{ fontSize: 10, color: 'text.disabled', mb: 0.25 }}>ALCANCE</Typography>
+                      <Typography sx={{ fontSize: 11, color: 'text.secondary', lineHeight: 1.4 }}>{n.alcance}</Typography>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+          )
+        })}
+      </Grid>
+
+      <Dialog open={dlg.abierto} onClose={() => setDlg({ abierto: false, item: null })} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>{dlg.item ? `Editar ${dlg.item.norma}` : 'Registrar norma'}</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ pt: 1 }}>
+            <Grid size={{ xs: 12, sm: 5 }}><TextField label="Norma" required placeholder="ISO 9001:2015" fullWidth size="small" {...c('norma')} /></Grid>
+            <Grid size={{ xs: 12, sm: 7 }}><TextField label="Título" placeholder="Gestión de calidad" fullWidth size="small" {...c('titulo')} /></Grid>
+            <Grid size={{ xs: 12 }}>
+              <FormControlLabel label="Todavía en implementación (sin certificar)"
+                control={<Switch checked={f.en_implementacion} onChange={e => setF({ ...f, en_implementacion: e.target.checked })} />} />
+            </Grid>
+            {!f.en_implementacion && (<>
+              <Grid size={{ xs: 12, sm: 7 }}><TextField label="Organismo certificador" fullWidth size="small" {...c('certificadora')} /></Grid>
+              <Grid size={{ xs: 12, sm: 5 }}><TextField label="N.º de certificado" fullWidth size="small" {...c('numero_certificado')} /></Grid>
+              <Grid size={{ xs: 6 }}><TextField label="Otorgada" type="date" fullWidth size="small" InputLabelProps={{ shrink: true }} {...c('fecha_otorgamiento')} /></Grid>
+              <Grid size={{ xs: 6 }}><TextField label="Vence" type="date" fullWidth size="small" InputLabelProps={{ shrink: true }} {...c('fecha_vencimiento')}
+                error={invertidas} helperText={invertidas ? 'Antes de otorgarse' : undefined} /></Grid>
+            </>)}
+            <Grid size={{ xs: 12 }}><TextField label="Alcance" fullWidth size="small" multiline minRows={2} {...c('alcance')} /></Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setDlg({ abierto: false, item: null })} color="inherit">Cancelar</Button>
+          <Button variant="contained" disabled={!f.norma.trim() || invertidas || guardar.isPending}
+            onClick={() => guardar.mutate()} sx={{ bgcolor: QMS_COLOR, '&:hover': { bgcolor: '#047857' } }}>Guardar</Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  )
+}
+
+// ─── Umbrales (API real) ─────────────────────────────────────────────────────
+// Antes el botón decía «Guardado» sin enviar nada. Solo quedan los umbrales
+// que algo lee: el tablero de calidad y la evaluación de proveedores.
+const DONDE_SE_USA: Record<string, string> = {
+  capa_dias_aviso: 'Alerta del tablero de calidad',
+  auditoria_dias_aviso: 'Recordatorio del tablero de calidad',
+  nc_mayor_dias_cierre: 'Alerta de NC mayores y críticas atrasadas',
+  nc_menor_dias_cierre: 'Alerta de NC menores atrasadas',
+  proveedor_puntaje_minimo: 'Marca en la evaluación de proveedores',
+}
+
+function UmbralesConfig() {
+  const qc = useQueryClient()
+  const { data: params = [], isLoading } = useQuery({ queryKey: ['qms-parametros'], queryFn: qmsApi.parametros })
+  const [edicion, setEdicion] = useState<Record<string, string>>({})
+  const valor = (p: ParametroQMS) => edicion[p.clave] ?? String(p.valor)
+  const fueraDeRango = (p: ParametroQMS) => {
+    const v = Number(valor(p))
+    return valor(p).trim() === '' || !Number.isFinite(v) || v < p.min || v > p.max
+  }
+  const cambiados = params.filter(p => edicion[p.clave] != null && Number(edicion[p.clave]) !== p.valor)
+  const hayError = params.some(fueraDeRango)
+
+  const guardar = useMutation({
+    mutationFn: () => qmsApi.guardarParametros(Object.fromEntries(cambiados.map(p => [p.clave, Number(edicion[p.clave])]))),
+    onSuccess: (r) => {
+      qc.setQueryData(['qms-parametros'], r)
+      setEdicion({})
+      toast.success('Umbrales guardados')
+    },
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo guardar')),
+  })
+
+  return (
+    <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2, maxWidth: 760 }}>
+      <CardContent>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography sx={{ fontWeight: 700, color: 'text.primary' }}>Umbrales de alerta</Typography>
+          <Button startIcon={<Save />} size="small" variant="contained" disabled={!cambiados.length || hayError || guardar.isPending}
+            onClick={() => guardar.mutate()} sx={{ bgcolor: QMS_COLOR, '&:hover': { bgcolor: '#047857' }, borderRadius: 2 }}>
+            Guardar cambios
+          </Button>
+        </Box>
+        {isLoading && <LinearProgress sx={{ mb: 2 }} />}
+        <Stack spacing={2}>
+          {params.map(p => (
+            <Box key={p.clave} sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+              <Box sx={{ flex: 1 }}>
+                <Typography sx={{ fontSize: 13, color: 'text.primary' }}>{p.descripcion}</Typography>
+                <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>
+                  {DONDE_SE_USA[p.clave] ?? ''} · por defecto {p.defecto}
+                </Typography>
+              </Box>
+              <TextField size="small" type="number" sx={{ width: 120 }} value={valor(p)}
+                inputProps={{ min: p.min, max: p.max, 'aria-label': p.descripcion }}
+                error={fueraDeRango(p)} helperText={fueraDeRango(p) ? `${p.min} a ${p.max}` : undefined}
+                onChange={e => setEdicion({ ...edicion, [p.clave]: e.target.value })} />
+            </Box>
+          ))}
+        </Stack>
+      </CardContent>
+    </Card>
+  )
+}
 
 export default function QMSConfig() {
   const [tab, setTab] = useState(0)
-  const [saved, setSaved] = useState(false)
-  const [umbralNc, setUmbralNc] = useState(10)
-  const [umbralCapa, setUmbralCapa] = useState(85)
-  const [umbralKpi, setUmbralKpi] = useState(80)
-  const [umbralProveedor, setUmbralProveedor] = useState(60)
-
-  const handleSave = () => { setSaved(true); setTimeout(() => setSaved(false), 2500) }
 
   return (
     <Layout>
       <Box sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <SettingsSuggest sx={{ color: QMS_COLOR, fontSize: 28 }} />
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Configuración QMS</Typography>
-              <Typography sx={{ fontSize: 12, color: 'text.disabled' }}>QMS · Normas ISO · Umbrales · Notificaciones</Typography>
-            </Box>
-            <Chip label="QMS" size="small" sx={{ bgcolor: alpha(QMS_COLOR, 0.15), color: QMS_COLOR, fontWeight: 700, border: `1px solid ${alpha(QMS_COLOR, 0.3)}` }} />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+          <SettingsSuggest sx={{ color: QMS_COLOR, fontSize: 28 }} />
+          <Box>
+            <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Configuración QMS</Typography>
+            <Typography sx={{ fontSize: 12, color: 'text.disabled' }}>QMS · Indicadores · Normas ISO · Umbrales · Catálogos</Typography>
           </Box>
-          <Button startIcon={saved ? <CheckCircle /> : <Save />} size="small" variant="contained" onClick={handleSave} sx={{ bgcolor: saved ? QMS_COLOR : QMS_COLOR, '&:hover': { bgcolor: '#047857' }, borderRadius: 2 }}>
-            {saved ? 'Guardado' : 'Guardar Cambios'}
-          </Button>
+          <Chip label="QMS" size="small" sx={{ bgcolor: alpha(QMS_COLOR, 0.15), color: QMS_COLOR, fontWeight: 700, border: `1px solid ${alpha(QMS_COLOR, 0.3)}` }} />
         </Box>
 
+        {/* Las pestañas de Notificaciones e Integraciones se quitaron: mostraban
+            envíos automáticos que ningún proceso hace e integraciones marcadas
+            «conectado» —un SMTP entre ellas— que no existen. */}
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid #F1F5F9', '& .MuiTab-root': { color: 'text.disabled', fontSize: 13 }, '& .Mui-selected': { color: QMS_COLOR }, '& .MuiTabs-indicator': { bgcolor: QMS_COLOR } }}>
           <Tab label="Indicadores" />
           <Tab label="Normas ISO" />
           <Tab label="Umbrales" />
-          <Tab label="Notificaciones" />
-          <Tab label="Integraciones" />
           <Tab label="Catálogos" />
         </Tabs>
 
-        <TabPanel value={tab} index={5}>
-          <AdminCatalogos modulo="QMS" color={COLOR_MODULO} />
-        </TabPanel>
-
-        <TabPanel value={tab} index={0}>
-          <IndicadoresConfig />
-        </TabPanel>
-
-        <TabPanel value={tab} index={1}>
-          <Grid container spacing={2}>
-            {ISO_NORMAS.map(n => (
-              <Grid key={n.codigo} size={{ xs: 12, md: 6 }}>
-                <Card sx={{ border: `1px solid ${n.activa ? alpha(QMS_COLOR, 0.25) : '#E5E7EB'}`, borderRadius: 2 }}>
-                  <CardContent sx={{ p: '16px !important' }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
-                      <Box>
-                        <Typography sx={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 700, color: n.activa ? QMS_COLOR : 'text.disabled' }}>{n.codigo}</Typography>
-                        <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary' }}>{n.titulo}</Typography>
-                      </Box>
-                      <Chip label={n.activa ? 'Activa' : 'No activa'} size="small" sx={{ height: 22, fontSize: 10, bgcolor: n.activa ? alpha(QMS_COLOR, 0.15) : '#F1F5F9', color: n.activa ? QMS_COLOR : 'text.disabled', fontWeight: 700 }} />
-                    </Box>
-                    <Divider sx={{ borderColor: '#F1F5F9', mb: 1.5 }} />
-                    <Grid container spacing={1}>
-                      {[['Certificadora', n.certificadora], ['Vigente desde', n.desde], ['Vence', n.vence]].map(([l, v]) => (
-                        <Grid key={l as string} size={{ xs: 4 }}>
-                          <Typography sx={{ fontSize: 9, color: 'text.disabled', textTransform: 'uppercase' }}>{l}</Typography>
-                          <Typography sx={{ fontSize: 11, color: 'text.secondary', fontWeight: 600 }}>{v}</Typography>
-                        </Grid>
-                      ))}
-                    </Grid>
-                    <Box sx={{ mt: 1.5, p: 1, borderRadius: 1, bgcolor: '#F9FAFB' }}>
-                      <Typography sx={{ fontSize: 10, color: 'text.disabled', mb: 0.25 }}>ALCANCE</Typography>
-                      <Typography sx={{ fontSize: 11, color: 'text.secondary', lineHeight: 1.4 }}>{n.scope}</Typography>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-        </TabPanel>
-
-        <TabPanel value={tab} index={2}>
-          <Grid container spacing={3}>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
-                <CardContent>
-                  <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 2 }}>Umbrales de Alerta</Typography>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                    {[
-                      { label: 'NC máx. por período (antes de alerta)', value: umbralNc, setter: setUmbralNc, min: 1, max: 50, unit: 'NCs', color: '#DC2626' },
-                      { label: 'Cierre de CAPAs vigentes (%)', value: umbralCapa, setter: setUmbralCapa, min: 50, max: 100, unit: '%', color: '#D97706' },
-                      { label: 'Meta mínima de KPIs (%)', value: umbralKpi, setter: setUmbralKpi, min: 50, max: 100, unit: '%', color: QMS_COLOR },
-                      { label: 'Score mínimo proveedores', value: umbralProveedor, setter: setUmbralProveedor, min: 40, max: 90, unit: '/100', color: '#0369A1' },
-                    ].map(t => (
-                      <Box key={t.label}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                          <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{t.label}</Typography>
-                          <Typography sx={{ fontSize: 14, fontWeight: 800, color: t.color }}>{t.value}{t.unit}</Typography>
-                        </Box>
-                        <Slider value={t.value} min={t.min} max={t.max} step={1} onChange={(_, v) => t.setter(v as number)} sx={{ color: t.color }} />
-                      </Box>
-                    ))}
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
-                <CardContent>
-                  <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 2 }}>Plazos Estándar</Typography>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {[
-                      { label: 'Días máx. para respuesta a PQRS', placeholder: '15' },
-                      { label: 'Días máx. cierre de NC Mayor', placeholder: '30' },
-                      { label: 'Días máx. cierre de NC Menor', placeholder: '60' },
-                      { label: 'Frecuencia auditoría interna (días)', placeholder: '90' },
-                      { label: 'Período de evaluación proveedores', placeholder: 'Trimestral' },
-                    ].map(f => (
-                      <TextField key={f.label} label={f.label} placeholder={f.placeholder} size="small" fullWidth />
-                    ))}
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        </TabPanel>
-
-        <TabPanel value={tab} index={3}>
-          <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
-            <CardContent>
-              <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 2 }}>Notificaciones Automáticas</Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                {[
-                  { label: 'Alerta de NC sin CAPA asignado (> 48h)', on: true },
-                  { label: 'Recordatorio de auditoría 5 días antes', on: true },
-                  { label: 'CAPA próximo a vencer (< 7 días)', on: true },
-                  { label: 'KPI bajo meta por 2 períodos consecutivos', on: true },
-                  { label: 'PQRS sin respuesta en 24 horas', on: true },
-                  { label: 'Proveedor en zona deficiente', on: false },
-                  { label: 'Riesgo crítico sin plan de mitigación', on: true },
-                  { label: 'Encuesta completada al 100%', on: false },
-                  { label: 'Hallazgo de auditoría sin responsable', on: true },
-                ].map((n, i) => (
-                  <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 0.75, borderBottom: '1px solid #F9FAFB' }}>
-                    <Typography sx={{ fontSize: 13, color: 'text.primary' }}>{n.label}</Typography>
-                    <FormControlLabel control={<Switch defaultChecked={n.on} size="small" sx={{ '& .MuiSwitch-switchBase.Mui-checked': { color: QMS_COLOR }, '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: QMS_COLOR } }} />} label="" />
-                  </Box>
-                ))}
-              </Box>
-            </CardContent>
-          </Card>
-        </TabPanel>
-
-        <TabPanel value={tab} index={4}>
-          <Grid container spacing={2}>
-            {[
-              { nombre: 'TMS — Sistema de Transporte', estado: 'conectado', desc: 'Recibe incidentes de transporte como potenciales NCs' },
-              { nombre: 'WMS — Gestión de Almacén', estado: 'conectado', desc: 'Sincroniza hallazgos de picking y almacenamiento' },
-              { nombre: 'DMS — Documentos', estado: 'conectado', desc: 'Acceso a procedimientos y formatos QMS actualizados' },
-              { nombre: 'HCM — Recursos Humanos', estado: 'parcial', desc: 'Datos de formación y evaluación de competencias' },
-              { nombre: 'Correo Electrónico (SMTP)', estado: 'conectado', desc: 'Envío de alertas y notificaciones a responsables' },
-              { nombre: 'ERP Financiero', estado: 'no_conectado', desc: 'Pendiente: costos de no calidad y reclamaciones económicas' },
-            ].map(int => (
-              <Grid key={int.nombre} size={{ xs: 12, sm: 6, md: 4 }}>
-                <Card sx={{ border: `1px solid ${int.estado === 'conectado' ? alpha(QMS_COLOR, 0.22) : int.estado === 'parcial' ? alpha('#D97706', 0.22) : '#E5E7EB'}`, borderRadius: 2 }}>
-                  <CardContent sx={{ p: '14px !important' }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary' }}>{int.nombre}</Typography>
-                      <Chip label={int.estado.replace('_', ' ')} size="small" sx={{ fontSize: 9, height: 18, bgcolor: int.estado === 'conectado' ? alpha(QMS_COLOR, 0.15) : int.estado === 'parcial' ? alpha('#D97706', 0.15) : '#F1F5F9', color: int.estado === 'conectado' ? QMS_COLOR : int.estado === 'parcial' ? '#D97706' : 'text.disabled', fontWeight: 700 }} />
-                    </Box>
-                    <Typography sx={{ fontSize: 11, color: 'text.disabled', lineHeight: 1.4 }}>{int.desc}</Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-        </TabPanel>
+        <TabPanel value={tab} index={0}><IndicadoresConfig /></TabPanel>
+        <TabPanel value={tab} index={1}><CertificacionesConfig /></TabPanel>
+        <TabPanel value={tab} index={2}><UmbralesConfig /></TabPanel>
+        <TabPanel value={tab} index={3}><AdminCatalogos modulo="QMS" color={COLOR_MODULO} /></TabPanel>
       </Box>
     </Layout>
   )

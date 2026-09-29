@@ -546,3 +546,45 @@ class QMSKPIDiario(Base, TimestampMixin):
     mejoras_activas        = Column(Integer, default=0)
     riesgos_criticos       = Column(Integer, default=0)
     quejas_abiertas        = Column(Integer, default=0)
+
+
+class QMSCertificacion(Base, TimestampMixin):
+    """Las normas en que la empresa está certificada o trabajando para estarlo.
+
+    La pantalla de configuración traía seis certificaciones escritas a mano,
+    con certificadora y fechas: le decía a cualquier empresa que estaba
+    certificada en ISO 9001 por un organismo que nunca la auditó. Es el dato
+    que más cuidado pide del módulo, porque se muestra a clientes.
+
+    El estado —vigente, por vencer, vencida— NO se guarda: sale de
+    `fecha_vencimiento` contra el día de hoy. Guardado, mentiría al día
+    siguiente de vencer. Lo único que decide una persona es si la norma está
+    todavía en implementación.
+    """
+    __tablename__ = "qms_certificacion"
+
+    id                 = Column(Integer, primary_key=True, index=True)
+    norma              = Column(String(60), nullable=False)
+    titulo             = Column(String(200), nullable=True)
+    certificadora      = Column(String(200), nullable=True)
+    numero_certificado = Column(String(100), nullable=True)
+    fecha_otorgamiento = Column(DateTime(timezone=True), nullable=True)
+    fecha_vencimiento  = Column(DateTime(timezone=True), nullable=True)
+    alcance            = Column(Text, nullable=True)
+    en_implementacion  = Column(Boolean, nullable=False, default=False)
+    activo             = Column(Boolean, nullable=False, default=True)
+
+
+class QMSParametro(Base, TimestampMixin):
+    """Los umbrales con que el módulo decide qué alertar.
+
+    Clave y valor: los lee el tablero de calidad para armar sus alertas y la
+    evaluación de proveedores para marcar a los que quedan por debajo. Un
+    umbral que se configura y nadie lee es solo decoración, así que aquí solo
+    entran los que algo usa.
+    """
+    __tablename__ = "qms_parametro"
+
+    id          = Column(Integer, primary_key=True, index=True)
+    clave       = Column(String(60), nullable=False, unique=True)
+    valor       = Column(Numeric(12, 2), nullable=False)

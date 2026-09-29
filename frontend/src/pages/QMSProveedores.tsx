@@ -1,14 +1,30 @@
-// QMS Module - Evaluación de Proveedores
-import React, { useState } from 'react'
+/**
+ * QMS · Evaluación de proveedores
+ *
+ * Era una maqueta: ocho evaluaciones escritas a mano y un diálogo con
+ * deslizadores que no guardaba nada. El servidor ya tenía el CRUD.
+ *
+ * El puntaje y la clasificación los calcula el servidor —promedio de los
+ * cuatro criterios— y aquí solo se muestran; la vista previa del diálogo
+ * repite la misma regla para que quien evalúa sepa qué va a salir.
+ *
+ * Las cifras de arriba y el ranking cuentan la ÚLTIMA evaluación de cada
+ * proveedor. Contando todas, un proveedor evaluado cada mes pesaría doce veces
+ * más que uno evaluado una vez al año.
+ */
+import React, { useMemo, useState } from 'react'
 import {
   Box, Typography, Card, CardContent, Chip, Button, Tab, Tabs,
   Table, TableBody, TableCell, TableHead, TableRow, Paper, Dialog,
-  DialogTitle, DialogContent, DialogActions, TextField, Select, MenuItem,
-  FormControl, InputLabel, alpha, Slider,
+  DialogTitle, DialogContent, DialogActions, TextField, alpha, Slider,
+  IconButton, Tooltip, LinearProgress, Alert,
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { Storefront, Add, Star, TrendingUp, TrendingDown } from '@mui/icons-material'
+import { Storefront, Add, Edit, WarningAmber } from '@mui/icons-material'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
+import { qmsApi, aNumero, aUmbrales, type EvaluacionProveedor } from '@/api/qms'
 
 import { COLOR_MODULO } from '@/config/marca'
 const QMS_COLOR = COLOR_MODULO
@@ -18,43 +34,93 @@ function TabPanel({ children, value, index }: TabPanelProps) {
   return value === index ? <Box sx={{ pt: 2 }}>{children}</Box> : null
 }
 
-interface Evaluacion { proveedor: string; nit: string; periodo: string; calidad: number; cumplimiento: number; servicio: number; tiempos: number; total: number; clasif: string; evaluado: string }
-const EVALUACIONES: Evaluacion[] = [
-  { proveedor: 'Transportes Sur S.A.S.', nit: '900.123.456-7', periodo: '2026-06', calidad: 88, cumplimiento: 92, servicio: 85, tiempos: 90, total: 88.75, clasif: 'bueno', evaluado: 'María García' },
-  { proveedor: 'Empaques del Norte Ltda.', nit: '800.456.789-3', periodo: '2026-06', calidad: 72, cumplimiento: 68, servicio: 74, tiempos: 71, total: 71.25, clasif: 'regular', evaluado: 'Juan López' },
-  { proveedor: 'Suministros Técnicos XYZ', nit: '901.234.567-8', periodo: '2026-06', calidad: 95, cumplimiento: 97, servicio: 94, tiempos: 96, total: 95.5, clasif: 'excelente', evaluado: 'Ana Ruiz' },
-  { proveedor: 'Distribuidora Centro S.A.', nit: '830.567.890-1', periodo: '2026-06', calidad: 82, cumplimiento: 85, servicio: 80, tiempos: 83, total: 82.5, clasif: 'bueno', evaluado: 'Pedro Silva' },
-  { proveedor: 'Combustibles del Llano', nit: '910.345.678-2', periodo: '2026-06', calidad: 91, cumplimiento: 89, servicio: 93, tiempos: 88, total: 90.25, clasif: 'excelente', evaluado: 'Carlos Torres' },
-  { proveedor: 'Ferretería El Maestro', nit: '820.678.901-4', periodo: '2026-06', calidad: 55, cumplimiento: 60, servicio: 58, tiempos: 62, total: 58.75, clasif: 'deficiente', evaluado: 'Laura Díaz' },
-  { proveedor: 'Mantenimiento Industrial S.A.', nit: '890.789.012-5', periodo: '2026-06', calidad: 88, cumplimiento: 91, servicio: 87, tiempos: 89, total: 88.75, clasif: 'bueno', evaluado: 'Roberto Méndez' },
-  { proveedor: 'Lubricantes y Filtros Pro', nit: '870.890.123-6', periodo: '2026-06', calidad: 93, cumplimiento: 95, servicio: 91, tiempos: 94, total: 93.25, clasif: 'excelente', evaluado: 'Sandra Torres' },
-]
-
 const CLASIF_COLOR: Record<string, string> = { excelente: QMS_COLOR, bueno: '#0369A1', regular: '#D97706', deficiente: '#DC2626' }
 const CLASIF_MEDAL: Record<string, string> = { excelente: '🥇', bueno: '🥈', regular: '🥉', deficiente: '' }
 
-function ScoreBar({ value, color }: { value: number; color: string }) {
+/** La misma regla que `_calcular_clasificacion_proveedor` del servidor. */
+const clasificar = (p: number) => (p >= 90 ? 'excelente' : p >= 75 ? 'bueno' : p >= 60 ? 'regular' : 'deficiente')
+const colorPuntaje = (v: number) => CLASIF_COLOR[clasificar(v)]
+const claveProveedor = (e: EvaluacionProveedor) => (e.proveedor_nit || e.proveedor_nombre).trim().toLowerCase()
+const mesActual = () => new Date().toISOString().slice(0, 7)
+
+function ScoreBar({ value }: { value: number }) {
+  const color = colorPuntaje(value)
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
       <Box sx={{ flex: 1, height: 6, borderRadius: 3, bgcolor: '#F1F5F9' }}>
-        <Box sx={{ width: `${value}%`, height: '100%', borderRadius: 3, bgcolor: color }} />
+        <Box sx={{ width: `${Math.min(value, 100)}%`, height: '100%', borderRadius: 3, bgcolor: color }} />
       </Box>
       <Typography sx={{ fontSize: 11, fontWeight: 700, color, minWidth: 30, textAlign: 'right' }}>{value}</Typography>
     </Box>
   )
 }
 
-export default function QMSProveedores() {
-  const [tab, setTab] = useState(0)
-  const [openDialog, setOpenDialog] = useState(false)
-  const [calidad, setCalidad] = useState(80)
-  const [cumplimiento, setCumplimiento] = useState(80)
-  const [servicio, setServicio] = useState(80)
-  const [tiempos, setTiempos] = useState(80)
-  const previewTotal = ((calidad + cumplimiento + servicio + tiempos) / 4).toFixed(1)
-  const previewClasif = Number(previewTotal) >= 90 ? 'excelente' : Number(previewTotal) >= 75 ? 'bueno' : Number(previewTotal) >= 60 ? 'regular' : 'deficiente'
+const VACIO = {
+  proveedor_nombre: '', proveedor_nit: '', periodo: mesActual(), observaciones: '',
+  calidad: 80, cumplimiento: 80, servicio: 80, tiempos: 80,
+}
 
-  const ranking = [...EVALUACIONES].sort((a, b) => b.total - a.total)
+export default function QMSProveedores() {
+  const qc = useQueryClient()
+  const [tab, setTab] = useState(0)
+  const [dlg, setDlg] = useState<{ abierto: boolean; item: EvaluacionProveedor | null }>({ abierto: false, item: null })
+  const [f, setF] = useState({ ...VACIO })
+
+  const { data: evaluaciones = [], isLoading } = useQuery({
+    queryKey: ['qms-evaluaciones-proveedores'], queryFn: () => qmsApi.evaluaciones(),
+  })
+
+  // La vigente es la del período más reciente, no la última que se registró:
+  // una evaluación atrasada que se carga hoy no debe reemplazar a la del mes.
+  const ultimas = useMemo(() => {
+    const orden = [...evaluaciones].sort((a, b) => b.periodo.localeCompare(a.periodo) || b.id - a.id)
+    const vistos = new Map<string, EvaluacionProveedor>()
+    for (const e of orden) if (!vistos.has(claveProveedor(e))) vistos.set(claveProveedor(e), e)
+    return [...vistos.values()]
+  }, [evaluaciones])
+  const ranking = [...ultimas].sort((a, b) => aNumero(b.puntaje_total) - aNumero(a.puntaje_total))
+  const cuenta = (c: string) => ultimas.filter(e => e.clasificacion === c).length
+
+  // El mínimo es el de Configuración → Umbrales: por debajo, el proveedor
+  // queda marcado para seguimiento.
+  const { data: params } = useQuery({ queryKey: ['qms-parametros'], queryFn: qmsApi.parametros })
+  const minimo = aUmbrales(params).proveedor_puntaje_minimo
+  const bajoMinimo = (e: EvaluacionProveedor) => aNumero(e.puntaje_total) < minimo
+
+  const previewTotal = (f.calidad + f.cumplimiento + f.servicio + f.tiempos) / 4
+  const previewClasif = clasificar(previewTotal)
+
+  const abrir = (item: EvaluacionProveedor | null) => {
+    setF(item ? {
+      proveedor_nombre: item.proveedor_nombre, proveedor_nit: item.proveedor_nit ?? '',
+      periodo: item.periodo, observaciones: item.observaciones ?? '',
+      calidad: aNumero(item.calidad), cumplimiento: aNumero(item.cumplimiento),
+      servicio: aNumero(item.servicio), tiempos: aNumero(item.tiempos),
+    } : { ...VACIO, periodo: mesActual() })
+    setDlg({ abierto: true, item })
+  }
+
+  const guardar = useMutation({
+    mutationFn: () => {
+      const cuerpo: Partial<EvaluacionProveedor> = {
+        proveedor_nombre: f.proveedor_nombre.trim(), proveedor_nit: f.proveedor_nit.trim() || null,
+        periodo: f.periodo, observaciones: f.observaciones.trim() || null,
+        calidad: f.calidad, cumplimiento: f.cumplimiento, servicio: f.servicio, tiempos: f.tiempos,
+      }
+      return dlg.item ? qmsApi.editarEvaluacion(dlg.item.id, cuerpo) : qmsApi.crearEvaluacion(cuerpo)
+    },
+    onSuccess: (r) => {
+      toast.success(`Evaluación guardada: ${aNumero(r.puntaje_total).toFixed(1)} · ${r.clasificacion ?? ''}`)
+      qc.invalidateQueries({ queryKey: ['qms-evaluaciones-proveedores'] })
+      setDlg({ abierto: false, item: null })
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo guardar'),
+  })
+
+  const criterios: [string, 'calidad' | 'cumplimiento' | 'servicio' | 'tiempos'][] = [
+    ['Calidad', 'calidad'], ['Cumplimiento', 'cumplimiento'],
+    ['Servicio', 'servicio'], ['Tiempos de Entrega', 'tiempos'],
+  ]
 
   return (
     <Layout>
@@ -68,17 +134,17 @@ export default function QMSProveedores() {
             </Box>
             <Chip label="QMS" size="small" sx={{ bgcolor: alpha(QMS_COLOR, 0.15), color: QMS_COLOR, fontWeight: 700, border: `1px solid ${alpha(QMS_COLOR, 0.3)}` }} />
           </Box>
-          <Button startIcon={<Add />} size="small" variant="contained" onClick={() => setOpenDialog(true)} sx={{ bgcolor: QMS_COLOR, '&:hover': { bgcolor: '#047857' }, borderRadius: 2 }}>
+          <Button startIcon={<Add />} size="small" variant="contained" onClick={() => abrir(null)} sx={{ bgcolor: QMS_COLOR, '&:hover': { bgcolor: '#047857' }, borderRadius: 2 }}>
             Nueva Evaluación
           </Button>
         </Box>
 
         <Grid container spacing={2} sx={{ mb: 3 }}>
           {[
-            { label: 'Excelentes', value: EVALUACIONES.filter(e => e.clasif === 'excelente').length.toString(), color: QMS_COLOR },
-            { label: 'Buenos', value: EVALUACIONES.filter(e => e.clasif === 'bueno').length.toString(), color: '#0369A1' },
-            { label: 'Regulares', value: EVALUACIONES.filter(e => e.clasif === 'regular').length.toString(), color: '#D97706' },
-            { label: 'Deficientes', value: EVALUACIONES.filter(e => e.clasif === 'deficiente').length.toString(), color: '#DC2626' },
+            { label: 'Excelentes', value: cuenta('excelente'), color: QMS_COLOR },
+            { label: 'Buenos', value: cuenta('bueno'), color: '#0369A1' },
+            { label: 'Regulares', value: cuenta('regular'), color: '#D97706' },
+            { label: 'Deficientes', value: cuenta('deficiente'), color: '#DC2626' },
           ].map(k => (
             <Grid key={k.label} size={{ xs: 6, md: 3 }}>
               <Card sx={{ bgcolor: 'background.paper', border: '1px solid rgba(59,130,246,0.18)', borderRadius: 2 }}>
@@ -92,32 +158,51 @@ export default function QMSProveedores() {
         </Grid>
 
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid #F1F5F9', '& .MuiTab-root': { color: 'text.secondary', fontSize: 13 }, '& .Mui-selected': { color: QMS_COLOR }, '& .MuiTabs-indicator': { bgcolor: QMS_COLOR } }}>
-          <Tab label="Evaluaciones" />
+          <Tab label={`Evaluaciones (${evaluaciones.length})`} />
           <Tab label="Ranking" />
         </Tabs>
+
+        {ultimas.some(bajoMinimo) && (
+          <Alert severity="warning" icon={<WarningAmber />} sx={{ mb: 2 }}>
+            {ultimas.filter(bajoMinimo).length} proveedor(es) por debajo del puntaje mínimo de {minimo} en su última evaluación:{' '}
+            {ultimas.filter(bajoMinimo).map(e => e.proveedor_nombre).join(', ')}.
+          </Alert>
+        )}
+
+        {isLoading && <LinearProgress sx={{ mb: 2 }} />}
 
         <TabPanel value={tab} index={0}>
           <Paper sx={{ bgcolor: 'transparent' }}>
             <Table size="small">
               <TableHead>
                 <TableRow sx={{ '& th': { borderColor: '#E5E7EB', color: 'text.secondary', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' } }}>
-                  <TableCell>Proveedor</TableCell><TableCell>NIT</TableCell><TableCell>Período</TableCell><TableCell>Calidad</TableCell><TableCell>Cumplimiento</TableCell><TableCell>Servicio</TableCell><TableCell>Tiempos</TableCell><TableCell>Total</TableCell><TableCell>Clasificación</TableCell>
+                  <TableCell>Proveedor</TableCell><TableCell>NIT</TableCell><TableCell>Período</TableCell><TableCell>Calidad</TableCell><TableCell>Cumplimiento</TableCell><TableCell>Servicio</TableCell><TableCell>Tiempos</TableCell><TableCell>Total</TableCell><TableCell>Clasificación</TableCell><TableCell />
                 </TableRow>
               </TableHead>
               <TableBody>
-                {EVALUACIONES.map(e => {
-                  const c = CLASIF_COLOR[e.clasif]
+                {evaluaciones.length === 0 && !isLoading && (
+                  <TableRow><TableCell colSpan={10} sx={{ textAlign: 'center', color: 'text.secondary', py: 3 }}>Sin evaluaciones registradas</TableCell></TableRow>
+                )}
+                {evaluaciones.map(e => {
+                  const clasif = e.clasificacion ?? clasificar(aNumero(e.puntaje_total))
+                  const c = CLASIF_COLOR[clasif] ?? '#6B7280'
                   return (
-                    <TableRow key={e.nit} sx={{ '& td': { borderColor: '#E5E7EB', color: 'text.primary', fontSize: 12 } }}>
-                      <TableCell sx={{ maxWidth: 180 }}><Typography sx={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.proveedor}</Typography></TableCell>
-                      <TableCell sx={{ fontSize: 11 }}>{e.nit}</TableCell>
+                    <TableRow key={e.id} sx={{ '& td': { borderColor: '#E5E7EB', color: 'text.primary', fontSize: 12 } }}>
+                      <TableCell sx={{ maxWidth: 180 }}><Typography sx={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.proveedor_nombre}</Typography></TableCell>
+                      <TableCell sx={{ fontSize: 11 }}>{e.proveedor_nit || '—'}</TableCell>
                       <TableCell sx={{ fontSize: 11 }}>{e.periodo}</TableCell>
-                      <TableCell sx={{ minWidth: 80 }}><ScoreBar value={e.calidad} color={e.calidad >= 90 ? QMS_COLOR : e.calidad >= 75 ? '#0369A1' : e.calidad >= 60 ? '#D97706' : '#DC2626'} /></TableCell>
-                      <TableCell sx={{ minWidth: 80 }}><ScoreBar value={e.cumplimiento} color={e.cumplimiento >= 90 ? QMS_COLOR : e.cumplimiento >= 75 ? '#0369A1' : e.cumplimiento >= 60 ? '#D97706' : '#DC2626'} /></TableCell>
-                      <TableCell sx={{ minWidth: 80 }}><ScoreBar value={e.servicio} color={e.servicio >= 90 ? QMS_COLOR : e.servicio >= 75 ? '#0369A1' : e.servicio >= 60 ? '#D97706' : '#DC2626'} /></TableCell>
-                      <TableCell sx={{ minWidth: 80 }}><ScoreBar value={e.tiempos} color={e.tiempos >= 90 ? QMS_COLOR : e.tiempos >= 75 ? '#0369A1' : e.tiempos >= 60 ? '#D97706' : '#DC2626'} /></TableCell>
-                      <TableCell><Typography sx={{ fontWeight: 800, color: c, fontSize: 14 }}>{e.total.toFixed(1)}</Typography></TableCell>
-                      <TableCell><Chip label={`${CLASIF_MEDAL[e.clasif]} ${e.clasif}`} size="small" sx={{ fontSize: 9, height: 20, bgcolor: alpha(c, 0.15), color: c, fontWeight: 700 }} /></TableCell>
+                      <TableCell sx={{ minWidth: 80 }}><ScoreBar value={aNumero(e.calidad)} /></TableCell>
+                      <TableCell sx={{ minWidth: 80 }}><ScoreBar value={aNumero(e.cumplimiento)} /></TableCell>
+                      <TableCell sx={{ minWidth: 80 }}><ScoreBar value={aNumero(e.servicio)} /></TableCell>
+                      <TableCell sx={{ minWidth: 80 }}><ScoreBar value={aNumero(e.tiempos)} /></TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Typography sx={{ fontWeight: 800, color: c, fontSize: 14 }}>{aNumero(e.puntaje_total).toFixed(1)}</Typography>
+                          {bajoMinimo(e) && <Tooltip title={`Por debajo del mínimo (${minimo})`}><WarningAmber sx={{ fontSize: 15, color: '#DC2626' }} /></Tooltip>}
+                        </Box>
+                      </TableCell>
+                      <TableCell><Chip label={`${CLASIF_MEDAL[clasif] ?? ''} ${clasif}`} size="small" sx={{ fontSize: 9, height: 20, bgcolor: alpha(c, 0.15), color: c, fontWeight: 700 }} /></TableCell>
+                      <TableCell><Tooltip title="Editar"><IconButton size="small" aria-label={`Editar evaluación de ${e.proveedor_nombre}`} onClick={() => abrir(e)}><Edit sx={{ fontSize: 14 }} /></IconButton></Tooltip></TableCell>
                     </TableRow>
                   )
                 })}
@@ -127,62 +212,73 @@ export default function QMSProveedores() {
         </TabPanel>
 
         <TabPanel value={tab} index={1}>
+          {ranking.length === 0 && <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>El ranking aparece con la primera evaluación.</Typography>}
           <Grid container spacing={2}>
-            {ranking.map((e, i) => (
-              <Grid key={e.nit} size={{ xs: 12, md: 6 }}>
-                <Card sx={{ bgcolor: '#fff', border: `1px solid ${alpha(CLASIF_COLOR[e.clasif], 0.25)}`, borderRadius: 2 }}>
-                  <CardContent sx={{ p: '14px !important' }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography sx={{ fontSize: 20 }}>{i < 3 ? ['🥇', '🥈', '🥉'][i] : `#${i + 1}`}</Typography>
-                        <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary' }}>{e.proveedor}</Typography>
-                      </Box>
-                      <Box sx={{ textAlign: 'right' }}>
-                        <Typography sx={{ fontSize: 20, fontWeight: 800, color: CLASIF_COLOR[e.clasif] }}>{e.total.toFixed(1)}</Typography>
-                        <Chip label={e.clasif} size="small" sx={{ fontSize: 9, height: 16, bgcolor: alpha(CLASIF_COLOR[e.clasif], 0.15), color: CLASIF_COLOR[e.clasif] }} />
-                      </Box>
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 2 }}>
-                      {[['Cal.', e.calidad], ['Cum.', e.cumplimiento], ['Serv.', e.servicio], ['T.Entr.', e.tiempos]].map(([l, v]) => (
-                        <Box key={l as string} sx={{ flex: 1, textAlign: 'center' }}>
-                          <Typography sx={{ fontSize: 10, color: 'text.secondary' }}>{l}</Typography>
-                          <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary' }}>{v}</Typography>
+            {ranking.map((e, i) => {
+              const clasif = e.clasificacion ?? clasificar(aNumero(e.puntaje_total))
+              const c = CLASIF_COLOR[clasif] ?? '#6B7280'
+              return (
+                <Grid key={e.id} size={{ xs: 12, md: 6 }}>
+                  <Card sx={{ border: `1px solid ${alpha(c, 0.25)}`, borderRadius: 2 }}>
+                    <CardContent sx={{ p: '14px !important' }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography sx={{ fontSize: 20 }}>{i < 3 ? ['🥇', '🥈', '🥉'][i] : `#${i + 1}`}</Typography>
+                          <Box>
+                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary' }}>{e.proveedor_nombre}</Typography>
+                            <Typography sx={{ fontSize: 10.5, color: 'text.secondary' }}>Última evaluación: {e.periodo}</Typography>
+                          </Box>
                         </Box>
-                      ))}
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
+                        <Box sx={{ textAlign: 'right' }}>
+                          <Typography sx={{ fontSize: 20, fontWeight: 800, color: c }}>{aNumero(e.puntaje_total).toFixed(1)}</Typography>
+                          <Chip label={clasif} size="small" sx={{ fontSize: 9, height: 16, bgcolor: alpha(c, 0.15), color: c }} />
+                        </Box>
+                      </Box>
+                      <Box sx={{ display: 'flex', gap: 2 }}>
+                        {([['Cal.', e.calidad], ['Cum.', e.cumplimiento], ['Serv.', e.servicio], ['T.Entr.', e.tiempos]] as [string, number | null | undefined][]).map(([l, v]) => (
+                          <Box key={l} sx={{ flex: 1, textAlign: 'center' }}>
+                            <Typography sx={{ fontSize: 10, color: 'text.secondary' }}>{l}</Typography>
+                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary' }}>{aNumero(v)}</Typography>
+                          </Box>
+                        ))}
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              )
+            })}
           </Grid>
         </TabPanel>
 
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: 'background.paper', color: 'text.primary' } }}>
-          <DialogTitle sx={{ fontWeight: 700 }}>Nueva Evaluación de Proveedor</DialogTitle>
+        <Dialog open={dlg.abierto} onClose={() => setDlg({ abierto: false, item: null })} maxWidth="sm" fullWidth>
+          <DialogTitle sx={{ fontWeight: 700 }}>{dlg.item ? 'Editar Evaluación' : 'Nueva Evaluación de Proveedor'}</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
-            <TextField label="Proveedor" fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
-            <TextField label="NIT" fullWidth size="small" InputLabelProps={{ sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
-            <TextField label="Período" type="month" defaultValue="2026-06" fullWidth size="small" InputLabelProps={{ shrink: true, sx: { color: 'text.secondary' } }} sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: '#E5E7EB' } } }} />
-            {([
-              ['Calidad', calidad, setCalidad],
-              ['Cumplimiento', cumplimiento, setCumplimiento],
-              ['Servicio', servicio, setServicio],
-              ['Tiempos de Entrega', tiempos, setTiempos],
-              // La tupla va tipada: sin esto TS infiere una unión de los tres
-              // tipos y cree que {val} podría ser el setter.
-            ] as [string, number, (v: number) => void][]).map(([label, val, setter]) => (
-              <Box key={label}>
-                <Typography sx={{ fontSize: 12, color: 'text.secondary', mb: 0.5 }}>{label}: {val}</Typography>
-                <Slider value={val} min={0} max={100} step={1} onChange={(_, v) => setter(v as number)} sx={{ color: QMS_COLOR }} />
+            <TextField label="Proveedor" required fullWidth size="small" value={f.proveedor_nombre}
+              onChange={e => setF({ ...f, proveedor_nombre: e.target.value })} />
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField label="NIT" fullWidth size="small" value={f.proveedor_nit}
+                helperText="Con el NIT se reconocen las evaluaciones del mismo proveedor"
+                onChange={e => setF({ ...f, proveedor_nit: e.target.value })} />
+              <TextField label="Período" type="month" required size="small" sx={{ minWidth: 170 }} value={f.periodo}
+                InputLabelProps={{ shrink: true }} onChange={e => setF({ ...f, periodo: e.target.value })} />
+            </Box>
+            {criterios.map(([label, k]) => (
+              <Box key={k}>
+                <Typography sx={{ fontSize: 12, color: 'text.secondary', mb: 0.5 }}>{label}: {f[k]}</Typography>
+                <Slider value={f[k]} min={0} max={100} step={1} aria-label={label}
+                  onChange={(_, v) => setF({ ...f, [k]: v as number })} sx={{ color: QMS_COLOR }} />
               </Box>
             ))}
+            <TextField label="Observaciones" fullWidth size="small" multiline minRows={2} value={f.observaciones}
+              onChange={e => setF({ ...f, observaciones: e.target.value })} />
             <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: alpha(CLASIF_COLOR[previewClasif], 0.1), border: `1px solid ${alpha(CLASIF_COLOR[previewClasif], 0.3)}` }}>
-              <Typography sx={{ fontSize: 13, fontWeight: 700, color: CLASIF_COLOR[previewClasif] }}>Puntaje Total: {previewTotal} → {previewClasif.toUpperCase()}</Typography>
+              <Typography sx={{ fontSize: 13, fontWeight: 700, color: CLASIF_COLOR[previewClasif] }}>Puntaje Total: {previewTotal.toFixed(1)} → {previewClasif.toUpperCase()}</Typography>
             </Box>
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setOpenDialog(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>
-            <Button variant="contained" onClick={() => setOpenDialog(false)} sx={{ bgcolor: QMS_COLOR, '&:hover': { bgcolor: '#047857' } }}>Guardar</Button>
+            <Button onClick={() => setDlg({ abierto: false, item: null })} color="inherit">Cancelar</Button>
+            <Button variant="contained" disabled={!f.proveedor_nombre.trim() || !f.periodo || guardar.isPending}
+              onClick={() => guardar.mutate()} sx={{ bgcolor: QMS_COLOR, '&:hover': { bgcolor: '#047857' } }}>Guardar</Button>
           </DialogActions>
         </Dialog>
       </Box>
