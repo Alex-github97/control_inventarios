@@ -31,6 +31,8 @@ import {
   Divider,
   alpha,
   Tooltip,
+  Alert,
+  CircularProgress,
 } from '@mui/material'
 import {
   Search,
@@ -148,19 +150,6 @@ interface RutaAnalisis {
   costoPromKm: number
   tiempoPromMin: number
 }
-
-// ─── Mock Data (solo para el simulador/análisis, aún no cableados) ────────────
-
-const MOCK_ANALISIS: RutaAnalisis[] = [
-  { ruta: 'RT-001 Bogotá-Medellín', nViajes: 45, otifRate: 94.4, costoPromKm: 2048, tiempoPromMin: 475 },
-  { ruta: 'RT-003 Medellín-Cali', nViajes: 38, otifRate: 92.1, costoPromKm: 1966, tiempoPromMin: 355 },
-  { ruta: 'RT-006 Bucaramanga-Bogotá', nViajes: 52, otifRate: 91.3, costoPromKm: 1800, tiempoPromMin: 418 },
-  { ruta: 'RT-008 Bogotá-Bucaramanga', nViajes: 41, otifRate: 89.7, costoPromKm: 1950, tiempoPromMin: 442 },
-  { ruta: 'RT-002 Bogotá-Barranquilla', nViajes: 29, otifRate: 86.2, costoPromKm: 1714, tiempoPromMin: 898 },
-  { ruta: 'RT-004 Bogotá-Cali', nViajes: 33, otifRate: 84.8, costoPromKm: 2597, tiempoPromMin: 542 },
-  { ruta: 'RT-005 Cartagena-Bogotá', nViajes: 18, otifRate: 77.8, costoPromKm: 1571, tiempoPromMin: 965 },
-  { ruta: 'RT-007 Cali-Cartagena', nViajes: 12, otifRate: 66.7, costoPromKm: 2000, tiempoPromMin: 1085 },
-]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -656,365 +645,120 @@ function TabRutasRegistradas({ rutas, onEdit, onToggleEstado, onNew, onVerDetall
   )
 }
 
-// ─── Tab 2: Optimizador ───────────────────────────────────────────────────────
+// ─── Tab 2: Estimador de ruta ────────────────────────────────────────────────
+// Antes «optimizaba» con una distancia al azar entre 400 y 1.100 km y tres
+// alternativas fijas: cada clic daba otro resultado. Ahora reúne lo que la
+// empresa ya sabe de ese corredor —rutas del catálogo y viajes hechos— y si
+// no sabe nada lo dice. No traza el recorrido: eso requiere un motor de mapas.
 
-const TIPO_VEHICULO_OPTIONS = [
-  'CAMION_2_EJES',
-  'CAMION_3_EJES',
-  'TRACTOMULA',
-  'FURGON',
-  'CAMIONETA',
-  'MOTO',
-]
-
-const MOCK_ALTERNATIVAS: AlternativaRuta[] = [
-  {
-    nombre: 'Ruta Óptima (Recomendada)',
-    distanciaKm: 0,
-    tiempoMin: 0,
-    costoTotal: 0,
-    descripcion: 'Menor costo total, ruta por vía principal con peajes incluidos',
-  },
-  {
-    nombre: 'Ruta Rápida',
-    distanciaKm: 22,
-    tiempoMin: -45,
-    costoTotal: 85000,
-    descripcion: 'Menor tiempo de tránsito, autopistas de mayor fluidez',
-  },
-  {
-    nombre: 'Ruta Económica',
-    distanciaKm: 38,
-    tiempoMin: 60,
-    costoTotal: -120000,
-    descripcion: 'Menor costo de peajes, evita autopistas de alto costo',
-  },
-]
+interface EstimacionRuta {
+  origen: string; destino: string
+  rutas: { id: number; nombre: string; codigo?: string | null; origen: string; destino: string
+    distancia_km?: number | null; tiempo_estimado_min?: number | null; costo_referencia?: number | null }[]
+  historico: { viajes: number; distancia_km: number | null; horas_reales: number | null; viajes_con_tiempo: number
+    costo_por_km: number | null; viajes_con_costo: number }
+  costo_por_km_flota: number | null
+}
 
 function TabOptimizador() {
   const [origen, setOrigen] = useState('')
   const [destino, setDestino] = useState('')
-  const [nParadas, setNParadas] = useState(0)
-  const [paradas, setParadas] = useState<string[]>([])
-  const [tipoVehiculo, setTipoVehiculo] = useState('TRACTOMULA')
-  const [pesoCarga, setPesoCarga] = useState('')
-  const [resultado, setResultado] = useState<ResultadoOptimizacion | null>(null)
-  const [calculando, setCalculando] = useState(false)
+  const [consulta, setConsulta] = useState<{ origen: string; destino: string } | null>(null)
+  const { data: est, isFetching } = useQuery<EstimacionRuta>({
+    queryKey: ['tms-rutas-estimar', consulta],
+    queryFn: () => apiClient.get('/tms/rutas-estimar', { params: consulta }).then(r => r.data),
+    enabled: !!consulta,
+  })
 
-  const handleNParadasChange = (n: number) => {
-    const clamped = Math.max(0, Math.min(5, n))
-    setNParadas(clamped)
-    setParadas(prev => {
-      const arr = [...prev]
-      while (arr.length < clamped) arr.push('')
-      return arr.slice(0, clamped)
-    })
+  const estimar = () => {
+    if (origen.trim().length < 2 || destino.trim().length < 2) { toast.error('Ingrese origen y destino'); return }
+    setConsulta({ origen: origen.trim(), destino: destino.trim() })
   }
-
-  const handleOptimizar = () => {
-    if (!origen || !destino) {
-      toast.error('Ingrese origen y destino')
-      return
-    }
-    setCalculando(true)
-    setTimeout(() => {
-      const distBase = 400 + Math.floor(Math.random() * 700)
-      const tiempoBase = Math.round(distBase * 1.1)
-      const combustible = Math.round(distBase * 850)
-      const peajes = Math.round(distBase * 120)
-      const mainCosto = combustible + peajes
-      const alts: AlternativaRuta[] = MOCK_ALTERNATIVAS.map((a, idx) => ({
-        nombre: a.nombre,
-        distanciaKm: idx === 0 ? distBase : distBase + a.distanciaKm,
-        tiempoMin: idx === 0 ? tiempoBase : tiempoBase + a.tiempoMin,
-        costoTotal: idx === 0 ? mainCosto : mainCosto + a.costoTotal,
-        descripcion: a.descripcion,
-      }))
-      setResultado({
-        distanciaTotal: distBase,
-        tiempoEstimadoMin: tiempoBase,
-        costoCombustible: combustible,
-        peajes,
-        costoTotal: mainCosto,
-        alternativas: alts,
-      })
-      setCalculando(false)
-      toast.success('Optimización calculada exitosamente')
-    }, 1200)
-  }
+  // El costo por km que se usa: el del corredor si hay viajes con costos; si
+  // no, el de toda la flota. Se dice cuál se usó.
+  const costoKm = est?.historico.costo_por_km ?? est?.costo_por_km_flota ?? null
+  const fuenteCosto = est?.historico.costo_por_km != null
+    ? `promedio de ${est.historico.viajes_con_costo} viaje(s) en este corredor`
+    : est?.costo_por_km_flota != null ? 'promedio de toda la flota (este corredor no tiene viajes con costos)' : null
+  const distancia = est?.historico.distancia_km ?? est?.rutas.find(r => r.distancia_km)?.distancia_km ?? null
+  const sinDatos = est && !est.rutas.length && !est.historico.viajes
 
   return (
     <Grid container spacing={3}>
-      {/* Left Panel */}
       <Grid size={{ xs: 12, md: 5 }}>
         <Paper variant="outlined" sx={{ borderRadius: 2, p: 3 }}>
           <Stack direction="row" alignItems="center" spacing={1.5} mb={3}>
             <Box sx={{ p: 1, bgcolor: alpha(TMS_COLOR, 0.1), borderRadius: 1.5, display: 'flex' }}>
               <MapOutlined sx={{ color: TMS_COLOR, fontSize: 22 }} />
             </Box>
-            <Typography variant="h6" fontWeight={700}>
-              Planificador de Ruta
-            </Typography>
+            <Typography variant="h6" fontWeight={700}>Estimador de ruta</Typography>
           </Stack>
-
           <Stack spacing={2.5}>
-            <TextField
-              label="Origen"
-              fullWidth
-              size="small"
-              value={origen}
-              onChange={e => setOrigen(e.target.value)}
-              placeholder="Ej: Bogotá"
-            />
-            <TextField
-              label="Destino"
-              fullWidth
-              size="small"
-              value={destino}
-              onChange={e => setDestino(e.target.value)}
-              placeholder="Ej: Medellín"
-            />
-            <TextField
-              label="N° Paradas Intermedias"
-              fullWidth
-              size="small"
-              type="number"
-              value={nParadas}
-              onChange={e => handleNParadasChange(Number(e.target.value))}
-              inputProps={{ min: 0, max: 5 }}
-              helperText="Máximo 5 paradas"
-            />
-
-            {paradas.map((parada, idx) => (
-              <TextField
-                key={idx}
-                label={`Parada ${idx + 1}`}
-                fullWidth
-                size="small"
-                value={parada}
-                onChange={e => {
-                  const updated = [...paradas]
-                  updated[idx] = e.target.value
-                  setParadas(updated)
-                }}
-                placeholder={`Ciudad de parada ${idx + 1}`}
-              />
-            ))}
-
-            <FormControl fullWidth size="small">
-              <InputLabel>Tipo de Vehículo</InputLabel>
-              <Select
-                label="Tipo de Vehículo"
-                value={tipoVehiculo}
-                onChange={e => setTipoVehiculo(e.target.value)}
-              >
-                {TIPO_VEHICULO_OPTIONS.map(t => (
-                  <MenuItem key={t} value={t}>
-                    {t.replace(/_/g, ' ')}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <TextField
-              label="Peso de Carga (kg)"
-              fullWidth
-              size="small"
-              type="number"
-              value={pesoCarga}
-              onChange={e => setPesoCarga(e.target.value)}
-              placeholder="Ej: 15000"
-            />
-
-            <Button
-              variant="contained"
-              fullWidth
-              size="large"
-              startIcon={<Route />}
-              onClick={handleOptimizar}
-              disabled={calculando}
-              sx={{
-                bgcolor: TMS_COLOR,
-                '&:hover': { bgcolor: '#025E91' },
-                fontWeight: 700,
-                py: 1.5,
-                mt: 1,
-              }}
-            >
-              {calculando ? 'Calculando...' : 'Optimizar Ruta'}
+            <TextField label="Ciudad de origen" size="small" fullWidth value={origen} onChange={e => setOrigen(e.target.value)} />
+            <TextField label="Ciudad de destino" size="small" fullWidth value={destino} onChange={e => setDestino(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') estimar() }} />
+            <Button variant="contained" onClick={estimar} disabled={isFetching} sx={{ bgcolor: TMS_COLOR }}>
+              {isFetching ? 'Consultando…' : 'Estimar'}
             </Button>
+            <Typography fontSize={12} color="text.secondary">
+              Se estima con las rutas del catálogo y los viajes ya hechos entre esas ciudades.
+            </Typography>
           </Stack>
         </Paper>
       </Grid>
 
-      {/* Right Panel */}
       <Grid size={{ xs: 12, md: 7 }}>
-        {resultado === null ? (
-          <Paper
-            variant="outlined"
-            sx={{
-              borderRadius: 2,
-              p: 4,
-              height: '100%',
-              minHeight: 400,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              bgcolor: alpha(TMS_COLOR, 0.02),
-            }}
-          >
-            <Box
-              sx={{
-                p: 3,
-                bgcolor: alpha(TMS_COLOR, 0.08),
-                borderRadius: '50%',
-                mb: 2,
-                display: 'flex',
-              }}
-            >
-              <Route sx={{ fontSize: 48, color: TMS_COLOR, opacity: 0.6 }} />
-            </Box>
-            <Typography variant="h6" color="text.secondary" textAlign="center" fontWeight={600}>
-              Sin resultados aún
-            </Typography>
-            <Typography variant="body2" color="text.disabled" textAlign="center" mt={1} maxWidth={340}>
-              Configure los parámetros y haga clic en "Optimizar Ruta" para ver los resultados de optimización
-            </Typography>
+        {!est ? (
+          <Paper variant="outlined" sx={{ borderRadius: 2, p: 4, textAlign: 'center' }}>
+            <Typography color="text.secondary">Escribe origen y destino para ver lo que se sabe de ese corredor.</Typography>
           </Paper>
+        ) : sinDatos ? (
+          <Alert severity="info">
+            No hay rutas en el catálogo ni viajes registrados entre «{est.origen}» y «{est.destino}».
+            Registra la ruta en la pestaña «Rutas registradas» con su distancia y tiempo, o espera a que se hagan viajes en ese corredor.
+          </Alert>
         ) : (
-          <Stack spacing={2.5}>
-            <Paper variant="outlined" sx={{ borderRadius: 2, p: 3 }}>
-              <Typography variant="h6" fontWeight={700} mb={2.5}>
-                Resultado de Optimización
-              </Typography>
-              <Grid container spacing={2}>
-                {[
-                  {
-                    label: 'Distancia Total',
-                    value: `${resultado.distanciaTotal.toLocaleString('es-CO')} km`,
-                    icon: <Speed sx={{ fontSize: 22, color: TMS_COLOR }} />,
-                    bg: alpha(TMS_COLOR, 0.08),
-                  },
-                  {
-                    label: 'Tiempo Estimado',
-                    value: formatMinutes(resultado.tiempoEstimadoMin),
-                    icon: <AccessTime sx={{ fontSize: 22, color: '#7C3AED' }} />,
-                    bg: alpha('#7C3AED', 0.08),
-                  },
-                  {
-                    label: 'Costo Combustible',
-                    value: formatCOP(resultado.costoCombustible),
-                    icon: <LocalGasStation sx={{ fontSize: 22, color: '#D97706' }} />,
-                    bg: alpha('#D97706', 0.08),
-                  },
-                  {
-                    label: 'Peajes',
-                    value: formatCOP(resultado.peajes),
-                    icon: <Toll sx={{ fontSize: 22, color: '#DC2626' }} />,
-                    bg: alpha('#DC2626', 0.08),
-                  },
-                  {
-                    label: 'Costo Total',
-                    value: formatCOP(resultado.costoTotal),
-                    icon: <AttachMoney sx={{ fontSize: 22, color: '#16A34A' }} />,
-                    bg: alpha('#16A34A', 0.08),
-                  },
-                ].map(m => (
-                  <Grid key={m.label} size={{ xs: 12, sm: 6 }}>
-                    <Box
-                      sx={{
-                        p: 2,
-                        bgcolor: m.bg,
-                        borderRadius: 2,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1.5,
-                      }}
-                    >
-                      {m.icon}
-                      <Box>
-                        <Typography variant="caption" color="text.secondary" display="block">
-                          {m.label}
-                        </Typography>
-                        <Typography variant="subtitle1" fontWeight={700}>
-                          {m.value}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Grid>
-                ))}
-              </Grid>
-            </Paper>
-
-            <Paper variant="outlined" sx={{ borderRadius: 2, p: 3 }}>
-              <Typography variant="subtitle1" fontWeight={700} mb={2}>
-                Rutas Alternativas
-              </Typography>
-              <Grid container spacing={2}>
-                {resultado.alternativas.map((alt, idx) => {
-                  const isMain = idx === 0
-                  const diffDist = isMain ? null : alt.distanciaKm - resultado.distanciaTotal
-                  const diffTiempo = isMain ? null : alt.tiempoMin - resultado.tiempoEstimadoMin
-                  const diffCosto = isMain ? null : alt.costoTotal - resultado.costoTotal
-                  return (
-                    <Grid key={idx} size={{ xs: 12, sm: 4 }}>
-                      <Box
-                        sx={{
-                          p: 2,
-                          border: '1px solid',
-                          borderColor: isMain ? TMS_COLOR : 'divider',
-                          borderRadius: 2,
-                          bgcolor: isMain ? alpha(TMS_COLOR, 0.04) : 'transparent',
-                          height: '100%',
-                        }}
-                      >
-                        <Typography variant="caption" fontWeight={700} sx={{ color: isMain ? TMS_COLOR : 'text.secondary' }}>
-                          {alt.nombre}
-                        </Typography>
-                        <Stack spacing={0.5} mt={1}>
-                          <Stack direction="row" justifyContent="space-between" alignItems="center">
-                            <Typography variant="caption" color="text.secondary">Distancia</Typography>
-                            <Typography variant="caption" fontWeight={700}>
-                              {alt.distanciaKm.toLocaleString('es-CO')} km
-                              {diffDist !== null && (
-                                <Box component="span" sx={{ ml: 0.5, color: diffDist > 0 ? '#EF4444' : '#22C55E' }}>
-                                  ({diffDist > 0 ? '+' : ''}{diffDist})
-                                </Box>
-                              )}
-                            </Typography>
-                          </Stack>
-                          <Stack direction="row" justifyContent="space-between" alignItems="center">
-                            <Typography variant="caption" color="text.secondary">Tiempo</Typography>
-                            <Typography variant="caption" fontWeight={700}>
-                              {formatMinutes(alt.tiempoMin)}
-                              {diffTiempo !== null && (
-                                <Box component="span" sx={{ ml: 0.5, color: diffTiempo > 0 ? '#EF4444' : '#22C55E' }}>
-                                  ({diffTiempo > 0 ? '+' : ''}{diffTiempo}m)
-                                </Box>
-                              )}
-                            </Typography>
-                          </Stack>
-                          <Stack direction="row" justifyContent="space-between" alignItems="center">
-                            <Typography variant="caption" color="text.secondary">Costo</Typography>
-                            <Typography variant="caption" fontWeight={700}>
-                              {formatCOP(alt.costoTotal)}
-                              {diffCosto !== null && (
-                                <Box component="span" sx={{ ml: 0.5, color: diffCosto > 0 ? '#EF4444' : '#22C55E' }}>
-                                  ({diffCosto > 0 ? '+' : ''}{formatCOP(Math.abs(diffCosto))})
-                                </Box>
-                              )}
-                            </Typography>
-                          </Stack>
-                        </Stack>
-                        <Typography variant="caption" color="text.secondary" display="block" mt={1.5}>
-                          {alt.descripcion}
-                        </Typography>
-                      </Box>
-                    </Grid>
-                  )
-                })}
-              </Grid>
+          <Stack spacing={2}>
+            <Grid container spacing={2}>
+              {[
+                ['Distancia', distancia != null ? `${distancia.toLocaleString('es-CO')} km` : '—',
+                  est.historico.distancia_km != null ? `promedio de ${est.historico.viajes} viaje(s)` : distancia != null ? 'según el catálogo' : 'sin dato'],
+                ['Duración real', est.historico.horas_reales != null ? formatMinutes(Math.round(est.historico.horas_reales * 60)) : '—',
+                  est.historico.viajes_con_tiempo ? `cargue a entrega, ${est.historico.viajes_con_tiempo} viaje(s)` : 'sin viajes con tiempos'],
+                ['Costo estimado', costoKm != null && distancia != null ? formatCOP(costoKm * distancia) : '—',
+                  costoKm != null ? `${formatCOP(costoKm)}/km · ${fuenteCosto}` : 'sin viajes con costos'],
+              ].map(([t, v, s]) => (
+                <Grid key={t} size={{ xs: 12, sm: 4 }}>
+                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, height: '100%' }}>
+                    <Typography fontSize={12} color="text.secondary">{t}</Typography>
+                    <Typography variant="h6" fontWeight={800} color={TMS_COLOR}>{v}</Typography>
+                    <Typography fontSize={11} color="text.secondary">{s}</Typography>
+                  </Paper>
+                </Grid>
+              ))}
+            </Grid>
+            <Paper variant="outlined" sx={{ borderRadius: 2 }}>
+              <Typography fontWeight={700} sx={{ p: 2, pb: 1 }}>Rutas del catálogo para este corredor ({est.rutas.length})</Typography>
+              {est.rutas.length === 0 ? (
+                <Typography fontSize={13} color="text.secondary" sx={{ px: 2, pb: 2 }}>Ninguna ruta registrada coincide con estas ciudades.</Typography>
+              ) : (
+                <Table size="small">
+                  <TableHead><TableRow><TableCell><b>Ruta</b></TableCell><TableCell align="right"><b>Distancia</b></TableCell>
+                    <TableCell align="right"><b>Tiempo</b></TableCell><TableCell align="right"><b>Costo estimado</b></TableCell></TableRow></TableHead>
+                  <TableBody>
+                    {est.rutas.map((r, i) => (
+                      <TableRow key={r.id} sx={i === 0 ? { bgcolor: alpha(TMS_COLOR, 0.05) } : undefined}>
+                        <TableCell><Typography fontSize={13} fontWeight={i === 0 ? 700 : 400}>{r.codigo ? `${r.codigo} · ` : ''}{r.nombre}</Typography>
+                          {i === 0 && r.distancia_km != null && <Typography fontSize={11} color="text.secondary">La más corta del catálogo</Typography>}</TableCell>
+                        <TableCell align="right">{r.distancia_km != null ? `${r.distancia_km} km` : '—'}</TableCell>
+                        <TableCell align="right">{r.tiempo_estimado_min != null ? formatMinutes(r.tiempo_estimado_min) : '—'}</TableCell>
+                        <TableCell align="right">{r.costo_referencia != null ? formatCOP(r.costo_referencia)
+                          : costoKm != null && r.distancia_km != null ? formatCOP(costoKm * r.distancia_km) : '—'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </Paper>
           </Stack>
         )}
@@ -1024,88 +768,52 @@ function TabOptimizador() {
 }
 
 // ─── Tab 3: Análisis ──────────────────────────────────────────────────────────
+// Antes: ocho rutas con OTIF, costo y tiempo escritos a mano. Ahora: cada
+// corredor con viajes entregados, calculado por el servidor.
+
+interface CorredorAnalisis {
+  origen: string; destino: string; viajes: number
+  on_time_rate: number | null; otif_rate: number | null
+  costo_por_km: number | null; horas_promedio: number | null
+}
 
 function TabAnalisis({ totalActivas, totalRutas }: { totalActivas: number; totalRutas: number }) {
-  const sorted = useMemo(
-    () => [...MOCK_ANALISIS].sort((a, b) => b.otifRate - a.otifRate),
-    [],
-  )
-  const mejores = sorted.slice(0, 3)
-  const peores = sorted.slice(-3).reverse()
+  const { data: corredores = [], isLoading } = useQuery<CorredorAnalisis[]>({
+    queryKey: ['tms-rutas-analisis'],
+    queryFn: () => apiClient.get('/tms/rutas-analisis').then(r => r.data),
+  })
+  const conOtif = corredores.filter(c => c.otif_rate != null)
+  const orden = [...conOtif].sort((a, b) => b.otif_rate! - a.otif_rate!)
+  const totalViajes = corredores.reduce((s, c) => s + c.viajes, 0)
+  // OTIF global ponderado por viajes, no promedio simple de corredores.
+  const otifGlobal = conOtif.length
+    ? conOtif.reduce((s, c) => s + c.otif_rate! * c.viajes, 0) / conOtif.reduce((s, c) => s + c.viajes, 0)
+    : null
+  const nombre = (c: CorredorAnalisis) => `${c.origen} → ${c.destino}`
 
-  const otifGlobal = (MOCK_ANALISIS.reduce((acc, r) => acc + r.otifRate, 0) / MOCK_ANALISIS.length).toFixed(1)
-  const masEficiente = sorted[0].ruta
-
-  const AnalisisTable = ({
-    data,
-    highlight,
-  }: {
-    data: RutaAnalisis[]
-    highlight: 'green' | 'orange'
-  }) => (
+  const Tabla = ({ data, color }: { data: CorredorAnalisis[]; color: string }) => (
     <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
       <Table size="small">
         <TableHead>
-          <TableRow
-            sx={{
-              bgcolor:
-                highlight === 'green'
-                  ? alpha('#22C55E', 0.12)
-                  : alpha('#F97316', 0.12),
-            }}
-          >
-            <TableCell sx={{ fontWeight: 700 }}>Ruta</TableCell>
-            <TableCell sx={{ fontWeight: 700 }} align="right">N° Viajes</TableCell>
-            <TableCell sx={{ fontWeight: 700 }} align="right">OTIF Rate</TableCell>
-            <TableCell sx={{ fontWeight: 700 }} align="right">Costo Prom/km</TableCell>
-            <TableCell sx={{ fontWeight: 700 }} align="right">Tiempo Prom</TableCell>
+          <TableRow sx={{ bgcolor: alpha(color, 0.12) }}>
+            <TableCell sx={{ fontWeight: 700 }}>Corredor</TableCell>
+            <TableCell sx={{ fontWeight: 700 }} align="right">Viajes</TableCell>
+            <TableCell sx={{ fontWeight: 700 }} align="right">OTIF</TableCell>
+            <TableCell sx={{ fontWeight: 700 }} align="right">A tiempo</TableCell>
+            <TableCell sx={{ fontWeight: 700 }} align="right">Costo/km</TableCell>
+            <TableCell sx={{ fontWeight: 700 }} align="right">Duración prom.</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
-          {data.map((row, idx) => (
-            <TableRow
-              key={row.ruta}
-              sx={{
-                bgcolor:
-                  idx === 0
-                    ? highlight === 'green'
-                      ? alpha('#22C55E', 0.06)
-                      : alpha('#F97316', 0.06)
-                    : 'transparent',
-              }}
-            >
-              <TableCell>
-                <Typography variant="body2" fontWeight={idx === 0 ? 700 : 400}>
-                  {row.ruta}
-                </Typography>
-              </TableCell>
-              <TableCell align="right">
-                <Typography variant="body2">{row.nViajes}</Typography>
-              </TableCell>
-              <TableCell align="right">
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
-                  {highlight === 'green' ? (
-                    <TrendingUp sx={{ fontSize: 16, color: '#22C55E' }} />
-                  ) : (
-                    <TrendingDown sx={{ fontSize: 16, color: '#F97316' }} />
-                  )}
-                  <Typography
-                    variant="body2"
-                    fontWeight={700}
-                    sx={{ color: highlight === 'green' ? '#166534' : '#C2410C' }}
-                  >
-                    {row.otifRate}%
-                  </Typography>
-                </Box>
-              </TableCell>
-              <TableCell align="right">
-                <Typography variant="body2">
-                  ${row.costoPromKm.toLocaleString('es-CO')}/km
-                </Typography>
-              </TableCell>
-              <TableCell align="right">
-                <Typography variant="body2">{formatMinutes(row.tiempoPromMin)}</Typography>
-              </TableCell>
+          {data.length === 0 && <TableRow><TableCell colSpan={6} align="center" sx={{ py: 2, color: 'text.secondary' }}>Sin datos</TableCell></TableRow>}
+          {data.map(c => (
+            <TableRow key={nombre(c)}>
+              <TableCell>{nombre(c)}</TableCell>
+              <TableCell align="right">{c.viajes}</TableCell>
+              <TableCell align="right"><b>{c.otif_rate != null ? `${c.otif_rate.toFixed(1)}%` : '—'}</b></TableCell>
+              <TableCell align="right">{c.on_time_rate != null ? `${c.on_time_rate.toFixed(1)}%` : '—'}</TableCell>
+              <TableCell align="right">{c.costo_por_km != null ? formatCOP(c.costo_por_km) : '—'}</TableCell>
+              <TableCell align="right">{c.horas_promedio != null ? formatMinutes(Math.round(c.horas_promedio * 60)) : '—'}</TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -1114,121 +822,33 @@ function TabAnalisis({ totalActivas, totalRutas }: { totalActivas: number; total
   )
 
   return (
-    <Stack spacing={4}>
-      {/* Header */}
-      <Box>
-        <Typography variant="h6" fontWeight={700}>
-          Análisis de Rendimiento
-        </Typography>
-        <Typography variant="body2" color="text.secondary" mt={0.5}>
-          Rendimiento de rutas en los últimos 30 días
-        </Typography>
-      </Box>
-
-      {/* Mejores Rutas */}
-      <Box>
-        <Stack
-          direction="row"
-          alignItems="center"
-          spacing={1.5}
-          sx={{
-            bgcolor: alpha('#22C55E', 0.1),
-            border: `1px solid ${alpha('#22C55E', 0.25)}`,
-            borderRadius: 2,
-            px: 2,
-            py: 1.5,
-            mb: 2,
-          }}
-        >
-          <TrendingUp sx={{ color: '#16A34A', fontSize: 22 }} />
-          <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#166534' }}>
-            Mejores Rutas — Top 3 por OTIF
-          </Typography>
-        </Stack>
-        <AnalisisTable data={mejores} highlight="green" />
-      </Box>
-
-      {/* Rutas con Oportunidad de Mejora */}
-      <Box>
-        <Stack
-          direction="row"
-          alignItems="center"
-          spacing={1.5}
-          sx={{
-            bgcolor: alpha('#F97316', 0.1),
-            border: `1px solid ${alpha('#F97316', 0.25)}`,
-            borderRadius: 2,
-            px: 2,
-            py: 1.5,
-            mb: 2,
-          }}
-        >
-          <TrendingDown sx={{ color: '#C2410C', fontSize: 22 }} />
-          <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#C2410C' }}>
-            Rutas con Oportunidad de Mejora — Bajo Rendimiento
-          </Typography>
-        </Stack>
-        <AnalisisTable data={peores} highlight="orange" />
-      </Box>
-
-      {/* Summary Stats */}
+    <Stack spacing={3}>
       <Grid container spacing={2}>
         {[
-          {
-            label: 'Total Rutas Activas',
-            value: String(totalActivas),
-            sub: `De ${totalRutas} rutas registradas`,
-            color: TMS_COLOR,
-            bg: alpha(TMS_COLOR, 0.08),
-            icon: <Route sx={{ fontSize: 28, color: TMS_COLOR }} />,
-          },
-          {
-            label: 'Ruta Más Eficiente',
-            value: masEficiente.split(' ')[0],
-            sub: masEficiente,
-            color: '#16A34A',
-            bg: alpha('#22C55E', 0.08),
-            icon: <TrendingUp sx={{ fontSize: 28, color: '#16A34A' }} />,
-          },
-          {
-            label: 'OTIF Promedio Global',
-            value: `${otifGlobal}%`,
-            sub: 'Promedio de todas las rutas',
-            color: '#7C3AED',
-            bg: alpha('#7C3AED', 0.08),
-            icon: <Timeline sx={{ fontSize: 28, color: '#7C3AED' }} />,
-          },
-        ].map(stat => (
-          <Grid key={stat.label} size={{ xs: 12, sm: 4 }}>
-            <Paper
-              variant="outlined"
-              sx={{
-                borderRadius: 2,
-                p: 2.5,
-                bgcolor: stat.bg,
-                borderColor: alpha(stat.color, 0.2),
-              }}
-            >
-              <Stack direction="row" alignItems="center" spacing={2}>
-                <Box sx={{ p: 1.5, bgcolor: 'white', borderRadius: 2, boxShadow: 1 }}>
-                  {stat.icon}
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary" display="block">
-                    {stat.label}
-                  </Typography>
-                  <Typography variant="h5" fontWeight={700} sx={{ color: stat.color }}>
-                    {stat.value}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {stat.sub}
-                  </Typography>
-                </Box>
-              </Stack>
+          ['Rutas activas en catálogo', `${totalActivas} de ${totalRutas}`],
+          ['Corredores con viajes', String(corredores.length)],
+          ['Viajes entregados', String(totalViajes)],
+          ['OTIF global', otifGlobal != null ? `${otifGlobal.toFixed(1)}%` : '—'],
+        ].map(([t, v]) => (
+          <Grid key={t} size={{ xs: 6, md: 3 }}>
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+              <Typography fontSize={12} color="text.secondary">{t}</Typography>
+              <Typography variant="h6" fontWeight={800} color={TMS_COLOR}>{v}</Typography>
             </Paper>
           </Grid>
         ))}
       </Grid>
+      {isLoading ? <Box textAlign="center" py={3}><CircularProgress size={24} /></Box> : corredores.length === 0 ? (
+        <Alert severity="info">El análisis aparece cuando hay viajes entregados con origen y destino.</Alert>
+      ) : (<>
+        {conOtif.length > 0 && (
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, md: 6 }}><Typography fontWeight={700} mb={1}>Mejor OTIF</Typography><Tabla data={orden.slice(0, 3)} color="#22C55E" /></Grid>
+            <Grid size={{ xs: 12, md: 6 }}><Typography fontWeight={700} mb={1}>OTIF más bajo</Typography><Tabla data={[...orden].reverse().slice(0, 3)} color="#F97316" /></Grid>
+          </Grid>
+        )}
+        <Box><Typography fontWeight={700} mb={1}>Todos los corredores</Typography><Tabla data={corredores} color={TMS_COLOR} /></Box>
+      </>)}
     </Stack>
   )
 }
@@ -1435,7 +1055,7 @@ export default function TMSRutas() {
             }}
           >
             <Tab label="Rutas Registradas" icon={<Route />} iconPosition="start" />
-            <Tab label="Optimizador" icon={<MapOutlined />} iconPosition="start" />
+            <Tab label="Estimador" icon={<MapOutlined />} iconPosition="start" />
             <Tab label="Análisis" icon={<Timeline />} iconPosition="start" />
           </Tabs>
 

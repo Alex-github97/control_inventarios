@@ -243,6 +243,9 @@ class TMSViaje(Base, TimestampMixin, SoftDeleteMixin):
     valor_flete                = Column(Float, nullable=True)
     otif_on_time               = Column(Boolean, nullable=True)
     otif_in_full               = Column(Boolean, nullable=True)
+    # Qué faltó cuando la entrega no llegó completa. Sin el motivo, el
+    # in-full dice que algo falló pero no qué corregir.
+    otif_motivo                = Column(String(300), nullable=True)
     notas                      = Column(Text, nullable=True)
     creado_por_id              = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
 

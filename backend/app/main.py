@@ -984,6 +984,12 @@ async def _migrar_esquema(esquema: str) -> None:
                 "ALTER TABLE eam_garantia ADD COLUMN IF NOT EXISTS %s %s"
                 % (columna, tipo)))
 
+        # ── TMS · motivo del in-full ──
+        # La completitud de una entrega la confirma una persona; si no llegó
+        # completa, dice qué faltó.
+        await conn.execute(text(
+            "ALTER TABLE tms_viaje ADD COLUMN IF NOT EXISTS otif_motivo VARCHAR(300)"))
+
         # ── MES · terminal de planta ──
         # Un usuario de la plataforma por operario, y su PIN de terminal. Sin
         # esto la terminal se identifica con un código que cualquiera puede

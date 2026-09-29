@@ -2,11 +2,12 @@
 API endpoints — TMS (Transportation Management System)
 Prefijo: /tms
 """
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import select, func, and_, or_, delete as sa_delete, Integer
 from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
@@ -40,6 +41,18 @@ router = APIRouter(prefix="/tms", tags=["tms"])
 
 
 # ─── Utilidades internas ───────────────────────────────────────────────────────
+
+def _ahora() -> datetime:
+    """La hora actual CON zona horaria.
+
+    Las columnas de fecha de TMS son `timezone=True` y lo que llega del
+    formulario trae zona. Con `datetime.utcnow()` —sin zona— marcar un viaje
+    como ENTREGADO respondía 500 en cuanto tenía fecha de entrega programada:
+    Python no compara una fecha con zona contra otra sin ella, y la cuenta de
+    puntualidad reventaba justo antes de guardar.
+    """
+    return datetime.now(timezone.utc)
+
 
 def _calcular_costos(
     combustible: float,
@@ -750,10 +763,10 @@ async def actualizar_estado_viaje(
             raise HTTPException(400, "El viaje debe tener vehículo y conductor asignados para pasar a ASIGNADO")
 
     if estado_nuevo == "EN_TRANSITO":
-        viaje.fecha_real_cargue = datetime.utcnow()
+        viaje.fecha_real_cargue = _ahora()
 
     if estado_nuevo == "ENTREGADO":
-        viaje.fecha_real_entrega = datetime.utcnow()
+        viaje.fecha_real_entrega = _ahora()
         # Calcular OTIF
         if viaje.fecha_programada_entrega and viaje.fecha_real_entrega:
             viaje.otif_on_time = viaje.fecha_real_entrega <= viaje.fecha_programada_entrega
@@ -779,7 +792,7 @@ async def eliminar_viaje(
     viaje = await db.get(TMSViaje, viaje_id)
     if not viaje or viaje.deleted_at:
         raise HTTPException(404, "Viaje no encontrado")
-    viaje.deleted_at = datetime.utcnow()
+    viaje.deleted_at = _ahora()
     await db.commit()
 
 
@@ -894,7 +907,7 @@ async def crear_evento(
         viaje = await db.get(TMSViaje, data.viaje_id)
         if viaje and viaje.estado == EstadoViajeTMSEnum.EN_TRANSITO:
             viaje.estado = EstadoViajeTMSEnum.ENTREGADO
-            viaje.fecha_real_entrega = datetime.utcnow()
+            viaje.fecha_real_entrega = _ahora()
             if viaje.fecha_programada_entrega and viaje.fecha_real_entrega:
                 viaje.otif_on_time = viaje.fecha_real_entrega <= viaje.fecha_programada_entrega
 
@@ -1314,7 +1327,7 @@ async def pagar_liquidacion(
     if not liq:
         raise HTTPException(404, "Liquidación no encontrada")
     liq.estado = EstadoLiquidacionTMSEnum.PAGADA
-    liq.pagado_en = datetime.utcnow()
+    liq.pagado_en = _ahora()
     await db.commit()
     return {"mensaje": "Liquidación marcada como pagada"}
 
@@ -1366,33 +1379,28 @@ async def resumen_otif(
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
-    q = select(
-        func.count(TMSOTIFRegistro.id),
-        func.sum(func.cast(TMSOTIFRegistro.on_time == True, type_=None)),
-        func.sum(func.cast(TMSOTIFRegistro.in_full == True, type_=None)),
-        func.sum(func.cast(TMSOTIFRegistro.otif == True, type_=None)),
-    )
-    if fecha_desde:
-        q = q.where(TMSOTIFRegistro.fecha >= fecha_desde)
-    if fecha_hasta:
-        q = q.where(TMSOTIFRegistro.fecha <= fecha_hasta)
+    """Tasas OTIF del período, calculadas sobre los viajes entregados.
 
-    r = await db.execute(q)
-    row = r.one()
-    total = row[0] or 0
-    on_time_count = int(row[1] or 0)
-    in_full_count = int(row[2] or 0)
-    otif_count = int(row[3] or 0)
+    Antes se contaba sobre `tms_otif_registro`, una tabla que nadie llenaba, y
+    con `cast(..., type_=None)`, que PostgreSQL no sabe compilar: la ruta
+    respondía 500. Ahora sale de la misma fuente que la lista por viaje, así
+    que el resumen y el detalle no pueden contradecirse.
 
-    on_time_rate = round(on_time_count / total * 100, 2) if total else 0.0
-    in_full_rate = round(in_full_count / total * 100, 2) if total else 0.0
-    otif_rate = round(otif_count / total * 100, 2) if total else 0.0
-
+    Las tasas se calculan sobre lo que se sabe: un viaje sin confirmar si
+    llegó completo no entra al denominador del in-full.
+    """
+    filas = await otif_por_viaje(fecha_desde, fecha_hasta, db, _)
+    total = len(filas)
+    con_ot = [f for f in filas if f["on_time"] is not None]
+    con_if = [f for f in filas if f["in_full"] is not None]
+    con_otif = [f for f in filas if f["otif"] is not None]
+    tasa = lambda xs, k: round(sum(1 for f in xs if f[k]) / len(xs) * 100, 2) if xs else 0.0
     return {
-        "on_time_rate": on_time_rate,
-        "in_full_rate": in_full_rate,
-        "otif_rate": otif_rate,
+        "on_time_rate": tasa(con_ot, "on_time"),
+        "in_full_rate": tasa(con_if, "in_full"),
+        "otif_rate": tasa(con_otif, "otif"),
         "total": total,
+        "sin_confirmar_in_full": total - len(con_if),
     }
 
 
@@ -1554,3 +1562,522 @@ async def calcular_kpis_diarios(
 
     await db.commit()
     return {"mensaje": "KPIs calculados"}
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# VISTAS DE CONJUNTO: costos, OTIF, planeación y documentos pendientes
+#
+# Las pantallas de Costos, OTIF, Planeación y Documentos eran maqueta. Lo que
+# les faltaba del servidor no era el dato —ya estaba en los viajes— sino verlo
+# junto: cada ruta existente respondía por UN viaje, y armar una tabla así
+# costaba una consulta por fila.
+# ═════════════════════════════════════════════════════════════════════════════
+
+_ESTADOS_ENTREGADOS = [EstadoViajeTMSEnum.ENTREGADO, EstadoViajeTMSEnum.CERRADO]
+
+
+def _val(x):
+    return x.value if hasattr(x, "value") else x
+
+
+async def _nombres_conductores(db: AsyncSession, viajes: List[TMSViaje]) -> dict:
+    """Nombre del conductor de cada viaje, en UNA consulta y no en una por fila."""
+    ids = {v.conductor_hcm_id for v in viajes if v.conductor_hcm_id}
+    if not ids:
+        return {}
+    from app.infrastructure.models.hcm import HCMColaborador, HCMConductor
+    r = await db.execute(
+        select(HCMConductor.id, HCMColaborador.nombres + " " + HCMColaborador.apellidos)
+        .join(HCMColaborador, HCMConductor.colaborador_id == HCMColaborador.id)
+        .where(HCMConductor.id.in_(ids)))
+    return dict(r.all())
+
+
+async def _nombres_clientes(db: AsyncSession, viajes: List[TMSViaje]) -> dict:
+    ids = {v.generador_id for v in viajes if v.generador_id}
+    if not ids:
+        return {}
+    from app.infrastructure.models.flete import GeneradorCarga
+    r = await db.execute(select(GeneradorCarga.id, GeneradorCarga.nombre)
+                         .where(GeneradorCarga.id.in_(ids)))
+    return dict(r.all())
+
+
+# ─── Costos de todos los viajes ───────────────────────────────────────────────
+
+@router.get("/costos")
+async def listar_costos(
+    fecha_desde: Optional[date] = None,
+    fecha_hasta: Optional[date] = None,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """Cada viaje no cancelado con su desglose de costos, si lo tiene.
+
+    El total, el margen y el costo por kilómetro se calculan aquí con la
+    distancia ACTUAL del viaje. La tabla de costos también los guarda, pero
+    fijados el día que se registraron: si después se corrige la distancia, el
+    costo por kilómetro guardado miente.
+    """
+    q = (select(TMSViaje, TMSCostoViaje)
+         .outerjoin(TMSCostoViaje, TMSCostoViaje.viaje_id == TMSViaje.id)
+         .where(TMSViaje.deleted_at.is_(None),
+                TMSViaje.estado != EstadoViajeTMSEnum.CANCELADO))
+    fecha = func.coalesce(TMSViaje.fecha_real_entrega, TMSViaje.fecha_programada_cargue,
+                          TMSViaje.created_at)
+    if fecha_desde:
+        q = q.where(fecha >= datetime(fecha_desde.year, fecha_desde.month, fecha_desde.day))
+    if fecha_hasta:
+        q = q.where(fecha < datetime(fecha_hasta.year, fecha_hasta.month, fecha_hasta.day)
+                    + timedelta(days=1))
+    filas = (await db.execute(q.order_by(TMSViaje.id.desc()))).all()
+    viajes = [v for v, _c in filas]
+    conductores = await _nombres_conductores(db, viajes)
+
+    salida = []
+    for v, c in filas:
+        costo = None
+        if c:
+            total = (c.combustible + c.peajes + c.viaticos + c.horas_extras
+                     + c.mantenimiento + c.costos_indirectos)
+            flete = c.valor_flete_cobrado or 0.0
+            costo = {
+                "id": c.id, "combustible": c.combustible, "peajes": c.peajes,
+                "viaticos": c.viaticos, "horas_extras": c.horas_extras,
+                "mantenimiento": c.mantenimiento, "costos_indirectos": c.costos_indirectos,
+                "valor_flete_cobrado": flete, "notas": c.notas,
+                "costo_total": round(total, 2),
+                "margen": round(flete - total, 2),
+                "margen_pct": round((flete - total) / flete * 100, 2) if flete else None,
+                "costo_por_km": round(total / v.distancia_km, 2) if v.distancia_km else None,
+            }
+        salida.append({
+            "viaje_id": v.id, "codigo": v.codigo, "estado": _val(v.estado),
+            "origen": v.origen_ciudad, "destino": v.destino_ciudad,
+            "conductor": conductores.get(v.conductor_hcm_id),
+            "distancia_km": v.distancia_km, "num_entregas": v.num_entregas,
+            "valor_flete": v.valor_flete,
+            "fecha": (v.fecha_real_entrega or v.fecha_programada_cargue or v.created_at),
+            "costo": costo,
+        })
+    return salida
+
+
+# ─── OTIF desde los viajes ────────────────────────────────────────────────────
+
+class InFullIn(BaseModel):
+    in_full: Optional[bool] = None
+    motivo: Optional[str] = None
+
+
+def _a_tiempo(v: TMSViaje) -> Optional[bool]:
+    """Se compara al leer, no se confía en la columna: si alguien corrige la
+    fecha programada después de la entrega, la puntualidad cambia con ella."""
+    if v.fecha_real_entrega and v.fecha_programada_entrega:
+        return v.fecha_real_entrega <= v.fecha_programada_entrega
+    return v.otif_on_time
+
+
+@router.get("/otif/viajes")
+async def otif_por_viaje(
+    fecha_desde: Optional[date] = None,
+    fecha_hasta: Optional[date] = None,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """Los viajes entregados con su puntualidad y su completitud.
+
+    POR QUÉ DESDE LOS VIAJES Y NO DESDE `tms_otif_registro`
+    El viaje ya sabe si llegó a tiempo: se calcula al entregarlo. Lo que nadie
+    registraba era si llegó COMPLETO, y por eso el OTIF del tablero —que se
+    arma con los viajes— salía en cero. La tabla de registros era una segunda
+    copia que ninguna pantalla llenaba; aquí se usa una sola fuente.
+
+    `in_full` en nulo significa «nadie lo ha confirmado todavía», que no es lo
+    mismo que «llegó incompleto». Se cuenta aparte para no castigar el
+    indicador por una confirmación que falta.
+    """
+    q = select(TMSViaje).where(TMSViaje.deleted_at.is_(None),
+                               TMSViaje.estado.in_(_ESTADOS_ENTREGADOS),
+                               TMSViaje.fecha_real_entrega.isnot(None))
+    if fecha_desde:
+        q = q.where(TMSViaje.fecha_real_entrega >= datetime(fecha_desde.year, fecha_desde.month, fecha_desde.day))
+    if fecha_hasta:
+        q = q.where(TMSViaje.fecha_real_entrega < datetime(fecha_hasta.year, fecha_hasta.month, fecha_hasta.day) + timedelta(days=1))
+    viajes = list((await db.execute(q.order_by(TMSViaje.fecha_real_entrega.desc()))).scalars().all())
+    conductores = await _nombres_conductores(db, viajes)
+    clientes = await _nombres_clientes(db, viajes)
+    salida = []
+    for v in viajes:
+        on_time = _a_tiempo(v)
+        retraso = None
+        if v.fecha_real_entrega and v.fecha_programada_entrega:
+            retraso = round((v.fecha_real_entrega - v.fecha_programada_entrega).total_seconds() / 3600, 2)
+        salida.append({
+            "viaje_id": v.id, "codigo": v.codigo,
+            "cliente": clientes.get(v.generador_id),
+            "conductor": conductores.get(v.conductor_hcm_id),
+            "origen": v.origen_ciudad, "destino": v.destino_ciudad,
+            "fecha_programada": v.fecha_programada_entrega,
+            "fecha_real": v.fecha_real_entrega,
+            "horas_retraso": retraso,
+            "on_time": on_time, "in_full": v.otif_in_full,
+            "otif": (on_time and v.otif_in_full) if on_time is not None and v.otif_in_full is not None else None,
+            "motivo": v.otif_motivo,
+        })
+    return salida
+
+
+@router.put("/viajes/{viaje_id}/in-full")
+async def confirmar_in_full(
+    viaje_id: int,
+    data: InFullIn,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """Confirma si la entrega llegó completa. Es lo único del OTIF que decide
+    una persona: la puntualidad sale de las fechas."""
+    viaje = await db.get(TMSViaje, viaje_id)
+    if not viaje or viaje.deleted_at:
+        raise HTTPException(404, "Viaje no encontrado")
+    if viaje.estado not in _ESTADOS_ENTREGADOS:
+        raise HTTPException(400, "Solo se confirma la completitud de un viaje entregado")
+    motivo = (data.motivo or "").strip() or None
+    if data.in_full is False and not motivo:
+        raise HTTPException(422, "Indica qué faltó en la entrega")
+    viaje.otif_in_full = data.in_full
+    viaje.otif_motivo = motivo
+    await db.commit()
+    return {"viaje_id": viaje.id, "in_full": viaje.otif_in_full, "motivo": viaje.otif_motivo}
+
+
+# ─── Planeación: asignar vehículo y conductor ────────────────────────────────
+
+class AsignacionIn(BaseModel):
+    viaje_id: int
+    vehiculo_id: int
+    conductor_hcm_id: int
+
+
+_ESTADOS_ACTIVOS = [EstadoViajeTMSEnum.ASIGNADO, EstadoViajeTMSEnum.EN_TRANSITO]
+
+
+@router.get("/planeacion")
+async def planeacion(
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """Lo que hace falta para asignar: los viajes programados que esperan
+    recursos, los vehículos con la capacidad que les queda y los conductores
+    con si ya están en un viaje.
+
+    La capacidad libre no se guarda: es la capacidad del vehículo menos el
+    peso de los viajes que tiene asignados o en tránsito. Guardada, quedaría
+    ocupada para siempre el día que un viaje se cancelara sin descontarla.
+    """
+    from app.infrastructure.models.hcm import HCMColaborador, HCMConductor
+
+    pendientes = list((await db.execute(
+        select(TMSViaje).where(TMSViaje.deleted_at.is_(None),
+                               TMSViaje.estado == EstadoViajeTMSEnum.PROGRAMADO)
+        .order_by(func.coalesce(TMSViaje.fecha_programada_cargue, TMSViaje.created_at))
+    )).scalars().all())
+    clientes = await _nombres_clientes(db, pendientes)
+
+    activos = list((await db.execute(
+        select(TMSViaje).where(TMSViaje.deleted_at.is_(None),
+                               TMSViaje.estado.in_(_ESTADOS_ACTIVOS))
+    )).scalars().all())
+    carga_por_vehiculo: dict = {}
+    viaje_por_vehiculo: dict = {}
+    viaje_por_conductor: dict = {}
+    for v in activos:
+        if v.vehiculo_id:
+            carga_por_vehiculo[v.vehiculo_id] = carga_por_vehiculo.get(v.vehiculo_id, 0) + (v.peso_kg or 0)
+            viaje_por_vehiculo.setdefault(v.vehiculo_id, v.codigo)
+        if v.conductor_hcm_id:
+            viaje_por_conductor.setdefault(v.conductor_hcm_id, v.codigo)
+
+    vehiculos = (await db.execute(
+        select(TMSVehiculo).where(TMSVehiculo.estado_operativo.in_(
+            [EstadoVehiculoTMSEnum.DISPONIBLE, EstadoVehiculoTMSEnum.EN_VIAJE]))
+        .order_by(TMSVehiculo.placa))).scalars().all()
+
+    hoy = date.today()
+    conductores = (await db.execute(
+        select(HCMConductor.id, HCMColaborador.nombres, HCMColaborador.apellidos,
+               HCMConductor.tipo_licencia, HCMConductor.fecha_vencimiento_licencia)
+        .join(HCMColaborador, HCMConductor.colaborador_id == HCMColaborador.id)
+        .order_by(HCMColaborador.nombres))).all()
+
+    return {
+        "pendientes": [{
+            "viaje_id": v.id, "codigo": v.codigo,
+            "cliente": clientes.get(v.generador_id),
+            "origen": v.origen_ciudad, "destino": v.destino_ciudad,
+            "peso_kg": v.peso_kg, "volumen_m3": v.volumen_m3,
+            "tipo_servicio": _val(v.tipo_servicio),
+            "fecha_cargue": v.fecha_programada_cargue,
+            "fecha_entrega": v.fecha_programada_entrega,
+            "valor_flete": v.valor_flete,
+            "vehiculo_id": v.vehiculo_id, "conductor_hcm_id": v.conductor_hcm_id,
+        } for v in pendientes],
+        "vehiculos": [{
+            "id": x.id, "placa": x.placa, "tipo": _val(x.tipo_vehiculo),
+            "estado": _val(x.estado_operativo),
+            "capacidad_kg": x.capacidad_kg, "volumen_m3": x.volumen_m3,
+            "carga_asignada_kg": round(carga_por_vehiculo.get(x.id, 0), 2),
+            "capacidad_libre_kg": (round(x.capacidad_kg - carga_por_vehiculo.get(x.id, 0), 2)
+                                   if x.capacidad_kg is not None else None),
+            "viaje_activo": viaje_por_vehiculo.get(x.id),
+        } for x in vehiculos],
+        "conductores": [{
+            "id": cid, "nombre": f"{n} {a}".strip(), "licencia": _val(tl),
+            "licencia_vence": venc,
+            "licencia_vencida": bool(venc and venc < hoy),
+            "viaje_activo": viaje_por_conductor.get(cid),
+        } for cid, n, a, tl, venc in conductores],
+    }
+
+
+@router.post("/planeacion/asignar")
+async def asignar_viaje(
+    data: AsignacionIn,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """Asigna vehículo y conductor y pasa el viaje a ASIGNADO, todo o nada.
+
+    Hecho en dos pasos desde la pantalla —guardar el viaje y después cambiarle
+    el estado— un fallo en el segundo dejaba el viaje con recursos puestos y
+    todavía PROGRAMADO, fuera de la cola y sin estar asignado.
+    """
+    from app.infrastructure.models.hcm import HCMConductor
+
+    viaje = await db.get(TMSViaje, data.viaje_id)
+    if not viaje or viaje.deleted_at:
+        raise HTTPException(404, "Viaje no encontrado")
+    if viaje.estado != EstadoViajeTMSEnum.PROGRAMADO:
+        raise HTTPException(400, f"El viaje ya está {_val(viaje.estado)}")
+    vehiculo = await db.get(TMSVehiculo, data.vehiculo_id)
+    if not vehiculo:
+        raise HTTPException(404, "Vehículo no encontrado")
+    if vehiculo.estado_operativo in (EstadoVehiculoTMSEnum.EN_MANTENIMIENTO,
+                                     EstadoVehiculoTMSEnum.FUERA_SERVICIO):
+        raise HTTPException(400, f"El vehículo {vehiculo.placa} está {_val(vehiculo.estado_operativo)}")
+    conductor = await db.get(HCMConductor, data.conductor_hcm_id)
+    if not conductor:
+        raise HTTPException(404, "Conductor no encontrado")
+    if conductor.fecha_vencimiento_licencia and conductor.fecha_vencimiento_licencia < date.today():
+        raise HTTPException(400, "La licencia del conductor está vencida")
+
+    ocupado = (await db.execute(select(TMSViaje.codigo).where(
+        TMSViaje.deleted_at.is_(None), TMSViaje.estado.in_(_ESTADOS_ACTIVOS),
+        TMSViaje.conductor_hcm_id == conductor.id).limit(1))).scalar()
+    if ocupado:
+        raise HTTPException(400, f"El conductor ya está en el viaje {ocupado}")
+
+    if vehiculo.capacidad_kg is not None and viaje.peso_kg:
+        cargado = (await db.execute(select(func.coalesce(func.sum(TMSViaje.peso_kg), 0)).where(
+            TMSViaje.deleted_at.is_(None), TMSViaje.estado.in_(_ESTADOS_ACTIVOS),
+            TMSViaje.vehiculo_id == vehiculo.id))).scalar() or 0
+        libre = vehiculo.capacidad_kg - cargado
+        if viaje.peso_kg > libre:
+            raise HTTPException(400, f"El vehículo {vehiculo.placa} tiene {libre:,.0f} kg libres "
+                                     f"y el viaje pesa {viaje.peso_kg:,.0f} kg")
+
+    viaje.vehiculo_id = vehiculo.id
+    viaje.conductor_hcm_id = conductor.id
+    viaje.estado = EstadoViajeTMSEnum.ASIGNADO
+    await db.commit()
+    await db.refresh(viaje)
+    return await _viaje_to_response(db, viaje)
+
+
+# ─── Documentos: pruebas de entrega y faltantes ──────────────────────────────
+
+# Qué documentos debe tener un viaje según dónde va. Antes de salir, la remesa
+# y el manifiesto (sin ellos el vehículo no puede circular con carga); una vez
+# entregado, además el cumplido. La prueba de entrega (POD) es su propio
+# registro, no un documento.
+_DOCS_REQUERIDOS = {
+    "ASIGNADO":    ["REMESA", "MANIFIESTO"],
+    "EN_TRANSITO": ["REMESA", "MANIFIESTO"],
+    "ENTREGADO":   ["REMESA", "MANIFIESTO", "CUMPLIDO"],
+}
+
+
+@router.get("/documentos/pendientes")
+async def documentos_pendientes(
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """Viajes en curso o entregados a los que les falta algún documento."""
+    viajes = list((await db.execute(select(TMSViaje).where(
+        TMSViaje.deleted_at.is_(None),
+        TMSViaje.estado.in_([EstadoViajeTMSEnum.ASIGNADO, EstadoViajeTMSEnum.EN_TRANSITO,
+                             EstadoViajeTMSEnum.ENTREGADO]))
+        .order_by(TMSViaje.fecha_programada_cargue))).scalars().all())
+    if not viajes:
+        return []
+    ids = [v.id for v in viajes]
+    tiene: dict = {}
+    for vid, tipo, estado in (await db.execute(
+            select(TMSDocumento.viaje_id, TMSDocumento.tipo_documento, TMSDocumento.estado)
+            .where(TMSDocumento.viaje_id.in_(ids)))).all():
+        # Un documento rechazado no cuenta como presentado.
+        if _val(estado) != "RECHAZADO":
+            tiene.setdefault(vid, set()).add(_val(tipo))
+    con_pod = set((await db.execute(select(TMSPOD.viaje_id).where(TMSPOD.viaje_id.in_(ids)))).scalars().all())
+
+    salida = []
+    for v in viajes:
+        estado = _val(v.estado)
+        faltan = [t for t in _DOCS_REQUERIDOS.get(estado, []) if t not in tiene.get(v.id, set())]
+        if estado == "ENTREGADO" and v.id not in con_pod:
+            faltan.append("POD")
+        if faltan:
+            salida.append({
+                "viaje_id": v.id, "codigo": v.codigo, "estado": estado,
+                "origen": v.origen_ciudad, "destino": v.destino_ciudad,
+                "fecha_programada": v.fecha_programada_cargue,
+                "faltantes": faltan,
+            })
+    return salida
+
+
+@router.get("/pod")
+async def listar_pods(
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """Todas las pruebas de entrega, con el viaje al que pertenecen."""
+    filas = (await db.execute(
+        select(TMSPOD, TMSViaje).join(TMSViaje, TMSViaje.id == TMSPOD.viaje_id)
+        .order_by(TMSPOD.fecha_hora.desc().nullslast(), TMSPOD.id.desc()))).all()
+    conductores = await _nombres_conductores(db, [v for _p, v in filas])
+    return [{
+        "id": p.id, "viaje_id": v.id, "codigo_viaje": v.codigo,
+        "destino": v.destino_ciudad, "conductor": conductores.get(v.conductor_hcm_id),
+        "receptor_nombre": p.receptor_nombre, "receptor_documento": p.receptor_documento,
+        "lat": p.lat, "lng": p.lng, "fecha_hora": p.fecha_hora,
+        "foto_url": p.foto_url, "firma_url": p.firma_url,
+        "observaciones": p.observaciones,
+    } for p, v in filas]
+
+
+# ─── Estimador de ruta con datos propios ─────────────────────────────────────
+
+@router.get("/rutas-estimar")
+async def estimar_ruta(
+    origen: str = Query(..., min_length=2),
+    destino: str = Query(..., min_length=2),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """Distancia, duración y costo entre dos ciudades, con lo que ya se sabe.
+
+    El «optimizador» de la pantalla de rutas inventaba la distancia con un
+    número al azar entre 400 y 1.100 km y le sumaba tres alternativas fijas;
+    cualquier par de ciudades daba un resultado distinto cada vez. Aquí no se
+    calcula un recorrido —para eso haría falta un motor de mapas—: se reúne lo
+    que la empresa ya registró entre esas dos ciudades.
+
+      - Las rutas del catálogo con ese origen y destino, como alternativas.
+      - Los viajes hechos entre ellas: distancia promedio, cuánto tardaron de
+        verdad (del cargue real a la entrega real) y su costo por km.
+      - El costo por km de toda la flota, para cuando la ruta no tiene viajes.
+
+    Si no hay nada, se dice; un número inventado es peor que ninguno.
+    """
+    o, d = f"%{origen.strip()}%", f"%{destino.strip()}%"
+    rutas = (await db.execute(
+        select(TMSRuta).where(TMSRuta.activo.is_(True), TMSRuta.origen.ilike(o), TMSRuta.destino.ilike(d))
+        .order_by(TMSRuta.distancia_km.asc().nullslast()))).scalars().all()
+
+    viajes = (await db.execute(
+        select(TMSViaje, TMSCostoViaje).outerjoin(TMSCostoViaje, TMSCostoViaje.viaje_id == TMSViaje.id)
+        .where(TMSViaje.deleted_at.is_(None), TMSViaje.estado != EstadoViajeTMSEnum.CANCELADO,
+               TMSViaje.origen_ciudad.ilike(o), TMSViaje.destino_ciudad.ilike(d)))).all()
+
+    distancias = [v.distancia_km for v, _c in viajes if v.distancia_km]
+    horas = [(v.fecha_real_entrega - v.fecha_real_cargue).total_seconds() / 3600
+             for v, _c in viajes if v.fecha_real_entrega and v.fecha_real_cargue
+             and v.fecha_real_entrega > v.fecha_real_cargue]
+    costos_km = []
+    for v, c in viajes:
+        if c and v.distancia_km:
+            total = c.combustible + c.peajes + c.viaticos + c.horas_extras + c.mantenimiento + c.costos_indirectos
+            costos_km.append(total / v.distancia_km)
+
+    # Costo por km de toda la flota: suma de costos sobre suma de km, no el
+    # promedio de los cocientes, para que un viaje corto no pese lo que uno largo.
+    flota = (await db.execute(
+        select(func.sum(TMSCostoViaje.combustible + TMSCostoViaje.peajes + TMSCostoViaje.viaticos
+                        + TMSCostoViaje.horas_extras + TMSCostoViaje.mantenimiento
+                        + TMSCostoViaje.costos_indirectos),
+               func.sum(TMSViaje.distancia_km))
+        .join(TMSViaje, TMSViaje.id == TMSCostoViaje.viaje_id)
+        .where(TMSViaje.distancia_km > 0, TMSViaje.deleted_at.is_(None)))).one()
+    costo_km_flota = round(flota[0] / flota[1], 2) if flota[0] and flota[1] else None
+
+    prom = lambda xs: round(sum(xs) / len(xs), 2) if xs else None
+    return {
+        "origen": origen.strip(), "destino": destino.strip(),
+        "rutas": [{
+            "id": r.id, "nombre": r.nombre, "codigo": r.codigo,
+            "origen": r.origen, "destino": r.destino,
+            "distancia_km": r.distancia_km, "tiempo_estimado_min": r.tiempo_estimado_min,
+            "costo_referencia": r.costo_referencia,
+        } for r in rutas],
+        "historico": {
+            "viajes": len(viajes),
+            "distancia_km": prom(distancias),
+            "horas_reales": prom(horas), "viajes_con_tiempo": len(horas),
+            "costo_por_km": prom(costos_km), "viajes_con_costo": len(costos_km),
+        },
+        "costo_por_km_flota": costo_km_flota,
+    }
+
+
+@router.get("/rutas-analisis")
+async def analisis_rutas(
+    fecha_desde: Optional[date] = None,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """Desempeño por corredor (origen → destino), sacado de los viajes.
+
+    La pestaña de análisis mostraba ocho rutas con OTIF, costo y tiempo
+    escritos a mano. Se agrupa por las ciudades del viaje y no por la ruta del
+    catálogo porque los viajes no guardan a qué ruta pertenecen: el corredor es
+    lo único que todos tienen.
+    """
+    q = (select(TMSViaje, TMSCostoViaje)
+         .outerjoin(TMSCostoViaje, TMSCostoViaje.viaje_id == TMSViaje.id)
+         .where(TMSViaje.deleted_at.is_(None), TMSViaje.estado.in_(_ESTADOS_ENTREGADOS),
+                TMSViaje.origen_ciudad.isnot(None), TMSViaje.destino_ciudad.isnot(None)))
+    if fecha_desde:
+        q = q.where(TMSViaje.fecha_real_entrega >= datetime(fecha_desde.year, fecha_desde.month, fecha_desde.day))
+    grupos: dict = {}
+    for v, c in (await db.execute(q)).all():
+        k = (v.origen_ciudad.strip(), v.destino_ciudad.strip())
+        g = grupos.setdefault(k, {"n": 0, "ot": [], "otif": [], "costo": 0.0, "km": 0.0, "horas": []})
+        g["n"] += 1
+        a_tiempo = _a_tiempo(v)
+        if a_tiempo is not None:
+            g["ot"].append(a_tiempo)
+            if v.otif_in_full is not None:
+                g["otif"].append(a_tiempo and v.otif_in_full)
+        if c and v.distancia_km:
+            g["costo"] += c.combustible + c.peajes + c.viaticos + c.horas_extras + c.mantenimiento + c.costos_indirectos
+            g["km"] += v.distancia_km
+        if v.fecha_real_entrega and v.fecha_real_cargue and v.fecha_real_entrega > v.fecha_real_cargue:
+            g["horas"].append((v.fecha_real_entrega - v.fecha_real_cargue).total_seconds() / 3600)
+    pct = lambda xs: round(sum(1 for x in xs if x) / len(xs) * 100, 2) if xs else None
+    return sorted([{
+        "origen": o, "destino": d, "viajes": g["n"],
+        "on_time_rate": pct(g["ot"]), "otif_rate": pct(g["otif"]),
+        "costo_por_km": round(g["costo"] / g["km"], 2) if g["km"] else None,
+        "horas_promedio": round(sum(g["horas"]) / len(g["horas"]), 2) if g["horas"] else None,
+    } for (o, d), g in grupos.items()], key=lambda r: -r["viajes"])

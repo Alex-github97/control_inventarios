@@ -50,6 +50,7 @@ import {
 } from '@mui/icons-material'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
+import { ViajeDetalleDialog } from '@/components/tms/ViajeDetalle'
 import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
 
@@ -138,174 +139,6 @@ const FORM_INIT: NuevoViajeForm = {
   tipoServicio: '', descripcionCarga: '', pesoKg: '', volumenM3: '', nEntregas: '1', valorFlete: '',
   origenCiudad: '', origenDireccion: '', destinoCiudad: '', destinoDireccion: '', distanciaKm: '', fechaCargue: '', fechaEntrega: '',
   vehiculoId: '', conductorId: '', notas: '',
-}
-
-// ─── Dialog Ver Viaje (detalle real) ──────────────────────────────────────────
-
-function VerViajeDialog({ viaje, open, onClose, onAccion }: { viaje: ViajeApi | null; open: boolean; onClose: () => void; onAccion: (accion: string, id: number) => void }) {
-  const [tab, setTab] = useState(0)
-  const id = viaje?.id
-
-  const { data: paradas = [], isLoading: lp } = useQuery<any[]>({ queryKey: ['tms-paradas', id], queryFn: () => apiClient.get(`/tms/viajes/${id}/paradas`).then((r) => r.data), enabled: open && !!id && tab === 1 })
-  const { data: eventos = [], isLoading: le } = useQuery<any[]>({ queryKey: ['tms-eventos', id], queryFn: () => apiClient.get(`/tms/viajes/${id}/eventos`).then((r) => r.data), enabled: open && !!id && tab === 2 })
-  const { data: documentos = [], isLoading: ld } = useQuery<any[]>({ queryKey: ['tms-docs', id], queryFn: () => apiClient.get(`/tms/viajes/${id}/documentos`).then((r) => r.data), enabled: open && !!id && tab === 3 })
-  const { data: costos, isLoading: lc, isError: costoErr } = useQuery<any>({ queryKey: ['tms-costos', id], queryFn: () => apiClient.get(`/tms/viajes/${id}/costos`).then((r) => r.data), enabled: open && !!id && tab === 4, retry: false })
-
-  if (!viaje) return null
-  const e = estadoStyle[viaje.estado]
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
-        <Stack direction="row" justifyContent="space-between" alignItems="center">
-          <Stack direction="row" alignItems="center" spacing={1}>
-            <LocalShipping sx={{ color: TMS_COLOR }} />
-            <Typography fontWeight={700}>{viaje.codigo}</Typography>
-            <Chip label={e.label} size="small" sx={{ bgcolor: e.bg, color: e.color, fontWeight: 700 }} />
-          </Stack>
-          <IconButton size="small" onClick={onClose}><Close /></IconButton>
-        </Stack>
-      </DialogTitle>
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ px: 3, borderBottom: '1px solid #E5E7EB' }}>
-        <Tab icon={<Description />} iconPosition="start" label="Información" sx={{ fontSize: 13 }} />
-        <Tab icon={<Route />} iconPosition="start" label="Paradas" sx={{ fontSize: 13 }} />
-        <Tab icon={<Timeline />} iconPosition="start" label="Tracking" sx={{ fontSize: 13 }} />
-        <Tab icon={<Inventory />} iconPosition="start" label="Documentos" sx={{ fontSize: 13 }} />
-        <Tab icon={<AttachMoney />} iconPosition="start" label="Costos" sx={{ fontSize: 13 }} />
-      </Tabs>
-      <DialogContent sx={{ minHeight: 260 }}>
-        {tab === 0 && (
-          <Grid container spacing={2} mt={0}>
-            {[
-              ['Tipo Servicio', tipoServicioLabel(viaje.tipo_servicio)],
-              ['Valor Flete', fmt(viaje.valor_flete)],
-              ['Origen', viaje.origen_ciudad || '—'],
-              ['Destino', viaje.destino_ciudad || '—'],
-              ['Conductor', viaje.conductor_nombre || '—'],
-              ['Placa', viaje.vehiculo_placa || '—'],
-              ['Distancia', viaje.distancia_km ? `${viaje.distancia_km} km` : '—'],
-              ['Peso', viaje.peso_kg ? `${viaje.peso_kg} kg` : '—'],
-              ['Fecha Cargue Prog.', fmtFecha(viaje.fecha_programada_cargue)],
-              ['Fecha Entrega Prog.', fmtFecha(viaje.fecha_programada_entrega)],
-            ].map(([label, value]) => (
-              <Grid key={label} size={{ xs: 12, md: 6 }}>
-                <Typography fontSize={12} color="text.secondary">{label}</Typography>
-                <Typography fontWeight={600}>{value}</Typography>
-              </Grid>
-            ))}
-            {viaje.notas && (
-              <Grid size={{ xs: 12 }}>
-                <Typography fontSize={12} color="text.secondary">Notas</Typography>
-                <Typography fontSize={13}>{viaje.notas}</Typography>
-              </Grid>
-            )}
-          </Grid>
-        )}
-
-        {tab === 1 && (
-          lp ? <Box textAlign="center" py={4}><CircularProgress size={24} /></Box>
-          : paradas.length === 0 ? <Typography color="text.secondary" fontSize={13} py={3} textAlign="center">Este viaje no tiene paradas registradas.</Typography>
-          : (
-            <Stack spacing={1} mt={1}>
-              {paradas.map((p) => (
-                <Paper key={p.id} elevation={0} sx={{ p: 1.5, border: '1px solid #E5E7EB', borderRadius: 2 }}>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Chip label={p.secuencia} size="small" sx={{ bgcolor: TMS_COLOR, color: '#fff', fontWeight: 700, width: 28, height: 28 }} />
-                    <Box>
-                      <Typography fontSize={13} fontWeight={600}>{p.ciudad} <Typography component="span" fontSize={11} color="text.secondary">({p.tipo})</Typography></Typography>
-                      {p.direccion && <Typography fontSize={11} color="text.secondary">{p.direccion}</Typography>}
-                    </Box>
-                    <Chip label={p.estado} size="small" sx={{ ml: 'auto', fontWeight: 600, fontSize: 11 }} />
-                  </Stack>
-                </Paper>
-              ))}
-            </Stack>
-          )
-        )}
-
-        {tab === 2 && (
-          le ? <Box textAlign="center" py={4}><CircularProgress size={24} /></Box>
-          : eventos.length === 0 ? <Typography color="text.secondary" fontSize={13} py={3} textAlign="center">Sin eventos de tracking registrados.</Typography>
-          : (
-            <Stack spacing={1} mt={1}>
-              {eventos.map((ev) => (
-                <Stack key={ev.id} direction="row" spacing={2} alignItems="flex-start">
-                  <Typography fontSize={12} fontWeight={600} color="text.secondary" sx={{ minWidth: 92 }}>{fmtFecha(ev.timestamp)}</Typography>
-                  <Box sx={{ width: 2, bgcolor: TMS_COLOR, borderRadius: 1, mt: 0.5, alignSelf: 'stretch', opacity: 0.3 }} />
-                  <Box>
-                    <Typography fontSize={13} fontWeight={600}>{ev.tipo_evento}</Typography>
-                    {ev.descripcion && <Typography fontSize={12} color="text.secondary">{ev.descripcion}</Typography>}
-                    {ev.velocidad_kmh != null && <Typography fontSize={11} color="text.disabled">{ev.velocidad_kmh} km/h</Typography>}
-                  </Box>
-                </Stack>
-              ))}
-            </Stack>
-          )
-        )}
-
-        {tab === 3 && (
-          ld ? <Box textAlign="center" py={4}><CircularProgress size={24} /></Box>
-          : documentos.length === 0 ? <Typography color="text.secondary" fontSize={13} py={3} textAlign="center">Sin documentos asociados al viaje.</Typography>
-          : (
-            <Stack spacing={1} mt={1}>
-              {documentos.map((doc) => (
-                <Paper key={doc.id} elevation={0} sx={{ p: 1.5, border: '1px solid #E5E7EB', borderRadius: 2 }}>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center">
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Description sx={{ fontSize: 16, color: TMS_COLOR }} />
-                      <Box>
-                        <Typography fontSize={13}>{doc.tipo_documento}{doc.numero ? ` — ${doc.numero}` : ''}</Typography>
-                        {doc.fecha_emision && <Typography fontSize={11} color="text.secondary">{doc.fecha_emision}</Typography>}
-                      </Box>
-                    </Stack>
-                    <Chip label={doc.estado} size="small" sx={{ fontWeight: 600, fontSize: 11 }} />
-                  </Stack>
-                </Paper>
-              ))}
-            </Stack>
-          )
-        )}
-
-        {tab === 4 && (
-          lc ? <Box textAlign="center" py={4}><CircularProgress size={24} /></Box>
-          : (costoErr || !costos) ? <Typography color="text.secondary" fontSize={13} py={3} textAlign="center">Este viaje aún no tiene costos registrados.</Typography>
-          : (
-            <Stack spacing={1} mt={1}>
-              {[
-                ['Combustible', costos.combustible], ['Peajes', costos.peajes], ['Viáticos', costos.viaticos],
-                ['Horas extras', costos.horas_extras], ['Mantenimiento', costos.mantenimiento], ['Costos indirectos', costos.costos_indirectos],
-              ].map(([label, val]) => (
-                <Stack key={label as string} direction="row" justifyContent="space-between" sx={{ py: 1, borderBottom: '1px solid #F3F4F6' }}>
-                  <Typography fontSize={13}>{label}</Typography>
-                  <Typography fontSize={13} fontWeight={600}>{fmt(val as number)}</Typography>
-                </Stack>
-              ))}
-              <Stack direction="row" justifyContent="space-between" sx={{ pt: 1 }}>
-                <Typography fontWeight={700}>Costo total</Typography>
-                <Typography fontWeight={700} color={TMS_COLOR}>{fmt(costos.costo_total)}</Typography>
-              </Stack>
-              <Stack direction="row" justifyContent="space-between">
-                <Typography fontSize={13}>Flete cobrado</Typography>
-                <Typography fontSize={13} fontWeight={600}>{fmt(costos.valor_flete_cobrado)}</Typography>
-              </Stack>
-              <Stack direction="row" justifyContent="space-between">
-                <Typography fontWeight={700}>Margen</Typography>
-                <Typography fontWeight={700} color={costos.margen >= 0 ? '#15803D' : '#DC2626'}>{fmt(costos.margen)}</Typography>
-              </Stack>
-            </Stack>
-          )
-        )}
-      </DialogContent>
-      <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
-        {viaje.estado === 'PROGRAMADO' && <Button variant="outlined" size="small" onClick={() => { onAccion('ASIGNADO', viaje.id); onClose() }}>Asignar</Button>}
-        {viaje.estado === 'ASIGNADO' && <Button variant="contained" size="small" sx={{ bgcolor: TMS_COLOR }} onClick={() => { onAccion('EN_TRANSITO', viaje.id); onClose() }}>Iniciar</Button>}
-        {viaje.estado === 'EN_TRANSITO' && <Button variant="contained" size="small" color="success" onClick={() => { onAccion('ENTREGADO', viaje.id); onClose() }}>Registrar Entrega</Button>}
-        {viaje.estado === 'ENTREGADO' && <Button variant="outlined" size="small" onClick={() => { onAccion('CERRADO', viaje.id); onClose() }}>Cerrar</Button>}
-        {['PROGRAMADO', 'ASIGNADO'].includes(viaje.estado) && <Button variant="outlined" size="small" color="error" onClick={() => { onAccion('CANCELADO', viaje.id); onClose() }}>Cancelar</Button>}
-        <Button onClick={onClose}>Cerrar</Button>
-      </DialogActions>
-    </Dialog>
-  )
 }
 
 // ─── Dialog Nuevo Viaje (real) ─────────────────────────────────────────────────
@@ -554,7 +387,15 @@ export default function TMSViajes() {
         </Paper>
 
         <NuevoViajeDialog open={dialogNuevo} onClose={() => setDialogNuevo(false)} onCreado={() => qc.invalidateQueries({ queryKey: ['tms-viajes'] })} vehiculos={vehiculos} conductores={conductores} />
-        <VerViajeDialog viaje={viajeVer} open={!!viajeVer} onClose={() => setViajeVer(null)} onAccion={handleAccion} />
+        {/* La llave por viaje reinicia la pestaña al abrir otro. */}
+        <ViajeDetalleDialog key={viajeVer?.id ?? 'ninguno'} viaje={viajeVer} open={!!viajeVer} onClose={() => setViajeVer(null)} onAccion={handleAccion}
+          estadoChip={(es) => { const st = estadoStyle[es as EstadoViaje]; return st ? <Chip label={st.label} size="small" sx={{ bgcolor: st.bg, color: st.color, fontWeight: 700 }} /> : null }}
+          onCambioViaje={async () => {
+            // Registrar la llegada a destino entrega el viaje en el servidor:
+            // se trae de nuevo para que el detalle y la lista muestren el estado real.
+            qc.invalidateQueries({ queryKey: ['tms-viajes'] })
+            if (viajeVer) setViajeVer((await apiClient.get(`/tms/viajes/${viajeVer.id}`)).data)
+          }} />
       </Box>
     </Layout>
   )
