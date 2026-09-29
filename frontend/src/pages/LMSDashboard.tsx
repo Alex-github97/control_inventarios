@@ -1,231 +1,73 @@
-import React from 'react'
-import { Box, Typography, LinearProgress, Chip, alpha } from '@mui/material'
+/**
+ * LMS · Tablero de la plataforma de aprendizaje
+ *
+ * Era una maqueta. Ahora las cifras las calcula el servidor con el estado de
+ * los certificados por fecha (antes quedaban «vigentes» para siempre) y la
+ * brecha de competencias calculada; los cursos destacados y los certificados
+ * por vencer salen de los registros.
+ */
+import { useNavigate } from 'react-router-dom'
+import { Box, Typography, Paper, LinearProgress, Button } from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import {
-  School, WorkspacePremium, TrendingUp, People,
-  CheckCircle, Warning, Psychology, AutoAwesome,
-} from '@mui/icons-material'
+import { School } from '@mui/icons-material'
+import { useQuery } from '@tanstack/react-query'
 import { Layout } from '@/components/layout/Layout'
-
+import { lmsApi } from '@/api/lms'
+import { Cifra, Encabezado, Etiqueta, fmtFecha } from '@/components/comun/Registro'
 import { COLOR_MODULO } from '@/config/marca'
-const LMS_COLOR  = COLOR_MODULO
-const BORDER   = '#E5E7EB'
 
-const kpis = [
-  { label: 'Cursos Publicados',       value: 48,     unit: 'cursos',   icon: <School />,           color: LMS_COLOR },
-  { label: 'Inscripciones Activas',   value: 312,    unit: 'usuarios', icon: <People />,            color: '#0EA5E9' },
-  { label: 'Tasa de Finalización',    value: '76%',  unit: '',         icon: <TrendingUp />,        color: '#059669' },
-  { label: 'Certificados Vigentes',   value: 184,    unit: 'cert.',    icon: <WorkspacePremium />,  color: '#7C3AED' },
-  { label: 'Certificados Por Vencer', value: 23,     unit: 'cert.',    icon: <Warning />,           color: '#EF4444' },
-  { label: 'Brechas Competencias',    value: 47,     unit: 'brechas',  icon: <Psychology />,        color: '#F59E0B' },
-  { label: 'Cursos Completados Mes',  value: 89,     unit: 'compl.',   icon: <CheckCircle />,       color: '#10B981' },
-  { label: 'IA Recomendaciones',      value: 215,    unit: 'suger.',   icon: <AutoAwesome />,       color: '#8B5CF6' },
-]
-
-const topCursos = [
-  { nombre: 'Conducción Defensiva', inscritos: 87, completados: 62, pct: 71 },
-  { nombre: 'Seguridad Vial Integral', inscritos: 74, completados: 58, pct: 78 },
-  { nombre: 'ISO 9001 Fundamentos', inscritos: 66, completados: 41, pct: 62 },
-  { nombre: 'Manejo de Cargas y Estibas', inscritos: 59, completados: 47, pct: 80 },
-  { nombre: 'Ética Empresarial y Compliance', inscritos: 52, completados: 38, pct: 73 },
-]
-
-const certsVencer = [
-  { colaborador: 'Carlos Mendoza', cert: 'Lic. Conducción C3', dias: 8 },
-  { colaborador: 'Ana Ruiz',       cert: 'Primeros Auxilios',  dias: 14 },
-  { colaborador: 'Luis Pérez',     cert: 'Altura Segura',      dias: 19 },
-  { colaborador: 'María Torres',   cert: 'Mercancías Peligrosas', dias: 27 },
-]
-
-const cumplimientoArea = [
-  { area: 'Transporte',   pct: 88 },
-  { area: 'Almacén',      pct: 82 },
-  { area: 'Calidad',      pct: 91 },
-  { area: 'Comercial',    pct: 74 },
-  { area: 'RR.HH.',       pct: 79 },
-  { area: 'Operaciones',  pct: 85 },
-]
-
-function KPICard({ kpi }: { kpi: typeof kpis[0] }) {
-  return (
-    <Box className="hover-lift" sx={{
-      bgcolor: 'background.paper', border: `1px solid ${BORDER}`, borderRadius: 2,
-      p: 2, display: 'flex', alignItems: 'center', gap: 2, height: 90,
-    }}>
-      <Box sx={{
-        width: 44, height: 44, borderRadius: '12px', flexShrink: 0,
-        background: `linear-gradient(135deg, ${kpi.color} 0%, ${alpha(kpi.color, 0.6)} 100%)`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: `0 4px 12px ${alpha(kpi.color, 0.35)}`,
-        '& svg': { color: '#fff', fontSize: 22 },
-      }}>
-        {kpi.icon}
-      </Box>
-      <Box sx={{ minWidth: 0 }}>
-        <Typography className="text-gradient" sx={{ fontSize: 22, fontWeight: 800, color: kpi.color, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-          {kpi.value}
-          {kpi.unit && <Typography component="span" sx={{ fontSize: 12, fontWeight: 500, color: 'text.disabled', ml: 0.5 }}>{kpi.unit}</Typography>}
-        </Typography>
-        <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 0.3 }}>{kpi.label}</Typography>
-      </Box>
-    </Box>
-  )
-}
+const LMS_COLOR = COLOR_MODULO
 
 export default function LMSDashboard() {
+  const nav = useNavigate()
+  const { data: t, isLoading } = useQuery({ queryKey: ['lms-tablero'], queryFn: lmsApi.tablero })
+  const { data: rep } = useQuery({ queryKey: ['lms-reportes'], queryFn: lmsApi.reportes })
+  const { data: certs = [] } = useQuery({ queryKey: ['lms-certificados'], queryFn: lmsApi.certificados })
+  const n = (k: string) => (t ? t[k] ?? 0 : '—')
+  const porVencer = certs.filter(c => c.estado === 'POR_VENCER' || c.estado === 'VENCIDA').slice(0, 6)
+
   return (
     <Layout>
-      <Box sx={{ p: 3, minHeight: '100vh' }}>
-        {/* Header */}
-        <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Box sx={{
-            width: 44, height: 44, borderRadius: '12px',
-            background: `linear-gradient(135deg, ${LMS_COLOR} 0%, #B45309 100%)`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: `0 4px 14px ${alpha(LMS_COLOR, 0.4)}`,
-          }}>
-            <School sx={{ color: '#fff', fontSize: 24 }} />
-          </Box>
-          <Box>
-            <Typography sx={{ fontSize: 22, fontWeight: 800, color: 'text.primary', lineHeight: 1.2 }}>
-              Torre de Control — LMS
-            </Typography>
-            <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
-              Universidad Corporativa Digital · Formación · Competencias · Certificaciones
-            </Typography>
-          </Box>
-        </Box>
-
-        {/* KPI Cards */}
-        <Grid container spacing={2} sx={{ mb: 3 }} className="anim-stagger">
-          {kpis.map((k, i) => (
-            <Grid key={i} size={{ xs: 12, sm: 6, md: 3 }}>
-              <KPICard kpi={k} />
-            </Grid>
-          ))}
+      <Box sx={{ p: 3 }}>
+        <Encabezado icono={<School sx={{ fontSize: 28 }} />} titulo="Plataforma de aprendizaje" subtitulo="LMS · Tablero" color={LMS_COLOR} accion="Ir al catálogo" onAccion={() => nav('/lms/catalogo')} />
+        {isLoading && <LinearProgress sx={{ mb: 2 }} />}
+        <Grid container spacing={2} mb={3}>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Cursos publicados" valor={n('cursos_publicados')} color={LMS_COLOR} /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="En curso" valor={n('en_progreso')} color="#D97706" sub={`${n('inscripciones')} inscripciones en total`} /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Tasa de finalización" valor={t?.tasa_finalizacion == null ? '—' : `${t.tasa_finalizacion}%`} color="#15803D" sub={`${n('completados')} completados`} /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Horas de formación" valor={n('horas_completadas')} color="#0369A1" /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Certificados vigentes" valor={n('certificados_vigentes')} color="#15803D" /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Por vencer (30 días)" valor={n('certificados_por_vencer')} color="#D97706" /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Vencidos" valor={n('certificados_vencidos')} color="#DC2626" /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Brechas de competencia" valor={n('brechas')} color="#7C3AED" sub={`${n('banco_preguntas')} preguntas en el banco`} /></Grid>
         </Grid>
-
         <Grid container spacing={2}>
-          {/* Top Cursos */}
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${BORDER}`, borderRadius: 2, p: 2.5 }}>
-              <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 2 }}>
-                Top 5 Cursos por Inscripciones
-              </Typography>
-              {topCursos.map((c, i) => (
-                <Box key={i} sx={{ mb: 2 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                    <Typography sx={{ fontSize: 12.5, color: 'text.primary', flex: 1 }}>{c.nombre}</Typography>
-                    <Typography sx={{ fontSize: 12, color: LMS_COLOR, fontWeight: 700, ml: 1 }}>{c.pct}%</Typography>
-                  </Box>
-                  <LinearProgress
-                    variant="determinate"
-                    value={c.pct}
-                    sx={{
-                      height: 6, borderRadius: 3,
-                      bgcolor: '#E2E8F0',
-                      '& .MuiLinearProgress-bar': { bgcolor: LMS_COLOR, borderRadius: 3 },
-                    }}
-                  />
-                  <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
-                    <Typography sx={{ fontSize: 10.5, color: 'text.disabled' }}>{c.inscritos} inscritos</Typography>
-                    <Typography sx={{ fontSize: 10.5, color: 'text.disabled' }}>·</Typography>
-                    <Typography sx={{ fontSize: 10.5, color: '#10B981' }}>{c.completados} completados</Typography>
-                  </Box>
+          <Grid size={{ xs: 12, md: 7 }}>
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+              <Typography fontWeight={700} mb={1}>Cursos con más inscritos</Typography>
+              {!rep?.top_cursos.length && <Typography fontSize={13} color="text.secondary">Sin inscripciones todavía.</Typography>}
+              {(rep?.top_cursos ?? []).slice(0, 6).map(c => (
+                <Box key={c.codigo} sx={{ mb: 1.25 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}><Typography fontSize={13}>{c.curso}</Typography><Typography fontSize={12} color="text.secondary">{c.completados}/{c.inscritos} completaron</Typography></Box>
+                  <LinearProgress variant="determinate" value={c.tasa ?? 0} sx={{ height: 6, borderRadius: 3, '& .MuiLinearProgress-bar': { bgcolor: LMS_COLOR } }} />
                 </Box>
               ))}
-            </Box>
+            </Paper>
           </Grid>
-
-          {/* Cumplimiento por Área */}
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${BORDER}`, borderRadius: 2, p: 2.5 }}>
-              <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 2 }}>
-                Cumplimiento de Formación por Área
-              </Typography>
-              {cumplimientoArea.map((a, i) => {
-                const col = a.pct >= 85 ? '#10B981' : a.pct >= 70 ? LMS_COLOR : '#EF4444'
-                return (
-                  <Box key={i} sx={{ mb: 1.8 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                      <Typography sx={{ fontSize: 12.5, color: 'text.primary' }}>{a.area}</Typography>
-                      <Typography sx={{ fontSize: 12, color: col, fontWeight: 700 }}>{a.pct}%</Typography>
-                    </Box>
-                    <LinearProgress
-                      variant="determinate"
-                      value={a.pct}
-                      sx={{
-                        height: 6, borderRadius: 3,
-                        bgcolor: '#E2E8F0',
-                        '& .MuiLinearProgress-bar': { bgcolor: col, borderRadius: 3 },
-                      }}
-                    />
-                  </Box>
-                )
-              })}
-            </Box>
-          </Grid>
-
-          {/* Certificados por Vencer */}
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${BORDER}`, borderRadius: 2, p: 2.5 }}>
-              <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 2 }}>
-                Certificaciones Próximas a Vencer
-              </Typography>
-              {certsVencer.map((c, i) => {
-                const col = c.dias <= 10 ? '#EF4444' : c.dias <= 20 ? '#F59E0B' : LMS_COLOR
-                return (
-                  <Box key={i} sx={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    py: 1, borderBottom: '1px solid #F1F5F9',
-                  }}>
-                    <Box>
-                      <Typography sx={{ fontSize: 13, color: 'text.primary', fontWeight: 500 }}>{c.colaborador}</Typography>
-                      <Typography sx={{ fontSize: 11.5, color: 'text.disabled' }}>{c.cert}</Typography>
-                    </Box>
-                    <Chip
-                      label={`${c.dias} días`}
-                      size="small"
-                      sx={{
-                        bgcolor: alpha(col, 0.15), color: col,
-                        border: `1px solid ${alpha(col, 0.3)}`,
-                        fontWeight: 700, fontSize: 11,
-                      }}
-                    />
-                  </Box>
-                )
-              })}
-            </Box>
-          </Grid>
-
-          {/* Escuelas */}
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${BORDER}`, borderRadius: 2, p: 2.5 }}>
-              <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 2 }}>
-                Actividad por Escuela
-              </Typography>
-              {[
-                { nombre: 'Escuela de Conductores', cursos: 12, inscritos: 94, color: '#EF4444' },
-                { nombre: 'Escuela de Operaciones', cursos: 9,  inscritos: 71, color: LMS_COLOR },
-                { nombre: 'Escuela de Calidad',     cursos: 8,  inscritos: 55, color: '#059669' },
-                { nombre: 'Escuela de Liderazgo',   cursos: 7,  inscritos: 48, color: '#7C3AED' },
-                { nombre: 'Escuela de Seguridad',   cursos: 6,  inscritos: 44, color: '#F59E0B' },
-              ].map((e, i) => (
-                <Box key={i} sx={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  py: 1, borderBottom: '1px solid #F1F5F9',
-                }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: e.color }} />
-                    <Typography sx={{ fontSize: 13, color: 'text.primary' }}>{e.nombre}</Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Chip label={`${e.cursos} cursos`} size="small" sx={{ fontSize: 10.5, bgcolor: '#F1F5F9', color: 'text.secondary' }} />
-                    <Chip label={`${e.inscritos} inscritos`} size="small" sx={{ fontSize: 10.5, bgcolor: alpha(e.color, 0.12), color: e.color }} />
-                  </Box>
+          <Grid size={{ xs: 12, md: 5 }}>
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography fontWeight={700}>Certificados por renovar</Typography>
+                <Button size="small" onClick={() => nav('/lms/certificaciones')}>Ver todos</Button>
+              </Box>
+              {porVencer.length === 0 && <Typography fontSize={13} color="text.secondary">Ninguno vence en los próximos 30 días.</Typography>}
+              {porVencer.map(c => (
+                <Box key={c.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 0.75, borderBottom: '1px solid #F1F5F9' }}>
+                  <Box><Typography fontSize={13} fontWeight={600}>{c.usuario}</Typography><Typography fontSize={11} color="text.secondary">{c.certificacion} · vence {fmtFecha(c.vence)}</Typography></Box>
+                  <Etiqueta texto={c.estado === 'VENCIDA' ? 'Vencido' : `${c.dias_restantes} días`} color={c.estado === 'VENCIDA' ? '#DC2626' : '#D97706'} />
                 </Box>
               ))}
-            </Box>
+            </Paper>
           </Grid>
         </Grid>
       </Box>

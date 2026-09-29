@@ -1,160 +1,112 @@
-import React, { useState } from 'react'
-import { Box, Typography, Chip, InputBase, alpha } from '@mui/material'
+/**
+ * LMS · Banco de preguntas
+ *
+ * Era una maqueta en memoria. Ahora las preguntas se guardan con sus opciones
+ * en un solo paso, y el servidor exige lo que hace calificable una pregunta
+ * cerrada: al menos dos opciones y exactamente una correcta. Las abiertas se
+ * guardan pero no entran a las evaluaciones que se califican solas.
+ */
+import { useState } from 'react'
+import { Box, Typography, Paper, Button, TextField, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Radio, Chip } from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { Lightbulb, Search } from '@mui/icons-material'
+import { Quiz, Add, DeleteForever } from '@mui/icons-material'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
-
+import { lmsApi, type Pregunta } from '@/api/lms'
+import { TablaRegistros, Cifra, Encabezado, errorApi } from '@/components/comun/Registro'
 import { COLOR_MODULO } from '@/config/marca'
+
 const LMS_COLOR = COLOR_MODULO
-const BORDER = '#E5E7EB'
-
-const TIPO_COLORS: Record<string, string> = {
-  MULTIPLE: '#0EA5E9', VERDADERO_FALSO: '#059669',
-  CASO_PRACTICO: '#7C3AED', RESPUESTA_ABIERTA: '#F59E0B',
-}
-const DIFICULTAD_COLORS: Record<string, string> = {
-  FACIL: '#059669', MEDIO: LMS_COLOR, DIFICIL: '#EF4444',
-}
-
-const PREGUNTAS = [
-  { id: 1, codigo: 'PRG-2026-0001', tipo: 'MULTIPLE', nivel: 'MEDIO', categoria: 'Seguridad Vial', enunciado: '¿Cuál es la velocidad máxima permitida en zona escolar según la ley de tránsito colombiana?', puntaje: 2, opciones: 4 },
-  { id: 2, codigo: 'PRG-2026-0002', tipo: 'VERDADERO_FALSO', nivel: 'FACIL', categoria: 'SST', enunciado: 'El uso del cinturón de seguridad es obligatorio para todos los ocupantes del vehículo.', puntaje: 1, opciones: 2 },
-  { id: 3, codigo: 'PRG-2026-0003', tipo: 'CASO_PRACTICO', nivel: 'DIFICIL', categoria: 'Calidad ISO', enunciado: 'Un proceso presenta una tasa de no conformidades del 3.5%. Según ISO 9001, describa el procedimiento de CAPA que aplicaría...', puntaje: 5, opciones: 0 },
-  { id: 4, codigo: 'PRG-2026-0004', tipo: 'MULTIPLE', nivel: 'MEDIO', categoria: 'Compliance', enunciado: '¿Cuáles de las siguientes acciones constituyen una conducta de soborno según la ley anticorrupción?', puntaje: 3, opciones: 5 },
-  { id: 5, codigo: 'PRG-2026-0005', tipo: 'MULTIPLE', nivel: 'FACIL', categoria: 'Seguridad Vial', enunciado: '¿Cuánto tiempo se debe mantener la distancia de seguridad en vía de alta velocidad?', puntaje: 1, opciones: 4 },
-  { id: 6, codigo: 'PRG-2026-0006', tipo: 'RESPUESTA_ABIERTA', nivel: 'DIFICIL', categoria: 'Liderazgo', enunciado: 'Describe cómo aplicarías el modelo de liderazgo situacional ante un equipo con alta habilidad pero baja motivación.', puntaje: 5, opciones: 0 },
-  { id: 7, codigo: 'PRG-2026-0007', tipo: 'VERDADERO_FALSO', nivel: 'FACIL', categoria: 'Compliance', enunciado: 'La protección de datos personales aplica únicamente a información digital, no a documentos físicos.', puntaje: 1, opciones: 2 },
-  { id: 8, codigo: 'PRG-2026-0008', tipo: 'MULTIPLE', nivel: 'MEDIO', categoria: 'Logística', enunciado: '¿Qué método de valoración de inventarios garantiza que los productos más antiguos salgan primero?', puntaje: 2, opciones: 4 },
-  { id: 9, codigo: 'PRG-2026-0009', tipo: 'CASO_PRACTICO', nivel: 'DIFICIL', categoria: 'SST', enunciado: 'En un simulacro de emergencia se detecta que el 40% del personal no conoce la ruta de evacuación. ¿Qué acciones correctivas implementaría?', puntaje: 4, opciones: 0 },
-  { id: 10, codigo: 'PRG-2026-0010', tipo: 'MULTIPLE', nivel: 'FACIL', categoria: 'Operaciones', enunciado: '¿Cuántos unidades caben en una estiba estándar con dimensiones 1.2m x 1.0m si cada caja mide 30x25x20cm?', puntaje: 2, opciones: 4 },
-]
-
-const CATEGORIAS = ['Todos', 'Seguridad Vial', 'SST', 'Calidad ISO', 'Compliance', 'Liderazgo', 'Logística', 'Operaciones']
-const NIVELES = ['Todos', 'FACIL', 'MEDIO', 'DIFICIL']
-const TIPOS = ['Todos', 'MULTIPLE', 'VERDADERO_FALSO', 'CASO_PRACTICO', 'RESPUESTA_ABIERTA']
+const TIPOS: [string, string][] = [['MULTIPLE', 'Opción múltiple'], ['VERDADERO_FALSO', 'Verdadero / falso'], ['CASO_PRACTICO', 'Caso práctico (abierta)'], ['RESPUESTA_ABIERTA', 'Respuesta abierta']]
+const cerrada = (t: string) => ['MULTIPLE', 'VERDADERO_FALSO'].includes(t)
+type Form = { tipo: string; enunciado: string; nivel_dificultad: string; categoria: string; puntaje: string; opciones: { texto: string; es_correcta: boolean }[] }
+const VACIO: Form = { tipo: 'MULTIPLE', enunciado: '', nivel_dificultad: 'MEDIO', categoria: '', puntaje: '1', opciones: [{ texto: '', es_correcta: true }, { texto: '', es_correcta: false }] }
 
 export default function LMSBancoPreguntas() {
-  const [busqueda, setBusqueda] = useState('')
-  const [categoria, setCategoria] = useState('Todos')
-  const [nivel, setNivel] = useState('Todos')
-  const [tipo, setTipo] = useState('Todos')
+  const qc = useQueryClient()
+  const { data: lista = [], isLoading } = useQuery({ queryKey: ['lms-preguntas'], queryFn: lmsApi.preguntas.listar })
+  const [dlg, setDlg] = useState<{ abierto: boolean; r: Pregunta | null }>({ abierto: false, r: null })
+  const [f, setF] = useState<Form>(VACIO)
+  const [filtro, setFiltro] = useState('')
+  const refrescar = () => qc.invalidateQueries({ queryKey: ['lms-preguntas'] })
 
-  const filtradas = PREGUNTAS.filter(p => {
-    const matchB = p.enunciado.toLowerCase().includes(busqueda.toLowerCase()) || p.codigo.toLowerCase().includes(busqueda.toLowerCase())
-    const matchC = categoria === 'Todos' || p.categoria === categoria
-    const matchN = nivel === 'Todos' || p.nivel === nivel
-    const matchT = tipo === 'Todos' || p.tipo === tipo
-    return matchB && matchC && matchN && matchT
+  const abrir = (r: Pregunta | null) => {
+    setF(r ? { tipo: r.tipo, enunciado: r.enunciado, nivel_dificultad: r.nivel_dificultad, categoria: r.categoria ?? '', puntaje: String(r.puntaje),
+      opciones: r.opciones.length ? r.opciones.map(o => ({ texto: o.texto, es_correcta: o.es_correcta })) : VACIO.opciones } : VACIO)
+    setDlg({ abierto: true, r })
+  }
+  const cambiarTipo = (tipo: string) => setF({ ...f, tipo, opciones: tipo === 'VERDADERO_FALSO' ? [{ texto: 'Verdadero', es_correcta: true }, { texto: 'Falso', es_correcta: false }] : f.opciones })
+  const opsValidas = f.opciones.filter(o => o.texto.trim())
+  const error = !f.enunciado.trim() ? 'Escribe el enunciado'
+    : !(Number(f.puntaje) >= 1) ? 'El puntaje debe ser al menos 1'
+    : cerrada(f.tipo) && opsValidas.length < 2 ? 'Necesita al menos dos opciones'
+    : cerrada(f.tipo) && opsValidas.filter(o => o.es_correcta).length !== 1 ? 'Marca exactamente una correcta' : null
+
+  const guardar = useMutation({
+    mutationFn: () => {
+      const cuerpo = { tipo: f.tipo, enunciado: f.enunciado.trim(), nivel_dificultad: f.nivel_dificultad, categoria: f.categoria.trim() || null, puntaje: Number(f.puntaje), opciones: cerrada(f.tipo) ? opsValidas : [] }
+      return dlg.r ? lmsApi.preguntas.editar(dlg.r.id, cuerpo) : lmsApi.preguntas.crear(cuerpo)
+    },
+    onSuccess: () => { toast.success(dlg.r ? 'Pregunta actualizada' : 'Pregunta registrada'); refrescar(); setDlg({ abierto: false, r: null }) },
+    onError: (e: any) => toast.error(errorApi(e)),
   })
-
-  const totalPuntos = PREGUNTAS.reduce((s, p) => s + p.puntaje, 0)
-  const porTipo = TIPOS.slice(1).map(t => ({ tipo: t, count: PREGUNTAS.filter(p => p.tipo === t).length }))
+  const retirar = useMutation({ mutationFn: (id: number) => lmsApi.preguntas.retirar(id), onSuccess: () => { toast.success('Pregunta retirada'); refrescar() } })
+  const visibles = filtro ? lista.filter(p => p.tipo === filtro) : lista
 
   return (
     <Layout>
-      <Box sx={{ p: 3, minHeight: '100vh' }}>
-        <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Box sx={{
-            width: 44, height: 44, borderRadius: '12px',
-            background: `linear-gradient(135deg, ${LMS_COLOR} 0%, #B45309 100%)`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <Lightbulb sx={{ color: '#fff', fontSize: 22 }} />
-          </Box>
-          <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Banco de Preguntas</Typography>
-            <Typography sx={{ fontSize: 13, color: 'text.disabled' }}>
-              {PREGUNTAS.length} preguntas · {totalPuntos} puntos · Múltiple, V/F, Casos, Abierta
-            </Typography>
-          </Box>
-        </Box>
-
-        {/* Stats por tipo */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          {porTipo.map((t, i) => {
-            const col = TIPO_COLORS[t.tipo] || LMS_COLOR
-            const labels: Record<string, string> = { MULTIPLE: 'Selección Múltiple', VERDADERO_FALSO: 'Verdadero / Falso', CASO_PRACTICO: 'Caso Práctico', RESPUESTA_ABIERTA: 'Respuesta Abierta' }
-            return (
-              <Grid key={i} size={{ xs: 6, md: 3 }}>
-                <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${alpha(col, 0.25)}`, borderRadius: 2, p: 2 }}>
-                  <Typography sx={{ fontSize: 22, fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>{t.count}</Typography>
-                  <Typography sx={{ fontSize: 11, color: col, fontWeight: 600, mt: 0.25 }}>{labels[t.tipo]}</Typography>
-                </Box>
-              </Grid>
-            )
-          })}
+      <Box sx={{ p: 3 }}>
+        <Encabezado icono={<Quiz sx={{ fontSize: 28 }} />} titulo="Banco de preguntas" subtitulo="LMS · Preguntas para las evaluaciones" color={LMS_COLOR} accion="Nueva pregunta" onAccion={() => abrir(null)} />
+        <Grid container spacing={2} mb={3}>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Preguntas" valor={lista.length} color={LMS_COLOR} /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Calificables" valor={lista.filter(p => cerrada(p.tipo)).length} color="#15803D" sub="Múltiple y verdadero/falso" /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Abiertas" valor={lista.filter(p => !cerrada(p.tipo)).length} color="#6B7280" sub="No entran a la calificación automática" /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Sin usar" valor={lista.filter(p => !p.en_evaluaciones).length} color="#D97706" sub="No están en ninguna evaluación" /></Grid>
         </Grid>
-
-        {/* Filtros */}
-        <Box sx={{ display: 'flex', gap: 1, mb: 1.5, bgcolor: 'background.paper', border: `1px solid #E5E7EB`, borderRadius: 2, px: 2, py: 1, alignItems: 'center' }}>
-          <Search sx={{ color: 'text.disabled', fontSize: 20 }} />
-          <InputBase
-            placeholder="Buscar pregunta..."
-            value={busqueda}
-            onChange={e => setBusqueda(e.target.value)}
-            sx={{ flex: 1, color: 'text.primary', fontSize: 13.5 }}
-          />
-        </Box>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1 }}>
-          {CATEGORIAS.map(c => (
-            <Chip key={c} label={c} size="small" onClick={() => setCategoria(c)}
-              sx={{ cursor: 'pointer', bgcolor: categoria === c ? LMS_COLOR : '#F1F5F9', color: categoria === c ? '#FFF' : 'text.secondary', fontWeight: categoria === c ? 700 : 400 }} />
-          ))}
-        </Box>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 3 }}>
-          {NIVELES.map(n => {
-            const col = DIFICULTAD_COLORS[n] || '#94A3B8'
-            return (
-              <Chip key={n} label={n} size="small" onClick={() => setNivel(n)}
-                sx={{ cursor: 'pointer', bgcolor: nivel === n ? alpha(col, 0.2) : 'transparent', color: nivel === n ? col : 'text.disabled', border: `1px solid ${nivel === n ? alpha(col, 0.4) : '#E5E7EB'}`, fontWeight: nivel === n ? 700 : 400 }} />
-            )
-          })}
-          {TIPOS.map(t => {
-            const col = TIPO_COLORS[t] || '#94A3B8'
-            return (
-              <Chip key={t} label={t === 'Todos' ? 'Todos los tipos' : t.charAt(0) + t.slice(1).toLowerCase().replace('_', ' ')} size="small" onClick={() => setTipo(t)}
-                sx={{ cursor: 'pointer', bgcolor: tipo === t ? alpha(col, 0.2) : 'transparent', color: tipo === t ? col : 'text.disabled', border: `1px solid ${tipo === t ? alpha(col, 0.4) : '#E5E7EB'}`, fontWeight: tipo === t ? 700 : 400 }} />
-            )
-          })}
-        </Box>
-
-        {/* Tabla */}
-        <Box sx={{ bgcolor: 'background.paper', border: `1px solid #E5E7EB`, borderRadius: 2, overflow: 'hidden' }}>
-          <Box sx={{ p: 2, borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary' }}>Preguntas ({filtradas.length})</Typography>
-          </Box>
-          <Box sx={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  {['Código', 'Tipo', 'Nivel', 'Categoría', 'Enunciado', 'Ptos'].map(h => (
-                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'rgba(0,0,0,0.35)', borderBottom: '1px solid #F1F5F9', whiteSpace: 'nowrap' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtradas.map((p, i) => {
-                  const tipoCol = TIPO_COLORS[p.tipo] || LMS_COLOR
-                  const nivCol  = DIFICULTAD_COLORS[p.nivel] || LMS_COLOR
-                  return (
-                    <tr key={i} style={{ borderBottom: '1px solid #F9FAFB' }}>
-                      <td style={{ padding: '10px 14px', fontSize: 11.5, color: LMS_COLOR, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{p.codigo}</td>
-                      <td style={{ padding: '10px 14px' }}>
-                        <Chip label={p.tipo.replace('_', ' ')} size="small" sx={{ bgcolor: alpha(tipoCol, 0.15), color: tipoCol, border: `1px solid ${alpha(tipoCol, 0.25)}`, fontSize: 9.5, fontWeight: 600 }} />
-                      </td>
-                      <td style={{ padding: '10px 14px' }}>
-                        <Chip label={p.nivel} size="small" sx={{ bgcolor: alpha(nivCol, 0.15), color: nivCol, border: `1px solid ${alpha(nivCol, 0.25)}`, fontSize: 9.5 }} />
-                      </td>
-                      <td style={{ padding: '10px 14px', fontSize: 12, color: 'rgba(0,0,0,0.55)', whiteSpace: 'nowrap' }}>{p.categoria}</td>
-                      <td style={{ padding: '10px 14px', fontSize: 12.5, color: 'rgba(0,0,0,0.75)', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.enunciado}</td>
-                      <td style={{ padding: '10px 14px', fontSize: 14, fontWeight: 800, color: LMS_COLOR, textAlign: 'center' }}>{p.puntaje}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </Box>
-        </Box>
+        <TextField select size="small" label="Tipo" value={filtro} onChange={e => setFiltro(e.target.value)} sx={{ minWidth: 220, mb: 2 }}>
+          <MenuItem value="">Todos</MenuItem>{TIPOS.map(([v, l]) => <MenuItem key={v} value={v}>{l}</MenuItem>)}
+        </TextField>
+        <TablaRegistros<Pregunta> filas={visibles} cargando={isLoading} vacio="Sin preguntas" etiqueta={p => p.codigo}
+          onEditar={p => abrir(p)} onRetirar={p => retirar.mutate(p.id)}
+          columnas={[
+            { titulo: 'Código', valor: p => <Box sx={{ fontFamily: 'monospace' }}>{p.codigo}</Box> },
+            { titulo: 'Pregunta', valor: p => <><b>{p.enunciado}</b>{cerrada(p.tipo) && <Typography fontSize={11} color="text.secondary">Correcta: {p.opciones.find(o => o.es_correcta)?.texto ?? '—'}</Typography>}</> },
+            { titulo: 'Tipo', valor: p => TIPOS.find(t => t[0] === p.tipo)?.[1] ?? p.tipo },
+            { titulo: 'Dificultad', valor: p => p.nivel_dificultad.toLowerCase() },
+            { titulo: 'Puntaje', alinear: 'right', valor: p => p.puntaje },
+            { titulo: 'En evaluaciones', alinear: 'right', valor: p => p.en_evaluaciones },
+          ]} />
+        <Dialog open={dlg.abierto} onClose={() => setDlg({ abierto: false, r: null })} maxWidth="sm" fullWidth>
+          <DialogTitle>{dlg.r ? `Pregunta ${dlg.r.codigo}` : 'Nueva pregunta'}</DialogTitle>
+          <DialogContent>
+            <Grid container spacing={2} sx={{ pt: 1 }}>
+              <Grid size={{ xs: 12 }}><TextField label="Enunciado" required fullWidth multiline minRows={2} size="small" value={f.enunciado} onChange={e => setF({ ...f, enunciado: e.target.value })} /></Grid>
+              <Grid size={{ xs: 12, sm: 6 }}><TextField select label="Tipo" fullWidth size="small" value={f.tipo} onChange={e => cambiarTipo(e.target.value)}>{TIPOS.map(([v, l]) => <MenuItem key={v} value={v}>{l}</MenuItem>)}</TextField></Grid>
+              <Grid size={{ xs: 6, sm: 3 }}><TextField select label="Dificultad" fullWidth size="small" value={f.nivel_dificultad} onChange={e => setF({ ...f, nivel_dificultad: e.target.value })}>{['BAJO', 'MEDIO', 'ALTO'].map(v => <MenuItem key={v} value={v}>{v.toLowerCase()}</MenuItem>)}</TextField></Grid>
+              <Grid size={{ xs: 6, sm: 3 }}><TextField label="Puntaje" type="number" fullWidth size="small" value={f.puntaje} onChange={e => setF({ ...f, puntaje: e.target.value })} /></Grid>
+              <Grid size={{ xs: 12 }}><TextField label="Categoría" fullWidth size="small" value={f.categoria} onChange={e => setF({ ...f, categoria: e.target.value })} /></Grid>
+            </Grid>
+            {cerrada(f.tipo) && (
+              <Box mt={2}>
+                <Typography fontSize={13} fontWeight={700} mb={1}>Opciones <Typography component="span" fontSize={11} color="text.secondary">(marca la correcta)</Typography></Typography>
+                {dlg.r && dlg.r.en_evaluaciones > 0 && <Chip size="small" color="warning" label="Si ya tiene respuestas registradas, las opciones no se reemplazan" sx={{ mb: 1 }} />}
+                {f.opciones.map((o, i) => (
+                  <Paper key={i} variant="outlined" sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 0.5, mb: 0.75 }}>
+                    <Radio size="small" checked={o.es_correcta} inputProps={{ 'aria-label': `Opción ${i + 1} correcta` }}
+                      onChange={() => setF({ ...f, opciones: f.opciones.map((x, j) => ({ ...x, es_correcta: j === i })) })} />
+                    <TextField variant="standard" fullWidth placeholder={`Opción ${i + 1}`} value={o.texto} disabled={f.tipo === 'VERDADERO_FALSO'}
+                      onChange={e => setF({ ...f, opciones: f.opciones.map((x, j) => (j === i ? { ...x, texto: e.target.value } : x)) })} />
+                    {f.tipo === 'MULTIPLE' && f.opciones.length > 2 && <IconButton size="small" aria-label={`Quitar opción ${i + 1}`} onClick={() => setF({ ...f, opciones: f.opciones.filter((_, j) => j !== i) })}><DeleteForever fontSize="small" /></IconButton>}
+                  </Paper>
+                ))}
+                {f.tipo === 'MULTIPLE' && f.opciones.length < 6 && <Button size="small" startIcon={<Add />} onClick={() => setF({ ...f, opciones: [...f.opciones, { texto: '', es_correcta: false }] })}>Agregar opción</Button>}
+              </Box>
+            )}
+            {error && <Typography fontSize={12} color="error" mt={1}>{error}</Typography>}
+          </DialogContent>
+          <DialogActions><Button onClick={() => setDlg({ abierto: false, r: null })}>Cancelar</Button><Button variant="contained" disabled={!!error || guardar.isPending} onClick={() => guardar.mutate()} sx={{ bgcolor: LMS_COLOR }}>Guardar</Button></DialogActions>
+        </Dialog>
       </Box>
     </Layout>
   )

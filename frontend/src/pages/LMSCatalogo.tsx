@@ -1,192 +1,129 @@
-import React, { useState } from 'react'
-import { Box, Typography, Chip, InputBase, alpha, LinearProgress } from '@mui/material'
+/**
+ * LMS · Catálogo de cursos
+ *
+ * Era una maqueta: tarjetas escritas a mano y un «Inscribirme» que no hacía
+ * nada. Ahora lista los cursos reales con su avance para quien mira, lleva a
+ * tomar cada curso, y permite crear y editar cursos e inscribir a un grupo
+ * (por ejemplo, a todo un cargo en un obligatorio).
+ */
+import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Box, Typography, Paper, Chip, Button, TextField, MenuItem, LinearProgress, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Autocomplete, Checkbox, alpha } from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { Search, AccessTime, Person, MenuBook } from '@mui/icons-material'
+import { MenuBook, Edit, GroupAdd, Search, Archive } from '@mui/icons-material'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
-
+import { lmsApi, type Curso, type PersonaLMS } from '@/api/lms'
+import { FormularioRegistro, Encabezado, errorApi, type Campo } from '@/components/comun/Registro'
 import { COLOR_MODULO } from '@/config/marca'
+
 const LMS_COLOR = COLOR_MODULO
-const BORDER  = '#E5E7EB'
-
-const MOD_COLORS: Record<string, string> = {
-  VIRTUAL: '#0EA5E9', PRESENCIAL: '#059669', HIBRIDO: '#7C3AED',
-  MICROLEARNING: '#F59E0B', WEBINAR: '#BE185D', SIMULACION: '#EF4444',
-}
-const NIV_COLORS: Record<string, string> = {
-  BASICO: '#059669', INTERMEDIO: LMS_COLOR, AVANZADO: '#EF4444', EXPERTO: '#7C3AED',
-}
-
-const CURSOS = [
-  { id: 1, codigo: 'CRS-2026-001', nombre: 'Conducción Defensiva Avanzada', modalidad: 'PRESENCIAL', nivel: 'AVANZADO', categoria: 'Conductores', horas: 16, instructor: 'Carlos Vargas', inscritos: 87, completados: 62, obligatorio: true },
-  { id: 2, codigo: 'CRS-2026-002', nombre: 'Seguridad Vial Integral', modalidad: 'HIBRIDO', nivel: 'INTERMEDIO', categoria: 'Conductores', horas: 12, instructor: 'María Rincón', inscritos: 74, completados: 58, obligatorio: true },
-  { id: 3, codigo: 'CRS-2026-003', nombre: 'ISO 9001:2015 Fundamentos', modalidad: 'VIRTUAL', nivel: 'BASICO', categoria: 'Calidad', horas: 8, instructor: 'Andrea López', inscritos: 66, completados: 41, obligatorio: false },
-  { id: 4, codigo: 'CRS-2026-004', nombre: 'Manejo de Cargas y Estibas', modalidad: 'PRESENCIAL', nivel: 'BASICO', categoria: 'Operaciones', horas: 4, instructor: 'Pablo Soto', inscritos: 59, completados: 47, obligatorio: true },
-  { id: 5, codigo: 'CRS-2026-005', nombre: 'Ética y Compliance Empresarial', modalidad: 'VIRTUAL', nivel: 'BASICO', categoria: 'Compliance', horas: 6, instructor: 'Julia Mora', inscritos: 52, completados: 38, obligatorio: true },
-  { id: 6, codigo: 'CRS-2026-006', nombre: 'Liderazgo Situacional', modalidad: 'VIRTUAL', nivel: 'INTERMEDIO', categoria: 'Liderazgo', horas: 10, instructor: 'Roberto Díaz', inscritos: 44, completados: 30, obligatorio: false },
-  { id: 7, codigo: 'CRS-2026-007', nombre: 'Primeros Auxilios y RCP', modalidad: 'PRESENCIAL', nivel: 'BASICO', categoria: 'SST', horas: 8, instructor: 'Camila Torres', inscritos: 41, completados: 39, obligatorio: true },
-  { id: 8, codigo: 'CRS-2026-008', nombre: 'Excel Avanzado para Operaciones', modalidad: 'VIRTUAL', nivel: 'AVANZADO', categoria: 'Tecnología', horas: 20, instructor: 'Diego Herrera', inscritos: 38, completados: 22, obligatorio: false },
-  { id: 9, codigo: 'CRS-2026-009', nombre: 'Normatividad de Tránsito', modalidad: 'VIRTUAL', nivel: 'BASICO', categoria: 'Conductores', horas: 4, instructor: 'Felipe Muñoz', inscritos: 78, completados: 72, obligatorio: true },
-  { id: 10, codigo: 'CRS-2026-010', nombre: 'Gestión de Inventarios WMS', modalidad: 'HIBRIDO', nivel: 'INTERMEDIO', categoria: 'Logística', horas: 12, instructor: 'Sandra Gil', inscritos: 35, completados: 21, obligatorio: false },
-  { id: 11, codigo: 'CRS-2026-011', nombre: 'Servicio al Cliente Excelente', modalidad: 'MICROLEARNING', nivel: 'BASICO', categoria: 'Comercial', horas: 3, instructor: 'Lina Cárdenas', inscritos: 61, completados: 50, obligatorio: false },
-  { id: 12, codigo: 'CRS-2026-012', nombre: 'Simulación de Emergencias', modalidad: 'SIMULACION', nivel: 'EXPERTO', categoria: 'SST', horas: 24, instructor: 'Andrés Reyes', inscritos: 28, completados: 14, obligatorio: true },
-]
-
-const CATEGORIAS = ['Todos', 'Conductores', 'Calidad', 'Operaciones', 'Compliance', 'Liderazgo', 'SST', 'Tecnología', 'Logística', 'Comercial']
-const MODALIDADES = ['Todas', 'VIRTUAL', 'PRESENCIAL', 'HIBRIDO', 'MICROLEARNING', 'WEBINAR', 'SIMULACION']
+const MODALIDADES: [string, string][] = [['VIRTUAL', 'Virtual'], ['PRESENCIAL', 'Presencial'], ['HIBRIDO', 'Híbrido'], ['MICROLEARNING', 'Microlearning'], ['WEBINAR', 'Webinar'], ['SIMULACION', 'Simulación']]
+const NIVELES: [string, string][] = [['BASICO', 'Básico'], ['INTERMEDIO', 'Intermedio'], ['AVANZADO', 'Avanzado'], ['EXPERTO', 'Experto']]
+const ESTADOS: [string, string][] = [['BORRADOR', 'Borrador'], ['REVISION', 'En revisión'], ['PUBLICADO', 'Publicado']]
+const MI_ESTADO: Record<string, { l: string; c: string }> = { INSCRITO: { l: 'Inscrito', c: '#0369A1' }, EN_PROGRESO: { l: 'En progreso', c: '#D97706' }, COMPLETADO: { l: 'Completado', c: '#15803D' }, ABANDONADO: { l: 'Abandonado', c: '#6B7280' } }
 
 export default function LMSCatalogo() {
-  const [busqueda, setBusqueda] = useState('')
-  const [categoria, setCategoria] = useState('Todos')
-  const [modalidad, setModalidad] = useState('Todas')
+  const nav = useNavigate()
+  const qc = useQueryClient()
+  const { data: cursos = [], isLoading } = useQuery({ queryKey: ['lms-catalogo'], queryFn: lmsApi.catalogo })
+  const { data: instructores = [] } = useQuery({ queryKey: ['lms-instructores'], queryFn: lmsApi.instructores.listar })
+  const { data: personas = [] } = useQuery({ queryKey: ['lms-personas'], queryFn: lmsApi.personas })
+  const [dlg, setDlg] = useState<{ abierto: boolean; r: Curso | null }>({ abierto: false, r: null })
+  const [masiva, setMasiva] = useState<Curso | null>(null)
+  const [elegidos, setElegidos] = useState<PersonaLMS[]>([])
+  const [buscar, setBuscar] = useState('')
+  const [estado, setEstado] = useState('')
+  const refrescar = () => qc.invalidateQueries({ queryKey: ['lms-catalogo'] })
 
-  const filtrados = CURSOS.filter(c => {
-    const matchBusq = c.nombre.toLowerCase().includes(busqueda.toLowerCase()) || c.codigo.toLowerCase().includes(busqueda.toLowerCase())
-    const matchCat  = categoria === 'Todos' || c.categoria === categoria
-    const matchMod  = modalidad === 'Todas' || c.modalidad === modalidad
-    return matchBusq && matchCat && matchMod
+  const archivar = useMutation({ mutationFn: (id: number) => lmsApi.archivarCurso(id), onSuccess: () => { toast.success('Curso archivado'); refrescar() } })
+  const inscribir = useMutation({
+    mutationFn: () => lmsApi.inscribirVarios(masiva!.id, elegidos.map(p => p.id)),
+    onSuccess: r => { toast.success(`${r.inscritos} inscrito(s)${r.ya_estaban ? `, ${r.ya_estaban} ya lo estaban` : ''}`); refrescar(); setMasiva(null) },
+    onError: (e: any) => toast.error(errorApi(e)),
   })
+
+  const cargos = useMemo(() => [...new Set(personas.map(p => p.cargo).filter(Boolean))] as string[], [personas])
+  const visibles = cursos.filter(c => (!estado || c.estado === estado) &&
+    (!buscar || `${c.nombre} ${c.codigo} ${c.categoria ?? ''}`.toLowerCase().includes(buscar.toLowerCase())))
+  const CAMPOS: Campo[] = [
+    { clave: 'nombre', etiqueta: 'Curso', obligatorio: true },
+    { clave: 'modalidad', etiqueta: 'Modalidad', tipo: 'seleccion', opciones: MODALIDADES, obligatorio: true, ancho: 6 },
+    { clave: 'nivel', etiqueta: 'Nivel', tipo: 'seleccion', opciones: NIVELES, obligatorio: true, ancho: 6 },
+    { clave: 'instructor_id', etiqueta: 'Instructor', tipo: 'seleccion', opciones: instructores.map(i => [i.id, i.nombre] as [number, string]), ancho: 6 },
+    { clave: 'categoria', etiqueta: 'Categoría', ancho: 6 },
+    { clave: 'duracion_horas', etiqueta: 'Duración (horas)', tipo: 'numero', min: 0, ancho: 4 },
+    { clave: 'puntaje_aprobacion', etiqueta: 'Aprueba con (%)', tipo: 'numero', min: 0, max: 100, ancho: 4 },
+    { clave: 'estado', etiqueta: 'Estado', tipo: 'seleccion', opciones: ESTADOS, obligatorio: true, ancho: 4, ayuda: 'Publicar exige contenidos' },
+    { clave: 'es_obligatorio', etiqueta: 'Obligatorio para todos', tipo: 'interruptor' },
+    { clave: 'descripcion', etiqueta: 'Descripción', tipo: 'area' },
+  ]
 
   return (
     <Layout>
-      <Box sx={{ p: 3, minHeight: '100vh' }}>
-        {/* Header */}
-        <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Box sx={{
-            width: 44, height: 44, borderRadius: '12px',
-            background: `linear-gradient(135deg, ${LMS_COLOR} 0%, #B45309 100%)`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <MenuBook sx={{ color: '#FFF', fontSize: 22 }} />
-          </Box>
-          <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary', lineHeight: 1.2 }}>
-              Catálogo de Cursos
-            </Typography>
-            <Typography sx={{ fontSize: 13, color: 'text.disabled' }}>
-              {CURSOS.length} cursos disponibles · Virtuales, Presenciales, Híbridos
-            </Typography>
-          </Box>
+      <Box sx={{ p: 3 }}>
+        <Encabezado icono={<MenuBook sx={{ fontSize: 28 }} />} titulo="Catálogo de cursos" subtitulo="LMS · Cursos disponibles y su avance"
+          color={LMS_COLOR} accion="Nuevo curso" onAccion={() => setDlg({ abierto: true, r: null })} />
+        <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+          <TextField size="small" placeholder="Buscar curso" value={buscar} onChange={e => setBuscar(e.target.value)} InputProps={{ startAdornment: <Search sx={{ fontSize: 18, mr: 0.5, color: 'text.disabled' }} /> }} />
+          <TextField select size="small" label="Estado" value={estado} onChange={e => setEstado(e.target.value)} sx={{ minWidth: 160 }}>
+            <MenuItem value="">Todos</MenuItem>{ESTADOS.map(([v, l]) => <MenuItem key={v} value={v}>{l}</MenuItem>)}
+          </TextField>
         </Box>
-
-        {/* Busqueda */}
-        <Box sx={{
-          display: 'flex', gap: 1, mb: 2,
-          bgcolor: 'background.paper', border: `1px solid ${BORDER}`,
-          borderRadius: 2, px: 2, py: 1, alignItems: 'center',
-        }}>
-          <Search sx={{ color: 'text.disabled', fontSize: 20 }} />
-          <InputBase
-            placeholder="Buscar cursos por nombre o código..."
-            value={busqueda}
-            onChange={e => setBusqueda(e.target.value)}
-            sx={{ flex: 1, color: 'text.primary', fontSize: 13.5 }}
-          />
-        </Box>
-
-        {/* Filtro categoría */}
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1.5 }}>
-          {CATEGORIAS.map(c => (
-            <Chip
-              key={c}
-              label={c}
-              size="small"
-              onClick={() => setCategoria(c)}
-              sx={{
-                cursor: 'pointer',
-                bgcolor: categoria === c ? LMS_COLOR : '#F1F5F9',
-                color: categoria === c ? '#FFF' : 'text.secondary',
-                fontWeight: categoria === c ? 700 : 400,
-                '&:hover': { bgcolor: categoria === c ? LMS_COLOR : '#E2E8F0' },
-              }}
-            />
-          ))}
-        </Box>
-
-        {/* Filtro modalidad */}
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 3 }}>
-          {MODALIDADES.map(m => {
-            const col = MOD_COLORS[m] || LMS_COLOR
-            const active = modalidad === m
-            return (
-              <Chip
-                key={m}
-                label={m === 'Todas' ? 'Todas las modalidades' : m.charAt(0) + m.slice(1).toLowerCase()}
-                size="small"
-                onClick={() => setModalidad(m)}
-                sx={{
-                  cursor: 'pointer',
-                  bgcolor: active ? alpha(col, 0.2) : 'transparent',
-                  color: active ? col : 'text.disabled',
-                  border: `1px solid ${active ? alpha(col, 0.4) : BORDER}`,
-                  fontWeight: active ? 700 : 400,
-                }}
-              />
-            )
-          })}
-        </Box>
-
-        {/* Grid de Cursos */}
+        {isLoading && <LinearProgress />}
+        {!isLoading && visibles.length === 0 && <Typography color="text.secondary">No hay cursos. Crea el primero con «Nuevo curso».</Typography>}
         <Grid container spacing={2}>
-          {filtrados.map(c => {
-            const modColor = MOD_COLORS[c.modalidad] || LMS_COLOR
-            const nivColor = NIV_COLORS[c.nivel] || LMS_COLOR
-            const pct = Math.round((c.completados / Math.max(c.inscritos, 1)) * 100)
+          {visibles.map(c => {
+            const me = c.mi_estado ? MI_ESTADO[c.mi_estado] : null
             return (
               <Grid key={c.id} size={{ xs: 12, sm: 6, lg: 4 }}>
-                <Box sx={{
-                  bgcolor: 'background.paper', border: `1px solid ${BORDER}`, borderRadius: 2, p: 2.5,
-                  height: '100%', display: 'flex', flexDirection: 'column',
-                  '&:hover': { border: `1px solid ${alpha(LMS_COLOR, 0.5)}`, transform: 'translateY(-2px)' },
-                  transition: 'all 0.2s ease',
-                }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
-                    <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
-                      <Chip label={c.modalidad} size="small" sx={{ bgcolor: alpha(modColor, 0.15), color: modColor, border: `1px solid ${alpha(modColor, 0.25)}`, fontSize: 10, fontWeight: 600 }} />
-                      <Chip label={c.nivel} size="small" sx={{ bgcolor: alpha(nivColor, 0.15), color: nivColor, border: `1px solid ${alpha(nivColor, 0.25)}`, fontSize: 10 }} />
-                    </Box>
-                    {c.obligatorio && (
-                      <Chip label="Obligatorio" size="small" sx={{ bgcolor: alpha('#EF4444', 0.15), color: '#EF4444', border: `1px solid ${alpha('#EF4444', 0.25)}`, fontSize: 10, fontWeight: 700 }} />
-                    )}
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                  <Box sx={{ display: 'flex', gap: 0.5, mb: 1, flexWrap: 'wrap' }}>
+                    <Chip size="small" label={MODALIDADES.find(m => m[0] === c.modalidad)?.[1] ?? c.modalidad} />
+                    <Chip size="small" label={NIVELES.find(m => m[0] === c.nivel)?.[1] ?? c.nivel} variant="outlined" />
+                    {c.es_obligatorio && <Chip size="small" label="Obligatorio" color="warning" />}
+                    {c.estado !== 'PUBLICADO' && <Chip size="small" label={ESTADOS.find(e => e[0] === c.estado)?.[1] ?? c.estado} />}
                   </Box>
-
-                  <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary', mb: 0.5, lineHeight: 1.4 }}>
-                    {c.nombre}
-                  </Typography>
-                  <Typography sx={{ fontSize: 11, color: LMS_COLOR, fontWeight: 600, mb: 1.5 }}>
-                    {c.codigo}
-                  </Typography>
-
-                  <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <AccessTime sx={{ fontSize: 13, color: 'text.disabled' }} />
-                      <Typography sx={{ fontSize: 11.5, color: 'text.secondary' }}>{c.horas}h</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <Person sx={{ fontSize: 13, color: 'text.disabled' }} />
-                      <Typography sx={{ fontSize: 11.5, color: 'text.secondary' }}>{c.instructor}</Typography>
-                    </Box>
+                  <Typography fontWeight={800}>{c.nombre}</Typography>
+                  <Typography fontSize={12} color="text.secondary">{c.codigo} · {c.duracion_horas} h · {c.total_contenidos} contenidos{c.instructor ? ` · ${c.instructor}` : ''}</Typography>
+                  <Typography fontSize={13} color="text.secondary" mt={1} sx={{ flex: 1 }}>{c.descripcion ?? ''}</Typography>
+                  <Typography fontSize={12} color="text.secondary" mt={1}>{c.total_inscritos} inscritos · {c.total_completados} completaron</Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                    <Button variant="contained" size="small" onClick={() => nav(`/lms/curso/${c.id}`)} sx={{ bgcolor: LMS_COLOR }}>{me ? 'Continuar' : 'Ver curso'}</Button>
+                    {me && <Chip size="small" label={me.l} sx={{ bgcolor: alpha(me.c, 0.12), color: me.c, fontWeight: 700 }} />}
+                    <Box sx={{ flex: 1 }} />
+                    {c.estado === 'PUBLICADO' && <Tooltip title="Inscribir personas"><IconButton size="small" aria-label={`Inscribir personas en ${c.nombre}`} onClick={() => { setElegidos([]); setMasiva(c) }}><GroupAdd fontSize="small" /></IconButton></Tooltip>}
+                    <Tooltip title="Editar"><IconButton size="small" aria-label={`Editar ${c.nombre}`} onClick={() => setDlg({ abierto: true, r: c })}><Edit fontSize="small" /></IconButton></Tooltip>
+                    <Tooltip title="Archivar"><IconButton size="small" aria-label={`Archivar ${c.nombre}`} onClick={() => { if (window.confirm(`¿Archivar «${c.nombre}»? Sus inscripciones y certificados se conservan.`)) archivar.mutate(c.id) }}><Archive fontSize="small" /></IconButton></Tooltip>
                   </Box>
-
-                  <Box sx={{ mt: 'auto' }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                      <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>{c.inscritos} inscritos</Typography>
-                      <Typography sx={{ fontSize: 11, color: LMS_COLOR, fontWeight: 700 }}>{pct}% completado</Typography>
-                    </Box>
-                    <LinearProgress
-                      variant="determinate"
-                      value={pct}
-                      sx={{
-                        height: 4, borderRadius: 2,
-                        bgcolor: '#E2E8F0',
-                        '& .MuiLinearProgress-bar': { bgcolor: LMS_COLOR, borderRadius: 2 },
-                      }}
-                    />
-                  </Box>
-                </Box>
+                </Paper>
               </Grid>
             )
           })}
         </Grid>
+        <FormularioRegistro abierto={dlg.abierto} titulo={dlg.r ? `Curso ${dlg.r.codigo}` : 'Nuevo curso'} campos={CAMPOS} registro={dlg.r}
+          valoresIniciales={{ modalidad: 'VIRTUAL', nivel: 'BASICO', estado: 'BORRADOR', duracion_horas: '1', puntaje_aprobacion: '70', es_obligatorio: false }}
+          onGuardar={async d => {
+            const cuerpo = { ...d, duracion_horas: d.duracion_horas ?? 0, puntaje_aprobacion: d.puntaje_aprobacion ?? 70 }
+            const r = dlg.r ? await lmsApi.editarCurso(dlg.r.id, cuerpo) : await lmsApi.crearCurso(cuerpo)
+            toast.success(dlg.r ? 'Curso actualizado' : 'Curso creado: ahora agrégale módulos y contenidos'); refrescar()
+            if (!dlg.r) nav(`/lms/curso/${r.id}`)
+          }}
+          onCerrar={() => setDlg({ abierto: false, r: null })} />
+        <Dialog open={!!masiva} onClose={() => setMasiva(null)} maxWidth="sm" fullWidth>
+          <DialogTitle>Inscribir en {masiva?.nombre}</DialogTitle>
+          <DialogContent>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', my: 1 }}>
+              {cargos.map(cg => <Chip key={cg} label={`Todo el cargo: ${cg}`} onClick={() => setElegidos([...new Map([...elegidos, ...personas.filter(p => p.cargo === cg)].map(p => [p.id, p])).values()])} />)}
+            </Box>
+            <Autocomplete multiple disableCloseOnSelect options={personas} value={elegidos} onChange={(_, v) => setElegidos(v)}
+              getOptionLabel={p => `${p.nombre}${p.cargo ? ` · ${p.cargo}` : ''}`} isOptionEqualToValue={(a, b) => a.id === b.id}
+              renderOption={(props, p, { selected }) => <li {...props}><Checkbox size="small" checked={selected} />{p.nombre}{p.cargo ? ` · ${p.cargo}` : ''}</li>}
+              renderInput={p => <TextField {...p} label="Personas" size="small" />} />
+          </DialogContent>
+          <DialogActions><Button onClick={() => setMasiva(null)}>Cancelar</Button><Button variant="contained" disabled={!elegidos.length || inscribir.isPending} onClick={() => inscribir.mutate()} sx={{ bgcolor: LMS_COLOR }}>Inscribir {elegidos.length || ''}</Button></DialogActions>
+        </Dialog>
       </Box>
     </Layout>
   )

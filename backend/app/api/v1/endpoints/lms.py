@@ -277,7 +277,7 @@ async def list_programas(db: AsyncSession = Depends(get_db)):
             "id": p.id, "codigo": p.codigo, "nombre": p.nombre,
             "descripcion": p.descripcion, "tipo": p.tipo,
             "duracion_horas": p.duracion_horas,
-            "escuela_nombre": esc.nombre if esc else None,
+            "escuela_id": p.escuela_id, "escuela_nombre": esc.nombre if esc else None,
             "total_cursos": c_q.scalar() or 0,
         })
     return data
@@ -617,7 +617,7 @@ async def list_certificaciones(db: AsyncSession = Depends(get_db)):
         data.append({
             "id": c.id, "codigo": c.codigo, "nombre": c.nombre,
             "descripcion": c.descripcion, "vigencia_meses": c.vigencia_meses,
-            "entidad_emisora": c.entidad_emisora,
+            "curso_id": c.curso_id, "programa_id": c.programa_id, "entidad_emisora": c.entidad_emisora,
             "total_emitidos": cert_q.scalar() or 0,
             "vigentes": vig_q.scalar() or 0,
         })

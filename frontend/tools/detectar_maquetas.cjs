@@ -76,7 +76,7 @@ for (const f of archivos) {
   if (!pintados.length) continue;
 
   // Consulta quien usa react-query o llama la API directo en un efecto.
-  const consulta = /useQuery|useInfiniteQuery|apiClient\.(get|post)|\bapi\.(get|post)\(|Api\.\w+\(/.test(src);
+  const consulta = /useQuery|useInfiniteQuery|useCrud\(|apiClient\.(get|post)|\bapi\.(get|post)\(|Api\.\w+\(/.test(src);
   const fila = {
     archivo: f,
     registros: pintados.reduce((s, a) => s + a.objetos, 0),

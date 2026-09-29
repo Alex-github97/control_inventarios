@@ -1,189 +1,69 @@
-import React, { useState } from 'react'
-import { Box, Typography, Chip, LinearProgress, alpha } from '@mui/material'
+/**
+ * LMS · Onboarding
+ *
+ * Era una maqueta: procesos de inducción de personas inventadas. Ahora cruza
+ * a cada usuario con los cursos obligatorios publicados: cuáles completó,
+ * cuáles lleva y cuáles no ha empezado, y deja inscribir a quien le falten.
+ */
+import { useState } from 'react'
+import { Box, Typography, Paper, LinearProgress, Chip, Button, TextField, MenuItem, Alert, Tooltip } from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { PersonAdd, CheckCircle, Schedule, RadioButtonUnchecked } from '@mui/icons-material'
+import { RocketLaunch } from '@mui/icons-material'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
-
+import { lmsApi } from '@/api/lms'
+import { Cifra, Encabezado, fmtFecha, errorApi } from '@/components/comun/Registro'
 import { COLOR_MODULO } from '@/config/marca'
+
 const LMS_COLOR = COLOR_MODULO
-
-const ESTADOS_COLOR: Record<string, string> = {
-  EN_PROGRESO: '#0EA5E9', COMPLETADO: '#059669', PENDIENTE: '#F59E0B',
-}
-
-const ONBOARDINGS = [
-  {
-    id: 1, colaborador: 'Juan Ramírez', cargo: 'Conductor C3', area: 'Transporte',
-    fecha_ingreso: '2026-06-01', estado: 'EN_PROGRESO', progreso: 62,
-    cursos: [
-      { nombre: 'Cultura y Valores la compañía', completado: true, obligatorio: true },
-      { nombre: 'Ética y Compliance Empresarial', completado: true, obligatorio: true },
-      { nombre: 'SST Inducción', completado: false, obligatorio: true },
-      { nombre: 'Normatividad de Tránsito', completado: false, obligatorio: true },
-      { nombre: 'Conducción Defensiva', completado: false, obligatorio: true },
-      { nombre: 'Primeros Auxilios', completado: false, obligatorio: true },
-    ],
-  },
-  {
-    id: 2, colaborador: 'Laura Gómez', cargo: 'Coordinador de Calidad', area: 'Calidad',
-    fecha_ingreso: '2026-05-15', estado: 'COMPLETADO', progreso: 100,
-    cursos: [
-      { nombre: 'Cultura y Valores la compañía', completado: true, obligatorio: true },
-      { nombre: 'Ética y Compliance Empresarial', completado: true, obligatorio: true },
-      { nombre: 'SST Inducción', completado: true, obligatorio: true },
-      { nombre: 'ISO 9001 Fundamentos', completado: true, obligatorio: true },
-      { nombre: 'Auditoría Interna', completado: true, obligatorio: false },
-    ],
-  },
-  {
-    id: 3, colaborador: 'Pedro Silva', cargo: 'Analista de Almacén', area: 'Logística',
-    fecha_ingreso: '2026-06-15', estado: 'PENDIENTE', progreso: 0,
-    cursos: [
-      { nombre: 'Cultura y Valores la compañía', completado: false, obligatorio: true },
-      { nombre: 'Ética y Compliance Empresarial', completado: false, obligatorio: true },
-      { nombre: 'SST Inducción', completado: false, obligatorio: true },
-      { nombre: 'Gestión de Inventarios WMS', completado: false, obligatorio: true },
-    ],
-  },
-]
-
-const CURSOS_OBLIGATORIOS = [
-  { nombre: 'Cultura y Valores la compañía', horas: 2, asignados: 3 },
-  { nombre: 'Ética y Compliance Empresarial', horas: 6, asignados: 3 },
-  { nombre: 'SST Inducción', horas: 4, asignados: 3 },
-  { nombre: 'Primeros Auxilios y RCP', horas: 8, asignados: 1 },
-  { nombre: 'Normatividad de Tránsito', horas: 4, asignados: 1 },
-]
+const EST: Record<string, { l: string; c: string }> = { COMPLETADO: { l: 'Completado', c: '#15803D' }, EN_PROGRESO: { l: 'En progreso', c: '#D97706' }, INSCRITO: { l: 'Inscrito', c: '#0369A1' }, SIN_INSCRIBIR: { l: 'Sin inscribir', c: '#DC2626' }, ABANDONADO: { l: 'Abandonado', c: '#6B7280' } }
 
 export default function LMSOnboarding() {
-  const [selected, setSelected] = useState<number | null>(null)
+  const qc = useQueryClient()
+  const { data, isLoading } = useQuery({ queryKey: ['lms-onboarding'], queryFn: lmsApi.onboarding })
+  const [filtro, setFiltro] = useState('pendientes')
+  const personas = data?.personas ?? []
+  const visibles = personas.filter(p => filtro === 'todos' || (filtro === 'pendientes' ? p.completados < p.total : p.completados === p.total))
+  const inscribir = useMutation({
+    mutationFn: async (p: typeof personas[number]) => {
+      for (const c of p.cursos.filter(c => c.estado === 'SIN_INSCRIBIR')) await lmsApi.inscribirVarios(c.curso_id, [p.usuario_id])
+    },
+    onSuccess: () => { toast.success('Inscrito en los obligatorios que le faltaban'); qc.invalidateQueries({ queryKey: ['lms-onboarding'] }) },
+    onError: (e: any) => toast.error(errorApi(e)),
+  })
 
   return (
     <Layout>
-      <Box sx={{ p: 3, minHeight: '100vh' }}>
-        <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Box sx={{
-            width: 44, height: 44, borderRadius: '12px',
-            background: `linear-gradient(135deg, ${LMS_COLOR} 0%, #B45309 100%)`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <PersonAdd sx={{ color: '#fff', fontSize: 22 }} />
-          </Box>
-          <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Onboarding</Typography>
-            <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
-              Planes de inducción automáticos · Cursos obligatorios por cargo
-            </Typography>
-          </Box>
-        </Box>
-
-        {/* KPIs */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          {[
-            { label: 'En Proceso de Inducción', value: 1, color: '#0EA5E9', icon: <Schedule /> },
-            { label: 'Inducciones Completadas', value: 1, color: '#059669', icon: <CheckCircle /> },
-            { label: 'Pendientes de Inicio', value: 1, color: '#F59E0B', icon: <RadioButtonUnchecked /> },
-            { label: 'Cursos Oblig. Asignados', value: CURSOS_OBLIGATORIOS.length, color: LMS_COLOR, icon: <PersonAdd /> },
-          ].map((k, i) => (
-            <Grid key={i} size={{ xs: 6, md: 3 }}>
-              <Box sx={{ border: '1px solid #E5E7EB', bgcolor: 'background.paper', borderRadius: 2, p: 2, display: 'flex', gap: 1.5, alignItems: 'center' }}>
-                <Box sx={{
-                  width: 38, height: 38, borderRadius: '10px', flexShrink: 0,
-                  background: `linear-gradient(135deg, ${k.color} 0%, ${alpha(k.color, 0.6)} 100%)`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  '& svg': { color: '#fff', fontSize: 20 },
-                }}>
-                  {k.icon}
+      <Box sx={{ p: 3 }}>
+        <Encabezado icono={<RocketLaunch sx={{ fontSize: 28 }} />} titulo="Onboarding" subtitulo="LMS · Avance de cada persona en los cursos obligatorios" color={LMS_COLOR} />
+        {isLoading && <LinearProgress sx={{ mb: 2 }} />}
+        {data && data.obligatorios.length === 0 && <Alert severity="info" sx={{ mb: 2 }}>No hay cursos obligatorios publicados. Márcalos como obligatorios en el catálogo.</Alert>}
+        <Grid container spacing={2} mb={3}>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Cursos obligatorios" valor={data?.obligatorios.length ?? 0} color={LMS_COLOR} sub={`${(data?.obligatorios ?? []).reduce((s, c) => s + c.duracion_horas, 0)} horas`} /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Personas al día" valor={personas.filter(p => p.total && p.completados === p.total).length} color="#15803D" /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Con pendientes" valor={personas.filter(p => p.completados < p.total).length} color="#D97706" /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Sin inscribir en alguno" valor={personas.filter(p => p.cursos.some(c => c.estado === 'SIN_INSCRIBIR')).length} color="#DC2626" /></Grid>
+        </Grid>
+        <TextField select size="small" label="Mostrar" value={filtro} onChange={e => setFiltro(e.target.value)} sx={{ minWidth: 180, mb: 2 }}>
+          <MenuItem value="pendientes">Con pendientes</MenuItem><MenuItem value="aldia">Al día</MenuItem><MenuItem value="todos">Todos</MenuItem>
+        </TextField>
+        <Grid container spacing={2}>
+          {visibles.map(p => (
+            <Grid key={p.usuario_id} size={{ xs: 12, md: 6 }}>
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
+                  <Box><Typography fontWeight={800}>{p.nombre}</Typography><Typography fontSize={12} color="text.secondary">{p.cargo ?? 'Sin cargo'} · usuario desde {fmtFecha(p.ingreso)}</Typography></Box>
+                  <Typography fontWeight={800}>{p.completados}/{p.total}</Typography>
                 </Box>
-                <Box>
-                  <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>{k.value}</Typography>
-                  <Typography sx={{ fontSize: 11, color: 'text.secondary', mt: 0.25 }}>{k.label}</Typography>
+                <LinearProgress variant="determinate" value={p.avance_pct ?? 0} sx={{ my: 1, height: 6, borderRadius: 3 }} />
+                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                  {p.cursos.map(c => <Tooltip key={c.curso_id} title={`${EST[c.estado]?.l ?? c.estado}${c.progreso_pct ? ` · ${c.progreso_pct.toFixed(0)}%` : ''}`}><Chip size="small" label={c.curso} sx={{ bgcolor: `${EST[c.estado]?.c ?? '#6B7280'}22`, color: EST[c.estado]?.c }} /></Tooltip>)}
                 </Box>
-              </Box>
+                {p.cursos.some(c => c.estado === 'SIN_INSCRIBIR') && <Button size="small" sx={{ mt: 1 }} disabled={inscribir.isPending} onClick={() => inscribir.mutate(p)}>Inscribir en los que faltan</Button>}
+              </Paper>
             </Grid>
           ))}
-        </Grid>
-
-        <Grid container spacing={2}>
-          {/* Lista de onboardings */}
-          <Grid size={{ xs: 12, md: 8 }}>
-            <Box sx={{ border: '1px solid #E5E7EB', bgcolor: 'background.paper', borderRadius: 2, overflow: 'hidden' }}>
-              <Box sx={{ p: 2, borderBottom: '1px solid #F1F5F9' }}>
-                <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary' }}>Planes de Inducción Activos</Typography>
-              </Box>
-              {ONBOARDINGS.map(o => {
-                const col = ESTADOS_COLOR[o.estado] || LMS_COLOR
-                const expanded = selected === o.id
-                return (
-                  <Box
-                    key={o.id}
-                    onClick={() => setSelected(expanded ? null : o.id)}
-                    sx={{
-                      p: 2, borderBottom: '1px solid #F1F5F9',
-                      cursor: 'pointer',
-                      '&:hover': { bgcolor: '#F9FAFB' },
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                      <Box>
-                        <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: 'text.primary' }}>{o.colaborador}</Typography>
-                        <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{o.cargo} · {o.area}</Typography>
-                        <Typography sx={{ fontSize: 11, color: 'text.disabled', mt: 0.25 }}>Ingreso: {o.fecha_ingreso}</Typography>
-                      </Box>
-                      <Chip label={o.estado.replace('_', ' ')} size="small" sx={{ bgcolor: alpha(col, 0.15), color: col, border: `1px solid ${alpha(col, 0.3)}`, fontWeight: 700, fontSize: 10 }} />
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                      <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>
-                        {o.cursos.filter(c => c.completado).length}/{o.cursos.length} cursos completados
-                      </Typography>
-                      <Typography sx={{ fontSize: 11, color: col, fontWeight: 700 }}>{o.progreso}%</Typography>
-                    </Box>
-                    <LinearProgress
-                      variant="determinate"
-                      value={o.progreso}
-                      sx={{
-                        height: 5, borderRadius: 3,
-                        bgcolor: '#F1F5F9',
-                        '& .MuiLinearProgress-bar': { bgcolor: col, borderRadius: 3 },
-                      }}
-                    />
-                    {expanded && (
-                      <Box sx={{ mt: 2 }}>
-                        {o.cursos.map((c, ci) => (
-                          <Box key={ci} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.75 }}>
-                            {c.completado
-                              ? <CheckCircle sx={{ fontSize: 16, color: '#059669' }} />
-                              : <RadioButtonUnchecked sx={{ fontSize: 16, color: 'text.disabled' }} />
-                            }
-                            <Typography sx={{ fontSize: 12.5, color: c.completado ? '#1E293B' : '#94A3B8', flex: 1 }}>{c.nombre}</Typography>
-                            {c.obligatorio && <Chip label="Obligatorio" size="small" sx={{ bgcolor: alpha('#EF4444', 0.1), color: '#EF4444', fontSize: 9 }} />}
-                          </Box>
-                        ))}
-                      </Box>
-                    )}
-                  </Box>
-                )
-              })}
-            </Box>
-          </Grid>
-
-          {/* Cursos obligatorios para onboarding */}
-          <Grid size={{ xs: 12, md: 4 }}>
-            <Box sx={{ border: '1px solid #E5E7EB', bgcolor: 'background.paper', borderRadius: 2, p: 2.5 }}>
-              <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 2 }}>
-                Cursos Obligatorios de Inducción
-              </Typography>
-              {CURSOS_OBLIGATORIOS.map((c, i) => (
-                <Box key={i} sx={{ mb: 1.5, pb: 1.5, borderBottom: '1px solid #F1F5F9' }}>
-                  <Typography sx={{ fontSize: 13, color: 'text.primary', fontWeight: 500 }}>{c.nombre}</Typography>
-                  <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
-                    <Chip label={`${c.horas}h`} size="small" sx={{ bgcolor: alpha(LMS_COLOR, 0.12), color: LMS_COLOR, fontSize: 10 }} />
-                    <Chip label={`${c.asignados} asignados`} size="small" sx={{ bgcolor: '#F1F5F9', color: 'text.secondary', fontSize: 10 }} />
-                  </Box>
-                </Box>
-              ))}
-            </Box>
-          </Grid>
         </Grid>
       </Box>
     </Layout>

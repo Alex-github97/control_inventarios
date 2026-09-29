@@ -1,230 +1,81 @@
-import React, { useState } from 'react'
-import { Box, Typography, Tab, Tabs, Chip, alpha, MenuItem, Select } from '@mui/material'
+/**
+ * LMS · Competencias por cargo
+ *
+ * Era una maqueta: una matriz por cargo con niveles escritos a mano y la
+ * brecha puesta aparte. Ahora el catálogo de competencias y la matriz se
+ * guardan en el servidor, y la brecha —requerido menos actual— la calcula él.
+ * Las competencias con brecha son las que alimentan las recomendaciones.
+ */
+import { useState } from 'react'
+import { Box, Tabs, Tab, Typography, TextField, MenuItem } from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { Psychology, TrendingUp, Warning } from '@mui/icons-material'
+import { Psychology } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
-
+import { lmsApi, type Competencia, type FilaMatriz } from '@/api/lms'
+import { FormularioRegistro, TablaRegistros, useCrud, Cifra, Encabezado, Etiqueta, type Campo } from '@/components/comun/Registro'
 import { COLOR_MODULO } from '@/config/marca'
+
 const LMS_COLOR = COLOR_MODULO
-const BORDER = '#E5E7EB'
-
-const NIVEL_MAP: Record<string, number> = { INICIAL: 1, BASICO: 2, INTERMEDIO: 3, AVANZADO: 4, EXPERTO: 5 }
-const NIVEL_COLORS: Record<number, string> = { 1: '#EF4444', 2: '#F59E0B', 3: LMS_COLOR, 4: '#0EA5E9', 5: '#059669' }
-const NIVEL_LABELS = ['', 'Inicial', 'Básico', 'Intermedio', 'Avanzado', 'Experto']
-
-const CARGOS = ['Conductor C3', 'Supervisor de Almacén', 'Coordinador de Calidad', 'Jefe de Operaciones', 'Analista Logístico']
-
-const COMPETENCIAS = ['Seguridad Vial', 'Gestión Logística', 'Calidad ISO', 'Liderazgo', 'Comunicación', 'SST', 'TI y Sistemas', 'Atención al Cliente', 'Gestión de Riesgos', 'Normatividad']
-
-const MATRIZ: Record<string, Record<string, { req: number; act: number }>> = {
-  'Conductor C3': {
-    'Seguridad Vial':      { req: 5, act: 4 },
-    'Gestión Logística':   { req: 3, act: 3 },
-    'Calidad ISO':         { req: 2, act: 1 },
-    'Liderazgo':           { req: 1, act: 1 },
-    'Comunicación':        { req: 3, act: 2 },
-    'SST':                 { req: 4, act: 3 },
-    'TI y Sistemas':       { req: 1, act: 1 },
-    'Atención al Cliente': { req: 3, act: 3 },
-    'Gestión de Riesgos':  { req: 3, act: 2 },
-    'Normatividad':        { req: 5, act: 4 },
-  },
-  'Coordinador de Calidad': {
-    'Seguridad Vial':      { req: 2, act: 2 },
-    'Gestión Logística':   { req: 3, act: 3 },
-    'Calidad ISO':         { req: 5, act: 4 },
-    'Liderazgo':           { req: 4, act: 3 },
-    'Comunicación':        { req: 4, act: 4 },
-    'SST':                 { req: 3, act: 3 },
-    'TI y Sistemas':       { req: 3, act: 2 },
-    'Atención al Cliente': { req: 3, act: 2 },
-    'Gestión de Riesgos':  { req: 4, act: 3 },
-    'Normatividad':        { req: 4, act: 4 },
-  },
-  'Jefe de Operaciones': {
-    'Seguridad Vial':      { req: 3, act: 3 },
-    'Gestión Logística':   { req: 5, act: 4 },
-    'Calidad ISO':         { req: 4, act: 3 },
-    'Liderazgo':           { req: 5, act: 4 },
-    'Comunicación':        { req: 5, act: 4 },
-    'SST':                 { req: 4, act: 3 },
-    'TI y Sistemas':       { req: 3, act: 2 },
-    'Atención al Cliente': { req: 4, act: 4 },
-    'Gestión de Riesgos':  { req: 5, act: 3 },
-    'Normatividad':        { req: 4, act: 3 },
-  },
-}
-
-function NivelDot({ nivel, size = 20 }: { nivel: number; size?: number }) {
-  const col = NIVEL_COLORS[nivel] || '#E2E8F0'
-  return (
-    <Box sx={{
-      width: size, height: size, borderRadius: '50%',
-      bgcolor: alpha(col, 0.2), border: `2px solid ${col}`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      <Typography sx={{ fontSize: 9, fontWeight: 800, color: col }}>{nivel}</Typography>
-    </Box>
-  )
-}
+const NIVELES: [string, string][] = [['INICIAL', 'Inicial'], ['BASICO', 'Básico'], ['INTERMEDIO', 'Intermedio'], ['AVANZADO', 'Avanzado'], ['EXPERTO', 'Experto']]
+const colorBrecha = (b: number) => (b >= 3 ? '#DC2626' : b === 2 ? '#EA580C' : b === 1 ? '#D97706' : '#15803D')
 
 export default function LMSCompetencias() {
+  const comps = useCrud(['lms-competencias'], lmsApi.competencias, 'Competencia', [], true)
+  const matriz = useCrud(['lms-matriz'], lmsApi.matriz, 'Fila', [['lms-competencias']], true)
   const [tab, setTab] = useState(0)
-  const [cargo, setCargo] = useState('Conductor C3')
+  const [cargo, setCargo] = useState('')
+  const [dlgC, setDlgC] = useState<{ abierto: boolean; r: Competencia | null }>({ abierto: false, r: null })
+  const [dlgM, setDlgM] = useState<{ abierto: boolean; r: FilaMatriz | null }>({ abierto: false, r: null })
+  const cargos = [...new Set(matriz.datos.map(m => m.cargo))].sort()
+  const filas = matriz.datos.filter(m => !cargo || m.cargo === cargo)
+  const conBrecha = matriz.datos.filter(m => m.brecha > 0)
 
-  const matrizCargo = MATRIZ[cargo] || MATRIZ['Conductor C3']
+  const CAMPOS_C: Campo[] = [{ clave: 'nombre', etiqueta: 'Competencia', obligatorio: true }, { clave: 'categoria', etiqueta: 'Categoría', ancho: 6 }, { clave: 'descripcion', etiqueta: 'Descripción', tipo: 'area' }]
+  const CAMPOS_M: Campo[] = [
+    { clave: 'cargo', etiqueta: 'Cargo', obligatorio: true, ancho: 6 }, { clave: 'area', etiqueta: 'Área', ancho: 6 },
+    { clave: 'competencia_id', etiqueta: 'Competencia', tipo: 'seleccion', opciones: comps.datos.map(c => [c.id, c.nombre] as [number, string]), obligatorio: true },
+    { clave: 'nivel_requerido', etiqueta: 'Nivel requerido', tipo: 'seleccion', opciones: NIVELES, obligatorio: true, ancho: 6 },
+    { clave: 'nivel_actual', etiqueta: 'Nivel actual', tipo: 'seleccion', opciones: NIVELES, ancho: 6, ayuda: 'El nivel que hoy tiene el cargo' },
+  ]
 
   return (
     <Layout>
-      <Box sx={{ p: 3, minHeight: '100vh' }}>
-        <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Box sx={{
-            width: 44, height: 44, borderRadius: '12px',
-            background: `linear-gradient(135deg, ${LMS_COLOR} 0%, #B45309 100%)`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <Psychology sx={{ color: '#FFF', fontSize: 22 }} />
-          </Box>
-          <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Matriz de Competencias</Typography>
-            <Typography sx={{ fontSize: 13, color: 'text.disabled' }}>
-              Requerido vs. Actual · Brecha por cargo y área
-            </Typography>
-          </Box>
-        </Box>
-
-        {/* Leyenda niveles */}
-        <Box sx={{ display: 'flex', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
-          {[1, 2, 3, 4, 5].map(n => (
-            <Box key={n} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <NivelDot nivel={n} size={18} />
-              <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{n} - {NIVEL_LABELS[n]}</Typography>
-            </Box>
-          ))}
-        </Box>
-
-        <Tabs value={tab} onChange={(_, v) => setTab(v)}
-          sx={{
-            mb: 3,
-            '& .MuiTab-root': { color: 'text.secondary', textTransform: 'none', fontWeight: 600 },
-            '& .Mui-selected': { color: `${LMS_COLOR} !important` },
-            '& .MuiTabs-indicator': { bgcolor: LMS_COLOR },
-          }}>
-          <Tab label="Matriz por Cargo" />
-          <Tab label="Brechas Críticas" />
-        </Tabs>
-
-        {tab === 0 && (
-          <>
-            <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>Cargo:</Typography>
-              <Select
-                value={cargo}
-                onChange={e => setCargo(e.target.value)}
-                size="small"
-                sx={{
-                  color: 'text.primary', bgcolor: 'background.paper', border: `1px solid #E5E7EB`,
-                  '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
-                  '& .MuiSvgIcon-root': { color: 'text.secondary' },
-                  fontSize: 13, minWidth: 200,
-                }}
-              >
-                {Object.keys(MATRIZ).map(c => (
-                  <MenuItem key={c} value={c} sx={{ fontSize: 13 }}>{c}</MenuItem>
-                ))}
-              </Select>
-            </Box>
-
-            <Box sx={{ bgcolor: 'background.paper', border: `1px solid #E5E7EB`, borderRadius: 2, overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    {['Competencia', 'Requerido', 'Actual', 'Brecha', 'Estado'].map(h => (
-                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'rgba(0,0,0,0.35)', borderBottom: '1px solid #F1F5F9' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {COMPETENCIAS.map((comp, i) => {
-                    const datos = matrizCargo[comp] || { req: 1, act: 1 }
-                    const brecha = datos.req - datos.act
-                    const col = brecha === 0 ? '#059669' : brecha === 1 ? LMS_COLOR : '#EF4444'
-                    return (
-                      <tr key={i} style={{ borderBottom: '1px solid #F9FAFB' }}>
-                        <td style={{ padding: '10px 14px', fontSize: 13, color: 'rgba(0,0,0,0.87)', fontWeight: 500 }}>{comp}</td>
-                        <td style={{ padding: '10px 14px' }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <NivelDot nivel={datos.req} />
-                            <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{NIVEL_LABELS[datos.req]}</Typography>
-                          </Box>
-                        </td>
-                        <td style={{ padding: '10px 14px' }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <NivelDot nivel={datos.act} />
-                            <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{NIVEL_LABELS[datos.act]}</Typography>
-                          </Box>
-                        </td>
-                        <td style={{ padding: '10px 14px', fontSize: 15, fontWeight: 800, color: col }}>
-                          {brecha > 0 ? `-${brecha}` : '✓'}
-                        </td>
-                        <td style={{ padding: '10px 14px' }}>
-                          <Chip
-                            label={brecha === 0 ? 'Cumple' : brecha === 1 ? 'Brecha Menor' : 'Brecha Crítica'}
-                            size="small"
-                            sx={{ bgcolor: alpha(col, 0.15), color: col, border: `1px solid ${alpha(col, 0.3)}`, fontSize: 10, fontWeight: 700 }}
-                          />
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </Box>
-          </>
+      <Box sx={{ p: 3 }}>
+        <Encabezado icono={<Psychology sx={{ fontSize: 28 }} />} titulo="Competencias" subtitulo="LMS · Matriz de competencias por cargo y brechas" color={LMS_COLOR}
+          accion={tab === 2 ? 'Nueva competencia' : 'Agregar a la matriz'} onAccion={() => (tab === 2 ? setDlgC({ abierto: true, r: null }) : setDlgM({ abierto: true, r: null }))} />
+        <Grid container spacing={2} mb={3}>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Competencias" valor={comps.datos.length} color={LMS_COLOR} /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Cargos en la matriz" valor={cargos.length} color="#0369A1" /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Brechas" valor={conBrecha.length} color="#D97706" /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Brechas críticas (≥ 2 niveles)" valor={conBrecha.filter(m => m.brecha >= 2).length} color="#DC2626" /></Grid>
+        </Grid>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}><Tab label="Matriz por cargo" /><Tab label={`Brechas (${conBrecha.length})`} /><Tab label="Catálogo" /></Tabs>
+        {tab < 2 && (<>
+          {tab === 0 && <TextField select size="small" label="Cargo" value={cargo} onChange={e => setCargo(e.target.value)} sx={{ minWidth: 240, mb: 2 }}><MenuItem value="">Todos</MenuItem>{cargos.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}</TextField>}
+          <TablaRegistros<FilaMatriz> filas={tab === 1 ? [...conBrecha].sort((a, b) => b.brecha - a.brecha) : filas} cargando={matriz.isLoading} vacio="Sin filas en la matriz" etiqueta={m => `${m.cargo} · ${m.competencia}`}
+            onEditar={m => setDlgM({ abierto: true, r: m })} onRetirar={m => matriz.retirar.mutate(m.id)}
+            columnas={[
+              { titulo: 'Cargo', valor: m => <><b>{m.cargo}</b><Typography fontSize={11} color="text.secondary">{m.area ?? ''}</Typography></> },
+              { titulo: 'Competencia', valor: m => m.competencia ?? '—' },
+              { titulo: 'Requerido', valor: m => NIVELES.find(n => n[0] === m.nivel_requerido)?.[1] },
+              { titulo: 'Actual', valor: m => NIVELES.find(n => n[0] === m.nivel_actual)?.[1] ?? 'Sin evaluar' },
+              { titulo: 'Brecha', valor: m => <Etiqueta texto={m.brecha ? `${m.brecha} nivel${m.brecha > 1 ? 'es' : ''}` : 'Cumple'} color={colorBrecha(m.brecha)} /> },
+            ]} />
+        </>)}
+        {tab === 2 && (
+          <TablaRegistros<Competencia> filas={comps.datos} cargando={comps.isLoading} vacio="Sin competencias" etiqueta={c => c.nombre}
+            onEditar={c => setDlgC({ abierto: true, r: c })} onRetirar={c => comps.retirar.mutate(c.id)}
+            columnas={[
+              { titulo: 'Código', valor: c => <Box sx={{ fontFamily: 'monospace' }}>{c.codigo}</Box> },
+              { titulo: 'Competencia', valor: c => <b>{c.nombre}</b> },
+              { titulo: 'Categoría', valor: c => c.categoria ?? '—' },
+              { titulo: 'Cargos que la requieren', alinear: 'right', valor: c => new Set(matriz.datos.filter(m => m.competencia_id === c.id).map(m => m.cargo)).size },
+            ]} />
         )}
-
-        {tab === 1 && (
-          <Grid container spacing={2}>
-            {[
-              { cargo: 'Conductor C3', comp: 'Seguridad Vial', req: 5, act: 4, brecha: 1 },
-              { cargo: 'Jefe de Operaciones', comp: 'Gestión de Riesgos', req: 5, act: 3, brecha: 2 },
-              { cargo: 'Coordinador de Calidad', comp: 'Calidad ISO', req: 5, act: 4, brecha: 1 },
-              { cargo: 'Jefe de Operaciones', comp: 'Gestión Logística', req: 5, act: 4, brecha: 1 },
-              { cargo: 'Conductor C3', comp: 'Calidad ISO', req: 2, act: 1, brecha: 1 },
-              { cargo: 'Jefe de Operaciones', comp: 'SST', req: 4, act: 3, brecha: 1 },
-            ].map((b, i) => {
-              const col = b.brecha >= 2 ? '#EF4444' : LMS_COLOR
-              return (
-                <Grid key={i} size={{ xs: 12, md: 6 }}>
-                  <Box sx={{ bgcolor: 'background.paper', border: `1px solid ${alpha(col, 0.3)}`, borderRadius: 2, p: 2.5 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-                      <Box sx={{
-                        width: 36, height: 36, borderRadius: '10px', flexShrink: 0,
-                        bgcolor: alpha(col, 0.15), border: `1px solid ${alpha(col, 0.3)}`,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      }}>
-                        <Warning sx={{ color: col, fontSize: 18 }} />
-                      </Box>
-                      <Box sx={{ flex: 1 }}>
-                        <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: 'text.primary' }}>{b.comp}</Typography>
-                        <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{b.cargo}</Typography>
-                        <Box sx={{ display: 'flex', gap: 1.5, mt: 1 }}>
-                          <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>Requerido: <strong style={{ color: 'inherit' }}>{NIVEL_LABELS[b.req]}</strong></Typography>
-                          <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>Actual: <strong style={{ color: 'inherit' }}>{NIVEL_LABELS[b.act]}</strong></Typography>
-                        </Box>
-                      </Box>
-                      <Chip
-                        label={`-${b.brecha} nivel${b.brecha > 1 ? 'es' : ''}`}
-                        size="small"
-                        sx={{ bgcolor: alpha(col, 0.2), color: col, border: `1px solid ${alpha(col, 0.4)}`, fontWeight: 800, fontSize: 12 }}
-                      />
-                    </Box>
-                  </Box>
-                </Grid>
-              )
-            })}
-          </Grid>
-        )}
+        <FormularioRegistro abierto={dlgC.abierto} titulo={dlgC.r ? dlgC.r.nombre : 'Nueva competencia'} campos={CAMPOS_C} registro={dlgC.r} onGuardar={c => comps.guardar(dlgC.r, c)} onCerrar={() => setDlgC({ abierto: false, r: null })} />
+        <FormularioRegistro abierto={dlgM.abierto} titulo={dlgM.r ? 'Editar fila' : 'Agregar a la matriz'} campos={CAMPOS_M} registro={dlgM.r}
+          valoresIniciales={{ nivel_requerido: 'INTERMEDIO', ...(cargo ? { cargo } : {}) }} onGuardar={c => matriz.guardar(dlgM.r, c)} onCerrar={() => setDlgM({ abierto: false, r: null })}
+          pie={f => { const r = NIVELES.findIndex(n => n[0] === f.nivel_requerido), a = f.nivel_actual ? NIVELES.findIndex(n => n[0] === f.nivel_actual) : 0; if (r < 0) return null; const b = Math.max(0, r - a); return <Typography fontWeight={700} color={colorBrecha(b)}>Brecha: {b ? `${b} nivel(es)` : 'cumple'}</Typography> }} />
       </Box>
     </Layout>
   )

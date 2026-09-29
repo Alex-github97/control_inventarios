@@ -198,6 +198,7 @@ const LMSDashboard = React.lazy(() => import('@/pages/LMSDashboard'))
 const LMSMiAprendizaje = React.lazy(() => import('@/pages/LMSMiAprendizaje'))
 const LMSUniversidad = React.lazy(() => import('@/pages/LMSUniversidad'))
 const LMSCatalogo = React.lazy(() => import('@/pages/LMSCatalogo'))
+const LMSCurso = React.lazy(() => import('@/pages/LMSCurso'))
 const LMSRutas = React.lazy(() => import('@/pages/LMSRutas'))
 const LMSOnboarding = React.lazy(() => import('@/pages/LMSOnboarding'))
 const LMSCompetencias = React.lazy(() => import('@/pages/LMSCompetencias'))
@@ -579,6 +580,7 @@ export default function App() {
             <Route path="/lms/mi-aprendizaje" element={<ProtectedRoute><LMSMiAprendizaje /></ProtectedRoute>} />
             <Route path="/lms/universidad" element={<ProtectedRoute><LMSUniversidad /></ProtectedRoute>} />
             <Route path="/lms/catalogo" element={<ProtectedRoute><LMSCatalogo /></ProtectedRoute>} />
+            <Route path="/lms/curso/:id" element={<ProtectedRoute><LMSCurso /></ProtectedRoute>} />
             <Route path="/lms/rutas" element={<ProtectedRoute><LMSRutas /></ProtectedRoute>} />
             <Route path="/lms/onboarding" element={<ProtectedRoute><LMSOnboarding /></ProtectedRoute>} />
             <Route path="/lms/competencias" element={<ProtectedRoute><LMSCompetencias /></ProtectedRoute>} />

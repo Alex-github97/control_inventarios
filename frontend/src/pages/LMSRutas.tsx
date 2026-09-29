@@ -1,200 +1,89 @@
-import React, { useState } from 'react'
-import { Box, Typography, Chip, LinearProgress, alpha } from '@mui/material'
+/**
+ * LMS · Rutas de aprendizaje
+ *
+ * Era una maqueta. Ahora una ruta es una secuencia de cursos reales pensada
+ * para un cargo; su duración es la suma de sus cursos (se calcula) y las
+ * rutas del cargo de cada persona entran en sus recomendaciones.
+ */
+import { useState } from 'react'
+import { Box, Typography, Paper, Chip, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Autocomplete, IconButton, Tooltip } from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { Route, CheckCircle, RadioButtonUnchecked, ArrowForward } from '@mui/icons-material'
+import { AltRoute, Edit, DeleteForever, ArrowForward } from '@mui/icons-material'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
-
+import { lmsApi, type Ruta, type Curso } from '@/api/lms'
+import { Encabezado, errorApi } from '@/components/comun/Registro'
 import { COLOR_MODULO } from '@/config/marca'
-const LMS_COLOR = COLOR_MODULO
 
-const RUTAS = [
-  {
-    id: 1, codigo: 'RUT-2026-001',
-    nombre: 'Ruta del Conductor Profesional',
-    descripcion: 'Formación completa para conductores: seguridad, normatividad, servicio y emergencias',
-    cargo_objetivo: 'Conductor C2/C3', area_objetivo: 'Transporte',
-    horas: 48, inscritos: 94, completados: 41, color: '#EF4444',
-    cursos: [
-      { nombre: 'Normatividad de Tránsito', horas: 4, completado: true },
-      { nombre: 'Conducción Defensiva Avanzada', horas: 16, completado: true },
-      { nombre: 'Seguridad Vial Integral', horas: 12, completado: false },
-      { nombre: 'Primeros Auxilios y RCP', horas: 8, completado: false },
-      { nombre: 'Servicio al Cliente', horas: 3, completado: false },
-      { nombre: 'Manejo de Mercancías Peligrosas', horas: 5, completado: false },
-    ],
-  },
-  {
-    id: 2, codigo: 'RUT-2026-002',
-    nombre: 'Ruta del Supervisor de Calidad',
-    descripcion: 'Dominio de ISO 9001, auditorías internas, indicadores y CAPA',
-    cargo_objetivo: 'Supervisor de Calidad', area_objetivo: 'Calidad',
-    horas: 38, inscritos: 28, completados: 12, color: '#059669',
-    cursos: [
-      { nombre: 'ISO 9001:2015 Fundamentos', horas: 8, completado: true },
-      { nombre: 'Auditorías Internas ISO', horas: 12, completado: false },
-      { nombre: 'Indicadores de Calidad', horas: 6, completado: false },
-      { nombre: 'CAPA y Análisis Causa Raíz', horas: 8, completado: false },
-      { nombre: 'Mejora Continua Lean', horas: 4, completado: false },
-    ],
-  },
-  {
-    id: 3, codigo: 'RUT-2026-003',
-    nombre: 'Ruta de Liderazgo Operacional',
-    descripcion: 'Desarrollo de habilidades de dirección, comunicación y gestión de equipos',
-    cargo_objetivo: 'Coordinador / Jefe', area_objetivo: 'Todas las áreas',
-    horas: 55, inscritos: 44, completados: 8, color: '#7C3AED',
-    cursos: [
-      { nombre: 'Liderazgo Situacional', horas: 10, completado: true },
-      { nombre: 'Comunicación Efectiva', horas: 8, completado: false },
-      { nombre: 'Gestión del Tiempo', horas: 6, completado: false },
-      { nombre: 'Coaching de Equipos', horas: 12, completado: false },
-      { nombre: 'Manejo de Conflictos', horas: 8, completado: false },
-      { nombre: 'Gestión por Resultados', horas: 11, completado: false },
-    ],
-  },
-  {
-    id: 4, codigo: 'RUT-2026-004',
-    nombre: 'Ruta de Inducción Corporativa',
-    descripcion: 'Bienvenida a la compañía: cultura, procesos, seguridad y compliance',
-    cargo_objetivo: 'Todos los cargos nuevos', area_objetivo: 'General',
-    horas: 16, inscritos: 31, completados: 25, color: LMS_COLOR,
-    cursos: [
-      { nombre: 'Cultura y Valores la compañía', horas: 2, completado: true },
-      { nombre: 'Ética y Compliance Empresarial', horas: 6, completado: true },
-      { nombre: 'SST Inducción', horas: 4, completado: false },
-      { nombre: 'Procesos Operativos', horas: 4, completado: false },
-    ],
-  },
-]
+const LMS_COLOR = COLOR_MODULO
+type Form = { nombre: string; descripcion: string; cargo_objetivo: string; area_objetivo: string; cursos: Curso[] }
+const VACIO: Form = { nombre: '', descripcion: '', cargo_objetivo: '', area_objetivo: '', cursos: [] }
 
 export default function LMSRutas() {
-  const [seleccionada, setSeleccionada] = useState<number | null>(null)
+  const qc = useQueryClient()
+  const { data: rutas = [], isLoading } = useQuery({ queryKey: ['lms-rutas'], queryFn: lmsApi.rutas.listar })
+  const { data: cursos = [] } = useQuery({ queryKey: ['lms-catalogo'], queryFn: lmsApi.catalogo })
+  const [dlg, setDlg] = useState<{ abierto: boolean; r: Ruta | null }>({ abierto: false, r: null })
+  const [f, setF] = useState<Form>(VACIO)
+  const refrescar = () => qc.invalidateQueries({ queryKey: ['lms-rutas'] })
+  const abrir = (r: Ruta | null) => {
+    setF(r ? { nombre: r.nombre, descripcion: r.descripcion ?? '', cargo_objetivo: r.cargo_objetivo ?? '', area_objetivo: r.area_objetivo ?? '',
+      cursos: r.cursos.map(c => cursos.find(x => x.id === c.id)).filter(Boolean) as Curso[] } : VACIO)
+    setDlg({ abierto: true, r })
+  }
+  const guardar = useMutation({
+    mutationFn: () => {
+      const d = { nombre: f.nombre.trim(), descripcion: f.descripcion.trim() || null, cargo_objetivo: f.cargo_objetivo.trim() || null, area_objetivo: f.area_objetivo.trim() || null, curso_ids: f.cursos.map(c => c.id) }
+      return dlg.r ? lmsApi.rutas.editar(dlg.r.id, d) : lmsApi.rutas.crear(d)
+    },
+    onSuccess: () => { toast.success('Ruta guardada'); refrescar(); setDlg({ abierto: false, r: null }) },
+    onError: (e: any) => toast.error(errorApi(e)),
+  })
+  const retirar = useMutation({ mutationFn: (id: number) => lmsApi.rutas.retirar(id), onSuccess: () => { toast.success('Ruta retirada'); refrescar() } })
 
   return (
     <Layout>
-      <Box sx={{ p: 3, minHeight: '100vh' }}>
-        <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Box sx={{
-            width: 44, height: 44, borderRadius: '12px',
-            background: `linear-gradient(135deg, ${LMS_COLOR} 0%, #B45309 100%)`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <Route sx={{ color: '#fff', fontSize: 22 }} />
-          </Box>
-          <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary' }}>Rutas de Aprendizaje</Typography>
-            <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
-              Itinerarios formativos por cargo, área y competencias
-            </Typography>
-          </Box>
-        </Box>
-
+      <Box sx={{ p: 3 }}>
+        <Encabezado icono={<AltRoute sx={{ fontSize: 28 }} />} titulo="Rutas de aprendizaje" subtitulo="LMS · Secuencias de cursos por cargo" color={LMS_COLOR} accion="Nueva ruta" onAccion={() => abrir(null)} />
+        {!isLoading && rutas.length === 0 && <Typography color="text.secondary">Sin rutas. Crea una eligiendo los cursos en el orden en que deben tomarse.</Typography>}
         <Grid container spacing={2}>
-          {RUTAS.map(r => {
-            const pct = Math.round((r.completados / Math.max(r.inscritos, 1)) * 100)
-            const completadosCurso = r.cursos.filter(c => c.completado).length
-            const progPersonal = Math.round((completadosCurso / r.cursos.length) * 100)
-            const expanded = seleccionada === r.id
-
-            return (
-              <Grid key={r.id} size={{ xs: 12, lg: 6 }}>
-                <Box
-                  onClick={() => setSeleccionada(expanded ? null : r.id)}
-                  sx={{
-                    bgcolor: '#FFFFFF',
-                    border: `1px solid ${expanded ? alpha(r.color, 0.5) : '#E5E7EB'}`,
-                    borderRadius: 2, p: 2.5, cursor: 'pointer',
-                    '&:hover': { border: `1px solid ${alpha(r.color, 0.4)}` },
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  {/* Header */}
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
-                    <Box sx={{ flex: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                        <Typography sx={{ fontSize: 12, color: LMS_COLOR, fontWeight: 600 }}>{r.codigo}</Typography>
-                        <ArrowForward sx={{ fontSize: 12, color: 'text.disabled' }} />
-                      </Box>
-                      <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', lineHeight: 1.3 }}>{r.nombre}</Typography>
-                      <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 0.5 }}>{r.descripcion}</Typography>
-                    </Box>
+          {rutas.map(r => (
+            <Grid key={r.id} size={{ xs: 12, md: 6 }}>
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Box><Typography fontSize={12} color="text.secondary">{r.codigo}{r.cargo_objetivo ? ` · para ${r.cargo_objetivo}` : ''}</Typography><Typography fontWeight={800}>{r.nombre}</Typography></Box>
+                  <Box>
+                    <Tooltip title="Editar"><IconButton size="small" aria-label={`Editar ${r.nombre}`} onClick={() => abrir(r)}><Edit fontSize="small" /></IconButton></Tooltip>
+                    <Tooltip title="Retirar"><IconButton size="small" aria-label={`Retirar ${r.nombre}`} onClick={() => { if (window.confirm(`¿Retirar la ruta «${r.nombre}»?`)) retirar.mutate(r.id) }}><DeleteForever fontSize="small" sx={{ color: '#DC2626' }} /></IconButton></Tooltip>
                   </Box>
-
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2 }}>
-                    <Chip label={r.cargo_objetivo} size="small" sx={{ bgcolor: alpha(r.color, 0.12), color: r.color, border: `1px solid ${alpha(r.color, 0.25)}`, fontSize: 10.5 }} />
-                    <Chip label={r.area_objetivo} size="small" sx={{ bgcolor: '#F1F5F9', color: 'text.secondary', fontSize: 10.5 }} />
-                    <Chip label={`${r.horas}h totales`} size="small" sx={{ bgcolor: '#F1F5F9', color: 'text.secondary', fontSize: 10.5 }} />
-                  </Box>
-
-                  {/* Progress global */}
-                  <Box sx={{ mb: 1.5 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                      <Typography sx={{ fontSize: 11.5, color: 'text.secondary' }}>{r.inscritos} inscritos · {r.completados} completados</Typography>
-                      <Typography sx={{ fontSize: 12, color: r.color, fontWeight: 700 }}>{pct}%</Typography>
-                    </Box>
-                    <LinearProgress
-                      variant="determinate"
-                      value={pct}
-                      sx={{
-                        height: 5, borderRadius: 3,
-                        bgcolor: '#F1F5F9',
-                        '& .MuiLinearProgress-bar': { bgcolor: r.color, borderRadius: 3 },
-                      }}
-                    />
-                  </Box>
-
-                  {/* Detalle de cursos (expandible) */}
-                  {expanded && (
-                    <Box sx={{ mt: 2, borderTop: '1px solid #F1F5F9', pt: 2 }}>
-                      <Typography sx={{ fontSize: 12, fontWeight: 700, color: 'text.secondary', mb: 1.5, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
-                        Itinerario · Mi progreso ({completadosCurso}/{r.cursos.length})
-                      </Typography>
-                      {r.cursos.map((c, idx) => (
-                        <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
-                          <Box sx={{
-                            width: 22, height: 22, borderRadius: '50%',
-                            bgcolor: c.completado ? alpha(r.color, 0.2) : '#F1F5F9',
-                            border: `2px solid ${c.completado ? r.color : '#E5E7EB'}`,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                          }}>
-                            {c.completado
-                              ? <CheckCircle sx={{ fontSize: 12, color: r.color }} />
-                              : <RadioButtonUnchecked sx={{ fontSize: 12, color: 'text.disabled' }} />
-                            }
-                          </Box>
-                          <Typography sx={{
-                            fontSize: 12.5,
-                            color: c.completado ? '#1E293B' : '#94A3B8',
-                            textDecoration: c.completado ? 'none' : 'none',
-                            flex: 1,
-                          }}>
-                            {idx + 1}. {c.nombre}
-                          </Typography>
-                          <Typography sx={{ fontSize: 11, color: 'text.disabled', flexShrink: 0 }}>{c.horas}h</Typography>
-                        </Box>
-                      ))}
-                      <Box sx={{ mt: 1.5 }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                          <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>Mi avance personal</Typography>
-                          <Typography sx={{ fontSize: 11.5, color: r.color, fontWeight: 700 }}>{progPersonal}%</Typography>
-                        </Box>
-                        <LinearProgress
-                          variant="determinate"
-                          value={progPersonal}
-                          sx={{
-                            height: 4, borderRadius: 2,
-                            bgcolor: '#F1F5F9',
-                            '& .MuiLinearProgress-bar': { bgcolor: r.color, borderRadius: 2 },
-                          }}
-                        />
-                      </Box>
-                    </Box>
-                  )}
                 </Box>
-              </Grid>
-            )
-          })}
+                {r.descripcion && <Typography fontSize={13} color="text.secondary">{r.descripcion}</Typography>}
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.5, mt: 1.5 }}>
+                  {r.cursos.map((c, i) => (<Box key={c.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>{i > 0 && <ArrowForward sx={{ fontSize: 14, color: 'text.disabled' }} />}<Chip size="small" label={`${i + 1}. ${c.nombre}`} variant={c.estado === 'PUBLICADO' ? 'filled' : 'outlined'} /></Box>))}
+                  {r.cursos.length === 0 && <Typography fontSize={12} color="text.secondary">Sin cursos</Typography>}
+                </Box>
+                <Typography fontSize={12} color="text.secondary" mt={1}>{r.cursos.length} cursos · {r.duracion_total_horas} horas</Typography>
+              </Paper>
+            </Grid>
+          ))}
         </Grid>
+        <Dialog open={dlg.abierto} onClose={() => setDlg({ abierto: false, r: null })} maxWidth="sm" fullWidth>
+          <DialogTitle>{dlg.r ? dlg.r.nombre : 'Nueva ruta'}</DialogTitle>
+          <DialogContent>
+            <Grid container spacing={2} sx={{ pt: 1 }}>
+              <Grid size={{ xs: 12 }}><TextField label="Nombre" required fullWidth size="small" value={f.nombre} onChange={e => setF({ ...f, nombre: e.target.value })} /></Grid>
+              <Grid size={{ xs: 6 }}><TextField label="Cargo objetivo" fullWidth size="small" value={f.cargo_objetivo} onChange={e => setF({ ...f, cargo_objetivo: e.target.value })} helperText="Igual al cargo de los usuarios" /></Grid>
+              <Grid size={{ xs: 6 }}><TextField label="Área" fullWidth size="small" value={f.area_objetivo} onChange={e => setF({ ...f, area_objetivo: e.target.value })} /></Grid>
+              <Grid size={{ xs: 12 }}>
+                <Autocomplete multiple options={cursos} value={f.cursos} onChange={(_, v) => setF({ ...f, cursos: v })} getOptionLabel={c => `${c.codigo} · ${c.nombre}`} isOptionEqualToValue={(a, b) => a.id === b.id}
+                  renderInput={p => <TextField {...p} label="Cursos, en orden" size="small" helperText={`${f.cursos.reduce((s, c) => s + c.duracion_horas, 0)} horas en total`} />} />
+              </Grid>
+              <Grid size={{ xs: 12 }}><TextField label="Descripción" fullWidth size="small" multiline minRows={2} value={f.descripcion} onChange={e => setF({ ...f, descripcion: e.target.value })} /></Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions><Button onClick={() => setDlg({ abierto: false, r: null })}>Cancelar</Button><Button variant="contained" disabled={!f.nombre.trim() || guardar.isPending} onClick={() => guardar.mutate()} sx={{ bgcolor: LMS_COLOR }}>Guardar</Button></DialogActions>
+        </Dialog>
       </Box>
     </Layout>
   )
