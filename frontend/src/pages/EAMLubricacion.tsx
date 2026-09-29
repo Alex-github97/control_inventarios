@@ -16,6 +16,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableRow, IconButton, Tooltip,
   Dialog, DialogTitle, DialogContent, DialogActions, MenuItem, Tabs, Tab,
   Divider, LinearProgress, InputAdornment, Switch, FormControlLabel,
+  Autocomplete,
 } from '@mui/material'
 import {
   Add, Science, Search, WaterDrop, Opacity, TrendingUp, Settings,
@@ -25,11 +26,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
+import { CargueMasivo } from '@/components/catalogo/CargueMasivo'
 import { PALETA, ESTADO, COLOR_MODULO, SERIES } from '@/config/marca'
 import { apiClient as api } from '@/api/client'
 import {
   lubeApi, COLOR_SEVERIDAD, ETIQUETA_SEVERIDAD, ETIQUETA_DISPARO,
-  type Compartimento, type Muestra, type ResultadoMuestra,
+  type Compartimento, type Muestra, type Pendiente, type ResultadoMuestra,
 } from '@/api/lube'
 
 
@@ -88,6 +90,9 @@ export default function EAMLubricacion() {
   const [verMuestra, setVerMuestra] = useState<number | null>(null)
   const [nuevaMuestra, setNuevaMuestra] = useState<Compartimento | null>(null)
   const [nuevaCarga, setNuevaCarga] = useState<Compartimento | null>(null)
+  /** El paso previo al formulario cuando se entra por el botón de arriba: a qué
+   *  compartimento pertenece la muestra. Desde la tabla ya se sabe. */
+  const [eligiendo, setEligiendo] = useState(false)
 
   const { data: compartimentos = [], isLoading } = useQuery({
     queryKey: ['lube-compartimentos'], queryFn: () => lubeApi.compartimentos.listar(),
@@ -123,7 +128,19 @@ export default function EAMLubricacion() {
               Análisis de aceite por compartimento, con la vida y el costo de cada carga
             </Typography>
           </Box>
-          <Button startIcon={<Insights />} variant="contained"
+          {/* Registrar una muestra es lo que más se hace en esta pantalla, así
+              que va primero y con nombre propio. Antes solo estaba como un
+              iconito al final de cada fila y como botón dentro de «Por
+              muestrear»: quien entraba a cargar el boletín del laboratorio no
+              encontraba por dónde. */}
+          <Button startIcon={<Science />} variant="contained"
+            disabled={compartimentos.length === 0}
+            onClick={() => setEligiendo(true)}
+            sx={{ textTransform: 'none', fontWeight: 700 }}>
+            Registrar muestra
+          </Button>
+          <CargueMuestras onListo={refrescar} />
+          <Button startIcon={<Insights />} variant="outlined"
             onClick={() => navigate('/eam/lubricacion/reportes')}
             sx={{ textTransform: 'none' }}>
             Interpretación y tablero
@@ -353,6 +370,12 @@ export default function EAMLubricacion() {
         {verMuestra && (
           <DetalleMuestra id={verMuestra} onCerrar={() => setVerMuestra(null)} onCambio={refrescar} />
         )}
+        {eligiendo && (
+          <DialogoElegirCompartimento
+            compartimentos={compartimentos} pendientes={pendientes}
+            onCerrar={() => setEligiendo(false)}
+            onElegir={c => { setEligiendo(false); setNuevaMuestra(c) }} />
+        )}
         {nuevaMuestra && (
           <DialogoMuestra compartimento={nuevaMuestra}
             onCerrar={() => setNuevaMuestra(null)} onListo={refrescar} />
@@ -371,6 +394,123 @@ export default function EAMLubricacion() {
    Va a nivel de módulo y no dentro del componente padre: definida adentro,
    React la trataría como un tipo nuevo en cada render y la remontaría entera.
    ═══════════════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Cargue masivo de muestras desde Excel.
+
+   Se apoya en el mismo `CargueMasivo` de los catálogos: el Excel se lee en el
+   navegador y al servidor van filas ya estructuradas. Lo único propio es de
+   dónde salen las columnas, y salen del servidor porque hay una por cada
+   parámetro que mide el laboratorio —y esos los define cada empresa en la
+   configuración, no el código—.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function CargueMuestras({ onListo }: { onListo: () => void }) {
+  const { data } = useQuery({
+    queryKey: ['lube-plantilla-muestras'],
+    queryFn: () => lubeApi.muestras.plantilla(),
+    staleTime: Infinity,
+  })
+
+  if (!data?.columnas) return null
+
+  return (
+    <CargueMasivo
+      compacto
+      titulo={data.titulo}
+      nombreArchivo="plantilla-muestras-aceite"
+      columnas={data.columnas}
+      color={COLOR_MODULO}
+      onImportar={filas => lubeApi.muestras.importar(filas)}
+      onListo={onListo}
+    />
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   A qué compartimento pertenece la muestra.
+
+   Es el paso que falta cuando no se entra desde una fila de la tabla. Va con
+   buscador y no con una lista desplegable porque una flota mediana pasa de los
+   doscientos compartimentos, y los que están por muestrear van primero: es
+   casi siempre lo que se viene a registrar.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function DialogoElegirCompartimento({ compartimentos, pendientes, onElegir, onCerrar }: {
+  compartimentos: Compartimento[]
+  pendientes: Pendiente[]
+  onElegir: (c: Compartimento) => void
+  onCerrar: () => void
+}) {
+  const [elegido, setElegido] = useState<Compartimento | null>(null)
+
+  const porMuestrear = useMemo(
+    () => new Set(pendientes.map(p => p.compartimento_id)), [pendientes])
+
+  // `groupBy` de MUI agrupa por orden de aparición: si las opciones no vienen
+  // ordenadas por grupo, el encabezado se repite varias veces.
+  const opciones = useMemo(() => [...compartimentos].sort((a, b) =>
+    Number(porMuestrear.has(b.id)) - Number(porMuestrear.has(a.id)) ||
+    `${a.activo_codigo ?? ''}`.localeCompare(`${b.activo_codigo ?? ''}`) ||
+    a.nombre.localeCompare(b.nombre)), [compartimentos, porMuestrear])
+
+  return (
+    <Dialog open onClose={onCerrar} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ fontWeight: 800 }}>
+        Registrar muestra
+        <Typography variant="caption" display="block" color="text.secondary">
+          Primero, de qué compartimento es la muestra
+        </Typography>
+      </DialogTitle>
+      <DialogContent dividers>
+        <Autocomplete
+          options={opciones}
+          value={elegido}
+          onChange={(_, v) => setElegido(v)}
+          openOnFocus
+          autoHighlight
+          groupBy={c => porMuestrear.has(c.id) ? 'Por muestrear' : 'Los demás compartimentos'}
+          getOptionLabel={c => `${c.activo_codigo ?? '—'} · ${c.nombre}`}
+          isOptionEqualToValue={(a, b) => a.id === b.id}
+          noOptionsText="Ningún compartimento con ese nombre"
+          renderOption={(props, c) => (
+            <Box component="li" {...props} key={c.id}>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="body2" fontWeight={700}>
+                  {c.activo_codigo ?? '—'} · {c.nombre}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {c.tipo_compartimento}
+                  {c.producto_actual ? ` · ${c.producto_actual}` : ' · sin carga abierta'}
+                  {!c.tiene_puerto_muestreo && ' · sin puerto de muestreo'}
+                </Typography>
+              </Box>
+            </Box>
+          )}
+          renderInput={p => (
+            <TextField {...p} autoFocus label="Activo y compartimento"
+              placeholder="MTC-001, sistema hidráulico…" />
+          )}
+        />
+        {elegido && !elegido.carga_id && (
+          <Alert severity="warning" sx={{ mt: 2 }}>
+            Ese compartimento no tiene una carga abierta, así que la muestra quedará
+            suelta: sin carga no hay horas de aceite ni con qué comparar la tendencia.
+            Conviene abrir primero la carga desde la gota azul de su fila.
+          </Alert>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onCerrar} sx={{ textTransform: 'none' }}>Cancelar</Button>
+        <Button variant="contained" disabled={!elegido}
+          onClick={() => elegido && onElegir(elegido)}
+          sx={{ textTransform: 'none', fontWeight: 700 }}>
+          Continuar
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
 function DetalleMuestra({ id, onCerrar, onCambio }: {
   id: number; onCerrar: () => void; onCambio: () => void
 }) {

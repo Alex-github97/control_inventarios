@@ -268,6 +268,27 @@ export interface ParametroDisparo {
   cantidad: number; criticas: number; equipos: number
 }
 
+/** Un corte de la flota por marca, línea o motor. */
+export interface GrupoFlota {
+  etiqueta: string
+  cantidad: number
+  criticas: number
+  /** Equipos distintos: 45 muestras de 3 camiones no son 45 de 15. */
+  equipos: number
+}
+
+/**
+ * Un corte de la flota, con lo que quedó fuera contado aparte.
+ *
+ * `sin_dato` son las muestras de equipos a los que les falta ese atributo. No
+ * se esconden: sin ellas la suma de los grupos no cuadraría con el total del
+ * tablero y nadie sabría por qué.
+ */
+export interface CorteFlota {
+  grupos: GrupoFlota[]
+  sin_dato: { muestras: number; equipos: number }
+}
+
 export interface Programa {
   filtro: FiltroFlota
   dias: number
@@ -280,8 +301,10 @@ export interface Programa {
   costos: { etiqueta: string; unidad?: string | null; cargas: number
             costo_total: number; vida_total: number
             costo_por_unidad?: number | null }[]
-  por_marca: { etiqueta: string; cantidad: number; criticas: number }[]
-  por_linea: { etiqueta: string; cantidad: number; criticas: number }[]
+  por_marca: CorteFlota
+  por_linea: CorteFlota
+  /** El motor va como «marca · línea», el mismo valor que entiende el filtro. */
+  por_motor: CorteFlota
   diagnostico: { confirmados: number; desmentidos: number
                  pendientes: number; acierto_pct?: number | null }
   compartimentos: number

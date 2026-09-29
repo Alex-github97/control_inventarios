@@ -182,6 +182,26 @@ export interface Pendiente {
   ultima_muestra?: string | null; critico: boolean; motivo: string
 }
 
+// ─── Cargue masivo ────────────────────────────────────────────────────────────
+//
+// Se declaran acá y no se importan del componente de cargue: la capa de API no
+// depende de la de vista. Son estructuralmente iguales a las de `CargueMasivo`,
+// que es lo único que TypeScript necesita para aceptarlas.
+
+export interface ColumnaPlantilla {
+  clave: string; titulo: string; requerida?: boolean
+  ayuda?: string; ejemplo?: string
+}
+
+export interface DefinicionImportacion {
+  ruta: string; titulo: string; columnas: ColumnaPlantilla[]
+}
+
+export interface ResultadoImportacion {
+  creados: number; omitidos: number; total: number
+  errores: { fila: number; motivo: string }[]
+}
+
 const R = '/eam/lube'
 
 /** CRUD genérico: los diez catálogos se comportan igual salvo la ruta. */
@@ -235,6 +255,16 @@ export const lubeApi = {
       api.put<any>(`${R}/muestras/${id}/severidad`, { severidad, nota }).then(r => r.data),
     tendencia: (id: number) =>
       api.get<any>(`${R}/muestras/${id}/tendencia`).then(r => r.data),
+
+    /* ── Cargue masivo ──────────────────────────────────────────────────────
+     * Las columnas las da el servidor y no una lista fija acá: hay una por
+     * cada parámetro que mide el laboratorio, y esos los define cada empresa
+     * en la configuración. Va bajo `/importar/` y no bajo `/muestras/` porque
+     * `/muestras/{id}` se tragaría la ruta de la plantilla. */
+    plantilla: () =>
+      api.get<DefinicionImportacion>(`${R}/importar/muestras/plantilla`).then(r => r.data),
+    importar: (filas: Record<string, unknown>[]) =>
+      api.post<ResultadoImportacion>(`${R}/importar/muestras`, { filas }).then(r => r.data),
   },
 
   diagnosticos: {

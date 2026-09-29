@@ -31,12 +31,29 @@
  * normas ASTM definen la primera, casi nunca la segunda. La pestaña de
  * criterios lo lista todo con su fuente.
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert, Box, Button, Chip, Collapse, Dialog, DialogActions, DialogContent,
   DialogTitle, IconButton, InputAdornment, MenuItem, Popover, Stack, Switch,
   Tab, Tabs, TextField, Tooltip, Typography, alpha,
+  type PopoverActions,
 } from '@mui/material'
+
+/**
+ * Vuelve a colocar el panel flotante cuando termina de cargar.
+ *
+ * MUI mide el panel al abrirlo y no vuelve a mirarlo. Como el contenido llega
+ * por consulta, en ese momento el panel solo tiene el indicador de carga: se
+ * posiciona pequeño, luego crece hacia abajo, y anclado a una fila de la parte
+ * baja de la pantalla su final —donde está el botón de la matriz— queda fuera
+ * de la ventana y no hay forma de llegar a él.
+ */
+function useRecolocar(accion: React.RefObject<PopoverActions | null>,
+                      cargando: boolean) {
+  useEffect(() => {
+    if (!cargando) accion.current?.updatePosition()
+  }, [accion, cargando])
+}
 import Grid from '@mui/material/Grid2'
 import {
   ArrowDownward, ArrowUpward, CancelOutlined, CheckCircle,
@@ -57,7 +74,7 @@ import {
   COLOR_ESTADO, COLOR_GRUPO, COLOR_NATURALEZA, ETIQUETA_GRUPO,
   ETIQUETA_NATURALEZA, colorCorrelacion, interpretacionApi, km,
   type ConstanteCriterio, type Correlacion, type Criterios,
-  type DetalleParametro,
+  type CorteFlota, type DetalleParametro,
   type FiltroFlota, type FilaTablero, type Fuente, type LimiteAplicado,
   type LimiteCriterio, type ParametroDispersion, type ReglaCriterio,
 } from '@/api/lubeInterpretacion'
@@ -419,14 +436,18 @@ function Tablero({ f }: { f: FiltroFlota }) {
               color: x.evitable ? '#EF4444' : '#F59E0B',
             }))} />
         </Grid>
+        {/* Los tres cortes de la flota. Marca, línea y motor son jerarquía
+            —el motor no depende de la marca del chasis— y cada uno responde
+            una pregunta distinta, así que van los tres y no uno con
+            selector. */}
         <Grid size={{ xs: 12, lg: 6 }}>
-          <Ranking titulo="Por marca"
-            ayuda="Qué flota concentra los análisis críticos"
-            filas={(p?.por_marca ?? []).map(x => ({
-              etiqueta: x.etiqueta, valor: x.cantidad,
-              texto: `${x.cantidad}${x.criticas ? ` · ${x.criticas} críticas` : ''}`,
-              color: x.criticas ? '#EF4444' : '#94A3B8',
-            }))} />
+          <CorteDeFlota corte="marca" datos={p?.por_marca} f={f} />
+        </Grid>
+        <Grid size={{ xs: 12, lg: 6 }}>
+          <CorteDeFlota corte="linea" datos={p?.por_linea} f={f} />
+        </Grid>
+        <Grid size={{ xs: 12, lg: 6 }}>
+          <CorteDeFlota corte="motor" datos={p?.por_motor} f={f} />
         </Grid>
         <Grid size={{ xs: 12, lg: 6 }}>
           <Ranking titulo="Costo por unidad de vida"
@@ -445,6 +466,9 @@ function Tablero({ f }: { f: FiltroFlota }) {
 interface FilaRanking {
   etiqueta: string; valor: number; texto: string; color: string
   codigo?: string; nota?: string
+  /** Cuando la fila es interactiva, el rótulo de la acción para el lector de
+   *  pantalla: sin esto la fila es un `div` que reacciona al clic y nada más. */
+  accion?: string
 }
 
 /**
@@ -455,11 +479,13 @@ interface FilaRanking {
  * tenga tres filas y otro treinta. La lista completa sigue estando: se llega a
  * ella con la rueda del ratón.
  */
-function Ranking({ titulo, ayuda, filas, onClic, activo, alto = 260 }: {
+function Ranking({ titulo, ayuda, filas, onClic, activo, alto = 260, pie }: {
   titulo: string; ayuda: string; filas: FilaRanking[]
   onClic?: (f: FilaRanking, e: React.MouseEvent<HTMLElement>) => void
   activo?: string | null
   alto?: number
+  /** Lo que quedó fuera del ranking. Se dice, no se calla. */
+  pie?: string
 }) {
   const tope = Math.max(1, ...filas.map(x => x.valor))
   return (
@@ -475,12 +501,21 @@ function Ranking({ titulo, ayuda, filas, onClic, activo, alto = 260 }: {
         <Box sx={{ mt: 1.5, maxHeight: alto, overflowY: 'auto', pr: 0.5 }}>
           <Stack spacing={1.1}>
             {filas.map(x => (
+              // Cuando la fila hace algo es un botón de verdad, no un `div`
+              // que escucha clics: así se llega con el teclado y el lector de
+              // pantalla anuncia qué va a pasar.
               <Box key={x.codigo ?? x.etiqueta}
-                onClick={onClic ? e => onClic(x, e) : undefined}
+                component={onClic ? 'button' : 'div'}
+                type={onClic ? 'button' : undefined}
+                aria-label={onClic ? (x.accion ?? x.etiqueta) : undefined}
+                onClick={onClic ? (e: React.MouseEvent<HTMLElement>) => onClic(x, e) : undefined}
                 sx={{
                   cursor: onClic ? 'pointer' : 'default',
                   borderRadius: 1, p: onClic ? 0.6 : 0,
                   mx: onClic ? -0.6 : 0,
+                  width: onClic ? 'calc(100% + 9.6px)' : undefined,
+                  textAlign: 'left', font: 'inherit', color: 'inherit',
+                  border: 'none', background: 'transparent', display: 'block',
                   bgcolor: activo === x.codigo ? alpha(x.color, 0.09) : 'transparent',
                   '&:hover': onClic ? { bgcolor: alpha(x.color, 0.06) } : undefined,
                 }}>
@@ -508,6 +543,12 @@ function Ranking({ titulo, ayuda, filas, onClic, activo, alto = 260 }: {
           </Stack>
         </Box>
       )}
+      {pie && (
+        <Typography sx={{ mt: 1.25, fontSize: 10.5, color: 'text.secondary',
+                          lineHeight: 1.5 }}>
+          {pie}
+        </Typography>
+      )}
     </Panel>
   )
 }
@@ -532,6 +573,7 @@ function ParametrosQueDisparan({ parametros, f }: {
 }) {
   const [ancla, setAncla] = useState<HTMLElement | null>(null)
   const [codigo, setCodigo] = useState<string | null>(null)
+  const accionPanel = useRef<PopoverActions | null>(null)
   // La matriz completa vive fuera del panel: el panel se cierra al abrirla —si
   // no, quedaría flotando detrás del diálogo— y su estado no puede depender de
   // un componente que acaba de desmontarse.
@@ -549,6 +591,7 @@ function ParametrosQueDisparan({ parametros, f }: {
         filas={parametros.map(x => ({
           codigo: x.codigo,
           etiqueta: x.etiqueta,
+          accion: `Ver la correlación de ${x.etiqueta}`,
           valor: x.cantidad,
           texto: `${x.cantidad}${x.criticas ? ` · ${x.criticas} crít.` : ''}`,
           color: COLOR_GRUPO[x.grupo ?? ''] ?? '#EF4444',
@@ -556,14 +599,17 @@ function ParametrosQueDisparan({ parametros, f }: {
         }))} />
 
       <Popover
+        action={accionPanel}
         open={!!ancla && !!codigo} anchorEl={ancla}
         onClose={() => { setAncla(null); setCodigo(null) }}
         anchorOrigin={{ vertical: 'center', horizontal: 'right' }}
         transformOrigin={{ vertical: 'center', horizontal: 'left' }}
-        slotProps={{ paper: { sx: { borderRadius: 2, maxWidth: 480 } } }}
+        slotProps={{ paper: { sx: { borderRadius: 2, maxWidth: 480,
+                                    maxHeight: '82vh',
+                                    display: 'flex' } } }}
       >
         {codigo && (
-          <MapaCorrelacion codigo={codigo} f={f}
+          <MapaCorrelacion codigo={codigo} f={f} accion={accionPanel}
             onVerMatriz={() => {
               setMatrizDe(codigo)
               setAncla(null); setCodigo(null)
@@ -576,6 +622,212 @@ function ParametrosQueDisparan({ parametros, f }: {
           onCerrar={() => setMatrizDe(null)} />
       )}
     </>
+  )
+}
+
+/* ── Los cortes de flota: marca, línea, motor ────────────────────────────── */
+
+/** Qué campo del filtro acota cada panel, y cómo se llama en la pantalla. */
+const CORTES = {
+  marca: { titulo: 'Por marca', campo: 'marca' as const,
+           ayuda: 'Qué flota concentra los análisis críticos' },
+  linea: { titulo: 'Por línea', campo: 'linea' as const,
+           ayuda: 'La línea del vehículo, dentro de su marca' },
+  motor: { titulo: 'Por motor', campo: 'motor' as const,
+           ayuda: 'El motor manda más que la marca sobre cómo envejece el aceite' },
+}
+
+/**
+ * Un corte de la flota, con el mismo mecanismo que los parámetros.
+ *
+ * POR QUÉ EL MISMO GESTO PARA DOS COSAS DISTINTAS
+ * Al hacer clic en un parámetro se pregunta «este que me está fallando, con qué
+ * viene acompañado». Al hacer clic en una marca se pregunta «en esta flota, qué
+ * se mueve con qué». Son preguntas distintas y la respuesta se calcula distinto
+ * —una fija el parámetro, la otra fija el segmento—, pero la herramienta es la
+ * misma: correlación de Pearson, mapa de calor y tabla. Repetir el gesto vale
+ * la pena justamente porque se aprende una vez y sirve en los cuatro cuadros.
+ */
+function CorteDeFlota({ corte, datos, f }: {
+  corte: keyof typeof CORTES
+  datos?: CorteFlota
+  f: FiltroFlota
+}) {
+  const grupos = datos?.grupos ?? []
+  const sinDato = datos?.sin_dato
+  const { titulo, campo, ayuda } = CORTES[corte]
+  const [ancla, setAncla] = useState<HTMLElement | null>(null)
+  const [valor, setValor] = useState<string | null>(null)
+  const [matrizDe, setMatrizDe] = useState<string | null>(null)
+  const accionPanel = useRef<PopoverActions | null>(null)
+
+  /** El filtro de la pantalla, acotado además a este corte. */
+  const acotado = (v: string): FiltroFlota => ({ ...f, [campo]: v })
+
+  return (
+    <>
+      <Ranking titulo={titulo} activo={valor}
+        ayuda={`${ayuda}. Clic en uno para ver qué se mueve con qué ahí.`}
+        onClic={(x, e) => { setValor(x.codigo ?? null); setAncla(e.currentTarget) }}
+        filas={grupos.map(x => ({
+          codigo: x.etiqueta,
+          etiqueta: x.etiqueta,
+          accion: `Ver la correlación de ${x.etiqueta}`,
+          valor: x.cantidad,
+          texto: `${x.cantidad}${x.criticas ? ` · ${x.criticas} crít.` : ''}`,
+          color: x.criticas ? '#EF4444' : '#94A3B8',
+          nota: `${x.equipos} equipo(s)`,
+        }))}
+        pie={sinDato && sinDato.muestras > 0
+          ? `${sinDato.muestras} muestra(s) de ${sinDato.equipos} equipo(s) `
+            + 'quedan fuera: no tienen ese dato registrado.'
+          : undefined} />
+
+      <Popover
+        action={accionPanel}
+        open={!!ancla && !!valor} anchorEl={ancla}
+        onClose={() => { setAncla(null); setValor(null) }}
+        anchorOrigin={{ vertical: 'center', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'center', horizontal: 'left' }}
+        slotProps={{ paper: { sx: { borderRadius: 2, maxWidth: 500,
+                                    maxHeight: '82vh',
+                                    display: 'flex' } } }}
+      >
+        {valor && (
+          <ResumenDeSegmento etiqueta={valor} f={acotado(valor)}
+            accion={accionPanel}
+            onVerMatriz={() => {
+              setMatrizDe(valor)
+              setAncla(null); setValor(null)
+            }} />
+        )}
+      </Popover>
+
+      {matrizDe && (
+        <MatrizCompleta f={acotado(matrizDe)} contexto={matrizDe}
+          onCerrar={() => setMatrizDe(null)} />
+      )}
+    </>
+  )
+}
+
+/**
+ * Qué se mueve con qué dentro de un segmento.
+ *
+ * Se listan los pares más fuertes y no la matriz entera: en un panel flotante
+ * caben veinte filas, no veinticuatro por veinticuatro. La matriz completa está
+ * a un clic, que es donde tiene sitio para leerse.
+ */
+function ResumenDeSegmento({ etiqueta, f, onVerMatriz, accion }: {
+  etiqueta: string; f: FiltroFlota; onVerMatriz: () => void
+  accion?: React.RefObject<PopoverActions | null>
+}) {
+  const d = useQuery({
+    queryKey: clave('correlacion', f),
+    queryFn: () => interpretacionApi.correlacion(f),
+  })
+  const c = d.data
+  const vacia = useRef<PopoverActions | null>(null)
+  useRecolocar(accion ?? vacia, d.isLoading)
+
+  // El triángulo superior: la matriz es simétrica y recorrerla entera daría
+  // cada par dos veces, con la diagonal —que siempre vale uno— arriba de todo.
+  const pares = useMemo(() => {
+    if (!c?.suficiente) return []
+    const salida: { a: string; b: string; r: number; n: number
+                    grupoA?: string; grupoB?: string }[] = []
+    for (let i = 0; i < c.matriz.length; i++) {
+      for (let j = i + 1; j < c.matriz.length; j++) {
+        const r = c.matriz[i][j]
+        if (r === null) continue
+        salida.push({
+          a: c.parametros[i].nombre, b: c.parametros[j].nombre,
+          grupoA: c.parametros[i].grupo, grupoB: c.parametros[j].grupo,
+          r, n: c.conteos[i][j],
+        })
+      }
+    }
+    // Por fuerza, sin importar el signo: una relación negativa fuerte
+    // —viscosidad contra combustible— es tan informativa como una positiva.
+    return salida.sort((x, y) => Math.abs(y.r) - Math.abs(x.r)).slice(0, 18)
+  }, [c])
+
+  return (
+    <Box sx={{ p: 2, width: 480, display: 'flex',
+               flexDirection: 'column', minHeight: 0 }}>
+      <Estado cargando={d.isLoading} error={d.error} vacio={!c}>
+        <Typography sx={{ fontSize: 13.5, fontWeight: 800 }}>{etiqueta}</Typography>
+        <Typography sx={{ fontSize: 11.5, color: 'text.secondary', mb: 1.5 }}>
+          {c?.suficiente
+            ? `Los parámetros que más se mueven juntos en este segmento, sobre `
+              + `${c.muestras} muestra(s). Correlación de Pearson.`
+            : 'Correlación de Pearson dentro de este segmento.'}
+        </Typography>
+
+        {c && !c.suficiente ? (
+          <Alert severity="warning" sx={{ fontSize: 12 }}>{c.motivo}</Alert>
+        ) : (
+          <Estado vacio={!pares.length}
+            mensajeVacio="No hay pares con muestras suficientes"
+            hint="Hacen falta muestras con los dos parámetros medidos.">
+            <Box sx={{ flex: 1, minHeight: 90, overflowY: 'auto' }}>
+              <Stack spacing={0.5}>
+                {pares.map((x, i) => (
+                  <Tooltip key={i} placement="left" title={
+                    <Box sx={{ fontSize: 11.5, lineHeight: 1.5 }}>
+                      r = {x.r} sobre {x.n} muestras de este segmento
+                    </Box>
+                  }>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <Box sx={{
+                        width: 46, height: 22, borderRadius: 0.75, flexShrink: 0,
+                        display: 'flex', alignItems: 'center',
+                        justifyContent: 'center',
+                        background: colorCorrelacion(x.r),
+                        color: Math.abs(x.r) > 0.55 ? '#fff' : '#334155',
+                        fontSize: 10.5, fontWeight: 800, fontFamily: MONO,
+                      }}>
+                        {x.r.toFixed(2)}
+                      </Box>
+                      <Typography sx={{ flex: 1, fontSize: 12 }} noWrap>
+                        <Box component="span" sx={{
+                          color: COLOR_GRUPO[x.grupoA ?? ''] ?? '#334155' }}>
+                          {x.a}
+                        </Box>
+                        <Box component="span" sx={{ color: 'text.disabled',
+                          mx: 0.6 }}>↔</Box>
+                        <Box component="span" sx={{
+                          color: COLOR_GRUPO[x.grupoB ?? ''] ?? '#334155' }}>
+                          {x.b}
+                        </Box>
+                      </Typography>
+                      <Typography sx={{ fontSize: 10, color: 'text.disabled',
+                                        width: 26, textAlign: 'right' }}>
+                        {x.n}
+                      </Typography>
+                    </Stack>
+                  </Tooltip>
+                ))}
+              </Stack>
+            </Box>
+          </Estado>
+        )}
+
+        <Typography sx={{ fontSize: 10.5, color: 'text.secondary', mt: 1.5,
+                          lineHeight: 1.5 }}>
+          Que dos parámetros suban juntos no prueba que uno cause el otro:
+          pueden tener los dos una tercera causa, o coincidir. El coeficiente
+          sirve para orientar qué revisar, no para concluir.
+        </Typography>
+
+        <Button fullWidth size="small" variant="outlined" sx={{
+          mt: 1.5, flexShrink: 0,
+          textTransform: 'none', borderColor: BORDE, color: LUBE,
+        }} startIcon={<GridOn sx={{ fontSize: 16 }} />} onClick={onVerMatriz}>
+          Ver la matriz completa: mapa de calor y tabla
+        </Button>
+      </Estado>
+    </Box>
   )
 }
 
@@ -593,13 +845,19 @@ function ParametrosQueDisparan({ parametros, f }: {
  * uno, mismo orden en filas y columnas— porque es la forma en que quien analiza
  * estos datos ya está acostumbrado a leerla.
  */
-function MatrizCompleta({ codigo, f, onCerrar }: {
-  codigo: string; f: FiltroFlota; onCerrar: () => void
+function MatrizCompleta({ codigo, f, contexto, onCerrar }: {
+  /** El parámetro que se venía mirando, si se llegó desde uno. */
+  codigo?: string
+  f: FiltroFlota
+  /** El segmento al que se acotó, si se llegó desde un corte de flota. */
+  contexto?: string
+  onCerrar: () => void
 }) {
   const [vista, setVista] = useState<'mapa' | 'tabla'>('mapa')
   // Resaltar la fila y la columna del parámetro que se venía mirando: en una
-  // matriz de veinte por veinte, encontrarlo a ojo cuesta más que abrirla.
-  const [foco, setFoco] = useState<string>(codigo)
+  // matriz de veinticuatro por veinticuatro, encontrarlo a ojo cuesta más que
+  // abrirla. Desde un corte de flota no hay parámetro que resaltar.
+  const [foco, setFoco] = useState<string>(codigo ?? '')
 
   const d = useQuery({
     queryKey: clave('correlacion', f),
@@ -617,10 +875,17 @@ function MatrizCompleta({ codigo, f, onCerrar }: {
           <Box sx={{ flex: 1, minWidth: 260 }}>
             <Typography sx={{ fontSize: 16, fontWeight: 800 }}>
               Matriz de correlación
+              {contexto && (
+                <Typography component="span" sx={{ fontSize: 16, fontWeight: 800,
+                  color: LUBE, ml: 1 }}>
+                  · {contexto}
+                </Typography>
+              )}
             </Typography>
             <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
               Coeficiente de Pearson entre todos los parámetros medidos
-              {c?.muestras ? `, sobre ${c.muestras} muestras del segmento` : ''}.
+              {c?.muestras ? `, sobre ${c.muestras} muestras` : ''}
+              {contexto ? ` de ${contexto}` : ' del segmento'}.
             </Typography>
           </Box>
           <TextField select size="small" label="Resaltar" sx={{ minWidth: 200 }}
@@ -896,20 +1161,24 @@ function TablaCorrelacion({ c, iFoco }: { c: Correlacion; iFoco: number }) {
 }
 
 /** La correlación de un parámetro contra todos los demás. Pearson. */
-function MapaCorrelacion({ codigo, f, onVerMatriz }: {
+function MapaCorrelacion({ codigo, f, onVerMatriz, accion }: {
   codigo: string; f: FiltroFlota
   /** Sin esto no se pinta el botón: en la pestaña de correlación la matriz ya
    *  está en pantalla y ofrecer abrirla sería llevar a donde ya se está. */
   onVerMatriz?: () => void
+  accion?: React.RefObject<PopoverActions | null>
 }) {
   const d = useQuery({
     queryKey: clave('correlacion-de', f, codigo),
     queryFn: () => interpretacionApi.correlacionDe(codigo, f),
   })
   const c = d.data
+  const vacia = useRef<PopoverActions | null>(null)
+  useRecolocar(accion ?? vacia, d.isLoading)
 
   return (
-    <Box sx={{ p: 2, width: 460 }}>
+    <Box sx={{ p: 2, width: 460, display: 'flex',
+               flexDirection: 'column', minHeight: 0 }}>
       <Estado cargando={d.isLoading} error={d.error} vacio={!c}>
         <Typography sx={{ fontSize: 13.5, fontWeight: 800 }}>
           {c?.nombre}
@@ -922,7 +1191,7 @@ function MapaCorrelacion({ codigo, f, onVerMatriz }: {
         <Estado vacio={!c?.contra.length}
           mensajeVacio="No hay pares con muestras suficientes"
           hint="Hacen falta al menos seis muestras con los dos parámetros medidos.">
-          <Box sx={{ maxHeight: 340, overflowY: 'auto' }}>
+          <Box sx={{ flex: 1, minHeight: 90, overflowY: 'auto' }}>
             <Stack spacing={0.5}>
               {c?.contra.map(x => (
                 <Tooltip key={x.codigo} placement="left" title={
@@ -973,7 +1242,8 @@ function MapaCorrelacion({ codigo, f, onVerMatriz }: {
             mueven juntos en toda la flota— y no cabe en un panel flotante. */}
         {onVerMatriz && (
           <Button fullWidth size="small" variant="outlined" sx={{
-            mt: 1.5, textTransform: 'none', borderColor: BORDE, color: LUBE,
+            mt: 1.5, flexShrink: 0,
+            textTransform: 'none', borderColor: BORDE, color: LUBE,
           }} startIcon={<GridOn sx={{ fontSize: 16 }} />} onClick={onVerMatriz}>
             Ver la matriz completa: mapa de calor y tabla
           </Button>

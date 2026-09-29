@@ -28,7 +28,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import Select, and_, case, func, select
+from sqlalchemy import Select, and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -355,22 +355,60 @@ async def programa(
 
     # ── Por marca y por línea dentro del segmento ────────────────────────────
     async def _por(campo):
-        q = (select(campo, func.count(LubeMuestra.id),
-                    func.sum(case((LubeMuestra.severidad.in_(
-                        ("CRITICO", "ACCION_INMEDIATA")), 1), else_=0)))
-             .join(LubeCompartimento, LubeCompartimento.activo_id == EAMActivo.id)
-             .join(LubeTipoCompartimento,
-                   LubeTipoCompartimento.id == LubeCompartimento.tipo_compartimento_id)
-             .join(LubeMuestra,
-                   LubeMuestra.compartimento_id == LubeCompartimento.id)
-             .where(and_(LubeMuestra.fecha_toma >= desde,
-                         LubeMuestra.estado != "ANULADA", campo.isnot(None)))
-             .group_by(campo).order_by(func.count(LubeMuestra.id).desc()))
-        return [{"etiqueta": n, "cantidad": c, "criticas": int(k or 0)}
-                for n, c, k in (await db.execute(f.aplicar(q))).all()]
+        """Muestras y críticas agrupadas por un atributo del activo.
+
+        Devuelve también los equipos distintos: «45 muestras» no dice si son
+        quince camiones con tres muestras cada uno o tres con quince, y esa
+        diferencia decide si la cifra representa a la flota o a tres equipos.
+
+        LOS QUE NO TIENEN EL DATO SE CUENTAN APARTE, NO SE ESCONDEN
+        Un activo sin motor registrado no pertenece a ningún grupo de motor,
+        pero sus muestras existen. Si se descartaran en silencio, la suma de
+        los grupos no cuadraría con el total del tablero y nadie sabría por
+        qué. Y una fila con la etiqueta en blanco —que es lo que salía— no
+        sirve para nada: no se puede filtrar por ella ni se entiende qué es.
+        """
+        # `concat` de PostgreSQL ignora los NULL, así que un motor sin marca no
+        # produce NULL sino cadena vacía y `isnot(None)` no lo atrapa. Hay que
+        # descartar las dos cosas.
+        vacio = or_(campo.is_(None), campo == "")
+        base = (select(campo, func.count(LubeMuestra.id),
+                       func.sum(case((LubeMuestra.severidad.in_(
+                           ("CRITICO", "ACCION_INMEDIATA")), 1), else_=0)),
+                       func.count(func.distinct(EAMActivo.id)))
+                .join(LubeCompartimento,
+                      LubeCompartimento.activo_id == EAMActivo.id)
+                .join(LubeTipoCompartimento,
+                      LubeTipoCompartimento.id == LubeCompartimento.tipo_compartimento_id)
+                .join(LubeMuestra,
+                      LubeMuestra.compartimento_id == LubeCompartimento.id)
+                .where(and_(LubeMuestra.fecha_toma >= desde,
+                            LubeMuestra.estado != "ANULADA")))
+
+        grupos = [{"etiqueta": n, "cantidad": c, "criticas": int(k or 0),
+                   "equipos": eq}
+                  for n, c, k, eq in (await db.execute(f.aplicar(
+                      base.where(~vacio).group_by(campo)
+                      .order_by(func.count(LubeMuestra.id).desc())))).all()]
+
+        sin_dato = (await db.execute(f.aplicar(
+            base.where(vacio).group_by(campo)))).all()
+        return {
+            "grupos": grupos,
+            "sin_dato": {"muestras": sum(x[1] for x in sin_dato),
+                         "equipos": sum(x[3] for x in sin_dato)},
+        }
 
     por_marca = await _por(EAMActivo.marca)
     por_linea = await _por(EAMActivo.linea)
+
+    # El motor se agrupa por «marca · línea» en un solo valor, con el mismo
+    # separador que usa el filtro. Es lo que permite que al hacer clic en
+    # «Detroit · DD15» se pueda acotar el análisis a ese motor sin traducir
+    # nada: la etiqueta que se ve ES el valor que entiende el filtro.
+    _motor = func.concat(EAMActivo.motor_marca,
+                         func.coalesce(" · " + EAMActivo.motor_linea, ""))
+    por_motor = await _por(_motor)
 
     # ── Acierto del diagnóstico, solo del segmento ───────────────────────────
     # La versión anterior contaba los diagnósticos de toda la empresa y los
@@ -412,6 +450,7 @@ async def programa(
         "costos": costos,
         "por_marca": por_marca,
         "por_linea": por_linea,
+        "por_motor": por_motor,
         "diagnostico": {"confirmados": confirmados, "desmentidos": desmentidos,
                         "pendientes": verificacion.get("PENDIENTE", 0),
                         "acierto_pct": acierto},
