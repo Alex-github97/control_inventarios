@@ -146,7 +146,7 @@ async def get_dashboard_kpis(db: AsyncSession = Depends(get_db)):
     )).scalar() or 0
     incidentes_abiertos = (await db.execute(
         select(func.count()).select_from(GRCIncidente).where(
-            GRCIncidente.estado == "abierto",
+            GRCIncidente.estado != "cerrado",
             GRCIncidente.deleted_at.is_(None),
         )
     )).scalar() or 0
@@ -158,6 +158,20 @@ async def get_dashboard_kpis(db: AsyncSession = Depends(get_db)):
     )
     puntajes = [r[0] for r in cumplimientos.all()]
     cumplimiento_pct = round(sum(puntajes) / len(puntajes), 1) if puntajes else 0.0
+    # Antes estas dos iban fijas en cero en la respuesta.
+    auditorias_en_curso = (await db.execute(
+        select(func.count()).select_from(GRCAuditoria).where(
+            GRCAuditoria.estado.in_(["en_ejecucion", "en_revision"]),
+            GRCAuditoria.deleted_at.is_(None),
+        )
+    )).scalar() or 0
+    terceros_criticos = (await db.execute(
+        select(func.count()).select_from(GRCTercero).where(
+            GRCTercero.nivel_riesgo.in_(["alto", "critico"]),
+            GRCTercero.estado == "activo",
+            GRCTercero.deleted_at.is_(None),
+        )
+    )).scalar() or 0
     simulacros = (await db.execute(
         select(func.count()).select_from(GRCSimulacro).where(GRCSimulacro.deleted_at.is_(None))
     )).scalar() or 0
@@ -177,11 +191,11 @@ async def get_dashboard_kpis(db: AsyncSession = Depends(get_db)):
         obligaciones_vencidas=obligaciones_vencidas,
         hallazgos_abiertos=hallazgos_abiertos,
         hallazgos_cerrados=hallazgos_cerrados,
-        auditorias_en_curso=0,
+        auditorias_en_curso=auditorias_en_curso,
         incidentes_abiertos=incidentes_abiertos,
         politicas_vigentes=politicas_vigentes,
         politicas_vencidas=politicas_vencidas,
-        terceros_criticos=0,
+        terceros_criticos=terceros_criticos,
         procesos_criticos_cubiertos=procesos_criticos,
         simulacros_realizados=simulacros,
     )
@@ -297,8 +311,11 @@ async def list_controles(tipo: Optional[str] = None, db: AsyncSession = Depends(
     return r.scalars().all()
 
 @router.post("/controles", response_model=GRCControlResponse, status_code=status.HTTP_201_CREATED)
-async def create_control(data: GRCControlCreate, db: AsyncSession = Depends(get_db)):
-    obj = GRCControl(**data.model_dump())
+async def create_control(data: GRCControlUpdate, db: AsyncSession = Depends(get_db)):
+    # Se acepta el esquema de edición (efectividad, fechas de prueba): con el de
+    # creación esos campos se descartaban en silencio. Los nulos no se pasan
+    # para que apliquen los valores por defecto de la tabla.
+    obj = GRCControl(**data.model_dump(exclude_none=True))
     obj.codigo = await _next_code(db, "CTL", GRCControl)
     db.add(obj); await db.commit(); await db.refresh(obj)
     return obj
@@ -309,7 +326,7 @@ async def update_control(id: int, data: GRCControlUpdate, db: AsyncSession = Dep
     obj = r.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Control no encontrado")
-    for k, v in data.model_dump(exclude_none=True).items():
+    for k, v in data.model_dump(exclude_unset=True).items():
         setattr(obj, k, v)
     await db.commit(); await db.refresh(obj)
     return obj
@@ -330,8 +347,8 @@ async def list_riesgos(tipo: Optional[str] = None, estado: Optional[str] = None,
     return r.scalars().all()
 
 @router.post("/riesgos", response_model=GRCRiesgoResponse, status_code=status.HTTP_201_CREATED)
-async def create_riesgo(data: GRCRiesgoCreate, db: AsyncSession = Depends(get_db)):
-    payload = data.model_dump()
+async def create_riesgo(data: GRCRiesgoUpdate, db: AsyncSession = Depends(get_db)):
+    payload = data.model_dump(exclude_none=True)
     prob_i = payload.get("probabilidad_inherente")
     imp_i  = payload.get("impacto_inherente")
     prob_r = payload.get("probabilidad_residual")
@@ -352,7 +369,7 @@ async def update_riesgo(id: int, data: GRCRiesgoUpdate, db: AsyncSession = Depen
     obj = r.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Riesgo no encontrado")
-    payload = data.model_dump(exclude_none=True)
+    payload = data.model_dump(exclude_unset=True)
     for k, v in payload.items():
         setattr(obj, k, v)
     obj.nivel_inherente = _calc_nivel(obj.probabilidad_inherente, obj.impacto_inherente)
@@ -403,8 +420,8 @@ async def list_cumplimiento(estado: Optional[str] = None, db: AsyncSession = Dep
     return r.scalars().all()
 
 @router.post("/cumplimiento", response_model=GRCMatrizCumplimientoResponse, status_code=status.HTTP_201_CREATED)
-async def create_cumplimiento(data: GRCMatrizCumplimientoCreate, db: AsyncSession = Depends(get_db)):
-    obj = GRCMatrizCumplimiento(**data.model_dump())
+async def create_cumplimiento(data: GRCMatrizCumplimientoUpdate, db: AsyncSession = Depends(get_db)):
+    obj = GRCMatrizCumplimiento(**data.model_dump(exclude_none=True))
     db.add(obj); await db.commit(); await db.refresh(obj)
     return obj
 
@@ -414,7 +431,7 @@ async def update_cumplimiento(id: int, data: GRCMatrizCumplimientoUpdate, db: As
     obj = r.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Registro no encontrado")
-    for k, v in data.model_dump(exclude_none=True).items():
+    for k, v in data.model_dump(exclude_unset=True).items():
         setattr(obj, k, v)
     await db.commit(); await db.refresh(obj)
     return obj
@@ -452,8 +469,8 @@ async def list_auditorias(tipo: Optional[str] = None, estado: Optional[str] = No
     return r.scalars().all()
 
 @router.post("/auditorias", response_model=GRCAuditoriaResponse, status_code=status.HTTP_201_CREATED)
-async def create_auditoria(data: GRCAuditoriaCreate, db: AsyncSession = Depends(get_db)):
-    obj = GRCAuditoria(**data.model_dump())
+async def create_auditoria(data: GRCAuditoriaUpdate, db: AsyncSession = Depends(get_db)):
+    obj = GRCAuditoria(**data.model_dump(exclude_none=True))
     obj.codigo = await _next_code(db, "AUD", GRCAuditoria)
     db.add(obj); await db.commit(); await db.refresh(obj)
     return obj
@@ -464,7 +481,7 @@ async def update_auditoria(id: int, data: GRCAuditoriaUpdate, db: AsyncSession =
     obj = r.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Auditoría no encontrada")
-    for k, v in data.model_dump(exclude_none=True).items():
+    for k, v in data.model_dump(exclude_unset=True).items():
         setattr(obj, k, v)
     await db.commit(); await db.refresh(obj)
     return obj
@@ -483,8 +500,8 @@ async def list_hallazgos(estado: Optional[str] = None, severidad: Optional[str] 
     return r.scalars().all()
 
 @router.post("/hallazgos", response_model=GRCHallazgoResponse, status_code=status.HTTP_201_CREATED)
-async def create_hallazgo(data: GRCHallazgoCreate, db: AsyncSession = Depends(get_db)):
-    obj = GRCHallazgo(**data.model_dump())
+async def create_hallazgo(data: GRCHallazgoUpdate, db: AsyncSession = Depends(get_db)):
+    obj = GRCHallazgo(**data.model_dump(exclude_none=True))
     obj.codigo = await _next_code(db, "HAL", GRCHallazgo)
     db.add(obj); await db.commit(); await db.refresh(obj)
     return obj
@@ -495,7 +512,7 @@ async def update_hallazgo(id: int, data: GRCHallazgoUpdate, db: AsyncSession = D
     obj = r.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Hallazgo no encontrado")
-    for k, v in data.model_dump(exclude_none=True).items():
+    for k, v in data.model_dump(exclude_unset=True).items():
         setattr(obj, k, v)
     await db.commit(); await db.refresh(obj)
     return obj
@@ -509,8 +526,8 @@ async def list_planes(hallazgo_id: int, db: AsyncSession = Depends(get_db)):
     return r.scalars().all()
 
 @router.post("/planes", response_model=GRCPlanAccionResponse, status_code=status.HTTP_201_CREATED)
-async def create_plan(data: GRCPlanAccionCreate, db: AsyncSession = Depends(get_db)):
-    obj = GRCPlanAccion(**data.model_dump())
+async def create_plan(data: GRCPlanAccionUpdate, db: AsyncSession = Depends(get_db)):
+    obj = GRCPlanAccion(**data.model_dump(exclude_none=True))
     db.add(obj); await db.commit(); await db.refresh(obj)
     return obj
 
@@ -520,7 +537,7 @@ async def update_plan(id: int, data: GRCPlanAccionUpdate, db: AsyncSession = Dep
     obj = r.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Plan no encontrado")
-    for k, v in data.model_dump(exclude_none=True).items():
+    for k, v in data.model_dump(exclude_unset=True).items():
         setattr(obj, k, v)
     await db.commit(); await db.refresh(obj)
     return obj
@@ -539,9 +556,12 @@ async def list_incidentes(tipo: Optional[str] = None, estado: Optional[str] = No
     return r.scalars().all()
 
 @router.post("/incidentes", response_model=GRCIncidenteResponse, status_code=status.HTTP_201_CREATED)
-async def create_incidente(data: GRCIncidenteCreate, db: AsyncSession = Depends(get_db)):
-    obj = GRCIncidente(**data.model_dump())
+async def create_incidente(data: GRCIncidenteUpdate, db: AsyncSession = Depends(get_db)):
+    obj = GRCIncidente(**data.model_dump(exclude_none=True))
     obj.codigo = await _next_code(db, "INC", GRCIncidente)
+    # Un incidente que se registra ya cerrado también lleva su fecha de cierre.
+    if obj.estado == "cerrado" and not obj.fecha_cierre:
+        obj.fecha_cierre = datetime.utcnow()
     db.add(obj); await db.commit(); await db.refresh(obj)
     return obj
 
@@ -551,8 +571,13 @@ async def update_incidente(id: int, data: GRCIncidenteUpdate, db: AsyncSession =
     obj = r.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Incidente no encontrado")
-    for k, v in data.model_dump(exclude_none=True).items():
+    for k, v in data.model_dump(exclude_unset=True).items():
         setattr(obj, k, v)
+    # La fecha de cierre sigue al estado: antes quedaba vacía aunque se cerrara.
+    if obj.estado == "cerrado" and not obj.fecha_cierre:
+        obj.fecha_cierre = datetime.utcnow()
+    elif obj.estado != "cerrado":
+        obj.fecha_cierre = None
     await db.commit(); await db.refresh(obj)
     return obj
 
@@ -621,3 +646,112 @@ async def create_evaluacion_tercero(data: GRCEvaluacionTerceroCreate, db: AsyncS
     obj.clasificacion = _clasif_tercero(puntaje) if puntaje else None
     db.add(obj); await db.commit(); await db.refresh(obj)
     return obj
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# EDITAR Y RETIRAR LO QUE FALTABA
+#
+# Las pantallas de GRC eran maqueta y el servidor tenía huecos que la maqueta
+# no dejaba ver: obligaciones, planes de continuidad, terceros, comités y
+# simulacros se creaban pero no se podían corregir, y casi nada se podía
+# retirar. Se agregan aquí con la misma forma para todos.
+# ═════════════════════════════════════════════════════════════════════════════
+
+from datetime import timezone as _tz
+from pydantic import BaseModel as _BaseModel
+
+
+async def _vivo(db: AsyncSession, model, id: int, nombre: str):
+    obj = (await db.execute(select(model).where(model.id == id, model.deleted_at.is_(None)))).scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail=f"{nombre} no encontrado")
+    return obj
+
+
+def _rutas_editar_retirar(ruta: str, model, esquema, respuesta, nombre: str):
+    """PUT (reemplaza con el formulario completo) y DELETE (borrado suave)."""
+    async def editar(id: int, data: esquema, db: AsyncSession = Depends(get_db)):  # type: ignore[valid-type]
+        obj = await _vivo(db, model, id, nombre)
+        for k, v in data.model_dump(exclude_unset=True).items():
+            setattr(obj, k, v)
+        await db.commit(); await db.refresh(obj)
+        return obj
+
+    async def retirar(id: int, db: AsyncSession = Depends(get_db)):
+        obj = await _vivo(db, model, id, nombre)
+        obj.deleted_at = datetime.now(_tz.utc)
+        await db.commit()
+
+    router.add_api_route(f"/{ruta}/{{id}}", editar, methods=["PUT"], response_model=respuesta,
+                         name=f"editar_{ruta}")
+    router.add_api_route(f"/{ruta}/{{id}}", retirar, methods=["DELETE"], status_code=status.HTTP_204_NO_CONTENT,
+                         name=f"retirar_{ruta}")
+
+
+_rutas_editar_retirar("comites", GRCComite, GRCComiteCreate, GRCComiteResponse, "Comité")
+_rutas_editar_retirar("obligaciones", GRCObligacion, GRCObligacionCreate, GRCObligacionResponse, "Obligación")
+_rutas_editar_retirar("continuidad", GRCContinuidad, GRCContinuidadCreate, GRCContinuidadResponse, "Plan de continuidad")
+_rutas_editar_retirar("simulacros", GRCSimulacro, GRCSimulacroCreate, GRCSimulacroResponse, "Simulacro")
+_rutas_editar_retirar("terceros", GRCTercero, GRCTerceroCreate, GRCTerceroResponse, "Tercero")
+_rutas_editar_retirar("evidencias", GRCEvidencia, GRCEvidenciaCreate, GRCEvidenciaResponse, "Evidencia")
+
+
+# Retirar lo que ya tenía PATCH y no DELETE.
+def _ruta_retirar(ruta: str, model, nombre: str):
+    async def retirar(id: int, db: AsyncSession = Depends(get_db)):
+        obj = await _vivo(db, model, id, nombre)
+        obj.deleted_at = datetime.now(_tz.utc)
+        await db.commit()
+    router.add_api_route(f"/{ruta}/{{id}}", retirar, methods=["DELETE"], status_code=status.HTTP_204_NO_CONTENT,
+                         name=f"retirar_{ruta}")
+
+
+for _r, _m, _n in [("controles", GRCControl, "Control"), ("riesgos", GRCRiesgo, "Riesgo"),
+                   ("cumplimiento", GRCMatrizCumplimiento, "Registro"), ("auditorias", GRCAuditoria, "Auditoría"),
+                   ("hallazgos", GRCHallazgo, "Hallazgo"), ("planes", GRCPlanAccion, "Plan"),
+                   ("incidentes", GRCIncidente, "Incidente"), ("tratamientos", GRCTratamiento, "Tratamiento")]:
+    _ruta_retirar(_r, _m, _n)
+
+
+class _TratamientoAvance(_BaseModel):
+    estado: Optional[str] = None
+    avance: Optional[int] = None
+
+
+@router.patch("/tratamientos/{id}", response_model=GRCTratamientoResponse)
+async def avance_tratamiento(id: int, data: _TratamientoAvance, db: AsyncSession = Depends(get_db)):
+    obj = await _vivo(db, GRCTratamiento, id, "Tratamiento")
+    if data.avance is not None:
+        if not 0 <= data.avance <= 100:
+            raise HTTPException(422, "El avance va de 0 a 100")
+        obj.avance = data.avance
+        # El estado sigue al avance para que no digan cosas distintas.
+        obj.estado = "completado" if data.avance == 100 else ("en_curso" if data.avance > 0 else "pendiente")
+    if data.estado is not None:
+        obj.estado = data.estado
+    await db.commit(); await db.refresh(obj)
+    return obj
+
+
+# ─── Responsables: quién responde por qué ───────────────────────────────────
+
+@router.get("/responsables")
+async def responsables(db: AsyncSession = Depends(get_db)):
+    """Cuántos riesgos, controles, obligaciones y hallazgos abiertos tiene
+    cada responsable. La pantalla de gobierno traía una lista escrita a mano;
+    esto sale de lo que ya se registró en cada elemento."""
+    conteo: dict = {}
+
+    async def sumar(model, clave, *cond):
+        r = await db.execute(select(model.responsable, func.count()).where(
+            model.deleted_at.is_(None), model.responsable.isnot(None), model.responsable != "", *cond)
+            .group_by(model.responsable))
+        for nombre, n in r.all():
+            conteo.setdefault(nombre.strip(), {"responsable": nombre.strip(), "riesgos": 0, "controles": 0,
+                                               "obligaciones": 0, "hallazgos_abiertos": 0})[clave] += n
+
+    await sumar(GRCRiesgo, "riesgos", GRCRiesgo.estado.notin_([EstadoRiesgoGRCEnum.CERRADO, EstadoRiesgoGRCEnum.MITIGADO]))
+    await sumar(GRCControl, "controles")
+    await sumar(GRCObligacion, "obligaciones")
+    await sumar(GRCHallazgo, "hallazgos_abiertos", GRCHallazgo.estado != EstadoHallazgoGRCEnum.CERRADO)
+    return sorted(conteo.values(), key=lambda x: -(x["riesgos"] + x["controles"] + x["obligaciones"] + x["hallazgos_abiertos"]))

@@ -12,9 +12,10 @@ import React, { useState } from 'react'
 import {
   Box, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, MenuItem, FormControlLabel, Switch, Paper, alpha,
+  Table, TableBody, TableCell, TableHead, TableRow, LinearProgress, IconButton, Tooltip, Chip,
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { Add } from '@mui/icons-material'
+import { Add, Edit, DeleteForever } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 
@@ -198,4 +199,60 @@ export function Encabezado({ icono, titulo, subtitulo, color, accion, onAccion }
   )
 }
 
-export const fmtFecha = (s?: string | null) => (s ? new Date(`${s.slice(0, 10)}T12:00:00`).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—')
+export interface Columna<T> {
+  titulo: string
+  valor: (r: T) => React.ReactNode
+  alinear?: 'left' | 'right' | 'center'
+}
+
+/** Tabla de registros con editar y retirar. `extra` agrega botones por fila. */
+export function TablaRegistros<T extends { id: number }>({ columnas, filas, cargando, vacio, etiqueta, onEditar, onRetirar, extra, onFila }: {
+  columnas: Columna<T>[]; filas: T[]; cargando?: boolean; vacio: string
+  /** Nombre corto del registro para los botones accesibles y la confirmación. */
+  etiqueta: (r: T) => string
+  onEditar?: (r: T) => void; onRetirar?: (r: T) => void
+  extra?: (r: T) => React.ReactNode
+  onFila?: (r: T) => void
+}) {
+  const acciones = !!(onEditar || onRetirar || extra)
+  return (
+    <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto' }}>
+      {cargando && <LinearProgress />}
+      <Table size="small">
+        <TableHead><TableRow sx={{ '& th': { fontWeight: 700, fontSize: 12 } }}>
+          {columnas.map(c => <TableCell key={c.titulo} align={c.alinear}>{c.titulo}</TableCell>)}
+          {acciones && <TableCell />}
+        </TableRow></TableHead>
+        <TableBody>
+          {!cargando && filas.length === 0 && (
+            <TableRow><TableCell colSpan={columnas.length + (acciones ? 1 : 0)} align="center" sx={{ py: 3, color: 'text.secondary' }}>{vacio}</TableCell></TableRow>
+          )}
+          {filas.map(r => (
+            <TableRow key={r.id} hover onClick={onFila ? () => onFila(r) : undefined} sx={{ cursor: onFila ? 'pointer' : undefined, '& td': { fontSize: 12 } }}>
+              {columnas.map(c => <TableCell key={c.titulo} align={c.alinear}>{c.valor(r)}</TableCell>)}
+              {acciones && (
+                <TableCell sx={{ whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
+                  {extra?.(r)}
+                  {onEditar && <Tooltip title="Editar"><IconButton size="small" aria-label={`Editar ${etiqueta(r)}`} onClick={() => onEditar(r)}><Edit fontSize="small" /></IconButton></Tooltip>}
+                  {onRetirar && <Tooltip title="Retirar"><IconButton size="small" aria-label={`Retirar ${etiqueta(r)}`}
+                    onClick={() => { if (window.confirm(`¿Retirar «${etiqueta(r)}»?`)) onRetirar(r) }}><DeleteForever fontSize="small" sx={{ color: '#DC2626' }} /></IconButton></Tooltip>}
+                </TableCell>
+              )}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Paper>
+  )
+}
+
+/** Etiqueta de color para un estado o nivel. */
+export function Etiqueta({ texto, color }: { texto: string; color: string }) {
+  return <Chip size="small" label={texto} sx={{ fontSize: 11, fontWeight: 700, bgcolor: alpha(color, 0.12), color }} />
+}
+
+/** «en_ejecucion» → «En ejecución» con el diccionario, o capitalizado. */
+export const legible = (v?: string | null, dicc?: Record<string, string>) =>
+  !v ? '—' : dicc?.[v] ?? (v.charAt(0).toUpperCase() + v.slice(1).toLowerCase().replace(/_/g, ' '))
+
+export const fmtFecha =(s?: string | null) => (s ? new Date(`${s.slice(0, 10)}T12:00:00`).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—')
