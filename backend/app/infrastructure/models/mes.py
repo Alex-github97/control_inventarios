@@ -214,8 +214,16 @@ class MESCertificacion(Base, TimestampMixin):
 class MESProducto(Base, TimestampMixin):
     __tablename__ = 'mes_producto'
     id            = Column(Integer, primary_key=True, index=True)
+    # El código lo arma el sistema con el tipo y la familia —`PT-BOLSA-0001`—.
+    # Se sigue guardando como texto y no como tres columnas porque es el
+    # identificador que la gente dice en voz alta y escribe en las etiquetas.
     codigo        = Column(String(50), unique=True, nullable=False)
     nombre        = Column(String(300), nullable=False)
+    # La familia es la segunda mitad del código: BOLSA, LAMINA, RESINA. Va como
+    # texto libre normalizado y no como catálogo aparte porque nace del uso —el
+    # que registra el primer producto de una familia la está creando— y una
+    # tabla más obligaría a configurar antes de poder trabajar.
+    familia       = Column(String(60), nullable=True, index=True)
     descripcion   = Column(Text, nullable=True)
     tipo          = Column(SAEnum(TipoProductoMESEnum), nullable=False, default=TipoProductoMESEnum.PRODUCTO_TERMINADO)
     unidad_medida = Column(String(30), nullable=False, default='UN')
@@ -412,16 +420,35 @@ class MESConsumoMaterial(Base, TimestampMixin):
 
 
 class MESWIP(Base, TimestampMixin):
+    """El libro de movimientos del material en proceso, módulo por módulo.
+
+    Es la única fuente de dónde está el material: el saldo de un módulo es la
+    suma de sus movimientos y no una columna que alguien mantenga a mano.
+
+    POR QUÉ HAY DOS CELDAS Y NO UNA
+    Un traslado entre módulos tiene dos extremos. Con una sola columna, una
+    TRANSFERENCIA salía del origen y no entraba a ninguna parte: el material
+    desaparecía del saldo. Era el caso que hacía inservible el inventario en
+    proceso, y por eso `celda_destino_id` es obligatorio en los traslados y va
+    vacío en el resto de los movimientos.
+    """
+
     __tablename__ = 'mes_wip'
     id            = Column(Integer, primary_key=True, index=True)
     orden_id      = Column(Integer, ForeignKey('mes_orden_produccion.id'), nullable=False)
     celda_id      = Column(Integer, ForeignKey('mes_celda_trabajo.id'), nullable=False)
+    # Solo en los traslados: el módulo que recibe.
+    celda_destino_id = Column(Integer, ForeignKey('mes_celda_trabajo.id'), nullable=True)
     producto_id   = Column(Integer, ForeignKey('mes_producto.id'), nullable=False)
     lote_id       = Column(Integer, ForeignKey('mes_lote.id'), nullable=True)
     tipo_mov      = Column(SAEnum(TipoMovimientoWIPEnum), nullable=False)
     cantidad      = Column(Float, nullable=False)
     unidad_medida = Column(String(30), nullable=False, default='UN')
     fecha_mov     = Column(DateTime(timezone=True), nullable=False)
+    # El movimiento que nació de una devolución queda amarrado a ella: es lo
+    # que permite responder «¿por qué salió material de este módulo?».
+    devolucion_id = Column(Integer, ForeignKey('mes_devolucion.id', ondelete='SET NULL'),
+                           nullable=True, index=True)
     observaciones = Column(Text, nullable=True)
 
 
@@ -468,6 +495,48 @@ class MESScrap(Base, TimestampMixin):
     fecha_registro = Column(DateTime(timezone=True), nullable=False)
     es_reprocesable = Column(Boolean, default=False, nullable=False)
     observaciones = Column(Text, nullable=True)
+
+
+class MESDevolucion(Base, TimestampMixin):
+    """Producto averiado que un módulo devuelve al módulo que lo hizo.
+
+    POR QUÉ NO ES SCRAP
+    El scrap es material que se pierde: se da de baja y no vuelve. Una
+    devolución es material que **sí vuelve**: el módulo que la recibe lo repara
+    y lo reingresa al flujo. Meter las dos cosas en la misma tabla haría que la
+    tasa de scrap contara como pérdida lo que solo fue un reproceso, y eso
+    cambia la única cifra con la que se negocia una línea.
+
+    POR QUÉ MUEVE EL WIP Y NO UN CONTADOR
+    Registrar la devolución sin mover el material dejaría el saldo del módulo
+    diciendo que todavía tiene unidades que ya devolvió. Cada devolución genera
+    sus movimientos en `mes_wip` —salida del que devuelve, entrada al que tiene
+    que rehacer— y al reprocesarse genera los dos de vuelta. El saldo siempre
+    es la suma del libro.
+    """
+
+    __tablename__ = 'mes_devolucion'
+    id            = Column(Integer, primary_key=True, index=True)
+    orden_id      = Column(Integer, ForeignKey('mes_orden_produccion.id', ondelete='CASCADE'),
+                           nullable=False, index=True)
+    # El módulo que detectó la avería y devuelve.
+    celda_origen_id  = Column(Integer, ForeignKey('mes_celda_trabajo.id'), nullable=False)
+    # El módulo que tiene que rehacerlo.
+    celda_destino_id = Column(Integer, ForeignKey('mes_celda_trabajo.id'), nullable=False)
+    producto_id   = Column(Integer, ForeignKey('mes_producto.id'), nullable=False)
+    lote_id       = Column(Integer, ForeignKey('mes_lote.id'), nullable=True)
+    operario_id   = Column(Integer, ForeignKey('mes_operario.id'), nullable=True)
+    cantidad      = Column(Float, nullable=False)
+    unidad_medida = Column(String(30), nullable=False, default='UN')
+    # Qué falla tiene. Es el dato que, agrupado, dice qué módulo genera el
+    # reproceso y por qué.
+    motivo        = Column(String(200), nullable=False)
+    descripcion   = Column(Text, nullable=True)
+    # PENDIENTE mientras el módulo destino no la haya reprocesado.
+    estado        = Column(String(20), nullable=False, default='PENDIENTE')
+    fecha         = Column(DateTime(timezone=True), nullable=False)
+    fecha_reproceso = Column(DateTime(timezone=True), nullable=True)
+    observaciones_reproceso = Column(Text, nullable=True)
 
 
 class MESOEERegistro(Base, TimestampMixin):

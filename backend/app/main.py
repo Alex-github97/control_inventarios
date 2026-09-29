@@ -968,6 +968,25 @@ async def _migrar_esquema(esquema: str) -> None:
             "ALTER TABLE eam_ot_mano_obra ALTER COLUMN actividad TYPE VARCHAR(300)"
         ))
 
+        # ── MES · productos y movimientos entre módulos ──
+        # `familia` es la segunda mitad del código autollenado (`PT-BOLSA-0001`).
+        await conn.execute(text(
+            "ALTER TABLE mes_producto ADD COLUMN IF NOT EXISTS familia VARCHAR(60)"))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_mes_producto_familia "
+            "ON mes_producto (familia)"))
+        # El destino de un traslado. Sin esta columna, una TRANSFERENCIA salía
+        # del módulo origen y no entraba a ninguna parte: el material
+        # desaparecía del saldo de WIP. `mes_devolucion` la crea `create_all`.
+        for columna, tipo in [("celda_destino_id", "INTEGER"),
+                              ("devolucion_id", "INTEGER")]:
+            await conn.execute(text(
+                "ALTER TABLE mes_wip ADD COLUMN IF NOT EXISTS %s %s"
+                % (columna, tipo)))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_mes_wip_devolucion "
+            "ON mes_wip (devolucion_id)"))
+
         # ── EAM · garantías ──
         # La pantalla mostraba qué cubre la garantía, a quién llamar en el
         # proveedor, qué documento la respalda y quién responde adentro; la

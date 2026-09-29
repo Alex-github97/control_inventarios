@@ -50,74 +50,19 @@ from app.infrastructure.models.mes import (
     TipoNodoFlujoEnum, TipoParadaMESEnum, TurnoMESEnum,
 )
 from app.infrastructure.models.usuario import Usuario
+# El recorrido de la linea y los totales de la orden viven en un solo sitio: los
+# comparte con `mes.py`, que cierra ejecuciones y registra scrap sobre la misma
+# orden. Tenerlos por duplicado fue lo que dejo los totales con dos duenos.
+from app.core.mes_totales import (
+    ahora as _ahora,
+    ordenar_estaciones,
+    predecesores,
+    recalcular_totales_orden,
+    registrar_scrap,
+    valor as _valor,
+)
 
 router = APIRouter(prefix="/mes/planta", tags=["mes-planta"])
-
-
-def _valor(x: Any) -> Any:
-    return x.value if hasattr(x, "value") else x
-
-
-def _ahora() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-# ─── Ordenar las estaciones como las recorre el material ──────────────────────
-
-def ordenar_estaciones(nodos: List[MESFlujoNodo],
-                       conexiones: List[MESFlujoConexion]) -> List[MESFlujoNodo]:
-    """Pone las estaciones en el orden en que el material las atraviesa.
-
-    Es un orden topológico: primero lo que no depende de nada —las entradas de
-    material—, después lo que solo depende de eso, y así. No se usa la posición
-    en el lienzo porque el dibujo puede estar acomodado de cualquier forma y una
-    línea que se devuelve para reproceso quedaría al revés.
-
-    Los ciclos —que existen: un reproceso devuelve material a una etapa
-    anterior— romperían un orden topológico estricto, así que lo que queda sin
-    resolver se agrega al final por su posición horizontal. Es una salida
-    deliberada: mejor mostrar todas las estaciones en un orden aproximado que
-    esconder las que participan en un ciclo.
-    """
-    # Los retrabajos y el scrap no marcan el avance del material hacia adelante.
-    hacia_adelante = [c for c in conexiones
-                      if _valor(c.tipo) in ("NORMAL", "ALTERNA")]
-    entrantes: Dict[int, set] = {n.id: set() for n in nodos}
-    for c in hacia_adelante:
-        if c.destino_id in entrantes and c.origen_id in entrantes:
-            entrantes[c.destino_id].add(c.origen_id)
-
-    por_id = {n.id: n for n in nodos}
-    listos = sorted([n for n in nodos if not entrantes[n.id]],
-                    key=lambda n: (n.pos_x, n.pos_y))
-    orden: List[MESFlujoNodo] = []
-    vistos: set = set()
-
-    while listos:
-        actual = listos.pop(0)
-        if actual.id in vistos:
-            continue
-        vistos.add(actual.id)
-        orden.append(actual)
-        siguientes = sorted(
-            [por_id[c.destino_id] for c in hacia_adelante
-             if c.origen_id == actual.id and c.destino_id in por_id],
-            key=lambda n: (n.pos_x, n.pos_y))
-        for s in siguientes:
-            if s.id in vistos:
-                continue
-            entrantes[s.id].discard(actual.id)
-            if not entrantes[s.id]:
-                listos.append(s)
-
-    faltantes = sorted([n for n in nodos if n.id not in vistos],
-                       key=lambda n: (n.pos_x, n.pos_y))
-    return orden + faltantes
-
-
-def predecesores(nodo_id: int, conexiones: List[MESFlujoConexion]) -> List[int]:
-    return [c.origen_id for c in conexiones
-            if c.destino_id == nodo_id and _valor(c.tipo) in ("NORMAL", "ALTERNA")]
 
 
 # ─── Esquemas ─────────────────────────────────────────────────────────────────
@@ -495,25 +440,22 @@ async def registrar_avance(
     else:
         avance.estado = EstadoEjecucionMESEnum.EN_PROGRESO
 
-    # La orden avanza cuando avanza su ÚLTIMA estación, no con cada reporte.
-    # Sumando todos los avances, una pieza que pasa por cinco máquinas contaría
-    # cinco veces y el cumplimiento saldría al 500%.
-    await db.flush()
-    nodos = list((await db.execute(
-        select(MESFlujoNodo).where(MESFlujoNodo.linea_id == nodo.linea_id,
-                                   MESFlujoNodo.activo.is_(True)))).scalars().all())
-    ordenadas = ordenar_estaciones(nodos, conexiones)
-    ultimo = ordenadas[-1] if ordenadas else None
+    # La pérdida que reporta la estación va al LIBRO de scrap, no solo a su
+    # contador. Antes se quedaba en `avance.cantidad_scrap` y la pantalla de
+    # Scrap no se enteraba: la línea decía haber perdido material y el módulo
+    # que existe para medirlo mostraba cero.
+    if datos.cantidad_scrap > 0:
+        registrar_scrap(
+            db, orden_id=orden.id, producto_id=orden.producto_id,
+            cantidad=datos.cantidad_scrap,
+            causa=f"Reportado en {nodo.nombre or 'estación'}",
+            operario_id=operario.id,
+            observaciones=datos.observaciones)
 
-    frescos = {a.nodo_id: a for a in (await db.execute(
-        select(MESAvanceEstacion).where(
-            MESAvanceEstacion.orden_id == orden.id))).scalars().all()}
-    if ultimo and ultimo.id in frescos:
-        orden.cantidad_producida = frescos[ultimo.id].cantidad_producida or 0.0
-    # El scrap sí es la suma de todas las estaciones: cada pérdida ocurre una
-    # sola vez y en un solo lugar.
-    orden.cantidad_scrap = round(
-        sum((a.cantidad_scrap or 0.0) for a in frescos.values()), 4)
+    # Los totales de la orden se recalculan desde sus fuentes; no los acumula
+    # nadie. El por qué está en `app/core/mes_totales.py`.
+    await db.flush()
+    await recalcular_totales_orden(db, orden)
 
     if _valor(orden.estado) == "LIBERADA":
         orden.estado = EstadoOrdenProduccionEnum.EN_EJECUCION

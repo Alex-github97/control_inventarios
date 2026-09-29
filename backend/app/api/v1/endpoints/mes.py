@@ -1,22 +1,29 @@
+import re
+import unicodedata
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, or_, case
+from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
 from datetime import datetime
 
 from app.core.database import get_db
+from app.core.mes_totales import (
+    ahora as _ahora, recalcular_totales_orden, registrar_scrap,
+)
 from app.infrastructure.models.mes import (
     MESPlanta, MESLinea, MESTurno, MESCeldaTrabajo, MESEquipo,
     MESOperario, MESCertificacion, MESProducto, MESBOM, MESBOMDetalle,
     MESReceta, MESRecetaDetalle, MESOperacion, MESOrdenProduccion,
     MESOrdenOperacion, MESLote, MESEjecucion, MESParada,
-    MESConsumoMaterial, MESWIP, MESInspeccion, MESDefecto,
+    MESConsumoMaterial, MESWIP, MESDevolucion, MESInspeccion, MESDefecto,
     MESScrap, MESOEERegistro, MESChecklistPlantilla, MESChecklistPregunta,
     MESChecklistEjecucion, MESKPIDiario,
     EstadoOrdenProduccionEnum, PrioridadOrdenMESEnum,
     EstadoEjecucionMESEnum, ResultadoInspeccionMESEnum, EstadoLoteMESEnum,
-    TipoMovimientoWIPEnum,
+    TipoMovimientoWIPEnum, TipoProductoMESEnum,
 )
 
 router = APIRouter(prefix='/mes', tags=['MES'])
@@ -89,16 +96,30 @@ class OperarioResponse(BaseModel):
     cargo: Optional[str] = None; planta_id: Optional[int] = None
 
 class ProductoCreate(BaseModel):
-    codigo: str
+    # El código lo arma el sistema con el tipo y la familia. Se acepta escrito
+    # a mano —hay productos que llegan con el código del cliente— pero si viene
+    # vacío se genera, que es el caso normal.
+    codigo: Optional[str] = None
     nombre: str
     tipo: str = 'PRODUCTO_TERMINADO'
+    familia: Optional[str] = None
     unidad_medida: str = 'UN'
     descripcion: Optional[str] = None
     requiere_lote: bool = True
+    peso_kg: Optional[float] = None
+    vida_util_dias: Optional[int] = None
 
 class ProductoResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+    # Van TODOS los campos, no solo los de la tabla: el formulario de edición
+    # los precarga desde acá, y los que faltaban se borraban al guardar porque
+    # llegaban vacíos al servidor.
     id: int; codigo: str; nombre: str; tipo: str; unidad_medida: str; activo: bool
+    familia: Optional[str] = None
+    descripcion: Optional[str] = None
+    requiere_lote: bool = True
+    peso_kg: Optional[float] = None
+    vida_util_dias: Optional[int] = None
 
 class BOMCreate(BaseModel):
     producto_id: int
@@ -380,21 +401,149 @@ async def create_operario(data: OperarioCreate, db: AsyncSession = Depends(get_d
 
 # ─── Productos ───────────────────────────────────────────────────────────────
 
+# ── El código del producto lo arma el sistema ────────────────────────────────
+#
+# `PT-BOLSA-0001`: qué es, de qué familia, y el consecutivo de esa combinación.
+# Se lee de un golpe en una etiqueta y en una orden de producción, que es donde
+# de verdad se usa.
+#
+# El consecutivo es POR TIPO Y FAMILIA, no global: así el primer producto de una
+# familia nueva empieza en 0001 en vez de heredar un número alto que no dice
+# nada, y dos familias no se pisan los números.
+
+PREFIJO_TIPO_PRODUCTO = {
+    'MATERIA_PRIMA': 'MP',
+    'SEMIELABORADO': 'SE',
+    'PRODUCTO_TERMINADO': 'PT',
+    'SUBPRODUCTO': 'SP',
+    'EMPAQUE': 'EM',
+    'HERRAMIENTA': 'HE',
+}
+
+# Sin familia el código sería `PT--0001`, con un hueco donde debería ir algo.
+FAMILIA_POR_OMISION = 'GEN'
+
+
+def _normalizar_familia(familia: Optional[str]) -> str:
+    """La familia como va en el código: sin tildes, sin espacios, en mayúsculas.
+
+    Se normaliza para el código pero se guarda lo que escribió la persona: si se
+    guardara normalizado, «Bolsa» y «BOLSA» quedarían como dos familias en la
+    lista de selección y la siguiente persona no sabría cuál usar.
+    """
+    if not familia or not familia.strip():
+        return FAMILIA_POR_OMISION
+    limpio = unicodedata.normalize('NFD', familia.strip()) \
+        .encode('ascii', 'ignore').decode('ascii')
+    limpio = re.sub(r'[^A-Za-z0-9]+', '', limpio).upper()
+    # Doce caracteres: más que eso no cabe legible en una etiqueta.
+    return limpio[:12] or FAMILIA_POR_OMISION
+
+
+async def _codigo_producto(db: AsyncSession, tipo: str,
+                           familia: Optional[str]) -> str:
+    prefijo = f"{PREFIJO_TIPO_PRODUCTO.get(tipo, 'PR')}-{_normalizar_familia(familia)}-"
+    # Se mira el mayor en uso y no el conteo: contar repetiría números en cuanto
+    # se desactive o se borre un producto.
+    r = await db.execute(select(func.max(MESProducto.codigo))
+                         .where(MESProducto.codigo.like(f"{prefijo}%")))
+    ultimo = r.scalar()
+    siguiente = 1
+    if ultimo:
+        try:
+            siguiente = int(str(ultimo).rsplit('-', 1)[1]) + 1
+        except (IndexError, ValueError):
+            siguiente = 1
+    return f"{prefijo}{siguiente:04d}"
+
+
+@router.get('/productos/codigo-sugerido')
+async def codigo_sugerido_producto(tipo: str = 'PRODUCTO_TERMINADO',
+                                   familia: Optional[str] = None,
+                                   db: AsyncSession = Depends(get_db)):
+    """El código que le tocaría al siguiente producto de ese tipo y familia.
+
+    Sirve para mostrarlo mientras se llena el formulario. Es una SUGERENCIA: el
+    definitivo lo asigna el alta, porque entre que se muestra y se guarda otra
+    persona puede haber creado uno.
+    """
+    if tipo not in PREFIJO_TIPO_PRODUCTO:
+        raise HTTPException(422, f'Tipo de producto inválido: {tipo}')
+    return {'codigo': await _codigo_producto(db, tipo, familia),
+            'tipo': tipo, 'familia': (familia or '').strip() or None}
+
+
+@router.get('/productos/familias')
+async def familias_producto(db: AsyncSession = Depends(get_db)):
+    """Las familias que ya existen, para no escribirlas dos veces distintas."""
+    r = await db.execute(
+        select(MESProducto.familia, func.count(MESProducto.id))
+        .where(MESProducto.familia.isnot(None), MESProducto.familia != '')
+        .group_by(MESProducto.familia).order_by(MESProducto.familia))
+    return [{'familia': f, 'productos': n} for f, n in r.all()]
+
+
 @router.get('/productos', response_model=List[ProductoResponse])
-async def list_productos(tipo: Optional[str] = None, db: AsyncSession = Depends(get_db)):
-    q = select(MESProducto).where(MESProducto.activo == True)
+async def list_productos(tipo: Optional[str] = None,
+                         familia: Optional[str] = None,
+                         incluir_inactivos: bool = False,
+                         db: AsyncSession = Depends(get_db)):
+    q = select(MESProducto)
+    if not incluir_inactivos:
+        q = q.where(MESProducto.activo.is_(True))
     if tipo:
-        q = q.where(MESProducto.tipo == tipo)
-    result = await db.execute(q)
+        if tipo not in PREFIJO_TIPO_PRODUCTO:
+            raise HTTPException(422, f'Tipo de producto inválido: {tipo}')
+        q = q.where(MESProducto.tipo == TipoProductoMESEnum[tipo])
+    if familia:
+        q = q.where(MESProducto.familia == familia)
+    result = await db.execute(q.order_by(MESProducto.codigo))
     return result.scalars().all()
+
 
 @router.post('/productos', response_model=ProductoResponse, status_code=201)
 async def create_producto(data: ProductoCreate, db: AsyncSession = Depends(get_db)):
-    obj = MESProducto(**data.model_dump())
-    db.add(obj)
-    await db.commit()
-    await db.refresh(obj)
-    return obj
+    if data.tipo not in PREFIJO_TIPO_PRODUCTO:
+        raise HTTPException(422, f'Tipo de producto inválido: {data.tipo}')
+    if not data.nombre.strip():
+        raise HTTPException(422, 'El nombre del producto es obligatorio')
+
+    campos = data.model_dump()
+    campos['nombre'] = data.nombre.strip()
+    campos['familia'] = (data.familia or '').strip() or None
+    manual = (data.codigo or '').strip()
+
+    # Dos personas creando a la vez pueden llegar al mismo consecutivo: el que
+    # pierde la carrera choca con el índice único. Se vuelve a intentar con el
+    # siguiente número en vez de devolverle un error que no entiende y que se
+    # arregla solo. Con código escrito a mano no se reintenta: ahí el choque es
+    # un dato repetido de verdad y hay que decirlo.
+    intentos = 1 if manual else 5
+    for intento in range(intentos):
+        campos['codigo'] = manual or await _codigo_producto(
+            db, data.tipo, campos['familia'])
+        ya = await db.scalar(
+            select(func.count()).select_from(MESProducto)
+            .where(func.upper(MESProducto.codigo) == campos['codigo'].upper()))
+        if ya:
+            if manual:
+                raise HTTPException(
+                    409, f'Ya hay un producto con el código «{campos["codigo"]}»')
+            continue
+        obj = MESProducto(**campos)
+        db.add(obj)
+        try:
+            await db.commit()
+        except IntegrityError:
+            await db.rollback()
+            if intento == intentos - 1:
+                raise HTTPException(
+                    409, 'No se pudo asignar un código libre. Vuelva a intentarlo.')
+            continue
+        await db.refresh(obj)
+        return obj
+
+    raise HTTPException(409, 'No se pudo asignar un código libre. Vuelva a intentarlo.')
 
 
 # ─── BOM ─────────────────────────────────────────────────────────────────────
@@ -465,7 +614,11 @@ async def create_celda(data: CeldaCreate, db: AsyncSession = Depends(get_db)):
 
 class WIPCreate(BaseModel):
     orden_id: int
+    # El módulo desde donde se mueve. En una ENTRADA y en un AJUSTE es el que
+    # recibe; en una SALIDA y en un TRANSFERENCIA es el que entrega.
     celda_id: int
+    # Solo en los traslados: el módulo que recibe. Obligatorio ahí.
+    celda_destino_id: Optional[int] = None
     producto_id: int
     lote_id: Optional[int] = None
     tipo_mov: str = 'ENTRADA'          # ENTRADA/SALIDA/TRANSFERENCIA/AJUSTE
@@ -477,6 +630,58 @@ class WIPResponse(WIPCreate):
     model_config = ConfigDict(from_attributes=True)
     id: int
     fecha_mov: Optional[datetime] = None
+    # Si el movimiento nació de una devolución, queda amarrado a ella.
+    devolucion_id: Optional[int] = None
+
+#
+# EL SALDO DE UN MÓDULO ES LA SUMA DE SU LIBRO
+#
+# Nadie mantiene una columna de saldo: se suma el movimiento. Y cada tipo de
+# movimiento tiene un efecto y solo uno:
+#
+#   ENTRADA        + al módulo
+#   SALIDA         − al módulo
+#   TRANSFERENCIA  − al origen  y  + al destino     ← los DOS extremos
+#   AJUSTE         + al módulo (el ajuste negativo se registra como SALIDA)
+#
+# La TRANSFERENCIA es la que estaba mal: se contaba como una salida sin destino,
+# así que trasladar material de un módulo a otro lo hacía desaparecer del
+# inventario en proceso. Con un solo `celda_id` en la tabla no había dónde
+# anotar el destino, y la pantalla ofrecía el movimiento igual.
+
+def _efecto_wip(w: MESWIP) -> List[tuple]:
+    """Los (celda, signo) que toca un movimiento. Uno, o dos si es traslado."""
+    if w.tipo_mov == TipoMovimientoWIPEnum.TRANSFERENCIA:
+        # Un traslado sin destino se cuenta solo como salida: es el dato viejo,
+        # de antes de que existiera la columna, y perderlo del todo sería peor.
+        if w.celda_destino_id:
+            return [(w.celda_id, -1), (w.celda_destino_id, +1)]
+        return [(w.celda_id, -1)]
+    if w.tipo_mov == TipoMovimientoWIPEnum.SALIDA:
+        return [(w.celda_id, -1)]
+    return [(w.celda_id, +1)]
+
+
+async def _saldos_wip(db: AsyncSession, *, orden_id: Optional[int] = None,
+                      producto_id: Optional[int] = None) -> dict:
+    q = select(MESWIP)
+    if orden_id:
+        q = q.where(MESWIP.orden_id == orden_id)
+    if producto_id:
+        q = q.where(MESWIP.producto_id == producto_id)
+    saldos: dict = {}
+    for w in (await db.execute(q)).scalars().all():
+        for celda, signo in _efecto_wip(w):
+            clave = (celda, w.producto_id)
+            saldos[clave] = saldos.get(clave, 0.0) + signo * w.cantidad
+    return saldos
+
+
+async def _saldo_modulo(db: AsyncSession, celda_id: int, producto_id: int,
+                        orden_id: Optional[int] = None) -> float:
+    saldos = await _saldos_wip(db, orden_id=orden_id, producto_id=producto_id)
+    return round(saldos.get((celda_id, producto_id), 0.0), 4)
+
 
 @router.get('/wip', response_model=List[WIPResponse])
 async def list_wip(
@@ -488,44 +693,303 @@ async def list_wip(
     if orden_id:
         q = q.where(MESWIP.orden_id == orden_id)
     if celda_id:
-        q = q.where(MESWIP.celda_id == celda_id)
+        # Un traslado es del módulo que envía Y del que recibe: filtrando solo
+        # por `celda_id`, al módulo destino no le aparecía lo que le llegó.
+        q = q.where(or_(MESWIP.celda_id == celda_id,
+                        MESWIP.celda_destino_id == celda_id))
     result = await db.execute(q.order_by(MESWIP.fecha_mov.desc()))
     return result.scalars().all()
+
 
 @router.post('/wip', response_model=WIPResponse, status_code=201)
 async def create_wip(data: WIPCreate, db: AsyncSession = Depends(get_db)):
     if data.tipo_mov not in TipoMovimientoWIPEnum.__members__:
         raise HTTPException(422, f'Tipo de movimiento inválido: {data.tipo_mov}')
     if data.cantidad <= 0:
-        raise HTTPException(422, 'La cantidad debe ser mayor que cero')
+        raise HTTPException(
+            422, 'La cantidad debe ser mayor que cero. Para descontar material '
+                 'use una SALIDA, no un AJUSTE negativo.')
     orden = await db.get(MESOrdenProduccion, data.orden_id)
     if not orden:
         raise HTTPException(404, 'Orden no encontrada')
-    if orden.estado not in (EstadoOrdenProduccionEnum.LIBERADA, EstadoOrdenProduccionEnum.EN_EJECUCION):
+    if orden.estado not in (EstadoOrdenProduccionEnum.LIBERADA,
+                            EstadoOrdenProduccionEnum.EN_EJECUCION):
         raise HTTPException(409, f'La orden está {orden.estado.value}: el WIP solo se mueve con la orden liberada o en ejecución')
-    if not await db.get(MESCeldaTrabajo, data.celda_id):
-        raise HTTPException(404, 'Celda de trabajo no encontrada')
-    obj = MESWIP(**data.model_dump(), fecha_mov=datetime.utcnow())
+    origen = await db.get(MESCeldaTrabajo, data.celda_id)
+    if not origen:
+        raise HTTPException(404, 'Módulo de origen no encontrado')
+    if not await db.get(MESProducto, data.producto_id):
+        raise HTTPException(404, 'Producto no encontrado')
+
+    es_traslado = data.tipo_mov == 'TRANSFERENCIA'
+    if es_traslado:
+        if not data.celda_destino_id:
+            raise HTTPException(
+                422, 'Un traslado necesita el módulo de destino: sin él, el '
+                     'material sale de un lado y no entra a ninguno.')
+        if data.celda_destino_id == data.celda_id:
+            raise HTTPException(422, 'El origen y el destino son el mismo módulo')
+        destino = await db.get(MESCeldaTrabajo, data.celda_destino_id)
+        if not destino:
+            raise HTTPException(404, 'Módulo de destino no encontrado')
+    elif data.celda_destino_id:
+        raise HTTPException(
+            422, f'Un movimiento de tipo {data.tipo_mov} no lleva módulo de destino')
+
+    # No se puede sacar de un módulo lo que no tiene. Se valida al registrar y
+    # no al consultar: un saldo negativo no debe llegar a existir.
+    if data.tipo_mov in ('SALIDA', 'TRANSFERENCIA'):
+        saldo = await _saldo_modulo(db, data.celda_id, data.producto_id)
+        if data.cantidad > saldo + 1e-6:
+            raise HTTPException(
+                409,
+                f'El módulo {origen.nombre} tiene {saldo:g} de este producto y '
+                f'se quieren mover {data.cantidad:g}.')
+
+    obj = MESWIP(**data.model_dump(), fecha_mov=_ahora())
     db.add(obj)
     await db.commit()
     await db.refresh(obj)
     return obj
 
+
 @router.get('/wip/saldos')
-async def saldos_wip(db: AsyncSession = Depends(get_db)):
-    """Saldo de WIP por (celda, producto): entradas − salidas ± ajustes."""
-    r = await db.execute(select(MESWIP))
-    saldos: dict = {}
-    for w in r.scalars().all():
-        key = (w.celda_id, w.producto_id)
-        signo = 1 if w.tipo_mov in (TipoMovimientoWIPEnum.ENTRADA, TipoMovimientoWIPEnum.AJUSTE) else -1
-        if w.tipo_mov == TipoMovimientoWIPEnum.AJUSTE:
-            signo = 1  # el ajuste llega con signo implícito positivo; negativo se registra como SALIDA
-        saldos[key] = saldos.get(key, 0) + signo * w.cantidad
+async def saldos_wip(orden_id: Optional[int] = None,
+                     db: AsyncSession = Depends(get_db)):
+    """Saldo de material en proceso por (módulo, producto)."""
+    saldos = await _saldos_wip(db, orden_id=orden_id)
     return [
         {'celda_id': c, 'producto_id': p, 'saldo': round(s, 3)}
         for (c, p), s in sorted(saldos.items()) if abs(s) > 1e-9
     ]
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DEVOLUCIONES POR AVERÍA
+#
+# Un módulo recibe material del anterior, encuentra que viene averiado y lo
+# devuelve para que lo rehagan.
+#
+# NO ES SCRAP, Y LA DIFERENCIA IMPORTA
+# El scrap es material que se pierde y no vuelve. La devolución es material que
+# vuelve: el módulo que la recibe la repara y la reingresa al flujo. Contarlas
+# juntas metería el reproceso dentro de la tasa de scrap, que es la cifra con la
+# que se juzga una línea.
+#
+# CADA DEVOLUCIÓN MUEVE EL MATERIAL DE VERDAD
+# Se registra como un traslado en el libro de WIP —sale del que devuelve, entra
+# al que tiene que rehacer— y al reprocesarse se registra el traslado de vuelta.
+# Sin eso, el saldo del módulo seguiría diciendo que tiene unidades que ya
+# devolvió.
+# ══════════════════════════════════════════════════════════════════════════════
+
+ESTADOS_DEVOLUCION = ('PENDIENTE', 'REPROCESADA')
+
+
+class DevolucionCreate(BaseModel):
+    orden_id: int
+    # El módulo que detectó la avería y devuelve.
+    celda_origen_id: int
+    # El módulo que tiene que rehacerlo.
+    celda_destino_id: int
+    producto_id: int
+    cantidad: float
+    motivo: str
+    lote_id: Optional[int] = None
+    operario_id: Optional[int] = None
+    unidad_medida: str = 'UN'
+    descripcion: Optional[str] = None
+
+
+class DevolucionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    orden_id: int
+    celda_origen_id: int
+    celda_destino_id: int
+    producto_id: int
+    lote_id: Optional[int] = None
+    operario_id: Optional[int] = None
+    cantidad: float
+    unidad_medida: str
+    motivo: str
+    descripcion: Optional[str] = None
+    estado: str
+    fecha: Optional[datetime] = None
+    fecha_reproceso: Optional[datetime] = None
+    observaciones_reproceso: Optional[str] = None
+
+
+class ReprocesoIn(BaseModel):
+    observaciones: Optional[str] = None
+
+
+@router.get('/devoluciones', response_model=List[DevolucionResponse])
+async def list_devoluciones(orden_id: Optional[int] = None,
+                            estado: Optional[str] = None,
+                            celda_id: Optional[int] = None,
+                            db: AsyncSession = Depends(get_db)):
+    q = select(MESDevolucion)
+    if orden_id:
+        q = q.where(MESDevolucion.orden_id == orden_id)
+    if estado:
+        if estado not in ESTADOS_DEVOLUCION:
+            raise HTTPException(422, f'Estado inválido: {", ".join(ESTADOS_DEVOLUCION)}')
+        q = q.where(MESDevolucion.estado == estado)
+    if celda_id:
+        # Le sirve a los dos módulos: al que devolvió y al que debe rehacerlo.
+        q = q.where(or_(MESDevolucion.celda_origen_id == celda_id,
+                        MESDevolucion.celda_destino_id == celda_id))
+    result = await db.execute(q.order_by(MESDevolucion.fecha.desc()))
+    return result.scalars().all()
+
+
+@router.get('/devoluciones/resumen')
+async def resumen_devoluciones(db: AsyncSession = Depends(get_db)):
+    """Qué módulo genera el reproceso y por qué.
+
+    Es para lo que sirve medir devoluciones: una lista de eventos no dice nada,
+    y agrupada por módulo responsable y motivo señala dónde está el problema.
+    """
+    r = await db.execute(
+        select(MESDevolucion.celda_destino_id, MESDevolucion.motivo,
+               func.count(MESDevolucion.id), func.sum(MESDevolucion.cantidad),
+               func.sum(case((MESDevolucion.estado == 'PENDIENTE', 1), else_=0)))
+        .group_by(MESDevolucion.celda_destino_id, MESDevolucion.motivo)
+        .order_by(func.sum(MESDevolucion.cantidad).desc()))
+    filas = [{'celda_id': c, 'motivo': m, 'devoluciones': n,
+              'cantidad': round(float(cant or 0), 3), 'pendientes': int(pend or 0)}
+             for c, m, n, cant, pend in r.all()]
+    total = await db.scalar(
+        select(func.coalesce(func.sum(MESDevolucion.cantidad), 0.0)))
+    pendiente = await db.scalar(
+        select(func.coalesce(func.sum(MESDevolucion.cantidad), 0.0))
+        .where(MESDevolucion.estado == 'PENDIENTE'))
+    return {'por_modulo_y_motivo': filas,
+            'cantidad_total': round(float(total or 0), 3),
+            'cantidad_pendiente': round(float(pendiente or 0), 3)}
+
+
+@router.post('/devoluciones', response_model=DevolucionResponse, status_code=201)
+async def create_devolucion(data: DevolucionCreate,
+                            db: AsyncSession = Depends(get_db)):
+    if data.cantidad <= 0:
+        raise HTTPException(422, 'La cantidad devuelta debe ser mayor que cero')
+    if not data.motivo.strip():
+        raise HTTPException(422, 'Diga qué avería tiene: es el dato que sirve después')
+    if data.celda_origen_id == data.celda_destino_id:
+        raise HTTPException(
+            422, 'Un módulo no se devuelve material a sí mismo. Si la avería la '
+                 'causó el mismo módulo, corrija su producción o registre scrap.')
+
+    orden = await db.get(MESOrdenProduccion, data.orden_id)
+    if not orden:
+        raise HTTPException(404, 'Orden no encontrada')
+    if orden.estado not in (EstadoOrdenProduccionEnum.LIBERADA,
+                            EstadoOrdenProduccionEnum.EN_EJECUCION):
+        raise HTTPException(
+            409, f'La orden está {orden.estado.value}: solo se devuelve material '
+                 f'de una orden liberada o en ejecución.')
+    origen = await db.get(MESCeldaTrabajo, data.celda_origen_id)
+    if not origen:
+        raise HTTPException(404, 'Módulo que devuelve no encontrado')
+    destino = await db.get(MESCeldaTrabajo, data.celda_destino_id)
+    if not destino:
+        raise HTTPException(404, 'Módulo que debe rehacerlo no encontrado')
+    if not await db.get(MESProducto, data.producto_id):
+        raise HTTPException(404, 'Producto no encontrado')
+    if data.operario_id and not await db.get(MESOperario, data.operario_id):
+        raise HTTPException(404, 'Operario no encontrado')
+
+    # No se devuelve lo que no se tiene: el saldo del módulo que devuelve manda.
+    saldo = await _saldo_modulo(db, data.celda_origen_id, data.producto_id)
+    if data.cantidad > saldo + 1e-6:
+        raise HTTPException(
+            409,
+            f'El módulo {origen.nombre} tiene {saldo:g} de este producto y se '
+            f'quieren devolver {data.cantidad:g}. Registre primero la entrada '
+            f'del material que recibió.')
+
+    campos = data.model_dump()
+    campos['motivo'] = data.motivo.strip()
+    obj = MESDevolucion(**campos, estado='PENDIENTE', fecha=_ahora())
+    db.add(obj)
+    await db.flush()
+
+    # El traslado que mueve el material de verdad, amarrado a la devolución.
+    db.add(MESWIP(
+        orden_id=data.orden_id, celda_id=data.celda_origen_id,
+        celda_destino_id=data.celda_destino_id, producto_id=data.producto_id,
+        lote_id=data.lote_id, tipo_mov=TipoMovimientoWIPEnum.TRANSFERENCIA,
+        cantidad=data.cantidad, unidad_medida=data.unidad_medida,
+        fecha_mov=_ahora(), devolucion_id=obj.id,
+        observaciones=f'Devolución por avería: {campos["motivo"]}'))
+
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+
+@router.put('/devoluciones/{did}/reprocesar', response_model=DevolucionResponse)
+async def reprocesar_devolucion(did: int, data: ReprocesoIn,
+                                db: AsyncSession = Depends(get_db)):
+    """El módulo responsable rehizo el material y lo devuelve al flujo."""
+    obj = await db.get(MESDevolucion, did)
+    if not obj:
+        raise HTTPException(404, 'Esa devolución no existe')
+    if obj.estado == 'REPROCESADA':
+        cuando = (f' el {obj.fecha_reproceso:%Y-%m-%d}'
+                  if obj.fecha_reproceso else '')
+        raise HTTPException(409, f'Esa devolución ya se reprocesó{cuando}')
+
+    # El material vuelve a quien lo reclamó. Se comprueba que el módulo
+    # responsable todavía lo tenga: si ya lo movió a otra parte, reprocesar
+    # dejaría su saldo en negativo.
+    saldo = await _saldo_modulo(db, obj.celda_destino_id, obj.producto_id)
+    if obj.cantidad > saldo + 1e-6:
+        destino = await db.get(MESCeldaTrabajo, obj.celda_destino_id)
+        raise HTTPException(
+            409,
+            f'El módulo {destino.nombre if destino else obj.celda_destino_id} '
+            f'tiene {saldo:g} de este producto y la devolución es de '
+            f'{obj.cantidad:g}: el material ya se movió a otra parte.')
+
+    db.add(MESWIP(
+        orden_id=obj.orden_id, celda_id=obj.celda_destino_id,
+        celda_destino_id=obj.celda_origen_id, producto_id=obj.producto_id,
+        lote_id=obj.lote_id, tipo_mov=TipoMovimientoWIPEnum.TRANSFERENCIA,
+        cantidad=obj.cantidad, unidad_medida=obj.unidad_medida,
+        fecha_mov=_ahora(), devolucion_id=obj.id,
+        observaciones=f'Reproceso terminado: {obj.motivo}'))
+
+    obj.estado = 'REPROCESADA'
+    obj.fecha_reproceso = _ahora()
+    if data.observaciones:
+        obj.observaciones_reproceso = data.observaciones
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+
+@router.delete('/devoluciones/{did}', status_code=204)
+async def eliminar_devolucion(did: int, db: AsyncSession = Depends(get_db)):
+    """Anula una devolución mal registrada y deshace sus movimientos.
+
+    Solo mientras esté PENDIENTE: una vez reprocesada, el material ya volvió al
+    flujo y borrarla dejaría el saldo de los dos módulos mintiendo.
+    """
+    obj = await db.get(MESDevolucion, did)
+    if not obj:
+        raise HTTPException(404, 'Esa devolución no existe')
+    if obj.estado == 'REPROCESADA':
+        raise HTTPException(
+            409, 'Ya se reprocesó: el material volvió al flujo y sus movimientos '
+                 'no se pueden deshacer. Registre un ajuste si hay que corregir.')
+    r = await db.execute(select(MESWIP).where(MESWIP.devolucion_id == did))
+    for w in r.scalars().all():
+        await db.delete(w)
+    await db.delete(obj)
+    await db.commit()
 
 
 # ─── Consumos de material ────────────────────────────────────────────────────
@@ -935,10 +1399,25 @@ async def cerrar_ejecucion(ejecucion_id: int, data: EjecucionCierre, db: AsyncSe
     obj.observaciones = data.observaciones or obj.observaciones
     obj.fecha_fin = ahora
     obj.estado = EstadoEjecucionMESEnum.COMPLETADA
+
     orden = await db.get(MESOrdenProduccion, obj.orden_id)
     if orden:
-        orden.cantidad_producida = (orden.cantidad_producida or 0) + data.cantidad_producida
-        orden.cantidad_scrap = (orden.cantidad_scrap or 0) + data.cantidad_scrap
+        # La pérdida va al libro de scrap, que es de donde sale la cifra que se
+        # mira. Antes se acumulaba directo en la orden con `+=` mientras el
+        # terminal de planta REEMPLAZABA ese mismo campo con la suma de las
+        # estaciones: el que escribía último ganaba, y la tasa de scrap del
+        # tablero era el resultado de esa carrera.
+        if data.cantidad_scrap > 0:
+            registrar_scrap(
+                db, orden_id=orden.id, producto_id=orden.producto_id,
+                cantidad=data.cantidad_scrap,
+                causa='Reportado al cerrar la ejecución',
+                operario_id=obj.operario_id,
+                observaciones=data.observaciones)
+        await db.flush()
+        # Los totales se recalculan desde sus fuentes; no los acumula nadie.
+        await recalcular_totales_orden(db, orden)
+
     await db.commit()
     await db.refresh(obj)
     return obj
@@ -1091,12 +1570,28 @@ async def list_scrap(orden_id: Optional[int] = None, db: AsyncSession = Depends(
 
 @router.post('/scrap', response_model=ScrapResponse, status_code=201)
 async def create_scrap(data: ScrapCreate, db: AsyncSession = Depends(get_db)):
+    if data.cantidad <= 0:
+        raise HTTPException(422, 'La cantidad de scrap debe ser mayor que cero')
+    if not data.causa.strip():
+        raise HTTPException(422, 'La causa del scrap es obligatoria: sin ella el '
+                                 'registro no sirve para corregir nada')
+    orden = await db.get(MESOrdenProduccion, data.orden_id)
+    if not orden:
+        raise HTTPException(404, 'Orden no encontrada')
+    if not await db.get(MESProducto, data.producto_id):
+        raise HTTPException(404, 'Producto no encontrado')
+
     d = data.model_dump()
+    d['causa'] = data.causa.strip()
     if d.get('costo_unitario') and d.get('cantidad'):
         d['costo_total'] = d['costo_unitario'] * d['cantidad']
-    d['fecha_registro'] = datetime.utcnow()
+    d['fecha_registro'] = _ahora()
     obj = MESScrap(**d)
     db.add(obj)
+    # El scrap de la orden es la suma de su libro: al agregar una pérdida hay
+    # que volver a totalizar, o el tablero se queda con la cifra anterior.
+    await db.flush()
+    await recalcular_totales_orden(db, orden)
     await db.commit()
     await db.refresh(obj)
     return obj
