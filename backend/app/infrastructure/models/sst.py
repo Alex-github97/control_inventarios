@@ -1,5 +1,5 @@
 import enum
-from sqlalchemy import Column, Integer, String, Boolean, Enum, Float, Date, Text
+from sqlalchemy import Column, Integer, String, Boolean, Enum, Float, Date, Text, UniqueConstraint
 from app.core.database import Base
 from app.infrastructure.models.base import TimestampMixin, SoftDeleteMixin
 
@@ -115,6 +115,12 @@ class SstRiesgo(Base, TimestampMixin, SoftDeleteMixin):
     nivel_riesgo         = Column(Enum(NivelRiesgoSST))
     probabilidad         = Column(Integer)
     impacto              = Column(Integer)
+    # GTC 45: el nivel de riesgo sale de estos tres, no se escoge a mano.
+    # `probabilidad` e `impacto` quedan de la versión anterior, sin uso.
+    nivel_deficiencia    = Column(Integer)
+    nivel_exposicion     = Column(Integer)
+    nivel_consecuencia   = Column(Integer)
+    expuestos            = Column(Integer)
     controles_existentes = Column(Text)
     controles_propuestos = Column(Text)
     responsable          = Column(String(150))
@@ -196,3 +202,68 @@ class SstDocumento(Base, TimestampMixin, SoftDeleteMixin):
     fecha_revision   = Column(Date)
     descripcion      = Column(Text)
     url_documento    = Column(String(500))
+
+
+# ─── Emergencias, períodos y configuración ────────────────────────────────────
+
+class SstBrigadista(Base, TimestampMixin, SoftDeleteMixin):
+    """Integrante de la brigada de emergencias.
+
+    La certificación no es un sí/no: vence. Se guarda hasta cuándo es válida y
+    la pantalla calcula si está vigente, en vez de un «certificado: sí» que
+    sigue diciendo sí años después de vencido.
+    """
+    __tablename__ = "sst_brigadistas"
+    __table_args__ = {"extend_existing": True}
+
+    id                 = Column(Integer, primary_key=True, index=True)
+    nombre             = Column(String(150), nullable=False)
+    cargo              = Column(String(100))
+    area               = Column(String(100))
+    rol                = Column(String(60), nullable=False)
+    telefono           = Column(String(40))
+    certificado_hasta  = Column(Date)
+
+
+class SstSimulacro(Base, TimestampMixin, SoftDeleteMixin):
+    __tablename__ = "sst_simulacros"
+    __table_args__ = {"extend_existing": True}
+
+    id                   = Column(Integer, primary_key=True, index=True)
+    fecha                = Column(Date, nullable=False)
+    tipo                 = Column(String(120), nullable=False)
+    participantes        = Column(Integer)
+    tiempo_respuesta_seg = Column(Integer)
+    resultado            = Column(String(30))
+    observaciones        = Column(Text)
+    acciones_mejora      = Column(Text)
+
+
+class SstPeriodo(Base, TimestampMixin):
+    """Trabajadores y horas-hombre de un mes.
+
+    Sin este dato no hay indicador que calcular: la frecuencia y la severidad
+    son accidentes y días perdidos DIVIDIDOS por la exposición. La maqueta
+    mostraba un «IF 7,0» sin que el sistema supiera cuántas horas se trabajaron.
+    """
+    __tablename__ = "sst_periodos"
+    __table_args__ = (UniqueConstraint("anio", "mes", name="uq_sst_periodo_mes"),
+                      {"extend_existing": True})
+
+    id              = Column(Integer, primary_key=True, index=True)
+    anio            = Column(Integer, nullable=False)
+    mes             = Column(Integer, nullable=False)
+    trabajadores    = Column(Integer, nullable=False)
+    horas_hombre    = Column(Float, nullable=False)
+    dias_ausencia_medica = Column(Float, default=0)
+    dias_programados     = Column(Float)
+
+
+class SstConfig(Base, TimestampMixin):
+    """Datos de la empresa ante la ARL y metas de los indicadores. Clave/valor."""
+    __tablename__ = "sst_config"
+    __table_args__ = {"extend_existing": True}
+
+    id    = Column(Integer, primary_key=True, index=True)
+    clave = Column(String(60), nullable=False, unique=True)
+    valor = Column(Text)

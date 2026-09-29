@@ -1,254 +1,164 @@
-import React, { useState } from 'react'
-import { Box, Typography, Card, CardContent, Chip, alpha, Button, TextField, Switch, FormControlLabel, Tabs, Tab, Slider, Divider } from '@mui/material'
+/**
+ * SST · Configuración
+ *
+ * Era una maqueta: datos de la empresa y metas escritos en el estado de la
+ * pantalla —«la compañía S.A.S.», NIT 900.123.456-7— y un «Guardar» que solo
+ * cambiaba el texto del botón. Ahora se guarda en el servidor.
+ *
+ * La pestaña nueva es la que hace posibles los indicadores: Períodos, con los
+ * trabajadores y las horas-hombre de cada mes. La de alertas y notificaciones
+ * se quitó: ningún proceso las enviaba.
+ */
+import { useState } from 'react'
+import {
+  Box, Paper, Tabs, Tab, TextField, Button, Typography, Table, TableBody, TableCell, TableHead, TableRow,
+  IconButton, Tooltip, LinearProgress, MenuItem, Alert,
+} from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { Settings, Notifications, Tune, Save } from '@mui/icons-material'
+import { Settings, Save, Edit, DeleteForever, Add } from '@mui/icons-material'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
-
-import { COLOR_MODULO } from '@/config/marca'
 import { AdminCatalogos } from '@/components/catalogo/AdminCatalogos'
+import { sstApi, type Periodo } from '@/api/sst'
+import { Encabezado, FormularioRegistro, errorApi, type Campo } from '@/components/comun/Registro'
+import { COLOR_MODULO } from '@/config/marca'
+
 const SST_COLOR = COLOR_MODULO
-const BORDER  = 'rgba(197,48,48,0.2)'
+const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+const CLASES_RIESGO = ['I', 'II', 'III', 'IV', 'V']
 
-const SX_INPUT = {
-  '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: BORDER } },
-  '& .MuiInputLabel-root': { color: 'text.secondary' },
-}
-const SX_SWITCH = {
-  '& .MuiSwitch-switchBase.Mui-checked': { color: SST_COLOR },
-  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: SST_COLOR },
-}
-const SX_TABS = {
-  borderBottom: '1px solid #F1F5F9', mb: 3,
-  '& .MuiTab-root': { color: 'text.secondary', fontSize: 13, textTransform: 'none' },
-  '& .Mui-selected': { color: '#F87171 !important' },
-  '& .MuiTabs-indicator': { backgroundColor: SST_COLOR },
-}
+const EMPRESA: [string, string, number][] = [
+  ['empresa', 'Razón social', 6], ['nit', 'NIT', 6], ['arl', 'ARL', 6], ['clase_riesgo', 'Clase de riesgo', 6],
+  ['responsable_sst', 'Responsable del SG-SST', 6], ['correo_responsable', 'Correo del responsable', 6],
+]
+const METAS: [string, string][] = [
+  ['meta_if', 'Índice de frecuencia máximo (AT / millón h-h)'], ['meta_is', 'Índice de severidad máximo (días / millón h-h)'],
+  ['meta_dias_sin_accidente', 'Días sin accidente (mínimo)'], ['meta_cumplimiento_capacitaciones', 'Cumplimiento de capacitaciones (%)'],
+  ['meta_cumplimiento_inspecciones', 'Cumplimiento de inspecciones (%)'], ['meta_epp_vigentes', 'EPP vigentes (%)'],
+]
 
-interface SectionTitleProps { children: React.ReactNode }
-function SectionTitle({ children }: SectionTitleProps) {
-  return <Typography sx={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'text.disabled', mb: 1.5 }}>{children}</Typography>
+const CAMPOS_PERIODO: Campo[] = [
+  { clave: 'anio', etiqueta: 'Año', tipo: 'numero', obligatorio: true, min: 2000, max: 2100, ancho: 6 },
+  { clave: 'mes', etiqueta: 'Mes', tipo: 'seleccion', opciones: MESES.map((m, i) => [i + 1, m] as [number, string]), obligatorio: true, ancho: 6 },
+  { clave: 'trabajadores', etiqueta: 'Trabajadores', tipo: 'numero', obligatorio: true, min: 1, ancho: 6 },
+  { clave: 'horas_hombre', etiqueta: 'Horas-hombre trabajadas', tipo: 'numero', obligatorio: true, min: 1, ancho: 6,
+    ayuda: 'Suma de las horas trabajadas por todos en el mes' },
+  { clave: 'dias_programados', etiqueta: 'Días de trabajo programados', tipo: 'numero', min: 0, ancho: 6, ayuda: 'Trabajadores × días hábiles' },
+  { clave: 'dias_ausencia_medica', etiqueta: 'Días de ausencia por causa médica', tipo: 'numero', min: 0, ancho: 6 },
+]
+
+function Periodos() {
+  const qc = useQueryClient()
+  const { data: periodos = [], isLoading } = useQuery({ queryKey: ['sst-periodos'], queryFn: () => sstApi.periodos.listar() })
+  const [dlg, setDlg] = useState<{ abierto: boolean; r: Periodo | null }>({ abierto: false, r: null })
+  const refrescar = () => { qc.invalidateQueries({ queryKey: ['sst-periodos'] }); qc.invalidateQueries({ queryKey: ['sst-indicadores'] }) }
+  const retirar = useMutation({
+    mutationFn: (id: number) => sstApi.periodos.retirar(id),
+    onSuccess: () => { toast.success('Período eliminado'); refrescar() },
+    onError: (e: any) => toast.error(errorApi(e)),
+  })
+  const hoy = new Date()
+  return (
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, gap: 2 }}>
+        <Typography fontSize={13} color="text.secondary">
+          Los índices de frecuencia y severidad dividen los accidentes por la exposición. Sin el mes registrado aquí, ese mes no tiene índice.
+        </Typography>
+        <Button size="small" variant="contained" startIcon={<Add />} onClick={() => setDlg({ abierto: true, r: null })} sx={{ bgcolor: SST_COLOR, flexShrink: 0 }}>Registrar mes</Button>
+      </Box>
+      {isLoading && <LinearProgress />}
+      <Table size="small">
+        <TableHead><TableRow sx={{ '& th': { fontWeight: 700, fontSize: 12 } }}>
+          <TableCell>Período</TableCell><TableCell align="right">Trabajadores</TableCell><TableCell align="right">Horas-hombre</TableCell>
+          <TableCell align="right">Días programados</TableCell><TableCell align="right">Ausencia médica</TableCell><TableCell />
+        </TableRow></TableHead>
+        <TableBody>
+          {!isLoading && periodos.length === 0 && <TableRow><TableCell colSpan={6} align="center" sx={{ py: 3, color: 'text.secondary' }}>Sin períodos registrados</TableCell></TableRow>}
+          {periodos.map(p => (
+            <TableRow key={p.id} hover>
+              <TableCell>{MESES[p.mes - 1]} {p.anio}</TableCell>
+              <TableCell align="right">{p.trabajadores.toLocaleString('es-CO')}</TableCell>
+              <TableCell align="right">{p.horas_hombre.toLocaleString('es-CO')}</TableCell>
+              <TableCell align="right">{p.dias_programados?.toLocaleString('es-CO') ?? '—'}</TableCell>
+              <TableCell align="right">{p.dias_ausencia_medica}</TableCell>
+              <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                <Tooltip title="Editar"><IconButton size="small" aria-label={`Editar ${MESES[p.mes - 1]} ${p.anio}`} onClick={() => setDlg({ abierto: true, r: p })}><Edit fontSize="small" /></IconButton></Tooltip>
+                <Tooltip title="Eliminar"><IconButton size="small" aria-label={`Eliminar ${MESES[p.mes - 1]} ${p.anio}`} onClick={() => { if (window.confirm('¿Eliminar este período?')) retirar.mutate(p.id) }}><DeleteForever fontSize="small" sx={{ color: '#DC2626' }} /></IconButton></Tooltip>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      <FormularioRegistro abierto={dlg.abierto} titulo={dlg.r ? `${MESES[dlg.r.mes - 1]} ${dlg.r.anio}` : 'Registrar mes'} campos={CAMPOS_PERIODO} registro={dlg.r}
+        valoresIniciales={{ anio: String(hoy.getFullYear()), mes: String(hoy.getMonth() + 1), dias_ausencia_medica: '0' }}
+        onGuardar={async c => {
+          await sstApi.periodos.guardar({ ...c, dias_ausencia_medica: c.dias_ausencia_medica ?? 0 } as any)
+          toast.success('Período guardado'); refrescar()
+        }}
+        onCerrar={() => setDlg({ abierto: false, r: null })} />
+    </Box>
+  )
 }
 
 export default function SSTConfig() {
-  const [tab, setTab]   = useState(0)
-
-  // Tab 0 — Empresa / SG-SST
-  const [empresa, setEmpresa]         = useState('la compañía S.A.S.')
-  const [nit, setNit]                 = useState('900.123.456-7')
-  const [arl, setArl]                 = useState('Sura')
-  const [claseRiesgo, setClaseRiesgo] = useState('III')
-  const [coord, setCoord]             = useState('Andrés Torres')
-  const [correoCoord, setCorreoCoord] = useState('sst@empresa.com')
-  const [vig, setVig]                 = useState('2026-12-31')
-  const [trabaj, setTrabaj]           = useState('94')
-
-  // Tab 1 — Alertas
-  const [alertIncidente, setAlertIncidente]       = useState(true)
-  const [alertInspeccion, setAlertInspeccion]     = useState(true)
-  const [alertEPPVencer, setAlertEPPVencer]       = useState(true)
-  const [diasPrevioEPP, setDiasPrevioEPP]         = useState(60)
-  const [alertCapacitacion, setAlertCapacitacion] = useState(true)
-  const [diasPreviosCap, setDiasPreviosCap]       = useState(7)
-  const [alertDocumentos, setAlertDocumentos]     = useState(true)
-  const [diasPreviosDoc, setDiasPreviosDoc]       = useState(30)
-  const [emailAlertas, setEmailAlertas]           = useState('operaciones@empresa.com')
-
-  // Tab 2 — Umbrales
-  const [metaDiasAcc, setMetaDiasAcc]     = useState(60)
-  const [metaIF, setMetaIF]               = useState(10)
-  const [metaIS, setMetaIS]               = useState(100)
-  const [metaCap, setMetaCap]             = useState(90)
-  const [metaInsp, setMetaInsp]           = useState(95)
-  const [metaEPP, setMetaEPP]             = useState(100)
-  const [autoClose, setAutoClose]         = useState(true)
-  const [diasAutoClose, setDiasAutoClose] = useState(30)
-
-  const [saved, setSaved] = useState(false)
-
-  function handleSave() {
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
-  }
+  const qc = useQueryClient()
+  const [tab, setTab] = useState(0)
+  const { data: cfg, isLoading } = useQuery({ queryKey: ['sst-config'], queryFn: sstApi.config })
+  const [edicion, setEdicion] = useState<Record<string, string>>({})
+  const valor = (k: string) => edicion[k] ?? cfg?.[k] ?? ''
+  const cambios = Object.keys(edicion).filter(k => edicion[k] !== (cfg?.[k] ?? ''))
+  const metaMal = (k: string) => k.startsWith('meta_') && valor(k) !== '' && !(Number(valor(k)) >= 0)
+  const guardar = useMutation({
+    mutationFn: () => sstApi.guardarConfig(Object.fromEntries(cambios.map(k => [k, edicion[k]]))),
+    onSuccess: r => { qc.setQueryData(['sst-config'], r); setEdicion({}); toast.success('Configuración guardada') },
+    onError: (e: any) => toast.error(errorApi(e)),
+  })
+  const botonGuardar = (
+    <Button variant="contained" startIcon={<Save />} disabled={!cambios.length || cambios.some(metaMal) || guardar.isPending}
+      onClick={() => guardar.mutate()} sx={{ bgcolor: SST_COLOR }}>Guardar cambios</Button>
+  )
 
   return (
     <Layout>
-      <Box sx={{ p: 3, minHeight: '100vh' }}>
-
-        {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Settings sx={{ color: SST_COLOR, fontSize: 28 }} />
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Configuración SST</Typography>
-              <Typography sx={{ fontSize: 12, color: 'text.disabled' }}>Parámetros del SG-SST, alertas y umbrales de cumplimiento</Typography>
-            </Box>
-            <Chip label="SG-SST" size="small" sx={{ bgcolor: alpha(SST_COLOR, 0.15), color: '#F87171', fontWeight: 700, border: `1px solid ${alpha(SST_COLOR, 0.35)}` }} />
+      <Box sx={{ p: 3 }}>
+        <Encabezado icono={<Settings sx={{ fontSize: 28 }} />} titulo="Configuración SST" subtitulo="SST · Empresa, metas, períodos y catálogos" color={SST_COLOR} />
+        <Paper variant="outlined" sx={{ borderRadius: 2 }}>
+          <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ px: 2, borderBottom: '1px solid #E5E7EB' }}>
+            <Tab label="Empresa" /><Tab label="Metas" /><Tab label="Períodos" /><Tab label="Catálogos" />
+          </Tabs>
+          {isLoading && <LinearProgress />}
+          <Box sx={{ p: 3 }}>
+            {tab === 0 && (
+              <Grid container spacing={2} sx={{ maxWidth: 800 }}>
+                {EMPRESA.map(([k, l, w]) => (
+                  <Grid key={k} size={{ xs: 12, sm: w }}>
+                    {k === 'clase_riesgo'
+                      ? <TextField select label={l} fullWidth size="small" value={valor(k)} onChange={e => setEdicion({ ...edicion, [k]: e.target.value })}>
+                          <MenuItem value=""><em>—</em></MenuItem>{CLASES_RIESGO.map(c => <MenuItem key={c} value={c}>Clase {c}</MenuItem>)}
+                        </TextField>
+                      : <TextField label={l} fullWidth size="small" value={valor(k)} onChange={e => setEdicion({ ...edicion, [k]: e.target.value })} />}
+                  </Grid>
+                ))}
+                <Grid size={{ xs: 12 }}>{botonGuardar}</Grid>
+              </Grid>
+            )}
+            {tab === 1 && (
+              <Grid container spacing={2} sx={{ maxWidth: 800 }}>
+                <Grid size={{ xs: 12 }}><Alert severity="info">Las usa la pantalla de Indicadores para marcar en verde o rojo cada cifra.</Alert></Grid>
+                {METAS.map(([k, l]) => (
+                  <Grid key={k} size={{ xs: 12, sm: 6 }}>
+                    <TextField label={l} type="number" fullWidth size="small" value={valor(k)} error={metaMal(k)} helperText={metaMal(k) ? 'Número no negativo' : undefined}
+                      onChange={e => setEdicion({ ...edicion, [k]: e.target.value })} />
+                  </Grid>
+                ))}
+                <Grid size={{ xs: 12 }}>{botonGuardar}</Grid>
+              </Grid>
+            )}
+            {tab === 2 && <Periodos />}
+            {tab === 3 && <AdminCatalogos modulo="SST" color={COLOR_MODULO} />}
           </Box>
-          <Button variant="contained" startIcon={<Save />} onClick={handleSave}
-            sx={{ bgcolor: saved ? '#22c55e' : SST_COLOR, transition: 'background 0.3s' }}>
-            {saved ? 'Guardado' : 'Guardar cambios'}
-          </Button>
-        </Box>
-
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={SX_TABS}>
-          <Tab icon={<Settings sx={{ fontSize: 16 }} />} iconPosition="start" label="Empresa / SG-SST" />
-          <Tab icon={<Notifications sx={{ fontSize: 16 }} />} iconPosition="start" label="Alertas y notificaciones" />
-          <Tab icon={<Tune sx={{ fontSize: 16 }} />} iconPosition="start" label="Umbrales e indicadores" />
-          <Tab label="Catálogos" />
-        </Tabs>
-
-        {tab === 3 && <AdminCatalogos modulo="SST" color={COLOR_MODULO} />}
-
-        {/* Tab 0: Empresa */}
-        {tab === 0 && (
-          <Grid container spacing={2.5}>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ border: `1px solid ${BORDER}`, borderRadius: 2 }}>
-                <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <SectionTitle>Información de la empresa</SectionTitle>
-                  <TextField label="Razón social" value={empresa} onChange={e => setEmpresa(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
-                  <Box sx={{ display: 'flex', gap: 2 }}>
-                    <TextField label="NIT" value={nit} onChange={e => setNit(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
-                    <TextField label="No. trabajadores" value={trabaj} onChange={e => setTrabaj(e.target.value)} size="small" sx={{ ...SX_INPUT, width: 140 }} />
-                  </Box>
-                  <Box sx={{ display: 'flex', gap: 2 }}>
-                    <TextField label="ARL" value={arl} onChange={e => setArl(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
-                    <TextField label="Clase de riesgo" value={claseRiesgo} onChange={e => setClaseRiesgo(e.target.value)} size="small" sx={{ ...SX_INPUT, width: 140 }} />
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ border: `1px solid ${BORDER}`, borderRadius: 2 }}>
-                <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <SectionTitle>Responsable del SG-SST</SectionTitle>
-                  <TextField label="Coordinador SST" value={coord} onChange={e => setCoord(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
-                  <TextField label="Correo del coordinador" value={correoCoord} onChange={e => setCorreoCoord(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
-                  <TextField label="Vigencia actual del SG-SST" type="date" value={vig} onChange={e => setVig(e.target.value)} fullWidth size="small" sx={SX_INPUT} InputLabelProps={{ shrink: true }} />
-                  <Box sx={{ p: 1.5, bgcolor: alpha(SST_COLOR, 0.08), borderRadius: 1.5, border: `1px solid ${alpha(SST_COLOR, 0.2)}` }}>
-                    <Typography sx={{ fontSize: 11, color: '#F87171' }}>Normas de referencia: Decreto 1072/2015, Resolución 0312/2019, Resolución 2400/1979</Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        )}
-
-        {/* Tab 1: Alertas */}
-        {tab === 1 && (
-          <Grid container spacing={2.5}>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ border: `1px solid ${BORDER}`, borderRadius: 2 }}>
-                <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                  <SectionTitle>Alertas automáticas</SectionTitle>
-                  <FormControlLabel label={<Typography sx={{ fontSize: 13, color: 'text.primary' }}>Notificar nuevos incidentes/accidentes</Typography>}
-                    control={<Switch checked={alertIncidente} onChange={e => setAlertIncidente(e.target.checked)} size="small" sx={SX_SWITCH} />} />
-                  <FormControlLabel label={<Typography sx={{ fontSize: 13, color: 'text.primary' }}>Inspecciones vencidas sin completar</Typography>}
-                    control={<Switch checked={alertInspeccion} onChange={e => setAlertInspeccion(e.target.checked)} size="small" sx={SX_SWITCH} />} />
-                  <Divider sx={{ borderColor: '#F1F5F9' }} />
-                  <FormControlLabel label={<Typography sx={{ fontSize: 13, color: 'text.primary' }}>EPP próximo a vencer</Typography>}
-                    control={<Switch checked={alertEPPVencer} onChange={e => setAlertEPPVencer(e.target.checked)} size="small" sx={SX_SWITCH} />} />
-                  {alertEPPVencer && (
-                    <Box sx={{ pl: 4 }}>
-                      <Typography sx={{ fontSize: 11, color: 'text.secondary', mb: 0.5 }}>Días de anticipación: {diasPrevioEPP}</Typography>
-                      <Slider value={diasPrevioEPP} onChange={(_, v) => setDiasPrevioEPP(v as number)} min={7} max={180} step={7}
-                        sx={{ color: SST_COLOR, '& .MuiSlider-rail': { bgcolor: '#E2E8F0' } }} />
-                    </Box>
-                  )}
-                  <FormControlLabel label={<Typography sx={{ fontSize: 13, color: 'text.primary' }}>Capacitaciones próximas a realizarse</Typography>}
-                    control={<Switch checked={alertCapacitacion} onChange={e => setAlertCapacitacion(e.target.checked)} size="small" sx={SX_SWITCH} />} />
-                  {alertCapacitacion && (
-                    <Box sx={{ pl: 4 }}>
-                      <Typography sx={{ fontSize: 11, color: 'text.secondary', mb: 0.5 }}>Días de anticipación: {diasPreviosCap}</Typography>
-                      <Slider value={diasPreviosCap} onChange={(_, v) => setDiasPreviosCap(v as number)} min={1} max={30}
-                        sx={{ color: SST_COLOR, '& .MuiSlider-rail': { bgcolor: '#E2E8F0' } }} />
-                    </Box>
-                  )}
-                  <FormControlLabel label={<Typography sx={{ fontSize: 13, color: 'text.primary' }}>Documentos próximos a vencer revisión</Typography>}
-                    control={<Switch checked={alertDocumentos} onChange={e => setAlertDocumentos(e.target.checked)} size="small" sx={SX_SWITCH} />} />
-                  {alertDocumentos && (
-                    <Box sx={{ pl: 4 }}>
-                      <Typography sx={{ fontSize: 11, color: 'text.secondary', mb: 0.5 }}>Días de anticipación: {diasPreviosDoc}</Typography>
-                      <Slider value={diasPreviosDoc} onChange={(_, v) => setDiasPreviosDoc(v as number)} min={7} max={90} step={7}
-                        sx={{ color: SST_COLOR, '& .MuiSlider-rail': { bgcolor: '#E2E8F0' } }} />
-                    </Box>
-                  )}
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ border: `1px solid ${BORDER}`, borderRadius: 2 }}>
-                <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <SectionTitle>Destino de notificaciones</SectionTitle>
-                  <TextField label="Correo para alertas SST" value={emailAlertas} onChange={e => setEmailAlertas(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
-                  <Box sx={{ p: 1.5, bgcolor: '#F9FAFB', borderRadius: 1.5, border: `1px solid ${BORDER}` }}>
-                    <Typography sx={{ fontSize: 12, color: 'text.secondary', lineHeight: 1.5 }}>
-                      Las alertas también se enviarán al coordinador SST configurado en la pestaña "Empresa / SG-SST". Para múltiples destinatarios, separe los correos con coma.
-                    </Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        )}
-
-        {/* Tab 2: Umbrales */}
-        {tab === 2 && (
-          <Grid container spacing={2.5}>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ border: `1px solid ${BORDER}`, borderRadius: 2 }}>
-                <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <SectionTitle>Metas de indicadores clave</SectionTitle>
-                  {[
-                    { label: 'Días sin accidente (meta mínima)', value: metaDiasAcc, set: setMetaDiasAcc, min: 0, max: 365 },
-                    { label: 'Índice de Frecuencia — meta máxima', value: metaIF, set: setMetaIF, min: 0, max: 50 },
-                    { label: 'Índice de Severidad — meta máxima', value: metaIS, set: setMetaIS, min: 0, max: 500 },
-                  ].map(cfg => (
-                    <Box key={cfg.label}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.25 }}>
-                        <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{cfg.label}</Typography>
-                        <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#F87171' }}>{cfg.value}</Typography>
-                      </Box>
-                      <Slider value={cfg.value} onChange={(_, v) => cfg.set(v as number)} min={cfg.min} max={cfg.max}
-                        sx={{ color: SST_COLOR, '& .MuiSlider-rail': { bgcolor: '#E2E8F0' } }} />
-                    </Box>
-                  ))}
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ border: `1px solid ${BORDER}`, borderRadius: 2 }}>
-                <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <SectionTitle>Metas de cumplimiento (%)</SectionTitle>
-                  {[
-                    { label: 'Cumplimiento capacitaciones',  value: metaCap,  set: setMetaCap  },
-                    { label: 'Cumplimiento inspecciones',    value: metaInsp, set: setMetaInsp },
-                    { label: 'Cobertura EPP',                value: metaEPP,  set: setMetaEPP  },
-                  ].map(cfg => (
-                    <Box key={cfg.label}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.25 }}>
-                        <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{cfg.label}</Typography>
-                        <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#F87171' }}>{cfg.value}%</Typography>
-                      </Box>
-                      <Slider value={cfg.value} onChange={(_, v) => cfg.set(v as number)} min={50} max={100}
-                        sx={{ color: SST_COLOR, '& .MuiSlider-rail': { bgcolor: '#E2E8F0' } }} />
-                    </Box>
-                  ))}
-                  <Divider sx={{ borderColor: '#F1F5F9' }} />
-                  <FormControlLabel label={<Typography sx={{ fontSize: 13, color: 'text.primary' }}>Cierre automático de incidentes investigados</Typography>}
-                    control={<Switch checked={autoClose} onChange={e => setAutoClose(e.target.checked)} size="small" sx={SX_SWITCH} />} />
-                  {autoClose && (
-                    <Box sx={{ pl: 4 }}>
-                      <Typography sx={{ fontSize: 11, color: 'text.secondary', mb: 0.5 }}>Días tras investigación: {diasAutoClose}</Typography>
-                      <Slider value={diasAutoClose} onChange={(_, v) => setDiasAutoClose(v as number)} min={7} max={90} step={7}
-                        sx={{ color: SST_COLOR, '& .MuiSlider-rail': { bgcolor: '#E2E8F0' } }} />
-                    </Box>
-                  )}
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        )}
+        </Paper>
       </Box>
     </Layout>
   )

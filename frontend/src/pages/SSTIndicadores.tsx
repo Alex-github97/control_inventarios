@@ -1,183 +1,161 @@
-import React, { useState } from 'react'
-import { Box, Typography, Card, CardContent, Chip, alpha } from '@mui/material'
+/**
+ * SST · Indicadores del sistema de gestión
+ *
+ * Era una maqueta: IF 7,0, IS 45, cobertura de EPP 94,2 % y seis meses de
+ * gráficas escritos a mano, en un sistema que no sabía cuántas horas se
+ * habían trabajado.
+ *
+ * Ahora los calcula el servidor con los incidentes, las inspecciones, las
+ * capacitaciones y los períodos (trabajadores y horas-hombre de cada mes, que
+ * se registran en Configuración). Un mes sin período no tiene índice y se
+ * dice; las metas son las de Configuración.
+ */
+import { useState } from 'react'
+import { Box, Typography, Paper, Chip, Alert, TextField, MenuItem, LinearProgress, Table, TableBody, TableCell, TableHead, TableRow, alpha } from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { Analytics, TrendingUp, TrendingDown } from '@mui/icons-material'
-import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts'
+import { Analytics } from '@mui/icons-material'
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts'
+import { useQuery } from '@tanstack/react-query'
+import { Link as RouterLink } from 'react-router-dom'
 import { Layout } from '@/components/layout/Layout'
-
+import { sstApi } from '@/api/sst'
+import { Encabezado } from '@/components/comun/Registro'
 import { COLOR_MODULO, SERIES } from '@/config/marca'
+
 const SST_COLOR = COLOR_MODULO
-const PAGE_BG = '#F0F2F5'
-const TOOLTIP_STYLE = { contentStyle: { backgroundColor: '#FFFFFF', border: '1px solid rgba(197,48,48,0.2)', borderRadius: 8, color: 'text.primary', fontSize: 12 } }
-
-const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
-
-const DATA_ACCIDENTALIDAD = [
-  { mes: 'Ene', AT: 1, incidentes: 3 }, { mes: 'Feb', AT: 0, incidentes: 2 },
-  { mes: 'Mar', AT: 2, incidentes: 4 }, { mes: 'Abr', AT: 1, incidentes: 1 },
-  { mes: 'May', AT: 0, incidentes: 2 }, { mes: 'Jun', AT: 1, incidentes: 2 },
-]
-
-const DATA_INSPECCIONES = [
-  { mes: 'Ene', programadas: 8, completadas: 7 }, { mes: 'Feb', programadas: 8, completadas: 8 },
-  { mes: 'Mar', programadas: 10, completadas: 9 }, { mes: 'Abr', programadas: 8, completadas: 6 },
-  { mes: 'May', programadas: 9, completadas: 9 }, { mes: 'Jun', programadas: 8, completadas: 6 },
-]
-
-const DATA_IF_IS = [
-  { mes: 'Ene', IF: 8.5, IS: 45.0 }, { mes: 'Feb', IF: 0, IS: 0 },
-  { mes: 'Mar', IF: 16.9, IS: 135.0 }, { mes: 'Abr', IF: 8.4, IS: 30.0 },
-  { mes: 'May', IF: 0, IS: 0 }, { mes: 'Jun', IF: 8.3, IS: 15.0 },
-]
-
-const DATA_EPP_PIE = [
-  { name: 'Cabeza', value: 24 }, { name: 'Ojos', value: 31 },
-  { name: 'Manos', value: 58 }, { name: 'Pies', value: 41 },
-  { name: 'Cuerpo', value: 29 }, { name: 'Respiratorio', value: 18 },
-]
-const PIE_COLORS = SERIES
-
-const DATA_CAPACITACION = [
-  { mes: 'Ene', programadas: 2, completadas: 2, participantes: 45 },
-  { mes: 'Feb', programadas: 1, completadas: 1, participantes: 28 },
-  { mes: 'Mar', programadas: 3, completadas: 3, participantes: 92 },
-  { mes: 'Abr', programadas: 2, completadas: 1, participantes: 30 },
-  { mes: 'May', programadas: 2, completadas: 2, participantes: 47 },
-  { mes: 'Jun', programadas: 3, completadas: 2, participantes: 85 },
-]
-
-interface KPICard { label: string; value: string | number; unit?: string; meta?: string; ok: boolean; trend: 'up' | 'down' | 'flat'; desc: string }
-
-const KPIS: KPICard[] = [
-  { label: 'Índice de Frecuencia (IF)',      value: '7.0',  unit: 'AT/millón h-h',  meta: 'Meta: < 10',   ok: true,  trend: 'down', desc: 'AT con incapacidad / horas-hombre trabajadas × 1.000.000' },
-  { label: 'Índice de Severidad (IS)',        value: '45.0', unit: 'días/millón h-h', meta: 'Meta: < 100', ok: true,  trend: 'down', desc: 'Días cargados / horas-hombre trabajadas × 1.000.000' },
-  { label: 'Índice de Lesión Incapacitante', value: '0.32', unit: '%',               meta: 'Meta: < 0.5', ok: true,  trend: 'down', desc: 'IF × IS / 1.000' },
-  { label: 'Cobertura EPP (%)',               value: '94.2', unit: '%',               meta: 'Meta: 100%',  ok: false, trend: 'up',   desc: 'Trabajadores con todos sus EPP entregados y vigentes' },
-  { label: 'Cumplimiento capacitaciones',     value: '83.3', unit: '%',               meta: 'Meta: 90%',   ok: false, trend: 'up',   desc: 'Capacitaciones completadas vs. programadas en el año' },
-  { label: 'Días sin accidente',              value: 10,     unit: 'días',            meta: 'Meta: > 60',  ok: false, trend: 'flat', desc: 'Días sin accidentes de trabajo con incapacidad' },
-]
+const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+const EPP: Record<string, string> = { CABEZA: 'Cabeza', OJOS_CARA: 'Ojos', AUDITIVO: 'Auditivo', RESPIRATORIO: 'Respiratorio', MANOS: 'Manos', PIES: 'Pies', CUERPO: 'Cuerpo', CAIDAS: 'Caídas' }
+const fmt = (n: number | null | undefined, d = 1) => (n == null ? '—' : n.toLocaleString('es-CO', { maximumFractionDigits: d }))
 
 export default function SSTIndicadores() {
+  const actual = new Date().getFullYear()
+  const [anio, setAnio] = useState(actual)
+  const { data, isLoading } = useQuery({ queryKey: ['sst-indicadores', anio], queryFn: () => sstApi.indicadores(anio) })
+  const { data: cfg } = useQuery({ queryKey: ['sst-config'], queryFn: sstApi.config })
+  const { data: tablero } = useQuery({ queryKey: ['sst-tablero'], queryFn: sstApi.tablero })
+  const meta = (k: string) => (cfg?.[k] ? Number(cfg[k]) : null)
+
+  const a = data?.anual
+  // Solo hasta el mes actual en el año en curso: los meses futuros no son «cero accidentes».
+  const hasta = anio === actual ? new Date().getMonth() + 1 : 12
+  const meses = (data?.meses ?? []).slice(0, hasta).map(m => ({ ...m, nombre: MESES[m.mes - 1] }))
+  const sinPeriodo = meses.filter(m => m.horas_hombre == null).map(m => m.nombre)
+
+  type Tarjeta = { t: string; v: string; u: string; meta: number | null; cumple: boolean | null; d: string }
+  const menor = (v: number | null | undefined, m: number | null) => (v == null || m == null ? null : v <= m)
+  const mayor = (v: number | null | undefined, m: number | null) => (v == null || m == null ? null : v >= m)
+  const tarjetas: Tarjeta[] = [
+    { t: 'Índice de frecuencia (IF)', v: fmt(a?.if), u: 'AT / millón h-h', meta: meta('meta_if'), cumple: menor(a?.if, meta('meta_if')), d: 'AT con incapacidad × 1.000.000 / horas-hombre' },
+    { t: 'Índice de severidad (IS)', v: fmt(a?.is), u: 'días / millón h-h', meta: meta('meta_is'), cumple: menor(a?.is, meta('meta_is')), d: 'Días perdidos × 1.000.000 / horas-hombre' },
+    { t: 'Índice de lesión incapacitante', v: fmt(a?.ili, 3), u: 'ILI', meta: null, cumple: null, d: 'IF × IS / 1.000' },
+    { t: 'Días sin accidente', v: tablero?.dias_sin_accidente == null ? '—' : String(tablero.dias_sin_accidente), u: 'días', meta: meta('meta_dias_sin_accidente'), cumple: mayor(tablero?.dias_sin_accidente, meta('meta_dias_sin_accidente')), d: tablero?.ultimo_accidente ? `Último accidente: ${tablero.ultimo_accidente}` : 'Sin accidentes registrados' },
+    { t: 'Cumplimiento de capacitaciones', v: a?.cumplimiento_capacitaciones == null ? '—' : `${fmt(a.cumplimiento_capacitaciones)}%`, u: '', meta: meta('meta_cumplimiento_capacitaciones'), cumple: mayor(a?.cumplimiento_capacitaciones, meta('meta_cumplimiento_capacitaciones')), d: 'Completadas / programadas en el año' },
+    { t: 'Cumplimiento de inspecciones', v: a?.cumplimiento_inspecciones == null ? '—' : `${fmt(a.cumplimiento_inspecciones)}%`, u: '', meta: meta('meta_cumplimiento_inspecciones'), cumple: mayor(a?.cumplimiento_inspecciones, meta('meta_cumplimiento_inspecciones')), d: 'Completadas / programadas en el año' },
+    { t: 'EPP vigentes', v: a?.epp_vigentes_pct == null ? '—' : `${fmt(a.epp_vigentes_pct)}%`, u: '', meta: meta('meta_epp_vigentes'), cumple: mayor(a?.epp_vigentes_pct, meta('meta_epp_vigentes')), d: 'Entregas activas sin vencer' },
+    { t: 'Proporción de AT mortales', v: a?.proporcion_at_mortales == null ? '—' : `${fmt(a.proporcion_at_mortales)}%`, u: '', meta: null, cumple: null, d: 'Resolución 0312: mortales / total de AT del año' },
+  ]
+
   return (
     <Layout>
-      <Box sx={{ p: 3, background: PAGE_BG, minHeight: '100vh' }}>
-
-        {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
-          <Analytics sx={{ color: SST_COLOR, fontSize: 28 }} />
-          <Box>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Indicadores SST</Typography>
-            <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>Tablero de seguimiento — IF, IS, ILI y cumplimiento del SG-SST · 2026</Typography>
-          </Box>
-          <Chip label="SG-SST" size="small" sx={{ bgcolor: alpha(SST_COLOR, 0.15), color: SST_COLOR, fontWeight: 700, border: `1px solid ${alpha(SST_COLOR, 0.35)}` }} />
+      <Box sx={{ p: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2 }}>
+          <Encabezado icono={<Analytics sx={{ fontSize: 28 }} />} titulo="Indicadores SST" subtitulo="SST · IF, IS, ILI y cumplimiento del SG-SST" color={SST_COLOR} />
+          <TextField select size="small" label="Año" value={anio} onChange={e => setAnio(Number(e.target.value))} sx={{ minWidth: 110 }}>
+            {[actual, actual - 1, actual - 2].map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
+          </TextField>
         </Box>
+        {isLoading && <LinearProgress sx={{ mb: 2 }} />}
+        {sinPeriodo.length > 0 && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            Faltan trabajadores y horas-hombre de: {sinPeriodo.join(', ')}. Sin ese dato no se calculan IF, IS ni ILI de esos meses.
+            Regístralos en <RouterLink to="/sst/config">Configuración → Períodos</RouterLink>.
+            {a && a.accidentes_sin_periodo > 0 && ` ${a.accidentes_sin_periodo} accidente(s) de esos meses no entran al índice anual.`}
+          </Alert>
+        )}
 
-        {/* KPIs principales */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          {KPIS.map(k => (
-            <Grid key={k.label} size={{ xs: 12, sm: 6, md: 4 }}>
-              <Card sx={{ border: `1px solid ${alpha(k.ok ? '#22c55e' : SST_COLOR, 0.25)}`, borderRadius: 2 }}>
-                <CardContent sx={{ p: '14px !important' }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                    <Typography sx={{ fontSize: 11, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.7, flex: 1, lineHeight: 1.3 }}>{k.label}</Typography>
-                    {k.trend !== 'flat' && (k.trend === 'down'
-                      ? <TrendingDown sx={{ fontSize: 16, color: '#22c55e' }} />
-                      : <TrendingUp sx={{ fontSize: 16, color: k.ok ? '#22c55e' : '#ef4444' }} />
-                    )}
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, mb: 0.25 }}>
-                    <Typography sx={{ fontSize: 28, fontWeight: 900, color: k.ok ? '#22c55e' : SST_COLOR, lineHeight: 1 }}>{k.value}</Typography>
-                    <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{k.unit}</Typography>
-                  </Box>
-                  <Typography sx={{ fontSize: 10, color: k.ok ? '#22c55e' : '#fbbf24' }}>{k.meta}</Typography>
-                  <Typography sx={{ fontSize: 10, color: 'text.disabled', mt: 0.5, lineHeight: 1.3 }}>{k.desc}</Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
+        <Grid container spacing={2} mb={3}>
+          {tarjetas.map(t => {
+            const color = t.cumple == null ? '#6B7280' : t.cumple ? '#15803D' : '#DC2626'
+            return (
+              <Grid key={t.t} size={{ xs: 12, sm: 6, md: 3 }}>
+                <Paper elevation={0} sx={{ p: 2, borderRadius: 2, border: `1px solid ${alpha(color, 0.3)}`, height: '100%' }}>
+                  <Typography fontSize={12} color="text.secondary">{t.t}</Typography>
+                  <Typography fontSize={24} fontWeight={800} color={color}>{t.v} <Typography component="span" fontSize={11} color="text.secondary">{t.u}</Typography></Typography>
+                  {t.meta != null && <Chip size="small" label={`Meta ${t.t.startsWith('Índice') ? '≤' : '≥'} ${t.meta}`} sx={{ height: 18, fontSize: 10, mb: 0.5 }} />}
+                  <Typography fontSize={11} color="text.disabled">{t.d}</Typography>
+                </Paper>
+              </Grid>
+            )
+          })}
         </Grid>
 
-        <Grid container spacing={2.5}>
-          {/* Accidentalidad */}
-          <Grid size={{ xs: 12, md: 8 }}>
-            <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2, height: '100%' }}>
-              <CardContent>
-                <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 0.25, fontSize: 14 }}>Accidentalidad mensual 2026</Typography>
-                <Typography sx={{ fontSize: 11, color: 'text.disabled', mb: 2 }}>Accidentes de trabajo e incidentes registrados</Typography>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={DATA_ACCIDENTALIDAD} barGap={4}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
-                    <XAxis dataKey="mes" tick={{ fill: '#64748B', fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: '#64748B', fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                    <Tooltip {...TOOLTIP_STYLE} />
-                    <Legend wrapperStyle={{ fontSize: 11, color: 'text.secondary' }} />
-                    <Bar dataKey="AT" name="Accidentes trabajo" fill={SST_COLOR} radius={[3,3,0,0]} maxBarSize={28} />
-                    <Bar dataKey="incidentes" name="Incidentes" fill="#f59e0b" radius={[3,3,0,0]} maxBarSize={28} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* EPP Pie */}
-          <Grid size={{ xs: 12, md: 4 }}>
-            <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2, height: '100%' }}>
-              <CardContent>
-                <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 0.25, fontSize: 14 }}>EPP entregados por tipo</Typography>
-                <Typography sx={{ fontSize: 11, color: 'text.disabled', mb: 1.5 }}>Distribución de entregas activas</Typography>
-                <ResponsiveContainer width="100%" height={200}>
-                  <PieChart>
-                    <Pie data={DATA_EPP_PIE} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value">
-                      {DATA_EPP_PIE.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip {...TOOLTIP_STYLE} />
-                    <Legend wrapperStyle={{ fontSize: 10, color: 'text.secondary' }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* IF / IS Línea */}
+        <Grid container spacing={2}>
           <Grid size={{ xs: 12, md: 6 }}>
-            <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
-              <CardContent>
-                <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 0.25, fontSize: 14 }}>Evolución IF e IS — 2026</Typography>
-                <Typography sx={{ fontSize: 11, color: 'text.disabled', mb: 2 }}>Índice de frecuencia y severidad mensual</Typography>
-                <ResponsiveContainer width="100%" height={200}>
-                  <LineChart data={DATA_IF_IS}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
-                    <XAxis dataKey="mes" tick={{ fill: '#64748B', fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: '#64748B', fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <Tooltip {...TOOLTIP_STYLE} />
-                    <Legend wrapperStyle={{ fontSize: 11, color: 'text.secondary' }} />
-                    <Line type="monotone" dataKey="IF" name="Índice Frecuencia" stroke={SST_COLOR} strokeWidth={2.5} dot={{ r: 4, fill: SST_COLOR }} />
-                    <Line type="monotone" dataKey="IS" name="Índice Severidad" stroke="#f59e0b" strokeWidth={2.5} dot={{ r: 4, fill: '#f59e0b' }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, height: 300 }}>
+              <Typography fontWeight={700} fontSize={14} mb={1}>Accidentalidad por mes</Typography>
+              <ResponsiveContainer width="100%" height="88%">
+                <BarChart data={meses}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="nombre" fontSize={11} /><YAxis allowDecimals={false} fontSize={11} /><Tooltip /><Legend />
+                  <Bar dataKey="accidentes" name="Accidentes de trabajo" fill={SERIES[0]} /><Bar dataKey="incidentes" name="Otros eventos" fill={SERIES[2]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </Paper>
           </Grid>
-
-          {/* Capacitaciones */}
           <Grid size={{ xs: 12, md: 6 }}>
-            <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
-              <CardContent>
-                <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 0.25, fontSize: 14 }}>Capacitaciones — programadas vs. ejecutadas</Typography>
-                <Typography sx={{ fontSize: 11, color: 'text.disabled', mb: 2 }}>Cumplimiento del plan anual de formación</Typography>
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={DATA_CAPACITACION} barGap={4}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
-                    <XAxis dataKey="mes" tick={{ fill: '#64748B', fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: '#64748B', fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                    <Tooltip {...TOOLTIP_STYLE} />
-                    <Legend wrapperStyle={{ fontSize: 11, color: 'text.secondary' }} />
-                    <Bar dataKey="programadas" name="Programadas" fill="rgba(59,130,246,0.3)" radius={[3,3,0,0]} maxBarSize={28} />
-                    <Bar dataKey="completadas" name="Completadas" fill="#3b82f6" radius={[3,3,0,0]} maxBarSize={28} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, height: 300 }}>
+              <Typography fontWeight={700} fontSize={14} mb={1}>IF e IS por mes</Typography>
+              <ResponsiveContainer width="100%" height="88%">
+                <LineChart data={meses}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="nombre" fontSize={11} /><YAxis yAxisId="if" fontSize={11} /><YAxis yAxisId="is" orientation="right" fontSize={11} /><Tooltip /><Legend />
+                  <Line yAxisId="if" dataKey="if" name="IF" stroke={SERIES[0]} connectNulls={false} /><Line yAxisId="is" dataKey="is" name="IS" stroke={SERIES[1]} connectNulls={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </Paper>
+          </Grid>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, height: 300 }}>
+              <Typography fontWeight={700} fontSize={14} mb={1}>Inspecciones y capacitaciones</Typography>
+              <ResponsiveContainer width="100%" height="88%">
+                <BarChart data={meses}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="nombre" fontSize={11} /><YAxis allowDecimals={false} fontSize={11} /><Tooltip /><Legend />
+                  <Bar dataKey="inspecciones_programadas" name="Insp. programadas" fill={alpha(SERIES[1], 0.4)} /><Bar dataKey="inspecciones_completadas" name="Insp. completadas" fill={SERIES[1]} />
+                  <Bar dataKey="capacitaciones_programadas" name="Cap. programadas" fill={alpha(SERIES[3], 0.4)} /><Bar dataKey="capacitaciones_completadas" name="Cap. completadas" fill={SERIES[3]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </Paper>
+          </Grid>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, height: 300 }}>
+              <Typography fontWeight={700} fontSize={14} mb={1}>EPP entregados vigentes por tipo</Typography>
+              <ResponsiveContainer width="100%" height="88%">
+                <BarChart data={(data?.epp_por_tipo ?? []).map(e => ({ ...e, nombre: EPP[e.tipo] ?? e.tipo }))} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} /><XAxis type="number" allowDecimals={false} fontSize={11} /><YAxis type="category" dataKey="nombre" width={90} fontSize={11} /><Tooltip />
+                  <Bar dataKey="cantidad" name="Unidades" fill={SST_COLOR} />
+                </BarChart>
+              </ResponsiveContainer>
+            </Paper>
+          </Grid>
+          <Grid size={{ xs: 12 }}>
+            <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto' }}>
+              <Typography fontWeight={700} fontSize={14} sx={{ p: 2, pb: 0 }}>Detalle mensual (Resolución 0312 de 2019)</Typography>
+              <Table size="small">
+                <TableHead><TableRow sx={{ '& th': { fontWeight: 700, fontSize: 12 } }}>
+                  <TableCell>Mes</TableCell><TableCell align="right">Trabajadores</TableCell><TableCell align="right">Horas-hombre</TableCell><TableCell align="right">AT</TableCell>
+                  <TableCell align="right">Días perdidos</TableCell><TableCell align="right">Frecuencia</TableCell><TableCell align="right">Severidad</TableCell><TableCell align="right">Ausentismo</TableCell>
+                </TableRow></TableHead>
+                <TableBody>
+                  {meses.map(m => (
+                    <TableRow key={m.mes}>
+                      <TableCell>{m.nombre}</TableCell>
+                      <TableCell align="right">{fmt(m.trabajadores, 0)}</TableCell>
+                      <TableCell align="right">{fmt(m.horas_hombre, 0)}</TableCell>
+                      <TableCell align="right">{m.accidentes}</TableCell>
+                      <TableCell align="right">{m.dias_perdidos}</TableCell>
+                      <TableCell align="right">{m.frecuencia_0312 == null ? '—' : `${fmt(m.frecuencia_0312, 2)}%`}</TableCell>
+                      <TableCell align="right">{m.severidad_0312 == null ? '—' : fmt(m.severidad_0312, 2)}</TableCell>
+                      <TableCell align="right">{m.ausentismo == null ? '—' : `${fmt(m.ausentismo, 2)}%`}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Paper>
           </Grid>
         </Grid>
       </Box>

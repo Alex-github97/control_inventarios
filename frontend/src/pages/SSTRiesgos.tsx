@@ -1,196 +1,136 @@
-import React, { useState } from 'react'
-import { Box, Typography, Card, CardContent, Chip, alpha, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, Select, FormControl, InputLabel } from '@mui/material'
+/**
+ * SST · Matriz de peligros y riesgos (GTC 45)
+ *
+ * Era una maqueta con una escala inventada de 1 a 10 y el nivel escogido a
+ * mano: P6×I9 decía «alto» y P6×I5 «medio», sin regla que los uniera.
+ *
+ * Ahora se valora como pide la GTC 45: nivel de deficiencia × exposición da la
+ * probabilidad; por la consecuencia da el nivel de riesgo, que se interpreta
+ * de I (no aceptable) a IV (aceptable). El servidor lo calcula; aquí se
+ * muestra mientras se llena el formulario para que quien valora vea el efecto.
+ */
+import { useState } from 'react'
+import {
+  Box, Chip, Table, TableBody, TableCell, TableHead, TableRow, Paper, IconButton, Tooltip,
+  LinearProgress, Typography, alpha,
+} from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { GppBad, Add, Warning, CheckCircle, Info } from '@mui/icons-material'
+import { Warning, Edit, DeleteForever } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
-
+import { sstApi, type Riesgo } from '@/api/sst'
+import { FormularioRegistro, useCrud, Encabezado, fmtFecha, type Campo } from '@/components/comun/Registro'
 import { COLOR_MODULO } from '@/config/marca'
+
 const SST_COLOR = COLOR_MODULO
-const PAGE_BG   = '#F0F2F5'
-
-const SX_INPUT = {
-  '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: '#F9FAFB', '& fieldset': { borderColor: '#E5E7EB' } },
-  '& .MuiInputLabel-root': { color: 'text.secondary' },
-}
-const SX_SEL = { color: 'text.primary', bgcolor: '#F9FAFB', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#E5E7EB' } }
-
-type NivelR = 'ACEPTABLE' | 'BAJO' | 'MEDIO' | 'ALTO' | 'INACEPTABLE'
-type ClaseP = 'FISICO' | 'QUIMICO' | 'BIOLOGICO' | 'BIOMECANICO' | 'PSICOSOCIAL' | 'SEGURIDAD' | 'FENOMENOS_NATURALES' | 'PUBLICO'
-
-interface Riesgo {
-  id: number; codigo: string; proceso: string; area: string; actividad: string
-  clase_peligro: ClaseP; descripcion_peligro: string; efecto_posible: string
-  nivel_riesgo: NivelR; probabilidad: number; impacto: number
-  controles_existentes: string; responsable: string
+const CLASES: [string, string][] = [['FISICO', 'Físico'], ['QUIMICO', 'Químico'], ['BIOLOGICO', 'Biológico'], ['BIOMECANICO', 'Biomecánico'],
+  ['PSICOSOCIAL', 'Psicosocial'], ['SEGURIDAD', 'Condiciones de seguridad'], ['FENOMENOS_NATURALES', 'Fenómenos naturales'], ['PUBLICO', 'Público']]
+// Valores de la GTC 45.
+const ND: [number, string][] = [[10, '10 · Muy alto'], [6, '6 · Alto'], [2, '2 · Medio'], [0, '0 · Bajo']]
+const NE: [number, string][] = [[4, '4 · Continua'], [3, '3 · Frecuente'], [2, '2 · Ocasional'], [1, '1 · Esporádica']]
+const NC: [number, string][] = [[100, '100 · Mortal o catastrófico'], [60, '60 · Muy grave'], [25, '25 · Grave'], [10, '10 · Leve']]
+const INTERP: Record<string, { c: string; l: string }> = {
+  I: { c: '#991B1B', l: 'I · No aceptable' }, II: { c: '#DC2626', l: 'II · No aceptable o con control específico' },
+  III: { c: '#D97706', l: 'III · Mejorable' }, IV: { c: '#15803D', l: 'IV · Aceptable' },
 }
 
-const NIVEL_META: Record<NivelR, { color: string; label: string }> = {
-  INACEPTABLE: { color: '#ef4444', label: 'Inaceptable' },
-  ALTO:        { color: '#f97316', label: 'Alto' },
-  MEDIO:       { color: '#f59e0b', label: 'Medio' },
-  BAJO:        { color: '#22c55e', label: 'Bajo' },
-  ACEPTABLE:   { color: '#3b82f6', label: 'Aceptable' },
+/** El mismo cálculo del servidor, solo para la vista previa del formulario. */
+function gtc45(nd: number, ne: number, nc: number) {
+  const nr = nd * ne * nc
+  return { np: nd * ne, nr, interp: nr >= 600 ? 'I' : nr >= 150 ? 'II' : nr >= 40 ? 'III' : 'IV' }
 }
 
-const CLASE_LABEL: Record<ClaseP, string> = {
-  FISICO: 'Físico', QUIMICO: 'Químico', BIOLOGICO: 'Biológico',
-  BIOMECANICO: 'Biomecánico', PSICOSOCIAL: 'Psicosocial', SEGURIDAD: 'Seguridad',
-  FENOMENOS_NATURALES: 'Fenómenos naturales', PUBLICO: 'Público',
-}
-
-const RIESGOS_INIT: Riesgo[] = [
-  { id: 1, codigo: 'IPER-2026-00001', proceso: 'Operación bodega', area: 'Bodega Central', actividad: 'Cargue y descargue manual', clase_peligro: 'BIOMECANICO', descripcion_peligro: 'Levantamiento de cargas pesadas >25 kg', efecto_posible: 'Lumbago, hernia discal', nivel_riesgo: 'ALTO', probabilidad: 7, impacto: 8, controles_existentes: 'Capacitación postural', responsable: 'Coord. Bodega' },
-  { id: 2, codigo: 'IPER-2026-00002', proceso: 'Mantenimiento', area: 'Taller Mecánico', actividad: 'Soldadura eléctrica', clase_peligro: 'FISICO', descripcion_peligro: 'Radiación ultravioleta y chispas', efecto_posible: 'Quemaduras oculares, piel', nivel_riesgo: 'INACEPTABLE', probabilidad: 9, impacto: 9, controles_existentes: 'Careta de soldar EPP básico', responsable: 'Jefe Taller' },
-  { id: 3, codigo: 'IPER-2026-00003', proceso: 'Administración', area: 'Oficinas', actividad: 'Trabajo con computador', clase_peligro: 'PSICOSOCIAL', descripcion_peligro: 'Carga mental, estrés por multitarea', efecto_posible: 'Burnout, trastornos ansiedad', nivel_riesgo: 'MEDIO', probabilidad: 6, impacto: 5, controles_existentes: 'Pausas activas', responsable: 'RRHH' },
-  { id: 4, codigo: 'IPER-2026-00004', proceso: 'Transporte', area: 'Patio Vehículos', actividad: 'Conducción en zona urbana', clase_peligro: 'SEGURIDAD', descripcion_peligro: 'Accidentes de tránsito', efecto_posible: 'Lesiones graves, muerte', nivel_riesgo: 'ALTO', probabilidad: 6, impacto: 9, controles_existentes: 'Selección conductores, revisión técnico-mecánica', responsable: 'Jefe Flota' },
-  { id: 5, codigo: 'IPER-2026-00005', proceso: 'Producción', area: 'Planta', actividad: 'Uso de solventes y pinturas', clase_peligro: 'QUIMICO', descripcion_peligro: 'Exposición a vapores orgánicos', efecto_posible: 'Intoxicación, daño hepático', nivel_riesgo: 'MEDIO', probabilidad: 5, impacto: 7, controles_existentes: 'Ventilación forzada, EPP respiratorio', responsable: 'Jefe Producción' },
+const CAMPOS: Campo[] = [
+  { clave: 'proceso', etiqueta: 'Proceso', obligatorio: true, ancho: 6 },
+  { clave: 'area', etiqueta: 'Área / zona', ancho: 6 },
+  { clave: 'actividad', etiqueta: 'Actividad o tarea', obligatorio: true },
+  { clave: 'clase_peligro', etiqueta: 'Clase de peligro', tipo: 'seleccion', opciones: CLASES, obligatorio: true, ancho: 6 },
+  { clave: 'expuestos', etiqueta: 'Trabajadores expuestos', tipo: 'numero', min: 0, ancho: 6 },
+  { clave: 'descripcion_peligro', etiqueta: 'Descripción del peligro', tipo: 'area' },
+  { clave: 'efecto_posible', etiqueta: 'Efectos posibles', tipo: 'area' },
+  { clave: 'nivel_deficiencia', etiqueta: 'Nivel de deficiencia (ND)', tipo: 'seleccion', opciones: ND, obligatorio: true, ancho: 4 },
+  { clave: 'nivel_exposicion', etiqueta: 'Nivel de exposición (NE)', tipo: 'seleccion', opciones: NE, obligatorio: true, ancho: 4 },
+  { clave: 'nivel_consecuencia', etiqueta: 'Nivel de consecuencia (NC)', tipo: 'seleccion', opciones: NC, obligatorio: true, ancho: 4 },
+  { clave: 'controles_existentes', etiqueta: 'Controles existentes', tipo: 'area' },
+  { clave: 'controles_propuestos', etiqueta: 'Medidas de intervención propuestas', tipo: 'area' },
+  { clave: 'responsable', etiqueta: 'Responsable', ancho: 6 },
+  { clave: 'fecha_revision', etiqueta: 'Próxima revisión', tipo: 'fecha', ancho: 6 },
 ]
 
-const CLASES: ClaseP[] = ['FISICO','QUIMICO','BIOLOGICO','BIOMECANICO','PSICOSOCIAL','SEGURIDAD','FENOMENOS_NATURALES','PUBLICO']
-const NIVELES: NivelR[] = ['ACEPTABLE','BAJO','MEDIO','ALTO','INACEPTABLE']
-
 export default function SSTRiesgos() {
-  const [riesgos, setRiesgos] = useState<Riesgo[]>(RIESGOS_INIT)
-  const [open, setOpen]       = useState(false)
-  const [filtroN, setFiltroN] = useState<NivelR | ''>('')
-  const [proceso, setProceso] = useState('')
-  const [area, setArea]       = useState('')
-  const [actividad, setAct]   = useState('')
-  const [clase, setClase]     = useState<ClaseP>('BIOMECANICO')
-  const [desc, setDesc]       = useState('')
-  const [efecto, setEfecto]   = useState('')
-  const [nivel, setNivel]     = useState<NivelR>('MEDIO')
-  const [prob, setProb]       = useState('5')
-  const [imp, setImp]         = useState('5')
-  const [controles, setControles] = useState('')
-  const [resp, setResp]       = useState('')
-
-  const visibles = filtroN ? riesgos.filter(r => r.nivel_riesgo === filtroN) : riesgos
-
-  const conteo: Record<NivelR, number> = { INACEPTABLE: 0, ALTO: 0, MEDIO: 0, BAJO: 0, ACEPTABLE: 0 }
-  riesgos.forEach(r => conteo[r.nivel_riesgo]++)
-
-  function handleGuardar() {
-    if (!actividad.trim()) return
-    const nuevo: Riesgo = {
-      id: riesgos.length + 1,
-      codigo: `IPER-2026-${String(riesgos.length + 6).padStart(5, '0')}`,
-      proceso, area, actividad, clase_peligro: clase,
-      descripcion_peligro: desc, efecto_posible: efecto,
-      nivel_riesgo: nivel, probabilidad: Number(prob), impacto: Number(imp),
-      controles_existentes: controles, responsable: resp,
-    }
-    setRiesgos(prev => [nuevo, ...prev])
-    setOpen(false)
-    setProceso(''); setArea(''); setAct(''); setDesc(''); setEfecto(''); setControles(''); setResp('')
-    setProb('5'); setImp('5'); setClase('BIOMECANICO'); setNivel('MEDIO')
-  }
+  const crud = useCrud(['sst-riesgos'], sstApi.riesgos, 'Riesgo', [['sst-tablero']])
+  const [dlg, setDlg] = useState<{ abierto: boolean; r: Riesgo | null }>({ abierto: false, r: null })
+  const [filtro, setFiltro] = useState('')
+  const lista = crud.datos
+  const visibles = filtro ? lista.filter(r => r.interpretacion === filtro) : lista
 
   return (
     <Layout>
-      <Box sx={{ p: 3, background: PAGE_BG, minHeight: '100vh' }}>
+      <Box sx={{ p: 3 }}>
+        <Encabezado icono={<Warning sx={{ fontSize: 28 }} />} titulo="Matriz de peligros y riesgos" subtitulo="SST · Identificación y valoración según la GTC 45"
+          color={SST_COLOR} accion="Nuevo peligro" onAccion={() => setDlg({ abierto: true, r: null })} />
 
-        {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <GppBad sx={{ color: SST_COLOR, fontSize: 28 }} />
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Matriz IPER</Typography>
-              <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>Identificación de Peligros y Evaluación de Riesgos · Decreto 1072/2015</Typography>
-            </Box>
-            <Chip label="SG-SST" size="small" sx={{ bgcolor: alpha(SST_COLOR, 0.15), color: '#F87171', fontWeight: 700, border: `1px solid ${alpha(SST_COLOR, 0.35)}` }} />
-          </Box>
-          <Button variant="contained" startIcon={<Add />} onClick={() => setOpen(true)} sx={{ bgcolor: SST_COLOR }}>Nuevo Riesgo</Button>
-        </Box>
-
-        {/* Conteo por nivel (clickeable = filtro) */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          {NIVELES.slice().reverse().map(n => {
-            const meta = NIVEL_META[n]
+        <Grid container spacing={2} mb={3}>
+          {Object.entries(INTERP).map(([k, v]) => {
+            const n = lista.filter(r => r.interpretacion === k).length
+            const activo = filtro === k
             return (
-              <Grid key={n} size={{ xs: 12, sm: 6, md: 'auto' }} sx={{ flex: 1 }}>
-                <Card onClick={() => setFiltroN(prev => prev === n ? '' : n)}
-                  sx={{ border: `2px solid ${filtroN === n ? meta.color : alpha(meta.color, 0.2)}`, borderRadius: 2, cursor: 'pointer', transition: 'border-color 0.15s' }}>
-                  <CardContent sx={{ p: '12px !important' }}>
-                    <Typography sx={{ fontSize: 11, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8 }}>{meta.label}</Typography>
-                    <Typography sx={{ fontSize: 30, fontWeight: 900, color: meta.color, lineHeight: 1.2 }}>{conteo[n]}</Typography>
-                  </CardContent>
-                </Card>
+              <Grid key={k} size={{ xs: 6, md: 3 }}>
+                <Paper role="button" aria-label={`Filtrar nivel ${k}`} onClick={() => setFiltro(activo ? '' : k)} elevation={0}
+                  sx={{ p: 2, borderRadius: 2, cursor: 'pointer', border: `1px solid ${alpha(v.c, activo ? 0.8 : 0.25)}`, bgcolor: activo ? alpha(v.c, 0.08) : 'transparent' }}>
+                  <Typography sx={{ fontSize: 24, fontWeight: 800, color: v.c }}>{n}</Typography>
+                  <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{v.l}</Typography>
+                </Paper>
               </Grid>
             )
           })}
         </Grid>
 
-        {/* Lista */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          {visibles.map(r => {
-            const nmeta = NIVEL_META[r.nivel_riesgo]
-            return (
-              <Card key={r.id} sx={{ border: `1px solid ${alpha(nmeta.color, 0.25)}`, borderRadius: 2 }}>
-                <CardContent sx={{ p: '14px !important' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
-                    <Box sx={{ flex: 1, minWidth: 220 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                        <Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: '#F87171' }}>{r.codigo}</Typography>
-                        <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>·</Typography>
-                        <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{r.proceso} / {r.area}</Typography>
-                      </Box>
-                      <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 0.25 }}>{r.actividad}</Typography>
-                      <Typography sx={{ fontSize: 12, color: 'text.secondary', mb: 1 }}>{r.descripcion_peligro} → {r.efecto_posible}</Typography>
-                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                        <Chip label={CLASE_LABEL[r.clase_peligro]} size="small" sx={{ bgcolor: alpha(SST_COLOR, 0.12), color: '#F87171', fontSize: 10 }} />
-                        <Chip label={`P:${r.probabilidad} × I:${r.impacto}`} size="small" sx={{ bgcolor: '#F1F5F9', color: 'text.secondary', fontSize: 10 }} />
-                        {r.controles_existentes && <Chip label={r.controles_existentes} size="small" sx={{ bgcolor: '#F9FAFB', color: 'text.disabled', fontSize: 10 }} />}
-                      </Box>
-                    </Box>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.5 }}>
-                      <Chip label={nmeta.label} size="small" sx={{ bgcolor: alpha(nmeta.color, 0.18), color: nmeta.color, fontWeight: 800, fontSize: 11 }} />
-                      <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>Resp.: {r.responsable}</Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </Box>
+        <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto' }}>
+          {crud.isLoading && <LinearProgress />}
+          <Table size="small">
+            <TableHead><TableRow sx={{ '& th': { fontWeight: 700, fontSize: 12 } }}>
+              <TableCell>Código</TableCell><TableCell>Proceso / actividad</TableCell><TableCell>Peligro</TableCell>
+              <TableCell align="center">ND×NE×NC</TableCell><TableCell align="right">NR</TableCell><TableCell>Nivel</TableCell>
+              <TableCell>Controles</TableCell><TableCell>Revisión</TableCell><TableCell />
+            </TableRow></TableHead>
+            <TableBody>
+              {!crud.isLoading && visibles.length === 0 && <TableRow><TableCell colSpan={9} align="center" sx={{ py: 3, color: 'text.secondary' }}>Sin peligros identificados</TableCell></TableRow>}
+              {visibles.map(r => {
+                const i = r.interpretacion ? INTERP[r.interpretacion] : null
+                return (
+                  <TableRow key={r.id} hover>
+                    <TableCell sx={{ fontFamily: 'monospace', fontSize: 12 }}>{r.codigo}</TableCell>
+                    <TableCell sx={{ fontSize: 12 }}><b>{r.proceso ?? '—'}</b><Typography fontSize={11} color="text.secondary">{r.actividad}</Typography></TableCell>
+                    <TableCell sx={{ fontSize: 12, maxWidth: 240 }}>{CLASES.find(c => c[0] === r.clase_peligro)?.[1] ?? '—'}
+                      <Typography fontSize={11} color="text.secondary">{r.descripcion_peligro}</Typography></TableCell>
+                    <TableCell align="center" sx={{ fontSize: 12 }}>{r.nivel_riesgo_valor != null ? `${r.nivel_deficiencia}×${r.nivel_exposicion}×${r.nivel_consecuencia}` : 'Sin valorar'}</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700 }}>{r.nivel_riesgo_valor ?? '—'}</TableCell>
+                    <TableCell>{i ? <Chip size="small" label={r.interpretacion} sx={{ fontWeight: 800, bgcolor: alpha(i.c, 0.12), color: i.c }} /> : '—'}</TableCell>
+                    <TableCell sx={{ fontSize: 11, maxWidth: 220 }}>{r.controles_propuestos || r.controles_existentes || '—'}</TableCell>
+                    <TableCell sx={{ fontSize: 12 }}>{fmtFecha(r.fecha_revision)}</TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                      <Tooltip title="Editar"><IconButton size="small" aria-label={`Editar ${r.codigo}`} onClick={() => setDlg({ abierto: true, r })}><Edit fontSize="small" /></IconButton></Tooltip>
+                      <Tooltip title="Retirar"><IconButton size="small" aria-label={`Retirar ${r.codigo}`} onClick={() => { if (window.confirm(`¿Retirar ${r.codigo}?`)) crud.retirar.mutate(r.id) }}><DeleteForever fontSize="small" sx={{ color: '#DC2626' }} /></IconButton></Tooltip>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </Paper>
 
-        {/* Dialog */}
-        <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth PaperProps={{ sx: { color: 'text.primary' } }}>
-          <DialogTitle sx={{ borderBottom: '1px solid #F1F5F9', fontWeight: 700 }}>Registrar Peligro en Matriz IPER</DialogTitle>
-          <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <TextField label="Proceso" value={proceso} onChange={e => setProceso(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
-              <TextField label="Área" value={area} onChange={e => setArea(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
-            </Box>
-            <TextField label="Actividad / Tarea *" value={actividad} onChange={e => setAct(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <FormControl fullWidth size="small">
-                <InputLabel sx={{ color: 'text.secondary' }}>Clase de peligro</InputLabel>
-                <Select value={clase} label="Clase de peligro" onChange={e => setClase(e.target.value as ClaseP)} sx={SX_SEL}>
-                  {CLASES.map(c => <MenuItem key={c} value={c}>{CLASE_LABEL[c]}</MenuItem>)}
-                </Select>
-              </FormControl>
-              <FormControl fullWidth size="small">
-                <InputLabel sx={{ color: 'text.secondary' }}>Nivel de riesgo</InputLabel>
-                <Select value={nivel} label="Nivel de riesgo" onChange={e => setNivel(e.target.value as NivelR)} sx={SX_SEL}>
-                  {NIVELES.map(n => <MenuItem key={n} value={n}>{NIVEL_META[n].label}</MenuItem>)}
-                </Select>
-              </FormControl>
-            </Box>
-            <TextField label="Descripción del peligro" value={desc} onChange={e => setDesc(e.target.value)} fullWidth multiline rows={2} size="small" sx={SX_INPUT} />
-            <TextField label="Efecto / consecuencia posible" value={efecto} onChange={e => setEfecto(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <TextField label="Probabilidad (1-10)" value={prob} onChange={e => setProb(e.target.value)} type="number" fullWidth size="small" sx={SX_INPUT} />
-              <TextField label="Impacto (1-10)" value={imp} onChange={e => setImp(e.target.value)} type="number" fullWidth size="small" sx={SX_INPUT} />
-              <TextField label="Responsable" value={resp} onChange={e => setResp(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
-            </Box>
-            <TextField label="Controles existentes" value={controles} onChange={e => setControles(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
-          </DialogContent>
-          <DialogActions sx={{ p: 2, gap: 1, borderTop: '1px solid #F1F5F9' }}>
-            <Button onClick={() => setOpen(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>
-            <Button variant="contained" onClick={handleGuardar} disabled={!actividad.trim()} sx={{ bgcolor: SST_COLOR }}>Registrar</Button>
-          </DialogActions>
-        </Dialog>
+        <FormularioRegistro abierto={dlg.abierto} titulo={dlg.r ? `Peligro ${dlg.r.codigo}` : 'Nuevo peligro'} campos={CAMPOS} registro={dlg.r}
+          onGuardar={c => crud.guardar(dlg.r, c)} onCerrar={() => setDlg({ abierto: false, r: null })}
+          pie={f => {
+            if (f.nivel_deficiencia === '' || f.nivel_exposicion === '' || f.nivel_consecuencia === '' || f.nivel_deficiencia == null) return null
+            const g = gtc45(Number(f.nivel_deficiencia), Number(f.nivel_exposicion), Number(f.nivel_consecuencia))
+            const i = INTERP[g.interp]
+            return (
+              <Paper elevation={0} sx={{ p: 1.5, borderRadius: 2, bgcolor: alpha(i.c, 0.08), border: `1px solid ${alpha(i.c, 0.3)}` }}>
+                <Typography sx={{ fontSize: 13, fontWeight: 700, color: i.c }}>NP {g.np} · NR {g.nr} → {i.l}</Typography>
+              </Paper>
+            )
+          }} />
       </Box>
     </Layout>
   )

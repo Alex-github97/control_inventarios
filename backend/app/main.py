@@ -990,6 +990,14 @@ async def _migrar_esquema(esquema: str) -> None:
         await conn.execute(text(
             "ALTER TABLE tms_viaje ADD COLUMN IF NOT EXISTS otif_motivo VARCHAR(300)"))
 
+        # ── SST · matriz GTC 45 ──
+        # Los tres factores de los que sale el nivel de riesgo. Las tablas de
+        # brigada, simulacros, períodos y configuración las crea `create_all`.
+        for columna in ("nivel_deficiencia", "nivel_exposicion",
+                        "nivel_consecuencia", "expuestos"):
+            await conn.execute(text(
+                "ALTER TABLE sst_riesgos ADD COLUMN IF NOT EXISTS %s INTEGER" % columna))
+
         # ── MES · terminal de planta ──
         # Un usuario de la plataforma por operario, y su PIN de terminal. Sin
         # esto la terminal se identifica con un código que cualquiera puede

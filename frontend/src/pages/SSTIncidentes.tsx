@@ -1,194 +1,135 @@
-import React, { useState, useEffect } from 'react'
-import { Box, Typography, Card, CardContent, Chip, alpha, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, Select, FormControl, InputLabel } from '@mui/material'
+/**
+ * SST · Incidentes y accidentes de trabajo
+ *
+ * Era una maqueta que importaba el cliente de la API y no lo usaba: la lista
+ * salía de una constante y «Reportar» solo la ampliaba en memoria.
+ *
+ * El flujo es el de la norma: se reporta, se investiga (causas inmediata y
+ * básica, acciones correctivas) y se cierra. El servidor no deja cerrar un
+ * accidente de trabajo sin causas registradas.
+ */
+import { useState } from 'react'
+import {
+  Box, Chip, Table, TableBody, TableCell, TableHead, TableRow, Paper, IconButton, Tooltip,
+  LinearProgress, MenuItem, TextField, alpha,
+} from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { ReportProblem, Add, CheckCircle, HourglassEmpty, Search, Close } from '@mui/icons-material'
+import { ReportProblem, Edit, DeleteForever, Search, CheckCircle } from '@mui/icons-material'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
-import { apiClient } from '@/api/client'
-
+import { sstApi, type Incidente } from '@/api/sst'
+import { FormularioRegistro, useCrud, Cifra, Encabezado, fmtFecha, errorApi, type Campo } from '@/components/comun/Registro'
 import { COLOR_MODULO } from '@/config/marca'
+
 const SST_COLOR = COLOR_MODULO
-const PAGE_BG = '#F0F2F5'
-const BORDER = '#E5E7EB'
-
-const SX_INPUT = {
-  '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: '#F9FAFB', '& fieldset': { borderColor: '#E5E7EB' } },
-  '& .MuiInputLabel-root': { color: 'text.secondary' },
+const TIPOS: [string, string][] = [['ACCIDENTE_TRABAJO', 'Accidente de trabajo'], ['INCIDENTE', 'Incidente'], ['CASI_ACCIDENTE', 'Casi accidente'], ['ENFERMEDAD_LABORAL', 'Enfermedad laboral']]
+const GRAVEDADES: [string, string][] = [['LEVE', 'Leve'], ['MODERADO', 'Moderado'], ['GRAVE', 'Grave'], ['MUY_GRAVE', 'Muy grave'], ['MORTAL', 'Mortal']]
+const ESTADOS: Record<string, { l: string; c: string }> = {
+  REPORTADO: { l: 'Reportado', c: '#DC2626' }, EN_INVESTIGACION: { l: 'En investigación', c: '#D97706' },
+  INVESTIGADO: { l: 'Investigado', c: '#0369A1' }, CERRADO: { l: 'Cerrado', c: '#15803D' },
 }
-const SX_SEL = { color: 'text.primary', bgcolor: '#F9FAFB', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#E5E7EB' } }
-
-type TipoInc = 'ACCIDENTE_TRABAJO' | 'INCIDENTE' | 'ENFERMEDAD_LABORAL' | 'CASI_ACCIDENTE'
-type Gravedad = 'LEVE' | 'MODERADO' | 'GRAVE' | 'MUY_GRAVE' | 'MORTAL'
-type EstadoInc = 'REPORTADO' | 'EN_INVESTIGACION' | 'INVESTIGADO' | 'CERRADO'
-
-interface Incidente {
-  id: number; numero: string; tipo: TipoInc; gravedad?: Gravedad; estado: EstadoInc
-  fecha_evento: string; trabajador?: string; cargo?: string; area?: string
-  descripcion?: string; dias_incapacidad: number; investigador?: string
+const SIGUIENTE: Record<string, [string, string]> = {
+  REPORTADO: ['EN_INVESTIGACION', 'Iniciar investigación'], EN_INVESTIGACION: ['INVESTIGADO', 'Marcar investigado'], INVESTIGADO: ['CERRADO', 'Cerrar'],
 }
+const hoy = () => new Date().toISOString().slice(0, 10)
 
-const TIPO_LABEL: Record<TipoInc, string> = {
-  ACCIDENTE_TRABAJO: 'Accidente de Trabajo',
-  INCIDENTE:         'Incidente',
-  ENFERMEDAD_LABORAL:'Enfermedad Laboral',
-  CASI_ACCIDENTE:    'Casi Accidente',
-}
-
-const GRAVEDAD_META: Record<Gravedad, { label: string; color: string }> = {
-  LEVE:      { label: 'Leve',      color: '#22c55e' },
-  MODERADO:  { label: 'Moderado',  color: '#f59e0b' },
-  GRAVE:     { label: 'Grave',     color: '#f97316' },
-  MUY_GRAVE: { label: 'Muy grave', color: '#ef4444' },
-  MORTAL:    { label: 'Mortal',    color: '#7f1d1d' },
-}
-
-const ESTADO_META: Record<EstadoInc, { label: string; color: string }> = {
-  REPORTADO:       { label: 'Reportado',        color: '#f59e0b' },
-  EN_INVESTIGACION:{ label: 'En Investigación', color: '#3b82f6' },
-  INVESTIGADO:     { label: 'Investigado',      color: '#8b5cf6' },
-  CERRADO:         { label: 'Cerrado',          color: '#64748b' },
-}
-
-const TIPOS: TipoInc[] = ['ACCIDENTE_TRABAJO', 'INCIDENTE', 'ENFERMEDAD_LABORAL', 'CASI_ACCIDENTE']
-const GRAVEDADES: Gravedad[] = ['LEVE', 'MODERADO', 'GRAVE', 'MUY_GRAVE', 'MORTAL']
-
-const INICIAL: Incidente[] = [
-  { id: 1, numero: 'SST-INC-2026-00006', tipo: 'INCIDENTE', gravedad: 'LEVE', estado: 'INVESTIGADO', fecha_evento: '2026-06-18', trabajador: 'Pedro Gómez', cargo: 'Operario Bodega', area: 'Bodega Central', descripcion: 'Caída menor al bajar escalera sin apoyo', dias_incapacidad: 0, investigador: 'A. Torres' },
-  { id: 2, numero: 'SST-INC-2026-00005', tipo: 'ACCIDENTE_TRABAJO', gravedad: 'MODERADO', estado: 'EN_INVESTIGACION', fecha_evento: '2026-06-12', trabajador: 'Laura Díaz', cargo: 'Auxiliar Logístico', area: 'Planta Producción', descripcion: 'Golpe en mano por atrapamiento en maquinaria', dias_incapacidad: 3, investigador: 'C. Rojas' },
-  { id: 3, numero: 'SST-INC-2026-00004', tipo: 'CASI_ACCIDENTE', estado: 'CERRADO', fecha_evento: '2026-06-05', trabajador: 'Jorge Rueda', cargo: 'Conductor', area: 'Patio Vehículos', descripcion: 'Derrumbe parcial de estantería, sin lesionados', dias_incapacidad: 0, investigador: 'M. Vargas' },
-  { id: 4, numero: 'SST-INC-2026-00003', tipo: 'ACCIDENTE_TRABAJO', gravedad: 'GRAVE', estado: 'CERRADO', fecha_evento: '2026-05-20', trabajador: 'Sandra López', cargo: 'Técnico Mantenimiento', area: 'Taller', descripcion: 'Lesión en espalda baja por sobreesfuerzo', dias_incapacidad: 15, investigador: 'A. Torres' },
+const CAMPOS: Campo[] = [
+  { clave: 'tipo', etiqueta: 'Tipo de evento', tipo: 'seleccion', opciones: TIPOS, obligatorio: true, ancho: 6 },
+  { clave: 'gravedad', etiqueta: 'Gravedad', tipo: 'seleccion', opciones: GRAVEDADES, ancho: 6 },
+  { clave: 'fecha_evento', etiqueta: 'Fecha del evento', tipo: 'fecha', obligatorio: true, ancho: 6,
+    validar: v => (v && v > hoy() ? 'No puede ser futura' : null) },
+  { clave: 'hora_evento', etiqueta: 'Hora (HH:MM)', ancho: 6, validar: v => (v && !/^\d{2}:\d{2}$/.test(v) ? 'Formato HH:MM' : null) },
+  { clave: 'trabajador', etiqueta: 'Trabajador', obligatorio: true, ancho: 6 },
+  { clave: 'cargo', etiqueta: 'Cargo', ancho: 6 },
+  { clave: 'area', etiqueta: 'Área', ancho: 6 },
+  { clave: 'lugar', etiqueta: 'Lugar', ancho: 6 },
+  { clave: 'descripcion', etiqueta: 'Qué pasó', tipo: 'area', obligatorio: true },
+  { clave: 'dias_incapacidad', etiqueta: 'Días de incapacidad', tipo: 'numero', min: 0, ancho: 6 },
+  { clave: 'investigador', etiqueta: 'Investigador', ancho: 6 },
+  { clave: 'causa_inmediata', etiqueta: 'Causa inmediata', tipo: 'area', ayuda: 'Actos y condiciones inseguras' },
+  { clave: 'causa_basica', etiqueta: 'Causa básica', tipo: 'area', ayuda: 'Factores personales y del trabajo' },
+  { clave: 'acciones_correctivas', etiqueta: 'Acciones correctivas', tipo: 'area' },
 ]
 
 export default function SSTIncidentes() {
-  const [items, setItems] = useState<Incidente[]>(INICIAL)
-  const [open, setOpen]   = useState(false)
-  const [filtro, setFiltro] = useState<EstadoInc | ''>('')
-  const [tipo,    setTipo]    = useState<TipoInc>('INCIDENTE')
-  const [gravedad, setGravedad] = useState<Gravedad>('LEVE')
-  const [fecha,   setFecha]   = useState('')
-  const [trabajador, setTrabajador] = useState('')
-  const [area,    setArea]    = useState('')
-  const [desc,    setDesc]    = useState('')
+  const qc = useQueryClient()
+  const crud = useCrud(['sst-incidentes'], sstApi.incidentes, 'Evento', [['sst-tablero'], ['sst-indicadores']])
+  const [dlg, setDlg] = useState<{ abierto: boolean; r: Incidente | null }>({ abierto: false, r: null })
+  const [filtroEstado, setFiltroEstado] = useState('')
+  const [buscar, setBuscar] = useState('')
 
-  const visibles = filtro ? items.filter(i => i.estado === filtro) : items
+  const cambiarEstado = useMutation({
+    mutationFn: ({ id, e }: { id: number; e: string }) => sstApi.incidentes.estado(id, e),
+    onSuccess: () => { toast.success('Estado actualizado'); crud.refrescar() },
+    onError: (e: any) => toast.error(errorApi(e)),
+  })
 
-  const kpis = [
-    { label: 'Total',             value: items.length,                                                 color: SST_COLOR },
-    { label: 'En investigación',  value: items.filter(i => i.estado === 'EN_INVESTIGACION').length,     color: '#3b82f6' },
-    { label: 'Con incapacidad',   value: items.filter(i => i.dias_incapacidad > 0).length,              color: '#f59e0b' },
-    { label: 'Días incapacidad',  value: items.reduce((a, i) => a + i.dias_incapacidad, 0),             color: '#ef4444' },
-  ]
-
-  function handleCrear() {
-    if (!fecha) return
-    const nuevo: Incidente = {
-      id: items.length + 1,
-      numero: `SST-INC-2026-${String(items.length + 7).padStart(5, '0')}`,
-      tipo, gravedad, estado: 'REPORTADO', fecha_evento: fecha,
-      trabajador, area, descripcion: desc, dias_incapacidad: 0,
-    }
-    setItems(prev => [nuevo, ...prev])
-    setOpen(false); setFecha(''); setTrabajador(''); setArea(''); setDesc('')
-    setTipo('INCIDENTE'); setGravedad('LEVE')
-  }
+  const lista = crud.datos
+  const anio = String(new Date().getFullYear())
+  const delAnio = lista.filter(i => i.fecha_evento.startsWith(anio))
+  const visibles = lista.filter(i => (!filtroEstado || i.estado === filtroEstado)
+    && (!buscar || `${i.numero} ${i.trabajador ?? ''} ${i.area ?? ''} ${i.descripcion ?? ''}`.toLowerCase().includes(buscar.toLowerCase())))
 
   return (
     <Layout>
-      <Box sx={{ p: 3, background: PAGE_BG, minHeight: '100vh' }}>
-
-        {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <ReportProblem sx={{ color: SST_COLOR, fontSize: 28 }} />
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Incidentes y Accidentes</Typography>
-              <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>Registro, investigación y seguimiento de eventos de seguridad</Typography>
-            </Box>
-            <Chip label="SG-SST" size="small" sx={{ bgcolor: alpha(SST_COLOR, 0.15), color: SST_COLOR, fontWeight: 700, border: `1px solid ${alpha(SST_COLOR, 0.35)}` }} />
-          </Box>
-          <Button variant="contained" startIcon={<Add />} onClick={() => setOpen(true)} sx={{ bgcolor: SST_COLOR }}>Reportar Evento</Button>
-        </Box>
-
-        {/* KPIs */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          {kpis.map(k => (
-            <Grid key={k.label} size={{ xs: 12, sm: 6, md: 3 }}>
-              <Card sx={{ border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2 }}>
-                <CardContent sx={{ p: '14px !important' }}>
-                  <Typography sx={{ fontSize: 11, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>{k.label}</Typography>
-                  <Typography sx={{ fontSize: 26, fontWeight: 800, color: k.color, lineHeight: 1 }}>{k.value}</Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
+      <Box sx={{ p: 3 }}>
+        <Encabezado icono={<ReportProblem sx={{ fontSize: 28 }} />} titulo="Incidentes y accidentes" subtitulo="SST · Reporte, investigación y cierre"
+          color={SST_COLOR} accion="Reportar evento" onAccion={() => setDlg({ abierto: true, r: null })} />
+        <Grid container spacing={2} mb={3}>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta={`Accidentes de trabajo ${anio}`} valor={delAnio.filter(i => i.tipo === 'ACCIDENTE_TRABAJO').length} color="#DC2626" /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta={`Días de incapacidad ${anio}`} valor={delAnio.reduce((s, i) => s + (i.dias_incapacidad || 0), 0)} color="#D97706" /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Sin cerrar" valor={lista.filter(i => i.estado !== 'CERRADO').length} color="#0369A1" /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta={`Casi accidentes ${anio}`} valor={delAnio.filter(i => i.tipo === 'CASI_ACCIDENTE').length} color="#6B7280" sub="Reportarlos previene el siguiente" /></Grid>
         </Grid>
 
-        {/* Filtros de estado */}
-        <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-          {(['', 'REPORTADO', 'EN_INVESTIGACION', 'INVESTIGADO', 'CERRADO'] as const).map(e => (
-            <Chip key={e} label={e === '' ? 'Todos' : ESTADO_META[e as EstadoInc]?.label}
-              onClick={() => setFiltro(e as EstadoInc | '')}
-              sx={{ bgcolor: filtro === e ? alpha(SST_COLOR, 0.2) : '#fff', color: filtro === e ? SST_COLOR : 'text.secondary', border: `1px solid ${filtro === e ? alpha(SST_COLOR, 0.4) : BORDER}`, cursor: 'pointer', fontSize: 11 }} />
-          ))}
+        <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          <TextField size="small" placeholder="Buscar" value={buscar} onChange={e => setBuscar(e.target.value)}
+            InputProps={{ startAdornment: <Search sx={{ fontSize: 18, mr: 0.5, color: 'text.disabled' }} /> }} />
+          <TextField select size="small" label="Estado" value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)} sx={{ minWidth: 170 }}>
+            <MenuItem value="">Todos</MenuItem>
+            {Object.entries(ESTADOS).map(([k, v]) => <MenuItem key={k} value={k}>{v.l}</MenuItem>)}
+          </TextField>
         </Box>
 
-        {/* Lista */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          {visibles.map(inc => {
-            const est = ESTADO_META[inc.estado]
-            const grav = inc.gravedad ? GRAVEDAD_META[inc.gravedad] : null
-            return (
-              <Card key={inc.id} sx={{ border: `1px solid ${grav ? alpha(grav.color, 0.2) : BORDER}`, borderRadius: 2 }}>
-                <CardContent sx={{ p: '14px !important' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
-                    <Box sx={{ flex: 1, minWidth: 200 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                        <Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: SST_COLOR }}>{inc.numero}</Typography>
-                      </Box>
-                      <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mb: 0.25 }}>{TIPO_LABEL[inc.tipo]}</Typography>
-                      {inc.trabajador && <Typography sx={{ fontSize: 12, color: 'text.secondary', mb: 0.5 }}>{inc.trabajador} · {inc.cargo} · {inc.area}</Typography>}
-                      {inc.descripcion && <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{inc.descripcion}</Typography>}
-                    </Box>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.75 }}>
-                      <Chip label={est.label} size="small" sx={{ bgcolor: alpha(est.color, 0.15), color: est.color, fontWeight: 700, fontSize: 10 }} />
-                      {grav && <Chip label={grav.label} size="small" sx={{ bgcolor: alpha(grav.color, 0.12), color: grav.color, fontSize: 10 }} />}
-                      <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>{inc.fecha_evento}</Typography>
-                      {inc.dias_incapacidad > 0 && <Chip label={`${inc.dias_incapacidad}d incap.`} size="small" sx={{ bgcolor: alpha('#ef4444', 0.1), color: '#ef4444', fontSize: 10 }} />}
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </Box>
+        <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto' }}>
+          {crud.isLoading && <LinearProgress />}
+          <Table size="small">
+            <TableHead><TableRow sx={{ '& th': { fontWeight: 700, fontSize: 12 } }}>
+              <TableCell>Número</TableCell><TableCell>Tipo</TableCell><TableCell>Fecha</TableCell><TableCell>Trabajador</TableCell>
+              <TableCell>Área</TableCell><TableCell>Gravedad</TableCell><TableCell align="right">Días</TableCell><TableCell>Estado</TableCell><TableCell />
+            </TableRow></TableHead>
+            <TableBody>
+              {!crud.isLoading && visibles.length === 0 && <TableRow><TableCell colSpan={9} align="center" sx={{ py: 3, color: 'text.secondary' }}>Sin eventos registrados</TableCell></TableRow>}
+              {visibles.map(i => {
+                const e = ESTADOS[i.estado] ?? { l: i.estado, c: '#6B7280' }
+                const sig = SIGUIENTE[i.estado]
+                return (
+                  <TableRow key={i.id} hover>
+                    <TableCell sx={{ fontFamily: 'monospace', fontSize: 12 }}>{i.numero}</TableCell>
+                    <TableCell sx={{ fontSize: 12 }}>{TIPOS.find(t => t[0] === i.tipo)?.[1] ?? i.tipo}</TableCell>
+                    <TableCell sx={{ fontSize: 12 }}>{fmtFecha(i.fecha_evento)}{i.hora_evento ? ` ${i.hora_evento}` : ''}</TableCell>
+                    <TableCell sx={{ fontSize: 12 }}>{i.trabajador ?? '—'}</TableCell>
+                    <TableCell sx={{ fontSize: 12 }}>{i.area ?? '—'}</TableCell>
+                    <TableCell sx={{ fontSize: 12 }}>{GRAVEDADES.find(g => g[0] === i.gravedad)?.[1] ?? '—'}</TableCell>
+                    <TableCell align="right" sx={{ fontSize: 12 }}>{i.dias_incapacidad || 0}</TableCell>
+                    <TableCell><Chip size="small" label={e.l} sx={{ fontSize: 11, fontWeight: 700, bgcolor: alpha(e.c, 0.12), color: e.c }} /></TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                      {sig && <Tooltip title={sig[1]}><IconButton size="small" aria-label={`${sig[1]} ${i.numero}`} onClick={() => cambiarEstado.mutate({ id: i.id, e: sig[0] })}><CheckCircle fontSize="small" sx={{ color: '#15803D' }} /></IconButton></Tooltip>}
+                      <Tooltip title="Editar / investigar"><IconButton size="small" aria-label={`Editar ${i.numero}`} onClick={() => setDlg({ abierto: true, r: i })}><Edit fontSize="small" /></IconButton></Tooltip>
+                      <Tooltip title="Retirar"><IconButton size="small" aria-label={`Retirar ${i.numero}`} onClick={() => { if (window.confirm(`¿Retirar ${i.numero}?`)) crud.retirar.mutate(i.id) }}><DeleteForever fontSize="small" sx={{ color: '#DC2626' }} /></IconButton></Tooltip>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </Paper>
 
-        {/* Dialog */}
-        <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: 'background.paper', color: 'text.primary' } }}>
-          <DialogTitle sx={{ borderBottom: '1px solid #F1F5F9', fontWeight: 700 }}>Reportar Evento de Seguridad</DialogTitle>
-          <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <FormControl fullWidth size="small">
-                <InputLabel sx={{ color: 'text.secondary' }}>Tipo *</InputLabel>
-                <Select value={tipo} label="Tipo *" onChange={e => setTipo(e.target.value as TipoInc)} sx={SX_SEL}>
-                  {TIPOS.map(t => <MenuItem key={t} value={t}>{TIPO_LABEL[t]}</MenuItem>)}
-                </Select>
-              </FormControl>
-              <FormControl fullWidth size="small">
-                <InputLabel sx={{ color: 'text.secondary' }}>Gravedad</InputLabel>
-                <Select value={gravedad} label="Gravedad" onChange={e => setGravedad(e.target.value as Gravedad)} sx={SX_SEL}>
-                  {GRAVEDADES.map(g => <MenuItem key={g} value={g}>{GRAVEDAD_META[g].label}</MenuItem>)}
-                </Select>
-              </FormControl>
-            </Box>
-            <TextField label="Fecha del evento *" type="date" value={fecha} onChange={e => setFecha(e.target.value)} fullWidth size="small" sx={SX_INPUT} InputLabelProps={{ shrink: true }} />
-            <TextField label="Trabajador involucrado" value={trabajador} onChange={e => setTrabajador(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
-            <TextField label="Área" value={area} onChange={e => setArea(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
-            <TextField label="Descripción del evento" value={desc} onChange={e => setDesc(e.target.value)} fullWidth multiline rows={3} size="small" sx={SX_INPUT} />
-          </DialogContent>
-          <DialogActions sx={{ p: 2, gap: 1, borderTop: '1px solid #F1F5F9' }}>
-            <Button onClick={() => setOpen(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>
-            <Button variant="contained" onClick={handleCrear} disabled={!fecha} sx={{ bgcolor: SST_COLOR }}>Reportar</Button>
-          </DialogActions>
-        </Dialog>
+        <FormularioRegistro abierto={dlg.abierto} titulo={dlg.r ? `Evento ${dlg.r.numero}` : 'Reportar evento'} campos={CAMPOS} registro={dlg.r}
+          valoresIniciales={{ tipo: 'INCIDENTE', fecha_evento: hoy(), dias_incapacidad: '0' }}
+          onGuardar={c => crud.guardar(dlg.r, { ...c, dias_incapacidad: c.dias_incapacidad ?? 0 }).then(() => qc.invalidateQueries({ queryKey: ['sst-tablero'] }))}
+          onCerrar={() => setDlg({ abierto: false, r: null })} />
       </Box>
     </Layout>
   )

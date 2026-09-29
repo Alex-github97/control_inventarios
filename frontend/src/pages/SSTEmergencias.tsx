@@ -1,195 +1,161 @@
-import React, { useState } from 'react'
-import { Box, Typography, Card, CardContent, Chip, alpha, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField } from '@mui/material'
+/**
+ * SST · Preparación y respuesta ante emergencias
+ *
+ * Era una maqueta: brigada, simulacros y planes escritos a mano, y el
+ * «Registrar simulacro» solo ampliaba la lista en memoria.
+ *
+ *  - La brigada guarda hasta cuándo es válida la certificación de cada uno;
+ *    «certificado: sí» seguía diciendo sí años después de vencida.
+ *  - Los planes no son una tabla aparte: son los documentos del SG-SST de
+ *    tipo PLAN. Tenerlos dos veces obligaría a actualizar el mismo plan en
+ *    dos sitios.
+ */
+import { useState } from 'react'
+import { Box, Chip, Table, TableBody, TableCell, TableHead, TableRow, Paper, IconButton, Tooltip, LinearProgress, Tabs, Tab, Typography, alpha } from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { LocalFireDepartment, Add, Groups, EventRepeat, CheckCircle, Warning } from '@mui/icons-material'
+import { LocalFireDepartment, Edit, DeleteForever } from '@mui/icons-material'
+import { useQuery } from '@tanstack/react-query'
+import { Link as RouterLink } from 'react-router-dom'
 import { Layout } from '@/components/layout/Layout'
-
+import { sstApi, type Brigadista, type Simulacro } from '@/api/sst'
+import { FormularioRegistro, useCrud, Cifra, Encabezado, fmtFecha, type Campo } from '@/components/comun/Registro'
 import { COLOR_MODULO } from '@/config/marca'
+
 const SST_COLOR = COLOR_MODULO
-const PAGE_BG   = '#F0F2F5'
+const ROLES: [string, string][] = [['COORDINADOR', 'Coordinador de emergencias'], ['PRIMEROS_AUXILIOS', 'Primeros auxilios'],
+  ['EVACUACION', 'Evacuación y rescate'], ['CONTRA_INCENDIOS', 'Control de incendios'], ['COMUNICACIONES', 'Comunicaciones']]
+const RESULTADOS: [string, string][] = [['SATISFACTORIO', 'Satisfactorio'], ['ACEPTABLE', 'Aceptable'], ['DEFICIENTE', 'Deficiente']]
+const COLOR_RES: Record<string, string> = { SATISFACTORIO: '#15803D', ACEPTABLE: '#D97706', DEFICIENTE: '#DC2626' }
+const hoy = () => new Date().toISOString().slice(0, 10)
+const fmtTiempo = (s?: number | null) => (s == null ? '—' : `${Math.floor(s / 60)} min ${s % 60} s`)
 
-const SX_INPUT = {
-  '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: '#F9FAFB', '& fieldset': { borderColor: '#E5E7EB' } },
-  '& .MuiInputLabel-root': { color: 'text.secondary' },
-}
-
-interface BrigadaMiembro { nombre: string; cargo: string; rol: string; certificado: boolean }
-interface Simulacro { fecha: string; tipo: string; participantes: number; resultado: string; observaciones: string }
-
-const BRIGADA: BrigadaMiembro[] = [
-  { nombre: 'Andrés Torres',  cargo: 'Coord. SST',      rol: 'Coordinador emergencias', certificado: true  },
-  { nombre: 'Carmen Rojas',   cargo: 'Aux. SST',         rol: 'Primeros auxilios',       certificado: true  },
-  { nombre: 'Marco Vargas',   cargo: 'Jefe Mantenimiento',rol: 'Evacuación y rescate',   certificado: true  },
-  { nombre: 'Patricia Núñez', cargo: 'Aux. Bodega',      rol: 'Primeros auxilios',       certificado: false },
-  { nombre: 'Luis Herrera',   cargo: 'Técnico Elec.',    rol: 'Control de incendios',    certificado: true  },
-  { nombre: 'Diana Castro',   cargo: 'Aux. Admin.',      rol: 'Comunicaciones',          certificado: true  },
+const CAMPOS_BRIG: Campo[] = [
+  { clave: 'nombre', etiqueta: 'Nombre', obligatorio: true, ancho: 6 },
+  { clave: 'rol', etiqueta: 'Rol en la brigada', tipo: 'seleccion', opciones: ROLES, obligatorio: true, ancho: 6 },
+  { clave: 'cargo', etiqueta: 'Cargo', ancho: 6 },
+  { clave: 'area', etiqueta: 'Área', ancho: 6 },
+  { clave: 'telefono', etiqueta: 'Teléfono', ancho: 6 },
+  { clave: 'certificado_hasta', etiqueta: 'Certificación válida hasta', tipo: 'fecha', ancho: 6 },
 ]
-
-const SIMULACROS_INIT: Simulacro[] = [
-  { fecha: '2026-03-15', tipo: 'Evacuación general',         participantes: 87,  resultado: 'Satisfactorio', observaciones: 'Tiempo evacuación: 4 min 20 seg. Señalización correcta.' },
-  { fecha: '2025-09-10', tipo: 'Derrame de sustancia química', participantes: 25, resultado: 'Aceptable',     observaciones: 'Personal brigada respondió. Falló comunicación al punto de encuentro.' },
-  { fecha: '2025-03-20', tipo: 'Evacuación general',          participantes: 91,  resultado: 'Satisfactorio', observaciones: 'Tiempo evacuación: 3 min 50 seg. Se realizaron mejoras vs simulacro anterior.' },
-]
-
-const PLANES = [
-  { nombre: 'Plan de evacuación y emergencias',      estado: 'Vigente',           version: 'v2.2', ultima_revision: '2026-01-10', proxima_revision: '2027-01-10' },
-  { nombre: 'Plan de respuesta a incendios',         estado: 'Vigente',           version: 'v1.5', ultima_revision: '2025-11-01', proxima_revision: '2026-11-01' },
-  { nombre: 'Plan de respuesta a derrames',          estado: 'En actualización',  version: 'v1.0', ultima_revision: '2024-06-15', proxima_revision: '2025-06-15' },
-  { nombre: 'Plan de comunicación en emergencias',   estado: 'Vigente',           version: 'v1.2', ultima_revision: '2025-08-20', proxima_revision: '2026-08-20' },
+const CAMPOS_SIM: Campo[] = [
+  { clave: 'fecha', etiqueta: 'Fecha', tipo: 'fecha', obligatorio: true, ancho: 6, validar: v => (v && v > hoy() ? 'Aún no ha ocurrido' : null) },
+  { clave: 'tipo', etiqueta: 'Escenario', obligatorio: true, ancho: 6, ayuda: 'Evacuación, incendio, sismo, derrame…' },
+  { clave: 'participantes', etiqueta: 'Participantes', tipo: 'numero', min: 0, ancho: 4 },
+  { clave: 'tiempo_respuesta_seg', etiqueta: 'Tiempo de evacuación (s)', tipo: 'numero', min: 0, ancho: 4 },
+  { clave: 'resultado', etiqueta: 'Resultado', tipo: 'seleccion', opciones: RESULTADOS, ancho: 4 },
+  { clave: 'observaciones', etiqueta: 'Observaciones', tipo: 'area' },
+  { clave: 'acciones_mejora', etiqueta: 'Acciones de mejora', tipo: 'area' },
 ]
 
 export default function SSTEmergencias() {
-  const [simulacros, setSimulacros] = useState<Simulacro[]>(SIMULACROS_INIT)
-  const [openSim, setOpenSim]       = useState(false)
-  const [simFecha, setSimFecha]     = useState('')
-  const [simTipo, setSimTipo]       = useState('')
-  const [simPart, setSimPart]       = useState('')
-  const [simRes, setSimRes]         = useState('Satisfactorio')
-  const [simObs, setSimObs]         = useState('')
-
-  const certif = BRIGADA.filter(b => b.certificado).length
-
-  const kpis = [
-    { label: 'Miembros brigada',    value: BRIGADA.length, color: SST_COLOR },
-    { label: 'Certificados',        value: certif,         color: '#22c55e' },
-    { label: 'Simulacros 2026',     value: simulacros.filter(s => s.fecha.startsWith('2026')).length, color: '#3b82f6' },
-    { label: 'Planes vigentes',     value: PLANES.filter(p => p.estado === 'Vigente').length, color: '#f59e0b' },
-  ]
-
-  function handleCrearSim() {
-    if (!simFecha || !simTipo) return
-    setSimulacros(prev => [
-      { fecha: simFecha, tipo: simTipo, participantes: Number(simPart) || 0, resultado: simRes, observaciones: simObs },
-      ...prev,
-    ])
-    setOpenSim(false); setSimFecha(''); setSimTipo(''); setSimPart(''); setSimRes('Satisfactorio'); setSimObs('')
-  }
+  const [tab, setTab] = useState(0)
+  const brig = useCrud(['sst-brigada'], sstApi.brigada, 'Brigadista')
+  const sims = useCrud(['sst-simulacros'], sstApi.simulacros, 'Simulacro')
+  const { data: docs = [] } = useQuery({ queryKey: ['sst-documentos'], queryFn: () => sstApi.documentos.listar() })
+  const planes = docs.filter(d => d.tipo === 'PLAN')
+  const [dlgB, setDlgB] = useState<{ abierto: boolean; r: Brigadista | null }>({ abierto: false, r: null })
+  const [dlgS, setDlgS] = useState<{ abierto: boolean; r: Simulacro | null }>({ abierto: false, r: null })
+  const anio = String(new Date().getFullYear())
+  const vigentes = brig.datos.filter(b => b.certificado_vigente)
 
   return (
     <Layout>
-      <Box sx={{ p: 3, background: PAGE_BG, minHeight: '100vh' }}>
-
-        {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <LocalFireDepartment sx={{ color: SST_COLOR, fontSize: 28 }} />
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Plan de Emergencias</Typography>
-              <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>Brigada, planes de respuesta y simulacros · Resolución 0312/2019</Typography>
-            </Box>
-            <Chip label="SG-SST" size="small" sx={{ bgcolor: alpha(SST_COLOR, 0.15), color: '#F87171', fontWeight: 700, border: `1px solid ${alpha(SST_COLOR, 0.35)}` }} />
+      <Box sx={{ p: 3 }}>
+        <Encabezado icono={<LocalFireDepartment sx={{ fontSize: 28 }} />} titulo="Emergencias" subtitulo="SST · Brigada, simulacros y planes de respuesta" color={SST_COLOR}
+          accion={tab === 0 ? 'Agregar brigadista' : tab === 1 ? 'Registrar simulacro' : undefined}
+          onAccion={() => (tab === 0 ? setDlgB({ abierto: true, r: null }) : setDlgS({ abierto: true, r: null }))} />
+        <Grid container spacing={2} mb={3}>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Integrantes de la brigada" valor={brig.datos.length} color={SST_COLOR} /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Con certificación vigente" valor={vigentes.length} color="#15803D" sub={brig.datos.length ? `${brig.datos.length - vigentes.length} por renovar` : undefined} /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta={`Simulacros ${anio}`} valor={sims.datos.filter(s => s.fecha.startsWith(anio)).length} color="#0369A1" /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Planes vigentes" valor={planes.filter(p => p.estado === 'VIGENTE' && !p.revision_vencida).length} color="#D97706" sub={`${planes.length} planes registrados`} /></Grid>
+        </Grid>
+        <Paper variant="outlined" sx={{ borderRadius: 2 }}>
+          <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ px: 2, borderBottom: '1px solid #E5E7EB' }}>
+            <Tab label="Brigada" /><Tab label="Simulacros" /><Tab label="Planes" />
+          </Tabs>
+          {(brig.isLoading || sims.isLoading) && <LinearProgress />}
+          <Box sx={{ overflow: 'auto' }}>
+            {tab === 0 && (
+              <Table size="small">
+                <TableHead><TableRow sx={{ '& th': { fontWeight: 700, fontSize: 12 } }}>
+                  <TableCell>Nombre</TableCell><TableCell>Rol</TableCell><TableCell>Cargo / área</TableCell><TableCell>Teléfono</TableCell><TableCell>Certificación</TableCell><TableCell />
+                </TableRow></TableHead>
+                <TableBody>
+                  {!brig.isLoading && brig.datos.length === 0 && <TableRow><TableCell colSpan={6} align="center" sx={{ py: 3, color: 'text.secondary' }}>Sin integrantes registrados</TableCell></TableRow>}
+                  {brig.datos.map(b => (
+                    <TableRow key={b.id} hover>
+                      <TableCell sx={{ fontSize: 12 }}><b>{b.nombre}</b></TableCell>
+                      <TableCell sx={{ fontSize: 12 }}>{ROLES.find(r => r[0] === b.rol)?.[1] ?? b.rol}</TableCell>
+                      <TableCell sx={{ fontSize: 12 }}>{[b.cargo, b.area].filter(Boolean).join(' · ') || '—'}</TableCell>
+                      <TableCell sx={{ fontSize: 12 }}>{b.telefono ?? '—'}</TableCell>
+                      <TableCell>{b.certificado_hasta
+                        ? <Chip size="small" label={`${b.certificado_vigente ? 'Vigente' : 'Vencida'} · ${fmtFecha(b.certificado_hasta)}`} color={b.certificado_vigente ? 'success' : 'error'} variant="outlined" />
+                        : <Chip size="small" label="Sin certificar" variant="outlined" />}</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                        <Tooltip title="Editar"><IconButton size="small" aria-label={`Editar ${b.nombre}`} onClick={() => setDlgB({ abierto: true, r: b })}><Edit fontSize="small" /></IconButton></Tooltip>
+                        <Tooltip title="Retirar"><IconButton size="small" aria-label={`Retirar ${b.nombre}`} onClick={() => { if (window.confirm(`¿Retirar a ${b.nombre} de la brigada?`)) brig.retirar.mutate(b.id) }}><DeleteForever fontSize="small" sx={{ color: '#DC2626' }} /></IconButton></Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+            {tab === 1 && (
+              <Table size="small">
+                <TableHead><TableRow sx={{ '& th': { fontWeight: 700, fontSize: 12 } }}>
+                  <TableCell>Fecha</TableCell><TableCell>Escenario</TableCell><TableCell align="right">Participantes</TableCell><TableCell align="right">Evacuación</TableCell>
+                  <TableCell>Resultado</TableCell><TableCell>Observaciones</TableCell><TableCell />
+                </TableRow></TableHead>
+                <TableBody>
+                  {!sims.isLoading && sims.datos.length === 0 && <TableRow><TableCell colSpan={7} align="center" sx={{ py: 3, color: 'text.secondary' }}>Sin simulacros registrados</TableCell></TableRow>}
+                  {sims.datos.map(s => (
+                    <TableRow key={s.id} hover>
+                      <TableCell sx={{ fontSize: 12 }}>{fmtFecha(s.fecha)}</TableCell>
+                      <TableCell sx={{ fontSize: 12 }}><b>{s.tipo}</b></TableCell>
+                      <TableCell align="right">{s.participantes ?? '—'}</TableCell>
+                      <TableCell align="right" sx={{ fontSize: 12 }}>{fmtTiempo(s.tiempo_respuesta_seg)}</TableCell>
+                      <TableCell>{s.resultado ? <Chip size="small" label={RESULTADOS.find(r => r[0] === s.resultado)?.[1]} sx={{ fontSize: 11, fontWeight: 700, bgcolor: alpha(COLOR_RES[s.resultado], 0.12), color: COLOR_RES[s.resultado] }} /> : '—'}</TableCell>
+                      <TableCell sx={{ fontSize: 12, maxWidth: 300 }}>{s.observaciones ?? '—'}{s.acciones_mejora && <Typography fontSize={11} color="text.secondary">Mejora: {s.acciones_mejora}</Typography>}</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                        <Tooltip title="Editar"><IconButton size="small" aria-label={`Editar simulacro ${s.tipo}`} onClick={() => setDlgS({ abierto: true, r: s })}><Edit fontSize="small" /></IconButton></Tooltip>
+                        <Tooltip title="Retirar"><IconButton size="small" aria-label={`Retirar simulacro ${s.tipo}`} onClick={() => { if (window.confirm('¿Retirar este simulacro?')) sims.retirar.mutate(s.id) }}><DeleteForever fontSize="small" sx={{ color: '#DC2626' }} /></IconButton></Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+            {tab === 2 && (
+              <Box sx={{ p: 2 }}>
+                <Typography fontSize={13} color="text.secondary" mb={1.5}>
+                  Los planes son los documentos del SG-SST de tipo «Plan». Se crean y actualizan en <RouterLink to="/sst/documentos">Documentos</RouterLink>.
+                </Typography>
+                <Table size="small">
+                  <TableHead><TableRow sx={{ '& th': { fontWeight: 700, fontSize: 12 } }}>
+                    <TableCell>Plan</TableCell><TableCell>Versión</TableCell><TableCell>Aprobado</TableCell><TableCell>Próxima revisión</TableCell><TableCell>Estado</TableCell>
+                  </TableRow></TableHead>
+                  <TableBody>
+                    {planes.length === 0 && <TableRow><TableCell colSpan={5} align="center" sx={{ py: 3, color: 'text.secondary' }}>Sin planes registrados</TableCell></TableRow>}
+                    {planes.map(p => (
+                      <TableRow key={p.id}>
+                        <TableCell sx={{ fontSize: 12 }}><b>{p.titulo}</b></TableCell>
+                        <TableCell sx={{ fontSize: 12 }}>v{p.version}</TableCell>
+                        <TableCell sx={{ fontSize: 12 }}>{fmtFecha(p.fecha_aprobacion)}</TableCell>
+                        <TableCell sx={{ fontSize: 12, color: p.revision_vencida ? 'error.main' : undefined }}>{fmtFecha(p.fecha_revision)}</TableCell>
+                        <TableCell><Chip size="small" label={p.revision_vencida ? 'Revisión vencida' : p.estado.replace('_', ' ').toLowerCase()} color={p.revision_vencida ? 'error' : p.estado === 'VIGENTE' ? 'success' : 'warning'} variant="outlined" /></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Box>
+            )}
           </Box>
-          <Button variant="contained" startIcon={<Add />} onClick={() => setOpenSim(true)} sx={{ bgcolor: SST_COLOR }}>Registrar Simulacro</Button>
-        </Box>
-
-        {/* KPIs */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          {kpis.map(k => (
-            <Grid key={k.label} size={{ xs: 12, sm: 6, md: 3 }}>
-              <Card sx={{ border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2 }}>
-                <CardContent sx={{ p: '14px !important' }}>
-                  <Typography sx={{ fontSize: 11, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>{k.label}</Typography>
-                  <Typography sx={{ fontSize: 26, fontWeight: 800, color: k.color, lineHeight: 1 }}>{k.value}</Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-
-        <Grid container spacing={2.5}>
-          {/* Brigada */}
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                  <Groups sx={{ color: SST_COLOR, fontSize: 20 }} />
-                  <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 15 }}>Brigada de Emergencias</Typography>
-                  <Chip label={`${certif}/${BRIGADA.length} certificados`} size="small" sx={{ bgcolor: alpha('#22c55e', 0.12), color: '#22c55e', fontSize: 10, ml: 'auto' }} />
-                </Box>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  {BRIGADA.map((m, i) => (
-                    <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1, bgcolor: '#F9FAFB', borderRadius: 1 }}>
-                      <Box sx={{ width: 32, height: 32, borderRadius: '50%', bgcolor: alpha(SST_COLOR, 0.15), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#F87171' }}>{m.nombre.charAt(0)}</Typography>
-                      </Box>
-                      <Box sx={{ flex: 1 }}>
-                        <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'text.primary', lineHeight: 1.2 }}>{m.nombre}</Typography>
-                        <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{m.rol}</Typography>
-                      </Box>
-                      {m.certificado
-                        ? <CheckCircle sx={{ fontSize: 16, color: '#22c55e' }} />
-                        : <Warning sx={{ fontSize: 16, color: '#f59e0b' }} />
-                      }
-                    </Box>
-                  ))}
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Planes y Simulacros */}
-          <Grid size={{ xs: 12, md: 6 }}>
-            {/* Planes */}
-            <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2, mb: 2.5 }}>
-              <CardContent>
-                <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 15, mb: 2 }}>Planes de Respuesta</Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  {PLANES.map((p, i) => (
-                    <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1, bgcolor: '#F9FAFB', borderRadius: 1 }}>
-                      <Box sx={{ flex: 1 }}>
-                        <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'text.primary', lineHeight: 1.2 }}>{p.nombre}</Typography>
-                        <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>Rev: {p.proxima_revision} · {p.version}</Typography>
-                      </Box>
-                      <Chip label={p.estado} size="small" sx={{ bgcolor: p.estado === 'Vigente' ? alpha('#22c55e', 0.12) : alpha('#f59e0b', 0.12), color: p.estado === 'Vigente' ? '#22c55e' : '#fbbf24', fontSize: 10 }} />
-                    </Box>
-                  ))}
-                </Box>
-              </CardContent>
-            </Card>
-
-            {/* Simulacros */}
-            <Card sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                  <EventRepeat sx={{ color: SST_COLOR, fontSize: 20 }} />
-                  <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 15 }}>Simulacros realizados</Typography>
-                </Box>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  {simulacros.map((s, i) => (
-                    <Box key={i} sx={{ p: '10px 12px', bgcolor: '#F9FAFB', borderRadius: 1, borderLeft: `3px solid ${s.resultado === 'Satisfactorio' ? '#22c55e' : '#f59e0b'}` }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.25 }}>
-                        <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'text.primary' }}>{s.tipo}</Typography>
-                        <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{s.fecha}</Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        <Chip label={`${s.participantes} participantes`} size="small" sx={{ bgcolor: '#F9FAFB', color: 'text.secondary', fontSize: 10 }} />
-                        <Chip label={s.resultado} size="small" sx={{ bgcolor: alpha(s.resultado === 'Satisfactorio' ? '#22c55e' : '#f59e0b', 0.12), color: s.resultado === 'Satisfactorio' ? '#22c55e' : '#fbbf24', fontSize: 10 }} />
-                      </Box>
-                    </Box>
-                  ))}
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-
-        {/* Dialog simulacro */}
-        <Dialog open={openSim} onClose={() => setOpenSim(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { color: 'text.primary' } }}>
-          <DialogTitle sx={{ borderBottom: '1px solid #F1F5F9', fontWeight: 700 }}>Registrar Simulacro</DialogTitle>
-          <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <TextField label="Fecha *" type="date" value={simFecha} onChange={e => setSimFecha(e.target.value)} fullWidth size="small" sx={SX_INPUT} InputLabelProps={{ shrink: true }} />
-              <TextField label="Participantes" value={simPart} onChange={e => setSimPart(e.target.value)} type="number" size="small" sx={SX_INPUT} />
-            </Box>
-            <TextField label="Tipo de simulacro *" value={simTipo} onChange={e => setSimTipo(e.target.value)} fullWidth size="small" sx={SX_INPUT} placeholder="Ej: Evacuación general, Conato incendio..." />
-            <TextField label="Resultado" value={simRes} onChange={e => setSimRes(e.target.value)} fullWidth size="small" sx={SX_INPUT} placeholder="Satisfactorio / Aceptable / No satisfactorio" />
-            <TextField label="Observaciones" value={simObs} onChange={e => setSimObs(e.target.value)} fullWidth multiline rows={3} size="small" sx={SX_INPUT} />
-          </DialogContent>
-          <DialogActions sx={{ p: 2, gap: 1, borderTop: '1px solid #F1F5F9' }}>
-            <Button onClick={() => setOpenSim(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>
-            <Button variant="contained" onClick={handleCrearSim} disabled={!simFecha || !simTipo} sx={{ bgcolor: SST_COLOR }}>Registrar</Button>
-          </DialogActions>
-        </Dialog>
+        </Paper>
+        <FormularioRegistro abierto={dlgB.abierto} titulo={dlgB.r ? `Brigadista · ${dlgB.r.nombre}` : 'Agregar brigadista'} campos={CAMPOS_BRIG} registro={dlgB.r}
+          onGuardar={c => brig.guardar(dlgB.r, c)} onCerrar={() => setDlgB({ abierto: false, r: null })} />
+        <FormularioRegistro abierto={dlgS.abierto} titulo={dlgS.r ? 'Editar simulacro' : 'Registrar simulacro'} campos={CAMPOS_SIM} registro={dlgS.r}
+          valoresIniciales={{ fecha: hoy() }} onGuardar={c => sims.guardar(dlgS.r, c)} onCerrar={() => setDlgS({ abierto: false, r: null })} />
       </Box>
     </Layout>
   )

@@ -56,18 +56,27 @@ const archivos = fs.readdirSync(DIR).filter(f => f.endsWith('.tsx'));
 const maquetas = [];
 const mixtas = [];
 
+// Cifras inventadas al azar: un «optimizador» que devolvia una distancia con
+// Math.random() pasaba por pantalla conectada porque el resto si consultaba.
+const azar = [];
+
 for (const f of archivos) {
   const src = fs.readFileSync(path.join(DIR, f), 'utf8');
+  if (/Math\.random\(\)/.test(src)) azar.push(f);
   const arr = arreglosDeObjetos(src);
   if (!arr.length) continue;
 
-  // Solo los que de verdad se pintan.
+  // Solo los que de verdad se pintan. Tambien cuenta el arreglo que entra
+  // como estado inicial —`useState(ENTREGAS)`— y se pinta con otro nombre:
+  // ese patron dejaba fuera pantallas enteras que no consultan nada.
   const pintados = arr.filter(a =>
     new RegExp(`${a.nombre}\\s*[.\\)\\]]*\\s*\\.?(map|filter|slice|sort|reduce|find)\\(`)
-      .test(src) || new RegExp(`\\{\\s*${a.nombre}`).test(src));
+      .test(src) || new RegExp(`\\{\\s*${a.nombre}`).test(src)
+      || new RegExp(`useState\\s*(<[^>]*>)?\\(\\s*(\\(\\)\\s*=>\\s*)?\\[?(\\.\\.\\.)?${a.nombre}\\b`).test(src));
   if (!pintados.length) continue;
 
-  const consulta = /useQuery|useInfiniteQuery/.test(src);
+  // Consulta quien usa react-query o llama la API directo en un efecto.
+  const consulta = /useQuery|useInfiniteQuery|apiClient\.(get|post)|\bapi\.(get|post)\(|Api\.\w+\(/.test(src);
   const fila = {
     archivo: f,
     registros: pintados.reduce((s, a) => s + a.objetos, 0),
@@ -101,5 +110,9 @@ for (const x of mixtas.slice(0, 30)) {
   console.log(`  ${x.archivo.padEnd(30)} ${String(x.registros).padStart(3)} reg  ${x.arreglos.join(', ')}`);
 }
 if (mixtas.length > 30) console.log(`  … y ${mixtas.length - 30} mas`);
+
+console.log(`\n=== CIFRAS AL AZAR (${azar.length}) ===`);
+console.log('Usan Math.random(): puede ser un id temporal, o un numero inventado en pantalla.\n');
+for (const f of azar) console.log(`  ${f}`);
 
 console.log(`\nTOTAL a revisar: ${maquetas.length} maquetas + ${mixtas.length} mixtas`);
