@@ -19,7 +19,7 @@ from app.infrastructure.models.eam import (
     EAMMuestraAceite, EAMNeumatico, EAMMovimientoNeumatico,
     EAMBodegaNeumatico, EAMDanoNeumaticoCatalogo, EAMNeumaticoCatalogo, EAMActivo,
     EAMInspeccionNeumatico, EAMReencaucheLote, EAMReencaucheDetalle, EAMNeumaticoConfig,
-    EAMRegistroCombustible, EAMGarantia, EAMFMEA,
+    EAMRegistroCombustible, EAMGarantia, EAMGarantiaReclamacion, EAMFMEA,
     EAMCalibracion, EAMKPIDiario,
     EAMZonaNeumatico, EAMBandaReencauche, EAMMotivoFinVida,
     EAMAjusteNeumaticoCatalogo, EAMAjusteNeumatico,
@@ -883,11 +883,22 @@ class GarantiaCreate(BaseModel):
     condiciones: Optional[str] = None
     estado: Optional[str] = "VIGENTE"
     valor_cubierto: Optional[float] = None
+    # Qué cubre, una por línea; el resto es a quién llamar y quién responde.
+    cobertura: Optional[str] = None
+    contacto_proveedor: Optional[str] = None
+    telefono_proveedor: Optional[str] = None
+    documento: Optional[str] = None
+    responsable: Optional[str] = None
 
 class GarantiaResponse(GarantiaCreate):
     model_config = ConfigDict(from_attributes=True)
     id: int
     reclamaciones: int
+    # Calculados: ver el comentario de la sección de garantías. Los días pueden
+    # ser negativos —eso es una garantía vencida— y por eso no van sin signo.
+    dias_restantes: Optional[int] = None
+    ultimo_reclamo: Optional[date] = None
+    activo_codigo: Optional[str] = None
 
 class CalibracionCreate(BaseModel):
     activo_id: int
@@ -5504,19 +5515,418 @@ async def update_neumatico(nid: int, data: NeumaticUpdate, db: AsyncSession = De
 
 # ─── Garantías ────────────────────────────────────────────────────────────────
 
-@router.get("/garantias", response_model=List[GarantiaResponse])
-async def list_garantias(estado: Optional[str] = None, db: AsyncSession = Depends(get_db)):
-    q = select(EAMGarantia)
-    if estado:
-        q = q.where(EAMGarantia.estado == estado)
-    result = await db.execute(q)
-    return result.scalars().all()
+#
+# EL ESTADO Y LOS DÍAS SE CALCULAN, NO SE GUARDAN
+#
+# Una garantía guardada como VIGENTE sigue diciendo VIGENTE el día después de
+# vencerse: el estado depende de la fecha de hoy, y no hay nada que corra a
+# medianoche a corregir la columna. Lo mismo con los días restantes. Así que de
+# la columna `estado` solo se respeta lo que una persona decidió —RECLAMADA,
+# CANCELADA— y el resto sale de comparar `fecha_fin` con hoy.
+#
+# Es exactamente el error que tenía la pantalla cuando estaba maquetada: traía
+# «209 días restantes» escrito a mano, y ese número envejecía solo.
 
-@router.post("/garantias", response_model=GarantiaResponse)
+ESTADOS_MANUALES_GARANTIA = ("RECLAMADA", "CANCELADA")
+
+# Ventana de aviso. Noventa días es el tiempo mínimo razonable para alcanzar a
+# inspeccionar el equipo, abrir el reclamo y que el proveedor responda antes de
+# que la cobertura se cierre.
+DIAS_AVISO_GARANTIA = 90
+
+
+async def _garantia_a_salida(g: EAMGarantia, hoy: date,
+                             activos: dict, conteos: dict) -> dict:
+    dias = (g.fecha_fin - hoy).days if g.fecha_fin else None
+    if g.estado in ESTADOS_MANUALES_GARANTIA:
+        estado = g.estado
+    elif dias is not None and dias < 0:
+        estado = "VENCIDA"
+    else:
+        estado = "VIGENTE"
+    n, ultimo = conteos.get(g.id, (0, None))
+    return {
+        "id": g.id, "activo_id": g.activo_id, "tipo": g.tipo,
+        "descripcion": g.descripcion, "proveedor": g.proveedor,
+        "numero_garantia": g.numero_garantia,
+        "fecha_inicio": g.fecha_inicio, "fecha_fin": g.fecha_fin,
+        "condiciones": g.condiciones, "valor_cubierto": g.valor_cubierto,
+        "cobertura": g.cobertura, "contacto_proveedor": g.contacto_proveedor,
+        "telefono_proveedor": g.telefono_proveedor, "documento": g.documento,
+        "responsable": g.responsable,
+        "estado": estado, "dias_restantes": dias,
+        "activo_codigo": activos.get(g.activo_id),
+        # Contados desde la tabla de reclamos, no leídos de la columna.
+        "reclamaciones": n, "ultimo_reclamo": ultimo,
+    }
+
+
+async def _contexto_garantias(db: AsyncSession, ids: List[int]) -> tuple:
+    """Códigos de activo y conteo de reclamos, en dos consultas y no en 2N."""
+    r = await db.execute(select(EAMActivo.id, EAMActivo.codigo))
+    activos = {aid: cod for aid, cod in r.all()}
+    conteos: dict = {}
+    if ids:
+        r = await db.execute(
+            select(EAMGarantiaReclamacion.garantia_id,
+                   func.count(EAMGarantiaReclamacion.id),
+                   func.max(EAMGarantiaReclamacion.fecha))
+            .where(EAMGarantiaReclamacion.garantia_id.in_(ids))
+            .group_by(EAMGarantiaReclamacion.garantia_id))
+        conteos = {gid: (n, ultimo) for gid, n, ultimo in r.all()}
+    return activos, conteos
+
+
+@router.get("/garantias", response_model=List[GarantiaResponse])
+async def list_garantias(estado: Optional[str] = None,
+                         activo_id: Optional[int] = None,
+                         db: AsyncSession = Depends(get_db)):
+    q = select(EAMGarantia).order_by(EAMGarantia.fecha_fin)
+    if activo_id:
+        q = q.where(EAMGarantia.activo_id == activo_id)
+    filas = list((await db.execute(q)).scalars().all())
+    activos, conteos = await _contexto_garantias(db, [g.id for g in filas])
+    hoy = date.today()
+    salida = [await _garantia_a_salida(g, hoy, activos, conteos) for g in filas]
+    # El filtro va sobre el estado calculado y no sobre la columna: pedir las
+    # vencidas y recibir las que la columna dice vigentes sería inexplicable.
+    if estado:
+        salida = [g for g in salida if g["estado"] == estado]
+    return salida
+
+
+@router.get("/garantias/resumen")
+async def resumen_garantias(db: AsyncSession = Depends(get_db)):
+    """Los números del encabezado, calculados donde están los datos.
+
+    Se calcula acá y no sumando en la pantalla porque la pantalla solo tiene la
+    página que está viendo: con paginación, los totales saldrían mal.
+    """
+    filas = list((await db.execute(select(EAMGarantia))).scalars().all())
+    hoy = date.today()
+    vigentes = por_vencer = vencidas = reclamadas = 0
+    valor_total = 0.0
+    #
+    # RECLAMADA NO SACA A UNA GARANTÍA DE VIGENTE
+    #
+    # Son dos cosas distintas: vigente dice si todavía cubre, y reclamada dice
+    # si hay una gestión abierta con el proveedor. Una garantía reclamada sigue
+    # cubriendo —de hecho es la que más hay que vigilar—.
+    #
+    # Contarlas aparte era un error visible: la garantía reclamada que se vencía
+    # en 45 días desaparecía del contador «Por vencer» y seguía apareciendo en
+    # la pestaña «Por vencer», que usa la otra ruta. Dos números distintos para
+    # lo mismo en la misma pantalla. Ahora las dos cuentan con la misma regla
+    # que `/garantias/por-vencer`: lo que no está cancelado y no ha vencido.
+    #
+    for g in filas:
+        dias = (g.fecha_fin - hoy).days if g.fecha_fin else None
+        if g.estado == "RECLAMADA":
+            reclamadas += 1
+        if g.estado == "CANCELADA":
+            continue
+        if dias is not None and dias < 0:
+            vencidas += 1
+            continue
+        vigentes += 1
+        if dias is not None and dias <= DIAS_AVISO_GARANTIA:
+            por_vencer += 1
+        # El valor cubierto suma solo lo que todavía cubre algo: sumar las
+        # vencidas infla la cifra con cobertura que ya no existe.
+        valor_total += g.valor_cubierto or 0
+
+    r = await db.execute(select(
+        func.count(EAMGarantiaReclamacion.id),
+        func.coalesce(func.sum(EAMGarantiaReclamacion.monto_solicitado), 0),
+        func.coalesce(func.sum(EAMGarantiaReclamacion.monto_recuperado), 0)))
+    n_rec, solicitado, recuperado = r.one()
+
+    return {
+        "vigentes": vigentes, "por_vencer": por_vencer, "vencidas": vencidas,
+        "reclamadas": reclamadas, "valor_cubierto": valor_total,
+        "total": len(filas), "dias_aviso": DIAS_AVISO_GARANTIA,
+        "reclamos": n_rec, "monto_solicitado": float(solicitado),
+        "monto_recuperado": float(recuperado),
+        # La tasa se calcula acá para que la pantalla no divida por cero.
+        "tasa_recuperacion": round(float(recuperado) / float(solicitado) * 100, 1)
+                             if solicitado else 0.0,
+    }
+
+
+@router.get("/garantias/por-vencer", response_model=List[GarantiaResponse])
+async def garantias_por_vencer(dias: int = Query(DIAS_AVISO_GARANTIA, ge=1, le=365),
+                               db: AsyncSession = Depends(get_db)):
+    """Las que se vencen dentro de la ventana, lo más próximo primero.
+
+    Se excluye lo ya vencido a propósito: esta lista es de lo que todavía se
+    puede reclamar, y mezclarle lo que ya no tiene remedio la vuelve inútil.
+    """
+    hoy = date.today()
+    q = (select(EAMGarantia)
+         .where(and_(EAMGarantia.fecha_fin >= hoy,
+                     EAMGarantia.fecha_fin <= hoy + timedelta(days=dias),
+                     EAMGarantia.estado.notin_(("CANCELADA",))))
+         .order_by(EAMGarantia.fecha_fin))
+    filas = list((await db.execute(q)).scalars().all())
+    activos, conteos = await _contexto_garantias(db, [g.id for g in filas])
+    return [await _garantia_a_salida(g, hoy, activos, conteos) for g in filas]
+
+
+@router.get("/garantias/{gid}", response_model=GarantiaResponse)
+async def obtener_garantia(gid: int, db: AsyncSession = Depends(get_db)):
+    g = await db.get(EAMGarantia, gid)
+    if not g:
+        raise HTTPException(404, "Esa garantía no existe")
+    activos, conteos = await _contexto_garantias(db, [gid])
+    return await _garantia_a_salida(g, date.today(), activos, conteos)
+
+
+async def _numero_garantia(db: AsyncSession) -> str:
+    """Consecutivo del año, tomado del mayor que haya en uso.
+
+    Lo que esto garantiza es que el número no choque con ninguna garantía viva,
+    y por eso además se valida que no exista. Lo que NO garantiza es que un
+    número no se reutilice: al borrar la última garantía del año, la siguiente
+    vuelve a tomar ese número. Se acepta porque solo se puede borrar una
+    garantía sin reclamaciones —o sea, una que no tiene historia— y porque la
+    alternativa es una secuencia por año en la base para un consecutivo que
+    casi siempre lo trae escrito el contrato del proveedor.
+    """
+    prefijo = f"GAR-{date.today().year}-"
+    r = await db.execute(select(func.max(EAMGarantia.numero_garantia))
+                         .where(EAMGarantia.numero_garantia.like(f"{prefijo}%")))
+    ultimo = r.scalar()
+    siguiente = 1
+    if ultimo:
+        try:
+            siguiente = int(str(ultimo).rsplit("-", 1)[1]) + 1
+        except (IndexError, ValueError):
+            siguiente = 1
+    return f"{prefijo}{siguiente:04d}"
+
+
+async def _numero_libre(db: AsyncSession, numero: str, excluir: Optional[int] = None) -> None:
+    q = select(func.count()).select_from(EAMGarantia).where(
+        func.lower(EAMGarantia.numero_garantia) == numero.lower())
+    if excluir:
+        q = q.where(EAMGarantia.id != excluir)
+    if (await db.execute(q)).scalar():
+        raise HTTPException(409, f"Ya hay una garantía con el número «{numero}»")
+
+
+@router.post("/garantias", response_model=GarantiaResponse, status_code=201)
 async def create_garantia(data: GarantiaCreate, db: AsyncSession = Depends(get_db)):
-    obj = EAMGarantia(**data.model_dump())
+    if data.fecha_fin < data.fecha_inicio:
+        raise HTTPException(400, "La garantía no puede vencer antes de empezar")
+    campos = data.model_dump()
+    numero = (campos.get("numero_garantia") or "").strip()
+    if numero:
+        await _numero_libre(db, numero)
+    else:
+        numero = await _numero_garantia(db)
+    campos["numero_garantia"] = numero
+    campos.pop("estado", None)
+    obj = EAMGarantia(**campos, estado="VIGENTE")
     db.add(obj); await db.commit(); await db.refresh(obj)
-    return obj
+    activos, conteos = await _contexto_garantias(db, [obj.id])
+    return await _garantia_a_salida(obj, date.today(), activos, conteos)
+
+
+@router.put("/garantias/{gid}", response_model=GarantiaResponse)
+async def actualizar_garantia(gid: int, data: GarantiaCreate,
+                              db: AsyncSession = Depends(get_db)):
+    g = await db.get(EAMGarantia, gid)
+    if not g:
+        raise HTTPException(404, "Esa garantía no existe")
+    if data.fecha_fin < data.fecha_inicio:
+        raise HTTPException(400, "La garantía no puede vencer antes de empezar")
+
+    # `numero_garantia` y `estado` quedan fuera de la edición general, y por
+    # motivos distintos:
+    #
+    #  - El NÚMERO es opcional en el esquema, así que un formulario que no lo
+    #    manda lo dejaría en nulo: editar la descripción borraría el número del
+    #    contrato. Solo se cambia si viene con algo escrito.
+    #  - El ESTADO se cambia por su propia ruta. Si viniera del formulario, al
+    #    editar una garantía reclamada se borraría ese hecho sin que nadie lo
+    #    pidiera.
+    campos = data.model_dump(exclude={"estado", "numero_garantia"})
+    numero = (data.numero_garantia or "").strip()
+    if numero and numero != (g.numero_garantia or ""):
+        await _numero_libre(db, numero, excluir=gid)
+        g.numero_garantia = numero
+    for campo, valor in campos.items():
+        setattr(g, campo, valor)
+    await db.commit(); await db.refresh(g)
+    activos, conteos = await _contexto_garantias(db, [gid])
+    return await _garantia_a_salida(g, date.today(), activos, conteos)
+
+
+class EstadoGarantiaIn(BaseModel):
+    estado: str
+
+
+@router.patch("/garantias/{gid}/estado", response_model=GarantiaResponse)
+async def cambiar_estado_garantia(gid: int, data: EstadoGarantiaIn,
+                                  db: AsyncSession = Depends(get_db)):
+    g = await db.get(EAMGarantia, gid)
+    if not g:
+        raise HTTPException(404, "Esa garantía no existe")
+    validos = ("VIGENTE", "RECLAMADA", "CANCELADA")
+    if data.estado not in validos:
+        raise HTTPException(
+            400, f"Estado no válido. VENCIDA no se pone a mano: sale de la fecha. "
+                 f"Válidos: {', '.join(validos)}")
+    g.estado = data.estado
+    await db.commit(); await db.refresh(g)
+    activos, conteos = await _contexto_garantias(db, [gid])
+    return await _garantia_a_salida(g, date.today(), activos, conteos)
+
+
+@router.delete("/garantias/{gid}", status_code=204)
+async def eliminar_garantia(gid: int, db: AsyncSession = Depends(get_db)):
+    g = await db.get(EAMGarantia, gid)
+    if not g:
+        raise HTTPException(404, "Esa garantía no existe")
+    r = await db.execute(select(func.count(EAMGarantiaReclamacion.id))
+                         .where(EAMGarantiaReclamacion.garantia_id == gid))
+    n = r.scalar() or 0
+    # Se niega en vez de arrastrar los reclamos: un reclamo es la historia de
+    # una plata que se pidió y se recuperó, y eso no se borra de refilón al
+    # limpiar una lista de garantías.
+    if n:
+        raise HTTPException(
+            409,
+            f"Esa garantía tiene {n} {'reclamación' if n == 1 else 'reclamaciones'}. "
+            "Bórrelas primero, o cancele la garantía en vez de borrarla.")
+    await db.delete(g); await db.commit()
+
+
+# ─── Reclamaciones de garantía ────────────────────────────────────────────────
+
+def _reclamo_a_salida(r: EAMGarantiaReclamacion, g: Optional[EAMGarantia],
+                      hoy: date, activos: dict) -> dict:
+    # Días de gestión: hasta el cierre si cerró, y hasta hoy si sigue abierto.
+    # Un reclamo abierto tiene que ir subiendo, que es lo que delata al
+    # proveedor que no responde.
+    fin = r.fecha_cierre or hoy
+    return {
+        "id": r.id, "garantia_id": r.garantia_id, "fecha": r.fecha,
+        "descripcion": r.descripcion, "monto_solicitado": r.monto_solicitado,
+        "monto_recuperado": r.monto_recuperado, "estado": r.estado,
+        "responsable": r.responsable, "resolucion": r.resolucion,
+        "fecha_cierre": r.fecha_cierre,
+        "dias_gestion": (fin - r.fecha).days if r.fecha else None,
+        "abierto": r.fecha_cierre is None,
+        "numero_garantia": g.numero_garantia if g else None,
+        "proveedor": g.proveedor if g else None,
+        "activo_codigo": activos.get(g.activo_id) if g else None,
+    }
+
+
+class ReclamacionCreate(BaseModel):
+    garantia_id: int
+    fecha: Optional[date] = None
+    descripcion: str
+    monto_solicitado: Optional[float] = None
+    monto_recuperado: Optional[float] = None
+    estado: str = "EN_PROCESO"
+    responsable: Optional[str] = None
+    resolucion: Optional[str] = None
+    fecha_cierre: Optional[date] = None
+
+
+ESTADOS_RECLAMO = ("EN_PROCESO", "APROBADA", "RECHAZADA", "CERRADA")
+# Un reclamo aprobado o rechazado ya tiene respuesta del proveedor: la gestión
+# terminó ahí, aunque el dinero llegue después.
+ESTADOS_RECLAMO_CERRADOS = ("APROBADA", "RECHAZADA", "CERRADA")
+
+
+@router.get("/garantias-reclamaciones")
+async def list_reclamaciones(garantia_id: Optional[int] = None,
+                             estado: Optional[str] = None,
+                             db: AsyncSession = Depends(get_db)):
+    q = select(EAMGarantiaReclamacion).order_by(EAMGarantiaReclamacion.fecha.desc())
+    if garantia_id:
+        q = q.where(EAMGarantiaReclamacion.garantia_id == garantia_id)
+    if estado:
+        q = q.where(EAMGarantiaReclamacion.estado == estado)
+    filas = list((await db.execute(q)).scalars().all())
+
+    garantias: dict = {}
+    if filas:
+        r = await db.execute(select(EAMGarantia).where(
+            EAMGarantia.id.in_({x.garantia_id for x in filas})))
+        garantias = {g.id: g for g in r.scalars().all()}
+    r = await db.execute(select(EAMActivo.id, EAMActivo.codigo))
+    activos = {aid: cod for aid, cod in r.all()}
+
+    hoy = date.today()
+    return [_reclamo_a_salida(x, garantias.get(x.garantia_id), hoy, activos)
+            for x in filas]
+
+
+@router.post("/garantias-reclamaciones", status_code=201)
+async def create_reclamacion(data: ReclamacionCreate, db: AsyncSession = Depends(get_db)):
+    g = await db.get(EAMGarantia, data.garantia_id)
+    if not g:
+        raise HTTPException(400, "Esa garantía no existe")
+    if data.estado not in ESTADOS_RECLAMO:
+        raise HTTPException(400, f"Estado no válido: {', '.join(ESTADOS_RECLAMO)}")
+    campos = data.model_dump()
+    campos["fecha"] = campos.get("fecha") or date.today()
+    if campos["estado"] in ESTADOS_RECLAMO_CERRADOS and not campos.get("fecha_cierre"):
+        campos["fecha_cierre"] = date.today()
+    obj = EAMGarantiaReclamacion(**campos)
+    db.add(obj)
+    # Reclamar mueve la garantía a RECLAMADA, que es su estado real: hay una
+    # gestión abierta con el proveedor. Solo si no está cancelada.
+    if g.estado != "CANCELADA":
+        g.estado = "RECLAMADA"
+    await db.commit(); await db.refresh(obj)
+    r = await db.execute(select(EAMActivo.id, EAMActivo.codigo))
+    return _reclamo_a_salida(obj, g, date.today(), {a: c for a, c in r.all()})
+
+
+@router.put("/garantias-reclamaciones/{rid}")
+async def actualizar_reclamacion(rid: int, data: ReclamacionCreate,
+                                 db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMGarantiaReclamacion, rid)
+    if not obj:
+        raise HTTPException(404, "Esa reclamación no existe")
+    if data.estado not in ESTADOS_RECLAMO:
+        raise HTTPException(400, f"Estado no válido: {', '.join(ESTADOS_RECLAMO)}")
+    for campo, valor in data.model_dump(exclude={"garantia_id"}).items():
+        setattr(obj, campo, valor)
+    obj.fecha = obj.fecha or date.today()
+    # Cerrar sin fecha de cierre dejaría los días de gestión creciendo para
+    # siempre sobre un reclamo que ya terminó.
+    if obj.estado in ESTADOS_RECLAMO_CERRADOS and not obj.fecha_cierre:
+        obj.fecha_cierre = date.today()
+    if obj.estado == "EN_PROCESO":
+        obj.fecha_cierre = None
+    await db.commit(); await db.refresh(obj)
+    g = await db.get(EAMGarantia, obj.garantia_id)
+    r = await db.execute(select(EAMActivo.id, EAMActivo.codigo))
+    return _reclamo_a_salida(obj, g, date.today(), {a: c for a, c in r.all()})
+
+
+@router.delete("/garantias-reclamaciones/{rid}", status_code=204)
+async def eliminar_reclamacion(rid: int, db: AsyncSession = Depends(get_db)):
+    obj = await db.get(EAMGarantiaReclamacion, rid)
+    if not obj:
+        raise HTTPException(404, "Esa reclamación no existe")
+    garantia_id = obj.garantia_id
+    await db.delete(obj); await db.commit()
+    # Si era el último reclamo, la garantía deja de estar reclamada: se queda
+    # en RECLAMADA para siempre si no se devuelve el estado acá.
+    r = await db.execute(select(func.count(EAMGarantiaReclamacion.id))
+                         .where(EAMGarantiaReclamacion.garantia_id == garantia_id))
+    if (r.scalar() or 0) == 0:
+        g = await db.get(EAMGarantia, garantia_id)
+        if g and g.estado == "RECLAMADA":
+            g.estado = "VIGENTE"
+            await db.commit()
 
 
 # ─── Calibraciones ────────────────────────────────────────────────────────────

@@ -1091,8 +1091,49 @@ class EAMGarantia(Base, TimestampMixin):
     condiciones     = Column(Text)
     estado          = Column(String(30), default="VIGENTE")
     valor_cubierto  = Column(Float)
+    # Contador y última fecha de reclamo. Se conservan porque la API los expone
+    # desde antes, pero la API los CALCULA desde `eam_garantia_reclamacion`: un
+    # contador guardado se desincroniza en cuanto alguien borra un reclamo, y
+    # entonces la pantalla dice «3 reclamaciones» sobre una lista de dos.
     reclamaciones   = Column(Integer, default=0)
     ultimo_reclamo  = Column(Date)
+
+    # ── Lo que la pantalla mostraba y la tabla no guardaba ──
+    # Qué cubre, una por línea. Va como texto y no como tabla aparte porque es
+    # una lista de frases que solo se lee completa; nadie filtra por ella.
+    cobertura          = Column(Text)
+    contacto_proveedor = Column(String(120))
+    telefono_proveedor = Column(String(40))
+    # Nombre del documento del contrato. El archivo en sí va por adjuntos.
+    documento          = Column(String(300))
+    # Quién responde por la garantía adentro, no en el proveedor.
+    responsable        = Column(String(120))
+
+
+class EAMGarantiaReclamacion(Base, TimestampMixin):
+    """Un reclamo hecho al proveedor al amparo de una garantía.
+
+    Es la parte que decide si el módulo sirve: una garantía sin reclamos es un
+    archivo de documentos, y lo que la vuelve dinero es cuánto se pidió, cuánto
+    se recuperó y en cuántos días. De ahí sale la tasa de recuperación, que es
+    el único número con el que se puede negociar el siguiente contrato.
+    """
+    __tablename__ = "eam_garantia_reclamacion"
+    id               = Column(Integer, primary_key=True, index=True)
+    garantia_id      = Column(Integer, ForeignKey("eam_garantia.id", ondelete="CASCADE"),
+                              nullable=False, index=True)
+    fecha            = Column(Date, nullable=False)
+    descripcion      = Column(Text, nullable=False)
+    monto_solicitado = Column(Float)
+    monto_recuperado = Column(Float)
+    # EN_PROCESO | APROBADA | RECHAZADA | CERRADA
+    estado           = Column(String(20), default="EN_PROCESO", nullable=False)
+    responsable      = Column(String(120))
+    resolucion       = Column(Text)
+    # Cuándo se cerró la gestión. Los días de gestión se derivan de acá y no se
+    # guardan: un número de días guardado se queda quieto mientras el reclamo
+    # sigue abierto, y es justo el dato que hay que vigilar.
+    fecha_cierre     = Column(Date)
 
 
 # ─── FMEA ─────────────────────────────────────────────────────────────────────

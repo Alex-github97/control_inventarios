@@ -968,6 +968,22 @@ async def _migrar_esquema(esquema: str) -> None:
             "ALTER TABLE eam_ot_mano_obra ALTER COLUMN actividad TYPE VARCHAR(300)"
         ))
 
+        # ── EAM · garantías ──
+        # La pantalla mostraba qué cubre la garantía, a quién llamar en el
+        # proveedor, qué documento la respalda y quién responde adentro; la
+        # tabla no guardaba ninguno de los cuatro. La tabla de reclamaciones
+        # la crea `create_all`: es nueva.
+        for columna, tipo in [
+            ("cobertura", "TEXT"),
+            ("contacto_proveedor", "VARCHAR(120)"),
+            ("telefono_proveedor", "VARCHAR(40)"),
+            ("documento", "VARCHAR(300)"),
+            ("responsable", "VARCHAR(120)"),
+        ]:
+            await conn.execute(text(
+                "ALTER TABLE eam_garantia ADD COLUMN IF NOT EXISTS %s %s"
+                % (columna, tipo)))
+
         # ── MES · terminal de planta ──
         # Un usuario de la plataforma por operario, y su PIN de terminal. Sin
         # esto la terminal se identifica con un código que cualquiera puede
