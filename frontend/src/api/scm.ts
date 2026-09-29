@@ -188,3 +188,65 @@ export async function getProveedoresSCM(params?: {
   const r = await apiClient.get('/scm/proveedores', { params })
   return r.data
 }
+
+// ─── Inventario, entrantes, reposición, devoluciones y riesgos ──────────────
+// Las cinco pantallas que eran maqueta. Todo sale de datos que ya existían
+// (inventario, órdenes de compra) o de tablas nuevas (devoluciones, riesgos).
+
+export interface InventarioSCM {
+  bodegas: { id: number; nombre: string; codigo: string; referencias: number; unidades: number; valor: number; bajo_minimo: number }[]
+  alertas: { repuesto_id: number; codigo: string; nombre: string; bodega: string | null; cantidad: number; minimo: number; en_camino: number; nivel: 'CRITICO' | 'BAJO' }[]
+  valor_total: number
+}
+
+export interface EntrantesSCM {
+  en_camino: {
+    id: number; numero: string; estado: EstadoOrden; proveedor: string | null; categoria: CategoriaSCM
+    total: number | null; lugar_entrega: string | null; fecha_emision: string | null
+    fecha_esperada: string | null; dias_atraso: number; unidades_pedidas: number; unidades_recibidas: number
+  }[]
+  recibidas_90d: number; recibidas_mes: number; a_tiempo_pct: number | null; medibles: number
+}
+
+export interface ItemReposicion {
+  repuesto_id: number; codigo: string; nombre: string; categoria: string | null; unidad: string | null
+  existencias: number; minimo: number; maximo: number | null; en_camino: number
+  consumo_diario: number; dias_cobertura: number | null; sugerido: number
+}
+
+export interface DemandaCategoria { categoria: CategoriaSCM; actual: number; anterior: number; variacion_pct: number | null }
+
+export interface DevolucionSCM {
+  id: number; numero: string; orden_id: number; orden_numero: string | null
+  proveedor_id: number | null; proveedor: string | null
+  motivo: string; estado: string; fecha: string; unidades: number | null; valor: number | null
+  descripcion: string | null; resolucion: string | null; valor_recuperado: number | null; fecha_cierre: string | null
+}
+
+export interface RiesgoSCM {
+  id: number; titulo: string; categoria: string; proveedor_id: number | null; proveedor: string | null
+  impacto: number; probabilidad: number; puntaje: number; nivel: 'BAJO' | 'MEDIO' | 'ALTO' | 'CRITICO'
+  estado: string; responsable: string | null; descripcion: string | null
+  plan_mitigacion: string | null; fecha_revision: string | null
+}
+
+export const scmApi = {
+  inventario: () => apiClient.get<InventarioSCM>('/scm/inventario').then(r => r.data),
+  entrantes: () => apiClient.get<EntrantesSCM>('/scm/entrantes').then(r => r.data),
+  reposicion: (dias = 90) => apiClient.get<{ dias_consumo: number; items: ItemReposicion[] }>('/scm/reposicion', { params: { dias } }).then(r => r.data),
+  demanda: () => apiClient.get<DemandaCategoria[]>('/scm/demanda').then(r => r.data),
+  devoluciones: {
+    listar: () => apiClient.get<DevolucionSCM[]>('/scm/devoluciones').then(r => r.data),
+    crear: (d: Partial<DevolucionSCM>) => apiClient.post<DevolucionSCM>('/scm/devoluciones', d).then(r => r.data),
+    editar: (id: number, d: Partial<DevolucionSCM>) => apiClient.put<DevolucionSCM>(`/scm/devoluciones/${id}`, d).then(r => r.data),
+    retirar: (id: number) => apiClient.delete(`/scm/devoluciones/${id}`),
+    estado: (id: number, estado: string, resolucion?: string | null, valor_recuperado?: number | null) =>
+      apiClient.put<DevolucionSCM>(`/scm/devoluciones/${id}/estado`, { estado, resolucion, valor_recuperado }).then(r => r.data),
+  },
+  riesgos: {
+    listar: () => apiClient.get<RiesgoSCM[]>('/scm/riesgos').then(r => r.data),
+    crear: (d: Partial<RiesgoSCM>) => apiClient.post<RiesgoSCM>('/scm/riesgos', d).then(r => r.data),
+    editar: (id: number, d: Partial<RiesgoSCM>) => apiClient.put<RiesgoSCM>(`/scm/riesgos/${id}`, d).then(r => r.data),
+    retirar: (id: number) => apiClient.delete(`/scm/riesgos/${id}`),
+  },
+}

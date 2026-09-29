@@ -1,99 +1,73 @@
-import React from 'react'
-import { Box, Typography, Card, CardContent, Chip, alpha } from '@mui/material'
+/**
+ * SCM · Logística de abastecimiento
+ *
+ * Era una maqueta: cuatro «embarques» —uno desde Shanghái— y un 87 % de
+ * entregas a tiempo escritos a mano. El sistema no registra embarques: lo que
+ * sí sabe es qué órdenes de compra están en camino y cuándo debían llegar.
+ * Eso es lo que muestra: lo pendiente por recibir, su atraso, y la
+ * puntualidad de los proveedores en los últimos 90 días.
+ */
+import { Box, Chip, Table, TableBody, TableCell, TableHead, TableRow, Paper, LinearProgress, Typography, alpha } from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { FlightTakeoff, LocalShipping, Route, AccessTime, CheckCircle } from '@mui/icons-material'
+import { LocalShipping } from '@mui/icons-material'
+import { useQuery } from '@tanstack/react-query'
 import { Layout } from '@/components/layout/Layout'
-
+import { scmApi } from '@/api/scm'
+import { Cifra, Encabezado, fmtFecha } from '@/components/comun/Registro'
 import { COLOR_MODULO } from '@/config/marca'
+
 const SCM_COLOR = COLOR_MODULO
-const BORDER = `rgba(12,77,140,0.25)`
-
-const KPIS = [
-  { icon: <LocalShipping />, label: 'Embarques activos',   value: '3',   color: '#3b82f6' },
-  { icon: <Route />,          label: 'Rutas programadas',   value: '8',   color: SCM_COLOR },
-  { icon: <AccessTime />,     label: 'On-Time delivery',    value: '87%', color: '#22c55e' },
-  { icon: <CheckCircle />,    label: 'Entregados este mes', value: '24',  color: '#8b5cf6' },
-]
-
-const EMBARQUES = [
-  { id: 'EMB-2026-0041', origen: 'Bogotá DC',        destino: 'Barranquilla', estado: 'EN_RUTA',     eta: '25 jun 2026', bultos: 18, peso: '2.4 ton' },
-  { id: 'EMB-2026-0038', origen: 'Shanghai (China)', destino: 'Bogotá DC',    estado: 'EN_ADUANA',   eta: '02 jul 2026', bultos: 4,  peso: '640 kg'  },
-  { id: 'EMB-2026-0035', origen: 'Miami (EE.UU)',    destino: 'Cali',         estado: 'EN_TRANSITO', eta: '29 jun 2026', bultos: 12, peso: '980 kg'  },
-  { id: 'EMB-2026-0030', origen: 'Medellín',         destino: 'Bogotá DC',    estado: 'ENTREGADO',   eta: '20 jun 2026', bultos: 32, peso: '5.1 ton' },
-]
-
-const ESTADO_META: Record<string, { label: string; color: string }> = {
-  EN_RUTA:    { label: 'En ruta',    color: '#3b82f6' },
-  EN_ADUANA:  { label: 'En aduana',  color: '#f59e0b' },
-  EN_TRANSITO:{ label: 'En tránsito',color: '#06b6d4' },
-  ENTREGADO:  { label: 'Entregado',  color: '#22c55e' },
+const ESTADOS: Record<string, { l: string; c: string }> = {
+  ENVIADA: { l: 'Enviada', c: '#6B7280' }, CONFIRMADA: { l: 'Confirmada', c: '#0369A1' },
+  EN_TRANSITO: { l: 'En tránsito', c: '#7C3AED' }, RECIBIDA_PARCIAL: { l: 'Recibida parcial', c: '#D97706' },
 }
+const cop = (n?: number | null) => (n == null ? '—' : new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n))
 
 export default function SCMLogistica() {
+  const { data, isLoading } = useQuery({ queryKey: ['scm-entrantes'], queryFn: scmApi.entrantes })
+  const lista = data?.en_camino ?? []
+  const atrasadas = lista.filter(o => o.dias_atraso > 0)
+
   return (
     <Layout>
-      <Box sx={{ p: 3, minHeight: '100vh' }}>
-
-        {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
-          <FlightTakeoff sx={{ color: SCM_COLOR, fontSize: 28 }} />
-          <Box>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Logística & Transporte SCM</Typography>
-            <Typography sx={{ fontSize: 12, color: 'text.disabled' }}>Seguimiento de embarques y coordinación con TMS</Typography>
-          </Box>
-          <Chip label="SCM" size="small" sx={{ bgcolor: alpha(SCM_COLOR, 0.15), color: '#5B9BD5', fontWeight: 700, border: `1px solid ${alpha(SCM_COLOR, 0.35)}` }} />
-        </Box>
-
-        {/* KPIs */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          {KPIS.map(k => (
-            <Grid key={k.label} size={{ xs: 12, sm: 6, md: 3 }}>
-              <Card sx={{ bgcolor: '#fff', border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2 }}>
-                <CardContent sx={{ p: '14px !important' }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <Box>
-                      <Typography sx={{ fontSize: 11, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>{k.label}</Typography>
-                      <Typography sx={{ fontSize: 26, fontWeight: 800, color: k.color, lineHeight: 1 }}>{k.value}</Typography>
-                    </Box>
-                    <Box sx={{ color: alpha(k.color, 0.45), '& svg': { fontSize: 26 } }}>{k.icon}</Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
+      <Box sx={{ p: 3 }}>
+        <Encabezado icono={<LocalShipping sx={{ fontSize: 28 }} />} titulo="Logística de abastecimiento" subtitulo="SCM · Órdenes de compra en camino y puntualidad de proveedores" color={SCM_COLOR} />
+        {isLoading && <LinearProgress sx={{ mb: 2 }} />}
+        <Grid container spacing={2} mb={3}>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Órdenes en camino" valor={lista.length} color={SCM_COLOR} /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Atrasadas" valor={atrasadas.length} color="#DC2626" sub="Pasada la fecha esperada" /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Entregas a tiempo (90 días)" valor={data?.a_tiempo_pct == null ? '—' : `${data.a_tiempo_pct}%`} color="#15803D" sub={data?.medibles ? `Sobre ${data.medibles} órdenes con fecha esperada` : 'Sin órdenes recibidas con fecha'} /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Recibidas este mes" valor={data?.recibidas_mes ?? 0} color="#0369A1" /></Grid>
         </Grid>
-
-        {/* Embarques */}
-        <Card sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: 2 }}>
-          <CardContent>
-            <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 14, mb: 2 }}>Embarques en Seguimiento</Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              {EMBARQUES.map(e => {
-                const meta = ESTADO_META[e.estado]
+        <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto' }}>
+          <Table size="small">
+            <TableHead><TableRow sx={{ '& th': { fontWeight: 700, fontSize: 12 } }}>
+              <TableCell>Orden</TableCell><TableCell>Proveedor</TableCell><TableCell>Destino</TableCell><TableCell>Esperada</TableCell>
+              <TableCell align="right">Recibido</TableCell><TableCell align="right">Valor</TableCell><TableCell>Estado</TableCell>
+            </TableRow></TableHead>
+            <TableBody>
+              {!isLoading && lista.length === 0 && <TableRow><TableCell colSpan={7} align="center" sx={{ py: 3, color: 'text.secondary' }}>No hay órdenes de compra en camino</TableCell></TableRow>}
+              {lista.map(o => {
+                const e = ESTADOS[o.estado] ?? { l: o.estado, c: '#6B7280' }
+                const pct = o.unidades_pedidas ? (o.unidades_recibidas / o.unidades_pedidas) * 100 : 0
                 return (
-                  <Box key={e.id} sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 1.5, bgcolor: '#F9FAFB', borderRadius: 1.5, border: '1px solid #E5E7EB', flexWrap: 'wrap' }}>
-                    <Typography sx={{ fontSize: 12, fontFamily: 'monospace', color: '#5B9BD5', minWidth: 140 }}>{e.id}</Typography>
-                    <Box sx={{ flex: 1, minWidth: 200 }}>
-                      <Typography sx={{ fontSize: 12, color: 'text.primary' }}>{e.origen} → {e.destino}</Typography>
-                      <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{e.bultos} bultos · {e.peso}</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <AccessTime sx={{ fontSize: 13, color: 'text.disabled' }} />
-                      <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>ETA: {e.eta}</Typography>
-                    </Box>
-                    <Chip label={meta.label} size="small" sx={{ bgcolor: alpha(meta.color, 0.15), color: meta.color, fontWeight: 700, fontSize: 10 }} />
-                  </Box>
+                  <TableRow key={o.id} hover>
+                    <TableCell sx={{ fontFamily: 'monospace', fontSize: 12 }}>{o.numero}</TableCell>
+                    <TableCell sx={{ fontSize: 12 }}>{o.proveedor ?? '—'}</TableCell>
+                    <TableCell sx={{ fontSize: 12 }}>{o.lugar_entrega ?? '—'}</TableCell>
+                    <TableCell sx={{ fontSize: 12 }}>{fmtFecha(o.fecha_esperada)}
+                      {o.dias_atraso > 0 && <Typography fontSize={11} color="error.main" fontWeight={700}>{o.dias_atraso} día{o.dias_atraso === 1 ? '' : 's'} de atraso</Typography>}</TableCell>
+                    <TableCell align="right" sx={{ fontSize: 12, minWidth: 110 }}>{o.unidades_recibidas} / {o.unidades_pedidas}
+                      <Box sx={{ mt: 0.5, height: 4, borderRadius: 2, bgcolor: '#E5E7EB' }}><Box sx={{ height: 4, borderRadius: 2, width: `${pct}%`, bgcolor: SCM_COLOR }} /></Box></TableCell>
+                    <TableCell align="right" sx={{ fontSize: 12 }}>{cop(o.total)}</TableCell>
+                    <TableCell><Chip size="small" label={e.l} sx={{ fontSize: 11, fontWeight: 700, bgcolor: alpha(e.c, 0.12), color: e.c }} /></TableCell>
+                  </TableRow>
                 )
               })}
-            </Box>
-          </CardContent>
-        </Card>
-
-        <Box sx={{ mt: 2, p: 2, bgcolor: alpha(SCM_COLOR, 0.06), borderRadius: 2, border: `1px dashed ${alpha(SCM_COLOR, 0.25)}`, textAlign: 'center' }}>
-          <Typography sx={{ fontSize: 12, color: alpha('#5B9BD5', 0.8) }}>
-            Integración en tiempo real con módulo TMS disponible próximamente
-          </Typography>
-        </Box>
+            </TableBody>
+          </Table>
+        </Paper>
+        <Typography fontSize={11} color="text.secondary" mt={1}>Los estados de cada orden se actualizan en Órdenes de compra.</Typography>
       </Box>
     </Layout>
   )

@@ -1,166 +1,140 @@
-import React, { useState } from 'react'
-import { Box, Typography, Card, CardContent, Chip, alpha, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, Select, FormControl, InputLabel } from '@mui/material'
+/**
+ * SCM · Devoluciones a proveedor
+ *
+ * Era una maqueta: cinco devoluciones con proveedores y órdenes escritos a
+ * mano, y un formulario donde el proveedor y la orden eran texto libre.
+ *
+ * Ahora cada devolución cuelga de una orden de compra real y el proveedor
+ * sale de ella: no puede quedar a nombre de quien no vendió. Para aprobarla,
+ * rechazarla o cerrarla hay que registrar la respuesta del proveedor, y lo
+ * recuperado alimenta la tasa de recuperación.
+ */
+import { useState } from 'react'
+import { Box, Chip, Table, TableBody, TableCell, TableHead, TableRow, Paper, IconButton, Tooltip, LinearProgress, Typography, alpha,
+  Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, Button } from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { AssignmentReturn, CheckCircle, Pending, Cancel, Add, HourglassEmpty } from '@mui/icons-material'
+import { AssignmentReturn, Edit, DeleteForever, Gavel } from '@mui/icons-material'
+import { useQuery, useMutation } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
-
+import { scmApi, getOrdenesCompra, type DevolucionSCM } from '@/api/scm'
+import { FormularioRegistro, useCrud, Cifra, Encabezado, fmtFecha, errorApi, type Campo } from '@/components/comun/Registro'
 import { COLOR_MODULO } from '@/config/marca'
+
 const SCM_COLOR = COLOR_MODULO
-const BORDER = `rgba(12,77,140,0.25)`
-
-type EstadoD = 'PENDIENTE' | 'EN_PROCESO' | 'APROBADA' | 'RECHAZADA' | 'CERRADA'
-type MotivoD = 'DEFECTO_CALIDAD' | 'CANTIDAD_INCORRECTA' | 'PRODUCTO_EQUIVOCADO' | 'DANOS_TRANSPORTE' | 'VENCIMIENTO' | 'OTRO'
-
-interface Devolucion {
-  id: number; numero: string; proveedor: string; oc_ref: string
-  motivo: MotivoD; estado: EstadoD; valor: number
-  fecha: string; descripcion: string; items: number
+const MOTIVOS: [string, string][] = [['DEFECTO_CALIDAD', 'Defecto de calidad'], ['CANTIDAD_INCORRECTA', 'Cantidad incorrecta'],
+  ['PRODUCTO_EQUIVOCADO', 'Producto equivocado'], ['DANOS_TRANSPORTE', 'Daños en transporte'], ['VENCIMIENTO', 'Vencimiento'], ['OTRO', 'Otro']]
+const ESTADOS: Record<string, { l: string; c: string }> = {
+  PENDIENTE: { l: 'Pendiente', c: '#6B7280' }, EN_PROCESO: { l: 'En proceso', c: '#D97706' }, APROBADA: { l: 'Aprobada', c: '#0369A1' },
+  RECHAZADA: { l: 'Rechazada', c: '#DC2626' }, CERRADA: { l: 'Cerrada', c: '#15803D' },
 }
-
-const DEVOLUCIONES: Devolucion[] = [
-  { id: 1, numero: 'DEV-2026-0018', proveedor: 'Insuquím S.A.S',        oc_ref: 'OC-2026-0412', motivo: 'DEFECTO_CALIDAD',      estado: 'EN_PROCESO', valor: 4_200_000,  fecha: '15 jun 2026', descripcion: 'Lubricante 15W40 fuera de especificación viscosidad.',  items: 48  },
-  { id: 2, numero: 'DEV-2026-0017', proveedor: 'Ferrosuministros Ltda',  oc_ref: 'OC-2026-0398', motivo: 'CANTIDAD_INCORRECTA',  estado: 'APROBADA',   valor: 1_850_000,  fecha: '12 jun 2026', descripcion: 'Se recibieron 80 unidades, OC indica 120.',               items: 40  },
-  { id: 3, numero: 'DEV-2026-0015', proveedor: 'TecnoEquipos Col.',      oc_ref: 'OC-2026-0375', motivo: 'DANOS_TRANSPORTE',     estado: 'APROBADA',   valor: 12_800_000, fecha: '05 jun 2026', descripcion: 'Equipo de medición dañado en empaque durante envío.',    items: 1   },
-  { id: 4, numero: 'DEV-2026-0013', proveedor: 'Papeles del Pacífico',   oc_ref: 'OC-2026-0360', motivo: 'PRODUCTO_EQUIVOCADO', estado: 'CERRADA',    valor: 320_000,    fecha: '01 jun 2026', descripcion: 'Se entregó resma A3 en lugar de A4 solicitada.',         items: 10  },
-  { id: 5, numero: 'DEV-2026-0010', proveedor: 'Químicos Andinos',       oc_ref: 'OC-2026-0341', motivo: 'VENCIMIENTO',         estado: 'RECHAZADA',  valor: 980_000,    fecha: '20 may 2026', descripcion: 'Reclamación fuera del plazo acordado en contrato.',       items: 24  },
-]
-
-const ESTADO_META: Record<EstadoD, { label: string; color: string; icon: React.ReactNode }> = {
-  PENDIENTE:  { label: 'Pendiente',   color: '#f59e0b', icon: <Pending sx={{ fontSize: 14 }} /> },
-  EN_PROCESO: { label: 'En Proceso',  color: '#3b82f6', icon: <HourglassEmpty sx={{ fontSize: 14 }} /> },
-  APROBADA:   { label: 'Aprobada',    color: '#22c55e', icon: <CheckCircle sx={{ fontSize: 14 }} /> },
-  RECHAZADA:  { label: 'Rechazada',   color: '#ef4444', icon: <Cancel sx={{ fontSize: 14 }} /> },
-  CERRADA:    { label: 'Cerrada',     color: '#64748b', icon: <CheckCircle sx={{ fontSize: 14 }} /> },
-}
-
-const MOTIVO_LABEL: Record<MotivoD, string> = {
-  DEFECTO_CALIDAD:      'Defecto de calidad',
-  CANTIDAD_INCORRECTA:  'Cantidad incorrecta',
-  PRODUCTO_EQUIVOCADO:  'Producto equivocado',
-  DANOS_TRANSPORTE:     'Daños en transporte',
-  VENCIMIENTO:          'Producto vencido',
-  OTRO:                 'Otro',
-}
-
-const MOTIVOS = Object.keys(MOTIVO_LABEL) as MotivoD[]
-
-function fmt(val: number) {
-  return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val)
-}
-
-const SX_INPUT = {
-  '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#E5E7EB' } },
-}
-const SX_SELECT = { '& .MuiOutlinedInput-notchedOutline': { borderColor: '#E5E7EB' } }
+const cop = (n?: number | null) => (n == null ? '—' : new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n))
+const hoy = () => new Date().toISOString().slice(0, 10)
 
 export default function SCMDevoluciones() {
-  const [devs, setDevs]           = useState<Devolucion[]>(DEVOLUCIONES)
-  const [open, setOpen]           = useState(false)
-  const [proveedor, setProveedor] = useState('')
-  const [ocRef, setOcRef]         = useState('')
-  const [motivo, setMotivo]       = useState<MotivoD>('DEFECTO_CALIDAD')
-  const [desc, setDesc]           = useState('')
-  const [valor, setValor]         = useState('')
+  const crud = useCrud(['scm-devoluciones'], scmApi.devoluciones, 'Devolución', [], true)
+  const { data: ocs } = useQuery({ queryKey: ['scm-ordenes-selector'], queryFn: () => getOrdenesCompra({ page_size: 200 }) })
+  const [dlg, setDlg] = useState<{ abierto: boolean; r: DevolucionSCM | null }>({ abierto: false, r: null })
+  const [resolver, setResolver] = useState<DevolucionSCM | null>(null)
+  const [fr, setFr] = useState({ estado: 'EN_PROCESO', resolucion: '', valor_recuperado: '' })
 
-  const kpis = [
-    { label: 'Total devoluciones',    value: devs.length,                                                    color: SCM_COLOR },
-    { label: 'En proceso',            value: devs.filter(d => d.estado === 'EN_PROCESO').length,              color: '#3b82f6' },
-    { label: 'Valor recuperado',      value: fmt(devs.filter(d => d.estado === 'APROBADA' || d.estado === 'CERRADA').reduce((a, d) => a + d.valor, 0)), color: '#22c55e' },
-    { label: 'Tasa aprobación',       value: `${Math.round(devs.filter(d => d.estado === 'APROBADA' || d.estado === 'CERRADA').length / devs.length * 100)}%`, color: '#8b5cf6' },
+  const opcionesOC: [number, string][] = (ocs?.items ?? []).filter(o => o.estado !== 'BORRADOR' && o.estado !== 'CANCELADA')
+    .map(o => [o.id, `${o.numero} · ${o.proveedor_nombre ?? 'Proveedor'} · ${cop(o.total)}`])
+  const CAMPOS: Campo[] = [
+    { clave: 'orden_id', etiqueta: 'Orden de compra', tipo: 'seleccion', opciones: opcionesOC, obligatorio: true },
+    { clave: 'motivo', etiqueta: 'Motivo', tipo: 'seleccion', opciones: MOTIVOS, obligatorio: true, ancho: 6 },
+    { clave: 'fecha', etiqueta: 'Fecha', tipo: 'fecha', obligatorio: true, ancho: 6, validar: v => (v && v > hoy() ? 'No puede ser futura' : null) },
+    { clave: 'unidades', etiqueta: 'Unidades devueltas', tipo: 'numero', min: 0.01, ancho: 6 },
+    { clave: 'valor', etiqueta: 'Valor devuelto', tipo: 'numero', min: 0, ancho: 6 },
+    { clave: 'descripcion', etiqueta: 'Qué se devuelve y por qué', tipo: 'area', obligatorio: true },
   ]
 
-  function handleCrear() {
-    if (!proveedor.trim() || !ocRef.trim()) return
-    const nueva: Devolucion = {
-      id: devs.length + 1, numero: `DEV-2026-${String(devs.length + 19).padStart(4, '0')}`,
-      proveedor, oc_ref: ocRef, motivo, estado: 'PENDIENTE', valor: Number(valor) || 0,
-      fecha: 'Hoy', descripcion: desc, items: 1,
-    }
-    setDevs(prev => [nueva, ...prev])
-    setOpen(false); setProveedor(''); setOcRef(''); setDesc(''); setValor(''); setMotivo('DEFECTO_CALIDAD')
-  }
+  const cambiar = useMutation({
+    mutationFn: () => scmApi.devoluciones.estado(resolver!.id, fr.estado, fr.resolucion.trim() || null,
+      fr.valor_recuperado === '' ? null : Number(fr.valor_recuperado)),
+    onSuccess: () => { toast.success('Devolución actualizada'); crud.refrescar(); setResolver(null) },
+    onError: (e: any) => toast.error(errorApi(e)),
+  })
+
+  const lista = crud.datos
+  const abiertas = lista.filter(d => !['CERRADA', 'RECHAZADA'].includes(d.estado))
+  const devuelto = lista.reduce((s, d) => s + (d.valor || 0), 0)
+  const recuperado = lista.reduce((s, d) => s + (d.valor_recuperado || 0), 0)
+  const exigeResolucion = ['APROBADA', 'RECHAZADA', 'CERRADA'].includes(fr.estado)
 
   return (
     <Layout>
-      <Box sx={{ p: 3, minHeight: '100vh' }}>
-
-        {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <AssignmentReturn sx={{ color: SCM_COLOR, fontSize: 28 }} />
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Devoluciones a Proveedor</Typography>
-              <Typography sx={{ fontSize: 12, color: 'text.disabled' }}>Gestión de retornos, RMA y logística inversa</Typography>
-            </Box>
-            <Chip label="SCM" size="small" sx={{ bgcolor: alpha(SCM_COLOR, 0.15), color: '#5B9BD5', fontWeight: 700, border: `1px solid ${alpha(SCM_COLOR, 0.35)}` }} />
-          </Box>
-          <Button variant="contained" startIcon={<Add />} onClick={() => setOpen(true)} sx={{ bgcolor: SCM_COLOR }}>Nueva Devolución</Button>
-        </Box>
-
-        {/* KPIs */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          {kpis.map(k => (
-            <Grid key={k.label} size={{ xs: 12, sm: 6, md: 3 }}>
-              <Card sx={{ bgcolor: '#fff', border: `1px solid ${alpha(k.color, 0.3)}`, borderRadius: 2 }}>
-                <CardContent sx={{ p: '14px !important' }}>
-                  <Typography sx={{ fontSize: 11, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>{k.label}</Typography>
-                  <Typography sx={{ fontSize: 24, fontWeight: 800, color: k.color, lineHeight: 1 }}>{k.value}</Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
+      <Box sx={{ p: 3 }}>
+        <Encabezado icono={<AssignmentReturn sx={{ fontSize: 28 }} />} titulo="Devoluciones a proveedor" subtitulo="SCM · Reclamaciones por calidad, cantidad o daños"
+          color={SCM_COLOR} accion="Nueva devolución" onAccion={() => setDlg({ abierto: true, r: null })} />
+        <Grid container spacing={2} mb={3}>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Abiertas" valor={abiertas.length} color="#D97706" /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Valor devuelto" valor={cop(devuelto)} color={SCM_COLOR} /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Valor recuperado" valor={cop(recuperado)} color="#15803D" /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Tasa de recuperación" valor={devuelto ? `${((recuperado / devuelto) * 100).toFixed(0)}%` : '—'} color="#0369A1" /></Grid>
         </Grid>
+        <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto' }}>
+          {crud.isLoading && <LinearProgress />}
+          <Table size="small">
+            <TableHead><TableRow sx={{ '& th': { fontWeight: 700, fontSize: 12 } }}>
+              <TableCell>Número</TableCell><TableCell>Proveedor / orden</TableCell><TableCell>Motivo</TableCell><TableCell>Fecha</TableCell>
+              <TableCell align="right">Valor</TableCell><TableCell align="right">Recuperado</TableCell><TableCell>Estado</TableCell><TableCell />
+            </TableRow></TableHead>
+            <TableBody>
+              {!crud.isLoading && lista.length === 0 && <TableRow><TableCell colSpan={8} align="center" sx={{ py: 3, color: 'text.secondary' }}>Sin devoluciones</TableCell></TableRow>}
+              {lista.map(d => {
+                const e = ESTADOS[d.estado] ?? { l: d.estado, c: '#6B7280' }
+                const cerrada = ['CERRADA', 'RECHAZADA'].includes(d.estado)
+                return (
+                  <TableRow key={d.id} hover>
+                    <TableCell sx={{ fontFamily: 'monospace', fontSize: 12 }}>{d.numero}</TableCell>
+                    <TableCell sx={{ fontSize: 12 }}><b>{d.proveedor ?? '—'}</b><Typography fontSize={11} color="text.secondary">{d.orden_numero}</Typography></TableCell>
+                    <TableCell sx={{ fontSize: 12 }}>{MOTIVOS.find(m => m[0] === d.motivo)?.[1] ?? d.motivo}
+                      {d.descripcion && <Typography fontSize={11} color="text.secondary" noWrap sx={{ maxWidth: 260 }}>{d.descripcion}</Typography>}</TableCell>
+                    <TableCell sx={{ fontSize: 12 }}>{fmtFecha(d.fecha)}</TableCell>
+                    <TableCell align="right" sx={{ fontSize: 12 }}>{cop(d.valor)}</TableCell>
+                    <TableCell align="right" sx={{ fontSize: 12 }}>{cop(d.valor_recuperado)}</TableCell>
+                    <TableCell><Chip size="small" label={e.l} sx={{ fontSize: 11, fontWeight: 700, bgcolor: alpha(e.c, 0.12), color: e.c }} /></TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                      {!cerrada && <Tooltip title="Registrar respuesta / cambiar estado"><IconButton size="small" aria-label={`Gestionar ${d.numero}`}
+                        onClick={() => { setFr({ estado: d.estado === 'PENDIENTE' ? 'EN_PROCESO' : d.estado, resolucion: d.resolucion ?? '', valor_recuperado: d.valor_recuperado != null ? String(d.valor_recuperado) : '' }); setResolver(d) }}>
+                        <Gavel fontSize="small" /></IconButton></Tooltip>}
+                      {!cerrada && <Tooltip title="Editar"><IconButton size="small" aria-label={`Editar ${d.numero}`} onClick={() => setDlg({ abierto: true, r: d })}><Edit fontSize="small" /></IconButton></Tooltip>}
+                      <Tooltip title="Retirar"><IconButton size="small" aria-label={`Retirar ${d.numero}`} onClick={() => { if (window.confirm(`¿Retirar ${d.numero}?`)) crud.retirar.mutate(d.id) }}><DeleteForever fontSize="small" sx={{ color: '#DC2626' }} /></IconButton></Tooltip>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </Paper>
 
-        {/* Lista */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          {devs.map(d => {
-            const meta = ESTADO_META[d.estado]
-            return (
-              <Card key={d.id} sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: 2 }}>
-                <CardContent sx={{ p: '14px !important' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
-                    <Box sx={{ flex: 1, minWidth: 200 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                        <Typography sx={{ fontSize: 12, fontFamily: 'monospace', color: '#5B9BD5' }}>{d.numero}</Typography>
-                        <Typography sx={{ fontSize: 12, color: 'text.disabled' }}>→ ref. {d.oc_ref}</Typography>
-                      </Box>
-                      <Typography sx={{ fontSize: 14, fontWeight: 600, color: 'text.primary', mb: 0.3 }}>{d.proveedor}</Typography>
-                      <Typography sx={{ fontSize: 12, color: 'text.disabled', mb: 1 }}>{d.descripcion}</Typography>
-                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                        <Chip label={MOTIVO_LABEL[d.motivo]} size="small" sx={{ bgcolor: '#F8FAFC', color: 'text.secondary', fontSize: 10 }} />
-                        <Chip label={`${d.items} ítem${d.items !== 1 ? 's' : ''}`} size="small" sx={{ bgcolor: '#F9FAFB', color: 'text.secondary', fontSize: 10 }} />
-                      </Box>
-                    </Box>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.75 }}>
-                      <Chip label={meta.label} size="small" icon={meta.icon as any} sx={{ bgcolor: alpha(meta.color, 0.15), color: meta.color, fontWeight: 700, fontSize: 10, '& .MuiChip-icon': { color: meta.color } }} />
-                      <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary' }}>{fmt(d.valor)}</Typography>
-                      <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>{d.fecha}</Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </Box>
+        <FormularioRegistro abierto={dlg.abierto} titulo={dlg.r ? `Devolución ${dlg.r.numero}` : 'Nueva devolución'} campos={CAMPOS} registro={dlg.r}
+          valoresIniciales={{ fecha: hoy(), motivo: 'DEFECTO_CALIDAD' }} onGuardar={c => crud.guardar(dlg.r, c)} onCerrar={() => setDlg({ abierto: false, r: null })} />
 
-        {/* Dialog */}
-        <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle sx={{ borderBottom: '1px solid #F1F5F9', fontWeight: 700 }}>Nueva Devolución a Proveedor</DialogTitle>
-          <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField label="Proveedor *" value={proveedor} onChange={e => setProveedor(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
-            <TextField label="Referencia OC *" value={ocRef} onChange={e => setOcRef(e.target.value)} fullWidth size="small" sx={SX_INPUT} />
-            <FormControl fullWidth size="small">
-              <InputLabel>Motivo</InputLabel>
-              <Select value={motivo} label="Motivo" onChange={e => setMotivo(e.target.value as MotivoD)} sx={SX_SELECT}>
-                {MOTIVOS.map(m => <MenuItem key={m} value={m}>{MOTIVO_LABEL[m]}</MenuItem>)}
-              </Select>
-            </FormControl>
-            <TextField label="Descripción" value={desc} onChange={e => setDesc(e.target.value)} fullWidth multiline rows={2} size="small" sx={SX_INPUT} />
-            <TextField label="Valor estimado (COP)" value={valor} onChange={e => setValor(e.target.value)} type="number" fullWidth size="small" sx={SX_INPUT} />
+        <Dialog open={!!resolver} onClose={() => setResolver(null)} maxWidth="sm" fullWidth>
+          <DialogTitle>Gestionar {resolver?.numero}</DialogTitle>
+          <DialogContent>
+            <Grid container spacing={2} sx={{ pt: 1 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField select label="Estado" fullWidth size="small" value={fr.estado} onChange={e => setFr({ ...fr, estado: e.target.value })}>
+                  {Object.entries(ESTADOS).filter(([k]) => k !== 'PENDIENTE').map(([k, v]) => <MenuItem key={k} value={k}>{v.l}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField label="Valor recuperado" type="number" fullWidth size="small" value={fr.valor_recuperado} onChange={e => setFr({ ...fr, valor_recuperado: e.target.value })}
+                  error={fr.valor_recuperado !== '' && (Number(fr.valor_recuperado) < 0 || (resolver?.valor != null && Number(fr.valor_recuperado) > resolver.valor))}
+                  helperText={resolver?.valor != null ? `Máximo ${cop(resolver.valor)}` : undefined} />
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <TextField label="Respuesta del proveedor" required={exigeResolucion} fullWidth size="small" multiline minRows={3} value={fr.resolucion}
+                  onChange={e => setFr({ ...fr, resolucion: e.target.value })} helperText="Nota crédito, reposición, rechazo y su motivo…" />
+              </Grid>
+            </Grid>
           </DialogContent>
-          <DialogActions sx={{ p: 2, gap: 1, borderTop: '1px solid #F1F5F9' }}>
-            <Button onClick={() => setOpen(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>
-            <Button variant="contained" onClick={handleCrear} disabled={!proveedor.trim() || !ocRef.trim()} sx={{ bgcolor: SCM_COLOR }}>Registrar</Button>
+          <DialogActions>
+            <Button onClick={() => setResolver(null)}>Cancelar</Button>
+            <Button variant="contained" disabled={(exigeResolucion && !fr.resolucion.trim()) || cambiar.isPending} onClick={() => cambiar.mutate()} sx={{ bgcolor: SCM_COLOR }}>Guardar</Button>
           </DialogActions>
         </Dialog>
       </Box>

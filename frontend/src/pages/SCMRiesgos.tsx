@@ -1,173 +1,100 @@
-import React, { useState } from 'react'
-import { Box, Typography, Card, CardContent, Chip, alpha, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, Select, FormControl, InputLabel } from '@mui/material'
+/**
+ * SCM · Riesgos de la cadena de suministro
+ *
+ * Era una maqueta: riesgos escritos a mano y un «Registrar» que solo ampliaba
+ * la lista en memoria. Ahora se guardan, pueden amarrarse a un proveedor, y
+ * el nivel sale de impacto × probabilidad en el servidor. Un riesgo en
+ * mitigación exige su plan.
+ */
+import { useState } from 'react'
+import { Box, Chip, Table, TableBody, TableCell, TableHead, TableRow, Paper, IconButton, Tooltip, LinearProgress, Typography, alpha } from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { GppBad, Warning, Info, Add, Shield } from '@mui/icons-material'
+import { Warning, Edit, DeleteForever } from '@mui/icons-material'
+import { useQuery } from '@tanstack/react-query'
 import { Layout } from '@/components/layout/Layout'
-
+import { scmApi, getProveedoresSCM, type RiesgoSCM } from '@/api/scm'
+import { FormularioRegistro, useCrud, Encabezado, fmtFecha, type Campo } from '@/components/comun/Registro'
 import { COLOR_MODULO } from '@/config/marca'
+
 const SCM_COLOR = COLOR_MODULO
-const PAGE_BG   = '#F0F2F5'
-const BORDER    = `rgba(12,77,140,0.25)`
-
-type Impacto  = 'BAJO' | 'MEDIO' | 'ALTO' | 'CRÍTICO'
-type Prob     = 'BAJA' | 'MEDIA' | 'ALTA'
-type EstadoR  = 'IDENTIFICADO' | 'EN_MITIGACION' | 'MITIGADO' | 'MATERIALIZADO'
-
-interface Riesgo {
-  id: number; titulo: string; categoria: string; impacto: Impacto; probabilidad: Prob
-  estado: EstadoR; responsable: string; descripcion: string
-}
-
-const RIESGOS_INIT: Riesgo[] = [
-  { id: 1, titulo: 'Escasez de acero laminado en caliente', categoria: 'Proveedor', impacto: 'CRÍTICO', probabilidad: 'MEDIA', estado: 'EN_MITIGACION', responsable: 'J. Martínez', descripcion: 'Reducción de oferta global por paros siderúrgicos en Asia.' },
-  { id: 2, titulo: 'Retrasos en importaciones por cambio arancelario', categoria: 'Regulatorio', impacto: 'ALTO', probabilidad: 'ALTA', estado: 'IDENTIFICADO', responsable: 'C. Rojas', descripcion: 'Nuevas tarifas aduanales sobre equipos electrónicos.' },
-  { id: 3, titulo: 'Concentración en proveedor único de lubricantes', categoria: 'Operativo', impacto: 'ALTO', probabilidad: 'BAJA', estado: 'EN_MITIGACION', responsable: 'A. Torres', descripcion: 'Solo un proveedor homologado para lubricantes críticos de planta.' },
-  { id: 4, titulo: 'Variación tipo de cambio USD/COP >10%', categoria: 'Financiero', impacto: 'MEDIO', probabilidad: 'ALTA', estado: 'IDENTIFICADO', responsable: 'Dir. Financiero', descripcion: 'Impacto en costos de importación no cubiertos con hedge.' },
-  { id: 5, titulo: 'Falla en sistema WMS bodega central', categoria: 'Tecnológico', impacto: 'ALTO', probabilidad: 'BAJA', estado: 'MITIGADO', responsable: 'TI', descripcion: 'Plan de contingencia manual activado; backup diario en site alterno.' },
-]
-
-const IMPACTO_META: Record<Impacto, { color: string; icon: React.ReactNode }> = {
-  CRÍTICO: { color: '#ef4444', icon: <GppBad sx={{ fontSize: 14 }} /> },
-  ALTO:    { color: '#f97316', icon: <Warning sx={{ fontSize: 14 }} /> },
-  MEDIO:   { color: '#f59e0b', icon: <Warning sx={{ fontSize: 14 }} /> },
-  BAJO:    { color: '#64748b', icon: <Info sx={{ fontSize: 14 }} /> },
-}
-
-const ESTADO_META: Record<EstadoR, { label: string; color: string }> = {
-  IDENTIFICADO:   { label: 'Identificado',    color: '#f59e0b' },
-  EN_MITIGACION:  { label: 'En Mitigación',   color: '#3b82f6' },
-  MITIGADO:       { label: 'Mitigado',         color: '#22c55e' },
-  MATERIALIZADO:  { label: 'Materializado',    color: '#ef4444' },
-}
-
-const IMPACTOS: Impacto[]  = ['BAJO', 'MEDIO', 'ALTO', 'CRÍTICO']
-const PROBS: Prob[]        = ['BAJA', 'MEDIA', 'ALTA']
-const ESTADOS: EstadoR[]   = ['IDENTIFICADO', 'EN_MITIGACION', 'MITIGADO', 'MATERIALIZADO']
-const CATEGORIAS = ['Proveedor', 'Regulatorio', 'Operativo', 'Financiero', 'Tecnológico', 'Logístico', 'Otro']
-
-const SX_INPUT = {
-  '& .MuiOutlinedInput-root': { color: 'text.primary', bgcolor: '#F9FAFB', '& fieldset': { borderColor: '#E5E7EB' } },
-  '& .MuiInputLabel-root': { color: 'text.secondary' },
-}
-const SX_SELECT = { color: 'text.primary', bgcolor: '#F9FAFB', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#E5E7EB' } }
-
-interface Form { titulo: string; categoria: string; impacto: Impacto; probabilidad: Prob; responsable: string; descripcion: string }
-const EMPTY: Form = { titulo: '', categoria: 'Operativo', impacto: 'MEDIO', probabilidad: 'MEDIA', responsable: '', descripcion: '' }
+const CATEGORIAS: [string, string][] = [['PROVEEDOR', 'Proveedor'], ['REGULATORIO', 'Regulatorio'], ['OPERATIVO', 'Operativo'],
+  ['FINANCIERO', 'Financiero'], ['TECNOLOGICO', 'Tecnológico'], ['LOGISTICO', 'Logístico'], ['OTRO', 'Otro']]
+const IMPACTOS: [number, string][] = [[1, '1 · Bajo'], [2, '2 · Medio'], [3, '3 · Alto'], [4, '4 · Crítico']]
+const PROBS: [number, string][] = [[1, '1 · Baja'], [2, '2 · Media'], [3, '3 · Alta']]
+const ESTADOS: [string, string][] = [['IDENTIFICADO', 'Identificado'], ['EN_MITIGACION', 'En mitigación'], ['MITIGADO', 'Mitigado'], ['MATERIALIZADO', 'Materializado']]
+const NIVEL: Record<string, string> = { CRITICO: '#991B1B', ALTO: '#DC2626', MEDIO: '#D97706', BAJO: '#15803D' }
 
 export default function SCMRiesgos() {
-  const [riesgos, setRiesgos] = useState<Riesgo[]>(RIESGOS_INIT)
-  const [open, setOpen]       = useState(false)
-  const [form, setForm]       = useState<Form>(EMPTY)
-  const [filtro, setFiltro]   = useState<EstadoR | ''>('')
+  const crud = useCrud(['scm-riesgos'], scmApi.riesgos, 'Riesgo')
+  const { data: provs } = useQuery({ queryKey: ['scm-proveedores-selector'], queryFn: () => getProveedoresSCM({ page_size: 200 }) })
+  const [dlg, setDlg] = useState<{ abierto: boolean; r: RiesgoSCM | null }>({ abierto: false, r: null })
+  const [filtro, setFiltro] = useState('')
+  const lista = crud.datos
+  const visibles = filtro ? lista.filter(r => r.nivel === filtro) : lista
 
-  const visibles = filtro ? riesgos.filter(r => r.estado === filtro) : riesgos
-
-  function handleGuardar() {
-    if (!form.titulo.trim()) return
-    const nuevo: Riesgo = { id: riesgos.length + 1, ...form, estado: 'IDENTIFICADO' }
-    setRiesgos(prev => [nuevo, ...prev])
-    setOpen(false); setForm(EMPTY)
-  }
-
-  const conteo: Record<EstadoR, number> = { IDENTIFICADO: 0, EN_MITIGACION: 0, MITIGADO: 0, MATERIALIZADO: 0 }
-  riesgos.forEach(r => conteo[r.estado]++)
+  const CAMPOS: Campo[] = [
+    { clave: 'titulo', etiqueta: 'Riesgo', obligatorio: true },
+    { clave: 'categoria', etiqueta: 'Categoría', tipo: 'seleccion', opciones: CATEGORIAS, obligatorio: true, ancho: 6 },
+    { clave: 'proveedor_id', etiqueta: 'Proveedor (si aplica)', tipo: 'seleccion', opciones: (provs?.items ?? []).map(p => [p.id, p.razon_social] as [number, string]), ancho: 6 },
+    { clave: 'impacto', etiqueta: 'Impacto', tipo: 'seleccion', opciones: IMPACTOS, obligatorio: true, ancho: 4 },
+    { clave: 'probabilidad', etiqueta: 'Probabilidad', tipo: 'seleccion', opciones: PROBS, obligatorio: true, ancho: 4 },
+    { clave: 'estado', etiqueta: 'Estado', tipo: 'seleccion', opciones: ESTADOS, obligatorio: true, ancho: 4 },
+    { clave: 'responsable', etiqueta: 'Responsable', ancho: 6 },
+    { clave: 'fecha_revision', etiqueta: 'Próxima revisión', tipo: 'fecha', ancho: 6 },
+    { clave: 'descripcion', etiqueta: 'Descripción', tipo: 'area' },
+    { clave: 'plan_mitigacion', etiqueta: 'Plan de mitigación', tipo: 'area',
+      validar: (v, f) => (f.estado === 'EN_MITIGACION' && !String(v ?? '').trim() ? 'Obligatorio en mitigación' : null) },
+  ]
 
   return (
     <Layout>
-      <Box sx={{ p: 3, background: PAGE_BG, minHeight: '100vh' }}>
-
-        {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Shield sx={{ color: SCM_COLOR, fontSize: 28 }} />
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Gestión de Riesgos SCM</Typography>
-              <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>Registro de riesgos de cadena de suministro y planes de mitigación</Typography>
-            </Box>
-            <Chip label="SCM" size="small" sx={{ bgcolor: alpha(SCM_COLOR, 0.15), color: '#5B9BD5', fontWeight: 700, border: `1px solid ${alpha(SCM_COLOR, 0.35)}` }} />
-          </Box>
-          <Button variant="contained" startIcon={<Add />} onClick={() => setOpen(true)} sx={{ bgcolor: SCM_COLOR }}>Nuevo Riesgo</Button>
-        </Box>
-
-        {/* Resumen estados */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          {(Object.entries(ESTADO_META) as [EstadoR, typeof ESTADO_META[EstadoR]][]).map(([k, v]) => (
-            <Grid key={k} size={{ xs: 12, sm: 6, md: 3 }}>
-              <Card onClick={() => setFiltro(prev => prev === k ? '' : k)} sx={{ border: `2px solid ${filtro === k ? v.color : alpha(v.color, 0.2)}`, borderRadius: 2, cursor: 'pointer', transition: 'border-color 0.15s' }}>
-                <CardContent sx={{ p: '12px !important' }}>
-                  <Typography sx={{ fontSize: 11, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8 }}>{v.label}</Typography>
-                  <Typography sx={{ fontSize: 30, fontWeight: 800, color: v.color, lineHeight: 1.2 }}>{conteo[k]}</Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-
-        {/* Lista de riesgos */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          {visibles.map(r => {
-            const imp = IMPACTO_META[r.impacto]
-            const est = ESTADO_META[r.estado]
+      <Box sx={{ p: 3 }}>
+        <Encabezado icono={<Warning sx={{ fontSize: 28 }} />} titulo="Riesgos de suministro" subtitulo="SCM · Identificación, valoración y mitigación"
+          color={SCM_COLOR} accion="Registrar riesgo" onAccion={() => setDlg({ abierto: true, r: null })} />
+        <Grid container spacing={2} mb={3}>
+          {Object.entries(NIVEL).map(([k, c]) => {
+            const activo = filtro === k
             return (
-              <Card key={r.id} sx={{ border: `1px solid ${alpha(imp.color, 0.2)}`, borderRadius: 2 }}>
-                <CardContent sx={{ p: '14px !important' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
-                    <Box sx={{ flex: 1, minWidth: 220 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                        <Box sx={{ color: imp.color }}>{imp.icon}</Box>
-                        <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary' }}>{r.titulo}</Typography>
-                      </Box>
-                      <Typography sx={{ fontSize: 12, color: 'text.secondary', mb: 1 }}>{r.descripcion}</Typography>
-                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                        <Chip label={r.categoria} size="small" sx={{ bgcolor: alpha(SCM_COLOR, 0.15), color: '#5B9BD5', fontSize: 10 }} />
-                        <Chip label={`Impacto: ${r.impacto}`} size="small" sx={{ bgcolor: alpha(imp.color, 0.12), color: imp.color, fontSize: 10, fontWeight: 700 }} />
-                        <Chip label={`Prob.: ${r.probabilidad}`} size="small" sx={{ bgcolor: '#F1F5F9', color: 'text.secondary', fontSize: 10 }} />
-                      </Box>
-                    </Box>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.5 }}>
-                      <Chip label={est.label} size="small" sx={{ bgcolor: alpha(est.color, 0.15), color: est.color, fontWeight: 700, fontSize: 10 }} />
-                      <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>Resp.: {r.responsable}</Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
+              <Grid key={k} size={{ xs: 6, md: 3 }}>
+                <Paper role="button" aria-label={`Filtrar ${k}`} onClick={() => setFiltro(activo ? '' : k)} elevation={0}
+                  sx={{ p: 2, borderRadius: 2, cursor: 'pointer', border: `1px solid ${alpha(c, activo ? 0.8 : 0.25)}`, bgcolor: activo ? alpha(c, 0.08) : 'transparent' }}>
+                  <Typography sx={{ fontSize: 24, fontWeight: 800, color: c }}>{lista.filter(r => r.nivel === k && r.estado !== 'MITIGADO').length}</Typography>
+                  <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{k.charAt(0) + k.slice(1).toLowerCase()} · sin mitigar</Typography>
+                </Paper>
+              </Grid>
             )
           })}
-        </Box>
-
-        {/* Dialog nuevo riesgo */}
-        <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: 'background.paper', color: 'text.primary' } }}>
-          <DialogTitle sx={{ borderBottom: '1px solid #F1F5F9', fontWeight: 700 }}>Registrar Nuevo Riesgo</DialogTitle>
-          <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField label="Título *" value={form.titulo} onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))} fullWidth size="small" sx={SX_INPUT} />
-            <TextField label="Descripción" value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} fullWidth multiline rows={2} size="small" sx={SX_INPUT} />
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <FormControl fullWidth size="small">
-                <InputLabel sx={{ color: 'text.secondary' }}>Categoría</InputLabel>
-                <Select value={form.categoria} label="Categoría" onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))} sx={SX_SELECT}>
-                  {CATEGORIAS.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
-                </Select>
-              </FormControl>
-              <FormControl fullWidth size="small">
-                <InputLabel sx={{ color: 'text.secondary' }}>Impacto</InputLabel>
-                <Select value={form.impacto} label="Impacto" onChange={e => setForm(f => ({ ...f, impacto: e.target.value as Impacto }))} sx={SX_SELECT}>
-                  {IMPACTOS.map(i => <MenuItem key={i} value={i}>{i}</MenuItem>)}
-                </Select>
-              </FormControl>
-              <FormControl fullWidth size="small">
-                <InputLabel sx={{ color: 'text.secondary' }}>Probabilidad</InputLabel>
-                <Select value={form.probabilidad} label="Probabilidad" onChange={e => setForm(f => ({ ...f, probabilidad: e.target.value as Prob }))} sx={SX_SELECT}>
-                  {PROBS.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
-                </Select>
-              </FormControl>
-            </Box>
-            <TextField label="Responsable" value={form.responsable} onChange={e => setForm(f => ({ ...f, responsable: e.target.value }))} fullWidth size="small" sx={SX_INPUT} />
-          </DialogContent>
-          <DialogActions sx={{ p: 2, gap: 1, borderTop: '1px solid #F1F5F9' }}>
-            <Button onClick={() => setOpen(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>
-            <Button variant="contained" onClick={handleGuardar} disabled={!form.titulo.trim()} sx={{ bgcolor: SCM_COLOR }}>Registrar</Button>
-          </DialogActions>
-        </Dialog>
+        </Grid>
+        <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto' }}>
+          {crud.isLoading && <LinearProgress />}
+          <Table size="small">
+            <TableHead><TableRow sx={{ '& th': { fontWeight: 700, fontSize: 12 } }}>
+              <TableCell>Riesgo</TableCell><TableCell>Categoría</TableCell><TableCell>Proveedor</TableCell><TableCell align="center">I × P</TableCell>
+              <TableCell>Nivel</TableCell><TableCell>Estado</TableCell><TableCell>Revisión</TableCell><TableCell />
+            </TableRow></TableHead>
+            <TableBody>
+              {!crud.isLoading && visibles.length === 0 && <TableRow><TableCell colSpan={8} align="center" sx={{ py: 3, color: 'text.secondary' }}>Sin riesgos registrados</TableCell></TableRow>}
+              {visibles.map(r => (
+                <TableRow key={r.id} hover>
+                  <TableCell sx={{ fontSize: 12, maxWidth: 320 }}><b>{r.titulo}</b>{r.plan_mitigacion && <Typography fontSize={11} color="text.secondary">Plan: {r.plan_mitigacion}</Typography>}</TableCell>
+                  <TableCell sx={{ fontSize: 12 }}>{CATEGORIAS.find(c => c[0] === r.categoria)?.[1] ?? r.categoria}</TableCell>
+                  <TableCell sx={{ fontSize: 12 }}>{r.proveedor ?? '—'}</TableCell>
+                  <TableCell align="center" sx={{ fontSize: 12 }}>{r.impacto} × {r.probabilidad} = <b>{r.puntaje}</b></TableCell>
+                  <TableCell><Chip size="small" label={r.nivel} sx={{ fontSize: 11, fontWeight: 700, bgcolor: alpha(NIVEL[r.nivel], 0.12), color: NIVEL[r.nivel] }} /></TableCell>
+                  <TableCell sx={{ fontSize: 12 }}>{ESTADOS.find(e => e[0] === r.estado)?.[1] ?? r.estado}</TableCell>
+                  <TableCell sx={{ fontSize: 12 }}>{fmtFecha(r.fecha_revision)}</TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                    <Tooltip title="Editar"><IconButton size="small" aria-label={`Editar ${r.titulo}`} onClick={() => setDlg({ abierto: true, r })}><Edit fontSize="small" /></IconButton></Tooltip>
+                    <Tooltip title="Retirar"><IconButton size="small" aria-label={`Retirar ${r.titulo}`} onClick={() => { if (window.confirm('¿Retirar este riesgo?')) crud.retirar.mutate(r.id) }}><DeleteForever fontSize="small" sx={{ color: '#DC2626' }} /></IconButton></Tooltip>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Paper>
+        <FormularioRegistro abierto={dlg.abierto} titulo={dlg.r ? 'Editar riesgo' : 'Registrar riesgo'} campos={CAMPOS} registro={dlg.r}
+          valoresIniciales={{ estado: 'IDENTIFICADO', categoria: 'PROVEEDOR', impacto: '2', probabilidad: '2' }}
+          onGuardar={c => crud.guardar(dlg.r, c)} onCerrar={() => setDlg({ abierto: false, r: null })} />
       </Box>
     </Layout>
   )

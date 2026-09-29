@@ -1,98 +1,103 @@
-import React from 'react'
-import { Box, Typography, Card, CardContent, Chip, alpha, LinearProgress } from '@mui/material'
+/**
+ * SCM · Inventario
+ *
+ * Era una maqueta: cuatro bodegas con «$ 3.8 B» y porcentajes de ocupación
+ * que el sistema no puede saber —no registra la capacidad de las bodegas—, y
+ * tres alertas escritas a mano.
+ *
+ * Ahora muestra el inventario real del módulo de inventario: valor y
+ * referencias por bodega, y lo que está bajo el mínimo junto con lo que ya
+ * viene en camino en órdenes de compra abiertas, para no pedir dos veces.
+ */
+import { Box, Typography, Paper, Chip, Table, TableBody, TableCell, TableHead, TableRow, LinearProgress, Button, alpha } from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { CompareArrows, Warehouse, Warning, TrendingDown } from '@mui/icons-material'
+import { Inventory2 } from '@mui/icons-material'
+import { useQuery } from '@tanstack/react-query'
+import { Link as RouterLink } from 'react-router-dom'
 import { Layout } from '@/components/layout/Layout'
-
+import { scmApi } from '@/api/scm'
+import { Cifra, Encabezado } from '@/components/comun/Registro'
 import { COLOR_MODULO } from '@/config/marca'
+
 const SCM_COLOR = COLOR_MODULO
-const BORDER = `rgba(12,77,140,0.25)`
-
-const UBICACIONES = [
-  { nombre: 'Bodega Central — Bogotá',       skus: 412, valor: '$ 3.8 B', ocupacion: 78 },
-  { nombre: 'CEDI Medellín',                  skus: 198, valor: '$ 1.2 B', ocupacion: 54 },
-  { nombre: 'Zona Franca Barranquilla',        skus: 87,  valor: '$ 890 M', ocupacion: 31 },
-  { nombre: 'Bodega Temporal Cali',            skus: 43,  valor: '$ 210 M', ocupacion: 92 },
-]
-
-const ALERTAS = [
-  { sku: 'INS-0042', descripcion: 'Lubricante 15W40 — Quart.',   nivel: 'CRÍTICO', stock: 12,  min: 50  },
-  { sku: 'REP-0118', descripcion: 'Filtro hidráulico JD-4540',   nivel: 'BAJO',    stock: 8,   min: 20  },
-  { sku: 'MAT-0031', descripcion: 'Lámina HR 3mm × 1.2m',        nivel: 'BAJO',    stock: 240, min: 500 },
-]
+const cop = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
 
 export default function SCMInventario() {
+  const { data, isLoading } = useQuery({ queryKey: ['scm-inventario'], queryFn: scmApi.inventario })
+  const bodegas = data?.bodegas ?? []
+  const alertas = data?.alertas ?? []
+  const sinCubrir = alertas.filter(a => a.cantidad + a.en_camino < a.minimo)
+
   return (
     <Layout>
-      <Box sx={{ p: 3, minHeight: '100vh' }}>
-
-        {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
-          <CompareArrows sx={{ color: SCM_COLOR, fontSize: 28 }} />
-          <Box>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Inventario Multi-Ubicación</Typography>
-            <Typography sx={{ fontSize: 12, color: 'text.disabled' }}>Visibilidad unificada del stock en todas las bodegas</Typography>
-          </Box>
-          <Chip label="SCM" size="small" sx={{ bgcolor: alpha(SCM_COLOR, 0.15), color: '#5B9BD5', fontWeight: 700, border: `1px solid ${alpha(SCM_COLOR, 0.35)}` }} />
-        </Box>
-
-        {/* Bodegas */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          {UBICACIONES.map(u => {
-            const ocupColor = u.ocupacion > 85 ? '#ef4444' : u.ocupacion > 60 ? '#f59e0b' : '#22c55e'
-            return (
-              <Grid key={u.nombre} size={{ xs: 12, sm: 6, md: 3 }}>
-                <Card sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: 2 }}>
-                  <CardContent sx={{ p: '14px !important' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                      <Warehouse sx={{ fontSize: 18, color: alpha(SCM_COLOR, 0.8) }} />
-                      <Typography sx={{ fontSize: 12, fontWeight: 600, color: 'text.primary', lineHeight: 1.3 }}>{u.nombre}</Typography>
-                    </Box>
-                    <Typography sx={{ fontSize: 11, color: 'text.secondary', mb: 0.3 }}>SKUs activos: <strong style={{ color: '#111827' }}>{u.skus}</strong></Typography>
-                    <Typography sx={{ fontSize: 11, color: 'text.secondary', mb: 1 }}>Valor: <strong style={{ color: '#111827' }}>{u.valor}</strong></Typography>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                      <Typography sx={{ fontSize: 10, color: 'text.disabled' }}>Ocupación</Typography>
-                      <Typography sx={{ fontSize: 10, color: ocupColor, fontWeight: 700 }}>{u.ocupacion}%</Typography>
-                    </Box>
-                    <LinearProgress variant="determinate" value={u.ocupacion} sx={{ height: 5, borderRadius: 2, bgcolor: '#E2E8F0', '& .MuiLinearProgress-bar': { bgcolor: ocupColor } }} />
-                  </CardContent>
-                </Card>
-              </Grid>
-            )
-          })}
+      <Box sx={{ p: 3 }}>
+        <Encabezado icono={<Inventory2 sx={{ fontSize: 28 }} />} titulo="Inventario" subtitulo="SCM · Existencias por bodega y alertas de mínimo" color={SCM_COLOR} />
+        {isLoading && <LinearProgress sx={{ mb: 2 }} />}
+        <Grid container spacing={2} mb={3}>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Valor del inventario" valor={cop(data?.valor_total ?? 0)} color={SCM_COLOR} /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Bodegas activas" valor={bodegas.length} color="#0369A1" /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Bajo el mínimo" valor={alertas.length} color="#D97706" sub={`${alertas.filter(a => a.nivel === 'CRITICO').length} críticas`} /></Grid>
+          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Sin cubrir con lo pedido" valor={sinCubrir.length} color="#DC2626" sub="Aun con lo que viene en camino" /></Grid>
         </Grid>
 
-        {/* Alertas */}
-        <Card sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: 2 }}>
-          <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-              <Warning sx={{ color: '#f59e0b', fontSize: 18 }} />
-              <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 14 }}>Alertas de Stock Mínimo</Typography>
-              <Chip label={ALERTAS.length} size="small" sx={{ bgcolor: alpha('#f59e0b', 0.15), color: '#f59e0b', fontWeight: 800, ml: 'auto' }} />
-            </Box>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              {ALERTAS.map(a => (
-                <Box key={a.sku} sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 1.5, bgcolor: '#F9FAFB', borderRadius: 1.5, border: `1px solid ${a.nivel === 'CRÍTICO' ? alpha('#ef4444', 0.2) : alpha('#f59e0b', 0.15)}` }}>
-                  <TrendingDown sx={{ fontSize: 18, color: a.nivel === 'CRÍTICO' ? '#ef4444' : '#f59e0b' }} />
-                  <Box sx={{ flex: 1 }}>
-                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                      <Typography sx={{ fontSize: 12, fontFamily: 'monospace', color: '#5B9BD5' }}>{a.sku}</Typography>
-                      <Typography sx={{ fontSize: 12, color: 'text.primary' }}>{a.descripcion}</Typography>
-                    </Box>
-                    <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>Stock actual: {a.stock} u. / Mínimo: {a.min} u.</Typography>
-                  </Box>
-                  <Chip label={a.nivel} size="small" sx={{ bgcolor: a.nivel === 'CRÍTICO' ? alpha('#ef4444', 0.15) : alpha('#f59e0b', 0.15), color: a.nivel === 'CRÍTICO' ? '#ef4444' : '#f59e0b', fontWeight: 700, fontSize: 10 }} />
-                </Box>
-              ))}
-            </Box>
-          </CardContent>
-        </Card>
-
-        <Box sx={{ mt: 2, p: 2, bgcolor: alpha(SCM_COLOR, 0.06), borderRadius: 2, border: `1px dashed ${alpha(SCM_COLOR, 0.25)}`, textAlign: 'center' }}>
-          <Typography sx={{ fontSize: 12, color: alpha('#5B9BD5', 0.8) }}>
-            Sincronización en tiempo real con WMS disponible próximamente
-          </Typography>
-        </Box>
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12, md: 5 }}>
+            <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto' }}>
+              <Typography fontWeight={700} fontSize={14} sx={{ p: 2, pb: 1 }}>Bodegas</Typography>
+              <Table size="small">
+                <TableHead><TableRow sx={{ '& th': { fontWeight: 700, fontSize: 12 } }}>
+                  <TableCell>Bodega</TableCell><TableCell align="right">Referencias</TableCell><TableCell align="right">Valor</TableCell><TableCell align="right">Bajo mín.</TableCell>
+                </TableRow></TableHead>
+                <TableBody>
+                  {!isLoading && bodegas.length === 0 && <TableRow><TableCell colSpan={4} align="center" sx={{ py: 3, color: 'text.secondary' }}>Sin bodegas activas</TableCell></TableRow>}
+                  {bodegas.map(b => {
+                    const pct = data?.valor_total ? (b.valor / data.valor_total) * 100 : 0
+                    return (
+                      <TableRow key={b.id}>
+                        <TableCell sx={{ fontSize: 12 }}><b>{b.nombre}</b>
+                          <Box sx={{ mt: 0.5, height: 4, borderRadius: 2, bgcolor: '#E5E7EB' }}><Box sx={{ height: 4, borderRadius: 2, width: `${pct}%`, bgcolor: SCM_COLOR }} /></Box>
+                        </TableCell>
+                        <TableCell align="right">{b.referencias}</TableCell>
+                        <TableCell align="right" sx={{ fontSize: 12 }}>{cop(b.valor)}</TableCell>
+                        <TableCell align="right" sx={{ color: b.bajo_minimo ? 'error.main' : undefined, fontWeight: b.bajo_minimo ? 700 : 400 }}>{b.bajo_minimo}</TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </Paper>
+          </Grid>
+          <Grid size={{ xs: 12, md: 7 }}>
+            <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto' }}>
+              <Box sx={{ p: 2, pb: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography fontWeight={700} fontSize={14}>Referencias bajo el mínimo</Typography>
+                <Button size="small" component={RouterLink} to="/scm/planificacion">Ver reposición sugerida</Button>
+              </Box>
+              <Table size="small">
+                <TableHead><TableRow sx={{ '& th': { fontWeight: 700, fontSize: 12 } }}>
+                  <TableCell>Referencia</TableCell><TableCell>Bodega</TableCell><TableCell align="right">Existencias</TableCell>
+                  <TableCell align="right">Mínimo</TableCell><TableCell align="right">En camino</TableCell><TableCell>Nivel</TableCell>
+                </TableRow></TableHead>
+                <TableBody>
+                  {!isLoading && alertas.length === 0 && <TableRow><TableCell colSpan={6} align="center" sx={{ py: 3, color: 'text.secondary' }}>Todo está sobre el mínimo</TableCell></TableRow>}
+                  {alertas.map(a => {
+                    const c = a.nivel === 'CRITICO' ? '#DC2626' : '#D97706'
+                    return (
+                      <TableRow key={`${a.repuesto_id}-${a.bodega}`}>
+                        <TableCell sx={{ fontSize: 12 }}><Box component="span" sx={{ fontFamily: 'monospace' }}>{a.codigo}</Box> · {a.nombre}</TableCell>
+                        <TableCell sx={{ fontSize: 12 }}>{a.bodega ?? 'Sin existencias en ninguna'}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, color: c }}>{a.cantidad}</TableCell>
+                        <TableCell align="right">{a.minimo}</TableCell>
+                        <TableCell align="right">{a.en_camino || '—'}</TableCell>
+                        <TableCell><Chip size="small" label={a.nivel === 'CRITICO' ? 'Crítico' : 'Bajo'} sx={{ fontSize: 11, fontWeight: 700, bgcolor: alpha(c, 0.12), color: c }} /></TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </Paper>
+          </Grid>
+        </Grid>
       </Box>
     </Layout>
   )

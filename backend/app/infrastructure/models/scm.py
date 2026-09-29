@@ -166,3 +166,46 @@ class ScmEvaluacionProveedor(Base, TimestampMixin):
     clasificacion = Column(Enum(ClasificacionProveedor), nullable=True)
     comentarios = Column(Text, nullable=True)
     recomendacion = Column(Enum(RecomendacionProveedor), nullable=True)
+
+
+class ScmDevolucion(Base, TimestampMixin, SoftDeleteMixin):
+    """Mercancía que se le devuelve a un proveedor.
+
+    Cuelga de la orden de compra: el proveedor sale de ella y no se escribe
+    aparte, para que una devolución no pueda quedar a nombre de quien no
+    vendió. El valor lo pone quien registra —no siempre es toda la orden—.
+    """
+    __tablename__ = "scm_devoluciones"
+    __table_args__ = {"extend_existing": True}
+
+    id = Column(Integer, primary_key=True, index=True)
+    numero = Column(String(50), unique=True, nullable=False, index=True)
+    orden_id = Column(Integer, ForeignKey("scm_ordenes_compra.id"), nullable=False, index=True)
+    motivo = Column(String(40), nullable=False)
+    estado = Column(String(20), nullable=False, default="PENDIENTE")
+    fecha = Column(Date, nullable=False)
+    unidades = Column(Float, nullable=True)
+    valor = Column(Float, nullable=True)
+    descripcion = Column(Text, nullable=True)
+    resolucion = Column(Text, nullable=True)
+    valor_recuperado = Column(Float, nullable=True)
+    fecha_cierre = Column(Date, nullable=True)
+
+
+class ScmRiesgo(Base, TimestampMixin, SoftDeleteMixin):
+    """Riesgo de la cadena de suministro. El nivel es impacto × probabilidad
+    y se calcula al leer; la maqueta lo tenía escrito aparte."""
+    __tablename__ = "scm_riesgos"
+    __table_args__ = {"extend_existing": True}
+
+    id = Column(Integer, primary_key=True, index=True)
+    titulo = Column(String(200), nullable=False)
+    categoria = Column(String(40), nullable=False)
+    proveedor_id = Column(Integer, ForeignKey("proveedores.id"), nullable=True)
+    impacto = Column(Integer, nullable=False)        # 1 bajo … 4 crítico
+    probabilidad = Column(Integer, nullable=False)   # 1 baja … 3 alta
+    estado = Column(String(20), nullable=False, default="IDENTIFICADO")
+    responsable = Column(String(150), nullable=True)
+    descripcion = Column(Text, nullable=True)
+    plan_mitigacion = Column(Text, nullable=True)
+    fecha_revision = Column(Date, nullable=True)
