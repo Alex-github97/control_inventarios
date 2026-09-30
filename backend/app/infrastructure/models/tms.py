@@ -165,6 +165,16 @@ class TMSTipoServicio(Base, TimestampMixin):
     activo       = Column(Boolean, default=True, nullable=False)
 
 
+class TMSParametro(Base, TimestampMixin):
+    """Los parámetros con que el TMS decide. Solo entran los que algo lee: una
+    cifra que se configura y nadie consulta es decoración."""
+    __tablename__ = "tms_parametro"
+
+    id           = Column(Integer, primary_key=True, index=True)
+    clave        = Column(String(60), nullable=False, unique=True)
+    valor        = Column(Float, nullable=False)
+
+
 class TMSVehiculo(Base, TimestampMixin, SoftDeleteMixin):
     """Vehículos registrados en el TMS."""
     __tablename__ = "tms_vehiculo"

@@ -17,7 +17,7 @@ from app.infrastructure.models.tms import (
     TMSEvento, TMSDocumento, TMSPOD, TMSRuta, TMSPuntoRuta,
     TMSCostoViaje, TMSLiquidacion, TMSOTIFRegistro, TMSAlerta, TMSKPIDiario,
     EstadoVehiculoTMSEnum, EstadoViajeTMSEnum, EstadoLiquidacionTMSEnum,
-    NivelAlertaTMSEnum, TipoEventoTMSEnum,
+    NivelAlertaTMSEnum, TipoEventoTMSEnum, TipoServicioTMSEnum, TMSParametro,
 )
 from app.application.schemas.tms import (
     TMSZonaCreate, TMSZonaUpdate, TMSZonaResponse,
@@ -443,6 +443,130 @@ async def eliminar_zona(
     await db.commit()
 
 
+def _ciudades(texto: Optional[str]) -> List[str]:
+    """Las ciudades de una zona. Se guardaron de dos formas —separadas por
+    barra o como lista JSON— y aquí se aceptan las dos."""
+    if not texto:
+        return []
+    t = texto.strip()
+    if t.startswith("["):
+        import json
+        try:
+            return [str(c).strip() for c in json.loads(t) if str(c).strip()]
+        except ValueError:
+            pass
+    return [c.strip() for c in t.replace(",", "|").split("|") if c.strip()]
+
+
+def _clave_ciudad(c: str) -> str:
+    import unicodedata
+    c = unicodedata.normalize("NFKD", c).encode("ascii", "ignore").decode()
+    return " ".join(c.lower().replace("d.c.", "").replace(".", " ").split())
+
+
+@router.get("/config/zonas-uso")
+async def uso_zonas(
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """Cuántos viajes salen o llegan a cada zona, y qué ciudades con viajes no
+    caen en ninguna. Se calcula cruzando las ciudades del viaje con las de la
+    zona: los viajes no guardan zona, así que no hay otra forma honesta."""
+    zonas = (await db.execute(select(TMSZona))).scalars().all()
+    filas = (await db.execute(
+        select(TMSViaje.origen_ciudad, TMSViaje.destino_ciudad)
+        .where(TMSViaje.deleted_at.is_(None)))).all()
+    de_zona = {z.id: {_clave_ciudad(c) for c in _ciudades(z.ciudades)} for z in zonas}
+    cuenta = {z.id: 0 for z in zonas}
+    sin_zona: dict = {}
+    for o, d in filas:
+        claves = {_clave_ciudad(c) for c in (o, d) if c}
+        for zid, cs in de_zona.items():
+            if claves & cs:
+                cuenta[zid] += 1
+        for c in (o, d):
+            if c and not any(_clave_ciudad(c) in cs for cs in de_zona.values()):
+                sin_zona[c.strip()] = sin_zona.get(c.strip(), 0) + 1
+    return {
+        "zonas": [{"zona_id": zid, "viajes": n} for zid, n in cuenta.items()],
+        "ciudades_sin_zona": sorted(({"ciudad": c, "viajes": n} for c, n in sin_zona.items()),
+                                    key=lambda x: -x["viajes"]),
+    }
+
+
+# ─── CONFIG — Parámetros ───────────────────────────────────────────────────────
+
+# Solo entran los que algo lee. La pantalla tenía seis (horas de conducción,
+# descanso, costo por km de referencia, empresa por defecto…) y ninguno lo
+# consultaba nadie; la tolerancia de puntualidad sí decide el OTIF.
+PARAMETROS_TMS = {
+    "otif_tolerancia_min": {"defecto": 0, "min": 0, "max": 1440,
+                            "descripcion": "Minutos de gracia sobre la hora programada para contar una entrega como puntual"},
+}
+
+
+async def _leer_parametros_tms(db: AsyncSession) -> dict:
+    guardados = {p.clave: p.valor for p in (await db.execute(select(TMSParametro))).scalars().all()}
+    return {k: float(guardados.get(k, d["defecto"])) for k, d in PARAMETROS_TMS.items()}
+
+
+async def _tolerancia_otif(db: AsyncSession) -> timedelta:
+    return timedelta(minutes=(await _leer_parametros_tms(db))["otif_tolerancia_min"])
+
+
+@router.get("/config/parametros")
+async def listar_parametros_tms(
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    valores = await _leer_parametros_tms(db)
+    return [{"clave": k, "valor": valores[k], **d} for k, d in PARAMETROS_TMS.items()]
+
+
+@router.put("/config/parametros")
+async def guardar_parametros_tms(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    desconocidos = set(data) - set(PARAMETROS_TMS)
+    if desconocidos:
+        raise HTTPException(422, f"Parámetro desconocido: {', '.join(sorted(desconocidos))}")
+    for clave, valor in data.items():
+        d = PARAMETROS_TMS[clave]
+        try:
+            valor = float(valor)
+        except (TypeError, ValueError):
+            raise HTTPException(422, f"{d['descripcion']}: debe ser un número")
+        if not d["min"] <= valor <= d["max"]:
+            raise HTTPException(422, f"{d['descripcion']}: entre {d['min']} y {d['max']}")
+        fila = (await db.execute(select(TMSParametro).where(TMSParametro.clave == clave))).scalar_one_or_none()
+        if fila:
+            fila.valor = valor
+        else:
+            db.add(TMSParametro(clave=clave, valor=valor))
+    await db.commit()
+    return await listar_parametros_tms(db)
+
+
+@router.get("/config/servicios-en-uso")
+async def servicios_en_uso(
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """Los tipos de servicio que el sistema reconoce, con cuántas rutas y
+    viajes los usan. La lista la fija el sistema —viajes y rutas guardan uno de
+    estos valores—; un tipo creado a mano en un catálogo aparte no lo podía
+    escoger ningún formulario."""
+    viajes = dict((await db.execute(
+        select(TMSViaje.tipo_servicio, func.count()).where(TMSViaje.deleted_at.is_(None))
+        .group_by(TMSViaje.tipo_servicio))).all())
+    rutas = dict((await db.execute(
+        select(TMSRuta.tipo_servicio, func.count()).group_by(TMSRuta.tipo_servicio))).all())
+    return [{"tipo": t.value, "viajes": int(viajes.get(t, 0)), "rutas": int(rutas.get(t, 0))}
+            for t in TipoServicioTMSEnum]
+
+
 # ─── CONFIG — Tipos de Servicio ───────────────────────────────────────────────
 
 @router.get("/config/tipos-servicio", response_model=List[TMSTipoServicioResponse])
@@ -769,7 +893,7 @@ async def actualizar_estado_viaje(
         viaje.fecha_real_entrega = _ahora()
         # Calcular OTIF
         if viaje.fecha_programada_entrega and viaje.fecha_real_entrega:
-            viaje.otif_on_time = viaje.fecha_real_entrega <= viaje.fecha_programada_entrega
+            viaje.otif_on_time = _a_tiempo(viaje, await _tolerancia_otif(db))
         else:
             viaje.otif_on_time = None
 
@@ -909,7 +1033,7 @@ async def crear_evento(
             viaje.estado = EstadoViajeTMSEnum.ENTREGADO
             viaje.fecha_real_entrega = _ahora()
             if viaje.fecha_programada_entrega and viaje.fecha_real_entrega:
-                viaje.otif_on_time = viaje.fecha_real_entrega <= viaje.fecha_programada_entrega
+                viaje.otif_on_time = _a_tiempo(viaje, await _tolerancia_otif(db))
 
     await db.commit()
     await db.refresh(evento)
@@ -1670,11 +1794,12 @@ class InFullIn(BaseModel):
     motivo: Optional[str] = None
 
 
-def _a_tiempo(v: TMSViaje) -> Optional[bool]:
+def _a_tiempo(v: TMSViaje, tolerancia: timedelta = timedelta(0)) -> Optional[bool]:
     """Se compara al leer, no se confía en la columna: si alguien corrige la
-    fecha programada después de la entrega, la puntualidad cambia con ella."""
+    fecha programada después de la entrega, la puntualidad cambia con ella.
+    La tolerancia es el parámetro `otif_tolerancia_min` de la configuración."""
     if v.fecha_real_entrega and v.fecha_programada_entrega:
-        return v.fecha_real_entrega <= v.fecha_programada_entrega
+        return v.fecha_real_entrega <= v.fecha_programada_entrega + tolerancia
     return v.otif_on_time
 
 
@@ -1708,8 +1833,9 @@ async def otif_por_viaje(
     conductores = await _nombres_conductores(db, viajes)
     clientes = await _nombres_clientes(db, viajes)
     salida = []
+    tolerancia = await _tolerancia_otif(db)
     for v in viajes:
-        on_time = _a_tiempo(v)
+        on_time = _a_tiempo(v, tolerancia)
         retraso = None
         if v.fecha_real_entrega and v.fecha_programada_entrega:
             retraso = round((v.fecha_real_entrega - v.fecha_programada_entrega).total_seconds() / 3600, 2)
@@ -2060,11 +2186,12 @@ async def analisis_rutas(
     if fecha_desde:
         q = q.where(TMSViaje.fecha_real_entrega >= datetime(fecha_desde.year, fecha_desde.month, fecha_desde.day))
     grupos: dict = {}
+    tolerancia = await _tolerancia_otif(db)
     for v, c in (await db.execute(q)).all():
         k = (v.origen_ciudad.strip(), v.destino_ciudad.strip())
         g = grupos.setdefault(k, {"n": 0, "ot": [], "otif": [], "costo": 0.0, "km": 0.0, "horas": []})
         g["n"] += 1
-        a_tiempo = _a_tiempo(v)
+        a_tiempo = _a_tiempo(v, tolerancia)
         if a_tiempo is not None:
             g["ot"].append(a_tiempo)
             if v.otif_in_full is not None:
