@@ -8,7 +8,9 @@ from fastapi.responses import FileResponse
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_db
+from app.core.tenant import esquema_actual
 from app.core.dependencies import get_current_user
 from app.infrastructure.models.usuario import Usuario
 from app.infrastructure.models.dms import (
@@ -43,8 +45,30 @@ from app.application.schemas.dms import (
 
 router = APIRouter(prefix="/dms", tags=["dms"])
 
-# Almacenamiento de archivos del DMS (bind-mount en /app/data, persiste)
-DMS_STORAGE = Path(__file__).resolve().parents[4] / "data" / "dms_files"
+# Almacenamiento de archivos del DMS. Va bajo UPLOAD_DIR, que en producción es
+# un volumen: antes vivía en /app/data, que en desarrollo está montado pero en
+# producción es la capa del contenedor, y cada reconstrucción de la imagen
+# borraba los documentos. Una carpeta por empresa: los id se repiten entre
+# esquemas.
+DMS_STORAGE = Path(settings.UPLOAD_DIR).resolve() / "dms"
+_DMS_ANTERIOR = Path(__file__).resolve().parents[4] / "data" / "dms_files"
+
+
+def _carpeta_dms() -> Path:
+    return DMS_STORAGE / (esquema_actual() or "public")
+
+
+def _archivo(ruta: Optional[str]) -> Optional[Path]:
+    """La ruta guardada, o el mismo archivo si se trasladó a la carpeta nueva."""
+    if not ruta:
+        return None
+    p = Path(ruta)
+    if p.exists():
+        return p
+    for alterna in (_carpeta_dms() / p.name, DMS_STORAGE / p.name, _DMS_ANTERIOR / p.name):
+        if alterna.exists():
+            return alterna
+    return None
 
 
 def _extraer_texto(contenido: bytes, mime: Optional[str], filename: Optional[str]) -> Optional[str]:
@@ -860,9 +884,9 @@ async def subir_archivo_version(
     md5 = hashlib.md5(contenido).hexdigest()
     nuevo_num = (doc.version_numero or 0) + 1
     numero_str = f"{nuevo_num}.0"
-    DMS_STORAGE.mkdir(parents=True, exist_ok=True)
+    _carpeta_dms().mkdir(parents=True, exist_ok=True)
     safe = (file.filename or "archivo").replace("/", "_").replace("\\", "_")
-    ruta = DMS_STORAGE / f"doc{documento_id}_v{nuevo_num}_{md5[:8]}_{safe}"
+    ruta = _carpeta_dms() / f"doc{documento_id}_v{nuevo_num}_{md5[:8]}_{safe}"
     ruta.write_bytes(contenido)
     ocr = _extraer_texto(contenido, file.content_type, file.filename)
     ver = DMSVersion(
@@ -893,10 +917,11 @@ async def descargar_version(
     current_user: Usuario = Depends(get_current_user),
 ):
     ver = await db.get(DMSVersion, version_id)
-    if not ver or not ver.ruta_archivo or not Path(ver.ruta_archivo).exists():
+    archivo = _archivo(ver.ruta_archivo) if ver else None
+    if not archivo:
         raise HTTPException(status_code=404, detail="Archivo no encontrado")
     await _exigir_descarga(db, ver.documento_id, current_user)
-    return FileResponse(ver.ruta_archivo, filename=ver.nombre_archivo,
+    return FileResponse(archivo, filename=ver.nombre_archivo,
                         media_type=ver.tipo_mime or "application/octet-stream")
 
 
@@ -915,9 +940,10 @@ async def descargar_documento(
         ).order_by(DMSVersion.version_numero.desc())
     )
     ver = r.scalars().first()
-    if not ver or not ver.ruta_archivo or not Path(ver.ruta_archivo).exists():
+    archivo = _archivo(ver.ruta_archivo) if ver else None
+    if not archivo:
         raise HTTPException(status_code=404, detail="El documento no tiene archivo")
-    return FileResponse(ver.ruta_archivo, filename=ver.nombre_archivo,
+    return FileResponse(archivo, filename=ver.nombre_archivo,
                         media_type=ver.tipo_mime or "application/octet-stream")
 
 
