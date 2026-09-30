@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text, ForeignKey, Enum as SAEnum
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text, ForeignKey, UniqueConstraint, Enum as SAEnum
 from sqlalchemy.orm import relationship
 import enum
 from app.infrastructure.models.base import Base, TimestampMixin
@@ -101,6 +101,40 @@ class APSUbicacion(Base, TimestampMixin):
     ciudad      = Column(String(100), nullable=True)
     pais        = Column(String(100), nullable=True)
     activo      = Column(Boolean, default=True, nullable=False)
+    # De qué planta se surte un centro de distribución: el DRP convierte su
+    # necesidad en traslados desde ahí, y esos traslados son demanda de la planta.
+    abastecida_por_id = Column(Integer, ForeignKey('aps_ubicacion.id'), nullable=True)
+
+
+class APSDemanda(Base, TimestampMixin):
+    """Demanda real por producto, ubicación y mes. Es la única entrada que el
+    pronóstico necesita; todo lo demás del plan sale de aquí."""
+    __tablename__ = 'aps_demanda'
+    __table_args__ = (UniqueConstraint('producto_id', 'ubicacion_id', 'periodo', name='uq_aps_demanda'),)
+    id           = Column(Integer, primary_key=True, index=True)
+    producto_id  = Column(Integer, ForeignKey('aps_producto.id'), nullable=False, index=True)
+    ubicacion_id = Column(Integer, ForeignKey('aps_ubicacion.id'), nullable=False)
+    periodo      = Column(String(7), nullable=False)          # YYYY-MM
+    cantidad     = Column(Float, nullable=False, default=0.0)
+
+
+class APSRuta(Base, TimestampMixin):
+    """Cuánto de un recurso consume una unidad de producto. Sin ruta, el
+    producto se compra; con ruta, se fabrica y carga la capacidad."""
+    __tablename__ = 'aps_ruta'
+    __table_args__ = (UniqueConstraint('producto_id', 'recurso_id', name='uq_aps_ruta'),)
+    id               = Column(Integer, primary_key=True, index=True)
+    producto_id      = Column(Integer, ForeignKey('aps_producto.id'), nullable=False)
+    recurso_id       = Column(Integer, ForeignKey('aps_recurso.id'), nullable=False)
+    horas_por_unidad = Column(Float, nullable=False)
+
+
+class APSConfig(Base, TimestampMixin):
+    """Parámetros del motor de planeación. Solo los que el motor lee."""
+    __tablename__ = 'aps_config'
+    id    = Column(Integer, primary_key=True, index=True)
+    clave = Column(String(60), unique=True, nullable=False)
+    valor = Column(Float, nullable=False)
 
 
 class APSProducto(Base, TimestampMixin):
@@ -115,6 +149,7 @@ class APSProducto(Base, TimestampMixin):
     costo_unitario = Column(Float, nullable=True)
     precio_venta   = Column(Float, nullable=True)
     activo         = Column(Boolean, default=True, nullable=False)
+    peso_kg        = Column(Float, nullable=True)   # para consolidar traslados en camiones
 
 
 class APSRecurso(Base, TimestampMixin):
@@ -141,6 +176,10 @@ class APSRestriccion(Base, TimestampMixin):
     valor_min    = Column(Float, nullable=True)
     valor_max    = Column(Float, nullable=True)
     activo       = Column(Boolean, default=True, nullable=False)
+    # Qué limita: el tipo dice si es dura o blanda; el ámbito, sobre qué. El
+    # motor aplica BODEGA (unidades máximas en la ubicación) y TRANSPORTE (kg
+    # por vehículo desde la ubicación); OTRA queda registrada sin aplicarse.
+    ambito       = Column(String(30), nullable=False, default='OTRA')
 
 
 class APSParametro(Base, TimestampMixin):
@@ -159,6 +198,8 @@ class APSParametro(Base, TimestampMixin):
     lead_time_produccion_dias = Column(Integer, nullable=True)
     nivel_servicio_pct  = Column(Float, nullable=False, default=95.0)
     dias_cobertura      = Column(Float, nullable=True)
+    # Existencias hoy en esa ubicación: el punto de partida de la proyección.
+    stock_actual        = Column(Float, nullable=False, default=0.0)
 
 
 class APSPronostico(Base, TimestampMixin):

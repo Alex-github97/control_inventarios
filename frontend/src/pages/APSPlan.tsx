@@ -1,213 +1,116 @@
-import React, { useState } from 'react'
+/**
+ * APS · Plan maestro (MPS / MRP)
+ *
+ * Era maqueta: un Gantt de órdenes, una explosión de materiales y una red DRP
+ * con datos escritos a mano. Ahora el plan sale del motor:
+ *
+ *  - Órdenes sugeridas: qué producir y qué comprar, cuánto, cuándo lanzarlo y
+ *    cuándo debe llegar. Las que ya debían haberse lanzado se marcan: son el
+ *    riesgo de quiebre. Aprobar una la vuelve recepción programada, y el plan
+ *    deja de sugerirla.
+ *  - Detalle por producto: la proyección mes a mes (demanda propia, traslados
+ *    que pide la red, recepciones, stock contra el de seguridad).
+ *  - Órdenes aprobadas: al recibirlas, su cantidad entra a las existencias.
+ *  - Versiones: una foto del plan para dejar registro de lo decidido.
+ *
+ * El Gantt se quitó: el motor planea por meses con capacidad agregada (RCCP),
+ * no programa operaciones por hora, y un Gantt aparentaría una precisión que
+ * el plan no tiene.
+ */
+import { useState } from 'react'
 import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  Chip,
-  Stack,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  alpha,
-  Grid,
-  Button,
-  Tab,
-  Tabs,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Divider,
+  Box, Paper, Typography, Tabs, Tab, Button, TextField, MenuItem, Alert, LinearProgress, Table, TableHead, TableRow,
+  TableCell, TableBody, ToggleButtonGroup, ToggleButton, Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material'
-import {
-  CalendarMonth,
-  PlayArrow,
-  Publish,
-  Factory,
-  LocalShipping,
-  Inventory,
-  AccountTree,
-} from '@mui/icons-material'
+import Grid from '@mui/material/Grid2'
+import { EventNote } from '@mui/icons-material'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
-
+import { apsApi, n0, pesos, nombreP, nombreU, mesCorto, TIPO_ORDEN, type OrdenPlan } from '@/api/aps'
+import { Encabezado, Cifra, Etiqueta, errorApi } from '@/components/comun/Registro'
 import { COLOR_MODULO } from '@/config/marca'
-const APS_COLOR = COLOR_MODULO
-const APS_COLOR_DARK = COLOR_MODULO
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
+const C = COLOR_MODULO
 
-const mpsPlanData = [
-  { id: 'OP-001', producto: 'Paleta Industrial 1200x1000', cantidad: 500, periodo: 'Sem 25', planta: 'Planta A', recurso: 'Línea 1', estado: 'LIBERADA', inicio: 10, duracion: 25 },
-  { id: 'OP-002', producto: 'Estiba Plástica 1100x1100', cantidad: 320, periodo: 'Sem 25', planta: 'Planta A', recurso: 'Línea 2', estado: 'PLANEADA', inicio: 5, duracion: 30 },
-  { id: 'OP-003', producto: 'Caja Corrugada Doble Canal', cantidad: 2400, periodo: 'Sem 26', planta: 'Planta B', recurso: 'Línea 3', estado: 'PLANEADA', inicio: 35, duracion: 20 },
-  { id: 'OP-004', producto: 'Zuncho Plástico 16mm', cantidad: 800, periodo: 'Sem 26', planta: 'Planta B', recurso: 'Línea 1', estado: 'LIBERADA', inicio: 40, duracion: 15 },
-  { id: 'OP-005', producto: 'Film Stretch 500m', cantidad: 1200, periodo: 'Sem 27', planta: 'Planta C', recurso: 'Línea 4', estado: 'PLANEADA', inicio: 55, duracion: 18 },
-  { id: 'OP-006', producto: 'Esquinero Cartón 50mm', cantidad: 3600, periodo: 'Sem 27', planta: 'Planta A', recurso: 'Línea 2', estado: 'PLANEADA', inicio: 60, duracion: 22 },
-  { id: 'OP-007', producto: 'Paleta Exportación 1200x800', cantidad: 250, periodo: 'Sem 28', planta: 'Planta B', recurso: 'Línea 3', estado: 'PLANEADA', inicio: 70, duracion: 28 },
-  { id: 'OP-008', producto: 'Tapa Metálica TM-200', cantidad: 1800, periodo: 'Sem 28', planta: 'Planta C', recurso: 'Línea 1', estado: 'LIBERADA', inicio: 75, duracion: 12 },
-]
-
-const mrpData = [
-  { producto: 'Madera Pino 2"x4"', demanda_bruta: 1200, stock_inicial: 300, recepciones: 500, disponible_neto: 400, req_neto: 800, orden_sugerida: 1000, tipo: 'COMPRA', fecha_emision: '2026-06-20', fecha_recepcion: '2026-06-27' },
-  { producto: 'Resina Polipropileno', demanda_bruta: 800, stock_inicial: 950, recepciones: 0, disponible_neto: 650, req_neto: 0, orden_sugerida: 0, tipo: '-', fecha_emision: '-', fecha_recepcion: '-' },
-  { producto: 'Cartón Liner 200g/m²', demanda_bruta: 5000, stock_inicial: 800, recepciones: 1200, disponible_neto: 1200, req_neto: 3800, orden_sugerida: 4000, tipo: 'COMPRA', fecha_emision: '2026-06-22', fecha_recepcion: '2026-06-29' },
-  { producto: 'Pigmento Negro', demanda_bruta: 150, stock_inicial: 80, recepciones: 50, disponible_neto: 80, req_neto: 70, orden_sugerida: 100, tipo: 'COMPRA', fecha_emision: '2026-06-21', fecha_recepcion: '2026-06-28' },
-  { producto: 'Adhesivo PVA', demanda_bruta: 200, stock_inicial: 220, recepciones: 0, disponible_neto: 120, req_neto: 0, orden_sugerida: 0, tipo: '-', fecha_emision: '-', fecha_recepcion: '-' },
-  { producto: 'Fleje Metálico 32mm', demanda_bruta: 600, stock_inicial: 100, recepciones: 200, disponible_neto: 150, req_neto: 450, orden_sugerida: 500, tipo: 'COMPRA', fecha_emision: '2026-06-23', fecha_recepcion: '2026-06-30' },
-  { producto: 'Film LLDPE 23 micras', demanda_bruta: 900, stock_inicial: 200, recepciones: 300, disponible_neto: 400, req_neto: 500, orden_sugerida: 600, tipo: 'PRODUCCION', fecha_emision: '2026-06-24', fecha_recepcion: '2026-07-01' },
-  { producto: 'Papel Kraft 90g/m²', demanda_bruta: 2000, stock_inicial: 400, recepciones: 600, disponible_neto: 600, req_neto: 1400, orden_sugerida: 1500, tipo: 'COMPRA', fecha_emision: '2026-06-20', fecha_recepcion: '2026-06-27' },
-]
-
-const drpData = [
-  { planta: 'Planta A - Bogotá', familia: 'Paletas', stock_actual: 1200, stock_seguridad: 500, requerimiento: 800, traslado: 0, estado: 'OK' },
-  { planta: 'Bodega Central - Medellín', familia: 'Paletas', stock_actual: 180, stock_seguridad: 400, requerimiento: 600, traslado: 420, estado: 'BAJO' },
-  { planta: 'CD Cali', familia: 'Estibas Plásticas', stock_actual: 850, stock_seguridad: 300, requerimiento: 400, traslado: 0, estado: 'OK' },
-  { planta: 'Planta B - Barranquilla', familia: 'Cajas Corrugado', stock_actual: 3200, stock_seguridad: 1000, requerimiento: 2800, traslado: 0, estado: 'OK' },
-  { planta: 'Bodega Norte - Bucaramanga', familia: 'Cajas Corrugado', stock_actual: 400, stock_seguridad: 800, requerimiento: 1200, traslado: 800, estado: 'BAJO' },
-  { planta: 'Planta C - Pereira', familia: 'Film Stretch', stock_actual: 2100, stock_seguridad: 600, requerimiento: 500, traslado: 0, estado: 'EXCESO' },
-]
-
-const networkNodes = [
-  { id: 'pa', label: 'Planta A\nBogotá', x: 20, y: 35, type: 'planta' },
-  { id: 'pb', label: 'Planta B\nBarranquilla', x: 20, y: 65, type: 'planta' },
-  { id: 'pc', label: 'Planta C\nPereira', x: 20, y: 50, type: 'planta' },
-  { id: 'cc', label: 'CD Central\nMedellín', x: 50, y: 50, type: 'cd' },
-  { id: 'bn', label: 'Bodega Norte\nBucaramanga', x: 80, y: 30, type: 'bodega' },
-  { id: 'bc', label: 'Bodega Cali\nCali', x: 80, y: 70, type: 'bodega' },
-]
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function KpiCard({ label, value, color }: { label: string; value: string; color: string }) {
+function Sugeridas() {
+  const qc = useQueryClient()
+  const { data, isLoading } = useQuery({ queryKey: ['aps', 'plan'], queryFn: apsApi.plan })
+  const [tipo, setTipo] = useState('TODAS')
+  if (isLoading) return <LinearProgress />
+  if (!data) return null
+  const todas = [...data.ordenes, ...data.traslados].sort((a, b) => (Number(b.atrasada) - Number(a.atrasada)) || a.periodo_lanzamiento.localeCompare(b.periodo_lanzamiento))
+  const filas = todas.filter(o => tipo === 'TODAS' || o.tipo === tipo)
+  const aprobar = async (o: OrdenPlan) => {
+    try { await apsApi.aprobarOrden(o); toast.success(`${TIPO_ORDEN[o.tipo]} aprobada: ya cuenta como recepción programada`); qc.invalidateQueries({ queryKey: ['aps'] }) }
+    catch (e) { toast.error(errorApi(e)) }
+  }
+  const k = data.kpis
   return (
-    <Card sx={{ bgcolor: alpha(color, 0.08), border: `1px solid ${alpha(color, 0.3)}`, flex: 1 }}>
-      <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
-        <Typography variant="caption" sx={{ color: alpha(color, 0.8), fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          {label}
-        </Typography>
-        <Typography variant="h5" sx={{ fontWeight: 700, color, mt: 0.5 }}>
-          {value}
-        </Typography>
-      </CardContent>
-    </Card>
+    <Box sx={{ p: 3 }}>
+      <Grid container spacing={2} mb={2}>
+        <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Órdenes sugeridas" valor={n0(k.ordenes_sugeridas)} color={C} /></Grid>
+        <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Atrasadas (riesgo de quiebre)" valor={n0(k.ordenes_atrasadas)} color={k.ordenes_atrasadas ? '#DC2626' : '#16A34A'} /></Grid>
+        <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Unidades a producir / comprar" valor={`${n0(k.unidades_produccion)} / ${n0(k.unidades_compra)}`} color="#7C3AED" /></Grid>
+        <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Costo de producción y compras" valor={pesos(k.costo_ordenes)} color="#D97706" sub={`Horizonte ${mesCorto(data.periodos[0])} a ${mesCorto(data.periodos[data.periodos.length - 1])}`} /></Grid>
+      </Grid>
+      <ToggleButtonGroup size="small" exclusive value={tipo} onChange={(_, v) => v && setTipo(v)} sx={{ mb: 2 }}>
+        {['TODAS', 'PRODUCCION', 'COMPRA', 'TRASLADO'].map(t => <ToggleButton key={t} value={t}>{t === 'TODAS' ? `Todas (${todas.length})` : `${TIPO_ORDEN[t]} (${todas.filter(o => o.tipo === t).length})`}</ToggleButton>)}
+      </ToggleButtonGroup>
+      {!todas.length && <Alert severity="success">El plan no necesita órdenes: las existencias y lo ya aprobado cubren el horizonte.</Alert>}
+      {filas.length > 0 && (
+        <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto', maxHeight: 560 }}>
+          <Table size="small" stickyHeader>
+            <TableHead><TableRow sx={{ '& th': { fontSize: 11, fontWeight: 700 } }}>
+              <TableCell>Tipo</TableCell><TableCell>Producto</TableCell><TableCell>Dónde</TableCell><TableCell align="right">Cantidad</TableCell>
+              <TableCell>Lanzar en</TableCell><TableCell>Recibir en</TableCell><TableCell align="right">Costo</TableCell><TableCell /><TableCell />
+            </TableRow></TableHead>
+            <TableBody>
+              {filas.map((o, i) => (
+                <TableRow key={i} sx={{ '& td': { fontSize: 12 }, bgcolor: o.atrasada ? '#FEF2F2' : undefined }}>
+                  <TableCell>{TIPO_ORDEN[o.tipo]}</TableCell><TableCell><b>{nombreP(data, o.producto_id)}</b></TableCell>
+                  <TableCell>{o.tipo === 'TRASLADO' ? `${nombreU(data, o.origen_id)} → ${nombreU(data, o.ubicacion_id)}` : nombreU(data, o.ubicacion_id)}</TableCell>
+                  <TableCell align="right">{n0(o.cantidad)}</TableCell>
+                  <TableCell>{mesCorto(o.periodo_lanzamiento)}</TableCell><TableCell>{mesCorto(o.periodo_recepcion)}</TableCell>
+                  <TableCell align="right">{o.tipo === 'TRASLADO' ? '—' : pesos(o.costo)}</TableCell>
+                  <TableCell>{o.atrasada && <Etiqueta texto={`Atrasada ${o.meses_atraso} mes${o.meses_atraso > 1 ? 'es' : ''}`} color="#DC2626" />}</TableCell>
+                  <TableCell><Button size="small" onClick={() => aprobar(o)}>Aprobar</Button></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Paper>
+      )}
+    </Box>
   )
 }
 
-function TabMPS({ horizonte, setHorizonte }: { horizonte: string; setHorizonte: (v: string) => void }) {
+function Detalle() {
+  const { data, isLoading } = useQuery({ queryKey: ['aps', 'plan'], queryFn: apsApi.plan })
+  const [clave, setClave] = useState('')
+  if (isLoading) return <LinearProgress />
+  if (!data) return null
+  if (!data.mps.length) return <Alert severity="info" sx={{ m: 3 }}>No hay plan: registre demanda y maestros primero.</Alert>
+  const actual = data.mps.find(m => `${m.producto_id}-${m.ubicacion_id}` === clave) ?? data.mps[0]
   return (
-    <Box>
-      {/* KPIs */}
-      <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
-        <KpiCard label="Adherencia al Plan" value="88.7%" color={APS_COLOR} />
-        <KpiCard label="Variación vs Demanda" value="3.2%" color="#0EA5E9" />
-        <KpiCard label="Órdenes Planificadas" value="8" color="#10B981" />
-        <KpiCard label="Horizonte" value={horizonte} color="#F59E0B" />
-      </Stack>
-
-      {/* Controls */}
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-        <Typography variant="h6" fontWeight={700}>Gantt — Plan Maestro de Producción</Typography>
-        <Stack direction="row" spacing={2} alignItems="center">
-          <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel>Horizonte</InputLabel>
-            <Select value={horizonte} label="Horizonte" onChange={e => setHorizonte(e.target.value)}>
-              <MenuItem value="Semanal">Semanal</MenuItem>
-              <MenuItem value="Mensual">Mensual</MenuItem>
-              <MenuItem value="Trimestral">Trimestral</MenuItem>
-            </Select>
-          </FormControl>
-          <Button variant="contained" startIcon={<Publish />} sx={{ bgcolor: APS_COLOR, '&:hover': { bgcolor: APS_COLOR_DARK } }}>
-            Publicar Plan
-          </Button>
-        </Stack>
-      </Stack>
-
-      {/* Gantt Header */}
-      <Paper sx={{ border: `1px solid ${alpha(APS_COLOR, 0.2)}`, overflow: 'hidden' }}>
-        <Box sx={{ bgcolor: alpha(APS_COLOR, 0.1), px: 2, py: 1, display: 'flex' }}>
-          <Box sx={{ width: 200, flexShrink: 0 }}>
-            <Typography variant="caption" fontWeight={700} color={APS_COLOR}>ORDEN / PRODUCTO</Typography>
-          </Box>
-          <Box sx={{ flex: 1, display: 'flex' }}>
-            {['Sem 25', 'Sem 26', 'Sem 27', 'Sem 28'].map(s => (
-              <Box key={s} sx={{ flex: 1, textAlign: 'center' }}>
-                <Typography variant="caption" fontWeight={700} color="text.secondary">{s}</Typography>
-              </Box>
-            ))}
-          </Box>
-        </Box>
-
-        {mpsPlanData.map((op, i) => (
-          <Box key={op.id} sx={{
-            display: 'flex', alignItems: 'center', px: 2, py: 1.5,
-            bgcolor: i % 2 === 0 ? 'background.paper' : alpha(APS_COLOR, 0.03),
-            borderTop: `1px solid ${alpha(APS_COLOR, 0.08)}`,
-          }}>
-            <Box sx={{ width: 200, flexShrink: 0 }}>
-              <Typography variant="body2" fontWeight={600} sx={{ lineHeight: 1.2 }}>{op.id}</Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.3 }}>
-                {op.producto.length > 25 ? op.producto.slice(0, 25) + '…' : op.producto}
-              </Typography>
-            </Box>
-            <Box sx={{ flex: 1, position: 'relative', height: 28 }}>
-              <Box sx={{
-                position: 'absolute',
-                left: `${op.inicio}%`,
-                width: `${op.duracion}%`,
-                height: '100%',
-                bgcolor: op.estado === 'LIBERADA' ? APS_COLOR : alpha(APS_COLOR, 0.5),
-                borderRadius: 1,
-                display: 'flex',
-                alignItems: 'center',
-                px: 1,
-                overflow: 'hidden',
-              }}>
-                <Typography variant="caption" sx={{ color: 'white', fontWeight: 600, whiteSpace: 'nowrap', fontSize: 10 }}>
-                  {op.cantidad.toLocaleString()} un
-                </Typography>
-              </Box>
-            </Box>
-          </Box>
-        ))}
-      </Paper>
-
-      {/* Detail Table */}
-      <Paper sx={{ mt: 3, border: `1px solid ${alpha(APS_COLOR, 0.15)}` }}>
-        <Box sx={{ bgcolor: alpha(APS_COLOR, 0.06), px: 2, py: 1.5 }}>
-          <Typography variant="subtitle2" fontWeight={700} color={APS_COLOR}>Detalle de Órdenes de Producción</Typography>
-        </Box>
+    <Box sx={{ p: 3 }}>
+      <TextField select size="small" label="Producto y ubicación" value={`${actual.producto_id}-${actual.ubicacion_id}`} onChange={e => setClave(e.target.value)} sx={{ minWidth: 380, mb: 2 }}>
+        {data.mps.map(m => <MenuItem key={`${m.producto_id}-${m.ubicacion_id}`} value={`${m.producto_id}-${m.ubicacion_id}`}>{nombreP(data, m.producto_id)} · {nombreU(data, m.ubicacion_id)}</MenuItem>)}
+      </TextField>
+      <Typography fontSize={12} color="text.secondary" mb={1}>
+        {actual.tipo === 'PRODUCCION' ? 'Se fabrica' : 'Se compra'} · tiempo de entrega {actual.lead_time_dias} días{actual.lote ? ` · lote mínimo ${n0(actual.lote)}` : ''}. La demanda incluye los traslados que piden los centros de distribución que esta ubicación surte.
+      </Typography>
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto' }}>
         <Table size="small">
-          <TableHead>
-            <TableRow sx={{ bgcolor: alpha(APS_COLOR, 0.04) }}>
-              {['Orden', 'Producto', 'Cantidad', 'Período', 'Planta', 'Recurso', 'Estado'].map(h => (
-                <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11, color: APS_COLOR }}>{h}</TableCell>
-              ))}
-            </TableRow>
-          </TableHead>
+          <TableHead><TableRow sx={{ '& th': { fontSize: 11, fontWeight: 700 } }}>
+            <TableCell>Concepto</TableCell>{actual.filas.map(f => <TableCell key={f.periodo} align="right">{mesCorto(f.periodo)}</TableCell>)}
+          </TableRow></TableHead>
           <TableBody>
-            {mpsPlanData.map(op => (
-              <TableRow key={op.id} hover>
-                <TableCell sx={{ fontWeight: 600, color: APS_COLOR }}>{op.id}</TableCell>
-                <TableCell>{op.producto}</TableCell>
-                <TableCell>{op.cantidad.toLocaleString()}</TableCell>
-                <TableCell>{op.periodo}</TableCell>
-                <TableCell>{op.planta}</TableCell>
-                <TableCell>{op.recurso}</TableCell>
-                <TableCell>
-                  <Chip
-                    label={op.estado}
-                    size="small"
-                    sx={{
-                      bgcolor: op.estado === 'LIBERADA' ? alpha('#10B981', 0.15) : alpha('#F59E0B', 0.15),
-                      color: op.estado === 'LIBERADA' ? '#10B981' : '#F59E0B',
-                      fontWeight: 700, fontSize: 10,
-                    }}
-                  />
-                </TableCell>
+            {([['Demanda total', 'demanda'], ['  de ella, traslados a la red', 'traslados'], ['Recepciones aprobadas', 'programadas'],
+              ['Recepciones planificadas', 'planificadas'], ['Stock final', 'stock_final'], ['Stock de seguridad', 'stock_seguridad']] as const).map(([t, k]) => (
+              <TableRow key={k} sx={{ '& td': { fontSize: 12 } }}>
+                <TableCell sx={{ fontWeight: k === 'stock_final' || k === 'planificadas' ? 700 : 400, whiteSpace: 'pre' }}>{t}</TableCell>
+                {actual.filas.map(f => <TableCell key={f.periodo} align="right" sx={{ fontWeight: k === 'stock_final' || k === 'planificadas' ? 700 : 400, color: k === 'stock_final' && f.bajo_seguridad ? '#DC2626' : undefined }}>{n0((f as any)[k] ?? 0)}</TableCell>)}
               </TableRow>
             ))}
           </TableBody>
@@ -217,57 +120,31 @@ function TabMPS({ horizonte, setHorizonte }: { horizonte: string; setHorizonte: 
   )
 }
 
-function TabMRP() {
-  const totalOrdenes = mrpData.filter(r => r.orden_sugerida > 0).length
-  const valorEstimado = mrpData.reduce((s, r) => s + r.orden_sugerida * 1850, 0)
-
+function Aprobadas() {
+  const qc = useQueryClient()
+  const nombres = useQuery({ queryKey: ['aps', 'plan'], queryFn: apsApi.plan }).data
+  const { data = [], isLoading } = useQuery({ queryKey: ['aps', 'ordenes'], queryFn: () => apsApi.ordenes() })
+  const accion = async (f: () => Promise<unknown>, msg: string) => { try { await f(); toast.success(msg); qc.invalidateQueries({ queryKey: ['aps'] }) } catch (e) { toast.error(errorApi(e)) } }
+  if (isLoading) return <LinearProgress />
   return (
-    <Box>
-      <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
-        <KpiCard label="Total Órdenes Sugeridas" value={String(totalOrdenes)} color={APS_COLOR} />
-        <KpiCard label="Valor Estimado" value={`$${(valorEstimado / 1e6).toFixed(1)}M`} color="#0EA5E9" />
-        <KpiCard label="Items con Req. Neto > 0" value={String(mrpData.filter(r => r.req_neto > 0).length)} color="#EF4444" />
-      </Stack>
-
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-        <Typography variant="h6" fontWeight={700}>Explosión de Materiales — MRP</Typography>
-        <Button variant="contained" startIcon={<PlayArrow />} sx={{ bgcolor: APS_COLOR, '&:hover': { bgcolor: APS_COLOR_DARK } }}>
-          Ejecutar MRP
-        </Button>
-      </Stack>
-
-      <Paper sx={{ border: `1px solid ${alpha(APS_COLOR, 0.15)}`, overflow: 'auto' }}>
+    <Box sx={{ p: 3 }}>
+      <Typography fontSize={13} color="text.secondary" mb={2}>Mientras una orden está aprobada, el plan la cuenta como recepción programada. Al recibirla, su cantidad entra a las existencias de la ubicación (en un traslado, también sale del origen).</Typography>
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto' }}>
         <Table size="small">
-          <TableHead>
-            <TableRow sx={{ bgcolor: alpha(APS_COLOR, 0.08) }}>
-              {['Producto', 'Dem. Bruta', 'Stock Inicial', 'Rec. Planeadas', 'Disp. Neto', 'Req. Neto', 'Orden Sugerida', 'Tipo Orden', 'F. Emisión', 'F. Recepción'].map(h => (
-                <TableCell key={h} sx={{ fontWeight: 700, fontSize: 10, color: APS_COLOR, whiteSpace: 'nowrap' }}>{h}</TableCell>
-              ))}
-            </TableRow>
-          </TableHead>
+          <TableHead><TableRow sx={{ '& th': { fontSize: 11, fontWeight: 700 } }}><TableCell>Tipo</TableCell><TableCell>Producto</TableCell><TableCell>Ubicación</TableCell><TableCell align="right">Cantidad</TableCell><TableCell>Mes</TableCell><TableCell>Estado</TableCell><TableCell /></TableRow></TableHead>
           <TableBody>
-            {mrpData.map((row, i) => (
-              <TableRow key={i} hover sx={{ bgcolor: row.req_neto > 0 ? alpha('#EF4444', 0.04) : 'inherit' }}>
-                <TableCell sx={{ fontWeight: 600, fontSize: 12 }}>{row.producto}</TableCell>
-                <TableCell>{row.demanda_bruta.toLocaleString()}</TableCell>
-                <TableCell>{row.stock_inicial.toLocaleString()}</TableCell>
-                <TableCell>{row.recepciones.toLocaleString()}</TableCell>
-                <TableCell>{row.disponible_neto.toLocaleString()}</TableCell>
-                <TableCell sx={{ color: row.req_neto > 0 ? '#EF4444' : 'inherit', fontWeight: row.req_neto > 0 ? 700 : 400 }}>
-                  {row.req_neto.toLocaleString()}
-                </TableCell>
-                <TableCell sx={{ color: row.orden_sugerida > 0 ? APS_COLOR : 'inherit', fontWeight: 700 }}>
-                  {row.orden_sugerida > 0 ? row.orden_sugerida.toLocaleString() : '-'}
-                </TableCell>
-                <TableCell>
-                  {row.tipo !== '-' && (
-                    <Chip label={row.tipo} size="small" sx={{ bgcolor: alpha(APS_COLOR, 0.12), color: APS_COLOR, fontWeight: 700, fontSize: 10 }} />
-                  )}
-                </TableCell>
-                <TableCell sx={{ fontSize: 11 }}>{row.fecha_emision}</TableCell>
-                <TableCell sx={{ fontSize: 11 }}>{row.fecha_recepcion}</TableCell>
+            {data.map(o => (
+              <TableRow key={o.id} sx={{ '& td': { fontSize: 12 } }}>
+                <TableCell>{TIPO_ORDEN[o.tipo] ?? o.tipo}</TableCell><TableCell>{nombreP(nombres, o.producto_id)}</TableCell><TableCell>{nombreU(nombres, o.ubicacion_id)}</TableCell>
+                <TableCell align="right">{n0(o.cantidad)}</TableCell><TableCell>{mesCorto(o.periodo)}</TableCell>
+                <TableCell><Etiqueta texto={o.estado.toLowerCase()} color={o.estado === 'APROBADA' ? '#2563EB' : o.estado === 'RECIBIDA' ? '#16A34A' : '#64748B'} /></TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>{o.estado === 'APROBADA' && (<>
+                  <Button size="small" onClick={() => accion(() => apsApi.recibirOrden(o.id), 'Orden recibida: existencias actualizadas')}>Recibir</Button>
+                  <Button size="small" color="error" onClick={() => { if (window.confirm('¿Cancelar la orden? Volverá a aparecer como sugerencia si todavía hace falta.')) accion(() => apsApi.cancelarOrden(o.id), 'Orden cancelada') }}>Cancelar</Button>
+                </>)}</TableCell>
               </TableRow>
             ))}
+            {!data.length && <TableRow><TableCell colSpan={7} sx={{ fontSize: 12, color: 'text.secondary' }}>Aún no hay órdenes aprobadas.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </Paper>
@@ -275,152 +152,57 @@ function TabMRP() {
   )
 }
 
-function TabDRP() {
-  const estadoColor = (e: string) => e === 'OK' ? '#10B981' : e === 'BAJO' ? '#EF4444' : '#F59E0B'
-
+function Versiones() {
+  const qc = useQueryClient()
+  const { data = [], isLoading } = useQuery({ queryKey: ['aps', 'versiones'], queryFn: apsApi.versiones })
+  const [abierto, setAbierto] = useState(false)
+  const [f, setF] = useState({ nombre: '', observaciones: '' })
+  const guardar = async () => {
+    try { await apsApi.guardarVersion(f.nombre, f.observaciones || undefined); toast.success('Versión del plan guardada'); setAbierto(false); setF({ nombre: '', observaciones: '' }); qc.invalidateQueries({ queryKey: ['aps', 'versiones'] }) }
+    catch (e) { toast.error(errorApi(e)) }
+  }
   return (
-    <Box>
-      <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>Red de Distribución — DRP</Typography>
-
-      {/* Network Visual */}
-      <Paper sx={{ p: 3, mb: 3, border: `1px solid ${alpha(APS_COLOR, 0.2)}`, bgcolor: alpha(APS_COLOR, 0.02) }}>
-        <Typography variant="subtitle2" fontWeight={700} color={APS_COLOR} sx={{ mb: 2 }}>
-          Mapa de Red Logística
-        </Typography>
-        <Box sx={{ position: 'relative', height: 180, overflow: 'hidden' }}>
-          {/* SVG Lines */}
-          <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
-            {/* Planta A → CD Central */}
-            <line x1="20%" y1="35%" x2="50%" y2="50%" stroke={alpha(APS_COLOR, 0.4)} strokeWidth={2} strokeDasharray="4 2" />
-            {/* Planta B → CD Central */}
-            <line x1="20%" y1="65%" x2="50%" y2="50%" stroke={alpha(APS_COLOR, 0.4)} strokeWidth={2} strokeDasharray="4 2" />
-            {/* Planta C → CD Central */}
-            <line x1="20%" y1="50%" x2="50%" y2="50%" stroke={alpha(APS_COLOR, 0.4)} strokeWidth={2} strokeDasharray="4 2" />
-            {/* CD Central → Bodegas */}
-            <line x1="50%" y1="50%" x2="80%" y2="30%" stroke="#10B981" strokeWidth={2} />
-            <line x1="50%" y1="50%" x2="80%" y2="70%" stroke="#10B981" strokeWidth={2} />
-          </svg>
-
-          {/* Nodes */}
-          {networkNodes.map(n => (
-            <Box key={n.id} sx={{
-              position: 'absolute',
-              left: `${n.x}%`,
-              top: `${n.y}%`,
-              transform: 'translate(-50%, -50%)',
-              bgcolor: n.type === 'planta' ? APS_COLOR : n.type === 'cd' ? '#0EA5E9' : '#10B981',
-              color: 'white',
-              px: 1.5, py: 0.8,
-              borderRadius: 1.5,
-              textAlign: 'center',
-              minWidth: 90,
-              boxShadow: `0 2px 8px ${alpha(APS_COLOR, 0.3)}`,
-              zIndex: 1,
-            }}>
-              {n.label.split('\n').map((l, i) => (
-                <Typography key={i} variant="caption" sx={{ display: 'block', fontWeight: i === 0 ? 700 : 400, fontSize: i === 0 ? 11 : 9 }}>
-                  {l}
-                </Typography>
-              ))}
-            </Box>
+    <Box sx={{ p: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, gap: 2, flexWrap: 'wrap' }}>
+        <Typography fontSize={13} color="text.secondary">Una versión es una foto del plan: lo que se decidió en una reunión queda registrado aunque el plan cambie mañana con nueva demanda.</Typography>
+        <Button variant="contained" sx={{ bgcolor: C }} onClick={() => setAbierto(true)}>Guardar versión del plan</Button>
+      </Box>
+      {isLoading && <LinearProgress />}
+      <Table size="small">
+        <TableHead><TableRow sx={{ '& th': { fontSize: 11, fontWeight: 700 } }}><TableCell>Versión</TableCell><TableCell>Fecha</TableCell><TableCell>Horizonte</TableCell><TableCell align="right">Líneas</TableCell><TableCell align="right">Costo</TableCell><TableCell>Por</TableCell><TableCell>Observaciones</TableCell></TableRow></TableHead>
+        <TableBody>
+          {data.map(v => (
+            <TableRow key={v.id} sx={{ '& td': { fontSize: 12 } }}>
+              <TableCell><b>{v.nombre}</b></TableCell><TableCell>{v.fecha?.slice(0, 10)}</TableCell><TableCell>{mesCorto(v.desde)} – {mesCorto(v.hasta)}</TableCell>
+              <TableCell align="right">{v.lineas}</TableCell><TableCell align="right">{pesos(v.costo)}</TableCell><TableCell>{v.creado_por ?? '—'}</TableCell><TableCell>{v.observaciones ?? '—'}</TableCell>
+            </TableRow>
           ))}
-        </Box>
-
-        <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
-          {[['Plantas', APS_COLOR], ['CD / Hub', '#0EA5E9'], ['Bodegas Destino', '#10B981']].map(([l, c]) => (
-            <Stack key={l as string} direction="row" alignItems="center" spacing={0.5}>
-              <Box sx={{ width: 12, height: 12, borderRadius: 0.5, bgcolor: c as string }} />
-              <Typography variant="caption" color="text.secondary">{l as string}</Typography>
-            </Stack>
-          ))}
-        </Stack>
-      </Paper>
-
-      {/* DRP Table */}
-      <Paper sx={{ border: `1px solid ${alpha(APS_COLOR, 0.15)}` }}>
-        <Table size="small">
-          <TableHead>
-            <TableRow sx={{ bgcolor: alpha(APS_COLOR, 0.08) }}>
-              {['Planta / Bodega', 'Familia', 'Stock Actual', 'Stock Seguridad', 'Requerimiento', 'Traslado Sugerido', 'Estado'].map(h => (
-                <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11, color: APS_COLOR }}>{h}</TableCell>
-              ))}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {drpData.map((row, i) => (
-              <TableRow key={i} hover>
-                <TableCell sx={{ fontWeight: 600 }}>{row.planta}</TableCell>
-                <TableCell>{row.familia}</TableCell>
-                <TableCell>{row.stock_actual.toLocaleString()}</TableCell>
-                <TableCell>{row.stock_seguridad.toLocaleString()}</TableCell>
-                <TableCell>{row.requerimiento.toLocaleString()}</TableCell>
-                <TableCell sx={{ color: row.traslado > 0 ? APS_COLOR : 'inherit', fontWeight: row.traslado > 0 ? 700 : 400 }}>
-                  {row.traslado > 0 ? row.traslado.toLocaleString() : '-'}
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={row.estado}
-                    size="small"
-                    sx={{ bgcolor: alpha(estadoColor(row.estado), 0.15), color: estadoColor(row.estado), fontWeight: 700, fontSize: 10 }}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Paper>
+          {!isLoading && !data.length && <TableRow><TableCell colSpan={7} sx={{ fontSize: 12, color: 'text.secondary' }}>Sin versiones guardadas.</TableCell></TableRow>}
+        </TableBody>
+      </Table>
+      <Dialog open={abierto} onClose={() => setAbierto(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Guardar versión del plan</DialogTitle>
+        <DialogContent>
+          <TextField fullWidth size="small" label="Nombre de la versión" value={f.nombre} onChange={e => setF(x => ({ ...x, nombre: e.target.value }))} sx={{ mt: 1, mb: 2 }} placeholder="Ej. Plan S&OP octubre" />
+          <TextField fullWidth size="small" multiline minRows={2} label="Observaciones" value={f.observaciones} onChange={e => setF(x => ({ ...x, observaciones: e.target.value }))} />
+        </DialogContent>
+        <DialogActions><Button onClick={() => setAbierto(false)}>Cancelar</Button><Button variant="contained" disabled={f.nombre.trim().length < 3} onClick={guardar}>Guardar</Button></DialogActions>
+      </Dialog>
     </Box>
   )
 }
-
-// ─── Page Component ───────────────────────────────────────────────────────────
 
 export default function APSPlan() {
   const [tab, setTab] = useState(0)
-  const [horizonte, setHorizonte] = useState('Semanal')
-
   return (
     <Layout>
       <Box sx={{ p: 3 }}>
-        {/* Header */}
-        <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
-          <Box sx={{ width: 44, height: 44, borderRadius: 2, bgcolor: alpha(APS_COLOR, 0.15), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <CalendarMonth sx={{ color: APS_COLOR, fontSize: 24 }} />
-          </Box>
-          <Box>
-            <Typography variant="h5" fontWeight={800} sx={{ color: APS_COLOR, lineHeight: 1.2 }}>
-              Plan Maestro de Producción
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              APS — MPS / MRP / DRP · Horizonte {horizonte}
-            </Typography>
-          </Box>
-          <Box sx={{ flex: 1 }} />
-          <Chip label="APS" sx={{ bgcolor: APS_COLOR, color: 'white', fontWeight: 700 }} />
-        </Stack>
-
-        {/* Tabs */}
-        <Paper sx={{ border: `1px solid ${alpha(APS_COLOR, 0.2)}`, overflow: 'hidden' }}>
-          <Tabs
-            value={tab}
-            onChange={(_, v) => setTab(v)}
-            sx={{
-              borderBottom: `1px solid ${alpha(APS_COLOR, 0.15)}`,
-              bgcolor: alpha(APS_COLOR, 0.04),
-              '& .MuiTab-root': { fontWeight: 700, fontSize: 13 },
-              '& .Mui-selected': { color: APS_COLOR },
-              '& .MuiTabs-indicator': { bgcolor: APS_COLOR },
-            }}
-          >
-            <Tab icon={<CalendarMonth fontSize="small" />} iconPosition="start" label="MPS — Master Production Schedule" />
-            <Tab icon={<Inventory fontSize="small" />} iconPosition="start" label="MRP — Material Requirements Planning" />
-            <Tab icon={<LocalShipping fontSize="small" />} iconPosition="start" label="DRP — Distribution Requirements Planning" />
+        <Encabezado icono={<EventNote sx={{ fontSize: 28 }} />} titulo="Plan maestro (MPS / MRP)" subtitulo="APS · Qué producir, comprar y trasladar, cuánto y cuándo" color={C} />
+        <Paper elevation={0} sx={{ border: '1px solid #E2E8F0', borderRadius: 2 }}>
+          <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: '1px solid #E2E8F0', px: 2 }} variant="scrollable">
+            <Tab label="Órdenes sugeridas" /><Tab label="Detalle por producto" /><Tab label="Órdenes aprobadas" /><Tab label="Versiones" />
           </Tabs>
-          <Box sx={{ p: 3 }}>
-            {tab === 0 && <TabMPS horizonte={horizonte} setHorizonte={setHorizonte} />}
-            {tab === 1 && <TabMRP />}
-            {tab === 2 && <TabDRP />}
-          </Box>
+          {tab === 0 && <Sugeridas />}{tab === 1 && <Detalle />}{tab === 2 && <Aprobadas />}{tab === 3 && <Versiones />}
         </Paper>
       </Box>
     </Layout>
