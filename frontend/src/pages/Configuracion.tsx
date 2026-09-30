@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import {
   Box, Card, Typography, alpha,
 } from '@mui/material'
-import { Language as LanguageIcon, Palette as PaletteIcon } from '@mui/icons-material'
+import { Language as LanguageIcon } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
 import { LanguageSelector } from '@/components/LanguageSelector'
 import { SUPPORTED_LANGUAGES } from '@/i18n'
@@ -106,35 +106,6 @@ export default function Configuracion() {
                 </Typography>
               </Box>
             </Box>
-          </Box>
-        </Card>
-
-        {/* Appearance placeholder (future feature) */}
-        <Card sx={{ borderRadius: '16px', overflow: 'hidden', border: '1px solid #E5E7EB', opacity: 0.6 }}>
-          <Box sx={{
-            px: 3, py: 2.5,
-            borderBottom: '1px solid #E5E7EB',
-            display: 'flex', alignItems: 'center', gap: 1.5,
-          }}>
-            <Box sx={{
-              width: 38, height: 38, borderRadius: '10px',
-              bgcolor: alpha(SECTION_COLOR, 0.15), display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <PaletteIcon sx={{ color: SECTION_COLOR, fontSize: 20 }} />
-            </Box>
-            <Box>
-              <Typography sx={{ fontWeight: 700, fontSize: 15, color: '#1E293B' }}>
-                {t('config.appearanceSection')}
-              </Typography>
-              <Typography sx={{ fontSize: 12, color: '#64748B' }}>
-                {t('config.appearanceDesc')}
-              </Typography>
-            </Box>
-          </Box>
-          <Box sx={{ p: 3 }}>
-            <Typography sx={{ fontSize: 13, color: '#475569', fontStyle: 'italic' }}>
-              Próximamente disponible
-            </Typography>
           </Box>
         </Card>
 
