@@ -6,8 +6,51 @@ diferencias cuando se hacen muchas comparaciones con datos iguales.
 import numpy as np
 
 from app.core.analitica.estadistica import (
-    benjamini_hochberg, carta_imr, carta_p_laney, comparar_grupos, mann_whitney,
+    benjamini_hochberg, carta_c, carta_imr, carta_p_laney, comparar_grupos, mann_kendall,
+    mann_whitney, regresion_lineal,
 )
+from app.core.analitica.texto import agrupar
+
+
+def test_mann_kendall_distingue_tendencia_de_ruido():
+    rng = np.random.default_rng(8)
+    sube = rng.poisson(np.linspace(3, 9, 24))
+    r = mann_kendall(sube)
+    assert r["tendencia"] == "SUBE" and r["pendiente"] > 0
+    plano = rng.poisson(5, 24)
+    assert mann_kendall(plano)["tendencia"] == "ESTABLE"
+    assert not mann_kendall([1, 2, 3])["suficiente"]
+
+
+def test_regresion_con_intervalo():
+    x = np.arange(18)
+    y = 85 - 1.2 * x + np.random.default_rng(9).normal(0, 1.5, 18)
+    r = regresion_lineal(x, y)
+    assert r["significativa"] and r["ic90"][0] < -1.2 < r["ic90"][1]
+    ruido = regresion_lineal(x, 80 + np.random.default_rng(10).normal(0, 2, 18))
+    assert not ruido["significativa"]
+
+
+def test_carta_c_marca_un_mes_anomalo():
+    conteos = [4, 5, 3, 6, 4, 5, 4, 3, 5, 4, 6, 5, 4, 18, 5]
+    c = carta_c(conteos, [str(i) for i in range(15)])
+    assert "Fuera de los límites de control" in c["serie"][13]["alertas"]
+
+
+def test_agrupa_textos_del_mismo_problema():
+    textos = [
+        "Remisión entregada sin firma del cliente", "Falta firma del cliente en la remisión de entrega",
+        "Remisiones sin firma de recibido del cliente", "Guía de entrega sin firma del cliente",
+        "Temperatura fuera de rango en furgón refrigerado", "Furgón refrigerado con temperatura fuera de rango",
+        "Registro de temperatura del furgón refrigerado fuera de rango",
+        "Error en la factura del cliente", "Cliente reporta llamada tardía",
+        "Extintor vencido",   # palabras que no aparecen en ningún otro texto
+    ]
+    r = agrupar(textos)
+    conjuntos = [set(g["indices"]) for g in r["grupos"]]
+    assert any({0, 1, 2}.issubset(s) for s in conjuntos)
+    assert any({4, 5, 6}.issubset(s) for s in conjuntos)
+    assert not any(s & {0, 1, 2} and s & {4, 5, 6} for s in conjuntos)
 
 
 def test_imr_detecta_un_cambio_de_nivel():

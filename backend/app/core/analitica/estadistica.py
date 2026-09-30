@@ -215,3 +215,86 @@ def comparar_grupos(corridas: List[Dict], factores: Dict[str, str], valor: str =
         prueba["p"] = round(prueba["p"], 4)
         prueba["significativo"] = pa < alfa
     return sorted(pruebas, key=lambda x: (not x["significativo"], x["p_ajustado"]))
+
+
+# ─── Tendencias y conteos ─────────────────────────────────────────────────────
+
+MIN_PUNTOS_TENDENCIA = 8
+
+
+def carta_c(conteos: Sequence[float], etiquetas: Sequence[str]) -> Dict:
+    """Carta c para conteos por periodo (NC por mes): c̄ ± 3√c̄."""
+    x = np.asarray(conteos, dtype=float)
+    n = len(x)
+    if n < MIN_PUNTOS_CARTA:
+        return {"suficiente": False, "puntos": n, "minimo": MIN_PUNTOS_CARTA}
+    b = _base(n)
+    c = float(x[:b].mean())
+    if c <= 0:
+        return {"suficiente": False, "puntos": n, "minimo": MIN_PUNTOS_CARTA, "motivo": "Sin eventos en el periodo base"}
+    s = math.sqrt(c)
+    alertas = reglas_nelson((x - c) / s)
+    return {"suficiente": True, "tipo": "c", "puntos_base": b, "centro": round(c, 2),
+            "lcs": round(c + 3 * s, 2), "lci": round(max(0.0, c - 3 * s), 2),
+            "serie": [{"etiqueta": e, "valor": float(v), "alertas": alertas.get(i, [])}
+                      for i, (e, v) in enumerate(zip(etiquetas, x))]}
+
+
+def mann_kendall(valores: Sequence[float]) -> Dict:
+    """Prueba de tendencia de Mann-Kendall con pendiente de Sen.
+
+    No supone normalidad ni linealidad: pregunta si los valores tienden a
+    subir (o bajar) con el tiempo más de lo que el azar explica. La pendiente
+    de Sen es la mediana de todas las pendientes entre pares, así que un mes
+    atípico no la arrastra.
+    """
+    x = np.asarray(valores, dtype=float)
+    n = len(x)
+    if n < MIN_PUNTOS_TENDENCIA:
+        return {"suficiente": False, "puntos": n, "minimo": MIN_PUNTOS_TENDENCIA}
+    s = 0
+    pendientes: List[float] = []
+    for i in range(n - 1):
+        d = x[i + 1:] - x[i]
+        s += int(np.sign(d).sum())
+        pendientes.extend(d / np.arange(1, n - i))
+    _, cuentas = np.unique(x, return_counts=True)
+    var = (n * (n - 1) * (2 * n + 5) - sum(int(t) * (int(t) - 1) * (2 * int(t) + 5) for t in cuentas)) / 18
+    if var <= 0:
+        return {"suficiente": False, "puntos": n, "minimo": MIN_PUNTOS_TENDENCIA, "motivo": "Sin variación"}
+    z = (s - np.sign(s)) / math.sqrt(var) if s else 0.0
+    p = math.erfc(abs(z) / math.sqrt(2))
+    sen = float(np.median(pendientes))
+    return {"suficiente": True, "puntos": n, "p": round(p, 4), "pendiente": round(sen, 4),
+            "tendencia": ("SUBE" if s > 0 else "BAJA") if p < 0.10 else "ESTABLE"}
+
+
+# Cuantiles t de Student al 95 % (intervalo del 90 %) para pocos grados de libertad.
+_T95 = {1: 6.314, 2: 2.920, 3: 2.353, 4: 2.132, 5: 2.015, 6: 1.943, 7: 1.895, 8: 1.860, 9: 1.833,
+        10: 1.812, 12: 1.782, 15: 1.753, 20: 1.725, 25: 1.708, 30: 1.697}
+
+
+def _t95(gl: int) -> float:
+    if gl >= 30:
+        return 1.645 + 1.6 / gl
+    return _T95[max(k for k in _T95 if k <= gl)]
+
+
+def regresion_lineal(x: Sequence[float], y: Sequence[float]) -> Dict:
+    """Pendiente por mínimos cuadrados con su intervalo del 90 %."""
+    x, y = np.asarray(x, float), np.asarray(y, float)
+    n = len(x)
+    if n < 6:
+        return {"suficiente": False, "puntos": n, "minimo": 6}
+    xm, ym = x.mean(), y.mean()
+    sxx = float(((x - xm) ** 2).sum())
+    if sxx == 0:
+        return {"suficiente": False, "puntos": n, "minimo": 6}
+    b = float(((x - xm) * (y - ym)).sum() / sxx)
+    a = float(ym - b * xm)
+    res = y - (a + b * x)
+    se = math.sqrt(float((res ** 2).sum()) / (n - 2) / sxx)
+    t = _t95(n - 2)
+    return {"suficiente": True, "puntos": n, "pendiente": round(b, 4), "intercepto": round(a, 4),
+            "ic90": [round(b - t * se, 4), round(b + t * se, 4)],
+            "significativa": (b - t * se) > 0 or (b + t * se) < 0}
