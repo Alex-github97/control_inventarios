@@ -5799,7 +5799,19 @@ async def eliminar_garantia(gid: int, db: AsyncSession = Depends(get_db)):
             409,
             f"Esa garantía tiene {n} {'reclamación' if n == 1 else 'reclamaciones'}. "
             "Bórrelas primero, o cancele la garantía en vez de borrarla.")
+    # Los documentos adjuntos se van con la garantía: la base los borra en
+    # cascada, pero el archivo en disco quedaría huérfano si no se quita aquí.
+    from pathlib import Path
+    from app.core.config import settings
+    from app.infrastructure.models.eam import EAMAdjuntoGarantia
+    rutas = [Path(settings.UPLOAD_DIR) / a.ruta for a in (await db.execute(
+        select(EAMAdjuntoGarantia).where(EAMAdjuntoGarantia.garantia_id == gid))).scalars().all()]
     await db.delete(g); await db.commit()
+    for ruta in rutas:
+        try:
+            ruta.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 # ─── Reclamaciones de garantía ────────────────────────────────────────────────

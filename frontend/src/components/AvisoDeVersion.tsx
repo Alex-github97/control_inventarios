@@ -31,7 +31,10 @@ export function AvisoDeVersion() {
     async function mirar() {
       if (document.hidden || hayOtra) return
       try {
-        const r = await fetch('/api/v1/health', { cache: 'no-store' })
+        // Misma base que el cliente de la API: con una ruta relativa fija, en
+        // desarrollo la pregunta pasaba por un proxy distinto y fallaba.
+        const base = import.meta.env.VITE_API_URL || '/api/v1'
+        const r = await fetch(`${base}/health`, { cache: 'no-store' })
         if (!r.ok) return
         const { version } = await r.json()
         if (!version || !vivo) return

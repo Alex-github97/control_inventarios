@@ -1118,6 +1118,19 @@ async def _migrar_esquema(esquema: str) -> None:
                 "ALTER TABLE grc_politica ADD COLUMN IF NOT EXISTS %s %s" % (columna, tipo)
             ))
 
+        # APS: lo que el motor de planeación necesita y las tablas no traían
+        # (existencias, peso para consolidar camiones, planta que surte a
+        # cada centro de distribución).
+        for tabla, columna, tipo in [
+            ("aps_parametro", "stock_actual", "DOUBLE PRECISION DEFAULT 0 NOT NULL"),
+            ("aps_producto", "peso_kg", "DOUBLE PRECISION"),
+            ("aps_ubicacion", "abastecida_por_id", "INTEGER"),
+            ("aps_restriccion", "ambito", "VARCHAR(30) DEFAULT 'OTRA' NOT NULL"),
+        ]:
+            await conn.execute(text(
+                "ALTER TABLE %s ADD COLUMN IF NOT EXISTS %s %s" % (tabla, columna, tipo)
+            ))
+
         # Catálogos organizativos y contables. Se siembran las sedes y áreas
         # típicas y se rescata lo que ya esté escrito a mano en los activos.
         await conn.execute(text("""
@@ -2388,5 +2401,10 @@ app.include_router(
 
 
 @app.get("/health")
+# El aviso de versión nueva del frontend (`AvisoDeVersion.tsx`) pregunta aquí,
+# bajo /api/v1, porque es lo único que el proxy de la aplicación enruta al
+# servidor. Sin esta ruta respondía 404, el aviso ignoraba el error y nunca
+# avisaba de una versión publicada.
+@app.get("/api/v1/health", include_in_schema=False)
 async def health_check():
     return {"status": "ok", "version": settings.VERSION, "service": settings.PROJECT_NAME}

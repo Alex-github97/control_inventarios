@@ -83,7 +83,7 @@ import { mensajeDeError } from '@/utils/errorApi'
 import { COLOR_MODULO } from '@/config/marca'
 import {
   garantiasApi, reclamacionesApi, coberturaLista, pesos,
-  ETIQUETA_RECLAMO,
+  ETIQUETA_RECLAMO, catalogosGarantia, adjuntosGarantiaApi, type CatalogosGarantia,
   type Garantia, type Reclamacion, type EstadoReclamo, type TipoGarantia,
 } from '@/api/eamGarantias'
 
@@ -251,22 +251,16 @@ export default function EAMGarantias() {
     queryKey: ['eam-garantias-reclamaciones'], queryFn: () => reclamacionesApi.listar(),
   })
 
-  // Catálogos reales, en lugar de las tres listas de nombres inventados.
-  const { data: activos = [] } = useQuery({
-    queryKey: ['eam-activos-garantias'],
-    queryFn: () => apiClient.get<any[]>('/eam/activos').then(r => r.data),
+  // Catálogos reales. Antes salían de `/proveedores/` (el maestro general,
+  // vacío en el CMMS: aquí los proveedores son los contratistas) y de
+  // `/usuarios/` (que solo lista un administrador): los desplegables llegaban
+  // vacíos. El catálogo de garantías junta cada fuente y sirve a cualquier perfil.
+  const { data: catalogos } = useQuery({
+    queryKey: ['eam-garantias-catalogos'],
+    queryFn: catalogosGarantia,
     staleTime: 5 * 60_000,
   })
-  const { data: proveedores = [] } = useQuery({
-    queryKey: ['proveedores-garantias'],
-    queryFn: () => apiClient.get<any[]>('/proveedores/').then(r => r.data),
-    staleTime: 5 * 60_000,
-  })
-  const { data: usuarios = [] } = useQuery({
-    queryKey: ['usuarios-garantias'],
-    queryFn: () => apiClient.get<any[]>('/usuarios/').then(r => r.data),
-    staleTime: 5 * 60_000,
-  })
+  const activos = catalogos?.activos ?? []
 
   const refrescar = () => {
     for (const k of ['eam-garantias', 'eam-garantias-por-vencer',
@@ -275,15 +269,8 @@ export default function EAMGarantias() {
     }
   }
 
-  const nombresProveedor = useMemo(
-    () => Array.from(new Set(proveedores
-      .map(p => p.nombre_comercial || p.razon_social)
-      .filter(Boolean) as string[])).sort(),
-    [proveedores])
-
-  const nombresResponsable = useMemo(
-    () => usuarios.map(u => `${u.nombre} ${u.apellido}`.trim()).filter(Boolean).sort(),
-    [usuarios])
+  const nombresProveedor = catalogos?.proveedores ?? []
+  const nombresResponsable = catalogos?.responsables ?? []
 
   const activoPorId = useMemo(() => {
     const m = new Map<number, string>()
@@ -295,10 +282,17 @@ export default function EAMGarantias() {
   const alFallar = (e: unknown) => notify(mensajeDeError(e), 'error')
 
   const guardarGarantia = useMutation({
-    mutationFn: (d: Partial<Garantia>) => d.id
-      ? garantiasApi.editar(d.id, d)
-      : garantiasApi.crear(d),
-    onSuccess: (g, enviado) => {
+    // Los archivos se suben después de guardar: una garantía nueva no tiene id
+    // hasta que el servidor la crea.
+    mutationFn: async ({ d, archivos }: { d: Partial<Garantia>; archivos: File[] }) => {
+      const g = d.id ? await garantiasApi.editar(d.id, d) : await garantiasApi.crear(d)
+      if (archivos.length) {
+        await adjuntosGarantiaApi.subir(g.id, archivos)
+        qc.invalidateQueries({ queryKey: ['eam-garantia-adjuntos', g.id] })
+      }
+      return g
+    },
+    onSuccess: (g, { d: enviado }) => {
       refrescar()
       setEditarGarantia(null)
       // El detalle abierto detrás tiene que reflejar lo que se acabó de guardar.
@@ -922,14 +916,12 @@ export default function EAMGarantias() {
                     <Paper elevation={0} sx={{ bgcolor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '14px', p: 2.5, height: '100%' }}>
                       <Stack direction="row" alignItems="center" spacing={1} mb={2}>
                         <FileIcon sx={{ fontSize: 16, color: EAM_COLOR }} />
-                        <Typography fontWeight={700} fontSize={14} color="#1E293B">Documento de respaldo</Typography>
+                        <Typography fontWeight={700} fontSize={14} color="#1E293B">Documentos de respaldo</Typography>
                       </Stack>
-                      {/* Se guarda el nombre del documento, no el archivo: los
-                          archivos van por adjuntos del activo. Antes había acá un
-                          botón de descarga que no descargaba nada. */}
-                      <Typography fontSize={12} color={g.documento ? '#334155' : '#94A3B8'}>
-                        {g.documento || 'Sin documento referenciado.'}
-                      </Typography>
+                      <AdjuntosGarantia garantiaId={g.id} />
+                      {g.documento && (
+                        <Typography fontSize={11} color="#64748B" mt={1}>Referencia del contrato: {g.documento}</Typography>
+                      )}
                     </Paper>
                   </Grid>
                 </Grid>
@@ -1194,11 +1186,12 @@ export default function EAMGarantias() {
           activos={activos}
           proveedores={nombresProveedor}
           responsables={nombresResponsable}
+          contactos={catalogos?.contactos ?? {}}
           guardando={guardarGarantia.isPending}
           inputSx={inputSx}
           paperSx={dialogPaperSx}
           onCerrar={() => setEditarGarantia(null)}
-          onGuardar={d => guardarGarantia.mutate(d)}
+          onGuardar={(d, archivos) => guardarGarantia.mutate({ d, archivos })}
         />
       )}
 
@@ -1274,20 +1267,33 @@ export default function EAMGarantias() {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function DialogoGarantia({
-  valor, activos, proveedores, responsables, guardando, inputSx, paperSx, onCerrar, onGuardar,
+  valor, activos, proveedores, responsables, contactos, guardando, inputSx, paperSx, onCerrar, onGuardar,
 }: {
   valor: Partial<Garantia>
-  activos: any[]
+  activos: CatalogosGarantia['activos']
   proveedores: string[]
   responsables: string[]
+  contactos: CatalogosGarantia['contactos']
   guardando: boolean
   inputSx: object
   paperSx: object
   onCerrar: () => void
-  onGuardar: (d: Partial<Garantia>) => void
+  onGuardar: (d: Partial<Garantia>, archivos: File[]) => void
 }) {
   const [f, setF] = useState<Partial<Garantia>>(valor)
   const [intento, setIntento] = useState(false)
+  const [archivos, setArchivos] = useState<File[]>([])
+  const activoSel = activos.find(a => a.id === f.activo_id) ?? null
+  // Al escoger un contratista conocido se traen su contacto y teléfono, sin
+  // pisar lo que la persona ya haya escrito.
+  const elegirProveedor = (v: string) => {
+    const c = contactos[v]
+    setF(p => ({
+      ...p, proveedor: v,
+      contacto_proveedor: p.contacto_proveedor || c?.contacto || p.contacto_proveedor,
+      telefono_proveedor: p.telefono_proveedor || c?.telefono || p.telefono_proveedor,
+    }))
+  }
   const set = <K extends keyof Garantia>(k: K, v: Garantia[K]) => setF(p => ({ ...p, [k]: v }))
   const edicion = !!valor.id
 
@@ -1304,7 +1310,7 @@ function DialogoGarantia({
 
   const enviar = () => {
     if (!valido) { setIntento(true); return }
-    onGuardar(f)
+    onGuardar(f, archivos)
   }
 
   return (
@@ -1341,19 +1347,22 @@ function DialogoGarantia({
             sx={inputSx}
           />
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-            <TextField
-              select fullWidth size="small" label="Activo"
-              value={f.activo_id ?? ''}
-              onChange={e => set('activo_id', e.target.value === '' ? null : Number(e.target.value))}
-              helperText="Opcional: una garantía de servicio puede cubrir la flota entera"
-              sx={inputSx}
-              InputProps={{ startAdornment: <InputAdornment position="start"><ActivoIcon sx={{ fontSize: 16, color: '#94A3B8' }} /></InputAdornment> }}
-            >
-              <MenuItem value=""><em>Sin activo específico</em></MenuItem>
-              {activos.map(a => (
-                <MenuItem key={a.id} value={a.id}>{a.codigo} · {a.nombre}</MenuItem>
-              ))}
-            </TextField>
+            {/* Con búsqueda: con una flota real, un select de cientos de
+                activos sin filtro no se puede usar. Busca por código, nombre o placa. */}
+            <Autocomplete
+              fullWidth
+              options={activos}
+              value={activoSel}
+              onChange={(_e, a) => set('activo_id', a ? a.id : null)}
+              getOptionLabel={a => `${a.codigo} · ${a.nombre}${a.placa ? ` · ${a.placa}` : ''}`}
+              isOptionEqualToValue={(a, b) => a.id === b.id}
+              noOptionsText="Ningún activo coincide"
+              renderInput={p => (
+                <TextField {...p} size="small" label="Activo"
+                  placeholder="Buscar por código, nombre o placa"
+                  helperText="Opcional: una garantía de servicio puede cubrir la flota entera" sx={inputSx} />
+              )}
+            />
             <TextField
               select fullWidth size="small" label="Tipo"
               value={f.tipo ?? 'ACTIVO'}
@@ -1372,8 +1381,10 @@ function DialogoGarantia({
           <Autocomplete
             freeSolo
             options={proveedores}
-            value={f.proveedor ?? ''}
-            onInputChange={(_e, v) => set('proveedor', v)}
+            inputValue={f.proveedor ?? ''}
+            onInputChange={(_e, v, motivo) => motivo === 'reset' ? elegirProveedor(v) : set('proveedor', v)}
+            onChange={(_e, v) => { if (typeof v === 'string') elegirProveedor(v) }}
+            noOptionsText="Sin coincidencias: se guardará como lo escribió"
             renderInput={p => (
               <TextField
                 {...p} size="small" label="Proveedor *"
@@ -1430,8 +1441,9 @@ function DialogoGarantia({
               freeSolo
               fullWidth
               options={responsables}
-              value={f.responsable ?? ''}
+              inputValue={f.responsable ?? ''}
               onInputChange={(_e, v) => set('responsable', v)}
+              onChange={(_e, v) => { if (typeof v === 'string') set('responsable', v) }}
               renderInput={p => (
                 <TextField {...p} size="small" label="Responsable interno"
                   helperText="Quién responde por esta garantía adentro" sx={inputSx} />
@@ -1470,13 +1482,33 @@ function DialogoGarantia({
             sx={inputSx}
           />
           <TextField
-            fullWidth size="small" label="Documento de respaldo"
+            fullWidth size="small" label="Referencia del contrato"
             value={f.documento ?? ''}
             onChange={e => set('documento', e.target.value)}
-            placeholder="Contrato-Cummins-2024-0041.pdf"
-            helperText="El nombre del documento; el archivo va por adjuntos del activo"
+            placeholder="Contrato 2024-0041"
+            helperText="Opcional. Los archivos se adjuntan abajo."
             sx={inputSx}
           />
+          <Box>
+            <Typography fontSize={13} fontWeight={700} color="#1E293B" mb={0.5}>Documentos de respaldo</Typography>
+            {edicion && valor.id && <AdjuntosGarantia garantiaId={valor.id} />}
+            <Button component="label" size="small" variant="outlined" startIcon={<FileIcon />}
+              sx={{ mt: 1, textTransform: 'none', borderColor: EAM_COLOR, color: EAM_COLOR }}>
+              {edicion ? 'Agregar archivos' : 'Adjuntar archivos'}
+              <input hidden type="file" multiple aria-label="Adjuntar archivos de la garantía"
+                onChange={e => { const n = Array.from(e.target.files ?? []); setArchivos(a => [...a, ...n]); e.target.value = '' }} />
+            </Button>
+            {archivos.map((a, i) => (
+              <Stack key={a.name + i} direction="row" alignItems="center" spacing={1} mt={0.5}>
+                <Typography fontSize={12} color="#334155">{a.name}</Typography>
+                <Typography fontSize={11} color="#94A3B8">{Math.ceil(a.size / 1024)} KB · se sube al guardar</Typography>
+                <IconButton size="small" aria-label={`Quitar ${a.name}`} onClick={() => setArchivos(x => x.filter((_, j) => j !== i))}>
+                  <CloseIcon sx={{ fontSize: 14 }} />
+                </IconButton>
+              </Stack>
+            ))}
+            <Typography fontSize={11} color="#94A3B8" mt={0.5}>PDF, imágenes, Word, Excel o correo; hasta 25 MB por archivo.</Typography>
+          </Box>
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, py: 2 }}>
@@ -1492,6 +1524,60 @@ function DialogoGarantia({
         </Button>
       </DialogActions>
     </Dialog>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Documentos de una garantía: listar, descargar, subir y retirar.
+
+   Antes solo se podía escribir el nombre del documento; el archivo había que
+   subirlo en otra parte y nadie lo encontraba al momento de reclamar.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function AdjuntosGarantia({ garantiaId }: { garantiaId: number }) {
+  const qc = useQueryClient()
+  const clave = ['eam-garantia-adjuntos', garantiaId]
+  const { data: adjuntos = [], isLoading } = useQuery({ queryKey: clave, queryFn: () => adjuntosGarantiaApi.listar(garantiaId) })
+  const [error, setError] = useState('')
+  const subir = useMutation({
+    mutationFn: (archivos: File[]) => adjuntosGarantiaApi.subir(garantiaId, archivos),
+    onSuccess: () => { setError(''); qc.invalidateQueries({ queryKey: clave }) },
+    onError: e => setError(mensajeDeError(e)),
+  })
+  const borrar = useMutation({
+    mutationFn: (id: number) => adjuntosGarantiaApi.borrar(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: clave }),
+    onError: e => setError(mensajeDeError(e)),
+  })
+  return (
+    <Box>
+      {isLoading && <LinearProgress />}
+      {!isLoading && adjuntos.length === 0 && <Typography fontSize={12} color="#94A3B8">Sin documentos adjuntos.</Typography>}
+      {adjuntos.map(a => (
+        <Stack key={a.id} direction="row" alignItems="center" spacing={1} sx={{ py: 0.25 }}>
+          <FileIcon sx={{ fontSize: 14, color: '#94A3B8' }} />
+          <Typography fontSize={12} sx={{ flex: 1, color: '#334155', cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+            onClick={() => adjuntosGarantiaApi.descargar(a).catch(e => setError(mensajeDeError(e)))}>
+            {a.nombre}
+          </Typography>
+          <Typography fontSize={11} color="#94A3B8">{a.tamano ? `${Math.ceil(a.tamano / 1024)} KB` : ''}</Typography>
+          <IconButton size="small" aria-label={`Descargar ${a.nombre}`} onClick={() => adjuntosGarantiaApi.descargar(a).catch(e => setError(mensajeDeError(e)))}>
+            <DownloadIcon sx={{ fontSize: 16 }} />
+          </IconButton>
+          <IconButton size="small" aria-label={`Retirar ${a.nombre}`}
+            onClick={() => { if (window.confirm(`¿Retirar «${a.nombre}»?`)) borrar.mutate(a.id) }}>
+            <CloseIcon sx={{ fontSize: 14, color: '#EF4444' }} />
+          </IconButton>
+        </Stack>
+      ))}
+      <Button component="label" size="small" startIcon={<FileIcon />} disabled={subir.isPending}
+        sx={{ mt: 0.5, textTransform: 'none', color: EAM_COLOR }}>
+        {subir.isPending ? 'Subiendo…' : 'Subir documentos'}
+        <input hidden type="file" multiple aria-label="Subir documentos de la garantía"
+          onChange={e => { const n = Array.from(e.target.files ?? []); if (n.length) subir.mutate(n); e.target.value = '' }} />
+      </Button>
+      {error && <Typography fontSize={12} color="error">{error}</Typography>}
+    </Box>
   )
 }
 
@@ -1631,8 +1717,9 @@ function DialogoReclamo({
           <Autocomplete
             freeSolo
             options={responsables}
-            value={f.responsable ?? ''}
+            inputValue={f.responsable ?? ''}
             onInputChange={(_e, v) => set('responsable', v)}
+            onChange={(_e, v) => { if (typeof v === 'string') set('responsable', v) }}
             renderInput={p => (
               <TextField {...p} size="small" label="Responsable de la gestión" sx={inputSx} />
             )}

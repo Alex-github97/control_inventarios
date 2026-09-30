@@ -1110,6 +1110,24 @@ class EAMGarantia(Base, TimestampMixin):
     responsable        = Column(String(120))
 
 
+class EAMAdjuntoGarantia(Base, TimestampMixin):
+    """Los documentos de una garantía: el contrato, la factura de compra, el
+    certificado del fabricante. Antes solo se podía escribir el NOMBRE del
+    documento y el archivo había que subirlo aparte en otro lado.
+
+    Mismo criterio que los adjuntos de OT: la ruta en disco lleva el esquema,
+    y la descarga pasa por la API, nunca por una carpeta pública.
+    """
+    __tablename__ = "eam_adjunto_garantia"
+    id          = Column(Integer, primary_key=True, index=True)
+    garantia_id = Column(Integer, ForeignKey("eam_garantia.id", ondelete="CASCADE"), nullable=False, index=True)
+    nombre      = Column(String(200), nullable=False)
+    ruta        = Column(String(400), nullable=False)
+    tipo_mime   = Column(String(120))
+    tamano      = Column(Integer)
+    subido_por  = Column(String(120))
+
+
 class EAMGarantiaReclamacion(Base, TimestampMixin):
     """Un reclamo hecho al proveedor al amparo de una garantía.
 

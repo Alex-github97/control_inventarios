@@ -143,3 +143,45 @@ export const pesos = (v?: number | null): string =>
 /** La cobertura se guarda como texto de una línea por ítem. */
 export const coberturaLista = (v?: string | null): string[] =>
   (v ?? '').split('\n').map(s => s.trim()).filter(Boolean)
+
+
+// ─── Catálogo del formulario y documentos ────────────────────────────────────
+
+/** Activos, proveedores y responsables para el formulario. Sale de un catálogo
+ *  propio porque `/proveedores/` estaba vacío en el CMMS y `/usuarios/` solo lo
+ *  puede listar un administrador: para los demás, los desplegables llegaban vacíos. */
+export interface CatalogosGarantia {
+  activos: { id: number; codigo: string; nombre: string; placa?: string | null; marca?: string | null }[]
+  proveedores: string[]
+  responsables: string[]
+  contactos: Record<string, { contacto?: string | null; telefono?: string | null }>
+}
+
+export interface AdjuntoGarantia {
+  id: number; garantia_id: number; nombre: string; tipo_mime?: string | null
+  tamano?: number | null; subido_por?: string | null; created_at?: string | null
+}
+
+export const catalogosGarantia = () =>
+  apiClient.get<CatalogosGarantia>('/eam/garantias-catalogos').then(r => r.data)
+
+export const adjuntosGarantiaApi = {
+  listar: (gid: number) => apiClient.get<AdjuntoGarantia[]>(`/eam/garantias/${gid}/adjuntos`).then(r => r.data),
+  subir: (gid: number, archivos: File[]) => {
+    const fd = new FormData()
+    archivos.forEach(a => fd.append('archivos', a))
+    return apiClient.post<AdjuntoGarantia[]>(`/eam/garantias/${gid}/adjuntos`, fd,
+      { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data)
+  },
+  borrar: (id: number) => apiClient.delete(`/eam/garantias-adjuntos/${id}`),
+  /** La descarga lleva el token: el archivo no está en una carpeta pública. */
+  descargar: async (a: AdjuntoGarantia) => {
+    const r = await apiClient.get(`/eam/garantias-adjuntos/${a.id}/descargar`, { responseType: 'blob' })
+    const url = URL.createObjectURL(r.data as Blob)
+    const enlace = document.createElement('a')
+    enlace.href = url
+    enlace.download = a.nombre
+    enlace.click()
+    setTimeout(() => URL.revokeObjectURL(url), 2000)
+  },
+}
