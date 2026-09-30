@@ -179,3 +179,68 @@ async def borrar_tipo(tid: int, db: AsyncSession = Depends(get_db)):
     # Se desactiva: las OTs ya emitidas lo referencian.
     obj.activo = False
     await db.commit()
+
+# ─── Umbrales de aviso ────────────────────────────────────────────────────────
+
+@router.get("/parametros")
+async def listar_parametros_eam(db: AsyncSession = Depends(get_db)):
+    from app.core.parametros_eam import PARAMETROS_EAM, leer_parametros_eam
+    valores = await leer_parametros_eam(db)
+    return [{"clave": k, "valor": valores[k], **d} for k, d in PARAMETROS_EAM.items()]
+
+
+@router.put("/parametros")
+async def guardar_parametros_eam(data: dict, db: AsyncSession = Depends(get_db)):
+    from app.core.parametros_eam import PARAMETROS_EAM
+    from app.infrastructure.models.eam import EAMParametro
+    for clave, valor in data.items():
+        if clave not in PARAMETROS_EAM:
+            raise HTTPException(422, f"Parámetro desconocido: {clave}")
+        d = PARAMETROS_EAM[clave]
+        try:
+            valor = float(valor)
+        except (TypeError, ValueError):
+            raise HTTPException(422, f"{d['descripcion']}: debe ser un número")
+        if not d["min"] <= valor <= d["max"]:
+            raise HTTPException(422, f"{d['descripcion']}: entre {d['min']} y {d['max']}")
+        fila = (await db.execute(select(EAMParametro).where(EAMParametro.clave == clave))).scalar_one_or_none()
+        if fila:
+            fila.valor = valor
+        else:
+            db.add(EAMParametro(clave=clave, valor=valor))
+    await db.commit()
+    return await listar_parametros_eam(db)
+
+
+# ─── Horas programadas por activo (base de la disponibilidad) ────────────────
+
+@router.get("/disponibilidad-activos")
+async def horas_por_activo(db: AsyncSession = Depends(get_db)):
+    from app.infrastructure.models.eam import EAMActivo
+    filas = (await db.execute(select(EAMActivo).where(EAMActivo.activo.is_(True)).order_by(EAMActivo.codigo))).scalars().all()
+    return [{"id": a.id, "codigo": a.codigo, "nombre": a.nombre, "tipo_activo": a.tipo_activo,
+             "centro_costo": a.centro_costo, "horas_programadas_mes": a.horas_programadas_mes} for a in filas]
+
+
+class HorasIn(BaseModel):
+    activo_ids: List[int]
+    horas_programadas_mes: Optional[float] = None
+
+    @field_validator("horas_programadas_mes")
+    @classmethod
+    def _rango(cls, v):
+        if v is not None and not 0 < v <= 744:
+            raise ValueError("Entre 1 y 744 horas al mes (31 días × 24 h)")
+        return v
+
+
+@router.put("/disponibilidad-activos")
+async def fijar_horas(data: HorasIn, db: AsyncSession = Depends(get_db)):
+    """Fija las horas programadas de uno o varios activos a la vez (por
+    ejemplo, todos los montacargas a un turno). Vacío = operación continua."""
+    from app.infrastructure.models.eam import EAMActivo
+    filas = (await db.execute(select(EAMActivo).where(EAMActivo.id.in_(data.activo_ids)))).scalars().all()
+    for a in filas:
+        a.horas_programadas_mes = data.horas_programadas_mes
+    await db.commit()
+    return {"actualizados": len(filas)}

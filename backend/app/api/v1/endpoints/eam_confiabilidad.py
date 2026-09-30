@@ -39,12 +39,15 @@ async def indicadores(dias: int = Query(180, ge=30, le=1825),
     desde = datetime.utcnow() - timedelta(days=dias)
     ordenes = await ordenes_del_periodo(db, desde, tipo_activo, marca)
 
-    q = select(func.count(EAMActivo.id)).where(EAMActivo.activo.is_(True))
+    q = select(EAMActivo).where(EAMActivo.activo.is_(True))
     if tipo_activo:
         q = q.where(EAMActivo.tipo_activo == tipo_activo)
     if marca:
         q = q.where(EAMActivo.marca == marca)
-    total_activos = (await db.execute(q)).scalar() or 0
+    # La lista y no solo el conteo: cada activo aporta sus propias horas
+    # programadas al tiempo de referencia de la disponibilidad.
+    lista_activos = list((await db.execute(q)).scalars().all())
+    total_activos = len(lista_activos)
 
     valor_mttr, casos_mttr = mttr(ordenes)
     valor_mtbf, activos_mtbf = mtbf(ordenes)
@@ -59,7 +62,7 @@ async def indicadores(dias: int = Query(180, ge=30, le=1825),
         "costo_fallas": round(sum(o.costo_total or 0 for o, _ in ordenes if o.es_falla), 2),
         "mttr_horas": valor_mttr, "mttr_casos": casos_mttr,
         "mtbf_horas": valor_mtbf, "mtbf_activos": activos_mtbf,
-        "disponibilidad": disponibilidad(ordenes, total_activos, dias),
+        "disponibilidad": disponibilidad(ordenes, lista_activos, dias),
         "por_marca": agrupar(ordenes, lambda a: a.marca, dias),
         "por_linea": agrupar(ordenes, lambda a: (f"{a.marca or ''} {a.linea}".strip()
                                                  if a.linea else None), dias),
@@ -292,11 +295,11 @@ class CalibracionOut(CalibracionIn):
     dias_para_vencer: Optional[int] = None
 
 
-def _estado_calibracion(vencimiento: date) -> str:
+def _estado_calibracion(vencimiento: date, aviso: float = 30) -> str:
     hoy = date.today()
     if vencimiento < hoy:
         return "VENCIDA"
-    return "POR_VENCER" if (vencimiento - hoy).days <= 30 else "VIGENTE"
+    return "POR_VENCER" if (vencimiento - hoy).days <= aviso else "VIGENTE"
 
 
 @router.get("/calibraciones", response_model=List[CalibracionOut])
@@ -310,11 +313,13 @@ async def listar_calibraciones(activo_id: Optional[int] = None,
 
     salida = []
     hoy = date.today()
+    from app.core.parametros_eam import leer_parametros_eam
+    aviso = (await leer_parametros_eam(db))['calibracion_dias_aviso']
     for c, activo in (await db.execute(q)).all():
         # El estado se recalcula al leer y se persiste si cambió: una
         # calibración no vence porque alguien abra la pantalla, vence sola con
         # el calendario, y guardarlo mantiene coherentes los conteos del tablero.
-        estado = _estado_calibracion(c.fecha_vencimiento)
+        estado = _estado_calibracion(c.fecha_vencimiento, aviso)
         if c.estado != estado:
             c.estado = estado
         d = CalibracionOut.model_validate(c).model_dump()

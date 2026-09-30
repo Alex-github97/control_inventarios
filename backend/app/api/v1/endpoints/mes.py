@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_, case
 from sqlalchemy.exc import IntegrityError
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 from typing import Optional, List
 from datetime import datetime
 
@@ -1427,7 +1427,16 @@ async def cerrar_ejecucion(ejecucion_id: int, data: EjecucionCierre, db: AsyncSe
 
 class ParadaResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    id: int; ejecucion_id: int; tipo: str; causa: str
+    # La ejecución es opcional: las paradas que se registran desde una
+    # estación del flujo no tienen ejecución, y exigirla hacía fallar la lista
+    # entera. El tipo llega como enum y se entrega como texto.
+    id: int; ejecucion_id: Optional[int] = None; tipo: str; causa: str
+    equipo_id: Optional[int] = None
+
+    @field_validator('tipo', mode='before')
+    @classmethod
+    def _tipo_texto(cls, v):
+        return v.value if hasattr(v, 'value') else v
     descripcion: Optional[str] = None
     fecha_inicio: Optional[datetime] = None
     fecha_fin: Optional[datetime] = None

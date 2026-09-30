@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Box, Typography, Tabs, Tab, Card, CardContent, Chip,
   Stack, alpha, Divider, IconButton, Button, TextField, MenuItem,
@@ -6,8 +6,9 @@ import {
   List, ListItem, ListItemText, ListItemSecondaryAction, Dialog,
   DialogTitle, DialogContent, DialogActions,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Tooltip,
-  Alert,
+  Alert, LinearProgress, Checkbox, Autocomplete,
 } from '@mui/material'
+import { useAuthStore } from '@/store/authStore'
 import Grid from '@mui/material/Grid2'
 import {
   Settings as SettingsIcon,
@@ -68,21 +69,6 @@ const CATEGORIAS_TRABAJO: CatTrabajo[] = ['PREVENTIVO', 'CORRECTIVO', 'PREDICTIV
 
 // ── Catalogos mock ────────────────────────────────────────────────────────────
 
-const TIPOS_TRABAJO_INIT: TipoTrabajoConfig[] = [
-  { id:  1, nombre: 'Mantenimiento Preventivo',    categoria: 'PREVENTIVO', duracion: '4h',       requiereTaller: false, requiereMateriales: true,  sistema: 'General',     subsistema: 'Varios componentes'   },
-  { id:  2, nombre: 'Mantenimiento Correctivo',    categoria: 'CORRECTIVO', duracion: 'Variable',  requiereTaller: true,  requiereMateriales: true,  sistema: 'Variable',    subsistema: 'Variable'             },
-  { id:  3, nombre: 'Mantenimiento Predictivo',    categoria: 'PREDICTIVO', duracion: '3h',       requiereTaller: false, requiereMateriales: false, sistema: 'General',     subsistema: 'Monitoreo'            },
-  { id:  4, nombre: 'Inspección Visual',           categoria: 'INSPECCION', duracion: '1h',       requiereTaller: false, requiereMateriales: false, sistema: 'General',     subsistema: 'Inspección general'   },
-  { id:  5, nombre: 'Cambio de Aceite y Filtros',  categoria: 'PREVENTIVO', duracion: '2h',       requiereTaller: false, requiereMateriales: true,  sistema: 'Motor',       subsistema: 'Lubricación'          },
-  { id:  6, nombre: 'Servicio Eléctrico',          categoria: 'CORRECTIVO', duracion: '3h',       requiereTaller: true,  requiereMateriales: false, sistema: 'Eléctrico',   subsistema: 'Circuitos y sensores' },
-  { id:  7, nombre: 'Servicio Mecánico',           categoria: 'CORRECTIVO', duracion: 'Variable',  requiereTaller: true,  requiereMateriales: true,  sistema: 'Mecánico',    subsistema: 'Transmisión'          },
-  { id:  8, nombre: 'Servicio Hidráulico',         categoria: 'CORRECTIVO', duracion: '4h',       requiereTaller: true,  requiereMateriales: true,  sistema: 'Hidráulico',  subsistema: 'Circuito hidráulico'  },
-  { id:  9, nombre: 'Calibración',                 categoria: 'PREDICTIVO', duracion: '2h',       requiereTaller: false, requiereMateriales: false, sistema: 'Control',     subsistema: 'Sensores y válvulas'  },
-  { id: 10, nombre: 'Lubricación',                 categoria: 'PREVENTIVO', duracion: '1h',       requiereTaller: false, requiereMateriales: true,  sistema: 'Lubricación', subsistema: 'Engrase general'      },
-  { id: 11, nombre: 'Soldadura',                   categoria: 'CORRECTIVO', duracion: 'Variable',  requiereTaller: true,  requiereMateriales: true,  sistema: 'Estructura',  subsistema: 'Carrocería y chasis'  },
-  { id: 12, nombre: 'Atención de Emergencia',      categoria: 'EMERGENCIA', duracion: '?',        requiereTaller: true,  requiereMateriales: true,  sistema: 'Variable',    subsistema: 'Variable'             },
-]
-
 interface Contratista {
   id: number
   nombre: string
@@ -94,43 +80,6 @@ interface Contratista {
 }
 
 
-interface Integracion {
-  codigo: string
-  nombre: string
-  descripcion: string
-  estado: 'ACTIVO' | 'PENDIENTE' | 'CONFIGURAR'
-  ultimaSync?: string
-  color: string
-}
-
-const INTEGRACIONES: Integracion[] = [
-  { codigo: 'TMS', nombre: 'Sistema de Transporte', descripcion: 'Vehículos registrados, kilómetros y rutas en tiempo real', estado: 'ACTIVO', ultimaSync: 'Hace 5 min', color: '#1A1A1A' },
-  { codigo: 'HCM', nombre: 'Recursos Humanos', descripcion: 'Técnicos, certificaciones y disponibilidad de personal', estado: 'ACTIVO', ultimaSync: 'Hace 1 hora', color: '#1A1A1A' },
-  { codigo: 'WMS', nombre: 'Gestión de Almacén', descripcion: 'Equipos logísticos, inventario y ubicaciones físicas', estado: 'ACTIVO', ultimaSync: 'Hace 30 min', color: '#1A1A1A' },
-  { codigo: 'DMS', nombre: 'Gestión de Documentos', descripcion: 'Manuales técnicos, planos y garantías digitales', estado: 'PENDIENTE', color: '#F59E0B' },
-  { codigo: 'QMS', nombre: 'Gestión de Calidad', descripcion: 'Hallazgos de auditoría y no conformidades', estado: 'ACTIVO', ultimaSync: 'Ayer 18:00', color: '#1A1A1A' },
-  { codigo: 'GRC', nombre: 'Gestión de Riesgos', descripcion: 'Activos críticos, valoración de riesgos y controles', estado: 'PENDIENTE', color: '#F59E0B' },
-  { codigo: 'ERP', nombre: 'Planificación Empresarial', descripcion: 'Órdenes de compra, facturas y centros de costo', estado: 'ACTIVO', ultimaSync: 'Hace 15 min', color: '#1A1A1A' },
-  { codigo: 'GPS', nombre: 'GPS / Telemetría CANBUS', descripcion: 'Posicionamiento, velocidad, temperatura motor y consumo', estado: 'CONFIGURAR', color: '#3B82F6' },
-]
-
-
-interface UmbralState {
-  pmAntesDias: number
-  pmActive: boolean
-  profNeumatico: number
-  profActive: boolean
-  stockMin: boolean
-  mttrHrs: number
-  mttrActive: boolean
-  combustiblePct: number
-  combustibleActive: boolean
-  garantiaDias: number
-  garantiaActive: boolean
-  calibracionDias: number
-  calibracionActive: boolean
-}
-
 const EMPTY_TIPO: TipoTrabajoConfig = { id: 0, nombre: '', categoria: 'PREVENTIVO', duracion: '1h', requiereTaller: false, requiereMateriales: false, sistema: '', subsistema: '' }
 
 interface CentroCosto {
@@ -141,67 +90,7 @@ interface CentroCosto {
   plataforma: string
 }
 
-const CENTROS_COSTO_INIT: CentroCosto[] = [
-  { id: 1, codigo: 'CC-001', nombre: 'Flota Bogotá',        ciudad: 'Bogotá',    plataforma: 'Plataforma Central' },
-  { id: 2, codigo: 'CC-002', nombre: 'Flota Medellín',       ciudad: 'Medellín',  plataforma: 'Plataforma Norte'   },
-  { id: 3, codigo: 'CC-003', nombre: 'Bodega Principal',      ciudad: 'Bogotá',    plataforma: 'Plataforma Central' },
-  { id: 4, codigo: 'CC-004', nombre: 'Infraestructura TI',    ciudad: 'Bogotá',    plataforma: 'Corporativo'        },
-  { id: 5, codigo: 'CC-005', nombre: 'Equipos de Frío',       ciudad: 'Bogotá',    plataforma: 'Plataforma Central' },
-  { id: 6, codigo: 'CC-006', nombre: 'Montacargas y Grúas',   ciudad: 'Bogotá',    plataforma: 'Plataforma Central' },
-]
-
 const EMPTY_CC: CentroCosto = { id: 0, codigo: '', nombre: '', ciudad: '', plataforma: '' }
-const CIUDADES = ['Bogotá', 'Medellín', 'Cali', 'Barranquilla', 'Cartagena', 'Bucaramanga']
-const PLATAFORMAS = ['Plataforma Central', 'Plataforma Norte', 'Plataforma Sur', 'Plataforma Oriente', 'Corporativo']
-
-// ── Configuración de Disponibilidad ──────────────────────────────────────────
-interface PeriodoCfg {
-  id: number
-  nombre: string
-  desde: string   // "YYYY-MM"
-  hasta: string   // "YYYY-MM"
-  horas: number   // valor base / default
-  aplica: 'todos' | 'categoria' | 'activos'
-  categoria?: string
-  activos?: string[]
-  horasPorActivo?: Record<string, number>  // horas individuales por equipo
-}
-
-interface ActivoCfg {
-  nombre: string
-  categoria: string
-  centroCosto: string
-}
-
-const ACTIVOS_CFG: ActivoCfg[] = [
-  { nombre: 'VH-001 — Tractocamión Kenworth T800',    categoria: 'Vehículos',      centroCosto: 'CC-001' },
-  { nombre: 'VH-002 — Camión Freightliner M2-106',    categoria: 'Vehículos',      centroCosto: 'CC-001' },
-  { nombre: 'VH-003 — Camioneta Ford Ranger',         categoria: 'Vehículos',      centroCosto: 'CC-002' },
-  { nombre: 'MC-001 — Montacargas Yale GLP050',       categoria: 'Montacargas',    centroCosto: 'CC-006' },
-  { nombre: 'MC-003 — Montacargas Toyota 8FGCU25',   categoria: 'Montacargas',    centroCosto: 'CC-006' },
-  { nombre: 'MC-004 — Reach Truck Crown RR5200',      categoria: 'Montacargas',    centroCosto: 'CC-006' },
-  { nombre: 'CF-001 — Compresor Cuarto Frío',         categoria: 'Equipos Frío',   centroCosto: 'CC-005' },
-  { nombre: 'CMP-07 — Compresor Atlas Copco GA22',    categoria: 'Industrial',     centroCosto: 'CC-003' },
-  { nombre: 'SRV-01 — Servidor Dell PowerEdge R740',  categoria: 'TI',             centroCosto: 'CC-004' },
-  { nombre: 'ELV-02 — Estibador Eléctrico Still EXU', categoria: 'Industrial',     centroCosto: 'CC-006' },
-  { nombre: 'BD-01  — Bodega Principal Bogotá',        categoria: 'Infraestructura',centroCosto: 'CC-003' },
-]
-
-const ACTIVOS_CATS_CFG = ['Vehículos', 'Montacargas', 'Equipos Frío', 'Industrial', 'TI', 'Infraestructura']
-
-const HORAS_DEFAULTS: Record<string, number> = {
-  'VH-001 — Tractocamión Kenworth T800':    720,
-  'VH-002 — Camión Freightliner M2-106':    720,
-  'VH-003 — Camioneta Ford Ranger':         480,
-  'MC-001 — Montacargas Yale GLP050':       480,
-  'MC-003 — Montacargas Toyota 8FGCU25':   480,
-  'MC-004 — Reach Truck Crown RR5200':      480,
-  'CF-001 — Compresor Cuarto Frío':         720,
-  'CMP-07 — Compresor Atlas Copco GA22':    480,
-  'SRV-01 — Servidor Dell PowerEdge R740':  720,
-  'ELV-02 — Estibador Eléctrico Still EXU': 480,
-  'BD-01  — Bodega Principal Bogotá':        480,
-}
 
 interface EsquemaVehiculoCfg { id: number; codigo?: string | null; nombre: string; tipo_activo?: string | null; numero_ejes: number; layout?: number[] | null; tiene_repuesto: boolean; cantidad_repuestos: number }
 interface TipoActivoCfg { id: number; codigo: string; nombre: string; usa_llantas: boolean }
@@ -509,6 +398,132 @@ function ContratistasSection() {
 }
 
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   Umbrales de aviso. Antes eran siete valores que vivían en el navegador y no
+   llegaban a ningún cálculo, mientras garantías avisaba a 90 días y el tablero
+   a 30. Ahora son los que el servidor lee, y cada uno dice quién lo usa. La
+   profundidad mínima de llantas y el stock mínimo se configuran en sus
+   módulos (Llantas → Configuración, Inventario), que es donde se aplican.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+interface ParametroEAM { clave: string; valor: number; defecto: number; min: number; max: number; descripcion: string; lo_usan: string }
+
+function UmbralesSection() {
+  const qc = useQueryClient()
+  const { data = [] } = useQuery({ queryKey: ['eam-parametros'], queryFn: () => apiClient.get<ParametroEAM[]>('/eam/parametros').then(r => r.data) })
+  const [v, setV] = useState<Record<string, string>>({})
+  const valor = (p: ParametroEAM) => v[p.clave] ?? String(p.valor)
+  const malo = (p: ParametroEAM) => { const n = Number(valor(p)); return valor(p) === '' || !Number.isFinite(n) || n < p.min || n > p.max }
+  const guardar = async () => {
+    try {
+      await apiClient.put('/eam/parametros', Object.fromEntries(data.map(p => [p.clave, Number(valor(p))])))
+      toast.success('Umbrales guardados'); setV({}); qc.invalidateQueries({ queryKey: ['eam-parametros'] })
+    } catch (e: any) { toast.error(e?.response?.data?.detail ?? 'No se pudo guardar') }
+  }
+  return (
+    <Box>
+      <Typography variant="body2" color="text.secondary" mb={2}>Cuántos días antes se avisa. Cada umbral dice qué pantalla lo usa. La profundidad mínima de llantas y el stock mínimo se configuran en sus módulos, que es donde se aplican.</Typography>
+      <Stack spacing={2} sx={{ maxWidth: 640 }}>
+        {data.map(p => (
+          <Paper key={p.clave} elevation={0} sx={{ p: 2, border: '1px solid #E5E7EB', borderRadius: 2 }}>
+            <TextField fullWidth size="small" type="number" label={p.descripcion} value={valor(p)} error={malo(p)}
+              onChange={e => setV(x => ({ ...x, [p.clave]: e.target.value }))}
+              helperText={malo(p) ? `Entre ${p.min} y ${p.max}` : `Lo usa: ${p.lo_usan} · por defecto ${p.defecto} días`} />
+          </Paper>
+        ))}
+      </Stack>
+      <Button variant="contained" sx={{ mt: 2, bgcolor: EAM_COLOR }} disabled={!data.length || data.some(malo)} onClick={guardar}>Guardar umbrales</Button>
+    </Box>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Integraciones. Antes: ocho tarjetas con «ACTIVO» y horas de sincronización
+   inventadas (HCM, WMS, QMS, ERP, GPS…). La única conexión que existe es con
+   TMS; lo demás es parte del propio CMMS o no está conectado, y se dice así.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function IntegracionesSection() {
+  const modulos = useAuthStore(s => s.modulos)
+  const tieneTMS = modulos.includes('*') || modulos.includes('tms')
+  return (
+    <Box>
+      <Paper elevation={0} sx={{ p: 2.5, border: '1px solid #E5E7EB', borderRadius: 2, mb: 2 }}>
+        <Stack direction="row" alignItems="center" spacing={1} mb={1}>
+          <Typography fontWeight={700}>TMS · Transporte</Typography>
+          <Chip size="small" label={tieneTMS ? 'contratado' : 'no contratado'} sx={{ bgcolor: tieneTMS ? alpha('#16A34A', 0.12) : '#F1F5F9', color: tieneTMS ? '#16A34A' : '#64748B', fontWeight: 700 }} />
+        </Stack>
+        <Typography variant="body2" color="text.secondary">Los vehículos registrados en TMS aparecen en la lista combinada de vehículos del CMMS (llantas, combustible, lubricación) y se pueden reflejar como activos para llevarles mantenimiento. Sin TMS, los vehículos se registran directamente como activos.</Typography>
+      </Paper>
+      <Paper elevation={0} sx={{ p: 2.5, border: '1px solid #E5E7EB', borderRadius: 2, mb: 2 }}>
+        <Typography fontWeight={700} mb={0.5}>Parte del propio CMMS</Typography>
+        <Typography variant="body2" color="text.secondary">Flota, llantas, combustible, lubricación, checklists e inventario de repuestos no son integraciones: son módulos del CMMS y comparten los mismos activos y órdenes de trabajo. Los repuestos de una OT cerrada descuentan el inventario automáticamente.</Typography>
+      </Paper>
+      <Alert severity="info">Recursos humanos, bodega (WMS), documentos, calidad, riesgos, contabilidad y telemetría GPS no están conectados hoy con el CMMS. Antes esta pantalla los mostraba como «activos» con horas de sincronización inventadas.</Alert>
+    </Box>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Disponibilidad. Antes: once activos inventados y horas guardadas solo en el
+   navegador, que ningún cálculo leía. Ahora son los activos reales y sus horas
+   programadas por mes, que son la base de la disponibilidad en Confiabilidad
+   (un montacargas de un turno no se mide como si trabajara 24 horas).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+interface ActivoHoras { id: number; codigo: string; nombre: string; tipo_activo: string | null; centro_costo: string | null; horas_programadas_mes: number | null }
+
+function DisponibilidadSection() {
+  const qc = useQueryClient()
+  const { data = [], isLoading } = useQuery({ queryKey: ['eam-disponibilidad-activos'], queryFn: () => apiClient.get<ActivoHoras[]>('/eam/disponibilidad-activos').then(r => r.data) })
+  const [sel, setSel] = useState<number[]>([])
+  const [horas, setHoras] = useState('176')
+  const [tipo, setTipo] = useState('Todos')
+  const tipos = Array.from(new Set(data.map(a => a.tipo_activo ?? 'Sin tipo'))).sort()
+  const filas = data.filter(a => tipo === 'Todos' || (a.tipo_activo ?? 'Sin tipo') === tipo)
+  const aplicar = async (h: number | null) => {
+    const ids = sel.length ? sel : filas.map(a => a.id)
+    try {
+      await apiClient.put('/eam/disponibilidad-activos', { activo_ids: ids, horas_programadas_mes: h })
+      toast.success(`${ids.length} activo(s) actualizados`); setSel([]); qc.invalidateQueries({ queryKey: ['eam-disponibilidad-activos'] })
+    } catch (e: any) { toast.error(typeof e?.response?.data?.detail === 'string' ? e.response.data.detail : 'Revise las horas') }
+  }
+  return (
+    <Box>
+      <Typography variant="body2" color="text.secondary" mb={2}>Horas al mes que cada activo debe estar disponible. Es la base del cálculo de disponibilidad en Confiabilidad. Referencia: continuo 720 h · dos turnos ≈ 352 h · un turno ≈ 176 h. Vacío = continuo.</Typography>
+      <Stack direction="row" spacing={1.5} alignItems="center" mb={2} flexWrap="wrap" useFlexGap>
+        <TextField select size="small" label="Tipo de activo" value={tipo} onChange={e => { setTipo(e.target.value); setSel([]) }} sx={{ minWidth: 180 }}>
+          <MenuItem value="Todos">Todos</MenuItem>{tipos.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+        </TextField>
+        <TextField size="small" type="number" label="Horas al mes" value={horas} onChange={e => setHoras(e.target.value)} sx={{ width: 140 }} />
+        <Button variant="contained" sx={{ bgcolor: EAM_COLOR }} disabled={!(Number(horas) > 0 && Number(horas) <= 744)} onClick={() => aplicar(Number(horas))}>
+          Aplicar a {sel.length ? `${sel.length} seleccionado(s)` : `los ${filas.length} de la lista`}
+        </Button>
+        <Button onClick={() => aplicar(null)} disabled={!filas.length}>Volver a continuo</Button>
+      </Stack>
+      {isLoading && <LinearProgress />}
+      <Paper elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: 2, overflow: 'auto', maxHeight: 520 }}>
+        <Table size="small" stickyHeader>
+          <TableHead><TableRow>
+            <TableCell padding="checkbox"><Checkbox size="small" checked={!!filas.length && sel.length === filas.length} indeterminate={sel.length > 0 && sel.length < filas.length} onChange={e => setSel(e.target.checked ? filas.map(a => a.id) : [])} inputProps={{ 'aria-label': 'Seleccionar todos' }} /></TableCell>
+            <TableCell sx={{ fontWeight: 700 }}>Activo</TableCell><TableCell sx={{ fontWeight: 700 }}>Tipo</TableCell><TableCell sx={{ fontWeight: 700 }}>Centro de costo</TableCell><TableCell align="right" sx={{ fontWeight: 700 }}>Horas al mes</TableCell>
+          </TableRow></TableHead>
+          <TableBody>
+            {filas.map(a => (
+              <TableRow key={a.id} hover>
+                <TableCell padding="checkbox"><Checkbox size="small" checked={sel.includes(a.id)} onChange={e => setSel(s => e.target.checked ? [...s, a.id] : s.filter(x => x !== a.id))} inputProps={{ 'aria-label': `Seleccionar ${a.codigo}` }} /></TableCell>
+                <TableCell><b>{a.codigo}</b> · {a.nombre}</TableCell><TableCell>{a.tipo_activo ?? '—'}</TableCell><TableCell>{a.centro_costo ?? '—'}</TableCell>
+                <TableCell align="right">{a.horas_programadas_mes != null ? a.horas_programadas_mes : <Typography component="span" fontSize={12} color="text.secondary">720 (continuo)</Typography>}</TableCell>
+              </TableRow>
+            ))}
+            {!isLoading && !filas.length && <TableRow><TableCell colSpan={5} sx={{ color: 'text.secondary' }}>Sin activos registrados.</TableCell></TableRow>}
+          </TableBody>
+        </Table>
+      </Paper>
+    </Box>
+  )
+}
+
 export default function EAMConfig() {
   // `?seccion=lubricacion` abre esa pestaña directamente. Sin esto, quien
   // llegue desde la pantalla de lubricación aterrizaría en «Catálogos» y
@@ -662,49 +677,6 @@ export default function EAMConfig() {
     t.nombre.toLowerCase().includes(tipoSearch.toLowerCase()) ||
     t.categoria.toLowerCase().includes(tipoSearch.toLowerCase())
   )
-  const [intToggles, setIntToggles] = useState<Record<string, boolean>>(
-    Object.fromEntries(INTEGRACIONES.map(i => [i.codigo, i.estado === 'ACTIVO']))
-  )
-  const [umbrales, setUmbrales] = useState<UmbralState>({
-    pmAntesDias: 7, pmActive: true,
-    profNeumatico: 3, profActive: true,
-    stockMin: true,
-    mttrHrs: 8, mttrActive: true,
-    combustiblePct: 15, combustibleActive: true,
-    garantiaDias: 30, garantiaActive: true,
-    calibracionDias: 14, calibracionActive: true,
-  })
-
-  const setU = <K extends keyof UmbralState>(k: K, v: UmbralState[K]) =>
-    setUmbrales(prev => ({ ...prev, [k]: v }))
-
-  // Disponibilidad — horas por activo
-  const [horasCfg, setHorasCfg] = useState<Record<string, number>>(() => {
-    try {
-      const s = localStorage.getItem('eam_horas_config')
-      return s ? { ...HORAS_DEFAULTS, ...JSON.parse(s) } : { ...HORAS_DEFAULTS }
-    } catch { return { ...HORAS_DEFAULTS } }
-  })
-  const [dispCat, setDispCat]   = useState('Todos')
-  const [dispBulk, setDispBulk] = useState('720')
-  const [dispSel, setDispSel]   = useState<string[]>([])
-
-  // Períodos especiales de disponibilidad
-  const [periodos, setPeriodos] = useState<PeriodoCfg[]>(() => {
-    try {
-      const s = localStorage.getItem('eam_periodos_config')
-      return s ? JSON.parse(s) : []
-    } catch { return [] }
-  })
-
-  const [periodDlg, setPeriodDlg] = useState(false)
-  const [newPeriodo, setNewPeriodo] = useState<Omit<PeriodoCfg, 'id'>>({
-    nombre: '', desde: '2026-07', hasta: '2026-07', horas: 720,
-    aplica: 'todos', categoria: '', activos: [],
-  })
-  const [periodActSel, setPeriodActSel]     = useState<string[]>([])
-  const [periodActHoras, setPeriodActHoras] = useState<Record<string, number>>({})
-
   // ── IA de Lubricación: dataset de entrenamiento (ejemplos etiquetados few-shot) ──
   const IA_GRUPOS: { titulo: string; campos: [string, string][] }[] = [
     { titulo: 'Identificación', campos: [['activo', 'Activo'], ['componente', 'Componente'], ['lubricante', 'Lubricante'], ['fecha', 'Fecha'], ['horas', 'Horas / km'], ['laboratorio', 'Laboratorio'], ['muestra_id', 'N.º muestra']] },
@@ -743,51 +715,6 @@ export default function EAMConfig() {
       setIaMsg(err?.response?.data?.detail || 'No se pudo guardar el diccionario')
     } finally { setIaSaving(false) }
   }
-  const [periodActCat, setPeriodActCat]     = useState('Todos')
-
-  useEffect(() => {
-    localStorage.setItem('eam_horas_config', JSON.stringify(horasCfg))
-  }, [horasCfg])
-
-  useEffect(() => {
-    localStorage.setItem('eam_periodos_config', JSON.stringify(periodos))
-  }, [periodos])
-
-  const activosFiltrados = dispCat === 'Todos' ? ACTIVOS_CFG : ACTIVOS_CFG.filter((a) => a.categoria === dispCat)
-  const applyDispBulk = () => {
-    const hs = parseFloat(dispBulk) || 0
-    if (hs <= 0) return
-    const targets = dispSel.length > 0 ? dispSel : activosFiltrados.map((a) => a.nombre)
-    setHorasCfg((p) => { const n = { ...p }; targets.forEach((nm) => { n[nm] = hs }); return n })
-  }
-
-  const savePeriodo = () => {
-    if (!newPeriodo.nombre || newPeriodo.horas <= 0 || newPeriodo.desde > newPeriodo.hasta) return
-    const entry: PeriodoCfg = {
-      ...newPeriodo,
-      id: Date.now(),
-      activos: newPeriodo.aplica === 'activos' ? periodActSel : [],
-      categoria: newPeriodo.aplica === 'categoria' ? newPeriodo.categoria : '',
-      horasPorActivo: newPeriodo.aplica === 'activos' ? { ...periodActHoras } : {},
-    }
-    setPeriodos((p) => [...p, entry])
-    setPeriodDlg(false)
-    setNewPeriodo({ nombre: '', desde: '2026-07', hasta: '2026-07', horas: 720, aplica: 'todos', categoria: '', activos: [] })
-    setPeriodActSel([])
-    setPeriodActHoras({})
-    setPeriodActCat('Todos')
-  }
-
-  const togglePeriodActivo = (nombre: string, horasBase: number) => {
-    if (periodActSel.includes(nombre)) {
-      setPeriodActSel((p) => p.filter((x) => x !== nombre))
-      setPeriodActHoras((p) => { const n = { ...p }; delete n[nombre]; return n })
-    } else {
-      setPeriodActSel((p) => [...p, nombre])
-      setPeriodActHoras((p) => ({ ...p, [nombre]: horasBase }))
-    }
-  }
-
   return (
     <Layout>
       <Box sx={{ p: 3, background: '#F8FAFC', minHeight: '100vh' }}>
@@ -798,13 +725,13 @@ export default function EAMConfig() {
           </Box>
           <Box>
             <Typography variant="h5" fontWeight={700} color="#1E293B">Configuración EAM</Typography>
-            <Typography variant="body2" color="grey.400">Catálogos, contratistas, umbrales de alerta e integraciones</Typography>
+            <Typography variant="body2" color="grey.400">Catálogos, contratistas, umbrales de aviso, integraciones y horas programadas</Typography>
           </Box>
         </Stack>
 
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
           <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ '& .MuiTab-root': { color: 'grey.400', textTransform: 'none', fontWeight: 600 }, '& .Mui-selected': { color: EAM_COLOR }, '& .MuiTabs-indicator': { backgroundColor: EAM_COLOR } }}>
-            {['Catálogos', 'Contratistas', 'Umbrales & Alertas', 'Integraciones', 'Disponibilidad', 'Lubricación'].map((l, i) => <Tab key={i} label={l} />)}
+            {['Catálogos', 'Contratistas', 'Umbrales de aviso', 'Integraciones', 'Disponibilidad', 'Lubricación'].map((l, i) => <Tab key={i} label={l} />)}
           </Tabs>
         </Box>
 
@@ -1098,22 +1025,23 @@ export default function EAMConfig() {
                     />
                   </Stack>
                   <Stack direction="row" spacing={2}>
-                    <TextField
-                      select fullWidth size="small" label="Ciudad"
-                      value={ccEditing.ciudad}
-                      onChange={(e) => setCcEditing((p) => ({ ...p, ciudad: e.target.value }))}
-                      sx={{ '& .MuiSvgIcon-root': { color: 'grey.500' } }}
-                    >
-                      {CIUDADES.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
-                    </TextField>
-                    <TextField
-                      select fullWidth size="small" label="Plataforma"
-                      value={ccEditing.plataforma}
-                      onChange={(e) => setCcEditing((p) => ({ ...p, plataforma: e.target.value }))}
-                      sx={{ '& .MuiSvgIcon-root': { color: 'grey.500' } }}
-                    >
-                      {PLATAFORMAS.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
-                    </TextField>
+                    {/* Texto libre con sugerencias de lo ya registrado: antes eran
+                        seis ciudades y cinco «plataformas» fijas, y una empresa con
+                        sede en Pereira no podía registrar su centro de costo. */}
+                    <Autocomplete
+                      freeSolo fullWidth
+                      options={Array.from(new Set(centrosCosto.map(c => c.ciudad).filter(Boolean))).sort()}
+                      inputValue={ccEditing.ciudad ?? ''}
+                      onInputChange={(_e, v) => setCcEditing((p) => ({ ...p, ciudad: v }))}
+                      renderInput={(params) => <TextField {...params} size="small" label="Ciudad" />}
+                    />
+                    <Autocomplete
+                      freeSolo fullWidth
+                      options={Array.from(new Set(centrosCosto.map(c => c.plataforma).filter(Boolean))).sort()}
+                      inputValue={ccEditing.plataforma ?? ''}
+                      onInputChange={(_e, v) => setCcEditing((p) => ({ ...p, plataforma: v }))}
+                      renderInput={(params) => <TextField {...params} size="small" label="Plataforma o sede" />}
+                    />
                   </Stack>
                 </Stack>
               </DialogContent>
@@ -1280,521 +1208,14 @@ export default function EAMConfig() {
         {/* Tab 1: Contratistas */}
         {tab === 1 && <ContratistasSection />}
 
-        {/* Tab 2: Umbrales & Alertas */}
-        {tab === 2 && (
-          <Grid container spacing={3}>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ background: '#FFFFFF', border: `1px solid #E5E7EB` }}>
-                <CardContent>
-                  <Stack direction="row" alignItems="center" spacing={1} mb={2}>
-                    <AlertIcon sx={{ color: EAM_COLOR, fontSize: 20 }} />
-                    <Typography variant="subtitle2" fontWeight={700} color="#1E293B">Alertas de Mantenimiento</Typography>
-                  </Stack>
-                  <Stack spacing={2.5} divider={<Divider sx={{ borderColor: '#E5E7EB' }} />}>
-                    {/* PM Vencido */}
-                    <Stack direction="row" alignItems="center" justifyContent="space-between">
-                      <Box flex={1}>
-                        <Stack direction="row" alignItems="center" spacing={1}>
-                          <Switch checked={umbrales.pmActive} onChange={e => setU('pmActive', e.target.checked)} size="small" sx={{ '& .Mui-checked .MuiSwitch-thumb': { color: EAM_COLOR }, '& .Mui-checked + .MuiSwitch-track': { backgroundColor: EAM_COLOR } }} />
-                          <Typography variant="body2" color={umbrales.pmActive ? '#1E293B' : 'grey.500'} fontWeight={600}>Alerta PM por vencer</Typography>
-                        </Stack>
-                        <Typography variant="caption" color="grey.500" ml={5}>Notificar X días antes del vencimiento del PM</Typography>
-                      </Box>
-                      <TextField
-                        type="number" size="small" value={umbrales.pmAntesDias}
-                        onChange={e => setU('pmAntesDias', Number(e.target.value))}
-                        disabled={!umbrales.pmActive}
-                        InputProps={{ endAdornment: <InputAdornment position="end"><Typography variant="caption" color="grey.500">días</Typography></InputAdornment> }}
-                        sx={{ width: 100, '& .MuiOutlinedInput-root': { fontSize: 13 } }}
-                      />
-                    </Stack>
+        {/* Tab 2: Umbrales de aviso (los que algún cálculo lee) */}
+        {tab === 2 && <UmbralesSection />}
 
-                    {/* Profundidad neumático */}
-                    <Stack direction="row" alignItems="center" justifyContent="space-between">
-                      <Box flex={1}>
-                        <Stack direction="row" alignItems="center" spacing={1}>
-                          <Switch checked={umbrales.profActive} onChange={e => setU('profActive', e.target.checked)} size="small" sx={{ '& .Mui-checked .MuiSwitch-thumb': { color: EAM_COLOR }, '& .Mui-checked + .MuiSwitch-track': { backgroundColor: EAM_COLOR } }} />
-                          <Typography variant="body2" color={umbrales.profActive ? '#1E293B' : 'grey.500'} fontWeight={600}>Profundidad mínima neumático</Typography>
-                        </Stack>
-                        <Typography variant="caption" color="grey.500" ml={5}>Alerta cuando la profundidad sea menor a X mm</Typography>
-                      </Box>
-                      <TextField
-                        type="number" size="small" value={umbrales.profNeumatico}
-                        onChange={e => setU('profNeumatico', Number(e.target.value))}
-                        disabled={!umbrales.profActive}
-                        InputProps={{ endAdornment: <InputAdornment position="end"><Typography variant="caption" color="grey.500">mm</Typography></InputAdornment> }}
-                        sx={{ width: 100, '& .MuiOutlinedInput-root': { fontSize: 13 } }}
-                      />
-                    </Stack>
+        {/* Tab 3: Integraciones reales con otros módulos */}
+        {tab === 3 && <IntegracionesSection />}
 
-                    {/* Stock mínimo */}
-                    <Stack direction="row" alignItems="center" justifyContent="space-between">
-                      <Box flex={1}>
-                        <Stack direction="row" alignItems="center" spacing={1}>
-                          <Switch checked={umbrales.stockMin} onChange={e => setU('stockMin', e.target.checked)} size="small" sx={{ '& .Mui-checked .MuiSwitch-thumb': { color: EAM_COLOR }, '& .Mui-checked + .MuiSwitch-track': { backgroundColor: EAM_COLOR } }} />
-                          <Typography variant="body2" color={umbrales.stockMin ? '#1E293B' : 'grey.500'} fontWeight={600}>Alerta stock mínimo repuestos</Typography>
-                        </Stack>
-                        <Typography variant="caption" color="grey.500" ml={5}>Notificar cuando repuesto crítico esté por debajo del mínimo</Typography>
-                      </Box>
-                      <Chip label={umbrales.stockMin ? 'ACTIVO' : 'INACTIVO'} size="small" sx={{ background: alpha(umbrales.stockMin ? '#1A1A1A' : '#9CA3AF', 0.15), color: umbrales.stockMin ? '#1A1A1A' : '#9CA3AF', fontWeight: 700 }} />
-                    </Stack>
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ background: '#FFFFFF', border: `1px solid #E5E7EB` }}>
-                <CardContent>
-                  <Stack direction="row" alignItems="center" spacing={1} mb={2}>
-                    <WarnIcon sx={{ color: '#F59E0B', fontSize: 20 }} />
-                    <Typography variant="subtitle2" fontWeight={700} color="#1E293B">Umbrales Operativos</Typography>
-                  </Stack>
-                  <Stack spacing={2.5} divider={<Divider sx={{ borderColor: '#E5E7EB' }} />}>
-                    {/* MTTR */}
-                    <Stack direction="row" alignItems="center" justifyContent="space-between">
-                      <Box flex={1}>
-                        <Stack direction="row" alignItems="center" spacing={1}>
-                          <Switch checked={umbrales.mttrActive} onChange={e => setU('mttrActive', e.target.checked)} size="small" sx={{ '& .Mui-checked .MuiSwitch-thumb': { color: '#F59E0B' }, '& .Mui-checked + .MuiSwitch-track': { backgroundColor: '#F59E0B' } }} />
-                          <Typography variant="body2" color={umbrales.mttrActive ? '#1E293B' : 'grey.500'} fontWeight={600}>MTTR excedido</Typography>
-                        </Stack>
-                        <Typography variant="caption" color="grey.500" ml={5}>Alerta cuando el MTTR supere el umbral</Typography>
-                      </Box>
-                      <TextField
-                        type="number" size="small" value={umbrales.mttrHrs}
-                        onChange={e => setU('mttrHrs', Number(e.target.value))}
-                        disabled={!umbrales.mttrActive}
-                        InputProps={{ endAdornment: <InputAdornment position="end"><Typography variant="caption" color="grey.500">hrs</Typography></InputAdornment> }}
-                        sx={{ width: 100, '& .MuiOutlinedInput-root': { fontSize: 13 } }}
-                      />
-                    </Stack>
-
-                    {/* Consumo combustible */}
-                    <Stack direction="row" alignItems="center" justifyContent="space-between">
-                      <Box flex={1}>
-                        <Stack direction="row" alignItems="center" spacing={1}>
-                          <Switch checked={umbrales.combustibleActive} onChange={e => setU('combustibleActive', e.target.checked)} size="small" sx={{ '& .Mui-checked .MuiSwitch-thumb': { color: '#F59E0B' }, '& .Mui-checked + .MuiSwitch-track': { backgroundColor: '#F59E0B' } }} />
-                          <Typography variant="body2" color={umbrales.combustibleActive ? '#1E293B' : 'grey.500'} fontWeight={600}>Desviación consumo combustible</Typography>
-                        </Stack>
-                        <Typography variant="caption" color="grey.500" ml={5}>Alerta cuando el consumo supere en X% el promedio</Typography>
-                      </Box>
-                      <TextField
-                        type="number" size="small" value={umbrales.combustiblePct}
-                        onChange={e => setU('combustiblePct', Number(e.target.value))}
-                        disabled={!umbrales.combustibleActive}
-                        InputProps={{ endAdornment: <InputAdornment position="end"><Typography variant="caption" color="grey.500">%</Typography></InputAdornment> }}
-                        sx={{ width: 100, '& .MuiOutlinedInput-root': { fontSize: 13 } }}
-                      />
-                    </Stack>
-
-                    {/* Garantía por vencer */}
-                    <Stack direction="row" alignItems="center" justifyContent="space-between">
-                      <Box flex={1}>
-                        <Stack direction="row" alignItems="center" spacing={1}>
-                          <Switch checked={umbrales.garantiaActive} onChange={e => setU('garantiaActive', e.target.checked)} size="small" sx={{ '& .Mui-checked .MuiSwitch-thumb': { color: '#F59E0B' }, '& .Mui-checked + .MuiSwitch-track': { backgroundColor: '#F59E0B' } }} />
-                          <Typography variant="body2" color={umbrales.garantiaActive ? '#1E293B' : 'grey.500'} fontWeight={600}>Garantía por vencer</Typography>
-                        </Stack>
-                        <Typography variant="caption" color="grey.500" ml={5}>Alertar X días antes del vencimiento de garantía</Typography>
-                      </Box>
-                      <TextField
-                        type="number" size="small" value={umbrales.garantiaDias}
-                        onChange={e => setU('garantiaDias', Number(e.target.value))}
-                        disabled={!umbrales.garantiaActive}
-                        InputProps={{ endAdornment: <InputAdornment position="end"><Typography variant="caption" color="grey.500">días</Typography></InputAdornment> }}
-                        sx={{ width: 100, '& .MuiOutlinedInput-root': { fontSize: 13 } }}
-                      />
-                    </Stack>
-
-                    {/* Calibración */}
-                    <Stack direction="row" alignItems="center" justifyContent="space-between">
-                      <Box flex={1}>
-                        <Stack direction="row" alignItems="center" spacing={1}>
-                          <Switch checked={umbrales.calibracionActive} onChange={e => setU('calibracionActive', e.target.checked)} size="small" sx={{ '& .Mui-checked .MuiSwitch-thumb': { color: '#F59E0B' }, '& .Mui-checked + .MuiSwitch-track': { backgroundColor: '#F59E0B' } }} />
-                          <Typography variant="body2" color={umbrales.calibracionActive ? '#1E293B' : 'grey.500'} fontWeight={600}>Calibración por vencer</Typography>
-                        </Stack>
-                        <Typography variant="caption" color="grey.500" ml={5}>Alertar X días antes del vencimiento de calibración</Typography>
-                      </Box>
-                      <TextField
-                        type="number" size="small" value={umbrales.calibracionDias}
-                        onChange={e => setU('calibracionDias', Number(e.target.value))}
-                        disabled={!umbrales.calibracionActive}
-                        InputProps={{ endAdornment: <InputAdornment position="end"><Typography variant="caption" color="grey.500">días</Typography></InputAdornment> }}
-                        sx={{ width: 100, '& .MuiOutlinedInput-root': { fontSize: 13 } }}
-                      />
-                    </Stack>
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        )}
-
-        {/* Tab 3: Integraciones */}
-        {tab === 3 && (
-          <Box>
-            <Typography variant="subtitle1" color="grey.300" mb={2} fontWeight={600}>
-              Integraciones con sistemas corporativos la compañía
-            </Typography>
-            <Grid container spacing={2}>
-              {INTEGRACIONES.map(intg => {
-                const isOn = intToggles[intg.codigo] ?? false
-                const statusColor = intg.estado === 'ACTIVO' ? '#1A1A1A' : intg.estado === 'CONFIGURAR' ? '#3B82F6' : '#F59E0B'
-                return (
-                  <Grid key={intg.codigo} size={{ xs: 12, md: 6, lg: 4 }}>
-                    <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(isOn ? intg.color : '#4B5563', 0.3)}`, transition: 'border-color 0.3s' }}>
-                      <CardContent>
-                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
-                          <Stack direction="row" spacing={1.5} alignItems="center">
-                            <Box sx={{ px: 1.5, py: 0.5, borderRadius: 1, background: alpha(intg.color, 0.15), border: `1px solid ${alpha(intg.color, 0.3)}` }}>
-                              <Typography variant="body2" fontWeight={800} color={intg.color}>{intg.codigo}</Typography>
-                            </Box>
-                            <Box>
-                              <Typography variant="body2" fontWeight={700} color="#1E293B">{intg.nombre}</Typography>
-                            </Box>
-                          </Stack>
-                          <Switch
-                            checked={isOn}
-                            onChange={e => setIntToggles(prev => ({ ...prev, [intg.codigo]: e.target.checked }))}
-                            size="small"
-                            sx={{ '& .Mui-checked .MuiSwitch-thumb': { color: intg.color }, '& .Mui-checked + .MuiSwitch-track': { backgroundColor: intg.color } }}
-                          />
-                        </Stack>
-
-                        <Typography variant="caption" color="grey.400" display="block" mb={1.5}>{intg.descripcion}</Typography>
-
-                        <Stack direction="row" alignItems="center" justifyContent="space-between">
-                          <Chip
-                            label={intg.estado}
-                            size="small"
-                            icon={intg.estado === 'ACTIVO' ? <ActiveIcon sx={{ fontSize: '12px !important', color: `${statusColor} !important` }} /> : intg.estado === 'CONFIGURAR' ? <SyncIcon sx={{ fontSize: '12px !important', color: `${statusColor} !important` }} /> : <WarnIcon sx={{ fontSize: '12px !important', color: `${statusColor} !important` }} />}
-                            sx={{ background: alpha(statusColor, 0.12), color: statusColor, fontWeight: 700, fontSize: 10 }}
-                          />
-                          {intg.ultimaSync && (
-                            <Stack direction="row" alignItems="center" spacing={0.5}>
-                              <SyncIcon sx={{ fontSize: 12, color: 'grey.600' }} />
-                              <Typography variant="caption" color="grey.500">{intg.ultimaSync}</Typography>
-                            </Stack>
-                          )}
-                          {!intg.ultimaSync && (
-                            <Button size="small" variant="outlined" sx={{ textTransform: 'none', fontSize: 11, borderColor: alpha(intg.color, 0.4), color: intg.color, py: 0.25, '&:hover': { borderColor: intg.color, background: alpha(intg.color, 0.1) } }}>
-                              {intg.estado === 'CONFIGURAR' ? 'Configurar' : 'Activar'}
-                            </Button>
-                          )}
-                        </Stack>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                )
-              })}
-            </Grid>
-          </Box>
-        )}
-
-        {/* Tab 4: Disponibilidad */}
-        {tab === 4 && (
-          <Box>
-            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={3} flexWrap="wrap" gap={2}>
-              <Box>
-                <Typography variant="h6" fontWeight={700} color="#1E293B">Configuración de Disponibilidad</Typography>
-                <Typography variant="body2" color="grey.500">Defina las horas operativas esperadas por activo, categoría o período para el cálculo de disponibilidad</Typography>
-              </Box>
-            </Stack>
-
-            {/* ── Sección 1: Períodos especiales ── */}
-            <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#F59E0B', 0.25)}`, mb: 3 }}>
-              <CardContent>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-                  <Box>
-                    <Typography variant="subtitle2" fontWeight={700} color="#1E293B">Períodos especiales</Typography>
-                    <Typography variant="caption" color="grey.500">Defina rangos de meses con horas distintas a las base (vacaciones, temporadas, mantenimientos programados)</Typography>
-                  </Box>
-                  <Button variant="outlined" size="small" startIcon={<AddIcon />}
-                    onClick={() => setPeriodDlg(true)}
-                    sx={{ borderColor: alpha('#F59E0B', 0.5), color: '#F59E0B', '&:hover': { borderColor: '#F59E0B', bgcolor: alpha('#F59E0B', 0.08) }, fontWeight: 700, borderRadius: '8px', flexShrink: 0 }}>
-                    Nuevo período
-                  </Button>
-                </Stack>
-
-                {periodos.length === 0 ? (
-                  <Box sx={{ py: 2.5, textAlign: 'center', borderRadius: '8px', bgcolor: alpha('#fff', 0.02), border: '1px dashed #E5E7EB' }}>
-                    <Typography fontSize={12} color="#64748B">Sin períodos especiales. Las horas base por activo aplican a todos los meses.</Typography>
-                  </Box>
-                ) : (
-                  <TableContainer component={Paper} sx={{ bgcolor: 'transparent', boxShadow: 'none' }}>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow sx={{ '& th': { color: 'text.disabled', fontWeight: 700, fontSize: 10, letterSpacing: '0.05em', textTransform: 'uppercase', borderBottom: '1px solid #E5E7EB', py: 1 } }}>
-                          <TableCell>Nombre</TableCell>
-                          <TableCell>Período</TableCell>
-                          <TableCell>Horas/mes</TableCell>
-                          <TableCell>Aplica a</TableCell>
-                          <TableCell align="right">Acciones</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {periodos.map((p) => (
-                          <TableRow key={p.id} sx={{ '& td': { color: 'grey.200', borderBottom: '1px solid #E5E7EB' }, '&:hover': { bgcolor: alpha('#fff', 0.02) } }}>
-                            <TableCell><Typography fontSize={12} fontWeight={600} color="#1E293B">{p.nombre}</Typography></TableCell>
-                            <TableCell>
-                              <Typography fontSize={11} color="#64748B">{p.desde} → {p.hasta}</Typography>
-                            </TableCell>
-                            <TableCell>
-                              <Chip label={`${p.horas}h`} size="small" sx={{ bgcolor: alpha('#F59E0B', 0.12), color: '#F59E0B', fontWeight: 700, fontSize: 11 }} />
-                            </TableCell>
-                            <TableCell>
-                              {p.aplica === 'todos' && <Chip label="Todos los activos" size="small" sx={{ bgcolor: alpha(EAM_COLOR, 0.12), color: EAM_COLOR, fontSize: 10 }} />}
-                              {p.aplica === 'categoria' && <Chip label={p.categoria} size="small" sx={{ bgcolor: alpha('#3B82F6', 0.12), color: '#93C5FD', fontSize: 10 }} />}
-                              {p.aplica === 'activos' && (
-                                <Tooltip
-                                  title={
-                                    <Box>
-                                      {p.activos?.map((nm) => (
-                                        <Box key={nm} sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, fontSize: 11 }}>
-                                          <span>{nm.split('—')[0].trim()}</span>
-                                          <strong>{p.horasPorActivo?.[nm] ?? p.horas}h</strong>
-                                        </Box>
-                                      ))}
-                                    </Box>
-                                  }
-                                  placement="top"
-                                >
-                                  <Chip label={`${p.activos?.length} equipos`} size="small" sx={{ bgcolor: alpha('#8B5CF6', 0.12), color: '#C4B5FD', fontSize: 10, cursor: 'help' }} />
-                                </Tooltip>
-                              )}
-                            </TableCell>
-                            <TableCell align="right">
-                              <IconButton size="small" onClick={() => setPeriodos((prev) => prev.filter((x) => x.id !== p.id))} sx={{ color: '#EF4444', '&:hover': { bgcolor: alpha('#EF4444', 0.1) } }}>
-                                <DeleteIcon sx={{ fontSize: 16 }} />
-                              </IconButton>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* ── Sección 2: Horas base por activo ── */}
-            <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(EAM_COLOR, 0.2)}`, mb: 3 }}>
-              <CardContent>
-                <Typography variant="subtitle2" fontWeight={700} color="#1E293B" mb={0.5}>Horas base por activo</Typography>
-                <Typography variant="caption" color="grey.500" display="block" mb={2}>Horas operativas esperadas por mes para cada activo. Se aplican cuando no hay un período especial vigente.</Typography>
-
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="flex-end" flexWrap="wrap" useFlexGap mb={2}>
-                  <TextField
-                    select size="small" label="Filtrar categoría" value={dispCat}
-                    onChange={(e) => { setDispCat(e.target.value); setDispSel([]) }}
-                    sx={{ minWidth: 180, '& .MuiSvgIcon-root': { color: 'grey.500' } }}
-                  >
-                    <MenuItem value="Todos">Todas las categorías</MenuItem>
-                    {ACTIVOS_CATS_CFG.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
-                  </TextField>
-                  <TextField
-                    size="small" label="Horas/mes a aplicar" type="number" value={dispBulk}
-                    onChange={(e) => setDispBulk(e.target.value)}
-                    inputProps={{ min: 1, max: 744 }}
-                    sx={{ minWidth: 150 }}
-                  />
-                  <Button variant="contained" onClick={applyDispBulk}
-                    sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#1A1A1A' }, fontWeight: 700, borderRadius: '8px', height: 36 }}>
-                    Aplicar a {dispSel.length > 0 ? `${dispSel.length} seleccionados` : (dispCat === 'Todos' ? 'todos' : dispCat)}
-                  </Button>
-                  {dispSel.length > 0 && (
-                    <Button size="small" onClick={() => setDispSel([])} sx={{ color: 'grey.500', fontSize: 11 }}>Limpiar selección</Button>
-                  )}
-                </Stack>
-
-                <Box mb={2}>
-                  <Typography variant="caption" color="grey.600" mb={0.75} display="block">Selección individual (opcional)</Typography>
-                  <Stack direction="row" flexWrap="wrap" gap={0.75}>
-                    {activosFiltrados.map((a) => (
-                      <Chip key={a.nombre} label={a.nombre.split('—')[0].trim()} size="small" clickable
-                        onClick={() => setDispSel((p) => p.includes(a.nombre) ? p.filter((x) => x !== a.nombre) : [...p, a.nombre])}
-                        sx={{
-                          bgcolor: dispSel.includes(a.nombre) ? alpha(EAM_COLOR, 0.2) : alpha('#fff', 0.05),
-                          color: dispSel.includes(a.nombre) ? EAM_COLOR : '#64748B',
-                          border: `1px solid ${dispSel.includes(a.nombre) ? alpha(EAM_COLOR, 0.4) : '#E5E7EB'}`,
-                          fontWeight: dispSel.includes(a.nombre) ? 700 : 400, fontSize: 11,
-                        }}
-                      />
-                    ))}
-                  </Stack>
-                </Box>
-
-                {/* Tabla individual */}
-                <Box sx={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid #E5E7EB' }}>
-                  <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 140px 120px 130px', gap: 2, px: 3, py: 1.25, bgcolor: alpha(EAM_COLOR, 0.06), borderBottom: '1px solid #E5E7EB' }}>
-                    {['Activo', 'Categoría', 'Centro costo', 'Horas/mes'].map((h) => (
-                      <Typography key={h} fontSize={10} fontWeight={700} color="#64748B" letterSpacing="0.05em" textTransform="uppercase">{h}</Typography>
-                    ))}
-                  </Box>
-                  {ACTIVOS_CFG.map((a) => (
-                    <Box key={a.nombre} sx={{ display: 'grid', gridTemplateColumns: '2fr 140px 120px 130px', gap: 2, px: 3, py: 1.25, borderBottom: '1px solid #E5E7EB', alignItems: 'center', '&:hover': { bgcolor: alpha('#fff', 0.02) } }}>
-                      <Box>
-                        <Typography fontSize={12} fontWeight={600} color="#1E293B" noWrap>{a.nombre.split('—')[0].trim()}</Typography>
-                        <Typography fontSize={10} color="#64748B" noWrap>{a.nombre.split('—')[1]?.trim()}</Typography>
-                      </Box>
-                      <Chip label={a.categoria} size="small" sx={{ bgcolor: alpha('#6B7280', 0.15), color: '#9CA3AF', fontSize: 10, height: 20, fontWeight: 600, width: 'fit-content' }} />
-                      <Typography fontSize={11} color="#64748B">{a.centroCosto}</Typography>
-                      <TextField
-                        size="small" type="number" value={horasCfg[a.nombre] ?? 720}
-                        onChange={(e) => setHorasCfg((p) => ({ ...p, [a.nombre]: parseFloat(e.target.value) || 0 }))}
-                        inputProps={{ min: 1, max: 744, style: { textAlign: 'center', fontSize: 13, fontWeight: 700 } }}
-                        sx={{
-                          '& .MuiOutlinedInput-root': { color: EAM_COLOR, bgcolor: alpha(EAM_COLOR, 0.06), fontSize: 13 },
-                          '& fieldset': { borderColor: alpha(EAM_COLOR, 0.25) },
-                          '& .MuiOutlinedInput-root:hover fieldset': { borderColor: alpha(EAM_COLOR, 0.5) },
-                        }}
-                      />
-                    </Box>
-                  ))}
-                </Box>
-              </CardContent>
-            </Card>
-
-            {/* Nota */}
-            <Box sx={{ p: 2, bgcolor: alpha('#3B82F6', 0.06), border: '1px solid rgba(59,130,246,0.2)', borderRadius: '10px' }}>
-              <Typography fontSize={12} color="#93C5FD">
-                <strong>Referencia:</strong> 24 h/día × 30 días = 720 h/mes (continuo) · 1 turno (8h) = 240 h/mes · 2 turnos = 480 h/mes · 3 turnos = 720 h/mes. Los períodos especiales tienen precedencia sobre los valores base. La configuración se aplica automáticamente al informe de Disponibilidad.
-              </Typography>
-            </Box>
-
-            {/* ── Dialog: Nuevo período ── */}
-            <Dialog open={periodDlg} onClose={() => setPeriodDlg(false)} maxWidth="sm" fullWidth
-              PaperProps={{ sx: { bgcolor: 'background.paper', border: '1px solid #E5E7EB', borderRadius: '14px' } }}>
-              <DialogTitle sx={{ color: 'text.primary', fontWeight: 700, pb: 1 }}>
-                Nuevo período especial
-                <IconButton onClick={() => setPeriodDlg(false)} sx={{ position: 'absolute', right: 12, top: 12, color: 'grey.500' }}><CloseIcon /></IconButton>
-              </DialogTitle>
-              <DialogContent sx={{ pt: 1 }}>
-                <Stack spacing={2} mt={1}>
-                  <TextField size="small" label="Nombre del período" fullWidth
-                    value={newPeriodo.nombre} onChange={(e) => setNewPeriodo((p) => ({ ...p, nombre: e.target.value }))}
-                    placeholder="Ej: Vacaciones julio-agosto, Operación reducida..."
-                    
-                  />
-                  <Stack direction="row" spacing={2}>
-                    <TextField size="small" label="Mes inicio" type="month" fullWidth
-                      value={newPeriodo.desde} onChange={(e) => setNewPeriodo((p) => ({ ...p, desde: e.target.value }))}
-                      InputLabelProps={{ shrink: true }}
-                      
-                    />
-                    <TextField size="small" label="Mes fin" type="month" fullWidth
-                      value={newPeriodo.hasta} onChange={(e) => setNewPeriodo((p) => ({ ...p, hasta: e.target.value }))}
-                      InputLabelProps={{ shrink: true }}
-                      
-                    />
-                    <TextField size="small" label="Horas/mes" type="number" sx={{ minWidth: 100, '& .MuiOutlinedInput-root': { color: EAM_COLOR, bgcolor: alpha(EAM_COLOR, 0.06) }, '& label': { color: 'grey.500' }, '& fieldset': { borderColor: alpha(EAM_COLOR, 0.3) } }}
-                      value={newPeriodo.horas}
-                      onChange={(e) => {
-                        const val = parseFloat(e.target.value) || 0
-                        setNewPeriodo((p) => ({ ...p, horas: val }))
-                        if (newPeriodo.aplica === 'activos' && periodActSel.length > 0) {
-                          setPeriodActHoras((p) => {
-                            const n = { ...p }
-                            periodActSel.forEach((nm) => { n[nm] = val })
-                            return n
-                          })
-                        }
-                      }}
-                      inputProps={{ min: 1, max: 744 }}
-                    />
-                  </Stack>
-
-                  <TextField select size="small" label="Aplica a" fullWidth
-                    value={newPeriodo.aplica} onChange={(e) => setNewPeriodo((p) => ({ ...p, aplica: e.target.value as PeriodoCfg['aplica'] }))}
-                    sx={{ '& .MuiSvgIcon-root': { color: 'grey.500' } }}
-                  >
-                    <MenuItem value="todos">Todos los activos</MenuItem>
-                    <MenuItem value="categoria">Por categoría</MenuItem>
-                    <MenuItem value="activos">Activos específicos</MenuItem>
-                  </TextField>
-
-                  {newPeriodo.aplica === 'categoria' && (
-                    <TextField select size="small" label="Categoría" fullWidth
-                      value={newPeriodo.categoria} onChange={(e) => setNewPeriodo((p) => ({ ...p, categoria: e.target.value }))}
-                      sx={{ '& .MuiSvgIcon-root': { color: 'grey.500' } }}
-                    >
-                      {ACTIVOS_CATS_CFG.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
-                    </TextField>
-                  )}
-
-                  {newPeriodo.aplica === 'activos' && (
-                    <Box>
-                      <Stack direction="row" spacing={1} alignItems="center" mb={1}>
-                        <TextField select size="small" label="Filtrar categoría" value={periodActCat}
-                          onChange={(e) => setPeriodActCat(e.target.value)}
-                          sx={{ minWidth: 160, '& .MuiSvgIcon-root': { color: 'grey.500' } }}
-                        >
-                          <MenuItem value="Todos">Todas las categorías</MenuItem>
-                          {ACTIVOS_CATS_CFG.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
-                        </TextField>
-                        {periodActSel.length > 0 && (
-                          <Typography fontSize={11} color={EAM_COLOR} fontWeight={700}>{periodActSel.length} seleccionados</Typography>
-                        )}
-                      </Stack>
-                      <Stack direction="row" flexWrap="wrap" gap={0.75} mb={periodActSel.length > 0 ? 1.5 : 0}>
-                        {(periodActCat === 'Todos' ? ACTIVOS_CFG : ACTIVOS_CFG.filter((a) => a.categoria === periodActCat)).map((a) => (
-                          <Chip key={a.nombre} label={a.nombre.split('—')[0].trim()} size="small" clickable
-                            onClick={() => togglePeriodActivo(a.nombre, newPeriodo.horas)}
-                            sx={{
-                              bgcolor: periodActSel.includes(a.nombre) ? alpha(EAM_COLOR, 0.2) : alpha('#fff', 0.05),
-                              color: periodActSel.includes(a.nombre) ? EAM_COLOR : '#64748B',
-                              border: `1px solid ${periodActSel.includes(a.nombre) ? alpha(EAM_COLOR, 0.4) : '#E5E7EB'}`,
-                              fontWeight: periodActSel.includes(a.nombre) ? 700 : 400, fontSize: 11,
-                            }}
-                          />
-                        ))}
-                      </Stack>
-
-                      {/* Tabla de horas individuales por equipo seleccionado */}
-                      {periodActSel.length > 0 && (
-                        <Box sx={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid rgba(47, 111, 235, 0.2)', bgcolor: alpha(EAM_COLOR, 0.03) }}>
-                          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 130px', px: 2, py: 1, bgcolor: alpha(EAM_COLOR, 0.08), borderBottom: '1px solid rgba(47, 111, 235, 0.15)' }}>
-                            <Typography fontSize={10} fontWeight={700} color="#64748B" letterSpacing="0.05em" textTransform="uppercase">Equipo</Typography>
-                            <Typography fontSize={10} fontWeight={700} color="#64748B" letterSpacing="0.05em" textTransform="uppercase">Horas/mes</Typography>
-                          </Box>
-                          {periodActSel.map((nombre) => {
-                            const parts = nombre.split('—')
-                            return (
-                              <Box key={nombre} sx={{ display: 'grid', gridTemplateColumns: '1fr 130px', px: 2, py: 1, borderTop: '1px solid #E5E7EB', alignItems: 'center', '&:hover': { bgcolor: alpha('#fff', 0.02) } }}>
-                                <Box>
-                                  <Typography fontSize={12} fontWeight={600} color="#1E293B" noWrap>{parts[0].trim()}</Typography>
-                                  <Typography fontSize={10} color="#64748B" noWrap>{parts[1]?.trim()}</Typography>
-                                </Box>
-                                <TextField
-                                  size="small" type="number"
-                                  value={periodActHoras[nombre] ?? newPeriodo.horas}
-                                  onChange={(e) => setPeriodActHoras((p) => ({ ...p, [nombre]: parseFloat(e.target.value) || 0 }))}
-                                  inputProps={{ min: 1, max: 744, style: { textAlign: 'center', fontSize: 13, fontWeight: 700 } }}
-                                  sx={{
-                                    '& .MuiOutlinedInput-root': { color: EAM_COLOR, bgcolor: alpha(EAM_COLOR, 0.06), fontSize: 13 },
-                                    '& fieldset': { borderColor: alpha(EAM_COLOR, 0.25) },
-                                    '& .MuiOutlinedInput-root:hover fieldset': { borderColor: alpha(EAM_COLOR, 0.5) },
-                                  }}
-                                />
-                              </Box>
-                            )
-                          })}
-                        </Box>
-                      )}
-                    </Box>
-                  )}
-                </Stack>
-              </DialogContent>
-              <DialogActions sx={{ px: 3, pb: 2.5 }}>
-                <Button onClick={() => setPeriodDlg(false)} sx={{ color: 'grey.500' }}>Cancelar</Button>
-                <Button variant="contained" onClick={savePeriodo}
-                  disabled={!newPeriodo.nombre || newPeriodo.horas <= 0 || newPeriodo.desde > newPeriodo.hasta || (newPeriodo.aplica === 'activos' && periodActSel.length === 0)}
-                  sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: '#1A1A1A' }, fontWeight: 700, borderRadius: '8px' }}>
-                  Agregar período
-                </Button>
-              </DialogActions>
-            </Dialog>
-          </Box>
-        )}
+        {/* Tab 4: Horas programadas por activo (base de la disponibilidad) */}
+        {tab === 4 && <DisponibilidadSection />}
 
         {/* ── Tab 5: OCR de Lubricación (diccionario del motor propio de lectura) ── */}
         {tab === 5 && (

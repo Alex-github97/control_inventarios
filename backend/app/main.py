@@ -1126,6 +1126,7 @@ async def _migrar_esquema(esquema: str) -> None:
             ("aps_producto", "peso_kg", "DOUBLE PRECISION"),
             ("aps_ubicacion", "abastecida_por_id", "INTEGER"),
             ("aps_restriccion", "ambito", "VARCHAR(30) DEFAULT 'OTRA' NOT NULL"),
+            ("eam_activo", "horas_programadas_mes", "DOUBLE PRECISION"),
         ]:
             await conn.execute(text(
                 "ALTER TABLE %s ADD COLUMN IF NOT EXISTS %s %s" % (tabla, columna, tipo)

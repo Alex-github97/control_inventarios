@@ -5604,6 +5604,8 @@ async def resumen_garantias(db: AsyncSession = Depends(get_db)):
     """
     filas = list((await db.execute(select(EAMGarantia))).scalars().all())
     hoy = date.today()
+    from app.core.parametros_eam import leer_parametros_eam
+    aviso = (await leer_parametros_eam(db))['garantia_dias_aviso']
     vigentes = por_vencer = vencidas = reclamadas = 0
     valor_total = 0.0
     #
@@ -5629,7 +5631,7 @@ async def resumen_garantias(db: AsyncSession = Depends(get_db)):
             vencidas += 1
             continue
         vigentes += 1
-        if dias is not None and dias <= DIAS_AVISO_GARANTIA:
+        if dias is not None and dias <= aviso:
             por_vencer += 1
         # El valor cubierto suma solo lo que todavía cubre algo: sumar las
         # vencidas infla la cifra con cobertura que ya no existe.
@@ -5644,7 +5646,7 @@ async def resumen_garantias(db: AsyncSession = Depends(get_db)):
     return {
         "vigentes": vigentes, "por_vencer": por_vencer, "vencidas": vencidas,
         "reclamadas": reclamadas, "valor_cubierto": valor_total,
-        "total": len(filas), "dias_aviso": DIAS_AVISO_GARANTIA,
+        "total": len(filas), "dias_aviso": aviso,
         "reclamos": n_rec, "monto_solicitado": float(solicitado),
         "monto_recuperado": float(recuperado),
         # La tasa se calcula acá para que la pantalla no divida por cero.
@@ -5654,7 +5656,7 @@ async def resumen_garantias(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/garantias/por-vencer", response_model=List[GarantiaResponse])
-async def garantias_por_vencer(dias: int = Query(DIAS_AVISO_GARANTIA, ge=1, le=365),
+async def garantias_por_vencer(dias: Optional[int] = Query(None, ge=1, le=365),
                                db: AsyncSession = Depends(get_db)):
     """Las que se vencen dentro de la ventana, lo más próximo primero.
 
@@ -5662,6 +5664,9 @@ async def garantias_por_vencer(dias: int = Query(DIAS_AVISO_GARANTIA, ge=1, le=3
     puede reclamar, y mezclarle lo que ya no tiene remedio la vuelve inútil.
     """
     hoy = date.today()
+    if dias is None:
+        from app.core.parametros_eam import leer_parametros_eam
+        dias = int((await leer_parametros_eam(db))['garantia_dias_aviso'])
     q = (select(EAMGarantia)
          .where(and_(EAMGarantia.fecha_fin >= hoy,
                      EAMGarantia.fecha_fin <= hoy + timedelta(days=dias),

@@ -86,6 +86,7 @@ export interface ActivoAPI {
   numero_ejes?: number | null
   origen?: string | null
   activo?: boolean
+  parent_id?: number | null
 }
 
 interface TreeNode {
@@ -123,30 +124,39 @@ const EMPTY_ACTIVO = {
 }
 
 
-const TREE_DATA: TreeNode[] = [
-  {
-    id: 'node-cd-bta', label: 'Centro de Distribución Bogotá',
-    children: [
-      {
-        id: 'node-cf1', label: 'Cuarto Frío #1', codigo: 'CF-001',
-        children: [
-          { id: 'node-cf001', label: 'Compresor CMP-07', codigo: 'CMP-07' },
-        ],
-      },
-      { id: 'node-mc001', label: 'Montacargas MC-001', codigo: 'MC-001' },
-      { id: 'node-bodega', label: 'Bodega Principal', codigo: 'BD-01' },
-      { id: 'node-srv', label: 'Servidor SRV-01', codigo: 'SRV-01' },
-    ],
-  },
-  {
-    id: 'node-flota', label: 'Flota Vehicular',
-    children: [
-      { id: 'node-vh001', label: 'Tractocamión VH-001', codigo: 'VH-001' },
-      { id: 'node-vh002', label: 'Camión VH-002', codigo: 'VH-002' },
-      { id: 'node-vh003', label: 'Camioneta VH-003', codigo: 'VH-003' },
-    ],
-  },
-]
+/**
+ * La jerarquía sale de los activos reales: sede → ubicación (o área) →
+ * activo, y bajo cada activo los que lo tienen como padre (un motor dentro de
+ * su camión). Antes era un «Centro de Distribución Bogotá» escrito a mano que
+ * no correspondía a ningún activo registrado.
+ */
+function arbolDeActivos(activos: ActivoAPI[]): TreeNode[] {
+  const ids = new Set(activos.map(a => a.id))
+  const hijos = new Map<number, ActivoAPI[]>()
+  for (const a of activos) {
+    if (a.parent_id && ids.has(a.parent_id)) hijos.set(a.parent_id, [...(hijos.get(a.parent_id) ?? []), a])
+  }
+  const nodo = (a: ActivoAPI): TreeNode => ({
+    id: `a-${a.id}`, label: a.nombre, codigo: a.codigo,
+    children: (hijos.get(a.id) ?? []).sort((x, y) => x.codigo.localeCompare(y.codigo)).map(nodo),
+  })
+  const raices = activos.filter(a => !a.parent_id || !ids.has(a.parent_id))
+  const sedes = new Map<string, Map<string, ActivoAPI[]>>()
+  for (const a of raices) {
+    const sede = a.sede?.trim() || 'Sin sede'
+    const lugar = a.ubicacion?.trim() || a.area?.trim() || 'Sin ubicación'
+    if (!sedes.has(sede)) sedes.set(sede, new Map())
+    const m = sedes.get(sede)!
+    m.set(lugar, [...(m.get(lugar) ?? []), a])
+  }
+  return [...sedes.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([sede, lugares]) => ({
+    id: `s-${sede}`, label: sede,
+    children: [...lugares.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([lugar, lista]) => ({
+      id: `u-${sede}-${lugar}`, label: `${lugar} (${lista.length})`,
+      children: lista.sort((x, y) => x.codigo.localeCompare(y.codigo)).map(nodo),
+    })),
+  }))
+}
 
 // ─── Color helpers ────────────────────────────────────────────────────────────
 
@@ -825,10 +835,7 @@ export default function EAMActivos() {
   const [aEliminar, setAEliminar] = useState<ActivoAPI | null>(null)
 
   // Jerarquía expanded state
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({
-    'node-cd-bta': true,
-    'node-flota': true,
-  })
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
 
   const handleToggle = (id: string) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] }))
 
@@ -1089,7 +1096,8 @@ export default function EAMActivos() {
               <Typography fontSize={11} color="#94A3B8">· clic en un activo para abrir su hoja de vida</Typography>
             </Stack>
             <Stack spacing={0.25}>
-              {TREE_DATA.map((node) => (
+              {arbolDeActivos(activos).length === 0 && <Typography fontSize={13} color="text.secondary">Sin activos registrados.</Typography>}
+              {arbolDeActivos(activos).map((node) => (
                 <TreeNodeItem
                   key={node.id}
                   node={node}

@@ -214,14 +214,16 @@ async def tablero(
             "severidad": "ALTA", "enlace": "/eam/confiabilidad",
         })
 
+    from app.core.parametros_eam import leer_parametros_eam
+    aviso_g = int((await leer_parametros_eam(db))['garantia_dias_aviso'])
     r = await db.execute(select(func.count(EAMGarantia.id)).where(and_(
         EAMGarantia.estado == "VIGENTE",
-        EAMGarantia.fecha_fin <= (ahora + timedelta(days=30)).date())))
+        EAMGarantia.fecha_fin <= (ahora + timedelta(days=aviso_g)).date())))
     garantias_por_vencer = r.scalar() or 0
     if garantias_por_vencer:
         alertas.append({
             "tipo": "GARANTIA", "referencia": None,
-            "titulo": f"{garantias_por_vencer} {'garantía vence' if garantias_por_vencer == 1 else 'garantías vencen'} en 30 días",
+            "titulo": f"{garantias_por_vencer} {'garantía vence' if garantias_por_vencer == 1 else 'garantías vencen'} en {aviso_g} días",
             "detalle": "Conviene revisar pendientes antes de que expiren",
             "severidad": "MEDIA", "enlace": "/eam/garantias",
         })

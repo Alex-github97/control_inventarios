@@ -146,6 +146,8 @@ async def _cumplimiento_plan(db: AsyncSession, desde: datetime, **_) -> List[Dic
         .join(EAMActivo, EAMActivo.id == EAMPlanActivo.activo_id)
         .where(EAMActivo.activo.is_(True))
         .order_by(EAMPlanActivo.proxima_fecha))
+    from app.core.parametros_eam import leer_parametros_eam
+    aviso_pm = (await leer_parametros_eam(db))['pm_dias_aviso']
     filas = []
     for pa, plan, activo in r.all():
         dias = (pa.proxima_fecha - ahora).days if pa.proxima_fecha else None
@@ -160,7 +162,7 @@ async def _cumplimiento_plan(db: AsyncSession, desde: datetime, **_) -> List[Dic
             "dias": dias,
             "estado": ("SIN PROGRAMAR" if dias is None
                        else "VENCIDA" if dias < 0
-                       else "PRÓXIMA" if dias <= 15 else "AL DÍA"),
+                       else "PRÓXIMA" if dias <= aviso_pm else "AL DÍA"),
         })
     return filas
 

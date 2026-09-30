@@ -85,6 +85,122 @@ async def _corridas(db: AsyncSession) -> List[Dict]:
     return sorted(salida, key=lambda c: c["fecha"])
 
 
+# ─── Tablero de planta ────────────────────────────────────────────────────────
+
+@router.get("/tablero", response_model=Dict[str, Any])
+async def tablero_planta(db: AsyncSession = Depends(get_db)):
+    """Lo que el tablero de MES mostraba escrito a mano —líneas, órdenes
+    activas, paradas en curso, alertas y tendencias— calculado de la planta.
+
+    OEE por línea con los últimos 7 días (un solo turno es ruido); producción
+    y desperdicio del día; paradas abiertas con los minutos que llevan.
+    """
+    from app.infrastructure.models.mes import MESPlanta, EstadoOrdenProduccionEnum, ResultadoInspeccionMESEnum
+    lineas, productos, operarios, equipos, celdas = await _nombres(db)
+    plantas = {p.id: p.nombre for p in (await db.execute(select(MESPlanta))).scalars().all()}
+    planta_de = {l.id: plantas.get(l.planta_id) for l in (await db.execute(select(MESLinea))).scalars().all()}
+    ahora = _ahora()
+    hoy = ahora.replace(hour=0, minute=0, second=0, microsecond=0)
+    hace7, hace14 = ahora - timedelta(days=7), hoy - timedelta(days=13)
+
+    regs = [r for r in (await db.execute(select(MESOEERegistro).where(MESOEERegistro.fecha >= hace14))).scalars().all()]
+    corridas = [c for c in await _corridas(db) if c["fecha"] >= hace14]
+    ordenes = (await db.execute(select(MESOrdenProduccion).where(MESOrdenProduccion.estado.in_(
+        [EstadoOrdenProduccionEnum.LIBERADA, EstadoOrdenProduccionEnum.EN_EJECUCION])))).scalars().all()
+    abiertas = (await db.execute(select(MESParada).where(MESParada.fecha_fin.is_(None)))).scalars().all()
+    ejecs = {e.id: e for e in (await db.execute(select(MESEjecucion))).scalars().all()}
+    orden_de = {o.id: o for o in (await db.execute(select(MESOrdenProduccion))).scalars().all()}
+    insp_pend = len((await db.execute(select(MESInspeccion.id).where(
+        MESInspeccion.resultado == ResultadoInspeccionMESEnum.PENDIENTE))).all())
+
+    def linea_de_parada(p):
+        if p.ejecucion_id and p.ejecucion_id in ejecs:
+            o = orden_de.get(ejecs[p.ejecucion_id].orden_id)
+            if o and o.linea_id:
+                return o.linea_id
+        e = equipos.get(p.equipo_id)
+        return celdas.get(e.celda_id) if e and e.celda_id else None
+
+    paradas = []
+    for p in abiertas:
+        lid = linea_de_parada(p)
+        paradas.append({"id": p.id, "tipo": _val(p.tipo), "causa": p.causa, "descripcion": p.descripcion,
+                        "equipo": equipos[p.equipo_id].nombre if p.equipo_id in equipos else None,
+                        "linea": lineas.get(lid), "planta": planta_de.get(lid),
+                        "inicio": _n(p.fecha_inicio).isoformat() if p.fecha_inicio else None,
+                        "minutos": round((ahora - _n(p.fecha_inicio)).total_seconds() / 60) if p.fecha_inicio else None})
+    paradas.sort(key=lambda x: -(x["minutos"] or 0))
+
+    filas_ord = []
+    for o in ordenes:
+        plan = o.cantidad_planificada or 0
+        fin = _n(o.fecha_fin_plan)
+        filas_ord.append({"id": o.id, "numero": o.numero, "producto": productos.get(o.producto_id), "linea": lineas.get(o.linea_id),
+                          "planta": planta_de.get(o.linea_id), "estado": _val(o.estado), "planificada": plan,
+                          "producida": o.cantidad_producida or 0,
+                          "avance_pct": round((o.cantidad_producida or 0) / plan * 100, 1) if plan else None,
+                          "fin_plan": fin.date().isoformat() if fin else None, "atrasada": bool(fin and fin < ahora)})
+    filas_ord.sort(key=lambda x: (not x["atrasada"], x["fin_plan"] or "9999"))
+
+    filas_lin = []
+    for lid, nombre in lineas.items():
+        r7 = [r for r in regs if r.linea_id == lid and _n(r.fecha) >= hace7]
+        per = _perdidas(r7) if r7 else None
+        c_hoy = [c for c in corridas if c["linea_id"] == lid and c["fecha"] >= hoy]
+        tot = sum(c["total"] for c in c_hoy)
+        filas_lin.append({"linea_id": lid, "nombre": nombre, "planta": planta_de.get(lid),
+                          "oee_7d": per["oee"] if per else None, "disponibilidad": per["disponibilidad"] if per else None,
+                          "rendimiento": per["rendimiento"] if per else None, "calidad": per["calidad"] if per else None,
+                          "produccion_hoy": sum(c["producida"] for c in c_hoy),
+                          "scrap_hoy_pct": round(sum(c["scrap"] for c in c_hoy) / tot * 100, 2) if tot else None,
+                          "ordenes_activas": sum(1 for o in ordenes if o.linea_id == lid),
+                          "paradas_abiertas": sum(1 for p in paradas if p["linea"] == nombre)})
+
+    tendencia = []
+    for k in range(14):
+        d0 = hace14 + timedelta(days=k)
+        d1 = d0 + timedelta(days=1)
+        per = _perdidas([r for r in regs if d0 <= _n(r.fecha) < d1])
+        cs = [c for c in corridas if d0 <= c["fecha"] < d1]
+        tot = sum(c["total"] for c in cs)
+        tendencia.append({"dia": d0.date().isoformat(), "oee": per["oee"] if per else None,
+                          "produccion": sum(c["producida"] for c in cs),
+                          "scrap_pct": round(sum(c["scrap"] for c in cs) / tot * 100, 2) if tot else None})
+
+    alertas = []
+    for p in paradas:
+        if (p["minutos"] or 0) >= 60:
+            alertas.append({"nivel": "CRITICA" if p["minutos"] >= 240 else "ADVERTENCIA",
+                            "titulo": f"Parada abierta hace {p['minutos'] // 60} h {p['minutos'] % 60} min",
+                            "detalle": f"{p['equipo'] or p['linea'] or 'Sin equipo'}: {p['causa']}"})
+    for o in filas_ord:
+        if o["atrasada"]:
+            alertas.append({"nivel": "ADVERTENCIA", "titulo": f"Orden {o['numero']} pasó su fecha de fin",
+                            "detalle": f"{o['producto']}: {o['avance_pct'] if o['avance_pct'] is not None else '—'} % de avance, debía terminar el {o['fin_plan']}"})
+    for l in filas_lin:
+        if l["oee_7d"] is not None and l["oee_7d"] < 65:
+            alertas.append({"nivel": "ADVERTENCIA", "titulo": f"{l['nombre']}: OEE de 7 días en {l['oee_7d']} %",
+                            "detalle": "Por debajo de 65 %: revisar la pestaña de pérdidas en la analítica de planta."})
+    if insp_pend:
+        alertas.append({"nivel": "INFO", "titulo": f"{insp_pend} inspecciones esperan dictamen", "detalle": "Lotes que no se pueden liberar hasta decidir."})
+
+    per7 = _perdidas([r for r in regs if _n(r.fecha) >= hace7])
+    c_hoy = [c for c in corridas if c["fecha"] >= hoy]
+    tot_hoy = sum(c["total"] for c in c_hoy)
+    activas = [{"id": e.id, "orden": orden_de[e.orden_id].numero if e.orden_id in orden_de else None,
+                "equipo_id": e.equipo_id, "equipo": equipos[e.equipo_id].nombre if e.equipo_id in equipos else None,
+                "linea": lineas.get(orden_de[e.orden_id].linea_id) if e.orden_id in orden_de else None}
+               for e in ejecs.values() if _val(e.estado) in ("EN_PROGRESO", "PAUSADA")]
+    return {
+        "kpis": {"oee_7d": per7["oee"] if per7 else None, "produccion_hoy": sum(c["producida"] for c in c_hoy),
+                 "scrap_hoy_pct": round(sum(c["scrap"] for c in c_hoy) / tot_hoy * 100, 2) if tot_hoy else None,
+                 "ordenes_activas": len(ordenes), "ordenes_atrasadas": sum(1 for o in filas_ord if o["atrasada"]),
+                 "paradas_abiertas": len(paradas), "inspecciones_pendientes": insp_pend},
+        "lineas": filas_lin, "paradas": paradas, "ordenes": filas_ord, "tendencia": tendencia,
+        "alertas": alertas, "ejecuciones_activas": activas,
+    }
+
+
 # ─── SPC ──────────────────────────────────────────────────────────────────────
 
 @router.get("/spc", response_model=Dict[str, Any])

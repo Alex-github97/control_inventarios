@@ -99,10 +99,27 @@ def mtbf(ordenes: List[Tuple[EAMOrdenTrabajo, EAMActivo]]) -> Tuple[Optional[flo
     return round(sum(intervalos) / len(intervalos), 1), len(intervalos)
 
 
-def disponibilidad(ordenes: List[Tuple[EAMOrdenTrabajo, EAMActivo]],
-                   activos: int, dias: int) -> Optional[float]:
-    """Porcentaje del tiempo del periodo en que la flota estuvo disponible.
+HORAS_MES_CONTINUO = 720.0
 
+
+def horas_programadas(activos, dias: int) -> float:
+    """Horas que los activos debían estar disponibles en el periodo.
+
+    Cada activo aporta sus horas programadas por mes (Configuración →
+    Disponibilidad); sin dato, se supone operación continua (720 h/mes). Una
+    montacargas de un turno no debe contarse como si trabajara 24 horas: su
+    disponibilidad saldría inflada.
+    """
+    if isinstance(activos, int):
+        return activos * dias * 24
+    return sum((getattr(a, "horas_programadas_mes", None) or HORAS_MES_CONTINUO) / 30 * dias for a in activos)
+
+
+def disponibilidad(ordenes: List[Tuple[EAMOrdenTrabajo, EAMActivo]],
+                   activos, dias: int) -> Optional[float]:
+    """Porcentaje del tiempo programado en que la flota estuvo disponible.
+
+    `activos` es la lista de activos (o, por compatibilidad, cuántos son).
     Solo restan las órdenes que declaran afectar la disponibilidad: un cambio de
     aceite con el equipo operando no es tiempo perdido, y contarlo haría que la
     cifra castigue el mantenimiento preventivo, que es justo lo contrario de lo
@@ -110,7 +127,9 @@ def disponibilidad(ordenes: List[Tuple[EAMOrdenTrabajo, EAMActivo]],
     """
     if not activos or not dias:
         return None
-    horas_totales = activos * dias * 24
+    horas_totales = horas_programadas(activos, dias)
+    if horas_totales <= 0:
+        return None
     fuera = sum(h for h in (horas_entre(o.fecha_inicio, o.fecha_fin)
                             for o, _ in ordenes if o.afecta_disponibilidad)
                 if h is not None)
@@ -126,13 +145,13 @@ def agrupar(ordenes: List[Tuple[EAMOrdenTrabajo, EAMActivo]],
     particular, que es lo que se quiere encontrar acá.
     """
     grupos: Dict[str, List[Tuple[EAMOrdenTrabajo, EAMActivo]]] = defaultdict(list)
-    activos_por_grupo: Dict[str, set] = defaultdict(set)
+    activos_por_grupo: Dict[str, dict] = defaultdict(dict)
     for o, a in ordenes:
         etiqueta = clave(a)
         if not etiqueta:
             continue
         grupos[etiqueta].append((o, a))
-        activos_por_grupo[etiqueta].add(a.id)
+        activos_por_grupo[etiqueta][a.id] = a
 
     salida = []
     for etiqueta, filas in grupos.items():
@@ -152,6 +171,6 @@ def agrupar(ordenes: List[Tuple[EAMOrdenTrabajo, EAMActivo]],
             "mttr_horas": valor_mttr, "mttr_casos": casos_mttr,
             "mtbf_horas": valor_mtbf, "mtbf_activos": activos_mtbf,
             "horas_fuera": round(fuera, 1),
-            "disponibilidad": disponibilidad(filas, len(activos_por_grupo[etiqueta]), dias),
+            "disponibilidad": disponibilidad(filas, list(activos_por_grupo[etiqueta].values()), dias),
         })
     return sorted(salida, key=lambda x: -x["fallas"])

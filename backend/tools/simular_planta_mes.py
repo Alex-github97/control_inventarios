@@ -171,6 +171,24 @@ async def simular():
                                      tipo=TipoInspeccionMESEnum.FINAL_LINEA,
                                      resultado=ResultadoInspeccionMESEnum.APROBADO if defectos <= 3 else ResultadoInspeccionMESEnum.RECHAZADO,
                                      fecha_inspeccion=dia.replace(hour=20), muestra_tam=muestra, muestra_defectos=defectos))
+        # Lo que está pasando ahora: una orden liberada con una ejecución en
+        # curso y una parada abierta hace 90 minutos (para el tablero).
+        n_orden += 1
+        prod = productos[0]
+        orden = MESOrdenProduccion(numero=f"SIM-OP-{n_orden}", producto_id=prod.id, linea_id=lineas[0].id,
+                                   estado=EstadoOrdenProduccionEnum.EN_EJECUCION, prioridad=PrioridadOrdenMESEnum.ALTA,
+                                   cantidad_planificada=3000, cantidad_producida=1200, unidad_medida="UN",
+                                   costo_material=0, costo_mano_obra=0, costo_indirecto=0,
+                                   fecha_fin_plan=AHORA + timedelta(days=2))
+        db.add(orden); await db.flush()
+        eq = equipos[lineas[0].id][1]
+        ej = MESEjecucion(orden_id=orden.id, operario_id=operarios[0].id, equipo_id=eq.id, turno=TurnoMESEnum.MANANA,
+                          estado=EstadoEjecucionMESEnum.EN_PROGRESO, fecha_inicio=AHORA - timedelta(hours=3),
+                          cantidad_producida=1200, cantidad_scrap=20)
+        db.add(ej); await db.flush()
+        db.add(MESParada(ejecucion_id=ej.id, equipo_id=eq.id, tipo=TipoParadaMESEnum.NO_PLANEADA,
+                         causa="SIM Falla de motor", descripcion="SIM parada en curso",
+                         fecha_inicio=AHORA - timedelta(minutes=90)))
         await db.commit()
         print("ordenes", n_orden)
 

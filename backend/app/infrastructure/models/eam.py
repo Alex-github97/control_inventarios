@@ -260,6 +260,9 @@ class EAMActivo(Base, TimestampMixin):
     responsable          = Column(String(100))
     odometro_actual      = Column(Float, default=0)
     horometro_actual     = Column(Float, default=0)
+    # Horas que el activo debe estar disponible al mes (720 = continuo; un
+    # turno ≈ 176). Es la base del cálculo de disponibilidad; vacío = continuo.
+    horas_programadas_mes = Column(Float, nullable=True)
     tipo_combustible     = Column(String(50))
     capacidad_combustible = Column(Float)
     numero_ejes          = Column(Integer, nullable=True)   # para layout de neumáticos
@@ -1108,6 +1111,16 @@ class EAMGarantia(Base, TimestampMixin):
     documento          = Column(String(300))
     # Quién responde por la garantía adentro, no en el proveedor.
     responsable        = Column(String(120))
+
+
+class EAMParametro(Base, TimestampMixin):
+    """Umbrales de aviso del CMMS. Solo entran los que algún cálculo lee: la
+    pantalla de umbrales tenía siete valores que no llegaban a ninguna parte,
+    y mientras tanto garantías avisaba a 90 días y el tablero a 30."""
+    __tablename__ = "eam_parametro"
+    id    = Column(Integer, primary_key=True, index=True)
+    clave = Column(String(60), unique=True, nullable=False)
+    valor = Column(Float, nullable=False)
 
 
 class EAMAdjuntoGarantia(Base, TimestampMixin):
