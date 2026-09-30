@@ -104,6 +104,9 @@ export interface SCMDashboardData {
   }
   oc_por_estado: Record<string, number>
   sol_por_estado: Record<string, number>
+  // Calculadas con los plazos de Configuración SCM.
+  alertas: { tipo: 'OC_SIN_CONFIRMAR' | 'PROVEEDOR_SIN_EVALUAR'; id: number; texto: string; detalle: string }[]
+  parametros: { dias_oc_sin_confirmar: number; dias_evaluacion_proveedor: number }
 }
 
 // ─── API calls ────────────────────────────────────────────────────────────────

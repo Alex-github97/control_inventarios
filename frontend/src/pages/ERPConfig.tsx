@@ -36,22 +36,33 @@ interface TasaCambio {
   activo: boolean
 }
 
+// Una fila por módulo que le ha mandado hechos económicos a Contabilidad.
 interface Integracion {
-  id: number
   modulo: string
-  descripcion: string
-  habilitada: boolean
-  ultima_sincronizacion?: string
+  eventos: number
+  contabilizados: number
+  pendientes: number
+  fallidos: number
+  ultimo: string | null
 }
 
+// Un talonario real de comprobantes (erp_consecutivos).
 interface Numeracion {
-  id: number
-  tipo_documento: string
   prefijo: string
-  consecutivo_actual: number
-  consecutivo_maximo: number
-  activo: boolean
+  anio: number
+  ultimo: number
+  empresa: string | null
+  tipo_documento: string
 }
+
+// Cómo calcula hoy el sistema. Se muestran como hechos y no como opciones:
+// antes eran listas que se guardaban y ningún cálculo leía.
+const FIJOS: [string, string][] = [
+  ['Moneda de los libros', 'COP — peso colombiano'],
+  ['Marco contable', 'NIIF (Colombia), PUC por clase'],
+  ['Costo del inventario', 'Promedio ponderado'],
+  ['Año fiscal', 'Enero a diciembre'],
+]
 
 const EMPTY_TASA = { moneda_origen: 'USD', moneda_destino: 'COP', tasa: '', fecha_vigencia: new Date().toISOString().slice(0, 10) }
 
@@ -100,13 +111,6 @@ export default function ERPConfig() {
     onError: (e: any) => toast.error(mensajeDeError(e, 'Error al registrar tasa')),
   })
 
-  const toggleIntegracion = useMutation({
-    mutationFn: ({ id, habilitada }: { id: number; habilitada: boolean }) =>
-      apiClient.patch(`/erp/config/integraciones/${id}`, { habilitada }).then(r => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['erp-integraciones'] }),
-    onError: (e: any) => toast.error(mensajeDeError(e, 'Error al actualizar integración')),
-  })
-
   return (
     <Layout title="ERP — Configuración">
       <Box sx={{ mb: 3 }}>
@@ -116,7 +120,7 @@ export default function ERPConfig() {
           </Box>
           <Box>
             <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2, color: '#1E293B' }}>Configuración del ERP</Typography>
-            <Typography variant="body2" sx={{ color: '#64748B', fontSize: 12 }}>ERP · Parámetros generales, monedas, integraciones y numeración</Typography>
+            <Typography variant="body2" sx={{ color: '#64748B', fontSize: 12 }}>ERP · Crédito, aprobaciones, tasas de cambio, integraciones y numeración</Typography>
           </Box>
           <Chip label="CONFIG" size="small" sx={{ ml: 'auto', bgcolor: alpha(ERP_COLOR, 0.1), color: ERP_COLOR, fontWeight: 700, fontSize: 11, height: 24, letterSpacing: '0.05em' }} />
         </Box>
@@ -142,53 +146,34 @@ export default function ERPConfig() {
               <Grid container spacing={2}>{Array.from({ length: 6 }).map((_, i) => <Grid item xs={12} sm={6} key={i}><Skeleton height={50} /></Grid>)}</Grid>
             ) : (
               <>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(4, 1fr)' }, gap: 1.5, mb: 3 }}>
+                  {FIJOS.map(([k, v]) => (
+                    <Box key={k} sx={{ p: 1.5, borderRadius: '10px', bgcolor: '#F8FAFC', border: '1px solid #F1F5F9' }}>
+                      <Typography sx={{ fontSize: 11, color: '#64748B', fontWeight: 600 }}>{k}</Typography>
+                      <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, color: '#1E293B' }}>{v}</Typography>
+                    </Box>
+                  ))}
+                </Box>
                 <Grid container spacing={2.5} sx={{ mb: 3 }}>
                   <Grid item xs={12} sm={6} md={4}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel>Moneda Base</InputLabel>
-                      <Select value={configForm.moneda_base ?? 'COP'} label="Moneda Base" onChange={e => setConfigForm(p => ({ ...p, moneda_base: e.target.value }))}>
-                        {['COP', 'USD', 'EUR', 'BRL', 'MXN'].map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
-                      </Select>
-                    </FormControl>
+                    <TextField label="Días de crédito a clientes (CxC)" helperText="Vencimiento de una factura de venta si no se indica otro" fullWidth size="small" type="number" value={configForm.dias_vencimiento_cxc ?? 30} onChange={e => setConfigForm(p => ({ ...p, dias_vencimiento_cxc: parseInt(e.target.value) }))} />
                   </Grid>
                   <Grid item xs={12} sm={6} md={4}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel>Norma Contable</InputLabel>
-                      <Select value={configForm.norma_contable ?? 'IFRS'} label="Norma Contable" onChange={e => setConfigForm(p => ({ ...p, norma_contable: e.target.value }))}>
-                        {['IFRS', 'US_GAAP', 'LOCAL_COLOMBIA'].map(n => <MenuItem key={n} value={n}>{n}</MenuItem>)}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={4}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel>Método Inventario</InputLabel>
-                      <Select value={configForm.metodo_inventario ?? 'PROMEDIO_PONDERADO'} label="Método Inventario" onChange={e => setConfigForm(p => ({ ...p, metodo_inventario: e.target.value }))}>
-                        {['PROMEDIO_PONDERADO', 'PEPS', 'UEPS'].map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={4}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel>Inicio Período Fiscal</InputLabel>
-                      <Select value={configForm.periodo_fiscal_inicio ?? 'ENERO'} label="Inicio Período Fiscal" onChange={e => setConfigForm(p => ({ ...p, periodo_fiscal_inicio: e.target.value }))}>
-                        {['ENERO', 'ABRIL', 'JULIO', 'OCTUBRE'].map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={4}>
-                    <TextField label="Días Vencimiento CxC" fullWidth size="small" type="number" value={configForm.dias_vencimiento_cxc ?? 30} onChange={e => setConfigForm(p => ({ ...p, dias_vencimiento_cxc: parseInt(e.target.value) }))} />
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={4}>
-                    <TextField label="Días Vencimiento CxP" fullWidth size="small" type="number" value={configForm.dias_vencimiento_cxp ?? 30} onChange={e => setConfigForm(p => ({ ...p, dias_vencimiento_cxp: parseInt(e.target.value) }))} />
+                    <TextField label="Días de crédito de proveedores (CxP)" helperText="Vencimiento de una factura de compra si no se indica otro" fullWidth size="small" type="number" value={configForm.dias_vencimiento_cxp ?? 30} onChange={e => setConfigForm(p => ({ ...p, dias_vencimiento_cxp: parseInt(e.target.value) }))} />
                   </Grid>
                   <Grid item xs={12} sm={6}>
                     <FormControlLabel control={<Switch checked={configForm.aprobacion_compras ?? false} onChange={e => setConfigForm(p => ({ ...p, aprobacion_compras: e.target.checked }))} sx={{ '& .MuiSwitch-thumb': { bgcolor: ERP_COLOR }, '& .Mui-checked + .MuiSwitch-track': { bgcolor: alpha(ERP_COLOR, 0.5) } }} />} label={<Typography sx={{ fontSize: '0.875rem' }}>Requerir aprobación en compras</Typography>} />
+                    <Typography sx={{ fontSize: 11.5, color: '#64748B', ml: 6 }}>Apagado: la orden de compra nace aprobada.</Typography>
                   </Grid>
                   <Grid item xs={12} sm={6}>
                     <FormControlLabel control={<Switch checked={configForm.aprobacion_presupuesto ?? false} onChange={e => setConfigForm(p => ({ ...p, aprobacion_presupuesto: e.target.checked }))} sx={{ '& .MuiSwitch-thumb': { bgcolor: ERP_COLOR }, '& .Mui-checked + .MuiSwitch-track': { bgcolor: alpha(ERP_COLOR, 0.5) } }} />} label={<Typography sx={{ fontSize: '0.875rem' }}>Requerir aprobación en presupuestos</Typography>} />
+                    <Typography sx={{ fontSize: 11.5, color: '#64748B', ml: 6 }}>Apagado: el presupuesto nace aprobado.</Typography>
                   </Grid>
                 </Grid>
-                <Button variant="contained" startIcon={<Save />} onClick={() => saveConfig.mutate(configForm)} disabled={saveConfig.isPending} sx={{ bgcolor: ERP_COLOR, '&:hover': { bgcolor: '#0D2347' } }}>
+                <Button variant="contained" startIcon={<Save />} onClick={() => saveConfig.mutate({
+                  dias_vencimiento_cxc: configForm.dias_vencimiento_cxc, dias_vencimiento_cxp: configForm.dias_vencimiento_cxp,
+                  aprobacion_compras: configForm.aprobacion_compras, aprobacion_presupuesto: configForm.aprobacion_presupuesto,
+                })} disabled={saveConfig.isPending} sx={{ bgcolor: ERP_COLOR, '&:hover': { bgcolor: '#0D2347' } }}>
                   {saveConfig.isPending ? 'Guardando...' : 'Guardar configuración'}
                 </Button>
               </>
@@ -253,28 +238,33 @@ export default function ERPConfig() {
         {/* Tab 2: Integrations */}
         {tab === 2 && (
           <Box sx={{ overflowX: 'auto' }}>
+            <Typography sx={{ fontSize: 12.5, color: '#64748B', px: 2, pt: 2 }}>
+              Módulos que le mandan hechos económicos a Contabilidad (facturas, pagos, nómina, depreciación…). Un evento fallido espera que se configure su regla contable.
+            </Typography>
             <Table size="small">
               <TableHead>
                 <TableRow>
                   <TableCell>Módulo</TableCell>
-                  <TableCell>Descripción</TableCell>
-                  <TableCell>Última Sincronización</TableCell>
-                  <TableCell align="center">Habilitada</TableCell>
+                  <TableCell align="right">Eventos</TableCell>
+                  <TableCell align="right">Contabilizados</TableCell>
+                  <TableCell align="right">Pendientes</TableCell>
+                  <TableCell align="right">Fallidos</TableCell>
+                  <TableCell>Último</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {loadingInt ? Array.from({ length: 6 }).map((_, i) => (
-                  <TableRow key={i}>{Array.from({ length: 4 }).map((__, j) => <TableCell key={j}><Skeleton height={20} /></TableCell>)}</TableRow>
+                {loadingInt ? Array.from({ length: 4 }).map((_, i) => (
+                  <TableRow key={i}>{Array.from({ length: 6 }).map((__, j) => <TableCell key={j}><Skeleton height={20} /></TableCell>)}</TableRow>
                 )) : integraciones.length === 0 ? (
-                  <TableRow><TableCell colSpan={4} align="center" sx={{ py: 5 }}><Typography sx={{ color: '#94A3B8' }}>No hay integraciones configuradas</Typography></TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} align="center" sx={{ py: 5 }}><Typography sx={{ color: '#94A3B8' }}>Ningún módulo ha enviado todavía hechos a Contabilidad</Typography></TableCell></TableRow>
                 ) : integraciones.map(integ => (
-                  <TableRow key={integ.id}>
+                  <TableRow key={integ.modulo}>
                     <TableCell><Chip label={integ.modulo} size="small" sx={{ bgcolor: alpha(ERP_COLOR, 0.08), color: ERP_COLOR, fontWeight: 700, fontSize: '0.75rem', height: 22 }} /></TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem', color: '#64748B' }}>{integ.descripcion}</TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem', color: '#64748B' }}>{integ.ultima_sincronizacion ?? 'Nunca'}</TableCell>
-                    <TableCell align="center">
-                      <Switch checked={integ.habilitada} size="small" onChange={e => toggleIntegracion.mutate({ id: integ.id, habilitada: e.target.checked })} sx={{ '& .MuiSwitch-thumb': { bgcolor: integ.habilitada ? ERP_COLOR : '#CBD5E1' }, '& .Mui-checked + .MuiSwitch-track': { bgcolor: alpha(ERP_COLOR, 0.4) } }} />
-                    </TableCell>
+                    <TableCell align="right" sx={{ fontFamily: 'monospace' }}>{integ.eventos.toLocaleString()}</TableCell>
+                    <TableCell align="right" sx={{ fontFamily: 'monospace', color: '#16A34A' }}>{integ.contabilizados.toLocaleString()}</TableCell>
+                    <TableCell align="right" sx={{ fontFamily: 'monospace', color: integ.pendientes ? '#D97706' : '#94A3B8' }}>{integ.pendientes.toLocaleString()}</TableCell>
+                    <TableCell align="right" sx={{ fontFamily: 'monospace', color: integ.fallidos ? '#DC2626' : '#94A3B8', fontWeight: integ.fallidos ? 700 : 400 }}>{integ.fallidos.toLocaleString()}</TableCell>
+                    <TableCell sx={{ fontSize: '0.8rem', color: '#64748B' }}>{integ.ultimo ? new Date(integ.ultimo).toLocaleString('es-CO') : '—'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -285,43 +275,35 @@ export default function ERPConfig() {
         {/* Tab 3: Document numbering */}
         {tab === 3 && (
           <Box sx={{ overflowX: 'auto' }}>
+            <Typography sx={{ fontSize: 12.5, color: '#64748B', px: 2, pt: 2 }}>
+              Talonarios de comprobantes contables. El consecutivo se reinicia cada año y lo asigna el sistema al contabilizar.
+            </Typography>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Tipo de Documento</TableCell>
+                  <TableCell>Tipo de documento</TableCell>
                   <TableCell>Prefijo</TableCell>
-                  <TableCell align="right">Consecutivo Actual</TableCell>
-                  <TableCell align="right">Máximo</TableCell>
-                  <TableCell>Disponibles</TableCell>
-                  <TableCell>Estado</TableCell>
+                  <TableCell>Año</TableCell>
+                  <TableCell>Empresa</TableCell>
+                  <TableCell align="right">Último número</TableCell>
+                  <TableCell>Siguiente</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {loadingNum ? Array.from({ length: 6 }).map((_, i) => (
+                {loadingNum ? Array.from({ length: 4 }).map((_, i) => (
                   <TableRow key={i}>{Array.from({ length: 6 }).map((__, j) => <TableCell key={j}><Skeleton height={20} /></TableCell>)}</TableRow>
                 )) : numeraciones.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} align="center" sx={{ py: 5 }}><Typography sx={{ color: '#94A3B8' }}>No hay rangos de numeración configurados</Typography></TableCell></TableRow>
-                ) : numeraciones.map(num => {
-                  const disponibles = num.consecutivo_maximo - num.consecutivo_actual
-                  const pctUsado = num.consecutivo_maximo > 0 ? (num.consecutivo_actual / num.consecutivo_maximo) * 100 : 0
-                  return (
-                    <TableRow key={num.id}>
-                      <TableCell sx={{ fontSize: '0.875rem', fontWeight: 500 }}>{num.tipo_documento}</TableCell>
-                      <TableCell><Typography sx={{ fontFamily: 'monospace', fontWeight: 700, color: ERP_COLOR, fontSize: '0.875rem' }}>{num.prefijo}</Typography></TableCell>
-                      <TableCell align="right"><Typography sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>{num.consecutivo_actual.toLocaleString()}</Typography></TableCell>
-                      <TableCell align="right"><Typography sx={{ fontFamily: 'monospace', fontSize: '0.875rem', color: '#64748B' }}>{num.consecutivo_maximo.toLocaleString()}</Typography></TableCell>
-                      <TableCell sx={{ minWidth: 130 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Box sx={{ flex: 1, height: 6, borderRadius: 3, bgcolor: '#F1F5F9', overflow: 'hidden' }}>
-                            <Box sx={{ height: '100%', width: `${pctUsado}%`, bgcolor: pctUsado >= 90 ? '#DC2626' : pctUsado >= 70 ? '#F59E0B' : '#16A34A', borderRadius: 3, transition: 'width 0.5s' }} />
-                          </Box>
-                          <Typography sx={{ fontSize: '0.72rem', color: '#64748B', minWidth: 28 }}>{disponibles.toLocaleString()}</Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell><Chip label={num.activo ? 'Activo' : 'Inactivo'} size="small" sx={{ bgcolor: num.activo ? '#F0FDF4' : '#F8FAFC', color: num.activo ? '#16A34A' : '#64748B', fontWeight: 600, fontSize: '0.7rem', height: 22 }} /></TableCell>
-                    </TableRow>
-                  )
-                })}
+                  <TableRow><TableCell colSpan={6} align="center" sx={{ py: 5 }}><Typography sx={{ color: '#94A3B8' }}>Aún no se ha contabilizado ningún comprobante</Typography></TableCell></TableRow>
+                ) : numeraciones.map(num => (
+                  <TableRow key={`${num.prefijo}-${num.anio}-${num.empresa}`}>
+                    <TableCell sx={{ fontSize: '0.875rem', fontWeight: 500 }}>{num.tipo_documento}</TableCell>
+                    <TableCell><Typography sx={{ fontFamily: 'monospace', fontWeight: 700, color: ERP_COLOR, fontSize: '0.875rem' }}>{num.prefijo}</Typography></TableCell>
+                    <TableCell sx={{ fontSize: '0.875rem' }}>{num.anio}</TableCell>
+                    <TableCell sx={{ fontSize: '0.8rem', color: '#64748B' }}>{num.empresa ?? '—'}</TableCell>
+                    <TableCell align="right"><Typography sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>{num.ultimo.toLocaleString()}</Typography></TableCell>
+                    <TableCell><Typography sx={{ fontFamily: 'monospace', fontSize: '0.8rem', color: '#64748B' }}>{`${num.prefijo}-${num.anio}-${String(num.ultimo + 1).padStart(6, '0')}`}</Typography></TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </Box>

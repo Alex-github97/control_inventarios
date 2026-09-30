@@ -1,8 +1,22 @@
-import React, { useState } from 'react'
-import { Box, Typography, Card, CardContent, Chip, alpha, Switch, FormControlLabel, Button, Divider, TextField, Tab, Tabs } from '@mui/material'
+/**
+ * Configuración de SCM: solo las reglas que el sistema de verdad aplica.
+ *
+ * Antes había catorce interruptores (notificaciones, flujos, integraciones) y
+ * cuatro umbrales que vivían en el navegador: «Guardar cambios» mostraba
+ * «¡Guardado!» y no enviaba nada, y ningún cálculo los leía. Las notificaciones
+ * por correo y las integraciones no existen en el módulo, así que no se
+ * ofrecen. Lo que queda se guarda en scm_parametro y cada regla dice dónde se
+ * aplica.
+ */
+import { useEffect, useState } from 'react'
+import { Box, Typography, Card, CardContent, Chip, alpha, Switch, FormControlLabel, Button, TextField, Tab, Tabs } from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { Settings, Notifications, IntegrationInstructions, Security, Save } from '@mui/icons-material'
+import { Settings, Save } from '@mui/icons-material'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
+import { apiClient } from '@/api/client'
+import { mensajeDeError } from '@/utils/errorApi'
 
 import { COLOR_MODULO } from '@/config/marca'
 import { AdminCatalogos } from '@/components/catalogo/AdminCatalogos'
@@ -13,172 +27,112 @@ const SX_INPUT = {
   '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: BORDER } },
 }
 
-interface ConfigItem { label: string; description: string; key: string }
+interface Parametros {
+  monto_doble_aprobacion: number | null
+  solicitud_exige_items: boolean
+  dias_oc_sin_confirmar: number
+  dias_evaluacion_proveedor: number
+}
 
-const NOTIF_ITEMS: ConfigItem[] = [
-  { key: 'notif_nueva_sol',   label: 'Nueva solicitud creada',        description: 'Notificar al jefe de compras cuando se crea una solicitud' },
-  { key: 'notif_aprobacion',  label: 'Solicitud pendiente de aprobación', description: 'Recordatorio cuando hay solicitudes >48 h sin gestionar' },
-  { key: 'notif_oc_enviada',  label: 'OC enviada al proveedor',       description: 'Confirmación interna al emitir una orden de compra' },
-  { key: 'notif_oc_vencida',  label: 'OC sin respuesta del proveedor', description: 'Alerta si el proveedor no confirma en 72 h' },
-  { key: 'notif_stock_min',   label: 'Alerta de stock mínimo',        description: 'Notificar cuando un SKU baje del nivel mínimo configurado' },
-  { key: 'notif_riesgo_crit', label: 'Riesgo de cadena crítico',      description: 'Alerta inmediata al registrar riesgo de impacto CRÍTICO' },
-]
-
-const FLUJO_ITEMS: ConfigItem[] = [
-  { key: 'flujo_aprobacion_2', label: 'Doble aprobación para OC >$50 M', description: 'Requiere aprobación de gerencia para órdenes superiores' },
-  { key: 'flujo_eval_prov',    label: 'Evaluación automática de proveedor', description: 'Generar evaluación al cerrar cada orden de compra' },
-  { key: 'flujo_sol_item',     label: 'Mínimo un ítem en solicitud',     description: 'Bloquear solicitudes sin ítems detallados' },
-  { key: 'flujo_otd_track',    label: 'Registro automático OTD',         description: 'Calcular OTD al marcar OC como Recibida' },
-]
-
-const INTEG_ITEMS: ConfigItem[] = [
-  { key: 'integ_erp',  label: 'Sincronizar con módulo ERP',    description: 'Actualizar maestros de proveedores y órdenes en ERP' },
-  { key: 'integ_wms',  label: 'Integración con WMS',           description: 'Sincronizar recepciones de OC con bodega WMS' },
-  { key: 'integ_tms',  label: 'Integración con TMS',           description: 'Enviar embarques SCM al módulo de transporte' },
-  { key: 'integ_email',label: 'Envío de OC por email al proveedor', description: 'Adjuntar PDF al correo del contacto del proveedor' },
-]
-
-function ToggleCard({ item, checked, onChange }: { item: ConfigItem; checked: boolean; onChange: () => void }) {
+function Regla({ titulo, donde, children }: { titulo: string; donde: string; children: React.ReactNode }) {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, bgcolor: '#F9FAFB', borderRadius: 1.5, gap: 2 }}>
-      <Box>
-        <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'text.primary' }}>{item.label}</Typography>
-        <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>{item.description}</Typography>
-      </Box>
-      <Switch checked={checked} onChange={onChange} size="small"
-        sx={{ '& .MuiSwitch-switchBase.Mui-checked': { color: SCM_COLOR }, '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: alpha(SCM_COLOR, 0.6) } }} />
+    <Box sx={{ p: 2, bgcolor: '#F9FAFB', borderRadius: 1.5, display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+      <Typography sx={{ fontSize: 13, fontWeight: 700 }}>{titulo}</Typography>
+      {children}
+      <Typography sx={{ fontSize: 11.5, color: 'text.secondary' }}>{donde}</Typography>
     </Box>
   )
 }
 
 export default function SCMConfig() {
-  const [tab, setTab]     = useState(0)
-  const [saved, setSaved] = useState(false)
-  const [toggles, setToggles] = useState<Record<string, boolean>>({
-    notif_nueva_sol: true, notif_aprobacion: true, notif_oc_enviada: true,
-    notif_oc_vencida: false, notif_stock_min: true, notif_riesgo_crit: true,
-    flujo_aprobacion_2: true, flujo_eval_prov: true, flujo_sol_item: true, flujo_otd_track: false,
-    integ_erp: true, integ_wms: false, integ_tms: false, integ_email: true,
+  const qc = useQueryClient()
+  const [tab, setTab] = useState(0)
+  const { data } = useQuery<Parametros>({
+    queryKey: ['scm-parametros'],
+    queryFn: () => apiClient.get('/scm/parametros').then(r => r.data),
   })
+  const [form, setForm] = useState<{ monto: string; items: boolean; diasOc: string; diasEval: string } | null>(null)
+  useEffect(() => {
+    if (data) setForm({
+      monto: data.monto_doble_aprobacion == null ? '' : String(data.monto_doble_aprobacion),
+      items: data.solicitud_exige_items,
+      diasOc: String(data.dias_oc_sin_confirmar),
+      diasEval: String(data.dias_evaluacion_proveedor),
+    })
+  }, [data])
 
-  const [umbrales, setUmbrales] = useState({ aprobacion_monto: '50000000', dias_alerta_oc: '72', email_compras: 'compras@empresa.com', dias_eval_prov: '30' })
-
-  function toggle(key: string) { setToggles(prev => ({ ...prev, [key]: !prev[key] })) }
-
-  function handleSave() {
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2500)
-  }
+  const guardar = useMutation({
+    mutationFn: () => apiClient.put('/scm/parametros', {
+      monto_doble_aprobacion: form!.monto.trim() ? Number(form!.monto) : null,
+      solicitud_exige_items: form!.items,
+      dias_oc_sin_confirmar: Number(form!.diasOc),
+      dias_evaluacion_proveedor: Number(form!.diasEval),
+    }),
+    onSuccess: () => { toast.success('Configuración guardada'); qc.invalidateQueries({ queryKey: ['scm-parametros'] }) },
+    onError: (e) => toast.error(mensajeDeError(e, 'No se pudo guardar la configuración')),
+  })
 
   return (
     <Layout>
       <Box sx={{ p: 3, minHeight: '100vh' }}>
 
-        {/* Header */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Settings sx={{ color: SCM_COLOR, fontSize: 28 }} />
             <Box>
               <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>Configuración SCM</Typography>
-              <Typography sx={{ fontSize: 12, color: 'text.disabled' }}>Parámetros globales, notificaciones, flujos e integraciones</Typography>
+              <Typography sx={{ fontSize: 12, color: 'text.disabled' }}>Reglas de compra y catálogos del módulo</Typography>
             </Box>
             <Chip label="SCM" size="small" sx={{ bgcolor: alpha(SCM_COLOR, 0.15), color: '#5B9BD5', fontWeight: 700, border: `1px solid ${alpha(SCM_COLOR, 0.35)}` }} />
           </Box>
-          <Button variant="contained" startIcon={<Save />} onClick={handleSave} sx={{ bgcolor: saved ? '#22c55e' : SCM_COLOR, transition: 'background-color 0.3s' }}>
-            {saved ? '¡Guardado!' : 'Guardar cambios'}
-          </Button>
+          {tab === 0 && (
+            <Button variant="contained" startIcon={<Save />} disabled={!form || guardar.isPending}
+              onClick={() => guardar.mutate()} sx={{ bgcolor: SCM_COLOR }}>
+              {guardar.isPending ? 'Guardando…' : 'Guardar cambios'}
+            </Button>
+          )}
         </Box>
 
-        {/* Tabs */}
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3, borderBottom: `1px solid ${BORDER}`, '& .MuiTab-root': { color: 'text.disabled', minHeight: 40, textTransform: 'none' }, '& .Mui-selected': { color: '#5B9BD5' }, '& .MuiTabs-indicator': { bgcolor: SCM_COLOR } }}>
-          <Tab label="Notificaciones" icon={<Notifications sx={{ fontSize: 16 }} />} iconPosition="start" />
-          <Tab label="Flujo de trabajo" icon={<Security sx={{ fontSize: 16 }} />} iconPosition="start" />
-          <Tab label="Integraciones" icon={<IntegrationInstructions sx={{ fontSize: 16 }} />} iconPosition="start" />
-          <Tab label="Umbrales" icon={<Settings sx={{ fontSize: 16 }} />} iconPosition="start" />
+          <Tab label="Reglas de compra" />
           <Tab label="Catálogos" />
         </Tabs>
 
-        {tab === 4 && <AdminCatalogos modulo="SCM" color={COLOR_MODULO} />}
+        {tab === 1 && <AdminCatalogos modulo="SCM" color={COLOR_MODULO} />}
 
-        {/* Tab 0 — Notificaciones */}
-        {tab === 0 && (
-          <Card sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: 2 }}>
-            <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>Alertas y notificaciones del módulo SCM</Typography>
-              {NOTIF_ITEMS.map(item => (
-                <ToggleCard key={item.key} item={item} checked={toggles[item.key]} onChange={() => toggle(item.key)} />
-              ))}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Tab 1 — Flujo de trabajo */}
-        {tab === 1 && (
-          <Card sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: 2 }}>
-            <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>Reglas del flujo de aprobación y operación</Typography>
-              {FLUJO_ITEMS.map(item => (
-                <ToggleCard key={item.key} item={item} checked={toggles[item.key]} onChange={() => toggle(item.key)} />
-              ))}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Tab 2 — Integraciones */}
-        {tab === 2 && (
-          <Card sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: 2 }}>
-            <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>Conexiones con otros módulos y sistemas externos</Typography>
-              {INTEG_ITEMS.map(item => (
-                <ToggleCard key={item.key} item={item} checked={toggles[item.key]} onChange={() => toggle(item.key)} />
-              ))}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Tab 3 — Umbrales */}
-        {tab === 3 && (
+        {tab === 0 && form && (
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: 2 }}>
+              <Card sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: 2, height: '100%' }}>
                 <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8 }}>Parámetros de aprobación</Typography>
-                  <TextField
-                    label="Monto máximo sin doble aprobación (COP)"
-                    value={umbrales.aprobacion_monto}
-                    onChange={e => setUmbrales(u => ({ ...u, aprobacion_monto: e.target.value }))}
-                    type="number" fullWidth size="small" sx={SX_INPUT}
-                  />
-                  <TextField
-                    label="Horas para alerta OC sin confirmación"
-                    value={umbrales.dias_alerta_oc}
-                    onChange={e => setUmbrales(u => ({ ...u, dias_alerta_oc: e.target.value }))}
-                    type="number" fullWidth size="small" sx={SX_INPUT}
-                  />
-                  <TextField
-                    label="Días entre evaluaciones de proveedor"
-                    value={umbrales.dias_eval_prov}
-                    onChange={e => setUmbrales(u => ({ ...u, dias_eval_prov: e.target.value }))}
-                    type="number" fullWidth size="small" sx={SX_INPUT}
-                  />
+                  <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8 }}>Aprobación</Typography>
+                  <Regla titulo="Doble aprobación de órdenes de compra"
+                    donde="Una OC por encima de este total solo sale del borrador si la envía un administrador distinto de quien la creó. Vacío: sin doble aprobación.">
+                    <TextField label="Tope (COP)" type="number" size="small" fullWidth sx={SX_INPUT}
+                      value={form.monto} onChange={e => setForm(f => f && ({ ...f, monto: e.target.value }))} />
+                  </Regla>
+                  <Regla titulo="Solicitudes con ítems"
+                    donde="Encendido: no se puede crear una solicitud de compra sin al menos un ítem descrito.">
+                    <FormControlLabel label="Exigir al menos un ítem"
+                      control={<Switch checked={form.items} onChange={e => setForm(f => f && ({ ...f, items: e.target.checked }))} />} />
+                  </Regla>
                 </CardContent>
               </Card>
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: 2 }}>
+              <Card sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: 2, height: '100%' }}>
                 <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8 }}>Contactos y correos</Typography>
-                  <TextField
-                    label="Correo del equipo de compras"
-                    value={umbrales.email_compras}
-                    onChange={e => setUmbrales(u => ({ ...u, email_compras: e.target.value }))}
-                    fullWidth size="small" sx={SX_INPUT}
-                  />
-                  <Box sx={{ p: 2, bgcolor: alpha(SCM_COLOR, 0.07), borderRadius: 1.5, border: `1px dashed ${alpha(SCM_COLOR, 0.25)}` }}>
-                    <Typography sx={{ fontSize: 12, color: alpha('#5B9BD5', 0.85) }}>
-                      Las notificaciones por correo se enviarán desde el servidor SMTP configurado en el panel de administración del sistema.
-                    </Typography>
-                  </Box>
+                  <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8 }}>Alertas del tablero</Typography>
+                  <Regla titulo="OC sin confirmar"
+                    donde="Una OC enviada que el proveedor no ha confirmado en este plazo aparece en las alertas de la Torre de Control.">
+                    <TextField label="Días desde la emisión" type="number" size="small" fullWidth sx={SX_INPUT}
+                      value={form.diasOc} onChange={e => setForm(f => f && ({ ...f, diasOc: e.target.value }))} />
+                  </Regla>
+                  <Regla titulo="Evaluación de proveedores"
+                    donde="Un proveedor al que se le compró en el último año y que no se ha evaluado en este plazo aparece en las alertas.">
+                    <TextField label="Días entre evaluaciones" type="number" size="small" fullWidth sx={SX_INPUT}
+                      value={form.diasEval} onChange={e => setForm(f => f && ({ ...f, diasEval: e.target.value }))} />
+                  </Regla>
                 </CardContent>
               </Card>
             </Grid>

@@ -209,3 +209,24 @@ class ScmRiesgo(Base, TimestampMixin, SoftDeleteMixin):
     descripcion = Column(Text, nullable=True)
     plan_mitigacion = Column(Text, nullable=True)
     fecha_revision = Column(Date, nullable=True)
+
+
+class ScmParametro(Base, TimestampMixin):
+    """Reglas de compras de la empresa (fila única id=1).
+
+    Solo lo que algún cálculo lee: el tope de la doble aprobación lo exige el
+    cambio de estado de la OC, los ítems obligatorios los exige la solicitud, y
+    los dos plazos alimentan las alertas del tablero. Antes la pantalla tenía
+    catorce interruptores que vivían en el navegador y ninguno hacía nada.
+    """
+    __tablename__ = "scm_parametro"
+
+    id = Column(Integer, primary_key=True)
+    # OC por encima de este total: la envía un administrador distinto de quien
+    # la creó. Vacío = sin doble aprobación.
+    monto_doble_aprobacion = Column(Float, nullable=True, default=50_000_000)
+    solicitud_exige_items = Column(Boolean, nullable=False, default=True)
+    # OC enviada y sin confirmar por el proveedor tras estos días: alerta.
+    dias_oc_sin_confirmar = Column(Integer, nullable=False, default=3)
+    # Proveedor con compras y sin evaluación en estos días: alerta.
+    dias_evaluacion_proveedor = Column(Integer, nullable=False, default=180)

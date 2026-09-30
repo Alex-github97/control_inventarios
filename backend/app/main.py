@@ -121,6 +121,16 @@ async def _preparar_registro_clientes() -> None:
     """Pone al día el registro de clientes, que vive fuera de los esquemas."""
     async with engine.begin() as conn:
         await conn.execute(text('SET search_path TO "public"'))
+        # Sesiones del celular como escáner. Vivían en un diccionario del
+        # proceso; con cuatro workers el código que manda el celular caía en uno
+        # y el PC preguntaba en otro, y el escaneo se perdía sin error.
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS public.scan_sesion (
+                id        VARCHAR(36) PRIMARY KEY,
+                creada    TIMESTAMPTZ NOT NULL DEFAULT now(),
+                codigos   JSONB       NOT NULL DEFAULT '[]'::jsonb
+            )
+        """))
         if (await conn.execute(text("SELECT to_regclass('public.plataforma_cliente')"))).scalar() is None:
             return
         await conn.execute(text(

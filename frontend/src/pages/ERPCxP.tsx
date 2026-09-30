@@ -259,7 +259,7 @@ export default function ERPCxP() {
   // ── Mutations ────────────────────────────────────────────────────────────────
 
   const mutCrearFactura = useMutation({
-    mutationFn: (data: typeof EMPTY_FACTURA) => api.post('/erp/cxp/facturas', data),
+    mutationFn: (data: typeof EMPTY_FACTURA) => api.post('/erp/cxp/facturas', { ...data, fecha_vencimiento: data.fecha_vencimiento || null }),
     onSuccess: () => {
       toast.success('Factura registrada')
       setOpenNew(false)
@@ -701,7 +701,8 @@ export default function ERPCxP() {
               </Grid>
               <Grid size={{ xs: 12, md: 4 }}>
                 <TextField
-                  fullWidth size="small" label="Fecha Vencimiento *" type="date"
+                  fullWidth size="small" label="Fecha Vencimiento" type="date"
+                  helperText="Vacío: según los días de crédito de Configuración"
                   InputLabelProps={{ shrink: true }}
                   value={facturaForm.fecha_vencimiento}
                   onChange={(e) => setFacturaForm((f) => ({ ...f, fecha_vencimiento: e.target.value }))}

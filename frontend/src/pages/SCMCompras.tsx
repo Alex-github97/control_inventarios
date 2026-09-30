@@ -7,6 +7,8 @@ import {
 } from '@mui/material'
 import { AddShoppingCart, Visibility, Edit, Refresh } from '@mui/icons-material'
 import { Layout } from '@/components/layout/Layout'
+import toast from 'react-hot-toast'
+import { mensajeDeError } from '@/utils/errorApi'
 import { COLOR_MODULO } from '@/config/marca'
 import {
   getOrdenesCompra, getOrdenCompra, actualizarEstadoOrden,
@@ -74,7 +76,12 @@ export default function SCMCompras() {
     setSaving(true)
     try {
       await actualizarEstadoOrden(openEstado.id, nuevoEstado as EstadoOrden, fechaReal || undefined)
+      toast.success('Estado actualizado')
       setOpenEstado(null); setNuevoEstado(''); setFechaReal(''); load()
+    } catch (e) {
+      // Una OC por encima del tope de doble aprobación la rechaza el servidor
+      // con el motivo; hay que mostrarlo.
+      toast.error(mensajeDeError(e, 'No se pudo cambiar el estado'))
     } finally { setSaving(false) }
   }
 

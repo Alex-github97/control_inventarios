@@ -188,7 +188,8 @@ class FacturaClienteCreate(BaseModel):
     cliente_nit: Optional[str] = None
     cliente_email: Optional[str] = None
     fecha: date
-    fecha_vencimiento: date
+    # Vacío: fecha + días de crédito de la configuración (CxC).
+    fecha_vencimiento: Optional[date] = None
     moneda: str = "COP"
     centro_costo_id: Optional[int] = None
     proyecto_id: Optional[int] = None
@@ -219,7 +220,8 @@ class FacturaProveedorCreate(BaseModel):
     proveedor_nombre: str
     proveedor_nit: Optional[str] = None
     fecha: date
-    fecha_vencimiento: date
+    # Vacío: fecha + días de crédito de la configuración (CxP).
+    fecha_vencimiento: Optional[date] = None
     subtotal: float = 0
     total_impuestos: float = 0
     retenciones: float = 0
@@ -884,6 +886,22 @@ async def resumen_cartera(
 # la pantalla. Acá solo se dice qué PAPEL cumple cada línea.
 
 
+async def _empresa_de(db, empresa_id: Optional[int]) -> int:
+    """La empresa del documento, o la primera si la pantalla no la manda.
+
+    Las pantallas de cartera no tienen selector de empresa, y sin empresa el
+    motor contable no puede abrir el período: la factura fallaba con un 500
+    cada vez. Con una sola empresa, que es el caso normal, la primera es la
+    correcta.
+    """
+    if empresa_id:
+        return empresa_id
+    eid = (await db.execute(select(ERPEmpresa.id).order_by(ERPEmpresa.id).limit(1))).scalar()
+    if eid is None:
+        raise HTTPException(422, "Primero hay que crear la empresa en Finanzas → Empresas.")
+    return eid
+
+
 async def _asiento(db, *, empresa_id, evento, tipo, fecha, concepto, referencia,
                    lineas, usuario, documento_tipo=None, documento_id=None):
     """Puente hacia el motor contable, conservando la firma cómoda de acá.
@@ -893,6 +911,7 @@ async def _asiento(db, *, empresa_id, evento, tipo, fecha, concepto, referencia,
     `ErrorContable`, que es un 422 y tumba la transacción: el documento tampoco
     se guarda. Es deliberado, y es lo contrario de lo que hacía antes.
     """
+    empresa_id = await _empresa_de(db, empresa_id)
     return await erp_motor.asentar(
         db, empresa_id=empresa_id, evento=evento, tipo=tipo, fecha=fecha,
         concepto=concepto,
@@ -919,10 +938,13 @@ async def crear_factura_cliente(data: FacturaClienteCreate, db: AsyncSession = D
         subtotal += base
         total_imp += imp
     total = subtotal + total_imp
+    if data.fecha_vencimiento is None:
+        data.fecha_vencimiento = data.fecha + timedelta(days=(await _get_config(db)).dias_vencimiento_cxc)
     fc = ERPFacturaCliente(
         **{k: v for k, v in data.model_dump(exclude={"lineas"}).items()},
         subtotal=subtotal, total_impuestos=total_imp, total=total, saldo=total,
     )
+    fc.empresa_id = await _empresa_de(db, fc.empresa_id)
     db.add(fc)
     await db.flush()
     for ldata in data.lineas:
@@ -1035,7 +1057,10 @@ async def resumen_por_pagar(
 @router.post("/cxp/facturas", response_model=FacturaProveedorResponse, status_code=201)
 async def crear_factura_proveedor(data: FacturaProveedorCreate, db: AsyncSession = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
     neto = data.total - data.retenciones
+    if data.fecha_vencimiento is None:
+        data.fecha_vencimiento = data.fecha + timedelta(days=(await _get_config(db)).dias_vencimiento_cxp)
     fp = ERPFacturaProveedor(**data.model_dump(), neto_pagar=neto, saldo=neto)
+    fp.empresa_id = await _empresa_de(db, fp.empresa_id)
     db.add(fp)
     await db.flush()
     # Asiento automático: Db Gasto+IVA / Cr Proveedores (neto) + Retenciones
@@ -1089,6 +1114,11 @@ async def listar_pagos(
 @router.post("/pagos", response_model=PagoResponse, status_code=201)
 async def registrar_pago(data: PagoCreate, db: AsyncSession = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
     pago = ERPPago(**data.model_dump(), estado=EstadoPago.PROCESADO)
+    # La empresa del pago es la de la factura que paga.
+    factura = (await db.get(ERPFacturaCliente, data.factura_cliente_id) if data.factura_cliente_id
+               else await db.get(ERPFacturaProveedor, data.factura_proveedor_id) if data.factura_proveedor_id
+               else None)
+    pago.empresa_id = await _empresa_de(db, pago.empresa_id or (factura.empresa_id if factura else None))
     db.add(pago)
     # Se vacía ya: el asiento referencia `pago.id`, y sin esto es None.
     await db.flush()
@@ -1176,6 +1206,8 @@ async def listar_presupuestos(
 @router.post("/presupuestos", response_model=PresupuestoResponse, status_code=201)
 async def crear_presupuesto(data: PresupuestoCreate, db: AsyncSession = Depends(get_db), current_user: Usuario = Depends(require_admin)):
     p = ERPPresupuesto(**data.model_dump())
+    if not (await _get_config(db)).aprobacion_presupuesto:
+        p.estado = EstadoPresupuesto.APROBADO
     db.add(p)
     await db.commit()
     await db.refresh(p)
@@ -1298,6 +1330,8 @@ async def listar_ordenes_compra(
 
 @router.post("/compras/ordenes", response_model=OrdenCompraResponse, status_code=201)
 async def crear_orden_compra(data: OrdenCompraCreate, db: AsyncSession = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
+    if (await db.execute(select(ERPOrdenCompra.id).where(ERPOrdenCompra.numero == data.numero))).first():
+        raise HTTPException(409, f"Ya existe una orden de compra con número {data.numero}")
     subtotal = sum(l.cantidad * l.precio_unitario * (1 - l.descuento_pct / 100) for l in data.lineas)
     total_imp = 0.0
     for l in data.lineas:
@@ -1311,6 +1345,10 @@ async def crear_orden_compra(data: OrdenCompraCreate, db: AsyncSession = Depends
         **{k: v for k, v in data.model_dump(exclude={"lineas"}).items()},
         subtotal=subtotal, total_impuestos=total_imp, total=total,
     )
+    if not (await _get_config(db)).aprobacion_compras:
+        oc.estado = EstadoOC.APROBADA
+        oc.aprobado_por = "Sin aprobación (configuración)"
+        oc.fecha_aprobacion = date.today()
     db.add(oc)
     await db.flush()
     for ldata in data.lineas:
@@ -1515,31 +1553,34 @@ async def config_crear_tasa(data: TasaCambioBody, db: AsyncSession = Depends(get
 
 @router.get("/config/integraciones")
 async def config_integraciones(db: AsyncSession = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
-    # Estado de integración de los módulos operativos con el ERP (contabilidad).
-    return [
-        {"id": 1, "modulo": "Facturación electrónica (DIAN)", "descripcion": "Emisión de CUFE en facturas de venta", "habilitada": True, "ultima_sincronizacion": None},
-        {"id": 2, "modulo": "Contabilidad automática", "descripcion": "Asientos automáticos de facturas, pagos y depreciación", "habilitada": True, "ultima_sincronizacion": None},
-        {"id": 3, "modulo": "Tesorería", "descripcion": "Movimientos bancarios y flujo de caja", "habilitada": True, "ultima_sincronizacion": None},
-        {"id": 4, "modulo": "Nómina (RRHH)", "descripcion": "Provisión y pago de nómina", "habilitada": False, "ultima_sincronizacion": None},
-    ]
+    """Qué módulos le mandan hechos económicos a Contabilidad y cómo le va a cada uno.
 
-
-@router.patch("/config/integraciones/{integ_id}")
-async def config_toggle_integracion(integ_id: int, current_user: Usuario = Depends(require_admin)):
-    return {"ok": True, "id": integ_id}
+    Sale de la cola de eventos contables, no de una lista de interruptores:
+    antes había cuatro filas fijas con un interruptor que no guardaba nada y
+    que ningún cálculo consultaba. Un módulo aparece cuando ha mandado algo.
+    """
+    filas = (await db.execute(text("""
+        SELECT modulo,
+               count(*)                                          AS eventos,
+               count(*) FILTER (WHERE estado = 'CONTABILIZADO')  AS contabilizados,
+               count(*) FILTER (WHERE estado = 'PENDIENTE')      AS pendientes,
+               count(*) FILTER (WHERE estado = 'FALLIDO')        AS fallidos,
+               max(creado)                                       AS ultimo
+        FROM erp_eventos_contables GROUP BY modulo ORDER BY max(creado) DESC
+    """))).mappings().all()
+    return [{**dict(f), "ultimo": f["ultimo"].isoformat() if f["ultimo"] else None} for f in filas]
 
 
 @router.get("/config/numeraciones")
 async def config_numeraciones(db: AsyncSession = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
-    # Consecutivos por tipo de documento (derivado de la operación real).
-    async def _cnt(model):
-        return (await db.execute(select(func.count()).select_from(model))).scalar() or 0
-    return [
-        {"id": 1, "tipo_documento": "Factura de venta", "prefijo": "FV", "consecutivo_actual": await _cnt(ERPFacturaCliente), "consecutivo_maximo": 999999, "activo": True},
-        {"id": 2, "tipo_documento": "Factura de compra", "prefijo": "FC", "consecutivo_actual": await _cnt(ERPFacturaProveedor), "consecutivo_maximo": 999999, "activo": True},
-        {"id": 3, "tipo_documento": "Comprobante contable", "prefijo": "CD", "consecutivo_actual": await _cnt(ERPComprobante), "consecutivo_maximo": 999999, "activo": True},
-        {"id": 4, "tipo_documento": "Orden de compra", "prefijo": "OC", "consecutivo_actual": await _cnt(ERPOrdenCompra), "consecutivo_maximo": 999999, "activo": True},
-    ]
+    """Los talonarios de comprobantes con su último número usado (erp_consecutivos)."""
+    nombres = {"CD": "Comprobante de diario", "RC": "Recibo de caja", "CE": "Comprobante de egreso"}
+    filas = (await db.execute(text("""
+        SELECT c.prefijo, c.anio, c.ultimo, e.razon_social AS empresa
+        FROM erp_consecutivos c LEFT JOIN erp_empresas e ON e.id = c.empresa_id
+        ORDER BY c.anio DESC, e.razon_social, c.prefijo
+    """))).mappings().all()
+    return [{**dict(f), "tipo_documento": nombres.get(f["prefijo"], f["prefijo"])} for f in filas]
 
 
 # ── REPORTES ──────────────────────────────────────────────────────────────────

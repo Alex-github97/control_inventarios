@@ -118,6 +118,29 @@ export default function SCMDashboard() {
               </Grid>
             </Grid>
 
+            {/* Alertas: OC que el proveedor no confirma y proveedores sin evaluar,
+                con los plazos de Configuración SCM. */}
+            <Card sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: 2, mb: 3 }}>
+              <CardContent>
+                <Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: 14, mb: 0.5 }}>
+                  Alertas ({data?.alertas?.length ?? 0})
+                </Typography>
+                <Typography sx={{ fontSize: 11.5, color: 'text.secondary', mb: 1.5 }}>
+                  OC enviadas sin confirmar en {data?.parametros?.dias_oc_sin_confirmar ?? '—'} días · proveedores con compras sin evaluar en {data?.parametros?.dias_evaluacion_proveedor ?? '—'} días
+                </Typography>
+                {!data?.alertas?.length ? (
+                  <Typography sx={{ fontSize: 13, color: 'text.disabled' }}>Sin alertas.</Typography>
+                ) : data.alertas.slice(0, 12).map(a => (
+                  <Box key={`${a.tipo}-${a.id}`} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 0.75, borderBottom: '1px solid #F1F5F9' }}>
+                    <Chip size="small" label={a.tipo === 'OC_SIN_CONFIRMAR' ? 'OC' : 'Proveedor'}
+                      sx={{ bgcolor: a.tipo === 'OC_SIN_CONFIRMAR' ? alpha('#f59e0b', 0.15) : alpha('#ef4444', 0.12), fontWeight: 700, fontSize: 11, height: 22 }} />
+                    <Typography sx={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{a.texto}</Typography>
+                    <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{a.detalle}</Typography>
+                  </Box>
+                ))}
+              </CardContent>
+            </Card>
+
             {/* Estado charts */}
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, md: 6 }}>

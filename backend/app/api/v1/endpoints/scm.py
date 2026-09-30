@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from typing import Optional, List
 from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel
@@ -6,19 +6,64 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 from sqlalchemy.orm import selectinload
 from app.core.database import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, require_admin
+from app.infrastructure.models.usuario import RolUsuario
 from app.infrastructure.models.usuario import Usuario
 from app.infrastructure.models.proveedor import Proveedor
 from app.infrastructure.models.scm import (
     ScmSolicitudCompra, ScmSolicitudItem, ScmOrdenCompra, ScmOrdenItem,
     ScmEvaluacionProveedor, EstadoSolicitudSCM, EstadoOrdenSCM,
     CategoriaSCM, PrioridadSCM, ClasificacionProveedor, RecomendacionProveedor,
+    ScmParametro,
 )
 
 router = APIRouter(prefix="/scm", tags=["SCM"])
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
+
+async def _parametros(db: AsyncSession) -> ScmParametro:
+    p = await db.get(ScmParametro, 1)
+    if p is None:
+        p = ScmParametro(id=1, monto_doble_aprobacion=50_000_000, solicitud_exige_items=True,
+                         dias_oc_sin_confirmar=3, dias_evaluacion_proveedor=180)
+        db.add(p)
+        await db.flush()
+    return p
+
+
+class ParametrosIn(BaseModel):
+    monto_doble_aprobacion: Optional[float] = None
+    solicitud_exige_items: bool = True
+    dias_oc_sin_confirmar: int = 3
+    dias_evaluacion_proveedor: int = 180
+
+
+def _parametros_dict(p: ScmParametro) -> dict:
+    return {"monto_doble_aprobacion": p.monto_doble_aprobacion,
+            "solicitud_exige_items": p.solicitud_exige_items,
+            "dias_oc_sin_confirmar": p.dias_oc_sin_confirmar,
+            "dias_evaluacion_proveedor": p.dias_evaluacion_proveedor}
+
+
+@router.get("/parametros")
+async def leer_parametros(db: AsyncSession = Depends(get_db),
+                          current_user: Usuario = Depends(get_current_user)):
+    return _parametros_dict(await _parametros(db))
+
+
+@router.put("/parametros")
+async def guardar_parametros(data: ParametrosIn, db: AsyncSession = Depends(get_db),
+                             current_user: Usuario = Depends(require_admin)):
+    if data.monto_doble_aprobacion is not None and data.monto_doble_aprobacion <= 0:
+        raise HTTPException(422, "El tope de doble aprobación debe ser mayor que cero, o vacío para no exigirla.")
+    if data.dias_oc_sin_confirmar < 1 or data.dias_evaluacion_proveedor < 1:
+        raise HTTPException(422, "Los plazos deben ser de al menos un día.")
+    p = await _parametros(db)
+    for k, v in data.model_dump().items():
+        setattr(p, k, v)
+    return _parametros_dict(p)
+
 
 async def _gen_numero_solicitud(db: AsyncSession) -> str:
     year = date.today().year
@@ -153,7 +198,44 @@ async def scm_dashboard(
         select(ScmSolicitudCompra.estado, func.count(ScmSolicitudCompra.id).label("cnt"))
         .group_by(ScmSolicitudCompra.estado)
     )
+    par = await _parametros(db)
+    hoy = date.today()
+    sin_confirmar = (await db.execute(
+        select(ScmOrdenCompra.id, ScmOrdenCompra.numero, ScmOrdenCompra.fecha_emision, Proveedor.razon_social)
+        .join(Proveedor, Proveedor.id == ScmOrdenCompra.proveedor_id)
+        .where(ScmOrdenCompra.estado == EstadoOrdenSCM.ENVIADA,
+               ScmOrdenCompra.fecha_emision <= hoy - timedelta(days=par.dias_oc_sin_confirmar))
+        .order_by(ScmOrdenCompra.fecha_emision))).all()
+    # Proveedores a los que se les compró en el último año y cuya última
+    # evaluación es más vieja que el plazo (o no existe).
+    ultima_eval = (select(ScmEvaluacionProveedor.proveedor_id,
+                          func.max(ScmEvaluacionProveedor.created_at).label("ultima"))
+                   .group_by(ScmEvaluacionProveedor.proveedor_id).subquery())
+    por_evaluar = (await db.execute(
+        select(Proveedor.id, Proveedor.razon_social, ultima_eval.c.ultima)
+        .join(ScmOrdenCompra, ScmOrdenCompra.proveedor_id == Proveedor.id)
+        .outerjoin(ultima_eval, ultima_eval.c.proveedor_id == Proveedor.id)
+        .where(ScmOrdenCompra.fecha_emision >= hoy - timedelta(days=365),
+               Proveedor.activo == True)  # noqa: E712
+        .group_by(Proveedor.id, Proveedor.razon_social, ultima_eval.c.ultima))).all()
+    limite_eval = hoy - timedelta(days=par.dias_evaluacion_proveedor)
+    por_evaluar = [r for r in por_evaluar if r.ultima is None or r.ultima.date() < limite_eval]
+
+    alertas = [
+        {"tipo": "OC_SIN_CONFIRMAR", "id": r.id,
+         "texto": f"{r.numero} · {r.razon_social}",
+         "detalle": f"Enviada hace {(hoy - r.fecha_emision).days} días y sin confirmar"}
+        for r in sin_confirmar
+    ] + [
+        {"tipo": "PROVEEDOR_SIN_EVALUAR", "id": r.id, "texto": r.razon_social,
+         "detalle": ("Nunca evaluado" if r.ultima is None
+                     else f"Última evaluación hace {(hoy - r.ultima.date()).days} días")}
+        for r in por_evaluar
+    ]
+
     return {
+        "alertas": alertas,
+        "parametros": _parametros_dict(par),
         "kpis": {
             "total_solicitudes": total_sol.scalar_one(),
             "solicitudes_pendientes": sol_pendientes.scalar_one(),
@@ -233,6 +315,8 @@ async def crear_solicitud(
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
+    if not data.items and (await _parametros(db)).solicitud_exige_items:
+        raise HTTPException(422, "La solicitud necesita al menos un ítem (Configuración de SCM).")
     numero = await _gen_numero_solicitud(db)
     presupuesto = data.presupuesto_estimado
     if not presupuesto and data.items:
@@ -485,6 +569,17 @@ async def actualizar_estado_orden(
     orden = await db.get(ScmOrdenCompra, orden_id)
     if not orden:
         raise HTTPException(status_code=404, detail="Orden no encontrada")
+    # Doble aprobación: una OC grande no sale del borrador con una sola firma.
+    # La envía un administrador distinto de quien la creó, y queda registrado.
+    tope = (await _parametros(db)).monto_doble_aprobacion
+    if (orden.estado == EstadoOrdenSCM.BORRADOR and body.estado != EstadoOrdenSCM.CANCELADA
+            and body.estado != EstadoOrdenSCM.BORRADOR and tope and (orden.total or 0) > tope):
+        rol = getattr(current_user.rol, "value", current_user.rol)
+        if rol != RolUsuario.ADMINISTRADOR.value or current_user.id == orden.creado_por_id:
+            raise HTTPException(403, (
+                f"Esta orden supera ${tope:,.0f}: la debe aprobar un administrador distinto "
+                "de quien la creó.").replace(",", "."))
+        orden.aprobado_por_id = current_user.id
     orden.estado = body.estado
     if body.fecha_entrega_real:
         orden.fecha_entrega_real = body.fecha_entrega_real

@@ -5,7 +5,9 @@ import {
   Button, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, MenuItem, Select, FormControl, InputLabel, IconButton, Tooltip,
 } from '@mui/material'
-import { NoteAdd, Add, Send, CheckCircle, Cancel, Refresh } from '@mui/icons-material'
+import { NoteAdd, Add, Send, CheckCircle, Cancel, Refresh, DeleteOutline } from '@mui/icons-material'
+import toast from 'react-hot-toast'
+import { mensajeDeError } from '@/utils/errorApi'
 import { Layout } from '@/components/layout/Layout'
 import { COLOR_MODULO } from '@/config/marca'
 import {
@@ -44,6 +46,11 @@ const SX_SELECT = { color: 'text.primary', bgcolor: '#F9FAFB', '& .MuiOutlinedIn
 interface Form { titulo: string; descripcion: string; prioridad: PrioridadSCM; categoria: CategoriaSCM; presupuesto: string; fecha_requerida: string }
 const EMPTY: Form = { titulo: '', descripcion: '', prioridad: 'MEDIA', categoria: 'INSUMOS', presupuesto: '', fecha_requerida: '' }
 
+// Lo que se pide, línea por línea. Antes la pantalla mandaba siempre un
+// «Ítem genérico» inventado de cantidad 1, y la solicitud no decía qué se compraba.
+interface Linea { descripcion: string; cantidad: string; unidad: string; precio: string }
+const LINEA_VACIA: Linea = { descripcion: '', cantidad: '1', unidad: 'UND', precio: '' }
+
 export default function SCMSolicitudes() {
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([])
   const [total, setTotal]             = useState(0)
@@ -51,6 +58,7 @@ export default function SCMSolicitudes() {
   const [filtroEstado, setFiltroEstado] = useState<EstadoSolicitud | ''>('')
   const [openNew, setOpenNew]         = useState(false)
   const [form, setForm]               = useState<Form>(EMPTY)
+  const [lineas, setLineas]           = useState<Linea[]>([{ ...LINEA_VACIA }])
   const [saving, setSaving]           = useState(false)
   const [rechazarId, setRechazarId]   = useState<number | null>(null)
   const [motivo, setMotivo]           = useState('')
@@ -64,20 +72,33 @@ export default function SCMSolicitudes() {
 
   useEffect(() => { load() }, [load])
 
+  // Las acciones muestran el motivo si el servidor las rechaza; antes el error
+  // se perdía y el botón parecía no hacer nada.
+  async function accion(fn: () => Promise<unknown>, ok: string) {
+    try { await fn(); toast.success(ok); load() }
+    catch (e) { toast.error(mensajeDeError(e, 'No se pudo completar la acción')) }
+  }
+
   async function handleCrear() {
     if (!form.titulo.trim()) return
+    const items: SolicitudItem[] = lineas
+      .filter(l => l.descripcion.trim())
+      .map(l => ({ descripcion: l.descripcion.trim(), cantidad: Number(l.cantidad) || 1, unidad: l.unidad || 'UND',
+                   precio_estimado: l.precio ? Number(l.precio) : undefined }))
     setSaving(true)
     try {
-      const item: SolicitudItem = { descripcion: 'Ítem genérico', cantidad: 1, unidad: 'UND' }
-      await createSolicitud({ titulo: form.titulo, descripcion: form.descripcion || undefined, prioridad: form.prioridad, categoria: form.categoria, presupuesto_estimado: form.presupuesto ? Number(form.presupuesto) : undefined, fecha_requerida: form.fecha_requerida || undefined, items: [item] })
-      setOpenNew(false); setForm(EMPTY); load()
+      await createSolicitud({ titulo: form.titulo, descripcion: form.descripcion || undefined, prioridad: form.prioridad, categoria: form.categoria, presupuesto_estimado: form.presupuesto ? Number(form.presupuesto) : undefined, fecha_requerida: form.fecha_requerida || undefined, items })
+      toast.success('Solicitud creada')
+      setOpenNew(false); setForm(EMPTY); setLineas([{ ...LINEA_VACIA }]); load()
+    } catch (e) {
+      toast.error(mensajeDeError(e, 'No se pudo crear la solicitud'))
     } finally { setSaving(false) }
   }
 
   async function handleRechazar() {
     if (rechazarId === null) return
-    await rechazarSolicitud(rechazarId, motivo)
-    setRechazarId(null); setMotivo(''); load()
+    await accion(() => rechazarSolicitud(rechazarId, motivo), 'Solicitud rechazada')
+    setRechazarId(null); setMotivo('')
   }
 
   return (
@@ -148,11 +169,11 @@ export default function SCMSolicitudes() {
                       <TableCell align="center">
                         <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
                           {s.estado === 'BORRADOR' && (
-                            <Tooltip title="Enviar a aprobación"><IconButton size="small" onClick={() => enviarSolicitud(s.id).then(load)} sx={{ color: '#f59e0b' }}><Send fontSize="small" /></IconButton></Tooltip>
+                            <Tooltip title="Enviar a aprobación"><IconButton size="small" onClick={() => accion(() => enviarSolicitud(s.id), 'Enviada a aprobación')} sx={{ color: '#f59e0b' }}><Send fontSize="small" /></IconButton></Tooltip>
                           )}
                           {s.estado === 'PENDIENTE' && (
                             <>
-                              <Tooltip title="Aprobar"><IconButton size="small" onClick={() => aprobarSolicitud(s.id).then(load)} sx={{ color: '#22c55e' }}><CheckCircle fontSize="small" /></IconButton></Tooltip>
+                              <Tooltip title="Aprobar"><IconButton size="small" onClick={() => accion(() => aprobarSolicitud(s.id), 'Solicitud aprobada')} sx={{ color: '#22c55e' }}><CheckCircle fontSize="small" /></IconButton></Tooltip>
                               <Tooltip title="Rechazar"><IconButton size="small" onClick={() => { setRechazarId(s.id); setMotivo('') }} sx={{ color: '#ef4444' }}><Cancel fontSize="small" /></IconButton></Tooltip>
                             </>
                           )}
@@ -167,7 +188,7 @@ export default function SCMSolicitudes() {
         </Card>
 
         {/* Dialog nueva solicitud */}
-        <Dialog open={openNew} onClose={() => setOpenNew(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { color: 'text.primary' } }}>
+        <Dialog open={openNew} onClose={() => setOpenNew(false)} maxWidth="md" fullWidth PaperProps={{ sx: { color: 'text.primary' } }}>
           <DialogTitle sx={{ borderBottom: '1px solid #F1F5F9', fontWeight: 700 }}>Nueva Solicitud de Compra</DialogTitle>
           <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField label="Título *" value={form.titulo} onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))} fullWidth size="small" sx={SX_INPUT} />
@@ -189,6 +210,24 @@ export default function SCMSolicitudes() {
             <Box sx={{ display: 'flex', gap: 2 }}>
               <TextField label="Presupuesto (COP)" value={form.presupuesto} onChange={e => setForm(f => ({ ...f, presupuesto: e.target.value }))} type="number" fullWidth size="small" sx={SX_INPUT} />
               <TextField label="Fecha requerida" value={form.fecha_requerida} onChange={e => setForm(f => ({ ...f, fecha_requerida: e.target.value }))} type="date" fullWidth size="small" InputLabelProps={{ shrink: true }} sx={SX_INPUT} />
+            </Box>
+            <Box>
+              <Typography sx={{ fontSize: 13, fontWeight: 700, mb: 1 }}>Ítems</Typography>
+              {lineas.map((l, i) => (
+                <Box key={i} sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center' }}>
+                  <TextField label="Descripción" value={l.descripcion} size="small" sx={{ flex: 3, ...SX_INPUT }}
+                    onChange={e => setLineas(ls => ls.map((x, j) => j === i ? { ...x, descripcion: e.target.value } : x))} />
+                  <TextField label="Cant." type="number" value={l.cantidad} size="small" sx={{ flex: 1, ...SX_INPUT }}
+                    onChange={e => setLineas(ls => ls.map((x, j) => j === i ? { ...x, cantidad: e.target.value } : x))} />
+                  <TextField label="Unidad" value={l.unidad} size="small" sx={{ flex: 1, ...SX_INPUT }}
+                    onChange={e => setLineas(ls => ls.map((x, j) => j === i ? { ...x, unidad: e.target.value } : x))} />
+                  <TextField label="Precio est." type="number" value={l.precio} size="small" sx={{ flex: 1.5, ...SX_INPUT }}
+                    onChange={e => setLineas(ls => ls.map((x, j) => j === i ? { ...x, precio: e.target.value } : x))} />
+                  <IconButton size="small" aria-label="Quitar ítem" disabled={lineas.length === 1}
+                    onClick={() => setLineas(ls => ls.filter((_, j) => j !== i))}><DeleteOutline fontSize="small" /></IconButton>
+                </Box>
+              ))}
+              <Button size="small" startIcon={<Add />} onClick={() => setLineas(ls => [...ls, { ...LINEA_VACIA }])}>Agregar ítem</Button>
             </Box>
           </DialogContent>
           <DialogActions sx={{ borderTop: '1px solid #F1F5F9', p: 2, gap: 1 }}>

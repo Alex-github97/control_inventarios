@@ -230,7 +230,7 @@ export default function ERPCxC() {
   // ── Mutations ────────────────────────────────────────────────────────────
   const createFactura = useMutation({
     mutationFn: (data: typeof EMPTY_FORM) =>
-      apiClient.post('/erp/cxc/facturas', data).then((r) => r.data),
+      apiClient.post('/erp/cxc/facturas', { ...data, fecha_vencimiento: data.fecha_vencimiento || null }).then((r) => r.data),
     onSuccess: () => {
       toast.success('Factura registrada')
       qc.invalidateQueries({ queryKey: ['erp-cxc-facturas'] })
@@ -980,7 +980,8 @@ export default function ERPCxC() {
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
-                label="Vencimiento *"
+                label="Vencimiento"
+                helperText="Vacío: según los días de crédito de Configuración"
                 type="date"
                 fullWidth
                 size="small"
@@ -1033,7 +1034,6 @@ export default function ERPCxC() {
               !form.numero ||
               !form.cliente_nombre ||
               !form.fecha ||
-              !form.fecha_vencimiento ||
               createFactura.isPending
             }
             onClick={() => createFactura.mutate(form)}
