@@ -125,6 +125,12 @@ def entrenar(filas: List[Dict], objetivo: Sequence[int], fechas: Sequence,
         key=lambda x: -x["aporte"])
 
     util = c["habilidad"] > 0.02 and c["auc"] > 0.6
+    # Lo que el modelo conoce: el rango de cada variable en la historia. Un
+    # árbol que nunca vio 1.300 horas sin parada no «extrapola», repite la hoja
+    # más cercana con toda su seguridad; hay que avisarlo.
+    rangos = {col: (float(X[col].quantile(0.005)), float(X[col].quantile(0.995)))
+              for col in nums if X[col].notna().any()}
+    conocidas = {col: set(X[col].unique()) for col in cats}
     # El modelo final se reentrena con TODA la historia: la validación ya dijo
     # cuánto confiar en él; tirar los últimos meses sería perder lo más reciente.
     final = (logistica if elegido == "Regresión logística" else boosting)().fit(X, y)
@@ -140,7 +146,23 @@ def entrenar(filas: List[Dict], objetivo: Sequence[int], fechas: Sequence,
         "calibracion": calibracion,
         "importancia": [i for i in importancia if i["aporte"] > 0][:8],
         "_modelo": final, "_columnas": list(X.columns), "_categoricas": cats,
+        "_rangos": rangos, "_conocidas": conocidas,
     }
+
+
+def fuera_de_experiencia(resultado: Dict, fila: Dict, etiquetas: Dict[str, str]) -> List[str]:
+    """Las variables de esta observación que caen fuera de lo que el modelo
+    vio al entrenar. Si hay alguna, su probabilidad no está respaldada."""
+    avisos = []
+    for col, (lo, hi) in resultado.get("_rangos", {}).items():
+        v = fila.get(col)
+        if v is not None and not (lo <= v <= hi):
+            avisos.append(etiquetas.get(col, col))
+    for col, vistos in resultado.get("_conocidas", {}).items():
+        v = fila.get(col)
+        if v is not None and str(v) not in vistos:
+            avisos.append(etiquetas.get(col, col))
+    return avisos
 
 
 def predecir(resultado: Dict, filas: List[Dict]) -> Optional[np.ndarray]:

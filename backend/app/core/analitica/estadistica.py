@@ -1,0 +1,217 @@
+"""
+Control estadístico de procesos y comparación de grupos.
+
+CARTAS DE CONTROL
+Una carta no dice si el proceso es bueno: dice si cambió. Los límites salen
+del propio proceso, no de una meta, y un punto fuera de ellos significa «aquí
+pasó algo que no es la variación de siempre», que es lo que vale la pena
+investigar.
+
+  I-MR     una medida por punto (el OEE de un turno). Límites con el rango
+           móvil medio: x̄ ± 2,66·MR̄.
+  p' Laney proporción con tamaños distintos (desperdicio por corrida). La
+           carta p clásica asume que las unidades son independientes; con
+           miles de unidades por corrida los límites quedan tan estrechos que
+           TODO sale fuera de control. Laney corrige por la variación real
+           entre corridas (sobredispersión), y con datos binomiales de verdad
+           da lo mismo que la p clásica.
+
+Los límites se calculan con un periodo base —los primeros puntos— y los
+siguientes se juzgan contra él. Si se calcularan con todos, un cambio
+sostenido movería los límites y se escondería a sí mismo.
+
+REGLAS DE NELSON que se aplican (las más usadas y con menos falsas alarmas)
+  1  un punto más allá de 3σ
+  2  nueve seguidos del mismo lado de la media
+  3  seis seguidos subiendo o bajando
+  5  dos de tres más allá de 2σ del mismo lado
+
+COMPARAR GRUPOS
+Para preguntar «¿este operario desperdicia más?» la unidad es la CORRIDA, no
+la pieza: las piezas de una misma corrida comparten material, máquina y
+ajuste, y contarlas como independientes haría significativa cualquier
+diferencia. Se usa Mann-Whitney (no supone normalidad) y Benjamini-Hochberg
+para corregir por hacer muchas comparaciones a la vez.
+"""
+import math
+from typing import Dict, List, Optional, Sequence, Tuple
+
+import numpy as np
+
+MIN_PUNTOS_CARTA = 12
+MIN_CORRIDAS_GRUPO = 8
+
+
+def _base(n: int) -> int:
+    """Cuántos puntos forman el periodo base: la mitad, entre 12 y 30."""
+    return int(min(30, max(MIN_PUNTOS_CARTA, n // 2)))
+
+
+def reglas_nelson(z: Sequence[float]) -> Dict[int, List[str]]:
+    """Qué reglas rompe cada punto, con `z` en unidades de sigma respecto a la
+    línea central (puede ser un sigma distinto por punto)."""
+    alertas: Dict[int, List[str]] = {}
+    marca = lambda i, t: alertas.setdefault(i, []).append(t)
+    n = len(z)
+    for i, v in enumerate(z):
+        if abs(v) > 3:
+            marca(i, "Fuera de los límites de control")
+    for i in range(8, n):
+        ventana = z[i - 8:i + 1]
+        if all(v > 0 for v in ventana) or all(v < 0 for v in ventana):
+            marca(i, "Nueve seguidos del mismo lado: el nivel cambió")
+    for i in range(5, n):
+        d = np.diff(z[i - 5:i + 1])
+        if all(d > 0) or all(d < 0):
+            marca(i, "Seis seguidos en la misma dirección: hay una tendencia")
+    for i in range(2, n):
+        ventana = z[i - 2:i + 1]
+        if sum(v > 2 for v in ventana) >= 2 or sum(v < -2 for v in ventana) >= 2:
+            marca(i, "Dos de tres cerca del límite")
+    return alertas
+
+
+def carta_imr(valores: Sequence[float], etiquetas: Sequence[str]) -> Dict:
+    x = np.asarray(valores, dtype=float)
+    n = len(x)
+    if n < MIN_PUNTOS_CARTA:
+        return {"suficiente": False, "puntos": n, "minimo": MIN_PUNTOS_CARTA}
+    b = _base(n)
+    centro = float(x[:b].mean())
+    mr = float(np.abs(np.diff(x[:b])).mean())
+    sigma = mr / 1.128
+    if sigma <= 0:
+        return {"suficiente": False, "puntos": n, "minimo": MIN_PUNTOS_CARTA, "motivo": "Sin variación"}
+    z = (x - centro) / sigma
+    alertas = reglas_nelson(z)
+    return {
+        "suficiente": True, "tipo": "I-MR", "puntos_base": b,
+        "centro": round(centro, 3), "lcs": round(centro + 3 * sigma, 3), "lci": round(centro - 3 * sigma, 3),
+        "serie": [{"etiqueta": e, "valor": round(float(v), 3), "alertas": alertas.get(i, [])}
+                  for i, (e, v) in enumerate(zip(etiquetas, x))],
+    }
+
+
+def carta_p_laney(defectuosos: Sequence[float], tamanos: Sequence[float], etiquetas: Sequence[str]) -> Dict:
+    d = np.asarray(defectuosos, dtype=float)
+    m = np.asarray(tamanos, dtype=float)
+    ok = m > 0
+    d, m = d[ok], m[ok]
+    etiquetas = [e for e, k in zip(etiquetas, ok) if k]
+    n = len(d)
+    if n < MIN_PUNTOS_CARTA:
+        return {"suficiente": False, "puntos": n, "minimo": MIN_PUNTOS_CARTA}
+    b = _base(n)
+    pbar = float(d[:b].sum() / m[:b].sum())
+    if pbar <= 0 or pbar >= 1:
+        return {"suficiente": False, "puntos": n, "minimo": MIN_PUNTOS_CARTA, "motivo": "Sin variación"}
+    p = d / m
+    sp = np.sqrt(pbar * (1 - pbar) / m)
+    zb = (p[:b] - pbar) / sp[:b]
+    sigma_z = float(np.abs(np.diff(zb)).mean() / 1.128) or 1.0
+    s = sp * sigma_z
+    z = (p - pbar) / s
+    alertas = reglas_nelson(z)
+    return {
+        "suficiente": True, "tipo": "p' de Laney", "puntos_base": b,
+        "centro": round(pbar * 100, 3), "sobredispersion": round(sigma_z, 2),
+        "serie": [{"etiqueta": e, "valor": round(float(pi) * 100, 3),
+                   "lcs": round(min(1.0, pbar + 3 * float(si)) * 100, 3),
+                   "lci": round(max(0.0, pbar - 3 * float(si)) * 100, 3),
+                   "tamano": float(mi), "alertas": alertas.get(i, [])}
+                  for i, (e, pi, si, mi) in enumerate(zip(etiquetas, p, s, m))],
+    }
+
+
+def mann_whitney(a: Sequence[float], b: Sequence[float]) -> Tuple[float, float]:
+    """Prueba U con aproximación normal y corrección por empates. Devuelve
+    (p bilateral, probabilidad de que un valor de `a` supere a uno de `b`)."""
+    a, b = np.asarray(a, float), np.asarray(b, float)
+    n1, n2 = len(a), len(b)
+    todos = np.concatenate([a, b])
+    orden = todos.argsort(kind="mergesort")
+    rangos = np.empty(len(todos))
+    vals = todos[orden]
+    i = 0
+    empates = 0.0
+    while i < len(vals):
+        j = i
+        while j + 1 < len(vals) and vals[j + 1] == vals[i]:
+            j += 1
+        rangos[orden[i:j + 1]] = (i + j) / 2 + 1
+        t = j - i + 1
+        empates += t ** 3 - t
+        i = j + 1
+    u1 = rangos[:n1].sum() - n1 * (n1 + 1) / 2
+    mu = n1 * n2 / 2
+    N = n1 + n2
+    var = n1 * n2 / 12 * ((N + 1) - empates / (N * (N - 1)))
+    if var <= 0:
+        return 1.0, 0.5
+    z = (u1 - mu - math.copysign(0.5, u1 - mu)) / math.sqrt(var)
+    return math.erfc(abs(z) / math.sqrt(2)), float(u1 / (n1 * n2))
+
+
+def benjamini_hochberg(pvalores: Sequence[float]) -> List[float]:
+    """p-valores ajustados por tasa de falsos descubrimientos."""
+    p = np.asarray(pvalores, float)
+    n = len(p)
+    if not n:
+        return []
+    orden = np.argsort(p)
+    ajust = np.empty(n)
+    acumulado = 1.0
+    for k in range(n - 1, -1, -1):
+        i = orden[k]
+        acumulado = min(acumulado, p[i] * n / (k + 1))
+        ajust[i] = acumulado
+    return [float(x) for x in ajust]
+
+
+def comparar_grupos(corridas: List[Dict], factores: Dict[str, str], valor: str = "tasa",
+                    alfa: float = 0.05) -> List[Dict]:
+    """Cada nivel de cada factor contra el resto de las corridas.
+
+    `corridas` son diccionarios con los factores y el valor; `factores` mapea
+    la clave del factor a su nombre en pantalla. Solo se prueban niveles con
+    al menos 8 corridas propias y 8 del resto.
+    """
+    def probar(excluir):
+        salida = []
+        for clave, nombre in factores.items():
+            niveles = {c.get(clave) for c in corridas if c.get(clave) is not None}
+            if len(niveles) < 2:
+                continue
+            for nivel in niveles:
+                fuera = excluir.get(clave, set()) - {nivel}
+                a = [c[valor] for c in corridas if c.get(clave) == nivel]
+                b = [c[valor] for c in corridas
+                     if c.get(clave) is not None and c.get(clave) != nivel and c.get(clave) not in fuera]
+                if len(a) < MIN_CORRIDAS_GRUPO or len(b) < MIN_CORRIDAS_GRUPO:
+                    continue
+                p, prob_mayor = mann_whitney(a, b)
+                salida.append({"factor": nombre, "clave": clave, "nivel": nivel, "corridas": len(a),
+                               "corridas_resto": len(b),
+                               "mediana": round(float(np.median(a)), 3), "mediana_resto": round(float(np.median(b)), 3),
+                               "media": round(float(np.mean(a)), 3), "media_resto": round(float(np.mean(b)), 3),
+                               "prob_mayor": round(prob_mayor, 3), "p": p})
+        return salida
+
+    # Efecto espejo: si un operario desperdicia mucho, «el resto» de cada uno
+    # de los demás lo incluye y todos parecen mejores de lo normal. Primero se
+    # encuentran los peores; después se vuelve a comparar a los demás contra
+    # el resto SIN ellos.
+    primera = probar({})
+    ajust = benjamini_hochberg([x["p"] for x in primera])
+    peores: Dict[str, set] = {}
+    for x, pa in zip(primera, ajust):
+        if pa < alfa and x["media"] > x["media_resto"]:
+            peores.setdefault(x["clave"], set()).add(x["nivel"])
+    pruebas = probar(peores) if peores else primera
+    for x in pruebas:
+        x.pop("clave", None)
+    for prueba, pa in zip(pruebas, benjamini_hochberg([x["p"] for x in pruebas])):
+        prueba["p_ajustado"] = round(pa, 4)
+        prueba["p"] = round(prueba["p"], 4)
+        prueba["significativo"] = pa < alfa
+    return sorted(pruebas, key=lambda x: (not x["significativo"], x["p_ajustado"]))

@@ -1,615 +1,360 @@
-import React, { useState, useRef, useEffect } from 'react'
+/**
+ * MES · Analítica de planta
+ *
+ * Era la pantalla «IA» con equipos a punto de fallar, una secuenciación
+ * «óptima», un scrap «óptimo» por producto, anomalías y un asistente, todo
+ * escrito a mano. Ahora sale de las corridas, paradas, registros de OEE e
+ * inspecciones (ver `backend/app/api/v1/endpoints/mes_analitica.py`):
+ *
+ *  - Control estadístico: ¿el proceso cambió?
+ *  - Pérdidas de OEE: dónde se van los minutos y qué explica la caída.
+ *  - Paradas: Pareto, desgaste por equipo (Weibull) y predicción a 7 días.
+ *  - Desperdicio: qué operario, turno, equipo o producto desperdicia más que
+ *    el resto, más allá del azar.
+ */
+import { useState } from 'react'
 import {
-  Box, Typography, Tabs, Tab, Card, CardContent, Chip,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Paper, Button, Stack, alpha, Divider, LinearProgress, TextField,
-  IconButton, Avatar,
+  Box, Paper, Typography, Tabs, Tab, Alert, LinearProgress, Table, TableHead, TableRow, TableCell, TableBody,
+  ToggleButtonGroup, ToggleButton, Tooltip, Chip,
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import {
-  AutoAwesome as AIIcon,
-  Warning as WarnIcon,
-  Build as BuildIcon,
-  TrendingUp as TrendIcon,
-  Speed as SpeedIcon,
-  Send as SendIcon,
-  SmartToy as BotIcon,
-  Person as PersonIcon,
-  CheckCircle as CheckIcon,
-  Timeline as TimelineIcon,
-  Factory as FactoryIcon,
-  BugReport as BugIcon,
-  Tune as TuneIcon,
-} from '@mui/icons-material'
+import { Insights } from '@mui/icons-material'
+import { useQuery } from '@tanstack/react-query'
 import { Layout } from '@/components/layout/Layout'
-
+import { apiClient as api } from '@/api/client'
+import { Encabezado, Cifra, Etiqueta } from '@/components/comun/Registro'
+import { CalificacionDelModelo, CartaControl, Probabilidad, num, type CalificacionModelo, type PuntoCarta } from '@/components/analitica/Analitica'
 import { COLOR_MODULO } from '@/config/marca'
-const MES_COLOR = COLOR_MODULO
-const AI_COLOR = COLOR_MODULO
 
-const fmt = (n: number) =>
-  new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
+const C = COLOR_MODULO
+const R = '/mes/analitica'
 
-// ─── Interfaces ───────────────────────────────────────────────────────────────
-interface EquipoPrediccion {
-  id: number
-  equipo: string
-  linea: string
-  probabilidadFalla: number
-  tiempoRestante: string
-  causaRaiz: string
-  ultimaLectura: string
-  otGenerada: boolean
+interface Carta {
+  nombre: string; suficiente: boolean; puntos?: number; minimo?: number; motivo?: string; tipo?: string
+  centro?: number; lcs?: number; lci?: number; sobredispersion?: number; puntos_base?: number; serie?: PuntoCarta[]
+}
+interface Perdidas {
+  registros: number; planificado_min: number; perdida_disponibilidad_min: number; perdida_rendimiento_min: number
+  perdida_calidad_min: number; util_min: number; disponibilidad: number; rendimiento: number; calidad: number; oee: number
+}
+interface WeibullEquipo {
+  equipo_id: number; equipo: string; paradas: number; horas_desde_ultima: number; suficiente: boolean; fallas: number; minimo: number
+  beta?: number; eta?: number; ic90_beta?: [number, number] | null; patron?: string; prob_7d?: number
+}
+interface Comparacion {
+  factor: string; nivel: string; corridas: number; corridas_resto: number; media: number; media_resto: number
+  mediana: number; mediana_resto: number; p_ajustado: number; significativo: boolean
 }
 
-interface SecuenciacionItem {
-  op: string
-  producto: string
-  antes: string
-  despues: string
-  ganancia: number
+// ─── SPC ──────────────────────────────────────────────────────────────────────
+
+function TarjetaCarta({ c, unidad }: { c: Carta; unidad: string }) {
+  if (!c.suficiente) return (
+    <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+      <Typography fontWeight={700}>{c.nombre}</Typography>
+      <Typography fontSize={12} color="text.secondary">{c.motivo ?? `Faltan datos: ${c.puntos} puntos de ${c.minimo} necesarios para fijar límites.`}</Typography>
+    </Paper>
+  )
+  const serie = c.serie ?? []
+  const alertas = serie.filter(p => p.alertas.length)
+  const recientes = alertas.slice(-6).reverse()
+  return (
+    <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
+        <Box>
+          <Typography fontWeight={800}>{c.nombre}</Typography>
+          <Typography fontSize={12} color="text.secondary">
+            Carta {c.tipo} · línea central {num(c.centro, 2)}{unidad} · límites fijados con los primeros {c.puntos_base} puntos
+            {c.sobredispersion && c.sobredispersion > 1.3 ? ` · la variación real entre corridas es ${num(c.sobredispersion, 1)} veces la esperada` : ''}
+          </Typography>
+        </Box>
+        <Etiqueta texto={alertas.length ? `${alertas.length} señales de ${serie.length}` : 'Bajo control'} color={alertas.length ? '#DC2626' : '#16A34A'} />
+      </Box>
+      <CartaControl serie={serie} centro={c.centro!} lcs={c.lcs} lci={c.lci} unidad={unidad} color={C} />
+      {serie.length > 120 && <Typography fontSize={11} color="text.secondary">Se muestran los últimos 120 de {serie.length} puntos; las señales cuentan todos.</Typography>}
+      {recientes.length > 0 && (
+        <Box sx={{ mt: 1 }}>
+          <Typography fontSize={12} fontWeight={700} color="text.secondary">Señales más recientes</Typography>
+          {recientes.map((p, i) => <Typography key={i} fontSize={12}>• <b>{p.etiqueta}</b> ({num(p.valor, 2)}{unidad}): {p.alertas.join('; ')}</Typography>)}
+        </Box>
+      )}
+    </Paper>
+  )
 }
 
-interface ScrapOptimo {
-  producto: string
-  tempActual: number
-  tempOptima: number
-  scrapActual: number
-  scrapProyectado: number
+function SPC() {
+  const [vista, setVista] = useState<'desperdicio' | 'oee' | 'inspeccion'>('desperdicio')
+  const { data, isLoading } = useQuery({ queryKey: ['mes-analitica-spc'], queryFn: () => api.get(`${R}/spc`).then(r => r.data as { desperdicio: Carta[]; oee: Carta[]; inspeccion: Carta }), staleTime: 5 * 60_000 })
+  if (isLoading) return <LinearProgress />
+  if (!data) return null
+  const cartas = vista === 'inspeccion' ? [data.inspeccion] : data[vista]
+  return (
+    <Box>
+      <Typography fontSize={13} color="text.secondary" mb={2}>
+        Una carta de control no dice si el proceso es bueno: dice si <b>cambió</b>. Un punto rojo significa que ahí pasó algo distinto de la variación de siempre, y eso es lo que vale la pena investigar.
+      </Typography>
+      <ToggleButtonGroup size="small" exclusive value={vista} onChange={(_, v) => v && setVista(v)} sx={{ mb: 2 }}>
+        <ToggleButton value="desperdicio">Desperdicio por corrida</ToggleButton>
+        <ToggleButton value="oee">OEE por turno</ToggleButton>
+        <ToggleButton value="inspeccion">Defectos en inspección</ToggleButton>
+      </ToggleButtonGroup>
+      <Box sx={{ display: 'grid', gap: 2 }}>
+        {cartas.length ? cartas.map(c => <TarjetaCarta key={c.nombre} c={c} unidad={vista === 'oee' ? '' : ' %'} />) : <Alert severity="info">Sin registros para esta carta.</Alert>}
+      </Box>
+    </Box>
+  )
 }
 
-interface Anomalia {
-  id: number
-  hora: string
-  equipo: string
-  descripcion: string
-  severidad: 'CRITICA' | 'ALTA' | 'MEDIA'
-  estado: 'ACTIVA' | 'INVESTIGANDO' | 'RESUELTA'
-  tiempoResolucion: string
-  accion: string
+// ─── Pérdidas ─────────────────────────────────────────────────────────────────
+
+const FACTOR = { disponibilidad: ['Disponibilidad', '#DC2626'], rendimiento: ['Rendimiento', '#D97706'], calidad: ['Calidad', '#7C3AED'] } as const
+
+function BarraPerdidas({ p }: { p: Perdidas }) {
+  const partes = [
+    ['Tiempo útil', p.util_min, '#16A34A'], ['Paradas', p.perdida_disponibilidad_min, '#DC2626'],
+    ['Velocidad', p.perdida_rendimiento_min, '#D97706'], ['Calidad', p.perdida_calidad_min, '#7C3AED'],
+  ] as const
+  return (
+    <Box>
+      <Box sx={{ display: 'flex', height: 14, borderRadius: 1, overflow: 'hidden' }}>
+        {partes.map(([t, v, col]) => <Tooltip key={t} title={`${t}: ${num(v)} min`}><Box sx={{ width: `${(v / p.planificado_min) * 100}%`, bgcolor: col }} /></Tooltip>)}
+      </Box>
+      <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mt: 0.5 }}>
+        {partes.map(([t, v, col]) => <Typography key={t} fontSize={11} color="text.secondary"><span style={{ color: col }}>■</span> {t} {num(v / 60)} h</Typography>)}
+      </Box>
+    </Box>
+  )
 }
 
-interface ChatMsg {
-  role: 'user' | 'bot'
-  text: string
-  ts: Date
+function PerdidasOEE() {
+  const [dias, setDias] = useState(30)
+  const { data, isLoading } = useQuery({ queryKey: ['mes-analitica-perdidas', dias], queryFn: () => api.get(`${R}/perdidas`, { params: { dias } }).then(r => r.data as { lineas: { linea: string; actual: Perdidas | null; anterior: Perdidas | null; cambio_oee: number | null; explicacion: Record<string, number> | null }[]; equipos: (Perdidas & { nombre: string })[]; turnos: (Perdidas & { nombre: string })[] }), staleTime: 5 * 60_000 })
+  if (isLoading) return <LinearProgress />
+  if (!data) return null
+  const tabla = (filas: (Perdidas & { nombre: string })[], titulo: string) => (
+    <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto' }}>
+      <Table size="small">
+        <TableHead><TableRow sx={{ '& th': { fontSize: 11, fontWeight: 700 } }}>
+          <TableCell>{titulo}</TableCell><TableCell align="right">OEE</TableCell><TableCell align="right">Disponibilidad</TableCell><TableCell align="right">Rendimiento</TableCell><TableCell align="right">Calidad</TableCell><TableCell align="right">Horas perdidas</TableCell>
+        </TableRow></TableHead>
+        <TableBody>
+          {filas.map(f => (
+            <TableRow key={f.nombre} sx={{ '& td': { fontSize: 12 } }}>
+              <TableCell><b>{f.nombre}</b></TableCell><TableCell align="right"><b>{num(f.oee, 1)} %</b></TableCell>
+              <TableCell align="right">{num(f.disponibilidad, 1)} %</TableCell><TableCell align="right">{num(f.rendimiento, 1)} %</TableCell><TableCell align="right">{num(f.calidad, 1)} %</TableCell>
+              <TableCell align="right">{num((f.planificado_min - f.util_min) / 60)}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Paper>
+  )
+  return (
+    <Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+        <Typography fontSize={13} color="text.secondary">El tiempo planificado se reparte en lo que se aprovechó y lo que se perdió por paradas, por velocidad y por calidad. Se compara con el periodo anterior de igual duración.</Typography>
+        <ToggleButtonGroup size="small" exclusive value={dias} onChange={(_, v) => v && setDias(v)}>
+          {[7, 30, 90].map(d => <ToggleButton key={d} value={d}>{d} días</ToggleButton>)}
+        </ToggleButtonGroup>
+      </Box>
+      {!data.lineas.length && <Alert severity="info">Sin registros de OEE en el periodo.</Alert>}
+      <Box sx={{ display: 'grid', gap: 2, mb: 3 }}>
+        {data.lineas.map(l => l.actual && (
+          <Paper key={l.linea} variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+            <Grid container spacing={2} alignItems="center">
+              <Grid size={{ xs: 12, md: 3 }}>
+                <Typography fontWeight={800}>{l.linea}</Typography>
+                <Typography fontSize={28} fontWeight={800} color={C}>{num(l.actual.oee, 1)} %</Typography>
+                {l.cambio_oee != null && <Typography fontSize={12} color={l.cambio_oee < 0 ? '#DC2626' : '#16A34A'}>{l.cambio_oee > 0 ? '+' : ''}{num(l.cambio_oee, 1)} puntos frente al periodo anterior</Typography>}
+              </Grid>
+              <Grid size={{ xs: 12, md: 5 }}><BarraPerdidas p={l.actual} /></Grid>
+              <Grid size={{ xs: 12, md: 4 }}>
+                {l.explicacion ? (
+                  <Box>
+                    <Typography fontSize={12} fontWeight={700} color="text.secondary">Qué explica el cambio</Typography>
+                    {Object.entries(l.explicacion).sort((a, b) => b[1] - a[1]).map(([k, v]) => (
+                      <Typography key={k} fontSize={12}><span style={{ color: FACTOR[k as keyof typeof FACTOR][1] }}>■</span> {FACTOR[k as keyof typeof FACTOR][0]}: <b>{v} %</b></Typography>
+                    ))}
+                  </Box>
+                ) : <Typography fontSize={12} color="text.secondary">{l.anterior ? 'Sin cambio relevante (menos de 2 puntos).' : 'Sin periodo anterior para comparar.'}</Typography>}
+              </Grid>
+            </Grid>
+          </Paper>
+        ))}
+      </Box>
+      <Grid container spacing={2}>
+        <Grid size={{ xs: 12, md: 7 }}>{tabla(data.equipos, 'Equipo')}</Grid>
+        <Grid size={{ xs: 12, md: 5 }}>{tabla(data.turnos, 'Turno')}</Grid>
+      </Grid>
+    </Box>
+  )
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-const EQUIPOS_PREDICCION: EquipoPrediccion[] = [
-  { id: 1, equipo: 'EQ-001 Inyectora Arburg', linea: 'Línea A', probabilidadFalla: 87, tiempoRestante: '4.2h', causaRaiz: 'Desgaste rodamiento izquierdo — patrón vibración anormal desde 06:00', ultimaLectura: '8.4 mm/s vibración', otGenerada: false },
-  { id: 2, equipo: 'EQ-003 Extrusora Cincinnati', linea: 'Línea B', probabilidadFalla: 74, tiempoRestante: '11h', causaRaiz: 'Temperatura tornillo zona 3 elevada — posible fuga aceite lubricación', ultimaLectura: 'Zona 3: 198°C (máx. 175°C)', otGenerada: false },
-  { id: 3, equipo: 'EQ-005 Sopladora PET', linea: 'Línea C', probabilidadFalla: 61, tiempoRestante: '18h', causaRaiz: 'Desgaste molde cavidad #2 — ciclo alargado 4.2%', ultimaLectura: 'Ciclo: 8.7s (normal 8.3s)', otGenerada: false },
-  { id: 4, equipo: 'EQ-007 Robot Fanuc', linea: 'Línea A', probabilidadFalla: 48, tiempoRestante: '28h', causaRaiz: 'Corriente motor eje J4 fuera de rango nominal', ultimaLectura: '4.8A (normal 3.2A)', otGenerada: false },
-  { id: 5, equipo: 'EQ-002 Prensa Hydraulic', linea: 'Línea D', probabilidadFalla: 32, tiempoRestante: '42h', causaRaiz: 'Presión hidráulica levemente baja — válvula check sospechosa', ultimaLectura: '195 bar (normal 210 bar)', otGenerada: false },
-  { id: 6, equipo: 'EQ-009 Compresora Atlas', linea: 'Planta', probabilidadFalla: 21, tiempoRestante: '68h', causaRaiz: 'Acumulación lenta de agua en separador — mantenimiento rutinario programable', ultimaLectura: 'Temp descarga: 82°C', otGenerada: false },
-]
+// ─── Paradas ──────────────────────────────────────────────────────────────────
 
-const SECUENCIACION: SecuenciacionItem[] = [
-  { op: 'OP-2025-041', producto: 'PT-001 Producto Base', antes: '08:00 - 11:30', despues: '08:00 - 10:15', ganancia: 75 },
-  { op: 'OP-2025-042', producto: 'PT-002 Producto Plus', antes: '11:30 - 15:00', despues: '10:15 - 13:20', ganancia: 100 },
-  { op: 'OP-2025-043', producto: 'PT-003 Modelo X', antes: '15:00 - 17:30', despues: '13:20 - 15:40', ganancia: 50 },
-  { op: 'OP-2025-044', producto: 'PT-005 Kit Estándar', antes: '17:30 - 20:00', despues: '15:40 - 17:30', ganancia: 50 },
-]
+const PATRON: Record<string, [string, string]> = { DESGASTE: ['Se desgasta', '#DC2626'], ALEATORIA: ['Aleatoria', '#2563EB'], INFANTIL: ['Tras intervenir', '#D97706'] }
 
-const SCRAP_OPTIMO: ScrapOptimo[] = [
-  { producto: 'PT-001 Producto Base', tempActual: 185, tempOptima: 178, scrapActual: 4.2, scrapProyectado: 2.1 },
-  { producto: 'PT-002 Producto Plus', tempActual: 192, tempOptima: 183, scrapActual: 5.8, scrapProyectado: 2.8 },
-  { producto: 'PT-003 Modelo X', tempActual: 170, tempOptima: 174, scrapActual: 3.1, scrapProyectado: 1.9 },
-  { producto: 'PT-004 Ensamble M', tempActual: 188, tempOptima: 181, scrapActual: 6.4, scrapProyectado: 3.2 },
-  { producto: 'PT-005 Kit Estándar', tempActual: 176, tempOptima: 176, scrapActual: 1.8, scrapProyectado: 1.8 },
-]
+function Paradas() {
+  const { data, isLoading } = useQuery({ queryKey: ['mes-analitica-paradas'], queryFn: () => api.get(`${R}/paradas`).then(r => r.data as { pareto: { causa: string; minutos: number; eventos: number; tipos: string[]; pct: number; acumulado: number }[]; minutos_totales: number; eventos: number; weibull: WeibullEquipo[]; prediccion: CalificacionModelo & { horizonte_dias: number; equipos: { equipo_id: number; equipo: string; prob_7d: number; paradas_30d: number; horas_desde_parada: number | null; fuera_de_experiencia?: string[] }[] } }), staleTime: 10 * 60_000 })
+  if (isLoading) return <Box><Typography fontSize={12} color="text.secondary">Ajustando los modelos de paradas…</Typography><LinearProgress /></Box>
+  if (!data) return null
+  const m = data.prediccion
+  return (
+    <Box sx={{ display: 'grid', gap: 3 }}>
+      <Box>
+        <Typography fontWeight={800} mb={1}>¿Qué causas pesan? <Typography component="span" fontSize={12} color="text.secondary">({num(data.eventos)} paradas, {num(data.minutos_totales / 60)} h en 180 días)</Typography></Typography>
+        <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto' }}>
+          <Table size="small">
+            <TableHead><TableRow sx={{ '& th': { fontSize: 11, fontWeight: 700 } }}><TableCell>Causa</TableCell><TableCell>Tipo</TableCell><TableCell align="right">Eventos</TableCell><TableCell align="right">Horas</TableCell><TableCell sx={{ width: '35%' }}>Peso</TableCell><TableCell align="right">Acumulado</TableCell></TableRow></TableHead>
+            <TableBody>
+              {data.pareto.slice(0, 12).map(p => (
+                <TableRow key={p.causa} sx={{ '& td': { fontSize: 12 } }}>
+                  <TableCell><b>{p.causa}</b></TableCell>
+                  <TableCell>{p.tipos.map(t => <Chip key={t} size="small" label={t.replace('_', ' ').toLowerCase()} sx={{ mr: 0.5, fontSize: 10 }} />)}</TableCell>
+                  <TableCell align="right">{p.eventos}</TableCell><TableCell align="right">{num(p.minutos / 60, 1)}</TableCell>
+                  <TableCell><Box sx={{ height: 8, borderRadius: 1, bgcolor: '#E2E8F0' }}><Box sx={{ height: 8, borderRadius: 1, bgcolor: p.acumulado - p.pct < 80 ? C : '#94A3B8', width: `${p.pct}%` }} /></Box></TableCell>
+                  <TableCell align="right">{num(p.acumulado, 1)} %</TableCell>
+                </TableRow>
+              ))}
+              {!data.pareto.length && <TableRow><TableCell colSpan={6} sx={{ fontSize: 12, color: 'text.secondary' }}>Sin paradas registradas en el periodo.</TableCell></TableRow>}
+            </TableBody>
+          </Table>
+        </Paper>
+      </Box>
 
-const ANOMALIAS: Anomalia[] = [
-  { id: 1, hora: '06:42', equipo: 'EQ-001 Inyectora', descripcion: 'Vibración eje principal > umbral 8 mm/s durante 18 min continuos', severidad: 'CRITICA', estado: 'ACTIVA', tiempoResolucion: '—', accion: 'Alerta generada — esperando intervención' },
-  { id: 2, hora: '07:15', equipo: 'EQ-003 Extrusora', descripcion: 'Temperatura zona 3 supera 195°C — riesgo degradación material', severidad: 'CRITICA', estado: 'INVESTIGANDO', tiempoResolucion: '38 min', accion: 'Operario verificando válvula lubricación' },
-  { id: 3, hora: '07:58', equipo: 'Línea B', descripcion: 'Micro-paro no planificado 4 min — sensor de presencia pieza falla', severidad: 'ALTA', estado: 'RESUELTA', tiempoResolucion: '12 min', accion: 'Sensor limpiado y reajustado' },
-  { id: 4, hora: '08:30', equipo: 'EQ-005 Sopladora', descripcion: 'Ciclo de molde aumentado 4.2% — cavidad #2 requiere ajuste', severidad: 'ALTA', estado: 'INVESTIGANDO', tiempoResolucion: '22 min', accion: 'Técnico ajustando parámetros cavidad #2' },
-  { id: 5, hora: '09:05', equipo: 'Línea A', descripcion: 'OEE cayó por debajo del 80% — impacto disponibilidad por paros cortos', severidad: 'ALTA', estado: 'ACTIVA', tiempoResolucion: '—', accion: 'Análisis de causa raíz iniciado (IA)' },
-  { id: 6, hora: '09:40', equipo: 'EQ-007 Robot', descripcion: 'Corriente eje J4 pico 5.2A — posible obstrucción parcial en trayectoria', severidad: 'MEDIA', estado: 'INVESTIGANDO', tiempoResolucion: '15 min', accion: 'Verificación de trayectoria programada' },
-  { id: 7, hora: '10:12', equipo: 'Línea D', descripcion: 'Presión hidráulica prensa bajo 195 bar por 3 ciclos consecutivos', severidad: 'MEDIA', estado: 'ACTIVA', tiempoResolucion: '—', accion: 'Monitoreo en curso — umbral 190 bar' },
-  { id: 8, hora: '10:45', equipo: 'EQ-009 Compresora', descripcion: 'Temperatura descarga 82°C — tendencia ascendente en últimas 2h', severidad: 'MEDIA', estado: 'RESUELTA', tiempoResolucion: '8 min', accion: 'Purgado del separador de condensados' },
-]
+      <Box>
+        <Typography fontWeight={800}>¿Qué equipo se desgasta?</Typography>
+        <Typography fontSize={12} color="text.secondary" mb={1}>Weibull del tiempo entre paradas no planeadas de cada equipo. «Se desgasta» quiere decir que cuanto más tiempo lleva sin parar, más cerca está la próxima: ahí sirve el mantenimiento preventivo.</Typography>
+        <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto' }}>
+          <Table size="small">
+            <TableHead><TableRow sx={{ '& th': { fontSize: 11, fontWeight: 700 } }}><TableCell>Equipo</TableCell><TableCell align="right">Paradas no planeadas</TableCell><TableCell>Patrón</TableCell><TableCell align="right">β (90 %)</TableCell><TableCell align="right">Horas típicas entre paradas</TableCell><TableCell align="right">Horas desde la última</TableCell><TableCell align="right">Parada en 7 días</TableCell></TableRow></TableHead>
+            <TableBody>
+              {data.weibull.map(w => (
+                <TableRow key={w.equipo_id} sx={{ '& td': { fontSize: 12 } }}>
+                  <TableCell><b>{w.equipo}</b></TableCell><TableCell align="right">{w.paradas}</TableCell>
+                  {w.suficiente ? (<>
+                    <TableCell><Etiqueta texto={PATRON[w.patron!][0]} color={PATRON[w.patron!][1]} />{w.fallas < 10 && <Tooltip title="Con menos de 10 intervalos el patrón puede salir por azar"><Typography component="span" fontSize={10} color="text.secondary"> muestra pequeña</Typography></Tooltip>}</TableCell>
+                    <TableCell align="right">{num(w.beta, 2)} <Typography component="span" fontSize={10} color="text.secondary">({w.ic90_beta ? `${num(w.ic90_beta[0], 1)}–${num(w.ic90_beta[1], 1)}` : '—'})</Typography></TableCell>
+                    <TableCell align="right">{num(w.eta)}</TableCell><TableCell align="right">{num(w.horas_desde_ultima)}</TableCell>
+                    <TableCell align="right"><Probabilidad p={w.prob_7d ?? 0} /></TableCell>
+                  </>) : (
+                    <TableCell colSpan={5} sx={{ color: 'text.secondary' }}>Faltan datos: {w.fallas} intervalos completos de {w.minimo} necesarios.</TableCell>
+                  )}
+                </TableRow>
+              ))}
+              {!data.weibull.length && <TableRow><TableCell colSpan={7} sx={{ fontSize: 12, color: 'text.secondary' }}>Ningún equipo tiene paradas no planeadas registradas.</TableCell></TableRow>}
+            </TableBody>
+          </Table>
+        </Paper>
+      </Box>
 
-const QUICK_PROMPTS_MES = [
-  '¿Cuál es el OEE hoy?',
-  '¿Qué línea tiene más paradas?',
-  'Analiza el scrap de Línea A',
-  '¿Cuándo debo hacer mantenimiento al EQ-003?',
-]
-
-const BOT_RESPONSES_MES: Record<string, string> = {
-  oee: `📊 **OEE Global — Hoy ${new Date().toLocaleDateString('es-CO')}:**\n\n• Línea A: **82.4%** (Disponibilidad 91%, Rendimiento 94%, Calidad 96%)\n• Línea B: **78.1%** (afectada por EQ-003 — temperatura tornillo)\n• Línea C: **88.3%** (mejor línea del día)\n• Línea D: **85.7%**\n• **OEE Planta Global: 83.6%**\n\nObjetivo corporativo: ≥85%. Línea B requiere atención inmediata para alcanzar la meta.`,
-  paradas: `⚠️ **Análisis de paradas — Hoy:**\n\n1. 🔴 **Línea B** — 3 paradas, total 42 min (EQ-003 temperatura, ajuste parámetros, cambio herramienta)\n2. 🟠 **Línea A** — 2 paradas, total 18 min (vibración EQ-001, micro-paro robot)\n3. 🟡 **Línea D** — 1 parada, total 8 min (presión hidráulica baja)\n4. ✅ **Línea C** — 0 paradas planificadas no programadas\n\n💡 **Causa raíz Línea B:** Mantenimiento preventivo EQ-003 vencido — programar urgente.`,
-  scrap: `🔍 **Análisis de scrap Línea A — Turno actual:**\n\n• Scrap total: **4.2%** (objetivo ≤2.5%)\n• Principal causa: temperatura inyectora 185°C vs óptimo 178°C\n• Piezas no conformes: 38 unidades en OP-2025-041\n• Costo pérdida: estimado $1.2M COP\n\n💡 **Recomendación IA:** Reducir temperatura a 178°C en EQ-001 — proyecta scrap a 2.1% (ahorro $680K COP/turno).\n⚠️ Verificar perfil de temperatura antes del ajuste — rodamiento puede influir.`,
-  eq003: `🔧 **Plan de mantenimiento EQ-003 — Extrusora Cincinnati:**\n\n• **Estado actual:** Temperatura zona 3: 198°C (crítica)\n• **Probabilidad falla:** 74% en próximas 11 horas\n• **Recomendación IA:** Intervención HOY en turno nocturno 22:00\n\n**Plan propuesto:**\n1. Revisión válvula lubricación tornillo (30 min)\n2. Limpieza zona de calefacción 3 (45 min)\n3. Ajuste PID temperatura zona 3 (20 min)\n4. Prueba en vacío antes de reanudar (15 min)\n\n⏱ Tiempo estimado total: 2h — sin impacto en producción diurna.`,
+      <Box>
+        <Typography fontWeight={800}>Predicción con aprendizaje automático</Typography>
+        <Typography fontSize={12} color="text.secondary" mb={1}>Una foto diaria de cada equipo (paradas recientes, producción, desperdicio) y si tuvo una parada no planeada en los {m.horizonte_dias} días siguientes. Se califica con el periodo más reciente, que no vio al entrenar.</Typography>
+        <CalificacionDelModelo m={m} horizonte={m.horizonte_dias} color={C} evento="parada" />
+        {m.suficiente && (
+          <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto', opacity: m.util ? 1 : 0.6 }}>
+            <Table size="small">
+              <TableHead><TableRow sx={{ '& th': { fontSize: 11, fontWeight: 700 } }}><TableCell>Equipo</TableCell><TableCell align="right">Parada en {m.horizonte_dias} días</TableCell><TableCell align="right">Paradas en 30 días</TableCell><TableCell align="right">Horas desde la última</TableCell></TableRow></TableHead>
+              <TableBody>
+                {m.equipos.map(e => (
+                  <TableRow key={e.equipo_id} sx={{ '& td': { fontSize: 12 } }}>
+                    <TableCell><b>{e.equipo}</b></TableCell><TableCell align="right"><Probabilidad p={e.prob_7d} fuera={e.fuera_de_experiencia} /></TableCell>
+                    <TableCell align="right">{e.paradas_30d}</TableCell><TableCell align="right">{num(e.horas_desde_parada)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Paper>
+        )}
+      </Box>
+    </Box>
+  )
 }
 
-const getBotReplyMES = (input: string): string => {
-  const lower = input.toLowerCase()
-  if (lower.includes('oee') || lower.includes('eficiencia')) return BOT_RESPONSES_MES.oee
-  if (lower.includes('parada') || lower.includes('línea') || lower.includes('linea')) return BOT_RESPONSES_MES.paradas
-  if (lower.includes('scrap') || lower.includes('desperdicio') || lower.includes('línea a')) return BOT_RESPONSES_MES.scrap
-  if (lower.includes('eq-003') || lower.includes('eq003') || lower.includes('mantenimiento')) return BOT_RESPONSES_MES.eq003
-  return `🤖 Procesando consulta: "${input}"\n\nEsta función de IA está en desarrollo. Usa los prompts rápidos para obtener análisis de OEE, paradas, scrap o mantenimiento de equipos específicos.`
+// ─── Desperdicio ──────────────────────────────────────────────────────────────
+
+function Desperdicio() {
+  const { data, isLoading } = useQuery({ queryKey: ['mes-analitica-desperdicio'], queryFn: () => api.get(`${R}/desperdicio`).then(r => r.data as { corridas: number; tasa_global: number | null; comparaciones: Comparacion[]; pareto_causas: { causa: string; cantidad: number; costo: number; registros: number; pct_costo: number | null }[] }), staleTime: 5 * 60_000 })
+  if (isLoading) return <LinearProgress />
+  if (!data) return null
+  const hallazgos = data.comparaciones.filter(c => c.significativo)
+  return (
+    <Box>
+      <Typography fontSize={13} color="text.secondary" mb={2}>
+        Cada operario, turno, equipo, producto y línea se compara contra el resto, corrida por corrida. Solo se señala una diferencia si es demasiado grande para ser azar, después de corregir por hacer muchas comparaciones a la vez.
+      </Typography>
+      <Grid container spacing={2} mb={2}>
+        <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Corridas analizadas (180 días)" valor={num(data.corridas)} color={C} /></Grid>
+        <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Desperdicio global" valor={`${num(data.tasa_global, 2)} %`} color="#D97706" /></Grid>
+        <Grid size={{ xs: 12, md: 6 }}><Cifra etiqueta="Diferencias que no son azar" valor={hallazgos.length} color={hallazgos.length ? '#DC2626' : '#16A34A'} sub={`de ${data.comparaciones.length} comparaciones`} /></Grid>
+      </Grid>
+      {hallazgos.length > 0 && (
+        <Box sx={{ display: 'grid', gap: 1, mb: 2 }}>
+          {hallazgos.map(h => (
+            <Alert key={h.factor + h.nivel} severity={h.media > h.media_resto ? 'warning' : 'success'}>
+              <b>{h.factor} {h.nivel}</b>: {num(h.media, 2)} % de desperdicio frente a {num(h.media_resto, 2)} % del resto, en {h.corridas} corridas{h.media > h.media_resto ? '' : ' (mejor que el resto: vale la pena ver qué hace distinto)'}.
+            </Alert>
+          ))}
+          <Typography fontSize={11} color="text.secondary">Una diferencia no prueba la causa: si un operario trabaja siempre con el mismo producto o en el mismo turno, los dos aparecen juntos. Revisar ambos antes de concluir.</Typography>
+        </Box>
+      )}
+      {!hallazgos.length && data.comparaciones.length > 0 && <Alert severity="success" sx={{ mb: 2 }}>Ninguna diferencia entre operarios, turnos, equipos o productos es mayor que lo que explica el azar.</Alert>}
+      {!data.comparaciones.length && <Alert severity="info" sx={{ mb: 2 }}>Hacen falta al menos 8 corridas por grupo para comparar.</Alert>}
+      <Grid container spacing={2}>
+        <Grid size={{ xs: 12, md: 7 }}>
+          <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto' }}>
+            <Table size="small">
+              <TableHead><TableRow sx={{ '& th': { fontSize: 11, fontWeight: 700 } }}><TableCell>Grupo</TableCell><TableCell align="right">Corridas</TableCell><TableCell align="right">Desperdicio</TableCell><TableCell align="right">Resto</TableCell><TableCell align="right">p ajustado</TableCell></TableRow></TableHead>
+              <TableBody>
+                {data.comparaciones.map(c => (
+                  <TableRow key={c.factor + c.nivel} sx={{ '& td': { fontSize: 12 }, bgcolor: c.significativo ? (c.media > c.media_resto ? '#FEF3C7' : '#DCFCE7') : undefined }}>
+                    <TableCell>{c.factor}: <b>{c.nivel}</b></TableCell><TableCell align="right">{c.corridas}</TableCell>
+                    <TableCell align="right">{num(c.media, 2)} %</TableCell><TableCell align="right">{num(c.media_resto, 2)} %</TableCell>
+                    <TableCell align="right">{c.p_ajustado < 0.001 ? '< 0,001' : num(c.p_ajustado, 3)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Paper>
+        </Grid>
+        <Grid size={{ xs: 12, md: 5 }}>
+          <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto' }}>
+            <Table size="small">
+              <TableHead><TableRow sx={{ '& th': { fontSize: 11, fontWeight: 700 } }}><TableCell>Causa registrada</TableCell><TableCell align="right">Unidades</TableCell><TableCell align="right">Costo</TableCell><TableCell align="right">%</TableCell></TableRow></TableHead>
+              <TableBody>
+                {data.pareto_causas.map(p => (
+                  <TableRow key={p.causa} sx={{ '& td': { fontSize: 12 } }}>
+                    <TableCell>{p.causa}</TableCell><TableCell align="right">{num(p.cantidad)}</TableCell>
+                    <TableCell align="right">${num(p.costo)}</TableCell><TableCell align="right">{num(p.pct_costo, 1)}</TableCell>
+                  </TableRow>
+                ))}
+                {!data.pareto_causas.length && <TableRow><TableCell colSpan={4} sx={{ fontSize: 12, color: 'text.secondary' }}>Sin desperdicio registrado con causa.</TableCell></TableRow>}
+              </TableBody>
+            </Table>
+          </Paper>
+        </Grid>
+      </Grid>
+    </Box>
+  )
 }
 
-const probColor = (p: number) => p >= 70 ? '#EF4444' : p >= 40 ? '#EAB308' : '#1A1A1A'
-const sevColor = (s: string) => ({ CRITICA: '#EF4444', ALTA: '#F97316', MEDIA: '#EAB308' }[s] ?? '#9CA3AF')
-const estadoAnoColor = (e: string) => ({ ACTIVA: '#EF4444', INVESTIGANDO: '#F59E0B', RESUELTA: '#1A1A1A' }[e] ?? '#9CA3AF')
-
-// ─── Component ────────────────────────────────────────────────────────────────
 export default function MESIA() {
   const [tab, setTab] = useState(0)
-  const [otGeneradas, setOtGeneradas] = useState<number[]>([])
-  const [chatInput, setChatInput] = useState('')
-  const [chatMsgs, setChatMsgs] = useState<ChatMsg[]>([
-    { role: 'bot', text: '¡Hola! Soy el Asistente IA de Manufactura. Puedo ayudarte con análisis de OEE, predicción de paradas, optimización de scrap y recomendaciones de mantenimiento. ¿En qué puedo ayudarte hoy?', ts: new Date() },
-    { role: 'user', text: '¿Cuál es el OEE hoy?', ts: new Date(Date.now() - 120000) },
-    { role: 'bot', text: BOT_RESPONSES_MES.oee, ts: new Date(Date.now() - 119000) },
-  ])
-  const chatEndRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [chatMsgs])
-
-  const sendMsg = (text: string) => {
-    if (!text.trim()) return
-    setChatMsgs(prev => [...prev, { role: 'user', text: text.trim(), ts: new Date() }])
-    setChatInput('')
-    setTimeout(() => {
-      setChatMsgs(prev => [...prev, { role: 'bot', text: getBotReplyMES(text.trim()), ts: new Date() }])
-    }, 650)
-  }
-
-  const tabSx = {
-    '& .MuiTab-root': { color: 'grey.400', textTransform: 'none', fontWeight: 600 },
-    '& .Mui-selected': { color: AI_COLOR },
-    '& .MuiTabs-indicator': { backgroundColor: AI_COLOR },
-  }
-
   return (
     <Layout>
-      <Box sx={{ p: 3, background: '#F8FAFC', minHeight: '100vh' }}>
-        {/* Header */}
-        <Stack direction="row" alignItems="center" spacing={2} mb={3}>
-          <Box sx={{ p: 1.5, borderRadius: 2, background: alpha(AI_COLOR, 0.15), color: AI_COLOR }}>
-            <AIIcon sx={{ fontSize: 28 }} />
-          </Box>
-          <Box>
-            <Typography variant="h5" fontWeight={700} color="white">MES — Inteligencia Artificial</Typography>
-            <Typography variant="body2" color="grey.400">Predicción de paradas, optimización de producción, detección de anomalías</Typography>
-          </Box>
-          <Box ml="auto">
-            <Chip label="● MES-AI Activo" size="small" sx={{ background: alpha(AI_COLOR, 0.15), color: AI_COLOR, fontWeight: 700 }} />
-          </Box>
-        </Stack>
-
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-          <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={tabSx}>
-            {['Predicción Paradas', 'Optimización', 'Anomalías', 'Asistente'].map((l, i) => <Tab key={i} label={l} />)}
-          </Tabs>
-        </Box>
-
-        {/* ── Tab 0: Predicción de Paradas ─────────────────────────────────── */}
-        {tab === 0 && (
-          <Box>
-            {/* KPIs */}
-            <Grid container spacing={2} mb={3}>
-              {[
-                { label: 'Exactitud del modelo', value: '94.2%', color: AI_COLOR, icon: <AIIcon /> },
-                { label: 'Fallas evitadas este mes', value: '8', color: '#1A1A1A', icon: <CheckIcon /> },
-                { label: 'Ahorro estimado', value: '$142M COP', color: '#10B981', icon: <TrendIcon /> },
-              ].map((k, i) => (
-                <Grid key={i} size={{ xs: 12, md: 4 }}>
-                  <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(k.color, 0.3)}` }}>
-                    <CardContent sx={{ py: 2 }}>
-                      <Stack direction="row" spacing={1.5} alignItems="center">
-                        <Box sx={{ p: 1, borderRadius: 1.5, background: alpha(k.color, 0.12), color: k.color }}>{k.icon}</Box>
-                        <Box>
-                          <Typography variant="h5" fontWeight={700} color="white">{k.value}</Typography>
-                          <Typography variant="caption" color="grey.400">{k.label}</Typography>
-                        </Box>
-                      </Stack>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-
-            {/* Cards de equipos */}
-            <Grid container spacing={2}>
-              {EQUIPOS_PREDICCION.map(eq => {
-                const color = probColor(eq.probabilidadFalla)
-                const otCreada = otGeneradas.includes(eq.id)
-                const esUrgente = eq.probabilidadFalla >= 70
-                return (
-                  <Grid key={eq.id} size={{ xs: 12, md: 6 }}>
-                    <Card sx={{ background: '#FFFFFF', border: `2px solid ${alpha(color, esUrgente ? 0.6 : 0.3)}`, ...(esUrgente ? { boxShadow: `0 0 16px ${alpha(color, 0.25)}` } : {}) }}>
-                      <CardContent>
-                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
-                          <Box>
-                            <Stack direction="row" spacing={1} alignItems="center">
-                              <Typography variant="h6" fontWeight={700} color="white">{eq.equipo}</Typography>
-                              {esUrgente && (
-                                <Chip label="INTERVENIR YA" size="small" sx={{ background: alpha('#EF4444', 0.2), color: '#EF4444', fontWeight: 800, fontSize: 9, animation: 'pulse 1.5s infinite' }} />
-                              )}
-                            </Stack>
-                            <Typography variant="caption" color={MES_COLOR}>{eq.linea}</Typography>
-                          </Box>
-                          <Box textAlign="right">
-                            <Typography variant="h4" fontWeight={800} color={color} lineHeight={1}>{eq.probabilidadFalla}%</Typography>
-                            <Typography variant="caption" color="grey.500">prob. falla</Typography>
-                          </Box>
-                        </Stack>
-
-                        <Box mb={1.5}>
-                          <Stack direction="row" justifyContent="space-between" mb={0.5}>
-                            <Typography variant="caption" color="grey.500">Riesgo de parada</Typography>
-                            <Typography variant="caption" color={color} fontWeight={700}>{eq.probabilidadFalla}%</Typography>
-                          </Stack>
-                          <LinearProgress variant="determinate" value={eq.probabilidadFalla}
-                            sx={{ height: 10, borderRadius: 5, backgroundColor: alpha(color, 0.12), '& .MuiLinearProgress-bar': { backgroundColor: color, borderRadius: 5 } }} />
-                        </Box>
-
-                        <Stack spacing={0.5} mb={1.5}>
-                          <Typography variant="caption" color="grey.400">
-                            ⏱ Tiempo hasta falla: <span style={{ color, fontWeight: 700 }}>{eq.tiempoRestante}</span>
-                          </Typography>
-                          <Typography variant="caption" color="grey.400">
-                            🔍 IA detectó: <span style={{ color: '#e5e7eb' }}>{eq.causaRaiz}</span>
-                          </Typography>
-                          <Typography variant="caption" color="grey.500">
-                            📡 Última lectura: {eq.ultimaLectura}
-                          </Typography>
-                        </Stack>
-
-                        <Button
-                          fullWidth size="small" variant={otCreada ? 'outlined' : 'contained'}
-                          startIcon={<BuildIcon />}
-                          onClick={() => setOtGeneradas(prev => [...prev, eq.id])}
-                          disabled={otCreada}
-                          sx={{
-                            textTransform: 'none', fontWeight: 700,
-                            background: otCreada ? 'transparent' : alpha(MES_COLOR, 0.15),
-                            borderColor: otCreada ? 'grey.700' : MES_COLOR,
-                            color: otCreada ? 'grey.600' : MES_COLOR,
-                            '&:hover': { background: alpha(MES_COLOR, 0.25) },
-                            '&.Mui-disabled': { color: 'grey.600', borderColor: alpha('#fff', 0.1) },
-                          }}
-                        >
-                          {otCreada ? '✓ OT Preventiva Generada' : 'Generar OT Preventiva'}
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                )
-              })}
-            </Grid>
-          </Box>
-        )}
-
-        {/* ── Tab 1: Optimización de Producción ───────────────────────────── */}
-        {tab === 1 && (
-          <Box>
-            {/* KPIs IA */}
-            <Grid container spacing={2} mb={3}>
-              {[
-                { label: 'Throughput optimizado', value: '+12%', color: '#1A1A1A', icon: <TrendIcon /> },
-                { label: 'OEE proyectado', value: '91.2%', color: AI_COLOR, icon: <SpeedIcon /> },
-                { label: 'Reducción setup time', value: '-18%', color: '#10B981', icon: <TuneIcon /> },
-              ].map((k, i) => (
-                <Grid key={i} size={{ xs: 12, md: 4 }}>
-                  <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(k.color, 0.3)}` }}>
-                    <CardContent sx={{ py: 2 }}>
-                      <Stack direction="row" spacing={1.5} alignItems="center">
-                        <Box sx={{ p: 1, borderRadius: 1.5, background: alpha(k.color, 0.12), color: k.color }}>{k.icon}</Box>
-                        <Box>
-                          <Typography variant="h5" fontWeight={700} color={k.color}>{k.value}</Typography>
-                          <Typography variant="caption" color="grey.400">{k.label}</Typography>
-                        </Box>
-                      </Stack>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-
-            <Grid container spacing={3}>
-              {/* Secuenciación óptima */}
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
-                  <CardContent>
-                    <Stack direction="row" spacing={1} alignItems="center" mb={2}>
-                      <AIIcon sx={{ color: AI_COLOR, fontSize: 18 }} />
-                      <Typography variant="subtitle1" fontWeight={700} color="white">Secuenciación Óptima IA</Typography>
-                      <Chip label="Ganancia: 18% tiempo" size="small" sx={{ background: alpha('#1A1A1A', 0.15), color: '#1A1A1A', fontWeight: 600, fontSize: 10 }} />
-                    </Stack>
-                    <TableContainer>
-                      <Table size="small">
-                        <TableHead>
-                          <TableRow sx={{ '& th': { color: 'grey.400', fontWeight: 700, fontSize: '0.7rem', textTransform: 'uppercase', borderBottom: `1px solid ${alpha('#fff', 0.1)}` } }}>
-                            <TableCell>OP</TableCell>
-                            <TableCell>Antes</TableCell>
-                            <TableCell>Optimizado</TableCell>
-                            <TableCell align="right">Ahorro</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {SECUENCIACION.map((s, i) => (
-                            <TableRow key={i} sx={{ '& td': { color: 'grey.200', borderBottom: `1px solid ${alpha('#fff', 0.05)}` } }}>
-                              <TableCell>
-                                <Typography variant="caption" color={MES_COLOR} fontFamily="monospace" fontWeight={700}>{s.op}</Typography>
-                                <Typography variant="caption" color="grey.500" display="block">{s.producto.substring(0, 12)}…</Typography>
-                              </TableCell>
-                              <TableCell><Typography variant="caption" color="grey.500" sx={{ textDecoration: 'line-through' }}>{s.antes}</Typography></TableCell>
-                              <TableCell><Typography variant="caption" color="#1A1A1A" fontWeight={600}>{s.despues}</Typography></TableCell>
-                              <TableCell align="right"><Typography variant="caption" color="#1A1A1A" fontWeight={700}>-{s.ganancia} min</Typography></TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              {/* Temperatura óptima para reducción scrap */}
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
-                  <CardContent>
-                    <Stack direction="row" spacing={1} alignItems="center" mb={2}>
-                      <TuneIcon sx={{ color: AI_COLOR, fontSize: 18 }} />
-                      <Typography variant="subtitle1" fontWeight={700} color="white">Temperatura Óptima → Reducción Scrap</Typography>
-                    </Stack>
-                    <TableContainer>
-                      <Table size="small">
-                        <TableHead>
-                          <TableRow sx={{ '& th': { color: 'grey.400', fontWeight: 700, fontSize: '0.7rem', textTransform: 'uppercase', borderBottom: `1px solid ${alpha('#fff', 0.1)}` } }}>
-                            <TableCell>Producto</TableCell>
-                            <TableCell align="center">Temp. Actual</TableCell>
-                            <TableCell align="center">Temp. Óptima</TableCell>
-                            <TableCell align="center">Scrap Act.</TableCell>
-                            <TableCell align="center">Scrap Proy.</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {SCRAP_OPTIMO.map((s, i) => (
-                            <TableRow key={i} sx={{ '& td': { color: 'grey.200', borderBottom: `1px solid ${alpha('#fff', 0.05)}` } }}>
-                              <TableCell><Typography variant="caption">{s.producto.substring(0, 14)}…</Typography></TableCell>
-                              <TableCell align="center"><Typography variant="body2" color={s.tempActual > s.tempOptima ? '#EF4444' : 'grey.300'}>{s.tempActual}°C</Typography></TableCell>
-                              <TableCell align="center"><Typography variant="body2" color="#1A1A1A" fontWeight={700}>{s.tempOptima}°C</Typography></TableCell>
-                              <TableCell align="center"><Typography variant="body2" color={s.scrapActual > 4 ? '#EF4444' : '#EAB308'}>{s.scrapActual}%</Typography></TableCell>
-                              <TableCell align="center">
-                                {s.scrapProyectado < s.scrapActual
-                                  ? <Chip label={`${s.scrapProyectado}%`} size="small" sx={{ background: alpha('#1A1A1A', 0.15), color: '#1A1A1A', fontWeight: 700, fontSize: 10 }} />
-                                  : <Typography variant="body2" color="grey.400">{s.scrapProyectado}%</Typography>}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              {/* Cuellos de botella */}
-              <Grid size={{ xs: 12 }}>
-                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#EAB308', 0.3)}` }}>
-                  <CardContent>
-                    <Stack direction="row" spacing={1} alignItems="center" mb={2}>
-                      <WarnIcon sx={{ color: '#EAB308', fontSize: 18 }} />
-                      <Typography variant="subtitle1" fontWeight={700} color="white">Cuellos de Botella Detectados</Typography>
-                    </Stack>
-                    <Grid container spacing={2}>
-                      {[
-                        { linea: 'Línea B — EQ-003', problema: 'Capacidad reducida al 76% por temperatura zona 3 alta. Velocidad tornillo limitada para evitar degradación.', accion: 'Reducir velocidad extrusión 15% hasta mantenimiento nocturno. Monitoreo cada 20 min.', impacto: '-24% throughput Línea B' },
-                        { linea: 'Línea A — Robot EQ-007', problema: 'Tiempo de ciclo robot +8% por corriente eje J4 elevada. Genera cola antes de empaque.', accion: 'Ajustar trayectoria J4 para reducir esfuerzo. Inspección urgente programada para 14:00.', impacto: '+4.2 min buffer promedio' },
-                      ].map((cb, i) => (
-                        <Grid key={i} size={{ xs: 12, md: 6 }}>
-                          <Box sx={{ p: 2, borderRadius: 2, background: alpha('#EAB308', 0.05), border: `1px solid ${alpha('#EAB308', 0.25)}` }}>
-                            <Typography variant="body2" fontWeight={700} color="#EAB308" mb={0.5}>{cb.linea}</Typography>
-                            <Typography variant="caption" color="grey.300" display="block" mb={0.5}>{cb.problema}</Typography>
-                            <Divider sx={{ borderColor: alpha('#fff', 0.07), my: 0.75 }} />
-                            <Typography variant="caption" color="#1A1A1A" display="block">↗ Acción: {cb.accion}</Typography>
-                            <Chip label={cb.impacto} size="small" sx={{ mt: 0.75, background: alpha('#EF4444', 0.12), color: '#EF4444', fontSize: 9 }} />
-                          </Box>
-                        </Grid>
-                      ))}
-                    </Grid>
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
-          </Box>
-        )}
-
-        {/* ── Tab 2: Anomalías ─────────────────────────────────────────────── */}
-        {tab === 2 && (
-          <Box>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <BugIcon sx={{ color: AI_COLOR }} />
-                <Typography variant="h6" color="white" fontWeight={700}>Anomalías Detectadas — IA</Typography>
-                <Chip label="Tiempo Real" size="small" sx={{ background: alpha('#1A1A1A', 0.15), color: '#1A1A1A', fontWeight: 600 }} />
-              </Stack>
-              <Stack direction="row" spacing={1}>
-                {['CRITICA', 'ALTA', 'MEDIA'].map(s => (
-                  <Chip key={s} label={`${s} ${ANOMALIAS.filter(a => a.severidad === s).length}`} size="small"
-                    sx={{ background: alpha(sevColor(s), 0.15), color: sevColor(s), fontWeight: 600, fontSize: 10 }} />
-                ))}
-              </Stack>
-            </Stack>
-
-            <Grid container spacing={3}>
-              {/* Timeline vertical */}
-              <Grid size={{ xs: 12, md: 4 }}>
-                <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
-                  <CardContent>
-                    <Typography variant="subtitle2" color="grey.400" fontWeight={600} mb={2}>Timeline del día</Typography>
-                    <Box sx={{ position: 'relative', pl: 3 }}>
-                      {/* Línea vertical CSS */}
-                      <Box sx={{ position: 'absolute', left: 9, top: 8, bottom: 8, width: 2, background: alpha('#fff', 0.1), borderRadius: 1 }} />
-                      <Stack spacing={2.5}>
-                        {ANOMALIAS.map((a) => {
-                          const sc = sevColor(a.severidad)
-                          const ec = estadoAnoColor(a.estado)
-                          return (
-                            <Box key={a.id} sx={{ position: 'relative' }}>
-                              {/* Punto en la línea */}
-                              <Box sx={{ position: 'absolute', left: -19, top: 4, width: 10, height: 10, borderRadius: '50%', background: sc, boxShadow: `0 0 6px ${alpha(sc, 0.6)}` }} />
-                              <Box>
-                                <Stack direction="row" spacing={1} alignItems="center" mb={0.25}>
-                                  <Typography variant="caption" color={sc} fontWeight={700}>{a.hora}</Typography>
-                                  <Chip label={a.severidad} size="small" sx={{ background: alpha(sc, 0.12), color: sc, fontSize: 8, height: 16 }} />
-                                </Stack>
-                                <Typography variant="caption" color="grey.200" fontWeight={600} display="block">{a.equipo}</Typography>
-                                <Typography variant="caption" color="grey.500" sx={{ lineHeight: 1.3, display: 'block' }}>{a.descripcion.substring(0, 55)}…</Typography>
-                                <Chip label={a.estado} size="small" sx={{ mt: 0.5, background: alpha(ec, 0.12), color: ec, fontSize: 8, height: 16 }} />
-                              </Box>
-                            </Box>
-                          )
-                        })}
-                      </Stack>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              {/* Tabla anomalías */}
-              <Grid size={{ xs: 12, md: 8 }}>
-                <TableContainer component={Paper} sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow sx={{ '& th': { color: 'grey.400', fontWeight: 700, fontSize: '0.7rem', textTransform: 'uppercase', borderBottom: `1px solid ${alpha('#fff', 0.1)}` } }}>
-                        <TableCell>Hora</TableCell>
-                        <TableCell>Equipo / Línea</TableCell>
-                        <TableCell>Descripción</TableCell>
-                        <TableCell align="center">Severidad</TableCell>
-                        <TableCell align="center">Estado</TableCell>
-                        <TableCell>Resolución</TableCell>
-                        <TableCell>Acción</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {ANOMALIAS.map(a => (
-                        <TableRow key={a.id} sx={{ '& td': { color: 'grey.200', borderBottom: `1px solid ${alpha('#fff', 0.05)}`, verticalAlign: 'top', py: 1.2 }, '&:hover': { background: alpha('#fff', 0.03) } }}>
-                          <TableCell><Typography variant="body2" color={sevColor(a.severidad)} fontWeight={700}>{a.hora}</Typography></TableCell>
-                          <TableCell><Typography variant="body2" fontWeight={600}>{a.equipo}</Typography></TableCell>
-                          <TableCell><Typography variant="caption" color="grey.300" sx={{ maxWidth: 200, display: 'block' }}>{a.descripcion}</Typography></TableCell>
-                          <TableCell align="center">
-                            <Chip label={a.severidad} size="small" sx={{ background: alpha(sevColor(a.severidad), 0.15), color: sevColor(a.severidad), fontWeight: 700, fontSize: 9 }} />
-                          </TableCell>
-                          <TableCell align="center">
-                            <Chip label={a.estado} size="small" sx={{ background: alpha(estadoAnoColor(a.estado), 0.15), color: estadoAnoColor(a.estado), fontSize: 9 }} />
-                          </TableCell>
-                          <TableCell><Typography variant="caption" color="grey.400">{a.tiempoResolucion}</Typography></TableCell>
-                          <TableCell><Typography variant="caption" color="grey.400">{a.accion}</Typography></TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Grid>
-            </Grid>
-          </Box>
-        )}
-
-        {/* ── Tab 3: Asistente IA ──────────────────────────────────────────── */}
-        {tab === 3 && (
-          <Grid container spacing={3}>
-            <Grid size={{ xs: 12, md: 8 }}>
-              <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha(AI_COLOR, 0.3)}`, height: 540, display: 'flex', flexDirection: 'column' }}>
-                <CardContent sx={{ pb: 0 }}>
-                  <Stack direction="row" alignItems="center" spacing={1}>
-                    <BotIcon sx={{ color: AI_COLOR }} />
-                    <Typography variant="subtitle1" fontWeight={700} color="white">Asistente IA Manufactura</Typography>
-                    <Chip label="Online" size="small" sx={{ background: alpha('#1A1A1A', 0.15), color: '#1A1A1A', fontSize: 10 }} />
-                    <Box ml="auto">
-                      <Typography variant="caption" color="grey.500">MES-AI v2.1 — GPT-4o Fine-tuned Manufactura</Typography>
-                    </Box>
-                  </Stack>
-                </CardContent>
-                <Divider sx={{ borderColor: alpha('#fff', 0.08), my: 1 }} />
-
-                {/* Mensajes */}
-                <Box sx={{ flex: 1, overflowY: 'auto', px: 2, py: 1 }}>
-                  {chatMsgs.map((m, i) => (
-                    <Stack key={i} direction="row" spacing={1} mb={2} justifyContent={m.role === 'user' ? 'flex-end' : 'flex-start'} alignItems="flex-start">
-                      {m.role === 'bot' && (
-                        <Avatar sx={{ width: 28, height: 28, background: alpha(AI_COLOR, 0.2) }}>
-                          <BotIcon sx={{ fontSize: 16, color: AI_COLOR }} />
-                        </Avatar>
-                      )}
-                      <Box sx={{ maxWidth: '82%', p: 1.5, borderRadius: 2, background: m.role === 'user' ? alpha(MES_COLOR, 0.15) : alpha(AI_COLOR, 0.1), border: `1px solid ${m.role === 'user' ? alpha(MES_COLOR, 0.3) : alpha(AI_COLOR, 0.2)}` }}>
-                        <Typography variant="body2" color="grey.100" sx={{ whiteSpace: 'pre-line' }}>{m.text}</Typography>
-                        <Typography variant="caption" color="grey.600" display="block" mt={0.5}>{m.ts.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</Typography>
-                      </Box>
-                      {m.role === 'user' && (
-                        <Avatar sx={{ width: 28, height: 28, background: alpha(MES_COLOR, 0.2) }}>
-                          <PersonIcon sx={{ fontSize: 16, color: MES_COLOR }} />
-                        </Avatar>
-                      )}
-                    </Stack>
-                  ))}
-                  <div ref={chatEndRef} />
-                </Box>
-
-                <Divider sx={{ borderColor: alpha('#fff', 0.08) }} />
-                <Box sx={{ p: 1.5 }}>
-                  <Stack direction="row" spacing={1}>
-                    <TextField
-                      fullWidth size="small" placeholder="Consulta sobre producción, equipos, OEE, scrap…" value={chatInput}
-                      onChange={e => setChatInput(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(chatInput) } }}
-                      sx={{ '& .MuiOutlinedInput-root': { background: alpha('#fff', 0.05), '& fieldset': { borderColor: alpha('#fff', 0.15) }, '&:hover fieldset': { borderColor: AI_COLOR }, color: 'text.primary', fontSize: 14 } }}
-                    />
-                    <IconButton onClick={() => sendMsg(chatInput)} sx={{ background: alpha(AI_COLOR, 0.15), color: AI_COLOR, '&:hover': { background: alpha(AI_COLOR, 0.25) } }}>
-                      <SendIcon fontSize="small" />
-                    </IconButton>
-                  </Stack>
-                </Box>
-              </Card>
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Card sx={{ background: '#FFFFFF', border: `1px solid ${alpha('#fff', 0.08)}` }}>
-                <CardContent>
-                  <Typography variant="subtitle2" color="grey.400" mb={2} fontWeight={600}>Consultas Rápidas</Typography>
-                  <Stack spacing={1} mb={3}>
-                    {QUICK_PROMPTS_MES.map((q, i) => (
-                      <Button key={i} fullWidth variant="outlined" size="small" onClick={() => sendMsg(q)}
-                        sx={{ textTransform: 'none', justifyContent: 'flex-start', borderColor: alpha(AI_COLOR, 0.3), color: 'grey.300', fontSize: 12, py: 1, px: 1.5, '&:hover': { borderColor: AI_COLOR, color: 'text.primary', background: alpha(AI_COLOR, 0.1) } }}>
-                        {q}
-                      </Button>
-                    ))}
-                  </Stack>
-                  <Divider sx={{ borderColor: alpha('#fff', 0.08), mb: 2 }} />
-                  <Typography variant="subtitle2" color="grey.400" mb={1.5} fontWeight={600}>Capacidades MES-AI v2.1</Typography>
-                  {[
-                    'Análisis OEE en tiempo real',
-                    'Predicción de paradas por ML',
-                    'Optimización de secuenciación',
-                    'Detección de anomalías IoT',
-                    'Recomendaciones de parámetros',
-                    'Análisis causa raíz automático',
-                  ].map((c, i) => (
-                    <Stack key={i} direction="row" spacing={0.5} alignItems="center" mb={0.75}>
-                      <CheckIcon sx={{ fontSize: 12, color: AI_COLOR }} />
-                      <Typography variant="caption" color="grey.400">{c}</Typography>
-                    </Stack>
-                  ))}
-                  <Divider sx={{ borderColor: alpha('#fff', 0.08), my: 2 }} />
-                  <Box sx={{ p: 1.5, borderRadius: 1.5, background: alpha(AI_COLOR, 0.06), border: `1px solid ${alpha(AI_COLOR, 0.2)}` }}>
-                    <Typography variant="caption" color={AI_COLOR} fontWeight={700} display="block">Modelo activo</Typography>
-                    <Typography variant="caption" color="grey.400">MES-AI v2.1</Typography>
-                    <Typography variant="caption" color="grey.500" display="block">GPT-4o Fine-tuned Manufactura</Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        )}
+      <Box sx={{ p: 3 }}>
+        <Encabezado icono={<Insights sx={{ fontSize: 28 }} />} titulo="Analítica de planta" subtitulo="MES · Control estadístico, pérdidas de OEE, paradas y desperdicio, con los datos de la planta" color={C} />
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid #E2E8F0' }} variant="scrollable">
+          <Tab label="Control estadístico" />
+          <Tab label="Pérdidas de OEE" />
+          <Tab label="Paradas" />
+          <Tab label="Qué explica el desperdicio" />
+        </Tabs>
+        {tab === 0 && <SPC />}
+        {tab === 1 && <PerdidasOEE />}
+        {tab === 2 && <Paradas />}
+        {tab === 3 && <Desperdicio />}
       </Box>
     </Layout>
   )

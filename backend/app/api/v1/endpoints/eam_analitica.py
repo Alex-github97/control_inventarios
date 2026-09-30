@@ -370,6 +370,7 @@ async def prediccion_de_fallas(db: AsyncSession = Depends(get_db)):
             a = d.activos[aid]
             equipos.append({"activo_id": aid, "codigo": a.codigo, "nombre": a.nombre,
                             "prob_30d": round(float(prob) * 100, 1),
+                            "fuera_de_experiencia": predictivo.fuera_de_experiencia(r, v, ETIQUETAS),
                             "dias_desde_falla": round(v["dias_desde_falla"]) if v["dias_desde_falla"] is not None else None,
                             "fallas_365d": v["fallas_365d"],
                             "km_30d": round(v["km_30d"]) if v["km_30d"] is not None else None})

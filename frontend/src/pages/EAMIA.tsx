@@ -27,10 +27,10 @@ import { Layout } from '@/components/layout/Layout'
 import { apiClient as api } from '@/api/client'
 import { Encabezado, Cifra, Etiqueta, errorApi } from '@/components/comun/Registro'
 import { COLOR_MODULO } from '@/config/marca'
+import { CalificacionDelModelo, Probabilidad, num, riesgoColor, type CalificacionModelo } from '@/components/analitica/Analitica'
 
 const C = COLOR_MODULO
 const R = '/eam/analitica'
-const num = (v?: number | null, d = 0) => v == null ? '—' : v.toLocaleString('es-CO', { maximumFractionDigits: d })
 const pesos = (v?: number | null) => v == null ? '—' : `$${num(v)}`
 
 // ─── Tipos ─────────────────────────────────────────────────────────────────────
@@ -46,14 +46,9 @@ interface GrupoWeibull {
   reemplazo?: Reemplazo | null; riesgo: Riesgo[]
 }
 interface Equipo { activo_id: number; codigo: string; nombre: string; marca?: string; fallas: number; beta: number; tendencia: 'DETERIORO' | 'ESTABLE' | 'MEJORA'; p_valor_tendencia: number; mtbf_actual: number | null; mtbf_promedio: number; fallas_esperadas_90d: number | null; dias_observados: number }
-interface Prediccion {
-  horizonte_dias: number; filas: number; positivos: number; suficiente: boolean; util?: boolean; motivo?: string
-  modelo?: string; auc?: number; habilidad?: number; brier?: number; brier_referencia?: number; tasa_historica?: number
-  corte_validacion?: string; filas_prueba?: number; positivos_prueba?: number
-  comparacion?: Record<string, { auc: number; habilidad: number }>
-  calibracion?: { desde: number; hasta: number; observaciones: number; predicho: number; real: number }[]
-  importancia?: { variable: string; etiqueta: string; aporte: number }[]
-  equipos: { activo_id: number; codigo: string; nombre: string; prob_30d: number; dias_desde_falla: number | null; fallas_365d: number; km_30d: number | null }[]
+interface Prediccion extends CalificacionModelo {
+  horizonte_dias: number
+  equipos: { activo_id: number; codigo: string; nombre: string; prob_30d: number; fuera_de_experiencia?: string[]; dias_desde_falla: number | null; fallas_365d: number; km_30d: number | null }[]
 }
 interface Anomalia { clase: 'COSTO' | 'DURACION' | 'RENDIMIENTO'; referencia: string; activo: string; fecha: string; detalle: string; valor: number; normal: number; z: number }
 
@@ -62,7 +57,6 @@ const PATRON: Record<string, { texto: string; color: string; lectura: string }> 
   ALEATORIA: { texto: 'Aleatoria', color: '#2563EB', lectura: 'El riesgo no depende de la edad. Cambiar la pieza antes no evita fallas: sirve la inspección o el monitoreo de condición.' },
   INFANTIL: { texto: 'Mortalidad infantil', color: '#D97706', lectura: 'Falla más cuando es nueva: revisar instalación, calidad del repuesto o del montaje.' },
 }
-const riesgoColor = (p: number) => p >= 50 ? '#DC2626' : p >= 25 ? '#D97706' : '#16A34A'
 
 // ─── Curva de confiabilidad ───────────────────────────────────────────────────
 
@@ -244,74 +238,32 @@ function Prediccion() {
   const { data, isLoading } = useQuery({ queryKey: ['eam-analitica-prediccion'], queryFn: () => api.get(`${R}/prediccion`).then(r => r.data as Prediccion), staleTime: 10 * 60_000 })
   if (isLoading) return <Box><Typography fontSize={12} color="text.secondary">Entrenando y validando el modelo con la historia de la flota…</Typography><LinearProgress /></Box>
   if (!data) return null
-  if (!data.suficiente) return (
-    <Alert severity="info">
-      Todavía no hay historia suficiente para entrenar un modelo confiable. {data.motivo} Con {data.filas} observaciones y {data.positivos} fallas, cualquier probabilidad sería inventada.
-    </Alert>
-  )
-  const maxImp = Math.max(...(data.importancia ?? []).map(i => i.aporte), 1e-9)
   return (
     <Box>
       <Typography fontSize={13} color="text.secondary" mb={2}>
-        Se toma una foto de cada equipo cada 14 días y se registra si falló en los {data.horizonte_dias} días siguientes. El modelo aprende de las fotos anteriores al {data.corte_validacion} y se califica con las posteriores, que no vio al entrenar.
+        Se toma una foto de cada equipo cada 14 días y se registra si falló en los {data.horizonte_dias} días siguientes. El modelo aprende de las fotos anteriores al {data.corte_validacion ?? 'corte'} y se califica con las posteriores, que no vio al entrenar.
       </Typography>
-      <Grid container spacing={2} mb={2}>
-        <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Modelo elegido" valor={<span style={{ fontSize: 16 }}>{data.modelo}</span>} color={C} sub={Object.entries(data.comparacion ?? {}).map(([k, v]) => `${k}: AUC ${num(v.auc, 2)}`).join(' · ')} /></Grid>
-        <Grid size={{ xs: 6, md: 3 }}><Tooltip title="0,5 es adivinar; 1 es perfecto. Mide si ordena bien a los equipos por riesgo."><Box><Cifra etiqueta="AUC en meses no vistos" valor={num(data.auc, 2)} color={C} /></Box></Tooltip></Grid>
-        <Grid size={{ xs: 6, md: 3 }}><Tooltip title="Cuánto mejora el error frente a decirle a todos la tasa histórica de falla."><Box><Cifra etiqueta="Mejora sobre la tasa histórica" valor={`${num((data.habilidad ?? 0) * 100, 1)} %`} color={data.util ? '#16A34A' : '#DC2626'} sub={`Tasa histórica: ${num(data.tasa_historica, 1)} % en ${data.horizonte_dias} días`} /></Box></Tooltip></Grid>
-        <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Observaciones" valor={num(data.filas)} color="#64748B" sub={`${num(data.positivos)} con falla · ${num(data.filas_prueba)} de prueba`} /></Grid>
-      </Grid>
-      {!data.util && <Alert severity="warning" sx={{ mb: 2 }}>El modelo no le gana con claridad a la tasa histórica. Sus probabilidades no deben usarse para decidir; se muestran solo como referencia. Con más historia o registrando el modo de falla puede mejorar.</Alert>}
-      <Grid container spacing={2}>
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, height: '100%' }}>
-            <Typography fontSize={12} fontWeight={700} color="text.secondary" mb={1}>Qué pesa en la predicción</Typography>
-            {(data.importancia ?? []).map(i => (
-              <Box key={i.variable} sx={{ mb: 0.75 }}>
-                <Typography fontSize={12}>{i.etiqueta}</Typography>
-                <Box sx={{ height: 6, borderRadius: 1, bgcolor: '#E2E8F0' }}><Box sx={{ height: 6, borderRadius: 1, bgcolor: C, width: `${(i.aporte / maxImp) * 100}%` }} /></Box>
-              </Box>
-            ))}
-            <Typography fontSize={11} color="text.secondary" mt={1}>Cuánto empeora el modelo en los meses de prueba si se desordena cada variable.</Typography>
-          </Paper>
-        </Grid>
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, height: '100%' }}>
-            <Typography fontSize={12} fontWeight={700} color="text.secondary" mb={1}>¿Se cumple lo que predice?</Typography>
-            <Table size="small">
-              <TableHead><TableRow sx={{ '& th': { fontSize: 11, fontWeight: 700 } }}><TableCell>Tramo</TableCell><TableCell align="right">Casos</TableCell><TableCell align="right">Predijo</TableCell><TableCell align="right">Fallaron</TableCell></TableRow></TableHead>
-              <TableBody>
-                {(data.calibracion ?? []).map(c => (
-                  <TableRow key={c.desde} sx={{ '& td': { fontSize: 12 } }}>
-                    <TableCell>{num(c.desde, 0)}–{num(c.hasta, 0)} %</TableCell><TableCell align="right">{c.observaciones}</TableCell>
-                    <TableCell align="right">{num(c.predicho, 1)} %</TableCell><TableCell align="right">{num(c.real, 1)} %</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Paper>
-        </Grid>
-        <Grid size={12}>
-          <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto', opacity: data.util ? 1 : 0.6 }}>
-            <Table size="small">
-              <TableHead><TableRow sx={{ '& th': { fontSize: 11, fontWeight: 700 } }}>
-                <TableCell>Equipo</TableCell><TableCell align="right">Falla en {data.horizonte_dias} días</TableCell><TableCell align="right">Días desde la última falla</TableCell><TableCell align="right">Fallas en el año</TableCell><TableCell align="right">Km en 30 días</TableCell>
-              </TableRow></TableHead>
-              <TableBody>
-                {data.equipos.slice(0, 25).map(e => (
-                  <TableRow key={e.activo_id} sx={{ '& td': { fontSize: 12 } }}>
-                    <TableCell><b>{e.codigo}</b> <Typography component="span" fontSize={11} color="text.secondary">{e.nombre}</Typography></TableCell>
-                    <TableCell align="right"><b style={{ color: riesgoColor(e.prob_30d) }}>{num(e.prob_30d, 1)} %</b></TableCell>
-                    <TableCell align="right">{num(e.dias_desde_falla)}</TableCell>
-                    <TableCell align="right">{e.fallas_365d}</TableCell>
-                    <TableCell align="right">{num(e.km_30d)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Paper>
-        </Grid>
-      </Grid>
+      <CalificacionDelModelo m={data} horizonte={data.horizonte_dias} color={C} evento="falla" />
+      {data.suficiente && (
+        <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto', opacity: data.util ? 1 : 0.6 }}>
+          <Table size="small">
+            <TableHead><TableRow sx={{ '& th': { fontSize: 11, fontWeight: 700 } }}>
+              <TableCell>Equipo</TableCell><TableCell align="right">Falla en {data.horizonte_dias} días</TableCell><TableCell align="right">Días desde la última falla</TableCell><TableCell align="right">Fallas en el año</TableCell><TableCell align="right">Km en 30 días</TableCell>
+            </TableRow></TableHead>
+            <TableBody>
+              {data.equipos.slice(0, 25).map(e => (
+                <TableRow key={e.activo_id} sx={{ '& td': { fontSize: 12 } }}>
+                  <TableCell><b>{e.codigo}</b> <Typography component="span" fontSize={11} color="text.secondary">{e.nombre}</Typography></TableCell>
+                  <TableCell align="right"><Probabilidad p={e.prob_30d} fuera={e.fuera_de_experiencia} /></TableCell>
+                  <TableCell align="right">{num(e.dias_desde_falla)}</TableCell>
+                  <TableCell align="right">{e.fallas_365d}</TableCell>
+                  <TableCell align="right">{num(e.km_30d)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Paper>
+      )}
     </Box>
   )
 }
