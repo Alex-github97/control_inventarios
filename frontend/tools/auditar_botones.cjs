@@ -36,7 +36,7 @@ const ESQUEMA = process.env.ESQUEMA || 'cli_demoflota';
 const TOPE = Number(process.env.TOPE || 24);   // botones por pantalla
 const SOLO = process.env.SOLO ? process.env.SOLO.split(',') : null;
 
-if (!TOKEN) { console.error('Falta TOKEN'); process.exit(1); }
+if (!TOKEN && !process.env.CLAVE) { console.error('Falta TOKEN o USUARIO/CLAVE'); process.exit(1); }
 
 const RUTAS = fs.readFileSync(process.env.RUTAS || '/tools/rutas.txt', 'utf8')
   .split('\n').map(x => x.trim()).filter(Boolean)
@@ -48,13 +48,30 @@ const RUTAS = fs.readFileSync(process.env.RUTAS || '/tools/rutas.txt', 'utf8')
 const NO_TOCAR = /cerrar sesi|salir|logout|colapsar|expandir/i;
 
 (async () => {
+  // En local el servidor de desarrollo corre en el anfitrión: GATEWAY resuelve
+  // «localhost» hacia él sin tocar la configuración de Vite.
+  const GATEWAY = process.env.GATEWAY || '';
   const navegador = await chromium.launch({
-    executablePath: EJECUTABLE, args: ['--no-sandbox'],
+    executablePath: EJECUTABLE,
+    args: ['--no-sandbox', ...(GATEWAY ? [`--host-resolver-rules=MAP localhost ${GATEWAY}`] : [])],
   });
   const contexto = await navegador.newContext({
     viewport: { width: 1600, height: 1000 },
   });
-  await contexto.addInitScript(([t, esquema]) => {
+  if (process.env.CLAVE) {
+    // Con usuario y clave se entra por el formulario, igual que una persona.
+    const p0 = await contexto.newPage();
+    await p0.goto(APP + '/', { waitUntil: 'networkidle', timeout: 60000 });
+    const empresa = p0.getByLabel(/[Cc]ódigo de la empresa/);
+    if (await empresa.count()) { await empresa.first().fill(process.env.EMPRESA || 'demo'); await p0.getByRole('button', { name: /Continuar/i }).click(); }
+    const clave = p0.locator('input[type="password"]');
+    await clave.waitFor({ timeout: 30000 });
+    await p0.locator('input:not([type="password"]):visible').first().fill(process.env.USUARIO);
+    await clave.fill(process.env.CLAVE);
+    await p0.getByRole('button', { name: /Ingresar/i }).first().click();
+    await clave.waitFor({ state: 'detached', timeout: 60000 });
+    await p0.close();
+  } else await contexto.addInitScript(([t, esquema]) => {
     localStorage.setItem('access_token', t);
     localStorage.setItem('cliente_activo', esquema);
     localStorage.setItem('auth-storage', JSON.stringify({
@@ -86,6 +103,26 @@ const NO_TOCAR = /cerrar sesi|salir|logout|colapsar|expandir/i;
     });
   });
 
+  // Una descarga (PDF, Excel armados en el navegador) no pide nada al servidor
+  // ni cambia la página, pero es exactamente lo que el botón debía hacer.
+  let descargas = 0;
+  pagina.on('download', () => { descargas++; });
+  pagina.on('popup', () => { descargas++; });
+  // Una confirmación nativa («¿Retirar este control?») y el selector de
+  // archivos también son la respuesta del botón. La confirmación se descarta:
+  // así no se ejecuta nada.
+  pagina.on('dialog', (d) => { descargas++; d.dismiss().catch(() => {}); });
+  pagina.on('filechooser', () => { descargas++; });
+
+  // Qué está marcado en la página: pestañas, botones de alternar, desplegables
+  // abiertos, casillas. Una pestaña cuyo contenido está vacío cambia muy poco
+  // texto, pero sí cambia esto.
+  const estado = () => pagina.evaluate(() => [
+    '[aria-selected="true"]', '[aria-pressed="true"]', '[aria-expanded="true"]',
+    '.Mui-selected', '.Mui-checked', '[aria-current="page"]',
+  ].map(sel => [...document.querySelectorAll(sel)]
+    .map(e => (e.textContent || '').trim().slice(0, 30)).join('|')).join('#')).catch(() => '');
+
   const muertos = [];
   const resumen = [];
 
@@ -95,69 +132,85 @@ const NO_TOCAR = /cerrar sesi|salir|logout|colapsar|expandir/i;
     } catch { continue; }
     await pagina.waitForTimeout(1800);
 
-    const candidatos = pagina.locator(
-      'main button:visible, main [role="button"]:visible, ' +
-      'main a[href]:visible, [role="dialog"] button:visible');
-    const cuantos = Math.min(await candidatos.count(), TOPE);
-    let vivos = 0, sinEfecto = 0;
+    let cuantos = 0, vivos = 0, sinEfecto = 0;
+    try {
+      const candidatos = pagina.locator(
+        'main button:visible, main [role="button"]:visible, ' +
+        'main a[href]:visible, [role="dialog"] button:visible');
+      cuantos = Math.min(await candidatos.count(), TOPE);
 
-    for (let i = 0; i < cuantos; i++) {
-      const boton = candidatos.nth(i);
-      let texto = '';
-      try {
-        texto = ((await boton.innerText({ timeout: 1500 })) || '').trim()
-          .replace(/\s+/g, ' ').slice(0, 40);
-        if (!texto) {
-          texto = (await boton.getAttribute('aria-label'))
-            || (await boton.getAttribute('title')) || '(sin texto)';
+      for (let i = 0; i < cuantos; i++) {
+        const boton = candidatos.nth(i);
+        let texto = '';
+        try {
+          texto = ((await boton.innerText({ timeout: 1500 })) || '').trim()
+            .replace(/\s+/g, ' ').slice(0, 40);
+          if (!texto) {
+            texto = (await boton.getAttribute('aria-label'))
+              || (await boton.getAttribute('title')) || '(sin texto)';
+          }
+        } catch { continue; }
+        if (NO_TOCAR.test(texto)) continue;
+        // Pulsar la pestaña que ya está abierta no cambia nada, y no es un botón
+        // muerto: se salta.
+        if ((await boton.getAttribute('aria-selected').catch(() => null)) === 'true') continue;
+        if ((await boton.getAttribute('aria-pressed').catch(() => null)) === 'true') continue;
+
+        const antes = {
+          url: pagina.url(),
+          dialogos: await pagina.locator('[role="dialog"]').count(),
+          largo: (await pagina.locator('body').innerText().catch(() => '')).length,
+          peticiones,
+          estado: await estado(),
+          descargas,
+        };
+
+        try {
+          await boton.click({ timeout: 3000, noWaitAfter: true });
+        } catch { continue; }
+        await pagina.waitForTimeout(1100);
+
+        const despues = {
+          url: pagina.url(),
+          dialogos: await pagina.locator('[role="dialog"]').count(),
+          largo: (await pagina.locator('body').innerText().catch(() => '')).length,
+          peticiones,
+          estado: await estado(),
+          descargas,
+        };
+
+        const hizoAlgo =
+          despues.url !== antes.url ||
+          despues.dialogos !== antes.dialogos ||
+          despues.peticiones > antes.peticiones ||
+          despues.descargas > antes.descargas ||
+          despues.estado !== antes.estado ||
+          // Un cambio de menos de 20 caracteres suele ser un reloj o un contador
+          // que se refrescó solo; no cuenta como efecto del clic.
+          Math.abs(despues.largo - antes.largo) > 20;
+
+        if (hizoAlgo) {
+          vivos++;
+        } else {
+          sinEfecto++;
+          muertos.push({ ruta, texto });
         }
-      } catch { continue; }
-      if (NO_TOCAR.test(texto)) continue;
 
-      const antes = {
-        url: pagina.url(),
-        dialogos: await pagina.locator('[role="dialog"]').count(),
-        largo: (await pagina.locator('body').innerText().catch(() => '')).length,
-        peticiones,
-      };
-
-      try {
-        await boton.click({ timeout: 3000, noWaitAfter: true });
-      } catch { continue; }
-      await pagina.waitForTimeout(1100);
-
-      const despues = {
-        url: pagina.url(),
-        dialogos: await pagina.locator('[role="dialog"]').count(),
-        largo: (await pagina.locator('body').innerText().catch(() => '')).length,
-        peticiones,
-      };
-
-      const hizoAlgo =
-        despues.url !== antes.url ||
-        despues.dialogos !== antes.dialogos ||
-        despues.peticiones > antes.peticiones ||
-        // Un cambio de menos de 20 caracteres suele ser un reloj o un contador
-        // que se refrescó solo; no cuenta como efecto del clic.
-        Math.abs(despues.largo - antes.largo) > 20;
-
-      if (hizoAlgo) {
-        vivos++;
-      } else {
-        sinEfecto++;
-        muertos.push({ ruta, texto });
+        // Volver al estado inicial para que el siguiente botón se pulse limpio.
+        if (despues.dialogos > antes.dialogos) {
+          await pagina.keyboard.press('Escape').catch(() => {});
+          await pagina.waitForTimeout(450);
+        }
+        if (despues.url !== antes.url) {
+          await pagina.goto(APP + ruta, { waitUntil: 'networkidle', timeout: 45000 })
+            .catch(() => {});
+          await pagina.waitForTimeout(1400);
+        }
       }
-
-      // Volver al estado inicial para que el siguiente botón se pulse limpio.
-      if (despues.dialogos > antes.dialogos) {
-        await pagina.keyboard.press('Escape').catch(() => {});
-        await pagina.waitForTimeout(450);
-      }
-      if (despues.url !== antes.url) {
-        await pagina.goto(APP + ruta, { waitUntil: 'networkidle', timeout: 45000 })
-          .catch(() => {});
-        await pagina.waitForTimeout(1400);
-      }
+    } catch (e) {
+      // Una navegación a mitad de la cuenta destruye el contexto; se anota la
+      // pantalla y se sigue con la siguiente en vez de tumbar la revisión.
+      console.log(`error   ${ruta.padEnd(26)} ${String(e.message).split(/\r?\n/)[0].slice(0, 80)}`);
     }
 
     resumen.push({ ruta, probados: cuantos, vivos, sinEfecto });
@@ -173,7 +226,7 @@ const NO_TOCAR = /cerrar sesi|salir|logout|colapsar|expandir/i;
     console.log('\nBotones que no hacen nada:');
     for (const m of muertos) console.log(`  ${m.ruta.padEnd(26)} «${m.texto}»`);
   }
-  fs.writeFileSync(process.env.SALIDA || '/salida/botones.json',
+  fs.writeFileSync(process.env.SALIDA_JSON || process.env.SALIDA || '/salida/botones.json',
                    JSON.stringify({ resumen, muertos }, null, 2));
 
   await navegador.close();
