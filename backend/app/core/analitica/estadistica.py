@@ -298,3 +298,84 @@ def regresion_lineal(x: Sequence[float], y: Sequence[float]) -> Dict:
     return {"suficiente": True, "puntos": n, "pendiente": round(b, 4), "intercepto": round(a, 4),
             "ic90": [round(b - t * se, 4), round(b + t * se, 4)],
             "significativa": (b - t * se) > 0 or (b + t * se) < 0}
+
+
+# ─── Tiempo hasta un evento ───────────────────────────────────────────────────
+
+MIN_EVENTOS_KM = 5
+
+
+def kaplan_meier(tiempos: Sequence[float], ocurrio: Sequence[bool]) -> Dict:
+    """Curva de Kaplan-Meier: probabilidad de que el evento NO haya ocurrido
+    todavía a cada tiempo, contando los casos abiertos como censurados.
+
+    Para «¿cuánto tarda en cerrarse un incidente?»: promediar solo los
+    cerrados deja fuera a los que llevan meses abiertos, y el tiempo sale más
+    corto de lo que es, justo en el caso que más preocupa.
+    """
+    t = np.asarray(tiempos, float)
+    e = np.asarray(ocurrio, bool)
+    if int(e.sum()) < MIN_EVENTOS_KM:
+        return {"suficiente": False, "eventos": int(e.sum()), "abiertos": int((~e).sum()), "minimo": MIN_EVENTOS_KM}
+    orden = np.argsort(t)
+    t, e = t[orden], e[orden]
+    n = len(t)
+    s, curva = 1.0, [(0.0, 1.0)]
+    i = 0
+    while i < n:
+        j = i
+        while j < n and t[j] == t[i]:
+            j += 1
+        d = int(e[i:j].sum())
+        if d:
+            s *= 1 - d / (n - i)
+            curva.append((float(t[i]), s))
+        i = j
+    mediana = next((x for x, v in curva if v <= 0.5), None)
+    p90 = next((x for x, v in curva if v <= 0.1), None)
+    return {"suficiente": True, "eventos": int(e.sum()), "abiertos": int((~e).sum()),
+            "mediana": round(mediana, 1) if mediana is not None else None,
+            "p90": round(p90, 1) if p90 is not None else None,
+            "curva": [[round(x, 1), round(v, 4)] for x, v in curva]}
+
+
+def supervivencia_en(curva: List[List[float]], t: float) -> float:
+    """S(t) de una curva de Kaplan-Meier (escalonada)."""
+    s = 1.0
+    for x, v in curva:
+        if x <= t:
+            s = v
+        else:
+            break
+    return s
+
+
+def spearman(x: Sequence[float], y: Sequence[float]) -> Dict:
+    """Correlación de rangos de Spearman con su p aproximado (t con n−2)."""
+    x, y = np.asarray(x, float), np.asarray(y, float)
+    n = len(x)
+    if n < 5:
+        return {"suficiente": False, "puntos": n, "minimo": 5}
+
+    def rangos(v):
+        orden = v.argsort(kind="mergesort")
+        r = np.empty(n)
+        vals = v[orden]
+        i = 0
+        while i < n:
+            j = i
+            while j + 1 < n and vals[j + 1] == vals[i]:
+                j += 1
+            r[orden[i:j + 1]] = (i + j) / 2 + 1
+            i = j + 1
+        return r
+    rx, ry = rangos(x), rangos(y)
+    if rx.std() == 0 or ry.std() == 0:
+        return {"suficiente": False, "puntos": n, "minimo": 5, "motivo": "Sin variación"}
+    rho = float(np.corrcoef(rx, ry)[0, 1])
+    if abs(rho) >= 1:
+        return {"suficiente": True, "puntos": n, "rho": round(rho, 3), "p": 0.0}
+    tt = rho * math.sqrt((n - 2) / (1 - rho ** 2))
+    # Aproximación normal de la t: suficiente para decir «hay o no hay relación».
+    p = math.erfc(abs(tt) / math.sqrt(2) * (1 - 1 / (4 * max(n - 2, 1))))
+    return {"suficiente": True, "puntos": n, "rho": round(rho, 3), "p": round(p, 4)}

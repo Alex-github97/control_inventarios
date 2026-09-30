@@ -9,7 +9,30 @@ from app.core.analitica.estadistica import (
     benjamini_hochberg, carta_c, carta_imr, carta_p_laney, comparar_grupos, mann_kendall,
     mann_whitney, regresion_lineal,
 )
+from app.core.analitica.estadistica import kaplan_meier, spearman, supervivencia_en
 from app.core.analitica.texto import agrupar
+
+
+def test_kaplan_meier_con_abiertos_no_acorta_el_tiempo():
+    rng = np.random.default_rng(12)
+    reales = rng.exponential(30, 200)              # mediana real = 30·ln2 ≈ 20,8
+    corte = rng.uniform(0, 60, 200)
+    t = np.minimum(reales, corte)
+    cerrado = reales <= corte
+    km = kaplan_meier(t, cerrado)
+    solo_cerrados = float(np.median(t[cerrado]))
+    assert abs(km["mediana"] - 20.8) < 4
+    assert solo_cerrados < km["mediana"]           # el sesgo que KM corrige
+    valores = [v for _, v in km["curva"]]
+    assert valores[0] == 1.0 and all(a >= b for a, b in zip(valores, valores[1:]))
+    assert supervivencia_en(km["curva"], km["mediana"]) <= 0.5 < supervivencia_en(km["curva"], km["mediana"] - 1)
+
+
+def test_spearman():
+    x = np.arange(12)
+    assert spearman(x, x ** 2)["rho"] == 1.0
+    r = spearman(x, np.random.default_rng(13).normal(0, 1, 12))
+    assert r["p"] > 0.05
 
 
 def test_mann_kendall_distingue_tendencia_de_ruido():
