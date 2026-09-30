@@ -391,6 +391,8 @@ export interface ResumenIngresos {
   total_propinas: number
   total_ingresos: number
   total_comisiones: number
+  /** IVA contenido en los ingresos (los precios lo incluyen). */
+  total_iva?: number
   utilidad_bruta: number
   ticket_promedio: number
   por_cobrar: number

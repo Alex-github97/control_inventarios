@@ -210,7 +210,8 @@ export default function AGSIngresos() {
             },
             {
               t: 'Utilidad bruta', v: fmtCortoCOP(resumen?.utilidad_bruta),
-              d: `${margenPct}% del ingreso · descontando comisiones, insumos y propinas`,
+              d: `${margenPct}% del ingreso · descontando comisiones, insumos, propinas`
+                + ((resumen?.total_iva ?? 0) > 0 ? ` e IVA (${fmtCortoCOP(resumen?.total_iva)})` : ''),
               c: margenPct < 30 ? '#DC2626' : '#0891B2', i: <TrendingUp />,
             },
             {

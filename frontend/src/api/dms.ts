@@ -58,8 +58,22 @@ export interface DocumentoEnLista {
   id: number; codigo?: string | null; nombre: string
   tipo_nombre?: string | null; estado: string; version_actual: string
   fecha_vigencia_inicio?: string | null; fecha_vigencia_fin?: string | null
+  propietario_id?: number | null
   propietario_nombre?: string | null; created_at?: string | null
+  // Lo que el formulario de edición necesita para no borrar nada al guardar.
+  descripcion?: string | null; tipo_documento_id?: number | null
+  carpeta_id?: number | null; tags?: string | null
+  es_confidencial: boolean; permite_descarga: boolean; permite_impresion: boolean
+  /** Lo decide el servidor: propietario, administrador o documento descargable. */
+  puede_descargar: boolean
 }
+
+export interface CampoFicha {
+  campo_id: number; nombre: string; etiqueta: string
+  tipo_dato: 'texto' | 'numero' | 'fecha' | 'booleano' | 'lista' | string
+  requerido: boolean; opciones: string[]; valor: string | number | boolean | null
+}
+export interface FichaMetadatos { campos: CampoFicha[]; faltantes: string[] }
 
 export interface Version {
   id: number; documento_id: number
@@ -192,6 +206,28 @@ export const dmsApi = {
     apiClient.put(`/dms/documentos/${id}/estado`,
       { estado, comentario }).then(r => r.data),
   versiones: (id: number) => get<Version[]>(`/dms/documentos/${id}/versiones`),
+  /** Los campos del tipo del documento con sus valores, y los obligatorios que faltan. */
+  ficha: (id: number) => get<FichaMetadatos>(`/dms/documentos/${id}/ficha-metadatos`),
+  guardarFicha: (id: number, valores: Record<number, unknown>) =>
+    apiClient.put<FichaMetadatos>(`/dms/documentos/${id}/ficha-metadatos`, { valores }).then(r => r.data),
+  /** Sube el archivo como versión nueva (el servidor calcula huella y extrae texto). */
+  subirArchivo: (id: number, archivo: File, comentario: string, esMayor: boolean) => {
+    const fd = new FormData()
+    fd.append('file', archivo)
+    if (comentario) fd.append('comentario', comentario)
+    fd.append('es_mayor', String(esMayor))
+    return apiClient.post<Version>(`/dms/documentos/${id}/upload`, fd).then(r => r.data)
+  },
+  /** Descarga con la sesión: un enlace directo no llevaría el token. */
+  descargarVersion: async (v: Version) => {
+    const r = await apiClient.get(`/dms/versiones/${v.id}/download`, { responseType: 'blob' })
+    const url = URL.createObjectURL(r.data as Blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = v.nombre_archivo || `version-${v.numero_version}`
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  },
   metadatos: (id: number) => get<any[]>(`/dms/documentos/${id}/metadatos`),
 
   firmas: (f?: { documento_id?: number; estado?: string; firmante_id?: number }) =>

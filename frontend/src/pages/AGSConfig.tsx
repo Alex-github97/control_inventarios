@@ -227,14 +227,16 @@ export default function AGSConfig() {
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 6, md: 4 }}>
                     <TextField
-                      fullWidth size="small" label="Moneda" value={form.moneda ?? 'COP'}
-                      onChange={e => set('moneda', e.target.value)}
+                      fullWidth size="small" label="Moneda" value="COP" disabled
+                      helperText="Los montos se manejan en pesos colombianos"
                     />
                   </Grid>
                   <Grid size={{ xs: 6, md: 4 }}>
                     <TextField
                       type="number" fullWidth size="small" label="IVA" value={form.iva_pct ?? 0}
                       onChange={e => set('iva_pct', Number(e.target.value) || 0)}
+                      helperText="Incluido en los precios: se discrimina en ingresos"
+
                       InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
                     />
                   </Grid>

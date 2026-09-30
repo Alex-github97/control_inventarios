@@ -111,7 +111,7 @@ def _sin_tz(d: Optional[datetime]) -> Optional[datetime]:
 
 def _recalcular_totales(cita: AGSCita, servicios: List[AGSCitaServicio],
                         materiales: List[AGSCitaMaterial],
-                        comision_profesional_pct: float) -> None:
+                        comision_profesional_pct: float, iva_pct: float = 0) -> None:
     """Recalcula el dinero de la cita a partir de sus lineas.
 
     subtotal servicios + materiales - descuento + propina = total
@@ -137,6 +137,12 @@ def _recalcular_totales(cita: AGSCita, servicios: List[AGSCitaServicio],
     cita.total = round(
         subtotal + materiales_total - float(cita.descuento or 0) + float(cita.propina or 0), 2
     )
+    # IVA de la configuración: los precios ya lo traen, así que se discrimina
+    # la parte que es impuesto (base = precio / (1 + tasa)). La propina no es
+    # venta del negocio y no lleva IVA. Antes la tasa se guardaba y no se usaba.
+    gravado = subtotal + materiales_total - float(cita.descuento or 0)
+    tasa = float(iva_pct or 0)
+    cita.iva_incluido = round(gravado * tasa / (100 + tasa), 2) if tasa > 0 and gravado > 0 else 0.0
     if duracion > 0:
         cita.duracion_min = duracion
         cita.fecha_fin = _sin_tz(cita.fecha_inicio) + timedelta(minutes=duracion)
@@ -1285,6 +1291,7 @@ class CitaResponse(BaseModel):
     medio_pago: Optional[str] = None
     fecha_pago: Optional[datetime] = None
     comision_profesional: float = 0
+    iva_incluido: float = 0
     notas: Optional[str] = None
     motivo_cancelacion: Optional[str] = None
     recordatorio_enviado: bool = False
@@ -1463,7 +1470,8 @@ async def crear_cita(data: CitaCreate, db: AsyncSession = Depends(get_db)):
     lineas = await _construir_lineas(db, cita.id, data.servicios)
     for l in lineas:
         db.add(l)
-    _recalcular_totales(cita, lineas, [], float(pro.comision_pct or cfg.comision_defecto_pct or 0))
+    _recalcular_totales(cita, lineas, [], float(pro.comision_pct or cfg.comision_defecto_pct or 0),
+                        float(cfg.iva_pct or 0))
 
     # Se excluye a si misma: el flush anterior ya la dejo visible en la
     # transaccion y sin esto la cita choca contra su propio registro.
@@ -1529,7 +1537,8 @@ async def actualizar_cita(cid: int, data: CitaUpdate, db: AsyncSession = Depends
         materiales = list(rm.scalars().all())
 
     _recalcular_totales(cita, lineas, materiales,
-                        float(pro.comision_pct or cfg.comision_defecto_pct or 0))
+                        float(pro.comision_pct or cfg.comision_defecto_pct or 0),
+                        float(cfg.iva_pct or 0))
 
     await _validar_disponibilidad(
         db, cita.profesional_id, cita.fecha_inicio, cita.fecha_fin,
@@ -1581,6 +1590,16 @@ async def cambiar_estado_cita(cid: int, data: CambioEstadoCita, db: AsyncSession
                                  % (cita.estado, destino, ", ".join(permitidos)))
 
     ahora = _ahora()
+    if destino == EstadoCitaEnum.NO_ASISTIO.value:
+        # La tolerancia de espera de la configuración: antes de que pase, el
+        # cliente todavía puede llegar y marcarlo ausente sería un error que
+        # además le cuenta como inasistencia en su historial.
+        cfg = await _get_config(db)
+        limite = _sin_tz(cita.fecha_inicio) + timedelta(minutes=int(cfg.tolerancia_no_show_min or 0))
+        if ahora < limite:
+            raise HTTPException(409, "Aún está dentro de la tolerancia de espera (%d min): "
+                                     "se puede marcar la inasistencia desde las %s."
+                                     % (cfg.tolerancia_no_show_min or 0, limite.strftime("%H:%M")))
     if destino == EstadoCitaEnum.EN_CURSO.value:
         cita.hora_llegada = cita.hora_llegada or ahora
         cita.hora_inicio_real = ahora
@@ -1653,7 +1672,8 @@ async def cobrar_cita(cid: int, data: CobroCita, db: AsyncSession = Depends(get_
     rs = await db.execute(select(AGSCitaServicio).where(AGSCitaServicio.cita_id == cid))
     lineas = list(rs.scalars().all())
     _recalcular_totales(cita, lineas, materiales,
-                        float((pro.comision_pct if pro else 0) or cfg.comision_defecto_pct or 0))
+                        float((pro.comision_pct if pro else 0) or cfg.comision_defecto_pct or 0),
+                        float(cfg.iva_pct or 0))
 
     if float(cita.descuento or 0) > float(cita.subtotal or 0) + float(cita.total_materiales or 0):
         raise HTTPException(400, "El descuento no puede superar el valor del servicio.")
@@ -1819,6 +1839,7 @@ class ResumenIngresos(BaseModel):
     total_descuentos: float = 0
     total_propinas: float = 0
     total_ingresos: float = 0
+    total_iva: float = 0
     total_comisiones: float = 0
     utilidad_bruta: float = 0
     ticket_promedio: float = 0
@@ -1900,6 +1921,7 @@ async def reporte_ingresos(
         propina = float(c.propina or 0)
         total = float(c.total or 0)
         comision = float(c.comision_profesional or 0)
+        iva = float(c.iva_incluido or 0)
         insumos = sum(costo_srv.get(l.servicio_id, 0) * float(l.cantidad or 1)
                       for l in lineas_por_cita.get(c.id, []))
 
@@ -1910,8 +1932,8 @@ async def reporte_ingresos(
         p.propinas += propina
         p.total += total
         p.comisiones += comision
-        # La propina no es del negocio, se descuenta de la utilidad
-        p.utilidad += total - comision - insumos - propina
+        # La propina no es del negocio ni el IVA tampoco: se descuentan de la utilidad
+        p.utilidad += total - comision - insumos - propina - iva
 
         resumen.total_servicios += servicios
         resumen.total_materiales += materiales
@@ -1919,7 +1941,8 @@ async def reporte_ingresos(
         resumen.total_propinas += propina
         resumen.total_ingresos += total
         resumen.total_comisiones += comision
-        resumen.utilidad_bruta += total - comision - insumos - propina
+        resumen.total_iva += iva
+        resumen.utilidad_bruta += total - comision - insumos - propina - iva
         resumen.por_cobrar += total - float(c.total_pagado or 0)
 
     for p in buckets.values():
@@ -1927,7 +1950,7 @@ async def reporte_ingresos(
                       "total", "comisiones", "utilidad"):
             setattr(p, campo, round(getattr(p, campo), 2))
     for campo in ("total_servicios", "total_materiales", "total_descuentos",
-                  "total_propinas", "total_ingresos", "total_comisiones",
+                  "total_propinas", "total_ingresos", "total_iva", "total_comisiones",
                   "utilidad_bruta", "por_cobrar"):
         setattr(resumen, campo, round(getattr(resumen, campo), 2))
 
@@ -2751,7 +2774,8 @@ async def reservar_publico(
     for l in lineas:
         db.add(l)
     _recalcular_totales(cita, lineas, [],
-                        float(pro.comision_pct or cfg.comision_defecto_pct or 0))
+                        float(pro.comision_pct or cfg.comision_defecto_pct or 0),
+                        float(cfg.iva_pct or 0))
 
     await _validar_disponibilidad(
         db, profesional_id, cita.fecha_inicio, cita.fecha_fin,

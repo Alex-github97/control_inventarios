@@ -85,7 +85,7 @@ export default function DMSConfig() {
       { clave: 'orden', etiqueta: 'Orden', tipo: 'numero', ancho: 4,
         minimo: 1, porDefecto: 1 },
       { clave: 'requerido', etiqueta: 'Obligatorio', tipo: 'interruptor',
-        ancho: 4, ayuda: 'Sin él no se puede guardar el documento.' },
+        ancho: 4, ayuda: 'Sin él no se puede aprobar ni publicar el documento.' },
       { clave: 'opciones', etiqueta: 'Opciones', tipo: 'texto', ancho: 12,
         visibleSi: v => v.tipo_dato === 'lista',
         ayuda: 'Separadas por coma.' },

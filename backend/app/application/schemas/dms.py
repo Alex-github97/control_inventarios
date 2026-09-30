@@ -228,8 +228,20 @@ class DMSDocumentoListResponse(BaseModel):
     version_actual: str
     fecha_vigencia_inicio: Optional[datetime] = None
     fecha_vigencia_fin: Optional[datetime] = None
+    propietario_id: Optional[int] = None
     propietario_nombre: Optional[str] = None
     created_at: Optional[datetime] = None
+    es_confidencial: bool = False
+    permite_descarga: bool = True
+    permite_impresion: bool = True
+    # El formulario de edición parte de la fila del listado: sin estos campos,
+    # guardar un documento le borraba la carpeta, el tipo y las etiquetas.
+    descripcion: Optional[str] = None
+    tipo_documento_id: Optional[int] = None
+    carpeta_id: Optional[int] = None
+    tags: Optional[str] = None
+    # Lo decide el servidor con las mismas reglas con que atiende la descarga.
+    puede_descargar: bool = True
 
 
 # ─── DMSVersion ────────────────────────────────────────────────────────────────

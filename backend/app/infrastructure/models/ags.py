@@ -296,6 +296,9 @@ class AGSCita(Base, TimestampMixin):
     fecha_pago = sa.Column(sa.DateTime(timezone=True), nullable=True)
 
     comision_profesional = sa.Column(sa.Float, default=0)
+    # La parte del total que es IVA. Los precios al público ya lo incluyen
+    # (así lo exige el estatuto del consumidor): no se suma, se discrimina.
+    iva_incluido = sa.Column(sa.Float, default=0)
 
     notas = sa.Column(sa.Text, nullable=True)
     motivo_cancelacion = sa.Column(sa.String(200), nullable=True)

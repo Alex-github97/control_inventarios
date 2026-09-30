@@ -17,15 +17,17 @@ import { useState } from 'react'
 import {
   Box, Typography, Chip, InputBase, alpha, Menu, MenuItem, Tooltip,
   IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Button,
+  TextField, FormControlLabel, Switch, Alert,
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
 import {
-  Description, Search, History, Lock, Download,
+  Description, Search, History, Lock, Download, UploadFile, FactCheck,
 } from '@mui/icons-material'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
-import { dmsApi, peso, type DocumentoEnLista } from '@/api/dms'
+import { dmsApi, peso, type DocumentoEnLista, type Version } from '@/api/dms'
+import { mensajeDeError } from '@/utils/errorApi'
 import { useCrud } from '@/components/datos/useCrud'
 import type { CampoEntidad } from '@/components/datos/FormularioEntidad'
 import {
@@ -43,6 +45,7 @@ export default function DMSDocumentos() {
   const [carpeta, setCarpeta] = useState<number | 'Todas'>('Todas')
   const [menu, setMenu] = useState<{ el: HTMLElement; d: DocumentoEnLista } | null>(null)
   const [historial, setHistorial] = useState<DocumentoEnLista | null>(null)
+  const [ficha, setFicha] = useState<DocumentoEnLista | null>(null)
 
   const documentos = useQuery({
     queryKey: ['dms', 'documentos', estado, carpeta, busqueda],
@@ -97,11 +100,10 @@ export default function DMSDocumentos() {
     { clave: 'tags', etiqueta: 'Etiquetas', tipo: 'texto', ancho: 4,
       ayuda: 'Separadas por coma.' },
     { clave: 'es_confidencial', etiqueta: 'Confidencial', tipo: 'interruptor', ancho: 4,
-      ayuda: 'Solo lo ve quien tenga permiso expreso.' },
+      ayuda: 'Solo lo ven su propietario y los administradores.' },
     { clave: 'permite_descarga', etiqueta: 'Se puede descargar',
-      tipo: 'interruptor', ancho: 4, porDefecto: true },
-    { clave: 'permite_impresion', etiqueta: 'Se puede imprimir',
-      tipo: 'interruptor', ancho: 4, porDefecto: true },
+      tipo: 'interruptor', ancho: 4, porDefecto: true,
+      ayuda: 'Apagado: el archivo solo lo baja su propietario o un administrador.' },
     { clave: 'descripcion', etiqueta: 'Descripción', tipo: 'parrafo' },
   ]
 
@@ -242,13 +244,18 @@ export default function DMSDocumentos() {
                       <td style={{ padding: '10px 14px', fontSize: 12, color: '#6B7280', whiteSpace: 'nowrap' }}>{d.propietario_nombre || '—'}</td>
                       <td style={{ padding: '10px 14px', fontSize: 11.5, color: '#6B7280', whiteSpace: 'nowrap' }}>{fecha(d.created_at)}</td>
                       <td style={{ padding: '4px 8px' }}>
-                        <crud.Acciones registro={d} extra={
+                        <crud.Acciones registro={d} extra={<>
+                          <Tooltip title="Ficha de metadatos">
+                            <IconButton size="small" aria-label={`Ficha de ${d.nombre}`} onClick={() => setFicha(d)}>
+                              <FactCheck sx={{ fontSize: 17 }} />
+                            </IconButton>
+                          </Tooltip>
                           <Tooltip title="Ver versiones">
                             <IconButton size="small" onClick={() => setHistorial(d)}>
                               <History sx={{ fontSize: 17 }} />
                             </IconButton>
                           </Tooltip>
-                        } />
+                        </>} />
                       </td>
                     </tr>
                   ))}
@@ -273,9 +280,93 @@ export default function DMSDocumentos() {
         </Menu>
 
         <Versiones documento={historial} onCerrar={() => setHistorial(null)} />
+        <Ficha documento={ficha} onCerrar={() => setFicha(null)} />
         <crud.Dialogos />
       </Box>
     </Layout>
+  )
+}
+
+/**
+ * La ficha de metadatos: los campos que Configuración DMS define para el tipo
+ * del documento. Los obligatorios se exigen al aprobar o publicar.
+ */
+function Ficha({ documento, onCerrar }: {
+  documento: DocumentoEnLista | null
+  onCerrar: () => void
+}) {
+  const qc = useQueryClient()
+  const ficha = useQuery({
+    queryKey: ['dms', 'ficha', documento?.id],
+    queryFn: () => dmsApi.ficha(documento!.id),
+    enabled: !!documento,
+  })
+  const [valores, setValores] = useState<Record<number, unknown>>({})
+  const [cargadoDe, setCargadoDe] = useState<number | null>(null)
+  if (ficha.data && documento && cargadoDe !== documento.id) {
+    setCargadoDe(documento.id)
+    setValores(Object.fromEntries(ficha.data.campos.map(c => [c.campo_id, c.valor ?? ''])))
+  }
+  const guardar = useMutation({
+    mutationFn: () => dmsApi.guardarFicha(documento!.id, valores),
+    onSuccess: r => {
+      toast.success(r.faltantes.length ? `Guardada; faltan ${r.faltantes.length} obligatorio(s)` : 'Ficha completa')
+      qc.invalidateQueries({ queryKey: ['dms', 'ficha', documento?.id] })
+      onCerrar()
+    },
+    onError: e => toast.error(mensajeDeError(e, 'No se pudo guardar la ficha')),
+  })
+  const cerrar = () => { setCargadoDe(null); onCerrar() }
+  const campos = ficha.data?.campos ?? []
+
+  return (
+    <Dialog open={!!documento} onClose={cerrar} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 2 } }}>
+      <DialogTitle sx={{ fontWeight: 700, pb: 0.5 }}>
+        Ficha de metadatos
+        <Typography sx={{ fontSize: 12.5, color: 'text.secondary', fontWeight: 400 }}>{documento?.nombre}</Typography>
+      </DialogTitle>
+      <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Estado cargando={ficha.isLoading} error={ficha.error} vacio={!campos.length}
+          mensajeVacio={documento?.tipo_documento_id ? 'Este tipo de documento no tiene campos definidos'
+                                                     : 'El documento no tiene tipo asignado'}
+          hint="Los campos se definen por tipo de documento en Configuración DMS.">
+          {!!ficha.data?.faltantes.length && (
+            <Alert severity="warning" sx={{ mb: 1 }}>
+              Faltan obligatorios: {ficha.data.faltantes.join(', ')}. Sin ellos no se puede aprobar ni publicar.
+            </Alert>
+          )}
+          {campos.map(c => {
+            const v = valores[c.campo_id]
+            const poner = (x: unknown) => setValores(p => ({ ...p, [c.campo_id]: x }))
+            const etiqueta = c.etiqueta + (c.requerido ? ' *' : '')
+            if (c.tipo_dato === 'booleano') return (
+              <FormControlLabel key={c.campo_id} label={etiqueta}
+                control={<Switch checked={v === true} onChange={e => poner(e.target.checked)} />} />
+            )
+            if (c.tipo_dato === 'lista') return (
+              <TextField key={c.campo_id} select size="small" fullWidth label={etiqueta}
+                value={(v as string) ?? ''} onChange={e => poner(e.target.value)}>
+                <MenuItem value="">—</MenuItem>
+                {c.opciones.map(o => <MenuItem key={o} value={o}>{o}</MenuItem>)}
+              </TextField>
+            )
+            return (
+              <TextField key={c.campo_id} size="small" fullWidth label={etiqueta}
+                type={c.tipo_dato === 'numero' ? 'number' : c.tipo_dato === 'fecha' ? 'date' : 'text'}
+                InputLabelProps={c.tipo_dato === 'fecha' ? { shrink: true } : undefined}
+                value={(v as string | number) ?? ''} onChange={e => poner(e.target.value)} />
+            )
+          })}
+        </Estado>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={cerrar} sx={{ textTransform: 'none' }}>Cancelar</Button>
+        <Button variant="contained" disabled={!campos.length || guardar.isPending}
+          onClick={() => guardar.mutate()} sx={{ textTransform: 'none', bgcolor: DMS_COLOR }}>
+          {guardar.isPending ? 'Guardando…' : 'Guardar ficha'}
+        </Button>
+      </DialogActions>
+    </Dialog>
   )
 }
 
@@ -290,11 +381,30 @@ function Versiones({ documento, onCerrar }: {
   documento: DocumentoEnLista | null
   onCerrar: () => void
 }) {
+  const qc = useQueryClient()
   const versiones = useQuery({
     queryKey: ['dms', 'versiones', documento?.id],
     queryFn: () => dmsApi.versiones(documento!.id),
     enabled: !!documento,
   })
+  // Antes no había cómo subir ni bajar el archivo desde la pantalla: el
+  // servidor tenía las dos rutas y el gestor documental solo guardaba fichas.
+  const [archivo, setArchivo] = useState<File | null>(null)
+  const [comentario, setComentario] = useState('')
+  const [esMayor, setEsMayor] = useState(true)
+  const subir = useMutation({
+    mutationFn: () => dmsApi.subirArchivo(documento!.id, archivo!, comentario, esMayor),
+    onSuccess: v => {
+      toast.success(`Versión ${v.numero_version} cargada`)
+      setArchivo(null); setComentario('')
+      qc.invalidateQueries({ queryKey: ['dms'] })
+    },
+    onError: e => toast.error(mensajeDeError(e, 'No se pudo subir el archivo')),
+  })
+  const descargar = async (v: Version) => {
+    try { await dmsApi.descargarVersion(v) }
+    catch (e) { toast.error(mensajeDeError(e, 'No se pudo descargar')) }
+  }
 
   return (
     <Dialog open={!!documento} onClose={onCerrar} maxWidth="md" fullWidth
@@ -306,10 +416,26 @@ function Versiones({ documento, onCerrar }: {
         </Typography>
       </DialogTitle>
       <DialogContent dividers>
+        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap', mb: 2,
+                   p: 1.5, borderRadius: 1.5, border: `1px dashed ${BORDE}` }}>
+          <Button component="label" variant="outlined" size="small" startIcon={<UploadFile />}
+            sx={{ textTransform: 'none' }}>
+            {archivo ? archivo.name : 'Elegir archivo'}
+            <input hidden type="file" onChange={e => setArchivo(e.target.files?.[0] ?? null)} />
+          </Button>
+          <TextField size="small" label="Comentario de la versión" value={comentario}
+            onChange={e => setComentario(e.target.value)} sx={{ flex: 1, minWidth: 180 }} />
+          <FormControlLabel label="Versión mayor"
+            control={<Switch size="small" checked={esMayor} onChange={e => setEsMayor(e.target.checked)} />} />
+          <Button variant="contained" size="small" disabled={!archivo || subir.isPending}
+            onClick={() => subir.mutate()} sx={{ textTransform: 'none', bgcolor: DMS_COLOR }}>
+            {subir.isPending ? 'Subiendo…' : 'Subir versión'}
+          </Button>
+        </Box>
         <Estado cargando={versiones.isLoading} error={versiones.error}
           vacio={!versiones.data?.length}
           mensajeVacio="Este documento no tiene versiones cargadas"
-          hint="El archivo se sube desde la ficha del documento.">
+          hint="Sube el primer archivo con el botón de arriba.">
           {versiones.data?.slice().sort((a, b) => b.version_numero - a.version_numero)
             .map((v, i) => (
             <Box key={v.id} sx={{
@@ -350,6 +476,18 @@ function Versiones({ documento, onCerrar }: {
                   </Tooltip>
                 )}
               </Box>
+              {documento?.puede_descargar ? (
+                <Tooltip title="Descargar esta versión">
+                  <IconButton size="small" aria-label={`Descargar v${v.numero_version}`}
+                    onClick={() => descargar(v)} sx={{ alignSelf: 'center' }}>
+                    <Download fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              ) : (
+                <Tooltip title="Este documento no permite descarga">
+                  <Lock fontSize="small" sx={{ alignSelf: 'center', color: 'text.disabled' }} />
+                </Tooltip>
+              )}
             </Box>
           ))}
         </Estado>

@@ -536,6 +536,44 @@ async def eliminar_campo_metadato(
 # 5. DOCUMENTOS (CORE)
 # ===========================================================================
 
+# Quién puede ver y bajar un documento. Antes «Confidencial» y «Se puede
+# descargar» se guardaban y ninguna ruta los consultaba: cualquiera con sesión
+# listaba y descargaba todo. Ahora:
+#   · confidencial: solo lo ven (en la lista, la ficha, las versiones y la
+#     descarga) su propietario y los administradores;
+#   · sin descarga: se ve en la lista, pero el archivo solo lo baja su
+#     propietario o un administrador.
+def _es_admin(u: Usuario) -> bool:
+    return getattr(u.rol, "value", u.rol) == "ADMINISTRADOR"
+
+
+def _es_duenio(doc: DMSDocumento, u: Usuario) -> bool:
+    return _es_admin(u) or (doc.propietario_id is not None and doc.propietario_id == u.id)
+
+
+def _puede_ver(doc: DMSDocumento, u: Usuario) -> bool:
+    return not doc.es_confidencial or _es_duenio(doc, u)
+
+
+def _puede_descargar(doc: DMSDocumento, u: Usuario) -> bool:
+    return _es_duenio(doc, u) or (not doc.es_confidencial and doc.permite_descarga is not False)
+
+
+async def _documento_visible(db: AsyncSession, doc_id: int, u: Usuario) -> DMSDocumento:
+    doc = await db.get(DMSDocumento, doc_id)
+    # Un confidencial ajeno responde igual que uno inexistente: decir «existe
+    # pero no puedes verlo» ya es revelar algo.
+    if not doc or doc.deleted_at is not None or not _puede_ver(doc, u):
+        raise HTTPException(status_code=404, detail="Documento no encontrado")
+    return doc
+
+
+async def _exigir_descarga(db: AsyncSession, doc_id: int, u: Usuario) -> None:
+    doc = await _documento_visible(db, doc_id, u)
+    if not _puede_descargar(doc, u):
+        raise HTTPException(status_code=403,
+                            detail="Este documento no permite descarga; solo su propietario o un administrador.")
+
 @router.get("/documentos", response_model=List[DMSDocumentoListResponse])
 async def listar_documentos(
     q: Optional[str] = None,
@@ -545,7 +583,7 @@ async def listar_documentos(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    current_user: Usuario = Depends(get_current_user),
 ):
     stmt = (
         select(
@@ -571,6 +609,9 @@ async def listar_documentos(
         stmt = stmt.where(DMSDocumento.tipo_documento_id == tipo_documento_id)
     if carpeta_id is not None:
         stmt = stmt.where(DMSDocumento.carpeta_id == carpeta_id)
+    if not _es_admin(current_user):
+        stmt = stmt.where(or_(DMSDocumento.es_confidencial.isnot(True),
+                              DMSDocumento.propietario_id == current_user.id))
 
     offset = (page - 1) * per_page
     stmt = stmt.order_by(DMSDocumento.nombre).offset(offset).limit(per_page)
@@ -596,6 +637,14 @@ async def listar_documentos(
                 version_actual=doc.version_actual,
                 fecha_vigencia_fin=doc.fecha_vigencia_fin,
                 created_at=doc.created_at,
+                es_confidencial=bool(doc.es_confidencial),
+                permite_descarga=doc.permite_descarga is not False,
+                permite_impresion=doc.permite_impresion is not False,
+                descripcion=doc.descripcion,
+                carpeta_id=doc.carpeta_id,
+                tags=doc.tags,
+                fecha_vigencia_inicio=doc.fecha_vigencia_inicio,
+                puede_descargar=_puede_descargar(doc, current_user),
             )
         )
     return items
@@ -605,7 +654,7 @@ async def listar_documentos(
 async def crear_documento(
     data: DMSDocumentoCreate,
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    current_user: Usuario = Depends(get_current_user),
 ):
     # Generar código automático DOC-YYYY-NNNNNN
     year = datetime.utcnow().year
@@ -615,6 +664,9 @@ async def crear_documento(
 
     payload = data.model_dump()
     payload["codigo"] = codigo
+    # Sin propietario, un documento confidencial no lo podría ver nadie más
+    # que un administrador, ni siquiera quien lo subió.
+    payload["propietario_id"] = payload.get("propietario_id") or current_user.id
     item = DMSDocumento(**payload)
     db.add(item)
     await db.commit()
@@ -626,12 +678,9 @@ async def crear_documento(
 async def obtener_documento(
     doc_id: int,
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    current_user: Usuario = Depends(get_current_user),
 ):
-    item = await db.get(DMSDocumento, doc_id)
-    if not item or item.deleted_at is not None:
-        raise HTTPException(status_code=404, detail="Documento no encontrado")
-    return item
+    return await _documento_visible(db, doc_id, current_user)
 
 
 @router.put("/documentos/{doc_id}", response_model=DMSDocumentoResponse)
@@ -688,9 +737,7 @@ async def cambiar_estado_documento(
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
-    item = await db.get(DMSDocumento, doc_id)
-    if not item or item.deleted_at is not None:
-        raise HTTPException(status_code=404, detail="Documento no encontrado")
+    item = await _documento_visible(db, doc_id, current_user)
 
     nuevo_estado_str = body.get("estado")
     comentario = body.get("comentario")
@@ -708,6 +755,14 @@ async def cambiar_estado_documento(
             status_code=400,
             detail=f"Transición no permitida: {estado_actual} → {nuevo_estado}",
         )
+
+    if nuevo_estado in (EstadoDocumentoDMSEnum.APROBADO, EstadoDocumentoDMSEnum.PUBLICADO):
+        faltan = _faltantes(await _ficha(db, item))
+        if faltan:
+            raise HTTPException(
+                status_code=409,
+                detail="Faltan metadatos obligatorios: " + ", ".join(faltan)
+                       + ". Complételos en la ficha del documento.")
 
     estado_anterior = item.estado
     item.estado = nuevo_estado
@@ -740,8 +795,9 @@ async def cambiar_estado_documento(
 async def listar_versiones(
     doc_id: int,
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    current_user: Usuario = Depends(get_current_user),
 ):
+    await _documento_visible(db, doc_id, current_user)
     q = (
         select(DMSVersion)
         .where(DMSVersion.documento_id == doc_id)
@@ -797,9 +853,7 @@ async def subir_archivo_version(
 ):
     """Carga REAL de un archivo: lo almacena en disco, calcula hash/tamaño, extrae
     texto (PDF/plano) para búsqueda de contenido y crea una nueva versión."""
-    doc = await db.get(DMSDocumento, documento_id)
-    if not doc or doc.deleted_at is not None:
-        raise HTTPException(status_code=404, detail="Documento no encontrado")
+    doc = await _documento_visible(db, documento_id, current_user)
     contenido = await file.read()
     if not contenido:
         raise HTTPException(status_code=400, detail="Archivo vacío")
@@ -841,6 +895,7 @@ async def descargar_version(
     ver = await db.get(DMSVersion, version_id)
     if not ver or not ver.ruta_archivo or not Path(ver.ruta_archivo).exists():
         raise HTTPException(status_code=404, detail="Archivo no encontrado")
+    await _exigir_descarga(db, ver.documento_id, current_user)
     return FileResponse(ver.ruta_archivo, filename=ver.nombre_archivo,
                         media_type=ver.tipo_mime or "application/octet-stream")
 
@@ -852,6 +907,7 @@ async def descargar_documento(
     current_user: Usuario = Depends(get_current_user),
 ):
     """Descarga la última versión con archivo del documento."""
+    await _exigir_descarga(db, documento_id, current_user)
     r = await db.execute(
         select(DMSVersion).where(
             DMSVersion.documento_id == documento_id,
@@ -890,6 +946,106 @@ async def listar_metadatos(
     q = select(DMSMetadatoValor).where(DMSMetadatoValor.documento_id == doc_id)
     r = await db.execute(q)
     return r.scalars().all()
+
+
+# ── La ficha de metadatos de un documento ───────────────────────────────────
+# Los campos se configuran por tipo de documento (Configuración DMS). Antes
+# nadie los llenaba: no había pantalla que los pidiera y «Obligatorio» no lo
+# hacía cumplir nadie. Ahora la ficha junta los campos del tipo con los valores
+# del documento, se guarda completa, y un documento no se aprueba ni se
+# publica mientras le falte un obligatorio.
+
+def _opciones(c: DMSCampoMetadato) -> List[str]:
+    import json
+    if not c.opciones:
+        return []
+    try:
+        v = json.loads(c.opciones)
+        if isinstance(v, list):
+            return [str(x) for x in v]
+    except ValueError:
+        pass
+    return [x.strip() for x in c.opciones.split(",") if x.strip()]
+
+
+def _valor_de(c: DMSCampoMetadato, v: Optional[DMSMetadatoValor]):
+    if v is None:
+        return None
+    if c.tipo_dato == "numero":
+        return float(v.valor_numero) if v.valor_numero is not None else None
+    if c.tipo_dato == "fecha":
+        return v.valor_fecha.date().isoformat() if v.valor_fecha else None
+    if c.tipo_dato == "booleano":
+        return v.valor_booleano
+    return v.valor_texto
+
+
+async def _ficha(db: AsyncSession, doc: DMSDocumento) -> list:
+    if not doc.tipo_documento_id:
+        return []
+    campos = (await db.execute(select(DMSCampoMetadato).where(
+        DMSCampoMetadato.tipo_documento_id == doc.tipo_documento_id)
+        .order_by(DMSCampoMetadato.orden, DMSCampoMetadato.id))).scalars().all()
+    valores = {v.campo_id: v for v in (await db.execute(select(DMSMetadatoValor).where(
+        DMSMetadatoValor.documento_id == doc.id))).scalars().all()}
+    return [{"campo_id": c.id, "nombre": c.nombre, "etiqueta": c.etiqueta,
+             "tipo_dato": c.tipo_dato, "requerido": bool(c.requerido),
+             "opciones": _opciones(c), "valor": _valor_de(c, valores.get(c.id))}
+            for c in campos]
+
+
+def _faltantes(ficha: list) -> List[str]:
+    return [f["etiqueta"] for f in ficha
+            if f["requerido"] and (f["valor"] is None or f["valor"] == "")]
+
+
+@router.get("/documentos/{doc_id}/ficha-metadatos")
+async def ficha_metadatos(doc_id: int, db: AsyncSession = Depends(get_db),
+                          current_user: Usuario = Depends(get_current_user)):
+    doc = await _documento_visible(db, doc_id, current_user)
+    ficha = await _ficha(db, doc)
+    return {"campos": ficha, "faltantes": _faltantes(ficha)}
+
+
+@router.put("/documentos/{doc_id}/ficha-metadatos")
+async def guardar_ficha_metadatos(doc_id: int, body: dict, db: AsyncSession = Depends(get_db),
+                                  current_user: Usuario = Depends(get_current_user)):
+    """Guarda todos los valores de una vez: {"valores": {campo_id: valor}}."""
+    doc = await _documento_visible(db, doc_id, current_user)
+    entrada = {int(k): v for k, v in (body.get("valores") or {}).items()}
+    campos = {c.id: c for c in (await db.execute(select(DMSCampoMetadato).where(
+        DMSCampoMetadato.tipo_documento_id == doc.tipo_documento_id))).scalars().all()} \
+        if doc.tipo_documento_id else {}
+    existentes = {v.campo_id: v for v in (await db.execute(select(DMSMetadatoValor).where(
+        DMSMetadatoValor.documento_id == doc.id))).scalars().all()}
+    for cid, valor in entrada.items():
+        c = campos.get(cid)
+        if c is None:
+            raise HTTPException(422, "Ese campo no pertenece al tipo de este documento.")
+        v = existentes.get(cid) or DMSMetadatoValor(documento_id=doc.id, campo_id=cid)
+        v.valor_texto = v.valor_numero = v.valor_fecha = v.valor_booleano = None
+        vacio = valor is None or valor == ""
+        try:
+            if vacio:
+                pass
+            elif c.tipo_dato == "numero":
+                v.valor_numero = float(valor)
+            elif c.tipo_dato == "fecha":
+                v.valor_fecha = datetime.fromisoformat(str(valor)[:10])
+            elif c.tipo_dato == "booleano":
+                v.valor_booleano = bool(valor)
+            else:
+                texto = str(valor).strip()
+                if c.tipo_dato == "lista" and _opciones(c) and texto not in _opciones(c):
+                    raise HTTPException(422, f"«{c.etiqueta}»: elija una de las opciones.")
+                v.valor_texto = texto
+        except (TypeError, ValueError):
+            raise HTTPException(422, f"«{c.etiqueta}»: el valor no es válido.")
+        if cid not in existentes:
+            db.add(v)
+    await db.flush()
+    ficha = await _ficha(db, doc)
+    return {"campos": ficha, "faltantes": _faltantes(ficha)}
 
 
 @router.post("/metadatos", response_model=DMSMetadatoValorResponse, status_code=201)
@@ -1484,7 +1640,7 @@ async def actualizar_retencion(
 @router.get("/retencion/vencimientos")
 async def vencimientos_documentos(
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    current_user: Usuario = Depends(get_current_user),
 ):
     from datetime import timedelta
 
@@ -1515,7 +1671,7 @@ async def vencimientos_documentos(
             )
         )
     )
-    vencidos = [_build_doc_dict(d, now_dt) for d in r.scalars().all()]
+    vencidos = [_build_doc_dict(d, now_dt) for d in r.scalars().all() if _puede_ver(d, current_user)]
 
     # Próximos 30 días
     r = await db.execute(
@@ -1527,7 +1683,7 @@ async def vencimientos_documentos(
             )
         )
     )
-    proximos_30 = [_build_doc_dict(d, now_dt) for d in r.scalars().all()]
+    proximos_30 = [_build_doc_dict(d, now_dt) for d in r.scalars().all() if _puede_ver(d, current_user)]
 
     # Próximos 90 días (excluyendo los de 30)
     r = await db.execute(
@@ -1539,7 +1695,7 @@ async def vencimientos_documentos(
             )
         )
     )
-    proximos_90 = [_build_doc_dict(d, now_dt) for d in r.scalars().all()]
+    proximos_90 = [_build_doc_dict(d, now_dt) for d in r.scalars().all() if _puede_ver(d, current_user)]
 
     return {
         "vencidos": vencidos,
