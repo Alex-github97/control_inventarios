@@ -16,7 +16,9 @@ Cómo correrlo (nunca contra la base de desarrollo ni producción):
        backend/tools con el mismo DATABASE_URL.
     4. python tools/barrido_rutas_escritura.py <esquema>
     5. Borrar la base ci_pruebas_form.
-Se saltan TarifaX (escribe archivos compartidos y llama servicios externos),
+Se saltan TarifaX y la configuración del OCR de lubricación (guardan en
+archivos compartidos, que la copia de la base no aísla; TarifaX además llama
+servicios externos),
 la consola de la plataforma y lo que reinicia o siembra datos.
 """
 import asyncio, datetime as dt, enum, re, sys, typing, uuid
@@ -33,7 +35,9 @@ import os
 B = os.environ.get("BASE", "http://127.0.0.1:8001")
 ESQ = sys.argv[1] if len(sys.argv) > 1 else "public"
 H = {"Authorization": "Bearer " + create_access_token(subject=1, cliente=ESQ, esquema=ESQ, usuario="admin")}
-SALTAR = re.compile(r"/tarifax|/auth/|/plataforma|/gestion/|/soporte/agil|/landing|/demo|sembrar|/reset|"
+# Rutas que guardan en ARCHIVOS compartidos (no en la base): la copia de la
+# base no las aísla y el barrido pisaría la configuración real.
+SALTAR = re.compile(r"/tarifax|/lubricacion/config|/auth/|/plataforma|/gestion/|/soporte/agil|/landing|/demo|sembrar|/reset|"
                     r"restaurar|/logout|password|contrasena|clave|/scan-sessions/server-ip")
 SUF = uuid.uuid4().hex[:6]
 
