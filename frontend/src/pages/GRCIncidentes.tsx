@@ -1,75 +1,104 @@
 /**
- * GRC · Incidentes de riesgo y cumplimiento
+ * GRC · Incidentes
  *
- * Era una maqueta en memoria. Ahora los incidentes se registran y se cierran
- * contra el servidor; al cerrar se fija la fecha de cierre (antes quedaba
- * vacía) y se pide la causa raíz, que es lo que evita que se repita.
+ * Un incidente es un riesgo que se materializó: se liga al riesgo y al control
+ * que falló, registra la pérdida, y no se cierra sin causa raíz. Desde la ficha
+ * se abre el hallazgo que lleva a los planes de acción.
  */
 import { useState } from 'react'
-import { Box, Typography, Tabs, Tab } from '@mui/material'
+import { Box, Button } from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { ReportGmailerrorred } from '@mui/icons-material'
+import { Warning, PlaylistAdd } from '@mui/icons-material'
+import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
-import { grcApi, type IncidenteGRC } from '@/api/grc'
-import { FormularioRegistro, TablaRegistros, useCrud, Cifra, Encabezado, Etiqueta, fmtFecha, type Campo } from '@/components/comun/Registro'
-import { SEVERIDADES, SEVERIDAD_COLOR, ESTADOS_INCIDENTE, INCIDENTE_COLOR, TIPOS_INCIDENTE, etiqueta } from '@/components/grc/etiquetas'
-import { COLOR_MODULO } from '@/config/marca'
+import { grc, type Registro } from '@/api/grc'
+import { FormularioRegistro, TablaRegistros, useCrud, Cifra, Encabezado, fmtFecha, errorApi, type Campo } from '@/components/comun/Registro'
+import { ESTADOS_INCIDENTE, SEVERIDADES, INCIDENTE_COLOR, CAT, etiqueta } from '@/components/grc/etiquetas'
+import { FichaGRC, GRC_COLOR, ChipEstado, usePersonasGRC, useReferencias } from '@/components/grc/comun'
 
-const GRC_COLOR = COLOR_MODULO
-const hoy = () => new Date().toISOString().slice(0, 10)
-const CAMPOS: Campo[] = [
-  { clave: 'titulo', etiqueta: 'Incidente', obligatorio: true },
-  { clave: 'tipo', etiqueta: 'Tipo', tipo: 'seleccion', opciones: TIPOS_INCIDENTE, obligatorio: true, ancho: 6 },
-  { clave: 'severidad', etiqueta: 'Severidad', tipo: 'seleccion', opciones: SEVERIDADES, obligatorio: true, ancho: 6 },
-  { clave: 'fecha_ocurrencia', etiqueta: 'Ocurrió', tipo: 'fecha', obligatorio: true, ancho: 6, validar: v => (v && v.slice(0, 10) > hoy() ? 'No puede ser futura' : null) },
-  { clave: 'estado', etiqueta: 'Estado', tipo: 'seleccion', opciones: ESTADOS_INCIDENTE, obligatorio: true, ancho: 6 },
-  { clave: 'proceso', etiqueta: 'Proceso', ancho: 6 },
-  { clave: 'responsable', etiqueta: 'Responsable', ancho: 6 },
-  { clave: 'reportado_por', etiqueta: 'Reportado por', ancho: 6 },
-  { clave: 'urgencia', etiqueta: 'Urgencia', tipo: 'seleccion', opciones: [['alta', 'Alta'], ['media', 'Media'], ['baja', 'Baja']], ancho: 6 },
-  { clave: 'descripcion', etiqueta: 'Qué pasó', tipo: 'area', obligatorio: true },
-  { clave: 'impacto', etiqueta: 'Impacto', tipo: 'area' },
-  { clave: 'causa_raiz', etiqueta: 'Causa raíz', tipo: 'area', validar: (v, f) => (f.estado === 'cerrado' && !String(v ?? '').trim() ? 'Para cerrar, registra la causa raíz' : null) },
-  { clave: 'acciones_tomadas', etiqueta: 'Acciones tomadas', tipo: 'area' },
-  { clave: 'lecciones_aprendidas', etiqueta: 'Lecciones aprendidas', tipo: 'area' },
-]
+const pesos = (v?: number | null) => v == null ? '—' : v.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
 
 export default function GRCIncidentes() {
-  const crud = useCrud(['grc-incidentes'], grcApi.incidentes, 'Incidente', [['grc-tablero']])
-  const [dlg, setDlg] = useState<{ abierto: boolean; r: IncidenteGRC | null }>({ abierto: false, r: null })
-  const [tab, setTab] = useState(0)
+  const crud = useCrud(['grc', 'incidentes'], grc.incidentes, 'Incidente')
+  const personas = usePersonasGRC()
+  const riesgos = useReferencias('riesgo')
+  const controles = useReferencias('control')
+  const [dlg, setDlg] = useState<{ abierto: boolean; r: Registro | null }>({ abierto: false, r: null })
+  const [ficha, setFicha] = useState<number | null>(null)
+  const [filtro, setFiltro] = useState('')
   const lista = crud.datos
-  const abiertos = lista.filter(i => i.estado !== 'cerrado')
-  const cerrados = lista.filter(i => i.estado === 'cerrado' && i.fecha_ocurrencia && i.fecha_cierre)
-  const diasProm = cerrados.length ? cerrados.reduce((s, i) => s + (new Date(i.fecha_cierre!).getTime() - new Date(i.fecha_ocurrencia!).getTime()) / 86400000, 0) / cerrados.length : null
-  const visibles = tab === 1 ? abiertos : tab === 2 ? lista.filter(i => i.estado === 'cerrado') : lista
+  const visibles = filtro ? lista.filter(i => i.estado === filtro) : lista
+
+  const campos: Campo[] = [
+    { clave: 'titulo', etiqueta: 'Qué pasó', obligatorio: true },
+    { clave: 'tipo', etiqueta: 'Tipo', tipo: 'catalogo', catalogo: CAT.tipoIncidente, obligatorio: true, ancho: 6 },
+    { clave: 'fecha_ocurrencia', etiqueta: 'Fecha de ocurrencia', tipo: 'fecha', obligatorio: true, ancho: 6 },
+    { clave: 'severidad', etiqueta: 'Severidad', tipo: 'seleccion', opciones: SEVERIDADES, obligatorio: true, ancho: 4 },
+    { clave: 'urgencia', etiqueta: 'Urgencia', tipo: 'seleccion', opciones: SEVERIDADES, ancho: 4 },
+    { clave: 'estado', etiqueta: 'Estado', tipo: 'seleccion', opciones: ESTADOS_INCIDENTE, obligatorio: true, ancho: 4 },
+    { clave: 's1', etiqueta: 'Relación con riesgos y controles', tipo: 'seccion' },
+    { clave: 'riesgo_id', etiqueta: 'Riesgo que se materializó', tipo: 'referencia', opciones: riesgos, ancho: 6 },
+    { clave: 'control_id', etiqueta: 'Control que falló', tipo: 'referencia', opciones: controles, ancho: 6 },
+    { clave: 'proceso', etiqueta: 'Proceso', tipo: 'catalogo', catalogo: CAT.proceso, ancho: 6 },
+    { clave: 'area', etiqueta: 'Área', tipo: 'catalogo', catalogo: CAT.area, ancho: 6 },
+    { clave: 's2', etiqueta: 'Personas e impacto', tipo: 'seccion' },
+    { clave: 'reportado_por_id', etiqueta: 'Reportó', tipo: 'persona', personas, ancho: 6, ayuda: 'Vacío: quien lo registra' },
+    { clave: 'responsable_id', etiqueta: 'Responsable de atenderlo', tipo: 'persona', personas, ancho: 6 },
+    { clave: 'perdida_estimada', etiqueta: 'Pérdida estimada (COP)', tipo: 'numero', min: 0, ancho: 6 },
+    { clave: 'descripcion', etiqueta: 'Descripción', tipo: 'area' },
+    { clave: 'impacto', etiqueta: 'Impacto', tipo: 'area' },
+    { clave: 'causa_raiz', etiqueta: 'Causa raíz', tipo: 'area',
+      validar: (v, t) => t.estado === 'cerrado' && !String(v ?? '').trim() ? 'Para cerrar, registre la causa raíz' : null },
+    { clave: 'acciones_tomadas', etiqueta: 'Acciones tomadas', tipo: 'area', ancho: 6 },
+    { clave: 'lecciones_aprendidas', etiqueta: 'Lecciones aprendidas', tipo: 'area', ancho: 6 },
+  ]
+
+  const generar = async (i: Registro, refrescar: () => void) => {
+    try { const h = await grc.hallazgoDeIncidente(i.id); toast.success(`Hallazgo ${h.codigo} abierto`); refrescar() }
+    catch (e) { toast.error(errorApi(e)) }
+  }
 
   return (
     <Layout>
       <Box sx={{ p: 3 }}>
-        <Encabezado icono={<ReportGmailerrorred sx={{ fontSize: 28 }} />} titulo="Incidentes" subtitulo="GRC · Eventos de riesgo, fraude y cumplimiento"
+        <Encabezado icono={<Warning sx={{ fontSize: 28 }} />} titulo="Incidentes" subtitulo="GRC · Riesgos materializados, pérdidas y lecciones"
           color={GRC_COLOR} accion="Reportar incidente" onAccion={() => setDlg({ abierto: true, r: null })} />
         <Grid container spacing={2} mb={3}>
-          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Abiertos" valor={abiertos.length} color="#DC2626" /></Grid>
-          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Críticos o altos abiertos" valor={abiertos.filter(i => ['critica', 'alta'].includes(i.severidad ?? '')).length} color="#EA580C" /></Grid>
-          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Cerrados" valor={lista.length - abiertos.length} color="#15803D" /></Grid>
-          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Días promedio para cerrar" valor={diasProm == null ? '—' : diasProm.toFixed(1)} color="#0369A1" /></Grid>
+          {ESTADOS_INCIDENTE.map(([k, l]) => (
+            <Grid key={k} size={{ xs: 6, md: 2.4 }}>
+              <Box role="button" aria-pressed={filtro === k} onClick={() => setFiltro(filtro === k ? '' : k)} sx={{ cursor: 'pointer', borderRadius: 2, outline: filtro === k ? `2px solid ${INCIDENTE_COLOR[k]}` : 'none' }}>
+                <Cifra etiqueta={l} valor={lista.filter(i => i.estado === k).length} color={INCIDENTE_COLOR[k]} />
+              </Box>
+            </Grid>
+          ))}
+          <Grid size={{ xs: 12, md: 2.4 }}>
+            <Cifra etiqueta="Pérdida registrada" valor={pesos(lista.reduce((s, i) => s + (i.perdida_estimada ?? 0), 0))} color="#991B1B" />
+          </Grid>
         </Grid>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}><Tab label="Todos" /><Tab label="Activos" /><Tab label="Cerrados" /></Tabs>
-        <TablaRegistros<IncidenteGRC> filas={visibles} cargando={crud.isLoading} vacio="Sin incidentes" etiqueta={i => i.titulo}
-          onEditar={i => setDlg({ abierto: true, r: i })} onRetirar={i => crud.retirar.mutate(i.id)}
+        <TablaRegistros<Registro> filas={visibles} cargando={crud.isLoading} vacio="Sin incidentes" etiqueta={i => i.titulo}
+          onFila={i => setFicha(i.id)} onEditar={i => setDlg({ abierto: true, r: { ...i, fecha_ocurrencia: i.fecha_ocurrencia?.slice(0, 10) } })}
+          onRetirar={i => crud.retirar.mutate(i.id)}
           columnas={[
             { titulo: 'Código', valor: i => <Box sx={{ fontFamily: 'monospace' }}>{i.codigo}</Box> },
-            { titulo: 'Incidente', valor: i => <><b>{i.titulo}</b><Typography fontSize={11} color="text.secondary">{etiqueta(TIPOS_INCIDENTE, i.tipo)}</Typography></> },
-            { titulo: 'Severidad', valor: i => i.severidad ? <Etiqueta texto={etiqueta(SEVERIDADES, i.severidad)} color={SEVERIDAD_COLOR[i.severidad]} /> : '—' },
+            { titulo: 'Incidente', valor: i => i.titulo },
+            { titulo: 'Tipo', valor: i => i.tipo ?? '—' },
             { titulo: 'Ocurrió', valor: i => fmtFecha(i.fecha_ocurrencia) },
-            { titulo: 'Cerrado', valor: i => fmtFecha(i.fecha_cierre) },
-            { titulo: 'Responsable', valor: i => i.responsable ?? '—' },
-            { titulo: 'Estado', valor: i => <Etiqueta texto={etiqueta(ESTADOS_INCIDENTE, i.estado)} color={INCIDENTE_COLOR[i.estado] ?? '#6B7280'} /> },
+            { titulo: 'Severidad', valor: i => <ChipEstado v={i.severidad} /> },
+            { titulo: 'Riesgo', valor: i => i.riesgo_codigo ?? '—' },
+            { titulo: 'Pérdida', valor: i => pesos(i.perdida_estimada), alinear: 'right' },
+            { titulo: 'Estado', valor: i => <ChipEstado v={i.estado} /> },
           ]} />
-        <FormularioRegistro abierto={dlg.abierto} titulo={dlg.r ? `Incidente ${dlg.r.codigo}` : 'Reportar incidente'} campos={CAMPOS} registro={dlg.r}
-          valoresIniciales={{ estado: 'abierto', severidad: 'media', tipo: 'operativo', fecha_ocurrencia: hoy() }}
+        <FormularioRegistro abierto={dlg.abierto} titulo={dlg.r ? `Editar ${dlg.r.codigo}` : 'Reportar incidente'} campos={campos} registro={dlg.r}
+          ancho="md" valoresIniciales={{ estado: 'abierto', fecha_ocurrencia: new Date().toISOString().slice(0, 10) }}
           onGuardar={c => crud.guardar(dlg.r, c)} onCerrar={() => setDlg({ abierto: false, r: null })} />
+        <FichaGRC tipo="incidente" id={ficha} onCerrar={() => setFicha(null)}
+          acciones={(i, refrescar) => <Button size="small" variant="contained" startIcon={<PlaylistAdd />} sx={{ bgcolor: GRC_COLOR }}
+            onClick={() => generar(i, refrescar)}>Abrir hallazgo</Button>}
+          resumen={i => [
+            ['Tipo', i.tipo], ['Severidad', <ChipEstado v={i.severidad} />], ['Urgencia', etiqueta(SEVERIDADES, i.urgencia)],
+            ['Estado', <ChipEstado v={i.estado} />], ['Ocurrió', fmtFecha(i.fecha_ocurrencia)], ['Cerrado', fmtFecha(i.fecha_cierre)],
+            ['Reportó', i.reportado_por_nombre], ['Responsable', i.responsable_nombre], ['Pérdida', pesos(i.perdida_estimada)],
+          ]} />
       </Box>
     </Layout>
   )

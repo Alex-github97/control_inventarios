@@ -755,6 +755,11 @@ async def _migrar_esquema(esquema: str) -> None:
     async with _conexion(esquema) as conn:
         await conn.run_sync(Base.metadata.create_all)
 
+    # 1.b GRC: de texto libre a usuarios, catálogos y vínculos (idempotente).
+    async with _conexion(esquema) as conn:
+        from app.core.grc_migracion import migrar_grc
+        await migrar_grc(conn)
+
     # 2. Añadir columna rol_id a usuarios si no existe (safe para BD existentes)
     async with _conexion(esquema) as conn:
         await conn.execute(text(
@@ -1605,9 +1610,6 @@ async def _migrar_esquema(esquema: str) -> None:
                 ('QMS','TIPO_AUDITORIA','Interna',1),
                 ('QMS','TIPO_AUDITORIA','Externa de certificación',2),
                 ('QMS','TIPO_AUDITORIA','A proveedor',3),
-                ('GRC','TIPO_CONTROL','Preventivo',1),
-                ('GRC','TIPO_CONTROL','Detectivo',2),
-                ('GRC','TIPO_CONTROL','Correctivo',3),
                 ('GRC','CATEGORIA_RIESGO','Estratégico',1),
                 ('GRC','CATEGORIA_RIESGO','Operativo',2),
                 ('GRC','CATEGORIA_RIESGO','Financiero',3),
@@ -1624,10 +1626,6 @@ async def _migrar_esquema(esquema: str) -> None:
                 ('GRC','TIPO_POLITICA','Financiera',8),
                 ('GRC','TIPO_POLITICA','Talento humano',9),
                 ('GRC','TIPO_POLITICA','Ambiental',10),
-                ('GRC','PERIODICIDAD_REVISION','Semestral',1),
-                ('GRC','PERIODICIDAD_REVISION','Anual',2),
-                ('GRC','PERIODICIDAD_REVISION','Bianual',3),
-                ('GRC','PERIODICIDAD_REVISION','Por cambio normativo',4),
                 ('LMS','MODALIDAD','Presencial',1),
                 ('LMS','MODALIDAD','Virtual',2),
                 ('LMS','MODALIDAD','Mixta',3),

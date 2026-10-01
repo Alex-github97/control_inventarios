@@ -11,21 +11,34 @@
 import React, { useState } from 'react'
 import {
   Box, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, MenuItem, FormControlLabel, Switch, Paper, alpha,
+  TextField, MenuItem, FormControlLabel, Switch, Paper, alpha, Autocomplete, Divider,
   Table, TableBody, TableCell, TableHead, TableRow, LinearProgress, IconButton, Tooltip, Chip,
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
 import { Add, Edit, DeleteForever } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import { CatalogoAuto } from '@/components/catalogo/CatalogoAuto'
 
 export type TipoCampo = 'texto' | 'area' | 'numero' | 'fecha' | 'seleccion' | 'interruptor'
+  /** Valor del catálogo maestro (se guarda el nombre). */
+  | 'catalogo' | 'multicatalogo'
+  /** Usuario(s) de la plataforma (se guarda el id). Opciones en `personas`. */
+  | 'persona' | 'personas'
+  /** Otro registro, con búsqueda (se guarda el id). Opciones en `opciones`. */
+  | 'referencia' | 'referencias'
+  /** Solo un título que agrupa los campos que siguen. */
+  | 'seccion'
+
+export interface Persona { id: number; nombre: string; cargo?: string | null }
 
 export interface Campo {
   clave: string
   etiqueta: string
   tipo?: TipoCampo
   opciones?: [string | number, string][]
+  catalogo?: { modulo: string; tipo: string; agregar?: boolean }
+  personas?: Persona[]
   obligatorio?: boolean
   ancho?: 12 | 8 | 6 | 4 | 3
   ayuda?: string
@@ -41,10 +54,16 @@ export const errorApi = (e: any, porDefecto = 'No se pudo guardar') => {
 }
 
 /** Del registro al formulario: todo como texto para los TextField. */
+const LISTAS: TipoCampo[] = ['personas', 'multicatalogo', 'referencias']
+const IDS: TipoCampo[] = ['persona', 'referencia']
+
 const aFormulario = (campos: Campo[], r?: Record<string, any> | null) =>
-  Object.fromEntries(campos.map(c => {
+  Object.fromEntries(campos.filter(c => c.tipo !== 'seccion').map(c => {
     const v = r?.[c.clave]
     if (c.tipo === 'interruptor') return [c.clave, !!v]
+    if (LISTAS.includes(c.tipo!)) return [c.clave, Array.isArray(v) ? v : []]
+    if (IDS.includes(c.tipo!)) return [c.clave, v ?? null]
+    if (c.tipo === 'catalogo') return [c.clave, v ?? null]
     if (v == null) return [c.clave, '']
     if (c.tipo === 'fecha') return [c.clave, String(v).slice(0, 10)]
     return [c.clave, String(v)]
@@ -52,17 +71,22 @@ const aFormulario = (campos: Campo[], r?: Record<string, any> | null) =>
 
 /** Del formulario a la API: vacío → nulo, números como números. */
 const aCuerpo = (campos: Campo[], f: Record<string, any>) =>
-  Object.fromEntries(campos.map(c => {
+  Object.fromEntries(campos.filter(c => c.tipo !== 'seccion').map(c => {
     const v = f[c.clave]
     if (c.tipo === 'interruptor') return [c.clave, !!v]
+    if (LISTAS.includes(c.tipo!)) return [c.clave, v ?? []]
+    if (IDS.includes(c.tipo!)) return [c.clave, v == null || v === '' ? null : Number(v)]
+    if (c.tipo === 'catalogo') return [c.clave, v || null]
     if (typeof v === 'string' && v.trim() === '') return [c.clave, null]
     if (c.tipo === 'numero') return [c.clave, Number(v)]
     if (c.tipo === 'seleccion' && c.opciones?.length && typeof c.opciones[0][0] === 'number') return [c.clave, Number(v)]
     return [c.clave, typeof v === 'string' ? v.trim() : v]
   }))
 
-export function FormularioRegistro({ abierto, titulo, campos, registro, valoresIniciales, onGuardar, onCerrar, pie }: {
+export function FormularioRegistro({ abierto, titulo, campos, registro, valoresIniciales, onGuardar, onCerrar, pie, ancho = 'sm' }: {
   abierto: boolean; titulo: string; campos: Campo[]
+  /** Ancho del diálogo; los formularios con secciones van mejor en `md`. */
+  ancho?: 'sm' | 'md' | 'lg'
   registro?: Record<string, any> | null
   valoresIniciales?: Record<string, any>
   onGuardar: (cuerpo: Record<string, any>) => Promise<unknown>
@@ -80,8 +104,9 @@ export function FormularioRegistro({ abierto, titulo, campos, registro, valoresI
   if (!abierto && abiertoAntes) setAbiertoAntes(false)
 
   const error = (c: Campo): string | null => {
+    if (c.tipo === 'seccion') return null
     const v = f[c.clave]
-    const vacio = v === '' || v == null
+    const vacio = v === '' || v == null || (Array.isArray(v) && v.length === 0)
     if (c.obligatorio && vacio && c.tipo !== 'interruptor') return 'Obligatorio'
     if (c.tipo === 'numero' && !vacio) {
       const n = Number(v)
@@ -101,7 +126,7 @@ export function FormularioRegistro({ abierto, titulo, campos, registro, valoresI
   }
 
   return (
-    <Dialog open={abierto} onClose={onCerrar} maxWidth="sm" fullWidth>
+    <Dialog open={abierto} onClose={onCerrar} maxWidth={ancho} fullWidth>
       <DialogTitle sx={{ fontWeight: 700 }}>{titulo}</DialogTitle>
       <DialogContent>
         <Grid container spacing={2} sx={{ pt: 1 }}>
@@ -115,9 +140,39 @@ export function FormularioRegistro({ abierto, titulo, campos, registro, valoresI
               value: f[c.clave] ?? '', error: !!mostrar, helperText: mostrar ? err : c.ayuda,
               onChange: (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [c.clave]: e.target.value, [`_${c.clave}`]: true }),
             }
+            const poner = (v: any) => setF({ ...f, [c.clave]: v, [`_${c.clave}`]: true })
+            if (c.tipo === 'seccion') return (
+              <Grid key={c.clave} size={12}>
+                <Divider textAlign="left" sx={{ mt: 1, '&::before': { width: 0 } }}>
+                  <Typography sx={{ fontSize: 11.5, fontWeight: 800, letterSpacing: 0.6, color: 'text.secondary', textTransform: 'uppercase' }}>{c.etiqueta}</Typography>
+                </Divider>
+              </Grid>
+            )
             return (
               <Grid key={c.clave} size={{ xs: 12, sm: c.ancho ?? 12 }}>
-                {c.tipo === 'interruptor' ? (
+                {c.tipo === 'catalogo' || c.tipo === 'multicatalogo' ? (
+                  <CatalogoAuto modulo={c.catalogo!.modulo} tipo={c.catalogo!.tipo} label={c.etiqueta}
+                    valor={f[c.clave] ?? (c.tipo === 'multicatalogo' ? [] : null)} onChange={poner}
+                    multiple={c.tipo === 'multicatalogo'} agregar={c.catalogo!.agregar ?? true}
+                    requerido={c.obligatorio} error={!!mostrar} ayuda={mostrar ? err! : c.ayuda} />
+                ) : c.tipo === 'persona' || c.tipo === 'personas' ? (
+                  <SelectorPersona multiple={c.tipo === 'personas'} etiqueta={c.etiqueta} personas={c.personas ?? []}
+                    valor={f[c.clave]} onChange={poner} requerido={c.obligatorio}
+                    error={!!mostrar} ayuda={mostrar ? err! : c.ayuda} />
+                ) : c.tipo === 'referencias' ? (
+                  <Autocomplete multiple size="small" fullWidth options={c.opciones ?? []}
+                    value={(c.opciones ?? []).filter(([v]) => ((f[c.clave] ?? []) as any[]).map(String).includes(String(v)))}
+                    getOptionLabel={o => o[1]} isOptionEqualToValue={(a, b) => a[0] === b[0]}
+                    onChange={(_, os) => poner(os.map(o => o[0]))}
+                    renderInput={p => <TextField {...p} label={c.etiqueta} helperText={mostrar ? err : c.ayuda} error={!!mostrar} />} />
+                ) : c.tipo === 'referencia' ? (
+                  <Autocomplete size="small" fullWidth options={c.opciones ?? []}
+                    value={(c.opciones ?? []).find(([v]) => String(v) === String(f[c.clave])) ?? null}
+                    getOptionLabel={o => o[1]} isOptionEqualToValue={(a, b) => a[0] === b[0]}
+                    onChange={(_, o) => poner(o ? o[0] : null)}
+                    renderInput={p => <TextField {...p} label={c.etiqueta} required={c.obligatorio} error={!!mostrar}
+                      helperText={mostrar ? err : c.ayuda} />} />
+                ) : c.tipo === 'interruptor' ? (
                   <FormControlLabel label={c.etiqueta}
                     control={<Switch checked={!!f[c.clave]} onChange={e => setF({ ...f, [c.clave]: e.target.checked })} />} />
                 ) : c.tipo === 'seleccion' ? (
@@ -256,3 +311,32 @@ export const legible = (v?: string | null, dicc?: Record<string, string>) =>
   !v ? '—' : dicc?.[v] ?? (v.charAt(0).toUpperCase() + v.slice(1).toLowerCase().replace(/_/g, ' '))
 
 export const fmtFecha =(s?: string | null) => (s ? new Date(`${s.slice(0, 10)}T12:00:00`).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—')
+
+
+/** Una o varias personas de una lista dada (usuarios con acceso al módulo). */
+export function SelectorPersona({ etiqueta, personas, valor, onChange, multiple = false, requerido, error, ayuda }: {
+  etiqueta: string; personas: Persona[]; valor: any; onChange: (v: any) => void
+  multiple?: boolean; requerido?: boolean; error?: boolean; ayuda?: string
+}) {
+  const porId = new Map(personas.map(p => [p.id, p]))
+  // Alguien que ya estaba asignado y perdió el acceso se sigue mostrando.
+  const op = (id: number): Persona => porId.get(id) ?? { id, nombre: `Usuario #${id} (sin acceso)` }
+  return (
+    <Autocomplete<Persona, boolean>
+      multiple={multiple} size="small" fullWidth options={personas}
+      value={multiple ? ((valor ?? []) as number[]).map(op) : (valor ? op(Number(valor)) : null) as any}
+      getOptionLabel={p => p.nombre} isOptionEqualToValue={(a, b) => a.id === b.id}
+      renderOption={(props, p) => (
+        <li {...props} key={p.id}>
+          <Box>
+            <Typography sx={{ fontSize: 13 }}>{p.nombre}</Typography>
+            {p.cargo && <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{p.cargo}</Typography>}
+          </Box>
+        </li>
+      )}
+      onChange={(_, v: any) => onChange(multiple ? (v as Persona[]).map(p => p.id) : v ? (v as Persona).id : null)}
+      noOptionsText="Nadie con acceso al módulo coincide"
+      renderInput={p => <TextField {...p} label={etiqueta} required={requerido} error={error} helperText={ayuda} />}
+    />
+  )
+}

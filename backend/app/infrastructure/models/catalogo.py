@@ -160,11 +160,23 @@ CATALOGOS_REGISTRO = [
     _c("QMS", "TIPO_AUDITORIA", "Tipos de auditoría", "Interna, externa, de proveedor"),
 
     # ── Gobierno GRC ─────────────────────────────────────────────────────
-    _c("GRC", "CATEGORIA_RIESGO", "Categorías de riesgo", "Primer nivel del mapa de riesgos"),
-    _c("GRC", "TIPO_CONTROL", "Tipos de control", "Preventivo, detectivo, correctivo"),
-    _c("GRC", "MARCO_NORMATIVO", "Marcos normativos", "Norma o ley que aplica"),
+    # La naturaleza del control (preventivo/detectivo/correctivo) NO es catálogo:
+    # es metodología y el cálculo del riesgo residual depende de ella.
+    _c("GRC", "CATEGORIA_RIESGO", "Categorías de riesgo", "Primer nivel del mapa de riesgos; su apetito se fija aquí"),
+    _c("GRC", "MARCO_NORMATIVO", "Marcos normativos", "Norma, ley o estándar que origina obligaciones"),
+    _c("GRC", "TIPO_OBLIGACION", "Tipos de obligación", "Ley, decreto, contrato, requisito de cliente…"),
     _c("GRC", "TIPO_POLITICA", "Tipos de política", "Materia que regula la política"),
-    _c("GRC", "PERIODICIDAD_REVISION", "Periodicidades de revisión", "Cada cuánto se revisa"),
+    _c("GRC", "TIPO_COMITE", "Tipos de comité", "Junta, auditoría, riesgos, ética…"),
+    _c("GRC", "PERIODICIDAD", "Periodicidades", "Cada cuánto se reúne, se revisa o se prueba (días en metadatos)"),
+    _c("GRC", "FRECUENCIA_CONTROL", "Frecuencias de operación de controles", "Cada cuánto opera un control"),
+    _c("GRC", "TIPO_AUDITORIA", "Tipos de auditoría", "Interna, externa, de certificación…"),
+    _c("GRC", "TIPO_HALLAZGO", "Tipos de hallazgo", "No conformidad, observación, oportunidad de mejora"),
+    _c("GRC", "TIPO_INCIDENTE", "Tipos de incidente", "Qué clase de evento ocurrió"),
+    _c("GRC", "TIPO_EVIDENCIA", "Tipos de evidencia", "Documento, registro, acta…"),
+    _c("GRC", "TIPO_TERCERO", "Tipos de tercero", "Proveedor, cliente, contratista…"),
+    _c("GRC", "TIPO_SIMULACRO", "Tipos de simulacro", "De escritorio, funcional, completo"),
+    _c("GRC", "RESULTADO_SIMULACRO", "Resultados de simulacro", "Cómo salió la prueba del plan"),
+    _c("GRC", "SISTEMA_CRITICO", "Sistemas críticos", "Sistemas de los que dependen los procesos"),
 
     # ── Aprendizaje LMS ──────────────────────────────────────────────────
     _c("LMS", "CATEGORIA_CURSO", "Categorías de curso", "Agrupación de la oferta"),

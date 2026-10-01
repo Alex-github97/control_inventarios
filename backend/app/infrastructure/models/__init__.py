@@ -75,7 +75,9 @@ from app.infrastructure.models.grc import (
     GRCComite, GRCPolitica, GRCObligacion, GRCControl, GRCRiesgo,
     GRCRiesgoControl, GRCTratamiento, GRCMatrizCumplimiento, GRCEvidencia,
     GRCAuditoria, GRCHallazgo, GRCPlanAccion, GRCIncidente,
-    GRCContinuidad, GRCSimulacro, GRCTercero, GRCEvaluacionTercero, GRCKPIDiario,
+    GRCContinuidad, GRCSimulacro, GRCTercero, GRCEvaluacionTercero,
+    GRCComiteMiembro, GRCComiteSesion, GRCPoliticaAceptacion, GRCPruebaControl,
+    GRCKri, GRCKriMedicion, GRCVinculo, GRCHistorial, GRCEscala, GRCBandaRiesgo, GRCParametro,
 )
 from app.infrastructure.models.lms import (
     LMSFacultad, LMSEscuela, LMSPrograma, LMSInstructor,

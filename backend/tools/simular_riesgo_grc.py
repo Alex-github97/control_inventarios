@@ -30,7 +30,7 @@ import app.main  # noqa: F401 — carga todos los modelos
 from app.core.database import AsyncSessionLocal
 from app.infrastructure.models.grc import (
     GRCControl, GRCIncidente, GRCRiesgo, GRCRiesgoControl,
-    EfectividadControlGRCEnum, SeveridadGRCEnum, TipoControlGRCEnum, TipoRiesgoGRCEnum,
+    EfectividadControlGRCEnum, SeveridadGRCEnum, TipoControlGRCEnum,
 )
 
 rng = np.random.default_rng(31)
@@ -67,7 +67,7 @@ async def simular():
                 ("SIM Transporte", "SIM Accidente de vehículo en ruta", 4, 5),
                 ("SIM Tecnología", "SIM Caída del sistema de facturación", 4, 4),
                 ("SIM Finanzas", "SIM Error en conciliación bancaria", 2, 4)]):
-            r = GRCRiesgo(codigo=f"SIM-R{k}", nombre=nombre, tipo=TipoRiesgoGRCEnum.OPERATIVO, proceso=proceso,
+            r = GRCRiesgo(codigo=f"SIM-R{k}", nombre=nombre, tipo="Operativo", proceso=proceso,
                           probabilidad_inherente=p, impacto_inherente=i, nivel_inherente=p * i,
                           probabilidad_residual=p, impacto_residual=i, nivel_residual=p * i)
             db.add(r); await db.flush(); riesgos[proceso] = r

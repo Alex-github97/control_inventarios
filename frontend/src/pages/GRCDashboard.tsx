@@ -1,99 +1,116 @@
 /**
- * GRC · Tablero de gobierno, riesgo y cumplimiento
+ * GRC · Tablero
  *
- * Era una maqueta: cifras, riesgos críticos, auditorías y «cumplimiento por
- * marco» escritos a mano. Ahora las cifras vienen del servidor (que tenía dos
- * fijas en cero: auditorías en curso y terceros críticos), y las listas se
- * arman con los riesgos, auditorías y evaluaciones de cumplimiento reales.
+ * Perfil de riesgo (inherente y residual), lo que está fuera del apetito,
+ * eficacia del control interno, índice de cumplimiento, KRI, y la agenda de
+ * todo lo que vence. El informe para la junta sale de aquí en PDF.
  */
-import { Box, Typography, Paper, LinearProgress, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material'
+import { useState } from 'react'
+import { Box, Paper, Typography, Button, Tabs, Tab, Chip } from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { AccountBalance } from '@mui/icons-material'
+import { Dashboard, PictureAsPdf } from '@mui/icons-material'
 import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
-import { grcApi } from '@/api/grc'
-import { Cifra, Encabezado, Etiqueta, fmtFecha } from '@/components/comun/Registro'
-import { PRIORIDAD_COLOR, TIPOS_OBLIGACION, TIPOS_AUDITORIA, etiqueta } from '@/components/grc/etiquetas'
-import { COLOR_MODULO } from '@/config/marca'
+import { grc } from '@/api/grc'
+import { Cifra, Encabezado, TablaRegistros, fmtFecha, errorApi } from '@/components/comun/Registro'
+import { GRC_COLOR, MatrizCalor, ChipEstado } from '@/components/grc/comun'
+import { KRI_COLOR } from '@/components/grc/etiquetas'
+import { reporteJuntaPDF } from '@/components/grc/reporteJunta'
 
-const GRC_COLOR = COLOR_MODULO
+const RUTA: Record<string, string> = {
+  control: '/grc/controles', politica: '/grc/politicas', obligacion: '/grc/obligaciones', hallazgo: '/grc/hallazgos',
+  riesgo: '/grc/riesgos', continuidad: '/grc/continuidad', comite: '/grc/gobierno',
+}
 
 export default function GRCDashboard() {
-  const { data: k, isLoading } = useQuery({ queryKey: ['grc-tablero'], queryFn: grcApi.tablero })
-  const { data: riesgos = [] } = useQuery({ queryKey: ['grc-riesgos'], queryFn: () => grcApi.riesgos.listar() })
-  const { data: auditorias = [] } = useQuery({ queryKey: ['grc-auditorias'], queryFn: () => grcApi.auditorias.listar() })
-  const { data: matriz = [] } = useQuery({ queryKey: ['grc-cumplimiento'], queryFn: () => grcApi.cumplimiento.listar() })
-  const { data: obligaciones = [] } = useQuery({ queryKey: ['grc-obligaciones'], queryFn: () => grcApi.obligaciones.listar() })
+  const nav = useNavigate()
+  const q = useQuery({ queryKey: ['grc', 'tablero'], queryFn: grc.tablero })
+  const agenda = useQuery({ queryKey: ['grc', 'agenda', 60], queryFn: () => grc.agenda(60) })
+  const [vista, setVista] = useState<'vencido' | 'por_vencer' | 'todo'>('vencido')
+  const t = q.data
 
-  const criticos = riesgos.filter(r => ['critica', 'alta'].includes(r.prioridad ?? '') && !['cerrado', 'mitigado'].includes(r.estado)).slice(0, 6)
-  const hoy = new Date().toISOString().slice(0, 10)
-  const proximas = auditorias.filter(a => a.estado === 'planificada' && (a.fecha_inicio ?? '') >= hoy)
-    .sort((a, b) => (a.fecha_inicio ?? '').localeCompare(b.fecha_inicio ?? '')).slice(0, 5)
-  const porTipo = TIPOS_OBLIGACION.map(([t, l]) => {
-    const ids = new Set(obligaciones.filter(o => o.tipo === t).map(o => o.id))
-    const filas = matriz.filter(m => ids.has(m.obligacion_id) && m.puntaje != null)
-    return { t, l, n: filas.length, prom: filas.length ? filas.reduce((s, m) => s + (m.puntaje ?? 0), 0) / filas.length : null }
-  }).filter(x => x.n)
-  const n = (key: string) => (k ? k[key] ?? 0 : '—')
+  const informe = async () => {
+    try { reporteJuntaPDF(await grc.reporteJunta(), GRC_COLOR) }
+    catch (e) { toast.error(errorApi(e, 'No se pudo generar el informe')) }
+  }
+  const items = (agenda.data?.items ?? []).filter((i: any) => vista === 'todo' || i.estado === vista)
 
   return (
     <Layout>
       <Box sx={{ p: 3 }}>
-        <Encabezado icono={<AccountBalance sx={{ fontSize: 28 }} />} titulo="Gobierno, riesgo y cumplimiento" subtitulo="GRC · Tablero de control" color={GRC_COLOR} />
-        {isLoading && <LinearProgress sx={{ mb: 2 }} />}
-        <Grid container spacing={2} mb={3}>
-          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Riesgos abiertos" valor={n('riesgos_abiertos')} color={GRC_COLOR} sub={`${n('riesgos_criticos')} de prioridad crítica`} /></Grid>
-          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Controles efectivos" valor={k ? `${k.controles_efectivos_pct}%` : '—'} color="#15803D" sub={`${n('controles_total')} controles`} /></Grid>
-          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Cumplimiento general" valor={k ? `${k.cumplimiento_general_pct}%` : '—'} color="#0369A1" sub={`${n('obligaciones_vencidas')} obligaciones vencidas`} /></Grid>
-          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Hallazgos abiertos" valor={n('hallazgos_abiertos')} color="#DC2626" sub={`${n('hallazgos_cerrados')} cerrados`} /></Grid>
-          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Auditorías en curso" valor={n('auditorias_en_curso')} color="#D97706" /></Grid>
-          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Incidentes abiertos" valor={n('incidentes_abiertos')} color="#EA580C" /></Grid>
-          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Terceros de riesgo alto o crítico" valor={n('terceros_criticos')} color="#7C3AED" /></Grid>
-          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Políticas publicadas" valor={n('politicas_vigentes')} color="#15803D" sub={`${n('politicas_vencidas')} vencidas`} /></Grid>
-        </Grid>
-        <Grid container spacing={2}>
-          <Grid size={{ xs: 12, md: 7 }}>
-            <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto', height: '100%' }}>
-              <Typography fontWeight={700} fontSize={14} sx={{ p: 2, pb: 1 }}>Riesgos de prioridad crítica y alta</Typography>
-              <Table size="small">
-                <TableHead><TableRow sx={{ '& th': { fontWeight: 700, fontSize: 12 } }}><TableCell>Riesgo</TableCell><TableCell>Responsable</TableCell><TableCell align="center">Residual</TableCell><TableCell>Prioridad</TableCell></TableRow></TableHead>
-                <TableBody>
-                  {criticos.length === 0 && <TableRow><TableCell colSpan={4} align="center" sx={{ py: 3, color: 'text.secondary' }}>Ningún riesgo abierto de prioridad crítica o alta</TableCell></TableRow>}
-                  {criticos.map(r => (
-                    <TableRow key={r.id}>
-                      <TableCell sx={{ fontSize: 12 }}><b>{r.nombre}</b><Typography fontSize={11} color="text.secondary">{r.codigo}</Typography></TableCell>
-                      <TableCell sx={{ fontSize: 12 }}>{r.responsable ?? '—'}</TableCell>
-                      <TableCell align="center" sx={{ fontSize: 12 }}>{r.nivel_residual ?? r.nivel_inherente ?? '—'}</TableCell>
-                      <TableCell>{r.prioridad && <Etiqueta texto={r.prioridad} color={PRIORIDAD_COLOR[r.prioridad]} />}</TableCell>
-                    </TableRow>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1 }}>
+          <Encabezado icono={<Dashboard sx={{ fontSize: 28 }} />} titulo="Gobierno, riesgo y cumplimiento" subtitulo="Tablero del módulo GRC" color={GRC_COLOR} />
+          <Button variant="outlined" startIcon={<PictureAsPdf />} onClick={informe}>Informe para la junta</Button>
+        </Box>
+        {t && <>
+          <Grid container spacing={2} mb={3}>
+            <Grid size={{ xs: 6, md: 3, lg: 1.5 }}><Cifra etiqueta="Riesgos abiertos" valor={t.riesgos.abiertos} color={GRC_COLOR} /></Grid>
+            <Grid size={{ xs: 6, md: 3, lg: 1.5 }}><Cifra etiqueta="Críticos" valor={t.riesgos.criticos} color="#DC2626" /></Grid>
+            <Grid size={{ xs: 6, md: 3, lg: 1.5 }}><Cifra etiqueta="Fuera del apetito" valor={t.riesgos.fuera_de_apetito.length} color="#991B1B" /></Grid>
+            <Grid size={{ xs: 6, md: 3, lg: 1.5 }}><Cifra etiqueta="Controles efectivos" valor={t.controles.efectividad_pct == null ? '—' : `${t.controles.efectividad_pct}%`}
+              color="#15803D" sub={`${t.controles.probados} de ${t.controles.total} probados`} /></Grid>
+            <Grid size={{ xs: 6, md: 3, lg: 1.5 }}><Cifra etiqueta="Índice de cumplimiento" valor={t.cumplimiento.indice_pct == null ? '—' : `${t.cumplimiento.indice_pct}%`} color="#0369A1" /></Grid>
+            <Grid size={{ xs: 6, md: 3, lg: 1.5 }}><Cifra etiqueta="Hallazgos vencidos" valor={t.hallazgos.vencidos} color="#EA580C" sub={`${t.hallazgos.abiertos} abiertos`} /></Grid>
+            <Grid size={{ xs: 6, md: 3, lg: 1.5 }}><Cifra etiqueta="Incidentes (90 días)" valor={t.incidentes.ultimos_90} color="#7C3AED" sub={`${t.incidentes.abiertos} abiertos`} /></Grid>
+            <Grid size={{ xs: 6, md: 3, lg: 1.5 }}><Cifra etiqueta="Vencido en agenda" valor={t.agenda.vencidos} color="#DC2626" sub={`${t.agenda.por_vencer} por vencer`} /></Grid>
+          </Grid>
+          <Grid container spacing={2} mb={3}>
+            <Grid size={{ xs: 12, md: 6 }}><MatrizCalor titulo="Riesgo inherente" celdas={t.calor_inherente} /></Grid>
+            <Grid size={{ xs: 12, md: 6 }}><MatrizCalor titulo="Riesgo residual" celdas={t.calor_residual} /></Grid>
+          </Grid>
+          <Grid container spacing={2} mb={3}>
+            <Grid size={{ xs: 12, md: 8 }}>
+              <Typography sx={{ fontWeight: 700, mb: 1 }}>Riesgos de mayor nivel</Typography>
+              <TablaRegistros filas={t.top_riesgos} vacio="Sin riesgos abiertos" etiqueta={(r: any) => r.nombre} onFila={() => nav('/grc/riesgos')}
+                columnas={[
+                  { titulo: 'Código', valor: (r: any) => r.codigo },
+                  { titulo: 'Riesgo', valor: (r: any) => r.nombre },
+                  { titulo: 'Inherente', valor: (r: any) => r.nivel_inherente ?? '—', alinear: 'center' },
+                  { titulo: 'Residual', valor: (r: any) => r.nivel_residual ?? '—', alinear: 'center' },
+                  { titulo: 'Prioridad', valor: (r: any) => <ChipEstado v={r.prioridad} /> },
+                  { titulo: 'Dueño', valor: (r: any) => r.responsable ?? '—' },
+                ]} />
+            </Grid>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
+                <Typography sx={{ fontWeight: 700, mb: 1 }}>Indicadores clave de riesgo</Typography>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  {['critico', 'alerta', 'normal', 'sin_medicion'].map(k => (
+                    <Chip key={k} label={`${t.kris[k] ?? 0} ${k.replace('_', ' ')}`} sx={{ bgcolor: KRI_COLOR[k], color: '#fff', fontWeight: 700 }} />
                   ))}
-                </TableBody>
-              </Table>
-            </Paper>
-          </Grid>
-          <Grid size={{ xs: 12, md: 5 }}>
-            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
-              <Typography fontWeight={700} fontSize={14} mb={1}>Cumplimiento por tipo de obligación</Typography>
-              {porTipo.length === 0 && <Typography fontSize={12} color="text.secondary">Sin evaluaciones con puntaje en la matriz.</Typography>}
-              {porTipo.map(x => (
-                <Box key={x.t} sx={{ mb: 1.25 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}><Typography fontSize={12}>{x.l}</Typography><Typography fontSize={12} fontWeight={700}>{x.prom!.toFixed(0)}%</Typography></Box>
-                  <LinearProgress variant="determinate" value={x.prom!} sx={{ height: 6, borderRadius: 3, '& .MuiLinearProgress-bar': { bgcolor: x.prom! >= 90 ? '#15803D' : x.prom! >= 70 ? '#D97706' : '#DC2626' } }} />
                 </Box>
-              ))}
-            </Paper>
-            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-              <Typography fontWeight={700} fontSize={14} mb={1}>Próximas auditorías</Typography>
-              {proximas.length === 0 && <Typography fontSize={12} color="text.secondary">No hay auditorías planificadas desde hoy.</Typography>}
-              {proximas.map(a => (
-                <Box key={a.id} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.75, borderBottom: '1px solid #F1F5F9' }}>
-                  <Box><Typography fontSize={12} fontWeight={600}>{a.nombre}</Typography><Typography fontSize={11} color="text.secondary">{etiqueta(TIPOS_AUDITORIA, a.tipo)} · {a.auditor_lider ?? 'sin auditor'}</Typography></Box>
-                  <Typography fontSize={12}>{fmtFecha(a.fecha_inicio)}</Typography>
-                </Box>
-              ))}
-            </Paper>
+              </Paper>
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                <Typography sx={{ fontWeight: 700, mb: 1 }}>Fuera del apetito</Typography>
+                {t.riesgos.fuera_de_apetito.length === 0 && <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>Ningún riesgo abierto supera el apetito declarado.</Typography>}
+                {t.riesgos.fuera_de_apetito.map((r: any) => (
+                  <Typography key={r.id} sx={{ fontSize: 12.5 }}>{r.codigo} · {r.nombre} — nivel {r.nivel} (tolera {r.apetito})</Typography>
+                ))}
+              </Paper>
+            </Grid>
           </Grid>
-        </Grid>
+        </>}
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+            <Typography sx={{ fontWeight: 700 }}>Agenda: lo que vence en los próximos 60 días</Typography>
+            <Tabs value={vista} onChange={(_, v) => setVista(v)}>
+              <Tab value="vencido" label={`Vencido (${agenda.data?.vencidos ?? 0})`} />
+              <Tab value="por_vencer" label={`Por vencer (${agenda.data?.por_vencer ?? 0})`} />
+              <Tab value="todo" label="Todo" />
+            </Tabs>
+          </Box>
+          <TablaRegistros filas={items.map((i: any, n: number) => ({ ...i, id: n }))} cargando={agenda.isLoading} vacio="Nada en esta vista"
+            etiqueta={(i: any) => i.titulo} onFila={(i: any) => RUTA[i.entidad] && nav(RUTA[i.entidad])}
+            columnas={[
+              { titulo: 'Fecha', valor: (i: any) => fmtFecha(i.fecha) },
+              { titulo: 'Qué', valor: (i: any) => i.tipo },
+              { titulo: 'Registro', valor: (i: any) => [i.codigo, i.titulo].filter(Boolean).join(' · ') },
+              { titulo: 'Responsable', valor: (i: any) => i.responsable ?? '—' },
+              { titulo: 'Días', valor: (i: any) => <Box sx={{ color: i.dias < 0 ? '#DC2626' : undefined, fontWeight: 700 }}>{i.dias}</Box>, alinear: 'right' },
+            ]} />
+        </Paper>
       </Box>
     </Layout>
   )

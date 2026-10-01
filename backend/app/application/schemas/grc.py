@@ -1,44 +1,58 @@
-"""Pydantic v2 schemas — GRC Module"""
-from __future__ import annotations
+"""
+Lo que entra a la API de GRC.
+
+Solo lo que una persona escribe o elige. Lo que el sistema calcula (código,
+niveles, prioridad, residual, efectividad del control, fechas de próxima
+prueba, nivel de riesgo del tercero, estado vencido) no se recibe: si se
+aceptara, el formulario podría contradecir al cálculo.
+
+Las personas llegan como id de usuario; las clasificaciones, como el nombre del
+valor del catálogo, que el servidor valida.
+"""
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional, List
-from pydantic import BaseModel, ConfigDict
+from typing import List, Literal, Optional
+
+from pydantic import BaseModel, Field, field_validator
 
 from app.infrastructure.models.grc import (
-    TipoRiesgoGRCEnum, PrioridadRiesgoGRCEnum, EstadoRiesgoGRCEnum,
-    TratamientoRiesgoGRCEnum, TipoControlGRCEnum, EfectividadControlGRCEnum,
-    EstadoPoliticaGRCEnum, TipoObligacionGRCEnum, EstadoCumplimientoGRCEnum,
-    TipoAuditoriaGRCEnum, EstadoAuditoriaGRCEnum, SeveridadGRCEnum,
-    EstadoHallazgoGRCEnum, TipoTerceroGRCEnum,
+    EfectividadControlGRCEnum, EstadoAuditoriaGRCEnum, EstadoCumplimientoGRCEnum,
+    EstadoHallazgoGRCEnum, EstadoRiesgoGRCEnum, SeveridadGRCEnum, TipoControlGRCEnum,
+    TratamientoRiesgoGRCEnum,
 )
 
+class _Base(BaseModel):
+    model_config = {"extra": "forbid"}
 
-# ── Comité ──────────────────────────────────────────────────
-class GRCComiteCreate(BaseModel):
-    nombre: str
+
+class ComiteIn(_Base):
+    nombre: str = Field(min_length=1, max_length=200)
     tipo: Optional[str] = None
-    presidente: Optional[str] = None
-    secretario: Optional[str] = None
     periodicidad: Optional[str] = None
+    presidente_id: Optional[int] = None
+    secretario_id: Optional[int] = None
+    quorum_minimo: Optional[int] = Field(default=None, ge=1)
     descripcion: Optional[str] = None
-
-class GRCComiteResponse(GRCComiteCreate):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
-    activo: bool
-    created_at: Optional[datetime] = None
+    miembros: List[int] = []
 
 
-# ── Política ────────────────────────────────────────────────
-class GRCPoliticaCreate(BaseModel):
-    nombre: str
+class SesionIn(_Base):
+    comite_id: int
+    fecha: date
+    asistentes: List[int] = []
+    temas: Optional[str] = None
+    decisiones: Optional[str] = None
+    proxima: Optional[date] = None
+    acta_url: Optional[str] = None
+    riesgos: List[int] = []     # riesgos revisados en la sesión
+
+
+class PoliticaIn(_Base):
+    nombre: str = Field(min_length=1, max_length=300)
     tipo: Optional[str] = None
-    version: Optional[str] = '1.0'
-    estado: Optional[EstadoPoliticaGRCEnum] = EstadoPoliticaGRCEnum.BORRADOR
-    propietario: Optional[str] = None
-    aprobador: Optional[str] = None
-    fecha_aprobacion: Optional[date] = None
+    version: str = "1.0"
+    propietario_id: Optional[int] = None
+    aprobador_id: Optional[int] = None
     fecha_vigencia: Optional[date] = None
     fecha_revision: Optional[date] = None
     periodicidad_revision: Optional[str] = None
@@ -47,333 +61,288 @@ class GRCPoliticaCreate(BaseModel):
     dms_documento_id: Optional[int] = None
     aceptaciones_requeridas: bool = False
 
-class GRCPoliticaResponse(GRCPoliticaCreate):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
-    codigo: Optional[str] = None
-    aceptaciones_count: int = 0
-    created_at: Optional[datetime] = None
+
+class CambioEstadoIn(_Base):
+    estado: str
+    comentario: Optional[str] = None
 
 
-# ── Obligación ──────────────────────────────────────────────
-class GRCObligacionCreate(BaseModel):
-    nombre: str
-    tipo: Optional[TipoObligacionGRCEnum] = None
-    pais: Optional[str] = 'Colombia'
-    industria: Optional[str] = None
+class ObligacionIn(_Base):
+    nombre: str = Field(min_length=1, max_length=300)
+    tipo: Optional[str] = None
+    marco: Optional[str] = None
+    articulo: Optional[str] = None
+    pais: Optional[str] = None
+    proceso: Optional[str] = None
     area: Optional[str] = None
     descripcion: Optional[str] = None
-    fuente: Optional[str] = None
     fecha_vigencia: Optional[date] = None
     fecha_vencimiento: Optional[date] = None
-    responsable: Optional[str] = None
-
-class GRCObligacionResponse(GRCObligacionCreate):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
-    codigo: Optional[str] = None
-    estado_cumplimiento: Optional[EstadoCumplimientoGRCEnum] = None
-    created_at: Optional[datetime] = None
+    periodicidad: Optional[str] = None
+    responsable_id: Optional[int] = None
 
 
-# ── Control ─────────────────────────────────────────────────
-class GRCControlCreate(BaseModel):
-    nombre: str
+class CumplimientoIn(_Base):
+    obligacion_id: int
+    proceso: Optional[str] = None
+    area: Optional[str] = None
+    responsable_id: Optional[int] = None
+    estado: EstadoCumplimientoGRCEnum = EstadoCumplimientoGRCEnum.EN_EVALUACION
+    puntaje: Optional[int] = Field(default=None, ge=0, le=100)
+    ultima_evaluacion: Optional[date] = None
+    evidencias: Optional[str] = None
+    observaciones: Optional[str] = None
+
+
+class ControlIn(_Base):
+    nombre: str = Field(min_length=1, max_length=300)
     tipo: Optional[TipoControlGRCEnum] = None
     descripcion: Optional[str] = None
     proceso: Optional[str] = None
     area: Optional[str] = None
-    responsable: Optional[str] = None
+    responsable_id: Optional[int] = None
     frecuencia: Optional[str] = None
+    periodicidad_prueba: Optional[str] = None
     automatizado: bool = False
 
-class GRCControlUpdate(GRCControlCreate):
-    efectividad: Optional[EfectividadControlGRCEnum] = None
-    ultima_evaluacion: Optional[date] = None
-    proxima_evaluacion: Optional[date] = None
 
-class GRCControlResponse(GRCControlUpdate):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
-    codigo: Optional[str] = None
-    activo: bool = True
-    created_at: Optional[datetime] = None
+class PruebaIn(_Base):
+    control_id: int
+    tipo: Literal["diseno", "efectividad"] = "efectividad"
+    fecha: date
+    probador_id: Optional[int] = None
+    resultado: EfectividadControlGRCEnum
+    muestra: Optional[int] = Field(default=None, ge=0)
+    excepciones: Optional[int] = Field(default=None, ge=0)
+    procedimiento: Optional[str] = None
+    conclusion: Optional[str] = None
+
+    @field_validator("resultado")
+    @classmethod
+    def _probado(cls, v):
+        if v == EfectividadControlGRCEnum.NO_PROBADO:
+            raise ValueError("Una prueba registrada tiene un resultado: efectivo, parcial o inefectivo")
+        return v
 
 
-# ── Riesgo ──────────────────────────────────────────────────
-class GRCRiesgoCreate(BaseModel):
-    nombre: str
+class RiesgoIn(_Base):
+    nombre: str = Field(min_length=1, max_length=300)
     descripcion: Optional[str] = None
-    tipo: Optional[TipoRiesgoGRCEnum] = None
+    causas: Optional[str] = None
+    consecuencias: Optional[str] = None
+    tipo: Optional[str] = None
     proceso: Optional[str] = None
     area: Optional[str] = None
-    responsable: Optional[str] = None
-    probabilidad_inherente: Optional[int] = None
-    impacto_inherente: Optional[int] = None
-    probabilidad_residual: Optional[int] = None
-    impacto_residual: Optional[int] = None
+    responsable_id: Optional[int] = None
+    probabilidad_inherente: Optional[int] = Field(default=None, ge=1, le=5)
+    impacto_inherente: Optional[int] = Field(default=None, ge=1, le=5)
+    estado: EstadoRiesgoGRCEnum = EstadoRiesgoGRCEnum.IDENTIFICADO
     tratamiento: Optional[TratamientoRiesgoGRCEnum] = None
-    apetito_riesgo: Optional[str] = None
     comite_id: Optional[int] = None
-
-class GRCRiesgoUpdate(GRCRiesgoCreate):
-    estado: Optional[EstadoRiesgoGRCEnum] = None
-
-class GRCRiesgoResponse(GRCRiesgoUpdate):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
-    codigo: Optional[str] = None
-    nivel_inherente: Optional[int] = None
-    nivel_residual: Optional[int] = None
-    prioridad: Optional[PrioridadRiesgoGRCEnum] = None
-    created_at: Optional[datetime] = None
+    tercero_id: Optional[int] = None
+    fecha_revision: Optional[date] = None
 
 
-# ── Tratamiento de Riesgo ───────────────────────────────────
-class GRCTratamientoCreate(BaseModel):
+class TratamientoIn(_Base):
     riesgo_id: int
     tipo: Optional[TratamientoRiesgoGRCEnum] = None
     descripcion: Optional[str] = None
-    responsable: Optional[str] = None
+    responsable_id: Optional[int] = None
     fecha_objetivo: Optional[date] = None
-
-class GRCTratamientoResponse(GRCTratamientoCreate):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
-    estado: str = 'pendiente'
-    avance: int = 0
-    created_at: Optional[datetime] = None
+    avance: int = Field(default=0, ge=0, le=100)
+    evidencia_url: Optional[str] = None
 
 
-# ── Matriz de Cumplimiento ──────────────────────────────────
-class GRCMatrizCumplimientoCreate(BaseModel):
-    obligacion_id: int
-    proceso: Optional[str] = None
-    area: Optional[str] = None
-    responsable: Optional[str] = None
-    puntaje: Optional[int] = None
-    evidencias: Optional[str] = None
-    observaciones: Optional[str] = None
-
-class GRCMatrizCumplimientoUpdate(GRCMatrizCumplimientoCreate):
-    estado: Optional[EstadoCumplimientoGRCEnum] = None
-    ultima_evaluacion: Optional[date] = None
-    proxima_evaluacion: Optional[date] = None
-
-class GRCMatrizCumplimientoResponse(GRCMatrizCumplimientoUpdate):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
-    created_at: Optional[datetime] = None
+class KriIn(_Base):
+    riesgo_id: int
+    nombre: str = Field(min_length=1, max_length=300)
+    unidad: Optional[str] = None
+    direccion: Literal["sube", "baja"] = "sube"
+    umbral_alerta: Decimal
+    umbral_critico: Decimal
+    periodicidad: Optional[str] = None
+    responsable_id: Optional[int] = None
+    descripcion: Optional[str] = None
 
 
-# ── Evidencia ───────────────────────────────────────────────
-class GRCEvidenciaCreate(BaseModel):
-    nombre: str
+class MedicionKriIn(_Base):
+    periodo: str = Field(pattern=r"^\d{4}-(0[1-9]|1[0-2])$")
+    valor: Decimal
+    nota: Optional[str] = None
+
+
+class EvidenciaIn(_Base):
+    nombre: str = Field(min_length=1, max_length=300)
     tipo: Optional[str] = None
     descripcion: Optional[str] = None
     url: Optional[str] = None
-    dms_documento_id: Optional[int] = None
     fecha_emision: Optional[date] = None
     fecha_vencimiento: Optional[date] = None
-    responsable: Optional[str] = None
-    referencia_tipo: Optional[str] = None
-    referencia_id: Optional[int] = None
-
-class GRCEvidenciaResponse(GRCEvidenciaCreate):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
-    activa: bool = True
-    created_at: Optional[datetime] = None
+    responsable_id: Optional[int] = None
+    referencia_tipo: str
+    referencia_id: int
 
 
-# ── Auditoría ───────────────────────────────────────────────
-class GRCAuditoriaCreate(BaseModel):
-    nombre: str
-    tipo: Optional[TipoAuditoriaGRCEnum] = None
-    auditor_lider: Optional[str] = None
-    equipo_auditor: Optional[str] = None
-    auditado: Optional[str] = None
+class AuditoriaIn(_Base):
+    nombre: str = Field(min_length=1, max_length=300)
+    tipo: Optional[str] = None
+    estado: EstadoAuditoriaGRCEnum = EstadoAuditoriaGRCEnum.PLANIFICADA
+    auditor_lider_id: Optional[int] = None
+    equipo: List[int] = []
+    proceso: Optional[str] = None
+    area: Optional[str] = None
+    marco: Optional[str] = None
     fecha_inicio: Optional[date] = None
     fecha_fin: Optional[date] = None
     fecha_reporte: Optional[date] = None
     alcance: Optional[str] = None
     criterios: Optional[str] = None
-    presupuesto: Optional[Decimal] = None
-
-class GRCAuditoriaUpdate(GRCAuditoriaCreate):
-    estado: Optional[EstadoAuditoriaGRCEnum] = None
+    presupuesto: Optional[Decimal] = Field(default=None, ge=0)
     observaciones: Optional[str] = None
 
-class GRCAuditoriaResponse(GRCAuditoriaUpdate):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
-    codigo: Optional[str] = None
-    created_at: Optional[datetime] = None
 
-
-# ── Hallazgo ────────────────────────────────────────────────
-class GRCHallazgoCreate(BaseModel):
+class HallazgoIn(_Base):
     auditoria_id: Optional[int] = None
-    titulo: str
+    incidente_id: Optional[int] = None
+    riesgo_id: Optional[int] = None
+    control_id: Optional[int] = None
+    titulo: str = Field(min_length=1, max_length=300)
     descripcion: Optional[str] = None
     tipo: Optional[str] = None
     severidad: Optional[SeveridadGRCEnum] = None
     proceso: Optional[str] = None
     area: Optional[str] = None
-    responsable: Optional[str] = None
+    responsable_id: Optional[int] = None
     fecha_limite: Optional[date] = None
-    riesgo_asociado: Optional[str] = None
+    estado: EstadoHallazgoGRCEnum = EstadoHallazgoGRCEnum.ABIERTO
     impacto: Optional[str] = None
     recomendacion: Optional[str] = None
+    causa_raiz: Optional[str] = None
 
-class GRCHallazgoUpdate(GRCHallazgoCreate):
-    estado: Optional[EstadoHallazgoGRCEnum] = None
-
-class GRCHallazgoResponse(GRCHallazgoUpdate):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
-    codigo: Optional[str] = None
-    created_at: Optional[datetime] = None
+    @field_validator("estado")
+    @classmethod
+    def _sin_vencido(cls, v):
+        # «Vencido» lo calcula el servidor con la fecha límite; no se elige.
+        return EstadoHallazgoGRCEnum.ABIERTO if v == EstadoHallazgoGRCEnum.VENCIDO else v
 
 
-# ── Plan de Acción ──────────────────────────────────────────
-class GRCPlanAccionCreate(BaseModel):
+class PlanIn(_Base):
     hallazgo_id: int
-    accion: str
-    responsable: Optional[str] = None
+    accion: str = Field(min_length=1)
+    responsable_id: Optional[int] = None
     fecha_objetivo: Optional[date] = None
+    avance: int = Field(default=0, ge=0, le=100)
     evidencia: Optional[str] = None
     observaciones: Optional[str] = None
 
-class GRCPlanAccionUpdate(GRCPlanAccionCreate):
-    estado: Optional[str] = None
-    avance: Optional[int] = None
 
-class GRCPlanAccionResponse(GRCPlanAccionUpdate):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
-    created_at: Optional[datetime] = None
+ESTADOS_INCIDENTE = ("abierto", "en_investigacion", "contenido", "cerrado")
 
 
-# ── Incidente ───────────────────────────────────────────────
-class GRCIncidenteCreate(BaseModel):
-    titulo: str
+class IncidenteIn(_Base):
+    titulo: str = Field(min_length=1, max_length=300)
     tipo: Optional[str] = None
     descripcion: Optional[str] = None
     severidad: Optional[SeveridadGRCEnum] = None
+    urgencia: Optional[SeveridadGRCEnum] = None
     impacto: Optional[str] = None
-    urgencia: Optional[str] = None
+    perdida_estimada: Optional[Decimal] = Field(default=None, ge=0)
     proceso: Optional[str] = None
     area: Optional[str] = None
-    reportado_por: Optional[str] = None
-    responsable: Optional[str] = None
+    riesgo_id: Optional[int] = None
+    control_id: Optional[int] = None
+    reportado_por_id: Optional[int] = None
+    responsable_id: Optional[int] = None
     fecha_ocurrencia: Optional[datetime] = None
-
-class GRCIncidenteUpdate(GRCIncidenteCreate):
-    estado: Optional[str] = None
-    fecha_cierre: Optional[datetime] = None
+    estado: Literal["abierto", "en_investigacion", "contenido", "cerrado"] = "abierto"
     causa_raiz: Optional[str] = None
     acciones_tomadas: Optional[str] = None
     lecciones_aprendidas: Optional[str] = None
 
-class GRCIncidenteResponse(GRCIncidenteUpdate):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
-    codigo: Optional[str] = None
-    created_at: Optional[datetime] = None
 
-
-# ── Continuidad ─────────────────────────────────────────────
-class GRCContinuidadCreate(BaseModel):
-    proceso: str
-    criticidad: Optional[str] = None
-    rto_horas: Optional[int] = None
-    rpo_horas: Optional[int] = None
-    impacto_financiero_hora: Optional[Decimal] = None
+class ContinuidadIn(_Base):
+    proceso: str = Field(min_length=1)
+    criticidad: Optional[SeveridadGRCEnum] = None
+    rto_horas: Optional[int] = Field(default=None, ge=0)
+    rpo_horas: Optional[int] = Field(default=None, ge=0)
+    mtpd_horas: Optional[int] = Field(default=None, ge=0)
+    impacto_financiero_hora: Optional[Decimal] = Field(default=None, ge=0)
     impacto_operativo: Optional[str] = None
-    sistemas_criticos: Optional[str] = None
-    dependencias: Optional[str] = None
-    responsable: Optional[str] = None
+    sistemas_criticos: List[str] = []
+    responsable_id: Optional[int] = None
     plan_contingencia: Optional[str] = None
-
-class GRCContinuidadResponse(GRCContinuidadCreate):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
-    estado_plan: str = 'activo'
+    estado_plan: Literal["activo", "en_actualizacion", "inactivo"] = "activo"
     ultima_revision: Optional[date] = None
-    created_at: Optional[datetime] = None
+    periodicidad_revision: Optional[str] = None
 
 
-# ── Simulacro ───────────────────────────────────────────────
-class GRCSimulacroCreate(BaseModel):
+class SimulacroIn(_Base):
     continuidad_id: Optional[int] = None
-    nombre: Optional[str] = None
+    nombre: str = Field(min_length=1, max_length=300)
     fecha: Optional[date] = None
     tipo: Optional[str] = None
     resultado: Optional[str] = None
-    participantes: Optional[int] = None
+    coordinador_id: Optional[int] = None
+    participantes: List[int] = []
+    rto_logrado_horas: Optional[int] = Field(default=None, ge=0)
     observaciones: Optional[str] = None
     lecciones: Optional[str] = None
 
-class GRCSimulacroResponse(GRCSimulacroCreate):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
-    created_at: Optional[datetime] = None
 
-
-# ── Tercero ─────────────────────────────────────────────────
-class GRCTerceroCreate(BaseModel):
-    nombre: str
+class TerceroIn(_Base):
+    nombre: str = Field(min_length=1, max_length=300)
     nit: Optional[str] = None
-    tipo: Optional[TipoTerceroGRCEnum] = None
-    pais: Optional[str] = 'Colombia'
+    tipo: Optional[str] = None
+    pais: Optional[str] = None
     sector: Optional[str] = None
     contacto: Optional[str] = None
-    nivel_riesgo: Optional[str] = None
+    contacto_email: Optional[str] = None
+    proveedor_id: Optional[int] = None
+    cliente_id: Optional[int] = None
+    responsable_id: Optional[int] = None
+    criticidad: Optional[SeveridadGRCEnum] = None
+    estado: Literal["activo", "en_evaluacion", "suspendido", "retirado"] = "activo"
 
-class GRCTerceroResponse(GRCTerceroCreate):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
-    estado: str = 'activo'
-    created_at: Optional[datetime] = None
 
-
-# ── Evaluación Tercero ──────────────────────────────────────
-class GRCEvaluacionTerceroCreate(BaseModel):
+class EvaluacionIn(_Base):
     tercero_id: int
     periodo: Optional[str] = None
-    cumplimiento_legal: Optional[int] = None
-    riesgo_reputacional: Optional[int] = None
-    solidez_financiera: Optional[int] = None
-    seguridad_info: Optional[int] = None
-    evaluador: Optional[str] = None
+    fecha: Optional[date] = None
+    cumplimiento_legal: Optional[int] = Field(default=None, ge=0, le=100)
+    riesgo_reputacional: Optional[int] = Field(default=None, ge=0, le=100)
+    solidez_financiera: Optional[int] = Field(default=None, ge=0, le=100)
+    seguridad_info: Optional[int] = Field(default=None, ge=0, le=100)
+    evaluador_id: Optional[int] = None
     observaciones: Optional[str] = None
 
-class GRCEvaluacionTerceroResponse(GRCEvaluacionTerceroCreate):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
-    puntaje_total: Optional[Decimal] = None
-    clasificacion: Optional[str] = None
-    created_at: Optional[datetime] = None
+
+class VinculoIn(_Base):
+    origen_tipo: str
+    origen_id: int
+    destino_tipo: str
+    destino_id: int
+    nota: Optional[str] = None
 
 
-# ── Dashboard KPIs ──────────────────────────────────────────
-class GRCDashboardKPIs(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    riesgos_abiertos: int = 0
-    riesgos_criticos: int = 0
-    riesgos_mitigados: int = 0
-    controles_efectivos_pct: float = 0.0
-    controles_total: int = 0
-    cumplimiento_general_pct: float = 0.0
-    obligaciones_vencidas: int = 0
-    hallazgos_abiertos: int = 0
-    hallazgos_cerrados: int = 0
-    tiempo_promedio_cierre_dias: float = 0.0
-    auditorias_en_curso: int = 0
-    incidentes_abiertos: int = 0
-    politicas_vigentes: int = 0
-    politicas_vencidas: int = 0
-    terceros_criticos: int = 0
-    procesos_criticos_cubiertos: int = 0
-    simulacros_realizados: int = 0
+class RiesgoControlIn(_Base):
+    control_id: int
+    observaciones: Optional[str] = None
+
+
+class EscalaIn(_Base):
+    eje: Literal["probabilidad", "impacto"]
+    valor: int = Field(ge=1, le=5)
+    nombre: str = Field(min_length=1, max_length=60)
+    descripcion: Optional[str] = None
+
+
+class BandaIn(_Base):
+    prioridad: Literal["baja", "media", "alta", "critica"]
+    minimo: int = Field(ge=1, le=25)
+    color: Optional[str] = None
+    respuesta: Optional[str] = None
+
+
+class ApetitoIn(_Base):
+    categoria: str
+    apetito: Optional[int] = Field(default=None, ge=1, le=25)

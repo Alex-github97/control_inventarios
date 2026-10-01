@@ -1,83 +1,105 @@
 /**
- * GRC · Obligaciones regulatorias
+ * GRC · Obligaciones
  *
- * Era una maqueta: leyes y contratos escritos a mano con su estado de
- * cumplimiento puesto a dedo. Ahora se registran contra el servidor (que antes
- * ni siquiera permitía editarlas). El estado de cumplimiento de cada una sale
- * de su evaluación en la matriz de cumplimiento, no se escribe aquí.
+ * Cada obligación nace de un marco normativo (ley, norma, contrato) y se
+ * cubre con controles y políticas, que se vinculan desde su ficha. Su estado
+ * de cumplimiento no se escribe: es el de su evaluación más reciente, y la
+ * próxima evaluación sale de la periodicidad.
  */
 import { useState } from 'react'
-import { Box, Typography, Tabs, Tab } from '@mui/material'
+import { Box, Button } from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { Gavel } from '@mui/icons-material'
-import { useQuery } from '@tanstack/react-query'
-import { Link as RouterLink } from 'react-router-dom'
+import { Gavel, FactCheck } from '@mui/icons-material'
+import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
-import { grcApi, type Obligacion } from '@/api/grc'
-import { FormularioRegistro, TablaRegistros, useCrud, Cifra, Encabezado, Etiqueta, fmtFecha, type Campo } from '@/components/comun/Registro'
-import { TIPOS_OBLIGACION, ESTADOS_CUMPLIMIENTO, CUMPLIMIENTO_COLOR, etiqueta } from '@/components/grc/etiquetas'
-import { COLOR_MODULO } from '@/config/marca'
+import { grc, type Registro } from '@/api/grc'
+import { FormularioRegistro, TablaRegistros, useCrud, Cifra, Encabezado, fmtFecha, type Campo } from '@/components/comun/Registro'
+import { ESTADOS_CUMPLIMIENTO, CUMPLIMIENTO_COLOR, CAT } from '@/components/grc/etiquetas'
+import { FichaGRC, GRC_COLOR, ChipEstado, usePersonasGRC } from '@/components/grc/comun'
 
-const GRC_COLOR = COLOR_MODULO
-const CAMPOS: Campo[] = [
-  { clave: 'nombre', etiqueta: 'Obligación', obligatorio: true, ayuda: 'Ley 1581 de 2012, Decreto 1072 de 2015, contrato con…' },
-  { clave: 'tipo', etiqueta: 'Tipo', tipo: 'seleccion', opciones: TIPOS_OBLIGACION, obligatorio: true, ancho: 6 },
-  { clave: 'fuente', etiqueta: 'Fuente / entidad', ancho: 6 },
-  { clave: 'area', etiqueta: 'Área', ancho: 6 },
-  { clave: 'responsable', etiqueta: 'Responsable', ancho: 6 },
-  { clave: 'pais', etiqueta: 'País', ancho: 6 },
-  { clave: 'industria', etiqueta: 'Industria', ancho: 6 },
-  { clave: 'fecha_vigencia', etiqueta: 'Vigente desde', tipo: 'fecha', ancho: 6 },
-  { clave: 'fecha_vencimiento', etiqueta: 'Vence / fecha límite', tipo: 'fecha', ancho: 6 },
-  { clave: 'descripcion', etiqueta: 'Qué exige', tipo: 'area' },
-]
+export function camposEvaluacion(personas: any[], obligaciones?: [number, string][]): Campo[] {
+  return [
+    ...(obligaciones ? [{ clave: 'obligacion_id', etiqueta: 'Obligación', tipo: 'referencia', opciones: obligaciones, obligatorio: true } as Campo] : []),
+    { clave: 'estado', etiqueta: 'Resultado', tipo: 'seleccion', opciones: ESTADOS_CUMPLIMIENTO, obligatorio: true, ancho: 6 },
+    { clave: 'puntaje', etiqueta: 'Puntaje (0–100)', tipo: 'numero', min: 0, max: 100, ancho: 6 },
+    { clave: 'ultima_evaluacion', etiqueta: 'Fecha de evaluación', tipo: 'fecha', ancho: 6 },
+    { clave: 'responsable_id', etiqueta: 'Evaluó', tipo: 'persona', personas, ancho: 6 },
+    { clave: 'proceso', etiqueta: 'Proceso', tipo: 'catalogo', catalogo: CAT.proceso, ancho: 6 },
+    { clave: 'area', etiqueta: 'Área', tipo: 'catalogo', catalogo: CAT.area, ancho: 6 },
+    { clave: 'evidencias', etiqueta: 'Evidencia del cumplimiento', tipo: 'area',
+      validar: (v, t) => t.estado === 'cumple' && !String(v ?? '').trim() ? 'Para «cumple» diga con qué evidencia' : null },
+    { clave: 'observaciones', etiqueta: 'Observaciones', tipo: 'area' },
+  ]
+}
 
 export default function GRCObligaciones() {
-  const crud = useCrud(['grc-obligaciones'], grcApi.obligaciones, 'Obligación', [['grc-tablero']], true)
-  const { data: matriz = [] } = useQuery({ queryKey: ['grc-cumplimiento'], queryFn: () => grcApi.cumplimiento.listar() })
-  const [dlg, setDlg] = useState<{ abierto: boolean; r: Obligacion | null }>({ abierto: false, r: null })
-  const [tab, setTab] = useState(0)
-  const hoy = new Date().toISOString().slice(0, 10)
-  const en60 = new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10)
-
-  // El estado de cada obligación: el peor de sus evaluaciones en la matriz.
-  const orden = ['no_cumple', 'cumple_parcial', 'en_evaluacion', 'cumple', 'no_aplica']
-  const estadoDe = (o: Obligacion) => {
-    const ev = matriz.filter(m => m.obligacion_id === o.id).map(m => m.estado)
-    return ev.length ? ev.sort((a, b) => orden.indexOf(a) - orden.indexOf(b))[0] : null
-  }
+  const crud = useCrud(['grc', 'obligaciones'], grc.obligaciones, 'Obligación', [], true)
+  const personas = usePersonasGRC()
+  const [dlg, setDlg] = useState<{ abierto: boolean; r: Registro | null }>({ abierto: false, r: null })
+  const [ficha, setFicha] = useState<number | null>(null)
+  const [evaluar, setEvaluar] = useState<Registro | null>(null)
+  const [filtro, setFiltro] = useState('')
   const lista = crud.datos
-  const vencidas = lista.filter(o => o.fecha_vencimiento && o.fecha_vencimiento < hoy)
-  const porVencer = lista.filter(o => o.fecha_vencimiento && o.fecha_vencimiento >= hoy && o.fecha_vencimiento <= en60)
-  const incumplen = lista.filter(o => ['no_cumple', 'cumple_parcial'].includes(estadoDe(o) ?? ''))
-  const atencion = lista.filter(o => vencidas.includes(o) || porVencer.includes(o) || incumplen.includes(o))
-  const visibles = tab === 1 ? atencion : lista
+  const visibles = filtro ? lista.filter(o => o.estado_cumplimiento === filtro) : lista
+
+  const campos: Campo[] = [
+    { clave: 'nombre', etiqueta: 'Obligación', obligatorio: true, ayuda: 'Qué exige, en una frase' },
+    { clave: 'marco', etiqueta: 'Marco normativo', tipo: 'catalogo', catalogo: CAT.marco, obligatorio: true, ancho: 8 },
+    { clave: 'articulo', etiqueta: 'Artículo / numeral', ancho: 4 },
+    { clave: 'tipo', etiqueta: 'Tipo', tipo: 'catalogo', catalogo: CAT.tipoObligacion, ancho: 6 },
+    { clave: 'pais', etiqueta: 'País', tipo: 'catalogo', catalogo: CAT.pais, ancho: 6 },
+    { clave: 'responsable_id', etiqueta: 'Responsable', tipo: 'persona', personas, obligatorio: true, ancho: 6 },
+    { clave: 'periodicidad', etiqueta: 'Se evalúa cada', tipo: 'catalogo', catalogo: CAT.periodicidad, ancho: 6 },
+    { clave: 'proceso', etiqueta: 'Proceso', tipo: 'catalogo', catalogo: CAT.proceso, ancho: 6 },
+    { clave: 'area', etiqueta: 'Área', tipo: 'catalogo', catalogo: CAT.area, ancho: 6 },
+    { clave: 'fecha_vigencia', etiqueta: 'Vigente desde', tipo: 'fecha', ancho: 6 },
+    { clave: 'fecha_vencimiento', etiqueta: 'Vence', tipo: 'fecha', ancho: 6 },
+    { clave: 'descripcion', etiqueta: 'Descripción', tipo: 'area' },
+  ]
 
   return (
     <Layout>
       <Box sx={{ p: 3 }}>
-        <Encabezado icono={<Gavel sx={{ fontSize: 28 }} />} titulo="Obligaciones regulatorias" subtitulo="GRC · Leyes, normas, contratos y requisitos"
+        <Encabezado icono={<Gavel sx={{ fontSize: 28 }} />} titulo="Obligaciones" subtitulo="GRC · Requisitos legales, normativos y contractuales"
           color={GRC_COLOR} accion="Nueva obligación" onAccion={() => setDlg({ abierto: true, r: null })} />
         <Grid container spacing={2} mb={3}>
-          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Obligaciones" valor={lista.length} color={GRC_COLOR} /></Grid>
-          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Sin evaluar" valor={lista.filter(o => !estadoDe(o)).length} color="#6B7280" sub="Sin fila en la matriz de cumplimiento" /></Grid>
-          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Incumplen" valor={incumplen.length} color="#DC2626" sub="Total o parcialmente" /></Grid>
-          <Grid size={{ xs: 6, md: 3 }}><Cifra etiqueta="Vencen en 60 días" valor={porVencer.length} color="#D97706" sub={`${vencidas.length} ya vencidas`} /></Grid>
+          {ESTADOS_CUMPLIMIENTO.map(([k, l]) => (
+            <Grid key={k} size={{ xs: 6, md: 2.4 }}>
+              <Box role="button" aria-pressed={filtro === k} onClick={() => setFiltro(filtro === k ? '' : k)} sx={{ cursor: 'pointer', borderRadius: 2, outline: filtro === k ? `2px solid ${CUMPLIMIENTO_COLOR[k]}` : 'none' }}>
+                <Cifra etiqueta={l} valor={lista.filter(o => o.estado_cumplimiento === k).length} color={CUMPLIMIENTO_COLOR[k]} />
+              </Box>
+            </Grid>
+          ))}
         </Grid>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}><Tab label="Todas" /><Tab label={`Requieren atención (${atencion.length})`} /></Tabs>
-        <TablaRegistros<Obligacion> filas={visibles} cargando={crud.isLoading} vacio="Sin obligaciones" etiqueta={o => o.nombre}
-          onEditar={o => setDlg({ abierto: true, r: o })} onRetirar={o => crud.retirar.mutate(o.id)}
+        <TablaRegistros<Registro> filas={visibles} cargando={crud.isLoading} vacio="Sin obligaciones registradas" etiqueta={o => o.nombre}
+          onFila={o => setFicha(o.id)} onEditar={o => setDlg({ abierto: true, r: o })} onRetirar={o => crud.retirar.mutate(o.id)}
+          extra={o => <Button size="small" onClick={() => setEvaluar(o)}>Evaluar</Button>}
           columnas={[
             { titulo: 'Código', valor: o => <Box sx={{ fontFamily: 'monospace' }}>{o.codigo}</Box> },
-            { titulo: 'Obligación', valor: o => <><b>{o.nombre}</b><Typography fontSize={11} color="text.secondary">{o.fuente ?? ''}</Typography></> },
-            { titulo: 'Tipo', valor: o => etiqueta(TIPOS_OBLIGACION, o.tipo) },
-            { titulo: 'Responsable', valor: o => o.responsable ?? '—' },
-            { titulo: 'Vence', valor: o => <Box sx={{ color: vencidas.includes(o) ? 'error.main' : porVencer.includes(o) ? 'warning.main' : undefined, fontWeight: vencidas.includes(o) || porVencer.includes(o) ? 700 : 400 }}>{fmtFecha(o.fecha_vencimiento)}</Box> },
-            { titulo: 'Cumplimiento', valor: o => { const e = estadoDe(o); return e ? <Etiqueta texto={etiqueta(ESTADOS_CUMPLIMIENTO, e)} color={CUMPLIMIENTO_COLOR[e]} /> : <Typography fontSize={11} color="text.secondary">Sin evaluar</Typography> } },
+            { titulo: 'Obligación', valor: o => o.nombre },
+            { titulo: 'Marco', valor: o => [o.marco, o.articulo].filter(Boolean).join(' · ') || '—' },
+            { titulo: 'Responsable', valor: o => o.responsable_nombre ?? '—' },
+            { titulo: 'Cumplimiento', valor: o => <ChipEstado v={o.estado_cumplimiento} /> },
+            { titulo: 'Próxima evaluación', valor: o => fmtFecha(o.proxima_evaluacion) },
+            { titulo: 'Vence', valor: o => <Box sx={{ color: o.vencida ? '#DC2626' : undefined }}>{fmtFecha(o.fecha_vencimiento)}</Box> },
+            { titulo: 'Controles', valor: o => o.controles, alinear: 'center' },
+            { titulo: 'Políticas', valor: o => o.politicas, alinear: 'center' },
           ]} />
-        <Typography fontSize={11} color="text.secondary" mt={1}>El cumplimiento se evalúa en la <RouterLink to="/grc/cumplimiento">matriz de cumplimiento</RouterLink>.</Typography>
-        <FormularioRegistro abierto={dlg.abierto} titulo={dlg.r ? `Obligación ${dlg.r.codigo}` : 'Nueva obligación'} campos={CAMPOS} registro={dlg.r}
-          valoresIniciales={{ tipo: 'ley', pais: 'Colombia' }} onGuardar={c => crud.guardar(dlg.r, c)} onCerrar={() => setDlg({ abierto: false, r: null })} />
+        <FormularioRegistro abierto={dlg.abierto} titulo={dlg.r ? `Editar ${dlg.r.codigo}` : 'Nueva obligación'} campos={campos} registro={dlg.r}
+          ancho="md" valoresIniciales={{ pais: 'Colombia' }}
+          onGuardar={c => crud.guardar(dlg.r, c)} onCerrar={() => setDlg({ abierto: false, r: null })} />
+        <FormularioRegistro abierto={!!evaluar} titulo={`Evaluar · ${evaluar?.nombre ?? ''}`} campos={camposEvaluacion(personas)}
+          valoresIniciales={{ estado: 'en_evaluacion', ultima_evaluacion: new Date().toISOString().slice(0, 10),
+                              responsable_id: evaluar?.responsable_id, proceso: evaluar?.proceso, area: evaluar?.area }}
+          onGuardar={async c => { await grc.cumplimiento.crear({ ...c, obligacion_id: evaluar!.id }); toast.success('Evaluación registrada'); crud.refrescar() }}
+          onCerrar={() => setEvaluar(null)} />
+        <FichaGRC tipo="obligacion" id={ficha} onCerrar={() => setFicha(null)}
+          acciones={o => <Button size="small" variant="contained" startIcon={<FactCheck />} onClick={() => setEvaluar(o)} sx={{ bgcolor: GRC_COLOR }}>Evaluar cumplimiento</Button>}
+          resumen={o => [
+            ['Marco', o.marco], ['Artículo', o.articulo], ['Tipo', o.tipo], ['Responsable', o.responsable_nombre],
+            ['Cumplimiento', <ChipEstado v={o.estado_cumplimiento} />], ['Se evalúa', o.periodicidad],
+            ['Vigente desde', fmtFecha(o.fecha_vigencia)], ['Vence', fmtFecha(o.fecha_vencimiento)], ['Proceso', o.proceso],
+          ]} />
       </Box>
     </Layout>
   )

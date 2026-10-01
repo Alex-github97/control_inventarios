@@ -1,757 +1,803 @@
-"""GRC — Governance, Risk & Compliance API endpoints"""
-from datetime import date, datetime
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+"""GRC — Gobierno, Riesgo y Cumplimiento.
+
+Cada recurso (comités, políticas, riesgos, controles…) se declara una vez con
+lo que lo hace particular —qué campos son personas, cuáles son catálogos, de
+quién depende, qué calcula el servidor— y las cinco rutas (listar, ver, crear,
+editar, retirar) salen de esa declaración. Así todas validan igual, todas dejan
+historial y ninguna acepta texto donde va una persona o un catálogo.
+"""
+from datetime import date, datetime, timedelta
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence, Tuple, Type
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from pydantic import BaseModel
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+
+from app.core import grc_servicio as srv
 from app.core.database import get_db
+from app.core.dependencies import get_current_user
+from app.infrastructure.models.usuario import Usuario
 from app.infrastructure.models.grc import (
-    GRCComite, GRCPolitica, GRCObligacion, GRCControl, GRCRiesgo,
-    GRCRiesgoControl, GRCTratamiento, GRCMatrizCumplimiento, GRCEvidencia,
-    GRCAuditoria, GRCHallazgo, GRCPlanAccion, GRCIncidente,
-    GRCContinuidad, GRCSimulacro, GRCTercero, GRCEvaluacionTercero, GRCKPIDiario,
-    EstadoRiesgoGRCEnum, PrioridadRiesgoGRCEnum, EfectividadControlGRCEnum,
-    EstadoPoliticaGRCEnum, EstadoCumplimientoGRCEnum, EstadoHallazgoGRCEnum,
+    EstadoHallazgoGRCEnum, EstadoPoliticaGRCEnum, GRCAuditoria, GRCComite, GRCComiteMiembro,
+    GRCComiteSesion, GRCContinuidad, GRCControl, GRCEvaluacionTercero, GRCEvidencia,
+    GRCHallazgo, GRCIncidente, GRCKri, GRCKriMedicion, GRCMatrizCumplimiento, GRCObligacion,
+    GRCPlanAccion, GRCPolitica, GRCPoliticaAceptacion, GRCPruebaControl, GRCRiesgo,
+    GRCRiesgoControl, GRCSimulacro, GRCTercero, GRCTratamiento, GRCVinculo,
+    EstadoCumplimientoGRCEnum,
 )
-from app.application.schemas.grc import (
-    GRCComiteCreate, GRCComiteResponse,
-    GRCPoliticaCreate, GRCPoliticaResponse,
-    GRCObligacionCreate, GRCObligacionResponse,
-    GRCControlCreate, GRCControlUpdate, GRCControlResponse,
-    GRCRiesgoCreate, GRCRiesgoUpdate, GRCRiesgoResponse,
-    GRCTratamientoCreate, GRCTratamientoResponse,
-    GRCMatrizCumplimientoCreate, GRCMatrizCumplimientoUpdate, GRCMatrizCumplimientoResponse,
-    GRCEvidenciaCreate, GRCEvidenciaResponse,
-    GRCAuditoriaCreate, GRCAuditoriaUpdate, GRCAuditoriaResponse,
-    GRCHallazgoCreate, GRCHallazgoUpdate, GRCHallazgoResponse,
-    GRCPlanAccionCreate, GRCPlanAccionUpdate, GRCPlanAccionResponse,
-    GRCIncidenteCreate, GRCIncidenteUpdate, GRCIncidenteResponse,
-    GRCContinuidadCreate, GRCContinuidadResponse,
-    GRCSimulacroCreate, GRCSimulacroResponse,
-    GRCTerceroCreate, GRCTerceroResponse,
-    GRCEvaluacionTerceroCreate, GRCEvaluacionTerceroResponse,
-    GRCDashboardKPIs,
-)
+from app.application.schemas import grc as esq
 
 router = APIRouter(prefix="/grc", tags=["GRC"])
 
+GLOBAL_PROCESO = ("GLOBAL", "PROCESO", "proceso")
+GLOBAL_AREA = ("GLOBAL", "AREA", "área")
 
-# ── helpers ──────────────────────────────────────────────────────────────────
-
-def _calc_nivel(prob: Optional[int], imp: Optional[int]) -> Optional[int]:
-    if prob and imp:
-        return prob * imp
-    return None
-
-def _calc_prioridad(nivel: Optional[int]) -> Optional[PrioridadRiesgoGRCEnum]:
-    if nivel is None:
-        return None
-    if nivel >= 15:
-        return PrioridadRiesgoGRCEnum.CRITICA
-    if nivel >= 10:
-        return PrioridadRiesgoGRCEnum.ALTA
-    if nivel >= 5:
-        return PrioridadRiesgoGRCEnum.MEDIA
-    return PrioridadRiesgoGRCEnum.BAJA
 
 async def _next_code(db: AsyncSession, prefix: str, model) -> str:
-    """Siguiente consecutivo del año.
-
-    Se toma el sufijo más alto ya usado y no la cantidad de filas: contar
-    choca con el UNIQUE del código apenas se borra (o se archiva) una fila.
-    """
-    year = date.today().year
-    patron = f"{prefix}-{year}-"
-    result = await db.execute(
-        select(model.codigo).where(model.codigo.like(f"{patron}%"))
-    )
+    """Siguiente consecutivo del año: el mayor sufijo usado, no un conteo
+    (contar choca con el UNIQUE en cuanto se retira una fila)."""
+    patron = f"{prefix}-{date.today().year}-"
     maximo = 0
-    for (codigo,) in result.all():
+    for (codigo,) in (await db.execute(select(model.codigo).where(model.codigo.like(f"{patron}%")))).all():
         sufijo = (codigo or "")[len(patron):]
         if sufijo.isdigit():
             maximo = max(maximo, int(sufijo))
     return f"{patron}{maximo + 1:03d}"
 
-def _clasif_tercero(puntaje: float) -> str:
-    if puntaje >= 90:
-        return "excelente"
-    if puntaje >= 75:
-        return "bueno"
-    if puntaje >= 60:
-        return "regular"
-    return "deficiente"
-
-
-# ── Dashboard ─────────────────────────────────────────────────────────────────
-
-@router.get("/dashboard/kpis", response_model=GRCDashboardKPIs)
-async def get_dashboard_kpis(db: AsyncSession = Depends(get_db)):
-    riesgos_abiertos = (await db.execute(
-        select(func.count()).select_from(GRCRiesgo).where(
-            GRCRiesgo.estado.in_([EstadoRiesgoGRCEnum.IDENTIFICADO, EstadoRiesgoGRCEnum.EN_ANALISIS, EstadoRiesgoGRCEnum.TRATAMIENTO]),
-            GRCRiesgo.deleted_at.is_(None),
-        )
-    )).scalar() or 0
-    riesgos_criticos = (await db.execute(
-        select(func.count()).select_from(GRCRiesgo).where(
-            GRCRiesgo.prioridad == PrioridadRiesgoGRCEnum.CRITICA,
-            GRCRiesgo.deleted_at.is_(None),
-        )
-    )).scalar() or 0
-    riesgos_mitigados = (await db.execute(
-        select(func.count()).select_from(GRCRiesgo).where(
-            GRCRiesgo.estado == EstadoRiesgoGRCEnum.MITIGADO,
-            GRCRiesgo.deleted_at.is_(None),
-        )
-    )).scalar() or 0
-    controles_total = (await db.execute(
-        select(func.count()).select_from(GRCControl).where(GRCControl.deleted_at.is_(None))
-    )).scalar() or 0
-    controles_efectivos = (await db.execute(
-        select(func.count()).select_from(GRCControl).where(
-            GRCControl.efectividad == EfectividadControlGRCEnum.EFECTIVO,
-            GRCControl.deleted_at.is_(None),
-        )
-    )).scalar() or 0
-    controles_pct = round(controles_efectivos / controles_total * 100, 1) if controles_total else 0.0
-    obligaciones_vencidas = (await db.execute(
-        select(func.count()).select_from(GRCObligacion).where(
-            GRCObligacion.fecha_vencimiento <= date.today(),
-            GRCObligacion.deleted_at.is_(None),
-        )
-    )).scalar() or 0
-    hallazgos_abiertos = (await db.execute(
-        select(func.count()).select_from(GRCHallazgo).where(
-            GRCHallazgo.estado == EstadoHallazgoGRCEnum.ABIERTO,
-            GRCHallazgo.deleted_at.is_(None),
-        )
-    )).scalar() or 0
-    hallazgos_cerrados = (await db.execute(
-        select(func.count()).select_from(GRCHallazgo).where(
-            GRCHallazgo.estado == EstadoHallazgoGRCEnum.CERRADO,
-            GRCHallazgo.deleted_at.is_(None),
-        )
-    )).scalar() or 0
-    politicas_vigentes = (await db.execute(
-        select(func.count()).select_from(GRCPolitica).where(
-            GRCPolitica.estado == EstadoPoliticaGRCEnum.PUBLICADA,
-            GRCPolitica.deleted_at.is_(None),
-        )
-    )).scalar() or 0
-    politicas_vencidas = (await db.execute(
-        select(func.count()).select_from(GRCPolitica).where(
-            GRCPolitica.estado == EstadoPoliticaGRCEnum.VENCIDA,
-            GRCPolitica.deleted_at.is_(None),
-        )
-    )).scalar() or 0
-    incidentes_abiertos = (await db.execute(
-        select(func.count()).select_from(GRCIncidente).where(
-            GRCIncidente.estado != "cerrado",
-            GRCIncidente.deleted_at.is_(None),
-        )
-    )).scalar() or 0
-    cumplimientos = await db.execute(
-        select(GRCMatrizCumplimiento.puntaje).where(
-            GRCMatrizCumplimiento.puntaje.isnot(None),
-            GRCMatrizCumplimiento.deleted_at.is_(None),
-        )
-    )
-    puntajes = [r[0] for r in cumplimientos.all()]
-    cumplimiento_pct = round(sum(puntajes) / len(puntajes), 1) if puntajes else 0.0
-    # Antes estas dos iban fijas en cero en la respuesta.
-    auditorias_en_curso = (await db.execute(
-        select(func.count()).select_from(GRCAuditoria).where(
-            GRCAuditoria.estado.in_(["en_ejecucion", "en_revision"]),
-            GRCAuditoria.deleted_at.is_(None),
-        )
-    )).scalar() or 0
-    terceros_criticos = (await db.execute(
-        select(func.count()).select_from(GRCTercero).where(
-            GRCTercero.nivel_riesgo.in_(["alto", "critico"]),
-            GRCTercero.estado == "activo",
-            GRCTercero.deleted_at.is_(None),
-        )
-    )).scalar() or 0
-    simulacros = (await db.execute(
-        select(func.count()).select_from(GRCSimulacro).where(GRCSimulacro.deleted_at.is_(None))
-    )).scalar() or 0
-    procesos_criticos = (await db.execute(
-        select(func.count()).select_from(GRCContinuidad).where(
-            GRCContinuidad.criticidad.in_(["critica", "alta"]),
-            GRCContinuidad.deleted_at.is_(None),
-        )
-    )).scalar() or 0
-    return GRCDashboardKPIs(
-        riesgos_abiertos=riesgos_abiertos,
-        riesgos_criticos=riesgos_criticos,
-        riesgos_mitigados=riesgos_mitigados,
-        controles_efectivos_pct=controles_pct,
-        controles_total=controles_total,
-        cumplimiento_general_pct=cumplimiento_pct,
-        obligaciones_vencidas=obligaciones_vencidas,
-        hallazgos_abiertos=hallazgos_abiertos,
-        hallazgos_cerrados=hallazgos_cerrados,
-        auditorias_en_curso=auditorias_en_curso,
-        incidentes_abiertos=incidentes_abiertos,
-        politicas_vigentes=politicas_vigentes,
-        politicas_vencidas=politicas_vencidas,
-        terceros_criticos=terceros_criticos,
-        procesos_criticos_cubiertos=procesos_criticos,
-        simulacros_realizados=simulacros,
-    )
-
-
-# ── Comités ──────────────────────────────────────────────────────────────────
-
-@router.get("/comites", response_model=List[GRCComiteResponse])
-async def list_comites(db: AsyncSession = Depends(get_db)):
-    r = await db.execute(select(GRCComite).where(GRCComite.deleted_at.is_(None)))
-    return r.scalars().all()
-
-@router.post("/comites", response_model=GRCComiteResponse, status_code=status.HTTP_201_CREATED)
-async def create_comite(data: GRCComiteCreate, db: AsyncSession = Depends(get_db)):
-    obj = GRCComite(**data.model_dump())
-    db.add(obj); await db.commit(); await db.refresh(obj)
-    return obj
-
-
-# ── Políticas ─────────────────────────────────────────────────────────────────
-
-@router.get("/politicas", response_model=List[GRCPoliticaResponse])
-async def list_politicas(estado: Optional[str] = None, db: AsyncSession = Depends(get_db)):
-    q = select(GRCPolitica).where(GRCPolitica.deleted_at.is_(None))
-    if estado:
-        q = q.where(GRCPolitica.estado == estado)
-    r = await db.execute(q.order_by(GRCPolitica.nombre))
-    return r.scalars().all()
-
-@router.post("/politicas", response_model=GRCPoliticaResponse, status_code=status.HTTP_201_CREATED)
-async def create_politica(data: GRCPoliticaCreate, db: AsyncSession = Depends(get_db)):
-    obj = GRCPolitica(**data.model_dump())
-    obj.codigo = await _next_code(db, "POL", GRCPolitica)
-    db.add(obj); await db.commit(); await db.refresh(obj)
-    return obj
-
-@router.patch("/politicas/{id}", response_model=GRCPoliticaResponse)
-async def update_politica(id: int, data: GRCPoliticaCreate, db: AsyncSession = Depends(get_db)):
-    r = await db.execute(select(GRCPolitica).where(GRCPolitica.id == id))
-    obj = r.scalar_one_or_none()
-    if not obj:
-        raise HTTPException(status_code=404, detail="Política no encontrada")
-    # exclude_unset y no exclude_none: el formulario manda el objeto completo,
-    # así que un campo en None quiere decir "bórralo", no "no lo toques".
-    for k, v in data.model_dump(exclude_unset=True).items():
-        setattr(obj, k, v)
-    await db.commit(); await db.refresh(obj)
-    return obj
-
-
-@router.post("/politicas/{id}/aceptar", response_model=GRCPoliticaResponse)
-async def aceptar_politica(id: int, db: AsyncSession = Depends(get_db)):
-    """Suma una aceptación.
-
-    Va aparte del PATCH porque el contador no está en GRCPoliticaCreate: si se
-    manda ahí, el esquema lo descarta y la aceptación se pierde sin avisar.
-    """
-    r = await db.execute(
-        select(GRCPolitica).where(
-            GRCPolitica.id == id, GRCPolitica.deleted_at.is_(None)
-        )
-    )
-    obj = r.scalar_one_or_none()
-    if not obj:
-        raise HTTPException(status_code=404, detail="Política no encontrada")
-    obj.aceptaciones_count = (obj.aceptaciones_count or 0) + 1
-    await db.commit(); await db.refresh(obj)
-    return obj
-
-
-@router.delete("/politicas/{id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_politica(id: int, db: AsyncSession = Depends(get_db)):
-    r = await db.execute(
-        select(GRCPolitica).where(
-            GRCPolitica.id == id, GRCPolitica.deleted_at.is_(None)
-        )
-    )
-    obj = r.scalar_one_or_none()
-    if not obj:
-        raise HTTPException(status_code=404, detail="Política no encontrada")
-    obj.deleted_at = datetime.utcnow()
-    await db.commit()
-
-
-# ── Obligaciones ──────────────────────────────────────────────────────────────
-
-@router.get("/obligaciones", response_model=List[GRCObligacionResponse])
-async def list_obligaciones(tipo: Optional[str] = None, pais: Optional[str] = None, db: AsyncSession = Depends(get_db)):
-    q = select(GRCObligacion).where(GRCObligacion.deleted_at.is_(None))
-    if tipo:
-        q = q.where(GRCObligacion.tipo == tipo)
-    if pais:
-        q = q.where(GRCObligacion.pais == pais)
-    r = await db.execute(q.order_by(GRCObligacion.nombre))
-    return r.scalars().all()
-
-@router.post("/obligaciones", response_model=GRCObligacionResponse, status_code=status.HTTP_201_CREATED)
-async def create_obligacion(data: GRCObligacionCreate, db: AsyncSession = Depends(get_db)):
-    obj = GRCObligacion(**data.model_dump())
-    obj.codigo = await _next_code(db, "OBL", GRCObligacion)
-    db.add(obj); await db.commit(); await db.refresh(obj)
-    return obj
-
-
-# ── Controles ─────────────────────────────────────────────────────────────────
-
-@router.get("/controles", response_model=List[GRCControlResponse])
-async def list_controles(tipo: Optional[str] = None, db: AsyncSession = Depends(get_db)):
-    q = select(GRCControl).where(GRCControl.deleted_at.is_(None))
-    if tipo:
-        q = q.where(GRCControl.tipo == tipo)
-    r = await db.execute(q.order_by(GRCControl.nombre))
-    return r.scalars().all()
-
-@router.post("/controles", response_model=GRCControlResponse, status_code=status.HTTP_201_CREATED)
-async def create_control(data: GRCControlUpdate, db: AsyncSession = Depends(get_db)):
-    # Se acepta el esquema de edición (efectividad, fechas de prueba): con el de
-    # creación esos campos se descartaban en silencio. Los nulos no se pasan
-    # para que apliquen los valores por defecto de la tabla.
-    obj = GRCControl(**data.model_dump(exclude_none=True))
-    obj.codigo = await _next_code(db, "CTL", GRCControl)
-    db.add(obj); await db.commit(); await db.refresh(obj)
-    return obj
-
-@router.patch("/controles/{id}", response_model=GRCControlResponse)
-async def update_control(id: int, data: GRCControlUpdate, db: AsyncSession = Depends(get_db)):
-    r = await db.execute(select(GRCControl).where(GRCControl.id == id))
-    obj = r.scalar_one_or_none()
-    if not obj:
-        raise HTTPException(status_code=404, detail="Control no encontrado")
-    for k, v in data.model_dump(exclude_unset=True).items():
-        setattr(obj, k, v)
-    await db.commit(); await db.refresh(obj)
-    return obj
-
-
-# ── Riesgos ──────────────────────────────────────────────────────────────────
-
-@router.get("/riesgos", response_model=List[GRCRiesgoResponse])
-async def list_riesgos(tipo: Optional[str] = None, estado: Optional[str] = None, prioridad: Optional[str] = None, db: AsyncSession = Depends(get_db)):
-    q = select(GRCRiesgo).where(GRCRiesgo.deleted_at.is_(None))
-    if tipo:
-        q = q.where(GRCRiesgo.tipo == tipo)
-    if estado:
-        q = q.where(GRCRiesgo.estado == estado)
-    if prioridad:
-        q = q.where(GRCRiesgo.prioridad == prioridad)
-    r = await db.execute(q.order_by(GRCRiesgo.nivel_inherente.desc().nullslast()))
-    return r.scalars().all()
-
-@router.post("/riesgos", response_model=GRCRiesgoResponse, status_code=status.HTTP_201_CREATED)
-async def create_riesgo(data: GRCRiesgoUpdate, db: AsyncSession = Depends(get_db)):
-    payload = data.model_dump(exclude_none=True)
-    prob_i = payload.get("probabilidad_inherente")
-    imp_i  = payload.get("impacto_inherente")
-    prob_r = payload.get("probabilidad_residual")
-    imp_r  = payload.get("impacto_residual")
-    nivel_i = _calc_nivel(prob_i, imp_i)
-    nivel_r = _calc_nivel(prob_r, imp_r)
-    obj = GRCRiesgo(**payload)
-    obj.codigo         = await _next_code(db, "RSK", GRCRiesgo)
-    obj.nivel_inherente = nivel_i
-    obj.nivel_residual  = nivel_r
-    obj.prioridad       = _calc_prioridad(nivel_r or nivel_i)
-    db.add(obj); await db.commit(); await db.refresh(obj)
-    return obj
-
-@router.patch("/riesgos/{id}", response_model=GRCRiesgoResponse)
-async def update_riesgo(id: int, data: GRCRiesgoUpdate, db: AsyncSession = Depends(get_db)):
-    r = await db.execute(select(GRCRiesgo).where(GRCRiesgo.id == id))
-    obj = r.scalar_one_or_none()
-    if not obj:
-        raise HTTPException(status_code=404, detail="Riesgo no encontrado")
-    payload = data.model_dump(exclude_unset=True)
-    for k, v in payload.items():
-        setattr(obj, k, v)
-    obj.nivel_inherente = _calc_nivel(obj.probabilidad_inherente, obj.impacto_inherente)
-    obj.nivel_residual  = _calc_nivel(obj.probabilidad_residual, obj.impacto_residual)
-    obj.prioridad       = _calc_prioridad(obj.nivel_residual or obj.nivel_inherente)
-    await db.commit(); await db.refresh(obj)
-    return obj
-
-@router.get("/riesgos/heat-map")
-async def get_heat_map(db: AsyncSession = Depends(get_db)):
-    r = await db.execute(
-        select(GRCRiesgo.probabilidad_inherente, GRCRiesgo.impacto_inherente, GRCRiesgo.codigo, GRCRiesgo.prioridad).where(
-            GRCRiesgo.deleted_at.is_(None),
-            GRCRiesgo.probabilidad_inherente.isnot(None),
-        )
-    )
-    cells: dict = {}
-    for prob, imp, codigo, prioridad in r.all():
-        key = f"{prob}_{imp}"
-        if key not in cells:
-            cells[key] = {"prob": prob, "imp": imp, "riesgos": []}
-        cells[key]["riesgos"].append({"codigo": codigo, "prioridad": prioridad})
-    return list(cells.values())
-
-
-# ── Tratamientos ──────────────────────────────────────────────────────────────
-
-@router.get("/riesgos/{riesgo_id}/tratamientos", response_model=List[GRCTratamientoResponse])
-async def list_tratamientos(riesgo_id: int, db: AsyncSession = Depends(get_db)):
-    r = await db.execute(select(GRCTratamiento).where(GRCTratamiento.riesgo_id == riesgo_id, GRCTratamiento.deleted_at.is_(None)))
-    return r.scalars().all()
-
-@router.post("/tratamientos", response_model=GRCTratamientoResponse, status_code=status.HTTP_201_CREATED)
-async def create_tratamiento(data: GRCTratamientoCreate, db: AsyncSession = Depends(get_db)):
-    obj = GRCTratamiento(**data.model_dump())
-    db.add(obj); await db.commit(); await db.refresh(obj)
-    return obj
-
-
-# ── Matriz de Cumplimiento ────────────────────────────────────────────────────
-
-@router.get("/cumplimiento", response_model=List[GRCMatrizCumplimientoResponse])
-async def list_cumplimiento(estado: Optional[str] = None, db: AsyncSession = Depends(get_db)):
-    q = select(GRCMatrizCumplimiento).where(GRCMatrizCumplimiento.deleted_at.is_(None))
-    if estado:
-        q = q.where(GRCMatrizCumplimiento.estado == estado)
-    r = await db.execute(q)
-    return r.scalars().all()
-
-@router.post("/cumplimiento", response_model=GRCMatrizCumplimientoResponse, status_code=status.HTTP_201_CREATED)
-async def create_cumplimiento(data: GRCMatrizCumplimientoUpdate, db: AsyncSession = Depends(get_db)):
-    obj = GRCMatrizCumplimiento(**data.model_dump(exclude_none=True))
-    db.add(obj); await db.commit(); await db.refresh(obj)
-    return obj
-
-@router.patch("/cumplimiento/{id}", response_model=GRCMatrizCumplimientoResponse)
-async def update_cumplimiento(id: int, data: GRCMatrizCumplimientoUpdate, db: AsyncSession = Depends(get_db)):
-    r = await db.execute(select(GRCMatrizCumplimiento).where(GRCMatrizCumplimiento.id == id))
-    obj = r.scalar_one_or_none()
-    if not obj:
-        raise HTTPException(status_code=404, detail="Registro no encontrado")
-    for k, v in data.model_dump(exclude_unset=True).items():
-        setattr(obj, k, v)
-    await db.commit(); await db.refresh(obj)
-    return obj
-
-
-# ── Evidencias ────────────────────────────────────────────────────────────────
-
-@router.get("/evidencias", response_model=List[GRCEvidenciaResponse])
-async def list_evidencias(referencia_tipo: Optional[str] = None, referencia_id: Optional[int] = None, db: AsyncSession = Depends(get_db)):
-    q = select(GRCEvidencia).where(GRCEvidencia.deleted_at.is_(None))
-    if referencia_tipo:
-        q = q.where(GRCEvidencia.referencia_tipo == referencia_tipo)
-    if referencia_id:
-        q = q.where(GRCEvidencia.referencia_id == referencia_id)
-    r = await db.execute(q)
-    return r.scalars().all()
-
-@router.post("/evidencias", response_model=GRCEvidenciaResponse, status_code=status.HTTP_201_CREATED)
-async def create_evidencia(data: GRCEvidenciaCreate, db: AsyncSession = Depends(get_db)):
-    obj = GRCEvidencia(**data.model_dump())
-    db.add(obj); await db.commit(); await db.refresh(obj)
-    return obj
-
-
-# ── Auditorías ────────────────────────────────────────────────────────────────
-
-@router.get("/auditorias", response_model=List[GRCAuditoriaResponse])
-async def list_auditorias(tipo: Optional[str] = None, estado: Optional[str] = None, db: AsyncSession = Depends(get_db)):
-    q = select(GRCAuditoria).where(GRCAuditoria.deleted_at.is_(None))
-    if tipo:
-        q = q.where(GRCAuditoria.tipo == tipo)
-    if estado:
-        q = q.where(GRCAuditoria.estado == estado)
-    r = await db.execute(q.order_by(GRCAuditoria.fecha_inicio.desc().nullslast()))
-    return r.scalars().all()
-
-@router.post("/auditorias", response_model=GRCAuditoriaResponse, status_code=status.HTTP_201_CREATED)
-async def create_auditoria(data: GRCAuditoriaUpdate, db: AsyncSession = Depends(get_db)):
-    obj = GRCAuditoria(**data.model_dump(exclude_none=True))
-    obj.codigo = await _next_code(db, "AUD", GRCAuditoria)
-    db.add(obj); await db.commit(); await db.refresh(obj)
-    return obj
-
-@router.patch("/auditorias/{id}", response_model=GRCAuditoriaResponse)
-async def update_auditoria(id: int, data: GRCAuditoriaUpdate, db: AsyncSession = Depends(get_db)):
-    r = await db.execute(select(GRCAuditoria).where(GRCAuditoria.id == id))
-    obj = r.scalar_one_or_none()
-    if not obj:
-        raise HTTPException(status_code=404, detail="Auditoría no encontrada")
-    for k, v in data.model_dump(exclude_unset=True).items():
-        setattr(obj, k, v)
-    await db.commit(); await db.refresh(obj)
-    return obj
-
-
-# ── Hallazgos ─────────────────────────────────────────────────────────────────
-
-@router.get("/hallazgos", response_model=List[GRCHallazgoResponse])
-async def list_hallazgos(estado: Optional[str] = None, severidad: Optional[str] = None, db: AsyncSession = Depends(get_db)):
-    q = select(GRCHallazgo).where(GRCHallazgo.deleted_at.is_(None))
-    if estado:
-        q = q.where(GRCHallazgo.estado == estado)
-    if severidad:
-        q = q.where(GRCHallazgo.severidad == severidad)
-    r = await db.execute(q.order_by(GRCHallazgo.fecha_limite))
-    return r.scalars().all()
-
-@router.post("/hallazgos", response_model=GRCHallazgoResponse, status_code=status.HTTP_201_CREATED)
-async def create_hallazgo(data: GRCHallazgoUpdate, db: AsyncSession = Depends(get_db)):
-    obj = GRCHallazgo(**data.model_dump(exclude_none=True))
-    obj.codigo = await _next_code(db, "HAL", GRCHallazgo)
-    db.add(obj); await db.commit(); await db.refresh(obj)
-    return obj
-
-@router.patch("/hallazgos/{id}", response_model=GRCHallazgoResponse)
-async def update_hallazgo(id: int, data: GRCHallazgoUpdate, db: AsyncSession = Depends(get_db)):
-    r = await db.execute(select(GRCHallazgo).where(GRCHallazgo.id == id))
-    obj = r.scalar_one_or_none()
-    if not obj:
-        raise HTTPException(status_code=404, detail="Hallazgo no encontrado")
-    for k, v in data.model_dump(exclude_unset=True).items():
-        setattr(obj, k, v)
-    await db.commit(); await db.refresh(obj)
-    return obj
-
-
-# ── Planes de Acción ──────────────────────────────────────────────────────────
-
-@router.get("/hallazgos/{hallazgo_id}/planes", response_model=List[GRCPlanAccionResponse])
-async def list_planes(hallazgo_id: int, db: AsyncSession = Depends(get_db)):
-    r = await db.execute(select(GRCPlanAccion).where(GRCPlanAccion.hallazgo_id == hallazgo_id, GRCPlanAccion.deleted_at.is_(None)))
-    return r.scalars().all()
-
-@router.post("/planes", response_model=GRCPlanAccionResponse, status_code=status.HTTP_201_CREATED)
-async def create_plan(data: GRCPlanAccionUpdate, db: AsyncSession = Depends(get_db)):
-    obj = GRCPlanAccion(**data.model_dump(exclude_none=True))
-    db.add(obj); await db.commit(); await db.refresh(obj)
-    return obj
-
-@router.patch("/planes/{id}", response_model=GRCPlanAccionResponse)
-async def update_plan(id: int, data: GRCPlanAccionUpdate, db: AsyncSession = Depends(get_db)):
-    r = await db.execute(select(GRCPlanAccion).where(GRCPlanAccion.id == id))
-    obj = r.scalar_one_or_none()
-    if not obj:
-        raise HTTPException(status_code=404, detail="Plan no encontrado")
-    for k, v in data.model_dump(exclude_unset=True).items():
-        setattr(obj, k, v)
-    await db.commit(); await db.refresh(obj)
-    return obj
-
-
-# ── Incidentes ────────────────────────────────────────────────────────────────
-
-@router.get("/incidentes", response_model=List[GRCIncidenteResponse])
-async def list_incidentes(tipo: Optional[str] = None, estado: Optional[str] = None, db: AsyncSession = Depends(get_db)):
-    q = select(GRCIncidente).where(GRCIncidente.deleted_at.is_(None))
-    if tipo:
-        q = q.where(GRCIncidente.tipo == tipo)
-    if estado:
-        q = q.where(GRCIncidente.estado == estado)
-    r = await db.execute(q.order_by(GRCIncidente.fecha_ocurrencia.desc().nullslast()))
-    return r.scalars().all()
-
-@router.post("/incidentes", response_model=GRCIncidenteResponse, status_code=status.HTTP_201_CREATED)
-async def create_incidente(data: GRCIncidenteUpdate, db: AsyncSession = Depends(get_db)):
-    obj = GRCIncidente(**data.model_dump(exclude_none=True))
-    obj.codigo = await _next_code(db, "INC", GRCIncidente)
-    # Un incidente que se registra ya cerrado también lleva su fecha de cierre.
-    if obj.estado == "cerrado" and not obj.fecha_cierre:
-        obj.fecha_cierre = datetime.utcnow()
-    db.add(obj); await db.commit(); await db.refresh(obj)
-    return obj
-
-@router.patch("/incidentes/{id}", response_model=GRCIncidenteResponse)
-async def update_incidente(id: int, data: GRCIncidenteUpdate, db: AsyncSession = Depends(get_db)):
-    r = await db.execute(select(GRCIncidente).where(GRCIncidente.id == id))
-    obj = r.scalar_one_or_none()
-    if not obj:
-        raise HTTPException(status_code=404, detail="Incidente no encontrado")
-    for k, v in data.model_dump(exclude_unset=True).items():
-        setattr(obj, k, v)
-    # La fecha de cierre sigue al estado: antes quedaba vacía aunque se cerrara.
-    if obj.estado == "cerrado" and not obj.fecha_cierre:
-        obj.fecha_cierre = datetime.utcnow()
-    elif obj.estado != "cerrado":
-        obj.fecha_cierre = None
-    await db.commit(); await db.refresh(obj)
-    return obj
-
-
-# ── Continuidad ───────────────────────────────────────────────────────────────
-
-@router.get("/continuidad", response_model=List[GRCContinuidadResponse])
-async def list_continuidad(criticidad: Optional[str] = None, db: AsyncSession = Depends(get_db)):
-    q = select(GRCContinuidad).where(GRCContinuidad.deleted_at.is_(None))
-    if criticidad:
-        q = q.where(GRCContinuidad.criticidad == criticidad)
-    r = await db.execute(q)
-    return r.scalars().all()
-
-@router.post("/continuidad", response_model=GRCContinuidadResponse, status_code=status.HTTP_201_CREATED)
-async def create_continuidad(data: GRCContinuidadCreate, db: AsyncSession = Depends(get_db)):
-    obj = GRCContinuidad(**data.model_dump())
-    db.add(obj); await db.commit(); await db.refresh(obj)
-    return obj
-
-
-# ── Simulacros ────────────────────────────────────────────────────────────────
-
-@router.get("/simulacros", response_model=List[GRCSimulacroResponse])
-async def list_simulacros(db: AsyncSession = Depends(get_db)):
-    r = await db.execute(select(GRCSimulacro).where(GRCSimulacro.deleted_at.is_(None)).order_by(GRCSimulacro.fecha.desc().nullslast()))
-    return r.scalars().all()
-
-@router.post("/simulacros", response_model=GRCSimulacroResponse, status_code=status.HTTP_201_CREATED)
-async def create_simulacro(data: GRCSimulacroCreate, db: AsyncSession = Depends(get_db)):
-    obj = GRCSimulacro(**data.model_dump())
-    db.add(obj); await db.commit(); await db.refresh(obj)
-    return obj
-
-
-# ── Terceros ──────────────────────────────────────────────────────────────────
-
-@router.get("/terceros", response_model=List[GRCTerceroResponse])
-async def list_terceros(tipo: Optional[str] = None, nivel_riesgo: Optional[str] = None, db: AsyncSession = Depends(get_db)):
-    q = select(GRCTercero).where(GRCTercero.deleted_at.is_(None))
-    if tipo:
-        q = q.where(GRCTercero.tipo == tipo)
-    if nivel_riesgo:
-        q = q.where(GRCTercero.nivel_riesgo == nivel_riesgo)
-    r = await db.execute(q.order_by(GRCTercero.nombre))
-    return r.scalars().all()
-
-@router.post("/terceros", response_model=GRCTerceroResponse, status_code=status.HTTP_201_CREATED)
-async def create_tercero(data: GRCTerceroCreate, db: AsyncSession = Depends(get_db)):
-    obj = GRCTercero(**data.model_dump())
-    db.add(obj); await db.commit(); await db.refresh(obj)
-    return obj
-
-@router.get("/terceros/{tercero_id}/evaluaciones", response_model=List[GRCEvaluacionTerceroResponse])
-async def list_evaluaciones_tercero(tercero_id: int, db: AsyncSession = Depends(get_db)):
-    r = await db.execute(select(GRCEvaluacionTercero).where(GRCEvaluacionTercero.tercero_id == tercero_id, GRCEvaluacionTercero.deleted_at.is_(None)))
-    return r.scalars().all()
-
-@router.post("/terceros/evaluaciones", response_model=GRCEvaluacionTerceroResponse, status_code=status.HTTP_201_CREATED)
-async def create_evaluacion_tercero(data: GRCEvaluacionTerceroCreate, db: AsyncSession = Depends(get_db)):
-    payload = data.model_dump()
-    scores  = [payload.get(k) for k in ["cumplimiento_legal", "riesgo_reputacional", "solidez_financiera", "seguridad_info"] if payload.get(k) is not None]
-    puntaje = round(sum(scores) / len(scores), 2) if scores else None
-    obj = GRCEvaluacionTercero(**payload)
-    obj.puntaje_total = puntaje
-    obj.clasificacion = _clasif_tercero(puntaje) if puntaje else None
-    db.add(obj); await db.commit(); await db.refresh(obj)
-    return obj
-
-
-# ═════════════════════════════════════════════════════════════════════════════
-# EDITAR Y RETIRAR LO QUE FALTABA
-#
-# Las pantallas de GRC eran maqueta y el servidor tenía huecos que la maqueta
-# no dejaba ver: obligaciones, planes de continuidad, terceros, comités y
-# simulacros se creaban pero no se podían corregir, y casi nada se podía
-# retirar. Se agregan aquí con la misma forma para todos.
-# ═════════════════════════════════════════════════════════════════════════════
-
-from datetime import timezone as _tz
-from pydantic import BaseModel as _BaseModel
-
 
 async def _vivo(db: AsyncSession, model, id: int, nombre: str):
-    obj = (await db.execute(select(model).where(model.id == id, model.deleted_at.is_(None)))).scalar_one_or_none()
-    if not obj:
-        raise HTTPException(status_code=404, detail=f"{nombre} no encontrado")
+    obj = await db.get(model, id)
+    if obj is None or getattr(obj, "deleted_at", None) is not None:
+        raise HTTPException(404, f"{nombre} no encontrado")
     return obj
 
 
-def _rutas_editar_retirar(ruta: str, model, esquema, respuesta, nombre: str):
-    """PUT (reemplaza con el formulario completo) y DELETE (borrado suave)."""
-    async def editar(id: int, data: esquema, db: AsyncSession = Depends(get_db)):  # type: ignore[valid-type]
-        obj = await _vivo(db, model, id, nombre)
-        for k, v in data.model_dump(exclude_unset=True).items():
+Hook = Optional[Callable[..., Awaitable[Any]]]
+
+
+class Recurso:
+    def __init__(self, ruta: str, clave: str, nombre: str, modelo, entrada: Type[BaseModel], *,
+                 prefijo: Optional[str] = None,
+                 personas: Sequence[str] = (), listas_personas: Sequence[str] = (),
+                 catalogos: Optional[Dict[str, tuple]] = None,
+                 padres: Optional[Dict[str, Tuple[Any, str]]] = None,
+                 no_columnas: Sequence[str] = (),
+                 filtros: Sequence[str] = (), orden=None,
+                 antes: Hook = None, despues: Hook = None, enriquecer: Hook = None,
+                 al_retirar: Hook = None):
+        self.ruta, self.clave, self.nombre, self.modelo, self.entrada = ruta, clave, nombre, modelo, entrada
+        self.prefijo = prefijo
+        self.personas, self.listas_personas = tuple(personas), tuple(listas_personas)
+        self.catalogos = catalogos or {}
+        self.padres = padres or {}
+        self.no_columnas = tuple(no_columnas)
+        self.filtros, self.orden = tuple(filtros), orden
+        self.antes, self.despues, self.enriquecer, self.al_retirar = antes, despues, enriquecer, al_retirar
+
+    async def salida(self, db: AsyncSession, objs: list, usuarios=None) -> List[dict]:
+        usuarios = usuarios if usuarios is not None else await srv.mapa_usuarios(db)
+        filas = [srv.como_dict(o, usuarios, self.personas, self.listas_personas) for o in objs]
+        if self.enriquecer and filas:
+            await self.enriquecer(db, objs, filas, usuarios)
+        return filas
+
+    async def validar(self, db: AsyncSession, datos: dict, actual: Optional[dict]) -> None:
+        await srv.validar_catalogos(db, datos, self.catalogos)
+        campos = [c for c in self.personas + self.listas_personas if c in datos]
+        await srv.validar_personas(db, {c: datos[c] for c in campos}, actual or {})
+        for campo, (modelo, etiqueta) in self.padres.items():
+            vid = datos.get(campo)
+            if vid is not None and (actual or {}).get(campo) != vid:
+                padre = await db.get(modelo, vid)
+                if padre is None or getattr(padre, "deleted_at", None) is not None:
+                    raise HTTPException(422, f"{etiqueta} elegido no existe.")
+
+
+def montar(rec: Recurso):
+    entrada = rec.entrada
+
+    async def listar(request: Request, db: AsyncSession = Depends(get_db)):
+        q = select(rec.modelo).where(rec.modelo.deleted_at.is_(None))
+        for f in rec.filtros:
+            v = request.query_params.get(f)
+            if v not in (None, ""):
+                col = getattr(rec.modelo, f)
+                q = q.where(col == (int(v) if f.endswith("_id") else v))
+        if rec.orden is not None:
+            q = q.order_by(*rec.orden) if isinstance(rec.orden, (list, tuple)) else q.order_by(rec.orden)
+        return await rec.salida(db, list((await db.execute(q)).scalars()))
+
+    async def ver(id: int, db: AsyncSession = Depends(get_db)):
+        obj = await _vivo(db, rec.modelo, id, rec.nombre)
+        return (await rec.salida(db, [obj]))[0]
+
+    async def crear(data: entrada, db: AsyncSession = Depends(get_db),  # type: ignore[valid-type]
+                    yo: Usuario = Depends(get_current_user)):
+        datos = data.model_dump()
+        extras = {k: datos.pop(k) for k in rec.no_columnas if k in datos}
+        await rec.validar(db, datos, None)
+        obj = rec.modelo(**datos)
+        if rec.prefijo:
+            obj.codigo = await _next_code(db, rec.prefijo, rec.modelo)
+        if rec.antes:
+            await rec.antes(db, obj, datos, extras, None, yo)
+        db.add(obj)
+        await db.flush()
+        if rec.despues:
+            await rec.despues(db, obj, extras, True, yo)
+        await srv.registrar(db, rec.clave, obj.id, "crear", yo.id)
+        await db.commit()
+        await db.refresh(obj)
+        return (await rec.salida(db, [obj]))[0]
+
+    async def editar(id: int, data: entrada, db: AsyncSession = Depends(get_db),  # type: ignore[valid-type]
+                     yo: Usuario = Depends(get_current_user)):
+        obj = await _vivo(db, rec.modelo, id, rec.nombre)
+        antes = {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
+        datos = data.model_dump()
+        extras = {k: datos.pop(k) for k in rec.no_columnas if k in datos}
+        await rec.validar(db, datos, antes)
+        for k, v in datos.items():
             setattr(obj, k, v)
-        await db.commit(); await db.refresh(obj)
-        return obj
+        # La regla de la entidad va después de aplicar el formulario: lo que
+        # el servidor calcula no puede quedar pisado por un vacío del formulario.
+        if rec.antes:
+            await rec.antes(db, obj, datos, extras, antes, yo)
+        await db.flush()
+        if rec.despues:
+            await rec.despues(db, obj, extras, False, yo)
+        for c in obj.__table__.columns:
+            # Las marcas de tiempo quedan vencidas tras el flush; leerlas
+            # dispararía una consulta perezosa fuera de lugar.
+            if c.name in ("updated_at", "created_at"):
+                continue
+            a, n = antes.get(c.name), getattr(obj, c.name)
+            if srv.valor_json(a) != srv.valor_json(n):
+                await srv.registrar(db, rec.clave, obj.id, "editar", yo.id, c.name, a, n)
+        await db.commit()
+        await db.refresh(obj)
+        return (await rec.salida(db, [obj]))[0]
 
-    async def retirar(id: int, db: AsyncSession = Depends(get_db)):
-        obj = await _vivo(db, model, id, nombre)
-        obj.deleted_at = datetime.now(_tz.utc)
+    async def retirar(id: int, db: AsyncSession = Depends(get_db), yo: Usuario = Depends(get_current_user)):
+        obj = await _vivo(db, rec.modelo, id, rec.nombre)
+        if rec.al_retirar:
+            await rec.al_retirar(db, obj)
+        obj.deleted_at = srv.AHORA()
+        if hasattr(obj, "activo"):
+            obj.activo = False
+        await srv.registrar(db, rec.clave, obj.id, "retirar", yo.id)
+        await db.flush()
+        if rec.despues:
+            await rec.despues(db, obj, {}, None, yo)   # None = se retiró
         await db.commit()
 
-    router.add_api_route(f"/{ruta}/{{id}}", editar, methods=["PUT"], response_model=respuesta,
-                         name=f"editar_{ruta}")
-    router.add_api_route(f"/{ruta}/{{id}}", retirar, methods=["DELETE"], status_code=status.HTTP_204_NO_CONTENT,
-                         name=f"retirar_{ruta}")
+    r = rec.ruta
+    router.add_api_route(f"/{r}", listar, methods=["GET"], name=f"listar_{r}")
+    router.add_api_route(f"/{r}/{{id}}", ver, methods=["GET"], name=f"ver_{r}")
+    router.add_api_route(f"/{r}", crear, methods=["POST"], status_code=201, name=f"crear_{r}")
+    router.add_api_route(f"/{r}/{{id}}", editar, methods=["PUT"], name=f"editar_{r}")
+    router.add_api_route(f"/{r}/{{id}}", retirar, methods=["DELETE"], status_code=204, name=f"retirar_{r}")
 
 
-_rutas_editar_retirar("comites", GRCComite, GRCComiteCreate, GRCComiteResponse, "Comité")
-_rutas_editar_retirar("obligaciones", GRCObligacion, GRCObligacionCreate, GRCObligacionResponse, "Obligación")
-_rutas_editar_retirar("continuidad", GRCContinuidad, GRCContinuidadCreate, GRCContinuidadResponse, "Plan de continuidad")
-_rutas_editar_retirar("simulacros", GRCSimulacro, GRCSimulacroCreate, GRCSimulacroResponse, "Simulacro")
-_rutas_editar_retirar("terceros", GRCTercero, GRCTerceroCreate, GRCTerceroResponse, "Tercero")
-_rutas_editar_retirar("evidencias", GRCEvidencia, GRCEvidenciaCreate, GRCEvidenciaResponse, "Evidencia")
+async def _contar(db, columna, ids, *cond) -> Dict[int, int]:
+    if not ids:
+        return {}
+    filas = (await db.execute(select(columna, func.count()).where(columna.in_(ids), *cond)
+                              .group_by(columna))).all()
+    return dict(filas)
 
 
-# Retirar lo que ya tenía PATCH y no DELETE.
-def _ruta_retirar(ruta: str, model, nombre: str):
-    async def retirar(id: int, db: AsyncSession = Depends(get_db)):
-        obj = await _vivo(db, model, id, nombre)
-        obj.deleted_at = datetime.now(_tz.utc)
-        await db.commit()
-    router.add_api_route(f"/{ruta}/{{id}}", retirar, methods=["DELETE"], status_code=status.HTTP_204_NO_CONTENT,
-                         name=f"retirar_{ruta}")
+def _hoy() -> date:
+    return date.today()
 
 
-for _r, _m, _n in [("controles", GRCControl, "Control"), ("riesgos", GRCRiesgo, "Riesgo"),
-                   ("cumplimiento", GRCMatrizCumplimiento, "Registro"), ("auditorias", GRCAuditoria, "Auditoría"),
-                   ("hallazgos", GRCHallazgo, "Hallazgo"), ("planes", GRCPlanAccion, "Plan"),
-                   ("incidentes", GRCIncidente, "Incidente"), ("tratamientos", GRCTratamiento, "Tratamiento")]:
-    _ruta_retirar(_r, _m, _n)
+# ═════════════════════════════════════════════════════════════════════════════
+# GOBIERNO
+# ═════════════════════════════════════════════════════════════════════════════
+
+async def _comite_despues(db, obj, extras, creando, yo):
+    if creando is None or "miembros" not in extras:
+        return
+    nuevos = set(extras["miembros"] or [])
+    await srv.validar_personas(db, {"miembros": list(nuevos)}, {})
+    actuales = {m.usuario_id: m for m in (await db.execute(
+        select(GRCComiteMiembro).where(GRCComiteMiembro.comite_id == obj.id))).scalars()}
+    for uid, m in actuales.items():
+        if uid not in nuevos:
+            await db.delete(m)
+    for uid in nuevos - set(actuales):
+        db.add(GRCComiteMiembro(comite_id=obj.id, usuario_id=uid))
 
 
-class _TratamientoAvance(_BaseModel):
-    estado: Optional[str] = None
-    avance: Optional[int] = None
+async def _comite_enriquecer(db, objs, filas, usuarios):
+    ids = [o.id for o in objs]
+    miembros: Dict[int, list] = {}
+    for m in (await db.execute(select(GRCComiteMiembro).where(GRCComiteMiembro.comite_id.in_(ids)))).scalars():
+        miembros.setdefault(m.comite_id, []).append(m.usuario_id)
+    riesgos = await _contar(db, GRCRiesgo.comite_id, ids, GRCRiesgo.deleted_at.is_(None))
+    ultima = dict((await db.execute(select(GRCComiteSesion.comite_id, func.max(GRCComiteSesion.fecha))
+                                    .where(GRCComiteSesion.comite_id.in_(ids), GRCComiteSesion.deleted_at.is_(None))
+                                    .group_by(GRCComiteSesion.comite_id))).all())
+    proxima = dict((await db.execute(select(GRCComiteSesion.comite_id, func.max(GRCComiteSesion.proxima))
+                                     .where(GRCComiteSesion.comite_id.in_(ids), GRCComiteSesion.deleted_at.is_(None))
+                                     .group_by(GRCComiteSesion.comite_id))).all())
+    for f in filas:
+        f["miembros"] = miembros.get(f["id"], [])
+        f["miembros_nombres"] = [usuarios.get(u, f"#{u}") for u in f["miembros"]]
+        f["riesgos"] = riesgos.get(f["id"], 0)
+        f["ultima_sesion"] = srv.valor_json(ultima.get(f["id"]))
+        f["proxima_sesion"] = srv.valor_json(proxima.get(f["id"]))
 
 
-@router.patch("/tratamientos/{id}", response_model=GRCTratamientoResponse)
-async def avance_tratamiento(id: int, data: _TratamientoAvance, db: AsyncSession = Depends(get_db)):
-    obj = await _vivo(db, GRCTratamiento, id, "Tratamiento")
-    if data.avance is not None:
-        if not 0 <= data.avance <= 100:
-            raise HTTPException(422, "El avance va de 0 a 100")
-        obj.avance = data.avance
-        # El estado sigue al avance para que no digan cosas distintas.
-        obj.estado = "completado" if data.avance == 100 else ("en_curso" if data.avance > 0 else "pendiente")
-    if data.estado is not None:
-        obj.estado = data.estado
-    await db.commit(); await db.refresh(obj)
-    return obj
+montar(Recurso("comites", "comite", "Comité", GRCComite, esq.ComiteIn,
+               personas=("presidente_id", "secretario_id"), no_columnas=("miembros",),
+               catalogos={"tipo": ("GRC", "TIPO_COMITE", "tipo de comité"),
+                          "periodicidad": ("GRC", "PERIODICIDAD", "periodicidad")},
+               orden=GRCComite.nombre, despues=_comite_despues, enriquecer=_comite_enriquecer))
 
 
-# ─── Responsables: quién responde por qué ───────────────────────────────────
+async def _sesion_despues(db, obj, extras, creando, yo):
+    if creando is None or "riesgos" not in extras:
+        return
+    await db.execute(text("DELETE FROM grc_vinculo WHERE origen_tipo = 'sesion' AND origen_id = :i"), {"i": obj.id})
+    for rid in set(extras["riesgos"] or []):
+        await _vivo(db, GRCRiesgo, rid, "Riesgo")
+        db.add(GRCVinculo(origen_tipo="sesion", origen_id=obj.id, destino_tipo="riesgo", destino_id=rid))
 
-@router.get("/responsables")
-async def responsables(db: AsyncSession = Depends(get_db)):
-    """Cuántos riesgos, controles, obligaciones y hallazgos abiertos tiene
-    cada responsable. La pantalla de gobierno traía una lista escrita a mano;
-    esto sale de lo que ya se registró en cada elemento."""
-    conteo: dict = {}
 
-    async def sumar(model, clave, *cond):
-        r = await db.execute(select(model.responsable, func.count()).where(
-            model.deleted_at.is_(None), model.responsable.isnot(None), model.responsable != "", *cond)
-            .group_by(model.responsable))
-        for nombre, n in r.all():
-            conteo.setdefault(nombre.strip(), {"responsable": nombre.strip(), "riesgos": 0, "controles": 0,
-                                               "obligaciones": 0, "hallazgos_abiertos": 0})[clave] += n
+async def _sesion_enriquecer(db, objs, filas, usuarios):
+    comites = {c.id: c for c in (await db.execute(select(GRCComite).where(
+        GRCComite.id.in_([o.comite_id for o in objs])))).scalars()}
+    vinc: Dict[int, list] = {}
+    for v in (await db.execute(select(GRCVinculo).where(
+            GRCVinculo.origen_tipo == "sesion", GRCVinculo.origen_id.in_([o.id for o in objs])))).scalars():
+        vinc.setdefault(v.origen_id, []).append(v.destino_id)
+    for f in filas:
+        c = comites.get(f["comite_id"])
+        f["comite_nombre"] = c.nombre if c else None
+        quorum = c.quorum_minimo if c else None
+        f["quorum_ok"] = None if not quorum else len(f["asistentes"] or []) >= quorum
+        f["riesgos"] = vinc.get(f["id"], [])
 
-    await sumar(GRCRiesgo, "riesgos", GRCRiesgo.estado.notin_([EstadoRiesgoGRCEnum.CERRADO, EstadoRiesgoGRCEnum.MITIGADO]))
-    await sumar(GRCControl, "controles")
-    await sumar(GRCObligacion, "obligaciones")
-    await sumar(GRCHallazgo, "hallazgos_abiertos", GRCHallazgo.estado != EstadoHallazgoGRCEnum.CERRADO)
-    return sorted(conteo.values(), key=lambda x: -(x["riesgos"] + x["controles"] + x["obligaciones"] + x["hallazgos_abiertos"]))
+
+montar(Recurso("sesiones", "sesion", "Sesión", GRCComiteSesion, esq.SesionIn,
+               listas_personas=("asistentes",), no_columnas=("riesgos",),
+               padres={"comite_id": (GRCComite, "El comité")}, filtros=("comite_id",),
+               orden=GRCComiteSesion.fecha.desc(), despues=_sesion_despues, enriquecer=_sesion_enriquecer))
+
+
+async def _politica_antes(db, obj, datos, extras, antes, yo):
+    if antes is None:
+        obj.estado = EstadoPoliticaGRCEnum.BORRADOR
+        return
+    aprobada = antes.get("estado") in (EstadoPoliticaGRCEnum.APROBADA, EstadoPoliticaGRCEnum.PUBLICADA)
+    if not aprobada:
+        return
+    if datos.get("version") != antes.get("version"):
+        # Versión nueva: vuelve a revisión y a aprobación. Las aceptaciones
+        # son por versión, así que se piden de nuevo solas.
+        obj.estado = EstadoPoliticaGRCEnum.EN_REVISION
+        obj.fecha_aprobacion = None
+        return
+    # Cambiar el texto de una política aprobada sin subir la versión dejaría
+    # aceptaciones firmadas sobre un contenido distinto.
+    if any(srv.valor_json(datos.get(k)) != srv.valor_json(antes.get(k))
+           for k in ("alcance", "descripcion", "nombre")):
+        raise HTTPException(409, "La política ya está aprobada: para cambiar su contenido suba la versión "
+                                 "(vuelve a revisión y las aceptaciones se piden de nuevo).")
+
+
+async def _politica_enriquecer(db, objs, filas, usuarios):
+    ids = [o.id for o in objs]
+    acept: Dict[Tuple[int, str], int] = {}
+    for pid, ver, n in (await db.execute(select(GRCPoliticaAceptacion.politica_id, GRCPoliticaAceptacion.version,
+                                                func.count()).where(GRCPoliticaAceptacion.politica_id.in_(ids))
+                                         .group_by(GRCPoliticaAceptacion.politica_id, GRCPoliticaAceptacion.version))).all():
+        acept[(pid, ver)] = n
+    personas = len(await srv.personas_grc(db))
+    hoy = _hoy()
+    for f in filas:
+        f["aceptaciones"] = acept.get((f["id"], f["version"]), 0)
+        f["aceptaciones_esperadas"] = personas if f["aceptaciones_requeridas"] else 0
+        f["vencida"] = bool(f["estado"] == "publicada" and f["fecha_revision"]
+                            and date.fromisoformat(f["fecha_revision"]) < hoy)
+
+
+montar(Recurso("politicas", "politica", "Política", GRCPolitica, esq.PoliticaIn, prefijo="POL",
+               personas=("propietario_id", "aprobador_id"),
+               catalogos={"tipo": ("GRC", "TIPO_POLITICA", "tipo de política"),
+                          "periodicidad_revision": ("GRC", "PERIODICIDAD", "periodicidad")},
+               filtros=("estado",), orden=GRCPolitica.nombre,
+               antes=_politica_antes, enriquecer=_politica_enriquecer))
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# CUMPLIMIENTO
+# ═════════════════════════════════════════════════════════════════════════════
+
+async def _vinculos_de(db, tipo: str, ids: List[int]) -> Dict[int, Dict[str, int]]:
+    """Cuántos vínculos tiene cada registro, por tipo del otro extremo."""
+    salida: Dict[int, Dict[str, int]] = {}
+    if not ids:
+        return salida
+    for o_t, o_id, d_t, d_id in (await db.execute(select(
+            GRCVinculo.origen_tipo, GRCVinculo.origen_id, GRCVinculo.destino_tipo, GRCVinculo.destino_id))).all():
+        if o_t == tipo and o_id in ids:
+            salida.setdefault(o_id, {}).setdefault(d_t, 0)
+            salida[o_id][d_t] += 1
+        if d_t == tipo and d_id in ids:
+            salida.setdefault(d_id, {}).setdefault(o_t, 0)
+            salida[d_id][o_t] += 1
+    return salida
+
+
+async def _obligacion_enriquecer(db, objs, filas, usuarios):
+    ids = [o.id for o in objs]
+    vinc = await _vinculos_de(db, "obligacion", ids)
+    ultimas = {}
+    for e in (await db.execute(select(GRCMatrizCumplimiento).where(
+            GRCMatrizCumplimiento.obligacion_id.in_(ids), GRCMatrizCumplimiento.deleted_at.is_(None))
+            .order_by(GRCMatrizCumplimiento.ultima_evaluacion.asc().nullsfirst(), GRCMatrizCumplimiento.id))).scalars():
+        ultimas[e.obligacion_id] = e
+    hoy = _hoy()
+    for f in filas:
+        v = vinc.get(f["id"], {})
+        f["controles"] = v.get("control", 0)
+        f["politicas"] = v.get("politica", 0)
+        e = ultimas.get(f["id"])
+        f["ultima_evaluacion"] = srv.valor_json(e.ultima_evaluacion) if e else None
+        f["proxima_evaluacion"] = srv.valor_json(e.proxima_evaluacion) if e else None
+        f["puntaje"] = e.puntaje if e else None
+        f["vencida"] = bool(f["fecha_vencimiento"] and date.fromisoformat(f["fecha_vencimiento"]) < hoy)
+
+
+montar(Recurso("obligaciones", "obligacion", "Obligación", GRCObligacion, esq.ObligacionIn, prefijo="OBL",
+               personas=("responsable_id",),
+               catalogos={"tipo": ("GRC", "TIPO_OBLIGACION", "tipo de obligación"),
+                          "marco": ("GRC", "MARCO_NORMATIVO", "marco normativo"),
+                          "periodicidad": ("GRC", "PERIODICIDAD", "periodicidad"),
+                          "pais": ("GLOBAL", "PAIS", "país"),
+                          "proceso": GLOBAL_PROCESO, "area": GLOBAL_AREA},
+               filtros=("tipo", "marco", "estado_cumplimiento"), orden=GRCObligacion.nombre,
+               enriquecer=_obligacion_enriquecer))
+
+
+async def _cumplimiento_antes(db, obj, datos, extras, antes, yo):
+    if datos.get("estado") in (EstadoCumplimientoGRCEnum.CUMPLE, "cumple") and not (datos.get("evidencias") or "").strip():
+        raise HTTPException(422, "Para marcar «cumple» hay que decir con qué evidencia.")
+    obj.ultima_evaluacion = datos.get("ultima_evaluacion") or _hoy()
+    oblig = await db.get(GRCObligacion, datos["obligacion_id"])
+    dias = await srv.dias_de(db, oblig.periodicidad if oblig else None)
+    obj.proxima_evaluacion = obj.ultima_evaluacion + timedelta(days=dias) if dias else None
+
+
+async def _cumplimiento_despues(db, obj, extras, creando, yo):
+    """El estado de la obligación es el de su evaluación más reciente."""
+    ultima = (await db.execute(select(GRCMatrizCumplimiento).where(
+        GRCMatrizCumplimiento.obligacion_id == obj.obligacion_id, GRCMatrizCumplimiento.deleted_at.is_(None))
+        .order_by(GRCMatrizCumplimiento.ultima_evaluacion.desc().nullslast(), GRCMatrizCumplimiento.id.desc())
+        .limit(1))).scalar()
+    oblig = await db.get(GRCObligacion, obj.obligacion_id)
+    if oblig:
+        oblig.estado_cumplimiento = ultima.estado if ultima else EstadoCumplimientoGRCEnum.EN_EVALUACION
+
+
+async def _cumplimiento_enriquecer(db, objs, filas, usuarios):
+    obl = {o.id: o for o in (await db.execute(select(GRCObligacion).where(
+        GRCObligacion.id.in_([x.obligacion_id for x in objs])))).scalars()}
+    for f in filas:
+        o = obl.get(f["obligacion_id"])
+        f["obligacion_nombre"] = o.nombre if o else None
+        f["obligacion_codigo"] = o.codigo if o else None
+        f["marco"] = o.marco if o else None
+
+
+montar(Recurso("cumplimiento", "cumplimiento", "Evaluación", GRCMatrizCumplimiento, esq.CumplimientoIn,
+               personas=("responsable_id",), padres={"obligacion_id": (GRCObligacion, "La obligación")},
+               catalogos={"proceso": GLOBAL_PROCESO, "area": GLOBAL_AREA},
+               filtros=("obligacion_id", "estado"),
+               orden=GRCMatrizCumplimiento.ultima_evaluacion.desc().nullslast(),
+               antes=_cumplimiento_antes, despues=_cumplimiento_despues, enriquecer=_cumplimiento_enriquecer))
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# RIESGOS Y CONTROLES
+# ═════════════════════════════════════════════════════════════════════════════
+
+async def _control_despues(db, obj, extras, creando, yo):
+    await srv.recalcular_control(db, obj)
+
+
+async def _control_enriquecer(db, objs, filas, usuarios):
+    ids = [o.id for o in objs]
+    riesgos = await _contar(db, GRCRiesgoControl.control_id, ids)
+    pruebas = await _contar(db, GRCPruebaControl.control_id, ids, GRCPruebaControl.deleted_at.is_(None))
+    vinc = await _vinculos_de(db, "control", ids)
+    hoy = _hoy()
+    for f in filas:
+        f["riesgos"] = riesgos.get(f["id"], 0)
+        f["pruebas"] = pruebas.get(f["id"], 0)
+        f["obligaciones"] = vinc.get(f["id"], {}).get("obligacion", 0)
+        f["prueba_vencida"] = bool(f["proxima_evaluacion"] and date.fromisoformat(f["proxima_evaluacion"]) < hoy)
+
+
+async def _control_retirar(db, obj):
+    # Primero los riesgos que mitigaba: después de soltar los vínculos ya no
+    # habría cómo saber cuáles recalcular.
+    riesgos = (await db.execute(select(GRCRiesgoControl.riesgo_id).where(
+        GRCRiesgoControl.control_id == obj.id))).scalars().all()
+    await db.execute(text("DELETE FROM grc_riesgo_control WHERE control_id = :i"), {"i": obj.id})
+    for rid in riesgos:
+        r = await db.get(GRCRiesgo, rid)
+        if r is not None and r.deleted_at is None:
+            await srv.recalcular_riesgo(db, r)
+
+
+montar(Recurso("controles", "control", "Control", GRCControl, esq.ControlIn, prefijo="CTL",
+               personas=("responsable_id",),
+               catalogos={"frecuencia": ("GRC", "FRECUENCIA_CONTROL", "frecuencia"),
+                          "periodicidad_prueba": ("GRC", "PERIODICIDAD", "periodicidad de prueba"),
+                          "proceso": GLOBAL_PROCESO, "area": GLOBAL_AREA},
+               filtros=("tipo", "efectividad", "proceso"), orden=GRCControl.nombre,
+               despues=_control_despues, enriquecer=_control_enriquecer, al_retirar=_control_retirar))
+
+
+async def _prueba_despues(db, obj, extras, creando, yo):
+    control = await db.get(GRCControl, obj.control_id)
+    if control is not None:
+        await srv.recalcular_control(db, control)
+
+
+montar(Recurso("pruebas", "prueba", "Prueba", GRCPruebaControl, esq.PruebaIn,
+               personas=("probador_id",), padres={"control_id": (GRCControl, "El control")},
+               filtros=("control_id",), orden=GRCPruebaControl.fecha.desc(), despues=_prueba_despues))
+
+
+async def _riesgo_despues(db, obj, extras, creando, yo):
+    if creando is not None:
+        await srv.recalcular_riesgo(db, obj)
+
+
+async def _riesgo_enriquecer(db, objs, filas, usuarios):
+    ids = [o.id for o in objs]
+    controles = await _contar(db, GRCRiesgoControl.riesgo_id, ids)
+    incidentes = await _contar(db, GRCIncidente.riesgo_id, ids, GRCIncidente.deleted_at.is_(None))
+    hallazgos = await _contar(db, GRCHallazgo.riesgo_id, ids, GRCHallazgo.deleted_at.is_(None))
+    kris = await _contar(db, GRCKri.riesgo_id, ids, GRCKri.deleted_at.is_(None))
+    tratamientos = await _contar(db, GRCTratamiento.riesgo_id, ids, GRCTratamiento.deleted_at.is_(None))
+    apetito = await srv.metadatos_catalogo(db, "GRC", "CATEGORIA_RIESGO")
+    comites = dict((await db.execute(select(GRCComite.id, GRCComite.nombre))).all())
+    terceros = dict((await db.execute(select(GRCTercero.id, GRCTercero.nombre))).all())
+    for f in filas:
+        f["controles"] = controles.get(f["id"], 0)
+        f["incidentes"] = incidentes.get(f["id"], 0)
+        f["hallazgos"] = hallazgos.get(f["id"], 0)
+        f["kris"] = kris.get(f["id"], 0)
+        f["tratamientos"] = tratamientos.get(f["id"], 0)
+        f["comite_nombre"] = comites.get(f["comite_id"])
+        f["tercero_nombre"] = terceros.get(f["tercero_id"])
+        tope = (apetito.get(f["tipo"]) or {}).get("apetito")
+        nivel = f["nivel_residual"] or f["nivel_inherente"]
+        f["apetito"] = tope
+        f["fuera_de_apetito"] = bool(tope and nivel and nivel > int(tope))
+
+
+async def _riesgo_retirar(db, obj):
+    await db.execute(text("DELETE FROM grc_riesgo_control WHERE riesgo_id = :i"), {"i": obj.id})
+
+
+montar(Recurso("riesgos", "riesgo", "Riesgo", GRCRiesgo, esq.RiesgoIn, prefijo="RSK",
+               personas=("responsable_id",),
+               catalogos={"tipo": ("GRC", "CATEGORIA_RIESGO", "categoría de riesgo"),
+                          "proceso": GLOBAL_PROCESO, "area": GLOBAL_AREA},
+               padres={"comite_id": (GRCComite, "El comité"), "tercero_id": (GRCTercero, "El tercero")},
+               filtros=("tipo", "estado", "prioridad", "proceso", "comite_id", "tercero_id", "responsable_id"),
+               orden=(GRCRiesgo.nivel_residual.desc().nullslast(), GRCRiesgo.nivel_inherente.desc().nullslast()),
+               despues=_riesgo_despues, enriquecer=_riesgo_enriquecer, al_retirar=_riesgo_retirar))
+
+
+def _estado_por_avance(obj):
+    obj.estado = "completado" if obj.avance >= 100 else ("en_curso" if obj.avance > 0 else "pendiente")
+
+
+async def _avance_antes(db, obj, datos, extras, antes, yo):
+    obj.avance = datos.get("avance") or 0
+    _estado_por_avance(obj)
+
+
+montar(Recurso("tratamientos", "tratamiento", "Tratamiento", GRCTratamiento, esq.TratamientoIn,
+               personas=("responsable_id",), padres={"riesgo_id": (GRCRiesgo, "El riesgo")},
+               filtros=("riesgo_id", "estado"), orden=GRCTratamiento.fecha_objetivo.asc().nullslast(),
+               antes=_avance_antes))
+
+
+async def _kri_antes(db, obj, datos, extras, antes, yo):
+    a, c = datos["umbral_alerta"], datos["umbral_critico"]
+    if datos.get("direccion", "sube") == "sube" and c < a:
+        raise HTTPException(422, "Si el indicador empeora al subir, el umbral crítico debe ser mayor o igual al de alerta.")
+    if datos.get("direccion") == "baja" and c > a:
+        raise HTTPException(422, "Si el indicador empeora al bajar, el umbral crítico debe ser menor o igual al de alerta.")
+
+
+async def _kri_enriquecer(db, objs, filas, usuarios):
+    ids = [o.id for o in objs]
+    ultimas: Dict[int, GRCKriMedicion] = {}
+    for m in (await db.execute(select(GRCKriMedicion).where(GRCKriMedicion.kri_id.in_(ids))
+                               .order_by(GRCKriMedicion.periodo))).scalars():
+        ultimas[m.kri_id] = m
+    riesgos = dict((await db.execute(select(GRCRiesgo.id, GRCRiesgo.nombre).where(
+        GRCRiesgo.id.in_([o.riesgo_id for o in objs])))).all())
+    for f in filas:
+        m = ultimas.get(f["id"])
+        f["riesgo_nombre"] = riesgos.get(f["riesgo_id"])
+        f["ultimo_valor"] = float(m.valor) if m else None
+        f["ultimo_periodo"] = m.periodo if m else None
+        f["estado"] = srv.estado_kri(m.valor if m else None, f["direccion"], f["umbral_alerta"], f["umbral_critico"])
+
+
+montar(Recurso("kris", "kri", "Indicador", GRCKri, esq.KriIn,
+               personas=("responsable_id",), padres={"riesgo_id": (GRCRiesgo, "El riesgo")},
+               catalogos={"periodicidad": ("GRC", "PERIODICIDAD", "periodicidad")},
+               filtros=("riesgo_id",), orden=GRCKri.nombre, antes=_kri_antes, enriquecer=_kri_enriquecer))
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# AUDITORÍA, HALLAZGOS E INCIDENTES
+# ═════════════════════════════════════════════════════════════════════════════
+
+async def _auditoria_enriquecer(db, objs, filas, usuarios):
+    ids = [o.id for o in objs]
+    total = await _contar(db, GRCHallazgo.auditoria_id, ids, GRCHallazgo.deleted_at.is_(None))
+    abiertos = await _contar(db, GRCHallazgo.auditoria_id, ids, GRCHallazgo.deleted_at.is_(None),
+                             GRCHallazgo.estado != EstadoHallazgoGRCEnum.CERRADO)
+    for f in filas:
+        f["hallazgos"] = total.get(f["id"], 0)
+        f["hallazgos_abiertos"] = abiertos.get(f["id"], 0)
+
+
+async def _auditoria_antes(db, obj, datos, extras, antes, yo):
+    if datos.get("fecha_inicio") and datos.get("fecha_fin") and datos["fecha_fin"] < datos["fecha_inicio"]:
+        raise HTTPException(422, "La fecha de fin no puede ser anterior a la de inicio.")
+
+
+montar(Recurso("auditorias", "auditoria", "Auditoría", GRCAuditoria, esq.AuditoriaIn, prefijo="AUD",
+               personas=("auditor_lider_id",), listas_personas=("equipo",),
+               catalogos={"tipo": ("GRC", "TIPO_AUDITORIA", "tipo de auditoría"),
+                          "marco": ("GRC", "MARCO_NORMATIVO", "marco normativo"),
+                          "proceso": GLOBAL_PROCESO, "area": GLOBAL_AREA},
+               filtros=("estado", "tipo"), orden=GRCAuditoria.fecha_inicio.desc().nullslast(),
+               antes=_auditoria_antes, enriquecer=_auditoria_enriquecer))
+
+
+async def _hallazgo_antes(db, obj, datos, extras, antes, yo):
+    if not datos.get("fecha_limite"):
+        obj.fecha_limite = _hoy() + timedelta(days=await srv.parametro(db, "dias_plazo_hallazgo", 60))
+    if datos.get("estado") == EstadoHallazgoGRCEnum.CERRADO and antes is not None:
+        pendientes = (await db.execute(select(func.count()).select_from(GRCPlanAccion).where(
+            GRCPlanAccion.hallazgo_id == obj.id, GRCPlanAccion.deleted_at.is_(None),
+            GRCPlanAccion.avance < 100))).scalar()
+        if pendientes:
+            raise HTTPException(409, f"No se puede cerrar: tiene {pendientes} plan(es) de acción sin completar.")
+
+
+async def _hallazgo_enriquecer(db, objs, filas, usuarios):
+    ids = [o.id for o in objs]
+    planes = await _contar(db, GRCPlanAccion.hallazgo_id, ids, GRCPlanAccion.deleted_at.is_(None))
+    hechos = await _contar(db, GRCPlanAccion.hallazgo_id, ids, GRCPlanAccion.deleted_at.is_(None),
+                           GRCPlanAccion.avance >= 100)
+    auds = dict((await db.execute(select(GRCAuditoria.id, GRCAuditoria.codigo))).all())
+    rsk = dict((await db.execute(select(GRCRiesgo.id, GRCRiesgo.codigo))).all())
+    ctl = dict((await db.execute(select(GRCControl.id, GRCControl.codigo))).all())
+    inc = dict((await db.execute(select(GRCIncidente.id, GRCIncidente.codigo))).all())
+    hoy = _hoy()
+    for f in filas:
+        f["planes"] = planes.get(f["id"], 0)
+        f["planes_completos"] = hechos.get(f["id"], 0)
+        f["auditoria_codigo"] = auds.get(f["auditoria_id"])
+        f["riesgo_codigo"] = rsk.get(f["riesgo_id"])
+        f["control_codigo"] = ctl.get(f["control_id"])
+        f["incidente_codigo"] = inc.get(f["incidente_id"])
+        f["vencido"] = bool(f["estado"] != "cerrado" and f["fecha_limite"]
+                            and date.fromisoformat(f["fecha_limite"]) < hoy)
+
+
+montar(Recurso("hallazgos", "hallazgo", "Hallazgo", GRCHallazgo, esq.HallazgoIn, prefijo="HAL",
+               personas=("responsable_id",),
+               catalogos={"tipo": ("GRC", "TIPO_HALLAZGO", "tipo de hallazgo"),
+                          "proceso": GLOBAL_PROCESO, "area": GLOBAL_AREA},
+               padres={"auditoria_id": (GRCAuditoria, "La auditoría"), "incidente_id": (GRCIncidente, "El incidente"),
+                       "riesgo_id": (GRCRiesgo, "El riesgo"), "control_id": (GRCControl, "El control")},
+               filtros=("estado", "severidad", "auditoria_id", "riesgo_id", "control_id", "incidente_id"),
+               orden=GRCHallazgo.fecha_limite.asc().nullslast(),
+               antes=_hallazgo_antes, enriquecer=_hallazgo_enriquecer))
+
+
+montar(Recurso("planes", "plan", "Plan de acción", GRCPlanAccion, esq.PlanIn,
+               personas=("responsable_id",), padres={"hallazgo_id": (GRCHallazgo, "El hallazgo")},
+               filtros=("hallazgo_id", "estado"), orden=GRCPlanAccion.fecha_objetivo.asc().nullslast(),
+               antes=_avance_antes))
+
+
+async def _incidente_antes(db, obj, datos, extras, antes, yo):
+    if datos.get("estado") == "cerrado":
+        if not (datos.get("causa_raiz") or "").strip():
+            raise HTTPException(422, "Para cerrar el incidente hay que registrar la causa raíz.")
+        if not obj.fecha_cierre:
+            obj.fecha_cierre = datetime.utcnow()
+    else:
+        obj.fecha_cierre = None
+    if antes is None and not datos.get("reportado_por_id"):
+        obj.reportado_por_id = yo.id
+
+
+async def _incidente_enriquecer(db, objs, filas, usuarios):
+    rsk = dict((await db.execute(select(GRCRiesgo.id, GRCRiesgo.codigo))).all())
+    ctl = dict((await db.execute(select(GRCControl.id, GRCControl.codigo))).all())
+    hal = await _contar(db, GRCHallazgo.incidente_id, [o.id for o in objs], GRCHallazgo.deleted_at.is_(None))
+    for f in filas:
+        f["riesgo_codigo"] = rsk.get(f["riesgo_id"])
+        f["control_codigo"] = ctl.get(f["control_id"])
+        f["hallazgos"] = hal.get(f["id"], 0)
+
+
+montar(Recurso("incidentes", "incidente", "Incidente", GRCIncidente, esq.IncidenteIn, prefijo="INC",
+               personas=("reportado_por_id", "responsable_id"),
+               catalogos={"tipo": ("GRC", "TIPO_INCIDENTE", "tipo de incidente"),
+                          "proceso": GLOBAL_PROCESO, "area": GLOBAL_AREA},
+               padres={"riesgo_id": (GRCRiesgo, "El riesgo"), "control_id": (GRCControl, "El control")},
+               filtros=("estado", "tipo", "severidad", "riesgo_id"),
+               orden=GRCIncidente.fecha_ocurrencia.desc().nullslast(),
+               antes=_incidente_antes, enriquecer=_incidente_enriquecer))
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# CONTINUIDAD
+# ═════════════════════════════════════════════════════════════════════════════
+
+async def _continuidad_antes(db, obj, datos, extras, antes, yo):
+    rto, rpo, mtpd = datos.get("rto_horas"), datos.get("rpo_horas"), datos.get("mtpd_horas")
+    if rto is not None and mtpd is not None and rto > mtpd:
+        raise HTTPException(422, "El RTO no puede superar el tiempo máximo tolerable de interrupción (MTPD).")
+
+
+async def _continuidad_enriquecer(db, objs, filas, usuarios):
+    ids = [o.id for o in objs]
+    ultimo: Dict[int, GRCSimulacro] = {}
+    for s in (await db.execute(select(GRCSimulacro).where(GRCSimulacro.continuidad_id.in_(ids),
+                                                          GRCSimulacro.deleted_at.is_(None))
+                               .order_by(GRCSimulacro.fecha.asc().nullsfirst()))).scalars():
+        ultimo[s.continuidad_id] = s
+    vinc = await _vinculos_de(db, "continuidad", ids)
+    hoy = _hoy()
+    for f in filas:
+        s = ultimo.get(f["id"])
+        f["ultimo_simulacro"] = srv.valor_json(s.fecha) if s else None
+        f["rto_logrado"] = s.rto_logrado_horas if s else None
+        f["rto_cumplido"] = (None if not s or s.rto_logrado_horas is None or f["rto_horas"] is None
+                             else s.rto_logrado_horas <= f["rto_horas"])
+        f["riesgos"] = vinc.get(f["id"], {}).get("riesgo", 0)
+        f["terceros"] = vinc.get(f["id"], {}).get("tercero", 0)
+        dias = await srv.dias_de(db, f["periodicidad_revision"])
+        prox = (date.fromisoformat(f["ultima_revision"]) + timedelta(days=dias)) if (dias and f["ultima_revision"]) else None
+        f["proxima_revision"] = prox.isoformat() if prox else None
+        f["revision_vencida"] = bool(prox and prox < hoy)
+
+
+montar(Recurso("continuidad", "continuidad", "Plan de continuidad", GRCContinuidad, esq.ContinuidadIn,
+               personas=("responsable_id",),
+               catalogos={"proceso": ("GLOBAL", "PROCESO", "proceso"),
+                          "sistemas_criticos": ("GRC", "SISTEMA_CRITICO", "sistema crítico"),
+                          "periodicidad_revision": ("GRC", "PERIODICIDAD", "periodicidad")},
+               filtros=("criticidad",), orden=GRCContinuidad.proceso,
+               antes=_continuidad_antes, enriquecer=_continuidad_enriquecer))
+
+
+async def _simulacro_enriquecer(db, objs, filas, usuarios):
+    planes = dict((await db.execute(select(GRCContinuidad.id, GRCContinuidad.proceso))).all())
+    for f in filas:
+        f["continuidad_proceso"] = planes.get(f["continuidad_id"])
+
+
+montar(Recurso("simulacros", "simulacro", "Simulacro", GRCSimulacro, esq.SimulacroIn,
+               personas=("coordinador_id",), listas_personas=("participantes",),
+               catalogos={"tipo": ("GRC", "TIPO_SIMULACRO", "tipo de simulacro"),
+                          "resultado": ("GRC", "RESULTADO_SIMULACRO", "resultado")},
+               padres={"continuidad_id": (GRCContinuidad, "El plan de continuidad")},
+               filtros=("continuidad_id",), orden=GRCSimulacro.fecha.desc().nullslast(),
+               enriquecer=_simulacro_enriquecer))
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# TERCEROS
+# ═════════════════════════════════════════════════════════════════════════════
+
+async def _tercero_antes(db, obj, datos, extras, antes, yo):
+    for campo, tabla, etiqueta in (("proveedor_id", "proveedores", "El proveedor"),
+                                   ("cliente_id", "crm_cliente", "El cliente")):
+        vid = datos.get(campo)
+        if vid is not None and not (await db.execute(text(f"SELECT 1 FROM {tabla} WHERE id = :i"), {"i": vid})).scalar():
+            raise HTTPException(422, f"{etiqueta} elegido no existe.")
+
+
+async def _tercero_enriquecer(db, objs, filas, usuarios):
+    ids = [o.id for o in objs]
+    ultima: Dict[int, GRCEvaluacionTercero] = {}
+    for e in (await db.execute(select(GRCEvaluacionTercero).where(
+            GRCEvaluacionTercero.tercero_id.in_(ids), GRCEvaluacionTercero.deleted_at.is_(None))
+            .order_by(GRCEvaluacionTercero.fecha.asc().nullsfirst(), GRCEvaluacionTercero.id))).scalars():
+        ultima[e.tercero_id] = e
+    riesgos = await _contar(db, GRCRiesgo.tercero_id, ids, GRCRiesgo.deleted_at.is_(None))
+    for f in filas:
+        e = ultima.get(f["id"])
+        f["ultimo_puntaje"] = float(e.puntaje_total) if e and e.puntaje_total is not None else None
+        f["ultima_evaluacion"] = srv.valor_json(e.fecha) if e else None
+        f["riesgos"] = riesgos.get(f["id"], 0)
+
+
+montar(Recurso("terceros", "tercero", "Tercero", GRCTercero, esq.TerceroIn,
+               personas=("responsable_id",),
+               catalogos={"tipo": ("GRC", "TIPO_TERCERO", "tipo de tercero"),
+                          "pais": ("GLOBAL", "PAIS", "país"),
+                          "sector": ("CRM", "SECTOR_ECONOMICO", "sector")},
+               filtros=("tipo", "nivel_riesgo", "estado"), orden=GRCTercero.nombre,
+               antes=_tercero_antes, enriquecer=_tercero_enriquecer))
+
+
+async def _evaluacion_antes(db, obj, datos, extras, antes, yo):
+    notas = [datos.get(k) for k in ("cumplimiento_legal", "riesgo_reputacional", "solidez_financiera",
+                                      "seguridad_info") if datos.get(k) is not None]
+    if not notas:
+        raise HTTPException(422, "Califique al menos un criterio.")
+    obj.puntaje_total = round(sum(notas) / len(notas), 2)
+    obj.clasificacion, _ = srv.clasificar_tercero(float(obj.puntaje_total))
+    obj.fecha = datos.get("fecha") or _hoy()
+    if not datos.get("periodo"):
+        obj.periodo = obj.fecha.strftime("%Y-%m")
+    if not datos.get("evaluador_id"):
+        obj.evaluador_id = yo.id
+
+
+async def _evaluacion_despues(db, obj, extras, creando, yo):
+    ultima = (await db.execute(select(GRCEvaluacionTercero).where(
+        GRCEvaluacionTercero.tercero_id == obj.tercero_id, GRCEvaluacionTercero.deleted_at.is_(None))
+        .order_by(GRCEvaluacionTercero.fecha.desc().nullslast(), GRCEvaluacionTercero.id.desc()).limit(1))).scalar()
+    tercero = await db.get(GRCTercero, obj.tercero_id)
+    if tercero:
+        tercero.nivel_riesgo = srv.clasificar_tercero(float(ultima.puntaje_total))[1] if ultima else None
+
+
+montar(Recurso("evaluaciones", "evaluacion", "Evaluación", GRCEvaluacionTercero, esq.EvaluacionIn,
+               personas=("evaluador_id",), padres={"tercero_id": (GRCTercero, "El tercero")},
+               filtros=("tercero_id",), orden=GRCEvaluacionTercero.fecha.desc().nullslast(),
+               antes=_evaluacion_antes, despues=_evaluacion_despues))
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# EVIDENCIAS (metadatos; el archivo va por grc_relaciones)
+# ═════════════════════════════════════════════════════════════════════════════
+
+TIPOS_REFERENCIA = {
+    "riesgo": GRCRiesgo, "control": GRCControl, "prueba": GRCPruebaControl, "politica": GRCPolitica,
+    "obligacion": GRCObligacion, "cumplimiento": GRCMatrizCumplimiento, "auditoria": GRCAuditoria,
+    "hallazgo": GRCHallazgo, "plan": GRCPlanAccion, "incidente": GRCIncidente,
+    "continuidad": GRCContinuidad, "simulacro": GRCSimulacro, "tercero": GRCTercero,
+    "comite": GRCComite, "sesion": GRCComiteSesion, "tratamiento": GRCTratamiento,
+    "evaluacion": GRCEvaluacionTercero, "kri": GRCKri,
+}
+
+
+async def _evidencia_antes(db, obj, datos, extras, antes, yo):
+    modelo = TIPOS_REFERENCIA.get(datos["referencia_tipo"])
+    if modelo is None:
+        raise HTTPException(422, "Tipo de registro no admitido para evidencias.")
+    await _vivo(db, modelo, datos["referencia_id"], "El registro")
+    if antes is None and not datos.get("responsable_id"):
+        obj.responsable_id = yo.id
+
+
+montar(Recurso("evidencias", "evidencia", "Evidencia", GRCEvidencia, esq.EvidenciaIn,
+               personas=("responsable_id",),
+               catalogos={"tipo": ("GRC", "TIPO_EVIDENCIA", "tipo de evidencia")},
+               filtros=("referencia_tipo", "referencia_id"), orden=GRCEvidencia.created_at.desc(),
+               antes=_evidencia_antes))
