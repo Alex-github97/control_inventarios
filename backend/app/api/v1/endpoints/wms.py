@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core import wms_inventario
+from app.core import wms_operacion as op
 from app.core.dependencies import get_current_user, require_supervisor
 from app.infrastructure.models.usuario import Usuario
 from app.infrastructure.models.wms import (
@@ -27,7 +28,7 @@ from app.infrastructure.models.wms import (
     WMSPickingTarea, WMSPickingDetalle,
     WMSDespacho, WMSDespachoDetalle, WMSHistorialEstado,
     WMSDevolucion, WMSDevolucionDetalle,
-    WMSEventoTrazabilidad, WMSKPIDiario,
+    WMSEventoTrazabilidad, WMSKPIDiario, WMSContenedor,
 )
 from app.infrastructure.models.tms import TMSViaje, TipoServicioTMSEnum, EstadoViajeTMSEnum
 
@@ -113,33 +114,15 @@ async def _registrar_evento(
     db.add(ev)
 
 
-async def _ajustar_inventario(
-    db: AsyncSession,
-    producto_id: int,
-    ubicacion_id: int,
-    lote_id: Optional[int],
-    delta: float,
-):
-    """Incrementa (delta>0) o decrementa (delta<0) stock disponible en ubicacion."""
-    stmt = select(WMSInventarioUbicacion).where(
-        and_(
-            WMSInventarioUbicacion.producto_id == producto_id,
-            WMSInventarioUbicacion.ubicacion_id == ubicacion_id,
-            WMSInventarioUbicacion.lote_id == lote_id,
-        )
-    )
-    r = await db.execute(stmt)
-    inv = r.scalar_one_or_none()
-    if inv is None:
-        inv = WMSInventarioUbicacion(
-            producto_id=producto_id,
-            ubicacion_id=ubicacion_id,
-            lote_id=lote_id,
-            cantidad_disponible=max(0, delta),
-        )
-        db.add(inv)
-    else:
-        inv.cantidad_disponible = max(0, inv.cantidad_disponible + delta)
+async def _mover(db: AsyncSession, **kw):
+    """`wms_inventario.mover` con los errores convertidos en respuestas: falta
+    de existencias es un conflicto (409), un dato imposible es 422."""
+    try:
+        return await wms_inventario.mover(db, **kw)
+    except wms_inventario.StockInsuficiente as e:
+        raise HTTPException(409, str(e))
+    except ValueError as e:
+        raise HTTPException(422, str(e))
 
 
 async def _next_numero(db: AsyncSession, Model, numero_col, prefix: str) -> str:
@@ -670,7 +653,11 @@ async def crear_producto(
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
-    obj = WMSProducto(**data.model_dump())
+    payload = data.model_dump()
+    # Todo producto tiene dueño: sin decirlo, es mercancía propia.
+    if payload.get("depositante_id") is None:
+        payload["depositante_id"] = await op.depositante_propio(db)
+    obj = WMSProducto(**payload)
     db.add(obj); await db.commit(); await db.refresh(obj)
     return obj
 
@@ -685,6 +672,11 @@ async def actualizar_producto(
     obj = await db.get(WMSProducto, producto_id)
     if not obj:
         raise HTTPException(404, "Producto no encontrado")
+    if data.depositante_id is not None and data.depositante_id != obj.depositante_id:
+        # Cambiar el dueño de mercancía que está en bodega sería traspasarla sin
+        # documento: solo se permite mientras no haya existencias.
+        if await wms_inventario.existencia_total(db, producto_id) > 0:
+            raise HTTPException(409, "El producto tiene existencias: no se le puede cambiar el depositante.")
     for k, v in data.model_dump(exclude_none=True).items():
         setattr(obj, k, v)
     await db.commit(); await db.refresh(obj)
@@ -967,6 +959,8 @@ async def crear_orden_compra(
         payload["numero_oc"] = await _next_numero(db, WMSOrdenCompra, WMSOrdenCompra.numero_oc, "OC")
     if not payload.get("fecha_emision"):
         payload["fecha_emision"] = date.today()
+    payload["depositante_id"] = await op.resolver_depositante(
+        db, payload.get("depositante_id"), [d.producto_id for d in data.detalles])
     oc = WMSOrdenCompra(**payload)
     db.add(oc)
     await db.flush()
@@ -1049,6 +1043,15 @@ async def crear_recepcion(
         payload["numero_recepcion"] = await _next_numero(db, WMSRecepcion, WMSRecepcion.numero_recepcion, "REC")
     if not payload.get("fecha_recepcion"):
         payload["fecha_recepcion"] = date.today()
+    # El dueño: el de la orden de compra, o el de los productos.
+    if payload.get("orden_compra_id") and not payload.get("depositante_id"):
+        oc = await db.get(WMSOrdenCompra, payload["orden_compra_id"])
+        payload["depositante_id"] = oc.depositante_id if oc else None
+    payload["depositante_id"] = await op.resolver_depositante(
+        db, payload.get("depositante_id"), [d.producto_id for d in data.detalles])
+    # Registrar la recepción es que el vehículo ya está en el muelle.
+    if not payload.get("fecha_llegada"):
+        payload["fecha_llegada"] = op.ahora()
     rec = WMSRecepcion(**payload, operario_id=current_user.id)
     db.add(rec)
     await db.flush()
@@ -1125,17 +1128,12 @@ async def completar_recepcion(
     if rec.estado == "COMPLETA":
         raise HTTPException(400, "Recepción ya está completa")
 
-    # Ubicación de recepción por defecto del almacén (fallback cuando el
-    # detalle no trae ubicacion_id explícita), para garantizar el ingreso al stock.
-    ubic_default_id: Optional[int] = None
-    ub_r = await db.execute(
-        select(WMSUbicacion.id)
-        .join(WMSZona, WMSUbicacion.zona_id == WMSZona.id)
-        .where(WMSZona.almacen_id == rec.almacen_id, WMSUbicacion.activo == True)
-        .order_by(WMSUbicacion.id.asc())
-        .limit(1)
-    )
-    ubic_default_id = ub_r.scalar_one_or_none()
+    # El dueño se verifica también al cerrar: una línea agregada después no
+    # puede meter mercancía de otro depositante.
+    rec.depositante_id = await op.resolver_depositante(
+        db, rec.depositante_id, [d.producto_id for d in rec.detalles])
+    almacen = rec.almacen
+    dirigido = (almacen.flujo_recepcion or "DIRECTO") == "DIRIGIDO"
 
     # Precio de compra por producto, de la orden de compra: es lo que valoriza
     # la entrada y alimenta el costo promedio con que el POS calcula el costo
@@ -1147,36 +1145,78 @@ async def completar_recepcion(
             if ocd.precio_unitario is not None:
                 precio_oc[ocd.producto_id] = ocd.precio_unitario
 
+    # Dónde cae la mercancía: en el flujo dirigido, la zona de recepción (luego
+    # una tarea la ubica); en el directo, la ubicación de la línea o una de
+    # almacenamiento. Antes caía en «la primera ubicación del almacén», que
+    # podía ser cuarentena o despacho.
+    staging = await wms_inventario.ubicacion_de_zona(db, rec.almacen_id, "RECEPCION")
+    if dirigido and staging is None:
+        raise HTTPException(422, f"El almacén {almacen.nombre} recibe con ubicación dirigida y no tiene "
+                                 "zona de RECEPCION con ubicaciones.")
+    por_defecto = await wms_inventario.ubicacion_de_zona(db, rec.almacen_id, "ALMACENAMIENTO")
+    cuarentena = await wms_inventario.ubicacion_de_zona(db, rec.almacen_id, "CUARENTENA")
+    doc = dict(documento_tipo="RECEPCION", documento_id=rec.id, referencia=rec.numero_recepcion,
+               usuario_id=current_user.id)
+    tareas = 0
+
     for det in rec.detalles:
-        destino_ubic = det.ubicacion_id or ubic_default_id
-        if det.estado_calidad == "APROBADO" and destino_ubic and det.cantidad_recibida > 0:
-            if not det.ubicacion_id:
-                det.ubicacion_id = destino_ubic
-            costo = await wms_inventario.costear_entrada(
-                db, det.producto_id, det.cantidad_recibida, precio_oc.get(det.producto_id))
-            await _ajustar_inventario(
-                db, det.producto_id, destino_ubic, det.lote_id, det.cantidad_recibida
-            )
-            mov = WMSMovimientoInventario(
-                tipo="RECEPCION",
-                producto_id=det.producto_id,
-                ubicacion_destino_id=destino_ubic,
-                lote_id=det.lote_id,
-                cantidad=det.cantidad_recibida,
-                costo_unitario=costo,
-                referencia_documento=rec.numero_recepcion,
-                usuario_id=current_user.id,
-                notas=f"Recepción {rec.numero_recepcion} completada",
-            )
-            db.add(mov)
+        if det.cantidad_recibida <= 0:
+            continue
+        costo = precio_oc.get(det.producto_id)
+        if det.estado_calidad == "RECHAZADO":
+            # No entra al inventario, pero queda constancia de que llegó y se rechazó.
             await _registrar_evento(
-                db, "RECEPCION_COMPLETADA",
-                f"Ingreso {det.cantidad_recibida} unidades de producto {det.producto_id}",
-                entidad_tipo="WMSRecepcion", entidad_id=rec_id,
-                usuario_id=current_user.id,
-                producto_id=det.producto_id, lote_id=det.lote_id,
-                ubicacion_id=destino_ubic,
-            )
+                db, "RECEPCION_RECHAZADA", f"Rechazadas {det.cantidad_recibida:g} und en {rec.numero_recepcion}",
+                entidad_tipo="WMSRecepcion", entidad_id=rec_id, usuario_id=current_user.id,
+                producto_id=det.producto_id, lote_id=det.lote_id, datos={"notas": det.notas})
+            continue
+        if det.estado_calidad in ("CUARENTENA", "INSPECCION"):
+            # Entra, pero bloqueada: está físicamente en la bodega y no se puede alistar.
+            destino = cuarentena or det.ubicacion_id or staging or por_defecto
+            if destino is None:
+                raise HTTPException(422, "El almacén no tiene dónde dejar la mercancía en cuarentena.")
+            det.ubicacion_id = destino
+            await _mover(db, tipo="RECEPCION", producto_id=det.producto_id, cantidad=det.cantidad_recibida,
+                         lote_id=det.lote_id, destino=destino, estado_destino="BLOQUEADO",
+                         contenedor_destino=det.contenedor_id, costo_unitario=costo,
+                         notas=f"Recepción en {det.estado_calidad.lower()}", **doc)
+            continue
+        if dirigido:
+            lpn = det.contenedor_id
+            if lpn is None:
+                c = await op.crear_contenedor(db, almacen_id=rec.almacen_id, ubicacion_id=staging,
+                                              depositante_id=rec.depositante_id, usuario_id=current_user.id,
+                                              documento_tipo="RECEPCION", documento_id=rec.id)
+                lpn = det.contenedor_id = c.id
+            mov = await _mover(db, tipo="RECEPCION", producto_id=det.producto_id, cantidad=det.cantidad_recibida,
+                               lote_id=det.lote_id, destino=staging, contenedor_destino=lpn, costo_unitario=costo,
+                               notas="Recibido en muelle; pendiente de ubicar", **doc)
+            await op.crear_tarea_ubicacion(
+                db, almacen_id=rec.almacen_id, producto_id=det.producto_id, lote_id=det.lote_id,
+                contenedor_id=lpn, cantidad=det.cantidad_recibida, origen=staging,
+                sugerida=det.ubicacion_id, razon="Indicada en la recepción" if det.ubicacion_id else None,
+                depositante_id=rec.depositante_id, documento_tipo="RECEPCION", documento_id=rec.id)
+            tareas += 1
+            destino_ubic = staging
+        else:
+            destino_ubic = det.ubicacion_id or por_defecto or staging
+            if destino_ubic is None:
+                raise HTTPException(422, f"El almacén {almacen.nombre} no tiene ubicaciones de almacenamiento.")
+            det.ubicacion_id = destino_ubic
+            mov = await _mover(db, tipo="RECEPCION", producto_id=det.producto_id, cantidad=det.cantidad_recibida,
+                               lote_id=det.lote_id, destino=destino_ubic, contenedor_destino=det.contenedor_id,
+                               costo_unitario=costo, notas=f"Recepción {rec.numero_recepcion} completada", **doc)
+        await _registrar_evento(
+            db, "RECEPCION_COMPLETADA",
+            f"Ingreso {det.cantidad_recibida:g} und de producto {det.producto_id}",
+            entidad_tipo="WMSRecepcion", entidad_id=rec_id,
+            usuario_id=current_user.id,
+            producto_id=det.producto_id, lote_id=det.lote_id,
+            ubicacion_id=destino_ubic, datos={"contenedor_id": det.contenedor_id, "dirigido": dirigido},
+        )
+    rec.completada_en = op.ahora()
+    if rec.fin_descargue is None:
+        rec.fin_descargue = rec.completada_en
     rec.estado = "COMPLETA"
 
     # Actualizar OC si aplica: COMPLETA solo si todas las líneas quedan cubiertas.
@@ -1222,6 +1262,7 @@ async def ver_inventario(
     lote_id: Optional[int] = None,
     zona: Optional[str] = None,
     producto: Optional[str] = None,
+    depositante_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
@@ -1251,8 +1292,18 @@ async def ver_inventario(
         like = f"%{producto.strip()}%"
         q = q.join(WMSProducto, WMSInventarioUbicacion.producto_id == WMSProducto.id)\
              .where(or_(WMSProducto.sku.ilike(like), WMSProducto.nombre.ilike(like)))
-    r = await db.execute(q)
-    return r.scalars().all()
+    if depositante_id:
+        q = q.where(WMSInventarioUbicacion.producto_id.in_(
+            select(WMSProducto.id).where(WMSProducto.depositante_id == depositante_id)))
+    filas = (await db.execute(q)).scalars().all()
+    # El código de la estiba de cada fila (lo que el operario ve en la etiqueta).
+    ids = {f.contenedor_id for f in filas if f.contenedor_id}
+    if ids:
+        codigos = dict((await db.execute(select(WMSContenedor.id, WMSContenedor.codigo)
+                                          .where(WMSContenedor.id.in_(ids)))).all())
+        for f in filas:
+            f.contenedor_codigo = codigos.get(f.contenedor_id)
+    return filas
 
 
 @router.post("/inventario/ajuste/", response_model=WMSMovimientoResponse, status_code=201)
@@ -1261,39 +1312,26 @@ async def ajustar_inventario(
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
-    """Ajuste manual de inventario a un valor absoluto."""
-    stmt = select(WMSInventarioUbicacion).where(
-        and_(
-            WMSInventarioUbicacion.producto_id == data.producto_id,
-            WMSInventarioUbicacion.ubicacion_id == data.ubicacion_id,
-            WMSInventarioUbicacion.lote_id == data.lote_id,
-        )
-    )
-    r = await db.execute(stmt)
-    inv = r.scalar_one_or_none()
-    cantidad_anterior = inv.cantidad_disponible if inv else 0
+    """Ajuste manual: deja el DISPONIBLE de la fila en `cantidad_nueva`. El
+    kárdex guarda la diferencia, el motivo y en qué quedó la fila."""
+    f = await wms_inventario.fila(db, data.producto_id, data.ubicacion_id, data.lote_id, data.contenedor_id)
+    cantidad_anterior = (f.cantidad_disponible or 0) if f else 0
     delta = data.cantidad_nueva - cantidad_anterior
-
-    await _ajustar_inventario(db, data.producto_id, data.ubicacion_id, data.lote_id, delta)
-
-    mov = WMSMovimientoInventario(
-        tipo="AJUSTE",
-        producto_id=data.producto_id,
-        ubicacion_destino_id=data.ubicacion_id if delta > 0 else None,
-        ubicacion_origen_id=data.ubicacion_id if delta < 0 else None,
-        lote_id=data.lote_id,
-        cantidad=abs(delta),
-        referencia_documento="AJUSTE_MANUAL",
-        usuario_id=current_user.id,
-        notas=data.motivo,
-    )
-    db.add(mov)
+    if abs(delta) < 1e-9:
+        raise HTTPException(422, f"La ubicación ya tiene {cantidad_anterior:g} disponibles: no hay nada que ajustar.")
+    mov = await _mover(db, tipo="AJUSTE", producto_id=data.producto_id, cantidad=abs(delta), lote_id=data.lote_id,
+                       origen=data.ubicacion_id if delta < 0 else None,
+                       destino=data.ubicacion_id if delta > 0 else None,
+                       contenedor_origen=data.contenedor_id, contenedor_destino=data.contenedor_id,
+                       documento_tipo="AJUSTE", referencia="AJUSTE_MANUAL", usuario_id=current_user.id,
+                       notas=data.motivo)
     await _registrar_evento(
         db, "AJUSTE_INVENTARIO",
-        f"Ajuste de {cantidad_anterior} a {data.cantidad_nueva} unidades",
+        f"Ajuste de {cantidad_anterior:g} a {data.cantidad_nueva:g} unidades — {data.motivo}",
         entidad_tipo="WMSInventarioUbicacion",
         usuario_id=current_user.id,
         producto_id=data.producto_id, lote_id=data.lote_id, ubicacion_id=data.ubicacion_id,
+        datos={"anterior": cantidad_anterior, "nueva": data.cantidad_nueva, "motivo": data.motivo},
     )
     await db.commit()
     r2 = await db.execute(
@@ -1311,20 +1349,12 @@ async def transferir_inventario(
     current_user: Usuario = Depends(get_current_user),
 ):
     """Mueve stock de una ubicación a otra."""
-    stmt = select(WMSInventarioUbicacion).where(
-        and_(
-            WMSInventarioUbicacion.producto_id == data.producto_id,
-            WMSInventarioUbicacion.ubicacion_id == data.ubicacion_origen_id,
-            WMSInventarioUbicacion.lote_id == data.lote_id,
-        )
-    )
-    r = await db.execute(stmt)
-    inv_origen = r.scalar_one_or_none()
-    if not inv_origen or inv_origen.cantidad_disponible < data.cantidad:
-        raise HTTPException(400, "Stock insuficiente en ubicación origen")
-
-    await _ajustar_inventario(db, data.producto_id, data.ubicacion_origen_id, data.lote_id, -data.cantidad)
-    await _ajustar_inventario(db, data.producto_id, data.ubicacion_destino_id, data.lote_id, data.cantidad)
+    if data.ubicacion_origen_id == data.ubicacion_destino_id:
+        raise HTTPException(422, "El origen y el destino son la misma ubicación.")
+    mov = await _mover(db, tipo="TRANSFERENCIA", producto_id=data.producto_id, cantidad=data.cantidad,
+                 lote_id=data.lote_id, origen=data.ubicacion_origen_id, destino=data.ubicacion_destino_id,
+                 contenedor_origen=data.contenedor_id, contenedor_destino=None,
+                 documento_tipo="TRASLADO", usuario_id=current_user.id, notas=data.notas)
 
     referencia = "TRANSFERENCIA"
     notas = data.notas
@@ -1362,18 +1392,8 @@ async def transferir_inventario(
         referencia = f"TRASLADO/TMS:{tms_codigo}"
         notas = f"{notas or ''} | Transporte gestionado por TMS ({tms_codigo})".strip(" |")
 
-    mov = WMSMovimientoInventario(
-        tipo="TRANSFERENCIA",
-        producto_id=data.producto_id,
-        ubicacion_origen_id=data.ubicacion_origen_id,
-        ubicacion_destino_id=data.ubicacion_destino_id,
-        lote_id=data.lote_id,
-        cantidad=data.cantidad,
-        referencia_documento=referencia,
-        usuario_id=current_user.id,
-        notas=notas,
-    )
-    db.add(mov)
+    # El movimiento ya quedó en el kárdex; se le completa la referencia del traslado.
+    mov.referencia_documento, mov.notas = referencia, notas
     # Evento de trazabilidad (ISO 9001 §8.5.2): la transferencia queda en el
     # historial del producto, del lote y de ambas ubicaciones.
     await _registrar_evento(
@@ -1409,44 +1429,17 @@ async def reservar_bloquear_inventario(
     if accion not in ("RESERVAR", "LIBERAR", "BLOQUEAR", "DESBLOQUEAR"):
         raise HTTPException(400, "Acción inválida (RESERVAR/LIBERAR/BLOQUEAR/DESBLOQUEAR)")
 
-    r = await db.execute(
-        select(WMSInventarioUbicacion).where(
-            and_(
-                WMSInventarioUbicacion.producto_id == data.producto_id,
-                WMSInventarioUbicacion.ubicacion_id == data.ubicacion_id,
-                WMSInventarioUbicacion.lote_id == data.lote_id,
-            )
-        )
-    )
-    inv = r.scalar_one_or_none()
-    if not inv:
-        raise HTTPException(404, "No existe inventario para ese producto/ubicación/lote")
-
-    disp = inv.cantidad_disponible or 0
-    res = inv.cantidad_reservada or 0
-    blo = inv.cantidad_bloqueada or 0
+    # Reservar o bloquear es un movimiento entre estados de la misma fila: queda en el kárdex.
+    de, a, tipo = {"RESERVAR": ("DISPONIBLE", "RESERVADO", "RESERVA"),
+                   "LIBERAR": ("RESERVADO", "DISPONIBLE", "LIBERACION"),
+                   "BLOQUEAR": ("DISPONIBLE", "BLOQUEADO", "BLOQUEO"),
+                   "DESBLOQUEAR": ("BLOQUEADO", "DISPONIBLE", "DESBLOQUEO")}[accion]
     c = data.cantidad
-
-    if accion == "RESERVAR":
-        if disp < c:
-            raise HTTPException(400, f"Disponible insuficiente (disponible {disp:g}, solicitado {c:g})")
-        inv.cantidad_disponible = disp - c
-        inv.cantidad_reservada = res + c
-    elif accion == "LIBERAR":
-        if res < c:
-            raise HTTPException(400, f"Reservado insuficiente (reservado {res:g}, solicitado {c:g})")
-        inv.cantidad_reservada = res - c
-        inv.cantidad_disponible = disp + c
-    elif accion == "BLOQUEAR":
-        if disp < c:
-            raise HTTPException(400, f"Disponible insuficiente (disponible {disp:g}, solicitado {c:g})")
-        inv.cantidad_disponible = disp - c
-        inv.cantidad_bloqueada = blo + c
-    else:  # DESBLOQUEAR
-        if blo < c:
-            raise HTTPException(400, f"Bloqueado insuficiente (bloqueado {blo:g}, solicitado {c:g})")
-        inv.cantidad_bloqueada = blo - c
-        inv.cantidad_disponible = disp + c
+    await _mover(db, tipo=tipo, producto_id=data.producto_id, cantidad=c, lote_id=data.lote_id,
+                 origen=data.ubicacion_id, destino=data.ubicacion_id, estado_origen=de, estado_destino=a,
+                 contenedor_origen=data.contenedor_id, documento_tipo="MANUAL", usuario_id=current_user.id,
+                 notas=data.motivo)
+    inv = await wms_inventario.fila(db, data.producto_id, data.ubicacion_id, data.lote_id, data.contenedor_id)
 
     await _registrar_evento(
         db, f"INV_{accion}",
@@ -1553,14 +1546,16 @@ async def crear_conteo(
                     WMSInventarioUbicacion.lote_id == d.lote_id,
                 )
             )
-            inv_r = await db.execute(inv_stmt)
-            inv = inv_r.scalar_one_or_none()
+            inv_r = await db.execute(inv_stmt.where(WMSInventarioUbicacion.contenedor_id.is_(None)))
+            inv = inv_r.scalars().first()
             det = WMSConteoDetalle(
                 conteo_id=conteo.id,
                 producto_id=d.producto_id,
                 ubicacion_id=d.ubicacion_id,
                 lote_id=d.lote_id,
-                cantidad_sistema=inv.cantidad_disponible if inv else 0,
+                # Lo que hay físicamente: disponible, reservado y bloqueado están
+                # en el estante. Comparar solo el disponible daba sobrantes falsos.
+                cantidad_sistema=wms_inventario.total_fila(inv) if inv else 0,
             )
             db.add(det)
     else:
@@ -1579,7 +1574,8 @@ async def crear_conteo(
                 producto_id=inv.producto_id,
                 ubicacion_id=inv.ubicacion_id,
                 lote_id=inv.lote_id,
-                cantidad_sistema=inv.cantidad_disponible or 0,
+                contenedor_id=inv.contenedor_id,
+                cantidad_sistema=wms_inventario.total_fila(inv),
             )
             db.add(det)
 
@@ -1617,6 +1613,10 @@ async def actualizar_detalle_conteo(
     if data.cantidad_fisica is not None:
         if data.cantidad_fisica < 0:
             raise HTTPException(400, "La cantidad física no puede ser negativa")
+        # El sistema se toma en el momento de contar, no al programar el conteo:
+        # lo que entró o salió entre tanto no es una diferencia de inventario.
+        f = await wms_inventario.fila(db, det.producto_id, det.ubicacion_id, det.lote_id, det.contenedor_id)
+        det.cantidad_sistema = wms_inventario.total_fila(f) if f else 0
         det.cantidad_fisica = data.cantidad_fisica
         det.diferencia = data.cantidad_fisica - det.cantidad_sistema
     if data.ajustado is not None:
@@ -1663,36 +1663,45 @@ async def completar_conteo(
         raise HTTPException(400, "Conteo ya está completo")
 
     for det in conteo.detalles:
-        if det.cantidad_fisica is not None:
-            det.diferencia = det.cantidad_fisica - det.cantidad_sistema
-            if det.diferencia != 0:
-                await _ajustar_inventario(
-                    db, det.producto_id, det.ubicacion_id, det.lote_id, det.diferencia
-                )
-                mov = WMSMovimientoInventario(
-                    tipo="CONTEO",
-                    producto_id=det.producto_id,
-                    ubicacion_destino_id=det.ubicacion_id if det.diferencia > 0 else None,
-                    ubicacion_origen_id=det.ubicacion_id if det.diferencia < 0 else None,
-                    lote_id=det.lote_id,
-                    cantidad=abs(det.diferencia),
-                    referencia_documento=f"CONTEO-{conteo_id}",
-                    usuario_id=current_user.id,
-                    notas="Ajuste por conteo físico",
-                )
-                db.add(mov)
-                # Trazabilidad del ajuste por conteo (ISO 9001: la reconciliación
-                # de inventario queda registrada con usuario y diferencia)
-                await _registrar_evento(
-                    db, "AJUSTE",
-                    f"Ajuste por conteo físico #{conteo_id}: {'+' if det.diferencia > 0 else ''}{det.diferencia:g} und "
-                    f"({det.producto.nombre if det.producto else det.producto_id})",
-                    entidad_tipo="CONTEO", entidad_id=conteo_id, usuario_id=current_user.id,
-                    producto_id=det.producto_id, lote_id=det.lote_id, ubicacion_id=det.ubicacion_id,
-                    datos={"sistema": det.cantidad_sistema, "fisica": det.cantidad_fisica,
-                           "diferencia": det.diferencia},
-                )
-            det.ajustado = True
+        if det.cantidad_fisica is None:
+            continue
+        f = await wms_inventario.fila(db, det.producto_id, det.ubicacion_id, det.lote_id, det.contenedor_id)
+        det.cantidad_sistema = wms_inventario.total_fila(f) if f else 0
+        det.diferencia = det.cantidad_fisica - det.cantidad_sistema
+        if abs(det.diferencia) > 1e-9:
+            comun = dict(tipo="CONTEO", producto_id=det.producto_id, lote_id=det.lote_id,
+                         documento_tipo="CONTEO", documento_id=conteo_id, referencia=f"CONTEO-{conteo_id}",
+                         usuario_id=current_user.id, notas="Ajuste por conteo físico")
+            if det.diferencia > 0:
+                await _mover(db, cantidad=det.diferencia, destino=det.ubicacion_id,
+                             contenedor_destino=det.contenedor_id, **comun)
+            else:
+                # El faltante sale primero de lo disponible, luego de lo bloqueado y
+                # por último de lo reservado (eso deja corta una orden: se avisa).
+                falta = -det.diferencia
+                for estado in ("DISPONIBLE", "BLOQUEADO", "RESERVADO"):
+                    hay = getattr(f, wms_inventario.ESTADOS[estado]) or 0
+                    tomar = min(hay, falta)
+                    if tomar > 0:
+                        await _mover(db, cantidad=tomar, origen=det.ubicacion_id, estado_origen=estado,
+                                     contenedor_origen=det.contenedor_id, **comun)
+                        falta -= tomar
+                        if estado == "RESERVADO":
+                            await _registrar_evento(
+                                db, "ALERTA_RESERVA", f"El faltante del conteo #{conteo_id} tocó mercancía "
+                                f"reservada ({tomar:g} und): revise las órdenes en alistamiento.",
+                                entidad_tipo="CONTEO", entidad_id=conteo_id, usuario_id=current_user.id,
+                                producto_id=det.producto_id, lote_id=det.lote_id, ubicacion_id=det.ubicacion_id)
+            await _registrar_evento(
+                db, "AJUSTE",
+                f"Ajuste por conteo físico #{conteo_id}: {'+' if det.diferencia > 0 else ''}{det.diferencia:g} und "
+                f"({det.producto.nombre if det.producto else det.producto_id})",
+                entidad_tipo="CONTEO", entidad_id=conteo_id, usuario_id=current_user.id,
+                producto_id=det.producto_id, lote_id=det.lote_id, ubicacion_id=det.ubicacion_id,
+                datos={"sistema": det.cantidad_sistema, "fisica": det.cantidad_fisica,
+                       "diferencia": det.diferencia},
+            )
+        det.ajustado = True
 
     conteo.estado = "COMPLETO"
     conteo.fecha_fin = datetime.utcnow()
@@ -1779,6 +1788,8 @@ async def crear_orden_salida(
         payload["numero_orden"] = await _next_numero(db, WMSOrdenSalida, WMSOrdenSalida.numero_orden, "OS")
     if not payload.get("fecha_emision"):
         payload["fecha_emision"] = date.today()
+    payload["depositante_id"] = await op.resolver_depositante(
+        db, payload.get("depositante_id"), [d.producto_id for d in data.detalles])
     orden = WMSOrdenSalida(**payload)
     db.add(orden)
     await db.flush()
@@ -1874,66 +1885,28 @@ async def generar_picking(
         if cantidad_pendiente <= 0:
             continue
 
-        # FEFO: inventario del ALMACÉN de la orden, ordenado por fecha_vencimiento (ASC nulls last).
-        # Se excluyen lotes vencidos/insuficiente vida útil y lotes bloqueados (activo=False).
-        # El stock sin lote (fecha_vencimiento NULL → producto no perecedero) siempre es elegible.
-        inv_q = (
-            select(WMSInventarioUbicacion)
-            .join(WMSUbicacion, WMSInventarioUbicacion.ubicacion_id == WMSUbicacion.id)
-            .join(WMSZona, WMSUbicacion.zona_id == WMSZona.id)
-            .join(WMSLote, WMSInventarioUbicacion.lote_id == WMSLote.id, isouter=True)
-            .where(
-                WMSInventarioUbicacion.producto_id == det.producto_id,
-                WMSInventarioUbicacion.cantidad_disponible > 0,
-                WMSZona.almacen_id == orden.almacen_id,
-                # sin lote, o lote activo y con vida útil suficiente
-                or_(
-                    WMSInventarioUbicacion.lote_id.is_(None),
-                    and_(
-                        WMSLote.activo == True,
-                        or_(
-                            WMSLote.fecha_vencimiento.is_(None),
-                            WMSLote.fecha_vencimiento >= fecha_min_venc,
-                        ),
-                    ),
-                ),
-            )
-            .order_by(
-                WMSLote.fecha_vencimiento.asc().nullslast(),
-                WMSInventarioUbicacion.id.asc(),
-            )
-        )
-        if det.lote_id:
-            inv_q = inv_q.where(WMSInventarioUbicacion.lote_id == det.lote_id)
-
-        inv_r = await db.execute(inv_q)
-        inventarios = inv_r.scalars().all()
-
+        # FEFO en las zonas alistables del almacén de la orden: nunca de
+        # recepción, cuarentena ni despacho (antes se podía alistar mercancía
+        # que todavía no estaba ubicada o que estaba en cuarentena), sin lotes
+        # vencidos, bloqueados ni con menos vida útil que la exigida.
+        asignaciones = await wms_inventario.asignar_alistamiento(
+            db, det.producto_id, orden.almacen_id, cantidad_pendiente,
+            lote_id=det.lote_id, dias_vida_minima=dias_vida_minima)
         preparado = 0.0
-        for inv in inventarios:
-            if cantidad_pendiente <= 0:
-                break
-            tomar = min(inv.cantidad_disponible, cantidad_pendiente)
-            inv.cantidad_disponible -= tomar
-            inv.cantidad_reservada = (inv.cantidad_reservada or 0) + tomar
+        for a in asignaciones:
+            tomar = float(a.cantidad)
+            await _mover(db, tipo="RESERVA", producto_id=det.producto_id, cantidad=tomar, lote_id=a.lote_id,
+                         origen=a.ubicacion_id, destino=a.ubicacion_id, estado_origen="DISPONIBLE",
+                         estado_destino="RESERVADO", contenedor_origen=a.contenedor_id,
+                         documento_tipo="ORDEN_SALIDA", documento_id=orden.id, referencia=orden.numero_orden,
+                         usuario_id=current_user.id, notas=f"Reserva para alistamiento (tarea {tarea.id})")
             cantidad_pendiente -= tomar
             preparado += tomar
-
-            pick_det = WMSPickingDetalle(
-                tarea_id=tarea.id,
-                producto_id=det.producto_id,
-                ubicacion_id=inv.ubicacion_id,
-                lote_id=inv.lote_id,
-                cantidad_solicitada=tomar,
-            )
-            db.add(pick_det)
-
-            # Alerta si el lote asignado está próximo a vencer
-            if inv.lote_id:
-                lote = await db.get(WMSLote, inv.lote_id)
-                if lote and lote.fecha_vencimiento and lote.fecha_vencimiento <= fecha_alerta:
-                    dias = (lote.fecha_vencimiento - hoy).days
-                    por_vencer.append(f"{lote.numero_lote} (vence en {dias}d, {tomar:g} und)")
+            db.add(WMSPickingDetalle(tarea_id=tarea.id, producto_id=det.producto_id, ubicacion_id=a.ubicacion_id,
+                                     lote_id=a.lote_id, contenedor_id=a.contenedor_id, cantidad_solicitada=tomar))
+            if a.vence and a.vence <= fecha_alerta:
+                lote = await db.get(WMSLote, a.lote_id)
+                por_vencer.append(f"{lote.numero_lote if lote else a.lote_id} (vence en {(a.vence - hoy).days}d, {tomar:g} und)")
 
         # Reflejar avance de reserva en la línea de la orden
         det.cantidad_preparada = (det.cantidad_preparada or 0) + preparado
@@ -2091,26 +2064,41 @@ async def confirmar_item_picking(
             f"La cantidad pickeada debe estar entre 0 y {det.cantidad_solicitada:g}",
         )
 
+    # Verificación por escaneo: si el operario escaneó, tiene que ser la
+    # ubicación y el producto de la línea. Así se detecta en el acto el error
+    # de alistamiento, en vez de que lo descubra el cliente.
+    if data.ubicacion_codigo:
+        ub = await db.get(WMSUbicacion, det.ubicacion_id)
+        if ub and data.ubicacion_codigo.strip().upper() != ub.codigo.upper():
+            raise HTTPException(422, f"Ubicación equivocada: escaneó {data.ubicacion_codigo}, la línea es de {ub.codigo}.")
+    if data.producto_codigo:
+        pr = await db.get(WMSProducto, det.producto_id)
+        validos = {c.upper() for c in (pr.sku, pr.codigo_barras) if c}
+        if data.producto_codigo.strip().upper() not in validos:
+            raise HTTPException(422, f"Producto equivocado: escaneó {data.producto_codigo}, la línea es {pr.sku}.")
+
+    ahora = datetime.now(timezone.utc)
+    if tarea.fecha_inicio is None:
+        tarea.fecha_inicio = ahora
+        tarea.estado = "EN_PROGRESO"
     det.cantidad_pickeada = data.cantidad_pickeada
     det.confirmado = True
-    det.timestamp_confirmacion = datetime.utcnow()
+    det.timestamp_confirmacion = ahora
 
-    # Si se pickea menos de lo reservado, liberar el sobrante (reservada → disponible)
+    # Si se alista menos de lo reservado, el sobrante vuelve a estar disponible.
     sobrante = det.cantidad_solicitada - data.cantidad_pickeada
     if sobrante > 0:
-        inv_r = await db.execute(
-            select(WMSInventarioUbicacion).where(
-                and_(
-                    WMSInventarioUbicacion.producto_id == det.producto_id,
-                    WMSInventarioUbicacion.ubicacion_id == det.ubicacion_id,
-                    WMSInventarioUbicacion.lote_id == det.lote_id,
-                )
-            )
-        )
-        inv = inv_r.scalar_one_or_none()
-        if inv:
-            inv.cantidad_reservada = max(0, (inv.cantidad_reservada or 0) - sobrante)
-            inv.cantidad_disponible = (inv.cantidad_disponible or 0) + sobrante
+        await _mover(db, tipo="LIBERACION", producto_id=det.producto_id, cantidad=sobrante, lote_id=det.lote_id,
+                     origen=det.ubicacion_id, destino=det.ubicacion_id, estado_origen="RESERVADO",
+                     estado_destino="DISPONIBLE", contenedor_origen=det.contenedor_id,
+                     documento_tipo="PICKING", documento_id=tarea_id, usuario_id=current_user.id,
+                     notas="Alistado menos de lo reservado")
+    await _registrar_evento(
+        db, "PICKING_CONFIRMADO",
+        f"Alistadas {data.cantidad_pickeada:g} de {det.cantidad_solicitada:g} und (tarea {tarea_id})",
+        entidad_tipo="PICKING", entidad_id=tarea_id, usuario_id=current_user.id,
+        producto_id=det.producto_id, lote_id=det.lote_id, ubicacion_id=det.ubicacion_id,
+        datos={"verificado": bool(data.ubicacion_codigo or data.producto_codigo), "sobrante": sobrante})
 
     tarea.items_pickeados = (tarea.items_pickeados or 0) + 1
 
@@ -2119,9 +2107,10 @@ async def confirmar_item_picking(
         select(WMSPickingDetalle).where(WMSPickingDetalle.tarea_id == tarea_id)
     )
     todos = todos_r.scalars().all()
+    tarea.ubicaciones_visitadas = len({d.ubicacion_id for d in todos if d.confirmado})
     if all(d.confirmado for d in todos):
         tarea.estado = "COMPLETADA"
-        tarea.fecha_fin = datetime.utcnow()
+        tarea.fecha_fin = ahora
 
     await db.commit()
     r = await db.execute(
@@ -2198,23 +2187,24 @@ async def crear_despacho(
 
     # Determinar las líneas a despachar: las provistas o, si no vienen, las
     # confirmadas en el picking de la orden.
+    # Lo alistado de ESTA orden que todavía no ha salido: es lo único que el
+    # despacho puede consumir. Antes descontaba cualquier reserva del producto en
+    # el almacén, aunque fuera de otra orden.
+    alistado = (await db.execute(
+        select(WMSPickingDetalle)
+        .join(WMSPickingTarea, WMSPickingDetalle.tarea_id == WMSPickingTarea.id)
+        .where(WMSPickingTarea.orden_id == orden.id, WMSPickingDetalle.confirmado == True,
+               WMSPickingDetalle.cantidad_pickeada > WMSPickingDetalle.cantidad_despachada)
+        .order_by(WMSPickingDetalle.id)
+        .with_for_update(of=WMSPickingDetalle))).scalars().all()
     lineas = list(data.detalles)
     if not lineas:
-        pick_r = await db.execute(
-            select(WMSPickingDetalle)
-            .join(WMSPickingTarea, WMSPickingDetalle.tarea_id == WMSPickingTarea.id)
-            .where(
-                WMSPickingTarea.orden_id == orden.id,
-                WMSPickingDetalle.confirmado == True,
-                WMSPickingDetalle.cantidad_pickeada > 0,
-            )
-        )
-        lineas = [
-            WMSDespachoDetalleCreate(
-                producto_id=pd.producto_id, lote_id=pd.lote_id, cantidad=pd.cantidad_pickeada
-            )
-            for pd in pick_r.scalars().all()
-        ]
+        agrupado: dict = {}
+        for pd in alistado:
+            k = (pd.producto_id, pd.lote_id)
+            agrupado[k] = agrupado.get(k, 0) + (pd.cantidad_pickeada - (pd.cantidad_despachada or 0))
+        lineas = [WMSDespachoDetalleCreate(producto_id=p_, lote_id=l_, cantidad=c_)
+                  for (p_, l_), c_ in agrupado.items() if c_ > 0]
     if not lineas:
         raise HTTPException(400, "No hay ítems para despachar (sin detalles ni picking confirmado)")
 
@@ -2232,47 +2222,31 @@ async def crear_despacho(
         det = WMSDespachoDetalle(despacho_id=despacho.id, **d.model_dump())
         db.add(det)
 
-        # Descontar del stock reservado, recorriendo todas las ubicaciones
-        # reservadas del almacén de la orden hasta cubrir la cantidad.
-        inv_r = await db.execute(
-            select(WMSInventarioUbicacion)
-            .join(WMSUbicacion, WMSInventarioUbicacion.ubicacion_id == WMSUbicacion.id)
-            .join(WMSZona, WMSUbicacion.zona_id == WMSZona.id)
-            .where(
-                WMSInventarioUbicacion.producto_id == d.producto_id,
-                WMSInventarioUbicacion.lote_id == d.lote_id,
-                WMSInventarioUbicacion.cantidad_reservada > 0,
-                WMSZona.almacen_id == orden.almacen_id,
-            )
-            .order_by(WMSInventarioUbicacion.id.asc())
-        )
-        invs = inv_r.scalars().all()
-        disponible_reservado = sum((inv.cantidad_reservada or 0) for inv in invs)
-        if disponible_reservado < d.cantidad:
+        # Sale de las ubicaciones exactas donde se alistó, en el estado reservado.
+        fuentes = [pd for pd in alistado if pd.producto_id == d.producto_id
+                   and (d.lote_id is None or pd.lote_id == d.lote_id)]
+        hay = sum(pd.cantidad_pickeada - (pd.cantidad_despachada or 0) for pd in fuentes)
+        if hay + 1e-9 < d.cantidad:
             raise HTTPException(
                 400,
-                f"Stock reservado insuficiente para el producto {d.producto_id} "
-                f"(reservado {disponible_reservado:g}, requerido {d.cantidad:g}). "
-                "Genere/confirme el picking antes de despachar.",
+                f"Lo alistado para la orden no alcanza para el producto {d.producto_id} "
+                f"(alistado sin despachar {hay:g}, requerido {d.cantidad:g}). "
+                "Genere y confirme el alistamiento antes de despachar.",
             )
         pendiente = d.cantidad
-        for inv in invs:
-            if pendiente <= 0:
+        for pd in fuentes:
+            if pendiente <= 1e-9:
                 break
-            tomar = min(inv.cantidad_reservada or 0, pendiente)
-            inv.cantidad_reservada -= tomar
+            tomar = min(pd.cantidad_pickeada - (pd.cantidad_despachada or 0), pendiente)
+            if tomar <= 0:
+                continue
+            await _mover(db, tipo="DESPACHO", producto_id=pd.producto_id, cantidad=tomar, lote_id=pd.lote_id,
+                         origen=pd.ubicacion_id, estado_origen="RESERVADO", contenedor_origen=pd.contenedor_id,
+                         documento_tipo="DESPACHO", documento_id=despacho.id,
+                         referencia=payload["numero_despacho"], usuario_id=current_user.id,
+                         notas=f"Orden {orden.numero_orden}")
+            pd.cantidad_despachada = (pd.cantidad_despachada or 0) + tomar
             pendiente -= tomar
-
-        # Registrar movimiento de salida
-        mov = WMSMovimientoInventario(
-            tipo="DESPACHO",
-            producto_id=d.producto_id,
-            lote_id=d.lote_id,
-            cantidad=d.cantidad,
-            referencia_documento=payload["numero_despacho"],
-            usuario_id=current_user.id,
-        )
-        db.add(mov)
 
         # Actualizar cantidad_despachada de la línea de la orden
         for od in orden.detalles:
@@ -2561,45 +2535,60 @@ async def procesar_devolucion(
     dev.estado = data.estado
 
     if data.estado == "REINGRESADA":
-        # Buscar ubicación de cuarentena o primera ubicación del almacén
-        ubic_r = await db.execute(
-            select(WMSUbicacion)
-            .join(WMSZona, WMSUbicacion.zona_id == WMSZona.id)
-            .where(
-                WMSZona.almacen_id == dev.almacen_id,
-                WMSUbicacion.activo == True,
-            )
-            .limit(1)
-        )
-        ubic = ubic_r.scalar_one_or_none()
-
+        # Cada línea va a donde dice su acción. Antes todo caía en «la primera
+        # ubicación del almacén», aunque la línea dijera cuarentena o destruir.
+        alm = await db.get(WMSAlmacen, dev.almacen_id)
+        dirigido = alm is not None and (alm.flujo_recepcion or "DIRECTO") == "DIRIGIDO"
+        recepcion = await wms_inventario.ubicacion_de_zona(db, dev.almacen_id, "RECEPCION")
+        almacenaje = await wms_inventario.ubicacion_de_zona(db, dev.almacen_id, "ALMACENAMIENTO")
+        cuarentena = await wms_inventario.ubicacion_de_zona(db, dev.almacen_id, "CUARENTENA")
+        doc = dict(documento_tipo="DEVOLUCION", documento_id=dev.id, referencia=dev.numero_devolucion,
+                   usuario_id=current_user.id)
         for det in dev.detalles:
-            if det.accion == "REINGRESAR" and not det.reingresado and ubic:
-                await _ajustar_inventario(
-                    db, det.producto_id, ubic.id, det.lote_id, det.cantidad
-                )
-                det.reingresado = True
-                mov = WMSMovimientoInventario(
-                    tipo="DEVOLUCION",
-                    producto_id=det.producto_id,
-                    ubicacion_destino_id=ubic.id,
-                    lote_id=det.lote_id,
-                    cantidad=det.cantidad,
-                    referencia_documento=dev.numero_devolucion,
-                    usuario_id=current_user.id,
-                    notas="Reingreso por devolución",
-                )
-                db.add(mov)
-                # Trazabilidad del reingreso (ISO 9001 §8.5.2 / §8.7)
-                await _registrar_evento(
-                    db, "DEVOLUCION",
-                    f"Reingreso por devolución {dev.numero_devolucion}: {det.cantidad:g} und "
-                    f"({det.producto.nombre if det.producto else det.producto_id})",
-                    entidad_tipo="DEVOLUCION", entidad_id=dev.id, usuario_id=current_user.id,
-                    producto_id=det.producto_id, lote_id=det.lote_id, ubicacion_id=ubic.id,
-                    datos={"numero_devolucion": dev.numero_devolucion, "accion": det.accion,
-                           "cantidad": det.cantidad},
-                )
+            if det.reingresado:
+                continue
+            nombre = det.producto.nombre if det.producto else det.producto_id
+            if det.accion == "REINGRESAR":
+                destino = (recepcion if dirigido else almacenaje) or recepcion or almacenaje
+                if destino is None:
+                    raise HTTPException(422, "El almacén no tiene ubicaciones de recepción ni de almacenamiento.")
+                lpn = None
+                if dirigido and destino == recepcion:
+                    c = await op.crear_contenedor(db, almacen_id=dev.almacen_id, ubicacion_id=destino,
+                                                  depositante_id=det.producto.depositante_id if det.producto else None,
+                                                  usuario_id=current_user.id, documento_tipo="DEVOLUCION",
+                                                  documento_id=dev.id)
+                    lpn = c.id
+                await _mover(db, tipo="DEVOLUCION", producto_id=det.producto_id, cantidad=det.cantidad,
+                             lote_id=det.lote_id, destino=destino, contenedor_destino=lpn,
+                             notas="Reingreso por devolución", **doc)
+                if lpn:
+                    await op.crear_tarea_ubicacion(
+                        db, almacen_id=dev.almacen_id, producto_id=det.producto_id, lote_id=det.lote_id,
+                        contenedor_id=lpn, cantidad=det.cantidad, origen=destino, sugerida=None, razon=None,
+                        depositante_id=det.producto.depositante_id if det.producto else None,
+                        documento_tipo="DEVOLUCION", documento_id=dev.id)
+                ubic_evento, texto = destino, "Reingreso"
+            elif det.accion == "CUARENTENA":
+                if cuarentena is None:
+                    raise HTTPException(422, "El almacén no tiene zona de CUARENTENA para recibir esta devolución.")
+                await _mover(db, tipo="DEVOLUCION", producto_id=det.producto_id, cantidad=det.cantidad,
+                             lote_id=det.lote_id, destino=cuarentena, estado_destino="BLOQUEADO",
+                             notas=f"Devolución a cuarentena ({det.estado_calidad})", **doc)
+                ubic_evento, texto = cuarentena, "A cuarentena (bloqueado)"
+            else:
+                # DESTRUIR / DEVOLVER_PROVEEDOR: no vuelve al inventario, pero queda constancia.
+                ubic_evento, texto = None, ("Para destrucción" if det.accion == "DESTRUIR"
+                                            else "Para devolver al proveedor")
+            det.reingresado = True
+            await _registrar_evento(
+                db, "DEVOLUCION",
+                f"{texto} — devolución {dev.numero_devolucion}: {det.cantidad:g} und ({nombre})",
+                entidad_tipo="DEVOLUCION", entidad_id=dev.id, usuario_id=current_user.id,
+                producto_id=det.producto_id, lote_id=det.lote_id, ubicacion_id=ubic_evento,
+                datos={"numero_devolucion": dev.numero_devolucion, "accion": det.accion,
+                       "estado_calidad": det.estado_calidad, "cantidad": det.cantidad},
+            )
 
     await db.commit()
     r2 = await db.execute(

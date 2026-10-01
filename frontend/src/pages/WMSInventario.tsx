@@ -75,6 +75,7 @@ interface StockItem {
   lote_id: number | null
   lote?: LoteRef | null
   cantidad_disponible: number
+  contenedor_codigo?: string | null
   cantidad_reservada: number
   cantidad_bloqueada: number
   updated_at?: string
@@ -558,6 +559,7 @@ export default function WMSInventario() {
                       <TableCell sx={{ fontWeight: 700 }}>Producto</TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>Ubicación</TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>Lote</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Estiba</TableCell>
                       <TableCell sx={{ fontWeight: 700 }} align="right">
                         Disponible
                       </TableCell>
@@ -621,6 +623,7 @@ export default function WMSInventario() {
                                 ) : null}
                               </TableCell>
                               <TableCell>{item.lote?.numero_lote ?? '-'}</TableCell>
+                              <TableCell sx={{ fontFamily: 'monospace', fontSize: 12 }}>{item.contenedor_codigo ?? '-'}</TableCell>
                               <TableCell align="right">
                                 <Chip
                                   label={item.cantidad_disponible}
@@ -659,7 +662,7 @@ export default function WMSInventario() {
                       <TableRow
                         sx={{ bgcolor: alpha(WMS_COLOR, 0.05) }}
                       >
-                        <TableCell colSpan={4} sx={{ fontWeight: 700 }}>
+                        <TableCell colSpan={5} sx={{ fontWeight: 700 }}>
                           Stock Total
                         </TableCell>
                         <TableCell align="right">
@@ -691,7 +694,7 @@ export default function WMSInventario() {
 
                     {!stockQuery.isLoading && stockItems.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={8} align="center">
+                        <TableCell colSpan={9} align="center">
                           <Typography color="text.secondary" py={2}>
                             No hay registros de stock
                           </Typography>

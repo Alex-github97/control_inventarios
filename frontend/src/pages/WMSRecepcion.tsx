@@ -184,6 +184,7 @@ const EMPTY_RECEPCION = {
   orden_compra_id: '' as string | number,
   almacen_id: '',
   fecha_recepcion: format(new Date(), 'yyyy-MM-dd'),
+  muelle: '',
   notas: '',
 }
 
@@ -1036,8 +1037,11 @@ function RecepcionesTab() {
   // Completar recepcion
   const completarRec = useMutation({
     mutationFn: (id: number) => api.post(`/wms/recepciones/${id}/completar`).then((r) => r.data),
-    onSuccess: () => {
-      toast.success('Recepción completada — stock actualizado')
+    onSuccess: (r: any) => {
+      toast.success(
+        r?.detalles?.some((d: any) => d.contenedor_id)
+          ? 'Recepción completada: quedó en la zona de recepción con sus tareas de ubicación (WMS · Tareas de bodega)'
+          : 'Recepción completada — stock actualizado')
       queryClient.invalidateQueries({ queryKey: ['wms-recepciones'] })
       queryClient.invalidateQueries({ queryKey: ['wms-kpis'] })
     },
@@ -1103,6 +1107,7 @@ function RecepcionesTab() {
       almacen_id: Number(form.almacen_id),
       orden_compra_id: form.orden_compra_id ? Number(form.orden_compra_id) : null,
       fecha_recepcion: form.fecha_recepcion || undefined,
+      muelle: form.muelle || undefined,
       notas: form.notas || '',
       detalles,
     }
@@ -1331,6 +1336,16 @@ function RecepcionesTab() {
                 value={form.fecha_recepcion}
                 onChange={(e) => setForm((f) => ({ ...f, fecha_recepcion: e.target.value }))}
                 InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                label="Muelle"
+                fullWidth
+                size="small"
+                value={form.muelle}
+                onChange={(e) => setForm((f) => ({ ...f, muelle: e.target.value }))}
+                helperText="La hora de llegada se toma al registrar la recepción"
               />
             </Grid>
             <Grid size={{ xs: 12 }}>

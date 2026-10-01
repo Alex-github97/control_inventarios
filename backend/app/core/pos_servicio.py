@@ -144,8 +144,9 @@ async def vender(db: AsyncSession, yo: Usuario, caja_id: int, lineas: List[dict]
             asignaciones = await inv.asignar_fefo(db, prod.id, ubicaciones, cantidad)
             for a in asignaciones:
                 await inv.sacar(db, producto_id=prod.id, ubicacion_id=a.ubicacion_id, lote_id=a.lote_id,
-                                cantidad=a.cantidad, tipo="DESPACHO", referencia=referencia,
-                                usuario_id=yo.id, notas="Venta POS")
+                                contenedor_id=a.contenedor_id, cantidad=a.cantidad, tipo="DESPACHO",
+                                referencia=referencia, usuario_id=yo.id, notas="Venta POS",
+                                documento_tipo="POS_VENTA")
         except inv.StockInsuficiente as e:
             raise HTTPException(409, str(e))
         costo_u = d(prod.costo_promedio)
@@ -154,6 +155,7 @@ async def vender(db: AsyncSession, yo: Usuario, caja_id: int, lineas: List[dict]
                                      tarifa_iva=d(prod.tarifa_iva), base=liq["base"], iva=liq["iva"],
                                      total=liq["total"], costo_unitario=costo_u,
                                      salidas=[{"ubicacion_id": a.ubicacion_id, "lote_id": a.lote_id,
+                                               "contenedor_id": a.contenedor_id,
                                                "cantidad": float(a.cantidad)} for a in asignaciones]))
         subtotal += liq["base"]; impuestos += liq["iva"]; total += liq["total"]; descuento += liq["descuento"]
         costo_total += r2(costo_u * cantidad)
@@ -276,7 +278,7 @@ async def devolver(db: AsyncSession, yo: Usuario, venta_id: int, lineas: List[di
                     raise HTTPException(422, "El almacén no tiene zona de CUARENTENA para recibir mercancía dañada.")
             ubic, lote = cuarentena, (ln.salidas or [{}])[0].get("lote_id")
         await inv.entrar(db, producto_id=ln.producto_id, ubicacion_id=ubic, lote_id=lote, cantidad=cant,
-                         tipo="DEVOLUCION", referencia=ref, usuario_id=yo.id,
+                         tipo="DEVOLUCION", referencia=ref, usuario_id=yo.id, documento_tipo="POS_DEVOLUCION",
                          notas=f"Devolución POS ({'buen estado' if estado == 'BUENO' else 'dañado'})",
                          costo_unitario=ln.costo_unitario)
         ln.cantidad_devuelta = d(ln.cantidad_devuelta) + cant

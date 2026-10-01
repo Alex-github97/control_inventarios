@@ -760,6 +760,11 @@ async def _migrar_esquema(esquema: str) -> None:
         from app.core.grc_migracion import migrar_grc
         await migrar_grc(conn)
 
+    # 1.c WMS: estibas, depositantes, tareas y kárdex completo (idempotente).
+    async with _conexion(esquema) as conn:
+        from app.core.wms_migracion import migrar_wms
+        await migrar_wms(conn)
+
     # 2. Añadir columna rol_id a usuarios si no existe (safe para BD existentes)
     async with _conexion(esquema) as conn:
         await conn.execute(text(

@@ -14,6 +14,7 @@ import toast from 'react-hot-toast'
 import { COLOR_MODULO } from '@/config/marca'
 import { AdminCatalogos } from '@/components/catalogo/AdminCatalogos'
 import { mensajeDeError } from '@/utils/errorApi'
+import { TablaRegistros, FormularioRegistro, type Campo } from '@/components/comun/Registro'
 const WMS_COLOR = COLOR_MODULO
 
 // ─── Generic catalog hook ──────────────────────────────────────────────────────
@@ -454,7 +455,7 @@ function CiudadesSection() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // TAB 3: Almacenes
 // ═══════════════════════════════════════════════════════════════════════════════
-interface Almacen extends SimpleItem { codigo: string; nombre: string; direccion?: string; ciudad?: string; pais?: string }
+interface Almacen extends SimpleItem { codigo: string; nombre: string; direccion?: string; ciudad?: string; pais?: string; flujo_recepcion?: string }
 
 function AlmacenesSection() {
   const { data: items, isLoading, create, update, remove } = useCatalog<Almacen>('/wms/almacenes/', ['wms-almacenes'])
@@ -463,7 +464,7 @@ function AlmacenesSection() {
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Almacen | null>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)
-  const [form, setForm] = useState({ codigo: '', nombre: '', direccion: '', ciudad: '', pais: '' })
+  const [form, setForm] = useState({ codigo: '', nombre: '', direccion: '', ciudad: '', pais: '', flujo_recepcion: 'DIRECTO' })
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
 
   const ciudadesFiltradas = (paises as Pais[]).length > 0 && form.pais
@@ -474,8 +475,8 @@ function AlmacenesSection() {
     : (ciudades as Ciudad[])
 
   const openDialog = (item?: Almacen) => {
-    if (item) { setEditing(item); setForm({ codigo: item.codigo, nombre: item.nombre, direccion: item.direccion ?? '', ciudad: item.ciudad ?? '', pais: item.pais ?? '' }) }
-    else { setEditing(null); setForm({ codigo: '', nombre: '', direccion: '', ciudad: '', pais: '' }) }
+    if (item) { setEditing(item); setForm({ codigo: item.codigo, nombre: item.nombre, direccion: item.direccion ?? '', ciudad: item.ciudad ?? '', pais: item.pais ?? '', flujo_recepcion: item.flujo_recepcion ?? 'DIRECTO' }) }
+    else { setEditing(null); setForm({ codigo: '', nombre: '', direccion: '', ciudad: '', pais: '', flujo_recepcion: 'DIRECTO' }) }
     setOpen(true)
   }
 
@@ -493,7 +494,7 @@ function AlmacenesSection() {
     <SectionShell title="Almacenes" subtitle="Instalaciones físicas del WMS" onNew={() => openDialog()} isLoading={isLoading}>
       {(items as Almacen[]).map(item => (
         <ItemCard key={item.id} item={item}
-          extraLabels={[{ key: 'codigo', label: 'Código' }, { key: 'ciudad', label: 'Ciudad' }, { key: 'pais', label: 'País' }]}
+          extraLabels={[{ key: 'codigo', label: 'Código' }, { key: 'ciudad', label: 'Ciudad' }, { key: 'pais', label: 'País' }, { key: 'flujo_recepcion', label: 'Recepción' }]}
           onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
       ))}
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
@@ -514,6 +515,14 @@ function AlmacenesSection() {
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('ciudad', e.target.value)} disabled={!form.pais}>
               <MenuItem value="">Seleccionar ciudad</MenuItem>
               {ciudadesFiltradas.map(c => <MenuItem key={c.id} value={c.nombre}>{c.nombre}</MenuItem>)}
+            </TextField>
+            <TextField select label="Cómo entra la mercancía" size="small" fullWidth value={form.flujo_recepcion}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('flujo_recepcion', e.target.value)}
+              helperText={form.flujo_recepcion === 'DIRIGIDO'
+                ? 'Se recibe en la zona de recepción, en una estiba (LPN) por línea, y una tarea indica dónde ubicarla. Requiere zona de RECEPCION.'
+                : 'La recepción deja la mercancía directamente en su ubicación.'}>
+              <MenuItem value="DIRECTO">Directo a la ubicación</MenuItem>
+              <MenuItem value="DIRIGIDO">Ubicación dirigida (con tareas)</MenuItem>
             </TextField>
           </Stack></DialogContent>
           <CrudActions onCancel={() => setOpen(false)} isPending={create.isPending || update.isPending} editing={!!editing} />
@@ -677,17 +686,19 @@ function UbicacionesSection() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // TAB 4: Productos
 // ═══════════════════════════════════════════════════════════════════════════════
-interface Producto extends SimpleItem { sku: string; nombre: string; categoria?: string; familia?: string; unidad_medida?: string; peso_kg?: number; volumen_m3?: number; requiere_refrigeracion?: boolean; requiere_serial?: boolean; requiere_lote?: boolean; vida_util_dias?: number }
+interface Producto extends SimpleItem { sku: string; nombre: string; categoria?: string; familia?: string; unidad_medida?: string; peso_kg?: number; volumen_m3?: number; requiere_refrigeracion?: boolean; requiere_serial?: boolean; requiere_lote?: boolean; vida_util_dias?: number; depositante_id?: number | null }
 
 function ProductosSection() {
   const { data: items, isLoading, create, update, remove } = useCatalog<Producto>('/wms/productos/', ['wms-productos'])
   const { data: categorias = [] } = useQuery<CategoriaItem[]>({ queryKey: ['wms-categorias'], queryFn: () => api.get('/wms/categorias-producto/').then((r: { data: CategoriaItem[] }) => r.data) })
   const { data: familias = [] } = useQuery<FamiliaItem[]>({ queryKey: ['wms-familias'], queryFn: () => api.get('/wms/familias-producto/').then((r: { data: FamiliaItem[] }) => r.data) })
   const { data: unidades = [] } = useQuery<TipoSimple[]>({ queryKey: ['wms-unidades-medida'], queryFn: () => api.get('/wms/unidades-medida/').then((r: { data: TipoSimple[] }) => r.data) })
+  const { data: depositantes = [] } = useQuery<Depositante[]>({ queryKey: ['wms-depositantes'], queryFn: () => api.get('/wms/depositantes').then((r: { data: Depositante[] }) => r.data) })
+  const nombreDep = (id?: number | null) => depositantes.find(d => d.id === id)?.nombre ?? ''
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Producto | null>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)
-  const [form, setForm] = useState({ sku: '', nombre: '', categoria: '', familia: '', unidad_medida: '', peso_kg: '', volumen_m3: '', vida_util_dias: '', requiere_refrigeracion: false, requiere_serial: false, requiere_lote: false })
+  const [form, setForm] = useState({ sku: '', nombre: '', categoria: '', familia: '', unidad_medida: '', peso_kg: '', volumen_m3: '', vida_util_dias: '', depositante_id: '', requiere_refrigeracion: false, requiere_serial: false, requiere_lote: false })
   const set = (k: string, v: string | boolean) => setForm(f => ({ ...f, [k]: v }))
 
   const familiasFiltradas = form.categoria
@@ -700,10 +711,10 @@ function ProductosSection() {
   const openDialog = (item?: Producto) => {
     if (item) {
       setEditing(item)
-      setForm({ sku: item.sku, nombre: item.nombre, categoria: item.categoria ?? '', familia: item.familia ?? '', unidad_medida: item.unidad_medida ?? '', peso_kg: item.peso_kg?.toString() ?? '', volumen_m3: item.volumen_m3?.toString() ?? '', vida_util_dias: item.vida_util_dias?.toString() ?? '', requiere_refrigeracion: item.requiere_refrigeracion ?? false, requiere_serial: item.requiere_serial ?? false, requiere_lote: item.requiere_lote ?? false })
+      setForm({ sku: item.sku, nombre: item.nombre, categoria: item.categoria ?? '', familia: item.familia ?? '', unidad_medida: item.unidad_medida ?? '', peso_kg: item.peso_kg?.toString() ?? '', volumen_m3: item.volumen_m3?.toString() ?? '', vida_util_dias: item.vida_util_dias?.toString() ?? '', depositante_id: item.depositante_id?.toString() ?? '', requiere_refrigeracion: item.requiere_refrigeracion ?? false, requiere_serial: item.requiere_serial ?? false, requiere_lote: item.requiere_lote ?? false })
     } else {
       setEditing(null)
-      setForm({ sku: '', nombre: '', categoria: '', familia: '', unidad_medida: '', peso_kg: '', volumen_m3: '', vida_util_dias: '', requiere_refrigeracion: false, requiere_serial: false, requiere_lote: false })
+      setForm({ sku: '', nombre: '', categoria: '', familia: '', unidad_medida: '', peso_kg: '', volumen_m3: '', vida_util_dias: '', depositante_id: '', requiere_refrigeracion: false, requiere_serial: false, requiere_lote: false })
     }
     setOpen(true)
   }
@@ -723,6 +734,7 @@ function ProductosSection() {
     if (form.peso_kg) payload.peso_kg = Number(form.peso_kg)
     if (form.volumen_m3) payload.volumen_m3 = Number(form.volumen_m3)
     if (form.vida_util_dias) payload.vida_util_dias = Number(form.vida_util_dias)
+    if (form.depositante_id) payload.depositante_id = Number(form.depositante_id)
     if (editing) update.mutate({ id: editing.id, d: payload }, { onSuccess: () => setOpen(false) })
     else create.mutate(payload, { onSuccess: () => setOpen(false) })
   }
@@ -732,8 +744,8 @@ function ProductosSection() {
   return (
     <SectionShell title="Productos" subtitle="Catálogo de SKUs del WMS" onNew={() => openDialog()} isLoading={isLoading}>
       {(items as Producto[]).map(item => (
-        <ItemCard key={item.id} item={{ ...item, nombre: item.nombre }}
-          extraLabels={[{ key: 'sku', label: 'SKU' }, { key: 'categoria', label: 'Categoría' }, { key: 'unidad_medida', label: 'Unidad' }]}
+        <ItemCard key={item.id} item={{ ...item, nombre: item.nombre, depositante: nombreDep(item.depositante_id) }}
+          extraLabels={[{ key: 'sku', label: 'SKU' }, { key: 'depositante', label: 'Dueño' }, { key: 'categoria', label: 'Categoría' }, { key: 'unidad_medida', label: 'Unidad' }]}
           onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
       ))}
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
@@ -744,6 +756,12 @@ function ProductosSection() {
               <TextField label="SKU *" size="small" value={form.sku} onChange={e => set('sku', e.target.value)} sx={{ flex: 1 }} />
               <TextField label="Nombre *" size="small" value={form.nombre} onChange={e => set('nombre', e.target.value)} sx={{ flex: 2 }} />
             </Stack>
+            <TextField select label="Depositante (dueño de la mercancía)" size="small" fullWidth value={form.depositante_id}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('depositante_id', e.target.value)}
+              helperText="Vacío = mercancía propia. No se puede cambiar mientras el producto tenga existencias.">
+              <MenuItem value="">Mercancía propia</MenuItem>
+              {depositantes.filter(d => d.activo).map(d => <MenuItem key={d.id} value={d.id.toString()}>{d.nombre}</MenuItem>)}
+            </TextField>
             <TextField select label="Categoría" size="small" fullWidth value={form.categoria}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => { set('categoria', e.target.value); set('familia', '') }}>
               <MenuItem value="">Sin categoría</MenuItem>
@@ -1102,6 +1120,63 @@ function DevolucionesListSection() {
   )
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Depositantes (operación 3PL)
+// ═══════════════════════════════════════════════════════════════════════════════
+interface Depositante { id: number; codigo: string; nombre: string; nit?: string; contacto?: string; email?: string
+  telefono?: string; propio: boolean; notas?: string; activo: boolean; productos: number; unidades: number
+  ubicaciones: number; valor: number }
+
+function DepositantesSection() {
+  const qc = useQueryClient()
+  const { data: items = [], isLoading } = useQuery<Depositante[]>({ queryKey: ['wms-depositantes'], queryFn: () => api.get('/wms/depositantes').then(r => r.data) })
+  const [dlg, setDlg] = useState<{ abierto: boolean; r: Depositante | null }>({ abierto: false, r: null })
+  const campos: Campo[] = [
+    { clave: 'codigo', etiqueta: 'Código', obligatorio: true, ancho: 4 },
+    { clave: 'nombre', etiqueta: 'Razón social', obligatorio: true, ancho: 8 },
+    { clave: 'nit', etiqueta: 'NIT', ancho: 6 },
+    { clave: 'contacto', etiqueta: 'Contacto', ancho: 6 },
+    { clave: 'email', etiqueta: 'Correo', ancho: 6 },
+    { clave: 'telefono', etiqueta: 'Teléfono', ancho: 6 },
+    { clave: 'propio', etiqueta: 'Es la mercancía propia de la empresa', tipo: 'interruptor' },
+    { clave: 'notas', etiqueta: 'Condiciones del servicio', tipo: 'area' },
+    { clave: 'activo', etiqueta: 'Activo', tipo: 'interruptor' },
+  ]
+  const guardar = async (c: Record<string, unknown>) => {
+    if (dlg.r) await api.put(`/wms/depositantes/${dlg.r.id}`, c); else await api.post('/wms/depositantes', c)
+    toast.success('Depositante guardado'); qc.invalidateQueries({ queryKey: ['wms-depositantes'] })
+  }
+  const pesos = (v: number) => v.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
+  return (
+    <Box>
+      <Stack direction="row" alignItems="center" gap={2} mb={0.25}>
+        <Typography fontSize={14} fontWeight={700}>Depositantes</Typography>
+        <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={() => setDlg({ abierto: true, r: null })}
+          sx={{ borderRadius: '8px', textTransform: 'none', borderColor: alpha(WMS_COLOR, 0.5), color: WMS_COLOR }}>Nuevo</Button>
+      </Stack>
+      <Typography fontSize={12} color="text.secondary" mb={2}>
+        Dueños de la mercancía almacenada. Cada producto es de un solo depositante y cada documento (orden, recepción, despacho) también:
+        así el inventario de un cliente nunca se mezcla con el de otro.
+      </Typography>
+      <TablaRegistros filas={items} cargando={isLoading} vacio="Sin depositantes" etiqueta={d => d.nombre}
+        onEditar={d => setDlg({ abierto: true, r: d })}
+        columnas={[
+          { titulo: 'Código', valor: d => d.codigo },
+          { titulo: 'Depositante', valor: d => <>{d.nombre}{d.propio && <Chip size="small" label="Propio" sx={{ ml: 1, height: 18, fontSize: 10 }} />}</> },
+          { titulo: 'NIT', valor: d => d.nit ?? '' },
+          { titulo: 'Productos', valor: d => d.productos, alinear: 'right' },
+          { titulo: 'Unidades en bodega', valor: d => d.unidades.toLocaleString('es-CO'), alinear: 'right' },
+          { titulo: 'Ubicaciones', valor: d => d.ubicaciones, alinear: 'right' },
+          { titulo: 'Valor al costo', valor: d => pesos(d.valor), alinear: 'right' },
+          { titulo: 'Estado', valor: d => d.activo ? 'Activo' : 'Inactivo' },
+        ]} />
+      <FormularioRegistro abierto={dlg.abierto} titulo={dlg.r ? 'Editar depositante' : 'Nuevo depositante'} campos={campos}
+        registro={dlg.r} valoresIniciales={{ activo: true, propio: false }} onGuardar={guardar}
+        onCerrar={() => setDlg({ abierto: false, r: null })} />
+    </Box>
+  )
+}
+
 // ─── Shared helper components ──────────────────────────────────────────────────
 function SectionShell({ title, subtitle, onNew, isLoading, children }: { title: string; subtitle: string; onNew: () => void; isLoading: boolean; children: React.ReactNode }) {
   return (
@@ -1145,7 +1220,7 @@ export default function WMSConfig() {
   const tabs = [
     'Países', 'Ciudades', 'Tipos Zona', 'Tipos Ubic.', 'Unidades', 'Categorías', 'Familias',
     'Almacenes', 'Zonas', 'Ubicaciones', 'Productos', 'Lotes',
-    'Proveedores', 'Clientes', 'Transportadoras', 'Devoluciones', 'Motivos Res./Bloq.', 'Catálogos']
+    'Proveedores', 'Clientes', 'Transportadoras', 'Devoluciones', 'Motivos Res./Bloq.', 'Catálogos', 'Depositantes']
 
   const GUIDE = [
     { step: '1', text: 'Configura Países y Ciudades — se usan en almacenes, proveedores y clientes.' },
@@ -1154,7 +1229,7 @@ export default function WMSConfig() {
     { step: '4', text: 'Crea los Almacenes físicos seleccionando país y ciudad del catálogo.' },
     { step: '5', text: 'Divide cada almacén en Zonas usando los tipos pre-configurados.' },
     { step: '6', text: 'Define Ubicaciones (pasillos, estanterías, niveles) dentro de cada zona.' },
-    { step: '7', text: 'Registra Productos con SKU, categoría, familia y unidad de medida del catálogo.' },
+    { step: '7', text: 'Si guarda mercancía de terceros, cree los Depositantes; luego registre los Productos con su dueño, SKU, categoría y unidad.' },
     { step: '8', text: 'Los Lotes permiten rastrear mercancía por fecha de vencimiento y origen.' },
     { step: '9', text: 'Registra Proveedores y Clientes con ciudad y país del catálogo.' },
   ]
@@ -1201,6 +1276,7 @@ export default function WMSConfig() {
           {tab === 14 && <TransportadorasSection />}
           {tab === 15 && <DevolucionesListSection />}
           {tab === 16 && <MotivosMovimientoSection />}
+          {tab === 18 && <DepositantesSection />}
         </Grid>
 
         <Grid size={{ xs: 12, md: 4 }}>

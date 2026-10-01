@@ -163,7 +163,9 @@
       "posVenta": "Sell",
       "posTurnos": "Shifts & cash count",
       "posVentas": "Sales & returns",
-      "posTablero": "Dashboard"
+      "posTablero": "Dashboard",
+      "wmsTareas": "Warehouse tasks",
+      "wmsEstibas": "Pallets (LPN)"
     },
     "section": {
       "principal": "Main",

@@ -189,7 +189,9 @@
       "posVenta": "Vender",
       "posTurnos": "Turnos y arqueo",
       "posVentas": "Ventas y devoluciones",
-      "posTablero": "Tablero"
+      "posTablero": "Tablero",
+      "wmsTareas": "Tareas de bodega",
+      "wmsEstibas": "Estibas (LPN)"
     },
     "section": {
       "principal": "Principal",

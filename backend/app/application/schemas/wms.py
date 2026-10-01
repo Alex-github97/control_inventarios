@@ -137,6 +137,7 @@ class WMSAlmacenCreate(BaseModel):
     direccion: Optional[str] = None
     ciudad: Optional[str] = None
     pais: Optional[str] = None
+    flujo_recepcion: str = Field(default="DIRECTO", pattern="^(DIRECTO|DIRIGIDO)$")
     activo: bool = True
 
 class WMSAlmacenUpdate(BaseModel):
@@ -145,12 +146,14 @@ class WMSAlmacenUpdate(BaseModel):
     direccion: Optional[str] = None
     ciudad: Optional[str] = None
     pais: Optional[str] = None
+    flujo_recepcion: Optional[str] = Field(default=None, pattern="^(DIRECTO|DIRIGIDO)$")
     activo: Optional[bool] = None
 
 class WMSAlmacenResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int; codigo: str; nombre: str
     direccion: Optional[str]; ciudad: Optional[str]; pais: Optional[str]; activo: bool
+    flujo_recepcion: str = "DIRECTO"
     created_at: Optional[datetime] = None
 
 
@@ -228,6 +231,7 @@ class WMSProductoCreate(BaseModel):
     imagen_url: Optional[str] = None
     codigo_barras: Optional[str] = None
     tarifa_iva: float = 19
+    depositante_id: Optional[int] = None  # vacío = la mercancía propia
     activo: bool = True
 
 class WMSProductoUpdate(BaseModel):
@@ -245,6 +249,7 @@ class WMSProductoUpdate(BaseModel):
     imagen_url: Optional[str] = None
     codigo_barras: Optional[str] = None
     tarifa_iva: Optional[float] = None
+    depositante_id: Optional[int] = None
     activo: Optional[bool] = None
 
 class WMSProductoResponse(BaseModel):
@@ -257,6 +262,7 @@ class WMSProductoResponse(BaseModel):
     codigo_barras: Optional[str] = None
     tarifa_iva: float = 19
     costo_promedio: float = 0
+    depositante_id: Optional[int] = None
     created_at: Optional[datetime] = None
 
 
@@ -441,6 +447,7 @@ class WMSOrdenCompraCreate(BaseModel):
     fecha_esperada: Optional[date] = None
     estado: str = "PENDIENTE"
     notas: Optional[str] = None
+    depositante_id: Optional[int] = None  # vacío = el de sus productos
     detalles: List[WMSOrdenCompraDetalleCreate] = []
 
 class WMSOrdenCompraUpdate(BaseModel):
@@ -456,6 +463,7 @@ class WMSOrdenCompraResponse(BaseModel):
     almacen: Optional[WMSAlmacenBrief] = None
     fecha_emision: date; fecha_esperada: Optional[date]
     estado: str; notas: Optional[str]
+    depositante_id: Optional[int] = None
     detalles: List[WMSOrdenCompraDetalleResponse] = []
     created_at: Optional[datetime] = None
 
@@ -466,6 +474,7 @@ class WMSRecepcionDetalleCreate(BaseModel):
     cantidad_esperada: Optional[float] = None
     cantidad_recibida: float = 0
     ubicacion_id: Optional[int] = None
+    contenedor_id: Optional[int] = None
     estado_calidad: str = "APROBADO"
     notas: Optional[str] = None
 
@@ -485,6 +494,7 @@ class WMSRecepcionDetalleResponse(BaseModel):
     cantidad_esperada: Optional[float]; cantidad_recibida: float
     ubicacion_id: Optional[int]
     ubicacion: Optional[WMSUbicacionBrief] = None
+    contenedor_id: Optional[int] = None
     estado_calidad: str; notas: Optional[str]
 
 class WMSRecepcionCreate(BaseModel):
@@ -495,6 +505,11 @@ class WMSRecepcionCreate(BaseModel):
     fecha_recepcion: Optional[date] = None  # por defecto hoy
     estado: str = "BORRADOR"
     notas: Optional[str] = None
+    depositante_id: Optional[int] = None
+    muelle: Optional[str] = None
+    fecha_llegada: Optional[datetime] = None
+    inicio_descargue: Optional[datetime] = None
+    fin_descargue: Optional[datetime] = None
     detalles: List[WMSRecepcionDetalleCreate] = []
 
 class WMSRecepcionUpdate(BaseModel):
@@ -503,6 +518,10 @@ class WMSRecepcionUpdate(BaseModel):
     fecha_recepcion: Optional[date] = None
     estado: Optional[str] = None
     notas: Optional[str] = None
+    muelle: Optional[str] = None
+    fecha_llegada: Optional[datetime] = None
+    inicio_descargue: Optional[datetime] = None
+    fin_descargue: Optional[datetime] = None
 
 class WMSRecepcionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -512,6 +531,12 @@ class WMSRecepcionResponse(BaseModel):
     almacen: Optional[WMSAlmacenBrief] = None
     fecha_recepcion: date; estado: str
     operario_id: Optional[int]; notas: Optional[str]
+    depositante_id: Optional[int] = None
+    muelle: Optional[str] = None
+    fecha_llegada: Optional[datetime] = None
+    inicio_descargue: Optional[datetime] = None
+    fin_descargue: Optional[datetime] = None
+    completada_en: Optional[datetime] = None
     detalles: List[WMSRecepcionDetalleResponse] = []
     created_at: Optional[datetime] = None
 
@@ -526,6 +551,8 @@ class WMSInventarioResponse(BaseModel):
     ubicacion: Optional[WMSUbicacionBrief] = None
     lote_id: Optional[int]
     lote: Optional[WMSLoteBrief] = None
+    contenedor_id: Optional[int] = None
+    contenedor_codigo: Optional[str] = None
     cantidad_disponible: float; cantidad_reservada: float; cantidad_bloqueada: float
     updated_at: Optional[datetime] = None
 
@@ -533,14 +560,17 @@ class WMSAjusteInventario(BaseModel):
     producto_id: int
     ubicacion_id: int
     lote_id: Optional[int] = None
-    cantidad_nueva: float = Field(ge=0)  # valor absoluto del stock resultante
-    motivo: Optional[str] = None
+    contenedor_id: Optional[int] = None
+    cantidad_nueva: float = Field(ge=0)  # valor absoluto del disponible resultante
+    # Un ajuste sin explicación no se puede auditar.
+    motivo: str = Field(min_length=3, max_length=300)
 
 class WMSTransferenciaInventario(BaseModel):
     producto_id: int
     ubicacion_origen_id: int
     ubicacion_destino_id: int
     lote_id: Optional[int] = None
+    contenedor_id: Optional[int] = None
     cantidad: float = Field(gt=0)
     notas: Optional[str] = None
     # Gestión del transporte del traslado: NINGUNA (no se gestiona en plataforma)
@@ -553,6 +583,7 @@ class WMSReservaBloqueo(BaseModel):
     producto_id: int
     ubicacion_id: int
     lote_id: Optional[int] = None
+    contenedor_id: Optional[int] = None
     cantidad: float = Field(gt=0)
     accion: str  # RESERVAR / LIBERAR / BLOQUEAR / DESBLOQUEAR
     motivo: Optional[str] = None
@@ -565,6 +596,17 @@ class WMSMovimientoResponse(BaseModel):
     lote_id: Optional[int]; serie_id: Optional[int]
     cantidad: float; referencia_documento: Optional[str]
     usuario_id: Optional[int]; notas: Optional[str]
+    contenedor_id: Optional[int] = None
+    contenedor_destino_id: Optional[int] = None
+    depositante_id: Optional[int] = None
+    almacen_id: Optional[int] = None
+    documento_tipo: Optional[str] = None
+    documento_id: Optional[int] = None
+    tarea_id: Optional[int] = None
+    estado_origen: Optional[str] = None
+    estado_destino: Optional[str] = None
+    saldo_origen: Optional[float] = None
+    saldo_destino: Optional[float] = None
     created_at: Optional[datetime] = None
 
 
@@ -584,6 +626,7 @@ class WMSConteoDetalleResponse(BaseModel):
     producto: Optional[WMSProductoBrief] = None
     ubicacion_id: int
     ubicacion: Optional[WMSUbicacionBrief] = None
+    contenedor_id: Optional[int] = None
     lote_id: Optional[int]; cantidad_sistema: float
     cantidad_fisica: Optional[float]; diferencia: Optional[float]; ajustado: bool
 
@@ -636,6 +679,7 @@ class WMSOrdenSalidaCreate(BaseModel):
     estado: str = "PENDIENTE"
     prioridad: str = "NORMAL"
     canal: Optional[str] = None
+    depositante_id: Optional[int] = None
     detalles: List[WMSOrdenSalidaDetalleCreate] = []
 
 class WMSOrdenSalidaUpdate(BaseModel):
@@ -655,6 +699,7 @@ class WMSOrdenSalidaResponse(BaseModel):
     almacen: Optional[WMSAlmacenBrief] = None
     fecha_emision: date; fecha_requerida: Optional[date]
     estado: str; prioridad: str; canal: Optional[str]
+    depositante_id: Optional[int] = None
     detalles: List[WMSOrdenSalidaDetalleResponse] = []
     created_at: Optional[datetime] = None
 
@@ -673,6 +718,8 @@ class WMSPickingDetalleResponse(BaseModel):
     ubicacion: Optional[WMSUbicacionBrief] = None
     lote_id: Optional[int]; cantidad_solicitada: float
     cantidad_pickeada: float; confirmado: bool
+    contenedor_id: Optional[int] = None
+    cantidad_despachada: float = 0
     timestamp_confirmacion: Optional[datetime]
 
 class WMSPickingTareaCreate(BaseModel):
@@ -687,6 +734,10 @@ class WMSPickingTareaUpdate(BaseModel):
 class WMSPickingConfirmItem(BaseModel):
     detalle_id: int
     cantidad_pickeada: float = Field(gt=0)
+    # Lo que el operario escaneó. Si viene, tiene que coincidir: es la
+    # verificación que evita sacar de la ubicación equivocada.
+    ubicacion_codigo: Optional[str] = None
+    producto_codigo: Optional[str] = None
 
 class WMSPickingTareaResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -709,6 +760,7 @@ class WMSDespachoDetalleResponse(BaseModel):
     id: int; despacho_id: int; producto_id: int
     producto: Optional[WMSProductoBrief] = None
     lote_id: Optional[int]; cantidad: float; numero_tracking: Optional[str]
+    contenedor_id: Optional[int] = None
 
 class WMSDespachoCreate(BaseModel):
     numero_despacho: Optional[str] = None  # autogenerado si viene vacío
@@ -722,6 +774,9 @@ class WMSDespachoCreate(BaseModel):
     peso_total_kg: Optional[float] = None
     volumen_total_m3: Optional[float] = None
     notas: Optional[str] = None
+    muelle: Optional[str] = None
+    inicio_cargue: Optional[datetime] = None
+    fin_cargue: Optional[datetime] = None
     detalles: List[WMSDespachoDetalleCreate] = []
     # NINGUNA (no gestiona transporte en plataforma) o TMS (crea viaje en TMS)
     gestion_transporte: str = "NINGUNA"
@@ -749,6 +804,9 @@ class WMSDespachoResponse(BaseModel):
     fecha_entrega_estimada: Optional[date]; fecha_entrega_real: Optional[date]
     estado: str; peso_total_kg: Optional[float]; volumen_total_m3: Optional[float]
     notas: Optional[str]
+    muelle: Optional[str] = None
+    inicio_cargue: Optional[datetime] = None
+    fin_cargue: Optional[datetime] = None
     detalles: List[WMSDespachoDetalleResponse] = []
     created_at: Optional[datetime] = None
 

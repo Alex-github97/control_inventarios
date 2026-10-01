@@ -126,6 +126,8 @@ const WMSInventario = React.lazy(() => import('@/pages/WMSInventario'))
 const WMSPicking = React.lazy(() => import('@/pages/WMSPicking'))
 const WMSDespacho = React.lazy(() => import('@/pages/WMSDespacho'))
 const WMSTrazabilidad = React.lazy(() => import('@/pages/WMSTrazabilidad'))
+const WMSTareas = React.lazy(() => import('@/pages/WMSTareas'))
+const WMSEstibas = React.lazy(() => import('@/pages/WMSEstibas'))
 const WMSVencimientos = React.lazy(() => import('@/pages/WMSVencimientos'))
 const WMSConfig = React.lazy(() => import('@/pages/WMSConfig'))
 const GHDashboard = React.lazy(() => import('@/pages/GHDashboard'))
@@ -513,6 +515,8 @@ export default function App() {
             <Route path="/wms/picking" element={<ProtectedRoute><WMSPicking /></ProtectedRoute>} />
             <Route path="/wms/despacho" element={<ProtectedRoute><WMSDespacho /></ProtectedRoute>} />
             <Route path="/wms/trazabilidad" element={<ProtectedRoute><WMSTrazabilidad /></ProtectedRoute>} />
+            <Route path="/wms/tareas" element={<ProtectedRoute><WMSTareas /></ProtectedRoute>} />
+            <Route path="/wms/estibas" element={<ProtectedRoute><WMSEstibas /></ProtectedRoute>} />
             <Route path="/wms/vencimientos" element={<ProtectedRoute><WMSVencimientos /></ProtectedRoute>} />
             <Route path="/wms/config" element={<ProtectedRoute><WMSConfig /></ProtectedRoute>} />
             <Route path="/gh" element={<ProtectedRoute><GHDashboard /></ProtectedRoute>} />

@@ -5,7 +5,7 @@ Prefijo de tabla: wms_
 from datetime import datetime, timezone as _tz
 from sqlalchemy import (
     Column, Integer, String, Boolean, Float, ForeignKey, Text,
-    Date, DateTime, JSON, UniqueConstraint, Numeric, func
+    Date, DateTime, JSON, UniqueConstraint, Numeric, Index, func
 )
 from sqlalchemy.orm import relationship
 from app.infrastructure.models.base import Base, TimestampMixin, SoftDeleteMixin
@@ -93,6 +93,11 @@ class WMSAlmacen(Base, TimestampMixin):
     direccion = Column(String(255), nullable=True)
     ciudad    = Column(String(100), nullable=True)
     pais      = Column(String(80), nullable=True)
+    # DIRECTO: la recepción deja la mercancía en su ubicación final.
+    # DIRIGIDO: la deja en la zona de recepción, en una estiba (LPN) por línea,
+    # y crea una tarea de ubicación por estiba con la ubicación sugerida. Es lo
+    # que permite medir de muelle a estantería y saber quién ubicó qué.
+    flujo_recepcion = Column(String(12), nullable=False, default="DIRECTO", server_default="DIRECTO")
     activo    = Column(Boolean, default=True)
 
     zonas            = relationship("WMSZona", back_populates="almacen")
@@ -168,6 +173,9 @@ class WMSProducto(Base, TimestampMixin):
     codigo_barras         = Column(String(60), nullable=True, index=True)
     tarifa_iva            = Column(Numeric(5, 2), nullable=False, default=19)
     costo_promedio        = Column(Numeric(18, 4), nullable=False, default=0)
+    # Dueño de la mercancía (operación 3PL). Cada referencia es de un solo
+    # depositante: así el inventario de un cliente nunca se mezcla con el de otro.
+    depositante_id        = Column(Integer, ForeignKey("wms_depositantes.id"), nullable=True, index=True)
     activo                = Column(Boolean, default=True)
 
     lotes               = relationship("WMSLote", back_populates="producto")
@@ -278,6 +286,7 @@ class WMSOrdenCompra(Base, TimestampMixin, SoftDeleteMixin):
     numero_oc      = Column(String(60), nullable=False, unique=True, index=True)
     proveedor_id   = Column(Integer, ForeignKey("wms_proveedores.id"), nullable=False)
     almacen_id     = Column(Integer, ForeignKey("wms_almacenes.id"), nullable=False)
+    depositante_id = Column(Integer, ForeignKey("wms_depositantes.id"), nullable=True, index=True)
     fecha_emision  = Column(Date, nullable=False)
     fecha_esperada = Column(Date, nullable=True)
     # PENDIENTE/PARCIAL/COMPLETA/CANCELADA
@@ -316,6 +325,14 @@ class WMSRecepcion(Base, TimestampMixin, SoftDeleteMixin):
     # BORRADOR/EN_PROCESO/COMPLETA/RECHAZADA
     estado           = Column(String(20), nullable=False, default="BORRADOR")
     operario_id      = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    depositante_id   = Column(Integer, ForeignKey("wms_depositantes.id"), nullable=True, index=True)
+    # Tiempos del muelle: llegada del vehículo, inicio y fin del descargue. Con
+    # el fin de la ubicación (tarea o cierre) dan el «dock to stock».
+    muelle           = Column(String(30), nullable=True)
+    fecha_llegada    = Column(DateTime(timezone=True), nullable=True)
+    inicio_descargue = Column(DateTime(timezone=True), nullable=True)
+    fin_descargue    = Column(DateTime(timezone=True), nullable=True)
+    completada_en    = Column(DateTime(timezone=True), nullable=True)
     notas            = Column(Text, nullable=True)
 
     orden_compra = relationship("WMSOrdenCompra", back_populates="recepciones")
@@ -332,6 +349,7 @@ class WMSRecepcionDetalle(Base, TimestampMixin):
     cantidad_esperada = Column(Float, nullable=True)
     cantidad_recibida = Column(Float, nullable=False, default=0)
     ubicacion_id      = Column(Integer, ForeignKey("wms_ubicaciones.id"), nullable=True)
+    contenedor_id     = Column(Integer, ForeignKey("wms_contenedores.id"), nullable=True)
     # APROBADO/RECHAZADO/CUARENTENA/INSPECCION
     estado_calidad    = Column(String(20), nullable=False, default="APROBADO")
     notas             = Column(Text, nullable=True)
@@ -346,13 +364,11 @@ class WMSRecepcionDetalle(Base, TimestampMixin):
 
 class WMSInventarioUbicacion(Base, TimestampMixin):
     __tablename__ = "wms_inventario_ubicacion"
-    __table_args__ = (
-        UniqueConstraint("producto_id", "ubicacion_id", "lote_id", name="uq_inv_prod_ubic_lote"),
-    )
     id                  = Column(Integer, primary_key=True, index=True)
     producto_id         = Column(Integer, ForeignKey("wms_productos.id"), nullable=False)
     ubicacion_id        = Column(Integer, ForeignKey("wms_ubicaciones.id"), nullable=False)
     lote_id             = Column(Integer, ForeignKey("wms_lotes.id"), nullable=True)
+    contenedor_id       = Column(Integer, ForeignKey("wms_contenedores.id"), nullable=True, index=True)
     cantidad_disponible = Column(Float, nullable=False, default=0)
     cantidad_reservada  = Column(Float, nullable=False, default=0)
     cantidad_bloqueada  = Column(Float, nullable=False, default=0)
@@ -361,6 +377,14 @@ class WMSInventarioUbicacion(Base, TimestampMixin):
     producto  = relationship("WMSProducto", back_populates="inventarios")
     ubicacion = relationship("WMSUbicacion", back_populates="inventarios")
     lote      = relationship("WMSLote", back_populates="inventarios")
+
+
+# Una fila por producto, ubicación, lote y estiba. El índice usa COALESCE: un
+# UNIQUE normal no ve los NULL y dejaba dos filas «sin lote» del mismo producto
+# en la misma ubicación.
+Index("uq_inv_clave", WMSInventarioUbicacion.producto_id, WMSInventarioUbicacion.ubicacion_id,
+      func.coalesce(WMSInventarioUbicacion.lote_id, 0), func.coalesce(WMSInventarioUbicacion.contenedor_id, 0),
+      unique=True)
 
 
 class WMSMovimientoInventario(Base, TimestampMixin):
@@ -378,6 +402,22 @@ class WMSMovimientoInventario(Base, TimestampMixin):
     referencia_documento = Column(String(100), nullable=True)
     usuario_id           = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
     notas                = Column(Text, nullable=True)
+    # Trazabilidad completa: de qué estiba, de quién, en qué almacén, por qué
+    # documento y tarea, entre qué estados (disponible/reservado/bloqueado) y
+    # cómo quedaron las dos filas tocadas. Lo escribe solo `wms_inventario.mover`.
+    # Estiba de la que sale (o a la que entra, si no hay origen) y estiba a la
+    # que llega: armar o desarmar una estiba es un movimiento entre las dos.
+    contenedor_id        = Column(Integer, ForeignKey("wms_contenedores.id"), nullable=True, index=True)
+    contenedor_destino_id = Column(Integer, ForeignKey("wms_contenedores.id"), nullable=True, index=True)
+    depositante_id       = Column(Integer, ForeignKey("wms_depositantes.id"), nullable=True, index=True)
+    almacen_id           = Column(Integer, ForeignKey("wms_almacenes.id"), nullable=True, index=True)
+    documento_tipo       = Column(String(30), nullable=True)
+    documento_id         = Column(Integer, nullable=True)
+    tarea_id             = Column(Integer, ForeignKey("wms_tareas.id"), nullable=True)
+    estado_origen        = Column(String(12), nullable=True)
+    estado_destino       = Column(String(12), nullable=True)
+    saldo_origen         = Column(Float, nullable=True)
+    saldo_destino        = Column(Float, nullable=True)
 
     producto          = relationship("WMSProducto", back_populates="movimientos")
     ubicacion_origen  = relationship("WMSUbicacion", foreign_keys=[ubicacion_origen_id], back_populates="movimientos_origen")
@@ -411,6 +451,7 @@ class WMSConteoDetalle(Base, TimestampMixin):
     producto_id      = Column(Integer, ForeignKey("wms_productos.id"), nullable=False)
     ubicacion_id     = Column(Integer, ForeignKey("wms_ubicaciones.id"), nullable=False)
     lote_id          = Column(Integer, ForeignKey("wms_lotes.id"), nullable=True)
+    contenedor_id    = Column(Integer, ForeignKey("wms_contenedores.id"), nullable=True)
     cantidad_sistema = Column(Float, nullable=False, default=0)
     cantidad_fisica  = Column(Float, nullable=True)
     diferencia       = Column(Float, nullable=True)   # computed: fisica - sistema
@@ -430,6 +471,7 @@ class WMSOrdenSalida(Base, TimestampMixin, SoftDeleteMixin):
     numero_orden   = Column(String(60), nullable=False, unique=True, index=True)
     cliente_id     = Column(Integer, ForeignKey("wms_clientes.id"), nullable=False)
     almacen_id     = Column(Integer, ForeignKey("wms_almacenes.id"), nullable=False)
+    depositante_id = Column(Integer, ForeignKey("wms_depositantes.id"), nullable=True, index=True)
     fecha_emision  = Column(Date, nullable=False)
     fecha_requerida = Column(Date, nullable=True)
     # PENDIENTE/EN_PICKING/EMPACANDO/DESPACHADO/ENTREGADO/CANCELADO
@@ -493,6 +535,10 @@ class WMSPickingDetalle(Base, TimestampMixin):
     lote_id               = Column(Integer, ForeignKey("wms_lotes.id"), nullable=True)
     cantidad_solicitada   = Column(Float, nullable=False)
     cantidad_pickeada     = Column(Float, nullable=False, default=0)
+    # Lo que de este alistamiento ya salió en un despacho: el despacho consume
+    # exactamente lo que se reservó y alistó para su orden, no lo de otra.
+    cantidad_despachada   = Column(Float, nullable=False, default=0, server_default="0")
+    contenedor_id         = Column(Integer, ForeignKey("wms_contenedores.id"), nullable=True)
     confirmado            = Column(Boolean, default=False)
     timestamp_confirmacion = Column(DateTime(timezone=True), nullable=True)
 
@@ -517,6 +563,9 @@ class WMSDespacho(Base, TimestampMixin, SoftDeleteMixin):
     estado                = Column(String(20), nullable=False, default="PREPARANDO")
     peso_total_kg         = Column(Float, nullable=True)
     volumen_total_m3      = Column(Float, nullable=True)
+    muelle                = Column(String(30), nullable=True)
+    inicio_cargue         = Column(DateTime(timezone=True), nullable=True)
+    fin_cargue            = Column(DateTime(timezone=True), nullable=True)
     notas                 = Column(Text, nullable=True)
 
     orden          = relationship("WMSOrdenSalida", back_populates="despachos")
@@ -532,6 +581,7 @@ class WMSDespachoDetalle(Base, TimestampMixin):
     lote_id          = Column(Integer, ForeignKey("wms_lotes.id"), nullable=True)
     cantidad         = Column(Float, nullable=False)
     numero_tracking  = Column(String(100), nullable=True)
+    contenedor_id    = Column(Integer, ForeignKey("wms_contenedores.id"), nullable=True)
 
     despacho = relationship("WMSDespacho", back_populates="detalles")
     producto  = relationship("WMSProducto", back_populates="despacho_detalles")
@@ -643,3 +693,86 @@ class WMSKPIDiario(Base, TimestampMixin):
     shipping_accuracy      = Column(Float, nullable=True)
 
     almacen = relationship("WMSAlmacen", back_populates="kpis_diarios")
+
+
+# ─── Operación 3PL: depositantes ───────────────────────────────────────────────
+
+class WMSDepositante(Base, TimestampMixin):
+    """Dueño de la mercancía almacenada. La empresa misma es un depositante más
+    (marcado `propio`), así todo el inventario tiene dueño y los reportes,
+    indicadores y la facturación de almacenamiento se cortan igual."""
+    __tablename__ = "wms_depositantes"
+    id        = Column(Integer, primary_key=True, index=True)
+    codigo    = Column(String(30), nullable=False, unique=True, index=True)
+    nombre    = Column(String(150), nullable=False)
+    nit       = Column(String(30), nullable=True)
+    contacto  = Column(String(100), nullable=True)
+    email     = Column(String(120), nullable=True)
+    telefono  = Column(String(30), nullable=True)
+    propio    = Column(Boolean, nullable=False, default=False)
+    # Tercero del ERP al que se le factura el servicio logístico.
+    tercero_id = Column(Integer, ForeignKey("erp_terceros.id"), nullable=True)
+    notas     = Column(Text, nullable=True)
+    activo    = Column(Boolean, default=True)
+
+
+# ─── Estibas / contenedores (LPN) ──────────────────────────────────────────────
+
+class WMSContenedor(Base, TimestampMixin):
+    """Unidad de manejo con etiqueta propia (License Plate Number): estiba,
+    caja, canasta. Lo que tiene adentro son filas de existencia con su
+    `contenedor_id`; moverla mueve todo su contenido de una sola vez."""
+    __tablename__ = "wms_contenedores"
+    id             = Column(Integer, primary_key=True, index=True)
+    codigo         = Column(String(30), nullable=False, unique=True, index=True)
+    # ESTIBA/CAJA/CANASTA/CONTENEDOR
+    tipo           = Column(String(20), nullable=False, default="ESTIBA")
+    # ABIERTO (se le puede agregar) / CERRADO / DESPACHADO / VACIO / ANULADO
+    estado         = Column(String(15), nullable=False, default="ABIERTO")
+    almacen_id     = Column(Integer, ForeignKey("wms_almacenes.id"), nullable=False, index=True)
+    ubicacion_id   = Column(Integer, ForeignKey("wms_ubicaciones.id"), nullable=True, index=True)
+    depositante_id = Column(Integer, ForeignKey("wms_depositantes.id"), nullable=True, index=True)
+    padre_id       = Column(Integer, ForeignKey("wms_contenedores.id"), nullable=True)
+    documento_tipo = Column(String(30), nullable=True)
+    documento_id   = Column(Integer, nullable=True)
+    largo_cm       = Column(Float, nullable=True)
+    ancho_cm       = Column(Float, nullable=True)
+    alto_cm        = Column(Float, nullable=True)
+    peso_kg        = Column(Float, nullable=True)
+    creado_por_id  = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    notas          = Column(Text, nullable=True)
+
+
+# ─── Tareas de bodega ──────────────────────────────────────────────────────────
+
+class WMSTarea(Base, TimestampMixin):
+    """Un movimiento que alguien tiene que hacer: ubicar lo recibido, reabastecer
+    el frente de picking, mover una estiba. Cada una guarda cuándo se creó, se
+    asignó, empezó y terminó, quién la hizo, a dónde se sugirió llevar y a dónde
+    se llevó de verdad. Es la base de los indicadores de productividad."""
+    __tablename__ = "wms_tareas"
+    id                    = Column(Integer, primary_key=True, index=True)
+    # UBICACION / REABASTECIMIENTO / MOVIMIENTO
+    tipo                  = Column(String(20), nullable=False, index=True)
+    # PENDIENTE / EN_CURSO / COMPLETADA / CANCELADA
+    estado                = Column(String(12), nullable=False, default="PENDIENTE", index=True)
+    prioridad             = Column(Integer, nullable=False, default=5)
+    almacen_id            = Column(Integer, ForeignKey("wms_almacenes.id"), nullable=False, index=True)
+    depositante_id        = Column(Integer, ForeignKey("wms_depositantes.id"), nullable=True)
+    producto_id           = Column(Integer, ForeignKey("wms_productos.id"), nullable=True)
+    lote_id               = Column(Integer, ForeignKey("wms_lotes.id"), nullable=True)
+    contenedor_id         = Column(Integer, ForeignKey("wms_contenedores.id"), nullable=True)
+    cantidad              = Column(Float, nullable=True)
+    ubicacion_origen_id   = Column(Integer, ForeignKey("wms_ubicaciones.id"), nullable=True)
+    ubicacion_sugerida_id = Column(Integer, ForeignKey("wms_ubicaciones.id"), nullable=True)
+    ubicacion_destino_id  = Column(Integer, ForeignKey("wms_ubicaciones.id"), nullable=True)
+    # Por qué la estiba no fue a donde se sugirió (dato para mejorar el slotting).
+    motivo_desvio         = Column(String(200), nullable=True)
+    razon_sugerencia      = Column(String(200), nullable=True)
+    documento_tipo        = Column(String(30), nullable=True)
+    documento_id          = Column(Integer, nullable=True)
+    operario_id           = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    asignada_en           = Column(DateTime(timezone=True), nullable=True)
+    iniciada_en           = Column(DateTime(timezone=True), nullable=True)
+    terminada_en          = Column(DateTime(timezone=True), nullable=True)
+    notas                 = Column(Text, nullable=True)

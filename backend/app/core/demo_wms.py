@@ -325,6 +325,9 @@ async def sembrar_wms(
     p.hito("Productos…")
     productos: List[WMSProducto] = []
     consecutivo = 0
+    # Todo producto tiene dueño (operación 3PL): la empresa de demostración guarda mercancía propia.
+    from app.core.wms_operacion import depositante_propio
+    propio = await depositante_propio(db)
     for categoria, familias in _CATEGORIAS.items():
         for familia in familias:
             for nombre, peso, precio in _PIEZAS.get(familia, []):
@@ -340,6 +343,7 @@ async def sembrar_wms(
                     requiere_serial=(categoria == "Llantas"),
                     requiere_lote=perecedero,
                     vida_util_dias=730 if perecedero else None,
+                    depositante_id=propio,
                     activo=True)
                 producto._precio = precio          # solo para la siembra
                 db.add(producto)

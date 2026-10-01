@@ -1,68 +1,94 @@
 """
-El camino seguro para mover existencias del WMS.
+El único camino para mover existencias del WMS.
 
-El ajuste que usaban los endpoints viejos (`_ajustar_inventario`) leía la fila
-sin bloquearla y truncaba a cero en silencio: dos ventas simultáneas podían
-vender la misma unidad, y una salida mayor que la existencia simplemente dejaba
-la ubicación en cero sin decir nada. Para un punto de venta eso es inventario
-fantasma. Aquí:
+Todo cambio de stock —recibir, ubicar, trasladar, reservar, bloquear, alistar,
+despachar, contar, devolver, vender en el POS— pasa por `mover`. Así:
 
 - la fila de existencia se lee con `FOR UPDATE`: quien llega segundo espera y
   ve el saldo ya descontado;
-- una salida mayor que lo disponible se RECHAZA (`StockInsuficiente`);
-- cada movimiento queda en el kárdex con su ubicación de origen o destino y su
-  costo unitario;
-- las entradas valorizadas recalculan el costo promedio ponderado del producto
-  (el producto también se bloquea, para que dos recepciones no se pisen).
+- una salida mayor que lo que hay en ese estado se RECHAZA (`StockInsuficiente`).
+  El ajuste viejo truncaba a cero en silencio y las unidades desaparecían sin
+  dejar rastro;
+- cada movimiento queda en el kárdex con origen, destino, lote, estiba,
+  depositante, almacén, documento, tarea, estados (disponible/reservado/
+  bloqueado) y el saldo en que quedaron las dos filas tocadas: el historial de
+  una ubicación se puede reconstruir sin consultar nada más;
+- las entradas valorizadas recalculan el costo promedio ponderado.
 
-Las salidas toman primero lo que vence antes (FEFO) y nunca un lote vencido o
-bloqueado.
+Una fila de existencia es (producto, ubicación, lote, estiba). Sus tres
+cantidades son estados de la misma mercancía física: reservar o bloquear es un
+movimiento entre estados de la misma fila, que también queda en el kárdex.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from typing import List, Optional, Sequence
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.models.wms import (
-    WMSInventarioUbicacion, WMSLote, WMSMovimientoInventario, WMSProducto, WMSUbicacion, WMSZona,
+    WMSContenedor, WMSInventarioUbicacion, WMSLote, WMSMovimientoInventario, WMSProducto, WMSUbicacion, WMSZona,
 )
 
 CUATRO = Decimal("0.0001")
+ESTADOS = {"DISPONIBLE": "cantidad_disponible", "RESERVADO": "cantidad_reservada", "BLOQUEADO": "cantidad_bloqueada"}
+# Zonas de las que nunca se alista: lo que está ahí no está listo para salir.
+ZONAS_NO_ALISTABLES = ("RECEPCION", "CUARENTENA", "DESPACHO")
+_MISMA = object()
 
 
 class StockInsuficiente(Exception):
-    def __init__(self, producto: str, pedido: Decimal, disponible: Decimal):
+    def __init__(self, producto: str, pedido: Decimal, disponible: Decimal, estado: str = "DISPONIBLE"):
         self.producto, self.pedido, self.disponible = producto, pedido, disponible
-        super().__init__(f"No hay existencias suficientes de «{producto}»: se piden {pedido:g}, hay {disponible:g}.")
+        que = {"DISPONIBLE": "existencias disponibles", "RESERVADO": "existencias reservadas",
+               "BLOQUEADO": "existencias bloqueadas"}[estado]
+        super().__init__(f"No hay {que} suficientes de «{producto}»: se piden {pedido:g}, hay {disponible:g}.")
 
 
 def _d(v) -> Decimal:
     return v if isinstance(v, Decimal) else Decimal(str(v or 0))
 
 
-async def _fila(db: AsyncSession, producto_id: int, ubicacion_id: int, lote_id: Optional[int],
-                crear: bool) -> Optional[WMSInventarioUbicacion]:
+def total_fila(f: WMSInventarioUbicacion) -> float:
+    return float(_d(f.cantidad_disponible) + _d(f.cantidad_reservada) + _d(f.cantidad_bloqueada))
+
+
+async def fila(db: AsyncSession, producto_id: int, ubicacion_id: int, lote_id: Optional[int],
+               contenedor_id: Optional[int] = None, crear: bool = False) -> Optional[WMSInventarioUbicacion]:
+    """La fila de existencia, bloqueada. Con `crear`, la crea si no existe sin
+    pisarse con otra transacción que la esté creando al mismo tiempo."""
+    # La sesión no hace autoflush: sin esto, `populate_existing` recargaría la
+    # fila desde la base y pisaría un cambio de esta misma petición aún no escrito.
+    await db.flush()
+    if crear:
+        await db.execute(text("""
+            INSERT INTO wms_inventario_ubicacion (producto_id, ubicacion_id, lote_id, contenedor_id,
+                cantidad_disponible, cantidad_reservada, cantidad_bloqueada, created_at, updated_at)
+            VALUES (:p, :u, :l, :c, 0, 0, 0, now(), now())
+            ON CONFLICT (producto_id, ubicacion_id, (COALESCE(lote_id, 0)), (COALESCE(contenedor_id, 0)))
+            DO NOTHING"""), {"p": producto_id, "u": ubicacion_id, "l": lote_id, "c": contenedor_id})
     q = select(WMSInventarioUbicacion).where(
         WMSInventarioUbicacion.producto_id == producto_id,
         WMSInventarioUbicacion.ubicacion_id == ubicacion_id,
-        # El UNIQUE no ve los NULL: el stock sin lote se busca explícitamente.
         WMSInventarioUbicacion.lote_id.is_(None) if lote_id is None else WMSInventarioUbicacion.lote_id == lote_id,
-    ).order_by(WMSInventarioUbicacion.id).limit(1).with_for_update()
-    fila = (await db.execute(q)).scalar_one_or_none()
-    if fila is None and crear:
-        fila = WMSInventarioUbicacion(producto_id=producto_id, ubicacion_id=ubicacion_id, lote_id=lote_id,
-                                      cantidad_disponible=0, cantidad_reservada=0, cantidad_bloqueada=0)
-        db.add(fila)
-        await db.flush()
-    return fila
+        WMSInventarioUbicacion.contenedor_id.is_(None) if contenedor_id is None
+        else WMSInventarioUbicacion.contenedor_id == contenedor_id,
+    ).with_for_update().execution_options(populate_existing=True)
+    return (await db.execute(q)).scalar_one_or_none()
+
+
+async def almacen_de(db: AsyncSession, ubicacion_id: Optional[int]) -> Optional[int]:
+    if not ubicacion_id:
+        return None
+    return (await db.execute(select(WMSZona.almacen_id).join(WMSUbicacion, WMSUbicacion.zona_id == WMSZona.id)
+                             .where(WMSUbicacion.id == ubicacion_id))).scalar()
 
 
 async def existencia_total(db: AsyncSession, producto_id: int) -> Decimal:
+    await db.flush()
     v = (await db.execute(select(func.coalesce(func.sum(
         WMSInventarioUbicacion.cantidad_disponible + WMSInventarioUbicacion.cantidad_reservada
         + WMSInventarioUbicacion.cantidad_bloqueada), 0)).where(
@@ -86,47 +112,124 @@ async def costear_entrada(db: AsyncSession, producto_id: int, cantidad, costo_un
     return _d(prod.costo_promedio)
 
 
-async def entrar(db: AsyncSession, *, producto_id: int, ubicacion_id: int, lote_id: Optional[int],
-                 cantidad, tipo: str, referencia: Optional[str], usuario_id: Optional[int],
-                 notas: Optional[str] = None, costo_unitario=None) -> WMSMovimientoInventario:
+async def mover(db: AsyncSession, *, tipo: str, producto_id: int, cantidad, lote_id: Optional[int] = None,
+                origen: Optional[int] = None, destino: Optional[int] = None,
+                estado_origen: str = "DISPONIBLE", estado_destino: str = "DISPONIBLE",
+                contenedor_origen: Optional[int] = None, contenedor_destino=_MISMA,
+                documento_tipo: Optional[str] = None, documento_id: Optional[int] = None,
+                referencia: Optional[str] = None, usuario_id: Optional[int] = None,
+                tarea_id: Optional[int] = None, notas: Optional[str] = None,
+                costo_unitario=None) -> WMSMovimientoInventario:
+    """Mueve `cantidad` del producto.
+
+    - sin origen: entra (recepción, devolución, sobrante de conteo);
+    - sin destino: sale (despacho, venta, faltante de conteo, destrucción);
+    - con los dos: traslado, o cambio de estado si es la misma fila.
+    """
     cantidad = _d(cantidad)
     if cantidad <= 0:
-        raise ValueError("La cantidad que entra debe ser mayor que cero.")
-    costo = await costear_entrada(db, producto_id, cantidad, costo_unitario) \
-        if costo_unitario is not None else _d((await db.get(WMSProducto, producto_id)).costo_promedio)
-    fila = await _fila(db, producto_id, ubicacion_id, lote_id, crear=True)
-    fila.cantidad_disponible = float(_d(fila.cantidad_disponible) + cantidad)
-    mov = WMSMovimientoInventario(tipo=tipo, producto_id=producto_id, ubicacion_destino_id=ubicacion_id,
-                                  lote_id=lote_id, cantidad=float(cantidad),
-                                  costo_unitario=_d(costo_unitario) if costo_unitario is not None else costo,
-                                  referencia_documento=referencia, usuario_id=usuario_id, notas=notas)
+        raise ValueError("La cantidad del movimiento debe ser mayor que cero.")
+    if origen is None and destino is None:
+        raise ValueError("Un movimiento necesita origen, destino o ambos.")
+    if contenedor_destino is _MISMA:
+        contenedor_destino = contenedor_origen
+    prod = await db.get(WMSProducto, producto_id)
+    if prod is None:
+        raise ValueError(f"El producto {producto_id} no existe.")
+
+    # Solo las entradas valorizadas mueven el costo promedio (antes de sumar).
+    if origen is None and costo_unitario is not None:
+        costo = await costear_entrada(db, producto_id, cantidad, costo_unitario)
+        costo_mov = _d(costo_unitario)
+    else:
+        costo_mov = _d(prod.costo_promedio)
+
+    f_origen = f_destino = None
+    if origen is not None:
+        f_origen = await fila(db, producto_id, origen, lote_id, contenedor_origen)
+        col = ESTADOS[estado_origen]
+        hay = _d(getattr(f_origen, col)) if f_origen else Decimal(0)
+        if f_origen is None or hay < cantidad:
+            raise StockInsuficiente(prod.nombre, cantidad, hay, estado_origen)
+        setattr(f_origen, col, float(hay - cantidad))
+    if destino is not None:
+        misma = origen == destino and contenedor_destino == contenedor_origen
+        f_destino = f_origen if misma else await fila(db, producto_id, destino, lote_id, contenedor_destino, crear=True)
+        col = ESTADOS[estado_destino]
+        setattr(f_destino, col, float(_d(getattr(f_destino, col)) + cantidad))
+
+    if contenedor_destino and destino is not None:
+        cont = await db.get(WMSContenedor, contenedor_destino)
+        if cont is not None:
+            cont.ubicacion_id = destino
+            if cont.estado == "VACIO":
+                cont.estado = "ABIERTO"
+
+    mov = WMSMovimientoInventario(
+        tipo=tipo, producto_id=producto_id, lote_id=lote_id, cantidad=float(cantidad),
+        ubicacion_origen_id=origen, ubicacion_destino_id=destino,
+        contenedor_id=contenedor_origen if origen is not None else contenedor_destino,
+        contenedor_destino_id=contenedor_destino if destino is not None else None,
+        depositante_id=prod.depositante_id, almacen_id=await almacen_de(db, destino or origen),
+        documento_tipo=documento_tipo, documento_id=documento_id, tarea_id=tarea_id,
+        estado_origen=estado_origen if origen is not None else None,
+        estado_destino=estado_destino if destino is not None else None,
+        saldo_origen=total_fila(f_origen) if f_origen is not None else None,
+        saldo_destino=total_fila(f_destino) if f_destino is not None else None,
+        costo_unitario=costo_mov, referencia_documento=referencia, usuario_id=usuario_id, notas=notas)
     db.add(mov)
+    if contenedor_origen and contenedor_origen != contenedor_destino:
+        await db.flush()
+        await revisar_contenedor(db, contenedor_origen)
     return mov
+
+
+async def revisar_contenedor(db: AsyncSession, contenedor_id: int) -> None:
+    """Una estiba que se quedó sin nada pasa a VACIA (salvo si ya se despachó)."""
+    queda = (await db.execute(select(func.coalesce(func.sum(
+        WMSInventarioUbicacion.cantidad_disponible + WMSInventarioUbicacion.cantidad_reservada
+        + WMSInventarioUbicacion.cantidad_bloqueada), 0)).where(
+        WMSInventarioUbicacion.contenedor_id == contenedor_id))).scalar()
+    cont = await db.get(WMSContenedor, contenedor_id)
+    if cont is not None and _d(queda) <= 0 and cont.estado not in ("DESPACHADO", "ANULADO"):
+        cont.estado = "VACIO"
+
+
+# ── Atajos que usa el POS ─────────────────────────────────────────────────────
+
+async def entrar(db: AsyncSession, *, producto_id: int, ubicacion_id: int, lote_id: Optional[int],
+                 cantidad, tipo: str, referencia: Optional[str], usuario_id: Optional[int],
+                 notas: Optional[str] = None, costo_unitario=None, contenedor_id: Optional[int] = None,
+                 documento_tipo: Optional[str] = None, documento_id: Optional[int] = None) -> WMSMovimientoInventario:
+    return await mover(db, tipo=tipo, producto_id=producto_id, cantidad=cantidad, lote_id=lote_id,
+                       destino=ubicacion_id, contenedor_destino=contenedor_id, referencia=referencia,
+                       usuario_id=usuario_id, notas=notas, costo_unitario=costo_unitario,
+                       documento_tipo=documento_tipo, documento_id=documento_id)
 
 
 async def sacar(db: AsyncSession, *, producto_id: int, ubicacion_id: int, lote_id: Optional[int],
                 cantidad, tipo: str, referencia: Optional[str], usuario_id: Optional[int],
-                notas: Optional[str] = None) -> WMSMovimientoInventario:
-    cantidad = _d(cantidad)
-    fila = await _fila(db, producto_id, ubicacion_id, lote_id, crear=False)
-    disponible = _d(fila.cantidad_disponible) if fila else Decimal(0)
-    if fila is None or disponible < cantidad:
-        prod = await db.get(WMSProducto, producto_id)
-        raise StockInsuficiente(prod.nombre if prod else str(producto_id), cantidad, disponible)
-    fila.cantidad_disponible = float(disponible - cantidad)
-    prod = await db.get(WMSProducto, producto_id)
-    mov = WMSMovimientoInventario(tipo=tipo, producto_id=producto_id, ubicacion_origen_id=ubicacion_id,
-                                  lote_id=lote_id, cantidad=float(cantidad), costo_unitario=_d(prod.costo_promedio),
-                                  referencia_documento=referencia, usuario_id=usuario_id, notas=notas)
-    db.add(mov)
-    return mov
+                notas: Optional[str] = None, contenedor_id: Optional[int] = None,
+                documento_tipo: Optional[str] = None, documento_id: Optional[int] = None) -> WMSMovimientoInventario:
+    return await mover(db, tipo=tipo, producto_id=producto_id, cantidad=cantidad, lote_id=lote_id,
+                       origen=ubicacion_id, contenedor_origen=contenedor_id, referencia=referencia,
+                       usuario_id=usuario_id, notas=notas, documento_tipo=documento_tipo, documento_id=documento_id)
 
+
+# ── Elegir de dónde sale ──────────────────────────────────────────────────────
 
 @dataclass
 class Asignacion:
     ubicacion_id: int
     lote_id: Optional[int]
     cantidad: Decimal
+    contenedor_id: Optional[int] = None
+    vence: Optional[date] = None
+
+
+def _lote_vigente(minimo: date):
+    return (WMSLote.id.is_(None)) | ((WMSLote.activo.isnot(False)) &
+                                     ((WMSLote.fecha_vencimiento.is_(None)) | (WMSLote.fecha_vencimiento >= minimo)))
 
 
 async def ubicaciones_vendibles(db: AsyncSession, almacen_id: int) -> List[int]:
@@ -135,47 +238,69 @@ async def ubicaciones_vendibles(db: AsyncSession, almacen_id: int) -> List[int]:
         WMSUbicacion.activo.isnot(False)))).scalars())
 
 
+async def ubicacion_de_zona(db: AsyncSession, almacen_id: int, tipo_zona: str) -> Optional[int]:
+    """La primera ubicación activa de la zona de ese tipo en el almacén."""
+    return (await db.execute(select(WMSUbicacion.id).join(WMSZona, WMSZona.id == WMSUbicacion.zona_id).where(
+        WMSZona.almacen_id == almacen_id, WMSZona.tipo == tipo_zona, WMSZona.activo.isnot(False),
+        WMSUbicacion.activo.isnot(False)).order_by(WMSUbicacion.codigo).limit(1))).scalar()
+
+
 async def disponible_en(db: AsyncSession, producto_ids: Sequence[int], ubicacion_ids: Sequence[int]) -> dict:
-    """Disponible vendible por producto (sin lotes vencidos ni bloqueados)."""
+    """Disponible por producto en esas ubicaciones (sin lotes vencidos ni bloqueados)."""
     if not producto_ids or not ubicacion_ids:
         return {}
-    hoy = date.today()
     filas = (await db.execute(
         select(WMSInventarioUbicacion.producto_id, func.sum(WMSInventarioUbicacion.cantidad_disponible))
         .outerjoin(WMSLote, WMSLote.id == WMSInventarioUbicacion.lote_id)
         .where(WMSInventarioUbicacion.producto_id.in_(producto_ids),
                WMSInventarioUbicacion.ubicacion_id.in_(ubicacion_ids),
-               WMSInventarioUbicacion.cantidad_disponible > 0,
-               (WMSLote.id.is_(None)) | ((WMSLote.activo.isnot(False)) &
-                                         ((WMSLote.fecha_vencimiento.is_(None)) | (WMSLote.fecha_vencimiento >= hoy))))
+               WMSInventarioUbicacion.cantidad_disponible > 0, _lote_vigente(date.today()))
         .group_by(WMSInventarioUbicacion.producto_id))).all()
     return {pid: _d(n) for pid, n in filas}
 
 
-async def asignar_fefo(db: AsyncSession, producto_id: int, ubicacion_ids: Sequence[int],
-                       cantidad) -> List[Asignacion]:
-    """Elige de dónde sale una cantidad: primero lo que vence antes, sin
-    lotes vencidos ni bloqueados. Bloquea las filas que va a usar."""
+async def _asignar(db: AsyncSession, producto_id: int, cantidad, filtro, parcial: bool,
+                   minimo: date) -> List[Asignacion]:
     cantidad = _d(cantidad)
-    hoy = date.today()
+    await db.flush()
     filas = (await db.execute(
-        select(WMSInventarioUbicacion)
+        select(WMSInventarioUbicacion, WMSLote.fecha_vencimiento)
+        .join(WMSUbicacion, WMSUbicacion.id == WMSInventarioUbicacion.ubicacion_id)
+        .join(WMSZona, WMSZona.id == WMSUbicacion.zona_id)
         .outerjoin(WMSLote, WMSLote.id == WMSInventarioUbicacion.lote_id)
-        .where(WMSInventarioUbicacion.producto_id == producto_id,
-               WMSInventarioUbicacion.ubicacion_id.in_(ubicacion_ids),
-               WMSInventarioUbicacion.cantidad_disponible > 0,
-               (WMSLote.id.is_(None)) | ((WMSLote.activo.isnot(False)) &
-                                         ((WMSLote.fecha_vencimiento.is_(None)) | (WMSLote.fecha_vencimiento >= hoy))))
-        .order_by(WMSLote.fecha_vencimiento.asc().nullslast(), WMSInventarioUbicacion.id)
-        .with_for_update(of=WMSInventarioUbicacion))).scalars().all()
+        .where(WMSInventarioUbicacion.producto_id == producto_id, WMSInventarioUbicacion.cantidad_disponible > 0,
+               WMSUbicacion.activo.isnot(False), _lote_vigente(minimo), *filtro)
+        # FEFO; a igual vencimiento, primero lo suelto y lo que menos queda
+        # (vacía ubicaciones en vez de abrir otra estiba).
+        .order_by(WMSLote.fecha_vencimiento.asc().nullslast(), WMSInventarioUbicacion.contenedor_id.asc().nullsfirst(),
+                  WMSInventarioUbicacion.cantidad_disponible.asc(), WMSInventarioUbicacion.id)
+        .with_for_update(of=WMSInventarioUbicacion))).all()
     faltan, salida = cantidad, []
-    for f in filas:
+    for f, vence in filas:
         if faltan <= 0:
             break
         tomar = min(faltan, _d(f.cantidad_disponible))
-        salida.append(Asignacion(f.ubicacion_id, f.lote_id, tomar))
+        salida.append(Asignacion(f.ubicacion_id, f.lote_id, tomar, f.contenedor_id, vence))
         faltan -= tomar
-    if faltan > 0:
+    if faltan > 0 and not parcial:
         prod = await db.get(WMSProducto, producto_id)
         raise StockInsuficiente(prod.nombre if prod else str(producto_id), cantidad, cantidad - faltan)
     return salida
+
+
+async def asignar_fefo(db: AsyncSession, producto_id: int, ubicacion_ids: Sequence[int],
+                       cantidad) -> List[Asignacion]:
+    """POS: de qué ubicaciones vendibles sale una venta (todo o nada)."""
+    return await _asignar(db, producto_id, cantidad, [WMSInventarioUbicacion.ubicacion_id.in_(ubicacion_ids)],
+                          False, date.today())
+
+
+async def asignar_alistamiento(db: AsyncSession, producto_id: int, almacen_id: int, cantidad,
+                               lote_id: Optional[int] = None, dias_vida_minima: int = 0) -> List[Asignacion]:
+    """Picking: FEFO en las zonas alistables del almacén, nunca de recepción,
+    cuarentena ni despacho, y con la vida útil mínima que exige el cliente.
+    Puede quedar corto: lo que falta lo reporta quien llama."""
+    filtro = [WMSZona.almacen_id == almacen_id, WMSZona.tipo.notin_(ZONAS_NO_ALISTABLES), WMSZona.activo.isnot(False)]
+    if lote_id:
+        filtro.append(WMSInventarioUbicacion.lote_id == lote_id)
+    return await _asignar(db, producto_id, cantidad, filtro, True, date.today() + timedelta(days=dias_vida_minima))

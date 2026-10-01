@@ -178,6 +178,10 @@ export default function WMSPicking() {
 
   // ── Expandable tarea ──
   const [expandedTarea, setExpandedTarea] = useState<number | null>(null)
+  // Confirmación por escaneo: el operario escanea la ubicación y el producto;
+  // el servidor rechaza si no coinciden con la línea.
+  const [confirmando, setConfirmando] = useState<{ tareaId: number; detalle: TareaPickingDetalle } | null>(null)
+  const [escaneo, setEscaneo] = useState({ ubicacion: '', producto: '', cantidad: '' })
 
   // ── Detalle de orden (dialog) ──
   const [detalleOrden, setDetalleOrden] = useState<OrdenSalida | null>(null)
@@ -271,13 +275,15 @@ export default function WMSPicking() {
   })
 
   const mutConfirmarItem = useMutation({
-    mutationFn: async ({ tareaId, detalle_id, cantidad_pickeada }: { tareaId: number; detalle_id: number; cantidad_pickeada: number }) => {
-      const res = await api.post(`/wms/picking-tareas/${tareaId}/confirmar-item`, { detalle_id, cantidad_pickeada })
+    mutationFn: async ({ tareaId, detalle_id, cantidad_pickeada, ubicacion_codigo, producto_codigo }:
+      { tareaId: number; detalle_id: number; cantidad_pickeada: number; ubicacion_codigo?: string; producto_codigo?: string }) => {
+      const res = await api.post(`/wms/picking-tareas/${tareaId}/confirmar-item`, { detalle_id, cantidad_pickeada, ubicacion_codigo, producto_codigo })
       return res.data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wms-tareas'] })
       toast.success('Item confirmado')
+      setConfirmando(null)
     },
     onError: (error: unknown) => toast.error(mensajeDeError(error, 'No se pudo confirmar el item')),
   })
@@ -745,13 +751,10 @@ export default function WMSPicking() {
                                                   <Button
                                                     size="small"
                                                     variant="outlined"
-                                                    onClick={() =>
-                                                      mutConfirmarItem.mutate({
-                                                        tareaId: tarea.id,
-                                                        detalle_id: detalle.id,
-                                                        cantidad_pickeada: detalle.cantidad_solicitada,
-                                                      })
-                                                    }
+                                                    onClick={() => {
+                                                      setConfirmando({ tareaId: tarea.id, detalle })
+                                                      setEscaneo({ ubicacion: '', producto: '', cantidad: String(detalle.cantidad_solicitada) })
+                                                    }}
                                                   >
                                                     Confirmar
                                                   </Button>
@@ -1188,6 +1191,30 @@ export default function WMSPicking() {
         </Dialog>
 
       </Box>
+      <Dialog open={!!confirmando} onClose={() => setConfirmando(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Confirmar alistamiento</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '8px !important' }}>
+          <Typography fontSize={13} color="text.secondary">
+            {confirmando?.detalle.producto?.sku} · {confirmando?.detalle.producto?.nombre} — en <b>{confirmando?.detalle.ubicacion?.codigo}</b>
+          </Typography>
+          <TextField autoFocus size="small" label="Escanee la ubicación" value={escaneo.ubicacion}
+            onChange={e => setEscaneo({ ...escaneo, ubicacion: e.target.value })}
+            helperText="Si escanea, el sistema rechaza una ubicación equivocada" />
+          <TextField size="small" label="Escanee el producto (SKU o código de barras)" value={escaneo.producto}
+            onChange={e => setEscaneo({ ...escaneo, producto: e.target.value })} />
+          <TextField size="small" type="number" label={`Cantidad alistada (de ${confirmando?.detalle.cantidad_solicitada ?? ''})`}
+            value={escaneo.cantidad} onChange={e => setEscaneo({ ...escaneo, cantidad: e.target.value })}
+            helperText="Si alista menos, lo que sobra vuelve a quedar disponible" />
+        </DialogContent>
+        <DialogActions>
+          <Button color="inherit" onClick={() => setConfirmando(null)}>Cancelar</Button>
+          <Button variant="contained" disabled={!(Number(escaneo.cantidad) > 0) || Number(escaneo.cantidad) > (confirmando?.detalle.cantidad_solicitada ?? 0) || mutConfirmarItem.isPending}
+            onClick={() => confirmando && mutConfirmarItem.mutate({
+              tareaId: confirmando.tareaId, detalle_id: confirmando.detalle.id, cantidad_pickeada: Number(escaneo.cantidad),
+              ubicacion_codigo: escaneo.ubicacion.trim() || undefined, producto_codigo: escaneo.producto.trim() || undefined })}>
+            Confirmar</Button>
+        </DialogActions>
+      </Dialog>
     </Layout>
   )
 }
