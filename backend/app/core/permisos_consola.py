@@ -46,6 +46,8 @@ def _usuario_y_empresa(request: Request):
         datos = decode_token(auth[7:])
     except Exception:
         raise HTTPException(401, "Sesión no válida")
+    if datos.get("type") != "access":   # el de refresco no abre la API
+        raise HTTPException(401, "Sesión no válida")
     # `usr` es el nombre de usuario; `sub` lleva el id. Se prefiere el nombre
     # porque es lo que guarda la tabla del equipo. Las sesiones abiertas antes
     # de que el token lo incluyera caen al id, y el servidor las tratará como

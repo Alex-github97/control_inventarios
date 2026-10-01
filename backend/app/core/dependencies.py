@@ -22,6 +22,13 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     payload = decode_token(credentials.credentials)
+    # Solo el token de acceso abre la API. Sin esta comprobación, el token de
+    # refresco que entrega el login (válido 7 días) servía igual que el de
+    # acceso (8 horas), y cualquier otro token firmado con un `sub` numérico —el
+    # de un dispositivo, por ejemplo— se habría tomado por ese usuario.
+    if payload.get("type") != "access":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido",
+                            headers={"WWW-Authenticate": "Bearer"})
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")

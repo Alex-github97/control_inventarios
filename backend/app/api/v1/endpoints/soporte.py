@@ -72,6 +72,8 @@ def _quien(request: Request) -> Solicitante:
         datos = decode_token(auth[7:])
     except Exception:
         raise HTTPException(401, "Sesión no válida")
+    if datos.get("type") != "access":   # el de refresco no abre la API
+        raise HTTPException(401, "Sesión no válida")
     # `usr` es el nombre de usuario; `sub` el id. Los mensajes se firman con el
     # nombre: con el id salían atribuidos a un número.
     usuario, empresa = datos.get("usr") or datos.get("sub"), datos.get("cli")
