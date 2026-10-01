@@ -1472,7 +1472,9 @@ async def delete_activo(activo_id: int, db: AsyncSession = Depends(get_db)):
 
     r = await db.execute(
         select(func.count()).select_from(EAMOrdenTrabajo)
-        .where(EAMOrdenTrabajo.activo_id == activo_id, EAMOrdenTrabajo.estado.notin_(["CERRADA", "CANCELADA"]))
+        # COMPLETADA es el estado final real; CERRADA queda por datos viejos.
+        .where(EAMOrdenTrabajo.activo_id == activo_id,
+               EAMOrdenTrabajo.estado.notin_(["COMPLETADA", "CERRADA", "CANCELADA"]))
     )
     ots_abiertas = r.scalar() or 0
     if ots_abiertas:

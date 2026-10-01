@@ -25,6 +25,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
+import { useSearchParams } from 'react-router-dom'
 import { DocumentosOT } from '@/components/eam/DocumentosOT'
 import { CausaRaizOT } from '@/components/eam/CausaRaizOT'
 import { apiClient as api } from '@/api/client'
@@ -831,7 +832,9 @@ export default function EAMOrdenesTrabajo() {
   const [filtroPrioridad, setFiltroPrioridad] = useState('Todos')
   /** 'Todos' | 'interno' | id de contratista. */
   const [filtroProveedor, setFiltroProveedor] = useState('Todos')
-  const [filtroActivo, setFiltroActivo] = useState('Todos')
+  // «Ver órdenes de trabajo» desde un activo llega con ?activo=<id>.
+  const [params] = useSearchParams()
+  const [filtroActivo, setFiltroActivo] = useState(params.get('activo') ?? 'Todos')
 
   const resetFiltros = () => {
     setFiltroBusqueda(''); setFiltroEstado('Todos'); setFiltroTipo('Todos')

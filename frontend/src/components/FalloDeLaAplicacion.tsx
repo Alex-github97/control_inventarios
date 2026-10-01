@@ -158,16 +158,9 @@ export function FalloDeLaAplicacion({ error }: { error: Error }) {
           </svg>
         </div>
 
-        <h1 style={{ fontSize: 23, fontWeight: 800, margin: '0 0 10px' }}>
+        <h1 style={{ fontSize: 23, fontWeight: 800, margin: '0 0 12px' }}>
           Esta pantalla no se pudo mostrar
         </h1>
-        {/* Se dice qué pasó y qué NO pasó. Lo segundo es lo que de verdad
-            tranquiliza: el miedo de quien ve un error es haber perdido su
-            trabajo. */}
-        <p style={{ fontSize: 15.5, lineHeight: 1.6, color: '#475569', margin: '0 0 6px' }}>
-          Fue un problema al dibujar esta parte de la aplicación. Sus datos están
-          guardados y no se perdió nada.
-        </p>
         <p style={{ fontSize: 14, color: '#64748B', margin: '0 0 26px' }}>
           Ya quedó reportado con la referencia{' '}
           <b style={{ fontFamily: 'ui-monospace, monospace', color: '#0F172A' }}>

@@ -306,7 +306,7 @@ function Vista360({ activo, onBack, onVerOTs, onEditar, nombreTipo }: {
   }
 
   const costoOTs = ots.reduce((s, o) => s + (o.costo_total ?? 0), 0)
-  const otsAbiertas = ots.filter(o => !['CERRADA', 'CANCELADA'].includes(o.estado ?? '')).length
+  const otsAbiertas = ots.filter(o => !['COMPLETADA', 'CERRADA', 'CANCELADA'].includes(o.estado ?? '')).length
   const medidor = activo.odometro_actual
     ? { label: 'Odómetro', value: `${activo.odometro_actual.toLocaleString('es-CO')} km` }
     : activo.horometro_actual
@@ -887,7 +887,7 @@ export default function EAMActivos() {
     const a = activos.find((x) => x.codigo === codigo)
     if (a) { setSelectedId(a.id); setTab(1) }
   }
-  const verOTs = (a: ActivoAPI) => navigate(`/eam/ordenes-trabajo?activo=${encodeURIComponent(a.codigo)}`)
+  const verOTs = (a: ActivoAPI) => navigate(`/eam/ordenes-trabajo?activo=${a.id}`)
 
   const filtered = activos.filter((a) => {
     if (filterTipo !== 'Todos' && a.tipo_activo !== filterTipo) return false
