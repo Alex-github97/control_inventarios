@@ -193,20 +193,44 @@ async def problemas_recurrentes(db: AsyncSession = Depends(get_db)):
 
 # ─── Proveedores ──────────────────────────────────────────────────────────────
 
+def _mes_del_periodo(p: Optional[str]) -> Optional[int]:
+    """El período de una evaluación como número de mes (año*12 + mes).
+
+    Las evaluaciones se registran por mes (2026-03), trimestre (2026-T1),
+    semestre (2026-S1) o año (2026). Se toma el último mes del período. Antes
+    se suponía siempre mes y un trimestre tumbaba la analítica entera.
+    """
+    import re
+    if not p:
+        return None
+    p = p.strip().upper()
+    m = re.fullmatch(r"(\d{4})-(\d{1,2})", p)
+    if m and 1 <= int(m.group(2)) <= 12:
+        return int(m.group(1)) * 12 + int(m.group(2))
+    m = re.fullmatch(r"(\d{4})-?([TQS])(\d)", p)
+    if m:
+        n = int(m.group(3))
+        meses = 6 if m.group(2) == "S" else 3
+        if 1 <= n <= 12 // meses:
+            return int(m.group(1)) * 12 + n * meses
+    m = re.fullmatch(r"(\d{4})", p)
+    if m:
+        return int(m.group(1)) * 12 + 12
+    return None
+
+
 @router.get("/proveedores", response_model=Dict[str, Any])
 async def proveedores_en_caida(db: AsyncSession = Depends(get_db)):
     minimo = (await _leer_parametros(db))["proveedor_puntaje_minimo"]
     evals = [e for e in (await db.execute(select(QMSEvaluacionProveedor))).scalars().all()
-             if e.puntaje_total is not None and e.periodo and len(e.periodo) >= 7]
+             if e.puntaje_total is not None and _mes_del_periodo(e.periodo) is not None]
     por = defaultdict(list)
     for e in evals:
         por[(e.proveedor_nit or e.proveedor_nombre.strip().upper())].append(e)
     salida = []
     for _, es in por.items():
-        es.sort(key=lambda e: e.periodo)
-        def idx(p):
-            y, m = int(p[:4]), int(p[5:7])
-            return y * 12 + m
+        idx = _mes_del_periodo
+        es.sort(key=lambda e: idx(e.periodo))
         base = idx(es[0].periodo)
         x = [idx(e.periodo) - base for e in es]
         y = [float(e.puntaje_total) for e in es]

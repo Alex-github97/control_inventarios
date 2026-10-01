@@ -2204,6 +2204,8 @@ async def crear_despacho(
     if not lineas:
         raise HTTPException(400, "No hay ítems para despachar (sin detalles ni picking confirmado)")
 
+    # `gestion_transporte` no es columna: decide más abajo si se crea el viaje en TMS.
+    payload = data.model_dump(exclude={"detalles", "gestion_transporte"})
     if not payload.get("numero_despacho"):
         payload["numero_despacho"] = await _next_numero(db, WMSDespacho, WMSDespacho.numero_despacho, "DESP")
     if not payload.get("fecha_despacho"):

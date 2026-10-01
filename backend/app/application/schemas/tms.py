@@ -435,7 +435,8 @@ class TMSRutaResponse(BaseModel):
 # ─── TMSPuntoRuta ─────────────────────────────────────────────────────────────
 
 class TMSPuntoRutaCreate(BaseModel):
-    ruta_id: int
+    # Lo pone la URL (/rutas/{ruta_id}/puntos); se acepta por compatibilidad.
+    ruta_id: Optional[int] = None
     secuencia: int
     ciudad: str
     lat: Optional[float] = None

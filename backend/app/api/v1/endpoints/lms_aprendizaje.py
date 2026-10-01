@@ -713,6 +713,7 @@ def _simple(ruta: str, model, esquema, nombre: str, prefijo: Optional[str] = Non
         for k, v in d.model_dump().items():
             setattr(obj, k, v)
         await db.commit()
+        await db.refresh(obj)
         return {c.name: _v(getattr(obj, c.name)) for c in model.__table__.columns}
 
     async def retirar(id: int, db: AsyncSession = Depends(get_db), _: Usuario = Depends(get_current_user)):

@@ -2387,6 +2387,48 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+# ── Lo que la base rechaza se le explica a quien guardó ──────────────────────
+# Un código repetido, un texto más largo que la columna o borrar algo que otros
+# registros usan llegaban al usuario como «Error interno» (500). El barrido de
+# todas las rutas de escritura encontró decenas de formularios así. No es un
+# fallo del servidor: es un dato que la base no acepta, y se dice cuál.
+from fastapi import Request as _Request  # noqa: E402
+from fastapi.responses import JSONResponse as _JSONResponse  # noqa: E402
+from sqlalchemy.exc import DBAPIError as _DBAPIError  # noqa: E402
+
+
+@app.exception_handler(_DBAPIError)
+async def _dato_rechazado(request: _Request, exc: _DBAPIError):
+    causa = getattr(getattr(exc, "orig", None), "__cause__", None)
+    estado = getattr(causa, "sqlstate", None)
+    columna = getattr(causa, "column_name", None)
+    detalle = getattr(causa, "detail", None) or ""
+    tabla = getattr(causa, "table_name", None)
+    if estado == "23505":   # único
+        campo = detalle.split("(")[1].split(")")[0] if "(" in detalle else columna
+        return _JSONResponse(status_code=409, content={
+            "detail": f"Ya existe un registro con ese valor{f' en «{campo}»' if campo else ''}."})
+    if estado == "23503":   # llave foránea
+        if "is still referenced" in detalle:
+            return _JSONResponse(status_code=409, content={
+                "detail": "No se puede eliminar: otros registros lo usan"
+                          f"{f' ({tabla})' if tabla else ''}. Desactívelo en su lugar."})
+        campo = detalle.split("(")[1].split(")")[0] if "(" in detalle else columna
+        return _JSONResponse(status_code=422, content={
+            "detail": f"La referencia elegida no existe{f' («{campo}»)' if campo else ''}."})
+    if estado == "23502":   # obligatorio
+        return _JSONResponse(status_code=422, content={
+            "detail": f"Falta un dato obligatorio{f': «{columna}»' if columna else ''}."})
+    if estado == "22001":   # texto demasiado largo
+        return _JSONResponse(status_code=422, content={
+            "detail": "Uno de los textos es más largo de lo permitido."})
+    if estado in ("22P02", "22007", "22008", "22003"):   # formato, fecha, número fuera de rango
+        return _JSONResponse(status_code=422, content={
+            "detail": "Uno de los valores no tiene el formato esperado."})
+    logging.getLogger(__name__).exception("Error de base de datos no clasificado", exc_info=exc)
+    return _JSONResponse(status_code=500, content={"detail": "Error interno del servidor"})
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,

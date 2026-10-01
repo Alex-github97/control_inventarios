@@ -1205,7 +1205,7 @@ async def crear_punto_ruta(
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
-    punto = TMSPuntoRuta(**data.model_dump(), ruta_id=ruta_id)
+    punto = TMSPuntoRuta(**data.model_dump(exclude={"ruta_id"}), ruta_id=ruta_id)
     db.add(punto)
     await db.commit()
     await db.refresh(punto)
@@ -1612,12 +1612,12 @@ async def calcular_kpis_diarios(
     r = await db.execute(
         select(
             func.count(TMSViaje.id),
-            func.sum(func.cast(TMSViaje.otif_on_time == True, type_=None)),
-            func.sum(func.cast(TMSViaje.otif_in_full == True, type_=None)),
+            func.sum(func.cast(TMSViaje.otif_on_time.is_(True), Integer)),
+            func.sum(func.cast(TMSViaje.otif_in_full.is_(True), Integer)),
             func.sum(
                 func.cast(
-                    and_(TMSViaje.otif_on_time == True, TMSViaje.otif_in_full == True),
-                    type_=None,
+                    and_(TMSViaje.otif_on_time.is_(True), TMSViaje.otif_in_full.is_(True)),
+                    Integer,
                 )
             ),
         ).where(

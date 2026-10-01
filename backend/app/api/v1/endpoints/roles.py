@@ -70,7 +70,7 @@ async def crear_rol(
         label=data.label or data.nombre,
         descripcion=data.descripcion,
         color=data.color,
-        permisos=data.permisos.model_dump(),
+        permisos=dict(data.permisos),
         es_sistema=False,
     )
     db.add(rol)
@@ -111,7 +111,7 @@ async def actualizar_rol(
     if data.color is not None:
         rol.color = data.color
     if data.permisos is not None:
-        rol.permisos = data.permisos.model_dump()
+        rol.permisos = dict(data.permisos)
 
     await db.commit()
     await db.refresh(rol)

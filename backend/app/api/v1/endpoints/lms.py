@@ -527,7 +527,8 @@ async def list_evaluaciones(db: AsyncSession = Depends(get_db)):
                 LMSIntentoEvaluacion.aprobado == True,
             ))
         )
-        total_int = i_q.scalar() or 1
+        intentos = i_q.scalar() or 0   # un resultado se lee una sola vez
+        total_int = intentos or 1
         apro = apro_q.scalar() or 0
         data.append({
             "id": e.id, "codigo": e.codigo, "nombre": e.nombre,
@@ -537,7 +538,7 @@ async def list_evaluaciones(db: AsyncSession = Depends(get_db)):
             "intentos_maximos": e.intentos_maximos,
             "puntaje_aprobacion": e.puntaje_aprobacion,
             "total_preguntas": p_q.scalar() or 0,
-            "total_intentos": i_q.scalar() or 0,
+            "total_intentos": intentos,
             "tasa_aprobacion": round((apro / total_int) * 100, 1),
         })
     return data

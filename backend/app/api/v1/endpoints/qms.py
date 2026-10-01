@@ -761,7 +761,8 @@ async def listar_mediciones_indicador(
     q = (
         select(QMSMedicionIndicador)
         .where(QMSMedicionIndicador.indicador_id == ind_id)
-        .order_by(QMSMedicionIndicador.fecha.desc())
+        # La medición no tiene fecha: tiene período (YYYY-MM), que ordena igual.
+        .order_by(QMSMedicionIndicador.periodo.desc(), QMSMedicionIndicador.id.desc())
         .offset(skip)
         .limit(limit)
     )
