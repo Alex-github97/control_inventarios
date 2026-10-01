@@ -253,6 +253,19 @@ REGLAS: List[tuple] = [
     # combustible o del conductor llega después de prestarlo, y el gasto es del
     # mes en que se prestó, no del mes en que llega el papel.
     ("SERVICIO_EJECUTADO", "costo_por_pagar", "233595", "CREDITO"),
+
+    ("POS_VENTA", "caja", "110505", "DEBITO"),
+    ("POS_VENTA", "banco", "111005", "DEBITO"),
+    ("POS_VENTA", "ingreso", "413500", "CREDITO"),
+    ("POS_VENTA", "iva_generado", "240805", "CREDITO"),
+    ("POS_VENTA", "costo_venta", "613500", "DEBITO"),
+    ("POS_VENTA", "inventario", "143505", "CREDITO"),
+    ("POS_DEVOLUCION", "caja", "110505", "CREDITO"),
+    ("POS_DEVOLUCION", "banco", "111005", "CREDITO"),
+    ("POS_DEVOLUCION", "devolucion", "427500", "DEBITO"),
+    ("POS_DEVOLUCION", "iva_generado", "240805", "DEBITO"),
+    ("POS_DEVOLUCION", "costo_venta", "613500", "CREDITO"),
+    ("POS_DEVOLUCION", "inventario", "143505", "DEBITO"),
 ]
 
 

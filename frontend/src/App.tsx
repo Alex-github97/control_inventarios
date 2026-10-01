@@ -42,6 +42,7 @@ const ROUTE_PERM_MAP: Record<string, string> = {
   '/erp':          'erp',
   '/scm':          'scm',
   '/sst':          'sst',
+  '/pos':          'pos',
   '/usuarios':     'usuarios',
 }
 
@@ -319,6 +320,11 @@ const SSTDocumentos = React.lazy(() => import('@/pages/SSTDocumentos'))
 const SSTEmergencias = React.lazy(() => import('@/pages/SSTEmergencias'))
 const SSTIndicadores = React.lazy(() => import('@/pages/SSTIndicadores'))
 const SSTConfig = React.lazy(() => import('@/pages/SSTConfig'))
+const POSVenta = React.lazy(() => import('@/pages/POSVenta'))
+const POSTurnos = React.lazy(() => import('@/pages/POSTurnos'))
+const POSVentas = React.lazy(() => import('@/pages/POSVentas'))
+const POSDashboard = React.lazy(() => import('@/pages/POSDashboard'))
+const POSConfig = React.lazy(() => import('@/pages/POSConfig'))
 const Configuracion = React.lazy(() => import('@/pages/Configuracion'))
 const Clientes = React.lazy(() => import('@/pages/Clientes'))
 const ScannerMovil = React.lazy(() => import('@/pages/ScannerMovil'))
@@ -699,6 +705,11 @@ export default function App() {
             <Route path="/sst/emergencias" element={<ProtectedRoute><SSTEmergencias /></ProtectedRoute>} />
             <Route path="/sst/indicadores" element={<ProtectedRoute><SSTIndicadores /></ProtectedRoute>} />
             <Route path="/sst/config" element={<ProtectedRoute><SSTConfig /></ProtectedRoute>} />
+            <Route path="/pos" element={<ProtectedRoute><POSVenta /></ProtectedRoute>} />
+            <Route path="/pos/turnos" element={<ProtectedRoute><POSTurnos /></ProtectedRoute>} />
+            <Route path="/pos/ventas" element={<ProtectedRoute><POSVentas /></ProtectedRoute>} />
+            <Route path="/pos/tablero" element={<ProtectedRoute><POSDashboard /></ProtectedRoute>} />
+            <Route path="/pos/config" element={<ProtectedRoute><POSConfig /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
           </Suspense>

@@ -185,7 +185,11 @@
       "agsServicios": "Servicios",
       "agsEquipo": "Equipo",
       "catalogos": "Catálogos",
-      "terminalPlanta": "Terminal de Planta"
+      "terminalPlanta": "Terminal de Planta",
+      "posVenta": "Vender",
+      "posTurnos": "Turnos y arqueo",
+      "posVentas": "Ventas y devoluciones",
+      "posTablero": "Tablero"
     },
     "section": {
       "principal": "Principal",
@@ -276,7 +280,8 @@
       "sst": "SG-SST",
       "config": "Configuración",
       "espacios": "Espacios",
-      "ags": "Agenda de Servicios"
+      "ags": "Agenda de Servicios",
+      "pos": "Punto de Venta"
     },
     "logo": {
       "ci1": "Control de",
@@ -322,7 +327,9 @@
       "cfg1": "Configuración",
       "cfg2": "del Sistema",
       "ags1": "Agenda de",
-      "ags2": "Servicios"
+      "ags2": "Servicios",
+      "pos1": "Punto",
+      "pos2": "de Venta"
     },
     "common": {
       "save": "Guardar",

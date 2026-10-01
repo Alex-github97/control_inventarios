@@ -189,6 +189,13 @@ from app.infrastructure.models.erp_nucleo import (  # noqa: F401
 from app.infrastructure.models.erp_gestion import (  # noqa: F401
     ERPEscenario, ERPInductor, ERPDistribucionABC,
 )
+from app.infrastructure.models.erp_facturacion import (  # noqa: F401
+    ERPResolucionFacturacion, ERPNotaCreditoCliente, ERPLineaNotaCredito,
+)
+from app.infrastructure.models.pos import (  # noqa: F401
+    POSListaPrecio, POSPrecio, POSCaja, POSTurno, POSMovimientoCaja, POSVenta,
+    POSVentaLinea, POSPago, POSDevolucion,
+)
 from app.infrastructure.models.ags import (
     AGSConfig, AGSCategoriaServicio, AGSServicio,
     AGSProfesional, AGSProfesionalServicio, AGSHorarioProfesional, AGSAusencia,

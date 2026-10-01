@@ -5,7 +5,7 @@ Prefijo de tabla: wms_
 from datetime import datetime, timezone as _tz
 from sqlalchemy import (
     Column, Integer, String, Boolean, Float, ForeignKey, Text,
-    Date, DateTime, JSON, UniqueConstraint, func
+    Date, DateTime, JSON, UniqueConstraint, Numeric, func
 )
 from sqlalchemy.orm import relationship
 from app.infrastructure.models.base import Base, TimestampMixin, SoftDeleteMixin
@@ -113,6 +113,9 @@ class WMSZona(Base, TimestampMixin):
     # RECEPCION/ALMACENAMIENTO/DESPACHO/CUARENTENA/CROSS_DOCKING
     tipo                  = Column(String(30), nullable=False, default="ALMACENAMIENTO")
     temperatura_controlada = Column(Boolean, default=False)
+    # Lo que hay en una zona vendible lo puede vender el POS del almacén.
+    # Recepción, cuarentena y despacho nunca se marcan.
+    vendible_pos          = Column(Boolean, nullable=False, default=False)
     activo                = Column(Boolean, default=True)
 
     almacen    = relationship("WMSAlmacen", back_populates="zonas")
@@ -160,6 +163,11 @@ class WMSProducto(Base, TimestampMixin):
     requiere_lote         = Column(Boolean, default=False)
     vida_util_dias        = Column(Integer, nullable=True)
     imagen_url            = Column(String(500), nullable=True)
+    # Para vender: código de barras (EAN/GTIN), tarifa de IVA y costo promedio
+    # ponderado, que se recalcula en cada entrada valorizada (recepción).
+    codigo_barras         = Column(String(60), nullable=True, index=True)
+    tarifa_iva            = Column(Numeric(5, 2), nullable=False, default=19)
+    costo_promedio        = Column(Numeric(18, 4), nullable=False, default=0)
     activo                = Column(Boolean, default=True)
 
     lotes               = relationship("WMSLote", back_populates="producto")
@@ -366,6 +374,7 @@ class WMSMovimientoInventario(Base, TimestampMixin):
     lote_id              = Column(Integer, ForeignKey("wms_lotes.id"), nullable=True)
     serie_id             = Column(Integer, ForeignKey("wms_series.id"), nullable=True)
     cantidad             = Column(Float, nullable=False)
+    costo_unitario       = Column(Numeric(18, 4), nullable=True)
     referencia_documento = Column(String(100), nullable=True)
     usuario_id           = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
     notas                = Column(Text, nullable=True)

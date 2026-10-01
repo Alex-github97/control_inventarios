@@ -5,6 +5,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useTranslation } from 'react-i18next'
 
 import { COLOR_MODULO_SOBRE_OSCURO, SUPERFICIE, MARCA, ACENTO } from '@/config/marca'
+import { esRutaPlataforma } from './rutasPlataforma'
 // Claves de permiso requeridas por workspace (vacío = siempre visible)
 const WORKSPACE_PERM_KEYS: Record<string, string[]> = {
   control:  ['dashboard','estibas','movimientos','manifiestos','vehiculos','ubicaciones','proveedores','alertas','danos','trazabilidad','mantenimiento','costos','consultas'],
@@ -25,6 +26,7 @@ const WORKSPACE_PERM_KEYS: Record<string, string[]> = {
   scm:      ['scm'],
   sst:      ['sst'],
   ags:      ['ags'],
+  pos:      ['pos'],
   config:   ['usuarios'],
 }
 
@@ -58,6 +60,7 @@ const ERP_COLOR        = COLOR_MODULO_SOBRE_OSCURO
 const SCM_COLOR        = COLOR_MODULO_SOBRE_OSCURO
 const SST_COLOR        = COLOR_MODULO_SOBRE_OSCURO
 const AGS_COLOR        = COLOR_MODULO_SOBRE_OSCURO
+const POS_COLOR        = COLOR_MODULO_SOBRE_OSCURO
 const COMPACT_THRESHOLD = 80
 
 const WORKSPACES = [
@@ -68,7 +71,8 @@ const WORKSPACES = [
     color: CI_COLOR,
     path:  '/dashboard',
     isActive: (p: string) =>
-      !p.startsWith('/tarifax') && !p.startsWith('/usuarios') &&
+      !esRutaPlataforma(p) && !p.startsWith('/scm') && !p.startsWith('/sst') && !p.startsWith('/pos') &&
+      !p.startsWith('/tarifax') &&
       !p.startsWith('/command-center') && !p.startsWith('/fletes') &&
       !p.startsWith('/tms') && !p.startsWith('/dms') && !p.startsWith('/qms') &&
       !p.startsWith('/grc') && !p.startsWith('/flota') && !p.startsWith('/locativa') &&
@@ -130,6 +134,14 @@ const WORKSPACES = [
     color: AGS_COLOR,
     path:  '/ags',
     isActive: (p: string) => p.startsWith('/ags'),
+  },
+  {
+    id:    'pos',
+    label: 'ws.pos',
+    short: 'POS',
+    color: POS_COLOR,
+    path:  '/pos',
+    isActive: (p: string) => p.startsWith('/pos'),
   },
   {
     id:    'wms',
@@ -217,7 +229,7 @@ const WORKSPACES = [
     short: 'CF',
     color: CF_COLOR,
     path:  '/usuarios',
-    isActive: (p: string) => p.startsWith('/usuarios'),
+    isActive: esRutaPlataforma,
   },
 ]
 

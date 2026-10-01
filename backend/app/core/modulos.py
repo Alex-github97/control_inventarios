@@ -36,6 +36,7 @@ MODULOS: List[Modulo] = [
     Modulo("eam",     "CMMS / EAM · Mantenimiento",
            ("/eam", "/mantenimiento", "/lubricacion", "/flota", "/vehiculos")),
     Modulo("ags",     "AGS · Agenda de Servicios", ("/ags",)),
+    Modulo("pos",     "POS · Punto de Venta", ("/pos",)),
     Modulo("wms",     "WMS · Almacenes", ("/wms",)),
     Modulo("gh",      "Gestión Humana", ("/hcm", "/gh")),
     Modulo("command", "Command Center", ("/command-center",)),

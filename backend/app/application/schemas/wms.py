@@ -160,6 +160,7 @@ class WMSZonaCreate(BaseModel):
     nombre: str
     tipo: str = "ALMACENAMIENTO"
     temperatura_controlada: bool = False
+    vendible_pos: bool = False
     activo: bool = True
 
 class WMSZonaUpdate(BaseModel):
@@ -168,12 +169,14 @@ class WMSZonaUpdate(BaseModel):
     nombre: Optional[str] = None
     tipo: Optional[str] = None
     temperatura_controlada: Optional[bool] = None
+    vendible_pos: Optional[bool] = None
     activo: Optional[bool] = None
 
 class WMSZonaResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int; almacen_id: int; codigo: str; nombre: str
     tipo: str; temperatura_controlada: bool; activo: bool
+    vendible_pos: bool = False
     created_at: Optional[datetime] = None
 
 
@@ -223,6 +226,8 @@ class WMSProductoCreate(BaseModel):
     requiere_lote: bool = False
     vida_util_dias: Optional[int] = None
     imagen_url: Optional[str] = None
+    codigo_barras: Optional[str] = None
+    tarifa_iva: float = 19
     activo: bool = True
 
 class WMSProductoUpdate(BaseModel):
@@ -238,6 +243,8 @@ class WMSProductoUpdate(BaseModel):
     requiere_lote: Optional[bool] = None
     vida_util_dias: Optional[int] = None
     imagen_url: Optional[str] = None
+    codigo_barras: Optional[str] = None
+    tarifa_iva: Optional[float] = None
     activo: Optional[bool] = None
 
 class WMSProductoResponse(BaseModel):
@@ -247,6 +254,9 @@ class WMSProductoResponse(BaseModel):
     peso_kg: Optional[float]; volumen_m3: Optional[float]
     requiere_refrigeracion: bool; requiere_serial: bool; requiere_lote: bool
     vida_util_dias: Optional[int]; imagen_url: Optional[str]; activo: bool
+    codigo_barras: Optional[str] = None
+    tarifa_iva: float = 19
+    costo_promedio: float = 0
     created_at: Optional[datetime] = None
 
 

@@ -11,7 +11,7 @@ import {
   Inventory2, LocalShipping, DirectionsCar, Build, Warehouse, People,
   Route, Description, VerifiedUser, Policy, School, Business,
   Construction, PrecisionManufacturing, BarChart, MonetizationOn, Remove,
-  Security, EventAvailable,
+  Security, EventAvailable, PointOfSale,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
@@ -128,6 +128,11 @@ const MODULE_GROUPS: ModuleGroup[] = [
     key: 'ags', label: 'Agenda de Servicios', abbr: 'AGS', color: '#A21CAF',
     Icon: EventAvailable,
     perms: [{ key: 'ags', label: 'Agenda de Servicios' }],
+  },
+  {
+    key: 'pos', label: 'Punto de Venta', abbr: 'POS', color: '#15803D',
+    Icon: PointOfSale,
+    perms: [{ key: 'pos', label: 'POS · Punto de venta' }],
   },
   {
     key: 'admin', label: 'Administración', abbr: 'ADM', color: '#B91C1C',

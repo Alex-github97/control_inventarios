@@ -342,6 +342,9 @@ class ERPFacturaCliente(Base, TimestampMixin, SoftDeleteMixin):
     concepto        = Column(String(500), nullable=True)
     observaciones   = Column(Text, nullable=True)
     cufe            = Column(String(200), nullable=True)  # DIAN code
+    resolucion_id   = Column(Integer, ForeignKey("erp_resolucion_facturacion.id"), nullable=True)
+    origen          = Column(String(20), nullable=True)        # POS, ERP…
+    estado_dian     = Column(String(20), nullable=True)        # POR_TRANSMITIR, ACEPTADA, RECHAZADA
 
     lineas          = relationship("ERPLineaFacturaCliente", back_populates="factura", cascade="all, delete-orphan")
     pagos           = relationship("ERPPago", back_populates="factura_cliente")

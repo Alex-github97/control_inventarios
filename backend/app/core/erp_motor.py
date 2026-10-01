@@ -513,6 +513,17 @@ NATURALEZA_POR_EVENTO: Dict[str, tuple] = {
     "SERVICIO_EJECUTADO": (TipoComprobante.DIARIO, {
         "cartera": "D", "ingreso": "C", "iva_generado": "C", "costo": "D",
     }),
+    # Venta de contado en mostrador: un solo comprobante con el cobro (caja o
+    # banco según el medio), el ingreso, el IVA y el costo de lo que salió.
+    "POS_VENTA": (TipoComprobante.INGRESO, {
+        "caja": "D", "banco": "D", "ingreso": "C", "iva_generado": "C",
+        "costo_venta": "D", "inventario": "C",
+    }),
+    # Su inverso: se devuelve el dinero y la mercancía vuelve al inventario.
+    "POS_DEVOLUCION": (TipoComprobante.EGRESO, {
+        "caja": "C", "banco": "C", "devolucion": "D", "iva_generado": "D",
+        "costo_venta": "C", "inventario": "D",
+    }),
 }
 
 

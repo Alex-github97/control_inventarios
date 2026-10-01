@@ -6,7 +6,7 @@ from app.infrastructure.models.base import TimestampMixin
 MODULOS_SISTEMA = [
     "dashboard", "estibas", "movimientos", "manifiestos", "vehiculos",
     "ubicaciones", "proveedores", "alertas", "danos", "trazabilidad",
-    "mantenimiento", "costos", "consultas", "usuarios", "fletes", "sst", "ags",
+    "mantenimiento", "costos", "consultas", "usuarios", "fletes", "sst", "ags", "pos",
 ]
 
 ROLES_DEFECTO = [

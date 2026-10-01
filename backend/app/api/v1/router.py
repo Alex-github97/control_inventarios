@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
     auth, usuarios, estibas, ubicaciones, proveedores,
-    vehiculos, manifiestos, movimientos, dashboard, alertas, danos, tarifax, mantenimiento, consultas, roles, fletes, flota, locative, wms, hcm, tms, dms, qms, grc, lms, lms_aprendizaje, crm, eam, mes, aps, erp, scan_sessions, scm, sst, lubricacion, lubricacion_gestion, lubricacion_operacion, lubricacion_analitica, lubricacion_interpretacion, lubricacion_flota, lubricacion_importar, ags, catalogos, plataforma, plataforma_comercial, plataforma_contable, eam_importar, eam_config, eam_dashboard, checklists, checklists_ejecucion, combustible, inventario, eam_confiabilidad, eam_analitica, eam_garantias_apoyo, eam_reportes, eam_adjuntos, eam_causa_raiz, mes_flujo, mes_planta, mes_analitica, qms_analitica, grc_analitica, grc_relaciones, grc_config, soporte, soporte_agil, plataforma_equipo, landing, gestion, gestion_incidencias, gestion_consultas, gestion_agil, gestion_pizarras, gestion_config, gestion_formulario, erp_contable, erp_gestion
+    vehiculos, manifiestos, movimientos, dashboard, alertas, danos, tarifax, mantenimiento, consultas, roles, fletes, flota, locative, wms, hcm, tms, dms, qms, grc, lms, lms_aprendizaje, crm, eam, mes, aps, erp, scan_sessions, scm, sst, lubricacion, lubricacion_gestion, lubricacion_operacion, lubricacion_analitica, lubricacion_interpretacion, lubricacion_flota, lubricacion_importar, ags, catalogos, plataforma, plataforma_comercial, plataforma_contable, eam_importar, eam_config, eam_dashboard, checklists, checklists_ejecucion, combustible, inventario, eam_confiabilidad, eam_analitica, eam_garantias_apoyo, eam_reportes, eam_adjuntos, eam_causa_raiz, mes_flujo, mes_planta, mes_analitica, qms_analitica, grc_analitica, grc_relaciones, grc_config, pos, erp_facturacion, soporte, soporte_agil, plataforma_equipo, landing, gestion, gestion_incidencias, gestion_consultas, gestion_agil, gestion_pizarras, gestion_config, gestion_formulario, erp_contable, erp_gestion
 )
 
 api_router = APIRouter()
@@ -84,6 +84,8 @@ api_router.include_router(qms.router)
 api_router.include_router(grc.router)
 api_router.include_router(grc_relaciones.router)
 api_router.include_router(grc_config.router)
+api_router.include_router(pos.router)
+api_router.include_router(erp_facturacion.router)
 api_router.include_router(lms.router)
 api_router.include_router(lms_aprendizaje.router)
 api_router.include_router(crm.router)

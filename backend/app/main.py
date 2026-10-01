@@ -1143,6 +1143,15 @@ async def _migrar_esquema(esquema: str) -> None:
             ("aps_restriccion", "ambito", "VARCHAR(30) DEFAULT 'OTRA' NOT NULL"),
             ("eam_activo", "horas_programadas_mes", "DOUBLE PRECISION"),
             ("ags_cita", "iva_incluido", "DOUBLE PRECISION DEFAULT 0"),
+            # POS: lo que el inventario y la factura necesitan para vender.
+            ("wms_productos", "codigo_barras", "VARCHAR(60)"),
+            ("wms_productos", "tarifa_iva", "NUMERIC(5,2) DEFAULT 19 NOT NULL"),
+            ("wms_productos", "costo_promedio", "NUMERIC(18,4) DEFAULT 0 NOT NULL"),
+            ("wms_zonas", "vendible_pos", "BOOLEAN DEFAULT false NOT NULL"),
+            ("wms_movimientos_inventario", "costo_unitario", "NUMERIC(18,4)"),
+            ("erp_facturas_cliente", "resolucion_id", "INTEGER REFERENCES erp_resolucion_facturacion(id)"),
+            ("erp_facturas_cliente", "origen", "VARCHAR(20)"),
+            ("erp_facturas_cliente", "estado_dian", "VARCHAR(20)"),
         ]:
             await conn.execute(text(
                 "ALTER TABLE %s ADD COLUMN IF NOT EXISTS %s %s" % (tabla, columna, tipo)

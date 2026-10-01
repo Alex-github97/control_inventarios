@@ -65,6 +65,7 @@ PERMISOS_PERFIL: List[Permiso] = [
     Permiso("scm",  "SCM · Cadena de suministro",      "Módulos"),
     Permiso("sst",  "SST · Seguridad y salud",         "Módulos"),
     Permiso("ags",  "AGS · Agenda de servicios",       "Módulos"),
+    Permiso("pos",  "POS · Punto de venta",            "Módulos"),
 
     # ── Finanzas ──────────────────────────────────────────────────────────
     #

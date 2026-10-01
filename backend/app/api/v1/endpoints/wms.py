@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core import wms_inventario
 from app.core.dependencies import get_current_user, require_supervisor
 from app.infrastructure.models.usuario import Usuario
 from app.infrastructure.models.wms import (
@@ -1136,11 +1137,23 @@ async def completar_recepcion(
     )
     ubic_default_id = ub_r.scalar_one_or_none()
 
+    # Precio de compra por producto, de la orden de compra: es lo que valoriza
+    # la entrada y alimenta el costo promedio con que el POS calcula el costo
+    # de ventas. Sin orden, la entrada entra al costo promedio vigente.
+    precio_oc: dict = {}
+    if rec.orden_compra_id:
+        for ocd in (await db.execute(select(WMSOrdenCompraDetalle).where(
+                WMSOrdenCompraDetalle.orden_id == rec.orden_compra_id))).scalars():
+            if ocd.precio_unitario is not None:
+                precio_oc[ocd.producto_id] = ocd.precio_unitario
+
     for det in rec.detalles:
         destino_ubic = det.ubicacion_id or ubic_default_id
         if det.estado_calidad == "APROBADO" and destino_ubic and det.cantidad_recibida > 0:
             if not det.ubicacion_id:
                 det.ubicacion_id = destino_ubic
+            costo = await wms_inventario.costear_entrada(
+                db, det.producto_id, det.cantidad_recibida, precio_oc.get(det.producto_id))
             await _ajustar_inventario(
                 db, det.producto_id, destino_ubic, det.lote_id, det.cantidad_recibida
             )
@@ -1150,6 +1163,7 @@ async def completar_recepcion(
                 ubicacion_destino_id=destino_ubic,
                 lote_id=det.lote_id,
                 cantidad=det.cantidad_recibida,
+                costo_unitario=costo,
                 referencia_documento=rec.numero_recepcion,
                 usuario_id=current_user.id,
                 notas=f"Recepción {rec.numero_recepcion} completada",
