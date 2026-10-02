@@ -197,7 +197,8 @@
       "wmsSlotting": "Ubicación inteligente",
       "wmsMaquila": "Maquila",
       "wmsOlas": "Olas de alistamiento",
-      "wmsEmpaque": "Empaque"
+      "wmsEmpaque": "Empaque",
+      "wmsMapa": "Mapa de la bodega"
     },
     "section": {
       "principal": "Principal",

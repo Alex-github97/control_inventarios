@@ -979,3 +979,47 @@ class WMSMaquilaOrden(Base, TimestampMixin):
     iniciada_en          = Column(DateTime(timezone=True), nullable=True)
     terminada_en         = Column(DateTime(timezone=True), nullable=True)
     notas                = Column(Text, nullable=True)
+
+
+# ─── Mapa visual: fotos de las estanterías y plano ─────────────────────────────
+
+class WMSMapaFoto(Base, TimestampMixin):
+    """Foto frontal de una estantería, guardada en blanco y negro. Las cuatro
+    esquinas (normalizadas 0-1) y las filas × columnas definen la cuadrícula
+    de celdas sobre la foto; cada celda es una ubicación."""
+    __tablename__ = "wms_mapa_fotos"
+    id          = Column(Integer, primary_key=True, index=True)
+    almacen_id  = Column(Integer, ForeignKey("wms_almacenes.id"), nullable=False, index=True)
+    nombre      = Column(String(150), nullable=False)
+    archivo     = Column(String(300), nullable=False)
+    ancho       = Column(Integer, nullable=False)
+    alto        = Column(Integer, nullable=False)
+    # [[x, y] arriba-izquierda, arriba-derecha, abajo-derecha, abajo-izquierda]
+    esquinas    = Column(JSON, nullable=True)
+    filas       = Column(Integer, nullable=True)
+    columnas    = Column(Integer, nullable=True)
+    pasillo     = Column(String(20), nullable=True)
+    estanteria  = Column(String(20), nullable=True)
+    notas       = Column(Text, nullable=True)
+
+
+class WMSMapaCelda(Base, TimestampMixin):
+    __tablename__ = "wms_mapa_celdas"
+    __table_args__ = (UniqueConstraint("foto_id", "fila", "columna", name="uq_mapa_celda"),)
+    id           = Column(Integer, primary_key=True, index=True)
+    foto_id      = Column(Integer, ForeignKey("wms_mapa_fotos.id", ondelete="CASCADE"), nullable=False, index=True)
+    fila         = Column(Integer, nullable=False)       # 0 = la de arriba
+    columna      = Column(Integer, nullable=False)       # 0 = la de la izquierda
+    ubicacion_id = Column(Integer, ForeignKey("wms_ubicaciones.id"), nullable=True)
+
+
+class WMSPlano(Base, TimestampMixin):
+    """Plano (o foto cenital) de la bodega, con las estanterías marcadas."""
+    __tablename__ = "wms_planos"
+    id         = Column(Integer, primary_key=True, index=True)
+    almacen_id = Column(Integer, ForeignKey("wms_almacenes.id"), nullable=False, unique=True)
+    archivo    = Column(String(300), nullable=False)
+    ancho      = Column(Integer, nullable=False)
+    alto       = Column(Integer, nullable=False)
+    # [{"x","y","w","h" (0-1), "etiqueta", "foto_id"}]
+    marcas     = Column(JSON, nullable=True)

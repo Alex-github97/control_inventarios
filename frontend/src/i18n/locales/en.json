@@ -171,7 +171,8 @@
       "wmsSlotting": "Slotting",
       "wmsMaquila": "Value-added services",
       "wmsOlas": "Wave picking",
-      "wmsEmpaque": "Packing"
+      "wmsEmpaque": "Packing",
+      "wmsMapa": "Warehouse map"
     },
     "section": {
       "principal": "Main",
