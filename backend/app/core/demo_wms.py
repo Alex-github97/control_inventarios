@@ -37,11 +37,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.models.wms import (
     WMSAlmacen, WMSCategoriaProducto, WMSCiudad, WMSCliente, WMSConteoDetalle,
     WMSConteoInventario, WMSDespacho, WMSDespachoDetalle, WMSDevolucion,
-    WMSDevolucionDetalle, WMSFamiliaProducto, WMSInventarioUbicacion, WMSLote,
+    WMSDevolucionDetalle, WMSEventoTrazabilidad, WMSFamiliaProducto, WMSInventarioUbicacion, WMSLote,
     WMSKPIDiario, WMSMotivoMovimiento, WMSMovimientoInventario, WMSOrdenCompra,
     WMSOrdenCompraDetalle, WMSOrdenSalida, WMSOrdenSalidaDetalle, WMSPais,
     WMSPickingDetalle, WMSPickingTarea, WMSProducto, WMSProveedor,
-    WMSRecepcion, WMSRecepcionDetalle, WMSTipoUbicacion, WMSTipoZona,
+    WMSRecepcion, WMSRecepcionDetalle, WMSTarea, WMSTipoUbicacion, WMSTipoZona,
     WMSTransportadora, WMSUbicacion, WMSUnidadMedida, WMSZona,
 )
 
@@ -338,7 +338,11 @@ async def sembrar_wms(
                     descripcion=f"{nombre} · {familia} · {categoria}",
                     categoria=categoria, familia=familia,
                     unidad_medida="UNIDAD" if peso < 15 else "UNIDAD",
-                    peso_kg=peso, volumen_m3=round(peso * 0.0035 + 0.02, 4),
+                    # Unos 450 kg/m³, la densidad de repuestos en su empaque: con
+                    # 3,5 litros por kilo más 20 de base, un filtro de 1 kg ocupaba
+                    # 23 litros y la bodega salía llena al 476%.
+                    peso_kg=peso, volumen_m3=round(peso * 0.0022 + 0.001, 4),
+                    costo_promedio=precio,
                     requiere_refrigeracion=False,
                     requiere_serial=(categoria == "Llantas"),
                     requiere_lote=perecedero,
@@ -456,6 +460,15 @@ async def sembrar_wms(
     # se registra como un movimiento de ajuste, para que el saldo siga siendo la
     # suma de los movimientos y no una excepción escondida.
     p.hito("Inventario de arranque…")
+
+    # Demanda esperada de un producto en una bodega, por día hábil: las salidas
+    # del día se reparten entre bodegas, cada orden lleva 3 líneas en promedio
+    # sobre todo el catálogo, y la cantidad por línea depende del precio (ver
+    # las salidas más abajo). Con esto se dimensionan el arranque y las compras.
+    def demanda_dia(producto: WMSProducto) -> float:
+        por_linea = 12.5 if producto._precio < 500_000 else 3.0
+        return max(0.05, salidas_por_dia_habil / len(almacenes) * 3 / len(productos) * por_linea)
+
     movimientos: List[WMSMovimientoInventario] = []
     for alm in almacenes:
         for producto in productos:
@@ -463,8 +476,7 @@ async def sembrar_wms(
                 continue
             ub = ubicacion_de(producto, alm)
             lote = az.choice(lotes[producto.id]) if producto.requiere_lote else None
-            cantidad = float(az.randrange(120, 700) if producto._precio < 500_000
-                             else az.randrange(25, 110))
+            cantidad = float(max(3, round(demanda_dia(producto) * az.uniform(25, 50))))
             mover(producto.id, ub.id, lote.id if lote else None, cantidad)
             movimientos.append(WMSMovimientoInventario(
                 tipo="AJUSTE", producto_id=producto.id, ubicacion_destino_id=ub.id,
@@ -501,6 +513,21 @@ async def sembrar_wms(
         # ── Compras: dos o tres a la semana ──
         if dia.weekday() in (0, 2) or (dia.weekday() == 4 and az.random() < 0.5):
             for alm in almacenes:
+                # Se compra lo que está bajo, no cualquier cosa, y hasta cubrir
+                # mes y medio de demanda (el proveedor tarda hasta tres semanas).
+                #
+                # Con compras al azar, la bodega termina llena de lo que nadie
+                # pide y vacía de lo que sí: el fill rate se quedaba en 66% y el
+                # in-full en 28%. Y con cantidades fijas (90 a 260 por línea)
+                # sin mirar cuánto se vende, el inventario solo crecía: 449 días
+                # de cobertura y estanterías al 252% de su volumen.
+                bajos = sorted(
+                    (x for x in productos
+                     if existencia.get((x.id, alm.id), 0.0) < demanda_dia(x) * 26),
+                    key=lambda x: existencia.get((x.id, alm.id), 0.0) / demanda_dia(x)
+                )[:az.randrange(5, 12)]
+                if not bajos:
+                    continue
                 n_oc += 1
                 prov = az.choice(proveedores)
                 emision = dia
@@ -514,22 +541,10 @@ async def sembrar_wms(
                 db.add(oc)
                 await db.flush()
 
-                # Se compra lo que está bajo, no cualquier cosa.
-                #
-                # Con compras al azar, la bodega termina llena de lo que nadie
-                # pide y vacía de lo que sí: el fill rate se quedaba en 66% y el
-                # in-full en 28%, cifras de una bodega que no sabe reponer. Una
-                # operación real repone contra el consumo, y esa sola diferencia
-                # es la que hace que los indicadores del tablero se parezcan a
-                # los de una bodega bien llevada.
-                elegidos = sorted(
-                    productos,
-                    key=lambda x: existencia.get((x.id, alm.id), 0.0)
-                )[:az.randrange(5, 10)]
                 detalles_oc: List[WMSOrdenCompraDetalle] = []
-                for producto in elegidos:
-                    cantidad = float(az.randrange(90, 260) if producto._precio < 500_000
-                                     else az.randrange(18, 55))
+                for producto in bajos:
+                    cantidad = float(max(1, round(demanda_dia(producto) * az.uniform(40, 55)
+                                                  - existencia.get((producto.id, alm.id), 0.0))))
                     det = WMSOrdenCompraDetalle(
                         orden_id=oc.id, producto_id=producto.id,
                         cantidad_solicitada=cantidad, cantidad_recibida=0,
@@ -552,14 +567,28 @@ async def sembrar_wms(
                 # tiene: siempre hay algo descargándose.
                 en_curso = (hasta - llegada).days <= 9 and az.random() < 0.45
                 n_rec += 1
+                # Los tiempos del muelle: el vehículo llega, espera turno,
+                # descarga, y la mercancía queda ubicada horas después. Son los
+                # que alimentan dock-to-stock y el tiempo de descargue.
+                llega_vehiculo = datetime.combine(llegada, time(8, 30), tzinfo=timezone.utc)
+                inicio_desc = llega_vehiculo + timedelta(minutes=az.randrange(5, 41))
+                fin_desc = inicio_desc + timedelta(minutes=az.randrange(25, 91))
+                ubicada = fin_desc + timedelta(minutes=az.randrange(40, 300))
+                oc.depositante_id = propio
                 rec = WMSRecepcion(
                     numero_recepcion=f"REC-{llegada:%Y}-{n_rec:05d}",
                     tipo="CONTRA_OC", orden_compra_id=oc.id, almacen_id=alm.id,
+                    depositante_id=propio,
                     fecha_recepcion=llegada,
                     estado="EN_PROCESO" if en_curso else "COMPLETA",
                     operario_id=az.choice(usuarios),
                     notas="Entrega con retraso del proveedor" if tarde else None,
-                    created_at=datetime.combine(llegada, time(8, 30), tzinfo=timezone.utc))
+                    muelle=f"MUELLE-{az.randrange(1, 4)}",
+                    fecha_llegada=llega_vehiculo,
+                    inicio_descargue=inicio_desc,
+                    fin_descargue=None if en_curso else fin_desc,
+                    completada_en=None if en_curso else ubicada,
+                    created_at=llega_vehiculo)
                 db.add(rec)
                 await db.flush()
 
@@ -600,10 +629,30 @@ async def sembrar_wms(
                             ubicacion_destino_id=ub.id,
                             lote_id=lote.id if lote else None, cantidad=recibida,
                             referencia_documento=rec.numero_recepcion,
+                            documento_tipo="RECEPCION", documento_id=rec.id,
                             usuario_id=rec.operario_id,
-                            created_at=datetime.combine(llegada, time(9, 15),
-                                                        tzinfo=timezone.utc)))
+                            created_at=ubicada))
                         n_mov += 1
+                        # La ubicación de cada línea es una tarea con su
+                        # sugerencia; un 7% se guarda en otro sitio, que es lo
+                        # que mide el cumplimiento de la ubicación sugerida.
+                        desvio = az.random() < 0.07
+                        creada = fin_desc + timedelta(minutes=az.randrange(1, 10))
+                        iniciada = creada + timedelta(minutes=az.randrange(2, 35))
+                        db.add(WMSTarea(
+                            tipo="UBICACION", estado="COMPLETADA", almacen_id=alm.id,
+                            depositante_id=propio, producto_id=producto.id,
+                            lote_id=lote.id if lote else None, cantidad=recibida,
+                            ubicacion_sugerida_id=(az.choice(ubic_por_almacen[alm.id]).id
+                                                   if desvio else ub.id),
+                            ubicacion_destino_id=ub.id,
+                            motivo_desvio="Ubicación sugerida ocupada; se guardó en el pasillo vecino" if desvio else None,
+                            razon_sugerencia="Ubicación habitual del producto",
+                            documento_tipo="RECEPCION", documento_id=rec.id,
+                            operario_id=az.choice(usuarios), asignada_en=creada,
+                            iniciada_en=iniciada,
+                            terminada_en=min(ubicada, iniciada + timedelta(minutes=az.randrange(3, 11))),
+                            created_at=creada))
                 oc.estado = "COMPLETA" if completa else "PARCIAL"
 
         # ── Salidas del día ──
@@ -631,9 +680,15 @@ async def sembrar_wms(
             detalles: List[WMSOrdenSalidaDetalle] = []
             for producto in az.sample(productos, az.randrange(1, 6)):
                 ub = ubicacion_de(producto, alm)
-                lote = az.choice(lotes[producto.id]) if producto.requiere_lote else None
+                # El cliente no elige lote: se le asigna por FEFO el primero que
+                # vence entre los que hay. Con un lote al azar, la línea quedaba
+                # sin servir teniendo existencia de otro lote al lado.
+                lote = None
+                if producto.requiere_lote:
+                    con_saldo = [x for x in lotes[producto.id] if hay(producto.id, ub.id, x.id) > 0]
+                    lote = min(con_saldo or lotes[producto.id], key=lambda x: x.fecha_vencimiento)
                 lote_id = lote.id if lote else None
-                pedida = float(az.randrange(1, 25) if producto._precio < 500_000
+                pedida =float(az.randrange(1, 25) if producto._precio < 500_000
                                else az.randrange(1, 6))
                 det = WMSOrdenSalidaDetalle(
                     orden_id=orden.id, producto_id=producto.id, lote_id=lote_id,
@@ -664,22 +719,29 @@ async def sembrar_wms(
                 ordenes_abiertas.append((orden, detalles))
                 continue
 
+            # El alistamiento dura lo que sus líneas (2 a 5 minutos cada una,
+            # más el arranque), no el día entero: con inicio fijo a las 8:10 la
+            # productividad salía en una línea por hora.
+            orden.depositante_id = propio
+            fin_picking = datetime.combine(dia, time(az.randrange(9, 16), az.randrange(0, 60)),
+                                           tzinfo=timezone.utc)
+            inicio_picking = fin_picking - timedelta(
+                minutes=3 + sum(az.randrange(2, 6) for _ in detalles))
             tarea = WMSPickingTarea(
                 orden_id=orden.id, operario_id=az.choice(usuarios),
                 tipo=az.choices(["SINGLE", "BATCH", "ZONE", "WAVE"],
                                 weights=[58, 22, 14, 6], k=1)[0],
                 estado="COMPLETADA",
-                fecha_asignacion=datetime.combine(dia, time(8, 0), tzinfo=timezone.utc),
-                fecha_inicio=datetime.combine(dia, time(8, 10), tzinfo=timezone.utc),
-                fecha_fin=datetime.combine(dia, time(az.randrange(9, 17),
-                                                    az.randrange(0, 60)),
-                                           tzinfo=timezone.utc),
+                fecha_asignacion=inicio_picking - timedelta(minutes=az.randrange(5, 60)),
+                fecha_inicio=inicio_picking,
+                fecha_fin=fin_picking,
                 ubicaciones_visitadas=len(detalles), items_pickeados=0)
             db.add(tarea)
             await db.flush()
 
             in_full = True
             pickeados = 0
+            salidas: List[WMSMovimientoInventario] = []
             for det in detalles:
                 ub = det._ubicacion
                 disponible = hay(det.producto_id, ub.id, det.lote_id)
@@ -688,19 +750,32 @@ async def sembrar_wms(
                     in_full = False
                 if sacado > 0:
                     mover(det.producto_id, ub.id, det.lote_id, -sacado)
-                    db.add(WMSMovimientoInventario(
+                    salida = WMSMovimientoInventario(
                         tipo="DESPACHO", producto_id=det.producto_id,
                         ubicacion_origen_id=ub.id, lote_id=det.lote_id,
                         cantidad=sacado, referencia_documento=orden.numero_orden,
                         usuario_id=tarea.operario_id,
-                        created_at=tarea.fecha_fin))
+                        created_at=tarea.fecha_fin)
+                    db.add(salida)
+                    salidas.append(salida)
                     n_mov += 1
                 db.add(WMSPickingDetalle(
                     tarea_id=tarea.id, producto_id=det.producto_id,
                     ubicacion_id=ub.id, lote_id=det.lote_id,
                     cantidad_solicitada=det.cantidad_solicitada,
-                    cantidad_pickeada=sacado, confirmado=True,
-                    timestamp_confirmacion=tarea.fecha_fin))
+                    cantidad_pickeada=sacado, cantidad_despachada=sacado,
+                    confirmado=True, timestamp_confirmacion=tarea.fecha_fin))
+                # Cada confirmación queda en la bitácora; un 82% se verifica
+                # con lector (código de la ubicación y del producto).
+                db.add(WMSEventoTrazabilidad(
+                    tipo_evento="PICKING_CONFIRMADO", entidad_tipo="PICKING_TAREA",
+                    entidad_id=tarea.id, producto_id=det.producto_id,
+                    ubicacion_id=ub.id, lote_id=det.lote_id,
+                    usuario_id=tarea.operario_id,
+                    descripcion=f"Alistadas {sacado:g} de {det.cantidad_solicitada:g}",
+                    datos_adicionales={"verificado": az.random() < 0.82,
+                                       "cantidad": sacado},
+                    created_at=tarea.fecha_fin))
                 det.cantidad_preparada = sacado
                 det.cantidad_despachada = sacado
                 det.estado = ("COMPLETO" if sacado >= det.cantidad_solicitada
@@ -715,7 +790,11 @@ async def sembrar_wms(
             atraso = az.randrange(1, 5) if az.random() < 0.11 else 0
             entrega_real = entrega_estimada + timedelta(days=atraso)
             on_time = atraso == 0
-            peso = sum((por_id[d.producto_id].peso_kg or 0) * d.cantidad_despachada
+            # El cargue empieza cuando el alistamiento termina y el vehículo
+            # está en el muelle; antes del cierre de las 17:00.
+            inicio_cargue = max(tarea.fecha_fin, datetime.combine(dia, time(15, 0), tzinfo=timezone.utc)) \
+                + timedelta(minutes=az.randrange(10, 41))
+            peso =sum((por_id[d.producto_id].peso_kg or 0) * d.cantidad_despachada
                        for d in detalles)
             despacho = WMSDespacho(
                 numero_despacho=f"DSP-{dia:%Y}-{n_desp:06d}", orden_id=orden.id,
@@ -729,9 +808,15 @@ async def sembrar_wms(
                 peso_total_kg=round(peso, 2),
                 volumen_total_m3=round(peso * 0.0035, 3),
                 notas=f"Entrega con {atraso} día(s) de atraso" if atraso else None,
+                muelle=f"MUELLE-{az.randrange(4, 7)}",
+                inicio_cargue=inicio_cargue,
+                fin_cargue=inicio_cargue + timedelta(minutes=az.randrange(20, 71)),
                 created_at=datetime.combine(dia, time(17, 0), tzinfo=timezone.utc))
             db.add(despacho)
             await db.flush()
+            for salida in salidas:
+                salida.documento_tipo = "DESPACHO"
+                salida.documento_id = despacho.id
             for det in detalles:
                 if det.cantidad_despachada <= 0:
                     continue
@@ -930,6 +1015,18 @@ async def sembrar_wms(
             cantidad_reservada=reservada, cantidad_bloqueada=bloqueada))
         filas += 1
     await db.flush()
+    # El kárdex lleva dueño y almacén en cada línea: de ahí salen la facturación
+    # 3PL (ocupación diaria reconstruida hacia atrás), el portal del cliente y
+    # los filtros por almacén. Se completa al final, en una sola sentencia, en
+    # vez de repetirlo en cada uno de los sitios que registran movimientos.
+    await db.execute(text("""
+        UPDATE wms_movimientos_inventario m
+           SET depositante_id = COALESCE(m.depositante_id, p.depositante_id),
+               almacen_id = COALESCE(m.almacen_id, z.almacen_id)
+          FROM wms_productos p, wms_ubicaciones u, wms_zonas z
+         WHERE p.id = m.producto_id
+           AND u.id = COALESCE(m.ubicacion_destino_id, m.ubicacion_origen_id)
+           AND z.id = u.zona_id"""))
     await confirmar()
 
     resumen = {
