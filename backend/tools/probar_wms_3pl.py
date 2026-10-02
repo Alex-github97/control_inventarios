@@ -90,7 +90,10 @@ sql("UPDATE wms_despachos SET created_at = $1 WHERE id = $2", mediodia(5), d['id
 # Tarifas: generales y una propia del depositante.
 s, r = llamar('PUT', '/wms/3pl/tarifas', [{'concepto': 'ALM_M3_DIA', 'valor': 1000}, {'concepto': 'REC_UNIDAD', 'valor': 200},
                                           {'concepto': 'DESP_ORDEN', 'valor': 3000}, {'concepto': 'MINIMO_MES', 'valor': 90000},
-                                          {'concepto': 'ALM_POSICION_DIA', 'valor': 9999}])
+                                          {'concepto': 'ALM_POSICION_DIA', 'valor': 9999},
+                                          # Las que el escenario no usa se quitan: la prueba no depende de lo que dejó otra corrida.
+                                          {'concepto': 'ALM_ESTIBA_DIA', 'valor': None}, {'concepto': 'REC_DOCUMENTO', 'valor': None},
+                                          {'concepto': 'DESP_UNIDAD', 'valor': None}, {'concepto': 'DESP_LINEA', 'valor': None}])
 s, r = llamar('PUT', f'/wms/3pl/tarifas?depositante_id={dep["id"]}', [{'concepto': 'ALM_POSICION_DIA', 'valor': 500}])
 pos = next(x for x in r if x['concepto'] == 'ALM_POSICION_DIA')
 m3 = next(x for x in r if x['concepto'] == 'ALM_M3_DIA')

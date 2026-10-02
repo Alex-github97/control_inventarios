@@ -1064,3 +1064,13 @@ class WMSLiquidacion3PL(Base, TimestampMixin):
     factura_id     = Column(Integer, ForeignKey("erp_facturas_cliente.id"), nullable=True)
     creada_por_id  = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
     facturada_en   = Column(DateTime(timezone=True), nullable=True)
+
+
+class WMSDepositanteUsuario(Base, TimestampMixin):
+    """Usuario del portal: una persona del cliente que solo ve la mercancía de
+    su depositante. Al entrar, su token lleva el depositante firmado y la API
+    no le abre nada más."""
+    __tablename__ = "wms_depositante_usuarios"
+    id             = Column(Integer, primary_key=True, index=True)
+    usuario_id     = Column(Integer, ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False, unique=True)
+    depositante_id = Column(Integer, ForeignKey("wms_depositantes.id", ondelete="CASCADE"), nullable=False, index=True)

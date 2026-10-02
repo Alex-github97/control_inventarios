@@ -20,6 +20,8 @@ export interface LoginResponse {
   es_operador?: boolean
   /** Módulos contratados por la empresa; `['*']` son todos. */
   modulos?: string[]
+  /** Usuario del portal de un depositante (cliente del 3PL). */
+  portal?: { depositante_id: number; nombre: string } | null
 }
 
 export const authApi = {

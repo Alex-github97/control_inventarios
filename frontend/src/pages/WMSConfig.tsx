@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import {
   Box, Paper, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, MenuItem, IconButton, Stack, Tabs, Tab, Tooltip,
-  CircularProgress, alpha, Switch, FormControlLabel, Chip,
+  CircularProgress, alpha, Switch, FormControlLabel, Chip, Autocomplete,
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material'
@@ -1146,6 +1146,20 @@ function DepositantesSection() {
   const qc = useQueryClient()
   const { data: items = [], isLoading } = useQuery<Depositante[]>({ queryKey: ['wms-depositantes'], queryFn: () => api.get('/wms/depositantes').then(r => r.data) })
   const [dlg, setDlg] = useState<{ abierto: boolean; r: Depositante | null }>({ abierto: false, r: null })
+  const [portal, setPortal] = useState<Depositante | null>(null)
+  const usuariosPortal = useQuery<any[]>({ queryKey: ['wms-portal-usuarios', portal?.id], enabled: !!portal,
+    queryFn: () => api.get(`/wms/depositantes/${portal!.id}/usuarios`).then(r => r.data) })
+  const usuarios = useQuery<any[]>({ queryKey: ['usuarios-lista'], enabled: !!portal, queryFn: () => api.get('/usuarios/').then(r => r.data) })
+  const [nuevoUsuario, setNuevoUsuario] = useState<any | null>(null)
+  const vincular = async () => {
+    try { await api.post(`/wms/depositantes/${portal!.id}/usuarios`, { usuario_id: nuevoUsuario.id }); setNuevoUsuario(null)
+      toast.success('Usuario agregado al portal: al entrar solo verá la mercancía de este cliente'); qc.invalidateQueries({ queryKey: ['wms-portal-usuarios'] })
+    } catch (e) { toast.error(mensajeDeError(e, 'No se pudo vincular')) }
+  }
+  const desvincular = async (uid: number) => {
+    try { await api.delete(`/wms/depositantes/${portal!.id}/usuarios/${uid}`); toast.success('Usuario retirado del portal'); qc.invalidateQueries({ queryKey: ['wms-portal-usuarios'] }) }
+    catch (e) { toast.error(mensajeDeError(e, 'No se pudo retirar')) }
+  }
   const campos: Campo[] = [
     { clave: 'codigo', etiqueta: 'Código', obligatorio: true, ancho: 4 },
     { clave: 'nombre', etiqueta: 'Razón social', obligatorio: true, ancho: 8 },
@@ -1175,6 +1189,7 @@ function DepositantesSection() {
       </Typography>
       <TablaRegistros filas={items} cargando={isLoading} vacio="Sin depositantes" etiqueta={d => d.nombre}
         onEditar={d => setDlg({ abierto: true, r: d })}
+        extra={d => d.propio ? null : <Button size="small" onClick={() => setPortal(d)}>Usuarios del portal</Button>}
         columnas={[
           { titulo: 'Código', valor: d => d.codigo },
           { titulo: 'Depositante', valor: d => <>{d.nombre}{d.propio && <Chip size="small" label="Propio" sx={{ ml: 1, height: 18, fontSize: 10 }} />}</> },
@@ -1188,6 +1203,30 @@ function DepositantesSection() {
       <FormularioRegistro abierto={dlg.abierto} titulo={dlg.r ? 'Editar depositante' : 'Nuevo depositante'} campos={campos}
         registro={dlg.r} valoresIniciales={{ activo: true, propio: false }} onGuardar={guardar}
         onCerrar={() => setDlg({ abierto: false, r: null })} />
+      <Dialog open={!!portal} onClose={() => setPortal(null)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Portal de clientes · {portal?.nombre}</DialogTitle>
+        <DialogContent>
+          <Typography fontSize={13} color="text.secondary" mb={2}>
+            Estas personas entran a la plataforma y solo ven el inventario, los movimientos, las órdenes y las facturas de este
+            cliente. Créelas en Usuarios (rol Consulta) y agréguelas aquí. Un administrador no puede ser usuario del portal.
+          </Typography>
+          {(usuariosPortal.data ?? []).map(u => (
+            <Stack key={u.id} direction="row" alignItems="center" gap={1} sx={{ py: 0.75, borderBottom: '1px solid #F1F5F9' }}>
+              <Box flex={1}><Typography fontSize={13} fontWeight={600}>{u.nombre}</Typography>
+                <Typography fontSize={12} color="text.secondary">{u.username} · {u.email}</Typography></Box>
+              <Button size="small" color="error" onClick={() => desvincular(u.id)}>Retirar</Button>
+            </Stack>
+          ))}
+          {usuariosPortal.data && !usuariosPortal.data.length && <Typography fontSize={13} mb={1}>Todavía no hay usuarios del portal.</Typography>}
+          <Stack direction="row" gap={1} mt={2}>
+            <Autocomplete size="small" sx={{ flex: 1 }} options={(usuarios.data ?? []).filter((u: any) => u.rol !== 'ADMINISTRADOR')} value={nuevoUsuario}
+              onChange={(_, v) => setNuevoUsuario(v)} getOptionLabel={(u: any) => `${u.nombre} ${u.apellido} (${u.username})`}
+              renderInput={pr => <TextField {...pr} label="Agregar usuario" />} />
+            <Button disabled={!nuevoUsuario} onClick={vincular}>Agregar</Button>
+          </Stack>
+        </DialogContent>
+        <DialogActions><Button onClick={() => setPortal(null)}>Cerrar</Button></DialogActions>
+      </Dialog>
     </Box>
   )
 }

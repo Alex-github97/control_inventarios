@@ -19,7 +19,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def create_access_token(
     subject: Any, expires_delta: Optional[timedelta] = None,
     cliente: Optional[str] = None, esquema: Optional[str] = None,
-    usuario: Optional[str] = None,
+    usuario: Optional[str] = None, depositante: Optional[int] = None,
 ) -> str:
     """El cliente viaja dentro del token, firmado.
 
@@ -42,6 +42,9 @@ def create_access_token(
     # los mensajes salían firmados con un número.
     if usuario:
         payload["usr"] = usuario
+    # Usuario del portal de un depositante: la API solo le abre su portal.
+    if depositante:
+        payload["dep"] = depositante
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 

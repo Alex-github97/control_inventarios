@@ -99,10 +99,18 @@ async def login(
     user.intentos_fallidos = 0
     await db.flush()
 
+    # ¿Es usuario del portal de un depositante (cliente del 3PL)?
+    from app.infrastructure.models.wms import WMSDepositante, WMSDepositanteUsuario
+    vinculo = (await db.execute(select(WMSDepositanteUsuario, WMSDepositante).join(
+        WMSDepositante, WMSDepositante.id == WMSDepositanteUsuario.depositante_id).where(
+        WMSDepositanteUsuario.usuario_id == user.id))).first()
+    portal = {"depositante_id": vinculo[1].id, "nombre": vinculo[1].nombre} if vinculo else None
+
     return TokenResponse(
         access_token=create_access_token(
             user.id, cliente=cliente.codigo, esquema=cliente.esquema,
-            usuario=user.username),
+            usuario=user.username, depositante=portal["depositante_id"] if portal else None),
+        portal=portal,
         refresh_token=create_refresh_token(
             user.id, cliente=cliente.codigo, esquema=cliente.esquema),
         user=UsuarioResponse.model_validate(user),

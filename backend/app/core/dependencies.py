@@ -1,6 +1,7 @@
 from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.security import decode_token
@@ -37,6 +38,15 @@ async def get_current_user(
     user = await repo.get_by_id(int(user_id))
     if not user or not user.activo:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no encontrado o inactivo")
+    # Si lo volvieron usuario del portal de un depositante después de entrar,
+    # su sesión vieja (sin el depositante en el token) ya no sirve: así nadie
+    # conserva acceso amplio hasta que el token venza.
+    if not payload.get("dep") and user.rol != "ADMINISTRADOR":
+        from app.infrastructure.models.wms import WMSDepositanteUsuario
+        if (await db.execute(select(WMSDepositanteUsuario.id).where(
+                WMSDepositanteUsuario.usuario_id == user.id))).first():
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                                detail="Su acceso cambió: vuelva a iniciar sesión.")
     return user
 
 

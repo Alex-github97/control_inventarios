@@ -9,6 +9,8 @@ interface AuthState {
   isAuthenticated: boolean
   /** Los módulos que la empresa tiene contratados; `['*']` son todos. */
   modulos: string[]
+  /** Si es usuario del portal de un depositante, solo ve ese portal. */
+  portal: { depositante_id: number; nombre: string } | null
   login: (username: string, password: string) => Promise<void>
   logout: () => void
 }
@@ -20,13 +22,14 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       isAuthenticated: false,
       modulos: [],
+      portal: null,
 
       login: async (username, password) => {
         const data = await authApi.login(username, password)
         localStorage.setItem('access_token', data.access_token)
         set({
           user: data.user, token: data.access_token, isAuthenticated: true,
-          modulos: data.modulos ?? ['*'],
+          modulos: data.modulos ?? ['*'], portal: data.portal ?? null,
         })
       },
 
@@ -35,9 +38,9 @@ export const useAuthStore = create<AuthState>()(
         // Salir a propósito sí olvida el cliente: la siguiente persona que use
         // este equipo puede ser de otra empresa.
         olvidarCliente()
-        set({ user: null, token: null, isAuthenticated: false, modulos: [] })
+        set({ user: null, token: null, isAuthenticated: false, modulos: [], portal: null })
       },
     }),
-    { name: 'auth-storage', partialize: (state) => ({ user: state.user, token: state.token, isAuthenticated: state.isAuthenticated, modulos: state.modulos }) }
+    { name: 'auth-storage', partialize: (state) => ({ user: state.user, token: state.token, isAuthenticated: state.isAuthenticated, modulos: state.modulos, portal: state.portal }) }
   )
 )

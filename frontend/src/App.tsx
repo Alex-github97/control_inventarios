@@ -136,6 +136,7 @@ const WMSEmpaque = React.lazy(() => import('@/pages/WMSEmpaque'))
 const WMSMaquila = React.lazy(() => import('@/pages/WMSMaquila'))
 const WMSMapa = React.lazy(() => import('@/pages/WMSMapa'))
 const WMSFacturacion3PL = React.lazy(() => import('@/pages/WMSFacturacion3PL'))
+const PortalDepositante = React.lazy(() => import('@/pages/PortalDepositante'))
 const WMSVencimientos = React.lazy(() => import('@/pages/WMSVencimientos'))
 const WMSConfig = React.lazy(() => import('@/pages/WMSConfig'))
 const GHDashboard = React.lazy(() => import('@/pages/GHDashboard'))
@@ -350,16 +351,25 @@ const queryClient = new QueryClient({
 })
 
 /** El login exige haber elegido la empresa primero. */
+function RutaPortal() {
+  const { isAuthenticated, portal } = useAuthStore()
+  if (!isAuthenticated) return <Navigate to="/login" replace />
+  if (!portal) return <Navigate to="/dashboard" replace />
+  return <PortalDepositante />
+}
+
 function RutaLogin() {
   if (!clienteGuardado()) return <Navigate to="/empresa" replace />
   return <Login />
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, user } = useAuthStore()
+  const { isAuthenticated, user, portal } = useAuthStore()
   const location = useLocation()
 
   if (!isAuthenticated) return <Navigate to="/login" replace />
+  // El usuario del portal de un depositante solo tiene su portal.
+  if (portal) return <Navigate to="/portal" replace />
 
   // Sesión anterior sin permisos cargados → forzar re-login
   if (user?.permisos === undefined) return <Navigate to="/login" replace />
@@ -465,6 +475,7 @@ export default function App() {
             {/* Reserva online: pagina publica del negocio, sin login */}
             <Route path="/reservar/:slug" element={<AGSReservaPublica />} />
             <Route path="/sin-acceso" element={<SinAcceso />} />
+            <Route path="/portal" element={<RutaPortal />} />
             <Route path="/scanner-movil" element={<ScannerMovil />} />
             <Route path="/configuracion" element={<ProtectedRoute><Configuracion /></ProtectedRoute>} />
             <Route path="/catalogos" element={<ProtectedRoute><Catalogos /></ProtectedRoute>} />

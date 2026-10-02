@@ -54,6 +54,8 @@ class TokenResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     user: UsuarioResponse
+    # Usuario del portal de un depositante: {"depositante_id", "nombre"}.
+    portal: Optional[dict] = None
     # Si la empresa desde la que se entra es la que opera la plataforma. El
     # portal lo usa para mostrar u ocultar la consola del operador; quien manda
     # de verdad es `require_operador` en el servidor, que lo vuelve a comprobar

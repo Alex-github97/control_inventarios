@@ -36,6 +36,9 @@ RUTAS_PUBLICAS = (
 # Rutas de dispositivos: no aceptan sesión de usuario, sino el token del equipo.
 RUTAS_DISPOSITIVO = ("/api/v1/wms/cubicador/",)
 
+# Lo único que abre el token de un usuario del portal de un depositante.
+RUTAS_PORTAL = ("/api/v1/wms/portal/", "/api/v1/auth/me", "/api/v1/auth/change-password")
+
 
 def es_publica(ruta: str) -> bool:
     return any(ruta.startswith(p) for p in RUTAS_PUBLICAS)
@@ -74,3 +77,8 @@ async def exigir_sesion(request: Request) -> None:
             detail="El token no sirve para acceder; use el de acceso, no el de refresco",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    # Un cliente del 3PL ve su portal y nada más: ni el inventario de otros
+    # depositantes ni los demás módulos. El depositante va firmado en el token.
+    if payload.get("dep") and not request.url.path.startswith(RUTAS_PORTAL):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Su usuario es del portal de clientes: solo puede consultar su mercancía.")
