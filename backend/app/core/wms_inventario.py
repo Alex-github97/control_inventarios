@@ -36,7 +36,7 @@ from app.infrastructure.models.wms import (
 CUATRO = Decimal("0.0001")
 ESTADOS = {"DISPONIBLE": "cantidad_disponible", "RESERVADO": "cantidad_reservada", "BLOQUEADO": "cantidad_bloqueada"}
 # Zonas de las que nunca se alista: lo que está ahí no está listo para salir.
-ZONAS_NO_ALISTABLES = ("RECEPCION", "CUARENTENA", "DESPACHO")
+ZONAS_NO_ALISTABLES = ("RECEPCION", "CUARENTENA", "DESPACHO", "TRANSITO")
 _MISMA = object()
 
 

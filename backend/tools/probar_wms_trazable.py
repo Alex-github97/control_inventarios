@@ -3,7 +3,7 @@
 Corre dentro de ci_backend contra el backend de pruebas en :8001:
     docker exec -w /app ci_backend python tools/probar_wms_trazable.py
 """
-import asyncio, json, os, urllib.request, urllib.error
+import asyncio, json, os, time, urllib.request, urllib.error
 from datetime import date, timedelta
 import asyncpg
 from app.core.security import create_access_token
@@ -13,7 +13,7 @@ T = create_access_token(1, timedelta(hours=2), cliente='public', esquema='public
 URL_DB = os.environ['DATABASE_URL'].replace('postgresql+asyncpg', 'postgresql').replace('/control_inventarios', '/ci_pruebas_form')
 fallos = 0
 hoy = date.today()
-X = 'PWMS'
+X = f'PW{int(time.time()) % 10000:04d}'
 
 
 def llamar(m, ruta, cuerpo=None):

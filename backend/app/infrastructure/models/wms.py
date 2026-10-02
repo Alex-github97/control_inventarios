@@ -341,6 +341,9 @@ class WMSRecepcion(Base, TimestampMixin, SoftDeleteMixin):
     inicio_descargue = Column(DateTime(timezone=True), nullable=True)
     fin_descargue    = Column(DateTime(timezone=True), nullable=True)
     completada_en    = Column(DateTime(timezone=True), nullable=True)
+    # La factura del proveedor que la cubre: al registrarla en el ERP salda la
+    # «mercancía recibida por facturar» que dejó esta recepción.
+    factura_proveedor_id = Column(Integer, nullable=True, index=True)
     notas            = Column(Text, nullable=True)
 
     orden_compra = relationship("WMSOrdenCompra", back_populates="recepciones")
@@ -426,6 +429,9 @@ class WMSMovimientoInventario(Base, TimestampMixin):
     estado_destino       = Column(String(12), nullable=True)
     saldo_origen         = Column(Float, nullable=True)
     saldo_destino        = Column(Float, nullable=True)
+    # El comprobante del ERP que contabilizó este movimiento (solo mercancía
+    # propia: la de un depositante 3PL no es de la empresa y no se contabiliza).
+    comprobante_id       = Column(Integer, nullable=True, index=True)
 
     producto          = relationship("WMSProducto", back_populates="movimientos")
     ubicacion_origen  = relationship("WMSUbicacion", foreign_keys=[ubicacion_origen_id], back_populates="movimientos_origen")
@@ -575,6 +581,10 @@ class WMSDespacho(Base, TimestampMixin, SoftDeleteMixin):
     muelle                = Column(String(30), nullable=True)
     inicio_cargue         = Column(DateTime(timezone=True), nullable=True)
     fin_cargue            = Column(DateTime(timezone=True), nullable=True)
+    # Factura de venta del ERP. Vacía cuando no se pudo facturar al despachar
+    # (orden sin precios, sin resolución vigente): `aviso_factura` dice por qué.
+    factura_id            = Column(Integer, nullable=True, index=True)
+    aviso_factura         = Column(String(300), nullable=True)
     notas                 = Column(Text, nullable=True)
 
     orden          = relationship("WMSOrdenSalida", back_populates="despachos")
@@ -635,6 +645,7 @@ class WMSDevolucion(Base, TimestampMixin):
     # RECIBIDA/INSPECCION/APROBADA/RECHAZADA/REINGRESADA
     estado             = Column(String(20), nullable=False, default="RECIBIDA")
     motivo             = Column(String(255), nullable=True)
+    nota_credito_id    = Column(Integer, nullable=True)
     notas              = Column(Text, nullable=True)
 
     orden_referencia = relationship("WMSOrdenSalida", back_populates="devoluciones")
@@ -1074,3 +1085,42 @@ class WMSDepositanteUsuario(Base, TimestampMixin):
     id             = Column(Integer, primary_key=True, index=True)
     usuario_id     = Column(Integer, ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False, unique=True)
     depositante_id = Column(Integer, ForeignKey("wms_depositantes.id", ondelete="CASCADE"), nullable=False, index=True)
+
+
+class WMSTraslado(Base, TimestampMixin):
+    """Traslado entre almacenes. La mercancía sale del origen hacia la
+    ubicación de TRÁNSITO del destino y queda ahí, sin poderse vender ni alistar,
+    hasta que el destino la recibe: así el inventario no aparece en Medellín
+    mientras el camión todavía va por la vía."""
+    __tablename__ = "wms_traslados"
+    id                    = Column(Integer, primary_key=True, index=True)
+    numero                = Column(String(40), nullable=False, unique=True)
+    almacen_origen_id     = Column(Integer, ForeignKey("wms_almacenes.id"), nullable=False, index=True)
+    almacen_destino_id    = Column(Integer, ForeignKey("wms_almacenes.id"), nullable=False, index=True)
+    ubicacion_transito_id = Column(Integer, ForeignKey("wms_ubicaciones.id"), nullable=False)
+    # EN_TRANSITO / RECIBIDO
+    estado                = Column(String(12), nullable=False, default="EN_TRANSITO")
+    tms_viaje_id          = Column(Integer, nullable=True)
+    tms_codigo            = Column(String(40), nullable=True)
+    despachado_en         = Column(DateTime(timezone=True), nullable=True)
+    recibido_en           = Column(DateTime(timezone=True), nullable=True)
+    usuario_id            = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    recibido_por_id       = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    notas                 = Column(Text, nullable=True)
+
+    detalles = relationship("WMSTrasladoDetalle", back_populates="traslado", cascade="all, delete-orphan",
+                            order_by="WMSTrasladoDetalle.id")
+
+
+class WMSTrasladoDetalle(Base, TimestampMixin):
+    __tablename__ = "wms_traslados_detalle"
+    id                   = Column(Integer, primary_key=True, index=True)
+    traslado_id          = Column(Integer, ForeignKey("wms_traslados.id", ondelete="CASCADE"), nullable=False, index=True)
+    producto_id          = Column(Integer, ForeignKey("wms_productos.id"), nullable=False)
+    lote_id              = Column(Integer, ForeignKey("wms_lotes.id"), nullable=True)
+    cantidad             = Column(Float, nullable=False)
+    ubicacion_origen_id  = Column(Integer, ForeignKey("wms_ubicaciones.id"), nullable=False)
+    ubicacion_destino_id = Column(Integer, ForeignKey("wms_ubicaciones.id"), nullable=True)
+    cantidad_recibida    = Column(Float, nullable=True)
+
+    traslado = relationship("WMSTraslado", back_populates="detalles")

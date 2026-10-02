@@ -1,5 +1,5 @@
 """POS de punta a punta contra la COPIA (:8001, base ci_pruebas_form). Corre dentro de ci_backend."""
-import asyncio, json, os, urllib.request, urllib.error
+import asyncio, json, os, time, urllib.request, urllib.error
 from datetime import date, timedelta
 from decimal import Decimal
 import asyncpg
@@ -9,6 +9,8 @@ B = 'http://127.0.0.1:8001/api/v1'
 T = create_access_token(1, timedelta(hours=2), cliente='public', esquema='public', usuario='admin')
 URL_DB = os.environ['DATABASE_URL'].replace('postgresql+asyncpg', 'postgresql').replace('/control_inventarios', '/ci_pruebas_form')
 fallos = 0
+# Prefijo por corrida: la prueba se puede repetir sobre la misma copia.
+P = f'PP{int(time.time()) % 10000:04d}'
 hoy = date.today()
 
 
@@ -48,20 +50,20 @@ def stock(pid, uid=None, lote=None):
 
 
 # ── Montaje ──────────────────────────────────────────────────────────────────
-s, alm = llamar('POST', '/wms/almacenes/', {'codigo': 'PPOS', 'nombre': 'PRUEBA-POS Tienda'})
+s, alm = llamar('POST', '/wms/almacenes/', {'codigo': f'{P}', 'nombre': 'PRUEBA-POS Tienda'})
 ok(s == 201, 'almacén creado', alm)
 zonas = {}
 for cod, tipo in [('VTA', 'ALMACENAMIENTO'), ('REC', 'RECEPCION')]:
-    s, z = llamar('POST', '/wms/zonas/', {'almacen_id': alm['id'], 'codigo': f'PPOS-{cod}', 'nombre': f'PRUEBA-POS {cod}', 'tipo': tipo})
+    s, z = llamar('POST', '/wms/zonas/', {'almacen_id': alm['id'], 'codigo': f'{P}-{cod}', 'nombre': f'PRUEBA-POS {cod}', 'tipo': tipo})
     zonas[cod] = z
-    s, u = llamar('POST', '/wms/ubicaciones/', {'zona_id': z['id'], 'codigo': f'PPOS-{cod}-01'})
+    s, u = llamar('POST', '/wms/ubicaciones/', {'zona_id': z['id'], 'codigo': f'{P}-{cod}-01'})
     z['ubic'] = u['id']
-s, pa = llamar('POST', '/wms/productos/', {'sku': 'PPOS-A', 'nombre': 'PRUEBA-POS Gaseosa', 'tarifa_iva': 19})
-s, pb = llamar('POST', '/wms/productos/', {'sku': 'PPOS-B', 'nombre': 'PRUEBA-POS Yogur', 'tarifa_iva': 19, 'requiere_lote': True})
+s, pa = llamar('POST', '/wms/productos/', {'sku': f'{P}-A', 'nombre': 'PRUEBA-POS Gaseosa', 'tarifa_iva': 19})
+s, pb = llamar('POST', '/wms/productos/', {'sku': f'{P}-B', 'nombre': 'PRUEBA-POS Yogur', 'tarifa_iva': 19, 'requiere_lote': True})
 ok(pa and pb and 'id' in pa and 'id' in pb, 'productos creados', (pa, pb))
 lotes = {}
 for nom, dias in [('L1', 30), ('L2', 60), ('LX', -2)]:
-    s, l = llamar('POST', '/wms/lotes/', {'producto_id': pb['id'], 'numero_lote': f'PPOS-{nom}', 'fecha_vencimiento': (hoy + timedelta(days=dias)).isoformat()})
+    s, l = llamar('POST', '/wms/lotes/', {'producto_id': pb['id'], 'numero_lote': f'{P}-{nom}', 'fecha_vencimiento': (hoy + timedelta(days=dias)).isoformat()})
     lotes[nom] = l['id']
 VTA = zonas['VTA']['ubic']
 for pid, lote, cant in [(pa['id'], None, 10), (pb['id'], lotes['L1'], 3), (pb['id'], lotes['L2'], 5), (pb['id'], lotes['LX'], 4)]:
@@ -76,26 +78,26 @@ s, e = llamar('PUT', f'/pos/zonas/{zonas["REC"]["id"]}', {'vendible_pos': True})
 ok(s == 422, 'zona: recepción no se puede vender', e)
 s, r = llamar('PUT', f'/pos/zonas/{zonas["VTA"]["id"]}', {'vendible_pos': True})
 ok(s == 200, 'zona de almacenamiento marcada vendible', r)
-s, r = llamar('PUT', f'/pos/productos/{pa["id"]}', {'codigo_barras': '7700000000PPA', 'tarifa_iva': 19})
+s, r = llamar('PUT', f'/pos/productos/{pa["id"]}', {'codigo_barras': f'77{P}A', 'tarifa_iva': 19})
 ok(s == 200, 'producto: código de barras', r)
-s, e = llamar('PUT', f'/pos/productos/{pb["id"]}', {'codigo_barras': '7700000000PPA', 'tarifa_iva': 19})
+s, e = llamar('PUT', f'/pos/productos/{pb["id"]}', {'codigo_barras': f'77{P}A', 'tarifa_iva': 19})
 ok(s == 409, 'producto: código de barras repetido se rechaza', e)
-s, lista = llamar('POST', '/pos/listas', {'nombre': 'PRUEBA-POS Público'})
+s, lista = llamar('POST', '/pos/listas', {'nombre': f'PRUEBA-POS Público {P}'})
 s, r = llamar('PUT', f'/pos/listas/{lista["id"]}/precios', [{'producto_id': pa['id'], 'precio': 2380}, {'producto_id': pb['id'], 'precio': 5950}])
 ok(s == 200, 'precios guardados', r)
 s, pr = llamar('GET', f'/pos/listas/{lista["id"]}/precios?q=PRUEBA-POS')
 fa = next(x for x in pr if x['producto_id'] == pa['id'])
 ok(fa['margen_pct'] == 50.0, 'margen: base 2.000 sobre costo 1.000 = 50 %', fa)
 
-s, e = llamar('POST', '/erp/resoluciones', {'numero_resolucion': 'PRUEBA', 'fecha_resolucion': hoy.isoformat(), 'prefijo': 'PPOS',
+s, e = llamar('POST', '/erp/resoluciones', {'numero_resolucion': 'PRUEBA', 'fecha_resolucion': hoy.isoformat(), 'prefijo': f'{P}',
                                              'desde': 10, 'hasta': 5, 'vigencia_desde': hoy.isoformat(), 'vigencia_hasta': hoy.isoformat()})
 ok(s == 422, 'resolución: rango al revés se rechaza', e)
-s, res = llamar('POST', '/erp/resoluciones', {'numero_resolucion': '18760000001', 'fecha_resolucion': hoy.isoformat(), 'prefijo': 'PPOS',
+s, res = llamar('POST', '/erp/resoluciones', {'numero_resolucion': '18760000001', 'fecha_resolucion': hoy.isoformat(), 'prefijo': f'{P}',
                                                'desde': 1, 'hasta': 3, 'vigencia_desde': (hoy - timedelta(days=1)).isoformat(),
                                                'vigencia_hasta': (hoy + timedelta(days=365)).isoformat(), 'clave_tecnica': 'fc8eac422eba16e22ffd8c6f94b3f40a6e38162c'})
-ok(s == 201 and res['siguiente'] == 'PPOS1' and res['restantes'] == 3, 'resolución creada: siguiente PPOS1, quedan 3', res)
+ok(s == 201 and res['siguiente'] == f'{P}1' and res['restantes'] == 3, f'resolución creada: siguiente {P}1, quedan 3', res)
 
-s, caja = llamar('POST', '/pos/cajas', {'codigo': 'PPOS1', 'nombre': 'PRUEBA-POS Caja 1', 'almacen_id': alm['id'], 'lista_id': lista['id'],
+s, caja = llamar('POST', '/pos/cajas', {'codigo': f'{P}1', 'nombre': 'PRUEBA-POS Caja 1', 'almacen_id': alm['id'], 'lista_id': lista['id'],
                                         'resolucion_id': res['id'], 'descuento_maximo': 10})
 ok(s == 201 and caja['zonas_vendibles'] == 1, 'caja creada con una ubicación vendible', caja)
 
@@ -111,7 +113,7 @@ ok(s == 409, 'no abre dos turnos en la misma caja', e)
 s, cat = llamar('GET', f'/pos/cajas/{caja["id"]}/catalogo?q=PRUEBA-POS')
 d = {x['producto_id']: x['disponible'] for x in cat}
 ok(d.get(pa['id']) == 10 and d.get(pb['id']) == 8, 'catálogo: 10 de A (no cuenta recepción), 8 de B (no cuenta el lote vencido)', cat)
-s, cat = llamar('GET', f'/pos/cajas/{caja["id"]}/catalogo?q=7700000000PPA')
+s, cat = llamar('GET', f'/pos/cajas/{caja["id"]}/catalogo?q=77{P}A')
 ok(len(cat) == 1 and cat[0]['producto_id'] == pa['id'], 'catálogo: encuentra por código de barras', cat)
 
 venta_base = {'caja_id': caja['id'], 'cliente': {}}
@@ -128,7 +130,7 @@ ok(stock(pa['id'], VTA) == 10, 'los intentos fallidos no tocaron el inventario',
 s, v = llamar('POST', '/pos/ventas', {**venta_base, 'cliente': {'nombre': 'PRUEBA-POS Cliente', 'documento': '900123456'},
                                       'lineas': [{'producto_id': pa['id'], 'cantidad': 2}, {'producto_id': pb['id'], 'cantidad': 4}],
                                       'pagos': [{'medio': 'TARJETA_DEBITO', 'monto': 10000, 'referencia': '1234'}, {'medio': 'EFECTIVO', 'monto': 20000}]})
-ok(s == 201 and v['numero'] == 'PPOS1', 'venta 1: número PPOS1', v)
+ok(s == 201 and v['numero'] == f'{P}1', f'venta 1: número {P}1', v)
 ok(v.get('total') == 28560 and abs(v['impuestos'] - 4560) < 0.01 and v['cambio'] == 1440, 'venta 1: total 28.560, IVA 4.560 discriminado, cambio 1.440', v)
 ok(len(v.get('cufe') or '') == 96, 'venta 1: CUFE SHA-384 (96 hex)', v.get('cufe'))
 ok(v.get('costo_total') == 2 * 1000 + 4 * 2000, 'venta 1: costo 10.000 al costo promedio', v.get('costo_total'))
@@ -140,8 +142,8 @@ mov = sql("SELECT count(*) n FROM wms_movimientos_inventario WHERE producto_id=A
 ok(mov[0]['n'] == 3, 'kardex: 3 salidas con costo (A, B-L1, B-L2)', mov)
 
 f = sql('SELECT numero, total, estado, origen, estado_dian FROM erp_facturas_cliente WHERE id=(SELECT factura_id FROM pos_venta WHERE id=$1)', v['id'])
-ok(f and f[0]['numero'] == 'PPOS1' and float(f[0]['total']) == 28560 and f[0]['origen'] == 'POS' and f[0]['estado_dian'] == 'POR_TRANSMITIR',
-   'ERP: factura PPOS1 por 28.560, origen POS, por transmitir a la DIAN', f)
+ok(f and f[0]['numero'] == f'{P}1' and float(f[0]['total']) == 28560 and f[0]['origen'] == 'POS' and f[0]['estado_dian'] == 'POR_TRANSMITIR',
+   f'ERP: factura {P}1 por 28.560, origen POS, por transmitir a la DIAN', f)
 asiento = sql('SELECT c.codigo, sum(m.debito) d, sum(m.credito) c FROM erp_comprobante_lineas m JOIN erp_plan_cuentas c ON c.id=m.cuenta_id '
               'WHERE m.comprobante_id=(SELECT comprobante_id FROM pos_venta WHERE id=$1) GROUP BY c.codigo ORDER BY c.codigo', v['id'])
 cuentas = {r['codigo']: (float(r['d']), float(r['c'])) for r in asiento}
@@ -151,15 +153,15 @@ ok(cuentas.get('110505') == (18560, 0) and cuentas.get('111005') == (10000, 0) a
    'asiento: caja 18.560 (efectivo neto de cambio) + banco 10.000 / ingreso 24.000 + IVA 4.560; costo 10.000 / inventario 10.000', cuentas)
 
 s, vv = llamar('GET', f'/pos/ventas/{v["id"]}')
-ok(s == 200 and vv['emisor'] and 'PPOS1' in vv['resolucion'] or 'PPOS' in (vv.get('resolucion') or ''), 'ticket: emisor y texto de la resolución', vv.get('resolucion'))
+ok(s == 200 and vv['emisor'] and f'{P}1' in vv['resolucion'] or f'{P}' in (vv.get('resolucion') or ''), 'ticket: emisor y texto de la resolución', vv.get('resolucion'))
 
 # ── Devolución ───────────────────────────────────────────────────────────────
 la = next(l for l in vv['lineas'] if l['producto_id'] == pa['id'])
 lb = next(l for l in vv['lineas'] if l['producto_id'] == pb['id'])
 s, e = llamar('POST', '/pos/devoluciones', {'venta_id': v['id'], 'motivo': 'Dañado', 'lineas': [{'linea_id': lb['id'], 'cantidad': 1, 'estado': 'DANADO'}]})
 ok(s == 422, 'devolución: lo dañado necesita zona de cuarentena', e)
-s, zc = llamar('POST', '/wms/zonas/', {'almacen_id': alm['id'], 'codigo': 'PPOS-CUA', 'nombre': 'PRUEBA-POS Cuarentena', 'tipo': 'CUARENTENA'})
-s, uc = llamar('POST', '/wms/ubicaciones/', {'zona_id': zc['id'], 'codigo': 'PPOS-CUA-01'})
+s, zc = llamar('POST', '/wms/zonas/', {'almacen_id': alm['id'], 'codigo': f'{P}-CUA', 'nombre': 'PRUEBA-POS Cuarentena', 'tipo': 'CUARENTENA'})
+s, uc = llamar('POST', '/wms/ubicaciones/', {'zona_id': zc['id'], 'codigo': f'{P}-CUA-01'})
 s, e = llamar('POST', '/pos/devoluciones', {'venta_id': v['id'], 'motivo': 'Exceso', 'lineas': [{'linea_id': la['id'], 'cantidad': 3, 'estado': 'BUENO'}]})
 ok(s == 422, 'devolución: no más de lo vendido', e)
 s, dv = llamar('POST', '/pos/devoluciones', {'venta_id': v['id'], 'motivo': 'Cliente se arrepintió', 'medio_reembolso': 'EFECTIVO',
@@ -169,7 +171,7 @@ ok(s == 201 and abs(dv['total'] - (2380 + 5950)) < 0.01, 'devolución: 1 A + 1 B
 ok(stock(pa['id'], VTA) == 9, 'lo bueno vuelve a la ubicación de donde salió (A: 9)', stock(pa['id'], VTA))
 ok(stock(pb['id'], uc['id']) == 1, 'lo dañado va a cuarentena (B: 1)', stock(pb['id'], uc['id']))
 nc = sql('SELECT numero, total, cude FROM erp_nota_credito_cliente WHERE id=(SELECT nota_credito_id FROM pos_devolucion WHERE id=$1)', dv['id'])
-ok(nc and nc[0]['numero'].startswith('NCPPOS1') and len(nc[0]['cude'] or '') == 96 and float(nc[0]['total']) == 8330, 'nota crédito con CUDE', nc)
+ok(nc and nc[0]['numero'].startswith(f'NC{P}1') and len(nc[0]['cude'] or '') == 96 and float(nc[0]['total']) == 8330, 'nota crédito con CUDE', nc)
 asiento = sql('SELECT sum(m.debito) d, sum(m.credito) c FROM erp_comprobante_lineas m WHERE m.comprobante_id=(SELECT comprobante_id FROM pos_devolucion WHERE id=$1)', dv['id'])
 ok(asiento and asiento[0]['d'] == asiento[0]['c'] and asiento[0]['d'] > 0, 'asiento de la devolución cuadrado', asiento)
 s, vv = llamar('GET', f'/pos/ventas/{v["id"]}')
@@ -179,7 +181,7 @@ ok(vv['estado'] == 'DEVUELTA_PARCIAL', 'venta queda devuelta parcial', vv['estad
 una = {**venta_base, 'lineas': [{'producto_id': pa['id'], 'cantidad': 1}], 'pagos': [{'medio': 'EFECTIVO', 'monto': 2380}]}
 s, v2 = llamar('POST', '/pos/ventas', una)
 s, v3 = llamar('POST', '/pos/ventas', una)
-ok(v2.get('numero') == 'PPOS2' and v3.get('numero') == 'PPOS3', 'consecutivo PPOS2, PPOS3', (v2, v3))
+ok(v2.get('numero') == f'{P}2' and v3.get('numero') == f'{P}3', f'consecutivo {P}2, {P}3', (v2, v3))
 antes = stock(pa['id'], VTA)
 s, e = llamar('POST', '/pos/ventas', una)
 ok(s in (409, 422) and stock(pa['id'], VTA) == antes, 'resolución agotada: no vende y no descuenta inventario', (s, e))

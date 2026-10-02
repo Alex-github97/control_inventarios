@@ -467,7 +467,7 @@ async def ocupacion_ubicaciones(almacen_id: Optional[int] = None, db: AsyncSessi
 @router.get("/cubicaje/resumen")
 async def resumen(almacen_id: Optional[int] = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
     ubic = await ocupacion(db, almacen_id)
-    almac = [u for u in ubic if u["zona_tipo"] not in ("RECEPCION", "DESPACHO")]
+    almac = [u for u in ubic if u["zona_tipo"] not in ("RECEPCION", "DESPACHO", "TRANSITO")]
     cap = sum(u["capacidad_m3"] or 0 for u in almac)
     ocu = sum(u["ocupado_m3"] for u in almac)
     prods = (await db.execute(select(WMSProducto.id).where(WMSProducto.activo.isnot(False)))).scalars().all()

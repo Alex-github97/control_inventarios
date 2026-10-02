@@ -54,6 +54,11 @@ COLUMNAS = [
     ("wms_ubicaciones", "alto_cm", "DOUBLE PRECISION"),
     ("wms_ubicaciones", "orden_recorrido", "INTEGER"),
     ("wms_picking_tareas", "ola_id", "INTEGER REFERENCES wms_olas(id)"),
+    ("wms_movimientos_inventario", "comprobante_id", "INTEGER"),
+    ("wms_recepciones", "factura_proveedor_id", "INTEGER"),
+    ("wms_despachos", "factura_id", "INTEGER"),
+    ("wms_despachos", "aviso_factura", "VARCHAR(300)"),
+    ("wms_devoluciones", "nota_credito_id", "INTEGER"),
 ]
 
 INDICES = [

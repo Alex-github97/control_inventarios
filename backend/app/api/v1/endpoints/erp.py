@@ -231,6 +231,9 @@ class FacturaProveedorCreate(BaseModel):
     centro_costo_id: Optional[int] = None
     concepto: Optional[str] = None
     empresa_id: Optional[int] = None
+    # La recepción del WMS que esta factura cubre: en vez de cargar a gasto,
+    # salda la «mercancía recibida por facturar» que dejó esa recepción.
+    recepcion_wms_id: Optional[int] = None
 
 class FacturaProveedorResponse(FacturaProveedorCreate):
     id: int
@@ -1059,13 +1062,30 @@ async def crear_factura_proveedor(data: FacturaProveedorCreate, db: AsyncSession
     neto = data.total - data.retenciones
     if data.fecha_vencimiento is None:
         data.fecha_vencimiento = data.fecha + timedelta(days=(await _get_config(db)).dias_vencimiento_cxp)
-    fp = ERPFacturaProveedor(**data.model_dump(), neto_pagar=neto, saldo=neto)
+    rec = None
+    if data.recepcion_wms_id:
+        from app.infrastructure.models.wms import WMSRecepcion
+        rec = (await db.execute(select(WMSRecepcion).where(WMSRecepcion.id == data.recepcion_wms_id)
+                                .with_for_update())).scalar_one_or_none()
+        if rec is None or rec.estado != "COMPLETA":
+            raise HTTPException(422, "La recepción no existe o no está completa.")
+        if rec.factura_proveedor_id:
+            raise HTTPException(409, f"La recepción {rec.numero_recepcion} ya tiene su factura de proveedor.")
+    fp = ERPFacturaProveedor(**data.model_dump(exclude={"recepcion_wms_id"}), neto_pagar=neto, saldo=neto)
     fp.empresa_id = await _empresa_de(db, fp.empresa_id)
     db.add(fp)
     await db.flush()
     # Asiento automático: Db Gasto+IVA / Cr Proveedores (neto) + Retenciones
     subt = float(fp.subtotal or (float(fp.total) - float(fp.total_impuestos or 0)))
     iva = float(fp.total_impuestos or 0)
+    # Mercancía recibida en la bodega: la factura salda lo que la recepción dejó
+    # por facturar, y solo la diferencia de precio (si la hay) va a gasto.
+    por_facturar = 0.0
+    if rec is not None:
+        from app.core import wms_contable
+        por_facturar = float(await wms_contable.valor_por_facturar(db, rec))
+        rec.factura_proveedor_id = fp.id
+    gasto = round(subt - por_facturar, 2)
     await _asiento(
         db, empresa_id=fp.empresa_id, evento="COMPRA_FACTURA",
         tipo=TipoComprobante.DIARIO, fecha=fp.fecha,
@@ -1074,7 +1094,8 @@ async def crear_factura_proveedor(data: FacturaProveedorCreate, db: AsyncSession
         documento_id=fp.id,
         # El IVA de una compra va al DÉBITO como descontable: es un derecho
         # contra la DIAN, no un ingreso. La cuenta la pone la regla.
-        lineas=[("gasto", subt, 0, fp.proveedor_nombre),
+        lineas=[("por_facturar", por_facturar, 0, fp.proveedor_nombre),
+                ("gasto", max(gasto, 0), max(-gasto, 0), fp.proveedor_nombre),
                 ("iva_descontable", iva, 0, fp.proveedor_nombre),
                 ("retefuente", 0, float(fp.retenciones or 0), fp.proveedor_nombre),
                 ("proveedor", 0, neto, fp.proveedor_nombre)],
@@ -1082,7 +1103,29 @@ async def crear_factura_proveedor(data: FacturaProveedorCreate, db: AsyncSession
     )
     await db.commit()
     await db.refresh(fp)
+    fp.recepcion_wms_id = rec.id if rec else None
     return fp
+
+
+@router.get("/cxp/recepciones-por-facturar")
+async def recepciones_por_facturar(db: AsyncSession = Depends(get_db), _: Usuario = Depends(get_current_user)):
+    """Las recepciones del WMS que dejaron mercancía por facturar y todavía no
+    tienen la factura del proveedor: lo que el ERP debe al proveedor sin papel."""
+    from app.core import wms_contable
+    from app.infrastructure.models.wms import WMSOrdenCompra, WMSProveedor, WMSRecepcion, WMSMovimientoInventario as M
+    ids = [r for (r,) in (await db.execute(select(M.documento_id).where(
+        M.documento_tipo == "RECEPCION", M.comprobante_id.isnot(None)).distinct())).all()]
+    if not ids:
+        return []
+    filas = (await db.execute(select(WMSRecepcion, WMSOrdenCompra, WMSProveedor)
+                              .outerjoin(WMSOrdenCompra, WMSOrdenCompra.id == WMSRecepcion.orden_compra_id)
+                              .outerjoin(WMSProveedor, WMSProveedor.id == WMSOrdenCompra.proveedor_id)
+                              .where(WMSRecepcion.id.in_(ids), WMSRecepcion.factura_proveedor_id.is_(None))
+                              .order_by(WMSRecepcion.completada_en.desc()))).all()
+    return [{"id": r.id, "numero": r.numero_recepcion, "fecha": r.fecha_recepcion.isoformat(),
+             "orden_compra": oc.numero_oc if oc else None, "proveedor": p.nombre if p else None,
+             "proveedor_nit": p.nit if p else None,
+             "valor": float(await wms_contable.valor_por_facturar(db, r))} for r, oc, p in filas]
 
 
 # ── PAGOS ─────────────────────────────────────────────────────────────────────

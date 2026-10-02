@@ -205,7 +205,7 @@ async def marcar_zona(zid: int, data: ZonaIn, db: AsyncSession = Depends(get_db)
     z = await db.get(WMSZona, zid)
     if z is None:
         raise HTTPException(404, "Zona no encontrada")
-    if data.vendible_pos and (z.tipo or "").upper() in ("RECEPCION", "CUARENTENA", "DESPACHO"):
+    if data.vendible_pos and (z.tipo or "").upper() in ("RECEPCION", "CUARENTENA", "DESPACHO", "TRANSITO"):
         raise HTTPException(422, f"Una zona de {z.tipo.lower()} no se vende: lo que hay ahí no está disponible.")
     z.vendible_pos = data.vendible_pos
     await db.commit()

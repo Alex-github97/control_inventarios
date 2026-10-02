@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core import wms_inventario
 from app.core import wms_operacion as op
+from app.core import wms_contable
 from app.core.dependencies import get_current_user, require_supervisor
 from app.infrastructure.models.usuario import Usuario
 from app.infrastructure.models.wms import (
@@ -80,7 +81,7 @@ from app.application.schemas.wms import (
     WMSDespachoCreate, WMSDespachoDetalleCreate, WMSDespachoUpdate, WMSDespachoEstado, WMSDespachoResponse,
     WMSDevolucionCreate, WMSDevolucionUpdate, WMSDevolucionProcesar, WMSDevolucionResponse,
     WMSEventoTrazabilidadResponse,
-    WMSKPIs, WMSAlertasResponse,
+    WMSKPIs, WMSAlertasResponse, WMSFacturarDespacho,
 )
 
 router = APIRouter(prefix="/wms", tags=["wms"])
@@ -1247,6 +1248,8 @@ async def completar_recepcion(
             else:
                 oc.estado = "PARCIAL"
 
+    # La mercancía propia entra al inventario del ERP contra «por facturar».
+    await wms_contable.contabilizar_recepcion(db, rec, current_user.username)
     await db.commit()
     r2 = await db.execute(
         select(WMSRecepcion)
@@ -1324,7 +1327,9 @@ async def ajustar_inventario(
     """Ajuste manual: deja el DISPONIBLE de la fila en `cantidad_nueva`. El
     kárdex guarda la diferencia, el motivo y en qué quedó la fila."""
     f = await wms_inventario.fila(db, data.producto_id, data.ubicacion_id, data.lote_id, data.contenedor_id)
-    cantidad_anterior = (f.cantidad_disponible or 0) if f else 0
+    # BLOQUEADO ajusta lo retenido (cuarentena): así se da de baja lo dañado.
+    estado = data.estado
+    cantidad_anterior = (getattr(f, wms_inventario.ESTADOS[estado]) or 0) if f else 0
     delta = data.cantidad_nueva - cantidad_anterior
     if abs(delta) < 1e-9:
         raise HTTPException(422, f"La ubicación ya tiene {cantidad_anterior:g} disponibles: no hay nada que ajustar.")
@@ -1333,7 +1338,9 @@ async def ajustar_inventario(
                        destino=data.ubicacion_id if delta > 0 else None,
                        contenedor_origen=data.contenedor_id, contenedor_destino=data.contenedor_id,
                        documento_tipo="AJUSTE", referencia="AJUSTE_MANUAL", usuario_id=current_user.id,
-                       notas=data.motivo)
+                       notas=data.motivo, estado_origen=estado, estado_destino=estado)
+    await wms_contable.contabilizar_ajuste(db, [mov], current_user.username, f"Ajuste de inventario ({data.motivo})",
+                                           "AJUSTE", mov.id)
     await _registrar_evento(
         db, "AJUSTE_INVENTARIO",
         f"Ajuste de {cantidad_anterior:g} a {data.cantidad_nueva:g} unidades — {data.motivo}",
@@ -1357,9 +1364,36 @@ async def transferir_inventario(
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
-    """Mueve stock de una ubicación a otra."""
+    """Mueve stock de una ubicación a otra.
+
+    Dentro del mismo almacén el movimiento es inmediato. Entre almacenes es un
+    traslado: la mercancía queda en tránsito hasta que el destino la recibe
+    (ver `wms_traslados`), y no aparece disponible en el destino antes de llegar."""
     if data.ubicacion_origen_id == data.ubicacion_destino_id:
         raise HTTPException(422, "El origen y el destino son la misma ubicación.")
+    alm_o = await _almacen_de_ubicacion(db, data.ubicacion_origen_id)
+    alm_d = await _almacen_de_ubicacion(db, data.ubicacion_destino_id)
+    if alm_o and alm_d and alm_o.id != alm_d.id:
+        from app.api.v1.endpoints.wms_traslados import LineaTraslado, TrasladoIn, crear_traslado
+        t = await crear_traslado(db, current_user, TrasladoIn(
+            almacen_origen_id=alm_o.id, almacen_destino_id=alm_d.id, gestion_transporte=data.gestion_transporte,
+            notas=data.notas, lineas=[LineaTraslado(
+                producto_id=data.producto_id, ubicacion_origen_id=data.ubicacion_origen_id, cantidad=data.cantidad,
+                lote_id=data.lote_id, contenedor_id=data.contenedor_id, ubicacion_destino_id=data.ubicacion_destino_id)]))
+        await _registrar_evento(
+            db, "TRANSFERENCIA",
+            f"Traslado {t.numero}: {data.cantidad:g} und en tránsito de {alm_o.nombre} a {alm_d.nombre}"
+            + (f" · transporte TMS {t.tms_codigo}" if t.tms_codigo else ""),
+            entidad_tipo="TRASLADO", entidad_id=t.id, usuario_id=current_user.id,
+            producto_id=data.producto_id, lote_id=data.lote_id, ubicacion_id=t.ubicacion_transito_id,
+            datos={"origen_id": data.ubicacion_origen_id, "destino_id": data.ubicacion_destino_id,
+                   "cantidad": data.cantidad, "traslado": t.numero})
+        await db.commit()
+        r2 = await db.execute(
+            select(WMSMovimientoInventario).options(selectinload(WMSMovimientoInventario.producto))
+            .where(WMSMovimientoInventario.documento_tipo == "TRASLADO", WMSMovimientoInventario.documento_id == t.id)
+            .order_by(WMSMovimientoInventario.id).limit(1))
+        return r2.scalar_one()
     mov = await _mover(db, tipo="TRANSFERENCIA", producto_id=data.producto_id, cantidad=data.cantidad,
                  lote_id=data.lote_id, origen=data.ubicacion_origen_id, destino=data.ubicacion_destino_id,
                  contenedor_origen=data.contenedor_id, contenedor_destino=None,
@@ -1714,6 +1748,12 @@ async def completar_conteo(
 
     conteo.estado = "COMPLETO"
     conteo.fecha_fin = datetime.utcnow()
+    await db.flush()
+    ajustes = (await db.execute(select(WMSMovimientoInventario).where(
+        WMSMovimientoInventario.documento_tipo == "CONTEO",
+        WMSMovimientoInventario.documento_id == conteo_id))).scalars().all()
+    await wms_contable.contabilizar_ajuste(db, list(ajustes), current_user.username,
+                                           f"Conteo físico #{conteo_id}", "CONTEO", conteo_id)
     await db.commit()
 
     r2 = await db.execute(
@@ -2196,7 +2236,36 @@ async def listar_despachos(
 
     r = await db.execute(
         q.order_by(WMSDespacho.fecha_despacho.desc()).offset(desplazamiento).limit(limite))
-    return r.scalars().all()
+    return await _con_factura(db, r.scalars().all())
+
+
+async def _con_factura(db: AsyncSession, despachos):
+    """Le pone a cada despacho el número de su factura del ERP."""
+    from app.infrastructure.models.erp import ERPFacturaCliente
+    ids = [d.factura_id for d in despachos if d.factura_id]
+    numeros = dict((await db.execute(select(ERPFacturaCliente.id, ERPFacturaCliente.numero).where(
+        ERPFacturaCliente.id.in_(ids)))).all()) if ids else {}
+    for d in despachos:
+        d.factura_numero = numeros.get(d.factura_id)
+    return despachos
+
+
+@router.post("/despachos/{despacho_id}/facturar", response_model=WMSDespachoResponse)
+async def facturar_despacho(despacho_id: int, data: WMSFacturarDespacho, db: AsyncSession = Depends(get_db),
+                            current_user: Usuario = Depends(require_supervisor)):
+    """Factura un despacho que no se pudo facturar al salir (orden sin precio,
+    cliente sin NIT, sin resolución vigente)."""
+    d = (await db.execute(select(WMSDespacho).where(WMSDespacho.id == despacho_id).with_for_update())).scalar_one_or_none()
+    if d is None:
+        raise HTTPException(404, "Despacho no encontrado")
+    await wms_contable.facturar_despacho(db, d, current_user.username, data.precios or None)
+    await db.commit()
+    r = await db.execute(select(WMSDespacho).options(
+        selectinload(WMSDespacho.transportadora),
+        selectinload(WMSDespacho.detalles).selectinload(WMSDespachoDetalle.producto),
+        selectinload(WMSDespacho.detalles).selectinload(WMSDespachoDetalle.lote),
+    ).where(WMSDespacho.id == despacho_id))
+    return (await _con_factura(db, [r.scalar_one()]))[0]
 
 
 @router.post("/despachos/", response_model=WMSDespachoResponse, status_code=201)
@@ -2341,6 +2410,8 @@ async def crear_despacho(
                    "cantidad": d.cantidad},
         )
 
+    # El costo de lo que salió y la factura de venta (si se puede; si no, queda el aviso).
+    await wms_contable.contabilizar_despacho(db, despacho, current_user.username)
     await db.commit()
     r = await db.execute(
         select(WMSDespacho)
@@ -2351,7 +2422,7 @@ async def crear_despacho(
         )
         .where(WMSDespacho.id == despacho.id)
     )
-    return r.scalar_one()
+    return (await _con_factura(db, [r.scalar_one()]))[0]
 
 
 @router.put("/despachos/{despacho_id}/estado", response_model=WMSDespachoResponse)
@@ -2630,6 +2701,9 @@ async def procesar_devolucion(
                        "estado_calidad": det.estado_calidad, "cantidad": det.cantidad},
             )
 
+    if data.estado == "REINGRESADA":
+        # Lo que vuelve revierte su costo de venta; si estaba facturado, nota crédito.
+        await wms_contable.contabilizar_devolucion(db, dev, current_user.username)
     await db.commit()
     r2 = await db.execute(
         select(WMSDevolucion)

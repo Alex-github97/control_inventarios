@@ -489,6 +489,7 @@ NATURALEZA_POR_EVENTO: Dict[str, tuple] = {
     "COMPRA_FACTURA": (TipoComprobante.DIARIO, {
         "gasto": "D", "inventario": "D", "iva_descontable": "D",
         "proveedor": "C", "retefuente": "C", "reteica": "C", "reteiva": "C",
+        "por_facturar": "D",
     }),
     "RECAUDO_CLIENTE": (TipoComprobante.INGRESO, {
         "banco": "D", "caja": "D", "cartera": "C",
@@ -501,7 +502,18 @@ NATURALEZA_POR_EVENTO: Dict[str, tuple] = {
         "costo_venta": "D", "inventario": "C",
     }),
     "INVENTARIO_ENTRADA": (TipoComprobante.DIARIO, {
-        "inventario": "D", "proveedor": "C", "gasto": "C",
+        "inventario": "D", "proveedor": "C", "gasto": "C", "por_facturar": "C",
+    }),
+    # La mercancía vendida que el cliente devuelve y vuelve a la bodega.
+    "INVENTARIO_DEVOLUCION": (TipoComprobante.DIARIO, {
+        "inventario": "D", "costo_venta": "C",
+    }),
+    # Lo que el conteo o un ajuste encuentra de menos (o da de baja) y de más.
+    "INVENTARIO_MERMA": (TipoComprobante.DIARIO, {
+        "merma": "D", "inventario": "C",
+    }),
+    "INVENTARIO_SOBRANTE": (TipoComprobante.DIARIO, {
+        "inventario": "D", "sobrante": "C",
     }),
     "NOMINA_LIQUIDACION": (TipoComprobante.DIARIO, {
         "gasto_nomina": "D", "salud": "C", "pension": "C", "retefuente": "C",

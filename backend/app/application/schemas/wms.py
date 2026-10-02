@@ -3,7 +3,7 @@ Módulo WMS (Warehouse Management System) — Schemas Pydantic
 """
 from __future__ import annotations
 from datetime import date, datetime
-from typing import Optional, List, Any, Dict
+from typing import Optional, List, Any, Dict, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -572,6 +572,8 @@ class WMSAjusteInventario(BaseModel):
     lote_id: Optional[int] = None
     contenedor_id: Optional[int] = None
     cantidad_nueva: float = Field(ge=0)  # valor absoluto del disponible resultante
+    # Qué estado se ajusta: el disponible, o lo retenido en cuarentena (para dar de baja lo dañado).
+    estado: Literal["DISPONIBLE", "BLOQUEADO"] = "DISPONIBLE"
     # Un ajuste sin explicación no se puede auditar.
     motivo: str = Field(min_length=3, max_length=300)
 
@@ -817,6 +819,9 @@ class WMSDespachoResponse(BaseModel):
     muelle: Optional[str] = None
     inicio_cargue: Optional[datetime] = None
     fin_cargue: Optional[datetime] = None
+    factura_id: Optional[int] = None
+    factura_numero: Optional[str] = None
+    aviso_factura: Optional[str] = None
     detalles: List[WMSDespachoDetalleResponse] = []
     created_at: Optional[datetime] = None
 
@@ -864,6 +869,7 @@ class WMSDevolucionResponse(BaseModel):
     orden_referencia_id: Optional[int]; cliente_id: Optional[int]; proveedor_id: Optional[int]
     almacen_id: int; fecha_recepcion: date; estado: str
     motivo: Optional[str]; notas: Optional[str]
+    nota_credito_id: Optional[int] = None
     detalles: List[WMSDevolucionDetalleResponse] = []
     created_at: Optional[datetime] = None
 
@@ -961,3 +967,8 @@ class WMSKPIDiarioResponse(BaseModel):
     cost_per_order: Optional[float]; dock_to_stock_minutes: Optional[float]
     picking_accuracy: Optional[float]; shipping_accuracy: Optional[float]
     created_at: Optional[datetime] = None
+
+
+class WMSFacturarDespacho(BaseModel):
+    # Precio sin IVA por producto, para lo que la orden no traía con precio.
+    precios: Dict[int, float] = {}

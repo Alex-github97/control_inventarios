@@ -84,6 +84,9 @@ PUC: List[Tuple[str, str, TipoCuenta, NaturalezaCuenta, bool]] = [
     ("22", "PROVEEDORES", TipoCuenta.PASIVO, NaturalezaCuenta.CREDITO, False),
     ("2205", "NACIONALES", TipoCuenta.PASIVO, NaturalezaCuenta.CREDITO, False),
     ("220505", "Proveedores nacionales", TipoCuenta.PASIVO, NaturalezaCuenta.CREDITO, True),
+    # La mercancía que entró a la bodega y cuya factura no ha llegado: la deja
+    # la recepción del WMS y la salda la factura del proveedor.
+    ("220510", "Mercancía recibida por facturar", TipoCuenta.PASIVO, NaturalezaCuenta.CREDITO, True),
     ("23", "CUENTAS POR PAGAR", TipoCuenta.PASIVO, NaturalezaCuenta.CREDITO, False),
     ("2335", "COSTOS Y GASTOS POR PAGAR", TipoCuenta.PASIVO, NaturalezaCuenta.CREDITO, False),
     ("233595", "Otros costos y gastos por pagar", TipoCuenta.PASIVO, NaturalezaCuenta.CREDITO, True),
@@ -137,6 +140,8 @@ PUC: List[Tuple[str, str, TipoCuenta, NaturalezaCuenta, bool]] = [
     ("421005", "Intereses", TipoCuenta.INGRESO, NaturalezaCuenta.CREDITO, True),
     ("4275", "DEVOLUCIONES EN VENTAS", TipoCuenta.INGRESO, NaturalezaCuenta.DEBITO, False),
     ("427500", "Devoluciones en ventas", TipoCuenta.INGRESO, NaturalezaCuenta.DEBITO, True),
+    ("4295", "DIVERSOS", TipoCuenta.INGRESO, NaturalezaCuenta.CREDITO, False),
+    ("429595", "Sobrantes de inventario", TipoCuenta.INGRESO, NaturalezaCuenta.CREDITO, True),
 
     # ── 5. GASTOS ──
     ("5", "GASTOS", TipoCuenta.EGRESO, NaturalezaCuenta.DEBITO, False),
@@ -164,6 +169,8 @@ PUC: List[Tuple[str, str, TipoCuenta, NaturalezaCuenta, bool]] = [
     ("530520", "Intereses", TipoCuenta.EGRESO, NaturalezaCuenta.DEBITO, True),
     ("5399", "OTROS GASTOS", TipoCuenta.EGRESO, NaturalezaCuenta.DEBITO, False),
     ("539995", "Gastos diversos", TipoCuenta.EGRESO, NaturalezaCuenta.DEBITO, True),
+    ("5315", "GASTOS EXTRAORDINARIOS", TipoCuenta.EGRESO, NaturalezaCuenta.DEBITO, False),
+    ("531595", "Faltantes y bajas de inventario", TipoCuenta.EGRESO, NaturalezaCuenta.DEBITO, True),
 
     # ── 6. COSTOS ──
     ("6", "COSTOS DE VENTAS", TipoCuenta.EGRESO, NaturalezaCuenta.DEBITO, False),
@@ -231,6 +238,16 @@ REGLAS: List[tuple] = [
     ("INVENTARIO_ENTRADA", "inventario", "143505", "DEBITO"),
     ("INVENTARIO_ENTRADA", "proveedor", "220505", "CREDITO"),
     ("INVENTARIO_ENTRADA", "gasto", "539995", "CREDITO"),
+    # Cruce de tres vías: la recepción acredita «por facturar» y la factura del
+    # proveedor ligada a esa recepción lo debita, en vez de cargar a gasto.
+    ("INVENTARIO_ENTRADA", "por_facturar", "220510", "CREDITO"),
+    ("COMPRA_FACTURA", "por_facturar", "220510", "DEBITO"),
+    ("INVENTARIO_DEVOLUCION", "inventario", "143505", "DEBITO"),
+    ("INVENTARIO_DEVOLUCION", "costo_venta", "613500", "CREDITO"),
+    ("INVENTARIO_MERMA", "merma", "531595", "DEBITO"),
+    ("INVENTARIO_MERMA", "inventario", "143505", "CREDITO"),
+    ("INVENTARIO_SOBRANTE", "inventario", "143505", "DEBITO"),
+    ("INVENTARIO_SOBRANTE", "sobrante", "429595", "CREDITO"),
 
     ("NOMINA_LIQUIDACION", "gasto_nomina", "510506", "DEBITO"),
     ("NOMINA_LIQUIDACION", "salud", "237005", "CREDITO"),

@@ -400,7 +400,7 @@ async def inventario_vencido(db, ctx: Ctx) -> Resultado:
 
 async def utilizacion_cubica(db, ctx: Ctx) -> Resultado:
     from app.api.v1.endpoints.wms_cubicaje import ocupacion
-    ubic = [u for u in await ocupacion(db, ctx.almacen_id) if u["zona_tipo"] not in ("RECEPCION", "DESPACHO")]
+    ubic = [u for u in await ocupacion(db, ctx.almacen_id) if u["zona_tipo"] not in ("RECEPCION", "DESPACHO", "TRANSITO")]
     cap = sum(u["capacidad_m3"] or 0 for u in ubic)
     ocu = sum(u["ocupado_m3"] for u in ubic)
     sin = sum(1 for u in ubic if not u["capacidad_m3"])
@@ -421,7 +421,7 @@ async def utilizacion_cubica(db, ctx: Ctx) -> Resultado:
 
 async def ocupacion_posiciones(db, ctx: Ctx) -> Resultado:
     from app.api.v1.endpoints.wms_cubicaje import ocupacion
-    ubic = [u for u in await ocupacion(db, ctx.almacen_id) if u["zona_tipo"] not in ("RECEPCION", "DESPACHO")]
+    ubic = [u for u in await ocupacion(db, ctx.almacen_id) if u["zona_tipo"] not in ("RECEPCION", "DESPACHO", "TRANSITO")]
     llenas = [u for u in ubic if u["unidades"] > 0]
     return Resultado(_pct(len(llenas), len(ubic)), len(llenas), len(ubic), len(ubic))
 
