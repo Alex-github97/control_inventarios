@@ -64,6 +64,10 @@ interface Despacho {
   peso_total_kg?: number
   volumen_total_m3?: number
   notas?: string
+  // Factura de venta del ERP; vacía con `aviso_factura` cuando no se pudo facturar al despachar.
+  factura_id?: number | null
+  factura_numero?: string | null
+  aviso_factura?: string | null
   detalles?: DespachoItem[]
 }
 interface HistorialEntry {
@@ -91,6 +95,7 @@ interface Devolucion {
   estado: string
   motivo?: string
   fecha_recepcion?: string
+  nota_credito_id?: number | null
   orden_referencia_id?: number
   cliente_id?: number
   proveedor_id?: number
@@ -209,6 +214,8 @@ function NuevoDespachoDialog({ open, onClose }: { open: boolean; onClose: () => 
       const n: string = desp?.notas || ''
       const m = n.match(/TMS \(([^)]+)\)/)
       toast.success(m ? `Despacho creado — viaje TMS ${m[1]} generado` : 'Despacho creado')
+      if (desp?.factura_numero) toast.success(`Factura electrónica ${desp.factura_numero} emitida`)
+      else if (desp?.aviso_factura) toast(`Sin factura todavía: ${desp.aviso_factura}`, { icon: '⚠️', duration: 8000 })
       qc.invalidateQueries({ queryKey: ['wms-despachos'] })
       onClose()
     },
@@ -806,7 +813,10 @@ function DevolucionesSection() {
   const procesarMut = useMutation({
     mutationFn: ({ id, estado }: { id: number; estado: string }) =>
       api.put(`/wms/devoluciones/${id}/procesar`, { estado }).then(r => r.data),
-    onSuccess: () => { toast.success('Devolución procesada'); qc.invalidateQueries({ queryKey: ['wms-devoluciones'] }) },
+    onSuccess: (d: Devolucion) => {
+      toast.success(d?.nota_credito_id ? 'Devolución procesada: nota crédito emitida en Finanzas' : 'Devolución procesada')
+      qc.invalidateQueries({ queryKey: ['wms-devoluciones'] })
+    },
     onError: (err: any) => toast.error(mensajeDeError(err, 'Error al procesar devolución')),
   })
 
@@ -852,6 +862,7 @@ function DevolucionesSection() {
                     </TableCell>
                     <TableCell>
                       <Chip label={d.estado} size="small" sx={{ bgcolor: '#F3F4F6', color: '#374151', fontSize: 10, height: 20 }} />
+                      {d.nota_credito_id ? <Chip label="nota crédito" size="small" color="success" variant="outlined" sx={{ ml: 0.5, fontSize: 10, height: 20 }} /> : null}
                     </TableCell>
                     <TableCell sx={{ fontSize: 12, maxWidth: 200 }}><Typography fontSize={12} noWrap>{d.motivo ?? '—'}</Typography></TableCell>
                     <TableCell sx={{ fontSize: 12 }}>{d.fecha_recepcion ?? '—'}</TableCell>
@@ -887,11 +898,50 @@ function DevolucionesSection() {
 }
 
 // ─── Main page ─────────────────────────────────────────────────────────────────
+// Factura un despacho que salió sin factura: pide el precio (sin IVA) de lo que
+// la orden no traía; si el aviso era por NIT o resolución, basta corregirlo y facturar.
+function FacturarDialog({ despacho, onClose }: { despacho: Despacho | null; onClose: () => void }) {
+  const qc = useQueryClient()
+  const [precios, setPrecios] = useState<Record<number, string>>({})
+  const mut = useMutation({
+    mutationFn: () => api.post(`/wms/despachos/${despacho!.id}/facturar`, {
+      precios: Object.fromEntries(Object.entries(precios).filter(([, v]) => Number(v) > 0).map(([k, v]) => [k, Number(v)])),
+    }).then(r => r.data),
+    onSuccess: (d: Despacho) => {
+      toast.success(`Factura electrónica ${d.factura_numero} emitida`)
+      qc.invalidateQueries({ queryKey: ['wms-despachos'] }); setPrecios({}); onClose()
+    },
+    onError: (err: any) => toast.error(mensajeDeError(err, 'No se pudo facturar')),
+  })
+  const productos = Array.from(new Map((despacho?.detalles ?? []).map(x => [x.producto_id, x])).values())
+  return (
+    <Dialog open={!!despacho} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Facturar despacho {despacho?.numero_despacho}</DialogTitle>
+      <DialogContent>
+        {despacho?.aviso_factura && <Alert severity="warning" sx={{ mb: 2 }}>{despacho.aviso_factura}</Alert>}
+        <Typography fontSize={13} color="text.secondary" mb={1.5}>
+          Precio unitario sin IVA de lo que la orden no traía con precio (déjelo vacío para usar el de la orden):
+        </Typography>
+        {productos.map(x => (
+          <TextField key={x.producto_id} fullWidth size="small" type="number" sx={{ mb: 1.5 }}
+            label={`${x.producto?.sku ?? x.producto_id} · ${x.producto?.nombre ?? ''} (${x.cantidad} und)`}
+            value={precios[x.producto_id] ?? ''} onChange={e => setPrecios(p => ({ ...p, [x.producto_id]: e.target.value }))} />
+        ))}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Cancelar</Button>
+        <Button variant="contained" disabled={mut.isPending} onClick={() => mut.mutate()} sx={{ bgcolor: WMS_COLOR }}>Emitir factura</Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
 export default function WMSDespacho() {
   const qc = useQueryClient()
   const [openNew, setOpenNew] = useState(false)
   const [showDevoluciones, setShowDevoluciones] = useState(false)
   const [detailDespacho, setDetailDespacho] = useState<Despacho | null>(null)
+  const [facturar, setFacturar] = useState<Despacho | null>(null)
 
   const { data: despachos = [], isLoading } = useQuery<Despacho[]>({
     queryKey: ['wms-despachos'],
@@ -962,7 +1012,7 @@ export default function WMSDespacho() {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ bgcolor: '#F9FAFB' }}>
-                {['N° Despacho', 'Orden', 'Transportadora', 'Placa', 'Conductor', 'F. Despacho', 'F. Entrega Est.', 'Estado', 'Peso (kg)', 'Notas', 'Acción'].map(h => (
+                {['N° Despacho', 'Orden', 'Transportadora', 'Placa', 'Conductor', 'F. Despacho', 'F. Entrega Est.', 'Estado', 'Factura', 'Peso (kg)', 'Notas', 'Acción'].map(h => (
                   <TableCell key={h} sx={{ fontSize: 11, fontWeight: 700, color: '#6B7280', py: 1.25, whiteSpace: 'nowrap' }}>{h}</TableCell>
                 ))}
               </TableRow>
@@ -970,7 +1020,7 @@ export default function WMSDespacho() {
             <TableBody>
               {despachos.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={12} align="center" sx={{ py: 4 }}>
                     <Stack alignItems="center" gap={1}>
                       <AssignmentIcon sx={{ fontSize: 32, color: '#D1D5DB' }} />
                       <Typography fontSize={13} color="text.secondary">Sin despachos registrados</Typography>
@@ -989,6 +1039,16 @@ export default function WMSDespacho() {
                   <TableCell sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{d.fecha_despacho ?? '—'}</TableCell>
                   <TableCell sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{d.fecha_entrega_estimada ?? '—'}</TableCell>
                   <TableCell><EstadoChip estado={d.estado} /></TableCell>
+                  <TableCell onClick={e => e.stopPropagation()} sx={{ whiteSpace: 'nowrap' }}>
+                    {d.factura_numero
+                      ? <Chip size="small" color="success" variant="outlined" label={d.factura_numero} />
+                      : d.aviso_factura
+                        ? <Tooltip title={d.aviso_factura}>
+                            <Button size="small" color="warning" variant="outlined" onClick={() => setFacturar(d)}
+                              sx={{ textTransform: 'none', fontSize: 12, py: 0 }}>Facturar</Button>
+                          </Tooltip>
+                        : <Typography fontSize={12} color="text.secondary">—</Typography>}
+                  </TableCell>
                   <TableCell sx={{ fontSize: 12 }}>{d.peso_total_kg != null ? `${d.peso_total_kg} kg` : '—'}</TableCell>
                   <TableCell sx={{ fontSize: 12, maxWidth: 160 }}>
                     <Tooltip title={d.notas ?? ''}>
@@ -1026,6 +1086,7 @@ export default function WMSDespacho() {
       </Paper>
 
       <NuevoDespachoDialog open={openNew} onClose={() => setOpenNew(false)} />
+      <FacturarDialog despacho={facturar} onClose={() => setFacturar(null)} />
 
       <DetalleDialog
         despacho={detailDespacho}

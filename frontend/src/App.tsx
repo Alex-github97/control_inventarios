@@ -136,6 +136,7 @@ const WMSEmpaque = React.lazy(() => import('@/pages/WMSEmpaque'))
 const WMSMaquila = React.lazy(() => import('@/pages/WMSMaquila'))
 const WMSMapa = React.lazy(() => import('@/pages/WMSMapa'))
 const WMSFacturacion3PL = React.lazy(() => import('@/pages/WMSFacturacion3PL'))
+const WMSTraslados = React.lazy(() => import('@/pages/WMSTraslados'))
 const PortalDepositante = React.lazy(() => import('@/pages/PortalDepositante'))
 const WMSVencimientos = React.lazy(() => import('@/pages/WMSVencimientos'))
 const WMSConfig = React.lazy(() => import('@/pages/WMSConfig'))
@@ -544,6 +545,7 @@ export default function App() {
             <Route path="/wms/maquila" element={<ProtectedRoute><WMSMaquila /></ProtectedRoute>} />
             <Route path="/wms/mapa" element={<ProtectedRoute><WMSMapa /></ProtectedRoute>} />
             <Route path="/wms/facturacion" element={<ProtectedRoute><WMSFacturacion3PL /></ProtectedRoute>} />
+            <Route path="/wms/traslados" element={<ProtectedRoute><WMSTraslados /></ProtectedRoute>} />
             <Route path="/wms/vencimientos" element={<ProtectedRoute><WMSVencimientos /></ProtectedRoute>} />
             <Route path="/wms/config" element={<ProtectedRoute><WMSConfig /></ProtectedRoute>} />
             <Route path="/gh" element={<ProtectedRoute><GHDashboard /></ProtectedRoute>} />

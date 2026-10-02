@@ -23,6 +23,7 @@ import {
   alpha,
   Tabs,
   Tab,
+  Alert,
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
 import AddIcon from '@mui/icons-material/Add'
@@ -32,6 +33,7 @@ import ScheduleIcon from '@mui/icons-material/Schedule'
 import BusinessIcon from '@mui/icons-material/Business'
 import MoneyOffIcon from '@mui/icons-material/MoneyOff'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { mensajeDeError } from '@/utils/errorApi'
 import { apiClient as api } from '@/api/client'
 import { Layout } from '@/components/layout/Layout'
 import toast from 'react-hot-toast'
@@ -84,10 +86,18 @@ const EMPTY_FACTURA = {
   fecha: '',
   fecha_vencimiento: '',
   subtotal: '',
+  total_impuestos: '',
   retenciones: '',
   total: '',
   moneda: 'COP',
   concepto: '',
+  // Recepción del WMS que la factura cubre: salda la mercancía recibida por facturar.
+  recepcion_wms_id: '',
+}
+
+interface RecepcionPorFacturar {
+  id: number; numero: string; fecha: string; orden_compra: string | null
+  proveedor: string | null; proveedor_nit: string | null; valor: number
 }
 
 const EMPTY_PAGO = {
@@ -248,6 +258,13 @@ export default function ERPCxP() {
     },
   })
 
+  const porFacturarQuery = useQuery<RecepcionPorFacturar[]>({
+    queryKey: ['erp-recepciones-por-facturar'],
+    enabled: openNew,
+    queryFn: async () => (await api.get('/erp/cxp/recepciones-por-facturar')).data,
+  })
+  const recepcionElegida = (porFacturarQuery.data ?? []).find((r) => String(r.id) === String(facturaForm.recepcion_wms_id))
+
   const pagosQuery = useQuery<Pago[]>({
     queryKey: ['erp-pagos'],
     queryFn: async () => {
@@ -259,15 +276,24 @@ export default function ERPCxP() {
   // ── Mutations ────────────────────────────────────────────────────────────────
 
   const mutCrearFactura = useMutation({
-    mutationFn: (data: typeof EMPTY_FACTURA) => api.post('/erp/cxp/facturas', { ...data, fecha_vencimiento: data.fecha_vencimiento || null }),
+    mutationFn: (data: typeof EMPTY_FACTURA) => api.post('/erp/cxp/facturas', {
+      ...data, fecha_vencimiento: data.fecha_vencimiento || null,
+      // Los campos vacíos van como 0: enviados como '' la API los rechazaba.
+      subtotal: Number(data.subtotal) || 0,
+      retenciones: Number(data.retenciones) || 0,
+      total: Number(data.total) || 0,
+      total_impuestos: Number(data.total_impuestos) || 0,
+      recepcion_wms_id: data.recepcion_wms_id ? Number(data.recepcion_wms_id) : null,
+    }),
     onSuccess: () => {
       toast.success('Factura registrada')
+      queryClient.invalidateQueries({ queryKey: ['erp-recepciones-por-facturar'] })
       setOpenNew(false)
       setFacturaForm({ ...EMPTY_FACTURA })
       queryClient.invalidateQueries({ queryKey: ['erp-cxp-facturas'] })
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.detail ?? 'Error al registrar la factura')
+      toast.error(mensajeDeError(err, 'Error al registrar la factura'))
     },
   })
 
@@ -281,7 +307,7 @@ export default function ERPCxP() {
       queryClient.invalidateQueries({ queryKey: ['erp-cxp-facturas'] })
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.detail ?? 'Error al registrar el pago')
+      toast.error(mensajeDeError(err, 'Error al registrar el pago'))
     },
   })
 
@@ -670,6 +696,36 @@ export default function ERPCxP() {
           </DialogTitle>
           <DialogContent dividers>
             <Grid container spacing={2} sx={{ pt: 1 }}>
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  select fullWidth size="small" label="Mercancía recibida en el WMS (opcional)"
+                  value={facturaForm.recepcion_wms_id}
+                  helperText={(porFacturarQuery.data ?? []).length
+                    ? 'Si la factura es de mercancía que entró a la bodega, elija la recepción: así no se carga a gasto.'
+                    : 'No hay recepciones del WMS pendientes de factura.'}
+                  onChange={(e) => {
+                    const r = (porFacturarQuery.data ?? []).find((x) => String(x.id) === e.target.value)
+                    setFacturaForm((f) => r ? {
+                      ...f, recepcion_wms_id: String(r.id), proveedor_nombre: r.proveedor ?? f.proveedor_nombre,
+                      proveedor_nit: r.proveedor_nit ?? f.proveedor_nit, subtotal: String(r.valor),
+                      concepto: `Mercancía de la recepción ${r.numero}${r.orden_compra ? ` (OC ${r.orden_compra})` : ''}`,
+                    } : { ...f, recepcion_wms_id: '' })
+                  }}
+                >
+                  <MenuItem value="">Ninguna: es un gasto o servicio</MenuItem>
+                  {(porFacturarQuery.data ?? []).map((r) => (
+                    <MenuItem key={r.id} value={String(r.id)}>
+                      {r.numero} · {r.proveedor ?? 'sin proveedor'} · {r.fecha} · {formatCurrency(r.valor, 'COP')}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                {recepcionElegida && (
+                  <Alert severity="info" sx={{ mt: 1 }}>
+                    Salda {formatCurrency(recepcionElegida.valor, 'COP')} de «mercancía recibida por facturar» (220510).
+                    Si el subtotal de la factura es distinto, la diferencia de precio va a gasto.
+                  </Alert>
+                )}
+              </Grid>
               <Grid size={{ xs: 12, md: 6 }}>
                 <TextField
                   fullWidth size="small" label="Número Proveedor *"
@@ -713,6 +769,13 @@ export default function ERPCxP() {
                   fullWidth size="small" label="Subtotal *" type="number"
                   value={facturaForm.subtotal}
                   onChange={(e) => setFacturaForm((f) => ({ ...f, subtotal: e.target.value }))}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 4 }}>
+                <TextField
+                  fullWidth size="small" label="IVA" type="number"
+                  value={facturaForm.total_impuestos}
+                  onChange={(e) => setFacturaForm((f) => ({ ...f, total_impuestos: e.target.value }))}
                 />
               </Grid>
               <Grid size={{ xs: 12, md: 4 }}>

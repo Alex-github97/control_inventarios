@@ -1,3 +1,4 @@
+import { mensajeDeError } from '@/utils/errorApi'
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios'
 import { codigoCliente } from './cliente'
 
@@ -43,6 +44,16 @@ export const sinCerrarSesion = { headers: { 'X-Sesion-Propia': '1' } }
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
+    // Un error de validación de FastAPI trae `detail` como LISTA de objetos. Más
+    // de veinte pantallas hacen `toast.error(e.response.data.detail ?? '…')`, y
+    // React revienta al pintar un objeto: la pantalla entera se caía por un campo
+    // vacío. Se convierte acá, una vez, en el texto legible; la lista original
+    // queda en `detalle_campos` para los formularios que marcan campo por campo.
+    const datos = error.response?.data
+    if (datos && Array.isArray(datos.detail)) {
+      datos.detalle_campos = datos.detail
+      datos.detail = mensajeDeError(error)
+    }
     const propia = error.config?.headers?.['X-Sesion-Propia'] === '1'
     if (error.response?.status === 401 && !propia) {
       // Limpiar todo el estado de auth (token suelto + estado Zustand persistido)

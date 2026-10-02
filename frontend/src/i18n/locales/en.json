@@ -173,7 +173,8 @@
       "wmsOlas": "Wave picking",
       "wmsEmpaque": "Packing",
       "wmsMapa": "Warehouse map",
-      "wmsFacturacion": "3PL billing"
+      "wmsFacturacion": "3PL billing",
+      "wmsTraslados": "Inter-warehouse transfers"
     },
     "section": {
       "principal": "Main",

@@ -77,7 +77,8 @@ interface Props {
 function erroresDelServidor(error: unknown): {
   porCampo: Record<string, string>; general: string | null
 } {
-  const detalle = (error as any)?.response?.data?.detail
+  // El cliente HTTP deja el texto en `detail` y la lista por campo en `detalle_campos`.
+  const detalle = (error as any)?.response?.data?.detalle_campos ?? (error as any)?.response?.data?.detail
   if (!detalle) {
     return { porCampo: {}, general: error ? 'No se pudo guardar.' : null }
   }

@@ -199,7 +199,8 @@
       "wmsOlas": "Olas de alistamiento",
       "wmsEmpaque": "Empaque",
       "wmsMapa": "Mapa de la bodega",
-      "wmsFacturacion": "Facturación 3PL"
+      "wmsFacturacion": "Facturación 3PL",
+      "wmsTraslados": "Traslados entre almacenes"
     },
     "section": {
       "principal": "Principal",

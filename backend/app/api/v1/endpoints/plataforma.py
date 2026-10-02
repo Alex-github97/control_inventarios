@@ -717,7 +717,16 @@ async def registrar_fallo_interfaz(
     """
     try:
         # Quién estaba: se lee del token si viene, y si no viene no pasa nada.
-        actor, empresa = "anónimo", (datos.cliente or "desconocida")[:40]
+        # El navegador guarda la empresa activa como objeto JSON ({"codigo": ...});
+        # se guardaba entero en una columna de 40 caracteres, el INSERT fallaba y
+        # ningún fallo de interfaz quedaba registrado. Se toma solo el código.
+        cliente = (datos.cliente or "").strip()
+        if cliente.startswith("{"):
+            try:
+                cliente = str(__import__("json").loads(cliente).get("codigo") or "")
+            except Exception:
+                cliente = ""
+        actor, empresa = "anónimo", (cliente or "desconocida")[:40]
         cabecera = request.headers.get("authorization") or ""
         if cabecera.lower().startswith("bearer "):
             try:
@@ -737,12 +746,14 @@ async def registrar_fallo_interfaz(
 
         db.add(PlataformaBitacora(
             fecha=datetime.utcnow(), actor=actor, actor_empresa=empresa,
-            accion="fallo_interfaz", empresa_codigo=(datos.cliente or None),
+            accion="fallo_interfaz", empresa_codigo=(cliente[:40] or None),
             detalle=detalle))
         await db.commit()
     except Exception:
         # Nunca hacia arriba: esto es telemetría, no una operación del negocio.
-        pass
+        # Se deshace la transacción: si no, la dependencia intenta confirmarla al
+        # salir y el error que se quiso callar vuelve como un 500.
+        await db.rollback()
 
 
 # ─── Los fallos de la interfaz, para la consola ───────────────────────────────

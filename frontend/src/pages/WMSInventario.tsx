@@ -149,6 +149,8 @@ const EMPTY_AJUSTE = {
   lote_id: '',
   cantidad_nueva: '',
   motivo: '',
+  // DISPONIBLE, o BLOQUEADO para ajustar lo retenido (dar de baja lo dañado en cuarentena).
+  estado: 'DISPONIBLE',
 }
 
 const EMPTY_TRANSFERENCIA = {
@@ -287,6 +289,7 @@ export default function WMSInventario() {
         lote_id: data.lote_id ? Number(data.lote_id) : null,
         cantidad_nueva: Number(data.cantidad_nueva),
         motivo: data.motivo || undefined,
+        estado: data.estado,
       }),
     onSuccess: () => {
       toast.success('Ajuste registrado correctamente')
@@ -311,7 +314,9 @@ export default function WMSInventario() {
       }).then(r => r.data),
     onSuccess: (mov: Movimiento) => {
       const ref = mov?.referencia_documento || ''
-      if (ref.includes('TMS:')) toast.success(`Traslado registrado — viaje TMS ${ref.split('TMS:')[1]} creado`)
+      // Entre almacenes es un traslado: queda en tránsito hasta que el destino lo recibe.
+      if (ref.startsWith('TRL-')) toast.success(`Traslado ${ref} en tránsito: el destino lo recibe en WMS → Traslados`, { duration: 6000 })
+      else if (ref.includes('TMS:')) toast.success(`Traslado registrado — viaje TMS ${ref.split('TMS:')[1]} creado`)
       else toast.success('Transferencia registrada correctamente')
       setTransForm({ ...EMPTY_TRANSFERENCIA })
       queryClient.invalidateQueries({ queryKey: ['wms-stock'] })
@@ -794,11 +799,28 @@ export default function WMSInventario() {
 
                       <Grid size={{ xs: 12, sm: 6 }}>
                         <TextField
+                          select
+                          fullWidth
+                          size="small"
+                          label="Qué se ajusta"
+                          value={ajusteForm.estado}
+                          helperText={ajusteForm.estado === 'BLOQUEADO'
+                            ? 'Lo retenido (cuarentena): llevarlo a 0 es dar de baja lo dañado'
+                            : 'Lo disponible para vender y alistar'}
+                          onChange={(e) => setAjusteForm((f) => ({ ...f, estado: e.target.value }))}
+                        >
+                          <MenuItem value="DISPONIBLE">Disponible</MenuItem>
+                          <MenuItem value="BLOQUEADO">Retenido / cuarentena</MenuItem>
+                        </TextField>
+                      </Grid>
+
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <TextField
                           fullWidth
                           size="small"
                           label="Nueva cantidad (stock resultante)"
                           type="number"
-                          helperText="Nueva cantidad (stock resultante)"
+                          helperText="Si la mercancía es propia, Finanzas registra la diferencia como merma o sobrante"
                           inputProps={{ min: 0 }}
                           value={ajusteForm.cantidad_nueva}
                           onChange={(e) =>
