@@ -125,6 +125,13 @@ async def _mover(db: AsyncSession, **kw):
         raise HTTPException(422, str(e))
 
 
+def _capacidad_por_medidas(u: WMSUbicacion) -> None:
+    """Con las tres medidas internas, la capacidad en m³ es su producto: no se
+    escribe a mano (se desalineaba de las medidas)."""
+    if u.largo_cm and u.ancho_cm and u.alto_cm:
+        u.capacidad_m3 = round(u.largo_cm * u.ancho_cm * u.alto_cm / 1_000_000, 4)
+
+
 async def _next_numero(db: AsyncSession, Model, numero_col, prefix: str) -> str:
     """Genera un consecutivo único PREFIJO-AAAAMMDD-#### para un documento."""
     hoy = date.today().strftime("%Y%m%d")
@@ -591,6 +598,7 @@ async def crear_ubicacion(
     _=Depends(get_current_user),
 ):
     obj = WMSUbicacion(**data.model_dump())
+    _capacidad_por_medidas(obj)
     db.add(obj); await db.commit(); await db.refresh(obj)
     return obj
 
@@ -607,6 +615,7 @@ async def actualizar_ubicacion(
         raise HTTPException(404, "Ubicación no encontrada")
     for k, v in data.model_dump(exclude_none=True).items():
         setattr(obj, k, v)
+    _capacidad_por_medidas(obj)
     await db.commit(); await db.refresh(obj)
     return obj
 

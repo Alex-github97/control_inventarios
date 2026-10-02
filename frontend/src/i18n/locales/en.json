@@ -165,7 +165,8 @@
       "posVentas": "Sales & returns",
       "posTablero": "Dashboard",
       "wmsTareas": "Warehouse tasks",
-      "wmsEstibas": "Pallets (LPN)"
+      "wmsEstibas": "Pallets (LPN)",
+      "wmsCubicaje": "Cubing"
     },
     "section": {
       "principal": "Main",

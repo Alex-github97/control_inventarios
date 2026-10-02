@@ -191,7 +191,8 @@
       "posVentas": "Ventas y devoluciones",
       "posTablero": "Tablero",
       "wmsTareas": "Tareas de bodega",
-      "wmsEstibas": "Estibas (LPN)"
+      "wmsEstibas": "Estibas (LPN)",
+      "wmsCubicaje": "Cubicaje"
     },
     "section": {
       "principal": "Principal",

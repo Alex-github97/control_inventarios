@@ -49,6 +49,9 @@ COLUMNAS = [
     ("wms_despachos", "inicio_cargue", "TIMESTAMPTZ"),
     ("wms_despachos", "fin_cargue", "TIMESTAMPTZ"),
     ("wms_despachos_detalle", "contenedor_id", "INTEGER REFERENCES wms_contenedores(id)"),
+    ("wms_ubicaciones", "largo_cm", "DOUBLE PRECISION"),
+    ("wms_ubicaciones", "ancho_cm", "DOUBLE PRECISION"),
+    ("wms_ubicaciones", "alto_cm", "DOUBLE PRECISION"),
 ]
 
 INDICES = [

@@ -140,6 +140,11 @@ class WMSUbicacion(Base, TimestampMixin):
     tipo          = Column(String(30), nullable=False, default="ESTANDAR")
     capacidad_kg  = Column(Float, nullable=True)
     capacidad_m3  = Column(Float, nullable=True)
+    # Medidas internas útiles (frente × fondo × alto libre). Con ellas la
+    # capacidad en m³ se calcula, y se sabe cuántas cajas caben y en qué posición.
+    largo_cm      = Column(Float, nullable=True)
+    ancho_cm      = Column(Float, nullable=True)
+    alto_cm       = Column(Float, nullable=True)
     activo        = Column(Boolean, default=True)
 
     zona              = relationship("WMSZona", back_populates="ubicaciones")
@@ -776,3 +781,88 @@ class WMSTarea(Base, TimestampMixin):
     iniciada_en           = Column(DateTime(timezone=True), nullable=True)
     terminada_en          = Column(DateTime(timezone=True), nullable=True)
     notas                 = Column(Text, nullable=True)
+
+
+# ─── Cubicaje ──────────────────────────────────────────────────────────────────
+
+class WMSProductoEmpaque(Base, TimestampMixin):
+    """Un nivel de empaque del producto: la unidad, la caja, la caja máster, la
+    estiba. Cada nivel tiene sus medidas, su peso, cuántas unidades base lleva y
+    su propio código de barras. Es lo que permite cubicar, armar estibas y
+    elegir la caja de despacho."""
+    __tablename__ = "wms_producto_empaques"
+    __table_args__ = (UniqueConstraint("producto_id", "nivel", name="uq_empaque_nivel"),)
+    id             = Column(Integer, primary_key=True, index=True)
+    producto_id    = Column(Integer, ForeignKey("wms_productos.id"), nullable=False, index=True)
+    # UNIDAD / CAJA / MASTER / ESTIBA
+    nivel          = Column(String(10), nullable=False)
+    unidades       = Column(Float, nullable=False, default=1)
+    largo_cm       = Column(Float, nullable=True)
+    ancho_cm       = Column(Float, nullable=True)
+    alto_cm        = Column(Float, nullable=True)
+    peso_kg        = Column(Float, nullable=True)
+    codigo_barras  = Column(String(60), nullable=True, index=True)
+    # Solo ESTIBA: cajas por cama (Ti) y camas (Hi).
+    cajas_por_cama = Column(Integer, nullable=True)
+    camas          = Column(Integer, nullable=True)
+    apilable       = Column(Boolean, nullable=False, default=True)
+    max_apilado    = Column(Integer, nullable=True)
+    # MANUAL / CUBICADOR
+    fuente         = Column(String(10), nullable=False, default="MANUAL")
+    medicion_id    = Column(Integer, ForeignKey("wms_mediciones.id"), nullable=True)
+    medido_en      = Column(DateTime(timezone=True), nullable=True)
+    medido_por_id  = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+
+
+class WMSCubicador(Base, TimestampMixin):
+    """Estación de cubicaje: un ESP32 con tres láseres (largo, ancho, alto) y
+    una celda de carga. Manda lecturas crudas; el servidor aplica la
+    calibración. Se autentica con su propio token, que se puede revocar."""
+    __tablename__ = "wms_cubicadores"
+    id               = Column(Integer, primary_key=True, index=True)
+    codigo           = Column(String(30), nullable=False, unique=True)
+    nombre           = Column(String(120), nullable=False)
+    almacen_id       = Column(Integer, ForeignKey("wms_almacenes.id"), nullable=True)
+    activo           = Column(Boolean, nullable=False, default=True)
+    # Huella del token vigente (se guarda la huella, nunca el token).
+    token_huella     = Column(String(64), nullable=True)
+    token_emitido_en = Column(DateTime(timezone=True), nullable=True)
+    ultima_conexion  = Column(DateTime(timezone=True), nullable=True)
+    firmware         = Column(String(30), nullable=True)
+    # Calibración por eje: medida = escala × (base − lectura). La base es la
+    # distancia del láser a la pared de referencia opuesta, en mm.
+    base_x_mm        = Column(Float, nullable=True)
+    base_y_mm        = Column(Float, nullable=True)
+    base_z_mm        = Column(Float, nullable=True)
+    escala_x         = Column(Float, nullable=False, default=1.0)
+    escala_y         = Column(Float, nullable=False, default=1.0)
+    escala_z         = Column(Float, nullable=False, default=1.0)
+    # Celda de carga: gramos = (crudo − tara) × escala.
+    tara_crudo       = Column(Float, nullable=True)
+    escala_peso      = Column(Float, nullable=True)
+    # Muestras de calibración con bloques de medida conocida.
+    calibracion      = Column(JSON, nullable=True)
+    tolerancia_mm    = Column(Float, nullable=False, default=2.0)
+    notas            = Column(Text, nullable=True)
+
+
+class WMSMedicion(Base, TimestampMixin):
+    """Una medición del cubicador: las lecturas crudas, las medidas que
+    resultan y qué tan estables fueron. Queda pendiente hasta que alguien la
+    asigna a un producto y nivel de empaque (o la usa para calibrar)."""
+    __tablename__ = "wms_mediciones"
+    id             = Column(Integer, primary_key=True, index=True)
+    cubicador_id   = Column(Integer, ForeignKey("wms_cubicadores.id"), nullable=False, index=True)
+    lecturas       = Column(JSON, nullable=False)
+    largo_cm       = Column(Float, nullable=True)
+    ancho_cm       = Column(Float, nullable=True)
+    alto_cm        = Column(Float, nullable=True)
+    peso_kg        = Column(Float, nullable=True)
+    dispersion_mm  = Column(Float, nullable=True)
+    estable        = Column(Boolean, nullable=False, default=True)
+    # PENDIENTE / ASIGNADA / DESCARTADA / CALIBRACION
+    estado         = Column(String(12), nullable=False, default="PENDIENTE", index=True)
+    producto_id    = Column(Integer, ForeignKey("wms_productos.id"), nullable=True)
+    nivel          = Column(String(10), nullable=True)
+    asignada_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    asignada_en    = Column(DateTime(timezone=True), nullable=True)

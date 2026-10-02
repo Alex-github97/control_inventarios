@@ -33,6 +33,10 @@ RUTAS_PUBLICAS = (
 )
 
 
+# Rutas de dispositivos: no aceptan sesión de usuario, sino el token del equipo.
+RUTAS_DISPOSITIVO = ("/api/v1/wms/cubicador/",)
+
+
 def es_publica(ruta: str) -> bool:
     return any(ruta.startswith(p) for p in RUTAS_PUBLICAS)
 
@@ -59,6 +63,11 @@ async def exigir_sesion(request: Request) -> None:
     # únicamente que la cabecera existe dejaría pasar cualquier texto.
     # `decode_token` lanza 401 por su cuenta si no cuadra.
     payload = decode_token(credenciales[7:])
+    # El cubicador (un ESP32) tiene su propio token, que solo abre sus dos
+    # rutas; allí la dependencia `cubicador_actual` lo valida contra la huella
+    # guardada. En el resto de la API solo vale el token de acceso.
+    if request.url.path.startswith(RUTAS_DISPOSITIVO) and payload.get("type") == "cubicador":
+        return
     if payload.get("type") != "access":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
