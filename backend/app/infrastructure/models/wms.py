@@ -866,3 +866,16 @@ class WMSMedicion(Base, TimestampMixin):
     nivel          = Column(String(10), nullable=True)
     asignada_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
     asignada_en    = Column(DateTime(timezone=True), nullable=True)
+
+
+class WMSKPIMeta(Base, TimestampMixin):
+    """Meta de un indicador, general (almacen_id vacío) o de un almacén."""
+    __tablename__ = "wms_kpi_metas"
+    id         = Column(Integer, primary_key=True, index=True)
+    clave      = Column(String(40), nullable=False, index=True)
+    almacen_id = Column(Integer, ForeignKey("wms_almacenes.id"), nullable=True)
+    meta       = Column(Float, nullable=False)
+    fijada_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+
+
+Index("uq_kpi_meta", WMSKPIMeta.clave, func.coalesce(WMSKPIMeta.almacen_id, 0), unique=True)

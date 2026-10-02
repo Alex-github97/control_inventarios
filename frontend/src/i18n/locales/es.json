@@ -192,7 +192,8 @@
       "posTablero": "Tablero",
       "wmsTareas": "Tareas de bodega",
       "wmsEstibas": "Estibas (LPN)",
-      "wmsCubicaje": "Cubicaje"
+      "wmsCubicaje": "Cubicaje",
+      "wmsIndicadores": "Indicadores"
     },
     "section": {
       "principal": "Principal",

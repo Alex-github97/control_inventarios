@@ -2862,16 +2862,19 @@ async def dashboard_kpis(
     )
     ordenes_in_full = if_r.scalar() or 0
 
-    # OTIF: on_time AND in_full — aproximado con conteos separados (no podemos cruzar IDs sin subquery compleja)
-    ordenes_otif = min(ordenes_on_time, ordenes_in_full)
-
-    # Perfect Order = OTIF (sin calidad deficiente) — simplificado
-    ordenes_perfect = ordenes_otif
+    # OTIF y orden perfecta orden por orden (antes: el menor de dos conteos, y
+    # la orden perfecta era una copia del OTIF). Ver app/core/wms_kpi.py.
+    from app.core import wms_kpi
+    ctx_kpi = wms_kpi.Ctx(f_desde, f_hasta, almacen_id)
+    r_otif = await wms_kpi.otif(db, ctx_kpi)
+    r_perf = await wms_kpi.orden_perfecta(db, ctx_kpi)
+    ordenes_otif = int(r_otif.numerador or 0)
+    ordenes_perfect = int(r_perf.numerador or 0)
 
     on_time_pct = round(ordenes_on_time / ordenes_entregadas_total * 100, 2) if ordenes_entregadas_total else 0.0
     in_full_pct = round(ordenes_in_full / ordenes_entregadas_total * 100, 2) if ordenes_entregadas_total else 0.0
-    otif_pct = round(ordenes_otif / ordenes_entregadas_total * 100, 2) if ordenes_entregadas_total else 0.0
-    perfect_pct = round(ordenes_perfect / ordenes_entregadas_total * 100, 2) if ordenes_entregadas_total else 0.0
+    otif_pct = r_otif.valor or 0.0
+    perfect_pct = r_perf.valor or 0.0
 
     # Fill Rate: unidades despachadas / unidades solicitadas (todas las órdenes)
     fr_r = await db.execute(

@@ -166,7 +166,8 @@
       "posTablero": "Dashboard",
       "wmsTareas": "Warehouse tasks",
       "wmsEstibas": "Pallets (LPN)",
-      "wmsCubicaje": "Cubing"
+      "wmsCubicaje": "Cubing",
+      "wmsIndicadores": "KPIs"
     },
     "section": {
       "principal": "Main",
