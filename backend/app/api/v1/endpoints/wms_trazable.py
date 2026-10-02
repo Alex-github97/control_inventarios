@@ -412,7 +412,8 @@ async def resugerir(tid: int, db: AsyncSession = Depends(get_db), _=Depends(get_
     t = await _tarea(db, tid)
     if t.estado not in ("PENDIENTE", "EN_CURSO"):
         raise HTTPException(409, "Solo se resugiere una tarea abierta.")
-    t.ubicacion_sugerida_id, t.razon_sugerencia = await op.sugerir_ubicacion(db, t.almacen_id, t.producto_id, t.lote_id)
+    t.ubicacion_sugerida_id, t.razon_sugerencia = await op.sugerir_ubicacion(db, t.almacen_id, t.producto_id, t.lote_id,
+                                                                             t.cantidad or 0)
     return (await _tareas_dict(db, [t]))[0]
 
 

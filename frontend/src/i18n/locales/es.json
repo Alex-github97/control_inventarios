@@ -193,7 +193,11 @@
       "wmsTareas": "Tareas de bodega",
       "wmsEstibas": "Estibas (LPN)",
       "wmsCubicaje": "Cubicaje",
-      "wmsIndicadores": "Indicadores"
+      "wmsIndicadores": "Indicadores",
+      "wmsSlotting": "Ubicación inteligente",
+      "wmsMaquila": "Maquila",
+      "wmsOlas": "Olas de alistamiento",
+      "wmsEmpaque": "Empaque"
     },
     "section": {
       "principal": "Principal",

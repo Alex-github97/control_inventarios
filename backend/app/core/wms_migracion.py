@@ -52,6 +52,8 @@ COLUMNAS = [
     ("wms_ubicaciones", "largo_cm", "DOUBLE PRECISION"),
     ("wms_ubicaciones", "ancho_cm", "DOUBLE PRECISION"),
     ("wms_ubicaciones", "alto_cm", "DOUBLE PRECISION"),
+    ("wms_ubicaciones", "orden_recorrido", "INTEGER"),
+    ("wms_picking_tareas", "ola_id", "INTEGER REFERENCES wms_olas(id)"),
 ]
 
 INDICES = [

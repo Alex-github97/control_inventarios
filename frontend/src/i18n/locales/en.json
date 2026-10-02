@@ -167,7 +167,11 @@
       "wmsTareas": "Warehouse tasks",
       "wmsEstibas": "Pallets (LPN)",
       "wmsCubicaje": "Cubing",
-      "wmsIndicadores": "KPIs"
+      "wmsIndicadores": "KPIs",
+      "wmsSlotting": "Slotting",
+      "wmsMaquila": "Value-added services",
+      "wmsOlas": "Wave picking",
+      "wmsEmpaque": "Packing"
     },
     "section": {
       "principal": "Main",

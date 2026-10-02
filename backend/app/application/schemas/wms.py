@@ -196,6 +196,7 @@ class WMSUbicacionCreate(BaseModel):
     largo_cm: Optional[float] = Field(default=None, gt=0)
     ancho_cm: Optional[float] = Field(default=None, gt=0)
     alto_cm: Optional[float] = Field(default=None, gt=0)
+    orden_recorrido: Optional[int] = Field(default=None, ge=1)
     activo: bool = True
 
 class WMSUbicacionUpdate(BaseModel):
@@ -211,6 +212,7 @@ class WMSUbicacionUpdate(BaseModel):
     largo_cm: Optional[float] = Field(default=None, gt=0)
     ancho_cm: Optional[float] = Field(default=None, gt=0)
     alto_cm: Optional[float] = Field(default=None, gt=0)
+    orden_recorrido: Optional[int] = Field(default=None, ge=1)
     activo: Optional[bool] = None
 
 class WMSUbicacionResponse(BaseModel):
@@ -219,6 +221,7 @@ class WMSUbicacionResponse(BaseModel):
     pasillo: Optional[str]; estanteria: Optional[str]; nivel: Optional[str]; posicion: Optional[str]
     tipo: str; capacidad_kg: Optional[float]; capacidad_m3: Optional[float]; activo: bool
     largo_cm: Optional[float] = None; ancho_cm: Optional[float] = None; alto_cm: Optional[float] = None
+    orden_recorrido: Optional[int] = None
     created_at: Optional[datetime] = None
 
 

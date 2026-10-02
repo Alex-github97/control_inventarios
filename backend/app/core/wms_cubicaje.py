@@ -192,3 +192,98 @@ def armar_estiba(caja: Sequence[float], peso_caja_kg: Optional[float] = None, ba
 
 def volumen_m3(l: Optional[float], a: Optional[float], h: Optional[float]) -> Optional[float]:
     return round(l * a * h / 1_000_000, 6) if l and a and h else None
+
+
+# ── Cartonización ────────────────────────────────────────────────────────────
+
+FACTOR_LLENADO = 0.85     # el 15 % se va en holguras: las cajas reales no se llenan como un sólido
+DIVISOR_VOLUMETRICO = 5000.0  # cm³ por kg, el que usan las transportadoras de paquetes
+
+
+@dataclass
+class CajaTipo:
+    id: int
+    codigo: str
+    dims: Tuple[float, float, float]
+    peso_max: float
+    tara: float = 0.0
+
+    @property
+    def volumen(self) -> float:
+        return self.dims[0] * self.dims[1] * self.dims[2]
+
+
+@dataclass
+class Item:
+    clave: int
+    dims: Tuple[float, float, float]
+    peso: float
+    cantidad: int
+
+    @property
+    def volumen(self) -> float:
+        return self.dims[0] * self.dims[1] * self.dims[2]
+
+
+def _cabe(caja: CajaTipo, it: Item) -> bool:
+    return cuantas_caben(caja.dims, it.dims)[0] >= 1
+
+
+def _admite(caja: CajaTipo, unidades: List[Item]) -> bool:
+    vol = sum(u.volumen for u in unidades)
+    peso = sum(u.peso for u in unidades)
+    return all(_cabe(caja, u) for u in unidades) and vol <= caja.volumen * FACTOR_LLENADO and peso <= caja.peso_max - caja.tara
+
+
+def cartonizar(items: List[Item], cajas: List[CajaTipo]) -> dict:
+    """Qué cajas usar y qué va en cada una.
+
+    Heurística de primer ajuste decreciente por volumen: las unidades más
+    grandes primero; cada una va a la caja abierta donde queda más justa, y si
+    no cabe en ninguna se abre la más pequeña que pueda con lo que falta. Al
+    final cada caja se cambia por la más pequeña que admita su contenido. El
+    volumen se controla con un factor de llenado (85 %): no es un acomodo 3D
+    exacto, que no hace falta para elegir la caja."""
+    cajas = sorted(cajas, key=lambda c: c.volumen)
+    if not cajas:
+        raise ValueError("No hay cajas de empaque activas en el catálogo.")
+    unidades = [Item(i.clave, i.dims, i.peso, 1) for i in items for _ in range(int(i.cantidad))]
+    unidades.sort(key=lambda u: -u.volumen)
+    sin_caja = [u for u in unidades if not any(_cabe(c, u) and u.peso <= c.peso_max - c.tara for c in cajas)]
+    unidades = [u for u in unidades if u not in sin_caja]
+    abiertas: List[Tuple[CajaTipo, List[Item]]] = []
+    for i, u in enumerate(unidades):
+        candidatas = [(c, cont) for c, cont in abiertas if _admite(c, cont + [u])]
+        if candidatas:
+            c, cont = min(candidatas, key=lambda x: x[0].volumen * FACTOR_LLENADO - sum(v.volumen for v in x[1]) - u.volumen)
+            cont.append(u)
+            continue
+        resto = unidades[i:]
+        vol_resto = sum(v.volumen for v in resto) / FACTOR_LLENADO
+        posibles = [c for c in cajas if _cabe(c, u) and u.peso <= c.peso_max - c.tara]
+        nueva = next((c for c in posibles if c.volumen >= vol_resto), posibles[-1])
+        abiertas.append((nueva, [u]))
+    # Achicar: cada caja a la más pequeña que admita su contenido.
+    final = []
+    for c, cont in abiertas:
+        mejor = next((x for x in cajas if _admite(x, cont)), c)
+        final.append((mejor, cont))
+    bultos = []
+    for n, (c, cont) in enumerate(final, start=1):
+        por_clave: Dict[int, int] = {}
+        for u in cont:
+            por_clave[u.clave] = por_clave.get(u.clave, 0) + 1
+        peso = round(sum(u.peso for u in cont) + c.tara, 3)
+        vol_cm3 = c.volumen
+        volumetrico = round(vol_cm3 / DIVISOR_VOLUMETRICO, 2)
+        bultos.append({"numero": n, "caja_id": c.id, "caja": c.codigo, "largo_cm": c.dims[0], "ancho_cm": c.dims[1],
+                       "alto_cm": c.dims[2], "contenido": [{"clave": k, "cantidad": q} for k, q in por_clave.items()],
+                       "peso_kg": peso, "peso_volumetrico_kg": volumetrico, "peso_facturable_kg": max(peso, volumetrico),
+                       "llenado_pct": round(sum(u.volumen for u in cont) / vol_cm3 * 100, 1)})
+    sobrantes: Dict[int, int] = {}
+    for u in sin_caja:
+        sobrantes[u.clave] = sobrantes.get(u.clave, 0) + 1
+    return {"bultos": bultos, "sin_caja": [{"clave": k, "cantidad": q} for k, q in sobrantes.items()],
+            "peso_total_kg": round(sum(b["peso_kg"] for b in bultos), 3),
+            "volumen_total_m3": round(sum(b["largo_cm"] * b["ancho_cm"] * b["alto_cm"] for b in bultos) / 1_000_000, 4),
+            "peso_facturable_kg": round(sum(b["peso_facturable_kg"] for b in bultos), 2)}

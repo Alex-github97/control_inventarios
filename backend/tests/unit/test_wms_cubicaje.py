@@ -2,7 +2,8 @@
 import pytest
 
 from app.core.wms_cubicaje import (
-    ajustar_eje, ajustar_peso, armar_estiba, cajas_por_cama, cuantas_caben, procesar_lecturas,
+    CajaTipo, Item, ajustar_eje, ajustar_peso, armar_estiba, cajas_por_cama, cartonizar, cuantas_caben,
+    procesar_lecturas,
 )
 
 CAL = {"base_x_mm": 800, "base_y_mm": 600, "base_z_mm": 700, "escala_x": 1, "escala_y": 1, "escala_z": 1,
@@ -68,3 +69,32 @@ def test_cuantas_caben_prueba_orientaciones():
     # «Este lado arriba»: sin acostarla, el alto 20 se conserva y también son 6.
     n2, _ = cuantas_caben((100, 50, 40), (30, 40, 20), rotar_alto=False)
     assert n2 == 6
+
+
+CAJAS = [CajaTipo(1, "S", (30, 20, 20), 10, 0.2), CajaTipo(2, "M", (40, 30, 30), 20, 0.4), CajaTipo(3, "L", (60, 40, 40), 30, 0.8)]
+
+
+def test_cartonizar_elige_la_caja_mas_pequena_que_alcanza():
+    # 4 unidades de 10×10×10 (4.000 cm³): con el 85 % de llenado caben en la S (12.000 × 0,85).
+    r = cartonizar([Item(7, (10, 10, 10), 0.5, 4)], CAJAS)
+    assert len(r["bultos"]) == 1 and r["bultos"][0]["caja"] == "S"
+    assert r["bultos"][0]["peso_kg"] == 2.2          # 4 × 0,5 + tara 0,2
+
+
+def test_cartonizar_reparte_cuando_no_cabe_en_una():
+    # 12 unidades de 20×20×20 = 96.000 cm³: la L (96.000 × 0,85 = 81.600) no alcanza sola.
+    r = cartonizar([Item(1, (20, 20, 20), 1.0, 12)], CAJAS)
+    assert sum(c["cantidad"] for b in r["bultos"] for c in b["contenido"]) == 12
+    assert len(r["bultos"]) == 2 and not r["sin_caja"]
+
+
+def test_cartonizar_respeta_peso_y_avisa_lo_que_no_cabe():
+    r = cartonizar([Item(1, (10, 10, 10), 9.0, 3), Item(2, (70, 10, 10), 1.0, 1)], CAJAS)
+    assert all(b["peso_kg"] <= {"S": 10, "M": 20, "L": 30}[b["caja"]] for b in r["bultos"])
+    assert r["sin_caja"] == [{"clave": 2, "cantidad": 1}]     # 70 cm no entra en ninguna
+
+
+def test_peso_facturable_es_el_mayor():
+    r = cartonizar([Item(1, (10, 10, 10), 0.1, 1)], CAJAS)
+    b = r["bultos"][0]
+    assert b["peso_volumetrico_kg"] == 2.4 and b["peso_facturable_kg"] == 2.4   # 30×20×20 / 5000

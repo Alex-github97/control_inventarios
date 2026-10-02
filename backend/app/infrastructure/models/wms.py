@@ -145,6 +145,9 @@ class WMSUbicacion(Base, TimestampMixin):
     largo_cm      = Column(Float, nullable=True)
     ancho_cm      = Column(Float, nullable=True)
     alto_cm       = Column(Float, nullable=True)
+    # Lugar de la ubicación en el recorrido de alistamiento (1 = la primera
+    # desde el muelle). Vacío: se deduce de pasillo y posición en serpentina.
+    orden_recorrido = Column(Integer, nullable=True)
     activo        = Column(Boolean, default=True)
 
     zona              = relationship("WMSZona", back_populates="ubicaciones")
@@ -516,6 +519,7 @@ class WMSPickingTarea(Base, TimestampMixin):
     __tablename__ = "wms_picking_tareas"
     id                   = Column(Integer, primary_key=True, index=True)
     orden_id             = Column(Integer, ForeignKey("wms_ordenes_salida.id"), nullable=False)
+    ola_id               = Column(Integer, ForeignKey("wms_olas.id"), nullable=True, index=True)
     operario_id          = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
     # SINGLE/BATCH/ZONE/CLUSTER/WAVE
     tipo                 = Column(String(20), nullable=False, default="SINGLE")
@@ -879,3 +883,99 @@ class WMSKPIMeta(Base, TimestampMixin):
 
 
 Index("uq_kpi_meta", WMSKPIMeta.clave, func.coalesce(WMSKPIMeta.almacen_id, 0), unique=True)
+
+
+class WMSOla(Base, TimestampMixin):
+    """Ola de alistamiento: varias órdenes que se alistan juntas en un solo
+    recorrido. Cada orden conserva su tarea; la ola agrupa y ordena las paradas."""
+    __tablename__ = "wms_olas"
+    id            = Column(Integer, primary_key=True, index=True)
+    codigo        = Column(String(40), nullable=False, unique=True)
+    almacen_id    = Column(Integer, ForeignKey("wms_almacenes.id"), nullable=False, index=True)
+    # ABIERTA / EN_CURSO / COMPLETADA / CANCELADA
+    estado        = Column(String(12), nullable=False, default="ABIERTA")
+    criterio      = Column(String(200), nullable=True)
+    creada_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    completada_en = Column(DateTime(timezone=True), nullable=True)
+
+
+class WMSCajaEmpaque(Base, TimestampMixin):
+    """Caja de despacho del catálogo: medidas internas, peso máximo, tara y costo."""
+    __tablename__ = "wms_cajas_empaque"
+    id          = Column(Integer, primary_key=True, index=True)
+    codigo      = Column(String(30), nullable=False, unique=True)
+    nombre      = Column(String(120), nullable=False)
+    largo_cm    = Column(Float, nullable=False)
+    ancho_cm    = Column(Float, nullable=False)
+    alto_cm     = Column(Float, nullable=False)
+    peso_max_kg = Column(Float, nullable=False, default=25)
+    tara_kg     = Column(Float, nullable=False, default=0)
+    costo       = Column(Float, nullable=True)
+    activo      = Column(Boolean, nullable=False, default=True)
+
+
+class WMSEmpaqueOrden(Base, TimestampMixin):
+    """Un bulto de una orden: en qué caja va y qué lleva. Sus pesos y volúmenes
+    alimentan el despacho y la etiqueta del bulto."""
+    __tablename__ = "wms_empaques_orden"
+    id           = Column(Integer, primary_key=True, index=True)
+    orden_id     = Column(Integer, ForeignKey("wms_ordenes_salida.id"), nullable=False, index=True)
+    numero       = Column(Integer, nullable=False)
+    caja_id      = Column(Integer, ForeignKey("wms_cajas_empaque.id"), nullable=True)
+    largo_cm     = Column(Float, nullable=True)
+    ancho_cm     = Column(Float, nullable=True)
+    alto_cm      = Column(Float, nullable=True)
+    peso_kg      = Column(Float, nullable=True)
+    contenido    = Column(JSON, nullable=False)
+    creado_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+
+
+# ─── Maquila (servicios de valor agregado) ─────────────────────────────────────
+
+class WMSMaquilaReceta(Base, TimestampMixin):
+    """Cómo se arma (o desarma) un producto: sus componentes por unidad, el
+    tiempo estándar y el costo de mano de obra por unidad."""
+    __tablename__ = "wms_maquila_recetas"
+    id                    = Column(Integer, primary_key=True, index=True)
+    codigo                = Column(String(30), nullable=False, unique=True)
+    nombre                = Column(String(150), nullable=False)
+    # KIT / REEMPAQUE / ETIQUETADO / DESARME
+    tipo                  = Column(String(12), nullable=False, default="KIT")
+    producto_resultado_id = Column(Integer, ForeignKey("wms_productos.id"), nullable=False)
+    minutos_por_unidad    = Column(Float, nullable=False, default=0)
+    costo_mano_obra_unidad = Column(Float, nullable=False, default=0)
+    instrucciones         = Column(Text, nullable=True)
+    activo                = Column(Boolean, nullable=False, default=True)
+
+
+class WMSMaquilaComponente(Base, TimestampMixin):
+    __tablename__ = "wms_maquila_componentes"
+    __table_args__ = (UniqueConstraint("receta_id", "producto_id", name="uq_maquila_componente"),)
+    id          = Column(Integer, primary_key=True, index=True)
+    receta_id   = Column(Integer, ForeignKey("wms_maquila_recetas.id", ondelete="CASCADE"), nullable=False, index=True)
+    producto_id = Column(Integer, ForeignKey("wms_productos.id"), nullable=False)
+    cantidad    = Column(Float, nullable=False)
+
+
+class WMSMaquilaOrden(Base, TimestampMixin):
+    """Una corrida de maquila. Al iniciar reserva lo que va a consumir; al
+    terminar consume lo usado, libera lo que sobró y produce el resultado con
+    su costo (componentes + mano de obra)."""
+    __tablename__ = "wms_maquila_ordenes"
+    id                   = Column(Integer, primary_key=True, index=True)
+    numero               = Column(String(40), nullable=False, unique=True)
+    receta_id            = Column(Integer, ForeignKey("wms_maquila_recetas.id"), nullable=False)
+    almacen_id           = Column(Integer, ForeignKey("wms_almacenes.id"), nullable=False, index=True)
+    depositante_id       = Column(Integer, ForeignKey("wms_depositantes.id"), nullable=True)
+    cantidad_plan        = Column(Float, nullable=False)
+    cantidad_hecha       = Column(Float, nullable=True)
+    # PLANEADA / EN_PROCESO / TERMINADA / CANCELADA
+    estado               = Column(String(12), nullable=False, default="PLANEADA", index=True)
+    reservas             = Column(JSON, nullable=True)
+    ubicacion_destino_id = Column(Integer, ForeignKey("wms_ubicaciones.id"), nullable=True)
+    costo_unitario       = Column(Float, nullable=True)
+    minutos_reales       = Column(Float, nullable=True)
+    operario_id          = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    iniciada_en          = Column(DateTime(timezone=True), nullable=True)
+    terminada_en         = Column(DateTime(timezone=True), nullable=True)
+    notas                = Column(Text, nullable=True)

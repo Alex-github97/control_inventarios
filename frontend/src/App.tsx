@@ -130,6 +130,10 @@ const WMSTareas = React.lazy(() => import('@/pages/WMSTareas'))
 const WMSEstibas = React.lazy(() => import('@/pages/WMSEstibas'))
 const WMSCubicaje = React.lazy(() => import('@/pages/WMSCubicaje'))
 const WMSIndicadores = React.lazy(() => import('@/pages/WMSIndicadores'))
+const WMSSlotting = React.lazy(() => import('@/pages/WMSSlotting'))
+const WMSOlas = React.lazy(() => import('@/pages/WMSOlas'))
+const WMSEmpaque = React.lazy(() => import('@/pages/WMSEmpaque'))
+const WMSMaquila = React.lazy(() => import('@/pages/WMSMaquila'))
 const WMSVencimientos = React.lazy(() => import('@/pages/WMSVencimientos'))
 const WMSConfig = React.lazy(() => import('@/pages/WMSConfig'))
 const GHDashboard = React.lazy(() => import('@/pages/GHDashboard'))
@@ -521,6 +525,10 @@ export default function App() {
             <Route path="/wms/estibas" element={<ProtectedRoute><WMSEstibas /></ProtectedRoute>} />
             <Route path="/wms/cubicaje" element={<ProtectedRoute><WMSCubicaje /></ProtectedRoute>} />
             <Route path="/wms/indicadores" element={<ProtectedRoute><WMSIndicadores /></ProtectedRoute>} />
+            <Route path="/wms/slotting" element={<ProtectedRoute><WMSSlotting /></ProtectedRoute>} />
+            <Route path="/wms/olas" element={<ProtectedRoute><WMSOlas /></ProtectedRoute>} />
+            <Route path="/wms/empaque" element={<ProtectedRoute><WMSEmpaque /></ProtectedRoute>} />
+            <Route path="/wms/maquila" element={<ProtectedRoute><WMSMaquila /></ProtectedRoute>} />
             <Route path="/wms/vencimientos" element={<ProtectedRoute><WMSVencimientos /></ProtectedRoute>} />
             <Route path="/wms/config" element={<ProtectedRoute><WMSConfig /></ProtectedRoute>} />
             <Route path="/gh" element={<ProtectedRoute><GHDashboard /></ProtectedRoute>} />

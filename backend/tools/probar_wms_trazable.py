@@ -96,15 +96,15 @@ ok(costo == 1000, 'costo promedio desde el precio de la OC', costo)
 
 s, tareas = llamar('GET', f'/wms/tareas?almacen_id={alm["id"]}&estado=PENDIENTE')
 t1 = tareas[0] if tareas else {}
-ok(len(tareas) == 1 and t1['sugerida'] == f'{X}-ALM-01' and t1['contenedor_id'] == lpn_rec,
-   'tarea de ubicación con la ubicación vacía sugerida', tareas)
+ok(len(tareas) == 1 and t1['sugerida'] == f'{X}-ALM-03' and 'Clase C' in (t1['razon_sugerencia'] or '') and t1['contenedor_id'] == lpn_rec,
+   'tarea de ubicación: sin alistamientos es clase C y se sugiere al fondo (slotting)', tareas)
 s, e = llamar('POST', f'/wms/tareas/{t1["id"]}/completar', {'ubicacion_codigo': f'{X}-ALM-02'})
 ok(s == 422, 'ubicar en otra que la sugerida exige motivo', e)
 s, e = llamar('POST', f'/wms/tareas/{t1["id"]}/completar', {'ubicacion_codigo': f'{X}-DES-01'})
 ok(s == 422, 'no se ubica en zona de despacho', e)
 s, r = llamar('POST', f'/wms/tareas/{t1["id"]}/iniciar')
 ok(s == 200 and r['estado'] == 'EN_CURSO' and r['operario'], 'tarea iniciada con operario', r)
-s, r = llamar('POST', f'/wms/tareas/{t1["id"]}/completar', {'ubicacion_codigo': f'{X}-alm-01'})
+s, r = llamar('POST', f'/wms/tareas/{t1["id"]}/completar', {'ubicacion_codigo': f'{X}-alm-01', 'motivo_desvio': 'Va al frente'})
 ok(s == 200 and r['estado'] == 'COMPLETADA' and r['destino'] == f'{X}-ALM-01' and r['ejecucion_min'] is not None,
    'tarea completada escaneando la ubicación (sin distinguir mayúsculas)', r)
 ok(stock(pa['id'], U['ALM1']['id']) == 80 and stock(pa['id'], U['REC1']['id']) == 0, 'la estiba quedó ubicada')

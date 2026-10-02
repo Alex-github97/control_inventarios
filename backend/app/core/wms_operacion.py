@@ -115,14 +115,15 @@ async def mover_contenedor(db: AsyncSession, cont: WMSContenedor, destino: int, 
 # ── Dónde guardar ────────────────────────────────────────────────────────────
 
 async def sugerir_ubicacion(db: AsyncSession, almacen_id: int, producto_id: int,
-                            lote_id: Optional[int] = None) -> Tuple[Optional[int], Optional[str]]:
+                            lote_id: Optional[int] = None, cantidad: float = 0) -> Tuple[Optional[int], Optional[str]]:
     """Ubicación sugerida para guardar un producto, con su razón.
 
     1. Donde ya está el mismo producto y lote (consolidar: menos ubicaciones
        abiertas, picking más corto).
     2. Una ubicación vacía de una zona de almacenamiento, en orden de código
        (de adelante hacia atrás).
-    La Fase de sugerencias reemplaza esto por slotting ABC y cubicaje."""
+    2. Si no, la del slotting: las A al frente en zona dorada, las B y C
+       desde el fondo, y que quepa si hay medidas (`wms_slotting`)."""
     base = (select(WMSUbicacion.id, WMSUbicacion.codigo)
             .join(WMSZona, WMSZona.id == WMSUbicacion.zona_id)
             .where(WMSZona.almacen_id == almacen_id, WMSZona.tipo == "ALMACENAMIENTO",
@@ -135,6 +136,10 @@ async def sugerir_ubicacion(db: AsyncSession, almacen_id: int, producto_id: int,
                            .order_by(WMSUbicacion.codigo).limit(1))).first()
     if ya:
         return ya.id, f"Consolidar con el mismo producto{' y lote' if lote_id else ''} en {ya.codigo}"
+    from app.core.wms_slotting import mejor_para_guardar
+    sug, razon = await mejor_para_guardar(db, almacen_id, producto_id, cantidad)
+    if sug:
+        return sug, razon
     ocupadas = select(WMSInventarioUbicacion.ubicacion_id).where(
         (WMSInventarioUbicacion.cantidad_disponible + WMSInventarioUbicacion.cantidad_reservada
          + WMSInventarioUbicacion.cantidad_bloqueada) > 0)
@@ -152,7 +157,7 @@ async def crear_tarea_ubicacion(db: AsyncSession, *, almacen_id: int, producto_i
                                 sugerida: Optional[int], razon: Optional[str], depositante_id: Optional[int],
                                 documento_tipo: str, documento_id: int, prioridad: int = 5) -> WMSTarea:
     if sugerida is None:
-        sugerida, razon = await sugerir_ubicacion(db, almacen_id, producto_id, lote_id)
+        sugerida, razon = await sugerir_ubicacion(db, almacen_id, producto_id, lote_id, cantidad)
     t = WMSTarea(tipo="UBICACION", estado="PENDIENTE", prioridad=prioridad, almacen_id=almacen_id,
                  depositante_id=depositante_id, producto_id=producto_id, lote_id=lote_id,
                  contenedor_id=contenedor_id, cantidad=cantidad, ubicacion_origen_id=origen,

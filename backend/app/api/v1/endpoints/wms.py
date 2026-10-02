@@ -1842,24 +1842,10 @@ async def actualizar_estado_orden_salida(
     return r.scalar_one()
 
 
-@router.post("/ordenes-salida/{orden_id}/generar-picking", response_model=WMSPickingTareaResponse, status_code=201)
-async def generar_picking(
-    orden_id: int,
-    tipo: str = Query("SINGLE"),
-    dias_vida_minima: int = Query(0, ge=0, description="Vida útil mínima (días) exigida al momento del despacho"),
-    dias_alerta_vencimiento: int = Query(30, ge=0, description="Umbral para marcar lotes próximos a vencer"),
-    db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user),
-):
-    """
-    Auto-genera una tarea de picking a partir del inventario disponible aplicando
-    FEFO (First-Expired, First-Out): asigna primero los lotes que vencen antes.
-
-    Control ISO 9001 §8.5.4 (preservación) / §8.7 (no conforme): NO se asignan
-    lotes vencidos, lotes bloqueados (activo=False) ni lotes cuya vida útil
-    remanente sea menor a `dias_vida_minima`. Los lotes próximos a vencer
-    (dentro de `dias_alerta_vencimiento`) se asignan pero se registra alerta.
-    """
+async def crear_alistamiento(db: AsyncSession, orden_id: int, tipo: str, dias_vida_minima: int,
+                             dias_alerta_vencimiento: int, usuario_id: int, ola_id: Optional[int] = None) -> WMSPickingTarea:
+    """Genera la tarea de alistamiento de una orden (FEFO, reservando). La
+    usan el endpoint de una orden y las olas."""
     r = await db.execute(
         select(WMSOrdenSalida)
         .options(
@@ -1875,7 +1861,8 @@ async def generar_picking(
 
     tarea = WMSPickingTarea(
         orden_id=orden_id,
-        operario_id=current_user.id,
+        ola_id=ola_id,
+        operario_id=usuario_id,
         tipo=tipo,
         estado="PENDIENTE",
         fecha_asignacion=datetime.utcnow(),
@@ -1908,7 +1895,7 @@ async def generar_picking(
                          origen=a.ubicacion_id, destino=a.ubicacion_id, estado_origen="DISPONIBLE",
                          estado_destino="RESERVADO", contenedor_origen=a.contenedor_id,
                          documento_tipo="ORDEN_SALIDA", documento_id=orden.id, referencia=orden.numero_orden,
-                         usuario_id=current_user.id, notas=f"Reserva para alistamiento (tarea {tarea.id})")
+                         usuario_id=usuario_id, notas=f"Reserva para alistamiento (tarea {tarea.id})")
             cantidad_pendiente -= tomar
             preparado += tomar
             db.add(WMSPickingDetalle(tarea_id=tarea.id, producto_id=det.producto_id, ubicacion_id=a.ubicacion_id,
@@ -1929,15 +1916,37 @@ async def generar_picking(
             "Picking parcial por stock elegible insuficiente (FEFO, sin vencidos/bloqueados): "
             + "; ".join(faltantes),
             entidad_tipo="WMSOrdenSalida", entidad_id=orden_id,
-            usuario_id=current_user.id,
+            usuario_id=usuario_id,
         )
     if por_vencer:
         await _registrar_evento(
             db, "ALERTA_VENCIMIENTO",
             "Lotes próximos a vencer asignados en picking: " + "; ".join(por_vencer),
             entidad_tipo="WMSOrdenSalida", entidad_id=orden_id,
-            usuario_id=current_user.id,
+            usuario_id=usuario_id,
         )
+    return tarea
+
+
+@router.post("/ordenes-salida/{orden_id}/generar-picking", response_model=WMSPickingTareaResponse, status_code=201)
+async def generar_picking(
+    orden_id: int,
+    tipo: str = Query("SINGLE"),
+    dias_vida_minima: int = Query(0, ge=0, description="Vida útil mínima (días) exigida al momento del despacho"),
+    dias_alerta_vencimiento: int = Query(30, ge=0, description="Umbral para marcar lotes próximos a vencer"),
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    """
+    Auto-genera una tarea de picking a partir del inventario disponible aplicando
+    FEFO (First-Expired, First-Out): asigna primero los lotes que vencen antes.
+
+    Control ISO 9001 §8.5.4 (preservación) / §8.7 (no conforme): NO se asignan
+    lotes vencidos, lotes bloqueados (activo=False) ni lotes cuya vida útil
+    remanente sea menor a `dias_vida_minima`. Los lotes próximos a vencer
+    (dentro de `dias_alerta_vencimiento`) se asignan pero se registra alerta.
+    """
+    tarea = await crear_alistamiento(db, orden_id, tipo, dias_vida_minima, dias_alerta_vencimiento, current_user.id)
     await db.commit()
 
     r2 = await db.execute(
@@ -2051,6 +2060,69 @@ async def actualizar_picking_tarea(
     return r.scalar_one()
 
 
+async def confirmar_linea(db: AsyncSession, tarea: WMSPickingTarea, det: WMSPickingDetalle, cantidad: float,
+                          usuario_id: int, ubicacion_codigo: Optional[str] = None,
+                          producto_codigo: Optional[str] = None, permitir_cero: bool = False) -> None:
+    """Confirma una línea de alistamiento (con verificación por escaneo si
+    viene). La usan el endpoint de una tarea y las olas."""
+    # En una ola, un faltante puede dejar una línea en cero: se confirma vacía
+    # y todo lo reservado vuelve a disponible.
+    if cantidad < 0 or (cantidad == 0 and not permitir_cero) or cantidad > det.cantidad_solicitada:
+        raise HTTPException(
+            400,
+            f"La cantidad pickeada debe estar entre 0 y {det.cantidad_solicitada:g}",
+        )
+
+    # Verificación por escaneo: si el operario escaneó, tiene que ser la
+    # ubicación y el producto de la línea. Así se detecta en el acto el error
+    # de alistamiento, en vez de que lo descubra el cliente.
+    if ubicacion_codigo:
+        ub = await db.get(WMSUbicacion, det.ubicacion_id)
+        if ub and ubicacion_codigo.strip().upper() != ub.codigo.upper():
+            raise HTTPException(422, f"Ubicación equivocada: escaneó {ubicacion_codigo}, la línea es de {ub.codigo}.")
+    if producto_codigo:
+        pr = await db.get(WMSProducto, det.producto_id)
+        validos = {c.upper() for c in (pr.sku, pr.codigo_barras) if c}
+        if producto_codigo.strip().upper() not in validos:
+            raise HTTPException(422, f"Producto equivocado: escaneó {producto_codigo}, la línea es {pr.sku}.")
+
+    ahora = datetime.now(timezone.utc)
+    if tarea.fecha_inicio is None:
+        tarea.fecha_inicio = ahora
+        tarea.estado = "EN_PROGRESO"
+    det.cantidad_pickeada = cantidad
+    det.confirmado = True
+    det.timestamp_confirmacion = ahora
+
+    # Si se alista menos de lo reservado, el sobrante vuelve a estar disponible.
+    sobrante = det.cantidad_solicitada - cantidad
+    if sobrante > 0:
+        await _mover(db, tipo="LIBERACION", producto_id=det.producto_id, cantidad=sobrante, lote_id=det.lote_id,
+                     origen=det.ubicacion_id, destino=det.ubicacion_id, estado_origen="RESERVADO",
+                     estado_destino="DISPONIBLE", contenedor_origen=det.contenedor_id,
+                     documento_tipo="PICKING", documento_id=tarea.id, usuario_id=usuario_id,
+                     notas="Alistado menos de lo reservado")
+    await _registrar_evento(
+        db, "PICKING_CONFIRMADO",
+        f"Alistadas {cantidad:g} de {det.cantidad_solicitada:g} und (tarea {tarea.id})",
+        entidad_tipo="PICKING", entidad_id=tarea.id, usuario_id=usuario_id,
+        producto_id=det.producto_id, lote_id=det.lote_id, ubicacion_id=det.ubicacion_id,
+        datos={"verificado": bool(ubicacion_codigo or producto_codigo), "sobrante": sobrante})
+
+    tarea.items_pickeados = (tarea.items_pickeados or 0) + 1
+
+    # Verificar si todos los ítems están confirmados
+    todos_r = await db.execute(
+        select(WMSPickingDetalle).where(WMSPickingDetalle.tarea_id == tarea.id)
+    )
+    todos = todos_r.scalars().all()
+    tarea.ubicaciones_visitadas = len({d.ubicacion_id for d in todos if d.confirmado})
+    if all(d.confirmado for d in todos):
+        tarea.estado = "COMPLETADA"
+        tarea.fecha_fin = ahora
+
+
+
 @router.post("/picking-tareas/{tarea_id}/confirmar-item", response_model=WMSPickingTareaResponse)
 async def confirmar_item_picking(
     tarea_id: int,
@@ -2067,59 +2139,8 @@ async def confirmar_item_picking(
         raise HTTPException(404, "Detalle de picking no encontrado")
     if det.confirmado:
         raise HTTPException(400, "Ítem ya confirmado")
-    if data.cantidad_pickeada <= 0 or data.cantidad_pickeada > det.cantidad_solicitada:
-        raise HTTPException(
-            400,
-            f"La cantidad pickeada debe estar entre 0 y {det.cantidad_solicitada:g}",
-        )
-
-    # Verificación por escaneo: si el operario escaneó, tiene que ser la
-    # ubicación y el producto de la línea. Así se detecta en el acto el error
-    # de alistamiento, en vez de que lo descubra el cliente.
-    if data.ubicacion_codigo:
-        ub = await db.get(WMSUbicacion, det.ubicacion_id)
-        if ub and data.ubicacion_codigo.strip().upper() != ub.codigo.upper():
-            raise HTTPException(422, f"Ubicación equivocada: escaneó {data.ubicacion_codigo}, la línea es de {ub.codigo}.")
-    if data.producto_codigo:
-        pr = await db.get(WMSProducto, det.producto_id)
-        validos = {c.upper() for c in (pr.sku, pr.codigo_barras) if c}
-        if data.producto_codigo.strip().upper() not in validos:
-            raise HTTPException(422, f"Producto equivocado: escaneó {data.producto_codigo}, la línea es {pr.sku}.")
-
-    ahora = datetime.now(timezone.utc)
-    if tarea.fecha_inicio is None:
-        tarea.fecha_inicio = ahora
-        tarea.estado = "EN_PROGRESO"
-    det.cantidad_pickeada = data.cantidad_pickeada
-    det.confirmado = True
-    det.timestamp_confirmacion = ahora
-
-    # Si se alista menos de lo reservado, el sobrante vuelve a estar disponible.
-    sobrante = det.cantidad_solicitada - data.cantidad_pickeada
-    if sobrante > 0:
-        await _mover(db, tipo="LIBERACION", producto_id=det.producto_id, cantidad=sobrante, lote_id=det.lote_id,
-                     origen=det.ubicacion_id, destino=det.ubicacion_id, estado_origen="RESERVADO",
-                     estado_destino="DISPONIBLE", contenedor_origen=det.contenedor_id,
-                     documento_tipo="PICKING", documento_id=tarea_id, usuario_id=current_user.id,
-                     notas="Alistado menos de lo reservado")
-    await _registrar_evento(
-        db, "PICKING_CONFIRMADO",
-        f"Alistadas {data.cantidad_pickeada:g} de {det.cantidad_solicitada:g} und (tarea {tarea_id})",
-        entidad_tipo="PICKING", entidad_id=tarea_id, usuario_id=current_user.id,
-        producto_id=det.producto_id, lote_id=det.lote_id, ubicacion_id=det.ubicacion_id,
-        datos={"verificado": bool(data.ubicacion_codigo or data.producto_codigo), "sobrante": sobrante})
-
-    tarea.items_pickeados = (tarea.items_pickeados or 0) + 1
-
-    # Verificar si todos los ítems están confirmados
-    todos_r = await db.execute(
-        select(WMSPickingDetalle).where(WMSPickingDetalle.tarea_id == tarea_id)
-    )
-    todos = todos_r.scalars().all()
-    tarea.ubicaciones_visitadas = len({d.ubicacion_id for d in todos if d.confirmado})
-    if all(d.confirmado for d in todos):
-        tarea.estado = "COMPLETADA"
-        tarea.fecha_fin = ahora
+    await confirmar_linea(db, tarea, det, data.cantidad_pickeada, current_user.id,
+                          data.ubicacion_codigo, data.producto_codigo)
 
     await db.commit()
     r = await db.execute(
@@ -2223,6 +2244,16 @@ async def crear_despacho(
         payload["numero_despacho"] = await _next_numero(db, WMSDespacho, WMSDespacho.numero_despacho, "DESP")
     if not payload.get("fecha_despacho"):
         payload["fecha_despacho"] = date.today()
+    # Peso y volumen: los de los bultos empacados, si no se escriben a mano.
+    if payload.get("peso_total_kg") is None or payload.get("volumen_total_m3") is None:
+        from app.infrastructure.models.wms import WMSEmpaqueOrden
+        from app.core.wms_cubicaje import volumen_m3
+        bultos = (await db.execute(select(WMSEmpaqueOrden).where(WMSEmpaqueOrden.orden_id == orden.id))).scalars().all()
+        if bultos:
+            if payload.get("peso_total_kg") is None and all(b.peso_kg is not None for b in bultos):
+                payload["peso_total_kg"] = round(sum(b.peso_kg for b in bultos), 3)
+            if payload.get("volumen_total_m3") is None:
+                payload["volumen_total_m3"] = round(sum(volumen_m3(b.largo_cm, b.ancho_cm, b.alto_cm) or 0 for b in bultos), 4)
     despacho = WMSDespacho(**payload)
     db.add(despacho)
     await db.flush()

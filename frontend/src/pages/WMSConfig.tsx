@@ -603,7 +603,7 @@ function ZonasSection() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // TAB 3: Ubicaciones
 // ═══════════════════════════════════════════════════════════════════════════════
-interface Ubicacion extends SimpleItem { codigo: string; nombre: string; zona_id?: number; pasillo?: string; estanteria?: string; nivel?: string; posicion?: string; tipo?: string; capacidad_kg?: number; capacidad_m3?: number; largo_cm?: number; ancho_cm?: number; alto_cm?: number }
+interface Ubicacion extends SimpleItem { codigo: string; nombre: string; zona_id?: number; pasillo?: string; estanteria?: string; nivel?: string; posicion?: string; tipo?: string; capacidad_kg?: number; capacidad_m3?: number; largo_cm?: number; ancho_cm?: number; alto_cm?: number; orden_recorrido?: number }
 
 function UbicacionesSection() {
   const { data: items, isLoading, create, update, remove } = useCatalog<Ubicacion>('/wms/ubicaciones/', ['wms-ubicaciones'])
@@ -612,16 +612,16 @@ function UbicacionesSection() {
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Ubicacion | null>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)
-  const [form, setForm] = useState({ codigo: '', zona_id: '', pasillo: '', estanteria: '', nivel: '', posicion: '', tipo: '', capacidad_kg: '', capacidad_m3: '', largo_cm: '', ancho_cm: '', alto_cm: '' })
+  const [form, setForm] = useState({ codigo: '', zona_id: '', pasillo: '', estanteria: '', nivel: '', posicion: '', tipo: '', capacidad_kg: '', capacidad_m3: '', largo_cm: '', ancho_cm: '', alto_cm: '', orden_recorrido: '' })
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
 
   const openDialog = (item?: Ubicacion) => {
     if (item) {
       setEditing(item)
-      setForm({ codigo: item.codigo, zona_id: item.zona_id?.toString() ?? '', pasillo: item.pasillo ?? '', estanteria: item.estanteria ?? '', nivel: item.nivel ?? '', posicion: item.posicion ?? '', tipo: item.tipo ?? '', capacidad_kg: item.capacidad_kg?.toString() ?? '', capacidad_m3: item.capacidad_m3?.toString() ?? '', largo_cm: item.largo_cm?.toString() ?? '', ancho_cm: item.ancho_cm?.toString() ?? '', alto_cm: item.alto_cm?.toString() ?? '' })
+      setForm({ codigo: item.codigo, zona_id: item.zona_id?.toString() ?? '', pasillo: item.pasillo ?? '', estanteria: item.estanteria ?? '', nivel: item.nivel ?? '', posicion: item.posicion ?? '', tipo: item.tipo ?? '', capacidad_kg: item.capacidad_kg?.toString() ?? '', capacidad_m3: item.capacidad_m3?.toString() ?? '', largo_cm: item.largo_cm?.toString() ?? '', ancho_cm: item.ancho_cm?.toString() ?? '', alto_cm: item.alto_cm?.toString() ?? '', orden_recorrido: item.orden_recorrido?.toString() ?? '' })
     } else {
       setEditing(null)
-      setForm({ codigo: '', zona_id: '', pasillo: '', estanteria: '', nivel: '', posicion: '', tipo: '', capacidad_kg: '', capacidad_m3: '', largo_cm: '', ancho_cm: '', alto_cm: '' })
+      setForm({ codigo: '', zona_id: '', pasillo: '', estanteria: '', nivel: '', posicion: '', tipo: '', capacidad_kg: '', capacidad_m3: '', largo_cm: '', ancho_cm: '', alto_cm: '', orden_recorrido: '' })
     }
     setOpen(true)
   }
@@ -641,6 +641,7 @@ function UbicacionesSection() {
     if (form.largo_cm) payload.largo_cm = Number(form.largo_cm)
     if (form.ancho_cm) payload.ancho_cm = Number(form.ancho_cm)
     if (form.alto_cm) payload.alto_cm = Number(form.alto_cm)
+    if (form.orden_recorrido) payload.orden_recorrido = Number(form.orden_recorrido)
     if (editing) update.mutate({ id: editing.id, d: payload }, { onSuccess: () => setOpen(false) })
     else create.mutate(payload, { onSuccess: () => setOpen(false) })
   }
@@ -683,6 +684,10 @@ function UbicacionesSection() {
               <TextField label="Frente (cm)" size="small" type="number" value={form.largo_cm} onChange={e => set('largo_cm', e.target.value)} sx={{ flex: 1 }} />
               <TextField label="Fondo (cm)" size="small" type="number" value={form.ancho_cm} onChange={e => set('ancho_cm', e.target.value)} sx={{ flex: 1 }} />
               <TextField label="Alto libre (cm)" size="small" type="number" value={form.alto_cm} onChange={e => set('alto_cm', e.target.value)} sx={{ flex: 1 }} />
+            </Stack>
+            <Stack direction="row" gap={1.5}>
+              <TextField label="Orden en el recorrido de alistamiento" size="small" type="number" value={form.orden_recorrido} onChange={e => set('orden_recorrido', e.target.value)} fullWidth
+                helperText="Opcional. Vacío: se deduce del pasillo y la posición (serpentina). El nivel 1 o 2 cuenta como zona dorada." />
             </Stack>
           </Stack></DialogContent>
           <CrudActions onCancel={() => setOpen(false)} isPending={create.isPending || update.isPending} editing={!!editing} />
