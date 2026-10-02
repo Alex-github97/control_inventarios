@@ -198,7 +198,8 @@
       "wmsMaquila": "Maquila",
       "wmsOlas": "Olas de alistamiento",
       "wmsEmpaque": "Empaque",
-      "wmsMapa": "Mapa de la bodega"
+      "wmsMapa": "Mapa de la bodega",
+      "wmsFacturacion": "Facturación 3PL"
     },
     "section": {
       "principal": "Principal",

@@ -1023,3 +1023,44 @@ class WMSPlano(Base, TimestampMixin):
     alto       = Column(Integer, nullable=False)
     # [{"x","y","w","h" (0-1), "etiqueta", "foto_id"}]
     marcas     = Column(JSON, nullable=True)
+
+
+# ─── Facturación del servicio 3PL ──────────────────────────────────────────────
+
+class WMSTarifa3PL(Base, TimestampMixin):
+    """Lo que se cobra por concepto. Sin depositante es la tarifa general; la
+    del depositante, si existe, la reemplaza."""
+    __tablename__ = "wms_tarifas_3pl"
+    id             = Column(Integer, primary_key=True, index=True)
+    depositante_id = Column(Integer, ForeignKey("wms_depositantes.id"), nullable=True, index=True)
+    # ALM_M3_DIA / ALM_POSICION_DIA / ALM_ESTIBA_DIA / REC_UNIDAD / REC_DOCUMENTO /
+    # DESP_UNIDAD / DESP_LINEA / DESP_ORDEN / MINIMO_MES
+    concepto       = Column(String(20), nullable=False)
+    valor          = Column(Float, nullable=False)
+    iva_pct        = Column(Float, nullable=False, default=19)
+    activo         = Column(Boolean, nullable=False, default=True)
+
+
+Index("uq_tarifa_3pl", WMSTarifa3PL.concepto, func.coalesce(WMSTarifa3PL.depositante_id, 0), unique=True)
+
+
+class WMSLiquidacion3PL(Base, TimestampMixin):
+    """El cobro de un periodo a un depositante: almacenamiento día a día (del
+    kárdex), movimientos y maquila, a sus tarifas. Al facturarla se vuelve una
+    factura de venta del ERP."""
+    __tablename__ = "wms_liquidaciones_3pl"
+    id             = Column(Integer, primary_key=True, index=True)
+    numero         = Column(String(40), nullable=False, unique=True)
+    depositante_id = Column(Integer, ForeignKey("wms_depositantes.id"), nullable=False, index=True)
+    desde          = Column(Date, nullable=False)
+    hasta          = Column(Date, nullable=False)
+    # BORRADOR / FACTURADA / ANULADA
+    estado         = Column(String(10), nullable=False, default="BORRADOR")
+    lineas         = Column(JSON, nullable=False)
+    diario         = Column(JSON, nullable=True)
+    subtotal       = Column(Float, nullable=False, default=0)
+    iva            = Column(Float, nullable=False, default=0)
+    total          = Column(Float, nullable=False, default=0)
+    factura_id     = Column(Integer, ForeignKey("erp_facturas_cliente.id"), nullable=True)
+    creada_por_id  = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    facturada_en   = Column(DateTime(timezone=True), nullable=True)

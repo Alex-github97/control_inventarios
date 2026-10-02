@@ -172,7 +172,8 @@
       "wmsMaquila": "Value-added services",
       "wmsOlas": "Wave picking",
       "wmsEmpaque": "Packing",
-      "wmsMapa": "Warehouse map"
+      "wmsMapa": "Warehouse map",
+      "wmsFacturacion": "3PL billing"
     },
     "section": {
       "principal": "Main",
