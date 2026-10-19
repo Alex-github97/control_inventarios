@@ -174,7 +174,8 @@
       "wmsEmpaque": "Packing",
       "wmsMapa": "Warehouse map",
       "wmsFacturacion": "3PL billing",
-      "wmsTraslados": "Inter-warehouse transfers"
+      "wmsTraslados": "Inter-warehouse transfers",
+      "comparativoSicetac": "SICETAC comparison"
     },
     "section": {
       "principal": "Main",

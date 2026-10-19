@@ -219,3 +219,7 @@ __all__ = [
     "GeneradorCarga", "VehiculoFlete", "Flete", "Enturnamiento",
     "TipoVehiculoFlete", "TipoCarroceria", "EstadoFlete", "EstadoEnturnamiento",
 ]
+
+from app.infrastructure.models.tarifax import (  # noqa: F401
+    TarifaxNegociacion, TarifaxSicetacPeriodo, TarifaxComparacion, TarifaxAliasCiudad,
+)

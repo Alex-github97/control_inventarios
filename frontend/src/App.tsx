@@ -90,6 +90,7 @@ const Trazabilidad = React.lazy(() => import('@/pages/Trazabilidad'))
 const EstibasCargaMasiva = React.lazy(() => import('@/pages/EstibasCargaMasiva'))
 const MovimientosCargaMasiva = React.lazy(() => import('@/pages/MovimientosCargaMasiva'))
 const TarifaxDashboard = React.lazy(() => import('@/pages/TarifaxDashboard'))
+const TarifaxComparativo = React.lazy(() => import('@/pages/TarifaxComparativo'))
 const TarifaxMotor = React.lazy(() => import('@/pages/TarifaxMotor'))
 const TarifaxDistancias = React.lazy(() => import('@/pages/TarifaxDistancias'))
 const TarifaxAlmacenamiento = React.lazy(() => import('@/pages/TarifaxAlmacenamiento'))
@@ -523,6 +524,7 @@ export default function App() {
             <Route path="/locativa/energia" element={<ProtectedRoute><LocativaEnergia /></ProtectedRoute>} />
             <Route path="/locativa/config" element={<ProtectedRoute><LocativaConfig /></ProtectedRoute>} />
             <Route path="/tarifax/tablero" element={<ProtectedRoute><TarifaxDashboard /></ProtectedRoute>} />
+            <Route path="/tarifax/comparativo" element={<ProtectedRoute><TarifaxComparativo /></ProtectedRoute>} />
             <Route path="/tarifax/motor" element={<ProtectedRoute><TarifaxMotor /></ProtectedRoute>} />
             <Route path="/tarifax/distancias" element={<ProtectedRoute><TarifaxDistancias /></ProtectedRoute>} />
             <Route path="/tarifax/almacenamiento" element={<ProtectedRoute><TarifaxAlmacenamiento /></ProtectedRoute>} />

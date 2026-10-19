@@ -79,6 +79,7 @@ import {
   Map as WMSMapaIcon,
   RequestQuote as WMSFacturacionIcon,
   LocalShipping as WMSTrasladosIcon,
+  CompareArrows as ComparativoIcon,
   ManageAccounts as WMSConfigIcon,
   PeopleAlt as GHDashboardIcon,
   Groups as GHColaboradoresIcon,
@@ -316,6 +317,7 @@ const CI_NAV_ITEMS: NavItem[] = [
 
 const TX_NAV_ITEMS: NavItem[] = [
   { label: 'nav.tablero',      icon: <TableroIcon fontSize="small" />, path: '/tarifax/tablero', section: 'section.tarifax' },
+  { label: 'nav.comparativoSicetac', icon: <ComparativoIcon fontSize="small" />, path: '/tarifax/comparativo', section: 'section.tarifax' },
   { label: 'nav.motorTarifax', icon: <MotorIcon   fontSize="small" />, path: '/tarifax/motor',   section: 'section.tarifax' },
   { label: 'nav.distancias',   icon: <DistanciasIcon fontSize="small" />, path: '/tarifax/distancias', section: 'section.tarifax' },
   { label: 'nav.almacenamiento', icon: <AlmacenamientoIcon fontSize="small" />, path: '/tarifax/almacenamiento', section: 'section.tarifax' },

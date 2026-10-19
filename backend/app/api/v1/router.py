@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
     auth, usuarios, estibas, ubicaciones, proveedores,
-    vehiculos, manifiestos, movimientos, dashboard, alertas, danos, tarifax, mantenimiento, consultas, roles, fletes, flota, locative, wms, hcm, tms, dms, qms, grc, lms, lms_aprendizaje, crm, eam, mes, aps, erp, scan_sessions, scm, sst, lubricacion, lubricacion_gestion, lubricacion_operacion, lubricacion_analitica, lubricacion_interpretacion, lubricacion_flota, lubricacion_importar, ags, catalogos, plataforma, plataforma_comercial, plataforma_contable, eam_importar, eam_config, eam_dashboard, checklists, checklists_ejecucion, combustible, inventario, eam_confiabilidad, eam_analitica, eam_garantias_apoyo, eam_reportes, eam_adjuntos, eam_causa_raiz, mes_flujo, mes_planta, mes_analitica, qms_analitica, grc_analitica, grc_relaciones, grc_config, pos, erp_facturacion, wms_trazable, wms_cubicaje, wms_indicadores, wms_sugerencias, wms_maquila, wms_mapa, wms_3pl, wms_portal, wms_traslados, soporte, soporte_agil, plataforma_equipo, landing, gestion, gestion_incidencias, gestion_consultas, gestion_agil, gestion_pizarras, gestion_config, gestion_formulario, erp_contable, erp_gestion
+    vehiculos, manifiestos, movimientos, dashboard, alertas, danos, tarifax, mantenimiento, consultas, roles, fletes, flota, locative, wms, hcm, tms, dms, qms, grc, lms, lms_aprendizaje, crm, eam, mes, aps, erp, scan_sessions, scm, sst, lubricacion, lubricacion_gestion, lubricacion_operacion, lubricacion_analitica, lubricacion_interpretacion, lubricacion_flota, lubricacion_importar, ags, catalogos, plataforma, plataforma_comercial, plataforma_contable, eam_importar, eam_config, eam_dashboard, checklists, checklists_ejecucion, combustible, inventario, eam_confiabilidad, eam_analitica, eam_garantias_apoyo, eam_reportes, eam_adjuntos, eam_causa_raiz, mes_flujo, mes_planta, mes_analitica, qms_analitica, grc_analitica, grc_relaciones, grc_config, pos, erp_facturacion, wms_trazable, wms_cubicaje, wms_indicadores, wms_sugerencias, wms_maquila, wms_mapa, wms_3pl, wms_portal, wms_traslados, tarifax_comparativo, soporte, soporte_agil, plataforma_equipo, landing, gestion, gestion_incidencias, gestion_consultas, gestion_agil, gestion_pizarras, gestion_config, gestion_formulario, erp_contable, erp_gestion
 )
 
 api_router = APIRouter()
@@ -71,6 +71,7 @@ api_router.include_router(dashboard.router)
 api_router.include_router(alertas.router)
 api_router.include_router(danos.router)
 api_router.include_router(tarifax.router)
+api_router.include_router(tarifax_comparativo.router)
 api_router.include_router(mantenimiento.router)
 api_router.include_router(consultas.router)
 api_router.include_router(fletes.router)

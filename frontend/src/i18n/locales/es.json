@@ -200,7 +200,8 @@
       "wmsEmpaque": "Empaque",
       "wmsMapa": "Mapa de la bodega",
       "wmsFacturacion": "Facturación 3PL",
-      "wmsTraslados": "Traslados entre almacenes"
+      "wmsTraslados": "Traslados entre almacenes",
+      "comparativoSicetac": "Comparativo SICETAC"
     },
     "section": {
       "principal": "Principal",
