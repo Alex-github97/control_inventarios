@@ -71,7 +71,20 @@ const aparece = async (loc, ms = 30000) => { try { await loc.first().waitFor({ t
   comprobar(await aparece(p.getByRole('columnheader', { name: 'Sobrecosto' })), 'la tabla trae la columna Sobrecosto');
   comprobar(await aparece(p.getByRole('columnheader', { name: 'Costo total de ruta' })), 'la tabla trae Costo total de ruta');
   comprobar(await aparece(p.getByText('Margen sobre la tarifa')), 'muestra el margen sobre la tarifa');
-  comprobar(!(await p.getByText('Por cliente').count()), 'sin la tabla por cliente');
+  comprobar(!(await p.getByText('Por cliente', { exact: true }).count()), 'sin la tabla por cliente');
+  // Orden con un clic: primero de mayor a menor, el segundo clic invierte.
+  const tabla = p.locator('table').last();
+  const columna = async n => (await tabla.locator(`tbody tr td:nth-child(${n})`).allInnerTexts()).map(x => x.trim());
+  const km = async () => (await columna(4)).map(x => Number(x.replace(/\./g, '')));
+  await tabla.getByRole('button', { name: 'Km', exact: true }).click();
+  let v = await km();
+  comprobar(v.length > 1 && v.every((x, i) => !i || v[i - 1] >= x), `Km de mayor a menor (${v.slice(0, 3).join(', ')}…)`);
+  await tabla.getByRole('button', { name: 'Km', exact: true }).click();
+  v = await km();
+  comprobar(v.every((x, i) => !i || v[i - 1] <= x), `segundo clic: Km de menor a mayor (${v.slice(0, 3).join(', ')}…)`);
+  await tabla.getByRole('button', { name: 'Cliente', exact: true }).click();
+  const cl = await columna(1);
+  comprobar(cl.every((x, i) => !i || cl[i - 1].localeCompare(x, 'es') >= 0), `Cliente de Z a A (${cl[0]})`);
   await p.getByRole('columnheader', { name: 'Costo total de ruta' }).first().scrollIntoViewIfNeeded();
   await p.screenshot({ path: `${SALIDA}/flota_tabla.png`, fullPage: false });
 

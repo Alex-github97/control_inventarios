@@ -4,10 +4,10 @@
  * el destino queda lejos de las sedes), frente a la tarifa del cliente y a SICETAC.
  * El cálculo lo hace el servidor (`/tarifax/comparativo/tablero` → `flota`).
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Box, Paper, Typography, Button, Stack, TextField, Alert, Table, TableHead, TableRow, TableCell, TableBody,
-  TablePagination, Dialog, DialogTitle, DialogContent, DialogActions, Chip,
+  TablePagination, TableSortLabel, Dialog, DialogTitle, DialogContent, DialogActions, Chip,
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
 import { LocalShipping } from '@mui/icons-material'
@@ -42,6 +42,24 @@ export const filasExcelFlota = (f: Flota | null | undefined) => (f?.detalle ?? [
   SICETAC: r.sicetac, 'Costo total vs SICETAC %': r.vs_sicetac,
 }))
 
+/** Columnas del detalle: cada una se ordena con un clic en su encabezado. */
+type Columna = { titulo: string; valor: (f: FilaFlota) => string | number | null; numero?: boolean }
+const COLUMNAS: Columna[] = [
+  { titulo: 'Cliente', valor: f => f.cliente },
+  { titulo: 'Ruta', valor: f => `${f.origen} → ${f.destino}` },
+  { titulo: 'Vehículo', valor: f => f.categoria },
+  { titulo: 'Km', valor: f => f.km, numero: true },
+  { titulo: 'CPK', valor: f => f.cpk, numero: true },
+  { titulo: 'Costo ruta', valor: f => f.costo_ruta, numero: true },
+  { titulo: 'Sobrecosto', valor: f => f.sobrecosto, numero: true },
+  { titulo: 'Costo total de ruta', valor: f => f.costo_total, numero: true },
+  { titulo: 'Tarifa cliente', valor: f => f.tarifa, numero: true },
+  { titulo: 'Rentabilidad', valor: f => f.rentabilidad, numero: true },
+  { titulo: 'Margen', valor: f => f.margen, numero: true },
+  { titulo: 'SICETAC', valor: f => f.sicetac, numero: true },
+  { titulo: 'Costo vs SICETAC', valor: f => f.vs_sicetac, numero: true },
+]
+
 /** Texto de color neutro con el signo como apoyo: ganancia o pérdida se lee en la cifra, no solo en el color. */
 function Signo({ v, sufijo = '' }: { v: number | null; sufijo?: string }) {
   if (v == null) return <>—</>
@@ -60,7 +78,20 @@ function Cifra({ titulo, valor, sub }: { titulo: string; valor: string; sub?: st
 
 export function TablaFlota({ flota, onConfigurar }: { flota: Flota | null | undefined; onConfigurar: () => void }) {
   const [pagina, setPagina] = useState(0)
-  useEffect(() => setPagina(0), [flota])
+  // Primer clic: de mayor a menor (Z→A en los textos); el segundo invierte.
+  const [orden, setOrden] = useState<{ col: number; dir: 'asc' | 'desc' } | null>(null)
+  useEffect(() => setPagina(0), [flota, orden])
+  const filas = useMemo(() => {
+    const d = flota?.detalle ?? []
+    if (!orden) return d
+    const { valor } = COLUMNAS[orden.col], signo = orden.dir === 'asc' ? 1 : -1
+    return [...d].sort((a, b) => {
+      const x = valor(a), y = valor(b)
+      if (x == null || y == null) return x == null ? (y == null ? 0 : 1) : -1   // vacíos siempre al final
+      return signo * (typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'es'))
+    })
+  }, [flota, orden])
+  const ordenar = (col: number) => setOrden(o => o?.col === col ? { col, dir: o.dir === 'desc' ? 'asc' : 'desc' } : { col, dir: 'desc' })
   if (!flota?.configurado) return (
     <Alert severity="info" sx={{ m: 2 }} action={<Button size="small" onClick={onConfigurar}>Configurar</Button>}>
       Defina el costo por kilómetro (CPK) de cada tipología de vehículo para calcular lo que cuesta hacer cada ruta con flota propia
@@ -88,11 +119,16 @@ export function TablaFlota({ flota, onConfigurar }: { flota: Flota | null | unde
       <Box sx={{ overflowX: 'auto' }}>
         <Table size="small" sx={{ '& td, & th': { px: 1 } }}>
           <TableHead><TableRow>
-            {['Cliente', 'Ruta', 'Vehículo', 'Km', 'CPK', 'Costo ruta', 'Sobrecosto', 'Costo total de ruta', 'Tarifa cliente', 'Rentabilidad', 'Margen', 'SICETAC', 'Costo vs SICETAC'].map((h, i) =>
-              <TableCell key={h} align={i >= 3 ? 'right' : 'left'} sx={{ fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap' }}>{h}</TableCell>)}
+            {COLUMNAS.map((c, i) =>
+              <TableCell key={c.titulo} align={c.numero ? 'right' : 'left'} sx={{ fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap' }}
+                sortDirection={orden?.col === i ? orden.dir : false}>
+                <TableSortLabel active={orden?.col === i} direction={orden?.col === i ? orden.dir : 'desc'} onClick={() => ordenar(i)}>
+                  {c.titulo}
+                </TableSortLabel>
+              </TableCell>)}
           </TableRow></TableHead>
           <TableBody>
-            {flota.detalle.slice(pagina * 25, pagina * 25 + 25).map((f, i) => (
+            {filas.slice(pagina * 25, pagina * 25 + 25).map((f, i) => (
               <TableRow key={i} hover>
                 <TableCell sx={{ fontSize: 12, maxWidth: 170 }}><Typography fontSize={12} noWrap title={f.cliente}>{f.cliente}</Typography></TableCell>
                 <TableCell sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{f.origen} → {f.destino}</TableCell>
