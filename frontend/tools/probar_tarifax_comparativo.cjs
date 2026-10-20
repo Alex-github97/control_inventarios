@@ -46,23 +46,26 @@ const aparece = async (loc, ms = 30000) => { try { await loc.first().waitFor({ t
   comprobar(await aparece(p.getByRole('tab', { name: /Rutas comparadas/ })), 'muestra el detalle de rutas');
 
   // Los 12 meses con su botón de cargue.
-  await p.getByText('Cargue de datos').click();
+  await aparece(p.getByText(/tarifas de \d+ clientes|Sin negociaciones/));
+  if (!(await p.getByRole('button', { name: 'Editar equivalencias' }).isVisible())) await p.getByText('Cargue de datos').click();
   for (const m of ['Enero', 'Junio', 'Diciembre'])
     comprobar(await aparece(p.getByRole('button', { name: `Cargar SICETAC de ${m}` })), `botón de cargue de ${m}`);
 
   // Equivalencias de vehículos (la misma configuración del motor).
   comprobar(await aparece(p.getByText('Equivalencias de vehículos')), 'el informe muestra las equivalencias de vehículos');
   comprobar(await aparece(p.getByText(/TRACTOMULA → 3S2 · .* \(como TRACTOCAMION\)/)), 'TRACTOMULA usa la equivalencia de TRACTOCAMION y lo dice');
-  comprobar(await aparece(p.getByText(/TURBO → 2L3 · /)), 'TURBO → 2L3');
+  comprobar(await aparece(p.getByText(/^TURBO → \S+ · \d/)), 'TURBO muestra su configuración SICETAC');
   await p.screenshot({ path: `${SALIDA}/equivalencias.png` });
   await p.getByRole('button', { name: 'Editar equivalencias' }).click();
   const dv = p.getByRole('dialog');
   comprobar(await aparece(dv.getByText('Configuración de tipologías de vehículo')), 'abre el mismo editor del motor');
   comprobar(await aparece(dv.getByText(/Los vehículos de las tarifas de clientes son: /)), 'el editor lista los vehículos de los clientes');
-  // Guardar queda deshabilitado mientras carga: guardar antes borraba todas las equivalencias.
-  await dv.locator('input[value="TRACTOCAMION"]').waitFor({ timeout: 20000 });
-  await dv.getByRole('button', { name: 'Guardar configuración' }).click();   // sin cambios: solo recalcula
-  comprobar(await aparece(p.getByText('Comparación recalculada'), 120000), 'al guardar recalcula la comparación');
+  // No se guarda: la configuración es compartida y la prueba podría pisar un cambio de quien
+  // está usando la aplicación. Solo se verifica que Guardar se habilite al terminar de cargar.
+  await p.waitForFunction(() => [...document.querySelectorAll('[role=dialog] button')]
+    .some(b => b.textContent.includes('Guardar configuración') && !b.disabled), null, { timeout: 20000 }).catch(() => {});
+  comprobar(await dv.getByRole('button', { name: 'Guardar configuración' }).isEnabled(), 'Guardar se habilita cuando terminan de cargar las equivalencias');
+  await dv.getByRole('button', { name: 'Cancelar' }).click();
 
   if (process.env.SICETAC) {
     const [selector] = await Promise.all([p.waitForEvent('filechooser'), p.getByRole('button', { name: 'Cargar SICETAC de Febrero' }).click()]);
@@ -127,6 +130,19 @@ const aparece = async (loc, ms = 30000) => { try { await loc.first().waitFor({ t
   const textos = await filas.allInnerTexts();
   comprobar(textos.length > 0 && textos.every(t => t.includes('TURBO') && t.includes('TRANSPORTE MASIVO')),
     `filtro tipo de tarifa + tipo de servicio: solo turbos de transporte masivo (${textos.length} filas)`);
+
+  // El filtro trae los tipos de tarifa exactamente como en los datos: separa el paqueteo de lo masivo.
+  await p.getByRole('button', { name: 'Quitar filtros' }).click();
+  await p.locator('.MuiAutocomplete-root').filter({ has: p.getByLabel('Tipo de tarifa') }).locator('input').click();
+  comprobar(await p.getByRole('option').count() === 18 && await aparece(p.getByRole('option', { name: 'TARIFA POR KILO', exact: true })),
+    'Tipo de tarifa ofrece los 18 valores del archivo (incluye TARIFA POR KILO)');
+  await p.keyboard.press('Escape');
+  await elegir('Tipo de servicio', 'PAQUETEO');
+  await p.waitForTimeout(2500);
+  comprobar(await aparece(p.getByText(/tarifas de este filtro no son por viaje/)), 'con PAQUETEO avisa que no se compara con SICETAC');
+  await p.getByRole('tab', { name: /No comparables con SICETAC/ }).click();
+  const nc = await p.locator('table tbody tr').allInnerTexts();
+  comprobar(nc.length > 0 && nc.every(t => t.includes('PAQUETEO')), `la pestaña No comparables lista el paqueteo (${nc.length} filas)`);
   await p.waitForTimeout(2000);
   await p.screenshot({ path: `${SALIDA}/tarifax-comparativo.png`, fullPage: true });
 

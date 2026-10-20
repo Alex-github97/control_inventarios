@@ -99,3 +99,14 @@ class TarifaxHoraLogistica(Base, TimestampMixin):
     id            = Column(Integer, primary_key=True, index=True)
     tipo_vehiculo = Column(String(60), nullable=False, unique=True)
     valor_hora    = Column(Float, nullable=False)
+
+
+class TarifaxAjuste(Base, TimestampMixin):
+    """Ajustes sueltos del comparativo. Hoy: con qué equivalencias de vehículo
+    se calculó el cruce, para recalcularlo solo si alguien las cambia desde el
+    motor de tarifas (la configuración es compartida)."""
+    __tablename__ = "tarifax_ajustes"
+    id    = Column(Integer, primary_key=True, index=True)
+    clave = Column(String(60), nullable=False, unique=True)
+    valor = Column(Text, nullable=True)
+

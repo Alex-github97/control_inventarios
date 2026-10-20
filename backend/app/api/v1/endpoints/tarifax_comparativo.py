@@ -29,7 +29,8 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.core.tenant import ESQUEMA_POR_DEFECTO, esquema_actual
 from app.infrastructure.models.tarifax import (
-    TarifaxAliasCiudad, TarifaxComparacion, TarifaxHoraLogistica, TarifaxNegociacion, TarifaxSicetacPeriodo,
+    TarifaxAjuste, TarifaxAliasCiudad, TarifaxComparacion, TarifaxHoraLogistica, TarifaxNegociacion,
+    TarifaxSicetacPeriodo,
 )
 from app.infrastructure.models.usuario import Usuario
 
@@ -93,6 +94,22 @@ async def _alias(db: AsyncSession) -> Dict[str, str]:
     return {f.nombre: f.equivale_a for f in filas}
 
 
+def _firma_mapeo(mapeo: Dict[str, str]) -> str:
+    import json
+    return json.dumps(tc.mapeo_categorias(mapeo), sort_keys=True)
+
+
+async def _sincronizar_mapeo(db: AsyncSession) -> None:
+    """Si las equivalencias de vehículos cambiaron desde el último cruce (por
+    ejemplo, editadas en el motor de tarifas), rehace el cruce."""
+    actual = _firma_mapeo(_mapeo())
+    guardado = (await db.execute(select(TarifaxAjuste.valor).where(TarifaxAjuste.clave == "mapeo"))).scalar()
+    hay_cruce = (await db.execute(select(TarifaxComparacion.id).limit(1))).first()
+    if hay_cruce and guardado != actual:
+        await _recalcular(db)
+        await db.commit()
+
+
 async def _recalcular(db: AsyncSession, periodos: Optional[List[str]] = None) -> Dict[str, int]:
     """Rehace el cruce de los periodos indicados (todos si no se indica)."""
     negs = []
@@ -123,6 +140,13 @@ async def _recalcular(db: AsyncSession, periodos: Optional[List[str]] = None) ->
         for i in range(0, len(filas), 5000):
             await db.execute(insert(TarifaxComparacion), filas[i:i + 5000])
         resumen[periodo] = len(filas)
+    # Con qué equivalencias quedó hecho el cruce (ver `_sincronizar_mapeo`).
+    firma = _firma_mapeo(mapeo)
+    aj = (await db.execute(select(TarifaxAjuste).where(TarifaxAjuste.clave == "mapeo"))).scalar_one_or_none()
+    if aj is None:
+        db.add(TarifaxAjuste(clave="mapeo", valor=firma))
+    else:
+        aj.valor = firma
     return resumen
 
 
@@ -337,6 +361,7 @@ async def tablero(periodos: Optional[str] = None, clientes: Optional[str] = None
     valor por hora (el del archivo del mes, o el de la configuración del
     vehículo). Con horas = 0 el SICETAC es el costo del viaje solo.
     `posicion`: ENCIMA o DEBAJO de SICETAC, ya con las horas sumadas."""
+    await _sincronizar_mapeo(db)
     C = TarifaxComparacion
     q = select(C.periodo, C.cliente, C.servicio, C.origen, C.destino, C.dpto_origen, C.dpto_destino, C.tipo_tarifa, C.categoria,
                C.tipo_vehiculo, C.carroceria, C.distancia, C.tarifa_cliente, C.costo_sicetac, C.valor_hora, C.estado)
@@ -346,12 +371,28 @@ async def tablero(periodos: Optional[str] = None, clientes: Optional[str] = None
     cols = ["periodo", "cliente", "servicio", "origen", "destino", "dpto_origen", "dpto_destino", "tipo_tarifa", "categoria",
             "tipo_vehiculo", "carroceria", "distancia", "tarifa", "sicetac_base", "valor_hora", "estado"]
     df = pd.DataFrame(rows, columns=cols)
+    # Las negociaciones que no entran al cruce (paqueteo: por kilo, caja o
+    # volumen; o tarifa en cero) igual cuentan: dan las opciones de los filtros
+    # tal como vienen en el archivo y se listan como no comparables.
+    N = TarifaxNegociacion
+    negs = pd.DataFrame((await db.execute(select(
+        N.cliente, N.servicio, N.origen, N.destino, N.dpto_origen, N.dpto_destino, N.tipo_tarifa,
+        N.categoria_vehiculo, N.tarifa))).all(),
+        columns=["cliente", "servicio", "origen", "destino", "dpto_origen", "dpto_destino", "tipo_tarifa", "categoria", "tarifa"])
+    if not negs.empty:
+        negs["tarifa"] = pd.to_numeric(negs["tarifa"], errors="coerce")
+        nc = negs[negs["categoria"].isna() | negs["tarifa"].isna() | (negs["tarifa"] <= 0)].copy()
+        nc["motivo"] = nc.apply(lambda r: "Tarifa en cero o vacía" if pd.isna(r["tarifa"]) or r["tarifa"] <= 0
+                                else "No es por viaje (por kilo, caja o volumen): SICETAC da el costo de un viaje", axis=1)
+    else:
+        nc = negs.assign(motivo=None)
     vacio = {"opciones": {"periodos": [], "clientes": [], "origenes": [], "destinos": [], "servicios": [],
                           "categorias": [], "dptos_origen": [], "dptos_destino": [], "tipos_tarifa": [],
                           "carrocerias": sorted(carrocerias)},
              "kpis": None, "por_mes": [], "por_cliente": [], "por_categoria": [], "detalle": [], "sin_referencia": [],
-             "sin_referencia_total": 0, "carroceria": carroceria, "horas": horas}
-    if df.empty:
+             "sin_referencia_total": 0, "carroceria": carroceria, "horas": horas,
+             "no_comparables": [], "no_comparables_total": 0, "no_comparables_tarifas": 0}
+    if df.empty and negs.empty:
         return vacio
 
     # SICETAC del análisis = costo del viaje + horas × valor de la hora.
@@ -367,7 +408,10 @@ async def tablero(periodos: Optional[str] = None, clientes: Optional[str] = None
     df["variacion"] = (df["diferencia"] / df["sicetac"] * 100).round(2)
 
     def opciones(col):
-        return sorted(df[col].dropna().unique().tolist())
+        valores = set(df[col].dropna().unique().tolist()) if col in df else set()
+        if col in negs:
+            valores |= set(negs[col].dropna().unique().tolist())
+        return sorted(valores)
     orden_per = sorted(df["periodo"].unique(), key=lambda p: (p != "VIGENTE", p))
     vacio["opciones"].update({"periodos": [{"periodo": p, "nombre": tc.nombre_periodo(p)} for p in orden_per],
                               "clientes": opciones("cliente"), "origenes": opciones("origen"),
@@ -380,6 +424,15 @@ async def tablero(periodos: Optional[str] = None, clientes: Optional[str] = None
         sel = _lista(val)
         if sel:
             df = df[df[col].isin(sel)]
+    for col, val in (("cliente", clientes), ("origen", origenes), ("destino", destinos), ("servicio", servicios),
+                     ("categoria", categorias), ("dpto_origen", dptos_origen), ("dpto_destino", dptos_destino),
+                     ("tipo_tarifa", tipos_tarifa)):
+        sel = _lista(val)
+        if sel and not nc.empty:
+            nc = nc[nc[col].isin(sel)]
+    vacio.update({"no_comparables": _registros(nc.head(500)) if not nc.empty else [],
+                  "no_comparables_total": int(len(nc)),
+                  "no_comparables_tarifas": int(len(nc))})
     ok = df[df["estado"] == "OK"]
     if posicion == "DEBAJO":
         ok = ok[ok["variacion"] < 0]

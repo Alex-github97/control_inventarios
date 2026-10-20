@@ -70,7 +70,9 @@ interface Tablero {
   por_cliente: { cliente: string; tarifas: number; rutas: number; variacion: number | null; por_debajo: number }[]
   por_categoria: { categoria: string; tipo_vehiculo: string; tarifas: number; variacion: number | null }[]
   detalle: Fila[]; detalle_total?: number; sin_referencia: Fila[]; sin_referencia_total: number; carroceria: string
+  no_comparables: NoComparable[]; no_comparables_total: number
 }
+interface NoComparable { cliente: string; servicio: string | null; origen: string; destino: string; tipo_tarifa: string | null; tarifa: number | null; motivo: string }
 type Filtros = { periodos: string[]; clientes: string[]; origenes: string[]; destinos: string[]; servicios: string[]; categorias: string[]
                  dptosOrigen: string[]; dptosDestino: string[]; tiposTarifa: string[]; posicion: '' | 'ENCIMA' | 'DEBAJO'; carroceria: string }
 const VACIO: Filtros = { periodos: [], clientes: [], origenes: [], destinos: [], servicios: [], categorias: [], dptosOrigen: [], dptosDestino: [], tiposTarifa: [], posicion: '', carroceria: 'FURGON' }
@@ -130,6 +132,8 @@ export default function TarifaxComparativo() {
   const [horas, setHoras] = useState<number>(horasGuardadas)
   const [horasAbierto, setHorasAbierto] = useState(false)
   const [vehiculosAbierto, setVehiculosAbierto] = useState(false)
+  // null = sin elegir: se abre solo si todavía no hay negociaciones (decidido ya con el estado cargado).
+  const [cargueAbierto, setCargueAbierto] = useState<boolean | null>(null)
   useEffect(() => { try { localStorage.setItem(CLAVE_HORAS, String(horas)) } catch { /* sin almacenamiento */ } }, [horas])
   const archivoNeg = useRef<HTMLInputElement>(null)
   const archivoMes = useRef<HTMLInputElement>(null)
@@ -203,7 +207,7 @@ export default function TarifaxComparativo() {
           subtitulo="Cada ruta negociada frente al costo SICETAC del mismo vehículo, mes a mes" />
 
         {/* ── Cargue de datos ── */}
-        <Accordion defaultExpanded={!e?.negociaciones.total} disableGutters variant="outlined" sx={{ borderRadius: 2, mb: 2, '&:before': { display: 'none' } }}>
+        <Accordion expanded={cargueAbierto ?? (!!e && !e.negociaciones.total)} onChange={(_, v) => setCargueAbierto(v)} disableGutters variant="outlined" sx={{ borderRadius: 2, mb: 2, '&:before': { display: 'none' } }}>
           <AccordionSummary expandIcon={<ExpandMore />}>
             <Stack direction="row" gap={1.5} alignItems="center" flexWrap="wrap">
               <CloudUpload sx={{ color: COLOR }} />
@@ -333,6 +337,12 @@ export default function TarifaxComparativo() {
           </Typography>}
         </Paper>}
         {tablero.isFetching && <LinearProgress sx={{ mb: 1 }} />}
+        {!k && !!t?.no_comparables_total && (
+          <Alert severity="info" sx={{ mb: 2 }} action={<Button size="small" onClick={() => setTab(2)}>Verlas</Button>}>
+            Las {num(t.no_comparables_total)} tarifas de este filtro no son por viaje (por kilo, por caja o por volumen, como el paqueteo):
+            SICETAC da el costo de un viaje, así que no tienen contra qué compararse. Están en la pestaña «No comparables con SICETAC».
+          </Alert>
+        )}
 
         {k && <>
           {/* ── Indicadores ── */}
@@ -421,14 +431,18 @@ export default function TarifaxComparativo() {
         </>}
 
         {/* ── Detalle ── */}
-        {(k || (t?.sin_referencia_total ?? 0) > 0) && <Paper variant="outlined" sx={{ borderRadius: 2 }}>
+        {(k || (t?.sin_referencia_total ?? 0) > 0 || (t?.no_comparables_total ?? 0) > 0) && <Paper variant="outlined" sx={{ borderRadius: 2 }}>
           <Stack direction="row" alignItems="center" sx={{ px: 2, pt: 1 }} gap={1}>
             <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ flex: 1 }}>
               <Tab label={`Rutas comparadas (${num(t?.detalle_total ?? filasDetalle.length)})`} />
               <Tab label={`Sin referencia SICETAC (${num(t?.sin_referencia_total)})`} />
+              <Tab label={`No comparables con SICETAC (${num(t?.no_comparables_total)})`} />
             </Tabs>
             <Button size="small" startIcon={<EditLocationAlt />} onClick={() => setAliasAbierto(true)}>Equivalencias de ciudades</Button>
-            <Button size="small" startIcon={<FileDownload />} onClick={() => exportar(tab === 0 ? 'comparativo-sicetac' : 'sin-referencia-sicetac',
+            <Button size="small" startIcon={<FileDownload />} onClick={() => tab === 2 ? exportar('no-comparables-sicetac', (t?.no_comparables ?? []).map(r => ({
+                Cliente: r.cliente, 'Tipo de servicio': r.servicio, 'Tipo de tarifa': r.tipo_tarifa, Origen: r.origen, Destino: r.destino,
+                Tarifa: r.tarifa, Motivo: r.motivo,
+              }))) : exportar(tab === 0 ? 'comparativo-sicetac' : 'sin-referencia-sicetac',
               (tab === 0 ? filasDetalle : t?.sin_referencia ?? []).map(r => ({
                 Mes: nombresPer[r.periodo] ?? r.periodo, Cliente: r.cliente, 'Tipo de servicio': r.servicio, Origen: r.origen, Destino: r.destino,
                 'Tipo de tarifa': r.tipo_tarifa, 'Tipo de vehículo': r.categoria, 'Configuración SICETAC': r.tipo_vehiculo, Carrocería: r.carroceria, 'Distancia (km)': r.distancia,
@@ -438,7 +452,34 @@ export default function TarifaxComparativo() {
                 ...(tab === 1 ? { Motivo: r.estado === 'SIN_VEHICULO' ? 'Vehículo sin equivalencia SICETAC' : 'Ruta no publicada en SICETAC' } : {}),
               })))}>Excel</Button>
           </Stack>
-          {tab === 0 ? <>
+          {tab === 2 ? <>
+            <Alert severity="info" sx={{ m: 2 }}>
+              SICETAC es el costo de referencia de un viaje completo por vehículo. Estas tarifas se cobran por kilo, por caja o por volumen
+              (o vienen en cero), así que no tienen contra qué compararse. Se listan para que el filtro por tipo de tarifa y de servicio
+              separe el paqueteo de lo masivo.
+            </Alert>
+            <Box sx={{ overflowX: 'auto' }}>
+              <Table size="small" sx={{ '& td, & th': { px: 1 } }}>
+                <TableHead><TableRow>{['Cliente', 'Tipo de servicio', 'Tipo de tarifa', 'Ruta', 'Tarifa', 'Motivo'].map((h, i) =>
+                  <TableCell key={h} align={i === 4 ? 'right' : 'left'} sx={{ fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap' }}>{h}</TableCell>)}</TableRow></TableHead>
+                <TableBody>
+                  {(t?.no_comparables ?? []).slice(0, 300).map((r, i) => (
+                    <TableRow key={i} hover>
+                      <TableCell sx={{ fontSize: 12, maxWidth: 200 }}><Typography fontSize={12} noWrap title={r.cliente}>{r.cliente}</Typography></TableCell>
+                      <TableCell sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{r.servicio}</TableCell>
+                      <TableCell sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{r.tipo_tarifa}</TableCell>
+                      <TableCell sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{r.origen} → {r.destino}</TableCell>
+                      <TableCell align="right" sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{pesos(r.tarifa)}</TableCell>
+                      <TableCell sx={{ fontSize: 12 }}>{r.motivo}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Box>
+            {(t?.no_comparables_total ?? 0) > 300 && <Typography fontSize={12} color="text.secondary" sx={{ px: 2, py: 1.5 }}>
+              Se muestran 300 de {num(t?.no_comparables_total)}; el Excel trae hasta 500. Filtre para acotar.
+            </Typography>}
+          </> : tab === 0 ? <>
             <Box sx={{ overflowX: 'auto' }}>
               <Table size="small" sx={{ '& td, & th': { px: 1 } }}>
                 <TableHead><TableRow>
