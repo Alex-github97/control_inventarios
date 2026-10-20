@@ -527,6 +527,11 @@ async def tablero(periodos: Optional[str] = None, clientes: Optional[str] = None
             "tipo_vehiculo", "carroceria", "distancia", "tarifa", "sicetac_total", "valor_hora", "estado",
             "tipo_carga", "costo_mov", "horas_sicetac"]
     df = pd.DataFrame(rows, columns=cols)
+    # El tarifario vigente de TarifaX (extracto parcial, sin fecha ni horas)
+    # solo sirve mientras no haya SICETAC mensual: con meses cargados no se
+    # mezcla con ellos ni en los indicadores ni en las gráficas.
+    if (df["periodo"] != "VIGENTE").any():
+        df = df[df["periodo"] != "VIGENTE"]
     # Las negociaciones que no entran al cruce (paqueteo: por kilo, caja o
     # volumen; o tarifa en cero) igual cuentan: dan las opciones de los filtros
     # tal como vienen en el archivo y se listan como no comparables.

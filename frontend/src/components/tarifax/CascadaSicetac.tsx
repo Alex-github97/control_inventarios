@@ -32,7 +32,9 @@ const pct = (v: number | null) => v == null ? '—' : `${v > 0 ? '+' : ''}${v.to
 
 interface Paso { paso: string; base: number; valor: number; color: string; texto: string; detalle: string }
 
-function pasos(m: MesCascada, horas: number): Paso[] {
+function pasos(m: MesCascada, horasAnalisis: number): Paso[] {
+  // Un mes sin horas (el tarifario vigente no trae su valor) no muestra un paso «+0».
+  const horas = m.horas_prom ? horasAnalisis : 0
   const dif = m.tarifa_prom - m.sicetac_prom
   const out: Paso[] = [{ paso: horas ? 'SICETAC sin horas' : 'SICETAC', base: 0, valor: m.sicetac_base_prom, color: COLORES_CASCADA.total,
                          texto: millones(m.sicetac_base_prom), detalle: `Costo SICETAC promedio del viaje: ${pesos(m.sicetac_base_prom)}` }]
@@ -56,7 +58,8 @@ function Cascada({ mes, horas, maximo, alto }: { mes: MesCascada; horas: number;
     <ResponsiveContainer width="100%" height={alto}>
       <BarChart data={datos} margin={{ top: 22, right: 8, left: 0, bottom: 0 }} barCategoryGap="22%">
         <CartesianGrid stroke={GRILLA} vertical={false} />
-        <XAxis dataKey="paso" tick={{ fontSize: 11 }} tickLine={false} axisLine={{ stroke: GRILLA }} interval={0} />
+        {/* Inclinadas 30°: horizontales se pisan entre sí en barras angostas. */}
+        <XAxis dataKey="paso" angle={-30} textAnchor="end" tick={{ fontSize: 11 }} height={62} tickLine={false} axisLine={{ stroke: GRILLA }} interval={0} />
         <YAxis domain={[0, maximo]} ticks={[0, 1, 2, 3, 4].map(i => (maximo / 4) * i)} tickFormatter={v => millones(v)} tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={58} />
         <Tooltip cursor={{ fill: 'rgba(0,0,0,0.04)' }} content={({ active, payload }) => active && payload?.[1] ? (
           <Box sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1, px: 1.25, py: 0.75 }}>
