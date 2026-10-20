@@ -62,7 +62,8 @@ COLUMNAS = [
     # TarifaX · comparativo (la misma mecánica de columnas nuevas en tablas existentes).
     ("tarifax_comparaciones", "dpto_origen", "VARCHAR(120)"),
     ("tarifax_comparaciones", "dpto_destino", "VARCHAR(120)"),
-    ("tarifax_comparaciones", "valor_hora", "DOUBLE PRECISION"),
+    ("tarifax_comparaciones", "valor_hora", "DOUBLE PRECISION"),
+    ("tarifax_comparaciones", "tipo_tarifa", "VARCHAR(120)"),
 ]
 
 INDICES = [

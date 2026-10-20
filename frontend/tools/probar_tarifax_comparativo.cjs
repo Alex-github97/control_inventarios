@@ -112,6 +112,21 @@ const aparece = async (loc, ms = 30000) => { try { await loc.first().waitFor({ t
   comprobar(await aparece(p.getByText('Valor de la hora logística guardado')), 'guarda el valor de la hora por vehículo');
   }
   comprobar(await aparece(p.getByLabel('Depto. destino')) && await aparece(p.getByLabel('Frente a SICETAC')), 'filtros de departamento y posición frente a SICETAC');
+  // Solo transporte masivo y solo turbos, con los filtros del archivo de tarifas.
+  if (await p.getByRole('button', { name: 'Quitar filtros' }).count()) await p.getByRole('button', { name: 'Quitar filtros' }).click();
+  const elegir = async (etiqueta, opcion) => {
+    await p.locator('.MuiAutocomplete-root').filter({ has: p.getByLabel(etiqueta) }).locator('input').click();
+    await p.getByRole('option', { name: opcion, exact: true }).click();
+    await p.keyboard.press('Escape');
+  };
+  await elegir('Tipo de servicio', 'TRANSPORTE MASIVO');
+  await elegir('Tipo de tarifa', 'POR TIPO DE VEHICULO TURBO');
+  await p.waitForTimeout(2500);
+  await p.getByRole('tab', { name: /Rutas comparadas/ }).click();
+  const filas = p.locator('table tbody tr');
+  const textos = await filas.allInnerTexts();
+  comprobar(textos.length > 0 && textos.every(t => t.includes('TURBO') && t.includes('TRANSPORTE MASIVO')),
+    `filtro tipo de tarifa + tipo de servicio: solo turbos de transporte masivo (${textos.length} filas)`);
   await p.waitForTimeout(2000);
   await p.screenshot({ path: `${SALIDA}/tarifax-comparativo.png`, fullPage: true });
 

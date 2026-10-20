@@ -51,6 +51,13 @@ OBLIGATORIAS_SICETAC = ["ORIGEN", "DESTINO", "TIPO_VEHICULO", "COSTO_TOTAL_VIAJE
 SINONIMOS_CATEGORIA = {"TRACTOMULA": "TRACTOCAMION", "TRACTOCAMION": "TRACTOMULA", "CAMION SENCILLO": "SENCILLO"}
 
 PREFIJO_VEHICULO = re.compile(r"^POR TIPO DE VEHICULO\s+", re.I)
+# Nombres de vehículo que se reconocen dentro del tipo de tarifa aunque no
+# venga con el prefijo «POR TIPO DE VEHICULO» («TARIFA TURBO», «MULA X VIAJE»).
+# El orden importa: los compuestos antes que sus partes (TRACTOMULA antes que MULA).
+VEHICULOS_CONOCIDOS = ["TRACTOCAMION", "TRACTOMULA", "MINIMULA", "DOBLETROQUE", "DOBLE TROQUE", "PATINETA",
+                       "SENCILLO", "TURBO", "CAMIONETA", "CAMION", "MULA", "VANS", "NHR", "FURGON"]
+# Lo que se paga por peso, caja o volumen no es por viaje, aunque nombre un vehículo.
+NO_POR_VIAJE = re.compile(r"\b(KILO|KILOS|KG|CAJA|CAJAS|METRO|M3|UNIDAD|PALLET|ESTIBA)\b")
 
 MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto",
          "Septiembre", "Octubre", "Noviembre", "Diciembre"]
@@ -69,11 +76,22 @@ def normalizar(v) -> str:
 
 
 def categoria_de(tipo_tarifa) -> Optional[str]:
-    """«POR TIPO DE VEHICULO TURBO» → «TURBO». Las demás tarifas no son por viaje."""
+    """El tipo de vehículo que trae el tipo de tarifa, si es una tarifa por viaje.
+
+    «POR TIPO DE VEHICULO TURBO» → «TURBO»; «TARIFA TURBO» → «TURBO».
+    «TARIFA POR KILO» o «POR METRO CUBICO 0,5 A 5» → None: no son por viaje.
+    """
     t = normalizar(tipo_tarifa)
-    if not PREFIJO_VEHICULO.match(t):
+    if not t:
         return None
-    return PREFIJO_VEHICULO.sub("", t).strip() or None
+    if PREFIJO_VEHICULO.match(t):
+        return PREFIJO_VEHICULO.sub("", t).strip() or None
+    if NO_POR_VIAJE.search(t):
+        return None
+    for v in VEHICULOS_CONOCIDOS:
+        if re.search(r"\b" + v + r"\b", t):
+            return v.replace(" ", "")
+    return None
 
 
 def _leer_tabla(contenido: bytes, nombre: str) -> pd.DataFrame:
@@ -186,7 +204,8 @@ def cruzar(negociaciones: List[dict], sicetac: pd.DataFrame, alias: Dict[str, st
         d = alias_n.get(normalizar(n["destino"]), normalizar(n["destino"]))
         tv = mapa.get(normalizar(cat))
         comun = dict(periodo=periodo, negociacion_id=n["id"], cliente=n["cliente"], servicio=n["servicio"],
-                     origen=n["origen"], destino=n["destino"], dpto_origen=n.get("dpto_origen"),
+                     origen=n["origen"], destino=n["destino"], tipo_tarifa=n.get("tipo_tarifa"),
+                     dpto_origen=n.get("dpto_origen"),
                      dpto_destino=n.get("dpto_destino"), categoria=cat, tipo_vehiculo=tv,
                      tarifa_cliente=n["tarifa"], valor_hora=None)
         if not tv:

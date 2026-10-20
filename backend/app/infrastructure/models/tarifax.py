@@ -61,7 +61,8 @@ class TarifaxComparacion(Base):
     destino           = Column(String(120), nullable=False)
     dpto_origen       = Column(String(120), nullable=True)
     dpto_destino      = Column(String(120), nullable=True)
-    categoria         = Column(String(60), nullable=True)
+    tipo_tarifa       = Column(String(120), nullable=True)
+    categoria         = Column(String(60), nullable=True)           # tipo de vehículo extraído del tipo de tarifa
     tipo_vehiculo     = Column(String(60), nullable=True)           # configuración SICETAC
     carroceria        = Column(String(60), nullable=True)           # vacío = sin referencia
     distancia         = Column(Float, nullable=True)

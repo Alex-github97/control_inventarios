@@ -78,3 +78,18 @@ def test_sin_valor_hora_en_el_archivo_queda_vacio():
     [f] = tc.cruzar([neg(1, "A", "B", "POR TIPO DE VEHICULO SENCILLO", 400)],
                     sicetac(("A", "B", "2", "FURGON", 100, 10)), {}, MAPEO, "P")
     assert f["valor_hora"] is None
+
+
+def test_extrae_el_vehiculo_del_tipo_de_tarifa_en_cualquier_posicion():
+    assert tc.categoria_de("TARIFA TURBO") == "TURBO"
+    assert tc.categoria_de("TRACTOMULA X VIAJE") == "TRACTOMULA"      # el compuesto, no «MULA»
+    assert tc.categoria_de("Tarifa doble troque") == "DOBLETROQUE"
+    assert tc.categoria_de("POR METRO CUBICO 0,5 A 5") is None
+    assert tc.categoria_de("TURBO POR KILO") is None                  # por peso no es por viaje
+    assert tc.categoria_de("RANGO DE KILOS 1 A 500") is None
+
+
+def test_la_comparacion_guarda_el_tipo_de_tarifa():
+    n = {**neg(1, "A", "B", "POR TIPO DE VEHICULO SENCILLO", 150), "tipo_tarifa": "POR TIPO DE VEHICULO SENCILLO"}
+    [f] = tc.cruzar([n], sicetac(("A", "B", "2", "FURGON", 100, 10)), {}, MAPEO, "P")
+    assert f["tipo_tarifa"] == "POR TIPO DE VEHICULO SENCILLO" and f["categoria"] == "SENCILLO"

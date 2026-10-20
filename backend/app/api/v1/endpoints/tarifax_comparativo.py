@@ -95,10 +95,16 @@ async def _alias(db: AsyncSession) -> Dict[str, str]:
 
 async def _recalcular(db: AsyncSession, periodos: Optional[List[str]] = None) -> Dict[str, int]:
     """Rehace el cruce de los periodos indicados (todos si no se indica)."""
-    negs = [dict(id=n.id, cliente=n.cliente, servicio=n.servicio, origen=n.origen, destino=n.destino,
-                 dpto_origen=n.dpto_origen, dpto_destino=n.dpto_destino,
-                 categoria_vehiculo=n.categoria_vehiculo, tarifa=n.tarifa)
-            for n in (await db.execute(select(TarifaxNegociacion))).scalars()]
+    negs = []
+    for n in (await db.execute(select(TarifaxNegociacion))).scalars():
+        # El tipo de vehículo se vuelve a extraer del tipo de tarifa en cada
+        # recálculo: así una mejora de la extracción alcanza lo ya cargado.
+        cat = tc.categoria_de(n.tipo_tarifa)
+        if cat != n.categoria_vehiculo:
+            n.categoria_vehiculo = cat
+        negs.append(dict(id=n.id, cliente=n.cliente, servicio=n.servicio, origen=n.origen, destino=n.destino,
+                         tipo_tarifa=n.tipo_tarifa, dpto_origen=n.dpto_origen, dpto_destino=n.dpto_destino,
+                         categoria_vehiculo=cat, tarifa=n.tarifa))
     alias, mapeo = await _alias(db), _mapeo()
     registrados = {p.periodo: p for p in (await db.execute(select(TarifaxSicetacPeriodo))).scalars()}
     objetivo = periodos or (["VIGENTE"] + sorted(registrados))
@@ -318,6 +324,7 @@ async def guardar_horas(data: HorasIn, db: AsyncSession = Depends(get_db), _: Us
 async def tablero(periodos: Optional[str] = None, clientes: Optional[str] = None, origenes: Optional[str] = None,
                   destinos: Optional[str] = None, servicios: Optional[str] = None, categorias: Optional[str] = None,
                   dptos_origen: Optional[str] = None, dptos_destino: Optional[str] = None,
+                  tipos_tarifa: Optional[str] = None,
                   posicion: Optional[str] = None, carroceria: str = "FURGON",
                   horas: float = Query(0, ge=0, le=240), db: AsyncSession = Depends(get_db),
                   _: Usuario = Depends(get_current_user)):
@@ -331,16 +338,17 @@ async def tablero(periodos: Optional[str] = None, clientes: Optional[str] = None
     vehículo). Con horas = 0 el SICETAC es el costo del viaje solo.
     `posicion`: ENCIMA o DEBAJO de SICETAC, ya con las horas sumadas."""
     C = TarifaxComparacion
-    q = select(C.periodo, C.cliente, C.servicio, C.origen, C.destino, C.dpto_origen, C.dpto_destino, C.categoria,
+    q = select(C.periodo, C.cliente, C.servicio, C.origen, C.destino, C.dpto_origen, C.dpto_destino, C.tipo_tarifa, C.categoria,
                C.tipo_vehiculo, C.carroceria, C.distancia, C.tarifa_cliente, C.costo_sicetac, C.valor_hora, C.estado)
     rows = (await db.execute(q.where((C.carroceria == carroceria) | (C.estado != "OK")))).all()
     carrocerias = [r for (r,) in (await db.execute(select(C.carroceria).where(C.carroceria.isnot(None)).distinct()))]
     valor_conf = {h.tipo_vehiculo: h.valor_hora for h in (await db.execute(select(TarifaxHoraLogistica))).scalars()}
-    cols = ["periodo", "cliente", "servicio", "origen", "destino", "dpto_origen", "dpto_destino", "categoria",
+    cols = ["periodo", "cliente", "servicio", "origen", "destino", "dpto_origen", "dpto_destino", "tipo_tarifa", "categoria",
             "tipo_vehiculo", "carroceria", "distancia", "tarifa", "sicetac_base", "valor_hora", "estado"]
     df = pd.DataFrame(rows, columns=cols)
     vacio = {"opciones": {"periodos": [], "clientes": [], "origenes": [], "destinos": [], "servicios": [],
-                          "categorias": [], "dptos_origen": [], "dptos_destino": [], "carrocerias": sorted(carrocerias)},
+                          "categorias": [], "dptos_origen": [], "dptos_destino": [], "tipos_tarifa": [],
+                          "carrocerias": sorted(carrocerias)},
              "kpis": None, "por_mes": [], "por_cliente": [], "por_categoria": [], "detalle": [], "sin_referencia": [],
              "sin_referencia_total": 0, "carroceria": carroceria, "horas": horas}
     if df.empty:
@@ -365,10 +373,10 @@ async def tablero(periodos: Optional[str] = None, clientes: Optional[str] = None
                               "clientes": opciones("cliente"), "origenes": opciones("origen"),
                               "destinos": opciones("destino"), "servicios": opciones("servicio"),
                               "categorias": opciones("categoria"), "dptos_origen": opciones("dpto_origen"),
-                              "dptos_destino": opciones("dpto_destino")})
+                              "dptos_destino": opciones("dpto_destino"), "tipos_tarifa": opciones("tipo_tarifa")})
     for col, val in (("periodo", periodos), ("cliente", clientes), ("origen", origenes), ("destino", destinos),
                      ("servicio", servicios), ("categoria", categorias), ("dpto_origen", dptos_origen),
-                     ("dpto_destino", dptos_destino)):
+                     ("dpto_destino", dptos_destino), ("tipo_tarifa", tipos_tarifa)):
         sel = _lista(val)
         if sel:
             df = df[df[col].isin(sel)]

@@ -61,9 +61,10 @@ interface Fila {
   categoria: string | null; tipo_vehiculo: string | null; carroceria: string | null; distancia: number | null
   tarifa: number | null; sicetac: number | null; diferencia: number | null; variacion: number | null; estado: string
   sicetac_base?: number | null; horas_valor?: number | null; dpto_origen?: string | null; dpto_destino?: string | null
+  tipo_tarifa?: string | null
 }
 interface Tablero {
-  opciones: { periodos: { periodo: string; nombre: string }[]; clientes: string[]; origenes: string[]; destinos: string[]; servicios: string[]; categorias: string[]; carrocerias: string[]; dptos_origen: string[]; dptos_destino: string[] }
+  opciones: { periodos: { periodo: string; nombre: string }[]; clientes: string[]; origenes: string[]; destinos: string[]; servicios: string[]; categorias: string[]; carrocerias: string[]; dptos_origen: string[]; dptos_destino: string[]; tipos_tarifa: string[] }
   kpis: null | { tarifas: number; clientes: number; rutas: number; variacion: number | null; mediana: number; por_debajo: number; por_debajo_pct: number; tarifa_total: number; sicetac_total: number; sin_referencia: number; cobertura_pct: number; sicetac_base_total: number; horas_total: number; horas: number; horas_sin_valor: number }
   por_mes: { periodo: string; nombre: string; tarifas: number; variacion: number | null; tarifa_prom: number; sicetac_prom: number; sicetac_base_prom: number; horas_prom: number; variacion_prom: number | null; por_debajo: number }[]
   por_cliente: { cliente: string; tarifas: number; rutas: number; variacion: number | null; por_debajo: number }[]
@@ -71,8 +72,8 @@ interface Tablero {
   detalle: Fila[]; detalle_total?: number; sin_referencia: Fila[]; sin_referencia_total: number; carroceria: string
 }
 type Filtros = { periodos: string[]; clientes: string[]; origenes: string[]; destinos: string[]; servicios: string[]; categorias: string[]
-                 dptosOrigen: string[]; dptosDestino: string[]; posicion: '' | 'ENCIMA' | 'DEBAJO'; carroceria: string }
-const VACIO: Filtros = { periodos: [], clientes: [], origenes: [], destinos: [], servicios: [], categorias: [], dptosOrigen: [], dptosDestino: [], posicion: '', carroceria: 'FURGON' }
+                 dptosOrigen: string[]; dptosDestino: string[]; tiposTarifa: string[]; posicion: '' | 'ENCIMA' | 'DEBAJO'; carroceria: string }
+const VACIO: Filtros = { periodos: [], clientes: [], origenes: [], destinos: [], servicios: [], categorias: [], dptosOrigen: [], dptosDestino: [], tiposTarifa: [], posicion: '', carroceria: 'FURGON' }
 const CLAVE_HORAS = 'tx-comparativo-horas'
 const horasGuardadas = () => { try { return Math.max(0, Number(localStorage.getItem(CLAVE_HORAS)) || 0) } catch { return 0 } }
 
@@ -140,6 +141,7 @@ export default function TarifaxComparativo() {
     origenes: f.origenes.join('|') || undefined, destinos: f.destinos.join('|') || undefined,
     servicios: f.servicios.join('|') || undefined, categorias: f.categorias.join('|') || undefined, carroceria: f.carroceria,
     dptos_origen: f.dptosOrigen.join('|') || undefined, dptos_destino: f.dptosDestino.join('|') || undefined,
+    tipos_tarifa: f.tiposTarifa.join('|') || undefined,
     posicion: f.posicion || undefined, horas: horas || undefined,
   }), [f, horas])
   const tablero = useQuery<Tablero>({ queryKey: ['tx-comp-tablero', params], queryFn: () => api.get(`${BASE}/tablero`, { params }).then(r => r.data) })
@@ -190,7 +192,7 @@ export default function TarifaxComparativo() {
   const k = t?.kpis
   const opc = t?.opciones
   const hayFiltros = f.clientes.length + f.origenes.length + f.destinos.length + f.servicios.length + f.categorias.length
-    + f.dptosOrigen.length + f.dptosDestino.length > 0 || !!f.posicion
+    + f.dptosOrigen.length + f.dptosDestino.length + f.tiposTarifa.length > 0 || !!f.posicion
   const porCliente = (t?.por_cliente ?? []).filter(c => c.variacion != null)
   const filasDetalle = t?.detalle ?? []
 
@@ -301,8 +303,9 @@ export default function TarifaxComparativo() {
             <Multiple etiqueta="Cliente" opciones={opc.clientes} valor={f.clientes} onChange={v => setF(x => ({ ...x, clientes: v }))} />
             <Multiple etiqueta="Origen" opciones={opc.origenes} valor={f.origenes} onChange={v => setF(x => ({ ...x, origenes: v }))} />
             <Multiple etiqueta="Destino" opciones={opc.destinos} valor={f.destinos} onChange={v => setF(x => ({ ...x, destinos: v }))} />
-            <Multiple etiqueta="Servicio" opciones={opc.servicios} valor={f.servicios} onChange={v => setF(x => ({ ...x, servicios: v }))} />
-            <Multiple etiqueta="Vehículo" opciones={opc.categorias} valor={f.categorias} onChange={v => setF(x => ({ ...x, categorias: v }))} />
+            <Multiple etiqueta="Tipo de servicio" opciones={opc.servicios} valor={f.servicios} onChange={v => setF(x => ({ ...x, servicios: v }))} />
+            <Multiple etiqueta="Tipo de tarifa" opciones={opc.tipos_tarifa ?? []} valor={f.tiposTarifa} onChange={v => setF(x => ({ ...x, tiposTarifa: v }))} />
+            <Multiple etiqueta="Tipo de vehículo" opciones={opc.categorias} valor={f.categorias} onChange={v => setF(x => ({ ...x, categorias: v }))} />
             <Multiple etiqueta="Depto. origen" opciones={opc.dptos_origen ?? []} valor={f.dptosOrigen} onChange={v => setF(x => ({ ...x, dptosOrigen: v }))} />
             <Multiple etiqueta="Depto. destino" opciones={opc.dptos_destino ?? []} valor={f.dptosDestino} onChange={v => setF(x => ({ ...x, dptosDestino: v }))} />
             <TextField select size="small" label="Frente a SICETAC" value={f.posicion} sx={{ minWidth: 170 }}
@@ -427,8 +430,8 @@ export default function TarifaxComparativo() {
             <Button size="small" startIcon={<EditLocationAlt />} onClick={() => setAliasAbierto(true)}>Equivalencias de ciudades</Button>
             <Button size="small" startIcon={<FileDownload />} onClick={() => exportar(tab === 0 ? 'comparativo-sicetac' : 'sin-referencia-sicetac',
               (tab === 0 ? filasDetalle : t?.sin_referencia ?? []).map(r => ({
-                Mes: nombresPer[r.periodo] ?? r.periodo, Cliente: r.cliente, Servicio: r.servicio, Origen: r.origen, Destino: r.destino,
-                Vehículo: r.categoria, 'Configuración SICETAC': r.tipo_vehiculo, Carrocería: r.carroceria, 'Distancia (km)': r.distancia,
+                Mes: nombresPer[r.periodo] ?? r.periodo, Cliente: r.cliente, 'Tipo de servicio': r.servicio, Origen: r.origen, Destino: r.destino,
+                'Tipo de tarifa': r.tipo_tarifa, 'Tipo de vehículo': r.categoria, 'Configuración SICETAC': r.tipo_vehiculo, Carrocería: r.carroceria, 'Distancia (km)': r.distancia,
                 'Depto. origen': r.dpto_origen, 'Depto. destino': r.dpto_destino,
                 'Tarifa cliente': r.tarifa, 'SICETAC viaje': r.sicetac_base, [`Horas logísticas (${horas} h)`]: r.horas_valor,
                 'SICETAC total': r.sicetac, Diferencia: r.diferencia, 'Variación %': r.variacion,
@@ -451,7 +454,7 @@ export default function TarifaxComparativo() {
                         <Typography fontSize={11} color="text.secondary" noWrap>{r.servicio}</Typography>
                       </TableCell>
                       <TableCell sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{r.origen} → {r.destino}</TableCell>
-                      <TableCell sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{r.categoria}
+                      <TableCell sx={{ fontSize: 12, whiteSpace: 'nowrap' }} title={r.tipo_tarifa ?? ''}>{r.categoria}
                         <Typography fontSize={11} color="text.secondary" noWrap title={r.tipo_vehiculo ?? ''}>SICETAC {(r.tipo_vehiculo ?? '').split(' ')[0]}</Typography>
                       </TableCell>
                       <TableCell align="right" sx={{ fontSize: 12 }}>{num(r.distancia)}</TableCell>
