@@ -441,6 +441,53 @@ async def guardar_alias(data: AliasIn, db: AsyncSession = Depends(get_db), _: Us
     return {"alias": len(limpio), "periodos": resumen}
 
 
+# ─── Meses de SICETAC para el motor de tarifas ───────────────────────────────
+
+@router.get("/periodos")
+async def periodos_disponibles(db: AsyncSession = Depends(get_db), _: Usuario = Depends(get_current_user)):
+    """Los meses de SICETAC ya procesados, para cruzar contra ellos en el motor."""
+    from app.api.v1.endpoints.tarifax import DF1_PATH
+    regs = (await db.execute(select(TarifaxSicetacPeriodo).where(TarifaxSicetacPeriodo.estado == "LISTO",
+            TarifaxSicetacPeriodo.filas > 0).order_by(TarifaxSicetacPeriodo.periodo.desc()))).scalars().all()
+    return {"periodos": [{"periodo": r.periodo, "anio": r.anio, "mes": r.mes, "nombre": tc.nombre_periodo(r.periodo),
+                          "archivo": r.archivo} for r in regs if Path(r.ruta).exists()],
+            "vigente": DF1_PATH.exists()}
+
+
+def _como_tarifario(sic: pd.DataFrame, alias: Dict[str, str]) -> pd.DataFrame:
+    """Un mes de SICETAC con las columnas del tarifario de TarifaX, para el motor.
+
+    El motor no distingue tipo de carga: se toma la carga general y, donde la
+    carrocería no la tiene (furgón refrigerado), el promedio de las que haya.
+    Las ciudades pasan por las equivalencias de la empresa."""
+    llaves = ["o", "d", "tv", "carroceria"]
+    if "fecha" not in sic:
+        sic = sic.assign(fecha="")
+    if "tipo_carga" in sic:
+        general = sic[sic["tipo_carga"] == "GENERAL"]
+        con_general = pd.MultiIndex.from_frame(general[llaves])
+        resto = sic[~pd.MultiIndex.from_frame(sic[llaves]).isin(con_general)]
+        resto = resto.groupby(llaves, as_index=False).agg(costo=("costo", "mean"), distancia=("distancia", "first"),
+                                                          fecha=("fecha", "max"))
+        sic = pd.concat([general[llaves + ["costo", "distancia", "fecha"]], resto], ignore_index=True)
+    alias_n = {tc.normalizar(k): tc.normalizar(v) for k, v in alias.items()}
+    ciudad = {c: alias_n.get(c, c) for c in pd.unique(pd.concat([sic["o"], sic["d"]]))}
+    return pd.DataFrame({"ORIGEN": sic["o"].map(ciudad), "DESTINO": sic["d"].map(ciudad), "TIPO_VEHICULO": sic["tv"],
+                         "TIPO_CARROCERIA": sic["carroceria"], "COSTO_TOTAL_VIAJE": sic["costo"],
+                         "DISTANCIA": sic["distancia"], "FECHA_SICETAC": sic["fecha"].replace("", None)})
+
+
+async def tarifario_de_periodo(db: AsyncSession, periodo: str) -> tuple:
+    """(tarifario del mes con columnas del motor, equivalencias de ciudades normalizadas)."""
+    reg = (await db.execute(select(TarifaxSicetacPeriodo).where(TarifaxSicetacPeriodo.periodo == periodo))).scalar_one_or_none()
+    if reg is None or reg.estado != "LISTO" or not reg.filas or not Path(reg.ruta).exists():
+        raise HTTPException(404, f"El SICETAC de {tc.nombre_periodo(periodo)} no está cargado. Cárguelo en el comparativo SICETAC.")
+    alias = await _alias(db)
+    sic = await asyncio.to_thread(pd.read_pickle, reg.ruta, compression="gzip")
+    df1 = await asyncio.to_thread(_como_tarifario, sic, alias)
+    return df1, {tc.normalizar(k): tc.normalizar(v) for k, v in alias.items()}
+
+
 # ─── Costo de flota propia ────────────────────────────────────────────────────
 #
 # Lo que le cuesta a la empresa hacer la ruta con sus propios vehículos:

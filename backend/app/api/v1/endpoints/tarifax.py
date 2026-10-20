@@ -8,10 +8,12 @@ from pathlib import Path
 
 import httpx
 import pandas as pd
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.responses import Response
 from pydantic import BaseModel
 
+from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.infrastructure.models.usuario import Usuario
 
@@ -39,7 +41,7 @@ JOIN_KEYS = [
 REQUIRED_DF2_KEYS = ["ORIGEN", "DESTINO", "TIPO_VEHICULO"]
 
 # Columnas de SICETAC que se arrastran al resultado (ademas del costo).
-DF1_EXTRA_COLS = ["DPTO_ORIGEN", "DPTO_DESTINO", "DISTANCIA", "CATEGORIA_VEHICULO"]
+DF1_EXTRA_COLS = ["DPTO_ORIGEN", "DPTO_DESTINO", "DISTANCIA", "CATEGORIA_VEHICULO", "FECHA_SICETAC"]
 
 COL_DISTANCIA = "DISTANCIA"
 # Nombres posibles de la columna de CPK (costo por km) en el tarifario SICETAC.
@@ -78,22 +80,34 @@ def _norm(s: pd.Series) -> pd.Series:
     return out
 
 
-def _grouped_df1(keys: list[tuple[str, str]]) -> pd.DataFrame:
+def _codigo_vehiculo(s: pd.Series) -> pd.Series:
+    """La configuración sin su descripción: «2L2 Liviano entre 8 y 9 Tonel.» → «2L2».
+    SICETAC cambia la descripción entre meses (en septiembre de 2026 pasó a
+    «entre 7 y 9»); el código es el mismo, así que el cruce va por código."""
+    return _norm(s).str.split(" ").str[0].fillna("")
+
+
+def _llave(df: pd.DataFrame, col: str) -> pd.Series:
+    return _codigo_vehiculo(df[col]) if col == "TIPO_VEHICULO" else _norm(df[col])
+
+
+def _grouped_df1(keys: list[tuple[str, str]], base_sicetac: pd.DataFrame | None = None) -> pd.DataFrame:
     """Devuelve la base SICETAC colapsada a UNA fila por combinacion de llaves.
 
     Agrega el costo (promedio) por combinacion — asi el cruce es 1:1 y no explota en
-    multiples filas por origen. Cacheado por la firma de columnas de cruce.
+    multiples filas por origen. Cacheado por la firma de columnas de cruce (solo
+    el tarifario vigente; un mes elegido se agrupa en cada cruce).
     """
     sig = tuple(b for _, b in keys)
-    cached = _grouped_cache.get(sig)
+    cached = _grouped_cache.get(sig) if base_sicetac is None else None
     if cached is not None:
         return cached
 
-    df1 = _load_df1().copy()
+    df1 = (_load_df1() if base_sicetac is None else base_sicetac).copy()
     norm_cols: list[str] = []
     for i, (_, b) in enumerate(keys):
         nc = f"__k{i}"
-        df1[nc] = _norm(df1[b])
+        df1[nc] = _llave(df1, b)
         norm_cols.append(nc)
 
     base = df1[df1[norm_cols].ne("").all(axis=1)]  # descartar llaves vacias
@@ -120,7 +134,8 @@ def _grouped_df1(keys: list[tuple[str, str]]) -> pd.DataFrame:
     if COL_PRECIO_SICETAC in grouped.columns:
         grouped[COL_PRECIO_SICETAC] = grouped[COL_PRECIO_SICETAC].round(0)
 
-    _grouped_cache[sig] = grouped
+    if base_sicetac is None:
+        _grouped_cache[sig] = grouped
     return grouped
 
 
@@ -143,7 +158,7 @@ def _cpk_column(df1: pd.DataFrame) -> str | None:
 _CPK_PIVOT_COLS = ["MUNICIPIO_ORIGEN", "TIPO_VEHICULO", "CPK_PROMEDIO", "RUTAS_SICETAC"]
 
 
-def _cpk_por_origen() -> tuple[dict[tuple[str, str], float], pd.DataFrame]:
+def _cpk_por_origen(base_sicetac: pd.DataFrame | None = None) -> tuple[dict[tuple[str, str], float], pd.DataFrame]:
     """CPK (costo por km) promedio por municipio de ORIGEN Y tipologia de vehiculo.
 
     El CPK no es igual entre tipologias (tractocamion vs sencillo vs turbo…), por eso
@@ -151,12 +166,12 @@ def _cpk_por_origen() -> tuple[dict[tuple[str, str], float], pd.DataFrame]:
     existe; si no, lo deriva de COSTO_TOTAL_VIAJE / DISTANCIA. Devuelve
     (mapa (origen_norm, tipo_veh_norm) -> cpk_promedio, tabla-resumen pivot).
     """
-    df1 = _load_df1().copy()
+    df1 = (_load_df1() if base_sicetac is None else base_sicetac).copy()
     if "ORIGEN" not in df1.columns or "TIPO_VEHICULO" not in df1.columns:
         return {}, pd.DataFrame(columns=_CPK_PIVOT_COLS)
 
     df1["__origen"] = _norm(df1["ORIGEN"])
-    df1["__tveh"] = _norm(df1["TIPO_VEHICULO"])
+    df1["__tveh"] = _codigo_vehiculo(df1["TIPO_VEHICULO"])
     cpk_col = _cpk_column(df1)
     if cpk_col:
         df1["__cpk"] = pd.to_numeric(df1[cpk_col], errors="coerce")
@@ -189,10 +204,10 @@ def _cpk_por_origen() -> tuple[dict[tuple[str, str], float], pd.DataFrame]:
     return cpk_map, pivot_out
 
 
-def _distancia_origen_destino() -> dict[tuple[str, str], float]:
+def _distancia_origen_destino(base_sicetac: pd.DataFrame | None = None) -> dict[tuple[str, str], float]:
     """Distancia promedio por ruta (ORIGEN, DESTINO) desde SICETAC, para estimar
     la tarifa teorica de las rutas que no cruzaron por categoria de vehiculo."""
-    df1 = _load_df1().copy()
+    df1 = (_load_df1() if base_sicetac is None else base_sicetac).copy()
     if COL_DISTANCIA not in df1.columns or "ORIGEN" not in df1.columns or "DESTINO" not in df1.columns:
         return {}
     df1["__o"] = _norm(df1["ORIGEN"])
@@ -1668,8 +1683,12 @@ async def plantilla_distancias(current_user: Usuario = Depends(get_current_user)
 @router.post("/merge")
 async def merge_tarifas(
     file: UploadFile = File(...),
+    periodo: str | None = Form(None),
+    db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
+    """Cruza el archivo del cliente contra SICETAC. `periodo` (AAAA-MM) elige un
+    mes cargado en el comparativo; sin él (o «VIGENTE»), el tarifario interno."""
     content = await file.read()
     try:
         df2 = pd.read_excel(io.BytesIO(content))
@@ -1690,7 +1709,17 @@ async def merge_tarifas(
             ),
         )
 
-    df1 = _load_df1()
+    # Contra qué SICETAC: un mes cargado en el comparativo o el tarifario vigente.
+    from app.api.v1.endpoints import tarifax_comparativo as comparativo
+    from app.core.tarifax_comparativo import nombre_periodo
+    alias_n: dict[str, str] = {}
+    if periodo and periodo != "VIGENTE":
+        base_sicetac, alias_n = await comparativo.tarifario_de_periodo(db, periodo)
+        df1 = base_sicetac
+    else:
+        periodo, base_sicetac = "VIGENTE", None
+        df1 = _load_df1()
+    ciudad = lambda s: s.map(lambda v: alias_n.get(v, v)) if alias_n else s  # noqa: E731
 
     # Traduce la tipologia interna de la empresa (p.ej. TRACTOCAMION) al codigo
     # SICETAC (p.ej. 3S2) segun el mapeo configurado, para que el cruce y el CPK calcen.
@@ -1720,15 +1749,16 @@ async def merge_tarifas(
     norm_cols: list[str] = []
     for i, (a, _) in enumerate(keys):
         nc = f"__k{i}"
-        df2[nc] = _norm(df2[a])
+        df2[nc] = ciudad(_norm(df2[a])) if a in ("ORIGEN", "DESTINO") else _llave(df2, a)
         norm_cols.append(nc)
 
-    grouped = _grouped_df1(keys)
+    grouped = await asyncio.to_thread(_grouped_df1, keys, base_sicetac)
 
     # Cruce 1:1 por la ruta + categoria de vehiculo consultada.
     result = pd.merge(df2, grouped, on=norm_cols, how="left", suffixes=("", "_sicetac"))
     result = result.drop(columns=norm_cols)
     result["procesado_en"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    result["SICETAC_USADO"] = nombre_periodo(periodo)
 
     if COL_PRECIO_ACTUAL in result.columns and COL_PRECIO_SICETAC in result.columns:
         precio_cli = pd.to_numeric(result[COL_PRECIO_ACTUAL], errors="coerce")
@@ -1746,17 +1776,17 @@ async def merge_tarifas(
 
     # ── Hoja 2 "calculo por cpk": rutas SIN coincidencia con tarifa teorica ──
     # Tarifa teorica = distancia(origen, destino) x CPK promedio del municipio origen.
-    cpk_map, pivot_cpk = _cpk_por_origen()
-    dist_map = _distancia_origen_destino()
+    cpk_map, pivot_cpk = await asyncio.to_thread(_cpk_por_origen, base_sicetac)
+    dist_map = await asyncio.to_thread(_distancia_origen_destino, base_sicetac)
 
     sin = result[~matched_mask].copy()
     cpk_cols = [c for c in df2_cols if c in sin.columns]
     cpk_sheet = sin[cpk_cols].reset_index(drop=True)
     n = len(cpk_sheet)
 
-    o_norm = _norm(cpk_sheet["ORIGEN"]) if "ORIGEN" in cpk_sheet.columns else pd.Series([""] * n)
-    d_norm = _norm(cpk_sheet["DESTINO"]) if "DESTINO" in cpk_sheet.columns else pd.Series([""] * n)
-    v_norm = _norm(cpk_sheet["TIPO_VEHICULO"]) if "TIPO_VEHICULO" in cpk_sheet.columns else pd.Series([""] * n)
+    o_norm = ciudad(_norm(cpk_sheet["ORIGEN"])) if "ORIGEN" in cpk_sheet.columns else pd.Series([""] * n)
+    d_norm = ciudad(_norm(cpk_sheet["DESTINO"])) if "DESTINO" in cpk_sheet.columns else pd.Series([""] * n)
+    v_norm = _codigo_vehiculo(cpk_sheet["TIPO_VEHICULO"]) if "TIPO_VEHICULO" in cpk_sheet.columns else pd.Series([""] * n)
 
     # Distancia por carretera con el MISMO motor del modulo de Distancias
     # (geocodificacion + OSRM / Dijkstra sobre Contraction Hierarchies) para las
@@ -1831,7 +1861,8 @@ async def merge_tarifas(
         pivot_cpk.to_excel(writer, index=False, sheet_name="CPK por Origen")
     output.seek(0)
 
-    filename = f"TarifaX_resultado_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    sufijo = "" if periodo == "VIGENTE" else f"_SICETAC_{periodo}"
+    filename = f"TarifaX_resultado{sufijo}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
 
     return {
         "stats": {
@@ -1844,6 +1875,8 @@ async def merge_tarifas(
             "municipios_origen_cpk": len(pivot_cpk),
             "vehiculos_mapeados": vehiculos_mapeados,
             "distancias_por_ruta": dist_ruteadas,
+            "periodo_sicetac": periodo,
+            "sicetac_usado": nombre_periodo(periodo),
         },
         "preview": {
             "cruzados": _preview(matched),

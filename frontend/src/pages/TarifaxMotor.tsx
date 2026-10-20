@@ -1,11 +1,12 @@
 import React, { useRef, useState } from 'react'
 import {
-  Box, Typography, Card, Button, Chip, LinearProgress, Alert, Grid, alpha, Tabs, Tab,
+  Box, Typography, Card, Button, Chip, LinearProgress, Alert, Grid, alpha, Tabs, Tab, TextField, MenuItem, Stack,
 } from '@mui/material'
 import {
   Upload, Download, CheckCircle, MergeType, InsertDriveFile, Close,
-  DirectionsCar,
+  DirectionsCar, CalendarMonth,
 } from '@mui/icons-material'
+import { Link as RouterLink } from 'react-router-dom'
 import { Layout } from '@/components/layout/Layout'
 import { apiClient } from '@/api/client'
 import toast from 'react-hot-toast'
@@ -16,6 +17,10 @@ const TX_COLOR = COLOR_MODULO
 const TX_DARK = COLOR_MODULO
 
 interface PreviewTabla { columns: string[]; rows: Record<string, unknown>[]; total: number }
+interface PeriodoSicetac { periodo: string; anio: number; mes: number; nombre: string; archivo: string | null }
+const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+const VIGENTE = 'VIGENTE'
+
 interface MergeResult {
   stats: {
     registros: number
@@ -26,6 +31,7 @@ interface MergeResult {
     municipios_origen_cpk?: number
     vehiculos_mapeados?: number
     distancias_por_ruta?: number
+    sicetac_usado?: string
   }
   preview?: { cruzados: PreviewTabla; calculo_por_cpk: PreviewTabla }
   filename: string
@@ -40,6 +46,26 @@ export default function TarifaxMotor() {
   const [configOpen, setConfigOpen] = useState(false)
   const [mapeo, setMapeo] = useState<Record<string, string>>({})
   const [previewTab, setPreviewTab] = useState(0)
+  // Contra qué SICETAC se cruza: los meses cargados en el comparativo, o el
+  // tarifario vigente. Por defecto, el mes más reciente.
+  const [periodos, setPeriodos] = useState<PeriodoSicetac[]>([])
+  const [hayVigente, setHayVigente] = useState(true)
+  const [anioSel, setAnioSel] = useState<string>('')
+  const [periodoSel, setPeriodoSel] = useState<string>(VIGENTE)
+  React.useEffect(() => {
+    apiClient.get<{ periodos: PeriodoSicetac[]; vigente: boolean }>('/tarifax/comparativo/periodos').then(r => {
+      setPeriodos(r.data.periodos); setHayVigente(r.data.vigente)
+      const ultimo = r.data.periodos[0]
+      if (ultimo) { setAnioSel(String(ultimo.anio)); setPeriodoSel(ultimo.periodo) } else setAnioSel(VIGENTE)
+    }).catch(() => setAnioSel(VIGENTE))
+  }, [])
+  const anios = Array.from(new Set(periodos.map(p => p.anio))).sort((a, b) => b - a)
+  const mesesDelAnio = periodos.filter(p => String(p.anio) === anioSel).sort((a, b) => a.mes - b.mes)
+  const elegirAnio = (a: string) => {
+    setAnioSel(a); setResult(null)
+    if (a === VIGENTE) setPeriodoSel(VIGENTE)
+    else { const ms = periodos.filter(p => String(p.anio) === a); setPeriodoSel(ms[0]?.periodo ?? VIGENTE) }
+  }
 
   const loadMapeo = React.useCallback(() => {
     apiClient.get<Record<string, string>>('/tarifax/mapeo-vehiculos')
@@ -73,6 +99,7 @@ export default function TarifaxMotor() {
     try {
       const formData = new FormData()
       formData.append('file', file)
+      formData.append('periodo', periodoSel)
       const res = await apiClient.post<MergeResult>('/tarifax/merge', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 600000,
@@ -126,7 +153,7 @@ export default function TarifaxMotor() {
             Motor de Cruce TarifaX
           </Typography>
           <Typography variant="body2" sx={{ color: '#64748B', fontSize: 12 }}>
-            Cruza tu archivo Excel contra el tarifario interno SICETAC
+            Cruza tu archivo Excel contra el SICETAC del mes que elijas
           </Typography>
         </Box>
         <Button
@@ -211,10 +238,10 @@ export default function TarifaxMotor() {
               <InsertDriveFile sx={{ color: TX_COLOR, fontSize: 26 }} />
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography sx={{ fontWeight: 600, fontSize: 13, color: '#1E293B' }}>
-                  TARIFARIO_SICETAC.xlsx
+                  {periodoSel === VIGENTE ? 'TARIFARIO_SICETAC.xlsx' : `SICETAC ${periodos.find(p => p.periodo === periodoSel)?.nombre ?? periodoSel}`}
                 </Typography>
                 <Typography sx={{ fontSize: 11, color: '#64748B' }}>
-                  Cargado automáticamente
+                  {periodoSel === VIGENTE ? 'Tarifario vigente, cargado automáticamente' : (periodos.find(p => p.periodo === periodoSel)?.archivo ?? 'Cargado en el comparativo SICETAC')}
                 </Typography>
               </Box>
               <Chip
@@ -330,6 +357,29 @@ export default function TarifaxMotor() {
         </Grid>
       </Grid>
 
+      {/* Periodo SICETAC contra el cual se cruza */}
+      <Card sx={{ p: 2, mb: 2, borderRadius: '12px', border: `1px solid ${alpha(TX_COLOR, 0.2)}` }}>
+        <Stack direction={{ xs: 'column', md: 'row' }} gap={2} alignItems={{ md: 'center' }}>
+          <Box sx={{ flex: 1 }}>
+            <Typography sx={{ fontWeight: 700, fontSize: 14, color: '#1E293B' }}>
+              <CalendarMonth sx={{ fontSize: 18, verticalAlign: 'text-bottom', mr: 0.75, color: TX_COLOR }} />SICETAC contra el cual cruzar
+            </Typography>
+            <Typography sx={{ fontSize: 12, color: '#64748B' }}>
+              Los mismos meses cargados en el <RouterLink to="/tarifax/comparativo">Comparativo SICETAC</RouterLink>.
+              {!periodos.length && ' Todavía no hay meses cargados: se usa el tarifario vigente.'}
+            </Typography>
+          </Box>
+          <TextField select size="small" label="Año" value={anioSel} onChange={e => elegirAnio(e.target.value)} sx={{ minWidth: 190 }}>
+            {anios.map(a => <MenuItem key={a} value={String(a)}>{a}</MenuItem>)}
+            {hayVigente && <MenuItem value={VIGENTE}>Tarifario vigente (sin mes)</MenuItem>}
+          </TextField>
+          <TextField select size="small" label="Mes" value={anioSel === VIGENTE ? '' : periodoSel} disabled={anioSel === VIGENTE}
+            onChange={e => { setPeriodoSel(e.target.value); setResult(null) }} sx={{ minWidth: 170 }}>
+            {mesesDelAnio.map(p => <MenuItem key={p.periodo} value={p.periodo}>{MESES[p.mes - 1]}</MenuItem>)}
+          </TextField>
+        </Stack>
+      </Card>
+
       {/* Process button */}
       <Box sx={{ mb: 3 }}>
         {processing && (
@@ -355,7 +405,7 @@ export default function TarifaxMotor() {
             '&:disabled': { background: '#E2E8F0', boxShadow: 'none', color: '#94A3B8' },
           }}
         >
-          {processing ? 'Procesando cruce...' : 'Procesar Cruce de Tarifas'}
+          {processing ? 'Procesando cruce...' : `Procesar Cruce de Tarifas · ${periodoSel === VIGENTE ? 'tarifario vigente' : periodos.find(p => p.periodo === periodoSel)?.nombre ?? periodoSel}`}
         </Button>
       </Box>
 
@@ -364,6 +414,7 @@ export default function TarifaxMotor() {
         <Box>
           <Grid container spacing={2} sx={{ mb: 2.5 }}>
             {[
+              { label: 'SICETAC usado', value: result.stats.sicetac_usado ?? '—' },
               { label: 'Registros resultado', value: result.stats.registros.toLocaleString() },
               { label: 'Cruzados correctamente', value: result.stats.cruzados.toLocaleString() },
               { label: 'Sin coincidencia (hoja CPK)', value: result.stats.sin_coincidencia.toLocaleString() },
