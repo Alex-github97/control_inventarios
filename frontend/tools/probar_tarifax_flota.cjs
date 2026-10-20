@@ -71,7 +71,7 @@ const aparece = async (loc, ms = 30000) => { try { await loc.first().waitFor({ t
   comprobar(await aparece(p.getByRole('columnheader', { name: 'Sobrecosto' })), 'la tabla trae la columna Sobrecosto');
   comprobar(await aparece(p.getByRole('columnheader', { name: 'Costo total de ruta' })), 'la tabla trae Costo total de ruta');
   comprobar(await aparece(p.getByText('Margen sobre la tarifa')), 'muestra el margen sobre la tarifa');
-  comprobar(await aparece(p.getByText('Por cliente')), 'muestra el resumen por cliente');
+  comprobar(!(await p.getByText('Por cliente').count()), 'sin la tabla por cliente');
   await p.getByRole('columnheader', { name: 'Costo total de ruta' }).first().scrollIntoViewIfNeeded();
   await p.screenshot({ path: `${SALIDA}/flota_tabla.png`, fullPage: false });
 

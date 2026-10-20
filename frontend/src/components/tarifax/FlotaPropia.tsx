@@ -85,27 +85,6 @@ export function TablaFlota({ flota, onConfigurar }: { flota: Flota | null | unde
         <Grid size={{ xs: 6, md: 3 }}><Cifra titulo="Rutas con pérdida" valor={num(r.con_perdida)} sub={`de ${num(r.rutas)} · ${num(r.con_sobrecosto)} con sobrecosto`} /></Grid>
         <Grid size={{ xs: 6, md: 3 }}><Cifra titulo="Flota propia vs SICETAC" valor={pct(r.vs_sicetac)} sub="costo total frente a SICETAC de las mismas rutas" /></Grid>
       </Grid>}
-      {flota.por_cliente.length > 0 && <Box sx={{ px: 2, mb: 2 }}>
-        <Typography fontWeight={700} fontSize={14} mb={0.5}>Por cliente</Typography>
-        <Box sx={{ overflowX: 'auto', maxHeight: 260 }}>
-          <Table size="small" stickyHeader>
-            <TableHead><TableRow>{['Cliente', 'Rutas', 'Tarifa cliente', 'Costo total de ruta', 'Rentabilidad', 'Margen'].map((h, i) =>
-              <TableCell key={h} align={i ? 'right' : 'left'} sx={{ fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap' }}>{h}</TableCell>)}</TableRow></TableHead>
-            <TableBody>
-              {flota.por_cliente.map(c => (
-                <TableRow key={c.cliente} hover>
-                  <TableCell sx={{ fontSize: 12 }}>{c.cliente}</TableCell>
-                  <TableCell align="right" sx={{ fontSize: 12 }}>{num(c.rutas)}</TableCell>
-                  <TableCell align="right" sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{pesos(c.tarifa_total)}</TableCell>
-                  <TableCell align="right" sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{pesos(c.costo_total)}</TableCell>
-                  <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}><Signo v={c.rentabilidad} /></TableCell>
-                  <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}><Signo v={c.margen} sufijo="%" /></TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Box>
-      </Box>}
       <Box sx={{ overflowX: 'auto' }}>
         <Table size="small" sx={{ '& td, & th': { px: 1 } }}>
           <TableHead><TableRow>
