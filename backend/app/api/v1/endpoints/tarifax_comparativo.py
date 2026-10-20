@@ -143,7 +143,23 @@ async def estado(anio: int = Query(default_factory=lambda: datetime.now().year),
                       "cargado_en": r.updated_at.isoformat() if r and r.updated_at else None,
                       "usuario": r.usuario if r else None})
     from app.api.v1.endpoints.tarifax import DF1_PATH
-    return {"negociaciones": {"total": total, "comparables": comparables, "clientes": clientes,
+    # Cada categoría de vehículo de los clientes y su equivalencia SICETAC
+    # (la misma configuración del motor de tarifas).
+    crudo = _mapeo()
+    mapa = tc.mapeo_categorias(crudo)
+    directas = {tc.normalizar(k) for k in crudo}
+    vehiculos = []
+    for cat, n in (await db.execute(select(TarifaxNegociacion.categoria_vehiculo, func.count(TarifaxNegociacion.id))
+                                    .where(TarifaxNegociacion.categoria_vehiculo.isnot(None))
+                                    .group_by(TarifaxNegociacion.categoria_vehiculo)
+                                    .order_by(func.count(TarifaxNegociacion.id).desc()))).all():
+        clave = tc.normalizar(cat)
+        sinonimo = tc.SINONIMOS_CATEGORIA.get(clave)
+        vehiculos.append({"categoria": cat, "tarifas": n, "tipo_sicetac": mapa.get(clave),
+                          "por": "MAPEO" if clave in directas else ("SINONIMO" if clave in mapa else None),
+                          "sinonimo_de": sinonimo if clave not in directas and clave in mapa else None})
+    return {"vehiculos": vehiculos,
+            "negociaciones": {"total": total, "comparables": comparables, "clientes": clientes,
                               "archivo": ultima[0] if ultima else None,
                               "cargado_en": ultima[1].isoformat() if ultima and ultima[1] else None},
             "anio": anio, "anios": anios, "meses": meses, "vigente": DF1_PATH.exists()}

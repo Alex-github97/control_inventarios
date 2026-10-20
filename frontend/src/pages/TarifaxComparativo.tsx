@@ -19,7 +19,7 @@ import {
 import Grid from '@mui/material/Grid2'
 import {
   CompareArrows, CloudUpload, Delete, ExpandMore, FileDownload, CheckCircle, RadioButtonUnchecked, Refresh,
-  EditLocationAlt, FilterAltOff, TrendingDown, TrendingUp, AccessTime,
+  EditLocationAlt, FilterAltOff, TrendingDown, TrendingUp, AccessTime, DirectionsCar, WarningAmber,
 } from '@mui/icons-material'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -33,6 +33,7 @@ import { Encabezado, errorApi } from '@/components/comun/Registro'
 import { apiClient as api } from '@/api/client'
 import { COLOR_MODULO } from '@/config/marca'
 import { CascadaSicetac } from '@/components/tarifax/CascadaSicetac'
+import { ConfigVehiculos } from '@/components/tarifax/ConfigVehiculos'
 
 const COLOR = COLOR_MODULO
 // Par divergente validado (CVD y contraste) sobre la superficie clara.
@@ -49,7 +50,9 @@ const num = (v?: number | null) => v == null ? '—' : v.toLocaleString('es-CO',
 const fecha = (s?: string | null) => s ? new Date(s).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' }) : ''
 
 interface Mes { periodo: string; mes: number; nombre: string; cargado: boolean; archivo: string | null; rutas: number; cargado_en: string | null; usuario: string | null }
+interface Vehiculo { categoria: string; tarifas: number; tipo_sicetac: string | null; por: 'MAPEO' | 'SINONIMO' | null; sinonimo_de: string | null }
 interface Estado {
+  vehiculos: Vehiculo[]
   negociaciones: { total: number; comparables: number; clientes: number; archivo: string | null; cargado_en: string | null }
   anio: number; anios: number[]; meses: Mes[]; vigente: boolean
 }
@@ -125,6 +128,7 @@ export default function TarifaxComparativo() {
   // Horas logísticas del análisis: las decide quien analiza; se recuerdan en este navegador.
   const [horas, setHoras] = useState<number>(horasGuardadas)
   const [horasAbierto, setHorasAbierto] = useState(false)
+  const [vehiculosAbierto, setVehiculosAbierto] = useState(false)
   useEffect(() => { try { localStorage.setItem(CLAVE_HORAS, String(horas)) } catch { /* sin almacenamiento */ } }, [horas])
   const archivoNeg = useRef<HTMLInputElement>(null)
   const archivoMes = useRef<HTMLInputElement>(null)
@@ -170,6 +174,11 @@ export default function TarifaxComparativo() {
     const m = mesElegido.current
     if (a) subir(`${BASE}/sicetac/${anio}/${m}`, a, `m${m}`, r => `${r.nombre}: ${num(r.rutas)} rutas SICETAC · ${num(r.tarifas_con_referencia)} tarifas con referencia`)
       .finally(() => { entrada.value = '' })
+  }
+  const recalcularVehiculos = async () => {
+    const id = toast.loading('Recalculando la comparación con las nuevas equivalencias…')
+    try { await api.post(`${BASE}/recalcular`, {}, LARGO); toast.success('Comparación recalculada', { id }); refrescar() }
+    catch (e) { toast.error(errorApi(e), { id }) }
   }
   const borrarMes = async (m: Mes) => {
     if (!window.confirm(`¿Quitar el SICETAC de ${m.nombre} ${anio}? Su comparación sale del tablero.`)) return
@@ -220,6 +229,29 @@ export default function TarifaxComparativo() {
                 </Button>
               </Stack>
               {cargando === 'neg' && <LinearProgress sx={{ mt: 1.5 }} />}
+            </Paper>
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
+              <Stack direction={{ xs: 'column', md: 'row' }} gap={2} alignItems={{ md: 'center' }} mb={1.25}>
+                <Box flex={1}>
+                  <Typography fontWeight={700}><DirectionsCar sx={{ fontSize: 18, verticalAlign: 'text-bottom', mr: 0.5, color: COLOR }} />Equivalencias de vehículos</Typography>
+                  <Typography fontSize={13} color="text.secondary">
+                    Cómo se traduce cada vehículo de las tarifas de los clientes a la configuración SICETAC. Es la misma configuración del motor de tarifas: cambiarla aquí la cambia allá.
+                  </Typography>
+                </Box>
+                <Button variant="outlined" startIcon={<DirectionsCar />} onClick={() => setVehiculosAbierto(true)}>Editar equivalencias</Button>
+              </Stack>
+              <Stack direction="row" gap={1} flexWrap="wrap">
+                {(e?.vehiculos ?? []).map(v => (
+                  <Tooltip key={v.categoria} title={v.tipo_sicetac
+                    ? (v.por === 'SINONIMO' ? `Se toma la equivalencia de ${v.sinonimo_de}: agregue ${v.categoria} si debe ser otra` : 'Equivalencia configurada')
+                    : 'Sin equivalencia: estas tarifas no se pueden comparar'}>
+                    <Chip size="small" variant="outlined" color={v.tipo_sicetac ? 'default' : 'warning'}
+                      icon={v.tipo_sicetac ? undefined : <WarningAmber />}
+                      label={`${v.categoria} → ${v.tipo_sicetac ? v.tipo_sicetac.split(' ')[0] : 'sin equivalencia'} · ${num(v.tarifas)} tarifas${v.por === 'SINONIMO' ? ` (como ${v.sinonimo_de})` : ''}`} />
+                  </Tooltip>
+                ))}
+                {!e?.vehiculos?.length && <Typography fontSize={12} color="text.secondary">Cargue las negociaciones para ver sus vehículos.</Typography>}
+              </Stack>
             </Paper>
             <Stack direction="row" alignItems="center" gap={1.5} mb={1.5}>
               <Typography fontWeight={700}>SICETAC por mes</Typography>
@@ -466,6 +498,10 @@ export default function TarifaxComparativo() {
       </Box>
       <DialogoAlias abierto={aliasAbierto} onCerrar={() => setAliasAbierto(false)} onGuardado={refrescar} />
       <DialogoHoras abierto={horasAbierto} onCerrar={() => setHorasAbierto(false)} onGuardado={refrescar} />
+      <ConfigVehiculos open={vehiculosAbierto} onClose={() => setVehiculosAbierto(false)} onGuardado={recalcularVehiculos}
+        nota={<Alert severity="warning" sx={{ mb: 2, fontSize: 12.5 }}>
+          Los vehículos de las tarifas de clientes son: {(e?.vehiculos ?? []).map(v => v.categoria).join(', ') || '—'}. Al guardar se recalcula toda la comparación.
+        </Alert>} />
     </Layout>
   )
 }

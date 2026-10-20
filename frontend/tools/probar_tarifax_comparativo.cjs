@@ -50,6 +50,20 @@ const aparece = async (loc, ms = 30000) => { try { await loc.first().waitFor({ t
   for (const m of ['Enero', 'Junio', 'Diciembre'])
     comprobar(await aparece(p.getByRole('button', { name: `Cargar SICETAC de ${m}` })), `botón de cargue de ${m}`);
 
+  // Equivalencias de vehículos (la misma configuración del motor).
+  comprobar(await aparece(p.getByText('Equivalencias de vehículos')), 'el informe muestra las equivalencias de vehículos');
+  comprobar(await aparece(p.getByText(/TRACTOMULA → 3S2 · .* \(como TRACTOCAMION\)/)), 'TRACTOMULA usa la equivalencia de TRACTOCAMION y lo dice');
+  comprobar(await aparece(p.getByText(/TURBO → 2L3 · /)), 'TURBO → 2L3');
+  await p.screenshot({ path: `${SALIDA}/equivalencias.png` });
+  await p.getByRole('button', { name: 'Editar equivalencias' }).click();
+  const dv = p.getByRole('dialog');
+  comprobar(await aparece(dv.getByText('Configuración de tipologías de vehículo')), 'abre el mismo editor del motor');
+  comprobar(await aparece(dv.getByText(/Los vehículos de las tarifas de clientes son: /)), 'el editor lista los vehículos de los clientes');
+  // Guardar queda deshabilitado mientras carga: guardar antes borraba todas las equivalencias.
+  await dv.locator('input[value="TRACTOCAMION"]').waitFor({ timeout: 20000 });
+  await dv.getByRole('button', { name: 'Guardar configuración' }).click();   // sin cambios: solo recalcula
+  comprobar(await aparece(p.getByText('Comparación recalculada'), 120000), 'al guardar recalcula la comparación');
+
   if (process.env.SICETAC) {
     const [selector] = await Promise.all([p.waitForEvent('filechooser'), p.getByRole('button', { name: 'Cargar SICETAC de Febrero' }).click()]);
     await selector.setFiles(process.env.SICETAC);
@@ -72,7 +86,8 @@ const aparece = async (loc, ms = 30000) => { try { await loc.first().waitFor({ t
   await p.getByRole('dialog').getByRole('button', { name: 'Cancelar' }).click();
   await p.getByRole('tab', { name: /Rutas comparadas/ }).click();
 
-  // Cascada por mes y horas logísticas.
+  // Cascada por mes y horas logísticas (necesita meses de prueba: MESES=1).
+  if (process.env.MESES) {
   if (await p.getByRole('button', { name: 'Quitar filtros' }).count()) await p.getByRole('button', { name: 'Quitar filtros' }).click();
   const mes = p.locator('.MuiAutocomplete-root').filter({ has: p.getByLabel('Mes') });
   await mes.locator('input').click();
@@ -95,9 +110,16 @@ const aparece = async (loc, ms = 30000) => { try { await loc.first().waitFor({ t
   await dh.getByLabel('Configuración 2', { exact: true }).fill('35000');
   await dh.getByRole('button', { name: 'Guardar' }).click();
   comprobar(await aparece(p.getByText('Valor de la hora logística guardado')), 'guarda el valor de la hora por vehículo');
+  }
   comprobar(await aparece(p.getByLabel('Depto. destino')) && await aparece(p.getByLabel('Frente a SICETAC')), 'filtros de departamento y posición frente a SICETAC');
   await p.waitForTimeout(2000);
   await p.screenshot({ path: `${SALIDA}/tarifax-comparativo.png`, fullPage: true });
+
+  // El motor sigue usando el mismo editor.
+  await p.goto(APP + '/tarifax/motor', { waitUntil: 'networkidle' });
+  await p.getByRole('button', { name: /Tipolog|Configurar|Editar/ }).first().click();
+  comprobar(await aparece(p.getByRole('dialog').getByText('Configuración de tipologías de vehículo')), 'el motor abre el editor compartido');
+  await p.getByRole('dialog').getByRole('button', { name: 'Cancelar' }).click();
 
   comprobar(!errores.length, `sin errores de JavaScript ${errores.join(' | ')}`);
   comprobar(!fallidas.length, `sin respuestas 5xx ${fallidas.join(' | ')}`);
