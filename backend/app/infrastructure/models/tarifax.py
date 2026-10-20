@@ -59,12 +59,17 @@ class TarifaxComparacion(Base):
     servicio          = Column(String(120), nullable=True)
     origen            = Column(String(120), nullable=False)
     destino           = Column(String(120), nullable=False)
+    dpto_origen       = Column(String(120), nullable=True)
+    dpto_destino      = Column(String(120), nullable=True)
     categoria         = Column(String(60), nullable=True)
     tipo_vehiculo     = Column(String(60), nullable=True)           # configuración SICETAC
     carroceria        = Column(String(60), nullable=True)           # vacío = sin referencia
     distancia         = Column(Float, nullable=True)
     tarifa_cliente    = Column(Float, nullable=True)
     costo_sicetac     = Column(Float, nullable=True)
+    # Valor de una hora logística según el archivo SICETAC (vacío si no lo
+    # trae: entonces se usa el valor por configuración del tablero).
+    valor_hora        = Column(Float, nullable=True)
     diferencia        = Column(Float, nullable=True)
     variacion_pct     = Column(Float, nullable=True)
     # OK / SIN_RUTA (SICETAC no publica la ruta) / SIN_VEHICULO (la categoría
@@ -83,3 +88,13 @@ class TarifaxAliasCiudad(Base, TimestampMixin):
     id         = Column(Integer, primary_key=True, index=True)
     nombre     = Column(String(120), nullable=False, unique=True)
     equivale_a = Column(String(120), nullable=False)
+
+
+class TarifaxHoraLogistica(Base, TimestampMixin):
+    """Valor de una hora logística por configuración SICETAC (2, 3S2, 2L3…).
+    Se usa cuando el archivo SICETAC del mes no trae ese valor. Las horas que
+    se suman las decide quien analiza, en el tablero; el valor sale de acá."""
+    __tablename__ = "tarifax_horas_logisticas"
+    id            = Column(Integer, primary_key=True, index=True)
+    tipo_vehiculo = Column(String(60), nullable=False, unique=True)
+    valor_hora    = Column(Float, nullable=False)

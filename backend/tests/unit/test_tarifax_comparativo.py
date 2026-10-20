@@ -64,3 +64,17 @@ def test_sin_equivalencia_de_vehiculo_y_no_comparables():
 def test_nombre_del_periodo():
     assert tc.nombre_periodo("2026-03") == "Marzo 2026"
     assert tc.nombre_periodo("VIGENTE") == "Tarifario TarifaX vigente"
+
+
+def test_valor_hora_logistica_del_archivo_sicetac():
+    base = pd.DataFrame([("A", "B", "2", "FURGON", 100, 10, 7), ("A", "B", "2", "FURGON", 300, 10, 9)],
+                        columns=["ORIGEN", "DESTINO", "TIPO_VEHICULO", "TIPO_CARROCERIA", "COSTO_TOTAL_VIAJE",
+                                 "DISTANCIA", "VALOR_HORA_LOGISTICA"])
+    [f] = tc.cruzar([neg(1, "A", "B", "POR TIPO DE VEHICULO SENCILLO", 400)], tc.agrupar_sicetac(base), {}, MAPEO, "P")
+    assert f["valor_hora"] == 8 and f["costo_sicetac"] == 200
+
+
+def test_sin_valor_hora_en_el_archivo_queda_vacio():
+    [f] = tc.cruzar([neg(1, "A", "B", "POR TIPO DE VEHICULO SENCILLO", 400)],
+                    sicetac(("A", "B", "2", "FURGON", 100, 10)), {}, MAPEO, "P")
+    assert f["valor_hora"] is None

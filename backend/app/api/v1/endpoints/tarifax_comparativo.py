@@ -29,7 +29,7 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.core.tenant import ESQUEMA_POR_DEFECTO, esquema_actual
 from app.infrastructure.models.tarifax import (
-    TarifaxAliasCiudad, TarifaxComparacion, TarifaxNegociacion, TarifaxSicetacPeriodo,
+    TarifaxAliasCiudad, TarifaxComparacion, TarifaxHoraLogistica, TarifaxNegociacion, TarifaxSicetacPeriodo,
 )
 from app.infrastructure.models.usuario import Usuario
 
@@ -96,6 +96,7 @@ async def _alias(db: AsyncSession) -> Dict[str, str]:
 async def _recalcular(db: AsyncSession, periodos: Optional[List[str]] = None) -> Dict[str, int]:
     """Rehace el cruce de los periodos indicados (todos si no se indica)."""
     negs = [dict(id=n.id, cliente=n.cliente, servicio=n.servicio, origen=n.origen, destino=n.destino,
+                 dpto_origen=n.dpto_origen, dpto_destino=n.dpto_destino,
                  categoria_vehiculo=n.categoria_vehiculo, tarifa=n.tarifa)
             for n in (await db.execute(select(TarifaxNegociacion))).scalars()]
     alias, mapeo = await _alias(db), _mapeo()
@@ -269,28 +270,77 @@ def _ponderada(t: pd.Series, s: pd.Series) -> Optional[float]:
     return round((float(t.sum()) - st) / st * 100, 2) if st else None
 
 
+class HorasIn(BaseModel):
+    valores: Dict[str, float]
+
+
+@router.get("/horas-logisticas")
+async def ver_horas(db: AsyncSession = Depends(get_db), _: Usuario = Depends(get_current_user)):
+    """Valor de una hora logística por configuración SICETAC, y qué periodos ya
+    lo traen en su propio archivo (esos no usan esta tabla)."""
+    C = TarifaxComparacion
+    tipos = [t for (t,) in (await db.execute(select(C.tipo_vehiculo).where(C.tipo_vehiculo.isnot(None)).distinct()))]
+    valores = {h.tipo_vehiculo: h.valor_hora for h in (await db.execute(select(TarifaxHoraLogistica))).scalars()}
+    con_archivo = [p for (p,) in (await db.execute(select(C.periodo).where(C.valor_hora.isnot(None)).distinct()))]
+    return {"tipos": sorted(set(tipos) | set(valores)), "valores": valores,
+            "periodos_con_valor_en_archivo": [{"periodo": p, "nombre": tc.nombre_periodo(p)} for p in sorted(con_archivo)]}
+
+
+@router.put("/horas-logisticas")
+async def guardar_horas(data: HorasIn, db: AsyncSession = Depends(get_db), _: Usuario = Depends(get_current_user)):
+    if any(v < 0 for v in data.valores.values()):
+        raise HTTPException(422, "El valor de la hora logística no puede ser negativo.")
+    await db.execute(delete(TarifaxHoraLogistica))
+    for tipo, valor in data.valores.items():
+        if tc.normalizar(tipo) and valor:
+            db.add(TarifaxHoraLogistica(tipo_vehiculo=tc.normalizar(tipo), valor_hora=float(valor)))
+    await db.commit()
+    return {"ok": True}
+
+
 @router.get("/tablero")
 async def tablero(periodos: Optional[str] = None, clientes: Optional[str] = None, origenes: Optional[str] = None,
                   destinos: Optional[str] = None, servicios: Optional[str] = None, categorias: Optional[str] = None,
-                  carroceria: str = "FURGON", db: AsyncSession = Depends(get_db),
+                  dptos_origen: Optional[str] = None, dptos_destino: Optional[str] = None,
+                  posicion: Optional[str] = None, carroceria: str = "FURGON",
+                  horas: float = Query(0, ge=0, le=240), db: AsyncSession = Depends(get_db),
                   _: Usuario = Depends(get_current_user)):
-    """Todo lo que pinta el tablero, con los filtros aplicados. Los filtros van
-    separados por «|». La carrocería se elige una: SICETAC cambia el costo
-    según la carrocería y mezclarlas promediaría cosas distintas."""
+    """Todo lo que pinta el tablero, con los filtros aplicados (separados por «|»).
+
+    La carrocería se elige una: SICETAC cambia el costo según la carrocería y
+    mezclarlas promediaría cosas distintas.
+
+    `horas`: horas logísticas que se suman al costo SICETAC del viaje, a su
+    valor por hora (el del archivo del mes, o el de la configuración del
+    vehículo). Con horas = 0 el SICETAC es el costo del viaje solo.
+    `posicion`: ENCIMA o DEBAJO de SICETAC, ya con las horas sumadas."""
     C = TarifaxComparacion
-    q = select(C.periodo, C.cliente, C.servicio, C.origen, C.destino, C.categoria, C.tipo_vehiculo,
-               C.carroceria, C.distancia, C.tarifa_cliente, C.costo_sicetac, C.diferencia, C.variacion_pct, C.estado)
+    q = select(C.periodo, C.cliente, C.servicio, C.origen, C.destino, C.dpto_origen, C.dpto_destino, C.categoria,
+               C.tipo_vehiculo, C.carroceria, C.distancia, C.tarifa_cliente, C.costo_sicetac, C.valor_hora, C.estado)
     rows = (await db.execute(q.where((C.carroceria == carroceria) | (C.estado != "OK")))).all()
     carrocerias = [r for (r,) in (await db.execute(select(C.carroceria).where(C.carroceria.isnot(None)).distinct()))]
-    cols = ["periodo", "cliente", "servicio", "origen", "destino", "categoria", "tipo_vehiculo", "carroceria",
-            "distancia", "tarifa", "sicetac", "diferencia", "variacion", "estado"]
+    valor_conf = {h.tipo_vehiculo: h.valor_hora for h in (await db.execute(select(TarifaxHoraLogistica))).scalars()}
+    cols = ["periodo", "cliente", "servicio", "origen", "destino", "dpto_origen", "dpto_destino", "categoria",
+            "tipo_vehiculo", "carroceria", "distancia", "tarifa", "sicetac_base", "valor_hora", "estado"]
     df = pd.DataFrame(rows, columns=cols)
     vacio = {"opciones": {"periodos": [], "clientes": [], "origenes": [], "destinos": [], "servicios": [],
-                          "categorias": [], "carrocerias": sorted(carrocerias)},
+                          "categorias": [], "dptos_origen": [], "dptos_destino": [], "carrocerias": sorted(carrocerias)},
              "kpis": None, "por_mes": [], "por_cliente": [], "por_categoria": [], "detalle": [], "sin_referencia": [],
-             "sin_referencia_total": 0, "carroceria": carroceria}
+             "sin_referencia_total": 0, "carroceria": carroceria, "horas": horas}
     if df.empty:
         return vacio
+
+    # SICETAC del análisis = costo del viaje + horas × valor de la hora.
+    vh = pd.to_numeric(df["valor_hora"], errors="coerce")
+    vh = vh.fillna(pd.to_numeric(df["tipo_vehiculo"].map(
+        lambda t: valor_conf.get(tc.normalizar(t)) if isinstance(t, str) else None), errors="coerce"))
+    df["valor_hora"] = vh
+    df["horas_valor"] = (vh.fillna(0) * horas).round(0)
+    df["tarifa"] = pd.to_numeric(df["tarifa"], errors="coerce")
+    df["sicetac_base"] = pd.to_numeric(df["sicetac_base"], errors="coerce")
+    df["sicetac"] = df["sicetac_base"] + df["horas_valor"]
+    df["diferencia"] = (df["tarifa"] - df["sicetac"]).round(0)
+    df["variacion"] = (df["diferencia"] / df["sicetac"] * 100).round(2)
 
     def opciones(col):
         return sorted(df[col].dropna().unique().tolist())
@@ -298,19 +348,26 @@ async def tablero(periodos: Optional[str] = None, clientes: Optional[str] = None
     vacio["opciones"].update({"periodos": [{"periodo": p, "nombre": tc.nombre_periodo(p)} for p in orden_per],
                               "clientes": opciones("cliente"), "origenes": opciones("origen"),
                               "destinos": opciones("destino"), "servicios": opciones("servicio"),
-                              "categorias": opciones("categoria")})
+                              "categorias": opciones("categoria"), "dptos_origen": opciones("dpto_origen"),
+                              "dptos_destino": opciones("dpto_destino")})
     for col, val in (("periodo", periodos), ("cliente", clientes), ("origen", origenes), ("destino", destinos),
-                     ("servicio", servicios), ("categoria", categorias)):
+                     ("servicio", servicios), ("categoria", categorias), ("dpto_origen", dptos_origen),
+                     ("dpto_destino", dptos_destino)):
         sel = _lista(val)
         if sel:
             df = df[df[col].isin(sel)]
     ok = df[df["estado"] == "OK"]
+    if posicion == "DEBAJO":
+        ok = ok[ok["variacion"] < 0]
+    elif posicion == "ENCIMA":
+        ok = ok[ok["variacion"] >= 0]
     sin = df[df["estado"] != "OK"].drop_duplicates(["cliente", "origen", "destino", "categoria"])
     if ok.empty:
         vacio.update({"sin_referencia": sin.head(500).pipe(_registros),
                       "sin_referencia_total": len(sin)})
         return vacio
     rutas = ok[["origen", "destino"]].drop_duplicates()
+    llaves = ["cliente", "origen", "destino", "categoria"]
     kpis = {
         "tarifas": int(len(ok)), "clientes": int(ok["cliente"].nunique()), "rutas": int(len(rutas)),
         "variacion": _ponderada(ok["tarifa"], ok["sicetac"]),
@@ -318,15 +375,21 @@ async def tablero(periodos: Optional[str] = None, clientes: Optional[str] = None
         "por_debajo": int((ok["variacion"] < 0).sum()),
         "por_debajo_pct": round(float((ok["variacion"] < 0).mean() * 100), 1),
         "tarifa_total": float(ok["tarifa"].sum()), "sicetac_total": float(ok["sicetac"].sum()),
+        "sicetac_base_total": float(ok["sicetac_base"].sum()), "horas_total": float(ok["horas_valor"].sum()),
+        "horas": horas, "horas_sin_valor": int(ok["valor_hora"].isna().sum()) if horas else 0,
         "sin_referencia": int(len(sin)),
-        "cobertura_pct": round(len(ok.drop_duplicates(["cliente", "origen", "destino", "categoria"]))
-                               / max(1, len(ok.drop_duplicates(["cliente", "origen", "destino", "categoria"])) + len(sin)) * 100, 1),
+        "cobertura_pct": round(len(ok.drop_duplicates(llaves)) / max(1, len(ok.drop_duplicates(llaves)) + len(sin)) * 100, 1),
     }
-    por_mes = [{"periodo": p, "nombre": tc.nombre_periodo(p), "tarifas": int(len(g)),
-                "variacion": _ponderada(g["tarifa"], g["sicetac"]),
-                "tarifa_prom": round(float(g["tarifa"].mean()), 0), "sicetac_prom": round(float(g["sicetac"].mean()), 0),
-                "por_debajo": int((g["variacion"] < 0).sum())}
-               for p, g in sorted(ok.groupby("periodo"), key=lambda x: (x[0] != "VIGENTE", x[0]))]
+    por_mes = []
+    for p, g in sorted(ok.groupby("periodo"), key=lambda x: (x[0] != "VIGENTE", x[0])):
+        base, hv, sic, tar = (float(g[c].mean()) for c in ("sicetac_base", "horas_valor", "sicetac", "tarifa"))
+        por_mes.append({"periodo": p, "nombre": tc.nombre_periodo(p), "tarifas": int(len(g)),
+                        "variacion": _ponderada(g["tarifa"], g["sicetac"]),
+                        "sicetac_base_prom": round(base, 0), "horas_prom": round(hv, 0),
+                        "sicetac_prom": round(sic, 0), "tarifa_prom": round(tar, 0),
+                        # La cascada usa promedios: su variación es la de los promedios.
+                        "variacion_prom": round((tar - sic) / sic * 100, 2) if sic else None,
+                        "por_debajo": int((g["variacion"] < 0).sum())})
     por_cliente = sorted([{"cliente": c, "tarifas": int(len(g)), "rutas": int(len(g[["origen", "destino"]].drop_duplicates())),
                            "variacion": _ponderada(g["tarifa"], g["sicetac"]),
                            "por_debajo": int((g["variacion"] < 0).sum())}

@@ -221,5 +221,5 @@ __all__ = [
 ]
 
 from app.infrastructure.models.tarifax import (  # noqa: F401
-    TarifaxNegociacion, TarifaxSicetacPeriodo, TarifaxComparacion, TarifaxAliasCiudad,
+    TarifaxNegociacion, TarifaxSicetacPeriodo, TarifaxComparacion, TarifaxAliasCiudad, TarifaxHoraLogistica,
 )

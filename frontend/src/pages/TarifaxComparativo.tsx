@@ -19,7 +19,7 @@ import {
 import Grid from '@mui/material/Grid2'
 import {
   CompareArrows, CloudUpload, Delete, ExpandMore, FileDownload, CheckCircle, RadioButtonUnchecked, Refresh,
-  EditLocationAlt, FilterAltOff, TrendingDown, TrendingUp,
+  EditLocationAlt, FilterAltOff, TrendingDown, TrendingUp, AccessTime,
 } from '@mui/icons-material'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -32,6 +32,7 @@ import { Layout } from '@/components/layout/Layout'
 import { Encabezado, errorApi } from '@/components/comun/Registro'
 import { apiClient as api } from '@/api/client'
 import { COLOR_MODULO } from '@/config/marca'
+import { CascadaSicetac } from '@/components/tarifax/CascadaSicetac'
 
 const COLOR = COLOR_MODULO
 // Par divergente validado (CVD y contraste) sobre la superficie clara.
@@ -56,17 +57,21 @@ interface Fila {
   periodo: string; nombre_periodo?: string; cliente: string; servicio: string | null; origen: string; destino: string
   categoria: string | null; tipo_vehiculo: string | null; carroceria: string | null; distancia: number | null
   tarifa: number | null; sicetac: number | null; diferencia: number | null; variacion: number | null; estado: string
+  sicetac_base?: number | null; horas_valor?: number | null; dpto_origen?: string | null; dpto_destino?: string | null
 }
 interface Tablero {
-  opciones: { periodos: { periodo: string; nombre: string }[]; clientes: string[]; origenes: string[]; destinos: string[]; servicios: string[]; categorias: string[]; carrocerias: string[] }
-  kpis: null | { tarifas: number; clientes: number; rutas: number; variacion: number | null; mediana: number; por_debajo: number; por_debajo_pct: number; tarifa_total: number; sicetac_total: number; sin_referencia: number; cobertura_pct: number }
-  por_mes: { periodo: string; nombre: string; tarifas: number; variacion: number | null; tarifa_prom: number; sicetac_prom: number; por_debajo: number }[]
+  opciones: { periodos: { periodo: string; nombre: string }[]; clientes: string[]; origenes: string[]; destinos: string[]; servicios: string[]; categorias: string[]; carrocerias: string[]; dptos_origen: string[]; dptos_destino: string[] }
+  kpis: null | { tarifas: number; clientes: number; rutas: number; variacion: number | null; mediana: number; por_debajo: number; por_debajo_pct: number; tarifa_total: number; sicetac_total: number; sin_referencia: number; cobertura_pct: number; sicetac_base_total: number; horas_total: number; horas: number; horas_sin_valor: number }
+  por_mes: { periodo: string; nombre: string; tarifas: number; variacion: number | null; tarifa_prom: number; sicetac_prom: number; sicetac_base_prom: number; horas_prom: number; variacion_prom: number | null; por_debajo: number }[]
   por_cliente: { cliente: string; tarifas: number; rutas: number; variacion: number | null; por_debajo: number }[]
   por_categoria: { categoria: string; tipo_vehiculo: string; tarifas: number; variacion: number | null }[]
   detalle: Fila[]; detalle_total?: number; sin_referencia: Fila[]; sin_referencia_total: number; carroceria: string
 }
-type Filtros = { periodos: string[]; clientes: string[]; origenes: string[]; destinos: string[]; servicios: string[]; categorias: string[]; carroceria: string }
-const VACIO: Filtros = { periodos: [], clientes: [], origenes: [], destinos: [], servicios: [], categorias: [], carroceria: 'FURGON' }
+type Filtros = { periodos: string[]; clientes: string[]; origenes: string[]; destinos: string[]; servicios: string[]; categorias: string[]
+                 dptosOrigen: string[]; dptosDestino: string[]; posicion: '' | 'ENCIMA' | 'DEBAJO'; carroceria: string }
+const VACIO: Filtros = { periodos: [], clientes: [], origenes: [], destinos: [], servicios: [], categorias: [], dptosOrigen: [], dptosDestino: [], posicion: '', carroceria: 'FURGON' }
+const CLAVE_HORAS = 'tx-comparativo-horas'
+const horasGuardadas = () => { try { return Math.max(0, Number(localStorage.getItem(CLAVE_HORAS)) || 0) } catch { return 0 } }
 
 function exportar(nombre: string, filas: Record<string, unknown>[]) {
   const libro = XLSX.utils.book_new()
@@ -117,6 +122,10 @@ export default function TarifaxComparativo() {
   const [aliasAbierto, setAliasAbierto] = useState(false)
   const [tab, setTab] = useState(0)
   const [pagina, setPagina] = useState(0)
+  // Horas logísticas del análisis: las decide quien analiza; se recuerdan en este navegador.
+  const [horas, setHoras] = useState<number>(horasGuardadas)
+  const [horasAbierto, setHorasAbierto] = useState(false)
+  useEffect(() => { try { localStorage.setItem(CLAVE_HORAS, String(horas)) } catch { /* sin almacenamiento */ } }, [horas])
   const archivoNeg = useRef<HTMLInputElement>(null)
   const archivoMes = useRef<HTMLInputElement>(null)
   const mesElegido = useRef<number>(1)
@@ -126,7 +135,9 @@ export default function TarifaxComparativo() {
     periodos: f.periodos.join('|') || undefined, clientes: f.clientes.join('|') || undefined,
     origenes: f.origenes.join('|') || undefined, destinos: f.destinos.join('|') || undefined,
     servicios: f.servicios.join('|') || undefined, categorias: f.categorias.join('|') || undefined, carroceria: f.carroceria,
-  }), [f])
+    dptos_origen: f.dptosOrigen.join('|') || undefined, dptos_destino: f.dptosDestino.join('|') || undefined,
+    posicion: f.posicion || undefined, horas: horas || undefined,
+  }), [f, horas])
   const tablero = useQuery<Tablero>({ queryKey: ['tx-comp-tablero', params], queryFn: () => api.get(`${BASE}/tablero`, { params }).then(r => r.data) })
   const t = tablero.data
   const nombresPer = useMemo(() => Object.fromEntries((t?.opciones.periodos ?? []).map(p => [p.periodo, p.nombre])), [t])
@@ -169,7 +180,8 @@ export default function TarifaxComparativo() {
   const e = estado.data
   const k = t?.kpis
   const opc = t?.opciones
-  const hayFiltros = f.clientes.length + f.origenes.length + f.destinos.length + f.servicios.length + f.categorias.length > 0
+  const hayFiltros = f.clientes.length + f.origenes.length + f.destinos.length + f.servicios.length + f.categorias.length
+    + f.dptosOrigen.length + f.dptosDestino.length > 0 || !!f.posicion
   const porCliente = (t?.por_cliente ?? []).filter(c => c.variacion != null)
   const filasDetalle = t?.detalle ?? []
 
@@ -259,12 +271,28 @@ export default function TarifaxComparativo() {
             <Multiple etiqueta="Destino" opciones={opc.destinos} valor={f.destinos} onChange={v => setF(x => ({ ...x, destinos: v }))} />
             <Multiple etiqueta="Servicio" opciones={opc.servicios} valor={f.servicios} onChange={v => setF(x => ({ ...x, servicios: v }))} />
             <Multiple etiqueta="Vehículo" opciones={opc.categorias} valor={f.categorias} onChange={v => setF(x => ({ ...x, categorias: v }))} />
+            <Multiple etiqueta="Depto. origen" opciones={opc.dptos_origen ?? []} valor={f.dptosOrigen} onChange={v => setF(x => ({ ...x, dptosOrigen: v }))} />
+            <Multiple etiqueta="Depto. destino" opciones={opc.dptos_destino ?? []} valor={f.dptosDestino} onChange={v => setF(x => ({ ...x, dptosDestino: v }))} />
+            <TextField select size="small" label="Frente a SICETAC" value={f.posicion} sx={{ minWidth: 170 }}
+              onChange={ev => setF(x => ({ ...x, posicion: ev.target.value as Filtros['posicion'] }))}>
+              <MenuItem value="">Todas</MenuItem>
+              <MenuItem value="ENCIMA">Por encima de SICETAC</MenuItem>
+              <MenuItem value="DEBAJO">Por debajo de SICETAC</MenuItem>
+            </TextField>
             <TextField select size="small" label="Carrocería SICETAC" value={f.carroceria} sx={{ minWidth: 170 }}
               onChange={ev => setF(x => ({ ...x, carroceria: ev.target.value }))}>
               {(opc.carrocerias.length ? opc.carrocerias : ['FURGON']).map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
             </TextField>
+            <TextField size="small" type="number" label="Horas logísticas" value={horas} sx={{ width: 150 }}
+              inputProps={{ min: 0, max: 240, step: 0.5, 'aria-label': 'Horas logísticas' }}
+              helperText="Se suman a SICETAC"
+              onChange={ev => setHoras(Math.min(240, Math.max(0, Number(ev.target.value) || 0)))} />
+            <Button size="small" startIcon={<AccessTime />} onClick={() => setHorasAbierto(true)}>Valor de la hora</Button>
             {hayFiltros && <Button size="small" startIcon={<FilterAltOff />} onClick={() => setF(x => ({ ...VACIO, periodos: x.periodos, carroceria: x.carroceria }))}>Quitar filtros</Button>}
           </Stack>
+          {!!k?.horas_sin_valor && <Alert severity="warning" sx={{ mt: 1 }} action={<Button size="small" onClick={() => setHorasAbierto(true)}>Definir valor</Button>}>
+            {num(k.horas_sin_valor)} tarifas no tienen valor de hora logística: ni su archivo SICETAC lo trae ni está definido para su vehículo, así que se comparan sin horas.
+          </Alert>}
           {f.periodos.length > 1 && <Typography fontSize={12} color="text.secondary" mt={1}>
             Con varios meses, cada tarifa cuenta una vez por mes: compare la evolución en la gráfica por mes.
           </Typography>}
@@ -276,7 +304,7 @@ export default function TarifaxComparativo() {
           <Grid container spacing={2} mb={2}>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <Indicador titulo="Variación vs SICETAC" valor={pct(k.variacion)} marca={k.variacion != null && k.variacion < 0 ? DEBAJO : ENCIMA}
-                sub={`${millones(k.tarifa_total)} cobrado frente a ${millones(k.sicetac_total)} SICETAC · mediana ${pct(k.mediana)}`} />
+                sub={`${millones(k.tarifa_total)} cobrado frente a ${millones(k.sicetac_total)} SICETAC${k.horas ? ` (incluye ${k.horas} h logísticas)` : ''} · mediana ${pct(k.mediana)}`} />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <Indicador titulo="Tarifas comparadas" valor={num(k.tarifas)} sub={`${k.clientes} clientes · ${num(k.rutas)} rutas`} />
@@ -288,6 +316,15 @@ export default function TarifaxComparativo() {
               <Indicador titulo="Cobertura SICETAC" valor={pct(k.cobertura_pct, false)} sub={`${num(k.sin_referencia)} rutas sin referencia en SICETAC`} />
             </Grid>
           </Grid>
+
+          {/* ── Cascada por mes ── */}
+          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
+            <Typography fontWeight={700}>Cascada por mes: SICETAC frente a tarifa del cliente</Typography>
+            <Typography fontSize={12} color="text.secondary" mb={1.5}>
+              Promedios por viaje de las tarifas filtradas{horas ? `, con ${horas} horas logísticas sumadas a SICETAC` : ''}. La barra de variación es la diferencia entre ambos promedios.
+            </Typography>
+            <CascadaSicetac meses={t?.por_mes ?? []} horas={horas} />
+          </Paper>
 
           {/* ── Gráficas ── */}
           <Grid container spacing={2} mb={2}>
@@ -360,7 +397,9 @@ export default function TarifaxComparativo() {
               (tab === 0 ? filasDetalle : t?.sin_referencia ?? []).map(r => ({
                 Mes: nombresPer[r.periodo] ?? r.periodo, Cliente: r.cliente, Servicio: r.servicio, Origen: r.origen, Destino: r.destino,
                 Vehículo: r.categoria, 'Configuración SICETAC': r.tipo_vehiculo, Carrocería: r.carroceria, 'Distancia (km)': r.distancia,
-                'Tarifa cliente': r.tarifa, 'Costo SICETAC': r.sicetac, Diferencia: r.diferencia, 'Variación %': r.variacion,
+                'Depto. origen': r.dpto_origen, 'Depto. destino': r.dpto_destino,
+                'Tarifa cliente': r.tarifa, 'SICETAC viaje': r.sicetac_base, [`Horas logísticas (${horas} h)`]: r.horas_valor,
+                'SICETAC total': r.sicetac, Diferencia: r.diferencia, 'Variación %': r.variacion,
                 ...(tab === 1 ? { Motivo: r.estado === 'SIN_VEHICULO' ? 'Vehículo sin equivalencia SICETAC' : 'Ruta no publicada en SICETAC' } : {}),
               })))}>Excel</Button>
           </Stack>
@@ -385,7 +424,9 @@ export default function TarifaxComparativo() {
                       </TableCell>
                       <TableCell align="right" sx={{ fontSize: 12 }}>{num(r.distancia)}</TableCell>
                       <TableCell align="right" sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{pesos(r.tarifa)}</TableCell>
-                      <TableCell align="right" sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{pesos(r.sicetac)}</TableCell>
+                      <TableCell align="right" sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{pesos(r.sicetac)}
+                        {!!r.horas_valor && <Typography fontSize={11} color="text.secondary">incluye {pesos(r.horas_valor)} de horas</Typography>}
+                      </TableCell>
                       <TableCell align="right" sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{pesos(r.diferencia)}</TableCell>
                       <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}><Variacion v={r.variacion} /></TableCell>
                     </TableRow>
@@ -424,6 +465,7 @@ export default function TarifaxComparativo() {
         </Paper>}
       </Box>
       <DialogoAlias abierto={aliasAbierto} onCerrar={() => setAliasAbierto(false)} onGuardado={refrescar} />
+      <DialogoHoras abierto={horasAbierto} onCerrar={() => setHorasAbierto(false)} onGuardado={refrescar} />
     </Layout>
   )
 }
@@ -462,6 +504,49 @@ function DialogoAlias({ abierto, onCerrar, onGuardado }: { abierto: boolean; onC
       <DialogActions>
         <Button onClick={onCerrar}>Cancelar</Button>
         <Button variant="contained" disabled={guardando} startIcon={<Refresh />} onClick={guardar} sx={{ bgcolor: COLOR }}>Guardar y recalcular</Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
+
+function DialogoHoras({ abierto, onCerrar, onGuardado }: { abierto: boolean; onCerrar: () => void; onGuardado: () => void }) {
+  const [tipos, setTipos] = useState<string[]>([])
+  const [valores, setValores] = useState<Record<string, string>>({})
+  const [conArchivo, setConArchivo] = useState<{ periodo: string; nombre: string }[]>([])
+  useEffect(() => {
+    if (abierto) api.get(`${BASE}/horas-logisticas`).then(r => {
+      setTipos(r.data.tipos)
+      setValores(Object.fromEntries(Object.entries(r.data.valores).map(([k, v]) => [k, String(v)])))
+      setConArchivo(r.data.periodos_con_valor_en_archivo)
+    })
+  }, [abierto])
+  const guardar = async () => {
+    try {
+      await api.put(`${BASE}/horas-logisticas`, { valores: Object.fromEntries(Object.entries(valores).filter(([, v]) => Number(v) > 0).map(([k, v]) => [k, Number(v)])) })
+      toast.success('Valor de la hora logística guardado')
+      onGuardado(); onCerrar()
+    } catch (e) { toast.error(errorApi(e)) }
+  }
+  return (
+    <Dialog open={abierto} onClose={onCerrar} maxWidth="sm" fullWidth>
+      <DialogTitle>Valor de una hora logística por vehículo</DialogTitle>
+      <DialogContent>
+        <Typography fontSize={13} color="text.secondary" mb={2}>
+          Cuánto vale una hora logística (espera en cargue y descargue) para cada configuración SICETAC. Las horas que se suman las elige en el tablero.
+          Si el archivo SICETAC de un mes trae su propio valor por hora, se usa ese y no esta tabla.
+        </Typography>
+        {!!conArchivo.length && <Alert severity="info" sx={{ mb: 2 }}>Traen su propio valor por hora: {conArchivo.map(p => p.nombre).join(', ')}.</Alert>}
+        {tipos.map(t => (
+          <TextField key={t} fullWidth size="small" type="number" sx={{ mb: 1.5 }} label={`Configuración ${t}`}
+            value={valores[t] ?? ''} inputProps={{ min: 0, step: 1000 }} InputProps={{ startAdornment: <Typography color="text.secondary" mr={1}>$</Typography> }}
+            onChange={ev => setValores(v => ({ ...v, [t]: ev.target.value }))} />
+        ))}
+        {!tipos.length && <Typography color="text.secondary">Cargue primero las negociaciones para ver las configuraciones.</Typography>}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onCerrar}>Cancelar</Button>
+        <Button variant="contained" onClick={guardar} sx={{ bgcolor: COLOR }}>Guardar</Button>
       </DialogActions>
     </Dialog>
   )

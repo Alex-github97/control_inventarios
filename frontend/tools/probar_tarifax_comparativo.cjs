@@ -57,7 +57,8 @@ const aparece = async (loc, ms = 30000) => { try { await loc.first().waitFor({ t
   }
 
   // Filtro por cliente desde la gráfica.
-  const barra = p.locator('.recharts-bar-rectangle').first();
+  const barra = p.getByText('Variación por cliente').locator('xpath=ancestor::div[contains(@class,"MuiPaper-root")][1]')
+    .locator('.recharts-bar-rectangle path').first();
   if (await barra.count()) {
     await barra.click();
     await p.waitForTimeout(1500);
@@ -70,6 +71,32 @@ const aparece = async (loc, ms = 30000) => { try { await loc.first().waitFor({ t
   comprobar(await aparece(p.getByRole('dialog').locator('input[value="BOGOTA, D.C."]')), 'equivalencias de ciudades editables');
   await p.getByRole('dialog').getByRole('button', { name: 'Cancelar' }).click();
   await p.getByRole('tab', { name: /Rutas comparadas/ }).click();
+
+  // Cascada por mes y horas logísticas.
+  if (await p.getByRole('button', { name: 'Quitar filtros' }).count()) await p.getByRole('button', { name: 'Quitar filtros' }).click();
+  const mes = p.locator('.MuiAutocomplete-root').filter({ has: p.getByLabel('Mes') });
+  await mes.locator('input').click();
+  for (const nombre of ['Enero 2026', 'Febrero 2026']) {
+    const op = p.getByRole('option', { name: nombre });
+    if (await op.count() && (await op.getAttribute('aria-selected')) !== 'true') await op.click();
+  }
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(1500);
+  comprobar(await aparece(p.getByText('Cascada por mes: SICETAC frente a tarifa del cliente')), 'muestra la cascada por mes');
+  comprobar(await aparece(p.getByText(/^Enero 2026 ·/)) && await aparece(p.getByText(/^Febrero 2026 ·/)), 'una cascada por cada mes elegido');
+  await p.getByLabel('Horas logísticas').fill('4');
+  await p.waitForTimeout(2500);
+  comprobar(await aparece(p.getByText('+4 h logísticas')), 'la cascada agrega el paso de 4 horas logísticas');
+  comprobar(await aparece(p.getByText(/no tienen valor de hora logística/)), 'avisa las tarifas sin valor de hora (enero no lo trae)');
+  await p.getByRole('button', { name: 'Valor de la hora' }).click();
+  const dh = p.getByRole('dialog');
+  comprobar(await aparece(dh.getByText(/Traen su propio valor por hora: Febrero 2026/)), 'reconoce que febrero trae su valor por hora');
+  await dh.getByLabel('Configuración 3S2').fill('60000');
+  await dh.getByLabel('Configuración 2', { exact: true }).fill('35000');
+  await dh.getByRole('button', { name: 'Guardar' }).click();
+  comprobar(await aparece(p.getByText('Valor de la hora logística guardado')), 'guarda el valor de la hora por vehículo');
+  comprobar(await aparece(p.getByLabel('Depto. destino')) && await aparece(p.getByLabel('Frente a SICETAC')), 'filtros de departamento y posición frente a SICETAC');
+  await p.waitForTimeout(2000);
   await p.screenshot({ path: `${SALIDA}/tarifax-comparativo.png`, fullPage: true });
 
   comprobar(!errores.length, `sin errores de JavaScript ${errores.join(' | ')}`);

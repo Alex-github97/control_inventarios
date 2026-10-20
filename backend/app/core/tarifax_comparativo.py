@@ -39,6 +39,11 @@ COLS_SICETAC = {
     "TIPO_CARROCERIA": ["TIPO_CARROCERIA", "TIPO CARROCERIA", "CARROCERIA"],
     "COSTO_TOTAL_VIAJE": ["COSTO_TOTAL_VIAJE", "COSTO TOTAL VIAJE", "COSTO TOTAL", "VALOR TOTAL VIAJE"],
     "DISTANCIA": ["DISTANCIA", "KILOMETROS", "KM"],
+    # Valor de UNA hora logística (espera en cargue y descargue) para esa
+    # ruta y vehículo. Opcional: si el archivo no lo trae, se usa el valor por
+    # configuración que se define en el tablero.
+    "VALOR_HORA_LOGISTICA": ["VALOR_HORA_LOGISTICA", "VALOR HORA LOGISTICA", "HORA_LOGISTICA", "HORA LOGISTICA",
+                             "VALOR_HORA", "VALOR HORA", "COSTO_HORA_LOGISTICA", "COSTO HORA LOGISTICA", "COSTO_HORA"],
 }
 OBLIGATORIAS_SICETAC = ["ORIGEN", "DESTINO", "TIPO_VEHICULO", "COSTO_TOTAL_VIAJE"]
 
@@ -123,6 +128,8 @@ def leer_sicetac(contenido: bytes, nombre: str) -> pd.DataFrame:
         base["TIPO_CARROCERIA"] = "SIN CARROCERIA"
     if "DISTANCIA" not in base:
         base["DISTANCIA"] = None
+    if "VALOR_HORA_LOGISTICA" not in base:
+        base["VALOR_HORA_LOGISTICA"] = None
     return agrupar_sicetac(base)
 
 
@@ -134,12 +141,14 @@ def agrupar_sicetac(base: pd.DataFrame) -> pd.DataFrame:
         "carroceria": base["TIPO_CARROCERIA"].map(normalizar).replace("", "SIN CARROCERIA"),
         "costo": pd.to_numeric(base["COSTO_TOTAL_VIAJE"], errors="coerce"),
         "distancia": pd.to_numeric(base["DISTANCIA"], errors="coerce"),
+        "valor_hora": pd.to_numeric(base["VALOR_HORA_LOGISTICA"], errors="coerce")
+                      if "VALOR_HORA_LOGISTICA" in base else float("nan"),
     })
     g = g[(g["o"] != "") & (g["d"] != "") & (g["tv"] != "") & g["costo"].gt(0)]
     if g.empty:
         raise ArchivoInvalido("El archivo SICETAC no trae ninguna fila con origen, destino, vehículo y costo.")
     return (g.groupby(["o", "d", "tv", "carroceria"], as_index=False)
-             .agg(costo=("costo", "mean"), distancia=("distancia", "first")))
+             .agg(costo=("costo", "mean"), distancia=("distancia", "first"), valor_hora=("valor_hora", "mean")))
 
 
 def mapeo_categorias(mapeo: Dict[str, str]) -> Dict[str, str]:
@@ -159,8 +168,10 @@ def cruzar(negociaciones: List[dict], sicetac: pd.DataFrame, alias: Dict[str, st
     alias_n = {normalizar(k): normalizar(v) for k, v in alias.items()}
     mapa = mapeo_categorias(mapeo)
     indice: Dict[tuple, List[tuple]] = {}
-    for o, d, tv, carr, costo, dist in sicetac[["o", "d", "tv", "carroceria", "costo", "distancia"]].itertuples(index=False):
-        indice.setdefault((o, d, tv), []).append((carr, costo, dist))
+    if "valor_hora" not in sicetac:   # archivos guardados antes de leer la hora logística
+        sicetac = sicetac.assign(valor_hora=float("nan"))
+    for o, d, tv, carr, costo, dist, vh in sicetac[["o", "d", "tv", "carroceria", "costo", "distancia", "valor_hora"]].itertuples(index=False):
+        indice.setdefault((o, d, tv), []).append((carr, costo, dist, vh))
     filas = []
     for n in negociaciones:
         cat = n["categoria_vehiculo"]
@@ -175,8 +186,9 @@ def cruzar(negociaciones: List[dict], sicetac: pd.DataFrame, alias: Dict[str, st
         d = alias_n.get(normalizar(n["destino"]), normalizar(n["destino"]))
         tv = mapa.get(normalizar(cat))
         comun = dict(periodo=periodo, negociacion_id=n["id"], cliente=n["cliente"], servicio=n["servicio"],
-                     origen=n["origen"], destino=n["destino"], categoria=cat, tipo_vehiculo=tv,
-                     tarifa_cliente=n["tarifa"])
+                     origen=n["origen"], destino=n["destino"], dpto_origen=n.get("dpto_origen"),
+                     dpto_destino=n.get("dpto_destino"), categoria=cat, tipo_vehiculo=tv,
+                     tarifa_cliente=n["tarifa"], valor_hora=None)
         if not tv:
             filas.append({**comun, "estado": "SIN_VEHICULO", "carroceria": None, "distancia": None,
                           "costo_sicetac": None, "diferencia": None, "variacion_pct": None})
@@ -186,10 +198,11 @@ def cruzar(negociaciones: List[dict], sicetac: pd.DataFrame, alias: Dict[str, st
             filas.append({**comun, "estado": "SIN_RUTA", "carroceria": None, "distancia": None,
                           "costo_sicetac": None, "diferencia": None, "variacion_pct": None})
             continue
-        for carr, costo, dist in refs:
+        for carr, costo, dist, vh in refs:
             tarifa = n["tarifa"]
             dif = (tarifa - costo) if tarifa is not None else None
             filas.append({**comun, "estado": "OK", "carroceria": carr,
+                          "valor_hora": None if pd.isna(vh) else round(float(vh), 0),
                           "distancia": None if pd.isna(dist) else float(dist),
                           "costo_sicetac": round(float(costo), 0),
                           "diferencia": None if dif is None else round(float(dif), 0),
