@@ -54,6 +54,21 @@ const aparece = async (loc, ms = 30000) => { try { await loc.first().waitFor({ t
   comprobar(despues > antes, `la rueda desplaza las pestañas (${antes} → ${despues})`);
   await p.screenshot({ path: `${SALIDA}/flota_pestanas.png`, clip: { x: 0, y: caja.y - 20, width: 1100, height: 120 } });
 
+  // Orden por encabezado en «Rutas comparadas» y «Sin referencia SICETAC».
+  const pesosDe = x => Number(x.replace(/[^\d-]/g, ''));
+  const celdas = async n => (await p.locator('table').last().locator(`tbody tr td:nth-child(${n})`).allInnerTexts()).map(x => x.trim());
+  await p.getByRole('tab', { name: /Rutas comparadas/ }).click();
+  await p.locator('table').last().getByRole('button', { name: 'Tarifa cliente', exact: true }).click();
+  let tar = (await celdas(6)).map(x => pesosDe(x.split('\n')[0]));
+  comprobar(tar.length > 1 && tar.every((x, i) => !i || tar[i - 1] >= x), `Rutas comparadas: tarifa de mayor a menor (${tar.slice(0, 2).join(', ')}…)`);
+  await p.locator('table').last().getByRole('button', { name: 'Tarifa cliente', exact: true }).click();
+  tar = (await celdas(6)).map(x => pesosDe(x.split('\n')[0]));
+  comprobar(tar.every((x, i) => !i || tar[i - 1] <= x), `Rutas comparadas: segundo clic de menor a mayor (${tar.slice(0, 2).join(', ')}…)`);
+  await p.getByRole('tab', { name: /Sin referencia/ }).click();
+  await p.locator('table').last().getByRole('button', { name: 'Cliente', exact: true }).click();
+  const cli = await celdas(1);
+  comprobar(cli.length > 1 && cli.every((x, i) => !i || cli[i - 1].localeCompare(x, 'es') >= 0), `Sin referencia: cliente de Z a A (${cli[0]})`);
+
   // Configurar el CPK desde la sección de cargue.
   if (!(await p.getByRole('button', { name: 'Configurar costo flota' }).isVisible())) await p.getByText('Cargue de datos').click();
   comprobar(await aparece(p.getByText('Costo flota propia').first()), 'la sección de cargue muestra el costo de flota');

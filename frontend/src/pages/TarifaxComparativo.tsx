@@ -34,6 +34,7 @@ import { apiClient as api } from '@/api/client'
 import { COLOR_MODULO } from '@/config/marca'
 import { CascadaSicetac } from '@/components/tarifax/CascadaSicetac'
 import { ConfigVehiculos } from '@/components/tarifax/ConfigVehiculos'
+import { EncabezadosOrden, useOrden, type ColumnaOrden } from '@/components/tarifax/OrdenTabla'
 import { DialogoFlota, ResumenFlota, TablaFlota, filasExcelFlota, type Flota, type FlotaConfig } from '@/components/tarifax/FlotaPropia'
 
 const COLOR = COLOR_MODULO
@@ -97,6 +98,27 @@ const CLAVE_HORAS = 'tx-comparativo-horas-v2'
 const horasGuardadas = (): number | null => {
   try { const v = localStorage.getItem(CLAVE_HORAS); return v == null || v === '' ? null : Math.max(0, Number(v) || 0) } catch { return null }
 }
+
+const motivoSinRef = (r: Fila) => r.estado === 'SIN_VEHICULO' ? 'Vehículo sin equivalencia SICETAC' : 'Ruta no publicada en SICETAC'
+const ruta = (r: { origen: string; destino: string }) => `${r.origen} → ${r.destino}`
+// Columnas de cada pestaña: cada una se ordena con un clic en su encabezado.
+const COLS_COMPARADAS: ColumnaOrden<Fila>[] = [
+  { titulo: 'Mes', valor: r => r.periodo }, { titulo: 'Cliente', valor: r => r.cliente }, { titulo: 'Ruta', valor: ruta },
+  { titulo: 'Vehículo', valor: r => r.categoria }, { titulo: 'Km', valor: r => r.distancia, numero: true },
+  { titulo: 'Tarifa cliente', valor: r => r.tarifa, numero: true }, { titulo: 'SICETAC', valor: r => r.sicetac, numero: true },
+  { titulo: 'Diferencia', valor: r => r.diferencia, numero: true }, { titulo: 'Variación', valor: r => r.variacion, numero: true },
+]
+const COLS_SIN_REF: ColumnaOrden<Fila>[] = [
+  { titulo: 'Cliente', valor: r => r.cliente }, { titulo: 'Ruta', valor: ruta }, { titulo: 'Vehículo', valor: r => r.categoria },
+  { titulo: 'Tarifa cliente', valor: r => r.tarifa, numero: true }, { titulo: 'Motivo', valor: motivoSinRef },
+]
+const COLS_NO_COMP: ColumnaOrden<NoComparable>[] = [
+  { titulo: 'Cliente', valor: r => r.cliente }, { titulo: 'Tipo de servicio', valor: r => r.servicio },
+  { titulo: 'Tipo de tarifa', valor: r => r.tipo_tarifa }, { titulo: 'Ruta', valor: ruta },
+  { titulo: 'Tarifa', valor: r => r.tarifa, numero: true }, { titulo: 'Motivo', valor: r => r.motivo },
+]
+const SIN_FILAS: Fila[] = []
+const SIN_NC: NoComparable[] = []
 
 function exportar(nombre: string, filas: Record<string, unknown>[]) {
   const libro = XLSX.utils.book_new()
@@ -273,7 +295,11 @@ export default function TarifaxComparativo() {
   const hayFiltros = f.clientes.length + f.origenes.length + f.destinos.length + f.servicios.length + f.categorias.length
     + f.dptosOrigen.length + f.dptosDestino.length + f.tiposTarifa.length > 0 || !!f.posicion
   const porCliente = (t?.por_cliente ?? []).filter(c => c.variacion != null)
-  const filasDetalle = t?.detalle ?? []
+  const comparadas = useOrden(t?.detalle ?? SIN_FILAS, COLS_COMPARADAS)
+  const sinRef = useOrden(t?.sin_referencia ?? SIN_FILAS, COLS_SIN_REF)
+  const noComp = useOrden(t?.no_comparables ?? SIN_NC, COLS_NO_COMP)
+  const filasDetalle = comparadas.filas
+  useEffect(() => setPagina(0), [comparadas.orden])
 
   return (
     <Layout title="TarifaX — Comparativo SICETAC">
@@ -562,10 +588,9 @@ export default function TarifaxComparativo() {
             </Alert>
             <Box sx={{ overflowX: 'auto' }}>
               <Table size="small" sx={{ '& td, & th': { px: 1 } }}>
-                <TableHead><TableRow>{['Cliente', 'Tipo de servicio', 'Tipo de tarifa', 'Ruta', 'Tarifa', 'Motivo'].map((h, i) =>
-                  <TableCell key={h} align={i === 4 ? 'right' : 'left'} sx={{ fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap' }}>{h}</TableCell>)}</TableRow></TableHead>
+                <TableHead><TableRow><EncabezadosOrden columnas={COLS_NO_COMP} orden={noComp.orden} ordenar={noComp.ordenar} /></TableRow></TableHead>
                 <TableBody>
-                  {(t?.no_comparables ?? []).slice(0, 300).map((r, i) => (
+                  {noComp.filas.slice(0, 300).map((r, i) => (
                     <TableRow key={i} hover>
                       <TableCell sx={{ fontSize: 12, maxWidth: 200 }}><Typography fontSize={12} noWrap title={r.cliente}>{r.cliente}</Typography></TableCell>
                       <TableCell sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{r.servicio}</TableCell>
@@ -584,10 +609,7 @@ export default function TarifaxComparativo() {
           </> : tab === 0 ? <>
             <Box sx={{ overflowX: 'auto' }}>
               <Table size="small" sx={{ '& td, & th': { px: 1 } }}>
-                <TableHead><TableRow>
-                  {['Mes', 'Cliente', 'Ruta', 'Vehículo', 'Km', 'Tarifa cliente', 'SICETAC', 'Diferencia', 'Variación'].map((h, i) =>
-                    <TableCell key={h} align={i >= 4 ? 'right' : 'left'} sx={{ fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap' }}>{h}</TableCell>)}
-                </TableRow></TableHead>
+                <TableHead><TableRow><EncabezadosOrden columnas={COLS_COMPARADAS} orden={comparadas.orden} ordenar={comparadas.ordenar} /></TableRow></TableHead>
                 <TableBody>
                   {filasDetalle.slice(pagina * 25, pagina * 25 + 25).map((r, i) => (
                     <TableRow key={i} hover>
@@ -627,15 +649,15 @@ export default function TarifaxComparativo() {
             </Alert>
             <Box sx={{ overflowX: 'auto' }}>
               <Table size="small">
-                <TableHead><TableRow>{['Cliente', 'Ruta', 'Vehículo', 'Tarifa cliente', 'Motivo'].map(h => <TableCell key={h} sx={{ fontWeight: 700, fontSize: 12 }}>{h}</TableCell>)}</TableRow></TableHead>
+                <TableHead><TableRow><EncabezadosOrden columnas={COLS_SIN_REF} orden={sinRef.orden} ordenar={sinRef.ordenar} /></TableRow></TableHead>
                 <TableBody>
-                  {(t?.sin_referencia ?? []).slice(0, 300).map((r, i) => (
+                  {sinRef.filas.slice(0, 300).map((r, i) => (
                     <TableRow key={i} hover>
                       <TableCell sx={{ fontSize: 12 }}>{r.cliente}</TableCell>
                       <TableCell sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{r.origen} → {r.destino}</TableCell>
                       <TableCell sx={{ fontSize: 12 }}>{r.categoria}</TableCell>
-                      <TableCell sx={{ fontSize: 12 }}>{pesos(r.tarifa)}</TableCell>
-                      <TableCell sx={{ fontSize: 12 }}>{r.estado === 'SIN_VEHICULO' ? 'Vehículo sin equivalencia SICETAC' : 'Ruta no publicada en SICETAC'}</TableCell>
+                      <TableCell align="right" sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{pesos(r.tarifa)}</TableCell>
+                      <TableCell sx={{ fontSize: 12 }}>{motivoSinRef(r)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

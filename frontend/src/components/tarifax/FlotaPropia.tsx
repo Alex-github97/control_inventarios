@@ -4,16 +4,17 @@
  * el destino queda lejos de las sedes), frente a la tarifa del cliente y a SICETAC.
  * El cálculo lo hace el servidor (`/tarifax/comparativo/tablero` → `flota`).
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Box, Paper, Typography, Button, Stack, TextField, Alert, Table, TableHead, TableRow, TableCell, TableBody,
-  TablePagination, TableSortLabel, Dialog, DialogTitle, DialogContent, DialogActions, Chip,
+  TablePagination, Dialog, DialogTitle, DialogContent, DialogActions, Chip,
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
 import { LocalShipping } from '@mui/icons-material'
 import toast from 'react-hot-toast'
 import { apiClient as api } from '@/api/client'
 import { errorApi } from '@/components/comun/Registro'
+import { EncabezadosOrden, useOrden, type ColumnaOrden } from '@/components/tarifax/OrdenTabla'
 
 const BASE = '/tarifax/comparativo'
 const pesos = (v?: number | null) => v == null ? '—' : v.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
@@ -43,8 +44,7 @@ export const filasExcelFlota = (f: Flota | null | undefined) => (f?.detalle ?? [
 }))
 
 /** Columnas del detalle: cada una se ordena con un clic en su encabezado. */
-type Columna = { titulo: string; valor: (f: FilaFlota) => string | number | null; numero?: boolean }
-const COLUMNAS: Columna[] = [
+const COLUMNAS: ColumnaOrden<FilaFlota>[] = [
   { titulo: 'Cliente', valor: f => f.cliente },
   { titulo: 'Ruta', valor: f => `${f.origen} → ${f.destino}` },
   { titulo: 'Vehículo', valor: f => f.categoria },
@@ -59,6 +59,8 @@ const COLUMNAS: Columna[] = [
   { titulo: 'SICETAC', valor: f => f.sicetac, numero: true },
   { titulo: 'Costo vs SICETAC', valor: f => f.vs_sicetac, numero: true },
 ]
+
+const SIN_FILAS: FilaFlota[] = []
 
 /** Texto de color neutro con el signo como apoyo: ganancia o pérdida se lee en la cifra, no solo en el color. */
 function Signo({ v, sufijo = '' }: { v: number | null; sufijo?: string }) {
@@ -78,20 +80,8 @@ function Cifra({ titulo, valor, sub }: { titulo: string; valor: string; sub?: st
 
 export function TablaFlota({ flota, onConfigurar }: { flota: Flota | null | undefined; onConfigurar: () => void }) {
   const [pagina, setPagina] = useState(0)
-  // Primer clic: de mayor a menor (Z→A en los textos); el segundo invierte.
-  const [orden, setOrden] = useState<{ col: number; dir: 'asc' | 'desc' } | null>(null)
+  const { filas, orden, ordenar } = useOrden(flota?.detalle ?? SIN_FILAS, COLUMNAS)
   useEffect(() => setPagina(0), [flota, orden])
-  const filas = useMemo(() => {
-    const d = flota?.detalle ?? []
-    if (!orden) return d
-    const { valor } = COLUMNAS[orden.col], signo = orden.dir === 'asc' ? 1 : -1
-    return [...d].sort((a, b) => {
-      const x = valor(a), y = valor(b)
-      if (x == null || y == null) return x == null ? (y == null ? 0 : 1) : -1   // vacíos siempre al final
-      return signo * (typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'es'))
-    })
-  }, [flota, orden])
-  const ordenar = (col: number) => setOrden(o => o?.col === col ? { col, dir: o.dir === 'desc' ? 'asc' : 'desc' } : { col, dir: 'desc' })
   if (!flota?.configurado) return (
     <Alert severity="info" sx={{ m: 2 }} action={<Button size="small" onClick={onConfigurar}>Configurar</Button>}>
       Defina el costo por kilómetro (CPK) de cada tipología de vehículo para calcular lo que cuesta hacer cada ruta con flota propia
@@ -119,13 +109,7 @@ export function TablaFlota({ flota, onConfigurar }: { flota: Flota | null | unde
       <Box sx={{ overflowX: 'auto' }}>
         <Table size="small" sx={{ '& td, & th': { px: 1 } }}>
           <TableHead><TableRow>
-            {COLUMNAS.map((c, i) =>
-              <TableCell key={c.titulo} align={c.numero ? 'right' : 'left'} sx={{ fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap' }}
-                sortDirection={orden?.col === i ? orden.dir : false}>
-                <TableSortLabel active={orden?.col === i} direction={orden?.col === i ? orden.dir : 'desc'} onClick={() => ordenar(i)}>
-                  {c.titulo}
-                </TableSortLabel>
-              </TableCell>)}
+            <EncabezadosOrden columnas={COLUMNAS} orden={orden} ordenar={ordenar} />
           </TableRow></TableHead>
           <TableBody>
             {filas.slice(pagina * 25, pagina * 25 + 25).map((f, i) => (
