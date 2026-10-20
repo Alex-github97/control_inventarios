@@ -123,50 +123,174 @@ def leer_negociaciones(contenido: bytes, nombre: str) -> pd.DataFrame:
     return out.reset_index(drop=True)
 
 
-def leer_sicetac(contenido: bytes, nombre: str) -> pd.DataFrame:
-    """Lee un tarifario SICETAC y lo reduce a lo que usa el cruce: costo
-    promedio y distancia por origen, destino, configuración y carrocería."""
-    df = _leer_tabla(contenido, nombre)
-    encabezados = {normalizar(c).replace(" ", "_"): c for c in df.columns}
-    encabezados.update({normalizar(c): c for c in df.columns})
-    columnas = {}
+def _columnas_sicetac(encabezados) -> Dict[str, int]:
+    """Posición de cada columna que usa el cruce, reconociendo sus nombres alternos."""
+    pos: Dict[str, int] = {}
+    vistos = {}
+    for i, c in enumerate(encabezados):
+        n = normalizar(c)
+        vistos.setdefault(n, i)
+        vistos.setdefault(n.replace(" ", "_"), i)
     for destino, alternos in COLS_SICETAC.items():
         for alt in alternos:
-            if alt in encabezados:
-                columnas[destino] = encabezados[alt]
+            if alt in vistos:
+                pos[destino] = vistos[alt]
                 break
-    faltan = [c for c in OBLIGATORIAS_SICETAC if c not in columnas]
+    return pos
+
+
+def _falta_sicetac(pos: Dict[str, int]) -> None:
+    faltan = [c for c in OBLIGATORIAS_SICETAC if c not in pos]
     if faltan:
         raise ArchivoInvalido(
             "Al archivo SICETAC le faltan las columnas: " + ", ".join(faltan)
             + ". Debe traer, como el tarifario de TarifaX: ORIGEN, DESTINO, TIPO_VEHICULO, "
-              "TIPO_CARROCERIA, COSTO_TOTAL_VIAJE y (opcional) DISTANCIA.")
-    base = pd.DataFrame({k: df[v] for k, v in columnas.items()})
-    if "TIPO_CARROCERIA" not in base:
-        base["TIPO_CARROCERIA"] = "SIN CARROCERIA"
-    if "DISTANCIA" not in base:
-        base["DISTANCIA"] = None
-    if "VALOR_HORA_LOGISTICA" not in base:
-        base["VALOR_HORA_LOGISTICA"] = None
-    return agrupar_sicetac(base)
+              "TIPO_CARROCERIA, COSTO_TOTAL_VIAJE y (opcional) DISTANCIA y VALOR_HORA_LOGISTICA.")
 
 
-def agrupar_sicetac(base: pd.DataFrame) -> pd.DataFrame:
+def _norm_rapida(s: pd.Series) -> pd.Series:
+    """`normalizar` sobre cada valor DISTINTO y no sobre cada fila: en un
+    tarifario de millones de filas las ciudades y vehículos se repiten mucho."""
+    unicos = pd.unique(s)
+    return s.map({u: normalizar(u) for u in unicos})
+
+
+def _parcial(base: pd.DataFrame) -> pd.DataFrame:
+    """Sumas y conteos por ruta, vehículo y carrocería de un bloque de filas.
+    Varios parciales se combinan en `_combinar` sin volver a leer nada."""
     g = pd.DataFrame({
-        "o": base["ORIGEN"].map(normalizar),
-        "d": base["DESTINO"].map(normalizar),
-        "tv": base["TIPO_VEHICULO"].map(normalizar),
-        "carroceria": base["TIPO_CARROCERIA"].map(normalizar).replace("", "SIN CARROCERIA"),
+        "o": _norm_rapida(base["ORIGEN"]),
+        "d": _norm_rapida(base["DESTINO"]),
+        "tv": _norm_rapida(base["TIPO_VEHICULO"]),
+        "carroceria": _norm_rapida(base["TIPO_CARROCERIA"]) if "TIPO_CARROCERIA" in base else "SIN CARROCERIA",
         "costo": pd.to_numeric(base["COSTO_TOTAL_VIAJE"], errors="coerce"),
-        "distancia": pd.to_numeric(base["DISTANCIA"], errors="coerce"),
+        "distancia": pd.to_numeric(base["DISTANCIA"], errors="coerce") if "DISTANCIA" in base else float("nan"),
         "valor_hora": pd.to_numeric(base["VALOR_HORA_LOGISTICA"], errors="coerce")
                       if "VALOR_HORA_LOGISTICA" in base else float("nan"),
     })
+    g["carroceria"] = g["carroceria"].replace("", "SIN CARROCERIA")
     g = g[(g["o"] != "") & (g["d"] != "") & (g["tv"] != "") & g["costo"].gt(0)]
-    if g.empty:
+    return g.groupby(["o", "d", "tv", "carroceria"], as_index=False).agg(
+        costo_suma=("costo", "sum"), costo_n=("costo", "count"), distancia=("distancia", "first"),
+        hora_suma=("valor_hora", "sum"), hora_n=("valor_hora", "count"))
+
+
+def _combinar(parciales: List[pd.DataFrame]) -> pd.DataFrame:
+    if not parciales:
         raise ArchivoInvalido("El archivo SICETAC no trae ninguna fila con origen, destino, vehículo y costo.")
-    return (g.groupby(["o", "d", "tv", "carroceria"], as_index=False)
-             .agg(costo=("costo", "mean"), distancia=("distancia", "first"), valor_hora=("valor_hora", "mean")))
+    t = pd.concat(parciales, ignore_index=True).groupby(["o", "d", "tv", "carroceria"], as_index=False).agg(
+        costo_suma=("costo_suma", "sum"), costo_n=("costo_n", "sum"), distancia=("distancia", "first"),
+        hora_suma=("hora_suma", "sum"), hora_n=("hora_n", "sum"))
+    t = t[t["costo_n"] > 0]
+    if t.empty:
+        raise ArchivoInvalido("El archivo SICETAC no trae ninguna fila con origen, destino, vehículo y costo.")
+    t["costo"] = t["costo_suma"] / t["costo_n"]
+    t["valor_hora"] = (t["hora_suma"] / t["hora_n"]).where(t["hora_n"] > 0)
+    return t[["o", "d", "tv", "carroceria", "costo", "distancia", "valor_hora"]].reset_index(drop=True)
+
+
+def agrupar_sicetac(base: pd.DataFrame) -> pd.DataFrame:
+    """Costo promedio, distancia y valor de la hora por ruta, vehículo y carrocería."""
+    return _combinar([_parcial(base)])
+
+
+BLOQUE = 200_000
+
+
+def leer_sicetac_archivo(ruta: str, nombre: str, avance=None) -> pd.DataFrame:
+    """Lee un tarifario SICETAC de cualquier tamaño sin cargarlo entero en
+    memoria: Excel fila a fila (modo de solo lectura), CSV por bloques. Cada
+    bloque se agrupa y se suma; la memoria depende de cuántas rutas distintas
+    hay, no de cuántas filas trae el archivo.
+
+    `avance(filas_leidas)` se llama después de cada bloque."""
+    parciales: List[pd.DataFrame] = []
+    leidas = 0
+    nombre = (nombre or "").lower()
+    try:
+        if nombre.endswith(".csv"):
+            with open(ruta, "r", encoding="utf-8", errors="replace") as fh:
+                primera = fh.readline()
+            sep = max([";", ",", "\t", "|"], key=primera.count)
+            pos = None
+            for bloque in pd.read_csv(ruta, sep=sep, dtype=str, chunksize=BLOQUE, encoding_errors="replace"):
+                if pos is None:
+                    pos = _columnas_sicetac(bloque.columns)
+                    _falta_sicetac(pos)
+                base = pd.DataFrame({k: bloque.iloc[:, i] for k, i in pos.items()})
+                parciales.append(_parcial(base))
+                leidas += len(bloque)
+                if avance:
+                    avance(leidas)
+        elif nombre.endswith(".xlsx"):
+            import openpyxl
+            libro = openpyxl.load_workbook(ruta, read_only=True, data_only=True)
+            # Una hoja de Excel no pasa de 1.048.576 filas: los tarifarios grandes
+            # vienen repartidos en varias hojas. Se leen todas las que tengan las
+            # columnas del tarifario (y se ignoran las de notas o resúmenes).
+            hojas_leidas = 0
+            for hoja in libro.worksheets:
+                filas = hoja.iter_rows(values_only=True)
+                pos = None
+                # El encabezado puede no estar en la primera fila (títulos arriba).
+                for _ in range(15):
+                    fila = next(filas, None)
+                    if fila is None:
+                        break
+                    candidato = _columnas_sicetac([c if c is not None else "" for c in fila])
+                    if all(c in candidato for c in OBLIGATORIAS_SICETAC):
+                        pos = candidato
+                        break
+                if pos is None:
+                    continue
+                hojas_leidas += 1
+                claves = list(pos.items())
+                lote: List[tuple] = []
+                for fila in filas:
+                    lote.append(tuple(fila[i] if i < len(fila) else None for _, i in claves))
+                    if len(lote) >= BLOQUE:
+                        parciales.append(_parcial(pd.DataFrame(lote, columns=[k for k, _ in claves])))
+                        leidas += len(lote)
+                        lote = []
+                        if avance:
+                            avance(leidas)
+                if lote:
+                    parciales.append(_parcial(pd.DataFrame(lote, columns=[k for k, _ in claves])))
+                    leidas += len(lote)
+                    if avance:
+                        avance(leidas)
+            libro.close()
+            if not hojas_leidas:
+                _falta_sicetac({})
+        else:
+            # .xls (formato viejo): no se puede leer por partes; se lee entero.
+            with open(ruta, "rb") as fh:
+                df = _leer_tabla(fh.read(), nombre)
+            pos = _columnas_sicetac(df.columns)
+            _falta_sicetac(pos)
+            parciales.append(_parcial(pd.DataFrame({k: df.iloc[:, i] for k, i in pos.items()})))
+            leidas = len(df)
+    except ArchivoInvalido:
+        raise
+    except Exception as e:  # noqa: BLE001
+        raise ArchivoInvalido(f"No se pudo leer el archivo SICETAC: {e}") from e
+    if avance:
+        avance(leidas)
+    return _combinar(parciales)
+
+
+def leer_sicetac(contenido: bytes, nombre: str) -> pd.DataFrame:
+    """Lo mismo, desde un archivo ya en memoria (archivos pequeños y pruebas)."""
+    import os
+    import tempfile
+    sufijo = os.path.splitext(nombre or "")[1] or ".xlsx"
+    with tempfile.NamedTemporaryFile(suffix=sufijo, delete=False) as tmp:
+        tmp.write(contenido)
+        ruta = tmp.name
+    try:
+        return leer_sicetac_archivo(ruta, nombre or f"x{sufijo}")
+    finally:
+        os.unlink(ruta)
 
 
 def mapeo_categorias(mapeo: Dict[str, str]) -> Dict[str, str]:

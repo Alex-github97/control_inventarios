@@ -49,7 +49,10 @@ const pct = (v?: number | null, signo = true) => v == null ? '—' : `${signo &&
 const num = (v?: number | null) => v == null ? '—' : v.toLocaleString('es-CO', { maximumFractionDigits: 0 })
 const fecha = (s?: string | null) => s ? new Date(s).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' }) : ''
 
-interface Mes { periodo: string; mes: number; nombre: string; cargado: boolean; archivo: string | null; rutas: number; cargado_en: string | null; usuario: string | null }
+interface Mes {
+  periodo: string; mes: number; nombre: string; cargado: boolean; archivo: string | null; rutas: number; cargado_en: string | null; usuario: string | null
+  estado: 'LISTO' | 'PROCESANDO' | 'ERROR' | 'INTERRUMPIDO' | null; mensaje: string | null; filas_leidas: number | null
+}
 interface Vehiculo { categoria: string; tarifas: number; tipo_sicetac: string | null; por: 'MAPEO' | 'SINONIMO' | null; sinonimo_de: string | null }
 interface Estado {
   vehiculos: Vehiculo[]
@@ -139,7 +142,25 @@ export default function TarifaxComparativo() {
   const archivoMes = useRef<HTMLInputElement>(null)
   const mesElegido = useRef<number>(1)
 
-  const estado = useQuery<Estado>({ queryKey: ['tx-comp-estado', anio], queryFn: () => api.get(`${BASE}/estado`, { params: { anio } }).then(r => r.data) })
+  const estado = useQuery<Estado>({
+    queryKey: ['tx-comp-estado', anio], queryFn: () => api.get(`${BASE}/estado`, { params: { anio } }).then(r => r.data),
+    refetchInterval: q => (q.state.data?.meses ?? []).some(m => m.estado === 'PROCESANDO') ? 4000 : false,
+  })
+  const [subida, setSubida] = useState<{ mes: number; pct: number } | null>(null)
+  // Al terminar un procesamiento en segundo plano: aviso y tablero al día.
+  const procesando = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    const ahora = new Set((estado.data?.meses ?? []).filter(m => m.estado === 'PROCESANDO').map(m => m.periodo))
+    for (const per of procesando.current) {
+      if (!ahora.has(per)) {
+        const m = estado.data?.meses.find(x => x.periodo === per)
+        if (m?.estado === 'LISTO') toast.success(`${m.nombre}: ${num(m.rutas)} rutas SICETAC procesadas`, { duration: 7000 })
+        else if (m?.estado === 'ERROR') toast.error(`${m.nombre}: ${m.mensaje}`, { duration: 10000 })
+        qc.invalidateQueries({ queryKey: ['tx-comp-tablero'] })
+      }
+    }
+    procesando.current = ahora
+  }, [estado.data])  // eslint-disable-line react-hooks/exhaustive-deps
   const params = useMemo(() => ({
     periodos: f.periodos.join('|') || undefined, clientes: f.clientes.join('|') || undefined,
     origenes: f.origenes.join('|') || undefined, destinos: f.destinos.join('|') || undefined,
@@ -178,8 +199,20 @@ export default function TarifaxComparativo() {
   const onMes = (e: React.ChangeEvent<HTMLInputElement>) => {
     const entrada = e.target, a = entrada.files?.[0]
     const m = mesElegido.current
-    if (a) subir(`${BASE}/sicetac/${anio}/${m}`, a, `m${m}`, r => `${r.nombre}: ${num(r.rutas)} rutas SICETAC · ${num(r.tarifas_con_referencia)} tarifas con referencia`)
-      .finally(() => { entrada.value = '' })
+    if (!a) return
+    if (a.size > 1024 * 1024 * 1024) { toast.error('El archivo pesa más de 1 GB.'); entrada.value = ''; return }
+    const datos = new FormData()
+    datos.append('archivo', a)
+    setCargando(`m${m}`)
+    setSubida({ mes: m, pct: 0 })
+    api.post(`${BASE}/sicetac/${anio}/${m}`, datos, {
+      timeout: 0,   // un archivo de cientos de MB puede tardar en subir
+      onUploadProgress: ev => setSubida({ mes: m, pct: ev.total ? Math.round(ev.loaded / ev.total * 100) : 0 }),
+    }).then(r => {
+      toast.success(`${r.data.nombre}: archivo recibido (${r.data.mb} MB). Se está procesando; puede seguir trabajando.`, { duration: 7000 })
+      refrescar()
+    }).catch(err => toast.error(errorApi(err, 'No se pudo cargar el archivo')))
+      .finally(() => { setCargando(null); setSubida(null); entrada.value = '' })
   }
   const recalcularVehiculos = async () => {
     const id = toast.loading('Recalculando la comparación con las nuevas equivalencias…')
@@ -266,6 +299,7 @@ export default function TarifaxComparativo() {
               </TextField>
               <Typography fontSize={12} color="text.secondary" flex={1}>
                 El archivo de cada mes debe traer las columnas del tarifario de TarifaX: ORIGEN, DESTINO, TIPO_VEHICULO, TIPO_CARROCERIA, COSTO_TOTAL_VIAJE y DISTANCIA.
+                Hasta 1 GB; puede venir en varias hojas. Para archivos muy grandes, el CSV se procesa bastante más rápido que el Excel.
               </Typography>
             </Stack>
             <Grid container spacing={1.5}>
@@ -277,15 +311,22 @@ export default function TarifaxComparativo() {
                       <Typography fontWeight={700} flex={1}>{m.nombre}</Typography>
                       {m.cargado && <Tooltip title={`Quitar ${m.nombre}`}><IconButton size="small" aria-label={`Quitar ${m.nombre}`} onClick={() => borrarMes(m)}><Delete fontSize="small" /></IconButton></Tooltip>}
                     </Stack>
-                    <Typography fontSize={11} color="text.secondary" sx={{ minHeight: 30 }}>
-                      {m.cargado ? `${num(m.rutas)} rutas · ${fecha(m.cargado_en)}` : 'Sin cargar'}
+                    <Typography fontSize={11} color={m.estado === 'ERROR' || m.estado === 'INTERRUMPIDO' ? 'error.main' : 'text.secondary'} sx={{ minHeight: 30 }}
+                      title={m.mensaje ?? ''}>
+                      {subida?.mes === m.mes ? `Subiendo… ${subida.pct} %`
+                        : m.estado === 'PROCESANDO' ? `Procesando… ${num(m.filas_leidas)} filas leídas`
+                        : m.estado === 'ERROR' ? `Error: ${(m.mensaje ?? '').slice(0, 70)}${(m.mensaje ?? '').length > 70 ? '…' : ''}`
+                        : m.estado === 'INTERRUMPIDO' ? 'Se interrumpió el procesamiento: vuelva a cargarlo'
+                        : m.cargado ? `${num(m.rutas)} rutas · ${fecha(m.cargado_en)}` : 'Sin cargar'}
                     </Typography>
-                    <Button fullWidth size="small" variant={m.cargado ? 'text' : 'outlined'} disabled={!!cargando}
+                    <Button fullWidth size="small" variant={m.cargado ? 'text' : 'outlined'} disabled={!!cargando || m.estado === 'PROCESANDO'}
                       aria-label={`Cargar SICETAC de ${m.nombre}`}
                       onClick={() => { mesElegido.current = m.mes; archivoMes.current?.click() }}>
-                      {cargando === `m${m.mes}` ? 'Cargando…' : m.cargado ? 'Reemplazar' : 'Cargar'}
+                      {cargando === `m${m.mes}` ? 'Subiendo…' : m.estado === 'PROCESANDO' ? 'Procesando…'
+                        : m.estado === 'ERROR' || m.estado === 'INTERRUMPIDO' ? 'Reintentar' : m.cargado ? 'Reemplazar' : 'Cargar'}
                     </Button>
-                    {cargando === `m${m.mes}` && <LinearProgress sx={{ mt: 0.5 }} />}
+                    {subida?.mes === m.mes && <LinearProgress variant="determinate" value={subida.pct} sx={{ mt: 0.5 }} />}
+                    {subida?.mes !== m.mes && m.estado === 'PROCESANDO' && <LinearProgress sx={{ mt: 0.5 }} />}
                   </Paper>
                 </Grid>
               ))}

@@ -63,14 +63,16 @@ const aparece = async (loc, ms = 30000) => { try { await loc.first().waitFor({ t
   // No se guarda: la configuración es compartida y la prueba podría pisar un cambio de quien
   // está usando la aplicación. Solo se verifica que Guardar se habilite al terminar de cargar.
   await p.waitForFunction(() => [...document.querySelectorAll('[role=dialog] button')]
-    .some(b => b.textContent.includes('Guardar configuración') && !b.disabled), null, { timeout: 20000 }).catch(() => {});
+    .some(b => b.textContent.includes('Guardar configuración') && !b.disabled), null, { timeout: 90000 }).catch(() => {});
   comprobar(await dv.getByRole('button', { name: 'Guardar configuración' }).isEnabled(), 'Guardar se habilita cuando terminan de cargar las equivalencias');
   await dv.getByRole('button', { name: 'Cancelar' }).click();
 
   if (process.env.SICETAC) {
     const [selector] = await Promise.all([p.waitForEvent('filechooser'), p.getByRole('button', { name: 'Cargar SICETAC de Febrero' }).click()]);
     await selector.setFiles(process.env.SICETAC);
-    comprobar(await aparece(p.getByText(/Febrero \d{4}: .* rutas SICETAC/), 180000), 'carga el SICETAC de febrero desde la pantalla');
+    comprobar(await aparece(p.getByText(/archivo recibido .* Se está procesando/), 180000), 'sube el archivo y responde de inmediato (se procesa en segundo plano)');
+    comprobar(await aparece(p.getByText(/Procesando…/), 20000), 'la tarjeta del mes muestra que se está procesando');
+    comprobar(await aparece(p.getByText(/Febrero: .* rutas SICETAC procesadas/), 600000), 'avisa cuando termina de procesar febrero');
   }
 
   // Filtro por cliente desde la gráfica.

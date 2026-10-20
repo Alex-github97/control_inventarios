@@ -36,7 +36,12 @@ from app.infrastructure.models.usuario import Usuario
 
 router = APIRouter(prefix="/tarifax/comparativo", tags=["TarifaX · Comparativo"])
 
-MAX_MB = 80
+MAX_MB = 80              # negociaciones (se leen en memoria)
+MAX_MB_SICETAC = 1024    # SICETAC: se sube al disco por partes y se lee por partes
+# Un procesamiento que lleva más que esto sin terminar se da por interrumpido
+# (el proceso del servidor que lo hacía se reinició): se puede volver a cargar.
+PROCESO_VENCE_MIN = 90
+_tareas: set = set()     # referencia a las tareas en segundo plano (si no, el recolector las puede cortar)
 # Equivalencias que se siembran la primera vez: los nombres en que el
 # consolidado comercial y SICETAC difieren con seguridad.
 ALIAS_INICIALES = {
@@ -167,7 +172,13 @@ async def estado(anio: int = Query(default_factory=lambda: datetime.now().year),
     for m in range(1, 13):
         per = f"{anio}-{m:02d}"
         r = regs.get(per)
-        meses.append({"periodo": per, "mes": m, "nombre": tc.MESES[m - 1], "cargado": bool(r),
+        est = r.estado if r else None
+        if est == "PROCESANDO" and r.updated_at and (datetime.now(timezone.utc) - r.updated_at).total_seconds() > PROCESO_VENCE_MIN * 60:
+            est = "INTERRUMPIDO"
+        meses.append({"periodo": per, "mes": m, "nombre": tc.MESES[m - 1],
+                      # Cargado = tiene datos procesados (aunque ahora se esté reprocesando uno nuevo).
+                      "cargado": bool(r and r.filas),
+                      "estado": est, "mensaje": r.mensaje if r else None, "filas_leidas": r.filas_leidas if r else None,
                       "archivo": r.archivo if r else None, "filas": r.filas if r else 0,
                       "rutas": r.rutas if r else 0,
                       "cargado_en": r.updated_at.isoformat() if r and r.updated_at else None,
@@ -221,35 +232,97 @@ async def cargar_negociaciones(archivo: UploadFile = File(...), db: AsyncSession
             "no_comparables": len(df) - comparables, "periodos": resumen}
 
 
-@router.post("/sicetac/{anio}/{mes}")
+@router.post("/sicetac/{anio}/{mes}", status_code=202)
 async def cargar_sicetac(anio: int, mes: int, archivo: UploadFile = File(...),
                          db: AsyncSession = Depends(get_db), yo: Usuario = Depends(get_current_user)):
-    """Carga (o reemplaza) el SICETAC de un mes y cruza las negociaciones con él."""
+    """Recibe el SICETAC de un mes (hasta 1 GB) y lo procesa en segundo plano.
+
+    El archivo se copia al disco por partes (nunca entero en memoria) y la
+    respuesta sale de inmediato: un tarifario de millones de filas tarda
+    minutos en leerse, más de lo que el proxy espera una respuesta. El mes
+    queda PROCESANDO y la pantalla consulta su estado hasta que termine."""
     if not 1 <= mes <= 12 or not 2000 <= anio <= 2100:
         raise HTTPException(422, "Mes o año fuera de rango.")
-    contenido = await _leer_archivo(archivo)
-    try:
-        sic = await asyncio.to_thread(tc.leer_sicetac, contenido, archivo.filename or "")
-    except tc.ArchivoInvalido as e:
-        raise HTTPException(422, str(e))
+    nombre = archivo.filename or ""
+    if not nombre.lower().endswith((".xlsx", ".xls", ".csv")):
+        raise HTTPException(422, "Se aceptan archivos de Excel (.xlsx, .xls) o .csv.")
     periodo = f"{anio}-{mes:02d}"
-    ruta = _carpeta() / f"{periodo}.pkl.gz"
-    await asyncio.to_thread(sic.to_pickle, ruta, compression="gzip")
-    reg = (await db.execute(select(TarifaxSicetacPeriodo).where(TarifaxSicetacPeriodo.periodo == periodo))).scalar_one_or_none()
+    reg = (await db.execute(select(TarifaxSicetacPeriodo).where(TarifaxSicetacPeriodo.periodo == periodo)
+                            .with_for_update())).scalar_one_or_none()
+    if reg is not None and reg.estado == "PROCESANDO" and reg.updated_at and \
+            (datetime.now(timezone.utc) - reg.updated_at).total_seconds() < PROCESO_VENCE_MIN * 60:
+        raise HTTPException(409, f"{tc.nombre_periodo(periodo)} todavía se está procesando. Espere a que termine.")
+    carpeta = _carpeta()
+    temporal = carpeta / f"{periodo}.subida{Path(nombre).suffix.lower()}"
+    tope = MAX_MB_SICETAC * 1024 * 1024
+    total = 0
+    with open(temporal, "wb") as destino:
+        while True:
+            parte = await archivo.read(4 * 1024 * 1024)
+            if not parte:
+                break
+            total += len(parte)
+            if total > tope:
+                destino.close()
+                temporal.unlink(missing_ok=True)
+                raise HTTPException(422, f"El archivo pesa más de {MAX_MB_SICETAC} MB.")
+            destino.write(parte)
+    if not total:
+        temporal.unlink(missing_ok=True)
+        raise HTTPException(422, "El archivo está vacío.")
     if reg is None:
-        reg = TarifaxSicetacPeriodo(periodo=periodo, anio=anio, mes=mes, ruta=str(ruta))
+        reg = TarifaxSicetacPeriodo(periodo=periodo, anio=anio, mes=mes, ruta=str(carpeta / f"{periodo}.pkl.gz"), filas=0, rutas=0)
         db.add(reg)
-    reg.archivo, reg.ruta, reg.filas = archivo.filename, str(ruta), len(sic)
-    reg.rutas = int(sic[["o", "d"]].drop_duplicates().shape[0])
-    reg.usuario = yo.username
+    reg.estado, reg.mensaje, reg.filas_leidas = "PROCESANDO", None, 0
+    reg.archivo, reg.usuario = nombre, yo.username
     reg.updated_at = datetime.now(timezone.utc)
-    await db.flush()
-    resumen = await _recalcular(db, [periodo])
     await db.commit()
-    ok = (await db.execute(select(func.count(func.distinct(TarifaxComparacion.negociacion_id))).where(
-        TarifaxComparacion.periodo == periodo, TarifaxComparacion.estado == "OK"))).scalar() or 0
-    return {"periodo": periodo, "nombre": tc.nombre_periodo(periodo), "rutas": reg.rutas,
-            "combinaciones": len(sic), "filas_cruce": resumen.get(periodo, 0), "tarifas_con_referencia": ok}
+    esquema = esquema_actual() or ESQUEMA_POR_DEFECTO
+    tarea = asyncio.create_task(_procesar_sicetac(esquema, periodo, str(temporal), nombre))
+    _tareas.add(tarea)
+    tarea.add_done_callback(_tareas.discard)
+    return {"periodo": periodo, "nombre": tc.nombre_periodo(periodo), "estado": "PROCESANDO",
+            "mb": round(total / 1024 / 1024, 1)}
+
+
+async def _procesar_sicetac(esquema: str, periodo: str, temporal: str, nombre: str) -> None:
+    """Lee el archivo por partes, guarda el resultado y rehace el cruce del mes."""
+    from app.core.database import AsyncSessionLocal
+    loop = asyncio.get_running_loop()
+    ultimo = {"n": 0}
+
+    async def anotar_avance(n: int) -> None:
+        async with AsyncSessionLocal(info={"esquema": esquema}) as s:
+            r = (await s.execute(select(TarifaxSicetacPeriodo).where(TarifaxSicetacPeriodo.periodo == periodo))).scalar_one_or_none()
+            if r is not None:
+                r.filas_leidas, r.updated_at = n, datetime.now(timezone.utc)
+                await s.commit()
+
+    def avance(n: int) -> None:
+        # Se anota cada ~500.000 filas: suficiente para ver que avanza.
+        if n - ultimo["n"] >= 500_000:
+            ultimo["n"] = n
+            asyncio.run_coroutine_threadsafe(anotar_avance(n), loop)
+
+    try:
+        sic = await asyncio.to_thread(tc.leer_sicetac_archivo, temporal, nombre, avance)
+        async with AsyncSessionLocal(info={"esquema": esquema}) as db:
+            reg = (await db.execute(select(TarifaxSicetacPeriodo).where(TarifaxSicetacPeriodo.periodo == periodo))).scalar_one()
+            await asyncio.to_thread(sic.to_pickle, reg.ruta, compression="gzip")
+            reg.filas, reg.rutas = len(sic), int(sic[["o", "d"]].drop_duplicates().shape[0])
+            await db.flush()
+            await _recalcular(db, [periodo])
+            reg.estado, reg.mensaje, reg.updated_at = "LISTO", None, datetime.now(timezone.utc)
+            await db.commit()
+    except Exception as e:  # noqa: BLE001
+        mensaje = str(e) if isinstance(e, tc.ArchivoInvalido) else f"No se pudo procesar el archivo: {e}"
+        async with AsyncSessionLocal(info={"esquema": esquema}) as db:
+            reg = (await db.execute(select(TarifaxSicetacPeriodo).where(TarifaxSicetacPeriodo.periodo == periodo))).scalar_one_or_none()
+            if reg is not None:
+                reg.estado, reg.mensaje, reg.updated_at = "ERROR", mensaje[:1000], datetime.now(timezone.utc)
+                await db.commit()
+    finally:
+        Path(temporal).unlink(missing_ok=True)
 
 
 @router.delete("/sicetac/{anio}/{mes}")

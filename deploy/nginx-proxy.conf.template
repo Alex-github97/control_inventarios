@@ -37,7 +37,7 @@ server {
 
     # Los adjuntos del sistema pueden ser pesados; el límite por defecto de
     # nginx es 1 MB y cortaría las cargas.
-    client_max_body_size 80M;   # el SICETAC mensual de TarifaX pesa ~20-30 MB
+    client_max_body_size 1024M;   # el SICETAC mensual de TarifaX (hasta 1 GB; se procesa en segundo plano)
 
     # nginx resuelve el nombre del backend una sola vez, al cargar la
     # configuración. Al recrear ese contenedor cambia de IP y el proxy sigue

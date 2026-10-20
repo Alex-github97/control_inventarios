@@ -46,6 +46,11 @@ class TarifaxSicetacPeriodo(Base, TimestampMixin):
     filas      = Column(Integer, nullable=False, default=0)
     rutas      = Column(Integer, nullable=False, default=0)
     usuario    = Column(String(120), nullable=True)
+    # Un archivo grande se procesa en segundo plano: PROCESANDO mientras se
+    # lee (con las filas que va leyendo), LISTO al terminar, ERROR con el motivo.
+    estado        = Column(String(12), nullable=False, default="LISTO", server_default="LISTO")
+    mensaje       = Column(Text, nullable=True)
+    filas_leidas  = Column(Integer, nullable=True)
 
 
 class TarifaxComparacion(Base):
