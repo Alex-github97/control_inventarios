@@ -33,7 +33,7 @@ import { Encabezado, errorApi } from '@/components/comun/Registro'
 import { apiClient as api } from '@/api/client'
 import { COLOR_MODULO } from '@/config/marca'
 import { CascadaSicetac } from '@/components/tarifax/CascadaSicetac'
-import { SicetacPorVehiculo, type SerieVehiculo } from '@/components/tarifax/SicetacPorVehiculo'
+import { LineasPorMes, type Linea } from '@/components/tarifax/LineasPorMes'
 import { ConfigVehiculos } from '@/components/tarifax/ConfigVehiculos'
 import { EncabezadosOrden, useOrden, type ColumnaOrden } from '@/components/tarifax/OrdenTabla'
 import { DialogoFlota, ResumenFlota, TablaFlota, filasExcelFlota, type Flota, type FlotaConfig } from '@/components/tarifax/FlotaPropia'
@@ -88,7 +88,7 @@ interface Tablero {
   detalle: Fila[]; detalle_total?: number; sin_referencia: Fila[]; sin_referencia_total: number; carroceria: string
   no_comparables: NoComparable[]; no_comparables_total: number
   flota: Flota | null
-  por_mes_vehiculo?: SerieVehiculo[]; por_mes_vehiculo_tarifas?: number
+  por_mes_vehiculo?: Linea[]; por_mes_vehiculo_tarifas?: number; rentab_origen?: Linea[]; rentab_vehiculo?: Linea[]
 }
 interface NoComparable { cliente: string; servicio: string | null; origen: string; destino: string; tipo_tarifa: string | null; tarifa: number | null; motivo: string }
 type Filtros = { periodos: string[]; clientes: string[]; origenes: string[]; destinos: string[]; servicios: string[]; categorias: string[]
@@ -513,9 +513,33 @@ export default function TarifaxComparativo() {
                       <Typography fontSize={34} fontWeight={800}>{pct(t?.por_mes[0]?.variacion)}</Typography>
                       <Typography fontSize={12} color="text.secondary">{t?.por_mes[0]?.nombre} · elija o cargue más meses para ver la evolución</Typography>
                     </Box>
-                  : <SicetacPorVehiculo series={t?.por_mes_vehiculo ?? []} todas={opc?.categorias ?? []} />}
+                  : <LineasPorMes lineas={t?.por_mes_vehiculo ?? []} formato="pesos" todas={opc?.categorias} />}
               </Paper>
             </Grid>
+            {(t?.por_mes.length ?? 0) >= 2 && <>
+              <Grid size={{ xs: 12 }}>
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                  <Typography fontWeight={700}>
+                    Rentabilidad frente a SICETAC por mes y ciudad de origen{f.clientes.length === 1 ? ` · ${f.clientes[0]}` : f.clientes.length > 1 ? ` · ${f.clientes.length} clientes` : ''}
+                  </Typography>
+                  <Typography fontSize={12} color="text.secondary" mb={1}>
+                    Rentabilidad = (total cobrado − total SICETAC) / total cobrado, con las mismas tarifas en todos los meses.
+                    Sobre cada punto, el cambio frente al mes anterior en puntos porcentuales (pp). Elija un cliente arriba para ver sus orígenes.
+                    {(t?.rentab_origen ?? []).some(l => l.clave === 'OTROS ORÍGENES') ? ' Las 7 ciudades con más tarifas; el resto va en «Otros orígenes».' : ''}
+                  </Typography>
+                  <LineasPorMes lineas={t?.rentab_origen ?? []} formato="pct" otros="OTROS ORÍGENES" />
+                </Paper>
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                  <Typography fontWeight={700}>Rentabilidad frente a SICETAC por mes y tipo de vehículo</Typography>
+                  <Typography fontSize={12} color="text.secondary" mb={1}>
+                    Misma medida, por tipología. Sobre cada punto, el cambio frente al mes anterior en puntos porcentuales (pp).
+                  </Typography>
+                  <LineasPorMes lineas={t?.rentab_vehiculo ?? []} formato="pct" todas={opc?.categorias} />
+                </Paper>
+              </Grid>
+            </>}
             <Grid size={{ xs: 12 }}>
               <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, height: '100%' }}>
                 <Stack direction="row" alignItems="center" gap={2}>
