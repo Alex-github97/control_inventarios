@@ -34,6 +34,7 @@ import { apiClient as api } from '@/api/client'
 import { COLOR_MODULO } from '@/config/marca'
 import { CascadaSicetac } from '@/components/tarifax/CascadaSicetac'
 import { ConfigVehiculos } from '@/components/tarifax/ConfigVehiculos'
+import { DialogoFlota, ResumenFlota, TablaFlota, filasExcelFlota, type Flota, type FlotaConfig } from '@/components/tarifax/FlotaPropia'
 
 const COLOR = COLOR_MODULO
 // Par divergente validado (CVD y contraste) sobre la superficie clara.
@@ -84,6 +85,7 @@ interface Tablero {
   por_categoria: { categoria: string; tipo_vehiculo: string; tarifas: number; variacion: number | null }[]
   detalle: Fila[]; detalle_total?: number; sin_referencia: Fila[]; sin_referencia_total: number; carroceria: string
   no_comparables: NoComparable[]; no_comparables_total: number
+  flota: Flota | null
 }
 interface NoComparable { cliente: string; servicio: string | null; origen: string; destino: string; tipo_tarifa: string | null; tarifa: number | null; motivo: string }
 type Filtros = { periodos: string[]; clientes: string[]; origenes: string[]; destinos: string[]; servicios: string[]; categorias: string[]
@@ -149,6 +151,24 @@ export default function TarifaxComparativo() {
   const [horas, setHoras] = useState<number | null>(horasGuardadas)
   const [horasAbierto, setHorasAbierto] = useState(false)
   const [vehiculosAbierto, setVehiculosAbierto] = useState(false)
+  const [flotaAbierto, setFlotaAbierto] = useState(false)
+  // La barra de pestañas se mueve hacia los lados con la rueda del mouse
+  // (sin tener que apuntar a las flechas) mientras le quede recorrido.
+  const barraTabs = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = barraTabs.current?.querySelector('.MuiTabs-scroller') as HTMLElement | null
+    if (!el) return
+    const rueda = (ev: WheelEvent) => {
+      if (el.scrollWidth <= el.clientWidth) return
+      const d = Math.abs(ev.deltaX) > Math.abs(ev.deltaY) ? ev.deltaX : ev.deltaY
+      const alFinal = el.scrollLeft + el.clientWidth >= el.scrollWidth - 1
+      if ((d > 0 && alFinal) || (d < 0 && el.scrollLeft <= 0)) return
+      ev.preventDefault()
+      el.scrollLeft += d
+    }
+    el.addEventListener('wheel', rueda, { passive: false })
+    return () => el.removeEventListener('wheel', rueda)
+  })
   // null = sin elegir: se abre solo si todavía no hay negociaciones (decidido ya con el estado cargado).
   const [cargueAbierto, setCargueAbierto] = useState<boolean | null>(null)
   useEffect(() => { try { localStorage.setItem(CLAVE_HORAS, horas == null ? '' : String(horas)) } catch { /* sin almacenamiento */ } }, [horas])
@@ -186,6 +206,7 @@ export default function TarifaxComparativo() {
   }), [f, horas])
   const tablero = useQuery<Tablero>({ queryKey: ['tx-comp-tablero', params], queryFn: () => api.get(`${BASE}/tablero`, { params }).then(r => r.data) })
   const t = tablero.data
+  const flotaCfg = useQuery<FlotaConfig>({ queryKey: ['tx-comp-flota'], queryFn: () => api.get(`${BASE}/flota`).then(r => r.data) })
   const nombresPer = useMemo(() => Object.fromEntries((t?.opciones.periodos ?? []).map(p => [p.periodo, p.nombre])), [t])
 
   // Sin mes elegido, el servidor compara cada tarifa con su SICETAC más reciente.
@@ -313,6 +334,7 @@ export default function TarifaxComparativo() {
                 {!e?.vehiculos?.length && <Typography fontSize={12} color="text.secondary">Cargue las negociaciones para ver sus vehículos.</Typography>}
               </Stack>
             </Paper>
+            <ResumenFlota config={flotaCfg.data} onEditar={() => setFlotaAbierto(true)} />
             <Stack direction="row" alignItems="center" gap={1.5} mb={1.5}>
               <Typography fontWeight={700}>SICETAC por mes</Typography>
               <TextField select size="small" label="Año" value={anio} onChange={ev => setAnio(Number(ev.target.value))} sx={{ width: 110 }}>
@@ -509,15 +531,16 @@ export default function TarifaxComparativo() {
         </>}
 
         {/* ── Detalle ── */}
-        {(k || (t?.sin_referencia_total ?? 0) > 0 || (t?.no_comparables_total ?? 0) > 0) && <Paper variant="outlined" sx={{ borderRadius: 2 }}>
+        {(k || (t?.sin_referencia_total ?? 0) > 0 || (t?.no_comparables_total ?? 0) > 0 || !!t?.flota) && <Paper variant="outlined" sx={{ borderRadius: 2 }}>
           <Stack direction="row" alignItems="center" sx={{ px: 2, pt: 1 }} gap={1}>
-            <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ flex: 1 }}>
+            <Tabs ref={barraTabs} value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile sx={{ flex: 1, minWidth: 0 }}>
               <Tab label={`Rutas comparadas (${num(t?.detalle_total ?? filasDetalle.length)})`} />
               <Tab label={`Sin referencia SICETAC (${num(t?.sin_referencia_total)})`} />
               <Tab label={`No comparables con SICETAC (${num(t?.no_comparables_total)})`} />
+              <Tab label={`Costo flota propia${t?.flota?.configurado ? ` (${num(t.flota.total)})` : ''}`} />
             </Tabs>
             <Button size="small" startIcon={<EditLocationAlt />} onClick={() => setAliasAbierto(true)}>Equivalencias de ciudades</Button>
-            <Button size="small" startIcon={<FileDownload />} onClick={() => tab === 2 ? exportar('no-comparables-sicetac', (t?.no_comparables ?? []).map(r => ({
+            <Button size="small" startIcon={<FileDownload />} onClick={() => tab === 3 ? exportar('costo-flota-propia', filasExcelFlota(t?.flota)) : tab === 2 ? exportar('no-comparables-sicetac', (t?.no_comparables ?? []).map(r => ({
                 Cliente: r.cliente, 'Tipo de servicio': r.servicio, 'Tipo de tarifa': r.tipo_tarifa, Origen: r.origen, Destino: r.destino,
                 Tarifa: r.tarifa, Motivo: r.motivo,
               }))) : exportar(tab === 0 ? 'comparativo-sicetac' : 'sin-referencia-sicetac',
@@ -531,7 +554,7 @@ export default function TarifaxComparativo() {
                 ...(tab === 1 ? { Motivo: r.estado === 'SIN_VEHICULO' ? 'Vehículo sin equivalencia SICETAC' : 'Ruta no publicada en SICETAC' } : {}),
               })))}>Excel</Button>
           </Stack>
-          {tab === 2 ? <>
+          {tab === 3 ? <TablaFlota flota={t?.flota} onConfigurar={() => setFlotaAbierto(true)} /> : tab === 2 ? <>
             <Alert severity="info" sx={{ m: 2 }}>
               SICETAC es el costo de referencia de un viaje completo por vehículo. Estas tarifas se cobran por kilo, por caja o por volumen
               (o vienen en cero), así que no tienen contra qué compararse. Se listan para que el filtro por tipo de tarifa y de servicio
@@ -622,6 +645,8 @@ export default function TarifaxComparativo() {
         </Paper>}
       </Box>
       <DialogoAlias abierto={aliasAbierto} onCerrar={() => setAliasAbierto(false)} onGuardado={refrescar} />
+      <DialogoFlota abierto={flotaAbierto} onCerrar={() => setFlotaAbierto(false)} color={COLOR}
+        onGuardado={() => { qc.invalidateQueries({ queryKey: ['tx-comp-flota'] }); qc.invalidateQueries({ queryKey: ['tx-comp-tablero'] }) }} />
       <DialogoHoras abierto={horasAbierto} onCerrar={() => setHorasAbierto(false)} onGuardado={refrescar} />
       <ConfigVehiculos open={vehiculosAbierto} onClose={() => setVehiculosAbierto(false)} onGuardado={recalcularVehiculos}
         nota={<Alert severity="warning" sx={{ mb: 2, fontSize: 12.5 }}>

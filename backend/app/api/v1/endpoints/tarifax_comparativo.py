@@ -441,6 +441,152 @@ async def guardar_alias(data: AliasIn, db: AsyncSession = Depends(get_db), _: Us
     return {"alias": len(limpio), "periodos": resumen}
 
 
+# ─── Costo de flota propia ────────────────────────────────────────────────────
+#
+# Lo que le cuesta a la empresa hacer la ruta con sus propios vehículos:
+#   costo de la ruta  = km × costo por kilómetro (CPK) de la tipología
+#   sobrecosto        = % del costo de la ruta si el destino queda lejos de las
+#                       sedes (el vehículo vuelve vacío); 0 si es una sede o
+#                       está a menos del radio de alguna
+#   costo total       = costo de la ruta + sobrecosto
+# y se enfrenta a la tarifa del cliente (rentabilidad) y a SICETAC.
+
+FLOTA_DEFECTO = {"cpk": {}, "sedes": ["YUMBO", "COTA"], "radio_km": 50.0, "sobrecosto_pct": 50.0}
+_dist_cache: Dict[str, object] = {}
+
+
+async def _flota_config(db: AsyncSession) -> dict:
+    import json
+    v = (await db.execute(select(TarifaxAjuste.valor).where(TarifaxAjuste.clave == "flota"))).scalar()
+    cfg = dict(FLOTA_DEFECTO)
+    if v:
+        cfg.update(json.loads(v))
+    return cfg
+
+
+def _distancias(ruta: Optional[str]) -> Dict[tuple, float]:
+    """{(origen, destino): km} del SICETAC más reciente (o del tarifario
+    vigente si no hay meses). Se guarda una vez por archivo."""
+    if ruta and Path(ruta).exists():
+        marca = f"{ruta}:{Path(ruta).stat().st_mtime}"
+        if _dist_cache.get("marca") != marca:
+            sic = pd.read_pickle(ruta, compression="gzip")
+            _dist_cache["d"], _dist_cache["marca"] = _tabla_km(sic), marca
+        return _dist_cache["d"]
+    sic = _sicetac_vigente()
+    return _tabla_km(sic) if sic is not None else {}
+
+
+def _tabla_km(sic: pd.DataFrame) -> Dict[tuple, float]:
+    km = sic[["o", "d", "distancia"]].dropna().drop_duplicates(["o", "d"])
+    return {(o, d): float(x) for o, d, x in km.itertuples(index=False) if x > 0}
+
+
+async def _km_de_rutas(db: AsyncSession) -> Dict[tuple, float]:
+    reciente = (await db.execute(select(TarifaxSicetacPeriodo.ruta).where(TarifaxSicetacPeriodo.estado == "LISTO",
+                TarifaxSicetacPeriodo.filas > 0).order_by(TarifaxSicetacPeriodo.periodo.desc()).limit(1))).scalar()
+    return await asyncio.to_thread(_distancias, reciente)
+
+
+def _calcular_flota(negs: pd.DataFrame, cfg: dict, dist: Dict[tuple, float], alias: Dict[str, str],
+                    sicetac_por_neg: Dict[int, float]) -> dict:
+    alias_n = {tc.normalizar(k): tc.normalizar(v) for k, v in alias.items()}
+    ciudad = lambda c: alias_n.get(tc.normalizar(c), tc.normalizar(c))  # noqa: E731
+    # Las distancias también pasan por las equivalencias (SICETAC dice BOGOTA o BOGOTA, D.C.).
+    km_idx: Dict[tuple, float] = {}
+    for (o, d), x in dist.items():
+        km_idx.setdefault((alias_n.get(o, o), alias_n.get(d, d)), x)
+
+    def km(o, d):
+        return km_idx.get((o, d)) or km_idx.get((d, o))
+    cpk = {tc.normalizar(k): float(v) for k, v in (cfg.get("cpk") or {}).items() if v}
+    sedes = [ciudad(x) for x in cfg.get("sedes") or [] if tc.normalizar(x)]
+    radio, pct = float(cfg.get("radio_km") or 0), float(cfg.get("sobrecosto_pct") or 0)
+    cerca: Dict[str, bool] = {}
+
+    def cerca_de_sede(d):
+        if d not in cerca:
+            cerca[d] = any(d == sd or (km(d, sd) or float("inf")) <= radio for sd in sedes)
+        return cerca[d]
+    filas, sin_cpk, sin_km = [], set(), 0
+    for n in negs.itertuples(index=False):
+        cat = tc.normalizar(n.categoria)
+        valor = cpk.get(cat) or cpk.get(tc.SINONIMOS_CATEGORIA.get(cat, ""))
+        if not valor:
+            sin_cpk.add(n.categoria)
+            continue
+        o, d = ciudad(n.origen), ciudad(n.destino)
+        k = km(o, d)
+        if not k:
+            sin_km += 1
+            continue
+        costo = k * valor
+        lejos = not cerca_de_sede(d)
+        sobre = costo * pct / 100 if lejos else 0.0
+        total = costo + sobre
+        sic = sicetac_por_neg.get(n.id)
+        filas.append({"cliente": n.cliente, "servicio": n.servicio, "origen": n.origen, "destino": n.destino,
+                      "tipo_tarifa": n.tipo_tarifa, "categoria": n.categoria, "km": round(k, 0), "cpk": valor,
+                      "costo_ruta": round(costo, 0), "con_sobrecosto": lejos, "sobrecosto": round(sobre, 0),
+                      "costo_total": round(total, 0), "tarifa": float(n.tarifa),
+                      "rentabilidad": round(n.tarifa - total, 0),
+                      "margen": round((n.tarifa - total) / n.tarifa * 100, 2),
+                      "sicetac": None if sic is None else round(sic, 0),
+                      "vs_sicetac": None if not sic else round((total - sic) / sic * 100, 2)})
+    df = pd.DataFrame(filas)
+    resumen, por_cliente = None, []
+    if not df.empty:
+        tar, cos = float(df["tarifa"].sum()), float(df["costo_total"].sum())
+        con_sic = df[df["sicetac"].notna()]
+        resumen = {"rutas": int(len(df)), "tarifa_total": tar, "costo_total": cos, "rentabilidad": tar - cos,
+                   "margen": round((tar - cos) / tar * 100, 2) if tar else None,
+                   "con_perdida": int((df["rentabilidad"] < 0).sum()),
+                   "con_sobrecosto": int(df["con_sobrecosto"].sum()),
+                   "vs_sicetac": round((float(con_sic["costo_total"].sum()) / float(con_sic["sicetac"].sum()) - 1) * 100, 2)
+                   if not con_sic.empty and con_sic["sicetac"].sum() else None}
+        for c, g in df.groupby("cliente"):
+            t, k2 = float(g["tarifa"].sum()), float(g["costo_total"].sum())
+            por_cliente.append({"cliente": c, "rutas": int(len(g)), "tarifa_total": t, "costo_total": k2,
+                                "rentabilidad": t - k2, "margen": round((t - k2) / t * 100, 2) if t else None})
+        por_cliente.sort(key=lambda r: (r["margen"] is None, r["margen"]))
+        df = df.sort_values("margen")
+    return {"configurado": bool(cpk), "resumen": resumen, "por_cliente": por_cliente,
+            "detalle": _registros(df.head(3000)) if not df.empty else [], "total": int(len(df)),
+            "sin_cpk": sorted(x for x in sin_cpk if x), "sin_km": sin_km,
+            "sedes": sedes, "radio_km": radio, "sobrecosto_pct": pct}
+
+
+class FlotaIn(BaseModel):
+    cpk: Dict[str, float]
+    sedes: List[str]
+    radio_km: float
+    sobrecosto_pct: float
+
+
+@router.get("/flota")
+async def ver_flota(db: AsyncSession = Depends(get_db), _: Usuario = Depends(get_current_user)):
+    cats = [c for (c,) in (await db.execute(select(TarifaxNegociacion.categoria_vehiculo).where(
+        TarifaxNegociacion.categoria_vehiculo.isnot(None)).distinct()))]
+    return {**await _flota_config(db), "categorias": sorted(cats)}
+
+
+@router.put("/flota")
+async def guardar_flota(data: FlotaIn, db: AsyncSession = Depends(get_db), _: Usuario = Depends(get_current_user)):
+    import json
+    if any(v < 0 for v in data.cpk.values()) or data.radio_km < 0 or data.sobrecosto_pct < 0:
+        raise HTTPException(422, "Los valores no pueden ser negativos.")
+    valor = json.dumps({"cpk": {tc.normalizar(k): float(v) for k, v in data.cpk.items() if tc.normalizar(k) and v},
+                        "sedes": [tc.normalizar(x) for x in data.sedes if tc.normalizar(x)],
+                        "radio_km": data.radio_km, "sobrecosto_pct": data.sobrecosto_pct})
+    aj = (await db.execute(select(TarifaxAjuste).where(TarifaxAjuste.clave == "flota"))).scalar_one_or_none()
+    if aj is None:
+        db.add(TarifaxAjuste(clave="flota", valor=valor))
+    else:
+        aj.valor = valor
+    await db.commit()
+    return {"ok": True}
+
+
 # ─── Tablero ──────────────────────────────────────────────────────────────────
 
 def _registros(df: pd.DataFrame) -> List[dict]:
@@ -537,9 +683,9 @@ async def tablero(periodos: Optional[str] = None, clientes: Optional[str] = None
     # tal como vienen en el archivo y se listan como no comparables.
     N = TarifaxNegociacion
     negs = pd.DataFrame((await db.execute(select(
-        N.cliente, N.servicio, N.origen, N.destino, N.dpto_origen, N.dpto_destino, N.tipo_tarifa,
+        N.id, N.cliente, N.servicio, N.origen, N.destino, N.dpto_origen, N.dpto_destino, N.tipo_tarifa,
         N.categoria_vehiculo, N.tarifa))).all(),
-        columns=["cliente", "servicio", "origen", "destino", "dpto_origen", "dpto_destino", "tipo_tarifa", "categoria", "tarifa"])
+        columns=["id", "cliente", "servicio", "origen", "destino", "dpto_origen", "dpto_destino", "tipo_tarifa", "categoria", "tarifa"])
     if not negs.empty:
         negs["tarifa"] = pd.to_numeric(negs["tarifa"], errors="coerce")
         nc = negs[negs["categoria"].isna() | negs["tarifa"].isna() | (negs["tarifa"] <= 0)].copy()
@@ -552,7 +698,7 @@ async def tablero(periodos: Optional[str] = None, clientes: Optional[str] = None
                           "carrocerias": sorted(carrocerias), "tipos_carga": sorted(tipos_carga)},
              "kpis": None, "por_mes": [], "por_cliente": [], "por_categoria": [], "detalle": [], "sin_referencia": [],
              "sin_referencia_total": 0, "carroceria": carroceria, "tipo_carga": tipo_carga, "horas": horas,
-             "no_comparables": [], "no_comparables_total": 0, "no_comparables_tarifas": 0}
+             "no_comparables": [], "no_comparables_total": 0, "no_comparables_tarifas": 0, "flota": None}
     if df.empty and negs.empty:
         return vacio
 
@@ -597,6 +743,14 @@ async def tablero(periodos: Optional[str] = None, clientes: Optional[str] = None
         sel = _lista(val)
         if sel and not nc.empty:
             nc = nc[nc[col].isin(sel)]
+    # Las tarifas por viaje, con los mismos filtros, para el costo de flota propia.
+    fl = negs[negs["categoria"].notna() & negs["tarifa"].gt(0)] if not negs.empty else negs
+    for col, val in (("cliente", clientes), ("origen", origenes), ("destino", destinos), ("servicio", servicios),
+                     ("categoria", categorias), ("dpto_origen", dptos_origen), ("dpto_destino", dptos_destino),
+                     ("tipo_tarifa", tipos_tarifa)):
+        sel = _lista(val)
+        if sel and not fl.empty:
+            fl = fl[fl[col].isin(sel)]
     vacio.update({"no_comparables": _registros(nc.head(500)) if not nc.empty else [],
                   "no_comparables_total": int(len(nc)),
                   "no_comparables_tarifas": int(len(nc))})
@@ -614,6 +768,10 @@ async def tablero(periodos: Optional[str] = None, clientes: Optional[str] = None
     # Una tarifa con referencia en algún mes no está «sin referencia».
     sin = df[(df["estado"] != "OK") & ~df["negociacion_id"].isin(df.loc[df["estado"] == "OK", "negociacion_id"])]
     sin = sin.drop_duplicates(["cliente", "origen", "destino", "categoria"])
+    if not fl.empty:
+        sic_neg = ok.groupby("negociacion_id")["sicetac"].mean().to_dict() if not ok.empty else {}
+        vacio["flota"] = await asyncio.to_thread(_calcular_flota, fl, await _flota_config(db), await _km_de_rutas(db),
+                                                 await _alias(db), sic_neg)
     if ok.empty:
         vacio.update({"sin_referencia": sin.head(500).pipe(_registros),
                       "sin_referencia_total": len(sin)})
