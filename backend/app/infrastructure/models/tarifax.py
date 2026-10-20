@@ -48,9 +48,11 @@ class TarifaxSicetacPeriodo(Base, TimestampMixin):
     usuario    = Column(String(120), nullable=True)
     # Un archivo grande se procesa en segundo plano: PROCESANDO mientras se
     # lee (con las filas que va leyendo), LISTO al terminar, ERROR con el motivo.
+    # Varios archivos se procesan de a uno: EN_COLA mientras esperan turno.
     estado        = Column(String(12), nullable=False, default="LISTO", server_default="LISTO")
     mensaje       = Column(Text, nullable=True)
     filas_leidas  = Column(Integer, nullable=True)
+    filas_totales = Column(Integer, nullable=True)   # aproximado (lo que el Excel declara); vacío en CSV
 
 
 class TarifaxComparacion(Base):
@@ -76,6 +78,12 @@ class TarifaxComparacion(Base):
     # Valor de una hora logística según el archivo SICETAC (vacío si no lo
     # trae: entonces se usa el valor por configuración del tablero).
     valor_hora        = Column(Float, nullable=True)
+    # Componentes del SICETAC oficial (vacíos en el tarifario vigente, que no
+    # los trae): costo_sicetac = costo_mov + horas_sicetac × valor_hora.
+    costo_mov         = Column(Float, nullable=True)
+    horas_sicetac     = Column(Float, nullable=True)
+    tipo_carga        = Column(String(60), nullable=True)          # GENERAL, GRANEL SOLIDO…
+    fecha_sicetac     = Column(String(10), nullable=True)          # fecha de publicación (la más reciente del archivo)
     diferencia        = Column(Float, nullable=True)
     variacion_pct     = Column(Float, nullable=True)
     # OK / SIN_RUTA (SICETAC no publica la ruta) / SIN_VEHICULO (la categoría

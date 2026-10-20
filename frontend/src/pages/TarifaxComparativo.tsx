@@ -51,7 +51,17 @@ const fecha = (s?: string | null) => s ? new Date(s).toLocaleString('es-CO', { d
 
 interface Mes {
   periodo: string; mes: number; nombre: string; cargado: boolean; archivo: string | null; rutas: number; cargado_en: string | null; usuario: string | null
-  estado: 'LISTO' | 'PROCESANDO' | 'ERROR' | 'INTERRUMPIDO' | null; mensaje: string | null; filas_leidas: number | null
+  estado: 'LISTO' | 'EN_COLA' | 'PROCESANDO' | 'ERROR' | 'INTERRUMPIDO' | null; mensaje: string | null
+  filas_leidas: number | null; filas_totales: number | null; reprocesable: boolean
+}
+const enCurso = (m: Mes) => m.estado === 'EN_COLA' || m.estado === 'PROCESANDO'
+/** Lo que se ve del procesamiento de un mes: en cola, leyendo (con porcentaje si se sabe el total) o cruzando. */
+function textoProceso(m: Mes) {
+  if (m.estado === 'EN_COLA') return 'En cola: se procesa al terminar el mes anterior'
+  const n = m.filas_leidas ?? 0, total = m.filas_totales ?? 0
+  if (!n) return 'Abriendo el archivo…'
+  if (total && n >= total) return `${num(n)} filas leídas · cruzando con las tarifas…`
+  return total ? `Leyendo… ${Math.min(99, Math.floor(n / total * 100))} % (${num(n)} de ${num(total)} filas)` : `Leyendo… ${num(n)} filas`
 }
 interface Vehiculo { categoria: string; tarifas: number; tipo_sicetac: string | null; por: 'MAPEO' | 'SINONIMO' | null; sinonimo_de: string | null }
 interface Estado {
@@ -64,11 +74,11 @@ interface Fila {
   categoria: string | null; tipo_vehiculo: string | null; carroceria: string | null; distancia: number | null
   tarifa: number | null; sicetac: number | null; diferencia: number | null; variacion: number | null; estado: string
   sicetac_base?: number | null; horas_valor?: number | null; dpto_origen?: string | null; dpto_destino?: string | null
-  tipo_tarifa?: string | null
+  tipo_tarifa?: string | null; tipo_carga?: string | null; horas_usadas?: number | null; fecha_sicetac?: string | null
 }
 interface Tablero {
-  opciones: { periodos: { periodo: string; nombre: string }[]; clientes: string[]; origenes: string[]; destinos: string[]; servicios: string[]; categorias: string[]; carrocerias: string[]; dptos_origen: string[]; dptos_destino: string[]; tipos_tarifa: string[] }
-  kpis: null | { tarifas: number; clientes: number; rutas: number; variacion: number | null; mediana: number; por_debajo: number; por_debajo_pct: number; tarifa_total: number; sicetac_total: number; sin_referencia: number; cobertura_pct: number; sicetac_base_total: number; horas_total: number; horas: number; horas_sin_valor: number }
+  opciones: { periodos: { periodo: string; nombre: string }[]; clientes: string[]; origenes: string[]; destinos: string[]; servicios: string[]; categorias: string[]; carrocerias: string[]; tipos_carga?: string[]; dptos_origen: string[]; dptos_destino: string[]; tipos_tarifa: string[] }
+  kpis: null | { tarifas: number; clientes: number; rutas: number; variacion: number | null; mediana: number; por_debajo: number; por_debajo_pct: number; tarifa_total: number; sicetac_total: number; sin_referencia: number; cobertura_pct: number; sicetac_base_total: number; horas_total: number; horas: number | null; horas_sin_valor: number; horas_prom: number }
   por_mes: { periodo: string; nombre: string; tarifas: number; variacion: number | null; tarifa_prom: number; sicetac_prom: number; sicetac_base_prom: number; horas_prom: number; variacion_prom: number | null; por_debajo: number }[]
   por_cliente: { cliente: string; tarifas: number; rutas: number; variacion: number | null; por_debajo: number }[]
   por_categoria: { categoria: string; tipo_vehiculo: string; tarifas: number; variacion: number | null }[]
@@ -77,10 +87,14 @@ interface Tablero {
 }
 interface NoComparable { cliente: string; servicio: string | null; origen: string; destino: string; tipo_tarifa: string | null; tarifa: number | null; motivo: string }
 type Filtros = { periodos: string[]; clientes: string[]; origenes: string[]; destinos: string[]; servicios: string[]; categorias: string[]
-                 dptosOrigen: string[]; dptosDestino: string[]; tiposTarifa: string[]; posicion: '' | 'ENCIMA' | 'DEBAJO'; carroceria: string }
-const VACIO: Filtros = { periodos: [], clientes: [], origenes: [], destinos: [], servicios: [], categorias: [], dptosOrigen: [], dptosDestino: [], tiposTarifa: [], posicion: '', carroceria: 'FURGON' }
-const CLAVE_HORAS = 'tx-comparativo-horas'
-const horasGuardadas = () => { try { return Math.max(0, Number(localStorage.getItem(CLAVE_HORAS)) || 0) } catch { return 0 } }
+                 dptosOrigen: string[]; dptosDestino: string[]; tiposTarifa: string[]; posicion: '' | 'ENCIMA' | 'DEBAJO'; carroceria: string; tipoCarga: string }
+const VACIO: Filtros = { periodos: [], clientes: [], origenes: [], destinos: [], servicios: [], categorias: [], dptosOrigen: [], dptosDestino: [], tiposTarifa: [], posicion: '', carroceria: 'FURGON', tipoCarga: 'GENERAL' }
+// Horas logísticas del análisis; vacío = las que trae cada ruta en el SICETAC.
+// (Clave nueva: antes «0» era el valor por defecto y ahora significa «sin horas».)
+const CLAVE_HORAS = 'tx-comparativo-horas-v2'
+const horasGuardadas = (): number | null => {
+  try { const v = localStorage.getItem(CLAVE_HORAS); return v == null || v === '' ? null : Math.max(0, Number(v) || 0) } catch { return null }
+}
 
 function exportar(nombre: string, filas: Record<string, unknown>[]) {
   const libro = XLSX.utils.book_new()
@@ -113,13 +127,13 @@ function Variacion({ v }: { v: number | null }) {
   )
 }
 
-function Multiple({ etiqueta, opciones, valor, onChange, nombres }: {
-  etiqueta: string; opciones: string[]; valor: string[]; onChange: (v: string[]) => void; nombres?: Record<string, string>
+function Multiple({ etiqueta, opciones, valor, onChange, nombres, vacio = 'Todos' }: {
+  etiqueta: string; opciones: string[]; valor: string[]; onChange: (v: string[]) => void; nombres?: Record<string, string>; vacio?: string
 }) {
   return (
     <Autocomplete multiple size="small" limitTags={1} options={opciones} value={valor} disableCloseOnSelect
       getOptionLabel={o => nombres?.[o] ?? o} onChange={(_, v) => onChange(v)} sx={{ minWidth: 190, flex: 1 }}
-      renderInput={p => <TextField {...p} label={etiqueta} placeholder={valor.length ? '' : 'Todos'} />} />
+      renderInput={p => <TextField {...p} label={etiqueta} placeholder={valor.length ? '' : vacio} InputLabelProps={{ shrink: true }} />} />
   )
 }
 
@@ -132,25 +146,25 @@ export default function TarifaxComparativo() {
   const [tab, setTab] = useState(0)
   const [pagina, setPagina] = useState(0)
   // Horas logísticas del análisis: las decide quien analiza; se recuerdan en este navegador.
-  const [horas, setHoras] = useState<number>(horasGuardadas)
+  const [horas, setHoras] = useState<number | null>(horasGuardadas)
   const [horasAbierto, setHorasAbierto] = useState(false)
   const [vehiculosAbierto, setVehiculosAbierto] = useState(false)
   // null = sin elegir: se abre solo si todavía no hay negociaciones (decidido ya con el estado cargado).
   const [cargueAbierto, setCargueAbierto] = useState<boolean | null>(null)
-  useEffect(() => { try { localStorage.setItem(CLAVE_HORAS, String(horas)) } catch { /* sin almacenamiento */ } }, [horas])
+  useEffect(() => { try { localStorage.setItem(CLAVE_HORAS, horas == null ? '' : String(horas)) } catch { /* sin almacenamiento */ } }, [horas])
   const archivoNeg = useRef<HTMLInputElement>(null)
   const archivoMes = useRef<HTMLInputElement>(null)
   const mesElegido = useRef<number>(1)
 
   const estado = useQuery<Estado>({
     queryKey: ['tx-comp-estado', anio], queryFn: () => api.get(`${BASE}/estado`, { params: { anio } }).then(r => r.data),
-    refetchInterval: q => (q.state.data?.meses ?? []).some(m => m.estado === 'PROCESANDO') ? 4000 : false,
+    refetchInterval: q => (q.state.data?.meses ?? []).some(enCurso) ? 4000 : false,
   })
   const [subida, setSubida] = useState<{ mes: number; pct: number } | null>(null)
   // Al terminar un procesamiento en segundo plano: aviso y tablero al día.
   const procesando = useRef<Set<string>>(new Set())
   useEffect(() => {
-    const ahora = new Set((estado.data?.meses ?? []).filter(m => m.estado === 'PROCESANDO').map(m => m.periodo))
+    const ahora = new Set((estado.data?.meses ?? []).filter(enCurso).map(m => m.periodo))
     for (const per of procesando.current) {
       if (!ahora.has(per)) {
         const m = estado.data?.meses.find(x => x.periodo === per)
@@ -165,20 +179,23 @@ export default function TarifaxComparativo() {
     periodos: f.periodos.join('|') || undefined, clientes: f.clientes.join('|') || undefined,
     origenes: f.origenes.join('|') || undefined, destinos: f.destinos.join('|') || undefined,
     servicios: f.servicios.join('|') || undefined, categorias: f.categorias.join('|') || undefined, carroceria: f.carroceria,
+    tipo_carga: f.tipoCarga,
     dptos_origen: f.dptosOrigen.join('|') || undefined, dptos_destino: f.dptosDestino.join('|') || undefined,
     tipos_tarifa: f.tiposTarifa.join('|') || undefined,
-    posicion: f.posicion || undefined, horas: horas || undefined,
+    posicion: f.posicion || undefined, horas: horas ?? undefined,
   }), [f, horas])
   const tablero = useQuery<Tablero>({ queryKey: ['tx-comp-tablero', params], queryFn: () => api.get(`${BASE}/tablero`, { params }).then(r => r.data) })
   const t = tablero.data
   const nombresPer = useMemo(() => Object.fromEntries((t?.opciones.periodos ?? []).map(p => [p.periodo, p.nombre])), [t])
 
-  // Sin mes elegido se muestra el más reciente: mezclar meses contaría cada tarifa varias veces.
-  useEffect(() => {
-    const per = t?.opciones.periodos ?? []
-    if (!f.periodos.length && per.length) setF(x => ({ ...x, periodos: [per[per.length - 1].periodo] }))
-  }, [t?.opciones.periodos])  // eslint-disable-line react-hooks/exhaustive-deps
+  // Sin mes elegido, el servidor compara cada tarifa con su SICETAC más reciente.
   useEffect(() => setPagina(0), [params])
+  // El tipo de carga elegido puede no existir para otra carrocería (no hay
+  // «General» en furgón refrigerado): se pasa al primero que sí exista.
+  useEffect(() => {
+    const tipos = t?.opciones.tipos_carga ?? []
+    if (tipos.length && !tipos.includes(f.tipoCarga)) setF(x => ({ ...x, tipoCarga: tipos.includes('GENERAL') ? 'GENERAL' : tipos[0] }))
+  }, [t?.opciones.tipos_carga])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const refrescar = () => { qc.invalidateQueries({ queryKey: ['tx-comp-estado'] }); qc.invalidateQueries({ queryKey: ['tx-comp-tablero'] }) }
   const subir = async (ruta: string, archivo: File, clave: string, exito: (r: any) => string) => {
@@ -218,6 +235,10 @@ export default function TarifaxComparativo() {
     const id = toast.loading('Recalculando la comparación con las nuevas equivalencias…')
     try { await api.post(`${BASE}/recalcular`, {}, LARGO); toast.success('Comparación recalculada', { id }); refrescar() }
     catch (e) { toast.error(errorApi(e), { id }) }
+  }
+  const reprocesarMes = async (m: Mes) => {
+    try { await api.post(`${BASE}/sicetac/${anio}/${m.mes}/reprocesar`); toast.success(`${m.nombre}: se vuelve a procesar el archivo ya subido`); refrescar() }
+    catch (e) { toast.error(errorApi(e)) }
   }
   const borrarMes = async (m: Mes) => {
     if (!window.confirm(`¿Quitar el SICETAC de ${m.nombre} ${anio}? Su comparación sale del tablero.`)) return
@@ -298,8 +319,8 @@ export default function TarifaxComparativo() {
                 {Array.from(new Set([...(e?.anios ?? []), anio - 1, anio, anio + 1])).sort().map(a => <MenuItem key={a} value={a}>{a}</MenuItem>)}
               </TextField>
               <Typography fontSize={12} color="text.secondary" flex={1}>
-                El archivo de cada mes debe traer las columnas del tarifario de TarifaX: ORIGEN, DESTINO, TIPO_VEHICULO, TIPO_CARROCERIA, COSTO_TOTAL_VIAJE y DISTANCIA.
-                Hasta 1 GB; puede venir en varias hojas. Para archivos muy grandes, el CSV se procesa bastante más rápido que el Excel.
+                El archivo del SICETAC oficial de cada mes, tal como se descarga: se toman la vía estándar y el vehículo cargado.
+                Hasta 1 GB; puede venir en varias hojas. Los archivos se procesan de a uno (un Excel de 1,3 millones de filas tarda unos 5 minutos; el CSV, bastante menos).
               </Typography>
             </Stack>
             <Grid container spacing={1.5}>
@@ -314,19 +335,26 @@ export default function TarifaxComparativo() {
                     <Typography fontSize={11} color={m.estado === 'ERROR' || m.estado === 'INTERRUMPIDO' ? 'error.main' : 'text.secondary'} sx={{ minHeight: 30 }}
                       title={m.mensaje ?? ''}>
                       {subida?.mes === m.mes ? `Subiendo… ${subida.pct} %`
-                        : m.estado === 'PROCESANDO' ? `Procesando… ${num(m.filas_leidas)} filas leídas`
+                        : enCurso(m) ? textoProceso(m)
                         : m.estado === 'ERROR' ? `Error: ${(m.mensaje ?? '').slice(0, 70)}${(m.mensaje ?? '').length > 70 ? '…' : ''}`
-                        : m.estado === 'INTERRUMPIDO' ? 'Se interrumpió el procesamiento: vuelva a cargarlo'
+                        : m.estado === 'INTERRUMPIDO' ? 'Se interrumpió el procesamiento (se reinició el servidor)'
                         : m.cargado ? `${num(m.rutas)} rutas · ${fecha(m.cargado_en)}` : 'Sin cargar'}
                     </Typography>
-                    <Button fullWidth size="small" variant={m.cargado ? 'text' : 'outlined'} disabled={!!cargando || m.estado === 'PROCESANDO'}
+                    {m.reprocesable && !enCurso(m) && <Button fullWidth size="small" variant="outlined" disabled={!!cargando}
+                      aria-label={`Reprocesar SICETAC de ${m.nombre}`} onClick={() => reprocesarMes(m)} sx={{ mb: 0.5 }}>
+                      Reprocesar
+                    </Button>}
+                    <Button fullWidth size="small" variant={m.cargado || m.reprocesable ? 'text' : 'outlined'} disabled={!!cargando || enCurso(m)}
                       aria-label={`Cargar SICETAC de ${m.nombre}`}
                       onClick={() => { mesElegido.current = m.mes; archivoMes.current?.click() }}>
-                      {cargando === `m${m.mes}` ? 'Subiendo…' : m.estado === 'PROCESANDO' ? 'Procesando…'
+                      {cargando === `m${m.mes}` ? 'Subiendo…' : m.estado === 'EN_COLA' ? 'En cola…' : m.estado === 'PROCESANDO' ? 'Procesando…'
+                        : m.reprocesable ? 'Subir otro archivo'
                         : m.estado === 'ERROR' || m.estado === 'INTERRUMPIDO' ? 'Reintentar' : m.cargado ? 'Reemplazar' : 'Cargar'}
                     </Button>
                     {subida?.mes === m.mes && <LinearProgress variant="determinate" value={subida.pct} sx={{ mt: 0.5 }} />}
-                    {subida?.mes !== m.mes && m.estado === 'PROCESANDO' && <LinearProgress sx={{ mt: 0.5 }} />}
+                    {subida?.mes !== m.mes && m.estado === 'PROCESANDO' && (m.filas_totales && m.filas_leidas && m.filas_leidas < m.filas_totales
+                      ? <LinearProgress variant="determinate" value={Math.floor(m.filas_leidas / m.filas_totales * 100)} sx={{ mt: 0.5 }} />
+                      : <LinearProgress sx={{ mt: 0.5 }} />)}
                   </Paper>
                 </Grid>
               ))}
@@ -344,7 +372,7 @@ export default function TarifaxComparativo() {
         {/* ── Filtros: una fila sobre las gráficas ── */}
         {!!opc?.periodos.length && <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, mb: 2 }}>
           <Stack direction="row" gap={1.5} flexWrap="wrap" alignItems="center">
-            <Multiple etiqueta="Mes" opciones={opc.periodos.map(p => p.periodo)} nombres={nombresPer} valor={f.periodos} onChange={v => setF(x => ({ ...x, periodos: v }))} />
+            <Multiple etiqueta="Mes SICETAC" vacio="El más reciente" opciones={opc.periodos.map(p => p.periodo)} nombres={nombresPer} valor={f.periodos} onChange={v => setF(x => ({ ...x, periodos: v }))} />
             <Multiple etiqueta="Cliente" opciones={opc.clientes} valor={f.clientes} onChange={v => setF(x => ({ ...x, clientes: v }))} />
             <Multiple etiqueta="Origen" opciones={opc.origenes} valor={f.origenes} onChange={v => setF(x => ({ ...x, origenes: v }))} />
             <Multiple etiqueta="Destino" opciones={opc.destinos} valor={f.destinos} onChange={v => setF(x => ({ ...x, destinos: v }))} />
@@ -363,16 +391,25 @@ export default function TarifaxComparativo() {
               onChange={ev => setF(x => ({ ...x, carroceria: ev.target.value }))}>
               {(opc.carrocerias.length ? opc.carrocerias : ['FURGON']).map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
             </TextField>
-            <TextField size="small" type="number" label="Horas logísticas" value={horas} sx={{ width: 150 }}
+            {!!opc.tipos_carga?.length && <TextField select size="small" label="Tipo de carga SICETAC" value={opc.tipos_carga.includes(f.tipoCarga) ? f.tipoCarga : ''} sx={{ minWidth: 170 }}
+              onChange={ev => setF(x => ({ ...x, tipoCarga: ev.target.value }))}>
+              {opc.tipos_carga.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+            </TextField>}
+            <TextField size="small" type="number" label="Horas logísticas" value={horas ?? ''} sx={{ width: 170 }}
+              placeholder="Las del SICETAC" InputLabelProps={{ shrink: true }}
               inputProps={{ min: 0, max: 240, step: 0.5, 'aria-label': 'Horas logísticas' }}
-              helperText="Se suman a SICETAC"
-              onChange={ev => setHoras(Math.min(240, Math.max(0, Number(ev.target.value) || 0)))} />
+              helperText={horas == null ? 'Vacío: las del SICETAC' : 'Reemplazan las del SICETAC'}
+              onChange={ev => setHoras(ev.target.value === '' ? null : Math.min(240, Math.max(0, Number(ev.target.value) || 0)))} />
             <Button size="small" startIcon={<AccessTime />} onClick={() => setHorasAbierto(true)}>Valor de la hora</Button>
-            {hayFiltros && <Button size="small" startIcon={<FilterAltOff />} onClick={() => setF(x => ({ ...VACIO, periodos: x.periodos, carroceria: x.carroceria }))}>Quitar filtros</Button>}
+            {hayFiltros && <Button size="small" startIcon={<FilterAltOff />} onClick={() => setF(x => ({ ...VACIO, periodos: x.periodos, carroceria: x.carroceria, tipoCarga: x.tipoCarga }))}>Quitar filtros</Button>}
           </Stack>
           {!!k?.horas_sin_valor && <Alert severity="warning" sx={{ mt: 1 }} action={<Button size="small" onClick={() => setHorasAbierto(true)}>Definir valor</Button>}>
             {num(k.horas_sin_valor)} tarifas no tienen valor de hora logística: ni su archivo SICETAC lo trae ni está definido para su vehículo, así que se comparan sin horas.
+            Los meses cargados antes del 20 de octubre de 2026 tampoco lo traen: vuelva a cargarlos.
           </Alert>}
+          {!f.periodos.length && <Typography fontSize={12} color="text.secondary" mt={1}>
+            Sin mes elegido, cada ruta se compara con el SICETAC más reciente que la publica (el mes aparece en el detalle). Elija un mes para comparar contra ese mes.
+          </Typography>}
           {f.periodos.length > 1 && <Typography fontSize={12} color="text.secondary" mt={1}>
             Con varios meses, cada tarifa cuenta una vez por mes: compare la evolución en la gráfica por mes.
           </Typography>}
@@ -390,7 +427,7 @@ export default function TarifaxComparativo() {
           <Grid container spacing={2} mb={2}>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <Indicador titulo="Variación vs SICETAC" valor={pct(k.variacion)} marca={k.variacion != null && k.variacion < 0 ? DEBAJO : ENCIMA}
-                sub={`${millones(k.tarifa_total)} cobrado frente a ${millones(k.sicetac_total)} SICETAC${k.horas ? ` (incluye ${k.horas} h logísticas)` : ''} · mediana ${pct(k.mediana)}`} />
+                sub={`${millones(k.tarifa_total)} cobrado frente a ${millones(k.sicetac_total)} SICETAC${k.horas_prom ? ` (incluye ${num(k.horas_prom)} h logísticas)` : ''} · mediana ${pct(k.mediana)}`} />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <Indicador titulo="Tarifas comparadas" valor={num(k.tarifas)} sub={`${k.clientes} clientes · ${num(k.rutas)} rutas`} />
@@ -407,9 +444,9 @@ export default function TarifaxComparativo() {
           <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
             <Typography fontWeight={700}>Cascada por mes: SICETAC frente a tarifa del cliente</Typography>
             <Typography fontSize={12} color="text.secondary" mb={1.5}>
-              Promedios por viaje de las tarifas filtradas{horas ? `, con ${horas} horas logísticas sumadas a SICETAC` : ''}. La barra de variación es la diferencia entre ambos promedios.
+              Promedios por viaje de las tarifas filtradas{k.horas_prom ? `, con ${num(k.horas_prom)} horas logísticas${horas == null ? ' (las del SICETAC)' : ''}` : ''}. La barra de variación es la diferencia entre ambos promedios.
             </Typography>
-            <CascadaSicetac meses={t?.por_mes ?? []} horas={horas} />
+            <CascadaSicetac meses={t?.por_mes ?? []} horas={k.horas_prom ?? 0} />
           </Paper>
 
           {/* ── Gráficas ── */}
@@ -485,10 +522,11 @@ export default function TarifaxComparativo() {
                 Tarifa: r.tarifa, Motivo: r.motivo,
               }))) : exportar(tab === 0 ? 'comparativo-sicetac' : 'sin-referencia-sicetac',
               (tab === 0 ? filasDetalle : t?.sin_referencia ?? []).map(r => ({
-                Mes: nombresPer[r.periodo] ?? r.periodo, Cliente: r.cliente, 'Tipo de servicio': r.servicio, Origen: r.origen, Destino: r.destino,
+                Mes: nombresPer[r.periodo] ?? r.periodo, 'Fecha SICETAC': r.fecha_sicetac, Cliente: r.cliente, 'Tipo de servicio': r.servicio, Origen: r.origen, Destino: r.destino,
                 'Tipo de tarifa': r.tipo_tarifa, 'Tipo de vehículo': r.categoria, 'Configuración SICETAC': r.tipo_vehiculo, Carrocería: r.carroceria, 'Distancia (km)': r.distancia,
                 'Depto. origen': r.dpto_origen, 'Depto. destino': r.dpto_destino,
-                'Tarifa cliente': r.tarifa, 'SICETAC viaje': r.sicetac_base, [`Horas logísticas (${horas} h)`]: r.horas_valor,
+                'Tipo de carga SICETAC': r.tipo_carga, 'Tarifa cliente': r.tarifa, 'SICETAC sin horas': r.sicetac_base,
+                'Horas logísticas': r.horas_usadas, 'Valor horas logísticas': r.horas_valor,
                 'SICETAC total': r.sicetac, Diferencia: r.diferencia, 'Variación %': r.variacion,
                 ...(tab === 1 ? { Motivo: r.estado === 'SIN_VEHICULO' ? 'Vehículo sin equivalencia SICETAC' : 'Ruta no publicada en SICETAC' } : {}),
               })))}>Excel</Button>
@@ -530,7 +568,9 @@ export default function TarifaxComparativo() {
                 <TableBody>
                   {filasDetalle.slice(pagina * 25, pagina * 25 + 25).map((r, i) => (
                     <TableRow key={i} hover>
-                      <TableCell sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{nombresPer[r.periodo] ?? r.periodo}</TableCell>
+                      <TableCell sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{nombresPer[r.periodo] ?? r.periodo}
+                        {r.fecha_sicetac && <Typography fontSize={11} color="text.secondary">SICETAC {r.fecha_sicetac}</Typography>}
+                      </TableCell>
                       <TableCell sx={{ fontSize: 12, maxWidth: 170 }}>
                         <Typography fontSize={12} noWrap title={r.cliente}>{r.cliente}</Typography>
                         <Typography fontSize={11} color="text.secondary" noWrap>{r.servicio}</Typography>
@@ -542,7 +582,7 @@ export default function TarifaxComparativo() {
                       <TableCell align="right" sx={{ fontSize: 12 }}>{num(r.distancia)}</TableCell>
                       <TableCell align="right" sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{pesos(r.tarifa)}</TableCell>
                       <TableCell align="right" sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{pesos(r.sicetac)}
-                        {!!r.horas_valor && <Typography fontSize={11} color="text.secondary">incluye {pesos(r.horas_valor)} de horas</Typography>}
+                        {!!r.horas_valor && <Typography fontSize={11} color="text.secondary">incluye {num(r.horas_usadas)} h: {pesos(r.horas_valor)}</Typography>}
                       </TableCell>
                       <TableCell align="right" sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{pesos(r.diferencia)}</TableCell>
                       <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}><Variacion v={r.variacion} /></TableCell>

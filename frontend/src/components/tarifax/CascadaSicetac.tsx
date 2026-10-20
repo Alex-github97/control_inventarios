@@ -34,7 +34,7 @@ interface Paso { paso: string; base: number; valor: number; color: string; texto
 
 function pasos(m: MesCascada, horas: number): Paso[] {
   const dif = m.tarifa_prom - m.sicetac_prom
-  const out: Paso[] = [{ paso: horas ? 'SICETAC viaje' : 'SICETAC', base: 0, valor: m.sicetac_base_prom, color: COLORES_CASCADA.total,
+  const out: Paso[] = [{ paso: horas ? 'SICETAC sin horas' : 'SICETAC', base: 0, valor: m.sicetac_base_prom, color: COLORES_CASCADA.total,
                          texto: millones(m.sicetac_base_prom), detalle: `Costo SICETAC promedio del viaje: ${pesos(m.sicetac_base_prom)}` }]
   if (horas) {
     out.push({ paso: `+${horas} h logísticas`, base: m.sicetac_base_prom, valor: m.horas_prom, color: COLORES_CASCADA.horas,

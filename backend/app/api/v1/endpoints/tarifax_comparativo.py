@@ -38,10 +38,38 @@ router = APIRouter(prefix="/tarifax/comparativo", tags=["TarifaX · Comparativo"
 
 MAX_MB = 80              # negociaciones (se leen en memoria)
 MAX_MB_SICETAC = 1024    # SICETAC: se sube al disco por partes y se lee por partes
-# Un procesamiento que lleva más que esto sin terminar se da por interrumpido
-# (el proceso del servidor que lo hacía se reinició): se puede volver a cargar.
-PROCESO_VENCE_MIN = 90
+# Un mes en cola o en proceso anota un «latido» (updated_at) al menos cada
+# minuto. Si pasa más que esto sin latido, el proceso del servidor que lo hacía
+# se reinició: el mes queda INTERRUMPIDO y se puede reprocesar.
+LATIDO_VENCE_MIN = 10
+EN_CURSO = ("EN_COLA", "PROCESANDO")
 _tareas: set = set()     # referencia a las tareas en segundo plano (si no, el recolector las puede cortar)
+# Los archivos se procesan de a uno: leer dos a la vez no es más rápido (el
+# intérprete ejecuta un hilo a la vez) y duplica la memoria. Es por proceso:
+# con varios procesos de servidor, cada uno lleva su propia cola.
+_cola: Optional[asyncio.Lock] = None
+
+
+def _turno() -> asyncio.Lock:
+    global _cola
+    if _cola is None:
+        _cola = asyncio.Lock()
+    return _cola
+
+
+def _estado_de(r: Optional[TarifaxSicetacPeriodo]) -> Optional[str]:
+    """El estado del mes, con INTERRUMPIDO si el proceso dejó de dar señales."""
+    if r is None:
+        return None
+    if r.estado in EN_CURSO and (not r.updated_at or
+                                 (datetime.now(timezone.utc) - r.updated_at).total_seconds() > LATIDO_VENCE_MIN * 60):
+        return "INTERRUMPIDO"
+    return r.estado
+
+
+def _fuentes(carpeta: Path, periodo: str) -> List[Path]:
+    """El archivo subido de un mes, que se conserva mientras no se procese bien."""
+    return sorted(carpeta.glob(f"{periodo}.subida.*"))
 # Equivalencias que se siembran la primera vez: los nombres en que el
 # consolidado comercial y SICETAC difieren con seguridad.
 ALIAS_INICIALES = {
@@ -168,14 +196,15 @@ async def estado(anio: int = Query(default_factory=lambda: datetime.now().year),
                                .order_by(TarifaxNegociacion.id.desc()).limit(1))).first()
     regs = {p.periodo: p for p in (await db.execute(select(TarifaxSicetacPeriodo))).scalars()}
     anios = sorted({p.anio for p in regs.values()} | {anio, datetime.now().year})
+    carpeta = _carpeta()
     meses = []
     for m in range(1, 13):
         per = f"{anio}-{m:02d}"
         r = regs.get(per)
-        est = r.estado if r else None
-        if est == "PROCESANDO" and r.updated_at and (datetime.now(timezone.utc) - r.updated_at).total_seconds() > PROCESO_VENCE_MIN * 60:
-            est = "INTERRUMPIDO"
-        meses.append({"periodo": per, "mes": m, "nombre": tc.MESES[m - 1],
+        est = _estado_de(r)
+        meses.append({"reprocesable": est in ("ERROR", "INTERRUMPIDO") and bool(_fuentes(carpeta, per)),
+                      "filas_totales": r.filas_totales if r else None,
+                      "periodo": per, "mes": m, "nombre": tc.MESES[m - 1],
                       # Cargado = tiene datos procesados (aunque ahora se esté reprocesando uno nuevo).
                       "cargado": bool(r and r.filas),
                       "estado": est, "mensaje": r.mensaje if r else None, "filas_leidas": r.filas_leidas if r else None,
@@ -249,10 +278,11 @@ async def cargar_sicetac(anio: int, mes: int, archivo: UploadFile = File(...),
     periodo = f"{anio}-{mes:02d}"
     reg = (await db.execute(select(TarifaxSicetacPeriodo).where(TarifaxSicetacPeriodo.periodo == periodo)
                             .with_for_update())).scalar_one_or_none()
-    if reg is not None and reg.estado == "PROCESANDO" and reg.updated_at and \
-            (datetime.now(timezone.utc) - reg.updated_at).total_seconds() < PROCESO_VENCE_MIN * 60:
+    if _estado_de(reg) in EN_CURSO:
         raise HTTPException(409, f"{tc.nombre_periodo(periodo)} todavía se está procesando. Espere a que termine.")
     carpeta = _carpeta()
+    for viejo in _fuentes(carpeta, periodo):   # el de una carga anterior que falló
+        viejo.unlink(missing_ok=True)
     temporal = carpeta / f"{periodo}.subida{Path(nombre).suffix.lower()}"
     tope = MAX_MB_SICETAC * 1024 * 1024
     total = 0
@@ -273,38 +303,70 @@ async def cargar_sicetac(anio: int, mes: int, archivo: UploadFile = File(...),
     if reg is None:
         reg = TarifaxSicetacPeriodo(periodo=periodo, anio=anio, mes=mes, ruta=str(carpeta / f"{periodo}.pkl.gz"), filas=0, rutas=0)
         db.add(reg)
-    reg.estado, reg.mensaje, reg.filas_leidas = "PROCESANDO", None, 0
     reg.archivo, reg.usuario = nombre, yo.username
-    reg.updated_at = datetime.now(timezone.utc)
-    await db.commit()
-    esquema = esquema_actual() or ESQUEMA_POR_DEFECTO
-    tarea = asyncio.create_task(_procesar_sicetac(esquema, periodo, str(temporal), nombre))
-    _tareas.add(tarea)
-    tarea.add_done_callback(_tareas.discard)
-    return {"periodo": periodo, "nombre": tc.nombre_periodo(periodo), "estado": "PROCESANDO",
+    await _encolar(db, reg, str(temporal), nombre)
+    return {"periodo": periodo, "nombre": tc.nombre_periodo(periodo), "estado": "EN_COLA",
             "mb": round(total / 1024 / 1024, 1)}
 
 
+async def _encolar(db: AsyncSession, reg: TarifaxSicetacPeriodo, fuente: str, nombre: str) -> None:
+    reg.estado, reg.mensaje, reg.filas_leidas, reg.filas_totales = "EN_COLA", None, 0, None
+    reg.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    esquema = esquema_actual() or ESQUEMA_POR_DEFECTO
+    tarea = asyncio.create_task(_procesar_sicetac(esquema, reg.periodo, fuente, nombre))
+    _tareas.add(tarea)
+    tarea.add_done_callback(_tareas.discard)
+
+
+@router.post("/sicetac/{anio}/{mes}/reprocesar", status_code=202)
+async def reprocesar_sicetac(anio: int, mes: int, db: AsyncSession = Depends(get_db),
+                             _: Usuario = Depends(get_current_user)):
+    """Vuelve a procesar el archivo ya subido de un mes que falló o se
+    interrumpió, sin tener que subirlo otra vez."""
+    periodo = f"{anio}-{mes:02d}"
+    reg = (await db.execute(select(TarifaxSicetacPeriodo).where(TarifaxSicetacPeriodo.periodo == periodo)
+                            .with_for_update())).scalar_one_or_none()
+    if reg is None:
+        raise HTTPException(404, "Ese mes no está cargado.")
+    if _estado_de(reg) in EN_CURSO:
+        raise HTTPException(409, f"{tc.nombre_periodo(periodo)} todavía se está procesando.")
+    fuentes = _fuentes(_carpeta(), periodo)
+    if not fuentes:
+        raise HTTPException(409, "El archivo de ese mes ya no está en el servidor: vuelva a cargarlo.")
+    await _encolar(db, reg, str(fuentes[0]), reg.archivo or fuentes[0].name)
+    return {"periodo": periodo, "nombre": tc.nombre_periodo(periodo), "estado": "EN_COLA"}
+
+
 async def _procesar_sicetac(esquema: str, periodo: str, temporal: str, nombre: str) -> None:
-    """Lee el archivo por partes, guarda el resultado y rehace el cruce del mes."""
+    """Espera su turno, lee el archivo por partes, guarda el resultado y rehace
+    el cruce del mes. Si falla, el archivo subido se conserva para reprocesarlo."""
     from app.core.database import AsyncSessionLocal
     loop = asyncio.get_running_loop()
-    ultimo = {"n": 0}
 
-    async def anotar_avance(n: int) -> None:
+    async def anotar(**campos) -> None:
         async with AsyncSessionLocal(info={"esquema": esquema}) as s:
             r = (await s.execute(select(TarifaxSicetacPeriodo).where(TarifaxSicetacPeriodo.periodo == periodo))).scalar_one_or_none()
             if r is not None:
-                r.filas_leidas, r.updated_at = n, datetime.now(timezone.utc)
+                for k, v in campos.items():
+                    setattr(r, k, v)
+                r.updated_at = datetime.now(timezone.utc)   # el latido
                 await s.commit()
 
-    def avance(n: int) -> None:
-        # Se anota cada ~500.000 filas: suficiente para ver que avanza.
-        if n - ultimo["n"] >= 500_000:
-            ultimo["n"] = n
-            asyncio.run_coroutine_threadsafe(anotar_avance(n), loop)
+    def avance(n: int, total: Optional[int]) -> None:
+        # Se llama cada 100.000 filas (unos 20 s en Excel): avance y latido.
+        asyncio.run_coroutine_threadsafe(anotar(filas_leidas=n, filas_totales=total), loop)
 
+    turno = _turno()
+    while True:
+        try:
+            await asyncio.wait_for(turno.acquire(), timeout=60)
+            break
+        except asyncio.TimeoutError:
+            await anotar()   # sigue en cola, y vivo
+    ok = False
     try:
+        await anotar(estado="PROCESANDO")
         sic = await asyncio.to_thread(tc.leer_sicetac_archivo, temporal, nombre, avance)
         async with AsyncSessionLocal(info={"esquema": esquema}) as db:
             reg = (await db.execute(select(TarifaxSicetacPeriodo).where(TarifaxSicetacPeriodo.periodo == periodo))).scalar_one()
@@ -314,6 +376,7 @@ async def _procesar_sicetac(esquema: str, periodo: str, temporal: str, nombre: s
             await _recalcular(db, [periodo])
             reg.estado, reg.mensaje, reg.updated_at = "LISTO", None, datetime.now(timezone.utc)
             await db.commit()
+        ok = True
     except Exception as e:  # noqa: BLE001
         mensaje = str(e) if isinstance(e, tc.ArchivoInvalido) else f"No se pudo procesar el archivo: {e}"
         async with AsyncSessionLocal(info={"esquema": esquema}) as db:
@@ -322,7 +385,9 @@ async def _procesar_sicetac(esquema: str, periodo: str, temporal: str, nombre: s
                 reg.estado, reg.mensaje, reg.updated_at = "ERROR", mensaje[:1000], datetime.now(timezone.utc)
                 await db.commit()
     finally:
-        Path(temporal).unlink(missing_ok=True)
+        turno.release()
+        if ok:
+            Path(temporal).unlink(missing_ok=True)
 
 
 @router.delete("/sicetac/{anio}/{mes}")
@@ -332,8 +397,12 @@ async def borrar_sicetac(anio: int, mes: int, db: AsyncSession = Depends(get_db)
     reg = (await db.execute(select(TarifaxSicetacPeriodo).where(TarifaxSicetacPeriodo.periodo == periodo))).scalar_one_or_none()
     if reg is None:
         raise HTTPException(404, "Ese mes no está cargado.")
+    if _estado_de(reg) in EN_CURSO:
+        raise HTTPException(409, f"{tc.nombre_periodo(periodo)} se está procesando: espere a que termine para quitarlo.")
     await db.execute(delete(TarifaxComparacion).where(TarifaxComparacion.periodo == periodo))
     Path(reg.ruta).unlink(missing_ok=True)
+    for f in _fuentes(_carpeta(), periodo):
+        f.unlink(missing_ok=True)
     await db.delete(reg)
     await db.commit()
     return {"ok": True}
@@ -422,27 +491,41 @@ async def tablero(periodos: Optional[str] = None, clientes: Optional[str] = None
                   destinos: Optional[str] = None, servicios: Optional[str] = None, categorias: Optional[str] = None,
                   dptos_origen: Optional[str] = None, dptos_destino: Optional[str] = None,
                   tipos_tarifa: Optional[str] = None,
-                  posicion: Optional[str] = None, carroceria: str = "FURGON",
-                  horas: float = Query(0, ge=0, le=240), db: AsyncSession = Depends(get_db),
+                  posicion: Optional[str] = None, carroceria: str = "FURGON", tipo_carga: str = "GENERAL",
+                  horas: Optional[float] = Query(None, ge=0, le=240), db: AsyncSession = Depends(get_db),
                   _: Usuario = Depends(get_current_user)):
     """Todo lo que pinta el tablero, con los filtros aplicados (separados por «|»).
 
-    La carrocería se elige una: SICETAC cambia el costo según la carrocería y
-    mezclarlas promediaría cosas distintas.
+    La carrocería y el tipo de carga se eligen uno: SICETAC cambia el costo
+    según ellos y mezclarlos promediaría cosas distintas. Lo que no trae tipo
+    de carga (el tarifario vigente) entra con cualquiera.
 
-    `horas`: horas logísticas que se suman al costo SICETAC del viaje, a su
-    valor por hora (el del archivo del mes, o el de la configuración del
-    vehículo). Con horas = 0 el SICETAC es el costo del viaje solo.
-    `posicion`: ENCIMA o DEBAJO de SICETAC, ya con las horas sumadas."""
+    `horas`: horas logísticas del análisis.
+    - SICETAC oficial (trae sus componentes): costo de movilización + horas ×
+      costo de la hora. Sin `horas` se usan las del propio SICETAC, y el
+      resultado es su COSTO_TOTAL_VIAJE.
+    - Tarifario sin componentes: costo del viaje + horas × valor de la hora
+      (el de la configuración del vehículo). Sin `horas`, nada se suma.
+    `posicion`: ENCIMA o DEBAJO de SICETAC, ya con las horas.
+
+    Sin `periodos`, cada tarifa se compara con el SICETAC más reciente que la
+    tenga (los indicadores y el detalle); la gráfica por mes sigue mostrando
+    todos los meses. Con `periodos`, con el de esos meses."""
     await _sincronizar_mapeo(db)
     C = TarifaxComparacion
-    q = select(C.periodo, C.cliente, C.servicio, C.origen, C.destino, C.dpto_origen, C.dpto_destino, C.tipo_tarifa, C.categoria,
-               C.tipo_vehiculo, C.carroceria, C.distancia, C.tarifa_cliente, C.costo_sicetac, C.valor_hora, C.estado)
-    rows = (await db.execute(q.where((C.carroceria == carroceria) | (C.estado != "OK")))).all()
+    q = select(C.negociacion_id, C.fecha_sicetac, C.periodo, C.cliente, C.servicio, C.origen, C.destino, C.dpto_origen, C.dpto_destino, C.tipo_tarifa, C.categoria,
+               C.tipo_vehiculo, C.carroceria, C.distancia, C.tarifa_cliente, C.costo_sicetac, C.valor_hora, C.estado,
+               C.tipo_carga, C.costo_mov, C.horas_sicetac)
+    rows = (await db.execute(q.where(((C.carroceria == carroceria) & ((C.tipo_carga == tipo_carga) | C.tipo_carga.is_(None)))
+                                     | (C.estado != "OK")))).all()
     carrocerias = [r for (r,) in (await db.execute(select(C.carroceria).where(C.carroceria.isnot(None)).distinct()))]
+    # Los tipos de carga que SICETAC publica para la carrocería elegida.
+    tipos_carga = [r for (r,) in (await db.execute(select(C.tipo_carga).where(
+        C.carroceria == carroceria, C.tipo_carga.isnot(None)).distinct()))]
     valor_conf = {h.tipo_vehiculo: h.valor_hora for h in (await db.execute(select(TarifaxHoraLogistica))).scalars()}
-    cols = ["periodo", "cliente", "servicio", "origen", "destino", "dpto_origen", "dpto_destino", "tipo_tarifa", "categoria",
-            "tipo_vehiculo", "carroceria", "distancia", "tarifa", "sicetac_base", "valor_hora", "estado"]
+    cols = ["negociacion_id", "fecha_sicetac", "periodo", "cliente", "servicio", "origen", "destino", "dpto_origen", "dpto_destino", "tipo_tarifa", "categoria",
+            "tipo_vehiculo", "carroceria", "distancia", "tarifa", "sicetac_total", "valor_hora", "estado",
+            "tipo_carga", "costo_mov", "horas_sicetac"]
     df = pd.DataFrame(rows, columns=cols)
     # Las negociaciones que no entran al cruce (paqueteo: por kilo, caja o
     # volumen; o tarifa en cero) igual cuentan: dan las opciones de los filtros
@@ -461,21 +544,27 @@ async def tablero(periodos: Optional[str] = None, clientes: Optional[str] = None
         nc = negs.assign(motivo=None)
     vacio = {"opciones": {"periodos": [], "clientes": [], "origenes": [], "destinos": [], "servicios": [],
                           "categorias": [], "dptos_origen": [], "dptos_destino": [], "tipos_tarifa": [],
-                          "carrocerias": sorted(carrocerias)},
+                          "carrocerias": sorted(carrocerias), "tipos_carga": sorted(tipos_carga)},
              "kpis": None, "por_mes": [], "por_cliente": [], "por_categoria": [], "detalle": [], "sin_referencia": [],
-             "sin_referencia_total": 0, "carroceria": carroceria, "horas": horas,
+             "sin_referencia_total": 0, "carroceria": carroceria, "tipo_carga": tipo_carga, "horas": horas,
              "no_comparables": [], "no_comparables_total": 0, "no_comparables_tarifas": 0}
     if df.empty and negs.empty:
         return vacio
 
-    # SICETAC del análisis = costo del viaje + horas × valor de la hora.
-    vh = pd.to_numeric(df["valor_hora"], errors="coerce")
-    vh = vh.fillna(pd.to_numeric(df["tipo_vehiculo"].map(
+    # SICETAC del análisis = base + horas × valor de la hora. Con los
+    # componentes del SICETAC oficial la base es la movilización y las horas
+    # reemplazan a las del archivo; sin ellos, la base es el costo total.
+    num = lambda c: pd.to_numeric(df[c], errors="coerce")  # noqa: E731
+    vh_archivo, mov, hs = num("valor_hora"), num("costo_mov"), num("horas_sicetac")
+    vh = vh_archivo.fillna(pd.to_numeric(df["tipo_vehiculo"].map(
         lambda t: valor_conf.get(tc.normalizar(t)) if isinstance(t, str) else None), errors="coerce"))
+    componentes = mov.notna() & hs.notna() & vh_archivo.notna()
+    h_pedidas = 0.0 if horas is None else float(horas)
+    df["horas_usadas"] = hs.where(componentes & (horas is None), h_pedidas)
     df["valor_hora"] = vh
-    df["horas_valor"] = (vh.fillna(0) * horas).round(0)
-    df["tarifa"] = pd.to_numeric(df["tarifa"], errors="coerce")
-    df["sicetac_base"] = pd.to_numeric(df["sicetac_base"], errors="coerce")
+    df["sicetac_base"] = mov.where(componentes, num("sicetac_total"))
+    df["horas_valor"] = (vh.fillna(0) * df["horas_usadas"]).round(0)
+    df["tarifa"] = num("tarifa")
     df["sicetac"] = df["sicetac_base"] + df["horas_valor"]
     df["diferencia"] = (df["tarifa"] - df["sicetac"]).round(0)
     df["variacion"] = (df["diferencia"] / df["sicetac"] * 100).round(2)
@@ -506,12 +595,20 @@ async def tablero(periodos: Optional[str] = None, clientes: Optional[str] = None
     vacio.update({"no_comparables": _registros(nc.head(500)) if not nc.empty else [],
                   "no_comparables_total": int(len(nc)),
                   "no_comparables_tarifas": int(len(nc))})
-    ok = df[df["estado"] == "OK"]
+    ok_meses = df[df["estado"] == "OK"]
     if posicion == "DEBAJO":
-        ok = ok[ok["variacion"] < 0]
+        ok_meses = ok_meses[ok_meses["variacion"] < 0]
     elif posicion == "ENCIMA":
-        ok = ok[ok["variacion"] >= 0]
-    sin = df[df["estado"] != "OK"].drop_duplicates(["cliente", "origen", "destino", "categoria"])
+        ok_meses = ok_meses[ok_meses["variacion"] >= 0]
+    ok = ok_meses
+    if not _lista(periodos) and not ok.empty:
+        # Sin mes elegido: cada tarifa contra su SICETAC más reciente (el
+        # tarifario vigente cuenta como el más antiguo).
+        orden = ok["periodo"].where(ok["periodo"] != "VIGENTE", "0000")
+        ok = ok[orden == orden.groupby(ok["negociacion_id"]).transform("max")]
+    # Una tarifa con referencia en algún mes no está «sin referencia».
+    sin = df[(df["estado"] != "OK") & ~df["negociacion_id"].isin(df.loc[df["estado"] == "OK", "negociacion_id"])]
+    sin = sin.drop_duplicates(["cliente", "origen", "destino", "categoria"])
     if ok.empty:
         vacio.update({"sin_referencia": sin.head(500).pipe(_registros),
                       "sin_referencia_total": len(sin)})
@@ -527,11 +624,13 @@ async def tablero(periodos: Optional[str] = None, clientes: Optional[str] = None
         "tarifa_total": float(ok["tarifa"].sum()), "sicetac_total": float(ok["sicetac"].sum()),
         "sicetac_base_total": float(ok["sicetac_base"].sum()), "horas_total": float(ok["horas_valor"].sum()),
         "horas": horas, "horas_sin_valor": int(ok["valor_hora"].isna().sum()) if horas else 0,
+        "horas_prom": round(float(ok["horas_usadas"].mean()), 1),
+        "mas_reciente": not _lista(periodos),
         "sin_referencia": int(len(sin)),
         "cobertura_pct": round(len(ok.drop_duplicates(llaves)) / max(1, len(ok.drop_duplicates(llaves)) + len(sin)) * 100, 1),
     }
     por_mes = []
-    for p, g in sorted(ok.groupby("periodo"), key=lambda x: (x[0] != "VIGENTE", x[0])):
+    for p, g in sorted(ok_meses.groupby("periodo"), key=lambda x: (x[0] != "VIGENTE", x[0])):
         base, hv, sic, tar = (float(g[c].mean()) for c in ("sicetac_base", "horas_valor", "sicetac", "tarifa"))
         por_mes.append({"periodo": p, "nombre": tc.nombre_periodo(p), "tarifas": int(len(g)),
                         "variacion": _ponderada(g["tarifa"], g["sicetac"]),
