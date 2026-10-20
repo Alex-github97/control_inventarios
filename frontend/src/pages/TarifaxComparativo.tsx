@@ -33,6 +33,7 @@ import { Encabezado, errorApi } from '@/components/comun/Registro'
 import { apiClient as api } from '@/api/client'
 import { COLOR_MODULO } from '@/config/marca'
 import { CascadaSicetac } from '@/components/tarifax/CascadaSicetac'
+import { SicetacPorVehiculo, type SerieVehiculo } from '@/components/tarifax/SicetacPorVehiculo'
 import { ConfigVehiculos } from '@/components/tarifax/ConfigVehiculos'
 import { EncabezadosOrden, useOrden, type ColumnaOrden } from '@/components/tarifax/OrdenTabla'
 import { DialogoFlota, ResumenFlota, TablaFlota, filasExcelFlota, type Flota, type FlotaConfig } from '@/components/tarifax/FlotaPropia'
@@ -87,6 +88,7 @@ interface Tablero {
   detalle: Fila[]; detalle_total?: number; sin_referencia: Fila[]; sin_referencia_total: number; carroceria: string
   no_comparables: NoComparable[]; no_comparables_total: number
   flota: Flota | null
+  por_mes_vehiculo?: SerieVehiculo[]; por_mes_vehiculo_tarifas?: number
 }
 interface NoComparable { cliente: string; servicio: string | null; origen: string; destino: string; tipo_tarifa: string | null; tarifa: number | null; motivo: string }
 type Filtros = { periodos: string[]; clientes: string[]; origenes: string[]; destinos: string[]; servicios: string[]; categorias: string[]
@@ -499,28 +501,22 @@ export default function TarifaxComparativo() {
 
           {/* ── Gráficas ── */}
           <Grid container spacing={2} mb={2}>
-            <Grid size={{ xs: 12, md: 5 }}>
-              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, height: '100%' }}>
-                <Typography fontWeight={700}>Variación por mes</Typography>
-                <Typography fontSize={12} color="text.secondary" mb={1}>Total cobrado frente a total SICETAC de los meses elegidos</Typography>
+            <Grid size={{ xs: 12 }}>
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                <Typography fontWeight={700}>Costo SICETAC promedio por mes y tipo de vehículo</Typography>
+                <Typography fontSize={12} color="text.secondary" mb={1}>
+                  Promedio por viaje de las {num(t?.por_mes_vehiculo_tarifas)} tarifas que tienen referencia SICETAC en todos los meses (así la variación es de precio, no de rutas distintas).
+                  Sobre cada punto, la variación frente al mes anterior.{horas == null ? ' Incluye las horas logísticas que trae cada ruta en el SICETAC.' : horas ? ` Incluye ${num(horas)} h logísticas.` : ' Sin horas logísticas.'}
+                </Typography>
                 {(t?.por_mes.length ?? 0) < 2
                   ? <Box sx={{ py: 5, textAlign: 'center' }}>
                       <Typography fontSize={34} fontWeight={800}>{pct(t?.por_mes[0]?.variacion)}</Typography>
                       <Typography fontSize={12} color="text.secondary">{t?.por_mes[0]?.nombre} · elija o cargue más meses para ver la evolución</Typography>
                     </Box>
-                  : <ResponsiveContainer width="100%" height={260}>
-                      <LineChart data={t!.por_mes} margin={{ top: 16, right: 16, left: 0, bottom: 0 }}>
-                        <CartesianGrid stroke={GRILLA} vertical={false} />
-                        <XAxis dataKey="nombre" tick={{ fontSize: 11 }} tickLine={false} axisLine={{ stroke: GRILLA }} />
-                        <YAxis tickFormatter={v => `${v}%`} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={48} />
-                        <ReferenceLine y={0} stroke="#8a8984" />
-                        <RTooltip formatter={(v: number) => [pct(v), 'Variación']} labelStyle={{ fontWeight: 700 }} />
-                        <Line type="monotone" dataKey="variacion" stroke={ENCIMA} strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                      </LineChart>
-                    </ResponsiveContainer>}
+                  : <SicetacPorVehiculo series={t?.por_mes_vehiculo ?? []} todas={opc?.categorias ?? []} />}
               </Paper>
             </Grid>
-            <Grid size={{ xs: 12, md: 7 }}>
+            <Grid size={{ xs: 12 }}>
               <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, height: '100%' }}>
                 <Stack direction="row" alignItems="center" gap={2}>
                   <Box flex={1}>

@@ -802,6 +802,26 @@ async def tablero(periodos: Optional[str] = None, clientes: Optional[str] = None
                         # La cascada usa promedios: su variación es la de los promedios.
                         "variacion_prom": round((tar - sic) / sic * 100, 2) if sic else None,
                         "por_debajo": int((g["variacion"] < 0).sum())})
+    # Costo SICETAC promedio por mes y tipo de vehículo, con la variación frente
+    # al mes anterior. Solo las tarifas con referencia en TODOS los meses: si
+    # no, un mes con más rutas largas parecería «más caro» sin que suba el precio.
+    meses_ok = ok_meses["periodo"].nunique()
+    base_v = ok_meses
+    if meses_ok > 1:
+        cuenta = ok_meses.groupby("negociacion_id")["periodo"].nunique()
+        base_v = ok_meses[ok_meses["negociacion_id"].isin(cuenta[cuenta == meses_ok].index)]
+    por_mes_vehiculo = []
+    for cat, g in base_v.groupby("categoria"):
+        puntos, previo = [], None
+        for p, gp in sorted(g.groupby("periodo"), key=lambda x: (x[0] != "VIGENTE", x[0])):
+            prom = float(gp["sicetac"].mean())
+            puntos.append({"periodo": p, "nombre": tc.nombre_periodo(p), "sicetac_prom": round(prom, 0),
+                           "tarifas": int(gp["negociacion_id"].nunique()),
+                           "var_mes_anterior": round((prom / previo - 1) * 100, 2) if previo else None})
+            previo = prom
+        por_mes_vehiculo.append({"categoria": cat, "tipo_vehiculo": g["tipo_vehiculo"].iloc[0],
+                                 "tarifas": int(g["negociacion_id"].nunique()), "puntos": puntos})
+    por_mes_vehiculo.sort(key=lambda x: -x["puntos"][-1]["sicetac_prom"])
     por_cliente = sorted([{"cliente": c, "tarifas": int(len(g)), "rutas": int(len(g[["origen", "destino"]].drop_duplicates())),
                            "variacion": _ponderada(g["tarifa"], g["sicetac"]),
                            "por_debajo": int((g["variacion"] < 0).sum())}
@@ -810,6 +830,7 @@ async def tablero(periodos: Optional[str] = None, clientes: Optional[str] = None
                       "variacion": _ponderada(g["tarifa"], g["sicetac"])} for c, g in ok.groupby("categoria")]
     detalle = ok.assign(nombre_periodo=ok["periodo"].map(tc.nombre_periodo)).sort_values("variacion")
     return {**vacio, "kpis": kpis, "por_mes": por_mes, "por_cliente": por_cliente, "por_categoria": por_categoria,
+            "por_mes_vehiculo": por_mes_vehiculo, "por_mes_vehiculo_tarifas": int(base_v["negociacion_id"].nunique()),
             "detalle": detalle.head(3000).pipe(_registros),
             "detalle_total": int(len(detalle)),
             "sin_referencia": sin.head(500).pipe(_registros),
