@@ -123,8 +123,12 @@ const COLS_NO_COMP: ColumnaOrden<NoComparable>[] = [
 ]
 interface PorCliente { cliente: string; tarifas: number; rutas: number; variacion: number | null; por_debajo: number; tarifa_total?: number; sicetac_total?: number }
 const cociente = (t?: number | null, s?: number | null) => t != null && s ? t / s : null
-// El cociente en porcentaje: 1,224 → «122,4 %».
-const pctCociente = (q: number | null | undefined) => q == null ? '—' : `${(q * 100).toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %`
+// Cuánto por encima (+) o por debajo (−) de SICETAC: 1,224 → «+22,4 %»; 0,877 → «−12,3 %».
+const pctCociente = (q: number | null | undefined) => {
+  if (q == null) return '—'
+  const v = (q - 1) * 100
+  return `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %`
+}
 const COLS_CLIENTE: ColumnaOrden<PorCliente>[] = [
   { titulo: 'Cliente', valor: r => r.cliente }, { titulo: 'Tarifas', valor: r => r.tarifas, numero: true },
   { titulo: 'Total tarifa cliente', valor: r => r.tarifa_total, numero: true },
@@ -642,7 +646,7 @@ export default function TarifaxComparativo() {
                 <Typography fontWeight={700}>Totales por cliente</Typography>
                 <Typography fontSize={12} color="text.secondary" mb={1}>
                   Suma de las tarifas comparadas frente a la suma de su SICETAC{horas == null ? ' (con las horas logísticas de cada ruta en el SICETAC)' : horas ? ` (con ${num(horas)} h logísticas)` : ' (sin horas logísticas)'}.
-                  122 % significa que el cliente paga 22 % por encima de SICETAC; menos de 100 %, por debajo. Clic en un encabezado para ordenar.
+                  +22 % significa que el cliente paga 22 % por encima de SICETAC; un valor negativo, por debajo. Clic en un encabezado para ordenar.
                 </Typography>
                 <Box sx={{ overflowX: 'auto' }}>
                   <Table size="small" sx={{ '& td, & th': { px: 1 } }}>
