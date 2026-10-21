@@ -1050,6 +1050,8 @@ async def tablero(periodos: Optional[str] = None, clientes: Optional[str] = None
     rentab_vehiculo = _lineas_por_mes(base_v, "categoria", "rentabilidad")
     por_cliente = sorted([{"cliente": c, "tarifas": int(len(g)), "rutas": int(len(g[["origen", "destino"]].drop_duplicates())),
                            "variacion": _ponderada(g["tarifa"], g["sicetac"]),
+                           "tarifa_total": round(float(g["tarifa"].sum()), 0),
+                           "sicetac_total": round(float(g["sicetac"].sum()), 0),
                            "por_debajo": int((g["variacion"] < 0).sum())}
                           for c, g in ok.groupby("cliente")], key=lambda r: (r["variacion"] is None, r["variacion"]))
     por_categoria = [{"categoria": c, "tipo_vehiculo": g["tipo_vehiculo"].iloc[0], "tarifas": int(len(g)),

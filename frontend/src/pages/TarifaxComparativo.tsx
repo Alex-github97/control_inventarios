@@ -85,7 +85,7 @@ interface Tablero {
   opciones: { periodos: { periodo: string; nombre: string }[]; clientes: string[]; origenes: string[]; destinos: string[]; servicios: string[]; categorias: string[]; carrocerias: string[]; tipos_carga?: string[]; dptos_origen: string[]; dptos_destino: string[]; tipos_tarifa: string[] }
   kpis: null | { tarifas: number; clientes: number; rutas: number; variacion: number | null; mediana: number; por_debajo: number; por_debajo_pct: number; tarifa_total: number; sicetac_total: number; sin_referencia: number; cobertura_pct: number; sicetac_base_total: number; horas_total: number; horas: number | null; horas_sin_valor: number; horas_prom: number }
   por_mes: { periodo: string; nombre: string; tarifas: number; variacion: number | null; tarifa_prom: number; sicetac_prom: number; sicetac_base_prom: number; horas_prom: number; variacion_prom: number | null; por_debajo: number }[]
-  por_cliente: { cliente: string; tarifas: number; rutas: number; variacion: number | null; por_debajo: number }[]
+  por_cliente: PorCliente[]
   por_categoria: { categoria: string; tipo_vehiculo: string; tarifas: number; variacion: number | null }[]
   detalle: Fila[]; detalle_total?: number; sin_referencia: Fila[]; sin_referencia_total: number; carroceria: string
   no_comparables: NoComparable[]; no_comparables_total: number
@@ -121,6 +121,15 @@ const COLS_NO_COMP: ColumnaOrden<NoComparable>[] = [
   { titulo: 'Tipo de tarifa', valor: r => r.tipo_tarifa }, { titulo: 'Ruta', valor: ruta },
   { titulo: 'Tarifa', valor: r => r.tarifa, numero: true }, { titulo: 'Motivo', valor: r => r.motivo },
 ]
+interface PorCliente { cliente: string; tarifas: number; rutas: number; variacion: number | null; por_debajo: number; tarifa_total?: number; sicetac_total?: number }
+const cociente = (t?: number | null, s?: number | null) => t != null && s ? t / s : null
+const COLS_CLIENTE: ColumnaOrden<PorCliente>[] = [
+  { titulo: 'Cliente', valor: r => r.cliente }, { titulo: 'Tarifas', valor: r => r.tarifas, numero: true },
+  { titulo: 'Total tarifa cliente', valor: r => r.tarifa_total, numero: true },
+  { titulo: 'Total SICETAC', valor: r => r.sicetac_total, numero: true },
+  { titulo: 'Total cliente / Total SICETAC', valor: r => cociente(r.tarifa_total, r.sicetac_total), numero: true },
+]
+const SIN_PC: PorCliente[] = []
 const SIN_FILAS: Fila[] = []
 const SIN_NC: NoComparable[] = []
 
@@ -300,6 +309,7 @@ export default function TarifaxComparativo() {
     + f.dptosOrigen.length + f.dptosDestino.length + f.tiposTarifa.length > 0 || !!f.posicion
   const porCliente = (t?.por_cliente ?? []).filter(c => c.variacion != null)
   const comparadas = useOrden(t?.detalle ?? SIN_FILAS, COLS_COMPARADAS)
+  const totalesCliente = useOrden(t?.por_cliente ?? SIN_PC, COLS_CLIENTE)
   const sinRef = useOrden(t?.sin_referencia ?? SIN_FILAS, COLS_SIN_REF)
   const noComp = useOrden(t?.no_comparables ?? SIN_NC, COLS_NO_COMP)
   const filasDetalle = comparadas.filas
@@ -580,6 +590,46 @@ export default function TarifaxComparativo() {
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
+              </Paper>
+            </Grid>
+            {/* ── Totales por cliente ── */}
+            <Grid size={{ xs: 12 }}>
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                <Typography fontWeight={700}>Totales por cliente</Typography>
+                <Typography fontSize={12} color="text.secondary" mb={1}>
+                  Suma de las tarifas comparadas frente a la suma de su SICETAC{horas == null ? ' (con las horas logísticas de cada ruta en el SICETAC)' : horas ? ` (con ${num(horas)} h logísticas)` : ' (sin horas logísticas)'}.
+                  Un cociente de 1,20 es un 20 % por encima de SICETAC; menor que 1, por debajo. Clic en un encabezado para ordenar.
+                </Typography>
+                <Box sx={{ overflowX: 'auto' }}>
+                  <Table size="small" sx={{ '& td, & th': { px: 1 } }}>
+                    <TableHead><TableRow><EncabezadosOrden columnas={COLS_CLIENTE} orden={totalesCliente.orden} ordenar={totalesCliente.ordenar} /></TableRow></TableHead>
+                    <TableBody>
+                      {totalesCliente.filas.map(r => {
+                        const q = cociente(r.tarifa_total, r.sicetac_total)
+                        return (
+                          <TableRow key={r.cliente} hover sx={{ cursor: 'pointer' }} onClick={() => setF(x => ({ ...x, clientes: [r.cliente] }))}>
+                            <TableCell sx={{ fontSize: 12 }}>{r.cliente}</TableCell>
+                            <TableCell align="right" sx={{ fontSize: 12 }}>{num(r.tarifas)}</TableCell>
+                            <TableCell align="right" sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{pesos(r.tarifa_total)}</TableCell>
+                            <TableCell align="right" sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{pesos(r.sicetac_total)}</TableCell>
+                            <TableCell align="right" sx={{ fontSize: 12, fontWeight: 700, color: q != null && q < 1 ? 'error.main' : 'text.primary' }}>
+                              {q == null ? '—' : q.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                      <TableRow sx={{ '& td': { fontWeight: 800, borderTop: 2, borderColor: 'divider' } }}>
+                        <TableCell sx={{ fontSize: 12 }}>Total</TableCell>
+                        <TableCell align="right" sx={{ fontSize: 12 }}>{num(k.tarifas)}</TableCell>
+                        <TableCell align="right" sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{pesos(k.tarifa_total)}</TableCell>
+                        <TableCell align="right" sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{pesos(k.sicetac_total)}</TableCell>
+                        <TableCell align="right" sx={{ fontSize: 12 }}>
+                          {cociente(k.tarifa_total, k.sicetac_total)?.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '—'}
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </Box>
               </Paper>
             </Grid>
           </Grid>
