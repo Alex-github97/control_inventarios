@@ -123,6 +123,8 @@ const COLS_NO_COMP: ColumnaOrden<NoComparable>[] = [
 ]
 interface PorCliente { cliente: string; tarifas: number; rutas: number; variacion: number | null; por_debajo: number; tarifa_total?: number; sicetac_total?: number }
 const cociente = (t?: number | null, s?: number | null) => t != null && s ? t / s : null
+// El cociente en porcentaje: 1,224 → «122,4 %».
+const pctCociente = (q: number | null | undefined) => q == null ? '—' : `${(q * 100).toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %`
 const COLS_CLIENTE: ColumnaOrden<PorCliente>[] = [
   { titulo: 'Cliente', valor: r => r.cliente }, { titulo: 'Tarifas', valor: r => r.tarifas, numero: true },
   { titulo: 'Total tarifa cliente', valor: r => r.tarifa_total, numero: true },
@@ -598,7 +600,7 @@ export default function TarifaxComparativo() {
                 <Typography fontWeight={700}>Totales por cliente</Typography>
                 <Typography fontSize={12} color="text.secondary" mb={1}>
                   Suma de las tarifas comparadas frente a la suma de su SICETAC{horas == null ? ' (con las horas logísticas de cada ruta en el SICETAC)' : horas ? ` (con ${num(horas)} h logísticas)` : ' (sin horas logísticas)'}.
-                  Un cociente de 1,20 es un 20 % por encima de SICETAC; menor que 1, por debajo. Clic en un encabezado para ordenar.
+                  122 % significa que el cliente paga 22 % por encima de SICETAC; menos de 100 %, por debajo. Clic en un encabezado para ordenar.
                 </Typography>
                 <Box sx={{ overflowX: 'auto' }}>
                   <Table size="small" sx={{ '& td, & th': { px: 1 } }}>
@@ -613,7 +615,7 @@ export default function TarifaxComparativo() {
                             <TableCell align="right" sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{pesos(r.tarifa_total)}</TableCell>
                             <TableCell align="right" sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{pesos(r.sicetac_total)}</TableCell>
                             <TableCell align="right" sx={{ fontSize: 12, fontWeight: 700, color: q != null && q < 1 ? 'error.main' : 'text.primary' }}>
-                              {q == null ? '—' : q.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              {pctCociente(q)}
                             </TableCell>
                           </TableRow>
                         )
@@ -624,7 +626,7 @@ export default function TarifaxComparativo() {
                         <TableCell align="right" sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{pesos(k.tarifa_total)}</TableCell>
                         <TableCell align="right" sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{pesos(k.sicetac_total)}</TableCell>
                         <TableCell align="right" sx={{ fontSize: 12 }}>
-                          {cociente(k.tarifa_total, k.sicetac_total)?.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '—'}
+                          {pctCociente(cociente(k.tarifa_total, k.sicetac_total))}
                         </TableCell>
                       </TableRow>
                     </TableBody>
