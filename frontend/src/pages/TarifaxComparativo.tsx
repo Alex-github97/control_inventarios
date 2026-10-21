@@ -34,6 +34,7 @@ import { apiClient as api } from '@/api/client'
 import { COLOR_MODULO } from '@/config/marca'
 import { CascadaSicetac } from '@/components/tarifax/CascadaSicetac'
 import { LineasPorMes, type Linea } from '@/components/tarifax/LineasPorMes'
+import { NegociacionesPeriodo, type CargaNegociacion } from '@/components/tarifax/NegociacionesPeriodo'
 import { ConfigVehiculos } from '@/components/tarifax/ConfigVehiculos'
 import { EncabezadosOrden, useOrden, type ColumnaOrden } from '@/components/tarifax/OrdenTabla'
 import { DialogoFlota, ResumenFlota, TablaFlota, filasExcelFlota, type Flota, type FlotaConfig } from '@/components/tarifax/FlotaPropia'
@@ -70,6 +71,7 @@ interface Vehiculo { categoria: string; tarifas: number; tipo_sicetac: string | 
 interface Estado {
   vehiculos: Vehiculo[]
   negociaciones: { total: number; comparables: number; clientes: number; archivo: string | null; cargado_en: string | null }
+  cargas?: CargaNegociacion[]; consolidado?: { tarifas: number; clientes: number }
   anio: number; anios: number[]; meses: Mes[]; vigente: boolean
 }
 interface Fila {
@@ -329,15 +331,22 @@ export default function TarifaxComparativo() {
                   <Typography fontWeight={700}>Tarifas negociadas con los clientes</Typography>
                   <Typography fontSize={13} color="text.secondary">
                     {e?.negociaciones.total
-                      ? `${e.negociaciones.archivo} · ${num(e.negociaciones.comparables)} de ${num(e.negociaciones.total)} son por tipo de vehículo y se comparan con SICETAC · cargado ${fecha(e.negociaciones.cargado_en)}`
-                      : 'Columnas: CLIENTE, TIPO DE SERVICIO, ORIGEN, DEPARTAMENTO ORIGEN, DESTINO, DEPARTAMENTO DESTINO, TIPO DE TARIFA, TARIFA. Cargar un archivo reemplaza el anterior.'}
+                      ? `Hoy rigen ${num(e.negociaciones.total)} tarifas de ${num(e.negociaciones.clientes)} clientes; ${num(e.negociaciones.comparables)} son por tipo de vehículo y se comparan con SICETAC.`
+                      : 'Todavía no hay tarifas negociadas cargadas.'}
+                  </Typography>
+                  <Typography fontWeight={700} fontSize={14} mt={1.5}>Consolidado general</Typography>
+                  <Typography fontSize={12.5} color="text.secondary">
+                    {e?.consolidado?.tarifas
+                      ? `${num(e.consolidado.tarifas)} tarifas de ${num(e.consolidado.clientes)} clientes · ${e.negociaciones.archivo ?? ''} · rige para todos los meses donde el cliente no tiene una carga por periodo.`
+                      : 'Un archivo con todas las tarifas (las mismas columnas de la plantilla). Rige para todos los meses donde el cliente no tiene una carga por periodo.'}
                   </Typography>
                 </Box>
-                <Button variant="contained" startIcon={<CloudUpload />} disabled={!!cargando} onClick={() => archivoNeg.current?.click()} sx={{ bgcolor: COLOR }}>
-                  {e?.negociaciones.total ? 'Reemplazar negociaciones' : 'Cargar negociaciones'}
+                <Button variant="outlined" startIcon={<CloudUpload />} disabled={!!cargando} onClick={() => archivoNeg.current?.click()}>
+                  {e?.consolidado?.tarifas ? 'Reemplazar consolidado' : 'Cargar consolidado'}
                 </Button>
               </Stack>
               {cargando === 'neg' && <LinearProgress sx={{ mt: 1.5 }} />}
+              <NegociacionesPeriodo cargas={e?.cargas ?? []} onCambio={refrescar} color={COLOR} deshabilitado={!!cargando} />
             </Paper>
             <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
               <Stack direction={{ xs: 'column', md: 'row' }} gap={2} alignItems={{ md: 'center' }} mb={1.25}>

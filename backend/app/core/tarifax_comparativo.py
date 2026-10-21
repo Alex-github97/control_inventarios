@@ -138,7 +138,40 @@ def leer_negociaciones(contenido: bytes, nombre: str) -> pd.DataFrame:
     if out.empty:
         raise ArchivoInvalido("El archivo de negociaciones no trae ninguna fila con cliente, origen y destino.")
     out["categoria_vehiculo"] = out["tipo_tarifa"].map(categoria_de)
+    # AÑO y MES (opcionales, de la plantilla por periodo): desde cuándo rige cada fila.
+    col_anio = next((encabezados[c] for c in ("ANO", "AÑO", "ANIO") if c in encabezados), None)
+    col_mes = encabezados.get("MES")
+    if col_anio is not None and col_mes is not None:
+        anio = pd.to_numeric(df.loc[out.index, col_anio], errors="coerce")
+        mes = pd.to_numeric(df.loc[out.index, col_mes], errors="coerce")
+        hay = anio.notna() | mes.notna()
+        malas = hay & ~(anio.between(2000, 2100) & mes.between(1, 12))
+        if malas.any():
+            filas = ", ".join(str(int(i) + 2) for i in out.index[malas][:10])
+            raise ArchivoInvalido(f"AÑO o MES inválido en las filas {filas} del archivo (MES de 1 a 12).")
+        out["periodo"] = [f"{int(a)}-{int(m):02d}" if h else None for a, m, h in zip(anio, mes, hay)]
     return out.reset_index(drop=True)
+
+
+SIN_PERIODO = "0000-00"
+
+
+def vigentes(negociaciones: List[dict], periodo: str) -> List[dict]:
+    """Las tarifas que rigen en un mes: de cada cliente, su carga más reciente
+    de ese mes o antes (el consolidado general, sin periodo, cuenta como la
+    más antigua). «VIGENTE» = las de hoy, la última carga de cada cliente."""
+    tope = "9999-99" if periodo == "VIGENTE" else periodo
+    elegido: Dict[str, str] = {}
+    for n in negociaciones:
+        p = n.get("periodo") or SIN_PERIODO
+        if p <= tope and p > elegido.get(n["cliente"], ""):
+            elegido[n["cliente"]] = p
+    return [n for n in negociaciones if (n.get("periodo") or SIN_PERIODO) == elegido.get(n["cliente"])]
+
+
+def llave_tarifa(cliente, servicio, origen, destino, tipo_tarifa) -> str:
+    """La misma tarifa en distintos periodos (aunque cambie su valor)."""
+    return "|".join(str(x or "") for x in (cliente, servicio, origen, destino, tipo_tarifa))
 
 
 def _columnas_sicetac(encabezados) -> Dict[str, int]:
@@ -412,6 +445,13 @@ def cruzar(negociaciones: List[dict], sicetac: pd.DataFrame, alias: Dict[str, st
     # La equivalencia de ciudades se aplica a los dos lados: un formato de
     # SICETAC dice «BOGOTA, D.C.» y otro «BOGOTA», igual que las negociaciones.
     ciudad = lambda c: alias_n.get(c, c)  # noqa: E731
+    # Solo las filas de SICETAC con un origen y un destino que alguna tarifa usa:
+    # un mes trae más de un millón de filas y las negociaciones, pocas rutas.
+    usadas_o = {alias_n.get(normalizar(n["origen"]), normalizar(n["origen"])) for n in negociaciones}
+    usadas_d = {alias_n.get(normalizar(n["destino"]), normalizar(n["destino"])) for n in negociaciones}
+    canon_o = {c: ciudad(c) for c in pd.unique(sicetac["o"])}
+    canon_d = {c: ciudad(c) for c in pd.unique(sicetac["d"])}
+    sicetac = sicetac[sicetac["o"].map(canon_o).isin(usadas_o) & sicetac["d"].map(canon_d).isin(usadas_d)]
     codigos = {t: codigo_vehiculo(t) for t in pd.unique(sicetac["tv"])}
     columnas = ["o", "d", "tv", "carroceria", "tipo_carga", "costo", "distancia", "valor_hora", "costo_mov",
                 "horas_sicetac", "fecha"]

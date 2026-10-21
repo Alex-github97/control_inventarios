@@ -168,3 +168,29 @@ def test_formato_con_departamento_pegado_y_otros_nombres_de_columna():
     filas = tc.cruzar([neg(1, "Bogota", "Cali", "POR TIPO DE VEHICULO TURBO", 2000)], sic,
                       {"BOGOTA": "BOGOTA, D.C."}, MAPEO, "2026-03")
     assert filas[0]["estado"] == "OK" and filas[0]["tipo_vehiculo"] == "2L3"
+
+
+def test_rige_la_carga_mas_reciente_del_cliente_en_ese_mes():
+    negs = [{"cliente": "A", "periodo": None, "tarifa": 1}, {"cliente": "A", "periodo": "2026-03", "tarifa": 2},
+            {"cliente": "A", "periodo": "2026-07", "tarifa": 3}, {"cliente": "B", "periodo": None, "tarifa": 9}]
+    rige = lambda p: sorted((n["cliente"], n["tarifa"]) for n in tc.vigentes(negs, p))  # noqa: E731
+    assert rige("2026-01") == [("A", 1), ("B", 9)]      # antes de su primera carga: el consolidado
+    assert rige("2026-05") == [("A", 2), ("B", 9)]
+    assert rige("2026-07") == [("A", 3), ("B", 9)]
+    assert rige("VIGENTE") == [("A", 3), ("B", 9)]
+
+
+def test_plantilla_con_anio_y_mes(tmp_path):
+    import io
+    df = pd.DataFrame([("C1", "MASIVO", "YUMBO", "CALI", "POR TIPO DE VEHICULO TURBO", 100, 2026, 3),
+                       ("C1", "MASIVO", "YUMBO", "BUGA", "POR TIPO DE VEHICULO TURBO", 200, None, None)],
+                      columns=["CLIENTE", "TIPO DE SERVICIO", "ORIGEN", "DESTINO", "TIPO DE TARIFA", "TARIFA", "AÑO", "MES"])
+    b = io.BytesIO(); df.to_excel(b, index=False)
+    out = tc.leer_negociaciones(b.getvalue(), "n.xlsx")
+    assert out["periodo"].tolist()[0] == "2026-03" and pd.isna(out["periodo"].tolist()[1])
+    df.loc[0, "MES"] = 13
+    b = io.BytesIO(); df.to_excel(b, index=False)
+    try:
+        tc.leer_negociaciones(b.getvalue(), "n.xlsx"); assert False
+    except tc.ArchivoInvalido as e:
+        assert "fila" in str(e)

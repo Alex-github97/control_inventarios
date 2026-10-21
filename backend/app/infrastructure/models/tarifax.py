@@ -31,6 +31,10 @@ class TarifaxNegociacion(Base, TimestampMixin):
     # por viaje): para las demás queda vacío.
     categoria_vehiculo = Column(String(60), nullable=True)
     archivo            = Column(String(255), nullable=True)
+    # Desde qué mes (AAAA-MM) rige: una carga por cliente y periodo reemplaza
+    # las tarifas de ese cliente desde ese mes. Vacío = consolidado general,
+    # que rige para todos los meses donde el cliente no tiene una carga propia.
+    periodo            = Column(String(7), nullable=True, index=True)
 
 
 class TarifaxSicetacPeriodo(Base, TimestampMixin):

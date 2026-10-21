@@ -143,8 +143,10 @@ async def _sincronizar_mapeo(db: AsyncSession) -> None:
         await db.commit()
 
 
-async def _recalcular(db: AsyncSession, periodos: Optional[List[str]] = None) -> Dict[str, int]:
-    """Rehace el cruce de los periodos indicados (todos si no se indica)."""
+async def _recalcular(db: AsyncSession, periodos: Optional[List[str]] = None, desde: Optional[str] = None) -> Dict[str, int]:
+    """Rehace el cruce de los periodos indicados (todos si no se indica).
+    `desde`: solo los meses desde ese periodo (y el tarifario vigente), los
+    únicos que cambian al cargar o quitar tarifas que rigen desde ese mes."""
     negs = []
     for n in (await db.execute(select(TarifaxNegociacion))).scalars():
         # El tipo de vehículo se vuelve a extraer del tipo de tarifa en cada
@@ -154,10 +156,13 @@ async def _recalcular(db: AsyncSession, periodos: Optional[List[str]] = None) ->
             n.categoria_vehiculo = cat
         negs.append(dict(id=n.id, cliente=n.cliente, servicio=n.servicio, origen=n.origen, destino=n.destino,
                          tipo_tarifa=n.tipo_tarifa, dpto_origen=n.dpto_origen, dpto_destino=n.dpto_destino,
-                         categoria_vehiculo=cat, tarifa=n.tarifa))
+                         categoria_vehiculo=cat, tarifa=n.tarifa, periodo=n.periodo))
     alias, mapeo = await _alias(db), _mapeo()
     registrados = {p.periodo: p for p in (await db.execute(select(TarifaxSicetacPeriodo))).scalars()}
-    objetivo = periodos or (["VIGENTE"] + sorted(registrados))
+    mensuales = sorted(p for p in registrados if not desde or p >= desde)
+    # El tarifario vigente solo se muestra mientras no hay meses cargados (y
+    # leerlo cuesta más de un minuto): con meses, no se recalcula.
+    objetivo = periodos or (mensuales if registrados else ["VIGENTE"])
     resumen = {}
     for periodo in objetivo:
         if periodo == "VIGENTE":
@@ -169,7 +174,7 @@ async def _recalcular(db: AsyncSession, periodos: Optional[List[str]] = None) ->
         if sic is None or not negs:
             resumen[periodo] = 0
             continue
-        filas = await asyncio.to_thread(tc.cruzar, negs, sic, alias, mapeo, periodo)
+        filas = await asyncio.to_thread(tc.cruzar, tc.vigentes(negs, periodo), sic, alias, mapeo, periodo)
         for i in range(0, len(filas), 5000):
             await db.execute(insert(TarifaxComparacion), filas[i:i + 5000])
         resumen[periodo] = len(filas)
@@ -188,11 +193,22 @@ async def _recalcular(db: AsyncSession, periodos: Optional[List[str]] = None) ->
 @router.get("/estado")
 async def estado(anio: int = Query(default_factory=lambda: datetime.now().year),
                  db: AsyncSession = Depends(get_db), _: Usuario = Depends(get_current_user)):
-    total = (await db.execute(select(func.count(TarifaxNegociacion.id)))).scalar() or 0
-    comparables = (await db.execute(select(func.count(TarifaxNegociacion.id)).where(
-        TarifaxNegociacion.categoria_vehiculo.isnot(None)))).scalar() or 0
-    clientes = (await db.execute(select(func.count(func.distinct(TarifaxNegociacion.cliente))))).scalar() or 0
+    N = TarifaxNegociacion
+    hoy = tc.vigentes([{"cliente": c, "periodo": p, "cat": k} for c, p, k in
+                       (await db.execute(select(N.cliente, N.periodo, N.categoria_vehiculo))).all()], "VIGENTE")
+    total, comparables = len(hoy), sum(1 for n in hoy if n["cat"])
+    clientes = len({n["cliente"] for n in hoy})
+    cargas = [{"periodo": p, "nombre": tc.nombre_periodo(p) if p else "Consolidado general", "cliente": c,
+               "tarifas": int(k), "archivo": a, "cargado_en": f.isoformat() if f else None}
+              for p, c, k, a, f in (await db.execute(
+                  select(N.periodo, N.cliente, func.count(N.id), func.max(N.archivo), func.max(N.created_at))
+                  .where(N.periodo.isnot(None)).group_by(N.periodo, N.cliente)
+                  .order_by(N.periodo.desc(), N.cliente))).all()]
+    consolidado = (await db.execute(select(func.count(N.id), func.count(func.distinct(N.cliente)))
+                                    .where(N.periodo.is_(None)))).first()
+    # El archivo del consolidado general (las cargas por periodo van en `cargas`).
     ultima = (await db.execute(select(TarifaxNegociacion.archivo, TarifaxNegociacion.created_at)
+                               .where(TarifaxNegociacion.periodo.is_(None))
                                .order_by(TarifaxNegociacion.id.desc()).limit(1))).first()
     regs = {p.periodo: p for p in (await db.execute(select(TarifaxSicetacPeriodo))).scalars()}
     anios = sorted({p.anio for p in regs.values()} | {anio, datetime.now().year})
@@ -229,6 +245,7 @@ async def estado(anio: int = Query(default_factory=lambda: datetime.now().year),
                           "por": "MAPEO" if clave in directas else ("SINONIMO" if clave in mapa else None),
                           "sinonimo_de": sinonimo if clave not in directas and clave in mapa else None})
     return {"vehiculos": vehiculos,
+            "cargas": cargas, "consolidado": {"tarifas": consolidado[0] or 0, "clientes": consolidado[1] or 0},
             "negociaciones": {"total": total, "comparables": comparables, "clientes": clientes,
                               "archivo": ultima[0] if ultima else None,
                               "cargado_en": ultima[1].isoformat() if ultima and ultima[1] else None},
@@ -240,14 +257,16 @@ async def estado(anio: int = Query(default_factory=lambda: datetime.now().year),
 @router.post("/negociaciones")
 async def cargar_negociaciones(archivo: UploadFile = File(...), db: AsyncSession = Depends(get_db),
                                _: Usuario = Depends(get_current_user)):
-    """Reemplaza las tarifas negociadas por las del archivo y recalcula el cruce."""
+    """Reemplaza el consolidado general (las tarifas sin periodo) por las del
+    archivo y recalcula el cruce. Las cargas por cliente y periodo se conservan."""
     contenido = await _leer_archivo(archivo)
     try:
         df = await asyncio.to_thread(tc.leer_negociaciones, contenido, archivo.filename or "")
     except tc.ArchivoInvalido as e:
         raise HTTPException(422, str(e))
+    df = df.drop(columns=["periodo"], errors="ignore")
     await db.execute(delete(TarifaxComparacion))
-    await db.execute(delete(TarifaxNegociacion))
+    await db.execute(delete(TarifaxNegociacion).where(TarifaxNegociacion.periodo.is_(None)))
     registros = _registros(df)
     for r in registros:
         r["archivo"] = archivo.filename
@@ -259,6 +278,118 @@ async def cargar_negociaciones(archivo: UploadFile = File(...), db: AsyncSession
     comparables = int(df["categoria_vehiculo"].notna().sum())
     return {"filas": len(df), "comparables": comparables, "clientes": int(df["cliente"].nunique()),
             "no_comparables": len(df) - comparables, "periodos": resumen}
+
+
+COLUMNAS_PLANTILLA = ["CLIENTE", "BP", "TIPO DE SERVICIO", "ORIGEN", "DEPARTAMENTO ORIGEN", "DESTINO",
+                      "DEPARTAMENTO DESTINO", "TIPO DE TARIFA", "TARIFA", "AÑO", "MES"]
+
+
+@router.get("/negociaciones/plantilla")
+async def plantilla_negociaciones(_: Usuario = Depends(get_current_user)):
+    """Excel para cargar las tarifas negociadas por cliente y periodo."""
+    from fastapi.responses import Response
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.utils import get_column_letter
+    libro = Workbook()
+    hoja = libro.active
+    hoja.title = "Negociaciones"
+    hoja.append(COLUMNAS_PLANTILLA)
+    ahora = datetime.now()
+    for fila in (
+        ["CLIENTE EJEMPLO SAS", "1000123", "MASIVO", "YUMBO", "VALLE DEL CAUCA", "BOGOTA", "CUNDINAMARCA",
+         "POR TIPO DE VEHICULO TURBO", 1850000, ahora.year, ahora.month],
+        ["CLIENTE EJEMPLO SAS", "1000123", "MASIVO", "YUMBO", "VALLE DEL CAUCA", "MEDELLIN", "ANTIOQUIA",
+         "POR TIPO DE VEHICULO TRACTOMULA", 4200000, ahora.year, ahora.month],
+        ["CLIENTE EJEMPLO SAS", "1000123", "PAQUETEO", "YUMBO", "VALLE DEL CAUCA", "CALI", "VALLE DEL CAUCA",
+         "TARIFA POR KILO", 180, ahora.year, ahora.month],
+    ):
+        hoja.append(fila)
+    oscuro = PatternFill("solid", fgColor="1F3A5F")
+    opcional = PatternFill("solid", fgColor="5B7083")
+    for i, nombre in enumerate(COLUMNAS_PLANTILLA, start=1):
+        celda = hoja.cell(row=1, column=i)
+        celda.font = Font(bold=True, color="FFFFFF")
+        celda.fill = opcional if nombre in ("BP", "DEPARTAMENTO ORIGEN", "DEPARTAMENTO DESTINO", "AÑO", "MES") else oscuro
+        celda.alignment = Alignment(horizontal="center")
+        hoja.column_dimensions[get_column_letter(i)].width = max(12, len(nombre) + 4)
+    hoja.column_dimensions["A"].width = 30
+    hoja.column_dimensions["H"].width = 34
+    hoja.freeze_panes = "A2"
+    ayuda = libro.create_sheet("Instrucciones")
+    for linea in (
+        ["Cómo llenar la plantilla de negociaciones"],
+        [],
+        ["Una fila por tarifa negociada. Puede traer uno o varios clientes."],
+        ["Columnas obligatorias (encabezado azul oscuro): CLIENTE, TIPO DE SERVICIO, ORIGEN, DESTINO, TIPO DE TARIFA, TARIFA."],
+        ["Columnas opcionales (encabezado gris): BP, DEPARTAMENTO ORIGEN, DEPARTAMENTO DESTINO, AÑO, MES."],
+        [],
+        ["TIPO DE TARIFA: para comparar con SICETAC debe ser por viaje y nombrar el vehículo, por ejemplo"],
+        ["   POR TIPO DE VEHICULO TURBO · POR TIPO DE VEHICULO SENCILLO · POR TIPO DE VEHICULO TRACTOMULA"],
+        ["   Las tarifas por kilo, caja o volumen (paqueteo) se cargan igual, pero no se comparan con SICETAC."],
+        ["TARIFA: el valor en pesos, sin signos ni puntos de miles (1850000)."],
+        [],
+        ["AÑO y MES: desde qué mes rige la tarifa."],
+        ["   Si se dejan vacíos, se usan el año y el mes elegidos en la pantalla al cargar el archivo."],
+        ["   Cada carga reemplaza TODAS las tarifas de ese cliente desde ese mes; los otros clientes no se tocan."],
+        ["   Cada mes de SICETAC se compara con la carga más reciente del cliente en ese mes o antes."],
+        ["   Ejemplo: tarifas de un cliente cargadas en marzo y en julio → de marzo a junio se comparan las de marzo,"],
+        ["   y de julio en adelante las de julio."],
+    ):
+        ayuda.append(linea)
+    ayuda["A1"].font = Font(bold=True, size=13)
+    ayuda.column_dimensions["A"].width = 120
+    salida = io.BytesIO()
+    libro.save(salida)
+    return Response(salida.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": 'attachment; filename="plantilla_negociaciones_tarifax.xlsx"'})
+
+
+@router.post("/negociaciones/periodo/{anio}/{mes}")
+async def cargar_negociaciones_periodo(anio: int, mes: int, archivo: UploadFile = File(...),
+                                       db: AsyncSession = Depends(get_db), _: Usuario = Depends(get_current_user)):
+    """Tarifas de uno o varios clientes desde un mes. Las filas sin AÑO/MES
+    toman el año y el mes elegidos. Por cada cliente y periodo del archivo se
+    reemplazan sus tarifas anteriores de ese mismo periodo."""
+    if not 1 <= mes <= 12 or not 2000 <= anio <= 2100:
+        raise HTTPException(422, "Mes o año fuera de rango.")
+    contenido = await _leer_archivo(archivo)
+    try:
+        df = await asyncio.to_thread(tc.leer_negociaciones, contenido, archivo.filename or "")
+    except tc.ArchivoInvalido as e:
+        raise HTTPException(422, str(e))
+    elegido = f"{anio}-{mes:02d}"
+    df["periodo"] = df["periodo"].fillna(elegido) if "periodo" in df else elegido
+    pares = df[["periodo", "cliente"]].drop_duplicates()
+    for per, cli in pares.itertuples(index=False):
+        await db.execute(delete(TarifaxNegociacion).where(TarifaxNegociacion.periodo == per,
+                                                          TarifaxNegociacion.cliente == cli))
+    registros = _registros(df)
+    for r in registros:
+        r["archivo"] = archivo.filename
+    for i in range(0, len(registros), 5000):
+        await db.execute(insert(TarifaxNegociacion), registros[i:i + 5000])
+    await db.flush()
+    resumen = await _recalcular(db, desde=min(df["periodo"]))
+    await db.commit()
+    comparables = int(df["categoria_vehiculo"].notna().sum())
+    return {"filas": len(df), "comparables": comparables, "clientes": int(df["cliente"].nunique()),
+            "periodos": sorted(tc.nombre_periodo(p) for p in df["periodo"].unique()), "cruces": resumen}
+
+
+@router.delete("/negociaciones/periodo")
+async def quitar_negociaciones_periodo(periodo: str, cliente: str, db: AsyncSession = Depends(get_db),
+                                       _: Usuario = Depends(get_current_user)):
+    """Quita la carga de un cliente en un periodo (vuelven a regir las anteriores)."""
+    r = await db.execute(delete(TarifaxNegociacion).where(TarifaxNegociacion.periodo == periodo,
+                                                          TarifaxNegociacion.cliente == cliente))
+    if not r.rowcount:
+        raise HTTPException(404, "No hay tarifas de ese cliente en ese periodo.")
+    await db.flush()
+    await _recalcular(db, desde=periodo)
+    await db.commit()
+    return {"quitadas": r.rowcount}
 
 
 @router.post("/sicetac/{anio}/{mes}", status_code=202)
@@ -404,6 +535,10 @@ async def borrar_sicetac(anio: int, mes: int, db: AsyncSession = Depends(get_db)
     for f in _fuentes(_carpeta(), periodo):
         f.unlink(missing_ok=True)
     await db.delete(reg)
+    await db.flush()
+    # Sin meses vuelve a regir el tarifario vigente: su cruce se rehace.
+    if not (await db.execute(select(TarifaxSicetacPeriodo.id).limit(1))).first():
+        await _recalcular(db, ["VIGENTE"])
     await db.commit()
     return {"ok": True}
 
@@ -765,15 +900,25 @@ async def tablero(periodos: Optional[str] = None, clientes: Optional[str] = None
     # mezcla con ellos ni en los indicadores ni en las gráficas.
     if (df["periodo"] != "VIGENTE").any():
         df = df[df["periodo"] != "VIGENTE"]
+    # La misma tarifa puede venir de cargas de distintos periodos (otra fila,
+    # otro id): se identifica por su ruta para seguirla mes a mes.
+    df["negociacion_id"] = [tc.llave_tarifa(*x) for x in
+                            df[["cliente", "servicio", "origen", "destino", "tipo_tarifa"]].itertuples(index=False)]
     # Las negociaciones que no entran al cruce (paqueteo: por kilo, caja o
     # volumen; o tarifa en cero) igual cuentan: dan las opciones de los filtros
     # tal como vienen en el archivo y se listan como no comparables.
     N = TarifaxNegociacion
     negs = pd.DataFrame((await db.execute(select(
         N.id, N.cliente, N.servicio, N.origen, N.destino, N.dpto_origen, N.dpto_destino, N.tipo_tarifa,
-        N.categoria_vehiculo, N.tarifa))).all(),
-        columns=["id", "cliente", "servicio", "origen", "destino", "dpto_origen", "dpto_destino", "tipo_tarifa", "categoria", "tarifa"])
+        N.categoria_vehiculo, N.tarifa, N.periodo))).all(),
+        columns=["id", "cliente", "servicio", "origen", "destino", "dpto_origen", "dpto_destino", "tipo_tarifa", "categoria",
+                 "tarifa", "periodo"])
     if not negs.empty:
+        # Las tarifas de hoy: la última carga de cada cliente.
+        p = negs["periodo"].fillna(tc.SIN_PERIODO)
+        negs = negs[p == p.groupby(negs["cliente"]).transform("max")].copy()
+        negs["id"] = [tc.llave_tarifa(*x) for x in
+                      negs[["cliente", "servicio", "origen", "destino", "tipo_tarifa"]].itertuples(index=False)]
         negs["tarifa"] = pd.to_numeric(negs["tarifa"], errors="coerce")
         nc = negs[negs["categoria"].isna() | negs["tarifa"].isna() | (negs["tarifa"] <= 0)].copy()
         nc["motivo"] = nc.apply(lambda r: "Tarifa en cero o vacía" if pd.isna(r["tarifa"]) or r["tarifa"] <= 0
