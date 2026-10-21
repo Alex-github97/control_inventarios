@@ -494,6 +494,48 @@ export default function TarifaxComparativo() {
         )}
 
         {k && <>
+          {/* ── Total cliente frente a total SICETAC (con los filtros aplicados) ── */}
+          {(() => {
+            const q = cociente(k.tarifa_total, k.sicetac_total)
+            const mayor = Math.max(k.tarifa_total, k.sicetac_total) || 1
+            const colorCliente = q != null && q < 1 ? DEBAJO : ENCIMA
+            const barras: [string, number, string][] = [['Total SICETAC', k.sicetac_total, '#8a8984'], ['Total tarifa cliente', k.tarifa_total, colorCliente]]
+            return (
+              <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.5 }, borderRadius: 2, mb: 2, borderLeft: `4px solid ${colorCliente}` }}>
+                <Grid container spacing={3} alignItems="center">
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <Typography fontSize={12} color="text.secondary" fontWeight={600} sx={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      Total cliente / Total SICETAC
+                    </Typography>
+                    <Typography fontSize={46} fontWeight={800} lineHeight={1.1} my={0.5}>{pctCociente(q)}</Typography>
+                    <Typography fontSize={13} color="text.secondary">
+                      {q == null ? 'Sin SICETAC para comparar' : `Se cobra ${pct(Math.abs(q * 100 - 100), false)} ${q >= 1 ? 'por encima' : 'por debajo'} de SICETAC`}
+                      {` · ${num(k.tarifas)} tarifas de ${num(k.clientes)} cliente${k.clientes === 1 ? '' : 's'}`}
+                    </Typography>
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 8 }}>
+                    <Stack gap={1.5}>
+                      {barras.map(([etq, v, c]) => (
+                        <Box key={etq}>
+                          <Stack direction="row" justifyContent="space-between" mb={0.5}>
+                            <Typography fontSize={12.5} color="text.secondary">{etq}</Typography>
+                            <Typography fontSize={13} fontWeight={700}>{pesos(v)}</Typography>
+                          </Stack>
+                          <Box sx={{ height: 14, borderRadius: 1, bgcolor: GRILLA, position: 'relative', overflow: 'hidden' }}>
+                            <Box sx={{ position: 'absolute', inset: 0, width: `${(v / mayor) * 100}%`, bgcolor: c, borderRadius: 1, transition: 'width .4s ease' }} />
+                          </Box>
+                        </Box>
+                      ))}
+                      <Typography fontSize={11.5} color="text.secondary">
+                        Diferencia: {pesos(k.tarifa_total - k.sicetac_total)}{k.horas_prom ? ` · SICETAC con horas logísticas` : ''}. Cambia con los filtros de arriba.
+                      </Typography>
+                    </Stack>
+                  </Grid>
+                </Grid>
+              </Paper>
+            )
+          })()}
+
           {/* ── Indicadores ── */}
           <Grid container spacing={2} mb={2}>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
