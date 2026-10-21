@@ -121,8 +121,133 @@ def _leer_tabla(contenido: bytes, nombre: str) -> pd.DataFrame:
         raise ArchivoInvalido(f"No se pudo leer el archivo «{nombre}»: {e}") from e
 
 
+# ── Consolidado SG (formato de las comunicaciones comerciales) ──
+# Columnas: N° SG, Cliente, CEDI, Servicio Principal, Clasificación (vehículo),
+# Descripción, «Origen – Destino» (un solo texto), Medida, Valor Unitario,
+# Vigencia Inicio, Vigencia Fin…
+_SEP_OD = re.compile(r"\s+[–—-]\s+")
+_FIN_CIUDAD = r"(?=\s+(?:A|TARIFA|EN|CON|HACIA|HASTA|PARA|Y)\b|[:,.;(]|$)"
+_DESDE_EN = re.compile(r"\b(?:DESDE|ORIGEN)\b[^:|]*?\bEN\s+([A-Z][A-Z ]*?)" + _FIN_CIUDAD)   # «DESDE EL COL UNILEVER EN PALMIRA A:»
+_DESDE = re.compile(r"\b(?:DESDE|ORIGEN)\s+([A-Z][A-Z ]*?)" + _FIN_CIUDAD)
+# Lo que sigue a «desde» y no es una ciudad: «las plataformas de Icoltrans», «el CEDI».
+_NO_CIUDAD = re.compile(r"^(?:EL|LA|LOS|LAS|PLATAFORMA|PLATAFORMAS|CEDI|BODEGA|BODEGAS|PLANTA|FABRICA)\b")
+
+
+def _origen_en_descripcion(descripcion) -> Optional[str]:
+    texto = normalizar(descripcion)
+    for patron in (_DESDE_EN, _DESDE):
+        m = patron.search(texto)
+        if m and not _NO_CIUDAD.match(m.group(1).strip()):
+            return m.group(1).strip()
+    return None
+
+
+def _col(df: pd.DataFrame, *opciones: str) -> Optional[str]:
+    """La columna cuyo nombre (sin tildes ni signos) empieza por alguna opción."""
+    for c in df.columns:
+        n = " ".join(re.sub(r"[^A-Z0-9 ]", " ", normalizar(c)).split())
+        if any(n == o or n.startswith(o + " ") for o in opciones):
+            return c
+    return None
+
+
+def es_consolidado_sg(df: pd.DataFrame) -> bool:
+    return all(_col(df, x) for x in ("ORIGEN DESTINO", "VALOR UNITARIO", "MEDIDA", "CLIENTE"))
+
+
+def partir_origen_destino(od, cedi=None, descripcion=None):
+    """«YUMBO – BOGOTÁ (CUNDINAMARCA)» → (YUMBO, BOGOTA, None, CUNDINAMARCA).
+
+    Quita departamentos y zonas («4. Cundi- Boyacence», «ZONA 7»). Si solo
+    queda la ciudad destino («Armenia – Quindío»), el origen sale de la
+    descripción («… DESDE FUNZA A: …», «con origen Yumbo») o del CEDI."""
+    if od is None or (isinstance(od, float) and pd.isna(od)) or not str(od).strip():
+        return None, None, None, None
+    deps = set(DEPARTAMENTOS) | {"VALLE", "NORTE DE S", "D.C.", "BOGOTA D.C"}
+    ciudades, dpto_o, dpto_d, ciudad_dep = [], None, None, None
+    for crudo in _SEP_OD.split(str(od)):
+        entre = re.findall(r"\((.*?)\)", crudo)
+        if entre:
+            dpto_d = normalizar(entre[-1])
+        t = normalizar(re.sub(r"\(.*?\)", "", crudo))
+        if "-" in t:                                   # «BARRANQUILLA-ATLANTICO»
+            a, b = [x.strip() for x in t.split("-", 1)]
+            if not b or b in deps:
+                t = a
+                if b and not ciudades:
+                    dpto_o = b
+        if not t or re.match(r"^(\d|ZONA\b)", t):
+            continue
+        if t in deps:
+            dpto_d = t
+            ciudad_dep = ciudad_dep or t                # «CALDAS – ANTIOQUIA»: Caldas es municipio
+            continue
+        ciudades.append(t)
+    if not ciudades and ciudad_dep:
+        ciudades = [ciudad_dep]
+    if len(ciudades) >= 2:
+        return ciudades[0], ciudades[-1], dpto_o, dpto_d
+    if len(ciudades) == 1:
+        origen = (_origen_en_descripcion(descripcion) if descripcion is not None else None) or normalizar(cedi) or None
+        return origen, ciudades[0], None, dpto_d
+    return None, None, None, None
+
+
+def _mes(v) -> Optional[str]:
+    f = pd.to_datetime(v, errors="coerce", dayfirst=True)
+    return None if pd.isna(f) else f.strftime("%Y-%m")
+
+
+def leer_consolidado_sg(df: pd.DataFrame) -> pd.DataFrame:
+    col = {k: _col(df, *o) for k, o in {
+        "sg": ("N SG", "NO SG", "SG"), "cliente": ("CLIENTE",), "cedi": ("CEDI",), "servicio": ("SERVICIO PRINCIPAL", "SERVICIO"),
+        "clasificacion": ("CLASIFICACION",), "descripcion": ("DESCRIPCION",), "od": ("ORIGEN DESTINO",),
+        "medida": ("MEDIDA",), "valor": ("VALOR UNITARIO",), "desde": ("VIGENCIA INICIO",), "hasta": ("VIGENCIA FIN",),
+    }.items()}
+    get = lambda k: df[col[k]] if col[k] else pd.Series([None] * len(df), index=df.index)  # noqa: E731
+    partes = [partir_origen_destino(od, cedi, desc) for od, cedi, desc in zip(get("od"), get("cedi"), get("descripcion"))]
+    medida, clase = get("medida").map(normalizar), get("clasificacion").map(normalizar)
+    # Tipo de tarifa tal como viene: la medida, y el vehículo si es por viaje
+    # («VIAJE TURBO», «KILO», «CAJA»). Así el filtro separa paqueteo de masivo
+    # y la categoría se extrae igual que en el formato anterior.
+    tipo = [f"{m} {c}".strip() if m == "VIAJE" else m for m, c in zip(medida, clase)]
+    out = pd.DataFrame({
+        "bp": get("sg").map(lambda v: normalizar(v)[:40] or None), "cliente": get("cliente").map(lambda v: normalizar(v) or None),
+        "servicio": get("servicio").map(lambda v: normalizar(v) or None),
+        "origen": [p[0] for p in partes], "destino": [p[1] for p in partes],
+        "dpto_origen": [p[2] for p in partes], "dpto_destino": [p[3] for p in partes],
+        "tipo_tarifa": [t or None for t in tipo], "tarifa": pd.to_numeric(get("valor"), errors="coerce"),
+        "vigencia_desde": get("desde").map(_mes), "vigencia_hasta": get("hasta").map(_mes),
+    }, index=df.index)
+    out = out[out["cliente"].notna() & out["origen"].notna() & out["destino"].notna()]
+    # Una «ruta» de más de 60 letras es una nota escrita en esa columna, no una ciudad.
+    out = out[(out["origen"].str.len() <= 60) & (out["destino"].str.len() <= 60)]
+    if out.empty:
+        raise ArchivoInvalido("El consolidado no trae ninguna fila con cliente, origen y destino.")
+    out["categoria_vehiculo"] = out["tipo_tarifa"].map(categoria_de)
+    return out.reset_index(drop=True)
+
+
+# Largo máximo de cada texto en la base (tarifax_negociaciones).
+LARGOS = {"cliente": 200, "servicio": 120, "origen": 120, "destino": 120, "dpto_origen": 120, "dpto_destino": 120,
+          "tipo_tarifa": 120, "bp": 40}
+
+
+def _recortar(df: pd.DataFrame) -> pd.DataFrame:
+    for c, n in LARGOS.items():
+        if c in df:
+            df[c] = df[c].map(lambda v: v[:n] if isinstance(v, str) else v)
+    return df
+
+
 def leer_negociaciones(contenido: bytes, nombre: str) -> pd.DataFrame:
+    return _recortar(_leer_negociaciones(contenido, nombre))
+
+
+def _leer_negociaciones(contenido: bytes, nombre: str) -> pd.DataFrame:
     df = _leer_tabla(contenido, nombre)
+    if es_consolidado_sg(df):
+        return leer_consolidado_sg(df)
     encabezados = {normalizar(c): c for c in df.columns}
     faltan = [c for c in OBLIGATORIAS_NEGOCIACION if c not in encabezados]
     if faltan:
@@ -156,17 +281,35 @@ def leer_negociaciones(contenido: bytes, nombre: str) -> pd.DataFrame:
 SIN_PERIODO = "0000-00"
 
 
-def vigentes(negociaciones: List[dict], periodo: str) -> List[dict]:
-    """Las tarifas que rigen en un mes: de cada cliente, su carga más reciente
-    de ese mes o antes (el consolidado general, sin periodo, cuenta como la
-    más antigua). «VIGENTE» = las de hoy, la última carga de cada cliente."""
-    tope = "9999-99" if periodo == "VIGENTE" else periodo
+def vigentes(negociaciones: List[dict], periodo: str, hoy: Optional[str] = None) -> List[dict]:
+    """Las tarifas que rigen en un mes.
+
+    - Un cliente con cargas por periodo usa su carga más reciente de ese mes o
+      antes (reemplaza todas sus tarifas).
+    - Si no tiene, rige el consolidado general: las filas cuya vigencia
+      (desde/hasta, vacías = sin límite) incluye el mes; si una misma tarifa
+      tiene dos vigencias que se cruzan, la que empezó después.
+    «VIGENTE» = el mes en curso."""
+    if periodo == "VIGENTE":
+        from datetime import date
+        periodo = hoy or date.today().strftime("%Y-%m")
     elegido: Dict[str, str] = {}
     for n in negociaciones:
-        p = n.get("periodo") or SIN_PERIODO
-        if p <= tope and p > elegido.get(n["cliente"], ""):
+        p = n.get("periodo")
+        if p and p <= periodo and p > elegido.get(n["cliente"], ""):
             elegido[n["cliente"]] = p
-    return [n for n in negociaciones if (n.get("periodo") or SIN_PERIODO) == elegido.get(n["cliente"])]
+    out = [n for n in negociaciones if n.get("periodo") and elegido.get(n["cliente"]) == n["periodo"]]
+    mejores: Dict[str, dict] = {}
+    for n in negociaciones:
+        if n.get("periodo") or n["cliente"] in elegido:
+            continue
+        d, h = n.get("vigencia_desde"), n.get("vigencia_hasta")
+        if (d and d > periodo) or (h and h < periodo):
+            continue
+        k = llave_tarifa(n["cliente"], n.get("servicio"), n.get("origen"), n.get("destino"), n.get("tipo_tarifa"))
+        if k not in mejores or (d or "") >= (mejores[k].get("vigencia_desde") or ""):
+            mejores[k] = n
+    return out + list(mejores.values())
 
 
 def llave_tarifa(cliente, servicio, origen, destino, tipo_tarifa) -> str:

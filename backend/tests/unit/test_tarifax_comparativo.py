@@ -194,3 +194,29 @@ def test_plantilla_con_anio_y_mes(tmp_path):
         tc.leer_negociaciones(b.getvalue(), "n.xlsx"); assert False
     except tc.ArchivoInvalido as e:
         assert "fila" in str(e)
+
+
+def test_origen_destino_del_consolidado_sg():
+    p = tc.partir_origen_destino
+    assert p("YUMBO – BOGOTÁ (CUNDINAMARCA)")[:2] == ("YUMBO", "BOGOTA")
+    assert p("BARRANQUILLA-ATLANTICO – PAMPLONA – NORTE DE SANTANDER")[:2] == ("BARRANQUILLA", "PAMPLONA")
+    assert p("PALMIRA – 4. Cundi- Boyacence – TUNJA")[:2] == ("PALMIRA", "TUNJA")
+    assert p("Armenia – Quindío", None, "1. | TRANSPORTE MASIVO DESDE FUNZA A:  (Servicio Principal)")[:2] == ("FUNZA", "ARMENIA")
+    assert p("Barranquilla – Atlántico", "BARRANQUILLA", "Distribución urbana")[:2] == ("BARRANQUILLA", "BARRANQUILLA")
+    assert p("Caldas – Antioquia", "YUMBO")[:2] == ("YUMBO", "CALDAS")
+    assert p(None) == (None, None, None, None)
+
+
+def test_consolidado_sg_rige_segun_vigencia():
+    negs = [dict(cliente="A", servicio="M", origen="YUMBO", destino="CALI", tipo_tarifa="VIAJE TURBO", tarifa=1,
+                 vigencia_desde="2026-01", vigencia_hasta="2026-09"),
+            dict(cliente="A", servicio="M", origen="YUMBO", destino="CALI", tipo_tarifa="VIAJE TURBO", tarifa=2,
+                 vigencia_desde="2026-05", vigencia_hasta="2026-12")]
+    rige = lambda per: [n["tarifa"] for n in tc.vigentes(negs, per)]  # noqa: E731
+    assert rige("2026-03") == [1] and rige("2026-06") == [2] and rige("2026-10") == [2] and rige("2027-02") == []
+
+
+def test_origen_de_la_descripcion_con_lugar_y_ciudad():
+    p = tc.partir_origen_destino
+    assert p("Apartado – Antioquia", None, "1. | TRANSPORTE MASIVO SECUNDARIO DESDE EL COL UNILEVER EN PALMIRA A: - x")[:2] == ("PALMIRA", "APARTADO")
+    assert p("BARRANQUILLA – ATLANTICO", "BARRANQUILLA", "TRANSPORTE MASIVO DESDE LAS PLATAFORMAS DE ICOLTRANS: x")[:2] == ("BARRANQUILLA", "BARRANQUILLA")

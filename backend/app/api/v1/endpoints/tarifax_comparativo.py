@@ -148,7 +148,7 @@ async def _recalcular(db: AsyncSession, periodos: Optional[List[str]] = None, de
     `desde`: solo los meses desde ese periodo (y el tarifario vigente), los
     únicos que cambian al cargar o quitar tarifas que rigen desde ese mes."""
     negs = []
-    for n in (await db.execute(select(TarifaxNegociacion))).scalars():
+    for n in (await db.execute(select(TarifaxNegociacion).order_by(TarifaxNegociacion.id))).scalars():
         # El tipo de vehículo se vuelve a extraer del tipo de tarifa en cada
         # recálculo: así una mejora de la extracción alcanza lo ya cargado.
         cat = tc.categoria_de(n.tipo_tarifa)
@@ -156,7 +156,8 @@ async def _recalcular(db: AsyncSession, periodos: Optional[List[str]] = None, de
             n.categoria_vehiculo = cat
         negs.append(dict(id=n.id, cliente=n.cliente, servicio=n.servicio, origen=n.origen, destino=n.destino,
                          tipo_tarifa=n.tipo_tarifa, dpto_origen=n.dpto_origen, dpto_destino=n.dpto_destino,
-                         categoria_vehiculo=cat, tarifa=n.tarifa, periodo=n.periodo))
+                         categoria_vehiculo=cat, tarifa=n.tarifa, periodo=n.periodo,
+                         vigencia_desde=n.vigencia_desde, vigencia_hasta=n.vigencia_hasta))
     alias, mapeo = await _alias(db), _mapeo()
     registrados = {p.periodo: p for p in (await db.execute(select(TarifaxSicetacPeriodo))).scalars()}
     mensuales = sorted(p for p in registrados if not desde or p >= desde)
@@ -194,8 +195,10 @@ async def _recalcular(db: AsyncSession, periodos: Optional[List[str]] = None, de
 async def estado(anio: int = Query(default_factory=lambda: datetime.now().year),
                  db: AsyncSession = Depends(get_db), _: Usuario = Depends(get_current_user)):
     N = TarifaxNegociacion
-    hoy = tc.vigentes([{"cliente": c, "periodo": p, "cat": k} for c, p, k in
-                       (await db.execute(select(N.cliente, N.periodo, N.categoria_vehiculo))).all()], "VIGENTE")
+    hoy = tc.vigentes([{"cliente": c, "periodo": p, "cat": k, "servicio": s, "origen": o, "destino": d, "tipo_tarifa": t,
+                        "vigencia_desde": vd, "vigencia_hasta": vh} for c, p, k, s, o, d, t, vd, vh in
+                       (await db.execute(select(N.cliente, N.periodo, N.categoria_vehiculo, N.servicio, N.origen, N.destino,
+                                                N.tipo_tarifa, N.vigencia_desde, N.vigencia_hasta).order_by(N.id))).all()], "VIGENTE")
     total, comparables = len(hoy), sum(1 for n in hoy if n["cat"])
     clientes = len({n["cliente"] for n in hoy})
     cargas = [{"periodo": p, "nombre": tc.nombre_periodo(p) if p else "Consolidado general", "cliente": c,
@@ -910,13 +913,13 @@ async def tablero(periodos: Optional[str] = None, clientes: Optional[str] = None
     N = TarifaxNegociacion
     negs = pd.DataFrame((await db.execute(select(
         N.id, N.cliente, N.servicio, N.origen, N.destino, N.dpto_origen, N.dpto_destino, N.tipo_tarifa,
-        N.categoria_vehiculo, N.tarifa, N.periodo))).all(),
+        N.categoria_vehiculo, N.tarifa, N.periodo, N.vigencia_desde, N.vigencia_hasta).order_by(N.id))).all(),
         columns=["id", "cliente", "servicio", "origen", "destino", "dpto_origen", "dpto_destino", "tipo_tarifa", "categoria",
-                 "tarifa", "periodo"])
+                 "tarifa", "periodo", "vigencia_desde", "vigencia_hasta"])
     if not negs.empty:
-        # Las tarifas de hoy: la última carga de cada cliente.
-        p = negs["periodo"].fillna(tc.SIN_PERIODO)
-        negs = negs[p == p.groupby(negs["cliente"]).transform("max")].copy()
+        # Las tarifas de hoy (las que rigen en el mes en curso).
+        rigen = {n["id"] for n in tc.vigentes(negs.astype(object).where(negs.notna(), None).to_dict("records"), "VIGENTE")}
+        negs = negs[negs["id"].isin(rigen)].copy()
         negs["id"] = [tc.llave_tarifa(*x) for x in
                       negs[["cliente", "servicio", "origen", "destino", "tipo_tarifa"]].itertuples(index=False)]
         negs["tarifa"] = pd.to_numeric(negs["tarifa"], errors="coerce")

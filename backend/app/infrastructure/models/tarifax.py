@@ -35,6 +35,9 @@ class TarifaxNegociacion(Base, TimestampMixin):
     # las tarifas de ese cliente desde ese mes. Vacío = consolidado general,
     # que rige para todos los meses donde el cliente no tiene una carga propia.
     periodo            = Column(String(7), nullable=True, index=True)
+    # Vigencia propia de cada fila del consolidado (AAAA-MM; vacío = sin límite).
+    vigencia_desde     = Column(String(7), nullable=True)
+    vigencia_hasta     = Column(String(7), nullable=True)
 
 
 class TarifaxSicetacPeriodo(Base, TimestampMixin):

@@ -72,7 +72,9 @@ COLUMNAS = [
     ("tarifax_comparaciones", "horas_sicetac", "DOUBLE PRECISION"),
     ("tarifax_comparaciones", "tipo_carga", "VARCHAR(60)"),
     ("tarifax_comparaciones", "fecha_sicetac", "VARCHAR(10)"),
-    ("tarifax_negociaciones", "periodo", "VARCHAR(7)"),
+    ("tarifax_negociaciones", "periodo", "VARCHAR(7)"),
+    ("tarifax_negociaciones", "vigencia_desde", "VARCHAR(7)"),
+    ("tarifax_negociaciones", "vigencia_hasta", "VARCHAR(7)"),
 ]
 
 INDICES = [
