@@ -102,6 +102,8 @@ def categoria_de(tipo_tarifa) -> Optional[str]:
     t = normalizar(tipo_tarifa)
     if not t:
         return None
+    if t.startswith("VIAJE "):          # Consolidado SG: «VIAJE TURBO SENCILLO», «VIAJE TURBO <45»
+        return t[6:].strip() or None
     if PREFIJO_VEHICULO.match(t):
         return PREFIJO_VEHICULO.sub("", t).strip() or None
     if NO_POR_VIAJE.search(t):
@@ -130,7 +132,7 @@ _FIN_CIUDAD = r"(?=\s+(?:A|TARIFA|EN|CON|HACIA|HASTA|PARA|Y)\b|[:,.;(]|$)"
 _DESDE_EN = re.compile(r"\b(?:DESDE|ORIGEN)\b[^:|]*?\bEN\s+([A-Z][A-Z ]*?)" + _FIN_CIUDAD)   # «DESDE EL COL UNILEVER EN PALMIRA A:»
 _DESDE = re.compile(r"\b(?:DESDE|ORIGEN)\s+([A-Z][A-Z ]*?)" + _FIN_CIUDAD)
 # Lo que sigue a «desde» y no es una ciudad: «las plataformas de Icoltrans», «el CEDI».
-_NO_CIUDAD = re.compile(r"^(?:EL|LA|LOS|LAS|PLATAFORMA|PLATAFORMAS|CEDI|BODEGA|BODEGAS|PLANTA|FABRICA)\b")
+_NO_CIUDAD = re.compile(r"^(?:(?:EL|LA|LOS|LAS)\s+)?(?:PLATAFORMA|PLATAFORMAS|CEDI|BODEGA|BODEGAS|PLANTA|FABRICA|COL)\b")
 
 
 def _origen_en_descripcion(descripcion) -> Optional[str]:
@@ -152,7 +154,36 @@ def _col(df: pd.DataFrame, *opciones: str) -> Optional[str]:
 
 
 def es_consolidado_sg(df: pd.DataFrame) -> bool:
-    return all(_col(df, x) for x in ("ORIGEN DESTINO", "VALOR UNITARIO", "MEDIDA", "CLIENTE"))
+    """El Consolidado SG trae «Origen – Destino» en una columna; el informe de
+    rutas (mismo formato), Origen y Destino por separado."""
+    ruta = _col(df, "ORIGEN DESTINO") or (_col(df, "ORIGEN") and _col(df, "DESTINO"))
+    return bool(ruta) and all(_col(df, x) for x in ("VALOR UNITARIO", "MEDIDA", "CLIENTE"))
+
+
+def limpiar_ciudad(texto) -> Optional[str]:
+    """Una columna de ciudad del informe de rutas, limpia:
+    «BARRANQUILLA-ATLANTICO» → BARRANQUILLA · «Bogotá (Aviatur)» → BOGOTA ·
+    «EL COL UNILEVER EN PALMIRA» → PALMIRA · «LA PLATAFORMA DE YUMBO» → YUMBO.
+    Lo que no nombra una ciudad («LAS PLATAFORMAS DE ICOLTRANS») → None."""
+    if texto is None or (isinstance(texto, float) and pd.isna(texto)):
+        return None
+    t = normalizar(re.sub(r"\(.*?\)", "", str(texto)))
+    if not t:
+        return None
+    m = re.search(r"\bEN\s+([A-Z][A-Z ]*)$", t)            # «… EN PALMIRA», «… PLANTA DE JGB EN CALI»
+    if m:
+        t = m.group(1).strip()
+    if "-" in t:                                            # «CALI-VALLE DEL CAUCA», «CALI-VALLE»
+        a, b = [x.strip() for x in t.split("-", 1)]
+        # «CALI-VALLE», «RIOHACHA-GUAJIRA»: el departamento, aunque venga abreviado.
+        if not b or b in DEPARTAMENTOS or any(d.startswith(b + " ") or d.endswith(" " + b) for d in DEPARTAMENTOS):
+            t = a
+    if _NO_CIUDAD.match(t):                                 # «LA PLATAFORMA DE YUMBO»
+        m = re.search(r"\bDE\s+([A-Z][A-Z ]*)$", t)
+        t = m.group(1).strip() if m else ""
+        if t in ("ICOLTRANS", ""):
+            return None
+    return t or None
 
 
 def partir_origen_destino(od, cedi=None, descripcion=None):
@@ -201,11 +232,22 @@ def _mes(v) -> Optional[str]:
 def leer_consolidado_sg(df: pd.DataFrame) -> pd.DataFrame:
     col = {k: _col(df, *o) for k, o in {
         "sg": ("N SG", "NO SG", "SG"), "cliente": ("CLIENTE",), "cedi": ("CEDI",), "servicio": ("SERVICIO PRINCIPAL", "SERVICIO"),
-        "clasificacion": ("CLASIFICACION",), "descripcion": ("DESCRIPCION",), "od": ("ORIGEN DESTINO",),
+        "clasificacion": ("CLASIFICACION",), "descripcion": ("DESCRIPCION",), "od": ("ORIGEN DESTINO", "ORIGEN"),
         "medida": ("MEDIDA",), "valor": ("VALOR UNITARIO",), "desde": ("VIGENCIA INICIO",), "hasta": ("VIGENCIA FIN",),
     }.items()}
     get = lambda k: df[col[k]] if col[k] else pd.Series([None] * len(df), index=df.index)  # noqa: E731
-    partes = [partir_origen_destino(od, cedi, desc) for od, cedi, desc in zip(get("od"), get("cedi"), get("descripcion"))]
+    if col["od"] and normalizar(col["od"]).replace(" ", "").startswith("ORIGEN") and "DESTINO" in normalizar(col["od"]):
+        partes = [partir_origen_destino(od, cedi, desc) for od, cedi, desc in zip(get("od"), get("cedi"), get("descripcion"))]
+    else:
+        # Informe de rutas: Origen y Destino por separado. Sin origen escrito,
+        # sale de la descripción («DESDE FUNZA A:») o del CEDI.
+        def dpto(v):
+            n = normalizar(v)
+            return n.split("-", 1)[1].strip() or None if "-" in n else None
+        partes = []
+        for o, d, cedi, desc in zip(df[_col(df, "ORIGEN")], df[_col(df, "DESTINO")], get("cedi"), get("descripcion")):
+            origen = limpiar_ciudad(o) or (_origen_en_descripcion(desc) if desc is not None else None) or normalizar(cedi) or None
+            partes.append((origen, limpiar_ciudad(d), dpto(o), dpto(d)))
     medida, clase = get("medida").map(normalizar), get("clasificacion").map(normalizar)
     # Tipo de tarifa tal como viene: la medida, y el vehículo si es por viaje
     # («VIAJE TURBO», «KILO», «CAJA»). Así el filtro separa paqueteo de masivo

@@ -220,3 +220,12 @@ def test_origen_de_la_descripcion_con_lugar_y_ciudad():
     p = tc.partir_origen_destino
     assert p("Apartado – Antioquia", None, "1. | TRANSPORTE MASIVO SECUNDARIO DESDE EL COL UNILEVER EN PALMIRA A: - x")[:2] == ("PALMIRA", "APARTADO")
     assert p("BARRANQUILLA – ATLANTICO", "BARRANQUILLA", "TRANSPORTE MASIVO DESDE LAS PLATAFORMAS DE ICOLTRANS: x")[:2] == ("BARRANQUILLA", "BARRANQUILLA")
+
+
+def test_ciudades_del_informe_de_rutas():
+    c = tc.limpiar_ciudad
+    assert c("RIOHACHA-GUAJIRA") == "RIOHACHA" and c("BARRANQUILLA-ATLANTICO") == "BARRANQUILLA" and c("CALI-VALLE") == "CALI" and c("Yumbo-Valle del Cauca") == "YUMBO"
+    assert c("EL COL UNILEVER EN PALMIRA") == "PALMIRA" and c("BODEGA YUMBO Y/O LA PLANTA DE JGB EN CALI") == "CALI"
+    assert c("LA PLATAFORMA DE YUMBO") == "YUMBO" and c("LAS PLATAFORMAS DE ICOLTRANS") is None
+    assert c("Bogotá (Aviatur)") == "BOGOTA" and c("LA DORADA") == "LA DORADA" and c("EL CARMEN DE VIBORAL") == "EL CARMEN DE VIBORAL"
+    assert tc.categoria_de("VIAJE TURBO SENCILLO") == "TURBO SENCILLO" and tc.categoria_de("VIAJE TURBO") == "TURBO"
