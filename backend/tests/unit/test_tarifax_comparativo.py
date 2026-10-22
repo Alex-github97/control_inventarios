@@ -229,3 +229,14 @@ def test_ciudades_del_informe_de_rutas():
     assert c("LA PLATAFORMA DE YUMBO") == "YUMBO" and c("LAS PLATAFORMAS DE ICOLTRANS") is None
     assert c("Bogotá (Aviatur)") == "BOGOTA" and c("LA DORADA") == "LA DORADA" and c("EL CARMEN DE VIBORAL") == "EL CARMEN DE VIBORAL"
     assert tc.categoria_de("VIAJE TURBO SENCILLO") == "TURBO SENCILLO" and tc.categoria_de("VIAJE TURBO") == "TURBO"
+
+
+def test_lee_la_hoja_tarifas_cuando_el_libro_tiene_varias():
+    import io
+    b = io.BytesIO()
+    with pd.ExcelWriter(b) as w:
+        pd.DataFrame({"X": [1]}).to_excel(w, sheet_name="Maestro Tarifario", index=False)
+        pd.DataFrame([("C1", "MASIVO", "YUMBO", "CALI", "POR TIPO DE VEHICULO TURBO", 100)],
+                     columns=["CLIENTE", "TIPO DE SERVICIO", "ORIGEN", "DESTINO", "TIPO DE TARIFA", "TARIFA"]).to_excel(w, sheet_name="TARIFAS_FINALES", index=False)
+    out = tc.leer_negociaciones(b.getvalue(), "t.xlsx")
+    assert out["cliente"].tolist() == ["C1"]

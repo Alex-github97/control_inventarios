@@ -118,7 +118,11 @@ def _leer_tabla(contenido: bytes, nombre: str) -> pd.DataFrame:
     try:
         if nombre.lower().endswith(".csv"):
             return pd.read_csv(io.BytesIO(contenido), sep=None, engine="python", encoding_errors="replace")
-        return pd.read_excel(io.BytesIO(contenido))
+        libro = pd.ExcelFile(io.BytesIO(contenido))
+        # Un libro con varias hojas trae las tarifas depuradas en la que empieza
+        # por «TARIFAS_» (p. ej. TARIFAS_FINALES); si no hay, la primera.
+        hoja = next((h for h in libro.sheet_names if normalizar(h).startswith("TARIFAS_")), libro.sheet_names[0])
+        return pd.read_excel(libro, sheet_name=hoja)
     except Exception as e:  # noqa: BLE001
         raise ArchivoInvalido(f"No se pudo leer el archivo «{nombre}»: {e}") from e
 

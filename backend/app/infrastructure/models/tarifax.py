@@ -100,6 +100,9 @@ class TarifaxComparacion(Base):
 
 Index("ix_tarifax_comp_periodo_carroceria", TarifaxComparacion.periodo, TarifaxComparacion.carroceria)
 Index("ix_tarifax_comp_cliente", TarifaxComparacion.cliente)
+# Borrar tarifas negociadas revisa sus comparaciones (llave foránea): sin este
+# índice, reemplazar 20.000 tarifas recorre la tabla entera 20.000 veces.
+Index("ix_tarifax_comp_negociacion", TarifaxComparacion.negociacion_id)
 
 
 class TarifaxAliasCiudad(Base, TimestampMixin):
