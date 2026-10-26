@@ -229,6 +229,8 @@
       "servicio": "Service",
       "marketing": "Marketing",
       "lubricacion": "Lubrication",
+      "neumaticos": "Tires",
+      "combustible": "Fuel",
       "inventario": "Inventory",
       "produccion": "Production",
       "ingenieria": "Engineering",

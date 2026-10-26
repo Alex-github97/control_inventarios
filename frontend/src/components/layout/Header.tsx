@@ -5,16 +5,22 @@ import {
 } from '@mui/material'
 import {
   Notifications, QrCode2, LogoutOutlined, NotificationsNone,
-  SupportAgent,
+  SupportAgent, AppsRounded, KeyboardArrowDownRounded,
 } from '@mui/icons-material'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/store/authStore'
 import { useQuery, useIsFetching, useIsMutating } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { MARCA, ACENTO, PALETA, SUPERFICIE } from '@/config/marca'
+import { Logotipo } from '@/components/Logotipo'
+import { useModuleNav } from './Sidebar'
+import { useVisibleWorkspaces } from './WorkspacePanel'
 
-const PRIMARY = '#1A1A1A'
+// Barra superior: las mismas superficies oscuras que tenían el panel de espacios y la barra lateral
+const BAR_BG = `linear-gradient(90deg, ${PALETA.abismo} 0%, ${SUPERFICIE.barra} 60%, #171717 100%)`
 
 const ROL_LABEL: Record<string, string> = {
   ADMINISTRADOR:        'Admin',
@@ -28,14 +34,22 @@ const NIVEL_STYLE: Record<string, { bg: string; color: string }> = {
   INFO:        { bg: '#EFF6FF', color: '#2563EB' },
 }
 
-interface HeaderProps {
-  title?: string
-}
+// Botones de icono sobre la barra oscura
+const iconoOscuroSx = (hover: string) => ({
+  color: 'rgba(255,255,255,0.55)', width: 36, height: 36, borderRadius: '10px',
+  '&:hover': { bgcolor: alpha(hover, 0.16), color: hover },
+  transition: 'all 0.15s ease',
+})
 
-export function Header({ title }: HeaderProps) {
+export function Header() {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const { t } = useTranslation()
+  const { activeColor, logoShort, logoLine1, logoLine2, logoGradient } = useModuleNav()
+  const espacios = useVisibleWorkspaces()
   const [alertAnchor, setAlertAnchor] = useState<HTMLElement | null>(null)
+  const [wsAnchor, setWsAnchor] = useState<HTMLElement | null>(null)
   const isFetching = useIsFetching()
   const isMutating = useIsMutating()
   const busy = isFetching + isMutating > 0
@@ -57,63 +71,185 @@ export function Header({ title }: HeaderProps) {
 
   return (
     <AppBar
-      position="sticky"
+      position="static"
+      color="transparent"
       elevation={0}
       sx={{
-        bgcolor: '#FFFFFF',
-        borderBottom: '1px solid rgba(0,0,0,0.05)',
-        color: '#1A1A1A',
-        zIndex: 1100,
-        // hairline degradado en el borde inferior
-        '&::after': {
-          content: '""',
-          position: 'absolute',
-          left: 0, right: 0, bottom: 0,
-          height: 1,
-          background: `linear-gradient(90deg, transparent, ${alpha(PRIMARY, 0.35)}, transparent)`,
-          pointerEvents: 'none',
-        },
+        backgroundColor: PALETA.tinta,
+        backgroundImage: BAR_BG,
+        color: '#FFFFFF',
+        borderBottom: `1px solid ${SUPERFICIE.divisorOscuro}`,
       }}
     >
-      <Toolbar sx={{ gap: 1, minHeight: '64px !important' }}>
-        {title ? (
-          <Box sx={{ flex: 1 }}>
-            <Typography
-              variant="h6"
-              sx={{ fontWeight: 700, fontSize: '1.05rem', color: '#0D1117', letterSpacing: '-0.01em' }}
+      <Toolbar sx={{ gap: 1.5, minHeight: '60px !important', px: { xs: 1.5, sm: 2.5 } }}>
+        {/* Marca del producto + módulo activo */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexShrink: 0 }}>
+          {/* El logo lleva al inicio; la ruta "/" decide la página según el usuario */}
+          <Tooltip title="Ir al inicio">
+            <Box
+              component="button"
+              type="button"
+              onClick={() => navigate('/')}
+              aria-label="Ir al inicio"
+              sx={{
+                display: 'flex', alignItems: 'center', gap: 1.25,
+                p: 0.5, m: -0.5, border: 'none', borderRadius: '10px',
+                background: 'transparent', cursor: 'pointer',
+                transition: 'background 0.15s ease',
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.06)' },
+                '&:hover .tw-badge': { boxShadow: `0 4px 14px ${alpha(ACENTO.base, 0.5)}` },
+                '&:focus-visible': { outline: `2px solid ${ACENTO.claro}`, outlineOffset: 2 },
+              }}
             >
-              {title}
+              <Box
+                className="tw-badge"
+                sx={{
+                  width: 30, height: 30, borderRadius: '9px', flexShrink: 0,
+                  background: `linear-gradient(135deg, ${ACENTO.base} 0%, ${ACENTO.profundo} 100%)`,
+                  border: '1px solid rgba(255,255,255,0.16)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'box-shadow 0.15s ease',
+                }}
+              >
+                <Typography sx={{ fontSize: 11, fontWeight: 900, color: '#fff', letterSpacing: '0.02em' }}>
+                  {MARCA.sigla}
+                </Typography>
+              </Box>
+              <Box sx={{ display: { xs: 'none', lg: 'flex' } }}>
+                <Logotipo tamano={12} claro />
+              </Box>
+            </Box>
+          </Tooltip>
+          <Box sx={{ width: '1px', height: 26, bgcolor: 'rgba(255,255,255,0.12)', flexShrink: 0, mx: 0.5 }} />
+          <Box
+            sx={{
+              width: 34, height: 34, borderRadius: '10px', flexShrink: 0,
+              background: logoGradient,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: `0 4px 12px ${alpha(activeColor, 0.35)}`,
+              transition: 'background 0.3s ease, box-shadow 0.3s ease',
+            }}
+          >
+            <Typography sx={{ color: '#FFF', fontWeight: 800, fontSize: 12, letterSpacing: '-0.5px' }}>
+              {logoShort}
             </Typography>
           </Box>
-        ) : (
-          <Box sx={{ flex: 1 }} />
-        )}
+          <Box sx={{ display: { xs: 'none', md: 'block' }, whiteSpace: 'nowrap' }}>
+            <Typography sx={{ color: '#FFFFFF', fontWeight: 700, fontSize: 13, lineHeight: 1.2 }}>
+              {logoLine1}
+            </Typography>
+            <Typography sx={{ color: activeColor, fontWeight: 700, fontSize: 13, lineHeight: 1.2 }}>
+              {logoLine2}
+            </Typography>
+          </Box>
+        </Box>
+
+        {/* Selector de espacios (módulos) */}
+        <Button
+          onClick={e => setWsAnchor(e.currentTarget)}
+          startIcon={<AppsRounded sx={{ fontSize: 18 }} />}
+          endIcon={<KeyboardArrowDownRounded sx={{ fontSize: 18, transition: 'transform 0.2s', transform: wsAnchor ? 'rotate(180deg)' : 'none' }} />}
+          sx={{
+            ml: { xs: 0.5, md: 2 },
+            height: 36, px: { xs: 1, sm: 1.5 }, minWidth: 0, flexShrink: 0, borderRadius: '10px',
+            textTransform: 'none', fontSize: 13, fontWeight: 600,
+            color: 'rgba(255,255,255,0.82)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            bgcolor: wsAnchor ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)',
+            '&:hover': { bgcolor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.2)' },
+            '& .MuiButton-startIcon': { mr: { xs: 0, sm: 1 }, ml: 0 },
+            '& .MuiButton-endIcon': { display: { xs: 'none', sm: 'inherit' } },
+          }}
+        >
+          <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{t('ws.espacios')}</Box>
+        </Button>
+
+        <Popover
+          open={Boolean(wsAnchor)}
+          anchorEl={wsAnchor}
+          onClose={() => setWsAnchor(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+          PaperProps={{
+            elevation: 8,
+            sx: {
+              mt: 1, p: 1.5, borderRadius: '14px', width: { xs: 'calc(100vw - 32px)', sm: 640 },
+              background: `linear-gradient(180deg, ${SUPERFICIE.barra} 0%, ${PALETA.abismo} 100%)`,
+              border: `1px solid ${SUPERFICIE.divisorOscuro}`,
+            },
+          }}
+        >
+          <Typography sx={{
+            fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+            color: 'rgba(255,255,255,0.35)', px: 1, pb: 1,
+          }}>
+            {t('ws.espacios')}
+          </Typography>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)' }, gap: 0.75 }}>
+            {espacios.map(ws => {
+              const active = ws.isActive(pathname)
+              return (
+                <Box
+                  key={ws.id}
+                  onClick={() => { setWsAnchor(null); navigate(ws.path) }}
+                  sx={{
+                    display: 'flex', alignItems: 'center', gap: 1.25, p: '8px 10px',
+                    borderRadius: '11px', cursor: 'pointer',
+                    background: active ? alpha(ws.color, 0.13) : 'transparent',
+                    border: `1px solid ${active ? alpha(ws.color, 0.3) : 'transparent'}`,
+                    '&:hover': {
+                      background: active ? alpha(ws.color, 0.2) : 'rgba(255,255,255,0.05)',
+                      '& .ws-badge': { transform: 'scale(1.08)', boxShadow: `0 6px 16px ${alpha(ws.color, 0.45)}` },
+                    },
+                    transition: 'all 0.18s cubic-bezier(0.22,1,0.36,1)',
+                  }}
+                >
+                  <Box
+                    className="ws-badge"
+                    sx={{
+                      width: 34, height: 34, borderRadius: '10px', flexShrink: 0,
+                      background: active
+                        ? `linear-gradient(135deg, ${ws.color} 0%, ${alpha(ws.color, 0.65)} 100%)`
+                        : 'rgba(255,255,255,0.05)',
+                      border: active ? 'none' : '1px solid rgba(255,255,255,0.08)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      boxShadow: active ? `0 4px 14px ${alpha(ws.color, 0.38)}` : 'none',
+                      transition: 'all 0.2s cubic-bezier(0.22,1,0.36,1)',
+                    }}
+                  >
+                    <Typography sx={{ fontSize: 10.5, fontWeight: 800, color: active ? '#FFF' : 'rgba(255,255,255,0.55)', letterSpacing: '-0.3px' }}>
+                      {ws.short}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{
+                      fontSize: 12.5, fontWeight: active ? 700 : 500, lineHeight: 1.3,
+                      color: active ? '#FFF' : 'rgba(255,255,255,0.72)',
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    }}>
+                      {t(ws.label)}
+                    </Typography>
+                    <Typography sx={{ fontSize: 10, lineHeight: 1.3, color: active ? alpha(ws.color, 0.9) : 'rgba(255,255,255,0.3)' }}>
+                      {active ? 'Activo' : 'Ir al módulo'}
+                    </Typography>
+                  </Box>
+                </Box>
+              )
+            })}
+          </Box>
+        </Popover>
+
+        <Box sx={{ flex: 1 }} />
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <Tooltip title="Soporte técnico">
-            <IconButton
-              size="small"
-              onClick={() => navigate('/soporte')}
-              sx={{
-                color: '#94A3B8', width: 36, height: 36, borderRadius: '10px',
-                '&:hover': { bgcolor: alpha(PRIMARY, 0.08), color: PRIMARY },
-                transition: 'all 0.15s ease',
-              }}
-            >
+            <IconButton size="small" onClick={() => navigate('/soporte')} sx={iconoOscuroSx(ACENTO.claro)}>
               <SupportAgent fontSize="small" />
             </IconButton>
           </Tooltip>
 
           <Tooltip title="Escanear QR">
-            <IconButton
-              size="small"
-              onClick={() => navigate('/estibas/scan')}
-              sx={{
-                color: '#94A3B8', width: 36, height: 36, borderRadius: '10px',
-                '&:hover': { bgcolor: alpha(PRIMARY, 0.08), color: PRIMARY },
-                transition: 'all 0.15s ease',
-              }}
-            >
+            <IconButton size="small" onClick={() => navigate('/estibas/scan')} sx={iconoOscuroSx(ACENTO.claro)}>
               <QrCode2 fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -122,12 +258,7 @@ export function Header({ title }: HeaderProps) {
           <IconButton
             size="small"
             onClick={e => setAlertAnchor(e.currentTarget)}
-            sx={{
-              color: alertCount ? '#EF4444' : '#94A3B8',
-              width: 36, height: 36, borderRadius: '10px',
-              '&:hover': { bgcolor: 'rgba(239,68,68,0.08)', color: '#EF4444' },
-              transition: 'all 0.15s ease',
-            }}
+            sx={{ ...iconoOscuroSx('#EF4444'), color: alertCount ? '#F87171' : 'rgba(255,255,255,0.55)' }}
           >
             <Badge
               badgeContent={alertCount || 0}
@@ -210,26 +341,26 @@ export function Header({ title }: HeaderProps) {
                 fullWidth
                 size="small"
                 onClick={() => { setAlertAnchor(null); navigate('/alertas') }}
-                sx={{ textTransform: 'none', fontSize: 12.5, fontWeight: 600, color: PRIMARY }}
+                sx={{ textTransform: 'none', fontSize: 12.5, fontWeight: 600, color: ACENTO.base }}
               >
                 Ver todas las alertas →
               </Button>
             </Box>
           </Popover>
 
-          <Box sx={{ width: 1, height: 24, bgcolor: '#E2E8F0', mx: 0.5 }} />
+          <Box sx={{ width: '1px', height: 24, bgcolor: 'rgba(255,255,255,0.12)', mx: 0.5, flexShrink: 0 }} />
 
           {/* User */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pl: 0.5, pr: 0.5, py: 0.5, borderRadius: '12px', cursor: 'default' }}>
             <Avatar sx={{
               width: 32, height: 32, fontSize: 12, fontWeight: 700,
-              background: `linear-gradient(135deg, ${PRIMARY} 0%, #1A1A1A 100%)`,
-              boxShadow: `0 2px 8px ${alpha(PRIMARY, 0.35)}`,
+              background: `linear-gradient(135deg, ${ACENTO.base} 0%, ${ACENTO.profundo} 100%)`,
+              boxShadow: `0 2px 8px ${alpha(ACENTO.base, 0.35)}`,
             }}>
               {initials}
             </Avatar>
             <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-              <Typography sx={{ fontWeight: 600, fontSize: 13, color: '#1A1A1A', lineHeight: 1.2 }}>
+              <Typography sx={{ fontWeight: 600, fontSize: 13, color: '#FFFFFF', lineHeight: 1.2 }}>
                 {user?.nombre} {user?.apellido}
               </Typography>
               <Chip
@@ -237,8 +368,8 @@ export function Header({ title }: HeaderProps) {
                 size="small"
                 sx={{
                   height: 16, fontSize: 10, fontWeight: 700,
-                  bgcolor: alpha(PRIMARY, 0.1), color: '#1A1A1A',
-                  border: `1px solid ${alpha(PRIMARY, 0.2)}`,
+                  bgcolor: alpha(ACENTO.claro, 0.16), color: ACENTO.claro,
+                  border: `1px solid ${alpha(ACENTO.claro, 0.3)}`,
                   '& .MuiChip-label': { px: 1 },
                 }}
               />
@@ -249,8 +380,8 @@ export function Header({ title }: HeaderProps) {
                 size="small"
                 onClick={logout}
                 sx={{
-                  color: '#CBD5E1', width: 32, height: 32, borderRadius: '8px',
-                  '&:hover': { bgcolor: 'rgba(239,68,68,0.08)', color: '#EF4444' },
+                  color: 'rgba(255,255,255,0.4)', width: 32, height: 32, borderRadius: '8px',
+                  '&:hover': { bgcolor: 'rgba(239,68,68,0.16)', color: '#F87171' },
                   transition: 'all 0.15s ease',
                 }}
               >
@@ -280,7 +411,7 @@ export function Header({ title }: HeaderProps) {
             width: '45%',
             height: '100%',
             borderRadius: 99,
-            background: `linear-gradient(90deg, transparent, ${PRIMARY}, #5FD184, transparent)`,
+            background: `linear-gradient(90deg, transparent, ${ACENTO.base}, ${ACENTO.claro}, transparent)`,
             animation: 'progressSlide 1.1s ease-in-out infinite',
           }}
         />

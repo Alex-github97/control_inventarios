@@ -524,8 +524,8 @@ const EAM_NAV_ITEMS: NavItem[] = [
   { label: 'nav.checklists',     icon: <EAMChecklistIconEAM     fontSize="small" />, path: '/eam/checklists',      section: 'section.mantenimiento' },
   { label: 'nav.lubricacion',    icon: <EAMLubricacionIconEAM   fontSize="small" />, path: '/eam/lubricacion',     section: 'section.lubricacion' },
   { label: 'nav.lubeInterpretacion', icon: <EAMLubricacionIconEAM fontSize="small" />, path: '/eam/lubricacion/reportes', section: 'section.lubricacion' },
-  { label: 'nav.neumaticos',     icon: <EAMNeumaticosIconEAM    fontSize="small" />, path: '/eam/neumaticos',      section: 'section.lubricacion' },
-  { label: 'nav.combustible',    icon: <EAMCombustibleIconEAM   fontSize="small" />, path: '/eam/combustible',     section: 'section.lubricacion' },
+  { label: 'nav.neumaticos',     icon: <EAMNeumaticosIconEAM    fontSize="small" />, path: '/eam/neumaticos',      section: 'section.neumaticos' },
+  { label: 'nav.combustible',    icon: <EAMCombustibleIconEAM   fontSize="small" />, path: '/eam/combustible',     section: 'section.combustible' },
   { label: 'nav.inventario',     icon: <EAMInventarioIconEAM    fontSize="small" />, path: '/eam/inventario',      section: 'section.inventario' },
   { label: 'nav.garantias',      icon: <EAMGarantiasIconEAM     fontSize="small" />, path: '/eam/garantias',       section: 'section.inventario' },
   { label: 'nav.confiabilidad',  icon: <EAMConfiabilidadIconEAM fontSize="small" />, path: '/eam/confiabilidad',   section: 'section.confiabilidad' },
@@ -533,7 +533,7 @@ const EAM_NAV_ITEMS: NavItem[] = [
   { label: 'nav.reportes',       icon: <EAMReportesIconEAM      fontSize="small" />, path: '/eam/reportes',        section: 'section.inteligencia' },
   { label: 'nav.configuracion',  icon: <EAMConfigIconEAM        fontSize="small" />, path: '/eam/config',          section: 'section.sistema' },
 ]
-const EAM_SECTIONS = ['section.general', 'section.mantenimiento', 'section.lubricacion', 'section.inventario', 'section.confiabilidad', 'section.inteligencia', 'section.sistema']
+const EAM_SECTIONS = ['section.general', 'section.mantenimiento', 'section.lubricacion', 'section.neumaticos', 'section.combustible', 'section.inventario', 'section.confiabilidad', 'section.inteligencia', 'section.sistema']
 
 const MES_NAV_ITEMS: NavItem[] = [
   { label: 'nav.torreControl',    icon: <MESDashIconMES         fontSize="small" />, path: '/mes',              section: 'section.general',     exact: true },
@@ -677,10 +677,19 @@ interface SidebarProps {
   dragging?: boolean
 }
 
-export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarProps) {
-  const navigate  = useNavigate()
+export interface ModuleNav {
+  navItems:     NavItem[]
+  sections:     string[]
+  activeColor:  string
+  logoShort:    string
+  logoLine1:    string
+  logoLine2:    string
+  logoGradient: string
+}
+
+// Ítems, secciones y marca del módulo activo según la ruta (compartido por Sidebar y el menú superior)
+export function useModuleNav(): ModuleNav {
   const location  = useLocation()
-  const [collapsed, setCollapsed] = useState(false)
   const { t } = useTranslation()
   const { user } = useAuthStore()
   const isAdmin = user?.rol === 'ADMINISTRADOR'
@@ -724,6 +733,58 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
   const logoLine1 = isCommand ? t('logo.cc1') : isConfig ? t('logo.cfg1') : isTarifax ? t('logo.tx1') : isGRC ? t('logo.grc1') : isQMS ? t('logo.qms1') : isDMS ? t('logo.dms1') : isTMS ? t('logo.tms1') : isFletes ? t('logo.ft1') : isFlota ? t('logo.gf1') : isLocativa ? t('logo.ml1') : isWMS ? t('logo.wms1') : isGH ? t('logo.gh1') : isLMS ? t('logo.lms1') : isCRM ? t('logo.crm1') : isEAM ? t('logo.eam1') : isMES ? t('logo.mes1') : isAPS ? t('logo.aps1') : isERP ? t('logo.erp1') : isSCM ? t('logo.scm1') : isSST ? t('logo.sst1') : isAGS ? t('logo.ags1') : isPOS ? t('logo.pos1') : t('logo.ci1')
   const logoLine2 = isCommand ? t('logo.cc2') : isConfig ? t('logo.cfg2') : isTarifax ? t('logo.tx2') : isGRC ? t('logo.grc2') : isQMS ? t('logo.qms2') : isDMS ? t('logo.dms2') : isTMS ? t('logo.tms2') : isFletes ? t('logo.ft2') : isFlota ? t('logo.gf2') : isLocativa ? t('logo.ml2') : isWMS ? t('logo.wms2') : isGH ? t('logo.gh2') : isLMS ? t('logo.lms2') : isCRM ? t('logo.crm2') : isEAM ? t('logo.eam2') : isMES ? t('logo.mes2') : isAPS ? t('logo.aps2') : isERP ? t('logo.erp2') : isSCM ? t('logo.scm2') : isSST ? t('logo.sst2') : isAGS ? t('logo.ags2') : isPOS ? t('logo.pos2') : t('logo.ci2')
 
+  const logoGradient = isConfig
+    ? `linear-gradient(135deg, ${CF_COLOR} 0%, #4F46E5 100%)`
+    : isQMS
+    ? `linear-gradient(135deg, ${QMS_COLOR} 0%, #047857 100%)`
+    : isDMS
+    ? `linear-gradient(135deg, ${DMS_COLOR} 0%, #0C6A80 100%)`
+    : isTMS
+    ? `linear-gradient(135deg, ${TMS_COLOR} 0%, #0284C7 100%)`
+    : isFlota
+    ? `linear-gradient(135deg, ${GF_COLOR} 0%, #1A1A1A 100%)`
+    : isCommand
+    ? `linear-gradient(135deg, ${CC_COLOR} 0%, #0284C7 100%)`
+    : isLocativa
+    ? `linear-gradient(135deg, ${ML_COLOR} 0%, #0F766E 100%)`
+    : isWMS
+    ? `linear-gradient(135deg, ${WMS_COLOR} 0%, #1D4ED8 100%)`
+    : isGH
+    ? `linear-gradient(135deg, ${GH_COLOR} 0%, #9D174D 100%)`
+    : isGRC
+    ? `linear-gradient(135deg, ${GRC_COLOR} 0%, #5B21B6 100%)`
+    : isLMS
+    ? `linear-gradient(135deg, ${LMS_COLOR} 0%, #B45309 100%)`
+    : isCRM
+    ? `linear-gradient(135deg, ${CRM_COLOR} 0%, #B91C1C 100%)`
+    : isEAM
+    ? `linear-gradient(135deg, ${EAM_COLOR} 0%, #1A1A1A 100%)`
+    : isMES
+    ? `linear-gradient(135deg, ${MES_COLOR} 0%, #0E7490 100%)`
+    : isAPS
+    ? `linear-gradient(135deg, ${APS_COLOR} 0%, #6D28D9 100%)`
+    : isERP
+    ? `linear-gradient(135deg, ${ERP_COLOR} 0%, #1E40AF 100%)`
+    : isSCM
+    ? `linear-gradient(135deg, ${SCM_COLOR} 0%, #0A3D72 100%)`
+    : isSST
+    ? `linear-gradient(135deg, ${SST_COLOR} 0%, #7F1D1D 100%)`
+    : isAGS
+    ? `linear-gradient(135deg, ${AGS_COLOR} 0%, #701A75 100%)`
+    : isPOS
+    ? `linear-gradient(135deg, ${POS_COLOR} 0%, #14532D 100%)`
+    : `linear-gradient(135deg, ${activeColor} 0%, ${isTarifax ? '#1f6130' : '#1A1A1A'} 100%)`
+
+  return { navItems, sections, activeColor, logoShort, logoLine1, logoLine2, logoGradient }
+}
+
+export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarProps) {
+  const navigate  = useNavigate()
+  const location  = useLocation()
+  const [collapsed, setCollapsed] = useState(false)
+  const { t } = useTranslation()
+  const { navItems, sections, activeColor, logoShort, logoLine1, logoLine2, logoGradient } = useModuleNav()
+
   const width    = collapsed ? DRAWER_COLLAPSED : (widthProp ?? DRAWER_WIDTH)
   const showText = !collapsed && (widthProp === undefined || widthProp >= COMPACT_THRESHOLD)
 
@@ -765,47 +826,7 @@ export function Sidebar({ open, onClose, width: widthProp, dragging }: SidebarPr
             width: 36,
             height: 36,
             borderRadius: '10px',
-            background: isConfig
-              ? `linear-gradient(135deg, ${CF_COLOR} 0%, #4F46E5 100%)`
-              : isQMS
-              ? `linear-gradient(135deg, ${QMS_COLOR} 0%, #047857 100%)`
-              : isDMS
-              ? `linear-gradient(135deg, ${DMS_COLOR} 0%, #0C6A80 100%)`
-              : isTMS
-              ? `linear-gradient(135deg, ${TMS_COLOR} 0%, #0284C7 100%)`
-              : isFlota
-              ? `linear-gradient(135deg, ${GF_COLOR} 0%, #1A1A1A 100%)`
-              : isCommand
-              ? `linear-gradient(135deg, ${CC_COLOR} 0%, #0284C7 100%)`
-              : isLocativa
-              ? `linear-gradient(135deg, ${ML_COLOR} 0%, #0F766E 100%)`
-              : isWMS
-              ? `linear-gradient(135deg, ${WMS_COLOR} 0%, #1D4ED8 100%)`
-              : isGH
-              ? `linear-gradient(135deg, ${GH_COLOR} 0%, #9D174D 100%)`
-              : isGRC
-              ? `linear-gradient(135deg, ${GRC_COLOR} 0%, #5B21B6 100%)`
-              : isLMS
-              ? `linear-gradient(135deg, ${LMS_COLOR} 0%, #B45309 100%)`
-              : isCRM
-              ? `linear-gradient(135deg, ${CRM_COLOR} 0%, #B91C1C 100%)`
-              : isEAM
-              ? `linear-gradient(135deg, ${EAM_COLOR} 0%, #1A1A1A 100%)`
-              : isMES
-              ? `linear-gradient(135deg, ${MES_COLOR} 0%, #0E7490 100%)`
-              : isAPS
-              ? `linear-gradient(135deg, ${APS_COLOR} 0%, #6D28D9 100%)`
-              : isERP
-              ? `linear-gradient(135deg, ${ERP_COLOR} 0%, #1E40AF 100%)`
-              : isSCM
-              ? `linear-gradient(135deg, ${SCM_COLOR} 0%, #0A3D72 100%)`
-              : isSST
-              ? `linear-gradient(135deg, ${SST_COLOR} 0%, #7F1D1D 100%)`
-              : isAGS
-              ? `linear-gradient(135deg, ${AGS_COLOR} 0%, #701A75 100%)`
-              : isPOS
-              ? `linear-gradient(135deg, ${POS_COLOR} 0%, #14532D 100%)`
-              : `linear-gradient(135deg, ${activeColor} 0%, ${isTarifax ? '#1f6130' : '#1A1A1A'} 100%)`,
+            background: logoGradient,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

@@ -312,7 +312,7 @@ export default function MESTrazabilidad() {
               value={busca} onChange={e => setBusca(e.target.value)} sx={{ mb: 1.5, bgcolor: '#FFFFFF', borderRadius: 1 }}
               InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 18, color: '#94A3B8' }} /></InputAdornment> }} />
 
-            <Stack spacing={1} sx={{ maxHeight: 'calc(100vh - 240px)', overflowY: 'auto', pr: 0.5 }}>
+            <Stack spacing={1} sx={{ maxHeight: 'calc(100vh - 284px)', overflowY: 'auto', pr: 0.5 }}>
               {lotesFiltrados.map(l => {
                 const sel = loteSel?.id === l.id
                 const p = producto(l.producto_id)

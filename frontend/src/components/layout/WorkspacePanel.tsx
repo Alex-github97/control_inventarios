@@ -63,7 +63,7 @@ const AGS_COLOR        = COLOR_MODULO_SOBRE_OSCURO
 const POS_COLOR        = COLOR_MODULO_SOBRE_OSCURO
 const COMPACT_THRESHOLD = 80
 
-const WORKSPACES = [
+export const WORKSPACES = [
   {
     id:    'control',
     label: 'ws.control',
@@ -238,13 +238,10 @@ interface WorkspacePanelProps {
   dragging?: boolean
 }
 
-export function WorkspacePanel({ width, dragging }: WorkspacePanelProps) {
-  const navigate        = useNavigate()
-  const { pathname }    = useLocation()
-  const showText        = width >= COMPACT_THRESHOLD
+// Espacios que el usuario puede ver: los que su empresa contrató y sus permisos permiten
+export function useVisibleWorkspaces() {
   const { user, modulos } = useAuthStore()
-  const { t }           = useTranslation()
-  const isAdmin         = user?.rol === 'ADMINISTRADOR'
+  const isAdmin = user?.rol === 'ADMINISTRADOR'
 
   // Un módulo que la empresa no contrató no se muestra: el servidor lo
   // rechazaría igual, y dejarlo visible solo lleva al usuario a un error. Sin
@@ -253,13 +250,22 @@ export function WorkspacePanel({ width, dragging }: WorkspacePanelProps) {
   const contratados = new Set(modulos ?? [])
   const todo = contratados.size === 0 || contratados.has('*')
 
-  const visibleWorkspaces = WORKSPACES.filter(ws => {
+  return WORKSPACES.filter(ws => {
     if (!todo && !contratados.has(MODULO_DE_WORKSPACE[ws.id] ?? ws.id)) return false
     if (isAdmin) return true
     const keys = WORKSPACE_PERM_KEYS[ws.id]
     if (!keys || keys.length === 0) return true
     return keys.some(k => user?.permisos?.[k])
   })
+}
+
+export function WorkspacePanel({ width, dragging }: WorkspacePanelProps) {
+  const navigate        = useNavigate()
+  const { pathname }    = useLocation()
+  const showText        = width >= COMPACT_THRESHOLD
+  const { t }           = useTranslation()
+
+  const visibleWorkspaces = useVisibleWorkspaces()
 
   return (
     <Box
