@@ -20,6 +20,10 @@ RUTAS_PUBLICAS = (
     "/api/v1/auth/clientes",           # paso previo: a qué empresa se entra
     "/api/v1/ags/publico",             # reserva de citas por parte del cliente final
     "/api/v1/landing/contenido",       # la pagina publica la ve cualquiera
+    # El formulario de contacto de la landing: quien escribe todavia no es
+    # cliente y no tiene con que iniciar sesion. Solo guarda la solicitud, con
+    # campo trampa y limite de envios por IP; no devuelve datos de nadie.
+    "/api/v1/landing/contacto",
     # El reporte de una pantalla que se rompio. Va sin sesion a proposito: los
     # fallos que mas importa registrar son justamente los que ocurren cuando
     # algo va mal —una sesion a medias, un token ilegible, la propia pantalla de

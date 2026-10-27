@@ -16,6 +16,7 @@ from app.core.middleware_tenant import TenantMiddleware
 from app.core.acceso_modulos import ModulosMiddleware
 from app.core.auth_global import exigir_sesion
 from app.api.v1.router import api_router
+from app.api.v1.endpoints.landing import sin_precios
 import app.infrastructure.models  # noqa: F401 — registra todos los modelos
 from app.core.semillas_lubricacion import sembrar_lubricacion
 from app.infrastructure.models.rol import Rol, ROLES_DEFECTO
@@ -173,6 +174,25 @@ async def _preparar_registro_clientes() -> None:
                 "UPDATE public.plataforma_cliente SET es_operador = true "
                 "WHERE id = (SELECT MIN(id) FROM public.plataforma_cliente)"
             ))
+
+        # La landing dejó de publicar precios. El contenido publicado antes
+        # todavía guarda los textos de tarifas; se limpian una vez, y solo se
+        # escribe si había algo que quitar.
+        if (await conn.execute(
+                text("SELECT to_regclass('public.plataforma_landing')"))).scalar() is not None:
+            filas = (await conn.execute(text(
+                "SELECT id, contenido FROM public.plataforma_landing"))).all()
+            for id_, contenido in filas:
+                if isinstance(contenido, str):
+                    contenido = json.loads(contenido)
+                if not isinstance(contenido, dict):
+                    continue
+                limpio = sin_precios(contenido)
+                if limpio != contenido:
+                    await conn.execute(
+                        text("UPDATE public.plataforma_landing "
+                             "SET contenido = CAST(:c AS JSON) WHERE id = :id"),
+                        {"c": json.dumps(limpio, ensure_ascii=False), "id": id_})
 
 
 async def _preparar_gestion() -> None:

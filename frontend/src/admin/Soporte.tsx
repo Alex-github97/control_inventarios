@@ -24,6 +24,7 @@ import { soporteApi, gestionApi, mensajeDeError, type Ticket, type Adjunto } fro
 import Tablero from './Tablero'
 import Backlog from './Backlog'
 import MetricasAgiles from './MetricasAgiles'
+import Prospectos from './Prospectos'
 
 const ESTADOS = ['NUEVO', 'EN_PROGRESO', 'ESPERANDO_CLIENTE', 'RESUELTO', 'CERRADO']
 const CRITICIDADES = ['BAJA', 'MEDIA', 'ALTA', 'CRITICA']
@@ -314,7 +315,7 @@ function Ficha({ id, onVolver }: { id: number; onVolver: () => void }) {
 
 // ─── Cola ─────────────────────────────────────────────────────────────────────
 
-const VISTAS = ['Cola', 'Tablero', 'Backlog y sprints', 'Métricas'] as const
+const VISTAS = ['Cola', 'Tablero', 'Backlog y sprints', 'Métricas', 'Prospectos'] as const
 
 export default function Soporte() {
   const [vista, setVista] = useState(0)
@@ -360,6 +361,7 @@ export default function Soporte() {
       {vista === 1 && <Tablero />}
       {vista === 2 && <Backlog />}
       {vista === 3 && <MetricasAgiles />}
+      {vista === 4 && <Prospectos />}
 
       {vista === 0 && (
       <>

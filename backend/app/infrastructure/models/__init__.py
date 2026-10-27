@@ -172,6 +172,8 @@ from app.infrastructure.models.soporte import (  # noqa: F401
     SoporteTicket, SoporteMensaje, SoporteAdjunto,
     SoporteEpica, SoporteSprint, SoporteEvento, SoporteColumna,
 )
+# Quien escribe desde la landing sin ser cliente: aparte de los dos anteriores.
+from app.infrastructure.models.prospecto import LandingProspecto  # noqa: F401
 from app.infrastructure.models.gestion import (  # noqa: F401
     GPWorkflow, GPEstado, GPTransicion,
     GPProyecto, GPProyectoMiembro, GPTipoIncidencia, GPPrioridad,
