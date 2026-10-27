@@ -24,6 +24,26 @@ Graba o recibe la grabación de una reunión, la transcribe con OpenAI y propone
 
 Sin clave, la función no se rompe. Se puede grabar y subir reuniones: los trabajos esperan en la cola y arrancan solos cuando se configura la clave. El texto en vivo responde 503 y la grabación sigue.
 
+## El bot para Meet y Teams (fase 2)
+
+El bot es [Vexa](https://github.com/Vexa-ai/vexa) 0.12, de código abierto con licencia Apache 2.0. Va instalado en **su propio servidor**, porque cada reunión es un Chrome corriendo y en el servidor de la plataforma no cabe.
+
+- **Servidor:** Lightsail Ubuntu 24.04, en la misma región que la plataforma. El firewall deja abierto solo el 22, y el 18056 únicamente para la IP privada de la plataforma.
+- **Instalación:** `git clone https://github.com/Vexa-ai/vexa && cd vexa && make all`. Al terminar, imprime la clave de la API.
+- **La transcripción de Vexa** es la que dice quién habló. Necesita un servicio compatible con OpenAI, que se configura en el `.env` de Vexa: `TRANSCRIPTION_SERVICE_URL`, `TRANSCRIPTION_SERVICE_TOKEN` y `TRANSCRIPTION_MODEL`.
+- **En la plataforma**, en `.env.prod`:
+
+  ```
+  VEXA_URL=http://<ip-privada-del-bot>:18056
+  VEXA_API_KEY=<la clave que imprimió make all>
+  ```
+
+**Cómo funciona.** El ejecutivo pulsa «Enviar el bot» en una reunión virtual. El bot entra como «Asistente TittanWare — grabando» y la cola consulta su estado cada 20 segundos. Al terminar la reunión, se descargan la grabación y los tramos de cada hablante, y la reunión sigue el mismo camino que una presencial.
+
+Si el bot no logra entrar, la reunión queda marcada con el motivo y le llega al ejecutivo una actividad urgente en el CRM: no lo admitieron, la empresa no permite invitados anónimos en Teams, o el bot estaba ocupado.
+
+**Zoom** todavía no tiene bot (fase 3): desde marzo de 2026 exige una app de Zoom aprobada y una cuenta conectada.
+
 ## Configuración por empresa
 
 La edita un administrador de la empresa con `PUT /api/v1/crm/reuniones/config`:

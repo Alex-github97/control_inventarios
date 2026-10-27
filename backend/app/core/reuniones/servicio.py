@@ -285,6 +285,20 @@ async def aplicar_retencion(db: AsyncSession, esquema: str, momento: Optional[da
     return len(vencidas)
 
 
+async def alertar(db: AsyncSession, r: CRMReunion, texto: str) -> None:
+    """Deja una actividad urgente para quien creó la reunión (design 6.5).
+
+    Va como actividad del CRM porque es lo que el ejecutivo ya revisa cada día;
+    un mensaje en el registro del servidor no lo vería nadie a tiempo.
+    """
+    ejecutivo = (await db.execute(select(CRMEjecutivoComercial.id).where(
+        CRMEjecutivoComercial.usuario_id == r.creada_por_id).limit(1))).scalar() if r.creada_por_id else None
+    db.add(CRMActividad(cliente_id=r.cliente_id, oportunidad_id=r.oportunidad_id, ejecutivo_id=ejecutivo,
+                        tipo="ALERTA_REUNION", asunto=texto[:200],
+                        descripcion=f"{texto}\nReunión #{r.id}. Si aún tiene la grabación, súbala desde la reunión.",
+                        fecha_vencimiento=ahora(), completada=False, prioridad="ALTA"))
+
+
 async def fallar(r: CRMReunion, motivo: str) -> None:
     r.estado, r.motivo_falla = FALLIDA, motivo[:300]
 

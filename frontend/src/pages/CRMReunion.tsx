@@ -14,13 +14,13 @@ import {
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
 import {
-  ArrowBack, CheckCircle, Close, CloudUpload, DeleteForever, Edit, FiberManualRecord, Refresh, Stop,
+  ArrowBack, CheckCircle, Close, CloudUpload, DeleteForever, Edit, FiberManualRecord, Refresh, SmartToy, Stop,
   WifiOff,
 } from '@mui/icons-material'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Layout } from '@/components/layout/Layout'
 import {
-  reunionesApi, minutoTexto, type CompromisoReunion, type ReunionDetalle, type TramoReunion,
+  reunionesApi, minutoTexto, TEXTO_BOT, type CompromisoReunion, type ReunionDetalle, type TramoReunion,
 } from '@/api/reuniones'
 import { BORDE, CRM_COLOR, Panel, fechaHora } from '@/components/crm/comunes'
 import { useAuthStore } from '@/store/authStore'
@@ -42,6 +42,7 @@ function Captura({ r, recargar }: { r: ReunionDetalle; recargar: () => void }) {
   const [avisoVivo, setAvisoVivo] = useState<string | null>(null)
   const [deteniendo, setDeteniendo] = useState(false)
   const [progreso, setProgreso] = useState<number | null>(null)
+  const [enviandoBot, setEnviandoBot] = useState(false)
   const grabador = useRef<GrabadorReunion>()
   const textoVivo = useRef<TextoVivo>()
   const stream = useRef<MediaStream>()
@@ -139,8 +140,25 @@ function Captura({ r, recargar }: { r: ReunionDetalle; recargar: () => void }) {
   }
 
   const enCurso = r.estado === 'EN_CURSO'
+  const conBot = r.origen === 'VIRTUAL' && !!r.enlace && !!config.data?.bot_configurado && r.estado === 'PROGRAMADA'
   return (
     <Panel sx={{ p: 2.5 }}>
+      {conBot && (
+        <Box sx={{ mb: 2, pb: 2, borderBottom: `1px solid ${BORDE}` }}>
+          <Typography sx={{ fontSize: 13, color: 'text.secondary', mb: 1 }}>
+            El bot entra a la reunión con el nombre «Asistente TittanWare — grabando». Admítalo desde la sala de espera.
+          </Typography>
+          <Button variant="contained" startIcon={<SmartToy />} disabled={enviandoBot}
+            onClick={async () => {
+              setEnviandoBot(true); setError(null)
+              try { await reunionesApi.enviarBot(r.id); recargar() } catch (e) { setError(mensajeDeError(e)) }
+              finally { setEnviandoBot(false) }
+            }}>
+            Enviar el bot a la reunión
+          </Button>
+          <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 1 }}>O grabe desde este equipo:</Typography>
+        </Box>
+      )}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
         {estadoG.grabando ? (
           <>
@@ -198,6 +216,37 @@ function Captura({ r, recargar }: { r: ReunionDetalle; recargar: () => void }) {
             : <span style={{ opacity: 0.6 }}>Escuchando…</span>}
         </Box>
       )}
+      {error && <Alert severity="error" sx={{ mt: 1.5 }}>{error}</Alert>}
+    </Panel>
+  )
+}
+
+/* ── Bot en la reunión ─────────────────────────────────────────────────────── */
+function BotEnCurso({ r, recargar }: { r: ReunionDetalle; recargar: () => void }) {
+  const [error, setError] = useState<string | null>(null)
+  const retirar = useMutation({ mutationFn: () => reunionesApi.retirarBot(r.id), onSuccess: recargar,
+                                onError: e => setError(mensajeDeError(e)) })
+  const estado = r.bot?.estado ?? 'requested'
+  const esperando = estado === 'awaiting_admission' || estado === 'needs_help'
+  return (
+    <Panel sx={{ p: 2.5 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+        <SmartToy sx={{ color: estado === 'active' ? '#DC2626' : '#64748B' }} />
+        <Typography sx={{ fontWeight: 700, flex: 1 }}>{TEXTO_BOT[estado] ?? estado}</Typography>
+        <Button variant="outlined" startIcon={<Stop />} disabled={retirar.isPending || estado === 'stopping'}
+          onClick={() => retirar.mutate()}>
+          Retirar el bot
+        </Button>
+      </Box>
+      {estado === 'active' && <LinearProgress color="error" sx={{ mt: 1.5 }} />}
+      {esperando && (
+        <Alert severity="warning" sx={{ mt: 1.5 }}>
+          Si nadie lo admite, el bot se retira solo a los pocos minutos y la reunión queda marcada para grabarla de otra forma.
+        </Alert>
+      )}
+      <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 1 }}>
+        Cuando la reunión termine, el bot entrega la grabación y empieza la transcripción. Puede cerrar esta pantalla.
+      </Typography>
       {error && <Alert severity="error" sx={{ mt: 1.5 }}>{error}</Alert>}
     </Panel>
   )
@@ -399,7 +448,7 @@ export default function CRMReunion() {
   const q = useQuery({
     queryKey: ['crm', 'reuniones', 'detalle', rid],
     queryFn: () => reunionesApi.ver(rid),
-    refetchInterval: x => x.state.data?.estado === 'PROCESANDO' ? 4000 : false,
+    refetchInterval: x => x.state.data?.estado === 'PROCESANDO' || (x.state.data?.estado === 'EN_CURSO' && x.state.data?.bot) ? 4000 : false,
   })
   const recargar = () => {
     qc.invalidateQueries({ queryKey: ['crm', 'reuniones'] })
@@ -440,7 +489,8 @@ export default function CRMReunion() {
         {q.error && <Alert severity="error">{mensajeDeError(q.error)}</Alert>}
         {r && (
           <>
-            {['PROGRAMADA', 'EN_CURSO'].includes(r.estado) && <Captura r={r} recargar={recargar} />}
+            {r.estado === 'EN_CURSO' && r.bot ? <BotEnCurso r={r} recargar={recargar} />
+              : ['PROGRAMADA', 'EN_CURSO'].includes(r.estado) && <Captura r={r} recargar={recargar} />}
             {r.estado === 'PROCESANDO' && (
               <Panel sx={{ p: 2.5 }}>
                 <Typography sx={{ fontWeight: 700, mb: 1 }}>Transcribiendo y buscando compromisos…</Typography>

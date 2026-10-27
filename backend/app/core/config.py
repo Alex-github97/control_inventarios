@@ -70,6 +70,13 @@ class Settings(BaseSettings):
     OPENAI_MODELO_TRANSCRIPCION: str = "gpt-transcribe"
     OPENAI_MODELO_VIVO: str = "gpt-live-transcribe"
     OPENAI_MODELO_EXTRACCION: str = "gpt-6-astra"
+    # El bot que entra a las reuniones virtuales (Vexa autoalojado, en su propio
+    # servidor). Vacío = sin bot: las reuniones virtuales se graban desde la
+    # aplicación o se sube la grabación.
+    VEXA_URL: str = ""
+    VEXA_API_KEY: str = ""
+    # Cuánto espera el bot a que lo admitan antes de rendirse (min).
+    VEXA_ESPERA_ADMISION_MIN: int = 15
 
     SAP_HOST: str = ""
     SAP_PORT: int = 443

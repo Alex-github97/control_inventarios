@@ -42,7 +42,7 @@ Antes de empezar: `git pull` y acordar con el compañero que reorganiza los mód
 - [ ] 6.1 Instalar Vexa 0.12 en un servidor aparte y comprobar si entrega la grabación y los tramos por participante con `transcribe_enabled: false`. Si no los entrega, aplicar la salida preferida de D3. Dejar anotado el resultado en `design.md`.
 - [ ] 6.2 Adaptador `vexa` del resultado neutral (D1): pedir el bot con el nombre «Asistente TittanWare — grabando», sondear su estado con el trabajo SONDEAR_BOT y traer el audio y los tramos. Probar con reuniones internas de Google Meet y de Teams que la reunión pasa a PROCESANDO y que los tramos traen nombres.
 - [ ] 6.3 Fallos del bot: no admitido después del tiempo límite, plataforma no admitida e invitados anónimos bloqueados en Teams. Probar cada uno y que el motivo quede visible.
-- [ ] 6.4 Verificar con una captura simulada de un segundo proveedor que el CRM la procesa igual (escenario «Cambio de proveedor de captura»).
+- [x] 6.4 Verificar con una captura simulada de un segundo proveedor que el CRM la procesa igual (escenario «Cambio de proveedor de captura»).
 - [ ] 6.5 Alerta cuando un bot falla al entrar, y una medición de memoria y CPU por reunión simultánea para dimensionar el servidor del bot. Documentarlo en `deploy/`.
 
 ## 7. Zoom (fase 3)

@@ -24,12 +24,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import require_permiso_perfil
-from app.core.reuniones import audio, cola, ia, servicio
+from app.core.reuniones import audio, captura, cola, ia, servicio
 from app.core.tenant import esquema_actual
 from app.infrastructure.models.crm import CRMCliente, CRMContacto, CRMOportunidad
 from app.infrastructure.models.crm_reuniones import (
     EN_CURSO, ORIGENES, POR_REVISAR, PROCESANDO, PROGRAMADA, CRMReunion, CRMReunionCompromiso,
-    CRMReunionParticipante, CRMReunionTramo,
+    CRMReunionCaptura, CRMReunionParticipante, CRMReunionTramo,
 )
 from app.infrastructure.models.usuario import Usuario
 
@@ -147,7 +147,8 @@ def _c_dict(c: CRMReunionCompromiso) -> dict:
 async def ver_config(db: AsyncSession = Depends(get_db), u: Usuario = Depends(permiso)):
     c = await servicio.config(db)
     return {"aviso_texto": c.aviso_texto, "retencion_audio_dias": c.retencion_audio_dias,
-            "tope_minutos_mes": c.tope_minutos_mes, "ia_configurada": ia.configurado()}
+            "tope_minutos_mes": c.tope_minutos_mes, "ia_configurada": ia.configurado(),
+            "bot_configurado": captura.configurado()}
 
 
 @router.put("/config")
@@ -253,6 +254,8 @@ async def ver(reunion_id: int, db: AsyncSession = Depends(get_db), u: Usuario = 
         "tramos": [{"id": t.id, "orden": t.orden, "inicio_s": t.inicio_s, "fin_s": t.fin_s, "texto": t.texto,
                     "texto_original": t.texto_original, "participante_id": t.participante_id} for t in tramos],
         "compromisos": [_c_dict(c) for c in comps],
+        "bot": ({"estado": cap.estado_proveedor, "detalle": cap.detalle, "plataforma": cap.plataforma}
+                if (cap := await _captura(db, r.id)) else None),
     }
 
 
@@ -506,6 +509,60 @@ async def cerrar(reunion_id: int, db: AsyncSession = Depends(get_db), u: Usuario
         await servicio.cerrar(db, r, u.id)
     except ValueError as e:
         raise HTTPException(409, str(e))
+    return _r_dict(r)
+
+
+# ── Bot en reuniones virtuales (fase 2) ────────────────────────────────────────
+async def _captura(db: AsyncSession, reunion_id: int):
+    return (await db.execute(select(CRMReunionCaptura).where(CRMReunionCaptura.reunion_id == reunion_id)
+                             .order_by(CRMReunionCaptura.id.desc()).limit(1))).scalar_one_or_none()
+
+
+@router.post("/{reunion_id}/bot")
+async def enviar_bot(reunion_id: int, db: AsyncSession = Depends(get_db), u: Usuario = Depends(permiso)):
+    r = await _reunion(db, reunion_id)
+    _exigir_aviso(r)
+    if r.origen != "VIRTUAL" or not r.enlace:
+        raise HTTPException(422, "El bot es para reuniones virtuales con su enlace.")
+    if r.estado != PROGRAMADA:
+        raise HTTPException(409, "Esta reunión ya se está grabando o ya terminó.")
+    try:
+        destino = captura.destino_de(r.enlace)
+    except captura.CapturaNoDisponible as e:
+        raise HTTPException(422, str(e))
+    if destino.plataforma == "ZOOM":
+        # Desde marzo de 2026 Zoom solo deja entrar a un bot externo con la
+        # autorización de alguien que conectó su cuenta y está en la reunión.
+        raise HTTPException(409, "Para grabar con el bot en Zoom hace falta conectar una cuenta de Zoom de la empresa; "
+                                 "esa conexión todavía no está disponible. Grabe desde la aplicación o suba la grabación.")
+    if not captura.configurado():
+        raise HTTPException(503, "El bot de reuniones no está configurado en este servidor.")
+    try:
+        prov = captura.proveedor()
+        datos = await prov.pedir_bot(destino)
+    except captura.CapturaNoDisponible as e:
+        raise HTTPException(409, str(e))
+    except Exception as e:  # noqa: BLE001 — el servidor del bot caído no debe parecer un error nuestro
+        raise HTTPException(502, f"No se pudo contactar al bot de reuniones: {type(e).__name__}.")
+    db.add(CRMReunionCaptura(reunion_id=r.id, proveedor=prov.nombre, plataforma=destino.plataforma,
+                             id_externo=destino.id_externo, datos=datos, estado_proveedor="requested"))
+    r.estado, r.fuente_captura, r.plataforma = EN_CURSO, prov.nombre, destino.plataforma
+    await servicio.encolar(db, r.id, "SONDEAR_BOT", en_segundos=10)
+    return {**_r_dict(r), "bot": {"estado": "requested"}}
+
+
+@router.post("/{reunion_id}/bot/retirar")
+async def retirar_bot(reunion_id: int, db: AsyncSession = Depends(get_db), u: Usuario = Depends(permiso)):
+    """Saca al bot antes de que termine la reunión; lo grabado hasta ahí se procesa igual."""
+    r = await _reunion(db, reunion_id)
+    cap = await _captura(db, r.id)
+    if cap is None or r.estado != EN_CURSO:
+        raise HTTPException(409, "No hay un bot en esta reunión.")
+    try:
+        await captura.proveedor().retirar(cap)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, f"No se pudo retirar el bot: {type(e).__name__}.")
+    cap.estado_proveedor = "stopping"
     return _r_dict(r)
 
 

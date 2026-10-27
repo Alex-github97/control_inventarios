@@ -68,9 +68,50 @@ async def reclamar(esquema: str, tipo: Optional[str] = None):
         return fila
 
 
+class Reprogramar(Exception):
+    """El trabajo no terminó ni falló: vuelve a la cola en `segundos`, sin gastar intentos."""
+
+    def __init__(self, segundos: int):
+        super().__init__(f"reprogramado en {segundos} s")
+        self.segundos = segundos
+
+
+SONDEO_BOT_S = 20
+
+
+async def _captura_de(db, reunion_id: int):
+    from sqlalchemy import select
+    from app.infrastructure.models.crm_reuniones import CRMReunionCaptura
+    return (await db.execute(select(CRMReunionCaptura).where(CRMReunionCaptura.reunion_id == reunion_id)
+                             .order_by(CRMReunionCaptura.id.desc()).limit(1))).scalar_one_or_none()
+
+
 async def _transcribir(db, esquema: str, r: CRMReunion) -> None:
-    await servicio.transcribir(db, esquema, r)
+    from app.core.reuniones import captura
+    # Si la grabó un bot, sus tramos dicen quién habló en cada momento.
+    await servicio.transcribir(db, esquema, r, segmentos=captura.segmentos_de(await _captura_de(db, r.id)))
     await servicio.encolar(db, r.id, "EXTRAER")
+
+
+async def _sondear_bot(db, esquema: str, r: CRMReunion) -> None:
+    """Pregunta al proveedor en qué va el bot; al terminar, recibe la grabación."""
+    from app.core.reuniones import audio, captura
+    cap = await _captura_de(db, r.id)
+    if cap is None:
+        raise RuntimeError("La reunión no tiene un bot asignado.")
+    prov = captura.proveedor()
+    est = await prov.estado(cap)
+    cap.estado_proveedor, cap.detalle = est.estado, est.motivo
+    if not est.terminado:
+        await db.commit()                 # el estado del bot queda visible mientras sigue
+        raise Reprogramar(SONDEO_BOT_S)
+    if est.exito:
+        res = await prov.resultado(cap, audio.carpeta(esquema, r.id))
+        await captura.recibir(db, r, cap, res, fuente=prov.nombre)
+    else:
+        cap.terminada_en = servicio.ahora()
+        await servicio.fallar(r, est.motivo or "El bot no pudo grabar la reunión.")
+        await servicio.alertar(db, r, f"No se grabó la reunión «{r.titulo}»: {est.motivo}")
 
 
 async def _extraer(db, esquema: str, r: CRMReunion) -> None:
@@ -81,7 +122,9 @@ async def _extraer(db, esquema: str, r: CRMReunion) -> None:
 MANEJADORES: Dict[str, Callable[..., Awaitable[None]]] = {
     "TRANSCRIBIR": _transcribir,
     "EXTRAER": _extraer,
+    "SONDEAR_BOT": _sondear_bot,
 }
+QUE_FALLO = {"TRANSCRIBIR": "la transcripción", "EXTRAER": "la extracción", "SONDEAR_BOT": "el seguimiento del bot"}
 
 
 async def ejecutar(esquema: str, fila) -> bool:
@@ -100,6 +143,13 @@ async def ejecutar(esquema: str, fila) -> bool:
             t.estado, t.ultimo_error = "HECHO", None
             await db.commit()
             return True
+    except Reprogramar as e:
+        async with AsyncSessionLocal(info={"esquema": esquema}) as db:
+            t = await db.get(CRMReunionTrabajo, trabajo_id)
+            t.estado, t.intentos = "PENDIENTE", 0
+            t.siguiente_intento = datetime.now(timezone.utc) + timedelta(seconds=e.segundos)
+            await db.commit()
+        return True
     except ia.NoConfigurado as e:
         # Sin clave no tiene sentido reintentar: se avisa de una vez.
         return await _fallo(esquema, trabajo_id, reunion_id, str(e), definitivo=True)
@@ -117,8 +167,7 @@ async def _fallo(esquema: str, trabajo_id: int, reunion_id: Optional[int], motiv
             t.estado = "FALLIDO"
             r = await db.get(CRMReunion, reunion_id) if reunion_id else None
             if r is not None:
-                que = "la transcripción" if t.tipo == "TRANSCRIBIR" else "la extracción"
-                await servicio.fallar(r, f"Falló {que}: {motivo}")
+                await servicio.fallar(r, f"Falló {QUE_FALLO.get(t.tipo, 'el trabajo')}: {motivo}")
         else:
             t.siguiente_intento = datetime.now(timezone.utc) + timedelta(seconds=espera(t.intentos))
         await db.commit()

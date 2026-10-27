@@ -34,15 +34,28 @@ export interface CompromisoReunion {
   vencido: boolean
 }
 
+export interface BotReunion {
+  estado?: string | null; detalle?: string | null; plataforma: string
+}
+
 export interface ReunionDetalle extends Reunion {
   participantes: ParticipanteReunion[]
   tramos: TramoReunion[]
   compromisos: CompromisoReunion[]
+  bot?: BotReunion | null
 }
 
 export interface ConfigReuniones {
   aviso_texto: string; retencion_audio_dias: number; tope_minutos_mes?: number | null
-  ia_configurada: boolean
+  ia_configurada: boolean; bot_configurado: boolean
+}
+
+/** Lo que dice el bot, en palabras del ejecutivo. */
+export const TEXTO_BOT: Record<string, string> = {
+  requested: 'El bot va en camino…', joining: 'El bot está entrando…',
+  awaiting_admission: 'El bot espera en la sala de espera: admítalo desde la reunión.',
+  needs_help: 'El bot necesita ayuda para entrar.', active: 'El bot está en la reunión, grabando.',
+  stopping: 'El bot está saliendo…', completed: 'El bot terminó.', failed: 'El bot no pudo grabar.',
 }
 
 const B = '/crm/reuniones'
@@ -89,6 +102,8 @@ export const reunionesApi = {
   cerrar: (id: number) => d(apiClient.post<Reunion>(`${B}/${id}/cerrar`)),
   seguimiento: (f?: { cliente_id?: number; lado?: string; solo_vencidos?: boolean }) =>
     d(apiClient.get<CompromisoReunion[]>(`${B}/compromisos`, { params: f })),
+  enviarBot: (id: number) => d(apiClient.post<Reunion>(`${B}/${id}/bot`)),
+  retirarBot: (id: number) => d(apiClient.post<Reunion>(`${B}/${id}/bot/retirar`)),
   credencialVivo: () => d(apiClient.post<{ valor: string; vence?: number }>(`${B}/vivo/credencial`)),
 }
 

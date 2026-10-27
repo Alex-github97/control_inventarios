@@ -113,6 +113,27 @@ class CRMReunionTrabajo(Base, TimestampMixin):
     ultimo_error     = sa.Column(sa.Text, nullable=True)
 
 
+class CRMReunionCaptura(Base, TimestampMixin):
+    """El bot (u otro proveedor) que graba una reunión virtual (design D1).
+
+    Tabla aparte y no columnas de la reunión: cada proveedor guarda aquí lo
+    suyo (sus identificadores, su estado, sus tramos de habla) y el resto del
+    CRM no se entera de cuál fue.
+    """
+    __tablename__ = "crm_reunion_captura"
+    id               = sa.Column(sa.Integer, primary_key=True, index=True)
+    reunion_id       = sa.Column(sa.Integer, sa.ForeignKey("crm_reunion.id", ondelete="CASCADE"), nullable=False, index=True)
+    proveedor        = sa.Column(sa.String(20), nullable=False)          # vexa | recall | …
+    plataforma       = sa.Column(sa.String(20), nullable=False)          # MEET | TEAMS | ZOOM
+    id_externo       = sa.Column(sa.String(300), nullable=False)         # el id de la reunión para el proveedor
+    datos            = sa.Column(sa.JSON, nullable=True)                 # lo demás que el proveedor necesite
+    estado_proveedor = sa.Column(sa.String(40), nullable=True)           # tal como lo dice el proveedor
+    detalle          = sa.Column(sa.String(500), nullable=True)
+    # Quién habló y cuándo, como lo entregó la captura: [{nombre, inicio_s, fin_s}].
+    segmentos        = sa.Column(sa.JSON, nullable=True)
+    terminada_en     = sa.Column(sa.DateTime(timezone=True), nullable=True)
+
+
 class CRMReunionConfig(Base, TimestampMixin):
     """Una sola fila por empresa: texto del aviso, retención y tope mensual."""
     __tablename__ = "crm_reunion_config"

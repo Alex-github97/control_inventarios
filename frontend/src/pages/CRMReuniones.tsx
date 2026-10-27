@@ -44,6 +44,7 @@ function NuevaReunion({ abierto, cerrar }: { abierto: boolean; cerrar: () => voi
   const [contactos, setContactos] = useState<number[]>([])
 
   const clientes = useQuery({ queryKey: ['crm', 'clientes', 'Todos', ''], queryFn: () => crmApi.clientes() })
+  const config = useQuery({ queryKey: ['crm', 'reuniones', 'config'], queryFn: reunionesApi.config })
   const listaContactos = useQuery({
     queryKey: ['crm', 'contactos', clienteId], enabled: !!clienteId,
     queryFn: () => crmApi.contactos(Number(clienteId)),
@@ -90,8 +91,9 @@ function NuevaReunion({ abierto, cerrar }: { abierto: boolean; cerrar: () => voi
             <TextField label="Enlace de la reunión" value={enlace} onChange={e => setEnlace(e.target.value)}
               placeholder="https://meet.google.com/… o https://teams.microsoft.com/…" />
             <Alert severity="info" sx={{ fontSize: 12.5 }}>
-              El bot que entra solo a Meet y Teams todavía no está disponible. Mientras tanto, grabe la reunión
-              desde este equipo o suba la grabación cuando termine.
+              {config.data?.bot_configurado
+                ? 'Con el enlace, el bot entra solo a Google Meet o Microsoft Teams. En Zoom, grabe desde este equipo o suba la grabación.'
+                : 'El bot de reuniones no está activo en este servidor. Grabe la reunión desde este equipo o suba la grabación cuando termine.'}
             </Alert>
           </>
         )}

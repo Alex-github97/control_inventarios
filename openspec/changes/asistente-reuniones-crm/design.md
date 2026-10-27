@@ -46,6 +46,13 @@ Recall.ai sería un quinto adaptador sin tocar lo demás.
 *Alternativas descartadas:* Celery o RQ, que serían otro servicio más que operar, y Redis guarda las sesiones con expulsión `volatile-lru`. `BackgroundTasks` de FastAPI se pierde si el proceso muere, y los procesos ya han muerto en producción.
 
 **D3. Bot: Vexa autoalojado en un servidor aparte, solo para grabar.** Se instala Vexa 0.12 con `make all` en un Lightsail propio. El backend lo llama con `POST /bots` y su clave. Como **Vexa no tiene webhooks**, un trabajo SONDEAR_BOT consulta el estado periódicamente. La transcripción se hace con OpenAI, igual que en la fase 1, para tener una sola calidad y un solo vocabulario. De Vexa se toman la grabación y los tramos por participante.
+*Lo que dice la documentación de Vexa 0.12 (leída al empezar la fase 2):*
+- Quién habló sale **solo** de su transcripción: cada segmento trae `speaker`, `start` y `end`. El listado de participantes no registra hablantes (`observed_roster: "not_recorded"`).
+- La grabación es solo audio y se descarga por `/recordings/{id}/master?type=audio` → `raw_url`.
+- Su transcripción exige un servicio compatible con OpenAI: `TRANSCRIPTION_SERVICE_URL`, `TRANSCRIPTION_SERVICE_TOKEN` y `TRANSCRIPTION_MODEL`.
+
+Por eso se pide el bot con `transcribe_enabled: true` y se aplica la salida B: de Vexa se toman los tramos (hablante y tiempos) y la grabación, y el texto que queda en el CRM sale de nuestro flujo. La captura vive en su propia tabla (`crm_reunion_captura`), para no alterar `crm_reunion`, y una falla al entrar deja una actividad `ALERTA_REUNION` para quien creó la reunión.
+
 *Punto a verificar al empezar la fase 2 (tarea 6.1):* si Vexa entrega la grabación y los tramos con `transcribe_enabled: false`. Si no los entrega, hay dos salidas. La preferida es apuntar su servicio de transcripción, que espera una API compatible con OpenAI, a la API de OpenAI. La otra es tomar los tramos de su propia transcripción y usar solo los tiempos.
 
 **D4. Transcripción por archivo con `gpt-transcribe`.**

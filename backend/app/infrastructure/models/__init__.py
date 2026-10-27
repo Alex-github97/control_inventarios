@@ -235,5 +235,5 @@ from app.infrastructure.models import marketplace  # noqa: F401,E402
 # Asistente de reuniones del CRM.
 from app.infrastructure.models.crm_reuniones import (  # noqa: F401,E402
     CRMReunion, CRMReunionParticipante, CRMReunionTramo, CRMReunionCompromiso,
-    CRMReunionTrabajo, CRMReunionConfig,
+    CRMReunionTrabajo, CRMReunionConfig, CRMReunionCaptura,
 )
