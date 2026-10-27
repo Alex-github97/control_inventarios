@@ -71,6 +71,13 @@ services:
       --workers ${UVICORN_WORKERS:-4} --proxy-headers --forwarded-allow-ips='*'
     volumes:
       - uploads:/app/uploads
+      # La configuración de TarifaX (equivalencias de vehículos, plataformas,
+      # tarifario SICETAC cargado por botón) se guarda en archivos de data/.
+      # Sin volumen, cada despliegue recrea el contenedor y borra lo que la
+      # gente guardó desde las pantallas. El volumen se llena con lo del
+      # repositorio solo la primera vez; desde ahí manda lo de las pantallas, y
+      # un cambio en backend/data/ ya no llega a producción por despliegue.
+      - backend_data:/app/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -177,6 +184,9 @@ services:
 
 volumes:
   pgdata:
+  # El data/ del backend principal: la configuración de TarifaX hecha desde
+  # las pantallas sobrevive a los despliegues.
+  backend_data:
   # El `data/` propio del clon de TarifaX: su configuración no se
   # mezcla con la de producción, y sobrevive a los despliegues.
   tarifax_data:
