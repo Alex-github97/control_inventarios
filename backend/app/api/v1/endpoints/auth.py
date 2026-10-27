@@ -8,7 +8,11 @@ from app.core.database import get_db, get_db_plataforma
 from app.core.tenant import codigo_valido, nombre_esquema
 from app.core.acceso_modulos import modulos_de
 from app.infrastructure.models.plataforma import PlataformaCliente
-from app.core.security import verify_password, create_access_token, create_refresh_token, hash_password, decode_token
+from app.core import sesiones
+from app.core.security import (
+    verificar_clave, verificar_sin_usuario, verify_password, create_access_token, create_refresh_token,
+    hash_password, decode_token, problema_de_clave,
+)
 from app.core.dependencies import get_current_user, require_admin
 from app.infrastructure.repositories.usuario_repository import UsuarioRepository
 from app.infrastructure.models.usuario import Usuario, RolUsuario
@@ -72,9 +76,23 @@ async def _cliente_de_la_peticion(
     return cliente
 
 
+def _ip(request: Request) -> str:
+    """La IP del cliente. Detrás del proxy (nginx) llega en X-Forwarded-For; se
+    toma la ÚLTIMA entrada, que es la que agrega el proxy propio: las primeras
+    las puede escribir cualquiera."""
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[-1].strip()
+    return request.client.host if request.client else "?"
+
+
+_CREDENCIALES = "Usuario o contraseña incorrectos"
+
+
 @router.post("/login", response_model=TokenResponse)
 async def login(
     data: LoginRequest,
+    request: Request,
     x_cliente: Optional[str] = Header(None, alias="X-Cliente"),
     db: AsyncSession = Depends(get_db),
     db_plataforma: AsyncSession = Depends(get_db_plataforma),
@@ -82,6 +100,9 @@ async def login(
     # El usuario se busca dentro del esquema del cliente: dos empresas pueden
     # tener un "admin" cada una y son personas distintas.
     cliente = await _cliente_de_la_peticion(x_cliente, db_plataforma)
+    ip = _ip(request)
+    # Antes de mirar la clave: con demasiados fallos recientes ni se intenta.
+    await sesiones.exigir_intentos(cliente.codigo, data.username, ip)
 
     # El esquema se toma del registro, que es la única fuente válida: deducirlo
     # del código mandaría al cliente que ya existía —y vive en "public"— a un
@@ -90,14 +111,31 @@ async def login(
 
     repo = UsuarioRepository(db)
     user = await repo.get_by_username(data.username)
-    if not user or not verify_password(data.password, user.hashed_password):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas")
-    if user.bloqueado:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usuario bloqueado")
+    if not user:
+        # Se gasta lo mismo que con un usuario real: el tiempo de respuesta no
+        # debe delatar qué usuarios existen.
+        verificar_sin_usuario(data.password)
+        await sesiones.anotar_fallo(cliente.codigo, data.username, ip)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=_CREDENCIALES)
+    correcta, hash_nuevo = verificar_clave(data.password, user.hashed_password)
+    if not correcta:
+        user.intentos_fallidos = (user.intentos_fallidos or 0) + 1
+        await db.commit()   # el error de abajo desharía el conteo
+        await sesiones.anotar_fallo(cliente.codigo, data.username, ip)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=_CREDENCIALES)
+    # Inactivo y bloqueado responden igual que una clave mala: no se confirma
+    # a un tercero que la clave era la correcta.
+    if user.bloqueado or not user.activo:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=_CREDENCIALES)
 
+    if hash_nuevo:
+        # La clave estaba en bcrypt (o en un Argon2 viejo): se guarda en Argon2id.
+        user.hashed_password = hash_nuevo
     user.ultimo_login = datetime.now(timezone.utc)
     user.intentos_fallidos = 0
     await db.flush()
+    await sesiones.limpiar_fallos(cliente.codigo, data.username)
+    sid = await sesiones.crear(user.id, cliente.esquema, cliente.codigo)
 
     # ¿Es usuario del portal de un depositante (cliente del 3PL)?
     from app.infrastructure.models.wms import WMSDepositante, WMSDepositanteUsuario
@@ -109,10 +147,10 @@ async def login(
     return TokenResponse(
         access_token=create_access_token(
             user.id, cliente=cliente.codigo, esquema=cliente.esquema,
-            usuario=user.username, depositante=portal["depositante_id"] if portal else None),
+            usuario=user.username, depositante=portal["depositante_id"] if portal else None, sesion=sid),
         portal=portal,
         refresh_token=create_refresh_token(
-            user.id, cliente=cliente.codigo, esquema=cliente.esquema),
+            user.id, cliente=cliente.codigo, esquema=cliente.esquema, sesion=sid),
         user=UsuarioResponse.model_validate(user),
         es_operador=bool(cliente.es_operador),
         modulos=sorted(await modulos_de(cliente.codigo)),
@@ -264,11 +302,34 @@ async def get_me(current_user: Usuario = Depends(get_current_user)):
 @router.post("/change-password")
 async def change_password(
     data: ChangePasswordRequest,
+    request: Request,
     current_user: Usuario = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     if not verify_password(data.password_actual, current_user.hashed_password):
         raise HTTPException(status_code=400, detail="Contraseña actual incorrecta")
+    problema = problema_de_clave(data.password_nuevo, current_user.username)
+    if problema:
+        raise HTTPException(status_code=422, detail=problema)
+    if data.password_nuevo == data.password_actual:
+        raise HTTPException(status_code=422, detail="La contraseña nueva debe ser distinta de la actual.")
     current_user.hashed_password = hash_password(data.password_nuevo)
     await db.flush()
+    # Quien tuviera la clave vieja pierde las sesiones que haya abierto con
+    # ella; la de quien hace el cambio sigue.
+    payload = decode_token((request.headers.get("authorization") or "")[7:])
+    await sesiones.cerrar_de_usuario(payload.get("esq"), current_user.id, excepto=payload.get("sid"),
+                                     motivo="Su contraseña cambió. Ingrese con la nueva.")
     return {"message": "Contraseña actualizada exitosamente"}
+
+
+@router.post("/logout", status_code=204)
+async def logout(request: Request):
+    """Cierra la sesión en el servidor: el token deja de servir aunque alguien
+    lo haya copiado. Antes «Salir» solo lo borraba del navegador."""
+    auth = request.headers.get("authorization") or ""
+    if auth.lower().startswith("bearer "):
+        try:
+            await sesiones.cerrar(decode_token(auth[7:]).get("sid"), "Cerró su sesión.")
+        except HTTPException:
+            pass   # token vencido o ilegible: no hay nada que cerrar

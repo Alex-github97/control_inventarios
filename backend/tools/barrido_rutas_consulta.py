@@ -9,7 +9,7 @@ hermano cuando existe (/x/{id} ← primer elemento de /x).
 import asyncio, re, sys, json
 
 import httpx
-from app.core.security import create_access_token
+from app.core.sesiones import token_de_herramienta as create_access_token
 
 import os
 B = os.environ.get("BASE", "http://localhost:8000")

@@ -22,7 +22,7 @@ Todo lo que crea lleva el prefijo que imprime al final (FIxxxx).
 import asyncio, json, os, time, urllib.request, urllib.error
 from datetime import date, datetime, timedelta, timezone
 import asyncpg
-from app.core.security import create_access_token
+from app.core.sesiones import token_de_herramienta as create_access_token
 
 B = os.environ.get('API', 'http://127.0.0.1:8001/api/v1')
 BASE = os.environ.get('BASE', 'ci_pruebas_form')

@@ -18,9 +18,11 @@ class UsuarioCreate(UsuarioBase):
 
     @field_validator("password")
     @classmethod
-    def password_strength(cls, v):
-        if len(v) < 8:
-            raise ValueError("La contraseña debe tener al menos 8 caracteres")
+    def password_strength(cls, v, info):
+        from app.core.security import problema_de_clave
+        problema = problema_de_clave(v, (info.data or {}).get("username"))
+        if problema:
+            raise ValueError(problema)
         return v
 
 

@@ -24,6 +24,20 @@ export interface LoginResponse {
   portal?: { depositante_id: number; nombre: string } | null
 }
 
+/**
+ * Cierra la sesión en el servidor (el token deja de servir aunque alguien lo
+ * haya copiado). Con `keepalive` la petición sale aunque la página se vaya
+ * enseguida al login.
+ */
+export function cerrarEnServidor(token: string | null): void {
+  if (!token) return
+  try {
+    fetch(`${import.meta.env.VITE_API_URL || '/api/v1'}/auth/logout`, {
+      method: 'POST', headers: { Authorization: `Bearer ${token}` }, keepalive: true,
+    }).catch(() => { /* sin red: la sesión igual muere sola por inactividad */ })
+  } catch { /* nada */ }
+}
+
 export const authApi = {
   login: (username: string, password: string) =>
     apiClient.post<LoginResponse>('/auth/login', { username, password }).then(r => r.data),

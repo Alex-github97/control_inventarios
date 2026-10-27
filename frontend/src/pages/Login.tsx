@@ -24,6 +24,7 @@ import {
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
+import { tomarMotivoSalida } from '@/utils/inactividad'
 import { MARCA, PALETA, COLOR_MODULO_SOBRE_OSCURO } from '@/config/marca'
 import { Logotipo } from '@/components/Logotipo'
 import { clienteGuardado, olvidarCliente } from '@/api/cliente'
@@ -354,6 +355,8 @@ export default function Login() {
   const [showPwd, setShowPwd]   = useState(false)
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
+  // Por qué se cerró la sesión anterior (inactividad, tiempo máximo…), si fue así.
+  const [aviso] = useState(() => tomarMotivoSalida())
   const [slide, setSlide]       = useState(0)
   const { login }  = useAuthStore()
   const navigate   = useNavigate()
@@ -632,6 +635,11 @@ export default function Login() {
             )}
           </Box>
 
+          {aviso && !error && (
+            <Alert severity="info" sx={{ mb: 3, borderRadius: '10px', fontSize: 13 }}>
+              {aviso}
+            </Alert>
+          )}
           {error && (
             <Alert severity="error" sx={{ mb: 3, borderRadius: '10px', fontSize: 13 }}>
               {error}

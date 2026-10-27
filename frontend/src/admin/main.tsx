@@ -16,7 +16,8 @@ import { Toaster } from 'react-hot-toast'
 import { theme } from '@/theme/theme'
 import { Logotipo } from '@/components/Logotipo'
 import { PALETA, SUPERFICIE } from '@/config/marca'
-import { sesion } from './api'
+import { sesion, pulsoConsola, salirConsola, CLAVE_SESION_CONSOLA } from './api'
+import { ControlInactividad } from '@/utils/inactividad'
 import Ingreso from './Ingreso'
 import Empresas from './Empresas'
 import Contabilidad from './Contabilidad'
@@ -40,6 +41,8 @@ function Consola() {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: SUPERFICIE.contenido }}>
+      {/* La consola maneja datos de todas las empresas: misma regla de 10 minutos. */}
+      <ControlInactividad claveToken={CLAVE_SESION_CONSOLA} pulso={pulsoConsola} alCerrar={salirConsola} />
       <AppBar position="sticky" elevation={0} sx={{
         bgcolor: SUPERFICIE.barra, borderBottom: `1px solid ${SUPERFICIE.divisorOscuro}`,
       }}>
@@ -55,7 +58,7 @@ function Consola() {
           </Typography>
           <Button
             size="small" startIcon={<Logout />} sx={{ color: 'rgba(255,255,255,0.8)', textTransform: 'none' }}
-            onClick={() => { sesion.cerrar(); location.reload() }}
+            onClick={salirConsola}
           >
             Salir
           </Button>

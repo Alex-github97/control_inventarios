@@ -6,6 +6,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
 import { theme } from '@/theme/theme'
 import { useAuthStore } from '@/store/authStore'
+import { ControlInactividad } from '@/utils/inactividad'
+import { cerrarEnServidor, authApi } from '@/api/auth'
 import { clienteGuardado } from '@/api/cliente'
 import { Logotipo } from '@/components/Logotipo'
 
@@ -435,11 +437,32 @@ function PageLoader() {
   )
 }
 
+/** Cierra la sesión tras 10 minutos sin actividad (ver utils/inactividad). */
+function SesionVigilada() {
+  const { isAuthenticated } = useAuthStore()
+  if (!isAuthenticated) return null
+  return (
+    <ControlInactividad
+      claveToken="access_token"
+      pulso={authApi.me}
+      alCerrar={() => {
+        // La empresa elegida se conserva (como cuando vence el token): quien
+        // vuelve a entrar es la misma persona en el mismo equipo.
+        cerrarEnServidor(localStorage.getItem('access_token'))
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('auth-storage')
+        window.location.href = '/login'
+      }}
+    />
+  )
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
+        <SesionVigilada />
         <Toaster
           position="top-right"
           gutter={10}

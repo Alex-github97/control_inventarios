@@ -17,11 +17,38 @@ class Settings(BaseSettings):
     DATABASE_MAX_OVERFLOW: int = 40
 
     REDIS_URL: str = "redis://localhost:6379/0"
+    # Las sesiones van en su propia base lógica de Redis: así una carga de
+    # caché nunca puede expulsar la sesión de alguien que está trabajando.
+    # Vacío = la misma instancia de REDIS_URL, base 1.
+    REDIS_SESIONES_URL: str = ""
+
+    @property
+    def redis_sesiones_url(self) -> str:
+        if self.REDIS_SESIONES_URL:
+            return self.REDIS_SESIONES_URL
+        base = self.REDIS_URL.rsplit("/", 1)[0] if self.REDIS_URL.rsplit("/", 1)[-1].isdigit() else self.REDIS_URL.rstrip("/")
+        return base + "/1"
 
     SECRET_KEY: str = "change-me-in-production"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    # El token dura lo mismo que el tope absoluto de la sesión; lo que de verdad
+    # la cierra antes es la inactividad, que se controla en el servidor
+    # (core/sesiones.py).
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 720
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 1
+    SESION_INACTIVIDAD_MIN: int = 10
+    SESION_MAXIMA_HORAS: int = 12
+
+    @field_validator("SECRET_KEY")
+    @classmethod
+    def clave_de_firma_segura(cls, v):
+        # Con la clave de ejemplo o una corta, cualquiera que la adivine firma
+        # tokens de administrador de cualquier empresa. En producción no arranca.
+        import os
+        if os.getenv("ENVIRONMENT", "development") != "development" and (
+                v.startswith("change-me-in-production") or len(v) < 32):
+            raise ValueError("SECRET_KEY debe ser aleatoria y de al menos 32 caracteres en producción")
+        return v
 
     CORS_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000"]
 

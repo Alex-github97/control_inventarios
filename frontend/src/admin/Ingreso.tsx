@@ -6,6 +6,7 @@
  * camino de la única empresa que usa esta consola.
  */
 import { useState } from 'react'
+import { tomarMotivoSalida } from '@/utils/inactividad'
 import {
   Box, Card, CardContent, TextField, Button, Typography, Stack, Alert, CircularProgress,
 } from '@mui/material'
@@ -18,6 +19,7 @@ export default function Ingreso() {
   const [usuario, setUsuario] = useState('')
   const [clave, setClave] = useState('')
   const [error, setError] = useState('')
+  const [aviso] = useState(() => tomarMotivoSalida())
   const [cargando, setCargando] = useState(false)
 
   const entrar = async () => {
@@ -53,6 +55,7 @@ export default function Ingreso() {
             </Typography>
           </Stack>
 
+          {aviso && !error && <Alert severity="info" sx={{ mb: 2 }}>{aviso}</Alert>}
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
           <Stack spacing={2}>

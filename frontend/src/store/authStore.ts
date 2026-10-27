@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { User, authApi } from '@/api/auth'
+import { User, authApi, cerrarEnServidor } from '@/api/auth'
 import { olvidarCliente } from '@/api/cliente'
 
 interface AuthState {
@@ -34,6 +34,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
+        cerrarEnServidor(localStorage.getItem('access_token'))
         localStorage.removeItem('access_token')
         // Salir a propósito sí olvida el cliente: la siguiente persona que use
         // este equipo puede ser de otra empresa.

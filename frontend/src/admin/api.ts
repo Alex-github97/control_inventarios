@@ -6,6 +6,8 @@
  * administra quién entra, no qué hay dentro.
  */
 import axios from 'axios'
+import { anotarMotivoSalida, segundosInactivo } from '@/utils/inactividad'
+import { cerrarEnServidor } from '@/api/auth'
 
 export interface Empresa {
   id: number
@@ -1023,6 +1025,7 @@ export interface EstadoLanding {
 const api = axios.create({ baseURL: '/api/v1' })
 
 const CLAVE_SESION = 'tw_admin_sesion'
+export const CLAVE_SESION_CONSOLA = CLAVE_SESION
 
 export interface Sesion {
   token: string
@@ -1051,9 +1054,23 @@ export const sesion = {
 
 api.interceptors.request.use(cfg => {
   const s = sesion.leer()
-  if (s) cfg.headers.Authorization = `Bearer ${s.token}`
+  if (s) {
+    cfg.headers.Authorization = `Bearer ${s.token}`
+    // La sesión se extiende con la actividad real (ver utils/inactividad).
+    cfg.headers['X-Inactividad'] = String(segundosInactivo())
+  }
   return cfg
 })
+
+/** Consulta liviana con sesión: le dice al servidor que la persona sigue ahí. */
+export const pulsoConsola = () => api.get('/auth/me')
+
+/** Salir: cierra la sesión en el servidor y en el navegador. */
+export function salirConsola(): void {
+  cerrarEnServidor(sesion.leer()?.token ?? null)
+  sesion.cerrar()
+  location.reload()
+}
 
 api.interceptors.response.use(
   r => r,
@@ -1061,6 +1078,7 @@ api.interceptors.response.use(
     // 401 es sesión vencida; 403 es «esta empresa no opera la plataforma», que
     // no se arregla volviendo a entrar y por eso no cierra la sesión.
     if (e?.response?.status === 401) {
+      if (sesion.leer() && typeof e.response.data?.detail === 'string') anotarMotivoSalida(e.response.data.detail)
       sesion.cerrar()
       if (!location.pathname.startsWith('/ingreso')) location.href = '/ingreso'
     }

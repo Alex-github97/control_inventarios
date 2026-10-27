@@ -1,6 +1,7 @@
 import { mensajeDeError } from '@/utils/errorApi'
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios'
 import { codigoCliente } from './cliente'
+import { anotarMotivoSalida, segundosInactivo } from '@/utils/inactividad'
 
 const API_URL = import.meta.env.VITE_API_URL || '/api/v1'
 
@@ -19,6 +20,9 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = localStorage.getItem('access_token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
+    // El servidor extiende la sesión según la actividad real, no por cada
+    // consulta automática (ver utils/inactividad).
+    config.headers['X-Inactividad'] = String(segundosInactivo())
   }
   // El cliente viaja hasta que hay token: el login lo necesita para saber en
   // qué empresa buscar al usuario. Después manda el token, que lo lleva firmado.
@@ -57,6 +61,8 @@ apiClient.interceptors.response.use(
     const propia = error.config?.headers?.['X-Sesion-Propia'] === '1'
     if (error.response?.status === 401 && !propia) {
       // Limpiar todo el estado de auth (token suelto + estado Zustand persistido)
+      // El porqué (inactividad, tiempo máximo, clave cambiada) se muestra al ingresar.
+      if (localStorage.getItem('access_token') && typeof datos?.detail === 'string') anotarMotivoSalida(datos.detail)
       localStorage.removeItem('access_token')
       localStorage.removeItem('auth-storage')
       // El cliente elegido se conserva: la sesión caducó, pero sigue siendo la

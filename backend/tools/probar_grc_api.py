@@ -10,7 +10,7 @@ from datetime import date, timedelta
 import httpx
 from sqlalchemy import text
 
-from app.core.security import create_access_token
+from app.core.sesiones import token_de_herramienta as create_access_token
 from app.core.database import engine
 
 B = os.environ.get("BASE", "http://127.0.0.1:8001") + "/api/v1/grc"

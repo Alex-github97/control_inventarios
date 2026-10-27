@@ -457,7 +457,9 @@ async def restablecer_clave(
         u.hashed_password = hash_password(clave)
         u.intentos_fallidos = 0
         u.bloqueado = False
-        usuario = u.username
+        usuario, uid = u.username, u.id
+    from app.core import sesiones
+    await sesiones.cerrar_de_usuario(cliente.esquema, uid, motivo="Su contraseña fue restablecida.")
     await _anotar(db, request, "usuario.clave", cliente.codigo, f"«{usuario}»")
     await db.commit()
     return ClaveEntregada(username=usuario, clave_temporal=clave)

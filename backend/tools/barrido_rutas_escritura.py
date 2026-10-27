@@ -29,7 +29,7 @@ from pydantic import BaseModel
 from fastapi.routing import APIRoute
 
 from app.main import app
-from app.core.security import create_access_token
+from app.core.sesiones import token_de_herramienta as create_access_token
 
 import os
 B = os.environ.get("BASE", "http://127.0.0.1:8001")

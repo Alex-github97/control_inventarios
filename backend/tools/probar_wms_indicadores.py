@@ -11,7 +11,7 @@ OTIF = 1/3; la aproximación vieja (el menor de "a tiempo" y "completas") daba 2
 import asyncio, json, os, time, urllib.request, urllib.error
 from datetime import date, timedelta
 import asyncpg
-from app.core.security import create_access_token
+from app.core.sesiones import token_de_herramienta as create_access_token
 
 B = os.environ.get('API', 'http://127.0.0.1:8001/api/v1')
 T = create_access_token(1, timedelta(hours=2), cliente='public', esquema='public', usuario='admin')

@@ -4,7 +4,9 @@ from sqlalchemy import select
 from typing import List
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_admin
-from app.core.security import hash_password
+from app.core import sesiones
+from app.core.security import hash_password, problema_de_clave
+from app.core.tenant import esquema_actual, ESQUEMA_POR_DEFECTO
 from app.infrastructure.repositories.usuario_repository import UsuarioRepository
 from app.infrastructure.models.usuario import Usuario, RolUsuario
 from app.infrastructure.models.rol import Rol
@@ -94,7 +96,14 @@ async def actualizar_usuario(
     if "rol" in update_data:
         rol_id = await _resolve_rol_id(db, update_data["rol"])
         update_data["rol_id"] = rol_id
-    return await repo.update(user, update_data)
+    # Desactivar o cambiar el rol cierra sus sesiones: los permisos nuevos
+    # rigen desde ya, no cuando la sesión vieja vence.
+    cierra = update_data.get("activo") is False or (
+        "rol" in update_data and update_data["rol"] != user.rol)
+    actualizado = await repo.update(user, update_data)
+    if cierra:
+        await sesiones.cerrar_de_usuario(esquema_actual() or ESQUEMA_POR_DEFECTO, user.id)
+    return actualizado
 
 
 @router.put("/{usuario_id}/reset-password", status_code=200)
@@ -105,13 +114,17 @@ async def resetear_password(
     current_user: Usuario = Depends(require_admin),
 ):
     nueva_password = payload.get("nueva_password", "")
-    if len(nueva_password) < 8:
-        raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 8 caracteres")
     repo = UsuarioRepository(db)
     user = await repo.get_by_id(usuario_id)
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    problema = problema_de_clave(nueva_password, user.username)
+    if problema:
+        raise HTTPException(status_code=400, detail=problema)
     await repo.update(user, {"hashed_password": hash_password(nueva_password)})
+    # Con la clave nueva, las sesiones abiertas con la vieja se cierran.
+    await sesiones.cerrar_de_usuario(esquema_actual() or ESQUEMA_POR_DEFECTO, user.id,
+                                     motivo="Un administrador restableció su contraseña.")
     return {"detail": "Contraseña actualizada exitosamente"}
 
 
@@ -128,3 +141,4 @@ async def desactivar_usuario(
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     await repo.update(user, {"activo": False})
+    await sesiones.cerrar_de_usuario(esquema_actual() or ESQUEMA_POR_DEFECTO, user.id)

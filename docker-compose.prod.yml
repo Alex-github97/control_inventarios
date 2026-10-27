@@ -43,7 +43,11 @@ services:
     image: redis:7-alpine
     container_name: prod_redis
     restart: always
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    # Las sesiones de usuario viven aquí (base 1); expulsar una saca a alguien
+    # en plena operación. Hoy nada más usa Redis y cada sesión ocupa unos
+    # cientos de bytes: 256 MB alcanzan de sobra. `volatile-lru` deja fuera de
+    # la expulsión cualquier clave sin vencimiento que se agregue después.
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy volatile-lru
     volumes:
       - redisdata:/data
 
@@ -58,6 +62,9 @@ services:
       # Con DEBUG en true el motor escribe CADA consulta SQL en el log: llena
       # el disco y frena todo. En producción va apagado.
       DEBUG: "false"
+      # Las sesiones de usuario viven en Redis y sin él nadie entra (falla
+      # cerrado). Se fija aquí para no depender de que .env.prod lo traiga.
+      REDIS_SESIONES_URL: redis://redis:6379/1
     # Varios procesos para aprovechar los núcleos. Regla práctica: 2 por vCPU.
     command: >
       uvicorn app.main:app --host 0.0.0.0 --port 8000
@@ -67,6 +74,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   frontend:
     build:
@@ -97,6 +106,9 @@ services:
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
+      # Las sesiones de usuario viven en Redis y sin él nadie entra (falla
+      # cerrado). Se fija aquí para no depender de que .env.prod lo traiga.
+      REDIS_SESIONES_URL: redis://redis:6379/1
     # Un solo proceso, y no por ahorrar núcleos: TarifaX guarda el tarifario
     # de 21 MB en memoria de CADA worker, y el primer llamado de cada uno
     # tarda unos cuarenta segundos en cargarlo. Con uno solo se carga una vez,
@@ -110,6 +122,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   tarifax_frontend:
     image: tittanware-frontend

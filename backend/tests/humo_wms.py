@@ -21,7 +21,7 @@ from sqlalchemy import text
 import app.main as m
 from app.core.database import AsyncSessionLocal, get_db
 from app.core.dependencies import get_current_user, require_admin
-from app.core.security import create_access_token
+from app.core.sesiones import token_de_herramienta as create_access_token
 
 ESQUEMA = os.environ.get("ESQUEMA", "public")
 

@@ -11,6 +11,7 @@ que acordarse.
 """
 from fastapi import Depends, HTTPException, Request, status
 
+from app.core import sesiones
 from app.core.security import decode_token
 
 # Lo único que se atiende sin sesión, y por qué.
@@ -77,8 +78,13 @@ async def exigir_sesion(request: Request) -> None:
             detail="El token no sirve para acceder; use el de acceso, no el de refresco",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    # La firma no basta: la sesión tiene que seguir viva en el servidor (no
+    # cerrada por inactividad, por salir ni por un cambio de clave). Salir se
+    # atiende aunque ya esté muerta, para que siempre se pueda limpiar.
+    if request.url.path != "/api/v1/auth/logout":
+        await sesiones.validar(payload, request.headers.get("x-inactividad"))
     # Un cliente del 3PL ve su portal y nada más: ni el inventario de otros
     # depositantes ni los demás módulos. El depositante va firmado en el token.
-    if payload.get("dep") and not request.url.path.startswith(RUTAS_PORTAL):
+    if payload.get("dep") and not request.url.path.startswith(RUTAS_PORTAL + ("/api/v1/auth/logout",)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="Su usuario es del portal de clientes: solo puede consultar su mercancía.")

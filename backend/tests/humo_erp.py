@@ -50,7 +50,7 @@ async def _db():
 # El token es de verdad y va firmado con la clave de la instancia: hay una
 # dependencia global que exige sesión en toda la API, y saltársela dejaría sin
 # probar justamente el camino por el que pasan las peticiones reales.
-from app.core.security import create_access_token
+from app.core.sesiones import token_de_herramienta as create_access_token
 TOKEN = create_access_token(subject=1, esquema=ESQUEMA, usuario="prueba")
 
 m.app.dependency_overrides[get_current_user] = lambda: UsuarioFalso()
