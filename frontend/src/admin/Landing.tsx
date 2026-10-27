@@ -135,7 +135,7 @@ export default function Landing() {
         </Box>
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
           <Button size="small" startIcon={<OpenInNew />} variant="outlined"
-            href={c.url_portal ? 'https://www.tittanware.tech' : '#'} target="_blank"
+            href={c.url_portal ? 'https://app.tittanware.com' : '#'} target="_blank"
             sx={{ textTransform: 'none' }}>
             Ver la página
           </Button>

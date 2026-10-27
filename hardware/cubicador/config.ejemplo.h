@@ -6,7 +6,7 @@
 #define WIFI_CLAVE     "clave-de-la-red"
 
 // Dirección de la API, sin barra al final.
-#define API_BASE       "https://tittanware.tech/api/v1"
+#define API_BASE       "https://app.tittanware.com/api/v1"
 
 // Token emitido en WMS · Cubicaje → Cubicadores → Emitir token.
 #define TOKEN_CUBICADOR "pegue-aqui-el-token"

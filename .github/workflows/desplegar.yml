@@ -1,0 +1,40 @@
+# Cada push a main se despliega en el servidor de producción.
+#
+# GitHub entra por SSH con un usuario que solo sirve para esto y corre
+# deploy/actualizar.sh, que compila, respalda, arranca y verifica.
+#
+# Secretos del repositorio (Settings → Secrets and variables → Actions):
+#   SERVIDOR_HOST    la IP estática del servidor
+#   SERVIDOR_USUARIO el usuario de despliegue (deploy)
+#   SERVIDOR_LLAVE   la llave privada de ese usuario
+#   SERVIDOR_HUELLA  la línea de known_hosts del servidor (evita suplantación)
+name: Desplegar
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Un despliegue a la vez; si llegan varios pushes seguidos, no se cancela el
+# que va a medias (dejaría el servidor entre dos versiones).
+concurrency:
+  group: produccion
+  cancel-in-progress: false
+
+jobs:
+  desplegar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Llave y huella del servidor
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.SERVIDOR_LLAVE }}" > ~/.ssh/despliegue
+          chmod 600 ~/.ssh/despliegue
+          printf '%s\n' "${{ secrets.SERVIDOR_HUELLA }}" > ~/.ssh/known_hosts
+
+      - name: Actualizar el servidor
+        run: |
+          ssh -i ~/.ssh/despliegue -o StrictHostKeyChecking=yes \
+            "${{ secrets.SERVIDOR_USUARIO }}@${{ secrets.SERVIDOR_HOST }}" \
+            /opt/tittanware/deploy/actualizar.sh

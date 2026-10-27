@@ -31,7 +31,7 @@ CONTENIDO_INICIAL: Dict[str, Any] = {
     "marca_logo": "TITTANWARE",
     "marca_nombre": "TittanWare",
     "marca_legal": "Todos los derechos reservados",
-    "url_portal": "https://tittanware.tech",
+    "url_portal": "https://app.tittanware.com",
     "correo": "contacto@tittanware.com",
     "color_acento": "#2F6FEB",
     "hero_lema": "Tecnología que fortalece · Soluciones que trascienden",
