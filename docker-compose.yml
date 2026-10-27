@@ -61,7 +61,6 @@ services:
     environment:
       VITE_API_URL: http://localhost:8000/api/v1
       HOST_IP: ${HOST_IP:-}
-      API_PROXY_TARGET: http://backend:8000
     ports:
       - "5173:5173"
     volumes:
