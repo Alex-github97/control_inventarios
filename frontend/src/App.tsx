@@ -8,6 +8,7 @@ import { theme } from '@/theme/theme'
 import { useAuthStore } from '@/store/authStore'
 import { ControlInactividad } from '@/utils/inactividad'
 import { cerrarEnServidor, authApi } from '@/api/auth'
+import { puedeVerCommandCenter, rutaInicial } from '@/components/layout/WorkspacePanel'
 import { clienteGuardado } from '@/api/cliente'
 import { Logotipo } from '@/components/Logotipo'
 
@@ -387,7 +388,15 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   )
   if (matchedPrefix) {
     const key = ROUTE_PERM_MAP[matchedPrefix]
-    if (!user.permisos[key]) return <Navigate to="/sin-acceso" replace />
+    if (!user.permisos[key]) {
+      // El tablero general sin permiso: al espacio que sí tiene (p. ej. TarifaX).
+      const inicio = rutaInicial(user)
+      if (location.pathname.startsWith('/dashboard') && inicio !== '/dashboard') return <Navigate to={inicio} replace />
+      return <Navigate to="/sin-acceso" replace />
+    }
+  }
+  if (location.pathname.startsWith('/command-center') && !puedeVerCommandCenter(user.permisos)) {
+    return <Navigate to="/sin-acceso" replace />
   }
 
   return <>{children}</>

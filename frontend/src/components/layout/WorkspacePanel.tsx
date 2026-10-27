@@ -233,6 +233,24 @@ export const WORKSPACES = [
   },
 ]
 
+// El Command Center resume la operación de los módulos: solo lo ve quien tiene
+// permiso en alguno. Un perfil que solo tiene TarifaX (o solo administra la
+// configuración) no tiene nada que ver ahí.
+const CLAVES_OPERACION = Object.entries(WORKSPACE_PERM_KEYS)
+  .filter(([id]) => !['tarifax', 'config', 'command'].includes(id))
+  .flatMap(([, claves]) => claves)
+
+export const puedeVerCommandCenter = (permisos?: Record<string, boolean>) =>
+  CLAVES_OPERACION.some(k => permisos?.[k])
+
+/** A dónde entra un usuario al iniciar sesión: el tablero general si lo puede
+ *  ver; si no, el primer espacio al que tiene acceso (p. ej. TarifaX). */
+export function rutaInicial(user?: { rol?: string; permisos?: Record<string, boolean> } | null): string {
+  if (!user || user.rol === 'ADMINISTRADOR' || user.permisos?.dashboard) return '/dashboard'
+  const ws = WORKSPACES.find(w => (WORKSPACE_PERM_KEYS[w.id] ?? []).some(k => user.permisos?.[k]))
+  return ws?.path ?? '/dashboard'
+}
+
 interface WorkspacePanelProps {
   width: number
   dragging?: boolean
@@ -253,6 +271,7 @@ export function useVisibleWorkspaces() {
   return WORKSPACES.filter(ws => {
     if (!todo && !contratados.has(MODULO_DE_WORKSPACE[ws.id] ?? ws.id)) return false
     if (isAdmin) return true
+    if (ws.id === 'command') return puedeVerCommandCenter(user?.permisos)
     const keys = WORKSPACE_PERM_KEYS[ws.id]
     if (!keys || keys.length === 0) return true
     return keys.some(k => user?.permisos?.[k])

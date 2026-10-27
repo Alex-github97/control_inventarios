@@ -25,6 +25,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { tomarMotivoSalida } from '@/utils/inactividad'
+import { rutaInicial } from '@/components/layout/WorkspacePanel'
 import { MARCA, PALETA, COLOR_MODULO_SOBRE_OSCURO } from '@/config/marca'
 import { Logotipo } from '@/components/Logotipo'
 import { clienteGuardado, olvidarCliente } from '@/api/cliente'
@@ -378,7 +379,7 @@ export default function Login() {
     try {
       await login(username, password)
       toast.success('Bienvenido al sistema')
-      navigate('/dashboard')
+      navigate(rutaInicial(useAuthStore.getState().user))
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Credenciales inválidas')
     } finally {
