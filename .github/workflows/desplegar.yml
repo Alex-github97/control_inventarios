@@ -1,13 +1,19 @@
-# Cada push a main se despliega en el servidor de producción.
+# Cada push a main se valida y, con la aprobación de un responsable, se
+# despliega en el servidor de producción.
 #
-# GitHub entra por SSH con un usuario que solo sirve para esto y corre
-# deploy/actualizar.sh, que compila, respalda, arranca y verifica.
+# 1. validar: compila el frontend (con su revisión de tipos) y el backend.
+#    Corre solo, en segundos o pocos minutos.
+# 2. desplegar: queda EN ESPERA hasta que un revisor del entorno «produccion»
+#    lo apruebe en GitHub (llega aviso por correo y en la app). Si se rechaza o
+#    nadie lo aprueba en 30 días, no se despliega nada.
 #
-# Secretos del repositorio (Settings → Secrets and variables → Actions):
-#   SERVIDOR_HOST    la IP estática del servidor
-#   SERVIDOR_USUARIO el usuario de despliegue (deploy)
-#   SERVIDOR_LLAVE   la llave privada de ese usuario
-#   SERVIDOR_HUELLA  la línea de known_hosts del servidor (evita suplantación)
+# El entorno se configura en Settings → Environments → produccion:
+#   - Required reviewers: quién aprueba.
+#   - Secretos del entorno (solo se entregan después de aprobar):
+#       SERVIDOR_HOST    la IP estática del servidor
+#       SERVIDOR_USUARIO el usuario de despliegue (deploy)
+#       SERVIDOR_LLAVE   la llave privada de ese usuario
+#       SERVIDOR_HUELLA  la línea de known_hosts del servidor (evita suplantación)
 name: Desplegar
 
 on:
@@ -22,9 +28,26 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  validar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Frontend (tipos y compilación)
+        working-directory: frontend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
+      - name: Backend (sintaxis)
+        run: python3 -m compileall -q backend/app
+
   desplegar:
+    needs: validar
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    environment: produccion
     steps:
       - name: Llave y huella del servidor
         run: |
