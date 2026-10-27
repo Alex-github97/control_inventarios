@@ -17,8 +17,10 @@
 
 ## 3. WMS: tareas dirigidas y picking
 
-- [ ] 3.1 Aplicar los modelos y columnas de tareas (`WMSConfigTareas`, `WMSFrentePicking`, `WMSTipoPosicion`, estrategia de picking por bodega) en `models/wms.py` y en `COLUMNAS` e `INDICES` de `core/wms_migracion.py`, conservando las columnas de TarifaX. Verificar que el arranque crea las tablas y columnas en `public` y `cli_acme` sin errores.
-- [ ] 3.2 Portar `core/wms_tareas_dirigidas.py`, `core/wms_ciclo_tareas.py`, `core/wms_reabastecimiento.py`, `core/wms_espacio.py` y `endpoints/wms_operacion_tareas.py`, reemplazando las llamadas a `personal` por `operario_disponible()` (design D4). Verificar con pruebas los escenarios de la spec `wms/tareas-picking` («Recepción ubicada», «Frente bajo el mínimo», «Propuesta no aprobada»).
+> Al aplicar: el modelo de datos de todos los grupos (WMS, TMS, compras y canales) entró de una vez en 3.1, porque las tablas se referencian entre grupos. Los trozos de `endpoints/wms.py` (3.3) dependen de funciones nuevas de `wms_inventario.py` (grupo 4), así que los archivos compartidos del WMS se portan juntos, en un solo paso, antes de las pantallas.
+
+- [x] 3.1 Aplicar los modelos y columnas de tareas (`WMSConfigTareas`, `WMSFrentePicking`, `WMSTipoPosicion`, estrategia de picking por bodega) en `models/wms.py` y en `COLUMNAS` e `INDICES` de `core/wms_migracion.py`, conservando las columnas de TarifaX. Verificar que el arranque crea las tablas y columnas en `public` y `cli_acme` sin errores.
+- [x] 3.2 Portar `core/wms_tareas_dirigidas.py`, `core/wms_ciclo_tareas.py`, `core/wms_reabastecimiento.py`, `core/wms_espacio.py` y `endpoints/wms_operacion_tareas.py`, reemplazando las llamadas a `personal` por `operario_disponible()` (design D4). Verificar con pruebas los escenarios de la spec `wms/tareas-picking` («Recepción ubicada», «Frente bajo el mínimo», «Propuesta no aprobada»).
 - [ ] 3.3 Aplicar en `endpoints/wms.py` el trozo de estrategia de picking y el de una sola asignación por orden. Verificar los escenarios «Bodega en WAVE», «Estrategia no implementada» y «Generar picking dos veces».
 - [ ] 3.4 Portar las pantallas `WMSFrentes.tsx`, los cambios de `WMSTareas.tsx`, `WMSPicking.tsx` y `WMSConfig.tsx` (selector de estrategia) y los componentes `EjecutarPicking`, `TiposPosicion` y `ArmadoEnvio`, con sus rutas, permisos de menú e i18n en los 10 idiomas. Verificar con `tsc --noEmit`, con una prueba de navegador del flujo de picking y que las pruebas de humo del grupo 1 siguen pasando.
 

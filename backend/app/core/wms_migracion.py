@@ -59,6 +59,52 @@ COLUMNAS = [
     ("wms_despachos", "factura_id", "INTEGER"),
     ("wms_despachos", "aviso_factura", "VARCHAR(300)"),
     ("wms_devoluciones", "nota_credito_id", "INTEGER"),
+    # Tareas: reabastecimiento desde una estiba, aprobación y escaneo del origen.
+    ("wms_tareas", "contenedor_origen_id", "INTEGER REFERENCES wms_contenedores(id)"),
+    ("wms_tareas", "aprobada_por_id", "INTEGER REFERENCES usuarios(id)"),
+    ("wms_tareas", "aprobada_en", "TIMESTAMPTZ"),
+    # Sin llave foránea: aquí no hay jornadas (WFM); ver core/personal.py.
+    ("wms_tareas", "jornada_id", "INTEGER"),
+    ("wms_tareas", "origen_confirmado", "BOOLEAN"),
+    # Destino de la orden de salida (obligatorio para consolidar) y su punto en el mapa.
+    ("wms_ordenes_salida", "destino", "VARCHAR(80)"),
+    ("wms_ordenes_salida", "destino_ciudad", "VARCHAR(120)"),
+    ("wms_ordenes_salida", "destino_direccion", "VARCHAR(300)"),
+    ("wms_ordenes_salida", "destino_contacto", "VARCHAR(200)"),
+    ("wms_ordenes_salida", "destino_telefono", "VARCHAR(40)"),
+    ("wms_ordenes_salida", "destino_lat", "DOUBLE PRECISION"),
+    ("wms_ordenes_salida", "destino_lng", "DOUBLE PRECISION"),
+    ("wms_ordenes_salida", "destino_geo", "VARCHAR(15)"),
+    # La bodega en el mapa: origen de lo que despacha en el TMS.
+    ("wms_almacenes", "lat", "DOUBLE PRECISION"),
+    ("wms_almacenes", "lng", "DOUBLE PRECISION"),
+    ("wms_almacenes", "geo_precision", "VARCHAR(15)"),
+    # Constructor de bodega: contorno real, elementos de forma libre e infraestructura.
+    ("wms_layouts", "contorno", "JSON"),
+    ("wms_layouts", "infraestructura", "VARCHAR(20) DEFAULT 'BODEGA' NOT NULL"),
+    ("wms_layout_elementos", "forma", "JSON"),
+    # Productos: tres niveles de clasificación con código (prefijo del SKU),
+    # marca, referencia y foto guardada en la base.
+    ("wms_categorias_producto", "codigo", "VARCHAR(4)"),
+    ("wms_familias_producto", "codigo", "VARCHAR(4)"),
+    ("wms_productos", "subfamilia", "VARCHAR(100)"),
+    ("wms_productos", "marca", "VARCHAR(100)"),
+    ("wms_productos", "referencia", "VARCHAR(100)"),
+    ("wms_productos", "imagen_version", "INTEGER"),
+    # La novedad de cada línea recibida y de dónde se alistó cada línea de picking.
+    ("wms_recepciones_detalle", "novedad", "VARCHAR(30)"),
+    ("wms_picking_detalles", "ubicacion_alistada_id", "INTEGER"),
+    # Reglas de tareas por almacén.
+    ("wms_config_tareas", "estrategia_picking", "VARCHAR(10) DEFAULT 'SINGLE' NOT NULL"),
+    ("wms_config_tareas", "aprovechamiento_pct", "DOUBLE PRECISION DEFAULT 85 NOT NULL"),
+    ("wms_ubicaciones", "tipo_posicion_id", "INTEGER REFERENCES wms_tipos_posicion(id) ON DELETE SET NULL"),
+    # TMS: medidas internas de la caja de carga (plan de carga en 3D).
+    ("tms_tipo_vehiculo_capacidad", "largo_m", "DOUBLE PRECISION"),
+    ("tms_tipo_vehiculo_capacidad", "ancho_m", "DOUBLE PRECISION"),
+    ("tms_tipo_vehiculo_capacidad", "alto_m", "DOUBLE PRECISION"),
+    ("tms_vehiculo", "caja_largo_m", "DOUBLE PRECISION"),
+    ("tms_vehiculo", "caja_ancho_m", "DOUBLE PRECISION"),
+    ("tms_vehiculo", "caja_alto_m", "DOUBLE PRECISION"),
     # TarifaX · comparativo (la misma mecánica de columnas nuevas en tablas existentes).
     ("tarifax_comparaciones", "dpto_origen", "VARCHAR(120)"),
     ("tarifax_comparaciones", "dpto_destino", "VARCHAR(120)"),
@@ -90,11 +136,43 @@ INDICES = [
 ]
 
 
+# Índices de las llaves por las que se buscan los detalles y los viajes. En las
+# tablas que ya existían `create_all` no los crea, y sin ellos cada «líneas de
+# este picking / de esta orden» recorría la tabla entera: con unos miles de
+# documentos la operación se volvía cada vez más lenta (prueba de volumen).
+INDICES_LLAVES = [
+    ("wms_picking_detalles", "tarea_id"), ("wms_ordenes_salida_detalle", "orden_id"),
+    ("wms_recepciones_detalle", "recepcion_id"), ("wms_ordenes_compra_detalle", "orden_id"),
+    ("wms_despachos_detalle", "despacho_id"), ("wms_picking_tareas", "orden_id"),
+    ("wms_producto_empaques", "producto_id"), ("wms_despachos", "orden_id"),
+    ("tms_viaje", "vehiculo_id"), ("tms_viaje", "conductor_hcm_id"), ("tms_viaje", "estado"),
+    ("tms_viaje", "wms_despacho_id"), ("tms_parada", "viaje_id"), ("tms_viaje_despachos", "despacho_id"),
+    ("tms_viaje_despachos", "viaje_id"), ("tms_evento", "viaje_id"), ("tms_pod", "viaje_id"),
+]
+
+
 async def migrar_wms(conn) -> None:
     if not (await conn.execute(text("SELECT to_regclass('wms_inventario_ubicacion')"))).scalar():
         return
     for tabla, columna, tipo in COLUMNAS:
         await conn.execute(text(f"ALTER TABLE {tabla} ADD COLUMN IF NOT EXISTS {columna} {tipo}"))
+    for tabla, columna in INDICES_LLAVES:
+        if (await conn.execute(text(f"SELECT to_regclass('{tabla}')"))).scalar():
+            await conn.execute(text(f"CREATE INDEX IF NOT EXISTS ix_{tabla}_{columna} ON {tabla} ({columna})"))
+
+    # Tareas de picking vacías (las dejaba la asignación repetida de una orden
+    # ya reservada): se cancelan para que no se puedan «ejecutar».
+    await conn.execute(text("""
+        UPDATE wms_picking_tareas t SET estado = 'CANCELADA'
+        WHERE t.estado = 'PENDIENTE' AND NOT EXISTS (SELECT 1 FROM wms_picking_detalles d WHERE d.tarea_id = t.id)"""))
+    # Órdenes alistadas por completo antes de que el estado avanzara solo.
+    await conn.execute(text("""
+        UPDATE wms_ordenes_salida o SET estado = 'EMPACANDO'
+        WHERE o.estado = 'EN_PICKING'
+          AND EXISTS (SELECT 1 FROM wms_picking_tareas t WHERE t.orden_id = o.id AND t.estado = 'COMPLETADA')
+          AND NOT EXISTS (SELECT 1 FROM wms_picking_tareas t WHERE t.orden_id = o.id AND t.estado IN ('PENDIENTE', 'EN_PROGRESO'))
+          AND NOT EXISTS (SELECT 1 FROM wms_ordenes_salida_detalle d WHERE d.orden_id = o.id
+                          AND COALESCE(d.cantidad_preparada, 0) < d.cantidad_solicitada)"""))
 
     # 2. Fusionar filas repetidas y cambiar la llave.
     repetidas = (await conn.execute(text("""
@@ -141,6 +219,33 @@ async def migrar_wms(conn) -> None:
             # El documento viejo toma el dueño de sus productos (todos eran del propio).
             await conn.execute(text(f"UPDATE {tabla} SET depositante_id = :d WHERE depositante_id IS NULL"),
                                {"d": propio})
+
+    # 3.b Códigos de la clasificación: las categorías y subcategorías que ya
+    #     existían reciben su código en el orden en que se crearon. El código no
+    #     cambia después (está en los SKU).
+    await conn.execute(text("""
+        WITH n AS (SELECT id, row_number() OVER (ORDER BY id) +
+                          COALESCE((SELECT max(codigo::int) FROM wms_categorias_producto WHERE codigo ~ '^[0-9]+$'), 0) AS k
+                   FROM wms_categorias_producto WHERE codigo IS NULL)
+        UPDATE wms_categorias_producto c SET codigo = lpad(n.k::text, 2, '0') FROM n WHERE c.id = n.id"""))
+    await conn.execute(text("""
+        WITH n AS (SELECT f.id, row_number() OVER (PARTITION BY f.categoria_id ORDER BY f.id) +
+                          COALESCE((SELECT max(x.codigo::int) FROM wms_familias_producto x
+                                    WHERE x.categoria_id = f.categoria_id AND x.codigo ~ '^[0-9]+$'), 0) AS k
+                   FROM wms_familias_producto f WHERE f.codigo IS NULL)
+        UPDATE wms_familias_producto f SET codigo = lpad(n.k::text, 2, '0') FROM n WHERE f.id = n.id"""))
+    await conn.execute(text(
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_categoria_codigo ON wms_categorias_producto (codigo)"))
+    await conn.execute(text(
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_familia_codigo ON wms_familias_producto (categoria_id, codigo)"))
+    await conn.execute(text(
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_subfamilia_codigo ON wms_subfamilias_producto (familia_id, codigo)"))
+    await conn.execute(text(
+        "CREATE INDEX IF NOT EXISTS ix_wms_productos_marca ON wms_productos (marca)"))
+
+    # 3.c Todo almacén tiene su zona de Recepción y su bodega de Cross docking.
+    from app.core.wms_zonas_base import migrar as migrar_zonas_base
+    await migrar_zonas_base(conn)
 
     # 4. Kárdex viejo con almacén y depositante.
     await conn.execute(text("""

@@ -2370,7 +2370,13 @@ async def lifespan(app: FastAPI):
             await candado.execute(text(f"SELECT pg_advisory_unlock({_CANDADO_MIGRACION})"))
 
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+    # Tareas de bodega en segundo plano: reabastecimiento de frentes y tareas
+    # asignadas que nadie empezó. Cada cliente con su candado (varios workers).
+    import asyncio
+    from app.core import wms_ciclo_tareas
+    tarea_bodega = asyncio.create_task(wms_ciclo_tareas.ciclo())
     yield
+    tarea_bodega.cancel()
     await engine.dispose()
 
 
