@@ -43,7 +43,9 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        // Dentro de Docker "localhost" es el propio contenedor del frontend:
+        // docker-compose apunta esto al servicio del backend.
+        target: process.env.API_PROXY_TARGET || 'http://localhost:8000',
         changeOrigin: true,
         // El celular accede via IP LAN (ej. 10.103.x.x:5173), pero el backend
         // solo tiene localhost en CORS_ORIGINS. Normalizar el Origin aquí evita

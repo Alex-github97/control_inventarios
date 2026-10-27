@@ -97,6 +97,23 @@ docker compose exec backend python -m scripts.seed
 | `supervisor` | `Super@2025` | Supervisor Logístico |
 | `operador` | `Oper@2025` | Operador de Bodega |
 
+En el login (y en la consola del operador, `/admin`) el campo **Empresa** va con `icoltrans`.
+
+Si el login responde *"No existe un cliente con ese código"* o *"Indique el cliente"*, la base no tiene la empresa registrada. Los usuarios de arriba viven en el esquema `public`; se registra así:
+
+```bash
+docker exec ci_postgres psql -U ci_user -d control_inventarios -c "INSERT INTO public.plataforma_cliente (codigo, nombre, esquema, activo, es_operador, created_at, updated_at) VALUES ('icoltrans','Icoltrans','public',true,true,now(),now())"
+```
+
+### Credenciales de infraestructura (desarrollo)
+
+Valores por defecto de `docker-compose.yml` cuando no hay `.env`:
+
+| Servicio | Usuario | Contraseña |
+|----------|---------|-----------|
+| PostgreSQL (`localhost:5432`, base `control_inventarios`) | `ci_user` | `ci_secure_pass` |
+| pgAdmin (http://localhost:5050) | `admin@empresa.com` | `admin123` |
+
 > ⚠️ Cambiar contraseñas en producción.
 
 ---
@@ -628,7 +645,7 @@ Los roles adicionales se crean libremente desde la interfaz.
    - Port: `5432`
    - Database: `control_inventarios`
    - Username: `ci_user`
-   - Password: valor de `POSTGRES_PASSWORD` en `.env`
+   - Password: valor de `POSTGRES_PASSWORD` en `.env` (sin `.env`: `ci_secure_pass`)
 4. **Save**
 
 ---
