@@ -30,3 +30,4 @@ pytesseract==0.3.13
 pdfplumber==0.11.4
 pdf2image==1.17.0
 fpdf2==2.8.4
+openai==3.38.0

@@ -2,9 +2,11 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# ffmpeg normaliza, parte y une el audio de las reuniones del CRM.
 RUN apt-get update && apt-get install -y \
     libpq-dev gcc g++ curl \
     tesseract-ocr tesseract-ocr-spa poppler-utils \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

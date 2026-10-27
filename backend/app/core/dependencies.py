@@ -81,6 +81,25 @@ async def require_conductor(current_user: Usuario = Depends(get_current_user)) -
     return current_user
 
 
+def require_permiso_perfil(clave: str):
+    """
+    Exige el permiso de perfil `clave` en la API, no solo en la pantalla.
+
+    A diferencia de `require_module_permission`, aquí no hay atajo para
+    SUPERVISOR ni OPERADOR: el permiso sale del perfil asignado (rol_id) y
+    solo ADMINISTRADOR se lo salta. El módulo contratado lo hace cumplir antes
+    auth_global, por el prefijo de la ruta.
+    """
+    async def _check(current_user: Usuario = Depends(get_current_user)) -> Usuario:
+        if current_user.rol == RolUsuario.ADMINISTRADOR or current_user.permisos.get(clave, False):
+            return current_user
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Su perfil no tiene permiso para esta función.",
+        )
+    return _check
+
+
 def require_module_permission(module: str):
     """
     Verifica acceso a un módulo específico.

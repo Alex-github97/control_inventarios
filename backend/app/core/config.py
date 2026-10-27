@@ -62,6 +62,15 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "uploads"
     MAX_UPLOAD_SIZE_MB: int = 10
 
+    # Asistente de reuniones del CRM. Sin clave, la función responde que no
+    # está configurada en vez de fallar a mitad de una reunión. Los modelos van
+    # en variables porque OpenAI los renombra y retira (los gpt-4o-*transcribe
+    # se apagan el 26 de febrero de 2027).
+    OPENAI_API_KEY: str = ""
+    OPENAI_MODELO_TRANSCRIPCION: str = "gpt-transcribe"
+    OPENAI_MODELO_VIVO: str = "gpt-live-transcribe"
+    OPENAI_MODELO_EXTRACCION: str = "gpt-6-astra"
+
     SAP_HOST: str = ""
     SAP_PORT: int = 443
     SAP_CLIENT: str = "100"

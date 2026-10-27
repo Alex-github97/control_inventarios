@@ -235,6 +235,8 @@ const CRMCotizaciones = React.lazy(() => import('@/pages/CRMCotizaciones'))
 const CRMContratos = React.lazy(() => import('@/pages/CRMContratos'))
 const CRMTickets = React.lazy(() => import('@/pages/CRMTickets'))
 const CRMInteracciones = React.lazy(() => import('@/pages/CRMInteracciones'))
+const CRMReuniones = React.lazy(() => import('@/pages/CRMReuniones'))
+const CRMReunion = React.lazy(() => import('@/pages/CRMReunion'))
 const CRMCampanas = React.lazy(() => import('@/pages/CRMCampanas'))
 const CRMEncuestas = React.lazy(() => import('@/pages/CRMEncuestas'))
 const CRMCuentasClave = React.lazy(() => import('@/pages/CRMCuentasClave'))
@@ -673,6 +675,8 @@ export default function App() {
             <Route path="/crm/contratos" element={<ProtectedRoute><CRMContratos /></ProtectedRoute>} />
             <Route path="/crm/tickets" element={<ProtectedRoute><CRMTickets /></ProtectedRoute>} />
             <Route path="/crm/interacciones" element={<ProtectedRoute><CRMInteracciones /></ProtectedRoute>} />
+            <Route path="/crm/reuniones" element={<ProtectedRoute><CRMReuniones /></ProtectedRoute>} />
+            <Route path="/crm/reuniones/:id" element={<ProtectedRoute><CRMReunion /></ProtectedRoute>} />
             <Route path="/crm/campanas" element={<ProtectedRoute><CRMCampanas /></ProtectedRoute>} />
             <Route path="/crm/encuestas" element={<ProtectedRoute><CRMEncuestas /></ProtectedRoute>} />
             <Route path="/crm/cuentas-clave" element={<ProtectedRoute><CRMCuentasClave /></ProtectedRoute>} />

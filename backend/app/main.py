@@ -2395,8 +2395,13 @@ async def lifespan(app: FastAPI):
     import asyncio
     from app.core import wms_ciclo_tareas
     tarea_bodega = asyncio.create_task(wms_ciclo_tareas.ciclo())
+    # Reuniones del CRM: transcripción, extracción y retención del audio. La
+    # cola se reparte entre los procesos con SKIP LOCKED (core/reuniones/cola.py).
+    from app.core.reuniones import cola as cola_reuniones
+    tarea_reuniones = asyncio.create_task(cola_reuniones.ciclo())
     yield
     tarea_bodega.cancel()
+    tarea_reuniones.cancel()
     await engine.dispose()
 
 
