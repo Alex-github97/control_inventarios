@@ -51,12 +51,28 @@ jobs:
     timeout-minutes: 30
     environment: produccion
     steps:
+      # La llave puede venir de dos formas: el texto de siempre
+      # (-----BEGIN OPENSSH PRIVATE KEY-----…) o en una sola línea en base64,
+      # que es lo más seguro de copiar desde la terminal del navegador de
+      # Lightsail (esa terminal mete saltos y espacios que dañan la llave).
       - name: Llave y huella del servidor
+        env:
+          LLAVE: ${{ secrets.SERVIDOR_LLAVE }}
+          HUELLA: ${{ secrets.SERVIDOR_HUELLA }}
         run: |
           install -m 700 -d ~/.ssh
-          printf '%s\n' "${{ secrets.SERVIDOR_LLAVE }}" > ~/.ssh/despliegue
+          limpia="$(printf '%s' "$LLAVE" | tr -d '\r')"
+          if printf '%s' "$limpia" | grep -q 'BEGIN OPENSSH PRIVATE KEY'; then
+            printf '%s\n' "$limpia" | sed 's/[[:space:]]*$//' | grep -v '^$' > ~/.ssh/despliegue
+          else
+            printf '%s' "$limpia" | tr -d ' \n\t' | base64 -d > ~/.ssh/despliegue
+          fi
           chmod 600 ~/.ssh/despliegue
-          printf '%s\n' "${{ secrets.SERVIDOR_HUELLA }}" > ~/.ssh/known_hosts
+          if ! ssh-keygen -y -f ~/.ssh/despliegue > /dev/null 2>&1; then
+            echo "::error::El secreto SERVIDOR_LLAVE no es una llave válida. Vuelva a copiarla (ver deploy/ASISTENTE_REUNIONES.md o docs/TAREAS_PENDIENTES.md)."
+            exit 1
+          fi
+          printf '%s\n' "$HUELLA" | tr -d '\r' > ~/.ssh/known_hosts
 
       - name: Actualizar el servidor
         run: |
