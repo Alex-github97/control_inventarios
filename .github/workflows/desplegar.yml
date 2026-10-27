@@ -34,11 +34,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # En la misma imagen que compila en el servidor (node:20-alpine): el
+      # package-lock trae el empaquetador para Alpine (musl) y no el de Ubuntu,
+      # así que compilar directo en el runner falla aunque el código esté bien.
       - name: Frontend (tipos y compilación)
-        working-directory: frontend
         run: |
-          npm ci --no-audit --no-fund
-          npm run build
+          docker run --rm -v "$PWD/frontend:/app" -w /app node:20-alpine \
+            sh -c "npm ci --no-audit --no-fund && npm run build"
 
       - name: Backend (sintaxis)
         run: python3 -m compileall -q backend/app
