@@ -18,10 +18,23 @@ Bloquea todo lo demás: mientras no se apruebe un despliegue, ningún cambio lle
 
 - [ ] 1.1 **Destrabar la cola de despliegues.** En GitHub Actions hay un despliegue de `447c111` esperando aprobación desde el 27 de octubre, y los nuevos se encolan detrás. Aprobarlo despliega lo último de `main`, porque el guion siempre trae la rama actualizada. Después aprobar también el de `af40d7c`. Se verifica cuando `git log -1` en `/opt/tittanware` muestra el último commit de `main` y la landing ya no muestra precios.
 - [ ] 1.2 **Recuperar los datos de producción de Hostinger.** El servidor `45.80.153.11` no responde desde el 27 de octubre. Revisar en hPanel si está apagado, suspendido o vencido, y si tiene *snapshots*. Con acceso, restaurar en AWS la base de datos, `uploads/` y el `data/` del clon de TarifaX. Se verifica cuando los usuarios reales entran en `app.tittanware.com` con su clave de siempre.
-- [ ] 1.3 **Respaldo nocturno en AWS.** Programar `deploy/respaldo.sh` en el cron del usuario `deploy` y copiar los respaldos fuera del servidor, por ejemplo a S3. Hoy en AWS solo existen los respaldos previos a cada despliegue. Se verifica cuando al día siguiente hay un `.dump` completo y uno por empresa en `backups/` y en el destino externo.
-- [ ] 1.4 **Clave de OpenAI.** Ponerla en `.env.prod`, directo en el servidor y nunca en el repositorio ni en un chat, y volver a desplegar. Se verifica con `GET /api/v1/crm/reuniones/config`, que debe devolver `ia_configurada: true`.
-- [ ] 1.5 **Dominio `.tech` y TarifaX.** Cuando se decida, apuntar `tittanware.tech`, `administrador.tittanware.tech`, `servidor.tittanware.tech` y `tarifax-icoltrans.site` a `18.227.156.163`, borrando los registros AAAA viejos. Después, emitir sus certificados (hoy TarifaX tiene uno provisional) y generar `deploy/entrada-tarifax.js` con la cuenta de pruebas. Esto último requiere la tarea 1.2. Se verifica cuando cada dominio abre con HTTPS válido.
-- [ ] 1.6 **Archivos sueltos.** Decidir qué hacer con `frontend/tools/diag2.cjs` y `backend/_ul`. El primero tiene una contraseña de producción y no debe subirse nunca. Se verifica cuando `git status` queda limpio.
+**Respaldos, en tres niveles.** Hoy en AWS solo existen los respaldos que se toman antes de cada despliegue. Cada nivel cubre un desastre distinto: un borrado de datos, perder el servidor, y perder la cuenta de AWS.
+
+- [ ] 1.3 **Nivel 1: respaldo diario en el servidor.** Programar `deploy/respaldo.sh` a las 2:00 a. m. en el cron del usuario `deploy`, con su registro en `/var/log/respaldo.log`. Guarda un `.dump` completo y uno por empresa en `/opt/tittanware/backups` y conserva 14 días. Sirve para recuperar rápido un borrado o un error de datos, pero se pierde si se pierde el servidor. Se verifica cuando al día siguiente están los archivos de esa noche y el registro termina en «listo».
+- [ ] 1.4 **Nivel 2: copia externa en un bucket de Lightsail.**
+  - Crear el bucket `tittanware-respaldos` en **Storage → Create bucket**, región Ohio, plan más pequeño.
+  - Activar el **versionado** y una regla que borre lo de más de 90 días.
+  - Crear una llave de acceso que **solo pueda subir**, y guardarla únicamente en el servidor, nunca en el repositorio ni en un chat.
+  - Agregar al final de `respaldo.sh` la subida de los archivos de la noche.
+
+  Así los respaldos sobreviven aunque el servidor se borre, se dañe o lo ataquen, y quien entre al servidor no puede borrarlos. Se verifica cuando los archivos de la noche aparecen en el bucket y un intento de borrarlos con la llave del servidor es rechazado.
+- [ ] 1.5 **Nivel 3: snapshots automáticos de Lightsail.** En la instancia `Debian-1`, pestaña **Snapshots**, activar **Automatic snapshots**: una copia diaria del disco completo, que conserva las 7 últimas. Permite levantar el servidor entero tal como estaba, con Docker, `.env.prod`, certificados y archivos subidos. Hacer lo mismo con el servidor del bot cuando exista (tarea 4.1). Se verifica cuando al día siguiente aparece un snapshot automático en la lista.
+- [ ] 1.6 **Prueba de restauración.** Bajar el último respaldo del bucket y restaurarlo en una base temporal, en un contenedor de Postgres aparte, nunca sobre producción. Comprobar que están todas las empresas y que el número de registros de algunas tablas clave coincide con producción. Repetirla una vez al mes y anotar la fecha en `deploy/`. Se verifica cuando la restauración termina sin errores y los conteos coinciden.
+- [ ] 1.7 **(Opcional) Copia semanal fuera de AWS.** Los niveles 2 y 3 dependen de la misma cuenta de AWS; si esa cuenta se bloquea o se compromete, se pierden todos. Mandar cada semana una copia a la OneDrive de la empresa, **cifrada antes de salir**, porque los respaldos contienen datos personales de clientes y empleados. La llave para descifrarla se guarda fuera del servidor. Se verifica descargando una copia de OneDrive y descifrándola con éxito.
+
+- [ ] 1.8 **Clave de OpenAI.** Ponerla en `.env.prod`, directo en el servidor y nunca en el repositorio ni en un chat, y volver a desplegar. Se verifica con `GET /api/v1/crm/reuniones/config`, que debe devolver `ia_configurada: true`.
+- [ ] 1.9 **Dominio `.tech` y TarifaX.** Cuando se decida, apuntar `tittanware.tech`, `administrador.tittanware.tech`, `servidor.tittanware.tech` y `tarifax-icoltrans.site` a `18.227.156.163`, borrando los registros AAAA viejos. Después, emitir sus certificados (hoy TarifaX tiene uno provisional) y generar `deploy/entrada-tarifax.js` con la cuenta de pruebas. Esto último requiere la tarea 1.2. Se verifica cuando cada dominio abre con HTTPS válido.
+- [ ] 1.10 **Archivos sueltos.** Decidir qué hacer con `frontend/tools/diag2.cjs` y `backend/_ul`. El primero tiene una contraseña de producción y no debe subirse nunca. Se verifica cuando `git status` queda limpio.
 
 ## 2. Landing sin precios (cambio de Anderson)
 
@@ -32,7 +45,7 @@ Depende de 1.1.
 
 ## 3. Asistente de reuniones: cerrar la fase 1
 
-Depende de 1.1 y 1.4.
+Depende de 1.1 y 1.8.
 
 - [ ] 3.1 **Ver el texto en vivo con la clave real** `[reuniones 3.6]`. Grabar una reunión con «Texto en vivo» activado y comprobar que el texto aparece mientras se habla. Que la grabación siga si el texto en vivo falla ya está probado.
 - [ ] 3.2 **Medir el costo de 20 reuniones internas** `[reuniones 5.2]`, en minutos transcritos y tokens según el panel de OpenAI. Anotarlo en `deploy/ASISTENTE_REUNIONES.md` y fijar `tope_minutos_mes` por empresa.
@@ -40,7 +53,7 @@ Depende de 1.1 y 1.4.
 
 ## 4. Asistente de reuniones: fase 2, bot para Meet y Teams
 
-El código ya está hecho y probado contra un Vexa simulado (`af40d7c`). Falta la infraestructura y la prueba real. Depende de 1.4.
+El código ya está hecho y probado contra un Vexa simulado (`af40d7c`). Falta la infraestructura y la prueba real. Depende de 1.8.
 
 - [ ] 4.1 **Crear el servidor del bot** en Lightsail: Ubuntu 24.04, 8 GB, Ohio, solo el puerto 22, con la llave de despliegue. Abrir el 18056 únicamente para la IP privada de la plataforma. Se verifica cuando desde el backend de la plataforma responde `curl http://<ip-privada>:18056`.
 - [ ] 4.2 **Instalar Vexa 0.12** `[reuniones 6.1]` con `make all` y configurar su transcripción con la clave de OpenAI (`TRANSCRIPTION_SERVICE_URL`, `TRANSCRIPTION_SERVICE_TOKEN` y `TRANSCRIPTION_MODEL`). Poner `VEXA_URL` y `VEXA_API_KEY` en el `.env.prod` de la plataforma. Confirmar con una reunión real que Vexa entrega la grabación y los tramos con hablante, y anotar el resultado en `design.md`.
