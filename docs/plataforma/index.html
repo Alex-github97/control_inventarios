@@ -1,0 +1,1090 @@
+<title>Manual técnico TittanWare</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: barra lateral casi negra como la de la plataforma, contenido en columna de lectura,
+   un solo acento azul para lo navegable. Monocromo de la marca TittanWare + color solo para estados. */
+:root {
+  --abismo: #0D0D0D;
+  --tinta: #1A1A1A;
+  --grafito: #4D4D4D;
+  --acero: #8C8C8C;
+  --niebla: #E5E5E5;
+  --bruma: #F7F7F7;
+  --lienzo: #FFFFFF;
+  --acento: #2F6FEB;
+  --acento-profundo: #1B4FB8;
+  --acento-claro: #7BA4F5;
+  --vapor: #EAF1FE;
+  --exito: #16A34A;
+  --alerta: #B45309;
+  --peligro: #DC2626;
+
+  /* Roles */
+  --bg: var(--bruma);
+  --surface: var(--lienzo);
+  --surface-2: #F1F1F1;
+  --text: var(--tinta);
+  --text-2: var(--grafito);
+  --text-3: #6E6E6E;
+  --line: var(--niebla);
+  --link: var(--acento);
+  --tint: var(--vapor);
+  --code-bg: #111214;
+  --code-text: #E6E6E6;
+  --code-comment: #8A8F98;
+  --code-key: #7BA4F5;
+  --code-str: #A6D49F;
+  --side-bg: var(--tinta);
+  --side-text: rgba(255,255,255,.72);
+  --side-muted: rgba(255,255,255,.42);
+  --side-active: #7BA4F5;
+  --side-line: rgba(255,255,255,.08);
+  --warn-bg: #FFF7EB;
+  --warn-line: #F3D9AE;
+
+  --f-display: "Montserrat", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px; --s-6: 32px; --s-7: 48px; --s-8: 72px;
+  --side-w: 272px;
+  --measure: 70ch;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0F1012;
+    --surface: #17181B;
+    --surface-2: #1E2024;
+    --text: #E9E9EA;
+    --text-2: #B9BBC0;
+    --text-3: #8E9198;
+    --line: #2A2C31;
+    --link: #7BA4F5;
+    --tint: #16213A;
+    --code-bg: #0A0B0D;
+    --side-bg: #0A0A0B;
+    --side-line: rgba(255,255,255,.07);
+    --warn-bg: #2A2112;
+    --warn-line: #4A3A1E;
+    --alerta: #F0B35A;
+    --exito: #4ADE80;
+    --peligro: #F87171;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0F1012;
+  --surface: #17181B;
+  --surface-2: #1E2024;
+  --text: #E9E9EA;
+  --text-2: #B9BBC0;
+  --text-3: #8E9198;
+  --line: #2A2C31;
+  --link: #7BA4F5;
+  --tint: #16213A;
+  --code-bg: #0A0B0D;
+  --side-bg: #0A0A0B;
+  --side-line: rgba(255,255,255,.07);
+  --warn-bg: #2A2112;
+  --warn-line: #4A3A1E;
+  --alerta: #F0B35A;
+  --exito: #4ADE80;
+  --peligro: #F87171;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; } }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 400 16px/1.65 var(--f-body);
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--link); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; border-radius: 4px; }
+code, kbd { font-family: var(--f-mono); font-size: .86em; }
+:not(pre) > code { background: var(--surface-2); border: 1px solid var(--line); padding: 1px 6px; border-radius: 5px; white-space: nowrap; }
+
+/* ── Estructura ─────────────────────────────── */
+.shell { display: grid; grid-template-columns: var(--side-w) minmax(0, 1fr); min-height: 100vh; }
+
+.side {
+  position: sticky; top: env(safe-area-inset-top, 0px);
+  height: calc(100vh - env(safe-area-inset-top, 0px));
+  overflow-y: auto;
+  background: var(--side-bg);
+  color: var(--side-text);
+  padding-block: var(--s-5);
+  padding-left: max(20px, env(safe-area-inset-left, 0px));
+  padding-right: 20px;
+  display: flex; flex-direction: column; gap: var(--s-5);
+  border-right: 1px solid var(--side-line);
+}
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand .mark {
+  width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--acento) 0%, var(--acento-profundo) 100%);
+  border: 1px solid rgba(255,255,255,.16);
+  display: grid; place-items: center;
+  font: 800 11px/1 var(--f-display); color: #fff; letter-spacing: .02em;
+}
+.brand .word { font: 700 11px/1.2 var(--f-display); letter-spacing: .22em; color: rgba(255,255,255,.88); }
+.brand .sub { display: block; font: 500 11px/1.4 var(--f-body); letter-spacing: 0; color: var(--side-muted); margin-top: 3px; }
+
+.view-switch { display: grid; gap: 6px; }
+.view-switch .lbl { font: 600 10px/1 var(--f-display); letter-spacing: .14em; text-transform: uppercase; color: var(--side-muted); }
+.seg { display: grid; grid-template-columns: 1fr 1fr; background: rgba(255,255,255,.06); border: 1px solid var(--side-line); border-radius: 9px; padding: 3px; }
+.seg button {
+  font: 600 12px/1 var(--f-display); color: var(--side-text); background: transparent; border: 0;
+  padding: 8px 6px; border-radius: 6px; cursor: pointer;
+}
+.seg button[aria-pressed="true"] { background: rgba(123,164,245,.16); color: #fff; box-shadow: inset 0 0 0 1px rgba(123,164,245,.35); }
+.view-switch .hint { font-size: 12px; line-height: 1.45; color: var(--side-muted); }
+
+.nav { display: flex; flex-direction: column; gap: var(--s-4); }
+.nav .grp { font: 600 10px/1 var(--f-display); letter-spacing: .14em; text-transform: uppercase; color: var(--side-muted); margin-bottom: 6px; }
+.nav ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+.nav a {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  color: var(--side-text); text-decoration: none; font-size: 14px;
+  padding: 6px 10px; border-radius: 7px; border-left: 2px solid transparent;
+}
+.nav a:hover { background: rgba(255,255,255,.05); color: #fff; }
+.nav a.on { color: #fff; background: rgba(123,164,245,.10); border-left-color: var(--side-active); }
+.nav a .tag { font: 600 9px/1 var(--f-display); letter-spacing: .08em; text-transform: uppercase; color: var(--side-muted); border: 1px solid var(--side-line); padding: 3px 5px; border-radius: 4px; }
+.side .foot { margin-top: auto; font-size: 12px; color: var(--side-muted); line-height: 1.5; }
+
+.main {
+  min-width: 0;
+  padding-block: var(--s-7) var(--s-8);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.col { max-width: 860px; margin-inline: auto; padding-inline: clamp(0px, 3vw, 32px); }
+
+/* ── Tipografía ─────────────────────────────── */
+h1, h2, h3, h4 { font-family: var(--f-display); color: var(--text); text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(32px, 4.6vw, 46px); line-height: 1.08; font-weight: 800; letter-spacing: -.02em; }
+h2 { font-size: 27px; line-height: 1.2; font-weight: 700; letter-spacing: -.01em; }
+h3 { font-size: 18px; line-height: 1.35; font-weight: 700; }
+h4 { font-size: 13px; line-height: 1.3; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-2); }
+p { margin: 0; max-width: var(--measure); }
+.eyebrow { font: 600 11px/1 var(--f-display); letter-spacing: .16em; text-transform: uppercase; color: var(--text-3); }
+.lede { font-size: 19px; line-height: 1.6; color: var(--text-2); }
+.muted { color: var(--text-3); }
+.small { font-size: 14px; }
+
+/* ── Secciones ─────────────────────────────── */
+.hero { display: grid; gap: var(--s-5); padding-bottom: var(--s-7); border-bottom: 1px solid var(--line); }
+.hero .meta { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: var(--text-3); }
+.hero .meta span { display: inline-flex; align-items: center; gap: 6px; }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--exito); display: inline-block; }
+
+.figures { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 12px; background: var(--surface); overflow: hidden; }
+.figures div { padding: 18px 20px; display: grid; gap: 4px; }
+.figures div + div { border-left: 1px solid var(--line); }
+.figures b { font: 700 28px/1.1 var(--f-display); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.figures span { font-size: 13px; color: var(--text-3); line-height: 1.4; }
+
+section.doc { padding-top: var(--s-8); display: grid; gap: var(--s-4); }
+section.doc > header { display: grid; gap: 10px; margin-bottom: var(--s-2); }
+section.doc h3 { margin-top: var(--s-4); }
+.int-badge {
+  display: inline-flex; align-items: center; gap: 6px; width: fit-content;
+  font: 600 10px/1 var(--f-display); letter-spacing: .12em; text-transform: uppercase;
+  color: var(--alerta); background: var(--warn-bg); border: 1px solid var(--warn-line);
+  padding: 5px 8px; border-radius: 5px;
+}
+body.vista-cliente [data-audiencia="equipo"] { display: none !important; }
+
+ul.plain, ol.plain { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; max-width: var(--measure); }
+ul.plain li::marker { color: var(--acero); }
+
+/* Bloques de nota */
+.note {
+  border: 1px solid var(--line); background: var(--surface);
+  border-radius: 10px; padding: 14px 18px; display: grid; gap: 4px; max-width: 76ch;
+}
+.note.why { background: var(--tint); border-color: transparent; }
+.note .k { font: 700 11px/1.2 var(--f-display); letter-spacing: .12em; text-transform: uppercase; color: var(--link); }
+.note.warn { background: var(--warn-bg); border-color: var(--warn-line); }
+.note.warn .k { color: var(--alerta); }
+blockquote { margin: 0; padding: 2px 0 2px 18px; border-left: 2px solid var(--acero); color: var(--text-2); font-style: italic; max-width: 70ch; }
+blockquote cite { display: block; margin-top: 6px; font-style: normal; font-size: 13px; color: var(--text-3); }
+
+/* Código */
+.code { background: var(--code-bg); border-radius: 10px; overflow: hidden; border: 1px solid rgba(255,255,255,.06); }
+.code .bar { display: flex; justify-content: space-between; gap: 12px; padding: 9px 14px; border-bottom: 1px solid rgba(255,255,255,.07); font: 500 12px/1.2 var(--f-mono); color: #9AA0A8; }
+.code pre { margin: 0; padding: 14px 16px; overflow-x: auto; font: 400 13px/1.65 var(--f-mono); color: var(--code-text); tab-size: 4; }
+.code .c { color: var(--code-comment); }
+.code .k { color: var(--code-key); }
+.code .s { color: var(--code-str); }
+
+/* Tablas */
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 11px/1.2 var(--f-display); letter-spacing: .1em; text-transform: uppercase; color: var(--text-3); background: var(--surface-2); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td code { font-size: 12px; }
+td.k { font-family: var(--f-mono); font-size: 13px; color: var(--link); white-space: nowrap; }
+td .pfx { display: flex; flex-wrap: wrap; gap: 4px; }
+.pill { display: inline-block; font: 600 10px/1 var(--f-display); letter-spacing: .06em; text-transform: uppercase; padding: 4px 7px; border-radius: 99px; white-space: nowrap; }
+.pill.base { color: var(--exito); background: color-mix(in srgb, var(--exito) 14%, transparent); }
+.pill.off { color: var(--alerta); background: var(--warn-bg); border: 1px solid var(--warn-line); }
+
+/* Diagrama */
+.figure { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 18px; display: grid; gap: 12px; }
+.figure .scroll { overflow-x: auto; }
+.figure svg { display: block; min-width: 760px; width: 100%; height: auto; }
+.figure figcaption { font-size: 13px; color: var(--text-3); }
+svg .box { fill: var(--surface-2); stroke: var(--line); stroke-width: 1; }
+svg .box-acc { fill: var(--tint); stroke: var(--acento); stroke-width: 1.2; }
+svg .box-dark { fill: var(--tinta); stroke: var(--tinta); }
+svg .t { fill: var(--text); font: 600 13px var(--f-display); }
+svg .t2 { fill: var(--text-3); font: 400 11.5px var(--f-body); }
+svg .tw { fill: #fff; font: 600 12.5px var(--f-display); }
+svg .tw2 { fill: rgba(255,255,255,.62); font: 400 11px var(--f-mono); }
+svg .tm { fill: var(--text-2); font: 400 11px var(--f-mono); }
+svg .lbl { fill: var(--text-3); font: 600 10px var(--f-display); letter-spacing: .12em; }
+svg .ln { stroke: var(--acero); stroke-width: 1.3; fill: none; }
+svg .ln-acc { stroke: var(--acento); stroke-width: 1.5; fill: none; }
+svg .ar { fill: var(--acero); }
+svg .ar-acc { fill: var(--acento); }
+
+/* Flujo de la petición */
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; counter-reset: paso; max-width: 76ch; }
+.steps li { counter-increment: paso; display: grid; grid-template-columns: 36px 1fr; gap: 14px; padding-bottom: 20px; position: relative; }
+.steps li::before {
+  content: counter(paso); width: 28px; height: 28px; border-radius: 50%;
+  display: grid; place-items: center; font: 700 12px/1 var(--f-display);
+  background: var(--surface); color: var(--link); border: 1.5px solid var(--acento); z-index: 1;
+}
+.steps li:not(:last-child)::after { content: ""; position: absolute; left: 13.5px; top: 30px; bottom: 0; width: 1.5px; background: var(--line); }
+.steps h3 { margin: 2px 0 4px; font-size: 16px; }
+.steps p { color: var(--text-2); font-size: 15px; }
+.steps .fail { margin-top: 6px; font-size: 13.5px; color: var(--text-3); }
+.steps .fail b { color: var(--peligro); font-family: var(--f-mono); font-weight: 500; }
+
+/* Capas de permisos */
+.layers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.layer { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 16px 18px; display: grid; gap: 8px; align-content: start; }
+.layer .who { font: 600 11px/1.2 var(--f-display); letter-spacing: .1em; text-transform: uppercase; color: var(--text-3); }
+.layer h3 { margin: 0; font-size: 16px; }
+.layer p { font-size: 14.5px; color: var(--text-2); }
+.layer .where { font: 400 12px/1.4 var(--f-mono); color: var(--link); }
+
+/* Motores */
+.engines { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; border-top: 1px solid var(--line); }
+.engine { padding: 18px 20px 20px 0; border-bottom: 1px solid var(--line); display: grid; gap: 6px; align-content: start; }
+.engine:nth-child(odd) { padding-right: 24px; border-right: 1px solid var(--line); }
+.engine:nth-child(even) { padding-left: 24px; }
+.engine .mod { font: 600 10px/1 var(--f-display); letter-spacing: .14em; text-transform: uppercase; color: var(--text-3); }
+.engine h3 { margin: 0; font-size: 16.5px; }
+.engine p { font-size: 14.5px; color: var(--text-2); }
+.engine .src { font: 400 12px/1.4 var(--f-mono); color: var(--text-3); }
+.formula { font: 500 12.5px/1.6 var(--f-mono); background: var(--surface-2); border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; color: var(--text); overflow-x: auto; white-space: nowrap; }
+
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.card { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 18px 20px; display: grid; gap: 8px; align-content: start; }
+.card p { font-size: 14.5px; color: var(--text-2); }
+
+.pipeline { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; }
+.pipeline .st { flex: 1 1 170px; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 14px 16px; display: grid; gap: 4px; }
+.pipeline .st b { font: 700 14px/1.3 var(--f-display); }
+.pipeline .st span { font-size: 13.5px; color: var(--text-2); line-height: 1.5; }
+.pipeline .st.gate { border-color: var(--acento); background: var(--tint); }
+.pipeline .arrow { align-self: center; color: var(--acero); font: 600 16px var(--f-display); }
+
+.end { margin-top: var(--s-8); padding-top: var(--s-5); border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--text-3); }
+
+/* ── Responsive ─────────────────────────────── */
+.mobile-bar { display: none; }
+@media (max-width: 980px) {
+  .shell { grid-template-columns: 1fr; }
+  .side { display: none; }
+  .mobile-bar {
+    display: flex; position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+    align-items: center; justify-content: space-between; gap: 12px;
+    background: var(--side-bg); color: #fff;
+    padding-block: 10px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--side-bg); }
+  .mobile-bar .seg { width: 168px; }
+  .main { padding-block: var(--s-6) var(--s-7); }
+  .figures { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .figures div:nth-child(3) { border-left: 0; }
+  .figures div:nth-child(n+3) { border-top: 1px solid var(--line); }
+  .layers { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .engines, .two { grid-template-columns: 1fr; }
+  .engine, .engine:nth-child(odd), .engine:nth-child(even) { padding: 16px 0; border-right: 0; }
+  h2 { font-size: 23px; }
+  .lede { font-size: 17px; }
+  .pipeline .arrow { display: none; }
+  .mobile-bar .brand .word { display: none; }
+}
+</style>
+
+<div class="mobile-bar">
+  <div class="brand"><div class="mark">TW</div><div class="word">TITTANWARE</div></div>
+  <div class="seg" role="group" aria-label="Vista del manual">
+    <button type="button" id="vm-equipo" data-vista="equipo" aria-pressed="true">Equipo</button>
+    <button type="button" id="vm-cliente" data-vista="cliente" aria-pressed="false">Cliente</button>
+  </div>
+</div>
+
+<div class="shell">
+  <aside class="side" aria-label="Navegación del manual">
+    <div class="brand">
+      <div class="mark">TW</div>
+      <div><div class="word">TITTANWARE</div><span class="sub">Manual técnico de la plataforma</span></div>
+    </div>
+
+    <div class="view-switch">
+      <span class="lbl">Vista</span>
+      <div class="seg" role="group" aria-label="Vista del manual">
+        <button type="button" id="v-equipo" data-vista="equipo" aria-pressed="true">Equipo</button>
+        <button type="button" id="v-cliente" data-vista="cliente" aria-pressed="false">Cliente</button>
+      </div>
+      <span class="hint" id="v-hint">Incluye despliegue, operación y estructura del repositorio.</span>
+    </div>
+
+    <nav class="nav">
+      <div>
+        <div class="grp">Plataforma</div>
+        <ul>
+          <li><a href="#inicio">Qué es TittanWare</a></li>
+          <li><a href="#arquitectura">Arquitectura</a></li>
+          <li><a href="#multicliente">Aislamiento por cliente</a></li>
+          <li><a href="#peticion">Recorrido de una petición</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="grp">Seguridad</div>
+        <ul>
+          <li><a href="#sesiones">Ingreso y sesiones</a></li>
+          <li><a href="#permisos">Permisos en tres capas</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="grp">Funcionalidad</div>
+        <ul>
+          <li><a href="#modulos">Catálogo de módulos</a></li>
+          <li><a href="#motores">Motores de cálculo</a></li>
+          <li><a href="#dispositivos">Dispositivos e integraciones</a></li>
+          <li><a href="#interfaz">Aplicaciones web</a></li>
+          <li><a href="#api">API REST</a></li>
+        </ul>
+      </div>
+      <div data-audiencia="equipo">
+        <div class="grp">Equipo</div>
+        <ul>
+          <li><a href="#despliegue">Despliegue y operación <span class="tag">Interno</span></a></li>
+          <li><a href="#desarrollo">Desarrollo local <span class="tag">Interno</span></a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <div class="foot">Generado desde el código fuente, rama <code>main</code>, octubre de 2026.</div>
+  </aside>
+
+  <main class="main" id="contenido">
+    <div class="col">
+
+      <!-- ─── Inicio ─────────────────────────── -->
+      <header class="hero" id="inicio">
+        <span class="eyebrow">Manual técnico · v2.3</span>
+        <h1>TittanWare: una plataforma, todos los procesos de la operación</h1>
+        <p class="lede">TittanWare reúne en una sola aplicación web la logística, el transporte, el mantenimiento, la producción, la calidad, el talento humano y las finanzas de una empresa. Cada cliente contrata los módulos que necesita y trabaja sobre su propia base de datos aislada.</p>
+        <div class="meta">
+          <span><span class="dot"></span>Python 3.12 · FastAPI · PostgreSQL 16</span>
+          <span>React 18 · TypeScript · Material UI</span>
+          <span>Despliegue en Docker</span>
+        </div>
+        <div class="figures" aria-label="La plataforma en cifras">
+          <div><b>20</b><span>módulos contratables, más el núcleo de acceso</span></div>
+          <div><b>≈2.000</b><span>operaciones en la API REST</span></div>
+          <div><b>273</b><span>pantallas en el portal web</span></div>
+          <div><b>416</b><span>tablas en el esquema de cada cliente</span></div>
+        </div>
+      </header>
+
+      <!-- ─── Arquitectura ───────────────────── -->
+      <section class="doc" id="arquitectura">
+        <header>
+          <span class="eyebrow">Plataforma</span>
+          <h2>Arquitectura</h2>
+          <p class="lede">Un frontend de una sola página habla con una API REST. La API guarda los datos de cada cliente en un esquema propio de PostgreSQL y las sesiones de usuario en Redis.</p>
+        </header>
+
+        <figure class="figure" style="margin:0">
+          <div class="scroll">
+            <svg viewBox="0 0 960 430" role="img" aria-labelledby="dg-t dg-d">
+              <title id="dg-t">Arquitectura de TittanWare</title>
+              <desc id="dg-d">Los clientes web y los dispositivos llegan por HTTPS a un proxy nginx. El proxy sirve el portal y reenvía la API a FastAPI, que pasa cada petición por el control de módulos, la resolución del cliente y la validación de sesión. FastAPI usa PostgreSQL con un esquema por cliente y Redis para las sesiones.</desc>
+              <defs>
+                <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ar"/></marker>
+                <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ar-acc"/></marker>
+              </defs>
+
+              <text x="20" y="22" class="lbl">QUIÉN ENTRA</text>
+              <rect x="20" y="36" width="190" height="52" rx="8" class="box"/>
+              <text x="34" y="58" class="t">Portal web</text><text x="34" y="76" class="t2">usuarios de cada empresa</text>
+              <rect x="20" y="98" width="190" height="52" rx="8" class="box"/>
+              <text x="34" y="120" class="t">Consola del operador</text><text x="34" y="138" class="t2">alta de empresas y módulos</text>
+              <rect x="20" y="160" width="190" height="52" rx="8" class="box"/>
+              <text x="34" y="182" class="t">Página pública</text><text x="34" y="200" class="t2">contenido y contacto</text>
+              <rect x="20" y="222" width="190" height="52" rx="8" class="box"/>
+              <text x="34" y="244" class="t">Portal del depositante</text><text x="34" y="262" class="t2">clientes de un 3PL</text>
+              <rect x="20" y="284" width="190" height="52" rx="8" class="box"/>
+              <text x="34" y="306" class="t">Dispositivos</text><text x="34" y="324" class="t2">cubicador, celular escáner</text>
+
+              <path d="M210 62 C 250 62, 250 186, 280 186" class="ln" marker-end="url(#a1)"/>
+              <path d="M210 124 C 245 124, 245 186, 280 186" class="ln"/>
+              <path d="M210 186 L 280 186" class="ln"/>
+              <path d="M210 248 C 245 248, 245 186, 280 186" class="ln"/>
+              <path d="M210 310 C 250 310, 250 186, 280 186" class="ln"/>
+
+              <text x="284" y="22" class="lbl">BORDE</text>
+              <rect x="284" y="146" width="130" height="80" rx="8" class="box"/>
+              <text x="298" y="172" class="t">nginx</text>
+              <text x="298" y="190" class="t2">termina TLS</text>
+              <text x="298" y="206" class="t2">sirve el portal</text>
+
+              <path d="M414 186 L 462 186" class="ln-acc" marker-end="url(#a2)"/>
+              <text x="420" y="178" class="tm">/api/v1</text>
+
+              <text x="466" y="22" class="lbl">API · FASTAPI</text>
+              <rect x="466" y="36" width="236" height="300" rx="10" class="box-acc"/>
+              <rect x="480" y="52" width="208" height="44" rx="7" class="box-dark"/>
+              <text x="492" y="70" class="tw">Control de módulos</text><text x="492" y="86" class="tw2">ModulosMiddleware</text>
+              <rect x="480" y="104" width="208" height="44" rx="7" class="box-dark"/>
+              <text x="492" y="122" class="tw">Resolución del cliente</text><text x="492" y="138" class="tw2">TenantMiddleware</text>
+              <rect x="480" y="156" width="208" height="44" rx="7" class="box-dark"/>
+              <text x="492" y="174" class="tw">Sesión obligatoria</text><text x="492" y="190" class="tw2">exigir_sesion</text>
+              <rect x="480" y="208" width="208" height="44" rx="7" class="box"/>
+              <text x="492" y="226" class="t">94 routers por dominio</text><text x="492" y="242" class="t2">app/api/v1/endpoints</text>
+              <rect x="480" y="260" width="208" height="62" rx="7" class="box"/>
+              <text x="492" y="280" class="t">Motores de cálculo</text><text x="492" y="296" class="t2">contable, APS, kárdex,</text><text x="492" y="311" class="t2">slotting, confiabilidad…</text>
+
+              <path d="M702 120 C 740 120, 740 92, 770 92" class="ln-acc" marker-end="url(#a2)"/>
+              <path d="M702 290 C 740 290, 740 330, 770 330" class="ln" marker-end="url(#a1)"/>
+
+              <text x="770" y="22" class="lbl">DATOS</text>
+              <rect x="770" y="36" width="172" height="232" rx="10" class="box"/>
+              <text x="784" y="58" class="t">PostgreSQL 16</text>
+              <rect x="784" y="70" width="144" height="40" rx="6" class="box-acc"/>
+              <text x="794" y="88" class="tm">public</text><text x="794" y="102" class="t2">registro de clientes</text>
+              <rect x="784" y="118" width="144" height="34" rx="6" class="box-acc"/>
+              <text x="794" y="140" class="tm">cli_alfa</text>
+              <rect x="784" y="160" width="144" height="34" rx="6" class="box-acc"/>
+              <text x="794" y="182" class="tm">cli_beta</text>
+              <rect x="784" y="202" width="144" height="34" rx="6" class="box-acc"/>
+              <text x="794" y="224" class="tm">cli_…</text>
+              <text x="784" y="256" class="t2">un esquema por cliente</text>
+
+              <rect x="770" y="298" width="172" height="64" rx="10" class="box"/>
+              <text x="784" y="322" class="t">Redis 7</text>
+              <text x="784" y="340" class="t2">base 1: sesiones activas</text>
+              <text x="784" y="354" class="t2">falla cerrado si no responde</text>
+
+              <text x="466" y="370" class="t2">Las tres primeras capas se aplican a toda petición, sin que cada ruta las declare.</text>
+              <text x="466" y="388" class="t2">Una ruta nueva nace protegida y aislada.</text>
+            </svg>
+          </div>
+          <figcaption>Los nombres <code>cli_alfa</code> y <code>cli_beta</code> son ilustrativos. El esquema real se forma con el código de cada cliente.</figcaption>
+        </figure>
+
+        <h3>Tecnologías</h3>
+        <div class="tbl">
+          <table>
+            <thead><tr><th>Capa</th><th>Tecnología</th><th>Para qué</th></tr></thead>
+            <tbody>
+              <tr><td>API</td><td>Python 3.12, FastAPI, Pydantic v2</td><td>Rutas REST, validación de entrada y salida, documentación OpenAPI automática.</td></tr>
+              <tr><td>Persistencia</td><td>SQLAlchemy 2.0 asíncrono, Alembic</td><td>Modelos ORM y migraciones, sobre PostgreSQL 16 con intercalación en español.</td></tr>
+              <tr><td>Sesiones</td><td>Redis 7</td><td>Sesiones del lado del servidor con cierre por inactividad.</td></tr>
+              <tr><td>Datos y analítica</td><td>pandas, openpyxl</td><td>Importación y exportación de Excel, cálculo estadístico y predictivo.</td></tr>
+              <tr><td>Portal web</td><td>React 18, TypeScript, Material UI v6, Vite</td><td>Aplicación de una sola página, con pantallas cargadas a demanda.</td></tr>
+              <tr><td>Estado en el navegador</td><td>TanStack Query v5, Zustand</td><td>Caché de consultas a la API y estado de autenticación.</td></tr>
+              <tr><td>Gráficas</td><td>Recharts</td><td>Tableros e indicadores de cada módulo.</td></tr>
+              <tr><td>Infraestructura</td><td>Docker Compose, nginx, GitHub Actions</td><td>Contenedores, terminación TLS y despliegue con aprobación.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ─── Multicliente ───────────────────── -->
+      <section class="doc" id="multicliente">
+        <header>
+          <span class="eyebrow">Plataforma</span>
+          <h2>Aislamiento por cliente</h2>
+          <p class="lede">Cada empresa cliente vive en su propio esquema de PostgreSQL, con su juego completo de tablas. Ninguna consulta de un módulo puede leer datos de otra empresa, porque desde su conexión esos datos no existen.</p>
+        </header>
+
+        <p>Al inicio de cada petición la API decide a qué cliente pertenece y fija el <code>search_path</code> de la conexión en el esquema de ese cliente. Desde ahí, el código de los módulos escribe consultas normales, sin filtros por empresa.</p>
+
+        <div class="note why">
+          <span class="k">Por qué un esquema y no una columna</span>
+          <p>La alternativa habitual es agregar una columna <code>tenant_id</code> a cada tabla y filtrar por ella en cada consulta. Con más de 400 tablas y cerca de dos mil rutas, bastaría un <code>WHERE</code> olvidado para exponer datos de otra empresa. Con un esquema por cliente ese olvido no es posible.</p>
+        </div>
+
+        <h3>De dónde sale el cliente</h3>
+        <p>El cliente viaja dentro del token de acceso, firmado por el servidor. No se toma de una cabecera ni de la URL: si se pudiera cambiar sin invalidar la firma, un usuario válido de una empresa podría pedir datos de otra.</p>
+
+        <div class="code">
+          <div class="bar"><span>backend/app/core/middleware_tenant.py</span><span>extracto</span></div>
+<pre><span class="k">class</span> TenantMiddleware(BaseHTTPMiddleware):
+    <span class="k">async def</span> dispatch(self, request, call_next):
+        fijar_esquema(None)
+        <span class="k">if not</span> any(ruta.startswith(p) <span class="k">for</span> p <span class="k">in</span> RUTAS_SIN_CLIENTE):
+            <span class="c"># El esquema sale del token firmado, claim "esq".</span>
+            esquema = decode_token(token).get(<span class="s">"esq"</span>)
+            fijar_esquema(esquema <span class="k">if</span> esquema <span class="k">and</span> codigo_valido(...)
+                          <span class="k">else</span> ESQUEMA_POR_DEFECTO)
+        <span class="k">try</span>:
+            <span class="k">return await</span> call_next(request)
+        <span class="k">finally</span>:
+            fijar_esquema(None)   <span class="c"># nada se filtra a la siguiente petición</span></pre>
+        </div>
+
+        <ul class="plain">
+          <li>El esquema de un cliente se llama <code>cli_&lt;código&gt;</code>. El cliente que existía antes de la plataforma multicliente conserva el esquema <code>public</code>.</li>
+          <li>El código solo admite minúsculas, dígitos y guion bajo, empieza por letra y tiene como máximo 40 caracteres. Así no hay forma de inyectar SQL por el nombre del esquema, que debe interpolarse porque <code>search_path</code> no admite parámetros.</li>
+          <li>El esquema activo se guarda en una <code>ContextVar</code>: cada petición asíncrona tiene el suyo y se limpia al terminar.</li>
+          <li>Lo que es común a la plataforma vive en <code>public</code>: el registro de clientes, sus módulos contratados, los pagos y las sesiones del celular como escáner.</li>
+        </ul>
+
+        <div class="note">
+          <span class="k">Consecuencias prácticas</span>
+          <p>Se puede respaldar, restaurar o mudar a un servidor distinto a una sola empresa sin tocar a las demás (<code>pg_dump -n cli_&lt;código&gt;</code>). Al dar de alta una empresa se crea su esquema y sus tablas en el momento.</p>
+        </div>
+      </section>
+
+      <!-- ─── Petición ───────────────────────── -->
+      <section class="doc" id="peticion">
+        <header>
+          <span class="eyebrow">Plataforma</span>
+          <h2>Recorrido de una petición</h2>
+          <p class="lede">Toda llamada a <code>/api/v1</code> pasa por las mismas comprobaciones, en este orden. Las tres primeras son globales: una ruta nueva las recibe sin declararlas.</p>
+        </header>
+
+        <ol class="steps">
+          <li>
+            <div>
+              <h3>nginx recibe la petición</h3>
+              <p>Termina el TLS, sirve los archivos del portal y reenvía a la API todo lo que empieza por <code>/api</code>. La base de datos y Redis no tienen puertos abiertos al exterior.</p>
+            </div>
+          </li>
+          <li>
+            <div>
+              <h3>Control de módulos contratados</h3>
+              <p>Se identifica el módulo por el prefijo de la ruta (gana el prefijo más largo) y se compara con lo que la empresa del token (<code>cli</code>) tiene contratado. Las rutas del núcleo de acceso siempre pasan.</p>
+              <p class="fail">Si no está contratado: <b>403</b> «Su empresa no tiene contratado el módulo…». Funciona igual aunque alguien escriba la URL a mano.</p>
+            </div>
+          </li>
+          <li>
+            <div>
+              <h3>Resolución del cliente</h3>
+              <p>Se lee el esquema del token (<code>esq</code>), se valida y se fija para la conexión a la base de datos de esta petición.</p>
+            </div>
+          </li>
+          <li>
+            <div>
+              <h3>Sesión obligatoria</h3>
+              <p>Todas las rutas exigen token salvo una lista pública explícita. El token debe estar vigente y su sesión (<code>sid</code>) debe seguir viva en Redis.</p>
+              <p class="fail">Sin token o con sesión cerrada: <b>401</b>. Si Redis no responde: <b>503</b> «No se pudo validar la sesión».</p>
+            </div>
+          </li>
+          <li>
+            <div>
+              <h3>Permisos de la ruta</h3>
+              <p>Cada ruta declara lo que pide: usuario autenticado, un rol (supervisor, administrador), un permiso de pantalla del perfil, o un permiso de la consola del operador.</p>
+              <p class="fail">Sin el permiso: <b>403</b> «Acceso denegado».</p>
+            </div>
+          </li>
+          <li>
+            <div>
+              <h3>Lógica de negocio</h3>
+              <p>El endpoint valida la entrada con Pydantic y delega en los motores de <code>app/core</code> lo que tiene reglas propias: contabilidad, inventario, planeación, facturación.</p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <!-- ─── Sesiones ───────────────────────── -->
+      <section class="doc" id="sesiones">
+        <header>
+          <span class="eyebrow">Seguridad</span>
+          <h2>Ingreso y sesiones</h2>
+          <p class="lede">El ingreso se hace en dos pasos: el usuario elige su empresa y luego se autentica. El servidor emite un token firmado atado a una sesión que vive en Redis.</p>
+        </header>
+
+        <div class="code">
+          <div class="bar"><span>Ingreso</span><span>HTTP</span></div>
+<pre><span class="c"># 1. Lista de empresas habilitadas (ruta pública)</span>
+GET  /api/v1/auth/clientes
+
+<span class="c"># 2. Autenticación contra la empresa elegida</span>
+POST /api/v1/auth/login
+X-Cliente: <span class="s">&lt;código de la empresa&gt;</span>
+{ <span class="s">"username"</span>: <span class="s">"…"</span>, <span class="s">"password"</span>: <span class="s">"…"</span> }
+
+<span class="c"># Respuesta</span>
+{
+  <span class="s">"access_token"</span>: <span class="s">"…"</span>,  <span class="s">"refresh_token"</span>: <span class="s">"…"</span>,  <span class="s">"token_type"</span>: <span class="s">"bearer"</span>,
+  <span class="s">"user"</span>: { … },
+  <span class="s">"modulos"</span>: [<span class="s">"base"</span>, <span class="s">"control"</span>, <span class="s">"wms"</span>],   <span class="c"># ["*"] = todos</span>
+  <span class="s">"es_operador"</span>: false,
+  <span class="s">"portal"</span>: null                           <span class="c"># o el depositante, en un 3PL</span>
+}
+
+<span class="c"># 3. Todas las demás llamadas</span>
+Authorization: Bearer &lt;access_token&gt;
+X-Inactividad: <span class="s">&lt;segundos desde la última interacción&gt;</span></pre>
+        </div>
+
+        <h3>Qué lleva el token</h3>
+        <div class="tbl">
+          <table>
+            <thead><tr><th>Claim</th><th>Contenido</th></tr></thead>
+            <tbody>
+              <tr><td class="k">sub</td><td>Identificador del usuario.</td></tr>
+              <tr><td class="k">cli</td><td>Código de la empresa. Lo usa el control de módulos.</td></tr>
+              <tr><td class="k">esq</td><td>Esquema de la base de datos de la empresa. Lo usa la resolución del cliente.</td></tr>
+              <tr><td class="k">usr</td><td>Nombre de usuario, para firmar registros sin consultar la base en cada petición.</td></tr>
+              <tr><td class="k">sid</td><td>Sesión del servidor a la que está atado el token.</td></tr>
+              <tr><td class="k">dep</td><td>Solo en el portal del depositante: limita la API a su propio portal.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Reglas de la sesión</h3>
+        <div class="two">
+          <div class="card">
+            <h4>Vencimiento</h4>
+            <p>La sesión se cierra tras <strong>10 minutos</strong> sin actividad de la persona y dura como máximo <strong>12 horas</strong> aunque se use sin parar.</p>
+            <p>Solo cuenta la actividad real: el navegador envía <code>X-Inactividad</code> con los segundos desde la última tecla, clic o toque. Las consultas automáticas de una pestaña abierta no la mantienen viva.</p>
+          </div>
+          <div class="card">
+            <h4>Cierre inmediato</h4>
+            <p>Salir, cambiar la clave, que un administrador la restablezca o que desactive al usuario cierra la sesión en el acto, aunque el token no haya vencido.</p>
+            <p>Las contraseñas se guardan con <strong>Argon2id</strong>. Las anteriores en bcrypt se convierten solas en el siguiente ingreso.</p>
+          </div>
+        </div>
+
+        <h3>Rutas públicas</h3>
+        <p>Son las únicas que responden sin token. Cualquier ruta que no esté en esta lista exige sesión.</p>
+        <div class="tbl">
+          <table>
+            <thead><tr><th>Ruta</th><th>Motivo</th></tr></thead>
+            <tbody>
+              <tr><td><code>/api/v1/auth/login</code>, <code>/auth/clientes</code></td><td>Todavía no hay sesión.</td></tr>
+              <tr><td><code>/api/v1/ags/publico</code></td><td>Reserva de citas por parte del cliente final.</td></tr>
+              <tr><td><code>/api/v1/landing/contenido</code>, <code>/landing/contacto</code></td><td>Página pública y formulario de contacto, con campo trampa y límite de envíos por IP.</td></tr>
+              <tr><td><code>/api/v1/plataforma/fallo-interfaz</code></td><td>Reporte de errores de pantalla. Solo escribe en la bitácora y no devuelve datos.</td></tr>
+              <tr><td><code>/health</code>, <code>/api/docs</code>, <code>/api/redoc</code></td><td>Salud del servicio y documentación de la API.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ─── Permisos ───────────────────────── -->
+      <section class="doc" id="permisos">
+        <header>
+          <span class="eyebrow">Seguridad</span>
+          <h2>Permisos en tres capas</h2>
+          <p class="lede">Para que una persona use una pantalla, su empresa debe tener el módulo contratado y su perfil debe darle acceso. Las dos condiciones se comprueban en el servidor en cada petición.</p>
+        </header>
+
+        <div class="layers">
+          <div class="layer">
+            <span class="who">La empresa</span>
+            <h3>Módulos contratados</h3>
+            <p>Qué partes de la plataforma puede usar la empresa. Se gestiona desde la consola del operador y tiene efecto inmediato.</p>
+            <span class="where">ModulosMiddleware</span>
+          </div>
+          <div class="layer">
+            <span class="who">La persona</span>
+            <h3>Perfil y rol</h3>
+            <p>Qué pantallas ve cada usuario dentro de su empresa. Un perfil solo puede abrir módulos que la empresa tenga contratados.</p>
+            <span class="where">require_module_permission(…)</span>
+          </div>
+          <div class="layer">
+            <span class="who">El operador</span>
+            <h3>Administración de la plataforma</h3>
+            <p>Dar de alta, editar o suspender empresas. Lo tiene solo la empresa marcada como operadora en el registro, fuera de cualquier esquema de cliente.</p>
+            <span class="where">exigir("empresas.crear")</span>
+          </div>
+        </div>
+
+        <div class="note why">
+          <span class="k">Por qué el operador se marca fuera del esquema</span>
+          <p>El rol <code>ADMINISTRADOR</code> existe dentro de cada empresa y administra solo esa empresa. Si la marca de operador viviera dentro del esquema de un cliente, ese cliente podría dársela a sí mismo y gestionar a los demás.</p>
+        </div>
+
+        <p class="small muted">Lo que el portal oculta según los módulos contratados es comodidad de interfaz. La decisión real la toma siempre el servidor.</p>
+      </section>
+
+      <!-- ─── Módulos ────────────────────────── -->
+      <section class="doc" id="modulos">
+        <header>
+          <span class="eyebrow">Funcionalidad</span>
+          <h2>Catálogo de módulos</h2>
+          <p class="lede">Cada módulo es una unidad de contratación y corresponde a uno o más prefijos de la API. Una empresa nueva arranca con el núcleo de acceso y Control de Estibas; el resto se activa según lo contratado.</p>
+        </header>
+
+        <div class="tbl">
+          <table>
+            <thead><tr><th>Clave</th><th>Módulo</th><th>Prefijos de la API</th></tr></thead>
+            <tbody>
+              <tr><td class="k">base</td><td>Acceso y administración <span class="pill base">Siempre incluido</span></td><td><div class="pfx"><code>/auth</code><code>/usuarios</code><code>/roles</code><code>/alertas</code><code>/proveedores</code><code>/catalogos</code><code>/plataforma</code></div></td></tr>
+              <tr><td class="k">control</td><td>Control de Estibas</td><td><div class="pfx"><code>/estibas</code><code>/movimientos</code><code>/manifiestos</code><code>/danos</code><code>/trazabilidad</code><code>/dashboard</code><code>/ubicaciones</code><code>/consultas</code><code>/scan-sessions</code></div></td></tr>
+              <tr><td class="k">wms</td><td>WMS · Almacenes</td><td><div class="pfx"><code>/wms</code></div></td></tr>
+              <tr><td class="k">tms</td><td>TMS · Transporte</td><td><div class="pfx"><code>/tms</code><code>/fletes</code></div></td></tr>
+              <tr><td class="k">tarifax</td><td>TarifaX · Motor de Tarifas</td><td><div class="pfx"><code>/tarifax</code></div></td></tr>
+              <tr><td class="k">eam</td><td>CMMS / EAM · Mantenimiento y flota</td><td><div class="pfx"><code>/eam</code><code>/mantenimiento</code><code>/lubricacion</code><code>/flota</code><code>/vehiculos</code></div></td></tr>
+              <tr><td class="k">mes</td><td>MES · Producción</td><td><div class="pfx"><code>/mes</code></div></td></tr>
+              <tr><td class="k">aps</td><td>APS · Planeación</td><td><div class="pfx"><code>/aps</code></div></td></tr>
+              <tr><td class="k">scm</td><td>SCM · Cadena de Suministro</td><td><div class="pfx"><code>/scm</code></div></td></tr>
+              <tr><td class="k">erp</td><td>ERP · Financiero</td><td><div class="pfx"><code>/erp</code></div></td></tr>
+              <tr><td class="k">pos</td><td>POS · Punto de Venta</td><td><div class="pfx"><code>/pos</code></div></td></tr>
+              <tr><td class="k">crm</td><td>CRM · Comercial</td><td><div class="pfx"><code>/crm</code></div></td></tr>
+              <tr><td class="k">ags</td><td>AGS · Agenda de Servicios</td><td><div class="pfx"><code>/ags</code></div></td></tr>
+              <tr><td class="k">qms</td><td>QMS · Calidad</td><td><div class="pfx"><code>/qms</code></div></td></tr>
+              <tr><td class="k">dms</td><td>DMS · Gestión Documental</td><td><div class="pfx"><code>/dms</code></div></td></tr>
+              <tr><td class="k">grc</td><td>GRC · Riesgo y Cumplimiento</td><td><div class="pfx"><code>/grc</code></div></td></tr>
+              <tr><td class="k">sst</td><td>SST · Seguridad y Salud en el Trabajo</td><td><div class="pfx"><code>/sst</code></div></td></tr>
+              <tr><td class="k">gh</td><td>Gestión Humana</td><td><div class="pfx"><code>/hcm</code><code>/gh</code></div></td></tr>
+              <tr><td class="k">lms</td><td>LMS · Formación</td><td><div class="pfx"><code>/lms</code></div></td></tr>
+              <tr><td class="k">command</td><td>Command Center</td><td><div class="pfx"><code>/command-center</code></div></td></tr>
+              <tr data-audiencia="equipo"><td class="k">locativa</td><td>Mantenimiento Locativo <span class="pill off">Sin rutas</span></td><td><div class="pfx"><code>/locative</code></div> <span class="small muted">Declarado para no romper contratos existentes. No tiene rutas en el servidor y no debe venderse.</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="small muted">Fuente: <code>backend/app/core/modulos.py</code>. Para agregar un módulo se declara ahí con sus prefijos; sin esa entrada sus rutas no quedan sujetas al control de contratación.</p>
+      </section>
+
+      <!-- ─── Motores ────────────────────────── -->
+      <section class="doc" id="motores">
+        <header>
+          <span class="eyebrow">Funcionalidad</span>
+          <h2>Motores de cálculo</h2>
+          <p class="lede">Las reglas de negocio con fórmulas propias viven en <code>app/core</code>, separadas de los endpoints. Cada cálculo existe una sola vez y lo comparten las pantallas, los tableros y los informes, así que dos vistas del mismo dato no pueden dar cifras distintas.</p>
+        </header>
+
+        <div class="engines">
+          <article class="engine">
+            <span class="mod">ERP</span>
+            <h3>Motor contable</h3>
+            <p>Convierte cada hecho económico en un asiento de partida doble. Un asiento que no cuadra cancela la transacción completa: la factura no se guarda sin su contabilización.</p>
+            <span class="src">core/erp_motor.py</span>
+          </article>
+          <article class="engine">
+            <span class="mod">ERP · POS</span>
+            <h3>Facturación electrónica DIAN</h3>
+            <p>Numera contra la resolución vigente con una operación atómica, sin pasar del rango autorizado. Calcula el CUFE / CUDE con SHA-384 según el anexo técnico.</p>
+            <div class="formula">NumFac + FecFac + HorFac + ValFac + 01 + ValIVA + … + NitOFE + NumAdq + ClaveTécnica + TipoAmbiente</div>
+            <span class="src">core/facturacion_dian.py</span>
+          </article>
+          <article class="engine">
+            <span class="mod">APS</span>
+            <h3>Planeación en cascada</h3>
+            <p>De la demanda histórica al plan: pronóstico, inventario objetivo (stock de seguridad, punto de reorden, EOQ), DRP, MPS/MRP, carga de recursos (RCCP) y consolidación de traslados en camiones. Es una función pura de sus datos, así que se puede probar y simular escenarios.</p>
+            <span class="src">core/aps/motor.py</span>
+          </article>
+          <article class="engine">
+            <span class="mod">Inventario</span>
+            <h3>Kárdex con costo promedio ponderado</h3>
+            <p>Mueve existencias y deja kárdex para el inventario y las órdenes de trabajo. Las salidas sin existencia se registran y quedan marcadas en lugar de bloquear la operación.</p>
+            <div class="formula">costo = (saldo × promedio + cantidad × costo_entrada) ÷ (saldo + cantidad)</div>
+            <span class="src">core/inventario_kardex.py</span>
+          </article>
+          <article class="engine">
+            <span class="mod">WMS</span>
+            <h3>Slotting y tareas dirigidas</h3>
+            <p>Propone la ubicación de cada producto según su rotación ABC y el recorrido en serpentina por pasillos, con la zona dorada en los niveles 1 y 2. Al operario se le entrega la siguiente tarea por prioridad, cercanía y antigüedad.</p>
+            <span class="src">core/wms_slotting.py · wms_tareas_dirigidas.py</span>
+          </article>
+          <article class="engine">
+            <span class="mod">WMS · 3PL</span>
+            <h3>Liquidación del servicio logístico</h3>
+            <p>Reconstruye día a día, desde el kárdex, las unidades, los m³, las posiciones y las estibas de cada depositante. Permite liquidar cualquier periodo pasado sin procesos nocturnos y con una cifra auditable.</p>
+            <span class="src">core/wms_3pl.py</span>
+          </article>
+          <article class="engine">
+            <span class="mod">CMMS / EAM</span>
+            <h3>Confiabilidad de activos</h3>
+            <p>MTTR y MTBF desde órdenes reales cerradas. Weibull con censura para la vida de cada componente y Crow-AMSAA para saber si un equipo se está deteriorando.</p>
+            <span class="src">core/confiabilidad.py · analitica/weibull.py</span>
+          </article>
+          <article class="engine">
+            <span class="mod">CMMS / EAM</span>
+            <h3>Predicción de fallas</h3>
+            <p>Se entrena con el pasado y se califica con lo que ocurrió después, nunca con una partición al azar. Si el modelo no supera a la tasa histórica (índice de Brier ≤ 0), la pantalla lo dice y no muestra sus probabilidades.</p>
+            <span class="src">core/analitica/predictivo.py</span>
+          </article>
+          <article class="engine">
+            <span class="mod">TarifaX</span>
+            <h3>Comparativo contra SICETAC</h3>
+            <p>Cruza las tarifas negociadas con cada cliente contra el costo de referencia del Ministerio de Transporte por ruta y configuración vehicular. Las tarifas por kilo o por caja se informan como no comparables.</p>
+            <span class="src">core/tarifax_comparativo.py</span>
+          </article>
+          <article class="engine">
+            <span class="mod">Gestión</span>
+            <h3>Flujos de trabajo configurables</h3>
+            <p>Estados y transiciones son datos: cambiar cómo trabaja un equipo es configurar, no desplegar. Las reglas de una transición son claves registradas en el código, nunca expresiones guardadas en la base.</p>
+            <span class="src">core/gestion_workflow.py</span>
+          </article>
+        </div>
+      </section>
+
+      <!-- ─── Dispositivos ───────────────────── -->
+      <section class="doc" id="dispositivos">
+        <header>
+          <span class="eyebrow">Funcionalidad</span>
+          <h2>Dispositivos e integraciones</h2>
+        </header>
+
+        <div class="two">
+          <div class="card">
+            <h3>Cubicador de bajo costo</h3>
+            <p>Estación fija con un ESP32, tres láseres y una báscula que mide largo, ancho, alto y peso de cajas y unidades, y envía la medición al módulo WMS · Cubicaje. Cada cubicador tiene su propio token revocable.</p>
+            <div class="formula">medida = escala × (base − lectura)</div>
+            <p class="small muted">Precisión objetivo ±1–2 mm por eje y ±5 g hasta 30 kg, con piezas por menos de US$ 250. Firmware y montaje en <code>hardware/cubicador</code>.</p>
+          </div>
+          <div class="card">
+            <h3>Celular como escáner</h3>
+            <p>Un celular puede escanear códigos y enviarlos al PC donde se registra el movimiento. La sesión de escaneo se guarda en la base de datos compartida, de modo que funciona aunque la API corra en varios procesos.</p>
+            <p>En Control de Estibas también se puede leer con lector de código de barras o con la cámara del equipo.</p>
+          </div>
+          <div class="card">
+            <h3>SAP</h3>
+            <p>Adaptador para registrar movimientos de mercancía en SAP: mapea centro, almacén, material y cantidad a la estructura del documento de material.</p>
+            <span class="src muted small"><code>infrastructure/integrations/sap</code></span>
+          </div>
+          <div class="card">
+            <h3>Importación desde Excel</h3>
+            <p>Los módulos de mantenimiento, lubricación, calidad y tarifas cargan datos maestros e históricos desde plantillas Excel, validadas fila por fila antes de guardar.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── Interfaz ───────────────────────── -->
+      <section class="doc" id="interfaz">
+        <header>
+          <span class="eyebrow">Funcionalidad</span>
+          <h2>Aplicaciones web</h2>
+          <p class="lede">El frontend compila tres aplicaciones a partir del mismo código.</p>
+        </header>
+
+        <div class="tbl">
+          <table>
+            <thead><tr><th>Aplicación</th><th>Entrada</th><th>Quién la usa</th></tr></thead>
+            <tbody>
+              <tr><td>Portal</td><td><code>index.html</code> · <code>src/App.tsx</code></td><td>Los usuarios de cada empresa cliente. Incluye el portal del depositante para clientes de un 3PL.</td></tr>
+              <tr><td>Consola del operador</td><td><code>admin.html</code> · <code>src/admin</code></td><td>Quien opera la plataforma: empresas, módulos, perfiles, facturación, soporte y gestión ágil del equipo.</td></tr>
+              <tr><td>Página pública</td><td><code>landing/</code></td><td>Visitantes: presentación de los módulos y formulario de contacto.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Organización del portal</h3>
+        <ul class="plain">
+          <li><strong>Tres paneles.</strong> Un panel de espacios de trabajo a la izquierda, la navegación del módulo activo y el área de contenido. Solo aparecen los espacios que la empresa tiene contratados y el perfil permite.</li>
+          <li><strong>Command Center.</strong> Tableros transversales para quien tiene módulos de operación; el ingreso lleva al primer espacio permitido.</li>
+          <li><strong>Carga a demanda.</strong> Cada pantalla se carga con <code>React.lazy</code> cuando se abre por primera vez.</li>
+          <li><strong>Cliente de API único.</strong> <code>src/api/client.ts</code> agrega el token y la cabecera de inactividad a cada llamada.</li>
+          <li><strong>Identidad visual en un solo lugar.</strong> <code>src/config/marca.ts</code>: escala de grises de la marca y un único acento para lo interactivo. Los colores de estado (éxito, alerta, peligro) son del dato, no de la marca.</li>
+        </ul>
+      </section>
+
+      <!-- ─── API ────────────────────────────── -->
+      <section class="doc" id="api">
+        <header>
+          <span class="eyebrow">Funcionalidad</span>
+          <h2>API REST</h2>
+          <p class="lede">La referencia completa de rutas, parámetros y esquemas se genera automáticamente desde el código y siempre está al día.</p>
+        </header>
+        <div class="tbl">
+          <table>
+            <thead><tr><th>Recurso</th><th>Ruta</th></tr></thead>
+            <tbody>
+              <tr><td>Swagger UI, interactiva</td><td><code>/api/docs</code></td></tr>
+              <tr><td>ReDoc, para lectura</td><td><code>/api/redoc</code></td></tr>
+              <tr><td>Especificación OpenAPI</td><td><code>/api/openapi.json</code></td></tr>
+              <tr><td>Salud del servicio</td><td><code>/health</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <ul class="plain">
+          <li>Todas las rutas de negocio cuelgan de <code>/api/v1</code> y responden JSON.</li>
+          <li>Los errores devuelven <code>{"detail": "…"}</code> con un mensaje en español que explica qué pasó y qué hacer.</li>
+          <li>Las respuestas de más de 1 KB se comprimen con gzip.</li>
+        </ul>
+      </section>
+
+      <!-- ─── Despliegue (interno) ───────────── -->
+      <section class="doc" id="despliegue" data-audiencia="equipo">
+        <header>
+          <span class="int-badge">Interno · solo equipo</span>
+          <h2>Despliegue y operación</h2>
+          <p class="lede">Cada cambio en <code>main</code> se valida solo y llega a producción únicamente con la aprobación de un responsable.</p>
+        </header>
+
+        <div class="pipeline" aria-label="Flujo de despliegue">
+          <div class="st"><b>Push a main</b><span>O ejecución manual del flujo.</span></div>
+          <div class="arrow" aria-hidden="true">→</div>
+          <div class="st"><b>Validar</b><span>Compila el frontend en <code>node:20-alpine</code>, con revisión de tipos, y verifica la sintaxis del backend.</span></div>
+          <div class="arrow" aria-hidden="true">→</div>
+          <div class="st gate"><b>Aprobación</b><span>Espera a un revisor del entorno <code>produccion</code>. Sin aprobación en 30 días, no se despliega.</span></div>
+          <div class="arrow" aria-hidden="true">→</div>
+          <div class="st"><b>Desplegar</b><span>SSH al servidor con huella verificada. Un despliegue a la vez.</span></div>
+        </div>
+
+        <h3>Servicios en producción</h3>
+        <div class="tbl">
+          <table>
+            <thead><tr><th>Servicio</th><th>Detalle</th></tr></thead>
+            <tbody>
+              <tr><td><code>postgres</code></td><td>PostgreSQL 16 con intercalación <code>es_CO.UTF-8</code>. Sin puertos expuestos; se administra por túnel SSH.</td></tr>
+              <tr><td><code>redis</code></td><td>Redis 7 con <code>appendonly</code>, 256 MB y política <code>volatile-lru</code>. Las sesiones van en la base lógica 1.</td></tr>
+              <tr><td><code>backend</code></td><td>FastAPI sin recarga automática, con varios procesos y <code>DEBUG</code> apagado.</td></tr>
+              <tr><td><code>frontend</code></td><td>Portal compilado y servido por nginx.</td></tr>
+              <tr><td><code>tarifax_backend</code></td><td>Instancia aparte de TarifaX con dominio propio.</td></tr>
+              <tr><td>nginx proxy</td><td>Termina TLS y reparte entre portal y API.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="code">
+          <div class="bar"><span>Servidor</span><span>bash</span></div>
+<pre><span class="c"># Arranque o actualización</span>
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+
+<span class="c"># Respaldo completo y por cliente (pg_dump -n), conserva 14 días por defecto</span>
+./deploy/respaldo.sh
+<span class="c"># cron sugerido: 0 2 * * *  /ruta/deploy/respaldo.sh >> /var/log/respaldo.log 2>&amp;1</span></pre>
+        </div>
+
+        <div class="note warn">
+          <span class="k">Si Redis se cae</span>
+          <p>Nadie puede entrar ni seguir trabajando: la API responde 503 a propósito, porque una sesión que no se puede comprobar no se da por buena. La solución es levantar Redis: <code>docker compose … up -d redis</code>.</p>
+        </div>
+        <div class="note warn">
+          <span class="k">SECRET_KEY</span>
+          <p>Debe tener al menos 32 caracteres y no empezar por <code>change-me-in-production</code>; de lo contrario el backend no arranca. Cambiarla cierra todas las sesiones.</p>
+        </div>
+        <p class="small muted">Guías detalladas: <code>deploy/SEGURIDAD_SESIONES.md</code>, <code>deploy/actualizar.sh</code>, <code>deploy/nginx-proxy.conf.template</code>.</p>
+      </section>
+
+      <!-- ─── Desarrollo (interno) ───────────── -->
+      <section class="doc" id="desarrollo" data-audiencia="equipo">
+        <header>
+          <span class="int-badge">Interno · solo equipo</span>
+          <h2>Desarrollo local</h2>
+        </header>
+
+        <div class="code">
+          <div class="bar"><span>Primer arranque</span><span>bash</span></div>
+<pre>cp .env.example .env                 <span class="c"># ajustar credenciales</span>
+<span class="c"># TarifaX necesita backend/data/TARIFARIO_SICETAC.xlsx (no está en git)</span>
+docker compose up -d
+docker compose exec backend python -m scripts.seed</pre>
+        </div>
+
+        <div class="tbl">
+          <table>
+            <thead><tr><th>Servicio</th><th>Dirección</th></tr></thead>
+            <tbody>
+              <tr><td>Portal (Vite)</td><td><code>http://localhost:5173</code></td></tr>
+              <tr><td>API</td><td><code>http://localhost:8000</code></td></tr>
+              <tr><td>Swagger</td><td><code>http://localhost:8000/api/docs</code></td></tr>
+              <tr><td>pgAdmin</td><td><code>http://localhost:5050</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Estructura del repositorio</h3>
+        <div class="code">
+          <div class="bar"><span>control_inventarios/</span><span>árbol</span></div>
+<pre>backend/
+  app/
+    core/            <span class="c"># multicliente, sesiones, permisos y motores de cálculo</span>
+    api/v1/          <span class="c"># router.py + 94 archivos de endpoints por dominio</span>
+    application/     <span class="c"># schemas Pydantic y servicios</span>
+    infrastructure/  <span class="c"># modelos ORM, repositorios, integración SAP</span>
+  alembic/           <span class="c"># migraciones</span>
+  tests/
+frontend/
+  src/               <span class="c"># portal: pages/, components/layout/, api/, config/marca.ts</span>
+  src/admin/         <span class="c"># consola del operador</span>
+  landing/           <span class="c"># página pública</span>
+hardware/cubicador/  <span class="c"># firmware ESP32</span>
+deploy/              <span class="c"># nginx, respaldo, actualización</span>
+openspec/            <span class="c"># especificaciones y cambios propuestos</span></pre>
+        </div>
+
+        <h3>Convenciones</h3>
+        <ul class="plain">
+          <li><strong>Cambios con especificación.</strong> Las funcionalidades nuevas se proponen en <code>openspec/changes</code> antes de implementarse y se archivan al terminar.</li>
+          <li><strong>Seguro por defecto.</strong> No hace falta agregar autenticación a una ruta nueva: ya la tiene. Lo que sí hay que hacer es declarar su prefijo en <code>core/modulos.py</code> si pertenece a un módulo nuevo.</li>
+          <li><strong>Lógica compartida en <code>core</code>.</strong> Si dos pantallas calculan lo mismo, la fórmula va en un solo módulo de <code>app/core</code>.</li>
+          <li><strong>Comentarios que explican el porqué.</strong> El código documenta las decisiones y los errores que se corrigieron, para que nadie los repita.</li>
+          <li><strong>Pull requests desde el fork.</strong> Se trabaja en una rama, se abre el PR hacia <code>main</code> y la fusión dispara la validación.</li>
+        </ul>
+      </section>
+
+      <footer class="end">
+        <span>TittanWare · Tecnología que fortalece · Soluciones que trascienden</span>
+        <span id="pie-vista">Vista para el equipo de desarrollo</span>
+      </footer>
+    </div>
+  </main>
+</div>
+
+<script>
+(function () {
+  var botones = document.querySelectorAll('[data-vista]');
+  var hint = document.getElementById('v-hint');
+  var pie = document.getElementById('pie-vista');
+
+  function aplicar(vista) {
+    document.body.classList.toggle('vista-cliente', vista === 'cliente');
+    botones.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.vista === vista)); });
+    if (hint) hint.textContent = vista === 'cliente'
+      ? 'Oculta despliegue, operación y detalles internos. Así la verá un cliente.'
+      : 'Incluye despliegue, operación y estructura del repositorio.';
+    if (pie) pie.textContent = vista === 'cliente' ? 'Vista para clientes y usuarios técnicos' : 'Vista para el equipo de desarrollo';
+    try { localStorage.setItem('tw-manual-vista', vista); } catch (e) {}
+  }
+
+  botones.forEach(function (b) { b.addEventListener('click', function () { aplicar(b.dataset.vista); }); });
+
+  var inicial = 'equipo';
+  try { inicial = localStorage.getItem('tw-manual-vista') || 'equipo'; } catch (e) {}
+  aplicar(inicial);
+
+  // Resalta en la barra lateral la sección que se está leyendo.
+  var enlaces = Array.prototype.slice.call(document.querySelectorAll('.nav a'));
+  var secciones = enlaces.map(function (a) { return document.querySelector(a.getAttribute('href')); }).filter(Boolean);
+  if ('IntersectionObserver' in window) {
+    var obs = new IntersectionObserver(function (entradas) {
+      entradas.forEach(function (e) {
+        if (e.isIntersecting) {
+          enlaces.forEach(function (a) { a.classList.toggle('on', a.getAttribute('href') === '#' + e.target.id); });
+        }
+      });
+    }, { rootMargin: '-20% 0px -70% 0px' });
+    secciones.forEach(function (s) { obs.observe(s); });
+  }
+})();
+</script>
