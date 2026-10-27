@@ -270,6 +270,23 @@ export interface ResumenSoporte {
   por_criticidad: Record<string, number>
 }
 
+// Quien escribió desde el formulario de la landing sin ser cliente.
+export type EstadoProspecto = 'NUEVO' | 'CONTACTADO' | 'DESCARTADO'
+
+export interface Prospecto {
+  id: number
+  nombre: string
+  correo: string
+  empresa?: string | null
+  telefono?: string | null
+  mensaje: string
+  origen?: string | null
+  estado: EstadoProspecto
+  atendido_por?: string | null
+  atendido_en?: string | null
+  created_at?: string | null
+}
+
 
 // ─── Gestión ágil ─────────────────────────────────────────────────────────────
 
@@ -1248,6 +1265,12 @@ export const soporteApi = {
     api.get(`/soporte/adjuntos/${id}`, { responseType: 'blob' }).then(r => r.data as Blob),
 
   resumen: () => api.get<ResumenSoporte>('/soporte/resumen').then(r => r.data),
+
+  prospectos: (estado?: EstadoProspecto) =>
+    api.get<Prospecto[]>('/soporte/prospectos', { params: { estado } }).then(r => r.data),
+
+  cambiarEstadoProspecto: (id: number, estado: EstadoProspecto) =>
+    api.put<Prospecto>(`/soporte/prospectos/${id}`, { estado }).then(r => r.data),
 }
 
 export const agilApi = {

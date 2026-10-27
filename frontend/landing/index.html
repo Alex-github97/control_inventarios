@@ -230,6 +230,33 @@
   .cierre h2,.cierre .intro{margin-left:auto;margin-right:auto}
   .cierre .intro{text-align:center;margin-bottom:36px}
 
+  /* ── Formulario de contacto ──
+     Va sobre el gris del cierre como una tarjeta blanca más, con el mismo
+     borde y radio: no es otra pieza, es la tarjeta con campos. */
+  .contacto{max-width:720px;margin:0 auto;text-align:left;background:#fff;
+    border:1px solid var(--niebla);border-radius:var(--radio);padding:30px}
+  .contacto .campos{display:grid;gap:16px;grid-template-columns:1fr 1fr}
+  .contacto label{display:flex;flex-direction:column;gap:6px;font-size:.82rem;
+    font-weight:600;color:var(--grafito)}
+  .contacto .ancho{grid-column:1/-1}
+  .contacto input,.contacto textarea{font:inherit;font-size:.95rem;font-weight:500;
+    color:var(--tinta);background:var(--bruma);border:1px solid var(--niebla);
+    border-radius:10px;padding:11px 13px;transition:border-color .2s ease,background .2s ease}
+  .contacto textarea{resize:vertical;min-height:120px}
+  .contacto input:focus,.contacto textarea:focus{outline:none;border-color:var(--acento);
+    background:#fff;box-shadow:0 0 0 3px var(--acento-vapor)}
+  .contacto .trampa{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+  .contacto .aviso{min-height:1.4em;margin-top:16px;font-size:.88rem;text-align:center}
+  .contacto .aviso.bien{color:var(--acento);font-weight:600}
+  .contacto .aviso.mal{color:#C62828;font-weight:600}
+  .contacto .acciones{margin-top:14px}
+  .contacto button{font-family:inherit}
+  .contacto button[disabled]{opacity:.6;cursor:wait}
+  @media (max-width:640px){
+    .contacto{padding:22px 18px}
+    .contacto .campos{grid-template-columns:1fr}
+  }
+
   footer{background:var(--abismo);color:rgba(255,255,255,.58);padding:56px 0 36px;
     font-size:.88rem}
   .pie{display:flex;gap:26px;flex-wrap:wrap;align-items:center}
@@ -238,86 +265,6 @@
   .pie a:hover{color:#fff}
   .legal{margin-top:28px;padding-top:22px;border-top:1px solid rgba(255,255,255,.1);
     font-size:.8rem;color:rgba(255,255,255,.4)}
-
-  /* ── Tarifas ──
-     Reusa `.tarjeta` para no inventar otra caja: cambian el contenido y el
-     precio, no el material. El plan destacado no se agranda —eso descuadra la
-     rejilla— sino que se marca con el borde de acento. */
-  .planes{display:grid;gap:18px;margin-top:44px;
-    grid-template-columns:repeat(auto-fit,minmax(232px,1fr))}
-  .plan{display:flex;flex-direction:column}
-  .plan.elegido{border-color:var(--acento);box-shadow:0 14px 34px rgba(47,111,235,.13)}
-  .plan .sello{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10px;
-    letter-spacing:.14em;text-transform:uppercase;color:var(--acento);
-    font-weight:700;min-height:14px;margin-bottom:10px}
-  .plan h3{font-size:1.12rem;margin-bottom:4px}
-  .plan .para{color:var(--acero);font-size:.85rem;min-height:3.6em;margin-bottom:16px}
-  .plan .valor{font-family:'JetBrains Mono',ui-monospace,monospace;
-    font-size:1.5rem;font-weight:600;letter-spacing:-.03em;line-height:1.1}
-  .plan .valor small{font-family:'Montserrat',sans-serif;font-size:.75rem;
-    font-weight:500;color:var(--acero);letter-spacing:0}
-  .plan ul{list-style:none;margin-top:18px;padding-top:16px;
-    border-top:1px solid var(--niebla);font-size:.87rem;color:var(--grafito)}
-  .plan li{padding:5px 0 5px 18px;position:relative}
-  .plan li::before{content:'';position:absolute;left:0;top:.82em;width:6px;height:6px;
-    border-radius:50%;background:var(--acento);opacity:.45}
-  .plan li b{color:var(--tinta);font-weight:700}
-  .gris .plan{background:#fff}
-
-  /* Las tres unidades: la cifra manda y debajo va lo que INCLUYE, no lo que
-     cuesta cada pieza. Desglosar el precio por submódulo invita a recortar;
-     desglosar lo que se lleva invita a usarlo. */
-  .unidades{display:grid;gap:18px;margin-top:26px;
-    grid-template-columns:repeat(auto-fit,minmax(266px,1fr))}
-  .unidad .valor{font-family:'JetBrains Mono',ui-monospace,monospace;
-    font-size:1.85rem;font-weight:600;letter-spacing:-.03em;color:var(--acento)}
-  .unidad .valor small{display:block;font-family:'Montserrat',sans-serif;
-    font-size:.76rem;font-weight:500;color:var(--acero);letter-spacing:0;margin-top:2px}
-  .unidad ul{list-style:none;margin-top:16px;padding-top:14px;
-    border-top:1px solid var(--niebla);font-size:.86rem;color:var(--grafito)}
-  .unidad li{padding:5px 0 5px 18px;position:relative}
-  .unidad li::before{content:'';position:absolute;left:2px;top:.62em;
-    width:7px;height:7px;border-left:1.6px solid var(--acento);
-    border-bottom:1.6px solid var(--acento);transform:rotate(-45deg)}
-
-  /* ── Desglose: qué trae cada plan ── */
-  .desglose{margin-top:30px;overflow-x:auto;border:1px solid var(--niebla);
-    border-radius:var(--radio);background:#fff}
-  .desglose table{width:100%;border-collapse:collapse;min-width:640px;font-size:.9rem}
-  .desglose th{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10px;
-    letter-spacing:.12em;text-transform:uppercase;color:var(--acero);font-weight:700;
-    padding:18px 16px;text-align:center;border-bottom:1px solid var(--niebla);
-    white-space:nowrap}
-  .desglose th:first-child{text-align:left}
-  .desglose th.destacada{color:var(--acento)}
-  .desglose td{padding:13px 16px;text-align:center;color:var(--grafito);
-    border-bottom:1px solid var(--bruma)}
-  .desglose td:first-child{text-align:left;color:var(--tinta);font-weight:500}
-  .desglose tr:last-child td{border-bottom:none}
-  .desglose tbody tr:hover td{background:var(--bruma)}
-  .desglose .grupo td{background:var(--bruma);font-family:'JetBrains Mono',ui-monospace,monospace;
-    font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--acero);
-    font-weight:700;padding:11px 16px}
-  .desglose tbody tr.grupo:hover td{background:var(--bruma)}
-  .si{color:var(--acento);font-weight:700}
-  .no{color:#c9c9c9}
-  .dato{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:.83rem;
-    color:var(--tinta)}
-
-  /* Cuánto cuesta en la práctica: perfiles reales, sin comparar con nadie. */
-  .perfiles{display:grid;gap:18px;margin-top:30px;
-    grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
-  .perfil .quien{font-size:.86rem;color:var(--acero);min-height:3.2em;margin-bottom:14px}
-  .perfil .renglon{display:flex;justify-content:space-between;gap:12px;
-    font-size:.85rem;padding:5px 0;color:var(--grafito)}
-  .perfil .renglon span:last-child{font-family:'JetBrains Mono',ui-monospace,monospace;
-    color:var(--tinta);white-space:nowrap}
-  .perfil .suma{display:flex;justify-content:space-between;gap:12px;margin-top:12px;
-    padding-top:13px;border-top:1px solid var(--niebla);font-weight:700;align-items:baseline}
-  .perfil .suma span:last-child{font-family:'JetBrains Mono',ui-monospace,monospace;
-    font-size:1.2rem;color:var(--acento)}
-
-  .letra-chica{margin-top:30px;font-size:.82rem;color:var(--acero);max-width:74ch}
 
   /* Barra de avance de lectura */
   #avance{position:fixed;top:0;left:0;height:2px;width:0;z-index:70;
@@ -348,7 +295,6 @@
       <a href="#plataforma">Plataforma</a>
       <a href="#modulos">Módulos</a>
       <a href="#mantenimiento">Mantenimiento</a>
-      <a href="#tarifas">Tarifas</a>
       <a href="#seguridad">Tecnología</a>
       <a href="#contacto">Contacto</a>
     </nav>
@@ -420,8 +366,8 @@
     <h2 class="rev" data-txt="modulos_titulo">Se activa lo que se usa</h2>
     <p class="intro rev" data-txt="modulos_texto">
       No hay que comprarlo todo. Cada empresa contrata los módulos que necesita y el resto
-      sencillamente no aparece: ni en el menú, ni en el precio.
-      Entre a cualquiera para ver qué resuelve y cuánto cuesta.
+      sencillamente no aparece en el menú.
+      Entre a cualquiera para ver qué resuelve.
     </p>
     <div class="modulos" id="listaModulos"></div>
   </div>
@@ -436,239 +382,6 @@
       operación y no con la de un formulario genérico.
     </p>
     <div class="rejilla col-4" id="detalles"></div>
-  </div>
-</section>
-
-<section class="gris" id="tarifas">
-  <div class="env">
-    <span class="rotulo rev">Tarifas</span>
-    <h2 class="rev" data-txt="tarifas_titulo">Se paga lo que se usa. Empezar no cuesta nada.</h2>
-    <p class="intro rev" data-txt="tarifas_texto">
-      Sin cobro por usuario: los conductores, los de bodega y los técnicos entran todos, porque
-      si registrar cuesta, nadie registra. Y sin topes: nada se bloquea cuando la operación crece.
-    </p>
-
-    <div class="planes">
-      <article class="tarjeta plan rev">
-        <div class="sello">Para empezar</div>
-        <h3>Gratis</h3>
-        <p class="para">Hasta 3 vehículos o 3 empleados. Sin tarjeta y sin vencimiento.</p>
-        <p class="valor">$0<small> /mes</small></p>
-        <ul>
-          <li>Una familia medida a elegir</li>
-          <li>Usuarios <b>sin límite</b></li>
-          <li>Los datos son suyos y se exportan</li>
-        </ul>
-      </article>
-
-      <article class="tarjeta plan rev">
-        <div class="sello">Contabilidad</div>
-        <h3>Contable</h3>
-        <p class="para">La empresa que ya paga por contabilidad y quiere dejar de teclear dos veces.</p>
-        <p class="valor">$189.000<small> /mes</small></p>
-        <ul>
-          <li>ERP financiero completo</li>
-          <li>Facturación, cartera, tesorería, compras</li>
-          <li>Documentos <b>sin límite</b></li>
-          <li>Sin costo de puesta en marcha</li>
-        </ul>
-      </article>
-
-      <article class="tarjeta plan elegido rev">
-        <div class="sello">El más pedido</div>
-        <h3>Operación</h3>
-        <p class="para">Para que la operación alimente la contabilidad sola, sin volver a digitar.</p>
-        <p class="valor">$490.000<small> /mes</small></p>
-        <ul>
-          <li>Todo lo de Contable</li>
-          <li><b>4</b> módulos a elegir</li>
-          <li>Las <b>tres</b> familias medidas</li>
-          <li>Acompañamiento por chat y correo</li>
-        </ul>
-      </article>
-
-      <article class="tarjeta plan rev">
-        <div class="sello">Todo</div>
-        <h3>Plataforma</h3>
-        <p class="para">Los módulos completos, para quien ya vive sobre el sistema.</p>
-        <p class="valor">$1.190.000<small> /mes</small></p>
-        <ul>
-          <li>Los <b>once</b> módulos de gestión</li>
-          <li>Hasta <b>3</b> NIT y consolidación</li>
-          <li>Acceso a la API</li>
-          <li>Un contacto asignado para su cuenta</li>
-        </ul>
-      </article>
-    </div>
-
-    <div class="desglose rev">
-      <table>
-        <thead>
-          <tr>
-            <th>Qué trae cada plan</th>
-            <th>Gratis</th>
-            <th>Contable</th>
-            <th class="destacada">Operación</th>
-            <th>Plataforma</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr class="grupo"><td colspan="5">Base</td></tr>
-          <tr><td>Usuarios</td>
-            <td class="dato">sin límite</td><td class="dato">sin límite</td>
-            <td class="dato">sin límite</td><td class="dato">sin límite</td></tr>
-          <tr><td>Razones sociales (NIT)</td>
-            <td class="dato">1</td><td class="dato">1</td>
-            <td class="dato">1</td><td class="dato">3</td></tr>
-          <tr><td>Exportar toda su información</td>
-            <td class="si">Sí</td><td class="si">Sí</td><td class="si">Sí</td><td class="si">Sí</td></tr>
-
-          <tr class="grupo"><td colspan="5">Finanzas</td></tr>
-          <tr><td>Contabilidad de doble partida y libros</td>
-            <td class="no">—</td><td class="si">Sí</td><td class="si">Sí</td><td class="si">Sí</td></tr>
-          <tr><td>Facturación, cartera y tesorería</td>
-            <td class="no">—</td><td class="si">Sí</td><td class="si">Sí</td><td class="si">Sí</td></tr>
-          <tr><td>Impuestos y retenciones con vigencia</td>
-            <td class="no">—</td><td class="si">Sí</td><td class="si">Sí</td><td class="si">Sí</td></tr>
-          <tr><td>Compras: requisiciones y órdenes</td>
-            <td class="no">—</td><td class="si">Sí</td><td class="si">Sí</td><td class="si">Sí</td></tr>
-          <tr><td>La operación se contabiliza sola</td>
-            <td class="no">—</td><td class="no">—</td><td class="si">Sí</td><td class="si">Sí</td></tr>
-
-          <tr class="grupo"><td colspan="5">Módulos de gestión</td></tr>
-          <tr><td>Calidad, riesgo, documental, comercial…</td>
-            <td class="no">—</td><td class="no">—</td>
-            <td class="dato">4 a elegir</td><td class="dato">los 11</td></tr>
-          <tr><td>Producción y planeación</td>
-            <td class="no">—</td><td class="no">—</td>
-            <td class="dato">si los elige</td><td class="si">Sí</td></tr>
-          <tr><td>Consolidación entre empresas</td>
-            <td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="si">Sí</td></tr>
-          <tr><td>Acceso a la API</td>
-            <td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="si">Sí</td></tr>
-
-          <tr class="grupo"><td colspan="5">Operación medida</td></tr>
-          <tr><td>Vehículos</td>
-            <td class="dato">hasta 3</td><td class="dato">se suma</td>
-            <td class="dato">se suma</td><td class="dato">se suma</td></tr>
-          <tr><td>Empleados</td>
-            <td class="dato">hasta 3</td><td class="dato">se suma</td>
-            <td class="dato">se suma</td><td class="dato">se suma</td></tr>
-          <tr><td>Bodegas</td>
-            <td class="no">—</td><td class="dato">se suma</td>
-            <td class="dato">se suma</td><td class="dato">se suma</td></tr>
-
-          <tr class="grupo"><td colspan="5">Acompañamiento</td></tr>
-          <tr><td>Cómo se le atiende</td>
-            <td class="dato">centro de ayuda</td><td class="dato">correo</td>
-            <td class="dato">chat y correo</td><td class="dato">contacto asignado</td></tr>
-          <tr><td>Migración desde su sistema actual</td>
-            <td class="no">—</td><td class="si">Sí</td><td class="si">Sí</td><td class="si">Sí</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <span class="rotulo rev" style="margin-top:64px;display:inline-flex">Lo que se mide</span>
-    <h2 class="rev" data-txt="unidades_titulo">Tres unidades que usted ya cuenta</h2>
-    <p class="intro rev" data-txt="unidades_texto">
-      Un camión más son órdenes de trabajo más. Un empleado más es una nómina más. Eso sí crece,
-      y por eso se cobra por unidad — nunca con un tope que lo frene. Un precio, todo adentro.
-    </p>
-
-    <div class="unidades">
-      <article class="tarjeta unidad rev">
-        <div class="marca">VEH</div>
-        <h3>Por vehículo</h3>
-        <p class="valor">$14.900<small>al mes · todo incluido</small></p>
-        <ul>
-          <li>Órdenes de trabajo y planes preventivos</li>
-          <li>Llantas: montaje, rotación, profundidades, reencauche y costo por kilómetro</li>
-          <li>Manifiestos, despachos y cumplimiento de entrega</li>
-          <li>Lubricación por rutas y puntos</li>
-          <li>Tanqueos, rendimiento y desviaciones</li>
-          <li>Inspecciones en campo con hallazgos</li>
-          <li>Repuestos del taller y consumo por orden</li>
-          <li>Confiabilidad y análisis de causa raíz</li>
-          <li>SOAT, técnico-mecánica y vencimientos</li>
-        </ul>
-      </article>
-
-      <article class="tarjeta unidad rev">
-        <div class="marca">EMP</div>
-        <h3>Por empleado</h3>
-        <p class="valor">$3.900<small>al mes · todo incluido</small></p>
-        <ul>
-          <li>Nómina liquidada, que se contabiliza sola</li>
-          <li>Contratos, vacaciones e incapacidades</li>
-          <li>Reclutamiento y evaluación de desempeño</li>
-          <li>Matriz de riesgos e incidentes</li>
-          <li>Exámenes médicos y SG-SST</li>
-          <li>Cursos, certificados y sus vencimientos</li>
-        </ul>
-      </article>
-
-      <article class="tarjeta unidad rev">
-        <div class="marca">BOD</div>
-        <h3>Por bodega</h3>
-        <p class="valor">$199.000<small>al mes · todo incluido</small></p>
-        <ul>
-          <li>Recepción, ubicación, picking y despacho</li>
-          <li>Inventarios cíclicos y ajustes</li>
-          <li>Trazabilidad de estibas por cliente</li>
-          <li>Manifiestos y control de daños</li>
-          <li>Costos de almacenamiento por cliente</li>
-          <li>Sin límite de posiciones ni de movimientos</li>
-        </ul>
-      </article>
-    </div>
-
-    <span class="rotulo rev" style="margin-top:64px;display:inline-flex">En la práctica</span>
-    <h2 class="rev" data-txt="ejemplos_titulo">Cuánto le costaría a su operación</h2>
-    <p class="intro rev" data-txt="ejemplos_texto">
-      Tres perfiles con la cuenta hecha. Sume su plan y sus unidades: no hay costos de
-      activación, ni cargos por usuario, ni sorpresas en la primera factura.
-    </p>
-
-    <div class="perfiles">
-      <article class="tarjeta perfil rev">
-        <h3>Taller pequeño</h3>
-        <p class="quien">3 vehículos propios, un mecánico y el dueño.</p>
-        <div class="renglon"><span>Plan Gratis</span><span>$0</span></div>
-        <div class="renglon"><span>3 vehículos</span><span>incluidos</span></div>
-        <div class="suma"><span>Al mes</span><span>$0</span></div>
-      </article>
-
-      <article class="tarjeta perfil rev">
-        <h3>Transportadora mediana</h3>
-        <p class="quien">18 camiones, 25 personas en nómina y una bodega.</p>
-        <div class="renglon"><span>Plan Operación</span><span>$490.000</span></div>
-        <div class="renglon"><span>18 vehículos</span><span>$268.200</span></div>
-        <div class="renglon"><span>25 empleados</span><span>$97.500</span></div>
-        <div class="renglon"><span>1 bodega</span><span>$199.000</span></div>
-        <div class="suma"><span>Al mes</span><span>$1.054.700</span></div>
-      </article>
-
-      <article class="tarjeta perfil rev">
-        <h3>Operador logístico</h3>
-        <p class="quien">60 camiones, 90 personas y tres centros de distribución.</p>
-        <div class="renglon"><span>Plan Plataforma</span><span>$1.190.000</span></div>
-        <div class="renglon"><span>60 vehículos</span><span>$894.000</span></div>
-        <div class="renglon"><span>90 empleados</span><span>$351.000</span></div>
-        <div class="renglon"><span>3 bodegas</span><span>$597.000</span></div>
-        <div class="suma"><span>Al mes</span><span>$3.032.000</span></div>
-      </article>
-    </div>
-
-    <p class="letra-chica rev">
-      Valores en pesos colombianos, antes de IVA. Se factura solo la unidad con movimiento en el
-      mes: un camión parado no se cobra. Mínimos de 5 vehículos y 10 empleados. Pago anual: dos
-      meses sin costo. Si viene de otro sistema, la migración va por nuestra cuenta.
-    </p>
-
-    <div class="acciones rev" style="margin-top:34px">
-      <a class="btn btn-acento" href="#contacto">Empezar gratis</a>
-      <a class="btn btn-linea" href="#contacto">Hablar con alguien</a>
-    </div>
   </div>
 </section>
 
@@ -698,12 +411,29 @@
       La primera conversación es para entender su operación, no para mostrar pantallas. A
       partir de ahí definimos qué módulos tienen sentido y en qué orden.
     </p>
-    <div class="acciones rev" style="justify-content:center">
-      <a class="btn btn-acento" id="botonCorreo" href="#">Escribir a contacto@tittanware.com</a>
-      <a class="btn btn-linea" data-attr-href="url_portal" href="https://app.tittanware.com">
-        Ya soy cliente · Ingresar
-      </a>
-    </div>
+    <!-- El formulario deja la solicitud registrada para el equipo de soporte; el
+         enlace de correo dependía de que el visitante tuviera un cliente de
+         correo configurado y no dejaba rastro. Quien ya es cliente tiene su
+         mesa de ayuda adentro: para él es el botón de ingresar. -->
+    <form class="contacto rev" id="formContacto" novalidate>
+      <div class="campos">
+        <label>Nombre *<input name="nombre" autocomplete="name" maxlength="160" required></label>
+        <label>Correo *<input name="correo" type="email" autocomplete="email" maxlength="200" required></label>
+        <label>Empresa<input name="empresa" autocomplete="organization" maxlength="200"></label>
+        <label>Teléfono<input name="telefono" type="tel" autocomplete="tel" maxlength="40"></label>
+        <label class="ancho">Mensaje *<textarea name="mensaje" rows="5" maxlength="4000" required
+          placeholder="Cuéntenos qué operación tiene y qué le gustaría resolver."></textarea></label>
+        <!-- Campo trampa: oculto para las personas, visible para los robots. -->
+        <label class="trampa" aria-hidden="true">Sitio web<input name="sitio_web" tabindex="-1" autocomplete="off"></label>
+      </div>
+      <p class="aviso" id="avisoContacto" role="status" aria-live="polite"></p>
+      <div class="acciones" style="justify-content:center">
+        <button class="btn btn-acento" type="submit" id="enviarContacto">Enviar solicitud</button>
+        <a class="btn btn-linea" data-attr-href="url_portal" href="https://app.tittanware.com">
+          Ya soy cliente · Ingresar
+        </a>
+      </div>
+    </form>
   </div>
 </section>
 
@@ -713,7 +443,6 @@
       <span class="logo" data-txt="marca_logo">TITTANWARE</span>
       <a href="#plataforma">Plataforma</a>
       <a href="#modulos">Módulos</a>
-      <a href="#tarifas">Tarifas</a>
       <a href="#seguridad">Tecnología</a>
       <a id="correoPie" href="#">Contacto</a>
       <a data-attr-href="url_portal" href="https://app.tittanware.com" style="margin-left:auto">
@@ -844,9 +573,6 @@ function pintar(c){
     .join('');
 
   const correo = c.correo || PORDEFECTO.correo;
-  const asunto = encodeURIComponent('Quiero conocer TittanWare');
-  $('#botonCorreo').href = `mailto:${correo}?subject=${asunto}`;
-  $('#botonCorreo').textContent = `Escribir a ${correo}`;
   $('#correoPie').href = `mailto:${correo}`;
 
   if (c.color_acento) {
@@ -866,6 +592,52 @@ fetch('/api/v1/landing/contenido')
   .catch(() => { /* Sin API, se queda el contenido por defecto. */ });
 
 $('#anio').textContent = new Date().getFullYear();
+
+/* ═══ Formulario de contacto ═══
+   Se envía sin recargar la página: recargar llevaría al visitante arriba de
+   todo y perdería de vista la confirmación. Los errores que importan los
+   valida el servidor; acá solo se evita mandar un formulario vacío. */
+const formContacto = $('#formContacto');
+formContacto.addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const aviso = $('#avisoContacto');
+  const boton = $('#enviarContacto');
+  const datos = Object.fromEntries(new FormData(formContacto));
+  datos.origen = location.pathname;
+
+  aviso.className = 'aviso';
+  if (!datos.nombre.trim() || !datos.correo.trim() || !datos.mensaje.trim()) {
+    aviso.classList.add('mal');
+    aviso.textContent = 'Escriba su nombre, su correo y el mensaje.';
+    return;
+  }
+
+  boton.disabled = true;
+  aviso.textContent = 'Enviando…';
+  try {
+    const r = await fetch('/api/v1/landing/contacto', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(datos),
+    });
+    if (r.ok) {
+      formContacto.reset();
+      aviso.classList.add('bien');
+      aviso.textContent = 'Recibimos su solicitud. Le escribimos pronto.';
+    } else {
+      const cuerpo = await r.json().catch(() => ({}));
+      aviso.classList.add('mal');
+      aviso.textContent = typeof cuerpo.detail === 'string'
+        ? cuerpo.detail
+        : 'No pudimos registrar la solicitud. Intente de nuevo en un momento.';
+    }
+  } catch {
+    aviso.classList.add('mal');
+    aviso.textContent = 'No hay conexión con el servidor. Intente de nuevo en un momento.';
+  } finally {
+    boton.disabled = false;
+  }
+});
 
 /* ═══ Aparición al entrar en pantalla ═══ */
 if (!menos && 'IntersectionObserver' in window) {

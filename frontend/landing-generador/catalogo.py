@@ -11,7 +11,7 @@ de lo que sería bonito prometer. Si algo no está en el sistema, no está acá:
 un folleto que promete de más se paga en la primera demostración.
 """
 
-# (clave, título, cómo se cobra)
+# (clave, título y el texto de cada folleto)
 #
 # Los módulos que no aparecen es porque no tienen nada detrás todavía —el
 # locativo, por ejemplo, tiene cero rutas— y un folleto de algo que no existe
@@ -24,7 +24,6 @@ MODULOS = [
         "nombre": "CMMS · EAM",
         "titulo": "Mantenimiento",
         "promesa": "De la orden de trabajo a la causa raíz, con el costo por kilómetro de cada vehículo.",
-        "cobro": "vehiculo",
         "problema": (
             "El taller sabe qué se arregló, pero nadie sabe cuánto cuesta mantener "
             "un camión ni cuál de la flota se come el presupuesto. La información "
@@ -59,7 +58,6 @@ MODULOS = [
         "nombre": "WMS",
         "titulo": "Almacenes",
         "promesa": "Recepción, ubicación, picking y despacho, con el inventario cuadrado al cierre.",
-        "cobro": "bodega",
         "problema": (
             "El inventario del sistema y el de la bodega no coinciden, y nadie sabe "
             "en qué momento se separaron. Se hace un conteo cada seis meses, se ajusta "
@@ -91,7 +89,6 @@ MODULOS = [
         "nombre": "TMS",
         "titulo": "Transporte",
         "promesa": "Del enturnamiento a la liquidación, con el cumplimiento de entrega medido.",
-        "cobro": "vehiculo",
         "problema": (
             "El viaje se coordina por teléfono, el soporte de entrega llega en papel "
             "una semana después y la liquidación del conductor se arma en una hoja de "
@@ -125,7 +122,6 @@ MODULOS = [
         "nombre": "Control de Estibas",
         "titulo": "Estibas",
         "promesa": "Dónde está cada estiba, de quién es y cuánto lleva costando.",
-        "cobro": "bodega",
         "problema": (
             "Las estibas se prestan, se pierden y se cobran mal. Nadie sabe cuántas "
             "hay en la calle ni con qué cliente, y la conversación de cobro se vuelve "
@@ -155,7 +151,6 @@ MODULOS = [
         "nombre": "ERP",
         "titulo": "Financiero",
         "promesa": "La contabilidad se escribe sola desde la operación. Diez hechos generan su asiento sin digitar.",
-        "cobro": "plano",
         "problema": (
             "La operación pasa en un sistema y la contabilidad en otro, así que alguien "
             "se dedica a copiar de uno al otro. Las cifras nunca coinciden del todo, y "
@@ -188,7 +183,6 @@ MODULOS = [
         "nombre": "Gestión Humana",
         "titulo": "Personas",
         "promesa": "Del reclutamiento a la nómina liquidada, que se contabiliza sola.",
-        "cobro": "empleado",
         "problema": (
             "La nómina se liquida en un sistema, se paga en otro y se contabiliza a "
             "mano en un tercero. Las incapacidades y las vacaciones viven en correos, "
@@ -218,7 +212,6 @@ MODULOS = [
         "nombre": "SST",
         "titulo": "Seguridad y Salud",
         "promesa": "El sistema de gestión con sus evidencias, listo para cuando llegue la visita.",
-        "cobro": "empleado",
         "problema": (
             "El SG-SST existe en una carpeta que se arma la semana antes de la "
             "auditoría. Los incidentes se reportan en papel, las inspecciones se "
@@ -249,7 +242,6 @@ MODULOS = [
         "nombre": "LMS",
         "titulo": "Formación",
         "promesa": "Cursos, certificados y competencias, con el vencimiento avisado antes.",
-        "cobro": "empleado",
         "problema": (
             "La formación se dicta y se olvida. Nadie sabe qué certificado tiene "
             "vencido cuál conductor hasta que un cliente lo pide, y el reentrenamiento "
@@ -279,7 +271,6 @@ MODULOS = [
         "nombre": "QMS",
         "titulo": "Calidad",
         "promesa": "No conformidades, acciones y auditorías que se cierran, no que se archivan.",
-        "cobro": "plano",
         "problema": (
             "El sistema de calidad vive en documentos de Word y en un plan de acciones "
             "que nadie revisa entre auditorías. Las no conformidades se levantan y se "
@@ -310,7 +301,6 @@ MODULOS = [
         "nombre": "GRC",
         "titulo": "Riesgo y Cumplimiento",
         "promesa": "Obligaciones, controles y evidencias, con la prueba de que se cumplieron.",
-        "cobro": "plano",
         "problema": (
             "Las obligaciones legales están repartidas entre el jurídico, el contador "
             "y la gerencia. Cuando llega una revisión, demostrar que el control existe "
@@ -341,7 +331,6 @@ MODULOS = [
         "nombre": "DMS",
         "titulo": "Gestión Documental",
         "promesa": "Expedientes con versión, flujo de aprobación y tabla de retención.",
-        "cobro": "plano",
         "problema": (
             "Los documentos viven en carpetas compartidas donde hay tres versiones del "
             "mismo archivo y nadie sabe cuál rige. Las aprobaciones se dan por correo y "
@@ -372,7 +361,6 @@ MODULOS = [
         "nombre": "CRM",
         "titulo": "Comercial",
         "promesa": "Del prospecto a la cotización, con el histórico de cada cliente a la mano.",
-        "cobro": "plano",
         "problema": (
             "El pipeline vive en la cabeza del comercial y en su celular. Cuando se va, "
             "se lleva la relación; y mientras está, nadie más sabe qué se le prometió a "
@@ -402,7 +390,6 @@ MODULOS = [
         "nombre": "TarifaX",
         "titulo": "Motor de Tarifas",
         "promesa": "La tarifa de un flete calculada en segundos, con la distancia real de la ruta.",
-        "cobro": "plano",
         "problema": (
             "Cotizar un flete toma media hora y depende de quién lo haga. Dos personas "
             "cotizan distinto el mismo viaje, y nadie puede explicarle al cliente de "
@@ -432,7 +419,6 @@ MODULOS = [
         "nombre": "SCM",
         "titulo": "Proveedores",
         "promesa": "Solicitudes, órdenes y evaluación de proveedores, con criterio y no con memoria.",
-        "cobro": "plano",
         "problema": (
             "Se le compra siempre al mismo porque es el que contesta, no porque sea el "
             "que cumple. La evaluación de proveedores es un formato que se llena una "
@@ -460,7 +446,6 @@ MODULOS = [
         "nombre": "MES",
         "titulo": "Producción",
         "promesa": "La planta en línea: órdenes, consumos, paradas y eficiencia real del equipo.",
-        "cobro": "plano",
         "problema": (
             "Se sabe cuánto se produjo pero no cuánto se pudo haber producido. Las "
             "paradas se cuentan a ojo, el consumo de material se ajusta al final del "
@@ -491,7 +476,6 @@ MODULOS = [
         "nombre": "APS",
         "titulo": "Planeación",
         "promesa": "Pronóstico, capacidad y plan de abastecimiento, con escenarios que se comparan.",
-        "cobro": "plano",
         "problema": (
             "Se compra por corazonada y se produce contra el pedido del día. El "
             "inventario sobra donde no se necesita y falta donde sí, y el plan de "
@@ -521,7 +505,6 @@ MODULOS = [
         "nombre": "AGS",
         "titulo": "Agenda de Servicios",
         "promesa": "Citas, profesionales y cobro, para el negocio que trabaja con agenda.",
-        "cobro": "plano",
         "problema": (
             "La agenda es un cuaderno o un chat. Se cruzan citas, no se sabe cuánto "
             "produce cada profesional, y la comisión se calcula a mano al final de la "
@@ -547,31 +530,3 @@ MODULOS = [
     },
 ]
 
-# Cómo se cobra cada uno, para el bloque de precio del folleto.
-COBROS = {
-    "vehiculo": {
-        "titulo": "Se cobra por vehículo",
-        "valor": "$14.900",
-        "detalle": "al mes por vehículo con movimiento, con todo lo del camión adentro: "
-                   "mantenimiento, llantas, transporte, lubricación, combustible, "
-                   "inspecciones, repuestos, confiabilidad y documentos.",
-    },
-    "empleado": {
-        "titulo": "Se cobra por empleado",
-        "valor": "$3.900",
-        "detalle": "al mes por empleado en nómina —no por usuario del sistema—, con "
-                   "nómina, seguridad y salud, y formación incluidas.",
-    },
-    "bodega": {
-        "titulo": "Se cobra por bodega",
-        "valor": "$199.000",
-        "detalle": "al mes por sede o centro de distribución, con posiciones y "
-                   "movimientos sin límite, y control de estibas incluido.",
-    },
-    "plano": {
-        "titulo": "Va dentro del plan",
-        "valor": "Sin costo por unidad",
-        "detalle": "no se mide: entra en el plan contratado. En Operación se elige "
-                   "entre los módulos incluidos; en Plataforma vienen todos.",
-    },
-}

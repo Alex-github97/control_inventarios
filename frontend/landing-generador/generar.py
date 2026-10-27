@@ -22,7 +22,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from catalogo import COBROS, MODULOS   # noqa: E402
+from catalogo import MODULOS   # noqa: E402
 
 # El generador vive FUERA de `landing/` a propósito: esa carpeta se copia
 # entera dentro de la imagen y se sirve como sitio público, así que un .py ahí
@@ -173,12 +173,6 @@ CABEZA = """<!doctype html>
   .franja .intro{{color:rgba(255,255,255,.74)}}
   .franja .rotulo{{color:var(--acento-claro)}}
 
-  .precio{{display:flex;gap:28px;align-items:baseline;flex-wrap:wrap;margin-top:26px}}
-  .precio .cifra{{font-family:'JetBrains Mono',ui-monospace,monospace;
-    font-size:clamp(2rem,4vw,2.7rem);font-weight:600;letter-spacing:-.03em;
-    color:var(--acento)}}
-  .precio .texto{{color:var(--grafito);max-width:52ch;font-size:.98rem}}
-
   .cierre{{text-align:center;padding:104px 0}}
   .cierre h2,.cierre .intro{{margin-left:auto;margin-right:auto}}
   .cierre .intro{{margin-bottom:34px}}
@@ -220,7 +214,6 @@ CABEZA = """<!doctype html>
     <nav>
       <a href="/#plataforma">Plataforma</a>
       <a href="/#modulos">Módulos</a>
-      <a href="/#tarifas">Tarifas</a>
       <a href="/#contacto">Contacto</a>
     </nav>
     <a class="btn btn-linea" href="https://app.tittanware.com">Ingresar</a>
@@ -235,7 +228,7 @@ CABEZA = """<!doctype html>
     <p class="promesa">{promesa}</p>
     <div class="acciones">
       <a class="btn btn-acento" href="/#contacto">Ver una demostración</a>
-      <a class="btn btn-fantasma" href="/#tarifas">Cuánto cuesta</a>
+      <a class="btn btn-fantasma" href="/#contacto">Solicítelo</a>
     </div>
   </div>
 </div>
@@ -287,35 +280,19 @@ CONECTA = """
 </section>
 """
 
-PRECIO = """
-<section class="gris">
-  <div class="env">
-    <span class="rotulo">Cuánto cuesta</span>
-    <h2>{cobro_titulo}</h2>
-    <div class="precio">
-      <span class="cifra">{cobro_valor}</span>
-      <span class="texto">{cobro_detalle}</span>
-    </div>
-    <p class="intro" style="margin-top:26px">Usuarios sin límite en todos los planes.
-      Se factura solo la unidad con movimiento en el mes.
-      <a href="/#tarifas" style="color:var(--acento);font-weight:600">Ver todas las tarifas →</a></p>
-  </div>
-</section>
-"""
-
 CIERRE = """
 <section class="cierre">
   <div class="env">
     <span class="rotulo" style="justify-content:center">Seguir mirando</span>
     <h2>Los otros módulos</h2>
-    <p class="intro">Se contratan por separado y el que no se contrata no aparece:
-      ni en el menú, ni en la factura.</p>
+    <p class="intro">Se contratan por separado y el que no se contrata no aparece
+      en el menú.</p>
     <div class="otros">
 @@OTROS@@
     </div>
     <div class="acciones" style="margin-top:44px">
       <a class="btn btn-acento" href="/#contacto">Solicitar una demostración</a>
-      <a class="btn btn-linea" href="/#tarifas">Ver las tarifas</a>
+      <a class="btn btn-linea" href="/#contacto">Solicítelo</a>
     </div>
   </div>
 </section>
@@ -326,7 +303,6 @@ CIERRE = """
       <a href="/" class="logo" style="font-size:16px">TITTANWARE</a>
       <a href="/#plataforma">Plataforma</a>
       <a href="/#modulos">Módulos</a>
-      <a href="/#tarifas">Tarifas</a>
       <a href="/#contacto">Contacto</a>
     </div>
     <div class="legal">
@@ -401,7 +377,6 @@ def generar():
             f'<i>{o["orden"]}</i>{e(o["nombre"])}</a>'
             for o in MODULOS if o["clave"] != m["clave"]
         )
-        cobro = COBROS[m["cobro"]]
         tomas = capturas_de(m["clave"])
         pagina = (
             CABEZA.format(nombre=e(m["nombre"]), titulo=e(m["titulo"]),
@@ -413,9 +388,6 @@ def generar():
                 marcos="\n".join(marco(m["clave"], i, c) for i, c in tomas))
                if tomas else "")
             + CONECTA.format(conecta=e(m["conecta"]))
-            + PRECIO.format(cobro_titulo=e(cobro["titulo"]),
-                            cobro_valor=e(cobro["valor"]),
-                            cobro_detalle=e(cobro["detalle"]))
             + CIERRE.replace('@@OTROS@@', otros)
         )
         destino = os.path.join(SALIDA, f'{m["clave"]}.html')

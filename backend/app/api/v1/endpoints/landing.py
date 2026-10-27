@@ -10,18 +10,21 @@ La lectura es **pública**: la landing la ve cualquiera, y exigir sesión para
 mostrar un título dejaría la página en blanco a los visitantes. La escritura
 exige el permiso de la consola.
 """
-from datetime import datetime
+import re
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.endpoints.auth import _ip
 from app.core.database import get_db_plataforma
 from app.core.permisos_consola import Miembro, exigir
 from app.core.security import decode_token
 from app.infrastructure.models.plataforma import PlataformaLanding
+from app.infrastructure.models.prospecto import LandingProspecto
 
 router = APIRouter(prefix="/landing", tags=["Landing"])
 
@@ -59,7 +62,7 @@ CONTENIDO_INICIAL: Dict[str, Any] = {
     "modulos_titulo": "Se activa lo que se usa",
     "modulos_texto": (
         "No hay que comprarlo todo. Cada empresa contrata los módulos que necesita y "
-        "el resto sencillamente no aparece: ni en el menú, ni en el precio."
+        "el resto sencillamente no aparece en el menú."
     ),
     "detalle_titulo": "Mantenimiento, de la orden a la causa",
     "detalle_texto": (
@@ -201,6 +204,28 @@ CONTENIDO_INICIAL: Dict[str, Any] = {
 MAX_CARACTERES = 120_000
 
 
+# La página ya no publica precios: cada cotización se conversa. Estas claves
+# eran los textos de la sección de tarifas y pueden seguir guardadas en un
+# contenido publicado antes, o volver con una copia vieja pegada en el editor.
+PREFIJOS_DE_PRECIO = ("tarifas_", "unidades_", "ejemplos_")
+FRASES_DE_PRECIO = {
+    ": ni en el menú, ni en el precio.": " en el menú.",
+}
+
+
+def sin_precios(contenido: Dict[str, Any]) -> Dict[str, Any]:
+    """El contenido sin los textos de tarifas. No modifica el original."""
+    limpio: Dict[str, Any] = {}
+    for clave, valor in contenido.items():
+        if clave.startswith(PREFIJOS_DE_PRECIO):
+            continue
+        if isinstance(valor, str):
+            for vieja, nueva in FRASES_DE_PRECIO.items():
+                valor = valor.replace(vieja, nueva)
+        limpio[clave] = valor
+    return limpio
+
+
 class Publicacion(BaseModel):
     contenido: Dict[str, Any]
 
@@ -224,7 +249,7 @@ async def contenido(db: AsyncSession = Depends(get_db_plataforma)):
     tenga qué mostrar desde el primer día.
     """
     fila = await _fila(db)
-    return (fila.contenido or CONTENIDO_INICIAL) if fila else CONTENIDO_INICIAL
+    return sin_precios((fila.contenido or CONTENIDO_INICIAL) if fila else CONTENIDO_INICIAL)
 
 
 @router.get("/estado", response_model=EstadoLanding)
@@ -237,7 +262,7 @@ async def estado(
     if not fila:
         return EstadoLanding(contenido=CONTENIDO_INICIAL)
     return EstadoLanding(
-        contenido=fila.contenido or CONTENIDO_INICIAL,
+        contenido=sin_precios(fila.contenido or CONTENIDO_INICIAL),
         actualizado_en=fila.updated_at, actualizado_por=fila.actualizado_por)
 
 
@@ -270,9 +295,96 @@ async def publicar(
     if not fila:
         fila = PlataformaLanding()
         db.add(fila)
-    fila.contenido = data.contenido
+    fila.contenido = sin_precios(data.contenido)
     fila.actualizado_por = quien.usuario
     await db.commit(); await db.refresh(fila)
     return EstadoLanding(contenido=fila.contenido,
                          actualizado_en=fila.updated_at,
                          actualizado_por=fila.actualizado_por)
+
+
+# ─── Formulario de contacto ───────────────────────────────────────────────────
+#
+# Es la única escritura pública de la API: la usa quien todavía no es cliente
+# y por tanto no tiene sesión. Por eso no confía en nada de lo que llega: se
+# recorta, se mide y se frena por IP.
+
+# Hasta cuánto se acepta por campo. Un mensaje de contacto de más de 4.000
+# caracteres no es un mensaje, es un pegado.
+LIMITES = {"nombre": 160, "correo": 200, "empresa": 200, "telefono": 40,
+           "mensaje": 4000, "origen": 200}
+
+# Envíos por IP en la ventana. Se cuentan en la tabla y no en memoria: con
+# varios workers, un contador por proceso deja pasar cuatro veces el límite.
+ENVIOS_POR_IP = 5
+VENTANA = timedelta(hours=1)
+
+_CORREO = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+class SolicitudContacto(BaseModel):
+    # Todo opcional y como texto: los faltantes y los formatos se revisan a
+    # mano para responder 400 con un mensaje que el visitante entienda, en
+    # lugar del 422 en inglés que devolvería la validación automática.
+    nombre: Optional[str] = None
+    correo: Optional[str] = None
+    empresa: Optional[str] = None
+    telefono: Optional[str] = None
+    mensaje: Optional[str] = None
+    origen: Optional[str] = None
+    # El campo trampa. En el formulario va oculto; una persona no lo ve y lo
+    # deja vacío, un robot que llena todo lo que encuentra lo rellena.
+    sitio_web: Optional[str] = None
+
+
+def validar_contacto(datos: SolicitudContacto) -> Dict[str, Optional[str]]:
+    """Los campos limpios, o 400 con lo que hay que corregir."""
+    limpio = {campo: ((getattr(datos, campo) or "").strip() or None) for campo in LIMITES}
+    for campo, maximo in LIMITES.items():
+        if limpio[campo] and len(limpio[campo]) > maximo:
+            raise HTTPException(400, f"El campo «{campo}» admite hasta {maximo} caracteres.")
+    if not limpio["nombre"]:
+        raise HTTPException(400, "Escriba su nombre.")
+    if not limpio["correo"] or not _CORREO.match(limpio["correo"]):
+        raise HTTPException(400, "Escriba un correo válido: es por donde le vamos a responder.")
+    if not limpio["mensaje"]:
+        raise HTTPException(400, "Cuéntenos en el mensaje qué necesita.")
+    return limpio
+
+
+@router.post("/contacto", status_code=201)
+async def recibir_contacto(
+    datos: SolicitudContacto, request: Request,
+    db: AsyncSession = Depends(get_db_plataforma),
+):
+    """Guarda la solicitud de alguien que todavía no es cliente.
+
+    No crea clientes ni tickets: queda en su propia tabla para que soporte la
+    vea en la vista de prospectos. Quien ya es cliente tiene su mesa de ayuda
+    dentro de la aplicación.
+    """
+    # Al robot se le responde lo mismo que a una persona: un error le diría
+    # que lo detectaron y que pruebe de otra forma.
+    if (datos.sitio_web or "").strip():
+        return {"ok": True}
+
+    limpio = validar_contacto(datos)
+    ip = _ip(request)
+
+    desde = datetime.now(timezone.utc) - VENTANA
+    recientes = (await db.execute(
+        select(func.count(LandingProspecto.id))
+        .where(LandingProspecto.ip == ip, LandingProspecto.created_at >= desde)
+    )).scalar() or 0
+    if recientes >= ENVIOS_POR_IP:
+        raise HTTPException(
+            429, "Ya recibimos varias solicitudes desde esta conexión. "
+                 "Intente de nuevo en un rato o escríbanos al correo de contacto.")
+
+    db.add(LandingProspecto(
+        **limpio, ip=ip[:64],
+        user_agent=(request.headers.get("user-agent") or "")[:300] or None,
+        estado="NUEVO",
+    ))
+    await db.commit()
+    return {"ok": True}

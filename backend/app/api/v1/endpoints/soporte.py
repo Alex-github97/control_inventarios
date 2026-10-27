@@ -35,7 +35,8 @@ from app.infrastructure.models.soporte import (
     SoporteTicket, SoporteMensaje, SoporteAdjunto,
     ESTADOS, CRITICIDADES, IMPACTOS,
 )
-from app.core.permisos_consola import exigir
+from app.infrastructure.models.prospecto import LandingProspecto, ESTADOS_PROSPECTO
+from app.core.permisos_consola import Miembro, exigir
 
 router = APIRouter(prefix="/soporte", tags=["Soporte"])
 
@@ -424,6 +425,65 @@ async def clasificar(
     ticket.ultima_actividad = datetime.utcnow()
     await db.commit(); await db.refresh(ticket)
     return await _armar_detalle(db, ticket, incluir_internos=True)
+
+
+# ─── Prospectos ───────────────────────────────────────────────────────────────
+# Quien escribe desde el formulario de la landing sin ser cliente. No son
+# tickets: no tienen empresa ni conversación, solo una solicitud y un estado.
+# Los atiende el mismo equipo de soporte, con los mismos permisos.
+
+class ProspectoResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    nombre: str
+    correo: str
+    empresa: Optional[str] = None
+    telefono: Optional[str] = None
+    mensaje: str
+    origen: Optional[str] = None
+    estado: str
+    atendido_por: Optional[str] = None
+    atendido_en: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+
+
+class CambioProspecto(BaseModel):
+    estado: str
+
+
+@router.get("/prospectos", response_model=List[ProspectoResponse])
+async def prospectos(
+    estado: Optional[str] = None,
+    db: AsyncSession = Depends(get_db_plataforma),
+    _=Depends(exigir("soporte.ver")),
+):
+    """Las solicitudes de contacto, de la más reciente a la más antigua."""
+    q = select(LandingProspecto)
+    if estado:
+        q = q.where(LandingProspecto.estado == estado.upper())
+    return list((await db.execute(
+        q.order_by(LandingProspecto.created_at.desc(), LandingProspecto.id.desc())
+        .limit(500))).scalars().all())
+
+
+@router.put("/prospectos/{prospecto_id}", response_model=ProspectoResponse)
+async def cambiar_estado_prospecto(
+    prospecto_id: int, data: CambioProspecto,
+    db: AsyncSession = Depends(get_db_plataforma),
+    quien: Miembro = Depends(exigir("soporte.atender")),
+):
+    nuevo = (data.estado or "").upper()
+    if nuevo not in ESTADOS_PROSPECTO:
+        raise HTTPException(
+            400, f"Estado inválido. Use uno de: {', '.join(ESTADOS_PROSPECTO)}.")
+    prospecto = await db.get(LandingProspecto, prospecto_id)
+    if not prospecto:
+        raise HTTPException(404, "Esa solicitud no existe")
+    prospecto.estado = nuevo
+    prospecto.atendido_por = quien.usuario
+    prospecto.atendido_en = datetime.utcnow()
+    await db.commit(); await db.refresh(prospecto)
+    return prospecto
 
 
 @router.post("/cola/{ticket_id}/mensajes", response_model=TicketDetalle)
