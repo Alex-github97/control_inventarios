@@ -14,7 +14,11 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$DIR"
 
 # shellcheck disable=SC1091
-[ -f .env.prod ] && set -a && . ./.env.prod && set +a
+# Solo lo que se usa: cargar .env.prod con `.` falla, porque DOMINIOS lleva
+# espacios (docker compose sí lo entiende, bash no).
+POSTGRES_USER="$(sed -n 's/^POSTGRES_USER=//p' .env.prod)"
+POSTGRES_DB="$(sed -n 's/^POSTGRES_DB=//p' .env.prod)"
+eval "$(sed -n 's/^DIAS_A_CONSERVAR=\([0-9]*\)$/DIAS_A_CONSERVAR=\1/p' .env.prod)"
 
 DESTINO="${DIR}/backups"
 FECHA="$(date +%Y%m%d-%H%M)"

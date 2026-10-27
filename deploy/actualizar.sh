@@ -35,8 +35,11 @@ $COMPOSE build backend frontend
 
 echo "── Respaldo previo"
 mkdir -p backups
-set -a; . ./.env.prod; set +a
-$COMPOSE exec -T postgres pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc \
+# Se leen solo las dos variables: cargar .env.prod con `.` falla, porque
+# DOMINIOS lleva espacios (docker compose sí lo entiende, bash no).
+PG_USUARIO="$(sed -n 's/^POSTGRES_USER=//p' .env.prod)"
+PG_BASE="$(sed -n 's/^POSTGRES_DB=//p' .env.prod)"
+$COMPOSE exec -T postgres pg_dump -U "$PG_USUARIO" -d "$PG_BASE" -Fc \
   > "backups/predespliegue-$(date +%Y%m%d-%H%M)-${DESPUES:0:7}.dump"
 # Se guardan los diez últimos de este tipo; los diarios los maneja respaldo.sh.
 ls -1t backups/predespliegue-*.dump | tail -n +11 | xargs -r rm -f
