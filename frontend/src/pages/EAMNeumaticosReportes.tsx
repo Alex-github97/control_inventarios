@@ -5,8 +5,9 @@ import {
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
 import {
-  ArrowBack as BackIcon, PictureAsPdf, Download, Timeline, DirectionsCar,
-  Straighten, PieChart as PieIcon,
+  ArrowBack as BackIcon, PictureAsPdf, Download, DirectionsCar,
+  Straighten, PieChart as PieIcon, Dashboard as DashboardIcon, AttachMoney, Speed,
+  Height, ListAlt, Assessment,
 } from '@mui/icons-material'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
@@ -16,6 +17,7 @@ import { apiClient as api } from '@/api/client'
 import { exportarExcel } from '@/utils/exportar'
 import { generarPDFEstadoFlota } from '@/utils/reporteFlotaPDF'
 import type { VehiculoReporte } from '@/utils/reporteFlotaPDF'
+import { TableroRendimiento, InformeMetrica, DetalleVidas } from '@/components/eam/RendimientoLlantas'
 
 import { COLOR_MODULO } from '@/config/marca'
 const EAM_COLOR = COLOR_MODULO
@@ -31,23 +33,59 @@ interface InspeccionHistorial {
   estado_visual?: string | null; observaciones?: string | null; tecnico?: string | null
 }
 
-type TipoInforme = 'ESTADO_FLOTA' | 'COMPOSICION' | 'HISTORIAL'
+type TipoInforme = 'TABLERO' | 'CPK' | 'KM' | 'KM_MM' | 'VIDAS' | 'ESTADO_FLOTA' | 'COMPOSICION' | 'HISTORIAL'
 
-const INFORMES: { id: TipoInforme; titulo: string; descripcion: string; icono: JSX.Element }[] = [
+// Los de rendimiento traen sus propios filtros y descargas; la página solo les
+// pasa el periodo.
+const DE_RENDIMIENTO: TipoInforme[] = ['TABLERO', 'CPK', 'KM', 'KM_MM', 'VIDAS']
+
+const GRUPOS_INFORME = ['Rendimiento y costos', 'Estado e inspecciones'] as const
+
+const INFORMES: { id: TipoInforme; grupo: typeof GRUPOS_INFORME[number]; titulo: string; descripcion: string; icono: JSX.Element }[] = [
   {
-    id: 'ESTADO_FLOTA',
+    id: 'TABLERO', grupo: 'Rendimiento y costos',
+    titulo: 'Tablero de rendimiento',
+    descripcion: 'CPK, km por vida y km/mm de la flota, comparados por marca, medida, vida, banda, vehículo y más.',
+    icono: <DashboardIcon />,
+  },
+  {
+    id: 'CPK', grupo: 'Rendimiento y costos',
+    titulo: 'Costo por kilómetro',
+    descripcion: 'Clasificación de cada categoría por su CPK, de la más económica a la más costosa.',
+    icono: <AttachMoney />,
+  },
+  {
+    id: 'KM', grupo: 'Rendimiento y costos',
+    titulo: 'Rendimiento en kilómetros',
+    descripcion: 'Kilómetros que recorre cada vida de llanta, por categoría.',
+    icono: <Speed />,
+  },
+  {
+    id: 'KM_MM', grupo: 'Rendimiento y costos',
+    titulo: 'Kilómetros por milímetro',
+    descripcion: 'Cuántos km rinde cada milímetro de labrado: el desgaste, sin el efecto del precio.',
+    icono: <Height />,
+  },
+  {
+    id: 'VIDAS', grupo: 'Rendimiento y costos',
+    titulo: 'Detalle por vida',
+    descripcion: 'Una fila por vida de cada llanta con su km, desgaste, costo, CPK y km/mm.',
+    icono: <ListAlt />,
+  },
+  {
+    id: 'ESTADO_FLOTA', grupo: 'Estado e inspecciones',
     titulo: 'Estado actual de la flota',
     descripcion: 'Una página por vehículo con su esquema de llantas, la profundidad mínima de cada posición y las observaciones del periodo.',
     icono: <DirectionsCar />,
   },
   {
-    id: 'COMPOSICION',
+    id: 'COMPOSICION', grupo: 'Estado e inspecciones',
     titulo: 'Composición de llantas a piso',
     descripcion: 'Cómo se reparte el parque montado por marca, medida, referencia, vida, estado y tipo de uso.',
     icono: <PieIcon />,
   },
   {
-    id: 'HISTORIAL',
+    id: 'HISTORIAL', grupo: 'Estado e inspecciones',
     titulo: 'Historial de inspecciones',
     descripcion: 'Todas las inspecciones del periodo con sus medidas, técnico y observaciones.',
     icono: <Straighten />,
@@ -56,7 +94,7 @@ const INFORMES: { id: TipoInforme; titulo: string; descripcion: string; icono: J
 
 export default function EAMNeumaticosReportes() {
   const navigate = useNavigate()
-  const [tipo, setTipo] = useState<TipoInforme>('ESTADO_FLOTA')
+  const [tipo, setTipo] = useState<TipoInforme>('TABLERO')
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
   const [vehId, setVehId] = useState('')
@@ -199,21 +237,24 @@ export default function EAMNeumaticosReportes() {
           <Button onClick={() => navigate('/eam/neumaticos')} startIcon={<BackIcon />} size="small"
             sx={{ color: '#64748B', textTransform: 'none', minWidth: 0 }}>Neumáticos</Button>
           <Divider orientation="vertical" flexItem sx={{ borderColor: '#E5E7EB' }} />
-          <Timeline sx={{ color: EAM_COLOR }} />
+          <Assessment sx={{ color: EAM_COLOR }} />
           <Box>
-            <Typography variant="h5" fontWeight={800} color={EAM_DARK}>Reporte de inspecciones</Typography>
+            <Typography variant="h5" fontWeight={800} color={EAM_DARK}>Informes de neumáticos</Typography>
             <Typography fontSize={12.5} color="text.secondary">
-              Elige el periodo y el tipo de informe, revisa la vista previa y descarga en PDF o Excel
+              Elige el informe y el periodo, revisa la vista previa y descárgalo en Excel o PDF
             </Typography>
           </Box>
         </Stack>
 
         {/* Tipo de informe */}
-        <Grid container spacing={2} mb={2}>
-          {INFORMES.map(inf => {
+        {GRUPOS_INFORME.map(grupo => (
+        <Box key={grupo} mb={2}>
+        <Typography fontSize={12} fontWeight={700} color="#94A3B8" letterSpacing="0.06em" mb={1}>{grupo.toUpperCase()}</Typography>
+        <Grid container spacing={2}>
+          {INFORMES.filter(inf => inf.grupo === grupo).map(inf => {
             const activo = tipo === inf.id
             return (
-              <Grid key={inf.id} size={{ xs: 12, md: 4 }}>
+              <Grid key={inf.id} size={{ xs: 12, sm: 6, md: inf.grupo === 'Rendimiento y costos' ? 2.4 : 4 }}>
                 <Card
                   onClick={() => setTipo(inf.id)}
                   sx={{
@@ -235,6 +276,8 @@ export default function EAMNeumaticosReportes() {
             )
           })}
         </Grid>
+        </Box>
+        ))}
 
         {/* Periodo y filtros */}
         <Card sx={{ bgcolor: '#FFFFFF', mb: 2 }}>
@@ -247,7 +290,7 @@ export default function EAMNeumaticosReportes() {
               <Stack direction="row" alignItems="center">
                 {rangoRapido('7 días', 7)}{rangoRapido('30 días', 30)}{rangoRapido('90 días', 90)}
               </Stack>
-              {tipo !== 'COMPOSICION' && (
+              {tipo !== 'COMPOSICION' && !DE_RENDIMIENTO.includes(tipo) && (
                 <TextField select size="small" label="Vehículo" value={vehId}
                   onChange={e => setVehId(e.target.value)} sx={{ minWidth: 220 }}>
                   <MenuItem value="">Toda la flota</MenuItem>
@@ -268,13 +311,20 @@ export default function EAMNeumaticosReportes() {
                   {generando ? 'Generando…' : 'Descargar PDF'}
                 </Button>
               )}
-              <Button variant="contained" startIcon={<Download />} disabled={cargando}
-                onClick={generarExcel}
-                sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none', fontWeight: 700 }}>
-                Descargar Excel
-              </Button>
+              {!DE_RENDIMIENTO.includes(tipo) && (
+                <Button variant="contained" startIcon={<Download />} disabled={cargando}
+                  onClick={generarExcel}
+                  sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none', fontWeight: 700 }}>
+                  Descargar Excel
+                </Button>
+              )}
             </Stack>
-            {!desde && !hasta && (
+            {DE_RENDIMIENTO.includes(tipo) ? (
+              <Typography fontSize={11.5} color="text.secondary" mt={1.5}>
+                Entran las vidas de llanta que rodaron en algún momento del periodo, con todos sus kilómetros y su costo.
+                {!desde && !hasta && ' Sin fechas se toma todo el histórico.'}
+              </Typography>
+            ) : !desde && !hasta && (
               <Typography fontSize={11.5} color="text.secondary" mt={1.5}>
                 Sin fechas se toma todo el histórico.
               </Typography>
@@ -283,6 +333,12 @@ export default function EAMNeumaticosReportes() {
         </Card>
 
         {/* Vista previa */}
+        {tipo === 'TABLERO' && <TableroRendimiento desde={desde} hasta={hasta} />}
+        {tipo === 'CPK' && <InformeMetrica key="cpk" metrica="cpk" desde={desde} hasta={hasta} />}
+        {tipo === 'KM' && <InformeMetrica key="km" metrica="km" desde={desde} hasta={hasta} />}
+        {tipo === 'KM_MM' && <InformeMetrica key="km_mm" metrica="km_mm" desde={desde} hasta={hasta} />}
+        {tipo === 'VIDAS' && <DetalleVidas desde={desde} hasta={hasta} />}
+
         {tipo === 'ESTADO_FLOTA' && (
           <Stack spacing={2}>
             {criticasTotales > 0 && (
