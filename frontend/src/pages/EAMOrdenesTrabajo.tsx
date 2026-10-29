@@ -888,10 +888,24 @@ export default function EAMOrdenesTrabajo() {
     queryKey: ['eam-repuestos-catalogo'],
     queryFn: () => api.get('/eam/catalogos/repuestos').then(r => r.data),
   })
-  const { data: cumplimientos = [] } = useQuery<CumplimientoRutina[]>({
-    queryKey: ['eam-cumplimiento'],
-    queryFn: () => api.get('/eam/planes/cumplimiento').then(r => r.data),
+  // El cumplimiento llega sin el detalle de cada rutina (repetido por cada
+  // activo cubierto eran casi 20 MB con una flota grande); tareas y repuestos
+  // se toman una sola vez de los planes.
+  const { data: cumplimientosSinDetalle = [] } = useQuery<CumplimientoRutina[]>({
+    queryKey: ['eam-cumplimiento', 'sin-detalle'],
+    queryFn: () => api.get('/eam/planes/cumplimiento', { params: { con_detalle: false } }).then(r => r.data),
   })
+  const { data: planesDetalle = [] } = useQuery<{ id: number; tareas?: CumplimientoRutina['tareas']; repuestos?: CumplimientoRutina['repuestos'] }[]>({
+    queryKey: ['eam-planes'],
+    queryFn: () => api.get('/eam/planes').then(r => r.data),
+  })
+  const cumplimientos = useMemo(() => {
+    const porPlan = new Map(planesDetalle.map(p => [p.id, p]))
+    return cumplimientosSinDetalle.map(c => {
+      const p = porPlan.get(c.plan_id)
+      return p ? { ...c, tareas: p.tareas ?? [], repuestos: p.repuestos ?? [] } : c
+    })
+  }, [cumplimientosSinDetalle, planesDetalle])
 
   const activoPorId = useMemo(() => {
     const m = new Map<number, Activo>()

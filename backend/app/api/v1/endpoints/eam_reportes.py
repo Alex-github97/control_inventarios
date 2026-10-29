@@ -169,41 +169,48 @@ async def _cumplimiento_plan(db: AsyncSession, desde: datetime, **_) -> List[Dic
 
 async def _mano_obra(db: AsyncSession, desde: datetime, **_) -> List[Dict[str, Any]]:
     """Horas y costo por técnico y por contratista."""
-    r = await db.execute(
-        select(EAMOTManoObra, EAMOrdenTrabajo, EAMActivo)
+    # Filas de columnas por la conexión: con una flota grande son decenas de
+    # miles de líneas y el objeto ORM de cada una era casi todo el tiempo.
+    L = EAMOTManoObra
+    r = await (await db.connection()).execute(
+        select(L.actividad, L.sistema, L.tecnico, L.horas, L.tarifa_hora, L.costo_total,
+               EAMOrdenTrabajo.numero, EAMOrdenTrabajo.fecha_fin, EAMActivo.placa, EAMActivo.codigo)
         .join(EAMOrdenTrabajo, EAMOrdenTrabajo.id == EAMOTManoObra.ot_id)
         .join(EAMActivo, EAMActivo.id == EAMOrdenTrabajo.activo_id)
         .where(and_(EAMOrdenTrabajo.fecha_fin.isnot(None),
                     EAMOrdenTrabajo.fecha_fin >= desde)))
     filas = []
-    for linea, ot, activo in r.all():
+    for x in r.all():
         filas.append({
-            "orden": ot.numero, "fecha": ot.fecha_fin,
-            "activo": activo.placa or activo.codigo,
-            "actividad": linea.actividad, "sistema": linea.sistema,
-            "ejecutor": linea.tecnico or "Contratista",
-            "horas": linea.horas, "tarifa": linea.tarifa_hora,
-            "costo": round(linea.costo_total or 0, 2),
+            "orden": x.numero, "fecha": x.fecha_fin,
+            "activo": x.placa or x.codigo,
+            "actividad": x.actividad, "sistema": x.sistema,
+            "ejecutor": x.tecnico or "Contratista",
+            "horas": x.horas, "tarifa": x.tarifa_hora,
+            "costo": round(x.costo_total or 0, 2),
         })
     return sorted(filas, key=lambda x: -(x["costo"] or 0))
 
 
 async def _repuestos_consumidos(db: AsyncSession, desde: datetime, **_) -> List[Dict[str, Any]]:
-    r = await db.execute(
-        select(EAMOTMaterial, EAMOrdenTrabajo, EAMActivo)
+    M = EAMOTMaterial
+    r = await (await db.connection()).execute(
+        select(M.descripcion, M.cantidad, M.unidad, M.costo_unit, M.costo_total,
+               EAMOrdenTrabajo.numero, EAMOrdenTrabajo.fecha_fin, EAMActivo.placa,
+               EAMActivo.codigo, EAMActivo.marca)
         .join(EAMOrdenTrabajo, EAMOrdenTrabajo.id == EAMOTMaterial.ot_id)
         .join(EAMActivo, EAMActivo.id == EAMOrdenTrabajo.activo_id)
         .where(and_(EAMOrdenTrabajo.fecha_fin.isnot(None),
                     EAMOrdenTrabajo.fecha_fin >= desde)))
     filas = []
-    for linea, ot, activo in r.all():
+    for x in r.all():
         filas.append({
-            "orden": ot.numero, "fecha": ot.fecha_fin,
-            "activo": activo.placa or activo.codigo, "marca": activo.marca,
-            "repuesto": linea.descripcion, "cantidad": linea.cantidad,
-            "unidad": linea.unidad,
-            "costo_unit": round(linea.costo_unit or 0, 2),
-            "costo_total": round(linea.costo_total or 0, 2),
+            "orden": x.numero, "fecha": x.fecha_fin,
+            "activo": x.placa or x.codigo, "marca": x.marca,
+            "repuesto": x.descripcion, "cantidad": x.cantidad,
+            "unidad": x.unidad,
+            "costo_unit": round(x.costo_unit or 0, 2),
+            "costo_total": round(x.costo_total or 0, 2),
         })
     return sorted(filas, key=lambda x: -(x["costo_total"] or 0))
 
@@ -329,7 +336,11 @@ async def catalogo():
 
 @router.get("/{clave}", response_model=Dict[str, Any])
 async def ejecutar(clave: str, dias: int = Query(180, ge=7, le=1825),
+                   limite: int = Query(200, ge=1, le=20000),
+                   desplazamiento: int = Query(0, ge=0),
                    db: AsyncSession = Depends(get_db)):
+    """Corre un informe. `total` cuenta todas las filas del periodo y `filas`
+    trae un trozo: entero, el de repuestos de un año eran 70 mil filas."""
     informe = next((i for i in CATALOGO if i.clave == clave), None)
     if not informe:
         raise HTTPException(404, "Ese informe no existe")
@@ -342,5 +353,6 @@ async def ejecutar(clave: str, dias: int = Query(180, ge=7, le=1825),
     return {
         "clave": clave, "nombre": informe.nombre,
         "columnas": [c.model_dump() for c in informe.columnas],
-        "periodo_dias": dias, "total": len(filas), "filas": filas,
+        "periodo_dias": dias, "total": len(filas),
+        "filas": filas[desplazamiento:desplazamiento + limite],
     }

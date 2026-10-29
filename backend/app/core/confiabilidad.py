@@ -55,7 +55,11 @@ async def ordenes_del_periodo(db: AsyncSession, desde: datetime,
     métrica: son los mismos registros para MTBF, MTTR, costo y disponibilidad, y
     seis recorridos de la misma tabla no dan una cifra mejor.
     """
-    q = (select(EAMOrdenTrabajo, EAMActivo)
+    # Las órdenes como filas de columnas, por la conexión, y los activos como
+    # objetos una sola vez: con una flota grande son decenas de miles de
+    # órdenes, y armar el objeto ORM de cada una era casi todo el tiempo.
+    # Las filas se leen igual (`o.costo_total`, `o.fecha_fin`…).
+    q = (select(*EAMOrdenTrabajo.__table__.c)
          .join(EAMActivo, EAMActivo.id == EAMOrdenTrabajo.activo_id)
          .where(and_(EAMOrdenTrabajo.fecha_fin.isnot(None),
                      EAMOrdenTrabajo.fecha_fin >= desde)))
@@ -65,7 +69,11 @@ async def ordenes_del_periodo(db: AsyncSession, desde: datetime,
         q = q.where(EAMActivo.marca == marca)
     if activo_id:
         q = q.where(EAMOrdenTrabajo.activo_id == activo_id)
-    return list((await db.execute(q)).all())
+    ordenes = (await (await db.connection()).execute(q)).all()
+    ids = {o.activo_id for o in ordenes}
+    activos = {a.id: a for a in (await db.execute(
+        select(EAMActivo).where(EAMActivo.id.in_(ids)))).scalars().all()} if ids else {}
+    return [(o, activos[o.activo_id]) for o in ordenes]
 
 
 def mttr(ordenes: List[Tuple[EAMOrdenTrabajo, EAMActivo]]) -> Tuple[Optional[float], int]:

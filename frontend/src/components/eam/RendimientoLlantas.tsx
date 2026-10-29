@@ -21,6 +21,7 @@ import { useQuery } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { apiClient as api } from '@/api/client'
 import { exportarExcel } from '@/utils/exportar'
+import { pedirPagina, useRetardado } from '@/utils/paginaServidor'
 import { COLOR_MODULO } from '@/config/marca'
 
 const COLOR = COLOR_MODULO
@@ -404,22 +405,27 @@ export function DetalleVidas({ desde, hasta }: { desde: string; hasta: string })
   const [buscar, setBuscar] = useState('')
   const [pagina, setPagina] = useState(0)
   const [porPagina, setPorPagina] = useState(50)
-  const q = useQuery<VidaFila[]>({
-    queryKey: ['neu-rendimiento-vidas', alcance, desde, hasta],
-    queryFn: () => api.get('/eam/neumaticos/reportes/rendimiento/vidas', {
-      params: { alcance, desde: desde || undefined, hasta: hasta || undefined },
-    }).then(r => r.data),
+  // El servidor filtra y entrega por páginas: todas las vidas de una flota
+  // grande son cientos de miles de filas.
+  const buscarR = useRetardado(buscar)
+  const params = { alcance, desde: desde || undefined, hasta: hasta || undefined, busqueda: buscarR.trim() || undefined }
+  const q = useQuery({
+    queryKey: ['neu-rendimiento-vidas', params, pagina, porPagina],
+    queryFn: () => pedirPagina<VidaFila>('/eam/neumaticos/reportes/rendimiento/vidas', {
+      ...params, limite: porPagina, desplazamiento: pagina * porPagina,
+    }),
+    placeholderData: prev => prev,
   })
-  const filas = useMemo(() => {
-    const t = buscar.trim().toLowerCase()
-    const todas = q.data ?? []
-    if (!t) return todas
-    return todas.filter(v => v.codigo.toLowerCase().includes(t)
-      || Object.values(v.categorias).some(x => x.toLowerCase().includes(t)))
-  }, [q.data, buscar])
+  const filas = q.data?.filas ?? []
+  const total = q.data?.total ?? 0
 
-  const exportar = () => {
-    if (!filas.length) { toast.error('No hay datos para exportar'); return }
+  /** El Excel lleva todo lo filtrado, no solo la página, hasta un tope. */
+  const TOPE_EXPORTAR = 20000
+  const exportar = async () => {
+    const { filas: todas, total: n } = await pedirPagina<VidaFila>(
+      '/eam/neumaticos/reportes/rendimiento/vidas', { ...params, limite: TOPE_EXPORTAR })
+    if (!todas.length) { toast.error('No hay datos para exportar'); return }
+    if (n > TOPE_EXPORTAR) toast(`Se exportan las primeras ${TOPE_EXPORTAR.toLocaleString('es-CO')} de ${n.toLocaleString('es-CO')} vidas: afine el filtro para llevar el resto.`)
     exportarExcel({
       archivo: 'vidas-llantas', titulo: 'Rendimiento por vida de llanta',
       columnas: [
@@ -429,7 +435,7 @@ export function DetalleVidas({ desde, hasta }: { desde: string; hasta: string })
         { key: 'cpk', header: 'CPK ($/km)' }, { key: 'km_mm', header: 'km/mm' },
         ...Object.entries(ETIQUETAS_CATEGORIA).filter(([k]) => k !== 'vida').map(([key, header]) => ({ key, header })),
       ],
-      filas: filas.map(v => ({
+      filas: todas.map(v => ({
         ...v.categorias, codigo: v.codigo, vida: v.vida, estado: v.terminada ? 'Terminada' : 'En servicio',
         inicio: v.fecha_inicio ? new Date(v.fecha_inicio).toLocaleDateString('es-CO') : '',
         fin: v.fecha_fin ? new Date(v.fecha_fin).toLocaleDateString('es-CO') : '',
@@ -453,7 +459,7 @@ export function DetalleVidas({ desde, hasta }: { desde: string; hasta: string })
             <TextField size="small" label="Buscar llanta, marca, vehículo…" value={buscar}
               onChange={e => { setBuscar(e.target.value); setPagina(0) }} sx={{ minWidth: 260 }} />
             <Box flex={1} />
-            <Button variant="contained" startIcon={<Download />} disabled={!filas.length} onClick={exportar}
+            <Button variant="contained" startIcon={<Download />} disabled={!total} onClick={() => { exportar().catch(() => toast.error('No se pudo generar el Excel')) }}
               sx={{ bgcolor: COLOR, textTransform: 'none', fontWeight: 700 }}>Descargar Excel</Button>
           </Stack>
         </CardContent>
@@ -471,7 +477,7 @@ export function DetalleVidas({ desde, hasta }: { desde: string; hasta: string })
               </TableRow>
             </TableHead>
             <TableBody>
-              {filas.slice(pagina * porPagina, (pagina + 1) * porPagina).map(v => (
+              {filas.map(v => (
                 <TableRow key={`${v.neumatico_id}-${v.vida}-${v.fecha_inicio}`} hover>
                   <TableCell sx={{ fontSize: 12, fontWeight: 700 }}>{v.codigo}</TableCell>
                   <TableCell sx={{ fontSize: 12 }}>{v.vida}</TableCell>
@@ -497,7 +503,7 @@ export function DetalleVidas({ desde, hasta }: { desde: string; hasta: string })
             </TableBody>
           </Table>
         </Box>
-        <TablePagination component="div" count={filas.length} page={pagina} onPageChange={(_, p) => setPagina(p)}
+        <TablePagination component="div" count={total} page={pagina} onPageChange={(_, p) => setPagina(p)}
           rowsPerPage={porPagina} onRowsPerPageChange={e => { setPorPagina(Number(e.target.value)); setPagina(0) }}
           rowsPerPageOptions={[25, 50, 100]} labelRowsPerPage="Filas por página"
           labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count.toLocaleString('es-CO')}`} />

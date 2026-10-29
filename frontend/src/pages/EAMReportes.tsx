@@ -17,7 +17,7 @@
 import { useMemo, useState } from 'react'
 import {
   Box, Card, Typography, Stack, Button, TextField, Chip, Skeleton,
-  Table, TableBody, TableCell, TableHead, TableRow, MenuItem, InputAdornment,
+  Table, TableBody, TableCell, TableHead, TablePagination, TableRow, MenuItem, InputAdornment,
   Tooltip,
 } from '@mui/material'
 import {
@@ -29,6 +29,7 @@ import { Layout } from '@/components/layout/Layout'
 import { PALETA, COLOR_MODULO } from '@/config/marca'
 import { apiClient as api } from '@/api/client'
 import { descargarExcel } from '@/utils/excel'
+import toast from 'react-hot-toast'
 
 const R = '/eam/reportes'
 
@@ -70,14 +71,21 @@ export default function EAMReportes() {
   const [abierto, setAbierto] = useState<Informe | null>(null)
   const [dias, setDias] = useState(180)
   const [busqueda, setBusqueda] = useState('')
+  const [pagina, setPagina] = useState(0)
+  const POR_PAGINA = 100
 
   const { data: catalogo = [], isLoading } = useQuery<Informe[]>({
     queryKey: ['rep-catalogo'], queryFn: () => api.get(`${R}/catalogo`).then(r => r.data) })
 
   const { data: resultado, isFetching } = useQuery<Resultado>({
-    queryKey: ['rep-datos', abierto?.clave, dias],
-    queryFn: () => api.get(`${R}/${abierto!.clave}`, { params: { dias } }).then(r => r.data),
+    // Por páginas: un informe de un año de una flota grande son decenas de
+    // miles de filas, y pintarlas todas congelaba la pestaña.
+    queryKey: ['rep-datos', abierto?.clave, dias, pagina],
+    queryFn: () => api.get(`${R}/${abierto!.clave}`, {
+      params: { dias, limite: POR_PAGINA, desplazamiento: pagina * POR_PAGINA },
+    }).then(r => r.data),
     enabled: !!abierto && !abierto.ruta_modulo,
+    placeholderData: prev => prev,
   })
 
   const porCategoria = useMemo(() => {
@@ -96,11 +104,19 @@ export default function EAMReportes() {
     return resultado.filas
   }, [resultado, busqueda, abierto])
 
-  const bajar = () => {
+  /** El Excel lleva todo el periodo, no solo la página, hasta un tope. */
+  const TOPE_EXCEL = 20000
+  const bajar = async () => {
     if (!resultado) return
-    descargarExcel(`reporte_${resultado.clave}`, resultado.filas,
-      resultado.columnas.map(c => ({ titulo: c.titulo, valor: c.clave })),
-      resultado.nombre.slice(0, 31))
+    const todo: Resultado = await api.get(`${R}/${resultado.clave}`, {
+      params: { dias, limite: TOPE_EXCEL },
+    }).then(r => r.data)
+    if (todo.total > TOPE_EXCEL) {
+      toast(`El Excel lleva las primeras ${TOPE_EXCEL.toLocaleString('es-CO')} de ${todo.total.toLocaleString('es-CO')} filas: acorte el periodo para el resto.`)
+    }
+    descargarExcel(`reporte_${todo.clave}`, todo.filas,
+      todo.columnas.map(c => ({ titulo: c.titulo, valor: c.clave })),
+      todo.nombre.slice(0, 31))
   }
 
   /* ── Un informe abierto ─────────────────────────────────────────────── */
@@ -116,16 +132,16 @@ export default function EAMReportes() {
               </Typography>
             </Box>
             <TextField select size="small" label="Periodo" value={dias} sx={{ width: 150 }}
-              onChange={e => setDias(Number(e.target.value))}>
+              onChange={e => { setDias(Number(e.target.value)); setPagina(0) }}>
               <MenuItem value={30}>30 días</MenuItem>
               <MenuItem value={90}>90 días</MenuItem>
               <MenuItem value={180}>6 meses</MenuItem>
               <MenuItem value={365}>1 año</MenuItem>
               <MenuItem value={730}>2 años</MenuItem>
             </TextField>
-            <Button startIcon={<Download />} variant="outlined" onClick={bajar}
+            <Button startIcon={<Download />} variant="outlined" onClick={() => { bajar().catch(() => toast.error('No se pudo generar el Excel')) }}
               disabled={!resultado?.total} sx={{ textTransform: 'none' }}>Excel</Button>
-            <Button startIcon={<ArrowBack />} onClick={() => setAbierto(null)}
+            <Button startIcon={<ArrowBack />} onClick={() => { setAbierto(null); setPagina(0) }}
               sx={{ textTransform: 'none' }}>Volver</Button>
           </Stack>
 
@@ -174,6 +190,9 @@ export default function EAMReportes() {
                   )}
                 </TableBody>
               </Table>
+              <TablePagination component="div" count={resultado?.total ?? 0} page={pagina}
+                onPageChange={(_, p) => setPagina(p)} rowsPerPage={POR_PAGINA} rowsPerPageOptions={[POR_PAGINA]}
+                labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count.toLocaleString('es-CO')}`} />
             </Card>
           )}
         </Box>

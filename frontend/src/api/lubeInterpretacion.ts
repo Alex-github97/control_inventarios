@@ -159,7 +159,11 @@ export interface Fuente { titulo: string; define: string }
 export interface Tablero {
   desde: string
   filtro?: FiltroFlota
+  /** Una página de las filas; `total_filas` dice cuántas hay con el filtro. */
   filas: FilaTablero[]
+  total_filas: number
+  /** Muestras donde la norma y el sistema no coinciden, sobre todas las filas. */
+  discrepan: number
   resumen: Record<string, number>
   /** Por familia de compartimento: `{MOT: {fe: …}}`. */
   limites_flota: Record<string, Record<string, LimiteAplicado>>
@@ -361,6 +365,8 @@ export interface ParametroDispersion {
   bidireccional: boolean; es_desgaste: boolean
   puntos: { km: number; valor: number; estado: string
             placa?: string | null; muestra_id: number }[]
+  /** Todos los puntos del parámetro; `puntos` puede traer una muestra si son muchos. */
+  puntos_totales?: number
   fuera_de_rango: number
   regresion: Regresion | null
   minimo: number; maximo: number; promedio: number
@@ -510,8 +516,9 @@ export const interpretacionApi = {
     get<Cobertura>('/cobertura', conFiltro(f, { anio })),
   compartimentos: (f?: FiltroFlota) =>
     get<CompartimentoLube[]>('/compartimentos', conFiltro(f)),
-  tablero: (dias = 180, soloConHallazgo = true, f?: FiltroFlota) =>
-    get<Tablero>('/tablero', conFiltro(f, { dias, solo_con_hallazgo: soloConHallazgo })),
+  tablero: (dias = 180, soloConHallazgo = true, f?: FiltroFlota,
+            pagina?: { estado?: string; limite?: number; desplazamiento?: number }) =>
+    get<Tablero>('/tablero', conFiltro(f, { dias, solo_con_hallazgo: soloConHallazgo, ...pagina })),
   placa: (compartimentoId: number, muestras = 8) =>
     get<AnalisisPlaca>(`/placa/${compartimentoId}`, { muestras }),
   correlacion: (f?: FiltroFlota, dias = 1460) =>

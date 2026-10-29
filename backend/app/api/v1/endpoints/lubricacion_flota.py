@@ -31,6 +31,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import Select, and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.consultas import en_lista
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.core.normas_lubricacion import (
@@ -293,7 +294,7 @@ async def programa(
             .join(LubeResultado, LubeResultado.parametro_id == LubeParametro.id)
             .join(LubeMuestra, LubeMuestra.id == LubeResultado.muestra_id)
             .where(and_(LubeResultado.estado.in_(("MARGINAL", "CRITICO")),
-                        LubeResultado.muestra_id.in_(ids)))
+                        en_lista(LubeResultado.muestra_id, ids)))
             .group_by(LubeParametro.codigo, LubeParametro.nombre,
                       LubeParametro.grupo, LubeParametro.unidad,
                       LubeParametro.origen_probable)
@@ -419,7 +420,7 @@ async def programa(
     if ids:
         verificacion = {v: c for v, c in (await db.execute(
             select(LubeDiagnostico.verificacion, func.count(LubeDiagnostico.id))
-            .where(LubeDiagnostico.muestra_id.in_(ids))
+            .where(en_lista(LubeDiagnostico.muestra_id, ids))
             .group_by(LubeDiagnostico.verificacion))).all()}
     confirmados = verificacion.get("CONFIRMADO", 0)
     desmentidos = verificacion.get("DESMENTIDO", 0)
@@ -591,7 +592,7 @@ async def evolucion(
         lambda: {"marginal": 0, "critico": 0})
     for muestra_id, estado, n in (await db.execute(
         select(LubeResultado.muestra_id, LubeResultado.estado, func.count())
-        .where(and_(LubeResultado.muestra_id.in_(ids),
+        .where(and_(en_lista(LubeResultado.muestra_id, ids),
                     LubeResultado.estado.in_(("MARGINAL", "CRITICO"))))
         .group_by(LubeResultado.muestra_id, LubeResultado.estado)
     )).all():
@@ -657,6 +658,24 @@ async def evolucion(
 # 5. Dispersión: cada parámetro contra el kilometraje
 # ══════════════════════════════════════════════════════════════════════════════
 
+# Un diagrama de dispersión no se ve distinto con 3.000 puntos que con 20.000,
+# pero 20.000 por parámetro eran 25 MB de respuesta. Pasado el tope se muestran
+# TODOS los puntos fuera de rango y una muestra pareja del resto; la recta, el r
+# y las cifras se calculan siempre con todos.
+MAX_PUNTOS_DISPERSION = 3000
+
+
+def _reducir_puntos(puntos: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    if len(puntos) <= MAX_PUNTOS_DISPERSION:
+        return puntos
+    fuera = [x for x in puntos if x["estado"] in ("MARGINAL", "CRITICO")]
+    normales = [x for x in puntos if x["estado"] not in ("MARGINAL", "CRITICO")]
+    cupo = max(MAX_PUNTOS_DISPERSION - len(fuera), 0)
+    paso = len(normales) / cupo if cupo else 0
+    elegidos = [normales[int(i * paso)] for i in range(cupo)] if cupo else []
+    return sorted(fuera + elegidos, key=lambda x: x["km"])
+
+
 @router.get("/dispersion")
 async def dispersion(
     dias: int = Query(1460, ge=90, le=3650),
@@ -707,11 +726,13 @@ async def dispersion(
         select(LubeParametro))).scalars().all()}
 
     puntos_de: Dict[int, List[Dict[str, Any]]] = defaultdict(list)
-    for r in (await db.execute(
-        select(LubeResultado)
-        .where(and_(LubeResultado.muestra_id.in_(list(km_de.keys())),
+    # Columnas y por la conexión: son cientos de miles de resultados.
+    for r in (await (await db.connection()).execute(
+        select(LubeResultado.muestra_id, LubeResultado.parametro_id,
+               LubeResultado.valor, LubeResultado.estado)
+        .where(and_(en_lista(LubeResultado.muestra_id, km_de.keys()),
                     LubeResultado.valor.isnot(None)))
-    )).scalars().all():
+    )).all():
         p = catalogo.get(r.parametro_id)
         if not p or p.es_texto:
             continue
@@ -743,7 +764,8 @@ async def dispersion(
             "grupo": p.grupo, "origen_probable": p.origen_probable,
             "bidireccional": bool(p.bidireccional),
             "es_desgaste": p.codigo in GRUPO_DESGASTE,
-            "puntos": sorted(puntos, key=lambda x: x["km"]),
+            "puntos": _reducir_puntos(sorted(puntos, key=lambda x: x["km"])),
+            "puntos_totales": len(puntos),
             "fuera_de_rango": fuera,
             "regresion": regresion(xs, ys),
             "minimo": round(min(ys), 3), "maximo": round(max(ys), 3),
@@ -907,7 +929,7 @@ async def criterios(
         for mid, pid, valor in (await db.execute(
             select(LubeResultado.muestra_id, LubeResultado.parametro_id,
                    LubeResultado.valor)
-            .where(and_(LubeResultado.muestra_id.in_(list(tipo_de_muestra)),
+            .where(and_(en_lista(LubeResultado.muestra_id, list(tipo_de_muestra)),
                         LubeResultado.valor.isnot(None)))
         )).all():
             p = catalogo_id.get(pid)

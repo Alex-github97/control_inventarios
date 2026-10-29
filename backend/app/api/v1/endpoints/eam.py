@@ -1,12 +1,13 @@
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import select, func, and_, or_, update
+from sqlalchemy import select, func, and_, or_, update, true, literal, union_all, cast as sa_cast, Integer, String, Float
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.paginacion import contar, pagina, poner_total
 from app.core.inventario_kardex import sincronizar_orden, revertir_orden
 from app.infrastructure.models.eam import (
     EAMTipoTrabajo, EAMActividad, EAMRepuesto, EAMFallaCatalogo,
@@ -35,7 +36,7 @@ from app.infrastructure.models.eam import (
 from app.infrastructure.models.tms import TMSVehiculo
 from app.infrastructure.models.flota import FlotaVehiculo
 from app.infrastructure.models.checklist import ChkEjecucion
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, aliased
 
 router = APIRouter(prefix="/eam", tags=["eam"])
 
@@ -629,6 +630,9 @@ class ReencaucheDetalleResponse(BaseModel):
     profundidad_nueva: Optional[float] = None
     vida_remanente_km: Optional[float] = None
     costo: Optional[float] = None
+    # La pantalla ya no tiene a mano las llantas dadas de baja (las rechazadas
+    # del lote terminan ahí), así que el código viaja con el detalle.
+    neumatico_codigo: Optional[str] = None
 
 # ── Configuración global ──
 class NeuConfigSchema(BaseModel):
@@ -1538,8 +1542,18 @@ async def create_ejecucion(data: ChecklistEjecucionCreate, db: AsyncSession = De
 
 # ─── Planes de mantenimiento ──────────────────────────────────────────────────
 
+def _detalle_plan(plan: EAMPlanMantenimiento):
+    """Tareas y repuestos de la rutina, validados una vez por rutina y no una
+    vez por cada activo que cubre."""
+    return (
+        [PlanTareaItem.model_validate(t) for t in sorted(plan.tareas, key=lambda x: x.orden or 0)],
+        [PlanRepuestoItem.model_validate(r) for r in sorted(plan.repuestos, key=lambda x: x.orden or 0)],
+    )
+
+
 def _cumplimiento(
-    plan: EAMPlanMantenimiento, activo: EAMActivo, prog: Optional[EAMPlanActivo]
+    plan: EAMPlanMantenimiento, activo: EAMActivo, prog: Optional[EAMPlanActivo],
+    detalle=None,
 ) -> CumplimientoActivo:
     """Cuánto le falta a un activo para su próxima rutina, contra su lectura de
     hoy.
@@ -1552,8 +1566,8 @@ def _cumplimiento(
         frecuencia=plan.frecuencia, unidad=plan.unidad, tipo_ot=plan.tipo_ot,
         activo_id=activo.id, activo_codigo=activo.codigo, activo_nombre=activo.nombre,
         odometro_activo=activo.odometro_actual, horometro_activo=activo.horometro_actual,
-        tareas=[PlanTareaItem.model_validate(t) for t in sorted(plan.tareas, key=lambda x: x.orden or 0)],
-        repuestos=[PlanRepuestoItem.model_validate(r) for r in sorted(plan.repuestos, key=lambda x: x.orden or 0)],
+        tareas=(detalle or _detalle_plan(plan))[0],
+        repuestos=(detalle or _detalle_plan(plan))[1],
     )
     if prog is None or prog.ultima_ejecucion_fecha is None:
         return base
@@ -1589,7 +1603,7 @@ def _cumplimiento(
 
 
 async def _cobertura(
-    db: AsyncSession, planes: List[EAMPlanMantenimiento]
+    db: AsyncSession, planes: List[EAMPlanMantenimiento], con_detalle: bool = True,
 ) -> dict[int, List[CumplimientoActivo]]:
     """Qué activos cubre cada rutina y cómo va cada uno.
 
@@ -1607,8 +1621,9 @@ async def _cobertura(
     salida: dict[int, List[CumplimientoActivo]] = {}
     for plan in planes:
         cubiertos = [a for a in activos if _plan_cubre(plan, a)]
+        detalle = _detalle_plan(plan) if con_detalle else ([], [])
         salida[plan.id] = [
-            _cumplimiento(plan, a, por_clave.get((plan.id, a.id))) for a in cubiertos
+            _cumplimiento(plan, a, por_clave.get((plan.id, a.id)), detalle) for a in cubiertos
         ]
     return salida
 
@@ -1619,7 +1634,8 @@ async def list_planes(db: AsyncSession = Depends(get_db)):
         select(EAMPlanMantenimiento).where(EAMPlanMantenimiento.activo == True)
         .order_by(EAMPlanMantenimiento.nombre)
     )).scalars().all()
-    cobertura = await _cobertura(db, planes)
+    # Para contar no hace falta el detalle de cada rutina.
+    cobertura = await _cobertura(db, planes, con_detalle=False)
 
     salida = []
     for p in planes:
@@ -1638,9 +1654,14 @@ async def list_planes(db: AsyncSession = Depends(get_db)):
 async def cumplimiento_rutinas(
     activo_id: Optional[int] = None,
     plan_id: Optional[int] = None,
+    con_detalle: bool = Query(True, description="Incluir tareas y repuestos de la rutina en cada fila"),
     db: AsyncSession = Depends(get_db),
 ):
     """Una fila por (rutina, activo cubierto).
+
+    Sin `con_detalle` las filas no repiten las tareas y repuestos de la rutina:
+    con una flota grande son miles de filas por rutina y esa repetición eran
+    casi 20 MB. Quien necesite el detalle lo toma una vez de `/planes`.
 
     Con `activo_id` devuelve las rutinas que le aplican a ese equipo — es lo que
     consulta el formulario de la OT — y con `plan_id`, la flota que cubre una
@@ -1650,7 +1671,7 @@ async def cumplimiento_rutinas(
     if plan_id is not None:
         q = q.where(EAMPlanMantenimiento.id == plan_id)
     planes = (await db.execute(q)).scalars().all()
-    cobertura = await _cobertura(db, planes)
+    cobertura = await _cobertura(db, planes, con_detalle)
 
     filas = [f for lista in cobertura.values() for f in lista]
     if activo_id is not None:
@@ -2678,9 +2699,17 @@ async def delete_catalogo_neumatico(cid: int, db: AsyncSession = Depends(get_db)
 
 # ── Pila de descarte (neumáticos dados de baja) ──
 @router.get("/neumaticos/descarte", response_model=List[NeumaticResponse])
-async def list_descarte_neumatico(db: AsyncSession = Depends(get_db)):
-    r = await db.execute(select(EAMNeumatico).where(EAMNeumatico.estado == "BAJA").order_by(EAMNeumatico.fecha_baja.desc()))
-    return r.scalars().all()
+async def list_descarte_neumatico(respuesta: Response,
+                                  busqueda: Optional[str] = None,
+                                  limite: int = Query(100, ge=1, le=5000),
+                                  desplazamiento: int = Query(0, ge=0),
+                                  db: AsyncSession = Depends(get_db)):
+    """La pila de descarte, la baja más reciente primero, por trozos (total en
+    `X-Total-Count`). Es la parte que más crece: entera eran 42 MB."""
+    q = select(EAMNeumatico).where(EAMNeumatico.estado == "BAJA")
+    q = _filtro_busqueda_llanta(q, busqueda)
+    q = q.order_by(EAMNeumatico.fecha_baja.desc().nulls_last(), EAMNeumatico.id.desc())
+    return await pagina(db, q, respuesta, limite, desplazamiento)
 
 
 class ConfigEjes(BaseModel):
@@ -3194,68 +3223,83 @@ async def _recalcular_recorrido(db: AsyncSession, neu: EAMNeumatico) -> None:
     neu.km_total = max(0.0, (neu.km_actual or 0) - (neu.km_inicio or 0))
 
 
+ALTA_OBSERVACION = "Alta de la llanta en el sistema"
+
+
 @router.get("/neumaticos/movimientos", response_model=List[MovimientoBitacora])
 async def bitacora_movimientos(
+    respuesta: Response,
     neumatico_id: Optional[int] = None,
     activo_id: Optional[int] = None,
     tipo_movimiento: Optional[str] = None,
+    busqueda: Optional[str] = Query(None, description="Llanta, vehículo, técnico, posición, bodega u observación"),
     limit: int = Query(500, ge=1, le=2000),
+    desplazamiento: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
     """Bitácora completa: todo lo que le pasó a cada llanta, en un solo lugar.
 
     Incluye el alta de la llanta como primera línea de su historia, aunque no
     sea una fila de movimiento: sin ella la bitácora arrancaría en el aire.
+
+    Filtra, ordena y corta la base, por trozos (total en `X-Total-Count`). Antes
+    se traían todos los movimientos y todas las llantas para devolver 500: con
+    una flota grande eran 25 segundos, y la búsqueda de la pantalla solo miraba
+    esos 500 últimos.
     """
-    neus = (await db.execute(select(EAMNeumatico))).scalars().all()
-    por_neu = {n.id: n for n in neus}
-    activos = {a.id: a for a in (await db.execute(select(EAMActivo))).scalars().all()}
-    bodegas = {b.id: b for b in (await db.execute(select(EAMBodegaNeumatico))).scalars().all()}
+    M, N = EAMMovimientoNeumatico, EAMNeumatico
+    A, B = aliased(EAMActivo), aliased(EAMBodegaNeumatico)
+    nulo = lambda tipo: sa_cast(literal(None), tipo)  # noqa: E731
+    patron = f"%{busqueda.strip()}%" if busqueda and busqueda.strip() else None
+    tipo = tipo_movimiento.upper() if tipo_movimiento else None
 
-    q = select(EAMMovimientoNeumatico)
+    movs = (select(
+                M.id.label("id"), M.neumatico_id.label("neumatico_id"),
+                N.codigo.label("neumatico_codigo"),
+                func.coalesce(M.tipo_movimiento, "—").label("tipo_movimiento"),
+                M.fecha.label("fecha"), M.posicion_origen.label("posicion_origen"),
+                M.posicion.label("posicion"), M.activo_id.label("activo_id"),
+                A.codigo.label("activo_codigo"), M.bodega_id.label("bodega_id"),
+                B.nombre.label("bodega_nombre"), M.km_odometro.label("km_odometro"),
+                M.horometro.label("horometro"), M.tecnico.label("tecnico"),
+                M.observaciones.label("observaciones"), literal(True).label("editable"))
+            .join(N, N.id == M.neumatico_id)
+            .outerjoin(A, A.id == M.activo_id)
+            .outerjoin(B, B.id == M.bodega_id))
     if neumatico_id is not None:
-        q = q.where(EAMMovimientoNeumatico.neumatico_id == neumatico_id)
+        movs = movs.where(M.neumatico_id == neumatico_id)
     if activo_id is not None:
-        q = q.where(EAMMovimientoNeumatico.activo_id == activo_id)
-    if tipo_movimiento:
-        q = q.where(EAMMovimientoNeumatico.tipo_movimiento == tipo_movimiento.upper())
-    movs = (await db.execute(q)).scalars().all()
-
-    filas: List[MovimientoBitacora] = []
-    for m in movs:
-        neu = por_neu.get(m.neumatico_id)
-        if not neu:
-            continue
-        activo = activos.get(m.activo_id) if m.activo_id else None
-        bodega = bodegas.get(m.bodega_id) if m.bodega_id else None
-        filas.append(MovimientoBitacora(
-            id=m.id, neumatico_id=m.neumatico_id, neumatico_codigo=neu.codigo,
-            tipo_movimiento=m.tipo_movimiento or "—", fecha=m.fecha,
-            posicion_origen=m.posicion_origen, posicion=m.posicion,
-            activo_id=m.activo_id, activo_codigo=activo.codigo if activo else None,
-            bodega_id=m.bodega_id, bodega_nombre=bodega.nombre if bodega else None,
-            km_odometro=m.km_odometro, horometro=m.horometro,
-            tecnico=m.tecnico, observaciones=m.observaciones,
-        ))
+        movs = movs.where(M.activo_id == activo_id)
+    if tipo:
+        movs = movs.where(M.tipo_movimiento == tipo)
+    if patron:
+        movs = movs.where(or_(*(c.ilike(patron) for c in (
+            N.codigo, A.codigo, M.tecnico, M.observaciones, M.posicion,
+            M.posicion_origen, B.nombre))))
+    partes = [movs]
 
     # El alta de cada llanta, para que la historia empiece por el principio.
-    if tipo_movimiento in (None, "", "ALTA"):
-        for n in neus:
-            if neumatico_id is not None and n.id != neumatico_id:
-                continue
-            if activo_id is not None:
-                continue
-            filas.append(MovimientoBitacora(
-                id=None, neumatico_id=n.id, neumatico_codigo=n.codigo,
-                # created_at viene con zona y los movimientos sin ella; se
-                # igualan para poder ordenarlos juntos.
-                tipo_movimiento="ALTA", fecha=_fecha_naive(n.created_at),
-                km_odometro=n.km_inicio, editable=False,
-                observaciones="Alta de la llanta en el sistema",
-            ))
+    # `created_at` viene con zona y los movimientos sin ella: se pasa a la hora
+    # local, como hace `_fecha_naive`, para ordenarlos juntos.
+    if tipo in (None, "ALTA") and activo_id is None:
+        altas = select(
+            nulo(Integer).label("id"), N.id, N.codigo, literal("ALTA"),
+            func.timezone(str(ZONA_LOCAL), N.created_at), nulo(String), nulo(String),
+            nulo(Integer), nulo(String), nulo(Integer), nulo(String), N.km_inicio,
+            nulo(Float), nulo(String), literal(ALTA_OBSERVACION), literal(False))
+        if neumatico_id is not None:
+            altas = altas.where(N.id == neumatico_id)
+        if patron and busqueda.strip().lower() not in ALTA_OBSERVACION.lower():
+            altas = altas.where(N.codigo.ilike(patron))
+        partes.append(altas)
 
-    filas.sort(key=lambda f: (_fecha_naive(f.fecha) or datetime.min), reverse=True)
-    return filas[:limit]
+    union = union_all(*partes).subquery() if len(partes) > 1 else movs.subquery()
+    poner_total(respuesta, (await db.execute(select(func.count()).select_from(union))).scalar() or 0,
+                limit, desplazamiento)
+    filas = (await db.execute(
+        select(union).order_by(union.c.fecha.desc().nulls_last(), union.c.id.desc().nulls_last())
+        .offset(desplazamiento).limit(limit))).mappings().all()
+    return [dict(f) for f in filas]
 
 
 @router.put("/neumaticos/movimientos/{mov_id}", response_model=MovNeumaticoResponse)
@@ -4163,7 +4207,10 @@ async def referencia_profundidad(nid: int, db: AsyncSession = Depends(get_db)):
 @router.get("/neumaticos/referencias-profundidad",
             response_model=List[ReferenciaProfundidadResponse])
 async def referencias_profundidad(
+    respuesta: Response,
     activo_id: Optional[int] = None,
+    limite: int = Query(200, ge=1, le=1000, description="Solo aplica sin activo_id"),
+    desplazamiento: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
     """Lo mismo, para todas las llantas de un vehículo de una vez.
@@ -4171,11 +4218,17 @@ async def referencias_profundidad(
     La inspección de sesión mide las seis o diez llantas del vehículo en una
     sola pantalla; pedir la referencia de cada una por separado sería una
     llamada por fila y la tabla se llenaría a pedazos.
+
+    Cada referencia son cuatro consultas, así que sin `activo_id` va por trozos
+    (total en `X-Total-Count`): para toda una flota eran 130 mil consultas y
+    más de tres minutos.
     """
     consulta = select(EAMNeumatico).where(EAMNeumatico.estado != "BAJA")
     if activo_id:
-        consulta = consulta.where(EAMNeumatico.activo_id == activo_id)
-    neumaticos = list((await db.execute(consulta)).scalars().all())
+        neumaticos = list((await db.execute(consulta.where(EAMNeumatico.activo_id == activo_id))).scalars().all())
+    else:
+        neumaticos = list(await pagina(db, consulta.order_by(EAMNeumatico.codigo), respuesta,
+                                       limite, desplazamiento))
     salida = []
     for neu in neumaticos:
         ref = await _referencia_profundidad(db, neu)
@@ -4200,25 +4253,37 @@ async def list_inspecciones(nid: int, db: AsyncSession = Depends(get_db)):
 
 # ── Indicadores / CPK ──
 @router.get("/neumaticos/indicadores", response_model=List[IndicadorNeuResponse])
-async def indicadores_neumaticos(db: AsyncSession = Depends(get_db)):
+async def indicadores_neumaticos(respuesta: Response,
+                                 busqueda: Optional[str] = None,
+                                 limite: Optional[int] = Query(None, ge=1, le=20000),
+                                 desplazamiento: int = Query(0, ge=0),
+                                 db: AsyncSession = Depends(get_db)):
+    """CPK, costo por mm y proyección de cada llanta vigente, por código. Con
+    `limite` va por trozos y el total en `X-Total-Count`."""
     cfg = await _get_config_neu(db)
-    r = await db.execute(select(EAMNeumatico).where(EAMNeumatico.estado != "BAJA"))
-    neumaticos = r.scalars().all()
+    N = EAMNeumatico
+    sum_ajustes = (select(EAMAjusteNeumatico.neumatico_id, func.sum(EAMAjusteNeumatico.valor).label("total"))
+                   .group_by(EAMAjusteNeumatico.neumatico_id).subquery())
+    q = _filtro_busqueda_llanta(
+        select(N.id, N.codigo, N.marca, N.medida, N.estado, N.posicion, N.km_total, N.costo,
+               N.profundidad_diseño, N.profundidad_actual, N.vida_util_km,
+               func.coalesce(sum_ajustes.c.total, 0).label("ajustes"))
+        .outerjoin(sum_ajustes, sum_ajustes.c.neumatico_id == N.id)
+        .where(N.estado != "BAJA"), busqueda)
+    poner_total(respuesta, await contar(db, q), limite, desplazamiento)
+    q = q.order_by(N.codigo).offset(desplazamiento)
+    if limite is not None:
+        q = q.limit(limite)
+    neumaticos = (await db.execute(q)).all()
 
-    ajustes_r = await db.execute(
-        select(EAMAjusteNeumatico.neumatico_id, func.sum(EAMAjusteNeumatico.valor))
-        .group_by(EAMAjusteNeumatico.neumatico_id)
-    )
-    ajustes_map = {nid: total or 0 for nid, total in ajustes_r.all()}
-
-    out: List[IndicadorNeuResponse] = []
+    out: List[dict] = []
     for n in neumaticos:
         km = n.km_total or 0
         pd = n.profundidad_diseño
         pa = n.profundidad_actual
         mm_gastados = (pd - pa) if (pd is not None and pa is not None) else None
         usable = (pd - cfg.profundidad_minima) if pd is not None else None
-        ajustes = ajustes_map.get(n.id, 0)
+        ajustes = n.ajustes or 0
         costo_neto = max((n.costo or 0) - ajustes, 0) if (n.costo or ajustes) else None
         cpk = (costo_neto / km) if (costo_neto and km > 0) else None
         costo_mm = (costo_neto / mm_gastados) if (costo_neto and mm_gastados and mm_gastados > 0) else None
@@ -4226,7 +4291,7 @@ async def indicadores_neumaticos(db: AsyncSession = Depends(get_db)):
         if mm_gastados and mm_gastados > 0 and km > 0 and usable and usable > 0:
             km_proy = round(usable * km / mm_gastados, 0)
         pct = round(mm_gastados / usable * 100, 1) if (mm_gastados is not None and usable and usable > 0) else None
-        out.append(IndicadorNeuResponse(
+        out.append(dict(
             neumatico_id=n.id, codigo=n.codigo, marca=n.marca, medida=n.medida,
             estado=n.estado, posicion=n.posicion, km_total=km, costo=n.costo,
             ajustes=round(ajustes, 2) if ajustes else None,
@@ -4263,43 +4328,65 @@ class UltimaInspeccionResponse(BaseModel):
     cpk: Optional[float] = None
 
 
+def _ultima_inspeccion_lateral(desde: Optional[datetime] = None, hasta: Optional[datetime] = None):
+    """La última inspección de cada llanta, como LATERAL: una búsqueda por
+    índice por llanta en vez de traer todo el historial para quedarse con una.
+
+    Antes se pedían todas las inspecciones con `neumatico_id IN (...)`: con
+    976 mil inspecciones y más de 32.767 llantas la consulta ni siquiera
+    arrancaba (es el tope de parámetros de Postgres) y la pantalla daba 500.
+    """
+    I = EAMInspeccionNeumatico
+    q = select(I).where(I.neumatico_id == EAMNeumatico.id)
+    if desde is not None:
+        q = q.where(I.fecha >= desde)
+    if hasta is not None:
+        q = q.where(I.fecha <= hasta)
+    return aliased(I, q.order_by(I.fecha.desc(), I.id.desc()).limit(1).lateral())
+
+
 @router.get("/neumaticos/inspecciones/ultimas", response_model=List[UltimaInspeccionResponse])
-async def ultimas_inspecciones(db: AsyncSession = Depends(get_db)):
+async def ultimas_inspecciones(respuesta: Response,
+                               limite: int = Query(1000, ge=1, le=10000),
+                               desplazamiento: int = Query(0, ge=0),
+                               db: AsyncSession = Depends(get_db)):
     """Una fila por llanta con su ultima inspeccion y los indicadores de la vida
     en curso: profundidad minima medida, kilometraje recorrido en esa vida y CPK.
     Se ordena por fecha de inspeccion descendente; las que nunca se inspeccionaron
-    quedan al final."""
-    r = await db.execute(select(EAMNeumatico).where(EAMNeumatico.estado != "BAJA"))
-    neumaticos = r.scalars().all()
-    if not neumaticos:
+    quedan al final. Por trozos: el total va en `X-Total-Count`."""
+    vigentes = select(EAMNeumatico.id).where(EAMNeumatico.estado != "BAJA")
+    poner_total(respuesta, await contar(db, vigentes), limite, desplazamiento)
+
+    # Primero el orden, con solo la fecha (sale del índice sin leer la fila);
+    # el detalle se busca después únicamente para las llantas de esta página.
+    I = EAMInspeccionNeumatico
+    fecha_ult = (select(func.max(I.fecha)).where(I.neumatico_id == EAMNeumatico.id)
+                 .correlate(EAMNeumatico).scalar_subquery())
+    ids = list((await db.execute(
+        select(EAMNeumatico.id).where(EAMNeumatico.estado != "BAJA")
+        .order_by(fecha_ult.desc().nulls_last(), EAMNeumatico.id)
+        .offset(desplazamiento).limit(limite))).scalars().all())
+    if not ids:
         return []
-    ids = [n.id for n in neumaticos]
 
-    # Ultima inspeccion de cada llanta
-    r = await db.execute(
-        select(EAMInspeccionNeumatico)
-        .where(EAMInspeccionNeumatico.neumatico_id.in_(ids))
-        .order_by(EAMInspeccionNeumatico.neumatico_id, EAMInspeccionNeumatico.fecha.desc())
-    )
-    ultima_por_llanta = {}
-    for insp in r.scalars().all():
-        if insp.neumatico_id not in ultima_por_llanta:
-            ultima_por_llanta[insp.neumatico_id] = insp
-
-    # Vida abierta de cada llanta (para km y costo de esa vida)
-    r = await db.execute(
-        select(EAMVidaNeumatico)
-        .where(EAMVidaNeumatico.neumatico_id.in_(ids), EAMVidaNeumatico.fecha_fin.is_(None))
-    )
-    vida_por_llanta = {v.neumatico_id: v for v in r.scalars().all()}
-
-    # Nombre del vehiculo donde esta montada
-    activos_ids = [n.activo_id for n in neumaticos if n.activo_id]
-    vehiculos = {}
-    if activos_ids:
-        r = await db.execute(select(EAMActivo).where(EAMActivo.id.in_(activos_ids)))
-        for a in r.scalars().all():
-            vehiculos[a.id] = a.placa or a.codigo
+    ult = _ultima_inspeccion_lateral()
+    V = EAMVidaNeumatico
+    vida = aliased(V, select(V).where(V.neumatico_id == EAMNeumatico.id, V.fecha_fin.is_(None))
+                   .order_by(V.id.desc()).limit(1).lateral())
+    filas = (await db.execute(
+        select(EAMNeumatico, ult, vida, EAMActivo.placa, EAMActivo.codigo)
+        .select_from(EAMNeumatico)
+        .outerjoin(ult, true())
+        .outerjoin(vida, true())
+        .outerjoin(EAMActivo, EAMActivo.id == EAMNeumatico.activo_id)
+        .where(EAMNeumatico.id.in_(ids))
+    )).all()
+    posicion = {nid: i for i, nid in enumerate(ids)}
+    filas.sort(key=lambda f: posicion[f[0].id])
+    neumaticos = [f[0] for f in filas]
+    ultima_por_llanta = {f[0].id: f[1] for f in filas if f[1] is not None}
+    vida_por_llanta = {f[0].id: f[2] for f in filas if f[2] is not None}
+    vehiculos = {f[0].activo_id: (f[3] or f[4]) for f in filas if f[0].activo_id}
 
     ahora = datetime.utcnow()
     salida: List[UltimaInspeccionResponse] = []
@@ -4340,8 +4427,7 @@ async def ultimas_inspecciones(db: AsyncSession = Depends(get_db)):
             cpk=round(cpk, 2) if cpk else None,
         ))
 
-    # Mas reciente primero; sin inspeccion al final
-    salida.sort(key=lambda x: (x.fecha_ultima is None, -(x.fecha_ultima.timestamp() if x.fecha_ultima else 0)))
+    # Ya vienen ordenadas por la consulta: más reciente primero, sin inspección al final.
     return salida
 
 
@@ -4375,7 +4461,7 @@ async def historial_inspecciones(
     hasta: Optional[datetime] = None,
     activo_id: Optional[int] = None,
     neumatico_id: Optional[int] = None,
-    limite: int = 5000,
+    limite: int = Query(5000, ge=1, le=20000),
     db: AsyncSession = Depends(get_db),
 ):
     """Todas las inspecciones registradas (no solo la ultima de cada llanta),
@@ -4479,82 +4565,76 @@ async def reporte_estado_flota(
     if not activos:
         return []
 
-    r = await db.execute(select(EAMNeumatico).where(
-        EAMNeumatico.estado == "INSTALADO",
-        EAMNeumatico.activo_id.in_([a.id for a in activos]),
-    ))
-    montadas = r.scalars().all()
-    por_activo_pos = {(n.activo_id, n.posicion): n for n in montadas}
+    # Llantas montadas con la última inspección del periodo, en una consulta:
+    # antes se traían todas las inspecciones de las llantas montadas para
+    # quedarse con una por llanta (cientos de miles de filas).
+    ids_activos = q.with_only_columns(EAMActivo.id).order_by(None)
+    ult = _ultima_inspeccion_lateral(desde, hasta)
+    # Solo las columnas que usa el informe: con miles de vehículos, armar el
+    # objeto ORM completo de cada llanta y cada inspección era la mitad del tiempo.
+    N = EAMNeumatico
+    r = await db.execute(
+        select(N.id, N.activo_id, N.posicion, N.codigo, N.marca, N.referencia, N.medida,
+               N.reencauches, N.profundidad_actual, N.presion_actual,
+               ult.id.label("insp_id"), ult.fecha.label("insp_fecha"),
+               ult.profundidad_izq, ult.profundidad_centro, ult.profundidad_der,
+               ult.presion_psi, ult.observaciones.label("insp_obs"))
+        .select_from(N).outerjoin(ult, true())
+        .where(N.estado == "INSTALADO", N.activo_id.in_(ids_activos)))
+    por_activo_pos = {(n.activo_id, n.posicion): n for n in r.all()}
 
-    # Ultima inspeccion de cada llanta dentro del periodo pedido
-    ultima_insp = {}
-    if montadas:
-        qi = select(EAMInspeccionNeumatico).where(
-            EAMInspeccionNeumatico.neumatico_id.in_([n.id for n in montadas])
-        )
-        if desde is not None:
-            qi = qi.where(EAMInspeccionNeumatico.fecha >= desde)
-        if hasta is not None:
-            qi = qi.where(EAMInspeccionNeumatico.fecha <= hasta)
-        ri = await db.execute(qi.order_by(
-            EAMInspeccionNeumatico.neumatico_id, EAMInspeccionNeumatico.fecha.desc()
-        ))
-        for insp in ri.scalars().all():
-            if insp.neumatico_id not in ultima_insp:
-                ultima_insp[insp.neumatico_id] = insp
-
-    salida: List[VehiculoReporte] = []
+    salida: List[dict] = []
     for a in activos:
         posiciones_layout = _generar_posiciones(
             a.numero_ejes, a.tiene_repuesto if a.tiene_repuesto is not None else True,
             layout=a.layout_llantas, cantidad_repuestos=a.cantidad_repuestos or 1,
         )
-        filas: List[LlantaEnPosicionReporte] = []
+        filas: List[dict] = []
         observaciones: List[str] = []
         criticas = 0
         ocupadas = 0
 
         for p in posiciones_layout:
             n = por_activo_pos.get((a.id, p["codigo"]))
-            fila = LlantaEnPosicionReporte(
+            fila = dict(
                 posicion=p["codigo"], posicion_label=p.get("label"),
                 numero=p.get("numero"), eje=p.get("eje"), lado=p.get("lado"),
             )
             if n is not None:
                 ocupadas += 1
-                insp = ultima_insp.get(n.id)
+                hay_insp = n.insp_id is not None
                 prof = None
-                if insp is not None:
-                    prof = _min_prof(insp.profundidad_izq, insp.profundidad_centro, insp.profundidad_der)
+                if hay_insp:
+                    prof = _min_prof(n.profundidad_izq, n.profundidad_centro, n.profundidad_der)
                 if prof is None:
                     prof = n.profundidad_actual
                 reenc = n.reencauches or 0
-                fila.neumatico_id = n.id
-                fila.codigo = n.codigo
-                fila.marca = n.marca
-                fila.referencia = n.referencia
-                fila.medida = n.medida
-                fila.vida = "VN" if reenc == 0 else "R%d" % reenc
-                fila.profundidad_min = prof
-                fila.presion_psi = insp.presion_psi if insp is not None else n.presion_actual
-                fila.fecha_inspeccion = insp.fecha if insp is not None else None
-                fila.observaciones = insp.observaciones if insp is not None else None
+                fila["neumatico_id"] = n.id
+                fila["codigo"] = n.codigo
+                fila["marca"] = n.marca
+                fila["referencia"] = n.referencia
+                fila["medida"] = n.medida
+                fila["vida"] = "VN" if reenc == 0 else "R%d" % reenc
+                fila["profundidad_min"] = prof
+                fila["presion_psi"] = n.presion_psi if hay_insp else n.presion_actual
+                fila["fecha_inspeccion"] = n.insp_fecha if hay_insp else None
+                fila["observaciones"] = n.insp_obs if hay_insp else None
 
                 if prof is not None and prof <= cfg.profundidad_minima:
-                    fila.alerta = "Profundidad en o bajo el minimo (%s mm)" % cfg.profundidad_minima
+                    fila["alerta"] = "Profundidad en o bajo el minimo (%s mm)" % cfg.profundidad_minima
                     criticas += 1
-                elif insp is None:
-                    fila.alerta = "Sin inspeccion en el periodo"
+                elif not hay_insp:
+                    fila["alerta"] = "Sin inspeccion en el periodo"
 
-                if fila.observaciones:
+                if fila.get("observaciones"):
                     etiqueta = p.get("label") or p["codigo"]
-                    observaciones.append("%s (%s): %s" % (etiqueta, n.codigo, fila.observaciones))
-                if fila.alerta:
+                    observaciones.append("%s (%s): %s" % (etiqueta, n.codigo, fila["observaciones"]))
+                if fila.get("alerta"):
                     etiqueta = p.get("label") or p["codigo"]
-                    observaciones.append("%s (%s): %s" % (etiqueta, n.codigo, fila.alerta))
+                    observaciones.append("%s (%s): %s" % (etiqueta, n.codigo, fila["alerta"]))
             filas.append(fila)
 
-        salida.append(VehiculoReporte(
+        salida.append(dict(
             activo_id=a.id, codigo=a.codigo, placa=a.placa, nombre=a.nombre,
             numero_ejes=a.numero_ejes, layout=a.layout_llantas,
             tiene_repuesto=a.tiene_repuesto, cantidad_repuestos=a.cantidad_repuestos,
@@ -5326,8 +5406,12 @@ async def create_reencauche_lote(data: ReencaucheLoteCreate, db: AsyncSession = 
 
 @router.get("/neumaticos/reencauche/{lote_id}/detalle", response_model=List[ReencaucheDetalleResponse])
 async def list_reencauche_detalle(lote_id: int, db: AsyncSession = Depends(get_db)):
-    r = await db.execute(select(EAMReencaucheDetalle).where(EAMReencaucheDetalle.lote_id == lote_id))
-    return r.scalars().all()
+    r = await db.execute(
+        select(EAMReencaucheDetalle, EAMNeumatico.codigo)
+        .outerjoin(EAMNeumatico, EAMNeumatico.id == EAMReencaucheDetalle.neumatico_id)
+        .where(EAMReencaucheDetalle.lote_id == lote_id))
+    return [{**ReencaucheDetalleResponse.model_validate(d).model_dump(), "neumatico_codigo": codigo}
+            for d, codigo in r.all()]
 
 @router.post("/neumaticos/reencauche/{lote_id}/detalle", response_model=ReencaucheDetalleResponse)
 async def add_reencauche_detalle(lote_id: int, data: ReencaucheDetalleCreate, db: AsyncSession = Depends(get_db)):
@@ -5412,22 +5496,51 @@ async def cerrar_reencauche_lote(lote_id: int, db: AsyncSession = Depends(get_db
     return lote
 
 
+def _filtro_busqueda_llanta(q, busqueda: Optional[str]):
+    if busqueda and busqueda.strip():
+        patron = f"%{busqueda.strip()}%"
+        N = EAMNeumatico
+        q = q.where(or_(N.codigo.ilike(patron), N.marca.ilike(patron), N.referencia.ilike(patron),
+                        N.medida.ilike(patron), N.proveedor.ilike(patron)))
+    return q
+
+
 @router.get("/neumaticos", response_model=List[NeumaticResponse])
 async def list_neumaticos(
+    respuesta: Response,
     estado: Optional[str] = None,
     activo_id: Optional[int] = None,
     bodega_id: Optional[int] = None,
+    sin_baja: bool = Query(False, description="Deja por fuera las dadas de baja"),
+    ubicacion: Optional[str] = Query(None, description="VEH: montadas; BOD: en cualquier bodega"),
+    busqueda: Optional[str] = Query(None, description="Código, marca, referencia, medida o proveedor"),
+    limite: Optional[int] = Query(None, ge=1, le=20000),
+    desplazamiento: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
-    q = select(EAMNeumatico)
+    """Las llantas, filtradas en la base. Con `limite` va por trozos y el
+    total en `X-Total-Count`.
+
+    Las dadas de baja son la mayor parte de la historia de una flota (63 mil de
+    96 mil en la prueba de carga): la operación diaria pide `sin_baja` y el
+    descarte se consulta aparte, por trozos.
+    """
+    N = EAMNeumatico
+    q = select(N)
     if estado:
-        q = q.where(EAMNeumatico.estado == estado)
+        q = q.where(N.estado == estado)
+    elif sin_baja:
+        q = q.where(N.estado != "BAJA")
     if activo_id is not None:
-        q = q.where(EAMNeumatico.activo_id == activo_id)
+        q = q.where(N.activo_id == activo_id)
     if bodega_id is not None:
-        q = q.where(EAMNeumatico.bodega_id == bodega_id)
-    result = await db.execute(q.order_by(EAMNeumatico.codigo))
-    return result.scalars().all()
+        q = q.where(N.bodega_id == bodega_id)
+    if ubicacion == "VEH":
+        q = q.where(N.activo_id.isnot(None))
+    elif ubicacion == "BOD":
+        q = q.where(N.bodega_id.isnot(None))
+    q = _filtro_busqueda_llanta(q, busqueda)
+    return await pagina(db, q.order_by(N.codigo), respuesta, limite, desplazamiento)
 
 async def _preparar_neumatico(db: AsyncSession, data: "NeumaticCreate") -> dict:
     """Valida contra el catalogo y completa los datos derivados de una llanta:

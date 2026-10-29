@@ -179,28 +179,29 @@ async def pendientes(db: AsyncSession = Depends(get_db)):
     Es la lista de trabajo del día. Sale de comparar la vida acumulada de cada
     carga viva contra la frecuencia de muestreo del compartimento.
     """
+    # La última lectura y la última toma de cada carga, en la misma consulta.
+    # Antes eran dos consultas por carga activa: miles por petición.
+    ultimas = (select(LubeMuestra.carga_id,
+                      func.max(LubeMuestra.medidor_equipo).label("ultimo"),
+                      func.max(LubeMuestra.fecha_toma).label("ultima_muestra"))
+               .group_by(LubeMuestra.carga_id).subquery())
     r = await db.execute(
         select(LubeCompartimento, LubeCarga, EAMActivo.codigo,
-               LubeTipoCompartimento.nombre, LubeTipoCompartimento.unidad_vida)
+               LubeTipoCompartimento.nombre, LubeTipoCompartimento.unidad_vida,
+               ultimas.c.ultimo, ultimas.c.ultima_muestra)
         .join(EAMActivo, EAMActivo.id == LubeCompartimento.activo_id)
         .join(LubeTipoCompartimento,
               LubeTipoCompartimento.id == LubeCompartimento.tipo_compartimento_id)
         .join(LubeCarga, and_(LubeCarga.compartimento_id == LubeCompartimento.id,
                               LubeCarga.estado == "ACTIVA"))
+        .outerjoin(ultimas, ultimas.c.carga_id == LubeCarga.id)
         .where(LubeCompartimento.activo.is_(True)))
 
     salida = []
-    for comp, carga, activo, tipo, unidad in r.all():
+    for comp, carga, activo, tipo, unidad, ultimo, ultima_muestra in r.all():
         # Vida al momento: última lectura conocida menos la del llenado.
-        q = await db.execute(select(func.max(LubeMuestra.medidor_equipo))
-                             .where(LubeMuestra.carga_id == carga.id))
-        ultimo = q.scalar()
         vida = (round(ultimo - carga.medidor_inicio, 2)
                 if ultimo is not None and carga.medidor_inicio is not None else None)
-
-        q = await db.execute(select(func.max(LubeMuestra.fecha_toma))
-                             .where(LubeMuestra.carga_id == carga.id))
-        ultima_muestra = q.scalar()
 
         vencido = (comp.frecuencia_muestreo and vida is not None
                    and vida >= comp.frecuencia_muestreo)

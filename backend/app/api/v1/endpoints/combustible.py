@@ -444,22 +444,42 @@ async def rendimiento(dias: int = Query(180, ge=7, le=1825),
     """
     desde = datetime.utcnow() - timedelta(days=dias)
 
-    base = (select(EAMRegistroCombustible, EAMActivo)
-            .join(EAMActivo, EAMActivo.id == EAMRegistroCombustible.activo_id)
-            .where(EAMRegistroCombustible.fecha >= desde))
+    # La suma se hace en la base, un renglón por vehículo. Traer cada tanqueo a
+    # Python eran cientos de miles de objetos por consulta con una flota grande,
+    # y mientras se armaban el proceso no atendía a nadie más.
+    R = EAMRegistroCombustible
+    medible = R.rendimiento.isnot(None)
+    galones = case((func.upper(func.coalesce(R.unidad, "GALON")) == "LITRO",
+                    R.cantidad / LITROS_POR_GALON), else_=R.cantidad)
+    base = (select(
+                R.activo_id,
+                func.count().label("tanqueos"),
+                func.coalesce(func.sum(galones), 0).label("galones"),
+                func.coalesce(func.sum(R.costo_total), 0).label("costo"),
+                func.count().filter(medible).label("m_tanqueos"),
+                func.coalesce(func.sum(R.km_recorridos).filter(medible), 0).label("m_km"),
+                func.coalesce(func.sum(galones).filter(medible), 0).label("m_galones"),
+                func.coalesce(func.sum(R.costo_total).filter(medible), 0).label("m_costo"),
+                func.count().filter(medible, R.cumple_meta.is_(False)).label("m_alertas"),
+                func.max(R.meta_km_gal).filter(medible).label("m_meta"))
+            .join(EAMActivo, EAMActivo.id == R.activo_id)
+            .where(R.fecha >= desde)
+            .group_by(R.activo_id))
     if tipo_activo:
         base = base.where(EAMActivo.tipo_activo == tipo_activo)
     if marca:
         base = base.where(EAMActivo.marca == marca)
     filas = (await db.execute(base)).all()
+    activos = {a.id: a for a in (await db.execute(
+        select(EAMActivo).where(EAMActivo.id.in_(
+            select(R.activo_id).where(R.fecha >= desde).distinct())))).scalars().all()}
 
-    total = len(filas)
-    medibles = [(r, a) for r, a in filas if r.rendimiento is not None]
-    sin_medir = total - len(medibles)
-
-    galones_totales = sum(_a_galones(r.cantidad, r.unidad) for r, _ in filas)
-    costo_total = sum(r.costo_total or 0 for r, _ in filas)
-    km_totales = sum(r.km_recorridos or 0 for r, _ in medibles)
+    total = sum(f.tanqueos for f in filas)
+    sin_medir = total - sum(f.m_tanqueos for f in filas)
+    galones_totales = sum(float(f.galones) for f in filas)
+    costo_total = sum(float(f.costo) for f in filas)
+    km_totales = sum(float(f.m_km) for f in filas)
+    galones_medibles = sum(float(f.m_galones) for f in filas)
 
     def _agrupar(clave):
         """Promedio ponderado por kilómetros, no promedio de promedios.
@@ -468,21 +488,23 @@ async def rendimiento(dias: int = Query(180, ge=7, le=1825),
         rendimientos daría más peso al viaje corto.
         """
         grupos: Dict[str, Dict[str, float]] = {}
-        for r, a in medibles:
+        for f in filas:
+            a = activos.get(f.activo_id)
+            if not f.m_tanqueos or a is None:
+                continue
             etiqueta = clave(a)
             if not etiqueta:
                 continue
             g = grupos.setdefault(etiqueta, {
                 "km": 0.0, "galones": 0.0, "costo": 0.0, "tanqueos": 0,
                 "alertas": 0, "meta": None})
-            g["km"] += r.km_recorridos or 0
-            g["galones"] += _a_galones(r.cantidad, r.unidad)
-            g["costo"] += r.costo_total or 0
-            g["tanqueos"] += 1
-            if r.cumple_meta is False:
-                g["alertas"] += 1
-            if r.meta_km_gal:
-                g["meta"] = r.meta_km_gal
+            g["km"] += float(f.m_km)
+            g["galones"] += float(f.m_galones)
+            g["costo"] += float(f.m_costo)
+            g["tanqueos"] += f.m_tanqueos
+            g["alertas"] += f.m_alertas
+            if f.m_meta:
+                g["meta"] = f.m_meta
         salida = []
         for etiqueta, g in grupos.items():
             rend = round(g["km"] / g["galones"], 2) if g["galones"] else None
@@ -504,8 +526,7 @@ async def rendimiento(dias: int = Query(180, ge=7, le=1825),
         "km_totales": round(km_totales, 1),
         "galones_totales": round(galones_totales, 1),
         "costo_total": round(costo_total, 2),
-        "rendimiento_flota": round(km_totales / sum(
-            _a_galones(r.cantidad, r.unidad) for r, _ in medibles), 2) if medibles else None,
+        "rendimiento_flota": round(km_totales / galones_medibles, 2) if galones_medibles else None,
         "costo_por_km": round(costo_total / km_totales, 2) if km_totales else None,
         "por_vehiculo": _agrupar(lambda a: a.placa or a.codigo),
         "por_marca": _agrupar(lambda a: a.marca),
@@ -524,16 +545,24 @@ async def alertas(dias: int = Query(90, ge=7, le=730),
     equipo. La alerta señala el vehículo, que es sobre lo que se actúa.
     """
     desde = datetime.utcnow() - timedelta(days=dias)
-    r = await db.execute(
-        select(EAMRegistroCombustible, EAMActivo)
-        .join(EAMActivo, EAMActivo.id == EAMRegistroCombustible.activo_id)
-        .where(and_(EAMRegistroCombustible.fecha >= desde,
-                    EAMRegistroCombustible.rendimiento.isnot(None),
-                    EAMRegistroCombustible.meta_km_gal.isnot(None)))
-        .order_by(EAMRegistroCombustible.fecha))
+    # Columnas del tanqueo y los activos una vez: son cientos de miles de
+    # tanqueos con una flota grande.
+    R = EAMRegistroCombustible
+    r = await (await db.connection()).execute(
+        select(R.activo_id, R.fecha, R.meta_km_gal, R.km_recorridos, R.cantidad,
+               R.unidad, R.cumple_meta)
+        .where(and_(R.fecha >= desde, R.rendimiento.isnot(None), R.meta_km_gal.isnot(None)))
+        .order_by(R.fecha))
+    tanqueos = r.all()
+    ids = {t.activo_id for t in tanqueos}
+    activos = {a.id: a for a in (await db.execute(
+        select(EAMActivo).where(EAMActivo.id.in_(ids)))).scalars().all()} if ids else {}
 
     por_activo: Dict[int, Dict[str, Any]] = {}
-    for reg, activo in r.all():
+    for reg in tanqueos:
+        activo = activos.get(reg.activo_id)
+        if activo is None:
+            continue
         d = por_activo.setdefault(activo.id, {
             "activo_id": activo.id, "placa": activo.placa or activo.codigo,
             "activo": activo.nombre, "marca": activo.marca, "linea": activo.linea,

@@ -370,8 +370,9 @@ export default function EAMPlanesMant() {
     queryFn: () => api.get('/eam/planes').then(r => r.data),
   })
   const { data: cumplimientos = [] } = useQuery<Cumplimiento[]>({
-    queryKey: ['eam-cumplimiento'],
-    queryFn: () => api.get('/eam/planes/cumplimiento').then(r => r.data),
+    queryKey: ['eam-cumplimiento', 'sin-detalle'],
+    // Aquí solo se cuentan estados; el detalle de cada rutina está en `planes`.
+    queryFn: () => api.get('/eam/planes/cumplimiento', { params: { con_detalle: false } }).then(r => r.data),
   })
   const { data: activos = [] } = useQuery<ActivoMin[]>({
     queryKey: ['eam-activos-selector'],

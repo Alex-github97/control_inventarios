@@ -6,7 +6,7 @@ import {
   Paper, Chip, Card, CardContent, Alert, TextField, MenuItem, Button, Dialog,
   DialogTitle, DialogContent, DialogActions, IconButton, Stack, Tooltip, alpha,
   Switch, FormControlLabel, Badge, Divider, Menu, ListItemIcon, ListItemText, Checkbox,
-  Autocomplete, ButtonGroup, InputAdornment, ToggleButton, ToggleButtonGroup,
+  Autocomplete, ButtonGroup, InputAdornment, ToggleButton, ToggleButtonGroup, TablePagination,
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
 import {
@@ -34,6 +34,10 @@ import type { VehiculoCombinado } from '@/components/VehiculosCombinados'
 
 import { COLOR_MODULO } from '@/config/marca'
 import { mensajeDeError } from '@/utils/errorApi'
+import { pedirPagina, useRetardado } from '@/utils/paginaServidor'
+
+/** Filas por página en las listas que pueden crecer sin tope (descarte, consulta, bitácora). */
+const POR_PAGINA = 100
 const EAM_COLOR = COLOR_MODULO
 const EAM_DARK = COLOR_MODULO
 
@@ -112,7 +116,7 @@ interface Inspeccion { id: number; neumatico_id: number; fecha: string; profundi
 interface Indicador { neumatico_id: number; codigo: string; marca?: string; medida?: string; estado?: string; posicion?: string | null; km_total: number; costo?: number | null; cpk?: number | null; costo_mm?: number | null; mm_gastados?: number | null; vida_util_km?: number | null; km_proyectado?: number | null; pct_desgaste?: number | null }
 interface AlertaNeu { neumatico_id: number; codigo: string; tipo: string; severidad: string; mensaje: string; posicion?: string | null; activo_id?: number | null }
 interface LoteReencauche { id: number; codigo: string; fecha_envio: string; proveedor?: string | null; remision?: string | null; observaciones?: string | null; estado: string }
-interface DetalleReencauche { id: number; lote_id: number; neumatico_id: number; banda?: string | null; resultado: string; profundidad_nueva?: number | null; vida_remanente_km?: number | null; costo?: number | null }
+interface DetalleReencauche { id: number; lote_id: number; neumatico_id: number; banda?: string | null; resultado: string; profundidad_nueva?: number | null; vida_remanente_km?: number | null; costo?: number | null; neumatico_codigo?: string | null }
 interface ConfigNeu { montaje_estricto: boolean; profundidad_minima: number; presion_min: number; presion_max: number; umbral_desalineacion: number }
 interface ZonaNeu { id: number; codigo: string; nombre: string; activo: boolean }
 interface BandaReencauche { id: number; marca: string; referencia?: string | null; dimension?: string | null; profundidad_original?: number | null; profundidad_minima?: number | null; tipo_posicion?: string | null; sentido_rotacion?: string | null; reesculturable: boolean; costo_defecto?: number | null; presion_minima?: number | null; presion_maxima?: number | null; comentarios?: string | null; activo: boolean }
@@ -435,7 +439,9 @@ export default function EAMNeumaticos() {
   // ─── Bitácora de movimientos ──────────────────────────────────────────────
   const [bitBusq, setBitBusq] = useState('')
   const [bitTipo, setBitTipo] = useState('')
-  const [bitLlanta, setBitLlanta] = useState('')
+  const [bitPag, setBitPag] = useState(0)
+  const [descPag, setDescPag] = useState(0)
+  const [descBusca, setDescBusca] = useState('')
   const [bitDialog, setBitDialog] = useState<MovimientoBitacora | null>(null)
   const [bitForm, setBitForm] = useState({
     fecha: nowLocal(), km_odometro: '', horometro: '', tecnico: '', observaciones: '',
@@ -521,6 +527,9 @@ export default function EAMNeumaticos() {
   const [consUbic, setConsUbic] = useState('')
   const [consEstado, setConsEstado] = useState('')
   const [consBusca, setConsBusca] = useState('')
+  const [consPag, setConsPag] = useState(0)
+  const [indPag, setIndPag] = useState(0)
+  const [indBusca, setIndBusca] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState('')
@@ -653,11 +662,43 @@ export default function EAMNeumaticos() {
       },
     }).then(r => r.data),
   })
-  const { data: neumaticos = [] } = useQuery<Neumatico[]>({ queryKey: ['eam-neumaticos'], queryFn: () => api.get('/eam/neumaticos').then(r => r.data) })
+  // La operación diaria no necesita las dadas de baja, que son la mayor parte
+  // de la historia de una flota: el descarte y la consulta general las piden
+  // aparte, por páginas.
+  const { data: neumaticos = [] } = useQuery<Neumatico[]>({ queryKey: ['eam-neumaticos'], queryFn: () => api.get('/eam/neumaticos', { params: { sin_baja: true } }).then(r => r.data) })
+  const descBuscaR = useRetardado(descBusca)
+  const { data: descPagina } = useQuery({
+    queryKey: ['eam-neumaticos', 'descarte', descPag, descBuscaR],
+    queryFn: () => pedirPagina<Neumatico>('/eam/neumaticos/descarte', {
+      limite: POR_PAGINA, desplazamiento: descPag * POR_PAGINA, busqueda: descBuscaR || undefined,
+    }),
+    placeholderData: prev => prev,
+  })
+  const consBuscaR = useRetardado(consBusca)
+  const consParams = {
+    activo_id: consVeh || undefined,
+    ubicacion: consUbic === 'VEH' || consUbic === 'BOD' ? consUbic : undefined,
+    bodega_id: consUbic.startsWith('b:') ? consUbic.slice(2) : undefined,
+    estado: consEstado || undefined,
+    busqueda: consBuscaR.trim() || undefined,
+  }
+  const { data: consPagina } = useQuery({
+    queryKey: ['eam-neumaticos', 'consulta', consPag, consParams],
+    queryFn: () => pedirPagina<Neumatico>('/eam/neumaticos', {
+      ...consParams, limite: POR_PAGINA, desplazamiento: consPag * POR_PAGINA,
+    }),
+    enabled: tab === 6,
+    placeholderData: prev => prev,
+  })
   const { data: bodegas = [] } = useQuery<Bodega[]>({ queryKey: ['eam-bodegas-neu'], queryFn: () => api.get('/eam/neumaticos/bodegas').then(r => r.data) })
-  const { data: bitacora = [] } = useQuery<MovimientoBitacora[]>({
-    queryKey: ['eam-bitacora-neu'],
-    queryFn: () => api.get('/eam/neumaticos/movimientos').then(r => r.data),
+  const bitBusqR = useRetardado(bitBusq)
+  const { data: bitPagina } = useQuery({
+    queryKey: ['eam-bitacora-neu', bitPag, bitBusqR, bitTipo],
+    queryFn: () => pedirPagina<MovimientoBitacora>('/eam/neumaticos/movimientos', {
+      limit: POR_PAGINA, desplazamiento: bitPag * POR_PAGINA,
+      busqueda: bitBusqR.trim() || undefined, tipo_movimiento: bitTipo || undefined,
+    }),
+    placeholderData: prev => prev,
   })
   const { data: danos = [] } = useQuery<Dano[]>({ queryKey: ['eam-danos-neu'], queryFn: () => api.get('/eam/neumaticos/danos-catalogo').then(r => r.data) })
   const { data: catalogo = [] } = useQuery<CatItem[]>({ queryKey: ['eam-cat-neu'], queryFn: () => api.get('/eam/neumaticos/catalogo').then(r => r.data) })
@@ -682,7 +723,23 @@ export default function EAMNeumaticos() {
     queryFn: () => api.get(`/eam/neumaticos/${chartTire!.id}/inspecciones`).then(r => r.data),
     enabled: !!chartTire,
   })
-  const { data: indicadores = [] } = useQuery<Indicador[]>({ queryKey: ['eam-indic'], queryFn: () => api.get('/eam/neumaticos/indicadores').then(r => r.data) })
+  const indBuscaR = useRetardado(indBusca)
+  const { data: indPagina } = useQuery({
+    queryKey: ['eam-indic', indPag, indBuscaR],
+    queryFn: () => pedirPagina<Indicador>('/eam/neumaticos/indicadores', {
+      limite: POR_PAGINA, desplazamiento: indPag * POR_PAGINA, busqueda: indBuscaR.trim() || undefined,
+    }),
+    enabled: tab === 3,
+    placeholderData: prev => prev,
+  })
+  const indicadores = indPagina?.filas ?? []
+  const indicadoresTotal = indPagina?.total ?? 0
+  /** Las exportaciones llevan todas las llantas filtradas, no solo la página. */
+  const exportarIndicadores = async (formato: 'pdf' | 'excel') => {
+    const { filas } = await pedirPagina<Indicador>('/eam/neumaticos/indicadores', { busqueda: indBuscaR.trim() || undefined, limite: 20000 })
+    if (formato === 'pdf') exportarPDF({ archivo: 'indicadores-llantas', titulo: 'Indicadores de neumáticos', color: EAM_COLOR, columnas: [{ key: 'codigo', header: 'Código' }, { key: 'marca', header: 'Marca' }, { key: 'medida', header: 'Medida' }, { key: 'km_total', header: 'Km' }, { key: 'cpk', header: 'CPK' }, { key: 'costo_mm', header: 'Costo/mm' }, { key: 'pct_desgaste', header: '% desgaste' }, { key: 'km_proyectado', header: 'Km proy.' }], filas })
+    else exportarExcel({ archivo: 'indicadores-llantas', titulo: 'Indicadores de neumáticos', filas })
+  }
   const { data: alertas = [] } = useQuery<AlertaNeu[]>({ queryKey: ['eam-alertas'], queryFn: () => api.get('/eam/neumaticos/alertas').then(r => r.data) })
   const { data: lotes = [] } = useQuery<LoteReencauche[]>({ queryKey: ['eam-reencauche'], queryFn: () => api.get('/eam/neumaticos/reencauche').then(r => r.data) })
   const { data: loteDetalle = [] } = useQuery<DetalleReencauche[]>({
@@ -745,7 +802,10 @@ export default function EAMNeumaticos() {
 
   const veh = vehiculos.find(v => String(v.id) === vehId)
   const almacen = useMemo(() => neumaticos.filter(n => n.estado === 'ALMACENADO' || n.estado === 'REENCAUCHE'), [neumaticos])
-  const descarte = useMemo(() => neumaticos.filter(n => n.estado === 'BAJA'), [neumaticos])
+  const descarte = descPagina?.filas ?? []
+  const descarteTotal = descPagina?.total ?? 0
+  const bitacora = bitPagina?.filas ?? []
+  const bitacoraTotal = bitPagina?.total ?? 0
   /**
    * Qué llanta se ve en una posición.
    *
@@ -864,17 +924,6 @@ export default function EAMNeumaticos() {
     }
   }, [almacen])
 
-  const bitacoraFiltrada = useMemo(() => {
-    const q = bitBusq.trim().toLowerCase()
-    return bitacora.filter(m => {
-      if (bitTipo && m.tipo_movimiento !== bitTipo) return false
-      if (bitLlanta && String(m.neumatico_id) !== bitLlanta) return false
-      if (!q) return true
-      return [m.neumatico_codigo, m.activo_codigo, m.tecnico, m.observaciones,
-        m.posicion, m.posicion_origen, m.bodega_nombre]
-        .some(x => (x ?? '').toString().toLowerCase().includes(q))
-    })
-  }, [bitacora, bitBusq, bitTipo, bitLlanta])
 
   /** Corregir o borrar cambia el estado de la llanta, así que se refresca todo. */
   const refrescarBitacora = () => {
@@ -1817,7 +1866,7 @@ export default function EAMNeumaticos() {
           <Tab icon={<Badge badgeContent={alertas.length} color="error"><NotificationsActive sx={{ fontSize: 18 }} /></Badge>} iconPosition="start" label="Alertas" sx={{ textTransform: 'none', fontWeight: 600 }} />
           <Tab icon={<Autorenew sx={{ fontSize: 18 }} />} iconPosition="start" label="Reencauche" sx={{ textTransform: 'none', fontWeight: 600 }} />
           <Tab icon={<Inventory2 sx={{ fontSize: 18 }} />} iconPosition="start" label="Consultas" sx={{ textTransform: 'none', fontWeight: 600 }} />
-          <Tab icon={<Recycling sx={{ fontSize: 18 }} />} iconPosition="start" label={`Descarte (${descarte.length})`} sx={{ textTransform: 'none', fontWeight: 600 }} />
+          <Tab icon={<Recycling sx={{ fontSize: 18 }} />} iconPosition="start" label={`Descarte (${descarteTotal.toLocaleString('es-CO')})`} sx={{ textTransform: 'none', fontWeight: 600 }} />
           <Tab icon={<Timeline sx={{ fontSize: 18 }} />} iconPosition="start" label="Movimientos" sx={{ textTransform: 'none', fontWeight: 600 }} />
           <Tab icon={<WarehouseIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Configuración" sx={{ textTransform: 'none', fontWeight: 600 }} />
         </Tabs>
@@ -2622,8 +2671,11 @@ export default function EAMNeumaticos() {
                   <TrendingUp sx={{ color: EAM_DARK }} /><Typography fontWeight={700}>Costo por km (CPK), costo por mm y proyección de vida</Typography>
                 </Stack>
                 <Stack direction="row" gap={1}>
-                  <Button size="small" variant="outlined" startIcon={<Download />} onClick={() => exportarPDF({ archivo: 'indicadores-llantas', titulo: 'Indicadores de neumáticos', color: EAM_COLOR, columnas: [{ key: 'codigo', header: 'Código' }, { key: 'marca', header: 'Marca' }, { key: 'medida', header: 'Medida' }, { key: 'km_total', header: 'Km' }, { key: 'cpk', header: 'CPK' }, { key: 'costo_mm', header: 'Costo/mm' }, { key: 'pct_desgaste', header: '% desgaste' }, { key: 'km_proyectado', header: 'Km proy.' }], filas: indicadores })} sx={{ textTransform: 'none' }}>PDF</Button>
-                  <Button size="small" variant="outlined" startIcon={<Download />} onClick={() => exportarExcel({ archivo: 'indicadores-llantas', titulo: 'Indicadores de neumáticos', filas: indicadores })} sx={{ textTransform: 'none' }}>Excel</Button>
+                  <TextField size="small" placeholder="Buscar código, marca, medida…" value={indBusca}
+                    onChange={e => { setIndBusca(e.target.value); setIndPag(0) }}
+                    InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 16 }} /></InputAdornment> }} />
+                  <Button size="small" variant="outlined" startIcon={<Download />} onClick={() => { exportarIndicadores('pdf').catch(e => toast.error(mensajeDeError(e))) }} sx={{ textTransform: 'none' }}>PDF</Button>
+                  <Button size="small" variant="outlined" startIcon={<Download />} onClick={() => { exportarIndicadores('excel').catch(e => toast.error(mensajeDeError(e))) }} sx={{ textTransform: 'none' }}>Excel</Button>
                 </Stack>
               </Stack>
               <Box sx={{ overflowX: 'auto' }}>
@@ -2652,9 +2704,12 @@ export default function EAMNeumaticos() {
                         <TableCell>{x.km_proyectado != null ? x.km_proyectado.toLocaleString('es-CO') : '—'}</TableCell>
                       </TableRow>
                     ))}
-                    {indicadores.length === 0 && <TableRow><TableCell colSpan={12} align="center"><Typography color="text.secondary" py={2}>Sin datos. Registre inspecciones y costos para calcular indicadores.</Typography></TableCell></TableRow>}
+                    {indicadores.length === 0 && <TableRow><TableCell colSpan={12} align="center"><Typography color="text.secondary" py={2}>{indBusca ? 'Ninguna llanta coincide con la búsqueda.' : 'Sin datos. Registre inspecciones y costos para calcular indicadores.'}</Typography></TableCell></TableRow>}
                   </TableBody>
                 </Table>
+                <TablePagination component="div" count={indicadoresTotal} page={indPag}
+                  onPageChange={(_, p) => setIndPag(p)} rowsPerPage={POR_PAGINA} rowsPerPageOptions={[POR_PAGINA]}
+                  labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count.toLocaleString('es-CO')}`} />
               </Box>
             </CardContent>
           </Card>
@@ -2745,7 +2800,7 @@ export default function EAMNeumaticos() {
                                 const n = neumaticos.find(x => x.id === d.neumatico_id)
                                 return (
                                   <TableRow key={d.id} hover>
-                                    <TableCell>{n?.codigo ?? d.neumatico_id}</TableCell>
+                                    <TableCell>{n?.codigo ?? d.neumatico_codigo ?? d.neumatico_id}</TableCell>
                                     <TableCell>{d.banda ?? '—'}</TableCell>
                                     <TableCell><Chip size="small" label={d.resultado} color={d.resultado === 'REENCAUCHADA' ? 'success' : d.resultado === 'RECHAZO' ? 'error' : d.resultado === 'REMANENTE' ? 'warning' : 'default'} /></TableCell>
                                     <TableCell>{d.profundidad_nueva ?? '—'}</TableCell>
@@ -2774,25 +2829,26 @@ export default function EAMNeumaticos() {
         {tab === 6 && (() => {
           const vehNombre = (id?: number | null) => { const v = vehiculos.find(x => x.id === id); return v ? `${v.codigo}${v.placa ? ` (${v.placa})` : ''}` : '—' }
           const ubicacionDe = (n: Neumatico) => n.activo_id ? `${vehNombre(n.activo_id)}${n.posicion ? ` · ${n.posicion}` : ''}` : n.bodega_id ? `Bodega: ${bodegaNombre(n.bodega_id)}` : '—'
-          const filtradas = neumaticos.filter(n => {
-            if (consVeh && String(n.activo_id ?? '') !== consVeh) return false
-            if (consUbic === 'VEH' && !n.activo_id) return false
-            if (consUbic === 'BOD' && !n.bodega_id) return false
-            if (consUbic.startsWith('b:') && String(n.bodega_id ?? '') !== consUbic.slice(2)) return false
-            if (consEstado && n.estado !== consEstado) return false
-            if (consBusca.trim()) {
-              const q = consBusca.toLowerCase()
-              if (![n.codigo, n.marca, n.referencia, n.medida, n.proveedor].some(x => (x ?? '').toLowerCase().includes(q))) return false
-            }
-            return true
-          })
-          const filas = filtradas.map(n => ({
+          // El filtro lo hace el servidor sobre TODAS las llantas, incluidas las
+          // dadas de baja; aquí llega solo la página que se ve.
+          const filtradas = consPagina?.filas ?? []
+          const consTotal = consPagina?.total ?? 0
+          const aFila = (n: Neumatico) => ({
             codigo: n.codigo, marca: n.marca ?? '', referencia: n.referencia ?? '', medida: n.medida ?? '',
             uso: n.tipo_uso ?? '', estado: n.estado, ubicacion: ubicacionDe(n),
             prof_actual: n.profundidad_actual ?? '', prof_diseno: n.profundidad_diseño ?? '',
             presion: n.presion_actual ?? '', km_total: n.km_total ?? 0, reencauches: n.reencauches ?? 0,
             costo: n.costo ?? '', vida_util_km: n.vida_util_km ?? '',
-          }))
+          })
+          /** La exportación lleva todo lo filtrado, no solo la página, hasta un tope. */
+          const TOPE_EXPORTAR = 20000
+          const exportarConsulta = async (formato: 'pdf' | 'excel') => {
+            const { filas: todas, total } = await pedirPagina<Neumatico>('/eam/neumaticos', { ...consParams, limite: TOPE_EXPORTAR })
+            if (total > TOPE_EXPORTAR) toast(`Se exportan las primeras ${TOPE_EXPORTAR.toLocaleString('es-CO')} de ${total.toLocaleString('es-CO')}: afine el filtro para llevar el resto.`)
+            const datos = { archivo: 'consulta-llantas', titulo: 'Consulta de neumáticos', columnas, filas: todas.map(aFila) }
+            if (formato === 'pdf') exportarPDF({ ...datos, color: EAM_COLOR })
+            else exportarExcel(datos)
+          }
           const columnas = [
             { key: 'codigo', header: 'Código' }, { key: 'marca', header: 'Marca' }, { key: 'referencia', header: 'Referencia' },
             { key: 'medida', header: 'Medida' }, { key: 'uso', header: 'Uso' }, { key: 'estado', header: 'Estado' },
@@ -2807,7 +2863,7 @@ export default function EAMNeumaticos() {
               <CardContent>
                 <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1.5} flexWrap="wrap" gap={1}>
                   <Stack direction="row" alignItems="center" gap={1}>
-                    <Inventory2 sx={{ color: EAM_DARK }} /><Typography fontWeight={700}>Consulta general de llantas ({filtradas.length} de {neumaticos.length})</Typography>
+                    <Inventory2 sx={{ color: EAM_DARK }} /><Typography fontWeight={700}>Consulta general de llantas ({consTotal.toLocaleString('es-CO')})</Typography>
                   </Stack>
                   <Stack direction="row" gap={1} flexWrap="wrap">
                     {selectedIds.size > 0 && (
@@ -2817,26 +2873,26 @@ export default function EAMNeumaticos() {
                     )}
                     <Button size="small" variant="outlined" startIcon={<CameraAlt />} onClick={() => setCongelarOpen(true)} sx={{ textTransform: 'none' }}>Congelar datos</Button>
                     <Button size="small" variant="outlined" startIcon={<Checklist />} onClick={() => setCongeladosOpen(true)} sx={{ textTransform: 'none' }}>Ver congelados</Button>
-                    <Button size="small" variant="outlined" startIcon={<Download />} onClick={() => exportarPDF({ archivo: 'consulta-llantas', titulo: 'Consulta de neumáticos', color: EAM_COLOR, columnas, filas })} sx={{ textTransform: 'none' }}>PDF</Button>
-                    <Button size="small" variant="outlined" startIcon={<Download />} onClick={() => exportarExcel({ archivo: 'consulta-llantas', titulo: 'Consulta de neumáticos', columnas, filas })} sx={{ textTransform: 'none' }}>Excel</Button>
+                    <Button size="small" variant="outlined" startIcon={<Download />} onClick={() => { exportarConsulta('pdf').catch(e => toast.error(mensajeDeError(e))) }} sx={{ textTransform: 'none' }}>PDF</Button>
+                    <Button size="small" variant="outlined" startIcon={<Download />} onClick={() => { exportarConsulta('excel').catch(e => toast.error(mensajeDeError(e))) }} sx={{ textTransform: 'none' }}>Excel</Button>
                   </Stack>
                 </Stack>
                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} mb={2} flexWrap="wrap" useFlexGap>
-                  <TextField select size="small" label="Por vehículo" value={consVeh} onChange={e => setConsVeh(e.target.value)} sx={{ minWidth: 200 }}>
+                  <TextField select size="small" label="Por vehículo" value={consVeh} onChange={e => { setConsVeh(e.target.value); setConsPag(0) }} sx={{ minWidth: 200 }}>
                     <MenuItem value="">Todos</MenuItem>
                     {vehiculos.map(v => <MenuItem key={v.id} value={String(v.id)}>{v.codigo}{v.placa ? ` · ${v.placa}` : ''}</MenuItem>)}
                   </TextField>
-                  <TextField select size="small" label="Por ubicación" value={consUbic} onChange={e => setConsUbic(e.target.value)} sx={{ minWidth: 200 }}>
+                  <TextField select size="small" label="Por ubicación" value={consUbic} onChange={e => { setConsUbic(e.target.value); setConsPag(0) }} sx={{ minWidth: 200 }}>
                     <MenuItem value="">Todas</MenuItem>
                     <MenuItem value="VEH">Montadas en vehículo</MenuItem>
                     <MenuItem value="BOD">En bodega (cualquiera)</MenuItem>
                     {bodegas.map(b => <MenuItem key={b.id} value={`b:${b.id}`}>Bodega: {b.nombre}</MenuItem>)}
                   </TextField>
-                  <TextField select size="small" label="Por estado" value={consEstado} onChange={e => setConsEstado(e.target.value)} sx={{ minWidth: 170 }}>
+                  <TextField select size="small" label="Por estado" value={consEstado} onChange={e => { setConsEstado(e.target.value); setConsPag(0) }} sx={{ minWidth: 170 }}>
                     <MenuItem value="">Todos</MenuItem>
                     {['INSTALADO', 'ALMACENADO', 'REENCAUCHE', 'BAJA'].map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
                   </TextField>
-                  <TextField size="small" label="Buscar (código, marca, medida, proveedor…)" value={consBusca} onChange={e => setConsBusca(e.target.value)} sx={{ minWidth: 240, flex: 1 }} />
+                  <TextField size="small" label="Buscar (código, marca, medida, proveedor…)" value={consBusca} onChange={e => { setConsBusca(e.target.value); setConsPag(0) }} sx={{ minWidth: 240, flex: 1 }} />
                 </Stack>
                 <Box sx={{ overflowX: 'auto' }}>
                   <Table size="small">
@@ -2871,6 +2927,9 @@ export default function EAMNeumaticos() {
                       {filtradas.length === 0 && <TableRow><TableCell colSpan={columnas.length + 1} align="center"><Typography color="text.secondary" py={2}>Sin resultados con los filtros aplicados</Typography></TableCell></TableRow>}
                     </TableBody>
                   </Table>
+                  <TablePagination component="div" count={consTotal} page={consPag}
+                    onPageChange={(_, p) => setConsPag(p)} rowsPerPage={POR_PAGINA} rowsPerPageOptions={[POR_PAGINA]}
+                    labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count.toLocaleString('es-CO')}`} />
                 </Box>
               </CardContent>
             </Card>
@@ -2880,7 +2939,11 @@ export default function EAMNeumaticos() {
         {/* ── TAB 7: Descarte ── */}
         {tab === 7 && (
           <Stack spacing={2}>
-          <Stack direction="row" justifyContent="flex-end">
+          <Stack direction="row" justifyContent="space-between" gap={1} flexWrap="wrap">
+            <TextField size="small" placeholder="Buscar código, marca, medida, proveedor…"
+              value={descBusca} onChange={e => { setDescBusca(e.target.value); setDescPag(0) }}
+              InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 16 }} /></InputAdornment> }}
+              sx={{ minWidth: 280 }} />
             <Button
               size="small" variant="outlined" startIcon={<UploadFile />}
               onClick={() => setBajaImportOpen(true)}
@@ -2908,9 +2971,12 @@ export default function EAMNeumaticos() {
                       <TableCell><IconButton size="small" onClick={() => setHistTire(n)}><HistoryIcon sx={{ fontSize: 16 }} /></IconButton></TableCell>
                     </TableRow>
                   ))}
-                  {descarte.length === 0 && <TableRow><TableCell colSpan={8} align="center"><Typography color="text.secondary" py={2}>La pila de descarte está vacía</Typography></TableCell></TableRow>}
+                  {descarte.length === 0 && <TableRow><TableCell colSpan={8} align="center"><Typography color="text.secondary" py={2}>{descBusca ? 'Ninguna llanta de descarte coincide con la búsqueda' : 'La pila de descarte está vacía'}</Typography></TableCell></TableRow>}
                 </TableBody>
               </Table>
+              <TablePagination component="div" count={descarteTotal} page={descPag}
+                onPageChange={(_, p) => setDescPag(p)} rowsPerPage={POR_PAGINA} rowsPerPageOptions={[POR_PAGINA]}
+                labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count.toLocaleString('es-CO')}`} />
             </Box>
           </Card>
           </Stack>
@@ -2937,7 +3003,7 @@ export default function EAMNeumaticos() {
 
               <Stack direction="row" gap={1} mb={1.5} flexWrap="wrap">
                 <TextField size="small" placeholder="Buscar llanta, vehículo, técnico…"
-                  value={bitBusq} onChange={e => setBitBusq(e.target.value)}
+                  value={bitBusq} onChange={e => { setBitBusq(e.target.value); setBitPag(0) }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start"><SearchIcon sx={{ fontSize: 16 }} /></InputAdornment>
@@ -2945,24 +3011,17 @@ export default function EAMNeumaticos() {
                   }}
                   sx={{ minWidth: 260, flex: 1 }} />
                 <TextField select size="small" label="Tipo" value={bitTipo}
-                  onChange={e => setBitTipo(e.target.value)} sx={{ minWidth: 165 }}>
+                  onChange={e => { setBitTipo(e.target.value); setBitPag(0) }} sx={{ minWidth: 165 }}>
                   <MenuItem value="">Todos</MenuItem>
                   {TIPOS_BITACORA.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
                 </TextField>
-                <TextField select size="small" label="Llanta" value={bitLlanta}
-                  onChange={e => setBitLlanta(e.target.value)} sx={{ minWidth: 155 }}>
-                  <MenuItem value="">Todas</MenuItem>
-                  {neumaticos.map(n => (
-                    <MenuItem key={n.id} value={String(n.id)}>{n.codigo}</MenuItem>
-                  ))}
-                </TextField>
                 <Typography fontSize={11} color="text.secondary" sx={{ alignSelf: 'center' }}>
-                  {bitacoraFiltrada.length} de {bitacora.length}
+                  {bitacoraTotal.toLocaleString('es-CO')} movimientos
                 </Typography>
               </Stack>
 
               {bitacora.length === 0 ? (
-                <Alert severity="info">Todavía no hay movimientos registrados.</Alert>
+                <Alert severity="info">{bitBusq || bitTipo ? 'Ningún movimiento coincide con el filtro.' : 'Todavía no hay movimientos registrados.'}</Alert>
               ) : (
                 <Box sx={{ overflowX: 'auto' }}>
                   <Table size="small">
@@ -2976,7 +3035,7 @@ export default function EAMNeumaticos() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {bitacoraFiltrada.map(m => (
+                      {bitacora.map(m => (
                         <TableRow key={`${m.tipo_movimiento}-${m.id ?? `alta-${m.neumatico_id}`}`} hover
                           sx={{ '& td': { fontSize: 12 }, opacity: m.editable ? 1 : 0.7 }}>
                           <TableCell sx={{ whiteSpace: 'nowrap' }}>
@@ -3042,6 +3101,9 @@ export default function EAMNeumaticos() {
                       ))}
                     </TableBody>
                   </Table>
+                  <TablePagination component="div" count={bitacoraTotal} page={bitPag}
+                    onPageChange={(_, p) => setBitPag(p)} rowsPerPage={POR_PAGINA} rowsPerPageOptions={[POR_PAGINA]}
+                    labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count.toLocaleString('es-CO')}`} />
                 </Box>
               )}
             </CardContent>

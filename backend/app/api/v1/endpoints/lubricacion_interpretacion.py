@@ -39,6 +39,7 @@ casquete; cobre solo suele ser lavado del enfriador de aceite. Mirar el peor
 número de la lista y no el conjunto produce la recomendación genérica que nadie
 aplica —y, en el caso del cobre, manda a desarmar motores sanos.
 """
+import asyncio
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
@@ -50,6 +51,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.v1.endpoints.lubricacion_flota import (
     FiltroFlota, _base_muestras, _criterio,
 )
+from app.core.consultas import en_lista
 from app.core.database import get_db
 from app.core.normas_lubricacion import (
     CATEGORIAS_REPARACION, FUENTES, GRUPO_DESGASTE, Criterio,
@@ -267,6 +269,53 @@ async def _viene_de_reparacion(db: AsyncSession, muestra: LubeMuestra,
     return bool(motivo and motivo.categoria in CATEGORIAS_REPARACION)
 
 
+async def _indice_reparaciones(db: AsyncSession, comp_ids, criterio: Criterio):
+    """`_viene_de_reparacion` para muchas muestras con dos consultas en total.
+
+    El tablero la llamaba una vez por muestra con hallazgo, con tres consultas
+    cada vez: con una flota grande eran diez mil consultas en una petición.
+    Aquí se leen una vez las cargas de esos compartimentos y la regla se
+    resuelve en memoria, con el mismo criterio.
+    """
+    from bisect import bisect_left
+    categorias = {m.id: m.categoria for m in (await db.execute(select(LubeMotivoDrenaje))).scalars().all()}
+    por_comp: Dict[int, List] = defaultdict(list)
+    por_id: Dict[int, Any] = {}
+    if comp_ids:
+        for c in (await db.execute(
+            select(LubeCarga.id, LubeCarga.compartimento_id, LubeCarga.fecha_llenado,
+                   LubeCarga.motivo_drenaje_id)
+            .where(en_lista(LubeCarga.compartimento_id, list(comp_ids)))
+        )).all():
+            por_id[c.id] = c
+            if c.fecha_llenado:
+                por_comp[c.compartimento_id].append(c)
+    fechas: Dict[int, List] = {}
+    for cid, cs in por_comp.items():
+        cs.sort(key=lambda c: (c.fecha_llenado, c.id))
+        fechas[cid] = [c.fecha_llenado for c in cs]
+    asentamiento = criterio.constante("dias_asentamiento")
+
+    def viene_de_reparacion(muestra: LubeMuestra, comp_id: int) -> bool:
+        if not muestra.carga_id:
+            return False
+        carga = por_id.get(muestra.carga_id)
+        if not carga or not carga.fecha_llenado:
+            return False
+        if not 0 <= (muestra.fecha_toma - carga.fecha_llenado).days <= asentamiento:
+            return False
+        # La carga que se drenó justo antes de esta, en el mismo compartimento.
+        cs = por_comp.get(comp_id, [])
+        i = bisect_left(fechas.get(comp_id, []), carga.fecha_llenado) - 1
+        while i >= 0 and cs[i].id == carga.id:
+            i -= 1
+        if i < 0 or not cs[i].motivo_drenaje_id:
+            return False
+        return categorias.get(cs[i].motivo_drenaje_id) in CATEGORIAS_REPARACION
+
+    return viene_de_reparacion
+
+
 async def _catalogo(db: AsyncSession) -> Dict[int, LubeParametro]:
     r = await db.execute(select(LubeParametro))
     return {p.id: p for p in r.scalars().all()}
@@ -477,7 +526,7 @@ async def _poblacion_desgaste(db: AsyncSession, tipo_de_muestra: Dict[int, str],
     for mid, pid, valor in (await db.execute(
         select(LubeResultado.muestra_id, LubeResultado.parametro_id,
                LubeResultado.valor)
-        .where(and_(LubeResultado.muestra_id.in_(list(tipo_de_muestra.keys())),
+        .where(and_(en_lista(LubeResultado.muestra_id, tipo_de_muestra.keys()),
                     LubeResultado.valor.isnot(None)))
     )).all():
         p = catalogo.get(pid)
@@ -505,7 +554,7 @@ async def _anteriores(db: AsyncSession, muestras: List[LubeMuestra],
     for comp_id, fecha, mid in (await db.execute(
         select(LubeMuestra.compartimento_id, LubeMuestra.fecha_toma,
                LubeMuestra.id)
-        .where(and_(LubeMuestra.compartimento_id.in_(comp_ids),
+        .where(and_(en_lista(LubeMuestra.compartimento_id, comp_ids),
                     LubeMuestra.estado != "ANULADA"))
         .order_by(LubeMuestra.compartimento_id, LubeMuestra.fecha_toma)
     )).all():
@@ -523,7 +572,7 @@ async def _anteriores(db: AsyncSession, muestras: List[LubeMuestra],
     for mid, pid, valor in (await db.execute(
         select(LubeResultado.muestra_id, LubeResultado.parametro_id,
                LubeResultado.valor)
-        .where(and_(LubeResultado.muestra_id.in_(necesarias),
+        .where(and_(en_lista(LubeResultado.muestra_id, necesarias),
                     LubeResultado.valor.isnot(None)))
     )).all():
         p = catalogo.get(pid)
@@ -549,6 +598,9 @@ def _cambia_la_decision(sistema: Optional[str], norma: str) -> bool:
 async def tablero(
     dias: int = Query(180, ge=30, le=1825),
     solo_con_hallazgo: bool = True,
+    estado: Optional[str] = Query(None, description="CRITICO, ALERTA o NORMAL"),
+    limite: int = Query(200, ge=1, le=2000),
+    desplazamiento: int = Query(0, ge=0),
     f: FiltroFlota = Depends(),
     db: AsyncSession = Depends(get_db),
 ):
@@ -568,16 +620,18 @@ async def tablero(
         _base_muestras(f, desde).order_by(LubeMuestra.fecha_toma.desc())
     )).all()
     if not muestras:
-        return {"desde": desde, "filas": [], "resumen": {},
+        return {"desde": desde, "filas": [], "total_filas": 0, "discrepan": 0, "resumen": {},
                 "limites_flota": {}, "fuentes": FUENTES}
 
     ids = [m.id for m, _, _, _ in muestras]
     lista_muestras = [m for m, _, _, _ in muestras]
 
-    por_muestra: Dict[int, List[LubeResultado]] = defaultdict(list)
-    for r in (await db.execute(
-        select(LubeResultado).where(LubeResultado.muestra_id.in_(ids))
-    )).scalars().all():
+    por_muestra: Dict[int, List[Any]] = defaultdict(list)
+    for r in (await (await db.connection()).execute(
+        select(LubeResultado.muestra_id, LubeResultado.parametro_id, LubeResultado.valor,
+               LubeResultado.valor_texto, LubeResultado.estado)
+        .where(en_lista(LubeResultado.muestra_id, ids))
+    )).all():
         por_muestra[r.muestra_id].append(r)
 
     tipo_de_muestra = {m.id: (t.codigo or "SIN_TIPO")
@@ -595,7 +649,7 @@ async def tablero(
         for carga_id, grado in (await db.execute(
             select(LubeCarga.id, LubeProducto.grado_sae)
             .join(LubeProducto, LubeProducto.id == LubeCarga.producto_id)
-            .where(LubeCarga.id.in_(cargas_necesarias))
+            .where(en_lista(LubeCarga.id, cargas_necesarias))
         )).all():
             grados[carga_id] = grado
 
@@ -603,148 +657,164 @@ async def tablero(
     # quien miró el motor sabe cosas que la muestra no dice.
     manuales: Dict[int, LubeDiagnostico] = {}
     for d in (await db.execute(
-        select(LubeDiagnostico).where(LubeDiagnostico.muestra_id.in_(ids))
+        select(LubeDiagnostico).where(en_lista(LubeDiagnostico.muestra_id, ids))
     )).scalars().all():
         if not d.automatico:
             manuales[d.muestra_id] = d
 
     filas: List[Dict[str, Any]] = []
     resumen: Dict[str, int] = defaultdict(int)
+    viene_de_reparacion = await _indice_reparaciones(db, {c.id for _m, c, _a, _t in muestras}, criterio)
 
-    for muestra, comp, activo, tipo in muestras:
-        resultados = por_muestra.get(muestra.id, [])
-        valores: Dict[str, float] = {}
-        unidades: Dict[str, Optional[str]] = {}
-        iso_medido: Optional[str] = None
-        estados_sistema: Dict[str, str] = {}
-        for r in resultados:
-            p = catalogo.get(r.parametro_id)
-            if not p:
+    # Evaluar cada muestra es CPU pura (miles con una flota grande): en un
+    # hilo, para que el proceso siga atendiendo mientras tanto.
+    def armar():
+
+        for muestra, comp, activo, tipo in muestras:
+            resultados = por_muestra.get(muestra.id, [])
+            valores: Dict[str, float] = {}
+            unidades: Dict[str, Optional[str]] = {}
+            iso_medido: Optional[str] = None
+            estados_sistema: Dict[str, str] = {}
+            for r in resultados:
+                p = catalogo.get(r.parametro_id)
+                if not p:
+                    continue
+                unidades[p.codigo] = p.unidad
+                estados_sistema[p.codigo] = r.estado or "NORMAL"
+                if p.codigo == "iso4406":
+                    iso_medido = r.valor_texto
+                elif r.valor is not None:
+                    valores[p.codigo] = float(r.valor)
+
+            evaluacion = evaluar_muestra(
+                valores=valores, unidades=unidades,
+                anteriores=valores_previos.get(muestra.id, {}),
+                tipo_compartimento=tipo.codigo,
+                estadisticos=estadisticos.get(tipo.codigo or "SIN_TIPO", {}),
+                grado_sae=grados.get(muestra.carga_id or -1),
+                meta_iso=comp.meta_iso4406,
+                iso_medido=iso_medido,
+                criterio=criterio,
+            )
+            hallazgos = evaluacion["hallazgos"]
+            fuera = [c for c, h in hallazgos.items() if h.get("estado")]
+
+            if solo_con_hallazgo and not hallazgos:
                 continue
-            unidades[p.codigo] = p.unidad
-            estados_sistema[p.codigo] = r.estado or "NORMAL"
-            if p.codigo == "iso4406":
-                iso_medido = r.valor_texto
-            elif r.valor is not None:
-                valores[p.codigo] = float(r.valor)
 
-        evaluacion = evaluar_muestra(
-            valores=valores, unidades=unidades,
-            anteriores=valores_previos.get(muestra.id, {}),
-            tipo_compartimento=tipo.codigo,
-            estadisticos=estadisticos.get(tipo.codigo or "SIN_TIPO", {}),
-            grado_sae=grados.get(muestra.carga_id or -1),
-            meta_iso=comp.meta_iso4406,
-            iso_medido=iso_medido,
-            criterio=criterio,
-        )
-        hallazgos = evaluacion["hallazgos"]
-        fuera = [c for c, h in hallazgos.items() if h.get("estado")]
+            post_reparacion = viene_de_reparacion(muestra, comp.id)
+            regla = diagnosticar(evaluacion, post_reparacion, criterio)
 
-        if solo_con_hallazgo and not hallazgos:
-            continue
+            # El estado de la fila sale de la severidad de la regla, que ya
+            # incorpora si algún parámetro llegó a condena.
+            estado = {"ACCION_INMEDIATA": "CRITICO", "CRITICO": "CRITICO",
+                      "MARGINAL": "ALERTA", "NORMAL": "NORMAL"}.get(
+                          regla["severidad"], "ALERTA")
 
-        post_reparacion = await _viene_de_reparacion(db, muestra, comp.id,
-                                                     criterio)
-        regla = diagnosticar(evaluacion, post_reparacion, criterio)
+            detalle = []
+            for codigo in _ordenar_siglas(list(hallazgos.keys())):
+                h = hallazgos[codigo]
+                p = por_codigo.get(codigo)
+                if not p:
+                    continue
+                bajo = p.codigo in VISCOSIDADES or p.codigo == "tbn"
+                detalle.append({
+                    "codigo": codigo, "nombre": p.nombre,
+                    "sigla": _sigla(p, h.get("valor"), bajo),
+                    "valor": h.get("valor"), "texto": h.get("texto"),
+                    "unidad": h.get("unidad"),
+                    # NORMAL no aparece acá: si un parámetro está en `hallazgos` es
+                    # porque cruzó un límite o porque se movió. Un tercer estado
+                    # vacío obligaría a la pantalla a distinguir «sin estado» de
+                    # «normal», que no es la misma cosa.
+                    "estado": h.get("estado") or "TENDENCIA",
+                    "limite": h.get("limite"),
+                    "tendencia": h.get("tendencia"),
+                    "origen_probable": p.origen_probable,
+                    "estado_sistema": estados_sistema.get(codigo),
+                })
 
-        # El estado de la fila sale de la severidad de la regla, que ya
-        # incorpora si algún parámetro llegó a condena.
-        estado = {"ACCION_INMEDIATA": "CRITICO", "CRITICO": "CRITICO",
-                  "MARGINAL": "ALERTA", "NORMAL": "NORMAL"}.get(
-                      regla["severidad"], "ALERTA")
-
-        detalle = []
-        for codigo in _ordenar_siglas(list(hallazgos.keys())):
-            h = hallazgos[codigo]
-            p = por_codigo.get(codigo)
-            if not p:
-                continue
-            bajo = p.codigo in VISCOSIDADES or p.codigo == "tbn"
-            detalle.append({
-                "codigo": codigo, "nombre": p.nombre,
-                "sigla": _sigla(p, h.get("valor"), bajo),
-                "valor": h.get("valor"), "texto": h.get("texto"),
-                "unidad": h.get("unidad"),
-                # NORMAL no aparece acá: si un parámetro está en `hallazgos` es
-                # porque cruzó un límite o porque se movió. Un tercer estado
-                # vacío obligaría a la pantalla a distinguir «sin estado» de
-                # «normal», que no es la misma cosa.
-                "estado": h.get("estado") or "TENDENCIA",
-                "limite": h.get("limite"),
-                "tendencia": h.get("tendencia"),
-                "origen_probable": p.origen_probable,
-                "estado_sistema": estados_sistema.get(codigo),
+            ordenados = _ordenar_siglas(fuera)
+            mapa_sigla = {d["codigo"]: d["sigla"] for d in detalle}
+            manual = manuales.get(muestra.id)
+            filas.append({
+                "muestra_id": muestra.id,
+                "numero": muestra.numero,
+                "familia_motor": activo.linea or activo.marca or "Sin clasificar",
+                "marca": activo.marca,
+                "linea": activo.linea,
+                "modelo": activo.modelo,
+                "motor": (f"{activo.motor_marca} · {activo.motor_linea}"
+                          if activo.motor_marca and activo.motor_linea
+                          else activo.motor_marca),
+                "placa": activo.codigo,
+                "activo": activo.nombre,
+                "compartimento": comp.nombre,
+                "compartimento_id": comp.id,
+                "tipo_compartimento": tipo.codigo,
+                "km": muestra.medidor_equipo,
+                "horas_aceite": muestra.horas_aceite,
+                # La vida del aceite se mide en horas en un motor y en
+                # kilómetros en un diferencial. Sin la unidad, «500» no dice
+                # nada: la trae el tipo de compartimento y viaja con el dato.
+                "unidad_vida": tipo.unidad_vida,
+                "fecha_toma": muestra.fecha_toma,
+                "tipo": "-".join(mapa_sigla[c] for c in ordenados if c in mapa_sigla) or "—",
+                "patron": regla["nombre"],
+                "regla": regla["codigo"],
+                "lectura": regla["lectura"],
+                "criterio": regla["criterio"],
+                "fuentes": regla.get("fuentes", []),
+                "accion_sugerida": manual.recomendacion if manual else regla["accion"],
+                "accion_de_persona": bool(manual),
+                "estado": estado,
+                "severidad_norma": regla["severidad"],
+                # Lo que la regla declara para su modo de falla, que puede ser
+                # peor que lo alcanzado por esta muestra. Permite decir «este
+                # modo de falla es crítico, pero esta muestra todavía no».
+                "severidad_del_modo": regla.get("severidad_declarada",
+                                                regla["severidad"]),
+                "urgencia": regla["urgencia"],
+                "severidad_sistema": muestra.severidad,
+                # SOLO SE MARCA LA DISCREPANCIA QUE CAMBIA LA DECISIÓN.
+                # Marcar cualquier diferencia entre el criterio de norma y el que
+                # el sistema calculó con los límites configurados llenó de avisos
+                # 138 de 149 filas en la primera prueba, y un aviso que sale en el
+                # 93 % de las filas no avisa de nada. Lo que importa es el salto
+                # entre «no pasa nada» y «hay que actuar»: que una muestra sea
+                # marginal para uno y crítica para el otro no cambia lo que se hace
+                # con ella.
+                "discrepa": _cambia_la_decision(muestra.severidad,
+                                                regla["severidad"]),
+                "cruce_tbn_tan": evaluacion["cruce_tbn_tan"],
+                "relacion_si_al": evaluacion["relacion_si_al"],
+                "desvio_viscosidad": evaluacion["desvio_viscosidad"],
+                "detalle": detalle,
             })
+            resumen[estado] += 1
 
-        ordenados = _ordenar_siglas(fuera)
-        mapa_sigla = {d["codigo"]: d["sigla"] for d in detalle}
-        manual = manuales.get(muestra.id)
-        filas.append({
-            "muestra_id": muestra.id,
-            "numero": muestra.numero,
-            "familia_motor": activo.linea or activo.marca or "Sin clasificar",
-            "marca": activo.marca,
-            "linea": activo.linea,
-            "modelo": activo.modelo,
-            "motor": (f"{activo.motor_marca} · {activo.motor_linea}"
-                      if activo.motor_marca and activo.motor_linea
-                      else activo.motor_marca),
-            "placa": activo.codigo,
-            "activo": activo.nombre,
-            "compartimento": comp.nombre,
-            "compartimento_id": comp.id,
-            "tipo_compartimento": tipo.codigo,
-            "km": muestra.medidor_equipo,
-            "horas_aceite": muestra.horas_aceite,
-            # La vida del aceite se mide en horas en un motor y en
-            # kilómetros en un diferencial. Sin la unidad, «500» no dice
-            # nada: la trae el tipo de compartimento y viaja con el dato.
-            "unidad_vida": tipo.unidad_vida,
-            "fecha_toma": muestra.fecha_toma,
-            "tipo": "-".join(mapa_sigla[c] for c in ordenados if c in mapa_sigla) or "—",
-            "patron": regla["nombre"],
-            "regla": regla["codigo"],
-            "lectura": regla["lectura"],
-            "criterio": regla["criterio"],
-            "fuentes": regla.get("fuentes", []),
-            "accion_sugerida": manual.recomendacion if manual else regla["accion"],
-            "accion_de_persona": bool(manual),
-            "estado": estado,
-            "severidad_norma": regla["severidad"],
-            # Lo que la regla declara para su modo de falla, que puede ser
-            # peor que lo alcanzado por esta muestra. Permite decir «este
-            # modo de falla es crítico, pero esta muestra todavía no».
-            "severidad_del_modo": regla.get("severidad_declarada",
-                                            regla["severidad"]),
-            "urgencia": regla["urgencia"],
-            "severidad_sistema": muestra.severidad,
-            # SOLO SE MARCA LA DISCREPANCIA QUE CAMBIA LA DECISIÓN.
-            # Marcar cualquier diferencia entre el criterio de norma y el que
-            # el sistema calculó con los límites configurados llenó de avisos
-            # 138 de 149 filas en la primera prueba, y un aviso que sale en el
-            # 93 % de las filas no avisa de nada. Lo que importa es el salto
-            # entre «no pasa nada» y «hay que actuar»: que una muestra sea
-            # marginal para uno y crítica para el otro no cambia lo que se hace
-            # con ella.
-            "discrepa": _cambia_la_decision(muestra.severidad,
-                                            regla["severidad"]),
-            "cruce_tbn_tan": evaluacion["cruce_tbn_tan"],
-            "relacion_si_al": evaluacion["relacion_si_al"],
-            "desvio_viscosidad": evaluacion["desvio_viscosidad"],
-            "detalle": detalle,
-        })
-        resumen[estado] += 1
+        # Lo urgente primero, y a igual urgencia lo más reciente: es el orden en
+        # que se revisa en la reunión.
+        filas.sort(key=lambda x: (-x["urgencia"], x["fecha_toma"]), reverse=False)
+        filas.sort(key=lambda x: x["urgencia"], reverse=True)
+        return filas, resumen
 
-    # Lo urgente primero, y a igual urgencia lo más reciente: es el orden en
-    # que se revisa en la reunión.
-    filas.sort(key=lambda x: (-x["urgencia"], x["fecha_toma"]), reverse=False)
-    filas.sort(key=lambda x: x["urgencia"], reverse=True)
+    filas, resumen = await asyncio.to_thread(armar)
+    # El resumen y las discrepancias cuentan TODAS las filas; la tabla recibe
+    # una página. Entera eran decenas de megas con cinco años de muestras.
+    discrepan = sum(1 for x in filas if x["discrepa"])
+    if estado:
+        filas = [x for x in filas if x["estado"] == estado]
+    total_filas = len(filas)
+    filas = filas[desplazamiento:desplazamiento + limite]
 
     return {
         "desde": desde,
         "filtro": f.como_dict(),
         "filas": filas,
+        "total_filas": total_filas,
+        "discrepan": discrepan,
         "resumen": dict(resumen),
         # Los límites estadísticos con que se juzgó, por familia de
         # compartimento, para que la pantalla pueda decir contra qué se comparó
@@ -800,7 +870,7 @@ async def por_placa(
     ids = [m.id for m in historia]
     por_muestra: Dict[int, Dict[int, LubeResultado]] = defaultdict(dict)
     for r in (await db.execute(
-        select(LubeResultado).where(LubeResultado.muestra_id.in_(ids))
+        select(LubeResultado).where(en_lista(LubeResultado.muestra_id, ids))
     )).scalars().all():
         por_muestra[r.muestra_id][r.parametro_id] = r
 
@@ -1070,9 +1140,12 @@ async def extension(
     ids = [m.id for m, _, _, _ in filas]
     valores: Dict[int, Dict[int, float]] = defaultdict(dict)
     estados: Dict[int, Dict[int, str]] = defaultdict(dict)
-    for r in (await db.execute(
-        select(LubeResultado).where(LubeResultado.muestra_id.in_(ids))
-    )).scalars().all():
+    # Columnas y por la conexión: son cientos de miles de resultados.
+    for r in (await (await db.connection()).execute(
+        select(LubeResultado.muestra_id, LubeResultado.parametro_id,
+               LubeResultado.valor, LubeResultado.estado)
+        .where(en_lista(LubeResultado.muestra_id, ids))
+    )).all():
         if r.valor is not None:
             valores[r.muestra_id][r.parametro_id] = float(r.valor)
         estados[r.muestra_id][r.parametro_id] = r.estado or "NORMAL"

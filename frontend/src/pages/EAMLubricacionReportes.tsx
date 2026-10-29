@@ -35,7 +35,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert, Box, Button, Chip, Collapse, Dialog, DialogActions, DialogContent,
   DialogTitle, IconButton, InputAdornment, MenuItem, Popover, Stack, Switch,
-  Tab, Tabs, TextField, Tooltip, Typography, alpha,
+  Tab, TablePagination, Tabs, TextField, Tooltip, Typography, alpha,
   type PopoverActions,
 } from '@mui/material'
 
@@ -1261,15 +1261,22 @@ function Conclusiones({ f }: { f: FiltroFlota }) {
   const [dias, setDias] = useState(180)
   const [estado, setEstado] = useState('Todos')
   const [abierta, setAbierta] = useState<number | null>(null)
+  const [pagina, setPagina] = useState(0)
+  const POR_PAGINA = 100
 
+  // El servidor filtra por estado y entrega una página: con años de muestras
+  // la tabla entera eran decenas de megas. Resumen y discrepancias cuentan todo.
   const d = useQuery({
-    queryKey: clave('tablero', f, dias),
-    queryFn: () => interpretacionApi.tablero(dias, true, f),
+    queryKey: [...clave('tablero', f, dias), estado, pagina],
+    queryFn: () => interpretacionApi.tablero(dias, true, f, {
+      estado: estado === 'Todos' ? undefined : estado,
+      limite: POR_PAGINA, desplazamiento: pagina * POR_PAGINA,
+    }),
+    placeholderData: prev => prev,
   })
 
-  const filas = (d.data?.filas ?? []).filter(
-    x => estado === 'Todos' || x.estado === estado)
-  const discrepan = (d.data?.filas ?? []).filter(x => x.discrepa).length
+  const filas = d.data?.filas ?? []
+  const discrepan = d.data?.discrepan ?? 0
 
   return (
     <Estado cargando={d.isLoading} error={d.error} vacio={!d.data?.filas.length}
@@ -1280,7 +1287,7 @@ function Conclusiones({ f }: { f: FiltroFlota }) {
           <Grid key={e} size={{ xs: 4 }}>
             <Cifra valor={d.data?.resumen[e] ?? 0} color={COLOR_ESTADO[e]}
               activo={estado === e}
-              onClick={() => setEstado(estado === e ? 'Todos' : e)}
+              onClick={() => { setEstado(estado === e ? 'Todos' : e); setPagina(0) }}
               etiqueta={e === 'CRITICO' ? 'Críticas'
                 : e === 'ALERTA' ? 'En alerta' : 'Normales'} />
           </Grid>
@@ -1297,10 +1304,10 @@ function Conclusiones({ f }: { f: FiltroFlota }) {
       )}
 
       <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center' }}>
-        <Periodo valor={dias} onCambio={setDias} />
+        <Periodo valor={dias} onCambio={v => { setDias(v); setPagina(0) }} />
         {estado !== 'Todos' && (
           <Chip label={`Solo ${estado.toLowerCase()} — quitar filtro`} size="small"
-            onDelete={() => setEstado('Todos')}
+            onDelete={() => { setEstado('Todos'); setPagina(0) }}
             sx={{ bgcolor: alpha(COLOR_ESTADO[estado], 0.15),
                   color: COLOR_ESTADO[estado] }} />
         )}
@@ -1321,6 +1328,9 @@ function Conclusiones({ f }: { f: FiltroFlota }) {
             </tbody>
           </table>
         </Box>
+        <TablePagination component="div" count={d.data?.total_filas ?? 0} page={pagina}
+          onPageChange={(_, p) => setPagina(p)} rowsPerPage={POR_PAGINA} rowsPerPageOptions={[POR_PAGINA]}
+          labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count.toLocaleString('es-CO')}`} />
       </Panel>
     </Estado>
   )
@@ -2251,7 +2261,10 @@ function PanelDispersion({ p }: { p: ParametroDispersion }) {
       </Box>
 
       <Typography sx={{ fontSize: 10.5, color: 'text.disabled', mt: 0.5 }}>
-        {p.puntos.length} punto(s) · min {p.minimo} · prom {p.promedio} · máx {p.maximo}
+        {(p.puntos_totales ?? p.puntos.length).toLocaleString('es-CO')} punto(s)
+        {p.puntos_totales && p.puntos_totales > p.puntos.length
+          ? ` (se dibujan ${p.puntos.length.toLocaleString('es-CO')}: todos los fuera de rango y una muestra pareja del resto)` : ''}
+        {' '}· min {p.minimo} · prom {p.promedio} · máx {p.maximo}
       </Typography>
     </Box>
   )

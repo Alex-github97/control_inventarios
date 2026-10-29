@@ -16,12 +16,14 @@ medir si el análisis está sirviendo o solo generando papel.
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select, func, and_, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.consultas import en_lista
 from app.core.database import get_db
+from app.core.paginacion import contar, poner_total
 from app.core.dependencies import get_current_user
 from app.infrastructure.models.usuario import Usuario
 from app.infrastructure.models.eam import EAMActivo
@@ -95,14 +97,14 @@ async def _enriquecer_compartimentos(db: AsyncSession, filas) -> List[Dict[str, 
     r = await db.execute(
         select(LubeCarga, LubeProducto.nombre)
         .outerjoin(LubeProducto, LubeProducto.id == LubeCarga.producto_id)
-        .where(and_(LubeCarga.compartimento_id.in_(ids), LubeCarga.estado == "ACTIVA")))
+        .where(and_(en_lista(LubeCarga.compartimento_id, ids), LubeCarga.estado == "ACTIVA")))
     cargas = {c.compartimento_id: (c, prod) for c, prod in r.all()}
 
     # Última muestra con resultado de cada compartimento.
     r = await db.execute(
         select(LubeMuestra.compartimento_id, LubeMuestra.severidad,
                func.max(LubeMuestra.fecha_toma))
-        .where(and_(LubeMuestra.compartimento_id.in_(ids),
+        .where(and_(en_lista(LubeMuestra.compartimento_id, ids),
                     LubeMuestra.estado != "ANULADA"))
         .group_by(LubeMuestra.compartimento_id, LubeMuestra.severidad))
     ultimas: Dict[int, Any] = {}
@@ -124,11 +126,11 @@ async def _enriquecer_compartimentos(db: AsyncSession, filas) -> List[Dict[str, 
     if ids_carga:
         for consulta in (
             select(LubeMuestra.carga_id, func.max(LubeMuestra.medidor_equipo))
-            .where(and_(LubeMuestra.carga_id.in_(ids_carga),
+            .where(and_(en_lista(LubeMuestra.carga_id, ids_carga),
                         LubeMuestra.medidor_equipo.isnot(None)))
             .group_by(LubeMuestra.carga_id),
             select(LubeRelleno.carga_id, func.max(LubeRelleno.medidor))
-            .where(and_(LubeRelleno.carga_id.in_(ids_carga),
+            .where(and_(en_lista(LubeRelleno.carga_id, ids_carga),
                         LubeRelleno.medidor.isnot(None)))
             .group_by(LubeRelleno.carga_id),
         ):
@@ -266,19 +268,11 @@ class CargaOut(BaseModel):
     costo_por_unidad_vida: Optional[float] = None
 
 
-async def _carga_detallada(db: AsyncSession, carga: LubeCarga) -> Dict[str, Any]:
+def _armar_carga(carga: LubeCarga, producto: Optional[str], motivo: Optional[str],
+                 litros, costo_rellenos) -> Dict[str, Any]:
     d = CargaOut.model_validate(carga).model_dump()
-    if carga.producto_id:
-        p = await db.get(LubeProducto, carga.producto_id)
-        d["producto"] = p.nombre if p else None
-    if carga.motivo_drenaje_id:
-        m = await db.get(LubeMotivoDrenaje, carga.motivo_drenaje_id)
-        d["motivo"] = m.nombre if m else None
-
-    r = await db.execute(select(func.coalesce(func.sum(LubeRelleno.litros), 0),
-                                func.coalesce(func.sum(LubeRelleno.costo), 0))
-                         .where(LubeRelleno.carga_id == carga.id))
-    litros, costo_rellenos = r.one()
+    d["producto"] = producto
+    d["motivo"] = motivo
     d["litros_repuestos"] = float(litros or 0)
 
     total = sum(v or 0 for v in (carga.costo_aceite, carga.costo_filtro,
@@ -291,16 +285,56 @@ async def _carga_detallada(db: AsyncSession, carga: LubeCarga) -> Dict[str, Any]
     return d
 
 
+async def _carga_detallada(db: AsyncSession, carga: LubeCarga) -> Dict[str, Any]:
+    producto = motivo = None
+    if carga.producto_id:
+        p = await db.get(LubeProducto, carga.producto_id)
+        producto = p.nombre if p else None
+    if carga.motivo_drenaje_id:
+        m = await db.get(LubeMotivoDrenaje, carga.motivo_drenaje_id)
+        motivo = m.nombre if m else None
+
+    r = await db.execute(select(func.coalesce(func.sum(LubeRelleno.litros), 0),
+                                func.coalesce(func.sum(LubeRelleno.costo), 0))
+                         .where(LubeRelleno.carga_id == carga.id))
+    litros, costo_rellenos = r.one()
+    return _armar_carga(carga, producto, motivo, litros, costo_rellenos)
+
+
 @router.get("/cargas", response_model=List[CargaOut])
-async def listar_cargas(compartimento_id: Optional[int] = None,
+async def listar_cargas(respuesta: Response,
+                        compartimento_id: Optional[int] = None,
                         estado: Optional[str] = None,
+                        limite: int = Query(500, ge=1, le=5000),
+                        desplazamiento: int = Query(0, ge=0),
                         db: AsyncSession = Depends(get_db)):
-    q = select(LubeCarga).order_by(desc(LubeCarga.fecha_llenado))
+    """Las cargas, la más reciente primero, por trozos (total en `X-Total-Count`).
+
+    Producto, motivo y rellenos vienen en la MISMA consulta. Antes se pedían
+    carga por carga: con 57 mil cargas eran 170 mil consultas en una petición,
+    el proceso dejaba de contestar y el supervisor lo mataba.
+    """
+    filtro = select(LubeCarga.id)
     if compartimento_id:
-        q = q.where(LubeCarga.compartimento_id == compartimento_id)
+        filtro = filtro.where(LubeCarga.compartimento_id == compartimento_id)
     if estado:
-        q = q.where(LubeCarga.estado == estado)
-    return [await _carga_detallada(db, c) for c in (await db.execute(q)).scalars().all()]
+        filtro = filtro.where(LubeCarga.estado == estado)
+    poner_total(respuesta, await contar(db, filtro), limite, desplazamiento)
+
+    rellenos = (select(LubeRelleno.carga_id,
+                       func.sum(LubeRelleno.litros).label("litros"),
+                       func.sum(LubeRelleno.costo).label("costo"))
+                .group_by(LubeRelleno.carga_id).subquery())
+    q = (select(LubeCarga, LubeProducto.nombre, LubeMotivoDrenaje.nombre,
+                rellenos.c.litros, rellenos.c.costo)
+         .outerjoin(LubeProducto, LubeProducto.id == LubeCarga.producto_id)
+         .outerjoin(LubeMotivoDrenaje, LubeMotivoDrenaje.id == LubeCarga.motivo_drenaje_id)
+         .outerjoin(rellenos, rellenos.c.carga_id == LubeCarga.id)
+         .where(LubeCarga.id.in_(filtro))
+         .order_by(desc(LubeCarga.fecha_llenado), desc(LubeCarga.id))
+         .offset(desplazamiento).limit(limite))
+    return [_armar_carga(c, producto, motivo, litros, costo)
+            for c, producto, motivo, litros, costo in (await db.execute(q)).all()]
 
 
 @router.post("/cargas", response_model=CargaOut, status_code=201)
@@ -812,7 +846,7 @@ async def tendencia(mid: int, db: AsyncSession = Depends(get_db)):
     r = await db.execute(
         select(LubeResultado, LubeParametro.codigo, LubeParametro.nombre, LubeParametro.unidad)
         .join(LubeParametro, LubeParametro.id == LubeResultado.parametro_id)
-        .where(LubeResultado.muestra_id.in_(ids)))
+        .where(en_lista(LubeResultado.muestra_id, ids)))
     series: Dict[str, Dict[str, Any]] = {}
     for res, codigo, nombre, unidad in r.all():
         s = series.setdefault(codigo, {"nombre": nombre, "unidad": unidad, "puntos": []})

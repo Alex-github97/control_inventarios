@@ -2307,6 +2307,19 @@ async def _migrar_esquema(esquema: str) -> None:
             ("ix_epagos_empresa_fecha", "erp_pagos", "(empresa_id, fecha)"),
             # La auditoría se consulta por documento.
             ("ix_eaud_entidad", "erp_auditoria", "(empresa_id, entidad, entidad_id)"),
+            # CMMS · llantas. La historia de una llanta (inspecciones,
+            # movimientos, vidas) se busca siempre por llanta y fecha; sin estos
+            # índices cada «última inspección» recorría casi un millón de filas.
+            ("ix_eam_insp_neu_fecha", "eam_inspeccion_neumatico", "(neumatico_id, fecha)"),
+            ("ix_eam_mov_neu_fecha", "eam_movimiento_neumatico", "(neumatico_id, fecha)"),
+            ("ix_eam_mov_neu_activo", "eam_movimiento_neumatico", "(activo_id, fecha)"),
+            ("ix_eam_mov_neu_solo_fecha", "eam_movimiento_neumatico", "(fecha)"),
+            ("ix_eam_vida_neu", "eam_vida_neumatico", "(neumatico_id, numero_vida)"),
+            ("ix_eam_neu_estado", "eam_neumatico", "(estado)"),
+            ("ix_eam_neu_activo", "eam_neumatico", "(activo_id, posicion)"),
+            ("ix_eam_neu_baja", "eam_neumatico", "(fecha_baja) WHERE estado = 'BAJA'"),
+            # Lubricación: la lista de cargas va por fecha.
+            ("ix_eam_lube_carga_fecha", "eam_lube_carga", "(fecha_llenado)"),
         ]
         for nombre, tabla, definicion in indices:
             if (await conn.execute(text(
