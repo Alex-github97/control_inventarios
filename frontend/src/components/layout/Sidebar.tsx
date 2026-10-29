@@ -695,6 +695,19 @@ export function useModuleNav(): ModuleNav {
   const location  = useLocation()
   const { t } = useTranslation()
   const { user } = useAuthStore()
+  return moduloDeRuta(location.pathname, t, user)
+}
+
+/**
+ * Lo mismo para cualquier ruta, no solo la actual: la barra de módulos del
+ * encabezado lo usa para mostrar los submódulos de un módulo sin entrar a él.
+ */
+export function moduloDeRuta(
+  pathname: string,
+  t: (clave: string) => string,
+  user: ReturnType<typeof useAuthStore.getState>['user'],
+): ModuleNav {
+  const location = { pathname }
   const isAdmin = user?.rol === 'ADMINISTRADOR'
 
   // Filtrar ítems de CI según permisos del usuario

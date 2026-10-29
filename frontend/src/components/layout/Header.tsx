@@ -5,9 +5,9 @@ import {
 } from '@mui/material'
 import {
   Notifications, QrCode2, LogoutOutlined, NotificationsNone,
-  SupportAgent, AppsRounded, KeyboardArrowDownRounded,
+  SupportAgent,
 } from '@mui/icons-material'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/store/authStore'
 import { useQuery, useIsFetching, useIsMutating } from '@tanstack/react-query'
@@ -17,7 +17,7 @@ import { es } from 'date-fns/locale'
 import { MARCA, ACENTO, PALETA, SUPERFICIE } from '@/config/marca'
 import { Logotipo } from '@/components/Logotipo'
 import { useModuleNav } from './Sidebar'
-import { useVisibleWorkspaces } from './WorkspacePanel'
+import { BarraModulos } from './BarraModulos'
 
 // Barra superior: las mismas superficies oscuras que tenían el panel de espacios y la barra lateral
 const BAR_BG = `linear-gradient(90deg, ${PALETA.abismo} 0%, ${SUPERFICIE.barra} 60%, #171717 100%)`
@@ -44,12 +44,9 @@ const iconoOscuroSx = (hover: string) => ({
 export function Header() {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
-  const { pathname } = useLocation()
   const { t } = useTranslation()
   const { activeColor, logoShort, logoLine1, logoLine2, logoGradient } = useModuleNav()
-  const espacios = useVisibleWorkspaces()
   const [alertAnchor, setAlertAnchor] = useState<HTMLElement | null>(null)
-  const [wsAnchor, setWsAnchor] = useState<HTMLElement | null>(null)
   const isFetching = useIsFetching()
   const isMutating = useIsMutating()
   const busy = isFetching + isMutating > 0
@@ -134,7 +131,8 @@ export function Header() {
               {logoShort}
             </Typography>
           </Box>
-          <Box sx={{ display: { xs: 'none', md: 'block' }, whiteSpace: 'nowrap' }}>
+          {/* El nombre largo solo en pantallas anchas: el módulo activo ya se ve resaltado en la barra */}
+          <Box sx={{ display: { xs: 'none', xl: 'block' }, whiteSpace: 'nowrap' }}>
             <Typography sx={{ color: '#FFFFFF', fontWeight: 700, fontSize: 13, lineHeight: 1.2 }}>
               {logoLine1}
             </Typography>
@@ -144,102 +142,8 @@ export function Header() {
           </Box>
         </Box>
 
-        {/* Selector de espacios (módulos) */}
-        <Button
-          onClick={e => setWsAnchor(e.currentTarget)}
-          startIcon={<AppsRounded sx={{ fontSize: 18 }} />}
-          endIcon={<KeyboardArrowDownRounded sx={{ fontSize: 18, transition: 'transform 0.2s', transform: wsAnchor ? 'rotate(180deg)' : 'none' }} />}
-          sx={{
-            ml: { xs: 0.5, md: 2 },
-            height: 36, px: { xs: 1, sm: 1.5 }, minWidth: 0, flexShrink: 0, borderRadius: '10px',
-            textTransform: 'none', fontSize: 13, fontWeight: 600,
-            color: 'rgba(255,255,255,0.82)',
-            border: '1px solid rgba(255,255,255,0.12)',
-            bgcolor: wsAnchor ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)',
-            '&:hover': { bgcolor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.2)' },
-            '& .MuiButton-startIcon': { mr: { xs: 0, sm: 1 }, ml: 0 },
-            '& .MuiButton-endIcon': { display: { xs: 'none', sm: 'inherit' } },
-          }}
-        >
-          <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{t('ws.espacios')}</Box>
-        </Button>
-
-        <Popover
-          open={Boolean(wsAnchor)}
-          anchorEl={wsAnchor}
-          onClose={() => setWsAnchor(null)}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-          transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-          PaperProps={{
-            elevation: 8,
-            sx: {
-              mt: 1, p: 1.5, borderRadius: '14px', width: { xs: 'calc(100vw - 32px)', sm: 640 },
-              background: `linear-gradient(180deg, ${SUPERFICIE.barra} 0%, ${PALETA.abismo} 100%)`,
-              border: `1px solid ${SUPERFICIE.divisorOscuro}`,
-            },
-          }}
-        >
-          <Typography sx={{
-            fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
-            color: 'rgba(255,255,255,0.35)', px: 1, pb: 1,
-          }}>
-            {t('ws.espacios')}
-          </Typography>
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)' }, gap: 0.75 }}>
-            {espacios.map(ws => {
-              const active = ws.isActive(pathname)
-              return (
-                <Box
-                  key={ws.id}
-                  onClick={() => { setWsAnchor(null); navigate(ws.path) }}
-                  sx={{
-                    display: 'flex', alignItems: 'center', gap: 1.25, p: '8px 10px',
-                    borderRadius: '11px', cursor: 'pointer',
-                    background: active ? alpha(ws.color, 0.13) : 'transparent',
-                    border: `1px solid ${active ? alpha(ws.color, 0.3) : 'transparent'}`,
-                    '&:hover': {
-                      background: active ? alpha(ws.color, 0.2) : 'rgba(255,255,255,0.05)',
-                      '& .ws-badge': { transform: 'scale(1.08)', boxShadow: `0 6px 16px ${alpha(ws.color, 0.45)}` },
-                    },
-                    transition: 'all 0.18s cubic-bezier(0.22,1,0.36,1)',
-                  }}
-                >
-                  <Box
-                    className="ws-badge"
-                    sx={{
-                      width: 34, height: 34, borderRadius: '10px', flexShrink: 0,
-                      background: active
-                        ? `linear-gradient(135deg, ${ws.color} 0%, ${alpha(ws.color, 0.65)} 100%)`
-                        : 'rgba(255,255,255,0.05)',
-                      border: active ? 'none' : '1px solid rgba(255,255,255,0.08)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      boxShadow: active ? `0 4px 14px ${alpha(ws.color, 0.38)}` : 'none',
-                      transition: 'all 0.2s cubic-bezier(0.22,1,0.36,1)',
-                    }}
-                  >
-                    <Typography sx={{ fontSize: 10.5, fontWeight: 800, color: active ? '#FFF' : 'rgba(255,255,255,0.55)', letterSpacing: '-0.3px' }}>
-                      {ws.short}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={{
-                      fontSize: 12.5, fontWeight: active ? 700 : 500, lineHeight: 1.3,
-                      color: active ? '#FFF' : 'rgba(255,255,255,0.72)',
-                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                    }}>
-                      {t(ws.label)}
-                    </Typography>
-                    <Typography sx={{ fontSize: 10, lineHeight: 1.3, color: active ? alpha(ws.color, 0.9) : 'rgba(255,255,255,0.3)' }}>
-                      {active ? 'Activo' : 'Ir al módulo'}
-                    </Typography>
-                  </Box>
-                </Box>
-              )
-            })}
-          </Box>
-        </Popover>
-
-        <Box sx={{ flex: 1 }} />
+        {/* Todos los módulos a la vista; cada uno despliega sus submódulos */}
+        <BarraModulos />
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <Tooltip title="Soporte técnico">
