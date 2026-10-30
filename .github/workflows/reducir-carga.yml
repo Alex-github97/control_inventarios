@@ -18,6 +18,12 @@ on:
       maestros:
         description: "Filas por tabla maestra de relleno (500 = 100 %)"
         default: "150"
+      activos:
+        description: "Activos del CMMS coherente, con llantas (0 = sin CMMS; 3000 = original)"
+        default: "300"
+      meses:
+        description: "Meses de historia del CMMS coherente (36 = original)"
+        default: "24"
 
 # El mismo grupo que el despliegue: nunca corren a la vez.
 concurrency:
@@ -50,9 +56,11 @@ jobs:
           DIAS: ${{ inputs.dias }}
           FILAS: ${{ inputs.filas }}
           MAESTROS: ${{ inputs.maestros }}
+          ACTIVOS: ${{ inputs.activos }}
+          MESES: ${{ inputs.meses }}
         run: |
           # Solo números: van a una línea de comandos en el servidor.
-          for v in "$DIAS" "$FILAS" "$MAESTROS"; do
+          for v in "$DIAS" "$FILAS" "$MAESTROS" "$ACTIVOS" "$MESES"; do
             [[ "$v" =~ ^[0-9]+$ ]] || { echo "::error::Valor no numérico: $v"; exit 1; }
           done
           # La llave solo ejecuta actualizar.sh (comando fijo en el servidor).
@@ -63,7 +71,7 @@ jobs:
           ssh -i ~/.ssh/despliegue -o StrictHostKeyChecking=yes \
             -o ServerAliveInterval=30 -o ServerAliveCountMax=10 \
             "${{ secrets.SERVIDOR_USUARIO }}@${{ secrets.SERVIDOR_HOST }}" \
-            "reducir-carga $DIAS $FILAS $MAESTROS" | tee salida.log
+            "reducir-carga $DIAS $FILAS $MAESTROS $ACTIVOS $MESES" | tee salida.log
           # Si el servidor aún no tiene la versión de actualizar.sh que atiende
           # el pedido, despliega y sale en verde sin reducir nada: mejor rojo.
           grep -q "── Reducción de la empresa de carga" salida.log || {

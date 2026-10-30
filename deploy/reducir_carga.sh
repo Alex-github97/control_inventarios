@@ -10,8 +10,15 @@
 # La proporción la dan tres números. Los de la siembra original eran 665 días
 # (2025-01-01 → 2026-10-27), 5000 filas y 500 maestros; los de abajo son el 30 %.
 #
+# El CMMS (activos, órdenes, combustible, lubricación y LLANTAS) tiene su propio
+# generador, tools/sembrar_cmms.py, con datos mucho más fieles que el relleno:
+# odómetros que solo suben, llantas que se gastan surco a surco, reencauches y
+# vidas para el CPK. Si se indica ACTIVOS, se corre después de la siembra y
+# reemplaza todo lo `eam_*` con una flota de ese tamaño y MESES de historia.
+#
 # Uso:   ./deploy/reducir_carga.sh
 #        DIAS=330 FILAS=2500 MAESTROS=250 ./deploy/reducir_carga.sh   (50 %)
+#        ACTIVOS=300 MESES=24 ./deploy/reducir_carga.sh                (+ CMMS)
 #        COMPOSE=docker-compose.yml ./deploy/reducir_carga.sh          (en local)
 #
 # Solo toca el esquema `cli_carga`. El registro de la empresa en
@@ -24,6 +31,8 @@ cd "$DIR"
 DIAS="${DIAS:-200}"
 FILAS="${FILAS:-1500}"
 MAESTROS="${MAESTROS:-150}"
+ACTIVOS="${ACTIVOS:-0}"
+MESES="${MESES:-24}"
 ESQUEMA="cli_carga"
 CODIGO="carga"
 COMPOSE="${COMPOSE:-docker-compose.prod.yml}"
@@ -72,6 +81,13 @@ echo "[$(date +%H:%M:%S)] sembrando…"
 $DC exec -T -e DEBUG=false backend python tools/sembrar_carga.py \
   --codigo "$CODIGO" --desde "$DESDE" --filas "$FILAS" --maestros "$MAESTROS"
 
+if [ "$ACTIVOS" -gt 0 ]; then
+  ANIOS="$(awk "BEGIN { printf \"%.2f\", ${MESES} / 12 }")"
+  echo "[$(date +%H:%M:%S)] CMMS coherente: ${ACTIVOS} activos, ${MESES} meses…"
+  $DC exec -T -e DEBUG=false backend python tools/sembrar_cmms.py \
+    --esquema "$ESQUEMA" --activos "$ACTIVOS" --anios "$ANIOS"
+fi
+
 psql <<SQL
 DO \$\$
 DECLARE t record;
@@ -83,6 +99,11 @@ END \$\$;
 SQL
 
 DESPUES="$(filas_del_esquema)"
+psql -c "SELECT 'llantas' AS tabla, count(*) FROM \"${ESQUEMA}\".eam_neumatico
+  UNION ALL SELECT 'vidas de llanta', count(*) FROM \"${ESQUEMA}\".eam_vida_neumatico
+  UNION ALL SELECT 'inspecciones de llanta', count(*) FROM \"${ESQUEMA}\".eam_inspeccion_neumatico
+  UNION ALL SELECT 'movimientos de llanta', count(*) FROM \"${ESQUEMA}\".eam_movimiento_neumatico
+  UNION ALL SELECT 'activos', count(*) FROM \"${ESQUEMA}\".eam_activo"
 if [ "$ANTES" -gt 0 ]; then
   echo "[$(date +%H:%M:%S)] listo: ${ANTES} → ${DESPUES} filas ($(( DESPUES * 100 / ANTES )) %)"
 else

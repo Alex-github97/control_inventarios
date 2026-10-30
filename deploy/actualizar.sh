@@ -54,10 +54,12 @@ $COMPOSE exec -T proxy nginx -s reload || $COMPOSE restart proxy
 # se acepta UN solo pedido extra, con forma exacta y solo números; cualquier
 # otra cosa se ignora. Así la llave sigue sin poder correr comandos libres.
 pedido_extra() {
-  local patron='^reducir-carga ([0-9]{1,4}) ([0-9]{1,6}) ([0-9]{1,6})$'
+  # Opcionales al final: activos y meses del CMMS coherente.
+  local patron='^reducir-carga ([0-9]{1,4}) ([0-9]{1,6}) ([0-9]{1,6})( ([0-9]{1,5}) ([0-9]{1,3}))?$'
   if [[ "${SSH_ORIGINAL_COMMAND:-}" =~ $patron ]]; then
     echo "── Reducción de la empresa de carga"
     DIAS="${BASH_REMATCH[1]}" FILAS="${BASH_REMATCH[2]}" MAESTROS="${BASH_REMATCH[3]}" \
+      ACTIVOS="${BASH_REMATCH[5]:-0}" MESES="${BASH_REMATCH[6]:-24}" \
       "$DIR/deploy/reducir_carga.sh"
   fi
 }
