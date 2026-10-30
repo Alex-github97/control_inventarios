@@ -117,6 +117,28 @@ Cada paso es idempotente: si se interrumpe, se vuelve a correr y solo llena lo q
 
 En local, el backend corre con recarga automática. Si se edita algo dentro de `backend/` mientras el generador corre, el backend se reinicia y migra los esquemas, y eso puede bloquear al generador. Durante la siembra no se edita el código.
 
+## Cambiar el volumen en el servidor
+
+`deploy/reducir_carga.sh` vuelve a generar la empresa con menos (o más) datos, directamente en el servidor:
+
+1. Respalda el esquema actual en `backups/cli_carga-antes-de-reducir-<fecha>.dump`.
+2. Lo elimina.
+3. Lo siembra de nuevo con `sembrar_carga.py`.
+
+No borra filas al azar, porque eso descuadraría los inventarios, las nóminas y la contabilidad.
+
+Se lanza desde GitHub: **Actions → Reducir empresa de carga → Run workflow**. Pide la misma aprobación que un despliegue. Los valores por defecto dan cerca del 30 % de la siembra original:
+
+| Volumen | Días | Filas | Maestros |
+|---|---|---|---|
+| 100 % | 665 | 5000 | 500 |
+| 50 % | 330 | 2500 | 250 |
+| 30 % | 200 | 1500 | 150 |
+
+Al terminar, el registro muestra cuántas filas había antes y cuántas quedaron.
+
+Los usuarios y la clave se mantienen, pero se crean de nuevo. Si alguien tenía una sesión abierta en «carga», debe volver a entrar.
+
 ## Al escribir pruebas de carga
 
 - **Cabecera `X-Inactividad`:** el servidor solo alarga una sesión cuando la petición trae esa cabecera. Sin ella, la sesión vence a los 10 minutos y las respuestas pasan a 401, cosa que no tiene que ver con la carga. Ver [SEGURIDAD_SESIONES.md](SEGURIDAD_SESIONES.md).

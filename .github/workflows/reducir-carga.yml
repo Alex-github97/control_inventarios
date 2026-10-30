@@ -1,0 +1,63 @@
+# Regenera en producción la empresa de PRUEBA DE CARGA («carga») con menos
+# volumen. Se lanza a mano desde Actions → «Reducir empresa de carga» y, como
+# el despliegue, espera la aprobación de un revisor del entorno «produccion».
+#
+# Corre deploy/reducir_carga.sh en el servidor: respalda cli_carga, lo elimina
+# y lo siembra de nuevo. No toca a ninguna otra empresa.
+name: Reducir empresa de carga
+
+on:
+  workflow_dispatch:
+    inputs:
+      dias:
+        description: "Días de historia (665 = 100 %, 200 ≈ 30 %)"
+        default: "200"
+      filas:
+        description: "Filas por tabla de relleno (5000 = 100 %)"
+        default: "1500"
+      maestros:
+        description: "Filas por tabla maestra de relleno (500 = 100 %)"
+        default: "150"
+
+# El mismo grupo que el despliegue: nunca corren a la vez.
+concurrency:
+  group: produccion
+  cancel-in-progress: false
+
+jobs:
+  reducir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    environment: produccion
+    steps:
+      - name: Llave y huella del servidor
+        env:
+          LLAVE: ${{ secrets.SERVIDOR_LLAVE }}
+          HUELLA: ${{ secrets.SERVIDOR_HUELLA }}
+        run: |
+          install -m 700 -d ~/.ssh
+          limpia="$(printf '%s' "$LLAVE" | tr -d '\r')"
+          if printf '%s' "$limpia" | grep -q 'BEGIN OPENSSH PRIVATE KEY'; then
+            printf '%s\n' "$limpia" | sed 's/[[:space:]]*$//' | grep -v '^$' > ~/.ssh/despliegue
+          else
+            printf '%s' "$limpia" | tr -d ' \n\t' | base64 -d > ~/.ssh/despliegue
+          fi
+          chmod 600 ~/.ssh/despliegue
+          printf '%s\n' "$HUELLA" | tr -d '\r' > ~/.ssh/known_hosts
+
+      - name: Regenerar cli_carga
+        env:
+          DIAS: ${{ inputs.dias }}
+          FILAS: ${{ inputs.filas }}
+          MAESTROS: ${{ inputs.maestros }}
+        run: |
+          # Solo números: van a una línea de comandos en el servidor.
+          for v in "$DIAS" "$FILAS" "$MAESTROS"; do
+            [[ "$v" =~ ^[0-9]+$ ]] || { echo "::error::Valor no numérico: $v"; exit 1; }
+          done
+          # La siembra tarda decenas de minutos sin escribir nada por ratos:
+          # sin los latidos, la conexión se corta a medio camino.
+          ssh -i ~/.ssh/despliegue -o StrictHostKeyChecking=yes \
+            -o ServerAliveInterval=30 -o ServerAliveCountMax=10 \
+            "${{ secrets.SERVIDOR_USUARIO }}@${{ secrets.SERVIDOR_HOST }}" \
+            "cd /opt/tittanware && DIAS=$DIAS FILAS=$FILAS MAESTROS=$MAESTROS ./deploy/reducir_carga.sh"
