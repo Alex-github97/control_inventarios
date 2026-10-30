@@ -55,9 +55,18 @@ jobs:
           for v in "$DIAS" "$FILAS" "$MAESTROS"; do
             [[ "$v" =~ ^[0-9]+$ ]] || { echo "::error::Valor no numérico: $v"; exit 1; }
           done
+          # La llave solo ejecuta actualizar.sh (comando fijo en el servidor).
+          # Este texto no se ejecuta: actualizar.sh lo lee como un pedido y,
+          # si tiene exactamente esta forma, corre reducir_carga.sh al final.
           # La siembra tarda decenas de minutos sin escribir nada por ratos:
           # sin los latidos, la conexión se corta a medio camino.
           ssh -i ~/.ssh/despliegue -o StrictHostKeyChecking=yes \
             -o ServerAliveInterval=30 -o ServerAliveCountMax=10 \
             "${{ secrets.SERVIDOR_USUARIO }}@${{ secrets.SERVIDOR_HOST }}" \
-            "cd /opt/tittanware && DIAS=$DIAS FILAS=$FILAS MAESTROS=$MAESTROS ./deploy/reducir_carga.sh"
+            "reducir-carga $DIAS $FILAS $MAESTROS" | tee salida.log
+          # Si el servidor aún no tiene la versión de actualizar.sh que atiende
+          # el pedido, despliega y sale en verde sin reducir nada: mejor rojo.
+          grep -q "── Reducción de la empresa de carga" salida.log || {
+            echo "::error::El servidor desplegó pero no corrió la reducción. Vuelva a lanzar este workflow."
+            exit 1
+          }

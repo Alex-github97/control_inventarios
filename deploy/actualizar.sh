@@ -49,6 +49,19 @@ $COMPOSE up -d --remove-orphans
 # El proxy resuelve los contenedores al arrancar: se recarga por si cambiaron.
 $COMPOSE exec -T proxy nginx -s reload || $COMPOSE restart proxy
 
+# La llave de despliegue tiene este guion como comando fijo en el servidor:
+# pida lo que pida, se ejecuta esto. Lo pedido llega en SSH_ORIGINAL_COMMAND y
+# se acepta UN solo pedido extra, con forma exacta y solo números; cualquier
+# otra cosa se ignora. Así la llave sigue sin poder correr comandos libres.
+pedido_extra() {
+  local patron='^reducir-carga ([0-9]{1,4}) ([0-9]{1,6}) ([0-9]{1,6})$'
+  if [[ "${SSH_ORIGINAL_COMMAND:-}" =~ $patron ]]; then
+    echo "── Reducción de la empresa de carga"
+    DIAS="${BASH_REMATCH[1]}" FILAS="${BASH_REMATCH[2]}" MAESTROS="${BASH_REMATCH[3]}" \
+      "$DIR/deploy/reducir_carga.sh"
+  fi
+}
+
 echo "── Verificación"
 for i in $(seq 1 60); do
   if $COMPOSE exec -T backend python -c \
@@ -56,6 +69,7 @@ for i in $(seq 1 60); do
       >/dev/null 2>&1; then
     echo "API en línea con ${DESPUES:0:7}."
     docker image prune -f >/dev/null
+    pedido_extra
     exit 0
   fi
   sleep 5
