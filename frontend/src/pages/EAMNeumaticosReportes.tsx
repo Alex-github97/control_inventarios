@@ -16,7 +16,7 @@ import { Layout } from '@/components/layout/Layout'
 import { apiClient as api } from '@/api/client'
 import { exportarExcel } from '@/utils/exportar'
 import { FILTROS_VACIOS, FiltrosLlantasBarra, hayFiltros, type FiltrosLlantas } from '@/components/eam/FiltrosLlantas'
-import { TableroRendimiento, InformeMetrica, DetalleVidas } from '@/components/eam/RendimientoLlantas'
+import { TableroRendimiento, InformeMetrica, DetalleVidas, BotonInformePDF } from '@/components/eam/RendimientoLlantas'
 
 import { COLOR_MODULO } from '@/config/marca'
 const EAM_COLOR = COLOR_MODULO
@@ -374,6 +374,7 @@ export default function EAMNeumaticosReportes() {
                   {generando ? 'Generando…' : trabajo ? 'Preparando informe…' : 'Informe PDF'}
                 </Button>
               )}
+              {tipo === 'COMPOSICION' && <BotonInformePDF tipo="COMPOSICION" disabled={cargando || !composicion.length} />}
               {!DE_RENDIMIENTO.includes(tipo) && (
                 <Button variant="contained" startIcon={<Download />} disabled={cargando}
                   onClick={generarExcel}

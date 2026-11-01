@@ -13,7 +13,7 @@ import {
   ToggleButton, ToggleButtonGroup, LinearProgress,
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { Download, InfoOutlined } from '@mui/icons-material'
+import { Download, InfoOutlined, PictureAsPdf } from '@mui/icons-material'
 import {
   Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis,
 } from 'recharts'
@@ -255,6 +255,50 @@ function exportarGrupos(datos: Rendimiento | undefined, soloClave: string | null
   toast.success('Excel generado')
 }
 
+// ─── Informe PDF de consultoría (lo arma el servidor) ───────────────────────
+
+export type TipoInformePDF = 'TABLERO' | 'CPK' | 'KM' | 'KM_MM' | 'VIDAS' | 'COMPOSICION'
+
+/**
+ * Pide al servidor el informe PDF (portada, resumen ejecutivo con hallazgos y
+ * una página por idea) con los mismos filtros que la pantalla. El cálculo de
+ * rendimiento tarda unos segundos en flotas grandes.
+ */
+export function BotonInformePDF({ tipo, params, disabled }: {
+  tipo: TipoInformePDF; params?: Record<string, unknown>; disabled?: boolean
+}) {
+  const [generando, setGenerando] = useState(false)
+  const descargar = async () => {
+    setGenerando(true)
+    try {
+      const r = await api.post('/eam/neumaticos/reportes/informe-pdf', null, {
+        params: { tipo, ...params }, responseType: 'blob', timeout: 180_000,
+      })
+      const url = URL.createObjectURL(r.data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `llantas-${tipo.toLowerCase().replace('_', '-')}-${new Date().toISOString().slice(0, 10)}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 10_000)
+      toast.success('Informe PDF descargado')
+    } catch (e: any) {
+      let msg = 'No se pudo generar el informe'
+      try { msg = JSON.parse(await (e?.response?.data as Blob).text()).detail ?? msg } catch { /* sin detalle */ }
+      toast.error(msg)
+    } finally {
+      setGenerando(false)
+    }
+  }
+  return (
+    <Button variant="contained" startIcon={<PictureAsPdf />} disabled={disabled || generando} onClick={descargar}
+      sx={{ bgcolor: '#DC2626', '&:hover': { bgcolor: '#B91C1C' }, textTransform: 'none', fontWeight: 700 }}>
+      {generando ? 'Generando…' : 'Informe PDF'}
+    </Button>
+  )
+}
+
 function descripcionFiltros(f: FiltrosRendimiento, desde: string, hasta: string) {
   const alc = { TODAS: 'todas las vidas', TERMINADAS: 'vidas terminadas', EN_SERVICIO: 'vidas en servicio' }[f.alcance]
   const per = desde || hasta ? `del ${desde || 'inicio'} al ${hasta || 'hoy'}` : 'todo el histórico'
@@ -269,7 +313,12 @@ function useEstado(desde: string, hasta: string) {
     alcance: f.alcance, km_minimo: f.kmMinimo, desde: desde || undefined, hasta: hasta || undefined, ...llantas,
   })
   const dim = q.data?.dimensiones.find(d => d.clave === dimension)
-  return { f, setF, dimension, setDimension, q, dim, llantas, setLlantas }
+  /** Lo que lleva el informe PDF: los mismos filtros que la pantalla. */
+  const paramsPDF = {
+    alcance: f.alcance, km_minimo: f.kmMinimo, muestra: f.muestra, dimension,
+    desde: desde || undefined, hasta: hasta || undefined, ...llantas,
+  }
+  return { f, setF, dimension, setDimension, q, dim, llantas, setLlantas, paramsPDF }
 }
 
 // ─── Parque montado (llantas a piso) e I.R. ─────────────────────────────────
@@ -361,7 +410,7 @@ const COMPARACIONES: [string, string][] = [['marca', 'Por marca'], ['referencia'
 // ─── Tablero ────────────────────────────────────────────────────────────────
 
 export function TableroRendimiento({ desde, hasta }: { desde: string; hasta: string }) {
-  const { f, setF, dimension, setDimension, q, dim, llantas, setLlantas } = useEstado(desde, hasta)
+  const { f, setF, dimension, setDimension, q, dim, llantas, setLlantas, paramsPDF } = useEstado(desde, hasta)
   const [metricaComp, setMetricaComp] = useState<Metrica>('cpk')
   const r = q.data?.resumen
   const titulo = dim?.nombre ?? ''
@@ -370,11 +419,12 @@ export function TableroRendimiento({ desde, hasta }: { desde: string; hasta: str
     <>
       <Controles f={f} onChange={setF} dimensiones={q.data?.dimensiones ?? []} dimension={dimension} onDimension={setDimension}
         llantas={llantas} onLlantas={setLlantas}
-        extra={
+        extra={<>
+          <BotonInformePDF tipo="TABLERO" params={paramsPDF} disabled={!q.data} />
           <Button variant="contained" startIcon={<Download />} disabled={!q.data}
             onClick={() => exportarGrupos(q.data, null, 'Rendimiento de llantas por categoría', 'rendimiento-llantas', descripcionFiltros(f, desde, hasta))}
             sx={{ bgcolor: COLOR, textTransform: 'none', fontWeight: 700 }}>Descargar Excel</Button>
-        } />
+        </>} />
       {q.isFetching && <LinearProgress sx={{ mb: 1 }} />}
       {q.isError && <Alert severity="error" sx={{ mb: 2 }}>No se pudo calcular el rendimiento.</Alert>}
 
@@ -472,8 +522,9 @@ export function TableroRendimiento({ desde, hasta }: { desde: string; hasta: str
 // ─── Informe de una métrica ─────────────────────────────────────────────────
 
 export function InformeMetrica({ metrica, desde, hasta }: { metrica: Metrica; desde: string; hasta: string }) {
-  const { f, setF, dimension, setDimension, q, dim, llantas, setLlantas } = useEstado(desde, hasta)
+  const { f, setF, dimension, setDimension, q, dim, llantas, setLlantas, paramsPDF } = useEstado(desde, hasta)
   const m = METRICAS[metrica]
+  const tipoPDF = ({ cpk: 'CPK', km: 'KM', km_mm: 'KM_MM' } as const)[metrica]
   const comparables = useMemo(() => ordenar(gruposComparables(dim, metrica, f.muestra), metrica), [dim, metrica, f.muestra])
   const pocos = (dim?.grupos ?? []).filter(g => !comparables.includes(g))
   const global = q.data ? valor(q.data.resumen, metrica) : null
@@ -482,11 +533,12 @@ export function InformeMetrica({ metrica, desde, hasta }: { metrica: Metrica; de
     <>
       <Controles f={f} onChange={setF} dimensiones={q.data?.dimensiones ?? []} dimension={dimension} onDimension={setDimension}
         llantas={llantas} onLlantas={setLlantas}
-        extra={
+        extra={<>
+          <BotonInformePDF tipo={tipoPDF} params={paramsPDF} disabled={!q.data} />
           <Button variant="contained" startIcon={<Download />} disabled={!q.data}
             onClick={() => exportarGrupos(q.data, null, `${m.titulo} por categoría`, `llantas-${metrica.replace('_', '-')}`, descripcionFiltros(f, desde, hasta))}
             sx={{ bgcolor: COLOR, textTransform: 'none', fontWeight: 700 }}>Descargar Excel</Button>
-        } />
+        </>} />
       {q.isFetching && <LinearProgress sx={{ mb: 1 }} />}
       <Alert severity="info" icon={<InfoOutlined />} sx={{ mb: 2, py: 0.25 }}>{m.ayuda}</Alert>
       <Grid container spacing={2}>
@@ -584,6 +636,8 @@ export function DetalleVidas({ desde, hasta }: { desde: string; hasta: string })
             <TextField size="small" label="Buscar llanta, marca, vehículo…" value={buscar}
               onChange={e => { setBuscar(e.target.value); setPagina(0) }} sx={{ minWidth: 260 }} />
             <Box flex={1} />
+            <BotonInformePDF tipo="VIDAS" disabled={!total}
+              params={{ alcance, desde: desde || undefined, hasta: hasta || undefined }} />
             <Button variant="contained" startIcon={<Download />} disabled={!total} onClick={() => { exportar().catch(() => toast.error('No se pudo generar el Excel')) }}
               sx={{ bgcolor: COLOR, textTransform: 'none', fontWeight: 700 }}>Descargar Excel</Button>
           </Stack>

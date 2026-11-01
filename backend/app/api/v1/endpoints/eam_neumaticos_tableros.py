@@ -395,3 +395,107 @@ async def descargar_informe(tid: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(404, "El informe todavía no está listo")
     return FileResponse(t.archivo, media_type="application/pdf",
                         filename=f"estado-llantas-flota-{t.created_at:%Y%m%d}-{t.id}.pdf")
+
+
+# ─── Informes PDF de rendimiento y composición ────────────────────────────────
+
+ALCANCE_TEXTO = {"TODAS": "Todas las vidas", "TERMINADAS": "Vidas terminadas", "EN_SERVICIO": "Vidas en servicio"}
+
+
+def _describir(tipo: str, alcance: str, desde: Optional[date], hasta: Optional[date], km_minimo: float,
+               f: FiltrosLlanta) -> Tuple[str, str]:
+    """El periodo (para la portada) y el alcance con los filtros (para el pie)."""
+    periodo = (f"Del {desde:%d/%m/%Y} al {hasta:%d/%m/%Y}" if desde and hasta else
+               f"Desde el {desde:%d/%m/%Y}" if desde else f"Hasta el {hasta:%d/%m/%Y}" if hasta else "Todo el histórico")
+    if tipo == "COMPOSICION":
+        return f"Corte al {date.today():%d/%m/%Y}", "Llantas montadas en vehículos"
+    partes = [ALCANCE_TEXTO.get(alcance, alcance), periodo.lower() if periodo != "Todo el histórico" else "todo el histórico",
+              f"mínimo {km_minimo:,.0f} km por vida".replace(",", ".")]
+    for nombre, valores in (("marca", f.marcas), ("referencia", f.referencias), ("medida", f.medidas),
+                            ("año DOT", f.anios), ("semana DOT", f.semanas)):
+        if valores:
+            partes.append(f"{nombre}: {', '.join(str(v) for v in valores[:4])}{'…' if len(valores) > 4 else ''}")
+    return periodo, " · ".join(partes)
+
+
+async def _composicion(db: AsyncSession) -> Tuple[Dict[str, List[Tuple[str, int]]], int]:
+    """El parque montado contado en SQL por marca, medida, referencia, vida y uso."""
+    async def contar(*cols, rotulo=None):
+        q = (select(*[func.max(func.trim(c)) for c in cols], func.count())
+             .where(MONTADA).group_by(*[clave(c) for c in cols]).order_by(func.count().desc()))
+        filas = (await db.execute(q)).all()
+        return [((rotulo(*fila[:-1]) if rotulo else fila[0]) or SIN_DATO, fila[-1]) for fila in filas]
+
+    total = (await db.execute(select(func.count()).where(MONTADA))).scalar_one()
+    vidas = (await db.execute(select(REENC, func.count()).where(MONTADA).group_by(REENC).order_by(REENC))).all()
+    return {
+        "Marca": await contar(N.marca),
+        "Medida": await contar(N.medida),
+        "Referencia": await contar(N.marca, N.referencia, rotulo=etiqueta_referencia),
+        "Vida": [("VN" if r == 0 else f"R{r}", n) for r, n in vidas],
+        "Tipo de uso": await contar(N.tipo_uso),
+    }, total
+
+
+@router.post("/informe-pdf")
+async def informe_pdf(
+    tipo: str = Query(..., description="TABLERO, CPK, KM, KM_MM, VIDAS o COMPOSICION"),
+    alcance: str = Query("TODAS"),
+    desde: Optional[date] = None,
+    hasta: Optional[date] = None,
+    km_minimo: float = Query(1000, ge=0),
+    muestra: int = Query(5, ge=1),
+    dimension: str = Query("marca"),
+    f: FiltrosLlanta = Depends(filtros_llanta),
+    db: AsyncSession = Depends(get_db),
+    yo: Usuario = Depends(get_current_user),
+):
+    """Informe PDF de consultoría (portada, resumen ejecutivo con hallazgos y
+    una página por idea) de los informes de rendimiento y composición. Usa los
+    mismos cálculos que la pantalla, con los mismos filtros."""
+    import asyncio
+    from datetime import datetime
+
+    from app.api.v1.endpoints.eam_neumaticos_informes import _alcance, _filtrar, _llantas_del_filtro, _vidas
+    from app.core import informe_rendimiento_pdf as irp
+    from app.core.pdf_marca import Encabezado
+    from app.core.rendimiento_llantas import DIMENSIONES, agrupar, resumir
+
+    tipo = (tipo or "").upper()
+    if tipo not in irp.TIPOS:
+        raise HTTPException(400, f"Informe desconocido: {tipo}")
+    alcance = _alcance(alcance)
+    if dimension not in {c for c, _ in DIMENSIONES}:
+        dimension = "marca"
+    periodo, descripcion = _describir(tipo, alcance, desde, hasta, km_minimo, f)
+    datos = irp.Datos(dimension=dimension, muestra=muestra, descripcion=descripcion)
+
+    if tipo in ("TABLERO", "COMPOSICION"):
+        datos.parque = (await tablero_parque(f=f if tipo == "TABLERO" else FiltrosLlanta(), db=db)).model_dump()
+    if tipo == "COMPOSICION":
+        datos.composicion, datos.composicion_total = await _composicion(db)
+    else:
+        todas = await _vidas(db)
+        llantas = await _llantas_del_filtro(db, f)
+
+        def calcular():
+            vidas = _filtrar(todas, alcance, desde, hasta, llantas)
+            rend = {"resumen": resumir(vidas, km_minimo),
+                    "dimensiones": [{"clave": c, "nombre": n, "grupos": agrupar(vidas, c, km_minimo)}
+                                    for c, n in DIMENSIONES]}
+            resumen_v = None
+            if tipo == "VIDAS":
+                resumen_v = irp.resumen_vidas([
+                    {"codigo": v.codigo, "vida": v.vida, "terminada": v.terminada, "km": v.km, "cpk": v.cpk,
+                     "km_mm": v.km_mm, "motivo_fin": v.categorias.get("motivo_fin"),
+                     "marca": v.categorias.get("marca"), "medida": v.categorias.get("medida"),
+                     "vehiculo": v.categorias.get("vehiculo")} for v in vidas], km_minimo)
+            return rend, resumen_v
+        datos.rendimiento, datos.vidas = await asyncio.to_thread(calcular)
+
+    empresa, logo = await _empresa(db)
+    enc = Encabezado(empresa=empresa, periodo=periodo, generado_en=datetime.now(), logo=logo,
+                     generado_por=f"{yo.nombre} {getattr(yo, 'apellido', '') or ''}".strip() or yo.username)
+    pdf = await asyncio.to_thread(irp.generar, tipo, datos, enc)
+    nombre = f"llantas-{tipo.lower().replace('_', '-')}-{date.today():%Y%m%d}.pdf"
+    return Response(pdf, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{nombre}"'})
