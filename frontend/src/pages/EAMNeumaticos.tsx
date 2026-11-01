@@ -35,6 +35,9 @@ import type { VehiculoCombinado } from '@/components/VehiculosCombinados'
 import { COLOR_MODULO } from '@/config/marca'
 import { mensajeDeError } from '@/utils/errorApi'
 import { pedirPagina, useRetardado } from '@/utils/paginaServidor'
+import { FILTROS_VACIOS, FiltrosLlantasBarra, type FiltrosLlantas } from '@/components/eam/FiltrosLlantas'
+import { TableroDescarte, type SaltoDescarte } from '@/components/eam/TableroDescarte'
+import { ReglasSugerencia, SugerenciasVehiculo, UmbralesNovedad } from '@/components/eam/SugerenciasLlantas'
 
 /** Filas por página en las listas que pueden crecer sin tope (descarte, consulta, bitácora). */
 const POR_PAGINA = 100
@@ -410,6 +413,8 @@ export default function EAMNeumaticos() {
   const [masivoCat, setMasivoCat] = useState<SeleccionCatalogo>({ ...SELECCION_VACIA })
   const [masivoVida, setMasivoVida] = useState({ reencauches: '0', es_usada: false, profundidad_actual: '', km_actual: '' })
   const [histTire, setHistTire] = useState<Neumatico | null>(null)
+  // Qué muestra el historial: todos los movimientos, solo las rotaciones o las inspecciones.
+  const [histVista, setHistVista] = useState<'TODO' | 'ROT' | 'INSP'>('TODO')
   // Vehículo al que se le está configurando el esquema de ejes/llantas (desde Configuración)
   const [ejesVeh, setEjesVeh] = useState<VehiculoCombinado | null>(null)
   const [ejesForm, setEjesForm] = useState({ esquema_id: '' })
@@ -442,6 +447,12 @@ export default function EAMNeumaticos() {
   const [bitPag, setBitPag] = useState(0)
   const [descPag, setDescPag] = useState(0)
   const [descBusca, setDescBusca] = useState('')
+  // Tablero de la pila de descarte: filtros comunes, periodo de la baja y lo
+  // que se pulsó en el tablero (motivo, marca o referencia) para filtrar la lista.
+  const [descFiltros, setDescFiltros] = useState<FiltrosLlantas>(FILTROS_VACIOS)
+  const [descDesde, setDescDesde] = useState('')
+  const [descHasta, setDescHasta] = useState('')
+  const [descSalto, setDescSalto] = useState<SaltoDescarte | null>(null)
   const [bitDialog, setBitDialog] = useState<MovimientoBitacora | null>(null)
   const [bitForm, setBitForm] = useState({
     fecha: nowLocal(), km_odometro: '', horometro: '', tecnico: '', observaciones: '',
@@ -668,9 +679,14 @@ export default function EAMNeumaticos() {
   const { data: neumaticos = [] } = useQuery<Neumatico[]>({ queryKey: ['eam-neumaticos'], queryFn: () => api.get('/eam/neumaticos', { params: { sin_baja: true } }).then(r => r.data) })
   const descBuscaR = useRetardado(descBusca)
   const { data: descPagina } = useQuery({
-    queryKey: ['eam-neumaticos', 'descarte', descPag, descBuscaR],
+    queryKey: ['eam-neumaticos', 'descarte', descPag, descBuscaR, descFiltros, descDesde, descHasta, descSalto],
     queryFn: () => pedirPagina<Neumatico>('/eam/neumaticos/descarte', {
       limite: POR_PAGINA, desplazamiento: descPag * POR_PAGINA, busqueda: descBuscaR || undefined,
+      ...descFiltros,
+      ...(descSalto?.marca ? { marca: [descSalto.marca] } : {}),
+      ...(descSalto?.referencia ? { referencia: [descSalto.referencia] } : {}),
+      dano_id: descSalto?.dano_id, motivo_fin_vida_id: descSalto?.motivo_fin_vida_id,
+      desde: descDesde || undefined, hasta: descHasta || undefined,
     }),
     placeholderData: prev => prev,
   })
@@ -712,6 +728,23 @@ export default function EAMNeumaticos() {
     queryKey: ['eam-mov', histTire?.id],
     queryFn: () => api.get(`/eam/neumaticos/${histTire!.id}/movimientos`).then(r => r.data),
     enabled: !!histTire,
+  })
+  const { data: histResumen } = useQuery<{
+    inspecciones: number; inspecciones_vida: number; ultima_inspeccion: string | null
+    rotaciones: number; rotaciones_vida: number; rotaciones_posicion: number; volteos: number
+    ultima_rotacion: string | null; inicio_vida: string | null
+  }>({
+    queryKey: ['eam-mov-resumen', histTire?.id],
+    queryFn: () => api.get(`/eam/neumaticos/${histTire!.id}/resumen-historial`).then(r => r.data),
+    enabled: !!histTire,
+  })
+  const { data: histInspecciones = [] } = useQuery<{
+    id: number; fecha: string; profundidad_izq?: number | null; profundidad_centro?: number | null
+    profundidad_der?: number | null; presion_psi?: number | null; posicion?: string | null; tecnico?: string | null
+  }[]>({
+    queryKey: ['eam-insp-llanta', histTire?.id],
+    queryFn: () => api.get(`/eam/neumaticos/${histTire!.id}/inspecciones`).then(r => r.data),
+    enabled: !!histTire && histVista === 'INSP',
   })
   const { data: montarLayout = [] } = useQuery<Posicion[]>({
     queryKey: ['eam-layout', montarForm.activo_id],
@@ -2448,6 +2481,7 @@ export default function EAMNeumaticos() {
               </CardContent>
             </Card>
           )}
+          {veh && <SugerenciasVehiculo activoId={veh.id} />}
           </>}
           </Stack>
           )
@@ -2939,11 +2973,34 @@ export default function EAMNeumaticos() {
         {/* ── TAB 7: Descarte ── */}
         {tab === 7 && (
           <Stack spacing={2}>
+          <Card sx={{ bgcolor: '#FFFFFF' }}>
+            <CardContent>
+              <Stack direction="row" alignItems="center" gap={1} mb={1.5}>
+                <Recycling sx={{ color: '#DC2626' }} />
+                <Typography fontWeight={700}>Tablero de la pila de descarte</Typography>
+              </Stack>
+              <Stack direction="row" gap={1} flexWrap="wrap" alignItems="center" mb={2}>
+                <TextField size="small" type="date" label="Bajas desde" value={descDesde} InputLabelProps={{ shrink: true }}
+                  onChange={e => { setDescDesde(e.target.value); setDescPag(0) }} sx={{ width: 160 }} />
+                <TextField size="small" type="date" label="Bajas hasta" value={descHasta} InputLabelProps={{ shrink: true }}
+                  onChange={e => { setDescHasta(e.target.value); setDescPag(0) }} sx={{ width: 160 }} />
+                <FiltrosLlantasBarra alcance="BAJA" valor={descFiltros} onChange={f => { setDescFiltros(f); setDescPag(0) }} />
+              </Stack>
+              <TableroDescarte filtros={descFiltros} desde={descDesde} hasta={descHasta}
+                onSalto={s => { setDescSalto(s); setDescPag(0) }} />
+            </CardContent>
+          </Card>
           <Stack direction="row" justifyContent="space-between" gap={1} flexWrap="wrap">
+            <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap">
+            {descSalto && (
+              <Chip color="error" variant="outlined" label={`Lista filtrada · ${descSalto.etiqueta}`}
+                onDelete={() => { setDescSalto(null); setDescPag(0) }} />
+            )}
             <TextField size="small" placeholder="Buscar código, marca, medida, proveedor…"
               value={descBusca} onChange={e => { setDescBusca(e.target.value); setDescPag(0) }}
               InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 16 }} /></InputAdornment> }}
               sx={{ minWidth: 280 }} />
+            </Stack>
             <Button
               size="small" variant="outlined" startIcon={<UploadFile />}
               onClick={() => setBajaImportOpen(true)}
@@ -3191,6 +3248,9 @@ export default function EAMNeumaticos() {
                 </CardContent>
               </Card>
             </Grid>
+            {/* Reglas de sugerencia y umbrales de novedad (informe de flota) */}
+            <Grid size={{ xs: 12 }}><ReglasSugerencia /></Grid>
+            <Grid size={{ xs: 12 }}><UmbralesNovedad /></Grid>
             {/* Catálogo de daños */}
             <Grid size={{ xs: 12, md: 6 }}>
               <Card sx={{ bgcolor: '#FFFFFF' }}>
@@ -4764,16 +4824,57 @@ export default function EAMNeumaticos() {
         </Dialog>
 
         {/* ── Diálogo historial ── */}
-        <Dialog open={!!histTire} onClose={() => setHistTire(null)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <Dialog open={!!histTire} onClose={() => { setHistTire(null); setHistVista('TODO') }} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
           <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Historial — {histTire?.codigo}
-            <IconButton onClick={() => setHistTire(null)} sx={{ position: 'absolute', right: 8, top: 8 }}><CloseIcon /></IconButton>
+            <IconButton onClick={() => { setHistTire(null); setHistVista('TODO') }} sx={{ position: 'absolute', right: 8, top: 8 }}><CloseIcon /></IconButton>
           </DialogTitle>
           <DialogContent dividers>
-            {historial.length === 0 ? <Typography color="text.secondary" py={2} textAlign="center">Sin movimientos registrados</Typography> : (
+            {histResumen && (
+              <Stack direction="row" gap={1} mb={2} flexWrap="wrap" aria-label="Resumen del historial">
+                {([
+                  ['INSP', `${histResumen.inspecciones.toLocaleString('es-CO')} inspecciones`,
+                   `${histResumen.inspecciones_vida} en esta vida${histResumen.ultima_inspeccion ? ` · última ${fmtFecha(histResumen.ultima_inspeccion)}` : ''}`],
+                  ['ROT', `${histResumen.rotaciones.toLocaleString('es-CO')} rotaciones`,
+                   `${histResumen.rotaciones_posicion} de posición, ${histResumen.volteos} volteo${histResumen.volteos === 1 ? '' : 's'} · ${histResumen.rotaciones_vida} en esta vida${histResumen.ultima_rotacion ? ` · última ${fmtFecha(histResumen.ultima_rotacion)}` : ''}`],
+                ] as const).map(([vista, titulo, nota]) => (
+                  <Paper key={vista} variant="outlined" role="button" tabIndex={0}
+                    onClick={() => setHistVista(histVista === vista ? 'TODO' : vista)}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setHistVista(histVista === vista ? 'TODO' : vista) } }}
+                    sx={{ flex: 1, minWidth: 200, px: 1.5, py: 1, cursor: 'pointer', borderRadius: 2,
+                          borderColor: histVista === vista ? EAM_COLOR : undefined, bgcolor: histVista === vista ? alpha(EAM_COLOR, 0.06) : undefined }}>
+                    <Typography fontWeight={800} fontSize={15}>{titulo}</Typography>
+                    <Typography fontSize={11.5} color="text.secondary">{nota}</Typography>
+                  </Paper>
+                ))}
+              </Stack>
+            )}
+            {histVista !== 'TODO' && (
+              <Chip size="small" sx={{ mb: 1 }} label={histVista === 'INSP' ? 'Solo inspecciones' : 'Solo rotaciones'} onDelete={() => setHistVista('TODO')} />
+            )}
+            {histVista === 'INSP' ? (
+              histInspecciones.length === 0 ? <Typography color="text.secondary" py={2} textAlign="center">Sin inspecciones registradas</Typography> : (
+                <Table size="small">
+                  <TableHead><TableRow>{['Fecha', 'Posición', 'Izq', 'Centro', 'Der', 'Psi', 'Técnico'].map(h => <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>)}</TableRow></TableHead>
+                  <TableBody>
+                    {histInspecciones.map(i => (
+                      <TableRow key={i.id}>
+                        <TableCell>{fmtFecha(i.fecha)}</TableCell>
+                        <TableCell>{i.posicion ?? '—'}</TableCell>
+                        <TableCell>{i.profundidad_izq ?? '—'}</TableCell>
+                        <TableCell>{i.profundidad_centro ?? '—'}</TableCell>
+                        <TableCell>{i.profundidad_der ?? '—'}</TableCell>
+                        <TableCell>{i.presion_psi ?? '—'}</TableCell>
+                        <TableCell>{i.tecnico ?? '—'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )
+            ) : historial.length === 0 ? <Typography color="text.secondary" py={2} textAlign="center">Sin movimientos registrados</Typography> : (
               <Table size="small">
                 <TableHead><TableRow>{['Fecha/Hora', 'Movimiento', 'Origen', 'Destino', 'Técnico'].map(h => <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>)}</TableRow></TableHead>
                 <TableBody>
-                  {historial.map(m => (
+                  {historial.filter(m => histVista === 'TODO' || m.tipo_movimiento === 'ROTACION' || m.tipo_movimiento === 'VOLTEO').map(m => (
                     <TableRow key={m.id}>
                       <TableCell>{fmtFecha(m.fecha)}</TableCell>
                       <TableCell><Chip size="small" icon={<SwapIcon sx={{ fontSize: 14 }} />} label={m.tipo_movimiento} /></TableCell>

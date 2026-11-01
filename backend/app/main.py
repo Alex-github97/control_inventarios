@@ -828,6 +828,20 @@ async def _migrar_esquema(esquema: str) -> None:
         await conn.execute(text(
             "ALTER TABLE eam_neumatico ADD COLUMN IF NOT EXISTS tipo_rin VARCHAR(30)"
         ))
+        # Semana y año de fabricación leídos del DOT. Las llantas que ya
+        # existían se interpretan una sola vez, cuando aparece la columna; de
+        # ahí en adelante las mantiene al día el evento del modelo.
+        nuevas = (await conn.execute(text(
+            "SELECT count(*) FROM information_schema.columns "
+            "WHERE table_schema = current_schema() AND table_name = 'eam_neumatico' "
+            "AND column_name = 'dot_anio'"))).scalar() == 0
+        await conn.execute(text(
+            "ALTER TABLE eam_neumatico ADD COLUMN IF NOT EXISTS dot_semana SMALLINT"))
+        await conn.execute(text(
+            "ALTER TABLE eam_neumatico ADD COLUMN IF NOT EXISTS dot_anio SMALLINT"))
+        if nuevas:
+            from app.core.neumaticos_dot import SQL_RELLENO
+            await conn.execute(text(SQL_RELLENO))
         await conn.execute(text(
             "ALTER TABLE eam_reencauche_detalle "
             "ADD COLUMN IF NOT EXISTS banda_id INTEGER "
@@ -877,6 +891,10 @@ async def _migrar_esquema(esquema: str) -> None:
             "ALTER TABLE eam_neumatico_config "
             "ADD COLUMN IF NOT EXISTS tolerancia_profundidad DOUBLE PRECISION DEFAULT 0.5"
         ))
+        for definicion in ("margen_alerta_profundidad DOUBLE PRECISION DEFAULT 2.0",
+                           "diferencia_hombros DOUBLE PRECISION DEFAULT 3.0",
+                           "reglas_sembradas BOOLEAN DEFAULT false"):
+            await conn.execute(text(f"ALTER TABLE eam_neumatico_config ADD COLUMN IF NOT EXISTS {definicion}"))
         # Catálogo jerárquico de llantas/bandas: las marcas, dimensiones y
         # referencias que ya estaban escritas a mano en los registros existentes
         # se suben al catálogo para no perder nada al pasar a listas cerradas.
@@ -2318,6 +2336,7 @@ async def _migrar_esquema(esquema: str) -> None:
             ("ix_eam_neu_estado", "eam_neumatico", "(estado)"),
             ("ix_eam_neu_activo", "eam_neumatico", "(activo_id, posicion)"),
             ("ix_eam_neu_baja", "eam_neumatico", "(fecha_baja) WHERE estado = 'BAJA'"),
+            ("ix_eam_neu_estado_dot", "eam_neumatico", "(estado, dot_anio, dot_semana)"),
             # Lubricación: la lista de cargas va por fecha.
             ("ix_eam_lube_carga_fecha", "eam_lube_carga", "(fecha_llenado)"),
         ]
@@ -2412,9 +2431,13 @@ async def lifespan(app: FastAPI):
     # cola se reparte entre los procesos con SKIP LOCKED (core/reuniones/cola.py).
     from app.core.reuniones import cola as cola_reuniones
     tarea_reuniones = asyncio.create_task(cola_reuniones.ciclo())
+    # Informes PDF de flota grandes: la misma cola repartida con SKIP LOCKED.
+    from app.core import informe_flota_cola
+    tarea_informes = asyncio.create_task(informe_flota_cola.ciclo())
     yield
     tarea_bodega.cancel()
     tarea_reuniones.cancel()
+    tarea_informes.cancel()
     await engine.dispose()
 
 

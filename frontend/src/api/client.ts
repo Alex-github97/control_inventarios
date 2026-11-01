@@ -14,6 +14,10 @@ export const apiClient: AxiosInstance = axios.create({
   // cuerpo. Axios pone `application/json` solo cuando el cuerpo es un objeto,
   // que es lo que se quiere.
   headers: {},
+  // Las listas van como `marca=A&marca=B`, que es como las lee FastAPI. Con el
+  // formato por defecto de axios (`marca[]=A`) el servidor no las reconoce y
+  // el filtro se pierde en silencio.
+  paramsSerializer: { indexes: null },
 })
 
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {

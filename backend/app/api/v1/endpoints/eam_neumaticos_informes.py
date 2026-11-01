@@ -20,6 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.neumaticos_filtros import FiltrosLlanta, aplicar, etiqueta_referencia, filtros_llanta
 from app.core.paginacion import poner_total
 from app.core.rendimiento_llantas import (
     DIMENSIONES, SIN_DATO, VidaLlanta, a_datetime, agrupar, en_periodo, etiqueta_vida,
@@ -152,7 +153,7 @@ async def _vidas(db: AsyncSession) -> List[VidaLlanta]:
         for n in neumaticos:
             fijas = {
                 "marca": n.marca or SIN_DATO,
-                "referencia": " ".join(x for x in (n.marca, n.referencia) if x) or SIN_DATO,
+                "referencia": etiqueta_referencia(n.marca, n.referencia) or SIN_DATO,
                 "medida": n.medida or SIN_DATO,
                 "tipo_uso": n.tipo_uso or SIN_DATO,
                 "zona": zonas.get(n.zona_id, SIN_DATO),
@@ -255,12 +256,24 @@ async def _vidas(db: AsyncSession) -> List[VidaLlanta]:
     return await asyncio.to_thread(construir)
 
 
+async def _llantas_del_filtro(db: AsyncSession, f: FiltrosLlanta) -> Optional[set]:
+    """Los ids de las llantas que pasan el filtro común, o None si no hay filtro.
+    El filtro se resuelve en SQL (con sus índices) y no sobre las categorías de
+    cada vida, que no llevan el año ni la semana de fabricación."""
+    if f.vacio:
+        return None
+    return set((await db.execute(aplicar(select(EAMNeumatico.id), f))).scalars().all())
+
+
 def _filtrar(vidas: List[VidaLlanta], alcance: str,
-             desde: Optional[date], hasta: Optional[date]) -> List[VidaLlanta]:
+             desde: Optional[date], hasta: Optional[date],
+             llantas: Optional[set] = None) -> List[VidaLlanta]:
     ini = datetime.combine(desde, hora.min) if desde else None
     fin = datetime.combine(hasta, hora.max) if hasta else None
     salida = []
     for v in vidas:
+        if llantas is not None and v.neumatico_id not in llantas:
+            continue
         if alcance == "TERMINADAS" and not v.terminada:
             continue
         if alcance == "EN_SERVICIO" and v.terminada:
@@ -281,15 +294,17 @@ async def rendimiento(
     desde: Optional[date] = None,
     hasta: Optional[date] = None,
     km_minimo: float = Query(1000, ge=0, description="Vidas con menos km no entran al CPK ni al km/mm"),
+    f: FiltrosLlanta = Depends(filtros_llanta),
     db: AsyncSession = Depends(get_db),
 ):
     """Tablero de rendimiento: las métricas globales y, para cada categoría, las
     de cada uno de sus valores. Se devuelven todas las categorías de una vez
     para que cambiar de categoría en pantalla no vuelva a consultar."""
     todas = await _vidas(db)
+    llantas = await _llantas_del_filtro(db, f)
 
     def calcular() -> RendimientoResponse:
-        vidas = _filtrar(todas, _alcance(alcance), desde, hasta)
+        vidas = _filtrar(todas, _alcance(alcance), desde, hasta, llantas)
         return RendimientoResponse(
             resumen=MetricasRendimiento(**resumir(vidas, km_minimo)),
             dimensiones=[
@@ -312,6 +327,7 @@ async def rendimiento_por_vida(
     busqueda: Optional[str] = Query(None, description="Llanta o cualquier categoría (marca, vehículo…)"),
     limite: int = Query(50, ge=1, le=20000),
     desplazamiento: int = Query(0, ge=0),
+    f: FiltrosLlanta = Depends(filtros_llanta),
     db: AsyncSession = Depends(get_db),
 ):
     """Una fila por vida con sus métricas: el detalle detrás del tablero.
@@ -321,9 +337,10 @@ async def rendimiento_por_vida(
     sin contestar más de lo que el supervisor tolera y lo mata.
     """
     todas = await _vidas(db)
+    llantas = await _llantas_del_filtro(db, f)
 
     def calcular():
-        vidas = _filtrar(todas, _alcance(alcance), desde, hasta)
+        vidas = _filtrar(todas, _alcance(alcance), desde, hasta, llantas)
         t = (busqueda or "").strip().lower()
         if t:
             vidas = [v for v in vidas if t in v.codigo.lower()

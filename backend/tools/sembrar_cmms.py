@@ -46,6 +46,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy import text  # noqa: E402
 
+from app.core.neumaticos_dot import interpretar_dot  # noqa: E402
+
 import app.main  # noqa: E402,F401 — registra los modelos
 from app.core.database import engine  # noqa: E402
 
@@ -421,6 +423,18 @@ class Sembrador:
             self.motivo_fin[clave] = i
             filas.append(dict(id=i, nombre=nombre, aplica_descarte=descarte, aplica_fin_vida=True, activo=True))
         await self.copiar("eam_motivo_fin_vida", filas)
+
+        # Daño de cada baja, del catálogo que alimenta el tablero de la pila de
+        # descarte. Los mismos daños y pesos que `danos_descarte.py`.
+        from danos_descarte import DANOS, elegir
+        self.dano_id = {}
+        filas = []
+        for codigo, nombre, sev, accion, _, _ in DANOS:
+            i = self.nid("eam_dano_neumatico_catalogo")
+            self.dano_id[codigo] = i
+            filas.append(dict(id=i, codigo=codigo, nombre=nombre, severidad=sev, accion=accion, activo=True))
+        await self.copiar("eam_dano_neumatico_catalogo", filas)
+        self.elegir_dano = elegir
 
         self.bandas = []
         filas = []
@@ -987,7 +1001,8 @@ class Sembrador:
                         vida["motivo_cierre_id"] = self.motivo_fin[motivo]
                         movs.append(self._mov(llanta, "BAJA", a, pos, d_fin, 0.6))
                         llanta.update(estado="BAJA", fecha_baja=self.dia(d_fin).date(), motivo_fin_vida_id=self.motivo_fin[motivo],
-                                      motivo_baja=self.motivos_txt[motivo], bodega_id=None)
+                                      motivo_baja=self.motivos_txt[motivo], bodega_id=None,
+                                      dano_id=self.dano_id[self.elegir_dano(motivo, llanta["id"])])
                         if motivo == "RECHAZO":
                             reenc.append((llanta, d_fin, "RECHAZO", None))
                     else:
@@ -1054,6 +1069,8 @@ class Sembrador:
                       presion_recomendada=110.0 if a.medidor == "KM" else 90.0, orientacion="NORMAL", profundidad_externa=prof,
                       profundidad_interna=prof, zona_id=zona, dot=f"{r.integers(10, 52):02d}{(fecha.year - 1) % 100:02d}",
                       tipo_rin="ACERO", _prof_vida=prof, _cont=0.0, _bodega_origen=bodega, _fecha=fecha)
+        # El COPY no pasa por el evento del modelo que interpreta el DOT.
+        llanta["dot_semana"], llanta["dot_anio"] = interpretar_dot(llanta["dot"], fecha.date())
         vida = dict(id=self.nid("eam_vida_neumatico"), neumatico_id=nid, numero_vida=1, tipo="NUEVA", fecha_inicio=fecha, km_inicio=0.0,
                     costo=precio, profundidad_inicial=prof, _fecha=fecha)
         llanta["_vida"] = vida

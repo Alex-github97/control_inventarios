@@ -22,6 +22,7 @@ import toast from 'react-hot-toast'
 import { apiClient as api } from '@/api/client'
 import { exportarExcel } from '@/utils/exportar'
 import { pedirPagina, useRetardado } from '@/utils/paginaServidor'
+import { FILTROS_VACIOS, FiltrosLlantasBarra, type FiltrosLlantas } from './FiltrosLlantas'
 import { COLOR_MODULO } from '@/config/marca'
 
 const COLOR = COLOR_MODULO
@@ -95,14 +96,16 @@ export interface FiltrosRendimiento {
   alcance: Alcance; kmMinimo: number; muestra: number
 }
 
-function Controles({ f, onChange, dimensiones, dimension, onDimension, extra }: {
+function Controles({ f, onChange, dimensiones, dimension, onDimension, extra, llantas, onLlantas }: {
   f: FiltrosRendimiento; onChange: (f: FiltrosRendimiento) => void
   dimensiones: Dimension[]; dimension: string; onDimension: (d: string) => void
   extra?: React.ReactNode
+  llantas: FiltrosLlantas; onLlantas: (f: FiltrosLlantas) => void
 }) {
   return (
     <Card sx={{ bgcolor: '#FFFFFF', mb: 2 }}>
       <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+        <Box mb={1.5}><FiltrosLlantasBarra alcance="TODAS" valor={llantas} onChange={onLlantas} /></Box>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ md: 'center' }} flexWrap="wrap" useFlexGap>
           <TextField select size="small" label="Categoría" value={dimension}
             onChange={e => onDimension(e.target.value)} sx={{ minWidth: 200 }}>
@@ -260,24 +263,113 @@ function descripcionFiltros(f: FiltrosRendimiento, desde: string, hasta: string)
 
 function useEstado(desde: string, hasta: string) {
   const [f, setF] = useState<FiltrosRendimiento>({ alcance: 'TODAS', kmMinimo: 1000, muestra: 5 })
+  const [llantas, setLlantas] = useState<FiltrosLlantas>(FILTROS_VACIOS)
   const [dimension, setDimension] = useState('marca')
   const q = useRendimiento({
-    alcance: f.alcance, km_minimo: f.kmMinimo, desde: desde || undefined, hasta: hasta || undefined,
+    alcance: f.alcance, km_minimo: f.kmMinimo, desde: desde || undefined, hasta: hasta || undefined, ...llantas,
   })
   const dim = q.data?.dimensiones.find(d => d.clave === dimension)
-  return { f, setF, dimension, setDimension, q, dim }
+  return { f, setF, dimension, setDimension, q, dim, llantas, setLlantas }
 }
+
+// ─── Parque montado (llantas a piso) e I.R. ─────────────────────────────────
+
+interface FilaParque { categoria: string; llantas: number; profundidad_promedio: number | null; bajo_minimo: number; ir: number | null }
+interface Parque {
+  llantas: number; profundidad_minima: number; bajo_minimo: number
+  ir: { llantas: number; ir: number | null; distribucion: { reencauches: number; cantidad: number }[] }
+  por_marca: FilaParque[]; por_referencia: FilaParque[]; por_medida: FilaParque[]
+}
+
+function TablaParque({ titulo, filas, minimo }: { titulo: string; filas: FilaParque[]; minimo: number }) {
+  const [todas, setTodas] = useState(false)
+  const vista = todas ? filas : filas.slice(0, 8)
+  return (
+    <Card sx={{ bgcolor: '#FFFFFF', height: '100%' }}>
+      <CardContent sx={{ pb: 1 }}>
+        <Typography fontWeight={700} fontSize={14}>A piso por {titulo}</Typography>
+        <Typography fontSize={11.5} color="text.secondary">Llantas montadas, su profundidad y su I.R.</Typography>
+      </CardContent>
+      <Table size="small">
+        <TableHead>
+          <TableRow sx={{ bgcolor: alpha(COLOR, 0.08) }}>
+            {['', 'Llantas', 'Prof. prom.', `≤ ${minimo} mm`, 'I.R.'].map((h, i) => (
+              <TableCell key={i} align={i ? 'right' : 'left'} sx={{ fontWeight: 700, fontSize: 11, whiteSpace: 'nowrap' }}>{h}</TableCell>
+            ))}
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {vista.map(g => (
+            <TableRow key={g.categoria} hover>
+              <TableCell sx={{ fontSize: 12, fontWeight: 600, maxWidth: 170 }}>{g.categoria}</TableCell>
+              <TableCell align="right" sx={{ fontSize: 12 }}>{fmt(g.llantas)}</TableCell>
+              <TableCell align="right" sx={{ fontSize: 12 }}>{fmt(g.profundidad_promedio, 1)}</TableCell>
+              <TableCell align="right" sx={{ fontSize: 12, color: g.bajo_minimo ? '#DC2626' : undefined, fontWeight: g.bajo_minimo ? 700 : 400 }}>{fmt(g.bajo_minimo)}</TableCell>
+              <TableCell align="right" sx={{ fontSize: 12, fontWeight: 700 }}>{g.ir != null ? g.ir.toFixed(2) : '—'}</TableCell>
+            </TableRow>
+          ))}
+          {filas.length === 0 && (
+            <TableRow><TableCell colSpan={5} align="center"><Typography fontSize={12.5} color="text.secondary" py={2}>Sin llantas montadas.</Typography></TableCell></TableRow>
+          )}
+        </TableBody>
+      </Table>
+      {filas.length > 8 && (
+        <Box textAlign="center" py={0.5}>
+          <Button size="small" onClick={() => setTodas(!todas)} sx={{ textTransform: 'none' }}>
+            {todas ? 'Ver menos' : `Ver las ${filas.length}`}
+          </Button>
+        </Box>
+      )}
+    </Card>
+  )
+}
+
+function ParqueMontado({ llantas }: { llantas: FiltrosLlantas }) {
+  const q = useQuery<Parque>({
+    queryKey: ['neu-parque', llantas],
+    queryFn: () => api.get('/eam/neumaticos/reportes/parque', { params: llantas }).then(r => r.data),
+    placeholderData: prev => prev,
+  })
+  const p = q.data
+  if (!p) return q.isError ? <Alert severity="error" sx={{ mb: 2 }}>No se pudo cargar el parque montado.</Alert> : null
+  const dist = p.ir.distribucion.map(d => `${d.reencauches === 0 ? 'VN' : `R${d.reencauches}`}: ${fmt(d.cantidad)}`).join(' · ')
+  return (
+    <Box mb={2}>
+      <Grid container spacing={2} mb={2}>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <Indicador titulo="I.R. a piso" valor={p.ir.ir != null ? p.ir.ir.toFixed(2) : '—'} detalle={dist}
+            ayuda="Índice de reencauche de las llantas montadas: el promedio de reencauches de su vida actual. Una nueva vale 0, con un reencauche 1, con dos 2…" />
+        </Grid>
+        <Grid size={{ xs: 6, md: 4 }}>
+          <Indicador titulo="Llantas a piso" valor={fmt(p.llantas)} detalle="montadas en vehículos" />
+        </Grid>
+        <Grid size={{ xs: 6, md: 4 }}>
+          <Indicador titulo="Bajo el mínimo" valor={fmt(p.bajo_minimo)} detalle={`en o bajo ${p.profundidad_minima} mm en su última profundidad`} />
+        </Grid>
+      </Grid>
+      <Grid container spacing={2}>
+        <Grid size={{ xs: 12, lg: 4 }}><TablaParque titulo="marca" filas={p.por_marca} minimo={p.profundidad_minima} /></Grid>
+        <Grid size={{ xs: 12, lg: 4 }}><TablaParque titulo="referencia" filas={p.por_referencia} minimo={p.profundidad_minima} /></Grid>
+        <Grid size={{ xs: 12, lg: 4 }}><TablaParque titulo="dimensión" filas={p.por_medida} minimo={p.profundidad_minima} /></Grid>
+      </Grid>
+    </Box>
+  )
+}
+
+const COMPARACIONES: [string, string][] = [['marca', 'Por marca'], ['referencia', 'Por referencia'], ['medida', 'Por dimensión']]
 
 // ─── Tablero ────────────────────────────────────────────────────────────────
 
 export function TableroRendimiento({ desde, hasta }: { desde: string; hasta: string }) {
-  const { f, setF, dimension, setDimension, q, dim } = useEstado(desde, hasta)
+  const { f, setF, dimension, setDimension, q, dim, llantas, setLlantas } = useEstado(desde, hasta)
+  const [metricaComp, setMetricaComp] = useState<Metrica>('cpk')
   const r = q.data?.resumen
   const titulo = dim?.nombre ?? ''
 
   return (
     <>
       <Controles f={f} onChange={setF} dimensiones={q.data?.dimensiones ?? []} dimension={dimension} onDimension={setDimension}
+        llantas={llantas} onLlantas={setLlantas}
         extra={
           <Button variant="contained" startIcon={<Download />} disabled={!q.data}
             onClick={() => exportarGrupos(q.data, null, 'Rendimiento de llantas por categoría', 'rendimiento-llantas', descripcionFiltros(f, desde, hasta))}
@@ -310,8 +402,40 @@ export function TableroRendimiento({ desde, hasta }: { desde: string; hasta: str
         <Alert severity="info" sx={{ mb: 2 }}>No hay vidas de llanta en el periodo y alcance elegidos.</Alert>
       )}
 
+      <ParqueMontado llantas={llantas} />
+
+      {q.data && r && r.vidas > 0 && (
+        <Card sx={{ bgcolor: '#FFFFFF', mb: 2 }}>
+          <CardContent>
+            <Stack direction="row" alignItems="center" justifyContent="space-between" gap={1} flexWrap="wrap" mb={1}>
+              <Box>
+                <Typography fontWeight={700} fontSize={14}>Marca, referencia y dimensión</Typography>
+                <Typography fontSize={11.5} color="text.secondary">
+                  {METRICAS[metricaComp].titulo} · {METRICAS[metricaComp].unidad} · {METRICAS[metricaComp].menorEsMejor ? 'menor es mejor' : 'mayor es mejor'}
+                </Typography>
+              </Box>
+              <ToggleButtonGroup size="small" exclusive value={metricaComp} onChange={(_, v) => v && setMetricaComp(v)}>
+                {(['cpk', 'km', 'km_mm'] as Metrica[]).map(m => (
+                  <ToggleButton key={m} value={m} sx={{ textTransform: 'none', px: 1.5 }}>{METRICAS[m].corto}</ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+            </Stack>
+            <Grid container spacing={2}>
+              {COMPARACIONES.map(([clave, nombre]) => (
+                <Grid key={clave} size={{ xs: 12, lg: 4 }}>
+                  <Typography fontWeight={700} fontSize={13} mb={0.5}>{nombre}</Typography>
+                  <GraficoMetrica grupos={gruposComparables(q.data!.dimensiones.find(d => d.clave === clave), metricaComp, f.muestra)}
+                    metrica={metricaComp} limite={10} />
+                </Grid>
+              ))}
+            </Grid>
+          </CardContent>
+        </Card>
+      )}
+
       {dim && r && r.vidas > 0 && (
         <>
+          <Typography fontWeight={700} fontSize={14} mb={1}>Otras categorías · por {titulo.toLowerCase()}</Typography>
           <Grid container spacing={2} mb={2}>
             {(['cpk', 'km', 'km_mm'] as Metrica[]).map(m => (
               <Grid key={m} size={{ xs: 12, lg: 4 }}>
@@ -348,7 +472,7 @@ export function TableroRendimiento({ desde, hasta }: { desde: string; hasta: str
 // ─── Informe de una métrica ─────────────────────────────────────────────────
 
 export function InformeMetrica({ metrica, desde, hasta }: { metrica: Metrica; desde: string; hasta: string }) {
-  const { f, setF, dimension, setDimension, q, dim } = useEstado(desde, hasta)
+  const { f, setF, dimension, setDimension, q, dim, llantas, setLlantas } = useEstado(desde, hasta)
   const m = METRICAS[metrica]
   const comparables = useMemo(() => ordenar(gruposComparables(dim, metrica, f.muestra), metrica), [dim, metrica, f.muestra])
   const pocos = (dim?.grupos ?? []).filter(g => !comparables.includes(g))
@@ -357,6 +481,7 @@ export function InformeMetrica({ metrica, desde, hasta }: { metrica: Metrica; de
   return (
     <>
       <Controles f={f} onChange={setF} dimensiones={q.data?.dimensiones ?? []} dimension={dimension} onDimension={setDimension}
+        llantas={llantas} onLlantas={setLlantas}
         extra={
           <Button variant="contained" startIcon={<Download />} disabled={!q.data}
             onClick={() => exportarGrupos(q.data, null, `${m.titulo} por categoría`, `llantas-${metrica.replace('_', '-')}`, descripcionFiltros(f, desde, hasta))}

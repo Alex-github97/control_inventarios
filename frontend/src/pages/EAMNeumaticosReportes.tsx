@@ -15,8 +15,7 @@ import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
 import { apiClient as api } from '@/api/client'
 import { exportarExcel } from '@/utils/exportar'
-import { generarPDFEstadoFlota } from '@/utils/reporteFlotaPDF'
-import type { VehiculoReporte } from '@/utils/reporteFlotaPDF'
+import { FILTROS_VACIOS, FiltrosLlantasBarra, hayFiltros, type FiltrosLlantas } from '@/components/eam/FiltrosLlantas'
 import { TableroRendimiento, InformeMetrica, DetalleVidas } from '@/components/eam/RendimientoLlantas'
 
 import { COLOR_MODULO } from '@/config/marca'
@@ -24,6 +23,32 @@ const EAM_COLOR = COLOR_MODULO
 const EAM_DARK = COLOR_MODULO
 
 interface Vehiculo { id: number; codigo: string; placa?: string | null; nombre: string }
+interface PosicionReporte {
+  posicion: string; numero?: number | null; codigo?: string | null; marca?: string | null; referencia?: string | null
+  medida?: string | null; vida?: string | null; profundidad_min?: number | null; presion_psi?: number | null
+  fecha_inspeccion?: string | null; observaciones?: string | null; alerta?: string | null
+}
+interface VehiculoReporte {
+  activo_id: number; codigo: string; placa?: string | null; nombre?: string | null; odometro?: number | null
+  posiciones: PosicionReporte[]; observaciones: string[]; total_posiciones: number; posiciones_ocupadas: number; criticas: number
+}
+interface TrabajoInforme { trabajo_id: number; estado: 'PENDIENTE' | 'LISTO' | 'FALLIDO'; vehiculos: number; error?: string | null }
+
+const TIPOS_VEHICULO: [string, string][] = [
+  ['VEHICULO', 'Vehículo'], ['REMOLQUE', 'Remolque'], ['MONTACARGAS', 'Montacargas'],
+  ['MOTOCICLETA', 'Motocicleta'], ['EQUIPO_PATIO', 'Equipo de patio'], ['EQUIPO_LOGISTICO', 'Equipo logístico'],
+]
+
+function descargarBlob(blob: Blob, nombre: string) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = nombre
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 10_000)
+}
 interface ComposicionItem { grupo: string; valor: string; cantidad: number; porcentaje: number }
 interface ConfigNeu { profundidad_minima: number }
 interface InspeccionHistorial {
@@ -75,7 +100,7 @@ const INFORMES: { id: TipoInforme; grupo: typeof GRUPOS_INFORME[number]; titulo:
   {
     id: 'ESTADO_FLOTA', grupo: 'Estado e inspecciones',
     titulo: 'Estado actual de la flota',
-    descripcion: 'Una página por vehículo con su esquema de llantas, la profundidad mínima de cada posición y las observaciones del periodo.',
+    descripcion: 'Informe PDF con resumen ejecutivo de la última inspección y, por vehículo, su esquema de llantas, las profundidades por posición, las novedades y las sugerencias.',
     icono: <DirectionsCar />,
   },
   {
@@ -99,6 +124,10 @@ export default function EAMNeumaticosReportes() {
   const [hasta, setHasta] = useState('')
   const [vehId, setVehId] = useState('')
   const [generando, setGenerando] = useState(false)
+  // Alcance del informe PDF de flota: tipo de vehículo y filtros de llantas.
+  const [tipoVeh, setTipoVeh] = useState('')
+  const [filtrosInforme, setFiltrosInforme] = useState<FiltrosLlantas>(FILTROS_VACIOS)
+  const [trabajo, setTrabajo] = useState<TrabajoInforme | null>(null)
 
   const params = {
     desde: desde ? new Date(`${desde}T00:00:00`).toISOString() : undefined,
@@ -133,6 +162,25 @@ export default function EAMNeumaticosReportes() {
     enabled: tipo === 'HISTORIAL',
   })
 
+  useQuery<TrabajoInforme>({
+    queryKey: ['rep-informe-trabajo', trabajo?.trabajo_id],
+    queryFn: async () => {
+      const t: TrabajoInforme = (await api.get(`/eam/neumaticos/reportes/informe-flota/trabajos/${trabajo!.trabajo_id}`)).data
+      if (t.estado === 'LISTO') {
+        const r = await api.get(`/eam/neumaticos/reportes/informe-flota/trabajos/${t.trabajo_id}/archivo`, { responseType: 'blob', timeout: 300_000 })
+        descargarBlob(r.data, `estado-llantas-flota-${t.trabajo_id}.pdf`)
+        toast.success(`Informe de ${t.vehiculos.toLocaleString('es-CO')} vehículos descargado`)
+        setTrabajo(null)
+      } else if (t.estado === 'FALLIDO') {
+        toast.error(`No se pudo preparar el informe: ${t.error ?? 'error desconocido'}`)
+        setTrabajo(null)
+      }
+      return t
+    },
+    enabled: !!trabajo,
+    refetchInterval: 4000,
+  })
+
   const cargando = cargandoFlota || cargandoComp || cargandoHist
   const profMin = cfg?.profundidad_minima ?? 3
 
@@ -145,20 +193,28 @@ export default function EAMNeumaticosReportes() {
     }} sx={{ textTransform: 'none', fontSize: 12, minWidth: 0, color: EAM_DARK }}>{etiqueta}</Button>
   )
 
-  const generarPDF = () => {
-    if (tipo !== 'ESTADO_FLOTA') {
-      toast.error('El PDF con esquema de llantas aplica al informe de estado de la flota')
-      return
-    }
-    if (!flota.length) { toast.error('No hay vehículos con esquema de llantas configurado'); return }
+  const generarPDF = async () => {
     setGenerando(true)
     try {
-      generarPDFEstadoFlota({ vehiculos: flota, desde, hasta, profundidadMinima: profMin })
-      toast.success(`PDF generado con ${flota.length} vehículo(s)`)
+      const r = await api.post('/eam/neumaticos/reportes/informe-flota', {
+        activo_ids: vehId ? [Number(vehId)] : null,
+        tipos_vehiculo: tipoVeh ? [tipoVeh] : null,
+        desde: desde || null, hasta: hasta || null,
+        ...filtrosInforme,
+      }, { responseType: 'blob', timeout: 120_000 })
+      if (r.status === 202) {
+        // Flota grande: el servidor lo prepara en segundo plano.
+        const t: TrabajoInforme = JSON.parse(await (r.data as Blob).text())
+        setTrabajo(t)
+        toast(`Preparando el informe de ${t.vehiculos.toLocaleString('es-CO')} vehículos. Se descargará solo cuando esté listo.`, { icon: '⏳', duration: 6000 })
+      } else {
+        descargarBlob(r.data, `estado-llantas-flota-${new Date().toISOString().slice(0, 10)}.pdf`)
+        toast.success('Informe PDF descargado')
+      }
     } catch (e: any) {
-      toast.error('No se pudo generar el PDF')
-      // eslint-disable-next-line no-console
-      console.error(e)
+      let msg = 'No se pudo generar el informe'
+      try { msg = JSON.parse(await (e?.response?.data as Blob).text()).detail ?? msg } catch { /* sin detalle */ }
+      toast.error(msg)
     } finally {
       setGenerando(false)
     }
@@ -299,16 +355,23 @@ export default function EAMNeumaticosReportes() {
                   ))}
                 </TextField>
               )}
+              {tipo === 'ESTADO_FLOTA' && (
+                <TextField select size="small" label="Tipo de vehículo" value={tipoVeh}
+                  onChange={e => setTipoVeh(e.target.value)} sx={{ minWidth: 170 }}>
+                  <MenuItem value="">Todos los tipos</MenuItem>
+                  {TIPOS_VEHICULO.map(([v, et]) => <MenuItem key={v} value={v}>{et}</MenuItem>)}
+                </TextField>
+              )}
               {(desde || hasta || vehId) && (
                 <Button size="small" onClick={() => { setDesde(''); setHasta(''); setVehId('') }}
                   sx={{ textTransform: 'none', color: '#64748B' }}>Limpiar</Button>
               )}
               <Box flex={1} />
               {tipo === 'ESTADO_FLOTA' && (
-                <Button variant="contained" startIcon={<PictureAsPdf />} disabled={generando || cargando || !flota.length}
+                <Button variant="contained" startIcon={<PictureAsPdf />} disabled={generando || !!trabajo}
                   onClick={generarPDF}
                   sx={{ bgcolor: '#DC2626', '&:hover': { bgcolor: '#B91C1C' }, textTransform: 'none', fontWeight: 700 }}>
-                  {generando ? 'Generando…' : 'Descargar PDF'}
+                  {generando ? 'Generando…' : trabajo ? 'Preparando informe…' : 'Informe PDF'}
                 </Button>
               )}
               {!DE_RENDIMIENTO.includes(tipo) && (
@@ -319,6 +382,15 @@ export default function EAMNeumaticosReportes() {
                 </Button>
               )}
             </Stack>
+            {tipo === 'ESTADO_FLOTA' && (
+              <Box mt={1.5}>
+                <Typography fontSize={11.5} color="text.secondary" mb={1}>
+                  Llantas del informe{hayFiltros(filtrosInforme) ? '' : ' (todas las montadas)'}: los vehículos sin ninguna llanta del filtro no entran.
+                  Con más de 200 vehículos el informe se prepara en segundo plano y se descarga solo al terminar.
+                </Typography>
+                <FiltrosLlantasBarra alcance="MONTADAS" valor={filtrosInforme} onChange={setFiltrosInforme} />
+              </Box>
+            )}
             {DE_RENDIMIENTO.includes(tipo) ? (
               <Typography fontSize={11.5} color="text.secondary" mt={1.5}>
                 Entran las vidas de llanta que rodaron en algún momento del periodo, con todos sus kilómetros y su costo.

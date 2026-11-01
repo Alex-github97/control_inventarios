@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.paginacion import contar, pagina, poner_total
+from app.core.neumaticos_filtros import FiltrosLlanta, aplicar as aplicar_filtros_llanta, filtros_llanta
 from app.core.inventario_kardex import sincronizar_orden, revertir_orden
 from app.infrastructure.models.eam import (
     EAMTipoTrabajo, EAMActividad, EAMRepuesto, EAMFallaCatalogo,
@@ -642,6 +643,9 @@ class NeuConfigSchema(BaseModel):
     presion_min: float = 90.0
     presion_max: float = 120.0
     umbral_desalineacion: float = 2.0
+    # Novedades del informe de flota: «cerca del mínimo» y desgaste irregular.
+    margen_alerta_profundidad: float = 2.0
+    diferencia_hombros: float = 3.0
 
 # ── Zonas de llantas ──
 class ZonaNeumaticoCreate(BaseModel):
@@ -2701,13 +2705,30 @@ async def delete_catalogo_neumatico(cid: int, db: AsyncSession = Depends(get_db)
 @router.get("/neumaticos/descarte", response_model=List[NeumaticResponse])
 async def list_descarte_neumatico(respuesta: Response,
                                   busqueda: Optional[str] = None,
+                                  dano_id: Optional[int] = Query(None, description="0 = sin daño registrado"),
+                                  motivo_fin_vida_id: Optional[int] = Query(None, description="0 = sin motivo"),
+                                  desde: Optional[date] = None,
+                                  hasta: Optional[date] = None,
+                                  filtros: FiltrosLlanta = Depends(filtros_llanta),
                                   limite: int = Query(100, ge=1, le=5000),
                                   desplazamiento: int = Query(0, ge=0),
                                   db: AsyncSession = Depends(get_db)):
     """La pila de descarte, la baja más reciente primero, por trozos (total en
-    `X-Total-Count`). Es la parte que más crece: entera eran 42 MB."""
+    `X-Total-Count`). Es la parte que más crece: entera eran 42 MB.
+
+    Acepta los mismos filtros que el tablero de descarte, que salta aquí al
+    pulsar un motivo, una marca o una referencia: con el mismo filtro común los
+    dos totales cuadran."""
     q = select(EAMNeumatico).where(EAMNeumatico.estado == "BAJA")
     q = _filtro_busqueda_llanta(q, busqueda)
+    q = aplicar_filtros_llanta(q, filtros)
+    for col, valor in ((EAMNeumatico.dano_id, dano_id), (EAMNeumatico.motivo_fin_vida_id, motivo_fin_vida_id)):
+        if valor is not None:
+            q = q.where(col.is_(None) if valor == 0 else col == valor)
+    if desde:
+        q = q.where(EAMNeumatico.fecha_baja >= desde)
+    if hasta:
+        q = q.where(EAMNeumatico.fecha_baja <= hasta)
     q = q.order_by(EAMNeumatico.fecha_baja.desc().nulls_last(), EAMNeumatico.id.desc())
     return await pagina(db, q, respuesta, limite, desplazamiento)
 
@@ -3393,7 +3414,9 @@ async def get_config_neumatico(db: AsyncSession = Depends(get_db)):
 @router.put("/neumaticos/config", response_model=NeuConfigSchema)
 async def update_config_neumatico(data: NeuConfigSchema, db: AsyncSession = Depends(get_db)):
     cfg = await _get_config_neu(db)
-    for k, v in data.model_dump().items():
+    # Solo lo que vino: una pantalla que no conoce un campo nuevo no debe
+    # devolverlo a su valor por defecto al guardar los demás.
+    for k, v in data.model_dump(exclude_unset=True).items():
         setattr(cfg, k, v)
     await db.commit(); await db.refresh(cfg)
     return cfg
@@ -3776,6 +3799,50 @@ async def cambiar_zona_neumatico(nid: int, data: CambiarZonaCreate, db: AsyncSes
     ))
     await db.commit()
     return {"ok": True, "zona_id": neu.zona_id, "zona_anterior_id": zona_anterior}
+
+class ResumenHistorial(BaseModel):
+    inspecciones: int
+    inspecciones_vida: int
+    ultima_inspeccion: Optional[datetime] = None
+    rotaciones: int
+    rotaciones_vida: int
+    rotaciones_posicion: int
+    volteos: int
+    ultima_rotacion: Optional[datetime] = None
+    inicio_vida: Optional[datetime] = None
+
+
+@router.get("/neumaticos/{nid}/resumen-historial", response_model=ResumenHistorial)
+async def resumen_historial_neumatico(nid: int, db: AsyncSession = Depends(get_db)):
+    """Cuánta atención ha recibido la llanta: inspecciones y rotaciones en toda
+    su historia y en la vida actual, con la fecha de la última de cada una.
+
+    Rotación es un cambio de posición (ROTACION) o de orientación (VOLTEO); los
+    montajes, desmontajes, reencauches, cambios de zona y bajas no lo son. La
+    vida actual empieza en la fecha de inicio de su última vida registrada; una
+    llanta sin vidas registradas no tiene ese corte y cuenta todo como su vida.
+    """
+    if await db.get(EAMNeumatico, nid) is None:
+        raise HTTPException(404, "Neumático no encontrado")
+    inicio = (await db.execute(
+        select(EAMVidaNeumatico.fecha_inicio).where(EAMVidaNeumatico.neumatico_id == nid)
+        .order_by(EAMVidaNeumatico.numero_vida.desc()).limit(1))).scalar()
+    desde = inicio or datetime.min
+    I = EAMInspeccionNeumatico
+    insp = (await db.execute(select(
+        func.count(), func.count().filter(I.fecha >= desde), func.max(I.fecha)
+    ).where(I.neumatico_id == nid))).one()
+    M = EAMMovimientoNeumatico
+    rot = (await db.execute(select(
+        func.count(), func.count().filter(M.fecha >= desde),
+        func.count().filter(M.tipo_movimiento == "ROTACION"), func.count().filter(M.tipo_movimiento == "VOLTEO"),
+        func.max(M.fecha),
+    ).where(M.neumatico_id == nid, M.tipo_movimiento.in_(("ROTACION", "VOLTEO"))))).one()
+    return ResumenHistorial(
+        inspecciones=insp[0], inspecciones_vida=insp[1], ultima_inspeccion=insp[2],
+        rotaciones=rot[0], rotaciones_vida=rot[1], rotaciones_posicion=rot[2], volteos=rot[3],
+        ultima_rotacion=rot[4], inicio_vida=inicio)
+
 
 @router.get("/neumaticos/{nid}/vidas", response_model=List[VidaNeumaticoResponse])
 async def list_vidas_neumatico(nid: int, db: AsyncSession = Depends(get_db)):

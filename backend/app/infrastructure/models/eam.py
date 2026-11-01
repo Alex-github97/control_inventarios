@@ -1,5 +1,5 @@
 import enum
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text, ForeignKey, JSON, Date, UniqueConstraint, Index
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text, ForeignKey, JSON, Date, UniqueConstraint, Index, SmallInteger, event, func
 from sqlalchemy.orm import relationship
 from app.infrastructure.models.base import Base, TimestampMixin
 
@@ -644,6 +644,22 @@ class EAMNeumatico(Base, TimestampMixin):
     motivo_fin_vida_id  = Column(Integer, ForeignKey("eam_motivo_fin_vida.id"), nullable=True)
     dot                 = Column(String(20), nullable=True)   # código DOT (fecha de fabricación)
     tipo_rin            = Column(String(30), nullable=True)   # ACERO / ALUMINIO / OTRO
+    # Semana y año de fabricación interpretados del DOT (`core/neumaticos_dot`).
+    # Se guardan aparte para poder filtrar e indexar; los dos van vacíos si el
+    # DOT no se pudo leer. Los llena el evento de abajo: nadie los escribe a mano.
+    dot_semana          = Column(SmallInteger, nullable=True)
+    dot_anio            = Column(SmallInteger, nullable=True)
+
+
+@event.listens_for(EAMNeumatico, "before_insert")
+@event.listens_for(EAMNeumatico, "before_update")
+def _fecha_fabricacion(mapper, connection, neu):  # noqa: ARG001
+    """Reinterpreta el DOT cada vez que se guarda la llanta, venga de donde venga
+    (pantalla, importación, guion de siembra)."""
+    from datetime import date
+    from app.core.neumaticos_dot import interpretar_dot
+    registro = neu.created_at.date() if getattr(neu, "created_at", None) else date.today()
+    neu.dot_semana, neu.dot_anio = interpretar_dot(neu.dot, registro)
 
 
 class EAMMovimientoNeumatico(Base, TimestampMixin):
@@ -807,6 +823,15 @@ class EAMNeumaticoConfig(Base, TimestampMixin):
     # aprendería a rodear la validación. Medio milímetro cubre esa variación;
     # más que eso es un dato equivocado, porque una llanta no recupera labrado.
     tolerancia_profundidad = Column(Float, default=0.5)   # mm
+    # Novedades de la inspección (informe de flota). Una llanta a menos de este
+    # margen sobre el mínimo está «cerca del mínimo»: todavía no hay que
+    # retirarla, pero conviene programarla.
+    margen_alerta_profundidad = Column(Float, default=2.0)   # mm
+    # Diferencia entre hombro izquierdo y derecho que ya es desgaste irregular.
+    diferencia_hombros    = Column(Float, default=3.0)   # mm
+    # Las reglas de sugerencia iniciales se siembran una sola vez: si la empresa
+    # luego las borra, no deben volver a aparecer.
+    reglas_sembradas      = Column(Boolean, default=False)
 
 
 # ─── Catálogos de configuración de llantas (zonas, bandas, motivos, ajustes,
@@ -838,6 +863,58 @@ class EAMBandaReencauche(Base, TimestampMixin):
     presion_maxima       = Column(Float, nullable=True)
     comentarios          = Column(Text, nullable=True)
     activo               = Column(Boolean, default=True)
+
+
+class EAMReglaSugerenciaNeumatico(Base, TimestampMixin):
+    """Regla que convierte la última inspección de una llanta en una sugerencia
+    («Programar reencauche de la posición 3»). La condición son las filas de
+    `EAMReglaSugerenciaCondicion`, todas a la vez («y»). El motor está en
+    `core/neumaticos_novedades.py`; la empresa escribe las reglas."""
+    __tablename__ = "eam_regla_sugerencia_neumatico"
+    id        = Column(Integer, primary_key=True, index=True)
+    nombre    = Column(String(150), nullable=False)
+    # ROTACION / REENCAUCHE / RETIRO / PRESION / ALINEACION / OTRO
+    tipo      = Column(String(20), nullable=False, default="OTRO")
+    prioridad = Column(Integer, nullable=False, default=3)   # 1 = la más urgente
+    # Texto con marcadores entre llaves: {posicion}, {profundidad}, {codigo}…
+    texto     = Column(Text, nullable=False)
+    activa    = Column(Boolean, nullable=False, default=True)
+
+    condiciones = relationship("EAMReglaSugerenciaCondicion", cascade="all, delete-orphan",
+                               order_by="EAMReglaSugerenciaCondicion.id", lazy="selectin")
+
+
+class EAMReglaSugerenciaCondicion(Base, TimestampMixin):
+    """Una comparación de la condición: campo, operador y valor. El campo sale
+    de una lista cerrada del código, nunca de una expresión libre."""
+    __tablename__ = "eam_regla_sugerencia_condicion"
+    id       = Column(Integer, primary_key=True, index=True)
+    regla_id = Column(Integer, ForeignKey("eam_regla_sugerencia_neumatico.id", ondelete="CASCADE"),
+                      nullable=False, index=True)
+    campo    = Column(String(40), nullable=False)
+    operador = Column(String(4), nullable=False)
+    valor    = Column(String(60), nullable=False)
+
+
+class EAMInformeFlotaTrabajo(Base, TimestampMixin):
+    """Un informe PDF de flota que se arma en segundo plano.
+
+    Con más de unos cientos de vehículos el PDF tarda decenas de segundos: se
+    encola aquí y lo toma un solo proceso de los cuatro (`FOR UPDATE SKIP
+    LOCKED`, `core/informe_flota_cola.py`). El archivo queda en el disco y la
+    pantalla consulta el estado hasta poder descargarlo."""
+    __tablename__ = "eam_informe_flota_trabajo"
+    __table_args__ = (Index("ix_eam_informe_flota_cola", "estado", "siguiente_intento"),)
+    id                = Column(Integer, primary_key=True, index=True)
+    estado            = Column(String(12), nullable=False, default="PENDIENTE")   # PENDIENTE/LISTO/FALLIDO
+    parametros        = Column(JSON, nullable=False)
+    vehiculos         = Column(Integer, nullable=False, default=0)
+    usuario_id        = Column(Integer, nullable=True)
+    archivo           = Column(String(300), nullable=True)
+    error             = Column(Text, nullable=True)
+    intentos          = Column(Integer, nullable=False, default=0)
+    siguiente_intento = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    terminado_en      = Column(DateTime(timezone=True), nullable=True)
 
 
 class EAMMotivoFinVida(Base, TimestampMixin):
