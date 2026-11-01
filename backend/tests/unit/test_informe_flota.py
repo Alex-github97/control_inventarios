@@ -52,3 +52,45 @@ def test_el_pdf_se_genera():
     pdf = generar(flota, nov, sug, resumir(flota, nov, sug, U), U,
                   Encabezado("Empresa · Prueba", "Última inspección", "Prueba", HOY))
     assert pdf[:5] == b"%PDF-" and len(pdf) > 2000
+
+
+def _png(w, h, caja=None):
+    import io
+    from PIL import Image
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    if caja:
+        img.paste((10, 20, 30, 255), caja)
+    b = io.BytesIO()
+    img.save(b, "PNG")
+    return b.getvalue()
+
+
+def test_el_logo_se_normaliza_y_recorta_el_margen():
+    import io
+    from PIL import Image
+    from app.core.logo_empresa import normalizar
+    datos = normalizar(_png(400, 300, (100, 100, 300, 150)))
+    img = Image.open(io.BytesIO(datos))
+    assert img.format == "PNG" and img.size == (200, 50)
+
+
+def test_un_archivo_que_no_es_imagen_se_rechaza():
+    import pytest
+    from app.core.logo_empresa import LogoInvalido, normalizar
+    with pytest.raises(LogoInvalido):
+        normalizar(b"esto no es una imagen")
+
+
+def test_el_pdf_lleva_portada_con_logo(tmp_path):
+    from app.core.logo_empresa import normalizar
+    logo = tmp_path / "logo.png"
+    logo.write_bytes(normalizar(_png(800, 200, (0, 0, 800, 200))))
+    flota = [vehiculo(1, "Vehículo", [ll(1, 1, 2.5), ll(2, 1, 12)])]
+    todas = [x for v in flota for x in v.llantas]
+    nov = novedades(todas, U)
+    sug = sugerencias(todas, [], U)
+    pdf = generar(flota, nov, sug, resumir(flota, nov, sug, U), U,
+                  Encabezado("Empresa", "Última inspección", "Prueba", HOY, logo=str(logo)))
+    # Portada + resumen + un vehículo.
+    import re
+    assert len(re.findall(rb"/Type\s*/Page(?!s)", pdf)) == 3

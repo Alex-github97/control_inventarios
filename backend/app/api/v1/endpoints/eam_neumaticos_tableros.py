@@ -22,7 +22,6 @@ from pydantic import BaseModel
 from sqlalchemy import and_, func, literal_column, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.core.informe_flota_cola import DIRECTO_MAX, armar, flota_de
@@ -345,17 +344,15 @@ class TrabajoInforme(BaseModel):
 
 
 async def _empresa(db: AsyncSession) -> Tuple[str, Optional[str]]:
-    """Nombre de la empresa y la ruta local de su logo, si está en el disco."""
+    """Nombre de la empresa y la ruta local de su logo (el que subió su
+    administrador, o el externo descargado una vez)."""
+    from app.core import logo_empresa
     from app.core.tenant import esquema_actual
-    fila = (await db.execute(text("SELECT nombre, logo_url FROM public.plataforma_cliente WHERE esquema = :e"),
+    fila = (await db.execute(text("SELECT codigo, nombre, logo_url FROM public.plataforma_cliente WHERE esquema = :e"),
                              {"e": esquema_actual() or "public"})).first()
     if fila is None:
         return "", None
-    logo = None
-    if fila.logo_url and not fila.logo_url.startswith("http"):
-        ruta = Path(settings.UPLOAD_DIR) / fila.logo_url.split("/uploads/", 1)[-1].lstrip("/")
-        logo = str(ruta) if ruta.is_file() else None
-    return fila.nombre, logo
+    return fila.nombre, await logo_empresa.para_pdf(fila.codigo, fila.logo_url)
 
 
 @router.post("/informe-flota")

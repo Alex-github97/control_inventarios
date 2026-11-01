@@ -10,6 +10,7 @@ import { SUPPORTED_LANGUAGES } from '@/i18n'
 
 import { COLOR_MODULO } from '@/config/marca'
 import { AdminCatalogos } from '@/components/catalogo/AdminCatalogos'
+import { LogoEmpresa } from '@/components/LogoEmpresa'
 const CARD_BG = '#FFFFFF'
 const ACCENT    = '#1A1A1A'
 const SECTION_COLOR = COLOR_MODULO
@@ -27,6 +28,8 @@ export default function Configuracion() {
       </Typography>
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, maxWidth: 680 }}>
+
+        <LogoEmpresa />
 
         {/* Language section */}
         <Card sx={{ borderRadius: '16px', overflow: 'hidden', border: '1px solid #E5E7EB' }}>

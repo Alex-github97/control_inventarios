@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Header, Request
+from fastapi import APIRouter, Depends, File, HTTPException, status, Header, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, text
 from pydantic import BaseModel, ConfigDict
@@ -55,6 +55,74 @@ async def resolver_cliente(codigo: str, db: AsyncSession = Depends(get_db_plataf
     if not cliente.activo:
         raise HTTPException(403, f"El acceso de {cliente.nombre} está suspendido.")
     return ClientePublico.model_validate(cliente)
+
+
+@router.get("/clientes/{codigo}/logo")
+async def logo_cliente(codigo: str):
+    """El logo que subió la empresa. Público porque lo pinta el portal antes
+    del ingreso; solo responde por códigos válidos con archivo."""
+    from fastapi.responses import FileResponse
+    from app.core import logo_empresa
+    codigo = (codigo or "").strip().lower()
+    archivo = logo_empresa.ruta(codigo) if codigo_valido(codigo) else None
+    if archivo is None or not archivo.is_file():
+        raise HTTPException(404, "Sin logo")
+    return FileResponse(archivo, media_type="image/png", headers={"Cache-Control": "public, max-age=300"})
+
+
+class EmpresaCuenta(BaseModel):
+    codigo: str
+    nombre: str
+    nit: Optional[str] = None
+    logo_url: Optional[str] = None
+    logo_propio: bool = False
+
+
+async def _cliente_actual(db: AsyncSession) -> PlataformaCliente:
+    from app.core.tenant import esquema_actual
+    r = await db.execute(select(PlataformaCliente).where(PlataformaCliente.esquema == (esquema_actual() or "public")))
+    cliente = r.scalar_one_or_none()
+    if not cliente:
+        raise HTTPException(404, "La sesión no corresponde a ninguna empresa registrada")
+    return cliente
+
+
+def _ficha(cliente: PlataformaCliente) -> EmpresaCuenta:
+    from app.core import logo_empresa
+    return EmpresaCuenta(codigo=cliente.codigo, nombre=cliente.nombre, nit=cliente.nit, logo_url=cliente.logo_url,
+                         logo_propio=logo_empresa.ruta(cliente.codigo).is_file())
+
+
+@router.get("/empresa", response_model=EmpresaCuenta)
+async def empresa_de_la_cuenta(db: AsyncSession = Depends(get_db_plataforma),
+                               _: Usuario = Depends(get_current_user)):
+    """La empresa de la sesión, para la configuración de la cuenta."""
+    return _ficha(await _cliente_actual(db))
+
+
+@router.post("/empresa/logo", response_model=EmpresaCuenta)
+async def subir_logo(archivo: UploadFile = File(...), db: AsyncSession = Depends(get_db_plataforma),
+                     _: Usuario = Depends(require_admin)):
+    """El administrador de la empresa reemplaza su logo (portal e informes)."""
+    from app.core import logo_empresa
+    cliente = await _cliente_actual(db)
+    try:
+        logo_empresa.guardar(cliente.codigo, await archivo.read(logo_empresa.MAX_BYTES + 1))
+    except logo_empresa.LogoInvalido as e:
+        raise HTTPException(400, str(e))
+    cliente.logo_url = logo_empresa.url_publica(cliente.codigo)
+    await db.commit(); await db.refresh(cliente)
+    return _ficha(cliente)
+
+
+@router.delete("/empresa/logo", response_model=EmpresaCuenta)
+async def quitar_logo(db: AsyncSession = Depends(get_db_plataforma), _: Usuario = Depends(require_admin)):
+    from app.core import logo_empresa
+    cliente = await _cliente_actual(db)
+    logo_empresa.borrar(cliente.codigo)
+    cliente.logo_url = None
+    await db.commit(); await db.refresh(cliente)
+    return _ficha(cliente)
 
 
 async def _cliente_de_la_peticion(
