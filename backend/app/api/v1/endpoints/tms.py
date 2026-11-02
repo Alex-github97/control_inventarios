@@ -972,12 +972,17 @@ async def actualizar_estado_parada(
     estado: str = Query(...),
     tiempo_real_llegada: Optional[datetime] = Query(None),
     tiempo_real_salida: Optional[datetime] = Query(None),
+    # Solo las paradas de recogida de la planta de reencauche los piden.
+    cantidad_recogida: Optional[int] = Query(None, ge=0),
+    remision_recogida: Optional[str] = Query(None, max_length=60),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
     parada = await db.get(TMSParada, parada_id)
     if not parada:
         raise HTTPException(404, "Parada no encontrada")
+    from app.core.reencauche_logistica import al_completar_parada
+    await al_completar_parada(db, parada, estado, cantidad_recogida, remision_recogida)
     parada.estado = estado
     if tiempo_real_llegada:
         parada.tiempo_real_llegada = tiempo_real_llegada
@@ -1128,6 +1133,9 @@ async def crear_pod(
 
     pod = TMSPOD(**data.model_dump(), registrado_por_id=current_user.id)
     db.add(pod)
+    # Las llantas de la planta de reencauche que viajaban quedan entregadas.
+    from app.core.reencauche_logistica import al_registrar_pod
+    await al_registrar_pod(db, pod.viaje_id, pod.parada_id, pod.receptor_nombre, pod.fecha_hora)
     await db.commit()
     await db.refresh(pod)
     return pod

@@ -213,16 +213,22 @@ export function ReglasSugerencia() {
 /** Los dos umbrales de novedad que agrega el informe de flota. */
 export function UmbralesNovedad() {
   const qc = useQueryClient()
-  const { data } = useQuery<{ margen_alerta_profundidad?: number; diferencia_hombros?: number }>({
+  const { data } = useQuery<{ margen_alerta_profundidad?: number; diferencia_hombros?: number; rango_critico_mm?: number; rango_moderado_mm?: number }>({
     queryKey: ['eam-neu-config'], queryFn: () => api.get('/eam/neumaticos/config').then(r => r.data),
   })
-  const [v, setV] = useState<{ margen?: string; hombros?: string }>({})
+  const [v, setV] = useState<{ margen?: string; hombros?: string; critico?: string; moderado?: string }>({})
   const guardar = useMutation({
     mutationFn: () => api.put('/eam/neumaticos/config', {
       margen_alerta_profundidad: Number(v.margen ?? data?.margen_alerta_profundidad),
       diferencia_hombros: Number(v.hombros ?? data?.diferencia_hombros),
+      rango_critico_mm: Number(v.critico ?? data?.rango_critico_mm),
+      rango_moderado_mm: Number(v.moderado ?? data?.rango_moderado_mm),
     }),
-    onSuccess: () => { toast.success('Umbrales guardados'); setV({}); qc.invalidateQueries({ queryKey: ['eam-neu-config'] }) },
+    onSuccess: () => {
+      toast.success('Umbrales guardados'); setV({})
+      qc.invalidateQueries({ queryKey: ['eam-neu-config'] }); qc.invalidateQueries({ queryKey: ['neu-estado-piso'] })
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo guardar'),
   })
   return (
     <Card sx={{ bgcolor: '#FFFFFF' }}>
@@ -230,12 +236,18 @@ export function UmbralesNovedad() {
         <Stack direction="row" alignItems="center" gap={1} mb={1}>
           <ReportProblem sx={{ color: COLOR }} /><Typography fontWeight={700}>Umbrales de novedad</Typography>
         </Stack>
-        <Typography fontSize={12} color="text.secondary" mb={1.5}>Con qué se marcan las novedades del informe de flota, además de la profundidad mínima, el rango de presión y la desalineación.</Typography>
+        <Typography fontSize={12} color="text.secondary" mb={1.5}>Con qué se marcan las novedades del informe de flota, además de la profundidad mínima, el rango de presión y la desalineación; y los rangos del gráfico de estado de llantas a piso.</Typography>
         <Stack direction="row" gap={1.5} flexWrap="wrap" alignItems="center">
           <TextField size="small" type="number" label="Cerca del mínimo: margen (mm)" sx={{ width: 230 }}
             value={v.margen ?? data?.margen_alerta_profundidad ?? ''} onChange={e => setV({ ...v, margen: e.target.value })} />
           <TextField size="small" type="number" label="Desgaste irregular entre hombros (mm)" sx={{ width: 270 }}
             value={v.hombros ?? data?.diferencia_hombros ?? ''} onChange={e => setV({ ...v, hombros: e.target.value })} />
+          <TextField size="small" type="number" label="Crítica: hasta (mm)" sx={{ width: 170 }} inputProps={{ step: 0.1 }}
+            helperText="Estado de llantas a piso"
+            value={v.critico ?? data?.rango_critico_mm ?? ''} onChange={e => setV({ ...v, critico: e.target.value })} />
+          <TextField size="small" type="number" label="Moderada: hasta (mm)" sx={{ width: 180 }} inputProps={{ step: 0.1 }}
+            helperText="Por encima: buen estado"
+            value={v.moderado ?? data?.rango_moderado_mm ?? ''} onChange={e => setV({ ...v, moderado: e.target.value })} />
           <Button size="small" variant="outlined" disabled={!Object.keys(v).length || guardar.isPending} onClick={() => guardar.mutate()} sx={{ textTransform: 'none' }}>Guardar</Button>
         </Stack>
       </CardContent>

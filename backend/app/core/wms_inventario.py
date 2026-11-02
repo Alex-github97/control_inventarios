@@ -30,13 +30,15 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.models.wms import (
-    WMSContenedor, WMSInventarioUbicacion, WMSLote, WMSMovimientoInventario, WMSProducto, WMSUbicacion, WMSZona,
+    WMSContenedor, WMSInventarioUbicacion, WMSLote, WMSMovimientoInventario, WMSProducto, WMSSerie, WMSUbicacion,
+    WMSZona,
 )
 
 CUATRO = Decimal("0.0001")
 ESTADOS = {"DISPONIBLE": "cantidad_disponible", "RESERVADO": "cantidad_reservada", "BLOQUEADO": "cantidad_bloqueada"}
 # Zonas de las que nunca se alista: lo que está ahí no está listo para salir.
-ZONAS_NO_ALISTABLES = ("RECEPCION", "CUARENTENA", "DESPACHO", "TRANSITO")
+# PRODUCCION: las estaciones de una planta (los insumos se consumen ahí).
+ZONAS_NO_ALISTABLES = ("RECEPCION", "CUARENTENA", "DESPACHO", "TRANSITO", "PRODUCCION")
 _MISMA = object()
 
 
@@ -119,12 +121,17 @@ async def mover(db: AsyncSession, *, tipo: str, producto_id: int, cantidad, lote
                 documento_tipo: Optional[str] = None, documento_id: Optional[int] = None,
                 referencia: Optional[str] = None, usuario_id: Optional[int] = None,
                 tarea_id: Optional[int] = None, notas: Optional[str] = None,
-                costo_unitario=None) -> WMSMovimientoInventario:
+                costo_unitario=None, serie_id: Optional[int] = None,
+                estado_serie: Optional[str] = None) -> WMSMovimientoInventario:
     """Mueve `cantidad` del producto.
 
     - sin origen: entra (recepción, devolución, sobrante de conteo);
     - sin destino: sale (despacho, venta, faltante de conteo, destrucción);
     - con los dos: traslado, o cambio de estado si es la misma fila.
+
+    `serie_id`: la unidad serializada que se mueve (una carcasa de la planta
+    de reencauche). Solo queda en el kárdex y cambia el estado de la serie: la
+    existencia sigue siendo por producto, ubicación y lote.
     """
     cantidad = _d(cantidad)
     if cantidad <= 0:
@@ -176,8 +183,13 @@ async def mover(db: AsyncSession, *, tipo: str, producto_id: int, cantidad, lote
         estado_destino=estado_destino if destino is not None else None,
         saldo_origen=total_fila(f_origen) if f_origen is not None else None,
         saldo_destino=total_fila(f_destino) if f_destino is not None else None,
-        costo_unitario=costo_mov, referencia_documento=referencia, usuario_id=usuario_id, notas=notas)
+        costo_unitario=costo_mov, referencia_documento=referencia, usuario_id=usuario_id, notas=notas,
+        serie_id=serie_id)
     db.add(mov)
+    if serie_id is not None:
+        serie = await db.get(WMSSerie, serie_id)
+        if serie is not None:
+            serie.estado = estado_serie or ("DISPONIBLE" if destino is not None else "DESPACHADO")
     if contenedor_origen and contenedor_origen != contenedor_destino:
         await db.flush()
         await revisar_contenedor(db, contenedor_origen)

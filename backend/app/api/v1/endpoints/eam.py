@@ -646,6 +646,9 @@ class NeuConfigSchema(BaseModel):
     # Novedades del informe de flota: «cerca del mínimo» y desgaste irregular.
     margen_alerta_profundidad: float = 2.0
     diferencia_hombros: float = 3.0
+    # Rangos del estado de llantas a piso: ≤ crítico, ≤ moderado, > buen estado.
+    rango_critico_mm: float = 3.0
+    rango_moderado_mm: float = 6.0
 
 # ── Zonas de llantas ──
 class ZonaNeumaticoCreate(BaseModel):
@@ -3418,6 +3421,8 @@ async def update_config_neumatico(data: NeuConfigSchema, db: AsyncSession = Depe
     # devolverlo a su valor por defecto al guardar los demás.
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(cfg, k, v)
+    if (cfg.rango_critico_mm or 3.0) >= (cfg.rango_moderado_mm or 6.0):
+        raise HTTPException(422, "El límite de «crítica» debe ser menor que el de «moderada».")
     await db.commit(); await db.refresh(cfg)
     return cfg
 
@@ -5504,6 +5509,15 @@ async def procesar_reencauche_detalle(det_id: int, data: ReencaucheDetalleUpdate
     det = await db.get(EAMReencaucheDetalle, det_id)
     if not det:
         raise HTTPException(404, "Detalle no encontrado")
+    await aplicar_resultado_reencauche(db, det, data)
+    await db.commit(); await db.refresh(det)
+    return det
+
+
+async def aplicar_resultado_reencauche(db: AsyncSession, det: EAMReencaucheDetalle, data: ReencaucheDetalleUpdate) -> None:
+    """El resultado de una llanta del lote: abre su nueva vida, la deja con vida
+    remanente o la da de baja. No confirma: lo usa también la planta de
+    reencauche de la misma empresa al entregar las llantas del lote."""
     neu = await db.get(EAMNeumatico, det.neumatico_id)
     resultado = data.resultado.upper()
     costo = data.costo
@@ -5550,8 +5564,6 @@ async def procesar_reencauche_detalle(det_id: int, data: ReencaucheDetalleUpdate
                 vida_actual.km_fin = neu.km_actual
                 vida_actual.profundidad_final = neu.profundidad_actual
                 vida_actual.motivo_cierre_id = data.motivo_fin_vida_id
-    await db.commit(); await db.refresh(det)
-    return det
 
 @router.put("/neumaticos/reencauche/{lote_id}/cerrar", response_model=ReencaucheLoteResponse)
 async def cerrar_reencauche_lote(lote_id: int, db: AsyncSession = Depends(get_db)):

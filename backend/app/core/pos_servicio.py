@@ -141,12 +141,18 @@ async def vender(db: AsyncSession, yo: Usuario, caja_id: int, lineas: List[dict]
             raise HTTPException(422, f"El descuento máximo autorizado en esta caja es {caja.descuento_maximo}%.")
         liq = liquidar_linea(precios[l["producto_id"]], cantidad, desc, prod.tarifa_iva)
         try:
-            asignaciones = await inv.asignar_fefo(db, prod.id, ubicaciones, cantidad)
-            for a in asignaciones:
-                await inv.sacar(db, producto_id=prod.id, ubicacion_id=a.ubicacion_id, lote_id=a.lote_id,
-                                contenedor_id=a.contenedor_id, cantidad=a.cantidad, tipo="DESPACHO",
-                                referencia=referencia, usuario_id=yo.id, notas="Venta POS",
-                                documento_tipo="POS_VENTA")
+            if l.get("serie"):
+                # Una unidad con nombre propio (llanta reencauchada de la planta).
+                from app.core.reencauche_logistica import vender_serie_en_pos
+                asignaciones = [await vender_serie_en_pos(db, prod.id, l["serie"], cantidad, ubicaciones, yo.id,
+                                                          referencia)]
+            else:
+                asignaciones = await inv.asignar_fefo(db, prod.id, ubicaciones, cantidad)
+                for a in asignaciones:
+                    await inv.sacar(db, producto_id=prod.id, ubicacion_id=a.ubicacion_id, lote_id=a.lote_id,
+                                    contenedor_id=a.contenedor_id, cantidad=a.cantidad, tipo="DESPACHO",
+                                    referencia=referencia, usuario_id=yo.id, notas="Venta POS",
+                                    documento_tipo="POS_VENTA")
         except inv.StockInsuficiente as e:
             raise HTTPException(409, str(e))
         costo_u = d(prod.costo_promedio)

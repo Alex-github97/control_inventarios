@@ -203,7 +203,17 @@
       "wmsMapa": "Mapa de la bodega",
       "wmsFacturacion": "Facturación 3PL",
       "wmsTraslados": "Traslados entre almacenes",
-      "comparativoSicetac": "Comparativo SICETAC"
+      "comparativoSicetac": "Comparativo SICETAC",
+      "rtmTablero": "Tablero de planta",
+      "rtmRecepcion": "Recepción",
+      "rtmCarcasas": "Carcasas y trazabilidad",
+      "rtmTerminal": "Terminal de estación",
+      "rtmCalidad": "Evaluación y retenciones",
+      "rtmVulcanizacion": "Vulcanización",
+      "rtmDespachos": "Recogidas y entregas",
+      "rtmLiquidacion": "Liquidación",
+      "rtmGarantias": "Garantías",
+      "rtmIndicadores": "Indicadores"
     },
     "section": {
       "principal": "Principal",
@@ -297,7 +307,8 @@
       "config": "Configuración",
       "espacios": "Espacios",
       "ags": "Agenda de Servicios",
-      "pos": "Punto de Venta"
+      "pos": "Punto de Venta",
+      "reencauche": "Planta de Reencauche"
     },
     "logo": {
       "ci1": "Control de",
@@ -345,7 +356,9 @@
       "ags1": "Agenda de",
       "ags2": "Servicios",
       "pos1": "Punto",
-      "pos2": "de Venta"
+      "pos2": "de Venta",
+      "rtm1": "Planta de",
+      "rtm2": "Reencauche"
     },
     "common": {
       "save": "Guardar",

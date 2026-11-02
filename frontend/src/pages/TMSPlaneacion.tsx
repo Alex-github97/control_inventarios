@@ -24,6 +24,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
 import { tmsApi, type Planeacion } from '@/api/tms'
+import { RecogidasReencauche } from '@/components/tms/RecogidasReencauche'
 
 import { COLOR_MODULO } from '@/config/marca'
 const TMS_COLOR = COLOR_MODULO
@@ -211,6 +212,7 @@ export default function TMSPlaneacion() {
           </Grid>
           {sel && !sel.peso_kg && <Alert severity="info" icon={<WarningAmber />} sx={{ mt: 1.5 }}>El viaje no tiene peso registrado: no se puede comprobar si cabe en el vehículo.</Alert>}
         </Paper>
+        <RecogidasReencauche color={TMS_COLOR} />
       </Box>
     </Layout>
   )

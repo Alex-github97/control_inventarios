@@ -12,7 +12,7 @@ de la llanta, que no cambia después de la baja; por eso en la pila de descarte
 mide cuántas vidas alcanzaron las llantas antes de botarse.
 """
 from collections import defaultdict
-from datetime import date
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -499,3 +499,97 @@ async def informe_pdf(
     pdf = await asyncio.to_thread(irp.generar, tipo, datos, enc)
     nombre = f"llantas-{tipo.lower().replace('_', '-')}-{date.today():%Y%m%d}.pdf"
     return Response(pdf, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{nombre}"'})
+
+
+# ─── Estado de llantas a piso y composición por vida ──────────────────────────
+
+AGRUPACIONES = {"DIA": ("day", 31), "SEMANA": ("week", 7 * 13), "MES": ("month", 365), "ANIO": ("year", 365 * 5)}
+
+
+class PeriodoEstado(BaseModel):
+    periodo: date
+    critica: int
+    moderada: int
+    buena: int
+    sin_medida: int
+    total: int
+
+
+class EstadoPiso(BaseModel):
+    agrupacion: str
+    desde: date
+    hasta: date
+    rango_critico_mm: float
+    rango_moderado_mm: float
+    periodos: List[PeriodoEstado]
+
+
+@router.get("/estado-piso", response_model=EstadoPiso)
+async def estado_piso(
+    agrupacion: str = Query("MES", description="DIA, SEMANA, MES o ANIO"),
+    desde: Optional[date] = None,
+    hasta: Optional[date] = None,
+    activo_id: Optional[int] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Cuántas llantas había en cada rango de profundidad, periodo por periodo.
+
+    Cada llanta cuenta una vez por periodo, con su ÚLTIMA inspección del periodo
+    y la profundidad del surco más gastado (la que decide si sigue rodando). Los
+    rangos son los de la configuración: hasta el crítico, hasta el moderado y por
+    encima buen estado. Sin fechas: el último mes por día, trece semanas, doce
+    meses o cinco años.
+    """
+    agrupacion = agrupacion.upper()
+    if agrupacion not in AGRUPACIONES:
+        raise HTTPException(422, "La agrupación es DIA, SEMANA, MES o ANIO.")
+    trunc, dias_defecto = AGRUPACIONES[agrupacion]
+    hasta = hasta or date.today()
+    desde = desde or (hasta - timedelta(days=dias_defecto))
+    if desde > hasta:
+        raise HTTPException(422, "La fecha inicial es posterior a la final.")
+    if agrupacion == "DIA" and (hasta - desde).days > 366:
+        raise HTTPException(422, "Por día se muestra hasta un año: agrupe por semana o por mes.")
+    cfg = (await db.execute(select(EAMNeumaticoConfig).order_by(EAMNeumaticoConfig.id).limit(1))).scalar()
+    critico = float(cfg.rango_critico_mm if cfg and cfg.rango_critico_mm is not None else 3.0)
+    moderado = float(cfg.rango_moderado_mm if cfg and cfg.rango_moderado_mm is not None else 6.0)
+    filtro_activo = "AND n.activo_id = :activo" if activo_id else ""
+    filas = (await db.execute(text(f"""
+        WITH ultima AS (
+            SELECT DISTINCT ON (i.neumatico_id, date_trunc(:g, i.fecha))
+                   date_trunc(:g, i.fecha)::date AS periodo,
+                   LEAST(i.profundidad_izq, i.profundidad_centro, i.profundidad_der) AS prof
+              FROM eam_inspeccion_neumatico i
+              JOIN eam_neumatico n ON n.id = i.neumatico_id
+             WHERE i.fecha >= :desde AND i.fecha < :hasta {filtro_activo}
+             ORDER BY i.neumatico_id, date_trunc(:g, i.fecha), i.fecha DESC, i.id DESC)
+        SELECT periodo,
+               count(*) FILTER (WHERE prof <= :c),
+               count(*) FILTER (WHERE prof > :c AND prof <= :m),
+               count(*) FILTER (WHERE prof > :m),
+               count(*) FILTER (WHERE prof IS NULL),
+               count(*)
+          FROM ultima GROUP BY periodo ORDER BY periodo"""),
+        {"g": trunc, "desde": datetime.combine(desde, datetime.min.time()),
+         "hasta": datetime.combine(hasta + timedelta(days=1), datetime.min.time()),
+         "activo": activo_id, "c": critico, "m": moderado})).all()
+    return EstadoPiso(agrupacion=agrupacion, desde=desde, hasta=hasta, rango_critico_mm=critico,
+                      rango_moderado_mm=moderado,
+                      periodos=[PeriodoEstado(periodo=p, critica=a, moderada=b, buena=c, sin_medida=d, total=t)
+                                for p, a, b, c, d, t in filas])
+
+
+class VidaCantidad(BaseModel):
+    vida: str
+    reencauches: int
+    llantas: int
+
+
+@router.get("/composicion-vida", response_model=List[VidaCantidad])
+async def composicion_vida(activo_id: Optional[int] = None, db: AsyncSession = Depends(get_db)):
+    """Las llantas montadas por vida: nueva (VN) o el número de reencauches (R1, R2…)."""
+    q = select(REENC, func.count()).where(MONTADA)
+    if activo_id:
+        q = q.where(N.activo_id == activo_id)
+    filas = (await db.execute(q.group_by(REENC).order_by(REENC))).all()
+    return [VidaCantidad(vida="VN" if r == 0 else f"R{r}", reencauches=r, llantas=n) for r, n in filas]

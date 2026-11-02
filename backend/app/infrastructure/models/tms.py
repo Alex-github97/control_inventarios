@@ -319,6 +319,10 @@ class TMSParada(Base, TimestampMixin):
     contacto                 = Column(String(150), nullable=True)
     telefono_contacto        = Column(String(30), nullable=True)
     observaciones            = Column(Text, nullable=True)
+    # Recogida en la sede de un cliente (planta de reencauche): lo que el
+    # conductor contó y la remisión que le entregaron. Vacíos en las demás.
+    recogida_cantidad        = Column(Integer, nullable=True)
+    recogida_remision        = Column(String(60), nullable=True)
 
     # Relationships
     viaje = relationship("TMSViaje", back_populates="paradas")

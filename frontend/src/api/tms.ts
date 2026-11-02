@@ -131,7 +131,8 @@ export const tmsApi = {
     .catch((e: any) => (e?.response?.status === 404 ? null : Promise.reject(e))),
   paradas: (viaje_id: number) => get<ParadaTMS[]>(`/tms/viajes/${viaje_id}/paradas`),
   crearParada: (d: Partial<ParadaTMS> & { viaje_id: number }) => apiClient.post('/tms/paradas', d).then(r => r.data),
-  estadoParada: (id: number, estado: string, extra?: { tiempo_real_llegada?: string; tiempo_real_salida?: string }) =>
+  estadoParada: (id: number, estado: string, extra?: { tiempo_real_llegada?: string; tiempo_real_salida?: string
+    cantidad_recogida?: number; remision_recogida?: string }) =>
     apiClient.put(`/tms/paradas/${id}/estado`, null, { params: { estado, ...extra } }).then(r => r.data),
   borrarParada: (id: number) => apiClient.delete(`/tms/paradas/${id}`),
   eventos: (viaje_id: number) => get<EventoTMS[]>(`/tms/viajes/${viaje_id}/eventos`),
@@ -149,6 +150,8 @@ export interface ParadaTMS {
   tiempo_estimado_llegada?: string | null; tiempo_real_llegada?: string | null
   tiempo_real_salida?: string | null
   contacto?: string | null; telefono_contacto?: string | null; observaciones?: string | null
+  /** Recogida de llantas para la planta de reencauche: lo que contó el conductor. */
+  recogida_cantidad?: number | null; recogida_remision?: string | null
 }
 
 export interface EventoTMS {

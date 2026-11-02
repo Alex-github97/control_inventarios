@@ -251,10 +251,21 @@ async def catalogo(cid: int, q: Optional[str] = None, limite: int = Query(60, ge
                                       WMSProducto.codigo_barras == t))
     filas = (await db.execute(consulta.order_by(WMSProducto.nombre).limit(limite))).all()
     ubic = await inv.ubicaciones_vendibles(db, caja.almacen_id)
+    serie = None
+    if q and not filas:
+        # El código de una llanta reencauchada de la planta: se vende esa unidad.
+        from app.core.reencauche_logistica import producto_por_serie
+        hallado = await producto_por_serie(db, q.strip(), ubic)
+        if hallado is not None:
+            precio = (await db.execute(select(POSPrecio.precio).where(
+                POSPrecio.lista_id == caja.lista_id, POSPrecio.producto_id == hallado.id))).scalar()
+            if precio is not None:
+                filas, serie = [(hallado, precio)], q.strip().upper()
     disp = await inv.disponible_en(db, [p.id for p, _ in filas], ubic)
     return [{"producto_id": p.id, "sku": p.sku, "nombre": p.nombre, "codigo_barras": p.codigo_barras,
              "unidad": p.unidad_medida, "precio": _f(precio), "tarifa_iva": _f(p.tarifa_iva),
-             "disponible": float(disp.get(p.id, 0)), "imagen_url": p.imagen_url} for p, precio in filas]
+             "disponible": 1.0 if serie else float(disp.get(p.id, 0)), "imagen_url": p.imagen_url,
+             **({"serie": serie} if serie else {})} for p, precio in filas]
 
 
 # ── Turnos de caja ───────────────────────────────────────────────────────────
@@ -364,6 +375,9 @@ class LineaIn(BaseModel):
     producto_id: int
     cantidad: float = Field(gt=0)
     descuento_pct: float = Field(default=0, ge=0, le=100)
+    # Unidad serializada escaneada (p. ej. el código de una reencauchada de la
+    # planta): sale esa unidad y no la que toque por FEFO.
+    serie: Optional[str] = Field(default=None, max_length=60)
 
 
 class PagoIn(BaseModel):

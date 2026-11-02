@@ -106,13 +106,24 @@ function ParadasTab({ viaje, editable }: { viaje: ViajeDetalleDatos; editable: b
     onSuccess: () => { toast.success('Parada agregada'); refrescar(); setAbierto(false) },
     onError: errorDe,
   })
+  // Una parada de recogida de llantas (planta de reencauche) no se completa
+  // sin la cantidad recogida y la remisión: el servidor lo exige y aquí se piden.
+  const [recogida, setRecogida] = useState<{ id: number; cantidad: string; remision: string } | null>(null)
   const estado = useMutation({
-    mutationFn: ({ id, e }: { id: number; e: string }) => {
+    mutationFn: ({ id, e, cantidad, remision }: { id: number; e: string; cantidad?: number; remision?: string }) => {
       const ahora = new Date().toISOString()
-      return tmsApi.estadoParada(id, e, e === 'EN_CURSO' ? { tiempo_real_llegada: ahora } : e === 'COMPLETADA' ? { tiempo_real_salida: ahora } : undefined)
+      return tmsApi.estadoParada(id, e, e === 'EN_CURSO' ? { tiempo_real_llegada: ahora }
+        : e === 'COMPLETADA' ? { tiempo_real_salida: ahora, cantidad_recogida: cantidad, remision_recogida: remision } : undefined)
     },
-    onSuccess: () => { toast.success('Parada actualizada'); refrescar() },
-    onError: errorDe,
+    onSuccess: () => { toast.success('Parada actualizada'); setRecogida(null); refrescar() },
+    onError: (err: any, v) => {
+      const d = err?.response?.data?.detail
+      if (err?.response?.status === 422 && typeof d === 'string' && d.includes('recogida de llantas') && v.e === 'COMPLETADA') {
+        setRecogida({ id: v.id, cantidad: '', remision: '' })
+        return
+      }
+      errorDe(err)
+    },
   })
   const borrar = useMutation({
     mutationFn: (id: number) => tmsApi.borrarParada(id),
@@ -138,7 +149,8 @@ function ParadasTab({ viaje, editable }: { viaje: ViajeDetalleDatos; editable: b
                 <Box sx={{ minWidth: 0, flex: 1 }}>
                   <Typography fontSize={13} fontWeight={600}>{p.ciudad} <Typography component="span" fontSize={11} color="text.secondary">({p.tipo.replace('_', ' ').toLowerCase()})</Typography></Typography>
                   <Typography fontSize={11} color="text.secondary">
-                    {[p.direccion, p.tiempo_estimado_llegada && `ETA ${fmtFecha(p.tiempo_estimado_llegada)}`,
+                    {[p.direccion, p.recogida_cantidad != null && `recogió ${p.recogida_cantidad} llantas${p.recogida_remision ? ` (remisión ${p.recogida_remision})` : ''}`,
+                      p.tiempo_estimado_llegada && `ETA ${fmtFecha(p.tiempo_estimado_llegada)}`,
                       p.tiempo_real_llegada && `llegó ${fmtFecha(p.tiempo_real_llegada)}`,
                       p.tiempo_real_salida && `salió ${fmtFecha(p.tiempo_real_salida)}`, p.contacto].filter(Boolean).join(' · ') || '—'}
                   </Typography>
@@ -159,6 +171,22 @@ function ParadasTab({ viaje, editable }: { viaje: ViajeDetalleDatos; editable: b
           ))}
         </Stack>
       )}
+      <Dialog open={!!recogida} onClose={() => setRecogida(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Recogida de llantas</DialogTitle>
+        <DialogContent>
+          <Typography fontSize={13} color="text.secondary" mb={1}>Registre lo que se recogió en esta sede: la planta lo usará como cantidad declarada al recibir.</Typography>
+          <TextField label="Llantas recogidas" type="number" fullWidth size="small" sx={{ my: 1 }} value={recogida?.cantidad ?? ''}
+            onChange={e => setRecogida(r => r && { ...r, cantidad: e.target.value })} />
+          <TextField label="Remisión del cliente" fullWidth size="small" value={recogida?.remision ?? ''}
+            onChange={e => setRecogida(r => r && { ...r, remision: e.target.value })} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRecogida(null)}>Cancelar</Button>
+          <Button variant="contained" disabled={!recogida || recogida.cantidad === ''}
+            onClick={() => recogida && estado.mutate({ id: recogida.id, e: 'COMPLETADA', cantidad: Number(recogida.cantidad), remision: recogida.remision || undefined })}>
+            Completar parada</Button>
+        </DialogActions>
+      </Dialog>
       <Dialog open={abierto} onClose={() => setAbierto(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Agregar parada</DialogTitle>
         <DialogContent>

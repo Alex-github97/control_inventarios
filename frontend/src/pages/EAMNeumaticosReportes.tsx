@@ -17,6 +17,7 @@ import { apiClient as api } from '@/api/client'
 import { exportarExcel } from '@/utils/exportar'
 import { FILTROS_VACIOS, FiltrosLlantasBarra, hayFiltros, type FiltrosLlantas } from '@/components/eam/FiltrosLlantas'
 import { TableroRendimiento, InformeMetrica, DetalleVidas, BotonInformePDF } from '@/components/eam/RendimientoLlantas'
+import { EstadoLlantasPiso } from '@/components/eam/EstadoLlantasPiso'
 
 import { COLOR_MODULO } from '@/config/marca'
 const EAM_COLOR = COLOR_MODULO
@@ -414,6 +415,7 @@ export default function EAMNeumaticosReportes() {
 
         {tipo === 'ESTADO_FLOTA' && (
           <Stack spacing={2}>
+            <EstadoLlantasPiso desde={desde} hasta={hasta} activoId={vehId} />
             {criticasTotales > 0 && (
               <Alert severity="error" sx={{ py: 0.5 }}>
                 {criticasTotales} llanta(s) en o bajo la profundidad mínima ({profMin} mm) en el periodo seleccionado.

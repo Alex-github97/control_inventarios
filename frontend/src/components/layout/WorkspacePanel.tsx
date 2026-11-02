@@ -27,6 +27,7 @@ const WORKSPACE_PERM_KEYS: Record<string, string[]> = {
   sst:      ['sst'],
   ags:      ['ags'],
   pos:      ['pos'],
+  reencauche: ['reencauche'],
   config:   ['usuarios'],
 }
 
@@ -61,6 +62,7 @@ const SCM_COLOR        = COLOR_MODULO_SOBRE_OSCURO
 const SST_COLOR        = COLOR_MODULO_SOBRE_OSCURO
 const AGS_COLOR        = COLOR_MODULO_SOBRE_OSCURO
 const POS_COLOR        = COLOR_MODULO_SOBRE_OSCURO
+const RTM_COLOR        = COLOR_MODULO_SOBRE_OSCURO
 const COMPACT_THRESHOLD = 80
 
 export const WORKSPACES = [
@@ -71,7 +73,7 @@ export const WORKSPACES = [
     color: CI_COLOR,
     path:  '/dashboard',
     isActive: (p: string) =>
-      !esRutaPlataforma(p) && !p.startsWith('/scm') && !p.startsWith('/sst') && !p.startsWith('/pos') &&
+      !esRutaPlataforma(p) && !p.startsWith('/scm') && !p.startsWith('/sst') && !p.startsWith('/pos') && !p.startsWith('/reencauche') &&
       !p.startsWith('/tarifax') &&
       !p.startsWith('/command-center') && !p.startsWith('/fletes') &&
       !p.startsWith('/tms') && !p.startsWith('/dms') && !p.startsWith('/qms') &&
@@ -142,6 +144,14 @@ export const WORKSPACES = [
     color: POS_COLOR,
     path:  '/pos',
     isActive: (p: string) => p.startsWith('/pos'),
+  },
+  {
+    id:    'reencauche',
+    label: 'ws.reencauche',
+    short: 'RTM',
+    color: RTM_COLOR,
+    path:  '/reencauche',
+    isActive: (p: string) => p.startsWith('/reencauche'),
   },
   {
     id:    'wms',

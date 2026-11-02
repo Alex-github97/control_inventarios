@@ -829,6 +829,10 @@ class EAMNeumaticoConfig(Base, TimestampMixin):
     margen_alerta_profundidad = Column(Float, default=2.0)   # mm
     # Diferencia entre hombro izquierdo y derecho que ya es desgaste irregular.
     diferencia_hombros    = Column(Float, default=3.0)   # mm
+    # Estado de llantas a piso (informe de flota): hasta `rango_critico_mm` es
+    # crítica, hasta `rango_moderado_mm` moderada y por encima buen estado.
+    rango_critico_mm      = Column(Float, default=3.0)
+    rango_moderado_mm     = Column(Float, default=6.0)
     # Las reglas de sugerencia iniciales se siembran una sola vez: si la empresa
     # luego las borra, no deben volver a aparecer.
     reglas_sembradas      = Column(Boolean, default=False)

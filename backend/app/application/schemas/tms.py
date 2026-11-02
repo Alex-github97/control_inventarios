@@ -292,6 +292,9 @@ class TMSParadaResponse(BaseModel):
     contacto: Optional[str] = None
     telefono_contacto: Optional[str] = None
     observaciones: Optional[str] = None
+    # Recogida de llantas para la planta de reencauche (vacíos en las demás).
+    recogida_cantidad: Optional[int] = None
+    recogida_remision: Optional[str] = None
 
 
 # ─── TMSEvento ────────────────────────────────────────────────────────────────

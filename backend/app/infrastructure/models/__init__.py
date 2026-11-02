@@ -237,3 +237,6 @@ from app.infrastructure.models.crm_reuniones import (  # noqa: F401,E402
     CRMReunion, CRMReunionParticipante, CRMReunionTramo, CRMReunionCompromiso,
     CRMReunionTrabajo, CRMReunionConfig, CRMReunionCaptura,
 )
+
+# Planta de reencauche (RTM): la carcasa como unidad de trabajo.
+from app.infrastructure.models import reencauche  # noqa: F401,E402

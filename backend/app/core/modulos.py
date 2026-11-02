@@ -38,6 +38,8 @@ MODULOS: List[Modulo] = [
     Modulo("ags",     "AGS · Agenda de Servicios", ("/ags",)),
     Modulo("pos",     "POS · Punto de Venta", ("/pos",)),
     Modulo("wms",     "WMS · Almacenes", ("/wms",)),
+    # Planta de reencauche: la carcasa como unidad de trabajo, sobre el WMS y el TMS.
+    Modulo("reencauche", "Planta de Reencauche", ("/reencauche",)),
     Modulo("gh",      "Gestión Humana", ("/hcm", "/gh")),
     Modulo("command", "Command Center", ("/command-center",)),
     Modulo("lms",     "LMS · Formación", ("/lms",)),

@@ -46,6 +46,7 @@ const ROUTE_PERM_MAP: Record<string, string> = {
   '/scm':          'scm',
   '/sst':          'sst',
   '/pos':          'pos',
+  '/reencauche':   'reencauche',
   '/usuarios':     'usuarios',
 }
 
@@ -343,6 +344,17 @@ const POSTurnos = React.lazy(() => import('@/pages/POSTurnos'))
 const POSVentas = React.lazy(() => import('@/pages/POSVentas'))
 const POSDashboard = React.lazy(() => import('@/pages/POSDashboard'))
 const POSConfig = React.lazy(() => import('@/pages/POSConfig'))
+const RTMTablero = React.lazy(() => import('@/pages/RTMTablero'))
+const RTMRecepcion = React.lazy(() => import('@/pages/RTMRecepcion'))
+const RTMCarcasas = React.lazy(() => import('@/pages/RTMCarcasas'))
+const RTMTerminal = React.lazy(() => import('@/pages/RTMTerminal'))
+const RTMCalidad = React.lazy(() => import('@/pages/RTMCalidad'))
+const RTMVulcanizacion = React.lazy(() => import('@/pages/RTMVulcanizacion'))
+const RTMDespachos = React.lazy(() => import('@/pages/RTMDespachos'))
+const RTMLiquidacion = React.lazy(() => import('@/pages/RTMLiquidacion'))
+const RTMGarantias = React.lazy(() => import('@/pages/RTMGarantias'))
+const RTMIndicadores = React.lazy(() => import('@/pages/RTMIndicadores'))
+const RTMConfig = React.lazy(() => import('@/pages/RTMConfig'))
 const Configuracion = React.lazy(() => import('@/pages/Configuracion'))
 const Clientes = React.lazy(() => import('@/pages/Clientes'))
 const ScannerMovil = React.lazy(() => import('@/pages/ScannerMovil'))
@@ -781,6 +793,18 @@ export default function App() {
             <Route path="/pos/ventas" element={<ProtectedRoute><POSVentas /></ProtectedRoute>} />
             <Route path="/pos/tablero" element={<ProtectedRoute><POSDashboard /></ProtectedRoute>} />
             <Route path="/pos/config" element={<ProtectedRoute><POSConfig /></ProtectedRoute>} />
+            {/* Planta de reencauche */}
+            <Route path="/reencauche" element={<ProtectedRoute><RTMTablero /></ProtectedRoute>} />
+            <Route path="/reencauche/recepcion" element={<ProtectedRoute><RTMRecepcion /></ProtectedRoute>} />
+            <Route path="/reencauche/carcasas" element={<ProtectedRoute><RTMCarcasas /></ProtectedRoute>} />
+            <Route path="/reencauche/terminal" element={<ProtectedRoute><RTMTerminal /></ProtectedRoute>} />
+            <Route path="/reencauche/calidad" element={<ProtectedRoute><RTMCalidad /></ProtectedRoute>} />
+            <Route path="/reencauche/vulcanizacion" element={<ProtectedRoute><RTMVulcanizacion /></ProtectedRoute>} />
+            <Route path="/reencauche/despachos" element={<ProtectedRoute><RTMDespachos /></ProtectedRoute>} />
+            <Route path="/reencauche/liquidacion" element={<ProtectedRoute><RTMLiquidacion /></ProtectedRoute>} />
+            <Route path="/reencauche/garantias" element={<ProtectedRoute><RTMGarantias /></ProtectedRoute>} />
+            <Route path="/reencauche/indicadores" element={<ProtectedRoute><RTMIndicadores /></ProtectedRoute>} />
+            <Route path="/reencauche/config" element={<ProtectedRoute><RTMConfig /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
           </Suspense>

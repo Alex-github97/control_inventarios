@@ -177,7 +177,17 @@
       "wmsMapa": "Warehouse map",
       "wmsFacturacion": "3PL billing",
       "wmsTraslados": "Inter-warehouse transfers",
-      "comparativoSicetac": "SICETAC comparison"
+      "comparativoSicetac": "SICETAC comparison",
+      "rtmTablero": "Plant dashboard",
+      "rtmRecepcion": "Receiving",
+      "rtmCarcasas": "Casings & traceability",
+      "rtmTerminal": "Station terminal",
+      "rtmCalidad": "Evaluation & holds",
+      "rtmVulcanizacion": "Curing",
+      "rtmDespachos": "Pickups & deliveries",
+      "rtmLiquidacion": "Billing",
+      "rtmGarantias": "Warranty",
+      "rtmIndicadores": "KPIs"
     },
     "section": {
       "principal": "Main",
@@ -265,7 +275,8 @@
       "config": "Settings",
       "espacios": "Spaces",
       "ags": "Service Scheduling",
-      "pos": "Point of Sale"
+      "pos": "Point of Sale",
+      "reencauche": "Retread Plant"
     },
     "logo": {
       "ci1": "Control of",
@@ -309,7 +320,9 @@
       "ags1": "Service",
       "ags2": "Scheduling",
       "pos1": "Point",
-      "pos2": "of Sale"
+      "pos2": "of Sale",
+      "rtm1": "Retread",
+      "rtm2": "Plant"
     },
     "common": {
       "save": "Save",

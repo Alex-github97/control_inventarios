@@ -893,7 +893,9 @@ async def _migrar_esquema(esquema: str) -> None:
         ))
         for definicion in ("margen_alerta_profundidad DOUBLE PRECISION DEFAULT 2.0",
                            "diferencia_hombros DOUBLE PRECISION DEFAULT 3.0",
-                           "reglas_sembradas BOOLEAN DEFAULT false"):
+                           "reglas_sembradas BOOLEAN DEFAULT false",
+                           "rango_critico_mm DOUBLE PRECISION DEFAULT 3.0",
+                           "rango_moderado_mm DOUBLE PRECISION DEFAULT 6.0"):
             await conn.execute(text(f"ALTER TABLE eam_neumatico_config ADD COLUMN IF NOT EXISTS {definicion}"))
         # Catálogo jerárquico de llantas/bandas: las marcas, dimensiones y
         # referencias que ya estaban escritas a mano en los registros existentes
@@ -2259,6 +2261,26 @@ async def _migrar_esquema(esquema: str) -> None:
             # para entrar.
             logging.getLogger("uvicorn.error").warning(
                 "No se pudo sembrar la configuración de lubricación en «%s»: %s", esquema, e)
+
+    # 5. Planta de reencauche: la recogida en sede del cliente le agrega dos
+    #    datos a la parada del TMS (`create_all` no altera tablas existentes), y
+    #    la ruta en frío con sus catálogos se siembra una sola vez. Sesión
+    #    propia por lo mismo que la de lubricación: si la siembra falla, el
+    #    servidor arranca igual.
+    async with _conexion(esquema) as conn:
+        for columna, tipo in (("recogida_cantidad", "INTEGER"), ("recogida_remision", "VARCHAR(60)")):
+            await conn.execute(text(f"ALTER TABLE tms_parada ADD COLUMN IF NOT EXISTS {columna} {tipo}"))
+    async with AsyncSession(engine) as db:
+        await db.execute(text(f'SET search_path TO "{esquema}"'))
+        try:
+            from app.core import reencauche_semilla
+
+            await reencauche_semilla.sembrar(db)
+            await db.commit()
+        except Exception as e:   # noqa: BLE001
+            await db.rollback()
+            logging.getLogger("uvicorn.error").warning(
+                "No se pudo sembrar la planta de reencauche en «%s»: %s", esquema, e)
 
     # `create_all` no altera tablas existentes: las columnas que la auditoría
     # financiera necesita se agregan a la tabla que ya estaba.
