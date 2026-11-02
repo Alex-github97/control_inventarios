@@ -7,11 +7,11 @@ Llevar cada carcasa por las etapas del reencauche, una tras otra, registrando qu
 ## ADDED Requirements
 
 ### Requirement: Rutas de etapas configurables
-La planta SHALL tener rutas de producción formadas por etapas en orden. Una empresa nueva SHALL recibir dos rutas sembradas: en frío (las quince etapas, de recepción a despacho) y en caliente (con aplicación de caucho y prensa con molde en lugar de embandado, encamisado y autoclave). Cada etapa SHALL declarar si es punto de decisión, qué mediciones pide y qué equipos la pueden hacer.
+La planta SHALL tener rutas de producción formadas por etapas en orden. Una empresa nueva SHALL recibir sembrada la ruta en frío (las quince etapas, de recepción a despacho, con banda precurada y autoclave). La planta MAY crear variantes de esa ruta; el reencauche en caliente no se modela. Cada etapa SHALL declarar si es punto de decisión, qué mediciones pide y qué equipos la pueden hacer.
 
-#### Scenario: Planta que solo trabaja en frío
-- **WHEN** el administrador desactiva la ruta en caliente
-- **THEN** las nuevas órdenes solo pueden usar la ruta en frío y las órdenes ya abiertas en caliente siguen su curso
+#### Scenario: Variante de la ruta
+- **WHEN** el administrador crea una variante de la ruta en frío y desactiva la original
+- **THEN** las nuevas órdenes solo pueden usar la variante y las órdenes ya abiertas con la original siguen su curso
 
 #### Scenario: Etapa opcional
 - **WHEN** una carcasa no necesita destalonado y la etapa está marcada como opcional en la ruta

@@ -6,7 +6,7 @@ Las pruebas de humo de cada grupo van en `backend/tests/humo_reencauche.py` (mis
 
 - [ ] 1.1 Registrar el módulo `reencauche` con el prefijo `/reencauche` en `core/modulos.py` y el router vacío en `api/v1/router.py`; verificar que una empresa sin el módulo recibe 403 en `/reencauche/...` y una con el módulo, 200.
 - [ ] 1.2 Crear `infrastructure/models/reencauche.py` con las tablas del diseño (decisión 2) y su migración e índices en `main._migrar_esquema` dentro del advisory lock; verificar arrancando el backend dos veces contra una base limpia y contra la empresa `demo`, sin errores ni tablas duplicadas.
-- [ ] 1.3 Siembra al activar el módulo: rutas en frío y en caliente, etapas con sus mediciones, defectos por zona, motivos de rechazo y límites de reparación de plantilla, sin recetas; verificar en `humo_reencauche.py` que una empresa nueva queda con las dos rutas y que la siembra no se repite al reiniciar.
+- [ ] 1.3 Siembra al activar el módulo: ruta en frío, etapas con sus mediciones, defectos por zona, motivos de rechazo y límites de reparación de plantilla, sin recetas; verificar en `humo_reencauche.py` que una empresa nueva queda con la ruta en frío y que la siembra no se repite al reiniciar.
 - [ ] 1.4 Configuración de planta: elegir el almacén del WMS y crear las zonas y ubicaciones que falten (recepción, producción, insumos, terminado, rechazos), y equipos con tipo, capacidad, ubicación de estación y `eam_activo_id` opcional; verificar por API que las zonas aparecen en el WMS y que un equipo sin ubicación no se puede usar en la terminal.
 - [ ] 1.5 Espacio «Reencauche» en `WorkspacePanel` y `Sidebar` con sus páginas vacías y la de Configuración (rutas, etapas, especificaciones, límites, defectos, motivos y equipos), sin errores de `tsc`; verificar con `probar_barra_modulos.cjs` que el módulo aparece en la barra y despliega sus submódulos.
 
@@ -40,7 +40,7 @@ Las pruebas de humo de cada grupo van en `backend/tests/humo_reencauche.py` (mis
 - [ ] 5.1 Recetas con versión, aprobadas por rol de calidad, por tecnología, banda o compuesto, cojín y equipo; verificar «Banda sin receta».
 - [ ] 5.2 Ciclos: carga por escaneo con receta única, tope de capacidad y encamisado conforme previo; verificar «Mezclar recetas», «Capacidad excedida» y «Fuga de vacío».
 - [ ] 5.3 Cierre del ciclo con variables reales, conformidad por variable y retención automática de todo el ciclo si hay desviación; verificar «Registro manual» y «Tiempo corto».
-- [ ] 5.4 Tablero de vulcanización con el estado de autoclaves y prensas y la utilización; verificar en navegador con dos ciclos en curso.
+- [ ] 5.4 Tablero de vulcanización con el estado de los autoclaves y la utilización; verificar en navegador con dos ciclos en curso.
 
 ## 6. Trazabilidad
 

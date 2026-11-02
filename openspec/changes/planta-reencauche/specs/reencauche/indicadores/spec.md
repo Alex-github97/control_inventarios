@@ -35,7 +35,7 @@ El sistema SHALL calcular el rendimiento de primera pasada (FPY): carcasas termi
 - **THEN** cuenta como terminada pero no como primera pasada
 
 ### Requirement: Tiempos y productividad
-El sistema SHALL calcular el tiempo promedio por etapa, el tiempo total de la planta (recepción a producto terminado), las llantas por turno y por máquina, la productividad (terminadas ÷ horas-hombre) y la utilización de autoclaves y prensas.
+El sistema SHALL calcular el tiempo promedio por etapa, el tiempo total de la planta (recepción a producto terminado), las llantas por turno y por máquina, la productividad (terminadas ÷ horas-hombre) y la utilización de los autoclaves.
 
 #### Scenario: Cuello de botella
 - **WHEN** el tiempo de espera promedio antes del embandado es el mayor de todas las etapas

@@ -32,9 +32,9 @@ El MES modela cantidades; forzarlo a unidades individuales cambiaría `mes_avanc
 
 ### 2. Modelo de datos
 - `rtm_planta_config`: fila única con el almacén del WMS, la ubicación por zona y los parámetros (consecutivo de códigos, cargo de inspección por rechazo).
-- `rtm_equipo`: raspadoras, autoclaves, prensas y demás, con tipo, capacidad (llantas por ciclo), ubicación del WMS de la estación y `eam_activo_id` opcional para el mantenimiento en el CMMS.
+- `rtm_equipo`: raspadoras, extrusoras, embandadoras, autoclaves y demás, con tipo, capacidad (llantas por ciclo), ubicación del WMS de la estación y `eam_activo_id` opcional para el mantenimiento en el CMMS.
 - `rtm_etapa`: catálogo (código, nombre, tipo: `PROCESO`/`INSPECCION`/`VULCANIZACION`, si es punto de decisión, mediciones que pide en JSON con nombre, unidad y si se compara con la especificación).
-- `rtm_ruta` y `rtm_ruta_etapa`: ruta (`FRIO`/`CALIENTE`) con sus etapas en orden, obligatoria u opcional, y los tipos de equipo admitidos.
+- `rtm_ruta` y `rtm_ruta_etapa`: ruta (la de frío sembrada; la planta puede crear variantes, p. ej. sin destalonado) con sus etapas en orden, obligatoria u opcional, y los tipos de equipo admitidos.
 - `rtm_recepcion`: propietario (depositante del WMS), remisión, cantidad declarada, viaje y parada de origen opcionales, estado.
 - `rtm_carcasa`: código único, depositante dueño, marca, medida, modelo, DOT, serie, reencauches previos, estado actual, etapa actual, `wms_serie_id`, `eam_neumatico_id` opcional.
 - `rtm_orden`: una por visita de la carcasa (recepción, ruta, banda pedida, prioridad, estado `ABIERTA`/`TERMINADA`/`RECHAZADA`, etapa actual, decisión pendiente, precio congelado, costo acumulado). Restricción única parcial: una orden abierta por carcasa.
@@ -78,7 +78,7 @@ Espacio «Reencauche» en `WorkspacePanel`/`Sidebar` (aparece solo en la barra d
 Se calculan con SQL agregado sobre `rtm_paso`, `rtm_orden`, `rtm_ciclo`, `rtm_consumo` y `rtm_reclamo`, con índices por fecha, etapa y equipo, y el cálculo restante en `to_thread`, siguiendo `consultas-con-volumen`. Sin tablas de totales precalculados en la primera versión; si una consulta anual pasa de unos segundos con el generador masivo, se agrega una tabla diaria como `mes_kpi_diario`.
 
 ### 10. Semilla y datos de demostración
-Al activar el módulo en una empresa se siembran las dos rutas, las etapas, los defectos y motivos de rechazo usuales y los límites de reparación como plantilla editable, **sin recetas** (las define la planta). Un generador `tools/sembrar_reencauche.py`, por API como `demoflota`, crea un año de operación con varias decenas de miles de carcasas para la empresa de demostración y para medir los indicadores.
+Al activar el módulo en una empresa se siembra la ruta en frío, las etapas, los defectos y motivos de rechazo usuales y los límites de reparación como plantilla editable, **sin recetas** (las define la planta). Un generador `tools/sembrar_reencauche.py`, por API como `demoflota`, crea un año de operación con varias decenas de miles de carcasas para la empresa de demostración y para medir los indicadores.
 
 ## Risks / Trade-offs
 
