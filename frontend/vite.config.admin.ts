@@ -11,7 +11,12 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
-  resolve: { alias: { '@': path.resolve(__dirname, './src') } },
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+      '@compartido': path.resolve(__dirname, './compartido'),
+    },
+  },
   build: {
     outDir: 'dist-admin',
     emptyOutDir: true,
