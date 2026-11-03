@@ -1,0 +1,14 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "types": ["jest"],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@compartido/*": ["../frontend/compartido/*"],
+      "openapi-fetch": ["./node_modules/openapi-fetch"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts", "../frontend/compartido/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

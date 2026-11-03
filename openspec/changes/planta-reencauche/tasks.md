@@ -69,13 +69,13 @@ Las pruebas de humo de cada grupo van en `backend/tests/humo_reencauche.py` (mis
 
 ## 9. Indicadores y datos masivos
 
-- [ ] 9.1 Generador `tools/sembrar_reencauche.py`, por API, con un año de operación (decenas de miles de carcasas, varios clientes, rechazos en todas las etapas, ciclos con desviaciones, reclamos); verificar que corre de cero contra una empresa local y que la conciliación del WMS sale sin diferencias.
+- [x] 9.1 Generador `tools/sembrar_reencauche.py`, por API, con un año de operación (decenas de miles de carcasas, varios clientes, rechazos en todas las etapas, ciclos con desviaciones, reclamos); verificar que corre de cero contra una empresa local y que la conciliación del WMS sale sin diferencias.
 - [x] 9.2 Indicadores agregados en SQL con filtros por periodo, cliente, medida, marca, banda, equipo y operario; verificar cada escenario de `indicadores` en `humo_reencauche.py` con datos construidos a mano de resultado conocido (82 %, 15 %, 0,7 por cada 100).
 - [ ] 9.3 Tablero e Indicadores en el frontend (embudo por etapa, FPY, tiempos y espera por etapa, autoclaves, consumos, garantías, costo por llanta); verificar con el set masivo que el tablero anual responde en pocos segundos sin reinicios de procesos.
 
 ## 10. Integración
 
-- [ ] 10.1 Medir todas las rutas GET de `/reencauche` contra el set masivo con el método de `consultas-con-volumen`; verificar que ninguna pasa de 5 s ni devuelve listas sin tope.
+- [x] 10.1 Medir todas las rutas GET de `/reencauche` contra el set masivo con el método de `consultas-con-volumen`; verificar que ninguna pasa de 5 s ni devuelve listas sin tope.
 - [x] 10.2 Prueba de navegador de punta a punta en la empresa de demostración: recogida, recepción, ruta en frío completa, un rechazo, un ciclo con desviación liberado, entrega, liquidación y reclamo; verificar con `probar_reencauche_completo.cjs` sin errores de página ni de API.
 
 ## Workflow follow-up

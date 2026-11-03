@@ -1,0 +1,62 @@
+{
+  "expo": {
+    "name": "TittanWare",
+    "slug": "tittanware-cmms",
+    "scheme": "tittanware",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "android": {
+      "package": "tech.tittanware.cmms",
+      "adaptiveIcon": {
+        "backgroundColor": "#0D0D0D",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F4F5F7",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160,
+          "dark": {
+            "backgroundColor": "#0B0C0E",
+            "image": "./assets/splash-icon.png"
+          }
+        }
+      ],
+      "expo-image",
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true
+        }
+      ],
+      "expo-sqlite",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "La cámara se usa para leer el código QR de activos, llantas y repuestos y para tomar fotos de las órdenes de trabajo.",
+          "barcodeScannerEnabled": true
+        }
+      ],
+      "expo-local-authentication"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

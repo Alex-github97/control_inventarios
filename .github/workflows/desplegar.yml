@@ -45,6 +45,29 @@ jobs:
       - name: Backend (sintaxis)
         run: python3 -m compileall -q backend/app
 
+      # El contrato con la app móvil: los tipos de frontend/compartido/api salen
+      # del OpenAPI del servidor. Si alguien cambia un endpoint del CMMS sin
+      # regenerarlos, o la app usa un campo que ya no existe, se detiene aquí.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Contrato servidor ↔ app (tipos al día)
+        run: |
+          pip install -q -r backend/requirements.txt
+          (cd backend && DEBUG=false python tools/volcar_openapi.py ../frontend/compartido/api/.openapi.json)
+          docker run --rm -v "$PWD/frontend:/app" -w /app node:20-alpine \
+            sh -c "npm ci --no-audit --no-fund && npm run tipos-api"
+          git diff --exit-code -- frontend/compartido/api/esquema.d.ts \
+            || { echo "::error::Los tipos del contrato cambiaron: corra tools/volcar_openapi.py y npm run tipos-api, y suba esquema.d.ts"; exit 1; }
+
+      - name: App móvil (tipos, lint y pruebas)
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo/movil node:22 \
+            sh -c "npm ci --no-audit --no-fund && npx tsc --noEmit && npx expo lint && npx jest --ci"
+
   desplegar:
     needs: validar
     runs-on: ubuntu-latest

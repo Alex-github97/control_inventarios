@@ -32,6 +32,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      // Lo que comparten el portal y la app móvil (marca, textos, tipos de la API).
+      '@compartido': path.resolve(__dirname, './compartido'),
     },
   },
   server: {
