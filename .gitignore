@@ -71,3 +71,5 @@ backend/nul
 INTERPRETACI*/
 *.pptx
 *.xlsx
+# Excepción: la calculadora de costos sí es parte del proyecto.
+!docs/costos/*.xlsx
