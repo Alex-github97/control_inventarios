@@ -1,0 +1,1046 @@
+{
+ "total": {
+  "tablas": 572,
+  "filas": 1755496,
+  "heap": 327095994,
+  "indices_bytes": 137460887,
+  "bytes": 464556881,
+  "bytes_fila": 265,
+  "n_indices": 1626,
+  "esquema_vacio_bytes": 18006016,
+  "dump_bytes": 72416678
+ },
+ "modulos": [
+  {
+   "clave": "eam",
+   "nombre": "CMMS / EAM",
+   "tablas": 128,
+   "filas": 308539,
+   "bytes": 96975800,
+   "indices": 373,
+   "bytes_fila": 314
+  },
+  {
+   "clave": "wms",
+   "nombre": "WMS · Almacenes",
+   "tablas": 79,
+   "filas": 280341,
+   "bytes": 67427975,
+   "indices": 297,
+   "bytes_fila": 241
+  },
+  {
+   "clave": "erp",
+   "nombre": "ERP · Financiero",
+   "tablas": 39,
+   "filas": 175484,
+   "bytes": 50143223,
+   "indices": 123,
+   "bytes_fila": 286
+  },
+  {
+   "clave": "tms",
+   "nombre": "TMS · Transporte",
+   "tablas": 28,
+   "filas": 199182,
+   "bytes": 43594534,
+   "indices": 91,
+   "bytes_fila": 219
+  },
+  {
+   "clave": "aps",
+   "nombre": "APS · Planeación",
+   "tablas": 29,
+   "filas": 109058,
+   "bytes": 24796828,
+   "indices": 65,
+   "bytes_fila": 227
+  },
+  {
+   "clave": "sst",
+   "nombre": "SST",
+   "tablas": 10,
+   "filas": 50020,
+   "bytes": 22193513,
+   "indices": 28,
+   "bytes_fila": 444
+  },
+  {
+   "clave": "grc",
+   "nombre": "GRC · Riesgo",
+   "tablas": 28,
+   "filas": 75573,
+   "bytes": 20313521,
+   "indices": 53,
+   "bytes_fila": 269
+  },
+  {
+   "clave": "scm",
+   "nombre": "SCM · Compras",
+   "tablas": 8,
+   "filas": 74520,
+   "bytes": 17496409,
+   "indices": 19,
+   "bytes_fila": 235
+  },
+  {
+   "clave": "mes",
+   "nombre": "MES · Producción",
+   "tablas": 32,
+   "filas": 78785,
+   "bytes": 17333011,
+   "indices": 85,
+   "bytes_fila": 220
+  },
+  {
+   "clave": "crm",
+   "nombre": "CRM · Comercial",
+   "tablas": 28,
+   "filas": 57560,
+   "bytes": 16544526,
+   "indices": 76,
+   "bytes_fila": 287
+  },
+  {
+   "clave": "locativa",
+   "nombre": "Mant. Locativo",
+   "tablas": 16,
+   "filas": 39532,
+   "bytes": 11907223,
+   "indices": 38,
+   "bytes_fila": 301
+  },
+  {
+   "clave": "dms",
+   "nombre": "DMS · Documental",
+   "tablas": 18,
+   "filas": 48948,
+   "bytes": 11340943,
+   "indices": 39,
+   "bytes_fila": 232
+  },
+  {
+   "clave": "base",
+   "nombre": "Base (usuarios y auditoría)",
+   "tablas": 9,
+   "filas": 24415,
+   "bytes": 10060678,
+   "indices": 35,
+   "bytes_fila": 412
+  },
+  {
+   "clave": "gh",
+   "nombre": "Gestión Humana",
+   "tablas": 30,
+   "filas": 32091,
+   "bytes": 9190922,
+   "indices": 71,
+   "bytes_fila": 286
+  },
+  {
+   "clave": "tarifax",
+   "nombre": "TarifaX",
+   "tablas": 6,
+   "filas": 22492,
+   "bytes": 8813635,
+   "indices": 20,
+   "bytes_fila": 392
+  },
+  {
+   "clave": "lms",
+   "nombre": "LMS · Formación",
+   "tablas": 29,
+   "filas": 64058,
+   "bytes": 8701608,
+   "indices": 37,
+   "bytes_fila": 136
+  },
+  {
+   "clave": "control",
+   "nombre": "Control de Estibas",
+   "tablas": 12,
+   "filas": 35018,
+   "bytes": 8617160,
+   "indices": 44,
+   "bytes_fila": 246
+  },
+  {
+   "clave": "ags",
+   "nombre": "AGS · Agenda",
+   "tablas": 12,
+   "filas": 31556,
+   "bytes": 7568263,
+   "indices": 52,
+   "bytes_fila": 240
+  },
+  {
+   "clave": "qms",
+   "nombre": "QMS · Calidad",
+   "tablas": 22,
+   "filas": 21306,
+   "bytes": 6387655,
+   "indices": 56,
+   "bytes_fila": 300
+  },
+  {
+   "clave": "pos",
+   "nombre": "POS · Punto de venta",
+   "tablas": 9,
+   "filas": 27018,
+   "bytes": 5149454,
+   "indices": 24,
+   "bytes_fila": 191
+  }
+ ],
+ "transacciones": [
+  {
+   "clave": "eam_tanqueo",
+   "modulo": "eam",
+   "nombre": "Tanqueo de combustible",
+   "unidad": "tanqueo",
+   "origen": "medido",
+   "registros": 1,
+   "bytes": 699,
+   "detalle": [
+    {
+     "tabla": "eam_registro_combustible",
+     "por_tx": 1,
+     "bytes_fila": 699
+    }
+   ]
+  },
+  {
+   "clave": "eam_chk",
+   "modulo": "eam",
+   "nombre": "Checklist preoperacional",
+   "unidad": "checklist",
+   "origen": "medido",
+   "registros": 14.7,
+   "bytes": 5032,
+   "detalle": [
+    {
+     "tabla": "eam_chk_ejecucion",
+     "por_tx": 1,
+     "bytes_fila": 615
+    },
+    {
+     "tabla": "eam_chk_respuesta",
+     "por_tx": 13.7,
+     "bytes_fila": 322
+    }
+   ]
+  },
+  {
+   "clave": "eam_insp_llanta",
+   "modulo": "eam",
+   "nombre": "Inspección de llanta",
+   "unidad": "inspección",
+   "origen": "medido",
+   "registros": 1,
+   "bytes": 322,
+   "detalle": [
+    {
+     "tabla": "eam_inspeccion_neumatico",
+     "por_tx": 1,
+     "bytes_fila": 322
+    }
+   ]
+  },
+  {
+   "clave": "eam_mov_llanta",
+   "modulo": "eam",
+   "nombre": "Movimiento de llanta (montaje, rotación, reencauche)",
+   "unidad": "movimiento",
+   "origen": "medido",
+   "registros": 1.45,
+   "bytes": 430,
+   "detalle": [
+    {
+     "tabla": "eam_movimiento_neumatico",
+     "por_tx": 1,
+     "bytes_fila": 343
+    },
+    {
+     "tabla": "eam_vida_neumatico",
+     "por_tx": 0.31,
+     "bytes_fila": 181
+    },
+    {
+     "tabla": "eam_reencauche_detalle",
+     "por_tx": 0.14,
+     "bytes_fila": 220
+    }
+   ]
+  },
+  {
+   "clave": "eam_ot",
+   "modulo": "eam",
+   "nombre": "Orden de trabajo con repuestos y mano de obra",
+   "unidad": "orden",
+   "origen": "medido",
+   "registros": 10.17,
+   "bytes": 4585,
+   "detalle": [
+    {
+     "tabla": "eam_orden_trabajo",
+     "por_tx": 1,
+     "bytes_fila": 659
+    },
+    {
+     "tabla": "eam_ot_material",
+     "por_tx": 3.82,
+     "bytes_fila": 236
+    },
+    {
+     "tabla": "eam_ot_mano_obra",
+     "por_tx": 0.99,
+     "bytes_fila": 503
+    },
+    {
+     "tabla": "eam_inv_movimiento",
+     "por_tx": 4.36,
+     "bytes_fila": 580
+    }
+   ]
+  },
+  {
+   "clave": "eam_lube",
+   "modulo": "eam",
+   "nombre": "Lubricación (carga o muestra de aceite)",
+   "unidad": "registro",
+   "origen": "medido",
+   "registros": 5.91,
+   "bytes": 1646,
+   "detalle": [
+    {
+     "tabla": "eam_lube_carga",
+     "por_tx": 1,
+     "bytes_fila": 366
+    },
+    {
+     "tabla": "eam_lube_muestra",
+     "por_tx": 0.31,
+     "bytes_fila": 466
+    },
+    {
+     "tabla": "eam_lube_resultado",
+     "por_tx": 4.6,
+     "bytes_fila": 247
+    }
+   ]
+  },
+  {
+   "clave": "tms_viaje",
+   "modulo": "tms",
+   "nombre": "Viaje con eventos, paradas, POD y liquidación",
+   "unidad": "viaje",
+   "origen": "medido",
+   "registros": 16.82,
+   "bytes": 3593,
+   "detalle": [
+    {
+     "tabla": "tms_viaje",
+     "por_tx": 1,
+     "bytes_fila": 515
+    },
+    {
+     "tabla": "tms_evento",
+     "por_tx": 6.34,
+     "bytes_fila": 179
+    },
+    {
+     "tabla": "tms_parada",
+     "por_tx": 2.36,
+     "bytes_fila": 281
+    },
+    {
+     "tabla": "tms_documento",
+     "por_tx": 2.99,
+     "bytes_fila": 138
+    },
+    {
+     "tabla": "tms_costo_viaje",
+     "por_tx": 1,
+     "bytes_fila": 216
+    },
+    {
+     "tabla": "tms_liquidacion",
+     "por_tx": 1,
+     "bytes_fila": 208
+    },
+    {
+     "tabla": "tms_otif_registro",
+     "por_tx": 1,
+     "bytes_fila": 184
+    },
+    {
+     "tabla": "tms_pod",
+     "por_tx": 1,
+     "bytes_fila": 230
+    },
+    {
+     "tabla": "tms_alerta",
+     "por_tx": 0.13,
+     "bytes_fila": 211
+    }
+   ]
+  },
+  {
+   "clave": "wms_salida",
+   "modulo": "wms",
+   "nombre": "Pedido de salida (picking y despacho)",
+   "unidad": "pedido",
+   "origen": "medido",
+   "registros": 18.18,
+   "bytes": 4303,
+   "detalle": [
+    {
+     "tabla": "wms_ordenes_salida",
+     "por_tx": 1,
+     "bytes_fila": 239
+    },
+    {
+     "tabla": "wms_ordenes_salida_detalle",
+     "por_tx": 2.99,
+     "bytes_fila": 183
+    },
+    {
+     "tabla": "wms_picking_tareas",
+     "por_tx": 1,
+     "bytes_fila": 197
+    },
+    {
+     "tabla": "wms_picking_detalles",
+     "por_tx": 2.99,
+     "bytes_fila": 177
+    },
+    {
+     "tabla": "wms_despachos",
+     "por_tx": 1,
+     "bytes_fila": 304
+    },
+    {
+     "tabla": "wms_despachos_detalle",
+     "por_tx": 2.94,
+     "bytes_fila": 160
+    },
+    {
+     "tabla": "wms_movimientos_inventario",
+     "por_tx": 3.28,
+     "bytes_fila": 422
+    },
+    {
+     "tabla": "wms_eventos_trazabilidad",
+     "por_tx": 2.98,
+     "bytes_fila": 212
+    }
+   ]
+  },
+  {
+   "clave": "wms_recepcion",
+   "modulo": "wms",
+   "nombre": "Recepción de mercancía",
+   "unidad": "recepción",
+   "origen": "medido",
+   "registros": 12.5,
+   "bytes": 3608,
+   "detalle": [
+    {
+     "tabla": "wms_recepciones",
+     "por_tx": 1,
+     "bytes_fila": 290
+    },
+    {
+     "tabla": "wms_recepciones_detalle",
+     "por_tx": 5.25,
+     "bytes_fila": 169
+    },
+    {
+     "tabla": "wms_movimientos_inventario",
+     "por_tx": 5.25,
+     "bytes_fila": 422
+    },
+    {
+     "tabla": "wms_eventos_trazabilidad",
+     "por_tx": 1,
+     "bytes_fila": 212
+    }
+   ]
+  },
+  {
+   "clave": "wms_mkp",
+   "modulo": "wms",
+   "nombre": "Pedido de marketplace (canal en línea)",
+   "unidad": "pedido",
+   "origen": "estimado",
+   "registros": 10,
+   "bytes": 2430,
+   "detalle": [
+    {
+     "tabla": "mkp_pedidos",
+     "por_tx": 1,
+     "bytes_fila": 817
+    },
+    {
+     "tabla": "mkp_pedido_lineas",
+     "por_tx": 2,
+     "bytes_fila": 287
+    },
+    {
+     "tabla": "mkp_cola_estado",
+     "por_tx": 2,
+     "bytes_fila": 166
+    },
+    {
+     "tabla": "mkp_cola_stock",
+     "por_tx": 2,
+     "bytes_fila": 67
+    },
+    {
+     "tabla": "mkp_bitacora",
+     "por_tx": 3,
+     "bytes_fila": 191
+    }
+   ]
+  },
+  {
+   "clave": "erp_doc",
+   "modulo": "erp",
+   "nombre": "Documento contable (factura, pago o nota) con su asiento",
+   "unidad": "documento",
+   "origen": "medido",
+   "registros": 6.44,
+   "bytes": 1869,
+   "detalle": [
+    {
+     "tabla": "erp_comprobantes",
+     "por_tx": 1,
+     "bytes_fila": 400
+    },
+    {
+     "tabla": "erp_comprobante_lineas",
+     "por_tx": 2.64,
+     "bytes_fila": 267
+    },
+    {
+     "tabla": "erp_auditoria",
+     "por_tx": 1,
+     "bytes_fila": 371
+    },
+    {
+     "tabla": "erp_facturas_cliente",
+     "por_tx": 0.45,
+     "bytes_fila": 291
+    },
+    {
+     "tabla": "erp_lineas_factura_cliente",
+     "por_tx": 0.8,
+     "bytes_fila": 160
+    },
+    {
+     "tabla": "erp_facturas_proveedor",
+     "por_tx": 0.1,
+     "bytes_fila": 265
+    },
+    {
+     "tabla": "erp_pagos",
+     "por_tx": 0.45,
+     "bytes_fila": 237
+    }
+   ]
+  },
+  {
+   "clave": "scm_compra",
+   "modulo": "scm",
+   "nombre": "Solicitud y orden de compra",
+   "unidad": "solicitud",
+   "origen": "medido",
+   "registros": 6.18,
+   "bytes": 1358,
+   "detalle": [
+    {
+     "tabla": "scm_solicitudes_compra",
+     "por_tx": 1,
+     "bytes_fila": 413
+    },
+    {
+     "tabla": "scm_solicitud_items",
+     "por_tx": 2.34,
+     "bytes_fila": 160
+    },
+    {
+     "tabla": "scm_ordenes_compra",
+     "por_tx": 0.85,
+     "bytes_fila": 260
+    },
+    {
+     "tabla": "scm_orden_items",
+     "por_tx": 1.99,
+     "bytes_fila": 176
+    }
+   ]
+  },
+  {
+   "clave": "crm_lead",
+   "modulo": "crm",
+   "nombre": "Lead con su seguimiento comercial",
+   "unidad": "lead",
+   "origen": "medido",
+   "registros": 3.0,
+   "bytes": 777,
+   "detalle": [
+    {
+     "tabla": "crm_lead",
+     "por_tx": 1,
+     "bytes_fila": 290
+    },
+    {
+     "tabla": "crm_interaccion",
+     "por_tx": 0.59,
+     "bytes_fila": 312
+    },
+    {
+     "tabla": "crm_oportunidad",
+     "por_tx": 0.29,
+     "bytes_fila": 361
+    },
+    {
+     "tabla": "crm_cotizacion",
+     "por_tx": 0.27,
+     "bytes_fila": 244
+    },
+    {
+     "tabla": "crm_cotizacion_item",
+     "por_tx": 0.82,
+     "bytes_fila": 152
+    },
+    {
+     "tabla": "crm_actividad",
+     "por_tx": 0.035,
+     "bytes_fila": 210
+    }
+   ]
+  },
+  {
+   "clave": "dms_doc",
+   "modulo": "dms",
+   "nombre": "Documento con versiones, metadatos y firma",
+   "unidad": "documento",
+   "origen": "medido",
+   "registros": 5.04,
+   "bytes": 1173,
+   "detalle": [
+    {
+     "tabla": "dms_documento",
+     "por_tx": 1,
+     "bytes_fila": 298
+    },
+    {
+     "tabla": "dms_version",
+     "por_tx": 2.0,
+     "bytes_fila": 285
+    },
+    {
+     "tabla": "dms_metadato_valor",
+     "por_tx": 0.92,
+     "bytes_fila": 121
+    },
+    {
+     "tabla": "dms_firma",
+     "por_tx": 0.3,
+     "bytes_fila": 168
+    },
+    {
+     "tabla": "dms_instancia",
+     "por_tx": 0.18,
+     "bytes_fila": 169
+    },
+    {
+     "tabla": "dms_instancia_paso",
+     "por_tx": 0.54,
+     "bytes_fila": 169
+    },
+    {
+     "tabla": "dms_auditoria",
+     "por_tx": 0.1,
+     "bytes_fila": 224
+    }
+   ]
+  },
+  {
+   "clave": "gh_colab",
+   "modulo": "gh",
+   "nombre": "Colaborador activo en el mes (nómina y novedades)",
+   "unidad": "colaborador·mes",
+   "origen": "medido",
+   "registros": 2.3,
+   "bytes": 526,
+   "detalle": [
+    {
+     "tabla": "hcm_nomina_detalle",
+     "por_tx": 1,
+     "bytes_fila": 280
+    },
+    {
+     "tabla": "hcm_novedad",
+     "por_tx": 1.2,
+     "bytes_fila": 175
+    },
+    {
+     "tabla": "hcm_colaborador_historial",
+     "por_tx": 0.1,
+     "bytes_fila": 361
+    }
+   ]
+  },
+  {
+   "clave": "qms_reg",
+   "modulo": "qms",
+   "nombre": "Registro de calidad (medición, hallazgo o no conformidad)",
+   "unidad": "registro",
+   "origen": "estimado",
+   "registros": 1.5,
+   "bytes": 310,
+   "detalle": [
+    {
+     "tabla": "qms_medicion_indicador",
+     "por_tx": 1,
+     "bytes_fila": 173
+    },
+    {
+     "tabla": "qms_no_conformidad",
+     "por_tx": 0.15,
+     "bytes_fila": 581
+    },
+    {
+     "tabla": "qms_capa_tarea",
+     "por_tx": 0.2,
+     "bytes_fila": 174
+    },
+    {
+     "tabla": "qms_auditoria_hallazgo",
+     "por_tx": 0.15,
+     "bytes_fila": 104
+    }
+   ]
+  },
+  {
+   "clave": "grc_eval",
+   "modulo": "grc",
+   "nombre": "Prueba de control o evaluación de riesgo",
+   "unidad": "evaluación",
+   "origen": "estimado",
+   "registros": 3,
+   "bytes": 1002,
+   "detalle": [
+    {
+     "tabla": "grc_prueba_control",
+     "por_tx": 1,
+     "bytes_fila": 282
+    },
+    {
+     "tabla": "grc_evidencia",
+     "por_tx": 1,
+     "bytes_fila": 336
+    },
+    {
+     "tabla": "grc_historial",
+     "por_tx": 1,
+     "bytes_fila": 384
+    }
+   ]
+  },
+  {
+   "clave": "mes_op",
+   "modulo": "mes",
+   "nombre": "Orden de producción ejecutada",
+   "unidad": "orden",
+   "origen": "estimado",
+   "registros": 18,
+   "bytes": 3852,
+   "detalle": [
+    {
+     "tabla": "mes_orden_produccion",
+     "por_tx": 1,
+     "bytes_fila": 324
+    },
+    {
+     "tabla": "mes_orden_operacion",
+     "por_tx": 3,
+     "bytes_fila": 145
+    },
+    {
+     "tabla": "mes_consumo_material",
+     "por_tx": 5,
+     "bytes_fila": 146
+    },
+    {
+     "tabla": "mes_oee_registro",
+     "por_tx": 3,
+     "bytes_fila": 217
+    },
+    {
+     "tabla": "mes_wip",
+     "por_tx": 3,
+     "bytes_fila": 265
+    },
+    {
+     "tabla": "mes_scrap",
+     "por_tx": 1,
+     "bytes_fila": 292
+    },
+    {
+     "tabla": "mes_defecto",
+     "por_tx": 1,
+     "bytes_fila": 316
+    },
+    {
+     "tabla": "mes_parada",
+     "por_tx": 1,
+     "bytes_fila": 306
+    }
+   ]
+  },
+  {
+   "clave": "aps_plan",
+   "modulo": "aps",
+   "nombre": "Producto planeado en un periodo (pronóstico a MRP)",
+   "unidad": "producto·periodo",
+   "origen": "estimado",
+   "registros": 5.5,
+   "bytes": 991,
+   "detalle": [
+    {
+     "tabla": "aps_demanda",
+     "por_tx": 1,
+     "bytes_fila": 175
+    },
+    {
+     "tabla": "aps_pronostico",
+     "por_tx": 1,
+     "bytes_fila": 186
+    },
+    {
+     "tabla": "aps_plan_detalle",
+     "por_tx": 1,
+     "bytes_fila": 161
+    },
+    {
+     "tabla": "aps_mrp",
+     "por_tx": 1,
+     "bytes_fila": 185
+    },
+    {
+     "tabla": "aps_orden_sugerida",
+     "por_tx": 0.5,
+     "bytes_fila": 244
+    },
+    {
+     "tabla": "aps_detalle_periodo",
+     "por_tx": 1,
+     "bytes_fila": 161
+    }
+   ]
+  },
+  {
+   "clave": "lms_insc",
+   "modulo": "lms",
+   "nombre": "Inscripción con avance y evaluación",
+   "unidad": "inscripción",
+   "origen": "estimado",
+   "registros": 10,
+   "bytes": 1327,
+   "detalle": [
+    {
+     "tabla": "lms_inscripcion",
+     "por_tx": 1,
+     "bytes_fila": 123
+    },
+    {
+     "tabla": "lms_progreso",
+     "por_tx": 3,
+     "bytes_fila": 99
+    },
+    {
+     "tabla": "lms_intento_evaluacion",
+     "por_tx": 1,
+     "bytes_fila": 115
+    },
+    {
+     "tabla": "lms_respuesta",
+     "por_tx": 5,
+     "bytes_fila": 159
+    }
+   ]
+  },
+  {
+   "clave": "sst_reg",
+   "modulo": "sst",
+   "nombre": "Registro SST (inspección, incidente o entrega de EPP)",
+   "unidad": "registro",
+   "origen": "estimado",
+   "registros": 1.0,
+   "bytes": 549,
+   "detalle": [
+    {
+     "tabla": "sst_inspecciones",
+     "por_tx": 0.4,
+     "bytes_fila": 459
+    },
+    {
+     "tabla": "sst_incidentes",
+     "por_tx": 0.2,
+     "bytes_fila": 793
+    },
+    {
+     "tabla": "sst_entregas_epp",
+     "por_tx": 0.4,
+     "bytes_fila": 518
+    }
+   ]
+  },
+  {
+   "clave": "loca_ot",
+   "modulo": "locativa",
+   "nombre": "Orden de trabajo locativa",
+   "unidad": "orden",
+   "origen": "estimado",
+   "registros": 8,
+   "bytes": 2188,
+   "detalle": [
+    {
+     "tabla": "loca_ordenes_trabajo",
+     "por_tx": 1,
+     "bytes_fila": 587
+    },
+    {
+     "tabla": "loca_ot_checklist",
+     "por_tx": 5,
+     "bytes_fila": 240
+    },
+    {
+     "tabla": "loca_ot_materiales",
+     "por_tx": 2,
+     "bytes_fila": 201
+    }
+   ]
+  },
+  {
+   "clave": "ags_cita",
+   "modulo": "ags",
+   "nombre": "Cita con servicios y pago",
+   "unidad": "cita",
+   "origen": "estimado",
+   "registros": 4.5,
+   "bytes": 1624,
+   "detalle": [
+    {
+     "tabla": "ags_cita",
+     "por_tx": 1,
+     "bytes_fila": 783
+    },
+    {
+     "tabla": "ags_cita_servicio",
+     "por_tx": 1.5,
+     "bytes_fila": 196
+    },
+    {
+     "tabla": "ags_cita_material",
+     "por_tx": 1,
+     "bytes_fila": 215
+    },
+    {
+     "tabla": "ags_pago_cita",
+     "por_tx": 1,
+     "bytes_fila": 334
+    }
+   ]
+  },
+  {
+   "clave": "pos_venta",
+   "modulo": "pos",
+   "nombre": "Venta con líneas y pago",
+   "unidad": "venta",
+   "origen": "estimado",
+   "registros": 6.1,
+   "bytes": 1388,
+   "detalle": [
+    {
+     "tabla": "pos_venta",
+     "por_tx": 1,
+     "bytes_fila": 435
+    },
+    {
+     "tabla": "pos_venta_linea",
+     "por_tx": 3,
+     "bytes_fila": 215
+    },
+    {
+     "tabla": "pos_pago",
+     "por_tx": 1.1,
+     "bytes_fila": 110
+    },
+    {
+     "tabla": "pos_movimiento_caja",
+     "por_tx": 1,
+     "bytes_fila": 185
+    }
+   ]
+  },
+  {
+   "clave": "control_mov",
+   "modulo": "control",
+   "nombre": "Movimiento de estibas",
+   "unidad": "movimiento",
+   "origen": "estimado",
+   "registros": 1.4,
+   "bytes": 496,
+   "detalle": [
+    {
+     "tabla": "movimientos",
+     "por_tx": 1,
+     "bytes_fila": 392
+    },
+    {
+     "tabla": "manifiesto_historial",
+     "por_tx": 0.3,
+     "bytes_fila": 254
+    },
+    {
+     "tabla": "eventos_dano",
+     "por_tx": 0.1,
+     "bytes_fila": 275
+    }
+   ]
+  },
+  {
+   "clave": "tarifax_cot",
+   "modulo": "tarifax",
+   "nombre": "Comparación o cotización de tarifa",
+   "unidad": "comparación",
+   "origen": "estimado",
+   "registros": 1.2,
+   "bytes": 828,
+   "detalle": [
+    {
+     "tabla": "tarifax_comparaciones",
+     "por_tx": 1,
+     "bytes_fila": 769
+    },
+    {
+     "tabla": "tarifax_ajustes",
+     "por_tx": 0.2,
+     "bytes_fila": 296
+    }
+   ]
+  }
+ ],
+ "por_activo_mes": {
+  "eam_tanqueo": 12.06,
+  "eam_chk": 1.81,
+  "eam_insp_llanta": 9.03,
+  "eam_mov_llanta": 2.43,
+  "eam_ot": 0.985,
+  "eam_lube": 0.53
+ }
+}
