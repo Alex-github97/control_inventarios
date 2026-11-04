@@ -5939,6 +5939,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/movil/apk/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Descargar Con Enlace
+         * @description El APK por el enlace firmado (ruta pública: el permiso es el token).
+         */
+        get: operations["descargar_con_enlace_api_v1_movil_apk__token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/movil/descarga": {
         parameters: {
             query?: never;
@@ -5992,6 +6012,33 @@ export interface paths {
         post?: never;
         /** Revocar Dispositivo */
         delete: operations["revocar_dispositivo_api_v1_movil_dispositivos__dispositivo_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/movil/enlace-descarga": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enlace Descarga
+         * @description Un enlace directo al APK, válido unos minutos.
+         *
+         *     En el teléfono la descarga tiene que hacerla el navegador, con su gestor de
+         *     descargas: bajar 48 MB por JavaScript a memoria y armar un enlace `blob:`
+         *     falla en Android (navegadores de lectores de QR, Samsung Internet, datos
+         *     móviles lentos). Y el navegador no manda la cabecera Authorization al abrir
+         *     un enlace, por eso el permiso va firmado en la URL. Se emite aquí, con sesión
+         *     y con el CMMS ya comprobado por el middleware de módulos.
+         */
+        post: operations["enlace_descarga_api_v1_movil_enlace_descarga_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -8167,6 +8214,16 @@ export interface components {
             nit?: string | null;
             /** Nombre */
             nombre: string;
+        };
+        /** EnlaceDescarga */
+        EnlaceDescarga: {
+            /** Url */
+            url: string;
+            /**
+             * Vence
+             * Format: date-time
+             */
+            vence: string;
         };
         /** EsquemaAsignacionCreate */
         EsquemaAsignacionCreate: {
@@ -26672,6 +26729,37 @@ export interface operations {
             };
         };
     };
+    descargar_con_enlace_api_v1_movil_apk__token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     descargar_api_v1_movil_descarga_get: {
         parameters: {
             query?: never;
@@ -26748,6 +26836,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enlace_descarga_api_v1_movil_enlace_descarga_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnlaceDescarga"];
                 };
             };
         };

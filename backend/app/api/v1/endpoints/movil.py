@@ -31,7 +31,7 @@ from app.core.acceso_modulos import modulos_de
 from app.core.config import settings
 from app.core.database import get_db, get_db_plataforma
 from app.core.dependencies import get_current_user, require_admin
-from app.core.security import create_access_token
+from app.core.security import create_access_token, decode_token, firmar
 from app.infrastructure.models.movil import MovilDispositivo
 from app.infrastructure.models.usuario import Usuario
 
@@ -233,12 +233,47 @@ async def version_publicada():
     return VersionResponse(**{k: m[k] for k in VersionResponse.model_fields if k in m})
 
 
-@router.get("/descarga")
-async def descargar(_: Usuario = Depends(get_current_user)):
-    """El APK, solo con sesión: el prefijo /movil pertenece al CMMS, así que el
-    middleware de módulos ya negó el paso a una empresa sin él."""
+class EnlaceDescarga(BaseModel):
+    url: str
+    vence: datetime
+
+
+@router.post("/enlace-descarga", response_model=EnlaceDescarga)
+async def enlace_descarga(usuario: Usuario = Depends(get_current_user)):
+    """Un enlace directo al APK, válido unos minutos.
+
+    En el teléfono la descarga tiene que hacerla el navegador, con su gestor de
+    descargas: bajar 48 MB por JavaScript a memoria y armar un enlace `blob:`
+    falla en Android (navegadores de lectores de QR, Samsung Internet, datos
+    móviles lentos). Y el navegador no manda la cabecera Authorization al abrir
+    un enlace, por eso el permiso va firmado en la URL. Se emite aquí, con sesión
+    y con el CMMS ya comprobado por el middleware de módulos.
+    """
+    if _manifiesto() is None:
+        raise HTTPException(404, "Todavía no hay una versión publicada de la app.")
+    vence = datetime.now(timezone.utc) + timedelta(minutes=10)
+    token = firmar({"sub": str(usuario.id), "type": "apk", "exp": vence})
+    return EnlaceDescarga(url=f"/api/v1/movil/apk/{token}", vence=vence)
+
+
+def _servir_apk() -> FileResponse:
     m = _manifiesto()
     if m is None:
         raise HTTPException(404, "Todavía no hay una versión publicada de la app.")
     return FileResponse(CARPETA_APK / m["archivo"], media_type="application/vnd.android.package-archive",
                         filename=f"TittanWare-{m['version']}.apk")
+
+
+@router.get("/apk/{token}")
+async def descargar_con_enlace(token: str):
+    """El APK por el enlace firmado (ruta pública: el permiso es el token)."""
+    if decode_token(token).get("type") != "apk":
+        raise HTTPException(401, "El enlace de descarga no es válido.")
+    return _servir_apk()
+
+
+@router.get("/descarga")
+async def descargar(_: Usuario = Depends(get_current_user)):
+    """El APK, solo con sesión: el prefijo /movil pertenece al CMMS, así que el
+    middleware de módulos ya negó el paso a una empresa sin él."""
+    return _servir_apk()

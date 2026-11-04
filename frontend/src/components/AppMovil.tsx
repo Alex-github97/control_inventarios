@@ -60,13 +60,12 @@ export function PanelAppMovil() {
     setDescargando(true)
     setError(null)
     try {
-      const r = await apiClient.get('/movil/descarga', { responseType: 'blob', timeout: 300_000 })
-      const url = URL.createObjectURL(r.data as Blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `TittanWare-${data.version}.apk`
-      a.click()
-      setTimeout(() => URL.revokeObjectURL(url), 30_000)
+      // Enlace firmado de 10 minutos que abre el propio navegador: así baja con
+      // su gestor de descargas. Bajarlo a memoria y armar un `blob:` falla en
+      // el teléfono, que es justo donde se descarga.
+      const r = await apiClient.post<{ url: string }>('/movil/enlace-descarga')
+      const base = new URL(apiClient.defaults.baseURL ?? '/api/v1', window.location.href)
+      window.location.assign(new URL(r.data.url, base).href)
     } catch (e) {
       setError(mensajeDeError(e, 'No se pudo descargar la app'))
     } finally {

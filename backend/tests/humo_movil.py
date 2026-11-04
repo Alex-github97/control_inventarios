@@ -191,6 +191,14 @@ async def main():
             r = await c.get(f"{BASE}/movil/descarga", headers={"Authorization": f"Bearer {d['access_token']}"})
             ok(r.status_code == 200 and r.content[:2] == b"PK" and "TittanWare-9.9.9.apk" in r.headers.get("content-disposition", ""),
                "descargar con sesión → el APK con su nombre", r.headers)
+            r = await c.post(f"{BASE}/movil/enlace-descarga")
+            ok(r.status_code == 401, "enlace de descarga sin sesión → 401", r.status_code)
+            r = await c.post(f"{BASE}/movil/enlace-descarga", headers={"Authorization": f"Bearer {d['access_token']}"})
+            ok(r.status_code == 200 and r.json()["url"].startswith("/api/v1/movil/apk/"), "enlace de descarga con sesión", r.text)
+            r = await c.get(BASE.split("/api/v1")[0] + r.json()["url"])
+            ok(r.status_code == 200 and r.content[:2] == b"PK", "el enlace baja el APK sin cabecera (como el navegador)", r.status_code)
+            r = await c.get(f"{BASE}/movil/apk/{d['access_token']}")
+            ok(r.status_code == 401, "un token de acceso no sirve de enlace → 401", r.status_code)
     finally:
         shutil.rmtree(carpeta, ignore_errors=True)
         if respaldo.exists():
