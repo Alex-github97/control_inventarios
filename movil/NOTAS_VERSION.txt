@@ -1,0 +1,1 @@
+Primera versión: ingreso con su usuario del portal y sus órdenes de trabajo del CMMS (ver, iniciar, esperar repuestos y completar).

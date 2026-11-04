@@ -18,6 +18,7 @@ import { MARCA, ACENTO, PALETA, SUPERFICIE } from '@/config/marca'
 import { Logotipo } from '@/components/Logotipo'
 import { useModuleNav } from './Sidebar'
 import { BarraModulos } from './BarraModulos'
+import { BotonAppMovil } from '@/components/AppMovil'
 
 // Barra superior: las mismas superficies oscuras que tenían el panel de espacios y la barra lateral
 const BAR_BG = `linear-gradient(90deg, ${PALETA.abismo} 0%, ${SUPERFICIE.barra} 60%, #171717 100%)`
@@ -151,6 +152,8 @@ export function Header() {
               <SupportAgent fontSize="small" />
             </IconButton>
           </Tooltip>
+
+          <BotonAppMovil sx={iconoOscuroSx(ACENTO.claro)} />
 
           <Tooltip title="Escanear QR">
             <IconButton size="small" onClick={() => navigate('/estibas/scan')} sx={iconoOscuroSx(ACENTO.claro)}>

@@ -157,14 +157,16 @@ def _ip(request: Request) -> str:
 _CREDENCIALES = "Usuario o contraseña incorrectos"
 
 
-@router.post("/login", response_model=TokenResponse)
-async def login(
-    data: LoginRequest,
-    request: Request,
-    x_cliente: Optional[str] = Header(None, alias="X-Cliente"),
-    db: AsyncSession = Depends(get_db),
-    db_plataforma: AsyncSession = Depends(get_db_plataforma),
-):
+async def autenticar(
+    data: LoginRequest, request: Request, x_cliente: Optional[str],
+    db: AsyncSession, db_plataforma: AsyncSession,
+) -> tuple[PlataformaCliente, Usuario]:
+    """Comprueba empresa, usuario y clave, con todas las protecciones del ingreso.
+
+    La usan el portal (`/auth/login`) y la app móvil (`/movil/sesion`): un solo
+    lugar para el bloqueo por intentos, los tiempos parejos y los usuarios
+    inactivos. Deja `db` apuntando al esquema del cliente.
+    """
     # El usuario se busca dentro del esquema del cliente: dos empresas pueden
     # tener un "admin" cada una y son personas distintas.
     cliente = await _cliente_de_la_peticion(x_cliente, db_plataforma)
@@ -203,6 +205,18 @@ async def login(
     user.intentos_fallidos = 0
     await db.flush()
     await sesiones.limpiar_fallos(cliente.codigo, data.username)
+    return cliente, user
+
+
+@router.post("/login", response_model=TokenResponse)
+async def login(
+    data: LoginRequest,
+    request: Request,
+    x_cliente: Optional[str] = Header(None, alias="X-Cliente"),
+    db: AsyncSession = Depends(get_db),
+    db_plataforma: AsyncSession = Depends(get_db_plataforma),
+):
+    cliente, user = await autenticar(data, request, x_cliente, db, db_plataforma)
     sid = await sesiones.crear(user.id, cliente.esquema, cliente.codigo)
 
     # ¿Es usuario del portal de un depositante (cliente del 3PL)?

@@ -50,12 +50,13 @@ Middleware para peticiones con encabezado `Idempotency-Key`: reserva la clave en
 ### 7. Sesión de dispositivo
 `POST /movil/sesion` aplica la misma validación del login del portal (empresa, intentos, usuario activo) y además exige el módulo `eam`; crea un `movil_dispositivo` (usuario, nombre, modelo, versión de app, hash del token de renovación, última actividad, revocado) y devuelve un token de acceso corto (1 h, con su sesión en Redis como hoy) y un token de renovación rotativo. `POST /movil/renovar` rota el token de renovación y emite otro de acceso; vence tras 30 días sin uso. Revocar el dispositivo o desactivar el usuario invalida la renovación y la app, al recibir 401 «revocado», borra los datos locales. Sin señal la app no necesita el servidor para trabajar: el token solo se usa al sincronizar. El token de renovación va en `expo-secure-store`, protegido con la biometría (`expo-local-authentication`).
 
-### 8. Distribución: EAS Build, llave restringida y versión mínima
-- Compilación del APK con **EAS Build** (perfil `produccion`, `buildType: apk`), en la nube de Expo: no hay Node ni SDK de Android local. La llave de firma la administra EAS; se descarga un respaldo a un lugar seguro del usuario.
-- Flujo de GitHub Actions al crear una etiqueta `movil-v*`: compila con EAS (`EXPO_TOKEN` en secretos), descarga el APK y lo sube al servidor con una **segunda llave SSH restringida** (`command="/opt/tittanware/deploy/recibir_apk.sh",restrict`) que guarda el archivo en `uploads/movil/` y registra versión y notas en `movil_version`. Mismo patrón que la llave de despliegue.
-- `GET /movil/version` (versión vigente, mínima, notas) y `GET /movil/descarga` (requiere sesión del portal y CMMS contratado; entrega el APK en streaming).
-- Actualizaciones en el aire con **EAS Update** (canal `produccion`) y `runtimeVersion` por huella nativa: una OTA solo llega a los APK con el mismo código nativo.
-- La app envía `X-App-Version`; si es menor que `MOVIL_VERSION_MINIMA`, el servidor responde 426 y la app retiene la cola y lleva a la descarga.
+### 8. Distribución: compilación en Docker, llave de despliegue y versión mínima
+- **Cambio al implementar (decisión del usuario: proceder sin cuenta de Expo):** el APK se compila en Docker con el SDK de Android (`movil/compilar/`), aquí o en el runner de GitHub, y se firma con una llave propia (`movil/firma/`, fuera de Git, respaldada por el usuario; en CI viaja en los secretos `MOVIL_FIRMA_JKS` y `MOVIL_FIRMA_CLAVE`). EAS Build queda como alternativa cuando exista la cuenta.
+- Flujo de GitHub Actions `movil.yml` con la etiqueta `movil-v*`: compila, firma y envía el APK por la **misma llave de despliegue**, con el pedido de forma exacta `publicar-apk X.Y.Z N`; `deploy/actualizar.sh` guarda la entrada estándar antes de cualquier otra cosa y la publica con `tools/publicar_apk.py`. No hizo falta una segunda llave: el comando sigue fijo y el pedido se valida con una expresión estricta, como `reducir-carga`.
+- La versión publicada vive en `uploads/movil/version.json` junto al APK (no en una tabla `movil_version`): es un solo archivo para todas las empresas y el manifiesto se escribe de forma atómica al final.
+- `GET /movil/version` (pública: versión, mínima, notas) y `GET /movil/descarga` (sesión del portal y CMMS contratado, por el prefijo `/movil` del módulo `eam`).
+- Actualizaciones en el aire (EAS Update) quedan para cuando exista la cuenta de Expo.
+- La app envía `X-App-Version`; si es menor que la mínima, el servidor responderá 426 (pendiente).
 *Alternativa descartada:* publicar el APK como adjunto de un release de GitHub: el repositorio es público y la descarga quedaría sin sesión, contra la especificación.
 
 ### 9. Contrato con el portal en el despliegue
@@ -84,7 +85,7 @@ Acceso «App móvil» en el menú del usuario (encabezado) cuando la empresa tie
 
 ## Migration Plan
 
-Todo es aditivo: tablas nuevas (`movil_dispositivo`, `movil_idempotencia`, `movil_version`, `movil_push_token`) y la columna `tecnico_usuario_id`, creadas en `_migrar_esquema` dentro del candado; el middleware de idempotencia y versión solo actúa con sus encabezados, así que el portal no cambia. El acceso «App móvil» aparece cuando exista una versión publicada. Para revertir: retirar la versión publicada y revocar los dispositivos; las tablas quedan sin uso.
+Todo es aditivo: tablas nuevas (`movil_dispositivo`, `movil_idempotencia`, `movil_push_token`) y la columna `tecnico_usuario_id`, creadas en `_migrar_esquema` dentro del candado; el middleware de idempotencia y versión solo actúa con sus encabezados, así que el portal no cambia. El acceso «App móvil» aparece cuando exista una versión publicada. Para revertir: retirar la versión publicada y revocar los dispositivos; las tablas quedan sin uso.
 
 ## Open Questions
 

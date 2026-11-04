@@ -67,6 +67,7 @@
     ],
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/src/$1",
+      "^openapi-fetch$": "<rootDir>/node_modules/openapi-fetch/dist/cjs/index.cjs",
       "^lucide-react-native$": "<rootDir>/node_modules/lucide-react-native/dist/cjs/lucide-react-native.js",
       "^@compartido/(.*)$": "<rootDir>/../frontend/compartido/$1"
     }

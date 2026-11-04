@@ -1,7 +1,9 @@
+/** Entrada: con el teléfono vinculado, a sus órdenes; si no, al ingreso. */
 import { Redirect } from 'expo-router'
+import { useSesion } from '@/datos/sesion'
 
-// Mientras se construyen el ingreso y las pantallas del CMMS, la app abre el
-// catálogo del sistema de diseño para validar el nivel visual.
 export default function Inicio() {
-  return <Redirect href="/catalogo" />
+  const { cargando, usuario } = useSesion()
+  if (cargando) return null
+  return <Redirect href={usuario ? '/ordenes' : '/ingreso'} />
 }

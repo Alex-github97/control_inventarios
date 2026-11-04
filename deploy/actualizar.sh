@@ -23,6 +23,17 @@ COMPOSE="docker compose -f docker-compose.prod.yml --env-file .env.prod"
 exec 9>/tmp/tittanware-despliegue.lock
 flock 9
 
+# Publicar el APK de la app móvil (flujo .github/workflows/movil.yml): el
+# archivo llega por la entrada estándar. Se guarda ANTES de cualquier otra
+# cosa, porque `docker compose exec` también lee la entrada y se lo comería.
+APK_ENTRANTE=""
+if [[ "${SSH_ORIGINAL_COMMAND:-}" =~ ^publicar-apk\ ([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})\ ([0-9]{1,6})$ ]]; then
+  APK_VERSION="${BASH_REMATCH[1]}"
+  APK_CODIGO="${BASH_REMATCH[2]}"
+  APK_ENTRANTE="$(mktemp /tmp/tittanware-apk.XXXXXX)"
+  head -c 300000000 > "$APK_ENTRANTE"
+fi
+
 echo "── Código"
 git fetch --quiet origin main
 ANTES="$(git rev-parse HEAD)"
@@ -56,6 +67,16 @@ $COMPOSE exec -T proxy nginx -s reload || $COMPOSE restart proxy
 pedido_extra() {
   # Opcionales al final: activos y meses del CMMS coherente.
   local patron='^reducir-carga ([0-9]{1,4}) ([0-9]{1,6}) ([0-9]{1,6})( ([0-9]{1,5}) ([0-9]{1,3}))?$'
+  if [[ -n "$APK_ENTRANTE" ]]; then
+    echo "── Publicación de la app móvil ${APK_VERSION}"
+    local destino="/app/uploads/movil/entrante-${APK_VERSION}.apk"
+    $COMPOSE exec -T backend mkdir -p /app/uploads/movil
+    $COMPOSE cp "$APK_ENTRANTE" "backend:${destino}"
+    rm -f "$APK_ENTRANTE"
+    $COMPOSE exec -T backend python tools/publicar_apk.py "$destino" --version "$APK_VERSION" --codigo "$APK_CODIGO" --notas "$(cat movil/NOTAS_VERSION.txt 2>/dev/null || true)"
+    $COMPOSE exec -T backend rm -f "$destino"
+    return
+  fi
   if [[ "${SSH_ORIGINAL_COMMAND:-}" =~ $patron ]]; then
     echo "── Reducción de la empresa de carga"
     DIAS="${BASH_REMATCH[1]}" FILAS="${BASH_REMATCH[2]}" MAESTROS="${BASH_REMATCH[3]}" \

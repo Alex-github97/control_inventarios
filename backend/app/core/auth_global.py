@@ -18,6 +18,12 @@ from app.core.security import decode_token
 RUTAS_PUBLICAS = (
     "/api/v1/auth/login",              # todavía no hay sesión
     "/api/v1/auth/clientes",           # paso previo: a qué empresa se entra
+    # La app móvil ingresa y renueva con usuario y clave o con su secreto de
+    # dispositivo (todavía sin token), y consulta si hay versión nueva antes de
+    # ingresar. La descarga del APK sí exige sesión.
+    "/api/v1/movil/sesion",
+    "/api/v1/movil/renovar",
+    "/api/v1/movil/version",
     "/api/v1/ags/publico",             # reserva de citas por parte del cliente final
     "/api/v1/landing/contenido",       # la pagina publica la ve cualquiera
     # El formulario de contacto de la landing: quien escribe todavia no es

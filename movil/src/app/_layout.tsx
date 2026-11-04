@@ -1,5 +1,5 @@
 /**
- * Raíz de la app: fuentes, pantalla de bienvenida, gestos, áreas seguras y tema.
+ * Raíz de la app: fuentes, pantalla de bienvenida, gestos, áreas seguras, tema y sesión.
  */
 import { useEffect } from 'react'
 import { Stack } from 'expo-router'
@@ -11,6 +11,7 @@ import {
   Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold, useFonts,
 } from '@expo-google-fonts/inter'
 import { ProveedorTema, useTema } from '@/diseno'
+import { ProveedorSesion } from '@/datos/sesion'
 
 SplashScreen.preventAutoHideAsync()
 
@@ -32,7 +33,9 @@ export default function Raiz() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ProveedorTema>
-          <Navegacion />
+          <ProveedorSesion>
+            <Navegacion />
+          </ProveedorSesion>
         </ProveedorTema>
       </SafeAreaProvider>
     </GestureHandlerRootView>

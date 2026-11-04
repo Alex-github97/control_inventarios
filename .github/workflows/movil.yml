@@ -1,0 +1,78 @@
+# Construye, firma y publica el APK de la app móvil del CMMS.
+#
+# Se dispara con una etiqueta movil-vX.Y.Z (la versión debe coincidir con
+# movil/app.json) o a mano desde Actions. Necesita, además de los secretos del
+# despliegue, dos del repositorio:
+#   MOVIL_FIRMA_JKS   la llave movil/firma/tittanware.jks en base64 (una línea)
+#   MOVIL_FIRMA_CLAVE el contenido de movil/firma/clave.txt
+# El APK no queda público: va directo al servidor por la llave de despliegue
+# (deploy/actualizar.sh lo recibe con el pedido «publicar-apk») y desde ahí lo
+# descarga solo quien tiene sesión y el CMMS contratado.
+name: App móvil
+
+on:
+  push:
+    tags: ['movil-v*']
+  workflow_dispatch:
+
+concurrency:
+  group: produccion
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    environment: produccion
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Versión
+        id: version
+        run: |
+          VERSION=$(python3 -c "import json;print(json.load(open('movil/app.json'))['expo']['version'])")
+          CODIGO=$(python3 -c "import json;print(json.load(open('movil/app.json'))['expo']['android']['versionCode'])")
+          if [[ "$GITHUB_REF" == refs/tags/movil-v* && "${GITHUB_REF#refs/tags/movil-v}" != "$VERSION" ]]; then
+            echo "::error::La etiqueta ${GITHUB_REF#refs/tags/} no coincide con la versión $VERSION de movil/app.json"; exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "codigo=$CODIGO" >> "$GITHUB_OUTPUT"
+
+      - name: Llave de firma
+        env:
+          JKS: ${{ secrets.MOVIL_FIRMA_JKS }}
+          CLAVE: ${{ secrets.MOVIL_FIRMA_CLAVE }}
+        run: |
+          [ -n "$JKS" ] && [ -n "$CLAVE" ] || { echo "::error::Faltan los secretos MOVIL_FIRMA_JKS y MOVIL_FIRMA_CLAVE"; exit 1; }
+          mkdir -p movil/firma
+          printf '%s' "$JKS" | tr -d ' \n\r\t' | base64 -d > movil/firma/tittanware.jks
+          printf '%s' "$CLAVE" | tr -d '\r\n' > movil/firma/clave.txt
+
+      - name: Compilar y firmar
+        run: |
+          docker build -t tw-android movil/compilar
+          docker volume create ci_movil_nm >/dev/null
+          bash movil/compilar/apk.sh
+
+      - name: Llave y huella del servidor
+        env:
+          LLAVE: ${{ secrets.SERVIDOR_LLAVE }}
+          HUELLA: ${{ secrets.SERVIDOR_HUELLA }}
+        run: |
+          install -m 700 -d ~/.ssh
+          limpia="$(printf '%s' "$LLAVE" | tr -d '\r')"
+          if printf '%s' "$limpia" | grep -q 'BEGIN OPENSSH PRIVATE KEY'; then
+            printf '%s\n' "$limpia" | sed 's/[[:space:]]*$//' | grep -v '^$' > ~/.ssh/despliegue
+          else
+            printf '%s' "$limpia" | tr -d ' \n\t' | base64 -d > ~/.ssh/despliegue
+          fi
+          chmod 600 ~/.ssh/despliegue
+          printf '%s\n' "$HUELLA" | tr -d '\r' > ~/.ssh/known_hosts
+
+      - name: Publicar en el servidor
+        run: |
+          ssh -i ~/.ssh/despliegue -o StrictHostKeyChecking=yes \
+            "${{ secrets.SERVIDOR_USUARIO }}@${{ secrets.SERVIDOR_HOST }}" \
+            "publicar-apk ${{ steps.version.outputs.version }} ${{ steps.version.outputs.codigo }}" \
+            < "movil/compilar/salida/TittanWare-${{ steps.version.outputs.version }}.apk"
+          curl -fsS https://app.tittanware.com/api/v1/movil/version

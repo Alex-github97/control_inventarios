@@ -14,7 +14,7 @@ type Tono = 'normal' | 'secundario' | 'terciario' | 'acento' | 'exito' | 'alerta
 
 export function Texto({ variante = 'cuerpo', tono = 'normal', style, children, lineas, ...resto }: {
   variante?: VarianteTipo; tono?: Tono; style?: StyleProp<TextStyle>; children: ReactNode; lineas?: number
-  accessibilityRole?: 'header' | 'text'
+  accessibilityRole?: 'header' | 'text'; accessibilityLiveRegion?: 'none' | 'polite' | 'assertive'
 }) {
   const { color } = useTema()
   const c = { normal: color.texto, secundario: color.textoSecundario, terciario: color.textoTerciario, acento: color.acento,
@@ -144,13 +144,14 @@ export function Seccion({ titulo, accion, onAccion, children }: { titulo: string
   )
 }
 
-export function Avatar({ nombre, tamano = 40 }: { nombre: string; tamano?: number }) {
+export function Avatar({ nombre, tamano = 40, onPress }: { nombre: string; tamano?: number; onPress?: () => void }) {
   const { color } = useTema()
   const iniciales = nombre.split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]!.toUpperCase()).join('')
   return (
-    <View accessibilityLabel={nombre} style={{ width: tamano, height: tamano, borderRadius: tamano / 2, backgroundColor: color.acentoSuave, alignItems: 'center', justifyContent: 'center' }}>
+    <Pressable accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={nombre} disabled={!onPress} onPress={onPress}
+      style={{ width: tamano, height: tamano, borderRadius: tamano / 2, backgroundColor: color.acentoSuave, alignItems: 'center', justifyContent: 'center' }}>
       <Text style={[TIPO.cuerpoFuerte, { color: color.acentoSobreSuave, fontSize: tamano * 0.38 }]}>{iniciales}</Text>
-    </View>
+    </Pressable>
   )
 }
 

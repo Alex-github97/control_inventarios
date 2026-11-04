@@ -240,3 +240,6 @@ from app.infrastructure.models.crm_reuniones import (  # noqa: F401,E402
 
 # Planta de reencauche (RTM): la carcasa como unidad de trabajo.
 from app.infrastructure.models import reencauche  # noqa: F401,E402
+
+# App móvil: dispositivos vinculados (sesión de 30 días, revocable).
+from app.infrastructure.models import movil  # noqa: F401,E402

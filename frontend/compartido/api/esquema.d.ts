@@ -5939,6 +5939,118 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/movil/descarga": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Descargar
+         * @description El APK, solo con sesión: el prefijo /movil pertenece al CMMS, así que el
+         *     middleware de módulos ya negó el paso a una empresa sin él.
+         */
+        get: operations["descargar_api_v1_movil_descarga_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/movil/dispositivos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar Dispositivos
+         * @description Los propios; un administrador puede ver los de cualquiera.
+         */
+        get: operations["listar_dispositivos_api_v1_movil_dispositivos_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/movil/dispositivos/{dispositivo_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revocar Dispositivo */
+        delete: operations["revocar_dispositivo_api_v1_movil_dispositivos__dispositivo_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/movil/renovar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Renovar */
+        post: operations["renovar_api_v1_movil_renovar_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/movil/sesion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Abrir Sesion */
+        post: operations["abrir_sesion_api_v1_movil_sesion_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/movil/version": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Version Publicada
+         * @description Pública: la app la consulta antes de ingresar para saber si hay una nueva.
+         */
+        get: operations["version_publicada_api_v1_movil_version_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -7780,6 +7892,15 @@ export interface components {
              */
             severidad: string;
         };
+        /** DatosDispositivo */
+        DatosDispositivo: {
+            /** Modelo */
+            modelo?: string | null;
+            /** Nombre */
+            nombre: string;
+            /** Version App */
+            version_app?: string | null;
+        };
         /** DefinicionImportacion */
         DefinicionImportacion: {
             /** Columnas */
@@ -7891,6 +8012,33 @@ export interface components {
             grupos: components["schemas"]["GrupoRendimiento"][];
             /** Nombre */
             nombre: string;
+        };
+        /** DispositivoResponse */
+        DispositivoResponse: {
+            /** Id */
+            id: number;
+            /** Modelo */
+            modelo: string | null;
+            /** Motivo */
+            motivo: string | null;
+            /** Nombre */
+            nombre: string;
+            /** Revocado En */
+            revocado_en: string | null;
+            /**
+             * Ultimo Uso
+             * Format: date-time
+             */
+            ultimo_uso: string;
+            /** Usuario Id */
+            usuario_id: number;
+            /**
+             * Vence
+             * Format: date-time
+             */
+            vence: string;
+            /** Version App */
+            version_app: string | null;
         };
         /** Distribucion */
         Distribucion: {
@@ -11193,6 +11341,11 @@ export interface components {
             dimensiones: components["schemas"]["DimensionRendimiento"][];
             resumen: components["schemas"]["MetricasRendimiento"];
         };
+        /** RenovarRequest */
+        RenovarRequest: {
+            /** Renovacion */
+            renovacion: string;
+        };
         /** Reparto */
         Reparto: {
             /** Cantidad */
@@ -11418,6 +11571,33 @@ export interface components {
         SeleccionIn: {
             /** Pregunta Ids */
             pregunta_ids: number[];
+        };
+        /** SesionMovilRequest */
+        SesionMovilRequest: {
+            dispositivo: components["schemas"]["DatosDispositivo"];
+            /** Password */
+            password: string;
+            /** Username */
+            username: string;
+        };
+        /** SesionMovilResponse */
+        SesionMovilResponse: {
+            /** Access Token */
+            access_token: string;
+            /** Dispositivo Id */
+            dispositivo_id: number;
+            /** Empresa */
+            empresa: string;
+            /** Modulos */
+            modulos: string[];
+            /** Renovacion */
+            renovacion: string;
+            user: components["schemas"]["UsuarioResponse"];
+            /**
+             * Vence
+             * Format: date-time
+             */
+            vence: string;
         };
         /** SeveridadIn */
         SeveridadIn: {
@@ -12642,6 +12822,26 @@ export interface components {
             producto_id?: number | null;
             /** Volumen Litros */
             volumen_litros?: number | null;
+        };
+        /** VersionResponse */
+        app__api__v1__endpoints__movil__VersionResponse: {
+            /** Codigo */
+            codigo: number;
+            /** Minima */
+            minima?: string | null;
+            /**
+             * Notas
+             * @default
+             */
+            notas: string;
+            /** Publicada */
+            publicada: string;
+            /** Sha256 */
+            sha256: string;
+            /** Tamano */
+            tamano: number;
+            /** Version */
+            version: string;
         };
     };
     responses: never;
@@ -26468,6 +26668,177 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    descargar_api_v1_movil_descarga_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    listar_dispositivos_api_v1_movil_dispositivos_get: {
+        parameters: {
+            query?: {
+                usuario_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DispositivoResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revocar_dispositivo_api_v1_movil_dispositivos__dispositivo_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dispositivo_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    renovar_api_v1_movil_renovar_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Cliente"?: string | null;
+                "X-App-Version"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenovarRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SesionMovilResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    abrir_sesion_api_v1_movil_sesion_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Cliente"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SesionMovilRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SesionMovilResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    version_publicada_api_v1_movil_version_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__api__v1__endpoints__movil__VersionResponse"];
                 };
             };
         };

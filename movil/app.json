@@ -9,6 +9,13 @@
     "userInterfaceStyle": "automatic",
     "android": {
       "package": "tech.tittanware.cmms",
+      "versionCode": 1,
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#0D0D0D",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -50,7 +57,8 @@
         "expo-camera",
         {
           "cameraPermission": "La cámara se usa para leer el código QR de activos, llantas y repuestos y para tomar fotos de las órdenes de trabajo.",
-          "barcodeScannerEnabled": true
+          "barcodeScannerEnabled": true,
+          "recordAudioAndroid": false
         }
       ],
       "expo-local-authentication"

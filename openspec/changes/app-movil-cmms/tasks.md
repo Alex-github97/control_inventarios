@@ -17,7 +17,7 @@ Las pruebas del servidor van en `backend/tests/humo_movil.py` y crecen grupo a g
 
 ## 3. Acceso y sesión de dispositivo
 
-- [ ] 3.1 Servidor: tabla `movil_dispositivo`, `POST /movil/sesion` (exige `eam`), `POST /movil/renovar` rotativo, vencimiento a 30 días, revocación y efecto de desactivar el usuario. Verificar en `humo_movil.py` los escenarios de `acceso-dispositivo`, incluido «Empresa sin CMMS» y renovación tras revocar (401).
+- [x] 3.1 Servidor: tabla `movil_dispositivo`, `POST /movil/sesion` (exige `eam`), `POST /movil/renovar` rotativo, vencimiento a 30 días, revocación y efecto de desactivar el usuario. Verificar en `humo_movil.py` los escenarios de `acceso-dispositivo`, incluido «Empresa sin CMMS» y renovación tras revocar (401).
 - [ ] 3.2 App: ingreso con empresa recordada, token de renovación en almacenamiento seguro con biometría, bloqueo a los 15 min en segundo plano y borrado de datos al recibir «revocado». Verificar con Maestro «Volver a la app» y «Teléfono perdido».
 - [ ] 3.3 Portal: pestaña «Dispositivos» en Usuarios con revocar. Verificar en navegador que revocar un dispositivo deja la app sin acceso en su siguiente conexión.
 

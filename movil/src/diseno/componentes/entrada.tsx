@@ -11,9 +11,11 @@ import { useTema } from '../tema'
 import { ESPACIO, FUENTE, MOVIMIENTO, RADIO, TACTIL, TIPO } from '../tokens'
 import { Texto } from './base'
 
-export function Campo({ etiqueta, valor, onCambio, ayuda, error, icono: Icono, teclado, secreto, multilinea, placeholder }: {
+export function Campo({ etiqueta, valor, onCambio, ayuda, error, icono: Icono, teclado, secreto, multilinea, placeholder, sinMayusculas, alEnviar }: {
   etiqueta: string; valor: string; onCambio: (v: string) => void; ayuda?: string; error?: string | null
   icono?: LucideIcon; teclado?: KeyboardTypeOptions; secreto?: boolean; multilinea?: boolean; placeholder?: string
+  /** Códigos y usuarios: sin mayúscula inicial ni autocorrección. */
+  sinMayusculas?: boolean; alEnviar?: () => void
 }) {
   const { color } = useTema()
   const [foco, setFoco] = useState(false)
@@ -25,7 +27,8 @@ export function Campo({ etiqueta, valor, onCambio, ayuda, error, icono: Icono, t
         multilinea && { minHeight: 104, alignItems: 'flex-start', paddingTop: ESPACIO.e3 }]}>
         {Icono && <Icono size={19} color={foco ? color.acento : color.textoTerciario} />}
         <TextInput accessibilityLabel={etiqueta} value={valor} onChangeText={onCambio} keyboardType={teclado} secureTextEntry={secreto}
-          multiline={multilinea} placeholder={placeholder} placeholderTextColor={color.textoTerciario} onFocus={() => setFoco(true)}
+          multiline={multilinea} placeholder={placeholder} autoCapitalize={sinMayusculas || secreto ? 'none' : 'sentences'}
+          autoCorrect={!(sinMayusculas || secreto)} onSubmitEditing={alEnviar} returnKeyType={alEnviar ? 'go' : undefined} placeholderTextColor={color.textoTerciario} onFocus={() => setFoco(true)}
           onBlur={() => setFoco(false)} style={[TIPO.cuerpo, { flex: 1, color: color.texto, paddingVertical: 0 }]} />
       </View>
       {(error || ayuda) && <Texto variante="nota" tono={error ? 'peligro' : 'terciario'}>{error ?? ayuda}</Texto>}

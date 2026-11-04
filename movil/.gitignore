@@ -5,3 +5,8 @@ web-build/
 *.jks
 *.keystore
 expo-env.d.ts
+# Llave de firma del APK y su clave: nunca al repositorio (ver compilar/README.md).
+firma/
+# Proyecto nativo generado por expo prebuild durante la compilación.
+android/
+ios/

@@ -79,6 +79,7 @@ function SinAcceso() {
 
 const Login = React.lazy(() => import('@/pages/Login'))
 const Soporte = React.lazy(() => import('@/pages/Soporte'))
+const AppMovil = React.lazy(() => import('@/pages/AppMovil'))
 const SeleccionCliente = React.lazy(() => import('@/pages/SeleccionCliente'))
 const Dashboard = React.lazy(() => import('@/pages/Dashboard'))
 const Estibas = React.lazy(() => import('@/pages/Estibas'))
@@ -545,6 +546,8 @@ export default function App() {
             <Route path="/usuarios" element={<ProtectedRoute><Usuarios /></ProtectedRoute>} />
             {/* Mesa de ayuda: pagina propia, no un panel flotante. */}
             <Route path="/soporte" element={<ProtectedRoute><Soporte /></ProtectedRoute>} />
+            {/* La app móvil: a donde lleva el código QR del encabezado. */}
+            <Route path="/app-movil" element={<ProtectedRoute><AppMovil /></ProtectedRoute>} />
             <Route path="/usuarios/roles" element={<ProtectedRoute><Roles /></ProtectedRoute>} />
             <Route path="/command-center" element={<ProtectedRoute><CommandCenter /></ProtectedRoute>} />
             <Route path="/command-center/:dashboardId" element={<ProtectedRoute><CommandCenter /></ProtectedRoute>} />
