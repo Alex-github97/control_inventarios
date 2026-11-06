@@ -34,7 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.infrastructure.models.eam import (
     EAMActivo, EAMOrdenTrabajo, EAMPlanActivo, EAMPlanMantenimiento,
-    EAMGarantia, EAMCalibracion,
+    EAMGarantia, EAMCalibracion, EAMFallaCatalogo,
 )
 from app.infrastructure.models.lubricacion import (
     LubeMuestra, LubeCompartimento,
@@ -174,11 +174,46 @@ async def tablero(
     por_marca = await _agrupar(EAMActivo.marca)
     por_linea = await _agrupar(EAMActivo.linea)
 
-    # ── Alertas críticas, todas reales ───────────────────────────────────────
+    alertas = await _alertas(db, ahora, [o for o in abiertas if o.fecha_requerida and o.fecha_requerida < ahora], rutinas_vencidas)
+
+    return {
+        "periodo_dias": dias,
+        "activos": {
+            "total": total_activos, "operativos": operativos,
+            "en_mantenimiento": por_estado.get("EN_MANTENIMIENTO", 0),
+            "fuera_servicio": por_estado.get("FUERA_SERVICIO", 0),
+            "disponibilidad_pct": disponibilidad,
+            "por_estado": dict(por_estado), "por_tipo": por_tipo,
+        },
+        "ordenes": {
+            "abiertas": len(abiertas), "vencidas": vencidas,
+            "cerradas_periodo": len(cerradas),
+            "por_estado": dict(conteo_estado), "por_prioridad": dict(conteo_prioridad),
+            "costo_periodo": round(costo_periodo, 2),
+            "costo_fallas": round(costo_fallas, 2),
+        },
+        "confiabilidad": {
+            # Se devuelve la muestra junto al número: un MTBF de tres órdenes
+            # no significa lo mismo que uno de trescientas.
+            "mttr_horas": mttr, "mttr_casos": len(duraciones),
+            "mtbf_horas": mtbf, "mtbf_activos": len(intervalos),
+            "cumplimiento_pm_pct": cumplimiento_pm,
+            "rutinas_totales": total_rutinas, "rutinas_vencidas": rutinas_vencidas,
+        },
+        "tendencia": tendencia,
+        "por_marca": por_marca,
+        "por_linea": por_linea,
+        "alertas": alertas,
+    }
+
+
+
+async def _alertas(db: AsyncSession, ahora: datetime, vencidas_ot: List[EAMOrdenTrabajo],
+                   rutinas_vencidas: int) -> List[Dict[str, Any]]:
+    # Todas reales: órdenes vencidas, aceite crítico, calibraciones, garantías y rutinas.
     alertas: List[Dict[str, Any]] = []
 
-    for ot in sorted([o for o in abiertas if o.fecha_requerida and o.fecha_requerida < ahora],
-                     key=lambda o: o.fecha_requerida)[:8]:
+    for ot in sorted(vencidas_ot, key=lambda o: o.fecha_requerida)[:8]:
         dias_v = (ahora - ot.fecha_requerida).days
         alertas.append({
             "tipo": "OT_VENCIDA", "referencia": ot.numero,
@@ -239,36 +274,8 @@ async def tablero(
 
     orden_sev = {"CRITICA": 0, "ALTA": 1, "MEDIA": 2}
     alertas.sort(key=lambda a: orden_sev.get(a["severidad"], 9))
+    return alertas
 
-    return {
-        "periodo_dias": dias,
-        "activos": {
-            "total": total_activos, "operativos": operativos,
-            "en_mantenimiento": por_estado.get("EN_MANTENIMIENTO", 0),
-            "fuera_servicio": por_estado.get("FUERA_SERVICIO", 0),
-            "disponibilidad_pct": disponibilidad,
-            "por_estado": dict(por_estado), "por_tipo": por_tipo,
-        },
-        "ordenes": {
-            "abiertas": len(abiertas), "vencidas": vencidas,
-            "cerradas_periodo": len(cerradas),
-            "por_estado": dict(conteo_estado), "por_prioridad": dict(conteo_prioridad),
-            "costo_periodo": round(costo_periodo, 2),
-            "costo_fallas": round(costo_fallas, 2),
-        },
-        "confiabilidad": {
-            # Se devuelve la muestra junto al número: un MTBF de tres órdenes
-            # no significa lo mismo que uno de trescientas.
-            "mttr_horas": mttr, "mttr_casos": len(duraciones),
-            "mtbf_horas": mtbf, "mtbf_activos": len(intervalos),
-            "cumplimiento_pm_pct": cumplimiento_pm,
-            "rutinas_totales": total_rutinas, "rutinas_vencidas": rutinas_vencidas,
-        },
-        "tendencia": tendencia,
-        "por_marca": por_marca,
-        "por_linea": por_linea,
-        "alertas": alertas,
-    }
 
 
 @router.get("/dashboard/filtros")
@@ -281,3 +288,100 @@ async def filtros(db: AsyncSession = Depends(get_db)) -> Dict[str, List[str]]:
         EAMActivo.activo.is_(True), EAMActivo.marca.isnot(None))).distinct())
     marcas = sorted({m for (m,) in r.all() if m})
     return {"tipos": tipos, "marcas": marcas}
+
+
+# ─── Modelo para el tablero interactivo ──────────────────────────────────────
+#
+# El tablero filtra con un clic sobre cualquier gráfico, como Power BI. Para que
+# eso sea instantáneo no se vuelve al servidor en cada clic: se entregan los
+# hechos ya agrupados por las dimensiones que se pueden filtrar (mes, tipo,
+# marca, línea, tipo de orden, prioridad, modo de falla…) y el navegador suma
+# los cortes. Agrupar en SQL deja la respuesta en miles de filas aunque haya
+# millones de órdenes, y no carga objetos ORM (ver core/paginacion.py: un
+# proceso ocupado más de 5 s lo mata el supervisor).
+#
+# Cada tabla va en columnas + filas para no repetir los nombres de campo.
+
+def _tabla(columnas: List[str], filas) -> Dict[str, Any]:
+    return {"columnas": columnas, "filas": [list(f) for f in filas]}
+
+
+@router.get("/dashboard/modelo")
+async def modelo_tablero(
+    dias: int = Query(365, ge=7, le=1095),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    ahora = datetime.utcnow()
+    desde = ahora - timedelta(days=dias)
+    A, OT, F = EAMActivo, EAMOrdenTrabajo, EAMFallaCatalogo
+    dims_activo = (func.coalesce(A.tipo_activo, "Sin tipo"), func.coalesce(A.marca, "Sin marca"),
+                   func.coalesce(A.linea, "Sin línea"))
+
+    # Activos por estado.
+    r = await db.execute(
+        select(*dims_activo, func.coalesce(A.estado, "SIN_ESTADO"), func.count(A.id))
+        .where(A.activo.is_(True)).group_by(*dims_activo, A.estado))
+    activos = _tabla(["tipo", "marca", "linea", "estado_activo", "n"], r.all())
+
+    # Órdenes cerradas en el periodo. Las horas de reparación se suman solo en
+    # fallas con las dos fechas, para que el MTTR de cualquier corte sea
+    # horas / casos.
+    mes = func.to_char(OT.fecha_fin, "YYYY-MM")
+    horas = func.extract("epoch", OT.fecha_fin - OT.fecha_inicio) / 3600
+    con_horas = and_(OT.es_falla.is_(True), OT.fecha_inicio.isnot(None), OT.fecha_fin >= OT.fecha_inicio)
+    dims_ot = (mes, *dims_activo, func.coalesce(OT.tipo_ot, "Sin tipo"),
+               func.coalesce(OT.prioridad, "SIN_PRIORIDAD"), func.coalesce(OT.es_falla, False),
+               func.coalesce(F.descripcion, "Sin modo de falla"))
+    r = await db.execute(
+        select(*dims_ot, func.count(OT.id),
+               func.coalesce(func.sum(OT.costo_total), 0), func.coalesce(func.sum(OT.costo_mano_obra), 0),
+               func.coalesce(func.sum(OT.costo_repuestos), 0), func.coalesce(func.sum(OT.costo_servicios), 0),
+               func.coalesce(func.sum(case((con_horas, horas), else_=0)), 0),
+               func.sum(case((con_horas, 1), else_=0)))
+        .join(A, A.id == OT.activo_id).outerjoin(F, F.id == OT.falla_id)
+        .where(and_(OT.estado == "COMPLETADA", OT.fecha_fin >= desde))
+        .group_by(*dims_ot))
+    cerradas = _tabla(
+        ["mes", "tipo", "marca", "linea", "tipo_ot", "prioridad", "falla", "modo",
+         "n", "costo", "costo_mo", "costo_rep", "costo_serv", "horas_rep", "casos_rep"],
+        [(m, t, ma, li, to, p, bool(f), mo, n, float(c), float(cm), float(cr), float(cs), float(h), int(k or 0))
+         for m, t, ma, li, to, p, f, mo, n, c, cm, cr, cs, h, k in r.all()])
+
+    # Órdenes abiertas hoy (no dependen del periodo).
+    vencida = and_(OT.fecha_requerida.isnot(None), OT.fecha_requerida < ahora)
+    dims_ab = (*dims_activo, func.coalesce(OT.estado, "SIN_ESTADO"),
+               func.coalesce(OT.prioridad, "SIN_PRIORIDAD"))
+    r = await db.execute(
+        select(*dims_ab, func.count(OT.id), func.sum(case((vencida, 1), else_=0)))
+        .join(A, A.id == OT.activo_id).where(OT.estado.in_(ESTADOS_ABIERTA)).group_by(*dims_ab))
+    abiertas = _tabla(["tipo", "marca", "linea", "estado_ot", "prioridad", "n", "vencidas"],
+                      [(*f[:5], f[5], int(f[6] or 0)) for f in r.all()])
+
+    # MTBF: por activo con dos fallas o más en el periodo, (última − primera) /
+    # (fallas − 1). No es sumable, por eso va por activo y el navegador
+    # promedia los del corte.
+    r = await db.execute(
+        select(*dims_activo, func.count(OT.id), func.min(OT.fecha_inicio), func.max(OT.fecha_inicio))
+        .join(A, A.id == OT.activo_id)
+        .where(and_(OT.es_falla.is_(True), OT.fecha_inicio.isnot(None), OT.fecha_inicio >= desde))
+        .group_by(A.id, *dims_activo).having(func.count(OT.id) >= 2))
+    mtbf = _tabla(["tipo", "marca", "linea", "horas"],
+                  [(t, m, li, round((ul - pr).total_seconds() / 3600 / (n - 1), 1)) for t, m, li, n, pr, ul in r.all()])
+
+    # Rutinas asignadas y vencidas, para el cumplimiento del plan.
+    r = await db.execute(
+        select(*dims_activo, func.count(EAMPlanActivo.id),
+               func.sum(case((and_(EAMPlanActivo.proxima_fecha.isnot(None),
+                                   EAMPlanActivo.proxima_fecha < ahora), 1), else_=0)))
+        .join(A, A.id == EAMPlanActivo.activo_id).where(A.activo.is_(True)).group_by(*dims_activo))
+    rutinas = _tabla(["tipo", "marca", "linea", "n", "vencidas"], [(*f[:4], int(f[4] or 0)) for f in r.all()])
+
+    r = await db.execute(
+        select(OT).where(and_(OT.estado.in_(ESTADOS_ABIERTA), vencida))
+        .order_by(OT.fecha_requerida).limit(8))
+    rutinas_vencidas = sum(f[4] for f in rutinas["filas"])
+    alertas = await _alertas(db, ahora, list(r.scalars().all()), rutinas_vencidas)
+
+    return {"periodo_dias": dias, "desde": desde.date().isoformat(), "activos": activos,
+            "cerradas": cerradas, "abiertas": abiertas, "mtbf": mtbf, "rutinas": rutinas,
+            "alertas": alertas}
