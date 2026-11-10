@@ -83,6 +83,7 @@ import {
 } from '@/components/datos/vista'
 import { mensajeDeError } from '@/utils/errorApi'
 import { informesLubeApi } from '@/api/lube'
+import { exportarPdfDeElemento } from '@/utils/pdfPantalla'
 
 const LUBE = ACENTO
 const MONO = 'ui-monospace, SFMono-Regular, monospace'
@@ -91,8 +92,13 @@ const MONO = 'ui-monospace, SFMono-Regular, monospace'
 const clave = (que: string, f: FiltroFlota, extra?: unknown) =>
   ['lube', que, JSON.stringify(f), extra] as const
 
+const PESTANAS = ['Cobertura', 'Tablero', 'Conclusiones', 'Por placa', 'Correlación',
+  'Contra kilometraje', 'Extensión del intervalo', 'Criterios y normas']
+
 export default function EAMLubricacionReportes() {
   const [tab, setTab] = useState(0)
+  const contenido = useRef<HTMLDivElement>(null)
+  const [exportando, setExportando] = useState(false)
   const [filtro, setFiltro] = useState<FiltroFlota>({})
 
   const opciones = useQuery({
@@ -138,9 +144,10 @@ export default function EAMLubricacionReportes() {
           opciones={opciones.data} cargando={opciones.isLoading}
           resumen={`${totalMuestras.muestras} muestra(s) · ${totalMuestras.equipos} equipo(s)`} />
 
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 3 }}>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable"
           sx={{
-            mb: 3,
+            flex: 1, minWidth: 0,
             '& .MuiTab-root': { color: 'text.secondary', textTransform: 'none', fontWeight: 600 },
             '& .Mui-selected': { color: `${LUBE} !important` },
             '& .MuiTabs-indicator': { bgcolor: LUBE },
@@ -154,6 +161,36 @@ export default function EAMLubricacionReportes() {
           <Tab icon={<Schedule sx={{ fontSize: 16 }} />} iconPosition="start" label="Extensión del intervalo" />
           <Tab icon={<MenuBook sx={{ fontSize: 16 }} />} iconPosition="start" label="Criterios y normas" />
         </Tabs>
+        {/* Exporta la pestaña que se está viendo, con sus filtros, tal como se ve. */}
+        <Tooltip title={`Exportar «${PESTANAS[tab]}» a PDF, con el segmento filtrado`}>
+          <span>
+            <Button variant="outlined" startIcon={<PictureAsPdf />} disabled={exportando}
+              onClick={async () => {
+                if (!contenido.current) return
+                setExportando(true)
+                try {
+                  const segmento = Object.values(filtro).filter(Boolean).join(' · ') || 'Toda la flota'
+                  await exportarPdfDeElemento(contenido.current, {
+                    titulo: `Análisis de aceite · ${PESTANAS[tab]}`,
+                    subtitulo: `${segmento} · ${totalMuestras.muestras} muestra(s) · ${totalMuestras.equipos} equipo(s)`,
+                    archivo: `aceite-${PESTANAS[tab].toLowerCase().replace(/[^a-z0-9áéíóúñ]+/g, '-')}-${new Date().toISOString().slice(0, 10)}.pdf`,
+                    fuente: 'TittanWare · programa de análisis de aceite',
+                  })
+                  toast.success('PDF descargado')
+                } catch (e) {
+                  toast.error('No se pudo armar el PDF: ' + (e instanceof Error ? e.message : String(e)))
+                } finally {
+                  setExportando(false)
+                }
+              }}
+              sx={{ textTransform: 'none', fontWeight: 700, whiteSpace: 'nowrap', borderColor: LUBE, color: LUBE }}>
+              {exportando ? 'Armando PDF…' : 'Exportar PDF'}
+            </Button>
+          </span>
+        </Tooltip>
+        </Stack>
+
+        <Box ref={contenido} sx={{ bgcolor: 'transparent' }}>
 
         {tab === 0 && <Cobertura f={filtro} />}
         {tab === 1 && <Tablero f={filtro} />}
@@ -163,6 +200,7 @@ export default function EAMLubricacionReportes() {
         {tab === 5 && <ContraKilometraje f={filtro} />}
         {tab === 6 && <Extension f={filtro} />}
         {tab === 7 && <Criterios f={filtro} />}
+        </Box>
       </Box>
     </Layout>
   )
