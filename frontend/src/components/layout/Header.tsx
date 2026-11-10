@@ -5,7 +5,7 @@ import {
 } from '@mui/material'
 import {
   Notifications, QrCode2, LogoutOutlined, NotificationsNone,
-  SupportAgent,
+  SupportAgent, MenuRounded, ChevronRightRounded,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -16,8 +16,8 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { MARCA, ACENTO, PALETA, SUPERFICIE } from '@/config/marca'
 import { Logotipo } from '@/components/Logotipo'
-import { useModuleNav } from './Sidebar'
-import { BarraModulos } from './BarraModulos'
+import { useMigas } from './PanelNavegacion'
+import { useNavStore } from '@/store/navStore'
 import { BotonAppMovil } from '@/components/AppMovil'
 
 // Barra superior: las mismas superficies oscuras que tenían el panel de espacios y la barra lateral
@@ -42,11 +42,12 @@ const iconoOscuroSx = (hover: string) => ({
   transition: 'all 0.15s ease',
 })
 
-export function Header() {
+export function Header({ titulo }: { titulo?: string }) {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
   const { t } = useTranslation()
-  const { activeColor, logoShort, logoLine1, logoLine2, logoGradient } = useModuleNav()
+  const migas = useMigas(titulo)
+  const abrirMenuMovil = useNavStore(s => s.setMovil)
   const [alertAnchor, setAlertAnchor] = useState<HTMLElement | null>(null)
   const isFetching = useIsFetching()
   const isMutating = useIsMutating()
@@ -80,7 +81,13 @@ export function Header() {
       }}
     >
       <Toolbar sx={{ gap: 1.5, minHeight: '60px !important', px: { xs: 1.5, sm: 2.5 } }}>
-        {/* Marca del producto + módulo activo */}
+        {/* En el teléfono el menú es un cajón: este botón lo abre. */}
+        <IconButton onClick={() => abrirMenuMovil(true)} aria-label="Abrir el menú"
+          sx={{ display: { xs: 'inline-flex', md: 'none' }, ...iconoOscuroSx(ACENTO.claro), mr: -0.5 }}>
+          <MenuRounded />
+        </IconButton>
+
+        {/* Marca del producto */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexShrink: 0 }}>
           {/* El logo lleva al inicio; la ruta "/" decide la página según el usuario */}
           <Tooltip title="Ir al inicio">
@@ -119,32 +126,28 @@ export function Header() {
             </Box>
           </Tooltip>
           <Box sx={{ width: '1px', height: 26, bgcolor: 'rgba(255,255,255,0.12)', flexShrink: 0, mx: 0.5 }} />
-          <Box
-            sx={{
-              width: 34, height: 34, borderRadius: '10px', flexShrink: 0,
-              background: logoGradient,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: `0 4px 12px ${alpha(activeColor, 0.35)}`,
-              transition: 'background 0.3s ease, box-shadow 0.3s ease',
-            }}
-          >
-            <Typography sx={{ color: '#FFF', fontWeight: 800, fontSize: 12, letterSpacing: '-0.5px' }}>
-              {logoShort}
-            </Typography>
-          </Box>
-          {/* El nombre largo solo en pantallas anchas: el módulo activo ya se ve resaltado en la barra */}
-          <Box sx={{ display: { xs: 'none', xl: 'block' }, whiteSpace: 'nowrap' }}>
-            <Typography sx={{ color: '#FFFFFF', fontWeight: 700, fontSize: 13, lineHeight: 1.2 }}>
-              {logoLine1}
-            </Typography>
-            <Typography sx={{ color: activeColor, fontWeight: 700, fontSize: 13, lineHeight: 1.2 }}>
-              {logoLine2}
-            </Typography>
-          </Box>
         </Box>
 
-        {/* Todos los módulos a la vista; cada uno despliega sus submódulos */}
-        <BarraModulos />
+        {/* Dónde está: módulo › sección › pantalla. El menú vive a la izquierda. */}
+        <Box component="nav" aria-label="Ubicación" sx={{
+          flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.5, overflow: 'hidden',
+        }}>
+          <Box sx={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, mr: 0.5,
+                     bgcolor: migas.color, boxShadow: `0 0 8px ${alpha(migas.color, 0.8)}` }} />
+          {[migas.modulo, migas.seccion, migas.pantalla].filter(Boolean).map((m, i, arr) => (
+            <React.Fragment key={i}>
+              {i > 0 && <ChevronRightRounded sx={{ fontSize: 16, color: 'rgba(255,255,255,0.3)', flexShrink: 0 }} />}
+              <Typography noWrap sx={{
+                fontSize: 13, flexShrink: i === arr.length - 1 ? 1 : 0,
+                display: { xs: i === arr.length - 1 ? 'block' : 'none', md: 'block' },
+                fontWeight: i === arr.length - 1 ? 700 : 500,
+                color: i === arr.length - 1 ? '#FFFFFF' : 'rgba(255,255,255,0.55)',
+              }}>
+                {m}
+              </Typography>
+            </React.Fragment>
+          ))}
+        </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <Tooltip title="Soporte técnico">

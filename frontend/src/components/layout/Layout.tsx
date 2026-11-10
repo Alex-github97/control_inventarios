@@ -1,7 +1,7 @@
 import React from 'react'
 import { Box } from '@mui/material'
 import { Header } from './Header'
-import { ModuleNav } from './ModuleNav'
+import { PanelNavegacion, ALTO_ENCABEZADO } from './PanelNavegacion'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -26,27 +26,31 @@ export function Layout({ children, title, noPadding = false }: LayoutProps) {
         backgroundAttachment: 'fixed',
       }}
     >
-      {/* Navegación superior: barra de marca + menú del módulo */}
-      <Box sx={{ position: 'sticky', top: 0, zIndex: 1100, flexShrink: 0 }}>
-        <Header />
-        <ModuleNav title={title} />
+      {/* Barra de marca, migas y acciones del usuario */}
+      <Box sx={{ position: 'sticky', top: 0, zIndex: 1100, flexShrink: 0, height: ALTO_ENCABEZADO }}>
+        <Header titulo={title} />
       </Box>
 
-      {/* Contenido principal */}
-      <Box
-        component="main"
-        className="anim-page-in"
-        sx={{
-          flex: 1,
-          p: noPadding ? 0 : { xs: 2, sm: 3 },
-          overflow: noPadding ? 'hidden' : 'visible',
-          display: noPadding ? 'flex' : 'block',
-          flexDirection: 'column',
-          minHeight: 0,
-          minWidth: 0,
-        }}
-      >
-        {children}
+      <Box sx={{ display: 'flex', flex: 1, minHeight: 0, alignItems: 'stretch' }}>
+        {/* Menú a la izquierda: módulos y árbol del módulo activo */}
+        <PanelNavegacion />
+
+        {/* Contenido principal */}
+        <Box
+          component="main"
+          className="anim-page-in"
+          sx={{
+            flex: 1,
+            p: noPadding ? 0 : { xs: 2, sm: 3 },
+            overflow: noPadding ? 'hidden' : 'visible',
+            display: noPadding ? 'flex' : 'block',
+            flexDirection: 'column',
+            minHeight: 0,
+            minWidth: 0,
+          }}
+        >
+          {children}
+        </Box>
       </Box>
     </Box>
   )
