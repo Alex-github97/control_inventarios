@@ -34,7 +34,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert, Box, Button, Chip, Collapse, Dialog, DialogActions, DialogContent,
-  DialogTitle, IconButton, InputAdornment, MenuItem, Popover, Stack, Switch,
+  DialogTitle, IconButton, InputAdornment, Menu, MenuItem, Popover, Stack, Switch,
   Tab, TablePagination, Tabs, TextField, Tooltip, Typography, alpha,
   type PopoverActions,
 } from '@mui/material'
@@ -58,7 +58,7 @@ import Grid from '@mui/material/Grid2'
 import {
   ArrowDownward, ArrowUpward, CancelOutlined, CheckCircle,
   Dashboard as DashboardIcon, EditOutlined, EventBusy, ExpandLess, ExpandMore,
-  GridOn, HelpOutline, InsertChartOutlined, MenuBook, RestartAlt, Schedule,
+  GridOn, HelpOutline, InsertChartOutlined, MenuBook, PictureAsPdf, RestartAlt, Schedule,
   Science, ScatterPlot, Speed, TableChart, TrendingUp, TuneRounded,
   WarningAmber,
 } from '@mui/icons-material'
@@ -82,6 +82,7 @@ import {
   ACENTO, BORDE, Encabezados, Estado, Panel, fecha, pesos,
 } from '@/components/datos/vista'
 import { mensajeDeError } from '@/utils/errorApi'
+import { informesLubeApi } from '@/api/lube'
 
 const LUBE = ACENTO
 const MONO = 'ui-monospace, SFMono-Regular, monospace'
@@ -129,6 +130,8 @@ export default function EAMLubricacionReportes() {
               Qué le pasa a cada motor, por qué, y qué hacer — según norma
             </Typography>
           </Box>
+          <Box sx={{ flex: 1 }} />
+          <InformeCliente filtro={filtro} />
         </Box>
 
         <FiltrosFlota valor={filtro} onCambio={setFiltro}
@@ -162,6 +165,40 @@ export default function EAMLubricacionReportes() {
         {tab === 7 && <Criterios f={filtro} />}
       </Box>
     </Layout>
+  )
+}
+
+/**
+ * El informe de flota en PDF para entregarle al cliente: el segmento filtrado
+ * arriba, el periodo que se elija, y la firma del asesor configurada en
+ * Configuración → Lubricación → Asesor e informes.
+ */
+function InformeCliente({ filtro }: { filtro: FiltroFlota }) {
+  const [ancla, setAncla] = useState<HTMLElement | null>(null)
+  const pedir = useMutation({
+    mutationFn: (dias: number) => informesLubeApi.flotaPdf(
+      Object.fromEntries(Object.entries({ ...filtro, dias }).filter(([, v]) => v))),
+    onSuccess: () => toast.success('Informe descargado'),
+    onError: (e: unknown) => toast.error(mensajeDeError(e)),
+  })
+  const segmento = Object.values(filtro).filter(Boolean).join(' · ')
+  return (
+    <>
+      <Tooltip title={`Informe PDF del programa${segmento ? ` para ${segmento}` : ' de toda la flota'}, con su firma de asesor`}>
+        <span>
+          <Button variant="contained" startIcon={<PictureAsPdf />} disabled={pedir.isPending}
+            onClick={e => setAncla(e.currentTarget)}
+            sx={{ textTransform: 'none', fontWeight: 700, bgcolor: LUBE, '&:hover': { bgcolor: '#B45309' } }}>
+            {pedir.isPending ? 'Armando el informe…' : 'Informe para el cliente'}
+          </Button>
+        </span>
+      </Tooltip>
+      <Menu anchorEl={ancla} open={!!ancla} onClose={() => setAncla(null)}>
+        {[[90, 'Últimos 3 meses'], [180, 'Últimos 6 meses'], [365, 'Último año']].map(([d, t]) => (
+          <MenuItem key={d} onClick={() => { setAncla(null); pedir.mutate(Number(d)) }}>{t}</MenuItem>
+        ))}
+      </Menu>
+    </>
   )
 }
 

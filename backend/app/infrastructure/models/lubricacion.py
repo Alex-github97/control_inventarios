@@ -37,7 +37,7 @@ partículas es cargar un dato en el catálogo, no migrar la base.
 """
 from sqlalchemy import (
     Column, Integer, String, Float, Boolean, DateTime, Date, Text,
-    ForeignKey, UniqueConstraint, Index,
+    ForeignKey, UniqueConstraint, Index, LargeBinary,
 )
 from app.infrastructure.models.base import Base, TimestampMixin
 
@@ -525,3 +525,23 @@ class LubeAjusteNorma(Base, TimestampMixin):
     # ── Trazabilidad del ajuste ──────────────────────────────────────────────
     motivo       = Column(Text, nullable=False)
     ajustado_por = Column(String(120), nullable=True)
+
+
+class LubeAsesor(Base, TimestampMixin):
+    """Quién firma los informes de lubricación: el asesor del programa.
+
+    Una sola fila (id=1) por empresa. El análisis de aceite lo interpreta el
+    sistema con norma, pero el informe que se le entrega al cliente lo firma una
+    persona con nombre, cargo y credenciales; sin eso es un listado, no una
+    asesoría. La firma se guarda como imagen en la propia fila —unos pocos KB—
+    para que viaje con el respaldo de la empresa y no dependa de un archivo.
+    """
+    __tablename__ = "eam_lube_asesor"
+    id = Column(Integer, primary_key=True)
+    nombre = Column(String(150), nullable=True)
+    cargo = Column(String(150), nullable=True)          # Asesor en lubricación
+    credenciales = Column(String(250), nullable=True)   # ICML MLA II · MLT I
+    empresa = Column(String(150), nullable=True)        # quien presta la asesoría
+    contacto = Column(String(250), nullable=True)       # correo · teléfono
+    nota = Column(Text, nullable=True)                  # alcance / descargo del informe
+    firma_png = Column(LargeBinary, nullable=True)

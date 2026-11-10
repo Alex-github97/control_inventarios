@@ -131,7 +131,7 @@ from app.infrastructure.models.lubricacion import (
     LubeParametro, LubeLimite, LubeLaboratorio, LubeMetodoMuestreo,
     LubeMotivoDrenaje, LubeModoFalla,
     LubeCompartimento, LubeCarga, LubeRelleno,
-    LubeMuestra, LubeResultado, LubeDiagnostico,
+    LubeMuestra, LubeResultado, LubeDiagnostico, LubeAsesor,
 )
 from app.infrastructure.models.mes import (
     MESPlanta, MESLinea, MESTurno, MESCeldaTrabajo, MESEquipo,

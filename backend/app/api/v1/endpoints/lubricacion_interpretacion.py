@@ -637,7 +637,23 @@ async def tablero(
 
     tipo_de_muestra = {m.id: (t.codigo or "SIN_TIPO")
                        for m, _c, _a, t in muestras}
-    estadisticos = await _poblacion_desgaste(db, tipo_de_muestra, catalogo,
+    # LA POBLACIÓN ES LA FLOTA, NO EL SEGMENTO FILTRADO. ASTM D7720 compara
+    # contra equipos comparables —la misma familia de compartimento—, y el
+    # filtro de la pantalla solo decide qué filas se MUESTRAN. Antes el
+    # percentil salía de las muestras filtradas: con una placa sola, el camión
+    # se comparaba contra sí mismo y su 10 % más alto quedaba siempre en alarma,
+    # mientras que contra la flota esas mismas cifras podían ser normales.
+    poblacion = tipo_de_muestra
+    if f.activo:
+        familias = set(tipo_de_muestra.values())
+        poblacion = {mid: (cod or "SIN_TIPO") for mid, cod in (await db.execute(
+            select(LubeMuestra.id, LubeTipoCompartimento.codigo)
+            .join(LubeCompartimento, LubeCompartimento.id == LubeMuestra.compartimento_id)
+            .join(LubeTipoCompartimento,
+                  LubeTipoCompartimento.id == LubeCompartimento.tipo_compartimento_id)
+            .where(and_(LubeMuestra.estado != "ANULADA", LubeMuestra.fecha_toma >= desde))
+        )).all() if (cod or "SIN_TIPO") in familias}
+    estadisticos = await _poblacion_desgaste(db, poblacion, catalogo,
                                              criterio)
     valores_previos = await _anteriores(db, lista_muestras, catalogo)
 

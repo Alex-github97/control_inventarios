@@ -322,3 +322,45 @@ export const ETIQUETA_DISPARO: Record<string, string> = {
   TASA_CAMBIO: 'sube demasiado rápido',
   ESTADISTICO: 'se sale de la flota',
 }
+
+// ─── Informes para el cliente, firmados por el asesor ─────────────────────────
+
+export interface Asesor {
+  nombre?: string | null; cargo?: string | null; credenciales?: string | null
+  empresa?: string | null; contacto?: string | null; nota?: string | null
+  tiene_firma?: boolean
+}
+
+/** Baja un PDF que exige sesión: el navegador no puede abrirlo con un enlace. */
+async function bajarPdf(ruta: string, params: Record<string, any> | undefined, nombre: string) {
+  const r = await api.get(ruta, { params, responseType: 'blob' })
+  const cabecera = String(r.headers['content-disposition'] ?? '')
+  const sugerido = /filename="?([^"]+)"?/.exec(cabecera)?.[1]
+  const url = URL.createObjectURL(r.data as Blob)
+  const enlace = document.createElement('a')
+  enlace.href = url
+  enlace.download = sugerido || nombre
+  enlace.click()
+  setTimeout(() => URL.revokeObjectURL(url), 4000)
+}
+
+const I = '/eam/lube/informes'
+
+export const informesLubeApi = {
+  asesor: () => api.get<Asesor>(`${I}/asesor`).then(r => r.data),
+  guardarAsesor: (datos: Asesor) => api.put<Asesor>(`${I}/asesor`, datos).then(r => r.data),
+  subirFirma: (archivo: File) => {
+    const fd = new FormData()
+    fd.append('archivo', archivo)
+    return api.put<Asesor>(`${I}/asesor/firma`, fd,
+      { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data)
+  },
+  borrarFirma: () => api.delete<Asesor>(`${I}/asesor/firma`).then(r => r.data),
+  /** La firma como URL local, para mostrarla en el formulario. */
+  firma: () => api.get(`${I}/asesor/firma`, { responseType: 'blob' })
+    .then(r => URL.createObjectURL(r.data as Blob)),
+  muestraPdf: (id: number, numero?: string) =>
+    bajarPdf(`${I}/muestra/${id}`, undefined, `analisis-aceite-${numero ?? id}.pdf`),
+  flotaPdf: (params: Record<string, any>) =>
+    bajarPdf(`${I}/flota`, params, 'programa-aceite.pdf'),
+}

@@ -927,7 +927,12 @@ async def criterios(
 
     # ── Los límites estadísticos, que no se editan pero sí se explican ───────
     desde = datetime.utcnow() - timedelta(days=dias)
-    filas = (await db.execute(_base_muestras(f, desde))).all()
+    # Sobre la flota entera de cada familia, como los calcula el tablero: la
+    # población de ASTM D7720 son los equipos comparables, no el segmento que
+    # se está mirando. Solo el filtro de familia de compartimento se respeta.
+    flota = FiltroFlota(marca=None, linea=None, modelo=None, tipo=None, motor=None,
+                        placa=None, compartimento=f.compartimento)
+    filas = (await db.execute(_base_muestras(flota, desde))).all()
     tipo_de_muestra = {m.id: (t.codigo or "SIN_TIPO") for m, _c, _a, t in filas}
     nombre_tipo = {(t.codigo or "SIN_TIPO"): t.nombre for _m, _c, _a, t in filas}
     catalogo_id = {p.id: p for p in (await db.execute(

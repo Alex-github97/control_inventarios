@@ -2890,6 +2890,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/eam/lube/informes/asesor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ver Asesor */
+        get: operations["ver_asesor_api_v1_eam_lube_informes_asesor_get"];
+        /** Guardar Asesor */
+        put: operations["guardar_asesor_api_v1_eam_lube_informes_asesor_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/lube/informes/asesor/firma": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ver Firma */
+        get: operations["ver_firma_api_v1_eam_lube_informes_asesor_firma_get"];
+        /**
+         * Subir Firma
+         * @description La firma escaneada o dibujada. Se normaliza a PNG para que el PDF la lea
+         *     siempre igual, y se recorta el blanco alrededor para que no quede flotando.
+         */
+        put: operations["subir_firma_api_v1_eam_lube_informes_asesor_firma_put"];
+        post?: never;
+        /** Borrar Firma */
+        delete: operations["borrar_firma_api_v1_eam_lube_informes_asesor_firma_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/lube/informes/flota": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Informe Flota */
+        get: operations["informe_flota_api_v1_eam_lube_informes_flota_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/lube/informes/muestra/{mid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Informe Muestra */
+        get: operations["informe_muestra_api_v1_eam_lube_informes_muestra__mid__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/eam/lube/interpretacion/cadena-causal": {
         parameters: {
             query?: never;
@@ -6595,6 +6670,41 @@ export interface components {
             /** Volumen Tipico */
             volumen_tipico?: number | null;
         };
+        /** AsesorIn */
+        AsesorIn: {
+            /** Cargo */
+            cargo?: string | null;
+            /** Contacto */
+            contacto?: string | null;
+            /** Credenciales */
+            credenciales?: string | null;
+            /** Empresa */
+            empresa?: string | null;
+            /** Nombre */
+            nombre?: string | null;
+            /** Nota */
+            nota?: string | null;
+        };
+        /** AsesorOut */
+        AsesorOut: {
+            /** Cargo */
+            cargo?: string | null;
+            /** Contacto */
+            contacto?: string | null;
+            /** Credenciales */
+            credenciales?: string | null;
+            /** Empresa */
+            empresa?: string | null;
+            /** Nombre */
+            nombre?: string | null;
+            /** Nota */
+            nota?: string | null;
+            /**
+             * Tiene Firma
+             * @default false
+             */
+            tiene_firma: boolean;
+        };
         /** BajaBulkCreate */
         BajaBulkCreate: {
             /** Items */
@@ -6830,6 +6940,14 @@ export interface components {
             archivos: string[];
             /** Descripcion */
             descripcion?: string | null;
+        };
+        /** Body_subir_firma_api_v1_eam_lube_informes_asesor_firma_put */
+        Body_subir_firma_api_v1_eam_lube_informes_asesor_firma_put: {
+            /**
+             * Archivo
+             * Format: binary
+             */
+            archivo: string;
         };
         /** Body_subir_foto_api_v1_eam_chk_ejecuciones__eid__fotos_post */
         Body_subir_foto_api_v1_eam_chk_ejecuciones__eid__fotos_post: {
@@ -19938,6 +20056,201 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DefinicionImportacion"];
+                };
+            };
+        };
+    };
+    ver_asesor_api_v1_eam_lube_informes_asesor_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AsesorOut"];
+                };
+            };
+        };
+    };
+    guardar_asesor_api_v1_eam_lube_informes_asesor_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AsesorIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AsesorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ver_firma_api_v1_eam_lube_informes_asesor_firma_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    subir_firma_api_v1_eam_lube_informes_asesor_firma_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_subir_firma_api_v1_eam_lube_informes_asesor_firma_put"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AsesorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    borrar_firma_api_v1_eam_lube_informes_asesor_firma_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AsesorOut"];
+                };
+            };
+        };
+    };
+    informe_flota_api_v1_eam_lube_informes_flota_get: {
+        parameters: {
+            query?: {
+                dias?: number;
+                marca?: string | null;
+                linea?: string | null;
+                modelo?: string | null;
+                tipo?: string | null;
+                motor?: string | null;
+                placa?: string | null;
+                compartimento?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    informe_muestra_api_v1_eam_lube_informes_muestra__mid__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mid: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

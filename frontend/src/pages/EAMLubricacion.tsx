@@ -21,7 +21,7 @@ import {
 import {
   Add, Science, Search, WaterDrop, TrendingUp, Settings,
   UploadFile, FactCheck, WarningAmber, Insights, Opacity,
-  EventRepeat, Inventory2, ReportProblem, PlaylistAddCheck,
+  EventRepeat, Inventory2, ReportProblem, PlaylistAddCheck, PictureAsPdf,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
@@ -30,7 +30,7 @@ import { Layout } from '@/components/layout/Layout'
 import { CargueMasivo } from '@/components/catalogo/CargueMasivo'
 import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
 import {
-  lubeApi, ETIQUETA_SEVERIDAD, ETIQUETA_DISPARO,
+  lubeApi, informesLubeApi, ETIQUETA_SEVERIDAD, ETIQUETA_DISPARO,
   type Compartimento, type Pendiente, type ResultadoMuestra,
 } from '@/api/lube'
 import { mensajeDeError } from '@/utils/errorApi'
@@ -944,6 +944,11 @@ function DetalleMuestra({ id, onCerrar, onCambio }: {
     onError: (e: any) => toast.error(mensajeDeError(e)),
   })
 
+  const pdf = useMutation({
+    mutationFn: () => informesLubeApi.muestraPdf(id, muestra?.numero),
+    onError: (e: any) => toast.error(mensajeDeError(e)),
+  })
+
   const porGrupo = useMemo(() => {
     const g: Record<string, ResultadoMuestra[]> = {}
     for (const r of muestra?.resultados ?? []) (g[r.grupo] ??= []).push(r)
@@ -1151,6 +1156,17 @@ function DetalleMuestra({ id, onCerrar, onCambio }: {
           </Button>
         </Tooltip>
         <Box sx={{ flex: 1 }} />
+        <Tooltip title={(muestra?.resultados ?? []).length
+          ? 'Informe PDF de esta muestra para el cliente, con su diagnóstico y su firma'
+          : 'La muestra todavía no tiene resultados'}>
+          <span>
+            <Button variant="contained" startIcon={<PictureAsPdf />}
+              disabled={!(muestra?.resultados ?? []).length || pdf.isPending}
+              onClick={() => pdf.mutate()} sx={{ textTransform: 'none', fontWeight: 700 }}>
+              {pdf.isPending ? 'Armando…' : 'Informe PDF'}
+            </Button>
+          </span>
+        </Tooltip>
         <Button onClick={onCerrar} sx={{ textTransform: 'none' }}>Cerrar</Button>
       </DialogActions>
     </Dialog>

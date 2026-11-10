@@ -24,6 +24,7 @@ import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
 import { lubeApi } from '@/api/lube'
+import { PanelAsesor } from '@/components/lube/PanelAsesor'
 
 
 import { mensajeDeError } from '@/utils/errorApi'
@@ -270,7 +271,7 @@ export function ConfiguracionLubricacion({ panelOcr }: { panelOcr?: React.ReactN
   const pestanas = [
     'Marcas', 'Productos', 'Aplicaciones', 'Tipos de compartimento',
     'Parámetros', 'Límites', 'Modos de falla', 'Motivos de drenaje',
-    'Métodos de muestreo', 'Laboratorios',
+    'Métodos de muestreo', 'Laboratorios', 'Asesor e informes',
     ...(panelOcr ? ['Lector de boletines'] : []),
   ]
 
@@ -568,7 +569,8 @@ export function ConfiguracionLubricacion({ panelOcr }: { panelOcr?: React.ReactN
           />
         )}
 
-        {tab === 10 && panelOcr}
+        {tab === 10 && <PanelAsesor />}
+        {tab === 11 && panelOcr}
       </Box>
   )
 }
