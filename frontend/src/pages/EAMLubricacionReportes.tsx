@@ -452,11 +452,19 @@ function Tablero({ f }: { f: FiltroFlota }) {
         <Grid size={{ xs: 12, lg: 6 }}>
           <Ranking titulo="Costo por unidad de vida"
             ayuda="Aceite, filtro, mano de obra y rellenos, por hora o kilómetro lubricado"
-            filas={(p?.costos ?? []).map(x => ({
-              etiqueta: x.etiqueta, valor: x.costo_por_unidad ?? 0,
-              texto: `${pesos(x.costo_por_unidad)} / ${(x.unidad ?? '').toLowerCase()}`,
-              color: LUBE,
-            }))} />
+            filas={(p?.costos ?? []).map(x => {
+              // Un mismo tipo puede llevarse en km en los camiones y en horas en
+              // la maquinaria: son dos filas, y la unidad va en el rótulo para
+              // que no se comparen pesos por hora contra pesos por kilómetro.
+              const u = ({ KM: 'km', HORAS: 'hora', DIAS: 'día' } as Record<string, string>)[
+                (x.unidad ?? '').toUpperCase()] ?? (x.unidad ?? '').toLowerCase()
+              return {
+                etiqueta: `${x.etiqueta} · por ${u}`, valor: x.costo_por_unidad ?? 0,
+                texto: `${pesos(x.costo_por_unidad)} / ${u}`,
+                nota: `${x.cargas ?? 0} carga(s) drenada(s)`,
+                color: LUBE,
+              }
+            })} />
         </Grid>
       </Grid>
     </Estado>
@@ -2055,6 +2063,13 @@ function EvolucionPorPlaca({ placas }: { placas: any[] }) {
   const TOPE = 12
   const visibles = placas.slice(0, TOPE)
   const ocultas = placas.length - visibles.length
+  // La tabla abre con las placas que más se deterioran con el recorrido —que
+  // es lo que se viene a buscar— y no con novecientas filas de una vez.
+  const FILAS = 30
+  const [todas, setTodas] = useState(false)
+  const ordenadas = useMemo(() => [...placas].sort((a, b) =>
+    (b.tendencia?.por_diez_mil ?? -Infinity) - (a.tendencia?.por_diez_mil ?? -Infinity)), [placas])
+  const filasTabla = todas ? ordenadas : ordenadas.slice(0, FILAS)
 
   return (
     <>
@@ -2100,7 +2115,7 @@ function EvolucionPorPlaca({ placas }: { placas: any[] }) {
           <Encabezados columnas={['Placa', 'Marca / línea', 'Motor', 'Muestras',
             'Recorrido cubierto', 'Hallazgos por 10.000 km', 'r']} />
           <tbody>
-            {placas.map(p => {
+            {filasTabla.map(p => {
               const t = p.tendencia
               const sube = (t?.por_diez_mil ?? 0) > 0
               return (
@@ -2134,6 +2149,16 @@ function EvolucionPorPlaca({ placas }: { placas: any[] }) {
           </tbody>
         </table>
       </Box>
+      {placas.length > FILAS && (
+        <Stack direction="row" alignItems="center" spacing={1} mt={1}>
+          <Typography sx={{ fontSize: 11.5, color: 'text.secondary' }}>
+            {todas ? `Las ${placas.length} placas` : `Las ${FILAS} que más se deterioran con el recorrido, de ${placas.length}`}
+          </Typography>
+          <Button size="small" onClick={() => setTodas(!todas)} sx={{ textTransform: 'none' }}>
+            {todas ? 'Ver menos' : 'Ver todas'}
+          </Button>
+        </Stack>
+      )}
     </>
   )
 }

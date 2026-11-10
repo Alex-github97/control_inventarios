@@ -10,34 +10,59 @@
  * produce una severidad; una severidad alta abre un diagnóstico que se confirma
  * o se desmiente al intervenir.
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   Box, Card, Typography, Stack, Button, TextField, Chip, Alert, Skeleton,
   Table, TableBody, TableCell, TableHead, TableRow, IconButton, Tooltip,
   Dialog, DialogTitle, DialogContent, DialogActions, MenuItem, Tabs, Tab,
-  Divider, LinearProgress, InputAdornment, Switch, FormControlLabel,
-  Autocomplete,
+  Divider, LinearProgress, InputAdornment, Autocomplete, TablePagination,
+  FormControlLabel, Switch,
 } from '@mui/material'
 import {
-  Add, Science, Search, WaterDrop, Opacity, TrendingUp, Settings,
-  UploadFile, FactCheck, WarningAmber, LocalGasStation, Insights,
+  Add, Science, Search, WaterDrop, TrendingUp, Settings,
+  UploadFile, FactCheck, WarningAmber, Insights, Opacity,
+  EventRepeat, Inventory2, ReportProblem, PlaylistAddCheck,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
 import { CargueMasivo } from '@/components/catalogo/CargueMasivo'
-import { PALETA, ESTADO, COLOR_MODULO, SERIES } from '@/config/marca'
-import { apiClient as api } from '@/api/client'
+import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
 import {
-  lubeApi, COLOR_SEVERIDAD, ETIQUETA_SEVERIDAD, ETIQUETA_DISPARO,
-  type Compartimento, type Muestra, type Pendiente, type ResultadoMuestra,
+  lubeApi, ETIQUETA_SEVERIDAD, ETIQUETA_DISPARO,
+  type Compartimento, type Pendiente, type ResultadoMuestra,
 } from '@/api/lube'
-
-
 import { mensajeDeError } from '@/utils/errorApi'
+
 const fecha = (v?: string | null) =>
   v ? new Date(v).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
+
+/** «hace 12 días»: la fecha sola obliga a hacer la cuenta en la cabeza. */
+const haceCuanto = (v?: string | null) => {
+  if (!v) return ''
+  const dias = Math.floor((Date.now() - new Date(v).getTime()) / 86_400_000)
+  if (dias <= 0) return 'hoy'
+  if (dias === 1) return 'ayer'
+  if (dias < 60) return `hace ${dias} días`
+  const meses = Math.round(dias / 30)
+  return meses < 24 ? `hace ${meses} meses` : `hace ${Math.round(dias / 365)} años`
+}
+
+const num = (v?: number | null) =>
+  v == null ? '—' : v.toLocaleString('es-CO', { maximumFractionDigits: 1 })
+
+/** La unidad de la vida del aceite, como se lee: «km», «h», «días». */
+export const unidadCorta = (u?: string | null) =>
+  ({ KM: 'km', HORAS: 'h', DIAS: 'días' } as Record<string, string>)[(u ?? '').toUpperCase()]
+  ?? (u ?? '').toLowerCase()
+
+const hoy = () => new Date().toISOString().slice(0, 10)
+
+const ETIQUETA_GRUPO: Record<string, string> = {
+  DESGASTE: 'Metales de desgaste', CONTAMINACION: 'Contaminantes',
+  ADITIVO: 'Aditivos', PROPIEDAD: 'Propiedades del fluido',
+}
 
 const colorEstado = (e: string) =>
   e === 'CRITICO' ? ESTADO.peligro : e === 'MARGINAL' ? ESTADO.alerta : ESTADO.exito
@@ -46,6 +71,8 @@ const colorSeveridad = (s?: string | null) =>
   !s || s === 'PENDIENTE' ? PALETA.acero
     : s === 'NORMAL' ? ESTADO.exito
     : s === 'MARGINAL' ? ESTADO.alerta : ESTADO.peligro
+
+const esCritica = (s?: string | null) => s === 'CRITICO' || s === 'ACCION_INMEDIATA'
 
 function Severidad({ valor }: { valor?: string | null }) {
   const color = colorSeveridad(valor)
@@ -61,60 +88,190 @@ function Severidad({ valor }: { valor?: string | null }) {
 function VidaCarga({ actual, recomendada, unidad }: {
   actual?: number | null; recomendada?: number | null; unidad?: string | null
 }) {
-  if (actual == null) return <Typography variant="caption" color="text.secondary">Sin lecturas</Typography>
+  if (actual == null) {
+    return (
+      <Tooltip title="La carga no tiene lectura de llenado, o el equipo no tiene medidor registrado. Anote la lectura al registrar la próxima muestra o el próximo cambio.">
+        <Typography variant="caption" color="text.secondary" sx={{ cursor: 'help' }}>Sin lecturas</Typography>
+      </Tooltip>
+    )
+  }
   const pct = recomendada ? Math.min(100, (actual / recomendada) * 100) : null
   const color = pct == null ? COLOR_MODULO : pct >= 100 ? ESTADO.peligro : pct >= 85 ? ESTADO.alerta : ESTADO.exito
   return (
-    <Box sx={{ minWidth: 120 }}>
-      <Typography variant="caption" sx={{ fontWeight: 700 }}>
-        {actual.toLocaleString('es-CO')}{recomendada ? ` / ${recomendada.toLocaleString('es-CO')}` : ''}
-        <Typography component="span" variant="caption" color="text.secondary">
-          {' '}{(unidad ?? 'HORAS').toLowerCase()}
+    <Tooltip title={recomendada
+      ? `Lleva ${num(actual)} ${unidadCorta(unidad)} de ${num(recomendada)} recomendados para este producto en este compartimento (${Math.round((actual / recomendada) * 100)} %).`
+      : 'Vida de la carga desde el llenado. Para ver el avance contra lo recomendado, configure la aplicación del producto en este tipo de compartimento.'}>
+      <Box sx={{ minWidth: 120, cursor: 'help' }}>
+        <Typography variant="caption" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+          {num(actual)}{recomendada ? ` / ${num(recomendada)}` : ''}
+          <Typography component="span" variant="caption" color="text.secondary">
+            {' '}{unidadCorta(unidad)}
+          </Typography>
         </Typography>
-      </Typography>
-      {pct != null && (
-        <LinearProgress variant="determinate" value={pct} sx={{
-          mt: 0.4, height: 5, borderRadius: 99, bgcolor: PALETA.niebla,
-          '& .MuiLinearProgress-bar': { bgcolor: color, borderRadius: 99 },
-        }} />
-      )}
-    </Box>
+        {pct != null && (
+          <LinearProgress variant="determinate" value={pct} sx={{
+            mt: 0.4, height: 5, borderRadius: 99, bgcolor: PALETA.niebla,
+            '& .MuiLinearProgress-bar': { bgcolor: color, borderRadius: 99 },
+          }} />
+        )}
+      </Box>
+    </Tooltip>
   )
 }
+
+/** Una cifra del encabezado: dice qué es al pasar el puntero y lleva a la lista. */
+function Cifra({ icono, valor, titulo, pie, color, ayuda, activo, onClick }: {
+  icono: ReactNode; valor: ReactNode; titulo: string; pie?: string; color: string
+  ayuda: string; activo?: boolean; onClick?: () => void
+}) {
+  return (
+    <Tooltip title={ayuda} arrow placement="bottom-start" enterDelay={250}>
+      <Card onClick={onClick} sx={{
+        flex: '1 1 180px', p: 1.75, borderRadius: 3, cursor: onClick ? 'pointer' : 'default',
+        border: `1px solid ${activo ? color : PALETA.niebla}`,
+        boxShadow: activo ? `0 0 0 3px ${color}22` : 'none',
+        transition: 'border-color .15s, box-shadow .15s, transform .15s',
+        '&:hover': onClick ? { borderColor: color, transform: 'translateY(-1px)' } : undefined,
+      }}>
+        <Stack direction="row" spacing={1.25} alignItems="center">
+          <Box sx={{
+            width: 36, height: 36, borderRadius: 2, display: 'grid', placeItems: 'center',
+            bgcolor: `${color}14`, color,
+          }}>{icono}</Box>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontSize: 22, fontWeight: 800, lineHeight: 1.1,
+                              fontVariantNumeric: 'tabular-nums' }}>{valor}</Typography>
+            <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>
+              {titulo}
+            </Typography>
+          </Box>
+        </Stack>
+        {pie && (
+          <Typography variant="caption" display="block" sx={{ mt: 0.75, color: 'text.secondary' }}>
+            {pie}
+          </Typography>
+        )}
+      </Card>
+    </Tooltip>
+  )
+}
+
+function Paginador({ total, pagina, porPagina, onPagina, onPorPagina }: {
+  total: number; pagina: number; porPagina: number
+  onPagina: (p: number) => void; onPorPagina: (n: number) => void
+}) {
+  if (total <= 25) return null
+  return (
+    <TablePagination component="div" count={total} page={pagina} rowsPerPage={porPagina}
+      rowsPerPageOptions={[25, 50, 100]}
+      onPageChange={(_, p) => onPagina(p)}
+      onRowsPerPageChange={e => { onPorPagina(Number(e.target.value)); onPagina(0) }}
+      labelRowsPerPage="Filas"
+      labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count.toLocaleString('es-CO')}`}
+      sx={{ borderTop: `1px solid ${PALETA.niebla}` }} />
+  )
+}
+
+const encabezado = { fontWeight: 700, fontSize: 11, color: 'text.secondary', whiteSpace: 'nowrap' } as const
+
+function Vacio({ columnas, children }: { columnas: number; children: ReactNode }) {
+  return (
+    <TableRow><TableCell colSpan={columnas} sx={{ py: 6, textAlign: 'center' }}>
+      <Typography variant="body2" color="text.secondary">{children}</Typography>
+    </TableCell></TableRow>
+  )
+}
+
+const ESTADOS_PENDIENTE: Record<Pendiente['estado'], { etiqueta: string; color: string; ayuda: string }> = {
+  VENCIDO: { etiqueta: 'Vencido', color: ESTADO.peligro,
+    ayuda: 'Ya recorrió más que la frecuencia de muestreo desde la última toma de esta carga (o desde el llenado).' },
+  PROXIMO: { etiqueta: 'Próximo', color: ESTADO.alerta,
+    ayuda: 'Le falta menos del 10 % para la frecuencia: conviene programar la toma.' },
+  SIN_HISTORIA: { etiqueta: 'Sin línea base', color: PALETA.grafito,
+    ayuda: 'Nunca se ha muestreado. Sin una primera muestra, las tendencias de las siguientes no tienen contra qué compararse.' },
+}
+
+type FiltroEstado = '' | 'CRITICA' | 'MARGINAL' | 'NORMAL' | 'PENDIENTE'
 
 export default function EAMLubricacion() {
   const qc = useQueryClient()
   const navigate = useNavigate()
   const [tab, setTab] = useState(0)
-  const [busqueda, setBusqueda] = useState('')
   const [verMuestra, setVerMuestra] = useState<number | null>(null)
   const [nuevaMuestra, setNuevaMuestra] = useState<Compartimento | null>(null)
   const [nuevaCarga, setNuevaCarga] = useState<Compartimento | null>(null)
+  const [relleno, setRelleno] = useState<Compartimento | null>(null)
   /** El paso previo al formulario cuando se entra por el botón de arriba: a qué
    *  compartimento pertenece la muestra. Desde la tabla ya se sabe. */
   const [eligiendo, setEligiendo] = useState(false)
 
+  // Compartimentos: filtros y página.
+  const [busqueda, setBusqueda] = useState('')
+  const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>('')
+  const [filtroTipo, setFiltroTipo] = useState('')
+  const [soloCriticos, setSoloCriticos] = useState(false)
+  const [pagC, setPagC] = useState(0)
+  const [porPagC, setPorPagC] = useState(25)
+
+  // Pendientes.
+  const [filtroPend, setFiltroPend] = useState<'' | Pendiente['estado']>('')
+  const [pagP, setPagP] = useState(0)
+  const [porPagP, setPorPagP] = useState(25)
+
   const { data: compartimentos = [], isLoading } = useQuery({
     queryKey: ['lube-compartimentos'], queryFn: () => lubeApi.compartimentos.listar(),
   })
-  const { data: muestras = [] } = useQuery({
-    queryKey: ['lube-muestras'], queryFn: () => lubeApi.muestras.listar(),
-  })
-  const { data: pendientes = [] } = useQuery({
+  const { data: pendientes = [], isLoading: cargandoPend } = useQuery({
     queryKey: ['lube-pendientes'], queryFn: () => lubeApi.pendientes(),
   })
+  // Solo el total, para el encabezado. La lista paginada vive en su pestaña.
+  const { data: totalMuestras } = useQuery({
+    queryKey: ['lube-muestras', 'total'],
+    queryFn: () => lubeApi.muestras.pagina({ limite: 1 }).then(r => r.total),
+  })
 
-  const filtrados = useMemo(() => compartimentos.filter(c =>
-    !busqueda || `${c.activo_codigo} ${c.nombre} ${c.tipo_compartimento} ${c.producto_actual}`
-      .toLowerCase().includes(busqueda.toLowerCase())), [compartimentos, busqueda])
+  const porId = useMemo(() => new Map(compartimentos.map(c => [c.id, c])), [compartimentos])
+  const tipos = useMemo(() => [...new Set(compartimentos.map(c => c.tipo_compartimento)
+    .filter(Boolean) as string[])].sort(), [compartimentos])
 
-  const criticas = muestras.filter(m => m.severidad === 'CRITICO' || m.severidad === 'ACCION_INMEDIATA')
+  const filtrados = useMemo(() => {
+    const q = busqueda.trim().toLowerCase()
+    return compartimentos.filter(c =>
+      (!q || `${c.activo_codigo} ${c.activo_nombre} ${c.nombre} ${c.tipo_compartimento} ${c.producto_actual}`
+        .toLowerCase().includes(q))
+      && (!filtroTipo || c.tipo_compartimento === filtroTipo)
+      && (!soloCriticos || c.critico)
+      && (!filtroEstado
+        || (filtroEstado === 'CRITICA' && esCritica(c.severidad_ultima))
+        || (filtroEstado === 'PENDIENTE' && (!c.severidad_ultima || c.severidad_ultima === 'PENDIENTE'))
+        || c.severidad_ultima === filtroEstado))
+  }, [compartimentos, busqueda, filtroTipo, soloCriticos, filtroEstado])
+
+  // Volver a la primera página cuando cambia el filtro: quedarse en la 8 de
+  // una lista que ahora tiene dos páginas muestra una tabla vacía.
+  useEffect(() => { setPagC(0) }, [busqueda, filtroTipo, soloCriticos, filtroEstado])
+  useEffect(() => { setPagP(0) }, [filtroPend])
+
+  const criticos = useMemo(() => compartimentos.filter(c => esCritica(c.severidad_ultima)), [compartimentos])
+  const conteoPend = useMemo(() => {
+    const n = { VENCIDO: 0, PROXIMO: 0, SIN_HISTORIA: 0 } as Record<Pendiente['estado'], number>
+    for (const p of pendientes) n[p.estado] = (n[p.estado] ?? 0) + 1
+    return n
+  }, [pendientes])
+  const pendFiltrados = useMemo(
+    () => pendientes.filter(p => !filtroPend || p.estado === filtroPend), [pendientes, filtroPend])
+  const sinCarga = compartimentos.filter(c => !c.carga_id).length
 
   const refrescar = () => {
     qc.invalidateQueries({ queryKey: ['lube-compartimentos'] })
     qc.invalidateQueries({ queryKey: ['lube-muestras'] })
     qc.invalidateQueries({ queryKey: ['lube-pendientes'] })
   }
+
+  const verCriticos = () => {
+    setTab(0); setFiltroEstado('CRITICA'); setBusqueda(''); setFiltroTipo(''); setSoloCriticos(false)
+  }
+  const verPendientes = (e: '' | Pendiente['estado']) => { setTab(2); setFiltroPend(e) }
 
   const sinConfigurar = compartimentos.length === 0
 
@@ -129,10 +286,7 @@ export default function EAMLubricacion() {
             </Typography>
           </Box>
           {/* Registrar una muestra es lo que más se hace en esta pantalla, así
-              que va primero y con nombre propio. Antes solo estaba como un
-              iconito al final de cada fila y como botón dentro de «Por
-              muestrear»: quien entraba a cargar el boletín del laboratorio no
-              encontraba por dónde. */}
+              que va primero y con nombre propio. */}
           <Button startIcon={<Science />} variant="contained"
             disabled={compartimentos.length === 0}
             onClick={() => setEligiendo(true)}
@@ -145,11 +299,13 @@ export default function EAMLubricacion() {
             sx={{ textTransform: 'none' }}>
             Interpretación y tablero
           </Button>
-          <Button startIcon={<Settings />} variant="outlined"
-            onClick={() => navigate('/eam/config?seccion=lubricacion')}
-            sx={{ textTransform: 'none' }}>
-            Configuración
-          </Button>
+          <Tooltip title="Marcas, productos, tipos de compartimento, parámetros y límites">
+            <Button startIcon={<Settings />} variant="outlined"
+              onClick={() => navigate('/eam/config?seccion=lubricacion')}
+              sx={{ textTransform: 'none' }}>
+              Configuración
+            </Button>
+          </Tooltip>
         </Stack>
 
         {sinConfigurar && !isLoading && (
@@ -164,208 +320,323 @@ export default function EAMLubricacion() {
           </Alert>
         )}
 
-        {criticas.length > 0 && (
-          <Alert severity="error" icon={<WarningAmber />} sx={{ mb: 2 }}>
-            Hay {criticas.length} {criticas.length === 1 ? 'muestra crítica' : 'muestras críticas'} sin
-            resolver. {criticas.slice(0, 3).map(m => `${m.activo_codigo} · ${m.numero}`).join(' · ')}
+        {!sinConfigurar && (
+          <Stack direction="row" spacing={1.5} mb={2.5} flexWrap="wrap" useFlexGap>
+            <Cifra icono={<Inventory2 fontSize="small" />} color={COLOR_MODULO}
+              valor={isLoading ? '…' : num(compartimentos.length)} titulo="Compartimentos"
+              pie={sinCarga ? `${num(sinCarga)} sin carga abierta` : 'Todos con carga abierta'}
+              ayuda="Motores, transmisiones, hidráulicos y demás depósitos de aceite que se siguen. Sin una carga abierta no se puede contar la vida del aceite."
+              activo={tab === 0 && !filtroEstado}
+              onClick={() => { setTab(0); setFiltroEstado('') }} />
+            <Cifra icono={<EventRepeat fontSize="small" />} color={ESTADO.peligro}
+              valor={cargandoPend ? '…' : num(conteoPend.VENCIDO)} titulo="Muestras vencidas"
+              pie={`y ${num(conteoPend.PROXIMO)} por vencer`}
+              ayuda="Compartimentos que ya recorrieron más que su frecuencia de muestreo desde la última toma. Es la lista de trabajo: si no se muestrea cuando toca, el resto de los números es adorno."
+              activo={tab === 2 && filtroPend === 'VENCIDO'}
+              onClick={() => verPendientes('VENCIDO')} />
+            <Cifra icono={<ReportProblem fontSize="small" />} color={ESTADO.peligro}
+              valor={isLoading ? '…' : num(criticos.length)} titulo="Última muestra crítica"
+              pie="Compartimentos por atender"
+              ayuda="Compartimentos cuya muestra más reciente salió crítica o de acción inmediata. Se queda aquí hasta que una muestra nueva diga otra cosa."
+              activo={tab === 0 && filtroEstado === 'CRITICA'}
+              onClick={verCriticos} />
+            <Cifra icono={<PlaylistAddCheck fontSize="small" />} color={PALETA.grafito}
+              valor={cargandoPend ? '…' : num(conteoPend.SIN_HISTORIA)} titulo="Sin línea base"
+              pie="Nunca muestreados"
+              ayuda="Compartimentos sin ninguna muestra. La primera es la línea base: sin ella, las tendencias de las siguientes no tienen contra qué compararse."
+              activo={tab === 2 && filtroPend === 'SIN_HISTORIA'}
+              onClick={() => verPendientes('SIN_HISTORIA')} />
+            <Cifra icono={<Science fontSize="small" />} color={COLOR_MODULO}
+              valor={totalMuestras == null ? '…' : num(totalMuestras)} titulo="Muestras registradas"
+              pie="Historia completa"
+              ayuda="Todas las muestras con resultado, de todas las cargas. Las anuladas no cuentan."
+              activo={tab === 1} onClick={() => setTab(1)} />
+          </Stack>
+        )}
+
+        {criticos.length > 0 && (
+          <Alert severity="error" icon={<WarningAmber />} sx={{ mb: 2, alignItems: 'center' }}
+            action={<Button size="small" color="inherit" onClick={verCriticos}
+              sx={{ textTransform: 'none', fontWeight: 700 }}>Ver todos</Button>}>
+            {criticos.length === 1 ? 'Un compartimento tiene' : `${num(criticos.length)} compartimentos tienen`} su
+            última muestra en estado crítico:{' '}
+            {criticos.slice(0, 4).map(c => `${c.activo_codigo} · ${c.nombre}`).join(' — ')}
+            {criticos.length > 4 ? ' …' : ''}
           </Alert>
         )}
 
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2.5, borderBottom: `1px solid ${PALETA.niebla}` }}>
-          <Tab label={`Compartimentos (${compartimentos.length})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
-          <Tab label={`Muestras (${muestras.length})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
-          <Tab label={`Por muestrear (${pendientes.length})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
+          <Tab label={`Compartimentos (${num(compartimentos.length)})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
+          <Tab label={`Muestras (${totalMuestras == null ? '…' : num(totalMuestras)})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
+          <Tab label={`Por muestrear (${num(conteoPend.VENCIDO + conteoPend.PROXIMO)})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
         </Tabs>
 
         {/* ── Compartimentos ─────────────────────────────────────────────────── */}
         {tab === 0 && (
           <Box>
-            <TextField size="small" placeholder="Buscar activo, compartimento o producto…"
-              value={busqueda} onChange={e => setBusqueda(e.target.value)}
-              InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }}
-              sx={{ mb: 2, width: 340 }} />
+            <Stack direction="row" spacing={1.5} mb={2} flexWrap="wrap" useFlexGap alignItems="center">
+              <TextField size="small" placeholder="Buscar placa, compartimento o producto…"
+                value={busqueda} onChange={e => setBusqueda(e.target.value)}
+                InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }}
+                sx={{ width: { xs: '100%', sm: 320 } }} />
+              <TextField select size="small" label="Última muestra" value={filtroEstado}
+                onChange={e => setFiltroEstado(e.target.value as FiltroEstado)} sx={{ minWidth: 170 }}>
+                <MenuItem value="">Todas</MenuItem>
+                <MenuItem value="CRITICA">Crítica o acción inmediata</MenuItem>
+                <MenuItem value="MARGINAL">Marginal</MenuItem>
+                <MenuItem value="NORMAL">Normal</MenuItem>
+                <MenuItem value="PENDIENTE">Sin resultado</MenuItem>
+              </TextField>
+              {tipos.length > 1 && (
+                <TextField select size="small" label="Tipo" value={filtroTipo}
+                  onChange={e => setFiltroTipo(e.target.value)} sx={{ minWidth: 170 }}>
+                  <MenuItem value="">Todos</MenuItem>
+                  {tipos.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                </TextField>
+              )}
+              <Tooltip title="Los compartimentos marcados como críticos en su ficha: su falla para el equipo">
+                <FormControlLabel control={<Switch size="small" checked={soloCriticos}
+                  onChange={e => setSoloCriticos(e.target.checked)} />}
+                  label={<Typography variant="body2">Solo equipos críticos</Typography>} />
+              </Tooltip>
+              <Box sx={{ flex: 1 }} />
+              <Typography variant="caption" color="text.secondary">
+                {filtrados.length === compartimentos.length
+                  ? `${num(compartimentos.length)} compartimentos`
+                  : `${num(filtrados.length)} de ${num(compartimentos.length)}`}
+              </Typography>
+            </Stack>
 
             {isLoading ? <Skeleton variant="rectangular" height={300} sx={{ borderRadius: 3 }} /> : (
-              <Card sx={{ borderRadius: 3, overflow: 'auto' }}>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      {['ACTIVO', 'COMPARTIMENTO', 'PRODUCTO EN USO', 'VIDA DE LA CARGA',
-                        'ÚLTIMA MUESTRA', 'ESTADO', ''].map(h => (
-                        <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11 }}>{h}</TableCell>
-                      ))}
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {filtrados.map(c => (
-                      <TableRow key={c.id} hover>
-                        <TableCell>
-                          <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: 'monospace' }}>
-                            {c.activo_codigo}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">{c.activo_nombre}</Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Stack direction="row" spacing={0.75} alignItems="center">
-                            <Typography variant="body2">{c.nombre}</Typography>
-                            {c.critico && <Chip label="Crítico" size="small" sx={{
-                              height: 17, fontSize: 9, fontWeight: 800,
-                              bgcolor: `${ESTADO.peligro}1A`, color: ESTADO.peligro }} />}
-                          </Stack>
-                          <Typography variant="caption" color="text.secondary">
-                            {c.tipo_compartimento}
-                            {!c.tiene_puerto_muestreo && ' · sin puerto de muestreo'}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          {c.producto_actual ?? (
-                            <Typography variant="caption" color="text.secondary">Sin carga abierta</Typography>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <VidaCarga actual={c.vida_actual} recomendada={c.vida_recomendada}
-                            unidad={c.unidad_vida} />
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="caption">{fecha(c.fecha_ultima_muestra)}</Typography>
-                        </TableCell>
-                        <TableCell><Severidad valor={c.severidad_ultima} /></TableCell>
-                        <TableCell align="right">
-                          <Tooltip title="Registrar muestra">
-                            <span>
-                              <IconButton size="small" onClick={() => setNuevaMuestra(c)}>
+              <Card sx={{ borderRadius: 3, overflow: 'hidden' }}>
+                <Box sx={{ overflowX: 'auto' }}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        {['ACTIVO', 'COMPARTIMENTO', 'PRODUCTO EN USO', 'VIDA DE LA CARGA',
+                          'ÚLTIMA MUESTRA', 'ESTADO', ''].map(h => (
+                          <TableCell key={h} sx={encabezado}>{h}</TableCell>
+                        ))}
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {filtrados.slice(pagC * porPagC, (pagC + 1) * porPagC).map(c => (
+                        <TableRow key={c.id} hover>
+                          <TableCell>
+                            <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: 'monospace' }}>
+                              {c.activo_codigo}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">{c.activo_nombre}</Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Stack direction="row" spacing={0.75} alignItems="center">
+                              <Typography variant="body2">{c.nombre}</Typography>
+                              {c.critico && (
+                                <Tooltip title="Compartimento crítico: su falla detiene el equipo">
+                                  <Chip label="Crítico" size="small" sx={{
+                                    height: 17, fontSize: 9, fontWeight: 800,
+                                    bgcolor: `${ESTADO.peligro}1A`, color: ESTADO.peligro }} />
+                                </Tooltip>
+                              )}
+                            </Stack>
+                            {/* El tipo solo se repite si dice algo que el nombre no dice. */}
+                            {(c.tipo_compartimento !== c.nombre || !c.tiene_puerto_muestreo) && (
+                              <Typography variant="caption" color="text.secondary">
+                                {[c.tipo_compartimento !== c.nombre ? c.tipo_compartimento : null,
+                                  !c.tiene_puerto_muestreo ? 'sin puerto de muestreo' : null]
+                                  .filter(Boolean).join(' · ')}
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {c.producto_actual ?? (
+                              <Typography variant="caption" color="text.secondary">
+                                {c.carga_id ? 'Producto sin registrar' : 'Sin carga abierta'}
+                              </Typography>
+                            )}
+                            {c.fecha_llenado && (
+                              <Typography variant="caption" display="block" color="text.secondary">
+                                Cambio: {fecha(c.fecha_llenado)}
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <VidaCarga actual={c.vida_actual} recomendada={c.vida_recomendada}
+                              unidad={c.unidad_vida} />
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="caption" display="block">{fecha(c.fecha_ultima_muestra)}</Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {c.fecha_ultima_muestra ? haceCuanto(c.fecha_ultima_muestra) : 'Nunca'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell><Severidad valor={c.severidad_ultima} /></TableCell>
+                          <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                            <Tooltip title="Registrar muestra">
+                              <IconButton size="small" aria-label={`Registrar muestra de ${c.activo_codigo} ${c.nombre}`}
+                                onClick={() => setNuevaMuestra(c)}>
                                 <Science fontSize="small" />
                               </IconButton>
-                            </span>
-                          </Tooltip>
-                          <Tooltip title={c.carga_id ? 'Cambiar el aceite (cierra la carga actual)' : 'Abrir la primera carga'}>
-                            <IconButton size="small" onClick={() => setNuevaCarga(c)}>
-                              <WaterDrop fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                            </Tooltip>
+                            <Tooltip title={c.carga_id ? 'Relleno: aceite agregado sin cambiar la carga' : 'Abra primero una carga'}>
+                              <span>
+                                <IconButton size="small" disabled={!c.carga_id}
+                                  aria-label={`Registrar relleno de ${c.activo_codigo} ${c.nombre}`}
+                                  onClick={() => setRelleno(c)}>
+                                  <Opacity fontSize="small" />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                            <Tooltip title={c.carga_id ? 'Cambio de aceite (cierra la carga actual)' : 'Abrir la primera carga'}>
+                              <IconButton size="small" aria-label={`Cambio de aceite de ${c.activo_codigo} ${c.nombre}`}
+                                onClick={() => setNuevaCarga(c)}>
+                                <WaterDrop fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {filtrados.length === 0 && (
+                        <Vacio columnas={7}>Ningún compartimento coincide con el filtro.</Vacio>
+                      )}
+                    </TableBody>
+                  </Table>
+                </Box>
+                <Paginador total={filtrados.length} pagina={pagC} porPagina={porPagC}
+                  onPagina={setPagC} onPorPagina={setPorPagC} />
               </Card>
             )}
           </Box>
         )}
 
         {/* ── Muestras ───────────────────────────────────────────────────────── */}
-        {tab === 1 && (
-          <Card sx={{ borderRadius: 3, overflow: 'auto' }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  {['MUESTRA', 'ACTIVO', 'COMPARTIMENTO', 'TOMADA', 'VIDA DEL ACEITE',
-                    'SEVERIDAD'].map(h => (
-                    <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11 }}>{h}</TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {muestras.map(m => (
-                  <TableRow key={m.id} hover sx={{ cursor: 'pointer' }}
-                    onClick={() => setVerMuestra(m.id)}>
-                    <TableCell sx={{ fontFamily: 'monospace', fontWeight: 700 }}>{m.numero}</TableCell>
-                    <TableCell sx={{ fontFamily: 'monospace' }}>{m.activo_codigo}</TableCell>
-                    <TableCell>{m.compartimento}</TableCell>
-                    <TableCell>{fecha(m.fecha_toma)}</TableCell>
-                    <TableCell sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                      {m.horas_aceite != null ? m.horas_aceite.toLocaleString('es-CO') : '—'}
-                    </TableCell>
-                    <TableCell>
-                      <Stack direction="row" spacing={0.5} alignItems="center">
-                        <Severidad valor={m.severidad} />
-                        {m.severidad_manual && (
-                          <Tooltip title="Severidad fijada por un analista">
-                            <FactCheck sx={{ fontSize: 14, color: PALETA.acero }} />
-                          </Tooltip>
-                        )}
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {muestras.length === 0 && (
-                  <TableRow><TableCell colSpan={6} sx={{ py: 5, textAlign: 'center' }}>
-                    <Typography variant="body2" color="text.secondary">
-                      Todavía no hay muestras registradas.
-                    </Typography>
-                  </TableCell></TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </Card>
-        )}
+        {tab === 1 && <ListaMuestras onVer={setVerMuestra} />}
 
         {/* ── Por muestrear ──────────────────────────────────────────────────── */}
         {tab === 2 && (
           <Box>
-            <Alert severity="info" sx={{ mb: 2 }}>
-              Sale de comparar la vida acumulada de cada carga contra la frecuencia de muestreo
-              del compartimento. Si no se muestrea cuando toca, el resto de los números del
-              tablero son adorno.
-            </Alert>
-            <Card sx={{ borderRadius: 3, overflow: 'auto' }}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    {['ACTIVO', 'COMPARTIMENTO', 'VIDA ACTUAL', 'FRECUENCIA',
-                      'ÚLTIMA MUESTRA', 'MOTIVO', ''].map(h => (
-                      <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11 }}>{h}</TableCell>
-                    ))}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {pendientes.map(p => (
-                    <TableRow key={p.compartimento_id} hover>
-                      <TableCell sx={{ fontFamily: 'monospace', fontWeight: 700 }}>
-                        {p.activo}
-                        {p.critico && <Chip label="Crítico" size="small" sx={{
-                          ml: 0.75, height: 16, fontSize: 9, fontWeight: 800,
-                          bgcolor: `${ESTADO.peligro}1A`, color: ESTADO.peligro }} />}
-                      </TableCell>
-                      <TableCell>{p.compartimento}<br />
-                        <Typography variant="caption" color="text.secondary">{p.tipo}</Typography>
-                      </TableCell>
-                      <TableCell>{p.vida_actual ?? '—'} {p.unidad.toLowerCase()}</TableCell>
-                      <TableCell>{p.frecuencia_muestreo ?? '—'}</TableCell>
-                      <TableCell>{fecha(p.ultima_muestra)}</TableCell>
-                      <TableCell>
-                        <Typography variant="caption" sx={{ color: ESTADO.alerta, fontWeight: 700 }}>
-                          {p.motivo}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Button size="small" startIcon={<Science />} sx={{ textTransform: 'none' }}
-                          onClick={() => {
-                            const c = compartimentos.find(x => x.id === p.compartimento_id)
-                            if (c) setNuevaMuestra(c)
-                          }}>
-                          Registrar
-                        </Button>
-                      </TableCell>
+            <Stack direction="row" spacing={1} mb={2} flexWrap="wrap" useFlexGap alignItems="center">
+              <Chip label={`Todos (${num(pendientes.length)})`} onClick={() => setFiltroPend('')}
+                variant={filtroPend === '' ? 'filled' : 'outlined'}
+                sx={{ fontWeight: 700, ...(filtroPend === '' && { bgcolor: COLOR_MODULO, color: '#fff' }) }} />
+              {(Object.keys(ESTADOS_PENDIENTE) as Pendiente['estado'][]).map(e => {
+                const d = ESTADOS_PENDIENTE[e]
+                const activo = filtroPend === e
+                return (
+                  <Tooltip key={e} title={d.ayuda}>
+                    <Chip label={`${d.etiqueta} (${num(conteoPend[e])})`} onClick={() => setFiltroPend(e)}
+                      variant={activo ? 'filled' : 'outlined'}
+                      sx={{ fontWeight: 700, borderColor: d.color, color: activo ? '#fff' : d.color,
+                            ...(activo && { bgcolor: d.color }) }} />
+                  </Tooltip>
+                )
+              })}
+              <Box sx={{ flex: 1 }} />
+              <Typography variant="caption" color="text.secondary" sx={{ maxWidth: 460 }}>
+                Se cuenta desde la última muestra de la carga viva —o desde el cambio de aceite—
+                contra la frecuencia de muestreo de cada compartimento.
+              </Typography>
+            </Stack>
+            <Card sx={{ borderRadius: 3, overflow: 'hidden' }}>
+              <Box sx={{ overflowX: 'auto' }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      {['ACTIVO', 'COMPARTIMENTO', 'DESDE LA ÚLTIMA TOMA', 'VIDA DE LA CARGA',
+                        'ÚLTIMA MUESTRA', 'ESTADO', ''].map(h => (
+                        <TableCell key={h} sx={encabezado}>{h}</TableCell>
+                      ))}
                     </TableRow>
-                  ))}
-                  {pendientes.length === 0 && (
-                    <TableRow><TableCell colSpan={7} sx={{ py: 5, textAlign: 'center' }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Nada pendiente. Todos los compartimentos con carga viva están al día.
-                      </Typography>
-                    </TableCell></TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                  </TableHead>
+                  <TableBody>
+                    {cargandoPend && (
+                      <TableRow><TableCell colSpan={7}><Skeleton height={120} /></TableCell></TableRow>
+                    )}
+                    {pendFiltrados.slice(pagP * porPagP, (pagP + 1) * porPagP).map(p => {
+                      const d = ESTADOS_PENDIENTE[p.estado]
+                      const u = unidadCorta(p.unidad)
+                      return (
+                        <TableRow key={p.compartimento_id} hover>
+                          <TableCell sx={{ fontFamily: 'monospace', fontWeight: 700 }}>
+                            {p.activo}
+                            {p.critico && <Chip label="Crítico" size="small" sx={{
+                              ml: 0.75, height: 16, fontSize: 9, fontWeight: 800, fontFamily: 'inherit',
+                              bgcolor: `${ESTADO.peligro}1A`, color: ESTADO.peligro }} />}
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2">{p.compartimento}</Typography>
+                            {p.tipo !== p.compartimento && (
+                              <Typography variant="caption" color="text.secondary">{p.tipo}</Typography>
+                            )}
+                          </TableCell>
+                          <TableCell sx={{ minWidth: 170 }}>
+                            {p.desde_ultima == null ? (
+                              <Typography variant="caption" color="text.secondary">Sin lecturas</Typography>
+                            ) : (
+                              <Tooltip title={p.frecuencia_muestreo
+                                ? `${num(p.desde_ultima)} ${u} desde la última toma; se muestrea cada ${num(p.frecuencia_muestreo)} ${u}.`
+                                : 'El compartimento no tiene frecuencia de muestreo configurada.'}>
+                                <Box sx={{ cursor: 'help' }}>
+                                  <Typography variant="caption" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                                    {num(p.desde_ultima)}
+                                    {p.frecuencia_muestreo ? ` / ${num(p.frecuencia_muestreo)}` : ''}
+                                    <Typography component="span" variant="caption" color="text.secondary"> {u}</Typography>
+                                  </Typography>
+                                  {p.avance_pct != null && (
+                                    <LinearProgress variant="determinate" value={Math.min(100, p.avance_pct)} sx={{
+                                      mt: 0.4, height: 5, borderRadius: 99, bgcolor: PALETA.niebla,
+                                      '& .MuiLinearProgress-bar': { bgcolor: d.color, borderRadius: 99 },
+                                    }} />
+                                  )}
+                                </Box>
+                              </Tooltip>
+                            )}
+                          </TableCell>
+                          <TableCell sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                            {p.vida_actual == null ? '—' : `${num(p.vida_actual)} ${u}`}
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="caption" display="block">{fecha(p.ultima_muestra)}</Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {p.ultima_muestra ? haceCuanto(p.ultima_muestra) : 'Nunca'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Tooltip title={d.ayuda}>
+                              <Chip label={p.estado === 'VENCIDO' && p.avance_pct
+                                ? `Vencido · ${Math.round(p.avance_pct)} %` : d.etiqueta}
+                                size="small" sx={{ height: 21, fontSize: 10.5, fontWeight: 800,
+                                                   bgcolor: `${d.color}1A`, color: d.color }} />
+                            </Tooltip>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Button size="small" startIcon={<Science />} sx={{ textTransform: 'none' }}
+                              disabled={!porId.has(p.compartimento_id)}
+                              onClick={() => {
+                                const c = porId.get(p.compartimento_id)
+                                if (c) setNuevaMuestra(c)
+                              }}>
+                              Registrar
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                    {!cargandoPend && pendFiltrados.length === 0 && (
+                      <Vacio columnas={7}>
+                        {filtroPend
+                          ? 'Ningún compartimento en este estado.'
+                          : 'Nada pendiente. Todos los compartimentos con carga viva están al día.'}
+                      </Vacio>
+                    )}
+                  </TableBody>
+                </Table>
+              </Box>
+              <Paginador total={pendFiltrados.length} pagina={pagP} porPagina={porPagP}
+                onPagina={setPagP} onPorPagina={setPorPagP} />
             </Card>
           </Box>
         )}
-
-        {/* El tablero se mudó a «Interpretación de muestras de aceite», con el
-            resto del análisis y con filtro de flota. Acá estaba fuera de lugar:
-            esta pantalla es para registrar cargas y muestras, y un tablero
-            entre las pestañas de registro obliga a irse del trabajo y volver. */}
 
         {verMuestra && (
           <DetalleMuestra id={verMuestra} onCerrar={() => setVerMuestra(null)} onCambio={refrescar} />
@@ -384,16 +655,119 @@ export default function EAMLubricacion() {
           <DialogoCarga compartimento={nuevaCarga}
             onCerrar={() => setNuevaCarga(null)} onListo={refrescar} />
         )}
+        {relleno && (
+          <DialogoRelleno compartimento={relleno}
+            onCerrar={() => setRelleno(null)} onListo={refrescar} />
+        )}
       </Box>
     </Layout>
   )
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Detalle de una muestra: los resultados con su evaluación, y el diagnóstico.
-   Va a nivel de módulo y no dentro del componente padre: definida adentro,
-   React la trataría como un tipo nuevo en cada render y la remontaría entera.
+   Las muestras, paginadas en el servidor: con veinte mil no se puede traer la
+   lista entera, y antes se mostraban solo las doscientas más recientes sin
+   decir que había más.
    ═══════════════════════════════════════════════════════════════════════════ */
+function ListaMuestras({ onVer }: { onVer: (id: number) => void }) {
+  const [texto, setTexto] = useState('')
+  const [buscar, setBuscar] = useState('')
+  const [severidad, setSeveridad] = useState('')
+  const [pagina, setPagina] = useState(0)
+  const [porPagina, setPorPagina] = useState(25)
+
+  // Se espera a que deje de escribir: una consulta por tecla es ruido.
+  useEffect(() => {
+    const t = setTimeout(() => { setBuscar(texto.trim()); setPagina(0) }, 350)
+    return () => clearTimeout(t)
+  }, [texto])
+
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey: ['lube-muestras', 'pagina', buscar, severidad, pagina, porPagina],
+    queryFn: () => lubeApi.muestras.pagina({
+      buscar: buscar || undefined, severidad: severidad || undefined,
+      limite: porPagina, desplazamiento: pagina * porPagina,
+    }),
+    placeholderData: prev => prev,
+  })
+  const filas = data?.filas ?? []
+
+  return (
+    <Box>
+      <Stack direction="row" spacing={1.5} mb={2} flexWrap="wrap" useFlexGap alignItems="center">
+        <TextField size="small" placeholder="Número de muestra, placa o compartimento…"
+          value={texto} onChange={e => setTexto(e.target.value)}
+          InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }}
+          sx={{ width: { xs: '100%', sm: 340 } }} />
+        <TextField select size="small" label="Severidad" value={severidad}
+          onChange={e => { setSeveridad(e.target.value); setPagina(0) }} sx={{ minWidth: 190 }}>
+          <MenuItem value="">Todas</MenuItem>
+          <MenuItem value="CRITICO,ACCION_INMEDIATA">Crítica o acción inmediata</MenuItem>
+          <MenuItem value="MARGINAL">Marginal</MenuItem>
+          <MenuItem value="NORMAL">Normal</MenuItem>
+          <MenuItem value="PENDIENTE">Sin resultado</MenuItem>
+        </TextField>
+        <Box sx={{ flex: 1 }} />
+        <Typography variant="caption" color="text.secondary">
+          {data ? `${num(data.total)} muestra(s)` : ''} · clic en una fila para ver resultados y diagnóstico
+        </Typography>
+      </Stack>
+      <Card sx={{ borderRadius: 3, overflow: 'hidden', position: 'relative' }}>
+        {isFetching && !isLoading && (
+          <LinearProgress sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2 }} />
+        )}
+        <Box sx={{ overflowX: 'auto' }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                {['MUESTRA', 'ACTIVO', 'COMPARTIMENTO', 'TOMADA', 'VIDA DEL ACEITE', 'SEVERIDAD'].map(h => (
+                  <TableCell key={h} sx={encabezado}>{h}</TableCell>
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {isLoading && (
+                <TableRow><TableCell colSpan={6}><Skeleton height={160} /></TableCell></TableRow>
+              )}
+              {filas.map(m => (
+                <TableRow key={m.id} hover sx={{ cursor: 'pointer' }} onClick={() => onVer(m.id)}>
+                  <TableCell sx={{ fontFamily: 'monospace', fontWeight: 700 }}>{m.numero}</TableCell>
+                  <TableCell sx={{ fontFamily: 'monospace' }}>{m.activo_codigo}</TableCell>
+                  <TableCell>{m.compartimento}</TableCell>
+                  <TableCell>
+                    <Typography variant="caption" display="block">{fecha(m.fecha_toma)}</Typography>
+                    <Typography variant="caption" color="text.secondary">{haceCuanto(m.fecha_toma)}</Typography>
+                  </TableCell>
+                  <TableCell sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                    {m.horas_aceite != null ? num(m.horas_aceite) : '—'}
+                  </TableCell>
+                  <TableCell>
+                    <Stack direction="row" spacing={0.5} alignItems="center">
+                      <Severidad valor={m.severidad} />
+                      {m.severidad_manual && (
+                        <Tooltip title="Severidad fijada por un analista">
+                          <FactCheck sx={{ fontSize: 14, color: PALETA.acero }} />
+                        </Tooltip>
+                      )}
+                    </Stack>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!isLoading && filas.length === 0 && (
+                <Vacio columnas={6}>
+                  {buscar || severidad ? 'Ninguna muestra coincide con la búsqueda.' : 'Todavía no hay muestras registradas.'}
+                </Vacio>
+              )}
+            </TableBody>
+          </Table>
+        </Box>
+        <Paginador total={data?.total ?? 0} pagina={pagina} porPagina={porPagina}
+          onPagina={setPagina} onPorPagina={setPorPagina} />
+      </Card>
+    </Box>
+  )
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    Cargue masivo de muestras desde Excel.
 
@@ -431,8 +805,8 @@ function CargueMuestras({ onListo }: { onListo: () => void }) {
 
    Es el paso que falta cuando no se entra desde una fila de la tabla. Va con
    buscador y no con una lista desplegable porque una flota mediana pasa de los
-   doscientos compartimentos, y los que están por muestrear van primero: es
-   casi siempre lo que se viene a registrar.
+   doscientos compartimentos, y los que les toca muestra van primero: es casi
+   siempre lo que se viene a registrar.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function DialogoElegirCompartimento({ compartimentos, pendientes, onElegir, onCerrar }: {
@@ -443,8 +817,8 @@ function DialogoElegirCompartimento({ compartimentos, pendientes, onElegir, onCe
 }) {
   const [elegido, setElegido] = useState<Compartimento | null>(null)
 
-  const porMuestrear = useMemo(
-    () => new Set(pendientes.map(p => p.compartimento_id)), [pendientes])
+  const porMuestrear = useMemo(() => new Set(pendientes
+    .filter(p => p.estado !== 'SIN_HISTORIA').map(p => p.compartimento_id)), [pendientes])
 
   // `groupBy` de MUI agrupa por orden de aparición: si las opciones no vienen
   // ordenadas por grupo, el encabezado se repite varias veces.
@@ -468,7 +842,7 @@ function DialogoElegirCompartimento({ compartimentos, pendientes, onElegir, onCe
           onChange={(_, v) => setElegido(v)}
           openOnFocus
           autoHighlight
-          groupBy={c => porMuestrear.has(c.id) ? 'Por muestrear' : 'Los demás compartimentos'}
+          groupBy={c => porMuestrear.has(c.id) ? 'Le toca muestra' : 'Los demás compartimentos'}
           getOptionLabel={c => `${c.activo_codigo ?? '—'} · ${c.nombre}`}
           isOptionEqualToValue={(a, b) => a.id === b.id}
           noOptionsText="Ningún compartimento con ese nombre"
@@ -488,14 +862,14 @@ function DialogoElegirCompartimento({ compartimentos, pendientes, onElegir, onCe
           )}
           renderInput={p => (
             <TextField {...p} autoFocus label="Activo y compartimento"
-              placeholder="MTC-001, sistema hidráulico…" />
+              placeholder="Placa o compartimento…" />
           )}
         />
         {elegido && !elegido.carga_id && (
           <Alert severity="warning" sx={{ mt: 2 }}>
             Ese compartimento no tiene una carga abierta, así que la muestra quedará
-            suelta: sin carga no hay horas de aceite ni con qué comparar la tendencia.
-            Conviene abrir primero la carga desde la gota azul de su fila.
+            suelta: sin carga no hay vida del aceite ni con qué comparar la tendencia.
+            Conviene abrir primero la carga desde la gota de su fila.
           </Alert>
         )}
       </DialogContent>
@@ -511,6 +885,11 @@ function DialogoElegirCompartimento({ compartimentos, pendientes, onElegir, onCe
   )
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   Detalle de una muestra: los resultados con su evaluación, y el diagnóstico.
+   Va a nivel de módulo y no dentro del componente padre: definida adentro,
+   React la trataría como un tipo nuevo en cada render y la remontaría entera.
+   ═══════════════════════════════════════════════════════════════════════════ */
 function DetalleMuestra({ id, onCerrar, onCambio }: {
   id: number; onCerrar: () => void; onCambio: () => void
 }) {
@@ -518,6 +897,9 @@ function DetalleMuestra({ id, onCerrar, onCambio }: {
   const [conclusion, setConclusion] = useState('')
   const [recomendacion, setRecomendacion] = useState('')
   const [modoFalla, setModoFalla] = useState<number | ''>('')
+  /** El diagnóstico que se está cerrando, y con qué veredicto. */
+  const [cerrando, setCerrando] = useState<{ did: number; v: 'CONFIRMADO' | 'DESMENTIDO' } | null>(null)
+  const [hallazgo, setHallazgo] = useState('')
 
   const { data: muestra, isLoading } = useQuery({
     queryKey: ['lube-muestra', id], queryFn: () => lubeApi.muestras.obtener(id),
@@ -547,6 +929,7 @@ function DetalleMuestra({ id, onCerrar, onCambio }: {
       lubeApi.diagnosticos.verificar(did, v, h),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['lube-diagnosticos', id] })
+      setCerrando(null); setHallazgo('')
       onCambio(); toast.success('Verificación registrada')
     },
     onError: (e: any) => toast.error(mensajeDeError(e)),
@@ -567,10 +950,7 @@ function DetalleMuestra({ id, onCerrar, onCambio }: {
     return g
   }, [muestra])
 
-  const ETIQUETA_GRUPO: Record<string, string> = {
-    DESGASTE: 'Metales de desgaste', CONTAMINACION: 'Contaminantes',
-    ADITIVO: 'Aditivos', PROPIEDAD: 'Propiedades del fluido',
-  }
+  const fuera = (muestra?.resultados ?? []).filter(r => r.estado !== 'NORMAL').length
 
   return (
     <Dialog open onClose={onCerrar} maxWidth="md" fullWidth>
@@ -582,7 +962,8 @@ function DetalleMuestra({ id, onCerrar, onCambio }: {
             </Typography>
             <Typography variant="caption" color="text.secondary">
               {muestra?.activo_codigo} · {muestra?.compartimento} · tomada el {fecha(muestra?.fecha_toma)}
-              {muestra?.horas_aceite != null && ` · ${muestra.horas_aceite} de vida del aceite`}
+              {muestra?.horas_aceite != null && ` · ${num(muestra.horas_aceite)} de vida del aceite`}
+              {muestra?.medidor_equipo != null && ` · lectura ${num(muestra.medidor_equipo)}`}
             </Typography>
           </Box>
           <Severidad valor={muestra?.severidad} />
@@ -597,6 +978,13 @@ function DetalleMuestra({ id, onCerrar, onCambio }: {
                 automático.
               </Alert>
             )}
+            {(muestra?.resultados ?? []).length > 0 && (
+              <Typography variant="body2" sx={{ mb: 1.5, color: fuera ? ESTADO.alerta : ESTADO.exito, fontWeight: 700 }}>
+                {fuera
+                  ? `${fuera} de ${muestra?.resultados?.length} parámetros fuera de rango`
+                  : `Los ${muestra?.resultados?.length} parámetros están dentro de rango`}
+              </Typography>
+            )}
 
             {Object.entries(porGrupo).map(([grupo, filas]) => (
               <Box key={grupo} mb={2}>
@@ -607,7 +995,8 @@ function DetalleMuestra({ id, onCerrar, onCambio }: {
                 <Table size="small" sx={{ mt: 0.5 }}>
                   <TableBody>
                     {filas.map(r => (
-                      <TableRow key={r.id}>
+                      <TableRow key={r.id} sx={r.estado !== 'NORMAL'
+                        ? { bgcolor: `${colorEstado(r.estado)}0A` } : undefined}>
                         <TableCell sx={{ width: '32%' }}>
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>{r.nombre}</Typography>
                           {r.origen_probable && (
@@ -624,8 +1013,8 @@ function DetalleMuestra({ id, onCerrar, onCambio }: {
                         </TableCell>
                         <TableCell>
                           {r.tasa_cambio != null && (
-                            <Tooltip title="Variación por cada 100 unidades de vida del aceite">
-                              <Stack direction="row" spacing={0.4} alignItems="center">
+                            <Tooltip title="Variación por cada 100 unidades de vida del aceite, contra la muestra anterior de la misma carga">
+                              <Stack direction="row" spacing={0.4} alignItems="center" sx={{ cursor: 'help' }}>
                                 <TrendingUp sx={{
                                   fontSize: 14,
                                   color: r.tasa_cambio > 0 ? ESTADO.alerta : PALETA.acero,
@@ -662,7 +1051,11 @@ function DetalleMuestra({ id, onCerrar, onCambio }: {
             )}
 
             <Divider sx={{ my: 2 }} />
-            <Typography variant="subtitle2" fontWeight={800} mb={1}>Diagnóstico</Typography>
+            <Typography variant="subtitle2" fontWeight={800}>Diagnóstico</Typography>
+            <Typography variant="caption" color="text.secondary" display="block" mb={1}>
+              Qué se concluye de la muestra y, cuando se interviene el equipo, si se confirmó.
+              Ese cierre es lo que mide si el análisis está acertando.
+            </Typography>
 
             {diagnosticos.map(d => (
               <Card key={d.id} variant="outlined" sx={{ p: 1.5, borderRadius: 2, mb: 1 }}>
@@ -682,19 +1075,22 @@ function DetalleMuestra({ id, onCerrar, onCambio }: {
                         Al intervenir: {d.hallazgo}
                       </Typography>
                     )}
+                    {d.analista && (
+                      <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.25 }}>
+                        {d.analista}
+                      </Typography>
+                    )}
                   </Box>
                   {d.verificacion === 'PENDIENTE' ? (
-                    <Stack spacing={0.5}>
-                      <Button size="small" sx={{ textTransform: 'none' }}
-                        onClick={() => {
-                          const h = window.prompt('¿Qué se encontró al intervenir?') ?? ''
-                          if (h) verificar.mutate({ did: d.id, v: 'CONFIRMADO', h })
-                        }}>Confirmar</Button>
-                      <Button size="small" color="inherit" sx={{ textTransform: 'none' }}
-                        onClick={() => {
-                          const h = window.prompt('¿Qué se encontró en realidad?') ?? ''
-                          if (h) verificar.mutate({ did: d.id, v: 'DESMENTIDO', h })
-                        }}>Desmentir</Button>
+                    <Stack direction="row" spacing={0.5}>
+                      <Button size="small" color="success" variant="outlined" sx={{ textTransform: 'none' }}
+                        onClick={() => { setCerrando({ did: d.id, v: 'CONFIRMADO' }); setHallazgo('') }}>
+                        Se confirmó
+                      </Button>
+                      <Button size="small" color="inherit" variant="outlined" sx={{ textTransform: 'none' }}
+                        onClick={() => { setCerrando({ did: d.id, v: 'DESMENTIDO' }); setHallazgo('') }}>
+                        No se confirmó
+                      </Button>
                     </Stack>
                   ) : (
                     <Chip label={d.verificacion === 'CONFIRMADO' ? 'Confirmado' : 'Desmentido'}
@@ -704,6 +1100,26 @@ function DetalleMuestra({ id, onCerrar, onCambio }: {
                         color: d.verificacion === 'CONFIRMADO' ? ESTADO.exito : PALETA.grafito }} />
                   )}
                 </Stack>
+                {cerrando?.did === d.id && (
+                  <Stack spacing={1} mt={1.5}>
+                    <TextField size="small" autoFocus multiline minRows={2} fullWidth
+                      label={cerrando.v === 'CONFIRMADO' ? '¿Qué se encontró al intervenir?' : '¿Qué se encontró en realidad?'}
+                      placeholder={cerrando.v === 'CONFIRMADO'
+                        ? 'Ej.: casquetes de biela con desgaste en la cara de empuje'
+                        : 'Ej.: el equipo estaba bien; la muestra se tomó del tapón de drenaje'}
+                      value={hallazgo} onChange={e => setHallazgo(e.target.value)} />
+                    <Stack direction="row" spacing={1} justifyContent="flex-end">
+                      <Button size="small" onClick={() => setCerrando(null)} sx={{ textTransform: 'none' }}>
+                        Cancelar
+                      </Button>
+                      <Button size="small" variant="contained" disabled={!hallazgo.trim() || verificar.isPending}
+                        onClick={() => verificar.mutate({ did: d.id, v: cerrando.v, h: hallazgo.trim() })}
+                        sx={{ textTransform: 'none', fontWeight: 700 }}>
+                        Guardar verificación
+                      </Button>
+                    </Stack>
+                  </Stack>
+                )}
               </Card>
             ))}
 
@@ -719,7 +1135,7 @@ function DetalleMuestra({ id, onCerrar, onCambio }: {
                 value={recomendacion} onChange={e => setRecomendacion(e.target.value)} />
               <Box>
                 <Button variant="outlined" size="small" startIcon={<Add />}
-                  disabled={crearDiag.isPending || (!conclusion && !modoFalla)}
+                  disabled={crearDiag.isPending || (!conclusion.trim() && !modoFalla)}
                   onClick={() => crearDiag.mutate()} sx={{ textTransform: 'none' }}>
                   Registrar diagnóstico
                 </Button>
@@ -729,13 +1145,45 @@ function DetalleMuestra({ id, onCerrar, onCambio }: {
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={() => reevaluar.mutate()} sx={{ textTransform: 'none' }}>
-          Reevaluar contra los límites
-        </Button>
+        <Tooltip title="Vuelve a comparar los resultados contra los límites vigentes. Úselo después de ajustar un límite.">
+          <Button onClick={() => reevaluar.mutate()} disabled={reevaluar.isPending} sx={{ textTransform: 'none' }}>
+            Reevaluar contra los límites
+          </Button>
+        </Tooltip>
         <Box sx={{ flex: 1 }} />
         <Button onClick={onCerrar} sx={{ textTransform: 'none' }}>Cerrar</Button>
       </DialogActions>
     </Dialog>
+  )
+}
+
+/**
+ * La lectura del equipo, con lo que el formulario sabe de ella: la unidad, la
+ * última conocida y la del llenado. Un número que retrocede se ve bien formado
+ * y arruina la vida del aceite: se avisa mientras se escribe, y el servidor lo
+ * rechaza igual.
+ */
+function useLectura(compartimento: Compartimento, minimo?: number | null) {
+  const [valor, setValor] = useState(
+    compartimento.medidor_actual != null ? String(compartimento.medidor_actual) : '')
+  const n = valor === '' ? null : Number(valor)
+  const error = n != null && (Number.isNaN(n) || n < 0)
+    ? 'Debe ser un número positivo'
+    : n != null && minimo != null && n < minimo
+      ? `No puede ser menor que ${num(minimo)}, la lectura del llenado`
+      : null
+  return { valor, setValor, n, error }
+}
+
+function CampoLectura({ l, unidad, ayuda }: {
+  l: ReturnType<typeof useLectura>; unidad: string; ayuda: string
+}) {
+  return (
+    <TextField size="small" type="number" fullWidth
+      label={`Lectura del equipo (${unidad})`}
+      value={l.valor} onChange={e => l.setValor(e.target.value)}
+      error={!!l.error} helperText={l.error ?? ayuda}
+      inputProps={{ min: 0, step: 'any' }} />
   )
 }
 
@@ -745,13 +1193,15 @@ function DetalleMuestra({ id, onCerrar, onCambio }: {
 function DialogoMuestra({ compartimento, onCerrar, onListo }: {
   compartimento: Compartimento; onCerrar: () => void; onListo: () => void
 }) {
+  const unidad = unidadCorta(compartimento.unidad_vida)
   const [numero, setNumero] = useState('')
-  const [fechaToma, setFechaToma] = useState(new Date().toISOString().slice(0, 10))
-  const [medidor, setMedidor] = useState('')
+  const [fechaToma, setFechaToma] = useState(hoy())
+  const lectura = useLectura(compartimento, compartimento.medidor_inicio_carga)
   const [laboratorio, setLaboratorio] = useState<number | ''>('')
   const [metodo, setMetodo] = useState<number | ''>(compartimento.metodo_muestreo_id ?? '')
   const [valores, setValores] = useState<Record<string, string>>({})
   const [leyendo, setLeyendo] = useState(false)
+  const [intento, setIntento] = useState(false)
 
   const { data: parametros = [] } = useQuery({
     queryKey: ['lube-parametros'], queryFn: () => lubeApi.parametros.listar(),
@@ -763,19 +1213,32 @@ function DialogoMuestra({ compartimento, onCerrar, onListo }: {
     queryKey: ['lube-metodos'], queryFn: () => lubeApi.metodos.listar(),
   })
 
+  // El código ISO 4406 («18/16/13») y similares son texto: no se convierten
+  // a número ni se les exige que sean positivos.
+  const deTexto = useMemo(() => new Set(parametros.filter(p => p.es_texto).map(p => p.codigo)), [parametros])
+  const negativos = Object.entries(valores)
+    .filter(([k, v]) => !deTexto.has(k) && v !== '' && (Number.isNaN(Number(v)) || Number(v) < 0))
+    .map(([k]) => k)
+  const cargados = Object.values(valores).filter(v => v !== '').length
+  const vida = lectura.n != null && compartimento.medidor_inicio_carga != null && !lectura.error
+    ? lectura.n - compartimento.medidor_inicio_carga : null
+  const errores = !numero.trim() || !!lectura.error || negativos.length > 0 || fechaToma > hoy()
+
   const guardar = useMutation({
     mutationFn: () => lubeApi.muestras.crear({
-      numero, compartimento_id: compartimento.id,
+      numero: numero.trim(), compartimento_id: compartimento.id,
       fecha_toma: `${fechaToma}T08:00:00`,
-      medidor_equipo: medidor === '' ? null : Number(medidor),
+      medidor_equipo: lectura.n,
       laboratorio_id: laboratorio || null, metodo_id: metodo || null,
       resultados: Object.entries(valores)
         .filter(([, v]) => v !== '')
-        .map(([codigo, v]) => ({ codigo, valor: Number(v) })),
+        .map(([codigo, v]) => deTexto.has(codigo)
+          ? { codigo, valor_texto: v.trim() }
+          : { codigo, valor: Number(v) }),
     }),
     onSuccess: (r: any) => {
       const sev = r?.evaluacion?.severidad
-      toast.success(sev ? `Muestra evaluada: ${ETIQUETA_SEVERIDAD[sev] ?? sev}` : 'Muestra registrada')
+      toast.success(sev ? `Muestra evaluada: ${ETIQUETA_SEVERIDAD[sev] ?? sev}` : 'Muestra registrada, sin resultados todavía')
       onListo(); onCerrar()
     },
     onError: (e: any) => toast.error(mensajeDeError(e)),
@@ -794,9 +1257,9 @@ function DialogoMuestra({ compartimento, onCerrar, onListo }: {
       }
       setValores(prev => ({ ...prev, ...nuevos }))
       if (campos.muestra_id && !numero) setNumero(String(campos.muestra_id))
-      if (campos.horas && !medidor) setMedidor(String(campos.horas).replace(/[^\d.]/g, ''))
+      if (campos.horas && !lectura.valor) lectura.setValor(String(campos.horas).replace(/[^\d.]/g, ''))
       const n = Object.keys(nuevos).length
-      toast.success(n ? `Se leyeron ${n} parámetros del boletín` : 'No se reconoció ningún parámetro')
+      toast.success(n ? `Se leyeron ${n} parámetros del boletín: revíselos antes de guardar` : 'No se reconoció ningún parámetro')
     } catch (e: any) {
       toast.error(mensajeDeError(e))
     } finally {
@@ -816,17 +1279,23 @@ function DialogoMuestra({ compartimento, onCerrar, onListo }: {
         Registrar muestra
         <Typography variant="caption" display="block" color="text.secondary">
           {compartimento.activo_codigo} · {compartimento.nombre}
-          {!compartimento.carga_id && ' · ATENCIÓN: no hay carga abierta, la muestra quedará suelta'}
+          {compartimento.producto_actual && ` · ${compartimento.producto_actual}`}
         </Typography>
       </DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2}>
+          {!compartimento.carga_id && (
+            <Alert severity="warning">
+              Este compartimento no tiene una carga abierta: la muestra quedará sin vida del
+              aceite y sin muestra anterior con qué comparar la tendencia.
+            </Alert>
+          )}
           <Box>
             <Button component="label" variant="outlined" startIcon={<UploadFile />}
               disabled={leyendo} sx={{ textTransform: 'none' }}>
               {leyendo ? 'Leyendo el boletín…' : 'Cargar boletín del laboratorio (PDF o foto)'}
               <input hidden type="file" accept=".pdf,.png,.jpg,.jpeg"
-                onChange={e => { const f = e.target.files?.[0]; if (f) leer(f) }} />
+                onChange={e => { const f = e.target.files?.[0]; if (f) leer(f); e.target.value = '' }} />
             </Button>
             <Typography variant="caption" display="block" color="text.secondary" mt={0.5}>
               Se extraen los parámetros con el lector propio, sin enviar el archivo a ningún
@@ -834,22 +1303,29 @@ function DialogoMuestra({ compartimento, onCerrar, onListo }: {
             </Typography>
           </Box>
 
-          <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
+          <Box sx={{ display: 'grid', gap: 1.5,
+            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)' } }}>
             <TextField size="small" label="N.º de muestra" value={numero} required
-              onChange={e => setNumero(e.target.value)} sx={{ minWidth: 170 }} />
+              onChange={e => setNumero(e.target.value)}
+              error={intento && !numero.trim()}
+              helperText={intento && !numero.trim() ? 'El número del frasco o del boletín' : 'El del frasco o el del boletín'} />
             <TextField size="small" label="Fecha de toma" type="date" value={fechaToma}
               onChange={e => setFechaToma(e.target.value)}
-              InputLabelProps={{ shrink: true }} sx={{ minWidth: 170 }} />
-            <TextField size="small" label="Lectura del equipo" type="number" value={medidor}
-              onChange={e => setMedidor(e.target.value)} sx={{ minWidth: 170 }}
-              helperText="De acá sale la vida del aceite" />
+              error={fechaToma > hoy()} helperText={fechaToma > hoy() ? 'No puede estar en el futuro' : ' '}
+              InputLabelProps={{ shrink: true }} inputProps={{ max: hoy() }} />
+            <CampoLectura l={lectura} unidad={unidad}
+              ayuda={vida != null
+                ? `Vida del aceite: ${num(vida)} ${unidad}`
+                : compartimento.medidor_actual != null ? 'Propuesta: la última lectura conocida' : 'De acá sale la vida del aceite'} />
             <TextField select size="small" label="Laboratorio" value={laboratorio}
-              onChange={e => setLaboratorio(Number(e.target.value) || '')} sx={{ minWidth: 170 }}>
+              onChange={e => setLaboratorio(Number(e.target.value) || '')}>
               <MenuItem value="">—</MenuItem>
               {labs.map(l => <MenuItem key={l.id} value={l.id}>{l.nombre}</MenuItem>)}
             </TextField>
             <TextField select size="small" label="Método de toma" value={metodo}
-              onChange={e => setMetodo(Number(e.target.value) || '')} sx={{ minWidth: 210 }}>
+              onChange={e => setMetodo(Number(e.target.value) || '')}
+              helperText={metodos.find(m => m.id === metodo)?.calidad === 'NO_RECOMENDADO'
+                ? 'Este método contamina la muestra: los resultados se leen con cautela' : ' '}>
               <MenuItem value="">—</MenuItem>
               {metodos.map(m => (
                 <MenuItem key={m.id} value={m.id}>
@@ -857,33 +1333,51 @@ function DialogoMuestra({ compartimento, onCerrar, onListo }: {
                 </MenuItem>
               ))}
             </TextField>
-          </Stack>
+          </Box>
 
           <Divider />
+          <Stack direction="row" alignItems="baseline" spacing={1}>
+            <Typography variant="subtitle2" fontWeight={800}>Resultados del laboratorio</Typography>
+            <Typography variant="caption" color="text.secondary">
+              {cargados ? `${cargados} de ${parametros.length} cargados` : 'Deje en blanco lo que el laboratorio no midió'}
+            </Typography>
+          </Stack>
           {Object.entries(porGrupo).map(([grupo, filas]) => (
             <Box key={grupo}>
               <Typography variant="caption" sx={{
                 fontWeight: 800, letterSpacing: '0.08em', color: PALETA.grafito }}>
-                {grupo}
+                {(ETIQUETA_GRUPO[grupo] ?? grupo).toUpperCase()}
               </Typography>
               <Box sx={{ display: 'grid', gap: 1.25, mt: 0.75,
                 gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' } }}>
-                {filas.map(p => (
-                  <TextField key={p.codigo} size="small" type="number"
-                    label={`${p.nombre}${p.unidad ? ` (${p.unidad})` : ''}`}
-                    value={valores[p.codigo] ?? ''}
-                    onChange={e => setValores({ ...valores, [p.codigo]: e.target.value })} />
-                ))}
+                {filas.map(p => {
+                  const malo = negativos.includes(p.codigo)
+                  return (
+                    <TextField key={p.codigo} size="small" type={p.es_texto ? 'text' : 'number'}
+                      label={`${p.nombre}${p.unidad && p.unidad !== '—' ? ` (${p.unidad})` : ''}`}
+                      placeholder={p.es_texto ? 'Ej.: 18/16/13' : undefined}
+                      value={valores[p.codigo] ?? ''}
+                      error={malo} helperText={malo ? 'Un número positivo' : undefined}
+                      inputProps={p.es_texto ? undefined : { min: 0, step: 'any' }}
+                      onChange={e => setValores({ ...valores, [p.codigo]: e.target.value })} />
+                  )
+                })}
               </Box>
             </Box>
           ))}
         </Stack>
       </DialogContent>
       <DialogActions>
+        {!cargados && (
+          <Typography variant="caption" color="text.secondary" sx={{ mr: 'auto', pl: 1 }}>
+            Sin resultados se guarda como tomada; se evalúa cuando lleguen.
+          </Typography>
+        )}
         <Button onClick={onCerrar} sx={{ textTransform: 'none' }}>Cancelar</Button>
-        <Button variant="contained" disabled={!numero || guardar.isPending}
-          onClick={() => guardar.mutate()} sx={{ textTransform: 'none', fontWeight: 700 }}>
-          {guardar.isPending ? 'Evaluando…' : 'Guardar y evaluar'}
+        <Button variant="contained" disabled={guardar.isPending}
+          onClick={() => { setIntento(true); if (!errores) guardar.mutate() }}
+          sx={{ textTransform: 'none', fontWeight: 700 }}>
+          {guardar.isPending ? 'Evaluando…' : cargados ? 'Guardar y evaluar' : 'Guardar'}
         </Button>
       </DialogActions>
     </Dialog>
@@ -896,14 +1390,17 @@ function DialogoMuestra({ compartimento, onCerrar, onListo }: {
 function DialogoCarga({ compartimento, onCerrar, onListo }: {
   compartimento: Compartimento; onCerrar: () => void; onListo: () => void
 }) {
+  const unidad = unidadCorta(compartimento.unidad_vida)
+  const reemplaza = !!compartimento.carga_id
   const [producto, setProducto] = useState<number | ''>(compartimento.producto_recomendado_id ?? '')
-  const [fechaLlenado, setFechaLlenado] = useState(new Date().toISOString().slice(0, 10))
-  const [medidor, setMedidor] = useState('')
+  const [fechaLlenado, setFechaLlenado] = useState(hoy())
+  const lectura = useLectura(compartimento, reemplaza ? compartimento.medidor_inicio_carga : null)
   const [volumen, setVolumen] = useState(String(compartimento.capacidad_litros ?? ''))
   const [costoAceite, setCostoAceite] = useState('')
   const [costoFiltro, setCostoFiltro] = useState('')
   const [costoObra, setCostoObra] = useState('')
   const [motivo, setMotivo] = useState<number | ''>('')
+  const [intento, setIntento] = useState(false)
 
   const { data: productos = [] } = useQuery({
     queryKey: ['lube-productos'], queryFn: () => lubeApi.productos.listar(),
@@ -912,15 +1409,23 @@ function DialogoCarga({ compartimento, onCerrar, onListo }: {
     queryKey: ['lube-motivos'], queryFn: () => lubeApi.motivos.listar(),
   })
 
+  const negativo = (v: string) => v !== '' && Number(v) < 0
+  const faltaMotivo = reemplaza && !motivo
+  const vidaLograda = reemplaza && lectura.n != null && compartimento.medidor_inicio_carga != null && !lectura.error
+    ? lectura.n - compartimento.medidor_inicio_carga : null
+  const errores = faltaMotivo || !!lectura.error || fechaLlenado > hoy()
+    || (volumen !== '' && Number(volumen) <= 0)
+    || [costoAceite, costoFiltro, costoObra].some(negativo)
+
   const abrir = useMutation({
     mutationFn: async () => {
-      // Si había una carga viva, se cierra con su motivo antes de abrir la
-      // nueva. El servidor la cerraría igual, pero sin motivo, y el motivo es
-      // justo el dato que hace útil el tablero de drenajes.
-      if (compartimento.carga_id && motivo) {
-        await lubeApi.cargas.drenar(compartimento.carga_id, {
+      // La carga viva se cierra con su motivo antes de abrir la nueva. El
+      // servidor la cerraría igual, pero sin motivo, y el motivo es justo el
+      // dato que dice cuántos cambios se hicieron con el aceite todavía bueno.
+      if (reemplaza && motivo) {
+        await lubeApi.cargas.drenar(compartimento.carga_id!, {
           fecha_drenaje: `${fechaLlenado}T07:00:00`,
-          medidor_fin: medidor === '' ? null : Number(medidor),
+          medidor_fin: lectura.n,
           motivo_drenaje_id: motivo,
         })
       }
@@ -928,37 +1433,41 @@ function DialogoCarga({ compartimento, onCerrar, onListo }: {
         compartimento_id: compartimento.id,
         producto_id: producto || null,
         fecha_llenado: `${fechaLlenado}T08:00:00`,
-        medidor_inicio: medidor === '' ? null : Number(medidor),
+        medidor_inicio: lectura.n,
         volumen_litros: volumen === '' ? null : Number(volumen),
         costo_aceite: costoAceite === '' ? null : Number(costoAceite),
         costo_filtro: costoFiltro === '' ? null : Number(costoFiltro),
         costo_mano_obra: costoObra === '' ? null : Number(costoObra),
       })
     },
-    onSuccess: () => { toast.success('Carga registrada'); onListo(); onCerrar() },
+    onSuccess: () => { toast.success(reemplaza ? 'Cambio de aceite registrado' : 'Carga abierta'); onListo(); onCerrar() },
     onError: (e: any) => toast.error(mensajeDeError(e)),
   })
 
   return (
     <Dialog open onClose={onCerrar} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ fontWeight: 800 }}>
-        {compartimento.carga_id ? 'Cambio de aceite' : 'Primera carga'}
+        {reemplaza ? 'Cambio de aceite' : 'Primera carga'}
         <Typography variant="caption" display="block" color="text.secondary">
           {compartimento.activo_codigo} · {compartimento.nombre}
+          {reemplaza && compartimento.producto_actual && ` · sale ${compartimento.producto_actual}`}
         </Typography>
       </DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2} sx={{ pt: 1 }}>
-          {compartimento.carga_id && (
+          {reemplaza && (
             <Alert severity="info">
-              Esto cierra la carga que está viva y abre una nueva. Indique por qué se drenó:
-              es el dato que permite saber después cuántos cambios se hicieron por calendario
-              con el aceite todavía bueno.
+              Esto cierra la carga que está viva
+              {compartimento.vida_actual != null && ` (lleva ${num(compartimento.vida_actual)} ${unidad})`} y
+              abre una nueva. El motivo del drenaje dice después cuántos cambios se hicieron por
+              calendario con el aceite todavía bueno.
             </Alert>
           )}
-          {compartimento.carga_id && (
-            <TextField select size="small" label="Motivo del drenaje" value={motivo}
-              onChange={e => setMotivo(Number(e.target.value) || '')}>
+          {reemplaza && (
+            <TextField select size="small" label="Motivo del drenaje" value={motivo} required
+              onChange={e => setMotivo(Number(e.target.value) || '')}
+              error={intento && faltaMotivo}
+              helperText={intento && faltaMotivo ? 'Indique por qué se drenó' : ' '}>
               <MenuItem value="">—</MenuItem>
               {motivos.map(m => (
                 <MenuItem key={m.id} value={m.id}>
@@ -967,34 +1476,45 @@ function DialogoCarga({ compartimento, onCerrar, onListo }: {
               ))}
             </TextField>
           )}
-          <TextField select size="small" label="Producto" value={producto}
+          <TextField select size="small" label="Producto que entra" value={producto}
             onChange={e => setProducto(Number(e.target.value) || '')}>
             <MenuItem value="">—</MenuItem>
             {productos.map(p => (
               <MenuItem key={p.id} value={p.id}>{p.marca} {p.nombre}</MenuItem>
             ))}
           </TextField>
-          <Stack direction="row" spacing={1.5}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
             <TextField size="small" label="Fecha" type="date" value={fechaLlenado} fullWidth
-              onChange={e => setFechaLlenado(e.target.value)} InputLabelProps={{ shrink: true }} />
-            <TextField size="small" label="Lectura del equipo" type="number" fullWidth
-              value={medidor} onChange={e => setMedidor(e.target.value)}
-              helperText="Contra esto se mide la vida" />
+              onChange={e => setFechaLlenado(e.target.value)} InputLabelProps={{ shrink: true }}
+              inputProps={{ max: hoy() }}
+              error={fechaLlenado > hoy()} helperText={fechaLlenado > hoy() ? 'No puede estar en el futuro' : ' '} />
+            <CampoLectura l={lectura} unidad={unidad}
+              ayuda={vidaLograda != null
+                ? `La carga que sale rindió ${num(vidaLograda)} ${unidad}`
+                : 'Contra esto se mide la vida de la carga nueva'} />
           </Stack>
-          <Stack direction="row" spacing={1.5}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
             <TextField size="small" label="Litros" type="number" fullWidth
-              value={volumen} onChange={e => setVolumen(e.target.value)} />
+              value={volumen} onChange={e => setVolumen(e.target.value)}
+              error={volumen !== '' && Number(volumen) <= 0}
+              inputProps={{ min: 0, step: 'any' }} />
             <TextField size="small" label="Costo del aceite" type="number" fullWidth
-              value={costoAceite} onChange={e => setCostoAceite(e.target.value)} />
+              value={costoAceite} onChange={e => setCostoAceite(e.target.value)}
+              error={negativo(costoAceite)} inputProps={{ min: 0 }}
+              InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} />
           </Stack>
-          <Stack direction="row" spacing={1.5}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
             <TextField size="small" label="Costo del filtro" type="number" fullWidth
-              value={costoFiltro} onChange={e => setCostoFiltro(e.target.value)} />
+              value={costoFiltro} onChange={e => setCostoFiltro(e.target.value)}
+              error={negativo(costoFiltro)} inputProps={{ min: 0 }}
+              InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} />
             <TextField size="small" label="Mano de obra" type="number" fullWidth
-              value={costoObra} onChange={e => setCostoObra(e.target.value)} />
+              value={costoObra} onChange={e => setCostoObra(e.target.value)}
+              error={negativo(costoObra)} inputProps={{ min: 0 }}
+              InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} />
           </Stack>
           <Typography variant="caption" color="text.secondary">
-            Los costos son lo que permite calcular el costo por hora lubricada, que es el
+            Los costos son lo que permite calcular el costo por {unidad} lubricado, que es el
             número que hace comparable un equipo con otro.
           </Typography>
         </Stack>
@@ -1002,8 +1522,100 @@ function DialogoCarga({ compartimento, onCerrar, onListo }: {
       <DialogActions>
         <Button onClick={onCerrar} sx={{ textTransform: 'none' }}>Cancelar</Button>
         <Button variant="contained" disabled={abrir.isPending}
-          onClick={() => abrir.mutate()} sx={{ textTransform: 'none', fontWeight: 700 }}>
+          onClick={() => { setIntento(true); if (!errores) abrir.mutate() }}
+          sx={{ textTransform: 'none', fontWeight: 700 }}>
           {abrir.isPending ? 'Guardando…' : 'Registrar'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Relleno: aceite agregado sin cambiar la carga.
+
+   Existía en el servidor y no había por dónde registrarlo. Importa por dos
+   razones: entra en el costo de la carga —en un equipo con fuga puede ser el
+   grueso del gasto— y el consumo de aceite es en sí una señal de desgaste.
+   ═══════════════════════════════════════════════════════════════════════════ */
+function DialogoRelleno({ compartimento, onCerrar, onListo }: {
+  compartimento: Compartimento; onCerrar: () => void; onListo: () => void
+}) {
+  const unidad = unidadCorta(compartimento.unidad_vida)
+  const [fechaR, setFechaR] = useState(hoy())
+  const [litros, setLitros] = useState('')
+  const [costo, setCosto] = useState('')
+  const [motivo, setMotivo] = useState('')
+  const lectura = useLectura(compartimento, compartimento.medidor_inicio_carga)
+  const [intento, setIntento] = useState(false)
+
+  const { data: anteriores = [] } = useQuery({
+    queryKey: ['lube-rellenos', compartimento.carga_id],
+    queryFn: () => lubeApi.rellenos.listar(compartimento.carga_id!),
+    enabled: !!compartimento.carga_id,
+  })
+  const litrosPrevios = anteriores.reduce((s, r) => s + (r.litros ?? 0), 0)
+
+  const malLitros = !(Number(litros) > 0)
+  const errores = malLitros || !!lectura.error || fechaR > hoy() || (costo !== '' && Number(costo) < 0)
+
+  const guardar = useMutation({
+    mutationFn: () => lubeApi.rellenos.crear({
+      carga_id: compartimento.carga_id, fecha: `${fechaR}T08:00:00`,
+      litros: Number(litros), medidor: lectura.n,
+      costo: costo === '' ? null : Number(costo), motivo: motivo.trim() || null,
+    }),
+    onSuccess: () => { toast.success('Relleno registrado'); onListo(); onCerrar() },
+    onError: (e: any) => toast.error(mensajeDeError(e)),
+  })
+
+  return (
+    <Dialog open onClose={onCerrar} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ fontWeight: 800 }}>
+        Relleno de aceite
+        <Typography variant="caption" display="block" color="text.secondary">
+          {compartimento.activo_codigo} · {compartimento.nombre}
+          {compartimento.producto_actual && ` · ${compartimento.producto_actual}`}
+        </Typography>
+      </DialogTitle>
+      <DialogContent dividers>
+        <Stack spacing={2} sx={{ pt: 1 }}>
+          {anteriores.length > 0 && (
+            <Alert severity={compartimento.capacidad_litros && litrosPrevios > compartimento.capacidad_litros * 0.25 ? 'warning' : 'info'}>
+              Esta carga ya lleva {anteriores.length} relleno(s), {num(litrosPrevios)} L en total
+              {compartimento.capacidad_litros
+                ? ` (${Math.round((litrosPrevios / compartimento.capacidad_litros) * 100)} % de la capacidad)` : ''}.
+              Un consumo alto de aceite es en sí una señal: fuga, o paso a la cámara de combustión.
+            </Alert>
+          )}
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+            <TextField size="small" label="Fecha" type="date" value={fechaR} fullWidth
+              onChange={e => setFechaR(e.target.value)} InputLabelProps={{ shrink: true }}
+              inputProps={{ max: hoy() }}
+              error={fechaR > hoy()} helperText={fechaR > hoy() ? 'No puede estar en el futuro' : ' '} />
+            <TextField size="small" label="Litros agregados" type="number" fullWidth required
+              value={litros} onChange={e => setLitros(e.target.value)}
+              error={intento && malLitros} helperText={intento && malLitros ? 'Mayor que cero' : ' '}
+              inputProps={{ min: 0, step: 'any' }} />
+          </Stack>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+            <CampoLectura l={lectura} unidad={unidad} ayuda="Opcional, pero ubica el consumo en el recorrido" />
+            <TextField size="small" label="Costo" type="number" fullWidth
+              value={costo} onChange={e => setCosto(e.target.value)}
+              error={costo !== '' && Number(costo) < 0} helperText="Entra en el costo de la carga"
+              inputProps={{ min: 0 }}
+              InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} />
+          </Stack>
+          <TextField size="small" label="Motivo u observación" value={motivo}
+            onChange={e => setMotivo(e.target.value)} placeholder="Nivel bajo en la inspección diaria, fuga por el retén…" />
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onCerrar} sx={{ textTransform: 'none' }}>Cancelar</Button>
+        <Button variant="contained" disabled={guardar.isPending}
+          onClick={() => { setIntento(true); if (!errores) guardar.mutate() }}
+          sx={{ textTransform: 'none', fontWeight: 700 }}>
+          {guardar.isPending ? 'Guardando…' : 'Registrar relleno'}
         </Button>
       </DialogActions>
     </Dialog>

@@ -23,6 +23,9 @@ from sqlalchemy import select, func, and_, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.api.v1.endpoints.lubricacion_operacion import (
+    medidor_del_equipo, unidad_efectiva, unidad_efectiva_sql, vida_de_carga,
+)
 from app.infrastructure.models.eam import EAMActivo
 from app.infrastructure.models.lubricacion import (
     LubeTipoCompartimento, LubeProducto, LubeMarca, LubeParametro,
@@ -41,7 +44,9 @@ async def analitica(marca: Optional[str] = None, linea: Optional[str] = None,
     desde = datetime.utcnow() - timedelta(days=dias)
 
     # Base: las muestras del periodo, ya cruzadas con la jerarquía del activo.
-    base = (select(LubeMuestra, LubeCompartimento, EAMActivo)
+    # Se cuentan en SQL: traerlas como objetos eran tres por muestra, y con un
+    # par de años de historia el proceso dejaba de contestar.
+    base = (select(LubeMuestra.severidad, func.count(LubeMuestra.id))
             .join(LubeCompartimento, LubeCompartimento.id == LubeMuestra.compartimento_id)
             .join(EAMActivo, EAMActivo.id == LubeCompartimento.activo_id)
             .where(and_(LubeMuestra.fecha_toma >= desde,
@@ -54,12 +59,9 @@ async def analitica(marca: Optional[str] = None, linea: Optional[str] = None,
     if linea:
         base = base.where(EAMActivo.linea == linea)
 
-    filas = (await db.execute(base)).all()
-    total = len(filas)
-
-    por_severidad: Dict[str, int] = {}
-    for m, _c, _a in filas:
-        por_severidad[m.severidad] = por_severidad.get(m.severidad, 0) + 1
+    por_severidad: Dict[str, int] = {
+        sev: n for sev, n in (await db.execute(base.group_by(LubeMuestra.severidad))).all()}
+    total = sum(por_severidad.values())
 
     # ── Vida lograda contra recomendada ──────────────────────────────────────
     # Solo cargas ya drenadas: una carga viva todavía puede rendir más.
@@ -84,8 +86,9 @@ async def analitica(marca: Optional[str] = None, linea: Optional[str] = None,
     rellenos = (select(LubeRelleno.carga_id.label("carga_id"),
                        func.sum(func.coalesce(LubeRelleno.costo, 0)).label("costo"))
                 .group_by(LubeRelleno.carga_id).subquery())
+    unidad = unidad_efectiva_sql().label("unidad")
     r = await db.execute(
-        select(LubeTipoCompartimento.nombre, LubeTipoCompartimento.unidad_vida,
+        select(LubeTipoCompartimento.nombre, unidad,
                func.count(LubeCarga.id),
                func.sum(func.coalesce(LubeCarga.costo_aceite, 0)
                         + func.coalesce(LubeCarga.costo_filtro, 0)
@@ -94,10 +97,11 @@ async def analitica(marca: Optional[str] = None, linea: Optional[str] = None,
                func.sum(LubeCarga.vida_lograda))
         .join(LubeCompartimento,
               LubeCompartimento.tipo_compartimento_id == LubeTipoCompartimento.id)
+        .join(EAMActivo, EAMActivo.id == LubeCompartimento.activo_id)
         .join(LubeCarga, LubeCarga.compartimento_id == LubeCompartimento.id)
         .outerjoin(rellenos, rellenos.c.carga_id == LubeCarga.id)
         .where(and_(LubeCarga.estado == "DRENADA", LubeCarga.fecha_drenaje >= desde))
-        .group_by(LubeTipoCompartimento.nombre, LubeTipoCompartimento.unidad_vida))
+        .group_by(LubeTipoCompartimento.nombre, unidad))
     costos = []
     for nombre, unidad, n, costo, vida in r.all():
         costo, vida = float(costo or 0), float(vida or 0)
@@ -172,47 +176,94 @@ async def analitica(marca: Optional[str] = None, linea: Optional[str] = None,
     }
 
 
+UMBRAL_PROXIMO = 0.9   # desde el 90 % de la frecuencia se avisa con tiempo
+
+
 @router.get("/pendientes", response_model=List[Dict[str, Any]])
 async def pendientes(db: AsyncSession = Depends(get_db)):
-    """Compartimentos a los que les toca muestra o cambio.
+    """Compartimentos a los que les toca muestra: la lista de trabajo del día.
 
-    Es la lista de trabajo del día. Sale de comparar la vida acumulada de cada
-    carga viva contra la frecuencia de muestreo del compartimento.
+    Se cuenta desde la ÚLTIMA MUESTRA de la carga viva, o desde el llenado si la
+    carga todavía no tiene ninguna, contra la frecuencia del compartimento. Antes
+    se contaba solo cuántas muestras tenía la carga viva: cada cambio de aceite
+    dejaba al compartimento como «nunca muestreado», y en una flota grande la
+    lista traía todos los equipos, que es lo mismo que no traer ninguno.
+
+    Tres estados, en este orden de urgencia:
+      VENCIDO       ya pasó la frecuencia
+      PROXIMO       le falta menos del 10 %; sirve para programar la toma
+      SIN_HISTORIA  el compartimento nunca se ha muestreado: le falta la línea
+                    base, sin la cual las primeras tendencias no dicen nada
     """
-    # La última lectura y la última toma de cada carga, en la misma consulta.
-    # Antes eran dos consultas por carga activa: miles por petición.
-    ultimas = (select(LubeMuestra.carga_id,
-                      func.max(LubeMuestra.medidor_equipo).label("ultimo"),
-                      func.max(LubeMuestra.fecha_toma).label("ultima_muestra"))
-               .group_by(LubeMuestra.carga_id).subquery())
+    por_carga = (select(LubeMuestra.carga_id,
+                        func.max(LubeMuestra.medidor_equipo).label("lectura"),
+                        func.max(LubeMuestra.fecha_toma).label("fecha"))
+                 .where(LubeMuestra.estado != "ANULADA")
+                 .group_by(LubeMuestra.carga_id).subquery())
+    por_comp = (select(LubeMuestra.compartimento_id,
+                       func.max(LubeMuestra.fecha_toma).label("fecha"))
+                .where(LubeMuestra.estado != "ANULADA")
+                .group_by(LubeMuestra.compartimento_id).subquery())
+    rellenos = (select(LubeRelleno.carga_id, func.max(LubeRelleno.medidor).label("lectura"))
+                .group_by(LubeRelleno.carga_id).subquery())
     r = await db.execute(
         select(LubeCompartimento, LubeCarga, EAMActivo.codigo,
+               EAMActivo.odometro_actual, EAMActivo.horometro_actual,
                LubeTipoCompartimento.nombre, LubeTipoCompartimento.unidad_vida,
-               ultimas.c.ultimo, ultimas.c.ultima_muestra)
+               por_carga.c.lectura, por_carga.c.fecha, por_comp.c.fecha,
+               rellenos.c.lectura)
         .join(EAMActivo, EAMActivo.id == LubeCompartimento.activo_id)
         .join(LubeTipoCompartimento,
               LubeTipoCompartimento.id == LubeCompartimento.tipo_compartimento_id)
         .join(LubeCarga, and_(LubeCarga.compartimento_id == LubeCompartimento.id,
                               LubeCarga.estado == "ACTIVA"))
-        .outerjoin(ultimas, ultimas.c.carga_id == LubeCarga.id)
+        .outerjoin(por_carga, por_carga.c.carga_id == LubeCarga.id)
+        .outerjoin(por_comp, por_comp.c.compartimento_id == LubeCompartimento.id)
+        .outerjoin(rellenos, rellenos.c.carga_id == LubeCarga.id)
         .where(LubeCompartimento.activo.is_(True)))
 
+    ahora = datetime.utcnow()
     salida = []
-    for comp, carga, activo, tipo, unidad, ultimo, ultima_muestra in r.all():
-        # Vida al momento: última lectura conocida menos la del llenado.
-        vida = (round(ultimo - carga.medidor_inicio, 2)
-                if ultimo is not None and carga.medidor_inicio is not None else None)
+    for (comp, carga, activo, odo, horo, tipo, unidad_tipo,
+         lectura_muestra, fecha_muestra_carga, ultima_comp, lectura_relleno) in r.all():
+        unidad = unidad_efectiva(unidad_tipo, odo, horo)
+        del_equipo = medidor_del_equipo(unidad, odo, horo)
+        conocidas = [v for v in (lectura_muestra, lectura_relleno) if v is not None]
+        vida = vida_de_carga(carga, unidad, max(conocidas) if conocidas else None,
+                             del_equipo, ahora)
 
-        vencido = (comp.frecuencia_muestreo and vida is not None
-                   and vida >= comp.frecuencia_muestreo)
-        if not vencido and ultima_muestra:
+        # Cuánto lleva desde la última toma de esta carga (o desde el llenado).
+        desde = None
+        if unidad == "DIAS":
+            base = fecha_muestra_carga or carga.fecha_llenado
+            desde = float((ahora - base).days) if base else None
+        elif vida is not None:
+            base = (lectura_muestra - carga.medidor_inicio
+                    if lectura_muestra is not None and carga.medidor_inicio is not None
+                    and lectura_muestra >= carga.medidor_inicio else 0.0)
+            desde = round(max(0.0, vida - base), 2)
+
+        frecuencia = comp.frecuencia_muestreo
+        avance = (desde / frecuencia) if (frecuencia and desde is not None) else None
+        if avance is not None and avance >= 1:
+            estado, motivo = "VENCIDO", "Superó la frecuencia de muestreo"
+        elif avance is not None and avance >= UMBRAL_PROXIMO:
+            estado, motivo = "PROXIMO", "Le toca pronto"
+        elif not ultima_comp:
+            estado, motivo = "SIN_HISTORIA", "Nunca se ha muestreado"
+        else:
             continue
+
         salida.append({
             "compartimento_id": comp.id, "activo": activo, "compartimento": comp.nombre,
             "tipo": tipo, "unidad": unidad, "carga_id": carga.id,
-            "vida_actual": vida, "frecuencia_muestreo": comp.frecuencia_muestreo,
-            "ultima_muestra": ultima_muestra, "critico": comp.critico,
-            "motivo": "Nunca se ha muestreado" if not ultima_muestra
-                      else "Superó la frecuencia de muestreo",
+            "vida_actual": vida, "desde_ultima": desde,
+            "frecuencia_muestreo": frecuencia,
+            "avance_pct": round(avance * 100, 1) if avance is not None else None,
+            "ultima_muestra": ultima_comp, "critico": comp.critico,
+            "estado": estado, "motivo": motivo,
         })
-    return sorted(salida, key=lambda x: (not x["critico"], x["activo"]))
+
+    orden = {"VENCIDO": 0, "PROXIMO": 1, "SIN_HISTORIA": 2}
+    return sorted(salida, key=lambda x: (orden[x["estado"]], not x["critico"],
+                                         -(x["avance_pct"] or 0), x["activo"]))

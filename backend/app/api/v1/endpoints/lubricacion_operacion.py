@@ -13,12 +13,12 @@ diagnóstico se confirma o se desmiente cuando se interviene el equipo.
 Ese último paso es el que casi ningún programa cierra, y es el que permite
 medir si el análisis está sirviendo o solo generando papel.
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import select, func, and_, desc
+from sqlalchemy import select, func, and_, desc, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.consultas import en_lista
@@ -42,6 +42,100 @@ ORDEN_ESTADO = {"NORMAL": 0, "MARGINAL": 1, "CRITICO": 2}
 
 def _quien(u: Usuario) -> str:
     return getattr(u, "username", None) or getattr(u, "nombre", None) or "—"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# EL MEDIDOR DEL EQUIPO
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# La vida del aceite se cuenta contra el medidor del equipo, y la unidad la dice
+# el tipo de compartimento. Pero el tipo es uno para toda la flota: «Motor
+# diésel» viene sembrado en horas, y en un tractocamión ese motor se lleva por
+# kilómetros. Si se obedeciera al tipo, la pantalla diría «15.000 horas» de un
+# aceite que lleva 15.000 km. La unidad de verdad la decide el medidor que el
+# equipo tiene: sin horómetro y con odómetro, son kilómetros.
+
+def unidad_efectiva(unidad_tipo: Optional[str], odometro: Optional[float],
+                    horometro: Optional[float]) -> str:
+    """La unidad en que de verdad se lleva la vida de este compartimento."""
+    u = (unidad_tipo or "HORAS").upper()
+    if u == "HORAS" and not horometro and odometro:
+        return "KM"
+    if u == "KM" and not odometro and horometro:
+        return "HORAS"
+    return u
+
+
+def unidad_efectiva_sql():
+    """`unidad_efectiva` como expresión SQL, para agrupar costos por la unidad real.
+    Pide que la consulta ya tenga unidos `EAMActivo` y `LubeTipoCompartimento`."""
+    odo = func.coalesce(EAMActivo.odometro_actual, 0)
+    horo = func.coalesce(EAMActivo.horometro_actual, 0)
+    u = func.coalesce(LubeTipoCompartimento.unidad_vida, "HORAS")
+    return case((and_(u == "HORAS", horo == 0, odo > 0), "KM"),
+                (and_(u == "KM", odo == 0, horo > 0), "HORAS"),
+                else_=u)
+
+
+def medidor_del_equipo(unidad: str, odometro: Optional[float],
+                       horometro: Optional[float]) -> Optional[float]:
+    """La lectura vigente del equipo en esa unidad. Cero cuenta como «no se sabe»:
+    es el valor con que nace un activo al que nunca se le anotó nada."""
+    valor = odometro if unidad == "KM" else horometro if unidad == "HORAS" else None
+    return float(valor) if valor else None
+
+
+def vida_de_carga(carga: "LubeCarga", unidad: str, ultima_lectura: Optional[float],
+                  medidor_equipo: Optional[float],
+                  ahora: Optional[datetime] = None) -> Optional[float]:
+    """Vida de la carga hoy: la lectura más alta conocida menos la del llenado.
+
+    Las lecturas llegan por tres vías —la muestra, el relleno y el medidor del
+    activo, que mueven tanqueos, órdenes e inspecciones— y vale la mayor, porque
+    cualquiera pudo ser la última. Una lectura por debajo del llenado se ignora:
+    es un medidor cambiado o un dato malo, y restar daría una vida negativa.
+    En días no hay medidor: cuenta el calendario.
+    """
+    if unidad == "DIAS":
+        if not carga.fecha_llenado:
+            return None
+        return float(max(0, ((ahora or datetime.utcnow()) - carga.fecha_llenado).days))
+    if carga.medidor_inicio is None:
+        return None
+    candidatas = [v for v in (ultima_lectura, medidor_equipo)
+                  if v is not None and v >= carga.medidor_inicio]
+    if not candidatas:
+        return None
+    return round(max(candidatas) - carga.medidor_inicio, 2)
+
+
+def validar_lectura(valor: Optional[float], minimo: Optional[float], que: str,
+                    referencia: str) -> None:
+    """Una lectura del equipo no puede quedar por debajo de otra anterior.
+
+    Es el mismo principio que el odómetro de las llantas: el dato imposible se
+    ve bien formado en la pantalla y arruina, meses después, la vida del aceite
+    y el costo por unidad lubricada, que son las cifras por las que se registra.
+    """
+    if valor is None:
+        return
+    if valor < 0:
+        raise HTTPException(422, f"La {que} no puede ser negativa")
+    if minimo is not None and valor < minimo:
+        raise HTTPException(
+            422, f"La {que} ({valor:,.1f}) es menor que la {referencia} "
+                 f"({minimo:,.1f}). Un medidor no retrocede: revise el número.")
+
+
+def _sin_zona(v: datetime) -> datetime:
+    """Las fechas se guardan sin zona; una que llegue con zona no se puede comparar."""
+    return v.replace(tzinfo=None) if v.tzinfo else v
+
+
+def validar_fecha(valor: Optional[datetime], que: str) -> None:
+    """Nada de lubricación ocurre en el futuro. Un día de margen por zona horaria."""
+    if valor is not None and _sin_zona(valor) > datetime.utcnow() + timedelta(days=1):
+        raise HTTPException(422, f"La {que} está en el futuro")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -79,6 +173,12 @@ class CompartimentoOut(CompartimentoIn):
     vida_recomendada: Optional[float] = None
     severidad_ultima: Optional[str] = None
     fecha_ultima_muestra: Optional[datetime] = None
+    # La lectura más alta conocida del equipo, en la unidad de la vida. Con ella
+    # el formulario propone el número en vez de pedirlo en blanco, y el servidor
+    # rechaza el que retrocede.
+    medidor_actual: Optional[float] = None
+    medidor_inicio_carga: Optional[float] = None
+    fecha_llenado: Optional[datetime] = None
 
 
 async def _enriquecer_compartimentos(db: AsyncSession, filas) -> List[Dict[str, Any]]:
@@ -138,18 +238,22 @@ async def _enriquecer_compartimentos(db: AsyncSession, filas) -> List[Dict[str, 
                 if valor is not None:
                     medidores[cid] = max(medidores.get(cid, valor), valor)
 
-    for comp, act_codigo, act_nombre, tipo_nombre, unidad in filas:
+    for comp, act_codigo, act_nombre, tipo_nombre, unidad_tipo, odo, horo in filas:
+        unidad = unidad_efectiva(unidad_tipo, odo, horo)
+        del_equipo = medidor_del_equipo(unidad, odo, horo)
         d = CompartimentoOut.model_validate(comp).model_dump()
         d.update(activo_codigo=act_codigo, activo_nombre=act_nombre,
                  tipo_compartimento=tipo_nombre, unidad_vida=unidad)
         carga, producto = cargas.get(comp.id, (None, None))
+        conocidas = [v for v in (del_equipo, medidores.get(carga.id) if carga else None)
+                     if v is not None]
+        d["medidor_actual"] = max(conocidas) if conocidas else None
         if carga:
             d["carga_id"] = carga.id
             d["producto_actual"] = producto
-            ultimo = medidores.get(carga.id)
-            d["vida_actual"] = (round(ultimo - carga.medidor_inicio, 2)
-                                if ultimo is not None and carga.medidor_inicio is not None
-                                else None)
+            d["medidor_inicio_carga"] = carga.medidor_inicio
+            d["fecha_llenado"] = carga.fecha_llenado
+            d["vida_actual"] = vida_de_carga(carga, unidad, medidores.get(carga.id), del_equipo)
             d["vida_recomendada"] = vidas.get((carga.producto_id, comp.tipo_compartimento_id))
         sev, fecha = ultimas.get(comp.id, (None, None))
         d["severidad_ultima"], d["fecha_ultima_muestra"] = sev, fecha
@@ -163,7 +267,8 @@ async def listar_compartimentos(activo_id: Optional[int] = None,
                                 solo_criticos: bool = False,
                                 db: AsyncSession = Depends(get_db)):
     q = (select(LubeCompartimento, EAMActivo.codigo, EAMActivo.nombre,
-                LubeTipoCompartimento.nombre, LubeTipoCompartimento.unidad_vida)
+                LubeTipoCompartimento.nombre, LubeTipoCompartimento.unidad_vida,
+                EAMActivo.odometro_actual, EAMActivo.horometro_actual)
          .join(EAMActivo, EAMActivo.id == LubeCompartimento.activo_id)
          .join(LubeTipoCompartimento,
                LubeTipoCompartimento.id == LubeCompartimento.tipo_compartimento_id)
@@ -355,7 +460,18 @@ async def abrir_carga(data: CargaIn, db: AsyncSession = Depends(get_db),
         LubeCarga.compartimento_id == data.compartimento_id,
         LubeCarga.estado == "ACTIVA")))
     anterior = r.scalar_one_or_none()
+    validar_fecha(data.fecha_llenado, "fecha del cambio")
+    if data.volumen_litros is not None and data.volumen_litros <= 0:
+        raise HTTPException(422, "Los litros deben ser mayores que cero")
+    if any((v or 0) < 0 for v in (data.costo_aceite, data.costo_filtro, data.costo_mano_obra)):
+        raise HTTPException(422, "Un costo no puede ser negativo")
     if anterior:
+        if _sin_zona(data.fecha_llenado) < _sin_zona(anterior.fecha_llenado):
+            raise HTTPException(
+                422, "La fecha del cambio es anterior al llenado de la carga que está "
+                     f"viva ({anterior.fecha_llenado:%d/%m/%Y})")
+        validar_lectura(data.medidor_inicio, anterior.medidor_inicio,
+                        "lectura del cambio", "lectura con que se llenó la carga anterior")
         anterior.estado = "DRENADA"
         anterior.fecha_drenaje = data.fecha_llenado
         anterior.medidor_fin = data.medidor_inicio
@@ -374,6 +490,11 @@ async def drenar_carga(cid: int, data: DrenajeIn, db: AsyncSession = Depends(get
         raise HTTPException(404, "Esa carga no existe")
     if carga.estado == "DRENADA":
         raise HTTPException(409, "Esa carga ya fue drenada")
+    validar_fecha(data.fecha_drenaje, "fecha del drenaje")
+    if _sin_zona(data.fecha_drenaje) < _sin_zona(carga.fecha_llenado):
+        raise HTTPException(422, "La carga no se puede drenar antes de haberse llenado")
+    validar_lectura(data.medidor_fin, carga.medidor_inicio,
+                    "lectura del drenaje", "lectura del llenado")
     carga.estado = "DRENADA"
     carga.fecha_drenaje = data.fecha_drenaje
     carga.medidor_fin = data.medidor_fin
@@ -418,6 +539,13 @@ async def crear_relleno(data: RellenoIn, db: AsyncSession = Depends(get_db),
         raise HTTPException(409, "No se puede rellenar una carga ya drenada")
     if data.litros <= 0:
         raise HTTPException(400, "Los litros deben ser mayores que cero")
+    if data.costo is not None and data.costo < 0:
+        raise HTTPException(422, "El costo no puede ser negativo")
+    validar_fecha(data.fecha, "fecha del relleno")
+    if _sin_zona(data.fecha) < _sin_zona(carga.fecha_llenado):
+        raise HTTPException(422, "El relleno es anterior al llenado de la carga")
+    validar_lectura(data.medidor, carga.medidor_inicio,
+                    "lectura del relleno", "lectura del llenado")
     obj = LubeRelleno(**data.model_dump(), registrado_por=_quien(usuario))
     db.add(obj); await db.commit(); await db.refresh(obj)
     return obj
@@ -688,16 +816,25 @@ async def _resolver_parametros(db: AsyncSession, filas: List[ResultadoIn]) -> Li
 
 
 @router.get("/muestras", response_model=List[MuestraOut])
-async def listar_muestras(compartimento_id: Optional[int] = None,
+async def listar_muestras(respuesta: Response,
+                          compartimento_id: Optional[int] = None,
                           activo_id: Optional[int] = None,
                           carga_id: Optional[int] = None,
                           severidad: Optional[str] = None,
-                          limite: int = Query(200, le=1000),
+                          buscar: Optional[str] = None,
+                          limite: int = Query(200, ge=1, le=1000),
+                          desplazamiento: int = Query(0, ge=0),
                           db: AsyncSession = Depends(get_db)):
+    """Las muestras, la más reciente primero, por trozos (total en `X-Total-Count`).
+
+    `severidad` admite varias separadas por coma —«CRITICO,ACCION_INMEDIATA» es
+    lo que hay que atender— y `buscar` mira el número de la muestra, la placa y
+    el compartimento.
+    """
     q = (select(LubeMuestra, EAMActivo.codigo, LubeCompartimento.nombre)
          .join(LubeCompartimento, LubeCompartimento.id == LubeMuestra.compartimento_id)
          .join(EAMActivo, EAMActivo.id == LubeCompartimento.activo_id)
-         .order_by(desc(LubeMuestra.fecha_toma)).limit(limite))
+         .where(LubeMuestra.estado != "ANULADA"))
     if compartimento_id:
         q = q.where(LubeMuestra.compartimento_id == compartimento_id)
     if activo_id:
@@ -705,7 +842,15 @@ async def listar_muestras(compartimento_id: Optional[int] = None,
     if carga_id:
         q = q.where(LubeMuestra.carga_id == carga_id)
     if severidad:
-        q = q.where(LubeMuestra.severidad == severidad)
+        q = q.where(LubeMuestra.severidad.in_(
+            [x.strip().upper() for x in severidad.split(",") if x.strip()]))
+    if buscar and buscar.strip():
+        patron = f"%{buscar.strip()}%"
+        q = q.where(LubeMuestra.numero.ilike(patron) | EAMActivo.codigo.ilike(patron)
+                    | EAMActivo.placa.ilike(patron) | LubeCompartimento.nombre.ilike(patron))
+    poner_total(respuesta, await contar(db, q), limite, desplazamiento)
+    q = (q.order_by(desc(LubeMuestra.fecha_toma), desc(LubeMuestra.id))
+         .offset(desplazamiento).limit(limite))
 
     salida = []
     for m, act, comp in (await db.execute(q)).all():
@@ -761,11 +906,20 @@ async def crear_muestra(data: MuestraIn, db: AsyncSession = Depends(get_db),
     carga = None
     if carga_id:
         carga = await db.get(LubeCarga, carga_id)
+        if not carga or carga.compartimento_id != comp.id:
+            raise HTTPException(400, "Esa carga no es de este compartimento")
     else:
         r = await db.execute(select(LubeCarga).where(and_(
             LubeCarga.compartimento_id == comp.id, LubeCarga.estado == "ACTIVA")))
         carga = r.scalar_one_or_none()
         carga_id = carga.id if carga else None
+
+    validar_fecha(data.fecha_toma, "fecha de toma")
+    if carga is not None:
+        validar_lectura(data.medidor_equipo, carga.medidor_inicio,
+                        "lectura del equipo", "lectura con que se llenó el aceite")
+    if any(f.valor is not None and f.valor < 0 for f in data.resultados):
+        raise HTTPException(422, "Un resultado de laboratorio no puede ser negativo")
 
     # Las horas del aceite se derivan si no las mandan: es el dato sin el cual
     # la muestra no se puede interpretar, así que se calcula en vez de perderlo.

@@ -51,6 +51,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.v1.endpoints.lubricacion_flota import (
     FiltroFlota, _base_muestras, _criterio,
 )
+from app.api.v1.endpoints.lubricacion_operacion import unidad_efectiva
 from app.core.consultas import en_lista
 from app.core.database import get_db
 from app.core.normas_lubricacion import (
@@ -758,7 +759,8 @@ async def tablero(
                 # La vida del aceite se mide en horas en un motor y en
                 # kilómetros en un diferencial. Sin la unidad, «500» no dice
                 # nada: la trae el tipo de compartimento y viaja con el dato.
-                "unidad_vida": tipo.unidad_vida,
+                "unidad_vida": unidad_efectiva(tipo.unidad_vida, activo.odometro_actual,
+                                               activo.horometro_actual),
                 "fecha_toma": muestra.fecha_toma,
                 "tipo": "-".join(mapa_sigla[c] for c in ordenados if c in mapa_sigla) or "—",
                 "patron": regla["nombre"],
@@ -1020,20 +1022,27 @@ async def correlacion(
     utiles.sort(key=lambda pid: ORDEN_SIGLAS.index(catalogo[pid].codigo)
                 if catalogo[pid].codigo in ORDEN_SIGLAS else 999)
 
-    matriz: List[List[Optional[float]]] = []
-    conteos: List[List[int]] = []
-    for a in utiles:
-        fila_r, fila_n = [], []
-        for b in utiles:
-            xs, ys = [], []
-            for valores in por_muestra.values():
-                if a in valores and b in valores:
-                    xs.append(valores[a])
-                    ys.append(valores[b])
-            fila_r.append(1.0 if a == b else pearson(xs, ys))
-            fila_n.append(len(xs))
-        matriz.append(fila_r)
-        conteos.append(fila_n)
+    def armar_matriz():
+        # Treinta parámetros contra treinta sobre veinte mil muestras son
+        # millones de vueltas: se hacen en un hilo para que el proceso siga
+        # atendiendo a los demás mientras tanto.
+        matriz: List[List[Optional[float]]] = []
+        conteos: List[List[int]] = []
+        for a in utiles:
+            fila_r, fila_n = [], []
+            for b in utiles:
+                xs, ys = [], []
+                for valores in por_muestra.values():
+                    if a in valores and b in valores:
+                        xs.append(valores[a])
+                        ys.append(valores[b])
+                fila_r.append(1.0 if a == b else pearson(xs, ys))
+                fila_n.append(len(xs))
+            matriz.append(fila_r)
+            conteos.append(fila_n)
+        return matriz, conteos
+
+    matriz, conteos = await asyncio.to_thread(armar_matriz)
 
     indice = {catalogo[pid].codigo: i for i, pid in enumerate(utiles)}
 

@@ -274,10 +274,31 @@ async def importar_muestras(cargue: Cargue, db: AsyncSession = Depends(get_db),
     r = await db.execute(select(LubeParametro).where(LubeParametro.activo.is_(True)))
     parametros = {_clave(p.codigo): p for p in r.scalars().all()}
 
-    # La carga viva de cada compartimento: a ella se cuelga la muestra, y de su
-    # medidor de arranque salen las horas del aceite.
-    r = await db.execute(select(LubeCarga).where(LubeCarga.estado == "ACTIVA"))
-    carga_viva = {c.compartimento_id: c for c in r.scalars().all()}
+    # Las cargas de cada compartimento, para colgar cada muestra de la que
+    # estaba puesta EL DÍA DE LA TOMA. Antes iban todas a la carga viva: al
+    # subir el histórico de un cliente, una muestra de hace dos años quedaba en
+    # el aceite de este mes, con vida negativa y comparada contra un aceite que
+    # no era el suyo. Solo las columnas: con decenas de miles de cargas, traer
+    # objetos enteros es lo que deja al proceso sin contestar.
+    r = await db.execute(select(LubeCarga.id, LubeCarga.compartimento_id,
+                                LubeCarga.fecha_llenado, LubeCarga.fecha_drenaje,
+                                LubeCarga.medidor_inicio)
+                         .order_by(LubeCarga.compartimento_id, LubeCarga.fecha_llenado))
+    cargas_por_comp: Dict[int, List[Any]] = {}
+    for c in r.all():
+        cargas_por_comp.setdefault(c.compartimento_id, []).append(c)
+
+    def carga_del_dia(comp_id: int, cuando: datetime):
+        """La carga cuyo llenado es anterior a la toma y que no se había drenado."""
+        elegida = None
+        for c in cargas_por_comp.get(comp_id, []):
+            if c.fecha_llenado and c.fecha_llenado <= cuando:
+                elegida = c
+            else:
+                break
+        if elegida and elegida.fecha_drenaje and elegida.fecha_drenaje < cuando:
+            return None
+        return elegida
 
     r = await db.execute(select(func.lower(LubeMuestra.numero)))
     existentes = {n for (n,) in r.all() if n}
@@ -389,9 +410,26 @@ async def importar_muestras(cargue: Cargue, db: AsyncSession = Depends(get_db),
             error(problema)
             continue
 
-        carga = carga_viva.get(comp.id)
+        if fecha_toma > datetime.utcnow() + timedelta(days=1):
+            error("La fecha de toma está en el futuro")
+            continue
+        if medidor is not None and medidor < 0:
+            error("La lectura del equipo no puede ser negativa")
+            continue
+        negativo = next((f for f in filas_resultado
+                         if f["valor"] is not None and f["valor"] < 0), None)
+        if negativo:
+            error("Un resultado de laboratorio no puede ser negativo")
+            continue
+
+        carga = carga_del_dia(comp.id, fecha_toma)
         horas = None
         if carga and carga.medidor_inicio is not None and medidor is not None:
+            if medidor < carga.medidor_inicio:
+                error(f"La lectura del equipo ({medidor:,.1f}) es menor que la del "
+                      f"cambio de aceite de esa fecha ({carga.medidor_inicio:,.1f}). "
+                      "Un medidor no retrocede: revise el número.")
+                continue
             horas = round(medidor - carga.medidor_inicio, 2)
 
         existentes.add(_clave(numero))

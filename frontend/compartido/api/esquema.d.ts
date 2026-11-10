@@ -3595,7 +3595,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Listar Muestras */
+        /**
+         * Listar Muestras
+         * @description Las muestras, la más reciente primero, por trozos (total en `X-Total-Count`).
+         *
+         *     `severidad` admite varias separadas por coma —«CRITICO,ACCION_INMEDIATA» es
+         *     lo que hay que atender— y `buscar` mira el número de la muestra, la placa y
+         *     el compartimento.
+         */
         get: operations["listar_muestras_api_v1_eam_lube_muestras_get"];
         put?: never;
         /**
@@ -3735,10 +3742,19 @@ export interface paths {
         };
         /**
          * Pendientes
-         * @description Compartimentos a los que les toca muestra o cambio.
+         * @description Compartimentos a los que les toca muestra: la lista de trabajo del día.
          *
-         *     Es la lista de trabajo del día. Sale de comparar la vida acumulada de cada
-         *     carga viva contra la frecuencia de muestreo del compartimento.
+         *     Se cuenta desde la ÚLTIMA MUESTRA de la carga viva, o desde el llenado si la
+         *     carga todavía no tiene ninguna, contra la frecuencia del compartimento. Antes
+         *     se contaba solo cuántas muestras tenía la carga viva: cada cambio de aceite
+         *     dejaba al compartimento como «nunca muestreado», y en una flota grande la
+         *     lista traía todos los equipos, que es lo mismo que no traer ninguno.
+         *
+         *     Tres estados, en este orden de urgencia:
+         *       VENCIDO       ya pasó la frecuencia
+         *       PROXIMO       le falta menos del 10 %; sirve para programar la toma
+         *       SIN_HISTORIA  el compartimento nunca se ha muestreado: le falta la línea
+         *                     base, sin la cual las primeras tendencias no dicen nada
          */
         get: operations["pendientes_api_v1_eam_lube_pendientes_get"];
         put?: never;
@@ -7644,12 +7660,18 @@ export interface components {
              * @default false
              */
             critico: boolean;
+            /** Fecha Llenado */
+            fecha_llenado?: string | null;
             /** Fecha Ultima Muestra */
             fecha_ultima_muestra?: string | null;
             /** Frecuencia Muestreo */
             frecuencia_muestreo?: number | null;
             /** Id */
             id: number;
+            /** Medidor Actual */
+            medidor_actual?: number | null;
+            /** Medidor Inicio Carga */
+            medidor_inicio_carga?: number | null;
             /** Meta Iso4406 */
             meta_iso4406?: string | null;
             /** Metodo Muestreo Id */
@@ -21387,7 +21409,9 @@ export interface operations {
                 activo_id?: number | null;
                 carga_id?: number | null;
                 severidad?: string | null;
+                buscar?: string | null;
                 limite?: number;
+                desplazamiento?: number;
             };
             header?: never;
             path?: never;

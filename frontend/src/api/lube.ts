@@ -91,6 +91,9 @@ export interface Compartimento {
   carga_id?: number | null; producto_actual?: string | null
   vida_actual?: number | null; vida_recomendada?: number | null
   severidad_ultima?: string | null; fecha_ultima_muestra?: string | null
+  /** Lectura más alta conocida del equipo, en la unidad de la vida. */
+  medidor_actual?: number | null
+  medidor_inicio_carga?: number | null; fecha_llenado?: string | null
 }
 
 export interface Carga {
@@ -179,7 +182,10 @@ export interface Pendiente {
   compartimento_id: number; activo: string; compartimento: string
   tipo: string; unidad: string; carga_id: number
   vida_actual?: number | null; frecuencia_muestreo?: number | null
+  /** Lo recorrido desde la última muestra de la carga, o desde el llenado. */
+  desde_ultima?: number | null; avance_pct?: number | null
   ultima_muestra?: string | null; critico: boolean; motivo: string
+  estado: 'VENCIDO' | 'PROXIMO' | 'SIN_HISTORIA'
 }
 
 // ─── Cargue masivo ────────────────────────────────────────────────────────────
@@ -247,6 +253,11 @@ export const lubeApi = {
   muestras: {
     listar: (params?: Record<string, any>) =>
       api.get<Muestra[]>(`${R}/muestras`, { params }).then(r => r.data),
+    /** Un trozo de la lista y el total, que viene en la cabecera. */
+    pagina: (params: Record<string, any>) =>
+      api.get<Muestra[]>(`${R}/muestras`, { params }).then(r => ({
+        filas: r.data, total: Number(r.headers['x-total-count'] ?? r.data.length),
+      })),
     obtener: (id: number) => api.get<Muestra>(`${R}/muestras/${id}`).then(r => r.data),
     crear: (datos: any) => api.post<any>(`${R}/muestras`, datos).then(r => r.data),
     reevaluar: (id: number) =>

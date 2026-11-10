@@ -92,8 +92,13 @@ export function Estado({
 }) {
   if (cargando) {
     return (
-      <Box sx={{ py: 6, textAlign: 'center' }}>
+      <Box sx={{ py: 6, textAlign: 'center' }} role="status" aria-live="polite">
         <CircularProgress size={28} sx={{ color: ACENTO }} />
+        {/* Los análisis de flota tardan unos segundos: un círculo solo, sin
+            texto, se confunde con una pantalla que se quedó en blanco. */}
+        <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 1.25 }}>
+          Calculando…
+        </Typography>
       </Box>
     )
   }

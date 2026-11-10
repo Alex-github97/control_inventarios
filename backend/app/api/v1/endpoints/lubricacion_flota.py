@@ -32,6 +32,7 @@ from sqlalchemy import Select, and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.consultas import en_lista
+from app.api.v1.endpoints.lubricacion_operacion import unidad_efectiva_sql
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.core.normas_lubricacion import (
@@ -331,7 +332,8 @@ async def programa(
     rellenos = (select(LubeRelleno.carga_id.label("carga_id"),
                        func.sum(func.coalesce(LubeRelleno.costo, 0)).label("costo"))
                 .group_by(LubeRelleno.carga_id).subquery())
-    q = (select(LubeTipoCompartimento.nombre, LubeTipoCompartimento.unidad_vida,
+    unidad = unidad_efectiva_sql().label("unidad")
+    q = (select(LubeTipoCompartimento.nombre, unidad,
                 func.count(LubeCarga.id),
                 func.sum(func.coalesce(LubeCarga.costo_aceite, 0)
                          + func.coalesce(LubeCarga.costo_filtro, 0)
@@ -345,8 +347,7 @@ async def programa(
          .outerjoin(rellenos, rellenos.c.carga_id == LubeCarga.id)
          .where(and_(LubeCarga.estado == "DRENADA",
                      LubeCarga.fecha_drenaje >= desde))
-         .group_by(LubeTipoCompartimento.nombre,
-                   LubeTipoCompartimento.unidad_vida))
+         .group_by(LubeTipoCompartimento.nombre, unidad))
     costos = []
     for nombre, unidad, n, costo, vida in (await db.execute(f.aplicar(q))).all():
         costo, vida = float(costo or 0), float(vida or 0)
@@ -559,6 +560,9 @@ async def correlacion_de(
 # 4. Evolución contra el kilometraje
 # ══════════════════════════════════════════════════════════════════════════════
 
+SERIES_EVOLUCION = 12
+
+
 @router.get("/evolucion")
 async def evolucion(
     dias: int = Query(1460, ge=90, le=3650),
@@ -644,6 +648,11 @@ async def evolucion(
         p["tendencia"] = regresion(kms, malos)
         placas.append(p)
     placas.sort(key=lambda x: -x["muestras"])
+    # El gráfico dibuja las placas con más muestras; con más series deja de
+    # leerse. Las demás viajan solo con su resumen para la tabla: mandar sus
+    # puntos eran 5 MB que el navegador recibía para no dibujarlos.
+    for p in placas[SERIES_EVOLUCION:]:
+        p["puntos"] = []
 
     return {
         "filtro": f.como_dict(),
@@ -658,11 +667,12 @@ async def evolucion(
 # 5. Dispersión: cada parámetro contra el kilometraje
 # ══════════════════════════════════════════════════════════════════════════════
 
-# Un diagrama de dispersión no se ve distinto con 3.000 puntos que con 20.000,
-# pero 20.000 por parámetro eran 25 MB de respuesta. Pasado el tope se muestran
+# Un diagrama de dispersión no se ve distinto con 1.200 puntos que con 20.000,
+# pero 20.000 por parámetro eran 25 MB de respuesta, y quince paneles de 3.000
+# círculos dejaban la pestaña sin responder. Pasado el tope se muestran
 # TODOS los puntos fuera de rango y una muestra pareja del resto; la recta, el r
 # y las cifras se calculan siempre con todos.
-MAX_PUNTOS_DISPERSION = 3000
+MAX_PUNTOS_DISPERSION = 1200
 
 
 def _reducir_puntos(puntos: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
