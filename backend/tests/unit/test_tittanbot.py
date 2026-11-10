@@ -14,9 +14,10 @@ def _u(rol, **permisos):
 
 def test_sin_cmms_solo_quedan_las_generales():
     nombres = {h.nombre for h in disponibles(_u("CONSULTA", estibas=True))}
-    # ver_adjunto e importar_excel no piden permiso: el importador revisa el
-    # del destino al emparejar.
-    assert nombres == {"mi_dia", "guia_de_uso", "crear_ticket_soporte", "ver_adjunto", "importar_excel"}
+    # ver_adjunto, importar_excel y plantilla_cargue no piden permiso: revisan el permiso
+    # del cargue elegido.
+    assert nombres == {"mi_dia", "guia_de_uso", "crear_ticket_soporte", "ver_adjunto", "importar_excel",
+                       "plantilla_cargue"}
 
 
 def test_cada_modulo_abre_solo_sus_herramientas():
