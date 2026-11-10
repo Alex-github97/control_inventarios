@@ -4,6 +4,7 @@ from sqlalchemy import select, func
 from typing import List
 from app.core.database import get_db
 from app.core.dependencies import require_admin
+from app.core.acceso_modulos import olvidar_perfiles
 from app.infrastructure.models.rol import Rol
 from app.infrastructure.models.usuario import Usuario
 from app.application.schemas.rol import RolCreate, RolUpdate, RolResponse
@@ -75,6 +76,7 @@ async def crear_rol(
     )
     db.add(rol)
     await db.commit()
+    olvidar_perfiles()   # el permiso cambiado vale ya, no en 30 s
     await db.refresh(rol)
     return RolResponse(
         id=rol.id, nombre=rol.nombre, label=rol.label, descripcion=rol.descripcion,
@@ -114,6 +116,7 @@ async def actualizar_rol(
         rol.permisos = dict(data.permisos)
 
     await db.commit()
+    olvidar_perfiles()   # el permiso cambiado vale ya, no en 30 s
     await db.refresh(rol)
     total = await _count_users(db, rol_id)
     return RolResponse(
@@ -145,3 +148,4 @@ async def eliminar_rol(
 
     await db.delete(rol)
     await db.commit()
+    olvidar_perfiles()   # el permiso cambiado vale ya, no en 30 s

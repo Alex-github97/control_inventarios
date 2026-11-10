@@ -133,6 +133,9 @@ from app.infrastructure.models.lubricacion import (
     LubeCompartimento, LubeCarga, LubeRelleno,
     LubeMuestra, LubeResultado, LubeDiagnostico, LubeAsesor,
 )
+from app.infrastructure.models.tittanbot import (
+    TittanbotConversacion, TittanbotMensaje, TittanbotAccion, TittanbotDescarga,
+)
 from app.infrastructure.models.mes import (
     MESPlanta, MESLinea, MESTurno, MESCeldaTrabajo, MESEquipo,
     MESOperario, MESCertificacion, MESProducto, MESBOM, MESBOMDetalle,

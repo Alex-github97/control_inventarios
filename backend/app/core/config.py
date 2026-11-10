@@ -66,6 +66,21 @@ class Settings(BaseSettings):
     # está configurada en vez de fallar a mitad de una reunión. Los modelos van
     # en variables porque OpenAI los renombra y retira (los gpt-4o-*transcribe
     # se apagan el 26 de febrero de 2027).
+    # «exigir» (por omisión) niega con 403 lo que el perfil no permite;
+    # «observar» solo lo anota en el registro. Es el interruptor de emergencia
+    # si una pantalla legítima resulta pidiendo algo que su perfil no tiene.
+    PERMISOS_PERFIL_MODO: str = "exigir"
+
+    # ── TittanBot ────────────────────────────────────────────────────────────
+    # Sin clave el bot queda apagado y la burbuja lo dice; no rompe nada.
+    TITTANBOT_API_KEY: str = ""
+    TITTANBOT_MODELO: str = "claude-opus-5-5"
+    # Esfuerzo de razonamiento: «low» para charla y consultas es suficiente y
+    # mucho más barato; se sube si las respuestas se quedan cortas.
+    TITTANBOT_ESFUERZO: str = "low"
+    TITTANBOT_TOPE_DIA: int = 120          # mensajes por usuario al día
+    TITTANBOT_TOPE_EMPRESA_DIA: int = 2000  # mensajes por empresa al día
+    TITTANBOT_MAX_VUELTAS: int = 8          # herramientas encadenadas por mensaje
     OPENAI_API_KEY: str = ""
     OPENAI_MODELO_TRANSCRIPCION: str = "gpt-transcribe"
     OPENAI_MODELO_VIVO: str = "gpt-live-transcribe"

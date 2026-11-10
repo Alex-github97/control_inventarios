@@ -4,6 +4,7 @@ import { ThemeProvider } from '@mui/material/styles'
 import { CssBaseline, Box, Typography, Button } from '@mui/material'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
+import { TittanBot } from '@/components/tittanbot/TittanBot'
 import { theme } from '@/theme/theme'
 import { useAuthStore } from '@/store/authStore'
 import { ControlInactividad } from '@/utils/inactividad'
@@ -811,6 +812,9 @@ export default function App() {
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
           </Suspense>
+          {/* El asistente va fuera de las rutas: así la conversación sigue
+              abierta al cambiar de pantalla. */}
+          <TittanBot />
         </BrowserRouter>
       </ThemeProvider>
     </QueryClientProvider>
