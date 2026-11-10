@@ -73,15 +73,24 @@ async def _plantilla(ctx: Contexto, d: Destino) -> List[dict]:
     return resp.json().get("columnas") or []
 
 
-async def emparejar(ctx: Contexto, destino: str) -> Dict[str, Any]:
-    """Qué columna del archivo va a qué campo del importador."""
+def _puede(ctx: Contexto, d: Destino) -> bool:
     from app.core.permisos_ruta import permitido
     from app.core.tittanbot.herramientas import rol_de
+    return permitido(rol_de(ctx.usuario), getattr(ctx.usuario, "permisos", None) or {}, d.permiso)
+
+
+def _destino(ctx: Contexto, destino: str) -> Destino:
     d = DESTINOS.get(destino)
     if d is None:
         raise ValueError(f"No conozco el destino «{destino}». Opciones: {', '.join(DESTINOS)}.")
-    if not permitido(rol_de(ctx.usuario), getattr(ctx.usuario, "permisos", None) or {}, d.permiso):
+    if not _puede(ctx, d):
         raise ValueError(f"Su perfil no tiene permiso para cargar {d.titulo}.")
+    return d
+
+
+async def emparejar(ctx: Contexto, destino: str) -> Dict[str, Any]:
+    """Qué columna del archivo va a qué campo del importador."""
+    d = _destino(ctx, destino)
     adj = await adjunto_actual(ctx)
     if adj is None:
         raise ValueError("No hay ningún archivo adjunto en esta conversación.")
@@ -170,3 +179,80 @@ async def importar(ctx: Contexto, a: dict) -> Dict[str, Any]:
     if errores:
         texto += f"; {len(errores)} fila(s) con error, por ejemplo: " + " | ".join(errores[:5])
     return {"exito": creados > 0 or not errores, "resultado": texto + "."}
+
+
+# ─── Plantillas ──────────────────────────────────────────────────────────────
+
+def _libro_plantilla(d: Destino, columnas: List[dict]) -> bytes:
+    """El mismo Excel que baja la pantalla de cargue masivo (hoja Datos con una
+    fila de ejemplo, hoja Instrucciones), más listas desplegables donde la
+    columna solo admite ciertos valores."""
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+    from openpyxl.utils import get_column_letter
+    from openpyxl.worksheet.datavalidation import DataValidation
+
+    libro = Workbook()
+    hoja = libro.active
+    hoja.title = "Datos"
+    hoja.append([c["titulo"] + (" *" if c.get("requerida") else "") for c in columnas])
+    hoja.append([c.get("ejemplo") or "" for c in columnas])
+    for i, c in enumerate(columnas, start=1):
+        celda = hoja.cell(row=1, column=i)
+        celda.font = Font(bold=True, color="FFFFFF")
+        celda.fill = PatternFill("solid", fgColor="1F4E79" if c.get("requerida") else "5B7A99")
+        hoja.column_dimensions[get_column_letter(i)].width = max(16, len(c["titulo"]) + 6)
+        if c.get("opciones"):
+            lista = ",".join(str(o) for o in c["opciones"])
+            if len(lista) <= 250:   # límite de Excel para una lista escrita en la validación
+                v = DataValidation(type="list", formula1=f'"{lista}"', allow_blank=True,
+                                   error="Elija un valor de la lista.", errorTitle=c["titulo"])
+                hoja.add_data_validation(v)
+                v.add(f"{get_column_letter(i)}2:{get_column_letter(i)}5000")
+    hoja.freeze_panes = "A2"
+
+    ayuda = libro.create_sheet("Instrucciones")
+    pasos = ["1. Escriba una fila por registro, debajo de los encabezados.",
+             "2. Borre la fila de ejemplo antes de cargar el archivo.",
+             "3. Las columnas marcadas con * son obligatorias.",
+             "4. No cambie los encabezados.",
+             ("5. Cada fila se registra por separado: las que tengan error se le informan y las demás se graban."
+              if d.por_fila else "5. Lo que ya exista se omite: puede volver a cargar el archivo corregido."),
+             "6. Cuando lo tenga listo, adjúntelo en el chat de TittanBot y él lo carga."]
+    for fila in [[d.titulo], [], ["Cómo llenar este archivo"], *[[p] for p in pasos], [],
+                 ["Columna", "Obligatoria", "Qué va aquí", "Valores admitidos"]]:
+        ayuda.append(fila)
+    ayuda["A1"].font = Font(bold=True, size=13)
+    ayuda["A3"].font = Font(bold=True)
+    for celda in ayuda[ayuda.max_row]:
+        celda.font = Font(bold=True)
+    for c in columnas:
+        ayuda.append([c["titulo"], "Sí" if c.get("requerida") else "No", c.get("ayuda") or "",
+                      ", ".join(str(o) for o in c.get("opciones") or [])])
+    for letra, ancho in zip("ABCD", (28, 12, 70, 50)):
+        ayuda.column_dimensions[letra].width = ancho
+    b = io.BytesIO()
+    libro.save(b)
+    return b.getvalue()
+
+
+async def plantilla(ctx: Contexto, a: dict) -> Dict[str, Any]:
+    """Entrega la plantilla de un cargue como descarga en el chat; sin destino,
+    lista los cargues que el perfil del usuario puede hacer."""
+    import asyncio
+    from app.core.tittanbot import reportes
+    if not a.get("destino"):
+        return {"cargues_disponibles": {k: d.titulo for k, d in DESTINOS.items() if _puede(ctx, d)}}
+    try:
+        d = _destino(ctx, a["destino"])
+        columnas = await _plantilla(ctx, d)
+    except ValueError as ex:
+        return {"error": str(ex)}
+    contenido = await asyncio.to_thread(_libro_plantilla, d, columnas)
+    nombre = f"Plantilla - {d.titulo.split('(')[0].strip().replace(':', ' -')}.xlsx"
+    await reportes._guardar(ctx, contenido, nombre,
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    return {"listo": True, "archivo": nombre, "obligatorias": [c["titulo"] for c in columnas if c.get("requerida")],
+            "opcionales": [c["titulo"] for c in columnas if not c.get("requerida")],
+            "nota": "El usuario ya tiene el botón de descarga en el chat; que la llene y la adjunte aquí mismo."}

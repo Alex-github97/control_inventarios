@@ -81,3 +81,17 @@ def test_generar_reporte_ofrece_todos_los_informes():
     tipos = POR_NOMBRE["generar_reporte"].esquema["properties"]["tipo"]["enum"]
     assert set(tipos) == {"ordenes_excel", "lubricacion_flota_pdf", "lubricacion_muestra_pdf",
                           "llantas_flota_pdf", "llantas_rendimiento_pdf", "causa_raiz_pdf"}
+
+
+def test_plantilla_con_obligatorias_marcadas_y_lista_desplegable():
+    import io
+    from openpyxl import load_workbook
+    from app.core.tittanbot import importar
+    d = importar.DESTINOS["tms_viajes"]
+    libro = load_workbook(io.BytesIO(importar._libro_plantilla(d, d.columnas)))
+    assert libro.sheetnames == ["Datos", "Instrucciones"]
+    encabezados = [c.value for c in libro["Datos"][1]]
+    assert "Origen *" in encabezados and "Placa" in encabezados
+    # El encabezado con asterisco se empareja igual que el título limpio.
+    assert importar._norma("Origen *") == importar._norma("Origen")
+    assert len(libro["Datos"].data_validations.dataValidation) == 1

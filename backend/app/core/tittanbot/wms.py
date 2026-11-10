@@ -383,11 +383,15 @@ def _numero(v, nombre: str) -> float:
 
 
 COLUMNAS_AJUSTE = [
-    {"clave": "sku", "titulo": "SKU", "requerida": True},
-    {"clave": "ubicacion", "titulo": "Ubicación", "requerida": True},
-    {"clave": "lote", "titulo": "Lote", "requerida": False},
-    {"clave": "cantidad_nueva", "titulo": "Cantidad nueva", "requerida": True},
-    {"clave": "motivo", "titulo": "Motivo", "requerida": True},
+    {"clave": "sku", "titulo": "SKU", "requerida": True, "ayuda": "SKU o código de barras del producto",
+     "ejemplo": "SKU-00001"},
+    {"clave": "ubicacion", "titulo": "Ubicación", "requerida": True, "ayuda": "Código exacto de la ubicación",
+     "ejemplo": "FUN-A01-01-1"},
+    {"clave": "lote", "titulo": "Lote", "requerida": False, "ayuda": "Número de lote, si el producto maneja lotes"},
+    {"clave": "cantidad_nueva", "titulo": "Cantidad nueva", "requerida": True,
+     "ayuda": "Lo que debe quedar disponible en esa ubicación (no la diferencia)", "ejemplo": "25"},
+    {"clave": "motivo", "titulo": "Motivo", "requerida": True, "ayuda": "Por qué se ajusta (mínimo 3 caracteres)",
+     "ejemplo": "Conteo cíclico noviembre"},
 ]
 
 
@@ -400,11 +404,14 @@ async def _ajuste_desde_fila(c: Contexto, f: dict):
 
 
 COLUMNAS_TRASLADO = [
-    {"clave": "sku", "titulo": "SKU", "requerida": True},
-    {"clave": "origen", "titulo": "Ubicación origen", "requerida": True},
-    {"clave": "destino", "titulo": "Ubicación destino", "requerida": True},
-    {"clave": "cantidad", "titulo": "Cantidad", "requerida": True},
-    {"clave": "lote", "titulo": "Lote", "requerida": False},
+    {"clave": "sku", "titulo": "SKU", "requerida": True, "ayuda": "SKU o código de barras del producto",
+     "ejemplo": "SKU-00001"},
+    {"clave": "origen", "titulo": "Ubicación origen", "requerida": True, "ayuda": "Código de donde sale",
+     "ejemplo": "FUN-A01-01-1"},
+    {"clave": "destino", "titulo": "Ubicación destino", "requerida": True, "ayuda": "Código a donde llega",
+     "ejemplo": "FUN-A01-01-2"},
+    {"clave": "cantidad", "titulo": "Cantidad", "requerida": True, "ejemplo": "5"},
+    {"clave": "lote", "titulo": "Lote", "requerida": False, "ayuda": "Número de lote, si el producto maneja lotes"},
     {"clave": "notas", "titulo": "Notas", "requerida": False},
 ]
 

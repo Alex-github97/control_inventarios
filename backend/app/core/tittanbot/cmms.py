@@ -373,8 +373,15 @@ HERRAMIENTAS: List[Herramienta] = [
                 permiso=EAM, destructiva=True, construir=_construir_inspeccion, resumir=_resumen_inspeccion),
     Herramienta("importar_excel",
                 "Importa el archivo adjunto por el cargue masivo de la plataforma. `destino` es uno de los que "
-                "devuelve ver_adjunto (muestras de aceite o catálogos del CMMS; luego TMS y WMS). El usuario verá "
-                "qué columnas se reconocieron antes de confirmar.",
+                "devuelve ver_adjunto (catálogos del CMMS, muestras de aceite, viajes del TMS, ajustes y traslados "
+                "del WMS). El usuario verá qué columnas se reconocieron antes de confirmar.",
                 _obj({"destino": {"type": "string"}}, ["destino"]),
                 destructiva=True, accion=importar.importar, resumir=importar.resumen),
+    Herramienta("plantilla_cargue",
+                "Entrega en el chat la plantilla de Excel de un cargue masivo (columnas, fila de ejemplo, "
+                "instrucciones y listas desplegables). Úsala cuando pidan una plantilla o formato, o pregunten cómo "
+                "cargar algo masivamente. Sin destino devuelve los cargues que el usuario puede hacer.",
+                _obj({"destino": {"type": "string", "description": "Clave del cargue, p. ej. cmms_repuestos, "
+                                                                   "muestras_aceite, tms_viajes, wms_ajustes"}}),
+                consultar=importar.plantilla),
 ]
