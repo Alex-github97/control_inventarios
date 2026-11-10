@@ -74,7 +74,11 @@ class Settings(BaseSettings):
     # ── TittanBot ────────────────────────────────────────────────────────────
     # Sin clave el bot queda apagado y la burbuja lo dice; no rompe nada.
     TITTANBOT_API_KEY: str = ""
-    TITTANBOT_MODELO: str = "claude-opus-5-5"
+    # Consultar, armar reportes y llevar flujos con confirmación no pide el
+    # modelo más capaz: Haiku 5.5 lo hace bien a una fracción del costo
+    # (US$0,10 / 0,50 por millón de tokens, frente a 4 / 20 de Opus 5.5).
+    # Se sube a claude-sonnet-5-5 desde .env.prod si las respuestas se quedan cortas.
+    TITTANBOT_MODELO: str = "claude-haiku-5-5"
     # Esfuerzo de razonamiento: «low» para charla y consultas es suficiente y
     # mucho más barato; se sube si las respuestas se quedan cortas.
     TITTANBOT_ESFUERZO: str = "low"

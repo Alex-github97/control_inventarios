@@ -145,6 +145,19 @@ def _sistema(persona: Persona, empresa: str) -> List[dict]:
     ]
 
 
+# Los modelos que aceptan el respaldo automático del lado de Anthropic (si el
+# modelo declina por sus filtros, el servidor reintenta con el recomendado).
+# Haiku no lo tiene: con él, una negativa se responde como tal.
+CON_RESPALDO = ("claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5", "claude-fable-5-1", "claude-fable-5")
+
+
+def _opciones_modelo() -> dict:
+    op = {"model": settings.TITTANBOT_MODELO, "output_config": {"effort": settings.TITTANBOT_ESFUERZO}}
+    if settings.TITTANBOT_MODELO in CON_RESPALDO:
+        op.update(betas=["server-side-fallback-2026-07-01"], fallbacks="default")
+    return op
+
+
 def _cliente() -> anthropic.AsyncAnthropic:
     return anthropic.AsyncAnthropic(api_key=settings.TITTANBOT_API_KEY, timeout=90.0, max_retries=2)
 
@@ -174,12 +187,8 @@ async def responder(*, db, usuario, esquema: str, empresa: str, headers: Dict[st
     try:
         for _ in range(settings.TITTANBOT_MAX_VUELTAS):
             resp = await cliente.beta.messages.create(
-                model=settings.TITTANBOT_MODELO, max_tokens=16000,
-                system=_sistema(persona, empresa), tools=herramientas, messages=mensajes,
-                output_config={"effort": settings.TITTANBOT_ESFUERZO},
-                # Si el modelo principal declina por sus filtros de seguridad, el
-                # servidor de Anthropic reintenta con el modelo recomendado.
-                betas=["server-side-fallback-2026-07-01"], fallbacks="default",
+                max_tokens=16000, system=_sistema(persona, empresa), tools=herramientas,
+                messages=mensajes, **_opciones_modelo(),
             )
             if resp.stop_reason == "refusal":
                 texto = "No puedo ayudarle con eso. Si es un problema de la plataforma, puedo abrir un ticket."

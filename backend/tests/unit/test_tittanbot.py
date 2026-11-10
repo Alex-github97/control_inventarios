@@ -42,3 +42,13 @@ def test_esquemas_cerrados_para_el_modelo():
 def test_guia():
     assert "Registrar muestra" in buscar("¿Cómo registro una muestra de aceite?")[0]
     assert "Ctrl+K" in buscar("no encuentro una pantalla en el menu")[0]
+
+
+def test_respaldo_solo_en_modelos_que_lo_admiten(monkeypatch):
+    from app.core.config import settings
+    from app.core.tittanbot import motor
+    monkeypatch.setattr(settings, "TITTANBOT_MODELO", "claude-haiku-5-5")
+    op = motor._opciones_modelo()
+    assert op["model"] == "claude-haiku-5-5" and "fallbacks" not in op and "betas" not in op
+    monkeypatch.setattr(settings, "TITTANBOT_MODELO", "claude-sonnet-5-5")
+    assert motor._opciones_modelo()["fallbacks"] == "default"
