@@ -380,14 +380,31 @@ CATALOGO: List[Herramienta] = [
         _obj({"tema": {"type": "string"}}, ["tema"]), consultar=_guia),
     Herramienta(
         "generar_reporte",
-        "Arma un archivo para descargar; el usuario recibe el enlace. Tipos: ordenes_excel (órdenes con los "
-        "mismos filtros de consultar_ordenes), lubricacion_flota_pdf (informe del programa de aceite firmado por "
-        "el asesor; `dias` y opcional `marca`), lubricacion_muestra_pdf (informe de una muestra por su `numero`). "
-        "No describas el contenido fila por fila: confirma que quedó listo.",
+        "Genera y le entrega al usuario un archivo (PDF o Excel) de los informes que YA existen en la "
+        "plataforma; el usuario recibe el botón de descarga en el chat. Úsala SIEMPRE que pida un informe, un "
+        "PDF, un Excel, o que le manden, envíen, descarguen o exporten algo; nunca le digas que no puedes "
+        "enviar archivos. Tipos:\n"
+        "- ordenes_excel: Excel de órdenes de trabajo (filtros: placa, estado, prioridad, solo_vencidas, dias).\n"
+        "- lubricacion_flota_pdf: informe del programa de análisis de aceite de la flota, firmado por el asesor "
+        "(dias; marca opcional).\n"
+        "- lubricacion_muestra_pdf: informe de UNA muestra de aceite (numero de la muestra, p. ej. LUB-0004832).\n"
+        "- llantas_flota_pdf: informe de estado de llantas de la flota con la última inspección: novedades, "
+        "profundidad, presión y sugerencias (filtros: placa, marca de llanta, tipo_vehiculo, desde, hasta).\n"
+        "- llantas_rendimiento_pdf: informes de rendimiento de llantas; informe_llantas = TABLERO (resumen), "
+        "CPK (costo por km), KM (km por vida), KM_MM (km por milímetro), VIDAS (detalle por vida) o "
+        "COMPOSICION (parque montado por marca y medida); desde, hasta y marca opcionales.\n"
+        "- causa_raiz_pdf: informe del análisis de causa raíz de una falla (numero de la OT, o placa).\n"
+        "Si el usuario no dice cuál, elige el más cercano a lo que pidió o pregunta en una frase. Después "
+        "confirma en una frase que quedó listo; no describas su contenido.",
         _obj({
-            "tipo": {"type": "string", "enum": ["ordenes_excel", "lubricacion_flota_pdf", "lubricacion_muestra_pdf"]},
+            "tipo": {"type": "string", "enum": ["ordenes_excel", "lubricacion_flota_pdf", "lubricacion_muestra_pdf",
+                                               "llantas_flota_pdf", "llantas_rendimiento_pdf", "causa_raiz_pdf"]},
+            "informe_llantas": {"type": "string", "enum": ["TABLERO", "CPK", "KM", "KM_MM", "VIDAS", "COMPOSICION"]},
             "dias": {"type": "integer"}, "marca": {"type": "string"}, "numero": {"type": "string"},
-            "placa": {"type": "string"}, "estado": {"type": "string", "enum": ["ABIERTAS", *ESTADOS_OT, "CERRADA"]},
+            "placa": {"type": "string"}, "tipo_vehiculo": {"type": "string"},
+            "desde": {"type": "string", "description": "AAAA-MM-DD"},
+            "hasta": {"type": "string", "description": "AAAA-MM-DD"},
+            "estado": {"type": "string", "enum": ["ABIERTAS", *ESTADOS_OT, "CERRADA"]},
             "prioridad": {"type": "string", "enum": PRIORIDADES}, "solo_vencidas": {"type": "boolean"},
         }, ["tipo"]),
         permiso=("eam",), consultar=_generar_reporte),

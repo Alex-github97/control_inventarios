@@ -52,3 +52,9 @@ def test_respaldo_solo_en_modelos_que_lo_admiten(monkeypatch):
     assert op["model"] == "claude-haiku-5-5" and "fallbacks" not in op and "betas" not in op
     monkeypatch.setattr(settings, "TITTANBOT_MODELO", "claude-sonnet-5-5")
     assert motor._opciones_modelo()["fallbacks"] == "default"
+
+
+def test_generar_reporte_ofrece_todos_los_informes():
+    tipos = POR_NOMBRE["generar_reporte"].esquema["properties"]["tipo"]["enum"]
+    assert set(tipos) == {"ordenes_excel", "lubricacion_flota_pdf", "lubricacion_muestra_pdf",
+                          "llantas_flota_pdf", "llantas_rendimiento_pdf", "causa_raiz_pdf"}

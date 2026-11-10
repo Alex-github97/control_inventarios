@@ -6,12 +6,13 @@ El modelo no ve los datos: solo elige el reporte. El servidor arma el archivo
 esquema de la empresa— y el chat muestra un enlace que solo su dueño abre y
 que vence en dos horas. Al modelo le llega el título y cuántas filas tiene.
 """
+import asyncio
 import os
 import secrets
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 from app.core.config import settings
 from app.core.tittanbot import ejecutor
@@ -86,12 +87,83 @@ async def _ordenes_excel(ctx: Contexto, a: dict) -> Dict[str, Any]:
     return {"exito": True, "titulo": "Órdenes de trabajo (Excel)", "filas": len(filas), **d}
 
 
-async def _pdf_api(ctx: Contexto, ruta: str, params: dict, nombre: str, titulo: str) -> Dict[str, Any]:
-    resp = await ejecutor.llamar_api("GET", ruta, ctx.headers, params=params)
+async def _pdf_api(ctx: Contexto, ruta: str, params: dict, nombre: str, titulo: str,
+                   metodo: str = "GET", cuerpo: Optional[dict] = None) -> Dict[str, Any]:
+    resp = await ejecutor.llamar_api(metodo, ruta, ctx.headers, cuerpo=cuerpo, params=params)
     if resp.status_code != 200:
         return {"exito": False, "resultado": str(ejecutor._detalle(resp))}
     d = await _guardar(ctx, resp.content, nombre, "application/pdf")
     return {"exito": True, "titulo": titulo, **d}
+
+
+def _lista(v) -> Optional[List[str]]:
+    if not v:
+        return None
+    return [x.strip() for x in (v if isinstance(v, list) else str(v).split(",")) if str(x).strip()]
+
+
+async def _llantas_flota(ctx: Contexto, a: dict) -> Dict[str, Any]:
+    """El informe de estado de llantas de la flota. Con más de doscientos
+    vehículos el servidor lo arma en segundo plano: se espera hasta un minuto
+    —el proxy corta la petición a los 120 s, y el turno incluye también las
+    llamadas al modelo—, y si no está, se le dice que lo pida en un rato."""
+    cuerpo: Dict[str, Any] = {k: v for k, v in {
+        "marca": _lista(a.get("marca")), "tipos_vehiculo": _lista(a.get("tipo_vehiculo")),
+        "desde": a.get("desde"), "hasta": a.get("hasta")}.items() if v}
+    if a.get("placa"):
+        filas = await _filas(ctx.db, "SELECT id FROM eam_activo WHERE codigo ILIKE :p OR placa ILIKE :p",
+                             {"p": a["placa"].strip()})
+        if not filas:
+            return {"exito": False, "resultado": f"No hay un equipo con la placa «{a['placa']}»."}
+        cuerpo["activo_ids"] = [f["id"] for f in filas]
+    base = "/api/v1/eam/neumaticos/reportes/informe-flota"
+    nombre = f"estado-llantas-flota-{datetime.now():%Y%m%d}.pdf"
+    titulo = "Informe de estado de llantas de la flota (PDF)"
+    resp = await ejecutor.llamar_api("POST", base, ctx.headers, cuerpo=cuerpo)
+    if resp.status_code == 200:
+        d = await _guardar(ctx, resp.content, nombre, "application/pdf")
+        return {"exito": True, "titulo": titulo, **d}
+    if resp.status_code != 202:
+        return {"exito": False, "resultado": str(ejecutor._detalle(resp))}
+    tid = resp.json().get("trabajo_id")
+    for _ in range(20):
+        await asyncio.sleep(3)
+        estado = (await ejecutor.llamar_api("GET", f"{base}/trabajos/{tid}", ctx.headers)).json()
+        if estado.get("estado") == "LISTO":
+            return await _pdf_api(ctx, f"{base}/trabajos/{tid}/archivo", {}, nombre, titulo)
+        if estado.get("estado") == "FALLIDO":
+            return {"exito": False, "resultado": f"El informe falló: {estado.get('error')}"}
+    return {"exito": False, "resultado": "La flota es grande y el informe se sigue armando en segundo plano. "
+                                          "Pídamelo de nuevo en unos minutos."}
+
+
+TIPOS_LLANTAS = {"TABLERO", "CPK", "KM", "KM_MM", "VIDAS", "COMPOSICION"}
+
+
+async def _llantas_rendimiento(ctx: Contexto, a: dict) -> Dict[str, Any]:
+    tipo = (a.get("informe_llantas") or "TABLERO").upper()
+    if tipo not in TIPOS_LLANTAS:
+        return {"exito": False, "resultado": "Informe de llantas desconocido. Use uno de: "
+                                              + ", ".join(sorted(TIPOS_LLANTAS)) + "."}
+    params = {k: v for k, v in {"tipo": tipo, "desde": a.get("desde"), "hasta": a.get("hasta"),
+                                "marca": _lista(a.get("marca"))}.items() if v}
+    return await _pdf_api(ctx, "/api/v1/eam/neumaticos/reportes/informe-pdf", params,
+                          f"llantas-{tipo.lower().replace('_', '-')}-{datetime.now():%Y%m%d}.pdf",
+                          f"Informe de llantas: {tipo} (PDF)", metodo="POST")
+
+
+async def _causa_raiz(ctx: Contexto, a: dict) -> Dict[str, Any]:
+    ref = (a.get("numero") or a.get("placa") or "").strip()
+    filas = await _filas(ctx.db, """
+        SELECT r.id, r.ot_numero FROM eam_causa_raiz r LEFT JOIN eam_activo a ON a.id = r.activo_id
+         WHERE r.ot_numero ILIKE :r OR a.codigo ILIKE :r OR a.placa ILIKE :r OR r.id::text = :r
+         ORDER BY r.id DESC LIMIT 1""", {"r": ref})
+    if not filas:
+        return {"exito": False, "resultado": f"No hay un análisis de causa raíz para «{ref}»."}
+    f = filas[0]
+    return await _pdf_api(ctx, f"/api/v1/eam/causa-raiz/{f['id']}/pdf", {},
+                          f"causa-raiz-{(f['ot_numero'] or f['id'])}.pdf".replace("/", "-"),
+                          f"Análisis de causa raíz {f['ot_numero'] or f['id']} (PDF)")
 
 
 async def generar(ctx: Contexto, a: dict) -> Dict[str, Any]:
@@ -110,4 +182,10 @@ async def generar(ctx: Contexto, a: dict) -> Dict[str, Any]:
             return {"exito": False, "resultado": f"No hay una muestra con el número «{numero}»."}
         return await _pdf_api(ctx, f"/api/v1/eam/lube/informes/muestra/{filas[0]['id']}", {},
                               f"analisis-aceite-{filas[0]['numero']}.pdf", f"Informe de la muestra {filas[0]['numero']}")
+    if tipo == "llantas_flota_pdf":
+        return await _llantas_flota(ctx, a)
+    if tipo == "llantas_rendimiento_pdf":
+        return await _llantas_rendimiento(ctx, a)
+    if tipo == "causa_raiz_pdf":
+        return await _causa_raiz(ctx, a)
     return {"exito": False, "resultado": f"No existe el reporte «{tipo}»."}
