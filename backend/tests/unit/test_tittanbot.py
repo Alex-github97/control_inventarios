@@ -14,12 +14,35 @@ def _u(rol, **permisos):
 
 def test_sin_cmms_solo_quedan_las_generales():
     nombres = {h.nombre for h in disponibles(_u("CONSULTA", estibas=True))}
-    assert nombres == {"mi_dia", "guia_de_uso", "crear_ticket_soporte"}
+    # ver_adjunto e importar_excel no piden permiso: el importador revisa el
+    # del destino al emparejar.
+    assert nombres == {"mi_dia", "guia_de_uso", "crear_ticket_soporte", "ver_adjunto", "importar_excel"}
 
 
-def test_con_cmms_y_administrador_estan_todas():
-    assert len(disponibles(_u("SUPERVISOR", eam=True))) == len(CATALOGO)
+def test_cada_modulo_abre_solo_sus_herramientas():
+    solo_cmms = {h.nombre for h in disponibles(_u("SUPERVISOR", eam=True))}
+    assert "crear_orden" in solo_cmms and "crear_viaje" not in solo_cmms and "ajustar_inventario" not in solo_cmms
+    solo_wms = {h.nombre for h in disponibles(_u("SUPERVISOR", wms=True))}
+    assert {"crear_recepcion", "trasladar_inventario", "crear_despacho"} <= solo_wms and "crear_orden" not in solo_wms
+    solo_tms = {h.nombre for h in disponibles(_u("SUPERVISOR", tms=True))}
+    assert "crear_viaje" in solo_tms and "existencias_wms" not in solo_tms
     assert len(disponibles(_u("ADMINISTRADOR"))) == len(CATALOGO)
+
+
+def test_las_acciones_de_modulo_piden_confirmacion():
+    for h in CATALOGO:
+        if h.construir or h.accion:
+            assert h.destructiva and h.resumir, h.nombre
+
+
+def test_cargues_del_wms_resuelven_por_sku_y_ubicacion():
+    from app.core.tittanbot import importar
+    from app.core.tittanbot.wms import _construir_traslado
+    assert {"wms_ajustes", "wms_traslados", "tms_viajes"} <= set(importar.DESTINOS)
+    metodo, ruta, cuerpo = _construir_traslado({"producto_id": 1, "ubicacion_origen_id": 2,
+                                                "ubicacion_destino_id": 3, "cantidad": "5"})
+    assert (metodo, ruta) == ("POST", "/api/v1/wms/inventario/transferencia/")
+    assert cuerpo == {"producto_id": 1, "ubicacion_origen_id": 2, "ubicacion_destino_id": 3, "cantidad": 5.0}
 
 
 def test_toda_accion_es_destructiva_y_se_construye_sin_tocar_la_base():

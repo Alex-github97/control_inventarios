@@ -37,6 +37,7 @@ class Contexto:
     esquema: str
     headers: Dict[str, str]
     descargas: List[dict] = field(default_factory=list)   # archivos armados en el turno
+    conversacion_id: Optional[int] = None
 
 
 @dataclass
@@ -51,6 +52,10 @@ class Herramienta:
     # Acciones: arma (método, ruta, cuerpo) para la API, y un resumen para la tarjeta.
     construir: Optional[Callable[[dict], Tuple[str, str, Optional[dict]]]] = None
     resumir: Optional[Callable[[Contexto, dict], Awaitable[str]]] = None
+    # Acciones de varios pasos (drenar y abrir carga, leer y reescribir una OT,
+    # importar un Excel): hacen sus propias llamadas a la API y devuelven
+    # {exito, resultado}. Si está, reemplaza a `construir`.
+    accion: Optional[Callable[[Contexto, dict], Awaitable[dict]]] = None
 
     def para_modelo(self) -> dict:
         return {"name": self.nombre, "description": self.descripcion, "input_schema": self.esquema}
@@ -447,9 +452,6 @@ CATALOGO: List[Herramienta] = [
         destructiva=True, construir=_construir_ticket, resumir=_resumen_ticket),
 ]
 
-POR_NOMBRE: Dict[str, Herramienta] = {h.nombre: h for h in CATALOGO}
-
-
 def disponibles(usuario) -> List[Herramienta]:
     """Las herramientas que el perfil del usuario abre, en orden fijo (para la caché)."""
     from app.core.permisos_ruta import permitido
@@ -460,3 +462,15 @@ def disponibles(usuario) -> List[Herramienta]:
 def resultado_corto(datos: Any, limite: int = 6000) -> str:
     texto = json.dumps(datos, ensure_ascii=False, default=str)
     return texto if len(texto) <= limite else texto[:limite] + "…(recortado)"
+
+
+# Las herramientas de cada módulo viven en su propio archivo y se suman acá, al
+# final: esos archivos importan el ejecutor, que a su vez importa de este módulo
+# (resultado_corto incluido), así que todo lo de arriba tiene que existir ya.
+from app.core.tittanbot import cmms as _cmms  # noqa: E402
+from app.core.tittanbot import tms as _tms  # noqa: E402
+from app.core.tittanbot import wms as _wms  # noqa: E402
+
+CATALOGO += _cmms.HERRAMIENTAS + _tms.HERRAMIENTAS + _wms.HERRAMIENTAS
+
+POR_NOMBRE: Dict[str, Herramienta] = {h.nombre: h for h in CATALOGO}

@@ -53,9 +53,18 @@ por dónde empezar, lo más urgente primero.
 vienen calculadas por el servidor: repórtalas tal cual, con su unidad, sin recalcular. Para contar usa el \
 `total`, no la muestra.
 - Informes: SÍ puedes enviar archivos. Si piden un informe, un PDF, un Excel, o que le manden, envíen o exporten algo, usa generar_reporte con el tipo que corresponda (órdenes, aceite de la flota o de una muestra, estado de llantas de la flota, rendimiento de llantas, causa raíz). El usuario recibe el botón de descarga en el chat; confirma en una frase que quedó listo. Nunca respondas que no puedes generar o enviar archivos.
-- Acciones: crear órdenes, cambiar su estado, abrir tickets. Llama la herramienta en cuanto tengas los datos \
+- Acciones del CMMS: crear órdenes, cambiar su estado, asignar técnico o prioridad, registrar cambios de aceite, rellenos, muestras de aceite con sus resultados, tanqueos e inspecciones de llantas, y abrir tickets. Antes, consulta los ids que necesites (buscar_activos, lubricacion_de_equipo, catalogo_lubricacion, llantas_de_equipo, ver_orden). Llama la herramienta en cuanto tengas los datos \
 obligatorios: el sistema le muestra al usuario una tarjeta para Confirmar o Cancelar antes de ejecutar nada. \
 No pidas confirmación por texto. Pregunta solo lo que falte y sea obligatorio.
+- Transporte (TMS): consulta viajes, recursos e indicadores; crea viajes, cambia su estado, registra eventos, \
+entregas (POD) y costos. Saca vehiculo_id y conductor_hcm_id de recursos_tms y el viaje_id de buscar_viajes.
+- Almacén (WMS): consulta productos, existencias por ubicación y lote, documentos e indicadores; registra \
+recepciones, ajustes, traslados, órdenes de salida, picking y despachos. Saca producto_id de \
+buscar_productos_wms, ubicacion_id y lote_id de existencias_wms, almacén y cliente de recursos_wms, y el id de \
+órdenes y despachos de documentos_wms. El flujo de salida es: orden → picking → confirmar picking → despacho → \
+estados del despacho.
+
+- Archivos: si el usuario adjunta un Excel o CSV, revísalo con ver_adjunto, dile qué contiene y, si queda claro a qué corresponde, propone importarlo con importar_excel al destino adecuado; si no, pregunta a qué lo quiere cargar.
 
 Reglas:
 - Nunca inventes datos, números de orden ni ids. Para referirte a un equipo, búscalo antes con buscar_activos; \
@@ -175,7 +184,7 @@ async def responder(*, db, usuario, esquema: str, empresa: str, headers: Dict[st
     conv = await _conversacion(db, usuario.id, conversacion_id, mensaje)
     conv.pendiente = None     # un mensaje nuevo descarta la tarjeta que hubiera
     historia = await _historia(db, conv.id)
-    ctx = Contexto(db=db, usuario=persona, esquema=esquema, headers=headers)
+    ctx = Contexto(db=db, usuario=persona, esquema=esquema, headers=headers, conversacion_id=conv.id)
 
     herramientas = [h.para_modelo() for h in disponibles(persona)]
     if herramientas:
@@ -232,8 +241,14 @@ async def responder(*, db, usuario, esquema: str, empresa: str, headers: Dict[st
         h = POR_NOMBRE[pendiente["herramienta"]]
         try:
             resumen = await h.resumir(ctx, pendiente["argumentos"])
+        except ValueError as e:
+            # Lo que impide siquiera proponer la acción (no hay archivo, no
+            # tiene permiso): se explica en vez de mostrar una tarjeta rota.
+            pendiente, resumen = None, None
+            texto = (texto + "\n\n" if texto else "") + str(e)
         except Exception:   # noqa: BLE001
             resumen = h.descripcion.split(".")[0]
+    if pendiente:
         conv.pendiente = json.dumps({**pendiente, "resumen": resumen}, ensure_ascii=False, default=str)
         texto = texto or "Revise y confirme:"
 
@@ -266,7 +281,8 @@ async def confirmar(*, db, usuario, esquema: str, headers: Dict[str, str],
         h = POR_NOMBRE.get(pendiente["herramienta"])
         if h is None or not h.destructiva:
             raise HTTPException(400, "Esa acción no se puede confirmar.")
-        ctx = Contexto(db=db, usuario=await _persona(usuario, esquema), esquema=esquema, headers=headers)
+        ctx = Contexto(db=db, usuario=await _persona(usuario, esquema), esquema=esquema, headers=headers,
+                       conversacion_id=conv.id)
         res = await ejecutor.ejecutar_accion(h, pendiente["argumentos"], ctx, conv.id)
         exito = res["exito"]
         texto = f"Listo. {_detalle_exito(res['resultado'])}" if exito else f"No se pudo: {res['resultado']}"

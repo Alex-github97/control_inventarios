@@ -80,6 +80,16 @@ async def ejecutar_accion(h: Herramienta, args: dict, ctx: Contexto,
         res = {"exito": False, "resultado": "Su perfil no tiene permiso para esta acción. No se hizo nada."}
         await anotar(ctx, conversacion_id, h.nombre, args, res, confirmada=True)
         return res
+    if h.accion is not None:
+        try:
+            res = await h.accion(ctx, args or {})
+        except (KeyError, ValueError, TypeError) as e:
+            res = {"exito": False, "resultado": f"Faltan datos para la acción: {e}"}
+        except Exception as e:   # noqa: BLE001
+            log.exception("TittanBot: falló la acción %s", h.nombre)
+            res = {"exito": False, "resultado": f"Error ejecutando la acción: {type(e).__name__}"}
+        await anotar(ctx, conversacion_id, h.nombre, args, res, confirmada=True)
+        return res
     try:
         metodo, ruta, cuerpo = h.construir(args or {})
     except (KeyError, ValueError, TypeError) as e:

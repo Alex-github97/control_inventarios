@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import desc, select, text
@@ -21,7 +21,7 @@ from app.core.dependencies import get_current_user
 from app.core.tenant import esquema_actual
 from app.core.tittanbot import motor
 from app.infrastructure.models.tittanbot import (
-    TittanbotConversacion, TittanbotDescarga, TittanbotMensaje,
+    TittanbotAdjunto, TittanbotConversacion, TittanbotDescarga, TittanbotMensaje,
 )
 from app.infrastructure.models.usuario import Usuario
 
@@ -100,3 +100,69 @@ async def descargar(token: str, db: AsyncSession = Depends(get_db), usuario: Usu
         raise HTTPException(410, "El enlace venció. Pídale a TittanBot que lo vuelva a generar.")
     return FileResponse(d.ruta, media_type=d.tipo, filename=d.nombre,
                         headers={"Access-Control-Expose-Headers": "Content-Disposition"})
+
+
+MAX_ADJUNTO = 10 * 1024 * 1024
+MAX_FILAS = 20000
+
+
+def _leer_tabla(nombre: str, contenido: bytes):
+    """Encabezados y filas del primer hoja de un Excel, o de un CSV."""
+    import csv
+    import io
+    if nombre.lower().endswith((".xlsx", ".xlsm")):
+        from openpyxl import load_workbook
+        hoja = load_workbook(io.BytesIO(contenido), read_only=True, data_only=True).worksheets[0]
+        filas = [list(f) for f in hoja.iter_rows(values_only=True)]
+    elif nombre.lower().endswith((".csv", ".txt")):
+        texto = contenido.decode("utf-8-sig", errors="replace")
+        separador = ";" if texto.count(";") > texto.count(",") else ","
+        filas = [list(f) for f in csv.reader(io.StringIO(texto), delimiter=separador)]
+    else:
+        raise HTTPException(415, "Adjunte un Excel (.xlsx) o un CSV.")
+    from datetime import date, datetime as _dt
+
+    def celda(v):
+        # Las fechas se guardan como las escribiría una persona: el importador
+        # las lee igual que si vinieran de la pantalla de cargue masivo.
+        if isinstance(v, _dt):
+            return v.strftime("%Y-%m-%d") if (v.hour, v.minute, v.second) == (0, 0, 0) else v.isoformat()
+        if isinstance(v, date):
+            return v.isoformat()
+        return v
+
+    filas = [[celda(v) for v in f] for f in filas if any(v not in (None, "") for v in f)]
+    if len(filas) < 2:
+        raise HTTPException(422, "El archivo no tiene filas de datos debajo del encabezado.")
+    encabezados = [str(v).strip() if v is not None else "" for v in filas[0]]
+    return encabezados, filas[1:]
+
+
+@router.post("/adjunto")
+async def adjuntar(archivo: UploadFile = File(...), conversacion_id: Optional[int] = Form(None),
+                   db: AsyncSession = Depends(get_db), usuario: Usuario = Depends(get_current_user)):
+    """El Excel o CSV que el usuario adjunta en el chat. Se lee una vez acá y
+    queda guardado en la conversación para que el bot lo revise y lo importe."""
+    import asyncio
+    import json
+    contenido = await archivo.read()
+    if len(contenido) > MAX_ADJUNTO:
+        raise HTTPException(413, "El archivo pesa más de 10 MB; divídalo en partes.")
+    try:
+        encabezados, filas = await asyncio.to_thread(_leer_tabla, archivo.filename or "", contenido)
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(422, "No se pudo leer el archivo. ¿Es un Excel o CSV válido?")
+    if len(filas) > MAX_FILAS:
+        raise HTTPException(413, f"El archivo trae {len(filas)} filas; el máximo por cargue es {MAX_FILAS}.")
+    conv = await db.get(TittanbotConversacion, conversacion_id) if conversacion_id else None
+    if conv is None or conv.usuario_id != usuario.id:
+        conv = TittanbotConversacion(usuario_id=usuario.id, titulo=f"Archivo {archivo.filename}"[:80])
+        db.add(conv)
+        await db.flush()
+    db.add(TittanbotAdjunto(conversacion_id=conv.id, usuario_id=usuario.id, nombre=archivo.filename or "archivo",
+                            encabezados=json.dumps(encabezados, ensure_ascii=False),
+                            filas=json.dumps(filas, ensure_ascii=False, default=str), total=len(filas)))
+    await db.commit()
+    return {"conversacion_id": conv.id, "nombre": archivo.filename, "filas": len(filas), "columnas": encabezados}

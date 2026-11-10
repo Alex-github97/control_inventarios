@@ -45,6 +45,21 @@ class TittanbotAccion(Base, TimestampMixin):
     resultado = Column(Text)
 
 
+class TittanbotAdjunto(Base, TimestampMixin):
+    """Un Excel o CSV que el usuario adjuntó en el chat, ya leído: encabezados y
+    filas en JSON. El bot lo pasa por el importador que corresponda, con la
+    misma validación de la pantalla de cargue masivo."""
+    __tablename__ = "tittanbot_adjunto"
+    id = Column(Integer, primary_key=True)
+    conversacion_id = Column(Integer, ForeignKey("tittanbot_conversacion.id", ondelete="CASCADE"),
+                             nullable=False, index=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False)
+    nombre = Column(String(200), nullable=False)
+    encabezados = Column(Text, nullable=False)   # JSON: lista de títulos de columna
+    filas = Column(Text, nullable=False)         # JSON: lista de listas
+    total = Column(Integer, nullable=False)
+
+
 class TittanbotDescarga(Base, TimestampMixin):
     """Un archivo que el bot armó para el usuario. El enlace lo abre solo su
     dueño y vence; el archivo se borra con los viejos."""

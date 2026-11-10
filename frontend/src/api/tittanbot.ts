@@ -22,6 +22,14 @@ export const tittanbotApi = {
   confirmar: (conversacion_id: number, aceptar: boolean) =>
     api.post<ResultadoConfirmar>(`${B}/confirmar`, { conversacion_id, aceptar },
       { timeout: 120_000 }).then(r => r.data),
+  /** Un Excel o CSV para que el bot lo revise e importe. */
+  adjuntar: (archivo: File, conversacion_id?: number | null) => {
+    const fd = new FormData()
+    fd.append('archivo', archivo)
+    if (conversacion_id) fd.append('conversacion_id', String(conversacion_id))
+    return api.post<{ conversacion_id: number; nombre: string; filas: number; columnas: string[] }>(
+      `${B}/adjunto`, fd, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 120_000 }).then(r => r.data)
+  },
   /** El archivo pide sesión: se baja con el token y se entrega como descarga. */
   descargar: async (d: Descarga) => {
     const r = await api.get(`${B}/descargas/${d.token}`, { responseType: 'blob' })

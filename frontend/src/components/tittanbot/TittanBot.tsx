@@ -16,7 +16,7 @@ import {
 } from '@mui/material'
 import {
   AutoAwesomeRounded, CloseRounded, SendRounded, AddCommentOutlined, FileDownloadOutlined,
-  CheckRounded, BlockRounded,
+  CheckRounded, BlockRounded, AttachFileRounded,
 } from '@mui/icons-material'
 import { useLocation } from 'react-router-dom'
 import { create } from 'zustand'
@@ -186,6 +186,23 @@ export function TittanBot() {
     }
   }
 
+  /** El adjunto se sube, queda en la conversación, y se le avisa al bot para
+   *  que lo revise: el usuario no tiene que explicar qué subió. */
+  const adjuntar = async (archivo: File) => {
+    if (ocupado) return
+    setOcupado(true)
+    try {
+      const r = await tittanbotApi.adjuntar(archivo, useChat.getState().conversacion)
+      set({ conversacion: r.conversacion_id })
+      setOcupado(false)
+      const pedido = texto.trim()
+      await enviar(`Adjunté el archivo «${r.nombre}» (${r.filas} filas). ${pedido || '¿Qué puede hacer con él?'}`)
+    } catch (e) {
+      agregar({ rol: 'asistente', texto: mensajeDeError(e), error: true })
+      setOcupado(false)
+    }
+  }
+
   const confirmar = async (indice: number, si: boolean) => {
     if (!conversacion) return
     setOcupado(true)
@@ -307,6 +324,14 @@ export function TittanBot() {
               px: 1.25, py: 0.75, borderRadius: 3, border: `1px solid ${PALETA.niebla}`,
               '&:focus-within': { borderColor: ACENTO.base, boxShadow: `0 0 0 3px ${alpha(ACENTO.base, 0.12)}` },
             }}>
+              <Tooltip title="Adjuntar un Excel o CSV para cargarlo">
+                <IconButton size="small" component="label" disabled={ocupado || activo === false}
+                  aria-label="Adjuntar archivo" sx={{ color: PALETA.acero, mb: 0.25 }}>
+                  <AttachFileRounded sx={{ fontSize: 19 }} />
+                  <input hidden type="file" accept=".xlsx,.xlsm,.csv"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) adjuntar(f); e.target.value = '' }} />
+                </IconButton>
+              </Tooltip>
               <InputBase inputRef={entrada} multiline maxRows={5} fullWidth value={texto}
                 placeholder="Escriba su pregunta…" disabled={activo === false}
                 onChange={e => setTexto(e.target.value)}
