@@ -253,11 +253,23 @@ const CLAVES_OPERACION = Object.entries(WORKSPACE_PERM_KEYS)
 export const puedeVerCommandCenter = (permisos?: Record<string, boolean>) =>
   CLAVES_OPERACION.some(k => permisos?.[k])
 
-/** A dónde entra un usuario al iniciar sesión: el tablero general si lo puede
- *  ver; si no, el primer espacio al que tiene acceso (p. ej. TarifaX). */
-export function rutaInicial(user?: { rol?: string; permisos?: Record<string, boolean> } | null): string {
-  if (!user || user.rol === 'ADMINISTRADOR' || user.permisos?.dashboard) return '/dashboard'
-  const ws = WORKSPACES.find(w => (WORKSPACE_PERM_KEYS[w.id] ?? []).some(k => user.permisos?.[k]))
+/** A dónde entra un usuario al iniciar sesión: el tablero general si su
+ *  empresa contrató Control de Estibas y él lo puede ver; si no, el primer
+ *  espacio contratado al que tiene acceso (p. ej. el CMMS o TarifaX). Antes el
+ *  administrador siempre caía en el tablero de estibas, aunque su empresa solo
+ *  tuviera el CMMS. */
+export function rutaInicial(
+  user?: { rol?: string; permisos?: Record<string, boolean> } | null,
+  modulos: string[] | undefined = useAuthStore.getState().modulos,
+): string {
+  if (!user) return '/dashboard'
+  const contratados = new Set(modulos ?? [])
+  const todo = contratados.size === 0 || contratados.has('*')
+  const contratado = (id: string) => todo || contratados.has(MODULO_DE_WORKSPACE[id] ?? id)
+  const esAdmin = user.rol === 'ADMINISTRADOR'
+  if (contratado('control') && (esAdmin || user.permisos?.dashboard)) return '/dashboard'
+  const ws = WORKSPACES.find(w => !['control', 'config', 'command'].includes(w.id) && contratado(w.id)
+    && (esAdmin || (WORKSPACE_PERM_KEYS[w.id] ?? []).some(k => user.permisos?.[k])))
   return ws?.path ?? '/dashboard'
 }
 

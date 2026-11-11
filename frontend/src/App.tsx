@@ -395,8 +395,15 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   // Sesión anterior sin permisos cargados → forzar re-login
   if (user?.permisos === undefined) return <Navigate to="/login" replace />
 
-  // ADMINISTRADOR tiene acceso a todo
-  if (user.rol === 'ADMINISTRADOR') return <>{children}</>
+  // ADMINISTRADOR tiene acceso a todo lo contratado; el tablero de estibas,
+  // si su empresa no tiene ese módulo, lo manda a su espacio de inicio.
+  if (user.rol === 'ADMINISTRADOR') {
+    if (location.pathname.startsWith('/dashboard')) {
+      const inicio = rutaInicial(user)
+      if (inicio !== '/dashboard') return <Navigate to={inicio} replace />
+    }
+    return <>{children}</>
+  }
 
   // Buscar si la ruta actual requiere algún permiso
   const matchedPrefix = Object.keys(ROUTE_PERM_MAP).find(prefix =>
