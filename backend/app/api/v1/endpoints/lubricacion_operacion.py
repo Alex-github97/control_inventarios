@@ -314,7 +314,20 @@ async def editar_compartimento(cid: int, data: CompartimentoIn,
     obj = await db.get(LubeCompartimento, cid)
     if not obj:
         raise HTTPException(404, "Ese compartimento no existe")
-    for k, v in data.model_dump().items():
+    if not await db.get(LubeTipoCompartimento, data.tipo_compartimento_id):
+        raise HTTPException(400, "Ese tipo de compartimento no existe")
+    codigo = (data.codigo or "").strip().upper()
+    if not codigo:
+        raise HTTPException(400, "El código del compartimento es obligatorio")
+    # El activo no se cambia: la historia de cargas y muestras es de este punto.
+    if data.activo_id != obj.activo_id:
+        raise HTTPException(400, "Un compartimento no se pasa a otro activo: cree uno nuevo en ese activo")
+    ya = await db.execute(select(func.count()).select_from(LubeCompartimento).where(and_(
+        LubeCompartimento.activo_id == obj.activo_id, LubeCompartimento.id != cid,
+        func.upper(LubeCompartimento.codigo) == codigo)))
+    if ya.scalar():
+        raise HTTPException(409, f"Ese activo ya tiene un compartimento «{codigo}»")
+    for k, v in {**data.model_dump(), "codigo": codigo}.items():
         setattr(obj, k, v)
     await db.commit(); await db.refresh(obj)
     return CompartimentoOut.model_validate(obj)

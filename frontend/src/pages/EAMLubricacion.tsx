@@ -21,7 +21,7 @@ import {
 import {
   Add, Science, Search, WaterDrop, TrendingUp, Settings,
   UploadFile, FactCheck, WarningAmber, Insights, Opacity,
-  EventRepeat, Inventory2, ReportProblem, PlaylistAddCheck, PictureAsPdf,
+  EventRepeat, Inventory2, ReportProblem, PlaylistAddCheck, PictureAsPdf, Edit,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
@@ -34,6 +34,7 @@ import {
   type Compartimento, type Pendiente, type ResultadoMuestra, type Muestra, type Carga, type Relleno,
 } from '@/api/lube'
 import { mensajeDeError } from '@/utils/errorApi'
+import { apiClient as api } from '@/api/client'
 
 const fecha = (v?: string | null) =>
   v ? new Date(v).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
@@ -201,6 +202,7 @@ export default function EAMLubricacion() {
   const [nuevaMuestra, setNuevaMuestra] = useState<Compartimento | null>(null)
   const [nuevaCarga, setNuevaCarga] = useState<Compartimento | null>(null)
   const [relleno, setRelleno] = useState<Compartimento | null>(null)
+  const [ficha, setFicha] = useState<Compartimento | 'nuevo' | null>(null)
   /** El paso previo al formulario cuando se entra por el botón de arriba: a qué
    *  compartimento pertenece la muestra. Desde la tabla ya se sabe. */
   const [eligiendo, setEligiendo] = useState(false)
@@ -400,6 +402,8 @@ export default function EAMLubricacion() {
                   label={<Typography variant="body2">Solo equipos críticos</Typography>} />
               </Tooltip>
               <Box sx={{ flex: 1 }} />
+              <Button size="small" variant="outlined" startIcon={<Add />} onClick={() => setFicha('nuevo')}
+                sx={{ textTransform: 'none', fontWeight: 700 }}>Nuevo compartimento</Button>
               <Typography variant="caption" color="text.secondary">
                 {filtrados.length === compartimentos.length
                   ? `${num(compartimentos.length)} compartimentos`
@@ -491,6 +495,12 @@ export default function EAMLubricacion() {
                               <IconButton size="small" aria-label={`Cambio de aceite de ${c.activo_codigo} ${c.nombre}`}
                                 onClick={() => setNuevaCarga(c)}>
                                 <WaterDrop fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Editar compartimento: producto recomendado, frecuencia de muestreo…">
+                              <IconButton size="small" aria-label={`Editar compartimento ${c.activo_codigo} ${c.nombre}`}
+                                onClick={() => setFicha(c)}>
+                                <Edit fontSize="small" />
                               </IconButton>
                             </Tooltip>
                           </TableCell>
@@ -651,6 +661,7 @@ export default function EAMLubricacion() {
           <DialogoMuestra compartimento={nuevaMuestra}
             onCerrar={() => setNuevaMuestra(null)} onListo={refrescar} />
         )}
+        {ficha && <DialogoCompartimento compartimento={ficha} onCerrar={() => setFicha(null)} onListo={refrescar} />}
         {nuevaCarga && (
           <DialogoCarga compartimento={nuevaCarga}
             onCerrar={() => setNuevaCarga(null)} onListo={refrescar} />
@@ -1789,6 +1800,158 @@ function DialogoRelleno({ compartimento, onCerrar, onListo }: {
           onClick={() => { setIntento(true); if (!errores) guardar.mutate() }}
           sx={{ textTransform: 'none', fontWeight: 700 }}>
           {guardar.isPending ? 'Guardando…' : 'Registrar adición'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
+/* ── Ficha del compartimento: crear y editar ──────────────────────────────────
+   Qué aceite DEBERÍA llevar el punto (para detectar el equivocado) y cada
+   cuánto se muestrea (alimenta «Por muestrear»). El aceite que tiene HOY no se
+   cambia aquí: eso es un cambio de aceite, que cierra la carga y deja historia. */
+function DialogoCompartimento({ compartimento, onCerrar, onListo }: {
+  compartimento: Compartimento | 'nuevo'; onCerrar: () => void; onListo: () => void
+}) {
+  const nuevo = compartimento === 'nuevo'
+  const c = nuevo ? null : compartimento
+  const { data: activos = [] } = useQuery<{ id: number; codigo: string; placa?: string | null; nombre: string }[]>({
+    queryKey: ['eam-activos-lista'], queryFn: () => api.get('/eam/activos').then(r => r.data), staleTime: 300_000,
+  })
+  const { data: tipos = [] } = useQuery({ queryKey: ['lube-tipos'], queryFn: () => lubeApi.tipos.listar() })
+  const { data: productos = [] } = useQuery({ queryKey: ['lube-productos'], queryFn: () => lubeApi.productos.listar() })
+  const { data: aplicaciones = [] } = useQuery({ queryKey: ['lube-aplicaciones'], queryFn: () => lubeApi.aplicaciones.listar() })
+  const { data: metodos = [] } = useQuery({ queryKey: ['lube-metodos'], queryFn: () => lubeApi.metodos.listar() })
+  const [activoId, setActivoId] = useState<number | null>(c?.activo_id ?? null)
+  const [tipoId, setTipoId] = useState<number | ''>(c?.tipo_compartimento_id ?? '')
+  const [codigo, setCodigo] = useState(c?.codigo ?? '')
+  const [nombre, setNombre] = useState(c?.nombre ?? '')
+  const [capacidad, setCapacidad] = useState(c?.capacidad_litros != null ? String(c.capacidad_litros) : '')
+  const [producto, setProducto] = useState<number | ''>(c?.producto_recomendado_id ?? '')
+  const [frecuencia, setFrecuencia] = useState(c?.frecuencia_muestreo != null ? String(c.frecuencia_muestreo) : '')
+  const [metodo, setMetodo] = useState<number | ''>(c?.metodo_muestreo_id ?? '')
+  const [meta, setMeta] = useState(c?.meta_iso4406 ?? '')
+  const [puerto, setPuerto] = useState(c?.tiene_puerto_muestreo ?? false)
+  const [critico, setCritico] = useState(c?.critico ?? false)
+  const [observaciones, setObservaciones] = useState(c?.observaciones ?? '')
+  const [intento, setIntento] = useState(false)
+
+  const tipo = tipos.find(t => t.id === tipoId)
+  const unidad = (tipo?.unidad_vida ?? c?.unidad_vida ?? 'HORAS').toLowerCase()
+  const aplicacion = aplicaciones.find(a => a.producto_id === producto && a.tipo_compartimento_id === tipoId)
+  const activoSel = activos.find(a => a.id === activoId) ?? null
+  const faltan = !activoId || !tipoId || !codigo.trim() || !nombre.trim()
+  const numeroMalo = (v: string) => v !== '' && !(Number(v) > 0)
+
+  const guardar = useMutation({
+    mutationFn: () => {
+      const datos = {
+        activo_id: activoId!, tipo_compartimento_id: Number(tipoId), codigo: codigo.trim().toUpperCase(),
+        nombre: nombre.trim(), capacidad_litros: capacidad ? Number(capacidad) : null,
+        producto_recomendado_id: producto || null, frecuencia_muestreo: frecuencia ? Number(frecuencia) : null,
+        metodo_muestreo_id: metodo || null, meta_iso4406: meta.trim() || null,
+        tiene_puerto_muestreo: puerto, critico, observaciones: observaciones.trim() || null,
+        componente_id: c?.componente_id ?? null, activo: true,
+      }
+      return nuevo ? lubeApi.compartimentos.crear(datos) : lubeApi.compartimentos.editar(c!.id, datos)
+    },
+    onSuccess: () => { toast.success(nuevo ? 'Compartimento creado' : 'Compartimento actualizado'); onListo(); onCerrar() },
+    onError: (e: any) => toast.error(mensajeDeError(e)),
+  })
+  const darDeBaja = useMutation({
+    mutationFn: () => lubeApi.compartimentos.borrar(c!.id),
+    onSuccess: () => { toast.success('Compartimento dado de baja'); onListo(); onCerrar() },
+    onError: (e: any) => toast.error(mensajeDeError(e)),
+  })
+
+  return (
+    <Dialog open onClose={onCerrar} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ fontWeight: 800 }}>
+        {nuevo ? 'Nuevo compartimento' : 'Editar compartimento'}
+        {!nuevo && <Typography variant="caption" display="block" color="text.secondary">
+          {c!.activo_codigo} · {c!.nombre}</Typography>}
+      </DialogTitle>
+      <DialogContent dividers>
+        <Stack spacing={2} sx={{ pt: 1 }}>
+          <Autocomplete options={activos} value={activoSel} disabled={!nuevo}
+            getOptionLabel={a => `${a.placa || a.codigo} — ${a.nombre}`}
+            onChange={(_, a) => setActivoId(a?.id ?? null)}
+            renderInput={p => <TextField {...p} size="small" label="Activo" required
+              error={intento && !activoId}
+              helperText={nuevo ? ' ' : 'El activo no se cambia: la historia de cargas y muestras es de este punto'} />} />
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+            <TextField select size="small" label="Tipo de compartimento" value={tipoId} fullWidth required
+              onChange={e => setTipoId(Number(e.target.value) || '')} error={intento && !tipoId}
+              helperText={tipo ? `La vida y el muestreo se miden en ${unidad}` : ' '}>
+              <MenuItem value="">—</MenuItem>
+              {tipos.filter(t => t.activo || t.id === tipoId).map(t => <MenuItem key={t.id} value={t.id}>{t.nombre}</MenuItem>)}
+            </TextField>
+            <TextField size="small" label="Código" value={codigo} required sx={{ minWidth: 150 }}
+              onChange={e => setCodigo(e.target.value.toUpperCase())} error={intento && !codigo.trim()}
+              helperText="MOT, HID, DIF-POST…" />
+          </Stack>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+            <TextField size="small" label="Nombre" value={nombre} required fullWidth
+              onChange={e => setNombre(e.target.value)} error={intento && !nombre.trim()}
+              helperText="Por ejemplo: Motor diésel" />
+            <TextField size="small" label="Capacidad (L)" type="number" value={capacidad} sx={{ minWidth: 140 }}
+              onChange={e => setCapacidad(e.target.value)} error={numeroMalo(capacidad)} helperText=" "
+              inputProps={{ min: 0, step: 'any' }} />
+          </Stack>
+
+          <Divider textAlign="left"><Typography variant="caption" fontWeight={700}>Lubricante recomendado</Typography></Divider>
+          <TextField select size="small" label="Producto recomendado" value={producto}
+            onChange={e => setProducto(Number(e.target.value) || '')}
+            helperText={!producto ? 'El aceite que debería llevar este punto. Una carga con otro producto se marca como hallazgo.'
+              : aplicacion?.vida_recomendada ? `Vida recomendada para este tipo: ${num(aplicacion.vida_recomendada)} ${unidad} (Configuración → Aplicaciones)`
+                : 'Sin vida recomendada para este tipo de compartimento: se configura en Configuración → Aplicaciones'}>
+            <MenuItem value="">—</MenuItem>
+            {productos.filter(p => p.activo || p.id === producto).map(p =>
+              <MenuItem key={p.id} value={p.id}>{p.marca} {p.nombre}{p.grado_sae ? ` · ${p.grado_sae}` : ''}</MenuItem>)}
+          </TextField>
+          {!nuevo && c!.producto_actual && (
+            <Alert severity="info" sx={{ py: 0 }}>
+              Hoy tiene <b>{c!.producto_actual}</b>. Si cambió de aceite, regístrelo con «Cambio de aceite» (cierra la
+              carga y guarda la historia); este campo es solo el aceite que debería llevar.
+            </Alert>
+          )}
+
+          <Divider textAlign="left"><Typography variant="caption" fontWeight={700}>Muestreo</Typography></Divider>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+            <TextField size="small" label={`Frecuencia de muestreo (${unidad})`} type="number" value={frecuencia} fullWidth
+              onChange={e => setFrecuencia(e.target.value)} error={numeroMalo(frecuencia)}
+              helperText="Cada cuánto se toma muestra: alimenta «Por muestrear»" inputProps={{ min: 0, step: 'any' }} />
+            <TextField select size="small" label="Método de muestreo" value={metodo} fullWidth
+              onChange={e => setMetodo(Number(e.target.value) || '')} helperText=" ">
+              <MenuItem value="">—</MenuItem>
+              {metodos.filter(m => m.activo || m.id === metodo).map(m => <MenuItem key={m.id} value={m.id}>{m.nombre}</MenuItem>)}
+            </TextField>
+          </Stack>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'center' }}>
+            <TextField size="small" label="Meta de limpieza ISO 4406" value={meta} placeholder="18/16/13"
+              onChange={e => setMeta(e.target.value)} sx={{ minWidth: 200 }}
+              helperText={!meta && aplicacion?.meta_iso4406 ? `De la aplicación: ${aplicacion.meta_iso4406}` : ' '} />
+            <FormControlLabel control={<Switch checked={puerto} onChange={e => setPuerto(e.target.checked)} />}
+              label={<Typography variant="body2">Tiene puerto de muestreo</Typography>} />
+            <FormControlLabel control={<Switch checked={critico} onChange={e => setCritico(e.target.checked)} />}
+              label={<Typography variant="body2">Crítico</Typography>} />
+          </Stack>
+          <TextField size="small" label="Observaciones" value={observaciones} multiline minRows={2}
+            onChange={e => setObservaciones(e.target.value)} />
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        {!nuevo && (
+          <Button color="error" disabled={darDeBaja.isPending} sx={{ textTransform: 'none', mr: 'auto' }}
+            onClick={() => { if (window.confirm('¿Dar de baja este compartimento? Su historia de cargas y muestras se conserva.')) darDeBaja.mutate() }}>
+            Dar de baja
+          </Button>
+        )}
+        <Button onClick={onCerrar} sx={{ textTransform: 'none' }}>Cancelar</Button>
+        <Button variant="contained" disabled={guardar.isPending || numeroMalo(capacidad) || numeroMalo(frecuencia)}
+          onClick={() => { setIntento(true); if (!faltan) guardar.mutate() }}
+          sx={{ textTransform: 'none', fontWeight: 700 }}>
+          {guardar.isPending ? 'Guardando…' : nuevo ? 'Crear compartimento' : 'Guardar'}
         </Button>
       </DialogActions>
     </Dialog>
