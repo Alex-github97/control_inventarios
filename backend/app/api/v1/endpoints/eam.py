@@ -2240,9 +2240,19 @@ async def _referencia_profundidad(db: AsyncSession, neu: "EAMNeumatico") -> dict
     partió y en qué punto hay que bajar la llanta.
     """
     # Desde cuándo vale comparar.
+    # Solo una vida REENCAUCHADA corta la comparación: en la vida nueva todas las
+    # inspecciones son de la misma goma. El corte de la vida se hace por CUÁNDO
+    # SE REGISTRÓ (created_at), no por la fecha que se escribe en la inspección:
+    # la vida se abre con la hora del sistema y las inspecciones suelen
+    # digitarse con la fecha de campo (ayer, la semana pasada). Comparar una
+    # fecha de campo contra la hora del sistema dejaba fuera inspecciones
+    # válidas —y entonces aceptaba labrado que crecía— o metía las de la vida
+    # anterior en la nueva.
     vida = await _vida_abierta(db, neu.id)
-    corte = vida.fecha_inicio if vida else None
-    origen_corte = "reencauche" if vida and (vida.tipo or "").upper() == "REENCAUCHADA" else "inicio de vida"
+    reencauchada = bool(vida and (vida.tipo or "").upper() == "REENCAUCHADA")
+    corte_registro = vida.created_at if reencauchada else None
+    corte = vida.fecha_inicio if reencauchada else None
+    origen_corte = "reencauche" if reencauchada else "inicio de vida"
 
     resc = (await db.execute(
         select(EAMReesculturado)
@@ -2250,12 +2260,14 @@ async def _referencia_profundidad(db: AsyncSession, neu: "EAMNeumatico") -> dict
                EAMReesculturado.deshecho.is_(False))
         .order_by(EAMReesculturado.fecha.desc()).limit(1)
     )).scalar_one_or_none()
-    if resc and (corte is None or resc.fecha > corte):
-        corte, origen_corte = resc.fecha, "reesculturado"
+    if resc and (corte_registro is None or resc.created_at > corte_registro):
+        corte, corte_registro, origen_corte = resc.fecha, None, "reesculturado"
 
     consulta = select(EAMInspeccionNeumatico).where(
         EAMInspeccionNeumatico.neumatico_id == neu.id)
-    if corte is not None:
+    if corte_registro is not None:
+        consulta = consulta.where(EAMInspeccionNeumatico.created_at >= corte_registro)
+    elif corte is not None:
         consulta = consulta.where(EAMInspeccionNeumatico.fecha >= corte)
     insp = (await db.execute(
         consulta.order_by(EAMInspeccionNeumatico.fecha.desc()).limit(1)
@@ -2286,6 +2298,14 @@ async def _referencia_profundidad(db: AsyncSession, neu: "EAMNeumatico") -> dict
         # ficha usaría los milímetros de ANTES de reesculturar —que es lo que la
         # ficha sigue guardando— y rechazaría la primera medición posterior, que
         # es justo la que hay que poder registrar.
+        return {**base, "origen": origen_corte, "fecha": corte,
+                "profundidad_izq": valor, "profundidad_centro": valor,
+                "profundidad_der": valor, "km_odometro": neu.km_actual}
+
+    # Recién reencauchada y sin medir: la referencia es la banda nueva en los tres
+    # surcos (la ficha guarda en los hombros los milímetros de la vida anterior).
+    if reencauchada and vida.profundidad_inicial is not None:
+        valor = vida.profundidad_inicial
         return {**base, "origen": origen_corte, "fecha": corte,
                 "profundidad_izq": valor, "profundidad_centro": valor,
                 "profundidad_der": valor, "km_odometro": neu.km_actual}
@@ -2344,6 +2364,17 @@ def _validar_profundidad(referencia: dict, izq, centro, der,
                 f"o se reesculturó, registre esa operación primero y la referencia "
                 f"queda actualizada."
             )
+    return None
+
+
+async def _validar_orden_inspeccion(db: AsyncSession, neu: "EAMNeumatico", fecha) -> Optional[str]:
+    ultima = (await db.execute(
+        select(EAMInspeccionNeumatico.fecha).where(EAMInspeccionNeumatico.neumatico_id == neu.id)
+        .order_by(EAMInspeccionNeumatico.fecha.desc()).limit(1)
+    )).scalar_one_or_none()
+    if ultima and _fecha_naive(fecha) < ultima:
+        return (f"La llanta {neu.codigo} ya tiene una inspección del {ultima:%Y-%m-%d %H:%M}, posterior a esta. "
+                "Las inspecciones van en orden: corrija la fecha.")
     return None
 
 
@@ -2492,6 +2523,12 @@ async def list_marcas_neu(ambito: str = "LLANTA", db: AsyncSession = Depends(get
 
 @router.post("/neumaticos/catalogo/marcas", response_model=MarcaNeuResponse)
 async def crear_marca_neu(data: MarcaNeuCreate, db: AsyncSession = Depends(get_db)):
+    existe = (await db.execute(select(EAMMarcaNeumatico).where(
+        func.lower(EAMMarcaNeumatico.nombre) == data.nombre.strip().lower(),
+        EAMMarcaNeumatico.ambito == data.ambito.upper(),
+    ).limit(1))).scalar_one_or_none()
+    if existe:
+        raise HTTPException(409, "La marca '%s' ya existe en %s" % (existe.nombre, existe.ambito))
     obj = EAMMarcaNeumatico(**data.model_dump())
     obj.ambito = obj.ambito.upper()
     obj.nombre = obj.nombre.strip()
@@ -2523,6 +2560,12 @@ async def list_dimensiones_neu(ambito: str = "LLANTA", db: AsyncSession = Depend
 
 @router.post("/neumaticos/catalogo/dimensiones", response_model=DimensionNeuResponse)
 async def crear_dimension_neu(data: DimensionNeuCreate, db: AsyncSession = Depends(get_db)):
+    existe = (await db.execute(select(EAMDimensionNeumatico).where(
+        func.lower(EAMDimensionNeumatico.nombre) == data.nombre.strip().lower(),
+        EAMDimensionNeumatico.ambito == data.ambito.upper(),
+    ).limit(1))).scalar_one_or_none()
+    if existe:
+        raise HTTPException(409, "La dimension '%s' ya existe en %s" % (existe.nombre, existe.ambito))
     obj = EAMDimensionNeumatico(**data.model_dump())
     obj.ambito = obj.ambito.upper()
     obj.nombre = obj.nombre.strip()
@@ -2567,6 +2610,12 @@ async def crear_referencia_neu(data: ReferenciaNeuCreate, db: AsyncSession = Dep
     marca = await db.get(EAMMarcaNeumatico, data.marca_id)
     if not marca:
         raise HTTPException(404, "La marca no existe")
+    existe = (await db.execute(select(EAMReferenciaNeumatico).where(
+        EAMReferenciaNeumatico.marca_id == data.marca_id,
+        func.lower(EAMReferenciaNeumatico.nombre) == data.nombre.strip().lower(),
+    ).limit(1))).scalar_one_or_none()
+    if existe:
+        raise HTTPException(409, "La referencia '%s' ya existe para la marca %s" % (existe.nombre, marca.nombre))
     obj = EAMReferenciaNeumatico(**data.model_dump())
     obj.ambito = obj.ambito.upper()
     obj.nombre = obj.nombre.strip()
@@ -2649,46 +2698,56 @@ async def _resolver_catalogo_llanta(
     if not medida or not str(medida).strip():
         raise ValueError("La dimension/medida es obligatoria")
 
-    r = await db.execute(select(EAMMarcaNeumatico).where(
+    # El catálogo puede tener el mismo nombre escrito distinto («Michelin» y
+    # «MICHELIN»): se busca sin distinguir mayúsculas y se aceptan TODAS las
+    # coincidencias. Antes se esperaba una sola y, con dos, crear la llanta
+    # reventaba con error 500.
+    def _preferir(filas, texto):
+        texto = str(texto).strip()
+        return sorted(filas, key=lambda f: (f.nombre != texto, f.id))
+
+    marcas = _preferir((await db.execute(select(EAMMarcaNeumatico).where(
         func.lower(EAMMarcaNeumatico.nombre) == str(marca).strip().lower(),
         EAMMarcaNeumatico.ambito == ambito, EAMMarcaNeumatico.activo == True,
-    ))
-    obj_marca = r.scalar_one_or_none()
-    if not obj_marca:
+    ))).scalars().all(), marca)
+    if not marcas:
         raise ValueError("La marca '%s' no esta en el catalogo" % marca)
 
-    r = await db.execute(select(EAMDimensionNeumatico).where(
+    dims = _preferir((await db.execute(select(EAMDimensionNeumatico).where(
         func.lower(EAMDimensionNeumatico.nombre) == str(medida).strip().lower(),
         EAMDimensionNeumatico.ambito == ambito, EAMDimensionNeumatico.activo == True,
-    ))
-    obj_dim = r.scalar_one_or_none()
-    if not obj_dim:
+    ))).scalars().all(), medida)
+    if not dims:
         raise ValueError("La dimension '%s' no esta en el catalogo" % medida)
 
     if not referencia or not str(referencia).strip():
         raise ValueError("La referencia es obligatoria")
-    r = await db.execute(select(EAMReferenciaNeumatico).where(
-        EAMReferenciaNeumatico.marca_id == obj_marca.id,
+    refs = _preferir((await db.execute(select(EAMReferenciaNeumatico).where(
+        EAMReferenciaNeumatico.marca_id.in_([m.id for m in marcas]),
         func.lower(EAMReferenciaNeumatico.nombre) == str(referencia).strip().lower(),
         EAMReferenciaNeumatico.activo == True,
-    ))
-    obj_ref = r.scalar_one_or_none()
-    if not obj_ref:
+    ))).scalars().all(), referencia)
+    if not refs:
         raise ValueError(
-            "La referencia '%s' no pertenece a la marca '%s'" % (referencia, obj_marca.nombre)
+            "La referencia '%s' no pertenece a la marca '%s'" % (referencia, marcas[0].nombre)
         )
 
-    r = await db.execute(select(EAMReferenciaDimension).where(
-        EAMReferenciaDimension.referencia_id == obj_ref.id,
-        EAMReferenciaDimension.dimension_id == obj_dim.id,
+    rds = (await db.execute(select(EAMReferenciaDimension).where(
+        EAMReferenciaDimension.referencia_id.in_([x.id for x in refs]),
+        EAMReferenciaDimension.dimension_id.in_([x.id for x in dims]),
         EAMReferenciaDimension.activo == True,
-    ))
-    obj_rd = r.scalar_one_or_none()
-    if not obj_rd:
+    ))).scalars().all()
+    if not rds:
         raise ValueError(
             "La referencia '%s' no tiene configurada la dimension '%s'"
-            % (obj_ref.nombre, obj_dim.nombre)
+            % (refs[0].nombre, dims[0].nombre)
         )
+    orden_ref = {x.id: i for i, x in enumerate(refs)}
+    orden_dim = {x.id: i for i, x in enumerate(dims)}
+    obj_rd = min(rds, key=lambda x: (orden_ref[x.referencia_id], orden_dim[x.dimension_id]))
+    obj_ref = next(x for x in refs if x.id == obj_rd.referencia_id)
+    obj_dim = next(x for x in dims if x.id == obj_rd.dimension_id)
+    obj_marca = next(m for m in marcas if m.id == obj_ref.marca_id)
     return obj_marca, obj_ref, obj_dim, obj_rd
 
 
@@ -2784,6 +2843,17 @@ async def crear_movimiento_neumatico(data: MovNeumaticoCreate, db: AsyncSession 
     tipo = (data.tipo_movimiento or "").upper()
     posicion_origen = neu.posicion
 
+    # Cada movimiento parte de un estado. Antes se aceptaba cualquiera: una llanta
+    # dada de baja se podía «rotar» y volvía a quedar montada, y una que estaba
+    # en bodega se «rotaba» a un vehículo sin registrar el montaje.
+    if neu.estado == "BAJA":
+        raise HTTPException(409, f"La llanta {neu.codigo} fue dada de baja: ya no admite movimientos.")
+    if tipo in ("ROTACION", "DESMONTAJE") and neu.estado != "INSTALADO":
+        raise HTTPException(409, f"La llanta {neu.codigo} no está montada (está {neu.estado}). "
+                                 + ("Para ponerla en un vehículo registre un montaje." if tipo == "ROTACION" else ""))
+    if tipo == "REENCAUCHE" and neu.estado == "REENCAUCHE":
+        raise HTTPException(409, f"La llanta {neu.codigo} ya está en reencauche.")
+
     # Se normaliza una sola vez: lo que se compara es lo que se guarda.
     data.fecha = _fecha_naive(data.fecha)
     err_fecha = await _validar_fecha_movimiento(db, neu, data.fecha)
@@ -2870,9 +2940,10 @@ async def crear_movimiento_neumatico(data: MovNeumaticoCreate, db: AsyncSession 
         neu.estado = "ALMACENADO"; neu.activo_id = None; neu.posicion = None
         neu.bodega_id = data.bodega_id
     elif tipo == "REENCAUCHE":
+        # Solo la ENVÍA: la vida nueva (y el R1, R2…) la abre el resultado
+        # REENCAUCHADA del lote. Sumar acá también la contaba dos veces.
         neu.estado = "REENCAUCHE"; neu.activo_id = None; neu.posicion = None
         neu.bodega_id = data.bodega_id
-        neu.reencauches = (neu.reencauches or 0) + 1
         if data.dano_id: neu.dano_id = data.dano_id
     elif tipo == "VOLTEO":
         # Voltear la llanta en la MISMA posición: invierte el sentido de montaje
@@ -3002,6 +3073,15 @@ async def rotacion_intercambio(data: RotacionIntercambio, db: AsyncSession = Dep
         err_fecha = await _validar_fecha_movimiento(db, neu, data.fecha)
         if err_fecha:
             raise HTTPException(409, f"{neu.codigo}: {err_fecha}")
+    activos_lectura = {}
+    if data.km_odometro is not None:
+        for neu in (a, b):
+            act_l = activos_lectura.get(neu.activo_id) or await db.get(EAMActivo, neu.activo_id)
+            if act_l:
+                activos_lectura[neu.activo_id] = act_l
+                err_lectura = _validar_lectura(act_l, neu, data.km_odometro, None)
+                if err_lectura:
+                    raise HTTPException(409, err_lectura)
     pos_a, pos_b = a.posicion, b.posicion
     veh_a, veh_b = a.activo_id, b.activo_id
     cfg = await _get_config_neu(db)
@@ -3015,6 +3095,8 @@ async def rotacion_intercambio(data: RotacionIntercambio, db: AsyncSession = Dep
     b.posicion, b.activo_id = pos_a, veh_a
     if data.km_odometro is not None:
         a.km_actual = b.km_actual = data.km_odometro
+        for act_l in activos_lectura.values():
+            _avanzar_medidores(act_l, data.km_odometro, None)
     obs = data.observaciones or f"Intercambio de rotación: {a.codigo} ⇄ {b.codigo}"
     for neu, origen, destino, veh in ((a, pos_a, pos_b, veh_b), (b, pos_b, pos_a, veh_a)):
         db.add(EAMMovimientoNeumatico(
@@ -3114,6 +3196,13 @@ async def rotacion_plan(data: RotacionPlan, db: AsyncSession = Depends(get_db)):
         neu = por_id[d.neumatico_id]
         if neu.estado == "BAJA":
             raise HTTPException(409, f"La llanta {neu.codigo} fue descartada y no se puede mover.")
+        if neu.estado == "REENCAUCHE":
+            raise HTTPException(409, f"La llanta {neu.codigo} está en proceso de reencauche y no se puede montar.")
+        if any(v is not None for v in (d.profundidad_izq, d.profundidad_centro, d.profundidad_der)):
+            err_prof = _validar_profundidad(await _referencia_profundidad(db, neu), d.profundidad_izq,
+                                            d.profundidad_centro, d.profundidad_der, neu.codigo)
+            if err_prof:
+                raise HTTPException(409, err_prof)
         # La rotación es un solo evento con una sola fecha, pero cada llanta
         # trae su propio historial: basta que una tenga algo posterior para que
         # la fecha esté mal. Se valida antes de tocar nada, para no dejar media
@@ -4147,6 +4236,11 @@ async def crear_inspeccion(nid: int, data: InspeccionNeuCreate, db: AsyncSession
             f"La llanta tuvo un movimiento posterior ({ultimo_mov:%Y-%m-%d %H:%M}) a la fecha de "
             "esta inspección. Corrige la fecha.",
         )
+    # Ni anterior a la última inspección: pisaría la profundidad actual de la
+    # llanta con una medición más vieja.
+    err_orden = await _validar_orden_inspeccion(db, neu, data.fecha)
+    if err_orden:
+        raise HTTPException(409, err_orden)
     # La lectura tampoco puede retroceder: es la que fija el recorrido acumulado
     # de la llanta.
     if data.km_odometro is not None and neu.activo_id:
@@ -4222,6 +4316,15 @@ async def crear_inspecciones_masivo(data: InspeccionBulkCreate, db: AsyncSession
                         err_lectura = _validar_lectura(activo_bulk, neu, item.km_odometro, None)
                         if err_lectura:
                             raise ValueError(err_lectura)
+                item.fecha = _fecha_naive(item.fecha)
+                ultimo_mov = (await db.execute(
+                    select(EAMMovimientoNeumatico.fecha).where(EAMMovimientoNeumatico.neumatico_id == neu.id)
+                    .order_by(EAMMovimientoNeumatico.fecha.desc()).limit(1))).scalar_one_or_none()
+                if ultimo_mov and item.fecha < ultimo_mov:
+                    raise ValueError(f"La llanta tuvo un movimiento posterior ({ultimo_mov:%Y-%m-%d %H:%M}) a la fecha de esta inspección")
+                err_orden = await _validar_orden_inspeccion(db, neu, item.fecha)
+                if err_orden:
+                    raise ValueError(err_orden)
                 referencia = await _referencia_profundidad(db, neu)
                 err_prof = _validar_profundidad(
                     referencia, item.profundidad_izq, item.profundidad_centro,
@@ -4236,6 +4339,9 @@ async def crear_inspecciones_masivo(data: InspeccionBulkCreate, db: AsyncSession
                     tecnico=item.tecnico, observaciones=item.observaciones,
                 )
                 db.add(obj)
+                # La sesión no hace autoflush: sin esto, la fila siguiente de la
+                # MISMA llanta no vería esta inspección al validar orden y labrado.
+                await db.flush()
                 pmin = _min_prof(item.profundidad_izq, item.profundidad_centro, item.profundidad_der)
                 if pmin is not None:
                     neu.profundidad_actual = pmin
@@ -5510,6 +5616,18 @@ async def add_reencauche_detalle(lote_id: int, data: ReencaucheDetalleCreate, db
     neu = await db.get(EAMNeumatico, data.neumatico_id)
     if not neu:
         raise HTTPException(404, "Neumático no encontrado")
+    # Una llanta montada que entraba al lote desaparecía del vehículo sin
+    # desmontaje: sin odómetro de salida, su recorrido quedaba sin cerrar.
+    if neu.estado == "INSTALADO":
+        raise HTTPException(409, f"La llanta {neu.codigo} está montada en un vehículo: desmóntela primero (con el odómetro) "
+                                 "y después agréguela al lote.")
+    if neu.estado == "BAJA":
+        raise HTTPException(409, f"La llanta {neu.codigo} fue dada de baja y no se puede reencauchar.")
+    pendiente = (await db.execute(select(EAMReencaucheDetalle.lote_id).where(
+        EAMReencaucheDetalle.neumatico_id == neu.id, EAMReencaucheDetalle.resultado == "PENDIENTE",
+    ).limit(1))).scalar_one_or_none()
+    if pendiente is not None:
+        raise HTTPException(409, f"La llanta {neu.codigo} ya está en otro lote de reencauche sin resultado.")
     obj = EAMReencaucheDetalle(
         lote_id=lote_id, neumatico_id=data.neumatico_id,
         banda=data.banda, banda_id=data.banda_id, resultado="PENDIENTE",
@@ -5556,6 +5674,8 @@ async def aplicar_resultado_reencauche(db: AsyncSession, det: EAMReencaucheDetal
             if data.profundidad_nueva is not None:
                 neu.profundidad_actual = data.profundidad_nueva
                 neu.profundidad_diseño = data.profundidad_nueva
+                neu.profundidad_externa = data.profundidad_nueva
+                neu.profundidad_interna = data.profundidad_nueva
             neu.km_inicio = neu.km_actual or 0     # reinicia el conteo de vida
             neu.km_total = 0
             if costo:

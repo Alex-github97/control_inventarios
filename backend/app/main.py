@@ -903,21 +903,27 @@ async def _migrar_esquema(esquema: str) -> None:
         await conn.execute(text("""
             INSERT INTO eam_marca_neumatico (nombre, ambito, activo, created_at, updated_at)
             SELECT DISTINCT TRIM(marca), 'LLANTA', true, now(), now()
-            FROM eam_neumatico WHERE marca IS NOT NULL AND TRIM(marca) <> ''
+            FROM eam_neumatico n WHERE marca IS NOT NULL AND TRIM(marca) <> ''
+              AND NOT EXISTS (SELECT 1 FROM eam_marca_neumatico m
+                              WHERE LOWER(m.nombre) = LOWER(TRIM(n.marca)) AND m.ambito = 'LLANTA')
             ON CONFLICT (nombre, ambito) DO NOTHING
         """))
         await conn.execute(text("""
             INSERT INTO eam_dimension_neumatico (nombre, ambito, activo, created_at, updated_at)
             SELECT DISTINCT TRIM(medida), 'LLANTA', true, now(), now()
-            FROM eam_neumatico WHERE medida IS NOT NULL AND TRIM(medida) <> ''
+            FROM eam_neumatico n WHERE medida IS NOT NULL AND TRIM(medida) <> ''
+              AND NOT EXISTS (SELECT 1 FROM eam_dimension_neumatico d
+                              WHERE LOWER(d.nombre) = LOWER(TRIM(n.medida)) AND d.ambito = 'LLANTA')
             ON CONFLICT (nombre, ambito) DO NOTHING
         """))
         await conn.execute(text("""
             INSERT INTO eam_referencia_neumatico (marca_id, nombre, ambito, activo, created_at, updated_at)
             SELECT DISTINCT m.id, TRIM(n.referencia), 'LLANTA', true, now(), now()
             FROM eam_neumatico n
-            JOIN eam_marca_neumatico m ON m.nombre = TRIM(n.marca) AND m.ambito = 'LLANTA'
+            JOIN eam_marca_neumatico m ON LOWER(m.nombre) = LOWER(TRIM(n.marca)) AND m.ambito = 'LLANTA'
             WHERE n.referencia IS NOT NULL AND TRIM(n.referencia) <> ''
+              AND NOT EXISTS (SELECT 1 FROM eam_referencia_neumatico r2 JOIN eam_marca_neumatico m2 ON m2.id = r2.marca_id
+                              WHERE LOWER(m2.nombre) = LOWER(TRIM(n.marca)) AND LOWER(r2.nombre) = LOWER(TRIM(n.referencia)))
             ON CONFLICT (marca_id, nombre) DO NOTHING
         """))
         # Profundidad inicial por referencia+dimensión, tomada de lo ya registrado
@@ -925,9 +931,9 @@ async def _migrar_esquema(esquema: str) -> None:
             INSERT INTO eam_referencia_dimension (referencia_id, dimension_id, profundidad_inicial, activo, created_at, updated_at)
             SELECT DISTINCT ON (r.id, d.id) r.id, d.id, n."profundidad_diseño", true, now(), now()
             FROM eam_neumatico n
-            JOIN eam_marca_neumatico m ON m.nombre = TRIM(n.marca) AND m.ambito = 'LLANTA'
-            JOIN eam_referencia_neumatico r ON r.marca_id = m.id AND r.nombre = TRIM(n.referencia)
-            JOIN eam_dimension_neumatico d ON d.nombre = TRIM(n.medida) AND d.ambito = 'LLANTA'
+            JOIN eam_marca_neumatico m ON LOWER(m.nombre) = LOWER(TRIM(n.marca)) AND m.ambito = 'LLANTA'
+            JOIN eam_referencia_neumatico r ON r.marca_id = m.id AND LOWER(r.nombre) = LOWER(TRIM(n.referencia))
+            JOIN eam_dimension_neumatico d ON LOWER(d.nombre) = LOWER(TRIM(n.medida)) AND d.ambito = 'LLANTA'
             WHERE n."profundidad_diseño" IS NOT NULL
             ON CONFLICT (referencia_id, dimension_id) DO NOTHING
         """))
@@ -935,13 +941,17 @@ async def _migrar_esquema(esquema: str) -> None:
         await conn.execute(text("""
             INSERT INTO eam_marca_neumatico (nombre, ambito, activo, created_at, updated_at)
             SELECT DISTINCT TRIM(marca), 'BANDA', true, now(), now()
-            FROM eam_banda_reencauche WHERE marca IS NOT NULL AND TRIM(marca) <> ''
+            FROM eam_banda_reencauche b WHERE marca IS NOT NULL AND TRIM(marca) <> ''
+              AND NOT EXISTS (SELECT 1 FROM eam_marca_neumatico m
+                              WHERE LOWER(m.nombre) = LOWER(TRIM(b.marca)) AND m.ambito = 'BANDA')
             ON CONFLICT (nombre, ambito) DO NOTHING
         """))
         await conn.execute(text("""
             INSERT INTO eam_dimension_neumatico (nombre, ambito, activo, created_at, updated_at)
             SELECT DISTINCT TRIM(dimension), 'BANDA', true, now(), now()
-            FROM eam_banda_reencauche WHERE dimension IS NOT NULL AND TRIM(dimension) <> ''
+            FROM eam_banda_reencauche b WHERE dimension IS NOT NULL AND TRIM(dimension) <> ''
+              AND NOT EXISTS (SELECT 1 FROM eam_dimension_neumatico d
+                              WHERE LOWER(d.nombre) = LOWER(TRIM(b.dimension)) AND d.ambito = 'BANDA')
             ON CONFLICT (nombre, ambito) DO NOTHING
         """))
         # Configuración de llantas por eje (no solo un número global de ejes):
